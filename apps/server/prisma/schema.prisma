@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  role         UserRole   @default(FREE_TEACHER)
+  rooms        Room[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Room {
+  id           String      @id @default(uuid())
+  name         String
+  paper        String
+  canvasWidth  Int
+  canvasHeight Int
+  passwordHash String?
+  ownerId      String
+  owner        User        @relation(fields: [ownerId], references: [id])
+  operations   Operation[]
+  createdAt    DateTime    @default(now())
+}
+
+model Operation {
+  id        String   @id @default(uuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  layerId   String
+  tool      String
+  data      Json
+  createdAt DateTime @default(now())
+}
+
+enum UserRole {
+  FREE_TEACHER
+  PRO_TEACHER
+  ADMIN
+}

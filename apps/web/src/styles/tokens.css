@@ -1,0 +1,29 @@
+:root {
+  /* Colors */
+  --color-bg:        #1a1a1e;
+  --color-surface:   #111113;
+  --color-surface-2: #222228;
+  --color-border:    #2a2a30;
+  --color-accent:    #5555aa;
+  --color-accent-hover: #6666bb;
+  --color-text:      #cccccc;
+  --color-text-dim:  #666666;
+  --color-text-bright: #eeeeee;
+
+  /* Touch targets */
+  --touch-target:    48px;
+  --touch-target-sm: 40px;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+
+  /* Transitions */
+  --duration-fast:   100ms;
+  --duration-normal: 200ms;
+
+  /* Font */
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
