@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pencil Engine — hypothesis test</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a1e;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: system-ui, sans-serif;
+      color: #ccc;
+    }
+
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: #111113;
+      border-bottom: 1px solid #2a2a30;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .label {
+      font-size: 11px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 4px;
+    }
+
+    button {
+      padding: 4px 10px;
+      border: 1px solid #333;
+      background: #222228;
+      color: #bbb;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.1s, color 0.1s;
+    }
+    button:hover { background: #2e2e38; color: #eee; }
+    button.active { background: #3a3a50; border-color: #5555aa; color: #dde; }
+
+    #sep { flex: 1; }
+
+    #info {
+      font-size: 11px;
+      color: #555;
+      min-width: 180px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #canvas-wrap {
+      flex: 1;
+      min-height: 0; /* critical: allows flex child to shrink below content size */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    canvas {
+      cursor: crosshair;
+      display: block;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.7);
+      /* canvas fills available space at fixed aspect */
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    #hint {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      color: #888;
+      font-size: 11px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      pointer-events: none;
+      transition: opacity 1s;
+    }
+    #hint.hidden { opacity: 0; }
+
+    #size-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    input[type=range] {
+      width: 80px;
+      accent-color: #5555aa;
+    }
+  </style>
+</head>
+<body>
+
+<div id="toolbar">
+  <span class="label">Бумага</span>
+  <div class="btn-group" id="paper-btns">
+    <button data-paper="rough"   class="active">Rough</button>
+    <button data-paper="smooth">Smooth</button>
+    <button data-paper="bristol">Bristol</button>
+  </div>
+
+  <span class="label">Карандаш</span>
+  <div class="btn-group" id="pencil-btns">
+    <button data-pencil="H">H</button>
+    <button data-pencil="HB" class="active">HB</button>
+    <button data-pencil="2B">2B</button>
+    <button data-pencil="4B">4B</button>
+    <button data-pencil="6B">6B</button>
+  </div>
+
+  <div id="size-wrap">
+    <span class="label">Размер</span>
+    <input type="range" id="size-slider" min="2" max="60" value="2">
+    <span id="size-val" class="label">2px</span>
+  </div>
+
+  <div id="sep"></div>
+
+  <button id="btn-undo">↩ Undo</button>
+  <button id="btn-clear">Clear</button>
+
+  <div id="info">pressure — &nbsp; tiltX — &nbsp; tiltY —</div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div id="hint">Рекомендуется графический планшет для pressure/tilt. Мышь тоже работает.</div>
+
+<script type="module">
+  import { PencilEngine } from './pencil-engine/index.js';
+
+  // Size canvas to A4-ish aspect in available space
+  const wrap = document.getElementById('canvas-wrap');
+  const canvas = document.getElementById('canvas');
+
+  function sizeCanvas() {
+    const W = wrap.clientWidth  - 32;
+    const H = wrap.clientHeight - 32;
+    const aspect = 1 / Math.sqrt(2); // A4 portrait width/height
+    let cw, ch;
+    if (W / H < aspect) {
+      cw = W; ch = Math.round(W / aspect);
+    } else {
+      ch = H; cw = Math.round(H * aspect);
+    }
+    // Physical pixel size
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = cw * dpr;
+    canvas.height = ch * dpr;
+    canvas.style.width  = cw + 'px';
+    canvas.style.height = ch + 'px';
+  }
+
+  sizeCanvas();
+
+  let engine = new PencilEngine(canvas, {
+    paper: 'rough',
+    pencilType: 'HB',
+    size: 2,
+  });
+
+  // Pointer info display
+  const info = document.getElementById('info');
+  engine.on('pointer', e => {
+    info.textContent =
+      `pressure ${e.pressure.toFixed(2)}  tiltX ${e.tiltX.toFixed(0)}°  tiltY ${e.tiltY.toFixed(0)}°`;
+  });
+
+  // Paper buttons
+  document.getElementById('paper-btns').addEventListener('click', e => {
+    const btn = e.target.closest('[data-paper]');
+    if (!btn) return;
+    document.querySelectorAll('[data-paper]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    engine.setPaper(btn.dataset.paper);
+  });
+
+  // Pencil buttons
+  document.getElementById('pencil-btns').addEventListener('click', e => {
+    const btn = e.target.closest('[data-pencil]');
+    if (!btn) return;
+    document.querySelectorAll('[data-pencil]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    engine.setPencil(btn.dataset.pencil);
+  });
+
+  // Size slider
+  const slider = document.getElementById('size-slider');
+  const sizeVal = document.getElementById('size-val');
+  slider.addEventListener('input', () => {
+    const v = parseInt(slider.value);
+    sizeVal.textContent = v + 'px';
+    engine.setSize(v);
+  });
+
+  // Undo / clear
+  document.getElementById('btn-undo').addEventListener('click', () => engine.undo());
+  document.getElementById('btn-clear').addEventListener('click', () => engine.clear());
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); engine.undo(); }
+    if (e.key === 'Delete' || e.key === 'Backspace' && e.ctrlKey) engine.clear();
+  });
+
+  // Hide hint after first stroke
+  const hint = document.getElementById('hint');
+  engine.on('strokeStart', () => {
+    hint.classList.add('hidden');
+  });
+</script>
+</body>
+</html>
