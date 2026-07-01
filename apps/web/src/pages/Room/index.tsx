@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import clsx from 'clsx'
+import { clamp } from 'lodash-es'
+import type { LayerState } from '@art-lessons/shared'
+import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import { PencilEngine, type PencilEngineAPI } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { Icon } from '../../components/Icon'
 import { computeCompositeOrder } from '../../lib/layers'
-import { clamp } from '../../lib/math'
-import type { LayerState } from '@art-lessons/shared'
-import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import { useViewport } from './useViewport'
 import styles from './Room.module.css'
 
@@ -180,7 +181,7 @@ export function Room() {
         <div className={styles.headerRight}>
           <span className={styles.zoomLabel}>{Math.round(vp.zoom * 100)}%</span>
           <button
-            className={`${styles.angleLabel} ${angleDeg !== 0 ? styles.angleLabelActive : ''}`}
+            className={clsx(styles.angleLabel, angleDeg !== 0 && styles.angleLabelActive)}
             onClick={() => setVp(v => ({ ...v, angle: 0 }))}
             title="Rotation — click to reset  (R)"
           >
@@ -204,7 +205,7 @@ export function Room() {
           <div className={styles.toolSection}>
             {PENCIL_TYPES.map(t => (
               <button key={t}
-                className={`${styles.pencilBtn} ${tool === 'pencil' && pencil === t ? styles.pencilBtnActive : ''}`}
+                className={clsx(styles.pencilBtn, tool === 'pencil' && pencil === t && styles.pencilBtnActive)}
                 onClick={() => { setPencil(t); setTool('pencil') }}
                 title={`${t} pencil`}
               >{t}</button>
@@ -214,7 +215,7 @@ export function Room() {
           <div className={styles.toolDivider} />
 
           <button
-            className={`${styles.toolIconBtn} ${tool === 'eraser' ? styles.toolIconBtnActive : ''}`}
+            className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
             title="Eraser  E"
             onClick={() => setTool(t => t === 'eraser' ? 'pencil' : 'eraser')}
           ><Icon name="ink_eraser" /></button>

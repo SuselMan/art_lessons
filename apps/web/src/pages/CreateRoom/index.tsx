@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import clsx from 'clsx'
+import { nanoid } from 'nanoid'
 import type { PaperType } from '@art-lessons/shared'
-import { uid } from '../../lib/uid'
 import { PaperPreview } from '../../components/PaperPreview'
 import styles from './CreateRoom.module.css'
 
@@ -74,7 +75,7 @@ export function CreateRoom() {
       height = preset.height
     }
 
-    const id = uid()
+    const id = nanoid(8)
     localStorage.setItem(`room_${id}`, JSON.stringify({
       id, name, paper, width, height,
       password: usePassword && password ? password : null,
@@ -93,7 +94,7 @@ export function CreateRoom() {
         <div className={styles.section}>
           <div className={styles.label}>Room name</div>
           <input
-            className={`${styles.input} ${error && !roomName.trim() ? styles.inputError : ''}`}
+            className={clsx(styles.input, error && !roomName.trim() && styles.inputError)}
             type="text"
             placeholder="e.g. Still life, Session 1"
             maxLength={50}
@@ -109,7 +110,7 @@ export function CreateRoom() {
             {PAPER_OPTIONS.map(({ type, label, desc }) => (
               <div
                 key={type}
-                className={`${styles.paperCard} ${paper === type ? styles.selected : ''}`}
+                className={clsx(styles.paperCard, paper === type && styles.selected)}
                 onClick={() => setPaper(type)}
               >
                 <div className={styles.paperPreviewWrap}>
@@ -131,7 +132,7 @@ export function CreateRoom() {
             {SIZE_OPTIONS.map(opt => (
               <div
                 key={opt.id}
-                className={`${styles.sizeCard} ${sizePreset === opt.id ? styles.selected : ''}`}
+                className={clsx(styles.sizeCard, sizePreset === opt.id && styles.selected)}
                 onClick={() => setSizePreset(opt.id)}
               >
                 {opt.id !== 'custom' ? (
@@ -184,8 +185,8 @@ export function CreateRoom() {
         <div className={styles.section}>
           <div className={styles.label}>Access</div>
           <label className={styles.toggleRow}>
-            <div className={`${styles.toggle} ${usePassword ? styles.toggleOn : ''}`}>
-              <div className={`${styles.toggleThumb} ${usePassword ? styles.toggleThumbOn : ''}`} />
+            <div className={clsx(styles.toggle, usePassword && styles.toggleOn)}>
+              <div className={clsx(styles.toggleThumb, usePassword && styles.toggleThumbOn)} />
             </div>
             <span className={styles.toggleLabel}>
               {usePassword ? 'Password protected' : 'Open — anyone with the link can join'}

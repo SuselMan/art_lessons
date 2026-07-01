@@ -26,14 +26,15 @@ art-lessons/
 │   │   │   ├── LayerPanel/
 │   │   │   └── PaperPreview/
 │   │   ├── engine/         # WebGL pencil engine
-│   │   ├── lib/            # small shared helpers (cn, uid, clamp, layers)
+│   │   ├── lib/            # small shared helpers (layers)
 │   │   ├── pages/
 │   │   │   ├── CreateRoom/
 │   │   │   └── Room/
 │   │   └── styles/
 │   └── server/             # Fastify + Socket.io
 ├── packages/shared/        # shared types and constants
-└── tasks/                  # task breakdown docs
+└── .claude/
+    └── rules.md            # operational rules for Claude
 ```
 
 ## Coding Conventions
@@ -48,8 +49,6 @@ art-lessons/
   6. CSS Modules last
 - **Helpers**:
   - `components/Icon.tsx` for all Material Symbols icons.
-  - `lib/cn.ts` for className merging.
-  - `lib/uid.ts` for unique ids.
   - `lib/layers.ts` for layer-state helpers (`computeCompositeOrder`).
 - **Types**: import shared types from `@art-lessons/shared`. Avoid redefining them locally. Avoid `as any` and `as` casts when a type guard or narrowing works.
 - **CSS**: CSS Modules + CSS variables from `styles/tokens.css`. Touch targets minimum 40–48 px on tablet.
@@ -66,10 +65,4 @@ art-lessons/
 
 ## Rules for Claude
 
-- Discuss architecture before implementing non-trivial features.
-- Do not add dependencies without a clear reason.
-- Do not switch frameworks or major libraries without explicit approval.
-- Prefer small, focused files and explicit types over clever abstractions.
-- Keep CSS in CSS Modules; do not introduce Tailwind or CSS-in-JS.
-- Before finishing a task run `npm run typecheck` and `npm run lint` and fix all issues.
-- Do not commit unless explicitly asked; stage and report status instead.
+Operational rules for Claude — coding conventions, quality gates, Git workflow, and issue tracking — live in `.claude/rules.md`.

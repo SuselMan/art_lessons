@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react'
 import type { RefObject, Dispatch, SetStateAction } from 'react'
-import { clamp } from '../../lib/math'
+import { clamp } from 'lodash-es'
 
 export interface Viewport { cx: number; cy: number; zoom: number; angle: number }
 

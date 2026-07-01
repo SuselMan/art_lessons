@@ -1,5 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
+import clsx from 'clsx'
+import { nanoid } from 'nanoid'
 import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -10,8 +12,6 @@ import { LayerRow } from './LayerRow'
 import { buildFlatList } from './flatList'
 import { useDnD } from './useDnD'
 import { patchItem } from './utils'
-import { cn } from '../../lib/cn'
-import { uid } from '../../lib/uid'
 import { isFolder, parentOf } from '../../lib/layers'
 import styles from './LayerPanel.module.css'
 
@@ -93,7 +93,7 @@ export function LayerPanel({
   // ── add / delete ─────────────────────────────────────────────────────────────
 
   const handleAddLayer = useCallback(() => {
-    const newId = uid()
+    const newId = nanoid(8)
     const count = Object.values(layerState.items).filter(i => i.kind === 'layer').length
     onInitLayer(newId)
     onChange(p => ({
@@ -106,7 +106,7 @@ export function LayerPanel({
   }, [layerState.items, onChange, onInitLayer])
 
   const handleAddFolder = useCallback(() => {
-    const newId = uid()
+    const newId = nanoid(8)
     const folder: LayerFolder = { kind: 'folder', id: newId, name: 'Folder', opacity: 1, visible: true, locked: false, collapsed: false, children: [] }
     onChange(p => ({
       ...p,
@@ -144,7 +144,7 @@ export function LayerPanel({
   // Merges ids in engine, creates a new AccumulationBuffer, destroys old ones. Returns new layer id.
   const execMerge = useCallback((ids: string[]): string => {
     const pixels = onMergeLayers(ids)
-    const newId  = uid()
+    const newId  = nanoid(8)
     onInitLayer(newId)
     onRestoreLayerPixels(newId, pixels)
     ids.forEach(id => onDestroyLayer(id))
@@ -204,7 +204,7 @@ export function LayerPanel({
     <div className={styles.panel}>
       <div className={styles.tabStrip}>
         <button
-          className={cn(styles.stripTab, open && styles.stripTabActive)}
+          className={clsx(styles.stripTab, open && styles.stripTabActive)}
           onClick={onToggle}
           title={open ? 'Collapse layers' : 'Open layers'}>
           <Icon name="layers" />
@@ -240,7 +240,7 @@ export function LayerPanel({
             </button>
             <span className={styles.toolbarSpacer} />
             <button
-              className={cn(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
+              className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
               onClick={() => handleToggleLock(activeId)}
               disabled={activeId === BACKGROUND_LAYER_ID}
               title={isActiveLocked ? 'Unlock layer' : 'Lock layer'}>
@@ -254,7 +254,7 @@ export function LayerPanel({
               <Icon name="move_down" />
             </button>
             <button
-              className={cn(styles.toolbarBtn, styles.toolbarBtnDanger)}
+              className={clsx(styles.toolbarBtn, styles.toolbarBtnDanger)}
               onClick={handleDelete}
               disabled={!canDelete}
               title={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}>

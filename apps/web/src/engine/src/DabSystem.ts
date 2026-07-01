@@ -7,7 +7,7 @@
 //   The lag is one pointer event (~5-16ms) which is imperceptible.
 
 import type { Dab } from '@art-lessons/shared'
-import { clamp01 } from '../../lib/math'
+import { clamp } from 'lodash-es'
 
 interface ControlPoint {
   x: number
@@ -108,7 +108,7 @@ export class DabSystem {
       const t = s0.t + frac * (s1.t - s0.t)
 
       const pos      = crPos(p0, p1, p2, p3, t)
-      const pressure = clamp01(crScalar(p0.pressure, p1.pressure, p2.pressure, p3.pressure, t))
+      const pressure = clamp(crScalar(p0.pressure, p1.pressure, p2.pressure, p3.pressure, t), 0, 1)
       const tiltX    = crScalar(p0.tiltX, p1.tiltX, p2.tiltX, p3.tiltX, t)
       const tiltY    = crScalar(p0.tiltY, p1.tiltY, p2.tiltY, p3.tiltY, t)
       const tan      = crTangent(p0, p1, p2, p3, t)

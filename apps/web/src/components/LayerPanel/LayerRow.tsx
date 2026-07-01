@@ -1,9 +1,9 @@
 import { useState, useRef } from 'react'
+import clsx from 'clsx'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { LayerItem } from '@art-lessons/shared'
 import { Icon } from '../Icon'
-import { cn } from '../../lib/cn'
 import { isFolder } from '../../lib/layers'
 import styles from './LayerPanel.module.css'
 
@@ -50,7 +50,7 @@ export function LayerRow({
         opacity:    isDragging ? 0.4 : 1,
         marginLeft: 3 + depth * 14,
       }}
-      className={cn(
+      className={clsx(
         styles.rowMain,
         isActive         && styles.rowActive,
         isSelected       && styles.rowSelected,
@@ -73,7 +73,7 @@ export function LayerRow({
       </button>
 
       <button
-        className={cn(styles.rowIconBtn, isLocked ? styles.rowIconBtnLocked : styles.rowIconBtnDim)}
+        className={clsx(styles.rowIconBtn, isLocked ? styles.rowIconBtnLocked : styles.rowIconBtnDim)}
         onClick={e => { e.stopPropagation(); onToggleLock(item.id) }}
         title={isLocked ? 'Unlock' : 'Lock'}>
         <Icon name={isLocked ? 'lock' : 'lock_open'} />
