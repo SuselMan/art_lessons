@@ -1,0 +1,107 @@
+import { useState, useRef } from 'react'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import type { LayerItem } from '@art-lessons/shared'
+import { Icon } from '../Icon'
+import { cn } from '../../lib/cn'
+import { isFolder } from '../../lib/layers'
+import styles from './LayerPanel.module.css'
+
+export interface RowProps {
+  item:             LayerItem
+  depth:            number
+  isActive:         boolean
+  isSelected:       boolean
+  isBackground:     boolean
+  isDragOverFolder?: boolean
+  onActivate:       (id: string, e: React.MouseEvent) => void
+  onToggleVisible:  (id: string) => void
+  onToggleLock:     (id: string) => void
+  onRename:         (id: string, name: string) => void
+  onToggleCollapse?: (id: string) => void
+}
+
+export function LayerRow({
+  item, depth, isActive, isSelected, isBackground, isDragOverFolder,
+  onActivate, onToggleVisible, onToggleLock, onRename, onToggleCollapse,
+}: RowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id, disabled: isBackground })
+
+  const [editing, setEditing] = useState(false)
+  const nameRef = useRef<HTMLInputElement>(null)
+
+  const isFolderItem = isFolder(item)
+  const isLocked  = !!item.locked
+  const collapsed = isFolderItem && !!item.collapsed
+
+  const commit = () => {
+    const v = nameRef.current?.value.trim()
+    if (v) onRename(item.id, v)
+    setEditing(false)
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity:    isDragging ? 0.4 : 1,
+        marginLeft: 3 + depth * 14,
+      }}
+      className={cn(
+        styles.rowMain,
+        isActive         && styles.rowActive,
+        isSelected       && styles.rowSelected,
+        isBackground     && styles.rowBackground,
+        isDragOverFolder && styles.rowDragTarget,
+      )}
+      {...attributes}
+      {...listeners}
+      onClick={e => onActivate(item.id, e)}
+    >
+      {isBackground
+        ? <span className={styles.gripSpacer} />
+        : <span className={styles.grip}><Icon name="drag_indicator" /></span>
+      }
+
+      <button className={styles.rowIconBtn}
+        onClick={e => { e.stopPropagation(); onToggleVisible(item.id) }}
+        title={item.visible ? 'Hide' : 'Show'}>
+        <Icon name={item.visible ? 'visibility' : 'visibility_off'} />
+      </button>
+
+      <button
+        className={cn(styles.rowIconBtn, isLocked ? styles.rowIconBtnLocked : styles.rowIconBtnDim)}
+        onClick={e => { e.stopPropagation(); onToggleLock(item.id) }}
+        title={isLocked ? 'Unlock' : 'Lock'}>
+        <Icon name={isLocked ? 'lock' : 'lock_open'} />
+      </button>
+
+      {isFolderItem ? (
+        <button className={styles.folderToggleBtn}
+          onClick={e => { e.stopPropagation(); onToggleCollapse?.(item.id) }}
+          title={collapsed ? 'Expand' : 'Collapse'}>
+          <Icon name={collapsed ? 'chevron_right' : 'expand_more'} />
+          <Icon name={collapsed ? 'folder' : 'folder_open'} />
+        </button>
+      ) : (
+        <span className={styles.typeIcon}><Icon name="brush" /></span>
+      )}
+
+      {editing ? (
+        <input ref={nameRef} className={styles.nameInput} defaultValue={item.name} autoFocus
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
+          onClick={e => e.stopPropagation()} />
+      ) : (
+        <span className={styles.name} onDoubleClick={e => { e.stopPropagation(); setEditing(true) }}>
+          {item.name}
+        </span>
+      )}
+
+      <span className={styles.opacityDisplay}>{Math.round(item.opacity * 100)}%</span>
+    </div>
+  )
+}

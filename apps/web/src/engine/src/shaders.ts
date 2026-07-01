@@ -106,6 +106,7 @@ export const DAB_FRAG = `
   // 0=bristol (graphite fills valleys too, near-uniform deposit)
   // 1=rough   (graphite only on peaks, strong grain in stroke)
   uniform float u_paperRoughness;
+  uniform float u_eraseMode; // 1.0 = eraser, 0.0 = pencil
 
   varying vec2 v_localUV;
 
@@ -123,6 +124,13 @@ export const DAB_FRAG = `
     float innerEdge = u_hardness * 0.85;
     float shape = 1.0 - smoothstep(innerEdge, 1.0, dist);
     shape *= 1.0 - exp(-8.0 * (1.0 - dist));
+
+    // Eraser: output alpha that drives ZERO,ONE_MINUS_SRC_ALPHA blend to clear graphite
+    if (u_eraseMode > 0.5) {
+      float eraseAmount = clamp(u_pressure * u_opacity * shape, 0.0, 1.0);
+      gl_FragColor = vec4(0.0, 0.0, 0.0, eraseAmount);
+      return;
+    }
 
     vec2 screenUV = gl_FragCoord.xy / u_resolution;
     vec2 paperUV = screenUV * u_paperScale;
@@ -172,6 +180,19 @@ export const DISPLAY_VERT = `
   }
 `;
 
+// Composites one layer onto the composite FBO with opacity.
+// Blend mode: ONE, ONE_MINUS_SRC_ALPHA  →  Porter-Duff "over"
+export const LAYER_COMPOSITE_FRAG = `
+  precision mediump float;
+  uniform sampler2D u_layer;
+  uniform float u_opacity;
+  varying vec2 v_uv;
+  void main() {
+    float a = texture2D(u_layer, v_uv).a * u_opacity;
+    gl_FragColor = vec4(0.0, 0.0, 0.0, a);
+  }
+`;
+
 export const DISPLAY_FRAG = `
   precision highp float;
 
@@ -184,7 +205,8 @@ export const DISPLAY_FRAG = `
   varying vec2 v_uv;
 
   void main() {
-    float graphite = texture2D(u_accumulation, v_uv).r;
+    // composite FBO stores accumulated alpha in the .a channel
+    float graphite = texture2D(u_accumulation, v_uv).a;
 
     vec2 paperUV = v_uv * u_paperScale;
     float paperHeight = texture2D(u_paperMap, paperUV).r;

@@ -1,44 +1,48 @@
-export function createShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
+export function createShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
+  const shader = gl.createShader(type)!
+  gl.shaderSource(shader, source)
+  gl.compileShader(shader)
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    const info = gl.getShaderInfoLog(shader);
-    gl.deleteShader(shader);
-    throw new Error(`Shader compile error: ${info}`);
+    const info = gl.getShaderInfoLog(shader)
+    gl.deleteShader(shader)
+    throw new Error(`Shader compile error: ${info}`)
   }
-  return shader;
+  return shader
 }
 
-export function createProgram(gl, vertSrc, fragSrc) {
-  const vert = createShader(gl, gl.VERTEX_SHADER, vertSrc);
-  const frag = createShader(gl, gl.FRAGMENT_SHADER, fragSrc);
-  const program = gl.createProgram();
-  gl.attachShader(program, vert);
-  gl.attachShader(program, frag);
-  gl.linkProgram(program);
-  gl.deleteShader(vert);
-  gl.deleteShader(frag);
+export function createProgram(gl: WebGLRenderingContext, vertSrc: string, fragSrc: string): WebGLProgram {
+  const vert = createShader(gl, gl.VERTEX_SHADER, vertSrc)
+  const frag = createShader(gl, gl.FRAGMENT_SHADER, fragSrc)
+  const program = gl.createProgram()!
+  gl.attachShader(program, vert)
+  gl.attachShader(program, frag)
+  gl.linkProgram(program)
+  gl.deleteShader(vert)
+  gl.deleteShader(frag)
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    const info = gl.getProgramInfoLog(program);
-    gl.deleteProgram(program);
-    throw new Error(`Program link error: ${info}`);
+    const info = gl.getProgramInfoLog(program)
+    gl.deleteProgram(program)
+    throw new Error(`Program link error: ${info}`)
   }
-  return program;
+  return program
 }
 
-export function getUniforms(gl, program, names) {
-  const locs = {};
+export function getUniforms(
+  gl: WebGLRenderingContext,
+  program: WebGLProgram,
+  names: string[],
+): Record<string, WebGLUniformLocation | null> {
+  const locs: Record<string, WebGLUniformLocation | null> = {}
   for (const name of names) {
-    locs[name] = gl.getUniformLocation(program, name);
+    locs[name] = gl.getUniformLocation(program, name)
   }
-  return locs;
+  return locs
 }
 
-// Create a unit quad buffer: two triangles covering -0.5..0.5
-export function createQuadBuffer(gl) {
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+// Unit quad covering -0.5..0.5 (used for dab rendering)
+export function createQuadBuffer(gl: WebGLRenderingContext): WebGLBuffer {
+  const buf = gl.createBuffer()!
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
     -0.5, -0.5,
      0.5, -0.5,
@@ -46,17 +50,17 @@ export function createQuadBuffer(gl) {
     -0.5,  0.5,
      0.5, -0.5,
      0.5,  0.5,
-  ]), gl.STATIC_DRAW);
-  return buf;
+  ]), gl.STATIC_DRAW)
+  return buf
 }
 
-// Full-screen quad: -1..1
-export function createFullscreenQuad(gl) {
-  const buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+// Full-screen quad covering -1..1 (used for display/composite passes)
+export function createFullscreenQuad(gl: WebGLRenderingContext): WebGLBuffer {
+  const buf = gl.createBuffer()!
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf)
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
     -1, -1,  1, -1,  -1, 1,
     -1,  1,  1, -1,   1, 1,
-  ]), gl.STATIC_DRAW);
-  return buf;
+  ]), gl.STATIC_DRAW)
+  return buf
 }

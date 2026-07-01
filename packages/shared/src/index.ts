@@ -1,3 +1,36 @@
+// Layers
+
+export interface RasterLayer {
+  kind: 'layer'
+  id: string
+  name: string
+  opacity: number   // 0–1
+  visible: boolean
+  locked?: boolean
+}
+
+export interface LayerFolder {
+  kind: 'folder'
+  id: string
+  name: string
+  opacity: number
+  visible: boolean
+  collapsed: boolean
+  locked?: boolean
+  children: string[]  // ordered ids, top→bottom
+}
+
+export type LayerItem = RasterLayer | LayerFolder
+
+export interface LayerState {
+  items: Record<string, LayerItem>
+  rootOrder: string[]    // top→bottom; index 0 = topmost layer
+  activeId: string
+  selectedIds: string[]
+}
+
+export const BACKGROUND_LAYER_ID = 'background'
+
 // Room
 
 export type PaperType = 'rough' | 'smooth' | 'bristol'

@@ -2,9 +2,7 @@ node_modules/
 dist/
 .DS_Store
 *.log
+*.tsbuildinfo
 
 # IDE
-.idea/modules.xml
-.idea/*.iml
-.idea/vcs.xml
-.idea/workspace.xml
+/.idea/
