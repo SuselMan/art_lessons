@@ -377,10 +377,6 @@ export function LayerPanel({
     const activeItemDnD = items[activeIdDnD]
     if (!activeItemDnD) return
 
-    // Prevent dropping a folder into another folder.
-    const overItem = items[overId]
-    if (isFolder(activeItemDnD) && overItem && isFolder(overItem)) return
-
     const result = computeInsertIndex(activeIdDnD, overId)
     if (!result) return
     const { activeBlock, remainingIds } = result
@@ -397,6 +393,19 @@ export function LayerPanel({
     ]
 
     const { rootOrder, items: nextItems } = reconstructHierarchy(workingIds, items)
+
+    // Folders are one level deep — a folder can never end up as another
+    // folder's child. This catches every path that could nest one (landing
+    // on the header, on a child row, or on the sentinel of another folder),
+    // instead of only blocking the header case up front like before (which
+    // also wrongly blocked placing a folder right next to another folder).
+    if (isFolder(activeItemDnD)) {
+      const nested = Object.values(nextItems).some(
+        it => isFolder(it) && it.id !== activeIdDnD && it.children.includes(activeIdDnD),
+      )
+      if (nested) return
+    }
+
     onChange(p => ({ ...p, rootOrder, items: nextItems }))
   }, [items, onChange, computeInsertIndex])
 
