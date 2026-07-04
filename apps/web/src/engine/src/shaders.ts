@@ -211,11 +211,13 @@ export const DISPLAY_FRAG = `
     vec2 paperUV = v_uv * u_paperScale;
     float paperHeight = texture2D(u_paperMap, paperUV).r;
 
-    // Paper color varies slightly with texture (highlights on raised areas)
-    vec3 paperTone = u_paperColor * (0.92 + 0.08 * paperHeight);
+    // Paper color varies slightly with texture (highlights on raised areas).
+    // Kept subtle (#95) — real paper grain reads as a faint variation, not
+    // a visible bas-relief.
+    vec3 paperTone = u_paperColor * (0.96 + 0.04 * paperHeight);
 
     // Graphite shows paper texture through it — in valleys paper peeks through even in dark areas
-    float graphiteTexture = mix(1.0, paperHeight * 0.8 + 0.2, graphite * 0.4);
+    float graphiteTexture = mix(1.0, paperHeight * 0.5 + 0.2, graphite * 0.25);
     vec3 graphiteTone = u_graphiteColor * graphiteTexture;
 
     // Final composite

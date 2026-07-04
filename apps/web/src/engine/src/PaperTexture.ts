@@ -7,10 +7,13 @@ import { createProgram, createFullscreenQuad } from './utils'
 //   at 1057px canvas: scale=150 → cell=7px, scale=250 → cell=4px, scale=400 → cell=2.6px
 // warp = domain warp strength (displaces UV by another noise pass — breaks regularity,
 //   creates organic fiber-like look instead of grid blobs)
+// Contrast/gain lowered across the board (#95) — at the original values all
+// three papers read as too bas-relief; real paper grain is a much fainter
+// variation. Relative ordering (rough roughest, bristol nearly flat) kept.
 const CONFIGS: Record<PaperType, { scale: number; gain: number; contrast: number; warp: number }> = {
-  rough:   { scale: 150, gain: 0.55, contrast: 1.4, warp: 1.5 },
-  smooth:  { scale: 260, gain: 0.45, contrast: 0.9, warp: 0.8 },
-  bristol: { scale: 420, gain: 0.38, contrast: 0.7, warp: 0.3 },
+  rough:   { scale: 150, gain: 0.42, contrast: 1.0, warp: 1.5 },
+  smooth:  { scale: 260, gain: 0.34, contrast: 0.65, warp: 0.8 },
+  bristol: { scale: 420, gain: 0.28, contrast: 0.5, warp: 0.3 },
 }
 
 // Generate paper height map via WebGL shader at full canvas resolution.
