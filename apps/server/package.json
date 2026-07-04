@@ -10,12 +10,13 @@
     "start": "node dist/index.js"
   },
   "dependencies": {
+    "@art-lessons/shared": "*",
     "fastify": "^5.3.3",
-    "@art-lessons/shared": "*"
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "typescript": "~6.0.2",
     "@types/node": "^24.13.2",
-    "tsx": "^4.20.3"
+    "tsx": "^4.20.3",
+    "typescript": "~6.0.2"
   }
 }
