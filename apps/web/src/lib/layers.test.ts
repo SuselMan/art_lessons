@@ -133,11 +133,16 @@ describe('applyContentOp', () => {
     expect(next.rootOrder).toEqual(['merged'])
   })
 
-  it('stroke, layer_clear, and operation_revoke are structural no-ops', () => {
+  it('stroke, layer_clear, and the meta-ops (revoke/undo/redo) are structural no-ops', () => {
     const state = stateOf({ a: layer('a') }, ['a'])
     expect(applyContentOp(state, { ...baseOp, type: 'stroke', layerId: 'a', tool: 'pencil', preset: 'HB', dabs: [] })).toBe(state)
     expect(applyContentOp(state, { ...baseOp, type: 'layer_clear', layerId: 'a' })).toBe(state)
     expect(applyContentOp(state, { ...baseOp, type: 'operation_revoke', targetOpId: 'x' })).toBe(state)
+    // #103: operation_undo/operation_redo only flip another log entry's
+    // done/undone state (see OperationLog) — they never touch LayerState
+    // directly, same as operation_revoke.
+    expect(applyContentOp(state, { ...baseOp, type: 'operation_undo', targetOpId: 'x' })).toBe(state)
+    expect(applyContentOp(state, { ...baseOp, type: 'operation_redo', targetOpId: 'x' })).toBe(state)
   })
 })
 

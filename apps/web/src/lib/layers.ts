@@ -118,8 +118,10 @@ function applyMove(state: LayerState, op: LayerMoveOperation): LayerState {
 }
 
 /** Applies one operation's structural effect. Pixel-only operations (stroke,
- *  clear) and revoke pass through unchanged. Local view fields (activeId,
- *  selectedIds, collapsed, locked) are not touched — see overlayLocalFields. */
+ *  clear) and the meta-operations (revoke/undo/redo — they only flip *another*
+ *  entry's state, see OperationLog) pass through unchanged. Local view fields
+ *  (activeId, selectedIds, collapsed, locked) are not touched — see
+ *  overlayLocalFields. */
 export function applyContentOp(state: LayerState, op: Operation): LayerState {
   switch (op.type) {
     case 'layer_add': {
@@ -165,6 +167,8 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     case 'stroke':
     case 'layer_clear':
     case 'operation_revoke':
+    case 'operation_undo':
+    case 'operation_redo':
       return state
   }
 }

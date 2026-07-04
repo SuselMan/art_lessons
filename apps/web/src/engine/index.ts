@@ -362,6 +362,22 @@ export class PencilEngine implements PencilEngineAPI {
         if (target) this._applyHistoryChange(target)
         break
       }
+      // #103: broadcastable, addressed by id (not "whichever op is latest")
+      // so every replica — including the author's own client, which applies
+      // this exact same op rather than mutating ahead of the network —
+      // converges on flipping the identical entry. See undo()/redo() below
+      // for how the author picks `targetOpId`, and OperationLog.applyUndo/
+      // applyRedo for the per-author guard.
+      case 'operation_undo': {
+        const target = this._log.applyUndo(op.targetOpId, op.userId)
+        if (target) this._applyHistoryChange(target)
+        break
+      }
+      case 'operation_redo': {
+        const target = this._log.applyRedo(op.targetOpId, op.userId)
+        if (target) this._applyHistoryChange(target)
+        break
+      }
       default:
         // structure-only (move/opacity/visibility/rename/folder_add):
         // the UI owns LayerState and pushes the new composite order itself
@@ -375,16 +391,33 @@ export class PencilEngine implements PencilEngineAPI {
     return this._log.doneOperations()
   }
 
+  /** Undoes this user's own latest done operation — and, unlike before #103,
+   *  broadcasts it: wraps the target's id in an `operation_undo` and runs it
+   *  through the normal `appendOperation` path (so `onLocalOperation` fires,
+   *  same as any other local action), instead of mutating `_log` directly.
+   *  That's what makes undo visible to every participant rather than just
+   *  this client — a plain local mutation here would silently desync
+   *  everyone else's canvas from this one. Returns the affected operation
+   *  (e.g. the stroke), same contract as before. */
   undo(): Operation | null {
-    const op = this._log.undo(this._userId)
-    if (op) this._applyHistoryChange(op)
-    return op
+    const target = this._log.undoTarget(this._userId)
+    if (!target) return null
+    this.appendOperation({
+      id: nanoid(10), type: 'operation_undo', userId: this._userId,
+      timestamp: Date.now(), targetOpId: target.id,
+    })
+    return target
   }
 
+  /** Symmetric with `undo()` — see its docstring. */
   redo(): Operation | null {
-    const op = this._log.redo(this._userId)
-    if (op) this._applyHistoryChange(op)
-    return op
+    const target = this._log.redoTarget(this._userId)
+    if (!target) return null
+    this.appendOperation({
+      id: nanoid(10), type: 'operation_redo', userId: this._userId,
+      timestamp: Date.now(), targetOpId: target.id,
+    })
+    return target
   }
 
   /** Clears the active layer — a logged, undoable operation. */
