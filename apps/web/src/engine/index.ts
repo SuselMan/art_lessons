@@ -23,21 +23,34 @@ export interface PencilEngineOptions {
   paperScale?: number
   graphiteColor?: [number, number, number]
   userId?: string
+  // Fired for operations genuinely originated by this engine instance: both
+  // appendOperation(op) calls made with the default 'local' source (layer-panel
+  // actions, clear()) and the stroke recorded internally on pointer up. Never
+  // fired for 'remote' appends. Lets the caller (Room) broadcast local actions
+  // over the socket from one place instead of every local call site having to
+  // remember to.
+  onLocalOperation?: (op: Operation) => void
 }
 
 type EngineEventName = 'strokeStart' | 'strokeEnd' | 'pointer'
 type EngineHandler = (data: PointerData) => void
+
+// 'local' (default) — a genuinely local action; triggers onLocalOperation for
+// broadcast. 'remote' — applying an operation that arrived from another
+// participant (room_state replay, peer_operation); must not be re-broadcast.
+export type OperationSource = 'local' | 'remote'
 
 export interface PencilEngineAPI {
   initLayer(id: string): void
   setActiveLayer(id: string): void
   setLocked(locked: boolean): void
   setCompositeOrder(items: CompositeItem[]): void
-  appendOperation(op: Operation): void
+  appendOperation(op: Operation, source?: OperationSource): void
   getOperations(): Operation[]
   undo(): Operation | null
   redo(): Operation | null
   clear(): void
+  setUserId(id: string): void
   setPaper(type: PaperType): void
   setPencil(type: string): void
   setTool(tool: ToolType): void
@@ -105,6 +118,7 @@ export class PencilEngine implements PencilEngineAPI {
   private gl: WebGLRenderingContext
   private _opts: EngineOpts
   private _userId: string
+  private _onLocalOperation?: (op: Operation) => void
 
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
@@ -164,6 +178,7 @@ export class PencilEngine implements PencilEngineAPI {
       opacity:       options.opacity       ?? 1.0,
     }
     this._userId = options.userId ?? 'local'
+    this._onLocalOperation = options.onLocalOperation
 
     this._initGL()
     this._initPaper(this._opts.paper)
@@ -236,8 +251,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  silently skipped rather than throwing: correctness here assumes the log
    *  is applied in its true total order (the server-assigned `seq`), which
    *  ordered delivery guarantees; out-of-order delivery is a transport
-   *  concern for the networking layer, not this method. */
-  appendOperation(op: Operation): void {
+   *  concern for the networking layer, not this method.
+   *
+   *  `source` (default 'local') controls whether `onLocalOperation` fires
+   *  after applying — see `PencilEngineOptions.onLocalOperation`. Callers
+   *  applying a `room_state` snapshot or a `peer_operation` must pass
+   *  'remote' so the op is not echoed back to the server. */
+  appendOperation(op: Operation, source: OperationSource = 'local'): void {
     this._log.append(op)
     switch (op.type) {
       case 'layer_add':
@@ -274,6 +294,7 @@ export class PencilEngine implements PencilEngineAPI {
         // the UI owns LayerState and pushes the new composite order itself
         break
     }
+    if (source === 'local') this._onLocalOperation?.(op)
   }
 
   /** Done operations in seq order — the material for LayerState derivation. */
@@ -301,6 +322,15 @@ export class PencilEngine implements PencilEngineAPI {
       id: nanoid(10), type: 'layer_clear', userId: this._userId,
       layerId: id, timestamp: Date.now(),
     })
+  }
+
+  /** Updates the identity used to scope undo/redo and to stamp the internally
+   *  recorded local stroke (see `_onEnd`). Needed because the server assigns
+   *  the real per-participant id (its socket id) only once the socket
+   *  connects — after the engine (and any pre-connection local drawing) may
+   *  already exist (#41 will replace this with real auth identity). */
+  setUserId(id: string): void {
+    this._userId = id
   }
 
   // ─── Tool API ────────────────────────────────────────────────────────────────
@@ -595,12 +625,14 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
 
     if (this._strokeDabs.length) {
-      this._log.append({
+      const op: Operation = {
         id: nanoid(10), type: 'stroke', userId: this._userId,
         layerId, tool: this._strokeTool, preset: this._strokePreset,
         dabs: this._strokeDabs, timestamp: Date.now(),
-      })
+      }
+      this._log.append(op)
       this._maybeCheckpoint(layerId)
+      this._onLocalOperation?.(op)
     }
     this._strokeLayerId = null
     this._strokeDabs = []
