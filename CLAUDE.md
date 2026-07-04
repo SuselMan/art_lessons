@@ -1,6 +1,8 @@
 # Art Lessons — Project Rules
 
-Monorepo for a collaborative academic drawing app. Teacher hosts a room, students join via LAN. Shared canvas content and layers, local per-user viewport (pan/zoom/rotate).
+Monorepo for a collaborative academic drawing app. Teacher hosts a room, students join remotely over the internet (not LAN-only — participants are not assumed to share a network). Shared canvas content and layers, local per-user viewport (pan/zoom/rotate).
+
+Development currently runs entirely locally (the dev server and `apps/server` on Ilya's own machine/LAN, tested against his own devices) — production hosting (where `apps/server` will actually run so non-local participants can connect) is not yet decided and does not need Redis; see `.claude/rules.md` if that decision has since been made.
 
 ## Stack
 
@@ -61,7 +63,7 @@ art-lessons/
 - **Rendering**: client-side only; server retransmits operations, never renders.
 - **Viewport**: local per-user `{cx, cy, zoom, angle}`. Pointer coordinates are transformed analytically in `PointerInput.setTransform()`.
 - **WebGL1**: keep shaders WebGL1-compatible; no WebGL2-only features.
-- **LAN hosting**: `vite --host` always on for tablet testing.
+- **Dev-time LAN testing**: `vite --host` always on so tablets on the same wifi as the dev machine can reach the dev server — a development convenience, not the production hosting model (see project description above).
 
 ## Rules for Claude
 
