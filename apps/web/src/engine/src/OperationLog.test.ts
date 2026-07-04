@@ -121,4 +121,85 @@ describe('OperationLog', () => {
     const beforeC = log.layerPixelOps('layer-1', all[1].seq)
     expect(beforeC.map(o => o.id)).toEqual(['a'])
   })
+
+  // ─── #103: broadcastable undo/redo primitives ────────────────────────────
+
+  it('undoTarget/redoTarget are read-only: they never mutate state', () => {
+    const log = new OperationLog()
+    log.append(stroke({ id: 'a', userId: 'user-a' }))
+
+    const target = log.undoTarget('user-a')
+    expect(target?.id).toBe('a')
+    expect(log.doneOperations().map(o => o.id)).toEqual(['a']) // still done — peek didn't flip it
+
+    log.applyUndo('a', 'user-a')
+    const redoTarget = log.redoTarget('user-a')
+    expect(redoTarget?.id).toBe('a')
+    expect(log.doneOperations()).toHaveLength(0) // still undone — peek didn't flip it back
+  })
+
+  it('applyUndo/applyRedo flip one specific entry by id, guarded by the target\'s own author', () => {
+    const log = new OperationLog()
+    log.append(stroke({ id: 'a', userId: 'user-a' }))
+
+    expect(log.applyUndo('a', 'user-b')).toBeNull() // wrong author: no-op
+    expect(log.doneOperations().map(o => o.id)).toEqual(['a'])
+
+    expect(log.applyUndo('a', 'user-a')?.id).toBe('a')
+    expect(log.doneOperations()).toHaveLength(0)
+
+    expect(log.applyRedo('a', 'user-b')).toBeNull() // wrong author: no-op
+    expect(log.applyRedo('a', 'user-a')?.id).toBe('a')
+    expect(log.doneOperations().map(o => o.id)).toEqual(['a'])
+  })
+
+  it('undoTarget excludes meta-ops (operation_revoke/undo/redo) — a second undo must reach real content', () => {
+    const log = new OperationLog()
+    log.append(stroke({ id: 'a', userId: 'user-a' }))
+    log.append(stroke({ id: 'b', userId: 'user-a' }))
+
+    // Simulates PencilEngine#undo(): find the target, then log the
+    // broadcastable wrapper op (an operation_undo authored by the same
+    // user) via append() + applyUndo(), exactly like appendOperation() does.
+    const first = log.undoTarget('user-a')
+    expect(first?.id).toBe('b')
+    log.append({ id: 'u1', type: 'operation_undo', userId: 'user-a', timestamp: 0, targetOpId: 'b' })
+    log.applyUndo('b', 'user-a')
+
+    // Without the meta-op exclusion, this would find 'u1' (done, same user)
+    // instead of reaching back to 'a'.
+    const second = log.undoTarget('user-a')
+    expect(second?.id).toBe('a')
+  })
+
+  it('appending an operation_redo does not wipe the rest of that user\'s redo stack (regression, #103)', () => {
+    // Before the fix, OperationLog.append()'s "author's undone entries
+    // become gone" rule fired for operation_redo/operation_undo/
+    // operation_revoke too (they're appended ops like any other) — so the
+    // very act of logging the first redo's broadcastable wrapper op nuked
+    // every other still-undone entry for that user, including ones later in
+    // the same multi-step redo.
+    const log = new OperationLog()
+    log.append(stroke({ id: 'a', userId: 'user-a' }))
+    log.append(stroke({ id: 'b', userId: 'user-a' }))
+    log.applyUndo('a', 'user-a')
+    log.applyUndo('b', 'user-a')
+    expect(log.doneOperations()).toHaveLength(0)
+
+    // Redo 'a' first (lowest seq), broadcasting the wrapper the same way
+    // appendOperation() does. The wrapper (r1) itself stays `done` forever
+    // (nothing ever flips a meta-op's own state) — the actual assertion is
+    // that 'b' is still redoable afterward, not silently marked gone.
+    log.append({ id: 'r1', type: 'operation_redo', userId: 'user-a', timestamp: 0, targetOpId: 'a' })
+    log.applyRedo('a', 'user-a')
+    // doneOperations() is in seq (append) order, not state-change order — r1
+    // was appended after 'b', so it sorts after 'b' even though 'b' is still
+    // undone. The real assertion is redoTarget: 'b' must still be reachable.
+    expect(log.doneOperations().map(o => o.id)).toEqual(['a', 'r1'])
+    expect(log.redoTarget('user-a')?.id).toBe('b') // <- would be null if the bug regressed
+
+    log.append({ id: 'r2', type: 'operation_redo', userId: 'user-a', timestamp: 0, targetOpId: 'b' })
+    log.applyRedo('b', 'user-a')
+    expect(log.doneOperations().map(o => o.id)).toEqual(['a', 'b', 'r1', 'r2'])
+  })
 })
