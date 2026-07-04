@@ -20,6 +20,12 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'Predicts pointer position ahead of real events to cut felt input latency (#92). May misdraw on sharp direction reversals.',
     envVar: 'VITE_PREDICT_POINTER',
   },
+  {
+    key: 'tapToHideUI',
+    label: 'Minimal UI: tap to hide (experimental)',
+    description: 'A short single-finger tap on the canvas hides the toolbar/header/layer panel; tap again to bring them back (#99). Stylus strokes never trigger it.',
+    envVar: 'VITE_TAP_TO_HIDE_UI',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'
