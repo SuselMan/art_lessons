@@ -551,7 +551,18 @@ export function Room() {
   const gradeDotSize = clamp(gradePreset.sizeMultiplier * 14, 6, 22)
 
   return (
-    <div className={styles.editor}>
+    <div
+      className={styles.editor}
+      // #102: on a pen+touch tablet, a hand resting on the screen while
+      // slowly dragging a slider/stroke can be read by the OS as "press and
+      // hold" and synthesized into a right click — with nothing here
+      // calling preventDefault(), that surfaces the browser's native
+      // context menu (save/share/print) over the whole editor. Nothing in
+      // this page uses a real contextmenu, so suppressing it outright is
+      // safe; scoped to the editor root rather than `document` so it never
+      // touches other pages (e.g. CreateRoom).
+      onContextMenu={e => e.preventDefault()}
+    >
 
       {/* ── Header ── */}
       <header className={styles.header}>
