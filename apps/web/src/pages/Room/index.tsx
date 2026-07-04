@@ -12,7 +12,9 @@ import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { Icon } from '../../components/Icon'
+import { SettingsPanel } from '../../components/SettingsPanel'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
+import { getFeatureFlag } from '../../lib/featureFlags'
 import { useViewport } from './useViewport'
 import { participantsReducer } from './participants'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
@@ -87,20 +89,17 @@ export function Room() {
   const isCreator = !!creatorDraft?.room
 
   // Device performance investigation (#91) — shows a live per-stroke input/
-  // render timing readout. Controlled by a launch-time flag (VITE_DEBUG_OVERLAY
-  // in apps/web/.env.local, gitignored — set once, applies to every room with
-  // no per-URL param needed) or, as a fallback, ?debug=1 on the room URL.
-  const debugEnabled = import.meta.env.VITE_DEBUG_OVERLAY === 'true'
-    || new URLSearchParams(location.search).get('debug') === '1'
+  // render timing readout. Controlled by the "Debug overlay" feature flag
+  // (#100) — VITE_DEBUG_OVERLAY in apps/web/.env.local as the default, or the
+  // gear-icon settings panel to override per-browser via localStorage.
+  const debugEnabled = getFeatureFlag('debugOverlay')
   const [strokeStats, setStrokeStats] = useState<StrokeDebugStats | null>(null)
 
-  // Optional pointer-prediction experiment (#92) — same launch-time-flag
-  // pattern as debugEnabled above (VITE_PREDICT_POINTER in
-  // apps/web/.env.local, gitignored, or ?predict=1 on the room URL as a
-  // fallback). Off by default; lets Ilya A/B it on real hardware before
-  // deciding whether to keep it.
-  const predictEnabled = import.meta.env.VITE_PREDICT_POINTER === 'true'
-    || new URLSearchParams(location.search).get('predict') === '1'
+  // Optional pointer-prediction experiment (#92) — same feature-flag pattern
+  // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
+  // before deciding whether to keep it.
+  const predictEnabled = getFeatureFlag('predictPointer')
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
@@ -551,6 +550,9 @@ export function Room() {
         <span className={styles.roomName}>{config.name}</span>
 
         <div className={styles.headerRight}>
+          <button className={styles.headerIconBtn} onClick={() => setSettingsOpen(true)} title="Settings">
+            <Icon name="settings" />
+          </button>
           <ParticipantsBar participants={participants} drawingIds={drawingIds} connected={connected} />
           <span className={styles.zoomLabel}>{Math.round(vp.zoom * 100)}%</span>
           <button
@@ -572,6 +574,8 @@ export function Room() {
           </button>
         </div>
       </header>
+
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
 
       <div className={styles.body}>
 
