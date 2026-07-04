@@ -8,9 +8,12 @@
 
 /* #99: minimal-UI experiment — a tap on the canvas toggles this class on the
    header/toolbar/layer-panel-wrapper. Kept mounted (React never unmounts
-   them), just removed from layout/paint, so no focus/state is lost. */
+   them), just removed from layout/paint, so no focus/state is lost.
+   !important: combined with .header/.toolbar's own `display: flex` (equal
+   specificity, defined later in this file — source order alone would let
+   theirs win and silently no-op this class). */
 .uiHidden {
-  display: none;
+  display: none !important;
 }
 
 /* Invisible to the .body flex layout when the layer panel isn't hidden —
