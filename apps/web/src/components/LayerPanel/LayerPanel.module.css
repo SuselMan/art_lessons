@@ -164,19 +164,19 @@
 }
 
 .sentinel {
-  height: 14px;
+  height: 4px;
   flex-shrink: 0;
   margin: 0 3px;
   border-radius: var(--radius-sm);
   transition: background var(--duration-fast);
-  background-color: red;
+  /*/background-color: red;*/
 }
 
 .sentinel[data-over="true"] {
   /*background: color-mix(in srgb, var(--color-accent) 20%, transparent);*/
   outline: 1px dashed color-mix(in srgb, var(--color-accent) 70%, transparent);
   outline-offset: -1px;
-  background-color: red;
+  /*background-color: red;*/
 }
 
 /* ── Layer row ────────────────────────────────────────────────────────────── */
