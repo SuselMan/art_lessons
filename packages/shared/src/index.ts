@@ -170,6 +170,27 @@ export type OperationRevokeOperation = OperationBase & {
   targetOpId: string
 }
 
+/** A user's own undo, broadcast so every participant sees it — not just the
+ *  author (#103). `targetOpId` is the specific entry to flip done → undone,
+ *  decided once by the author's own client (the latest done op of theirs
+ *  that isn't itself an operation_revoke/undo/redo); every replica applies
+ *  the exact same id, so there's nothing to reconcile. Self-scoped like
+ *  `undo`/`redo` already are: only the operation's own author's ops are
+ *  ever legal targets (see `OperationLog.applyUndo`) — unlike
+ *  `operation_revoke`, this is reversible via `OperationRedoOperation` and
+ *  needs no teacher privilege. */
+export type OperationUndoOperation = OperationBase & {
+  type: 'operation_undo'
+  targetOpId: string
+}
+
+/** Symmetric with `OperationUndoOperation`: flips a specific undone entry
+ *  back to done. */
+export type OperationRedoOperation = OperationBase & {
+  type: 'operation_redo'
+  targetOpId: string
+}
+
 export type Operation =
   | StrokeOperation
   | LayerAddOperation
@@ -182,6 +203,8 @@ export type Operation =
   | LayerClearOperation
   | LayerMergeOperation
   | OperationRevokeOperation
+  | OperationUndoOperation
+  | OperationRedoOperation
 
 /** An operation as constructed at the emission site, before identity and
  *  ordering fields are stamped on. Distributes over the union. */
