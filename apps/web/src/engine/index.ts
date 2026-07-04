@@ -33,6 +33,23 @@ export interface PencilEngineOptions {
   // over the socket from one place instead of every local call site having to
   // remember to.
   onLocalOperation?: (op: Operation) => void
+  // When true, tracks per-stroke input/render timing (real pointermove/
+  // coalesced-event count and gaps, WebGL paint duration) and reports it via
+  // onStrokeDebugStats after each stroke. Off by default — the timing calls
+  // themselves have a small cost, so this must not run during normal use.
+  // Diagnostic only, for device performance investigation (e.g. #91).
+  debug?: boolean
+  onStrokeDebugStats?: (stats: StrokeDebugStats) => void
+}
+
+export interface StrokeDebugStats {
+  moveEvents: number      // real pointer samples (post-getCoalescedEvents) in this stroke
+  durationMs: number      // wall-clock stroke length, pointerdown to pointerup
+  avgGapMs: number        // average time between consecutive move samples
+  maxGapMs: number        // largest gap between consecutive move samples (spikes = stalls/drops)
+  dabCount: number        // dabs painted this stroke
+  renderMsTotal: number   // total time spent in _paintDabs + _display across the stroke
+  avgRenderMsPerDab: number
 }
 
 type EngineEventName = 'strokeStart' | 'strokeEnd' | 'pointer'
@@ -114,6 +131,18 @@ export class PencilEngine implements PencilEngineAPI {
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
 
+  // Debug instrumentation (#91 device investigation) — all no-ops unless
+  // _debug is true, so this costs nothing in normal use.
+  private _debug: boolean
+  private _onStrokeDebugStats?: (stats: StrokeDebugStats) => void
+  private _dbgMoveEvents = 0
+  private _dbgStrokeStart = 0
+  private _dbgLastMoveT = 0
+  private _dbgGapSum = 0
+  private _dbgMaxGap = 0
+  private _dbgDabCount = 0
+  private _dbgRenderMs = 0
+
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
   private _dispProg!: WebGLProgram
@@ -173,6 +202,8 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._userId = options.userId ?? 'local'
     this._onLocalOperation = options.onLocalOperation
+    this._debug = options.debug ?? false
+    this._onStrokeDebugStats = options.onStrokeDebugStats
 
     this._initGL()
     this._initPaper(this._opts.paper)
@@ -595,6 +626,16 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeTool    = this._opts.tool
     this._strokePreset  = this._opts.pencilType
     this._strokeDabs    = []
+    if (this._debug) {
+      const now = performance.now()
+      this._dbgMoveEvents = 0
+      this._dbgStrokeStart = now
+      this._dbgLastMoveT = now
+      this._dbgGapSum = 0
+      this._dbgMaxGap = 0
+      this._dbgDabCount = 0
+      this._dbgRenderMs = 0
+    }
     const dabs = this._dabs.startStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     this._paintStrokeDabs(dabs, e.speed)
     this._display()
@@ -604,19 +645,47 @@ export class PencilEngine implements PencilEngineAPI {
   private _onMove(e: PointerData): void {
     this._handlers.pointer?.(e)
     if (!this._strokeLayerId) return
+    if (this._debug) {
+      const now = performance.now()
+      const gap = now - this._dbgLastMoveT
+      this._dbgLastMoveT = now
+      this._dbgMoveEvents++
+      this._dbgGapSum += gap
+      if (gap > this._dbgMaxGap) this._dbgMaxGap = gap
+    }
     const dabs = this._dabs.continueStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     if (dabs.length) {
+      const t0 = this._debug ? performance.now() : 0
       this._paintStrokeDabs(dabs, e.speed)
       this._display()
+      if (this._debug) {
+        this._dbgRenderMs += performance.now() - t0
+        this._dbgDabCount += dabs.length
+      }
     }
   }
 
   private _onEnd(e: PointerData): void {
     const layerId = this._strokeLayerId
     if (!layerId) return
+    const t0 = this._debug ? performance.now() : 0
     const dabs = this._dabs.endStroke(this._physicalSize)
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed)
     this._display()
+    if (this._debug) {
+      this._dbgRenderMs += performance.now() - t0
+      this._dbgDabCount += dabs.length
+      const durationMs = performance.now() - this._dbgStrokeStart
+      this._onStrokeDebugStats?.({
+        moveEvents:        this._dbgMoveEvents,
+        durationMs,
+        avgGapMs:          this._dbgMoveEvents > 0 ? this._dbgGapSum / this._dbgMoveEvents : 0,
+        maxGapMs:          this._dbgMaxGap,
+        dabCount:          this._dbgDabCount,
+        renderMsTotal:     this._dbgRenderMs,
+        avgRenderMsPerDab: this._dbgDabCount > 0 ? this._dbgRenderMs / this._dbgDabCount : 0,
+      })
+    }
 
     if (this._strokeDabs.length) {
       const op: Operation = {
