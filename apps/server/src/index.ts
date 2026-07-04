@@ -1,7 +1,8 @@
 import Fastify from 'fastify'
-import { Server } from 'socket.io'
+import { Server, type DefaultEventsMap } from 'socket.io'
 
 import type { ClientToServerEvents, ServerToClientEvents } from '@art-lessons/shared'
+import { registerRoomHandlers, type SocketData } from './socketHandlers.js'
 
 const app = Fastify({ logger: true })
 
@@ -9,26 +10,14 @@ app.get('/health', async () => ({ ok: true }))
 
 // Permissive CORS: LAN-only dev setup, no auth yet (teacher/student devices
 // on the same network). Revisit once rooms require authenticated origins.
-const io = new Server<ClientToServerEvents, ServerToClientEvents>(app.server, {
+const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>(app.server, {
   cors: { origin: '*' },
 })
 
-io.on('connection', (socket) => {
-  app.log.info({ socketId: socket.id }, 'socket connected')
-
-  // Basic room join for now: just put the socket in the Socket.IO room named
-  // after roomId. No in-memory room/participant tracking yet (#32), no
-  // room_state snapshot yet (#36), no operation relay yet (#34/#35).
-  socket.on('join_room', ({ roomId, name }, ack?: () => void) => {
-    socket.join(roomId)
-    app.log.info({ socketId: socket.id, roomId, name }, 'socket joined room')
-    ack?.()
-  })
-
-  socket.on('disconnect', (reason) => {
-    app.log.info({ socketId: socket.id, reason }, 'socket disconnected')
-  })
-})
+// Room state (#32), operation relay + log (#34/#35), room_state snapshot
+// (#36), teacher/student roles (#39), and operation_revoke authorization
+// (#73) all live in socketHandlers.ts / rooms.ts — see those for details.
+registerRoomHandlers(io, app.log)
 
 const start = async () => {
   try {
