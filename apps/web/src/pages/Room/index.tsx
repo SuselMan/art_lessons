@@ -18,6 +18,7 @@ import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../
 import { getFeatureFlag } from '../../lib/featureFlags'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { useViewport } from './useViewport'
+import { useTapToggle } from './useTapToggle'
 import { participantsReducer } from './participants'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
@@ -103,6 +104,15 @@ export function Room() {
   const predictEnabled = getFeatureFlag('predictPointer')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
+  // Minimal-UI experiment (#99): a short single-finger tap on the canvas
+  // hides the header/toolbar/layer panel via a CSS class (never unmounted —
+  // no lost focus/state), tap again to bring them back. Same feature-flag
+  // pattern as debugEnabled/predictEnabled; off by default until there's
+  // real-usage feedback on whether to keep it.
+  const tapToHideEnabled = getFeatureFlag('tapToHideUI')
+  const [uiHidden, setUiHidden] = useState(false)
+  const toggleUI = useCallback(() => setUiHidden(h => !h), [])
+
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
   )
@@ -171,6 +181,11 @@ export function Room() {
     z => setVp(v => ({ ...v, zoom: clamp(z, 0.04, 20) })),
     { min: 0.04, max: 20, sensitivity: 0.01 },
   )
+
+  // #99: layered independently on top of useViewport's own touch pan/pinch
+  // handling on the same vpRef element — see useTapToggle's docstring for
+  // why the two never conflict.
+  useTapToggle(vpRef, toggleUI, tapToHideEnabled)
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
@@ -565,7 +580,7 @@ export function Room() {
     >
 
       {/* ── Header ── */}
-      <header className={styles.header}>
+      <header className={clsx(styles.header, uiHidden && styles.uiHidden)}>
         <button className={styles.headerIconBtn} onClick={() => navigate('/create')} title="New room">
           <Icon name="arrow_back" />
         </button>
@@ -609,7 +624,7 @@ export function Room() {
       <div className={styles.body}>
 
         {/* ── Left toolbar ── */}
-        <aside className={styles.toolbar}>
+        <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden)}>
 
           {/* Pencil grade — compact vertical slider over the full 6H-6B (+F) range.
               Quick picks: number keys 1-5 jump to H / HB / 2B / 4B / 6B. */}
@@ -715,13 +730,20 @@ export function Room() {
         </div>
 
         {/* ── Layer panel ── */}
-        <LayerPanel
-          layerState={layerState}
-          onChange={setLayerState}
-          onOp={dispatchOp}
-          open={panelOpen}
-          onToggle={() => setPanelOpen(o => !o)}
-        />
+        {/* #99: wrapped rather than passing a className into LayerPanel — the
+            wrapper is `display: contents` normally (invisible to the .body
+            flex layout) and `display: none` when hidden, so LayerPanel stays
+            mounted (no lost focus/state) while contributing nothing to
+            layout, same as the header/toolbar's own class toggle above. */}
+        <div className={uiHidden ? styles.uiHidden : styles.layerPanelWrap}>
+          <LayerPanel
+            layerState={layerState}
+            onChange={setLayerState}
+            onOp={dispatchOp}
+            open={panelOpen}
+            onToggle={() => setPanelOpen(o => !o)}
+          />
+        </div>
 
       </div>
 

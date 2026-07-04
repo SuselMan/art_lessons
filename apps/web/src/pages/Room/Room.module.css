@@ -6,6 +6,23 @@
   overflow: hidden;
 }
 
+/* #99: minimal-UI experiment — a tap on the canvas toggles this class on the
+   header/toolbar/layer-panel-wrapper. Kept mounted (React never unmounts
+   them), just removed from layout/paint, so no focus/state is lost.
+   !important: combined with .header/.toolbar's own `display: flex` (equal
+   specificity, defined later in this file — source order alone would let
+   theirs win and silently no-op this class). */
+.uiHidden {
+  display: none !important;
+}
+
+/* Invisible to the .body flex layout when the layer panel isn't hidden —
+   lets LayerPanel be wrapped (see index.tsx) without becoming an extra flex
+   child that would otherwise need its own sizing rules. */
+.layerPanelWrap {
+  display: contents;
+}
+
 /* ── Material Symbols thin variant ── */
 :global(.material-symbols-outlined) {
   font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24;
