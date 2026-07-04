@@ -11,6 +11,11 @@
     "dev:server": "npm run dev --workspace=apps/server",
     "build": "npm run build --workspace=apps/web",
     "typecheck": "npm run typecheck --workspaces",
-    "lint": "npm run lint --workspace=apps/web"
+    "lint": "npm run lint --workspace=apps/web",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.9"
   }
 }
