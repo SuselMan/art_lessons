@@ -40,5 +40,8 @@
       "PowerShell(git rebase -i*)",
       "PowerShell(git filter-branch*)"
     ]
+  },
+  "worktree": {
+    "baseRef": "head"
   }
 }
