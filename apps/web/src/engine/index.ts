@@ -323,8 +323,21 @@ export class PencilEngine implements PencilEngineAPI {
         this._display()
         break
       case 'layer_clear': {
-        this._layers.get(op.layerId)?.clear()
-        this._display()
+        const clearBuf = this._layers.get(op.layerId)
+        if (clearBuf) {
+          clearBuf.clear()
+          this._display()
+        } else {
+          // Target layer doesn't currently exist — e.g. this clear raced a
+          // layer_delete/layer_merge over the network and lost (arrived
+          // after, in true seq order). It had no visible effect just now and
+          // never legitimately can: seq order can't later distinguish "was
+          // in flight when deleted" from "authored after a resurrection", so
+          // permanently revoke it rather than leaving it `done` — otherwise
+          // it would silently reappear if the delete/merge is later undone
+          // and this layer's buffer gets recreated and replayed (#101).
+          this._log.revoke(op.id)
+        }
         break
       }
       case 'layer_merge':
@@ -336,6 +349,11 @@ export class PencilEngine implements PencilEngineAPI {
           this._paintDabs(buf, op.dabs, op.tool, op.preset)
           this._maybeCheckpoint(op.layerId)
           this._display()
+        } else {
+          // See the layer_clear branch above: a pixel op with no live
+          // target never had an effect and never legitimately can again —
+          // revoke it so it can't resurface on a later undo (#101).
+          this._log.revoke(op.id)
         }
         break
       }
