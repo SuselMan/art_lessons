@@ -6,7 +6,8 @@ export interface RasterLayer {
   name: string
   opacity: number   // 0–1
   visible: boolean
-  locked?: boolean
+  locked?: boolean        // local guard against the user's own hand
+  teacherLocked?: boolean // server rejects student operations on this layer
 }
 
 export interface LayerFolder {
@@ -17,6 +18,7 @@ export interface LayerFolder {
   visible: boolean
   collapsed: boolean
   locked?: boolean
+  teacherLocked?: boolean
   children: string[]  // ordered ids, top→bottom
 }
 
@@ -64,7 +66,9 @@ export type Participant = {
   color: string // cursor color
 }
 
-// Operations (drawing actions — serializable, replayable)
+// Operations (drawing actions — serializable, replayable).
+// The room's append-only operation log is the source of truth; layer pixel
+// buffers and LayerState are derived by replaying it (ADR 002).
 
 export type ToolType = 'pencil' | 'eraser' | 'smudge'
 
@@ -77,60 +81,113 @@ export type Dab = {
   size: number
   aspectRatio: number
   angle: number
+  // Final dab opacity, baked at record time (preset × user opacity × stroke
+  // speed). Replay has no live pointer speed, so it must not recompute this.
+  opacity: number
 }
 
-export type StrokeOperation = {
+type OperationBase = {
   id: string
-  type: 'stroke'
   userId: string
+  timestamp: number
+  seq?: number          // total order; assigned by the server (local log until then)
+}
+
+export type StrokeOperation = OperationBase & {
+  type: 'stroke'
   layerId: string
   tool: ToolType
   preset: string        // 'HB', '2B' etc — for pencil
   dabs: Dab[]
-  timestamp: number
 }
 
-export type LayerAddOperation = {
-  id: string
+/** Inserts a new raster layer at the top of rootOrder. */
+export type LayerAddOperation = OperationBase & {
   type: 'layer_add'
-  userId: string
   layerId: string
   name: string
-  above: string | null  // layerId to insert above, null = bottom
-  timestamp: number
 }
 
-export type LayerDeleteOperation = {
-  id: string
-  type: 'layer_delete'
-  userId: string
+/** Inserts a new empty folder at the top of rootOrder. */
+export type FolderAddOperation = OperationBase & {
+  type: 'folder_add'
   layerId: string
-  timestamp: number
+  name: string
 }
 
-export type LayerReorderOperation = {
-  id: string
-  type: 'layer_reorder'
-  userId: string
-  layerIds: string[]    // full ordered list
-  timestamp: number
+export type LayerDeleteOperation = OperationBase & {
+  type: 'layer_delete'
+  layerIds: string[]    // targets plus their folder children, resolved at emission
 }
 
-export type LayerOpacityOperation = {
-  id: string
+/** Delta move: relocate one item to (parentId, index). A full-order list would
+ *  let one user's later reorder silently swallow another's undo (ADR 002 §2). */
+export type LayerMoveOperation = OperationBase & {
+  type: 'layer_move'
+  layerId: string
+  parentId: string | null // folder id, or null for root
+  index: number           // position within the target container, top→bottom
+}
+
+export type LayerOpacityOperation = OperationBase & {
   type: 'layer_opacity'
-  userId: string
   layerId: string
   opacity: number       // 0–1
-  timestamp: number
+}
+
+export type LayerVisibilityOperation = OperationBase & {
+  type: 'layer_visibility'
+  layerId: string
+  visible: boolean
+}
+
+export type LayerRenameOperation = OperationBase & {
+  type: 'layer_rename'
+  layerId: string
+  name: string
+}
+
+export type LayerClearOperation = OperationBase & {
+  type: 'layer_clear'
+  layerId: string
+}
+
+export type LayerMergeOperation = OperationBase & {
+  type: 'layer_merge'
+  layerId: string       // id of the new merged layer
+  name: string
+  // Bottom→top, with each source's effective opacity captured at merge time
+  // so replay does not depend on later opacity changes.
+  sources: Array<{ id: string; opacity: number }>
+  parentId: string | null // where the merged layer lands
+  index: number
+}
+
+/** Teacher-only: marks the target operation `gone` for everyone. Not an undo —
+ *  it bypasses the author's history and cannot be redone (ADR 002 §6). */
+export type OperationRevokeOperation = OperationBase & {
+  type: 'operation_revoke'
+  targetOpId: string
 }
 
 export type Operation =
   | StrokeOperation
   | LayerAddOperation
+  | FolderAddOperation
   | LayerDeleteOperation
-  | LayerReorderOperation
+  | LayerMoveOperation
   | LayerOpacityOperation
+  | LayerVisibilityOperation
+  | LayerRenameOperation
+  | LayerClearOperation
+  | LayerMergeOperation
+  | OperationRevokeOperation
+
+/** An operation as constructed at the emission site, before identity and
+ *  ordering fields are stamped on. Distributes over the union. */
+export type OperationDraft = Operation extends infer O
+  ? O extends Operation ? Omit<O, 'id' | 'userId' | 'timestamp' | 'seq'> : never
+  : never
 
 // Socket events
 

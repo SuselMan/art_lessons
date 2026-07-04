@@ -127,7 +127,9 @@ export class DabSystem {
     const tiltNorm   = tiltMag / 90
     const aspectRatio = 1 + tiltNorm * tiltNorm * 2.0
     const angle      = tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
-    return { x, y, pressure, tiltX, tiltY, size, aspectRatio, angle }
+    // opacity is geometric-neutral here; the engine bakes the final value
+    // (preset × user opacity × speed) before rendering and recording
+    return { x, y, pressure, tiltX, tiltY, size, aspectRatio, angle, opacity: 1 }
   }
 }
 

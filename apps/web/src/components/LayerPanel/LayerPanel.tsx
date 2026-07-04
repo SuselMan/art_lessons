@@ -18,28 +18,27 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { LayerState, LayerFolder } from '@art-lessons/shared'
+import type { LayerState, OperationDraft } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import { Icon } from '../Icon'
 import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
 import { patchItem } from './utils'
-import { isFolder, parentOf, getVisibleOrder, collectDescendants, removeItems } from '../../lib/layers'
+import { isFolder, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder } from '../../lib/layers'
 import styles from './LayerPanel.module.css'
 
 export interface LayerPanelProps {
-  layerState:           LayerState
-  onChange:             Dispatch<SetStateAction<LayerState>>
-  onInitLayer:          (id: string) => void
-  onDestroyLayer:       (id: string) => void
-  onMergeLayers:        (ids: string[]) => Uint8Array
-  onRestoreLayerPixels: (id: string, pixels: Uint8Array) => void
-  open:                 boolean
-  onToggle:             () => void
+  layerState: LayerState
+  /** Local per-user view state only: selection, collapse, local lock. */
+  onChange:   Dispatch<SetStateAction<LayerState>>
+  /** Shared content changes go through the operation log (ADR 002). */
+  onOp:       (draft: OperationDraft) => void
+  open:       boolean
+  onToggle:   () => void
 }
 
 export function LayerPanel({
-  layerState, onChange, onInitLayer, onDestroyLayer, onMergeLayers, onRestoreLayerPixels,
+  layerState, onChange, onOp,
   open, onToggle,
 }: LayerPanelProps) {
   const { items, rootOrder, activeId, selectedIds } = layerState
@@ -66,24 +65,25 @@ export function LayerPanel({
   // ── item mutations ───────────────────────────────────────────────────────────
 
   const handleOpacity = useCallback((id: string, v: number) =>
-    onChange(patchItem(id, { opacity: v }))
-  , [onChange])
+    onOp({ type: 'layer_opacity', layerId: id, opacity: v })
+  , [onOp])
 
   const handleToggleLock = useCallback((id: string) =>
     onChange(patchItem(id, prev => ({ locked: !prev.locked })))
   , [onChange])
 
-  const handleToggleVisible = useCallback((id: string) =>
-    onChange(patchItem(id, prev => ({ visible: !prev.visible })))
-  , [onChange])
+  const handleToggleVisible = useCallback((id: string) => {
+    const item = items[id]
+    if (item) onOp({ type: 'layer_visibility', layerId: id, visible: !item.visible })
+  }, [items, onOp])
 
   const handleToggleCollapse = useCallback((id: string) =>
     onChange(patchItem(id, prev => isFolder(prev) ? { collapsed: !prev.collapsed } : {}))
   , [onChange])
 
   const handleRename = useCallback((id: string, name: string) =>
-    onChange(patchItem(id, { name }))
-  , [onChange])
+    onOp({ type: 'layer_rename', layerId: id, name })
+  , [onOp])
 
   // ── selection ────────────────────────────────────────────────────────────────
 
@@ -147,69 +147,47 @@ export function LayerPanel({
   const handleAddLayer = useCallback(() => {
     const newId = nanoid(8)
     const count = Object.values(layerState.items).filter(i => i.kind === 'layer').length
-    onInitLayer(newId)
-    onChange(p => ({
-      ...p,
-      items:     { ...p.items, [newId]: { kind: 'layer', id: newId, name: `Layer ${count + 1}`, opacity: 1, visible: true, locked: false } },
-      rootOrder: [newId, ...p.rootOrder],
-      activeId:  newId,
-      selectedIds: [],
-    }))
-  }, [layerState.items, onChange, onInitLayer])
+    onOp({ type: 'layer_add', layerId: newId, name: `Layer ${count + 1}` })
+    onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
+  }, [layerState.items, onChange, onOp])
 
   const handleAddFolder = useCallback(() => {
-    const newId = nanoid(8)
-    const folder: LayerFolder = { kind: 'folder', id: newId, name: 'Folder', opacity: 1, visible: true, locked: false, collapsed: false, children: [] }
-    onChange(p => ({
-      ...p,
-      items:     { ...p.items, [newId]: folder },
-      rootOrder: [newId, ...p.rootOrder],
-    }))
-  }, [onChange])
+    onOp({ type: 'folder_add', layerId: nanoid(8), name: 'Folder' })
+  }, [onOp])
 
   const handleDelete = useCallback((ids?: string[]) => {
     const targets = (ids ?? (selectedIds.length > 0 ? selectedIds : [activeId]))
       .filter(id => id !== BACKGROUND_LAYER_ID)
     if (!targets.length) return
 
+    // Resolve folder children at emission so replay never depends on what the
+    // folder contained at other moments in history.
     const idSet = new Set<string>()
     for (const id of targets) {
-      idSet.add(id)
       for (const d of collectDescendants(layerState, id)) idSet.add(d)
     }
 
-    for (const id of idSet) onDestroyLayer(id)
-    onChange(p => {
-      const { items: ni, rootOrder: nr } = removeItems(p, idSet)
-      const newAct = idSet.has(p.activeId)
-        ? (nr.find(x => x !== BACKGROUND_LAYER_ID) ?? BACKGROUND_LAYER_ID)
-        : p.activeId
-      return { ...p, items: ni, rootOrder: nr, activeId: newAct, selectedIds: [] }
-    })
-  }, [activeId, selectedIds, layerState, onChange, onDestroyLayer])
+    onOp({ type: 'layer_delete', layerIds: [...idSet] })
+    onChange(p => ({ ...p, selectedIds: [] }))
+  }, [activeId, selectedIds, layerState, onChange, onOp])
 
   // ── merge ────────────────────────────────────────────────────────────────────
 
-  const execMerge = useCallback((ids: string[]): string => {
-    const pixels = onMergeLayers(ids)
-    const newId  = nanoid(8)
-    onInitLayer(newId)
-    onRestoreLayerPixels(newId, pixels)
-    ids.forEach(id => onDestroyLayer(id))
-    return newId
-  }, [onInitLayer, onDestroyLayer, onMergeLayers, onRestoreLayerPixels])
+  const emitMerge = useCallback((ids: string[], name: string, parentId: string | null, index: number) => {
+    const newId = nanoid(8)
+    onOp({
+      type: 'layer_merge', layerId: newId, name,
+      sources: computeMergeOrder(layerState, ids),
+      parentId, index,
+    })
+    onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
+  }, [layerState, onChange, onOp])
 
   const handleMergeSelected = useCallback(() => {
     const ids = selectedIds.filter(id => id !== BACKGROUND_LAYER_ID && items[id]?.kind === 'layer')
     if (ids.length < 2) return
-    const idSet = new Set(ids)
-    const newId = execMerge(ids)
-    onChange(p => {
-      const { items: ni, rootOrder: nr } = removeItems(p, idSet)
-      ni[newId] = { kind: 'layer', id: newId, name: 'Merged', opacity: 1, visible: true, locked: false }
-      return { ...p, items: ni, rootOrder: [newId, ...nr], activeId: newId, selectedIds: [] }
-    })
-  }, [selectedIds, items, onChange, execMerge])
+    emitMerge(ids, 'Merged', null, 0)
+  }, [selectedIds, items, emitMerge])
 
   const handleMergeDown = useCallback((id?: string) => {
     const sourceId = id ?? activeId
@@ -220,25 +198,10 @@ export function LayerPanel({
     const idx = siblings.indexOf(sourceId)
     const belowId = siblings.slice(idx + 1).find(sid => items[sid]?.kind === 'layer' && sid !== BACKGROUND_LAYER_ID) ?? null
     if (idx < 0 || !belowId) return
-    const mergedName = `${items[sourceId].name} + ${items[belowId].name}`
-    const newId = execMerge([sourceId, belowId])
-    onChange(p => {
-      const { items: ni, rootOrder: nr } = removeItems(p, new Set([sourceId, belowId]))
-      ni[newId] = { kind: 'layer', id: newId, name: mergedName, opacity: 1, visible: true, locked: false }
-      // The merged layer takes the source's slot in its own container —
-      // inside the folder if the source lived there, at root otherwise.
-      if (containerId) {
-        const folder = ni[containerId]
-        if (!isFolder(folder)) return p // container vanished mid-update; bail
-        const ch = folder.children
-        const ins = Math.min(idx, ch.length)
-        ni[containerId] = { ...folder, children: [...ch.slice(0, ins), newId, ...ch.slice(ins)] }
-        return { ...p, items: ni, rootOrder: nr, activeId: newId, selectedIds: [] }
-      }
-      const ins = Math.min(idx, nr.length)
-      return { ...p, items: ni, rootOrder: [...nr.slice(0, ins), newId, ...nr.slice(ins)], activeId: newId, selectedIds: [] }
-    })
-  }, [activeId, layerState, rootOrder, items, onChange, execMerge])
+    // The merged layer takes the source's slot in its own container. Both
+    // removed ids sit at idx or later, so idx is already the post-removal index.
+    emitMerge([sourceId, belowId], `${items[sourceId].name} + ${items[belowId].name}`, containerId, idx)
+  }, [activeId, layerState, rootOrder, items, emitMerge])
 
   // ── context menu ─────────────────────────────────────────────────────────────
 
@@ -386,7 +349,7 @@ export function LayerPanel({
       ...remainingIds.slice(insertIndex),
     ]
 
-    const { rootOrder, items: nextItems } = reconstructHierarchy(workingIds, items)
+    const { rootOrder: nextOrder, items: nextItems } = reconstructHierarchy(workingIds, items)
 
     // Folders are one level deep — a folder can never end up as another
     // folder's child. This catches every path that could nest one (landing
@@ -400,8 +363,20 @@ export function LayerPanel({
       if (nested) return
     }
 
-    onChange(p => ({ ...p, rootOrder, items: nextItems }))
-  }, [items, onChange, computeInsertIndex])
+    // Reduce the reconstructed hierarchy to a delta: where did the dragged
+    // item land? A delta op keeps concurrent reorders composable — a full
+    // order list would let a later reorder swallow another user's undo.
+    let parentId: string | null = null
+    let index = nextOrder.indexOf(activeIdDnD)
+    for (const it of Object.values(nextItems)) {
+      if (isFolder(it) && it.children.includes(activeIdDnD)) {
+        parentId = it.id
+        index = it.children.indexOf(activeIdDnD)
+        break
+      }
+    }
+    onOp({ type: 'layer_move', layerId: activeIdDnD, parentId, index })
+  }, [items, onOp, computeInsertIndex])
 
   // ── toolbar state ────────────────────────────────────────────────────────────
 

@@ -2,12 +2,13 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { clamp } from 'lodash-es'
-import type { LayerState } from '@art-lessons/shared'
+import { nanoid } from 'nanoid'
+import type { LayerState, OperationDraft } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import { PencilEngine, type PencilEngineAPI } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { Icon } from '../../components/Icon'
-import { computeCompositeOrder, computeMergeOrder } from '../../lib/layers'
+import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
 import { useViewport } from './useViewport'
 import styles from './Room.module.css'
 
@@ -26,6 +27,8 @@ const PENCIL_TYPES = ['H', 'HB', '2B', '4B', '6B'] as const
 type PencilType = (typeof PENCIL_TYPES)[number]
 
 const INITIAL_LAYER_ID = 'layer-1'
+// Single-user id until auth lands (#41); the server will assign real ids.
+const LOCAL_USER_ID = 'local'
 
 function makeInitialLayerState(): LayerState {
   return {
@@ -79,6 +82,7 @@ export function Room() {
       pencilType: initialToolRef.current.pencil,
       size: initialToolRef.current.size,
       opacity: initialToolRef.current.opacity,
+      userId: LOCAL_USER_ID,
     })
     engineRef.current = engine
 
@@ -116,12 +120,35 @@ export function Room() {
     engineRef.current?.setViewport(rect.left + vp.cx, rect.top + vp.cy, vp.zoom, vp.angle)
   }, [vp, vpRef])
 
+  // ── operation log bridge ──────────────────────────────────────────────────────
+  // LayerState is derived: base room state + replay of done operations, with
+  // per-user view fields (selection, collapse, local lock) carried over.
+  const syncFromLog = useCallback(() => {
+    const ops = engineRef.current?.getOperations() ?? []
+    setLayerState(prev => overlayLocalFields(replayLayerState(makeInitialLayerState(), ops), prev))
+  }, [])
+
+  const dispatchOp = useCallback((draft: OperationDraft) => {
+    const op = { ...draft, id: nanoid(10), userId: LOCAL_USER_ID, timestamp: Date.now() }
+    engineRef.current?.appendOperation(op)
+    syncFromLog()
+  }, [syncFromLog])
+
+  const handleUndo = useCallback(() => {
+    if (engineRef.current?.undo()) syncFromLog()
+  }, [syncFromLog])
+
+  const handleRedo = useCallback(() => {
+    if (engineRef.current?.redo()) syncFromLog()
+  }, [syncFromLog])
+
   // ── keyboard shortcuts ────────────────────────────────────────────────────────
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && e.target.tagName === 'INPUT') return
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        engineRef.current?.undo(); e.preventDefault(); return
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        if (e.shiftKey) handleRedo(); else handleUndo()
+        e.preventDefault(); return
       }
       if (e.key === 'e' || e.key === 'E') { setTool(t => t === 'eraser' ? 'pencil' : 'eraser'); return }
       if (e.key === 'r' || e.key === 'R') { setVp(v => ({ ...v, angle: 0 })); return }
@@ -134,7 +161,7 @@ export function Room() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setActiveCfg, setVp])
+  }, [setActiveCfg, setVp, handleUndo, handleRedo])
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -144,26 +171,6 @@ export function Room() {
     a.href = url; a.download = `${config?.name ?? 'drawing'}.png`; a.click()
     URL.revokeObjectURL(url)
   }, [config])
-
-  // ── layer engine bridge ───────────────────────────────────────────────────────
-  const handleInitLayer = useCallback((id: string) => {
-    engineRef.current?.initLayer(id)
-  }, [])
-
-  const handleDestroyLayer = useCallback((id: string) => {
-    engineRef.current?.destroyLayer(id)
-  }, [])
-
-  const handleMergeLayers = useCallback((ids: string[]): Uint8Array => {
-    // layerStateRef still holds the pre-merge state here — the panel applies
-    // its state update after the engine round-trip.
-    const order = computeMergeOrder(layerStateRef.current, ids)
-    return engineRef.current?.mergeLayers(order) ?? new Uint8Array(0)
-  }, [])
-
-  const handleRestoreLayerPixels = useCallback((id: string, pixels: Uint8Array) => {
-    engineRef.current?.restoreLayerPixels(id, pixels)
-  }, [])
 
   // ─────────────────────────────────────────────────────────────────────────────
 
@@ -191,8 +198,11 @@ export function Room() {
             <Icon name="screen_rotation_alt" />
             {angleDeg}°
           </button>
-          <button className={styles.headerBtn} onClick={() => engineRef.current?.undo()} title="Undo  Ctrl+Z">
+          <button className={styles.headerBtn} onClick={handleUndo} title="Undo  Ctrl+Z">
             <Icon name="undo" /><span>Undo</span>
+          </button>
+          <button className={styles.headerBtn} onClick={handleRedo} title="Redo  Ctrl+Shift+Z">
+            <Icon name="redo" /><span>Redo</span>
           </button>
           <button className={styles.headerBtn} onClick={handleExport} title="Export PNG">
             <Icon name="download" /><span>Export</span>
@@ -291,10 +301,7 @@ export function Room() {
         <LayerPanel
           layerState={layerState}
           onChange={setLayerState}
-          onInitLayer={handleInitLayer}
-          onDestroyLayer={handleDestroyLayer}
-          onMergeLayers={handleMergeLayers}
-          onRestoreLayerPixels={handleRestoreLayerPixels}
+          onOp={dispatchOp}
           open={panelOpen}
           onToggle={() => setPanelOpen(o => !o)}
         />
