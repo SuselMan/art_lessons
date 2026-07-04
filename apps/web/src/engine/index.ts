@@ -7,6 +7,9 @@ import { AccumulationBuffer } from './src/AccumulationBuffer'
 import { DabSystem } from './src/DabSystem'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
+import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
+
+export { PENCIL_PRESETS, PENCIL_GRADES, type PencilGradeName, type PencilPreset }
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 
@@ -64,7 +67,6 @@ export interface PencilEngineAPI {
 
 // ─── Internal types ────────────────────────────────────────────────────────────
 
-interface PencilPreset { opacity: number; hardness: number; sizeMultiplier: number }
 interface EngineOpts {
   paper: PaperType
   pencilType: string
@@ -85,14 +87,6 @@ interface Checkpoint {
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-
-const PENCIL_PRESETS: Record<string, PencilPreset> = {
-  'H':  { opacity: 0.32, hardness: 0.55, sizeMultiplier: 0.85 },
-  'HB': { opacity: 0.48, hardness: 0.38, sizeMultiplier: 1.00 },
-  '2B': { opacity: 0.65, hardness: 0.25, sizeMultiplier: 1.10 },
-  '4B': { opacity: 0.80, hardness: 0.14, sizeMultiplier: 1.20 },
-  '6B': { opacity: 0.92, hardness: 0.08, sizeMultiplier: 1.35 },
-}
 
 const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
   rough:   [0.96, 0.94, 0.90],
@@ -648,7 +642,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!buf) return
 
     const erasing     = this._strokeTool === 'eraser'
-    const preset      = PENCIL_PRESETS[this._strokePreset] ?? PENCIL_PRESETS['HB']
+    const preset      = isPencilGrade(this._strokePreset) ? PENCIL_PRESETS[this._strokePreset] : PENCIL_PRESETS['HB']
     const speedFactor = Math.max(0.7, 1.0 - speed * 0.15)
     for (const dab of dabs) {
       dab.opacity = erasing
@@ -665,7 +659,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintDabs(buf: AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string): void {
     const { gl, canvas } = this
     const erasing = tool === 'eraser'
-    const preset  = PENCIL_PRESETS[presetName] ?? PENCIL_PRESETS['HB']
+    const preset  = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
 
     if (erasing) {
       buf.beginErase()

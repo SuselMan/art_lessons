@@ -142,23 +142,6 @@
   margin: 3px 0;
 }
 
-/* Pencil grade text buttons */
-.pencilBtn {
-  width: 100%;
-  height: 32px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-dim);
-  transition: background var(--duration-fast), color var(--duration-fast);
-}
-.pencilBtn:hover { background: var(--color-surface-2); color: var(--color-text); }
-.pencilBtnActive {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-  color: var(--color-accent);
-}
-
 /* Icon tool buttons */
 .toolIconBtn {
   width: 40px;
@@ -224,6 +207,29 @@
   font-family: var(--font-mono);
   color: var(--color-text-dim);
   line-height: 1;
+}
+
+/* Pencil grade slider — same vertical-slider language as size/opacity, just
+   taller (14 discrete steps) and with a text label instead of a number. */
+.gradeTrack {
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gradeSlider {
+  height: 108px;
+}
+
+.gradeLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.gradeLabelActive {
+  color: var(--color-accent);
 }
 
 /* ── Viewport ── */

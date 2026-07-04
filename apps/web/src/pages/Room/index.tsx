@@ -9,7 +9,7 @@ import type {
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
-import { PencilEngine, type PencilEngineAPI } from '../../engine'
+import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeName } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { Icon } from '../../components/Icon'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
@@ -47,9 +47,6 @@ function toRoomConfig(room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'canvasWi
 }
 
 interface ToolConfig { size: number; opacity: number }
-
-const PENCIL_TYPES = ['H', 'HB', '2B', '4B', '6B'] as const
-type PencilType = (typeof PENCIL_TYPES)[number]
 
 const INITIAL_LAYER_ID = 'layer-1'
 // Placeholder id until the socket connects and hands us the server-assigned
@@ -92,7 +89,7 @@ export function Room() {
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
   )
-  const [pencil,     setPencil]     = useState<PencilType>('HB')
+  const [pencil,     setPencil]     = useState<PencilGradeName>('HB')
   const [tool,       setTool]       = useState<'pencil' | 'eraser'>('pencil')
   const [pencilCfg,  setPencilCfg]  = useState<ToolConfig>({ size: 8,  opacity: 1.0 })
   const [eraserCfg,  setEraserCfg]  = useState<ToolConfig>({ size: 24, opacity: 1.0 })
@@ -476,7 +473,9 @@ export function Room() {
       }
       if (e.key === 'e' || e.key === 'E') { setTool(t => t === 'eraser' ? 'pencil' : 'eraser'); return }
       if (e.key === 'r' || e.key === 'R') { setVp(v => ({ ...v, angle: 0 })); return }
-      const map: Record<string, PencilType> = { '1':'H','2':'HB','3':'2B','4':'4B','5':'6B' }
+      // A representative spread across the full 6H-6B range, not all 14 grades —
+      // the grade slider below gives full-range access; these are just quick picks.
+      const map: Record<string, PencilGradeName> = { '1':'H','2':'HB','3':'2B','4':'4B','5':'6B' }
       if (map[e.key]) { setPencil(map[e.key]); setTool('pencil') }
       if (e.key === '[') setActiveCfg(c => ({ ...c, size: Math.max(1,   c.size - 1) }))
       if (e.key === ']') setActiveCfg(c => ({ ...c, size: Math.min(120, c.size + 1) }))
@@ -519,6 +518,8 @@ export function Room() {
   }
 
   const dotSize = clamp(activeCfg.size * vp.zoom * 0.5, 3, 36)
+  const gradePreset  = PENCIL_PRESETS[pencil]
+  const gradeDotSize = clamp(gradePreset.sizeMultiplier * 14, 6, 22)
 
   return (
     <div className={styles.editor}>
@@ -558,14 +559,23 @@ export function Room() {
         {/* ── Left toolbar ── */}
         <aside className={styles.toolbar}>
 
-          <div className={styles.toolSection}>
-            {PENCIL_TYPES.map(t => (
-              <button key={t}
-                className={clsx(styles.pencilBtn, tool === 'pencil' && pencil === t && styles.pencilBtnActive)}
-                onClick={() => { setPencil(t); setTool('pencil') }}
-                title={`${t} pencil`}
-              >{t}</button>
-            ))}
+          {/* Pencil grade — compact vertical slider over the full 6H-6B (+F) range.
+              Quick picks: number keys 1-5 jump to H / HB / 2B / 4B / 6B. */}
+          <div className={styles.sliderBlock} onClick={() => setTool('pencil')}>
+            <div className={styles.sliderPreview}>
+              <div className={styles.sizeDot}
+                style={{ width: gradeDotSize, height: gradeDotSize, opacity: gradePreset.opacity }} />
+            </div>
+            <div className={styles.gradeTrack}>
+              <input type="range" min={0} max={PENCIL_GRADES.length - 1} step={1}
+                value={PENCIL_GRADES.indexOf(pencil)}
+                onChange={e => { setPencil(PENCIL_GRADES[Number(e.target.value)]); setTool('pencil') }}
+                className={clsx(styles.vSlider, styles.gradeSlider)}
+                title={`Pencil grade: ${pencil}  (1-5 for quick picks)`} />
+            </div>
+            <span className={clsx(styles.sliderVal, styles.gradeLabel, tool === 'pencil' && styles.gradeLabelActive)}>
+              {pencil}
+            </span>
           </div>
 
           <div className={styles.toolDivider} />
