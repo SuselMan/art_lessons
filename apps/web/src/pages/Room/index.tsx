@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, useCallback, useReducer } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { io, type Socket } from 'socket.io-client'
 import clsx from 'clsx'
 import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
-  LayerState, OperationDraft, Operation, Participant,
+  LayerState, OperationDraft, Operation, Participant, Room as RoomEntity,
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
@@ -19,8 +19,10 @@ import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
+import { describeJoinError } from './joinError'
 import { PeerCursors, type PeerCursorPosition } from './PeerCursors'
 import { ParticipantsBar } from './ParticipantsBar'
+import { JoinGate } from './JoinGate'
 import styles from './Room.module.css'
 
 interface RoomConfig {
@@ -29,7 +31,19 @@ interface RoomConfig {
   paper: 'rough' | 'smooth' | 'bristol'
   width: number
   height: number
-  password: string | null
+}
+
+/** Navigation state CreateRoom hands off to a freshly created room (see
+ *  CreateRoom/index.tsx) — its presence is how this component tells "I am
+ *  the creator, opening my own room" apart from "I opened someone else's
+ *  room link" (no state at all, e.g. a second device). */
+interface CreatorNavState {
+  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'canvasWidth' | 'canvasHeight'>
+  password?: string
+}
+
+function toRoomConfig(room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'canvasWidth' | 'canvasHeight'>): RoomConfig {
+  return { id: room.id, name: room.name, paper: room.paper, width: room.canvasWidth, height: room.canvasHeight }
 }
 
 interface ToolConfig { size: number; opacity: number }
@@ -66,8 +80,18 @@ function makeInitialLayerState(): LayerState {
 export function Room() {
   const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const [config,     setConfig]     = useState<RoomConfig | null>(null)
+  // Captured once, at mount: CreateRoom hands the freshly-created room's
+  // config off via navigation state. A second device opening the same room
+  // link has no such state — that's the "joiner" branch, gated behind the
+  // join-gate form below until a successful join_room tells us who we are.
+  const [creatorDraft] = useState<CreatorNavState | undefined>(() => location.state as CreatorNavState | undefined)
+  const isCreator = !!creatorDraft?.room
+
+  const [config,     setConfig]     = useState<RoomConfig | null>(
+    () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
+  )
   const [pencil,     setPencil]     = useState<PencilType>('HB')
   const [tool,       setTool]       = useState<'pencil' | 'eraser'>('pencil')
   const [pencilCfg,  setPencilCfg]  = useState<ToolConfig>({ size: 8,  opacity: 1.0 })
@@ -92,9 +116,31 @@ export function Room() {
   const lastActiveAtRef   = useRef<Record<string, number>>({})
   const strokeActiveRef   = useRef(false)
   const lastCursorSentRef = useRef(0)
-  const [displayName]     = useState(() => getOrCreateDisplayName(localStorage))
+  const configRef         = useRef(config)
+  // A joiner's first room_state can arrive before the engine exists — we need
+  // that very event to learn `config` in the first place, and the engine only
+  // mounts once `config` is set (see the mount-engine effect below). Its
+  // operations/participants are stashed here and replayed once the engine is
+  // up, instead of being dropped.
+  const pendingSnapshotRef = useRef<{ operations: Operation[]; participants: Participant[] } | null>(null)
+  // Tracks whether create_room/join_room has ever succeeded on this socket
+  // connection's lineage, so a later auto-reconnect (socket.io's default
+  // behavior on a dropped connection) rejoins rather than re-creating the
+  // room or re-showing the join gate to an already-joined user.
+  const hasJoinedRef = useRef(false)
+  // The credentials a joiner's gate submission used, replayed verbatim on a
+  // later reconnect (a fresh socket id always means a fresh join — see the
+  // handleConnect reconnect branch below).
+  const lastJoinAttemptRef = useRef<{ name: string; password?: string } | null>(null)
+
+  // ── join gate state (joiner path only) ──────────────────────────────────────
+  const [joinName,       setJoinName]       = useState(() => getOrCreateDisplayName(localStorage))
+  const [joinPassword,   setJoinPassword]   = useState('')
+  const [joinError,      setJoinError]      = useState<string | null>(null)
+  const [joinSubmitting, setJoinSubmitting] = useState(false)
 
   layerStateRef.current = layerState
+  configRef.current     = config
 
   const activeCfg    = tool === 'pencil' ? pencilCfg : eraserCfg
   const setActiveCfg = tool === 'pencil' ? setPencilCfg : setEraserCfg
@@ -103,12 +149,13 @@ export function Room() {
   const vpValueRef = useRef(vp)
   vpValueRef.current = vp
 
-  // ── load config ───────────────────────────────────────────────────────────────
+  // ── require a room id ────────────────────────────────────────────────────────
+  // Config itself no longer loads here: the creator's is known synchronously
+  // from navigation state (see the `config` initializer above); a joiner's
+  // arrives asynchronously from the server once they submit the join gate and
+  // room_state comes back (see the socket-wiring effect below).
   useEffect(() => {
-    if (!id) { navigate('/create'); return }
-    const raw = localStorage.getItem(`room_${id}`)
-    if (!raw) { navigate('/create'); return }
-    setConfig(JSON.parse(raw))
+    if (!id) navigate('/create')
   }, [id, navigate])
 
   // Marks a user as "currently drawing" (#38) — a timestamp refreshed by local
@@ -117,6 +164,31 @@ export function Room() {
   const markActive = useCallback((activeUserId: string) => {
     lastActiveAtRef.current[activeUserId] = Date.now()
   }, [])
+
+  // ── operation log bridge ──────────────────────────────────────────────────────
+  // LayerState is derived: base room state + replay of done operations, with
+  // per-user view fields (selection, collapse, local lock) carried over.
+  // Defined here (rather than further down, closer to dispatchOp/handleUndo)
+  // because the mount-engine effect below needs it for pending-snapshot replay.
+  const syncFromLog = useCallback(() => {
+    const ops = engineRef.current?.getOperations() ?? []
+    setLayerState(prev => overlayLocalFields(replayLayerState(makeInitialLayerState(), ops), prev))
+  }, [])
+
+  // Applies an operation that arrived from the network (room_state replay or
+  // peer_operation) exactly once. The guard isn't full reconnect/catch-up
+  // logic (#74) — it's a minimal idempotency net: since a reconnect re-runs
+  // join_room and gets the *entire* history back in a fresh room_state,
+  // without this guard every op already applied before the drop would be
+  // appended to the engine's log a second time (OperationLog.append() does
+  // not dedupe by id — see engine/src/OperationLog.ts), corrupting pixel
+  // state and undo. It does not attempt to reconcile a divergent history.
+  const applyRemoteOp = useCallback((op: Operation) => {
+    if (appliedOpIdsRef.current.has(op.id)) return
+    appliedOpIdsRef.current.add(op.id)
+    engineRef.current?.appendOperation(op, 'remote')
+    if (op.type === 'stroke') markActive(op.userId)
+  }, [markActive])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -159,8 +231,22 @@ export function Room() {
     engine.setActiveLayer(ls.activeId)
     engine.setCompositeOrder(computeCompositeOrder(ls))
 
+    // Joiner path: the room_state that told us `config` (see the socket-wiring
+    // effect) arrived before the engine existed to apply its operations to —
+    // replay it now that it does. No-op for the creator, and for a joiner's
+    // reconnect (appliedOpIdsRef already dedupes across a fresh room_state
+    // reaching an already-mounted engine, but this path is specifically the
+    // one-time first mount).
+    const pending = pendingSnapshotRef.current
+    if (pending) {
+      pendingSnapshotRef.current = null
+      for (const op of pending.operations) applyRemoteOp(op)
+      syncFromLog()
+      dispatchParticipants({ type: 'room_state', participants: pending.participants })
+    }
+
     return () => { engine.destroy(); engineRef.current = null }
-  }, [config, markActive])
+  }, [config, markActive, applyRemoteOp, syncFromLog])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   useEffect(() => { engineRef.current?.setPencil(pencil) }, [pencil])
@@ -213,13 +299,8 @@ export function Room() {
   }, [config, vpRef])
 
   // ── operation log bridge ──────────────────────────────────────────────────────
-  // LayerState is derived: base room state + replay of done operations, with
-  // per-user view fields (selection, collapse, local lock) carried over.
-  const syncFromLog = useCallback(() => {
-    const ops = engineRef.current?.getOperations() ?? []
-    setLayerState(prev => overlayLocalFields(replayLayerState(makeInitialLayerState(), ops), prev))
-  }, [])
-
+  // (syncFromLog is defined above, alongside markActive, since the mount-engine
+  // effect needs it too — see the pending-snapshot replay there.)
   const dispatchOp = useCallback((draft: OperationDraft) => {
     const op = { ...draft, id: nanoid(10), userId: userIdRef.current, timestamp: Date.now() }
     engineRef.current?.appendOperation(op) // source defaults to 'local' → broadcast via onLocalOperation
@@ -233,21 +314,6 @@ export function Room() {
   const handleRedo = useCallback(() => {
     if (engineRef.current?.redo()) syncFromLog()
   }, [syncFromLog])
-
-  // Applies an operation that arrived from the network (room_state replay or
-  // peer_operation) exactly once. The guard isn't full reconnect/catch-up
-  // logic (#74) — it's a minimal idempotency net: since a reconnect re-runs
-  // join_room and gets the *entire* history back in a fresh room_state,
-  // without this guard every op already applied before the drop would be
-  // appended to the engine's log a second time (OperationLog.append() does
-  // not dedupe by id — see engine/src/OperationLog.ts), corrupting pixel
-  // state and undo. It does not attempt to reconcile a divergent history.
-  const applyRemoteOp = useCallback((op: Operation) => {
-    if (appliedOpIdsRef.current.has(op.id)) return
-    appliedOpIdsRef.current.add(op.id)
-    engineRef.current?.appendOperation(op, 'remote')
-    if (op.type === 'stroke') markActive(op.userId)
-  }, [markActive])
 
   // ── who's-drawing indicator (#38) ─────────────────────────────────────────────
   // Periodically prunes `lastActiveAtRef` (refreshed by markActive) into the
@@ -263,9 +329,13 @@ export function Room() {
     return () => window.clearInterval(t)
   }, [])
 
-  // ── socket wiring (#84/#37/#38) ────────────────────────────────────────────────
+  // ── socket wiring (#84/#37/#38/join-gate) ──────────────────────────────────────
+  // Runs once per room id, independent of `config` — a joiner doesn't have a
+  // config yet at connect time (that's the entire point of the join gate), so
+  // the socket has to exist before it does. What gets emitted on 'connect'
+  // branches on creator vs. joiner instead.
   useEffect(() => {
-    if (!config || !id) return
+    if (!id) return
 
     const socket: Socket<ServerToClientEvents, ClientToServerEvents> =
       io(`http://${window.location.hostname}:${SERVER_PORT}`)
@@ -273,25 +343,61 @@ export function Room() {
 
     // Fires on the initial connect *and* on every auto-reconnect (socket.io-
     // client's default behavior) — each (re)connect gets a fresh socket id,
-    // so identity is re-derived and the room re-joined every time. Rejoining
-    // after a drop is what gives us the "reasonable MVP" reconnect behavior
-    // called for by #84 (full catch-up/session-continuity is #74): the client
-    // resyncs from a fresh room_state rather than getting stuck. The known
-    // gap is identity churn — operations authored before a reconnect keep the
-    // old (now stale) userId, so this client's own undo can no longer reach
-    // them after reconnecting (#41 auth will give a stable identity).
+    // so identity is re-derived every time. Rejoining after a drop is what
+    // gives us the "reasonable MVP" reconnect behavior called for by #84
+    // (full catch-up/session-continuity is #74): the client resyncs from a
+    // fresh room_state rather than getting stuck. The known gap is identity
+    // churn — a fresh socket id is always a `student` (#41 known limitation),
+    // even for the room's own creator reconnecting, and operations authored
+    // before the drop keep the old (now stale) userId.
     const handleConnect = () => {
       if (socket.id) {
         userIdRef.current = socket.id
         engineRef.current?.setUserId(socket.id)
       }
       setConnected(true)
-      socket.emit('join_room', { roomId: id, name: displayName, password: config.password ?? undefined })
+
+      if (isCreator && creatorDraft) {
+        if (!hasJoinedRef.current) {
+          socket.emit('create_room', { room: creatorDraft.room, password: creatorDraft.password }, result => {
+            if (result.ok) hasJoinedRef.current = true
+            // Practically unreachable (would need a nanoid(8) id collision —
+            // see rooms.ts's createRoom doc comment); nothing sensible to
+            // retry into, so just surface it for debugging.
+            else console.error('create_room failed unexpectedly', result)
+          })
+        } else {
+          socket.emit(
+            'join_room',
+            { roomId: id, name: getOrCreateDisplayName(localStorage), password: creatorDraft.password },
+            result => { if (!result.ok) console.error('join_room failed on reconnect', result) },
+          )
+        }
+        return
+      }
+
+      // Joiner path: the first connect waits for the join-gate form to submit
+      // (see handleJoinSubmit). A later reconnect replays the same
+      // credentials automatically so an already-joined user isn't dropped
+      // back to the gate.
+      if (hasJoinedRef.current && lastJoinAttemptRef.current) {
+        socket.emit('join_room', { roomId: id, ...lastJoinAttemptRef.current }, result => {
+          if (!result.ok) console.error('join_room failed on reconnect', result)
+        })
+      }
     }
 
-    const handleRoomState = ({ operations, participants: roomParticipants }: {
-      operations: Operation[]; participants: Participant[]
+    const handleRoomState = ({ room, operations, participants: roomParticipants }: {
+      room: RoomEntity; operations: Operation[]; participants: Participant[]
     }) => {
+      if (!configRef.current) {
+        // Joiner's first snapshot: this is how we learn paper/canvas size —
+        // the engine doesn't exist yet to apply `operations` to, so stash them
+        // for the mount-engine effect to replay once it does.
+        pendingSnapshotRef.current = { operations, participants: roomParticipants }
+        setConfig(toRoomConfig(room))
+        return
+      }
       for (const op of operations) applyRemoteOp(op)
       syncFromLog()
       dispatchParticipants({ type: 'room_state', participants: roomParticipants })
@@ -335,7 +441,30 @@ export function Room() {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [config, id, displayName, syncFromLog, applyRemoteOp])
+  }, [id, isCreator, creatorDraft, syncFromLog, applyRemoteOp])
+
+  // Submits the join gate (joiner path only): connects/join_room's with the
+  // entered name + optional password. Kept separate from the socket-wiring
+  // effect above so it can run any time after the socket exists, in response
+  // to a user action rather than a connection lifecycle event.
+  const handleJoinSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = joinName.trim()
+    if (!trimmed) { setJoinError('Name is required'); return }
+    if (!id) return
+
+    setJoinError(null)
+    setJoinSubmitting(true)
+    const password = joinPassword || undefined
+    lastJoinAttemptRef.current = { name: trimmed, password }
+    socketRef.current?.emit('join_room', { roomId: id, name: trimmed, password }, result => {
+      setJoinSubmitting(false)
+      if (!result.ok) { setJoinError(describeJoinError(result.error)); return }
+      hasJoinedRef.current = true
+      // room_state (already wired above) populates `config` from here, which
+      // unmounts the gate in favor of the editor.
+    })
+  }, [id, joinName, joinPassword])
 
   // ── keyboard shortcuts ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -369,7 +498,25 @@ export function Room() {
 
   // ─────────────────────────────────────────────────────────────────────────────
 
-  if (!config) return null
+  if (!config) {
+    // Creator's config is known synchronously (see the `config` initializer
+    // above), so reaching here with `isCreator` true would mean navigation
+    // state was lost — nothing sensible to render but not this component's
+    // job to redirect (CreateRoom already sent us here deliberately).
+    if (isCreator) return null
+    return (
+      <JoinGate
+        roomName={null}
+        name={joinName}
+        onNameChange={setJoinName}
+        password={joinPassword}
+        onPasswordChange={setJoinPassword}
+        error={joinError}
+        submitting={joinSubmitting}
+        onSubmit={handleJoinSubmit}
+      />
+    )
+  }
 
   const dotSize = clamp(activeCfg.size * vp.zoom * 0.5, 3, 36)
 

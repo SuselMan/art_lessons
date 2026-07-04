@@ -2,7 +2,7 @@ import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@art-lessons/shared'
 
-import { getParticipant, getRoomSnapshot, joinRoom, leaveRoom, recordOperation } from './rooms.js'
+import { createRoom, getParticipant, getRoomSnapshot, joinRoom, leaveRoom, recordOperation } from './rooms.js'
 
 /** Per-connection state. There's no auth yet (#41), so the server assigns
  *  `userId` from the Socket.IO connection id at join time and treats it as
@@ -19,9 +19,39 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   io.on('connection', (socket) => {
     log.info({ socketId: socket.id }, 'socket connected')
 
-    socket.on('join_room', ({ roomId, name }, ack?: () => void) => {
+    // Registers a brand-new room and seats the caller as its `teacher` (#39
+    // fix: ownership is now fixed at creation time, not "whoever joins
+    // first"). `create_room`'s wire payload carries no participant name
+    // (unlike `join_room`) — that's how the shared contract was defined, so
+    // the owner gets a fixed label until #41 (real auth/identity) lands.
+    socket.on('create_room', ({ room, password }, ack) => {
       const userId = socket.id
-      const participant = joinRoom(roomId, userId, name)
+      // No one else is in the room yet, so there's no peer_joined broadcast
+      // to make — unlike join_room below, the returned participant is unused.
+      createRoom(room, password, userId, 'Teacher')
+      socket.data.roomId = room.id
+      socket.data.userId = userId
+
+      // Same ordering guarantee as join_room below (#36): join the Socket.IO
+      // room and emit the snapshot synchronously, before yielding back to the
+      // event loop, so nothing else can interleave between them.
+      socket.join(room.id)
+      const snapshot = getRoomSnapshot(room.id)
+      if (snapshot) socket.emit('room_state', snapshot)
+
+      log.info({ socketId: socket.id, roomId: room.id, userId }, 'socket created room')
+      ack({ ok: true })
+    })
+
+    socket.on('join_room', ({ roomId, name, password }, ack) => {
+      const userId = socket.id
+      const result = joinRoom(roomId, userId, name, password)
+      if (!result.ok) {
+        log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')
+        ack(result)
+        return
+      }
+
       socket.data.roomId = roomId
       socket.data.userId = userId
 
@@ -34,11 +64,12 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // snapshot read happens before that relay's write, so nothing is
       // double-delivered or lost.
       socket.join(roomId)
-      socket.emit('room_state', getRoomSnapshot(roomId))
-      socket.to(roomId).emit('peer_joined', participant)
+      const snapshot = getRoomSnapshot(roomId)
+      if (snapshot) socket.emit('room_state', snapshot)
+      socket.to(roomId).emit('peer_joined', result.participant)
 
-      log.info({ socketId: socket.id, roomId, userId, role: participant.role }, 'socket joined room')
-      ack?.()
+      log.info({ socketId: socket.id, roomId, userId, role: result.participant.role }, 'socket joined room')
+      ack({ ok: true })
     })
 
     // Operation relay (#34/#35): broadcast to every other socket in the room
