@@ -26,6 +26,7 @@
 
 - Do not commit unless explicitly asked; stage and report status instead.
 - Exception: on `dev` and on isolated agent worktree branches (see "Multi-agent parallel workflow" below), atomic commits are pre-approved. This does not apply to `master`/`main` — commits and merges there always require explicit confirmation from Ilya.
+- Commit message subject lines start with the GitHub issue they belong to, e.g. `#86: add full pencil grade range`. If a commit isn't tied to a tracked issue (ad-hoc fix, chore, infra tweak), just write a normal message — do not invent or attach a fake issue number to satisfy the format.
 
 ## Branch model: master / dev / agents
 
