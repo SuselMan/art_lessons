@@ -26,7 +26,9 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // the owner gets a fixed label until #41 (real auth/identity) lands.
     socket.on('create_room', ({ room, password }, ack) => {
       const userId = socket.id
-      const { participant } = createRoom(room, password, userId, 'Teacher')
+      // No one else is in the room yet, so there's no peer_joined broadcast
+      // to make — unlike join_room below, the returned participant is unused.
+      createRoom(room, password, userId, 'Teacher')
       socket.data.roomId = room.id
       socket.data.userId = userId
 

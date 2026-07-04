@@ -76,11 +76,15 @@ export function CreateRoom() {
     }
 
     const id = nanoid(8)
-    localStorage.setItem(`room_${id}`, JSON.stringify({
-      id, name, paper, width, height,
-      password: usePassword && password ? password : null,
-    }))
-    navigate(`/room/${id}`)
+    // Handed to Room via navigation state (not localStorage) so it reaches
+    // only this tab/browser — a joiner opening the same room link on another
+    // device has no creator state and goes through the join gate instead.
+    navigate(`/room/${id}`, {
+      state: {
+        room: { id, name, paper, canvasWidth: width, canvasHeight: height },
+        password: usePassword && password ? password : undefined,
+      },
+    })
   }
 
   return (
