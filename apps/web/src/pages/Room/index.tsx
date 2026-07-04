@@ -9,7 +9,7 @@ import type {
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
-import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeName } from '../../engine'
+import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { Icon } from '../../components/Icon'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
@@ -85,6 +85,11 @@ export function Room() {
   // join-gate form below until a successful join_room tells us who we are.
   const [creatorDraft] = useState<CreatorNavState | undefined>(() => location.state as CreatorNavState | undefined)
   const isCreator = !!creatorDraft?.room
+
+  // Device performance investigation (#91) — add ?debug=1 to the room URL to
+  // show a live per-stroke input/render timing readout. No effect otherwise.
+  const debugEnabled = new URLSearchParams(location.search).get('debug') === '1'
+  const [strokeStats, setStrokeStats] = useState<StrokeDebugStats | null>(null)
 
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
@@ -205,6 +210,8 @@ export function Room() {
         socketRef.current?.emit('operation', op)
         if (op.type === 'stroke') markActive(userIdRef.current)
       },
+      debug: debugEnabled,
+      onStrokeDebugStats: debugEnabled ? setStrokeStats : undefined,
     })
     engineRef.current = engine
 
@@ -243,7 +250,7 @@ export function Room() {
     }
 
     return () => { engine.destroy(); engineRef.current = null }
-  }, [config, markActive, applyRemoteOp, syncFromLog])
+  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   useEffect(() => { engineRef.current?.setPencil(pencil) }, [pencil])
@@ -666,6 +673,24 @@ export function Room() {
         />
 
       </div>
+
+      {/* Device performance readout (#91) — ?debug=1 only. Shows the last
+          completed stroke's real input-sample rate and paint cost, so a
+          tablet with no attached devtools can still report hard numbers. */}
+      {debugEnabled && (
+        <div className={styles.debugOverlay}>
+          {strokeStats ? (
+            <>
+              <div>events: {strokeStats.moveEvents} over {strokeStats.durationMs.toFixed(0)}ms</div>
+              <div>gap: avg {strokeStats.avgGapMs.toFixed(1)}ms / max {strokeStats.maxGapMs.toFixed(1)}ms</div>
+              <div>dabs: {strokeStats.dabCount}</div>
+              <div>render: {strokeStats.renderMsTotal.toFixed(1)}ms total / {strokeStats.avgRenderMsPerDab.toFixed(2)}ms per dab</div>
+            </>
+          ) : (
+            <div>draw a stroke to see stats</div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

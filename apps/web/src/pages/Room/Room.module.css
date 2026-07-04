@@ -459,3 +459,20 @@
   opacity: 0.6;
   cursor: default;
 }
+
+/* Device performance readout (#91), ?debug=1 only */
+.debugOverlay {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  z-index: 1000;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #0f0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+  white-space: nowrap;
+}
