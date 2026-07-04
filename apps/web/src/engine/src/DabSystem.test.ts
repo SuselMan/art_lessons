@@ -207,3 +207,97 @@ describe('DabSystem centripetal Catmull-Rom (#91)', () => {
     expect(newDeviation).toBeLessThan(oldDeviation * 0.9)
   })
 })
+
+describe('DabSystem.forkForPreview (#92 pointer prediction)', () => {
+  it('feeding a wrong prediction into the fork never affects the original instance', () => {
+    // `real` is fed real points and, at one point, forked and fed a wildly
+    // wrong "predicted" point that a naive implementation might accidentally
+    // let leak into the original's `_buf`/`_remainder`. `control` is fed the
+    // exact same real points and never forked/predicted at all — if `real`
+    // truly never mutated, continuing both with the same next real point
+    // must produce identical dabs.
+    const baseSize = 20
+    const real    = new DabSystem()
+    const control = new DabSystem()
+
+    real.startStroke(0, 0, 1, 0, 0, baseSize)
+    control.startStroke(0, 0, 1, 0, 0, baseSize)
+    real.continueStroke(20, 0, 1, 0, 0, baseSize)
+    control.continueStroke(20, 0, 1, 0, 0, baseSize)
+    real.continueStroke(40, 0, 1, 0, 0, baseSize)
+    control.continueStroke(40, 0, 1, 0, 0, baseSize)
+
+    // Fork off `real` and feed it a bogus predicted point far off the path.
+    const fork = real.forkForPreview()
+    const predictedDabs = fork.continueStroke(1000, -900, 1, 0, 0, baseSize)
+    expect(predictedDabs.length).toBeGreaterThan(0)
+    // Sanity: the wrong prediction actually perturbed the fork's output away
+    // from the (perfectly straight, y=0) real path — it only bends the
+    // tangent at the segment's far endpoint (1-event lag, see the file-level
+    // comment on DabSystem), so the deviation is small, but it must be
+    // nonzero, otherwise this test would not be exercising anything
+    // meaningful.
+    expect(predictedDabs.some(d => Math.abs(d.y) > 0.01)).toBe(true)
+
+    // Now feed both `real` and `control` the same genuine next point.
+    const realDabs    = real.continueStroke(60, 0, 1, 0, 0, baseSize)
+    const controlDabs = control.continueStroke(60, 0, 1, 0, 0, baseSize)
+
+    expect(realDabs.length).toBe(controlDabs.length)
+    expect(realDabs.length).toBeGreaterThan(0)
+    for (let i = 0; i < realDabs.length; i++) {
+      expect(realDabs[i].x).toBeCloseTo(controlDabs[i].x, 9)
+      expect(realDabs[i].y).toBeCloseTo(controlDabs[i].y, 9)
+    }
+
+    // Also confirm `endStroke` (which reads the same internal buffer) agrees
+    // between the two instances, as a second, independent check that no
+    // fork-side state leaked into `real`.
+    const realEnd    = real.endStroke(baseSize)
+    const controlEnd = control.endStroke(baseSize)
+    expect(realEnd.length).toBe(controlEnd.length)
+    for (let i = 0; i < realEnd.length; i++) {
+      expect(realEnd[i].x).toBeCloseTo(controlEnd[i].x, 9)
+      expect(realEnd[i].y).toBeCloseTo(controlEnd[i].y, 9)
+    }
+  })
+
+  it('the fork starts from the same state as the original at fork time', () => {
+    // If a fork is fed the exact point the original would have received next
+    // (i.e. the "prediction" happens to be perfectly correct), it must
+    // produce exactly the dabs the original would have produced — proving
+    // the fork's cloned _buf/_remainder faithfully represents the original's
+    // state at the moment of forking, not some stale or empty state.
+    const baseSize = 15
+    const a = new DabSystem()
+    const b = new DabSystem()
+
+    a.startStroke(5, 5, 0.8, 1, 2, baseSize)
+    b.startStroke(5, 5, 0.8, 1, 2, baseSize)
+    a.continueStroke(25, 8, 0.8, 1, 2, baseSize)
+    b.continueStroke(25, 8, 0.8, 1, 2, baseSize)
+    a.continueStroke(48, 20, 0.8, 1, 2, baseSize)
+    b.continueStroke(48, 20, 0.8, 1, 2, baseSize)
+
+    const fork = a.forkForPreview()
+    const forkDabs = fork.continueStroke(70, 35, 0.8, 1, 2, baseSize)
+    const bDabs    = b.continueStroke(70, 35, 0.8, 1, 2, baseSize)
+
+    expect(forkDabs.length).toBe(bDabs.length)
+    expect(forkDabs.length).toBeGreaterThan(0)
+    for (let i = 0; i < forkDabs.length; i++) {
+      expect(forkDabs[i].x).toBeCloseTo(bDabs[i].x, 9)
+      expect(forkDabs[i].y).toBeCloseTo(bDabs[i].y, 9)
+    }
+
+    // And `a` itself must still be exactly where it was before forking —
+    // continuing it with the same point independently confirms `a`'s state
+    // was untouched by creating (or using) the fork.
+    const aDabs = a.continueStroke(70, 35, 0.8, 1, 2, baseSize)
+    expect(aDabs.length).toBe(bDabs.length)
+    for (let i = 0; i < aDabs.length; i++) {
+      expect(aDabs[i].x).toBeCloseTo(bDabs[i].x, 9)
+      expect(aDabs[i].y).toBeCloseTo(bDabs[i].y, 9)
+    }
+  })
+})

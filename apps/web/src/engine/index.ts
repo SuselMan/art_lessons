@@ -40,6 +40,19 @@ export interface PencilEngineOptions {
   // Diagnostic only, for device performance investigation (e.g. #91).
   debug?: boolean
   onStrokeDebugStats?: (stats: StrokeDebugStats) => void
+  // Speculative preview of PointerEvent.getPredictedEvents() samples (#92):
+  // when true, forecasted dabs are painted into a separate, stroke-scoped
+  // preview buffer that's blended on top of the real composite in
+  // _display() — purely visual, to reduce perceived pen lag on devices with
+  // a low pointer-sampling rate. Predictions are fed through a non-mutating
+  // fork of the live DabSystem (DabSystem.forkForPreview()) and are never
+  // appended to _strokeDabs / the recorded Operation and never reach
+  // onLocalOperation — a wrong prediction must never corrupt this user's
+  // stroke history or be broadcast to peers. Off by default: mirrors the
+  // `debug` option's guard pattern exactly, so this is zero-cost when off
+  // (PointerInput never even calls getPredictedEvents() unless this is
+  // enabled — see the constructor).
+  predictPointer?: boolean
 }
 
 export interface StrokeDebugStats {
@@ -143,6 +156,15 @@ export class PencilEngine implements PencilEngineAPI {
   private _dbgDabCount = 0
   private _dbgRenderMs = 0
 
+  // Pointer-prediction preview (#92) — all no-ops unless _predictPointer is
+  // true. _previewBuf is a dedicated, stroke-scoped AccumulationBuffer (not
+  // any layer's real buffer): created on stroke start, repainted from scratch
+  // on every real move, and destroyed on stroke end, so a wrong prediction
+  // never survives past the stroke it was guessed for and never touches
+  // permanent pixel state.
+  private _predictPointer: boolean
+  private _previewBuf: AccumulationBuffer | null = null
+
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
   private _dispProg!: WebGLProgram
@@ -204,6 +226,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._onLocalOperation = options.onLocalOperation
     this._debug = options.debug ?? false
     this._onStrokeDebugStats = options.onStrokeDebugStats
+    this._predictPointer = options.predictPointer ?? false
 
     this._initGL()
     this._initPaper(this._opts.paper)
@@ -228,6 +251,13 @@ export class PencilEngine implements PencilEngineAPI {
       .on('start', e => this._onStart(e))
       .on('move',  e => this._onMove(e))
       .on('end',   e => this._onEnd(e))
+
+    // Only registered when enabled — PointerInput never calls
+    // getPredictedEvents() unless a 'predict' handler exists (see
+    // PointerInput._handleMove), so this is zero-cost when off.
+    if (this._predictPointer) {
+      this._pointer.onPredict(samples => this._onPredict(samples))
+    }
 
     this._raf = requestAnimationFrame(() => this._display())
   }
@@ -401,6 +431,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._pointer.destroy()
     this._layers.forEach(buf => buf.destroy())
     this._compositeFBO.destroy()
+    this._previewBuf?.destroy()
+    this._previewBuf = null
     this._checkpoints = []
     this._checkpointBytes = 0
   }
@@ -636,6 +668,10 @@ export class PencilEngine implements PencilEngineAPI {
       this._dbgDabCount = 0
       this._dbgRenderMs = 0
     }
+    if (this._predictPointer) {
+      this._previewBuf = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
+      this._previewBuf.clear()
+    }
     const dabs = this._dabs.startStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     this._paintStrokeDabs(dabs, e.speed)
     this._display()
@@ -665,12 +701,46 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
+  // Speculative pointer-prediction preview (#92). Fires at most once per
+  // native pointermove, after the real move handler above has already run
+  // for that event (see PointerInput._handleMove) — so `this._dabs` already
+  // reflects the latest *real* point by the time we fork it here. Forks
+  // fresh from the real DabSystem every call and discards the fork
+  // afterwards: predicted points are fed through the fork's continueStroke
+  // so they get the same spline/spacing treatment as real dabs, but the
+  // fork's mutations (its own scratch `_buf`/`_remainder`) never reach the
+  // real `this._dabs`. Painted into `_previewBuf` only — never into any
+  // layer's real buffer, never appended to `_strokeDabs`, so predictions can
+  // never reach the recorded Operation or onLocalOperation/broadcast.
+  private _onPredict(samples: PointerData[]): void {
+    if (!this._strokeLayerId || !this._previewBuf) return
+    this._previewBuf.clear()
+    if (!samples.length) { this._display(); return }
+
+    const fork = this._dabs.forkForPreview()
+    const dabs: Dab[] = []
+    for (const s of samples) {
+      dabs.push(...fork.continueStroke(s.x, s.y, s.pressure, s.tiltX, s.tiltY, this._physicalSize))
+    }
+    if (dabs.length) {
+      this._bakeDabOpacity(dabs, samples[samples.length - 1].speed)
+      this._paintDabs(this._previewBuf, dabs, this._strokeTool, this._strokePreset)
+    }
+    this._display()
+  }
+
   private _onEnd(e: PointerData): void {
     const layerId = this._strokeLayerId
     if (!layerId) return
     const t0 = this._debug ? performance.now() : 0
     const dabs = this._dabs.endStroke(this._physicalSize)
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed)
+    // Discard the speculative preview entirely once the real stroke has
+    // ended — the final _display() below must show only real content.
+    if (this._previewBuf) {
+      this._previewBuf.destroy()
+      this._previewBuf = null
+    }
     this._display()
     if (this._debug) {
       this._dbgRenderMs += performance.now() - t0
@@ -702,14 +772,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._handlers.strokeEnd?.(e)
   }
 
-  /** Bakes final dab opacity (preset × user opacity × speed), paints, and
-   *  buffers the dabs for the StrokeOperation recorded on pointer up. Live
-   *  strokes and replay share _paintDabs, so replay is pixel-identical. */
-  private _paintStrokeDabs(dabs: Dab[], speed: number): void {
-    if (!dabs.length || !this._strokeLayerId) return
-    const buf = this._layers.get(this._strokeLayerId)
-    if (!buf) return
-
+  /** Bakes final dab opacity (preset × user opacity × speed) in place. Shared
+   *  by the real stroke path and the #92 prediction preview, so predicted
+   *  dabs render with visually consistent opacity to real ones. */
+  private _bakeDabOpacity(dabs: Dab[], speed: number): void {
     const erasing     = this._strokeTool === 'eraser'
     const preset      = isPencilGrade(this._strokePreset) ? PENCIL_PRESETS[this._strokePreset] : PENCIL_PRESETS['HB']
     const speedFactor = Math.max(0.7, 1.0 - speed * 0.15)
@@ -718,7 +784,19 @@ export class PencilEngine implements PencilEngineAPI {
         ? this._opts.opacity
         : preset.opacity * this._opts.opacity * speedFactor
     }
+  }
 
+  /** Bakes final dab opacity, paints, and buffers the dabs for the
+   *  StrokeOperation recorded on pointer up. Live strokes and replay share
+   *  _paintDabs, so replay is pixel-identical. Real dabs only — #92's
+   *  predicted dabs go through _onPredict → _previewBuf instead and must
+   *  never reach this method (that's what keeps them out of _strokeDabs). */
+  private _paintStrokeDabs(dabs: Dab[], speed: number): void {
+    if (!dabs.length || !this._strokeLayerId) return
+    const buf = this._layers.get(this._strokeLayerId)
+    if (!buf) return
+
+    this._bakeDabOpacity(dabs, speed)
     this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset)
     this._strokeDabs.push(...dabs)
   }
@@ -820,6 +898,13 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
     this._runComposite(this._compositeOrder, this._compositeFBO.fbo)
+
+    // #92 speculative preview: blended on top of the real composite, same
+    // (ONE, ONE_MINUS_SRC_ALPHA) blend as AccumulationBuffer.beginDraw() —
+    // visual only, never written into any layer's real buffer.
+    if (this._previewBuf) {
+      this._compositeTextures([{ texture: this._previewBuf.texture, opacity: 1 }], this._compositeFBO.fbo)
+    }
 
     const paperColor    = PAPER_COLORS[this._opts.paper]
     const graphiteColor = this._opts.graphiteColor

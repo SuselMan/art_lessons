@@ -94,6 +94,14 @@ export function Room() {
     || new URLSearchParams(location.search).get('debug') === '1'
   const [strokeStats, setStrokeStats] = useState<StrokeDebugStats | null>(null)
 
+  // Optional pointer-prediction experiment (#92) — same launch-time-flag
+  // pattern as debugEnabled above (VITE_PREDICT_POINTER in
+  // apps/web/.env.local, gitignored, or ?predict=1 on the room URL as a
+  // fallback). Off by default; lets Ilya A/B it on real hardware before
+  // deciding whether to keep it.
+  const predictEnabled = import.meta.env.VITE_PREDICT_POINTER === 'true'
+    || new URLSearchParams(location.search).get('predict') === '1'
+
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
   )
@@ -215,6 +223,7 @@ export function Room() {
       },
       debug: debugEnabled,
       onStrokeDebugStats: debugEnabled ? setStrokeStats : undefined,
+      predictPointer: predictEnabled,
     })
     engineRef.current = engine
 
@@ -253,7 +262,7 @@ export function Room() {
     }
 
     return () => { engine.destroy(); engineRef.current = null }
-  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled])
+  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   useEffect(() => { engineRef.current?.setPencil(pencil) }, [pencil])

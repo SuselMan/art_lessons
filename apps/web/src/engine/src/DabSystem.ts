@@ -60,6 +60,22 @@ export class DabSystem {
     this._remainder = 0
   }
 
+  // Non-mutating fork for speculative pointer prediction (#92): clones the
+  // current control-point buffer and arc-length remainder into a fresh
+  // DabSystem so predicted points can be fed through the exact same spline/
+  // spacing math (for visual consistency with real dabs) without ever
+  // touching this instance's `_buf`/`_remainder`. A wrong prediction must
+  // never corrupt the curve fit used for the next *real* segment — the
+  // caller is expected to discard the fork after use (typically once per
+  // pointermove, re-forking fresh from the real, now-updated state each
+  // time) rather than keep feeding it more real points.
+  forkForPreview(): DabSystem {
+    const fork = new DabSystem({ spacingFactor: this.spacingFactor })
+    fork._buf = this._buf.map(p => ({ ...p }))
+    fork._remainder = this._remainder
+    return fork
+  }
+
   // Returns first dab; subsequent segment rendering is deferred by 1 event.
   startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number): Dab[] {
     this._reset()
