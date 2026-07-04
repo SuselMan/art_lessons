@@ -15,9 +15,51 @@
 
 - Before finishing a task run `npm run typecheck` and `npm run lint` and fix all issues.
 
+## Dev server hygiene
+
+- Before starting `npm run dev` in the background, check whether something is already listening on the port you're about to use (`Get-NetTCPConnection -State Listen`) — don't blindly stack a new instance on top of a stray one.
+- Track the PID of any dev server you start in the background for the current task.
+- Kill it explicitly (`taskkill //PID <pid> //F` or equivalent) once you're done testing with it — don't leave it running "just in case." A background `npm run dev` that outlives its task is the default failure mode to watch for here, since ports pile up across sessions/agents and the next session then binds to a different port and gets confused about which one is live.
+- If you start a dev server for one worktree/branch, kill it before switching to test a different branch's dev server — don't let two instances of the same app fight over similar ports.
+
 ## Git workflow
 
 - Do not commit unless explicitly asked; stage and report status instead.
+- Exception: on isolated agent worktree branches (see "Multi-agent parallel workflow" below), atomic commits are pre-approved. This does not apply to `master`/`main` — commits and merges there always require explicit confirmation from Ilya.
+
+## Multi-agent parallel workflow
+
+We parallelize work across isolated Claude Code sessions ("agents"), coordinated by the main session ("manager"). Agents do not talk to each other directly — all coordination goes through the manager.
+
+- The manager assigns tasks from GitHub Issues, one task per agent session.
+- Each task runs in its own git worktree on a dedicated branch: `agents/<issue-number>-<slug>`.
+- One agent session = one `area:*` label (e.g. `area:ui` → frontend agent, `area:server` → backend agent). Don't mix areas in one agent session.
+- Changes to `packages/shared` (the contract between frontend and backend) are made by the manager only, in a separate small PR, *before* dependent frontend/backend tasks are handed out. Agents never edit `packages/shared` themselves.
+- An agent must stop and report to the manager if a task requires touching files outside its declared area, instead of proceeding.
+- Agents commit atomically after each logical step, with a clear commit message — not only once at the end. This makes interrupted work resumable (see below).
+- If an agent session is interrupted (rate limit, crash, closed terminal), work is not restarted from scratch: a new session on the same branch reads the issue plus `git log`/`git diff` since the last commit and continues from there.
+- Before presenting an agent's branch to Ilya for review, the manager runs `npm run typecheck` and `npm run lint` on that branch and fixes what it can.
+- Merging an agent branch into `master` happens only after Ilya explicitly reviews and approves it. No automatic merges, ever.
+- After a branch is merged, its worktree and branch are deleted.
+
+### Resuming after a break (new manager session)
+
+The manager cannot assume it remembers a prior conversation — a new session may start with no chat history. State must be reconstructed from durable sources, not recalled:
+
+1. Run `git worktree list` and `git branch --list 'agents/*'` to see which agent branches currently exist.
+2. For each one, check `git log` on that branch to see how far it got.
+3. Cross-reference with GitHub Issues (open/closed, labels, comments) to see which issues those branches correspond to and what's still pending review or merge.
+4. Only after this reconstruction, report status to Ilya and decide next steps — do not guess or ask Ilya to re-explain what was already recorded in git/GitHub.
+
+### Testing (QA pass before showing Ilya)
+
+Before a frontend/backend agent branch goes to Ilya for review, the manager (or a dedicated tester agent) runs a browser-driven QA pass so Ilya reviews working software, not something to debug:
+
+1. Start the dev server for that worktree (`npm run dev`, LAN host already on per project config).
+2. At the start of any session that will do browser testing, do one `navigate` to the local dev URL to confirm the claude-in-chrome extension has site access for that origin. If it's blocked asking for a one-time site permission, stop and ask Ilya to grant it in the extension once — this is a Chrome-extension-level permission, separate from Claude Code's own tool permissions, and it should persist after being granted once, so this should rarely trigger.
+3. Drive the feature described in the issue end-to-end (happy path + one realistic edge case) using the `run`/`verify` skills rather than ad-hoc scripts. Check console messages for errors.
+4. If a bug turns up, fix it on the agent branch before handing off — don't hand Ilya a broken build to discover.
+5. Report to Ilya what was tested and how (steps + result), not just "looks good."
 
 ## Task & Issue Workflow
 
