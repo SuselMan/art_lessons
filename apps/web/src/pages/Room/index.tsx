@@ -86,9 +86,12 @@ export function Room() {
   const [creatorDraft] = useState<CreatorNavState | undefined>(() => location.state as CreatorNavState | undefined)
   const isCreator = !!creatorDraft?.room
 
-  // Device performance investigation (#91) — add ?debug=1 to the room URL to
-  // show a live per-stroke input/render timing readout. No effect otherwise.
-  const debugEnabled = new URLSearchParams(location.search).get('debug') === '1'
+  // Device performance investigation (#91) — shows a live per-stroke input/
+  // render timing readout. Controlled by a launch-time flag (VITE_DEBUG_OVERLAY
+  // in apps/web/.env.local, gitignored — set once, applies to every room with
+  // no per-URL param needed) or, as a fallback, ?debug=1 on the room URL.
+  const debugEnabled = import.meta.env.VITE_DEBUG_OVERLAY === 'true'
+    || new URLSearchParams(location.search).get('debug') === '1'
   const [strokeStats, setStrokeStats] = useState<StrokeDebugStats | null>(null)
 
   const [config,     setConfig]     = useState<RoomConfig | null>(
