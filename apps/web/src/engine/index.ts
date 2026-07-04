@@ -216,9 +216,27 @@ export class PencilEngine implements PencilEngineAPI {
 
   // ─── Operation log API ───────────────────────────────────────────────────────
 
-  /** Appends an externally built operation (layer panel now; network in #33)
-   *  and applies its pixel/buffer side effects. Local strokes are recorded
-   *  internally on pointer up and must not be passed here. */
+  /** Appends any externally built operation — from the layer panel, or from
+   *  another participant once #31/network wiring lands (`peer_operation` /
+   *  `room_state.operations`, see `packages/shared`) — and applies its
+   *  pixel/buffer side effects. This *is* #33's `applyOperation`: every
+   *  `Operation` variant is handled generically here regardless of who
+   *  authored it or where it came from, so a hand-built op that simulates a
+   *  peer's message applies exactly like one built locally. Local strokes are
+   *  recorded internally on pointer up and must not be passed here.
+   *
+   *  This method only maintains pixel/buffer state. The structural half
+   *  (LayerState: which layers/folders exist, their order, opacity, etc.) is
+   *  a pure derivation from `getOperations()` — see `replayLayerState` /
+   *  `applyContentOp` in `lib/layers.ts`, which is equally origin-agnostic —
+   *  and is re-run by the caller after appending (see Room's `syncFromLog`).
+   *
+   *  Ops that reference a not-yet-known layer/folder id (e.g. a `stroke`
+   *  before its `layer_add`, or a `layer_merge` source with no buffer) are
+   *  silently skipped rather than throwing: correctness here assumes the log
+   *  is applied in its true total order (the server-assigned `seq`), which
+   *  ordered delivery guarantees; out-of-order delivery is a transport
+   *  concern for the networking layer, not this method. */
   appendOperation(op: Operation): void {
     this._log.append(op)
     switch (op.type) {
