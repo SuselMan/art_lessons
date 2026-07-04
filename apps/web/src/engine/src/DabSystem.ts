@@ -1,5 +1,6 @@
 // Converts a pointer path into a series of brush dabs spaced along the stroke.
-// Uses Catmull-Rom spline with 1-event lag for true C1 continuity (no kinks at sample points).
+// Uses a centripetal Catmull-Rom spline (see #91) with 1-event lag for true
+// C1 continuity (no kinks at sample points).
 //
 // Why 1-event lag:
 //   To render segment P1→P2 smoothly we need actual P3 (not extrapolated).
@@ -16,6 +17,32 @@ interface ControlPoint {
   tiltX: number
   tiltY: number
 }
+
+// --- Centripetal Catmull-Rom parameterization (see #91) --------------------
+// Plain/uniform Catmull-Rom gives every segment the same unit knot interval
+// regardless of how far apart its control points actually are in space.
+// Pointer input is sampled at a fixed time-rate, so a fast stroke (e.g. a
+// quick round spiral) produces widely, *unevenly* spaced points relative to
+// slower parts of the same stroke. Uniform parameterization handles uneven
+// spacing poorly: the fitted curve under-curves across the wide gaps between
+// sparse fast-stroke samples, so a genuinely smooth, continuously-curving
+// path ends up looking like a faceted polyline with rounded-off corners —
+// not because any point is a real corner, but because the tangent estimate
+// at each point is a poor fit when neighboring segment lengths differ a lot.
+//
+// Centripetal parameterization (knot spacing proportional to |ΔP|^alpha,
+// alpha = 0.5) is the standard, well-established fix for exactly this
+// problem (Yuksel, Schaefer & Keyser 2011, "On the Parameterization of
+// Catmull-Rom Curves"): centripetal curves provably never form cusps or
+// self-intersections for any control-point configuration, and — because the
+// tangent formula below is invariant to uniform rescaling of the knot
+// values — this reduces to *exactly* today's fixed-tangent behavior whenever
+// the four points happen to already be evenly spaced. alpha = 0 would be
+// today's uniform parameterization; alpha = 1 ("chordal") overcorrects and
+// re-introduces its own overshoot on some configurations — 0.5 is the
+// standard middle ground.
+const CENTRIPETAL_ALPHA = 0.5
+const MIN_KNOT_DELTA = 1e-6 // guards divide-by-zero if two control points coincide
 
 export class DabSystem {
   spacingFactor: number
@@ -79,6 +106,11 @@ export class DabSystem {
   }
 
   private _splineDabs(p0: ControlPoint, p1: ControlPoint, p2: ControlPoint, p3: ControlPoint, baseSize: number): Dab[] {
+    // Centripetal tangents at the segment's two endpoints (see #91 constants
+    // above). These reduce algebraically to the standard fixed Catmull-Rom
+    // tangents (P2-P0)/2 and (P3-P1)/2 whenever p0..p3 are evenly spaced.
+    const { m1, m2 } = centripetalTangents(p0, p1, p2, p3)
+
     // Arc-length lookup table for uniform dab spacing along the curve
     const STEPS = 16
     const samples: Array<{ t: number; len: number; x: number; y: number }> = [{ t: 0, len: 0, x: p1.x, y: p1.y }]
@@ -86,7 +118,7 @@ export class DabSystem {
 
     for (let i = 1; i <= STEPS; i++) {
       const t = i / STEPS
-      const pos = crPos(p0, p1, p2, p3, t)
+      const pos = hermitePos(p1, p2, m1, m2, t)
       const prev = samples[i - 1]
       totalLen += Math.hypot(pos.x - prev.x, pos.y - prev.y)
       samples.push({ t, len: totalLen, x: pos.x, y: pos.y })
@@ -107,11 +139,11 @@ export class DabSystem {
       const frac = s1.len > s0.len ? (arcPos - s0.len) / (s1.len - s0.len) : 0
       const t = s0.t + frac * (s1.t - s0.t)
 
-      const pos      = crPos(p0, p1, p2, p3, t)
+      const pos      = hermitePos(p1, p2, m1, m2, t)
       const pressure = clamp(crScalar(p0.pressure, p1.pressure, p2.pressure, p3.pressure, t), 0, 1)
       const tiltX    = crScalar(p0.tiltX, p1.tiltX, p2.tiltX, p3.tiltX, t)
       const tiltY    = crScalar(p0.tiltY, p1.tiltY, p2.tiltY, p3.tiltY, t)
-      const tan      = crTangent(p0, p1, p2, p3, t)
+      const tan      = hermiteTangent(p1, p2, m1, m2, t)
 
       dabs.push(this._makeDab(pos.x, pos.y, pressure, tiltX, tiltY, baseSize, Math.atan2(tan.y, tan.x)))
       arcPos += spacing
@@ -138,23 +170,66 @@ function mirrorBefore(p1: ControlPoint, p2: ControlPoint): ControlPoint {
   return { x: 2 * p1.x - p2.x, y: 2 * p1.y - p2.y, pressure: p1.pressure, tiltX: p1.tiltX, tiltY: p1.tiltY }
 }
 
-function crPos(p0: ControlPoint, p1: ControlPoint, p2: ControlPoint, p3: ControlPoint, t: number): { x: number; y: number } {
-  const t2 = t * t, t3 = t2 * t
-  return {
-    x: 0.5 * ((2*p1.x) + (-p0.x+p2.x)*t + (2*p0.x-5*p1.x+4*p2.x-p3.x)*t2 + (-p0.x+3*p1.x-3*p2.x+p3.x)*t3),
-    y: 0.5 * ((2*p1.y) + (-p0.y+p2.y)*t + (2*p0.y-5*p1.y+4*p2.y-p3.y)*t2 + (-p0.y+3*p1.y-3*p2.y+p3.y)*t3),
-  }
-}
-
-function crTangent(p0: ControlPoint, p1: ControlPoint, p2: ControlPoint, p3: ControlPoint, t: number): { x: number; y: number } {
-  const t2 = t * t
-  return {
-    x: 0.5 * ((-p0.x+p2.x) + 2*(2*p0.x-5*p1.x+4*p2.x-p3.x)*t + 3*(-p0.x+3*p1.x-3*p2.x+p3.x)*t2),
-    y: 0.5 * ((-p0.y+p2.y) + 2*(2*p0.y-5*p1.y+4*p2.y-p3.y)*t + 3*(-p0.y+3*p1.y-3*p2.y+p3.y)*t2),
-  }
-}
-
 function crScalar(a: number, b: number, c: number, d: number, t: number): number {
   const t2 = t * t, t3 = t2 * t
   return 0.5 * ((2*b) + (-a+c)*t + (2*a-5*b+4*c-d)*t2 + (-a+3*b-3*c+d)*t3)
+}
+
+// Knot interval between two consecutive control points, per CENTRIPETAL_ALPHA.
+function knotDelta(a: ControlPoint, b: ControlPoint): number {
+  const dist = Math.hypot(b.x - a.x, b.y - a.y)
+  return Math.max(MIN_KNOT_DELTA, dist ** CENTRIPETAL_ALPHA)
+}
+
+// Non-uniform (centripetal) Catmull-Rom tangents at p1 and p2, derived from
+// the actual knot spacing t0..t3 rather than assuming t = 0,1,2,3. Standard
+// formula (Yuksel et al. 2011):
+//   m1 = (t2-t1) * [ (p1-p0)/(t1-t0) - (p2-p0)/(t2-t0) + (p2-p1)/(t2-t1) ]
+//   m2 = (t2-t1) * [ (p2-p1)/(t2-t1) - (p3-p1)/(t3-t1) + (p3-p2)/(t3-t2) ]
+// This is scale-invariant under uniform rescaling of the knot values, so
+// when p0..p3 are evenly spaced (t_i = i * k for any k) it reduces exactly
+// to the fixed Catmull-Rom tangents (p2-p0)/2 and (p3-p1)/2.
+function centripetalTangents(p0: ControlPoint, p1: ControlPoint, p2: ControlPoint, p3: ControlPoint): { m1: { x: number; y: number }; m2: { x: number; y: number } } {
+  const t1 = knotDelta(p0, p1)
+  const t2 = t1 + knotDelta(p1, p2)
+  const t3 = t2 + knotDelta(p2, p3)
+  // t0 = 0
+  const d10 = t1, d20 = t2, d21 = t2 - t1, d31 = t3 - t1, d32 = t3 - t2
+
+  const m1 = {
+    x: d21 * ((p1.x - p0.x) / d10 - (p2.x - p0.x) / d20 + (p2.x - p1.x) / d21),
+    y: d21 * ((p1.y - p0.y) / d10 - (p2.y - p0.y) / d20 + (p2.y - p1.y) / d21),
+  }
+  const m2 = {
+    x: d21 * ((p2.x - p1.x) / d21 - (p3.x - p1.x) / d31 + (p3.x - p2.x) / d32),
+    y: d21 * ((p2.y - p1.y) / d21 - (p3.y - p1.y) / d31 + (p3.y - p2.y) / d32),
+  }
+  return { m1, m2 }
+}
+
+// Cubic Hermite basis, parameterized by endpoint positions p1/p2 and their
+// tangents m1/m2 (parameterization-agnostic: works for both the plain fixed
+// Catmull-Rom tangent and the centripetal one computed above).
+function hermitePos(p1: ControlPoint, p2: ControlPoint, m1: { x: number; y: number }, m2: { x: number; y: number }, t: number): { x: number; y: number } {
+  const t2 = t * t, t3 = t2 * t
+  const h00 = 2*t3 - 3*t2 + 1
+  const h10 = t3 - 2*t2 + t
+  const h01 = -2*t3 + 3*t2
+  const h11 = t3 - t2
+  return {
+    x: h00*p1.x + h10*m1.x + h01*p2.x + h11*m2.x,
+    y: h00*p1.y + h10*m1.y + h01*p2.y + h11*m2.y,
+  }
+}
+
+function hermiteTangent(p1: ControlPoint, p2: ControlPoint, m1: { x: number; y: number }, m2: { x: number; y: number }, t: number): { x: number; y: number } {
+  const t2 = t * t
+  const dh00 = 6*t2 - 6*t
+  const dh10 = 3*t2 - 4*t + 1
+  const dh01 = -6*t2 + 6*t
+  const dh11 = 3*t2 - 2*t
+  return {
+    x: dh00*p1.x + dh10*m1.x + dh01*p2.x + dh11*m2.x,
+    y: dh00*p1.y + dh10*m1.y + dh01*p2.y + dh11*m2.y,
+  }
 }
