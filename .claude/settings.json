@@ -1,6 +1,13 @@
 {
   "permissions": {
     "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "Bash",
+      "PowerShell",
       "Bash(npm run typecheck *)",
       "Bash(npm run lint *)",
       "mcp__claude-in-chrome__read_console_messages",
@@ -12,7 +19,9 @@
       "mcp__claude-in-chrome__navigate",
       "mcp__claude-in-chrome__computer",
       "mcp__claude-in-chrome__tabs_create_mcp",
-      "mcp__claude-in-chrome__get_page_text"
+      "mcp__claude-in-chrome__get_page_text",
+      "Bash(mkdir -p /c/Users/Ilya/.claude/plans)",
+      "mcp__github__list_issues"
     ],
     "ask": [
       "Bash(git push)",
