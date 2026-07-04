@@ -1,6 +1,8 @@
 import { useCallback, useRef } from 'react'
 import { clamp } from 'lodash-es'
 
+import { TAP_MOVE_THRESHOLD_PX } from './tapThreshold'
+
 interface DragToAdjustOptions {
   min: number
   max: number
@@ -18,7 +20,7 @@ interface DragToAdjustOptions {
 export function useDragToAdjust(
   value: number,
   onChange: (value: number) => void,
-  { min, max, sensitivity, threshold = 4 }: DragToAdjustOptions,
+  { min, max, sensitivity, threshold = TAP_MOVE_THRESHOLD_PX }: DragToAdjustOptions,
 ) {
   const valueRef = useRef(value)
   valueRef.current = value
