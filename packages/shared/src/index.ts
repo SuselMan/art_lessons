@@ -191,8 +191,14 @@ export type OperationDraft = Operation extends infer O
 
 // Socket events
 
+/** Result of a `create_room`/`join_room` attempt. `not_found` means no room
+ *  has been registered under that id (create_room was never called for it,
+ *  or the server restarted — no persistence yet, #74); `wrong_password`
+ *  means the room exists but the supplied password didn't match. */
+export type JoinResult = { ok: true } | { ok: false; error: 'not_found' | 'wrong_password' }
+
 export type ServerToClientEvents = {
-  room_state: (state: { operations: Operation[]; participants: Participant[] }) => void
+  room_state: (state: { room: Room; operations: Operation[]; participants: Participant[] }) => void
   peer_operation: (op: Operation) => void
   peer_cursor: (data: { userId: string; x: number; y: number }) => void
   peer_joined: (participant: Participant) => void
@@ -200,7 +206,14 @@ export type ServerToClientEvents = {
 }
 
 export type ClientToServerEvents = {
-  join_room: (data: { roomId: string; password?: string; name: string }) => void
+  /** Registers a new room and joins the calling socket as its `teacher` —
+   *  the room's `ownerId` is fixed to this socket's connection, deterministic
+   *  regardless of when other participants subsequently call `join_room`. */
+  create_room: (
+    data: { room: Pick<Room, 'id' | 'name' | 'paper' | 'canvasWidth' | 'canvasHeight'>; password?: string },
+    ack: (result: JoinResult) => void,
+  ) => void
+  join_room: (data: { roomId: string; password?: string; name: string }, ack: (result: JoinResult) => void) => void
   operation: (op: Operation) => void
   cursor_move: (data: { x: number; y: number }) => void
 }
