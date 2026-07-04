@@ -7,7 +7,7 @@ import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import { PencilEngine, type PencilEngineAPI } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { Icon } from '../../components/Icon'
-import { computeCompositeOrder } from '../../lib/layers'
+import { computeCompositeOrder, computeMergeOrder } from '../../lib/layers'
 import { useViewport } from './useViewport'
 import styles from './Room.module.css'
 
@@ -155,7 +155,10 @@ export function Room() {
   }, [])
 
   const handleMergeLayers = useCallback((ids: string[]): Uint8Array => {
-    return engineRef.current?.mergeLayers(ids) ?? new Uint8Array(0)
+    // layerStateRef still holds the pre-merge state here — the panel applies
+    // its state update after the engine round-trip.
+    const order = computeMergeOrder(layerStateRef.current, ids)
+    return engineRef.current?.mergeLayers(order) ?? new Uint8Array(0)
   }, [])
 
   const handleRestoreLayerPixels = useCallback((id: string, pixels: Uint8Array) => {

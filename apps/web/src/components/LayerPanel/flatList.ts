@@ -67,7 +67,15 @@ export function reconstructHierarchy(
   const newItems = { ...prevItems }
   for (const [fid, ch] of Object.entries(childrenByFolder)) {
     const folder = newItems[fid]
-    if (folder && isFolder(folder)) newItems[fid] = { ...folder, children: ch }
+    if (!folder || !isFolder(folder)) continue
+    // A collapsed folder's children are not rendered, so they never appear in
+    // flatIds. Merge the scanned ids (anything dropped between the header and
+    // the sentinel lands on top) with the existing children instead of
+    // replacing them — otherwise any drag would wipe a collapsed folder.
+    const children = folder.collapsed
+      ? [...ch, ...folder.children.filter(c => !ch.includes(c))]
+      : ch
+    newItems[fid] = { ...folder, children }
   }
 
   return { rootOrder, items: newItems }

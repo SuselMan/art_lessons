@@ -39,19 +39,50 @@ export function collectDescendants(state: LayerState, id: string): string[] {
   return out
 }
 
-export function computeCompositeOrder(state: LayerState): { id: string; opacity: number }[] {
+/** Walks the hierarchy bottom→top and returns raster layers with effective
+ *  (folder × layer) opacity. `includeHidden` keeps invisible items in the list. */
+function orderedLayers(state: LayerState, includeHidden: boolean): { id: string; opacity: number }[] {
   const result: { id: string; opacity: number }[] = []
   for (const id of [...state.rootOrder].reverse()) {
     const item = state.items[id]
-    if (!item || !item.visible) continue
+    if (!item || !(includeHidden || item.visible)) continue
     if (isFolder(item)) {
       for (const cid of [...item.children].reverse()) {
         const child = state.items[cid]
-        if (child?.visible) result.push({ id: cid, opacity: item.opacity * child.opacity })
+        if (child && (includeHidden || child.visible))
+          result.push({ id: cid, opacity: item.opacity * child.opacity })
       }
     } else {
       result.push({ id, opacity: item.opacity })
     }
   }
   return result
+}
+
+export function computeCompositeOrder(state: LayerState): { id: string; opacity: number }[] {
+  return orderedLayers(state, false)
+}
+
+/** Bottom→top order of the given layers for merging. Hidden layers are
+ *  included — a merge destroys its sources, so their pixels must be baked
+ *  into the result rather than silently dropped. */
+export function computeMergeOrder(state: LayerState, ids: string[]): { id: string; opacity: number }[] {
+  const idSet = new Set(ids)
+  return orderedLayers(state, true).filter(entry => idSet.has(entry.id))
+}
+
+/** Removes the given ids everywhere: from the items map, from rootOrder and
+ *  from every folder's children. */
+export function removeItems(
+  state: LayerState,
+  ids: ReadonlySet<string>,
+): Pick<LayerState, 'items' | 'rootOrder'> {
+  const items: LayerState['items'] = {}
+  for (const [id, item] of Object.entries(state.items)) {
+    if (ids.has(id)) continue
+    items[id] = isFolder(item) && item.children.some(c => ids.has(c))
+      ? { ...item, children: item.children.filter(c => !ids.has(c)) }
+      : item
+  }
+  return { items, rootOrder: state.rootOrder.filter(id => !ids.has(id)) }
 }

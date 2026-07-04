@@ -24,7 +24,7 @@ import { Icon } from '../Icon'
 import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
 import { patchItem } from './utils'
-import { isFolder, parentOf, getVisibleOrder, collectDescendants } from '../../lib/layers'
+import { isFolder, parentOf, getVisibleOrder, collectDescendants, removeItems } from '../../lib/layers'
 import styles from './LayerPanel.module.css'
 
 export interface LayerPanelProps {
@@ -119,6 +119,7 @@ export function LayerPanel({
   }, [onChange])
 
   const handlePointerDown = useCallback((id: string) => {
+    if (id === BACKGROUND_LAYER_ID) return // background never joins multi-select
     if (longPressRef.current) window.clearTimeout(longPressRef.current.timer)
     longPressRef.current = {
       id,
@@ -179,16 +180,7 @@ export function LayerPanel({
 
     for (const id of idSet) onDestroyLayer(id)
     onChange(p => {
-      const ni = { ...p.items }
-      for (const id of idSet) {
-        const fid = parentOf(p, id)
-        if (fid) {
-          const f = p.items[fid]
-          if (isFolder(f)) ni[fid] = { ...f, children: f.children.filter(c => !idSet.has(c)) }
-        }
-        delete ni[id]
-      }
-      const nr = p.rootOrder.filter(x => !idSet.has(x))
+      const { items: ni, rootOrder: nr } = removeItems(p, idSet)
       const newAct = idSet.has(p.activeId)
         ? (nr.find(x => x !== BACKGROUND_LAYER_ID) ?? BACKGROUND_LAYER_ID)
         : p.activeId
@@ -208,42 +200,43 @@ export function LayerPanel({
   }, [onInitLayer, onDestroyLayer, onMergeLayers, onRestoreLayerPixels])
 
   const handleMergeSelected = useCallback(() => {
-    const ids = selectedIds.filter(id => items[id]?.kind === 'layer')
+    const ids = selectedIds.filter(id => id !== BACKGROUND_LAYER_ID && items[id]?.kind === 'layer')
     if (ids.length < 2) return
     const idSet = new Set(ids)
     const newId = execMerge(ids)
     onChange(p => {
-      const ni = { ...p.items }
-      for (const id of ids) {
-        const fid = parentOf(p, id)
-        if (fid) {
-          const f = p.items[fid]
-          if (isFolder(f)) ni[fid] = { ...f, children: f.children.filter(c => !idSet.has(c)) }
-        }
-        delete ni[id]
-      }
+      const { items: ni, rootOrder: nr } = removeItems(p, idSet)
       ni[newId] = { kind: 'layer', id: newId, name: 'Merged', opacity: 1, visible: true, locked: false }
-      return { ...p, items: ni, rootOrder: [newId, ...p.rootOrder.filter(x => !idSet.has(x))], activeId: newId, selectedIds: [] }
+      return { ...p, items: ni, rootOrder: [newId, ...nr], activeId: newId, selectedIds: [] }
     })
   }, [selectedIds, items, onChange, execMerge])
 
   const handleMergeDown = useCallback((id?: string) => {
     const sourceId = id ?? activeId
     if (!sourceId || sourceId === BACKGROUND_LAYER_ID) return
-    const containerId = parentOf(layerState, sourceId) ?? '__root__'
-    const siblings = containerId === '__root__' ? rootOrder : (items[containerId] as LayerFolder | undefined)?.children ?? []
+    const containerId = parentOf(layerState, sourceId)
+    const container = containerId ? items[containerId] : null
+    const siblings = container && isFolder(container) ? container.children : rootOrder
     const idx = siblings.indexOf(sourceId)
-    const belowId = siblings.slice(idx + 1).find(id => items[id]?.kind === 'layer' && id !== BACKGROUND_LAYER_ID) ?? null
+    const belowId = siblings.slice(idx + 1).find(sid => items[sid]?.kind === 'layer' && sid !== BACKGROUND_LAYER_ID) ?? null
     if (idx < 0 || !belowId) return
     const mergedName = `${items[sourceId].name} + ${items[belowId].name}`
     const newId = execMerge([sourceId, belowId])
     onChange(p => {
-      const ni = { ...p.items }
-      delete ni[sourceId]; delete ni[belowId]
+      const { items: ni, rootOrder: nr } = removeItems(p, new Set([sourceId, belowId]))
       ni[newId] = { kind: 'layer', id: newId, name: mergedName, opacity: 1, visible: true, locked: false }
-      const filtered = p.rootOrder.filter(x => x !== sourceId && x !== belowId)
-      const ins = Math.min(idx, filtered.length)
-      return { ...p, items: ni, rootOrder: [...filtered.slice(0, ins), newId, ...filtered.slice(ins)], activeId: newId, selectedIds: [] }
+      // The merged layer takes the source's slot in its own container —
+      // inside the folder if the source lived there, at root otherwise.
+      if (containerId) {
+        const folder = ni[containerId]
+        if (!isFolder(folder)) return p // container vanished mid-update; bail
+        const ch = folder.children
+        const ins = Math.min(idx, ch.length)
+        ni[containerId] = { ...folder, children: [...ch.slice(0, ins), newId, ...ch.slice(ins)] }
+        return { ...p, items: ni, rootOrder: nr, activeId: newId, selectedIds: [] }
+      }
+      const ins = Math.min(idx, nr.length)
+      return { ...p, items: ni, rootOrder: [...nr.slice(0, ins), newId, ...nr.slice(ins)], activeId: newId, selectedIds: [] }
     })
   }, [activeId, layerState, rootOrder, items, onChange, execMerge])
 
@@ -302,9 +295,10 @@ export function LayerPanel({
   }, [])
 
   const onDragStart = useCallback((e: DragStartEvent) => {
+    handlePointerUp() // a started drag is not a long-press — cancel the pending select
     setDragId(String(e.active.id))
     setDragOverFolderId(null)
-  }, [])
+  }, [handlePointerUp])
 
   // Build the contiguous block of ids that moves together with `id`. For a
   // folder this is the header, its visible children, and its bottom sentinel;
@@ -411,7 +405,7 @@ export function LayerPanel({
 
   // ── toolbar state ────────────────────────────────────────────────────────────
 
-  const canMergeSelected = selectedIds.filter(id => items[id]?.kind === 'layer').length >= 2
+  const canMergeSelected = selectedIds.filter(id => id !== BACKGROUND_LAYER_ID && items[id]?.kind === 'layer').length >= 2
   const canMergeDown     = !canMergeSelected
     && activeItem?.kind === 'layer'
     && activeId !== BACKGROUND_LAYER_ID

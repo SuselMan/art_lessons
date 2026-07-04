@@ -31,7 +31,7 @@ export interface PencilEngineAPI {
   setActiveLayer(id: string): void
   setLocked(locked: boolean): void
   setCompositeOrder(items: CompositeItem[]): void
-  mergeLayers(ids: string[]): Uint8Array
+  mergeLayers(items: CompositeItem[]): Uint8Array
   restoreLayerPixels(id: string, pixels: Uint8Array): void
   setPaper(type: PaperType): void
   setPencil(type: string): void
@@ -186,14 +186,14 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
   }
 
-  mergeLayers(ids: string[]): Uint8Array {
+  // Takes an explicit bottom→top list rather than filtering _compositeOrder:
+  // the composite order only holds visible layers, and a merge must bake in
+  // hidden sources too — they get destroyed afterwards.
+  mergeLayers(items: CompositeItem[]): Uint8Array {
     const { gl, canvas } = this
-    const idSet = new Set(ids)
-    const toMerge = this._compositeOrder.filter(item => idSet.has(item.id))
-
     const temp = new AccumulationBuffer(gl, canvas.width, canvas.height)
     temp.clear()
-    this._runComposite(toMerge, temp.fbo)
+    this._runComposite(items, temp.fbo)
 
     const pixels = temp.readPixels()
     temp.destroy()
