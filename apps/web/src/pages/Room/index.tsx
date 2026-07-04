@@ -13,8 +13,10 @@ import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, type PencilEngineAPI, type
 import { LayerPanel } from '../../components/LayerPanel'
 import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
+import { PrecisionSlider } from '../../components/PrecisionSlider'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
 import { getFeatureFlag } from '../../lib/featureFlags'
+import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { useViewport } from './useViewport'
 import { participantsReducer } from './participants'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
@@ -160,6 +162,15 @@ export function Room() {
   const { vp, setVp, vpRef, fitCanvas, angleDeg, canvasTransform } = useViewport(config)
   const vpValueRef = useRef(vp)
   vpValueRef.current = vp
+
+  // Drag up/down on the zoom label to adjust zoom without a two-finger pinch
+  // (#97); a plain click still resets to 100%, mirroring angleLabel's
+  // click-to-reset-rotation below.
+  const { onPointerDown: onZoomDragDown } = useDragToAdjust(
+    vp.zoom,
+    z => setVp(v => ({ ...v, zoom: clamp(z, 0.04, 20) })),
+    { min: 0.04, max: 20, sensitivity: 0.01 },
+  )
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
@@ -554,7 +565,14 @@ export function Room() {
             <Icon name="settings" />
           </button>
           <ParticipantsBar participants={participants} drawingIds={drawingIds} connected={connected} />
-          <span className={styles.zoomLabel}>{Math.round(vp.zoom * 100)}%</span>
+          <button
+            className={styles.zoomLabel}
+            onPointerDown={onZoomDragDown}
+            onClick={() => setVp(v => ({ ...v, zoom: 1 }))}
+            title="Zoom — drag up/down to adjust, click to reset to 100%"
+          >
+            {Math.round(vp.zoom * 100)}%
+          </button>
           <button
             className={clsx(styles.angleLabel, angleDeg !== 0 && styles.angleLabelActive)}
             onClick={() => setVp(v => ({ ...v, angle: 0 }))}
@@ -590,10 +608,12 @@ export function Room() {
                 style={{ width: gradeDotSize, height: gradeDotSize, opacity: gradePreset.opacity }} />
             </div>
             <div className={styles.gradeTrack}>
-              <input type="range" min={0} max={PENCIL_GRADES.length - 1} step={1}
+              <PrecisionSlider
                 value={PENCIL_GRADES.indexOf(pencil)}
-                onChange={e => { setPencil(PENCIL_GRADES[Number(e.target.value)]); setTool('pencil') }}
-                className={clsx(styles.vSlider, styles.gradeSlider)}
+                min={0} max={PENCIL_GRADES.length - 1} step={1}
+                trackHeight={108}
+                onChange={v => { setPencil(PENCIL_GRADES[v]); setTool('pencil') }}
+                formatValue={v => PENCIL_GRADES[v]}
                 title={`Pencil grade: ${pencil}  (1-5 for quick picks)`} />
             </div>
             <span className={clsx(styles.sliderVal, styles.gradeLabel, tool === 'pencil' && styles.gradeLabelActive)}>
@@ -617,9 +637,11 @@ export function Room() {
               <div className={styles.sizeDot} style={{ width: dotSize, height: dotSize }} />
             </div>
             <div className={styles.sliderTrack}>
-              <input type="range" min={1} max={120} value={activeCfg.size}
-                onChange={e => setActiveCfg(c => ({ ...c, size: Number(e.target.value) }))}
-                className={styles.vSlider} title={`Size: ${activeCfg.size}px  ([ / ])`} />
+              <PrecisionSlider
+                value={activeCfg.size} min={1} max={120} step={1} trackHeight={76}
+                onChange={v => setActiveCfg(c => ({ ...c, size: v }))}
+                formatValue={v => `${v}px`}
+                title={`Size: ${activeCfg.size}px  ([ / ])`} />
             </div>
             <span className={styles.sliderVal}>{activeCfg.size}</span>
           </div>
@@ -630,9 +652,11 @@ export function Room() {
           <div className={styles.sliderBlock}>
             <Icon name="opacity" />
             <div className={styles.sliderTrack}>
-              <input type="range" min={0} max={100} value={Math.round(activeCfg.opacity * 100)}
-                onChange={e => setActiveCfg(c => ({ ...c, opacity: Number(e.target.value) / 100 }))}
-                className={styles.vSlider} title={`Opacity: ${Math.round(activeCfg.opacity * 100)}%`} />
+              <PrecisionSlider
+                value={Math.round(activeCfg.opacity * 100)} min={0} max={100} step={1} trackHeight={76}
+                onChange={v => setActiveCfg(c => ({ ...c, opacity: v / 100 }))}
+                formatValue={v => `${v}%`}
+                title={`Opacity: ${Math.round(activeCfg.opacity * 100)}%`} />
             </div>
             <span className={styles.sliderVal}>{Math.round(activeCfg.opacity * 100)}%</span>
           </div>

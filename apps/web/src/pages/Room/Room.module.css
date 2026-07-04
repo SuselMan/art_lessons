@@ -63,7 +63,10 @@
   min-width: 38px;
   text-align: right;
   padding-right: 4px;
+  cursor: pointer;
+  touch-action: none;
 }
+.zoomLabel:hover { color: var(--color-text); }
 
 .angleLabel {
   height: 26px;
@@ -193,15 +196,6 @@
   justify-content: center;
 }
 
-.vSlider {
-  writing-mode: vertical-lr;
-  direction: rtl;
-  width: 28px;
-  height: 76px;
-  cursor: pointer;
-  accent-color: var(--color-accent);
-}
-
 .sliderVal {
   font-size: 9px;
   font-family: var(--font-mono);
@@ -216,10 +210,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.gradeSlider {
-  height: 108px;
 }
 
 .gradeLabel {
