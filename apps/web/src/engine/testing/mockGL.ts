@@ -105,7 +105,6 @@ export class MockGL {
   private _boundFramebuffer: object | null = null
   private _currentProgram: MockProgram | null = null
   private _blendSrc: number = ENUM.ONE
-  private _blendDst: number = ENUM.ONE_MINUS_SRC_ALPHA
   private _clearAlpha = 0
   private _shaderSources = new Map<object, { type: number; source: string }>()
 
@@ -225,11 +224,17 @@ export class MockGL {
   // ── state ────────────────────────────────────────────────────────────────
 
   viewport(): void { /* mock rasterizes at the target texture's own dimensions */ }
-  enable(cap: number): void { if (cap === ENUM.BLEND) this._blendEnabled = true }
-  disable(cap: number): void { if (cap === ENUM.BLEND) this._blendEnabled = false }
-  private _blendEnabled = false
+  // BLEND is enabled at every dab/composite draw call site in this codebase
+  // (beginDraw/beginErase/_compositeTextures) and disabled only around the
+  // 'papergen'/'display' passes this mock doesn't rasterize — so there's no
+  // draw call where tracking on/off would change rasterization behavior.
+  enable(_cap: number): void { /* no-op: see above */ }
+  disable(_cap: number): void { /* no-op: see above */ }
 
-  blendFunc(src: number, dst: number): void { this._blendSrc = src; this._blendDst = dst }
+  // The dst factor is never tracked: every blendFunc call in this codebase
+  // pairs its src factor with ONE_MINUS_SRC_ALPHA (paint/composite use ONE,
+  // erase uses ZERO) — see the module docstring's blend-arithmetic note.
+  blendFunc(src: number, _dst: number): void { this._blendSrc = src }
 
   clearColor(_r: number, _g: number, _b: number, a: number): void { this._clearAlpha = a }
 

@@ -19,7 +19,7 @@ import { MockGL } from './mockGL'
 if (typeof globalThis.requestAnimationFrame === 'undefined') {
   globalThis.requestAnimationFrame = ((cb: FrameRequestCallback): number =>
     setTimeout(() => cb(Date.now()), 0) as unknown as number) as typeof requestAnimationFrame
-  globalThis.cancelAnimationFrame = ((id: number): void => clearTimeout(id as unknown as NodeJS.Timeout)) as typeof cancelAnimationFrame
+  globalThis.cancelAnimationFrame = ((id: number): void => clearTimeout(id as unknown as ReturnType<typeof setTimeout>)) as typeof cancelAnimationFrame
 }
 
 interface FakeCanvas {
@@ -97,6 +97,45 @@ export function readLayerPixels(engine: PencilEngine, layerId: string): Uint8Arr
 
 export function checkpointCountFor(engine: PencilEngine, layerId: string): number {
   return internals(engine)._checkpoints.filter(cp => cp.layerId === layerId).length
+}
+
+/** Simulates checkpoint eviction (in production this happens under
+ *  CHECKPOINT_BUDGET_BYTES pressure — impractical to reach honestly in a
+ *  small-canvas unit test) so a rebuild is forced to fall back to full
+ *  from-scratch replay instead of the checkpoint fast path. Used to exercise
+ *  the recursive `_replayMergeInto` path for a merge-of-a-merge, which a live
+ *  merge's own immediate checkpoint would otherwise always short-circuit. */
+export function clearCheckpoints(engine: PencilEngine): void {
+  internals(engine)._checkpoints.length = 0
+}
+
+/** Element-wise comparison for the Uint8Array readPixels() returns —
+ *  vitest's toEqual on typed arrays is fine too, but Array.from gives a
+ *  clearer diff on failure. */
+export function expectPixelsEqual(a: Uint8Array | null, b: Uint8Array | null): void {
+  if (a === null || b === null) throw new Error('expectPixelsEqual: one side is null (buffer missing)')
+  if (a.length !== b.length) throw new Error(`pixel buffer length mismatch: ${a.length} vs ${b.length}`)
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) throw new Error(`pixel mismatch at byte ${i}: ${a[i]} !== ${b[i]}`)
+  }
+}
+
+/** Like expectPixelsEqual, but tolerant of small per-byte drift. Only use
+ *  this for a comparison that legitimately crosses a checkpoint
+ *  restore-then-replay-a-tail boundary: restorePixels() dequantizes an
+ *  8-bit snapshot back to float, so painting further dabs on top starts
+ *  from a value that can be off by up to 1/255 from the equivalent
+ *  never-restored float32 accumulation — an inherent property of any
+ *  8-bit-texture-backed checkpoint, not a correctness bug. A real
+ *  checkpoint-selection bug (wrong layer, wrong prefix, stale snapshot)
+ *  produces gross differences, far outside this tolerance. */
+export function expectPixelsClose(a: Uint8Array | null, b: Uint8Array | null, maxDiff = 2): void {
+  if (a === null || b === null) throw new Error('expectPixelsClose: one side is null (buffer missing)')
+  if (a.length !== b.length) throw new Error(`pixel buffer length mismatch: ${a.length} vs ${b.length}`)
+  for (let i = 0; i < a.length; i++) {
+    const diff = Math.abs(a[i] - b[i])
+    if (diff > maxDiff) throw new Error(`pixel mismatch at byte ${i}: ${a[i]} vs ${b[i]} (diff ${diff} > ${maxDiff})`)
+  }
 }
 
 // ─── Operation builders ─────────────────────────────────────────────────────
