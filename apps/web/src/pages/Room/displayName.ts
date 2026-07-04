@@ -1,4 +1,4 @@
-import { nanoid } from 'nanoid'
+import { customAlphabet } from 'nanoid'
 
 // No profile/auth system yet (#41) and CreateRoom never asks for a name, so
 // there is nowhere upstream to read a participant's display name from. This
@@ -8,6 +8,11 @@ import { nanoid } from 'nanoid'
 
 const STORAGE_KEY = 'al_display_name'
 
+// Restricted to uppercase alphanumerics — nanoid()'s default alphabet
+// includes '_' and '-', which would occasionally produce a name like
+// "Guest-GQ-O" (confusing double dash, and not what "Guest-XXXX" implies).
+const suffix = customAlphabet('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 4)
+
 export interface NameStorage {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
@@ -16,7 +21,7 @@ export interface NameStorage {
 export function getOrCreateDisplayName(storage: NameStorage): string {
   const existing = storage.getItem(STORAGE_KEY)
   if (existing) return existing
-  const name = `Guest-${nanoid(4).toUpperCase()}`
+  const name = `Guest-${suffix()}`
   storage.setItem(STORAGE_KEY, name)
   return name
 }
