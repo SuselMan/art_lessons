@@ -45,33 +45,50 @@ export type JoinRoomOutcome =
   | { ok: true; participant: Participant }
   | { ok: false; error: 'not_found' | 'wrong_password' }
 
+// Tracks the in-flight `Room` insert for a room created this process
+// lifetime, so persistParticipant/persistOperation (fired independently,
+// right after createRoom returns) don't race the FK they depend on — without
+// this, a fast-enough first stroke could hit Postgres before its own room's
+// insert had committed. Not needed for a room `ensureRoomLoaded` pulled from
+// Postgres cold: by definition the row already exists there, so `undefined`
+// (⇒ resolve immediately) is correct for those.
+const roomCreatedPromise = new Map<string, Promise<void>>()
+
 function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
-  prisma.room.create({
+  const done = prisma.room.create({
     data: {
       id: room.id, name: room.name, paper: room.paper,
       canvasWidth: room.canvasWidth, canvasHeight: room.canvasHeight,
       passwordHash, ownerId: room.ownerId,
     },
-  }).catch(err => console.error(`failed to persist room create ${room.id}`, err))
+  })
+    .then(() => {})
+    .catch(err => { console.error(`failed to persist room create ${room.id}`, err) })
+    .finally(() => roomCreatedPromise.delete(room.id))
+  roomCreatedPromise.set(room.id, done)
+}
+
+function afterRoomPersisted(roomId: string): Promise<void> {
+  return roomCreatedPromise.get(roomId) ?? Promise.resolve()
 }
 
 function persistParticipant(roomId: string, userId: string): void {
-  prisma.roomParticipant.upsert({
+  afterRoomPersisted(roomId).then(() => prisma.roomParticipant.upsert({
     where: { roomId_userId: { roomId, userId } },
     create: { roomId, userId },
     update: { lastActiveAt: new Date() },
-  }).catch(err => console.error(`failed to persist participant ${roomId}/${userId}`, err))
+  })).catch(err => console.error(`failed to persist participant ${roomId}/${userId}`, err))
 }
 
 function persistOperation(roomId: string, op: Operation): void {
   const layerId = 'layerId' in op ? op.layerId : null
-  prisma.operation.create({
+  afterRoomPersisted(roomId).then(() => prisma.operation.create({
     data: {
       id: op.id, seq: op.seq ?? 0, type: op.type, roomId, userId: op.userId,
       layerId, tool: op.type === 'stroke' ? op.tool : null,
       data: op,
     },
-  }).catch(err => console.error(`failed to persist operation ${roomId}/${op.id}`, err))
+  })).catch(err => console.error(`failed to persist operation ${roomId}/${op.id}`, err))
 }
 
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
