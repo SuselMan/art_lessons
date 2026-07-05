@@ -122,6 +122,8 @@ export interface PencilEngineAPI {
   setTool(tool: ToolType): void
   setOpacity(v: number): void
   setSize(px: number): void
+  setColor(rgb: [number, number, number]): void
+  pickColor(canvasX: number, canvasY: number): [number, number, number] | null
   setViewport(cx: number, cy: number, zoom: number, angle: number): void
   on(event: EngineEventName, fn: EngineHandler): this
   exportPNG(): Promise<Blob | null>
@@ -156,6 +158,8 @@ const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
   smooth:  [0.97, 0.97, 0.96],
   bristol: [0.99, 0.99, 0.98],
 }
+
+export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.17]
 
 // Drives how much the pencil itself "feels" the paper grain while drawing —
 // see DAB_FRAG's normalScale/floor_/power (shaders.ts), all mix()'d by this
@@ -261,6 +265,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokeLayerId: string | null
   private _strokeTool: ToolType
   private _strokePreset: string
+  private _strokeColor: [number, number, number]
   private _strokeDabs: Dab[]
 
   private _handlers: Partial<Record<EngineEventName, EngineHandler>>
@@ -284,7 +289,7 @@ export class PencilEngine implements PencilEngineAPI {
       pencilType:    options.pencilType    ?? 'HB',
       size:          options.size          ?? 24,
       paperScale:    options.paperScale    ?? 1.0,
-      graphiteColor: options.graphiteColor ?? [0.14, 0.14, 0.17],
+      graphiteColor: options.graphiteColor ?? DEFAULT_GRAPHITE_COLOR,
       tool:          'pencil',
       opacity:       options.opacity       ?? 1.0,
     }
@@ -311,6 +316,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeLayerId   = null
     this._strokeTool      = 'pencil'
     this._strokePreset    = this._opts.pencilType
+    this._strokeColor     = this._opts.graphiteColor
     this._strokeDabs      = []
     this._handlers        = {}
 
@@ -413,7 +419,7 @@ export class PencilEngine implements PencilEngineAPI {
       case 'stroke': {
         const buf = this._layers.get(op.layerId)
         if (buf) {
-          this._paintDabs(buf, op.dabs, op.tool, op.preset)
+          this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color)
           this._maybeCheckpoint(op.layerId)
           this._display()
         } else {
@@ -518,6 +524,30 @@ export class PencilEngine implements PencilEngineAPI {
   setTool(tool: ToolType): void  { this._opts.tool = tool }
   setOpacity(v: number): void    { this._opts.opacity = v }
   setSize(px: number): void      { this._opts.size = px }
+
+  // Only the *next* stroke picks this up — _onStart() copies it into
+  // _strokeColor, which gets baked into that stroke's dabs (and its recorded
+  // StrokeOperation), so changing it never repaints already-drawn strokes.
+  setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
+
+  /** Samples the currently-displayed pixel color at canvas-pixel coordinates
+   *  (same space as Dab.x/y — see pointerTransform.ts's clientToCanvas), for
+   *  an eyedropper tool. Reads whatever's actually on screen (paper or
+   *  graphite, post-composite) via the default framebuffer, which _display()
+   *  always leaves bound to the real canvas after its last draw call — so
+   *  this only gives a meaningful result once at least one frame has been
+   *  displayed. Returns null for out-of-bounds coordinates. */
+  pickColor(canvasX: number, canvasY: number): [number, number, number] | null {
+    const { gl, canvas } = this
+    const x = Math.round(canvasX)
+    const y = Math.round(canvasY)
+    if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null
+    const pixel = new Uint8Array(4)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    // WebGL reads bottom-up; canvasX/Y are top-down like the rest of the app.
+    gl.readPixels(x, canvas.height - 1 - y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel)
+    return [pixel[0] / 255, pixel[1] / 255, pixel[2] / 255]
+  }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {
     const { canvas } = this
@@ -632,7 +662,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _applyPixelOp(buf: AccumulationBuffer, op: PixelOperation): void {
     switch (op.type) {
       case 'stroke':
-        this._paintDabs(buf, op.dabs, op.tool, op.preset)
+        this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color)
         break
       case 'layer_clear':
         buf.clear()
@@ -745,10 +775,10 @@ export class PencilEngine implements PencilEngineAPI {
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
       'u_resolution', 'u_paperHeightMap', 'u_paperScale',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
-      'u_paperRoughness', 'u_eraseMode',
+      'u_paperRoughness', 'u_eraseMode', 'u_color',
     ])
     this._dispUni = getUniforms(gl, this._dispProg, [
-      'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_graphiteColor', 'u_paperScale',
+      'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale',
     ])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
 
@@ -777,6 +807,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
     this._strokePreset  = this._opts.pencilType
+    this._strokeColor   = this._opts.graphiteColor
     this._strokeDabs    = []
     if (this._debug) {
       const now = performance.now()
@@ -867,7 +898,7 @@ export class PencilEngine implements PencilEngineAPI {
     const dabs = this._dabs.peekTipDabs(this._physicalSize)
     if (dabs.length) {
       this._bakeDabOpacity(dabs, speed)
-      this._paintDabs(this._tipBuf, dabs, this._strokeTool, this._strokePreset)
+      this._paintDabs(this._tipBuf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
     }
   }
 
@@ -894,7 +925,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if (dabs.length) {
       this._bakeDabOpacity(dabs, samples[samples.length - 1].speed)
-      this._paintDabs(this._previewBuf, dabs, this._strokeTool, this._strokePreset)
+      this._paintDabs(this._previewBuf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
     }
     this._display()
   }
@@ -942,7 +973,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._strokeDabs.length) {
       const op: Operation = {
         id: nanoid(10), type: 'stroke', userId: this._userId,
-        layerId, tool: this._strokeTool, preset: this._strokePreset,
+        layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         dabs: this._strokeDabs, timestamp: Date.now(),
       }
       this._log.append(op)
@@ -979,13 +1010,16 @@ export class PencilEngine implements PencilEngineAPI {
     if (!buf) return
 
     this._bakeDabOpacity(dabs, speed)
-    this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset)
+    this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
     this._strokeDabs.push(...dabs)
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────────────
 
-  private _paintDabs(buf: AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string): void {
+  private _paintDabs(
+    buf: AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
+    color: [number, number, number],
+  ): void {
     const { gl, canvas } = this
     const erasing = tool === 'eraser'
     const preset  = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
@@ -1007,6 +1041,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
     gl.uniform1f(u.u_paperRoughness, PAPER_ROUGHNESS[this._opts.paper] ?? 1.0)
     gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
+    gl.uniform3fv(u.u_color, color)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     const posLoc = gl.getAttribLocation(this._dabProg, 'a_position')
@@ -1097,8 +1132,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._compositeTextures([{ texture: this._previewBuf.texture, opacity: 1 }], this._compositeFBO.fbo)
     }
 
-    const paperColor    = PAPER_COLORS[this._opts.paper]
-    const graphiteColor = this._opts.graphiteColor
+    const paperColor = PAPER_COLORS[this._opts.paper]
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.viewport(0, 0, w, h)
@@ -1115,8 +1149,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperMap, 1)
 
-    gl.uniform3fv(u.u_paperColor,    paperColor)
-    gl.uniform3fv(u.u_graphiteColor, graphiteColor)
+    gl.uniform3fv(u.u_paperColor, paperColor)
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)

@@ -33,13 +33,10 @@ export interface LayerPanelProps {
   onChange:   Dispatch<SetStateAction<LayerState>>
   /** Shared content changes go through the operation log (ADR 002). */
   onOp:       (draft: OperationDraft) => void
-  open:       boolean
-  onToggle:   () => void
 }
 
 export function LayerPanel({
   layerState, onChange, onOp,
-  open, onToggle,
 }: LayerPanelProps) {
   const { items, rootOrder, activeId, selectedIds } = layerState
   const activeItem = items[activeId]
@@ -391,117 +388,95 @@ export function LayerPanel({
   // ── render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.panel}
-      onPointerUp={handlePointerUp}
-    >
-      <div className={styles.tabStrip}>
+    <div className={styles.body} onPointerUp={handlePointerUp}>
+      {activeItem && (
+        <div className={styles.opacityBar}>
+          <span className={styles.opacityBarLabel}>Opacity</span>
+          <input type="range" min={0} max={100}
+            value={Math.round(activeItem.opacity * 100)}
+            onChange={e => handleOpacity(activeId, Number(e.target.value) / 100)}
+            className={styles.opacityBarSlider} />
+          <span className={styles.opacityBarValue}>{Math.round(activeItem.opacity * 100)}%</span>
+        </div>
+      )}
+
+      <div className={styles.listToolbar}>
+        <button className={styles.toolbarBtn} onClick={handleAddLayer} title="Add layer">
+          <Icon name="add" />
+        </button>
+        <button className={styles.toolbarBtn} onClick={handleAddFolder} title="Add folder">
+          <Icon name="create_new_folder" />
+        </button>
+        <span className={styles.toolbarSpacer} />
         <button
-          className={clsx(styles.stripTab, open && styles.stripTabActive)}
-          onClick={onToggle}
-          title={open ? 'Collapse layers' : 'Open layers'}>
-          <Icon name="layers" />
+          className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
+          onClick={() => handleToggleLock(activeId)}
+          disabled={activeId === BACKGROUND_LAYER_ID}
+          title={isActiveLocked ? 'Unlock layer' : 'Lock layer'}>
+          <Icon name={isActiveLocked ? 'lock' : 'lock_open'} />
+        </button>
+        <button
+          className={styles.toolbarBtn}
+          disabled={!canMerge}
+          onClick={() => canMergeSelected ? handleMergeSelected() : handleMergeDown()}
+          title={canMergeSelected ? 'Merge selected' : 'Merge down'}>
+          <Icon name="move_down" />
+        </button>
+        <button
+          className={clsx(styles.toolbarBtn, styles.toolbarBtnDanger)}
+          onClick={() => handleDelete()}
+          disabled={!canDelete}
+          title={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}>
+          <Icon name="delete" />
         </button>
       </div>
 
-      {open && (
-        <div className={styles.content}>
-          <div className={styles.panelHeader}>
-            <span className={styles.panelTitle}>Layers</span>
-            <button className={styles.collapseBtn} onClick={onToggle} title="Collapse">
-              <Icon name="chevron_right" />
-            </button>
-          </div>
+      <div className={styles.list}
+        onPointerUp={handlePointerUp}
+      >
+        <DndContext
+          sensors={sensors}
+          collisionDetection={collisionDetection}
+          onDragStart={onDragStart}
+          onDragOver={onDragOver}
+          onDragEnd={onDragEnd}
+        >
+          <SortableContext items={flatIds} strategy={verticalListSortingStrategy}>
+            {flatList.map(entry => {
+              if (entry.kind === 'sentinel') {
+                return <Sentinel key={entry.id} id={entry.id} />
+              }
+              const item = items[entry.id]
+              if (!item) return null
+              return (
+                <LayerRow
+                  key={entry.id}
+                  item={item}
+                  depth={entry.depth}
+                  isActive={activeId === entry.id}
+                  isSelected={selectedIds.includes(entry.id)}
+                  isDragOverFolder={dragOverFolderId === entry.id}
+                  onActivate={handleActivate}
+                  onToggleVisible={handleToggleVisible}
+                  onToggleLock={handleToggleLock}
+                  onRename={handleRename}
+                  onToggleCollapse={handleToggleCollapse}
+                  onOpenMenu={handleOpenMenu}
+                  onOpenOpacity={handleOpenOpacity}
+                  onPointerDown={handlePointerDown}
+                  onPointerUp={handlePointerUp}
+                />
+              )
+            })}
+          </SortableContext>
 
-          {activeItem && (
-            <div className={styles.opacityBar}>
-              <span className={styles.opacityBarLabel}>Opacity</span>
-              <input type="range" min={0} max={100}
-                value={Math.round(activeItem.opacity * 100)}
-                onChange={e => handleOpacity(activeId, Number(e.target.value) / 100)}
-                className={styles.opacityBarSlider} />
-              <span className={styles.opacityBarValue}>{Math.round(activeItem.opacity * 100)}%</span>
-            </div>
-          )}
-
-          <div className={styles.listToolbar}>
-            <button className={styles.toolbarBtn} onClick={handleAddLayer} title="Add layer">
-              <Icon name="add" />
-            </button>
-            <button className={styles.toolbarBtn} onClick={handleAddFolder} title="Add folder">
-              <Icon name="create_new_folder" />
-            </button>
-            <span className={styles.toolbarSpacer} />
-            <button
-              className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
-              onClick={() => handleToggleLock(activeId)}
-              disabled={activeId === BACKGROUND_LAYER_ID}
-              title={isActiveLocked ? 'Unlock layer' : 'Lock layer'}>
-              <Icon name={isActiveLocked ? 'lock' : 'lock_open'} />
-            </button>
-            <button
-              className={styles.toolbarBtn}
-              disabled={!canMerge}
-              onClick={() => canMergeSelected ? handleMergeSelected() : handleMergeDown()}
-              title={canMergeSelected ? 'Merge selected' : 'Merge down'}>
-              <Icon name="move_down" />
-            </button>
-            <button
-              className={clsx(styles.toolbarBtn, styles.toolbarBtnDanger)}
-              onClick={() => handleDelete()}
-              disabled={!canDelete}
-              title={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}>
-              <Icon name="delete" />
-            </button>
-          </div>
-
-          <div className={styles.list}
-            onPointerUp={handlePointerUp}
-          >
-            <DndContext
-              sensors={sensors}
-              collisionDetection={collisionDetection}
-              onDragStart={onDragStart}
-              onDragOver={onDragOver}
-              onDragEnd={onDragEnd}
-            >
-              <SortableContext items={flatIds} strategy={verticalListSortingStrategy}>
-                {flatList.map(entry => {
-                  if (entry.kind === 'sentinel') {
-                    return <Sentinel key={entry.id} id={entry.id} />
-                  }
-                  const item = items[entry.id]
-                  if (!item) return null
-                  return (
-                    <LayerRow
-                      key={entry.id}
-                      item={item}
-                      depth={entry.depth}
-                      isActive={activeId === entry.id}
-                      isSelected={selectedIds.includes(entry.id)}
-                      isDragOverFolder={dragOverFolderId === entry.id}
-                      onActivate={handleActivate}
-                      onToggleVisible={handleToggleVisible}
-                      onToggleLock={handleToggleLock}
-                      onRename={handleRename}
-                      onToggleCollapse={handleToggleCollapse}
-                      onOpenMenu={handleOpenMenu}
-                      onOpenOpacity={handleOpenOpacity}
-                      onPointerDown={handlePointerDown}
-                      onPointerUp={handlePointerUp}
-                    />
-                  )
-                })}
-              </SortableContext>
-
-              <DragOverlay>
-                {dragId && items[dragId]
-                  ? <div className={styles.dragOverlay}>{items[dragId].name}</div>
-                  : null}
-              </DragOverlay>
-            </DndContext>
-          </div>
-        </div>
-      )}
+          <DragOverlay>
+            {dragId && items[dragId]
+              ? <div className={styles.dragOverlay}>{items[dragId].name}</div>
+              : null}
+          </DragOverlay>
+        </DndContext>
+      </div>
 
       {menuId && menuAnchor && (
         <ContextMenu

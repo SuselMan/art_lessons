@@ -135,7 +135,7 @@ describe('applyContentOp', () => {
 
   it('stroke, layer_clear, and the meta-ops (revoke/undo/redo) are structural no-ops', () => {
     const state = stateOf({ a: layer('a') }, ['a'])
-    expect(applyContentOp(state, { ...baseOp, type: 'stroke', layerId: 'a', tool: 'pencil', preset: 'HB', dabs: [] })).toBe(state)
+    expect(applyContentOp(state, { ...baseOp, type: 'stroke', layerId: 'a', tool: 'pencil', preset: 'HB', color: [0.14, 0.14, 0.17], dabs: [] })).toBe(state)
     expect(applyContentOp(state, { ...baseOp, type: 'layer_clear', layerId: 'a' })).toBe(state)
     expect(applyContentOp(state, { ...baseOp, type: 'operation_revoke', targetOpId: 'x' })).toBe(state)
     // #103: operation_undo/operation_redo only flip another log entry's

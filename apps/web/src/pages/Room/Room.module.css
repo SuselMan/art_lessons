@@ -216,6 +216,56 @@
   color: var(--color-accent);
 }
 
+/* ── Color palette ── */
+.colorSwatches {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  padding: 0 6px;
+}
+
+.colorSwatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  transition: transform var(--duration-fast), border-color var(--duration-fast);
+}
+.colorSwatch:hover { transform: scale(1.15); }
+.colorSwatchActive {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+/* Native <input type="color">, styled down to match the round swatches above
+   rather than the browser's default rectangular chip. */
+.colorCustomInput {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+.colorCustomInput::-webkit-color-swatch-wrapper { padding: 0; }
+.colorCustomInput::-webkit-color-swatch { border: none; border-radius: 50%; }
+.colorCustomInput::-moz-color-swatch { border: none; border-radius: 50%; }
+
+/* Full-viewport catcher shown only while the eyedropper is armed — sits
+   above the canvas (higher z-index than .viewport) purely to intercept the
+   next pointerdown before PencilEngine's own PointerInput (attached
+   directly to the canvas element) can turn it into a stroke. Simpler and
+   more robust than trying to stopPropagation a native listener against
+   React's synthetic one. */
+.eyedropperOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  cursor: crosshair;
+}
+
 /* ── Sliders ── */
 .sliderBlock {
   display: flex;

@@ -1,86 +1,12 @@
-/* ── Panel shell ─────────────────────────────────────────────────────────── */
-
-.panel {
-  display: flex;
-  flex-direction: row;
-  flex-shrink: 0;
-  border-left: 1px solid var(--color-border);
-}
-
-/* Always-visible 36px icon strip */
-.tabStrip {
-  width: 36px;
+/* Fills SidePanel's .content (flex column) so the scrollable .list below
+   can use flex:1/overflow-y like before, when LayerPanel owned that shell
+   directly. */
+.body {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: 6px 0;
-  background: var(--color-surface-raised);
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.stripTab {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--color-text-dim);
-  transition: color var(--duration-fast), background var(--duration-fast);
-}
-.stripTab:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.stripTab .material-symbols-outlined { font-size: 20px; }
-
-.stripTabActive {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-}
-
-/* Expandable content panel */
-.content {
-  width: 204px;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-surface-raised);
-  overflow: hidden;
-  border-left: 1px solid var(--color-border);
-}
-
-/* ── Panel header ─────────────────────────────────────────────────────────── */
-.panelHeader {
-  display: flex;
-  align-items: center;
-  height: 36px;
-  padding: 0 6px 0 10px;
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.panelTitle {
   flex: 1;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--color-text-dim);
-  user-select: none;
+  min-height: 0;
 }
-
-.collapseBtn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-dim);
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: color var(--duration-fast), background var(--duration-fast);
-}
-.collapseBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.collapseBtn .material-symbols-outlined { font-size: 16px; }
 
 /* ── Active layer opacity bar ─────────────────────────────────────────────── */
 .opacityBar {

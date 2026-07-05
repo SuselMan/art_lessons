@@ -24,6 +24,7 @@ function stroke(overrides: Partial<StrokeOperation> = {}): StrokeOperation {
     layerId: overrides.layerId ?? 'layer-1',
     tool: overrides.tool ?? 'pencil',
     preset: overrides.preset ?? 'HB',
+    color: overrides.color ?? [0.14, 0.14, 0.17],
     dabs: overrides.dabs ?? [],
     ...overrides,
   }

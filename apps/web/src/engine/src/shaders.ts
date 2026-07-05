@@ -107,6 +107,10 @@ export const DAB_FRAG = `
   // 1=rough   (graphite only on peaks, strong grain in stroke)
   uniform float u_paperRoughness;
   uniform float u_eraseMode; // 1.0 = eraser, 0.0 = pencil
+  // Baked into the accumulation buffer per dab (premultiplied below) so each
+  // stroke keeps the color it was drawn with — see u_graphiteColor's removal
+  // from DISPLAY_FRAG for why color can no longer live at composite time.
+  uniform vec3 u_color;
 
   varying vec2 v_localUV;
 
@@ -167,7 +171,11 @@ export const DAB_FRAG = `
 
     float grain = hash(gl_FragCoord.xy * 0.5) * 0.12 - 0.06;
     float deposit = clamp(u_pressure * u_opacity * paperCatch * shape + grain * shape, 0.0, 1.0);
-    gl_FragColor = vec4(deposit, deposit, deposit, deposit);
+    // Premultiplied by deposit, matching the ONE,ONE_MINUS_SRC_ALPHA "over"
+    // blend AccumulationBuffer.beginDraw() sets up — this is what lets dabs of
+    // different colors composite correctly over each other and over earlier
+    // strokes instead of one uniform tint being reapplied to everything.
+    gl_FragColor = vec4(u_color * deposit, deposit);
   }
 `;
 
@@ -182,14 +190,17 @@ export const DISPLAY_VERT = `
 
 // Composites one layer onto the composite FBO with opacity.
 // Blend mode: ONE, ONE_MINUS_SRC_ALPHA  →  Porter-Duff "over"
+// Passes the layer's own premultiplied color through (scaled by opacity)
+// rather than discarding it — each layer's accumulation buffer already
+// carries the real per-stroke colors baked in by DAB_FRAG.
 export const LAYER_COMPOSITE_FRAG = `
   precision mediump float;
   uniform sampler2D u_layer;
   uniform float u_opacity;
   varying vec2 v_uv;
   void main() {
-    float a = texture2D(u_layer, v_uv).a * u_opacity;
-    gl_FragColor = vec4(0.0, 0.0, 0.0, a);
+    vec4 c = texture2D(u_layer, v_uv);
+    gl_FragColor = vec4(c.rgb * u_opacity, c.a * u_opacity);
   }
 `;
 
@@ -199,14 +210,15 @@ export const DISPLAY_FRAG = `
   uniform sampler2D u_accumulation;
   uniform sampler2D u_paperMap;
   uniform vec3 u_paperColor;
-  uniform vec3 u_graphiteColor;
   uniform vec2 u_paperScale;
 
   varying vec2 v_uv;
 
   void main() {
-    // composite FBO stores accumulated alpha in the .a channel
-    float graphite = texture2D(u_accumulation, v_uv).a;
+    // composite FBO stores premultiplied graphite color in .rgb, coverage in .a
+    vec4 acc = texture2D(u_accumulation, v_uv);
+    float graphite = acc.a;
+    vec3 strokeColor = graphite > 0.001 ? acc.rgb / graphite : vec3(0.0);
 
     vec2 paperUV = v_uv * u_paperScale;
     float paperHeight = texture2D(u_paperMap, paperUV).r;
@@ -216,9 +228,12 @@ export const DISPLAY_FRAG = `
     // paper grain reads as a faint variation, not a visible bas-relief.
     vec3 paperTone = u_paperColor * (0.965 + 0.03 * paperHeight);
 
-    // Graphite shows paper texture through it — in valleys paper peeks through even in dark areas
+    // Graphite shows paper texture through it — in valleys paper peeks through even in dark areas.
+    // Blending toward paperTone (rather than scaling strokeColor toward black) is what actually
+    // models "paper peeking through" for any stroke color — a multiplicative darken only looked
+    // right for the old fixed dark-graphite tone; on a light/white color it read as gray blotches.
     float graphiteTexture = mix(1.0, paperHeight * 0.5 + 0.2, graphite * 0.25);
-    vec3 graphiteTone = u_graphiteColor * graphiteTexture;
+    vec3 graphiteTone = mix(paperTone, strokeColor, graphiteTexture);
 
     // Final composite
     vec3 color = mix(paperTone, graphiteTone, graphite);

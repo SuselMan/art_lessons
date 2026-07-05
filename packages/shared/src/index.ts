@@ -98,6 +98,7 @@ export type StrokeOperation = OperationBase & {
   layerId: string
   tool: ToolType
   preset: string        // 'HB', '2B' etc — for pencil
+  color: [number, number, number] // baked at record time, so replay/undo never repaints with today's live color
   dabs: Dab[]
 }
 

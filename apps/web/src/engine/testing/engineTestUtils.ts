@@ -155,7 +155,7 @@ export function makeStroke(
 ): StrokeOperation {
   return {
     id: nanoid(10), type: 'stroke', userId, timestamp: nextTimestamp(),
-    layerId, tool: 'pencil', preset: 'HB', dabs,
+    layerId, tool: 'pencil', preset: 'HB', color: [0.14, 0.14, 0.17], dabs,
     ...overrides,
   }
 }

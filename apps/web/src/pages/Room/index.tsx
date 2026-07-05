@@ -9,13 +9,16 @@ import type {
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
-import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats } from '../../engine'
+import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, DEFAULT_GRAPHITE_COLOR, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
+import { SidePanel } from '../../components/SidePanel'
+import { ColorPicker } from '../../components/ColorPicker'
 import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { PrecisionSlider } from '../../components/PrecisionSlider'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
 import { getFeatureFlag } from '../../lib/featureFlags'
+import { rgbToHex } from '../../lib/color'
 import { PencilSound } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { useViewport } from './useViewport'
@@ -125,8 +128,14 @@ export function Room() {
   const [tool,       setTool]       = useState<'pencil' | 'eraser'>('pencil')
   const [pencilCfg,  setPencilCfg]  = useState<ToolConfig>({ size: 8,  opacity: 1.0 })
   const [eraserCfg,  setEraserCfg]  = useState<ToolConfig>({ size: 24, opacity: 1.0 })
+  const [color,      setColor]      = useState<[number, number, number]>(DEFAULT_GRAPHITE_COLOR)
+  // Eyedropper (#82) is a one-shot mode, not a recorded ToolType — it never
+  // paints or produces an Operation, so it lives entirely as local UI state
+  // rather than going through engine.setTool(). See .eyedropperOverlay in
+  // Room.module.css for how it intercepts the next canvas pointerdown.
+  const [eyedropperActive, setEyedropperActive] = useState(false)
   const [layerState, setLayerState] = useState<LayerState>(makeInitialLayerState)
-  const [panelOpen,  setPanelOpen]  = useState(true)
+  const [activePanel, setActivePanel] = useState<'layers' | 'color' | null>('layers')
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
@@ -330,6 +339,7 @@ export function Room() {
     engineRef.current?.setSize(activeCfg.size)
     engineRef.current?.setOpacity(activeCfg.opacity)
   }, [activeCfg])
+  useEffect(() => { engineRef.current?.setColor(color) }, [color])
 
   // ── sync layer state → engine ─────────────────────────────────────────────────
   useEffect(() => {
@@ -389,6 +399,28 @@ export function Room() {
   const handleRedo = useCallback(() => {
     if (engineRef.current?.redo()) syncFromLog()
   }, [syncFromLog])
+
+  // Eyedropper (#82): consumes the next pointerdown on .eyedropperOverlay
+  // (armed only while eyedropperActive) instead of letting it reach the
+  // canvas as a stroke. Same clientToCanvas convention as the #37 cursor
+  // broadcast above.
+  const handleEyedropperPick = useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+    const el = vpRef.current
+    if (!el || !config) return
+    const rect = el.getBoundingClientRect()
+    const { x, y } = clientToCanvas(
+      e.clientX, e.clientY,
+      { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle },
+      config,
+    )
+    const picked = engineRef.current?.pickColor(x, y)
+    if (picked) {
+      setColor(picked)
+      setActivePanel('color')
+    }
+    setEyedropperActive(false)
+  }, [vpRef, vp, config])
 
   // ── who's-drawing indicator (#38) ─────────────────────────────────────────────
   // Periodically prunes `lastActiveAtRef` (refreshed by markActive) into the
@@ -723,6 +755,25 @@ export function Room() {
 
           <div className={styles.toolDivider} />
 
+          {/* Color (#81) — current-color swatch opens the ColorPicker tab of
+              the unified right-side SidePanel (see .layerPanelWrap below);
+              the actual palette (saved custom colors) is a separate, later
+              task. Eyedropper (#82) picks a color from the canvas and opens
+              the same tab to refine it. */}
+          <button
+            className={styles.colorSwatch}
+            style={{ background: rgbToHex(color) }}
+            title="Color"
+            onClick={() => setActivePanel('color')}
+          />
+          <button
+            className={clsx(styles.toolIconBtn, eyedropperActive && styles.toolIconBtnActive)}
+            title="Eyedropper — pick a color from the canvas"
+            onClick={() => setEyedropperActive(a => !a)}
+          ><Icon name="colorize" /></button>
+
+          <div className={styles.toolDivider} />
+
           <button className={styles.toolIconBtn} title="Rotate −15°  (Shift+[)"
             onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}>
             <Icon name="rotate_left" />
@@ -761,21 +812,31 @@ export function Room() {
               angle={vp.angle}
             />
           </div>
+          {eyedropperActive && (
+            <div className={styles.eyedropperOverlay} onPointerDown={handleEyedropperPick} />
+          )}
         </div>
 
-        {/* ── Layer panel ── */}
-        {/* #99: wrapped rather than passing a className into LayerPanel — the
+        {/* ── Side panel (layers, color, …) ── */}
+        {/* #99: wrapped rather than passing a className into SidePanel — the
             wrapper is a positioned overlay (see .layerPanelWrap) that only
-            fades in/out, so LayerPanel stays mounted (no lost focus/state)
+            fades in/out, so the panel stays mounted (no lost focus/state)
             and the canvas underneath never resizes, same as header/toolbar
             above. */}
         <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden)}>
-          <LayerPanel
-            layerState={layerState}
-            onChange={setLayerState}
-            onOp={dispatchOp}
-            open={panelOpen}
-            onToggle={() => setPanelOpen(o => !o)}
+          <SidePanel
+            active={activePanel}
+            onSelect={setActivePanel}
+            tabs={[
+              {
+                id: 'layers', icon: 'layers', title: 'Layers',
+                content: <LayerPanel layerState={layerState} onChange={setLayerState} onOp={dispatchOp} />,
+              },
+              {
+                id: 'color', icon: 'palette', title: 'Color',
+                content: <ColorPicker value={color} onChange={setColor} />,
+              },
+            ]}
           />
         </div>
 
