@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { nanoid } from 'nanoid'
 import type { PaperType } from '@art-lessons/shared'
 import { PaperPreview } from '../../components/PaperPreview'
+import { AccountNav } from '../../components/AccountNav'
 import styles from './CreateRoom.module.css'
 
 type SizePreset = 'a4' | 'a3' | 'a2' | 'square' | '16:9' | 'custom'
@@ -89,7 +90,10 @@ export function CreateRoom() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.logo}>Art Lessons</div>
+      <div className={styles.header}>
+        <div className={styles.logo}>Art Lessons</div>
+        <AccountNav />
+      </div>
 
       <form className={styles.card} onSubmit={handleSubmit} noValidate>
         <h1 className={styles.heading}>Create a room</h1>
