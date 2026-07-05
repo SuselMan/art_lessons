@@ -7,13 +7,21 @@
   padding: 48px 16px 72px;
 }
 
+.header {
+  width: 100%;
+  max-width: 580px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 40px;
+}
+
 .logo {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-text-dim);
-  margin-bottom: 40px;
 }
 
 .card {

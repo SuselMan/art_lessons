@@ -1,0 +1,29 @@
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text-dim);
+}
+
+.link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  text-decoration: none;
+  padding: 4px 2px;
+  min-height: var(--touch-target-sm);
+  display: inline-flex;
+  align-items: center;
+  transition: color var(--duration-fast);
+}
+
+.link:hover {
+  color: var(--color-accent-hover);
+}
