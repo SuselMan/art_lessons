@@ -1,26 +1,41 @@
 .editor {
+  --header-h: 44px;
   width: 100%;
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  position: relative;
   overflow: hidden;
 }
 
 /* #99: minimal-UI experiment — a tap on the canvas toggles this class on the
    header/toolbar/layer-panel-wrapper. Kept mounted (React never unmounts
-   them), just removed from layout/paint, so no focus/state is lost.
-   !important: combined with .header/.toolbar's own `display: flex` (equal
-   specificity, defined later in this file — source order alone would let
-   theirs win and silently no-op this class). */
+   them), just faded — header/toolbar/layer-panel are positioned overlays
+   (see .header/.toolbar/.layerPanelWrap below) on top of a canvas that
+   always fills the full editor, so hiding them never resizes or shifts the
+   canvas underneath; only opacity/pointer-events change, no layout to
+   animate. Transition itself lives on the base rules (not here) so it
+   applies fading in both directions. */
 .uiHidden {
-  display: none !important;
+  opacity: 0;
+  pointer-events: none;
 }
 
-/* Invisible to the .body flex layout when the layer panel isn't hidden —
-   lets LayerPanel be wrapped (see index.tsx) without becoming an extra flex
-   child that would otherwise need its own sizing rules. */
+/* Right-side overlay slot, currently just LayerPanel but meant to hold
+   whatever else ends up docked here too. `display: flex` so its child(ren)
+   stretch to fill the full height by default (align-items: stretch) rather
+   than falling back to content height and leaving a transparent gap below —
+   a plain block child of an absolutely positioned parent doesn't stretch on
+   its own. The background is a safety net under that: even a child that
+   doesn't (yet) paint its own full-height background can't show canvas
+   through. */
 .layerPanelWrap {
-  display: contents;
+  position: absolute;
+  top: var(--header-h);
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  background: var(--color-surface-raised);
+  transition: opacity var(--duration-normal) ease;
 }
 
 /* ── Material Symbols thin variant ── */
@@ -33,15 +48,20 @@
 
 /* ── Header ── */
 .header {
-  height: 44px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: var(--header-h);
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 0 10px;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
-  flex-shrink: 0;
   user-select: none;
+  transition: opacity var(--duration-normal) ease;
 }
 
 .headerIconBtn {
@@ -125,14 +145,21 @@
 .headerBtn :global(.material-symbols-outlined) { font-size: 16px; }
 
 /* ── Body ── */
+/* Just a positioning root for the canvas + its floating overlays below —
+   fills the whole editor edge-to-edge, independently of .header (which
+   overlays on top of it, not above it in flow). */
 .body {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
+  position: absolute;
+  inset: 0;
 }
 
 /* ── Left toolbar ── */
 .toolbar {
+  position: absolute;
+  top: var(--header-h);
+  left: 0;
+  bottom: 0;
+  z-index: 2;
   width: 56px;
   display: flex;
   flex-direction: column;
@@ -141,8 +168,8 @@
   gap: 4px;
   background: var(--color-surface);
   border-right: 1px solid var(--color-border);
-  flex-shrink: 0;
   overflow: hidden;
+  transition: opacity var(--duration-normal) ease;
 }
 
 .toolSection {
@@ -241,8 +268,13 @@
 
 /* ── Viewport ── */
 .viewport {
-  flex: 1;
-  position: relative;
+  /* Always the full editor, regardless of header/toolbar/layer-panel
+     visibility — those float on top of it (see .header/.toolbar/
+     .layerPanelWrap) instead of sharing flex space with it, so showing or
+     hiding them never resizes or re-centers the canvas underneath. */
+  position: absolute;
+  inset: 0;
+  z-index: 1;
   overflow: hidden;
   background: #0d0d10;
   background-image: radial-gradient(circle, #1e1e24 1px, transparent 1px);

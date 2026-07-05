@@ -731,11 +731,11 @@ export function Room() {
 
         {/* ── Layer panel ── */}
         {/* #99: wrapped rather than passing a className into LayerPanel — the
-            wrapper is `display: contents` normally (invisible to the .body
-            flex layout) and `display: none` when hidden, so LayerPanel stays
-            mounted (no lost focus/state) while contributing nothing to
-            layout, same as the header/toolbar's own class toggle above. */}
-        <div className={uiHidden ? styles.uiHidden : styles.layerPanelWrap}>
+            wrapper is a positioned overlay (see .layerPanelWrap) that only
+            fades in/out, so LayerPanel stays mounted (no lost focus/state)
+            and the canvas underneath never resizes, same as header/toolbar
+            above. */}
+        <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden)}>
           <LayerPanel
             layerState={layerState}
             onChange={setLayerState}
