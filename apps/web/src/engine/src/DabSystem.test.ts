@@ -301,3 +301,76 @@ describe('DabSystem.forkForPreview (#92 pointer prediction)', () => {
     }
   })
 })
+
+describe('DabSystem.peekTipDabs (#104 live-tip latency reduction)', () => {
+  it('returns [] before at least 2 points are buffered', () => {
+    const dab = new DabSystem()
+    dab.startStroke(0, 0, 1, 0, 0, 20)
+    expect(dab.peekTipDabs(20)).toEqual([])
+  })
+
+  it('matches endStroke() exactly when called at the same buffer state (same math, only _remainder handling differs)', () => {
+    const baseSize = 20
+    const a = new DabSystem()
+    const b = new DabSystem()
+    const pts: Array<[number, number]> = [[0, 0], [15, 4], [33, 2], [50, 10]]
+
+    a.startStroke(pts[0][0], pts[0][1], 1, 0, 0, baseSize)
+    b.startStroke(pts[0][0], pts[0][1], 1, 0, 0, baseSize)
+    for (let i = 1; i < pts.length; i++) {
+      a.continueStroke(pts[i][0], pts[i][1], 1, 0, 0, baseSize)
+      b.continueStroke(pts[i][0], pts[i][1], 1, 0, 0, baseSize)
+    }
+
+    const tipDabs = a.peekTipDabs(baseSize)
+    const endDabs = b.endStroke(baseSize)
+
+    expect(tipDabs.length).toBeGreaterThan(0)
+    expect(tipDabs.length).toBe(endDabs.length)
+    for (let i = 0; i < tipDabs.length; i++) {
+      expect(tipDabs[i].x).toBeCloseTo(endDabs[i].x, 9)
+      expect(tipDabs[i].y).toBeCloseTo(endDabs[i].y, 9)
+    }
+  })
+
+  it('is non-mutating: calling it (once or many times) never changes what a subsequent real continueStroke/endStroke produces', () => {
+    const baseSize = 20
+    const withPeeks = new DabSystem()
+    const control   = new DabSystem()
+
+    withPeeks.startStroke(0, 0, 1, 0, 0, baseSize)
+    control.startStroke(0, 0, 1, 0, 0, baseSize)
+    withPeeks.continueStroke(20, 5, 1, 0, 0, baseSize)
+    control.continueStroke(20, 5, 1, 0, 0, baseSize)
+
+    // Peek repeatedly — must be idempotent and side-effect-free.
+    const peek1 = withPeeks.peekTipDabs(baseSize)
+    const peek2 = withPeeks.peekTipDabs(baseSize)
+    expect(peek1.length).toBe(peek2.length)
+    for (let i = 0; i < peek1.length; i++) {
+      expect(peek1[i].x).toBeCloseTo(peek2[i].x, 9)
+      expect(peek1[i].y).toBeCloseTo(peek2[i].y, 9)
+    }
+
+    // Now feed both instances the exact same subsequent real points and
+    // confirm they stay in lockstep despite the peeks in between.
+    const realDabs1    = withPeeks.continueStroke(42, 18, 1, 0, 0, baseSize)
+    const controlDabs1 = control.continueStroke(42, 18, 1, 0, 0, baseSize)
+    expect(realDabs1.length).toBe(controlDabs1.length)
+    expect(realDabs1.length).toBeGreaterThan(0)
+    for (let i = 0; i < realDabs1.length; i++) {
+      expect(realDabs1[i].x).toBeCloseTo(controlDabs1[i].x, 9)
+      expect(realDabs1[i].y).toBeCloseTo(controlDabs1[i].y, 9)
+    }
+
+    withPeeks.peekTipDabs(baseSize) // one more peek, must still be inert
+
+    const endDabs1 = withPeeks.endStroke(baseSize)
+    const endDabs2 = control.endStroke(baseSize)
+    expect(endDabs1.length).toBe(endDabs2.length)
+    for (let i = 0; i < endDabs1.length; i++) {
+      expect(endDabs1[i].x).toBeCloseTo(endDabs2[i].x, 9)
+      expect(endDabs1[i].y).toBeCloseTo(endDabs2[i].y, 9)
+    }
+  })
+})

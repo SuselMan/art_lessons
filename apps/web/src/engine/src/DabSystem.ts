@@ -121,6 +121,40 @@ export class DabSystem {
     return this._splineDabs(p0, p1, p2, p3, baseSize)
   }
 
+  // Non-mutating "live tip" preview (#104 latency investigation): same math
+  // as endStroke() — the segment ending at the newest known real point, with
+  // its far tangent extrapolated the same way endStroke extrapolates a ghost
+  // P3 — but restores `_remainder` afterward instead of consuming it, so a
+  // subsequent *real* continueStroke() still sees this exact segment through
+  // to a genuine tangent, completely unaffected by any peekTipDabs() calls
+  // in between (see DabSystem.test.ts's non-mutation tests).
+  //
+  // Exists to let a caller render the stroke's leading edge immediately,
+  // using only real, already-sampled positions (unlike #92's
+  // getPredictedEvents()-based preview, which guesses a *future*, not-yet-
+  // sampled position) — only the tangent/curvature at the tip is a guess,
+  // and it is fully superseded within one more real event, never left
+  // behind. Intended to be called after every continueStroke() and its
+  // output discarded/repainted (not accumulated) on every subsequent call —
+  // see PencilEngine's _tipBuf/_refreshTip.
+  peekTipDabs(baseSize: number): Dab[] {
+    const n = this._buf.length
+    if (n < 2) return []
+
+    const p1 = this._buf[n - 2]
+    const p2 = this._buf[n - 1]
+    const p0 = n >= 3 ? this._buf[n - 3] : mirrorBefore(p1, p2)
+    const p3: ControlPoint = { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y, pressure: p2.pressure, tiltX: p2.tiltX, tiltY: p2.tiltY }
+
+    const dx = p2.x - p1.x, dy = p2.y - p1.y
+    if (Math.hypot(dx, dy) < 0.5) return []
+
+    const savedRemainder = this._remainder
+    const dabs = this._splineDabs(p0, p1, p2, p3, baseSize)
+    this._remainder = savedRemainder
+    return dabs
+  }
+
   private _splineDabs(p0: ControlPoint, p1: ControlPoint, p2: ControlPoint, p3: ControlPoint, baseSize: number): Dab[] {
     // Centripetal tangents at the segment's two endpoints (see #91 constants
     // above). These reduce algebraically to the standard fixed Catmull-Rom
