@@ -25,6 +25,7 @@ import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
 import { patchItem } from './utils'
 import { isFolder, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder } from '../../lib/layers'
+import { readImageFile } from '../../lib/image'
 import styles from './LayerPanel.module.css'
 
 export interface LayerPanelProps {
@@ -151,6 +152,34 @@ export function LayerPanel({
   const handleAddFolder = useCallback(() => {
     onOp({ type: 'folder_add', layerId: nanoid(8), name: 'Folder' })
   }, [onOp])
+
+  // Reference image import (#88) — always its own new layer (never onto an
+  // existing one), so image_import can assume a blank target with nothing
+  // else racing to paint it. layer_add's name reuses the filename since
+  // "Reference" for every import would be indistinguishable in the list.
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const [importError, setImportError] = useState<string | null>(null)
+
+  const handleImportImageClick = useCallback(() => {
+    importInputRef.current?.click()
+  }, [])
+
+  const handleImportImageChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+
+    setImportError(null)
+    try {
+      const { dataUrl, width, height } = await readImageFile(file)
+      const newId = nanoid(8)
+      onOp({ type: 'layer_add', layerId: newId, name: file.name.replace(/\.[^./]+$/, '') || 'Reference' })
+      onOp({ type: 'image_import', layerId: newId, image: dataUrl, width, height })
+      onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Could not import image')
+    }
+  }, [onChange, onOp])
 
   const handleDelete = useCallback((ids?: string[]) => {
     const targets = (ids ?? (selectedIds.length > 0 ? selectedIds : [activeId]))
@@ -407,6 +436,16 @@ export function LayerPanel({
         <button className={styles.toolbarBtn} onClick={handleAddFolder} title="Add folder">
           <Icon name="create_new_folder" />
         </button>
+        <button className={styles.toolbarBtn} onClick={handleImportImageClick} title="Import reference image">
+          <Icon name="add_photo_alternate" />
+        </button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept="image/*"
+          className={styles.hiddenFileInput}
+          onChange={handleImportImageChange}
+        />
         <span className={styles.toolbarSpacer} />
         <button
           className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
@@ -430,6 +469,8 @@ export function LayerPanel({
           <Icon name="delete" />
         </button>
       </div>
+
+      {importError && <div className={styles.importError}>{importError}</div>}
 
       <div className={styles.list}
         onPointerUp={handlePointerUp}

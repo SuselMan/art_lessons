@@ -7,7 +7,7 @@
 //   gone   — unreachable history branch (author acted after undo, or a teacher
 //            revoked it); can never return to `done`
 
-import type { Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation } from '@art-lessons/shared'
+import type { Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
 
 export type OperationState = 'done' | 'undone' | 'gone'
 
@@ -17,10 +17,10 @@ export interface LogEntry {
 }
 
 /** Operations that change a layer's pixel buffer (as opposed to structure). */
-export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation
+export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation | ImageImportOperation
 
 export function isPixelOperation(op: Operation): op is PixelOperation {
-  return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge'
+  return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge' || op.type === 'image_import'
 }
 
 /** Continuous opacity-slider input arrives as a burst of operations; collapse

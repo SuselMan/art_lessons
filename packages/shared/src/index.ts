@@ -109,6 +109,22 @@ export type LayerAddOperation = OperationBase & {
   name: string
 }
 
+/** Imports a reference image onto a layer (#88) — always targets a layer
+ *  created by a `layer_add` dispatched just before it, never an existing
+ *  one, so this never needs to account for content already on the layer.
+ *  `image` is a data URL, embedded directly in the op rather than uploaded
+ *  and referenced by URL — there's no object storage yet (#114 tracks
+ *  adding one later; Postgres bytea/JSONB is the accepted MVP tradeoff for
+ *  binary content, see #110). `width`/`height` are the image's own natural
+ *  size, needed to fit-center it within the canvas without redecoding. */
+export type ImageImportOperation = OperationBase & {
+  type: 'image_import'
+  layerId: string
+  image: string
+  width: number
+  height: number
+}
+
 /** Inserts a new empty folder at the top of rootOrder. */
 export type FolderAddOperation = OperationBase & {
   type: 'folder_add'
@@ -195,6 +211,7 @@ export type OperationRedoOperation = OperationBase & {
 export type Operation =
   | StrokeOperation
   | LayerAddOperation
+  | ImageImportOperation
   | FolderAddOperation
   | LayerDeleteOperation
   | LayerMoveOperation

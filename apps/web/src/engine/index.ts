@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, LayerMergeOperation } from '@art-lessons/shared'
-import { DAB_VERT, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, LAYER_COMPOSITE_FRAG } from './src/shaders'
+import type { PaperType, Dab, ToolType, Operation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
+import { DAB_VERT, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { createPaperTexture } from './src/PaperTexture'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
@@ -239,12 +239,19 @@ export class PencilEngine implements PencilEngineAPI {
   private _dabProg!: WebGLProgram
   private _dispProg!: WebGLProgram
   private _compositeProg!: WebGLProgram
+  private _blitProg!: WebGLProgram
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispUni!: Record<string, WebGLUniformLocation | null>
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
+  private _blitUni!: Record<string, WebGLUniformLocation | null>
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
+
+  // Reference-image import (#88) — keyed by the op's own data URL, so
+  // replaying the same room twice (e.g. undo/redo rebuilding a layer) never
+  // redecodes an image it's already decoded once this session.
+  private _imageCache = new Map<string, HTMLImageElement>()
 
   // Paper texture — assigned in _initPaper()
   private _paperTex!: WebGLTexture
@@ -426,6 +433,16 @@ export class PencilEngine implements PencilEngineAPI {
           // See the layer_clear branch above: a pixel op with no live
           // target never had an effect and never legitimately can again —
           // revoke it so it can't resurface on a later undo (#101).
+          this._log.revoke(op.id)
+        }
+        break
+      }
+      case 'image_import': {
+        const buf = this._layers.get(op.layerId)
+        if (buf) {
+          this._paintImage(buf, op).then(() => this._maybeCheckpoint(op.layerId))
+            .catch(err => console.error('failed to paint imported image', err))
+        } else {
           this._log.revoke(op.id)
         }
         break
@@ -670,6 +687,9 @@ export class PencilEngine implements PencilEngineAPI {
       case 'layer_merge':
         this._replayMergeInto(buf, op)
         break
+      case 'image_import':
+        this._paintImage(buf, op).catch(err => console.error('failed to paint imported image', err))
+        break
     }
   }
 
@@ -770,6 +790,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabProg       = createProgram(gl, DAB_VERT, DAB_FRAG)
     this._dispProg      = createProgram(gl, DISPLAY_VERT, DISPLAY_FRAG)
     this._compositeProg = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
+    this._blitProg      = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
@@ -781,6 +802,7 @@ export class PencilEngine implements PencilEngineAPI {
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale',
     ])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
+    this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
 
     this._quadBuf   = createQuadBuffer(gl)
     this._screenBuf = createFullscreenQuad(gl)
@@ -1012,6 +1034,72 @@ export class PencilEngine implements PencilEngineAPI {
     this._bakeDabOpacity(dabs, speed)
     this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
     this._strokeDabs.push(...dabs)
+  }
+
+  // ─── Reference image import (#88) ──────────────────────────────────────────────
+
+  private _loadImage(src: string): Promise<HTMLImageElement> {
+    const cached = this._imageCache.get(src)
+    if (cached) return Promise.resolve(cached)
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => { this._imageCache.set(src, img); resolve(img) }
+      img.onerror = () => reject(new Error('failed to decode imported image'))
+      img.src = src
+    })
+  }
+
+  /** Paints a reference image into `buf`, fit-centered ("contain") so the
+   *  whole image stays visible, letterboxed if its aspect ratio doesn't
+   *  match the canvas's. Async (image decode) — unlike every other pixel
+   *  op, this doesn't land synchronously within appendOperation/
+   *  _applyPixelOp; both callers fire it and move on. In practice this is
+   *  fine: `image_import` only ever targets a layer created moments earlier
+   *  by its own `layer_add` (see the shared type's doc comment), so nothing
+   *  else is normally racing to paint the same layer while this decodes.
+   *  The one real gap: replaying a room whose reference layer already has
+   *  strokes on top of it — those strokes are synchronous and can finish
+   *  painting before this image lands, and AccumulationBuffer's "over"
+   *  blend always draws on top regardless of seq order, so the image could
+   *  render over strokes meant to be on top of it. Not worth solving until
+   *  it's an actual reported problem — the fix (only this file's replay
+   *  loop, `_replayInto`) would mean threading async through undo/redo's
+   *  buffer-rebuild path too. */
+  private async _paintImage(buf: AccumulationBuffer, op: ImageImportOperation): Promise<void> {
+    const img = await this._loadImage(op.image)
+    const { gl, canvas } = this
+
+    const texture = gl.createTexture()!
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+
+    const scale = Math.min(canvas.width / op.width, canvas.height / op.height)
+    const drawW = op.width * scale
+    const drawH = op.height * scale
+
+    buf.beginDraw()
+    gl.useProgram(this._blitProg)
+    const u = this._blitUni
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.uniform1i(u.u_image, 0)
+    gl.uniform2f(u.u_bufferSize, canvas.width, canvas.height)
+    gl.uniform4f(u.u_imageRect, (canvas.width - drawW) / 2, (canvas.height - drawH) / 2, drawW, drawH)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    const posLoc = gl.getAttribLocation(this._blitProg, 'a_position')
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    buf.endDraw()
+
+    gl.deleteTexture(texture)
+    this._display()
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────────────

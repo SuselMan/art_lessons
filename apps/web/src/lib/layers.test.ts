@@ -137,6 +137,9 @@ describe('applyContentOp', () => {
     const state = stateOf({ a: layer('a') }, ['a'])
     expect(applyContentOp(state, { ...baseOp, type: 'stroke', layerId: 'a', tool: 'pencil', preset: 'HB', color: [0.14, 0.14, 0.17], dabs: [] })).toBe(state)
     expect(applyContentOp(state, { ...baseOp, type: 'layer_clear', layerId: 'a' })).toBe(state)
+    // image_import (#88) never creates its own layer — layer_add already did
+    // that, moments earlier — so it's a pixel-only op, same as stroke.
+    expect(applyContentOp(state, { ...baseOp, type: 'image_import', layerId: 'a', image: 'data:,', width: 1, height: 1 })).toBe(state)
     expect(applyContentOp(state, { ...baseOp, type: 'operation_revoke', targetOpId: 'x' })).toBe(state)
     // #103: operation_undo/operation_redo only flip another log entry's
     // done/undone state (see OperationLog) — they never touch LayerState

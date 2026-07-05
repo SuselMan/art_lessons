@@ -204,6 +204,32 @@ export const LAYER_COMPOSITE_FRAG = `
   }
 `;
 
+// Blits a reference image (#88) into a layer's accumulation buffer, fit-
+// centered ("contain") within it — u_imageRect is precomputed in JS (buffer-
+// pixel offset/size of the fitted image), so this only has to test whether
+// the current buffer pixel falls inside that rect and sample accordingly.
+// Uses DISPLAY_VERT (same fullscreen-quad convention as composite/display).
+// Outputs premultiplied color, matching every other accumulation-buffer
+// writer (DAB_FRAG) so it composites correctly via the same ONE,
+// ONE_MINUS_SRC_ALPHA blend AccumulationBuffer.beginDraw() sets up.
+export const IMAGE_BLIT_FRAG = `
+  precision highp float;
+  uniform sampler2D u_image;
+  uniform vec2 u_bufferSize;
+  uniform vec4 u_imageRect; // offsetX, offsetY, width, height — buffer-pixel space
+  varying vec2 v_uv;
+  void main() {
+    vec2 bufferPx = v_uv * u_bufferSize;
+    vec2 imgUV = (bufferPx - u_imageRect.xy) / u_imageRect.zw;
+    if (imgUV.x < 0.0 || imgUV.x > 1.0 || imgUV.y < 0.0 || imgUV.y > 1.0) {
+      gl_FragColor = vec4(0.0);
+      return;
+    }
+    vec4 texColor = texture2D(u_image, imgUV);
+    gl_FragColor = vec4(texColor.rgb * texColor.a, texColor.a);
+  }
+`;
+
 export const DISPLAY_FRAG = `
   precision highp float;
 

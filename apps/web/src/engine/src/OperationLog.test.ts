@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { LayerOpacityOperation, StrokeOperation } from '@art-lessons/shared'
+import type { ImageImportOperation, LayerOpacityOperation, StrokeOperation } from '@art-lessons/shared'
 
 import { OperationLog } from './OperationLog'
 
@@ -121,6 +121,18 @@ describe('OperationLog', () => {
 
     const beforeC = log.layerPixelOps('layer-1', all[1].seq)
     expect(beforeC.map(o => o.id)).toEqual(['a'])
+  })
+
+  it('layerPixelOps includes image_import (#88) alongside stroke', () => {
+    const log = new OperationLog()
+    const imported: ImageImportOperation = {
+      id: 'img-1', type: 'image_import', userId: 'user-a', timestamp: 0,
+      layerId: 'layer-1', image: 'data:image/png;base64,', width: 10, height: 10,
+    }
+    log.append(imported)
+    log.append(stroke({ id: 'a', layerId: 'layer-1' }))
+
+    expect(log.layerPixelOps('layer-1').map(o => o.id)).toEqual(['img-1', 'a'])
   })
 
   // ─── #103: broadcastable undo/redo primitives ────────────────────────────

@@ -82,6 +82,18 @@
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
+.hiddenFileInput {
+  display: none;
+}
+
+.importError {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--color-error, #e05252);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
 /* ── Scrollable layer list ────────────────────────────────────────────────── */
 .list {
   flex: 1;
