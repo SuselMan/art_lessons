@@ -9,7 +9,7 @@ import type {
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
-import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, DEFAULT_GRAPHITE_COLOR, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats } from '../../engine'
+import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, DEFAULT_GRAPHITE_COLOR, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
 import { ColorPicker } from '../../components/ColorPicker'
@@ -123,6 +123,11 @@ export function Room() {
   // by default — untuned first pass, just to feel out on real hardware.
   const pencilSoundEnabled = getFeatureFlag('pencilSound')
 
+  // Haptic paper-grain experiment: same feature-flag pattern as the ones
+  // above. Off by default — for-fun prototype, Android Chrome only.
+  const hapticGrainEnabled = getFeatureFlag('hapticGrain')
+  const [hapticStats, setHapticStats] = useState<HapticGrainStats | null>(null)
+
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
   )
@@ -205,7 +210,17 @@ export function Room() {
   const activeCfg    = tool === 'pencil' ? pencilCfg : eraserCfg
   const setActiveCfg = tool === 'pencil' ? setPencilCfg : setEraserCfg
 
-  const { vp, setVp, vpRef, fitCanvas, angleDeg, canvasTransform } = useViewport(config)
+  // Read directly inside useViewport's native pointerdown listener — see
+  // that hook's doc comment for why a ref (checked synchronously, before
+  // React ever re-renders) is required here instead of just having the
+  // eyedropper overlay call e.stopPropagation() itself. Measure is pen-only
+  // (see handleMeasureDown) so it never needs to reserve a touch here — a
+  // finger always pans/zooms while measuring, exactly like it does while
+  // drawing with the pencil.
+  const toolActiveRef = useRef(false)
+  toolActiveRef.current = eyedropperActive
+
+  const { vp, setVp, vpRef, fitCanvas, angleDeg, canvasTransform } = useViewport(config, toolActiveRef)
   const vpValueRef = useRef(vp)
   vpValueRef.current = vp
 
@@ -285,6 +300,8 @@ export function Room() {
       debug: debugEnabled,
       onStrokeDebugStats: debugEnabled ? setStrokeStats : undefined,
       predictPointer: predictEnabled,
+      hapticGrain: hapticGrainEnabled,
+      onHapticGrainStats: hapticGrainEnabled ? setHapticStats : undefined,
     })
     engineRef.current = engine
 
@@ -348,7 +365,7 @@ export function Room() {
       pencilSoundRef.current?.destroy()
       pencilSoundRef.current = null
     }
-  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundEnabled])
+  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundEnabled, hapticGrainEnabled])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -462,15 +479,23 @@ export function Room() {
   // conversion, but for a full drag rather than a single click — down/move/up
   // tracked manually via setPointerCapture + direct DOM listeners, the same
   // pattern ColorPicker's onSvDown/onHueDown use for their own drag handling.
-  // stopPropagation keeps useViewport's own native pointerdown listener
-  // (attached to this same vpRef element, for touch pinch/pan) from treating
-  // this drag as a canvas pan too.
+  // Pen-only, same as the pencil itself ignores touch (see PointerInput.ts) —
+  // a finger on .measureOverlay falls straight through to useViewport's own
+  // panning untouched, instead of trying to arbitrate whose gesture a given
+  // touch belongs to. Fewer finger/ruler conflicts, and one fewer thing to
+  // explain than the old touch-reservation scheme.
   const handleMeasureDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return
     const el = vpRef.current
     if (!el || !config) return
     e.stopPropagation()
     const overlay = e.currentTarget as HTMLElement
-    overlay.setPointerCapture(e.pointerId)
+    // Same defensive try/catch as useViewport's own setPointerCapture calls
+    // (search "context loss" there) — without it, a throw here (observed:
+    // NotFoundError, "no active pointer with the given id") would abort the
+    // rest of this handler before setMeasurePoints ever runs, silently
+    // dropping the whole gesture.
+    try { overlay.setPointerCapture(e.pointerId) } catch { /* context loss */ }
 
     const rect = el.getBoundingClientRect()
     const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
@@ -950,6 +975,32 @@ export function Room() {
             </>
           ) : (
             <div>draw a stroke to see stats</div>
+          )}
+        </div>
+      )}
+
+      {/* Haptic-grain experiment diagnostic — always shown while the flag is
+          on (not gated behind ?debug=1) so it's visible on a tablet with no
+          attached devtools while chasing "vibrates from the test button but
+          not while drawing" (see chat). cellsEntered=0 after drawing means
+          the stroke never reached HapticGrain.sample() at all; bumpsHit=0
+          means it's reaching it but the density threshold never trips;
+          vibrateOk < bumpsHit is now expected (see HapticGrain's
+          minIntervalMs) — most grid hits during a real stroke land inside
+          the same throttle window, so only some of them reach an actual
+          navigator.vibrate() call; a call that browser-rejects instead of
+          being throttled is indistinguishable here, but that was never
+          observed while diagnosing this. */}
+      {hapticGrainEnabled && (
+        <div className={styles.debugOverlay}>
+          {hapticStats ? (
+            <>
+              <div>cells entered: {hapticStats.cellsEntered}</div>
+              <div>bumps hit: {hapticStats.bumpsHit}</div>
+              <div>vibrate() ok: {hapticStats.vibrateOk}</div>
+            </>
+          ) : (
+            <div>draw a stroke to see haptic stats</div>
           )}
         </div>
       )}

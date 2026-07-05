@@ -8,6 +8,9 @@ import { DabSystem } from './src/DabSystem'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
+import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
+
+export type { HapticGrainStats }
 
 export { PENCIL_PRESETS, PENCIL_GRADES, type PencilGradeName, type PencilPreset }
 
@@ -72,6 +75,11 @@ export interface PencilEngineOptions {
   // (rather than hardcoded) only so it can still be forced off if a future
   // device shows a regression.
   liveTipSegment?: boolean
+  // Experimental "for fun" prototype (see HapticGrain.ts) — vibrates in a
+  // fixed hash-grid pattern over the paper as the stroke crosses it, to try
+  // simulating paper grain via touch. Off by default; Android Chrome only.
+  hapticGrain?: boolean
+  onHapticGrainStats?: (stats: HapticGrainStats) => void
 }
 
 export interface StrokeDebugStats {
@@ -235,6 +243,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _liveTip: boolean
   private _tipBuf: AccumulationBuffer | null = null
 
+  // Haptic grain experiment (see HapticGrain.ts) — null unless opted in.
+  private _haptic: HapticGrain | null
+  private _hapticX = 0
+  private _hapticY = 0
+
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
   private _dispProg!: WebGLProgram
@@ -306,6 +319,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._onStrokeDebugStats = options.onStrokeDebugStats
     this._predictPointer = options.predictPointer ?? false
     this._liveTip = options.liveTipSegment ?? true
+    this._haptic = options.hapticGrain ? new HapticGrain(10, 0.35, 16, options.onHapticGrainStats, 40) : null
 
     this._initGL()
     this._initPaper(this._opts.paper)
@@ -856,6 +870,11 @@ export class PencilEngine implements PencilEngineAPI {
       this._tipBuf = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
       this._tipBuf.clear()
     }
+    if (this._haptic) {
+      this._haptic.reset()
+      this._hapticX = e.x
+      this._hapticY = e.y
+    }
     const dabs = this._dabs.startStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     this._paintStrokeDabs(dabs, e.speed)
     this._display()
@@ -879,6 +898,11 @@ export class PencilEngine implements PencilEngineAPI {
     // docstring). `e.timeStamp` itself is saved for the next call's use at
     // the bottom of this method.
     const prevMoveTimestamp = this._dbgPrevMoveTimestamp
+    if (this._haptic) {
+      this._haptic.sample(this._hapticX, this._hapticY, e.x, e.y)
+      this._hapticX = e.x
+      this._hapticY = e.y
+    }
     const dabs = this._dabs.continueStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     let painted = false
     if (dabs.length) {

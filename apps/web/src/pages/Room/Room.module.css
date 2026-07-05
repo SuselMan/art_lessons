@@ -264,15 +264,23 @@
   inset: 0;
   z-index: 4;
   cursor: crosshair;
+  touch-action: none;
 }
 
 /* Same catcher purpose as .eyedropperOverlay, for the measure tool (#119) —
-   a full-drag gesture rather than a single click, see handleMeasureDown. */
+   a full-drag gesture rather than a single click, see handleMeasureDown.
+   touch-action: none explicitly, matching .viewport — relying on the
+   ancestor's value alone was observed (real device testing) to let the
+   browser's native pinch/pan gesture recognition swallow a second finger
+   before useViewport's own touch pan/pinch handling ever saw it, since this
+   overlay is the actual hit-test target and gets its own composited
+   touch-action region. */
 .measureOverlay {
   position: absolute;
   inset: 0;
   z-index: 4;
   cursor: crosshair;
+  touch-action: none;
 }
 
 /* ── Sliders ── */

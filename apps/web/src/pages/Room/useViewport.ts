@@ -15,9 +15,11 @@ export interface UseViewportResult {
   canvasTransform: string
 }
 
-/** `toolActive`: true while a one-shot canvas tool (eyedropper, measure — see
- *  Room's `toolActiveRef`) wants the *first* touch that lands on the canvas
- *  for itself, not panning. Checked directly in the native `onDown` handler
+/** `toolActive`: true while a one-shot canvas tool (currently just the
+ *  eyedropper — see Room's `toolActiveRef`; the measure tool is pen-only and
+ *  never sets this, see handleMeasureDown) wants the *first* touch that
+ *  lands on the canvas for itself, not panning. Checked directly in the
+ *  native `onDown` handler
  *  below rather than relying on `e.stopPropagation()` from the tool's own
  *  React handler: this hook's pointer listeners are raw `addEventListener`
  *  calls on `.viewport`, an *ancestor* of the tool's overlay div in the real

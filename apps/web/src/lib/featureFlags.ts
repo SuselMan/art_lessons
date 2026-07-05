@@ -32,6 +32,12 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'Procedural paper-friction sound while drawing, driven by pointer speed and pressure. Untuned first pass — just an experiment to feel out on real hardware.',
     envVar: 'VITE_PENCIL_SOUND',
   },
+  {
+    key: 'hapticGrain',
+    label: 'Haptic paper grain (experimental)',
+    description: 'Vibrates in a fixed hash-grid pattern over the paper as the stroke crosses it, to try simulating paper texture by touch. Android Chrome only (no Vibration API on iOS); for-fun prototype, not tuned.',
+    envVar: 'VITE_HAPTIC_GRAIN',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'
