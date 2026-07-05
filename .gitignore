@@ -11,3 +11,8 @@ dist/
 
 # IDE
 /.idea/
+
+# Auto-created by Agent tool isolation:"worktree" — separate from any
+# manually-created sibling worktrees (../pencil-agent-*), which live outside
+# this repo entirely and don't need this
+/.claude/worktrees/
