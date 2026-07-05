@@ -3,11 +3,11 @@ import { clamp } from 'lodash-es'
 import clsx from 'clsx'
 import styles from './PrecisionSlider.module.css'
 
-// Beyond the initial tap-to-position jump, dragging the full track height
-// again only covers 1/sensitivityFactor() of the range — the rest requires
-// dragging further than the visible track, trading travel distance for
-// precision (same idea as Photoshop/Blender numeric drag fields). The factor
-// itself now scales with the finger's instantaneous speed (#105): a slow,
+// Dragging the full track height only covers 1/sensitivityFactor() of the
+// range — the rest requires dragging further than the visible track,
+// trading travel distance for precision (same idea as Photoshop/Blender
+// numeric drag fields). The factor itself scales with the finger's
+// instantaneous speed (#105): a slow,
 // deliberate drag stays at PRECISE_FACTOR (the old fixed behavior); a fast
 // flick relaxes toward FAST_FACTOR (≈1:1 — the track covers the full range)
 // so the thumb doesn't visibly lag behind the finger, trading precision for
@@ -46,7 +46,6 @@ interface PrecisionSliderProps {
 export function PrecisionSlider({
   value, min, max, step = 1, trackHeight, onChange, formatValue, title, className,
 }: PrecisionSliderProps) {
-  const trackRef = useRef<HTMLDivElement>(null)
   // `value`/`lastY`/`lastT` drive the incremental (per-move-delta) accumulation
   // that lets sensitivity vary mid-drag (#105) — unlike a pure function of
   // total displacement from drag start, this has to carry state forward move
@@ -58,25 +57,24 @@ export function PrecisionSlider({
 
   const roundToStep = useCallback((v: number) => Math.round(v / step) * step, [step])
 
-  const valueFromClientY = useCallback((clientY: number) => {
-    const rect = trackRef.current!.getBoundingClientRect()
-    const proportion = clamp(1 - (clientY - rect.top) / rect.height, 0, 1)
-    return roundToStep(min + proportion * (max - min))
-  }, [min, max, roundToStep])
-
   const showBubble = useCallback((clientX: number, clientY: number, v: number) => {
     setBubble({ x: clientX, y: clientY, text: formatValue ? formatValue(v) : String(v) })
   }, [formatValue])
 
+  // No tap-to-position jump (deliberately removed — see #105 follow-up):
+  // a bare touch-down with no real movement must never change the value, so
+  // a stray palm/hand brush against the toolbar while drawing (reported on
+  // real hardware — left-handed drawing puts the drawing hand right next to
+  // it) can't do anything. The drag baseline is the slider's *current* value,
+  // not the tapped position — only real movement (handleMove below) ever
+  // changes anything.
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const el = e.currentTarget
     el.setPointerCapture(e.pointerId)
 
-    const startValue = valueFromClientY(e.clientY)
-    dragRef.current = { lastY: e.clientY, lastT: performance.now(), value: startValue, speed: 0 }
-    onChange(startValue)
-    if (e.pointerType === 'touch') showBubble(e.clientX, e.clientY, startValue)
+    dragRef.current = { lastY: e.clientY, lastT: performance.now(), value, speed: 0 }
+    if (e.pointerType === 'touch') showBubble(e.clientX, e.clientY, roundToStep(value))
 
     const handleMove = (ev: PointerEvent) => {
       const drag = dragRef.current
@@ -109,7 +107,7 @@ export function PrecisionSlider({
     el.addEventListener('pointermove', handleMove)
     el.addEventListener('pointerup', handleUp)
     el.addEventListener('pointercancel', handleUp)
-  }, [valueFromClientY, onChange, min, max, trackHeight, roundToStep, showBubble])
+  }, [value, onChange, min, max, trackHeight, roundToStep, showBubble])
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     const big = e.key === 'PageUp' || e.key === 'PageDown'
@@ -123,7 +121,6 @@ export function PrecisionSlider({
 
   return (
     <div
-      ref={trackRef}
       className={clsx(styles.track, className)}
       style={{ height: trackHeight }}
       role="slider"
