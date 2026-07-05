@@ -10,10 +10,29 @@ import { createProgram, createFullscreenQuad } from './utils'
 // Contrast/gain lowered across the board (#95) — at the original values all
 // three papers read as too bas-relief; real paper grain is a much fainter
 // variation. Relative ordering (rough roughest, bristol nearly flat) kept.
+//
+// #95 follow-up, from real-use feedback: even after the first pass, rough
+// still read as coarser than intended — what used to be `smooth`'s level is
+// actually the right feel for `rough`. So each tier shifted one notch finer
+// (rough takes the old smooth config, smooth takes the old bristol config),
+// and bristol got a genuinely new, finer-still config by extrapolating the
+// same smooth→bristol step (scale/gain/contrast/warp all continuing their
+// prior trend) rather than just inheriting an existing tier.
+//
+// Second follow-up: "close, but still a bit much" — this time actually
+// lowering gain/contrast (the noise's own amplitude) rather than further
+// diluting how much the existing noise shows through in DISPLAY_FRAG
+// (that dilution was tuned separately and stays as-is). scale/warp
+// (grain size/organic-ness) unchanged — only intensity turned down again.
+//
+// Third follow-up: current bristol is the new reference for "roughest" —
+// rough now takes the old bristol config outright, and smooth/bristol
+// extrapolate one and two steps finer still (same scale/gain/contrast/warp
+// trend as the previous follow-up, continued).
 const CONFIGS: Record<PaperType, { scale: number; gain: number; contrast: number; warp: number }> = {
-  rough:   { scale: 150, gain: 0.42, contrast: 1.0, warp: 1.5 },
-  smooth:  { scale: 260, gain: 0.34, contrast: 0.65, warp: 0.8 },
-  bristol: { scale: 420, gain: 0.28, contrast: 0.5, warp: 0.3 },
+  rough:   { scale: 580,  gain: 0.18,  contrast: 0.3,   warp: 0.15 },
+  smooth:  { scale: 780,  gain: 0.135, contrast: 0.225, warp: 0.09 },
+  bristol: { scale: 1050, gain: 0.1,   contrast: 0.17,  warp: 0.05 },
 }
 
 // Generate paper height map via WebGL shader at full canvas resolution.

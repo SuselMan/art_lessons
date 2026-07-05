@@ -212,9 +212,9 @@ export const DISPLAY_FRAG = `
     float paperHeight = texture2D(u_paperMap, paperUV).r;
 
     // Paper color varies slightly with texture (highlights on raised areas).
-    // Kept subtle (#95) — real paper grain reads as a faint variation, not
-    // a visible bas-relief.
-    vec3 paperTone = u_paperColor * (0.96 + 0.04 * paperHeight);
+    // Kept subtle (#95, further softened per follow-up feedback) — real
+    // paper grain reads as a faint variation, not a visible bas-relief.
+    vec3 paperTone = u_paperColor * (0.965 + 0.03 * paperHeight);
 
     // Graphite shows paper texture through it — in valleys paper peeks through even in dark areas
     float graphiteTexture = mix(1.0, paperHeight * 0.5 + 0.2, graphite * 0.25);

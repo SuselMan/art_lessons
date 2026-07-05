@@ -124,10 +124,27 @@ const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
   bristol: [0.99, 0.99, 0.98],
 }
 
+// Drives how much the pencil itself "feels" the paper grain while drawing —
+// see DAB_FRAG's normalScale/floor_/power (shaders.ts), all mix()'d by this
+// over a 0..1 range (0 = bristol-like uniform fill, 1 = max tooth) —
+// independent of PaperTexture.ts's CONFIGS, which only shape how the blank
+// paper looks.
+//
+// Careful: below ~0.02 this range is visually flat — mix(2.0,10.0,r) etc.
+// are already within a couple percent of their r=0 floor there, so e.g.
+// 0.0001 vs 0.002 vs 0.02 all look identical. Stay above that if a tier is
+// meant to have *some* perceptible tooth; use 0 outright for "none".
+//
+// Third follow-up: current bristol is the new reference for "roughest" —
+// but bristol's old value (0.002) was already deep in that flat zone, i.e.
+// functionally "no tooth". So the honest reading of "make rough feel like
+// that" is: give rough a small-but-actually-perceptible tooth (not the old
+// number verbatim, which wouldn't read as anything), and drop smooth/
+// bristol to barely-there / none.
 const PAPER_ROUGHNESS: Record<PaperType, number> = {
-  rough:   1.0,
-  smooth:  0.04,
-  bristol: 0.005,
+  rough:   0.05,
+  smooth:  0.02,
+  bristol: 0,
 }
 
 // Undo depth is bounded by the log, not by memory: checkpoints only shorten the
