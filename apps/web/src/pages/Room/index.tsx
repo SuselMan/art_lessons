@@ -490,12 +490,13 @@ export function Room() {
     if (!el || !config) return
     e.stopPropagation()
     const overlay = e.currentTarget as HTMLElement
+    const penPointerId = e.pointerId
     // Same defensive try/catch as useViewport's own setPointerCapture calls
     // (search "context loss" there) — without it, a throw here (observed:
     // NotFoundError, "no active pointer with the given id") would abort the
     // rest of this handler before setMeasurePoints ever runs, silently
     // dropping the whole gesture.
-    try { overlay.setPointerCapture(e.pointerId) } catch { /* context loss */ }
+    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
 
     const rect = el.getBoundingClientRect()
     const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
@@ -504,10 +505,20 @@ export function Room() {
     const start = toPoint(e.clientX, e.clientY)
     setMeasurePoints({ a: start, b: start })
 
+    // Filtered by pointerId: these listeners sit on the overlay (not scoped
+    // to a single pointer by the DOM), and a concurrent second finger
+    // panning/zooming with useViewport's own touch handling (see that hook's
+    // docstring — measure never reserves a touch, so it's free to pan) also
+    // dispatches pointermove/pointerup at this same overlay. Without this
+    // check, that finger's moves were observed corrupting the measurement's
+    // endpoint, and its pointerup was observed tearing down the pen's own
+    // tracking before the pen had actually lifted.
     const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
       setMeasurePoints(prev => prev && { a: prev.a, b: toPoint(ev.clientX, ev.clientY) })
     }
-    const onUp = () => {
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
       overlay.removeEventListener('pointermove', onMove)
       overlay.removeEventListener('pointerup', onUp)
     }
