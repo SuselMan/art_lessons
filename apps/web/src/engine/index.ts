@@ -53,6 +53,21 @@ export interface PencilEngineOptions {
   // (PointerInput never even calls getPredictedEvents() unless this is
   // enabled — see the constructor).
   predictPointer?: boolean
+  // Live-tip segment preview (#104 latency investigation): paints the
+  // newest not-yet-tangent-finalized segment immediately, using an
+  // extrapolated tangent, into a small stroke-scoped scratch buffer that's
+  // cleared and repainted on every real move (DabSystem.peekTipDabs()) —
+  // rather than always waiting for the *next* real event to supply a proper
+  // tangent (DabSystem's normal "1-event lag", see its file-level comment).
+  // Unlike predictPointer, this never guesses a future *position* — both
+  // endpoints of the previewed segment are real, already-sampled points;
+  // only the curvature at the tip is an estimate, and it's fully replaced
+  // (never left behind, never double-inked — see AccumulationBuffer's
+  // "over" blend) once the next real point arrives and the same segment is
+  // painted for real into the layer's own buffer. Off by default — mirrors
+  // the debug/predictPointer guard pattern, needs real-hardware feel-
+  // testing before being trusted (see StrokeDebugStats' avgTipLatencyMs).
+  liveTipSegment?: boolean
 }
 
 export interface StrokeDebugStats {
@@ -63,6 +78,20 @@ export interface StrokeDebugStats {
   dabCount: number        // dabs painted this stroke
   renderMsTotal: number   // total time spent in _paintDabs + _display across the stroke
   avgRenderMsPerDab: number
+  // #104: real end-to-end latency, PointerEvent.timeStamp of the sample
+  // whose position was just painted → performance.now() right after that
+  // paint. Always reflects DabSystem's normal 1-event-lag path (the
+  // committed segment painted into the real layer buffer), regardless of
+  // liveTipSegment.
+  avgE2eLatencyMs: number
+  maxE2eLatencyMs: number
+  // #104: same measurement, but for the liveTipSegment scratch preview
+  // (PointerEvent.timeStamp of the *current* sample → its own paint) —
+  // only meaningful when liveTipSegment is enabled; 0 otherwise. Expected to
+  // run roughly one inter-event gap below avgE2eLatencyMs/maxE2eLatencyMs,
+  // since it skips the "wait for the next event's tangent" step entirely.
+  avgTipLatencyMs: number
+  maxTipLatencyMs: number
 }
 
 type EngineEventName = 'strokeStart' | 'strokeEnd' | 'pointer'
@@ -172,6 +201,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _dbgMaxGap = 0
   private _dbgDabCount = 0
   private _dbgRenderMs = 0
+  // #104 end-to-end latency tracking — see StrokeDebugStats' avgE2eLatencyMs.
+  private _dbgPrevMoveTimestamp = 0
+  private _dbgE2eSum = 0
+  private _dbgE2eCount = 0
+  private _dbgMaxE2e = 0
+  private _dbgTipSum = 0
+  private _dbgTipCount = 0
+  private _dbgMaxTip = 0
 
   // Pointer-prediction preview (#92) — all no-ops unless _predictPointer is
   // true. _previewBuf is a dedicated, stroke-scoped AccumulationBuffer (not
@@ -181,6 +218,14 @@ export class PencilEngine implements PencilEngineAPI {
   // permanent pixel state.
   private _predictPointer: boolean
   private _previewBuf: AccumulationBuffer | null = null
+
+  // Live-tip segment preview (#104) — all no-ops unless _liveTip is true.
+  // _tipBuf is a dedicated, stroke-scoped AccumulationBuffer, same lifecycle
+  // pattern as _previewBuf: created on stroke start, cleared and repainted
+  // from scratch on every real move (never accumulated), destroyed on stroke
+  // end. See DabSystem.peekTipDabs() and _refreshTip() below.
+  private _liveTip: boolean
+  private _tipBuf: AccumulationBuffer | null = null
 
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
@@ -244,6 +289,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._debug = options.debug ?? false
     this._onStrokeDebugStats = options.onStrokeDebugStats
     this._predictPointer = options.predictPointer ?? false
+    this._liveTip = options.liveTipSegment ?? false
 
     this._initGL()
     this._initPaper(this._opts.paper)
@@ -501,6 +547,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeFBO.destroy()
     this._previewBuf?.destroy()
     this._previewBuf = null
+    this._tipBuf?.destroy()
+    this._tipBuf = null
     this._checkpoints = []
     this._checkpointBytes = 0
   }
@@ -735,10 +783,21 @@ export class PencilEngine implements PencilEngineAPI {
       this._dbgMaxGap = 0
       this._dbgDabCount = 0
       this._dbgRenderMs = 0
+      this._dbgPrevMoveTimestamp = e.timeStamp
+      this._dbgE2eSum = 0
+      this._dbgE2eCount = 0
+      this._dbgMaxE2e = 0
+      this._dbgTipSum = 0
+      this._dbgTipCount = 0
+      this._dbgMaxTip = 0
     }
     if (this._predictPointer) {
       this._previewBuf = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
       this._previewBuf.clear()
+    }
+    if (this._liveTip) {
+      this._tipBuf = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
+      this._tipBuf.clear()
     }
     const dabs = this._dabs.startStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     this._paintStrokeDabs(dabs, e.speed)
@@ -757,15 +816,54 @@ export class PencilEngine implements PencilEngineAPI {
       this._dbgGapSum += gap
       if (gap > this._dbgMaxGap) this._dbgMaxGap = gap
     }
+    // #104: captured before continueStroke() so it reflects the *previous*
+    // real sample — DabSystem's 1-event lag means the segment painted below
+    // (if any) ends at that previous point, not at `e` (see continueStroke's
+    // docstring). `e.timeStamp` itself is saved for the next call's use at
+    // the bottom of this method.
+    const prevMoveTimestamp = this._dbgPrevMoveTimestamp
     const dabs = this._dabs.continueStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
+    let painted = false
     if (dabs.length) {
       const t0 = this._debug ? performance.now() : 0
       this._paintStrokeDabs(dabs, e.speed)
-      this._display()
+      painted = true
       if (this._debug) {
-        this._dbgRenderMs += performance.now() - t0
+        const paintedAt = performance.now()
+        this._dbgRenderMs += paintedAt - t0
         this._dbgDabCount += dabs.length
+        const e2e = paintedAt - prevMoveTimestamp
+        this._dbgE2eSum += e2e
+        this._dbgE2eCount++
+        if (e2e > this._dbgMaxE2e) this._dbgMaxE2e = e2e
       }
+    }
+    if (this._liveTip) {
+      this._refreshTip(e.speed)
+      painted = true
+      if (this._debug) {
+        const tipLatency = performance.now() - e.timeStamp
+        this._dbgTipSum += tipLatency
+        this._dbgTipCount++
+        if (tipLatency > this._dbgMaxTip) this._dbgMaxTip = tipLatency
+      }
+    }
+    if (painted) this._display()
+    if (this._debug) this._dbgPrevMoveTimestamp = e.timeStamp
+  }
+
+  // Refreshes the live-tip scratch buffer (#104) with the newest segment's
+  // provisional rendering — cleared and repainted from scratch every call
+  // (never accumulated), same non-destructive pattern as _onPredict's
+  // _previewBuf below, so a since-superseded tangent estimate never lingers
+  // or double-inks the real buffer.
+  private _refreshTip(speed: number): void {
+    if (!this._tipBuf) return
+    this._tipBuf.clear()
+    const dabs = this._dabs.peekTipDabs(this._physicalSize)
+    if (dabs.length) {
+      this._bakeDabOpacity(dabs, speed)
+      this._paintDabs(this._tipBuf, dabs, this._strokeTool, this._strokePreset)
     }
   }
 
@@ -809,6 +907,14 @@ export class PencilEngine implements PencilEngineAPI {
       this._previewBuf.destroy()
       this._previewBuf = null
     }
+    // Same for the live-tip scratch buffer: endStroke() above just painted
+    // the exact same final segment (pixel-identical, same math minus the
+    // `_remainder` mutation — see peekTipDabs()) into the real buffer, so
+    // there is nothing left for the tip preview to show.
+    if (this._tipBuf) {
+      this._tipBuf.destroy()
+      this._tipBuf = null
+    }
     this._display()
     if (this._debug) {
       this._dbgRenderMs += performance.now() - t0
@@ -822,6 +928,10 @@ export class PencilEngine implements PencilEngineAPI {
         dabCount:          this._dbgDabCount,
         renderMsTotal:     this._dbgRenderMs,
         avgRenderMsPerDab: this._dbgDabCount > 0 ? this._dbgRenderMs / this._dbgDabCount : 0,
+        avgE2eLatencyMs:   this._dbgE2eCount > 0 ? this._dbgE2eSum / this._dbgE2eCount : 0,
+        maxE2eLatencyMs:   this._dbgMaxE2e,
+        avgTipLatencyMs:   this._dbgTipCount > 0 ? this._dbgTipSum / this._dbgTipCount : 0,
+        maxTipLatencyMs:   this._dbgMaxTip,
       })
     }
 
@@ -966,6 +1076,15 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
 
     this._runComposite(this._compositeOrder, this._compositeFBO.fbo)
+
+    // #104 live-tip preview: blended in before the #92 preview below so the
+    // (mutually-exclusive-in-practice, but not enforced) predicted preview
+    // stays visually on top if both experiments are ever enabled together.
+    // Same (ONE, ONE_MINUS_SRC_ALPHA) blend as AccumulationBuffer.beginDraw()
+    // — visual only, never written into any layer's real buffer.
+    if (this._tipBuf) {
+      this._compositeTextures([{ texture: this._tipBuf.texture, opacity: 1 }], this._compositeFBO.fbo)
+    }
 
     // #92 speculative preview: blended on top of the real composite, same
     // (ONE, ONE_MINUS_SRC_ALPHA) blend as AccumulationBuffer.beginDraw() —
