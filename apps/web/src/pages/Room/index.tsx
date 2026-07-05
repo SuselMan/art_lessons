@@ -30,6 +30,7 @@ import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
 import { describeJoinError } from './joinError'
 import { PeerCursors, type PeerCursorPosition } from './PeerCursors'
+import { MeasureOverlay, type MeasurePoint } from './MeasureOverlay'
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import styles from './Room.module.css'
@@ -134,6 +135,15 @@ export function Room() {
   // rather than going through engine.setTool(). See .eyedropperOverlay in
   // Room.module.css for how it intercepts the next canvas pointerdown.
   const [eyedropperActive, setEyedropperActive] = useState(false)
+  // Measure tool (#119) — same non-recorded local-UI-state shape as the
+  // eyedropper above: it never paints or produces an Operation, so it's
+  // plain React state rather than an engine.setTool() mode. `measurePoints`
+  // is the transient A→B line; it's cleared on every toggle (see
+  // toggleMeasure) rather than persisting across a tool switch — "measure
+  // mode off means nothing measured" is the simplest invariant to reason
+  // about, at the cost of losing the last measurement when you switch away.
+  const [measureActive, setMeasureActive] = useState(false)
+  const [measurePoints, setMeasurePoints] = useState<{ a: MeasurePoint; b: MeasurePoint } | null>(null)
   const [layerState, setLayerState] = useState<LayerState>(makeInitialLayerState)
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | null>('layers')
 
@@ -426,6 +436,53 @@ export function Room() {
       setActivePanel('color')
     }
     setEyedropperActive(false)
+  }, [vpRef, vp, config])
+
+  // Eyedropper and measure mode both take over the same canvas-pointer
+  // catcher slot (.eyedropperOverlay / .measureOverlay, same z-index) — only
+  // one should ever be armed at a time, so each toggle turns the other off.
+  const toggleEyedropper = useCallback(() => {
+    setMeasureActive(false)
+    setMeasurePoints(null)
+    setEyedropperActive(a => !a)
+  }, [])
+
+  const toggleMeasure = useCallback(() => {
+    setEyedropperActive(false)
+    setMeasureActive(a => !a)
+    setMeasurePoints(null)
+  }, [])
+
+  // Measure tool (#119): mirrors handleEyedropperPick's clientToCanvas
+  // conversion, but for a full drag rather than a single click — down/move/up
+  // tracked manually via setPointerCapture + direct DOM listeners, the same
+  // pattern ColorPicker's onSvDown/onHueDown use for their own drag handling.
+  // stopPropagation keeps useViewport's own native pointerdown listener
+  // (attached to this same vpRef element, for touch pinch/pan) from treating
+  // this drag as a canvas pan too.
+  const handleMeasureDown = useCallback((e: React.PointerEvent) => {
+    const el = vpRef.current
+    if (!el || !config) return
+    e.stopPropagation()
+    const overlay = e.currentTarget as HTMLElement
+    overlay.setPointerCapture(e.pointerId)
+
+    const rect = el.getBoundingClientRect()
+    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
+    const toPoint = (clientX: number, clientY: number): MeasurePoint => clientToCanvas(clientX, clientY, viewport, config)
+
+    const start = toPoint(e.clientX, e.clientY)
+    setMeasurePoints({ a: start, b: start })
+
+    const onMove = (ev: PointerEvent) => {
+      setMeasurePoints(prev => prev && { a: prev.a, b: toPoint(ev.clientX, ev.clientY) })
+    }
+    const onUp = () => {
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
   }, [vpRef, vp, config])
 
   // ── who's-drawing indicator (#38) ─────────────────────────────────────────────
@@ -777,8 +834,13 @@ export function Room() {
           <button
             className={clsx(styles.toolIconBtn, eyedropperActive && styles.toolIconBtnActive)}
             title="Eyedropper — pick a color from the canvas"
-            onClick={() => setEyedropperActive(a => !a)}
+            onClick={toggleEyedropper}
           ><Icon name="colorize" /></button>
+          <button
+            className={clsx(styles.toolIconBtn, measureActive && styles.toolIconBtnActive)}
+            title="Measure — drag between two points to see the distance"
+            onClick={toggleMeasure}
+          ><Icon name="straighten" /></button>
 
           <div className={styles.toolDivider} />
 
@@ -819,9 +881,15 @@ export function Room() {
               zoom={vp.zoom}
               angle={vp.angle}
             />
+            {measurePoints && (
+              <MeasureOverlay a={measurePoints.a} b={measurePoints.b} zoom={vp.zoom} angle={vp.angle} />
+            )}
           </div>
           {eyedropperActive && (
             <div className={styles.eyedropperOverlay} onPointerDown={handleEyedropperPick} />
+          )}
+          {measureActive && (
+            <div className={styles.measureOverlay} onPointerDown={handleMeasureDown} />
           )}
         </div>
 
