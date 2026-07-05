@@ -22,6 +22,12 @@ export interface PointerData {
   tiltY: number
   speed: number
   pointerType: string
+  // Real DOMHighResTimeStamp the browser/OS recorded for this sample
+  // (PointerEvent.timeStamp), NOT performance.now() at handler-entry — by
+  // the time our handler runs there's already browser/OS event-dispatch
+  // buffering between the two (#104). This is the correct clock to measure
+  // genuine end-to-end input-to-paint latency against.
+  timeStamp: number
 }
 
 type PointerEventName = 'start' | 'move' | 'end'
@@ -99,7 +105,7 @@ export class PointerInput {
   private _toPointerData(e: PointerEvent, x: number, y: number, speed: number): PointerData {
     let pressure = e.pressure ?? 0.5
     if (e.pointerType === 'mouse' && pressure === 0) pressure = 0.5
-    return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, pointerType: e.pointerType }
+    return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, pointerType: e.pointerType, timeStamp: e.timeStamp }
   }
 
   private _extract(e: PointerEvent): PointerData {
