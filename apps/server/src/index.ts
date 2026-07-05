@@ -1,17 +1,37 @@
 import Fastify from 'fastify'
+import cookie from '@fastify/cookie'
+import cors from '@fastify/cors'
 import { Server, type DefaultEventsMap } from 'socket.io'
 
 import type { ClientToServerEvents, ServerToClientEvents } from '@art-lessons/shared'
 import { registerRoomHandlers, type SocketData } from './socketHandlers.js'
+import { identityHook } from './identity.js'
+import { registerAuthRoutes } from './authRoutes.js'
+import { registerRoomRoutes } from './roomRoutes.js'
 
 const app = Fastify({ logger: true })
 
-app.get('/health', async () => ({ ok: true }))
+// `origin: true` (reflect the request's own Origin) + `credentials: true` is
+// required for the identity cookie (#41) to ride along cross-origin — LAN dev
+// setup has the Vite dev server and this API on different ports of the same
+// host, which is cross-origin (though same-site, since Same-Site is
+// domain-based, not port-based — that's what lets `sameSite: 'lax'` still
+// work here). `origin: '*'` is incompatible with credentialed requests per
+// the CORS spec, so this replaces the old permissive wildcard.
+await app.register(cors, { origin: true, credentials: true })
+await app.register(cookie)
 
-// Permissive CORS: LAN-only dev setup, no auth yet (teacher/student devices
-// on the same network). Revisit once rooms require authenticated origins.
+// Resolves req.userId (identity.ts) for every HTTP route from here on —
+// registered globally so /api/auth/*, /api/rooms/*, /api/me etc. all get it
+// for free. Routes registered above this line would NOT have req.userId.
+app.addHook('preHandler', identityHook)
+
+app.get('/health', async () => ({ ok: true }))
+registerAuthRoutes(app)
+registerRoomRoutes(app)
+
 const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>(app.server, {
-  cors: { origin: '*' },
+  cors: { origin: true, credentials: true },
 })
 
 // Room state (#32), operation relay + log (#34/#35), room_state snapshot

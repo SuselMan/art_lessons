@@ -4,17 +4,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/index.js"
+    "start": "node --env-file-if-exists=.env dist/index.js"
   },
   "dependencies": {
     "@art-lessons/shared": "*",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/cors": "^11.2.0",
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
     "fastify": "^5.3.3",
+    "jsonwebtoken": "^9.0.3",
+    "prisma": "^6.19.3",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.13.2",
     "tsx": "^4.20.3",
     "typescript": "~6.0.2"

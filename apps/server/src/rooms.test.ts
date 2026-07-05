@@ -84,7 +84,7 @@ describe('joinRoom', () => {
     expect(result).toEqual({ ok: true, participant: expect.objectContaining({ userId: 'u1', role: 'student' }) })
   })
 
-  it('never assigns teacher, regardless of join order', () => {
+  it('never assigns teacher to a non-owner, regardless of join order', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
     const first = joinRoom(roomId, 'u1', 'Alice')
@@ -92,6 +92,18 @@ describe('joinRoom', () => {
 
     expect(first.ok && first.participant.role).toBe('student')
     expect(second.ok && second.participant.role).toBe('student')
+  })
+
+  it("assigns teacher when the room's owner rejoins via join_room (#41 identity fix)", () => {
+    // The client always goes through join_room, never create_room again, for
+    // a returning owner (reconnect after a drop, or just reopening the link
+    // later) — see rooms.ts createRoom's doc comment. Before identity was
+    // stable, this always fell through to `student`.
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher')
+
+    expect(rejoin.ok && rejoin.participant.role).toBe('teacher')
   })
 
   it('assigns distinct cursor colors by join order, cycling if needed', () => {

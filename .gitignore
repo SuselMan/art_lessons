@@ -4,7 +4,8 @@ dist/
 *.log
 *.tsbuildinfo
 
-# Local env overrides (Vite convention) - never commit these
+# Env files with local secrets (DB credentials, JWT signing key) - never commit these
+.env
 .env.local
 .env.*.local
 

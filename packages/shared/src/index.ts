@@ -216,10 +216,16 @@ export type OperationDraft = Operation extends infer O
 // Socket events
 
 /** Result of a `create_room`/`join_room` attempt. `not_found` means no room
- *  has been registered under that id (create_room was never called for it,
- *  or the server restarted — no persistence yet, #74); `wrong_password`
- *  means the room exists but the supplied password didn't match. */
-export type JoinResult = { ok: true } | { ok: false; error: 'not_found' | 'wrong_password' }
+ *  has been registered under that id, in memory or in Postgres (#74);
+ *  `wrong_password` means the room exists but the supplied password didn't
+ *  match. On success, `userId` is the caller's server-resolved identity
+ *  (from the identity cookie, #41) — the client uses this instead of its own
+ *  ephemeral Socket.IO connection id for everything identity-shaped (stamping
+ *  outgoing operations, engine.setUserId), since that id is otherwise the
+ *  only stable one across reconnects. */
+export type JoinResult =
+  | { ok: true; userId: string }
+  | { ok: false; error: 'not_found' | 'wrong_password' }
 
 export type ServerToClientEvents = {
   room_state: (state: { room: Room; operations: Operation[]; participants: Participant[] }) => void

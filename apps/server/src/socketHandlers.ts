@@ -2,12 +2,14 @@ import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@art-lessons/shared'
 
-import { createRoom, getParticipant, getRoomSnapshot, joinRoom, leaveRoom, recordOperation } from './rooms.js'
+import { createRoom, ensureRoomLoaded, getParticipant, getRoomSnapshot, joinRoom, leaveRoom, recordOperation } from './rooms.js'
+import { resolveSocketIdentity } from './identity.js'
 
-/** Per-connection state. There's no auth yet (#41), so the server assigns
- *  `userId` from the Socket.IO connection id at join time and treats it as
- *  the source of truth for role checks — never the `userId` embedded in a
- *  client-supplied Operation, which is not to be trusted for authorization. */
+/** Per-connection state. `userId` is resolved once, in the `io.use()`
+ *  middleware below, from the same identity cookie (#41) that HTTP routes
+ *  use — never re-derived per event, and never trusted from a client-
+ *  supplied Operation's own `userId` field for authorization (role checks
+ *  below always go through `getParticipant`, keyed by this). */
 export interface SocketData {
   roomId?: string
   userId?: string
@@ -16,21 +18,31 @@ export interface SocketData {
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>
 
 export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): void {
+  // Runs once per connection, before 'connection' fires, so every handler
+  // below can assume socket.data.userId is already set. Reads the same
+  // cookie identityHook/authRoutes use (see resolveSocketIdentity's doc
+  // comment for the one edge case: a socket connecting before the client's
+  // warm-up `GET /api/me` ever ran).
+  io.use((socket, next) => {
+    resolveSocketIdentity(socket.handshake.headers.cookie)
+      .then(userId => { socket.data.userId = userId; next() })
+      .catch(next)
+  })
+
   io.on('connection', (socket) => {
-    log.info({ socketId: socket.id }, 'socket connected')
+    log.info({ socketId: socket.id, userId: socket.data.userId }, 'socket connected')
 
     // Registers a brand-new room and seats the caller as its `teacher` (#39
     // fix: ownership is now fixed at creation time, not "whoever joins
     // first"). `create_room`'s wire payload carries no participant name
     // (unlike `join_room`) — that's how the shared contract was defined, so
-    // the owner gets a fixed label until #41 (real auth/identity) lands.
+    // the owner gets a fixed label until account names exist.
     socket.on('create_room', ({ room, password }, ack) => {
-      const userId = socket.id
+      const userId = socket.data.userId!
       // No one else is in the room yet, so there's no peer_joined broadcast
       // to make — unlike join_room below, the returned participant is unused.
       createRoom(room, password, userId, 'Teacher')
       socket.data.roomId = room.id
-      socket.data.userId = userId
 
       // Same ordering guarantee as join_room below (#36): join the Socket.IO
       // room and emit the snapshot synchronously, before yielding back to the
@@ -40,11 +52,17 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       if (snapshot) socket.emit('room_state', snapshot)
 
       log.info({ socketId: socket.id, roomId: room.id, userId }, 'socket created room')
-      ack({ ok: true })
+      ack({ ok: true, userId })
     })
 
-    socket.on('join_room', ({ roomId, name, password }, ack) => {
-      const userId = socket.id
+    socket.on('join_room', async ({ roomId, name, password }, ack) => {
+      const userId = socket.data.userId!
+      // Repopulates the in-memory room from Postgres (#74) if this is the
+      // first time this process has touched it this session — a cold server
+      // start, or the room went idle and was evicted (see leaveRoom). A
+      // no-op, synchronously fast, when the room's already live.
+      await ensureRoomLoaded(roomId)
+
       const result = joinRoom(roomId, userId, name, password)
       if (!result.ok) {
         log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')
@@ -53,7 +71,6 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       }
 
       socket.data.roomId = roomId
-      socket.data.userId = userId
 
       // Join the Socket.IO room and emit the snapshot synchronously, in that
       // order, before yielding back to the event loop (#36). Socket.io/Node
@@ -69,7 +86,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       socket.to(roomId).emit('peer_joined', result.participant)
 
       log.info({ socketId: socket.id, roomId, userId, role: result.participant.role }, 'socket joined room')
-      ack({ ok: true })
+      ack({ ok: true, userId })
     })
 
     // Operation relay (#34/#35): broadcast to every other socket in the room

@@ -7,39 +7,75 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Every browser gets a User row from its first visit on, via a long-lived
+// identity cookie (#41) — email/passwordHash start out null (anonymous/guest)
+// and get filled in place on registration, same row, same id. So `ownerId`
+// on Room is never optional: anonymous room creation still has a real user
+// behind it, just not (yet) an email+password one. email stays @unique even
+// though many guest rows share `null` — Postgres treats NULLs as distinct for
+// uniqueness, so this only constrains actual registered emails.
 model User {
-  id           String     @id @default(uuid())
-  email        String     @unique
-  name         String
-  passwordHash String
-  role         UserRole   @default(FREE_TEACHER)
-  rooms        Room[]
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  id                String            @id @default(uuid())
+  email             String?           @unique
+  name              String?
+  passwordHash      String?
+  // Subscription/monetization tier (#5) — unrelated to teacher/student, which
+  // are per-room roles (see Room.ownerId / RoomParticipant), not account types.
+  role              UserRole          @default(FREE_TEACHER)
+  ownedRooms        Room[]
+  participatedRooms RoomParticipant[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 }
 
 model Room {
-  id           String      @id @default(uuid())
+  id           String            @id
   name         String
   paper        String
   canvasWidth  Int
   canvasHeight Int
   passwordHash String?
+  closedAt     DateTime?
   ownerId      String
-  owner        User        @relation(fields: [ownerId], references: [id])
+  owner        User              @relation(fields: [ownerId], references: [id])
   operations   Operation[]
-  createdAt    DateTime    @default(now())
+  participants RoomParticipant[]
+  createdAt    DateTime          @default(now())
 }
 
+// Persisted join history — one row per (room, user) ever, so "Мои уроки"
+// (#116) can list rooms a user was invited into, not just ones they own.
+model RoomParticipant {
+  id            String   @id @default(uuid())
+  roomId        String
+  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstJoinedAt DateTime @default(now())
+  lastActiveAt  DateTime @updatedAt
+
+  @@unique([roomId, userId])
+}
+
+// One row per Operation (@art-lessons/shared) as broadcast over the wire —
+// `data` is the full serialized op (source of truth for replay); `type`/
+// `layerId`/`tool` are pulled out as their own columns purely for querying
+// without parsing JSON. Only `stroke` ops have `tool`, and a few op types
+// (layer_delete, operation_revoke/undo/redo) have no `layerId` at all — see
+// the `Operation` union in packages/shared — hence both stay nullable.
 model Operation {
-  id        String   @id @default(uuid())
+  id        String   @id
+  seq       Int
+  type      String
   roomId    String
   room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   userId    String
-  layerId   String
-  tool      String
+  layerId   String?
+  tool      String?
   data      Json
   createdAt DateTime @default(now())
+
+  @@unique([roomId, seq])
 }
 
 enum UserRole {
