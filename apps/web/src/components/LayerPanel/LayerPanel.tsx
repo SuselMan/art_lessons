@@ -165,8 +165,8 @@ export function LayerPanel({
   }, [])
 
   const handleImportImageChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    e.target.value = ''
+    const input = e.target
+    const file = input.files?.[0]
     if (!file) return
 
     setImportError(null)
@@ -178,6 +178,12 @@ export function LayerPanel({
       onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Could not import image')
+    } finally {
+      // Reset only once the read has actually finished (success or failure)
+      // rather than immediately on change — resetting the input's value
+      // doesn't invalidate the already-grabbed File reference by spec, but
+      // there's no upside to doing it before the read is done, either.
+      input.value = ''
     }
   }, [onChange, onOp])
 

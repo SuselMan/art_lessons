@@ -15,7 +15,21 @@ export interface UseViewportResult {
   canvasTransform: string
 }
 
-export function useViewport(canvas: CanvasSize | null): UseViewportResult {
+/** `toolActive`: true while a one-shot canvas tool (eyedropper, measure — see
+ *  Room's `toolActiveRef`) wants the *first* touch that lands on the canvas
+ *  for itself, not panning. Checked directly in the native `onDown` handler
+ *  below rather than relying on `e.stopPropagation()` from the tool's own
+ *  React handler: this hook's pointer listeners are raw `addEventListener`
+ *  calls on `.viewport`, an *ancestor* of the tool's overlay div in the real
+ *  DOM, so they fire during native bubbling *before* React ever dispatches
+ *  to the overlay's onPointerDown — by the time the tool's handler could
+ *  call stopPropagation, panning has already started. Only the touch that
+ *  arrives while nothing else is down gets reserved (and never enters
+ *  `touchPtrs`, so pan/pinch logic never sees it) — a *second* finger
+ *  landing while the first is reserved is treated as an ordinary single
+ *  touch, i.e. it pans normally. This is what gives "first finger drives
+ *  the tool, second finger pans" instead of one blocking the other. */
+export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boolean>): UseViewportResult {
   const [vp, setVp] = useState<Viewport>({ cx: 0, cy: 0, zoom: 1, angle: 0 })
 
   const vpRef     = useRef<HTMLDivElement>(null)
@@ -23,6 +37,7 @@ export function useViewport(canvas: CanvasSize | null): UseViewportResult {
   const canvasRef = useRef<CanvasSize | null>(canvas)
   const touchPtrs = useRef(new Map<number, { x: number; y: number }>())
   const midPanRef = useRef<{ sx: number; sy: number; ocx: number; ocy: number } | null>(null)
+  const reservedTouchId = useRef<number | null>(null)
 
   vpState.current   = vp
   canvasRef.current = canvas
@@ -66,6 +81,10 @@ export function useViewport(canvas: CanvasSize | null): UseViewportResult {
 
     const onDown = (e: PointerEvent) => {
       if (e.pointerType === 'touch') {
+        if (toolActive.current && reservedTouchId.current === null && touchPtrs.current.size === 0) {
+          reservedTouchId.current = e.pointerId
+          return
+        }
         try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
         touchPtrs.current.set(e.pointerId, toVp(e))
       } else if (e.button === 1) {
@@ -115,6 +134,7 @@ export function useViewport(canvas: CanvasSize | null): UseViewportResult {
 
     const onUp = (e: PointerEvent) => {
       if (e.pointerType === 'touch') {
+        if (reservedTouchId.current === e.pointerId) { reservedTouchId.current = null; return }
         touchPtrs.current.delete(e.pointerId)
         try { el.releasePointerCapture(e.pointerId) } catch { /* context loss */ }
       } else {
@@ -132,7 +152,7 @@ export function useViewport(canvas: CanvasSize | null): UseViewportResult {
       el.removeEventListener('pointerup',     onUp)
       el.removeEventListener('pointercancel', onUp)
     }
-  }, [canvas])
+  }, [canvas, toolActive])
 
   const fitCanvas = useCallback(() => {
     const el = vpRef.current

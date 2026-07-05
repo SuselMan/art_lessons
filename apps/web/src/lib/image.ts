@@ -4,7 +4,11 @@ function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(reader.result as string)
-    reader.onerror = () => reject(new Error('failed to read file'))
+    // reader.error's own message is usually more specific than nothing (e.g.
+    // "NotReadableError" for a cloud-only photo not yet downloaded to the
+    // device — a real iOS/iCloud Photos gotcha) — surface it instead of a
+    // generic string so a report of this actually points somewhere.
+    reader.onerror = () => reject(new Error(`failed to read file: ${reader.error?.message || reader.error?.name || 'unknown error'}`))
     reader.readAsDataURL(file)
   })
 }
@@ -13,7 +17,7 @@ function loadImageSize(dataUrl: string): Promise<{ width: number; height: number
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight })
-    img.onerror = () => reject(new Error('failed to decode image'))
+    img.onerror = () => reject(new Error('failed to decode image — is it a valid image file?'))
     img.src = dataUrl
   })
 }
