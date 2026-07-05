@@ -314,6 +314,10 @@
   padding: 1px 4px;
   min-width: 0;
   outline: none;
+  /* #115: opts back into text selection/caret against .editor's blanket
+     user-select: none — this is the one real text-input field in here. */
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Read-only opacity display on each row */

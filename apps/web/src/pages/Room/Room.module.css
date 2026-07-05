@@ -1,9 +1,19 @@
+/* #115: base rule — nothing in the editor's UI chrome (toolbar, header,
+   labels, layer panel, etc.) is meant to be text-selectable, and without this
+   a stray click/drag/double-click on any of it can leave the browser's own
+   text-selection (or, worse, a blinking caret) sitting on some random
+   element. Genuinely editable text (e.g. LayerPanel's rename input) opts
+   back in explicitly at its own selector — see .nameInput in
+   LayerPanel.module.css — rather than this rule enumerating every non-input
+   element it should apply to. */
 .editor {
   --header-h: 44px;
   width: 100%;
   height: 100%;
   position: relative;
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 /* #99: minimal-UI experiment — a tap on the canvas toggles this class on the
