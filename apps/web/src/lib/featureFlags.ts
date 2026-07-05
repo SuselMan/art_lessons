@@ -27,12 +27,6 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     envVar: 'VITE_TAP_TO_HIDE_UI',
   },
   {
-    key: 'liveTipSegment',
-    label: 'Live tip segment (experimental)',
-    description: 'Paints the newest not-yet-finalized stroke segment immediately with an estimated tangent, instead of waiting for the next pointer sample (#104). Reduces felt lag; unlike pointer prediction, never guesses a future position.',
-    envVar: 'VITE_LIVE_TIP_SEGMENT',
-  },
-  {
     key: 'pencilSound',
     label: 'Pencil sound (experimental)',
     description: 'Procedural paper-friction sound while drawing, driven by pointer speed and pressure. Untuned first pass — just an experiment to feel out on real hardware.',

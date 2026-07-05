@@ -103,11 +103,6 @@ export function Room() {
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
   // before deciding whether to keep it.
   const predictEnabled = getFeatureFlag('predictPointer')
-  // Live-tip segment experiment (#104) — same feature-flag pattern as
-  // predictEnabled above. Off by default; lets Ilya A/B it (and compare
-  // avgTipLatencyMs against avgE2eLatencyMs in the debug overlay) on real
-  // hardware before deciding whether to keep it.
-  const liveTipEnabled = getFeatureFlag('liveTipSegment')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   // Minimal-UI experiment (#99): a short single-finger tap on the canvas
@@ -260,7 +255,6 @@ export function Room() {
       debug: debugEnabled,
       onStrokeDebugStats: debugEnabled ? setStrokeStats : undefined,
       predictPointer: predictEnabled,
-      liveTipSegment: liveTipEnabled,
     })
     engineRef.current = engine
 
@@ -324,7 +318,7 @@ export function Room() {
       pencilSoundRef.current?.destroy()
       pencilSoundRef.current = null
     }
-  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, liveTipEnabled, pencilSoundEnabled])
+  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundEnabled])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -801,9 +795,7 @@ export function Room() {
               <div>dabs: {strokeStats.dabCount}</div>
               <div>render: {strokeStats.renderMsTotal.toFixed(1)}ms total / {strokeStats.avgRenderMsPerDab.toFixed(2)}ms per dab</div>
               <div>e2e latency: avg {strokeStats.avgE2eLatencyMs.toFixed(1)}ms / max {strokeStats.maxE2eLatencyMs.toFixed(1)}ms</div>
-              {liveTipEnabled && (
-                <div>tip latency: avg {strokeStats.avgTipLatencyMs.toFixed(1)}ms / max {strokeStats.maxTipLatencyMs.toFixed(1)}ms</div>
-              )}
+              <div>tip latency: avg {strokeStats.avgTipLatencyMs.toFixed(1)}ms / max {strokeStats.maxTipLatencyMs.toFixed(1)}ms</div>
             </>
           ) : (
             <div>draw a stroke to see stats</div>

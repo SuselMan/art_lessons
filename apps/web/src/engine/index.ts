@@ -53,20 +53,24 @@ export interface PencilEngineOptions {
   // (PointerInput never even calls getPredictedEvents() unless this is
   // enabled — see the constructor).
   predictPointer?: boolean
-  // Live-tip segment preview (#104 latency investigation): paints the
-  // newest not-yet-tangent-finalized segment immediately, using an
-  // extrapolated tangent, into a small stroke-scoped scratch buffer that's
-  // cleared and repainted on every real move (DabSystem.peekTipDabs()) —
-  // rather than always waiting for the *next* real event to supply a proper
-  // tangent (DabSystem's normal "1-event lag", see its file-level comment).
-  // Unlike predictPointer, this never guesses a future *position* — both
+  // Live-tip segment preview (#104): paints the newest not-yet-tangent-
+  // finalized segment immediately, using an extrapolated tangent, into a
+  // small stroke-scoped scratch buffer that's cleared and repainted on
+  // every real move (DabSystem.peekTipDabs()) — rather than always waiting
+  // for the *next* real event to supply a proper tangent (DabSystem's
+  // normal "1-event lag", see its file-level comment). Unlike
+  // predictPointer, this never guesses a future *position* — both
   // endpoints of the previewed segment are real, already-sampled points;
   // only the curvature at the tip is an estimate, and it's fully replaced
   // (never left behind, never double-inked — see AccumulationBuffer's
   // "over" blend) once the next real point arrives and the same segment is
-  // painted for real into the layer's own buffer. Off by default — mirrors
-  // the debug/predictPointer guard pattern, needs real-hardware feel-
-  // testing before being trusted (see StrokeDebugStats' avgTipLatencyMs).
+  // painted for real into the layer's own buffer. On by default — real-
+  // hardware feel-testing (Samsung Galaxy Tab S7+, Surface Pro) confirmed
+  // it reduces felt lag without the misdraw risk predictPointer had, so
+  // unlike predictPointer this graduated straight to the default rather
+  // than staying behind a Settings toggle. Kept as an explicit option
+  // (rather than hardcoded) only so it can still be forced off if a future
+  // device shows a regression.
   liveTipSegment?: boolean
 }
 
@@ -86,10 +90,10 @@ export interface StrokeDebugStats {
   avgE2eLatencyMs: number
   maxE2eLatencyMs: number
   // #104: same measurement, but for the liveTipSegment scratch preview
-  // (PointerEvent.timeStamp of the *current* sample → its own paint) —
-  // only meaningful when liveTipSegment is enabled; 0 otherwise. Expected to
-  // run roughly one inter-event gap below avgE2eLatencyMs/maxE2eLatencyMs,
+  // (PointerEvent.timeStamp of the *current* sample → its own paint) — runs
+  // roughly one inter-event gap below avgE2eLatencyMs/maxE2eLatencyMs,
   // since it skips the "wait for the next event's tangent" step entirely.
+  // 0 if liveTipSegment was explicitly forced off.
   avgTipLatencyMs: number
   maxTipLatencyMs: number
 }
@@ -289,7 +293,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._debug = options.debug ?? false
     this._onStrokeDebugStats = options.onStrokeDebugStats
     this._predictPointer = options.predictPointer ?? false
-    this._liveTip = options.liveTipSegment ?? false
+    this._liveTip = options.liveTipSegment ?? true
 
     this._initGL()
     this._initPaper(this._opts.paper)
