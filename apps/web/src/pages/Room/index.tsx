@@ -405,10 +405,15 @@ export function Room() {
   // `_active` gating in engine/src/PointerInput.ts), but peers should see the
   // cursor while just hovering too. Reads `vp`/`config` via refs so the
   // listener isn't torn down and rebuilt on every pan/zoom.
+  // Pen/mouse only, same devices PointerInput accepts for actual drawing —
+  // touch drives pan/pinch/rotate here (see useViewport), not pointing, so
+  // broadcasting it made a peer's cursor jump around whenever a finger
+  // touched down to pan while a peer was mid-gesture (see chat).
   useEffect(() => {
     const el = vpRef.current
     if (!el || !config) return
     const handleMove = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return
       const now = Date.now()
       if (!shouldEmitCursor(lastCursorSentRef.current, now)) return
       lastCursorSentRef.current = now
