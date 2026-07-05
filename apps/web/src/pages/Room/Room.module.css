@@ -266,6 +266,15 @@
   cursor: crosshair;
 }
 
+/* Same catcher purpose as .eyedropperOverlay, for the measure tool (#119) —
+   a full-drag gesture rather than a single click, see handleMeasureDown. */
+.measureOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  cursor: crosshair;
+}
+
 /* ── Sliders ── */
 .sliderBlock {
   display: flex;
@@ -393,6 +402,50 @@
   font-size: 11px;
   font-weight: 600;
   color: #111;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+/* ── Measure tool (#119) ── */
+.measureLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.measureSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.measureLine {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.measureEndpoint {
+  fill: var(--color-accent);
+}
+
+.measureLabel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-text-bright);
+  background: var(--color-accent);
   white-space: nowrap;
   box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
