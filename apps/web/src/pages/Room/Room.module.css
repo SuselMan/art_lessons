@@ -434,6 +434,20 @@
   fill: var(--color-accent);
 }
 
+/* ── Construction grid (#89) ── */
+.gridOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.gridLine {
+  stroke: var(--color-text);
+  stroke-width: 1;
+  opacity: 0.18;
+}
+
 .measureLabel {
   position: absolute;
   top: 0;

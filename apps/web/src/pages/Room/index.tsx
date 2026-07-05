@@ -31,6 +31,7 @@ import { clientToCanvas } from './pointerTransform'
 import { describeJoinError } from './joinError'
 import { PeerCursors, type PeerCursorPosition } from './PeerCursors'
 import { MeasureOverlay, type MeasurePoint } from './MeasureOverlay'
+import { GridOverlay } from './GridOverlay'
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import styles from './Room.module.css'
@@ -144,6 +145,10 @@ export function Room() {
   // about, at the cost of losing the last measurement when you switch away.
   const [measureActive, setMeasureActive] = useState(false)
   const [measurePoints, setMeasurePoints] = useState<{ a: MeasurePoint; b: MeasurePoint } | null>(null)
+  // Construction grid (#89) — unlike eyedropper/measure above, a passive
+  // toggle rather than a one-shot tool: it never intercepts pointer events,
+  // so it doesn't need its own overlay div, just a conditional render.
+  const [gridActive, setGridActive] = useState(false)
   const [layerState, setLayerState] = useState<LayerState>(makeInitialLayerState)
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | null>('layers')
 
@@ -863,6 +868,14 @@ export function Room() {
             <Icon name="delete_forever" />
           </button>
 
+          <div className={styles.toolDivider} />
+
+          <button
+            className={clsx(styles.toolIconBtn, gridActive && styles.toolIconBtnActive)}
+            title="Toggle construction grid"
+            onClick={() => setGridActive(a => !a)}
+          ><Icon name="grid_on" /></button>
+
         </aside>
 
         {/* ── Viewport ── */}
@@ -884,6 +897,7 @@ export function Room() {
             {measurePoints && (
               <MeasureOverlay a={measurePoints.a} b={measurePoints.b} zoom={vp.zoom} angle={vp.angle} />
             )}
+            {gridActive && <GridOverlay width={config.width} height={config.height} />}
           </div>
           {eyedropperActive && (
             <div className={styles.eyedropperOverlay} onPointerDown={handleEyedropperPick} />
