@@ -45,50 +45,52 @@ export type JoinRoomOutcome =
   | { ok: true; participant: Participant }
   | { ok: false; error: 'not_found' | 'wrong_password' }
 
-// Tracks the in-flight `Room` insert for a room created this process
-// lifetime, so persistParticipant/persistOperation (fired independently,
-// right after createRoom returns) don't race the FK they depend on — without
-// this, a fast-enough first stroke could hit Postgres before its own room's
-// insert had committed. Not needed for a room `ensureRoomLoaded` pulled from
-// Postgres cold: by definition the row already exists there, so `undefined`
-// (⇒ resolve immediately) is correct for those.
-const roomCreatedPromise = new Map<string, Promise<void>>()
+// Chains every Postgres write for a room onto whatever was already queued
+// for it, so they land in order (in particular: persistRoomCreate always
+// finishes before persistParticipant/persistOperation's FK on it can be
+// violated). Also lets `leaveRoom` below defer evicting a room from memory
+// until its writes have actually landed — otherwise a quick "draw a stroke,
+// immediately refresh" can race a same-process reconnect's cold-load against
+// that stroke's own fire-and-forget insert still being in flight, and come
+// back missing content that was never really lost, just not queryable yet.
+const pendingWrite = new Map<string, Promise<void>>()
+
+function enqueueWrite(roomId: string, run: () => Promise<unknown>): void {
+  const prior = pendingWrite.get(roomId) ?? Promise.resolve()
+  const next = prior.then(run).then(
+    () => {},
+    err => { console.error(`failed to persist write for room ${roomId}`, err) },
+  )
+  pendingWrite.set(roomId, next)
+}
 
 function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
-  const done = prisma.room.create({
+  enqueueWrite(room.id, () => prisma.room.create({
     data: {
       id: room.id, name: room.name, paper: room.paper,
       canvasWidth: room.canvasWidth, canvasHeight: room.canvasHeight,
       passwordHash, ownerId: room.ownerId,
     },
-  })
-    .then(() => {})
-    .catch(err => { console.error(`failed to persist room create ${room.id}`, err) })
-    .finally(() => roomCreatedPromise.delete(room.id))
-  roomCreatedPromise.set(room.id, done)
-}
-
-function afterRoomPersisted(roomId: string): Promise<void> {
-  return roomCreatedPromise.get(roomId) ?? Promise.resolve()
+  }))
 }
 
 function persistParticipant(roomId: string, userId: string): void {
-  afterRoomPersisted(roomId).then(() => prisma.roomParticipant.upsert({
+  enqueueWrite(roomId, () => prisma.roomParticipant.upsert({
     where: { roomId_userId: { roomId, userId } },
     create: { roomId, userId },
     update: { lastActiveAt: new Date() },
-  })).catch(err => console.error(`failed to persist participant ${roomId}/${userId}`, err))
+  }))
 }
 
 function persistOperation(roomId: string, op: Operation): void {
   const layerId = 'layerId' in op ? op.layerId : null
-  afterRoomPersisted(roomId).then(() => prisma.operation.create({
+  enqueueWrite(roomId, () => prisma.operation.create({
     data: {
       id: op.id, seq: op.seq ?? 0, type: op.type, roomId, userId: op.userId,
       layerId, tool: op.type === 'stroke' ? op.tool : null,
       data: op,
     },
-  })).catch(err => console.error(`failed to persist operation ${roomId}/${op.id}`, err))
+  }))
 }
 
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
@@ -180,12 +182,33 @@ export function joinRoom(roomId: string, userId: string, name: string, password?
 /** Removes a participant on disconnect. Evicts the room from memory once
  *  it's empty (frees RAM for idle rooms) — Postgres keeps the room and its
  *  history regardless (#74); the next `join_room` for this id repopulates
- *  the Map via `ensureRoomLoaded`. */
+ *  the Map via `ensureRoomLoaded`. Waits for this room's pending writes to
+ *  settle before actually evicting, so a fast reconnect (page refresh right
+ *  after drawing) finds the room still live in memory instead of racing a
+ *  Postgres read against the last stroke's own write — see `enqueueWrite`.
+ *  Re-checks participants after the wait: a reconnect that lands during it
+ *  re-populates the Map, and that room must not then be deleted out from
+ *  under it. */
 export function leaveRoom(roomId: string, userId: string): void {
   const record = rooms.get(roomId)
   if (!record) return
   record.participants.delete(userId)
-  if (record.participants.size === 0) rooms.delete(roomId)
+  if (record.participants.size !== 0) return
+
+  const pending = pendingWrite.get(roomId)
+  if (!pending) { rooms.delete(roomId); return }
+  pending.finally(() => {
+    if (rooms.get(roomId)?.participants.size === 0) rooms.delete(roomId)
+  })
+}
+
+/** Test-only seam: resolves once `roomId`'s in-flight Postgres writes (if
+ *  any) have settled, so tests can assert `leaveRoom`'s deferred-eviction
+ *  behavior without a real database — enqueueWrite's rejections are caught
+ *  internally either way, so this resolves regardless of whether Postgres
+ *  was actually reachable. */
+export function _flushPendingWrites(roomId: string): Promise<void> {
+  return pendingWrite.get(roomId) ?? Promise.resolve()
 }
 
 export function getParticipant(roomId: string, userId: string): Participant | undefined {

@@ -1,15 +1,29 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import type { StrokeOperation } from '@art-lessons/shared'
 
-import { createRoom, getParticipant, getRoomSnapshot, joinRoom, leaveRoom, recordOperation } from './rooms.js'
+import { _flushPendingWrites, createRoom, getParticipant, getRoomSnapshot, joinRoom, leaveRoom, recordOperation } from './rooms.js'
 
 // Each test uses its own roomId — `rooms` is module-level shared state with no
 // reset hook, so isolation comes from never reusing a room id across tests.
 let nextRoomId = 0
+const createdRoomIds: string[] = []
 function freshRoomId(): string {
-  return `room-${nextRoomId++}`
+  const id = `room-${nextRoomId++}`
+  createdRoomIds.push(id)
+  return id
 }
+
+// createRoom/recordOperation/etc. all fire off a Postgres write that's bound
+// to reject in this test environment (no real DB) — enqueueWrite catches
+// that internally, but the rejection is still async, and if it settles after
+// a test (or the whole file) has already torn down, vitest reports it as an
+// unhandled error and the run exits non-zero despite every test having
+// passed. Draining every room created this test before moving on keeps that
+// settling inside the test it belongs to.
+afterEach(async () => {
+  await Promise.all(createdRoomIds.splice(0).map(_flushPendingWrites))
+})
 
 function roomDraft(id: string) {
   return { id, name: 'Still life', paper: 'rough' as const, canvasWidth: 1240, canvasHeight: 1754 }
@@ -138,16 +152,37 @@ describe('getRoomSnapshot', () => {
 })
 
 describe('leaveRoom', () => {
-  it('removes the participant; the room (including its metadata) is dropped once empty', () => {
+  it('removes the participant; the room (including its metadata) is dropped once empty', async () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
     leaveRoom(roomId, 'owner-1')
-
     expect(getParticipant(roomId, 'owner-1')).toBeUndefined()
+
+    // Eviction is deferred until this room's pending Postgres writes settle
+    // (so a fast reconnect right after leaving finds it still live) — see
+    // leaveRoom's doc comment. _flushPendingWrites waits for that same point
+    // without needing a real database.
+    await _flushPendingWrites(roomId)
     expect(getRoomSnapshot(roomId)).toBeUndefined()
 
     // Room is gone entirely — a plain join_room can no longer find it.
     expect(joinRoom(roomId, 'u1', 'Alice')).toEqual({ ok: false, error: 'not_found' })
+  })
+
+  it('a reconnect during the deferred-eviction window keeps the room (and its operations) live, not reloaded', async () => {
+    // This is the exact bug this deferral fixes: create, draw, and leave (page
+    // refresh) all happen faster than Postgres can be expected to durably
+    // have the stroke — without deferred eviction, the reconnect below would
+    // fall through to ensureRoomLoaded's cold Postgres read and could come
+    // back missing the operation despite it never really being lost.
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    recordOperation(roomId, stroke({ id: 'a' }))
+    leaveRoom(roomId, 'owner-1') // eviction deferred, not immediate — no await yet
+    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher')
+
+    expect(rejoin).toEqual({ ok: true, participant: expect.objectContaining({ role: 'teacher' }) })
+    expect(getRoomSnapshot(roomId)?.operations.map(o => o.id)).toEqual(['a'])
   })
 
   it('is a no-op on an unknown room or participant', () => {
