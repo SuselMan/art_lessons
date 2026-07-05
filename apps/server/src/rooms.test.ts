@@ -55,6 +55,33 @@ describe('createRoom', () => {
     expect(participant.userId).toBe('owner-1')
   })
 
+  it('calling it again for the same id+owner rejoins without wiping content (#116 reload bug)', () => {
+    // Browsers keep history.state across a same-entry reload, so the
+    // creator's own client-side "isCreator" state survives a page refresh
+    // too and re-emits create_room for the same id instead of join_room —
+    // this used to unconditionally overwrite the room, discarding whatever
+    // had already been drawn.
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    recordOperation(roomId, stroke({ id: 'a' }))
+
+    const second = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+
+    expect(second.participant.role).toBe('teacher')
+    expect(getRoomSnapshot(roomId)?.operations.map(o => o.id)).toEqual(['a'])
+  })
+
+  it('a different owner claiming the same id still overwrites (real collision, unchanged behavior)', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    recordOperation(roomId, stroke({ id: 'a' }))
+
+    const second = createRoom(roomDraft(roomId), undefined, 'owner-2', 'Teacher')
+
+    expect(second.room.ownerId).toBe('owner-2')
+    expect(getRoomSnapshot(roomId)?.operations).toEqual([])
+  })
+
   it('derives hasPassword from whether a password was given', () => {
     const openId = freshRoomId()
     const protectedId = freshRoomId()

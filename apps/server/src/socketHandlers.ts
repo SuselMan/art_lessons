@@ -37,8 +37,15 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // first"). `create_room`'s wire payload carries no participant name
     // (unlike `join_room`) — that's how the shared contract was defined, so
     // the owner gets a fixed label until account names exist.
-    socket.on('create_room', ({ room, password }, ack) => {
+    socket.on('create_room', async ({ room, password }, ack) => {
       const userId = socket.data.userId!
+      // Same reload-safety as join_room below: the creator's own tab can
+      // legitimately emit create_room again for a room that already exists
+      // (browsers keep history.state across a reload — see createRoom's doc
+      // comment on rooms.ts), so this needs the same cold-load-from-Postgres
+      // chance to recognize that before createRoom decides whether it's
+      // actually new.
+      await ensureRoomLoaded(room.id)
       // No one else is in the room yet, so there's no peer_joined broadcast
       // to make — unlike join_room below, the returned participant is unused.
       createRoom(room, password, userId, 'Teacher')

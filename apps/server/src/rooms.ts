@@ -130,18 +130,34 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
  *  returning owner reconnecting (or reopening the link on any later day)
  *  gets `teacher` back despite always going through `join_room`, not this.
  *
- *  Room ids are `nanoid(8)` (client-generated) — a collision is astronomically
- *  unlikely, so this intentionally doesn't special-case an id already in use:
- *  it just overwrites, same as any other last-write-wins map insert. Adding a
- *  dedicated "room already exists" error would mean a third `JoinResult`
- *  variant, i.e. touching the frozen `packages/shared` contract for a case
- *  that in practice won't happen — not worth it here. */
+ *  `roomData.id` already existing here is *not* a rare nanoid collision —
+ *  it's the expected, common case of the creator's own tab refreshing:
+ *  browsers keep `history.state` across a same-entry reload, so the client's
+ *  `isCreator`/`creatorDraft` survives too and it emits `create_room` again
+ *  for the same id (its own "have I already joined this session" tracking
+ *  is just a JS ref, which does reset on reload — see Room/index.tsx). Only
+ *  actually recreates when the id is genuinely new; otherwise this is a
+ *  no-op rejoin that leaves existing content untouched, same spirit as
+ *  `join_room`'s teacher-role check just below. A real id collision from a
+ *  *different* owner (astronomically unlikely) still falls through to
+ *  overwriting, same as always — not worth a dedicated error path for
+ *  something this rare. `socketHandlers.ts` calls `ensureRoomLoaded` before
+ *  this, same as it does for `join_room`, so "already exists" is detected
+ *  even when the room isn't currently live in memory (e.g. a server
+ *  restart between the original creation and this reload). */
 export function createRoom(
   roomData: Pick<Room, 'id' | 'name' | 'paper' | 'canvasWidth' | 'canvasHeight'>,
   password: string | undefined,
   ownerId: string,
   ownerName: string,
 ): { room: Room; participant: Participant } {
+  const existing = rooms.get(roomData.id)
+  if (existing && existing.room.ownerId === ownerId) {
+    const participant: Participant = { userId: ownerId, name: ownerName, role: 'teacher', color: CURSOR_COLORS[0] }
+    existing.participants.set(ownerId, participant)
+    return { room: existing.room, participant }
+  }
+
   const room: Room = {
     ...roomData,
     hasPassword: !!password,
