@@ -22,7 +22,9 @@ export class ApiError extends Error {
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include', // ships the identity cookie (#41) cross-origin
-    headers: { 'Content-Type': 'application/json' },
+    // Only sent when there's a body — Fastify's JSON body parser rejects a
+    // bodyless request (e.g. logout) whose Content-Type still claims JSON.
+    headers: init?.body ? { 'Content-Type': 'application/json' } : undefined,
     ...init,
   })
   if (!res.ok) {
