@@ -21,8 +21,9 @@ import { getFeatureFlag } from '../../lib/featureFlags'
 import { rgbToHex } from '../../lib/color'
 import { PencilSound } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
+import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useViewport } from './useViewport'
-import { useTapToggle } from './useTapToggle'
+import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { participantsReducer } from './participants'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
@@ -118,6 +119,9 @@ export function Room() {
   const tapToHideEnabled = getFeatureFlag('tapToHideUI')
   const [uiHidden, setUiHidden] = useState(false)
   const toggleUI = useCallback(() => setUiHidden(h => !h), [])
+  // Diagnostic for "works on Samsung, not on a Surface" (see chat) — see
+  // TapDebugInfo's docstring for what each field means.
+  const [tapDebug, setTapDebug] = useState<TapDebugInfo | null>(null)
 
   // Pencil-sound experiment: same feature-flag pattern as the ones above. Off
   // by default — untuned first pass, just to feel out on real hardware.
@@ -236,7 +240,7 @@ export function Room() {
   // #99: layered independently on top of useViewport's own touch pan/pinch
   // handling on the same vpRef element — see useTapToggle's docstring for
   // why the two never conflict.
-  useTapToggle(vpRef, toggleUI, tapToHideEnabled)
+  useTapToggle(vpRef, toggleUI, tapToHideEnabled, tapToHideEnabled ? setTapDebug : undefined)
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
@@ -1012,6 +1016,27 @@ export function Room() {
             </>
           ) : (
             <div>draw a stroke to see haptic stats</div>
+          )}
+        </div>
+      )}
+
+      {/* Minimal-UI tap diagnostic — see TapDebugInfo's docstring (chat:
+          "works on Samsung, not on a Surface"). maxDistPx close to or over
+          the threshold means that device's digitizer reports enough jitter
+          on a stationary tap to read as a drag; concurrentTouches > 1 means
+          a second touch (real or a stray palm contact) was down at the same
+          time, disqualifying it as a single-finger tap. */}
+      {tapToHideEnabled && (
+        <div className={styles.debugOverlay}>
+          {tapDebug ? (
+            <>
+              <div>pointerType: {tapDebug.pointerType}</div>
+              <div>max move: {tapDebug.maxDistPx.toFixed(1)}px (threshold {TAP_MOVE_THRESHOLD_PX}px)</div>
+              <div>concurrent touches: {tapDebug.concurrentTouches}</div>
+              <div>was tap: {String(tapDebug.wasTap)}</div>
+            </>
+          ) : (
+            <div>tap the canvas to see tap stats</div>
           )}
         </div>
       )}

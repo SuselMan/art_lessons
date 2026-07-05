@@ -3,6 +3,20 @@ import type { RefObject } from 'react'
 
 import { TapTracker } from './tapTracker'
 
+// Diagnostic for "tap doesn't hide UI" reports that vary by device (see
+// chat: works on Samsung, not on a Surface) — reports why the most recent
+// touch-up did or didn't register as a tap, so it can be read off a device
+// with no attached devtools. maxDistPx vs TAP_MOVE_THRESHOLD_PX tells apart
+// "the digitizer reports enough jitter on a stationary touch to look like a
+// drag" from "something else disqualified it" (multi-touch, or the up simply
+// never reached TapTracker as pointerType 'touch' at all).
+export interface TapDebugInfo {
+  pointerType: string
+  maxDistPx: number
+  concurrentTouches: number
+  wasTap: boolean
+}
+
 /** Detects a short, stationary single-finger touch tap on `ref`'s element —
  *  not a drag, not part of a multi-touch pinch/pan gesture — and calls
  *  `onTap`. Touch-only by design (#99, mirrors #96's `pointerType ===
@@ -21,6 +35,7 @@ export function useTapToggle(
   ref: RefObject<HTMLElement | null>,
   onTap: () => void,
   enabled: boolean,
+  onDebug?: (info: TapDebugInfo) => void,
 ): void {
   useEffect(() => {
     if (!enabled) return
@@ -28,18 +43,53 @@ export function useTapToggle(
     if (!el) return
 
     const tracker = new TapTracker()
+    // Diagnostic-only bookkeeping, parallel to TapTracker's own internal
+    // state rather than reaching into it — keeps TapTracker itself
+    // framework-free and its tested down/move/up/cancel contract untouched.
+    const starts = new Map<number, { x: number; y: number }>()
+    const maxDist = new Map<number, number>()
+    let concurrent = 0
 
     const onDown = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') tracker.down(e.pointerId, e.clientX, e.clientY)
+      if (e.pointerType === 'touch') {
+        tracker.down(e.pointerId, e.clientX, e.clientY)
+        starts.set(e.pointerId, { x: e.clientX, y: e.clientY })
+        maxDist.set(e.pointerId, 0)
+        concurrent++
+      }
     }
     const onMove = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') tracker.move(e.pointerId, e.clientX, e.clientY)
+      if (e.pointerType === 'touch') {
+        tracker.move(e.pointerId, e.clientX, e.clientY)
+        const start = starts.get(e.pointerId)
+        if (start) {
+          const d = Math.hypot(e.clientX - start.x, e.clientY - start.y)
+          maxDist.set(e.pointerId, Math.max(maxDist.get(e.pointerId) ?? 0, d))
+        }
+      }
     }
     const onUp = (e: PointerEvent) => {
-      if (e.pointerType === 'touch' && tracker.up(e.pointerId)) onTap()
+      if (e.pointerType === 'touch') {
+        const wasTap = tracker.up(e.pointerId)
+        onDebug?.({
+          pointerType: e.pointerType,
+          maxDistPx: maxDist.get(e.pointerId) ?? 0,
+          concurrentTouches: concurrent,
+          wasTap,
+        })
+        starts.delete(e.pointerId)
+        maxDist.delete(e.pointerId)
+        concurrent = Math.max(0, concurrent - 1)
+        if (wasTap) onTap()
+      }
     }
     const onCancel = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') tracker.cancel(e.pointerId)
+      if (e.pointerType === 'touch') {
+        tracker.cancel(e.pointerId)
+        starts.delete(e.pointerId)
+        maxDist.delete(e.pointerId)
+        concurrent = Math.max(0, concurrent - 1)
+      }
     }
 
     el.addEventListener('pointerdown', onDown)
@@ -52,5 +102,5 @@ export function useTapToggle(
       el.removeEventListener('pointerup', onUp)
       el.removeEventListener('pointercancel', onCancel)
     }
-  }, [ref, onTap, enabled])
+  }, [ref, onTap, enabled, onDebug])
 }
