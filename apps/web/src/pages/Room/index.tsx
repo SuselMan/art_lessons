@@ -58,10 +58,10 @@ function toRoomConfig(room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'canvasWi
 interface ToolConfig { size: number; opacity: number }
 
 const INITIAL_LAYER_ID = 'layer-1'
-// Placeholder id until the socket connects and hands us the server-assigned
-// one (its socket id — see the socket-wiring effect below) — and until real
-// auth lands (#41). Kept as the pre-connection fallback so drawing before the
-// socket connects still works (single-user/offline-ish behavior).
+// Placeholder id until the socket connects and create_room/join_room's ack
+// hands us the server-resolved identity (#41) — see applyIdentity. Kept as
+// the pre-connection fallback so drawing before the socket connects still
+// works (single-user/offline-ish behavior).
 const INITIAL_USER_ID = 'local'
 // LAN dev server port (apps/server); derived from window.location.hostname
 // (not hardcoded 'localhost') so it works from other devices on the LAN per
@@ -151,6 +151,12 @@ export function Room() {
 
   const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
   const userIdRef         = useRef(INITIAL_USER_ID)
+  // Stamped by every create_room/join_room ack (#41) with the server's
+  // cookie-resolved identity — stable across reconnects, unlike socket.id.
+  const applyIdentity = useCallback((userId: string) => {
+    userIdRef.current = userId
+    engineRef.current?.setUserId(userId)
+  }, [])
   const appliedOpIdsRef   = useRef<Set<string>>(new Set())
   const lastActiveAtRef   = useRef<Record<string, number>>({})
   const strokeActiveRef   = useRef(false)
@@ -445,29 +451,26 @@ export function Room() {
     if (!id) return
 
     const socket: Socket<ServerToClientEvents, ClientToServerEvents> =
-      io(`http://${window.location.hostname}:${SERVER_PORT}`)
+      io(`http://${window.location.hostname}:${SERVER_PORT}`, { withCredentials: true })
     socketRef.current = socket
 
     // Fires on the initial connect *and* on every auto-reconnect (socket.io-
-    // client's default behavior) — each (re)connect gets a fresh socket id,
-    // so identity is re-derived every time. Rejoining after a drop is what
-    // gives us the "reasonable MVP" reconnect behavior called for by #84
-    // (full catch-up/session-continuity is #74): the client resyncs from a
-    // fresh room_state rather than getting stuck. The known gap is identity
-    // churn — a fresh socket id is always a `student` (#41 known limitation),
-    // even for the room's own creator reconnecting, and operations authored
-    // before the drop keep the old (now stale) userId.
+    // client's default behavior). Rejoining after a drop is what gives us the
+    // "reasonable MVP" reconnect behavior called for by #84 (full catch-up/
+    // session-continuity is #74): the client resyncs from a fresh room_state
+    // rather than getting stuck. Identity (#41) comes from the server-
+    // resolved cookie identity via each create_room/join_room ack below
+    // (applyIdentity), not from socket.id — a fresh socket id churns on every
+    // reconnect, which used to mean a reconnecting creator was misjudged as a
+    // `student` and operations kept a stale userId; both are fixed now that
+    // ownership/authorship key off the same stable id every time.
     const handleConnect = () => {
-      if (socket.id) {
-        userIdRef.current = socket.id
-        engineRef.current?.setUserId(socket.id)
-      }
       setConnected(true)
 
       if (isCreator && creatorDraft) {
         if (!hasJoinedRef.current) {
           socket.emit('create_room', { room: creatorDraft.room, password: creatorDraft.password }, result => {
-            if (result.ok) hasJoinedRef.current = true
+            if (result.ok) { hasJoinedRef.current = true; applyIdentity(result.userId) }
             // Practically unreachable (would need a nanoid(8) id collision —
             // see rooms.ts's createRoom doc comment); nothing sensible to
             // retry into, so just surface it for debugging.
@@ -477,7 +480,10 @@ export function Room() {
           socket.emit(
             'join_room',
             { roomId: id, name: getOrCreateDisplayName(localStorage), password: creatorDraft.password },
-            result => { if (!result.ok) console.error('join_room failed on reconnect', result) },
+            result => {
+              if (result.ok) applyIdentity(result.userId)
+              else console.error('join_room failed on reconnect', result)
+            },
           )
         }
         return
@@ -489,7 +495,8 @@ export function Room() {
       // back to the gate.
       if (hasJoinedRef.current && lastJoinAttemptRef.current) {
         socket.emit('join_room', { roomId: id, ...lastJoinAttemptRef.current }, result => {
-          if (!result.ok) console.error('join_room failed on reconnect', result)
+          if (result.ok) applyIdentity(result.userId)
+          else console.error('join_room failed on reconnect', result)
         })
       }
     }
@@ -548,7 +555,7 @@ export function Room() {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [id, isCreator, creatorDraft, syncFromLog, applyRemoteOp])
+  }, [id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity])
 
   // Submits the join gate (joiner path only): connects/join_room's with the
   // entered name + optional password. Kept separate from the socket-wiring
@@ -568,10 +575,11 @@ export function Room() {
       setJoinSubmitting(false)
       if (!result.ok) { setJoinError(describeJoinError(result.error)); return }
       hasJoinedRef.current = true
+      applyIdentity(result.userId)
       // room_state (already wired above) populates `config` from here, which
       // unmounts the gate in favor of the editor.
     })
-  }, [id, joinName, joinPassword])
+  }, [id, joinName, joinPassword, applyIdentity])
 
   // ── keyboard shortcuts ────────────────────────────────────────────────────────
   useEffect(() => {
