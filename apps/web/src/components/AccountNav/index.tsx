@@ -17,6 +17,7 @@ export function AccountNav() {
   if (!isLoggedIn(me)) {
     return (
       <nav className={styles.nav}>
+        <Link className={styles.link} to="/create">New lesson</Link>
         <Link className={styles.link} to="/login">Log in</Link>
         <Link className={styles.link} to="/login?mode=register">Register</Link>
       </nav>
@@ -29,6 +30,7 @@ export function AccountNav() {
         <Icon name="account_circle" />
         {me.name ?? me.email}
       </span>
+      <Link className={styles.link} to="/create">New lesson</Link>
       <Link className={styles.link} to="/my-lessons">My Lessons</Link>
       <button type="button" className={styles.link} onClick={handleLogout}>Log out</button>
     </nav>
