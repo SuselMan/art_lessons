@@ -126,10 +126,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // Bonus: cursor relay follows the exact same broadcast pattern and adds
     // no real risk, so it's wired alongside the operation relay even though
     // it wasn't one of the five issues.
-    socket.on('cursor_move', ({ x, y }) => {
+    socket.on('cursor_move', (data) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
-      socket.to(roomId).emit('peer_cursor', { userId, x, y })
+      socket.to(roomId).emit('peer_cursor', { ...data, userId })
     })
 
     socket.on('disconnect', (reason) => {

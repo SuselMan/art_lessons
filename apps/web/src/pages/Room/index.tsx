@@ -6,7 +6,7 @@ import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity,
-  ClientToServerEvents, ServerToClientEvents,
+  ClientToServerEvents, ServerToClientEvents, CursorMoveData,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, DEFAULT_GRAPHITE_COLOR, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
@@ -214,6 +214,13 @@ export function Room() {
   const activeCfg    = tool === 'pencil' ? pencilCfg : eraserCfg
   const setActiveCfg = tool === 'pencil' ? setPencilCfg : setEraserCfg
 
+  // Current tool/brush state, read by the #37 cursor-broadcast listener
+  // below — a ref (rather than a dependency the effect rebinds on) so
+  // switching pencil grade/size/color mid-stroke doesn't tear down and
+  // reattach a raw DOM listener, same reasoning as vpValueRef just below.
+  const cursorBroadcastRef = useRef({ tool, preset: pencil, color, size: activeCfg.size, opacity: activeCfg.opacity, layerId: layerState.activeId })
+  cursorBroadcastRef.current = { tool, preset: pencil, color, size: activeCfg.size, opacity: activeCfg.opacity, layerId: layerState.activeId }
+
   // Read directly inside useViewport's native pointerdown listener — see
   // that hook's doc comment for why a ref (checked synchronously, before
   // React ever re-renders) is required here instead of just having the
@@ -409,6 +416,11 @@ export function Room() {
   // touch drives pan/pinch/rotate here (see useViewport), not pointing, so
   // broadcasting it made a peer's cursor jump around whenever a finger
   // touched down to pan while a peer was mid-gesture (see chat).
+  // Piggybacks pressure/tilt/drawing/tool state onto the same payload (see
+  // CursorMoveData in packages/shared) rather than a second "live stroke"
+  // broadcast — lets a peer render a lightweight preview of the stroke in
+  // progress (see engine.setPeerPointer) off the exact same throttled
+  // channel that already drives their cursor dot.
   useEffect(() => {
     const el = vpRef.current
     if (!el || !config) return
@@ -424,7 +436,12 @@ export function Room() {
         { cx: rect.left + cx, cy: rect.top + cy, zoom, angle },
         config,
       )
-      socketRef.current?.emit('cursor_move', { x, y })
+      socketRef.current?.emit('cursor_move', {
+        x, y,
+        pressure: e.pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0,
+        drawing: strokeActiveRef.current,
+        ...cursorBroadcastRef.current,
+      })
     }
     el.addEventListener('pointermove', handleMove)
     return () => el.removeEventListener('pointermove', handleMove)
@@ -627,6 +644,11 @@ export function Room() {
     const handlePeerOperation = (op: Operation) => {
       applyRemoteOp(op)
       syncFromLog()
+      // The real stroke just landed for real — drop any live preview for
+      // this peer immediately rather than waiting for their next (or
+      // "drawing: false") cursor_move, so it's never briefly doubled with
+      // the just-committed pixels.
+      if (op.type === 'stroke') engineRef.current?.setPeerPointer(op.userId, null)
     }
 
     const handlePeerJoined = (participant: Participant) => {
@@ -642,10 +664,13 @@ export function Room() {
         return next
       })
       delete lastActiveAtRef.current[leftUserId]
+      engineRef.current?.setPeerPointer(leftUserId, null)
     }
 
-    const handlePeerCursor = ({ userId: peerId, x, y }: { userId: string; x: number; y: number }) => {
+    const handlePeerCursor = (data: CursorMoveData & { userId: string }) => {
+      const { userId: peerId, x, y } = data
       setPeerCursors(prev => ({ ...prev, [peerId]: { userId: peerId, x, y } }))
+      engineRef.current?.setPeerPointer(peerId, data)
     }
 
     const handleDisconnect = () => setConnected(false)

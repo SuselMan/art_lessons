@@ -244,10 +244,31 @@ export type JoinResult =
   | { ok: true; userId: string }
   | { ok: false; error: 'not_found' | 'wrong_password' }
 
+/** Broadcast alongside the peer cursor position (#37) — enough live pen/tool
+ *  state for a peer to render a lightweight preview of an in-progress stroke
+ *  (see PencilEngine.setPeerPointer), not just a floating dot. Piggybacked
+ *  onto the existing throttled cursor_move channel rather than a second
+ *  "live stroke" broadcast — this data is small and already changes at
+ *  cursor-move cadence or slower. */
+export type CursorMoveData = {
+  x: number
+  y: number
+  pressure: number
+  tiltX: number
+  tiltY: number
+  drawing: boolean // true while a stroke is actively in progress
+  tool: ToolType
+  preset: string
+  color: [number, number, number]
+  size: number     // physical brush size at send time
+  opacity: number
+  layerId: string
+}
+
 export type ServerToClientEvents = {
   room_state: (state: { room: Room; operations: Operation[]; participants: Participant[] }) => void
   peer_operation: (op: Operation) => void
-  peer_cursor: (data: { userId: string; x: number; y: number }) => void
+  peer_cursor: (data: CursorMoveData & { userId: string }) => void
   peer_joined: (participant: Participant) => void
   peer_left: (userId: string) => void
 }
@@ -262,7 +283,7 @@ export type ClientToServerEvents = {
   ) => void
   join_room: (data: { roomId: string; password?: string; name: string }, ack: (result: JoinResult) => void) => void
   operation: (op: Operation) => void
-  cursor_move: (data: { x: number; y: number }) => void
+  cursor_move: (data: CursorMoveData) => void
 }
 
 // Hotkeys

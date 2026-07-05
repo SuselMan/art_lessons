@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
+import type { PaperType, Dab, ToolType, Operation, LayerMergeOperation, ImageImportOperation, CursorMoveData } from '@art-lessons/shared'
 import { DAB_VERT, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { createPaperTexture } from './src/PaperTexture'
@@ -133,6 +133,12 @@ export interface PencilEngineAPI {
   setColor(rgb: [number, number, number]): void
   pickColor(canvasX: number, canvasY: number): [number, number, number] | null
   setViewport(cx: number, cy: number, zoom: number, angle: number): void
+  // Live remote-stroke preview (#37 follow-up): call on every peer_cursor
+  // with `drawing: true` to feed that peer's pointer samples into their own
+  // dedicated preview buffer (composited on top in _display(), never written
+  // into any real layer). Call with `null` (peer left, or their real stroke
+  // Operation just landed) to discard it — see Room's socket wiring.
+  setPeerPointer(peerId: string, data: CursorMoveData | null): void
   on(event: EngineEventName, fn: EngineHandler): this
   exportPNG(): Promise<Blob | null>
   destroy(): void
@@ -247,6 +253,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _haptic: HapticGrain | null
   private _hapticX = 0
   private _hapticY = 0
+
+  // Live remote-stroke preview (#37 follow-up) — one DabSystem + dedicated
+  // preview AccumulationBuffer per peer currently mid-stroke, keyed by
+  // userId. A peer's entry exists iff they're currently drawing (per the
+  // last setPeerPointer call); it's discarded — never accumulated into any
+  // real layer — the moment their real stroke Operation lands, they stop
+  // drawing, or they leave. See setPeerPointer below.
+  private _peerPreviews = new Map<string, { dabs: DabSystem; buf: AccumulationBuffer }>()
 
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
@@ -595,6 +609,45 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
+  /** See PencilEngineAPI's doc comment. A peer's entry existing is exactly
+   *  "currently mid-stroke": `data.drawing` false, or `data` itself null,
+   *  always tears it down; otherwise its absence is what tells apart a fresh
+   *  stroke's first sample (startStroke) from a continuing one
+   *  (continueStroke). Deliberately simpler than the local stroke pipeline —
+   *  no live-tip/pointer-prediction preview, no recorded Dab[] (this never
+   *  becomes an Operation), and `speed` is unknown so opacity's speed factor
+   *  is fixed at 1.0 — this only ever needs to look roughly right until the
+   *  real stroke Operation replaces it. */
+  setPeerPointer(peerId: string, data: CursorMoveData | null): void {
+    const existing = this._peerPreviews.get(peerId)
+    if (!data || !data.drawing) {
+      if (existing) {
+        existing.buf.destroy()
+        this._peerPreviews.delete(peerId)
+        this._display()
+      }
+      return
+    }
+
+    const size = this._toPhysicalSize(data.size)
+    let dabs: Dab[]
+    let state = existing
+    if (!state) {
+      state = { dabs: new DabSystem(), buf: new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height) }
+      state.buf.clear()
+      this._peerPreviews.set(peerId, state)
+      dabs = state.dabs.startStroke(data.x, data.y, data.pressure, data.tiltX, data.tiltY, size)
+    } else {
+      dabs = state.dabs.continueStroke(data.x, data.y, data.pressure, data.tiltX, data.tiltY, size)
+    }
+
+    if (dabs.length) {
+      this._bakeDabOpacity(dabs, 0, data.tool, data.preset, data.opacity)
+      this._paintDabs(state.buf, dabs, data.tool, data.preset, data.color)
+    }
+    this._display()
+  }
+
   on(event: EngineEventName, fn: EngineHandler): this {
     this._handlers[event] = fn
     return this
@@ -614,6 +667,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._previewBuf = null
     this._tipBuf?.destroy()
     this._tipBuf = null
+    for (const { buf } of this._peerPreviews.values()) buf.destroy()
+    this._peerPreviews.clear()
     this._checkpoints = []
     this._checkpointBytes = 0
   }
@@ -831,7 +886,17 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private get _physicalSize(): number {
-    return this._opts.size * (this.canvas.width / (this.canvas.clientWidth || this.canvas.width))
+    return this._toPhysicalSize(this._opts.size)
+  }
+
+  // Same CSS-px → canvas-physical-px conversion _physicalSize applies to
+  // this user's own brush size, factored out so setPeerPointer can apply it
+  // to a peer's broadcast `size` too — the ratio only depends on this
+  // canvas's own width/clientWidth (fixed by the shared room config, not by
+  // either side's device DPI), so it's the same conversion regardless of
+  // whose stroke it is.
+  private _toPhysicalSize(size: number): number {
+    return size * (this.canvas.width / (this.canvas.clientWidth || this.canvas.width))
   }
 
   // ─── Stroke input ────────────────────────────────────────────────────────────
@@ -943,7 +1008,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._tipBuf.clear()
     const dabs = this._dabs.peekTipDabs(this._physicalSize)
     if (dabs.length) {
-      this._bakeDabOpacity(dabs, speed)
+      this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
       this._paintDabs(this._tipBuf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
     }
   }
@@ -970,7 +1035,7 @@ export class PencilEngine implements PencilEngineAPI {
       dabs.push(...fork.continueStroke(s.x, s.y, s.pressure, s.tiltX, s.tiltY, this._physicalSize))
     }
     if (dabs.length) {
-      this._bakeDabOpacity(dabs, samples[samples.length - 1].speed)
+      this._bakeDabOpacity(dabs, samples[samples.length - 1].speed, this._strokeTool, this._strokePreset, this._opts.opacity)
       this._paintDabs(this._previewBuf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
     }
     this._display()
@@ -1034,14 +1099,17 @@ export class PencilEngine implements PencilEngineAPI {
   /** Bakes final dab opacity (preset × user opacity × speed) in place. Shared
    *  by the real stroke path and the #92 prediction preview, so predicted
    *  dabs render with visually consistent opacity to real ones. */
-  private _bakeDabOpacity(dabs: Dab[], speed: number): void {
-    const erasing     = this._strokeTool === 'eraser'
-    const preset      = isPencilGrade(this._strokePreset) ? PENCIL_PRESETS[this._strokePreset] : PENCIL_PRESETS['HB']
+  // tool/presetName/opacity are explicit (rather than always reading this
+  // user's own _strokeTool/_strokePreset/_opts.opacity) so setPeerPointer can
+  // reuse this for a peer's own tool/preset/opacity — see there.
+  private _bakeDabOpacity(dabs: Dab[], speed: number, tool: ToolType, presetName: string, opacity: number): void {
+    const erasing     = tool === 'eraser'
+    const preset      = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
     const speedFactor = Math.max(0.7, 1.0 - speed * 0.15)
     for (const dab of dabs) {
       dab.opacity = erasing
-        ? this._opts.opacity
-        : preset.opacity * this._opts.opacity * speedFactor
+        ? opacity
+        : preset.opacity * opacity * speedFactor
     }
   }
 
@@ -1055,7 +1123,7 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(this._strokeLayerId)
     if (!buf) return
 
-    this._bakeDabOpacity(dabs, speed)
+    this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
     this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
     this._strokeDabs.push(...dabs)
   }
@@ -1242,6 +1310,14 @@ export class PencilEngine implements PencilEngineAPI {
     // visual only, never written into any layer's real buffer.
     if (this._previewBuf) {
       this._compositeTextures([{ texture: this._previewBuf.texture, opacity: 1 }], this._compositeFBO.fbo)
+    }
+
+    // Live remote-stroke previews (#37 follow-up): one per currently-drawing
+    // peer, same blend, on top of everything else — see setPeerPointer.
+    // Order among multiple simultaneous peers is arbitrary (Map insertion
+    // order); their strokes are independent so this never matters visually.
+    for (const { buf } of this._peerPreviews.values()) {
+      this._compositeTextures([{ texture: buf.texture, opacity: 1 }], this._compositeFBO.fbo)
     }
 
     const paperColor = PAPER_COLORS[this._opts.paper]
