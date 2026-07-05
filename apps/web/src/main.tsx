@@ -2,6 +2,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/global.css'
 import { fetchMe } from './lib/api'
+import { ME_QUERY_KEY } from './lib/authState'
+import { queryClient } from './lib/queryClient'
 import { App } from './App'
 
 // Warms up the identity cookie (#41) before the app tree ever mounts — has
@@ -11,11 +13,15 @@ import { App } from './App'
 // before parent effects: an effect in App would already have lost that race.
 // Renders regardless of outcome — a failed warm-up (server down) still
 // falls back to the pre-existing offline-ish local behavior, same as before
-// this cookie existed at all.
-fetchMe().catch(err => console.error('failed to warm up identity', err)).finally(() => {
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  )
-})
+// this cookie existed at all. Prefetches into the same queryClient every
+// useAuth() reads from, so this is the only /api/me call on load — not one
+// here plus another from the first component that calls useAuth().
+queryClient.prefetchQuery({ queryKey: ME_QUERY_KEY, queryFn: fetchMe })
+  .catch(err => console.error('failed to warm up identity', err))
+  .finally(() => {
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    )
+  })
