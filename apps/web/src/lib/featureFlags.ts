@@ -26,6 +26,12 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'A short single-finger tap on the canvas hides the toolbar/header/layer panel; tap again to bring them back (#99). Stylus strokes never trigger it.',
     envVar: 'VITE_TAP_TO_HIDE_UI',
   },
+  {
+    key: 'pencilSound',
+    label: 'Pencil sound (experimental)',
+    description: 'Procedural paper-friction sound while drawing, driven by pointer speed and pressure. Untuned first pass — just an experiment to feel out on real hardware.',
+    envVar: 'VITE_PENCIL_SOUND',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'

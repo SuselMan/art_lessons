@@ -16,6 +16,7 @@ import { SettingsPanel } from '../../components/SettingsPanel'
 import { PrecisionSlider } from '../../components/PrecisionSlider'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
 import { getFeatureFlag } from '../../lib/featureFlags'
+import { PencilSound } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { useViewport } from './useViewport'
 import { useTapToggle } from './useTapToggle'
@@ -113,6 +114,10 @@ export function Room() {
   const [uiHidden, setUiHidden] = useState(false)
   const toggleUI = useCallback(() => setUiHidden(h => !h), [])
 
+  // Pencil-sound experiment: same feature-flag pattern as the ones above. Off
+  // by default — untuned first pass, just to feel out on real hardware.
+  const pencilSoundEnabled = getFeatureFlag('pencilSound')
+
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
   )
@@ -131,6 +136,7 @@ export function Room() {
 
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   const engineRef     = useRef<PencilEngineAPI | null>(null)
+  const pencilSoundRef = useRef<PencilSound | null>(null)
   const layerStateRef = useRef<LayerState>(layerState)
   const initialToolRef = useRef({ pencil, size: pencilCfg.size, opacity: pencilCfg.opacity })
 
@@ -252,17 +258,37 @@ export function Room() {
     })
     engineRef.current = engine
 
+    // Pencil-sound experiment: lazy AudioContext built on the engine's own
+    // 'strokeStart' below (a real pointerdown gesture, satisfying the
+    // autoplay-unlock requirement) — see PencilSound's docstring.
+    if (pencilSoundEnabled) {
+      const sound = new PencilSound(config.paper)
+      sound.setHardness(PENCIL_PRESETS[initialToolRef.current.pencil].hardness)
+      pencilSoundRef.current = sound
+    }
+
     // Local "drawing" activity (#38): strokeStart/strokeEnd bound the local
     // stroke exactly; 'pointer' (fired on every move while the stroke's
     // pointer button is held — see PointerInput's `_active` gating) refreshes
     // it so a long stroke doesn't let the indicator time out mid-draw. Cursor
     // broadcast (#37) is handled separately below via a raw DOM listener,
     // since it must also fire on plain hover (engine 'pointer' does not).
+    // Same handlers also drive the pencil-sound experiment above when enabled.
     engine
-      .on('strokeStart', () => { strokeActiveRef.current = true; markActive(userIdRef.current) })
-      .on('strokeEnd',   () => { strokeActiveRef.current = false })
-      .on('pointer', () => {
-        if (strokeActiveRef.current) markActive(userIdRef.current)
+      .on('strokeStart', e => {
+        strokeActiveRef.current = true
+        markActive(userIdRef.current)
+        pencilSoundRef.current?.start(e.pressure, e.speed, e.tiltX, e.tiltY)
+      })
+      .on('strokeEnd', () => {
+        strokeActiveRef.current = false
+        pencilSoundRef.current?.stop()
+      })
+      .on('pointer', e => {
+        if (strokeActiveRef.current) {
+          markActive(userIdRef.current)
+          pencilSoundRef.current?.update(e.pressure, e.speed, e.tiltX, e.tiltY)
+        }
       })
 
     const ls = layerStateRef.current
@@ -286,11 +312,19 @@ export function Room() {
       dispatchParticipants({ type: 'room_state', participants: pending.participants })
     }
 
-    return () => { engine.destroy(); engineRef.current = null }
-  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled])
+    return () => {
+      engine.destroy()
+      engineRef.current = null
+      pencilSoundRef.current?.destroy()
+      pencilSoundRef.current = null
+    }
+  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundEnabled])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
-  useEffect(() => { engineRef.current?.setPencil(pencil) }, [pencil])
+  useEffect(() => {
+    engineRef.current?.setPencil(pencil)
+    pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencil].hardness)
+  }, [pencil])
   useEffect(() => { engineRef.current?.setTool(tool) },     [tool])
   useEffect(() => {
     engineRef.current?.setSize(activeCfg.size)
