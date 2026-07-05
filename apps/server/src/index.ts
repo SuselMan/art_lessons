@@ -18,7 +18,16 @@ const app = Fastify({ logger: true })
 // domain-based, not port-based — that's what lets `sameSite: 'lax'` still
 // work here). `origin: '*'` is incompatible with credentialed requests per
 // the CORS spec, so this replaces the old permissive wildcard.
-await app.register(cors, { origin: true, credentials: true })
+// `methods` must be listed explicitly — @fastify/cors's own default preflight
+// response only allows GET,HEAD,POST, which silently blocks every DELETE
+// (room deletion, #116) client-side before it ever reaches this process: the
+// browser honors the preflight's Access-Control-Allow-Methods and never even
+// sends the real request, so it never shows up in this server's own request
+// log either — the one clue that it's a CORS rejection, not a server error.
+await app.register(cors, {
+  origin: true, credentials: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
+})
 await app.register(cookie)
 
 // Resolves req.userId (identity.ts) for every HTTP route from here on —
