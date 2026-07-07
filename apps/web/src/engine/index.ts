@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
-import { DAB_VERT, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { createPaperTexture } from './src/PaperTexture'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
@@ -9,8 +9,10 @@ import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
+import { invertAffine, toMat3, type AffineMatrix } from './src/affine'
 
 export type { HapticGrainStats }
+export type { AffineMatrix }
 
 export { PENCIL_PRESETS, PENCIL_GRADES, type PencilGradeName, type PencilPreset }
 
@@ -138,6 +140,14 @@ export interface PencilEngineAPI {
   setColor(rgb: [number, number, number]): void
   pickColor(canvasX: number, canvasY: number): [number, number, number] | null
   setViewport(cx: number, cy: number, zoom: number, angle: number): void
+  // Live gizmo-drag preview (#120): renders each layer's *current* content
+  // through the given transform into a scratch buffer composited in place
+  // of the real one — never mutates the real layer buffer. Call on every
+  // drag frame; call clearLayerTransformPreview() once a real
+  // `layer_transform` op has been appended (commit) or the drag is
+  // abandoned (cancel).
+  previewLayerTransform(transforms: Array<{ layerId: string; matrix: AffineMatrix }>): void
+  clearLayerTransformPreview(): void
   // Live remote-stroke reveal (#37 follow-up v2): call when a peer's finished
   // StrokeOperation arrives. Plays its dabs back into a dedicated per-peer
   // preview buffer (composited on top in _display(), never written into any
@@ -307,13 +317,23 @@ export class PencilEngine implements PencilEngineAPI {
   private _dispProg!: WebGLProgram
   private _compositeProg!: WebGLProgram
   private _blitProg!: WebGLProgram
+  private _transformProg!: WebGLProgram
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispUni!: Record<string, WebGLUniformLocation | null>
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
   private _blitUni!: Record<string, WebGLUniformLocation | null>
+  private _transformUni!: Record<string, WebGLUniformLocation | null>
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
+
+  // Live layer-transform gizmo preview (#120) — one scratch buffer per
+  // layer currently being dragged, keyed by layerId. Same non-destructive
+  // pattern as _previewBuf/_tipBuf: the real layer buffer is never touched
+  // until the gizmo is released and a real layer_transform op lands via
+  // appendOperation — _runComposite substitutes these in for their layerId
+  // while present. See previewLayerTransform/clearLayerTransformPreview.
+  private _transformPreview = new Map<string, AccumulationBuffer>()
 
   // Reference-image import (#88) — keyed by the op's own data URL, so
   // replaying the same room twice (e.g. undo/redo rebuilding a layer) never
@@ -525,6 +545,25 @@ export class PencilEngine implements PencilEngineAPI {
         }
         break
       }
+      case 'layer_transform': {
+        // Unlike stroke/clear above, a missing target here doesn't
+        // necessarily mean the whole op had no effect — one operation can
+        // touch several layers (#120), so only revoke if *none* of them
+        // exist; individual missing entries (e.g. a layer deleted
+        // concurrently) are just skipped, same reasoning as image_import's
+        // per-layer check applied per-entry instead of per-op.
+        let appliedAny = false
+        for (const t of op.transforms) {
+          const buf = this._layers.get(t.layerId)
+          if (!buf) continue
+          this._bakeTransform(buf, t.matrix)
+          this._maybeCheckpoint(t.layerId)
+          appliedAny = true
+        }
+        if (appliedAny) this._display()
+        else this._log.revoke(op.id)
+        break
+      }
       case 'operation_revoke': {
         const target = this._log.revoke(op.targetOpId)
         if (target) this._applyHistoryChange(target)
@@ -659,6 +698,39 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
+  /** Live gizmo-drag preview (#120) — renders each entry's *current* layer
+   *  content through the requested transform into a scratch buffer that
+   *  _runComposite substitutes in for the real one, called on every drag
+   *  frame. Never touches the real layer buffer — the actual bake only
+   *  happens once via a real `layer_transform` op through appendOperation
+   *  (see clearLayerTransformPreview, which the caller must call right
+   *  after committing that op, so the now-stale preview doesn't keep
+   *  shadowing the freshly baked real buffer). */
+  previewLayerTransform(transforms: Array<{ layerId: string; matrix: AffineMatrix }>): void {
+    for (const { layerId, matrix } of transforms) {
+      const source = this._layers.get(layerId)
+      if (!source) continue
+      let preview = this._transformPreview.get(layerId)
+      if (!preview) {
+        preview = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
+        this._transformPreview.set(layerId, preview)
+      } else {
+        preview.clear()
+      }
+      this._drawTransformBlit(source.texture, matrix, preview.fbo)
+    }
+    this._display()
+  }
+
+  /** Ends a gizmo-drag preview — on commit (a real op just landed and
+   *  rebuilt the actual buffers) or on cancel (e.g. Escape, switching tools
+   *  mid-drag without releasing). */
+  clearLayerTransformPreview(): void {
+    for (const buf of this._transformPreview.values()) buf.destroy()
+    this._transformPreview.clear()
+    this._display()
+  }
+
   /** See PencilEngineAPI's doc comment. Queues `op` for its author's reveal;
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
@@ -782,6 +854,8 @@ export class PencilEngine implements PencilEngineAPI {
       buf.destroy()
     }
     this._peerPreviews.clear()
+    for (const buf of this._transformPreview.values()) buf.destroy()
+    this._transformPreview.clear()
     this._checkpoints = []
     this._checkpointBytes = 0
   }
@@ -799,6 +873,9 @@ export class PencilEngine implements PencilEngineAPI {
       case 'layer_delete':
       case 'layer_merge':
         this._syncBuffersToLog()
+        break
+      case 'layer_transform':
+        for (const t of op.transforms) this._rebuildLayer(t.layerId)
         break
       default:
         // structure-only; the UI re-derives LayerState and pushes composite order
@@ -855,10 +932,10 @@ export class PencilEngine implements PencilEngineAPI {
     } else {
       buf.clear()
     }
-    for (let i = start; i < ops.length; i++) this._applyPixelOp(buf, ops[i])
+    for (let i = start; i < ops.length; i++) this._applyPixelOp(buf, layerId, ops[i])
   }
 
-  private _applyPixelOp(buf: AccumulationBuffer, op: PixelOperation): void {
+  private _applyPixelOp(buf: AccumulationBuffer, layerId: string, op: PixelOperation): void {
     switch (op.type) {
       case 'stroke':
         this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color)
@@ -872,6 +949,15 @@ export class PencilEngine implements PencilEngineAPI {
       case 'image_import':
         this._paintImage(buf, op).catch(err => console.error('failed to paint imported image', err))
         break
+      case 'layer_transform': {
+        // The one PixelOperation that can belong to several layers'
+        // histories at once (#120) — layerId picks out which of its
+        // `transforms` entries actually applies to the buffer being
+        // rebuilt right now.
+        const entry = op.transforms.find(t => t.layerId === layerId)
+        if (entry) this._bakeTransform(buf, entry.matrix)
+        break
+      }
     }
   }
 
@@ -939,6 +1025,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (timer !== null) clearTimeout(timer)
     }
     this._peerPreviews.clear()
+    this._transformPreview.clear() // handles dead too; a mid-drag gizmo just loses its live preview
     this._syncBuffersToLog()
     this._display()
   }
@@ -1022,6 +1109,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispProg      = createProgram(gl, DISPLAY_VERT, DISPLAY_FRAG)
     this._compositeProg = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._blitProg      = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
+    this._transformProg = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
@@ -1034,6 +1122,7 @@ export class PencilEngine implements PencilEngineAPI {
     ])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
+    this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_bufferSize', 'u_matrixInv'])
 
     this._quadBuf   = createQuadBuffer(gl)
     this._screenBuf = createFullscreenQuad(gl)
@@ -1442,10 +1531,55 @@ export class PencilEngine implements PencilEngineAPI {
   private _runComposite(items: CompositeItem[], targetFbo: WebGLFramebuffer): void {
     const entries: Array<{ texture: WebGLTexture; opacity: number }> = []
     for (const { id, opacity } of items) {
-      const buf = this._layers.get(id)
+      // A layer mid-gizmo-drag composites its live preview instead of its
+      // real (untouched) buffer — see previewLayerTransform.
+      const buf = this._transformPreview.get(id) ?? this._layers.get(id)
       if (buf) entries.push({ texture: buf.texture, opacity })
     }
     this._compositeTextures(entries, targetFbo)
+  }
+
+  /** Renders `sourceTex` through the (inverse of the) given transform into
+   *  `targetFbo` — the shared draw call behind both the live gizmo preview
+   *  and a committed bake (see _bakeTransform, which additionally copies
+   *  the result back into its source buffer). */
+  private _drawTransformBlit(sourceTex: WebGLTexture, matrix: AffineMatrix, targetFbo: WebGLFramebuffer): void {
+    const { gl, canvas } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
+    gl.viewport(0, 0, canvas.width, canvas.height)
+    gl.disable(gl.BLEND) // full replace, not accumulate — target is a fresh/cleared buffer
+    gl.useProgram(this._transformProg)
+    const tu = this._transformUni
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    const posLoc = gl.getAttribLocation(this._transformProg, 'a_position')
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
+    gl.uniform1i(tu.u_source, 0)
+    gl.uniform2f(tu.u_bufferSize, canvas.width, canvas.height)
+    gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(invertAffine(matrix)))
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** Bakes a transform into `buf`'s own content, in place — object identity
+   *  preserved, since every caller (_replayInto's loop, appendOperation's
+   *  live case) holds a stable reference and expects in-place mutation like
+   *  every other pixel op. WebGL1 can't safely read and write the same
+   *  texture in one draw call, so this renders into a temp buffer via
+   *  _drawTransformBlit, then copies the temp buffer back — the same
+   *  read-into-temp-then-copyTo pattern AccumulationBuffer.copyTo exists
+   *  for already (see _execMergeLive/_replayMergeInto). */
+  private _bakeTransform(buf: AccumulationBuffer, matrix: AffineMatrix): void {
+    const temp = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
+    temp.clear()
+    this._drawTransformBlit(buf.texture, matrix, temp.fbo)
+    temp.copyTo(buf)
+    temp.destroy()
   }
 
   private _display(): void {

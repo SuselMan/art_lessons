@@ -167,6 +167,7 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     case 'stroke':
     case 'layer_clear':
     case 'image_import':
+    case 'layer_transform':
     case 'operation_revoke':
     case 'operation_undo':
     case 'operation_redo':

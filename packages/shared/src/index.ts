@@ -185,6 +185,21 @@ export type LayerMergeOperation = OperationBase & {
   index: number
 }
 
+/** Transforms (translate/scale/rotate) one or more layers' pixel content in
+ *  place — one operation regardless of how many layers a gizmo moved
+ *  together, so undo/redo flips them all atomically (a partial transform
+ *  applied to some selected layers but not others would be a worse bug than
+ *  a slightly bigger log entry — see #120 discussion). Background is never
+ *  a legal target, same as other structural ops. */
+export type LayerTransformOperation = OperationBase & {
+  type: 'layer_transform'
+  transforms: Array<{
+    layerId: string
+    // 2x3 affine [a, b, c, d, tx, ty]: x' = a*x + c*y + tx, y' = b*x + d*y + ty
+    matrix: [number, number, number, number, number, number]
+  }>
+}
+
 /** Teacher-only: marks the target operation `gone` for everyone. Not an undo —
  *  it bypasses the author's history and cannot be redone (ADR 002 §6). */
 export type OperationRevokeOperation = OperationBase & {
@@ -225,6 +240,7 @@ export type Operation =
   | LayerRenameOperation
   | LayerClearOperation
   | LayerMergeOperation
+  | LayerTransformOperation
   | OperationRevokeOperation
   | OperationUndoOperation
   | OperationRedoOperation

@@ -7,7 +7,7 @@
 // `appendOperation` in engine/index.ts: it is deliberately origin-agnostic).
 
 import { nanoid } from 'nanoid'
-import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, StrokeOperation } from '@art-lessons/shared'
+import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@art-lessons/shared'
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { AccumulationBuffer } from '../src/AccumulationBuffer'
@@ -183,4 +183,12 @@ export function makeLayerMerge(
  *  whole test canvas (given the small canvas sizes used in these tests). */
 export function fillStroke(userId: string, layerId: string, cx: number, cy: number, radius: number): StrokeOperation {
   return makeStroke(userId, layerId, [dab(cx, cy, { size: radius * 2, pressure: 1, opacity: 1 })])
+}
+
+export function makeLayerTransform(
+  userId: string,
+  transforms: LayerTransformOperation['transforms'],
+  overrides: Partial<LayerTransformOperation> = {},
+): LayerTransformOperation {
+  return { id: nanoid(10), type: 'layer_transform', userId, timestamp: nextTimestamp(), transforms, ...overrides }
 }

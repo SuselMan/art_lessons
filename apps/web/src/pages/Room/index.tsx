@@ -33,6 +33,8 @@ import { describeJoinError } from './joinError'
 import { PeerCursors, type PeerCursorPosition } from './PeerCursors'
 import { MeasureOverlay, type MeasurePoint } from './MeasureOverlay'
 import { GridOverlay } from './GridOverlay'
+import { TransformGizmo, type TransformHandleKind } from './TransformGizmo'
+import { translateMatrix, scaleAboutMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import styles from './Room.module.css'
@@ -73,6 +75,26 @@ const SERVER_PORT = 4000
 // How long a stroke's "drawing" activity (local or peer) stays visible before
 // the #38 indicator clears it — see drawingIndicator.ts.
 const DRAWING_TIMEOUT_MS = 1500
+
+// Layer transform tool (#120): canvas-space pivot for a corner scale handle
+// is always the *opposite* corner — since every layer buffer is exactly
+// canvas-sized, that's just the canvas rect's own opposite corner, not
+// something derived from content bounds.
+const TRANSFORM_OPPOSITE_CORNER: Record<'tl' | 'tr' | 'bl' | 'br', (w: number, h: number) => { x: number; y: number }> = {
+  tl: (w, h) => ({ x: w, y: h }),
+  tr: (_w, h) => ({ x: 0, y: h }),
+  bl: (w, _h) => ({ x: w, y: 0 }),
+  br: () => ({ x: 0, y: 0 }),
+}
+
+// A drag that ends essentially where it started (a click, or a barely-moved
+// touch/pen jitter) shouldn't commit a no-op layer_transform — an identity
+// matrix would still be a real undo-stack entry for nothing.
+function isNegligibleTransform(handle: TransformHandleKind, m: AffineMatrix): boolean {
+  if (handle === 'body') return Math.hypot(m[4], m[5]) < 0.5
+  if (handle === 'rotate') return Math.abs(Math.atan2(m[1], m[0])) < 0.001
+  return Math.abs(m[0] - 1) < 0.001 // corner handles: m[0] === m[3] === scale
+}
 
 function makeInitialLayerState(): LayerState {
   return {
@@ -170,6 +192,10 @@ export function Room() {
   // toggle rather than a one-shot tool: it never intercepts pointer events,
   // so it doesn't need its own overlay div, just a conditional render.
   const [gridActive, setGridActive] = useState(false)
+  // Layer transform tool (#120) — same one-shot-mode shape as measure, but
+  // unlike measure it *does* produce an Operation (layer_transform) on
+  // commit, via the engine's live preview + dispatchOp, not engine.setTool().
+  const [transformActive, setTransformActive] = useState(false)
   const [layerState, setLayerState] = useState<LayerState>(makeInitialLayerState)
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | null>('layers')
 
@@ -514,20 +540,37 @@ export function Room() {
     setEyedropperActive(false)
   }, [vpRef, vp, config])
 
-  // Eyedropper and measure mode both take over the same canvas-pointer
-  // catcher slot (.eyedropperOverlay / .measureOverlay, same z-index) — only
-  // one should ever be armed at a time, so each toggle turns the other off.
+  // Eyedropper, measure, and transform mode all take over the same
+  // canvas-pointer catcher slot (or, for transform, the gizmo's own handles)
+  // — only one should ever be armed at a time, so each toggle turns the
+  // others off.
   const toggleEyedropper = useCallback(() => {
     setMeasureActive(false)
     setMeasurePoints(null)
+    setTransformActive(false)
     setEyedropperActive(a => !a)
   }, [])
 
   const toggleMeasure = useCallback(() => {
     setEyedropperActive(false)
+    setTransformActive(false)
     setMeasureActive(a => !a)
     setMeasurePoints(null)
   }, [])
+
+  const toggleTransform = useCallback(() => {
+    setEyedropperActive(false)
+    setMeasureActive(false)
+    setMeasurePoints(null)
+    setTransformActive(a => !a)
+  }, [])
+
+  // Active layer, or the current multi-select from LayerPanel — background
+  // is never a legal transform target, same as merge/delete (#120). Every
+  // layer buffer is exactly canvas-sized regardless of how many are
+  // targeted, so the gizmo never needs a per-selection bounding box.
+  const transformTargetIds = (layerState.selectedIds.length > 0 ? layerState.selectedIds : [layerState.activeId])
+    .filter((layerId): layerId is string => !!layerId && layerId !== BACKGROUND_LAYER_ID && layerState.items[layerId]?.kind === 'layer')
 
   // Measure tool (#119): mirrors handleEyedropperPick's clientToCanvas
   // conversion, but for a full drag rather than a single click — down/move/up
@@ -579,6 +622,61 @@ export function Room() {
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
   }, [vpRef, vp, config])
+
+  // Layer transform tool (#120): mirrors handleMeasureDown's drag-capture
+  // pattern exactly, but per-handle (body/corner/rotate) rather than a
+  // single A→B drag, and it actually mutates content — every frame previews
+  // via the engine (never touching the real buffer, see
+  // previewLayerTransform's docstring), and pointerup either commits a real
+  // layer_transform op or, for a negligible drag, just clears the preview.
+  const handleTransformHandleDown = useCallback((handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => {
+    if (e.pointerType === 'touch') return
+    const el = vpRef.current
+    if (!el || !config || transformTargetIds.length === 0) return
+    e.stopPropagation()
+    const overlay = e.currentTarget
+    const penPointerId = e.pointerId
+    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
+
+    const rect = el.getBoundingClientRect()
+    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
+    const toPoint = (clientX: number, clientY: number) => clientToCanvas(clientX, clientY, viewport, config)
+
+    const targetIds = transformTargetIds // frozen for the duration of this drag
+    const start = toPoint(e.clientX, e.clientY)
+    const center = { x: config.width / 2, y: config.height / 2 }
+    const isCorner = handle === 'tl' || handle === 'tr' || handle === 'bl' || handle === 'br'
+    const pivot = isCorner ? TRANSFORM_OPPOSITE_CORNER[handle](config.width, config.height) : center
+    const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
+    const startDist = Math.max(Math.hypot(start.x - pivot.x, start.y - pivot.y), 1e-6)
+
+    const computeMatrix = (clientX: number, clientY: number): AffineMatrix => {
+      const p = toPoint(clientX, clientY)
+      if (handle === 'body') return translateMatrix(p.x - start.x, p.y - start.y)
+      if (handle === 'rotate') {
+        return rotateAboutMatrix(Math.atan2(p.y - center.y, p.x - center.x) - startAngle, center.x, center.y)
+      }
+      const scale = clamp(Math.hypot(p.x - pivot.x, p.y - pivot.y) / startDist, 0.05, 20)
+      return scaleAboutMatrix(scale, pivot.x, pivot.y)
+    }
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
+      const matrix = computeMatrix(ev.clientX, ev.clientY)
+      engineRef.current?.previewLayerTransform(targetIds.map(layerId => ({ layerId, matrix })))
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+      const matrix = computeMatrix(ev.clientX, ev.clientY)
+      engineRef.current?.clearLayerTransformPreview()
+      if (isNegligibleTransform(handle, matrix)) return
+      dispatchOp({ type: 'layer_transform', transforms: targetIds.map(layerId => ({ layerId, matrix })) })
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
+  }, [vpRef, vp, config, transformTargetIds, dispatchOp])
 
   // ── who's-drawing indicator (#38) ─────────────────────────────────────────────
   // Periodically prunes `lastActiveAtRef` (refreshed by markActive) into the
@@ -1007,6 +1105,12 @@ export function Room() {
             title="Measure — drag between two points to see the distance"
             onClick={toggleMeasure}
           ><Icon name="straighten" /></button>
+          <button
+            className={clsx(styles.toolIconBtn, transformActive && styles.toolIconBtnActive)}
+            title="Transform — move/scale/rotate the active layer or current selection"
+            disabled={transformTargetIds.length === 0}
+            onClick={toggleTransform}
+          ><Icon name="transform" /></button>
 
           <div className={styles.toolDivider} />
 
@@ -1059,6 +1163,13 @@ export function Room() {
               <MeasureOverlay a={measurePoints.a} b={measurePoints.b} zoom={vp.zoom} angle={vp.angle} />
             )}
             {gridActive && <GridOverlay width={config.width} height={config.height} />}
+            {transformActive && transformTargetIds.length > 0 && (
+              <TransformGizmo
+                canvasWidth={config.width}
+                canvasHeight={config.height}
+                onHandleDown={handleTransformHandleDown}
+              />
+            )}
           </div>
           {eyedropperActive && (
             <div className={styles.eyedropperOverlay} onPointerDown={handleEyedropperPick} />

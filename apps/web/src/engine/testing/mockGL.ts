@@ -23,7 +23,7 @@
 type UniformValue = number | number[]
 
 interface MockProgram {
-  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'other'
+  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'other'
   uniforms: Map<string, UniformValue>
 }
 
@@ -142,6 +142,7 @@ export class MockGL {
     if (source.includes('u_layer')) return 'composite'
     if (source.includes('u_accumulation')) return 'display'
     if (source.includes('u_warp')) return 'papergen'
+    if (source.includes('u_matrixInv')) return 'transform'
     return 'other'
   }
 
@@ -162,6 +163,9 @@ export class MockGL {
   uniform1i(loc: MockLocation, v: number): void { loc.program.uniforms.set(loc.name, v) }
   uniform2f(loc: MockLocation, a: number, b: number): void { loc.program.uniforms.set(loc.name, [a, b]) }
   uniform3fv(loc: MockLocation, v: number[] | Float32Array): void { loc.program.uniforms.set(loc.name, Array.from(v)) }
+  uniformMatrix3fv(loc: MockLocation, _transpose: boolean, v: number[] | Float32Array): void {
+    loc.program.uniforms.set(loc.name, Array.from(v))
+  }
 
   getAttribLocation(_program: object, _name: string): number { return 0 }
   enableVertexAttribArray(_loc: number): void { /* no-op: geometry is uniform-driven in this mock */ }
@@ -203,6 +207,20 @@ export class MockGL {
   }
 
   deleteTexture(tex: object): void { this._textureData.delete(tex) }
+
+  // Mirrors AccumulationBuffer.copyTo: reads from the bound-for-read
+  // framebuffer's own texture (same convention _currentTargetTexture()
+  // already uses for readPixels/drawArrays), writes into the texture bound
+  // via bindTexture. Only ever called with matching source/dest dimensions
+  // in this codebase, so no scaling/clipping to worry about.
+  copyTexImage2D(_target: number, _level: number, _internalFormat: number, _x: number, _y: number, width: number, height: number, _border: number): void {
+    const destTex = this._boundTextureTarget
+    if (!destTex) return
+    const srcInfo = this._currentTargetTexture()
+    const data = new Float32Array(width * height)
+    if (srcInfo) data.set(srcInfo.data.subarray(0, width * height))
+    this._textureData.set(destTex, { width, height, data })
+  }
 
   // ── framebuffers ─────────────────────────────────────────────────────────
 
@@ -255,6 +273,7 @@ export class MockGL {
     switch (prog.fragTag) {
       case 'dab': this._rasterDab(info, prog.uniforms); break
       case 'composite': this._rasterComposite(info, prog.uniforms); break
+      case 'transform': this._rasterTransform(info, prog.uniforms); break
       // 'display' / 'papergen': visual-only passes never read back via
       // readPixels() in these tests — intentionally not rasterized.
       default: break
@@ -347,6 +366,41 @@ export class MockGL {
     for (let i = 0; i < width * height; i++) {
       const srcAlpha = srcInfo ? clamp((srcInfo.data[i] ?? 0) * opacity, 0, 1) : 0
       data[i] = srcAlpha * sf + data[i] * (1 - srcAlpha)
+    }
+  }
+
+  // Mirrors TRANSFORM_BLIT_FRAG: for each destination texel, apply the
+  // (already-inverted) matrix to find where it samples from in the source.
+  // u_matrixInv arrives as a flat 9-number column-major array (u_matrixInv
+  // set via uniformMatrix3fv above) — mat3(m) * vec3(x,y,1) in GLSL reads
+  // out as x*col0 + y*col1 + 1*col2, i.e. srcX = x*m[0] + y*m[3] + m[6],
+  // srcY = x*m[1] + y*m[4] + m[7]. Nearest-neighbor rather than the real
+  // shader's bilinear sample — fine for this mock's stated non-goal of
+  // visual fidelity; tests should stick to boundaries where that
+  // difference doesn't matter (whole-pixel translates, axis-aligned
+  // scales/rotations) or use a tolerance like expectPixelsClose.
+  private _rasterTransform(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const { width, height, data } = info
+    const unit = (uniforms.get('u_source') as number) ?? 0
+    const [bw, bh] = (uniforms.get('u_bufferSize') as number[]) ?? [width, height]
+    const m = (uniforms.get('u_matrixInv') as number[]) ?? [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    const srcTex = this._textureUnits[unit] ?? null
+    const srcInfo = srcTex ? this._textureData.get(srcTex) : undefined
+
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        const idx = py * width + px
+        const dstX = px + 0.5, dstY = py + 0.5
+        const srcX = dstX * m[0] + dstY * m[3] + m[6]
+        const srcY = dstX * m[1] + dstY * m[4] + m[7]
+        if (!srcInfo || srcX < 0 || srcX >= bw || srcY < 0 || srcY >= bh) {
+          data[idx] = 0
+          continue
+        }
+        const sx = Math.min(Math.floor(srcX), srcInfo.width - 1)
+        const sy = Math.min(Math.floor(srcY), srcInfo.height - 1)
+        data[idx] = srcInfo.data[sy * srcInfo.width + sx] ?? 0
+      }
     }
   }
 }

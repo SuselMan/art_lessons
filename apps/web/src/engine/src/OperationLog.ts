@@ -7,7 +7,7 @@
 //   gone   — unreachable history branch (author acted after undo, or a teacher
 //            revoked it); can never return to `done`
 
-import type { Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
+import type { Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, ImageImportOperation, LayerTransformOperation } from '@art-lessons/shared'
 
 export type OperationState = 'done' | 'undone' | 'gone'
 
@@ -17,10 +17,22 @@ export interface LogEntry {
 }
 
 /** Operations that change a layer's pixel buffer (as opposed to structure). */
-export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation | ImageImportOperation
+export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation | ImageImportOperation | LayerTransformOperation
 
 export function isPixelOperation(op: Operation): op is PixelOperation {
-  return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge' || op.type === 'image_import'
+  return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge'
+    || op.type === 'image_import' || op.type === 'layer_transform'
+}
+
+/** Every PixelOperation but layer_transform targets exactly one layer via its
+ *  own `layerId`. layer_transform (#120) is the one exception — a single
+ *  operation can bake a matrix into several layers at once (see its
+ *  docstring in packages/shared), so membership has to check its
+ *  `transforms` array instead of a single field. */
+function pixelOpTargetsLayer(op: PixelOperation, layerId: string): boolean {
+  return op.type === 'layer_transform'
+    ? op.transforms.some(t => t.layerId === layerId)
+    : op.layerId === layerId
 }
 
 /** Continuous opacity-slider input arrives as a burst of operations; collapse
@@ -171,7 +183,7 @@ export class OperationLog {
     for (const e of this._entries) {
       if (e.state !== 'done') continue
       const { op } = e
-      if (!isPixelOperation(op) || op.layerId !== layerId) continue
+      if (!isPixelOperation(op) || !pixelOpTargetsLayer(op, layerId)) continue
       if (beforeSeq !== undefined && (op.seq ?? 0) >= beforeSeq) continue
       out.push(op)
     }

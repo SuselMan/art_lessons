@@ -230,6 +230,34 @@ export const IMAGE_BLIT_FRAG = `
   }
 `;
 
+// Bakes an affine transform (#120) into a layer buffer — used both for a
+// committed layer_transform op and its live gizmo-drag preview. Samples
+// backward (destination pixel -> source pixel via u_matrixInv, the inverse
+// of the requested transform) rather than forward, which is what lets
+// scale-up/rotate leave no gaps: every destination texel asks "where did
+// this come from" instead of source texels asking "where do I go".  Source
+// is already premultiplied (every accumulation-buffer writer is — see
+// DAB_FRAG/IMAGE_BLIT_FRAG), so this is a pure resample, no
+// re-premultiplication. Uses DISPLAY_VERT (same fullscreen-quad convention
+// as composite/display/image-blit).
+export const TRANSFORM_BLIT_FRAG = `
+  precision highp float;
+  uniform sampler2D u_source;
+  uniform vec2 u_bufferSize;
+  uniform mat3 u_matrixInv; // maps destination buffer-px -> source buffer-px
+  varying vec2 v_uv;
+  void main() {
+    vec2 dstPx = v_uv * u_bufferSize;
+    vec3 srcPx = u_matrixInv * vec3(dstPx, 1.0);
+    vec2 srcUV = srcPx.xy / u_bufferSize;
+    if (srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
+      gl_FragColor = vec4(0.0);
+      return;
+    }
+    gl_FragColor = texture2D(u_source, srcUV);
+  }
+`;
+
 export const DISPLAY_FRAG = `
   precision highp float;
 
