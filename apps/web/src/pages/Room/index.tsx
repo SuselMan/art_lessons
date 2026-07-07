@@ -1063,13 +1063,13 @@ export function Room() {
 
       {/* ── Header ── */}
       <header className={clsx(styles.header, uiHidden && styles.uiHidden)}>
-        <button className={styles.headerIconBtn} onClick={() => navigate('/create')} title="New room">
+        <button className={styles.headerIconBtn} onClick={() => navigate('/create')} title="New room" aria-label="New room">
           <Icon name="arrow_back" />
         </button>
         <span className={styles.roomName}>{config.name}</span>
 
         <div className={styles.headerRight}>
-          <button className={styles.headerIconBtn} onClick={() => setSettingsOpen(true)} title="Settings">
+          <button className={styles.headerIconBtn} onClick={() => setSettingsOpen(true)} title="Settings" aria-label="Settings">
             <Icon name="settings" />
           </button>
           {fullscreenSupported && (
@@ -1077,6 +1077,7 @@ export function Room() {
               className={styles.headerIconBtn}
               onClick={toggleFullscreen}
               title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
             >
               <Icon name={isFullscreen ? 'fullscreen_exit' : 'fullscreen'} />
             </button>
@@ -1154,6 +1155,7 @@ export function Room() {
           <button
             className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
             title="Eraser  E"
+            aria-label="Eraser  E"
             onClick={() => setTool(t => t === 'eraser' ? 'pencil' : 'eraser')}
           ><Icon name="ink_eraser" /></button>
 
@@ -1200,42 +1202,46 @@ export function Room() {
             className={styles.colorSwatch}
             style={{ background: rgbToHex(color) }}
             title="Color"
+            aria-label="Color"
             onClick={() => setActivePanel('color')}
           />
           <button
             className={clsx(styles.toolIconBtn, eyedropperActive && styles.toolIconBtnActive)}
             title="Eyedropper — pick a color from the canvas"
+            aria-label="Eyedropper — pick a color from the canvas"
             onClick={toggleEyedropper}
           ><Icon name="colorize" /></button>
           <button
             className={clsx(styles.toolIconBtn, measureActive && styles.toolIconBtnActive)}
             title="Measure — drag between two points to see the distance"
+            aria-label="Measure — drag between two points to see the distance"
             onClick={toggleMeasure}
           ><Icon name="straighten" /></button>
           <button
             className={clsx(styles.toolIconBtn, transformActive && styles.toolIconBtnActive)}
             title="Transform — move/scale/rotate the active layer or current selection"
+            aria-label="Transform — move/scale/rotate the active layer or current selection"
             disabled={transformTargetIds.length === 0}
             onClick={toggleTransform}
           ><Icon name="transform" /></button>
 
           <div className={styles.toolDivider} />
 
-          <button className={styles.toolIconBtn} title="Rotate −15°  (Shift+[)"
+          <button className={styles.toolIconBtn} title="Rotate −15°  (Shift+[)" aria-label="Rotate −15°  (Shift+[)"
             onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}>
             <Icon name="rotate_left" />
           </button>
-          <button className={styles.toolIconBtn} title="Rotate +15°  (Shift+])"
+          <button className={styles.toolIconBtn} title="Rotate +15°  (Shift+])" aria-label="Rotate +15°  (Shift+])"
             onClick={() => setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))}>
             <Icon name="rotate_right" />
           </button>
 
           <div className={styles.toolDivider} />
 
-          <button className={styles.toolIconBtn} title="Fit canvas" onClick={fitCanvas}>
+          <button className={styles.toolIconBtn} title="Fit canvas" aria-label="Fit canvas" onClick={fitCanvas}>
             <Icon name="fit_screen" />
           </button>
-          <button className={styles.toolIconBtn} title="Clear canvas"
+          <button className={styles.toolIconBtn} title="Clear canvas" aria-label="Clear canvas"
             onClick={() => engineRef.current?.clear()}>
             <Icon name="delete_forever" />
           </button>
@@ -1245,6 +1251,7 @@ export function Room() {
           <button
             className={clsx(styles.toolIconBtn, gridActive && styles.toolIconBtnActive)}
             title="Toggle construction grid"
+            aria-label="Toggle construction grid"
             onClick={() => setGridActive(a => !a)}
           ><Icon name="grid_on" /></button>
 

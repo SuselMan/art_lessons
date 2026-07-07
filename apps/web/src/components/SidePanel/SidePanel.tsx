@@ -32,6 +32,7 @@ export function SidePanel<Id extends string>({ tabs, active, onSelect }: SidePan
             className={clsx(styles.stripTab, active === tab.id && styles.stripTabActive)}
             onClick={() => onSelect(active === tab.id ? null : tab.id)}
             title={active === tab.id ? `Collapse ${tab.title}` : `Open ${tab.title}`}
+            aria-label={active === tab.id ? `Collapse ${tab.title}` : `Open ${tab.title}`}
           >
             <Icon name={tab.icon} />
           </button>
@@ -42,7 +43,7 @@ export function SidePanel<Id extends string>({ tabs, active, onSelect }: SidePan
         <div className={styles.content}>
           <div className={styles.panelHeader}>
             <span className={styles.panelTitle}>{activeTab.title}</span>
-            <button className={styles.collapseBtn} onClick={() => onSelect(null)} title="Collapse">
+            <button className={styles.collapseBtn} onClick={() => onSelect(null)} title="Collapse" aria-label="Collapse">
               <Icon name="chevron_right" />
             </button>
           </div>

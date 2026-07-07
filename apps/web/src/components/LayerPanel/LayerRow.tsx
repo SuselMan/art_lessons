@@ -84,6 +84,7 @@ export function LayerRow({
         className={styles.rowIconBtn}
         onClick={e => { e.stopPropagation(); onToggleVisible(item.id) }}
         title={item.visible ? 'Hide' : 'Show'}
+        aria-label={item.visible ? 'Hide' : 'Show'}
       >
         <Icon name={item.visible ? 'visibility' : 'visibility_off'} />
       </button>
@@ -92,6 +93,7 @@ export function LayerRow({
         className={clsx(styles.rowIconBtn, isLocked ? styles.rowIconBtnLocked : styles.rowIconBtnDim)}
         onClick={e => { e.stopPropagation(); onToggleLock(item.id) }}
         title={isLocked ? 'Unlock' : 'Lock'}
+        aria-label={isLocked ? 'Unlock' : 'Lock'}
       >
         <Icon name={isLocked ? 'lock' : 'lock_open'} />
       </button>
@@ -101,6 +103,7 @@ export function LayerRow({
           className={styles.folderToggleBtn}
           onClick={e => { e.stopPropagation(); onToggleCollapse?.(item.id) }}
           title={collapsed ? 'Expand' : 'Collapse'}
+          aria-label={collapsed ? 'Expand' : 'Collapse'}
         >
           <Icon name={collapsed ? 'chevron_right' : 'expand_more'} />
           <Icon name={collapsed ? 'folder' : 'folder_open'} />
@@ -141,6 +144,7 @@ export function LayerRow({
           className={styles.rowIconBtn}
           onClick={e => { e.stopPropagation(); onOpenMenu?.(item.id, e.currentTarget) }}
           title="More"
+          aria-label="More"
         >
           <Icon name="more_vert" />
         </button>
