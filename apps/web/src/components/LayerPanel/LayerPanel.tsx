@@ -36,6 +36,21 @@ export interface LayerPanelProps {
   onOp:       (draft: OperationDraft) => void
 }
 
+// Long-tap-to-multi-select (#129) has no discoverable affordance for touch
+// users — the only documentation is a `title`, which never shows on touch
+// (no hover). Same one-time-persisted-hint shape as displayName.ts's
+// `al_`-prefixed localStorage convention: shown once, the first time this
+// browser touches the panel at all, then never again.
+const TOUCH_HINT_STORAGE_KEY = 'al_seen_layer_multiselect_hint'
+
+function hasSeenTouchHint(): boolean {
+  return localStorage.getItem(TOUCH_HINT_STORAGE_KEY) === 'true'
+}
+
+function markTouchHintSeen(): void {
+  localStorage.setItem(TOUCH_HINT_STORAGE_KEY, 'true')
+}
+
 export function LayerPanel({
   layerState, onChange, onOp,
 }: LayerPanelProps) {
@@ -54,6 +69,22 @@ export function LayerPanel({
   const [opacityAnchor, setOpacityAnchor]       = useState<HTMLElement | null>(null)
 
   const longPressRef = useRef<{ id: string; timer: number } | null>(null)
+
+  const [showTouchHint, setShowTouchHint] = useState(false)
+
+  // Fires on the very first touch anywhere in the panel (not just on a row —
+  // taps on the toolbar count too), so the tip surfaces before the student
+  // necessarily discovers long-press on their own. pointerType check mirrors
+  // the convention used in useTapToggle/useViewport/PointerInput elsewhere
+  // in this app rather than a device-capability check.
+  const handlePanelPointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'touch' && !hasSeenTouchHint()) {
+      setShowTouchHint(true)
+      markTouchHintSeen()
+    }
+  }, [])
+
+  const handleDismissTouchHint = useCallback(() => setShowTouchHint(false), [])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -431,7 +462,7 @@ export function LayerPanel({
   // ── render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.body} onPointerUp={handlePointerUp}>
+    <div className={styles.body} onPointerDown={handlePanelPointerDown} onPointerUp={handlePointerUp}>
       {activeItem && (
         <div className={styles.opacityBar}>
           <span className={styles.opacityBarLabel}>Opacity</span>
@@ -483,6 +514,20 @@ export function LayerPanel({
           <Icon name="delete" />
         </button>
       </div>
+
+      {showTouchHint && (
+        <div className={styles.touchHint}>
+          <Icon name="info" />
+          <span>Tip: press and hold a layer to select multiple</span>
+          <button
+            className={styles.touchHintDismiss}
+            onClick={handleDismissTouchHint}
+            title="Dismiss"
+          >
+            <Icon name="close" />
+          </button>
+        </div>
+      )}
 
       {importError && <div className={styles.importError}>{importError}</div>}
 
