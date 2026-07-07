@@ -10,6 +10,10 @@ export interface UseViewportResult {
   vp: Viewport
   setVp: Dispatch<SetStateAction<Viewport>>
   vpRef: RefObject<HTMLDivElement | null>
+  /** Attach to the `.canvasWrap` element — see the docstring above `updateVp`
+   *  below for why its `transform` is also written imperatively here rather
+   *  than solely through the `canvasTransform` style string. */
+  canvasWrapRef: RefObject<HTMLDivElement | null>
   fitCanvas: () => void
   angleDeg: number
   canvasTransform: string
@@ -34,22 +38,57 @@ export interface UseViewportResult {
 export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boolean>): UseViewportResult {
   const [vp, setVp] = useState<Viewport>({ cx: 0, cy: 0, zoom: 1, angle: 0 })
 
-  const vpRef     = useRef<HTMLDivElement>(null)
-  const vpState   = useRef<Viewport>(vp)
-  const canvasRef = useRef<CanvasSize | null>(canvas)
+  const vpRef        = useRef<HTMLDivElement>(null)
+  const canvasWrapRef = useRef<HTMLDivElement>(null)
+  const vpState      = useRef<Viewport>(vp)
+  const canvasRef    = useRef<CanvasSize | null>(canvas)
   const touchPtrs = useRef(new Map<number, { x: number; y: number }>())
   const midPanRef = useRef<{ sx: number; sy: number; ocx: number; ocy: number } | null>(null)
   const reservedTouchId = useRef<number | null>(null)
 
-  vpState.current   = vp
+  // rAF-flush bookkeeping for updateVp below.
+  const rafScheduled = useRef(false)
+
   canvasRef.current = canvas
+
+  const transformFor = useCallback((v: Viewport, c: CanvasSize | null) => (
+    c ? `translate(${v.cx}px,${v.cy}px) rotate(${v.angle}rad) scale(${v.zoom}) translate(${-c.width / 2}px,${-c.height / 2}px)` : ''
+  ), [])
+
+  // #126: pan/pinch/rotate/wheel fire on every native pointermove/wheel event
+  // (on some touch digitizers >120Hz), far faster than Room (a ~1200-line
+  // component) needs to re-render. `updateVp` is the single write path for
+  // every gesture below: it (1) updates `vpState.current` synchronously so
+  // any handler reading "the current live viewport" this tick (e.g. the next
+  // pointermove, or a mousedown starting a fresh mid-pan) never sees a stale
+  // value, (2) writes `canvasWrap`'s CSS transform directly via
+  // `canvasWrapRef` so panning/zooming/rotating stays exactly as smooth as
+  // before — decoupled entirely from React, and (3) throttles the actual
+  // `setVp` (React state) flush to at most once per animation frame, so
+  // consumers that legitimately need a re-render (zoom%/angle° labels,
+  // PeerCursors, MeasureOverlay, TransformGizmo, the viewport→engine sync
+  // effect) still update every frame, just not every single raw event.
+  const updateVp = useCallback((v: Viewport) => {
+    vpState.current = v
+    const wrap = canvasWrapRef.current
+    if (wrap) wrap.style.transform = transformFor(v, canvasRef.current)
+    if (!rafScheduled.current) {
+      rafScheduled.current = true
+      requestAnimationFrame(() => {
+        rafScheduled.current = false
+        setVp(vpState.current)
+      })
+    }
+  }, [transformFor])
 
   // Initial fit when canvas config loads
   useLayoutEffect(() => {
     if (!canvas || !vpRef.current) return
     const el   = vpRef.current
     const zoom = Math.min(el.clientWidth / canvas.width, el.clientHeight / canvas.height) * 0.88
-    setVp({ cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom, angle: 0 })
+    const v    = { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom, angle: 0 }
+    vpState.current = v
+    setVp(v)
   }, [canvas])
 
   // Wheel zoom toward cursor
@@ -62,15 +101,14 @@ export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boo
       const my = e.clientY - rect.top
       const d  = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY
       const f  = Math.pow(0.999, d)
-      setVp(v => {
-        const newZoom = clamp(v.zoom * f, 0.04, 20)
-        const s = newZoom / v.zoom
-        return { ...v, cx: mx + (v.cx - mx) * s, cy: my + (v.cy - my) * s, zoom: newZoom }
-      })
+      const v  = vpState.current
+      const newZoom = clamp(v.zoom * f, 0.04, 20)
+      const s = newZoom / v.zoom
+      updateVp({ ...v, cx: mx + (v.cx - mx) * s, cy: my + (v.cy - my) * s, zoom: newZoom })
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
-  }, [canvas])
+  }, [canvas, updateVp])
 
   // Touch pinch/pan/rotate + middle-click pan
   useEffect(() => {
@@ -106,7 +144,8 @@ export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boo
 
         if (ptrs.size === 1) {
           ptrs.set(e.pointerId, curr)
-          setVp(v => ({ ...v, cx: v.cx + curr.x - prev.x, cy: v.cy + curr.y - prev.y }))
+          const v = vpState.current
+          updateVp({ ...v, cx: v.cx + curr.x - prev.x, cy: v.cy + curr.y - prev.y })
         } else {
           const otherId = [...ptrs.keys()].find(id => id !== e.pointerId)
           if (otherId === undefined) { ptrs.set(e.pointerId, curr); return }
@@ -121,16 +160,16 @@ export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boo
                        - Math.atan2(other.y - prev.y, other.x - prev.x)
 
           ptrs.set(e.pointerId, curr)
-          setVp(v => {
-            const newZoom = clamp(v.zoom * scale, 0.04, 20)
-            const newCx   = prevMid.x + (v.cx - prevMid.x) * scale + (currMid.x - prevMid.x)
-            const newCy   = prevMid.y + (v.cy - prevMid.y) * scale + (currMid.y - prevMid.y)
-            return { cx: newCx, cy: newCy, zoom: newZoom, angle: v.angle + dAngle }
-          })
+          const v = vpState.current
+          const newZoom = clamp(v.zoom * scale, 0.04, 20)
+          const newCx   = prevMid.x + (v.cx - prevMid.x) * scale + (currMid.x - prevMid.x)
+          const newCy   = prevMid.y + (v.cy - prevMid.y) * scale + (currMid.y - prevMid.y)
+          updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: v.angle + dAngle })
         }
       } else if (midPanRef.current) {
         const { sx, sy, ocx, ocy } = midPanRef.current
-        setVp(v => ({ ...v, cx: ocx + e.clientX - sx, cy: ocy + e.clientY - sy }))
+        const v = vpState.current
+        updateVp({ ...v, cx: ocx + e.clientX - sx, cy: ocy + e.clientY - sy })
       }
     }
 
@@ -154,20 +193,39 @@ export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boo
       el.removeEventListener('pointerup',     onUp)
       el.removeEventListener('pointercancel', onUp)
     }
-  }, [canvas, toolActive])
+  }, [canvas, toolActive, updateVp])
 
   const fitCanvas = useCallback(() => {
     const el = vpRef.current
     const c  = canvasRef.current
     if (!el || !c) return
     const zoom = Math.min(el.clientWidth / c.width, el.clientHeight / c.height) * 0.88
-    setVp({ cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom, angle: 0 })
+    const v    = { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom, angle: 0 }
+    vpState.current = v
+    setVp(v)
+  }, [])
+
+  // Room also calls `setVp` directly for one-off, non-gesture updates (zoom%
+  // reset click, angle +/-15° buttons, 'r' key, useDragToAdjust on the zoom
+  // label — see Room/index.tsx). Those are low-frequency (one state update
+  // each), so there's no need to route them through `updateVp`'s rAF
+  // throttling — but they still must keep `vpState.current` in sync, since
+  // gesture handlers above (e.g. onDown's mid-pan capturing `ocx`/`ocy`, or
+  // the wheel handler's zoom-toward-cursor math) read `vpState.current` as
+  // "the current live viewport," not React's `vp`. Wrapping here (rather
+  // than syncing in a render-body assignment like the old code did) avoids a
+  // stale render clobbering an in-flight gesture's `vpState.current` between
+  // rAF flushes.
+  const setVpTracked = useCallback<Dispatch<SetStateAction<Viewport>>>((action) => {
+    setVp(prev => {
+      const next = typeof action === 'function' ? (action as (v: Viewport) => Viewport)(prev) : action
+      vpState.current = next
+      return next
+    })
   }, [])
 
   const angleDeg        = Math.round(vp.angle * 180 / Math.PI)
-  const canvasTransform = canvas
-    ? `translate(${vp.cx}px,${vp.cy}px) rotate(${vp.angle}rad) scale(${vp.zoom}) translate(${-canvas.width / 2}px,${-canvas.height / 2}px)`
-    : ''
+  const canvasTransform = transformFor(vp, canvas)
 
-  return { vp, setVp, vpRef, fitCanvas, angleDeg, canvasTransform }
+  return { vp, setVp: setVpTracked, vpRef, canvasWrapRef, fitCanvas, angleDeg, canvasTransform }
 }
