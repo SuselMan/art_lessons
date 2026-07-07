@@ -111,6 +111,15 @@ export function Room() {
   const predictEnabled = getFeatureFlag('predictPointer')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
+  // #93: fullscreen toggle for the whole editor root — removes tablet
+  // browser chrome (address bar/nav), which eats real estate especially in
+  // landscape. iOS Safari doesn't support Fullscreen API for arbitrary
+  // elements, hence the fullscreenEnabled gate below (hide rather than show
+  // a button that would throw).
+  const editorRef = useRef<HTMLDivElement>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const fullscreenSupported = typeof document !== 'undefined' && document.fullscreenEnabled
+
   // Minimal-UI experiment (#99): a short single-finger tap on the canvas
   // hides the header/toolbar/layer panel via a CSS class (never unmounted —
   // no lost focus/state), tap again to bring them back. Same feature-flag
@@ -465,6 +474,20 @@ export function Room() {
     if (engineRef.current?.redo()) syncFromLog()
   }, [syncFromLog])
 
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen()
+    else editorRef.current?.requestFullscreen()
+  }, [])
+
+  // Fullscreen can also be exited by the browser/OS itself (Esc, system
+  // gesture) without going through toggleFullscreen — listen rather than
+  // trust the button's own click to keep the icon in sync.
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement === editorRef.current)
+    document.addEventListener('fullscreenchange', onFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+  }, [])
+
   // Eyedropper (#82): consumes the next pointerdown on .eyedropperOverlay
   // (armed only while eyedropperActive) instead of letting it reach the
   // canvas as a stroke. Same clientToCanvas convention as the #37 cursor
@@ -816,6 +839,7 @@ export function Room() {
 
   return (
     <div
+      ref={editorRef}
       className={styles.editor}
       // #102: on a pen+touch tablet, a hand resting on the screen while
       // slowly dragging a slider/stroke can be read by the OS as "press and
@@ -839,6 +863,15 @@ export function Room() {
           <button className={styles.headerIconBtn} onClick={() => setSettingsOpen(true)} title="Settings">
             <Icon name="settings" />
           </button>
+          {fullscreenSupported && (
+            <button
+              className={styles.headerIconBtn}
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            >
+              <Icon name={isFullscreen ? 'fullscreen_exit' : 'fullscreen'} />
+            </button>
+          )}
           <ParticipantsBar participants={participants} drawingIds={drawingIds} connected={connected} />
           <button
             className={styles.zoomLabel}
@@ -850,8 +883,13 @@ export function Room() {
           </button>
           <button
             className={clsx(styles.angleLabel, angleDeg !== 0 && styles.angleLabelActive)}
-            onClick={() => setVp(v => ({ ...v, angle: 0 }))}
-            title="Rotation — click to reset  (R)"
+            // Cycles forward to the next 90° multiple (#106) rather than
+            // always snapping to 0 — 'R' below still resets outright.
+            onClick={() => setVp(v => {
+              const deg = v.angle * 180 / Math.PI
+              return { ...v, angle: (Math.floor(deg / 90) + 1) * 90 * Math.PI / 180 }
+            })}
+            title="Rotation — click to rotate 90°  (R to reset)"
           >
             <Icon name="screen_rotation_alt" />
             {angleDeg}°

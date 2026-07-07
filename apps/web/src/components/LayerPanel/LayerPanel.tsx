@@ -218,8 +218,16 @@ export function LayerPanel({
   const handleMergeSelected = useCallback(() => {
     const ids = selectedIds.filter(id => id !== BACKGROUND_LAYER_ID && items[id]?.kind === 'layer')
     if (ids.length < 2) return
-    emitMerge(ids, 'Merged', null, 0)
-  }, [selectedIds, items, emitMerge])
+    // Result lands at the topmost selected layer's own position in its own
+    // container, mirroring handleMergeDown below — previously this always
+    // inserted at root, ejecting the merge result out of whatever folder it
+    // came from (#77).
+    const containerId = parentOf(layerState, ids[0])
+    const container = containerId ? items[containerId] : null
+    const siblings = container && isFolder(container) ? container.children : rootOrder
+    const idx = Math.min(...ids.map(id => siblings.indexOf(id)).filter(i => i >= 0))
+    emitMerge(ids, 'Merged', containerId, idx)
+  }, [selectedIds, items, layerState, rootOrder, emitMerge])
 
   const handleMergeDown = useCallback((id?: string) => {
     const sourceId = id ?? activeId
