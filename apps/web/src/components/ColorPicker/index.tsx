@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { clamp } from 'lodash-es'
 import { rgbToHsv, hsvToRgb, rgbToHex, hexToRgb, type Hsv } from '../../lib/color'
 import styles from './ColorPicker.module.css'
@@ -16,7 +16,11 @@ interface ColorPickerProps {
 // `lastEmitted` distinguishes "value changed because we just called
 // onChange" (ignore, our hsv is already current) from "value changed for
 // some other reason, e.g. eyedropper or hex input" (resync hsv from it).
-export function ColorPicker({ value, onChange }: ColorPickerProps) {
+// Wrapped in memo (#127): Room re-renders far more often than `value`/
+// `onChange` actually change (e.g. every pointermove while panning, #126).
+// Safe because Room passes its `color` state and setColor (a setState
+// setter, stable by React's own guarantee) — see Room/index.tsx.
+export const ColorPicker = memo(function ColorPicker({ value, onChange }: ColorPickerProps) {
   const [hsv, setHsv] = useState<Hsv>(() => rgbToHsv(value))
   // Own local text buffer rather than a fully controlled `rgbToHex(value)`:
   // otherwise every keystroke on an incomplete hex (e.g. "#12") would get
@@ -121,4 +125,4 @@ export function ColorPicker({ value, onChange }: ColorPickerProps) {
       </div>
     </div>
   )
-}
+})

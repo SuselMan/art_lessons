@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useRef } from 'react'
+import { memo, useCallback, useMemo, useState, useRef } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
@@ -51,7 +51,15 @@ function markTouchHintSeen(): void {
   localStorage.setItem(TOUCH_HINT_STORAGE_KEY, 'true')
 }
 
-export function LayerPanel({
+// Wrapped in memo (#127): Room re-renders far more often than layerState/
+// onChange/onOp actually change (e.g. every pointermove while panning, #126)
+// — without this, the whole DndContext + N LayerRow tree below re-renders
+// and re-diffs on every one of those. Safe because all three props are
+// already stable across unrelated Room re-renders: onChange is Room's
+// setLayerState (a setState setter, stable by React's own guarantee) and
+// onOp is Room's dispatchOp, itself useCallback'd off syncFromLog, which
+// has an empty dependency array — see Room/index.tsx.
+export const LayerPanel = memo(function LayerPanel({
   layerState, onChange, onOp,
 }: LayerPanelProps) {
   const { items, rootOrder, activeId, selectedIds } = layerState
@@ -603,7 +611,7 @@ export function LayerPanel({
       )}
     </div>
   )
-}
+})
 
 // ── small UI helpers ─────────────────────────────────────────────────────────
 
