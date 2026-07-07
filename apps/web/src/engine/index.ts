@@ -330,6 +330,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _activeId: string | null
   private _locked: boolean
 
+  // WebGL context loss (#121) — true between webglcontextlost and
+  // webglcontextrestored. Only gates _takeCheckpoint (see there for why);
+  // everything else is a harmless no-op on a lost context per spec.
+  private _contextLost = false
+
   // Operation log — source of truth; buffers and checkpoints are derived caches
   private _log: OperationLog
   private _checkpoints: Checkpoint[]
@@ -358,6 +363,9 @@ export class PencilEngine implements PencilEngineAPI {
     })
     if (!gl) throw new Error('WebGL not supported')
     this.gl = gl
+
+    this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
+    this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
 
     this._opts = {
       paper:         options.paper         ?? 'rough',
@@ -760,6 +768,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   destroy(): void {
     cancelAnimationFrame(this._raf)
+    this.canvas.removeEventListener('webglcontextlost', this._handleContextLost)
+    this.canvas.removeEventListener('webglcontextrestored', this._handleContextRestored)
     this._pointer.destroy()
     this._layers.forEach(buf => buf.destroy())
     this._compositeFBO.destroy()
@@ -899,11 +909,55 @@ export class PencilEngine implements PencilEngineAPI {
     this._display()
   }
 
+  // ─── Context loss (#121) ─────────────────────────────────────────────────────
+
+  // preventDefault() is required by spec for the context to be eligible for
+  // restoration at all — without it, the canvas stays dead until reload. Real
+  // trigger is believed to be _takeCheckpoint's full-canvas readPixels (see
+  // there) stalling the GPU pipeline long enough to trip a mobile browser's
+  // watchdog, especially with several full-size layer textures resident.
+  private _handleContextLost = (e: Event): void => {
+    e.preventDefault()
+    this._contextLost = true
+  }
+
+  // The WebGLRenderingContext object itself (`this.gl`) survives restoration
+  // per spec — only the GPU-side resources it created (programs, textures,
+  // framebuffers) are gone and must be recreated. The Operation Log and
+  // checkpoints are plain JS memory, never touched by context loss, so
+  // recovery is: rebuild GL state, drop stale buffer/preview handles, then
+  // let _syncBuffersToLog do exactly what it already does for a layer
+  // add/delete — recreate and replay each live layer from the log.
+  private _handleContextRestored = (): void => {
+    this._contextLost = false
+    this._initGL()
+    this._initPaper(this._opts.paper)
+    this._layers.clear() // handles are already dead; not worth destroy()ing
+    this._previewBuf = null
+    this._tipBuf = null
+    for (const { timer } of this._peerPreviews.values()) {
+      if (timer !== null) clearTimeout(timer)
+    }
+    this._peerPreviews.clear()
+    this._syncBuffersToLog()
+    this._display()
+  }
+
   // ─── Checkpoints ─────────────────────────────────────────────────────────────
 
   private _maybeCheckpoint(layerId: string): void {
     const ops = this._log.layerPixelOps(layerId)
-    if (ops.length > 0 && ops.length % CHECKPOINT_INTERVAL === 0) this._takeCheckpoint(layerId)
+    if (ops.length === 0 || ops.length % CHECKPOINT_INTERVAL !== 0) return
+    // Deferred off the stroke-completion path (#121): a full-canvas
+    // readPixels right as the pointer lifts can stall the GPU pipeline long
+    // enough to trip a mobile browser's context-loss watchdog. Idle time
+    // moves the same cost off the moment the user is actively interacting.
+    // _takeCheckpoint re-reads the log fresh rather than trusting this
+    // closure's op count, so a checkpoint taken slightly late just captures
+    // a bit more history — never something incorrect.
+    const schedule: (fn: () => void) => void =
+      typeof requestIdleCallback === 'function' ? requestIdleCallback : fn => setTimeout(fn, 0)
+    schedule(() => this._takeCheckpoint(layerId))
   }
 
   /** Snapshots the layer's current buffer, which must equal replay state of its
@@ -911,6 +965,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  a replayed apply). Budgeted in bytes: eviction makes deep undo slower
    *  (longer replay), never impossible. */
   private _takeCheckpoint(layerId: string): void {
+    // A lost context's readPixels returns stale/zeroed data (spec no-op),
+    // which would silently bake a blank snapshot into undo history — skip
+    // rather than corrupt; _handleContextRestored rebuilds from the log
+    // directly instead, which never depended on this checkpoint existing.
+    if (this._contextLost) return
     const buf = this._layers.get(layerId)
     if (!buf) return
     const ops = this._log.layerPixelOps(layerId)

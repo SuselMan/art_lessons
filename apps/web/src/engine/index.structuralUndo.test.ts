@@ -151,7 +151,7 @@ describe('layer_merge of a merge result: recursive _replayMergeInto reproduces t
 })
 
 describe('checkpoint invalidation: stale prefixes are rejected, valid ones are reused correctly', () => {
-  it('undoing below a checkpoint boundary forces full replay (not a stale/deeper snapshot); redoing past it revalidates and reuses the same checkpoint', () => {
+  it('undoing below a checkpoint boundary forces full replay (not a stale/deeper snapshot); redoing past it revalidates and reuses the same checkpoint', async () => {
     const CHECKPOINT_INTERVAL = 20
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
@@ -160,7 +160,14 @@ describe('checkpoint invalidation: stale prefixes are rejected, valid ones are r
       makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.2 })])
 
     const totalStrokes = CHECKPOINT_INTERVAL + 5 // 25: crosses one checkpoint boundary
-    for (let i = 0; i < totalStrokes; i++) engine.appendOperation(strokeAt())
+    // Checkpointing is deferred off the stroke-completion path (#121) — flush
+    // right at the #20 boundary, before the remaining 5 strokes, so the
+    // checkpoint this test depends on actually bakes at op #20 and not later
+    // (a real interactive session always yields between strokes; only this
+    // tight synchronous loop needs the explicit flush).
+    for (let i = 0; i < CHECKPOINT_INTERVAL; i++) engine.appendOperation(strokeAt())
+    await new Promise(resolve => setTimeout(resolve, 0))
+    for (let i = 0; i < totalStrokes - CHECKPOINT_INTERVAL; i++) engine.appendOperation(strokeAt())
 
     expect(checkpointCountFor(engine, 'L')).toBe(1) // taken exactly once, at op #20
     const pixelsAt25 = readLayerPixels(engine, 'L')!
@@ -323,7 +330,7 @@ describe('per-user isolation: layer_merge / layer_delete', () => {
 })
 
 describe('checkpoint invalidation: a mid-history operation_revoke shifts the done prefix', () => {
-  it('rejects a checkpoint baked before a revoke removed one of its ops from the middle of the sequence', () => {
+  it('rejects a checkpoint baked before a revoke removed one of its ops from the middle of the sequence', async () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
 
@@ -332,6 +339,10 @@ describe('checkpoint invalidation: a mid-history operation_revoke shifts the don
 
     const strokes = Array.from({ length: 20 }, () => strokeAt())
     for (const s of strokes) engine.appendOperation(s)
+    // Checkpointing is deferred off the stroke-completion path (#121) —
+    // flush the pending macrotask so the checkpoint this test depends on has
+    // actually been taken before asserting.
+    await new Promise(resolve => setTimeout(resolve, 0))
     expect(checkpointCountFor(engine, 'L')).toBe(1) // baked at op #20, opIds = all 20 strokes
 
     // A teacher revokes the 10th stroke (not the latest — the middle of the
