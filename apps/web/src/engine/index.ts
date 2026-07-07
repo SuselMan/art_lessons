@@ -10,9 +10,11 @@ import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import { invertAffine, toMat3, type AffineMatrix } from './src/affine'
+import { snapToRuler, type RulerLine } from './src/rulerSnap'
 
 export type { HapticGrainStats }
 export type { AffineMatrix }
+export type { RulerLine }
 
 export { PENCIL_PRESETS, PENCIL_GRADES, type PencilGradeName, type PencilPreset }
 
@@ -138,6 +140,19 @@ export interface PencilEngineAPI {
   setOpacity(v: number): void
   setSize(px: number): void
   setColor(rgb: [number, number, number]): void
+  /** Ruler tool (#89): sets (or clears, with null) the straight-edge guide
+   *  that live pointer input snaps to before it ever reaches DabSystem —
+   *  see rulerSnap.ts's snapToRuler and the private _snapPoint/_onStart/
+   *  _onMove/_onPredict below. Like previewLayerTransform, this is
+   *  local-only UI-tool state, never an Operation: the ruler itself is
+   *  never drawn into the canvas or written to the log (same "not part of
+   *  the drawing" principle as the grid/measure overlays, called out in
+   *  #89's own issue body) — only its effect on a *real* stroke's recorded
+   *  dab positions is ever persisted, and that arrives already-snapped as
+   *  an ordinary `stroke` Operation, so replay/undo/a peer's copy all see
+   *  the same straightened geometry without needing to know a ruler was
+   *  ever involved. */
+  setRuler(line: RulerLine | null): void
   pickColor(canvasX: number, canvasY: number): [number, number, number] | null
   // Bounding box of a layer's actual painted content, canvas-pixel space —
   // see the implementation's docstring for cost/call-frequency notes (#120).
@@ -308,6 +323,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _haptic: HapticGrain | null
   private _hapticX = 0
   private _hapticY = 0
+
+  // Ruler tool (#89) — local-only guide state (never an Operation, same
+  // status as the grid/measure overlays), consulted by _onStart/_onMove/
+  // _onPredict via _snapPoint() to project a raw pointer position onto the
+  // ruler's line before it ever reaches DabSystem. null = no ruler placed,
+  // or the tool is off. See setRuler()/rulerSnap.ts.
+  private _ruler: RulerLine | null = null
 
   // Live remote-stroke reveal (#37 follow-up v2) — one dedicated preview
   // AccumulationBuffer + FIFO queue of not-yet-committed StrokeOperations per
@@ -680,6 +702,9 @@ export class PencilEngine implements PencilEngineAPI {
   // _strokeColor, which gets baked into that stroke's dabs (and its recorded
   // StrokeOperation), so changing it never repaints already-drawn strokes.
   setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
+
+  /** See PencilEngineAPI's doc comment. */
+  setRuler(line: RulerLine | null): void { this._ruler = line }
 
   /** Samples the currently-displayed pixel color at canvas-pixel coordinates
    *  (same space as Dab.x/y — see pointerTransform.ts's clientToCanvas), for
@@ -1224,6 +1249,17 @@ export class PencilEngine implements PencilEngineAPI {
 
   // ─── Stroke input ────────────────────────────────────────────────────────────
 
+  // Ruler tool (#89): projects (x, y) onto the active ruler's line when
+  // within tolerance (see rulerSnap.ts), or returns it unchanged when no
+  // ruler is set. Called from _onStart/_onMove (the real recorded path)
+  // and _onPredict (#92's speculative preview, for visual consistency with
+  // the real path) — never needed in _onEnd, which only ever extrapolates
+  // a ghost point from already-buffered (already-snapped, if applicable)
+  // real points, so there's no new raw (x, y) there to snap.
+  private _snapPoint(x: number, y: number): { x: number; y: number } {
+    return this._ruler ? snapToRuler(x, y, this._ruler) : { x, y }
+  }
+
   private _onStart(e: PointerData): void {
     if (this._locked) return
     const layerId = this._activeId
@@ -1259,12 +1295,16 @@ export class PencilEngine implements PencilEngineAPI {
       this._tipBuf = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
       this._tipBuf.clear()
     }
+    // Ruler tool (#89): snap before the haptic tracker and DabSystem ever
+    // see this point, so both "feel" and paint the same (possibly
+    // straightened) position as what ends up recorded.
+    const { x, y } = this._snapPoint(e.x, e.y)
     if (this._haptic) {
       this._haptic.reset()
-      this._hapticX = e.x
-      this._hapticY = e.y
+      this._hapticX = x
+      this._hapticY = y
     }
-    const dabs = this._dabs.startStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
+    const dabs = this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     this._paintStrokeDabs(dabs, e.speed, 0)
     this._display()
     this._handlers.strokeStart?.(e)
@@ -1287,12 +1327,13 @@ export class PencilEngine implements PencilEngineAPI {
     // docstring). `e.timeStamp` itself is saved for the next call's use at
     // the bottom of this method.
     const prevMoveTimestamp = this._dbgPrevMoveTimestamp
+    const { x, y } = this._snapPoint(e.x, e.y)
     if (this._haptic) {
-      this._haptic.sample(this._hapticX, this._hapticY, e.x, e.y)
-      this._hapticX = e.x
-      this._hapticY = e.y
+      this._haptic.sample(this._hapticX, this._hapticY, x, y)
+      this._hapticX = x
+      this._hapticY = y
     }
-    const dabs = this._dabs.continueStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
+    const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     let painted = false
     if (dabs.length) {
       const t0 = this._debug ? performance.now() : 0
@@ -1356,7 +1397,10 @@ export class PencilEngine implements PencilEngineAPI {
     const fork = this._dabs.forkForPreview()
     const dabs: Dab[] = []
     for (const s of samples) {
-      dabs.push(...fork.continueStroke(s.x, s.y, s.pressure, s.tiltX, s.tiltY, this._physicalSize))
+      // Ruler tool (#89): keep the speculative preview visually consistent
+      // with the real path above, which snaps too.
+      const { x, y } = this._snapPoint(s.x, s.y)
+      dabs.push(...fork.continueStroke(x, y, s.pressure, s.tiltX, s.tiltY, this._physicalSize))
     }
     if (dabs.length) {
       this._bakeDabOpacity(dabs, samples[samples.length - 1].speed, this._strokeTool, this._strokePreset, this._opts.opacity)

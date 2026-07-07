@@ -32,6 +32,7 @@ import { clientToCanvas } from './pointerTransform'
 import { describeJoinError } from './joinError'
 import { PeerCursors, type PeerCursorPosition } from './PeerCursors'
 import { MeasureOverlay, type MeasurePoint } from './MeasureOverlay'
+import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
 import { GridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
@@ -212,6 +213,31 @@ export function Room() {
   // about, at the cost of losing the last measurement when you switch away.
   const [measureActive, setMeasureActive] = useState(false)
   const [measurePoints, setMeasurePoints] = useState<{ a: MeasurePoint; b: MeasurePoint } | null>(null)
+  // Ruler tool (#89) — a draggable straight-edge guide that a pencil stroke
+  // snaps to while it's placed (see engine.setRuler / engine/src/
+  // rulerSnap.ts for the actual snapping math, which runs inside the
+  // pointer pipeline, not here). Local UI state, same non-Operation status
+  // as eyedropper/measure above. Unlike measure's one-shot A→B drag,
+  // `rulerLine` is a *persistent* guide once placed — it survives across
+  // strokes so a student can draw several guided lines along the same
+  // edge — and is only cleared when the tool is toggled off (mirrors
+  // measure's "off means nothing measured" simplicity) or another one-shot
+  // tool takes over the pointer catcher.
+  const [rulerActive, setRulerActive] = useState(false)
+  const [rulerLine, setRulerLine] = useState<{ a: RulerPoint; b: RulerPoint } | null>(null)
+  // True once the initial placement drag has actually finished (pointerup).
+  // Deliberately NOT the same thing as "rulerLine !== null": rulerLine is
+  // set to a (degenerate, a===b) value on the very first pointerdown of the
+  // placement drag, before the user has dragged anywhere — gating
+  // .rulerPlaceOverlay's presence on rulerLine directly was tried first and
+  // was a real bug: React would unmount that catcher div the instant
+  // rulerLine got its first (degenerate) value, i.e. mid-gesture, so the
+  // rest of the drag's pointermove/pointerup (which the now-detached
+  // overlay's own listeners never got attached to their eventual real
+  // target) silently went nowhere. rulerPlaced only flips true in
+  // handleRulerPlaceDown's onUp, so the catcher div survives the entire
+  // placement drag.
+  const [rulerPlaced, setRulerPlaced] = useState(false)
   // Construction grid (#89) — unlike eyedropper/measure above, a passive
   // toggle rather than a one-shot tool: it never intercepts pointer events,
   // so it doesn't need its own overlay div, just a conditional render.
@@ -586,29 +612,63 @@ export function Room() {
     setEyedropperActive(false)
   }, [vpRef, vp, config])
 
-  // Eyedropper, measure, and transform mode all take over the same
-  // canvas-pointer catcher slot (or, for transform, the gizmo's own handles)
-  // — only one should ever be armed at a time, so each toggle turns the
-  // others off.
+  // Shared by every other tool's toggle below, so activating any of them
+  // also clears the ruler — see toggleRuler's own doc comment for why
+  // turning the ruler off always clears rulerLine + the engine's guide
+  // together rather than leaving them out of sync.
+  const deactivateRuler = useCallback(() => {
+    setRulerActive(false)
+    setRulerLine(null)
+    setRulerPlaced(false)
+    engineRef.current?.setRuler(null)
+  }, [])
+
+  // Eyedropper, measure, ruler, and transform mode all take over the same
+  // canvas-pointer catcher slot (or, for transform, the gizmo's own handles;
+  // for ruler, its own SVG handles once placed) — only one should ever be
+  // armed at a time, so each toggle turns the others off.
   const toggleEyedropper = useCallback(() => {
     setMeasureActive(false)
     setMeasurePoints(null)
     setTransformActive(false)
+    deactivateRuler()
     setEyedropperActive(a => !a)
-  }, [])
+  }, [deactivateRuler])
 
   const toggleMeasure = useCallback(() => {
     setEyedropperActive(false)
     setTransformActive(false)
+    deactivateRuler()
     setMeasureActive(a => !a)
     setMeasurePoints(null)
-  }, [])
+  }, [deactivateRuler])
 
   const toggleTransform = useCallback(() => {
     setEyedropperActive(false)
     setMeasureActive(false)
     setMeasurePoints(null)
+    deactivateRuler()
     setTransformActive(a => !a)
+  }, [deactivateRuler])
+
+  // Ruler tool (#89): unlike measure, turning it OFF (not on) is when
+  // rulerLine/the engine guide get cleared — while it's on, rulerLine is
+  // meant to persist across strokes (see its declaration above), so
+  // clearing it on every toggle the way measure does would defeat that.
+  const toggleRuler = useCallback(() => {
+    setEyedropperActive(false)
+    setMeasureActive(false)
+    setMeasurePoints(null)
+    setTransformActive(false)
+    setRulerActive(a => {
+      const next = !a
+      if (!next) {
+        setRulerLine(null)
+        setRulerPlaced(false)
+        engineRef.current?.setRuler(null)
+      }
+      return next
+    })
   }, [])
 
   // Active layer, or the current multi-select from LayerPanel — background
@@ -696,6 +756,102 @@ export function Room() {
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
   }, [vpRef, vp, config])
+
+  // Ruler tool (#89): initial placement drag — mirrors handleMeasureDown's
+  // drag-capture pattern and pen-only reasoning exactly, but only runs
+  // pre-placement (while !rulerPlaced; see .rulerPlaceOverlay's render
+  // below, and rulerPlaced's own doc comment for why this catcher div's
+  // presence is gated on that flag rather than on rulerLine itself).
+  // rulerPlaced only flips true in onUp below, so this div — and its
+  // pointermove/pointerup listeners — survive the entire drag. After
+  // placement, dragging the ruler is handled per-handle by
+  // handleRulerHandleDown instead (RulerOverlay's own endpoints/body), so
+  // the rest of the canvas stays free for an actual pencil stroke to snap
+  // against it.
+  const handleRulerPlaceDown = useCallback((e: React.PointerEvent) => {
+    if (e.pointerType === 'touch') return
+    const el = vpRef.current
+    if (!el || !config) return
+    e.stopPropagation()
+    const overlay = e.currentTarget as HTMLElement
+    const penPointerId = e.pointerId
+    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
+
+    const rect = el.getBoundingClientRect()
+    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
+    const toPoint = (clientX: number, clientY: number): RulerPoint => clientToCanvas(clientX, clientY, viewport, config)
+
+    const start = toPoint(e.clientX, e.clientY)
+    setRulerLine({ a: start, b: start })
+    engineRef.current?.setRuler({ a: start, b: start })
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
+      const line = { a: start, b: toPoint(ev.clientX, ev.clientY) }
+      setRulerLine(line)
+      engineRef.current?.setRuler(line)
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+      setRulerPlaced(true)
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
+  }, [vpRef, vp, config])
+
+  // Ruler tool (#89): once placed, repositioning — grabbing an endpoint
+  // rotates/resizes it, grabbing the body translates both endpoints
+  // together (see RulerOverlay's .rulerHitLine). Same drag-capture pattern
+  // as handleTransformHandleDown, minus the scale/rotate-matrix math — a
+  // ruler is just two points, not a bounded rect. Every move updates both
+  // the visible line (rulerLine) and the engine's live snapping guide
+  // together, so what's drawn while dragging is exactly what a
+  // concurrently-drawn stroke would snap to (in practice the two gestures
+  // can't overlap anyway — both are pen-only and a pen has one tip).
+  const handleRulerHandleDown = useCallback((kind: RulerHandleKind, e: React.PointerEvent<SVGElement>) => {
+    if (e.pointerType === 'touch') return
+    const el = vpRef.current
+    if (!el || !config || !rulerLine) return
+    e.stopPropagation()
+    const overlay = e.currentTarget
+    const penPointerId = e.pointerId
+    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
+
+    const rect = el.getBoundingClientRect()
+    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
+    const toPoint = (clientX: number, clientY: number): RulerPoint => clientToCanvas(clientX, clientY, viewport, config)
+
+    const startLine = rulerLine // frozen for the duration of this drag
+    const startPoint = toPoint(e.clientX, e.clientY)
+
+    const computeLine = (clientX: number, clientY: number): { a: RulerPoint; b: RulerPoint } => {
+      const p = toPoint(clientX, clientY)
+      if (kind === 'a') return { a: p, b: startLine.b }
+      if (kind === 'b') return { a: startLine.a, b: p }
+      const dx = p.x - startPoint.x
+      const dy = p.y - startPoint.y
+      return {
+        a: { x: startLine.a.x + dx, y: startLine.a.y + dy },
+        b: { x: startLine.b.x + dx, y: startLine.b.y + dy },
+      }
+    }
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
+      const line = computeLine(ev.clientX, ev.clientY)
+      setRulerLine(line)
+      engineRef.current?.setRuler(line)
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
+  }, [vpRef, vp, config, rulerLine])
 
   // Layer transform tool (#120): mirrors handleMeasureDown's drag-capture
   // pattern exactly, but per-handle (body/corner/rotate) rather than a
@@ -1260,6 +1416,12 @@ export function Room() {
             onClick={toggleMeasure}
           ><Icon name="straighten" /></button>
           <button
+            className={clsx(styles.toolIconBtn, rulerActive && styles.toolIconBtnActive)}
+            title="Ruler — drag a straight edge; pencil strokes drawn near it snap to its line"
+            aria-label="Ruler — drag a straight edge; pencil strokes drawn near it snap to its line"
+            onClick={toggleRuler}
+          ><Icon name="square_foot" /></button>
+          <button
             className={clsx(styles.toolIconBtn, transformActive && styles.toolIconBtnActive)}
             title="Transform — move/scale/rotate the active layer or current selection"
             aria-label="Transform — move/scale/rotate the active layer or current selection"
@@ -1319,6 +1481,9 @@ export function Room() {
               <MeasureOverlay a={measurePoints.a} b={measurePoints.b} zoom={vp.zoom} angle={vp.angle} />
             )}
             {gridActive && <GridOverlay width={config.width} height={config.height} />}
+            {rulerActive && rulerLine && (
+              <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} />
+            )}
             {transformActive && transformBounds && (
               <TransformGizmo
                 bounds={transformBounds}
@@ -1338,6 +1503,9 @@ export function Room() {
           )}
           {measureActive && (
             <div className={styles.measureOverlay} onPointerDown={handleMeasureDown} />
+          )}
+          {rulerActive && !rulerPlaced && (
+            <div className={styles.rulerPlaceOverlay} onPointerDown={handleRulerPlaceDown} />
           )}
         </div>
 

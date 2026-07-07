@@ -11,6 +11,7 @@ import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation,
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { AccumulationBuffer } from '../src/AccumulationBuffer'
+import type { PointerData } from '../src/PointerInput'
 import { MockGL } from './mockGL'
 
 // jsdom is not used (vitest env is 'node' — see root vitest.config.ts), so
@@ -80,6 +81,9 @@ export function createTestEngine(
 interface EngineInternals {
   _layers: Map<string, AccumulationBuffer>
   _checkpoints: Array<{ layerId: string; opIds: string[]; pixels: Uint8Array }>
+  _onStart: (e: PointerData) => void
+  _onMove: (e: PointerData) => void
+  _onEnd: (e: PointerData) => void
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -136,6 +140,51 @@ export function expectPixelsClose(a: Uint8Array | null, b: Uint8Array | null, ma
     const diff = Math.abs(a[i] - b[i])
     if (diff > maxDiff) throw new Error(`pixel mismatch at byte ${i}: ${a[i]} vs ${b[i]} (diff ${diff} > ${maxDiff})`)
   }
+}
+
+// ─── Live pointer-pipeline simulation (ruler tool, #89) ─────────────────────
+//
+// Every other integration test in this file drives the engine by appending
+// pre-built Operations directly (appendOperation is deliberately
+// origin-agnostic — see its docstring in index.ts), never through real
+// pointer events (the mock canvas's addEventListener above is a no-op).
+// That's not an option for the ruler tool: its snapping happens *inside*
+// the private pointer pipeline itself (PencilEngine._onStart/_onMove via
+// _snapPoint — see index.ts), not as a post-hoc transform on an already-
+// built Operation. A test that wants to confirm a *recorded* stroke's dabs
+// actually landed on the snapped line (not just that the pure
+// snapToRuler() function is correct in isolation — see rulerSnap.test.ts)
+// has to drive that exact pipeline, so this reaches past the private
+// _onStart/_onMove/_onEnd the same documented, centralized way
+// hasLayerBuffer/readLayerPixels above reach past _layers/_checkpoints.
+
+/** Minimal PointerData sample — defaults are inert for the
+ *  pressure/tilt/speed math (a light, straight, pen-like sample) so a
+ *  caller only needs to specify what it actually cares about (position, or
+ *  an explicit override). */
+export function pointerSample(x: number, y: number, overrides: Partial<PointerData> = {}): PointerData {
+  return { x, y, pressure: 1, tiltX: 0, tiltY: 0, speed: 0, pointerType: 'pen', timeStamp: 0, ...overrides }
+}
+
+/** Drives the engine's real (private) pointer pipeline for one whole
+ *  stroke: _onStart with the first point, _onMove for every point after
+ *  it (including the last — mirroring real usage, where pointerup often
+ *  lands at the same spot as the preceding pointermove), then _onEnd to
+ *  flush the final segment. Requires an active layer to already exist
+ *  (setActiveLayer + a live buffer), same precondition real drawing has.
+ *  `points.length` must be >= 2: DabSystem needs at least a start and one
+ *  more sample to define any segment at all (see DabSystem's own n < 2/3
+ *  guards). */
+export function simulateStroke(
+  engine: PencilEngine, points: Array<{ x: number; y: number }>, overrides: Partial<PointerData> = {},
+): void {
+  if (points.length < 2) throw new Error('simulateStroke: need at least 2 points (start + at least one more)')
+  const eng = engine as unknown as EngineInternals
+  const [first, ...rest] = points
+  eng._onStart(pointerSample(first.x, first.y, overrides))
+  for (const p of rest) eng._onMove(pointerSample(p.x, p.y, overrides))
+  const last = points[points.length - 1]
+  eng._onEnd(pointerSample(last.x, last.y, overrides))
 }
 
 // ─── Operation builders ─────────────────────────────────────────────────────
