@@ -139,6 +139,9 @@ export interface PencilEngineAPI {
   setSize(px: number): void
   setColor(rgb: [number, number, number]): void
   pickColor(canvasX: number, canvasY: number): [number, number, number] | null
+  // Bounding box of a layer's actual painted content, canvas-pixel space —
+  // see the implementation's docstring for cost/call-frequency notes (#120).
+  getContentBounds(layerId: string): { x: number; y: number; width: number; height: number } | null
   setViewport(cx: number, cy: number, zoom: number, angle: number): void
   // Live gizmo-drag preview (#120): renders each layer's *current* content
   // through the given transform into a scratch buffer composited in place
@@ -681,6 +684,33 @@ export class PencilEngine implements PencilEngineAPI {
     // WebGL reads bottom-up; canvasX/Y are top-down like the rest of the app.
     gl.readPixels(x, canvas.height - 1 - y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel)
     return [pixel[0] / 255, pixel[1] / 255, pixel[2] / 255]
+  }
+
+  /** Bounding box of the layer's actually-painted (non-transparent) pixels,
+   *  in canvas-pixel space (same convention as Dab.x/y) — used by the
+   *  transform gizmo (#120) so it hugs the real content instead of the
+   *  whole canvas. `null` if the layer is fully transparent or doesn't
+   *  exist. A full readPixels + CPU scan, same cost profile as
+   *  _takeCheckpoint's — meant to be called once when the tool activates
+   *  or the target selection changes, not per drag frame. */
+  getContentBounds(layerId: string): { x: number; y: number; width: number; height: number } | null {
+    const buf = this._layers.get(layerId)
+    if (!buf) return null
+    const { width, height } = buf
+    const pixels = buf.readPixels()
+    let minX = width, minY = height, maxX = -1, maxY = -1
+    for (let y = 0; y < height; y++) {
+      const row = y * width
+      for (let x = 0; x < width; x++) {
+        if (pixels[(row + x) * 4 + 3] === 0) continue
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
+        if (y < minY) minY = y
+        if (y > maxY) maxY = y
+      }
+    }
+    if (maxX < minX) return null
+    return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
   }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {

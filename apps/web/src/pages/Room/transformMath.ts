@@ -15,10 +15,14 @@ export function translateMatrix(dx: number, dy: number): AffineMatrix {
   return [1, 0, 0, 1, dx, dy]
 }
 
-/** Uniform scale about a fixed pivot (the opposite corner from whichever
- *  handle is being dragged) — p' = pivot + scale*(p - pivot). */
-export function scaleAboutMatrix(scale: number, pivotX: number, pivotY: number): AffineMatrix {
-  return [scale, 0, 0, scale, pivotX * (1 - scale), pivotY * (1 - scale)]
+/** Independent X/Y scale about a fixed pivot (the opposite corner/edge from
+ *  whichever handle is being dragged) — p' = pivot + scale*(p - pivot) per
+ *  axis. Corner handles currently always call this with scaleX === scaleY
+ *  (uniform-only for now — no Shift-to-constrain on tablets, see #120's
+ *  follow-up issue on tablet-friendly modifier alternatives); edge handles
+ *  use it with one axis fixed at 1 for single-axis stretch. */
+export function scaleAxisMatrix(scaleX: number, scaleY: number, pivotX: number, pivotY: number): AffineMatrix {
+  return [scaleX, 0, 0, scaleY, pivotX * (1 - scaleX), pivotY * (1 - scaleY)]
 }
 
 /** Rotation about a fixed center — p' = R*(p - center) + center. */

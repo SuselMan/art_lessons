@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useReducer } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo, useReducer } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { io, type Socket } from 'socket.io-client'
 import clsx from 'clsx'
@@ -33,8 +33,8 @@ import { describeJoinError } from './joinError'
 import { PeerCursors, type PeerCursorPosition } from './PeerCursors'
 import { MeasureOverlay, type MeasurePoint } from './MeasureOverlay'
 import { GridOverlay } from './GridOverlay'
-import { TransformGizmo, type TransformHandleKind } from './TransformGizmo'
-import { translateMatrix, scaleAboutMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
+import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
+import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import styles from './Room.module.css'
@@ -76,15 +76,25 @@ const SERVER_PORT = 4000
 // the #38 indicator clears it — see drawingIndicator.ts.
 const DRAWING_TIMEOUT_MS = 1500
 
-// Layer transform tool (#120): canvas-space pivot for a corner scale handle
-// is always the *opposite* corner — since every layer buffer is exactly
-// canvas-sized, that's just the canvas rect's own opposite corner, not
-// something derived from content bounds.
-const TRANSFORM_OPPOSITE_CORNER: Record<'tl' | 'tr' | 'bl' | 'br', (w: number, h: number) => { x: number; y: number }> = {
-  tl: (w, h) => ({ x: w, y: h }),
-  tr: (_w, h) => ({ x: 0, y: h }),
-  bl: (w, _h) => ({ x: w, y: 0 }),
-  br: () => ({ x: 0, y: 0 }),
+// Layer transform tool (#120): canvas-space pivot for a scale handle is
+// always the *opposite* corner/edge of the content bounding box (see
+// engine.getContentBounds) — a real resize anchor, unlike the old
+// whole-canvas-rect version this replaced.
+const TRANSFORM_PIVOT: Record<'tl' | 'tr' | 'bl' | 'br' | 't' | 'b' | 'l' | 'r', (b: TransformBounds) => { x: number; y: number }> = {
+  tl: b => ({ x: b.x + b.width, y: b.y + b.height }),
+  tr: b => ({ x: b.x,           y: b.y + b.height }),
+  bl: b => ({ x: b.x + b.width, y: b.y }),
+  br: b => ({ x: b.x,           y: b.y }),
+  t:  b => ({ x: b.x,           y: b.y + b.height }),
+  b:  b => ({ x: b.x,           y: b.y }),
+  l:  b => ({ x: b.x + b.width, y: b.y }),
+  r:  b => ({ x: b.x,           y: b.y }),
+}
+
+function unionTransformBounds(a: TransformBounds, b: TransformBounds): TransformBounds {
+  const x = Math.min(a.x, b.x)
+  const y = Math.min(a.y, b.y)
+  return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y }
 }
 
 // A drag that ends essentially where it started (a click, or a barely-moved
@@ -92,8 +102,10 @@ const TRANSFORM_OPPOSITE_CORNER: Record<'tl' | 'tr' | 'bl' | 'br', (w: number, h
 // matrix would still be a real undo-stack entry for nothing.
 function isNegligibleTransform(handle: TransformHandleKind, m: AffineMatrix): boolean {
   if (handle === 'body') return Math.hypot(m[4], m[5]) < 0.5
-  if (handle === 'rotate') return Math.abs(Math.atan2(m[1], m[0])) < 0.001
-  return Math.abs(m[0] - 1) < 0.001 // corner handles: m[0] === m[3] === scale
+  if (handle.startsWith('rotate')) return Math.abs(Math.atan2(m[1], m[0])) < 0.001
+  if (handle === 't' || handle === 'b') return Math.abs(m[3] - 1) < 0.001 // scaleY = d
+  if (handle === 'l' || handle === 'r') return Math.abs(m[0] - 1) < 0.001 // scaleX = a
+  return Math.abs(m[0] - 1) < 0.001 // corners: uniform, m[0] === m[3] === scale
 }
 
 function makeInitialLayerState(): LayerState {
@@ -196,6 +208,26 @@ export function Room() {
   // unlike measure it *does* produce an Operation (layer_transform) on
   // commit, via the engine's live preview + dispatchOp, not engine.setTool().
   const [transformActive, setTransformActive] = useState(false)
+  // Content bounding box (engine.getContentBounds, unioned across the
+  // current target(s)) — recomputed on activation/selection change and
+  // after every commit (see refreshTransformBounds below), not per drag
+  // frame. null while the tool is off, or before the first computation
+  // lands, or (edge case) an active target with no content bounds and no
+  // config to fall back to yet.
+  const [transformBounds, setTransformBounds] = useState<TransformBounds | null>(null)
+  // Custom rotation pivot (Adobe Animate-style draggable transform point) —
+  // null means "use the content bounds' own center". Reset on activation
+  // and after every commit: each drag already commits immediately (no
+  // multi-step Free-Transform session, see #120's scope notes), so treating
+  // a custom point as scoped to a single drag rather than trying to carry
+  // an absolute canvas-space point through a move/scale that just changed
+  // where the content actually is keeps this from silently pointing
+  // somewhere stale.
+  const [transformCenterOverride, setTransformCenterOverride] = useState<{ x: number; y: number } | null>(null)
+  // Matrix for the *current* drag frame, fed to TransformGizmo so its handles
+  // visually ride along with the content instead of staying glued to the
+  // pre-drag bounds (see TransformGizmo's docstring) — null between drags.
+  const [transformLiveMatrix, setTransformLiveMatrix] = useState<AffineMatrix | null>(null)
   const [layerState, setLayerState] = useState<LayerState>(makeInitialLayerState)
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | null>('layers')
 
@@ -566,11 +598,39 @@ export function Room() {
   }, [])
 
   // Active layer, or the current multi-select from LayerPanel — background
-  // is never a legal transform target, same as merge/delete (#120). Every
-  // layer buffer is exactly canvas-sized regardless of how many are
-  // targeted, so the gizmo never needs a per-selection bounding box.
-  const transformTargetIds = (layerState.selectedIds.length > 0 ? layerState.selectedIds : [layerState.activeId])
-    .filter((layerId): layerId is string => !!layerId && layerId !== BACKGROUND_LAYER_ID && layerState.items[layerId]?.kind === 'layer')
+  // is never a legal transform target, same as merge/delete (#120).
+  // useMemo'd (not just a plain const) so it has a stable reference to key
+  // the bounds-refresh effect below on — without that it would refire every
+  // render instead of only on an actual selection change.
+  const transformTargetIds = useMemo(() => (
+    (layerState.selectedIds.length > 0 ? layerState.selectedIds : [layerState.activeId])
+      .filter((layerId): layerId is string => !!layerId && layerId !== BACKGROUND_LAYER_ID && layerState.items[layerId]?.kind === 'layer')
+  ), [layerState])
+
+  // Recomputes transformBounds from the current target(s)' actual painted
+  // content (engine.getContentBounds), unioned across a multi-select — and
+  // clears any custom rotation-center override (see its declaration above
+  // for why). Called on activation/selection change and again after every
+  // commit, never per drag frame (each call is a real readPixels + CPU scan
+  // per target — see getContentBounds' docstring on cost).
+  const refreshTransformBounds = useCallback(() => {
+    const engine = engineRef.current
+    if (!engine || transformTargetIds.length === 0) { setTransformBounds(null); setTransformCenterOverride(null); return }
+    let bounds: TransformBounds | null = null
+    for (const layerId of transformTargetIds) {
+      const b = engine.getContentBounds(layerId)
+      bounds = b ? (bounds ? unionTransformBounds(bounds, b) : b) : bounds
+    }
+    // A fully transparent target (nothing drawn yet) falls back to the
+    // whole canvas rather than making the gizmo just vanish.
+    setTransformBounds(bounds ?? (config ? { x: 0, y: 0, width: config.width, height: config.height } : null))
+    setTransformCenterOverride(null)
+  }, [transformTargetIds, config])
+
+  useEffect(() => {
+    if (!transformActive) { setTransformBounds(null); setTransformCenterOverride(null); return }
+    refreshTransformBounds()
+  }, [transformActive, refreshTransformBounds])
 
   // Measure tool (#119): mirrors handleEyedropperPick's clientToCanvas
   // conversion, but for a full drag rather than a single click — down/move/up
@@ -632,7 +692,7 @@ export function Room() {
   const handleTransformHandleDown = useCallback((handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => {
     if (e.pointerType === 'touch') return
     const el = vpRef.current
-    if (!el || !config || transformTargetIds.length === 0) return
+    if (!el || !config || !transformBounds || transformTargetIds.length === 0) return
     e.stopPropagation()
     const overlay = e.currentTarget
     const penPointerId = e.pointerId
@@ -643,26 +703,38 @@ export function Room() {
     const toPoint = (clientX: number, clientY: number) => clientToCanvas(clientX, clientY, viewport, config)
 
     const targetIds = transformTargetIds // frozen for the duration of this drag
+    const bounds = transformBounds
+    const center = transformCenterOverride ?? { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+    const isRotate = handle.startsWith('rotate')
+    const pivot = handle === 'body' || isRotate ? center : TRANSFORM_PIVOT[handle as keyof typeof TRANSFORM_PIVOT](bounds)
     const start = toPoint(e.clientX, e.clientY)
-    const center = { x: config.width / 2, y: config.height / 2 }
-    const isCorner = handle === 'tl' || handle === 'tr' || handle === 'bl' || handle === 'br'
-    const pivot = isCorner ? TRANSFORM_OPPOSITE_CORNER[handle](config.width, config.height) : center
     const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
-    const startDist = Math.max(Math.hypot(start.x - pivot.x, start.y - pivot.y), 1e-6)
+    const startDist  = Math.max(Math.hypot(start.x - pivot.x, start.y - pivot.y), 1e-6)
+    const startDistX = Math.max(Math.abs(start.x - pivot.x), 1e-6)
+    const startDistY = Math.max(Math.abs(start.y - pivot.y), 1e-6)
 
     const computeMatrix = (clientX: number, clientY: number): AffineMatrix => {
       const p = toPoint(clientX, clientY)
       if (handle === 'body') return translateMatrix(p.x - start.x, p.y - start.y)
-      if (handle === 'rotate') {
-        return rotateAboutMatrix(Math.atan2(p.y - center.y, p.x - center.x) - startAngle, center.x, center.y)
+      if (isRotate) return rotateAboutMatrix(Math.atan2(p.y - center.y, p.x - center.x) - startAngle, center.x, center.y)
+      if (handle === 't' || handle === 'b') {
+        const scaleY = clamp(Math.abs(p.y - pivot.y) / startDistY, 0.05, 20)
+        return scaleAxisMatrix(1, scaleY, pivot.x, pivot.y)
       }
+      if (handle === 'l' || handle === 'r') {
+        const scaleX = clamp(Math.abs(p.x - pivot.x) / startDistX, 0.05, 20)
+        return scaleAxisMatrix(scaleX, 1, pivot.x, pivot.y)
+      }
+      // Corner handles: uniform-only for now — no Shift-to-constrain on
+      // tablets, see the follow-up issue on tablet-friendly modifiers (#120).
       const scale = clamp(Math.hypot(p.x - pivot.x, p.y - pivot.y) / startDist, 0.05, 20)
-      return scaleAboutMatrix(scale, pivot.x, pivot.y)
+      return scaleAxisMatrix(scale, scale, pivot.x, pivot.y)
     }
 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
       const matrix = computeMatrix(ev.clientX, ev.clientY)
+      setTransformLiveMatrix(matrix)
       engineRef.current?.previewLayerTransform(targetIds.map(layerId => ({ layerId, matrix })))
     }
     const onUp = (ev: PointerEvent) => {
@@ -670,13 +742,48 @@ export function Room() {
       overlay.removeEventListener('pointermove', onMove)
       overlay.removeEventListener('pointerup', onUp)
       const matrix = computeMatrix(ev.clientX, ev.clientY)
+      setTransformLiveMatrix(null)
       engineRef.current?.clearLayerTransformPreview()
       if (isNegligibleTransform(handle, matrix)) return
       dispatchOp({ type: 'layer_transform', transforms: targetIds.map(layerId => ({ layerId, matrix })) })
+      refreshTransformBounds()
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, transformTargetIds, dispatchOp])
+  }, [vpRef, vp, config, transformBounds, transformTargetIds, transformCenterOverride, dispatchOp, refreshTransformBounds])
+
+  // Adobe Animate-style draggable rotation pivot — a separate gesture from
+  // the scale/rotate/translate handles above: it only ever updates
+  // transformCenterOverride (local UI state), never previews or dispatches
+  // a transform of its own. Double-click resets it back to the content
+  // bounds' own center (see TransformGizmo's onCenterDoubleClick).
+  const handleTransformCenterDown = useCallback((e: React.PointerEvent<SVGElement>) => {
+    if (e.pointerType === 'touch') return
+    const el = vpRef.current
+    if (!el || !config) return
+    e.stopPropagation()
+    const overlay = e.currentTarget
+    const penPointerId = e.pointerId
+    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
+
+    const rect = el.getBoundingClientRect()
+    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
+    const toPoint = (clientX: number, clientY: number) => clientToCanvas(clientX, clientY, viewport, config)
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
+      setTransformCenterOverride(toPoint(ev.clientX, ev.clientY))
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== penPointerId) return
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
+  }, [vpRef, vp, config])
+
+  const handleTransformCenterReset = useCallback(() => setTransformCenterOverride(null), [])
 
   // ── who's-drawing indicator (#38) ─────────────────────────────────────────────
   // Periodically prunes `lastActiveAtRef` (refreshed by markActive) into the
@@ -1163,11 +1270,17 @@ export function Room() {
               <MeasureOverlay a={measurePoints.a} b={measurePoints.b} zoom={vp.zoom} angle={vp.angle} />
             )}
             {gridActive && <GridOverlay width={config.width} height={config.height} />}
-            {transformActive && transformTargetIds.length > 0 && (
+            {transformActive && transformBounds && (
               <TransformGizmo
-                canvasWidth={config.width}
-                canvasHeight={config.height}
+                bounds={transformBounds}
+                center={transformCenterOverride ?? {
+                  x: transformBounds.x + transformBounds.width / 2,
+                  y: transformBounds.y + transformBounds.height / 2,
+                }}
+                matrix={transformLiveMatrix ?? undefined}
                 onHandleDown={handleTransformHandleDown}
+                onCenterDown={handleTransformCenterDown}
+                onCenterDoubleClick={handleTransformCenterReset}
               />
             )}
           </div>

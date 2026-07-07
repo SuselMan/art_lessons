@@ -88,3 +88,28 @@ describe('layer_transform: multi-layer atomicity (#120)', () => {
     expectPixelsEqual(readLayerPixels(engine, 'B'), readLayerPixels(refB, 'B'))
   })
 })
+
+describe('getContentBounds: content bounding box for the transform gizmo (#120)', () => {
+  it('returns null for a layer with nothing painted on it', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    expect(engine.getContentBounds('L')).toBeNull()
+  })
+
+  it('shifts by the exact same offset a translate transform applied to the same content', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(fillStroke('user-a', 'L', 4, 4, 3))
+
+    const before = engine.getContentBounds('L')
+    expect(before).not.toBeNull()
+
+    engine.appendOperation(makeLayerTransform('user-a', [{ layerId: 'L', matrix: [1, 0, 0, 1, 8, 0] }]))
+    const after = engine.getContentBounds('L')
+
+    // The bounding box is exactly as translate-invariant as the pixels
+    // themselves (see the exact-offset test above) — same box, shifted by
+    // the same integer delta, not just "some box that changed".
+    expect(after).toEqual({ ...before, x: before!.x + 8 })
+  })
+})

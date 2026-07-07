@@ -1,61 +1,120 @@
 import styles from './Room.module.css'
 
-export type TransformHandleKind = 'body' | 'tl' | 'tr' | 'bl' | 'br' | 'rotate'
+export type TransformHandleKind =
+  | 'body'
+  | 'tl' | 'tr' | 'bl' | 'br'
+  | 't' | 'b' | 'l' | 'r'
+  | 'rotate-tl' | 'rotate-tr' | 'rotate-bl' | 'rotate-br'
+
+export interface TransformBounds { x: number; y: number; width: number; height: number }
+interface Point { x: number; y: number }
 
 interface TransformGizmoProps {
-  canvasWidth: number
-  canvasHeight: number
+  bounds: TransformBounds
+  center: Point
+  // Live matrix during a drag (see Room's handleTransformHandleDown) — the
+  // whole gizmo rides along with it via a single SVG `matrix()` transform,
+  // so handles stay attached to the content instead of the pre-drag bounds.
+  matrix?: [number, number, number, number, number, number]
   onHandleDown: (handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => void
+  onCenterDown: (e: React.PointerEvent<SVGElement>) => void
+  onCenterDoubleClick: () => void
 }
 
-// Distance above the rect's top edge for the rotate handle, and the corner/
-// rotate handle's own size — canvas-pixel space, same convention as
-// MeasureOverlay's line/endpoints (scales with zoom like real content would;
-// only text labels counter-scale in this codebase, and this overlay has none).
-const ROTATE_OFFSET = 40
-const HANDLE_SIZE = 14
+const SCALE_HANDLE_SIZE = 12
+// Bigger than the scale handle and centered on the same corner — the ring
+// left over once the scale handle (rendered after, so it wins hit-testing)
+// covers the middle is what gives the "just outside the corner = rotate"
+// affordance, same idea as Adobe Animate's Free Transform corners.
+const ROTATE_ZONE_SIZE = 30
+const CENTER_HANDLE_RADIUS = 6
 
-/** Layer transform tool (#120): move/scale/rotate gizmo over the current
- *  transform target(s) — always the full canvas rect, never a tighter
- *  content bounding box, because every layer buffer already *is* exactly
- *  canvas-sized (see the #120 design discussion) — no content-bounds
- *  detection needed for single- or multi-layer selections alike.
+const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHandleKind; cursor: string }> = [
+  { kind: 'tl', rotateKind: 'rotate-tl', cursor: 'nwse-resize' },
+  { kind: 'tr', rotateKind: 'rotate-tr', cursor: 'nesw-resize' },
+  { kind: 'bl', rotateKind: 'rotate-bl', cursor: 'nesw-resize' },
+  { kind: 'br', rotateKind: 'rotate-br', cursor: 'nwse-resize' },
+]
+
+/** Layer transform tool (#120): move/scale/rotate gizmo hugging the
+ *  target layer(s)' actual painted content (`bounds` — see
+ *  engine.getContentBounds), not the whole canvas; single- and multi-layer
+ *  selections both just union their content bounds in Room, so this
+ *  component only ever deals with one rect.
  *
  *  Purely presentational: drag capture, viewport math, and the actual
  *  engine preview/commit calls all live in Room/index.tsx, same division
- *  of responsibility as MeasureOverlay/handleMeasureDown. The rect and
- *  handles stay glued to the original canvas bounds throughout a drag —
- *  they don't themselves track the live transform, only the WebGL preview
- *  underneath (engine.previewLayerTransform) does. */
-export function TransformGizmo({ canvasWidth, canvasHeight, onHandleDown }: TransformGizmoProps) {
-  const half = HANDLE_SIZE / 2
-  const cx = canvasWidth / 2
+ *  of responsibility as MeasureOverlay/handleMeasureDown. `matrix` is the
+ *  one exception carried in from there — without it the handles stayed at
+ *  the pre-drag bounds while only the WebGL preview underneath moved,
+ *  which read as broken (the thing you're dragging visually detaches from
+ *  what you're dragging). SVG's own `matrix(a,b,c,d,e,f)` transform
+ *  function uses the exact same convention as LayerTransformOperation's
+ *  matrix, so the whole gizmo can ride along with one <g transform>. */
+export function TransformGizmo({ bounds, center, matrix, onHandleDown, onCenterDown, onCenterDoubleClick }: TransformGizmoProps) {
+  const { x, y, width, height } = bounds
+  const right = x + width
+  const bottom = y + height
+  const midX = x + width / 2
+  const midY = y + height / 2
+  const groupTransform = matrix ? `matrix(${matrix.join(',')})` : undefined
 
-  const corner = (x: number, y: number, handle: TransformHandleKind, cursor: string) => (
-    <rect
-      x={x - half} y={y - half} width={HANDLE_SIZE} height={HANDLE_SIZE}
-      className={styles.transformHandle} style={{ cursor }}
-      onPointerDown={e => onHandleDown(handle, e)}
-    />
-  )
+  const cornerPos: Record<'tl' | 'tr' | 'bl' | 'br', Point> = {
+    tl: { x, y }, tr: { x: right, y }, bl: { x, y: bottom }, br: { x: right, y: bottom },
+  }
+  const edges: Array<{ kind: 't' | 'b' | 'l' | 'r'; pos: Point; cursor: string }> = [
+    { kind: 't', pos: { x: midX, y }, cursor: 'ns-resize' },
+    { kind: 'b', pos: { x: midX, y: bottom }, cursor: 'ns-resize' },
+    { kind: 'l', pos: { x, y: midY }, cursor: 'ew-resize' },
+    { kind: 'r', pos: { x: right, y: midY }, cursor: 'ew-resize' },
+  ]
+
+  const rh = ROTATE_ZONE_SIZE / 2
+  const sh = SCALE_HANDLE_SIZE / 2
 
   return (
     <svg className={styles.transformSvg}>
-      <rect
-        x={0} y={0} width={canvasWidth} height={canvasHeight}
-        className={styles.transformBody}
-        onPointerDown={e => onHandleDown('body', e)}
-      />
-      <line x1={cx} y1={0} x2={cx} y2={-ROTATE_OFFSET} className={styles.transformRotateLine} />
-      <circle
-        cx={cx} cy={-ROTATE_OFFSET} r={half}
-        className={styles.transformHandle} style={{ cursor: 'grab' }}
-        onPointerDown={e => onHandleDown('rotate', e)}
-      />
-      {corner(0, 0, 'tl', 'nwse-resize')}
-      {corner(canvasWidth, 0, 'tr', 'nesw-resize')}
-      {corner(0, canvasHeight, 'bl', 'nesw-resize')}
-      {corner(canvasWidth, canvasHeight, 'br', 'nwse-resize')}
+      <g transform={groupTransform}>
+        <rect
+          x={x} y={y} width={width} height={height}
+          className={styles.transformBody}
+          onPointerDown={e => onHandleDown('body', e)}
+        />
+
+        {CORNERS.map(({ kind, rotateKind, cursor }) => {
+          const p = cornerPos[kind]
+          return (
+            <g key={kind}>
+              <rect
+                x={p.x - rh} y={p.y - rh} width={ROTATE_ZONE_SIZE} height={ROTATE_ZONE_SIZE}
+                className={styles.transformRotateZone} style={{ cursor: 'grab' }}
+                onPointerDown={e => onHandleDown(rotateKind, e)}
+              />
+              <rect
+                x={p.x - sh} y={p.y - sh} width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
+                className={styles.transformHandle} style={{ cursor }}
+                onPointerDown={e => onHandleDown(kind, e)}
+              />
+            </g>
+          )
+        })}
+
+        {edges.map(({ kind, pos, cursor }) => (
+          <rect
+            key={kind}
+            x={pos.x - sh} y={pos.y - sh} width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
+            className={styles.transformHandle} style={{ cursor }}
+            onPointerDown={e => onHandleDown(kind, e)}
+          />
+        ))}
+
+        <circle
+          cx={center.x} cy={center.y} r={CENTER_HANDLE_RADIUS}
+          className={styles.transformCenterHandle} style={{ cursor: 'move' }}
+          onPointerDown={onCenterDown}
+          onDoubleClick={onCenterDoubleClick}
+        />
+      </g>
     </svg>
   )
 }

@@ -482,7 +482,8 @@
    surface (no separate full-viewport catcher div) — the svg root stays
    pointer-events:none so it never blocks the canvas outside the gizmo's own
    shapes, and each shape opts back in individually. overflow:visible
-   matters here specifically: the rotate handle sits above y=0. */
+   matters here specifically: bounds can sit anywhere in canvas space, and
+   the gizmo group rides a live matrix() transform mid-drag. */
 .transformSvg {
   position: absolute;
   top: 0;
@@ -511,9 +512,22 @@
   touch-action: none;
 }
 
-.transformRotateLine {
+/* Invisible ring around each corner handle — the leftover area once
+   .transformHandle (rendered after, so it wins hit-testing in the overlap)
+   covers the middle is what reads as "just outside the corner" for a
+   rotate drag, Adobe Animate Free-Transform style. */
+.transformRotateZone {
+  fill: transparent;
+  pointer-events: fill;
+  touch-action: none;
+}
+
+.transformCenterHandle {
+  fill: var(--color-surface);
   stroke: var(--color-accent);
   stroke-width: 1.5;
+  pointer-events: fill;
+  touch-action: none;
 }
 
 /* ── Participants bar (#38 — who's drawing) ── */
