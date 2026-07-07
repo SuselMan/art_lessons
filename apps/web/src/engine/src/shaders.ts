@@ -235,21 +235,35 @@ export const IMAGE_BLIT_FRAG = `
 // backward (destination pixel -> source pixel via u_matrixInv, the inverse
 // of the requested transform) rather than forward, which is what lets
 // scale-up/rotate leave no gaps: every destination texel asks "where did
-// this come from" instead of source texels asking "where do I go".  Source
+// this come from" instead of source texels asking "where do I go". Source
 // is already premultiplied (every accumulation-buffer writer is — see
 // DAB_FRAG/IMAGE_BLIT_FRAG), so this is a pure resample, no
 // re-premultiplication. Uses DISPLAY_VERT (same fullscreen-quad convention
 // as composite/display/image-blit).
+//
+// v_uv follows GL's own window-space convention (v_uv.y=0 is the *bottom*
+// of the rendered image), but every other buffer-pixel value in this engine
+// — Dab.x/y, LayerTransformOperation.matrix, TransformGizmo's bounds — is
+// app-space top-down (y=0 at the top), matching clientToCanvas. DAB_VERT
+// bridges the same gap the other direction with its `clip.y = -clip.y`
+// when placing a dab at an app-space position; this shader needs the
+// mirror-image fix since app-space is where u_matrixInv operates (Room
+// builds it straight from clientToCanvas points). Skipping this flip
+// reproduces correctly for a *symmetric* placement (which is why
+// IMAGE_BLIT_FRAG's centered image-import blit never surfaced it) but
+// inverts an asymmetric one like an arbitrary drag — exactly the bug
+// reported after #120 shipped: horizontal drag looked right, vertical was
+// mirrored.
 export const TRANSFORM_BLIT_FRAG = `
   precision highp float;
   uniform sampler2D u_source;
   uniform vec2 u_bufferSize;
-  uniform mat3 u_matrixInv; // maps destination buffer-px -> source buffer-px
+  uniform mat3 u_matrixInv; // maps destination buffer-px -> source buffer-px, both app-space top-down
   varying vec2 v_uv;
   void main() {
-    vec2 dstPx = v_uv * u_bufferSize;
+    vec2 dstPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_bufferSize;
     vec3 srcPx = u_matrixInv * vec3(dstPx, 1.0);
-    vec2 srcUV = srcPx.xy / u_bufferSize;
+    vec2 srcUV = vec2(srcPx.x / u_bufferSize.x, 1.0 - srcPx.y / u_bufferSize.y);
     if (srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
       gl_FragColor = vec4(0.0);
       return;

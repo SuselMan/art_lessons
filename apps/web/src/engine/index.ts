@@ -698,18 +698,27 @@ export class PencilEngine implements PencilEngineAPI {
     if (!buf) return null
     const { width, height } = buf
     const pixels = buf.readPixels()
-    let minX = width, minY = height, maxX = -1, maxY = -1
-    for (let y = 0; y < height; y++) {
-      const row = y * width
+    let minX = width, maxX = -1, minRow = height, maxRow = -1
+    for (let row = 0; row < height; row++) {
+      const base = row * width
       for (let x = 0; x < width; x++) {
-        if (pixels[(row + x) * 4 + 3] === 0) continue
+        if (pixels[(base + x) * 4 + 3] === 0) continue
         if (x < minX) minX = x
         if (x > maxX) maxX = x
-        if (y < minY) minY = y
-        if (y > maxY) maxY = y
+        if (row < minRow) minRow = row
+        if (row > maxRow) maxRow = row
       }
     }
     if (maxX < minX) return null
+    // gl.readPixels' rows are bottom-up (row 0 = GL/window bottom), but every
+    // other buffer-pixel value in this engine is app-space top-down (y=0 at
+    // the top, matching Dab.x/y and clientToCanvas) — same gap DAB_VERT
+    // bridges when painting (`clip.y = -clip.y`) and TRANSFORM_BLIT_FRAG
+    // bridges when baking a transform. Flip once here so every caller gets
+    // an app-space rect for free, instead of a mirrored one that happened
+    // to go unnoticed until something asymmetric (the gizmo) depended on it.
+    const minY = height - 1 - maxRow
+    const maxY = height - 1 - minRow
     return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
   }
 

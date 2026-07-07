@@ -25,8 +25,11 @@ const SCALE_HANDLE_SIZE = 12
 // Bigger than the scale handle and centered on the same corner — the ring
 // left over once the scale handle (rendered after, so it wins hit-testing)
 // covers the middle is what gives the "just outside the corner = rotate"
-// affordance, same idea as Adobe Animate's Free Transform corners.
-const ROTATE_ZONE_SIZE = 30
+// affordance, same idea as Adobe Animate's Free Transform corners. Sized
+// generously (relative to the 12px scale handle) since this ring is the
+// entire hit target for rotation — too thin and it's nearly impossible to
+// land a drag in it, especially with a finger rather than a mouse pointer.
+const ROTATE_ZONE_SIZE = 48
 const CENTER_HANDLE_RADIUS = 6
 
 const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHandleKind; cursor: string }> = [
@@ -87,7 +90,7 @@ export function TransformGizmo({ bounds, center, matrix, onHandleDown, onCenterD
             <g key={kind}>
               <rect
                 x={p.x - rh} y={p.y - rh} width={ROTATE_ZONE_SIZE} height={ROTATE_ZONE_SIZE}
-                className={styles.transformRotateZone} style={{ cursor: 'grab' }}
+                className={styles.transformRotateZone}
                 onPointerDown={e => onHandleDown(rotateKind, e)}
               />
               <rect
