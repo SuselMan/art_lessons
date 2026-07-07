@@ -107,7 +107,117 @@ class UniformReference {
   }
 }
 
-function feedPoints(system: DabSystem | UniformReference, points: Pt[], baseSize: number): Pt[] {
+// Pre-corner-fix reference (see #91 corner-preserving follow-up): an exact
+// copy of today's centripetal Catmull-Rom buffering + tangent math *without*
+// the corner-angle tangent reduction — i.e. what DabSystem did before this
+// change, always smoothing uniformly regardless of how sharp the real turn
+// is. Exists only so the corner tests below can show the fix actually
+// changes the sharp-corner dab positions, while the smooth-curve case is
+// unaffected either way — same role `UniformReference` plays for the
+// centripetal-vs-uniform comparison above.
+function centripetalTangentsNoCorner(p0: Pt, p1: Pt, p2: Pt, p3: Pt): { m1: Pt; m2: Pt } {
+  const knotDelta = (a: Pt, b: Pt) => Math.max(1e-6, Math.hypot(b.x - a.x, b.y - a.y) ** 0.5)
+  const t1 = knotDelta(p0, p1)
+  const t2 = t1 + knotDelta(p1, p2)
+  const t3 = t2 + knotDelta(p2, p3)
+  const d10 = t1, d20 = t2, d21 = t2 - t1, d31 = t3 - t1, d32 = t3 - t2
+  const m1 = {
+    x: d21 * ((p1.x - p0.x) / d10 - (p2.x - p0.x) / d20 + (p2.x - p1.x) / d21),
+    y: d21 * ((p1.y - p0.y) / d10 - (p2.y - p0.y) / d20 + (p2.y - p1.y) / d21),
+  }
+  const m2 = {
+    x: d21 * ((p2.x - p1.x) / d21 - (p3.x - p1.x) / d31 + (p3.x - p2.x) / d32),
+    y: d21 * ((p2.y - p1.y) / d21 - (p3.y - p1.y) / d31 + (p3.y - p2.y) / d32),
+  }
+  return { m1, m2 }
+}
+
+function hermitePosGeneric(p1: Pt, p2: Pt, m1: Pt, m2: Pt, t: number): Pt {
+  const t2 = t * t, t3 = t2 * t
+  const h00 = 2*t3 - 3*t2 + 1
+  const h10 = t3 - 2*t2 + t
+  const h01 = -2*t3 + 3*t2
+  const h11 = t3 - t2
+  return {
+    x: h00*p1.x + h10*m1.x + h01*p2.x + h11*m2.x,
+    y: h00*p1.y + h10*m1.y + h01*p2.y + h11*m2.y,
+  }
+}
+
+function splineDabsCentripetalNoCorner(p0: Pt, p1: Pt, p2: Pt, p3: Pt, spacing: number, remainderIn: number): { dabs: Pt[]; remainderOut: number } {
+  const { m1, m2 } = centripetalTangentsNoCorner(p0, p1, p2, p3)
+  const STEPS = 16
+  const samples: Array<{ t: number; len: number; x: number; y: number }> = [{ t: 0, len: 0, x: p1.x, y: p1.y }]
+  let totalLen = 0
+  for (let i = 1; i <= STEPS; i++) {
+    const t = i / STEPS
+    const pos = hermitePosGeneric(p1, p2, m1, m2, t)
+    const prev = samples[i - 1]
+    totalLen += Math.hypot(pos.x - prev.x, pos.y - prev.y)
+    samples.push({ t, len: totalLen, x: pos.x, y: pos.y })
+  }
+  if (totalLen < 0.001) return { dabs: [], remainderOut: remainderIn }
+
+  const dabs: Pt[] = []
+  let arcPos = spacing - remainderIn
+  let si = 0
+  while (arcPos <= totalLen + 1e-6) {
+    while (si < STEPS - 1 && samples[si + 1].len < arcPos) si++
+    const s0 = samples[si]
+    const s1 = samples[si + 1]
+    const frac = s1.len > s0.len ? (arcPos - s0.len) / (s1.len - s0.len) : 0
+    const t = s0.t + frac * (s1.t - s0.t)
+    dabs.push(hermitePosGeneric(p1, p2, m1, m2, t))
+    arcPos += spacing
+  }
+  const remainderOut = Math.max(0, totalLen - (arcPos - spacing))
+  return { dabs, remainderOut }
+}
+
+class CentripetalNoCornerReference {
+  private buf: Pt[] = []
+  private remainder = 0
+
+  start(x: number, y: number): Pt[] {
+    this.buf = [{ x, y }]
+    this.remainder = 0
+    return [{ x, y }]
+  }
+
+  continue(x: number, y: number, baseSize: number, spacingFactor = 0.22): Pt[] {
+    this.buf.push({ x, y })
+    const n = this.buf.length
+    if (n < 3) return []
+
+    const p0 = n >= 4 ? this.buf[n - 4] : mirrorBefore(this.buf[n - 3], this.buf[n - 2])
+    const p1 = this.buf[n - 3]
+    const p2 = this.buf[n - 2]
+    const p3 = this.buf[n - 1]
+    if (n > 4) this.buf.shift()
+
+    if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 0.5) return []
+
+    const spacing = Math.max(1, baseSize * spacingFactor)
+    const { dabs, remainderOut } = splineDabsCentripetalNoCorner(p0, p1, p2, p3, spacing, this.remainder)
+    this.remainder = remainderOut
+    return dabs
+  }
+
+  end(baseSize: number, spacingFactor = 0.22): Pt[] {
+    const n = this.buf.length
+    if (n < 2) return []
+    const p1 = this.buf[n - 2]
+    const p2 = this.buf[n - 1]
+    const p0 = n >= 3 ? this.buf[n - 3] : mirrorBefore(p1, p2)
+    const p3: Pt = { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y }
+    if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 0.5) return []
+
+    const spacing = Math.max(1, baseSize * spacingFactor)
+    return splineDabsCentripetalNoCorner(p0, p1, p2, p3, spacing, this.remainder).dabs
+  }
+}
+
+function feedPoints(system: DabSystem | UniformReference | CentripetalNoCornerReference, points: Pt[], baseSize: number): Pt[] {
   const dabs: Pt[] = []
   if (system instanceof DabSystem) {
     dabs.push(...system.startStroke(points[0].x, points[0].y, 1, 0, 0, baseSize))
@@ -372,5 +482,111 @@ describe('DabSystem.peekTipDabs (#104 live-tip latency reduction)', () => {
       expect(endDabs1[i].x).toBeCloseTo(endDabs2[i].x, 9)
       expect(endDabs1[i].y).toBeCloseTo(endDabs2[i].y, 9)
     }
+  })
+})
+
+describe('DabSystem corner-preserving tangent reduction (#91 follow-up)', () => {
+  it('leaves a genuinely smooth, continuously-curving path unaffected by corner detection', () => {
+    // Same circular-arc configuration used above to validate the centripetal
+    // fix: equal 10 degree angular steps mean every control point turns by
+    // the same shallow ~10 degree angle (well under CORNER_ANGLE_START =
+    // 60 degrees), so corner detection must never engage anywhere along
+    // this stroke. If it's truly a no-op here, DabSystem's dabs must match
+    // `CentripetalNoCornerReference` (same math, minus the corner-angle
+    // tangent reduction) exactly, not just approximately.
+    const R = 200
+    const points: Pt[] = []
+    for (let i = 0; i <= 12; i++) {
+      const theta = (i * 10 * Math.PI) / 180
+      points.push({ x: R * Math.cos(theta), y: R * Math.sin(theta) })
+    }
+
+    const baseSize = 20
+    const withFix = new DabSystem()
+    const noCorner = new CentripetalNoCornerReference()
+    const fixedDabs = feedPoints(withFix, points, baseSize)
+    const refDabs = feedPoints(noCorner, points, baseSize)
+
+    expect(fixedDabs.length).toBeGreaterThan(20)
+    expect(fixedDabs.length).toBe(refDabs.length)
+    for (let i = 0; i < fixedDabs.length; i++) {
+      expect(fixedDabs[i].x).toBeCloseTo(refDabs[i].x, 9)
+      expect(fixedDabs[i].y).toBeCloseTo(refDabs[i].y, 9)
+    }
+  })
+
+  it('keeps a sharp direction reversal sharp instead of rounding it into an arc', () => {
+    // Simulates the real #91 symptom: a fast pointer reverses direction
+    // abruptly (e.g. the tip of a quick spiral), producing few, widely
+    // spaced samples either side of the corner. Path is two straight rays
+    // meeting at the origin: a run along +x into the corner, then a
+    // near-hairpin ~165 degree turn back out along a different ray — a
+    // clean V-shaped sharp corner, deliberately built from two collinear
+    // triples so "deviation from the true straight ray" is exact and cheap
+    // to check (perpendicular distance from the known ray), not just an
+    // approximation.
+    const points: Pt[] = [
+      { x: -60, y: 0 },
+      { x: -30, y: 0 },
+      { x: 0, y: 0 }, // the corner
+      { x: -30, y: 8 },
+      { x: -60, y: 16 },
+    ]
+    const baseSize = 20
+
+    const withFix = new DabSystem()
+    const noCorner = new CentripetalNoCornerReference()
+
+    withFix.startStroke(points[0].x, points[0].y, 1, 0, 0, baseSize)
+    noCorner.start(points[0].x, points[0].y)
+    withFix.continueStroke(points[1].x, points[1].y, 1, 0, 0, baseSize)
+    noCorner.continue(points[1].x, points[1].y, baseSize)
+
+    // Renders the segment p0=(-60,0) -> p1=(-30,0): straight, no corner
+    // involved yet (buffer only has 3 points, so p1's "far" neighbor is a
+    // mirrored ghost point that exactly matches its own direction). Not
+    // interesting for this test, just needed to advance the buffer.
+    withFix.continueStroke(points[2].x, points[2].y, 1, 0, 0, baseSize)
+    noCorner.continue(points[2].x, points[2].y, baseSize)
+
+    // Renders the segment ENDING at the corner (p1=(-30,0) -> corner=(0,0)):
+    // both real endpoints sit exactly on the ray y=0, so the corner's
+    // tangent (m2, at the far end) is the one under test here.
+    const intoCornerFixed = withFix.continueStroke(points[3].x, points[3].y, 1, 0, 0, baseSize)
+    const intoCornerRef = noCorner.continue(points[3].x, points[3].y, baseSize)
+
+    // Renders the segment STARTING at the corner (corner=(0,0) ->
+    // p3=(-30,8)): the corner's tangent (m1, at the near end) is under
+    // test here. p3 and p4=(-60,16) are collinear through the corner, so
+    // the true path is exactly the ray from the corner through p3.
+    const outOfCornerFixed = withFix.continueStroke(points[4].x, points[4].y, 1, 0, 0, baseSize)
+    const outOfCornerRef = noCorner.continue(points[4].x, points[4].y, baseSize)
+
+    expect(intoCornerFixed.length).toBeGreaterThan(0)
+    expect(outOfCornerFixed.length).toBeGreaterThan(0)
+
+    // Perpendicular distance from point p to the infinite line through a/b.
+    const distToLine = (p: Pt, a: Pt, b: Pt) => {
+      const vx = b.x - a.x, vy = b.y - a.y
+      const len = Math.hypot(vx, vy)
+      return Math.abs((p.x - a.x) * vy - (p.y - a.y) * vx) / len
+    }
+    const maxDist = (dabs: Pt[], a: Pt, b: Pt) => Math.max(...dabs.map(d => distToLine(d, a, b)))
+
+    const intoCornerLineA = { x: -30, y: 0 }, intoCornerLineB = { x: 0, y: 0 }
+    const fixedIntoDev = maxDist(intoCornerFixed, intoCornerLineA, intoCornerLineB)
+    const refIntoDev = maxDist(intoCornerRef, intoCornerLineA, intoCornerLineB)
+
+    // Old (no-corner) behavior visibly bulges off the straight ray as it
+    // anticipates the upcoming turn; the fix keeps it essentially exact.
+    expect(fixedIntoDev).toBeLessThan(0.01)
+    expect(refIntoDev).toBeGreaterThan(0.3)
+
+    const outOfCornerLineA = { x: 0, y: 0 }, outOfCornerLineB = { x: -30, y: 8 }
+    const fixedOutDev = maxDist(outOfCornerFixed, outOfCornerLineA, outOfCornerLineB)
+    const refOutDev = maxDist(outOfCornerRef, outOfCornerLineA, outOfCornerLineB)
+
+    expect(fixedOutDev).toBeLessThan(0.01)
+    expect(refOutDev).toBeGreaterThan(0.3)
   })
 })
