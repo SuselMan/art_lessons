@@ -44,6 +44,42 @@ interface ControlPoint {
 const CENTRIPETAL_ALPHA = 0.5
 const MIN_KNOT_DELTA = 1e-6 // guards divide-by-zero if two control points coincide
 
+// --- Corner-preserving tangent reduction (#91 follow-up) --------------------
+// Centripetal parameterization (above) fixes *smooth* curves that were
+// under-fit because of uneven sample spacing, but it still assumes every
+// point is part of one continuous curve — the Catmull-Rom tangent at a
+// point is, by construction, always some blend of the segments on both
+// sides of it. That's wrong at a genuinely sharp corner: pointer samples
+// arrive at a fixed time-rate, not a fixed distance-rate, so a fast, sharp
+// direction change (e.g. the tip of a quick spiral) produces few, widely
+// spaced points, and smoothing them uniformly rounds the real corner into
+// an arc. Confirmed on a Samsung Galaxy Tab S7+ (less visible on Surface
+// Pro, which samples the pen at a much higher rate) — see #91.
+//
+// Standard fix: measure the direction change between the two segments
+// meeting at a control point (e.g. p0->p1 vs p1->p2 for the point at p1)
+// and, when it's sharp, shrink that point's tangent toward zero rather
+// than using the full smooth Catmull-Rom value. With a zeroed tangent the
+// Hermite basis degenerates to its two positional terms (h00, h01), which
+// stay monotonically between the endpoints with no overshoot — so the
+// curve approaches/leaves the corner close to the straight chord instead
+// of swinging through it. This is the same idea as reducing spline
+// "tension" at a point, or the tangent-limiting used by monotone Hermite
+// interpolants (e.g. Fritsch-Carlson/PCHIP) to prevent overshoot near a
+// local extremum — here the "extremum" is a sharp corner instead.
+//
+// Thresholds are a first-pass default (see #91's "important about tuning"
+// section) — not yet calibrated against a real device. They were chosen
+// to sit comfortably outside the direction-change range produced by an
+// actually smooth curve: even the intentionally sparse/uneven gap in
+// DabSystem.test.ts's fast-spiral simulation only turns ~45 degrees
+// between consecutive chords, so 60 degrees leaves real curvature alone
+// while still catching a fast pointer's abrupt reversals; 150 degrees is
+// a near-hairpin turn, comfortably inside "reverses direction abruptly".
+const CORNER_ANGLE_START = (60 * Math.PI) / 180 // below this: full smoothing, untouched
+const CORNER_ANGLE_FULL = (150 * Math.PI) / 180 // at/above this: tangent fully zeroed
+const MIN_TURN_VEC_LEN = 1e-6 // guards near-zero-length segment vectors
+
 // Arc-length lookup table resolution for _splineDabs (see below). Hoisted so
 // the scratch buffers sized off it can be allocated once per instance rather
 // than once per call.
@@ -183,6 +219,21 @@ export class DabSystem {
     // tangents (P2-P0)/2 and (P3-P1)/2 whenever p0..p3 are evenly spaced.
     const { m1, m2 } = centripetalTangents(p0, p1, p2, p3)
 
+    // Corner-preserving reduction (see #91 above): shrink each endpoint's
+    // tangent toward zero in proportion to how sharp the real direction
+    // change is there, so a genuine sharp corner at p1 or p2 stays sharp
+    // instead of being smoothed into an arc. Left as full smoothing (no-op)
+    // whenever the turn is shallow — in particular this is always a no-op
+    // for the mirrored ghost points used at the very start/end of a stroke,
+    // since a mirrored segment is defined to exactly match its neighbor's
+    // direction (turn angle 0).
+    const turnAtP1 = turnAngle(p1.x - p0.x, p1.y - p0.y, p2.x - p1.x, p2.y - p1.y)
+    const turnAtP2 = turnAngle(p2.x - p1.x, p2.y - p1.y, p3.x - p2.x, p3.y - p2.y)
+    const f1 = cornerFactor(turnAtP1)
+    const f2 = cornerFactor(turnAtP2)
+    if (f1 > 0) { m1.x *= 1 - f1; m1.y *= 1 - f1 }
+    if (f2 > 0) { m2.x *= 1 - f2; m2.y *= 1 - f2 }
+
     // Arc-length lookup table for uniform dab spacing along the curve.
     // Written into reusable scratch Float64Arrays (index 0 = segment start
     // p1) instead of allocating a fresh array of sample objects every call.
@@ -260,6 +311,28 @@ function mirrorBefore(p1: ControlPoint, p2: ControlPoint): ControlPoint {
 function crScalar(a: number, b: number, c: number, d: number, t: number): number {
   const t2 = t * t, t3 = t2 * t
   return 0.5 * ((2*b) + (-a+c)*t + (2*a-5*b+4*c-d)*t2 + (-a+3*b-3*c+d)*t3)
+}
+
+// Angle in [0, PI] between two vectors: 0 = same direction (no turn), PI =
+// fully reversed (hairpin). Returns 0 (treated as "no turn", i.e. leave
+// smoothing alone) instead of dividing by zero when either vector is
+// ~zero-length, which is exactly what happens for the mirrored ghost point
+// at the very start/end of a stroke (see the file-level comment above).
+function turnAngle(v1x: number, v1y: number, v2x: number, v2y: number): number {
+  const len1 = Math.hypot(v1x, v1y)
+  const len2 = Math.hypot(v2x, v2y)
+  if (len1 < MIN_TURN_VEC_LEN || len2 < MIN_TURN_VEC_LEN) return 0
+  const cos = clamp((v1x * v2x + v1y * v2y) / (len1 * len2), -1, 1)
+  return Math.acos(cos)
+}
+
+// Maps a direction-change angle to a corner-reduction factor in [0, 1]:
+// 0 = leave the tangent alone (full smoothing), 1 = zero it out entirely
+// (hard corner). Linear ramp between CORNER_ANGLE_START/_FULL — a first
+// pass; see the constants' comment above for why these values were picked
+// and that final calibration is deliberately deferred.
+function cornerFactor(angle: number): number {
+  return clamp((angle - CORNER_ANGLE_START) / (CORNER_ANGLE_FULL - CORNER_ANGLE_START), 0, 1)
 }
 
 // Knot interval between two consecutive control points, per CENTRIPETAL_ALPHA.
