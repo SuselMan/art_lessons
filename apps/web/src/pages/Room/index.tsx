@@ -17,9 +17,9 @@ import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { PrecisionSlider } from '../../components/PrecisionSlider'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
-import { getFeatureFlag } from '../../lib/featureFlags'
+import { getFeatureFlag, getPencilSoundSetting } from '../../lib/featureFlags'
 import { rgbToHex } from '../../lib/color'
-import { PencilSound } from '../../lib/PencilSound'
+import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2 } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useViewport } from './useViewport'
@@ -132,9 +132,12 @@ export function Room() {
   // TapDebugInfo's docstring for what each field means.
   const [tapDebug, setTapDebug] = useState<TapDebugInfo | null>(null)
 
-  // Pencil-sound experiment: same feature-flag pattern as the ones above. Off
-  // by default — untuned first pass, just to feel out on real hardware.
-  const pencilSoundEnabled = getFeatureFlag('pencilSound')
+  // Pencil sound: Off / Variant 1 / Variant 2, set via the gear-icon settings
+  // panel (see SettingsPanel) — persisted per-browser in localStorage, same
+  // as the boolean feature flags above. See PencilSound.ts and
+  // PENCIL_SOUND_TUNING_LOG.md for what each variant is and how they were
+  // chosen.
+  const pencilSoundSetting = getPencilSoundSetting()
 
   // Haptic paper-grain experiment: same feature-flag pattern as the ones
   // above. Off by default — for-fun prototype, Android Chrome only.
@@ -331,11 +334,12 @@ export function Room() {
     })
     engineRef.current = engine
 
-    // Pencil-sound experiment: lazy AudioContext built on the engine's own
-    // 'strokeStart' below (a real pointerdown gesture, satisfying the
-    // autoplay-unlock requirement) — see PencilSound's docstring.
-    if (pencilSoundEnabled) {
-      const sound = new PencilSound(config.paper)
+    // Pencil sound: lazy AudioContext built on the engine's own 'strokeStart'
+    // below (a real pointerdown gesture, satisfying the autoplay-unlock
+    // requirement) — see PencilSound's docstring.
+    if (pencilSoundSetting !== 'off') {
+      const grain = pencilSoundSetting === 'variant1' ? PENCIL_SOUND_VARIANT_1 : PENCIL_SOUND_VARIANT_2
+      const sound = new PencilSound(config.paper, grain)
       sound.setHardness(PENCIL_PRESETS[initialToolRef.current.pencil].hardness)
       pencilSoundRef.current = sound
     }
@@ -391,7 +395,7 @@ export function Room() {
       pencilSoundRef.current?.destroy()
       pencilSoundRef.current = null
     }
-  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundEnabled, hapticGrainEnabled])
+  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting, hapticGrainEnabled])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   useEffect(() => {

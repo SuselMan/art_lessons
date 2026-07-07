@@ -27,12 +27,6 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     envVar: 'VITE_TAP_TO_HIDE_UI',
   },
   {
-    key: 'pencilSound',
-    label: 'Pencil sound (experimental)',
-    description: 'Procedural paper-friction sound while drawing, driven by pointer speed and pressure. Untuned first pass — just an experiment to feel out on real hardware.',
-    envVar: 'VITE_PENCIL_SOUND',
-  },
-  {
     key: 'hapticGrain',
     label: 'Haptic paper grain (experimental)',
     description: 'Vibrates in a fixed hash-grid pattern over the paper as the stroke crosses it, to try simulating paper texture by touch. Android Chrome only (no Vibration API on iOS); for-fun prototype, not tuned.',
@@ -56,4 +50,19 @@ export function getFeatureFlag(key: string): boolean {
 
 export function setFeatureFlag(key: string, value: boolean): void {
   localStorage.setItem(STORAGE_PREFIX + key, String(value))
+}
+
+// Pencil sound (see lib/PencilSound.ts) has two distinct variants rather than one on/off toggle —
+// a 3-way choice doesn't fit FeatureFlagDef's boolean shape, so it gets its own small pair of
+// functions instead of forcing the generic flag list to support enum values for this one case.
+export type PencilSoundSetting = 'off' | 'variant1' | 'variant2'
+const PENCIL_SOUND_STORAGE_KEY = 'pencilSoundVariant'
+
+export function getPencilSoundSetting(): PencilSoundSetting {
+  const raw = localStorage.getItem(PENCIL_SOUND_STORAGE_KEY)
+  return raw === 'variant1' || raw === 'variant2' ? raw : 'off'
+}
+
+export function setPencilSoundSetting(value: PencilSoundSetting): void {
+  localStorage.setItem(PENCIL_SOUND_STORAGE_KEY, value)
 }

@@ -1,49 +1,102 @@
-// Procedural pencil-on-paper friction sound (experimental, feature-flagged as
-// 'pencilSound' — see featureFlags.ts). Driven entirely by the pointer stream
-// the engine already emits (PointerData via its 'strokeStart'/'pointer'/
-// 'strokeEnd' events — see engine/index.ts), so no engine or PointerInput
-// changes were needed to wire this up.
+// Procedural pencil-on-paper friction sound. Driven entirely by the pointer
+// stream the engine already emits (PointerData via its 'strokeStart'/
+// 'pointer'/'strokeEnd' events — see engine/index.ts), so no engine or
+// PointerInput changes were needed to wire this up. Toggled via the "Pencil
+// sound" setting (see SettingsPanel/featureFlags.ts's getPencilSoundSetting)
+// — 'off' skips construction entirely, 'variant1'/'variant2' pick one of the
+// two GrainVariants exported below.
 //
-// Redesigned after first feedback ("sounds like a spray can, doesn't stop
-// when the pointer stops, speed barely matters"). Two structural problems
-// caused that:
-//   1. Loudness was driven by pressure alone, so a stylus resting on the
-//      canvas with no motion still made noise — physically wrong: friction
-//      noise requires relative motion, full stop, so speed must gate/dominate
-//      loudness, not just color it. See speedNorm()/masterGainTarget() below,
+// Two structural problems shaped the design (see PENCIL_SOUND_TUNING_LOG.md
+// for the full tuning history that led here):
+//   1. Loudness is driven by speed, not pressure alone — a stylus resting on
+//      the canvas with no motion makes no noise, since friction noise
+//      requires relative motion. See speedNorm()/masterGainTarget() below,
 //      plus the idle watchdog (real 'pointer' events only arrive on motion —
-//      a stylus held perfectly still mid-stroke sends none at all, so without
-//      a watchdog the last nonzero gain would hang there indefinitely).
-//   2. A single continuously-filtered noise source is smooth broadband hiss —
-//      that's what reads as "spray can". Real paper-tooth friction is grainy:
-//      many discrete micro-impacts, not one continuous tone. The `modulator`
-//      branch below synthesizes that by lowpassing a second, independent
-//      noise source at a speed-dependent rate and rectifying it into an
-//      envelope that amplitude-modulates the carrier — sparse/clicky at low
-//      speed, dense enough to blend into bright noise at high speed (matches
-//      the physical description: slow strokes carry audible low-frequency
-//      "clicks", fast strokes read as high-frequency hiss).
+//      a stylus held perfectly still mid-stroke sends none at all, so
+//      without a watchdog the last nonzero gain would hang there
+//      indefinitely).
+//   2. A single continuously-filtered noise source is smooth broadband hiss,
+//      which reads as a spray can, not paper. Each grain layer (see
+//      GrainLayer/buildLayer below) synthesizes texture by lowpassing a
+//      second, independent noise source at a speed-dependent rate and
+//      rectifying it into an envelope that amplitude-modulates the carrier.
 //
-// Also modeled, per a more detailed acoustics rundown: pencil hardness
-// (harder = drier/brighter scratch, softer = duller/deeper/velvety — a
-// high-shelf + low-shelf pair driven by PENCIL_PRESETS[grade].hardness) and
-// stylus tilt (more tilt = more side-of-tip contact area = duller tone — a
-// lowpass driven by PointerData.tiltX/tiltY, which the engine already
-// reports). Rotation-around-the-tip-axis (real pencils' point wears
-// unevenly) is *not* modeled — PointerEvent exposes no such data, and
-// fabricating it would just be a random LFO with no real acoustic basis.
+// Also modeled: pencil hardness (harder = drier/brighter scratch, softer =
+// duller/deeper/velvety — a high-shelf + low-shelf pair driven by
+// PENCIL_PRESETS[grade].hardness) and stylus tilt (more tilt = more side-of-
+// tip contact area = duller tone — a lowpass driven by PointerData.tiltX/
+// tiltY, which the engine already reports).
 
 import type { PaperType } from '@art-lessons/shared'
 
-const MIN_FREQ = 500
-const MAX_FREQ = 6000
+// Narrowed from an original 500-6000 and given its own slower ramp
+// (BRIGHTNESS_RAMP, see applyTarget) after an early version's brightness
+// sweeping with speed read as "howling wind"/a siren rather than paper. A
+// narrower range plus a much slower glide both reduce how far and how fast
+// the bandpass center chases every small speed fluctuation (curves,
+// direction changes) mid-stroke — that combination (narrow resonant filter +
+// wide, fast sweep) is exactly what a wind-siren/wah effect is built from.
+const MIN_FREQ = 1200
+const MAX_FREQ = 5000
 const MAX_SPEED = 6 // px/ms — strokes faster than this just clamp to MAX_FREQ/full gain
 const SPEED_DEADZONE = 0.12 // px/ms — below this: no perceptible motion, so no sound at all
 
-const GRAIN_MIN_HZ = 8    // near the deadzone: slow, distinct "clicks"
-const GRAIN_MAX_HZ = 220  // at full speed: dense enough to blend into continuous texture
-const GRAIN_FLOOR = 0.12  // carrierGain's constant base — a little body under the grain envelope
-const GRAIN_DEPTH = 1.4   // modulator → carrierGain.gain scale (see ensureGraph)
+export interface GrainVariant {
+  floor: number  // carrierGain's constant base — lower = more silence between grains, less
+                 // continuous hiss bed underneath them
+  depth: number  // modulator → carrierGain.gain scale — how hard each grain hits above the floor
+  curvePower: number // shapes each grain's envelope (see createGrainCurve): 1 = smooth triangle
+                      // wave (reads as continuous hiss); higher = most of the cycle pushed toward
+                      // silence with sharp brief spikes (reads as discrete clicks)
+  minHz: number  // grain rate near the speed deadzone — slow, distinct "clicks"
+  maxHz: number  // grain rate at full speed — how dense/fast grains get before blending into hiss
+  useNormGain: boolean // whether the lowpassed grain noise gets rescaled back to a consistent
+                        // amplitude before shaping (see normGain's docstring) — false only for the
+                        // untouched original sound (BASE below), which never had this compensation;
+                        // true for everything derived from it, since normGain() is what makes
+                        // curvePower have any real effect at all.
+  secondary?: { variant: GrainVariant; gain: number } // a second, fully independent noise+grain
+                        // layer mixed underneath the primary one, at `gain` relative loudness. This
+                        // is genuinely two separate noise sources summed (not just a second envelope
+                        // on the same carrier) — that's what makes it read as "two textures layered"
+                        // rather than "one texture with a more complex envelope". A nested variant's
+                        // own `secondary` (if any) is ignored — no recursive combos.
+}
+
+// The original, untuned sound this app shipped with — floor-dominated, barely-modulated broadband
+// hiss. Turned out to be a better base to build on than any of the more aggressively-grained
+// alternatives tried along the way (see the tuning log) — both variants below start here.
+const BASE: GrainVariant = { floor: 0.12, depth: 1.4, curvePower: 1.0, minHz: 8, maxHz: 220, useNormGain: false }
+
+// A louder, more distinctly-grained recipe used only as variant 2's secondary layer (see below) —
+// not selectable on its own.
+const SECONDARY_LAYER_RECIPE: GrainVariant = { floor: 0.05, depth: 2.1, curvePower: 1.8, minHz: 5, maxHz: 140, useNormGain: true }
+
+// BASE plus a small amount of rare, quiet grain: useNormGain flips on (needed for curvePower to
+// have any real effect — see its docstring) but depth stays small and curvePower high, so the added
+// grain only pokes above BASE's floor rarely and briefly instead of constantly modulating it.
+export const PENCIL_SOUND_VARIANT_1: GrainVariant = { ...BASE, depth: 0.02, curvePower: 4.0, useNormGain: true }
+
+// BASE layered with a second, independent, more distinctly-grained noise source running quietly
+// underneath it (SECONDARY_LAYER_RECIPE at 1/6 volume) — see buildLayer()'s docstring for why two
+// separate noise sources, not just a more complex envelope on one, is what makes this read as two
+// textures at once.
+export const PENCIL_SOUND_VARIANT_2: GrainVariant = { ...BASE, secondary: { variant: SECONDARY_LAYER_RECIPE, gain: 1 / 6 } }
+
+// A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
+// source through, so its output amplitude is small AND scales with the cutoff frequency — measured
+// empirically against real BiquadFilterNode output: std ≈ NORM_K * sqrt(freq). The `rectify`
+// WaveShaper below assumes a healthy ±1 input domain (that's the range its curve is built over), so
+// without compensating for this, the actual signal reaching it sits around 0.005-0.06 — deep in the
+// curve's near-flat center — meaning curvePower barely changes anything audible regardless of its
+// value. normGain() rescales the lowpassed noise back to a consistent range before rectification, so
+// curvePower actually means what it says.
+const NORM_K = 0.005
+const NORM_TARGET_STD = 0.35
+
+function normGain(freqHz: number, enabled: boolean): number {
+  return enabled ? NORM_TARGET_STD / (NORM_K * Math.sqrt(Math.max(freqHz, 3))) : 1
+}
 
 const GAIN_CEILING = 0.5   // hard cap regardless of how loud pressure/paper push it
 const IDLE_MS = 60         // no fresh pointer sample within this window → treat as stopped
@@ -51,6 +104,10 @@ const IDLE_CHECK_MS = 30
 
 const RAMP_FAST = 0.02 // gain — must react almost instantly to stopping/starting
 const RAMP_SLOW = 0.05 // filter sweeps — smoother so they don't zipper
+// Brightness gets its own, much slower ramp than other filter sweeps (RAMP_SLOW) — a fast glide
+// across a wide pitch range is exactly what read as "howling wind"/siren rather than paper (see
+// MIN_FREQ/MAX_FREQ's docstring above).
+const BRIGHTNESS_RAMP = 0.18
 
 const HARDNESS_SHELF_FREQ = 2200
 const HARDNESS_SHELF_MIN_DB = -6 // softest pencil: darker
@@ -89,8 +146,8 @@ function brightnessFreq(speed: number, hardness: number): number {
   return Math.min(MAX_FREQ, Math.max(MIN_FREQ, MIN_FREQ + t * (MAX_FREQ - MIN_FREQ) + hardnessBias))
 }
 
-function grainRateHz(speed: number): number {
-  return GRAIN_MIN_HZ + speedNorm(speed) * (GRAIN_MAX_HZ - GRAIN_MIN_HZ)
+function grainRateHz(speed: number, minHz: number, maxHz: number): number {
+  return minHz + speedNorm(speed) * (maxHz - minHz)
 }
 
 function bandpassQ(pressure: number): number {
@@ -131,19 +188,40 @@ function createNoiseBuffer(ctx: AudioContext): AudioBuffer {
   return buffer
 }
 
-function createAbsCurve(): Float32Array<ArrayBuffer> {
+function createGrainCurve(power: number): Float32Array<ArrayBuffer> {
   const n = 1024
   const curve = new Float32Array(new ArrayBuffer(n * 4))
-  for (let i = 0; i < n; i++) curve[i] = Math.abs(-1 + (2 * i) / (n - 1))
+  // Fold to non-negative (same as a plain abs curve), then raise to `power`:
+  // since the folded value is in [0, 1], a power > 1 pulls most of it toward
+  // 0 and leaves only brief spikes near the extremes — power 1 alone gives a
+  // smooth triangle-wave envelope, which reads as continuous hiss rather than
+  // discrete grain.
+  for (let i = 0; i < n; i++) {
+    const folded = Math.abs(-1 + (2 * i) / (n - 1))
+    curve[i] = Math.pow(folded, power)
+  }
   return curve
 }
 
-const ABS_CURVE = createAbsCurve()
+// One full, independent noise+grain recipe: its own carrier noise, its own brightness bandpass, its
+// own grain modulator. A GrainVariant's primary sound is always one GrainLayer; `secondary` (see
+// GrainVariant's docstring) adds a second one, mixed in via `mixGain`. `recipe` is the GrainVariant
+// this layer is playing — kept so applyTarget() can recompute this layer's own grain rate (which
+// depends on recipe.minHz/maxHz/useNormGain) independently of whatever the other layer is doing.
+interface GrainLayer {
+  recipe: GrainVariant
+  bandpass: BiquadFilterNode
+  carrierGain: GainNode
+  grainLowpass: BiquadFilterNode
+  grainNormGain: GainNode
+  rectify: WaveShaperNode
+  grainDepthGain: GainNode
+  mixGain: GainNode
+}
 
 interface AudioGraph {
   ctx: AudioContext
-  bandpass: BiquadFilterNode
-  grainLowpass: BiquadFilterNode
+  layers: GrainLayer[] // 1 for a solo variant, 2 (primary + secondary) for a combo
   tiltLowpass: BiquadFilterNode
   lowShelf: BiquadFilterNode
   hardnessShelf: BiquadFilterNode
@@ -154,11 +232,13 @@ export class PencilSound {
   private graph: AudioGraph | null = null
   private paperFactor: number
   private hardness = 0.38 // HB — overwritten by setHardness before the first real stroke
+  private grain: GrainVariant
   private idleTimer: number | null = null
   private lastSampleAt = 0
 
-  constructor(paper: PaperType) {
+  constructor(paper: PaperType, grain: GrainVariant) {
     this.paperFactor = PAPER_SOUND_FACTOR[paper]
+    this.grain = grain
   }
 
   /** Call whenever the active pencil grade changes (PENCIL_PRESETS[grade].hardness). */
@@ -216,25 +296,30 @@ export class PencilSound {
 
   private applyTarget(graph: AudioGraph, pressure: number, speed: number, tiltX: number, tiltY: number): void {
     const now = graph.ctx.currentTime
-    graph.bandpass.frequency.setTargetAtTime(brightnessFreq(speed, this.hardness), now, RAMP_SLOW)
-    graph.bandpass.Q.setTargetAtTime(bandpassQ(pressure), now, RAMP_SLOW)
-    graph.grainLowpass.frequency.setTargetAtTime(grainRateHz(speed), now, RAMP_SLOW)
+    const brightness = brightnessFreq(speed, this.hardness)
+    const q = bandpassQ(pressure)
+    for (const layer of graph.layers) {
+      layer.bandpass.frequency.setTargetAtTime(brightness, now, BRIGHTNESS_RAMP)
+      layer.bandpass.Q.setTargetAtTime(q, now, RAMP_SLOW)
+      const grainRate = grainRateHz(speed, layer.recipe.minHz, layer.recipe.maxHz)
+      layer.grainLowpass.frequency.setTargetAtTime(grainRate, now, RAMP_SLOW)
+      // Compensates the lowpass's frequency-dependent attenuation (see normGain's docstring) so the
+      // WaveShaper downstream always sees a consistently-scaled signal as the rate sweeps with speed.
+      layer.grainNormGain.gain.setTargetAtTime(normGain(grainRate, layer.recipe.useNormGain), now, RAMP_SLOW)
+    }
     graph.tiltLowpass.frequency.setTargetAtTime(tiltLowpassFreq(tiltX, tiltY), now, RAMP_SLOW)
     graph.masterGain.gain.setTargetAtTime(masterGainTarget(pressure, speed, this.paperFactor), now, RAMP_FAST)
   }
 
-  /** Builds the audio graph on first use and leaves both noise sources
-   *  looping for the module's lifetime (muted via `masterGain` between
-   *  strokes) — cheaper and simpler than tearing down/recreating
-   *  AudioBufferSourceNodes per stroke, since a source can only ever be
-   *  started once. Must be reached from a real user gesture the first time
-   *  (pointerdown qualifies) — that's why this is lazy rather than built in
-   *  the constructor. */
-  private ensureGraph(): AudioGraph {
-    if (this.graph) return this.graph
-    const ctx = new AudioContext()
-
-    // ── Carrier: broadband paper-friction texture ──────────────────────────
+  /** Builds one independent noise+grain layer and connects its output into `sumNode` at
+   *  `mixGainValue`. Two of these (mixed together before the shared brightness-adjacent tilt/shelf/
+   *  master stages) is what lets a GrainVariant's `secondary` genuinely layer two different textures
+   *  rather than just complicating one envelope: mathematically, one noise shaped by two summed
+   *  envelopes is indistinguishable from that same noise shaped by one combined envelope — no
+   *  genuine "two things happening" quality, just a more complex single texture. Two *independent*
+   *  carrier noise sources, each shaped by their own envelope and summed, is what actually produces
+   *  a layered "two textures at once" quality. */
+  private buildLayer(ctx: AudioContext, recipe: GrainVariant, mixGainValue: number, sumNode: AudioNode): GrainLayer {
     const carrier = ctx.createBufferSource()
     carrier.buffer = createNoiseBuffer(ctx)
     carrier.loop = true
@@ -248,7 +333,55 @@ export class PencilSound {
     highpass.frequency.value = 180 // cuts rumble below any real paper-friction content
 
     const carrierGain = ctx.createGain()
-    carrierGain.gain.value = GRAIN_FLOOR // base floor; the grain modulator adds the rest (see below)
+    carrierGain.gain.value = recipe.floor // base floor; the grain modulator adds the rest (see below)
+
+    const mixGain = ctx.createGain()
+    mixGain.gain.value = mixGainValue
+
+    carrier.connect(bandpass).connect(highpass).connect(carrierGain).connect(mixGain).connect(sumNode)
+    carrier.start()
+
+    // ── Grain modulator: turns the carrier from smooth hiss into discrete
+    //    micro-texture — see the class-level comment for why this exists. ──
+    const modulator = ctx.createBufferSource()
+    modulator.buffer = createNoiseBuffer(ctx) // independent buffer — must not correlate with the carrier
+    modulator.loop = true
+
+    const grainLowpass = ctx.createBiquadFilter()
+    grainLowpass.type = 'lowpass'
+    grainLowpass.frequency.value = recipe.minHz
+
+    const grainNormGain = ctx.createGain()
+    grainNormGain.gain.value = normGain(recipe.minHz, recipe.useNormGain)
+
+    const rectify = ctx.createWaveShaper()
+    rectify.curve = createGrainCurve(recipe.curvePower) // folds + sharpens the lowpassed noise into a spiky AM envelope
+
+    const grainDepth = ctx.createGain()
+    grainDepth.gain.value = recipe.depth
+
+    modulator.connect(grainLowpass).connect(grainNormGain).connect(rectify).connect(grainDepth).connect(carrierGain.gain)
+    modulator.start()
+
+    return { recipe, bandpass, carrierGain, grainLowpass, grainNormGain, rectify, grainDepthGain: grainDepth, mixGain }
+  }
+
+  /** Builds the audio graph on first use and leaves every noise source looping for the module's
+   *  lifetime (muted via `masterGain` between strokes) — cheaper and simpler than tearing down/
+   *  recreating AudioBufferSourceNodes per stroke, since a source can only ever be started once.
+   *  Must be reached from a real user gesture the first time (pointerdown qualifies) — that's why
+   *  this is lazy rather than built in the constructor. */
+  private ensureGraph(): AudioGraph {
+    if (this.graph) return this.graph
+    const ctx = new AudioContext()
+
+    const layerSum = ctx.createGain()
+    layerSum.gain.value = 1
+
+    const layers = [this.buildLayer(ctx, this.grain, 1, layerSum)]
+    if (this.grain.secondary) {
+      layers.push(this.buildLayer(ctx, this.grain.secondary.variant, this.grain.secondary.gain, layerSum))
+    }
 
     const tiltLowpass = ctx.createBiquadFilter()
     tiltLowpass.type = 'lowpass'
@@ -267,32 +400,11 @@ export class PencilSound {
     const masterGain = ctx.createGain()
     masterGain.gain.value = 0
 
-    carrier
-      .connect(bandpass).connect(highpass).connect(carrierGain)
+    layerSum
       .connect(tiltLowpass).connect(lowShelf).connect(hardnessShelf)
       .connect(masterGain).connect(ctx.destination)
-    carrier.start()
 
-    // ── Grain modulator: turns the carrier from smooth hiss into discrete
-    //    micro-texture — see the class-level comment for why this exists. ──
-    const modulator = ctx.createBufferSource()
-    modulator.buffer = createNoiseBuffer(ctx) // independent buffer — must not correlate with the carrier
-    modulator.loop = true
-
-    const grainLowpass = ctx.createBiquadFilter()
-    grainLowpass.type = 'lowpass'
-    grainLowpass.frequency.value = GRAIN_MIN_HZ
-
-    const rectify = ctx.createWaveShaper()
-    rectify.curve = ABS_CURVE // folds the lowpassed noise to non-negative — a usable AM envelope
-
-    const grainDepth = ctx.createGain()
-    grainDepth.gain.value = GRAIN_DEPTH
-
-    modulator.connect(grainLowpass).connect(rectify).connect(grainDepth).connect(carrierGain.gain)
-    modulator.start()
-
-    this.graph = { ctx, bandpass, grainLowpass, tiltLowpass, lowShelf, hardnessShelf, masterGain }
+    this.graph = { ctx, layers, tiltLowpass, lowShelf, hardnessShelf, masterGain }
     return this.graph
   }
 }

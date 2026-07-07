@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Icon } from '../Icon'
-import { FEATURE_FLAGS, getFeatureFlag, setFeatureFlag } from '../../lib/featureFlags'
+import {
+  FEATURE_FLAGS, getFeatureFlag, setFeatureFlag,
+  getPencilSoundSetting, setPencilSoundSetting, type PencilSoundSetting,
+} from '../../lib/featureFlags'
 import styles from './SettingsPanel.module.css'
 
 interface SettingsPanelProps {
@@ -14,6 +17,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   // all" can be told apart. vibrate() never throws on rejection — it just
   // returns false — so the raw return value is the only signal available.
   const [vibrateResult, setVibrateResult] = useState<string | null>(null)
+  const [pencilSound, setPencilSoundState] = useState<PencilSoundSetting>(() => getPencilSoundSetting())
 
   return (
     <div className={styles.backdrop} onClick={onClose}>
@@ -42,6 +46,27 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               </div>
             </label>
           ))}
+        </div>
+
+        <div className={styles.flagRow} style={{ cursor: 'default' }}>
+          <div style={{ width: '100%' }}>
+            <div className={styles.flagLabel}>Pencil sound</div>
+            <div className={styles.flagDescription}>Procedural paper-friction sound while drawing.</div>
+            <select
+              className={styles.select}
+              value={pencilSound}
+              onChange={e => {
+                const value = e.target.value as PencilSoundSetting
+                setPencilSoundState(value)
+                setPencilSoundSetting(value)
+                window.location.reload()
+              }}
+            >
+              <option value="off">Off</option>
+              <option value="variant1">Variant 1</option>
+              <option value="variant2">Variant 2</option>
+            </select>
+          </div>
         </div>
 
         <div className={styles.hint}>Changes apply after the page reloads.</div>
