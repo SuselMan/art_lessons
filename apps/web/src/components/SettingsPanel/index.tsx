@@ -24,7 +24,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
       <div className={styles.panel} onClick={e => e.stopPropagation()}>
         <div className={styles.panelHeader}>
           <span>Settings</span>
-          <button className={styles.closeBtn} onClick={onClose} title="Close">
+          <button className={styles.closeBtn} onClick={onClose} title="Close" aria-label="Close">
             <Icon name="close" />
           </button>
         </div>

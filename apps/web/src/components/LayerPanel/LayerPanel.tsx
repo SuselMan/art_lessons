@@ -475,13 +475,13 @@ export function LayerPanel({
       )}
 
       <div className={styles.listToolbar}>
-        <button className={styles.toolbarBtn} onClick={handleAddLayer} title="Add layer">
+        <button className={styles.toolbarBtn} onClick={handleAddLayer} title="Add layer" aria-label="Add layer">
           <Icon name="add" />
         </button>
-        <button className={styles.toolbarBtn} onClick={handleAddFolder} title="Add folder">
+        <button className={styles.toolbarBtn} onClick={handleAddFolder} title="Add folder" aria-label="Add folder">
           <Icon name="create_new_folder" />
         </button>
-        <button className={styles.toolbarBtn} onClick={handleImportImageClick} title="Import reference image">
+        <button className={styles.toolbarBtn} onClick={handleImportImageClick} title="Import reference image" aria-label="Import reference image">
           <Icon name="add_photo_alternate" />
         </button>
         <input
@@ -496,21 +496,24 @@ export function LayerPanel({
           className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
           onClick={() => handleToggleLock(activeId)}
           disabled={activeId === BACKGROUND_LAYER_ID}
-          title={isActiveLocked ? 'Unlock layer' : 'Lock layer'}>
+          title={isActiveLocked ? 'Unlock layer' : 'Lock layer'}
+          aria-label={isActiveLocked ? 'Unlock layer' : 'Lock layer'}>
           <Icon name={isActiveLocked ? 'lock' : 'lock_open'} />
         </button>
         <button
           className={styles.toolbarBtn}
           disabled={!canMerge}
           onClick={() => canMergeSelected ? handleMergeSelected() : handleMergeDown()}
-          title={canMergeSelected ? 'Merge selected' : 'Merge down'}>
+          title={canMergeSelected ? 'Merge selected' : 'Merge down'}
+          aria-label={canMergeSelected ? 'Merge selected' : 'Merge down'}>
           <Icon name="move_down" />
         </button>
         <button
           className={clsx(styles.toolbarBtn, styles.toolbarBtnDanger)}
           onClick={() => handleDelete()}
           disabled={!canDelete}
-          title={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}>
+          title={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}
+          aria-label={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}>
           <Icon name="delete" />
         </button>
       </div>
