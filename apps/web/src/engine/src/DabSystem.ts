@@ -44,15 +44,35 @@ interface ControlPoint {
 const CENTRIPETAL_ALPHA = 0.5
 const MIN_KNOT_DELTA = 1e-6 // guards divide-by-zero if two control points coincide
 
+// Arc-length lookup table resolution for _splineDabs (see below). Hoisted so
+// the scratch buffers sized off it can be allocated once per instance rather
+// than once per call.
+const STEPS = 16
+
 export class DabSystem {
   spacingFactor: number
   private _buf: ControlPoint[]
   private _remainder: number
 
+  // Reusable arc-length lookup table scratch storage for _splineDabs, sized
+  // STEPS + 1 (index 0 is the segment start p1). Parallel Float64Arrays
+  // instead of an array of {t, len, x, y} objects, so a hot stroke doesn't
+  // allocate STEPS+1 small objects on every continueStroke/peekTipDabs call.
+  // Overwritten in place on every call; forkForPreview() below gives the
+  // fork its own independent copies for the same reason it clones _buf.
+  private _sampleT: Float64Array
+  private _sampleLen: Float64Array
+  private _sampleX: Float64Array
+  private _sampleY: Float64Array
+
   constructor({ spacingFactor = 0.22 }: { spacingFactor?: number } = {}) {
     this.spacingFactor = spacingFactor
     this._buf = []
     this._remainder = 0
+    this._sampleT = new Float64Array(STEPS + 1)
+    this._sampleLen = new Float64Array(STEPS + 1)
+    this._sampleX = new Float64Array(STEPS + 1)
+    this._sampleY = new Float64Array(STEPS + 1)
   }
 
   private _reset(): void {
@@ -73,6 +93,8 @@ export class DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor })
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
+    // fork already got its own fresh scratch Float64Arrays from its own
+    // constructor call above — do not share this instance's arrays with it.
     return fork
   }
 
@@ -161,17 +183,28 @@ export class DabSystem {
     // tangents (P2-P0)/2 and (P3-P1)/2 whenever p0..p3 are evenly spaced.
     const { m1, m2 } = centripetalTangents(p0, p1, p2, p3)
 
-    // Arc-length lookup table for uniform dab spacing along the curve
-    const STEPS = 16
-    const samples: Array<{ t: number; len: number; x: number; y: number }> = [{ t: 0, len: 0, x: p1.x, y: p1.y }]
+    // Arc-length lookup table for uniform dab spacing along the curve.
+    // Written into reusable scratch Float64Arrays (index 0 = segment start
+    // p1) instead of allocating a fresh array of sample objects every call.
+    const sampleT = this._sampleT
+    const sampleLen = this._sampleLen
+    const sampleX = this._sampleX
+    const sampleY = this._sampleY
+
+    sampleT[0] = 0
+    sampleLen[0] = 0
+    sampleX[0] = p1.x
+    sampleY[0] = p1.y
     let totalLen = 0
 
     for (let i = 1; i <= STEPS; i++) {
       const t = i / STEPS
       const pos = hermitePos(p1, p2, m1, m2, t)
-      const prev = samples[i - 1]
-      totalLen += Math.hypot(pos.x - prev.x, pos.y - prev.y)
-      samples.push({ t, len: totalLen, x: pos.x, y: pos.y })
+      totalLen += Math.hypot(pos.x - sampleX[i - 1], pos.y - sampleY[i - 1])
+      sampleT[i] = t
+      sampleLen[i] = totalLen
+      sampleX[i] = pos.x
+      sampleY[i] = pos.y
     }
 
     if (totalLen < 0.001) return []
@@ -182,12 +215,14 @@ export class DabSystem {
     let si = 0
 
     while (arcPos <= totalLen + 1e-6) {
-      while (si < STEPS - 1 && samples[si + 1].len < arcPos) si++
+      while (si < STEPS - 1 && sampleLen[si + 1] < arcPos) si++
 
-      const s0 = samples[si]
-      const s1 = samples[si + 1]
-      const frac = s1.len > s0.len ? (arcPos - s0.len) / (s1.len - s0.len) : 0
-      const t = s0.t + frac * (s1.t - s0.t)
+      const s0Len = sampleLen[si]
+      const s1Len = sampleLen[si + 1]
+      const s0T = sampleT[si]
+      const s1T = sampleT[si + 1]
+      const frac = s1Len > s0Len ? (arcPos - s0Len) / (s1Len - s0Len) : 0
+      const t = s0T + frac * (s1T - s0T)
 
       const pos      = hermitePos(p1, p2, m1, m2, t)
       const pressure = clamp(crScalar(p0.pressure, p1.pressure, p2.pressure, p3.pressure, t), 0, 1)
