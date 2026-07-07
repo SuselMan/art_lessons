@@ -887,11 +887,17 @@ export function Room() {
           </button>
           <button
             className={clsx(styles.angleLabel, angleDeg !== 0 && styles.angleLabelActive)}
-            // Cycles forward to the next 90° multiple (#106) rather than
-            // always snapping to 0 — 'R' below still resets outright.
+            // (#106) If the current angle is already exactly one of the four canonical
+            // 0/90/180/270 positions (e.g. reached via a previous tap, or via free rotation
+            // landing exactly on one), tap advances to the next one, wrapping 270 back to 0.
+            // Otherwise (a free-rotation gesture left it at some other angle, e.g. 45°) tap
+            // resets straight to 0 rather than rounding up to the next multiple.
             onClick={() => setVp(v => {
-              const deg = v.angle * 180 / Math.PI
-              return { ...v, angle: (Math.floor(deg / 90) + 1) * 90 * Math.PI / 180 }
+              const deg = Math.round(v.angle * 180 / Math.PI)
+              const normalizedDeg = ((deg % 360) + 360) % 360
+              const isAtCanonicalAngle = normalizedDeg % 90 === 0
+              const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
+              return { ...v, angle: nextDeg * Math.PI / 180 }
             })}
             title="Rotation — click to rotate 90°  (R to reset)"
           >
