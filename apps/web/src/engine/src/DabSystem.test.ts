@@ -485,6 +485,71 @@ describe('DabSystem.peekTipDabs (#104 live-tip latency reduction)', () => {
   })
 })
 
+describe('DabSystem dab spacing and arc-length remainder carry-over', () => {
+  it('spaces dabs evenly (`max(1, baseSize * spacingFactor)` apart) along a straight multi-segment stroke, with no gap or overlap at any continueStroke boundary', () => {
+    // A straight, collinear path reduces the spline to plain linear motion in
+    // x (see the "keeps a straight line perfectly straight" test above), so
+    // arc length along it is easy to check: every consecutive pair of dabs
+    // must be `spacing` apart in x — up to the arc-length lookup table's own
+    // sampling resolution (STEPS=16 per segment, see _splineDabs), which is
+    // an intentional approximation, not something a correct implementation
+    // eliminates — all the way through every continueStroke() call boundary,
+    // or the fix in #91's 1-event-lag buffering (or the _remainder
+    // bookkeeping) is broken.
+    const baseSize = 20
+    const spacingFactor = 0.22
+    const spacing = Math.max(1, baseSize * spacingFactor)
+    const dab = new DabSystem({ spacingFactor })
+
+    // Deliberately irregular sample spacing (simulates uneven pointer
+    // sampling) so the test can't accidentally pass just because every
+    // segment happens to be a clean multiple of `spacing`.
+    const xs = [0, 15, 32, 55, 78, 95, 120, 150, 210]
+    const dabs: Pt[] = []
+    dabs.push(...dab.startStroke(xs[0], 0, 1, 0, 0, baseSize))
+    for (let i = 1; i < xs.length; i++) dabs.push(...dab.continueStroke(xs[i], 0, 1, 0, 0, baseSize))
+    dabs.push(...dab.endStroke(baseSize))
+
+    expect(dabs.length).toBeGreaterThan(20)
+    for (const d of dabs) expect(d.y).toBeCloseTo(0, 9)
+
+    // Every gap must be within 1% of `spacing`, except the very last one —
+    // the stroke's final partial arc-length remainder, which is always
+    // <= spacing. A broken/reset _remainder would miss by a wide margin
+    // (a large fraction of a full spacing step), far outside this tolerance.
+    for (let i = 1; i < dabs.length - 1; i++) {
+      expect(Math.abs(dabs[i].x - dabs[i - 1].x - spacing)).toBeLessThan(spacing * 0.01)
+    }
+    const lastGap = dabs[dabs.length - 1].x - dabs[dabs.length - 2].x
+    expect(lastGap).toBeGreaterThan(0)
+    expect(lastGap).toBeLessThanOrEqual(spacing * 1.01)
+  })
+
+  it('never resets spacing at a segment boundary even when a segment is much shorter than one full spacing step', () => {
+    // A run of very small steps (each shorter than `spacing`) forces most
+    // continueStroke() calls to return zero dabs, deferring the "carry" into
+    // _remainder across several segments in a row. If _remainder were
+    // (incorrectly) reset to 0 on every call instead of accumulated, dabs
+    // would cluster right after each segment starts instead of staying
+    // evenly spaced overall.
+    const baseSize = 20
+    const spacingFactor = 0.22
+    const spacing = Math.max(1, baseSize * spacingFactor) // 4.4
+    const dab = new DabSystem({ spacingFactor })
+
+    const xs = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20] // steps of 2, well under spacing
+    const dabs: Pt[] = []
+    dabs.push(...dab.startStroke(xs[0], 0, 1, 0, 0, baseSize))
+    for (let i = 1; i < xs.length; i++) dabs.push(...dab.continueStroke(xs[i], 0, 1, 0, 0, baseSize))
+    dabs.push(...dab.endStroke(baseSize))
+
+    expect(dabs.length).toBeGreaterThan(2)
+    for (let i = 1; i < dabs.length - 1; i++) {
+      expect(Math.abs(dabs[i].x - dabs[i - 1].x - spacing)).toBeLessThan(spacing * 0.01)
+    }
+  })
+})
+
 describe('DabSystem corner-preserving tangent reduction (#91 follow-up)', () => {
   it('leaves a genuinely smooth, continuously-curving path unaffected by corner detection', () => {
     // Same circular-arc configuration used above to validate the centripetal
@@ -588,5 +653,60 @@ describe('DabSystem corner-preserving tangent reduction (#91 follow-up)', () => 
 
     expect(fixedOutDev).toBeLessThan(0.01)
     expect(refOutDev).toBeGreaterThan(0.3)
+  })
+})
+
+describe('DabSystem C1 continuity across segment boundaries', () => {
+  // Smallest positive angle between two direction angles (radians), wrapped
+  // into [0, PI] so e.g. comparing -179deg and +179deg reports a ~2deg
+  // difference rather than ~358deg.
+  function angleDelta(a: number, b: number): number {
+    let d = Math.abs(a - b) % (2 * Math.PI)
+    if (d > Math.PI) d = 2 * Math.PI - d
+    return d
+  }
+
+  it('has no larger a jump in dab angle (tangent direction) at a continueStroke segment boundary than within a segment, on a smooth curve', () => {
+    // Same shallow circular-arc configuration used for the centripetal/
+    // corner-detection tests: every real point turns by the same shallow
+    // ~10deg, well under CORNER_ANGLE_START, so this is a genuinely smooth,
+    // continuously-curving path with no real corner anywhere. `Dab.angle`
+    // (the path tangent angle, since tiltX/tiltY are 0 here) must therefore
+    // change smoothly dab-to-dab, including right at the seam between one
+    // continueStroke()'s output and the next's — a real C1 discontinuity
+    // ("kink") would show up as an outsized jump exactly at that seam.
+    const R = 200
+    const points: Pt[] = []
+    for (let i = 0; i <= 12; i++) {
+      const theta = (i * 10 * Math.PI) / 180
+      points.push({ x: R * Math.cos(theta), y: R * Math.sin(theta) })
+    }
+    const baseSize = 20
+    const dab = new DabSystem()
+    dab.startStroke(points[0].x, points[0].y, 1, 0, 0, baseSize)
+
+    const segments: { x: number; y: number; angle: number }[][] = []
+    for (let i = 1; i < points.length; i++) {
+      segments.push(dab.continueStroke(points[i].x, points[i].y, 1, 0, 0, baseSize))
+    }
+    segments.push(dab.endStroke(baseSize))
+    const nonEmpty = segments.filter(s => s.length > 1)
+    expect(nonEmpty.length).toBeGreaterThan(3) // sanity: the curve actually produced several multi-dab segments
+
+    // Largest angle jump seen strictly *within* any single segment's own dabs.
+    let maxWithinSegmentJump = 0
+    for (const seg of nonEmpty) {
+      for (let i = 1; i < seg.length; i++) {
+        maxWithinSegmentJump = Math.max(maxWithinSegmentJump, angleDelta(seg[i].angle, seg[i - 1].angle))
+      }
+    }
+
+    // Jump measured right across each seam (last dab of one segment vs first
+    // dab of the next) must not exceed the within-segment baseline by more
+    // than a small, generous margin — a real kink would blow well past it.
+    for (let s = 0; s < nonEmpty.length - 1; s++) {
+      const seamJump = angleDelta(nonEmpty[s + 1][0].angle, nonEmpty[s][nonEmpty[s].length - 1].angle)
+      expect(seamJump).toBeLessThanOrEqual(maxWithinSegmentJump + 0.01)
+    }
   })
 })
