@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
-import { DAB_VERT, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { createPaperTexture } from './src/PaperTexture'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
@@ -172,7 +172,10 @@ export interface PencilEngineAPI {
   // stroke(s) because they left mid-reveal.
   flushPeerPreview(peerId: string): StrokeOperation[]
   on(event: EngineEventName, fn: EngineHandler): this
-  exportPNG(): Promise<Blob | null>
+  // Exports the canvas exactly as displayed (paper texture baked in) by
+  // default. Pass `transparent: true` for a second variant with no paper —
+  // just the graphite/ink content, transparent where nothing is drawn (#15).
+  exportPNG(transparent?: boolean): Promise<Blob | null>
   destroy(): void
 }
 
@@ -318,16 +321,22 @@ export class PencilEngine implements PencilEngineAPI {
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
   private _dispProg!: WebGLProgram
+  // Transparent-export variant of _dispProg (#15) — see DISPLAY_TRANSPARENT_
+  // FRAG's comment for why this needs its own tiny program rather than a
+  // branch inside DISPLAY_FRAG.
+  private _dispTransparentProg!: WebGLProgram
   private _compositeProg!: WebGLProgram
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispUni!: Record<string, WebGLUniformLocation | null>
+  private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
   private _blitUni!: Record<string, WebGLUniformLocation | null>
   private _transformUni!: Record<string, WebGLUniformLocation | null>
   private _dabPosLoc!: number
   private _dispPosLoc!: number
+  private _dispTransparentPosLoc!: number
   private _compositePosLoc!: number
   private _blitPosLoc!: number
   private _transformPosLoc!: number
@@ -877,9 +886,22 @@ export class PencilEngine implements PencilEngineAPI {
     return this
   }
 
-  exportPNG(): Promise<Blob | null> {
-    this._display()
-    return new Promise(resolve => this.canvas.toBlob(resolve, 'image/png'))
+  /** See PencilEngineAPI's doc comment. `canvas.toBlob()` snapshots the
+   *  drawing buffer synchronously at call time (encoding happens async, but
+   *  the pixels it encodes are fixed the moment it's called) — same
+   *  assumption the pre-existing paper variant already relied on by calling
+   *  `_display()` right before `toBlob()`. That's what makes it safe to
+   *  restore the normal on-screen paper view immediately after kicking off
+   *  toBlob() for the transparent variant, without waiting for its callback:
+   *  the visible canvas (this.canvas is the real, on-screen WebGL canvas —
+   *  there's no separate offscreen render target) never has to sit showing
+   *  the transparent frame past this synchronous call. */
+  exportPNG(transparent = false): Promise<Blob | null> {
+    if (transparent) this._displayTransparent()
+    else this._display()
+    const blob = new Promise<Blob | null>(resolve => this.canvas.toBlob(resolve, 'image/png'))
+    if (transparent) this._display()
+    return blob
   }
 
   destroy(): void {
@@ -1149,11 +1171,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _initGL(): void {
     const { gl, canvas } = this
 
-    this._dabProg       = createProgram(gl, DAB_VERT, DAB_FRAG)
-    this._dispProg      = createProgram(gl, DISPLAY_VERT, DISPLAY_FRAG)
-    this._compositeProg = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
-    this._blitProg      = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
-    this._transformProg = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
+    this._dabProg            = createProgram(gl, DAB_VERT, DAB_FRAG)
+    this._dispProg           = createProgram(gl, DISPLAY_VERT, DISPLAY_FRAG)
+    this._dispTransparentProg = createProgram(gl, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG)
+    this._compositeProg      = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
+    this._blitProg           = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
+    this._transformProg      = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
@@ -1164,15 +1187,17 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispUni = getUniforms(gl, this._dispProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale',
     ])
+    this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_bufferSize', 'u_matrixInv'])
 
-    this._dabPosLoc       = gl.getAttribLocation(this._dabProg, 'a_position')
-    this._dispPosLoc      = gl.getAttribLocation(this._dispProg, 'a_position')
-    this._compositePosLoc = gl.getAttribLocation(this._compositeProg, 'a_position')
-    this._blitPosLoc      = gl.getAttribLocation(this._blitProg, 'a_position')
-    this._transformPosLoc = gl.getAttribLocation(this._transformProg, 'a_position')
+    this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
+    this._dispPosLoc           = gl.getAttribLocation(this._dispProg, 'a_position')
+    this._dispTransparentPosLoc = gl.getAttribLocation(this._dispTransparentProg, 'a_position')
+    this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
+    this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
+    this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
 
     this._quadBuf   = createQuadBuffer(gl)
     this._screenBuf = createFullscreenQuad(gl)
@@ -1632,7 +1657,14 @@ export class PencilEngine implements PencilEngineAPI {
     temp.destroy()
   }
 
-  private _display(): void {
+  /** Rebuilds `_compositeFBO` from every live layer plus whatever preview
+   *  buffers are currently active (live-tip, speculative-prediction, peer
+   *  reveals) — the shared first half of both `_display()` (paper-blended,
+   *  drawn to the visible canvas) and `_displayTransparent()` (#15, no
+   *  paper). Stores premultiplied graphite color in `.rgb`, coverage in
+   *  `.a` (see DISPLAY_FRAG's comment) — neither downstream pass re-renders
+   *  any dab or layer, they only differ in how they read this buffer back. */
+  private _composeToFBO(): void {
     const { gl, canvas } = this
     const w = canvas.width, h = canvas.height
 
@@ -1668,6 +1700,13 @@ export class PencilEngine implements PencilEngineAPI {
     for (const { buf } of this._peerPreviews.values()) {
       this._compositeTextures([{ texture: buf.texture, opacity: 1 }], this._compositeFBO.fbo)
     }
+  }
+
+  private _display(): void {
+    const { gl, canvas } = this
+    const w = canvas.width, h = canvas.height
+
+    this._composeToFBO()
 
     const paperColor = PAPER_COLORS[this._opts.paper]
 
@@ -1691,6 +1730,39 @@ export class PencilEngine implements PencilEngineAPI {
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     const posLoc = this._dispPosLoc
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+  }
+
+  /** Transparent-background export variant (#15) — draws to the same visible
+   *  canvas as `_display()` (there's no separate offscreen target), but
+   *  through DISPLAY_TRANSPARENT_FRAG instead of the paper-blend DISPLAY_
+   *  FRAG: un-premultiplies `_compositeFBO`'s stored color and writes
+   *  coverage straight through as alpha, so untouched canvas is transparent
+   *  rather than opaque paper. Only ever called from exportPNG(true), which
+   *  restores the normal paper view via `_display()` right after grabbing
+   *  the blob (see its docstring). */
+  private _displayTransparent(): void {
+    const { gl, canvas } = this
+    const w = canvas.width, h = canvas.height
+
+    this._composeToFBO()
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    gl.viewport(0, 0, w, h)
+    gl.disable(gl.BLEND)
+
+    gl.useProgram(this._dispTransparentProg)
+    const u = this._dispTransparentUni
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, this._compositeFBO.texture)
+    gl.uniform1i(u.u_accumulation, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    const posLoc = this._dispTransparentPosLoc
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
 
