@@ -326,6 +326,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
   private _blitUni!: Record<string, WebGLUniformLocation | null>
   private _transformUni!: Record<string, WebGLUniformLocation | null>
+  private _dabPosLoc!: number
+  private _dispPosLoc!: number
+  private _compositePosLoc!: number
+  private _blitPosLoc!: number
+  private _transformPosLoc!: number
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
@@ -1163,6 +1168,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_bufferSize', 'u_matrixInv'])
 
+    this._dabPosLoc       = gl.getAttribLocation(this._dabProg, 'a_position')
+    this._dispPosLoc      = gl.getAttribLocation(this._dispProg, 'a_position')
+    this._compositePosLoc = gl.getAttribLocation(this._compositeProg, 'a_position')
+    this._blitPosLoc      = gl.getAttribLocation(this._blitProg, 'a_position')
+    this._transformPosLoc = gl.getAttribLocation(this._transformProg, 'a_position')
+
     this._quadBuf   = createQuadBuffer(gl)
     this._screenBuf = createFullscreenQuad(gl)
 
@@ -1476,7 +1487,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(u.u_bufferSize, canvas.width, canvas.height)
     gl.uniform4f(u.u_imageRect, (canvas.width - drawW) / 2, (canvas.height - drawH) / 2, drawW, drawH)
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = gl.getAttribLocation(this._blitProg, 'a_position')
+    const posLoc = this._blitPosLoc
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
@@ -1516,7 +1527,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform3fv(u.u_color, color)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    const posLoc = gl.getAttribLocation(this._dabProg, 'a_position')
+    const posLoc = this._dabPosLoc
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
 
@@ -1551,7 +1562,7 @@ export class PencilEngine implements PencilEngineAPI {
     const cu = this._compositeUni
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = gl.getAttribLocation(this._compositeProg, 'a_position')
+    const posLoc = this._compositePosLoc
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
 
@@ -1591,7 +1602,7 @@ export class PencilEngine implements PencilEngineAPI {
     const tu = this._transformUni
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = gl.getAttribLocation(this._transformProg, 'a_position')
+    const posLoc = this._transformPosLoc
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
 
@@ -1679,7 +1690,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = gl.getAttribLocation(this._dispProg, 'a_position')
+    const posLoc = this._dispPosLoc
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
 
