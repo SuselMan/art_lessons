@@ -1034,6 +1034,28 @@ export function Room() {
     URL.revokeObjectURL(url)
   }, [config])
 
+  // #15: same as handleExport, but with no paper texture/color baked in —
+  // just the graphite/ink content, transparent where nothing is drawn.
+  const handleExportTransparent = useCallback(async () => {
+    const blob = await engineRef.current?.exportPNG(true); if (!blob) return
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = `${config?.name ?? 'drawing'}-transparent.png`; a.click()
+    URL.revokeObjectURL(url)
+  }, [config])
+
+  // #15: serializes the operation log as-is (same shape appendOperation/
+  // getOperations already deal in) so the exact same JSON could later be
+  // replayed back through appendOperation('remote') to restore the session.
+  const handleSaveSession = useCallback(() => {
+    const ops = engineRef.current?.getOperations(); if (!ops) return
+    const blob = new Blob([JSON.stringify(ops, null, 2)], { type: 'application/json' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = `${config?.name ?? 'drawing'}-session.json`; a.click()
+    URL.revokeObjectURL(url)
+  }, [config])
+
   // ─────────────────────────────────────────────────────────────────────────────
 
   if (!config) {
@@ -1132,6 +1154,12 @@ export function Room() {
           </button>
           <button className={styles.headerBtn} onClick={handleExport} title="Export PNG">
             <Icon name="download" /><span>Export</span>
+          </button>
+          <button className={styles.headerBtn} onClick={handleExportTransparent} title="Export PNG with transparent background">
+            <Icon name="image" /><span>Transparent</span>
+          </button>
+          <button className={styles.headerBtn} onClick={handleSaveSession} title="Save session as JSON">
+            <Icon name="save" /><span>Save</span>
           </button>
         </div>
       </header>

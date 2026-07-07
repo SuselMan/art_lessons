@@ -272,6 +272,30 @@ export const TRANSFORM_BLIT_FRAG = `
   }
 `;
 
+// Transparent-background export variant (#15): unlike DISPLAY_FRAG, this
+// never blends toward the paper — it just un-premultiplies the composite
+// FBO's stored color (see DISPLAY_FRAG's comment: "composite FBO stores
+// premultiplied graphite color in .rgb, coverage in .a") and outputs that
+// coverage as the alpha channel itself, so untouched canvas is fully
+// transparent instead of opaque paper color. Reuses DISPLAY_VERT (same
+// fullscreen-quad convention) and is fed the exact same u_accumulation
+// texture (the already-composited _compositeFBO) as DISPLAY_FRAG — no dabs
+// or layers are re-rendered for this variant.
+export const DISPLAY_TRANSPARENT_FRAG = `
+  precision highp float;
+
+  uniform sampler2D u_accumulation;
+
+  varying vec2 v_uv;
+
+  void main() {
+    vec4 acc = texture2D(u_accumulation, v_uv);
+    float graphite = acc.a;
+    vec3 strokeColor = graphite > 0.001 ? acc.rgb / graphite : vec3(0.0);
+    gl_FragColor = vec4(strokeColor, graphite);
+  }
+`;
+
 export const DISPLAY_FRAG = `
   precision highp float;
 
