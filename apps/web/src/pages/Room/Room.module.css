@@ -288,6 +288,19 @@
   touch-action: none;
 }
 
+/* Same catcher purpose as .measureOverlay, but only for the ruler tool's
+   (#89) initial placement drag — removed from the DOM entirely (not just
+   inert) once a ruler exists (see Room's render), because after that the
+   ruler's own SVG handles (RulerOverlay) are the drag surface and the rest
+   of the canvas must stay free for normal drawing to snap against it. */
+.rulerPlaceOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  cursor: crosshair;
+  touch-action: none;
+}
+
 /* ── Sliders ── */
 .sliderBlock {
   display: flex;
@@ -445,6 +458,47 @@
 
 .measureEndpoint {
   fill: var(--color-accent);
+}
+
+/* ── Ruler tool (#89) ──
+   Unlike measure/grid above but like the transform gizmo, this overlay's
+   own shapes (once placed) ARE the interactive surface — the svg root
+   stays pointer-events:none so it never blocks the canvas outside the
+   ruler's own line/handles, and each shape opts back in individually
+   (matching .transformSvg/.transformBody/.transformHandle's pattern). */
+.rulerSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.rulerLine {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+/* Wide, invisible hit area under the (visually thin) line above, for the
+   "drag the whole ruler" gesture — see RulerOverlay's doc comment. */
+.rulerHitLine {
+  stroke: transparent;
+  stroke-width: 20;
+  pointer-events: stroke;
+  cursor: move;
+  touch-action: none;
+}
+
+.rulerEndpoint {
+  fill: var(--color-accent);
+  stroke: var(--color-surface);
+  stroke-width: 1.5;
+  pointer-events: fill;
+  cursor: grab;
+  touch-action: none;
 }
 
 /* ── Construction grid (#89) ── */
