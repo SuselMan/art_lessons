@@ -94,6 +94,35 @@
   flex-shrink: 0;
 }
 
+/* One-time touch-only hint for long-tap multi-select discoverability (#129) */
+.touchHint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--color-text-dim);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+.touchHint .material-symbols-outlined { font-size: 14px; flex-shrink: 0; }
+.touchHint span { flex: 1; }
+
+.touchHintDismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--color-text-dim);
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+.touchHintDismiss:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.touchHintDismiss .material-symbols-outlined { font-size: 13px; }
+
 /* ── Scrollable layer list ────────────────────────────────────────────────── */
 .list {
   flex: 1;
