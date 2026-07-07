@@ -80,6 +80,7 @@ export function createTestEngine(
 interface EngineInternals {
   _layers: Map<string, AccumulationBuffer>
   _checkpoints: Array<{ layerId: string; opIds: string[]; pixels: Uint8Array }>
+  _compositeFBO: AccumulationBuffer
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -93,6 +94,16 @@ export function hasLayerBuffer(engine: PencilEngine, layerId: string): boolean {
 export function readLayerPixels(engine: PencilEngine, layerId: string): Uint8Array | null {
   const buf = internals(engine)._layers.get(layerId)
   return buf ? buf.readPixels() : null
+}
+
+/** Reads back the final on-screen composite (#122) — what _display() last
+ *  blended every visible layer/folder-child into, *before* the paper-color
+ *  display pass (which MockGL never rasterizes — see its module docstring).
+ *  Used by index.recompositeCache.test.ts to check the below/above
+ *  split-cache optimization never diverges from a guaranteed-fresh full
+ *  recompute of the same layer state. */
+export function readCompositePixels(engine: PencilEngine): Uint8Array {
+  return internals(engine)._compositeFBO.readPixels()
 }
 
 export function checkpointCountFor(engine: PencilEngine, layerId: string): number {
