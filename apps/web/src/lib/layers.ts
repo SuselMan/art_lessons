@@ -31,7 +31,7 @@ export function getVisibleOrder(state: LayerState): string[] {
 export function collectDescendants(state: LayerState, id: string): string[] {
   const out: string[] = [id]
   const item = state.items[id]
-  if (isFolder(item)) {
+  if (item && isFolder(item)) {
     for (const cid of item.children) {
       out.push(...collectDescendants(state, cid))
     }

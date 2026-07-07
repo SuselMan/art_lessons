@@ -11,6 +11,7 @@ import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import {
   applyContentOp, replayLayerState, overlayLocalFields, sanitizeSelection,
   removeItems, parentOf, computeCompositeOrder, computeMergeOrder, getVisibleOrder,
+  collectDescendants,
 } from './layers'
 
 function layer(id: string, overrides: Partial<RasterLayer> = {}): RasterLayer {
@@ -133,6 +134,29 @@ describe('applyContentOp', () => {
     expect(next.rootOrder).toEqual(['merged'])
   })
 
+  // #75 investigation: "merge down inside a folder puts the merged layer at
+  // the wrong index". This drives the reducer exactly the way LayerPanel's
+  // handleMergeDown does (parentId = the folder, index = the *source*
+  // layer's own pre-removal index in folder.children) for a merge that is
+  // NOT at either edge of the folder, so a wrong-index bug would show up as
+  // the merged layer landing next to the wrong sibling.
+  it('layer_merge inside a folder places the merged layer exactly at the source\'s old slot, preserving siblings on both sides', () => {
+    const state = stateOf(
+      { f1: folder('f1', ['a', 'b', 'c', 'd', 'e']), a: layer('a'), b: layer('b'), c: layer('c'), d: layer('d'), e: layer('e') },
+      ['f1'],
+    )
+    // Merge 'b' (index 1) down with 'c' (index 2) — neither is the folder's
+    // first or last child, so a wrong-index bug (e.g. always inserting at 0,
+    // or ejecting to rootOrder) would be caught here.
+    const op: LayerMergeOperation = {
+      ...baseOp, type: 'layer_merge', layerId: 'merged', name: 'Merged',
+      sources: [{ id: 'b', opacity: 1 }, { id: 'c', opacity: 1 }], parentId: 'f1', index: 1,
+    }
+    const next = applyContentOp(state, op)
+    expect(next.rootOrder).toEqual(['f1']) // stays inside the folder, not ejected to root
+    expect((next.items.f1 as LayerFolder).children).toEqual(['a', 'merged', 'd', 'e'])
+  })
+
   it('stroke, layer_clear, and the meta-ops (revoke/undo/redo) are structural no-ops', () => {
     const state = stateOf({ a: layer('a') }, ['a'])
     expect(applyContentOp(state, { ...baseOp, type: 'stroke', layerId: 'a', tool: 'pencil', preset: 'HB', color: [0.14, 0.14, 0.17], dabs: [] })).toBe(state)
@@ -231,6 +255,26 @@ describe('parentOf / getVisibleOrder', () => {
   it('getVisibleOrder does not expand a collapsed folder', () => {
     const collapsed = stateOf({ ...state.items, f1: folder('f1', ['a', 'b'], { collapsed: true }) }, ['f1', 'c'])
     expect(getVisibleOrder(collapsed)).toEqual(['f1', 'c'])
+  })
+})
+
+describe('collectDescendants', () => {
+  it('returns just the id itself for a plain layer', () => {
+    const state = stateOf({ a: layer('a') }, ['a'])
+    expect(collectDescendants(state, 'a')).toEqual(['a'])
+  })
+
+  it('returns the folder id plus all of its children, in id-then-children order', () => {
+    const state = stateOf(
+      { f1: folder('f1', ['a', 'b']), a: layer('a'), b: layer('b'), c: layer('c') },
+      ['f1', 'c'],
+    )
+    expect(collectDescendants(state, 'f1')).toEqual(['f1', 'a', 'b'])
+  })
+
+  it('returns just the id if it refers to a nonexistent item', () => {
+    const state = stateOf({ a: layer('a') }, ['a'])
+    expect(collectDescendants(state, 'ghost')).toEqual(['ghost'])
   })
 })
 
