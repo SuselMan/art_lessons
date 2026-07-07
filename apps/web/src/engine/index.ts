@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
-import { DAB_VERT, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { createPaperTexture } from './src/PaperTexture'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
@@ -15,6 +15,14 @@ export type { HapticGrainStats }
 export type { AffineMatrix }
 
 export { PENCIL_PRESETS, PENCIL_GRADES, type PencilGradeName, type PencilPreset }
+
+// Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
+// uses (#123) — not in lib.dom.d.ts's WebGLRenderingContext, so this is typed
+// by hand instead of relying on an ambient DOM type.
+interface InstancedArraysExt {
+  vertexAttribDivisorANGLE(index: number, divisor: number): void
+  drawArraysInstancedANGLE(mode: number, first: number, count: number, primcount: number): void
+}
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 
@@ -334,6 +342,25 @@ export class PencilEngine implements PencilEngineAPI {
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
+
+  // Batched dab rendering (#123) — one instanced draw call per _paintDabs
+  // invocation instead of one gl.drawArrays + ~9 gl.uniform* calls per dab.
+  // _instancedArraysExt is null on the (today, vanishingly rare) WebGL1
+  // context without ANGLE_instanced_arrays, in which case _paintDabs falls
+  // back to the original per-dab-uniform loop via _dabProg/DAB_VERT
+  // unchanged. See _paintDabsInstanced for the correctness reasoning re:
+  // preserving sequential per-dab blend order.
+  private _dabProgInstanced!: WebGLProgram
+  private _dabInstUni!: Record<string, WebGLUniformLocation | null>
+  private _instPosLoc!: number
+  private _instALoc!: number
+  private _instBLoc!: number
+  private _instOpacityLoc!: number
+  private _dabInstBuf!: WebGLBuffer
+  private _instancedArraysExt: InstancedArraysExt | null = null
+  // Reused/grown scratch buffer for the per-dab instance data upload — no
+  // per-stroke-segment allocation, same pattern as DabSystem's #125 fix.
+  private _dabInstScratch: Float32Array = new Float32Array(0)
 
   // Live layer-transform gizmo preview (#120) — one scratch buffer per
   // layer currently being dragged, keyed by layerId. Same non-destructive
@@ -1149,7 +1176,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _initGL(): void {
     const { gl, canvas } = this
 
-    this._dabProg       = createProgram(gl, DAB_VERT, DAB_FRAG)
+    this._dabProg          = createProgram(gl, DAB_VERT, DAB_FRAG)
+    this._dabProgInstanced = createProgram(gl, DAB_VERT_INSTANCED, DAB_FRAG)
     this._dispProg      = createProgram(gl, DISPLAY_VERT, DISPLAY_FRAG)
     this._compositeProg = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._blitProg      = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
@@ -1160,6 +1188,10 @@ export class PencilEngine implements PencilEngineAPI {
       'u_resolution', 'u_paperHeightMap', 'u_paperScale',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
       'u_paperRoughness', 'u_eraseMode', 'u_color',
+    ])
+    this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
+      'u_resolution', 'u_paperHeightMap', 'u_paperScale',
+      'u_hardness', 'u_paperRoughness', 'u_eraseMode', 'u_color',
     ])
     this._dispUni = getUniforms(gl, this._dispProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale',
@@ -1174,8 +1206,16 @@ export class PencilEngine implements PencilEngineAPI {
     this._blitPosLoc      = gl.getAttribLocation(this._blitProg, 'a_position')
     this._transformPosLoc = gl.getAttribLocation(this._transformProg, 'a_position')
 
-    this._quadBuf   = createQuadBuffer(gl)
-    this._screenBuf = createFullscreenQuad(gl)
+    this._instPosLoc     = gl.getAttribLocation(this._dabProgInstanced, 'a_position')
+    this._instALoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instA')
+    this._instBLoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instB')
+    this._instOpacityLoc = gl.getAttribLocation(this._dabProgInstanced, 'a_opacity')
+
+    this._quadBuf    = createQuadBuffer(gl)
+    this._screenBuf  = createFullscreenQuad(gl)
+    this._dabInstBuf = gl.createBuffer()!
+
+    this._instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays') as InstancedArraysExt | null
 
     this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
   }
@@ -1503,7 +1543,6 @@ export class PencilEngine implements PencilEngineAPI {
     buf: AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number],
   ): void {
-    const { gl, canvas } = this
     const erasing = tool === 'eraser'
     const preset  = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
 
@@ -1513,6 +1552,27 @@ export class PencilEngine implements PencilEngineAPI {
       buf.beginDraw()
     }
 
+    // #123: batch every dab in this call into one instanced draw call when
+    // the extension is available (effectively always, in practice) — see
+    // _paintDabsInstanced's docstring for why this preserves the exact
+    // sequential per-dab blend order the fallback loop below relies on.
+    if (this._instancedArraysExt) {
+      this._paintDabsInstanced(dabs, erasing, preset, color)
+    } else {
+      this._paintDabsUniform(dabs, erasing, preset, color)
+    }
+
+    buf.endDraw()
+  }
+
+  /** Fallback path for a WebGL1 context without ANGLE_instanced_arrays: one
+   *  gl.drawArrays + ~9 gl.uniform* calls per dab, kept exactly as it was
+   *  before #123 (same shader math via DAB_VERT, same GL call count/order) —
+   *  the safety net on the rare device that lacks the extension. */
+  private _paintDabsUniform(
+    dabs: Dab[], erasing: boolean, preset: PencilPreset, color: [number, number, number],
+  ): void {
+    const { gl, canvas } = this
     gl.useProgram(this._dabProg)
     const u = this._dabUni
 
@@ -1542,8 +1602,105 @@ export class PencilEngine implements PencilEngineAPI {
       gl.uniform1f(u.u_opacity,    dab.opacity)
       gl.drawArrays(gl.TRIANGLES, 0, 6)
     }
+  }
 
-    buf.endDraw()
+  /** Batched hot path (#123): one interleaved instance-data upload + one
+   *  drawArraysInstancedANGLE call per _paintDabs invocation, replacing what
+   *  used to be one gl.drawArrays + ~9 gl.uniform* calls PER DAB (a fast/long
+   *  stroke can produce dozens of dabs from a single move-event).
+   *
+   *  Correctness constraint this must preserve exactly: dabs are NOT
+   *  independent/order-insensitive when they overlap — e.g. an eraser dab
+   *  must still correctly interact with ink laid down by an earlier dab in
+   *  the same batch. AccumulationBuffer.beginDraw()/beginErase() blend every
+   *  dab draw call (ONE, ONE_MINUS_SRC_ALPHA or ZERO, ONE_MINUS_SRC_ALPHA)
+   *  onto the accumulation of every previous one, so the per-dab paint order
+   *  is directly observable in the resulting pixels. ANGLE_instanced_arrays
+   *  processes instance 0, 1, 2, ... in strict submission order through the
+   *  same fixed-function blend stage a sequence of separate draw calls
+   *  would use — this is the same ordering guarantee every sorted-
+   *  transparency instancing technique (particle systems, decal stacks)
+   *  already depends on, so batching here doesn't change the accumulated
+   *  result. The fragment shader itself is completely unchanged (DAB_FRAG is
+   *  shared with the uniform path) — only how each dab's parameters reach
+   *  the shader changed, from one gl.uniform* call per dab to one instanced
+   *  vertex attribute read per dab out of a single buffer uploaded once. */
+  private _paintDabsInstanced(
+    dabs: Dab[], erasing: boolean, preset: PencilPreset, color: [number, number, number],
+  ): void {
+    const { gl, canvas } = this
+    const ext = this._instancedArraysExt
+    if (!ext) return // only called when present; guards the type narrowing below
+    const u = this._dabInstUni
+
+    gl.useProgram(this._dabProgInstanced)
+    gl.uniform2f(u.u_resolution, canvas.width, canvas.height)
+    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    gl.uniform1i(u.u_paperHeightMap, 0)
+    gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
+    gl.uniform1f(u.u_paperRoughness, PAPER_ROUGHNESS[this._opts.paper] ?? 1.0)
+    gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
+    gl.uniform3fv(u.u_color, color)
+
+    // Shared unit quad, divisor 0 — same 6 vertices/2 triangles per instance
+    // as the uniform path's per-dab quad.
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
+    gl.enableVertexAttribArray(this._instPosLoc)
+    gl.vertexAttribPointer(this._instPosLoc, 2, gl.FLOAT, false, 0, 0)
+    ext.vertexAttribDivisorANGLE(this._instPosLoc, 0)
+
+    // Interleaved per-dab instance data — stride 9 floats:
+    // [cx, cy, radius, angle, aspectRatio, pressure, tiltX, tiltY, opacity].
+    // Packed into 2 vec4 + 1 float attributes (see DAB_VERT_INSTANCED) to
+    // stay well within WebGL1's guaranteed minimum of 8 vertex attributes.
+    // Reused/grown scratch array — no per-stroke-segment allocation.
+    const STRIDE = 9
+    const need = dabs.length * STRIDE
+    if (this._dabInstScratch.length < need) {
+      this._dabInstScratch = new Float32Array(Math.max(need, this._dabInstScratch.length * 2, 256))
+    }
+    const data = this._dabInstScratch
+    for (let i = 0; i < dabs.length; i++) {
+      const d = dabs[i]
+      const o = i * STRIDE
+      data[o + 0] = d.x
+      data[o + 1] = d.y
+      data[o + 2] = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
+      data[o + 3] = d.angle
+      data[o + 4] = d.aspectRatio
+      data[o + 5] = d.pressure
+      data[o + 6] = d.tiltX
+      data[o + 7] = d.tiltY
+      data[o + 8] = d.opacity
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._dabInstBuf)
+    gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, need), gl.DYNAMIC_DRAW)
+
+    const STRIDE_BYTES = STRIDE * 4
+    gl.enableVertexAttribArray(this._instALoc)
+    gl.vertexAttribPointer(this._instALoc, 4, gl.FLOAT, false, STRIDE_BYTES, 0)
+    ext.vertexAttribDivisorANGLE(this._instALoc, 1)
+
+    gl.enableVertexAttribArray(this._instBLoc)
+    gl.vertexAttribPointer(this._instBLoc, 4, gl.FLOAT, false, STRIDE_BYTES, 16)
+    ext.vertexAttribDivisorANGLE(this._instBLoc, 1)
+
+    gl.enableVertexAttribArray(this._instOpacityLoc)
+    gl.vertexAttribPointer(this._instOpacityLoc, 1, gl.FLOAT, false, STRIDE_BYTES, 32)
+    ext.vertexAttribDivisorANGLE(this._instOpacityLoc, 1)
+
+    ext.drawArraysInstancedANGLE(gl.TRIANGLES, 0, 6, dabs.length)
+
+    // Defensive: divisor state belongs to WebGL1's one implicit vertex array
+    // (global, not per-program) — reset before any other program potentially
+    // reuses these location indices, so a leftover divisor=1 can never
+    // silently collapse an unrelated draw call onto a single instance.
+    ext.vertexAttribDivisorANGLE(this._instALoc, 0)
+    ext.vertexAttribDivisorANGLE(this._instBLoc, 0)
+    ext.vertexAttribDivisorANGLE(this._instOpacityLoc, 0)
   }
 
   private _compositeTextures(

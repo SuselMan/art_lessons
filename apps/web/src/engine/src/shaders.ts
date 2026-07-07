@@ -58,6 +58,19 @@ export const PAPER_GEN_FRAG = `
   }
 `;
 
+// Per-dab varying parameters (pressure/tilt/opacity/aspect ratio) are
+// forwarded from vertex to fragment stage as `varying`s rather than read
+// directly as fragment-stage uniforms, so DAB_FRAG below is shared
+// unmodified by both the per-dab-uniform path (DAB_VERT, one draw call per
+// dab — kept as a fallback for a WebGL1 context without
+// ANGLE_instanced_arrays) and the batched path (DAB_VERT_INSTANCED, #123 —
+// one instanced draw call per _paintDabs invocation). A varying holding the
+// same value at all 3 corners of a triangle (as it does here — DAB_VERT
+// assigns it from a uniform, DAB_VERT_INSTANCED from a per-instance
+// attribute, neither varies across a_position) interpolates back to that
+// exact constant at every fragment; WebGL1/GLSL ES 1.0 has no `flat`
+// qualifier, so this is the standard, correct way to carry a per-primitive
+// constant into the fragment shader.
 export const DAB_VERT = `
   attribute vec2 a_position;
 
@@ -66,11 +79,25 @@ export const DAB_VERT = `
   uniform float u_angle;
   uniform float u_aspectRatio; // width / height, >1 means wider than tall (tilt effect)
   uniform vec2 u_resolution;
+  uniform float u_pressure;
+  uniform float u_tiltX;
+  uniform float u_tiltY;
+  uniform float u_opacity;
 
   varying vec2 v_localUV;
+  varying float v_pressure;
+  varying float v_tiltX;
+  varying float v_tiltY;
+  varying float v_opacity;
+  varying float v_aspectRatio;
 
   void main() {
     v_localUV = a_position * 2.0;
+    v_pressure = u_pressure;
+    v_tiltX = u_tiltX;
+    v_tiltY = u_tiltY;
+    v_opacity = u_opacity;
+    v_aspectRatio = u_aspectRatio;
 
     float c = cos(u_angle);
     float s = sin(u_angle);
@@ -91,18 +118,73 @@ export const DAB_VERT = `
   }
 `;
 
+// Batched dab vertex shader (#123): identical geometry/math to DAB_VERT,
+// but the per-dab parameters that used to be one gl.uniform* call each
+// (PER dab, in engine/index.ts's old _paintDabs loop) now arrive as
+// per-instance vertex attributes, advanced once per instance via
+// ANGLE_instanced_arrays' vertexAttribDivisorANGLE(loc, 1) instead of once
+// per vertex — so one drawArraysInstancedANGLE call renders every dab in a
+// stroke segment. Packed into 2 vec4 + 1 float (rather than 8 separate
+// scalar/vec2 attributes) to stay comfortably within WebGL1's guaranteed
+// minimum of 8 vertex attributes (a_position takes one of the 4 used here).
+// See engine/index.ts's _paintDabsInstanced for the buffer layout this
+// expects (interleaved, stride 9 floats: cx,cy,radius,angle,aspect,
+// pressure,tiltX,tiltY,opacity) and for why this preserves the exact
+// sequential per-dab blend order the old per-dab loop relied on.
+export const DAB_VERT_INSTANCED = `
+  attribute vec2 a_position;
+  attribute vec4 a_instA; // xy = dabCenter, z = dabRadius, w = angle
+  attribute vec4 a_instB; // x = aspectRatio, y = pressure, z = tiltX, w = tiltY
+  attribute float a_opacity;
+
+  uniform vec2 u_resolution;
+
+  varying vec2 v_localUV;
+  varying float v_pressure;
+  varying float v_tiltX;
+  varying float v_tiltY;
+  varying float v_opacity;
+  varying float v_aspectRatio;
+
+  void main() {
+    vec2 dabCenter    = a_instA.xy;
+    float dabRadius   = a_instA.z;
+    float angle       = a_instA.w;
+    float aspectRatio = a_instB.x;
+
+    v_localUV = a_position * 2.0;
+    v_pressure = a_instB.y;
+    v_tiltX = a_instB.z;
+    v_tiltY = a_instB.w;
+    v_opacity = a_opacity;
+    v_aspectRatio = aspectRatio;
+
+    float c = cos(angle);
+    float s = sin(angle);
+
+    // Apply aspect ratio along local X axis (tilt makes pencil mark wider)
+    vec2 scaled = vec2(a_position.x * aspectRatio, a_position.y);
+
+    vec2 rotated = vec2(
+      scaled.x * c - scaled.y * s,
+      scaled.x * s + scaled.y * c
+    );
+
+    vec2 screenPos = rotated * dabRadius * 2.0 + dabCenter;
+    vec2 clip = (screenPos / u_resolution) * 2.0 - 1.0;
+    clip.y = -clip.y;
+
+    gl_Position = vec4(clip, 0.0, 1.0);
+  }
+`;
+
 export const DAB_FRAG = `
   precision highp float;
 
   uniform sampler2D u_paperHeightMap;
-  uniform float u_pressure;
-  uniform float u_tiltX;
-  uniform float u_tiltY;
   uniform float u_hardness;
-  uniform float u_opacity;
   uniform vec2 u_resolution;
   uniform vec2 u_paperScale;
-  uniform float u_aspectRatio;
   // 0=bristol (graphite fills valleys too, near-uniform deposit)
   // 1=rough   (graphite only on peaks, strong grain in stroke)
   uniform float u_paperRoughness;
@@ -113,6 +195,11 @@ export const DAB_FRAG = `
   uniform vec3 u_color;
 
   varying vec2 v_localUV;
+  varying float v_pressure;
+  varying float v_tiltX;
+  varying float v_tiltY;
+  varying float v_opacity;
+  varying float v_aspectRatio;
 
   #define PI 3.14159265
 
@@ -121,7 +208,7 @@ export const DAB_FRAG = `
   }
 
   void main() {
-    vec2 uv = vec2(v_localUV.x / max(u_aspectRatio, 1.0), v_localUV.y);
+    vec2 uv = vec2(v_localUV.x / max(v_aspectRatio, 1.0), v_localUV.y);
     float dist = length(uv);
     if (dist > 1.0) discard;
 
@@ -131,7 +218,7 @@ export const DAB_FRAG = `
 
     // Eraser: output alpha that drives ZERO,ONE_MINUS_SRC_ALPHA blend to clear graphite
     if (u_eraseMode > 0.5) {
-      float eraseAmount = clamp(u_pressure * u_opacity * shape, 0.0, 1.0);
+      float eraseAmount = clamp(v_pressure * v_opacity * shape, 0.0, 1.0);
       gl_FragColor = vec4(0.0, 0.0, 0.0, eraseAmount);
       return;
     }
@@ -149,8 +236,8 @@ export const DAB_FRAG = `
     float normalScale = mix(2.0, 10.0, u_paperRoughness);
     vec2 surfaceNormal = vec2(h - hDx, h - hDy) * normalScale;
 
-    float tx = sin(u_tiltX * PI / 180.0);
-    float ty = sin(u_tiltY * PI / 180.0);
+    float tx = sin(v_tiltX * PI / 180.0);
+    float ty = sin(v_tiltY * PI / 180.0);
     float tiltMag = sqrt(tx * tx + ty * ty);
 
     // paperCatch: how much graphite this surface point receives.
@@ -170,7 +257,7 @@ export const DAB_FRAG = `
     }
 
     float grain = hash(gl_FragCoord.xy * 0.5) * 0.12 - 0.06;
-    float deposit = clamp(u_pressure * u_opacity * paperCatch * shape + grain * shape, 0.0, 1.0);
+    float deposit = clamp(v_pressure * v_opacity * paperCatch * shape + grain * shape, 0.0, 1.0);
     // Premultiplied by deposit, matching the ONE,ONE_MINUS_SRC_ALPHA "over"
     // blend AccumulationBuffer.beginDraw() sets up — this is what lets dabs of
     // different colors composite correctly over each other and over earlier
