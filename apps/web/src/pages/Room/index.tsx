@@ -162,6 +162,18 @@ export function Room() {
   const tapToHideEnabled = getFeatureFlag('tapToHideUI')
   const [uiHidden, setUiHidden] = useState(false)
   const toggleUI = useCallback(() => setUiHidden(h => !h), [])
+
+  // #94: a resting hand/finger on a tablet can brush the surrounding chrome
+  // (most often the size slider) mid-stroke and corrupt settings partway
+  // through drawing. Real state (not just strokeActiveRef below) because it
+  // needs to trigger a re-render to actually apply/remove pointer-events —
+  // only flipped twice per stroke (start/end), so the cost is negligible
+  // despite this codebase's general perf-consciousness about per-move state
+  // (see e.g. the vp-state discussion elsewhere). Mirrors uiHidden's own
+  // "toggle a class on the header/toolbar/layer-panel wrapper" shape (#99),
+  // but pointer-events only — the UI stays visible, just unresponsive, unlike
+  // uiHidden's fade.
+  const [isDrawing, setIsDrawing] = useState(false)
   // Diagnostic for "works on Samsung, not on a Surface" (see chat) — see
   // TapDebugInfo's docstring for what each field means.
   const [tapDebug, setTapDebug] = useState<TapDebugInfo | null>(null)
@@ -412,11 +424,13 @@ export function Room() {
     engine
       .on('strokeStart', e => {
         strokeActiveRef.current = true
+        setIsDrawing(true)
         markActive(userIdRef.current)
         pencilSoundRef.current?.start(e.pressure, e.speed, e.tiltX, e.tiltY)
       })
       .on('strokeEnd', () => {
         strokeActiveRef.current = false
+        setIsDrawing(false)
         pencilSoundRef.current?.stop()
       })
       .on('pointer', e => {
@@ -1062,7 +1076,7 @@ export function Room() {
     >
 
       {/* ── Header ── */}
-      <header className={clsx(styles.header, uiHidden && styles.uiHidden)}>
+      <header className={clsx(styles.header, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
         <button className={styles.headerIconBtn} onClick={() => navigate('/create')} title="New room" aria-label="New room">
           <Icon name="arrow_back" />
         </button>
@@ -1127,7 +1141,7 @@ export function Room() {
       <div className={styles.body}>
 
         {/* ── Left toolbar ── */}
-        <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden)}>
+        <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
 
           {/* Pencil grade — compact vertical slider over the full 6H-6B (+F) range.
               Quick picks: number keys 1-5 jump to H / HB / 2B / 4B / 6B. */}
@@ -1305,7 +1319,7 @@ export function Room() {
             fades in/out, so the panel stays mounted (no lost focus/state)
             and the canvas underneath never resizes, same as header/toolbar
             above. */}
-        <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden)}>
+        <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
           <SidePanel
             active={activePanel}
             onSelect={setActivePanel}

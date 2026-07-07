@@ -29,6 +29,17 @@
   pointer-events: none;
 }
 
+/* #94: while a stroke is active, a resting hand/finger can brush the
+   surrounding chrome (most often the size slider) and corrupt settings
+   partway through drawing. Toggled on the same header/toolbar/layer-panel
+   wrappers as .uiHidden above, but pointer-events only — the UI stays fully
+   visible (unlike .uiHidden's fade), it just stops reacting to touches for
+   the stroke's duration. Unblocks immediately on strokeEnd (see Room's
+   isDrawing state), no transition/delay. */
+.strokeBlocked {
+  pointer-events: none;
+}
+
 /* Right-side overlay slot, currently just LayerPanel but meant to hold
    whatever else ends up docked here too. `display: flex` so its child(ren)
    stretch to fill the full height by default (align-items: stretch) rather
