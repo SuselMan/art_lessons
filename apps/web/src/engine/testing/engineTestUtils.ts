@@ -145,7 +145,7 @@ function nextTimestamp(): number { return ++seqCounter }
 
 export function dab(x: number, y: number, overrides: Partial<Dab> = {}): Dab {
   return {
-    x, y, pressure: 1, tiltX: 0, tiltY: 0, size: 4, aspectRatio: 1, angle: 0, opacity: 1,
+    x, y, pressure: 1, tiltX: 0, tiltY: 0, size: 4, aspectRatio: 1, angle: 0, opacity: 1, t: 0,
     ...overrides,
   }
 }

@@ -210,8 +210,10 @@ export class DabSystem {
     const aspectRatio = 1 + tiltNorm * tiltNorm * 2.0
     const angle      = tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
     // opacity is geometric-neutral here; the engine bakes the final value
-    // (preset × user opacity × speed) before rendering and recording
-    return { x, y, pressure, tiltX, tiltY, size, aspectRatio, angle, opacity: 1 }
+    // (preset × user opacity × speed) before rendering and recording. `t` is
+    // likewise stamped by the engine (PencilEngine._paintStrokeDabs), which
+    // is the only place that knows elapsed wall-clock time.
+    return { x, y, pressure, tiltX, tiltY, size, aspectRatio, angle, opacity: 1, t: 0 }
   }
 }
 

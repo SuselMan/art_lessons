@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, LayerMergeOperation, ImageImportOperation, CursorMoveData } from '@art-lessons/shared'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
 import { DAB_VERT, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { createPaperTexture } from './src/PaperTexture'
@@ -36,6 +36,11 @@ export interface PencilEngineOptions {
   // over the socket from one place instead of every local call site having to
   // remember to.
   onLocalOperation?: (op: Operation) => void
+  // Fired once a peer's stroke reveal (previewOperation, #37 follow-up v2)
+  // has finished playing back every dab — the caller must appendOperation it
+  // ('remote') and re-sync derived state at that point, not on arrival, so
+  // the log/layer-thumbnail state matches what's actually visible on screen.
+  onPreviewApplied?: (op: StrokeOperation) => void
   // When true, tracks per-stroke input/render timing (real pointermove/
   // coalesced-event count and gaps, WebGL paint duration) and reports it via
   // onStrokeDebugStats after each stroke. Off by default — the timing calls
@@ -133,12 +138,26 @@ export interface PencilEngineAPI {
   setColor(rgb: [number, number, number]): void
   pickColor(canvasX: number, canvasY: number): [number, number, number] | null
   setViewport(cx: number, cy: number, zoom: number, angle: number): void
-  // Live remote-stroke preview (#37 follow-up): call on every peer_cursor
-  // with `drawing: true` to feed that peer's pointer samples into their own
-  // dedicated preview buffer (composited on top in _display(), never written
-  // into any real layer). Call with `null` (peer left, or their real stroke
-  // Operation just landed) to discard it — see Room's socket wiring.
-  setPeerPointer(peerId: string, data: CursorMoveData | null): void
+  // Live remote-stroke reveal (#37 follow-up v2): call when a peer's finished
+  // StrokeOperation arrives. Plays its dabs back into a dedicated per-peer
+  // preview buffer (composited on top in _display(), never written into any
+  // real layer) at their original recorded pacing (Dab.t), queueing if that
+  // peer already has one in flight. Fires onPreviewApplied with the exact
+  // same op once every dab has played, so the caller can commit it for real.
+  previewOperation(op: StrokeOperation): void
+  // Cancels a specific peer stroke's reveal *animation* before it's fully
+  // played — used when an operation_undo/operation_revoke targets it before
+  // it ever finished appearing, so its reveal is skipped rather than run to
+  // completion first. Returns the operation itself (or null if it wasn't
+  // pending): the caller must still appendOperation it immediately, right
+  // before the undo/revoke that targets it — dropping the data outright
+  // would leave a later redo with nothing to restore.
+  dropPendingPreview(opId: string): StrokeOperation | null
+  // Cancels a peer's in-flight reveal without discarding data (peer_left):
+  // returns their still-pending ops, in order, so the caller can
+  // appendOperation each immediately instead of losing the peer's last
+  // stroke(s) because they left mid-reveal.
+  flushPeerPreview(peerId: string): StrokeOperation[]
   on(event: EngineEventName, fn: EngineHandler): this
   exportPNG(): Promise<Blob | null>
   destroy(): void
@@ -154,6 +173,25 @@ interface EngineOpts {
   graphiteColor: [number, number, number]
   tool: ToolType
   opacity: number
+}
+
+// One peer's live-stroke reveal state (#37 follow-up v2, see
+// PencilEngineAPI.previewOperation). `queue[0]` is the op currently being
+// revealed; `dabIdx` is how many of its dabs have been painted into `buf` so
+// far; `startTime` is performance.now() when that op's reveal began, the
+// reference point Dab.t is measured against. Scheduled with setTimeout, not
+// requestAnimationFrame: rAF fully stops firing in a hidden/backgrounded tab
+// (e.g. a student who alt-tabbed away), which would leave the underlying
+// operation permanently uncommitted — since onPreviewApplied only fires once
+// the reveal finishes — until they come back. setTimeout is still throttled
+// while hidden but never fully suspended, so the reveal (and the commit
+// after it) always eventually completes regardless of tab visibility.
+interface PeerPreviewState {
+  queue: StrokeOperation[]
+  buf: AccumulationBuffer
+  dabIdx: number
+  startTime: number
+  timer: ReturnType<typeof setTimeout> | null
 }
 
 // Pixel snapshot of a layer after its first `opIds.length` pixel operations.
@@ -211,6 +249,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _opts: EngineOpts
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
+  private _onPreviewApplied?: (op: StrokeOperation) => void
 
   // Debug instrumentation (#91 device investigation) — all no-ops unless
   // _debug is true, so this costs nothing in normal use.
@@ -254,13 +293,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _hapticX = 0
   private _hapticY = 0
 
-  // Live remote-stroke preview (#37 follow-up) — one DabSystem + dedicated
-  // preview AccumulationBuffer per peer currently mid-stroke, keyed by
-  // userId. A peer's entry exists iff they're currently drawing (per the
-  // last setPeerPointer call); it's discarded — never accumulated into any
-  // real layer — the moment their real stroke Operation lands, they stop
-  // drawing, or they leave. See setPeerPointer below.
-  private _peerPreviews = new Map<string, { dabs: DabSystem; buf: AccumulationBuffer }>()
+  // Live remote-stroke reveal (#37 follow-up v2) — one dedicated preview
+  // AccumulationBuffer + FIFO queue of not-yet-committed StrokeOperations per
+  // peer, keyed by userId. Never accumulated into any real layer: the queue
+  // head's dabs are painted progressively at their recorded pacing (Dab.t)
+  // by _stepPeerPreview, and only handed to onPreviewApplied — for the
+  // caller to actually commit — once every dab has played. See
+  // previewOperation/dropPendingPreview/flushPeerPreview below.
+  private _peerPreviews = new Map<string, PeerPreviewState>()
 
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
@@ -301,6 +341,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokePreset: string
   private _strokeColor: [number, number, number]
   private _strokeDabs: Dab[]
+  private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   private _handlers: Partial<Record<EngineEventName, EngineHandler>>
   private _raf: number
@@ -329,6 +370,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._userId = options.userId ?? 'local'
     this._onLocalOperation = options.onLocalOperation
+    this._onPreviewApplied = options.onPreviewApplied
     this._debug = options.debug ?? false
     this._onStrokeDebugStats = options.onStrokeDebugStats
     this._predictPointer = options.predictPointer ?? false
@@ -609,43 +651,101 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
-  /** See PencilEngineAPI's doc comment. A peer's entry existing is exactly
-   *  "currently mid-stroke": `data.drawing` false, or `data` itself null,
-   *  always tears it down; otherwise its absence is what tells apart a fresh
-   *  stroke's first sample (startStroke) from a continuing one
-   *  (continueStroke). Deliberately simpler than the local stroke pipeline —
-   *  no live-tip/pointer-prediction preview, no recorded Dab[] (this never
-   *  becomes an Operation), and `speed` is unknown so opacity's speed factor
-   *  is fixed at 1.0 — this only ever needs to look roughly right until the
-   *  real stroke Operation replaces it. */
-  setPeerPointer(peerId: string, data: CursorMoveData | null): void {
-    const existing = this._peerPreviews.get(peerId)
-    if (!data || !data.drawing) {
-      if (existing) {
-        existing.buf.destroy()
-        this._peerPreviews.delete(peerId)
-        this._display()
+  /** See PencilEngineAPI's doc comment. Queues `op` for its author's reveal;
+   *  starts the reveal loop immediately if this peer has nothing else in
+   *  flight, otherwise it plays once the current head of the queue finishes. */
+  previewOperation(op: StrokeOperation): void {
+    let state = this._peerPreviews.get(op.userId)
+    if (!state) {
+      state = {
+        queue: [], dabIdx: 0, startTime: 0, timer: null,
+        buf: new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height),
       }
+      state.buf.clear()
+      this._peerPreviews.set(op.userId, state)
+    }
+    state.queue.push(op)
+    if (state.timer === null) this._startPeerPreviewHead(op.userId)
+  }
+
+  /** See PencilEngineAPI's doc comment. Searches every peer's queue (not
+   *  just the animating head) since a fast undo can target one still
+   *  waiting behind another still-drawing peer op. Returns the op itself
+   *  (not just whether one was found) — an undo/revoke racing a reveal must
+   *  still commit the underlying stroke to the log (just without animating
+   *  it), or a later redo would find nothing to bring back. Cancelling the
+   *  reveal only ever affects the animation, never the operation data. */
+  dropPendingPreview(opId: string): StrokeOperation | null {
+    for (const [peerId, state] of this._peerPreviews) {
+      const idx = state.queue.findIndex(op => op.id === opId)
+      if (idx === -1) continue
+      const [op] = state.queue.splice(idx, 1)
+      if (idx === 0) {
+        // It was the one actually animating — stop it and either move on to
+        // whatever's queued behind it or tear this peer down entirely.
+        if (state.timer !== null) clearTimeout(state.timer)
+        state.buf.clear()
+        if (state.queue.length) this._startPeerPreviewHead(peerId)
+        else { state.buf.destroy(); this._peerPreviews.delete(peerId); this._display() }
+      }
+      return op
+    }
+    return null
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  flushPeerPreview(peerId: string): StrokeOperation[] {
+    const state = this._peerPreviews.get(peerId)
+    if (!state) return []
+    if (state.timer !== null) clearTimeout(state.timer)
+    state.buf.destroy()
+    this._peerPreviews.delete(peerId)
+    this._display()
+    return state.queue
+  }
+
+  // Starts (or restarts, for the next queued op) animating peerId's queue
+  // head from its first dab.
+  private _startPeerPreviewHead(peerId: string): void {
+    const state = this._peerPreviews.get(peerId)
+    if (!state) return
+    state.dabIdx = 0
+    state.startTime = performance.now()
+    state.timer = setTimeout(() => this._stepPeerPreview(peerId), 16)
+  }
+
+  // One reveal tick for a peer: paints every not-yet-painted dab of the
+  // queue head whose recorded `t` has now elapsed, in original pacing. Once
+  // the whole op is painted, reports it via onPreviewApplied (the caller
+  // commits it for real) and either starts the next queued op or, if the
+  // queue's empty, tears this peer's buffer down. setTimeout (not rAF, see
+  // PeerPreviewState) so this always finishes even in a backgrounded tab.
+  private _stepPeerPreview(peerId: string): void {
+    const state = this._peerPreviews.get(peerId)
+    if (!state) return
+    const op = state.queue[0]
+    if (!op) return
+
+    const elapsed = performance.now() - state.startTime
+    const due: Dab[] = []
+    while (state.dabIdx < op.dabs.length && op.dabs[state.dabIdx].t <= elapsed) {
+      due.push(op.dabs[state.dabIdx])
+      state.dabIdx++
+    }
+    if (due.length) {
+      this._paintDabs(state.buf, due, op.tool, op.preset, op.color)
+      this._display()
+    }
+
+    if (state.dabIdx >= op.dabs.length) {
+      this._onPreviewApplied?.(op)
+      state.queue.shift()
+      state.buf.clear()
+      if (state.queue.length) this._startPeerPreviewHead(peerId)
+      else { state.timer = null; state.buf.destroy(); this._peerPreviews.delete(peerId); this._display() }
       return
     }
-
-    const size = this._toPhysicalSize(data.size)
-    let dabs: Dab[]
-    let state = existing
-    if (!state) {
-      state = { dabs: new DabSystem(), buf: new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height) }
-      state.buf.clear()
-      this._peerPreviews.set(peerId, state)
-      dabs = state.dabs.startStroke(data.x, data.y, data.pressure, data.tiltX, data.tiltY, size)
-    } else {
-      dabs = state.dabs.continueStroke(data.x, data.y, data.pressure, data.tiltX, data.tiltY, size)
-    }
-
-    if (dabs.length) {
-      this._bakeDabOpacity(dabs, 0, data.tool, data.preset, data.opacity)
-      this._paintDabs(state.buf, dabs, data.tool, data.preset, data.color)
-    }
-    this._display()
+    state.timer = setTimeout(() => this._stepPeerPreview(peerId), 16)
   }
 
   on(event: EngineEventName, fn: EngineHandler): this {
@@ -667,7 +767,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._previewBuf = null
     this._tipBuf?.destroy()
     this._tipBuf = null
-    for (const { buf } of this._peerPreviews.values()) buf.destroy()
+    for (const { buf, timer } of this._peerPreviews.values()) {
+      if (timer !== null) clearTimeout(timer)
+      buf.destroy()
+    }
     this._peerPreviews.clear()
     this._checkpoints = []
     this._checkpointBytes = 0
@@ -889,12 +992,9 @@ export class PencilEngine implements PencilEngineAPI {
     return this._toPhysicalSize(this._opts.size)
   }
 
-  // Same CSS-px → canvas-physical-px conversion _physicalSize applies to
-  // this user's own brush size, factored out so setPeerPointer can apply it
-  // to a peer's broadcast `size` too — the ratio only depends on this
-  // canvas's own width/clientWidth (fixed by the shared room config, not by
-  // either side's device DPI), so it's the same conversion regardless of
-  // whose stroke it is.
+  // CSS-px → canvas-physical-px conversion for this user's own brush size —
+  // factored out of _physicalSize only because it reads _opts.size, which a
+  // getter can't parameterize.
   private _toPhysicalSize(size: number): number {
     return size * (this.canvas.width / (this.canvas.clientWidth || this.canvas.width))
   }
@@ -910,6 +1010,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     this._strokeDabs    = []
+    this._strokeStartTimestamp = e.timeStamp
     if (this._debug) {
       const now = performance.now()
       this._dbgMoveEvents = 0
@@ -941,7 +1042,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._hapticY = e.y
     }
     const dabs = this._dabs.startStroke(e.x, e.y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
-    this._paintStrokeDabs(dabs, e.speed)
+    this._paintStrokeDabs(dabs, e.speed, 0)
     this._display()
     this._handlers.strokeStart?.(e)
   }
@@ -972,7 +1073,7 @@ export class PencilEngine implements PencilEngineAPI {
     let painted = false
     if (dabs.length) {
       const t0 = this._debug ? performance.now() : 0
-      this._paintStrokeDabs(dabs, e.speed)
+      this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
       painted = true
       if (this._debug) {
         const paintedAt = performance.now()
@@ -1046,7 +1147,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!layerId) return
     const t0 = this._debug ? performance.now() : 0
     const dabs = this._dabs.endStroke(this._physicalSize)
-    if (dabs.length) this._paintStrokeDabs(dabs, e.speed)
+    if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
     // Discard the speculative preview entirely once the real stroke has
     // ended — the final _display() below must show only real content.
     if (this._previewBuf) {
@@ -1098,10 +1199,10 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Bakes final dab opacity (preset × user opacity × speed) in place. Shared
    *  by the real stroke path and the #92 prediction preview, so predicted
-   *  dabs render with visually consistent opacity to real ones. */
-  // tool/presetName/opacity are explicit (rather than always reading this
-  // user's own _strokeTool/_strokePreset/_opts.opacity) so setPeerPointer can
-  // reuse this for a peer's own tool/preset/opacity — see there.
+   *  dabs render with visually consistent opacity to real ones. tool/
+   *  presetName/opacity are explicit params (rather than always reading this
+   *  user's own _strokeTool/_strokePreset/_opts.opacity) purely so both
+   *  callers can pass their own state through one shared implementation. */
   private _bakeDabOpacity(dabs: Dab[], speed: number, tool: ToolType, presetName: string, opacity: number): void {
     const erasing     = tool === 'eraser'
     const preset      = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
@@ -1113,17 +1214,21 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  /** Bakes final dab opacity, paints, and buffers the dabs for the
-   *  StrokeOperation recorded on pointer up. Live strokes and replay share
-   *  _paintDabs, so replay is pixel-identical. Real dabs only — #92's
+  /** Bakes final dab opacity, stamps Dab.t, paints, and buffers the dabs for
+   *  the StrokeOperation recorded on pointer up. Live strokes and replay
+   *  share _paintDabs, so replay is pixel-identical. Real dabs only — #92's
    *  predicted dabs go through _onPredict → _previewBuf instead and must
-   *  never reach this method (that's what keeps them out of _strokeDabs). */
-  private _paintStrokeDabs(dabs: Dab[], speed: number): void {
+   *  never reach this method (that's what keeps them out of _strokeDabs).
+   *  `elapsedMs` is this call's dabs' distance from _strokeStartTimestamp —
+   *  a peer's live-stroke reveal (previewOperation) plays them back at this
+   *  pacing. */
+  private _paintStrokeDabs(dabs: Dab[], speed: number, elapsedMs: number): void {
     if (!dabs.length || !this._strokeLayerId) return
     const buf = this._layers.get(this._strokeLayerId)
     if (!buf) return
 
     this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
+    for (const dab of dabs) dab.t = elapsedMs
     this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
     this._strokeDabs.push(...dabs)
   }
@@ -1312,10 +1417,11 @@ export class PencilEngine implements PencilEngineAPI {
       this._compositeTextures([{ texture: this._previewBuf.texture, opacity: 1 }], this._compositeFBO.fbo)
     }
 
-    // Live remote-stroke previews (#37 follow-up): one per currently-drawing
-    // peer, same blend, on top of everything else — see setPeerPointer.
-    // Order among multiple simultaneous peers is arbitrary (Map insertion
-    // order); their strokes are independent so this never matters visually.
+    // Live remote-stroke reveals (#37 follow-up v2): one per peer currently
+    // replaying a stroke, same blend, on top of everything else — see
+    // previewOperation. Order among multiple simultaneous peers is arbitrary
+    // (Map insertion order); their strokes are independent so this never
+    // matters visually.
     for (const { buf } of this._peerPreviews.values()) {
       this._compositeTextures([{ texture: buf.texture, opacity: 1 }], this._compositeFBO.fbo)
     }

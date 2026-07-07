@@ -185,6 +185,12 @@ export function Room() {
   const lastActiveAtRef   = useRef<Record<string, number>>({})
   const strokeActiveRef   = useRef(false)
   const lastCursorSentRef = useRef(0)
+  // Stroke ops whose live reveal (previewOperation) hasn't finished playing
+  // yet — i.e. not yet appendOperation'd into the log/layer. Consulted by
+  // handlePeerOperation so a fast operation_undo/operation_revoke targeting
+  // one of these can drop it from the reveal instead of trying (and
+  // silently failing) to undo an op the log was never given.
+  const pendingPreviewOpIdsRef = useRef<Set<string>>(new Set())
   const configRef         = useRef(config)
   // A joiner's first room_state can arrive before the engine exists — we need
   // that very event to learn `config` in the first place, and the engine only
@@ -213,13 +219,6 @@ export function Room() {
 
   const activeCfg    = tool === 'pencil' ? pencilCfg : eraserCfg
   const setActiveCfg = tool === 'pencil' ? setPencilCfg : setEraserCfg
-
-  // Current tool/brush state, read by the #37 cursor-broadcast listener
-  // below — a ref (rather than a dependency the effect rebinds on) so
-  // switching pencil grade/size/color mid-stroke doesn't tear down and
-  // reattach a raw DOM listener, same reasoning as vpValueRef just below.
-  const cursorBroadcastRef = useRef({ tool, preset: pencil, color, size: activeCfg.size, opacity: activeCfg.opacity, layerId: layerState.activeId })
-  cursorBroadcastRef.current = { tool, preset: pencil, color, size: activeCfg.size, opacity: activeCfg.opacity, layerId: layerState.activeId }
 
   // Read directly inside useViewport's native pointerdown listener — see
   // that hook's doc comment for why a ref (checked synchronously, before
@@ -307,6 +306,13 @@ export function Room() {
       onLocalOperation: op => {
         socketRef.current?.emit('operation', op)
         if (op.type === 'stroke') markActive(userIdRef.current)
+      },
+      // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
+      // commit it for real now, matching what's already visible on screen.
+      onPreviewApplied: op => {
+        pendingPreviewOpIdsRef.current.delete(op.id)
+        applyRemoteOp(op)
+        syncFromLog()
       },
       debug: debugEnabled,
       onStrokeDebugStats: debugEnabled ? setStrokeStats : undefined,
@@ -416,11 +422,11 @@ export function Room() {
   // touch drives pan/pinch/rotate here (see useViewport), not pointing, so
   // broadcasting it made a peer's cursor jump around whenever a finger
   // touched down to pan while a peer was mid-gesture (see chat).
-  // Piggybacks pressure/tilt/drawing/tool state onto the same payload (see
-  // CursorMoveData in packages/shared) rather than a second "live stroke"
-  // broadcast — lets a peer render a lightweight preview of the stroke in
-  // progress (see engine.setPeerPointer) off the exact same throttled
-  // channel that already drives their cursor dot.
+  // `drawing` (see CursorMoveData in packages/shared) tells peers to freeze
+  // this cursor at its last position instead of following it — the actual
+  // stroke shape isn't approximated live any more (#37 follow-up v2): peers
+  // instead replay the finished StrokeOperation's own dabs once it lands
+  // (see handlePeerOperation below).
   useEffect(() => {
     const el = vpRef.current
     if (!el || !config) return
@@ -436,12 +442,7 @@ export function Room() {
         { cx: rect.left + cx, cy: rect.top + cy, zoom, angle },
         config,
       )
-      socketRef.current?.emit('cursor_move', {
-        x, y,
-        pressure: e.pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0,
-        drawing: strokeActiveRef.current,
-        ...cursorBroadcastRef.current,
-      })
+      socketRef.current?.emit('cursor_move', { x, y, drawing: strokeActiveRef.current })
     }
     el.addEventListener('pointermove', handleMove)
     return () => el.removeEventListener('pointermove', handleMove)
@@ -636,19 +637,51 @@ export function Room() {
         setConfig(toRoomConfig(room))
         return
       }
-      for (const op of operations) applyRemoteOp(op)
+      // A reconnect's full-history replay supersedes any reveal still
+      // in-flight from before the drop — cancel it rather than let it keep
+      // painting the same stroke a second time on top of what this loop is
+      // about to commit directly.
+      for (const op of operations) {
+        if (pendingPreviewOpIdsRef.current.has(op.id)) {
+          engineRef.current?.dropPendingPreview(op.id)
+          pendingPreviewOpIdsRef.current.delete(op.id)
+        }
+        applyRemoteOp(op)
+      }
       syncFromLog()
       dispatchParticipants({ type: 'room_state', participants: roomParticipants })
     }
 
     const handlePeerOperation = (op: Operation) => {
+      // Stroke ops are revealed progressively (#37 follow-up v2) rather than
+      // committed on arrival — see the engine's onPreviewApplied option
+      // above, which does the actual applyRemoteOp/syncFromLog once the
+      // reveal finishes playing every dab back.
+      if (op.type === 'stroke') {
+        pendingPreviewOpIdsRef.current.add(op.id)
+        engineRef.current?.previewOperation(op)
+        return
+      }
+      // An undo/revoke racing a still-revealing stroke of its own: skip the
+      // animation, but still commit the stroke to the log immediately right
+      // before the undo/revoke that targets it — both applied synchronously
+      // here, so nothing is ever actually painted to screen, but the log
+      // still has a 'done'-then-'undone' entry a later redo can restore.
+      // Dropping the operation outright (rather than just its animation)
+      // would leave OperationLog.applyUndo/Redo with no entry to flip.
+      if (
+        (op.type === 'operation_undo' || op.type === 'operation_revoke') &&
+        pendingPreviewOpIdsRef.current.has(op.targetOpId)
+      ) {
+        const target = engineRef.current?.dropPendingPreview(op.targetOpId)
+        pendingPreviewOpIdsRef.current.delete(op.targetOpId)
+        if (target) applyRemoteOp(target)
+        applyRemoteOp(op)
+        syncFromLog()
+        return
+      }
       applyRemoteOp(op)
       syncFromLog()
-      // The real stroke just landed for real — drop any live preview for
-      // this peer immediately rather than waiting for their next (or
-      // "drawing: false") cursor_move, so it's never briefly doubled with
-      // the just-committed pixels.
-      if (op.type === 'stroke') engineRef.current?.setPeerPointer(op.userId, null)
     }
 
     const handlePeerJoined = (participant: Participant) => {
@@ -664,13 +697,23 @@ export function Room() {
         return next
       })
       delete lastActiveAtRef.current[leftUserId]
-      engineRef.current?.setPeerPointer(leftUserId, null)
+      // They left mid-reveal — commit whatever of their last stroke(s) had
+      // already arrived rather than losing it, just without the animation.
+      const stranded = engineRef.current?.flushPeerPreview(leftUserId) ?? []
+      for (const op of stranded) {
+        pendingPreviewOpIdsRef.current.delete(op.id)
+        applyRemoteOp(op)
+      }
+      if (stranded.length) syncFromLog()
     }
 
     const handlePeerCursor = (data: CursorMoveData & { userId: string }) => {
-      const { userId: peerId, x, y } = data
+      const { userId: peerId, x, y, drawing } = data
+      // Frozen while they're mid-stroke (#37 follow-up v2) — the dot stays
+      // put at wherever it last was until the finished stroke reveals, since
+      // there's no live approximation of the in-progress shape any more.
+      if (drawing) return
       setPeerCursors(prev => ({ ...prev, [peerId]: { userId: peerId, x, y } }))
-      engineRef.current?.setPeerPointer(peerId, data)
     }
 
     const handleDisconnect = () => setConnected(false)

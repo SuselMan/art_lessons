@@ -84,6 +84,11 @@ export type Dab = {
   // Final dab opacity, baked at record time (preset × user opacity × stroke
   // speed). Replay has no live pointer speed, so it must not recompute this.
   opacity: number
+  // Milliseconds since the stroke's first dab (always 0 for that first dab).
+  // Undo/redo/checkpoint replay ignore it (paints the whole array at once),
+  // but a peer's live-stroke reveal (#37 follow-up v2) uses it to play the
+  // recorded dabs back at the original pacing instead of all at once.
+  t: number
 }
 
 type OperationBase = {
@@ -244,25 +249,17 @@ export type JoinResult =
   | { ok: true; userId: string }
   | { ok: false; error: 'not_found' | 'wrong_password' }
 
-/** Broadcast alongside the peer cursor position (#37) — enough live pen/tool
- *  state for a peer to render a lightweight preview of an in-progress stroke
- *  (see PencilEngine.setPeerPointer), not just a floating dot. Piggybacked
- *  onto the existing throttled cursor_move channel rather than a second
- *  "live stroke" broadcast — this data is small and already changes at
- *  cursor-move cadence or slower. */
+/** Broadcast alongside the peer cursor position (#37). `drawing` tells peers
+ *  to freeze the cursor dot at its last position instead of following the
+ *  pointer — the actual stroke shape is unknown until the finished
+ *  StrokeOperation arrives (see #37 follow-up v2: peers replay its `dabs`
+ *  with original pacing rather than approximating the stroke live from
+ *  partial samples, which used to visibly redraw/snap once the real
+ *  Operation landed). */
 export type CursorMoveData = {
   x: number
   y: number
-  pressure: number
-  tiltX: number
-  tiltY: number
   drawing: boolean // true while a stroke is actively in progress
-  tool: ToolType
-  preset: string
-  color: [number, number, number]
-  size: number     // physical brush size at send time
-  opacity: number
-  layerId: string
 }
 
 export type ServerToClientEvents = {
