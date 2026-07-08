@@ -366,6 +366,41 @@ export class PencilEngine implements PencilEngineAPI {
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
 
+  // Below/above split-composite cache (#122) — _runComposite normally
+  // re-blits every visible layer/folder-child from _compositeOrder into
+  // _compositeFBO on every call, which is the thing this whole cache exists
+  // to avoid: cost scales linearly with layer count even though a painted
+  // move-event only ever changes the *active* layer's own texture. Instead,
+  // _belowCache holds every _compositeOrder entry strictly below the active
+  // layer pre-blended into one buffer, _aboveCache the same for entries
+  // strictly above it; the active layer's own (always-current) texture is
+  // composited between them fresh each frame. Neither cache ever contains
+  // the active layer's own pixels, so repainting it (the hot path — see
+  // _paintStrokeDabs) never has to invalidate anything here.
+  //
+  // _splitCacheDirty is the single source of truth for staleness — see
+  // _invalidateSplitCache(). It must flip true on *every* event that can
+  // change what's baked into either half: _compositeOrder or _activeId
+  // themselves changing (setCompositeOrder/setActiveLayer), or any pixel
+  // mutation landing on a layer other than the current active one (remote
+  // stroke/layer_clear/image_import, layer_transform bake — #120 — merge,
+  // structural undo/redo replay, context restore). Grep this file for
+  // `_invalidateSplitCache(` for the exhaustive list of call sites; each is
+  // commented with why it must invalidate. Deliberately conservative: when
+  // in doubt a call site invalidates rather than trying to prove it's safe
+  // not to, since a missed invalidation would silently composite stale
+  // pixels (wrong blend order can look almost-right — see the issue).
+  //
+  // Bypassed entirely (not read, not written) whenever a layer-transform
+  // gizmo preview is active (_transformPreview.size > 0, #120): that path
+  // can substitute scratch content for *any* layer, active or not, on every
+  // drag frame, and reasoning about invalidating a persistent cache through
+  // it isn't worth it — drags aren't the hot path this exists for. See
+  // _runComposite.
+  private _belowCache!: AccumulationBuffer
+  private _aboveCache!: AccumulationBuffer
+  private _splitCacheDirty = true
+
   // Live layer-transform gizmo preview (#120) — one scratch buffer per
   // layer currently being dragged, keyed by layerId. Same non-destructive
   // pattern as _previewBuf/_tipBuf: the real layer buffer is never touched
@@ -490,6 +525,8 @@ export class PencilEngine implements PencilEngineAPI {
 
   setActiveLayer(id: string): void {
     this._activeId = id
+    // #122: moves the below/above split point itself.
+    this._invalidateSplitCache()
   }
 
   setLocked(locked: boolean): void {
@@ -498,6 +535,12 @@ export class PencilEngine implements PencilEngineAPI {
 
   setCompositeOrder(items: CompositeItem[]): void {
     this._compositeOrder = items
+    // #122: order/opacity/visibility/add/delete/merge/reorder all funnel
+    // through here (the caller always pushes a freshly computed array — see
+    // lib/layers.ts's computeCompositeOrder) — unconditional invalidation is
+    // cheap and doesn't need to reason about whether this particular call
+    // actually changed anything relative to the last one.
+    this._invalidateSplitCache()
     this._display()
   }
 
@@ -537,12 +580,21 @@ export class PencilEngine implements PencilEngineAPI {
         break
       case 'layer_delete':
         for (const id of op.layerIds) this._destroyBuffer(id)
+        // #122: removes entries from what the below/above cache was built
+        // from — unconditional, not worth checking whether any deleted id
+        // happened to already be excluded (e.g. hidden).
+        this._invalidateSplitCache()
         this._display()
         break
       case 'layer_clear': {
         const clearBuf = this._layers.get(op.layerId)
         if (clearBuf) {
           clearBuf.clear()
+          // #122: a remote layer_clear (or this client's own, via clear())
+          // can target any layer, not necessarily this client's active one —
+          // only invalidate when it lands on a layer the cache actually
+          // holds baked pixels for.
+          if (op.layerId !== this._activeId) this._invalidateSplitCache()
           this._display()
         } else {
           // Target layer doesn't currently exist — e.g. this clear raced a
@@ -565,6 +617,12 @@ export class PencilEngine implements PencilEngineAPI {
         if (buf) {
           this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color)
           this._maybeCheckpoint(op.layerId)
+          // #122: this branch is only reached for strokes this engine
+          // instance didn't itself just paint (remote peer strokes, or
+          // replay) — a remote author's active layer can easily differ from
+          // this client's own, so their stroke can land on a layer this
+          // client's cache has baked into below/above.
+          if (op.layerId !== this._activeId) this._invalidateSplitCache()
           this._display()
         } else {
           // See the layer_clear branch above: a pixel op with no live
@@ -597,6 +655,13 @@ export class PencilEngine implements PencilEngineAPI {
           if (!buf) continue
           this._bakeTransform(buf, t.matrix)
           this._maybeCheckpoint(t.layerId)
+          // #122: layer_transform is pixel-only — it never changes
+          // LayerState/_compositeOrder, so (unlike stroke/clear/merge) Room
+          // never calls setCompositeOrder in reaction to it. Each transformed
+          // entry that isn't the active layer must invalidate here directly,
+          // or a below/above layer could get baked into a new position/
+          // orientation with the cache never finding out.
+          if (t.layerId !== this._activeId) this._invalidateSplitCache()
           appliedAny = true
         }
         if (appliedAny) this._display()
@@ -936,6 +1001,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._pointer.destroy()
     this._layers.forEach(buf => buf.destroy())
     this._compositeFBO.destroy()
+    this._belowCache.destroy()
+    this._aboveCache.destroy()
     this._previewBuf?.destroy()
     this._previewBuf = null
     this._tipBuf?.destroy()
@@ -980,6 +1047,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  done layer_delete or consumed as a done merge source). Ids are never
    *  reused, so no ordering analysis is needed. */
   private _syncBuffersToLog(): void {
+    // #122: called for undo/redo/revoke of layer_add/layer_delete/
+    // layer_merge and from context restore — both can create/destroy an
+    // arbitrary set of layers relative to what the cache last saw.
+    // Unconditional: cheap, and simpler than working out in advance whether
+    // any of the (possibly several) affected ids matter to the cache.
+    this._invalidateSplitCache()
     const created   = new Set(this._baseLayerIds)
     const destroyed = new Set<string>()
     for (const op of this._log.doneOperations()) {
@@ -1012,6 +1085,11 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(layerId)
     if (!buf) return
     this._replayInto(buf, layerId, this._log.layerPixelOps(layerId))
+    // #122: single choke point for all three callers (undo/redo/revoke of a
+    // stroke/layer_clear/layer_transform, and _syncBuffersToLog's own replay
+    // of a freshly-recreated layer) — whichever layer this rebuild just
+    // touched, invalidate unless it's the one layer the cache doesn't cache.
+    if (layerId !== this._activeId) this._invalidateSplitCache()
   }
 
   private _replayInto(buf: AccumulationBuffer, layerId: string, ops: PixelOperation[]): void {
@@ -1071,6 +1149,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  composite them directly instead of rebuilding. The immediate checkpoint
    *  spares the recursive source rebuild on any later undo above this layer. */
   private _execMergeLive(op: LayerMergeOperation): void {
+    // #122: sources are destroyed and a new target buffer object takes their
+    // place — always structural, regardless of whether any of the ids
+    // involved happen to be the active layer.
+    this._invalidateSplitCache()
     const { gl, canvas } = this
     const target = new AccumulationBuffer(gl, canvas.width, canvas.height)
     target.clear()
@@ -1228,6 +1310,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._screenBuf = createFullscreenQuad(gl)
 
     this._compositeFBO = new AccumulationBuffer(gl, canvas.width, canvas.height)
+    // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
+    // previously baked content is gone either way, so the split cache must
+    // be rebuilt before its next read regardless of why _initGL() ran.
+    this._belowCache = new AccumulationBuffer(gl, canvas.width, canvas.height)
+    this._aboveCache = new AccumulationBuffer(gl, canvas.width, canvas.height)
+    this._splitCacheDirty = true
   }
 
   private _initPaper(type: PaperType): void {
@@ -1498,6 +1586,15 @@ export class PencilEngine implements PencilEngineAPI {
     for (const dab of dabs) dab.t = elapsedMs
     this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
     this._strokeDabs.push(...dabs)
+    // #122: this is the hot path the split cache exists to keep off — a
+    // stroke normally targets _strokeLayerId, captured as _activeId at
+    // _onStart, and stays there for the stroke's whole duration, so this is
+    // deliberately *not* an unconditional invalidate. Defensive check only:
+    // if the active layer was switched mid-stroke (setActiveLayer already
+    // invalidated for that), _strokeLayerId can still legitimately diverge
+    // from _activeId for the rest of this stroke, and every further dab
+    // painted into it must keep invalidating too, not just the first one.
+    if (this._strokeLayerId !== this._activeId) this._invalidateSplitCache()
   }
 
   // ─── Reference image import (#88) ──────────────────────────────────────────────
@@ -1563,6 +1660,10 @@ export class PencilEngine implements PencilEngineAPI {
     buf.endDraw()
 
     gl.deleteTexture(texture)
+    // #122: single choke point for both callers (appendOperation's live
+    // path and _applyPixelOp's replay path) — an image_import can target
+    // any layer, so only invalidate when it isn't the active one.
+    if (op.layerId !== this._activeId) this._invalidateSplitCache()
     this._display()
   }
 
@@ -1647,14 +1748,97 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  private _runComposite(items: CompositeItem[], targetFbo: WebGLFramebuffer): void {
+  /** Marks the below/above split cache (#122 — see the field comment on
+   *  _belowCache/_aboveCache) stale. Idempotent and cheap: safe to call from
+   *  any site that isn't sure whether it actually needs to. The very next
+   *  _runComposite() call rebuilds both halves from current buffer state
+   *  before reading either. */
+  private _invalidateSplitCache(): void {
+    this._splitCacheDirty = true
+  }
+
+  /** Resolves each CompositeItem's live texture — a layer mid-gizmo-drag
+   *  (#120) composites its scratch transform preview instead of its real,
+   *  untouched buffer; see previewLayerTransform. Shared by the split-cache
+   *  rebuild below and the full-recompute fallback _runComposite uses while
+   *  a preview is active (at which point _transformPreview is never empty,
+   *  so this always resolves to the override where one exists — see there
+   *  for why that path never consults the split cache at all). */
+  private _resolveEntries(items: CompositeItem[]): Array<{ texture: WebGLTexture; opacity: number }> {
     const entries: Array<{ texture: WebGLTexture; opacity: number }> = []
     for (const { id, opacity } of items) {
-      // A layer mid-gizmo-drag composites its live preview instead of its
-      // real (untouched) buffer — see previewLayerTransform.
       const buf = this._transformPreview.get(id) ?? this._layers.get(id)
       if (buf) entries.push({ texture: buf.texture, opacity })
     }
+    return entries
+  }
+
+  /** Rebuilds both cache halves from scratch iff _splitCacheDirty — see the
+   *  _belowCache/_aboveCache field comment for what "dirty" tracks. Only
+   *  ever called with _transformPreview empty (_runComposite bypasses this
+   *  entirely otherwise), so every texture resolved here is a real layer's
+   *  own current buffer, never a scratch preview. */
+  private _rebuildSplitCacheIfDirty(belowItems: CompositeItem[], aboveItems: CompositeItem[]): void {
+    if (!this._splitCacheDirty) return
+    this._rebuildCacheHalf(this._belowCache, belowItems)
+    this._rebuildCacheHalf(this._aboveCache, aboveItems)
+    this._splitCacheDirty = false
+  }
+
+  private _rebuildCacheHalf(target: AccumulationBuffer, items: CompositeItem[]): void {
+    target.clear()
+    if (!items.length) return
+    this._compositeTextures(this._resolveEntries(items), target.fbo)
+  }
+
+  /** #122: normally recomposites *every* visible layer/folder-child from
+   *  `items` into `targetFbo` on every call — cost scaling linearly with
+   *  layer count even though a painted move-event only ever changes the
+   *  active layer's own texture (see _paintStrokeDabs). Instead, splits
+   *  `items` around the active layer and composites:
+   *
+   *    [ below-cache (opacity 1) ] → [ active layer (its own opacity) ] → [ above-cache (opacity 1) ]
+   *
+   *  where below-cache/above-cache are the pre-blended result of every
+   *  entry strictly below/above the active layer (rebuilt only when
+   *  _splitCacheDirty — see _invalidateSplitCache's call sites). Porter-Duff
+   *  "over" is associative, so grouping contiguous runs into one
+   *  already-composited texture and blending *that* at opacity 1 produces
+   *  the exact same result as blending every entry individually in order —
+   *  same technique this file already uses for layer_merge
+   *  (_execMergeLive/_replayMergeInto).
+   *
+   *  Bypassed entirely whenever a layer-transform gizmo preview (#120) is
+   *  active: previewLayerTransform can substitute scratch content for *any*
+   *  layer, active or not, on every drag frame, and that's rare enough
+   *  (drags, not paint dabs) that reasoning about invalidating a persistent
+   *  cache through it isn't worth it — this falls back to exactly the old
+   *  (pre-#122) per-frame full recompute for as long as any preview exists. */
+  private _runComposite(items: CompositeItem[], targetFbo: WebGLFramebuffer): void {
+    if (this._transformPreview.size > 0) {
+      this._compositeTextures(this._resolveEntries(items), targetFbo)
+      return
+    }
+
+    const idx = this._activeId !== null ? items.findIndex(it => it.id === this._activeId) : -1
+    // idx === -1 (no active layer, or it's not currently composited — e.g.
+    // hidden): treat everything as "below" and composite no separate active
+    // entry, exactly matching what a plain full recompute of `items` would
+    // have produced (the active id, absent from `items`, was never going to
+    // be drawn either way).
+    const belowItems  = idx === -1 ? items : items.slice(0, idx)
+    const activeItem  = idx === -1 ? null  : items[idx]
+    const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
+
+    this._rebuildSplitCacheIfDirty(belowItems, aboveItems)
+
+    const entries: Array<{ texture: WebGLTexture; opacity: number }> = []
+    if (belowItems.length) entries.push({ texture: this._belowCache.texture, opacity: 1 })
+    if (activeItem) {
+      const buf = this._layers.get(activeItem.id)
+      if (buf) entries.push({ texture: buf.texture, opacity: activeItem.opacity })
+    }
+    if (aboveItems.length) entries.push({ texture: this._aboveCache.texture, opacity: 1 })
     this._compositeTextures(entries, targetFbo)
   }
 
