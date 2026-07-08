@@ -19,6 +19,20 @@
 // vec4(0,0,0,eraseAmount) blended with (ZERO, ONE_MINUS_SRC_ALPHA), which
 // scales all four channels by the same factor). So the mock stores a single
 // scalar per texel instead of 4, and replicates it on readback.
+//
+// #123 (batched dab rendering via ANGLE_instanced_arrays): getExtension
+// returns a working shim by default (mirroring real WebGL1, where the
+// extension is effectively always available), so every existing pixel test
+// in this suite exercises the batched path by default — the same broad
+// regression coverage real browsers get. _drawInstanced below reuses
+// _rasterDab per instance (same math, same call, same order as the
+// uniform-driven fallback loop) so it validates that engine code packs the
+// right per-dab values into the instance buffer in the right order; it does
+// NOT validate that real GPU hardware actually preserves cross-instance
+// blend order — that's a WebGL/OpenGL ES spec guarantee (see
+// _paintDabsInstanced's docstring in engine/index.ts), checked here by
+// construction (this mock always loops instances 0..N-1 in order) and,
+// ideally, by an actual browser run.
 
 type UniformValue = number | number[]
 
@@ -108,6 +122,17 @@ export class MockGL {
   private _clearAlpha = 0
   private _shaderSources = new Map<object, { type: number; source: string }>()
 
+  // ── vertex attributes / instancing (#123) ───────────────────────────────
+  private _boundArrayBuffer: object | null = null
+  private _bufferData = new Map<object, Float32Array>()
+  private _attribLocByName = new Map<object, Map<string, number>>() // program -> name -> location
+  private _attribNameByLoc = new Map<number, string>()
+  private _nextAttribLoc = 0
+  private _attribBindings = new Map<number, {
+    buffer: object | null; size: number; strideBytes: number; offsetBytes: number
+    divisor: number; enabled: boolean
+  }>()
+
   // ── shaders / programs ──────────────────────────────────────────────────
 
   createShader(type: number): object {
@@ -167,15 +192,58 @@ export class MockGL {
     loc.program.uniforms.set(loc.name, Array.from(v))
   }
 
-  getAttribLocation(_program: object, _name: string): number { return 0 }
-  enableVertexAttribArray(_loc: number): void { /* no-op: geometry is uniform-driven in this mock */ }
-  vertexAttribPointer(): void { /* no-op */ }
+  // Distinct per (program, name) — #123's instanced dab program has several
+  // attributes (a_position/a_instA/a_instB/a_opacity) that each need their
+  // own index so _drawInstanced can tell them apart via _attribNameByLoc;
+  // the pre-#123 single-attribute-per-program world never needed that, only
+  // a stable per-program value to round-trip through enable/pointer calls.
+  getAttribLocation(program: object, name: string): number {
+    let byName = this._attribLocByName.get(program)
+    if (!byName) { byName = new Map(); this._attribLocByName.set(program, byName) }
+    let loc = byName.get(name)
+    if (loc === undefined) {
+      loc = this._nextAttribLoc++
+      byName.set(name, loc)
+      this._attribNameByLoc.set(loc, name)
+    }
+    return loc
+  }
+
+  enableVertexAttribArray(loc: number): void {
+    const b = this._attribBindings.get(loc) ?? { buffer: null, size: 2, strideBytes: 0, offsetBytes: 0, divisor: 0, enabled: false }
+    b.enabled = true
+    this._attribBindings.set(loc, b)
+  }
+
+  vertexAttribPointer(loc: number, size: number, _type: number, _normalized: boolean, strideBytes: number, offsetBytes: number): void {
+    const existing = this._attribBindings.get(loc)
+    this._attribBindings.set(loc, {
+      buffer: this._boundArrayBuffer,
+      size, strideBytes, offsetBytes,
+      divisor: existing?.divisor ?? 0,
+      enabled: existing?.enabled ?? false,
+    })
+  }
 
   // ── buffers ──────────────────────────────────────────────────────────────
 
   createBuffer(): object { return {} }
-  bindBuffer(): void { /* no-op */ }
-  bufferData(): void { /* no-op */ }
+
+  bindBuffer(_target: number, buf: object | null): void { this._boundArrayBuffer = buf }
+
+  // Only ARRAY_BUFFER is ever bound in this codebase (no index buffers) —
+  // stores a Float32Array copy so #123's instanced attributes can be read
+  // back per-instance in _drawInstanced. Pre-#123 callers (createQuadBuffer/
+  // createFullscreenQuad) also call this, but the mock never needed the
+  // contents before — harmless to now store them too.
+  bufferData(_target: number, data: ArrayBufferView | number[] | null, _usage: number): void {
+    if (!this._boundArrayBuffer || data == null) return
+    const arr = ArrayBuffer.isView(data)
+      ? new Float32Array(data.buffer, data.byteOffset, data.byteLength / 4)
+      : new Float32Array(data)
+    this._bufferData.set(this._boundArrayBuffer, arr.slice())
+  }
+
   deleteBuffer(): void { /* no-op */ }
 
   // ── textures ─────────────────────────────────────────────────────────────
@@ -280,6 +348,27 @@ export class MockGL {
     }
   }
 
+  // #123: ANGLE_instanced_arrays shim. Returns a working object (not null)
+  // so every existing pixel test in this suite exercises the batched dab
+  // path by default, mirroring real WebGL1 where the extension is
+  // effectively always present — see the module docstring.
+  getExtension(name: string): {
+    vertexAttribDivisorANGLE: (index: number, divisor: number) => void
+    drawArraysInstancedANGLE: (mode: number, first: number, count: number, primcount: number) => void
+  } | null {
+    if (name !== 'ANGLE_instanced_arrays') return null
+    return {
+      vertexAttribDivisorANGLE: (index: number, divisor: number) => {
+        const b = this._attribBindings.get(index) ?? { buffer: null, size: 2, strideBytes: 0, offsetBytes: 0, divisor: 0, enabled: false }
+        b.divisor = divisor
+        this._attribBindings.set(index, b)
+      },
+      drawArraysInstancedANGLE: (_mode: number, _first: number, _count: number, primcount: number) => {
+        this._drawInstanced(primcount)
+      },
+    }
+  }
+
   readPixels(_x: number, _y: number, width: number, height: number, _format: number, _type: number, out: Uint8Array): void {
     const info = this._currentTargetTexture()
     if (!info) { out.fill(0); return }
@@ -299,6 +388,55 @@ export class MockGL {
 
   private _blendSrcFactor(): number {
     return this._blendSrc === ENUM.ONE ? 1 : 0
+  }
+
+  // #123: replays the same per-instance dab in submission order (0..N-1),
+  // each going through the exact same _rasterDab call/blend the uniform-
+  // driven fallback loop uses — this is what makes the mock a faithful
+  // regression check for "did engine code pack the right values, in the
+  // right order, into the instance buffer," not a check of GPU rasterizer
+  // internals (see module docstring).
+  private _drawInstanced(primcount: number): void {
+    const prog = this._currentProgram
+    if (!prog) return
+    const info = this._currentTargetTexture()
+    if (!info) return
+    if (prog.fragTag !== 'dab') return // only the batched dab path instances in this codebase
+
+    for (let i = 0; i < primcount; i++) {
+      const merged = new Map(prog.uniforms)
+      for (const [loc, b] of this._attribBindings) {
+        if (!b.enabled || b.divisor !== 1) continue
+        const name = this._attribNameByLoc.get(loc)
+        const buf = b.buffer ? this._bufferData.get(b.buffer) : undefined
+        if (!name || !buf) continue
+
+        const strideFloats = b.strideBytes === 0 ? b.size : b.strideBytes / 4
+        const base = b.offsetBytes / 4 + i * strideFloats
+        const vals: number[] = []
+        for (let k = 0; k < b.size; k++) vals.push(buf[base + k] ?? 0)
+
+        // Matches DAB_VERT_INSTANCED's attribute layout in shaders.ts.
+        switch (name) {
+          case 'a_instA':
+            merged.set('u_dabCenter', [vals[0], vals[1]])
+            merged.set('u_dabRadius', vals[2])
+            merged.set('u_angle', vals[3])
+            break
+          case 'a_instB':
+            merged.set('u_aspectRatio', vals[0])
+            merged.set('u_pressure', vals[1])
+            merged.set('u_tiltX', vals[2])
+            merged.set('u_tiltY', vals[3])
+            break
+          case 'a_opacity':
+            merged.set('u_opacity', vals[0])
+            break
+          default: break
+        }
+      }
+      this._rasterDab(info, merged)
+    }
   }
 
   private _rasterDab(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
