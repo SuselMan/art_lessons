@@ -26,4 +26,8 @@ export class BoundedLayerBuffer implements ILayerBuffer {
   resolveVisible(_worldRect: WorldRect): PaintTarget[] {
     return [{ buffer: this.buffer, originX: 0, originY: 0 }]
   }
+
+  allResident(): PaintTarget[] {
+    return [{ buffer: this.buffer, originX: 0, originY: 0 }]
+  }
 }

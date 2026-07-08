@@ -40,4 +40,11 @@ export interface ILayerBuffer {
    *  already exist. Used by composite/display/content-bounds scanning,
    *  where an untouched region simply contributes nothing. */
   resolveVisible(worldRect: WorldRect): PaintTarget[]
+
+  /** Every currently resident buffer, with no rect filtering — "everything
+   *  this layer actually holds right now." Used where there's no natural
+   *  bounding rect to filter by (merge, content-bounds scan, transform
+   *  bake): Bounded mode always returns its single buffer; Tiled mode
+   *  returns every resident tile. */
+  allResident(): PaintTarget[]
 }

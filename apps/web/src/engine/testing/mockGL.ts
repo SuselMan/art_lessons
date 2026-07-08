@@ -517,6 +517,14 @@ export class MockGL {
   // visual fidelity; tests should stick to boundaries where that
   // difference doesn't matter (whole-pixel translates, axis-aligned
   // scales/rotations) or use a tolerance like expectPixelsClose.
+  // #133 (infinite canvas): the real engine always blends this pass now
+  // (ONE, ONE_MINUS_SRC_ALPHA — see _runTransformBlit's docstring for why
+  // that's equivalent to a plain replace for its old single-pass callers,
+  // and necessary for the tile-aware bake's multi-pass-per-destination-tile
+  // case). Must mirror that blend here, not unconditionally overwrite: a
+  // transparent (out-of-source-range) sample from one pass must leave an
+  // earlier pass's already-valid pixel alone, exactly like the composite/
+  // dab rasterizers below already do via _blendSrcFactor().
   private _rasterTransform(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
     const { width, height, data } = info
     const unit = (uniforms.get('u_source') as number) ?? 0
@@ -524,6 +532,7 @@ export class MockGL {
     const m = (uniforms.get('u_matrixInv') as number[]) ?? [1, 0, 0, 0, 1, 0, 0, 0, 1]
     const srcTex = this._textureUnits[unit] ?? null
     const srcInfo = srcTex ? this._textureData.get(srcTex) : undefined
+    const sf = this._blendSrcFactor()
 
     for (let py = 0; py < height; py++) {
       for (let px = 0; px < width; px++) {
@@ -531,13 +540,13 @@ export class MockGL {
         const dstX = px + 0.5, dstY = py + 0.5
         const srcX = dstX * m[0] + dstY * m[3] + m[6]
         const srcY = dstX * m[1] + dstY * m[4] + m[7]
-        if (!srcInfo || srcX < 0 || srcX >= bw || srcY < 0 || srcY >= bh) {
-          data[idx] = 0
-          continue
+        let srcAlpha = 0
+        if (srcInfo && srcX >= 0 && srcX < bw && srcY >= 0 && srcY < bh) {
+          const sx = Math.min(Math.floor(srcX), srcInfo.width - 1)
+          const sy = Math.min(Math.floor(srcY), srcInfo.height - 1)
+          srcAlpha = srcInfo.data[sy * srcInfo.width + sx] ?? 0
         }
-        const sx = Math.min(Math.floor(srcX), srcInfo.width - 1)
-        const sy = Math.min(Math.floor(srcY), srcInfo.height - 1)
-        data[idx] = srcInfo.data[sy * srcInfo.width + sx] ?? 0
+        data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
       }
     }
   }

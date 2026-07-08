@@ -40,10 +40,22 @@ import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import styles from './Room.module.css'
 
+// Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
+// — camera-relative tile rendering (a separate follow-up) is what actually
+// makes the canvas element's own size independent of "room size". Until
+// that lands, an infinite room's RoomConfig gets this placeholder finite
+// size so the existing fixed-canvas-shaped rendering/viewport/pointer
+// pipeline below (all written in terms of one fixed-size canvas) keeps
+// working unmodified rather than needing every call site touched twice.
+// Large enough that "infinite" still feels roomy for this interim state.
+const PLACEHOLDER_INFINITE_CANVAS_SIZE = 8192
+
 interface RoomConfig {
   id: string
   name: string
   paper: 'rough' | 'smooth' | 'bristol'
+  // Infinite (tiled) canvas (#133 Phase 1) — see PLACEHOLDER_INFINITE_CANVAS_SIZE.
+  infinite: boolean
   width: number
   height: number
 }
@@ -53,12 +65,18 @@ interface RoomConfig {
  *  the creator, opening my own room" apart from "I opened someone else's
  *  room link" (no state at all, e.g. a second device). */
 interface CreatorNavState {
-  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'canvasWidth' | 'canvasHeight'>
+  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
   password?: string
 }
 
-function toRoomConfig(room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'canvasWidth' | 'canvasHeight'>): RoomConfig {
-  return { id: room.id, name: room.name, paper: room.paper, width: room.canvasWidth, height: room.canvasHeight }
+function toRoomConfig(
+  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
+): RoomConfig {
+  return {
+    id: room.id, name: room.name, paper: room.paper, infinite: room.infinite,
+    width: room.canvasWidth ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
+    height: room.canvasHeight ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
+  }
 }
 
 interface ToolConfig { size: number; opacity: number }
@@ -401,6 +419,7 @@ export function Room() {
   useEffect(() => {
     if (!config || !canvasRef.current) return
     const engine = new PencilEngine(canvasRef.current, {
+      infinite: config.infinite,
       paper: config.paper,
       pencilType: initialToolRef.current.pencil,
       size: initialToolRef.current.size,

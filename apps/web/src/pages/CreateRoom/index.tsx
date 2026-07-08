@@ -7,7 +7,7 @@ import { PaperPreview } from '../../components/PaperPreview'
 import { AccountNav } from '../../components/AccountNav'
 import styles from './CreateRoom.module.css'
 
-type SizePreset = 'a4' | 'a3' | 'a2' | 'square' | '16:9' | 'custom'
+type SizePreset = 'a4' | 'a3' | 'a2' | 'square' | '16:9' | 'custom' | 'infinite'
 
 interface SizeOption {
   id: SizePreset
@@ -62,6 +62,17 @@ export function CreateRoom() {
     const name = roomName.trim()
     if (!name) { setError('Room name is required'); return }
 
+    const id = nanoid(8)
+    // Handed to Room via navigation state (not localStorage) so it reaches
+    // only this tab/browser — a joiner opening the same room link on another
+    // device has no creator state and goes through the join gate instead.
+    const pw = usePassword && password ? password : undefined
+
+    if (sizePreset === 'infinite') {
+      navigate(`/room/${id}`, { state: { room: { id, name, paper, infinite: true }, password: pw } })
+      return
+    }
+
     let width: number, height: number
     if (sizePreset === 'custom') {
       width  = parseInt(customW)
@@ -76,14 +87,10 @@ export function CreateRoom() {
       height = preset.height
     }
 
-    const id = nanoid(8)
-    // Handed to Room via navigation state (not localStorage) so it reaches
-    // only this tab/browser — a joiner opening the same room link on another
-    // device has no creator state and goes through the join gate instead.
     navigate(`/room/${id}`, {
       state: {
-        room: { id, name, paper, canvasWidth: width, canvasHeight: height },
-        password: usePassword && password ? password : undefined,
+        room: { id, name, paper, infinite: false, canvasWidth: width, canvasHeight: height },
+        password: pw,
       },
     })
   }
@@ -161,6 +168,22 @@ export function CreateRoom() {
                 )}
               </div>
             ))}
+            <div
+              key="infinite"
+              className={clsx(styles.sizeCard, sizePreset === 'infinite' && styles.selected)}
+              onClick={() => setSizePreset('infinite')}
+            >
+              <div className={styles.sizeIconWrap}>
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M8 14c0-2.5 1.8-4.5 4-4.5s3 2 4 4.5s2 4.5 4 4.5s4-2 4-4.5s-1.8-4.5-4-4.5s-3 2-4 4.5s-2 4.5-4 4.5s-4-2-4-4.5Z"
+                    stroke="currentColor" strokeOpacity="0.6" strokeWidth="1.5" fill="none"
+                  />
+                </svg>
+              </div>
+              <div className={styles.sizeName}>Infinite</div>
+              <div className={styles.sizeDims}>No fixed size</div>
+            </div>
           </div>
 
           {sizePreset === 'custom' && (
@@ -216,16 +239,6 @@ export function CreateRoom() {
               autoComplete="new-password"
             />
           )}
-        </div>
-
-        {/* Infinite canvas — reserved */}
-        <div className={styles.section}>
-          <div className={styles.label}>
-            <span className={styles.comingSoon}>
-              Infinite canvas
-              <span className={styles.badge}>Coming soon</span>
-            </span>
-          </div>
         </div>
 
         {error && <div className={styles.error}>{error}</div>}

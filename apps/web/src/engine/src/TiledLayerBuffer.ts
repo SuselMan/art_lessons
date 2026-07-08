@@ -1,6 +1,6 @@
 import { AccumulationBuffer } from './AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from './ILayerBuffer'
-import { TILE_SIZE, tileKey, tileWorldRect, tilesOverlappingRect, type WorldRect } from './tileMath'
+import { TILE_SIZE, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, type WorldRect } from './tileMath'
 
 /** Infinite-canvas ILayerBuffer (Phase 1, #133) — a sparse
  *  Map<tileKey, AccumulationBuffer>, one TILE_SIZE x TILE_SIZE
@@ -54,6 +54,16 @@ export class TiledLayerBuffer implements ILayerBuffer {
     for (const { tileX, tileY } of tilesOverlappingRect(worldRect)) {
       const tile = this.tiles.get(tileKey(tileX, tileY))
       if (!tile) continue
+      const rect = tileWorldRect(tileX, tileY)
+      targets.push({ buffer: tile, originX: rect.minX, originY: rect.minY })
+    }
+    return targets
+  }
+
+  allResident(): PaintTarget[] {
+    const targets: PaintTarget[] = []
+    for (const [key, tile] of this.tiles) {
+      const { tileX, tileY } = parseTileKey(key)
       const rect = tileWorldRect(tileX, tileY)
       targets.push({ buffer: tile, originX: rect.minX, originY: rect.minY })
     }

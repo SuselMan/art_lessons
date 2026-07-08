@@ -9,8 +9,12 @@ import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
-import { invertAffine, toMat3, type AffineMatrix } from './src/affine'
+import { applyAffine, composeAffine, invertAffine, toMat3, translationMatrix, type AffineMatrix } from './src/affine'
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
+import { BoundedLayerBuffer } from './src/BoundedLayerBuffer'
+import { TiledLayerBuffer } from './src/TiledLayerBuffer'
+import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
+import type { WorldRect } from './src/tileMath'
 
 export type { HapticGrainStats }
 export type { AffineMatrix }
@@ -34,6 +38,13 @@ export interface CompositeItem {
 }
 
 export interface PencilEngineOptions {
+  // Infinite (tiled) canvas mode (#133 Phase 1) — false/omitted (default)
+  // keeps every per-layer buffer exactly canvas-sized, unchanged from
+  // before this option existed. true routes layer storage through
+  // TiledLayerBuffer instead of BoundedLayerBuffer so a layer's content is
+  // never clipped to a fixed rect. Fixed once at construction — an engine
+  // instance never switches modes mid-life.
+  infinite?: boolean
   paper?: PaperType
   pencilType?: string
   size?: number
@@ -444,8 +455,11 @@ export class PencilEngine implements PencilEngineAPI {
   // Paper texture — assigned in _initPaper()
   private _paperTex!: WebGLTexture
 
+  // Infinite (tiled) canvas mode (#133 Phase 1) — see PencilEngineOptions.infinite.
+  private readonly _infinite: boolean
+
   // Layer management
-  private _layers: Map<string, AccumulationBuffer>
+  private _layers: Map<string, ILayerBuffer>
   private _baseLayerIds: Set<string> // pre-log layers (background, initial layer)
   private _compositeOrder: CompositeItem[]
   private _activeId: string | null
@@ -476,6 +490,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   constructor(canvas: HTMLCanvasElement, options: PencilEngineOptions = {}) {
     this.canvas = canvas
+    this._infinite = options.infinite ?? false
 
     const gl = canvas.getContext('webgl', {
       premultipliedAlpha: false,
@@ -825,32 +840,43 @@ export class PencilEngine implements PencilEngineAPI {
    *  _takeCheckpoint's — meant to be called once when the tool activates
    *  or the target selection changes, not per drag frame. */
   getContentBounds(layerId: string): { x: number; y: number; width: number; height: number } | null {
-    const buf = this._layers.get(layerId)
-    if (!buf) return null
-    const { width, height } = buf
-    const pixels = buf.readPixels()
-    let minX = width, maxX = -1, minRow = height, maxRow = -1
-    for (let row = 0; row < height; row++) {
-      const base = row * width
-      for (let x = 0; x < width; x++) {
-        if (pixels[(base + x) * 4 + 3] === 0) continue
-        if (x < minX) minX = x
-        if (x > maxX) maxX = x
-        if (row < minRow) minRow = row
-        if (row > maxRow) maxRow = row
+    const layerBuf = this._layers.get(layerId)
+    if (!layerBuf) return null
+    // Scans every resident buffer (bounded mode: always exactly one, the
+    // whole layer — same as before this was generalized; infinite mode:
+    // every resident tile) and unions each one's local content rect into
+    // world space via its own origin.
+    let worldMinX = Infinity, worldMinY = Infinity, worldMaxX = -Infinity, worldMaxY = -Infinity
+    for (const { buffer, originX, originY } of layerBuf.allResident()) {
+      const { width, height } = buffer
+      const pixels = buffer.readPixels()
+      let minX = width, maxX = -1, minRow = height, maxRow = -1
+      for (let row = 0; row < height; row++) {
+        const base = row * width
+        for (let x = 0; x < width; x++) {
+          if (pixels[(base + x) * 4 + 3] === 0) continue
+          if (x < minX) minX = x
+          if (x > maxX) maxX = x
+          if (row < minRow) minRow = row
+          if (row > maxRow) maxRow = row
+        }
       }
+      if (maxX < minX) continue // this buffer is fully transparent
+      // gl.readPixels' rows are bottom-up (row 0 = GL/window bottom), but
+      // every other buffer-pixel value in this engine is app-space top-down
+      // (y=0 at the top, matching Dab.x/y and clientToCanvas) — same gap
+      // DAB_VERT bridges when painting (`clip.y = -clip.y`) and
+      // TRANSFORM_BLIT_FRAG bridges when baking a transform. Flip once here
+      // so every caller gets an app-space rect for free.
+      const minY = height - 1 - maxRow
+      const maxY = height - 1 - minRow
+      worldMinX = Math.min(worldMinX, originX + minX)
+      worldMaxX = Math.max(worldMaxX, originX + maxX)
+      worldMinY = Math.min(worldMinY, originY + minY)
+      worldMaxY = Math.max(worldMaxY, originY + maxY)
     }
-    if (maxX < minX) return null
-    // gl.readPixels' rows are bottom-up (row 0 = GL/window bottom), but every
-    // other buffer-pixel value in this engine is app-space top-down (y=0 at
-    // the top, matching Dab.x/y and clientToCanvas) — same gap DAB_VERT
-    // bridges when painting (`clip.y = -clip.y`) and TRANSFORM_BLIT_FRAG
-    // bridges when baking a transform. Flip once here so every caller gets
-    // an app-space rect for free, instead of a mirrored one that happened
-    // to go unnoticed until something asymmetric (the gizmo) depended on it.
-    const minY = height - 1 - maxRow
-    const maxY = height - 1 - minRow
-    return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 }
+    if (worldMaxX < worldMinX) return null
+    return { x: worldMinX, y: worldMinY, width: worldMaxX - worldMinX + 1, height: worldMaxY - worldMinY + 1 }
   }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {
@@ -877,9 +903,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  after committing that op, so the now-stale preview doesn't keep
    *  shadowing the freshly baked real buffer). */
   previewLayerTransform(transforms: Array<{ layerId: string; matrix: AffineMatrix }>): void {
+    // Infinite-canvas layers don't get a live drag preview yet (Phase 2 —
+    // needs the same multi-tile stitching _bakeTransform does, but redone on
+    // every drag frame instead of once on commit; not worth the cost until
+    // the camera-relative rendering path this preview composites into
+    // exists). The actual fix for #133 is the commit path (_bakeTransform),
+    // which IS tile-aware — dragging an infinite-canvas layer's content off
+    // its tile just doesn't show a live preview mid-drag, but nothing is
+    // lost once the drag ends and a real layer_transform op lands.
+    if (this._infinite) return
     for (const { layerId, matrix } of transforms) {
       const source = this._layers.get(layerId)
       if (!source) continue
+      const [{ buffer: sourceBuf }] = source.allResident()
       let preview = this._transformPreview.get(layerId)
       if (!preview) {
         preview = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
@@ -887,7 +923,7 @@ export class PencilEngine implements PencilEngineAPI {
       } else {
         preview.clear()
       }
-      this._drawTransformBlit(source.texture, matrix, preview.fbo)
+      this._drawTransformBlit(sourceBuf.texture, matrix, preview.fbo)
     }
     this._display()
   }
@@ -1119,11 +1155,16 @@ export class PencilEngine implements PencilEngineAPI {
     if (layerId !== this._activeId) this._invalidateSplitCache()
   }
 
-  private _replayInto(buf: AccumulationBuffer, layerId: string, ops: PixelOperation[]): void {
+  private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void {
     let start = 0
-    const cp = this._bestCheckpoint(layerId, ops)
+    // Checkpoint fast-path only exists for bounded (fixed-canvas) layers —
+    // infinite-canvas layers always do a full from-scratch replay for now
+    // (Phase 2 will add per-tile checkpoints; see _maybeCheckpoint). Correct,
+    // just not yet optimized: undo/redo/rebuild still work, only slower for
+    // a long history.
+    const cp = buf instanceof BoundedLayerBuffer ? this._bestCheckpoint(layerId, ops) : null
     if (cp) {
-      buf.restorePixels(cp.pixels)
+      ;(buf as BoundedLayerBuffer).buffer.restorePixels(cp.pixels)
       start = cp.opIds.length
     } else {
       buf.clear()
@@ -1131,7 +1172,7 @@ export class PencilEngine implements PencilEngineAPI {
     for (let i = start; i < ops.length; i++) this._applyPixelOp(buf, layerId, ops[i])
   }
 
-  private _applyPixelOp(buf: AccumulationBuffer, layerId: string, op: PixelOperation): void {
+  private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation): void {
     switch (op.type) {
       case 'stroke':
         this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color)
@@ -1157,17 +1198,47 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
+  /** Constructs a fresh, empty ILayerBuffer of whichever mode this engine
+   *  instance runs in — the one place that decision is made, so merge/
+   *  replay scratch buffers and real layer buffers (_createBuffer) never
+   *  drift out of sync with each other. */
+  private _makeLayerBuffer(): ILayerBuffer {
+    const { gl, canvas } = this
+    return this._infinite ? new TiledLayerBuffer(gl) : new BoundedLayerBuffer(gl, canvas.width, canvas.height)
+  }
+
+  /** Composites every buffer `source` currently holds into the
+   *  corresponding buffer(s) of `dest` at the same world position, at
+   *  `opacity` — the tile-generalized form of a single
+   *  `_compositeTextures([{texture: source.texture, opacity}], dest.fbo)`
+   *  call. Bounded mode: source/dest each have exactly one buffer at origin
+   *  (0,0), so this reduces to exactly that one call. Infinite mode: each
+   *  of source's resident tiles lands on the one dest tile at the same
+   *  world position (both use the same TILE_SIZE grid rooted at the same
+   *  origin, so tile boundaries always line up — no cross-tile blending
+   *  needed here, unlike a transform bake). */
+  private _compositeLayerInto(source: ILayerBuffer, dest: ILayerBuffer, opacity: number): void {
+    for (const src of source.allResident()) {
+      const rect: WorldRect = {
+        minX: src.originX, minY: src.originY,
+        maxX: src.originX + src.buffer.width, maxY: src.originY + src.buffer.height,
+      }
+      for (const destTarget of dest.resolveForPaint(rect)) {
+        this._compositeTextures([{ texture: src.buffer.texture, opacity }], destTarget.buffer.fbo)
+      }
+    }
+  }
+
   /** Replays a merge: rebuilds each source as it was just before the merge
    *  (done ops with lower seq) into a temp buffer and composites bottom→top
    *  with the opacities captured in the operation. Recursive when a source is
    *  itself a merge result. */
-  private _replayMergeInto(buf: AccumulationBuffer, op: LayerMergeOperation): void {
-    const { gl, canvas } = this
+  private _replayMergeInto(buf: ILayerBuffer, op: LayerMergeOperation): void {
     buf.clear()
     for (const src of op.sources) {
-      const temp = new AccumulationBuffer(gl, canvas.width, canvas.height)
+      const temp = this._makeLayerBuffer()
       this._replayInto(temp, src.id, this._log.layerPixelOps(src.id, op.seq))
-      this._compositeTextures([{ texture: temp.texture, opacity: src.opacity }], buf.fbo)
+      this._compositeLayerInto(temp, buf, src.opacity)
       temp.destroy()
     }
   }
@@ -1180,15 +1251,12 @@ export class PencilEngine implements PencilEngineAPI {
     // place — always structural, regardless of whether any of the ids
     // involved happen to be the active layer.
     this._invalidateSplitCache()
-    const { gl, canvas } = this
-    const target = new AccumulationBuffer(gl, canvas.width, canvas.height)
+    const target = this._makeLayerBuffer()
     target.clear()
-    const entries: Array<{ texture: WebGLTexture; opacity: number }> = []
     for (const s of op.sources) {
       const buf = this._layers.get(s.id)
-      if (buf) entries.push({ texture: buf.texture, opacity: s.opacity })
+      if (buf) this._compositeLayerInto(buf, target, s.opacity)
     }
-    this._compositeTextures(entries, target.fbo)
     this._layers.set(op.layerId, target)
     for (const s of op.sources) this._destroyBuffer(s.id)
     this._takeCheckpoint(op.layerId)
@@ -1233,6 +1301,10 @@ export class PencilEngine implements PencilEngineAPI {
   // ─── Checkpoints ─────────────────────────────────────────────────────────────
 
   private _maybeCheckpoint(layerId: string): void {
+    // No checkpointing for infinite-canvas layers yet (Phase 2 will add a
+    // per-tile version) — _replayInto always does a full replay for them
+    // instead, see there.
+    if (this._infinite) return
     const ops = this._log.layerPixelOps(layerId)
     if (ops.length === 0 || ops.length % CHECKPOINT_INTERVAL !== 0) return
     // Deferred off the stroke-completion path (#121): a full-canvas
@@ -1256,12 +1328,12 @@ export class PencilEngine implements PencilEngineAPI {
     // which would silently bake a blank snapshot into undo history — skip
     // rather than corrupt; _handleContextRestored rebuilds from the log
     // directly instead, which never depended on this checkpoint existing.
-    if (this._contextLost) return
+    if (this._contextLost || this._infinite) return
     const buf = this._layers.get(layerId)
-    if (!buf) return
+    if (!buf || !(buf instanceof BoundedLayerBuffer)) return
     const ops = this._log.layerPixelOps(layerId)
     if (!ops.length) return
-    const pixels = buf.readPixels()
+    const pixels = buf.buffer.readPixels()
     this._checkpoints.push({ layerId, opIds: ops.map(o => o.id), pixels })
     this._checkpointBytes += pixels.byteLength
     while (this._checkpointBytes > CHECKPOINT_BUDGET_BYTES && this._checkpoints.length > 1) {
@@ -1289,7 +1361,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _createBuffer(id: string): void {
     const { gl, canvas } = this
     if (this._layers.has(id)) return
-    const buf = new AccumulationBuffer(gl, canvas.width, canvas.height)
+    const buf: ILayerBuffer = this._infinite
+      ? new TiledLayerBuffer(gl)
+      : new BoundedLayerBuffer(gl, canvas.width, canvas.height)
     buf.clear()
     this._layers.set(id, buf)
   }
@@ -1666,7 +1740,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  it's an actual reported problem — the fix (only this file's replay
    *  loop, `_replayInto`) would mean threading async through undo/redo's
    *  buffer-rebuild path too. */
-  private async _paintImage(buf: AccumulationBuffer, op: ImageImportOperation): Promise<void> {
+  private async _paintImage(layerBuf: ILayerBuffer, op: ImageImportOperation): Promise<void> {
     const img = await this._loadImage(op.image)
     const { gl, canvas } = this
 
@@ -1680,24 +1754,39 @@ export class PencilEngine implements PencilEngineAPI {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
-    const scale = Math.min(canvas.width / op.width, canvas.height / op.height)
-    const drawW = op.width * scale
-    const drawH = op.height * scale
+    // Fixed-canvas rooms (op.x/op.y absent): unchanged fit-center-within-
+    // the-canvas behavior. Infinite-canvas rooms (op.x/op.y present, world-
+    // space top-left — see the shared type's doc comment): natural size,
+    // placed wherever the caller chose (current camera center at import
+    // time, today) — there's no fixed rect to fit-center within.
+    let drawX: number, drawY: number, drawW: number, drawH: number
+    if (op.x !== undefined && op.y !== undefined) {
+      drawX = op.x; drawY = op.y; drawW = op.width; drawH = op.height
+    } else {
+      const scale = Math.min(canvas.width / op.width, canvas.height / op.height)
+      drawW = op.width * scale
+      drawH = op.height * scale
+      drawX = (canvas.width - drawW) / 2
+      drawY = (canvas.height - drawH) / 2
+    }
 
-    buf.beginDraw()
-    gl.useProgram(this._blitProg)
-    const u = this._blitUni
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.uniform1i(u.u_image, 0)
-    gl.uniform2f(u.u_bufferSize, canvas.width, canvas.height)
-    gl.uniform4f(u.u_imageRect, (canvas.width - drawW) / 2, (canvas.height - drawH) / 2, drawW, drawH)
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._blitPosLoc
-    gl.enableVertexAttribArray(posLoc)
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    buf.endDraw()
+    const worldRect: WorldRect = { minX: drawX, minY: drawY, maxX: drawX + drawW, maxY: drawY + drawH }
+    for (const { buffer, originX, originY } of layerBuf.resolveForPaint(worldRect)) {
+      buffer.beginDraw()
+      gl.useProgram(this._blitProg)
+      const u = this._blitUni
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      gl.uniform1i(u.u_image, 0)
+      gl.uniform2f(u.u_bufferSize, buffer.width, buffer.height)
+      gl.uniform4f(u.u_imageRect, drawX - originX, drawY - originY, drawW, drawH)
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+      const posLoc = this._blitPosLoc
+      gl.enableVertexAttribArray(posLoc)
+      gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      buffer.endDraw()
+    }
 
     gl.deleteTexture(texture)
     // #122: single choke point for both callers (appendOperation's live
@@ -1709,44 +1798,78 @@ export class PencilEngine implements PencilEngineAPI {
 
   // ─── Rendering ───────────────────────────────────────────────────────────────
 
+  /** Conservative world-space AABB covering every dab's full painted extent
+   *  (center +/- radius, padded for aspect ratio so an elongated/rotated
+   *  dab is never under-covered) — the rect whose overlapping tile(s) this
+   *  batch must be resolved against. Bounded mode ignores the result
+   *  (BoundedLayerBuffer.resolveForPaint always returns its one buffer
+   *  regardless), so this costs a cheap scan there for nothing — acceptable
+   *  next to the draw calls it gates. */
+  private _dabsWorldBounds(dabs: Dab[], erasing: boolean, preset: PencilPreset): WorldRect {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const d of dabs) {
+      const baseR = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
+      const r = baseR * Math.max(1, 1 / Math.max(d.aspectRatio, 0.01))
+      minX = Math.min(minX, d.x - r); maxX = Math.max(maxX, d.x + r)
+      minY = Math.min(minY, d.y - r); maxY = Math.max(maxY, d.y + r)
+    }
+    return { minX, minY, maxX, maxY }
+  }
+
+  /** `target` is usually a real layer's `ILayerBuffer`, but a few callers
+   *  (the stroke-scoped live-tip/pointer-prediction scratch buffers, and a
+   *  peer's live-stroke reveal buffer) paint into a plain, single, always-
+   *  viewport/canvas-sized `AccumulationBuffer` instead — those never need
+   *  tile resolution (see their own field comments: transient, visual-only,
+   *  never outlive "what's on screen right now"), so they're painted at a
+   *  fixed origin (0,0) covering that one buffer, same as before this
+   *  method was generalized for tiling. */
   private _paintDabs(
-    buf: AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
+    target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number],
   ): void {
+    if (!dabs.length) return
     const erasing = tool === 'eraser'
     const preset  = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+    const targets: PaintTarget[] = target instanceof AccumulationBuffer
+      ? [{ buffer: target, originX: 0, originY: 0 }]
+      : target.resolveForPaint(this._dabsWorldBounds(dabs, erasing, preset))
 
-    if (erasing) {
-      buf.beginErase()
-    } else {
-      buf.beginDraw()
+    for (const { buffer, originX, originY } of targets) {
+      if (erasing) buffer.beginErase()
+      else buffer.beginDraw()
+
+      // #123: batch every dab in this call into one instanced draw call when
+      // the extension is available (effectively always, in practice) — see
+      // _paintDabsInstanced's docstring for why this preserves the exact
+      // sequential per-dab blend order the fallback loop below relies on.
+      if (this._instancedArraysExt) {
+        this._paintDabsInstanced(dabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
+      } else {
+        this._paintDabsUniform(dabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
+      }
+
+      buffer.endDraw()
     }
-
-    // #123: batch every dab in this call into one instanced draw call when
-    // the extension is available (effectively always, in practice) — see
-    // _paintDabsInstanced's docstring for why this preserves the exact
-    // sequential per-dab blend order the fallback loop below relies on.
-    if (this._instancedArraysExt) {
-      this._paintDabsInstanced(dabs, erasing, preset, color)
-    } else {
-      this._paintDabsUniform(dabs, erasing, preset, color)
-    }
-
-    buf.endDraw()
   }
 
   /** Fallback path for a WebGL1 context without ANGLE_instanced_arrays: one
    *  gl.drawArrays + ~9 gl.uniform* calls per dab, kept exactly as it was
    *  before #123 (same shader math via DAB_VERT, same GL call count/order) —
-   *  the safety net on the rare device that lacks the extension. */
+   *  the safety net on the rare device that lacks the extension.
+   *  `resW/resH` is the actual target buffer's size (bounded: canvas size,
+   *  same as before; tiled: one tile's TILE_SIZE) and `originX/originY`
+   *  translates each dab's world-space center into that buffer's local
+   *  space (bounded: always (0,0), so this is a no-op there). */
   private _paintDabsUniform(
     dabs: Dab[], erasing: boolean, preset: PencilPreset, color: [number, number, number],
+    resW: number, resH: number, originX: number, originY: number,
   ): void {
-    const { gl, canvas } = this
+    const { gl } = this
     gl.useProgram(this._dabProg)
     const u = this._dabUni
 
-    gl.uniform2f(u.u_resolution, canvas.width, canvas.height)
+    gl.uniform2f(u.u_resolution, resW, resH)
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
@@ -1762,7 +1885,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
 
     for (const dab of dabs) {
-      gl.uniform2f(u.u_dabCenter, dab.x, dab.y)
+      gl.uniform2f(u.u_dabCenter, dab.x - originX, dab.y - originY)
       gl.uniform1f(u.u_dabRadius, dab.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier))
       gl.uniform1f(u.u_angle,      dab.angle)
       gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
@@ -1797,14 +1920,15 @@ export class PencilEngine implements PencilEngineAPI {
    *  vertex attribute read per dab out of a single buffer uploaded once. */
   private _paintDabsInstanced(
     dabs: Dab[], erasing: boolean, preset: PencilPreset, color: [number, number, number],
+    resW: number, resH: number, originX: number, originY: number,
   ): void {
-    const { gl, canvas } = this
+    const { gl } = this
     const ext = this._instancedArraysExt
     if (!ext) return // only called when present; guards the type narrowing below
     const u = this._dabInstUni
 
     gl.useProgram(this._dabProgInstanced)
-    gl.uniform2f(u.u_resolution, canvas.width, canvas.height)
+    gl.uniform2f(u.u_resolution, resW, resH)
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
@@ -1835,8 +1959,8 @@ export class PencilEngine implements PencilEngineAPI {
     for (let i = 0; i < dabs.length; i++) {
       const d = dabs[i]
       const o = i * STRIDE
-      data[o + 0] = d.x
-      data[o + 1] = d.y
+      data[o + 0] = d.x - originX
+      data[o + 1] = d.y - originY
       data[o + 2] = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
       data[o + 3] = d.angle
       data[o + 4] = d.aspectRatio
@@ -1924,8 +2048,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _resolveEntries(items: CompositeItem[]): Array<{ texture: WebGLTexture; opacity: number }> {
     const entries: Array<{ texture: WebGLTexture; opacity: number }> = []
     for (const { id, opacity } of items) {
-      const buf = this._transformPreview.get(id) ?? this._layers.get(id)
-      if (buf) entries.push({ texture: buf.texture, opacity })
+      const preview = this._transformPreview.get(id)
+      if (preview) { entries.push({ texture: preview.texture, opacity }); continue }
+      const buf = this._layers.get(id)
+      // Camera-relative tile compositing for infinite-canvas layers is a
+      // separate follow-up (not yet needed to prove the #133 bake fix) —
+      // a TiledLayerBuffer has no single texture to contribute here yet.
+      if (buf instanceof BoundedLayerBuffer) entries.push({ texture: buf.buffer.texture, opacity })
     }
     return entries
   }
@@ -1993,21 +2122,35 @@ export class PencilEngine implements PencilEngineAPI {
     if (belowItems.length) entries.push({ texture: this._belowCache.texture, opacity: 1 })
     if (activeItem) {
       const buf = this._layers.get(activeItem.id)
-      if (buf) entries.push({ texture: buf.texture, opacity: activeItem.opacity })
+      if (buf instanceof BoundedLayerBuffer) entries.push({ texture: buf.buffer.texture, opacity: activeItem.opacity })
     }
     if (aboveItems.length) entries.push({ texture: this._aboveCache.texture, opacity: 1 })
     this._compositeTextures(entries, targetFbo)
   }
 
-  /** Renders `sourceTex` through the (inverse of the) given transform into
-   *  `targetFbo` — the shared draw call behind both the live gizmo preview
-   *  and a committed bake (see _bakeTransform, which additionally copies
-   *  the result back into its source buffer). */
-  private _drawTransformBlit(sourceTex: WebGLTexture, matrix: AffineMatrix, targetFbo: WebGLFramebuffer): void {
-    const { gl, canvas } = this
+  /** Low-level transform-blit draw call — renders `sourceTex` through
+   *  `matrixInv` (already inverted: maps destination buffer-local px to
+   *  source buffer-local px) into `targetFbo`, sized `bufW x bufH`. Always
+   *  blends (ONE, ONE_MINUS_SRC_ALPHA) rather than plain-replacing: every
+   *  caller's target is freshly cleared (transparent) immediately before
+   *  its first (possibly only) draw here, and blending a straight replace
+   *  onto an all-zero destination gives the exact same result as a true
+   *  replace would — so this one code path serves both the live gizmo
+   *  preview's single pass (`_drawTransformBlit`) and the tile-aware bake's
+   *  several passes per destination tile, one per overlapping source tile
+   *  (`_bakeTransform` — a destination tile's content can come from more
+   *  than one source tile when the transform includes rotation/scale; each
+   *  pass is transparent everywhere outside its own source tile's mapped
+   *  region, so blending — not replacing — is what lets a later pass avoid
+   *  wiping out an earlier one's already-valid pixels). */
+  private _runTransformBlit(
+    sourceTex: WebGLTexture, matrixInv: AffineMatrix, bufW: number, bufH: number, targetFbo: WebGLFramebuffer,
+  ): void {
+    const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, canvas.width, canvas.height)
-    gl.disable(gl.BLEND) // full replace, not accumulate — target is a fresh/cleared buffer
+    gl.viewport(0, 0, bufW, bufH)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     gl.useProgram(this._transformProg)
     const tu = this._transformUni
 
@@ -2019,27 +2162,90 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, sourceTex)
     gl.uniform1i(tu.u_source, 0)
-    gl.uniform2f(tu.u_bufferSize, canvas.width, canvas.height)
-    gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(invertAffine(matrix)))
+    gl.uniform2f(tu.u_bufferSize, bufW, bufH)
+    gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(matrixInv))
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
+    gl.disable(gl.BLEND)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** Bakes a transform into `buf`'s own content, in place — object identity
-   *  preserved, since every caller (_replayInto's loop, appendOperation's
-   *  live case) holds a stable reference and expects in-place mutation like
-   *  every other pixel op. WebGL1 can't safely read and write the same
-   *  texture in one draw call, so this renders into a temp buffer via
-   *  _drawTransformBlit, then copies the temp buffer back — the same
-   *  read-into-temp-then-copyTo pattern AccumulationBuffer.copyTo exists
-   *  for already (see _execMergeLive/_replayMergeInto). */
-  private _bakeTransform(buf: AccumulationBuffer, matrix: AffineMatrix): void {
-    const temp = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
-    temp.clear()
-    this._drawTransformBlit(buf.texture, matrix, temp.fbo)
-    temp.copyTo(buf)
-    temp.destroy()
+  /** Renders `sourceTex` through the (inverse of the) given transform into
+   *  `targetFbo` — used by the live gizmo preview (previewLayerTransform,
+   *  bounded-canvas layers only for now — see there). */
+  private _drawTransformBlit(sourceTex: WebGLTexture, matrix: AffineMatrix, targetFbo: WebGLFramebuffer): void {
+    const { canvas } = this
+    this._runTransformBlit(sourceTex, invertAffine(matrix), canvas.width, canvas.height, targetFbo)
+  }
+
+  /** Bakes a transform into a layer's content, in place (#133 fix) —
+   *  destination tiles are resolved from the *transformed* content's world
+   *  bounds and created on demand, so content moved/scaled past wherever
+   *  its old tile(s) ended is never clipped the way a single fixed-size
+   *  buffer would clip it — it simply lands on whichever tile(s) now cover
+   *  it. Bounded mode (single tile at origin (0,0), both before and after)
+   *  reduces to exactly the old single-buffer bake.
+   *
+   *  Two-phase to stay WebGL1-safe (can't read and write the same texture
+   *  in one draw call, same reasoning AccumulationBuffer.copyTo's read-
+   *  into-temp-then-copy pattern exists for — see _execMergeLive/
+   *  _replayMergeInto): every destination tile is rendered into its own
+   *  fresh scratch buffer first, reading only from the untouched original
+   *  source tiles (one pass per overlapping source tile, alpha-blended —
+   *  see _runTransformBlit — since a destination tile's content can come
+   *  from more than one source tile when the transform includes rotation/
+   *  scale); only once every scratch is fully rendered are the original
+   *  source tiles cleared and the scratches copied into their real
+   *  destination tiles (which can safely be the very same tile objects —
+   *  the scratch render already finished reading from them by then). */
+  private _bakeTransform(layerBuf: ILayerBuffer, matrix: AffineMatrix): void {
+    const sourceTiles = layerBuf.allResident()
+    if (!sourceTiles.length) return
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const { originX, originY, buffer } of sourceTiles) {
+      const corners: Array<[number, number]> = [
+        [originX, originY], [originX + buffer.width, originY],
+        [originX, originY + buffer.height], [originX + buffer.width, originY + buffer.height],
+      ]
+      for (const [x, y] of corners) {
+        const [tx, ty] = applyAffine(matrix, x, y)
+        minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
+        minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
+      }
+    }
+    if (maxX <= minX || maxY <= minY) {
+      // Degenerate (zero-scale) transform — content collapses to nothing.
+      for (const s of sourceTiles) s.buffer.clear()
+      return
+    }
+
+    const destTargets = layerBuf.resolveForPaint({ minX, minY, maxX, maxY })
+    const matrixInv = invertAffine(matrix)
+    const scratches: Array<{ target: PaintTarget; scratch: AccumulationBuffer }> = []
+    for (const destTarget of destTargets) {
+      const scratch = new AccumulationBuffer(this.gl, destTarget.buffer.width, destTarget.buffer.height)
+      scratch.clear()
+      for (const srcTile of sourceTiles) {
+        // dest-tile-local -> world (destTarget's own origin) -> source
+        // world (the transform's inverse) -> src-tile-local (srcTile's own
+        // origin). Bounded mode: both origins are (0,0), so this reduces to
+        // exactly matrixInv, unchanged from before this was generalized.
+        const toWorld = translationMatrix(destTarget.originX, destTarget.originY)
+        const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
+        const mc = composeAffine(toSrcLocal, composeAffine(matrixInv, toWorld))
+        this._runTransformBlit(
+          srcTile.buffer.texture, mc, destTarget.buffer.width, destTarget.buffer.height, scratch.fbo,
+        )
+      }
+      scratches.push({ target: destTarget, scratch })
+    }
+
+    for (const s of sourceTiles) s.buffer.clear()
+    for (const { target, scratch } of scratches) {
+      scratch.copyTo(target.buffer)
+      scratch.destroy()
+    }
   }
 
   /** Rebuilds `_compositeFBO` from every live layer plus whatever preview

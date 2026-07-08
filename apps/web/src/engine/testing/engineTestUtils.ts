@@ -11,7 +11,10 @@ import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation,
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { AccumulationBuffer } from '../src/AccumulationBuffer'
+import type { ILayerBuffer } from '../src/ILayerBuffer'
 import type { PointerData } from '../src/PointerInput'
+import { TiledLayerBuffer } from '../src/TiledLayerBuffer'
+import { tileWorldRect } from '../src/tileMath'
 import { MockGL } from './mockGL'
 
 // jsdom is not used (vitest env is 'node' — see root vitest.config.ts), so
@@ -79,7 +82,7 @@ export function createTestEngine(
 // beats scattering `as any` through every test.
 
 interface EngineInternals {
-  _layers: Map<string, AccumulationBuffer>
+  _layers: Map<string, ILayerBuffer>
   _checkpoints: Array<{ layerId: string; opIds: string[]; pixels: Uint8Array }>
   _onStart: (e: PointerData) => void
   _onMove: (e: PointerData) => void
@@ -95,9 +98,38 @@ export function hasLayerBuffer(engine: PencilEngine, layerId: string): boolean {
   return internals(engine)._layers.has(layerId)
 }
 
+/** Every existing engine test runs in fixed-canvas (bounded) mode, so a
+ *  layer always has exactly one resident buffer — reads that one. Will need
+ *  a tile-aware variant once tests exercise infinite-canvas mode directly
+ *  (see index.tiledStroke.test.ts / index.tiledTransform.test.ts, which
+ *  read pixels per-tile instead via allResident()). */
 export function readLayerPixels(engine: PencilEngine, layerId: string): Uint8Array | null {
   const buf = internals(engine)._layers.get(layerId)
-  return buf ? buf.readPixels() : null
+  if (!buf) return null
+  const [resident] = buf.allResident()
+  return resident ? resident.buffer.readPixels() : null
+}
+
+// ─── Infinite-canvas (tiled) white-box access (#133 Phase 1) ───────────────
+
+/** Resident tile count for an infinite-canvas layer — 0 for a bounded
+ *  (fixed-canvas) layer or one that doesn't exist. */
+export function residentTileCount(engine: PencilEngine, layerId: string): number {
+  const buf = internals(engine)._layers.get(layerId)
+  return buf instanceof TiledLayerBuffer ? buf.tileCount : 0
+}
+
+/** Reads back one specific tile's pixels by tile coordinate (see
+ *  engine/src/tileMath.ts) — null if that tile isn't resident (or the layer
+ *  doesn't exist / isn't tiled). Used to assert content landed on (or
+ *  didn't land on) a specific tile after a tile-straddling stroke or a
+ *  transform bake that moves content across a tile boundary. */
+export function readTilePixels(engine: PencilEngine, layerId: string, tileX: number, tileY: number): Uint8Array | null {
+  const buf = internals(engine)._layers.get(layerId)
+  if (!buf) return null
+  const rect = tileWorldRect(tileX, tileY)
+  const target = buf.allResident().find(t => t.originX === rect.minX && t.originY === rect.minY)
+  return target ? target.buffer.readPixels() : null
 }
 
 /** Reads back the final on-screen composite (#122) — what _display() last
