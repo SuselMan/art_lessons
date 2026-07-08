@@ -46,6 +46,18 @@ export function translationMatrix(tx: number, ty: number): AffineMatrix {
   return [1, 0, 0, 1, tx, ty]
 }
 
+/** Pure (non-uniform) scale about the origin, no rotation/translation. */
+export function scaleMatrix(sx: number, sy: number): AffineMatrix {
+  return [sx, 0, 0, sy, 0, 0]
+}
+
+/** Uniform scale + rotation about the origin, no translation — the linear
+ *  part of the infinite-canvas camera transform (world -> screen). */
+export function scaleRotateMatrix(scale: number, angle: number): AffineMatrix {
+  const cos = Math.cos(angle), sin = Math.sin(angle)
+  return [scale * cos, scale * sin, -scale * sin, scale * cos, 0, 0]
+}
+
 /** Column-major 3x3, embedding the 2x3 affine as a homogeneous transform
  *  ([a c tx; b d ty; 0 0 1] in row-major math notation) for
  *  gl.uniformMatrix3fv — WebGL1 requires transpose=false, so the layout has

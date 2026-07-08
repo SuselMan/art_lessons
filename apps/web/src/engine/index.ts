@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, TILE_COMPOSITE_VERT } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { createPaperTexture } from './src/PaperTexture'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
@@ -9,7 +9,10 @@ import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
-import { applyAffine, composeAffine, invertAffine, toMat3, translationMatrix, type AffineMatrix } from './src/affine'
+import {
+  applyAffine, composeAffine, invertAffine, scaleMatrix, scaleRotateMatrix, toMat3, translationMatrix,
+  type AffineMatrix,
+} from './src/affine'
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { BoundedLayerBuffer } from './src/BoundedLayerBuffer'
 import { TiledLayerBuffer } from './src/TiledLayerBuffer'
@@ -177,6 +180,20 @@ export interface PencilEngineAPI {
   // see the implementation's docstring for cost/call-frequency notes (#120).
   getContentBounds(layerId: string): { x: number; y: number; width: number; height: number } | null
   setViewport(cx: number, cy: number, zoom: number, angle: number): void
+  // Infinite canvas (#133 Phase 1) — camera-relative on-screen rendering.
+  // (wx, wy) is the world point currently at screen center (unlike
+  // setViewport's (cx, cy), a screen-space canvas-center position — there's
+  // no fixed canvas rect to recenter around here). Meaningless/never read
+  // for a bounded-canvas engine. Also updates the pointer transform, same
+  // as setViewport does, so drawing and camera movement share one call.
+  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void
+  // Resizes the canvas backing buffer itself (infinite-canvas rooms only —
+  // the canvas element IS the viewport there, so it must track the
+  // viewport container's size; a bounded-canvas room's canvas size is
+  // fixed for the room's lifetime and never calls this). Recreates every
+  // canvas-size-dependent GL resource (_compositeFBO/_belowCache/
+  // _aboveCache), same as context-restore already does for _initGL.
+  resizeCanvas(width: number, height: number): void
   // Live gizmo-drag preview (#120): renders each layer's *current* content
   // through the given transform into a scratch buffer composited in place
   // of the real one — never mutates the real layer buffer. Call on every
@@ -384,6 +401,20 @@ export class PencilEngine implements PencilEngineAPI {
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
+
+  // Infinite canvas (#133 Phase 1) — camera-relative on-screen rendering.
+  // _tileCompositeProg draws one tile at its correct screen position (see
+  // TILE_COMPOSITE_VERT's own comment); _infiniteCamera is the current
+  // world point at screen center, zoom, and rotation — set via
+  // setInfiniteCamera(), meaningless (never read) for a bounded-canvas
+  // engine. Unlike setViewport()'s {cx,cy}, which is a screen-space canvas-
+  // center position for the CSS-panned bounded-canvas path, this is a
+  // direct world-space reference point — there's no fixed canvas rect to
+  // recenter around once the canvas element itself just is "the viewport."
+  private _tileCompositeProg!: WebGLProgram
+  private _tileCompositeUni!: Record<string, WebGLUniformLocation | null>
+  private _tileCompositePosLoc!: number
+  private _infiniteCamera = { wx: 0, wy: 0, zoom: 1, angle: 0 }
 
   // Below/above split-composite cache (#122) — _runComposite normally
   // re-blits every visible layer/folder-child from _compositeOrder into
@@ -894,6 +925,59 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
+  /** See PencilEngineAPI's doc comment. The pointer transform here is the
+   *  exact inverse of _worldToScreenTransform's world->screen math (solved
+   *  by hand, not matrix-inverted at runtime, since it's cheap and fixed
+   *  shape) — a raw client pointer event must land on the same world point
+   *  a tile rendered at (wx,wy,zoom,angle) currently shows there. Unlike
+   *  setViewport, this reads the canvas element's own on-screen rect
+   *  directly (canvas.getBoundingClientRect()) rather than trusting a
+   *  separate (cx,cy) screen-position parameter — infinite mode's canvas
+   *  has no CSS pan transform of its own (see resizeCanvas), it's simply
+   *  positioned to fill the viewport, so this is the same client->canvas-
+   *  local math PointerInput's own untransformed fallback already does,
+   *  composed with the inverse camera rotation/zoom on top. */
+  setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void {
+    this._infiniteCamera = { wx, wy, zoom, angle }
+    const { canvas } = this
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    const hw = canvas.width / 2
+    const hh = canvas.height / 2
+    this._pointer.setTransform((clientX, clientY) => {
+      const rect = canvas.getBoundingClientRect()
+      const scaleX = canvas.width / (rect.width || canvas.width)
+      const scaleY = canvas.height / (rect.height || canvas.height)
+      const screenX = (clientX - rect.left) * scaleX
+      const screenY = (clientY - rect.top) * scaleY
+      const sx = (screenX - hw) / zoom
+      const sy = (screenY - hh) / zoom
+      return { x: wx + sx * cos + sy * sin, y: wy - sx * sin + sy * cos }
+    })
+    // Unlike setViewport (bounded mode pans via a CSS transform the caller
+    // owns — the engine's own pixels never change), a camera move here
+    // genuinely changes what belongs on screen, so the engine must
+    // re-render itself; there's no separate "just move the DOM" path.
+    this._display()
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  resizeCanvas(width: number, height: number): void {
+    if (!this._infinite) return
+    const { gl, canvas } = this
+    if (canvas.width === width && canvas.height === height) return
+    canvas.width = width
+    canvas.height = height
+    this._compositeFBO.destroy()
+    this._belowCache.destroy()
+    this._aboveCache.destroy()
+    this._compositeFBO = new AccumulationBuffer(gl, width, height)
+    this._belowCache = new AccumulationBuffer(gl, width, height)
+    this._aboveCache = new AccumulationBuffer(gl, width, height)
+    this._splitCacheDirty = true
+    this._display()
+  }
+
   /** Live gizmo-drag preview (#120) — renders each entry's *current* layer
    *  content through the requested transform into a scratch buffer that
    *  _runComposite substitutes in for the real one, called on every drag
@@ -1386,6 +1470,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
+    this._tileCompositeProg   = createProgram(gl, TILE_COMPOSITE_VERT, LAYER_COMPOSITE_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
@@ -1404,6 +1489,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_bufferSize', 'u_matrixInv'])
+    this._tileCompositeUni = getUniforms(gl, this._tileCompositeProg, ['u_layer', 'u_opacity', 'u_transform', 'u_canvasSize'])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
     this._dispPosLoc           = gl.getAttribLocation(this._dispProg, 'a_position')
@@ -1411,6 +1497,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
+    this._tileCompositePosLoc = gl.getAttribLocation(this._tileCompositeProg, 'a_position')
 
     this._instPosLoc     = gl.getAttribLocation(this._dabProgInstanced, 'a_position')
     this._instALoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instA')
@@ -2100,6 +2187,94 @@ export class PencilEngine implements PencilEngineAPI {
    *  (drags, not paint dabs) that reasoning about invalidating a persistent
    *  cache through it isn't worth it — this falls back to exactly the old
    *  (pre-#122) per-frame full recompute for as long as any preview exists. */
+  /** Infinite canvas (#133 Phase 1) — the world-space rect currently visible
+   *  on screen, generously padded to an axis-aligned bounding box (the
+   *  viewport's true visible footprint is a rotated rectangle when
+   *  `angle !== 0`; resolveVisible() only *reads* whichever tiles this
+   *  covers, it never creates them, so a few extra out-of-view tiles
+   *  considered here costs a bit of redundant compositing, not correctness
+   *  — tightening this to the exact rotated quad is a Phase 2 nicety). */
+  private _visibleWorldRect(): WorldRect {
+    const { canvas } = this
+    const { wx, wy, zoom } = this._infiniteCamera
+    const halfW = canvas.width / 2 / zoom
+    const halfH = canvas.height / 2 / zoom
+    const halfDiag = Math.sqrt(halfW * halfW + halfH * halfH)
+    return { minX: wx - halfDiag, minY: wy - halfDiag, maxX: wx + halfDiag, maxY: wy + halfDiag }
+  }
+
+  /** Infinite canvas (#133 Phase 1) — the affine mapping a tile-composite
+   *  quad's own UV (0..1) to top-down screen-pixel space for a tile at
+   *  world origin (originX, originY) sized (bw, bh): UV -> tile-local pixel
+   *  -> world -> screen (camera). See TILE_COMPOSITE_VERT's own comment for
+   *  why the screen -> clip step is kept separate (u_canvasSize) rather
+   *  than folded in here, and setInfiniteCamera's docstring for the hand-
+   *  solved inverse of this same math (pointer input). */
+  private _worldToScreenTransform(originX: number, originY: number, bw: number, bh: number): AffineMatrix {
+    const { canvas } = this
+    const { wx, wy, zoom, angle } = this._infiniteCamera
+    const uvToWorld = composeAffine(translationMatrix(originX, originY), scaleMatrix(bw, bh))
+    const worldToScreen = composeAffine(
+      translationMatrix(canvas.width / 2, canvas.height / 2),
+      composeAffine(scaleRotateMatrix(zoom, angle), translationMatrix(-wx, -wy)),
+    )
+    return composeAffine(worldToScreen, uvToWorld)
+  }
+
+  /** Infinite canvas (#133 Phase 1) — draws one tile's texture at its
+   *  camera-relative screen position (see _worldToScreenTransform) into
+   *  `targetFbo`, blended over whatever's already there (same (ONE,
+   *  ONE_MINUS_SRC_ALPHA) "over" every other composite pass in this file
+   *  uses) — the tile-aware counterpart to _compositeTextures' fullscreen-
+   *  quad draw. */
+  private _drawTileComposite(
+    texture: WebGLTexture, transform: AffineMatrix, opacity: number, targetFbo: WebGLFramebuffer,
+  ): void {
+    const { gl, canvas } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
+    gl.viewport(0, 0, canvas.width, canvas.height)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+
+    gl.useProgram(this._tileCompositeProg)
+    const u = this._tileCompositeUni
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    const posLoc = this._tileCompositePosLoc
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.uniform1i(u.u_layer, 0)
+    gl.uniform1f(u.u_opacity, opacity)
+    gl.uniform2f(u.u_canvasSize, canvas.width, canvas.height)
+    gl.uniformMatrix3fv(u.u_transform, false, toMat3(transform))
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    gl.disable(gl.BLEND)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** Infinite canvas (#133 Phase 1) — the tile-aware counterpart to
+   *  _runComposite: for every layer in `items`, draws whichever of its
+   *  resident tiles the camera can currently see, each at its own screen
+   *  position. No below/above split-cache yet (#122's optimization is
+   *  deferred here — Phase 2; every visible tile of every visible layer is
+   *  recomposited every call) — correctness first, matching this whole
+   *  phase's scope. */
+  private _runCompositeInfinite(items: CompositeItem[], targetFbo: WebGLFramebuffer): void {
+    const viewRect = this._visibleWorldRect()
+    for (const { id, opacity } of items) {
+      const buf = this._layers.get(id)
+      if (!buf) continue
+      for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
+        const transform = this._worldToScreenTransform(originX, originY, buffer.width, buffer.height)
+        this._drawTileComposite(buffer.texture, transform, opacity, targetFbo)
+      }
+    }
+  }
+
   private _runComposite(items: CompositeItem[], targetFbo: WebGLFramebuffer): void {
     if (this._transformPreview.size > 0) {
       this._compositeTextures(this._resolveEntries(items), targetFbo)
@@ -2264,6 +2439,19 @@ export class PencilEngine implements PencilEngineAPI {
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+
+    if (this._infinite) {
+      this._runCompositeInfinite(this._compositeOrder, this._compositeFBO.fbo)
+      // Live-tip/pointer-prediction/peer-stroke-reveal previews aren't
+      // camera-relative yet (Phase 2 — see previewLayerTransform's own
+      // note for the same reasoning: they're viewport-sized scratch
+      // buffers painted at raw world coordinates, which only lands inside
+      // them when the camera happens to be near world origin). The *real*
+      // stroke still lands correctly in the tiled buffer the moment it's
+      // painted and shows up via _runCompositeInfinite above regardless —
+      // this only affects the transient preview, never correctness.
+      return
+    }
 
     this._runComposite(this._compositeOrder, this._compositeFBO.fbo)
 

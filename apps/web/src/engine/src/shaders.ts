@@ -291,6 +291,40 @@ export const LAYER_COMPOSITE_FRAG = `
   }
 `;
 
+// Infinite canvas (#133 Phase 1) — composites ONE tile at its correct
+// camera-relative screen position instead of DISPLAY_VERT's fixed fullscreen
+// quad (a tile is never canvas/viewport-sized, and there can be several
+// visible at once, each needing its own destination position). u_transform
+// is one precomputed affine (see PencilEngine._worldToClipTransform) mapping
+// this quad's own 0..1 UV to top-down SCREEN-PIXEL space (canvas-pixel
+// units, y-down — same "stay in pixel space as long as possible" convention
+// TRANSFORM_BLIT_FRAG already uses for u_bufferSize): UV -> tile-local pixel
+// -> world (tile origin) -> screen (camera transform). The pixel -> clip
+// conversion (canvas-size normalize + Y-flip, same bridge every other top-
+// down/GL-bottom-up shader in this file needs, e.g. DAB_VERT) is kept as a
+// separate, fixed last step here via u_canvasSize, rather than folded into
+// u_transform — keeps the per-tile matrix itself in intuitive pixel-space
+// terms (easier to reason about, and to invert for the same matrix in a
+// test mock). Reuses the same -1..1 fullscreen quad buffer every other
+// display/composite pass uses; only the vertex shader differs. Shares
+// LAYER_COMPOSITE_FRAG unchanged as its fragment stage — this is a
+// vertex-only variant.
+export const TILE_COMPOSITE_VERT = `
+  attribute vec2 a_position;
+  uniform mat3 u_transform;
+  uniform vec2 u_canvasSize;
+  varying vec2 v_uv;
+  void main() {
+    v_uv = a_position * 0.5 + 0.5;
+    vec3 screenPx = u_transform * vec3(v_uv, 1.0);
+    vec2 clip = vec2(
+      screenPx.x / u_canvasSize.x * 2.0 - 1.0,
+      1.0 - screenPx.y / u_canvasSize.y * 2.0
+    );
+    gl_Position = vec4(clip, 0.0, 1.0);
+  }
+`;
+
 // Blits a reference image (#88) into a layer's accumulation buffer, fit-
 // centered ("contain") within it — u_imageRect is precomputed in JS (buffer-
 // pixel offset/size of the fitted image), so this only has to test whether

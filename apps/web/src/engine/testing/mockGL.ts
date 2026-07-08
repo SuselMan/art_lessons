@@ -38,6 +38,12 @@ type UniformValue = number | number[]
 
 interface MockProgram {
   fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'other'
+  // Infinite canvas (#133 Phase 1): TILE_COMPOSITE_VERT reuses
+  // LAYER_COMPOSITE_FRAG verbatim (same fragTag: 'composite'), so this is
+  // detected from the VERTEX shader's own unique uniform instead — see
+  // attachShader — to route it to _rasterTileComposite rather than
+  // _rasterComposite's same-size 1:1 assumption.
+  usesTileTransform?: boolean
   uniforms: Map<string, UniformValue>
 }
 
@@ -159,7 +165,9 @@ export class MockGL {
   attachShader(program: object, shader: object): void {
     const prog = program as MockProgram
     const src = this._shaderSources.get(shader)
-    if (src && src.type === ENUM.FRAGMENT_SHADER) prog.fragTag = this._tagFragShader(src.source)
+    if (!src) return
+    if (src.type === ENUM.FRAGMENT_SHADER) prog.fragTag = this._tagFragShader(src.source)
+    if (src.source.includes('u_transform')) prog.usesTileTransform = true
   }
 
   private _tagFragShader(source: string): MockProgram['fragTag'] {
@@ -340,7 +348,10 @@ export class MockGL {
 
     switch (prog.fragTag) {
       case 'dab': this._rasterDab(info, prog.uniforms); break
-      case 'composite': this._rasterComposite(info, prog.uniforms); break
+      case 'composite':
+        if (prog.usesTileTransform) this._rasterTileComposite(info, prog.uniforms)
+        else this._rasterComposite(info, prog.uniforms)
+        break
       case 'transform': this._rasterTransform(info, prog.uniforms); break
       // 'display' / 'papergen': visual-only passes never read back via
       // readPixels() in these tests — intentionally not rasterized.
@@ -504,6 +515,44 @@ export class MockGL {
     for (let i = 0; i < width * height; i++) {
       const srcAlpha = srcInfo ? clamp((srcInfo.data[i] ?? 0) * opacity, 0, 1) : 0
       data[i] = srcAlpha * sf + data[i] * (1 - srcAlpha)
+    }
+  }
+
+  // Infinite canvas (#133 Phase 1): TILE_COMPOSITE_VERT's u_transform maps
+  // the quad's own UV to top-down screen-pixel space — this mock, like
+  // _rasterTransform, always samples backward (destination pixel -> source
+  // UV), so it inverts that same affine (same column-major layout: m[0],
+  // m[3], m[6] for x; m[1], m[4], m[7] for y — see _rasterTransform's own
+  // comment) to go the other way, then samples the source tile texture at
+  // the resulting UV if it falls within [0,1) on both axes.
+  private _rasterTileComposite(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const { width, height, data } = info
+    const unit = (uniforms.get('u_layer') as number) ?? 0
+    const opacity = (uniforms.get('u_opacity') as number) ?? 1
+    const m = (uniforms.get('u_transform') as number[]) ?? [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    const srcTex = this._textureUnits[unit] ?? null
+    const srcInfo = srcTex ? this._textureData.get(srcTex) : undefined
+    const sf = this._blendSrcFactor()
+
+    const det = m[0] * m[4] - m[1] * m[3]
+    if (Math.abs(det) < 1e-9) return
+    const ia = m[4] / det, ib = -m[1] / det, ic = -m[3] / det, id = m[0] / det
+    const itx = -(ia * m[6] + ic * m[7]), ity = -(ib * m[6] + id * m[7])
+
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        const idx = py * width + px
+        const dstX = px + 0.5, dstY = py + 0.5
+        const uvX = ia * dstX + ic * dstY + itx
+        const uvY = ib * dstX + id * dstY + ity
+        let srcAlpha = 0
+        if (srcInfo && uvX >= 0 && uvX < 1 && uvY >= 0 && uvY < 1) {
+          const sx = Math.min(Math.floor(uvX * srcInfo.width), srcInfo.width - 1)
+          const sy = Math.min(Math.floor(uvY * srcInfo.height), srcInfo.height - 1)
+          srcAlpha = clamp((srcInfo.data[sy * srcInfo.width + sx] ?? 0) * opacity, 0, 1)
+        }
+        data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
+      }
     }
   }
 
