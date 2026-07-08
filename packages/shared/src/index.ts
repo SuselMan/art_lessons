@@ -47,8 +47,14 @@ export type Room = {
   id: string
   name: string
   paper: PaperType
-  canvasWidth: number
-  canvasHeight: number
+  // Infinite (tiled) canvas — see the engine's ILayerBuffer/TiledLayerBuffer.
+  // canvasWidth/canvasHeight are present iff !infinite; an explicit boolean
+  // discriminant rather than a sentinel width/height so every existing
+  // fixed-canvas call site keeps its exact `room.canvasWidth` shape (no
+  // `!== null`/`!== -1` checks needed anywhere).
+  infinite: boolean
+  canvasWidth?: number
+  canvasHeight?: number
   hasPassword: boolean
   ownerId: string
   createdAt: string
@@ -128,6 +134,13 @@ export type ImageImportOperation = OperationBase & {
   image: string
   width: number
   height: number
+  // World-space top-left placement (infinite canvas only, #133 follow-on).
+  // Omitted entirely by fixed-canvas rooms — when absent, _paintImage's
+  // existing fit-center-within-the-fixed-canvas behavior is unchanged, so
+  // every already-recorded op (which never had x/y) keeps replaying exactly
+  // as before. Infinite-mode imports always set both.
+  x?: number
+  y?: number
 }
 
 /** Inserts a new empty folder at the top of rootOrder. */
@@ -291,7 +304,10 @@ export type ClientToServerEvents = {
    *  the room's `ownerId` is fixed to this socket's connection, deterministic
    *  regardless of when other participants subsequently call `join_room`. */
   create_room: (
-    data: { room: Pick<Room, 'id' | 'name' | 'paper' | 'canvasWidth' | 'canvasHeight'>; password?: string },
+    data: {
+      room: Pick<Room, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
+      password?: string
+    },
     ack: (result: JoinResult) => void,
   ) => void
   join_room: (data: { roomId: string; password?: string; name: string }, ack: (result: JoinResult) => void) => void

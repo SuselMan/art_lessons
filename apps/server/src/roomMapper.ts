@@ -4,12 +4,13 @@ import type { Room } from '@art-lessons/shared'
  *  from Postgres) so both map a Prisma `Room` row to the wire `Room` type
  *  identically. */
 export function toWireRoom(r: {
-  id: string; name: string; paper: string; canvasWidth: number; canvasHeight: number
+  id: string; name: string; paper: string; infinite: boolean
+  canvasWidth: number | null; canvasHeight: number | null
   passwordHash: string | null; ownerId: string; createdAt: Date
 }): Room {
   return {
-    id: r.id, name: r.name, paper: r.paper as Room['paper'],
-    canvasWidth: r.canvasWidth, canvasHeight: r.canvasHeight,
+    id: r.id, name: r.name, paper: r.paper as Room['paper'], infinite: r.infinite,
+    canvasWidth: r.canvasWidth ?? undefined, canvasHeight: r.canvasHeight ?? undefined,
     hasPassword: r.passwordHash !== null, ownerId: r.ownerId,
     createdAt: r.createdAt.toISOString(),
   }

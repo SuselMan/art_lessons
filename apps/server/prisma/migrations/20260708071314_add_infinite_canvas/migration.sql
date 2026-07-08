@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Room" ADD COLUMN     "infinite" BOOLEAN NOT NULL DEFAULT false,
+ALTER COLUMN "canvasWidth" DROP NOT NULL,
+ALTER COLUMN "canvasHeight" DROP NOT NULL;

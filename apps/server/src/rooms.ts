@@ -67,8 +67,8 @@ function enqueueWrite(roomId: string, run: () => Promise<unknown>): void {
 function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
   enqueueWrite(room.id, () => prisma.room.create({
     data: {
-      id: room.id, name: room.name, paper: room.paper,
-      canvasWidth: room.canvasWidth, canvasHeight: room.canvasHeight,
+      id: room.id, name: room.name, paper: room.paper, infinite: room.infinite,
+      canvasWidth: room.canvasWidth ?? null, canvasHeight: room.canvasHeight ?? null,
       passwordHash, ownerId: room.ownerId,
     },
   }))
@@ -146,7 +146,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
  *  even when the room isn't currently live in memory (e.g. a server
  *  restart between the original creation and this reload). */
 export function createRoom(
-  roomData: Pick<Room, 'id' | 'name' | 'paper' | 'canvasWidth' | 'canvasHeight'>,
+  roomData: Pick<Room, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
   password: string | undefined,
   ownerId: string,
   ownerName: string,

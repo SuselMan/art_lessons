@@ -32,8 +32,13 @@ model Room {
   id           String            @id
   name         String
   paper        String
-  canvasWidth  Int
-  canvasHeight Int
+  // Infinite (tiled) canvas — canvasWidth/canvasHeight are set iff !infinite.
+  // Nullable rather than a sentinel so existing fixed-canvas rows/queries
+  // don't need to special-case a magic value; `@default(false)` backfills
+  // every pre-existing row as a fixed-canvas room with no data migration.
+  infinite     Boolean           @default(false)
+  canvasWidth  Int?
+  canvasHeight Int?
   passwordHash String?
   closedAt     DateTime?
   ownerId      String

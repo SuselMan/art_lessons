@@ -26,7 +26,7 @@ afterEach(async () => {
 })
 
 function roomDraft(id: string) {
-  return { id, name: 'Still life', paper: 'rough' as const, canvasWidth: 1240, canvasHeight: 1754 }
+  return { id, name: 'Still life', paper: 'rough' as const, infinite: false, canvasWidth: 1240, canvasHeight: 1754 }
 }
 
 function stroke(overrides: Partial<StrokeOperation> = {}): StrokeOperation {
