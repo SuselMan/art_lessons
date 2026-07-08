@@ -9,7 +9,7 @@ Development currently runs entirely locally (the dev server and `apps/server` on
 - **Monorepo**: npm workspaces (`apps/web`, `apps/server`, `packages/shared`)
 - **Frontend**: React 19 + TypeScript 5 + Vite 8, CSS Modules + CSS variables (no Tailwind)
 - **Routing**: `react-router-dom` v7
-- **State**: local React state + refs for engine; no global state library
+- **State**: local React state + refs for engine within the editor itself; a global store (planned: Zustand, see epic #2) is expected for cross-page/account state (user/auth already exists, more shared-UI state is coming as the app grows beyond the editor) — this does not replace the editor's local-state approach, which stays as-is for engine/room-local concerns
 - **Rendering**: WebGL1, dab-based pencil engine with Catmull-Rom spline
 - **Icons**: Material Symbols Outlined, thin variant (`wght: 200`)
 - **Backend**: Fastify + Socket.io skeleton (not wired to UI yet)
