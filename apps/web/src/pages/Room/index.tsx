@@ -338,7 +338,7 @@ export function Room() {
   const toolActiveRef = useRef(false)
   toolActiveRef.current = eyedropperActive
 
-  const { vp, setVp, vpRef, fitCanvas, angleDeg, canvasTransform } = useViewport(config, toolActiveRef)
+  const { vp, setVp, vpRef, canvasWrapRef, fitCanvas, angleDeg, canvasTransform } = useViewport(config, toolActiveRef)
   const vpValueRef = useRef(vp)
   vpValueRef.current = vp
 
@@ -1463,7 +1463,7 @@ export function Room() {
 
         {/* ── Viewport ── */}
         <div ref={vpRef} className={styles.viewport}>
-          <div className={styles.canvasWrap} style={{ transform: canvasTransform }}>
+          <div ref={canvasWrapRef} className={styles.canvasWrap} style={{ transform: canvasTransform }}>
             <canvas
               ref={canvasRef}
               width={config.width}
