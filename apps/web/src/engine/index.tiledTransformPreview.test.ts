@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  createTestEngine, expectPixelsEqual, fillStroke, makeLayerAdd, makeLayerTransform, readLayerPixels,
+  createTestEngine, expectPixelsEqual, fillStroke, makeLayerAdd, makeLayerTransform,
   readTilePixels, readTransformPreviewTiles, residentTileCount,
 } from './testing/engineTestUtils'
 import { TILE_SIZE } from './src/tileMath'
@@ -117,20 +117,36 @@ describe('previewLayerTransform: multi-tile live preview (#139)', () => {
     expect(readTransformPreviewTiles(engine, 'L')).toEqual([])
   })
 
-  it('a bounded (fixed-canvas) layer still gets a correct single-tile preview, unaffected by the multi-tile generalization', () => {
+  it('a bounded (fixed-canvas) layer gets a correct preview, spanning a second (#142) tile if the transform pushes its own tile bounds past the page edge', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
-    engine.appendOperation(fillStroke('user-a', 'L', 4, 4, 3))
+    engine.appendOperation(fillStroke('user-a', 'L', 10, 4, 5))
 
-    engine.previewLayerTransform([{ layerId: 'L', matrix: [1, 0, 0, 1, 8, 0] }])
-    const tiles = readTransformPreviewTiles(engine, 'L')
-    expect(tiles.length).toBe(1)
-    expect(tiles[0]).toMatchObject({ originX: 0, originY: 0 })
+    // #142: previewLayerTransform (like _bakeTransform) transforms the
+    // *source tile's own bounding box* (the whole 16x16 page here, not just
+    // the dab's painted extent) — translating it +8 pushes its right edge
+    // from x=16 to x=24, past this bounded room's own (16-wide) tile
+    // boundary, so the preview now legitimately spans two page-sized tiles
+    // (origin (0,0) and (16,0)) instead of only ever one. The dab itself
+    // (shifted center x=18, radius 5: world x in [13,23]) straddles that
+    // same boundary, so both tiles get real, non-empty content to compare.
+    const matrix: [number, number, number, number, number, number] = [1, 0, 0, 1, 8, 0]
+    engine.previewLayerTransform([{ layerId: 'L', matrix }])
+    const previewTiles = readTransformPreviewTiles(engine, 'L')
+    expect(previewTiles.length).toBe(2)
+    const byX = [...previewTiles].sort((a, b) => a.originX - b.originX)
+    expect(byX[0]).toMatchObject({ originX: 0, originY: 0 })
+    expect(byX[1]).toMatchObject({ originX: 16, originY: 0 })
 
-    const { engine: refEngine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
-    refEngine.appendOperation(makeLayerAdd('user-a', 'L'))
-    refEngine.appendOperation(fillStroke('user-a', 'L', 12, 4, 3))
-    expectPixelsEqual(tiles[0].pixels, readLayerPixels(refEngine, 'L'))
+    // Ground truth: _bakeTransform's own already-correct committed result —
+    // not an independently-painted reference, since real pointer-driven
+    // painting is clamped to the visible page for bounded rooms (#142; see
+    // _dabsWorldBounds) and couldn't reach world x=18 directly the way this
+    // transform does.
+    engine.appendOperation(makeLayerTransform('user-a', [{ layerId: 'L', matrix }]))
+    engine.clearLayerTransformPreview()
+    expectPixelsEqual(byX[0].pixels, readTilePixels(engine, 'L', 0, 0, 16, 16))
+    expectPixelsEqual(byX[1].pixels, readTilePixels(engine, 'L', 1, 0, 16, 16))
   })
 
   it('an infinite-canvas engine no longer no-ops previewLayerTransform (the old unconditional early return is gone)', () => {

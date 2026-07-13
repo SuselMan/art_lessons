@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { MockGL } from '../testing/mockGL'
-import { BoundedLayerBuffer } from './BoundedLayerBuffer'
 import { TiledLayerBuffer } from './TiledLayerBuffer'
 import { TILE_SIZE } from './tileMath'
 
@@ -65,15 +64,5 @@ describe('TiledLayerBuffer', () => {
     buf.clear()
     expect(buf.tileCount).toBe(0)
     expect(buf.resolveVisible({ minX: 0, minY: 0, maxX: 10, maxY: 10 })).toHaveLength(0)
-  })
-})
-
-describe('BoundedLayerBuffer', () => {
-  it('always resolves to its single buffer at origin (0,0), regardless of rect', () => {
-    const buf = new BoundedLayerBuffer(gl(), 64, 64)
-    const forPaint = buf.resolveForPaint({ minX: 1000, minY: -1000, maxX: 2000, maxY: 2000 })
-    const visible = buf.resolveVisible({ minX: -50, minY: -50, maxX: -1, maxY: -1 })
-    expect(forPaint).toEqual([{ buffer: buf.buffer, originX: 0, originY: 0 }])
-    expect(visible).toEqual([{ buffer: buf.buffer, originX: 0, originY: 0 }])
   })
 })

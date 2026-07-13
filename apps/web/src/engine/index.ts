@@ -14,10 +14,9 @@ import {
   type AffineMatrix,
 } from './src/affine'
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
-import { BoundedLayerBuffer } from './src/BoundedLayerBuffer'
 import { TiledLayerBuffer } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
-import { tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
+import { TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 
 export type { HapticGrainStats }
 export type { AffineMatrix }
@@ -41,12 +40,15 @@ export interface CompositeItem {
 }
 
 export interface PencilEngineOptions {
-  // Infinite (tiled) canvas mode (#133 Phase 1) — false/omitted (default)
-  // keeps every per-layer buffer exactly canvas-sized, unchanged from
-  // before this option existed. true routes layer storage through
-  // TiledLayerBuffer instead of BoundedLayerBuffer so a layer's content is
-  // never clipped to a fixed rect. Fixed once at construction — an engine
-  // instance never switches modes mid-life.
+  // Infinite-canvas mode (#133 Phase 1, #142) — every room's layer storage
+  // is the same TiledLayerBuffer regardless of this flag (see
+  // _makeLayerBuffer); what `infinite` actually controls is the *visible*
+  // window and camera: false/omitted (default) keeps a fixed, non-panning
+  // canvas.width x canvas.height viewport (see _visibleWorldRect's bounded
+  // branch) with rotation handled by the DOM canvasWrap's own CSS
+  // transform; true hands the viewport to a free-roaming, rotatable
+  // world-space camera (setInfiniteCamera/_infiniteCamera). Fixed once at
+  // construction — an engine instance never switches modes mid-life.
   infinite?: boolean
   paper?: PaperType
   pencilType?: string
@@ -1143,13 +1145,16 @@ export class PencilEngine implements PencilEngineAPI {
    *  _bakeTransform (read its docstring first): resolve the transformed
    *  content's world bounds from every source tile's corners, then stitch
    *  each overlapping destination tile from every overlapping source tile,
-   *  one alpha-blended _runTransformBlit pass per pair. This never assumed
-   *  exactly one source tile for a real reason with bounded layers —
-   *  BoundedLayerBuffer.allResident() always returns exactly one PaintTarget
-   *  (see its own comment) — so that half of the old bug was unreachable in
-   *  practice; it was only ever wrong for an infinite-canvas layer spanning
-   *  more than one tile, which the old unconditional `if (this._infinite)
-   *  return` masked entirely by skipping the preview outright.
+   *  one alpha-blended _runTransformBlit pass per pair.
+   *
+   *  #142: every room (bounded or infinite) is backed by TiledLayerBuffer
+   *  now, so this is the same code path for both — a bounded layer just
+   *  usually has fewer resident tiles (often exactly one, for a canvas
+   *  smaller than TILE_SIZE in both dimensions) rather than a structurally
+   *  different single-buffer type. Dragging a bounded layer's content past
+   *  its visible canvas edge previews (and, on release, actually bakes)
+   *  correctly into whichever tile it now covers, the same #133 guarantee
+   *  infinite rooms already had — nothing is silently clipped.
    *
    *  Two differences from the real bake, both because this is a
    *  non-destructive per-frame preview rather than a one-shot commit:
@@ -1159,11 +1164,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  reading it — leaking empty tiles into the layer's real tile map on
    *  every drag frame, including ones the drag never ends up committing);
    *  and there's no swap-into-the-real-tile second phase — the scratch tile
-   *  *is* the whole result, read directly by _drawCompositeItem. Bounded
-   *  layers reduce to a single "tile" the size of the whole canvas at
-   *  origin (0,0), same as BoundedLayerBuffer.resolveForPaint's own
-   *  behavior — so a bounded room's preview still clips at the canvas edge,
-   *  unchanged from before this generalization. */
+   *  *is* the whole result, read directly by _drawCompositeItem. */
   previewLayerTransform(transforms: Array<{ layerId: string; matrix: AffineMatrix }>): void {
     for (const { layerId, matrix } of transforms) {
       const source = this._layers.get(layerId)
@@ -1201,9 +1202,18 @@ export class PencilEngine implements PencilEngineAPI {
         continue
       }
 
-      const destRects: WorldRect[] = this._infinite
-        ? tilesOverlappingRect({ minX, minY, maxX, maxY }).map(({ tileX, tileY }) => tileWorldRect(tileX, tileY))
-        : [{ minX: 0, minY: 0, maxX: this.canvas.width, maxY: this.canvas.height }]
+      // #142: every room is tile-backed now, so this always resolves
+      // whichever tiles the transformed content actually lands in — a
+      // bounded room's live preview can show content dragged past its
+      // visible canvas edge just like the real bake (_bakeTransform)
+      // already could, instead of only ever previewing a single canvas-
+      // sized destination rect. Must use this room's own tile size (see
+      // _tileSize) — the default (TILE_SIZE) is only correct for infinite
+      // rooms; a bounded room's tiles are its own canvas size.
+      const { w: tw, h: th } = this._tileSize()
+      const destRects: WorldRect[] =
+        tilesOverlappingRect({ minX, minY, maxX, maxY }, tw, th)
+          .map(({ tileX, tileY }) => tileWorldRect(tileX, tileY, tw, th))
 
       const matrixInv = invertAffine(matrix)
       const tiles: PreviewTile[] = []
@@ -1519,13 +1529,40 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  /** Constructs a fresh, empty ILayerBuffer of whichever mode this engine
-   *  instance runs in — the one place that decision is made, so merge/
-   *  replay scratch buffers and real layer buffers (_createBuffer) never
-   *  drift out of sync with each other. */
+  /** Constructs a fresh, empty ILayerBuffer — the one place that happens,
+   *  so merge/replay scratch buffers and real layer buffers (_createBuffer)
+   *  never drift out of sync with each other.
+   *
+   *  #142: every room now gets a TiledLayerBuffer, bounded or infinite —
+   *  BoundedLayerBuffer (a single fixed-size buffer that silently clipped
+   *  anything a transform moved past the canvas edge) is gone. Its tile
+   *  size is what actually differs by mode: infinite rooms get the fixed,
+   *  square TILE_SIZE (tileMath.ts) every tile always had; a bounded room's
+   *  tile size is instead its *own* canvas.width x canvas.height — its
+   *  "tile grid" has cells the size of its own visible page, rooted at
+   *  world origin, so a layer that never grows past that one page (the
+   *  common case) still resolves to exactly one resident tile, same size
+   *  and pixel indexing as the old BoundedLayerBuffer's single buffer
+   *  byte-for-byte. What changes: a layer_transform that drags content past
+   *  that visible page's edge now creates an *adjacent*, identically-sized
+   *  tile to hold it rather than clipping it away — content isn't lost,
+   *  the same #133 guarantee infinite rooms already had — and transforming
+   *  it back later recovers it correctly. The room's *visible/exported*
+   *  extent is still exactly canvas.width x canvas.height regardless (see
+   *  _visibleWorldRect's bounded branch and _composeToFBO/_display, both
+   *  unchanged in size), so this never changes what an on-page bounded room
+   *  looks like. */
   private _makeLayerBuffer(): ILayerBuffer {
-    const { gl, canvas } = this
-    return this._infinite ? new TiledLayerBuffer(gl) : new BoundedLayerBuffer(gl, canvas.width, canvas.height)
+    const { w, h } = this._tileSize()
+    return new TiledLayerBuffer(this.gl, w, h)
+  }
+
+  /** This room's own tile dimensions — see _makeLayerBuffer's docstring for
+   *  the full reasoning. Also used by previewLayerTransform, which resolves
+   *  destination tiles the same way _bakeTransform/TiledLayerBuffer itself
+   *  do and must agree with them on tile size. */
+  private _tileSize(): { w: number; h: number } {
+    return this._infinite ? { w: TILE_SIZE, h: TILE_SIZE } : { w: this.canvas.width, h: this.canvas.height }
   }
 
   /** Composites every buffer `source` currently holds into the
@@ -1690,11 +1727,8 @@ export class PencilEngine implements PencilEngineAPI {
   // ─── Internal ────────────────────────────────────────────────────────────────
 
   private _createBuffer(id: string): void {
-    const { gl, canvas } = this
     if (this._layers.has(id)) return
-    const buf: ILayerBuffer = this._infinite
-      ? new TiledLayerBuffer(gl)
-      : new BoundedLayerBuffer(gl, canvas.width, canvas.height)
+    const buf = this._makeLayerBuffer()
     buf.clear()
     this._layers.set(id, buf)
   }
@@ -2176,10 +2210,23 @@ export class PencilEngine implements PencilEngineAPI {
   /** Conservative world-space AABB covering every dab's full painted extent
    *  (center +/- radius, padded for aspect ratio so an elongated/rotated
    *  dab is never under-covered) — the rect whose overlapping tile(s) this
-   *  batch must be resolved against. Bounded mode ignores the result
-   *  (BoundedLayerBuffer.resolveForPaint always returns its one buffer
-   *  regardless), so this costs a cheap scan there for nothing — acceptable
-   *  next to the draw calls it gates. */
+   *  batch must be resolved against.
+   *
+   *  #142: clamped to the visible page for a bounded room (never for an
+   *  infinite one). A bounded room's tile size is its own canvas size (see
+   *  _makeLayerBuffer), so an *unclamped* rect here would resolve — and
+   *  lazily create — a whole extra full-page-sized adjacent tile for every
+   *  ordinary stroke whose brush radius merely overlaps the page edge by a
+   *  few pixels (extremely common: any stroke drawn near the border), each
+   *  one wasted memory that can never become visible again through normal
+   *  use. Real, deliberate off-page content only ever gets there through a
+   *  layer_transform (_bakeTransform/previewLayerTransform, both compute
+   *  their own unclamped rect straight from the transformed content's
+   *  actual bounds, independent of this method) — clamping here doesn't
+   *  lose anything a user could otherwise reach: pointer input can't even
+   *  put a dab's *center* past the visible canvas element's own edge,
+   *  same as a real sheet of paper — ink can bleed to the very edge, not
+   *  past it. */
   private _dabsWorldBounds(dabs: Dab[], erasing: boolean, preset: PencilPreset): WorldRect {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const d of dabs) {
@@ -2188,7 +2235,11 @@ export class PencilEngine implements PencilEngineAPI {
       minX = Math.min(minX, d.x - r); maxX = Math.max(maxX, d.x + r)
       minY = Math.min(minY, d.y - r); maxY = Math.max(maxY, d.y + r)
     }
-    return { minX, minY, maxX, maxY }
+    if (this._infinite) return { minX, minY, maxX, maxY }
+    return {
+      minX: Math.max(minX, 0), minY: Math.max(minY, 0),
+      maxX: Math.min(maxX, this.canvas.width), maxY: Math.min(maxY, this.canvas.height),
+    }
   }
 
   /** `target` is usually a real layer's `ILayerBuffer`, but a few callers
@@ -2516,15 +2567,27 @@ export class PencilEngine implements PencilEngineAPI {
    *  (#136) Same split-cache technique now backs both bounded and infinite
    *  rooms — see _drawCompositeItem and the constructor's _infiniteCamera
    *  init. No per-mode branch left here. */
-  /** Infinite canvas (#133 Phase 1) — the world-space rect currently visible
-   *  on screen, generously padded to an axis-aligned bounding box (the
-   *  viewport's true visible footprint is a rotated rectangle when
-   *  `angle !== 0`; resolveVisible() only *reads* whichever tiles this
-   *  covers, it never creates them, so a few extra out-of-view tiles
-   *  considered here costs a bit of redundant compositing, not correctness
-   *  — tightening this to the exact rotated quad is a Phase 2 nicety). */
+  /** The world-space rect currently visible on screen — what determines
+   *  which tiles resolveVisible()/composite bother reading (never creates
+   *  them, so a few extra out-of-view tiles considered here costs a bit of
+   *  redundant compositing, never correctness).
+   *
+   *  #142: a bounded room's viewport is exactly its fixed canvas.width x
+   *  canvas.height, full stop — its rotation is the DOM canvasWrap's own
+   *  CSS transform, never this camera's `angle` (always 0 for it, see the
+   *  constructor), so there's no rotated footprint to pad for the way an
+   *  infinite room's camera-relative view needs. Padding it anyway would
+   *  cost real, needless compositing work on every frame (large canvas
+   *  presets like A4 already span several tiles) for tiles that can never
+   *  actually be visible.
+   *
+   *  An infinite room's camera can point anywhere and rotate freely, so
+   *  this generously pads to an axis-aligned bounding box of the (rotated)
+   *  viewport rect — tightening this to the exact rotated quad instead of
+   *  its bounding box is a nicety, not a correctness fix. */
   private _visibleWorldRect(): WorldRect {
     const { canvas } = this
+    if (!this._infinite) return { minX: 0, minY: 0, maxX: canvas.width, maxY: canvas.height }
     const { wx, wy, zoom } = this._infiniteCamera
     const halfW = canvas.width / 2 / zoom
     const halfH = canvas.height / 2 / zoom

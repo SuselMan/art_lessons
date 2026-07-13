@@ -14,7 +14,7 @@ import type { AccumulationBuffer } from '../src/AccumulationBuffer'
 import type { ILayerBuffer } from '../src/ILayerBuffer'
 import type { PointerData } from '../src/PointerInput'
 import { TiledLayerBuffer } from '../src/TiledLayerBuffer'
-import { tileWorldRect } from '../src/tileMath'
+import { TILE_SIZE, tileWorldRect } from '../src/tileMath'
 import { MockGL, type MockLocation, type UniformValue } from './mockGL'
 
 // jsdom is not used (vitest env is 'node' — see root vitest.config.ts), so
@@ -111,22 +111,40 @@ export function hasLayerBuffer(engine: PencilEngine, layerId: string): boolean {
   return internals(engine)._layers.has(layerId)
 }
 
-/** Every existing engine test runs in fixed-canvas (bounded) mode, so a
- *  layer always has exactly one resident buffer — reads that one. Will need
- *  a tile-aware variant once tests exercise infinite-canvas mode directly
- *  (see index.tiledStroke.test.ts / index.tiledTransform.test.ts, which
- *  read pixels per-tile instead via allResident()). */
+/** Bounded-mode-only helper (see index.tiledStroke.test.ts /
+ *  index.tiledTransform.test.ts for the tile-aware equivalent,
+ *  readTilePixels/allResident, that infinite-canvas tests use instead).
+ *  Reads specifically the tile at world origin (0,0) — a bounded room's
+ *  own visible page (see _makeLayerBuffer: its tile size is its own canvas
+ *  size, rooted at world origin) — rather than "whatever allResident()
+ *  happens to return first": #142 means a layer_transform can leave a
+ *  bounded layer with more than one resident tile (content dragged past
+ *  the visible page's edge lands in an *adjacent* tile instead of being
+ *  destroyed), and allResident()'s Map iteration order doesn't guarantee
+ *  the origin tile comes first. A never-painted layer has *zero* resident
+ *  tiles (#142: every layer, bounded or infinite, now lazily creates its
+ *  TiledLayerBuffer tile(s) on first paint, unlike the old always-eager
+ *  BoundedLayerBuffer) — synthesized as an all-transparent buffer the same
+ *  size as _compositeFBO (always exactly canvas.width x canvas.height,
+ *  regardless of mode) so callers asserting "a fresh layer reads as all
+ *  zero" don't need their own special case for it. */
 export function readLayerPixels(engine: PencilEngine, layerId: string): Uint8Array | null {
   const buf = internals(engine)._layers.get(layerId)
   if (!buf) return null
-  const [resident] = buf.allResident()
-  return resident ? resident.buffer.readPixels() : null
+  const resident = buf.allResident().find(t => t.originX === 0 && t.originY === 0)
+  if (resident) return resident.buffer.readPixels()
+  const { width, height } = internals(engine)._compositeFBO
+  return new Uint8Array(width * height * 4)
 }
 
 // ─── Infinite-canvas (tiled) white-box access (#133 Phase 1) ───────────────
 
-/** Resident tile count for an infinite-canvas layer — 0 for a bounded
- *  (fixed-canvas) layer or one that doesn't exist. */
+/** Resident tile count for any layer, bounded or infinite (#142: every
+ *  layer is a TiledLayerBuffer now) — 0 if it doesn't exist or nothing has
+ *  painted into it yet. A bounded layer's canvas fitting within a single
+ *  TILE_SIZE tile in both dimensions (true of any preset up to 1024x1024)
+ *  still shows 1 once painted, same as it always effectively was — larger
+ *  presets (e.g. A4 at 1240x1754) legitimately span more than one. */
 export function residentTileCount(engine: PencilEngine, layerId: string): number {
   const buf = internals(engine)._layers.get(layerId)
   return buf instanceof TiledLayerBuffer ? buf.tileCount : 0
@@ -136,11 +154,18 @@ export function residentTileCount(engine: PencilEngine, layerId: string): number
  *  engine/src/tileMath.ts) — null if that tile isn't resident (or the layer
  *  doesn't exist / isn't tiled). Used to assert content landed on (or
  *  didn't land on) a specific tile after a tile-straddling stroke or a
- *  transform bake that moves content across a tile boundary. */
-export function readTilePixels(engine: PencilEngine, layerId: string, tileX: number, tileY: number): Uint8Array | null {
+ *  transform bake that moves content across a tile boundary. `tileW/tileH`
+ *  default to TILE_SIZE (infinite rooms' own tile size, and every existing
+ *  caller's expectation) — a bounded-room test wanting its *own* (canvas-
+ *  sized) second/third/etc. tile must pass its actual tile size explicitly
+ *  (see _makeLayerBuffer's docstring in engine/index.ts for why that
+ *  differs from TILE_SIZE for bounded rooms). */
+export function readTilePixels(
+  engine: PencilEngine, layerId: string, tileX: number, tileY: number, tileW = TILE_SIZE, tileH = TILE_SIZE,
+): Uint8Array | null {
   const buf = internals(engine)._layers.get(layerId)
   if (!buf) return null
-  const rect = tileWorldRect(tileX, tileY)
+  const rect = tileWorldRect(tileX, tileY, tileW, tileH)
   const target = buf.allResident().find(t => t.originX === rect.minX && t.originY === rect.minY)
   return target ? target.buffer.readPixels() : null
 }

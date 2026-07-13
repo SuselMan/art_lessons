@@ -64,12 +64,30 @@ describe('infinite canvas: tile-straddling strokes (#133)', () => {
     expect(readTilePixels(engine, 'L', 2, -1)).toBeNull()
   })
 
-  it('a bounded (fixed-canvas) engine is entirely unaffected by any of this — readLayerPixels still returns the one canvas-sized buffer', () => {
+  it('a bounded (fixed-canvas) engine paints normally — one resident tile the size of its own canvas (#142)', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
     engine.appendOperation(fillStroke('user-a', 'L', 8, 8, 3))
-    expect(residentTileCount(engine, 'L')).toBe(0) // not a TiledLayerBuffer at all
+    // Tile-backed like every layer now (#142), just with a tile the size of
+    // its own canvas (16x16) rather than TILE_SIZE — a stroke well inside
+    // the page still resolves to exactly the one origin-(0,0) tile.
+    expect(residentTileCount(engine, 'L')).toBe(1)
     expect(readLayerPixels(engine, 'L')).not.toBeNull()
+  })
+
+  it('#142: a bounded-room stroke near the page edge stays clamped to the one visible-page tile — no adjacent tiles spawned for brush overflow', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    // Dab center right at the corner, radius well past every edge — a real
+    // pointer can click exactly here (the corner is on-page), but the
+    // brush's own radius overhangs off all four sides. Without clamping
+    // (_dabsWorldBounds, bounded-only), this would resolve — and lazily
+    // create — up to 9 full canvas-sized tiles (the 3x3 grid straddling the
+    // corner) just to hold a few overflow pixels that could never become
+    // visible again through normal use.
+    engine.appendOperation(fillStroke('user-a', 'L', 0, 0, 6))
+    expect(residentTileCount(engine, 'L')).toBe(1)
+    expect(readTilePixels(engine, 'L', 0, 0, 16, 16)!.some(v => v !== 0)).toBe(true)
   })
 
   it('an infinite-canvas layer_merge composites tiled sources into a tiled target at matching tile positions', () => {
