@@ -65,6 +65,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               <option value="off">Off</option>
               <option value="variant1">Variant 1</option>
               <option value="variant2">Variant 2</option>
+              <option value="variant3">Variant 3 (realistic, experimental)</option>
             </select>
           </div>
         </div>

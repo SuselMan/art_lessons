@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, memo } from 'react'
 import clsx from 'clsx'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -25,7 +25,7 @@ export interface LayerRowProps {
   onPointerUp?: () => void
 }
 
-export function LayerRow({
+function LayerRowImpl({
   item, depth, isActive, isSelected, isDragOverFolder,
   onActivate, onToggleVisible, onToggleLock, onRename, onToggleCollapse, onOpenMenu, onOpenOpacity,
   onPointerDown, onPointerUp,
@@ -152,3 +152,5 @@ export function LayerRow({
     </div>
   )
 }
+
+export const LayerRow = memo(LayerRowImpl)

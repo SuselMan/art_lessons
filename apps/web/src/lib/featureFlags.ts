@@ -52,15 +52,17 @@ export function setFeatureFlag(key: string, value: boolean): void {
   localStorage.setItem(STORAGE_PREFIX + key, String(value))
 }
 
-// Pencil sound (see lib/PencilSound.ts) has two distinct variants rather than one on/off toggle —
-// a 3-way choice doesn't fit FeatureFlagDef's boolean shape, so it gets its own small pair of
-// functions instead of forcing the generic flag list to support enum values for this one case.
-export type PencilSoundSetting = 'off' | 'variant1' | 'variant2'
+// Pencil sound has distinct variants rather than one on/off toggle — a multi-way choice doesn't
+// fit FeatureFlagDef's boolean shape, so it gets its own small pair of functions instead of
+// forcing the generic flag list to support enum values for this one case. variant1/variant2 are
+// the node-graph recipes in lib/PencilSound.ts; variant3 is the AudioWorklet synth in
+// lib/pencilSoundV3/ (#153).
+export type PencilSoundSetting = 'off' | 'variant1' | 'variant2' | 'variant3'
 const PENCIL_SOUND_STORAGE_KEY = 'pencilSoundVariant'
 
 export function getPencilSoundSetting(): PencilSoundSetting {
   const raw = localStorage.getItem(PENCIL_SOUND_STORAGE_KEY)
-  return raw === 'variant1' || raw === 'variant2' ? raw : 'off'
+  return raw === 'variant1' || raw === 'variant2' || raw === 'variant3' ? raw : 'off'
 }
 
 export function setPencilSoundSetting(value: PencilSoundSetting): void {

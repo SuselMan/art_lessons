@@ -109,7 +109,9 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   if (!dbRoom) return false
 
   const operations = dbRoom.operations.map(o => o.data as Operation)
-  const nextSeq = operations.length ? Math.max(...operations.map(o => o.seq ?? 0)) + 1 : 1
+  let maxSeq = 0
+  for (const op of operations) maxSeq = Math.max(maxSeq, op.seq ?? 0)
+  const nextSeq = operations.length ? maxSeq + 1 : 1
 
   rooms.set(roomId, {
     room: toWireRoom(dbRoom),

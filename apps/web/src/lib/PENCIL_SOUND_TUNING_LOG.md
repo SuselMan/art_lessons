@@ -322,6 +322,37 @@ Final shape:
 This file stays as the historical record of how those two numbers were arrived at — the "why" behind
 `PencilSound.ts`'s comments isn't re-derivable from the code alone once the debug scaffolding is gone.
 
+## Round 11 — Variant 3: AudioWorklet resynthesis from scratch (#153)
+
+After round 10 shipped, Ilya's verdict on the result was "в целом норм, но хочу идеальный" — so
+this round doesn't tune the node graph further, it replaces the whole synthesis architecture for a
+new third setting (`lib/pencilSoundV3/`, Settings → Pencil sound → Variant 3). variant1/variant2
+are untouched.
+
+Structural changes over the node-graph design (full rationale in `Variant3Synth.ts`'s header):
+- **Distance-driven grains**: excitation is one heavy-tailed noise burst per paper asperity
+  crossed (integrated px of stroke, spacing per paper type), not a time-based grain rate — grain
+  density scales with speed automatically, and slow strokes crackle while fast ones blend to hiss,
+  which is the physically correct behavior the old `grainRateHz(speed)` curve hand-approximated.
+- **Modal resonator bank** (4 modes, 430/1300/2800/5600 Hz): grains ping it, giving the sound a
+  body/coloration. All node-graph variants were pure filtered noise — zero resonance.
+- **Touchdown/lift transients** on strokeStart/strokeEnd, playing through their own gain path
+  (the speed-driven master gain is ~0 at exactly those moments).
+- **Stereo**: decorrelated L/R bed noise + per-grain amplitude panning (measured corr ≈ 0.6).
+- **Patchiness by construction**: sample-and-hold + glide loudness patching (3-36 Hz region, the
+  band round 3 found in real recordings), with exact depth — immune to the round-2/3
+  lowpassed-noise amplitude bug class. Grain amplitude ties to the same patch signal (patch² —
+  local tooth density affects both).
+- **Round-8 immunity**: brightness sweeps a *non-resonant* one-pole cascade, so the wind/siren
+  failure mode is structurally impossible.
+
+Measured offline (`Variant3Synth.test.ts` drives the same class the worklet runs, 48 kHz,
+constant speed 3 px/ms, pressure 0.6 — note constant drive understates CV/crest vs. real hand
+motion): rms 0.061, macro CV 0.445, envelope crest 3.8, centroid **6547 Hz** (real recordings:
+5.7-6.7 kHz — the round-3 brightness gap is finally closed), corr(L,R) 0.61.
+
+**Result:** _pending — awaiting Ilya's listening pass._
+
 ## How to log a result
 
 After each round, replace the pending line above with the winner and a short
