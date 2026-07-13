@@ -11,6 +11,21 @@ export const PAPER_GEN_FRAG = `
   uniform float u_gain;     // per-octave amplitude falloff
   uniform float u_contrast;
   uniform float u_warp;     // domain warp strength
+  // #141: 1.0 for an infinite-canvas (GL_REPEAT-wrapped) texture, 0.0 for a
+  // bounded-canvas (CLAMP_TO_EDGE, never-tiled) one — see PaperTexture.ts's
+  // createPaperTexture, which sets this from the same 'repeat' flag that
+  // picks the wrap mode. GL_REPEAT only wraps the *sample coordinate*; it
+  // doesn't make this noise's own hash lookups periodic, so without this a
+  // repeated texture would show a hard seam every time it tiles (this
+  // hash/vnoise/fbm was never designed to be periodic over any domain).
+  // Bounded rooms don't need that (sampled 0..1 exactly once, never
+  // tiled) and don't want it either: forcing periodicity nudges each
+  // octave's effective frequency by a fraction of a percent (see fbm's
+  // freqRatio) and changes the wrapped-neighbor lookup at the far edge —
+  // both irrelevant for a texture that's never tiled, but real bit-level
+  // differences from before #141 — so this gates the whole seamless-noise
+  // path off for them, reducing to the exact original formula.
+  uniform float u_seamless;
 
   // Artifact-free hash — no sin(), no diagonal banding (Inigo Quilez)
   float hash(vec2 p) {
@@ -18,24 +33,60 @@ export const PAPER_GEN_FRAG = `
     return fract(p.x * p.y * (p.x + p.y));
   }
 
-  float vnoise(vec2 p) {
+  // #141: 'period' (only consulted when u_seamless is on) is an integer
+  // cell count this call's domain wraps over — wrapping the integer grid
+  // index i by an integer period before hashing makes hash(i) exactly
+  // equal hash(i + period) (integer-to-integer, no floating-point drift),
+  // which in turn makes vnoise exactly periodic in p with that same
+  // period. u_seamless off skips the wrap entirely, reducing to exactly
+  // the original vnoise.
+  float vnoise(vec2 p, vec2 period) {
     vec2 i = floor(p);
     vec2 f = fract(p);
     vec2 u = f * f * (3.0 - 2.0 * f);
+    vec2 i00 = i,                 i10 = i + vec2(1.0, 0.0);
+    vec2 i01 = i + vec2(0.0, 1.0), i11 = i + vec2(1.0, 1.0);
+    if (u_seamless > 0.5) {
+      i00 = mod(i00, period); i10 = mod(i10, period);
+      i01 = mod(i01, period); i11 = mod(i11, period);
+    }
     return mix(
-      mix(hash(i),              hash(i + vec2(1.0, 0.0)), u.x),
-      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+      mix(hash(i00), hash(i10), u.x),
+      mix(hash(i01), hash(i11), u.x),
       u.y
     );
   }
 
-  // 4-octave fBm (WebGL1: fixed loop count)
-  float fbm(vec2 p) {
-    float v=0., a=0.5, s=0., f=1.;
-    v+=a*vnoise(p*f); s+=a; a*=u_gain; f*=2.1;
-    v+=a*vnoise(p*f); s+=a; a*=u_gain; f*=2.1;
-    v+=a*vnoise(p*f); s+=a; a*=u_gain; f*=2.1;
-    v+=a*vnoise(p*f); s+=a;
+  // #141: an octave's frequency multiplier is normally the exact
+  // mathematical ratio (1, 2.1, 2.1^2, 2.1^3 — see fbm) — kept exactly
+  // that way when u_seamless is off, for bit-for-bit bounded-room output.
+  // When seamless, basePeriod * ratio (the octave's own cell count over
+  // the seamless domain) is snapped to the nearest integer first: 2.1
+  // isn't a whole number, so an octave's *exact* frequency almost never
+  // divides evenly into basePeriod (the domain GL_REPEAT wraps over) —
+  // rounding it to the nearest integer cell count is what lets vnoise's
+  // integer-modulus trick above apply to every octave, so their sum
+  // (fbm) stays exactly periodic over basePeriod too, at the cost of a
+  // less-than-1%, imperceptible nudge to that octave's actual frequency
+  // — the standard trade-off tileable value/Perlin noise always makes.
+  float seamlessRatio(float ratio, float basePeriod) {
+    if (u_seamless > 0.5) return floor(basePeriod * ratio + 0.5) / basePeriod;
+    return ratio;
+  }
+
+  // 4-octave fBm (WebGL1: fixed loop count). 'basePeriod' is the domain
+  // this whole call must stay periodic over once u_seamless is on — see
+  // seamlessRatio/vnoise above. Ignored (no periodicity enforced) when off.
+  float fbm(vec2 p, float basePeriod) {
+    float v=0., a=0.5, s=0.;
+    float f0 = seamlessRatio(1.0,               basePeriod);
+    float f1 = seamlessRatio(2.1,               basePeriod);
+    float f2 = seamlessRatio(2.1 * 2.1,         basePeriod);
+    float f3 = seamlessRatio(2.1 * 2.1 * 2.1,   basePeriod);
+    v+=a*vnoise(p*f0, vec2(f0*basePeriod)); s+=a; a*=u_gain;
+    v+=a*vnoise(p*f1, vec2(f1*basePeriod)); s+=a; a*=u_gain;
+    v+=a*vnoise(p*f2, vec2(f2*basePeriod)); s+=a; a*=u_gain;
+    v+=a*vnoise(p*f3, vec2(f3*basePeriod)); s+=a;
     return v / s;
   }
 
@@ -45,12 +96,18 @@ export const PAPER_GEN_FRAG = `
     vec2 uv = gl_FragCoord.xy / u_resolution * u_scale;
 
     // Domain warping: displace uv by another noise pass
-    // This breaks up any grid/banding artifacts and creates organic fiber-like look
+    // This breaks up any grid/banding artifacts and creates organic fiber-like look.
+    // #141: q must itself be periodic in uv (period u_scale) for the outer
+    // fbm's own periodicity to hold once warped — it is, automatically,
+    // since q's fbm calls below use the same seamless vnoise/fbm with the
+    // same basePeriod=u_scale (a fixed translation before a periodic call,
+    // like the vec2(3.7, 5.4) offset here, never breaks that call's own
+    // periodicity).
     vec2 q = vec2(
-      fbm(uv + vec2(0.0,  0.0)),
-      fbm(uv + vec2(3.7,  5.4))
+      fbm(uv + vec2(0.0,  0.0), u_scale),
+      fbm(uv + vec2(3.7,  5.4), u_scale)
     );
-    float h = fbm(uv + u_warp * q);
+    float h = fbm(uv + u_warp * q, u_scale);
 
     // Contrast: >1 sharpens peaks (rougher feel), <1 softens
     h = pow(clamp(h, 0.0, 1.0), 1.0 / u_contrast);
@@ -183,8 +240,29 @@ export const DAB_FRAG = `
 
   uniform sampler2D u_paperHeightMap;
   uniform float u_hardness;
-  uniform vec2 u_resolution;
   uniform vec2 u_paperScale;
+  // #141: world-space paper sampling. This dab's own local-buffer
+  // gl_FragCoord is translated into world space by u_paperOrigin before
+  // ever touching the paper texture — (0,0) for a bounded room (world
+  // space == canvas-pixel space there, see tileMath.ts) or a tile's own
+  // world origin for an infinite room (Y pre-negated by the caller — see
+  // _paintDabsUniform/_paintDabsInstanced in engine/index.ts) — so two
+  // dabs at the same true world position sample the exact same paper
+  // texel regardless of which tile either one happens to land in. Before
+  // this, paperUV came from raw gl_FragCoord/u_resolution alone: every
+  // tile independently sampled the same [0,1) sub-range of a texture
+  // sized to the *screen*, so the grain pattern discontinuously repeated
+  // at every tile boundary — the actual bug #141 fixes (a separate,
+  // already-fixed compositing rounding bug was #140).
+  // u_paperTexSize is the world-space size the paper texture repeats
+  // over: for a bounded room this is the canvas's own pixel size, which
+  // also happens to be the texture's own resolution (see _initPaper) —
+  // with u_paperOrigin always (0,0) there, the formula below reduces to
+  // exactly the old screen-space one. For an infinite room this is a
+  // fixed world constant (INFINITE_PAPER_WORLD_SIZE) — deliberately not
+  // the texture's own pixel resolution; see that constant's comment.
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
   // 0=bristol (graphite fills valleys too, near-uniform deposit)
   // 1=rough   (graphite only on peaks, strong grain in stroke)
   uniform float u_paperRoughness;
@@ -223,11 +301,10 @@ export const DAB_FRAG = `
       return;
     }
 
-    vec2 screenUV = gl_FragCoord.xy / u_resolution;
-    vec2 paperUV = screenUV * u_paperScale;
+    vec2 paperUV = (gl_FragCoord.xy + u_paperOrigin) / u_paperTexSize * u_paperScale;
 
-    float texelX = 1.0 / (u_resolution.x * u_paperScale.x);
-    float texelY = 1.0 / (u_resolution.y * u_paperScale.y);
+    float texelX = 1.0 / (u_paperTexSize.x * u_paperScale.x);
+    float texelY = 1.0 / (u_paperTexSize.y * u_paperScale.y);
     float h   = texture2D(u_paperHeightMap, paperUV).r;
     float hDx = texture2D(u_paperHeightMap, paperUV + vec2(texelX, 0.0)).r;
     float hDy = texture2D(u_paperHeightMap, paperUV + vec2(0.0, texelY)).r;
@@ -391,6 +468,18 @@ export const DISPLAY_TRANSPARENT_FRAG = `
   }
 `;
 
+// #141: this samples the paper map via plain screen UV (v_uv) — fixed,
+// screen-locked, so the paper grain neither pans nor zooms with the camera.
+// That's exactly right for a bounded room (its whole canvas element is
+// itself CSS-panned as one unit — see useViewport — so "screen-locked" and
+// "world-locked" are the same thing there) but wrong for an infinite room,
+// where the canvas element IS the viewport and never moves. Kept
+// unchanged/bounded-only for that reason — infinite rooms use
+// PAPER_BLEND_FRAG below instead (see engine/index.ts's _applyPaperBlend/
+// _finishPaperBlend), which does the same "paper peeking through" math but
+// samples paper via true world position, camera-relative. The two must be
+// kept in sync by hand (no #include in GLSL ES1.0/WebGL1) whenever this
+// blend's math changes.
 export const DISPLAY_FRAG = `
   precision highp float;
 
@@ -423,6 +512,55 @@ export const DISPLAY_FRAG = `
     vec3 graphiteTone = mix(paperTone, strokeColor, graphiteTexture);
 
     // Final composite
+    vec3 color = mix(paperTone, graphiteTone, graphite);
+
+    gl_FragColor = vec4(color, 1.0);
+  }
+`;
+
+// #141: infinite-canvas counterpart to DISPLAY_FRAG's "paper peeking
+// through" blend, kept in sync with it by hand (see DISPLAY_FRAG's own
+// comment). Runs once per frame, over the *pre-rotation* assembly buffer
+// (engine/index.ts's _assemblyFBO — unrotated, zoom-applied, centered on
+// the camera's world point) rather than the final rotated canvas-sized
+// image DISPLAY_FRAG reads — so recovering this fragment's world position
+// only ever needs a translate+scale (u_paperCamera/u_paperExtHalf/
+// u_paperInvZoom below), never the camera's rotation: _finishPaperBlend
+// applies that separately, afterwards, by rotating this pass's *output*
+// down to the screen — mirroring exactly how _finishInfiniteComposite
+// rotates the (never paper-blended) raw accumulation buffer
+// _displayTransparent() still needs untouched. Reuses DISPLAY_VERT (same
+// fullscreen-quad convention as every other composite/display pass).
+export const PAPER_BLEND_FRAG = `
+  precision highp float;
+
+  uniform sampler2D u_accumulation;
+  uniform sampler2D u_paperMap;
+  uniform vec3 u_paperColor;
+  uniform vec2 u_paperScale;
+  uniform vec2 u_paperTexSize;  // world units per paper repeat period — see DAB_FRAG's own comment
+  uniform vec2 u_paperCamera;   // world point (wx, wy) at the assembly buffer's center
+  uniform vec2 u_paperExtHalf;  // assembly buffer half-size, in px (ext/2, ext/2)
+  uniform float u_paperInvZoom; // 1 / camera zoom
+
+  varying vec2 v_uv;
+
+  void main() {
+    vec4 acc = texture2D(u_accumulation, v_uv);
+    float graphite = acc.a;
+    vec3 strokeColor = graphite > 0.001 ? acc.rgb / graphite : vec3(0.0);
+
+    // World position of this fragment — the assembly buffer is unrotated,
+    // zoom-applied, and centered on u_paperCamera (see _worldToScreenEdgeX/Y
+    // in engine/index.ts for the forward mapping this inverts).
+    vec2 local = gl_FragCoord.xy - u_paperExtHalf;
+    vec2 worldPos = u_paperCamera + vec2(local.x, -local.y) * u_paperInvZoom;
+    vec2 paperUV = worldPos / u_paperTexSize * u_paperScale;
+    float paperHeight = texture2D(u_paperMap, paperUV).r;
+
+    vec3 paperTone = u_paperColor * (0.965 + 0.03 * paperHeight);
+    float graphiteTexture = mix(1.0, paperHeight * 0.5 + 0.2, graphite * 0.25);
+    vec3 graphiteTone = mix(paperTone, strokeColor, graphiteTexture);
     vec3 color = mix(paperTone, graphiteTone, graphite);
 
     gl_FragColor = vec4(color, 1.0);

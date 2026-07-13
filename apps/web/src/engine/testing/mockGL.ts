@@ -34,14 +34,14 @@
 // construction (this mock always loops instances 0..N-1 in order) and,
 // ideally, by an actual browser run.
 
-type UniformValue = number | number[]
+export type UniformValue = number | number[]
 
 interface MockProgram {
   fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'other'
   uniforms: Map<string, UniformValue>
 }
 
-interface MockLocation {
+export interface MockLocation {
   program: MockProgram
   name: string
 }
@@ -79,6 +79,12 @@ const ENUM = {
   COLOR_BUFFER_BIT: 19, TRIANGLES: 20, FLOAT: 21,
   BLEND: 22, ONE: 23, ONE_MINUS_SRC_ALPHA: 24, ZERO: 25,
   TEXTURE0: 100, TEXTURE1: 101,
+  // #141: infinite-canvas paper texture wrap mode — REPEAT vs CLAMP_TO_EDGE
+  // is otherwise never observable through this mock (texParameteri used to
+  // be a total no-op — see its own comment), so a test asserting the fix
+  // actually requests REPEAT for an infinite room needs a real, distinct
+  // enum value here.
+  REPEAT: 200,
 }
 
 export class MockGL {
@@ -110,8 +116,12 @@ export class MockGL {
   readonly ZERO = ENUM.ZERO
   readonly TEXTURE0 = ENUM.TEXTURE0
   readonly TEXTURE1 = ENUM.TEXTURE1
+  readonly REPEAT = ENUM.REPEAT
 
   private _textureData = new Map<object, TextureInfo>()
+  // #141 introspection only (see texParameteri) — never read by any
+  // rasterization path in this mock.
+  private _textureWrap = new Map<object, { wrapS: number; wrapT: number }>()
   private _framebuffers = new Map<object, FramebufferInfo>()
   private _activeUnit = 0
   private _textureUnits: Array<object | null> = []
@@ -259,7 +269,21 @@ export class MockGL {
     this._boundTextureTarget = tex
   }
 
-  texParameteri(): void { /* filtering irrelevant: mock samples 1:1, no interpolation */ }
+  // Filtering (MIN/MAG_FILTER) is irrelevant: mock sampling is always 1:1,
+  // no interpolation. Wrap mode (WRAP_S/T) IS recorded (#141) — needed so a
+  // test can confirm the infinite-canvas paper texture actually requests
+  // REPEAT (vs a bounded room's CLAMP_TO_EDGE) — see getTextureWrap. Never
+  // consulted by any sampling code in this mock (texture2D-equivalent reads
+  // — _rasterComposite/_rasterTransform's nearest-neighbor lookups — still
+  // don't wrap/clamp), purely an introspection hook.
+  texParameteri(_target: number, pname: number, param: number): void {
+    const tex = this._boundTextureTarget
+    if (!tex) return
+    const wrap = this._textureWrap.get(tex) ?? { wrapS: ENUM.CLAMP_TO_EDGE, wrapT: ENUM.CLAMP_TO_EDGE }
+    if (pname === ENUM.TEXTURE_WRAP_S) wrap.wrapS = param
+    if (pname === ENUM.TEXTURE_WRAP_T) wrap.wrapT = param
+    this._textureWrap.set(tex, wrap)
+  }
 
   texImage2D(
     _target: number, _level: number, _internalFormat: number,
@@ -276,7 +300,33 @@ export class MockGL {
     this._textureData.set(tex, { width, height, data })
   }
 
-  deleteTexture(tex: object): void { this._textureData.delete(tex) }
+  deleteTexture(tex: object): void { this._textureData.delete(tex); this._textureWrap.delete(tex) }
+
+  // ── #141 test introspection ─────────────────────────────────────────────
+  // This mock deliberately doesn't rasterize DAB_FRAG's/PAPER_BLEND_FRAG's
+  // paper-height sampling at all (see the module docstring's "deliberate
+  // scope cut") or PAPER_GEN_FRAG's noise generation, so a pixel readback
+  // can't observe whether the engine threaded a tile's world origin into
+  // the paper-UV uniforms correctly, or whether it requested the right
+  // texture size/wrap mode. These three read-only, purely-additive getters
+  // let a test check that plumbing directly instead — they never influence
+  // any rasterization behavior, so they can't affect any pre-#141 test.
+
+  /** The last value a given uniform was set to on its own program (a
+   *  location is permanently tied to one program — see getUniformLocation)
+   *  — e.g. `readUniform(engine's cached u_paperOrigin location)`. */
+  readUniform(loc: MockLocation): UniformValue | undefined {
+    return loc.program.uniforms.get(loc.name)
+  }
+
+  getTextureSize(tex: object): { width: number; height: number } | null {
+    const info = this._textureData.get(tex)
+    return info ? { width: info.width, height: info.height } : null
+  }
+
+  getTextureWrap(tex: object): { wrapS: number; wrapT: number } | null {
+    return this._textureWrap.get(tex) ?? null
+  }
 
   // Mirrors AccumulationBuffer.copyTo: reads from the bound-for-read
   // framebuffer's own texture (same convention _currentTargetTexture()
