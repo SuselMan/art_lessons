@@ -97,6 +97,28 @@ describe('infinite canvas: camera-relative on-screen composite (#133)', () => {
     expect(alphaAt(pixels, 128, 64, 64)).toBeGreaterThan(0)
   })
 
+  it('adjacent tiles show no 1px seam at a fractional zoom (#140)', () => {
+    const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 64, height: 64 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    // Fully covers the visible window around the tile(0,*)/tile(1,*)
+    // boundary at world x=TILE_SIZE — wy=500 (mid-tile) keeps the visible
+    // window clear of any tile-ROW boundary, isolating the x-seam.
+    engine.appendOperation(fillStroke('user-a', 'L', TILE_SIZE, 500, 60))
+    engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
+    // zoom=1.01 with the camera this far from the boundary is not a special
+    // case — plenty of zoom/pan combinations reproduce the old independent-
+    // rounding bug; these particular numbers were found by search (see
+    // _drawTileComposite's docstring) and are known to make the old code's
+    // rounded tile0-right-edge (38) land one pixel short of the rounded
+    // tile1-left-edge (39), leaving screen column 38 painted by neither tile.
+    engine.setInfiniteCamera(1017.5, 500, 1.01, 0)
+
+    const pixels = readCompositePixels(engine)
+    for (let x = 30; x <= 45; x++) {
+      expect(alphaAt(pixels, 64, x, 32)).toBeGreaterThan(0)
+    }
+  })
+
   it('a bounded (fixed-canvas) engine never touches setInfiniteCamera/resizeCanvas — resizeCanvas is a guarded no-op there', () => {
     const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
     engine.resizeCanvas(999, 999)

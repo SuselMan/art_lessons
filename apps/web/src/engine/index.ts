@@ -2286,24 +2286,47 @@ export class PencilEngine implements PencilEngineAPI {
    *  Doesn't account for camera rotation (_infiniteCamera.angle) — the
    *  viewport is always an axis-aligned rect, so a rotated view will
    *  currently misplace tiles. Phase 1 scope is angle === 0 (unrotated)
-   *  infinite rooms; rotation support is a follow-up. */
+   *  infinite rooms; rotation support is a follow-up.
+   *
+   *  Rounds each of the tile's four EDGES individually (via
+   *  _worldToScreenEdgeX/Y below), rather than rounding a position and a
+   *  size independently — two tiles sharing a world-space edge (adjacent
+   *  tile origins are always exactly TILE_SIZE apart) compute that shared
+   *  edge from the exact same formula and thus the exact same rounded
+   *  pixel, however the camera/zoom fraction falls. Rounding position and
+   *  size separately (the pre-#140 version of this method) doesn't have
+   *  that guarantee — `round(pos) + round(size)` and `round(pos + size)`
+   *  disagree for plenty of real zoom/pan combinations (confirmed: e.g.
+   *  zoom 1.01 with the camera offset a few hundred world units from a
+   *  tile boundary), producing a 1px transparent gap or a 1px overlap
+   *  right at the seam — see index.tiledDisplay.test.ts's fractional-zoom
+   *  case for a concrete reproduction. */
+  private _worldToScreenEdgeX(worldX: number): number {
+    const { wx, zoom } = this._infiniteCamera
+    return Math.round((worldX - wx) * zoom + this.canvas.width / 2)
+  }
+
+  private _worldToScreenEdgeY(worldY: number): number {
+    const { wy, zoom } = this._infiniteCamera
+    return Math.round((worldY - wy) * zoom + this.canvas.height / 2)
+  }
+
   private _drawTileComposite(
     texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
     opacity: number, targetFbo: WebGLFramebuffer,
   ): void {
     const { gl, canvas } = this
-    const { wx, wy, zoom } = this._infiniteCamera
-    const screenX = (originX - wx) * zoom + canvas.width / 2
-    const screenTop = (originY - wy) * zoom + canvas.height / 2
-    const screenW = bw * zoom
-    const screenH = bh * zoom
-    const glX = Math.round(screenX)
+    const leftEdge   = this._worldToScreenEdgeX(originX)
+    const rightEdge  = this._worldToScreenEdgeX(originX + bw)
+    const topEdge    = this._worldToScreenEdgeY(originY)
+    const bottomEdge = this._worldToScreenEdgeY(originY + bh)
+    const glX = leftEdge
     // gl.viewport's y is measured from the bottom of the target, unlike the
-    // top-down (screenX, screenTop) this file uses everywhere else.
-    const glY = Math.round(canvas.height - (screenTop + screenH))
+    // top-down (topEdge, bottomEdge) this file uses everywhere else.
+    const glY = canvas.height - bottomEdge
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(glX, glY, Math.round(screenW), Math.round(screenH))
+    gl.viewport(glX, glY, rightEdge - leftEdge, bottomEdge - topEdge)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
