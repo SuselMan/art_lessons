@@ -37,7 +37,21 @@ const CONFIGS: Record<PaperType, { scale: number; gain: number; contrast: number
 
 // Generate paper height map via WebGL shader at full canvas resolution.
 // Result is stored as an RGBA texture (no tiling, no sin() artifacts).
-export function createPaperTexture(gl: WebGLRenderingContext, type: PaperType, width: number, height: number): WebGLTexture {
+//
+// `repeat` (#141): false (default) keeps the original CLAMP_TO_EDGE
+// behavior — correct for a bounded room, where this texture is generated
+// at exactly canvas.width x canvas.height and sampled 0..1 across it
+// exactly once, so it never needs to tile. true switches to REPEAT, for
+// the infinite-canvas case: there the texture is a fixed, power-of-two
+// world-space resolution (see engine/index.ts's _initPaper /
+// INFINITE_PAPER_TEX_PIXELS) sampled at world-position-derived UVs that
+// routinely fall outside [0,1] as the camera roams — REPEAT is what makes
+// that tile seamlessly instead of clamping to a smeared edge color.
+// WebGL1 only allows REPEAT on a power-of-two texture, which is why the
+// infinite-mode caller always passes a POT width/height.
+export function createPaperTexture(
+  gl: WebGLRenderingContext, type: PaperType, width: number, height: number, repeat = false,
+): WebGLTexture {
   const cfg = CONFIGS[type] ?? CONFIGS.rough
 
   const prog = createProgram(gl, PAPER_GEN_VERT, PAPER_GEN_FRAG)
@@ -48,8 +62,9 @@ export function createPaperTexture(gl: WebGLRenderingContext, type: PaperType, w
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+  const wrap = repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap)
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap)
 
   const fbo = gl.createFramebuffer()!
   gl.bindFramebuffer(gl.FRAMEBUFFER, fbo)

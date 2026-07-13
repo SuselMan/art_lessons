@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_BLEND_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { createPaperTexture } from './src/PaperTexture'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
@@ -290,6 +290,31 @@ const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
   bristol: [0.99, 0.99, 0.98],
 }
 
+// #141: infinite-canvas paper texture sizing. Two deliberately separate
+// numbers:
+//  - INFINITE_PAPER_TEX_PIXELS is the GL texture's own pixel resolution —
+//    fixed and power-of-two (WebGL1 only allows gl.REPEAT wrap on a POT
+//    texture), so unlike a bounded room's paper texture (generated at
+//    exactly canvas.width x canvas.height) this never depends on canvas
+//    size and never needs regenerating on resizeCanvas().
+//  - INFINITE_PAPER_WORLD_SIZE is how many world *units* that texture
+//    spans before its GL_REPEAT tiling repeats — deliberately NOT a
+//    multiple or divisor of TILE_SIZE (1024, see tileMath.ts). If it were,
+//    every tile's origin (always an exact multiple of TILE_SIZE) would
+//    land on an exact multiple of the paper's own repeat period too,
+//    making u_paperOrigin's threading in DAB_FRAG a no-op under
+//    GL_REPEAT — every tile would silently keep re-sampling the same
+//    [0,1) sub-range, reintroducing the exact "grain repeats identically
+//    at every tile boundary" bug #141 fixes, just with unused extra math.
+//    900 shares no common factor with 1024 and keeps roughly the same
+//    apparent grain density bounded rooms have always had (1 texel ≈ 1
+//    world unit at camera zoom 1, the same "1 texel ≈ 1 canvas pixel"
+//    bounded rooms get from generating their texture at exact canvas
+//    size) — tune this if it ends up looking noticeably different from a
+//    bounded room's grain in practice.
+const INFINITE_PAPER_TEX_PIXELS = 1024
+const INFINITE_PAPER_WORLD_SIZE = 900
+
 export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.17]
 
 // Drives how much the pencil itself "feels" the paper grain while drawing —
@@ -472,6 +497,22 @@ export class PencilEngine implements PencilEngineAPI {
   // plain canvas size for them, just to keep _initGL/resizeCanvas free of
   // a mode branch; _runComposite is what actually skips it.
   private _assemblyFBO!: AccumulationBuffer
+
+  // #141: infinite-only, camera-relative "paper peeking through" pass —
+  // see PAPER_BLEND_FRAG's own comment for the full pipeline reasoning.
+  // _applyPaperBlend renders _assemblyFBO (raw, unblended accumulation)
+  // through PAPER_BLEND_FRAG into this buffer (same size as _assemblyFBO,
+  // recreated alongside it); _finishPaperBlend then rotates *this* down to
+  // the screen, in place of (never instead of — _compositeFBO/
+  // _finishInfiniteComposite are untouched, still needed unblended by
+  // _displayTransparent()) the old single DISPLAY_FRAG screen pass.
+  // Bounded rooms never read/write this — allocated anyway at plain canvas
+  // size for them, matching _assemblyFBO's own "no mode branch in
+  // _initGL/resizeCanvas" precedent.
+  private _paperBlendFBO!: AccumulationBuffer
+  private _paperBlendProg!: WebGLProgram
+  private _paperBlendUni!: Record<string, WebGLUniformLocation | null>
+  private _paperBlendPosLoc!: number
 
   // Batched dab rendering (#123) — one instanced draw call per _paintDabs
   // invocation instead of one gl.drawArrays + ~9 gl.uniform* calls per dab.
@@ -1024,11 +1065,21 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache.destroy()
     this._aboveCache.destroy()
     this._assemblyFBO.destroy()
+    this._paperBlendFBO.destroy()
     this._compositeFBO = new AccumulationBuffer(gl, width, height)
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
+    this._paperBlendFBO = new AccumulationBuffer(gl, ew, eh)
     this._splitCacheDirty = true
+    // #141: the paper texture itself is NOT recreated here (unlike
+    // _belowCache/_assemblyFBO/etc. above, which are genuinely canvas-size-
+    // dependent) — for an infinite room it's a fixed world-space resolution
+    // (see _initPaper/INFINITE_PAPER_TEX_PIXELS), decoupled from canvas
+    // size entirely, so there's nothing for a canvas resize to invalidate.
+    // This used to be a real bug: the old canvas-sized paper texture was
+    // never regenerated here, leaving it stuck stretched across whatever
+    // size it happened to be created at through every later resize.
     this._display()
   }
 
@@ -1219,6 +1270,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache.destroy()
     this._aboveCache.destroy()
     this._assemblyFBO.destroy()
+    this._paperBlendFBO.destroy()
     this._previewBuf?.destroy()
     this._previewBuf = null
     this._tipBuf?.destroy()
@@ -1556,15 +1608,16 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
+    this._paperBlendProg      = createProgram(gl, DISPLAY_VERT, PAPER_BLEND_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
-      'u_resolution', 'u_paperHeightMap', 'u_paperScale',
+      'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
       'u_paperRoughness', 'u_eraseMode', 'u_color',
     ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
-      'u_resolution', 'u_paperHeightMap', 'u_paperScale',
+      'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_paperRoughness', 'u_eraseMode', 'u_color',
     ])
     this._dispUni = getUniforms(gl, this._dispProg, [
@@ -1574,6 +1627,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
+    this._paperBlendUni = getUniforms(gl, this._paperBlendProg, [
+      'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
+      'u_paperCamera', 'u_paperExtHalf', 'u_paperInvZoom',
+    ])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
     this._dispPosLoc           = gl.getAttribLocation(this._dispProg, 'a_position')
@@ -1581,6 +1638,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
+    this._paperBlendPosLoc     = gl.getAttribLocation(this._paperBlendProg, 'a_position')
 
     this._instPosLoc     = gl.getAttribLocation(this._dabProgInstanced, 'a_position')
     this._instALoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instA')
@@ -1601,13 +1659,37 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
+    this._paperBlendFBO = new AccumulationBuffer(gl, ew, eh)
     this._splitCacheDirty = true
   }
 
   private _initPaper(type: PaperType): void {
     const { gl, canvas } = this
     if (this._paperTex) gl.deleteTexture(this._paperTex)
-    this._paperTex = createPaperTexture(gl, type, canvas.width, canvas.height)
+    // #141: infinite rooms get a fixed, power-of-two, world-space-resolution
+    // REPEAT texture — decoupled from canvas size entirely (see
+    // INFINITE_PAPER_TEX_PIXELS/INFINITE_PAPER_WORLD_SIZE's own comment) —
+    // instead of the old canvas-sized CLAMP_TO_EDGE texture bounded rooms
+    // still get unchanged below. This also incidentally fixes resizeCanvas()
+    // never re-initializing the paper texture: there's simply nothing
+    // canvas-size-dependent left for a resize to invalidate.
+    this._paperTex = this._infinite
+      ? createPaperTexture(gl, type, INFINITE_PAPER_TEX_PIXELS, INFINITE_PAPER_TEX_PIXELS, true)
+      : createPaperTexture(gl, type, canvas.width, canvas.height)
+  }
+
+  /** World-space size the paper texture repeats over (not the same as its
+   *  own GL pixel resolution for infinite rooms — see
+   *  INFINITE_PAPER_WORLD_SIZE's comment): a bounded room's texture is
+   *  generated at exactly canvas size (see _initPaper) and sampled 0..1
+   *  across it once, so this is just the canvas's own size there — the
+   *  same value u_paperTexSize/u_resolution were both already reading
+   *  pre-#141, kept identical so the paper-UV formula reduces to exactly
+   *  the old one for bounded rooms. */
+  private _paperWorldSize(): { w: number; h: number } {
+    return this._infinite
+      ? { w: INFINITE_PAPER_WORLD_SIZE, h: INFINITE_PAPER_WORLD_SIZE }
+      : { w: this.canvas.width, h: this.canvas.height }
   }
 
   private get _physicalSize(): number {
@@ -2043,6 +2125,18 @@ export class PencilEngine implements PencilEngineAPI {
 
     gl.uniform2f(u.u_resolution, resW, resH)
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+    // #141: world-space paper sampling — see DAB_FRAG's own comment. Y is
+    // negated (defensively normalized away from -0 with `|| 0`, since
+    // JSON/toEqual-style equality checks — see this fix's own tests — can
+    // otherwise trip on -0 !== 0): DAB_VERT's own clip.y flip means a
+    // dab-buffer's local gl_FragCoord.y runs opposite to the tile origin's
+    // top-down world-Y convention, so origin must be *subtracted* (not
+    // added) there for the two to agree at every shared tile edge — see
+    // this fix's own tests for the boundary derivation. originX/Y are
+    // always (0,0) for a bounded room, so this is (0,0) there regardless.
+    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+    gl.uniform2f(u.u_paperOrigin, originX, -originY || 0)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperHeightMap, 0)
@@ -2102,6 +2196,11 @@ export class PencilEngine implements PencilEngineAPI {
     gl.useProgram(this._dabProgInstanced)
     gl.uniform2f(u.u_resolution, resW, resH)
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+    // #141: see _paintDabsUniform's own comment for the world-space-paper /
+    // origin-sign reasoning — identical here, just for the batched path.
+    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+    gl.uniform2f(u.u_paperOrigin, originX, -originY || 0)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperHeightMap, 0)
@@ -2463,14 +2562,78 @@ export class PencilEngine implements PencilEngineAPI {
   private _finishInfiniteComposite(targetFbo: WebGLFramebuffer): void {
     if (!this._infinite) return
     const { canvas } = this
+    const ext = this._assemblyFBO.width // square: width === height
+    this._runTransformBlit(
+      this._assemblyFBO.texture, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, ext, ext, targetFbo,
+    )
+  }
+
+  /** The destination(canvas)->source(assembly) matrix _finishInfiniteComposite
+   *  rotates through — factored out so _finishPaperBlend (#141) can reuse the
+   *  exact same rotation for its own, separate, paper-blended rotate blit
+   *  (see _paperBlendFBO's field comment) without duplicating the math. */
+  private _infiniteRotateMatrixInv(): AffineMatrix {
+    const { canvas } = this
     const { angle } = this._infiniteCamera
     const ext = this._assemblyFBO.width // square: width === height
-    const matrixInv = composeAffine(
+    return composeAffine(
       translationMatrix(ext / 2, ext / 2),
       composeAffine(scaleRotateMatrix(1, -angle), translationMatrix(-canvas.width / 2, -canvas.height / 2)),
     )
+  }
+
+  /** #141: infinite-only. Renders _assemblyFBO (raw, unblended accumulation
+   *  — see its own field comment) through PAPER_BLEND_FRAG into
+   *  _paperBlendFBO, sampling paper via true world position (camera-
+   *  relative) instead of DISPLAY_FRAG's screen-locked v_uv. Pre-rotation,
+   *  same as _assemblyFBO itself — _finishPaperBlend applies the camera's
+   *  actual rotation afterwards, exactly like _finishInfiniteComposite does
+   *  for the (separate, still-unblended) accumulation buffer. */
+  private _applyPaperBlend(): void {
+    const { gl } = this
+    const ext = this._assemblyFBO.width
+    const { wx, wy, zoom } = this._infiniteCamera
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._paperBlendFBO.fbo)
+    gl.viewport(0, 0, ext, ext)
+    gl.disable(gl.BLEND)
+    gl.useProgram(this._paperBlendProg)
+    const u = this._paperBlendUni
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, this._assemblyFBO.texture)
+    gl.uniform1i(u.u_accumulation, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    gl.uniform1i(u.u_paperMap, 1)
+
+    gl.uniform3fv(u.u_paperColor, PAPER_COLORS[this._opts.paper])
+    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+    gl.uniform2f(u.u_paperCamera, wx, wy)
+    gl.uniform2f(u.u_paperExtHalf, ext / 2, ext / 2)
+    gl.uniform1f(u.u_paperInvZoom, 1 / zoom)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    const posLoc = this._paperBlendPosLoc
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** #141: rotates _paperBlendFBO's already-paper-blended, pre-rotation
+   *  content down onto the real screen — the paper-aware counterpart to
+   *  _finishInfiniteComposite, called from _display() instead of it (not
+   *  in addition — _finishInfiniteComposite/_compositeFBO stay exactly as
+   *  they were, still needed unblended by _displayTransparent()). */
+  private _finishPaperBlend(): void {
+    const { canvas } = this
+    const ext = this._assemblyFBO.width
     this._runTransformBlit(
-      this._assemblyFBO.texture, matrixInv, canvas.width, canvas.height, ext, ext, targetFbo,
+      this._paperBlendFBO.texture, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, ext, ext, null,
     )
   }
 
@@ -2493,10 +2656,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  pass is transparent everywhere outside its own source tile's mapped
    *  region, so blending — not replacing — is what lets a later pass avoid
    *  wiping out an earlier one's already-valid pixels), and the final
-   *  rotate blit (`_finishInfiniteComposite`). */
+   *  rotate blit (`_finishInfiniteComposite`), and #141's paper-blend rotate
+   *  blit (`_finishPaperBlend`) — the only caller that ever passes `null`
+   *  (the real screen), since it's the last drawing step of a frame rather
+   *  than a scratch buffer another pass reads from afterwards. */
   private _runTransformBlit(
     sourceTex: WebGLTexture, matrixInv: AffineMatrix,
-    dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer,
+    dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer | null,
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
@@ -2669,6 +2835,23 @@ export class PencilEngine implements PencilEngineAPI {
     const w = canvas.width, h = canvas.height
 
     this._composeToFBO()
+
+    if (this._infinite) {
+      // #141: paper must pan/zoom with the world for an infinite room, which
+      // needs world position recovered *before* the camera's rotation is
+      // applied (see PAPER_BLEND_FRAG's own comment) — so this reads
+      // _assemblyFBO (pre-rotation) rather than the plain screen-locked
+      // DISPLAY_FRAG pass bounded rooms use below. _compositeFBO is left
+      // completely untouched here (still raw, unblended accumulation) —
+      // _displayTransparent()/exportPNG(true) still needs it in exactly
+      // that format. _applyPaperBlend/_finishPaperBlend each manage their
+      // own framebuffer/viewport/blend state (mirroring _runComposite/
+      // _finishInfiniteComposite's own division of labor), so neither
+      // needs it set up here first.
+      this._applyPaperBlend()
+      this._finishPaperBlend()
+      return
+    }
 
     const paperColor = PAPER_COLORS[this._opts.paper]
 
