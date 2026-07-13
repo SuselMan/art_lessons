@@ -178,16 +178,12 @@ export function useViewport(
           const newZoom = clamp(v.zoom * scale, 0.04, 20)
           const newCx   = prevMid.x + (v.cx - prevMid.x) * scale + (currMid.x - prevMid.x)
           const newCy   = prevMid.y + (v.cy - prevMid.y) * scale + (currMid.y - prevMid.y)
-          // Infinite canvas (#133 Phase 1): the tile compositor draws every
-          // tile axis-aligned and ignores camera angle (see
-          // _drawTileComposite's docstring in engine/index.ts), while
-          // setInfiniteCamera's pointer mapping does apply it — so a
-          // nonzero angle here would desync drawn strokes from the cursor
-          // (worst around 180°, where the mismatch reads as inverted drag
-          // direction). Drop the rotation component of the gesture until
-          // rotation-aware tile rendering exists; pan/pinch-zoom still work.
-          const newAngle = infinite ? v.angle : v.angle + dAngle
-          updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: newAngle })
+          // Infinite canvas (#134): the tile compositor now applies camera
+          // angle too (via the assembly-buffer + final rotate blit in
+          // _finishInfiniteComposite), matching setInfiniteCamera's pointer
+          // mapping — so the rotation component of this gesture no longer
+          // needs to be dropped for infinite rooms.
+          updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: v.angle + dAngle })
         }
       } else if (midPanRef.current) {
         const { sx, sy, ocx, ocy } = midPanRef.current

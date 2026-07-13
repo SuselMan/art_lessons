@@ -1232,15 +1232,12 @@ export function Room() {
       if (map[e.key]) { setPencil(map[e.key]); setTool('pencil') }
       if (e.key === '[') setActiveCfg(c => ({ ...c, size: Math.max(1,   c.size - 1) }))
       if (e.key === ']') setActiveCfg(c => ({ ...c, size: Math.min(120, c.size + 1) }))
-      // Rotation is disabled for infinite-canvas rooms (#133 Phase 1) — the
-      // tile compositor doesn't render a rotated camera yet, see the
-      // pinch-rotate gate in useViewport for the full explanation.
-      if (!config?.infinite && e.shiftKey && e.key === '{') setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))
-      if (!config?.infinite && e.shiftKey && e.key === '}') setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))
+      if (e.shiftKey && e.key === '{') setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))
+      if (e.shiftKey && e.key === '}') setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setActiveCfg, setVp, handleUndo, handleRedo, config?.infinite])
+  }, [setActiveCfg, setVp, handleUndo, handleRedo])
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -1351,9 +1348,6 @@ export function Room() {
             // landing exactly on one), tap advances to the next one, wrapping 270 back to 0.
             // Otherwise (a free-rotation gesture left it at some other angle, e.g. 45°) tap
             // resets straight to 0 rather than rounding up to the next multiple.
-            // Disabled for infinite-canvas rooms (#133 Phase 1) — see the
-            // pinch-rotate gate in useViewport.
-            disabled={config.infinite}
             onClick={() => setVp(v => {
               const deg = Math.round(v.angle * 180 / Math.PI)
               const normalizedDeg = ((deg % 360) + 360) % 360
@@ -1497,14 +1491,12 @@ export function Room() {
 
           <button
             className={styles.toolIconBtn} title="Rotate −15°  (Shift+[)" aria-label="Rotate −15°  (Shift+[)"
-            disabled={config.infinite}
             onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}
           >
             <Icon name="rotate_left" />
           </button>
           <button
             className={styles.toolIconBtn} title="Rotate +15°  (Shift+])" aria-label="Rotate +15°  (Shift+])"
-            disabled={config.infinite}
             onClick={() => setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))}
           >
             <Icon name="rotate_right" />
