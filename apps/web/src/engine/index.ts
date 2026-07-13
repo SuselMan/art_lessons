@@ -325,14 +325,18 @@ const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
 //    GL_REPEAT — every tile would silently keep re-sampling the same
 //    [0,1) sub-range, reintroducing the exact "grain repeats identically
 //    at every tile boundary" bug #141 fixes, just with unused extra math.
-//    900 shares no common factor with 1024 and keeps roughly the same
-//    apparent grain density bounded rooms have always had (1 texel ≈ 1
-//    world unit at camera zoom 1, the same "1 texel ≈ 1 canvas pixel"
-//    bounded rooms get from generating their texture at exact canvas
-//    size) — tune this if it ends up looking noticeably different from a
-//    bounded room's grain in practice.
+//    315 shares no common factor with 1024 (1024 is a power of 2, 315 is
+//    odd) — tuned from real-use feedback testing on a Surface: the
+//    original value (900) read as noticeably coarser at 100% zoom than a
+//    bounded room's own grain looks at 100%, matching instead what this
+//    same texture looked like zoomed *out* to ~35%. Grain cell size in
+//    world units works out to exactly INFINITE_PAPER_WORLD_SIZE /
+//    cfg.scale (see PaperTexture.ts's CONFIGS) — the texture's own pixel
+//    resolution (INFINITE_PAPER_TEX_PIXELS) cancels out of that ratio
+//    entirely, so tuning grain size never needs to touch it. 900 * 0.35 ≈
+//    315 applies that same before/after ratio (100% ⁄ 35%) directly.
 const INFINITE_PAPER_TEX_PIXELS = 1024
-const INFINITE_PAPER_WORLD_SIZE = 900
+const INFINITE_PAPER_WORLD_SIZE = 315
 
 export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.17]
 
