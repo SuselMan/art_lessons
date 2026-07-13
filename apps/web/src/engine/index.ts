@@ -333,18 +333,21 @@ const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
 //    GL_REPEAT — every tile would silently keep re-sampling the same
 //    [0,1) sub-range, reintroducing the exact "grain repeats identically
 //    at every tile boundary" bug #141 fixes, just with unused extra math.
-//    315 shares no common factor with 1024 (1024 is a power of 2, 315 is
-//    odd) — tuned from real-use feedback testing on a Surface: the
-//    original value (900) read as noticeably coarser at 100% zoom than a
-//    bounded room's own grain looks at 100%, matching instead what this
-//    same texture looked like zoomed *out* to ~35%. Grain cell size in
-//    world units works out to exactly INFINITE_PAPER_WORLD_SIZE /
-//    cfg.scale (see PaperTexture.ts's CONFIGS) — the texture's own pixel
-//    resolution (INFINITE_PAPER_TEX_PIXELS) cancels out of that ratio
-//    entirely, so tuning grain size never needs to touch it. 900 * 0.35 ≈
-//    315 applies that same before/after ratio (100% ⁄ 35%) directly.
+//    157 shares no common factor with 1024 (1024 is a power of 2, 157 is
+//    odd — prime, in fact) — tuned from real-use feedback testing on a
+//    Surface, in two rounds: first from 900 to 315 (a measured 100%-vs-35%
+//    ratio — see git history for that derivation), then a further /2 by
+//    feel (315 still read coarser than wanted) — 315/2 = 157.5, rounded
+//    down to the nearest odd. Grain cell size in world units works out to
+//    exactly INFINITE_PAPER_WORLD_SIZE / cfg.scale (see PaperTexture.ts's
+//    CONFIGS) — the texture's own pixel resolution
+//    (INFINITE_PAPER_TEX_PIXELS) cancels out of that ratio entirely, so
+//    tuning grain size never needs to touch it. This is a by-feel visual
+//    tuning constant, same as CONFIGS' own scale/gain/contrast values
+//    (see that file's revision history) — expect it to keep moving with
+//    more real-use feedback, not a one-shot fix.
 const INFINITE_PAPER_TEX_PIXELS = 1024
-const INFINITE_PAPER_WORLD_SIZE = 315
+const INFINITE_PAPER_WORLD_SIZE = 157
 
 // #145: hard clamp (per axis) on exportPNG's infinite-room "whole drawing"
 // render target — see _buildContentComposite's own doc comment for why this
