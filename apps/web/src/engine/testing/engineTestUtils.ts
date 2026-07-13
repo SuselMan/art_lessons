@@ -88,6 +88,12 @@ interface EngineInternals {
   _onMove: (e: PointerData) => void
   _onEnd: (e: PointerData) => void
   _compositeFBO: AccumulationBuffer
+  // Live gizmo-drag preview (#120/#139) — see engine/index.ts's own
+  // PreviewTile. Structurally identical, redeclared here rather than
+  // exported from index.ts since there's no product reason a real caller
+  // would ever need this shape — same reasoning as the rest of this file's
+  // white-box access.
+  _transformPreview: Map<string, Array<{ originX: number; originY: number; buffer: AccumulationBuffer }>>
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -140,6 +146,27 @@ export function readTilePixels(engine: PencilEngine, layerId: string, tileX: num
  *  recompute of the same layer state. */
 export function readCompositePixels(engine: PencilEngine): Uint8Array {
   return internals(engine)._compositeFBO.readPixels()
+}
+
+// ─── Live gizmo-drag preview (#120/#139) white-box access ──────────────────
+
+export interface PreviewTileSnapshot {
+  originX: number
+  originY: number
+  pixels: Uint8Array
+}
+
+/** Snapshots every scratch tile previewLayerTransform currently has staged
+ *  for `layerId` — [] if that layer has no live preview at all (never
+ *  called previewLayerTransform, or its preview was cleared/collapsed to
+ *  nothing). Reads each tile's own AccumulationBuffer directly rather than
+ *  going through the full display/composite pipeline, so a test can check
+ *  the preview's own staged content (position + pixels) in isolation from
+ *  whether the camera/viewport happens to have it on screen. */
+export function readTransformPreviewTiles(engine: PencilEngine, layerId: string): PreviewTileSnapshot[] {
+  const tiles = internals(engine)._transformPreview.get(layerId)
+  if (!tiles) return []
+  return tiles.map(({ originX, originY, buffer }) => ({ originX, originY, pixels: buffer.readPixels() }))
 }
 
 export function checkpointCountFor(engine: PencilEngine, layerId: string): number {
