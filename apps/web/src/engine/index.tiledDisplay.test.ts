@@ -119,6 +119,51 @@ describe('infinite canvas: camera-relative on-screen composite (#133)', () => {
     }
   })
 
+  it('rotating the camera 90° moves content that was to the right of center to below it (#134)', () => {
+    const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 64, height: 64 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    // Off-center along +x only, so rotation direction is unambiguous.
+    engine.appendOperation(fillStroke('user-a', 'L', 20, 0, 6))
+    engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
+
+    engine.setInfiniteCamera(0, 0, 1, 0)
+    const unrotated = readCompositePixels(engine)
+    expect(alphaAt(unrotated, 64, 32 + 20, 32)).toBeGreaterThan(0)
+    expect(alphaAt(unrotated, 64, 32, 32 + 20)).toBe(0)
+
+    // A camera rotated +90° (matching the existing setInfiniteCamera pointer-
+    // mapping convention, and CSS rotate()'s clockwise-for-positive-angle
+    // convention bounded rooms already use) turns "was to the right" into
+    // "now appears below" — same as physically rotating your own viewpoint
+    // clockwise by a quarter turn.
+    engine.setInfiniteCamera(0, 0, 1, Math.PI / 2)
+    const rotated = readCompositePixels(engine)
+    expect(alphaAt(rotated, 64, 32, 32 + 20)).toBeGreaterThan(0)
+    expect(alphaAt(rotated, 64, 32 + 20, 32)).toBe(0)
+
+    // A full turn lands back exactly where it started.
+    engine.setInfiniteCamera(0, 0, 1, Math.PI * 2)
+    const fullTurn = readCompositePixels(engine)
+    expect(alphaAt(fullTurn, 64, 32 + 20, 32)).toBeGreaterThan(0)
+    expect(alphaAt(fullTurn, 64, 32, 32 + 20)).toBe(0)
+  })
+
+  it('adjacent tiles show no seam under a rotated camera either (#134)', () => {
+    const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 64, height: 64 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(fillStroke('user-a', 'L', TILE_SIZE, 0, 40))
+    engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
+    engine.setInfiniteCamera(TILE_SIZE, 0, 1, Math.PI / 6)
+
+    const pixels = readCompositePixels(engine)
+    // A generous fully-painted disc under rotation: sample a small cluster
+    // right around screen center, well inside the disc regardless of the
+    // rotation's exact sub-pixel effect on the tile boundary.
+    for (let dx = -3; dx <= 3; dx++) {
+      expect(alphaAt(pixels, 64, 32 + dx, 32)).toBeGreaterThan(0)
+    }
+  })
+
   it('a bounded (fixed-canvas) engine never touches setInfiniteCamera/resizeCanvas — resizeCanvas is a guarded no-op there', () => {
     const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
     engine.resizeCanvas(999, 999)

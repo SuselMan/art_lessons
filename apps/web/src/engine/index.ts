@@ -10,7 +10,7 @@ import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
-  applyAffine, composeAffine, invertAffine, toMat3, translationMatrix,
+  applyAffine, composeAffine, invertAffine, scaleRotateMatrix, toMat3, translationMatrix,
   type AffineMatrix,
 } from './src/affine'
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
@@ -459,6 +459,19 @@ export class PencilEngine implements PencilEngineAPI {
   private _belowCache!: AccumulationBuffer
   private _aboveCache!: AccumulationBuffer
   private _splitCacheDirty = true
+
+  // Infinite canvas rotation (#134) — _runComposite builds the unrotated,
+  // zoom-applied composite into this buffer instead of the real (canvas-
+  // sized) target for infinite rooms; _finishInfiniteComposite then does
+  // exactly one final rotate blit from here into the real target. Sized
+  // to _renderBufferExtent() — a square big enough (canvas's own half-
+  // diagonal, doubled) that any rotation of the camera still finds the
+  // whole screen covered by content this buffer actually holds. Bounded
+  // rooms never read/write this (their rotation is the DOM canvasWrap's
+  // own CSS transform, orthogonal to this file) — allocated anyway at
+  // plain canvas size for them, just to keep _initGL/resizeCanvas free of
+  // a mode branch; _runComposite is what actually skips it.
+  private _assemblyFBO!: AccumulationBuffer
 
   // Batched dab rendering (#123) — one instanced draw call per _paintDabs
   // invocation instead of one gl.drawArrays + ~9 gl.uniform* calls per dab.
@@ -1006,14 +1019,31 @@ export class PencilEngine implements PencilEngineAPI {
     if (canvas.width === width && canvas.height === height) return
     canvas.width = width
     canvas.height = height
+    const { w: ew, h: eh } = this._renderBufferExtent()
     this._compositeFBO.destroy()
     this._belowCache.destroy()
     this._aboveCache.destroy()
+    this._assemblyFBO.destroy()
     this._compositeFBO = new AccumulationBuffer(gl, width, height)
-    this._belowCache = new AccumulationBuffer(gl, width, height)
-    this._aboveCache = new AccumulationBuffer(gl, width, height)
+    this._belowCache = new AccumulationBuffer(gl, ew, eh)
+    this._aboveCache = new AccumulationBuffer(gl, ew, eh)
+    this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
     this._splitCacheDirty = true
     this._display()
+  }
+
+  /** Pixel size for _belowCache/_aboveCache/_assemblyFBO — always
+   *  canvas-sized for bounded rooms (unchanged from before #134), but a
+   *  square padded to the canvas's own half-diagonal for infinite rooms:
+   *  big enough that any camera rotation still finds the whole screen
+   *  covered once _finishInfiniteComposite crops/rotates it back down to
+   *  the real canvas size. See _assemblyFBO's field comment. */
+  private _renderBufferExtent(): { w: number; h: number } {
+    const { canvas } = this
+    if (!this._infinite) return { w: canvas.width, h: canvas.height }
+    const halfDiag = Math.sqrt((canvas.width / 2) ** 2 + (canvas.height / 2) ** 2)
+    const extent = Math.ceil(halfDiag * 2)
+    return { w: extent, h: extent }
   }
 
   /** Live gizmo-drag preview (#120) — renders each entry's *current* layer
@@ -1188,6 +1218,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeFBO.destroy()
     this._belowCache.destroy()
     this._aboveCache.destroy()
+    this._assemblyFBO.destroy()
     this._previewBuf?.destroy()
     this._previewBuf = null
     this._tipBuf?.destroy()
@@ -1353,7 +1384,10 @@ export class PencilEngine implements PencilEngineAPI {
         maxX: src.originX + src.buffer.width, maxY: src.originY + src.buffer.height,
       }
       for (const destTarget of dest.resolveForPaint(rect)) {
-        this._compositeTextures([{ texture: src.buffer.texture, opacity }], destTarget.buffer.fbo)
+        this._compositeTextures(
+          [{ texture: src.buffer.texture, opacity }], destTarget.buffer.fbo,
+          destTarget.buffer.width, destTarget.buffer.height,
+        )
       }
     }
   }
@@ -1539,7 +1573,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
-    this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_bufferSize', 'u_matrixInv'])
+    this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
     this._dispPosLoc           = gl.getAttribLocation(this._dispProg, 'a_position')
@@ -1563,8 +1597,10 @@ export class PencilEngine implements PencilEngineAPI {
     // Fresh (or, on context restore, brand-new-and-empty) GL objects — any
     // previously baked content is gone either way, so the split cache must
     // be rebuilt before its next read regardless of why _initGL() ran.
-    this._belowCache = new AccumulationBuffer(gl, canvas.width, canvas.height)
-    this._aboveCache = new AccumulationBuffer(gl, canvas.width, canvas.height)
+    const { w: ew, h: eh } = this._renderBufferExtent()
+    this._belowCache = new AccumulationBuffer(gl, ew, eh)
+    this._aboveCache = new AccumulationBuffer(gl, ew, eh)
+    this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
     this._splitCacheDirty = true
   }
 
@@ -2135,13 +2171,12 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _compositeTextures(
     items: Array<{ texture: WebGLTexture; opacity: number }>,
-    targetFbo: WebGLFramebuffer,
+    targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
   ): void {
-    const { gl, canvas } = this
-    const w = canvas.width, h = canvas.height
+    const { gl } = this
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, w, h)
+    gl.viewport(0, 0, targetW, targetH)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
@@ -2188,13 +2223,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  still a single plain blit rather than a tile loop. */
   private _drawCompositeItem(
     id: string, opacity: number, targetFbo: WebGLFramebuffer, viewRect: WorldRect,
+    targetW: number, targetH: number,
   ): void {
     const preview = this._transformPreview.get(id)
-    if (preview) { this._compositeTextures([{ texture: preview.texture, opacity }], targetFbo); return }
+    if (preview) {
+      this._compositeTextures([{ texture: preview.texture, opacity }], targetFbo, targetW, targetH)
+      return
+    }
     const buf = this._layers.get(id)
     if (!buf) return
     for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
-      this._drawTileComposite(buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo)
+      this._drawTileComposite(
+        buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+      )
     }
   }
 
@@ -2203,16 +2244,21 @@ export class PencilEngine implements PencilEngineAPI {
    *  ever called with _transformPreview empty (_runComposite bypasses this
    *  entirely otherwise), so _drawCompositeItem always resolves to a real
    *  layer's own current buffer here, never a scratch preview. */
-  private _rebuildSplitCacheIfDirty(belowItems: CompositeItem[], aboveItems: CompositeItem[], viewRect: WorldRect): void {
+  private _rebuildSplitCacheIfDirty(
+    belowItems: CompositeItem[], aboveItems: CompositeItem[], viewRect: WorldRect,
+    targetW: number, targetH: number,
+  ): void {
     if (!this._splitCacheDirty) return
-    this._rebuildCacheHalf(this._belowCache, belowItems, viewRect)
-    this._rebuildCacheHalf(this._aboveCache, aboveItems, viewRect)
+    this._rebuildCacheHalf(this._belowCache, belowItems, viewRect, targetW, targetH)
+    this._rebuildCacheHalf(this._aboveCache, aboveItems, viewRect, targetW, targetH)
     this._splitCacheDirty = false
   }
 
-  private _rebuildCacheHalf(target: AccumulationBuffer, items: CompositeItem[], viewRect: WorldRect): void {
+  private _rebuildCacheHalf(
+    target: AccumulationBuffer, items: CompositeItem[], viewRect: WorldRect, targetW: number, targetH: number,
+  ): void {
     target.clear()
-    for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, target.fbo, viewRect)
+    for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, target.fbo, viewRect, targetW, targetH)
   }
 
   /** #122: normally recomposites *every* visible layer/folder-child from
@@ -2283,10 +2329,14 @@ export class PencilEngine implements PencilEngineAPI {
    *  positioning instead. Verified stable across a full stroke crossing all
    *  four tile boundaries — no dropout, no seam.
    *
-   *  Doesn't account for camera rotation (_infiniteCamera.angle) — the
-   *  viewport is always an axis-aligned rect, so a rotated view will
-   *  currently misplace tiles. Phase 1 scope is angle === 0 (unrotated)
-   *  infinite rooms; rotation support is a follow-up.
+   *  Doesn't itself account for camera rotation (_infiniteCamera.angle) —
+   *  the viewport is always an axis-aligned rect, so a rotated view would
+   *  misplace tiles if this drew straight to the real screen. It doesn't:
+   *  for infinite rooms _runComposite always targets the unrotated
+   *  _assemblyFBO here (see targetW/targetH, always that buffer's own
+   *  size in that case) and _finishInfiniteComposite applies the actual
+   *  rotation exactly once, afterwards, on the assembled result — see its
+   *  own comment (#134).
    *
    *  Rounds each of the tile's four EDGES individually (via
    *  _worldToScreenEdgeX/Y below), rather than rounding a position and a
@@ -2301,29 +2351,29 @@ export class PencilEngine implements PencilEngineAPI {
    *  tile boundary), producing a 1px transparent gap or a 1px overlap
    *  right at the seam — see index.tiledDisplay.test.ts's fractional-zoom
    *  case for a concrete reproduction. */
-  private _worldToScreenEdgeX(worldX: number): number {
+  private _worldToScreenEdgeX(worldX: number, targetW: number): number {
     const { wx, zoom } = this._infiniteCamera
-    return Math.round((worldX - wx) * zoom + this.canvas.width / 2)
+    return Math.round((worldX - wx) * zoom + targetW / 2)
   }
 
-  private _worldToScreenEdgeY(worldY: number): number {
+  private _worldToScreenEdgeY(worldY: number, targetH: number): number {
     const { wy, zoom } = this._infiniteCamera
-    return Math.round((worldY - wy) * zoom + this.canvas.height / 2)
+    return Math.round((worldY - wy) * zoom + targetH / 2)
   }
 
   private _drawTileComposite(
     texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
-    opacity: number, targetFbo: WebGLFramebuffer,
+    opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
   ): void {
-    const { gl, canvas } = this
-    const leftEdge   = this._worldToScreenEdgeX(originX)
-    const rightEdge  = this._worldToScreenEdgeX(originX + bw)
-    const topEdge    = this._worldToScreenEdgeY(originY)
-    const bottomEdge = this._worldToScreenEdgeY(originY + bh)
+    const { gl } = this
+    const leftEdge   = this._worldToScreenEdgeX(originX, targetW)
+    const rightEdge  = this._worldToScreenEdgeX(originX + bw, targetW)
+    const topEdge    = this._worldToScreenEdgeY(originY, targetH)
+    const bottomEdge = this._worldToScreenEdgeY(originY + bh, targetH)
     const glX = leftEdge
     // gl.viewport's y is measured from the bottom of the target, unlike the
     // top-down (topEdge, bottomEdge) this file uses everywhere else.
-    const glY = canvas.height - bottomEdge
+    const glY = targetH - bottomEdge
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
     gl.viewport(glX, glY, rightEdge - leftEdge, bottomEdge - topEdge)
@@ -2345,15 +2395,29 @@ export class PencilEngine implements PencilEngineAPI {
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     gl.disable(gl.BLEND)
-    gl.viewport(0, 0, canvas.width, canvas.height)
+    gl.viewport(0, 0, targetW, targetH)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
+  /** For infinite rooms, every draw in this method (tiles, split-cache
+   *  halves, active layer) targets _assemblyFBO — unrotated, zoom-applied,
+   *  world-centered — instead of the real (canvas-sized) `targetFbo`
+   *  directly; _finishInfiniteComposite then applies the camera's actual
+   *  rotation exactly once at the end, blitting the assembled result down
+   *  into `targetFbo`. Bounded rooms skip all of that (their rotation is
+   *  the DOM canvasWrap's own CSS transform, never this camera's `angle`,
+   *  which stays 0 for them for the engine's whole lifetime) and draw
+   *  straight into `targetFbo`, exactly as before #134. */
   private _runComposite(items: CompositeItem[], targetFbo: WebGLFramebuffer): void {
     const viewRect = this._visibleWorldRect()
+    const buildFbo = this._infinite ? this._assemblyFBO.fbo    : targetFbo
+    const targetW  = this._infinite ? this._assemblyFBO.width  : this.canvas.width
+    const targetH  = this._infinite ? this._assemblyFBO.height : this.canvas.height
+    if (this._infinite) this._assemblyFBO.clear()
 
     if (this._transformPreview.size > 0) {
-      for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, targetFbo, viewRect)
+      for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, buildFbo, viewRect, targetW, targetH)
+      this._finishInfiniteComposite(targetFbo)
       return
     }
 
@@ -2367,34 +2431,76 @@ export class PencilEngine implements PencilEngineAPI {
     const activeItem  = idx === -1 ? null  : items[idx]
     const aboveItems  = idx === -1 ? []    : items.slice(idx + 1)
 
-    this._rebuildSplitCacheIfDirty(belowItems, aboveItems, viewRect)
+    this._rebuildSplitCacheIfDirty(belowItems, aboveItems, viewRect, targetW, targetH)
 
-    if (belowItems.length) this._compositeTextures([{ texture: this._belowCache.texture, opacity: 1 }], targetFbo)
-    if (activeItem) this._drawCompositeItem(activeItem.id, activeItem.opacity, targetFbo, viewRect)
-    if (aboveItems.length) this._compositeTextures([{ texture: this._aboveCache.texture, opacity: 1 }], targetFbo)
+    if (belowItems.length) {
+      this._compositeTextures([{ texture: this._belowCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
+    }
+    if (activeItem) {
+      this._drawCompositeItem(activeItem.id, activeItem.opacity, buildFbo, viewRect, targetW, targetH)
+    }
+    if (aboveItems.length) {
+      this._compositeTextures([{ texture: this._aboveCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
+    }
+
+    this._finishInfiniteComposite(targetFbo)
   }
 
-  /** Low-level transform-blit draw call — renders `sourceTex` through
-   *  `matrixInv` (already inverted: maps destination buffer-local px to
-   *  source buffer-local px) into `targetFbo`, sized `bufW x bufH`. Always
-   *  blends (ONE, ONE_MINUS_SRC_ALPHA) rather than plain-replacing: every
-   *  caller's target is freshly cleared (transparent) immediately before
-   *  its first (possibly only) draw here, and blending a straight replace
-   *  onto an all-zero destination gives the exact same result as a true
-   *  replace would — so this one code path serves both the live gizmo
-   *  preview's single pass (`_drawTransformBlit`) and the tile-aware bake's
-   *  several passes per destination tile, one per overlapping source tile
+  /** (#134) The one place camera rotation actually applies for infinite
+   *  rooms — a no-op for bounded rooms (angle is always 0 there for the
+   *  engine's whole lifetime, and they never populate _assemblyFBO to
+   *  begin with; the early return just skips a redundant identity blit).
+   *  Blits _assemblyFBO (unrotated, zoom-applied, centered on the same
+   *  world point as the real camera, just padded bigger — see its field
+   *  comment) into the real `targetFbo`, rotating by -angle: forward,
+   *  screen = canvasCenter + R(angle)*(assemblyPx - assemblyCenter) is the
+   *  same world->screen convention _worldToScreenEdgeX/Y and the old
+   *  (pre-#136) _worldToScreenTransform used (scale baked in via zoom,
+   *  here already applied when the assembly buffer itself was drawn, so
+   *  only the rotation is left) — this needs that mapping's inverse,
+   *  which for a pure rotation is just negating the angle, no matrix
+   *  inversion required. */
+  private _finishInfiniteComposite(targetFbo: WebGLFramebuffer): void {
+    if (!this._infinite) return
+    const { canvas } = this
+    const { angle } = this._infiniteCamera
+    const ext = this._assemblyFBO.width // square: width === height
+    const matrixInv = composeAffine(
+      translationMatrix(ext / 2, ext / 2),
+      composeAffine(scaleRotateMatrix(1, -angle), translationMatrix(-canvas.width / 2, -canvas.height / 2)),
+    )
+    this._runTransformBlit(
+      this._assemblyFBO.texture, matrixInv, canvas.width, canvas.height, ext, ext, targetFbo,
+    )
+  }
+
+  /** Low-level transform-blit draw call — renders `sourceTex` (sized
+   *  `srcW x srcH`) through `matrixInv` (already inverted: maps destination
+   *  buffer-local px to source buffer-local px, both top-down) into
+   *  `targetFbo` (sized `dstW x dstH`) — source and destination sizes are
+   *  independent (#134: the final rotate blit reads the padded, bigger
+   *  _assemblyFBO and writes the real, smaller canvas-sized target; every
+   *  other caller happens to pass matching sizes, which this reduces to
+   *  exactly as before). Always blends (ONE, ONE_MINUS_SRC_ALPHA) rather
+   *  than plain-replacing: every caller's target is freshly cleared
+   *  (transparent) immediately before its first (possibly only) draw here,
+   *  and blending a straight replace onto an all-zero destination gives the
+   *  exact same result as a true replace would — so this one code path
+   *  serves the live gizmo preview's single pass (`_drawTransformBlit`),
+   *  the tile-aware bake's several passes per destination tile
    *  (`_bakeTransform` — a destination tile's content can come from more
    *  than one source tile when the transform includes rotation/scale; each
    *  pass is transparent everywhere outside its own source tile's mapped
    *  region, so blending — not replacing — is what lets a later pass avoid
-   *  wiping out an earlier one's already-valid pixels). */
+   *  wiping out an earlier one's already-valid pixels), and the final
+   *  rotate blit (`_finishInfiniteComposite`). */
   private _runTransformBlit(
-    sourceTex: WebGLTexture, matrixInv: AffineMatrix, bufW: number, bufH: number, targetFbo: WebGLFramebuffer,
+    sourceTex: WebGLTexture, matrixInv: AffineMatrix,
+    dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer,
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
-    gl.viewport(0, 0, bufW, bufH)
+    gl.viewport(0, 0, dstW, dstH)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     gl.useProgram(this._transformProg)
@@ -2408,7 +2514,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, sourceTex)
     gl.uniform1i(tu.u_source, 0)
-    gl.uniform2f(tu.u_bufferSize, bufW, bufH)
+    gl.uniform2f(tu.u_dstSize, dstW, dstH)
+    gl.uniform2f(tu.u_srcSize, srcW, srcH)
     gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(matrixInv))
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
@@ -2418,10 +2525,13 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Renders `sourceTex` through the (inverse of the) given transform into
    *  `targetFbo` — used by the live gizmo preview (previewLayerTransform,
-   *  bounded-canvas layers only for now — see there). */
+   *  bounded-canvas layers only for now — see there). Source and
+   *  destination are always the same (canvas) size here. */
   private _drawTransformBlit(sourceTex: WebGLTexture, matrix: AffineMatrix, targetFbo: WebGLFramebuffer): void {
     const { canvas } = this
-    this._runTransformBlit(sourceTex, invertAffine(matrix), canvas.width, canvas.height, targetFbo)
+    this._runTransformBlit(
+      sourceTex, invertAffine(matrix), canvas.width, canvas.height, canvas.width, canvas.height, targetFbo,
+    )
   }
 
   /** Bakes a transform into a layer's content, in place (#133 fix) —
@@ -2481,7 +2591,10 @@ export class PencilEngine implements PencilEngineAPI {
         const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
         const mc = composeAffine(toSrcLocal, composeAffine(matrixInv, toWorld))
         this._runTransformBlit(
-          srcTile.buffer.texture, mc, destTarget.buffer.width, destTarget.buffer.height, scratch.fbo,
+          srcTile.buffer.texture, mc,
+          destTarget.buffer.width, destTarget.buffer.height,
+          srcTile.buffer.width, srcTile.buffer.height,
+          scratch.fbo,
         )
       }
       scratches.push({ target: destTarget, scratch })
@@ -2531,14 +2644,14 @@ export class PencilEngine implements PencilEngineAPI {
     // Same (ONE, ONE_MINUS_SRC_ALPHA) blend as AccumulationBuffer.beginDraw()
     // — visual only, never written into any layer's real buffer.
     if (this._tipBuf) {
-      this._compositeTextures([{ texture: this._tipBuf.texture, opacity: 1 }], this._compositeFBO.fbo)
+      this._compositeTextures([{ texture: this._tipBuf.texture, opacity: 1 }], this._compositeFBO.fbo, w, h)
     }
 
     // #92 speculative preview: blended on top of the real composite, same
     // (ONE, ONE_MINUS_SRC_ALPHA) blend as AccumulationBuffer.beginDraw() —
     // visual only, never written into any layer's real buffer.
     if (this._previewBuf) {
-      this._compositeTextures([{ texture: this._previewBuf.texture, opacity: 1 }], this._compositeFBO.fbo)
+      this._compositeTextures([{ texture: this._previewBuf.texture, opacity: 1 }], this._compositeFBO.fbo, w, h)
     }
 
     // Live remote-stroke reveals (#37 follow-up v2): one per peer currently
@@ -2547,7 +2660,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (Map insertion order); their strokes are independent so this never
     // matters visually.
     for (const { buf } of this._peerPreviews.values()) {
-      this._compositeTextures([{ texture: buf.texture, opacity: 1 }], this._compositeFBO.fbo)
+      this._compositeTextures([{ texture: buf.texture, opacity: 1 }], this._compositeFBO.fbo, w, h)
     }
   }
 

@@ -341,16 +341,24 @@ export const IMAGE_BLIT_FRAG = `
 // inverts an asymmetric one like an arbitrary drag — exactly the bug
 // reported after #120 shipped: horizontal drag looked right, vertical was
 // mirrored.
+// u_dstSize/u_srcSize (#134 — split from one shared u_bufferSize): the
+// destination render target and the source texture aren't always the same
+// size — the infinite-canvas final rotate blit reads the padded, bigger
+// _assemblyFBO and writes the real, smaller canvas — so dstPx and srcUV
+// each need their own buffer's own dimensions to normalize against.  Every
+// other caller (gizmo preview, tile-aware transform bake) happens to pass
+// matching sizes, which reduces to exactly the old single-u_bufferSize math.
 export const TRANSFORM_BLIT_FRAG = `
   precision highp float;
   uniform sampler2D u_source;
-  uniform vec2 u_bufferSize;
+  uniform vec2 u_dstSize;
+  uniform vec2 u_srcSize;
   uniform mat3 u_matrixInv; // maps destination buffer-px -> source buffer-px, both app-space top-down
   varying vec2 v_uv;
   void main() {
-    vec2 dstPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_bufferSize;
+    vec2 dstPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_dstSize;
     vec3 srcPx = u_matrixInv * vec3(dstPx, 1.0);
-    vec2 srcUV = vec2(srcPx.x / u_bufferSize.x, 1.0 - srcPx.y / u_bufferSize.y);
+    vec2 srcUV = vec2(srcPx.x / u_srcSize.x, 1.0 - srcPx.y / u_srcSize.y);
     if (srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
       gl_FragColor = vec4(0.0);
       return;

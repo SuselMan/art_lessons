@@ -568,7 +568,11 @@ export class MockGL {
   private _rasterTransform(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
     const { width, height, data } = info
     const unit = (uniforms.get('u_source') as number) ?? 0
-    const [bw, bh] = (uniforms.get('u_bufferSize') as number[]) ?? [width, height]
+    // Destination size (u_dstSize) isn't needed here — the raster loop
+    // already iterates the actual destination texture's own width/height.
+    // Source size (u_srcSize, #134) is what bounds the in-range check below
+    // (mirrors the shader's srcUV normalization/clamp against u_srcSize).
+    const [bw, bh] = (uniforms.get('u_srcSize') as number[]) ?? [width, height]
     const m = (uniforms.get('u_matrixInv') as number[]) ?? [1, 0, 0, 0, 1, 0, 0, 0, 1]
     const srcTex = this._textureUnits[unit] ?? null
     const srcInfo = srcTex ? this._textureData.get(srcTex) : undefined
