@@ -228,6 +228,14 @@ export interface PencilEngineAPI {
   // Exports the canvas exactly as displayed (paper texture baked in) by
   // default. Pass `transparent: true` for a second variant with no paper —
   // just the graphite/ink content, transparent where nothing is drawn (#15).
+  //
+  // #145: for an infinite-canvas room there's no fixed "whole drawing" rect
+  // the way a bounded room's canvas.width x canvas.height already is one —
+  // so this exports the tightest rect containing every layer's actual
+  // painted content (getContentBounds's own union, at exactly 1 world unit
+  // = 1 pixel) instead of whatever the camera happens to be looking at right
+  // now. A bounded room's export is completely unaffected by this — see
+  // _exportInfinitePNG's own doc comment for the full reasoning.
   exportPNG(transparent?: boolean): Promise<Blob | null>
   destroy(): void
 }
@@ -337,6 +345,16 @@ const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
 //    315 applies that same before/after ratio (100% ⁄ 35%) directly.
 const INFINITE_PAPER_TEX_PIXELS = 1024
 const INFINITE_PAPER_WORLD_SIZE = 315
+
+// #145: hard clamp (per axis) on exportPNG's infinite-room "whole drawing"
+// render target — see _buildContentComposite's own doc comment for why this
+// is a fixed constant rather than a live gl.MAX_TEXTURE_SIZE query. Every
+// real device this app targets supports textures far bigger than this
+// already; a drawing that legitimately spans more than ~8 tiles across in
+// one axis (TILE_SIZE is 1024) is the one case this clips to a smaller rect,
+// anchored at the content bounds' own top-left, rather than exporting in
+// full — a known, deliberately-accepted limitation, not attempted here.
+const MAX_EXPORT_DIMENSION_PX = 8192
 
 export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.17]
 
@@ -962,7 +980,31 @@ export class PencilEngine implements PencilEngineAPI {
    *  graphite, post-composite) via the default framebuffer, which _display()
    *  always leaves bound to the real canvas after its last draw call — so
    *  this only gives a meaningful result once at least one frame has been
-   *  displayed. Returns null for out-of-bounds coordinates. */
+   *  displayed. Returns null for out-of-bounds coordinates.
+   *
+   *  #145 investigation: this stays screen-space-only for infinite rooms too
+   *  — deliberately, not as an oversight. Two things make that already
+   *  correct rather than "only correct for the visible-content case":
+   *   1. The caller (Room's handleEyedropperPick, via clientToCanvas) can
+   *      only ever produce a coordinate the user actually clicked on screen
+   *      — the (x < 0 || ... >= canvas.width/height) guard above is the
+   *      whole possible input range; there's no "pick a world point that
+   *      isn't currently on screen" call shape to support in the first
+   *      place, unlike exportPNG's genuinely camera-independent "whole
+   *      drawing" scope.
+   *   2. There's no separate render loop that could leave the on-screen
+   *      framebuffer stale relative to engine state at call time: _display()
+   *      runs synchronously at the end of every state-changing call that can
+   *      affect what's shown (paint — _paintStrokeDabs; camera moves —
+   *      setInfiniteCamera; resizeCanvas; setCompositeOrder; history replay —
+   *      _applyHistoryChange; setPaper), and JS is single-threaded, so by the
+   *      time a pointerdown handler can call pickColor the visible canvas
+   *      already reflects the very last of those calls. Confirmed by reading
+   *      every _display()/_displayTransparent() call site in this file —
+   *      none of them defer to a rAF loop (the constructor's own
+   *      requestAnimationFrame call is a one-time kickoff, not a per-frame
+   *      loop). No code change needed here — see #145's issue thread for the
+   *      export-side fix, which *does* need one. */
   pickColor(canvasX: number, canvasY: number): [number, number, number] | null {
     const { gl, canvas } = this
     const x = Math.round(canvasX)
@@ -1400,8 +1442,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  toBlob() for the transparent variant, without waiting for its callback:
    *  the visible canvas (this.canvas is the real, on-screen WebGL canvas —
    *  there's no separate offscreen render target) never has to sit showing
-   *  the transparent frame past this synchronous call. */
+   *  the transparent frame past this synchronous call.
+   *
+   *  #145: this camera-viewport path is exactly right for a bounded room
+   *  (unchanged below) but is handed off to _exportInfinitePNG for an
+   *  infinite one instead — see that method's own doc comment. */
   exportPNG(transparent = false): Promise<Blob | null> {
+    if (this._infinite) return this._exportInfinitePNG(transparent)
     if (transparent) this._displayTransparent()
     else this._display()
     const blob = new Promise<Blob | null>(resolve => this.canvas.toBlob(resolve, 'image/png'))
@@ -3194,5 +3241,253 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
 
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+  }
+
+  // ─── Infinite-room export (#145) ───────────────────────────────────────────
+  //
+  // exportPNG's camera-viewport path (_display()/_displayTransparent() +
+  // canvas.toBlob(), above) is exactly right for a bounded room — its canvas
+  // literally is the whole drawing — but for an infinite room "whatever the
+  // camera currently frames" isn't "the whole drawing" at all, just an
+  // arbitrary crop. The methods below build a *second*, camera-independent
+  // render of the tightest rect containing every layer's actual content
+  // (getContentBounds's own union, at 1 world unit = 1 pixel) and read that
+  // back directly, rather than reusing _compositeFBO/the real canvas (both
+  // are fixed at canvas.width x canvas.height, which has no necessary
+  // relationship to the content bounds' own size).
+
+  /** Union of getContentBounds() across every layer currently in
+   *  _compositeOrder — i.e. every layer that actually participates in the
+   *  on-screen composite right now, same set _runComposite itself draws
+   *  (a hidden layer's content is no more "part of the drawing" here than
+   *  it is on screen). The tightest world-space rect containing all of it;
+   *  null if every one of them is empty (or there are no layers at all).
+   *  Used by _buildContentComposite for exportPNG's infinite-room path. */
+  private _allVisibleContentBounds(): { x: number; y: number; width: number; height: number } | null {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const { id } of this._compositeOrder) {
+      const b = this.getContentBounds(id)
+      if (!b) continue
+      minX = Math.min(minX, b.x); minY = Math.min(minY, b.y)
+      maxX = Math.max(maxX, b.x + b.width); maxY = Math.max(maxY, b.y + b.height)
+    }
+    if (maxX <= minX) return null
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+  }
+
+  /** Builds one unblended (premultiplied-color/coverage-alpha — exactly
+   *  _compositeFBO's own convention, see _composeToFBO's doc comment)
+   *  accumulation buffer covering every layer's ENTIRE resident content,
+   *  positioned by a synthetic, fixed (zoom 1, angle 0) camera centered on
+   *  the union content bounds instead of the live, on-screen
+   *  `_infiniteCamera`.
+   *
+   *  Reuses _drawCompositeItem/_drawTileComposite completely unmodified
+   *  rather than inventing a second rendering path to keep in sync with the
+   *  real one: passing a viewRect that exactly encloses the whole target
+   *  buffer makes resolveVisible() return every resident tile anyway (a
+   *  tile only gets excluded if it falls entirely outside viewRect — see
+   *  ILayerBuffer's own doc comment), and _drawTileComposite's screen-
+   *  position math only ever reads `this._infiniteCamera` and the target
+   *  size/fbo it's given — nothing specific to the real on-screen canvas —
+   *  so temporarily swapping the camera field is enough to retarget the
+   *  exact same drawing code at an arbitrary offscreen buffer instead of the
+   *  screen. This runs fully synchronously (no draw call here can yield to
+   *  other engine code), so the swap is safe without any observer noticing
+   *  the camera "moved"; the try/finally is just cheap insurance against a
+   *  thrown error leaving it swapped.
+   *
+   *  Content bounds are integers (see getContentBounds), so this camera
+   *  placement makes every tile origin land on an exact integer screen
+   *  position with zero rounding — no seam risk the way a fractional-zoom
+   *  on-screen camera has (see _drawTileComposite's own docstring).
+   *
+   *  Clamped to MAX_EXPORT_DIMENSION_PX per axis — see that constant's own
+   *  comment. Caller owns the returned buffer's lifetime (destroy() once
+   *  read). Returns null if every layer is empty — see exportPNG's own
+   *  fallback for that case. */
+  private _buildContentComposite(): { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null {
+    const raw = this._allVisibleContentBounds()
+    if (!raw) return null
+
+    const width  = Math.min(Math.ceil(raw.width),  MAX_EXPORT_DIMENSION_PX)
+    const height = Math.min(Math.ceil(raw.height), MAX_EXPORT_DIMENSION_PX)
+    const bounds = { x: raw.x, y: raw.y, width, height }
+
+    const { gl } = this
+    const buffer = new AccumulationBuffer(gl, width, height)
+    buffer.clear()
+
+    const savedCamera = this._infiniteCamera
+    this._infiniteCamera = { wx: bounds.x + width / 2, wy: bounds.y + height / 2, zoom: 1, angle: 0 }
+    const viewRect: WorldRect = { minX: bounds.x, minY: bounds.y, maxX: bounds.x + width, maxY: bounds.y + height }
+    try {
+      for (const { id, opacity } of this._compositeOrder) {
+        this._drawCompositeItem(id, opacity, buffer.fbo, viewRect, width, height)
+      }
+    } finally {
+      this._infiniteCamera = savedCamera
+    }
+
+    return { bounds, buffer }
+  }
+
+  /** Transparent-export variant (#15/#145) of DISPLAY_TRANSPARENT_FRAG,
+   *  parameterized to read an arbitrary source texture into an arbitrary
+   *  target instead of hardcoding _compositeFBO -> the real canvas the way
+   *  _displayTransparent() does — the un-premultiply math itself is
+   *  unchanged, just retargeted. See _displayTransparent's own comment for
+   *  what this shader does and why. */
+  private _renderDisplayTransparentInto(sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number): void {
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
+    gl.viewport(0, 0, w, h)
+    gl.disable(gl.BLEND)
+
+    gl.useProgram(this._dispTransparentProg)
+    const u = this._dispTransparentUni
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
+    gl.uniform1i(u.u_accumulation, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    const posLoc = this._dispTransparentPosLoc
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** Paper-baked export variant (#145) of PAPER_BLEND_FRAG, parameterized
+   *  like _renderDisplayTransparentInto above instead of hardcoding
+   *  _assemblyFBO/_paperBlendFBO the way _applyPaperBlend does. Unlike
+   *  _applyPaperBlend/_finishPaperBlend's two-step (unrotated-and-padded,
+   *  then rotate down to screen size), this needs only the one step: the
+   *  synthetic export camera _buildContentComposite sets up is never
+   *  rotated (angle 0), so there's no second rotate-blit to apply — this
+   *  writes the paper-blended result directly at final size. Must be kept
+   *  in sync by hand with DISPLAY_FRAG/PAPER_BLEND_FRAG if their math ever
+   *  changes (same manual-sync note those shaders' own comments call out —
+   *  no #include in GLSL ES1.0/WebGL1). */
+  private _renderPaperBlendFlatInto(
+    sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number,
+    bounds: { x: number; y: number },
+  ): void {
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
+    gl.viewport(0, 0, w, h)
+    gl.disable(gl.BLEND)
+    gl.useProgram(this._paperBlendProg)
+    const u = this._paperBlendUni
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
+    gl.uniform1i(u.u_accumulation, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    gl.uniform1i(u.u_paperMap, 1)
+
+    gl.uniform3fv(u.u_paperColor, PAPER_COLORS[this._opts.paper])
+    gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+    gl.uniform2f(u.u_paperCamera, bounds.x + w / 2, bounds.y + h / 2)
+    gl.uniform2f(u.u_paperExtHalf, w / 2, h / 2)
+    // Export always renders at exactly 1 world unit = 1 pixel — see
+    // _buildContentComposite's synthetic camera — so invZoom is always 1,
+    // unlike _applyPaperBlend's live 1/this._infiniteCamera.zoom.
+    gl.uniform1f(u.u_paperInvZoom, 1)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    const posLoc = this._paperBlendPosLoc
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** Hand-builds a PNG Blob from raw RGBA8 bytes read back via
+   *  gl.readPixels — needed because _exportInfinitePNG's render target is
+   *  never the real on-screen canvas (see its own doc comment for why), so
+   *  there's no canvas.toBlob() to lean on the way every other export path
+   *  in this file does. gl.readPixels' rows come out GL/window-bottom-
+   *  first (the same convention getContentBounds' own doc comment explains
+   *  and corrects for) — flipped here so row 0 of the PNG is the visual
+   *  top, matching what canvas.toBlob() already gives for free via the
+   *  browser's own canvas-paint step. */
+  private _pixelsToPngBlob(pixels: Uint8Array, width: number, height: number): Promise<Blob | null> {
+    const flipped = new Uint8ClampedArray(pixels.length)
+    const rowBytes = width * 4
+    for (let row = 0; row < height; row++) {
+      const srcStart = row * rowBytes
+      const dstStart = (height - 1 - row) * rowBytes
+      flipped.set(pixels.subarray(srcStart, srcStart + rowBytes), dstStart)
+    }
+    const out = document.createElement('canvas')
+    out.width = width
+    out.height = height
+    const ctx = out.getContext('2d')
+    if (!ctx) return Promise.resolve(null)
+    ctx.putImageData(new ImageData(flipped, width, height), 0, 0)
+    return new Promise<Blob | null>(resolve => out.toBlob(resolve, 'image/png'))
+  }
+
+  /** exportPNG's infinite-room path (#145) — see PencilEngineAPI.exportPNG's
+   *  own doc comment. A bounded room's canvas literally *is* the whole
+   *  drawing, so the plain camera-viewport `_display()`/`_displayTransparent()`
+   *  + `canvas.toBlob()` path (still used verbatim for bounded rooms, and as
+   *  this method's own empty-drawing fallback below) is already exactly
+   *  right there. An infinite room has no such fixed rect — "export the
+   *  current camera viewport" is what the pre-#145 code did (it never had a
+   *  tile-aware alternative), and is no more useful for an infinite canvas
+   *  than a screenshot: whatever isn't currently on screen just isn't in the
+   *  file. This instead exports the tightest rect containing every layer's
+   *  actual painted content (see _buildContentComposite/
+   *  _allVisibleContentBounds), rendered at exactly 1 world unit = 1 pixel —
+   *  "give me my whole drawing" being a far more useful default for a real
+   *  user than "give me whatever I happened to be looking at," and the
+   *  tightest-bbox framing (rather than e.g. padding to some arbitrary
+   *  margin) needs no further judgment call about how much blank space to
+   *  include.
+   *
+   *  Renders through an *offscreen* framebuffer sized to the content bounds
+   *  rather than resizing the real on-screen canvas to match (which would
+   *  briefly glitch the live view, or race a concurrent ResizeObserver-
+   *  driven resizeCanvas() call) — gl.readPixels works against whichever
+   *  framebuffer is currently bound, not just the canvas's own default one,
+   *  so there's no need to touch `this.canvas` at all. The visible on-screen
+   *  frame is never disturbed by any of this — unlike the bounded/transparent
+   *  path above, there's nothing to restore via _display() afterward. */
+  private _exportInfinitePNG(transparent: boolean): Promise<Blob | null> {
+    const composite = this._buildContentComposite()
+    if (!composite) {
+      // Nothing painted on any layer — no content rect to speak of. Falls
+      // back to the plain camera-viewport export (blank paper, or fully
+      // transparent either way) rather than producing a 0x0 image; this is
+      // the one case where "export the current view" and "export the whole
+      // drawing" agree — there's no drawing either way.
+      if (transparent) this._displayTransparent()
+      else this._display()
+      const blob = new Promise<Blob | null>(resolve => this.canvas.toBlob(resolve, 'image/png'))
+      if (transparent) this._display()
+      return blob
+    }
+
+    const { bounds, buffer } = composite
+    const { gl } = this
+    const { width: w, height: h } = buffer
+
+    const out = new AccumulationBuffer(gl, w, h)
+    if (transparent) this._renderDisplayTransparentInto(buffer.texture, out.fbo, w, h)
+    else this._renderPaperBlendFlatInto(buffer.texture, out.fbo, w, h, bounds)
+
+    const pixels = out.readPixels()
+    buffer.destroy()
+    out.destroy()
+
+    return this._pixelsToPngBlob(pixels, w, h)
   }
 }
