@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createTestEngine, expectPixelsEqual, fillStroke, makeLayerAdd, makeLayerTransform,
-  readTilePixels, readTransformPreviewTiles, residentTileCount,
+  readTilePixels, readTransformPreviewTextureIds, readTransformPreviewTiles, residentTileCount,
 } from './testing/engineTestUtils'
 import { TILE_SIZE } from './src/tileMath'
 
@@ -157,5 +157,51 @@ describe('previewLayerTransform: multi-tile live preview (#139)', () => {
     expect(readTransformPreviewTiles(engine, 'L')).toEqual([])
     engine.previewLayerTransform([{ layerId: 'L', matrix: [1, 0, 0, 1, 50, 0] }])
     expect(readTransformPreviewTiles(engine, 'L').length).toBeGreaterThan(0)
+  })
+
+  // Perf regression found testing on a real (underpowered) device: dragging
+  // a gizmo made everything stutter and then hang. Root cause — every
+  // previewLayerTransform call (one per pointermove, easily 60+/s on a pen
+  // digitizer) unconditionally destroyed and recreated every scratch
+  // AccumulationBuffer, a real GPU texture+framebuffer allocation up to a
+  // full page's worth of bytes for a bounded room — GPU alloc/dealloc churn
+  // at pointer-event frequency. Fixed by reusing a tile's existing buffer
+  // (keyed by world origin) across frames whenever the tile set a drag
+  // touches hasn't changed, which is the overwhelmingly common case.
+  it('perf: repeated previewLayerTransform calls for the same tile set reuse the existing scratch buffers instead of reallocating them every frame', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(fillStroke('user-a', 'L', 8, 8, 3))
+
+    // The source layer's one tile exactly fills the page ([0,16)x[0,16)),
+    // so *any* nonzero translation immediately spans two tiles (0,0) and
+    // (16,0) — exactly the "same tile set held across several drag frames"
+    // case this fix targets (a real single-tile drag would only ever touch
+    // one tile for small movements, but this fixture happens to start right
+    // on the boundary, which is a fine stand-in: what matters is that the
+    // set stays {(0,0),(16,0)} across every frame below).
+    engine.previewLayerTransform([{ layerId: 'L', matrix: [1, 0, 0, 1, 1, 0] }])
+    const first = readTransformPreviewTextureIds(engine, 'L')
+    expect(first.size).toBe(2)
+
+    // Simulate several more drag frames — small incremental translations,
+    // same two-tile set throughout.
+    for (let dx = 2; dx <= 5; dx++) {
+      engine.previewLayerTransform([{ layerId: 'L', matrix: [1, 0, 0, 1, dx, 0] }])
+    }
+    const later = readTransformPreviewTextureIds(engine, 'L')
+    expect(later.size).toBe(2)
+    expect(later.get('0,0')).toBe(first.get('0,0'))
+    expect(later.get('16,0')).toBe(first.get('16,0'))
+
+    // A transform that genuinely changes the tile set (content no longer
+    // reaches back to the origin tile at all) must still free the one no
+    // longer needed and allocate the new one — reuse must never paper over
+    // a real, necessary change.
+    engine.previewLayerTransform([{ layerId: 'L', matrix: [1, 0, 0, 1, 32, 0] }])
+    const afterTileChange = readTransformPreviewTextureIds(engine, 'L')
+    expect(afterTileChange.size).toBe(1)
+    expect(afterTileChange.has('0,0')).toBe(false)
+    expect(afterTileChange.has('32,0')).toBe(true)
   })
 })

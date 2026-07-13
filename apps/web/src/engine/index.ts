@@ -1165,17 +1165,32 @@ export class PencilEngine implements PencilEngineAPI {
    *  every drag frame, including ones the drag never ends up committing);
    *  and there's no swap-into-the-real-tile second phase — the scratch tile
    *  *is* the whole result, read directly by _drawCompositeItem. */
+  /** #142-follow-up perf fix: this runs on every single pointermove during a
+   *  gizmo drag — often well over 60/s, especially on a pen/touch
+   *  digitizer. The tile SET a drag touches is almost always identical
+   *  frame-to-frame (you only cross a tile boundary occasionally), so
+   *  destroying and recreating every scratch AccumulationBuffer (a real GPU
+   *  texture + framebuffer allocation, up to a full page's worth of bytes
+   *  for a bounded room — see _tileSize) on *every* frame, as this used to,
+   *  was the actual cause of the severe drag-stutter/hang reported testing
+   *  on a Surface: GPU alloc/dealloc churn at pointer-event frequency.
+   *  Instead this now keys the previous frame's tiles by world origin and
+   *  reuses (just gl.clear()s) any buffer whose tile is still needed this
+   *  frame — only genuinely new/vacated tiles allocate or free anything,
+   *  which is the rare case, not the every-frame one. */
   previewLayerTransform(transforms: Array<{ layerId: string; matrix: AffineMatrix }>): void {
     for (const { layerId, matrix } of transforms) {
       const source = this._layers.get(layerId)
       if (!source) continue
       const sourceTiles = source.allResident()
-      const old = this._transformPreview.get(layerId)
+      const oldByOrigin = new Map(
+        (this._transformPreview.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
+      )
 
       if (!sourceTiles.length) {
         // Nothing to preview (e.g. an empty layer) — drop any stale tiles
         // from a previous frame rather than leaving them showing.
-        if (old) { for (const t of old) t.buffer.destroy() }
+        for (const t of oldByOrigin.values()) t.buffer.destroy()
         this._transformPreview.delete(layerId)
         continue
       }
@@ -1193,11 +1208,10 @@ export class PencilEngine implements PencilEngineAPI {
         }
       }
 
-      if (old) { for (const t of old) t.buffer.destroy() }
-
       if (maxX <= minX || maxY <= minY) {
         // Degenerate (zero-scale) transform — content collapses to nothing,
         // same as _bakeTransform's own degenerate-transform branch.
+        for (const t of oldByOrigin.values()) t.buffer.destroy()
         this._transformPreview.delete(layerId)
         continue
       }
@@ -1217,11 +1231,19 @@ export class PencilEngine implements PencilEngineAPI {
 
       const matrixInv = invertAffine(matrix)
       const tiles: PreviewTile[] = []
+      const reused = new Set<string>()
       for (const rect of destRects) {
         const dw = rect.maxX - rect.minX
         const dh = rect.maxY - rect.minY
-        const scratch = new AccumulationBuffer(this.gl, dw, dh)
+        const key = `${rect.minX},${rect.minY}`
+        const old = oldByOrigin.get(key)
+        // Same tile size is guaranteed for every reused key: a room's tile
+        // grid (_tileSize) never changes after construction, so an origin
+        // that existed last frame always had — and still needs — the same
+        // dw/dh here.
+        const scratch = old ? old.buffer : new AccumulationBuffer(this.gl, dw, dh)
         scratch.clear()
+        if (old) reused.add(key)
         for (const srcTile of sourceTiles) {
           // dest-tile-local -> world (rect's own origin) -> source world
           // (the transform's inverse) -> src-tile-local (srcTile's own
@@ -1234,6 +1256,12 @@ export class PencilEngine implements PencilEngineAPI {
           )
         }
         tiles.push({ originX: rect.minX, originY: rect.minY, buffer: scratch })
+      }
+      // Anything from last frame that isn't part of this frame's tile set
+      // (a real, occasional event — the drag crossed a tile boundary) is
+      // genuinely done and must still be freed.
+      for (const [key, t] of oldByOrigin) {
+        if (!reused.has(key)) t.buffer.destroy()
       }
       this._transformPreview.set(layerId, tiles)
     }

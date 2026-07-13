@@ -201,6 +201,20 @@ export function readTransformPreviewTiles(engine: PencilEngine, layerId: string)
   return tiles.map(({ originX, originY, buffer }) => ({ originX, originY, pixels: buffer.readPixels() }))
 }
 
+/** Identity (WebGLTexture handle), not content, per currently-staged preview
+ *  tile — a perf regression test's tool, not a correctness one: proves
+ *  whether previewLayerTransform is reusing an existing scratch
+ *  AccumulationBuffer across frames or destroying/recreating it every call
+ *  (the latter was a real GPU alloc/dealloc-churn bug found testing on an
+ *  underpowered device — every pointermove during a drag recreated a full
+ *  page-sized texture+framebuffer). Keyed by world origin so a test can
+ *  compare identity for "the same tile" across two previewLayerTransform
+ *  calls. */
+export function readTransformPreviewTextureIds(engine: PencilEngine, layerId: string): Map<string, unknown> {
+  const tiles = internals(engine)._transformPreview.get(layerId) ?? []
+  return new Map(tiles.map(t => [`${t.originX},${t.originY}`, t.buffer.texture]))
+}
+
 export function checkpointCountFor(engine: PencilEngine, layerId: string): number {
   return internals(engine)._checkpoints.filter(cp => cp.layerId === layerId).length
 }
