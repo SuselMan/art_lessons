@@ -89,6 +89,8 @@ interface EngineInternals {
   _onEnd: (e: PointerData) => void
   _onPredict: (samples: PointerData[]) => void
   _compositeFBO: AccumulationBuffer
+  // #145 white-box access — see buildExportComposite below.
+  _buildContentComposite: () => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
   // Live gizmo-drag preview (#120/#139) — see engine/index.ts's own
   // PreviewTile. Structurally identical, redeclared here rather than
   // exported from index.ts since there's no product reason a real caller
@@ -178,6 +180,44 @@ export function readTilePixels(
  *  recompute of the same layer state. */
 export function readCompositePixels(engine: PencilEngine): Uint8Array {
   return internals(engine)._compositeFBO.readPixels()
+}
+
+// ─── exportPNG infinite-room composite (#145) ──────────────────────────────
+
+export interface ExportComposite {
+  x: number
+  y: number
+  width: number
+  height: number
+  // RGBA8, GL-row-order (bottom-up) — same convention readCompositePixels/
+  // AccumulationBuffer.readPixels already give; see _buildContentComposite's
+  // own doc comment in engine/index.ts.
+  pixels: Uint8Array
+}
+
+/** White-box hook into exportPNG's infinite-room composite-building step
+ *  (#145) — _buildContentComposite() itself. Returns the union content-
+ *  bounds rect plus that rect's raw (unblended, premultiplied-color/
+ *  coverage-alpha) pixels, or null if every layer is empty.
+ *
+ *  This is the layer these tests can actually assert on: exportPNG's own
+ *  final output isn't mockable end-to-end — MockGL deliberately never
+ *  rasterizes the paper-blend/display-transparent passes (see mockGL.ts's
+ *  module docstring), and _exportInfinitePNG's PNG encoding step reaches for
+ *  `document.createElement('canvas')`, which doesn't exist in vitest's
+ *  'node' environment (see the root vitest.config.ts) — so a test exercising
+ *  the full exportPNG() call with real content on an infinite-room engine
+ *  would throw, not just fail an assertion. _buildContentComposite is the
+ *  exact boundary where "pixels MockGL can rasterize" ends and "the DOM-only
+ *  PNG encoding step" begins, so that's what this reaches past — same
+ *  documented, centralized reach-past-private-fields pattern as every other
+ *  helper in this file. */
+export function buildExportComposite(engine: PencilEngine): ExportComposite | null {
+  const result = internals(engine)._buildContentComposite()
+  if (!result) return null
+  const pixels = result.buffer.readPixels()
+  result.buffer.destroy()
+  return { ...result.bounds, pixels }
 }
 
 // ─── Live gizmo-drag preview (#120/#139) white-box access ──────────────────
