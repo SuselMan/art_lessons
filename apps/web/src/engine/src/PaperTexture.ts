@@ -79,6 +79,12 @@ export function createPaperTexture(
   gl.uniform1f(gl.getUniformLocation(prog, 'u_gain'),     cfg.gain)
   gl.uniform1f(gl.getUniformLocation(prog, 'u_contrast'), cfg.contrast)
   gl.uniform1f(gl.getUniformLocation(prog, 'u_warp'),     cfg.warp)
+  // #141: same flag that picked the wrap mode above also gates the
+  // seamless-noise path in PAPER_GEN_FRAG — see its own comment. Without
+  // this, GL_REPEAT would wrap the *sample coordinate* but not the
+  // underlying noise's own hash lookups, leaving a hard seam every time
+  // the texture tiles.
+  gl.uniform1f(gl.getUniformLocation(prog, 'u_seamless'), repeat ? 1.0 : 0.0)
 
   const posLoc = gl.getAttribLocation(prog, 'a_position')
   gl.bindBuffer(gl.ARRAY_BUFFER, quad)
