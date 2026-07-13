@@ -256,6 +256,13 @@ interface EngineOpts {
 interface PeerPreviewState {
   queue: StrokeOperation[]
   buf: AccumulationBuffer
+  // (#138) World point this buffer's own pixel (0,0) represents — see
+  // PencilEngine._cameraCenteredOrigin's doc comment for why this has to be
+  // snapshotted once (at previewOperation's first queued op for this peer)
+  // rather than re-derived from the live camera at every _composeToFBO
+  // call: the buffer's actual painted pixels are already fixed relative to
+  // whatever the camera was at paint time, in _stepPeerPreview.
+  origin: { x: number; y: number }
   dabIdx: number
   startTime: number
   timer: ReturnType<typeof setTimeout> | null
@@ -356,16 +363,28 @@ export class PencilEngine implements PencilEngineAPI {
   // on every real move, and destroyed on stroke end, so a wrong prediction
   // never survives past the stroke it was guessed for and never touches
   // permanent pixel state.
+  //
+  // (#138) _previewBufOrigin is the world point this buffer's own pixel
+  // (0,0) represents, snapshotted once at stroke start via
+  // _cameraCenteredOrigin() — see that method's doc comment for why a fixed
+  // canvas-sized scratch buffer needs *some* origin at all for infinite
+  // rooms, and why it's captured once rather than re-derived from the live
+  // camera on every repaint/composite.
   private _predictPointer: boolean
   private _previewBuf: AccumulationBuffer | null = null
+  private _previewBufOrigin = { x: 0, y: 0 }
 
   // Live-tip segment preview (#104) — all no-ops unless _liveTip is true.
   // _tipBuf is a dedicated, stroke-scoped AccumulationBuffer, same lifecycle
   // pattern as _previewBuf: created on stroke start, cleared and repainted
   // from scratch on every real move (never accumulated), destroyed on stroke
   // end. See DabSystem.peekTipDabs() and _refreshTip() below.
+  //
+  // (#138) _tipBufOrigin: see _previewBufOrigin just above — same purpose,
+  // captured at the same time (stroke start), for this buffer instead.
   private _liveTip: boolean
   private _tipBuf: AccumulationBuffer | null = null
+  private _tipBufOrigin = { x: 0, y: 0 }
 
   // Haptic grain experiment (see HapticGrain.ts) — null unless opted in.
   private _haptic: HapticGrain | null
@@ -1098,6 +1117,10 @@ export class PencilEngine implements PencilEngineAPI {
       state = {
         queue: [], dabIdx: 0, startTime: 0, timer: null,
         buf: new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height),
+        // #138: see _cameraCenteredOrigin's doc comment — snapshotted once
+        // here (this peer's first queued op) for this buffer's whole
+        // lifetime, same as _tipBufOrigin/_previewBufOrigin.
+        origin: this._cameraCenteredOrigin(),
       }
       state.buf.clear()
       this._peerPreviews.set(op.userId, state)
@@ -1171,7 +1194,9 @@ export class PencilEngine implements PencilEngineAPI {
       state.dabIdx++
     }
     if (due.length) {
-      this._paintDabs(state.buf, due, op.tool, op.preset, op.color)
+      // #138: translated into this peer's buffer's own local space (see
+      // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
+      this._paintDabs(state.buf, this._translateDabs(due, state.origin), op.tool, op.preset, op.color)
       this._display()
     }
 
@@ -1664,10 +1689,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._predictPointer) {
       this._previewBuf = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
       this._previewBuf.clear()
+      this._previewBufOrigin = this._cameraCenteredOrigin()
     }
     if (this._liveTip) {
       this._tipBuf = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
       this._tipBuf.clear()
+      this._tipBufOrigin = this._cameraCenteredOrigin()
     }
     // Ruler tool (#89): snap before the haptic tracker and DabSystem ever
     // see this point, so both "feel" and paint the same (possibly
@@ -1748,7 +1775,12 @@ export class PencilEngine implements PencilEngineAPI {
     const dabs = this._dabs.peekTipDabs(this._physicalSize)
     if (dabs.length) {
       this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
-      this._paintDabs(this._tipBuf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
+      // #138: translated into _tipBuf's own local space (see
+      // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
+      this._paintDabs(
+        this._tipBuf, this._translateDabs(dabs, this._tipBufOrigin), this._strokeTool, this._strokePreset,
+        this._strokeColor,
+      )
     }
   }
 
@@ -1778,7 +1810,12 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if (dabs.length) {
       this._bakeDabOpacity(dabs, samples[samples.length - 1].speed, this._strokeTool, this._strokePreset, this._opts.opacity)
-      this._paintDabs(this._previewBuf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
+      // #138: translated into _previewBuf's own local space (see
+      // _cameraCenteredOrigin/_translateDabs) — a no-op for bounded rooms.
+      this._paintDabs(
+        this._previewBuf, this._translateDabs(dabs, this._previewBufOrigin), this._strokeTool, this._strokePreset,
+        this._strokeColor,
+      )
     }
     this._display()
   }
@@ -2304,6 +2341,50 @@ export class PencilEngine implements PencilEngineAPI {
     return { minX: wx - halfDiag, minY: wy - halfDiag, maxX: wx + halfDiag, maxY: wy + halfDiag }
   }
 
+  /** (#138) World point that a live-tip/predicted/peer-reveal preview
+   *  buffer's own pixel (0,0) represents. These buffers are always plain,
+   *  fixed-size (canvas.width x canvas.height) AccumulationBuffers — unlike
+   *  a real layer's tiles, which resolveForPaint() dynamically positions to
+   *  cover wherever a batch of dabs actually falls, these never grow or
+   *  move once created, so *some* origin has to be chosen up front for
+   *  their dabs (genuine world coordinates for infinite rooms, arbitrarily
+   *  far from world origin depending on where the camera happens to be) to
+   *  land inside their fixed small pixel range at all.
+   *
+   *  Centering on the current camera's own world position is the natural
+   *  choice: the whole point of these previews is to show something
+   *  happening on screen right now, and (per _invalidateSplitCache's own
+   *  note on setInfiniteCamera) panning and painting are mutually exclusive
+   *  gestures in this app, so the camera is guaranteed not to move for as
+   *  long as a single stroke/prediction/reveal buffer stays alive — one
+   *  snapshot at creation time (stroke start / previewOperation's first
+   *  queued op for a peer) stays valid for that buffer's whole lifetime.
+   *
+   *  Reduces to exactly (0,0) for a bounded room: its _infiniteCamera is
+   *  the constructor's fixed {wx: canvas.width/2, wy: canvas.height/2}
+   *  identity (see its own comment), so this cancels out — the plain
+   *  (0,0)-anchored behavior every one of these buffers already had before
+   *  #138 is preserved exactly. */
+  private _cameraCenteredOrigin(): { x: number; y: number } {
+    const { wx, wy } = this._infiniteCamera
+    return { x: wx - this.canvas.width / 2, y: wy - this.canvas.height / 2 }
+  }
+
+  /** (#138) Translates `dabs` from world coordinates into one of the
+   *  preview buffers' own local coordinate space (buffer pixel (0,0) ==
+   *  world `origin` — see _cameraCenteredOrigin), mirroring what
+   *  ILayerBuffer.resolveForPaint's originX/originY subtraction already
+   *  does for a real tile in _paintDabs. Never mutates its input: dabs may
+   *  still be read afterward by their real caller (_strokeDabs, in
+   *  particular, must keep the untranslated *world* coordinates for the
+   *  eventual recorded Operation). A no-op array identity when `origin` is
+   *  exactly (0,0) (every bounded-room call, see _cameraCenteredOrigin) —
+   *  skips the allocation on the hot path that never needed it. */
+  private _translateDabs(dabs: Dab[], origin: { x: number; y: number }): Dab[] {
+    if (origin.x === 0 && origin.y === 0) return dabs
+    return dabs.map(d => ({ ...d, x: d.x - origin.x, y: d.y - origin.y }))
+  }
+
   /** Infinite canvas (#133 Phase 1) — draws one tile's texture into
    *  `targetFbo` at its camera-relative screen position, blended over
    *  whatever's already there (same (ONE, ONE_MINUS_SRC_ALPHA) "over" every
@@ -2402,12 +2483,20 @@ export class PencilEngine implements PencilEngineAPI {
   /** For infinite rooms, every draw in this method (tiles, split-cache
    *  halves, active layer) targets _assemblyFBO — unrotated, zoom-applied,
    *  world-centered — instead of the real (canvas-sized) `targetFbo`
-   *  directly; _finishInfiniteComposite then applies the camera's actual
-   *  rotation exactly once at the end, blitting the assembled result down
-   *  into `targetFbo`. Bounded rooms skip all of that (their rotation is
-   *  the DOM canvasWrap's own CSS transform, never this camera's `angle`,
-   *  which stays 0 for them for the engine's whole lifetime) and draw
-   *  straight into `targetFbo`, exactly as before #134. */
+   *  directly. Bounded rooms skip all of that (their rotation is the DOM
+   *  canvasWrap's own CSS transform, never this camera's `angle`, which
+   *  stays 0 for them for the engine's whole lifetime) and draw straight
+   *  into `targetFbo`, exactly as before #134.
+   *
+   *  Unlike before #138, this no longer calls _finishInfiniteComposite
+   *  itself: _composeToFBO (the only caller) still has the live-tip/
+   *  predicted/peer-reveal preview buffers to blend in after real layer
+   *  content but *before* the camera's rotation is baked in — those
+   *  previews need the exact same unrotated `_assemblyFBO` this method
+   *  leaves populated, so _composeToFBO now owns the single call to
+   *  _finishInfiniteComposite once everything (real content + previews) is
+   *  in place. Bounded rooms are unaffected either way (_finishInfinite
+   *  Composite is a no-op for them). */
   private _runComposite(items: CompositeItem[], targetFbo: WebGLFramebuffer): void {
     const viewRect = this._visibleWorldRect()
     const buildFbo = this._infinite ? this._assemblyFBO.fbo    : targetFbo
@@ -2417,7 +2506,6 @@ export class PencilEngine implements PencilEngineAPI {
 
     if (this._transformPreview.size > 0) {
       for (const { id, opacity } of items) this._drawCompositeItem(id, opacity, buildFbo, viewRect, targetW, targetH)
-      this._finishInfiniteComposite(targetFbo)
       return
     }
 
@@ -2442,8 +2530,6 @@ export class PencilEngine implements PencilEngineAPI {
     if (aboveItems.length) {
       this._compositeTextures([{ texture: this._aboveCache.texture, opacity: 1 }], buildFbo, targetW, targetH)
     }
-
-    this._finishInfiniteComposite(targetFbo)
   }
 
   /** (#134) The one place camera rotation actually applies for infinite
@@ -2613,7 +2699,24 @@ export class PencilEngine implements PencilEngineAPI {
    *  drawn to the visible canvas) and `_displayTransparent()` (#15, no
    *  paper). Stores premultiplied graphite color in `.rgb`, coverage in
    *  `.a` (see DISPLAY_FRAG's comment) — neither downstream pass re-renders
-   *  any dab or layer, they only differ in how they read this buffer back. */
+   *  any dab or layer, they only differ in how they read this buffer back.
+   *
+   *  (#138) The live-tip/predicted/peer-reveal preview buffers are always
+   *  plain, fixed-size (canvas.width x canvas.height) AccumulationBuffers —
+   *  their dabs are pre-translated (see _translateDabs) into that fixed
+   *  buffer's own local space before painting, relative to a world origin
+   *  snapshotted once at creation time (_cameraCenteredOrigin — see its own
+   *  doc comment for why once, and why centered on the camera). In other
+   *  words each one is exactly a "tile" whose world origin is that
+   *  snapshotted point and whose size is the canvas's own (w, h). A bounded
+   *  room's fixed identity camera (see the constructor) makes that origin
+   *  exactly (0,0) always, so it still gets a plain full-buffer blit here,
+   *  unchanged from before #138. An infinite room's camera can be anywhere,
+   *  so its previews now go through _drawTileComposite exactly like a real
+   *  tile at that same world rect — into the still-unrotated `_assemblyFBO`
+   *  _runComposite above just populated, *before* _finishInfiniteComposite's
+   *  single rotate blit at the bottom applies the camera's actual rotation
+   *  to everything (real content and previews alike) at once. */
   private _composeToFBO(): void {
     const { gl, canvas } = this
     const w = canvas.width, h = canvas.height
@@ -2626,16 +2729,18 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._runComposite(this._compositeOrder, this._compositeFBO.fbo)
 
-    if (this._infinite) {
-      // Live-tip/pointer-prediction/peer-stroke-reveal previews aren't
-      // camera-relative yet (#138 — see previewLayerTransform's own note
-      // for the same reasoning: they're viewport-sized scratch buffers
-      // painted at raw world coordinates, which only lands inside them
-      // when the camera happens to be near world origin). The *real*
-      // stroke still lands correctly in the tiled buffer the moment it's
-      // painted and shows up via _runComposite above regardless — this
-      // only affects the transient preview, never correctness.
-      return
+    const buildFbo = this._infinite ? this._assemblyFBO.fbo   : this._compositeFBO.fbo
+    const buildW   = this._infinite ? this._assemblyFBO.width : w
+    const buildH   = this._infinite ? this._assemblyFBO.height : h
+
+    // Camera-relative blend of one preview buffer, world rect [origin,
+    // origin+(w,h)] — see this method's own doc comment above.
+    const blendPreview = (texture: WebGLTexture, origin: { x: number; y: number }): void => {
+      if (this._infinite) {
+        this._drawTileComposite(texture, origin.x, origin.y, w, h, 1, buildFbo, buildW, buildH)
+      } else {
+        this._compositeTextures([{ texture, opacity: 1 }], buildFbo, buildW, buildH)
+      }
     }
 
     // #104 live-tip preview: blended in before the #92 preview below so the
@@ -2643,25 +2748,25 @@ export class PencilEngine implements PencilEngineAPI {
     // stays visually on top if both experiments are ever enabled together.
     // Same (ONE, ONE_MINUS_SRC_ALPHA) blend as AccumulationBuffer.beginDraw()
     // — visual only, never written into any layer's real buffer.
-    if (this._tipBuf) {
-      this._compositeTextures([{ texture: this._tipBuf.texture, opacity: 1 }], this._compositeFBO.fbo, w, h)
-    }
+    if (this._tipBuf) blendPreview(this._tipBuf.texture, this._tipBufOrigin)
 
     // #92 speculative preview: blended on top of the real composite, same
     // (ONE, ONE_MINUS_SRC_ALPHA) blend as AccumulationBuffer.beginDraw() —
     // visual only, never written into any layer's real buffer.
-    if (this._previewBuf) {
-      this._compositeTextures([{ texture: this._previewBuf.texture, opacity: 1 }], this._compositeFBO.fbo, w, h)
-    }
+    if (this._previewBuf) blendPreview(this._previewBuf.texture, this._previewBufOrigin)
 
     // Live remote-stroke reveals (#37 follow-up v2): one per peer currently
     // replaying a stroke, same blend, on top of everything else — see
     // previewOperation. Order among multiple simultaneous peers is arbitrary
     // (Map insertion order); their strokes are independent so this never
     // matters visually.
-    for (const { buf } of this._peerPreviews.values()) {
-      this._compositeTextures([{ texture: buf.texture, opacity: 1 }], this._compositeFBO.fbo, w, h)
-    }
+    for (const { buf, origin } of this._peerPreviews.values()) blendPreview(buf.texture, origin)
+
+    // (#138) The one place camera rotation is applied for infinite rooms —
+    // now runs once, after both real content and every preview buffer are
+    // in `_assemblyFBO`, rather than from inside _runComposite. No-op for
+    // bounded rooms (see _finishInfiniteComposite's own comment).
+    this._finishInfiniteComposite(this._compositeFBO.fbo)
   }
 
   private _display(): void {

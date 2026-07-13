@@ -87,6 +87,7 @@ interface EngineInternals {
   _onStart: (e: PointerData) => void
   _onMove: (e: PointerData) => void
   _onEnd: (e: PointerData) => void
+  _onPredict: (samples: PointerData[]) => void
   _compositeFBO: AccumulationBuffer
 }
 
@@ -228,6 +229,38 @@ export function simulateStroke(
   for (const p of rest) eng._onMove(pointerSample(p.x, p.y, overrides))
   const last = points[points.length - 1]
   eng._onEnd(pointerSample(last.x, last.y, overrides))
+}
+
+// #138: companions to simulateStroke that drive one pipeline step at a time
+// and never call _onEnd — needed for tests that inspect the live-tip (#104)
+// / speculative-prediction (#92) preview buffers, both of which are
+// stroke-scoped and torn down the moment _onEnd runs (see PencilEngine's
+// _tipBuf/_previewBuf field comments), so a test proving anything about
+// their content has to stop short of ending the stroke.
+
+/** Drives only PencilEngine._onStart — the stroke stays open afterward
+ *  (unlike simulateStroke, which always finishes with _onEnd). */
+export function simulateStrokeStart(
+  engine: PencilEngine, x: number, y: number, overrides: Partial<PointerData> = {},
+): void {
+  (engine as unknown as EngineInternals)._onStart(pointerSample(x, y, overrides))
+}
+
+/** Drives one PencilEngine._onMove call — see simulateStrokeStart. */
+export function simulateStrokeMove(
+  engine: PencilEngine, x: number, y: number, overrides: Partial<PointerData> = {},
+): void {
+  (engine as unknown as EngineInternals)._onMove(pointerSample(x, y, overrides))
+}
+
+/** Drives PencilEngine._onPredict (#92) with the given predicted samples —
+ *  only paints anything into _previewBuf when called mid-stroke (after
+ *  simulateStrokeStart/simulateStrokeMove) with `predictPointer: true` set
+ *  on the engine. */
+export function simulatePredictedSamples(
+  engine: PencilEngine, samples: Array<{ x: number; y: number }>, overrides: Partial<PointerData> = {},
+): void {
+  (engine as unknown as EngineInternals)._onPredict(samples.map(s => pointerSample(s.x, s.y, overrides)))
 }
 
 // ─── Operation builders ─────────────────────────────────────────────────────
