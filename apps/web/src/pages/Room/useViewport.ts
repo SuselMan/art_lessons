@@ -35,7 +35,9 @@ export interface UseViewportResult {
  *  landing while the first is reserved is treated as an ordinary single
  *  touch, i.e. it pans normally. This is what gives "first finger drives
  *  the tool, second finger pans" instead of one blocking the other. */
-export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boolean>): UseViewportResult {
+export function useViewport(
+  canvas: CanvasSize | null, toolActive: RefObject<boolean>, infinite = false,
+): UseViewportResult {
   const [vp, setVp] = useState<Viewport>({ cx: 0, cy: 0, zoom: 1, angle: 0 })
 
   const vpRef        = useRef<HTMLDivElement>(null)
@@ -51,9 +53,15 @@ export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boo
 
   canvasRef.current = canvas
 
+  // Infinite canvas (#133 Phase 1): the canvas element has no CSS pan
+  // transform of its own — it's sized to fill the viewport (see Room's
+  // ResizeObserver → engine.resizeCanvas), and "moving the camera" instead
+  // means redrawing its contents (engine.setInfiniteCamera), driven by a
+  // separate effect in Room off this same `vp` state. So there's nothing to
+  // write into canvasWrap's style here for that mode.
   const transformFor = useCallback((v: Viewport, c: CanvasSize | null) => (
-    c ? `translate(${v.cx}px,${v.cy}px) rotate(${v.angle}rad) scale(${v.zoom}) translate(${-c.width / 2}px,${-c.height / 2}px)` : ''
-  ), [])
+    infinite || !c ? '' : `translate(${v.cx}px,${v.cy}px) rotate(${v.angle}rad) scale(${v.zoom}) translate(${-c.width / 2}px,${-c.height / 2}px)`
+  ), [infinite])
 
   // #126: pan/pinch/rotate/wheel fire on every native pointermove/wheel event
   // (on some touch digitizers >120Hz), far faster than Room (a ~1200-line
@@ -81,15 +89,21 @@ export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boo
     }
   }, [transformFor])
 
-  // Initial fit when canvas config loads
+  // Initial fit when canvas config loads. Infinite canvas (#133 Phase 1)
+  // has no fixed extent to fit — "reset to origin" (camera centered on
+  // world (0,0), zoom 1) instead; see fitCanvas's same branch below.
   useLayoutEffect(() => {
     if (!canvas || !vpRef.current) return
-    const el   = vpRef.current
-    const zoom = Math.min(el.clientWidth / canvas.width, el.clientHeight / canvas.height) * 0.88
-    const v    = { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom, angle: 0 }
+    const el = vpRef.current
+    const v = infinite
+      ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: 1, angle: 0 }
+      : {
+          cx: el.clientWidth / 2, cy: el.clientHeight / 2, angle: 0,
+          zoom: Math.min(el.clientWidth / canvas.width, el.clientHeight / canvas.height) * 0.88,
+        }
     vpState.current = v
     setVp(v)
-  }, [canvas])
+  }, [canvas, infinite])
 
   // Wheel zoom toward cursor
   useEffect(() => {
@@ -164,7 +178,16 @@ export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boo
           const newZoom = clamp(v.zoom * scale, 0.04, 20)
           const newCx   = prevMid.x + (v.cx - prevMid.x) * scale + (currMid.x - prevMid.x)
           const newCy   = prevMid.y + (v.cy - prevMid.y) * scale + (currMid.y - prevMid.y)
-          updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: v.angle + dAngle })
+          // Infinite canvas (#133 Phase 1): the tile compositor draws every
+          // tile axis-aligned and ignores camera angle (see
+          // _drawTileComposite's docstring in engine/index.ts), while
+          // setInfiniteCamera's pointer mapping does apply it — so a
+          // nonzero angle here would desync drawn strokes from the cursor
+          // (worst around 180°, where the mismatch reads as inverted drag
+          // direction). Drop the rotation component of the gesture until
+          // rotation-aware tile rendering exists; pan/pinch-zoom still work.
+          const newAngle = infinite ? v.angle : v.angle + dAngle
+          updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: newAngle })
         }
       } else if (midPanRef.current) {
         const { sx, sy, ocx, ocy } = midPanRef.current
@@ -193,17 +216,25 @@ export function useViewport(canvas: CanvasSize | null, toolActive: RefObject<boo
       el.removeEventListener('pointerup',     onUp)
       el.removeEventListener('pointercancel', onUp)
     }
-  }, [canvas, toolActive, updateVp])
+  }, [canvas, toolActive, updateVp, infinite])
 
+  // "Fit canvas" for infinite mode has no fixed extent to fit against — see
+  // the initial-fit effect's same reasoning — so this resets to origin
+  // instead (camera centered on world (0,0), zoom 1). The button/hotkey
+  // that calls this is unchanged either way; only what it resets to differs.
   const fitCanvas = useCallback(() => {
     const el = vpRef.current
     const c  = canvasRef.current
     if (!el || !c) return
-    const zoom = Math.min(el.clientWidth / c.width, el.clientHeight / c.height) * 0.88
-    const v    = { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom, angle: 0 }
+    const v = infinite
+      ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: 1, angle: 0 }
+      : {
+          cx: el.clientWidth / 2, cy: el.clientHeight / 2, angle: 0,
+          zoom: Math.min(el.clientWidth / c.width, el.clientHeight / c.height) * 0.88,
+        }
     vpState.current = v
     setVp(v)
-  }, [])
+  }, [infinite])
 
   // Room also calls `setVp` directly for one-off, non-gesture updates (zoom%
   // reset click, angle +/-15° buttons, 'r' key, useDragToAdjust on the zoom

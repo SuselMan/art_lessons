@@ -356,7 +356,8 @@ export function Room() {
   const toolActiveRef = useRef(false)
   toolActiveRef.current = eyedropperActive
 
-  const { vp, setVp, vpRef, canvasWrapRef, fitCanvas, angleDeg, canvasTransform } = useViewport(config, toolActiveRef)
+  const { vp, setVp, vpRef, canvasWrapRef, fitCanvas, angleDeg, canvasTransform } =
+    useViewport(config, toolActiveRef, config?.infinite ?? false)
   const vpValueRef = useRef(vp)
   vpValueRef.current = vp
 
@@ -538,9 +539,47 @@ export function Room() {
   // ── sync viewport → engine ────────────────────────────────────────────────────
   useEffect(() => {
     const el = vpRef.current; if (!el) return
+    if (config?.infinite) {
+      // Infinite canvas (#133 Phase 1): (vp.cx, vp.cy) is the gesture
+      // layer's own convention — screen position (relative to the
+      // viewport's own top-left, not window-absolute) of whatever world
+      // point currently sits under it — same tracked-by-delta state
+      // useViewport already produces for the bounded/CSS-pan path, just
+      // reinterpreted rather than fed through transformFor's CSS string
+      // (see useViewport's own comment). setInfiniteCamera wants the
+      // inverse: the world point at screen CENTER — hand-solved here since
+      // it's a small, fixed-shape conversion, not worth a general matrix
+      // inverse for.
+      const hw = el.clientWidth / 2, hh = el.clientHeight / 2
+      const dx = hw - vp.cx, dy = hh - vp.cy
+      const cos = Math.cos(vp.angle), sin = Math.sin(vp.angle)
+      const wx = (dx * cos + dy * sin) / vp.zoom
+      const wy = (-dx * sin + dy * cos) / vp.zoom
+      engineRef.current?.setInfiniteCamera(wx, wy, vp.zoom, vp.angle)
+      return
+    }
     const rect = el.getBoundingClientRect()
     engineRef.current?.setViewport(rect.left + vp.cx, rect.top + vp.cy, vp.zoom, vp.angle)
-  }, [vp, vpRef])
+  }, [vp, vpRef, config?.infinite])
+
+  // ── infinite canvas: canvas element tracks the viewport container's own
+  // size (#133 Phase 1) — there's no fixed room size to size it to instead.
+  // A bounded-canvas room's canvas size is fixed for the room's lifetime
+  // and never needs this.
+  useEffect(() => {
+    if (!config?.infinite) return
+    const el = vpRef.current
+    const engine = engineRef.current
+    if (!el || !engine) return
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0]
+      if (!entry) return
+      const { width, height } = entry.contentRect
+      if (width > 0 && height > 0) engine.resizeCanvas(Math.round(width), Math.round(height))
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [config?.infinite, vpRef])
 
   // ── local cursor broadcast (#37) ──────────────────────────────────────────────
   // A raw DOM listener rather than the engine's 'pointer' event: that one only
@@ -1193,12 +1232,15 @@ export function Room() {
       if (map[e.key]) { setPencil(map[e.key]); setTool('pencil') }
       if (e.key === '[') setActiveCfg(c => ({ ...c, size: Math.max(1,   c.size - 1) }))
       if (e.key === ']') setActiveCfg(c => ({ ...c, size: Math.min(120, c.size + 1) }))
-      if (e.shiftKey && e.key === '{') setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))
-      if (e.shiftKey && e.key === '}') setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))
+      // Rotation is disabled for infinite-canvas rooms (#133 Phase 1) — the
+      // tile compositor doesn't render a rotated camera yet, see the
+      // pinch-rotate gate in useViewport for the full explanation.
+      if (!config?.infinite && e.shiftKey && e.key === '{') setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))
+      if (!config?.infinite && e.shiftKey && e.key === '}') setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setActiveCfg, setVp, handleUndo, handleRedo])
+  }, [setActiveCfg, setVp, handleUndo, handleRedo, config?.infinite])
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -1309,6 +1351,9 @@ export function Room() {
             // landing exactly on one), tap advances to the next one, wrapping 270 back to 0.
             // Otherwise (a free-rotation gesture left it at some other angle, e.g. 45°) tap
             // resets straight to 0 rather than rounding up to the next multiple.
+            // Disabled for infinite-canvas rooms (#133 Phase 1) — see the
+            // pinch-rotate gate in useViewport.
+            disabled={config.infinite}
             onClick={() => setVp(v => {
               const deg = Math.round(v.angle * 180 / Math.PI)
               const normalizedDeg = ((deg % 360) + 360) % 360
@@ -1450,12 +1495,18 @@ export function Room() {
 
           <div className={styles.toolDivider} />
 
-          <button className={styles.toolIconBtn} title="Rotate −15°  (Shift+[)" aria-label="Rotate −15°  (Shift+[)"
-            onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}>
+          <button
+            className={styles.toolIconBtn} title="Rotate −15°  (Shift+[)" aria-label="Rotate −15°  (Shift+[)"
+            disabled={config.infinite}
+            onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}
+          >
             <Icon name="rotate_left" />
           </button>
-          <button className={styles.toolIconBtn} title="Rotate +15°  (Shift+])" aria-label="Rotate +15°  (Shift+])"
-            onClick={() => setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))}>
+          <button
+            className={styles.toolIconBtn} title="Rotate +15°  (Shift+])" aria-label="Rotate +15°  (Shift+])"
+            disabled={config.infinite}
+            onClick={() => setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))}
+          >
             <Icon name="rotate_right" />
           </button>
 
@@ -1482,28 +1533,45 @@ export function Room() {
 
         {/* ── Viewport ── */}
         <div ref={vpRef} className={styles.viewport}>
-          <div ref={canvasWrapRef} className={styles.canvasWrap} style={{ transform: canvasTransform }}>
+          <div
+            ref={canvasWrapRef}
+            className={styles.canvasWrap}
+            style={{ transform: config.infinite ? undefined : canvasTransform }}
+          >
             <canvas
               ref={canvasRef}
-              width={config.width}
-              height={config.height}
+              // Infinite canvas (#133 Phase 1): no fixed backing-buffer size
+              // to set here — the ResizeObserver effect above drives it via
+              // engine.resizeCanvas() to track the viewport container's own
+              // size instead, and the CSS size simply fills that container.
+              width={config.infinite ? undefined : config.width}
+              height={config.infinite ? undefined : config.height}
               className={styles.canvas}
-              style={{ width: config.width, height: config.height }}
+              style={config.infinite ? { width: '100%', height: '100%' } : { width: config.width, height: config.height }}
             />
-            <PeerCursors
-              cursors={Object.values(peerCursors)}
-              participants={participants}
-              zoom={vp.zoom}
-              angle={vp.angle}
-            />
-            {measurePoints && (
+            {/* The overlays below all assume canvas-pixel-space coordinates
+                with pan/zoom/rotate inherited for free from canvasWrap's own
+                CSS transform (see each one's docstring) — which infinite-
+                canvas rooms no longer have (content is redrawn under a
+                camera instead of the DOM element being panned). Making them
+                camera-aware is a separate follow-up; for now they're simply
+                not shown for infinite rooms rather than rendered wrong. */}
+            {!config.infinite && (
+              <PeerCursors
+                cursors={Object.values(peerCursors)}
+                participants={participants}
+                zoom={vp.zoom}
+                angle={vp.angle}
+              />
+            )}
+            {!config.infinite && measurePoints && (
               <MeasureOverlay a={measurePoints.a} b={measurePoints.b} zoom={vp.zoom} angle={vp.angle} />
             )}
-            {gridActive && <GridOverlay width={config.width} height={config.height} />}
-            {rulerActive && rulerLine && (
+            {!config.infinite && gridActive && <GridOverlay width={config.width} height={config.height} />}
+            {!config.infinite && rulerActive && rulerLine && (
               <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} />
             )}
-            {transformActive && transformBounds && (
+            {!config.infinite && transformActive && transformBounds && (
               <TransformGizmo
                 bounds={transformBounds}
                 center={transformCenterOverride ?? {

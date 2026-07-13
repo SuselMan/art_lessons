@@ -83,7 +83,7 @@ export function createTestEngine(
 
 interface EngineInternals {
   _layers: Map<string, ILayerBuffer>
-  _checkpoints: Array<{ layerId: string; opIds: string[]; pixels: Uint8Array }>
+  _checkpoints: Array<{ layerId: string; opIds: string[] }>
   _onStart: (e: PointerData) => void
   _onMove: (e: PointerData) => void
   _onEnd: (e: PointerData) => void

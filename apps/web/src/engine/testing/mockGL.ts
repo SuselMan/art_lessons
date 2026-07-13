@@ -38,12 +38,6 @@ type UniformValue = number | number[]
 
 interface MockProgram {
   fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'other'
-  // Infinite canvas (#133 Phase 1): TILE_COMPOSITE_VERT reuses
-  // LAYER_COMPOSITE_FRAG verbatim (same fragTag: 'composite'), so this is
-  // detected from the VERTEX shader's own unique uniform instead — see
-  // attachShader — to route it to _rasterTileComposite rather than
-  // _rasterComposite's same-size 1:1 assumption.
-  usesTileTransform?: boolean
   uniforms: Map<string, UniformValue>
 }
 
@@ -129,6 +123,7 @@ export class MockGL {
   private _shaderSources = new Map<object, { type: number; source: string }>()
 
   // ── vertex attributes / instancing (#123) ───────────────────────────────
+  private _viewport = { x: 0, y: 0, w: 0, h: 0 }
   private _boundArrayBuffer: object | null = null
   private _bufferData = new Map<object, Float32Array>()
   private _attribLocByName = new Map<object, Map<string, number>>() // program -> name -> location
@@ -167,7 +162,6 @@ export class MockGL {
     const src = this._shaderSources.get(shader)
     if (!src) return
     if (src.type === ENUM.FRAGMENT_SHADER) prog.fragTag = this._tagFragShader(src.source)
-    if (src.source.includes('u_transform')) prog.usesTileTransform = true
   }
 
   private _tagFragShader(source: string): MockProgram['fragTag'] {
@@ -317,7 +311,13 @@ export class MockGL {
 
   // ── state ────────────────────────────────────────────────────────────────
 
-  viewport(): void { /* mock rasterizes at the target texture's own dimensions */ }
+  // Infinite canvas (#133 Phase 1): _drawTileComposite positions a tile via
+  // gl.viewport (see its own comment in engine/index.ts for why — a real
+  // ANGLE/D3D driver bug with the shader-transform approach this replaced),
+  // so unlike every other draw in this codebase (which always sets the
+  // viewport to the full target size), a composite draw can now rasterize
+  // into a sub-rect. Recorded here and consulted by _rasterComposite.
+  viewport(x: number, y: number, w: number, h: number): void { this._viewport = { x, y, w, h } }
   // BLEND is enabled at every dab/composite draw call site in this codebase
   // (beginDraw/beginErase/_compositeTextures) and disabled only around the
   // 'papergen'/'display' passes this mock doesn't rasterize — so there's no
@@ -348,10 +348,7 @@ export class MockGL {
 
     switch (prog.fragTag) {
       case 'dab': this._rasterDab(info, prog.uniforms); break
-      case 'composite':
-        if (prog.usesTileTransform) this._rasterTileComposite(info, prog.uniforms)
-        else this._rasterComposite(info, prog.uniforms)
-        break
+      case 'composite': this._rasterComposite(info, prog.uniforms); break
       case 'transform': this._rasterTransform(info, prog.uniforms); break
       // 'display' / 'papergen': visual-only passes never read back via
       // readPixels() in these tests — intentionally not rasterized.
@@ -511,46 +508,40 @@ export class MockGL {
     const srcTex = this._textureUnits[unit] ?? null
     const srcInfo = srcTex ? this._textureData.get(srcTex) : undefined
     const sf = this._blendSrcFactor()
+    const vp = this._viewport
 
-    for (let i = 0; i < width * height; i++) {
-      const srcAlpha = srcInfo ? clamp((srcInfo.data[i] ?? 0) * opacity, 0, 1) : 0
-      data[i] = srcAlpha * sf + data[i] * (1 - srcAlpha)
+    // The common case (composite/beginDraw/beginErase always set viewport to
+    // the full target size) keeps the original 1:1 same-size blend. Only
+    // _drawTileComposite ever sets a sub-rect (a tile positioned via
+    // gl.viewport rather than a shader transform — see its own comment),
+    // in which case DISPLAY_VERT's quad UV (0,0)-(1,1) spans that sub-rect,
+    // not the full target, and must sample the source texture across its
+    // own full extent accordingly (mirrors what the real fixed-function
+    // rasterizer + fragment shader do).
+    if (!srcInfo || (vp.x === 0 && vp.y === 0 && vp.w === width && vp.h === height)) {
+      for (let i = 0; i < width * height; i++) {
+        const srcAlpha = srcInfo ? clamp((srcInfo.data[i] ?? 0) * opacity, 0, 1) : 0
+        data[i] = srcAlpha * sf + data[i] * (1 - srcAlpha)
+      }
+      return
     }
-  }
 
-  // Infinite canvas (#133 Phase 1): TILE_COMPOSITE_VERT's u_transform maps
-  // the quad's own UV to top-down screen-pixel space — this mock, like
-  // _rasterTransform, always samples backward (destination pixel -> source
-  // UV), so it inverts that same affine (same column-major layout: m[0],
-  // m[3], m[6] for x; m[1], m[4], m[7] for y — see _rasterTransform's own
-  // comment) to go the other way, then samples the source tile texture at
-  // the resulting UV if it falls within [0,1) on both axes.
-  private _rasterTileComposite(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
-    const { width, height, data } = info
-    const unit = (uniforms.get('u_layer') as number) ?? 0
-    const opacity = (uniforms.get('u_opacity') as number) ?? 1
-    const m = (uniforms.get('u_transform') as number[]) ?? [1, 0, 0, 0, 1, 0, 0, 0, 1]
-    const srcTex = this._textureUnits[unit] ?? null
-    const srcInfo = srcTex ? this._textureData.get(srcTex) : undefined
-    const sf = this._blendSrcFactor()
-
-    const det = m[0] * m[4] - m[1] * m[3]
-    if (Math.abs(det) < 1e-9) return
-    const ia = m[4] / det, ib = -m[1] / det, ic = -m[3] / det, id = m[0] / det
-    const itx = -(ia * m[6] + ic * m[7]), ity = -(ib * m[6] + id * m[7])
-
-    for (let py = 0; py < height; py++) {
-      for (let px = 0; px < width; px++) {
+    // gl.viewport's y is bottom-up; this mock's data (like every buffer in
+    // the real engine) is top-down — recover the top-down top edge the same
+    // way _drawTileComposite derived its bottom-up glY from screenTop.
+    const topY = height - (vp.y + vp.h)
+    for (let dy = 0; dy < vp.h; dy++) {
+      const py = topY + dy
+      if (py < 0 || py >= height) continue
+      for (let dx = 0; dx < vp.w; dx++) {
+        const px = vp.x + dx
+        if (px < 0 || px >= width) continue
+        const u = (dx + 0.5) / vp.w
+        const v = (dy + 0.5) / vp.h
+        const sx = Math.min(Math.floor(u * srcInfo.width), srcInfo.width - 1)
+        const sy = Math.min(Math.floor(v * srcInfo.height), srcInfo.height - 1)
+        const srcAlpha = clamp((srcInfo.data[sy * srcInfo.width + sx] ?? 0) * opacity, 0, 1)
         const idx = py * width + px
-        const dstX = px + 0.5, dstY = py + 0.5
-        const uvX = ia * dstX + ic * dstY + itx
-        const uvY = ib * dstX + id * dstY + ity
-        let srcAlpha = 0
-        if (srcInfo && uvX >= 0 && uvX < 1 && uvY >= 0 && uvY < 1) {
-          const sx = Math.min(Math.floor(uvX * srcInfo.width), srcInfo.width - 1)
-          const sy = Math.min(Math.floor(uvY * srcInfo.height), srcInfo.height - 1)
-          srcAlpha = clamp((srcInfo.data[sy * srcInfo.width + sx] ?? 0) * opacity, 0, 1)
-        }
         data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
       }
     }
