@@ -17,7 +17,7 @@ import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { BoundedLayerBuffer } from './src/BoundedLayerBuffer'
 import { TiledLayerBuffer } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
-import type { WorldRect } from './src/tileMath'
+import { tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 
 export type { HapticGrainStats }
 export type { AffineMatrix }
@@ -261,6 +261,16 @@ interface PeerPreviewState {
   timer: ReturnType<typeof setTimeout> | null
 }
 
+// One scratch tile of a live gizmo-drag preview (#120/#139) — shaped exactly
+// like a real PaintTarget (see ILayerBuffer.ts) so _drawCompositeItem can
+// draw it through the same _drawTileComposite call a real resident tile
+// goes through, just reading `buffer` instead of a real layer's own.
+interface PreviewTile {
+  originX: number
+  originY: number
+  buffer: AccumulationBuffer
+}
+
 // Pixel snapshot of a layer after its first `opIds.length` pixel operations.
 // Valid only while those exact operations are still the layer's done prefix —
 // checked at lookup time, so undo/redo never has to invalidate anything.
@@ -492,13 +502,17 @@ export class PencilEngine implements PencilEngineAPI {
   // per-stroke-segment allocation, same pattern as DabSystem's #125 fix.
   private _dabInstScratch: Float32Array = new Float32Array(0)
 
-  // Live layer-transform gizmo preview (#120) — one scratch buffer per
-  // layer currently being dragged, keyed by layerId. Same non-destructive
-  // pattern as _previewBuf/_tipBuf: the real layer buffer is never touched
-  // until the gizmo is released and a real layer_transform op lands via
-  // appendOperation — _runComposite substitutes these in for their layerId
-  // while present. See previewLayerTransform/clearLayerTransformPreview.
-  private _transformPreview = new Map<string, AccumulationBuffer>()
+  // Live layer-transform gizmo preview (#120, generalized to multiple tiles
+  // by #139) — one or more scratch tiles per layer currently being dragged,
+  // keyed by layerId. Same non-destructive pattern as _previewBuf/_tipBuf:
+  // the real layer buffer is never touched until the gizmo is released and
+  // a real layer_transform op lands via appendOperation —
+  // _drawCompositeItem substitutes these in for their layerId's real
+  // tile(s) while present. A layer spread across (or, post-transform,
+  // spread across) more than one tile needs more than one scratch buffer,
+  // each positioned like a real PaintTarget — see PreviewTile and
+  // previewLayerTransform/clearLayerTransformPreview.
+  private _transformPreview = new Map<string, PreviewTile[]>()
 
   // Reference-image import (#88) — keyed by the op's own data URL, so
   // replaying the same room twice (e.g. undo/redo rebuilding a layer) never
@@ -1047,35 +1061,101 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** Live gizmo-drag preview (#120) — renders each entry's *current* layer
-   *  content through the requested transform into a scratch buffer that
-   *  _runComposite substitutes in for the real one, called on every drag
-   *  frame. Never touches the real layer buffer — the actual bake only
-   *  happens once via a real `layer_transform` op through appendOperation
-   *  (see clearLayerTransformPreview, which the caller must call right
-   *  after committing that op, so the now-stale preview doesn't keep
-   *  shadowing the freshly baked real buffer). */
+   *  content through the requested transform into one or more scratch tiles
+   *  that _drawCompositeItem substitutes in for the real one, called on
+   *  every drag frame. Never touches the real layer buffer — the actual
+   *  bake only happens once via a real `layer_transform` op through
+   *  appendOperation (see clearLayerTransformPreview, which the caller must
+   *  call right after committing that op, so the now-stale preview doesn't
+   *  keep shadowing the freshly baked real buffer).
+   *
+   *  #139: generalized to multiple source/destination tiles — same shape as
+   *  _bakeTransform (read its docstring first): resolve the transformed
+   *  content's world bounds from every source tile's corners, then stitch
+   *  each overlapping destination tile from every overlapping source tile,
+   *  one alpha-blended _runTransformBlit pass per pair. This never assumed
+   *  exactly one source tile for a real reason with bounded layers —
+   *  BoundedLayerBuffer.allResident() always returns exactly one PaintTarget
+   *  (see its own comment) — so that half of the old bug was unreachable in
+   *  practice; it was only ever wrong for an infinite-canvas layer spanning
+   *  more than one tile, which the old unconditional `if (this._infinite)
+   *  return` masked entirely by skipping the preview outright.
+   *
+   *  Two differences from the real bake, both because this is a
+   *  non-destructive per-frame preview rather than a one-shot commit:
+   *  destination tiles are plain scratch AccumulationBuffers computed
+   *  straight from tileMath, never layerBuf.resolveForPaint() (which would
+   *  create real, permanent tiles on the *actual* layer just from a preview
+   *  reading it — leaking empty tiles into the layer's real tile map on
+   *  every drag frame, including ones the drag never ends up committing);
+   *  and there's no swap-into-the-real-tile second phase — the scratch tile
+   *  *is* the whole result, read directly by _drawCompositeItem. Bounded
+   *  layers reduce to a single "tile" the size of the whole canvas at
+   *  origin (0,0), same as BoundedLayerBuffer.resolveForPaint's own
+   *  behavior — so a bounded room's preview still clips at the canvas edge,
+   *  unchanged from before this generalization. */
   previewLayerTransform(transforms: Array<{ layerId: string; matrix: AffineMatrix }>): void {
-    // Infinite-canvas layers don't get a live drag preview yet (Phase 2 —
-    // needs the same multi-tile stitching _bakeTransform does, but redone on
-    // every drag frame instead of once on commit; not worth the cost until
-    // the camera-relative rendering path this preview composites into
-    // exists). The actual fix for #133 is the commit path (_bakeTransform),
-    // which IS tile-aware — dragging an infinite-canvas layer's content off
-    // its tile just doesn't show a live preview mid-drag, but nothing is
-    // lost once the drag ends and a real layer_transform op lands.
-    if (this._infinite) return
     for (const { layerId, matrix } of transforms) {
       const source = this._layers.get(layerId)
       if (!source) continue
-      const [{ buffer: sourceBuf }] = source.allResident()
-      let preview = this._transformPreview.get(layerId)
-      if (!preview) {
-        preview = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
-        this._transformPreview.set(layerId, preview)
-      } else {
-        preview.clear()
+      const sourceTiles = source.allResident()
+      const old = this._transformPreview.get(layerId)
+
+      if (!sourceTiles.length) {
+        // Nothing to preview (e.g. an empty layer) — drop any stale tiles
+        // from a previous frame rather than leaving them showing.
+        if (old) { for (const t of old) t.buffer.destroy() }
+        this._transformPreview.delete(layerId)
+        continue
       }
-      this._drawTransformBlit(sourceBuf.texture, matrix, preview.fbo)
+
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const { originX, originY, buffer } of sourceTiles) {
+        const corners: Array<[number, number]> = [
+          [originX, originY], [originX + buffer.width, originY],
+          [originX, originY + buffer.height], [originX + buffer.width, originY + buffer.height],
+        ]
+        for (const [x, y] of corners) {
+          const [tx, ty] = applyAffine(matrix, x, y)
+          minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
+          minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
+        }
+      }
+
+      if (old) { for (const t of old) t.buffer.destroy() }
+
+      if (maxX <= minX || maxY <= minY) {
+        // Degenerate (zero-scale) transform — content collapses to nothing,
+        // same as _bakeTransform's own degenerate-transform branch.
+        this._transformPreview.delete(layerId)
+        continue
+      }
+
+      const destRects: WorldRect[] = this._infinite
+        ? tilesOverlappingRect({ minX, minY, maxX, maxY }).map(({ tileX, tileY }) => tileWorldRect(tileX, tileY))
+        : [{ minX: 0, minY: 0, maxX: this.canvas.width, maxY: this.canvas.height }]
+
+      const matrixInv = invertAffine(matrix)
+      const tiles: PreviewTile[] = []
+      for (const rect of destRects) {
+        const dw = rect.maxX - rect.minX
+        const dh = rect.maxY - rect.minY
+        const scratch = new AccumulationBuffer(this.gl, dw, dh)
+        scratch.clear()
+        for (const srcTile of sourceTiles) {
+          // dest-tile-local -> world (rect's own origin) -> source world
+          // (the transform's inverse) -> src-tile-local (srcTile's own
+          // origin) — exactly _bakeTransform's own composition; see there.
+          const toWorld = translationMatrix(rect.minX, rect.minY)
+          const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
+          const mc = composeAffine(toSrcLocal, composeAffine(matrixInv, toWorld))
+          this._runTransformBlit(
+            srcTile.buffer.texture, mc, dw, dh, srcTile.buffer.width, srcTile.buffer.height, scratch.fbo,
+          )
+        }
+        tiles.push({ originX: rect.minX, originY: rect.minY, buffer: scratch })
+      }
+      this._transformPreview.set(layerId, tiles)
     }
     this._display()
   }
@@ -1084,7 +1164,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  rebuilt the actual buffers) or on cancel (e.g. Escape, switching tools
    *  mid-drag without releasing). */
   clearLayerTransformPreview(): void {
-    for (const buf of this._transformPreview.values()) buf.destroy()
+    for (const tiles of this._transformPreview.values()) {
+      for (const { buffer } of tiles) buffer.destroy()
+    }
     this._transformPreview.clear()
     this._display()
   }
@@ -1228,7 +1310,9 @@ export class PencilEngine implements PencilEngineAPI {
       buf.destroy()
     }
     this._peerPreviews.clear()
-    for (const buf of this._transformPreview.values()) buf.destroy()
+    for (const tiles of this._transformPreview.values()) {
+      for (const { buffer } of tiles) buffer.destroy()
+    }
     this._transformPreview.clear()
     this._checkpoints = []
     this._checkpointBytes = 0
@@ -2210,24 +2294,32 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** Draws one CompositeItem's live content into `targetFbo` — a layer
-   *  mid-gizmo-drag (#120) composites its scratch transform preview instead
-   *  of its real, untouched buffer (see previewLayerTransform); otherwise
-   *  every one of its resident/visible tiles goes through
+   *  mid-gizmo-drag (#120) composites its scratch transform-preview tile(s)
+   *  instead of its real, untouched buffer (see previewLayerTransform);
+   *  otherwise every one of its resident/visible tiles goes through
    *  _drawTileComposite (#136 — this used to special-case BoundedLayerBuffer
    *  with a plain fullscreen-quad blit and just skip TiledLayerBuffer
    *  entirely; a bounded room's fixed identity camera, see the constructor,
    *  makes that plain-blit shortcut and the tile-relative draw produce the
-   *  same pixels, so there's no reason to keep both paths). The preview
-   *  buffer is always exactly canvas-sized at world origin (0,0) regardless
-   *  of mode (previewLayerTransform is bounded-only for now, #139), so it's
-   *  still a single plain blit rather than a tile loop. */
+   *  same pixels, so there's no reason to keep both paths). #139: a preview
+   *  tile is shaped exactly like a real PaintTarget (own originX/originY,
+   *  own size — see PreviewTile), so it goes through the exact same
+   *  _drawTileComposite loop as a real tile rather than a separate
+   *  fullscreen-blit path — that's what makes a multi-tile preview (an
+   *  infinite-canvas layer spanning, or transformed to span, more than one
+   *  tile) composite correctly instead of only ever showing one tile's
+   *  worth. */
   private _drawCompositeItem(
     id: string, opacity: number, targetFbo: WebGLFramebuffer, viewRect: WorldRect,
     targetW: number, targetH: number,
   ): void {
     const preview = this._transformPreview.get(id)
     if (preview) {
-      this._compositeTextures([{ texture: preview.texture, opacity }], targetFbo, targetW, targetH)
+      for (const { originX, originY, buffer } of preview) {
+        this._drawTileComposite(
+          buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+        )
+      }
       return
     }
     const buf = this._layers.get(id)
@@ -2486,14 +2578,14 @@ export class PencilEngine implements PencilEngineAPI {
    *  (transparent) immediately before its first (possibly only) draw here,
    *  and blending a straight replace onto an all-zero destination gives the
    *  exact same result as a true replace would — so this one code path
-   *  serves the live gizmo preview's single pass (`_drawTransformBlit`),
-   *  the tile-aware bake's several passes per destination tile
-   *  (`_bakeTransform` — a destination tile's content can come from more
-   *  than one source tile when the transform includes rotation/scale; each
-   *  pass is transparent everywhere outside its own source tile's mapped
-   *  region, so blending — not replacing — is what lets a later pass avoid
-   *  wiping out an earlier one's already-valid pixels), and the final
-   *  rotate blit (`_finishInfiniteComposite`). */
+   *  serves the live gizmo preview's several passes per destination tile
+   *  (`previewLayerTransform`), the tile-aware bake's several passes per
+   *  destination tile (`_bakeTransform` — a destination tile's content can
+   *  come from more than one source tile when the transform includes
+   *  rotation/scale; each pass is transparent everywhere outside its own
+   *  source tile's mapped region, so blending — not replacing — is what
+   *  lets a later pass avoid wiping out an earlier one's already-valid
+   *  pixels), and the final rotate blit (`_finishInfiniteComposite`). */
   private _runTransformBlit(
     sourceTex: WebGLTexture, matrixInv: AffineMatrix,
     dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer,
@@ -2521,17 +2613,6 @@ export class PencilEngine implements PencilEngineAPI {
 
     gl.disable(gl.BLEND)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** Renders `sourceTex` through the (inverse of the) given transform into
-   *  `targetFbo` — used by the live gizmo preview (previewLayerTransform,
-   *  bounded-canvas layers only for now — see there). Source and
-   *  destination are always the same (canvas) size here. */
-  private _drawTransformBlit(sourceTex: WebGLTexture, matrix: AffineMatrix, targetFbo: WebGLFramebuffer): void {
-    const { canvas } = this
-    this._runTransformBlit(
-      sourceTex, invertAffine(matrix), canvas.width, canvas.height, canvas.width, canvas.height, targetFbo,
-    )
   }
 
   /** Bakes a transform into a layer's content, in place (#133 fix) —
