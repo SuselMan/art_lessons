@@ -551,6 +551,33 @@ export class PencilEngine implements PencilEngineAPI {
   // a mode branch; _runComposite is what actually skips it.
   private _assemblyFBO!: AccumulationBuffer
 
+  // #134-follow-up: the pixel position within the *current* composite
+  // target (the real canvas for bounded rooms; _assemblyFBO for infinite
+  // ones) that the camera's own world point (wx, wy) maps to — what
+  // _worldToScreenEdgeX/Y actually center on. Set once per _runComposite
+  // call, read by every _drawTileComposite call within it (all of them
+  // originate from that one _runComposite, synchronously, so this is safe
+  // shared state, same pattern _infiniteCamera itself already is).
+  //
+  // For a bounded room (or a canvas-sized buildFbo target generally) this
+  // is trivially canvas.width/2, canvas.height/2. For infinite rooms it is
+  // NOT _assemblyFBO's own half-size (ext/2) — that was the pre-fix bug:
+  // ext/2 - canvas.width/2 is only an integer by luck (ext and canvas.width
+  // rarely share the same parity), so the final rotate blit
+  // (_finishInfiniteComposite) was translating by a fractional pixel at
+  // *every* zoom/angle, even angle=0 — bilinear-resampling (bilinear is
+  // AccumulationBuffer's fixed filter mode) every single pixel against its
+  // neighbors on every frame, a constant, uniform softening any infinite
+  // room's whole image had that a bounded room's direct-to-screen
+  // _drawTileComposite path never does. Padding to _assemblyPad()'s
+  // *rounded* half-difference instead keeps the offset between this and
+  // canvas.width/2 an exact integer, so the angle=0 case (by far the
+  // common one) is a lossless, pixel-aligned copy — only an actively
+  // rotated camera still resamples, which is expected and unavoidable
+  // there regardless.
+  private _compositeCenterX = 0
+  private _compositeCenterY = 0
+
   // #141: infinite-only, camera-relative "paper peeking through" pass —
   // see PAPER_BLEND_FRAG's own comment for the full pipeline reasoning.
   // _applyPaperBlend renders _assemblyFBO (raw, unblended accumulation)
@@ -1176,6 +1203,20 @@ export class PencilEngine implements PencilEngineAPI {
     const halfDiag = Math.sqrt((canvas.width / 2) ** 2 + (canvas.height / 2) ** 2)
     const extent = Math.ceil(halfDiag * 2)
     return { w: extent, h: extent }
+  }
+
+  /** How much bigger _assemblyFBO/_paperBlendFBO are than the real canvas,
+   *  split (roughly) evenly on each side, *rounded to the nearest whole
+   *  pixel* — see _compositeCenterX/Y's own field comment for why this
+   *  integer-ness is exactly the fix for infinite rooms always looking
+   *  faintly softer than bounded ones. Zero for bounded rooms (their
+   *  render-buffer extent is exactly canvas size — see _renderBufferExtent
+   *  — so there's nothing to pad). */
+  private _assemblyPad(): { padX: number; padY: number } {
+    const { canvas } = this
+    if (!this._infinite) return { padX: 0, padY: 0 }
+    const { w: ew, h: eh } = this._renderBufferExtent()
+    return { padX: Math.round((ew - canvas.width) / 2), padY: Math.round((eh - canvas.height) / 2) }
   }
 
   /** Live gizmo-drag preview (#120) — renders each entry's *current* layer
@@ -2764,15 +2805,22 @@ export class PencilEngine implements PencilEngineAPI {
    *  zoom 1.01 with the camera offset a few hundred world units from a
    *  tile boundary), producing a 1px transparent gap or a 1px overlap
    *  right at the seam — see index.tiledDisplay.test.ts's fractional-zoom
-   *  case for a concrete reproduction. */
-  private _worldToScreenEdgeX(worldX: number, targetW: number): number {
+   *  case for a concrete reproduction.
+   *
+   *  Centers on _compositeCenterX/Y — the current composite target's own
+   *  pixel position for the camera's world point — rather than this
+   *  target's own half-size (targetW/2): see that field's own comment for
+   *  why the two aren't the same thing for infinite rooms, and why that
+   *  distinction is what keeps an unrotated infinite-room frame pixel-
+   *  aligned (no blur) instead of resampled through a fractional offset. */
+  private _worldToScreenEdgeX(worldX: number): number {
     const { wx, zoom } = this._infiniteCamera
-    return Math.round((worldX - wx) * zoom + targetW / 2)
+    return Math.round((worldX - wx) * zoom + this._compositeCenterX)
   }
 
-  private _worldToScreenEdgeY(worldY: number, targetH: number): number {
+  private _worldToScreenEdgeY(worldY: number): number {
     const { wy, zoom } = this._infiniteCamera
-    return Math.round((worldY - wy) * zoom + targetH / 2)
+    return Math.round((worldY - wy) * zoom + this._compositeCenterY)
   }
 
   private _drawTileComposite(
@@ -2780,10 +2828,10 @@ export class PencilEngine implements PencilEngineAPI {
     opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
   ): void {
     const { gl } = this
-    const leftEdge   = this._worldToScreenEdgeX(originX, targetW)
-    const rightEdge  = this._worldToScreenEdgeX(originX + bw, targetW)
-    const topEdge    = this._worldToScreenEdgeY(originY, targetH)
-    const bottomEdge = this._worldToScreenEdgeY(originY + bh, targetH)
+    const leftEdge   = this._worldToScreenEdgeX(originX)
+    const rightEdge  = this._worldToScreenEdgeX(originX + bw)
+    const topEdge    = this._worldToScreenEdgeY(originY)
+    const bottomEdge = this._worldToScreenEdgeY(originY + bh)
     const glX = leftEdge
     // gl.viewport's y is measured from the bottom of the target, unlike the
     // top-down (topEdge, bottomEdge) this file uses everywhere else.
@@ -2835,6 +2883,9 @@ export class PencilEngine implements PencilEngineAPI {
     const buildFbo = this._infinite ? this._assemblyFBO.fbo    : targetFbo
     const targetW  = this._infinite ? this._assemblyFBO.width  : this.canvas.width
     const targetH  = this._infinite ? this._assemblyFBO.height : this.canvas.height
+    const { padX, padY } = this._assemblyPad()
+    this._compositeCenterX = this.canvas.width / 2 + padX
+    this._compositeCenterY = this.canvas.height / 2 + padY
     if (this._infinite) this._assemblyFBO.clear()
 
     if (this._transformPreview.size > 0) {
@@ -2891,13 +2942,20 @@ export class PencilEngine implements PencilEngineAPI {
   /** The destination(canvas)->source(assembly) matrix _finishInfiniteComposite
    *  rotates through — factored out so _finishPaperBlend (#141) can reuse the
    *  exact same rotation for its own, separate, paper-blended rotate blit
-   *  (see _paperBlendFBO's field comment) without duplicating the math. */
+   *  (see _paperBlendFBO's field comment) without duplicating the math.
+   *
+   *  Uses _assemblyPad()'s *rounded* half-difference as the assembly
+   *  buffer's own center, not its literal half-size (ext/2) — see
+   *  _compositeCenterX/Y's field comment for why that distinction is what
+   *  keeps an unrotated (angle 0, by far the common case) frame an exact,
+   *  lossless pixel copy instead of a permanently-blurred bilinear
+   *  resample. */
   private _infiniteRotateMatrixInv(): AffineMatrix {
     const { canvas } = this
     const { angle } = this._infiniteCamera
-    const ext = this._assemblyFBO.width // square: width === height
+    const { padX, padY } = this._assemblyPad()
     return composeAffine(
-      translationMatrix(ext / 2, ext / 2),
+      translationMatrix(canvas.width / 2 + padX, canvas.height / 2 + padY),
       composeAffine(scaleRotateMatrix(1, -angle), translationMatrix(-canvas.width / 2, -canvas.height / 2)),
     )
   }
@@ -2932,7 +2990,14 @@ export class PencilEngine implements PencilEngineAPI {
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
     gl.uniform2f(u.u_paperCamera, wx, wy)
-    gl.uniform2f(u.u_paperExtHalf, ext / 2, ext / 2)
+    // #134-follow-up: the assembly-buffer pixel that the camera's world
+    // point (wx, wy) actually landed on when content was drawn into it —
+    // _compositeCenterX/Y, not this buffer's own literal half-size (ext/2).
+    // Passing ext/2 here would resample paper from the wrong position
+    // whenever the two differ (see _compositeCenterX's own field comment) —
+    // a paper/content misalignment, independent of (but the same root
+    // cause as) the blur that mismatch causes in _infiniteRotateMatrixInv.
+    gl.uniform2f(u.u_paperExtHalf, this._compositeCenterX, this._compositeCenterY)
     gl.uniform1f(u.u_paperInvZoom, 1 / zoom)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
@@ -3319,7 +3384,16 @@ export class PencilEngine implements PencilEngineAPI {
     buffer.clear()
 
     const savedCamera = this._infiniteCamera
+    const savedCenterX = this._compositeCenterX
+    const savedCenterY = this._compositeCenterY
     this._infiniteCamera = { wx: bounds.x + width / 2, wy: bounds.y + height / 2, zoom: 1, angle: 0 }
+    // #134-follow-up: _drawTileComposite/_worldToScreenEdgeX/Y center on
+    // _compositeCenterX/Y, not this target's own half-size, since #136 —
+    // this buffer is a plain, direct 1:1 target (no assembly-buffer padding
+    // concept applies here at all), so that center is simply its own
+    // width/2, height/2, exactly matching the synthetic camera above.
+    this._compositeCenterX = width / 2
+    this._compositeCenterY = height / 2
     const viewRect: WorldRect = { minX: bounds.x, minY: bounds.y, maxX: bounds.x + width, maxY: bounds.y + height }
     try {
       for (const { id, opacity } of this._compositeOrder) {
@@ -3327,6 +3401,8 @@ export class PencilEngine implements PencilEngineAPI {
       }
     } finally {
       this._infiniteCamera = savedCamera
+      this._compositeCenterX = savedCenterX
+      this._compositeCenterY = savedCenterY
     }
 
     return { bounds, buffer }

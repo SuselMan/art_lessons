@@ -6,7 +6,7 @@
 // unaffected on-screen compositing path.
 import { describe, expect, it } from 'vitest'
 
-import { createTestEngine, fillStroke, makeLayerAdd, readCompositePixels } from './testing/engineTestUtils'
+import { compositeCenterFor, createTestEngine, fillStroke, makeLayerAdd, readCompositePixels } from './testing/engineTestUtils'
 import { TILE_SIZE } from './src/tileMath'
 
 // Reads one texel's alpha out of a readCompositePixels() Uint8Array
@@ -169,5 +169,36 @@ describe('infinite canvas: camera-relative on-screen composite (#133)', () => {
     engine.resizeCanvas(999, 999)
     expect(canvas.width).toBe(16)
     expect(canvas.height).toBe(16)
+  })
+
+  // #134-follow-up: found testing on a real device — an infinite room's
+  // whole image looked persistently softer/blurrier than a bounded room's,
+  // even with the camera perfectly unrotated. Root cause: the final rotate
+  // blit (_finishInfiniteComposite) was translating the assembly buffer's
+  // own literal half-size (ext/2) against the canvas's own half-size
+  // (canvas.width/2) — their difference is only an integer number of
+  // pixels by luck (ext and canvas.width rarely share the same parity), so
+  // at angle=0 this was resampling every pixel against its neighbors via
+  // AccumulationBuffer's bilinear filter, every frame, for no reason.
+  // MockGL's own transform-blit simulation is nearest-neighbor (see
+  // mockGL.ts's own docstring) so it can't directly show blur the way real
+  // bilinear sampling would — what it *can* verify is the actual
+  // engineering invariant the fix relies on: _compositeCenterX/Y must
+  // differ from canvas.width/2, canvas.height/2 by an exact integer.
+  it('the composite center stays an exact integer offset from canvas center, even for a canvas size that used to produce a fractional one', () => {
+    // 50x50: _renderBufferExtent's own half-diagonal rounding (Math.ceil)
+    // makes ext=71 here (odd) while canvas.width is even — found by search;
+    // the old ext/2-based center (35.5) minus canvas.width/2 (25) is 10.5,
+    // a real fractional pixel offset, not just a hypothetical one.
+    const { engine, canvas } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 50, height: 50 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
+    engine.setInfiniteCamera(0, 0, 1, 0)
+
+    const center = compositeCenterFor(engine)
+    const offsetX = center.x - canvas.width / 2
+    const offsetY = center.y - canvas.height / 2
+    expect(Number.isInteger(offsetX)).toBe(true)
+    expect(Number.isInteger(offsetY)).toBe(true)
   })
 })

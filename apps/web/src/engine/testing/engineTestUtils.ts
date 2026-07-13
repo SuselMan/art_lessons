@@ -91,6 +91,10 @@ interface EngineInternals {
   _compositeFBO: AccumulationBuffer
   // #145 white-box access — see buildExportComposite below.
   _buildContentComposite: () => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
+  // #134-follow-up white-box access — see assemblyPad/compositeCenterFor below.
+  _assemblyPad: () => { padX: number; padY: number }
+  _compositeCenterX: number
+  _compositeCenterY: number
   // Live gizmo-drag preview (#120/#139) — see engine/index.ts's own
   // PreviewTile. Structurally identical, redeclared here rather than
   // exported from index.ts since there's no product reason a real caller
@@ -257,6 +261,31 @@ export function readTransformPreviewTextureIds(engine: PencilEngine, layerId: st
 
 export function checkpointCountFor(engine: PencilEngine, layerId: string): number {
   return internals(engine)._checkpoints.filter(cp => cp.layerId === layerId).length
+}
+
+/** #134-follow-up white-box access: how much bigger the assembly buffer is
+ *  than the real canvas, per axis, *rounded to the nearest whole pixel* —
+ *  see _assemblyPad's own doc comment in engine/index.ts. Both components
+ *  are integers by construction (Math.round always returns one); what a
+ *  test actually wants to check is that the engine *uses* this padding
+ *  (rather than the assembly buffer's raw half-size) when placing content
+ *  and rotating it back — see index.tiledDisplay.test.ts's blur-regression
+ *  test for that end-to-end check. */
+export function assemblyPad(engine: PencilEngine): { padX: number; padY: number } {
+  return internals(engine)._assemblyPad()
+}
+
+/** #134-follow-up white-box access: the pixel position within the *current*
+ *  composite target that the camera's own world point (wx, wy) maps to —
+ *  only meaningful right after a real composite has run (setInfiniteCamera/
+ *  a paint/etc. — anything that calls _display()), since it's set fresh by
+ *  _runComposite every time. See engine/index.ts's _compositeCenterX field
+ *  comment for why, for an infinite room, this must differ from
+ *  canvas.width/2 by an exact integer (not any fractional amount) to avoid
+ *  a permanent, uniform bilinear-resample blur on every frame. */
+export function compositeCenterFor(engine: PencilEngine): { x: number; y: number } {
+  const i = internals(engine)
+  return { x: i._compositeCenterX, y: i._compositeCenterY }
 }
 
 // ─── Paper-texture white-box access (#141) ─────────────────────────────────
