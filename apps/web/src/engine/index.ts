@@ -14,7 +14,7 @@ import {
   type AffineMatrix,
 } from './src/affine'
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
-import { TiledLayerBuffer } from './src/TiledLayerBuffer'
+import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 
@@ -1488,19 +1488,35 @@ export class PencilEngine implements PencilEngineAPI {
    *  TiledLayerBuffer with zero tiles). Same generic path for both modes —
    *  no instanceof branch needed, unlike the old bounded-only fast path. */
   private _replayInto(buf: ILayerBuffer, layerId: string, ops: PixelOperation[]): void {
-    let start = 0
-    const cp = this._bestCheckpoint(layerId, ops)
-    if (cp) {
-      buf.clear()
-      for (const t of cp.tiles) {
-        const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
-        for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
+    // #144: `buf`'s own tile count while this method is repopulating it is a
+    // meaningless, in-flux intermediate value (e.g. restoring a checkpoint's
+    // tiles can momentarily exceed what the final done-history actually
+    // needs, before later tail ops make some of them irrelevant again) —
+    // eviction firing mid-replay would be wasted work at best, and at worst
+    // (a later tail op needing a tile evicted moments earlier by *this same
+    // replay*) would trigger a nested rebuildTile whose own separate replay
+    // wouldn't reflect this replay's own later ops still to come. Suspended
+    // for the whole repopulation, swept once after against the final,
+    // settled tile count instead — see TiledLayerBuffer.suspendEviction.
+    const tiled = buf instanceof TiledLayerBuffer ? buf : null
+    tiled?.suspendEviction()
+    try {
+      let start = 0
+      const cp = this._bestCheckpoint(layerId, ops)
+      if (cp) {
+        buf.clear()
+        for (const t of cp.tiles) {
+          const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
+          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
+        }
+        start = cp.opIds.length
+      } else {
+        buf.clear()
       }
-      start = cp.opIds.length
-    } else {
-      buf.clear()
+      for (let i = start; i < ops.length; i++) this._applyPixelOp(buf, layerId, ops[i])
+    } finally {
+      tiled?.resumeEviction()
     }
-    for (let i = start; i < ops.length; i++) this._applyPixelOp(buf, layerId, ops[i])
   }
 
   private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation): void {
@@ -1552,9 +1568,57 @@ export class PencilEngine implements PencilEngineAPI {
    *  _visibleWorldRect's bounded branch and _composeToFBO/_display, both
    *  unchanged in size), so this never changes what an on-page bounded room
    *  looks like. */
-  private _makeLayerBuffer(): ILayerBuffer {
+  /** `layerId` given: this is (or is about to become, see _execMergeLive) a
+   *  real, persistent layer buffer — wires up #144's rebuild-on-demand hook
+   *  so it's eligible for byte-budget eviction (see TiledLayerBuffer's own
+   *  docstring). Omitted: a short-lived scratch/temp buffer (a merge
+   *  source's replay target in _replayMergeInto, or _makeTileRebuilder's own
+   *  recovery-replay scratch below) that's destroyed the moment the one
+   *  operation using it finishes and never queried again afterward — no
+   *  rebuildTile is wired, which is also what keeps it from evicting at all
+   *  (TiledLayerBuffer's maxResidentTiles is Infinity without one). */
+  private _makeLayerBuffer(layerId?: string): ILayerBuffer {
     const { w, h } = this._tileSize()
-    return new TiledLayerBuffer(this.gl, w, h)
+    return new TiledLayerBuffer(this.gl, w, h, layerId !== undefined ? this._makeTileRebuilder(layerId) : undefined)
+  }
+
+  /** #144: the rebuild-on-demand hook a real layer's TiledLayerBuffer calls
+   *  when it needs an evicted tile's content back. TiledLayerBuffer only
+   *  knows *that* a tile is safely recoverable, never *how* — that needs the
+   *  Operation Log and checkpoint/replay machinery, both private to this
+   *  class, hence the dependency-injection seam here rather than teaching
+   *  TiledLayerBuffer about either.
+   *
+   *  Recovering one specific tile in isolation, without replaying (and
+   *  therefore fully recreating, defeating eviction's own point) every
+   *  *other* tile the layer has ever touched, isn't possible in general:
+   *  _bakeTransform/_replayMergeInto are inherently whole-layer, cross-tile
+   *  operations (a bake's destination tile can draw from any source tile;
+   *  a merge composites every one of a source layer's tiles) — replaying
+   *  the tail of pixel ops into anything less than a real, full multi-tile
+   *  scratch buffer (mirroring exactly what _rebuildLayer/_replayInto
+   *  already do for a whole-layer rebuild) would silently drop whatever
+   *  cross-tile content those ops needed. So each call here pays for one
+   *  full _replayInto of the layer (checkpoint plus tail — the same cost a
+   *  plain undo/redo already accepts, not full from-scratch-op-zero
+   *  replay), into a fresh scratch instance with no rebuildTile of its own
+   *  (so it can never itself evict/recurse), then hands back a session that
+   *  reads whichever tiles the caller actually asks for out of that one
+   *  replay before the scratch is discarded — one replay recovers as many
+   *  evicted tiles as the caller needs in a single recoverTiles batch (see
+   *  TiledLayerBuffer.recoverTiles), not one replay per tile. */
+  private _makeTileRebuilder(layerId: string): TileRebuilder {
+    return (): TileRebuildSession => {
+      const scratch = this._makeLayerBuffer()
+      this._replayInto(scratch, layerId, this._log.layerPixelOps(layerId))
+      return {
+        readPixels: rect => {
+          const found = scratch.resolveVisible(rect)[0]
+          return found ? found.buffer.readPixels() : null
+        },
+        destroy: () => scratch.destroy(),
+      }
+    }
   }
 
   /** This room's own tile dimensions — see _makeLayerBuffer's docstring for
@@ -1612,7 +1676,7 @@ export class PencilEngine implements PencilEngineAPI {
     // place — always structural, regardless of whether any of the ids
     // involved happen to be the active layer.
     this._invalidateSplitCache()
-    const target = this._makeLayerBuffer()
+    const target = this._makeLayerBuffer(op.layerId)
     target.clear()
     for (const s of op.sources) {
       const buf = this._layers.get(s.id)
@@ -1728,7 +1792,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _createBuffer(id: string): void {
     if (this._layers.has(id)) return
-    const buf = this._makeLayerBuffer()
+    const buf = this._makeLayerBuffer(id)
     buf.clear()
     this._layers.set(id, buf)
   }

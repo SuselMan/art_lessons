@@ -150,6 +150,17 @@ export function residentTileCount(engine: PencilEngine, layerId: string): number
   return buf instanceof TiledLayerBuffer ? buf.tileCount : 0
 }
 
+/** (#144) Evicted-but-recoverable tile count for any layer — 0 if it
+ *  doesn't exist, isn't tiled, or (the common case) has never evicted
+ *  anything. Distinguishes "eviction actually happened" from
+ *  residentTileCount merely staying at or under some cap, which alone can't
+ *  tell "evicted something" apart from "never touched enough tiles to need
+ *  to." */
+export function evictedTileCount(engine: PencilEngine, layerId: string): number {
+  const buf = internals(engine)._layers.get(layerId)
+  return buf instanceof TiledLayerBuffer ? buf.evictedTileCount : 0
+}
+
 /** Reads back one specific tile's pixels by tile coordinate (see
  *  engine/src/tileMath.ts) — null if that tile isn't resident (or the layer
  *  doesn't exist / isn't tiled). Used to assert content landed on (or
