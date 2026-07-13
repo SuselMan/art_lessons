@@ -1,7 +1,10 @@
 import styles from './Room.module.css'
 
 export interface MeasurePoint {
-  x: number // canvas physical-pixel space — same coordinate system as `Dab.x/y`
+  // Canvas physical-pixel space for bounded rooms (same coordinate system
+  // as `Dab.x/y`); genuine world space for infinite rooms (#143), produced
+  // by Room's handleMeasureDown via `clientToRoomPoint` either way.
+  x: number
   y: number
 }
 
@@ -13,16 +16,20 @@ interface MeasureOverlayProps {
 }
 
 /** Renders the measure tool's (#119) transient line + distance label between
- *  two canvas-pixel points.
+ *  two points.
  *
- *  Same placement/coordinate convention as PeerCursors: a sibling of the
- *  `<canvas>` inside `canvasWrap`, which already carries the full viewport
- *  CSS transform, so drawing at raw canvas-pixel coordinates automatically
- *  tracks pan/zoom/rotation with no inverse-transform math here. The line
- *  is genuine canvas-space geometry (it scales with zoom, like a stroke
- *  would); only the distance label counter-scales/rotates, same trick as
- *  PeerCursors' name tags, so the number stays upright and a constant
- *  screen size regardless of the viewer's zoom/rotation. */
+ *  Same placement/coordinate convention as PeerCursors, for both bounded
+ *  rooms (a sibling of `<canvas>` inside `canvasWrap`, which carries the
+ *  viewport's own CSS transform) and infinite rooms (#143 — a sibling
+ *  inside Room's `.worldOverlayWrap`, carrying the equivalent camera
+ *  transform instead — see PeerCursors' own docstring) — either way,
+ *  drawing at raw (a, b) coordinates inside that transformed ancestor
+ *  automatically tracks pan/zoom/rotation with no inverse-transform math
+ *  here. The line is genuine canvas-/world-space geometry (it scales with
+ *  zoom, like a stroke would); only the distance label counter-scales/
+ *  rotates, same trick as PeerCursors' name tags, so the number stays
+ *  upright and a constant screen size regardless of the viewer's zoom/
+ *  rotation. */
 export function MeasureOverlay({ a, b, zoom, angle }: MeasureOverlayProps) {
   const distance = Math.hypot(b.x - a.x, b.y - a.y)
   const midX = (a.x + b.x) / 2

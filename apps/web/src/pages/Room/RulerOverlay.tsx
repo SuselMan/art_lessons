@@ -1,7 +1,12 @@
 import styles from './Room.module.css'
 
 export interface RulerPoint {
-  x: number // canvas physical-pixel space — same coordinate system as Dab.x/y
+  // Canvas physical-pixel space for bounded rooms (same coordinate system
+  // as Dab.x/y); genuine world space for infinite rooms (#143) — matches
+  // what engine.setRuler's snapping compares real stroke dabs against
+  // there. Produced by Room's ruler drag handlers via `clientToRoomPoint`
+  // either way.
+  x: number
   y: number
 }
 
@@ -24,10 +29,14 @@ const ENDPOINT_RADIUS = 7
  *  (handleRulerHandleDown), this component only renders the line and its
  *  two draggable endpoints and reports which handle was grabbed.
  *
- *  Same placement convention as MeasureOverlay/GridOverlay: a sibling of
- *  `<canvas>` inside `canvasWrap`, which already carries the viewport's CSS
- *  transform, so drawing at raw canvas-pixel coordinates automatically
- *  tracks pan/zoom/rotation with no inverse-transform math here.
+ *  Same placement convention as MeasureOverlay/GridOverlay, for both
+ *  bounded rooms (a sibling of `<canvas>` inside `canvasWrap`, which
+ *  carries the viewport's own CSS transform) and infinite rooms (#143 — a
+ *  sibling inside Room's `.worldOverlayWrap`, carrying the equivalent
+ *  camera transform instead — see PeerCursors' own docstring for the full
+ *  reasoning) — either way, drawing at raw (a, b) coordinates inside that
+ *  transformed ancestor automatically tracks pan/zoom/rotation with no
+ *  inverse-transform math here.
  *
  *  Unlike TransformGizmo's rect body, the ruler's own visible line is only
  *  2px wide — far too thin to reliably grab — so a separate, wide,
