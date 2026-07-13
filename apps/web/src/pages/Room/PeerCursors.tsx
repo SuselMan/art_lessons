@@ -3,7 +3,12 @@ import styles from './Room.module.css'
 
 export interface PeerCursorPosition {
   userId: string
-  x: number // canvas physical-pixel space — same coordinate system as `Dab.x/y`
+  // Canvas physical-pixel space for bounded rooms (same coordinate system
+  // as `Dab.x/y`); genuine world space for infinite rooms (#143 — same
+  // convention `Dab.x/y`/`getContentBounds` use there instead) — see
+  // Room's #37 cursor-broadcast effect (`clientToRoomPoint`), which is
+  // what actually produces these before they ever reach this component.
+  x: number
   y: number
 }
 
@@ -16,16 +21,26 @@ interface PeerCursorsProps {
 
 /** Renders other participants' cursors as labeled dots over the canvas.
  *
- *  This is placed as a sibling of the `<canvas>` inside the same
+ *  Bounded rooms: placed as a sibling of the `<canvas>` inside the same
  *  `canvasWrap` div that already carries the viewport's CSS transform
  *  (`translate(cx,cy) rotate(angle) scale(zoom) translate(-w/2,-h/2)`, see
  *  `useViewport`/`Room`). Positioning a marker at raw canvas-pixel (x, y)
  *  inside that transformed parent therefore automatically follows pan/zoom/
  *  rotation — no separate inverse-transform math needed here, it's the same
  *  coordinate space `PointerInput` already normalizes local pointer input
- *  into (see `engine.on('pointer', ...)`). Each marker counter-scales/
- *  rotates itself so the dot/label stay a constant screen size and upright
- *  regardless of the local viewer's zoom/rotation. */
+ *  into (see `engine.on('pointer', ...)`).
+ *
+ *  Infinite rooms (#143): placed instead inside Room's `.worldOverlayWrap`,
+ *  a sibling wrapper carrying the equivalent camera transform
+ *  (`cameraTransformCss` in `cameraMath.ts`) — there is no CSS transform on
+ *  `canvasWrap` itself to lean on there (see that component's own
+ *  docstring). Same component, same markup, same (x, y)-in-a-transformed-
+ *  ancestor trick either way; only which ancestor supplies the transform,
+ *  and what convention (x, y) is expressed in, differs.
+ *
+ *  Either way, each marker counter-scales/rotates itself so the dot/label
+ *  stay a constant screen size and upright regardless of the local
+ *  viewer's zoom/rotation. */
 export function PeerCursors({ cursors, participants, zoom, angle }: PeerCursorsProps) {
   if (!cursors.length) return null
   const byId = new Map(participants.map(p => [p.userId, p]))

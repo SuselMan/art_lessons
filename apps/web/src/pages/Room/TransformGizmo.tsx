@@ -41,9 +41,10 @@ const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHan
 
 /** Layer transform tool (#120): move/scale/rotate gizmo hugging the
  *  target layer(s)' actual painted content (`bounds` — see
- *  engine.getContentBounds), not the whole canvas; single- and multi-layer
- *  selections both just union their content bounds in Room, so this
- *  component only ever deals with one rect.
+ *  engine.getContentBounds, canvas-pixel space for bounded rooms, genuine
+ *  world space for infinite rooms — #143), not the whole canvas; single-
+ *  and multi-layer selections both just union their content bounds in
+ *  Room, so this component only ever deals with one rect.
  *
  *  Purely presentational: drag capture, viewport math, and the actual
  *  engine preview/commit calls all live in Room/index.tsx, same division
@@ -53,7 +54,15 @@ const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHan
  *  which read as broken (the thing you're dragging visually detaches from
  *  what you're dragging). SVG's own `matrix(a,b,c,d,e,f)` transform
  *  function uses the exact same convention as LayerTransformOperation's
- *  matrix, so the whole gizmo can ride along with one <g transform>. */
+ *  matrix, so the whole gizmo can ride along with one <g transform>.
+ *
+ *  Placement: a sibling of `<canvas>` inside `canvasWrap` for bounded
+ *  rooms (its own CSS transform does the pan/zoom/rotate), or inside
+ *  Room's `.worldOverlayWrap` for infinite rooms (#143 — the equivalent
+ *  camera transform applied to a separate sibling instead — see
+ *  PeerCursors' own docstring for the full reasoning). Either way this
+ *  component itself is unchanged: `bounds`/`center`/`matrix` are just
+ *  numbers in whatever space the transformed ancestor expects. */
 export function TransformGizmo({ bounds, center, matrix, onHandleDown, onCenterDown, onCenterDoubleClick }: TransformGizmoProps) {
   const { x, y, width, height } = bounds
   const right = x + width

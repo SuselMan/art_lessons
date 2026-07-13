@@ -29,11 +29,12 @@ import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
+import { clientToRoomPoint, screenToWorld, cameraTransformCss } from './cameraMath'
 import { describeJoinError } from './joinError'
 import { PeerCursors, type PeerCursorPosition } from './PeerCursors'
 import { MeasureOverlay, type MeasurePoint } from './MeasureOverlay'
 import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
-import { GridOverlay } from './GridOverlay'
+import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsBar } from './ParticipantsBar'
@@ -547,14 +548,11 @@ export function Room() {
       // useViewport already produces for the bounded/CSS-pan path, just
       // reinterpreted rather than fed through transformFor's CSS string
       // (see useViewport's own comment). setInfiniteCamera wants the
-      // inverse: the world point at screen CENTER — hand-solved here since
-      // it's a small, fixed-shape conversion, not worth a general matrix
-      // inverse for.
-      const hw = el.clientWidth / 2, hh = el.clientHeight / 2
-      const dx = hw - vp.cx, dy = hh - vp.cy
-      const cos = Math.cos(vp.angle), sin = Math.sin(vp.angle)
-      const wx = (dx * cos + dy * sin) / vp.zoom
-      const wy = (-dx * sin + dy * cos) / vp.zoom
+      // inverse: the world point at screen CENTER — see cameraMath.ts's
+      // screenToWorld (#143 factored this out of an inline hand-solved
+      // version so the overlay components below could share the exact
+      // same conversion instead of re-deriving it).
+      const { x: wx, y: wy } = screenToWorld(el.clientWidth / 2, el.clientHeight / 2, vp)
       engineRef.current?.setInfiniteCamera(wx, wy, vp.zoom, vp.angle)
       return
     }
@@ -605,12 +603,13 @@ export function Room() {
       if (!shouldEmitCursor(lastCursorSentRef.current, now)) return
       lastCursorSentRef.current = now
       const rect = el.getBoundingClientRect()
-      const { cx, cy, zoom, angle } = vpValueRef.current
-      const { x, y } = clientToCanvas(
-        e.clientX, e.clientY,
-        { cx: rect.left + cx, cy: rect.top + cy, zoom, angle },
-        config,
-      )
+      // #143: world-space for infinite rooms (clientToRoomPoint), matching
+      // what getContentBounds/painted content already use there — so a
+      // peer's PeerCursors marker (rendered through the same camera
+      // conversion, see the render section below) lands on the actual
+      // world point the cursor is over, not wherever it happened to be
+      // relative to an arbitrary placeholder canvas size.
+      const { x, y } = clientToRoomPoint(e.clientX, e.clientY, rect, vpValueRef.current, config)
       socketRef.current?.emit('cursor_move', { x, y, drawing: strokeActiveRef.current })
     }
     el.addEventListener('pointermove', handleMove)
@@ -650,8 +649,17 @@ export function Room() {
 
   // Eyedropper (#82): consumes the next pointerdown on .eyedropperOverlay
   // (armed only while eyedropperActive) instead of letting it reach the
-  // canvas as a stroke. Same clientToCanvas convention as the #37 cursor
-  // broadcast above.
+  // canvas as a stroke. Deliberately NOT switched to clientToRoomPoint/
+  // world-space for infinite rooms like the #143 overlays below —
+  // engine.pickColor reads whatever's currently on *screen* (a
+  // gl.readPixels off the real, already-camera-composited framebuffer, see
+  // its own doc comment), not a layer's world-space content, so it needs
+  // plain screen/canvas-pixel coordinates in both modes, not world ones.
+  // This still uses the pre-#143 clientToCanvas call (with its
+  // PLACEHOLDER_INFINITE_CANVAS_SIZE-based offset for infinite rooms),
+  // which is a separate, pre-existing inaccuracy out of this issue's scope
+  // (#143 is specifically the five overlay components) — left as-is rather
+  // than risk a wrong "fix" for a component this issue didn't ask for.
   const handleEyedropperPick = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     const el = vpRef.current
@@ -764,8 +772,10 @@ export function Room() {
     refreshTransformBounds()
   }, [transformActive, refreshTransformBounds])
 
-  // Measure tool (#119): mirrors handleEyedropperPick's clientToCanvas
-  // conversion, but for a full drag rather than a single click — down/move/up
+  // Measure tool (#119): mirrors handleEyedropperPick's drag-capture
+  // pattern, but for a full drag rather than a single click, and (#143)
+  // via clientToRoomPoint rather than eyedropper's plain clientToCanvas —
+  // down/move/up
   // tracked manually via setPointerCapture + direct DOM listeners, the same
   // pattern ColorPicker's onSvDown/onHueDown use for their own drag handling.
   // Pen-only, same as the pencil itself ignores touch (see PointerInput.ts) —
@@ -788,8 +798,10 @@ export function Room() {
     try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
 
     const rect = el.getBoundingClientRect()
-    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
-    const toPoint = (clientX: number, clientY: number): MeasurePoint => clientToCanvas(clientX, clientY, viewport, config)
+    // #143: world-space for infinite rooms (clientToRoomPoint) — the same
+    // space MeasureOverlay's a/b props are now expected in for infinite
+    // rooms (see the render section below).
+    const toPoint = (clientX: number, clientY: number): MeasurePoint => clientToRoomPoint(clientX, clientY, rect, vp, config)
 
     const start = toPoint(e.clientX, e.clientY)
     setMeasurePoints({ a: start, b: start })
@@ -836,8 +848,12 @@ export function Room() {
     try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
 
     const rect = el.getBoundingClientRect()
-    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
-    const toPoint = (clientX: number, clientY: number): RulerPoint => clientToCanvas(clientX, clientY, viewport, config)
+    // #143: world-space for infinite rooms (clientToRoomPoint) — matches
+    // what engine.setRuler's snapping (rulerSnap.ts) compares against real
+    // stroke dabs there (genuine world coordinates, see setInfiniteCamera's
+    // pointer transform), and what RulerOverlay's a/b props now expect for
+    // infinite rooms (see the render section below).
+    const toPoint = (clientX: number, clientY: number): RulerPoint => clientToRoomPoint(clientX, clientY, rect, vp, config)
 
     const start = toPoint(e.clientX, e.clientY)
     setRulerLine({ a: start, b: start })
@@ -878,8 +894,12 @@ export function Room() {
     try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
 
     const rect = el.getBoundingClientRect()
-    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
-    const toPoint = (clientX: number, clientY: number): RulerPoint => clientToCanvas(clientX, clientY, viewport, config)
+    // #143: world-space for infinite rooms (clientToRoomPoint) — matches
+    // what engine.setRuler's snapping (rulerSnap.ts) compares against real
+    // stroke dabs there (genuine world coordinates, see setInfiniteCamera's
+    // pointer transform), and what RulerOverlay's a/b props now expect for
+    // infinite rooms (see the render section below).
+    const toPoint = (clientX: number, clientY: number): RulerPoint => clientToRoomPoint(clientX, clientY, rect, vp, config)
 
     const startLine = rulerLine // frozen for the duration of this drag
     const startPoint = toPoint(e.clientX, e.clientY)
@@ -927,8 +947,12 @@ export function Room() {
     try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
 
     const rect = el.getBoundingClientRect()
-    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
-    const toPoint = (clientX: number, clientY: number) => clientToCanvas(clientX, clientY, viewport, config)
+    // #143: world-space for infinite rooms (clientToRoomPoint) — matches
+    // transformBounds/pivot/center (engine.getContentBounds, real world
+    // coordinates for infinite rooms) so drag deltas/pivots are computed in
+    // one consistent space instead of mixing world-space bounds with a
+    // placeholder-canvas-space pointer position.
+    const toPoint = (clientX: number, clientY: number) => clientToRoomPoint(clientX, clientY, rect, vp, config)
 
     const targetIds = transformTargetIds // frozen for the duration of this drag
     const bounds = transformBounds
@@ -995,8 +1019,12 @@ export function Room() {
     try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
 
     const rect = el.getBoundingClientRect()
-    const viewport = { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle }
-    const toPoint = (clientX: number, clientY: number) => clientToCanvas(clientX, clientY, viewport, config)
+    // #143: world-space for infinite rooms (clientToRoomPoint) — matches
+    // transformBounds/pivot/center (engine.getContentBounds, real world
+    // coordinates for infinite rooms) so drag deltas/pivots are computed in
+    // one consistent space instead of mixing world-space bounds with a
+    // placeholder-canvas-space pointer position.
+    const toPoint = (clientX: number, clientY: number) => clientToRoomPoint(clientX, clientY, rect, vp, config)
 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
@@ -1541,13 +1569,10 @@ export function Room() {
               className={styles.canvas}
               style={config.infinite ? { width: '100%', height: '100%' } : { width: config.width, height: config.height }}
             />
-            {/* The overlays below all assume canvas-pixel-space coordinates
-                with pan/zoom/rotate inherited for free from canvasWrap's own
-                CSS transform (see each one's docstring) — which infinite-
-                canvas rooms no longer have (content is redrawn under a
-                camera instead of the DOM element being panned). Making them
-                camera-aware is a separate follow-up; for now they're simply
-                not shown for infinite rooms rather than rendered wrong. */}
+            {/* Bounded rooms: these five assume canvas-pixel-space
+                coordinates with pan/zoom/rotate inherited for free from
+                canvasWrap's own CSS transform (see each one's docstring) —
+                exactly as before #143, completely unchanged. */}
             {!config.infinite && (
               <PeerCursors
                 cursors={Object.values(peerCursors)}
@@ -1577,6 +1602,58 @@ export function Room() {
               />
             )}
           </div>
+          {/* Infinite rooms (#143): the same five overlays, camera-aware —
+              there's no canvasWrap CSS transform here for them to ride
+              along with "for free" (content is redrawn under a camera
+              instead of the DOM element being panned), so this wrapper
+              applies the equivalent transform itself (cameraTransformCss —
+              see its own doc comment for why it's a *separate* sibling of
+              <canvas>, never applied to canvasWrap/canvas directly) and
+              every point fed to the overlays below is genuine world-space
+              (see the drag handlers above, all switched to
+              clientToRoomPoint) — the same coordinate convention
+              getContentBounds/Dab.x,y already use for infinite rooms, so
+              e.g. TransformGizmo's bounds line up with the actual painted
+              content, not an arbitrary placeholder space. Rendered as a
+              sibling of canvasWrap (not inside it) purely for clarity —
+              canvasWrap carries no transform in infinite mode anyway (see
+              above), so nesting wouldn't change anything either way. */}
+          {config.infinite && (
+            <div className={styles.worldOverlayWrap} style={{ transform: cameraTransformCss(vp) }}>
+              <PeerCursors
+                cursors={Object.values(peerCursors)}
+                participants={participants}
+                zoom={vp.zoom}
+                angle={vp.angle}
+              />
+              {measurePoints && (
+                <MeasureOverlay a={measurePoints.a} b={measurePoints.b} zoom={vp.zoom} angle={vp.angle} />
+              )}
+              {gridActive && (
+                <InfiniteGridOverlay
+                  vp={vp}
+                  viewportWidth={vpRef.current?.clientWidth ?? 0}
+                  viewportHeight={vpRef.current?.clientHeight ?? 0}
+                />
+              )}
+              {rulerActive && rulerLine && (
+                <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} />
+              )}
+              {transformActive && transformBounds && (
+                <TransformGizmo
+                  bounds={transformBounds}
+                  center={transformCenterOverride ?? {
+                    x: transformBounds.x + transformBounds.width / 2,
+                    y: transformBounds.y + transformBounds.height / 2,
+                  }}
+                  matrix={transformLiveMatrix ?? undefined}
+                  onHandleDown={handleTransformHandleDown}
+                  onCenterDown={handleTransformCenterDown}
+                  onCenterDoubleClick={handleTransformCenterReset}
+                />
+              )}
+            </div>
+          )}
           {eyedropperActive && (
             <div className={styles.eyedropperOverlay} onPointerDown={handleEyedropperPick} />
           )}

@@ -1,0 +1,108 @@
+import type { Viewport } from './useViewport'
+import { clientToCanvas, type CanvasSize } from './pointerTransform'
+
+// #143: world<->screen conversion for infinite-canvas rooms' overlay
+// components (PeerCursors/MeasureOverlay/GridOverlay/RulerOverlay/
+// TransformGizmo), which for bounded rooms lean entirely on canvasWrap's
+// own CSS transform (see useViewport's `canvasTransform`) to pan/zoom/
+// rotate along with the canvas — a transform infinite rooms don't have
+// (the canvas element never moves; the engine redraws its contents under a
+// camera instead, see engine.setInfiniteCamera). These are the two
+// directions of that camera mapping, expressed purely in terms of Room's
+// own `vp` state — the same {cx, cy, zoom, angle} the bounded/CSS-pan path
+// already uses (see useViewport's docstring for why (cx, cy) means "screen
+// position of whatever's under it" in both modes) — and screen coordinates
+// relative to the *viewport container's own top-left* (i.e.
+// `clientX - rect.left`, not window-absolute, and never the actual canvas
+// backing-buffer size the way bounded's `clientToCanvas` uses one).
+//
+// Derivation/verification: Room's viewport->engine sync effect already
+// hand-solved "the world point at screen CENTER" from vp to feed
+// setInfiniteCamera — screenToWorld below is that same formula generalized
+// to an arbitrary screen point, not just the center (confirmed to agree
+// with the old hand-solved version at screen point (hw, hh); that call
+// site now just calls this instead of re-deriving it inline). worldToScreen
+// is its algebraic inverse, and was independently cross-checked against the
+// engine's own world->screen convention (see PencilEngine's
+// _finishInfiniteComposite/_worldToScreenEdgeX/Y doc comments): forward
+// mapping is screen = (vp.cx, vp.cy) + R(vp.angle) * vp.zoom * world, which
+// is exactly what worldToScreen computes.
+
+export function worldToScreen(worldX: number, worldY: number, vp: Viewport): { x: number; y: number } {
+  const cos = Math.cos(vp.angle)
+  const sin = Math.sin(vp.angle)
+  return {
+    x: vp.cx + (worldX * cos - worldY * sin) * vp.zoom,
+    y: vp.cy + (worldX * sin + worldY * cos) * vp.zoom,
+  }
+}
+
+export function screenToWorld(screenX: number, screenY: number, vp: Viewport): { x: number; y: number } {
+  const dx = screenX - vp.cx
+  const dy = screenY - vp.cy
+  const cos = Math.cos(vp.angle)
+  const sin = Math.sin(vp.angle)
+  return {
+    x: (dx * cos + dy * sin) / vp.zoom,
+    y: (-dx * sin + dy * cos) / vp.zoom,
+  }
+}
+
+/** CSS transform string for a wrapper that carries *only* the overlay layer
+ *  in an infinite room — never the `<canvas>` itself, which the engine
+ *  already draws camera-relative content directly into (setInfiniteCamera);
+ *  wrapping that too would visually double-move it. The infinite-mode
+ *  counterpart of useViewport's own `transformFor`/`canvasTransform` for
+ *  bounded rooms, minus the trailing `translate(-width/2,-height/2)`: world
+ *  (0,0) already plays the role bounded's canvas-center does, so there's no
+ *  separate size-based recentering to fold in here. Whatever element this
+ *  is applied to must set `transform-origin: 0 0` (see `.worldOverlayWrap`
+ *  in Room.module.css), matching `.canvasWrap`'s own transform-origin for
+ *  the same reason. */
+export function cameraTransformCss(vp: Viewport): string {
+  return `translate(${vp.cx}px,${vp.cy}px) rotate(${vp.angle}rad) scale(${vp.zoom})`
+}
+
+/** The world-space rect currently visible in the viewport — used by the
+ *  infinite-room grid variant (see GridOverlay.tsx) to know how far to draw
+ *  lines. Deliberately mirrors PencilEngine's own `_visibleWorldRect` (a
+ *  generous axis-aligned bounding box of the rotated viewport rect, padded
+ *  to the half-diagonal rather than tightened to the exact rotated quad) —
+ *  the grid only needs to *at least* cover what's actually visible, and
+ *  matching the engine's own padding keeps this from needing its own,
+ *  possibly-inconsistent, notion of "visible". */
+export function visibleWorldRect(
+  vp: Viewport, viewportWidth: number, viewportHeight: number,
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  const { x: wx, y: wy } = screenToWorld(viewportWidth / 2, viewportHeight / 2, vp)
+  const halfW = viewportWidth / 2 / vp.zoom
+  const halfH = viewportHeight / 2 / vp.zoom
+  const halfDiag = Math.hypot(halfW, halfH)
+  return { minX: wx - halfDiag, minY: wy - halfDiag, maxX: wx + halfDiag, maxY: wy + halfDiag }
+}
+
+/** Single branch point for "where did this client-space pointer event land,
+ *  in whatever space this room's overlays/tools are defined in" — bounded
+ *  rooms answer in canvas-pixel space (`clientToCanvas`, unchanged),
+ *  infinite rooms answer in genuine world space (`screenToWorld` above).
+ *  Room's measure/ruler/transform drag handlers and the #37 cursor
+ *  broadcast used to call `clientToCanvas` unconditionally, even for
+ *  infinite rooms — since `config.width/height` there is only the
+ *  PLACEHOLDER_INFINITE_CANVAS_SIZE placeholder (see Room/index.tsx), not
+ *  the real camera position, that produced numbers that don't correspond
+ *  to any real position. Harmless while those overlays/the ruler's engine
+ *  guide were unconditionally not shown/used for infinite rooms, but wrong
+ *  the moment they are (#143) — `getContentBounds`'s bounds (real world
+ *  space) and this point (the old placeholder space) would otherwise be
+ *  mixed in the same drag computation. */
+export function clientToRoomPoint(
+  clientX: number, clientY: number, rect: DOMRect, vp: Viewport,
+  config: { infinite: boolean } & CanvasSize,
+): { x: number; y: number } {
+  if (config.infinite) return screenToWorld(clientX - rect.left, clientY - rect.top, vp)
+  return clientToCanvas(
+    clientX, clientY,
+    { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle },
+    config,
+  )
+}
