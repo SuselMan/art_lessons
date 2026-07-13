@@ -983,16 +983,37 @@ export function Room() {
       return scaleAxisMatrix(scale, scale, pivot.x, pivot.y)
     }
 
+    // Coalesce to one previewLayerTransform call per animation frame rather
+    // than one per raw pointermove — a pen digitizer fires well past 60/s,
+    // and previewLayerTransform's own GPU cost scales with how much of the
+    // page the dragged content currently covers (a bounded room's own tile
+    // size is its whole canvas, see engine/index.ts's _makeLayerBuffer —
+    // content spanning two such tiles means transform-blitting two full-
+    // page-sized buffers on every call). Rendering more previews than the
+    // display can even show is pure wasted GPU work; this was a real,
+    // reported stutter/hang testing on an underpowered device once content
+    // was dragged past the page edge. Only the *latest* pointer position
+    // within a frame is ever previewed — nothing else about the preview's
+    // correctness changes, this only throttles how often it's recomputed.
+    let rafId: number | null = null
+    let latestMatrix: AffineMatrix | null = null
+    const flushPreview = () => {
+      rafId = null
+      if (!latestMatrix) return
+      setTransformLiveMatrix(latestMatrix)
+      engineRef.current?.previewLayerTransform(targetIds.map(layerId => ({ layerId, matrix: latestMatrix! })))
+    }
+
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
-      const matrix = computeMatrix(ev.clientX, ev.clientY)
-      setTransformLiveMatrix(matrix)
-      engineRef.current?.previewLayerTransform(targetIds.map(layerId => ({ layerId, matrix })))
+      latestMatrix = computeMatrix(ev.clientX, ev.clientY)
+      if (rafId === null) rafId = requestAnimationFrame(flushPreview)
     }
     const onUp = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
       overlay.removeEventListener('pointermove', onMove)
       overlay.removeEventListener('pointerup', onUp)
+      if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
       const matrix = computeMatrix(ev.clientX, ev.clientY)
       setTransformLiveMatrix(null)
       engineRef.current?.clearLayerTransformPreview()
