@@ -15,7 +15,7 @@ import type { ILayerBuffer } from '../src/ILayerBuffer'
 import type { PointerData } from '../src/PointerInput'
 import { TiledLayerBuffer } from '../src/TiledLayerBuffer'
 import { tileWorldRect } from '../src/tileMath'
-import { MockGL } from './mockGL'
+import { MockGL, type MockLocation, type UniformValue } from './mockGL'
 
 // jsdom is not used (vitest env is 'node' — see root vitest.config.ts), so
 // rAF/cancelAnimationFrame don't exist; PencilEngine's constructor/destroy
@@ -88,6 +88,12 @@ interface EngineInternals {
   _onMove: (e: PointerData) => void
   _onEnd: (e: PointerData) => void
   _compositeFBO: AccumulationBuffer
+  // #141 white-box access — see paperTextureSize/paperTextureWrap/
+  // lastPaperDabUniform below.
+  gl: MockGL
+  _paperTex: object
+  _dabUni: Record<string, MockLocation | null>
+  _dabInstUni: Record<string, MockLocation | null>
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -144,6 +150,45 @@ export function readCompositePixels(engine: PencilEngine): Uint8Array {
 
 export function checkpointCountFor(engine: PencilEngine, layerId: string): number {
   return internals(engine)._checkpoints.filter(cp => cp.layerId === layerId).length
+}
+
+// ─── Paper-texture white-box access (#141) ─────────────────────────────────
+//
+// MockGL deliberately doesn't rasterize DAB_FRAG's/PAPER_BLEND_FRAG's paper-
+// height sampling or PAPER_GEN_FRAG's noise generation (see mockGL.ts's
+// module docstring), so a pixel readback can't observe whether a dab's
+// paper-UV uniforms came out world-position-correct, or whether the paper
+// texture itself was created at the right size/wrap mode. These reach past
+// MockGL's own introspection getters (readUniform/getTextureSize/
+// getTextureWrap — all read-only, never influencing any rasterization
+// behavior) the same documented way the rest of this file reaches past
+// PencilEngine's private fields.
+
+/** The paper texture's own GL pixel dimensions — canvas-sized for a bounded
+ *  room, a fixed constant for an infinite one (see _initPaper). */
+export function paperTextureSize(engine: PencilEngine): { width: number; height: number } | null {
+  const eng = internals(engine)
+  return eng.gl.getTextureSize(eng._paperTex)
+}
+
+/** The paper texture's wrap mode — CLAMP_TO_EDGE for a bounded room,
+ *  REPEAT for an infinite one (see _initPaper/PaperTexture.ts). */
+export function paperTextureWrap(engine: PencilEngine): { wrapS: number; wrapT: number } | null {
+  const eng = internals(engine)
+  return eng.gl.getTextureWrap(eng._paperTex)
+}
+
+/** The last value a named dab-shader uniform (e.g. 'u_paperOrigin',
+ *  'u_paperTexSize') was set to for the most recently painted dab —
+ *  whichever of the batched (_dabInstUni) or per-dab-uniform (_dabUni) path
+ *  actually ran last (MockGL always provides the ANGLE_instanced_arrays
+ *  shim, so in practice this is always the batched path — see
+ *  _paintDabsInstanced). Reads through the *instanced* program first since
+ *  that's the one every real dab paint in these tests actually uses. */
+export function lastPaperDabUniform(engine: PencilEngine, name: string): UniformValue | undefined {
+  const eng = internals(engine)
+  const loc = eng._dabInstUni[name] ?? eng._dabUni[name]
+  return loc ? eng.gl.readUniform(loc) : undefined
 }
 
 /** Simulates checkpoint eviction (in production this happens under
