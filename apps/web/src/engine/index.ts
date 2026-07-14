@@ -435,6 +435,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _predictPointer: boolean
   private _previewBuf: AccumulationBuffer | null = null
   private _previewBufOrigin = { x: 0, y: 0 }
+  // (#155) Backing GL object for _previewBuf, kept alive across strokes —
+  // see _acquirePreviewBuf's own comment for why. null exactly when
+  // _previewBuf has never been created yet or was invalidated by context
+  // loss; _previewBuf itself is still nulled every stroke end (see _onEnd)
+  // so _display()'s `if (this._previewBuf)` blend-skip is unaffected.
+  private _previewBufPool: AccumulationBuffer | null = null
 
   // Live-tip segment preview (#104) — all no-ops unless _liveTip is true.
   // _tipBuf is a dedicated, stroke-scoped AccumulationBuffer, same lifecycle
@@ -447,6 +453,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _liveTip: boolean
   private _tipBuf: AccumulationBuffer | null = null
   private _tipBufOrigin = { x: 0, y: 0 }
+  // (#155) Same pooling as _previewBufPool above, see _acquireTipBuf.
+  private _tipBufPool: AccumulationBuffer | null = null
 
   // Haptic grain experiment (see HapticGrain.ts) — null unless opted in.
   private _haptic: HapticGrain | null
@@ -1511,9 +1519,15 @@ export class PencilEngine implements PencilEngineAPI {
     this._aboveCache.destroy()
     this._assemblyFBO.destroy()
     this._paperBlendFBO.destroy()
-    this._previewBuf?.destroy()
+    // (#155) The pool fields are the real owners now — _previewBuf/_tipBuf
+    // are just a possibly-mid-stroke alias of the same object (see
+    // _acquirePooledBuf), so destroying via the pool alone avoids a
+    // double-destroy of the same GL object.
+    this._previewBufPool?.destroy()
+    this._previewBufPool = null
     this._previewBuf = null
-    this._tipBuf?.destroy()
+    this._tipBufPool?.destroy()
+    this._tipBufPool = null
     this._tipBuf = null
     for (const { buf, timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
@@ -1836,7 +1850,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._initPaper(this._opts.paper)
     this._layers.clear() // handles are already dead; not worth destroy()ing
     this._previewBuf = null
+    this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
     this._tipBuf = null
+    this._tipBufPool = null
     for (const { timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
     }
@@ -2082,12 +2098,12 @@ export class PencilEngine implements PencilEngineAPI {
       this._dbgMaxTip = 0
     }
     if (this._predictPointer) {
-      this._previewBuf = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
+      this._previewBuf = this._acquirePooledBuf('_previewBufPool')
       this._previewBuf.clear()
       this._previewBufOrigin = this._cameraCenteredOrigin()
     }
     if (this._liveTip) {
-      this._tipBuf = new AccumulationBuffer(this.gl, this.canvas.width, this.canvas.height)
+      this._tipBuf = this._acquirePooledBuf('_tipBufPool')
       this._tipBuf.clear()
       this._tipBufOrigin = this._cameraCenteredOrigin()
     }
@@ -2223,18 +2239,18 @@ export class PencilEngine implements PencilEngineAPI {
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
     // Discard the speculative preview entirely once the real stroke has
     // ended — the final _display() below must show only real content.
-    if (this._previewBuf) {
-      this._previewBuf.destroy()
-      this._previewBuf = null
-    }
+    // (#155) Only drops the *active* reference now, not the underlying GL
+    // object — that stays alive in _previewBufPool for the next stroke to
+    // reuse (see _acquirePooledBuf). _display()'s `if (this._previewBuf)`
+    // blend-skip is keyed on this reference, not the pool, so behavior here
+    // is identical to the old destroy(); only the GL object's lifetime
+    // changed.
+    this._previewBuf = null
     // Same for the live-tip scratch buffer: endStroke() above just painted
     // the exact same final segment (pixel-identical, same math minus the
     // `_remainder` mutation — see peekTipDabs()) into the real buffer, so
     // there is nothing left for the tip preview to show.
-    if (this._tipBuf) {
-      this._tipBuf.destroy()
-      this._tipBuf = null
-    }
+    this._tipBuf = null
     this._display()
     if (this._debug) {
       this._dbgRenderMs += performance.now() - t0
@@ -2788,6 +2804,41 @@ export class PencilEngine implements PencilEngineAPI {
     const halfH = canvas.height / 2 / zoom
     const halfDiag = Math.sqrt(halfW * halfW + halfH * halfH)
     return { minX: wx - halfDiag, minY: wy - halfDiag, maxX: wx + halfDiag, maxY: wy + halfDiag }
+  }
+
+  /** (#155) Returns this[poolField], creating or recreating it first if it's
+   *  missing or the wrong size (canvas.width x canvas.height, which changes
+   *  on infinite-room resizeCanvas). Fixes a real stall: _onStart used to
+   *  `new AccumulationBuffer(...)` a fresh _tipBuf/_previewBuf on *every*
+   *  single stroke — a full GL texture + framebuffer allocation, capped off
+   *  by AccumulationBuffer's own checkFramebufferStatus call (a known
+   *  GPU-sync point on some drivers) — then destroy it again at stroke end.
+   *  Harmless for a bounded room (buffer size = the room's fixed page size),
+   *  but for an infinite room this is sized to the DPR-scaled *viewport*
+   *  (see #154) — multi-megapixel on a real tablet — so every single
+   *  pointerdown paid a real allocation + sync stall. Measured on-device via
+   *  Chrome's own Interaction-to-Next-Paint breakdown: ~1s presentation
+   *  delay on a `pointerdown`, with JS-side processing under 20ms — exactly
+   *  a GPU-side stall the engine's own JS-timing stats (StrokeDebugStats)
+   *  can't see, since they only time the per-move paint path, not stroke
+   *  start. Fastest to notice writing short strokes quickly (many
+   *  pointerdowns in a row), which is exactly what surfaced this.
+   *
+   *  Reusing the same GL object across strokes (only reallocating on an
+   *  actual size change) turns that into a no-op after the first stroke.
+   *  The pool field stays alive across strokes; the *active* _tipBuf/
+   *  _previewBuf reference is still nulled at stroke end (see _onEnd) so
+   *  _display()'s `if (this._tipBuf)` blend-skip when idle is unaffected —
+   *  only the underlying GL object's lifetime changed, not the preview's own
+   *  visibility semantics. */
+  private _acquirePooledBuf(poolField: '_tipBufPool' | '_previewBufPool'): AccumulationBuffer {
+    const { canvas } = this
+    const existing = this[poolField]
+    if (existing && existing.width === canvas.width && existing.height === canvas.height) return existing
+    existing?.destroy()
+    const fresh = new AccumulationBuffer(this.gl, canvas.width, canvas.height)
+    this[poolField] = fresh
+    return fresh
   }
 
   /** (#138) World point that a live-tip/predicted/peer-reveal preview
