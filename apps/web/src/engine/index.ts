@@ -153,6 +153,19 @@ export interface PencilEngineAPI {
   setLocked(locked: boolean): void
   setCompositeOrder(items: CompositeItem[]): void
   appendOperation(op: Operation, source?: OperationSource): void
+  // (#147) Suspends the _display() (full composite + paper-blend) call that
+  // several appendOperation branches (stroke/layer_clear/layer_delete/
+  // layer_transform/layer_merge, and undo/redo/revoke's own history-change
+  // path) would otherwise make on *every single* applied operation, until a
+  // matching resumeDisplay() — which then does exactly one. Meant for a
+  // caller replaying many historical operations in a row (initial room join,
+  // reconnect) so that doesn't pay one full-canvas composite per operation,
+  // only once at the end. Counter, not boolean depth (nothing currently
+  // nests these, but same defensive reasoning as TiledLayerBuffer's
+  // suspendEviction/resumeEviction). A no-op outside such a batch — ordinary
+  // one-at-a-time local/remote operations are unaffected either way.
+  suspendDisplay(): void
+  resumeDisplay(): void
   getOperations(): Operation[]
   undo(): Operation | null
   redo(): Operation | null
@@ -531,6 +544,9 @@ export class PencilEngine implements PencilEngineAPI {
   // doc comment for why this is safe to cache and what invalidates it.
   private _canvasRectCache: DOMRect | null = null
 
+  // (#147) See suspendDisplay/resumeDisplay's own doc comments.
+  private _displaySuspendDepth = 0
+
   // Below/above split-composite cache (#122) — _runComposite normally
   // re-blits every visible layer/folder-child from _compositeOrder into
   // _compositeFBO on every call, which is the thing this whole cache exists
@@ -824,6 +840,23 @@ export class PencilEngine implements PencilEngineAPI {
 
   // ─── Operation log API ───────────────────────────────────────────────────────
 
+  /** See PencilEngineAPI's doc comment. */
+  suspendDisplay(): void { this._displaySuspendDepth++ }
+
+  /** See PencilEngineAPI's doc comment. */
+  resumeDisplay(): void {
+    this._displaySuspendDepth = Math.max(0, this._displaySuspendDepth - 1)
+    if (this._displaySuspendDepth === 0) this._display()
+  }
+
+  /** (#147) What appendOperation's own branches and _applyHistoryChange/
+   *  _execMergeLive call instead of `this._display()` directly — a no-op
+   *  while a suspendDisplay() span is active (see its own doc comment),
+   *  otherwise identical to calling _display() right there. */
+  private _displayIfNotSuspended(): void {
+    if (this._displaySuspendDepth === 0) this._display()
+  }
+
   /** Appends any externally built operation — from the layer panel, or from
    *  another participant once #31/network wiring lands (`peer_operation` /
    *  `room_state.operations`, see `packages/shared`) — and applies its
@@ -862,7 +895,7 @@ export class PencilEngine implements PencilEngineAPI {
         // from — unconditional, not worth checking whether any deleted id
         // happened to already be excluded (e.g. hidden).
         this._invalidateSplitCache()
-        this._display()
+        this._displayIfNotSuspended()
         break
       case 'layer_clear': {
         const clearBuf = this._layers.get(op.layerId)
@@ -873,7 +906,7 @@ export class PencilEngine implements PencilEngineAPI {
           // only invalidate when it lands on a layer the cache actually
           // holds baked pixels for.
           if (op.layerId !== this._activeId) this._invalidateSplitCache()
-          this._display()
+          this._displayIfNotSuspended()
         } else {
           // Target layer doesn't currently exist — e.g. this clear raced a
           // layer_delete/layer_merge over the network and lost (arrived
@@ -901,7 +934,7 @@ export class PencilEngine implements PencilEngineAPI {
           // this client's own, so their stroke can land on a layer this
           // client's cache has baked into below/above.
           if (op.layerId !== this._activeId) this._invalidateSplitCache()
-          this._display()
+          this._displayIfNotSuspended()
         } else {
           // See the layer_clear branch above: a pixel op with no live
           // target never had an effect and never legitimately can again —
@@ -942,7 +975,7 @@ export class PencilEngine implements PencilEngineAPI {
           if (t.layerId !== this._activeId) this._invalidateSplitCache()
           appliedAny = true
         }
-        if (appliedAny) this._display()
+        if (appliedAny) this._displayIfNotSuspended()
         else this._log.revoke(op.id)
         break
       }
@@ -1629,7 +1662,7 @@ export class PencilEngine implements PencilEngineAPI {
         // structure-only; the UI re-derives LayerState and pushes composite order
         break
     }
-    this._display()
+    this._displayIfNotSuspended()
   }
 
   /** A buffer should exist iff the layer is alive in the done history: created
@@ -1898,7 +1931,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._layers.set(op.layerId, target)
     for (const s of op.sources) this._destroyBuffer(s.id)
     this._takeCheckpoint(op.layerId)
-    this._display()
+    this._displayIfNotSuspended()
   }
 
   // ─── Context loss (#121) ─────────────────────────────────────────────────────

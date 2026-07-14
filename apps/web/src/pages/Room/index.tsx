@@ -543,7 +543,15 @@ export function Room() {
     const pending = pendingSnapshotRef.current
     if (pending) {
       pendingSnapshotRef.current = null
+      // (#147) A fresh room's history can be hundreds/thousands of ops —
+      // without this, appendOperation's own per-op _display() (full
+      // composite + paper-blend) fires once per operation on the very first
+      // paint the user sees, a visible join-time freeze that grows with the
+      // room's history. suspendDisplay/resumeDisplay defer all of that to
+      // one _display() right after the loop — see their own doc comments.
+      engine.suspendDisplay()
       for (const op of pending.operations) applyRemoteOp(op)
+      engine.resumeDisplay()
       syncFromLog()
       dispatchParticipants({ type: 'room_state', participants: pending.participants })
     }
@@ -1239,6 +1247,9 @@ export function Room() {
       // in-flight from before the drop — cancel it rather than let it keep
       // painting the same stroke a second time on top of what this loop is
       // about to commit directly.
+      // (#147) Same reasoning as the initial-join replay above — see
+      // suspendDisplay/resumeDisplay's own doc comments.
+      engineRef.current?.suspendDisplay()
       for (const op of operations) {
         if (pendingPreviewOpIdsRef.current.has(op.id)) {
           engineRef.current?.dropPendingPreview(op.id)
@@ -1246,6 +1257,7 @@ export function Room() {
         }
         applyRemoteOp(op)
       }
+      engineRef.current?.resumeDisplay()
       syncFromLog()
       dispatchParticipants({ type: 'room_state', participants: roomParticipants })
     }
