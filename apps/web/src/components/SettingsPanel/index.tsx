@@ -19,6 +19,23 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [vibrateResult, setVibrateResult] = useState<string | null>(null)
   const [pencilSound, setPencilSoundState] = useState<PencilSoundSetting>(() => getPencilSoundSetting())
 
+  // Every flag toggle/select below only edits this local draft — nothing
+  // touches localStorage or reloads until Save is pressed. Reloading on
+  // every single checkbox click (the old behavior) was disruptive when
+  // trying several flags in a row. Lazy-initialized from current storage so
+  // reopening the panel always starts from what's actually active.
+  const [pendingFlags, setPendingFlags] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(FEATURE_FLAGS.map(f => [f.key, getFeatureFlag(f.key)])),
+  )
+  const dirty = FEATURE_FLAGS.some(f => pendingFlags[f.key] !== getFeatureFlag(f.key))
+    || pencilSound !== getPencilSoundSetting()
+
+  function handleSave() {
+    for (const flag of FEATURE_FLAGS) setFeatureFlag(flag.key, pendingFlags[flag.key])
+    setPencilSoundSetting(pencilSound)
+    window.location.reload()
+  }
+
   return (
     <div className={styles.backdrop} onClick={onClose}>
       <div className={styles.panel} onClick={e => e.stopPropagation()}>
@@ -34,11 +51,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             <label key={flag.key} className={styles.flagRow}>
               <input
                 type="checkbox"
-                defaultChecked={getFeatureFlag(flag.key)}
-                onChange={e => {
-                  setFeatureFlag(flag.key, e.target.checked)
-                  window.location.reload()
-                }}
+                checked={pendingFlags[flag.key]}
+                onChange={e => setPendingFlags(p => ({ ...p, [flag.key]: e.target.checked }))}
               />
               <div>
                 <div className={styles.flagLabel}>{flag.label}</div>
@@ -55,12 +69,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             <select
               className={styles.select}
               value={pencilSound}
-              onChange={e => {
-                const value = e.target.value as PencilSoundSetting
-                setPencilSoundState(value)
-                setPencilSoundSetting(value)
-                window.location.reload()
-              }}
+              onChange={e => setPencilSoundState(e.target.value as PencilSoundSetting)}
             >
               <option value="off">Off</option>
               <option value="variant1">Variant 1</option>
@@ -70,7 +79,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </div>
         </div>
 
-        <div className={styles.hint}>Changes apply after the page reloads.</div>
+        <div className={styles.saveBar}>
+          <span className={styles.hint}>
+            {dirty ? 'Unsaved changes — reloads the page.' : 'Changes apply after Save.'}
+          </span>
+          <button type="button" className={styles.saveBtn} disabled={!dirty} onClick={handleSave}>
+            Save
+          </button>
+        </div>
 
         <div className={styles.flagRow} style={{ cursor: 'default' }}>
           <button

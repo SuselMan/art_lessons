@@ -59,8 +59,7 @@ export function CreateRoom() {
     e.preventDefault()
     setError(null)
 
-    const name = roomName.trim()
-    if (!name) { setError('Room name is required'); return }
+    const name = roomName.trim() || 'Untitled'
 
     const id = nanoid(8)
     // Handed to Room via navigation state (not localStorage) so it reaches
@@ -107,11 +106,11 @@ export function CreateRoom() {
 
         {/* Room name */}
         <div className={styles.section}>
-          <div className={styles.label}>Room name</div>
+          <div className={styles.label}>Room name (optional)</div>
           <input
-            className={clsx(styles.input, error && !roomName.trim() && styles.inputError)}
+            className={styles.input}
             type="text"
-            placeholder="e.g. Still life, Session 1"
+            placeholder="Untitled"
             maxLength={50}
             value={roomName}
             onChange={e => setRoomName(e.target.value)}
