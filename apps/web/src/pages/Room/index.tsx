@@ -6,7 +6,7 @@ import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity,
-  ClientToServerEvents, ServerToClientEvents, CursorMoveData,
+  ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, DEFAULT_GRAPHITE_COLOR, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
@@ -31,7 +31,7 @@ import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
 import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom } from './cameraMath'
 import { describeJoinError } from './joinError'
-import { PeerCursors, type PeerCursorPosition } from './PeerCursors'
+import { PeerCursors } from './PeerCursors'
 import { MeasureOverlay, type MeasurePoint } from './MeasureOverlay'
 import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
@@ -319,7 +319,12 @@ export function Room() {
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
   const [participants, dispatchParticipants] = useReducer(participantsReducer, [])
-  const [peerCursors, setPeerCursors] = useState<Record<string, PeerCursorPosition>>({})
+  // (#152) Cursor *positions* used to live here (setPeerCursors on every
+  // incoming peer_cursor packet — up to ~30Hz per peer, summed across
+  // however many peers are moving a pointer at once, all landing on this
+  // ~1600-line component and reconciling its whole tree). PeerCursors now
+  // owns that state itself, subscribing to the socket directly (see its own
+  // component) — Room only needs to hand it the socket and participants.
   const [drawingIds,  setDrawingIds]  = useState<string[]>([])
 
   const canvasRef     = useRef<HTMLCanvasElement>(null)
@@ -1322,12 +1327,8 @@ export function Room() {
 
     const handlePeerLeft = (leftUserId: string) => {
       dispatchParticipants({ type: 'peer_left', userId: leftUserId })
-      setPeerCursors(prev => {
-        if (!(leftUserId in prev)) return prev
-        const next = { ...prev }
-        delete next[leftUserId]
-        return next
-      })
+      // (#152) Cursor-position cleanup for this peer now lives inside
+      // PeerCursors' own 'peer_left' subscription — nothing to do here.
       delete lastActiveAtRef.current[leftUserId]
       // They left mid-reveal — commit whatever of their last stroke(s) had
       // already arrived rather than losing it, just without the animation.
@@ -1339,14 +1340,11 @@ export function Room() {
       if (stranded.length) syncFromLog()
     }
 
-    const handlePeerCursor = (data: CursorMoveData & { userId: string }) => {
-      const { userId: peerId, x, y, drawing } = data
-      // Frozen while they're mid-stroke (#37 follow-up v2) — the dot stays
-      // put at wherever it last was until the finished stroke reveals, since
-      // there's no live approximation of the in-progress shape any more.
-      if (drawing) return
-      setPeerCursors(prev => ({ ...prev, [peerId]: { userId: peerId, x, y } }))
-    }
+    // (#152) peer_cursor itself is no longer handled here at all — Room had
+    // nothing to do with it beyond forwarding into Room-level state (which
+    // is exactly what re-rendered this whole ~1600-line component up to
+    // ~30Hz per moving peer). PeerCursors now subscribes directly (see its
+    // own component) — position updates never reach Room's render tree.
 
     const handleDisconnect = () => setConnected(false)
 
@@ -1355,7 +1353,6 @@ export function Room() {
     socket.on('peer_operation', handlePeerOperation)
     socket.on('peer_joined',    handlePeerJoined)
     socket.on('peer_left',      handlePeerLeft)
-    socket.on('peer_cursor',    handlePeerCursor)
     socket.on('disconnect',     handleDisconnect)
 
     return () => {
@@ -1725,7 +1722,7 @@ export function Room() {
                 exactly as before #143, completely unchanged. */}
             {!config.infinite && (
               <PeerCursors
-                cursors={Object.values(peerCursors)}
+                socket={socketRef.current}
                 participants={participants}
                 zoom={vp.zoom}
                 angle={vp.angle}
@@ -1771,7 +1768,7 @@ export function Room() {
           {config.infinite && (
             <div className={styles.worldOverlayWrap} style={{ transform: cameraTransformCss(vp) }}>
               <PeerCursors
-                cursors={Object.values(peerCursors)}
+                socket={socketRef.current}
                 participants={participants}
                 zoom={vp.zoom}
                 angle={vp.angle}
