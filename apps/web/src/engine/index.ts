@@ -2030,6 +2030,14 @@ export class PencilEngine implements PencilEngineAPI {
   // factored out of _physicalSize only because it reads _opts.size, which a
   // getter can't parameterize.
   private _toPhysicalSize(size: number): number {
+    // Infinite rooms: brush size is in world units (device-independent —
+    // peers replay the same dab sizes), and dabs render into world-
+    // resolution tiles, so no conversion applies. The canvas backing store
+    // is DPR-scaled relative to its CSS size there (see Room's
+    // ResizeObserver), which must scale display, never the brush — before
+    // the DPR-sized backing this ratio happened to be 1 for infinite rooms,
+    // so this branch preserves, not changes, their brush semantics.
+    if (this._infinite) return size
     return size * (this.canvas.width / (this.canvas.clientWidth || this.canvas.width))
   }
 

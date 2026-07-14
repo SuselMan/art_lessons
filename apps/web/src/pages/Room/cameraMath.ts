@@ -28,6 +28,29 @@ import { clientToCanvas, type CanvasSize } from './pointerTransform'
 // mapping is screen = (vp.cx, vp.cy) + R(vp.angle) * vp.zoom * world, which
 // is exactly what worldToScreen computes.
 
+/** The CSS zoom at which one world unit covers exactly one physical device
+ *  pixel — 1 on a classic 96-dpi display, 1/2 on a 2x-scaled tablet, etc.
+ *
+ *  Infinite-canvas world units are document pixels (a stroke's world-space
+ *  width is device-independent and shared by every peer), and tiles store
+ *  content at one texel per world unit — so this zoom, not CSS 1.0, is
+ *  where the drawing appears at its native 1:1 resolution. It's what an
+ *  infinite room's zoom UI presents as "100%" (see Room's zoom label), what
+ *  fit/reset resets to (see useViewport), and the factor between `vp.zoom`
+ *  (CSS px per world unit, what all overlay/CSS math wants) and the zoom
+ *  the engine renders at (physical canvas px per world unit — Room's
+ *  viewport→engine sync divides by this, matching the DPR-sized canvas
+ *  backing store its ResizeObserver sets up). Without this distinction,
+ *  "100%" on a 2.8x-DPR tablet showed every tile texel blown up across
+ *  ~2.8 physical pixels — the whole drawing (most visibly the paper grain
+ *  baked into strokes) read ~2.8x coarser than its native resolution.
+ *
+ *  Read live (not cached) — devicePixelRatio changes with browser zoom and
+ *  monitor moves. */
+export function deviceNativeZoom(): number {
+  return 1 / (window.devicePixelRatio || 1)
+}
+
 export function worldToScreen(worldX: number, worldY: number, vp: Viewport): { x: number; y: number } {
   const cos = Math.cos(vp.angle)
   const sin = Math.sin(vp.angle)

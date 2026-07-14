@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
+import { deviceNativeZoom } from './cameraMath'
+
 export interface Viewport { cx: number; cy: number; zoom: number; angle: number }
 
 interface CanvasSize { width: number; height: number }
@@ -90,13 +92,15 @@ export function useViewport(
   }, [transformFor])
 
   // Initial fit when canvas config loads. Infinite canvas (#133 Phase 1)
-  // has no fixed extent to fit — "reset to origin" (camera centered on
-  // world (0,0), zoom 1) instead; see fitCanvas's same branch below.
+  // has no fixed extent to fit — "reset to origin" instead: camera centered
+  // on world (0,0) at the device-native zoom (1 world unit = 1 physical
+  // pixel — the zoom the UI presents as 100%, see deviceNativeZoom's doc
+  // comment); see fitCanvas's same branch below.
   useLayoutEffect(() => {
     if (!canvas || !vpRef.current) return
     const el = vpRef.current
     const v = infinite
-      ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: 1, angle: 0 }
+      ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: deviceNativeZoom(), angle: 0 }
       : {
           cx: el.clientWidth / 2, cy: el.clientHeight / 2, angle: 0,
           zoom: Math.min(el.clientWidth / canvas.width, el.clientHeight / canvas.height) * 0.88,
@@ -216,14 +220,15 @@ export function useViewport(
 
   // "Fit canvas" for infinite mode has no fixed extent to fit against — see
   // the initial-fit effect's same reasoning — so this resets to origin
-  // instead (camera centered on world (0,0), zoom 1). The button/hotkey
-  // that calls this is unchanged either way; only what it resets to differs.
+  // instead (camera centered on world (0,0), device-native zoom). The
+  // button/hotkey that calls this is unchanged either way; only what it
+  // resets to differs.
   const fitCanvas = useCallback(() => {
     const el = vpRef.current
     const c  = canvasRef.current
     if (!el || !c) return
     const v = infinite
-      ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: 1, angle: 0 }
+      ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: deviceNativeZoom(), angle: 0 }
       : {
           cx: el.clientWidth / 2, cy: el.clientHeight / 2, angle: 0,
           zoom: Math.min(el.clientWidth / c.width, el.clientHeight / c.height) * 0.88,

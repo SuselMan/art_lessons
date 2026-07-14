@@ -19,7 +19,8 @@ import { PrecisionSlider } from '../../components/PrecisionSlider'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
 import { getFeatureFlag, getPencilSoundSetting } from '../../lib/featureFlags'
 import { rgbToHex } from '../../lib/color'
-import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2 } from '../../lib/PencilSound'
+import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, type PencilSoundAPI } from '../../lib/PencilSound'
+import { PencilSoundV3 } from '../../lib/pencilSoundV3'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useViewport } from './useViewport'
@@ -29,7 +30,7 @@ import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
-import { clientToRoomPoint, screenToWorld, cameraTransformCss } from './cameraMath'
+import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom } from './cameraMath'
 import { describeJoinError } from './joinError'
 import { PeerCursors, type PeerCursorPosition } from './PeerCursors'
 import { MeasureOverlay, type MeasurePoint } from './MeasureOverlay'
@@ -140,6 +141,17 @@ function makeInitialLayerState(): LayerState {
   }
 }
 
+// Round-12 A/B/C/D candidates for the Variant 3 tuning panel below (see
+// PENCIL_SOUND_TUNING_LOG.md) — 'A' mirrors Variant3Synth's own field
+// defaults, so it's a true no-op control rather than a second hardcode that
+// can drift from them.
+const V3_TUNE_CANDIDATES: { key: string; label: string; bedMix: number; grainMix: number; patchDepth: number }[] = [
+  { key: 'A', label: 'A control',         bedMix: 0.75, grainMix: 1.8, patchDepth: 0.6 },
+  { key: 'B', label: 'B quiet bed',        bedMix: 0.45, grainMix: 1.8, patchDepth: 0.6 },
+  { key: 'C', label: 'C quiet bed+grain',  bedMix: 0.45, grainMix: 2.3, patchDepth: 0.6 },
+  { key: 'D', label: 'D quiet bed+patch',  bedMix: 0.45, grainMix: 1.8, patchDepth: 0.9 },
+]
+
 export function Room() {
   const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -204,6 +216,11 @@ export function Room() {
   // PENCIL_SOUND_TUNING_LOG.md for what each variant is and how they were
   // chosen.
   const pencilSoundSetting = getPencilSoundSetting()
+
+  // Round-12 A/B/C/D listening panel for Variant 3 mix candidates (see
+  // PENCIL_SOUND_TUNING_LOG.md) — no effect unless pencilSoundSetting is
+  // 'variant3' too.
+  const pencilSoundV3TuningEnabled = getFeatureFlag('pencilSoundV3Tuning')
 
   // Haptic paper-grain experiment: same feature-flag pattern as the ones
   // above. Off by default — for-fun prototype, Android Chrome only.
@@ -296,7 +313,12 @@ export function Room() {
 
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   const engineRef     = useRef<PencilEngineAPI | null>(null)
-  const pencilSoundRef = useRef<PencilSound | null>(null)
+  const pencilSoundRef = useRef<PencilSoundAPI | null>(null)
+  // Narrower ref (only set when pencilSoundSetting is 'variant3') the round-12
+  // tuning panel below uses to reach tune() — PencilSoundAPI deliberately
+  // doesn't expose it, since it's a debug-only escape hatch, not part of the
+  // real start/update/stop/destroy surface every variant shares.
+  const pencilSoundV3Ref = useRef<PencilSoundV3 | null>(null)
   const layerStateRef = useRef<LayerState>(layerState)
   const initialToolRef = useRef({ pencil, size: pencilCfg.size, opacity: pencilCfg.opacity })
 
@@ -454,7 +476,12 @@ export function Room() {
     // Pencil sound: lazy AudioContext built on the engine's own 'strokeStart'
     // below (a real pointerdown gesture, satisfying the autoplay-unlock
     // requirement) — see PencilSound's docstring.
-    if (pencilSoundSetting !== 'off') {
+    if (pencilSoundSetting === 'variant3') {
+      const sound = new PencilSoundV3(config.paper)
+      sound.setHardness(PENCIL_PRESETS[initialToolRef.current.pencil].hardness)
+      pencilSoundRef.current = sound
+      pencilSoundV3Ref.current = sound
+    } else if (pencilSoundSetting !== 'off') {
       const grain = pencilSoundSetting === 'variant1' ? PENCIL_SOUND_VARIANT_1 : PENCIL_SOUND_VARIANT_2
       const sound = new PencilSound(config.paper, grain)
       sound.setHardness(PENCIL_PRESETS[initialToolRef.current.pencil].hardness)
@@ -513,6 +540,7 @@ export function Room() {
       engineRef.current = null
       pencilSoundRef.current?.destroy()
       pencilSoundRef.current = null
+      pencilSoundV3Ref.current = null
     }
   }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting, hapticGrainEnabled])
 
@@ -553,7 +581,10 @@ export function Room() {
       // version so the overlay components below could share the exact
       // same conversion instead of re-deriving it).
       const { x: wx, y: wy } = screenToWorld(el.clientWidth / 2, el.clientHeight / 2, vp)
-      engineRef.current?.setInfiniteCamera(wx, wy, vp.zoom, vp.angle)
+      // vp.zoom is CSS px per world unit; the engine renders into a
+      // DPR-sized backing store (see the ResizeObserver below), so it wants
+      // physical px per world unit — see deviceNativeZoom's doc comment.
+      engineRef.current?.setInfiniteCamera(wx, wy, vp.zoom / deviceNativeZoom(), vp.angle)
       return
     }
     const rect = el.getBoundingClientRect()
@@ -573,7 +604,14 @@ export function Room() {
       const entry = entries[0]
       if (!entry) return
       const { width, height } = entry.contentRect
-      if (width > 0 && height > 0) engine.resizeCanvas(Math.round(width), Math.round(height))
+      // Backing store at physical-device resolution (contentRect is CSS px),
+      // so at the device-native zoom the UI calls 100% one tile texel lands
+      // on exactly one physical pixel — see deviceNativeZoom's doc comment.
+      // The element's own CSS size is set separately (width/height: 100%).
+      const nz = deviceNativeZoom()
+      if (width > 0 && height > 0) {
+        engine.resizeCanvas(Math.round(width / nz), Math.round(height / nz))
+      }
     })
     observer.observe(el)
     return () => observer.disconnect()
@@ -654,22 +692,25 @@ export function Room() {
   // engine.pickColor reads whatever's currently on *screen* (a
   // gl.readPixels off the real, already-camera-composited framebuffer, see
   // its own doc comment), not a layer's world-space content, so it needs
-  // plain screen/canvas-pixel coordinates in both modes, not world ones.
-  // This still uses the pre-#143 clientToCanvas call (with its
-  // PLACEHOLDER_INFINITE_CANVAS_SIZE-based offset for infinite rooms),
-  // which is a separate, pre-existing inaccuracy out of this issue's scope
-  // (#143 is specifically the five overlay components) — left as-is rather
-  // than risk a wrong "fix" for a component this issue didn't ask for.
+  // plain canvas-backing-pixel coordinates in both modes, not world ones.
+  // For infinite rooms that's just the pointer's viewport offset scaled to
+  // the DPR-sized backing store (the canvas fills the viewport with no CSS
+  // pan transform of its own) — this used to go through clientToCanvas with
+  // the PLACEHOLDER_INFINITE_CANVAS_SIZE placeholder config, a pre-existing
+  // inaccuracy #143 explicitly left alone.
   const handleEyedropperPick = useCallback((e: React.PointerEvent) => {
     e.preventDefault()
     const el = vpRef.current
     if (!el || !config) return
     const rect = el.getBoundingClientRect()
-    const { x, y } = clientToCanvas(
-      e.clientX, e.clientY,
-      { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle },
-      config,
-    )
+    const nz = deviceNativeZoom()
+    const { x, y } = config.infinite
+      ? { x: (e.clientX - rect.left) / nz, y: (e.clientY - rect.top) / nz }
+      : clientToCanvas(
+          e.clientX, e.clientY,
+          { cx: rect.left + vp.cx, cy: rect.top + vp.cy, zoom: vp.zoom, angle: vp.angle },
+          config,
+        )
     const picked = engineRef.current?.pickColor(x, y)
     if (picked) {
       setColor(picked)
@@ -1382,13 +1423,19 @@ export function Room() {
             </button>
           )}
           <ParticipantsBar participants={participants} drawingIds={drawingIds} connected={connected} />
+          {/* Infinite rooms display (and reset to) zoom relative to the
+              device-native 1-world-unit-per-physical-pixel scale, so "100%"
+              means the drawing's actual 1:1 resolution on every screen —
+              see deviceNativeZoom's doc comment. Bounded rooms keep vp.zoom
+              as-is (their canvas backing is the fixed document size, so
+              vp.zoom already is the document scale). */}
           <button
             className={styles.zoomLabel}
             onPointerDown={onZoomDragDown}
-            onClick={() => setVp(v => ({ ...v, zoom: 1 }))}
+            onClick={() => setVp(v => ({ ...v, zoom: config?.infinite ? deviceNativeZoom() : 1 }))}
             title="Zoom — drag up/down to adjust, click to reset to 100%"
           >
-            {Math.round(vp.zoom * 100)}%
+            {Math.round(vp.zoom / (config?.infinite ? deviceNativeZoom() : 1) * 100)}%
           </button>
           <button
             className={clsx(styles.angleLabel, angleDeg !== 0 && styles.angleLabelActive)}
@@ -1730,6 +1777,28 @@ export function Room() {
           ) : (
             <div>draw a stroke to see stats</div>
           )}
+        </div>
+      )}
+
+      {/* Round-12 Variant 3 mix tournament (PENCIL_SOUND_TUNING_LOG.md) —
+          live-switch bedMix/grainMix/patchDepth on the running worklet via
+          Variant3Synth's 'tune' message, no graph rebuild. Only rendered
+          when Variant 3 is the active pencil-sound setting; a no-op click
+          before the worklet node exists yet is silently swallowed by
+          PencilSoundV3.post()'s queue, same as any other message. */}
+      {pencilSoundV3TuningEnabled && pencilSoundSetting === 'variant3' && (
+        <div className={clsx(styles.debugOverlay, styles.v3TuningPanel)}>
+          <div>V3 tuning (round 12)</div>
+          {V3_TUNE_CANDIDATES.map(c => (
+            <button
+              key={c.key}
+              type="button"
+              className={styles.v3TuningButton}
+              onClick={() => pencilSoundV3Ref.current?.tune(c)}
+            >
+              {c.label}
+            </button>
+          ))}
         </div>
       )}
 
