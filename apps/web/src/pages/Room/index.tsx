@@ -156,6 +156,37 @@ export function Room() {
   const debugEnabled = getFeatureFlag('debugOverlay')
   const [strokeStats, setStrokeStats] = useState<StrokeDebugStats | null>(null)
 
+  // Browser-native input-to-paint timing (#154 chase, see chat) — a second,
+  // independent measurement alongside strokeStats.avgE2eLatencyMs. That one
+  // only covers the JS side (PointerEvent.timeStamp -> the moment _display()
+  // *returns*), which says nothing about GPU/compositor time after the draw
+  // calls are queued — exactly the gap suspected once e2e latency looked
+  // fine (35/100ms) but the line still visibly lagged. The Event Timing API
+  // (PerformanceObserver({type:'event'})) times a *browser-real* pointermove
+  // from input to the next actual paint, GPU included, for free. Samples
+  // collect into a ref during a stroke (durationThreshold as low as Chrome
+  // allows, so nothing under ~8ms gets silently dropped) and are
+  // summarized/reset once per stroke, right alongside strokeStats itself.
+  const eventDurSamplesRef = useRef<number[]>([])
+  const [eventTimingStats, setEventTimingStats] = useState<{ avg: number; max: number; count: number } | null>(null)
+  useEffect(() => {
+    if (!debugEnabled || typeof PerformanceObserver === 'undefined') return
+    if (!PerformanceObserver.supportedEntryTypes?.includes('event')) return
+    const observer = new PerformanceObserver(list => {
+      for (const entry of list.getEntries()) {
+        if (entry.name === 'pointermove' || entry.name === 'pointerdown') {
+          eventDurSamplesRef.current.push(entry.duration)
+        }
+      }
+    })
+    // durationThreshold: 0 asks for every event regardless of duration —
+    // Chrome clamps this internally (historically ~8ms for 'event' entries,
+    // spec default is 104ms), so this is "as fine-grained as the browser
+    // will actually give us," not a literal zero floor.
+    observer.observe({ type: 'event', durationThreshold: 0, buffered: false } as PerformanceObserverInit)
+    return () => observer.disconnect()
+  }, [debugEnabled])
+
   // Optional pointer-prediction experiment (#92) — same feature-flag pattern
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
   // before deciding whether to keep it.
@@ -441,7 +472,14 @@ export function Room() {
         syncFromLog()
       },
       debug: debugEnabled,
-      onStrokeDebugStats: debugEnabled ? setStrokeStats : undefined,
+      onStrokeDebugStats: debugEnabled ? stats => {
+        setStrokeStats(stats)
+        const samples = eventDurSamplesRef.current
+        setEventTimingStats(samples.length
+          ? { avg: samples.reduce((a, b) => a + b, 0) / samples.length, max: Math.max(...samples), count: samples.length }
+          : null)
+        eventDurSamplesRef.current = []
+      } : undefined,
       predictPointer: predictEnabled,
       hapticGrain: hapticGrainEnabled,
       onHapticGrainStats: hapticGrainEnabled ? setHapticStats : undefined,
@@ -473,6 +511,9 @@ export function Room() {
         setIsDrawing(true)
         markActive(userIdRef.current)
         pencilSoundRef.current?.start(e.pressure, e.speed, e.tiltX, e.tiltY)
+        // Fresh per-stroke window for the Event Timing samples above — drop
+        // anything that landed between strokes (idle hover, UI clicks).
+        eventDurSamplesRef.current = []
       })
       .on('strokeEnd', () => {
         strokeActiveRef.current = false
@@ -1732,71 +1773,92 @@ export function Room() {
 
       </div>
 
-      {/* Device performance readout (#91, extended #104) — ?debug=1 only.
-          Shows the last completed stroke's real input-sample rate, paint
-          cost, and end-to-end (PointerEvent.timeStamp → _display()) input
-          latency, so a tablet with no attached devtools can still report
-          hard numbers. */}
-      {debugEnabled && (
-        <div className={styles.debugOverlay}>
-          {strokeStats ? (
-            <>
-              <div>events: {strokeStats.moveEvents} over {strokeStats.durationMs.toFixed(0)}ms</div>
-              <div>gap: avg {strokeStats.avgGapMs.toFixed(1)}ms / max {strokeStats.maxGapMs.toFixed(1)}ms</div>
-              <div>dabs: {strokeStats.dabCount}</div>
-              <div>render: {strokeStats.renderMsTotal.toFixed(1)}ms total / {strokeStats.avgRenderMsPerDab.toFixed(2)}ms per dab</div>
-              <div>e2e latency: avg {strokeStats.avgE2eLatencyMs.toFixed(1)}ms / max {strokeStats.maxE2eLatencyMs.toFixed(1)}ms</div>
-              <div>tip latency: avg {strokeStats.avgTipLatencyMs.toFixed(1)}ms / max {strokeStats.maxTipLatencyMs.toFixed(1)}ms</div>
-            </>
-          ) : (
-            <div>draw a stroke to see stats</div>
+      {/* Debug overlays share one positioning stack (.debugStack) so having
+          more than one flag on at once (debugOverlay/hapticGrain/
+          tapToHideUI) doesn't render them fully on top of each other at the
+          same fixed corner — see chat, this is exactly what happened while
+          chasing #154's latency regression with hapticGrain still on from
+          earlier testing. */}
+      {(debugEnabled || hapticGrainEnabled || tapToHideEnabled) && (
+        <div className={styles.debugStack}>
+          {/* Device performance readout (#91, extended #104) — ?debug=1
+              only. Shows the last completed stroke's real input-sample
+              rate, paint cost, and end-to-end (PointerEvent.timeStamp →
+              _display()) input latency, so a tablet with no attached
+              devtools can still report hard numbers. */}
+          {debugEnabled && (
+            <div className={styles.debugOverlay}>
+              {strokeStats ? (
+                <>
+                  {/* Trimmed to just the two latency lines while chasing
+                      #154's DPR regression (see chat) — events/gap/dabs/
+                      render were crowding out the numbers that actually
+                      matter right now. Full stats are still in
+                      StrokeDebugStats if needed again. */}
+                  <div>e2e latency: avg {strokeStats.avgE2eLatencyMs.toFixed(1)}ms / max {strokeStats.maxE2eLatencyMs.toFixed(1)}ms</div>
+                  <div>tip latency: avg {strokeStats.avgTipLatencyMs.toFixed(1)}ms / max {strokeStats.maxTipLatencyMs.toFixed(1)}ms</div>
+                  {/* Browser-native Event Timing (#154 chase) — input to
+                      actual paint, GPU/compositor included, unlike the two
+                      lines above (JS-only). See eventDurSamplesRef's own
+                      comment for why this exists. */}
+                  {eventTimingStats ? (
+                    <div>browser paint: avg {eventTimingStats.avg.toFixed(1)}ms / max {eventTimingStats.max.toFixed(1)}ms (n={eventTimingStats.count})</div>
+                  ) : (
+                    <div>browser paint: no samples ≥ threshold</div>
+                  )}
+                </>
+              ) : (
+                <div>draw a stroke to see stats</div>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      {/* Haptic-grain experiment diagnostic — always shown while the flag is
-          on (not gated behind ?debug=1) so it's visible on a tablet with no
-          attached devtools while chasing "vibrates from the test button but
-          not while drawing" (see chat). cellsEntered=0 after drawing means
-          the stroke never reached HapticGrain.sample() at all; bumpsHit=0
-          means it's reaching it but the density threshold never trips;
-          vibrateOk < bumpsHit is now expected (see HapticGrain's
-          minIntervalMs) — most grid hits during a real stroke land inside
-          the same throttle window, so only some of them reach an actual
-          navigator.vibrate() call; a call that browser-rejects instead of
-          being throttled is indistinguishable here, but that was never
-          observed while diagnosing this. */}
-      {hapticGrainEnabled && (
-        <div className={styles.debugOverlay}>
-          {hapticStats ? (
-            <>
-              <div>cells entered: {hapticStats.cellsEntered}</div>
-              <div>bumps hit: {hapticStats.bumpsHit}</div>
-              <div>vibrate() ok: {hapticStats.vibrateOk}</div>
-            </>
-          ) : (
-            <div>draw a stroke to see haptic stats</div>
+          {/* Haptic-grain experiment diagnostic — always shown while the flag
+              is on (not gated behind ?debug=1) so it's visible on a tablet
+              with no attached devtools while chasing "vibrates from the test
+              button but not while drawing" (see chat). cellsEntered=0 after
+              drawing means the stroke never reached HapticGrain.sample() at
+              all; bumpsHit=0 means it's reaching it but the density
+              threshold never trips; vibrateOk < bumpsHit is now expected
+              (see HapticGrain's minIntervalMs) — most grid hits during a
+              real stroke land inside the same throttle window, so only some
+              of them reach an actual navigator.vibrate() call; a call that
+              browser-rejects instead of being throttled is indistinguishable
+              here, but that was never observed while diagnosing this. */}
+          {hapticGrainEnabled && (
+            <div className={styles.debugOverlay}>
+              {hapticStats ? (
+                <>
+                  <div>cells entered: {hapticStats.cellsEntered}</div>
+                  <div>bumps hit: {hapticStats.bumpsHit}</div>
+                  <div>vibrate() ok: {hapticStats.vibrateOk}</div>
+                </>
+              ) : (
+                <div>draw a stroke to see haptic stats</div>
+              )}
+            </div>
           )}
-        </div>
-      )}
 
-      {/* Minimal-UI tap diagnostic — see TapDebugInfo's docstring (chat:
-          "works on Samsung, not on a Surface"). maxDistPx close to or over
-          the threshold means that device's digitizer reports enough jitter
-          on a stationary tap to read as a drag; concurrentTouches > 1 means
-          a second touch (real or a stray palm contact) was down at the same
-          time, disqualifying it as a single-finger tap. */}
-      {tapToHideEnabled && (
-        <div className={styles.debugOverlay}>
-          {tapDebug ? (
-            <>
-              <div>pointerType: {tapDebug.pointerType}</div>
-              <div>max move: {tapDebug.maxDistPx.toFixed(1)}px (threshold {TAP_MOVE_THRESHOLD_PX}px)</div>
-              <div>concurrent touches: {tapDebug.concurrentTouches}</div>
-              <div>was tap: {String(tapDebug.wasTap)}</div>
-            </>
-          ) : (
-            <div>tap the canvas to see tap stats</div>
+          {/* Minimal-UI tap diagnostic — see TapDebugInfo's docstring (chat:
+              "works on Samsung, not on a Surface"). maxDistPx close to or
+              over the threshold means that device's digitizer reports
+              enough jitter on a stationary tap to read as a drag;
+              concurrentTouches > 1 means a second touch (real or a stray
+              palm contact) was down at the same time, disqualifying it as a
+              single-finger tap. */}
+          {tapToHideEnabled && (
+            <div className={styles.debugOverlay}>
+              {tapDebug ? (
+                <>
+                  <div>pointerType: {tapDebug.pointerType}</div>
+                  <div>max move: {tapDebug.maxDistPx.toFixed(1)}px (threshold {TAP_MOVE_THRESHOLD_PX}px)</div>
+                  <div>concurrent touches: {tapDebug.concurrentTouches}</div>
+                  <div>was tap: {String(tapDebug.wasTap)}</div>
+                </>
+              ) : (
+                <div>tap the canvas to see tap stats</div>
+              )}
+            </div>
           )}
         </div>
       )}

@@ -802,12 +802,23 @@
   cursor: default;
 }
 
-/* Device performance readout (#91), ?debug=1 only */
-.debugOverlay {
+/* Shared positioning for every debug overlay panel below — stacks them
+   vertically instead of layering multiple flags' panels on top of each
+   other at the same fixed corner (see chat: debugOverlay + hapticGrain +
+   tapToHideUI all on at once made the latency numbers unreadable). */
+.debugStack {
   position: fixed;
   bottom: 8px;
   left: 8px;
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+}
+
+/* Device performance readout (#91), ?debug=1 only */
+.debugOverlay {
   padding: 8px 10px;
   background: rgba(0, 0, 0, 0.75);
   color: #0f0;
@@ -815,6 +826,5 @@
   font-size: 11px;
   line-height: 1.5;
   border-radius: var(--radius-sm);
-  pointer-events: none;
   white-space: nowrap;
 }
