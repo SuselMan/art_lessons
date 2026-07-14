@@ -658,12 +658,22 @@ export function Room() {
   useEffect(() => {
     const el = vpRef.current
     if (!el || !config) return
+    // (#155 follow-up) Cached rect, same forced-reflow reasoning as the
+    // engine's own _getCanvasRect (see its doc comment) — el.getBoundingClientRect()
+    // is a synchronous layout read, and this handler runs on every real
+    // pointermove reaching the viewport (throttled to shouldEmitCursor's own
+    // rate for the *emit*, but the read itself ran unthrottled before this).
+    // Invalidated only by a real resize of the viewport container itself —
+    // panning/zooming/drawing never move or resize that element.
+    let rectCache: DOMRect | null = null
+    const observer = new ResizeObserver(() => { rectCache = null })
+    observer.observe(el)
     const handleMove = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return
       const now = Date.now()
       if (!shouldEmitCursor(lastCursorSentRef.current, now)) return
       lastCursorSentRef.current = now
-      const rect = el.getBoundingClientRect()
+      const rect = rectCache ??= el.getBoundingClientRect()
       // #143: world-space for infinite rooms (clientToRoomPoint), matching
       // what getContentBounds/painted content already use there — so a
       // peer's PeerCursors marker (rendered through the same camera
@@ -674,7 +684,10 @@ export function Room() {
       socketRef.current?.emit('cursor_move', { x, y, drawing: strokeActiveRef.current })
     }
     el.addEventListener('pointermove', handleMove)
-    return () => el.removeEventListener('pointermove', handleMove)
+    return () => {
+      el.removeEventListener('pointermove', handleMove)
+      observer.disconnect()
+    }
   }, [config, vpRef])
 
   // ── operation log bridge ──────────────────────────────────────────────────────
