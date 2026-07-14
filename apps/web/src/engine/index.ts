@@ -526,6 +526,11 @@ export class PencilEngine implements PencilEngineAPI {
   // canvas element itself just is "the viewport."
   private _infiniteCamera = { wx: 0, wy: 0, zoom: 1, angle: 0 }
 
+  // (#155 follow-up) Cached canvas.getBoundingClientRect() for
+  // setInfiniteCamera's pointer-transform closure — see _getCanvasRect's own
+  // doc comment for why this is safe to cache and what invalidates it.
+  private _canvasRectCache: DOMRect | null = null
+
   // Below/above split-composite cache (#122) — _runComposite normally
   // re-blits every visible layer/folder-child from _compositeOrder into
   // _compositeFBO on every call, which is the thing this whole cache exists
@@ -1128,13 +1133,35 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
+  /** (#155 follow-up) `canvas.getBoundingClientRect()`, cached — a real
+   *  synchronous layout read (a forced reflow if anything invalidated
+   *  layout earlier in the same task), and setInfiniteCamera's pointer-
+   *  transform closure below used to call it fresh on *every* real pointer
+   *  sample during a stroke (a fast stylus easily produces dozens of
+   *  coalesced samples per animation frame). Live profiling during a
+   *  drawing session confirmed this as the single largest actual
+   *  app-attributable CPU cost, and chrome-devtools-mcp's own
+   *  ForcedReflow insight independently named this exact call path
+   *  (`_handleMove` → `_extract` → this transform closure) as the top
+   *  forced-reflow culprit.
+   *
+   *  The canvas element's on-screen rect only changes on a genuine layout
+   *  event (window/container resize — see resizeCanvas, which invalidates
+   *  this), never merely from panning or drawing (a camera move
+   *  re-renders *content*, it never repositions the canvas element itself
+   *  — see setInfiniteCamera's own doc comment), so caching indefinitely
+   *  between resizes is safe. */
+  private _getCanvasRect(): DOMRect {
+    return this._canvasRectCache ??= this.canvas.getBoundingClientRect()
+  }
+
   /** See PencilEngineAPI's doc comment. The pointer transform here is the
    *  exact inverse of _worldToScreenTransform's world->screen math (solved
    *  by hand, not matrix-inverted at runtime, since it's cheap and fixed
    *  shape) — a raw client pointer event must land on the same world point
    *  a tile rendered at (wx,wy,zoom,angle) currently shows there. Unlike
    *  setViewport, this reads the canvas element's own on-screen rect
-   *  directly (canvas.getBoundingClientRect()) rather than trusting a
+   *  (via _getCanvasRect(), see its own doc comment) rather than trusting a
    *  separate (cx,cy) screen-position parameter — infinite mode's canvas
    *  has no CSS pan transform of its own (see resizeCanvas), it's simply
    *  positioned to fill the viewport, so this is the same client->canvas-
@@ -1154,7 +1181,7 @@ export class PencilEngine implements PencilEngineAPI {
     // the live one — dabs landed tens/hundreds of px off from the visible
     // stroke.
     this._pointer.setTransform((clientX, clientY) => {
-      const rect = canvas.getBoundingClientRect()
+      const rect = this._getCanvasRect()
       const scaleX = canvas.width / (rect.width || canvas.width)
       const scaleY = canvas.height / (rect.height || canvas.height)
       const screenX = (clientX - rect.left) * scaleX
@@ -1190,6 +1217,9 @@ export class PencilEngine implements PencilEngineAPI {
     if (canvas.width === width && canvas.height === height) return
     canvas.width = width
     canvas.height = height
+    // (#155 follow-up) A genuine layout event — _getCanvasRect's cache is
+    // stale from here on until re-queried.
+    this._canvasRectCache = null
     const { w: ew, h: eh } = this._renderBufferExtent()
     this._compositeFBO.destroy()
     this._belowCache.destroy()
