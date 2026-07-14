@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ImageImportOperation, LayerOpacityOperation, StrokeOperation } from '@art-lessons/shared'
+import type { ImageImportOperation, LayerOpacityOperation, LayerTransformOperation, StrokeOperation } from '@art-lessons/shared'
 
 import { OperationLog } from './OperationLog'
 
@@ -214,5 +214,98 @@ describe('OperationLog', () => {
     log.append({ id: 'r2', type: 'operation_redo', userId: 'user-a', timestamp: 0, targetOpId: 'b' })
     log.applyRedo('b', 'user-a')
     expect(log.doneOperations().map(o => o.id)).toEqual(['a', 'b', 'r1', 'r2'])
+  })
+
+  // ─── #150: incremental pixelOpDoneCount stays in lockstep with layerPixelOps ──
+
+  describe('pixelOpDoneCount', () => {
+    it('is 0 for a layer with nothing done yet', () => {
+      const log = new OperationLog()
+      expect(log.pixelOpDoneCount('layer-1')).toBe(0)
+    })
+
+    it('increments on append, per targeted layer, and matches layerPixelOps().length', () => {
+      const log = new OperationLog()
+      log.append(stroke({ id: 'a', layerId: 'layer-1' }))
+      log.append(stroke({ id: 'b', layerId: 'layer-2' }))
+      log.append(stroke({ id: 'c', layerId: 'layer-1' }))
+
+      expect(log.pixelOpDoneCount('layer-1')).toBe(2)
+      expect(log.pixelOpDoneCount('layer-2')).toBe(1)
+      expect(log.layerPixelOps('layer-1')).toHaveLength(log.pixelOpDoneCount('layer-1'))
+      expect(log.layerPixelOps('layer-2')).toHaveLength(log.pixelOpDoneCount('layer-2'))
+    })
+
+    it('ignores non-pixel operations (e.g. layer_opacity)', () => {
+      const log = new OperationLog()
+      log.append(opacity({ id: 'a', layerId: 'layer-1' }))
+      expect(log.pixelOpDoneCount('layer-1')).toBe(0)
+    })
+
+    it('decrements on applyUndo and increments back on applyRedo', () => {
+      const log = new OperationLog()
+      log.append(stroke({ id: 'a', userId: 'user-a', layerId: 'layer-1' }))
+      log.append(stroke({ id: 'b', userId: 'user-a', layerId: 'layer-1' }))
+      expect(log.pixelOpDoneCount('layer-1')).toBe(2)
+
+      log.applyUndo('b', 'user-a')
+      expect(log.pixelOpDoneCount('layer-1')).toBe(1)
+      expect(log.layerPixelOps('layer-1')).toHaveLength(1)
+
+      log.applyRedo('b', 'user-a')
+      expect(log.pixelOpDoneCount('layer-1')).toBe(2)
+      expect(log.layerPixelOps('layer-1')).toHaveLength(2)
+    })
+
+    it('a rejected (wrong-author) applyUndo/applyRedo does not change the count', () => {
+      const log = new OperationLog()
+      log.append(stroke({ id: 'a', userId: 'user-a', layerId: 'layer-1' }))
+      expect(log.applyUndo('a', 'user-b')).toBeNull()
+      expect(log.pixelOpDoneCount('layer-1')).toBe(1)
+    })
+
+    it('revoking a done entry decrements the count; revoking an already-undone one does not', () => {
+      const log = new OperationLog()
+      log.append(stroke({ id: 'a', userId: 'user-a', layerId: 'layer-1' }))
+      log.append(stroke({ id: 'b', userId: 'user-a', layerId: 'layer-1' }))
+      log.applyUndo('b', 'user-a') // 'b' now undone, already not counted
+      expect(log.pixelOpDoneCount('layer-1')).toBe(1)
+
+      log.revoke('b') // undone -> gone: no count change
+      expect(log.pixelOpDoneCount('layer-1')).toBe(1)
+
+      log.revoke('a') // done -> gone: -1
+      expect(log.pixelOpDoneCount('layer-1')).toBe(0)
+      expect(log.layerPixelOps('layer-1')).toHaveLength(0)
+    })
+
+    it('a layer_transform targeting several layers bumps every one of them', () => {
+      const log = new OperationLog()
+      const transform: LayerTransformOperation = {
+        id: 't1', type: 'layer_transform', userId: 'user-a', timestamp: 0,
+        transforms: [
+          { layerId: 'layer-1', matrix: [1, 0, 0, 1, 0, 0] },
+          { layerId: 'layer-2', matrix: [1, 0, 0, 1, 0, 0] },
+        ],
+      }
+      log.append(transform)
+      expect(log.pixelOpDoneCount('layer-1')).toBe(1)
+      expect(log.pixelOpDoneCount('layer-2')).toBe(1)
+
+      log.applyUndo('t1', 'user-a')
+      expect(log.pixelOpDoneCount('layer-1')).toBe(0)
+      expect(log.pixelOpDoneCount('layer-2')).toBe(0)
+    })
+
+    it('the author\'s undone-entries-become-gone rule (on a fresh append) never changes the count — those entries were already uncounted', () => {
+      const log = new OperationLog()
+      log.append(stroke({ id: 'a', userId: 'user-a', layerId: 'layer-1' }))
+      log.applyUndo('a', 'user-a')
+      expect(log.pixelOpDoneCount('layer-1')).toBe(0)
+
+      log.append(stroke({ id: 'b', userId: 'user-a', layerId: 'layer-1' })) // flips 'a' undone -> gone
+      expect(log.pixelOpDoneCount('layer-1')).toBe(1) // just 'b'
+      expect(log.layerPixelOps('layer-1').map(o => o.id)).toEqual(['b'])
+    })
   })
 })

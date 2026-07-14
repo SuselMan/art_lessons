@@ -1942,8 +1942,14 @@ export class PencilEngine implements PencilEngineAPI {
   // ─── Checkpoints ─────────────────────────────────────────────────────────────
 
   private _maybeCheckpoint(layerId: string): void {
-    const ops = this._log.layerPixelOps(layerId)
-    if (ops.length === 0 || ops.length % CHECKPOINT_INTERVAL !== 0) return
+    // (#150) O(1) incremental count instead of a full `layerPixelOps(layerId)`
+    // log scan on every stroke/image_import/layer_transform completion — see
+    // OperationLog.pixelOpDoneCount's own doc comment. _takeCheckpoint below
+    // (only reached 1-in-CHECKPOINT_INTERVAL times, and deferred off this
+    // interactive path already) still does its own real scan for the actual
+    // ops array, unaffected by this.
+    const count = this._log.pixelOpDoneCount(layerId)
+    if (count === 0 || count % CHECKPOINT_INTERVAL !== 0) return
     // Deferred off the stroke-completion path (#121): a full-canvas
     // readPixels right as the pointer lifts can stall the GPU pipeline long
     // enough to trip a mobile browser's context-loss watchdog. Idle time

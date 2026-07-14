@@ -52,9 +52,35 @@ const META_OP_TYPES = new Set<Operation['type']>(['operation_revoke', 'operation
 export class OperationLog {
   private _entries: LogEntry[] = []
   private _nextSeq = 0
+  // (#150) Per-layer count of currently-`done` pixel ops, maintained
+  // incrementally alongside every state transition that can change it
+  // (append/applyUndo/applyRedo/revoke below) — `_maybeCheckpoint`
+  // (engine/index.ts) used to call `layerPixelOps(layerId).length` on
+  // *every* stroke/image_import/layer_transform completion just to check
+  // "is this a checkpoint-interval multiple," a full O(log length) scan on
+  // an interactive path whose cost only grows with session length. This
+  // gives the same number in O(targeted layers) instead — `layerPixelOps`
+  // itself is untouched and still used wherever the real ops array (not
+  // just its count) is actually needed, which is naturally rare (checkpoint
+  // taking itself is throttled to 1-in-CHECKPOINT_INTERVAL, replay/rebuild
+  // paths aren't on the per-stroke hot path).
+  private _pixelOpDoneCount = new Map<string, number>()
 
   get entries(): readonly LogEntry[] {
     return this._entries
+  }
+
+  /** See _pixelOpDoneCount's own field comment. O(1), never scans the log. */
+  pixelOpDoneCount(layerId: string): number {
+    return this._pixelOpDoneCount.get(layerId) ?? 0
+  }
+
+  private _bumpPixelOpCount(op: Operation, delta: number): void {
+    if (!isPixelOperation(op)) return
+    const layerIds = op.type === 'layer_transform' ? op.transforms.map(t => t.layerId) : [op.layerId]
+    for (const layerId of layerIds) {
+      this._pixelOpDoneCount.set(layerId, (this._pixelOpDoneCount.get(layerId) ?? 0) + delta)
+    }
   }
 
   /** Appends a new operation. The author's `undone` entries become `gone`:
@@ -82,6 +108,7 @@ export class OperationLog {
     }
 
     this._entries.push({ op: { ...op, seq: this._nextSeq++ }, state: 'done' })
+    this._bumpPixelOpCount(op, 1)
   }
 
   /** Read-only: the user's latest `done` op eligible for undo (excludes
@@ -121,6 +148,7 @@ export class OperationLog {
     for (const e of this._entries) {
       if (e.op.id === targetOpId && e.state === 'done' && e.op.userId === userId) {
         e.state = 'undone'
+        this._bumpPixelOpCount(e.op, -1)
         return e.op
       }
     }
@@ -132,6 +160,7 @@ export class OperationLog {
     for (const e of this._entries) {
       if (e.op.id === targetOpId && e.state === 'undone' && e.op.userId === userId) {
         e.state = 'done'
+        this._bumpPixelOpCount(e.op, 1)
         return e.op
       }
     }
@@ -159,6 +188,10 @@ export class OperationLog {
   revoke(targetOpId: string): Operation | null {
     for (const e of this._entries) {
       if (e.op.id === targetOpId && e.state !== 'gone') {
+        // Only a still-`done` entry was ever counted (an `undone` one
+        // already wasn't) — revoking that one is the only case that changes
+        // the count.
+        if (e.state === 'done') this._bumpPixelOpCount(e.op, -1)
         e.state = 'gone'
         return e.op
       }
