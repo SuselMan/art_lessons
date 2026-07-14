@@ -44,15 +44,106 @@ describe('infinite canvas: transform bake never clips content (#133)', () => {
     const before = readTilePixels(engine, 'L', 0, 0)!
 
     // Note: a vacated tile stays resident-but-empty rather than being
-    // removed from the tile map (eviction/paging is a separate Phase 2
-    // concern) — so tile count only ever grows here, it's not itself a
-    // signal of correctness; what matters is the final pixel content below.
+    // removed from the tile map (eviction/paging is a separate #144 concern,
+    // and #155's attempt at dropping provably-empty tiles here was reverted
+    // — see _bakeTransform's own comment on why) — so tile count only ever
+    // grows here, it's not itself a signal of correctness; what matters is
+    // the final pixel content below.
     const dx = TILE_SIZE * 3
     engine.appendOperation(makeLayerTransform('user-a', [{ layerId: 'L', matrix: [1, 0, 0, 1, dx, 0] }]))
     engine.appendOperation(makeLayerTransform('user-a', [{ layerId: 'L', matrix: [1, 0, 0, 1, -dx, 0] }]))
 
     expectPixelsEqual(readTilePixels(engine, 'L', 0, 0), before)
   })
+
+  it('#155: a small in-place nudge whose destination tile is the same as its source tile keeps the content, not just the tile', () => {
+    // A tiny nudge keeps tile (0,0) as both a source and (since the dab
+    // itself never leaves it) a real destination — exercises the
+    // clear()-then-copyTo ordering for a tile that's simultaneously read
+    // from and written to within the same bake.
+    const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(fillStroke('user-a', 'L', 100, 100, 20))
+    const before = readTilePixels(engine, 'L', 0, 0)!
+
+    const dx = 5, dy = 5
+    engine.appendOperation(makeLayerTransform('user-a', [{ layerId: 'L', matrix: [1, 0, 0, 1, dx, dy] }]))
+
+    const after = readTilePixels(engine, 'L', 0, 0)
+    expect(after).not.toBeNull()
+    expect(after!.some(v => v !== 0)).toBe(true)
+    expect(after).not.toEqual(before) // genuinely moved, not just left alone (or lost)
+  })
+
+  it('#155: rotation + scale + translate (a realistic gizmo drag) does not lose content', () => {
+    const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(fillStroke('user-a', 'L', 100, 100, 20))
+
+    const angle = 0.3, s = 1.4, cx = 100, cy = 100, dx = 40, dy = -20
+    const cos = Math.cos(angle), sin = Math.sin(angle)
+    const a = s * cos, b = s * sin, c = -s * sin, d = s * cos
+    const e = cx - (a * cx + c * cy) + dx
+    const f = cy - (b * cx + d * cy) + dy
+    engine.appendOperation(makeLayerTransform('user-a', [{ layerId: 'L', matrix: [a, b, c, d, e, f] }]))
+
+    let found = false
+    for (let tx = -3; tx <= 3; tx++) {
+      for (let ty = -3; ty <= 3; ty++) {
+        const px = readTilePixels(engine, 'L', tx, ty)
+        if (px && px.some(v => v !== 0)) found = true
+      }
+    }
+    expect(found).toBe(true)
+  })
+
+  it('#155: 11 repeated non-tile-aligned drags in a row (live-browser data-loss repro) never lose content', () => {
+    // Regression for a real eviction/read race in _bakeTransform: a source
+    // tile's own full tileW x tileH extent (not just its painted content) is
+    // what resolveForPaint resolves destinations from, so a non-tile-aligned
+    // drag always spills into a few adjacent tiles beyond the real content —
+    // repeating that spillover across many drags in a row (this exact
+    // 11-drag sequence, captured verbatim from a live room that lost all its
+    // content mid-session) grows resident tile count fast enough to cross
+    // TiledLayerBuffer's own eviction budget partway through a single bake.
+    // Without suspendEviction/resumeEviction around the whole bake (see
+    // _bakeTransform), resolveForPaint's own evictIfOverBudget could destroy
+    // a tile still captured in `sourceTiles` moments before the blit loop
+    // reads its texture — a real WebGL "attempt to use a deleted object"
+    // that fails silently (wrong/missing pixels, no thrown exception) rather
+    // than loudly, which is exactly what made this so easy to ship unnoticed.
+    const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(fillStroke('user-a', 'L', -97, -23.75, 5.2))
+
+    const matrices: Array<[number, number, number, number, number, number]> = [
+      [1, 0, 0, 1, -444.0000343322754, 27.00000762939453],
+      [1, 0, 0, 1, 561.9999885559082, -37.00000762939453],
+      [1, 0, 0, 1, -276.9999694824219, -131.0000228881836],
+      [1, 0, 0, 1, 293.0000305175781, 421.0000228881836],
+      [1, 0, 0, 1, -271.0000228881836, -452.0000076293945],
+      [1, 0, 0, 1, -441.0000228881836, 402.0000076293945],
+      [1, 0, 0, 1, 387.9999923706055, -56.99996948242188],
+      [1, 0, 0, 1, 236.9999885559082, -170],
+      [1, 0, 0, 1, 302.0000457763672, -157.0000267028809],
+      [1, 0, 0, 1, 519.0000152587891, 55],
+      [1, 0, 0, 1, 285.0000381469727, 415],
+    ]
+    let cx = -97, cy = -23.75
+    for (const [i, m] of matrices.entries()) {
+      engine.appendOperation(makeLayerTransform('user-a', [{ layerId: 'L', matrix: m }]))
+      cx += m[4]; cy += m[5]
+      const { tileX, tileY } = { tileX: Math.floor(cx / TILE_SIZE), tileY: Math.floor(cy / TILE_SIZE) }
+      let found = false
+      for (let tx = tileX - 1; tx <= tileX + 1; tx++) {
+        for (let ty = tileY - 1; ty <= tileY + 1; ty++) {
+          const px = readTilePixels(engine, 'L', tx, ty)
+          if (px && px.some(v => v !== 0)) found = true
+        }
+      }
+      expect(found, `content lost after transform #${i + 1} (seq ${i + 4})`).toBe(true)
+    }
+  }, 120000)
 
   it('undo after a far-off-tile transform restores the pre-transform content exactly, same as the bounded-canvas case', () => {
     const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 8, height: 8 })

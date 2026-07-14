@@ -171,15 +171,20 @@ describe('previewLayerTransform: multi-tile live preview (#139)', () => {
   it('perf: repeated previewLayerTransform calls for the same tile set reuse the existing scratch buffers instead of reallocating them every frame', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
-    engine.appendOperation(fillStroke('user-a', 'L', 8, 8, 3))
+    engine.appendOperation(fillStroke('user-a', 'L', 13, 8, 5))
 
-    // The source layer's one tile exactly fills the page ([0,16)x[0,16)),
-    // so *any* nonzero translation immediately spans two tiles (0,0) and
-    // (16,0) — exactly the "same tile set held across several drag frames"
-    // case this fix targets (a real single-tile drag would only ever touch
-    // one tile for small movements, but this fixture happens to start right
-    // on the boundary, which is a fine stand-in: what matters is that the
-    // set stays {(0,0),(16,0)} across every frame below).
+    // (#155 Tier 2) Positioned and sized so its *real painted content*
+    // (not just the tile's whole extent, which is all resolveForPaint used
+    // to reason about pre-Tier-2 — see _bakeTransform's own doc comment)
+    // reaches right up to the page's own right edge — nominally [8,18],
+    // clamped to [8,16] by _dabsWorldBounds' bounded-room clamp (pointer
+    // input can't paint past the visible page, same reasoning as ever).
+    // Translating by dx=1..5 keeps that real content straddling the
+    // (0,0)/(16,0) tile boundary throughout ([9,17] through [13,21]) —
+    // exactly the "same two-tile set held across several drag frames" case
+    // this fix targets (a real single-tile drag would only ever touch one
+    // tile for small movements; this fixture starts right at the boundary
+    // on purpose so every frame below needs both).
     engine.previewLayerTransform([{ layerId: 'L', matrix: [1, 0, 0, 1, 1, 0] }])
     const first = readTransformPreviewTextureIds(engine, 'L')
     expect(first.size).toBe(2)

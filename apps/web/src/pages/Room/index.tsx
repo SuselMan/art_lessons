@@ -573,9 +573,20 @@ export function Room() {
     const engine = engineRef.current
     if (!engine) return
     engine.setActiveLayer(layerState.activeId)
-    engine.setLocked(!!(layerState.items[layerState.activeId]?.locked))
+    // transformActive (#155): the transform gizmo is a separate overlay on
+    // top of the canvas, not something that intercepts/consumes the
+    // canvas's own native pointer events — without this, dragging a gizmo
+    // handle *also* drew a real stroke underneath at the same time (every
+    // pointermove reached both the gizmo's drag handler and PointerInput's
+    // canvas listener), which is what those stray lines during a drag were.
+    // setLocked only gates PencilEngine._onStart (see engine/index.ts) —
+    // it doesn't touch layerState itself, so this never shows the layer as
+    // locked in LayerPanel; it's purely "don't start a new stroke right
+    // now," same effect a real per-layer lock has, just for a different
+    // reason.
+    engine.setLocked(!!(layerState.items[layerState.activeId]?.locked) || transformActive)
     engine.setCompositeOrder(computeCompositeOrder(layerState))
-  }, [layerState])
+  }, [layerState, transformActive])
 
   // ── sync viewport → engine ────────────────────────────────────────────────────
   useEffect(() => {
@@ -1072,6 +1083,15 @@ export function Room() {
       engineRef.current?.clearLayerTransformPreview()
       if (isNegligibleTransform(handle, matrix)) return
       dispatchOp({ type: 'layer_transform', transforms: targetIds.map(layerId => ({ layerId, matrix })) })
+      // (#155) Deferring this past the next paint (tried both requestAnimationFrame
+      // and requestIdleCallback) measurably cut the reported pointerup INP, but left
+      // the gizmo outline showing stale (pre-drag) bounds for a real, user-visible
+      // stretch whenever the deferred callback took a while to fire — confusingly
+      // "not on the content" right after a commit, occasionally bad enough that a
+      // second drag started against the wrong (stale) bounds. Correctness of what's
+      // on screen matters more than shaving this one call off the interaction, so
+      // it stays inline; _bakeTransform's own cost (scratch pooling, dropTile,
+      // suspendEviction) is where #155's INP work continues instead.
       refreshTransformBounds()
     }
     overlay.addEventListener('pointermove', onMove)

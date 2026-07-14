@@ -65,4 +65,5 @@ describe('TiledLayerBuffer', () => {
     expect(buf.tileCount).toBe(0)
     expect(buf.resolveVisible({ minX: 0, minY: 0, maxX: 10, maxY: 10 })).toHaveLength(0)
   })
+
 })

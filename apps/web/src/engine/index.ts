@@ -456,6 +456,18 @@ export class PencilEngine implements PencilEngineAPI {
   // (#155) Same pooling as _previewBufPool above, see _acquireTipBuf.
   private _tipBufPool: AccumulationBuffer | null = null
 
+  // (#155) Scratch buffers for _bakeTransform's per-destination-tile pass —
+  // unlike _tipBufPool/_previewBufPool (always exactly one buffer, canvas-
+  // sized), a single bake can need many alive at once (one per destination
+  // tile, see _bakeTransform's own docstring on why they can't be freed
+  // until every one has finished rendering). Kept as a size-keyed free list
+  // instead: idle between commits, reused instead of reallocated (and
+  // re-paying _makeFBO's checkFramebufferStatus GPU sync) on the next one.
+  // Every tile a single bake touches is the same size (a room's tile grid
+  // never changes shape after construction — see _tileSize), so in practice
+  // this settles into a pool of uniformly-sized buffers after the first bake.
+  private _transformScratchPool: AccumulationBuffer[] = []
+
   // Haptic grain experiment (see HapticGrain.ts) — null unless opted in.
   private _haptic: HapticGrain | null
   private _hapticX = 0
@@ -1079,47 +1091,26 @@ export class PencilEngine implements PencilEngineAPI {
    *  in canvas-pixel space (same convention as Dab.x/y) — used by the
    *  transform gizmo (#120) so it hugs the real content instead of the
    *  whole canvas. `null` if the layer is fully transparent or doesn't
-   *  exist. A full readPixels + CPU scan, same cost profile as
-   *  _takeCheckpoint's — meant to be called once when the tool activates
-   *  or the target selection changes, not per drag frame. */
+   *  exist.
+   *
+   *  (#155 Tier 2) Used to be a full readPixels + per-pixel CPU scan of
+   *  every resident tile, on every call — cheap for a single-tile bounded
+   *  room, but its cost scaled with resident tile count for an infinite
+   *  room, and that count only ever grew across repeated non-tile-aligned
+   *  transform drags (see _bakeTransform's own docstring). Live traces
+   *  showed this dominating a 22s `pointerup` INP (57% readPixels, 31%
+   *  checkFramebufferStatus from the tile creation that came with it), with
+   *  _bakeTransform itself barely registering. Now a plain lookup —
+   *  ILayerBuffer tracks each tile's real content bbox incrementally as it's
+   *  painted/baked (see TiledLayerBuffer's contentRects), so this is a cheap
+   *  union over however many tiles this layer has ever held content on, no
+   *  GPU readback at all. */
   getContentBounds(layerId: string): { x: number; y: number; width: number; height: number } | null {
     const layerBuf = this._layers.get(layerId)
     if (!layerBuf) return null
-    // Scans every resident buffer (bounded mode: always exactly one, the
-    // whole layer — same as before this was generalized; infinite mode:
-    // every resident tile) and unions each one's local content rect into
-    // world space via its own origin.
-    let worldMinX = Infinity, worldMinY = Infinity, worldMaxX = -Infinity, worldMaxY = -Infinity
-    for (const { buffer, originX, originY } of layerBuf.allResident()) {
-      const { width, height } = buffer
-      const pixels = buffer.readPixels()
-      let minX = width, maxX = -1, minRow = height, maxRow = -1
-      for (let row = 0; row < height; row++) {
-        const base = row * width
-        for (let x = 0; x < width; x++) {
-          if (pixels[(base + x) * 4 + 3] === 0) continue
-          if (x < minX) minX = x
-          if (x > maxX) maxX = x
-          if (row < minRow) minRow = row
-          if (row > maxRow) maxRow = row
-        }
-      }
-      if (maxX < minX) continue // this buffer is fully transparent
-      // gl.readPixels' rows are bottom-up (row 0 = GL/window bottom), but
-      // every other buffer-pixel value in this engine is app-space top-down
-      // (y=0 at the top, matching Dab.x/y and clientToCanvas) — same gap
-      // DAB_VERT bridges when painting (`clip.y = -clip.y`) and
-      // TRANSFORM_BLIT_FRAG bridges when baking a transform. Flip once here
-      // so every caller gets an app-space rect for free.
-      const minY = height - 1 - maxRow
-      const maxY = height - 1 - minRow
-      worldMinX = Math.min(worldMinX, originX + minX)
-      worldMaxX = Math.max(worldMaxX, originX + maxX)
-      worldMinY = Math.min(worldMinY, originY + minY)
-      worldMaxY = Math.max(worldMaxY, originY + maxY)
-    }
-    if (worldMaxX < worldMinX) return null
-    return { x: worldMinX, y: worldMinY, width: worldMaxX - worldMinX + 1, height: worldMaxY - worldMinY + 1 }
+    const rect = layerBuf.getContentBoundsWorld()
+    if (!rect) return null
+    return { x: rect.minX, y: rect.minY, width: rect.maxX - rect.minX, height: rect.maxY - rect.minY }
   }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {
@@ -1314,21 +1305,37 @@ export class PencilEngine implements PencilEngineAPI {
       }
 
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-      for (const { originX, originY, buffer } of sourceTiles) {
+      // (#155 Tier 2) Each source tile's own transformed world-space AABB —
+      // see _bakeTransform's identical precompute (and its doc comment on
+      // why this now uses each tile's real tracked contentRect, not its
+      // whole tileW x tileH extent) for the full reasoning; must stay in
+      // lockstep with it for the live preview to stay pixel-identical to
+      // what committing the drag will actually bake (reused below to skip
+      // (dest, src) pairs that can't overlap; this method runs every
+      // animation frame for the whole duration of a live drag, so avoiding
+      // that O(destTiles x sourceTiles) waste matters even more here).
+      const srcRects: Array<WorldRect | null> = []
+      for (const { contentRect } of sourceTiles) {
+        if (!contentRect) { srcRects.push(null); continue }
+        let sMinX = Infinity, sMinY = Infinity, sMaxX = -Infinity, sMaxY = -Infinity
         const corners: Array<[number, number]> = [
-          [originX, originY], [originX + buffer.width, originY],
-          [originX, originY + buffer.height], [originX + buffer.width, originY + buffer.height],
+          [contentRect.minX, contentRect.minY], [contentRect.maxX, contentRect.minY],
+          [contentRect.minX, contentRect.maxY], [contentRect.maxX, contentRect.maxY],
         ]
         for (const [x, y] of corners) {
           const [tx, ty] = applyAffine(matrix, x, y)
           minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
           minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
+          sMinX = Math.min(sMinX, tx); sMaxX = Math.max(sMaxX, tx)
+          sMinY = Math.min(sMinY, ty); sMaxY = Math.max(sMaxY, ty)
         }
+        srcRects.push({ minX: sMinX, minY: sMinY, maxX: sMaxX, maxY: sMaxY })
       }
 
       if (maxX <= minX || maxY <= minY) {
-        // Degenerate (zero-scale) transform — content collapses to nothing,
-        // same as _bakeTransform's own degenerate-transform branch.
+        // Degenerate (zero-scale transform, or every source tile empty) —
+        // content collapses to nothing, same as _bakeTransform's own
+        // degenerate-transform branch.
         for (const t of oldByOrigin.values()) t.buffer.destroy()
         this._transformPreview.delete(layerId)
         continue
@@ -1362,7 +1369,13 @@ export class PencilEngine implements PencilEngineAPI {
         const scratch = old ? old.buffer : new AccumulationBuffer(this.gl, dw, dh)
         scratch.clear()
         if (old) reused.add(key)
-        for (const srcTile of sourceTiles) {
+        sourceTiles.forEach((srcTile, i) => {
+          // (#155) Skip pairs whose transformed bounding boxes don't
+          // overlap at all (including a source with no real content,
+          // srcRects[i] === null) — see _bakeTransform's identical check
+          // for why.
+          const r = srcRects[i]
+          if (!r || r.maxX <= rect.minX || r.minX >= rect.maxX || r.maxY <= rect.minY || r.minY >= rect.maxY) return
           // dest-tile-local -> world (rect's own origin) -> source world
           // (the transform's inverse) -> src-tile-local (srcTile's own
           // origin) — exactly _bakeTransform's own composition; see there.
@@ -1372,7 +1385,7 @@ export class PencilEngine implements PencilEngineAPI {
           this._runTransformBlit(
             srcTile.buffer.texture, mc, dw, dh, srcTile.buffer.width, srcTile.buffer.height, scratch.fbo,
           )
-        }
+        })
         tiles.push({ originX: rect.minX, originY: rect.minY, buffer: scratch })
       }
       // Anything from last frame that isn't part of this frame's tile set
@@ -1550,6 +1563,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._tipBufPool?.destroy()
     this._tipBufPool = null
     this._tipBuf = null
+    for (const b of this._transformScratchPool) b.destroy()
+    this._transformScratchPool = []
     for (const { buf, timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
       buf.destroy()
@@ -1666,6 +1681,10 @@ export class PencilEngine implements PencilEngineAPI {
         for (const t of cp.tiles) {
           const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
           for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
+          // (#155 Tier 2) Exact historical pixels, not a fresh paint — scan
+          // once for the real content bbox rather than a markContentPainted
+          // union (which would wrongly claim the whole tile as content).
+          buf.restoreTileContent(rect, t.pixels)
         }
         start = cp.opIds.length
       } else {
@@ -1809,6 +1828,12 @@ export class PencilEngine implements PencilEngineAPI {
           destTarget.buffer.width, destTarget.buffer.height,
         )
       }
+      // (#155 Tier 2) Same grid, same origin (see this method's own doc
+      // comment) — src's real content rect lands on dest at the exact same
+      // world coordinates, no transform to reason about. null (src tile
+      // fully empty) means nothing to mark, same as skipping the composite
+      // itself would (the blend above is just a no-op in that case).
+      if (src.contentRect) dest.markContentPainted(src.contentRect)
     }
   }
 
@@ -1874,6 +1899,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
     this._tipBuf = null
     this._tipBufPool = null
+    this._transformScratchPool = [] // (#155) pooled GL objects are dead too, not worth destroy()ing
     for (const { timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
     }
@@ -2428,6 +2454,8 @@ export class PencilEngine implements PencilEngineAPI {
       gl.drawArrays(gl.TRIANGLES, 0, 6)
       buffer.endDraw()
     }
+    // (#155 Tier 2) See _paintDabs' identical call for why.
+    layerBuf.markContentPainted(worldRect)
 
     gl.deleteTexture(texture)
     // #122: single choke point for both callers (appendOperation's live
@@ -2489,9 +2517,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (!dabs.length) return
     const erasing = tool === 'eraser'
     const preset  = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+    const worldBounds = this._dabsWorldBounds(dabs, erasing, preset)
     const targets: PaintTarget[] = target instanceof AccumulationBuffer
-      ? [{ buffer: target, originX: 0, originY: 0 }]
-      : target.resolveForPaint(this._dabsWorldBounds(dabs, erasing, preset))
+      ? [{ buffer: target, originX: 0, originY: 0, contentRect: null }]
+      : target.resolveForPaint(worldBounds)
 
     for (const { buffer, originX, originY } of targets) {
       if (erasing) buffer.beginErase()
@@ -2509,6 +2538,11 @@ export class PencilEngine implements PencilEngineAPI {
 
       buffer.endDraw()
     }
+    // (#155 Tier 2) A plain AccumulationBuffer (live-tip/prediction/peer
+    // reveal) is transient/visual-only and never queried for content bounds
+    // — nothing to track. A real ILayerBuffer target tracks it so
+    // getContentBounds() never has to fall back to a readPixels scan.
+    if (!(target instanceof AccumulationBuffer)) target.markContentPainted(worldBounds)
   }
 
   /** Fallback path for a WebGL1 context without ANGLE_instanced_arrays: one
@@ -2860,6 +2894,19 @@ export class PencilEngine implements PencilEngineAPI {
     const fresh = new AccumulationBuffer(this.gl, canvas.width, canvas.height)
     this[poolField] = fresh
     return fresh
+  }
+
+  // (#155) _transformScratchPool's acquire/release pair — see the field's
+  // own comment for why this is a free list rather than a single slot.
+  private _acquireScratchBuf(width: number, height: number): AccumulationBuffer {
+    const pool = this._transformScratchPool
+    const idx = pool.findIndex(b => b.width === width && b.height === height)
+    if (idx !== -1) return pool.splice(idx, 1)[0]
+    return new AccumulationBuffer(this.gl, width, height)
+  }
+
+  private _releaseScratchBuf(buf: AccumulationBuffer): void {
+    this._transformScratchPool.push(buf)
   }
 
   /** (#138) World point that a live-tip/predicted/peer-reveal preview
@@ -3233,33 +3280,95 @@ export class PencilEngine implements PencilEngineAPI {
    *  Two-phase to stay WebGL1-safe (can't read and write the same texture
    *  in one draw call, same reasoning AccumulationBuffer.copyTo's read-
    *  into-temp-then-copy pattern exists for — see _execMergeLive/
-   *  _replayMergeInto): every destination tile is rendered into its own
-   *  fresh scratch buffer first, reading only from the untouched original
-   *  source tiles (one pass per overlapping source tile, alpha-blended —
-   *  see _runTransformBlit — since a destination tile's content can come
-   *  from more than one source tile when the transform includes rotation/
-   *  scale); only once every scratch is fully rendered are the original
-   *  source tiles cleared and the scratches copied into their real
-   *  destination tiles (which can safely be the very same tile objects —
-   *  the scratch render already finished reading from them by then). */
+   *  _replayMergeInto): every destination tile that overlaps at least one
+   *  source tile's transformed bounds is rendered into its own fresh scratch
+   *  buffer first, reading only from the untouched original source tiles
+   *  (one pass per overlapping source tile, alpha-blended — see
+   *  _runTransformBlit — since a destination tile's content can come from
+   *  more than one source tile when the transform includes rotation/scale);
+   *  only once every scratch is fully rendered are the original source tiles
+   *  cleared and the scratches copied into their real destination tiles
+   *  (which can safely be the very same tile objects — the scratch render
+   *  already finished reading from them by then). A vacated source tile
+   *  stays resident-but-empty rather than being dropped from the tile map —
+   *  #155 tried dropping provably-empty tiles here to bound resident count
+   *  for a room dragged across a wide area, but reverted it: resolveForPaint
+   *  resolves destinations from each source tile's *whole* tileW x tileH
+   *  extent rather than its real content, so a realistic non-tile-aligned
+   *  drag already spills into several tiles nothing was ever painted on —
+   *  dropping only genuinely-empty ones barely reduced growth in practice,
+   *  and interacted badly with #144's own eviction/recovery replay cost once
+   *  a repeated-drag session crossed the eviction budget. Bounding this for
+   *  real needs resolveForPaint (or _bakeTransform's own bounds math) to
+   *  work from real content, not full-tile extent — left as a follow-up. */
   private _bakeTransform(layerBuf: ILayerBuffer, matrix: AffineMatrix): void {
     const sourceTiles = layerBuf.allResident()
     if (!sourceTiles.length) return
 
+    // (#155) Suspended for the whole bake, same hazard and same fix as
+    // _replayInto's own suspendEviction (see its doc comment): resolveForPaint
+    // below can create several new destination tiles in one call, pushing
+    // this layer's resident count over budget mid-bake — without suspending,
+    // its own evictIfOverBudget could then destroy a tile still captured in
+    // `sourceTiles` above, moments before the blit loop reads
+    // srcTile.buffer.texture from it (a real, reproducible "attempt to use a
+    // deleted object" GPU error → silently-wrong/missing pixels, not a
+    // thrown exception, so it fails silently rather than loudly). Swept once
+    // at the end against the final, settled tile count instead.
+    const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
+    tiled?.suspendEviction()
+    try {
+      this._bakeTransformUnsuspended(layerBuf, matrix, sourceTiles)
+    } finally {
+      tiled?.resumeEviction()
+    }
+  }
+
+  private _bakeTransformUnsuspended(layerBuf: ILayerBuffer, matrix: AffineMatrix, sourceTiles: PaintTarget[]): void {
+    // (#155 Tier 2) Every source tile's buffer is unconditionally cleared at
+    // the end of this method (see below) regardless of whether it ends up
+    // rewritten as a destination — reset tracked content up front so it
+    // can never fall out of sync with that real GPU clear. `contentRect`
+    // was already captured above (in `sourceTiles`, from allResident()) at
+    // this call's start, so resetting the live tracking now doesn't affect
+    // the srcRects computation just below. Any tile that *does* end up a
+    // destination gets its real post-bake content re-established via
+    // markContentPainted further down, layered on top of this empty
+    // baseline.
+    for (const s of sourceTiles) layerBuf.clearContentAt(s.originX, s.originY)
+
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const { originX, originY, buffer } of sourceTiles) {
+    // (#155 Tier 2) Each source tile's own transformed world-space AABB,
+    // computed once here alongside the overall bounding box below — reused
+    // in the destTargets loop to skip (dest, src) pairs that can't possibly
+    // overlap, instead of unconditionally blitting every combination. Built
+    // from each source's *real tracked content* (contentRect), not its
+    // whole tileW x tileH extent — a tile that's been fully vacated by an
+    // earlier bake (contentRect null) contributes nothing here and is
+    // skipped entirely (srcRects[i] stays null), rather than forever
+    // dragging the overall bounds (and therefore resident tile footprint)
+    // wider on every subsequent drag — see _bakeTransform's own docstring
+    // for the growing-footprint bug this fixes.
+    const srcRects: Array<WorldRect | null> = []
+    for (const { contentRect } of sourceTiles) {
+      if (!contentRect) { srcRects.push(null); continue }
+      let sMinX = Infinity, sMinY = Infinity, sMaxX = -Infinity, sMaxY = -Infinity
       const corners: Array<[number, number]> = [
-        [originX, originY], [originX + buffer.width, originY],
-        [originX, originY + buffer.height], [originX + buffer.width, originY + buffer.height],
+        [contentRect.minX, contentRect.minY], [contentRect.maxX, contentRect.minY],
+        [contentRect.minX, contentRect.maxY], [contentRect.maxX, contentRect.maxY],
       ]
       for (const [x, y] of corners) {
         const [tx, ty] = applyAffine(matrix, x, y)
         minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
         minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
+        sMinX = Math.min(sMinX, tx); sMaxX = Math.max(sMaxX, tx)
+        sMinY = Math.min(sMinY, ty); sMaxY = Math.max(sMaxY, ty)
       }
+      srcRects.push({ minX: sMinX, minY: sMinY, maxX: sMaxX, maxY: sMaxY })
     }
     if (maxX <= minX || maxY <= minY) {
-      // Degenerate (zero-scale) transform — content collapses to nothing.
+      // Degenerate (zero-scale transform, or every source tile empty) —
+      // content collapses to nothing.
       for (const s of sourceTiles) s.buffer.clear()
       return
     }
@@ -3268,9 +3377,39 @@ export class PencilEngine implements PencilEngineAPI {
     const matrixInv = invertAffine(matrix)
     const scratches: Array<{ target: PaintTarget; scratch: AccumulationBuffer }> = []
     for (const destTarget of destTargets) {
-      const scratch = new AccumulationBuffer(this.gl, destTarget.buffer.width, destTarget.buffer.height)
+      const destMinX = destTarget.originX, destMinY = destTarget.originY
+      const destMaxX = destMinX + destTarget.buffer.width, destMaxY = destMinY + destTarget.buffer.height
+      // (#155) resolveForPaint resolves every tile touching the *union* of
+      // every source tile's own real-content transformed bounds — for a
+      // scale/rotate that union can span tiles no individual source tile's
+      // content ever actually reaches (its own transformed rect just
+      // happens to pass near, not through, that particular cell). Checking
+      // for any overlap at all before acquiring a scratch, rather than after
+      // finding none of the per-tile blits below fired, means a destination
+      // like that never gets a scratch (or a wasted GPU copy) in the first
+      // place — it's already a blank tile fresh out of resolveForPaint, so
+      // skipping straight past it leaves it exactly as correct as copying an
+      // all-transparent scratch onto it would have.
+      if (!srcRects.some(r => r && !(r.maxX <= destMinX || r.minX >= destMaxX || r.maxY <= destMinY || r.minY >= destMaxY))) continue
+      // (#155) Pooled rather than `new AccumulationBuffer` + destroy() every
+      // commit — see _transformScratchPool's own comment. A bake that
+      // touches N tiles otherwise pays N fresh _makeFBO calls (each a real
+      // checkFramebufferStatus GPU sync) on every single commit, which
+      // dominated an 8s pointerup INP on a room with ~20 resident tiles.
+      const scratch = this._acquireScratchBuf(destTarget.buffer.width, destTarget.buffer.height)
       scratch.clear()
-      for (const srcTile of sourceTiles) {
+      sourceTiles.forEach((srcTile, i) => {
+        // (#155) Skip pairs whose transformed bounding boxes don't overlap
+        // at all (including a source with no real content, srcRects[i] ===
+        // null) — TRANSFORM_BLIT_FRAG would just sample out-of-[0,1] UV and
+        // draw fully transparent for every fragment in that case, so the
+        // blit call itself is pure waste. Left unconditional, this is
+        // O(destTiles x sourceTiles) real GPU draw calls every bake — fine
+        // for a fresh layer (usually 1 tile each side) but blows up as a
+        // room accumulates more resident tiles from repeated far-off drags:
+        // measured a 5.6s `pointerup` INP from exactly this (see #155).
+        const r = srcRects[i]
+        if (!r || r.maxX <= destMinX || r.minX >= destMaxX || r.maxY <= destMinY || r.minY >= destMaxY) return
         // dest-tile-local -> world (destTarget's own origin) -> source
         // world (the transform's inverse) -> src-tile-local (srcTile's own
         // origin). Bounded mode: both origins are (0,0), so this reduces to
@@ -3284,14 +3423,31 @@ export class PencilEngine implements PencilEngineAPI {
           srcTile.buffer.width, srcTile.buffer.height,
           scratch.fbo,
         )
-      }
+        // (#155 Tier 2) The real content this pair just contributed to
+        // destTarget is exactly r (the source's transformed content AABB)
+        // intersected with destTarget's own world rect — mark it so
+        // getContentBounds() reflects reality without ever reading pixels
+        // back. Unioned across every contributing source (markContentPainted
+        // is monotonic), so call order/count doesn't matter.
+        layerBuf.markContentPainted({
+          minX: Math.max(r.minX, destMinX), minY: Math.max(r.minY, destMinY),
+          maxX: Math.min(r.maxX, destMaxX), maxY: Math.min(r.maxY, destMaxY),
+        })
+      })
       scratches.push({ target: destTarget, scratch })
     }
 
+    // (#155 follow-up: dropTile was tried here and reverted — see its own
+    // removal note below the class for why) — every source tile is cleared
+    // once every scratch has finished reading from it, same as before this
+    // whole optimization pass; a tile that's *also* a destination target
+    // gets fully overwritten by scratch.copyTo right after anyway (a full
+    // replace, not a blend), so clearing it first is harmless, just as it
+    // always was.
     for (const s of sourceTiles) s.buffer.clear()
     for (const { target, scratch } of scratches) {
       scratch.copyTo(target.buffer)
-      scratch.destroy()
+      this._releaseScratchBuf(scratch)
     }
   }
 

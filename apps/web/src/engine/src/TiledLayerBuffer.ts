@@ -1,6 +1,39 @@
 import { AccumulationBuffer } from './AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from './ILayerBuffer'
-import { TILE_SIZE, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, type WorldRect } from './tileMath'
+import { TILE_SIZE, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToTile, type WorldRect } from './tileMath'
+
+/** (#155 Tier 2) Scans a tile's exact RGBA8 pixel content for its real
+ *  alpha!=0 bounding box, tile-local pixel space, half-open like WorldRect
+ *  (maxX/maxY exclusive). Null if every pixel is fully transparent. The one
+ *  place this engine still pays a real readPixels + per-pixel CPU scan —
+ *  now only at the two moments a tile's exact historical pixels are already
+ *  being handed over wholesale (eviction recovery, checkpoint restore), not
+ *  on every content-bounds query the way it used to be.
+ *
+ *  gl.readPixels' rows are bottom-up (row 0 = GL/window bottom), but every
+ *  other buffer-pixel value in this engine is app-space top-down (y=0 at
+ *  the top) — same gap DAB_VERT bridges when painting and TRANSFORM_BLIT_FRAG
+ *  bridges when baking a transform; flipped here so the returned rect is in
+ *  the same top-down convention every other WorldRect in this file uses. */
+function scanLocalContentRect(
+  pixels: Uint8Array, width: number, height: number,
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  let minX = width, maxX = -1, minRow = height, maxRow = -1
+  for (let row = 0; row < height; row++) {
+    const base = row * width
+    for (let x = 0; x < width; x++) {
+      if (pixels[(base + x) * 4 + 3] === 0) continue
+      if (x < minX) minX = x
+      if (x > maxX) maxX = x
+      if (row < minRow) minRow = row
+      if (row > maxRow) maxRow = row
+    }
+  }
+  if (maxX < minX) return null
+  const minY = height - 1 - maxRow
+  const maxY = height - 1 - minRow
+  return { minX, minY, maxX: maxX + 1, maxY: maxY + 1 }
+}
 
 // #144: byte budget for one TiledLayerBuffer instance's *resident* tiles —
 // same spirit and same order of magnitude as engine/index.ts's own
@@ -108,6 +141,14 @@ export class TiledLayerBuffer implements ILayerBuffer {
   // not forgotten — recoverable on demand via rebuildTile. Never populated
   // when rebuildTile is undefined (see class docstring).
   private readonly evicted = new Set<string>()
+  // (#155 Tier 2) Real content bbox per tile ever created, world-space,
+  // keyed the same as `tiles`/`evicted` — populated the moment a tile is
+  // created and never removed except by clear()/destroy(), independent of
+  // whether the tile is currently resident or evicted (eviction destroys
+  // the GPU texture, never the knowledge of what was on it — same spirit as
+  // `evicted` itself). null means "this tile currently holds no content."
+  // See PaintTarget.contentRect's own doc comment for the full reasoning.
+  private readonly contentRects = new Map<string, WorldRect | null>()
   private readonly rebuildTile: TileRebuilder | undefined
   private readonly maxResidentTiles: number
   // Counter, not boolean, so nested suspend/resume (defensive — nothing in
@@ -156,12 +197,14 @@ export class TiledLayerBuffer implements ILayerBuffer {
     for (const tile of this.tiles.values()) tile.destroy()
     this.tiles.clear()
     this.evicted.clear()
+    this.contentRects.clear()
   }
 
   destroy(): void {
     for (const tile of this.tiles.values()) tile.destroy()
     this.tiles.clear()
     this.evicted.clear()
+    this.contentRects.clear()
   }
 
   /** Suspends eviction until a matching resumeEviction() — used by
@@ -223,7 +266,20 @@ export class TiledLayerBuffer implements ILayerBuffer {
       const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
       tile.clear()
       const pixels = session.readPixels(rect)
-      if (pixels) tile.restorePixels(pixels)
+      // (#155 Tier 2) Recovery already has this tile's exact historical
+      // pixels in hand — scan them once, right here, for the real content
+      // bbox rather than leaving tracked state stale. This is the *only*
+      // place recovery pays for a scan; every later getContentBounds() call
+      // reads the result back for free instead of re-scanning.
+      if (pixels) {
+        tile.restorePixels(pixels)
+        const local = scanLocalContentRect(pixels, this.tileW, this.tileH)
+        this.contentRects.set(key, local
+          ? { minX: rect.minX + local.minX, minY: rect.minY + local.minY, maxX: rect.minX + local.maxX, maxY: rect.minY + local.maxY }
+          : null)
+      } else {
+        this.contentRects.set(key, null)
+      }
       this.evicted.delete(key)
       this.tiles.set(key, tile)
     }
@@ -243,6 +299,10 @@ export class TiledLayerBuffer implements ILayerBuffer {
     const tile = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
     tile.clear()
     this.tiles.set(key, tile)
+    // A genuinely brand-new tile (never seen this key before) starts with
+    // no tracked content — a recovered one already got its real content set
+    // by recoverTiles just above, don't stomp it.
+    if (!this.contentRects.has(key)) this.contentRects.set(key, null)
     return tile
   }
 
@@ -254,7 +314,8 @@ export class TiledLayerBuffer implements ILayerBuffer {
     this.recoverTiles(missing)
     const targets = coords.map(({ tileX, tileY }) => {
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
-      return { buffer: this.getOrCreateTile(tileX, tileY), originX: rect.minX, originY: rect.minY }
+      const buffer = this.getOrCreateTile(tileX, tileY)
+      return { buffer, originX: rect.minX, originY: rect.minY, contentRect: this.contentRects.get(tileKey(tileX, tileY)) ?? null }
     })
     // Trimmed once, after every target this call needs is already resolved
     // and (via getOrCreateTile's touch()) freshly MRU — so a trim here can
@@ -279,7 +340,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
       if (!tile) continue // never touched at all — nothing to show, same as before #144
       this.touch(key, tile)
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
-      targets.push({ buffer: tile, originX: rect.minX, originY: rect.minY })
+      targets.push({ buffer: tile, originX: rect.minX, originY: rect.minY, contentRect: this.contentRects.get(key) ?? null })
     }
     // See resolveForPaint's own comment — same reasoning, trimmed once at
     // the end so this call's own targets (just touched, now MRU) are never
@@ -311,8 +372,69 @@ export class TiledLayerBuffer implements ILayerBuffer {
       this.touch(key, tile)
       const { tileX, tileY } = parseTileKey(key)
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
-      targets.push({ buffer: tile, originX: rect.minX, originY: rect.minY })
+      targets.push({ buffer: tile, originX: rect.minX, originY: rect.minY, contentRect: this.contentRects.get(key) ?? null })
     }
     return targets
+  }
+
+  /** See ILayerBuffer's own doc comment. */
+  markContentPainted(worldRect: WorldRect): void {
+    // Rounded outward once, here, rather than left as whatever float math
+    // produced it (a dab's radius-padded bounds, or a rotated transform's
+    // AABB corners) — every tracked contentRect stays integer this way,
+    // with no separate rounding step needed wherever they're later unioned
+    // (getContentBoundsWorld) or compared (getContentBounds' translate-
+    // invariance guarantee, _buildContentComposite's zero-rounding camera
+    // placement — see their own doc comments).
+    const rect: WorldRect = {
+      minX: Math.floor(worldRect.minX), minY: Math.floor(worldRect.minY),
+      maxX: Math.ceil(worldRect.maxX), maxY: Math.ceil(worldRect.maxY),
+    }
+    if (rect.maxX <= rect.minX || rect.maxY <= rect.minY) return
+    for (const { tileX, tileY } of tilesOverlappingRect(rect, this.tileW, this.tileH)) {
+      const key = tileKey(tileX, tileY)
+      if (!this.tiles.has(key)) continue // caller should have resolveForPaint'd this already
+      const tileRect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
+      const overlap: WorldRect = {
+        minX: Math.max(rect.minX, tileRect.minX), minY: Math.max(rect.minY, tileRect.minY),
+        maxX: Math.min(rect.maxX, tileRect.maxX), maxY: Math.min(rect.maxY, tileRect.maxY),
+      }
+      if (overlap.maxX <= overlap.minX || overlap.maxY <= overlap.minY) continue
+      const existing = this.contentRects.get(key) ?? null
+      this.contentRects.set(key, existing ? {
+        minX: Math.min(existing.minX, overlap.minX), minY: Math.min(existing.minY, overlap.minY),
+        maxX: Math.max(existing.maxX, overlap.maxX), maxY: Math.max(existing.maxY, overlap.maxY),
+      } : overlap)
+    }
+  }
+
+  /** See ILayerBuffer's own doc comment. */
+  clearContentAt(originX: number, originY: number): void {
+    const { tileX, tileY } = worldToTile(originX, originY, this.tileW, this.tileH)
+    const key = tileKey(tileX, tileY)
+    if (this.tiles.has(key)) this.contentRects.set(key, null)
+  }
+
+  /** See ILayerBuffer's own doc comment. */
+  restoreTileContent(rect: WorldRect, pixels: Uint8Array): void {
+    const { tileX, tileY } = worldToTile(rect.minX, rect.minY, this.tileW, this.tileH)
+    const key = tileKey(tileX, tileY)
+    if (!this.tiles.has(key)) return
+    const local = scanLocalContentRect(pixels, this.tileW, this.tileH)
+    this.contentRects.set(key, local
+      ? { minX: rect.minX + local.minX, minY: rect.minY + local.minY, maxX: rect.minX + local.maxX, maxY: rect.minY + local.maxY }
+      : null)
+  }
+
+  /** See ILayerBuffer's own doc comment. */
+  getContentBoundsWorld(): WorldRect | null {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const rect of this.contentRects.values()) {
+      if (!rect) continue
+      minX = Math.min(minX, rect.minX); minY = Math.min(minY, rect.minY)
+      maxX = Math.max(maxX, rect.maxX); maxY = Math.max(maxY, rect.maxY)
+    }
+    if (maxX <= minX || maxY <= minY) return null
+    return { minX, minY, maxX, maxY }
   }
 }
