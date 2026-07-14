@@ -17,6 +17,7 @@
 
 import type { PaperType } from '@art-lessons/shared'
 
+import type { PencilSoundAPI } from '../PencilSound'
 import { Variant3Synth, type V3Message } from './Variant3Synth'
 
 const TILT_MAX_DEG = 70 // same convention as PencilSound.ts
@@ -51,7 +52,7 @@ function getWorkletUrl(): string {
   return workletUrl
 }
 
-export class PencilSoundV3 {
+export class PencilSoundV3 implements PencilSoundAPI {
   private ctx: AudioContext | null = null
   private node: AudioWorkletNode | null = null
   // Messages sent before addModule() resolves (it's async; the first
@@ -93,6 +94,12 @@ export class PencilSoundV3 {
    *  the graph stays alive so the next stroke has no re-construction cost. */
   stop(): void {
     this.post({ type: 'stop' })
+  }
+
+  /** Round-12 tuning panel only (PENCIL_SOUND_TUNING_LOG.md) — live A/B/C/D
+   *  mix overrides while a stroke is (or gets) drawn, no graph rebuild. */
+  tune(params: { bedMix?: number; grainMix?: number; patchDepth?: number }): void {
+    this.post({ type: 'tune', ...params })
   }
 
   /** Tears everything down — call on unmount, not on strokeEnd. */

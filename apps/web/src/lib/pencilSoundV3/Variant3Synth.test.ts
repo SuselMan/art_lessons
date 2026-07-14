@@ -220,6 +220,9 @@ describe('Variant3Synth (offline, 48kHz)', () => {
     const head = rms(L, 0, Math.round(0.05 * FS))
     const late = rms(L, Math.round(0.3 * FS))
     expect(head).toBeGreaterThan(5 * Math.max(late, 1e-6))
-    expect(head).toBeGreaterThan(0.003)
+    // Round 13: deliberately much quieter than before (a loud, always-on tap
+    // regardless of touch force was a specific complaint) — this floor is
+    // recalibrated to the new tonal-click design, not the old noise-burst one.
+    expect(head).toBeGreaterThan(0.0015)
   })
 })

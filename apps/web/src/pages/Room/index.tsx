@@ -19,8 +19,7 @@ import { PrecisionSlider } from '../../components/PrecisionSlider'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
 import { getFeatureFlag, getPencilSoundSetting } from '../../lib/featureFlags'
 import { rgbToHex } from '../../lib/color'
-import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, type PencilSoundAPI } from '../../lib/PencilSound'
-import { PencilSoundV3 } from '../../lib/pencilSoundV3'
+import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, PENCIL_SOUND_VARIANT_3, type PencilSoundAPI } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useViewport } from './useViewport'
@@ -90,9 +89,6 @@ const INITIAL_LAYER_ID = 'layer-1'
 // works (single-user/offline-ish behavior).
 const INITIAL_USER_ID = 'local'
 // LAN dev server port (apps/server); derived from window.location.hostname
-// (not hardcoded 'localhost') so it works from other devices on the LAN per
-// CLAUDE.md's "vite --host always on" for tablet testing.
-const SERVER_PORT = 4000
 // How long a stroke's "drawing" activity (local or peer) stays visible before
 // the #38 indicator clears it — see drawingIndicator.ts.
 const DRAWING_TIMEOUT_MS = 1500
@@ -140,17 +136,6 @@ function makeInitialLayerState(): LayerState {
     selectedIds: [],
   }
 }
-
-// Round-12 A/B/C/D candidates for the Variant 3 tuning panel below (see
-// PENCIL_SOUND_TUNING_LOG.md) — 'A' mirrors Variant3Synth's own field
-// defaults, so it's a true no-op control rather than a second hardcode that
-// can drift from them.
-const V3_TUNE_CANDIDATES: { key: string; label: string; bedMix: number; grainMix: number; patchDepth: number }[] = [
-  { key: 'A', label: 'A control',         bedMix: 0.75, grainMix: 1.8, patchDepth: 0.6 },
-  { key: 'B', label: 'B quiet bed',        bedMix: 0.45, grainMix: 1.8, patchDepth: 0.6 },
-  { key: 'C', label: 'C quiet bed+grain',  bedMix: 0.45, grainMix: 2.3, patchDepth: 0.6 },
-  { key: 'D', label: 'D quiet bed+patch',  bedMix: 0.45, grainMix: 1.8, patchDepth: 0.9 },
-]
 
 export function Room() {
   const { id }   = useParams<{ id: string }>()
@@ -216,11 +201,6 @@ export function Room() {
   // PENCIL_SOUND_TUNING_LOG.md for what each variant is and how they were
   // chosen.
   const pencilSoundSetting = getPencilSoundSetting()
-
-  // Round-12 A/B/C/D listening panel for Variant 3 mix candidates (see
-  // PENCIL_SOUND_TUNING_LOG.md) — no effect unless pencilSoundSetting is
-  // 'variant3' too.
-  const pencilSoundV3TuningEnabled = getFeatureFlag('pencilSoundV3Tuning')
 
   // Haptic paper-grain experiment: same feature-flag pattern as the ones
   // above. Off by default — for-fun prototype, Android Chrome only.
@@ -314,11 +294,6 @@ export function Room() {
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   const engineRef     = useRef<PencilEngineAPI | null>(null)
   const pencilSoundRef = useRef<PencilSoundAPI | null>(null)
-  // Narrower ref (only set when pencilSoundSetting is 'variant3') the round-12
-  // tuning panel below uses to reach tune() — PencilSoundAPI deliberately
-  // doesn't expose it, since it's a debug-only escape hatch, not part of the
-  // real start/update/stop/destroy surface every variant shares.
-  const pencilSoundV3Ref = useRef<PencilSoundV3 | null>(null)
   const layerStateRef = useRef<LayerState>(layerState)
   const initialToolRef = useRef({ pencil, size: pencilCfg.size, opacity: pencilCfg.opacity })
 
@@ -476,13 +451,10 @@ export function Room() {
     // Pencil sound: lazy AudioContext built on the engine's own 'strokeStart'
     // below (a real pointerdown gesture, satisfying the autoplay-unlock
     // requirement) — see PencilSound's docstring.
-    if (pencilSoundSetting === 'variant3') {
-      const sound = new PencilSoundV3(config.paper)
-      sound.setHardness(PENCIL_PRESETS[initialToolRef.current.pencil].hardness)
-      pencilSoundRef.current = sound
-      pencilSoundV3Ref.current = sound
-    } else if (pencilSoundSetting !== 'off') {
-      const grain = pencilSoundSetting === 'variant1' ? PENCIL_SOUND_VARIANT_1 : PENCIL_SOUND_VARIANT_2
+    if (pencilSoundSetting !== 'off') {
+      const grain = pencilSoundSetting === 'variant1' ? PENCIL_SOUND_VARIANT_1
+        : pencilSoundSetting === 'variant2' ? PENCIL_SOUND_VARIANT_2
+        : PENCIL_SOUND_VARIANT_3
       const sound = new PencilSound(config.paper, grain)
       sound.setHardness(PENCIL_PRESETS[initialToolRef.current.pencil].hardness)
       pencilSoundRef.current = sound
@@ -540,7 +512,6 @@ export function Room() {
       engineRef.current = null
       pencilSoundRef.current?.destroy()
       pencilSoundRef.current = null
-      pencilSoundV3Ref.current = null
     }
   }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting, hapticGrainEnabled])
 
@@ -1125,8 +1096,11 @@ export function Room() {
   useEffect(() => {
     if (!id) return
 
+    // Same-origin: the Vite dev server proxies /socket.io to apps/server
+    // (see vite.config.ts) — works under both `npm run dev` (https, needed
+    // for AudioWorklet-based sound experiments) and `npm run dev:http`.
     const socket: Socket<ServerToClientEvents, ClientToServerEvents> =
-      io(`http://${window.location.hostname}:${SERVER_PORT}`, { withCredentials: true })
+      io({ withCredentials: true })
     socketRef.current = socket
 
     // Fires on the initial connect *and* on every auto-reconnect (socket.io-
@@ -1777,28 +1751,6 @@ export function Room() {
           ) : (
             <div>draw a stroke to see stats</div>
           )}
-        </div>
-      )}
-
-      {/* Round-12 Variant 3 mix tournament (PENCIL_SOUND_TUNING_LOG.md) —
-          live-switch bedMix/grainMix/patchDepth on the running worklet via
-          Variant3Synth's 'tune' message, no graph rebuild. Only rendered
-          when Variant 3 is the active pencil-sound setting; a no-op click
-          before the worklet node exists yet is silently swallowed by
-          PencilSoundV3.post()'s queue, same as any other message. */}
-      {pencilSoundV3TuningEnabled && pencilSoundSetting === 'variant3' && (
-        <div className={clsx(styles.debugOverlay, styles.v3TuningPanel)}>
-          <div>V3 tuning (round 12)</div>
-          {V3_TUNE_CANDIDATES.map(c => (
-            <button
-              key={c.key}
-              type="button"
-              className={styles.v3TuningButton}
-              onClick={() => pencilSoundV3Ref.current?.tune(c)}
-            >
-              {c.label}
-            </button>
-          ))}
         </div>
       )}
 

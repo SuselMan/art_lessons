@@ -351,7 +351,267 @@ constant speed 3 px/ms, pressure 0.6 — note constant drive understates CV/cres
 motion): rms 0.061, macro CV 0.445, envelope crest 3.8, centroid **6547 Hz** (real recordings:
 5.7-6.7 kHz — the round-3 brightness gap is finally closed), corr(L,R) 0.61.
 
+**Result:** Ilya's read: "вообще неплохо, но всё ещё не идеально" — no specific complaint singled
+out yet, so round 12 works from the offline metrics instead (see below) rather than guessing blind.
+
+## Round 12 — bed vs. grain balance and patch depth
+
+Round 11's offline numbers (constant-speed drive, so understated per the test's own caveat) sit
+well under target on the two "texture" stats: **envelope crest 3.8 vs ≈11**, **macro CV 0.445 vs
+≈0.75** — centroid was already on target (6547 Hz). Working hypothesis: `bedMix 0.75` is a
+continuous, always-on noise floor competing with the real distance-triggered grains for attention,
+the reverse of round 6's lesson (there, added grain was the extra thing fighting a good floor; here
+the floor may be what's diluting good grain). Candidates vary bed/grain balance and `patchDepth`
+(new field, replaces the `0.6` literal in `patchTarget`'s exponent) to see which axis actually moves
+the needle, isolating them per the usual one-step-at-a-time approach:
+
+| key | label | bedMix | grainMix | patchDepth |
+|-----|-------|--------|----------|------------|
+| A | control (current V3 defaults) | 0.75 | 1.8 | 0.6 |
+| B | quieter bed | 0.45 | 1.8 | 0.6 |
+| C | quieter bed + louder grain | 0.45 | 2.3 | 0.6 |
+| D | quieter bed + deeper patchiness | 0.45 | 1.8 | 0.9 (range ≈0.41–2.46×, was 0.55–1.82×) |
+
+Live A/B/C/D switching via a new `pencilSoundV3Tuning` debug flag (bottom-right panel, Settings →
+Pencil sound must be Variant 3) — posts a `'tune'` message straight to the running worklet
+(`Variant3Synth.handleMessage`), no graph rebuild, same pattern as round 9's live variant switching.
+Also fixed along the way: **Variant 3 was unreachable in the running app** — `Room/index.tsx` never
+actually constructed `PencilSoundV3` when the setting was `'variant3'` (only variant1/2 were wired),
+apparently lost in the round-11 session's unstaged WIP. Fixed by branching construction on the
+setting and giving `PencilSound`/`PencilSoundV3` a shared `PencilSoundAPI` interface so one ref in
+`Room/index.tsx` can hold either.
+
 **Result:** _pending — awaiting Ilya's listening pass._
+
+**Addendum — "no sound at all" on the tablet, traced and fixed:** the round-11→12 construction fix
+above (branching on `'variant3'`) actually made things *worse*-looking at first listen: before it,
+selecting "Variant 3" silently fell into the `!== 'off'` branch and played **Variant 2** through the
+plain node graph (mislabeled, but audible) — that's what "Variant 3 worked" before this round
+actually was. Once construction correctly routes to real `PencilSoundV3` (`AudioWorklet`-based), it
+hit a browser platform wall: `AudioWorklet` only loads on a *secure context* (https, or literally
+`localhost`/`127.0.0.1`) — a plain-http LAN origin (`http://192.168.x.x:5173`, the tablet's usual
+address per CLAUDE.md's "vite --host always on") doesn't qualify, so `ctx.audioWorklet` is `undefined`
+there and `pencilSoundV3/index.ts`'s `ensureGraph()` throws synchronously reaching for
+`.addModule()` on it — silently, since nothing in that path had a `.catch()` or a visible fallback.
+Variant 1/2 never hit this because they're a plain `GainNode`/`BiquadFilterNode` graph, no worklet.
+
+Fix: `apps/web/vite.config.ts` now runs the dev server on https via `vite-plugin-mkcert`
+(auto-generates + trusts a local CA on this machine) and proxies `/api` and `/socket.io` to
+`apps/server` (still plain http) so the browser only ever talks to the one https origin — a direct
+`http://` request from an `https://` page is blocked as mixed content regardless of CORS, which is
+why the backend got proxied rather than given its own cert. `lib/api.ts` and `Room/index.tsx`'s
+socket connection switched from a hardcoded `http://${hostname}:4000` to same-origin/relative to
+go through that proxy. One-time device-side step: the tablet needs the CA at
+`C:\Users\Ilya\.vite-plugin-mkcert\rootCA.pem` installed as a trusted CA cert (Chrome respects the
+OS/user cert store on Android) — otherwise it'll just see the usual self-signed-cert warning on
+`https://192.168.x.x:5173`, click-through-able but not silently trusted. New origin (`https://`
+instead of `http://`) also means the "Pencil sound" setting and the identity cookie start fresh
+there — reselect Variant 3 in Settings after the first visit.
+
+## Round 13 — first real listening pass, four specific complaints
+
+With the LAN/https blocker gone, Ilya's first actual listen to real `PencilSoundV3` (as opposed to
+the round-12-and-earlier mislabeled Variant 2) surfaced four issues, all traced to specific code
+rather than just "needs a different number":
+
+1. **Touchdown tap too strong and too low-pitched.** `tapEnv = 0.35 + 0.65*pressure` had a high
+   floor (35% loudness at zero pressure); `kTapLp = freqCoef(280)` made the tap's own noise burst a
+   280Hz-lowpassed *thud*, not a click. Fixed: floor down to 0.1 with a `pressure^1.4` curve (more
+   perceptible force-dependence, see #4), `kTapLp` raised to 900Hz, `tapImpulsePending`'s coefficient
+   1.5→0.8 (softer resonator-bank kick, less bass), and the `tap` term's `*6` gain →`*3`.
+2. **Reads as "plastic bag rustling," weak apparent speed-dependence, doesn't sell hatching.**
+   This is round 12's own working hypothesis, now confirmed by ear: `bedMix 0.75`'s continuous
+   noise floor was masking the actual distance-triggered (hence speed-correlated) grain excitation.
+   Round 12's candidate C (bedMix 0.45 / grainMix 2.3) is promoted from tuning-panel option to the
+   shipped default; the panel's A/B/C/D (see `Room/index.tsx`'s `V3_TUNE_CANDIDATES`) now explores
+   *from* that new baseline instead of re-litigating the old one.
+3. **A single stationary dot (no drag) still produces a "shhh" rustle — where's that even coming
+   from?** From the tap itself: `tap = tapLpState * tapEnv * 6` is literally lowpassed noise, not a
+   clean impulse — by construction it *is* a short noise burst, which is exactly what read as
+   "rustle" riding along with the thud. The brighter/shorter/quieter tap from fix #1 should read
+   more like a distinct tick and less like noise, but this is structural (the transient is noise-
+   based on purpose, see the file header's transient rationale) — worth a specific listen on its own,
+   independent of the speed-driven bed/grain question.
+4. **Tap barely depends on touch force, always loud.** Same root cause as #1's floor — a light
+   touch and a hard touch differed by at most 65% of tapEnv's range on top of a 35% floor. The new
+   `0.1 + 0.9*pressure^1.4` floor/curve should make light taps read as clearly lighter.
+
+**Result:** first pass (parameter-only: floor/curve/gain/cutoff nudges, bedMix/grainMix defaults) did
+*not* fix it — Ilya reported the exact same four symptoms after listening again. That ruled out "just
+needs different numbers" and pointed at something structural, so compared directly against Variant
+1/2 (`PencilSound.ts`) — the reference Ilya actually likes — instead of guessing more constants:
+
+- **Variant 1/2 have no touchdown sound at all.** `masterGainTarget` returns `0` outright whenever
+  `speedNorm(speed) <= 0`, and there's no separate transient path — a stylus that never moves makes
+  no sound, period. V3 was the only variant with a touchdown concept in the first place, and it was
+  built from raw filtered noise (`tapLpState`) summed straight into the output — that noise burst
+  *was* the rustle-on-a-dot people were hearing, not a side effect of some other parameter.
+- **Variant 1/2's brightness sweep uses a real resonant `BiquadFilterNode` bandpass** (Q 0.7-1.9,
+  rising with pressure), swept a narrow 1200-5000Hz. V3's bed used two cascaded *non-resonant*
+  one-pole lowpasses specifically to avoid round 8's "howling wind" bug — but that bug came from a
+  *wide, fast resonant* sweep, not resonance itself. A resonant peak gives the ear an actual pitch to
+  track sliding with speed; a moving lowpass cutoff on non-resonant noise doesn't have one, which is
+  most of why the old bed read as flat "shshsh" that didn't seem to track speed even though its
+  cutoff genuinely moved.
+
+Rewrote both, still self-contained per the file's own serialization constraint:
+
+- `bedLpL/bedLp2L/bedHpL` (and R) two-cascaded-LP-minus-HP → a proper resonant bandpass biquad (RBJ
+  cookbook, constant 0dB peak gain), coefficients recomputed at block rate from `bedCut` (now swept
+  1200-4500Hz, matching Variant 1/2's range) and a pressure-dependent Q (`0.8 + pressure*1.0`, same
+  idea as Variant 1/2's `bandpassQ`). Direct-form-II-transposed per channel, decorrelated L/R inputs
+  unchanged.
+- The noise-burst `tap` term is gone entirely. Touchdown is now a single one-sample impulse
+  (`tapImpulsePending`, pressure^1.6 curve — steep, near-zero floor) ringing a small **dedicated**
+  2-pole resonator (1700Hz, ~9ms tau — a tonal tick, not noise) whose output bypasses `gain` the same
+  way `lift` already did. This had to be a separate resonator from the grain/modal bank: that bank's
+  output is scaled by `gain`, which is ~0 exactly when speed is ~0 — i.e. exactly the
+  stationary-touchdown moment — so an earlier attempt at routing the click through the shared bank
+  measured *silent* on a standstill tap in the offline test (`Variant3Synth.test.ts`) before this fix.
+  The shared bank still gets a small fraction of the kick (`tapKick * 0.3`) for body/continuity while
+  a stroke is already ringing it, but the audible click itself lives in the new resonator.
+- `Variant3Synth.test.ts`'s "touchdown tap is audible from standstill" threshold was recalibrated
+  down (0.003→0.0015) — it was tuned against the old, deliberately-too-loud burst; the 5×-over-silence
+  relative check is unchanged and still the more meaningful assertion.
+
+Offline steady-stroke metrics after the rewrite: rms 0.088, macroCV 0.423, crest 4.08, centroid
+6898Hz, corrLR 0.853 — still in the same ballpark as round 11's numbers (crest 3.8, CV 0.445,
+centroid 6547Hz vs. real ≈5.7-6.7kHz/≈11/≈0.75), not a regression on the measured axes.
+
+**Result:** the resonant-bandpass rewrite still didn't land — Ilya's read: the tap now reads as
+basically gone, a stationary dot still "crunches like walking on snow" (quieter than before but
+still clearly noise, not silence), and the resonant bandpass itself came out too harsh/sharp overall.
+Three rounds into retuning `PencilSoundV3` from scratch (rounds 11-13) without closing the gap to
+Variant 1/2 was the signal to stop iterating on the from-scratch design and go empirical instead.
+
+## Round 13, take 2 — abandon the from-scratch synth, extend Variant 1 instead
+
+Ilya's call: stop trying to make the AudioWorklet/distance-grain/modal-resonator design (rounds
+1-13) sound as good as Variant 1/2 from first principles, and instead start from Variant 1's actual
+recipe — the one that already sounds right — and add exactly two things on top of it: a light,
+touch-force-scaled touchdown tap, and grain-peak loudness that scales down at low speed (not just
+grain *rate*, which Variant 1/2 already do via `grainRateHz`).
+
+`lib/pencilSoundV3/` (`Variant3Synth.ts`, `index.ts`, the AudioWorklet wrapper, `Variant3Synth.test.ts`)
+is now fully unwired — nothing imports it — but left on disk rather than deleted, since it's real,
+documented engineering work (rounds 1-13) that might be worth revisiting later with a completely
+different approach; ask Ilya before deleting it outright.
+
+Implementation, entirely inside `PencilSound.ts`'s existing node-graph engine (no new engine, no
+AudioWorklet, no secure-context requirement — the https/mkcert dev-server setup from earlier in
+round 13 is no longer *required* for pencil sound, though it's harmless to keep):
+
+- `GrainVariant` gained two new optional fields — `tap` and `grainPeakSpeedFloor` — both `undefined`
+  by default, so `PENCIL_SOUND_VARIANT_1`/`_2` are byte-for-byte unchanged in behavior.
+- **Tap**: a small always-running bandpassed-noise source (own `BiquadFilterNode` bandpass, ~1800Hz)
+  feeds a dedicated `tapGain`, silent except for a quick attack/decay envelope triggered on
+  `strokeStart` (`PencilSound.triggerTap()`) — peak scaled linearly between `tap.minGain`/`maxGain`
+  by pressure. Connects to a new `outputSum` node placed *after* `masterGain` (not through it) —
+  `masterGain` is speed-driven and sits at ~0 exactly at the touchdown instant, the same reason the
+  abandoned AudioWorklet version needed a ungated path for its own click.
+- **Speed-scaled grain peaks**: `applyTarget()` now also automates each layer's existing
+  `grainDepthGain` (previously set once at graph-build time and never touched again) toward
+  `recipe.depth * peakScale`, where `peakScale` ranges from `grainPeakSpeedFloor` at zero speed up to
+  `1` (full depth) at max speed — same `speedNorm()` curve `masterGainTarget` already uses.
+- `PENCIL_SOUND_VARIANT_3 = { ...PENCIL_SOUND_VARIANT_1, tap: {...}, grainPeakSpeedFloor: 0.3 }` —
+  deliberately light tap (`minGain 0.025, maxGain 0.16`) so a soft touch barely ticks.
+- `Room/index.tsx`: `pencilSoundSetting === 'variant3'` now constructs `PencilSound` with this recipe
+  (same class variant1/2 use) instead of `PencilSoundV3`. The round-12 A/B/C/D live-tuning panel,
+  `pencilSoundV3Tuning` feature flag, and `PencilSoundV3` import/ref are all removed — they only made
+  sense for the retired AudioWorklet engine.
+
+**Result:** three specific notes back — tap too weak, a stationary dot *still* rustles, and slow-
+stroke grain peaks still read as loud/sharp despite the new speed floor:
+
+1. **Tap too weak.** Straightforward — raised `minGain`/`maxGain` (0.025/0.16 → 0.05/0.32, roughly
+   doubled).
+2. **Dot still rustles.** Root cause, not a tuning issue: the tap's gain envelope was applied
+   *after* `tapBandpass`, so the filter was processing the noise carrier 100% of the time regardless
+   — the envelope only ever gated volume on already-continuous filtered noise, which is textured the
+   same as a stationary dot's would-be bed noise (same failure shape as the abandoned AudioWorklet
+   version's first attempt, just one level up the chain). Fixed by moving the gate *before* the
+   filter (`tapExciteGain`) so the noise carrier only reaches `tapBandpass` for a few ms per tap —
+   the filter then rings on its own high-Q resonance afterward instead of being continuously fed,
+   which is what makes it read as a percussive tick rather than hiss. Also raised Q 3→24 (Q=3 was
+   barely more than a broad tone-control on white noise, nowhere near resonant enough to "ring").
+3. **Slow-stroke peaks still loud/sharp.** `grainPeakSpeedFloor` dropped further (0.3→0.08) and
+   given its own curve (`speedT^1.4` instead of linear) so peaks stay soft through low-to-mid speed,
+   not just right at the very bottom of the range.
+
+**Result:** still not there — dot still rustles, slow line still rustles a lot, and the tap itself
+now reads as "a wooden xylophone, too high" ("не особо лучше стало" overall):
+
+1. **Dot still rustles, despite the excite-before-filter fix.** Q=24 wasn't actually enough to make
+   `tapBandpass` "ring" cleanly once excited — the excitation itself (a gated *noise* burst, even a
+   short one) is still audibly noisy for as long as it's feeding the filter, and 24 isn't sharp
+   enough for the filter's own resonance to dominate over that. Concluded the live-gated-filter
+   approach (both orderings tried) is fundamentally the wrong tool: replaced entirely with
+   `createClickBuffer()`, which bakes an *exact* impulse response (single-sample kick into a 2-pole
+   resonator, computed once into an `AudioBuffer`, blended with a brief separate noise transient for
+   contact texture) rather than emerging from live gate timing. `triggerTap()` now just plays a fresh
+   one-shot `AudioBufferSourceNode` from that buffer per tap — the waveform is authored exactly, no
+   more guessing at how gate/filter interaction will sound.
+2. **Tap reads as "wooden xylophone, too high."** That was Q=24 at 1800Hz doing exactly what asked
+   (a clean, fairly pure ring) — just too clean and too high a pitch for a pencil tap. New buffer:
+   500Hz (down from 1800), 20ms decay, and a deliberate 35% noise blend so it isn't a pure tone.
+3. **Slow line still rustles a lot.** Root cause: round 13's speed-scaling only touched
+   `grainDepthGain` (the sparse grain *spikes*), never `carrierGain`'s constant `floor` value — and
+   `PENCIL_SOUND_VARIANT_1` (what Variant 3 is built on) has `depth: 0.02` vs `floor: 0.12`, i.e. the
+   floor is ~6× the grain contribution and totally unaffected by the fix. Renamed
+   `grainPeakSpeedFloor` → `speedPresenceFloor` and had it scale *both* `carrierGain.gain` (the
+   floor) and `grainDepthGain` together — a slow stroke now thins out the whole texture, not just
+   its rare spikes.
+
+**Result:** direction confirmed right (click buffer + floor speed-scaling both accepted, no more
+"rustle"/"xylophone" complaints), just needed two more turns of the same knobs — tap deeper/louder,
+overall friction texture halved:
+
+- Tap: `freqHz` 500→300 (deeper), `minGain`/`maxGain` 0.05/0.32→0.08/0.5 (louder).
+- New `GrainVariant.outputGainScale` (flat multiplier on `masterGainTarget`'s output, applied only in
+  `applyTarget()` — `undefined`/1 for Variant 1/2, unaffected) — `PENCIL_SOUND_VARIANT_3` set to 0.5,
+  halving the friction texture (bed+grain) without touching the tap, which has its own independent
+  gain.
+
+**Result:** asked for more pressure-dependence specifically: a light touch should be quieter than it
+currently is, a firm press should land about where it already does (not louder still). A linear
+`minGain`-to-`maxGain` interpolation can't do that on its own — pulling `minGain` down also pulls
+every pressure below 1.0 down by the same flat amount, including firm-but-not-maximal presses.
+Added `pressureCurve` (`peak = minGain + (maxGain-minGain) * pressure^pressureCurve`, `pressureCurve`
+2.2 for Variant 3): pressure=1 still lands exactly on `maxGain` (unchanged), but every pressure below
+that now sits further down than the linear map would put it — a medium press (0.5) drops from ~0.29
+to ~0.13, a light one (0.2) from ~0.16 to ~0.03. `minGain` itself also dropped 0.08→0.02 (was already
+audible at literal zero pressure).
+
+**Result:** two more notes — the friction texture reads as too sibilant ("щщщщ", a hissy "sh"),
+wanted duller/breathier ("фффф", closer to a soft "f"); tap still not low enough.
+
+- New `GrainVariant.brightnessScale`: multiplies the carrier bandpass's swept center frequency
+  (`brightnessFreq()`, shared MIN_FREQ 1200/MAX_FREQ 5000Hz range) proportionally, shifting the whole
+  sweep down without changing its shape. Variant 3: 0.45 → effective range ≈540-2250Hz (was
+  1200-5000Hz) — well out of the sibilant "sh"/"s" band, into breathier "f"/"wind" territory.
+  `undefined`/1 leaves Variant 1/2 exactly as before.
+- Tap `freqHz` dropped again, 300→180.
+
+**Result:** tap lower still, and "softer" noise — distinct from "quieter" (`outputGainScale` already
+turned down two rounds ago), read as a texture/harshness note rather than a loudness one:
+
+- Tap `freqHz` 180→120.
+- New `GrainVariant.curvePower` override: Variant 3 was inheriting Variant 1's `curvePower: 4.0`
+  (sharp, spiky grain envelope — most of each grain-modulator cycle near-silent with brief sharp
+  spikes, see `createGrainCurve()`'s doc) unchanged. Dropped to 2.0 — rounder, less spiky.
+- New `GrainVariant.qScale` (multiplies `bandpassQ()`): Variant 3 set to 0.6, broadening the carrier
+  bandpass's resonant peak (less "peaky"/resonant-sounding). `undefined`/1 leaves Variant 1/2 as-is.
+
+**Result:** asked whether tone tracks speed at all, and to strengthen it. It already did — the
+carrier bandpass has always swept with `brightnessFreq()` — but `brightnessScale` (0.45, round 13
+take 6) scales that *entire* sweep down uniformly, including how much ground it covers, so the
+speed-dependence itself reads weaker even though the mechanism didn't change. New
+`GrainVariant.brightnessRangeBoost`: adds extra spread on top, proportional to `speedT` so the
+low-speed tone (already tuned right) is untouched but high speed reaches further up — at
+`speedT=0` no change, at `speedT=1` roughly +1kHz beyond what `brightnessScale` alone gives (with
+Variant 3's 1.6). `undefined`/1 leaves Variant 1/2 exactly as before.
+
+**Result:** _pending — awaiting Ilya's next listening pass._
 
 ## How to log a result
 

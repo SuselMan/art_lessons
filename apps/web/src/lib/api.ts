@@ -1,9 +1,12 @@
 import type { Room } from '@art-lessons/shared'
 
-// Same LAN dev server the Room socket connects to (see SERVER_PORT in
-// pages/Room/index.tsx) — derived from window.location.hostname, not
-// hardcoded 'localhost', so it works from other devices on the LAN.
-const API_BASE = `http://${window.location.hostname}:4000`
+// Same-origin: the Vite dev server proxies /api to apps/server (see
+// vite.config.ts) — needed because the dev server runs https (for
+// AudioWorklet on LAN, #153) while the backend stays plain http, and a
+// direct http:// request from an https:// page is blocked as mixed content
+// regardless of CORS. Room/index.tsx's socket connection uses the same
+// same-origin + proxy approach.
+const API_BASE = ''
 
 /** Thrown by apiFetch on a non-ok response. Carries the parsed `{ error }`
  *  body's code (e.g. 'invalid_credentials') so callers can show a specific

@@ -44,6 +44,9 @@ export type V3Message =
   | { type: 'update'; speed: number; pressure: number; tiltNorm: number }
   | { type: 'stop' }
   | { type: 'config'; hardness: number; paper: PaperType }
+  // Round-12 tuning panel (PENCIL_SOUND_TUNING_LOG.md) — live A/B/C/D mix
+  // overrides, no graph rebuild needed. Omitted fields keep their current value.
+  | { type: 'tune'; bedMix?: number; grainMix?: number; patchDepth?: number }
 
 export class Variant3Synth {
   private fs: number
@@ -87,16 +90,25 @@ export class Variant3Synth {
   private grainLpState = 0
   private grainLp2State = 0
 
-  // ── bed state (two cascaded one-pole LPs → -12dB/oct; a single pole left
-  //    too much energy above the cutoff and pushed the measured centroid to
-  //    ~10kHz vs the real recordings' 5.7-6.7kHz) ──
-  private bedCut = 3000      // Hz, smoothed at block rate
-  private bedLpL = 0
-  private bedLpR = 0
-  private bedLp2L = 0
-  private bedLp2R = 0
-  private bedHpL = 0
-  private bedHpR = 0
+  // ── bed state: resonant bandpass (biquad) over decorrelated L/R white
+  //    noise. Rounds 1-12 used a non-resonant two-pole LP here specifically
+  //    to dodge round-8's "howling wind" bug — but that bug came from a
+  //    *wide, fast* resonant sweep, not resonance itself (Variant 1/2's
+  //    node-graph BiquadFilterNode bandpass, Q 0.7-1.9, proves a resonant
+  //    sweep works fine when it's narrow and not too fast). A non-resonant
+  //    cutoff sweep has no audible peak for the ear to track sliding with
+  //    speed, which is most of why the old bed read as flat "shshsh" that
+  //    barely seemed to track speed even though its cutoff genuinely did
+  //    move. Round 13: swapped in a proper resonant bandpass, kept to
+  //    Variant 1/2's same narrow range + moderate Q to stay clear of round 8. ──
+  private bedCut = 2400      // Hz, smoothed at block rate
+  private bedB0 = 0
+  private bedA1 = 0
+  private bedA2 = 0
+  private bedZ1L = 0
+  private bedZ2L = 0
+  private bedZ1R = 0
+  private bedZ2R = 0
   private patch = 1          // slow sample-and-hold loudness patchiness
   private patchTarget = 1
   private patchCountdown = 0
@@ -115,11 +127,26 @@ export class Variant3Synth {
   private modeY2R = [0, 0, 0, 0]
 
   // ── transients ──
-  private tapEnv = 0
+  // Round 13: touchdown used to be tapEnv/tapDecay/tapLpState driving an
+  // ~18ms burst of filtered noise added straight to the output — that noise
+  // burst *was* the "why is there rustle on a single dot" a plain tap
+  // produced, and its pressure floor was high enough to read as "always
+  // loud regardless of touch force". Replaced with a single one-sample
+  // impulse (tapImpulsePending) ringing a small *dedicated* 2-pole resonator
+  // (tapRing*) — a fixed-frequency tonal "click", not noise, so touchdown
+  // reads as a tick rather than a hiss. It has to be a separate resonator
+  // from the grain/bed modal bank below (not just feeding tapKick into it):
+  // that bank's output is scaled by `gain`, which is ~0 whenever speed is
+  // ~0 — exactly the touchdown/stationary-dot moment — so routing the click
+  // through it would make it inaudible precisely when it needs to be heard
+  // (confirmed by the offline test: a shared-bank version measured *silent*
+  // on a standstill tap). This one bypasses `gain` like `lift` already does.
   private tapImpulsePending = 0
-  private tapDecay: number
-  private tapLpState = 0
-  private kTapLp: number
+  private tapRingA1 = 0
+  private tapRingA2 = 0
+  private tapRingIn = 0
+  private tapRingY1 = 0
+  private tapRingY2 = 0
   private liftEnv = 0
   private liftDecay: number
 
@@ -131,16 +158,22 @@ export class Variant3Synth {
   // fixed filter coefs
   private kGrainHp: number
   private kGrainLp = 1
-  private kBedHp: number
 
   // ── mix levels ──
-  private bedMix = 0.75
-  private grainMix = 1.8
+  // Round 13: bedMix lowered / grainMix raised from round 12's own working
+  // hypothesis (candidate C) — Ilya's listening pass confirmed the default
+  // (candidate A) read as "plastic bag rustling" with grain barely audible
+  // and texture not tracking stroke speed, i.e. the continuous bed floor was
+  // masking the actual distance-triggered grain excitation.
+  private bedMix = 0.45
+  private grainMix = 2.3
   private modeMix = 0.7
   private transientMix = 0.7
   private masterScale = 0.4
   private gainCeiling = 0.5
   private outScale = 0.9
+  // exponent on the ±1 uniform draw behind patchTarget — round 12 tuning axis
+  private patchDepth = 0.6
 
   private rngState = 0x9e3779b9
 
@@ -154,12 +187,20 @@ export class Variant3Synth {
     this.kGainAtk = this.tauCoef(0.012)
     this.kGainRel = this.tauCoef(0.04)
     this.kPatch = this.tauCoef(0.04)
-    this.tapDecay = Math.exp(-1 / (0.018 * sampleRate))
     this.liftDecay = Math.exp(-1 / (0.012 * sampleRate))
-    this.kTapLp = this.freqCoef(280)
     this.kGrainHp = this.freqCoef(1200)
-    this.kBedHp = this.freqCoef(350)
     this.grainDecay = Math.exp(-1 / (0.0018 * sampleRate))
+    // Touchdown click resonator — fixed, deliberately brighter than the
+    // modal bank's bass mode (430Hz) so the click itself doesn't read as
+    // "low" the way the old lowpassed-noise burst did; short tau (~9ms) for
+    // a tick, not a ring.
+    {
+      const tapRingFreq = 1700
+      const rTap = Math.exp(-1 / (0.009 * sampleRate))
+      this.tapRingA1 = 2 * rTap * Math.cos((2 * Math.PI * tapRingFreq) / sampleRate)
+      this.tapRingA2 = -rTap * rTap
+      this.tapRingIn = 1 - rTap
+    }
     this.recomputeHardness()
   }
 
@@ -192,10 +233,11 @@ export class Variant3Synth {
       this.targetPressure = m.pressure
       this.targetTilt = m.tiltNorm
       this.sinceUpdate = 0
-      // touchdown tap — scaled by the *message's* pressure (the smoothed one
-      // hasn't caught up yet at this exact moment)
-      this.tapEnv = 0.35 + 0.65 * Math.max(0, Math.min(1, m.pressure))
-      this.tapImpulsePending = 1.5 * this.tapEnv
+      // touchdown click — scaled by the *message's* pressure (the smoothed
+      // one hasn't caught up yet at this exact moment). Steep pow curve:
+      // near-silent at a light touch, only a firm press rings the modal
+      // bank noticeably — see the tapImpulsePending field comment.
+      this.tapImpulsePending = 0.6 * Math.pow(Math.max(0, Math.min(1, m.pressure)), 1.6)
       // re-arm the grain threshold so a new stroke doesn't inherit a stale one
       this.nextGrainAt = this.distPx + this.grainSpacingPx * (0.6 + 0.8 * this.rnd())
     } else if (m.type === 'stop') {
@@ -213,6 +255,10 @@ export class Variant3Synth {
         this.grainSpacingPx = 6.5; this.grainGainPaper = 0.45; this.paperGain = 0.62
       }
       this.recomputeHardness()
+    } else if (m.type === 'tune') {
+      if (m.bedMix !== undefined) this.bedMix = m.bedMix
+      if (m.grainMix !== undefined) this.grainMix = m.grainMix
+      if (m.patchDepth !== undefined) this.patchDepth = m.patchDepth
     }
   }
 
@@ -243,11 +289,27 @@ export class Variant3Synth {
     const n = outL.length
     // block-rate smoothing for filter cutoffs (they move slowly; recomputing
     // exp() per sample buys nothing) — deliberately slow (tau 0.15s), same
-    // lesson as round 8's BRIGHTNESS_RAMP
+    // lesson as round 8's BRIGHTNESS_RAMP. Range narrowed to match Variant
+    // 1/2's proven 1200-5000Hz (was 1800-7000) — round 8's actual lesson was
+    // about a *wide, fast* resonant sweep, not resonance itself.
     const kBlockBright = 1 - Math.exp(-(n / this.fs) / 0.15)
-    const bedCutTarget = (1800 + 5200 * this.speedNorm(this.speed)) * this.hardBright
+    const bedCutTarget = (1200 + 3300 * this.speedNorm(this.speed)) * this.hardBright
     this.bedCut += kBlockBright * (bedCutTarget - this.bedCut)
-    const kBed = this.freqCoef(Math.min(this.bedCut, 10000))
+    // Resonant bandpass coefficients (RBJ cookbook, constant 0dB peak gain:
+    // b0=alpha, b1=0, b2=-alpha), recomputed at block rate from the smoothed
+    // center frequency — same cadence as the old per-block kBed. Q rises
+    // with pressure like Variant 1/2's bandpassQ ("harder press → narrower/
+    // more resonant → denser scratch").
+    {
+      const w0 = 2 * Math.PI * Math.min(this.bedCut, this.fs * 0.45) / this.fs
+      const bedQ = 0.8 + Math.max(0, this.pressure) * 1.0
+      const alpha = Math.sin(w0) / (2 * bedQ)
+      const cosw0 = Math.cos(w0)
+      const a0 = 1 + alpha
+      this.bedB0 = alpha / a0
+      this.bedA1 = (-2 * cosw0) / a0
+      this.bedA2 = (1 - alpha) / a0
+    }
     const tiltCut = 9000 - this.tilt * (9000 - 1800)
     this.kTiltLp = this.freqCoef(tiltCut)
 
@@ -292,42 +354,48 @@ export class Variant3Synth {
       const exGL = this.grainEnvL * gNoise
       const exGR = this.grainEnvR * gNoise // same noise both sides → point-source grain, panned by amplitude
 
-      // ── bed: decorrelated L/R colored noise with slow patchiness ──
+      // ── bed: decorrelated L/R resonant bandpass over white noise, slow
+      //    patchiness (direct-form-II-transposed biquad; b1=0/b2=-b0 per
+      //    the block-rate coefficients computed above) ──
       const nL = this.rnd() * 2 - 1
       const nR = this.rnd() * 2 - 1
-      this.bedLpL += kBed * (nL - this.bedLpL)
-      this.bedLpR += kBed * (nR - this.bedLpR)
-      this.bedLp2L += kBed * (this.bedLpL - this.bedLp2L)
-      this.bedLp2R += kBed * (this.bedLpR - this.bedLp2R)
-      this.bedHpL += this.kBedHp * (this.bedLp2L - this.bedHpL)
-      this.bedHpR += this.kBedHp * (this.bedLp2R - this.bedHpR)
-      let bedL = this.bedLp2L - this.bedHpL
-      let bedR = this.bedLp2R - this.bedHpR
+      const bedRawL = this.bedB0 * nL + this.bedZ1L
+      this.bedZ1L = -this.bedA1 * bedRawL + this.bedZ2L
+      this.bedZ2L = -this.bedB0 * nL - this.bedA2 * bedRawL
+      const bedRawR = this.bedB0 * nR + this.bedZ1R
+      this.bedZ1R = -this.bedA1 * bedRawR + this.bedZ2R
+      this.bedZ2R = -this.bedB0 * nR - this.bedA2 * bedRawR
+      let bedL = bedRawL
+      let bedR = bedRawR
       if (--this.patchCountdown <= 0) {
         // sample-and-hold + glide: modulation depth is exact by construction
         // (no lowpassed-noise amplitude surprises — the round-2/3 bug class);
         // exponential shape so "more tooth" patches swing further up than
         // "less tooth" ones swing down (range ≈ 0.55-1.8×)
-        this.patchTarget = Math.exp(0.6 * (this.rnd() * 2 - 1))
+        this.patchTarget = Math.exp(this.patchDepth * (this.rnd() * 2 - 1))
         this.patchCountdown = Math.round((0.03 + 0.1 * this.rnd()) * this.fs)
       }
       this.patch += this.kPatch * (this.patchTarget - this.patch)
       bedL *= this.patch
       bedR *= this.patch
 
-      // ── transients (own gain path — master gain is ~0 at touchdown/lift) ──
-      this.tapLpState += this.kTapLp * ((this.rnd() * 2 - 1) - this.tapLpState)
-      const tap = this.tapLpState * this.tapEnv * 6
-      this.tapEnv *= this.tapDecay
-      const lift = gNoise * this.liftEnv
-      this.liftEnv *= this.liftDecay
-      const transient = (tap + lift) * this.transientMix
+      // ── transients (own gain path — master gain is ~0 at touchdown/lift,
+      //    exactly the moment these need to be heard, so both bypass it —
+      //    see tapImpulsePending's field comment for why the click needs
+      //    its own resonator rather than riding the modal bank below). ──
       const tapKick = this.tapImpulsePending
       this.tapImpulsePending = 0
+      const tapY = this.tapRingIn * tapKick + this.tapRingA1 * this.tapRingY1 + this.tapRingA2 * this.tapRingY2
+      this.tapRingY2 = this.tapRingY1; this.tapRingY1 = tapY
+      const lift = gNoise * this.liftEnv
+      this.liftEnv *= this.liftDecay
+      const transient = (tapY * 4 + lift) * this.transientMix
 
-      // ── modal resonator bank: grains (and the touchdown kick) ping it ──
-      const feedL = exGL + bedL * 0.12 + tapKick
-      const feedR = exGR + bedR * 0.12 + tapKick
+      // ── modal resonator bank: grains (and a touch of the tap kick, for
+      //    body/continuity while an active stroke is already ringing it)
+      //    ping it — gated by `gain`, unlike the click above ──
+      const feedL = exGL + bedL * 0.12 + tapKick * 0.3
+      const feedR = exGR + bedR * 0.12 + tapKick * 0.3
       let modesL = 0
       let modesR = 0
       for (let m = 0; m < 4; m++) {

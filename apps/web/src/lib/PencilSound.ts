@@ -61,6 +61,55 @@ export interface GrainVariant {
                         // on the same carrier) — that's what makes it read as "two textures layered"
                         // rather than "one texture with a more complex envelope". A nested variant's
                         // own `secondary` (if any) is ignored — no recursive combos.
+  // Round 13 (#153 Variant 3, take 3): touchdown tap, undefined = no tap at
+  // all (Variant 1/2's exact prior behavior — a still stylus makes no
+  // sound, full stop). When present, strokeStart plays a short *pre-baked*
+  // click buffer (see PencilSound.createClickBuffer()/triggerTap()) —
+  // deliberately not a live-gated BiquadFilterNode. Two earlier attempts
+  // both gated an always-running noise source through a filter (once after
+  // it, once before it) and both still read as "noise with a volume
+  // envelope" rather than a clean percussive tick, because the filter (or
+  // its excitation) kept processing live randomness for long enough to stay
+  // audibly noisy. Baking an exact impulse response (a single-sample kick
+  // into a 2-pole resonator, computed once into an AudioBuffer, blended
+  // with a very brief separate noise transient for "contact" texture) has
+  // no such ambiguity — the waveform is authored exactly, not emergent from
+  // gate timing. freqHz/decaySeconds/noiseMix shape it; gain scales with
+  // pressure between minGain and maxGain via pressure^pressureCurve (1 =
+  // linear; >1 pulls light/medium presses down further while leaving
+  // maxGain, at pressure=1, unchanged — see triggerTap()); bypasses
+  // masterGain the same way the earlier attempts did (masterGain is
+  // speed-driven, ~0 at touchdown).
+  tap?: { minGain: number; maxGain: number; freqHz: number; decaySeconds: number; noiseMix: number; pressureCurve: number }
+  // Texture presence (both the constant noise floor *and* grain peak
+  // loudness) scales with speed too, not just grain rate — a slow stroke's
+  // texture should be quieter and softer overall, not just its occasional
+  // spikes. 1 (or omitted) = no scaling, Variant 1/2's prior behavior;
+  // otherwise the floor at zero speed, ramping (speed^1.4, not linear — see
+  // applyTarget()) up to full (1) at max speed.
+  speedPresenceFloor?: number
+  // Flat multiplier on the friction texture's overall loudness (masterGain
+  // — bed/grain, not the tap, which has its own minGain/maxGain). 1 (or
+  // omitted) = no change, Variant 1/2's prior behavior.
+  outputGainScale?: number
+  // Multiplier on the carrier bandpass's swept center frequency (see
+  // brightnessFreq()) — shifts the whole MIN_FREQ..MAX_FREQ sweep down
+  // proportionally, i.e. duller/breathier ("фффф") rather than sibilant/
+  // hissy ("щщщщ") without changing its shape. 1 (or omitted) = no change,
+  // Variant 1/2's prior behavior.
+  brightnessScale?: number
+  // Multiplier on bandpassQ() — a lower Q is a broader/less resonant peak,
+  // softer/less "peaky" overall. 1 (or omitted) = no change, Variant 1/2's
+  // prior behavior.
+  qScale?: number
+  // Extra tone-vs-speed dependence, layered on top of brightnessScale rather
+  // than replacing it: adds (brightnessRangeBoost-1) * speedT * (the scaled
+  // MIN_FREQ..MAX_FREQ span) on top of brightnessFreq()'s own output, i.e.
+  // the low-speed tone is untouched (the added term is 0 at speedT=0) but
+  // higher speeds sweep further up than brightnessScale alone would put
+  // them — widens the range instead of just shifting it. 1 (or omitted) =
+  // no extra effect, Variant 1/2's prior behavior.
+  brightnessRangeBoost?: number
 }
 
 // The original, untuned sound this app shipped with — floor-dominated, barely-modulated broadband
@@ -82,6 +131,39 @@ export const PENCIL_SOUND_VARIANT_1: GrainVariant = { ...BASE, depth: 0.02, curv
 // separate noise sources, not just a more complex envelope on one, is what makes this read as two
 // textures at once.
 export const PENCIL_SOUND_VARIANT_2: GrainVariant = { ...BASE, secondary: { variant: SECONDARY_LAYER_RECIPE, gain: 1 / 6 } }
+
+// Round 13 (#153, take 6): Variant 1's exact recipe plus a light,
+// pressure-scaled touchdown tap and speed-scaled texture presence — the two
+// things Ilya asked for after the from-scratch AudioWorklet rewrite
+// (distance-triggered grains, modal resonator body, non-noise touchdown
+// click) didn't read as better than Variant 1 despite being "more
+// physically correct" on paper. outputGainScale halves the friction texture
+// overall (not the tap) — see applyTarget()'s use of it. tap's minGain
+// dropped and pressureCurve=2.2 added (a light touch is quieter than a
+// medium one, not just a smaller offset above the same floor) while maxGain
+// is untouched (a firm press should still land about where it already did).
+// brightnessScale 0.45 pulls the carrier's sibilant "щщщ" hiss down toward
+// a duller, breathier "фффф"; tap freqHz dropped again (180→120, deeper
+// still). curvePower dropped from Variant 1's inherited 4.0 (sharp, spiky
+// grain envelope — "most of the cycle near-silent, brief sharp spikes") to
+// 2.0 (rounder/softer), and qScale 0.6 broadens the bandpass peak (less
+// resonant/"peaky") — both asked for as "softer" noise, distinct from
+// "quieter" (outputGainScale, already turned down a round ago).
+export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
+  ...PENCIL_SOUND_VARIANT_1,
+  tap: { minGain: 0.02, maxGain: 0.5, freqHz: 120, decaySeconds: 0.02, noiseMix: 0.35, pressureCurve: 2.2 },
+  speedPresenceFloor: 0.08,
+  outputGainScale: 0.5,
+  brightnessScale: 0.45,
+  curvePower: 2.0,
+  qScale: 0.6,
+  // Asked whether tone tracks speed and to strengthen it — it already did
+  // (brightnessFreq()'s own sweep, just scaled down by brightnessScale), so
+  // this widens the sweep rather than introducing a new mechanism: at low
+  // speed nothing changes, at high speed the tone reaches noticeably higher
+  // than brightnessScale alone would put it.
+  brightnessRangeBoost: 1.6,
+}
 
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
 // source through, so its output amplitude is small AND scales with the cutoff frequency — measured
@@ -188,6 +270,33 @@ function createNoiseBuffer(ctx: AudioContext): AudioBuffer {
   return buffer
 }
 
+/** Bakes an exact impulse response for GrainVariant.tap: a single-sample
+ *  kick into a 2-pole resonator (same r/a1/a2 math a modal synth would use),
+ *  computed once into a mono AudioBuffer and blended with a very brief
+ *  separate noise transient (the first `noiseMix`-weighted ~1.5ms) for
+ *  "contact" texture. See GrainVariant.tap's docstring for why this exists
+ *  as a pre-baked buffer rather than a live-gated BiquadFilterNode — two
+ *  earlier live-graph attempts both still read as noise with an envelope. */
+function createClickBuffer(ctx: AudioContext, freqHz: number, decaySeconds: number, noiseMix: number): AudioBuffer {
+  const n = Math.max(8, Math.round(ctx.sampleRate * decaySeconds * 6))
+  const buffer = ctx.createBuffer(1, n, ctx.sampleRate)
+  const data = buffer.getChannelData(0)
+  const r = Math.exp(-1 / (decaySeconds * ctx.sampleRate))
+  const a1 = 2 * r * Math.cos((2 * Math.PI * freqHz) / ctx.sampleRate)
+  const a2 = -r * r
+  let y1 = 0
+  let y2 = 0
+  const noiseSamples = Math.round(ctx.sampleRate * 0.0015)
+  for (let i = 0; i < n; i++) {
+    const impulse = i === 0 ? 1 : 0
+    const y = (1 - r) * impulse + a1 * y1 + a2 * y2
+    y2 = y1; y1 = y
+    const noise = i < noiseSamples ? (Math.random() * 2 - 1) * (1 - i / noiseSamples) : 0
+    data[i] = y * (1 - noiseMix) + noise * noiseMix
+  }
+  return buffer
+}
+
 function createGrainCurve(power: number): Float32Array<ArrayBuffer> {
   const n = 1024
   const curve = new Float32Array(new ArrayBuffer(n * 4))
@@ -226,9 +335,30 @@ interface AudioGraph {
   lowShelf: BiquadFilterNode
   hardnessShelf: BiquadFilterNode
   masterGain: GainNode
+  // Downstream of masterGain — lets the touchdown tap bypass it (masterGain
+  // is speed-driven, ~0 exactly at the touchdown moment).
+  outputSum: GainNode
+  // Touchdown tap (see GrainVariant.tap) — null when this.grain.tap is
+  // undefined. tapBuffer is the pre-baked click waveform (built once, see
+  // createClickBuffer()); triggerTap() plays a fresh one-shot source from
+  // it per tap, same pattern as any other short one-off sound effect.
+  tapBuffer: AudioBuffer | null
 }
 
-export class PencilSound {
+// Room/index.tsx's ref type for the active pencil-sound engine. Only
+// PencilSound implements this now — round 13 retired the AudioWorklet-based
+// lib/pencilSoundV3/ engine variant3 used to route to (see
+// PENCIL_SOUND_TUNING_LOG.md) — but the interface stays as the contract
+// Room/index.tsx codes against, independent of the implementation.
+export interface PencilSoundAPI {
+  setHardness(hardness: number): void
+  start(pressure: number, speed: number, tiltX?: number, tiltY?: number): void
+  update(pressure: number, speed: number, tiltX?: number, tiltY?: number): void
+  stop(): void
+  destroy(): void
+}
+
+export class PencilSound implements PencilSoundAPI {
   private graph: AudioGraph | null = null
   private paperFactor: number
   private hardness = 0.38 // HB — overwritten by setHardness before the first real stroke
@@ -256,9 +386,29 @@ export class PencilSound {
     void graph.ctx.resume()
     this.lastSampleAt = performance.now()
     this.applyTarget(graph, pressure, speed, tiltX, tiltY)
+    this.triggerTap(graph, pressure)
     if (this.idleTimer === null) {
       this.idleTimer = window.setInterval(() => this.checkIdle(), IDLE_CHECK_MS)
     }
+  }
+
+  /** Touchdown click (see GrainVariant.tap) — plays a fresh one-shot source
+   *  from the pre-baked tapBuffer, gain scaled by pressure. A one-shot
+   *  BufferSourceNode per tap is fine (unlike the continuously-looping
+   *  carriers elsewhere) — it's a short, infrequent sound, not a graph worth
+   *  keeping alive between strokes. No-op when this.grain.tap is undefined
+   *  (Variant 1/2). */
+  private triggerTap(graph: AudioGraph, pressure: number): void {
+    if (!graph.tapBuffer || !this.grain.tap) return
+    const { minGain, maxGain, pressureCurve } = this.grain.tap
+    const t = Math.pow(Math.max(0, Math.min(1, pressure)), pressureCurve)
+    const peak = minGain + (maxGain - minGain) * t
+    const source = graph.ctx.createBufferSource()
+    source.buffer = graph.tapBuffer
+    const gain = graph.ctx.createGain()
+    gain.gain.value = peak
+    source.connect(gain).connect(graph.outputSum)
+    source.start()
   }
 
   /** Call on every 'pointer' event while a stroke is active. */
@@ -298,17 +448,42 @@ export class PencilSound {
     const now = graph.ctx.currentTime
     const brightness = brightnessFreq(speed, this.hardness)
     const q = bandpassQ(pressure)
+    const speedT = speedNorm(speed)
     for (const layer of graph.layers) {
-      layer.bandpass.frequency.setTargetAtTime(brightness, now, BRIGHTNESS_RAMP)
-      layer.bandpass.Q.setTargetAtTime(q, now, RAMP_SLOW)
+      // Round 13 (see GrainVariant.brightnessScale): shifts the carrier's
+      // whole sweep range down proportionally — "фффф" (breathier, lower)
+      // instead of "щщщщ" (sibilant/hissy) — without changing its shape.
+      // brightnessRangeBoost then adds extra spread on top, scaled by
+      // speedT so the low-speed tone (speedT≈0) is untouched — see its own
+      // field doc.
+      const scale = layer.recipe.brightnessScale ?? 1
+      const rangeBoost = layer.recipe.brightnessRangeBoost ?? 1
+      const extraSpread = (rangeBoost - 1) * speedT * (MAX_FREQ - MIN_FREQ) * scale
+      layer.bandpass.frequency.setTargetAtTime(brightness * scale + extraSpread, now, BRIGHTNESS_RAMP)
+      layer.bandpass.Q.setTargetAtTime(q * (layer.recipe.qScale ?? 1), now, RAMP_SLOW)
       const grainRate = grainRateHz(speed, layer.recipe.minHz, layer.recipe.maxHz)
       layer.grainLowpass.frequency.setTargetAtTime(grainRate, now, RAMP_SLOW)
       // Compensates the lowpass's frequency-dependent attenuation (see normGain's docstring) so the
       // WaveShaper downstream always sees a consistently-scaled signal as the rate sweeps with speed.
       layer.grainNormGain.gain.setTargetAtTime(normGain(grainRate, layer.recipe.useNormGain), now, RAMP_SLOW)
+      // Round 13 (see GrainVariant.speedPresenceFloor): both the constant
+      // noise floor *and* grain peaks scale down toward that floor as the
+      // stroke slows, not just grain rate — a slow stroke's whole texture
+      // should be quieter and softer, not just its occasional spikes (an
+      // earlier version only scaled grain depth, leaving the floor exactly
+      // as loud at any speed, which is most of why a slow line still
+      // "rustled" as much as a fast one — floor dominates depth-0.02
+      // Variant 1-derived recipes). speedT^1.4 (not linear) keeps things
+      // noticeably soft through low-to-mid speed, not just right at the
+      // very bottom of the range.
+      const presenceFloor = layer.recipe.speedPresenceFloor ?? 1
+      const presenceScale = presenceFloor + (1 - presenceFloor) * Math.pow(speedT, 1.4)
+      layer.carrierGain.gain.setTargetAtTime(layer.recipe.floor * presenceScale, now, RAMP_SLOW)
+      layer.grainDepthGain.gain.setTargetAtTime(layer.recipe.depth * presenceScale, now, RAMP_SLOW)
     }
     graph.tiltLowpass.frequency.setTargetAtTime(tiltLowpassFreq(tiltX, tiltY), now, RAMP_SLOW)
-    graph.masterGain.gain.setTargetAtTime(masterGainTarget(pressure, speed, this.paperFactor), now, RAMP_FAST)
+    const master = masterGainTarget(pressure, speed, this.paperFactor) * (this.grain.outputGainScale ?? 1)
+    graph.masterGain.gain.setTargetAtTime(master, now, RAMP_FAST)
   }
 
   /** Builds one independent noise+grain layer and connects its output into `sumNode` at
@@ -400,11 +575,24 @@ export class PencilSound {
     const masterGain = ctx.createGain()
     masterGain.gain.value = 0
 
+    // Summing node downstream of masterGain — lets the touchdown tap (built
+    // below, if this.grain.tap is set) bypass masterGain entirely. Needed
+    // because masterGain is speed-driven and sits at ~0 exactly at the
+    // touchdown moment (see masterGainTarget: t<=0 → 0), the same reason
+    // `lift`/`transient` bypassed `gain` in the AudioWorklet take on this.
+    const outputSum = ctx.createGain()
+    outputSum.gain.value = 1
+    outputSum.connect(ctx.destination)
+
     layerSum
       .connect(tiltLowpass).connect(lowShelf).connect(hardnessShelf)
-      .connect(masterGain).connect(ctx.destination)
+      .connect(masterGain).connect(outputSum)
 
-    this.graph = { ctx, layers, tiltLowpass, lowShelf, hardnessShelf, masterGain }
+    const tapBuffer = this.grain.tap
+      ? createClickBuffer(ctx, this.grain.tap.freqHz, this.grain.tap.decaySeconds, this.grain.tap.noiseMix)
+      : null
+
+    this.graph = { ctx, layers, tiltLowpass, lowShelf, hardnessShelf, masterGain, outputSum, tapBuffer }
     return this.graph
   }
 }
