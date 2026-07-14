@@ -674,6 +674,26 @@ export class PencilEngine implements PencilEngineAPI {
 
   private _handlers: Partial<Record<EngineEventName, EngineHandler>>
   private _raf: number
+  // (#155) Coalesces high-frequency _display() calls (every real pointer
+  // move, every predicted sample) to at most one per animation frame. Each
+  // WebGL draw call is asynchronous — issuing it doesn't wait for the GPU —
+  // so calling the full multi-pass _display() (composeToFBO + infinite
+  // rooms' extra applyPaperBlend/finishPaperBlend passes) synchronously on
+  // every move let JS queue GPU work faster than the GPU could drain it
+  // during a long/fast stroke; by the time the pointer lifted, the GPU still
+  // had a growing backlog of stale frames to work through before it could
+  // present the current one, which is what a multi-hundred-ms-to-multi-
+  // second "presentation delay" (measured via Chrome's own Interaction-to-
+  // Next-Paint breakdown, not this engine's own JS-only timing — see chat)
+  // actually was. Painting itself (_paintStrokeDabs et al) stays fully
+  // synchronous and per-event — only *presenting* the result is throttled;
+  // by the next rAF tick, every dab painted in between is already baked
+  // into the layer's real tile buffers, so nothing is visually lost, only
+  // coalesced. Every OTHER _display() call site (undo/redo, layer ops,
+  // stroke end, exports, etc.) stays a direct, immediate call — those are
+  // one-shot, not a per-move flood, and some (exportPNG) need the frame
+  // actually composited before a synchronous readPixels.
+  private _displayRafId: number | null = null
   private _pointer: PointerInput
   private _dabs: DabSystem
 
@@ -1510,6 +1530,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   destroy(): void {
     cancelAnimationFrame(this._raf)
+    if (this._displayRafId !== null) cancelAnimationFrame(this._displayRafId)
     this.canvas.removeEventListener('webglcontextlost', this._handleContextLost)
     this.canvas.removeEventListener('webglcontextrestored', this._handleContextRestored)
     this._pointer.destroy()
@@ -2171,7 +2192,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (tipLatency > this._dbgMaxTip) this._dbgMaxTip = tipLatency
       }
     }
-    if (painted) this._display()
+    if (painted) this._scheduleDisplay()
     if (this._debug) this._dbgPrevMoveTimestamp = e.timeStamp
   }
 
@@ -2209,7 +2230,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _onPredict(samples: PointerData[]): void {
     if (!this._strokeLayerId || !this._previewBuf) return
     this._previewBuf.clear()
-    if (!samples.length) { this._display(); return }
+    if (!samples.length) { this._scheduleDisplay(); return }
 
     const fork = this._dabs.forkForPreview()
     const dabs: Dab[] = []
@@ -2228,7 +2249,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._strokeColor,
       )
     }
-    this._display()
+    this._scheduleDisplay()
   }
 
   private _onEnd(e: PointerData): void {
@@ -3348,6 +3369,18 @@ export class PencilEngine implements PencilEngineAPI {
     // in `_assemblyFBO`, rather than from inside _runComposite. No-op for
     // bounded rooms (see _finishInfiniteComposite's own comment).
     this._finishInfiniteComposite(this._compositeFBO.fbo)
+  }
+
+  /** (#155) See _displayRafId's own doc comment for why this exists. Safe to
+   *  call redundantly — a call while one's already pending is a no-op, so
+   *  every real move during a fast stroke can call this unconditionally
+   *  without building up a queue of redundant rAF callbacks. */
+  private _scheduleDisplay(): void {
+    if (this._displayRafId !== null) return
+    this._displayRafId = requestAnimationFrame(() => {
+      this._displayRafId = null
+      this._display()
+    })
   }
 
   private _display(): void {
