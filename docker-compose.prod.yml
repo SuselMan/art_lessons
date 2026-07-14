@@ -1,0 +1,46 @@
+# Production stack (#111) — postgres + the Fastify/Socket.io server only.
+# apps/web is NOT a container here: it's a static build (`npm run build
+# --workspace=apps/web`) served directly by the host's nginx (see
+# deploy/nginx.conf), which also reverse-proxies /api and /socket.io to the
+# `server` service below on 127.0.0.1 — matching the exact same same-origin
+# shape apps/web/vite.config.ts's dev proxy already uses, just via nginx
+# instead of Vite. No Redis (single server process, see CLAUDE.md); no
+# object storage (Postgres bytea is enough at this scale, see #114).
+#
+# Secrets (POSTGRES_PASSWORD, JWT_SECRET) come from a .env file living only
+# on the VPS (see deploy/README.md) — never committed here.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: art_lessons
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      POSTGRES_DB: art_lessons
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U art_lessons"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://art_lessons:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/art_lessons
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+    ports:
+      # Bound to loopback only — nginx on the host is the sole public entry
+      # point (see deploy/nginx.conf), same reasoning as any reverse-proxied
+      # backend never being directly internet-reachable on its own port.
+      - "127.0.0.1:4000:4000"
+
+volumes:
+  postgres_data:
