@@ -425,9 +425,31 @@ export function Room() {
   // per-user view fields (selection, collapse, local lock) carried over.
   // Defined here (rather than further down, closer to dispatchOp/handleUndo)
   // because the mount-engine effect below needs it for pending-snapshot replay.
+  //
+  // (#148) replayLayerState walks the *entire* done-operations array from
+  // scratch on every call — cost scaling with total session length, not the
+  // current canvas — and syncFromLog is called once per incoming
+  // peer_operation, undo/redo, and finished stroke-reveal (onPreviewApplied).
+  // Several peers drawing at once easily produces a burst of these calls
+  // within the same tick/microtask turn (a socket 'message' handler firing
+  // several times before the event loop yields), each currently paying its
+  // own full O(log length) scan back to back for what ends up being the same
+  // final state. Coalesced here via a microtask (same "collapse a same-tick
+  // burst" idea as useViewport's own rAF-throttled updateVp, just finer-
+  // grained — a microtask runs before the next paint regardless, so this
+  // adds no perceptible delay): repeated calls before the microtask fires are
+  // free, and the one real scan that does happen reads getOperations() fresh
+  // at that point, reflecting every op appended by then either way, so this
+  // is purely a *when* change — never a stale or partial replay.
+  const syncFromLogScheduledRef = useRef(false)
   const syncFromLog = useCallback(() => {
-    const ops = engineRef.current?.getOperations() ?? []
-    setLayerState(prev => overlayLocalFields(replayLayerState(makeInitialLayerState(), ops), prev))
+    if (syncFromLogScheduledRef.current) return
+    syncFromLogScheduledRef.current = true
+    queueMicrotask(() => {
+      syncFromLogScheduledRef.current = false
+      const ops = engineRef.current?.getOperations() ?? []
+      setLayerState(prev => overlayLocalFields(replayLayerState(makeInitialLayerState(), ops), prev))
+    })
   }, [])
 
   // Applies an operation that arrived from the network (room_state replay or
