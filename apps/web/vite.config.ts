@@ -24,7 +24,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), ...(useHttps ? [mkcert()] : [])],
     server: {
-      https: useHttps,
+      // Vite 8's server.https only accepts an options object (or undefined)
+      // — no more `https: true` shorthand. `{}` (defaults) is enough: the
+      // mkcert plugin patches in its own cert/key onto this at config-resolve
+      // time, so there's nothing to supply here beyond "on".
+      https: useHttps ? {} : undefined,
       proxy: {
         '/api': `http://localhost:${SERVER_PORT}`,
         '/socket.io': { target: `http://localhost:${SERVER_PORT}`, ws: true },
