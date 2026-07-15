@@ -39,6 +39,7 @@ import { TransformGizmo, type TransformHandleKind, type TransformBounds } from '
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
+import { loadToolSettings, saveToolSettings, type ToolConfig } from './toolSettings'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
@@ -80,7 +81,7 @@ function toRoomConfig(
   }
 }
 
-interface ToolConfig { size: number; opacity: number }
+const DEFAULT_TOOL_SETTINGS = { pencil: { size: 8, opacity: 1.0 }, eraser: { size: 24, opacity: 1.0 } }
 
 const INITIAL_LAYER_ID = 'layer-1'
 // Placeholder id until the socket connects and create_room/join_room's ack
@@ -243,8 +244,12 @@ export function Room() {
   )
   const [pencil,     setPencil]     = useState<PencilGradeName>('HB')
   const [tool,       setTool]       = useState<'pencil' | 'eraser'>('pencil')
-  const [pencilCfg,  setPencilCfg]  = useState<ToolConfig>({ size: 8,  opacity: 1.0 })
-  const [eraserCfg,  setEraserCfg]  = useState<ToolConfig>({ size: 24, opacity: 1.0 })
+  // Last-used size/opacity persist per room (#156) — loaded once up front
+  // (id is stable for the component's lifetime; a room switch remounts it)
+  // rather than re-read on every render.
+  const [initialToolSettings] = useState(() => loadToolSettings(localStorage, id ?? '', DEFAULT_TOOL_SETTINGS))
+  const [pencilCfg,  setPencilCfg]  = useState<ToolConfig>(initialToolSettings.pencil)
+  const [eraserCfg,  setEraserCfg]  = useState<ToolConfig>(initialToolSettings.eraser)
   const [color,      setColor]      = useState<[number, number, number]>(DEFAULT_GRAPHITE_COLOR)
   // Eyedropper (#82) is a one-shot mode, not a recorded ToolType — it never
   // paints or produces an Operation, so it lives entirely as local UI state
@@ -602,6 +607,12 @@ export function Room() {
     engineRef.current?.setOpacity(activeCfg.opacity)
   }, [activeCfg])
   useEffect(() => { engineRef.current?.setColor(color) }, [color])
+  // Persist last-used size/opacity per room (#156) — mirrors the pattern
+  // above (derived state -> engine), just targeting storage instead.
+  useEffect(() => {
+    if (!id) return
+    saveToolSettings(localStorage, id, { pencil: pencilCfg, eraser: eraserCfg })
+  }, [id, pencilCfg, eraserCfg])
 
   // ── sync layer state → engine ─────────────────────────────────────────────────
   useEffect(() => {
