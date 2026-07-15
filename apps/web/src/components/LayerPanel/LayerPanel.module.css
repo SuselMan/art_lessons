@@ -136,14 +136,23 @@
   margin: 0 3px;
   border-radius: var(--radius-sm);
   transition: background var(--duration-fast);
-  /*/background-color: red;*/
+  display: flex;
+  align-items: center;
+}
+
+/* Marks the folder's bottom boundary — a thin line lighter than the panel
+   background, so it's clear the folder's content ends here even when
+   nothing is being dragged. */
+.sentinel::before {
+  content: '';
+  width: 100%;
+  height: 1px;
+  background: var(--color-border);
 }
 
 .sentinel[data-over="true"] {
-  /*background: color-mix(in srgb, var(--color-accent) 20%, transparent);*/
   outline: 1px dashed color-mix(in srgb, var(--color-accent) 70%, transparent);
   outline-offset: -1px;
-  /*background-color: red;*/
 }
 
 /* ── Layer row ────────────────────────────────────────────────────────────── */
