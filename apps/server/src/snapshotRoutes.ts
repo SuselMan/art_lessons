@@ -54,20 +54,19 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
     return { seq: snapshot.seq, layerState: snapshot.layerState, data: Buffer.from(snapshot.data).toString('base64') }
   })
 
-  app.get<{ Params: { roomId: string }; Querystring: { beforeSeq: string; cursorSeq?: string; limit?: string } }>(
+  app.get<{ Params: { roomId: string }; Querystring: { beforeSeq: string; limit?: string } }>(
     '/api/rooms/:roomId/operations',
     async (request, reply) => {
       const { roomId } = request.params
       if (!getParticipant(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
       const beforeSeq = Number(request.query.beforeSeq)
-      const cursorSeq = Number(request.query.cursorSeq ?? '0')
       const limit = Math.min(Number(request.query.limit ?? String(MAX_BACKFILL_PAGE_SIZE)), MAX_BACKFILL_PAGE_SIZE)
-      if (!Number.isFinite(beforeSeq) || !Number.isFinite(cursorSeq) || !Number.isFinite(limit)) {
+      if (!Number.isFinite(beforeSeq) || !Number.isFinite(limit)) {
         return reply.code(400).send({ error: 'bad_request' })
       }
 
-      return getOperationsBefore(roomId, beforeSeq, cursorSeq, limit)
+      return getOperationsBefore(roomId, beforeSeq, limit)
     },
   )
 }

@@ -199,6 +199,39 @@ export class OperationLog {
     return null
   }
 
+  /** Prepends already-resolved historical entries — #169's background
+   *  backfill of pre-snapshot history, always chronologically older than
+   *  every entry already present (the live tail, applied right after a
+   *  network-snapshot restore). `entries` must arrive with correct
+   *  done/undone/gone states already resolved — see
+   *  engine/index.ts's absorbHistoricalOperations, the one caller, which
+   *  builds them by replaying the historical ops through a scratch
+   *  OperationLog's normal append/applyUndo/applyRedo/revoke so their
+   *  states come from the exact same state machine live entries do.
+   *
+   *  Deliberately bypasses append()'s own logic entirely — in particular
+   *  its "mark my undone entries gone" side effect, which is meant for a
+   *  user genuinely taking a new action, not history arriving late. This
+   *  is the reason this exists as its own method rather than teaching
+   *  append() to insert: append() stays exactly as it is for every live
+   *  call site, and this only ever runs on the background backfill path.
+   *
+   *  Renumbers every entry's local `seq` to its final array position
+   *  afterward. `entries` arrives with its own independent local numbering
+   *  (the scratch log's own counter also starts at 0) that would otherwise
+   *  collide with this log's existing entries' numbering once merged —
+   *  local seq has always meant "array index" (see append()), this keeps
+   *  that invariant true across the splice. O(n) in the log's total size;
+   *  fine for a background, few-times-per-session operation. */
+  prependHistorical(entries: readonly LogEntry[]): void {
+    const merged = [...entries, ...this._entries].map((e, i) => ({ ...e, op: { ...e.op, seq: i } }))
+    this._entries = merged
+    this._nextSeq = merged.length
+    for (const e of entries) {
+      if (e.state === 'done') this._bumpPixelOpCount(e.op, 1)
+    }
+  }
+
   /** All `done` operations in seq order. */
   doneOperations(): Operation[] {
     const out: Operation[] = []

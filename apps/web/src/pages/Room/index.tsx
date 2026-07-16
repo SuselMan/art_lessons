@@ -43,6 +43,7 @@ import { JoinGate } from './JoinGate'
 import { loadToolSettings, saveToolSettings, type ToolConfig } from './toolSettings'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader } from './snapshotSync'
+import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
@@ -357,6 +358,14 @@ export function Room() {
     engineRef.current?.setUserId(userId)
   }, [])
   const appliedOpIdsRef   = useRef<Set<string>>(new Set())
+  // (#169) A live operation_undo/operation_redo/operation_revoke whose
+  // targetOpId isn't in appliedOpIdsRef yet — the target is somewhere in
+  // pre-snapshot history background backfill hasn't reached yet. Applying it
+  // immediately would silently no-op (OperationLog.applyUndo/applyRedo/
+  // revoke all return null for an unknown id, see their own doc comments),
+  // losing the operation permanently instead of catching up once backfill
+  // reaches it. Drained by drainDeferredQueue after every backfill page.
+  const deferredOpsQueueRef = useRef<Operation[]>([])
   const lastActiveAtRef   = useRef<Record<string, number>>({})
   const strokeActiveRef   = useRef(false)
   const lastCursorSentRef = useRef(0)
@@ -372,7 +381,9 @@ export function Room() {
   // mounts once `config` is set (see the mount-engine effect below). Its
   // operations/participants are stashed here and replayed once the engine is
   // up, instead of being dropped.
-  const pendingSnapshotRef = useRef<{ tailOperations: Operation[]; participants: Participant[] } | null>(null)
+  const pendingSnapshotRef = useRef<{
+    latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+  } | null>(null)
   // Highest operation seq this client has definitely seen — from ack'd local
   // operations and from peer_operation's stamped copies (#149). Sent back as
   // lastKnownSeq on every join_room/create_room (including reconnects), so
@@ -497,13 +508,26 @@ export function Room() {
   // at that point, reflecting every op appended by then either way, so this
   // is purely a *when* change — never a stale or partial replay.
   const syncFromLogScheduledRef = useRef(false)
+  // (#169) Once a network-snapshot restore has happened, LayerState must be
+  // derived on top of the snapshot's own `layerState` — not
+  // makeInitialLayerState() — since the client's OperationLog only has the
+  // live tail at that point (full pre-snapshot history arrives later, via
+  // background backfill, purely for undo/redo; see
+  // engine.getOperationsSinceRestore's own doc comment for why replaying it
+  // again here would double-apply structure the restored base already
+  // reflects). Sticky for the rest of the session once set — never reset
+  // back to null, even after backfill completes.
+  const restoredLayerStateRef = useRef<LayerState | null>(null)
   const syncFromLog = useCallback(() => {
     if (syncFromLogScheduledRef.current) return
     syncFromLogScheduledRef.current = true
     queueMicrotask(() => {
       syncFromLogScheduledRef.current = false
-      const ops = engineRef.current?.getOperations() ?? []
-      setLayerState(prev => overlayLocalFields(replayLayerState(makeInitialLayerState(), ops), prev))
+      const base = restoredLayerStateRef.current
+      const ops = base
+        ? (engineRef.current?.getOperationsSinceRestore() ?? [])
+        : (engineRef.current?.getOperations() ?? [])
+      setLayerState(prev => overlayLocalFields(replayLayerState(base ?? makeInitialLayerState(), ops), prev))
     })
   }, [])
 
@@ -521,6 +545,73 @@ export function Room() {
     engineRef.current?.appendOperation(op, 'remote')
     if (op.type === 'stroke') markActive(op.userId)
   }, [markActive])
+
+  // (#169) Re-checks every deferred meta-op (see deferredOpsQueueRef's own
+  // doc comment) after a backfill page lands — anything whose target has
+  // since become known gets applied now, in the order it originally arrived.
+  const drainDeferredQueue = useCallback(() => {
+    const queue = deferredOpsQueueRef.current
+    if (!queue.length) return
+    const stillDeferred: Operation[] = []
+    let appliedAny = false
+    for (const op of queue) {
+      const targetId = 'targetOpId' in op ? op.targetOpId : undefined
+      if (targetId !== undefined && appliedOpIdsRef.current.has(targetId)) {
+        applyRemoteOp(op)
+        appliedAny = true
+      } else {
+        stillDeferred.push(op)
+      }
+    }
+    deferredOpsQueueRef.current = stillDeferred
+    if (appliedAny) {
+      syncFromLog()
+      checkSnapshotBoundary()
+    }
+  }, [applyRemoteOp, syncFromLog, checkSnapshotBoundary])
+
+  // (#169) Seeds the engine's layer buffers + structural state straight from
+  // a restored snapshot's own layerState — the same initLayer/setActiveLayer/
+  // setCompositeOrder calls the mount-engine effect already makes from
+  // layerStateRef below, just driven by the snapshot instead of local React
+  // state (which a fresh joiner doesn't have yet).
+  const initLayersFromLayerState = useCallback((engine: PencilEngineAPI, ls: LayerState) => {
+    for (const item of Object.values(ls.items)) {
+      if (item.kind === 'layer') engine.initLayer(item.id)
+    }
+    engine.setActiveLayer(ls.activeId)
+    engine.setCompositeOrder(computeCompositeOrder(ls))
+  }, [])
+
+  // (#169) Injects a downloaded snapshot's pixels + structure into `engine`
+  // and sets restoredLayerStateRef so syncFromLog starts deriving LayerState
+  // from it. Awaited by the caller before applying tailOperations on top —
+  // unlike backfillHistory below, this must finish first (the tail paints
+  // relative to this restored buffer state).
+  const restoreFromSnapshot = useCallback(async (engine: PencilEngineAPI, snapshot: RestoredSnapshot) => {
+    initLayersFromLayerState(engine, snapshot.layerState)
+    for (const [layerId, tiles] of snapshot.tiles) engine.restoreLayerFromSnapshot(layerId, tiles)
+    restoredLayerStateRef.current = snapshot.layerState
+  }, [initLayersFromLayerState])
+
+  // (#169) Walks the room's history backward from `fromSeq` (the restored
+  // snapshot's own seq) in pages, merging each into the engine's log purely
+  // for undo/redo purposes (see absorbHistoricalOperations's own doc
+  // comment — never paints). Deliberately fire-and-forget from every caller:
+  // this runs fully in the background, must not block first paint, and its
+  // own best-effort failure handling (fetchHistoryPage swallows errors,
+  // returning []) means it simply stops rather than throwing.
+  const backfillHistory = useCallback(async (roomId: string, engine: PencilEngineAPI, fromSeq: number) => {
+    let cursor = fromSeq
+    while (cursor > 0) {
+      const page = await fetchHistoryPage(roomId, cursor)
+      if (page.length === 0) break
+      engine.absorbHistoricalOperations(page)
+      for (const op of page) appliedOpIdsRef.current.add(op.id)
+      drainDeferredQueue()
+      cursor = page[0].seq ?? 0
+    }
+  }, [drainDeferredQueue])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -648,10 +739,25 @@ export function Room() {
         // of that to one _display() right after the loop — see their own
         // doc comments.
         engine.suspendDisplay()
+
+        // (#169) A brand-new mount always has lastKnownSeq 0 (nothing local
+        // to already be caught up on) — restore whenever the room has a
+        // snapshot at all, no watermark comparison needed here the way
+        // handleRoomState's reconnect branch needs one.
+        let restoredFromSnapshot = false
+        if (id && pending.latestSnapshotSeq !== null) {
+          const snapshot = await fetchLatestSnapshot(id)
+          if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
+        }
+
         for (const op of pending.tailOperations) applyRemoteOp(op)
         engine.resumeDisplay()
         syncFromLog()
         dispatchParticipants({ type: 'room_state', participants: pending.participants })
+
+        if (id && restoredFromSnapshot && pending.latestSnapshotSeq !== null) {
+          void backfillHistory(id, engine, pending.latestSnapshotSeq)
+        }
       })()
     }
 
@@ -662,8 +768,8 @@ export function Room() {
       pencilSoundRef.current = null
     }
   }, [
-    config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
-    hapticGrainEnabled, checkSnapshotBoundary,
+    id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
+    hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -1357,12 +1463,10 @@ export function Room() {
     const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants }: {
       room: RoomEntity; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
     }) => {
-      // (#149) latestSnapshotSeq is always null until #168/#169 land — every
-      // room behaves exactly as before, tailOperations is simply the whole
-      // history. Once non-null and this client isn't already caught up to
-      // it, restoring the snapshot itself is #169's job; for now the tail
-      // keeps being applied the same way regardless.
-      void latestSnapshotSeq
+      // What this socket already had *before* this room_state's own tail —
+      // the reconnect fast-path check below needs this, not the value after
+      // folding tailOperations' seqs in just below.
+      const alreadyHadSeq = latestKnownSeqRef.current
       // Bulk catch-up (join/reconnect), not a live single operation — doesn't
       // trigger snapshotUploader here even if it spans a checkpoint
       // boundary. Any client live at the moment a boundary was actually
@@ -1375,7 +1479,7 @@ export function Room() {
         // Joiner's first snapshot: this is how we learn paper/canvas size —
         // the engine doesn't exist yet to apply `tailOperations` to, so stash
         // them for the mount-engine effect to replay once it does.
-        pendingSnapshotRef.current = { tailOperations, participants: roomParticipants }
+        pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants }
         setConfig(toRoomConfig(room))
         return
       }
@@ -1383,24 +1487,43 @@ export function Room() {
       // same reasoning applies to a reconnect's full-history replay. A
       // no-op await in the overwhelmingly common case (paper long since
       // loaded by the time a reconnect happens).
-      await engineRef.current?.paperReady()
+      const engine = engineRef.current
+      await engine?.paperReady()
       // A reconnect's full-history replay supersedes any reveal still
       // in-flight from before the drop — cancel it rather than let it keep
       // painting the same stroke a second time on top of what this loop is
       // about to commit directly.
       // (#147) Same reasoning as the initial-join replay above — see
       // suspendDisplay/resumeDisplay's own doc comments.
-      engineRef.current?.suspendDisplay()
+      engine?.suspendDisplay()
+
+      // (#169) A snapshot exists and this socket doesn't already have local
+      // state at least as fresh as it (the common reconnect case: it does,
+      // so this is skipped and tailOperations alone is enough — same as
+      // before this epic). Restoring here, before the tail loop below, is
+      // required: the tail paints relative to this restored buffer state.
+      let restoredFromSnapshot = false
+      if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
+        const snapshot = await fetchLatestSnapshot(id)
+        if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
+      }
+
       for (const op of tailOperations) {
         if (pendingPreviewOpIdsRef.current.has(op.id)) {
-          engineRef.current?.dropPendingPreview(op.id)
+          engine?.dropPendingPreview(op.id)
           pendingPreviewOpIdsRef.current.delete(op.id)
         }
         applyRemoteOp(op)
       }
-      engineRef.current?.resumeDisplay()
+      engine?.resumeDisplay()
       syncFromLog()
       dispatchParticipants({ type: 'room_state', participants: roomParticipants })
+
+      // Runs fully in the background — never awaited, must not block this
+      // handler or the first paint it just produced.
+      if (restoredFromSnapshot && engine && latestSnapshotSeq !== null) {
+        void backfillHistory(id, engine, latestSnapshotSeq)
+      }
     }
 
     const handlePeerOperation = (op: Operation) => {
@@ -1438,6 +1561,18 @@ export function Room() {
         applyRemoteOp(op)
         syncFromLog()
         checkSnapshotBoundary()
+        return
+      }
+      // (#169) Target isn't in the log yet — background backfill hasn't
+      // reached it (or, very rarely, a real gap). Defer rather than apply
+      // now: applying now would silently no-op and lose it permanently. See
+      // deferredOpsQueueRef's own doc comment; drainDeferredQueue re-checks
+      // this after every backfill page.
+      if (
+        (op.type === 'operation_undo' || op.type === 'operation_redo' || op.type === 'operation_revoke') &&
+        !appliedOpIdsRef.current.has(op.targetOpId)
+      ) {
+        deferredOpsQueueRef.current.push(op)
         return
       }
       applyRemoteOp(op)
@@ -1487,7 +1622,10 @@ export function Room() {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary])
+  }, [
+    id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary,
+    restoreFromSnapshot, backfillHistory, drainDeferredQueue,
+  ])
 
   // Submits the join gate (joiner path only): connects/join_room's with the
   // entered name + optional password. Kept separate from the socket-wiring

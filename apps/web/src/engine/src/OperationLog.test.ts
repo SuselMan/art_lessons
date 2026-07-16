@@ -308,4 +308,79 @@ describe('OperationLog', () => {
       expect(log.layerPixelOps('layer-1').map(o => o.id)).toEqual(['b'])
     })
   })
+
+  // #169 background backfill: historical entries always arrive chronologically
+  // before whatever's already in the log (the live tail, applied right after
+  // a network-snapshot restore) — see engine/index.ts's
+  // absorbHistoricalOperations, the one real caller (builds `entries` via a
+  // scratch OperationLog fed through the normal append/applyUndo/applyRedo/
+  // revoke path first, so states arrive already resolved).
+  describe('prependHistorical', () => {
+    it('places historical entries before the existing (live) ones, renumbering local seq to match', () => {
+      const log = new OperationLog()
+      log.append(stroke({ id: 'tail' })) // the live tail, present first (as it really would be)
+
+      log.prependHistorical([{ op: stroke({ id: 'historical' }), state: 'done' }])
+
+      const done = log.doneOperations()
+      expect(done.map(o => o.id)).toEqual(['historical', 'tail'])
+      expect(done[0].seq).toBe(0)
+      expect(done[1].seq).toBe(1)
+    })
+
+    it('does not run append()\'s "mark my undone entries gone" side effect', () => {
+      const log = new OperationLog()
+      log.append(stroke({ id: 'a', userId: 'user-a' }))
+      log.applyUndo('a', 'user-a') // 'a' is now undone, redoable
+
+      // A historical prepend from the SAME user must not invalidate 'a''s
+      // redo — unlike a genuinely new live append() would (see the
+      // "undone-entries-become-gone" test above) — inserting old history
+      // isn't "user-a just did something new."
+      log.prependHistorical([{ op: stroke({ id: 'old', userId: 'user-a' }), state: 'done' }])
+
+      expect(log.redoTarget('user-a')?.id).toBe('a')
+    })
+
+    it('preserves undone/gone states exactly as given, without re-deriving them', () => {
+      const log = new OperationLog()
+      log.prependHistorical([
+        { op: stroke({ id: 'h1' }), state: 'done' },
+        { op: stroke({ id: 'h2' }), state: 'undone' },
+        { op: stroke({ id: 'h3' }), state: 'gone' },
+      ])
+
+      expect(log.doneOperations().map(o => o.id)).toEqual(['h1'])
+      expect(log.redoTarget('user-a')?.id).toBe('h2')
+    })
+
+    it('bumps pixelOpDoneCount for historical entries that are done, skips undone/gone ones', () => {
+      const log = new OperationLog()
+      log.prependHistorical([
+        { op: stroke({ id: 'h1', layerId: 'layer-1' }), state: 'done' },
+        { op: stroke({ id: 'h2', layerId: 'layer-1' }), state: 'undone' },
+      ])
+
+      expect(log.pixelOpDoneCount('layer-1')).toBe(1)
+    })
+
+    it('a later prepend (an earlier backfill page) lands before an already-prepended one', () => {
+      // Backfill walks backward from the snapshot point toward the room's
+      // start — each new page is chronologically OLDER than every page
+      // absorbed so far, so it must always land at the very front.
+      const log = new OperationLog()
+      log.append(stroke({ id: 'tail' }))
+      log.prependHistorical([{ op: stroke({ id: 'page-2' }), state: 'done' }]) // seq [500,1000)
+      log.prependHistorical([{ op: stroke({ id: 'page-1' }), state: 'done' }]) // seq [0,500)
+
+      expect(log.doneOperations().map(o => o.id)).toEqual(['page-1', 'page-2', 'tail'])
+    })
+
+    it('an undo appended live afterward can target a historically-prepended operation', () => {
+      const log = new OperationLog()
+      log.prependHistorical([{ op: stroke({ id: 'old', userId: 'user-a' }), state: 'done' }])
+
+      expect(log.undoTarget('user-a')?.id).toBe('old')
+    })
+  })
 })

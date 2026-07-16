@@ -20,7 +20,7 @@ import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
-import { encodeLayerTiles } from './src/snapshotCodec'
+import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
 
 export type { HapticGrainStats }
 export type { AffineMatrix }
@@ -190,7 +190,37 @@ export interface PencilEngineAPI {
   // caller's job (Room's snapshot orchestration), not the engine's — the
   // engine only knows about one layer at a time.
   bakeNetworkSnapshot(layerId: string): Uint8Array | null
+  // (#169) Restores a layer's pixel content wholesale from a downloaded
+  // network snapshot — the layer must already exist (via initLayer) with an
+  // empty buffer; this is the fast-join counterpart to a live stroke replay,
+  // skipping straight to the end result instead of repainting every
+  // historical dab. Same tile-restore primitive local checkpoint restore
+  // already uses (resolveForPaint + AccumulationBuffer.restorePixels +
+  // ILayerBuffer.restoreTileContent).
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[]): void
+  // (#169) Merges a batch of pre-snapshot historical operations into the
+  // log for undo/redo/history purposes, WITHOUT painting anything — their
+  // pixel effect is already baked into whatever restoreLayerFromSnapshot
+  // restored. `ops` must be in ascending seq order and must all be older
+  // than every operation already in the log (i.e. this is background
+  // backfill walking backward from the snapshot point toward the room's
+  // start, one page at a time — see Room's backfill orchestration). Safe to
+  // call repeatedly, once per page.
+  absorbHistoricalOperations(ops: Operation[]): void
   getOperations(): Operation[]
+  // (#169) Same as getOperations(), but excludes whatever
+  // absorbHistoricalOperations has merged in so far. Room's LayerState is
+  // derived by replaying done operations over a base (see
+  // lib/layers.ts's replayLayerState) — after a snapshot restore, that base
+  // is the snapshot's own `layerState` (already reflecting every structural
+  // op through the snapshot's seq), so replaying the *historical* prefix on
+  // top of it again would double-apply it. This is what lets Room keep
+  // deriving LayerState correctly through the entire window between
+  // restoring a snapshot and background backfill completing (and
+  // afterward — the restored base stays the permanent LayerState-derivation
+  // anchor for this session; only undo/redo need the full historical log,
+  // via getOperations()/undo()/redo() themselves, not this).
+  getOperationsSinceRestore(): Operation[]
   undo(): Operation | null
   redo(): Operation | null
   clear(): void
@@ -700,6 +730,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _log: OperationLog
   private _checkpoints: Checkpoint[]
   private _checkpointBytes: number
+  // (#169) Running total of entries absorbHistoricalOperations has ever
+  // prepended — see getOperationsSinceRestore's own doc comment. Entries at
+  // local seq < this value are the historical prefix; renumbering on every
+  // OperationLog.prependHistorical call keeps that boundary meaningful even
+  // across several backfill pages.
+  private _historicalEntryCount = 0
 
   // In-flight stroke, recorded as one StrokeOperation on pointer up
   private _strokeLayerId: string | null
@@ -2072,6 +2108,46 @@ export class PencilEngine implements PencilEngineAPI {
     }))
     if (!tiles.length) return null
     return encodeLayerTiles(tiles)
+  }
+
+  /** See the PencilEngineAPI doc comment. Mirrors _replayInto's own
+   *  checkpoint-restore branch exactly (resolveForPaint + restorePixels +
+   *  restoreTileContent) — a network snapshot's tiles are structurally the
+   *  same kind of "exact historical pixels, not a fresh paint" data a local
+   *  checkpoint's tiles are, just sourced from the server instead of memory. */
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[]): void {
+    const buf = this._layers.get(layerId)
+    if (!buf) return
+    for (const t of tiles) {
+      const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
+      for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
+      buf.restoreTileContent(rect, t.pixels)
+    }
+  }
+
+  /** See the PencilEngineAPI doc comment and OperationLog.prependHistorical's
+   *  own doc comment for the full reasoning. Replays `ops` through a
+   *  throwaway scratch log using its normal public append/applyUndo/
+   *  applyRedo/revoke methods — exactly the same log-bookkeeping sequence
+   *  appendOperation's switch below drives for a live operation, just
+   *  without ever touching a buffer — so the resulting entries' done/undone/
+   *  gone states come from the exact same state machine, then merges them
+   *  into the real log in one step. */
+  absorbHistoricalOperations(ops: Operation[]): void {
+    const scratch = new OperationLog()
+    for (const op of ops) {
+      scratch.append(op)
+      if (op.type === 'operation_undo') scratch.applyUndo(op.targetOpId, op.userId)
+      else if (op.type === 'operation_redo') scratch.applyRedo(op.targetOpId, op.userId)
+      else if (op.type === 'operation_revoke') scratch.revoke(op.targetOpId)
+    }
+    this._log.prependHistorical(scratch.entries)
+    this._historicalEntryCount += scratch.entries.length
+  }
+
+  /** See the PencilEngineAPI doc comment. */
+  getOperationsSinceRestore(): Operation[] {
+    return this._log.doneOperations().filter(op => (op.seq ?? 0) >= this._historicalEntryCount)
   }
 
   /** Deepest checkpoint whose baked operations are exactly the current done

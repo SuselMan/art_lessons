@@ -402,28 +402,32 @@ export async function getLatestSnapshot(
   return row
 }
 
-/** Paginated backfill (#169): operations strictly before `beforeSeq`
- *  (typically the room's `latestSnapshotSeq`), in ascending seq order,
- *  starting after `cursorSeq` — a fresh join's tail/snapshot already cover
- *  everything from `beforeSeq` on, this is purely for the client's
- *  background history backfill (undo/redo bookkeeping for operations older
- *  than its restored snapshot). Reads from the in-memory Map, same as
- *  `getRoomSnapshot` — `ensureRoomLoaded` already pulls a room's *entire*
- *  operation history into `record.operations`, unbounded, so there's no
- *  separate cold Postgres path needed here. */
-export function getOperationsBefore(
-  roomId: string, beforeSeq: number, cursorSeq: number, limit: number,
-): Operation[] {
+/** Paginated backfill (#169): the page of up to `limit` operations
+ *  immediately preceding `beforeSeq` (typically the room's
+ *  `latestSnapshotSeq`, then each successive page's own smallest seq) — a
+ *  fresh join's tail/snapshot already cover everything from `beforeSeq` on,
+ *  this is purely for the client's background history backfill (undo/redo
+ *  bookkeeping for operations older than its restored snapshot).
+ *
+ *  Deliberately anchored at `beforeSeq` and walking *backward* (returning
+ *  the page right before it, not the page right after some cursor) rather
+ *  than forward pagination from 0: the client merges each page into its log
+ *  via OperationLog.prependHistorical, which always inserts at the very
+ *  front — that's only correct if each successive page is chronologically
+ *  older than every page already merged, i.e. pages must arrive newest-
+ *  first-before-the-snapshot, walking back toward the room's start (see
+ *  prependHistorical's own doc comment). An empty result means backfill has
+ *  reached the beginning of the room's history.
+ *
+ *  Reads from the in-memory Map, same as `getRoomSnapshot` —
+ *  `ensureRoomLoaded` already pulls a room's *entire* operation history into
+ *  `record.operations`, unbounded, so there's no separate cold Postgres path
+ *  needed here. */
+export function getOperationsBefore(roomId: string, beforeSeq: number, limit: number): Operation[] {
   const record = rooms.get(roomId)
   if (!record) return []
-  const out: Operation[] = []
-  for (const op of record.operations) {
-    const seq = op.seq ?? 0
-    if (seq <= cursorSeq || seq >= beforeSeq) continue
-    out.push(op)
-    if (out.length >= limit) break
-  }
-  return out
+  const matching = record.operations.filter(op => (op.seq ?? 0) < beforeSeq)
+  return matching.slice(Math.max(0, matching.length - limit))
 }
 
 /** Appends an operation to the room's log (#34/#35), stamping it with the

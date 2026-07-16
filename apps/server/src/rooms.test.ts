@@ -346,7 +346,7 @@ describe('recordOperation', () => {
 // holds the room's full history — see ensureRoomLoaded), so unlike
 // saveSnapshot/getLatestSnapshot this needs no Postgres mocking.
 describe('getOperationsBefore', () => {
-  it('returns operations strictly between cursorSeq and beforeSeq, ascending', () => {
+  it('returns every operation strictly before beforeSeq when it all fits in one page', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     recordOperation(roomId, stroke({ id: 'a' })) // seq 1
@@ -354,18 +354,36 @@ describe('getOperationsBefore', () => {
     recordOperation(roomId, stroke({ id: 'c' })) // seq 3
     recordOperation(roomId, stroke({ id: 'd' })) // seq 4
 
-    expect(getOperationsBefore(roomId, 4, 1, 500).map(o => o.id)).toEqual(['b', 'c'])
+    expect(getOperationsBefore(roomId, 4, 500).map(o => o.id)).toEqual(['a', 'b', 'c'])
   })
 
-  it('caps the page at the given limit', () => {
+  it('caps a page to the last `limit` operations before beforeSeq — the page immediately preceding it', () => {
+    // Anchored at beforeSeq and walking backward (not forward from a
+    // cursor): the client always merges a page at the very front of its
+    // log, so pages must arrive oldest-page-last, newest-before-the-anchor-
+    // first — see the function's own doc comment.
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    for (let i = 0; i < 5; i++) recordOperation(roomId, stroke({ id: `op-${i}` }))
+    for (let i = 0; i < 5; i++) recordOperation(roomId, stroke({ id: `op-${i}` })) // seq 1..5
 
-    expect(getOperationsBefore(roomId, 100, 0, 2).map(o => o.id)).toEqual(['op-0', 'op-1'])
+    expect(getOperationsBefore(roomId, 100, 2).map(o => o.id)).toEqual(['op-3', 'op-4'])
+  })
+
+  it('walking a room\'s full history backward, page by page, eventually reaches an empty page', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    for (let i = 0; i < 5; i++) recordOperation(roomId, stroke({ id: `op-${i}` })) // seq 1..5
+
+    const page1 = getOperationsBefore(roomId, 6, 2)
+    expect(page1.map(o => o.id)).toEqual(['op-3', 'op-4'])
+    const page2 = getOperationsBefore(roomId, page1[0].seq!, 2)
+    expect(page2.map(o => o.id)).toEqual(['op-1', 'op-2'])
+    const page3 = getOperationsBefore(roomId, page2[0].seq!, 2)
+    expect(page3.map(o => o.id)).toEqual(['op-0'])
+    expect(getOperationsBefore(roomId, page3[0].seq!, 2)).toEqual([])
   })
 
   it('returns nothing for an unknown room', () => {
-    expect(getOperationsBefore('never-created', 100, 0, 500)).toEqual([])
+    expect(getOperationsBefore('never-created', 100, 500)).toEqual([])
   })
 })
