@@ -41,6 +41,26 @@ interface RoomRecord {
 
 const rooms = new Map<string, RoomRecord>()
 
+// Tracks which socket.id is currently considered "the" live connection for
+// a given room+userId (#164). A user can briefly have two overlapping
+// sockets for the same room — a page refresh, a flaky reconnect — where the
+// OLD socket's 'disconnect' event arrives *after* the NEW socket has already
+// joined. Without this, that stale disconnect's leaveRoom call would remove
+// the participant (participants is keyed by userId, not socket.id, so the
+// old socket's leave looks identical to the new one's) and, if they were
+// the room's last participant, evict the room entirely — while a live,
+// joined socket for that user still exists and can go on to call
+// recordOperation for a room that's no longer in the Map, throwing an
+// uncaught exception that crashes the whole process. Keyed by
+// `${roomId}:${userId}` rather than nesting inside RoomRecord.participants
+// so a stale leaveRoom can check it even after the room itself might
+// already be gone.
+const currentSocketForParticipant = new Map<string, string>()
+
+function participantKey(roomId: string, userId: string): string {
+  return `${roomId}:${userId}`
+}
+
 export type JoinRoomOutcome =
   | { ok: true; participant: Participant }
   | { ok: false; error: 'not_found' | 'wrong_password' }
@@ -152,11 +172,13 @@ export function createRoom(
   password: string | undefined,
   ownerId: string,
   ownerName: string,
+  socketId: string,
 ): { room: Room; participant: Participant } {
   const existing = rooms.get(roomData.id)
   if (existing && existing.room.ownerId === ownerId) {
     const participant: Participant = { userId: ownerId, name: ownerName, role: 'teacher', color: CURSOR_COLORS[0] }
     existing.participants.set(ownerId, participant)
+    currentSocketForParticipant.set(participantKey(roomData.id, ownerId), socketId)
     return { room: existing.room, participant }
   }
 
@@ -170,6 +192,7 @@ export function createRoom(
   const participant: Participant = { userId: ownerId, name: ownerName, role: 'teacher', color: CURSOR_COLORS[0] }
   const participants = new Map<string, Participant>([[ownerId, participant]])
   rooms.set(room.id, { room, passwordHash, operations: [], participants, nextSeq: 1 })
+  currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
   persistParticipant(room.id, ownerId)
   return { room, participant }
@@ -182,7 +205,9 @@ export function createRoom(
  *  (reconnecting after a drop, or just reopening the link days later — see
  *  `createRoom`'s doc comment, this is the *only* path a returning owner
  *  goes through) and `student` otherwise. */
-export function joinRoom(roomId: string, userId: string, name: string, password?: string): JoinRoomOutcome {
+export function joinRoom(
+  roomId: string, userId: string, name: string, password: string | undefined, socketId: string,
+): JoinRoomOutcome {
   const record = rooms.get(roomId)
   if (!record) return { ok: false, error: 'not_found' }
   if (record.passwordHash && !(password && bcrypt.compareSync(password, record.passwordHash))) {
@@ -193,6 +218,7 @@ export function joinRoom(roomId: string, userId: string, name: string, password?
   const color = CURSOR_COLORS[record.participants.size % CURSOR_COLORS.length]
   const participant: Participant = { userId, name, role, color }
   record.participants.set(userId, participant)
+  currentSocketForParticipant.set(participantKey(roomId, userId), socketId)
   persistParticipant(roomId, userId)
   return { ok: true, participant }
 }
@@ -206,18 +232,38 @@ export function joinRoom(roomId: string, userId: string, name: string, password?
  *  Postgres read against the last stroke's own write — see `enqueueWrite`.
  *  Re-checks participants after the wait: a reconnect that lands during it
  *  re-populates the Map, and that room must not then be deleted out from
- *  under it. */
-export function leaveRoom(roomId: string, userId: string): void {
+ *  under it.
+ *
+ *  `socketId` must be the disconnecting socket's own id (#164): if a newer
+ *  socket for this same room+userId has since joined (see
+ *  `currentSocketForParticipant`), this disconnect is stale — a superseded
+ *  socket's belated 'disconnect' event, not a real departure — and is
+ *  ignored entirely, participant untouched. Without this check a stale
+ *  disconnect could evict a still-live, joined participant (and, if they
+ *  were the room's last one, the whole room), which then made the live
+ *  socket's next `recordOperation` throw on a room no longer in the Map.
+ *
+ *  Returns whether a participant was actually removed — false for a stale/
+ *  superseded socket or an already-gone room/participant. The caller
+ *  (socketHandlers.ts) uses this to decide whether to broadcast
+ *  `peer_left`: a stale disconnect must not announce someone as gone when
+ *  their (newer) socket is still very much connected. */
+export function leaveRoom(roomId: string, userId: string, socketId: string): boolean {
+  const key = participantKey(roomId, userId)
+  if (currentSocketForParticipant.get(key) !== socketId) return false
+  currentSocketForParticipant.delete(key)
+
   const record = rooms.get(roomId)
-  if (!record) return
-  record.participants.delete(userId)
-  if (record.participants.size !== 0) return
+  if (!record) return false
+  const removed = record.participants.delete(userId)
+  if (record.participants.size !== 0) return removed
 
   const pending = pendingWrite.get(roomId)
-  if (!pending) { rooms.delete(roomId); return }
+  if (!pending) { rooms.delete(roomId); return removed }
   pending.finally(() => {
     if (rooms.get(roomId)?.participants.size === 0) rooms.delete(roomId)
   })
+  return removed
 }
 
 /** Test-only seam: resolves once `roomId`'s in-flight Postgres writes (if

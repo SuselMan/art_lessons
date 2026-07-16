@@ -48,7 +48,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       await ensureRoomLoaded(room.id)
       // No one else is in the room yet, so there's no peer_joined broadcast
       // to make — unlike join_room below, the returned participant is unused.
-      createRoom(room, password, userId, 'Teacher')
+      createRoom(room, password, userId, 'Teacher', socket.id)
       socket.data.roomId = room.id
 
       // Same ordering guarantee as join_room below (#36): join the Socket.IO
@@ -70,7 +70,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // no-op, synchronously fast, when the room's already live.
       await ensureRoomLoaded(roomId)
 
-      const result = joinRoom(roomId, userId, name, password)
+      const result = joinRoom(roomId, userId, name, password, socket.id)
       if (!result.ok) {
         log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')
         ack(result)
@@ -101,6 +101,16 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // privileged case is `operation_revoke` (#73), which only a `teacher`
     // may submit — students are silently dropped (no ack/error contract
     // exists in the shared types for this yet, so this just logs and stops).
+    //
+    // #164: wrapped in try/catch as a defensive backstop — an uncaught
+    // exception inside a socket.io event handler isn't caught by the
+    // framework, it propagates straight to the Node process and crashes
+    // it, taking down every room and every connected user for one bad
+    // packet on one socket. recordOperation throwing for a roomId that
+    // isn't (or is no longer) in the in-memory Map was the concrete case
+    // that happened in production (root cause fixed separately in
+    // leaveRoom/currentSocketForParticipant — see rooms.ts — but this stays
+    // as a backstop against *any* unexpected throw here, not just that one).
     socket.on('operation', (op: Operation) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) {
@@ -108,19 +118,26 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         return
       }
 
-      if (op.type === 'operation_revoke') {
-        const participant = getParticipant(roomId, userId)
-        if (participant?.role !== 'teacher') {
-          log.warn(
-            { socketId: socket.id, roomId, userId, opId: op.id },
-            'rejected operation_revoke from non-teacher participant',
-          )
-          return
+      try {
+        if (op.type === 'operation_revoke') {
+          const participant = getParticipant(roomId, userId)
+          if (participant?.role !== 'teacher') {
+            log.warn(
+              { socketId: socket.id, roomId, userId, opId: op.id },
+              'rejected operation_revoke from non-teacher participant',
+            )
+            return
+          }
         }
-      }
 
-      const stamped = recordOperation(roomId, op)
-      socket.to(roomId).emit('peer_operation', stamped)
+        const stamped = recordOperation(roomId, op)
+        socket.to(roomId).emit('peer_operation', stamped)
+      } catch (err) {
+        log.error(
+          { socketId: socket.id, roomId, userId, opId: op.id, opType: op.type, err },
+          'failed to record/relay operation, dropping it',
+        )
+      }
     })
 
     // Bonus: cursor relay follows the exact same broadcast pattern and adds
@@ -135,8 +152,12 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('disconnect', (reason) => {
       const { roomId, userId } = socket.data
       if (roomId && userId) {
-        leaveRoom(roomId, userId)
-        socket.to(roomId).emit('peer_left', userId)
+        // #164: leaveRoom returns false for a stale/superseded socket (a
+        // newer socket for this same room+userId already took over — see
+        // its own doc comment) — must not broadcast peer_left in that case,
+        // the user is still very much present via that newer socket.
+        const actuallyLeft = leaveRoom(roomId, userId, socket.id)
+        if (actuallyLeft) socket.to(roomId).emit('peer_left', userId)
       }
       log.info({ socketId: socket.id, reason }, 'socket disconnected')
     })

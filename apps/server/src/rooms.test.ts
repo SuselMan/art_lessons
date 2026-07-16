@@ -44,10 +44,19 @@ function stroke(overrides: Partial<StrokeOperation> = {}): StrokeOperation {
   }
 }
 
+// Deterministic per-userId socket id for tests that don't care about the
+// exact value, just that join/leave agree on it — matches the shape a real
+// socket.io `socket.id` has (an opaque string), just readable here. `suffix`
+// distinguishes two overlapping sockets for the same userId (a page
+// refresh, a reconnect) in the #164 tests below.
+function sock(userId: string, suffix = ''): string {
+  return `sock-${userId}${suffix}`
+}
+
 describe('createRoom', () => {
   it('seats the creator as teacher and fixes ownerId', () => {
     const roomId = freshRoomId()
-    const { room, participant } = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    const { room, participant } = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
 
     expect(room.ownerId).toBe('owner-1')
     expect(room.id).toBe(roomId)
@@ -62,10 +71,10 @@ describe('createRoom', () => {
     // this used to unconditionally overwrite the room, discarding whatever
     // had already been drawn.
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     recordOperation(roomId, stroke({ id: 'a' }))
 
-    const second = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    const second = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
 
     expect(second.participant.role).toBe('teacher')
     expect(getRoomSnapshot(roomId)?.operations.map(o => o.id)).toEqual(['a'])
@@ -73,10 +82,10 @@ describe('createRoom', () => {
 
   it('a different owner claiming the same id still overwrites (real collision, unchanged behavior)', () => {
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     recordOperation(roomId, stroke({ id: 'a' }))
 
-    const second = createRoom(roomDraft(roomId), undefined, 'owner-2', 'Teacher')
+    const second = createRoom(roomDraft(roomId), undefined, 'owner-2', 'Teacher', sock('owner-2'))
 
     expect(second.room.ownerId).toBe('owner-2')
     expect(getRoomSnapshot(roomId)?.operations).toEqual([])
@@ -85,8 +94,8 @@ describe('createRoom', () => {
   it('derives hasPassword from whether a password was given', () => {
     const openId = freshRoomId()
     const protectedId = freshRoomId()
-    const open = createRoom(roomDraft(openId), undefined, 'owner-1', 'Teacher')
-    const guarded = createRoom(roomDraft(protectedId), 'secret', 'owner-2', 'Teacher')
+    const open = createRoom(roomDraft(openId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const guarded = createRoom(roomDraft(protectedId), 'secret', 'owner-2', 'Teacher', sock('owner-2'))
 
     expect(open.room.hasPassword).toBe(false)
     expect(guarded.room.hasPassword).toBe(true)
@@ -94,9 +103,9 @@ describe('createRoom', () => {
 
   it("ownerId does not shift when other participants join afterward", () => {
     const roomId = freshRoomId()
-    const { room } = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
-    joinRoom(roomId, 'student-1', 'Alice')
-    joinRoom(roomId, 'student-2', 'Bob')
+    const { room } = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-2', 'Bob', undefined, sock('student-2'))
 
     expect(getRoomSnapshot(roomId)?.room.ownerId).toBe('owner-1')
     expect(room.ownerId).toBe('owner-1')
@@ -105,31 +114,31 @@ describe('createRoom', () => {
 
 describe('joinRoom', () => {
   it('fails with not_found when the room was never created', () => {
-    const result = joinRoom(freshRoomId(), 'u1', 'Alice')
+    const result = joinRoom(freshRoomId(), 'u1', 'Alice', undefined, sock('u1'))
     expect(result).toEqual({ ok: false, error: 'not_found' })
   })
 
   it('fails with wrong_password when the room requires one and it does not match', () => {
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher')
+    createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher', sock('owner-1'))
 
-    expect(joinRoom(roomId, 'u1', 'Alice', 'nope')).toEqual({ ok: false, error: 'wrong_password' })
-    expect(joinRoom(roomId, 'u1', 'Alice')).toEqual({ ok: false, error: 'wrong_password' })
+    expect(joinRoom(roomId, 'u1', 'Alice', 'nope', sock('u1'))).toEqual({ ok: false, error: 'wrong_password' })
+    expect(joinRoom(roomId, 'u1', 'Alice', undefined, sock('u1'))).toEqual({ ok: false, error: 'wrong_password' })
   })
 
   it('succeeds when the password matches', () => {
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher')
+    createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher', sock('owner-1'))
 
-    const result = joinRoom(roomId, 'u1', 'Alice', 'secret')
+    const result = joinRoom(roomId, 'u1', 'Alice', 'secret', sock('u1'))
     expect(result).toEqual({ ok: true, participant: expect.objectContaining({ userId: 'u1', role: 'student' }) })
   })
 
   it('never assigns teacher to a non-owner, regardless of join order', () => {
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
-    const first = joinRoom(roomId, 'u1', 'Alice')
-    const second = joinRoom(roomId, 'u2', 'Bob')
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const first = joinRoom(roomId, 'u1', 'Alice', undefined, sock('u1'))
+    const second = joinRoom(roomId, 'u2', 'Bob', undefined, sock('u2'))
 
     expect(first.ok && first.participant.role).toBe('student')
     expect(second.ok && second.participant.role).toBe('student')
@@ -141,16 +150,16 @@ describe('joinRoom', () => {
     // later) — see rooms.ts createRoom's doc comment. Before identity was
     // stable, this always fell through to `student`.
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
-    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher')
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-2'))
 
     expect(rejoin.ok && rejoin.participant.role).toBe('teacher')
   })
 
   it('assigns distinct cursor colors by join order, cycling if needed', () => {
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
-    const joiners = Array.from({ length: 8 }, (_, i) => joinRoom(roomId, `u${i}`, `User ${i}`))
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const joiners = Array.from({ length: 8 }, (_, i) => joinRoom(roomId, `u${i}`, `User ${i}`, undefined, sock(`u${i}`)))
     const colors = joiners.map(r => r.ok && r.participant.color)
     // Owner took the first color at creation; 8 students plus the owner cycle
     // through the 8-color palette, so the 8th joiner (index 7) should repeat
@@ -162,8 +171,8 @@ describe('joinRoom', () => {
 describe('getRoomSnapshot', () => {
   it('reflects room metadata and current participants, as defensive copies', () => {
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
-    joinRoom(roomId, 'u1', 'Alice')
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'u1', 'Alice', undefined, sock('u1'))
 
     const snapshot = getRoomSnapshot(roomId)
     expect(snapshot?.room.id).toBe(roomId)
@@ -181,8 +190,8 @@ describe('getRoomSnapshot', () => {
 describe('leaveRoom', () => {
   it('removes the participant; the room (including its metadata) is dropped once empty', async () => {
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
-    leaveRoom(roomId, 'owner-1')
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    expect(leaveRoom(roomId, 'owner-1', sock('owner-1'))).toBe(true)
     expect(getParticipant(roomId, 'owner-1')).toBeUndefined()
 
     // Eviction is deferred until this room's pending Postgres writes settle
@@ -193,7 +202,7 @@ describe('leaveRoom', () => {
     expect(getRoomSnapshot(roomId)).toBeUndefined()
 
     // Room is gone entirely — a plain join_room can no longer find it.
-    expect(joinRoom(roomId, 'u1', 'Alice')).toEqual({ ok: false, error: 'not_found' })
+    expect(joinRoom(roomId, 'u1', 'Alice', undefined, sock('u1'))).toEqual({ ok: false, error: 'not_found' })
   })
 
   it('a reconnect during the deferred-eviction window keeps the room (and its operations) live, not reloaded', async () => {
@@ -203,24 +212,76 @@ describe('leaveRoom', () => {
     // fall through to ensureRoomLoaded's cold Postgres read and could come
     // back missing the operation despite it never really being lost.
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     recordOperation(roomId, stroke({ id: 'a' }))
-    leaveRoom(roomId, 'owner-1') // eviction deferred, not immediate — no await yet
-    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher')
+    leaveRoom(roomId, 'owner-1', sock('owner-1')) // eviction deferred, not immediate — no await yet
+    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-2'))
 
     expect(rejoin).toEqual({ ok: true, participant: expect.objectContaining({ role: 'teacher' }) })
     expect(getRoomSnapshot(roomId)?.operations.map(o => o.id)).toEqual(['a'])
   })
 
   it('is a no-op on an unknown room or participant', () => {
-    expect(() => leaveRoom('never-created', 'nobody')).not.toThrow()
+    expect(() => leaveRoom('never-created', 'nobody', 'sock-x')).not.toThrow()
+    expect(leaveRoom('never-created', 'nobody', 'sock-x')).toBe(false)
+  })
+
+  // #164: the actual bug — a stale/superseded socket's belated disconnect
+  // must not evict a participant (or the room) a *newer* socket for the
+  // same user has already re-joined through. This is what let a live
+  // socket's next recordOperation throw on a room no longer in the Map,
+  // crashing the whole process (an uncaught exception in a socket.io
+  // handler with no try/catch — see socketHandlers.ts's own #164 comment).
+  describe('#164: stale/superseded socket disconnect', () => {
+    it('a stale disconnect (old socket, after a newer one already joined) is a no-op — participant stays, room stays live', () => {
+      const roomId = freshRoomId()
+      createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1', '-old'))
+      // Page refresh: a new socket joins for the same room+userId before the
+      // old tab's connection has actually dropped.
+      joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-new'))
+
+      // The OLD socket's disconnect arrives late.
+      const actuallyLeft = leaveRoom(roomId, 'owner-1', sock('owner-1', '-old'))
+
+      expect(actuallyLeft).toBe(false)
+      expect(getParticipant(roomId, 'owner-1')).toBeDefined()
+      expect(getRoomSnapshot(roomId)).toBeDefined()
+      // The live (new) socket can still record operations — this is the
+      // exact call that used to throw once the room had been wrongly
+      // evicted by the stale disconnect.
+      expect(() => recordOperation(roomId, stroke({ id: 'a' }))).not.toThrow()
+    })
+
+    it("the newer socket's own eventual disconnect still removes the participant normally", () => {
+      const roomId = freshRoomId()
+      createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1', '-old'))
+      joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-new'))
+      leaveRoom(roomId, 'owner-1', sock('owner-1', '-old')) // stale, ignored
+
+      const actuallyLeft = leaveRoom(roomId, 'owner-1', sock('owner-1', '-new'))
+
+      expect(actuallyLeft).toBe(true)
+      expect(getParticipant(roomId, 'owner-1')).toBeUndefined()
+    })
+
+    it('a stale disconnect for one participant does not affect a different, still-present participant', () => {
+      const roomId = freshRoomId()
+      createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+      joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1', '-old'))
+      joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1', '-new'))
+
+      leaveRoom(roomId, 'student-1', sock('student-1', '-old')) // stale
+
+      expect(getParticipant(roomId, 'owner-1')).toBeDefined()
+      expect(getParticipant(roomId, 'student-1')).toBeDefined()
+    })
   })
 })
 
 describe('recordOperation', () => {
   it('stamps increasing seq numbers and preserves order', () => {
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     const a = recordOperation(roomId, stroke({ id: 'a' }))
     const b = recordOperation(roomId, stroke({ id: 'b' }))
 
@@ -231,7 +292,7 @@ describe('recordOperation', () => {
 
   it('returns a stamped copy without mutating the input', () => {
     const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher')
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     const input = stroke({ id: 'a' })
     const stamped = recordOperation(roomId, input)
 
