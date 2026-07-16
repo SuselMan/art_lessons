@@ -24,6 +24,11 @@ interface Props {
   /** Bounds the drag/clamp against — the editor root, same element the
    *  panel itself is positioned absolute within. */
   containerRef: React.RefObject<HTMLElement | null>
+  /** True while #99's tap-to-hide minimal-UI mode is *inactive*, i.e. the
+   *  full header/toolbar/side-panel chrome is showing — pass `!uiHidden`,
+   *  not `uiHidden` (see this component's own doc comment for why the
+   *  relationship is inverted from every other piece of chrome). */
+  hidden?: boolean
   strokeBlocked?: boolean
 }
 
@@ -34,15 +39,19 @@ interface Props {
  *  doesn't reset to a default corner on every visit once someone's moved
  *  it somewhere that suits their hand/device.
  *
- *  Deliberately never hides with the rest of the chrome when #99's tap-to-
- *  hide minimal-UI mode is active (unlike header/toolbar/side-panel, which
- *  do) — it's the opposite relationship: this panel *is* the minimal set
- *  of actions meant to survive everything else disappearing, not another
- *  piece of chrome to fade along with it. Always visible regardless of
- *  that mode (or of whether the experimental tapToHideUI flag is even on),
- *  so it isn't stranded inaccessible for anyone without that flag either. */
+ *  Visibility is the *inverse* of #99's tap-to-hide minimal-UI mode,
+ *  opposite to every other piece of chrome (header/toolbar/side-panel):
+ *  those fade away when minimal-UI is active; this panel only shows up
+ *  then. It's the replacement minimal toolkit for that mode, not another
+ *  thing minimal-UI hides — while the full chrome is showing, its own
+ *  header Undo/Redo and toolbar pencil/eraser already cover the same
+ *  actions, so this stays out of the way. A real consequence: with the
+ *  experimental tapToHideUI flag off, uiHidden can never become true, so
+ *  this panel never shows at all for that user — accepted for now (v1,
+ *  same "further detail TBD" scope the issue itself calls out), not an
+ *  oversight. */
 export function FloatingToolPanel({
-  tool, onSetTool, onUndo, onRedo, roomId, position, onPositionChange, containerRef, strokeBlocked,
+  tool, onSetTool, onUndo, onRedo, roomId, position, onPositionChange, containerRef, hidden, strokeBlocked,
 }: Props) {
   const clamp = useCallback((pos: PanelPosition): PanelPosition => {
     const container = containerRef.current
@@ -84,6 +93,7 @@ export function FloatingToolPanel({
       className={clsx(
         styles.panel,
         !position && styles.panelDefaultCorner,
+        hidden && styles.uiHidden,
         strokeBlocked && styles.strokeBlocked,
       )}
       style={position ? { left: position.x, top: position.y } : undefined}

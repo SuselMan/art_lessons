@@ -26,6 +26,11 @@
   bottom: 96px;
 }
 
+.uiHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .strokeBlocked {
   pointer-events: none;
 }

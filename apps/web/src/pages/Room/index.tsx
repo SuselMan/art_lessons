@@ -1873,9 +1873,10 @@ export function Room() {
 
         {/* Draggable floating tool cluster (#157) — independent of the
             header/left-toolbar above, both of which stay as they are.
-            Deliberately NOT gated by uiHidden — see FloatingToolPanel's own
-            doc comment for why it stays visible through #99's minimal-UI
-            mode instead of fading with the rest of the chrome. */}
+            hidden is inverted (`!uiHidden`, not `uiHidden`) — see
+            FloatingToolPanel's own doc comment: this panel is the minimal
+            #99 replacement toolkit, so it only shows up once the rest of
+            the chrome has hidden, not the other way round. */}
         <FloatingToolPanel
           tool={tool}
           onSetTool={setTool}
@@ -1885,6 +1886,7 @@ export function Room() {
           position={panelPosition}
           onPositionChange={setPanelPosition}
           containerRef={editorRef}
+          hidden={!uiHidden}
           strokeBlocked={isDrawing}
         />
 
