@@ -153,6 +153,22 @@ export function Room() {
   // join-gate form below until a successful join_room tells us who we are.
   const [creatorDraft] = useState<CreatorNavState | undefined>(() => location.state as CreatorNavState | undefined)
   const isCreator = !!creatorDraft?.room
+  // Blocks pointer input on the canvas (see its style prop below) while a
+  // join/reconnect's initial content restore is still in flight — a real
+  // bug, not defensive: with #169's snapshot fast-join, that restore
+  // includes an awaited network fetch (fetchLatestSnapshot), which — unlike
+  // the old always-synchronous full-log replay loop — actually yields to
+  // the event loop for a real, human-noticeable stretch (seconds). A stroke
+  // drawn in that window paints onto a layer whose buffer
+  // restoreLayerFromSnapshot then unconditionally overwrites wholesale with
+  // the snapshot's own (older) pixels — silently wiping the stroke on this
+  // client, while the operation itself still gets recorded server-side
+  // (invisible until a later reconnect/backfill surfaces it, which is
+  // exactly the "мерцает первый вариант потом перезатёртый" symptom).
+  // Starts ready for the creator (a brand-new room has nothing to restore);
+  // a joiner starts blocked until the mount-engine effect's replay (or
+  // handleRoomState's reconnect branch) flips it.
+  const [roomContentReady, setRoomContentReady] = useState(isCreator)
 
   // Device performance investigation (#91) — shows a live per-stroke input/
   // render timing readout. Controlled by the "Debug overlay" feature flag
@@ -730,35 +746,48 @@ export function Room() {
       // still needs to register handlers/cleanup synchronously below,
       // unaffected by this deferred branch.
       void (async () => {
-        await engine.paperReady()
-        // (#147) A fresh room's history can be hundreds/thousands of ops —
-        // without this, appendOperation's own per-op _display() (full
-        // composite + paper-blend) fires once per operation on the very
-        // first paint the user sees, a visible join-time freeze that grows
-        // with the room's history. suspendDisplay/resumeDisplay defer all
-        // of that to one _display() right after the loop — see their own
-        // doc comments.
-        engine.suspendDisplay()
+        try {
+          await engine.paperReady()
+          // (#147) A fresh room's history can be hundreds/thousands of ops —
+          // without this, appendOperation's own per-op _display() (full
+          // composite + paper-blend) fires once per operation on the very
+          // first paint the user sees, a visible join-time freeze that grows
+          // with the room's history. suspendDisplay/resumeDisplay defer all
+          // of that to one _display() right after the loop — see their own
+          // doc comments.
+          engine.suspendDisplay()
 
-        // (#169) A brand-new mount always has lastKnownSeq 0 (nothing local
-        // to already be caught up on) — restore whenever the room has a
-        // snapshot at all, no watermark comparison needed here the way
-        // handleRoomState's reconnect branch needs one.
-        let restoredFromSnapshot = false
-        if (id && pending.latestSnapshotSeq !== null) {
-          const snapshot = await fetchLatestSnapshot(id)
-          if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
-        }
+          // (#169) A brand-new mount always has lastKnownSeq 0 (nothing local
+          // to already be caught up on) — restore whenever the room has a
+          // snapshot at all, no watermark comparison needed here the way
+          // handleRoomState's reconnect branch needs one.
+          let restoredFromSnapshot = false
+          if (id && pending.latestSnapshotSeq !== null) {
+            const snapshot = await fetchLatestSnapshot(id)
+            if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
+          }
 
-        for (const op of pending.tailOperations) applyRemoteOp(op)
-        engine.resumeDisplay()
-        syncFromLog()
-        dispatchParticipants({ type: 'room_state', participants: pending.participants })
+          for (const op of pending.tailOperations) applyRemoteOp(op)
+          engine.resumeDisplay()
+          syncFromLog()
+          dispatchParticipants({ type: 'room_state', participants: pending.participants })
 
-        if (id && restoredFromSnapshot && pending.latestSnapshotSeq !== null) {
-          void backfillHistory(id, engine, pending.latestSnapshotSeq)
+          if (id && restoredFromSnapshot && pending.latestSnapshotSeq !== null) {
+            void backfillHistory(id, engine, pending.latestSnapshotSeq)
+          }
+        } finally {
+          // Runs even if paperReady/fetchLatestSnapshot/etc. throws — a
+          // failed restore must still unblock drawing rather than leave the
+          // canvas permanently inert (see roomContentReady's own doc
+          // comment for what this guards against).
+          setRoomContentReady(true)
         }
       })()
+    } else {
+      // Nothing to restore on this particular mount (e.g. a remount after
+      // the first join already completed) — don't leave a stale `false`
+      // from a prior mount stuck forever with nothing left to flip it.
+      setRoomContentReady(true)
     }
 
     return () => {
@@ -1488,41 +1517,53 @@ export function Room() {
       // no-op await in the overwhelmingly common case (paper long since
       // loaded by the time a reconnect happens).
       const engine = engineRef.current
-      await engine?.paperReady()
-      // A reconnect's full-history replay supersedes any reveal still
-      // in-flight from before the drop — cancel it rather than let it keep
-      // painting the same stroke a second time on top of what this loop is
-      // about to commit directly.
-      // (#147) Same reasoning as the initial-join replay above — see
-      // suspendDisplay/resumeDisplay's own doc comments.
-      engine?.suspendDisplay()
+      setRoomContentReady(false)
+      try {
+        await engine?.paperReady()
+        // A reconnect's full-history replay supersedes any reveal still
+        // in-flight from before the drop — cancel it rather than let it keep
+        // painting the same stroke a second time on top of what this loop is
+        // about to commit directly.
+        // (#147) Same reasoning as the initial-join replay above — see
+        // suspendDisplay/resumeDisplay's own doc comments.
+        engine?.suspendDisplay()
 
-      // (#169) A snapshot exists and this socket doesn't already have local
-      // state at least as fresh as it (the common reconnect case: it does,
-      // so this is skipped and tailOperations alone is enough — same as
-      // before this epic). Restoring here, before the tail loop below, is
-      // required: the tail paints relative to this restored buffer state.
-      let restoredFromSnapshot = false
-      if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
-        const snapshot = await fetchLatestSnapshot(id)
-        if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
-      }
-
-      for (const op of tailOperations) {
-        if (pendingPreviewOpIdsRef.current.has(op.id)) {
-          engine?.dropPendingPreview(op.id)
-          pendingPreviewOpIdsRef.current.delete(op.id)
+        // (#169) A snapshot exists and this socket doesn't already have
+        // local state at least as fresh as it (the common reconnect case: it
+        // does, so this is skipped and tailOperations alone is enough — same
+        // as before this epic). Restoring here, before the tail loop below,
+        // is required: the tail paints relative to this restored buffer
+        // state.
+        let restoredFromSnapshot = false
+        if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
+          const snapshot = await fetchLatestSnapshot(id)
+          if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
         }
-        applyRemoteOp(op)
-      }
-      engine?.resumeDisplay()
-      syncFromLog()
-      dispatchParticipants({ type: 'room_state', participants: roomParticipants })
 
-      // Runs fully in the background — never awaited, must not block this
-      // handler or the first paint it just produced.
-      if (restoredFromSnapshot && engine && latestSnapshotSeq !== null) {
-        void backfillHistory(id, engine, latestSnapshotSeq)
+        for (const op of tailOperations) {
+          if (pendingPreviewOpIdsRef.current.has(op.id)) {
+            engine?.dropPendingPreview(op.id)
+            pendingPreviewOpIdsRef.current.delete(op.id)
+          }
+          applyRemoteOp(op)
+        }
+        engine?.resumeDisplay()
+        syncFromLog()
+        dispatchParticipants({ type: 'room_state', participants: roomParticipants })
+
+        // Runs fully in the background — never awaited, must not block this
+        // handler or the first paint it just produced.
+        if (restoredFromSnapshot && engine && latestSnapshotSeq !== null) {
+          void backfillHistory(id, engine, latestSnapshotSeq)
+        }
+      } finally {
+        // (#169 bug fix) Must run even on a plain, no-snapshot reconnect
+        // (the common case) — otherwise the *next* stroke this same user
+        // draws would find the canvas still gated from a re-entered
+        // setRoomContentReady(false) above with nothing to ever clear it if
+        // an error was thrown. See roomContentReady's own doc comment for
+        // the bug this whole mechanism guards against.
+        setRoomContentReady(true)
       }
     }
 
@@ -1984,7 +2025,15 @@ export function Room() {
               width={config.infinite ? undefined : config.width}
               height={config.infinite ? undefined : config.height}
               className={styles.canvas}
-              style={config.infinite ? { width: '100%', height: '100%' } : { width: config.width, height: config.height }}
+              // (#169 bug fix) pointerEvents 'none' while the initial
+              // content restore is still in flight — see roomContentReady's
+              // own doc comment. PointerInput binds pointerdown/move/up
+              // directly on this element, so this fully blocks drawing
+              // input (nothing to un-wire/re-wire in the engine itself).
+              style={{
+                ...(config.infinite ? { width: '100%', height: '100%' } : { width: config.width, height: config.height }),
+                pointerEvents: roomContentReady ? undefined : 'none',
+              }}
             />
             {/* Bounded rooms: these five assume canvas-pixel-space
                 coordinates with pan/zoom/rotate inherited for free from
