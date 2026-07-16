@@ -1,0 +1,80 @@
+/* #157: draggable circular tool cluster. Diameter must match index.tsx's
+   PANEL_SIZE constant (used for drag-clamp bounds — no shared source of
+   truth possible across CSS/TS). */
+.panel {
+  position: absolute;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  touch-action: none;
+  cursor: grab;
+  z-index: 5;
+  transition: opacity var(--duration-fast);
+}
+.panel:active {
+  cursor: grabbing;
+}
+
+/* Only applied while `position` is still null (never dragged this room) —
+   once dragged, an inline left/top from panelPosition.ts takes over and
+   this stops being the anchor. Clear of the left toolbar and the header. */
+.panelDefaultCorner {
+  right: 16px;
+  bottom: 96px;
+}
+
+.uiHidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.strokeBlocked {
+  pointer-events: none;
+}
+
+/* Purely decorative center dot — signals "this whole circle drags", same
+   role a grip icon plays elsewhere. Never intercepts pointer events itself
+   (the drag handler is on .panel, not this). */
+.grip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.btn {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-dim);
+  background: transparent;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+.btn:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.btnActive {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+}
+
+/* Compass layout — each button sits at radius 40 from the panel's own
+   center (64,64), well inside the 64px panel radius once the button's own
+   22px half-width is added back (40 + 22 = 62 < 64). */
+.btnTop    { top: 2px; left: 50%; transform: translateX(-50%); }
+.btnRight  { right: 2px; top: 50%; transform: translateY(-50%); }
+.btnBottom { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.btnLeft   { left: 2px; top: 50%; transform: translateY(-50%); }

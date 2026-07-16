@@ -30,7 +30,18 @@ export function readRoomSettings<T>(storage: KeyValueStorage, roomId: string): T
   }
 }
 
-export function writeRoomSettings<T>(storage: KeyValueStorage, roomId: string, data: T): void {
-  const envelope: Envelope<T> = { v: FORMAT_VERSION, data }
+/** Shallow-merges `patch` onto whatever's already stored for this room
+ *  (missing/corrupt/version-mismatched existing data is treated as `{}`,
+ *  same fallback readRoomSettings itself uses) before writing — not a
+ *  blind overwrite. Two independent features sharing this one per-room key
+ *  (e.g. toolSettings.ts's {pencil,eraser} and panelPosition.ts's
+ *  {panelPosition}) each only know their own slice; overwriting the whole
+ *  blob with just that slice would silently wipe out whatever the other
+ *  feature's last write put there. Top-level-key granularity only (each
+ *  feature owns entirely separate top-level keys in T, never merges within
+ *  a shared key) — fine for every current and foreseeable caller. */
+export function writeRoomSettings<T extends object>(storage: KeyValueStorage, roomId: string, patch: Partial<T>): void {
+  const existing = readRoomSettings<T>(storage, roomId) ?? ({} as T)
+  const envelope: Envelope<T> = { v: FORMAT_VERSION, data: { ...existing, ...patch } }
   storage.setItem(KEY_PREFIX + roomId, JSON.stringify(envelope))
 }

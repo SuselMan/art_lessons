@@ -16,6 +16,7 @@ import { ColorPicker } from '../../components/ColorPicker'
 import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { PrecisionSlider } from '../../components/PrecisionSlider'
+import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
 import { getFeatureFlag, getPencilSoundSetting } from '../../lib/featureFlags'
 import { rgbToHex } from '../../lib/color'
@@ -40,6 +41,7 @@ import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix 
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import { loadToolSettings, saveToolSettings, type ToolConfig } from './toolSettings'
+import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
@@ -250,6 +252,13 @@ export function Room() {
   const [initialToolSettings] = useState(() => loadToolSettings(localStorage, id ?? '', DEFAULT_TOOL_SETTINGS))
   const [pencilCfg,  setPencilCfg]  = useState<ToolConfig>(initialToolSettings.pencil)
   const [eraserCfg,  setEraserCfg]  = useState<ToolConfig>(initialToolSettings.eraser)
+  // Floating tool panel's dragged-to position (#157) — same load-once-up-
+  // front pattern as initialToolSettings above; null until the panel's
+  // ever been dragged in this room, in which case it renders at its
+  // CSS-anchored default corner instead (see FloatingToolPanel).
+  const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(
+    () => loadPanelPosition(localStorage, id ?? ''),
+  )
   const [color,      setColor]      = useState<[number, number, number]>(DEFAULT_GRAPHITE_COLOR)
   // Eyedropper (#82) is a one-shot mode, not a recorded ToolType — it never
   // paints or produces an Operation, so it lives entirely as local UI state
@@ -1861,6 +1870,21 @@ export function Room() {
             ]}
           />
         </div>
+
+        {/* Draggable floating tool cluster (#157) — independent of the
+            header/left-toolbar above, both of which stay as they are. */}
+        <FloatingToolPanel
+          tool={tool}
+          onSetTool={setTool}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          roomId={id ?? ''}
+          position={panelPosition}
+          onPositionChange={setPanelPosition}
+          containerRef={editorRef}
+          hidden={uiHidden}
+          strokeBlocked={isDrawing}
+        />
 
       </div>
 
