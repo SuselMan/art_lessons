@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { StrokeOperation } from '@art-lessons/shared'
 
-import { _flushPendingWrites, createRoom, getParticipant, getRoomSnapshot, joinRoom, leaveRoom, recordOperation } from './rooms.js'
+import {
+  _flushPendingWrites, createRoom, getOperationsBefore, getParticipant, getRoomSnapshot, joinRoom, leaveRoom,
+  recordOperation,
+} from './rooms.js'
 
 // Each test uses its own roomId — `rooms` is module-level shared state with no
 // reset hook, so isolation comes from never reusing a room id across tests.
@@ -336,5 +339,33 @@ describe('recordOperation', () => {
 
   it('throws for a room that was never created', () => {
     expect(() => recordOperation(freshRoomId(), stroke())).toThrow()
+  })
+})
+
+// #169 background backfill: purely in-memory (record.operations already
+// holds the room's full history — see ensureRoomLoaded), so unlike
+// saveSnapshot/getLatestSnapshot this needs no Postgres mocking.
+describe('getOperationsBefore', () => {
+  it('returns operations strictly between cursorSeq and beforeSeq, ascending', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    recordOperation(roomId, stroke({ id: 'a' })) // seq 1
+    recordOperation(roomId, stroke({ id: 'b' })) // seq 2
+    recordOperation(roomId, stroke({ id: 'c' })) // seq 3
+    recordOperation(roomId, stroke({ id: 'd' })) // seq 4
+
+    expect(getOperationsBefore(roomId, 4, 1, 500).map(o => o.id)).toEqual(['b', 'c'])
+  })
+
+  it('caps the page at the given limit', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    for (let i = 0; i < 5; i++) recordOperation(roomId, stroke({ id: `op-${i}` }))
+
+    expect(getOperationsBefore(roomId, 100, 0, 2).map(o => o.id)).toEqual(['op-0', 'op-1'])
+  })
+
+  it('returns nothing for an unknown room', () => {
+    expect(getOperationsBefore('never-created', 100, 0, 500)).toEqual([])
   })
 })

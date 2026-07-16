@@ -1,5 +1,8 @@
 import bcrypt from 'bcryptjs'
+import { gunzipSync } from 'node:zlib'
+import { createHash } from 'node:crypto'
 import type { Operation, Participant, Room } from '@art-lessons/shared'
+import { SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
@@ -37,6 +40,12 @@ interface RoomRecord {
   operations: Operation[]
   participants: Map<string, Participant> // keyed by userId — live presence only, not join history
   nextSeq: number
+  // (#149 epic) Highest seq any client has successfully uploaded a
+  // RoomSnapshot for — null if none exists yet. Cached here rather than
+  // queried fresh on every getRoomSnapshot call, same reasoning as `nextSeq`:
+  // this file's synchronous API assumes live room state is always resident
+  // in memory once `ensureRoomLoaded` has run once.
+  latestSnapshotSeq: number | null
 }
 
 const rooms = new Map<string, RoomRecord>()
@@ -133,12 +142,17 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   for (const op of operations) maxSeq = Math.max(maxSeq, op.seq ?? 0)
   const nextSeq = operations.length ? maxSeq + 1 : 1
 
+  const latestSnapshot = await prisma.roomSnapshot.findFirst({
+    where: { roomId }, orderBy: { seq: 'desc' }, select: { seq: true },
+  })
+
   rooms.set(roomId, {
     room: toWireRoom(dbRoom),
     passwordHash: dbRoom.passwordHash ?? undefined,
     operations,
     participants: new Map(),
     nextSeq,
+    latestSnapshotSeq: latestSnapshot?.seq ?? null,
   })
   return true
 }
@@ -191,7 +205,7 @@ export function createRoom(
   const passwordHash = password ? bcrypt.hashSync(password, BCRYPT_ROUNDS) : undefined
   const participant: Participant = { userId: ownerId, name: ownerName, role: 'teacher', color: CURSOR_COLORS[0] }
   const participants = new Map<string, Participant>([[ownerId, participant]])
-  rooms.set(room.id, { room, passwordHash, operations: [], participants, nextSeq: 1 })
+  rooms.set(room.id, { room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null })
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
   persistParticipant(room.id, ownerId)
@@ -300,12 +314,116 @@ export function getRoomSnapshot(
 ): { room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[] } | undefined {
   const record = rooms.get(roomId)
   if (!record) return undefined
-  // TODO(#168): replace with the room's actual latest stored snapshot seq
-  // once RoomSnapshot storage exists.
-  const latestSnapshotSeq: number | null = null
+  const latestSnapshotSeq = record.latestSnapshotSeq
   const floor = Math.max(lastKnownSeq ?? 0, latestSnapshotSeq ?? 0)
   const tailOperations = floor > 0 ? record.operations.filter(op => (op.seq ?? 0) > floor) : [...record.operations]
   return { room: record.room, latestSnapshotSeq, tailOperations, participants: [...record.participants.values()] }
+}
+
+/** Whether the server should log a hash mismatch when a redundant snapshot
+ *  upload for a seq this room already has doesn't match the stored one — a
+ *  live cross-device determinism-violation detector (#149 epic), directly
+ *  motivated by this project's own paper-grain determinism saga. Off by
+ *  default: dedup itself (see saveSnapshot) always happens regardless of
+ *  this flag, only the comparison/logging is gated. */
+function verifyDeterminismEnabled(): boolean {
+  return process.env.SNAPSHOT_VERIFY_DETERMINISM === 'true'
+}
+
+export type SaveSnapshotResult =
+  | { ok: true; created: true }
+  | { ok: true; created: false; hashMismatch: boolean }
+  | { ok: false; error: 'unknown_room' | 'not_a_checkpoint_seq' }
+
+/** Stores a client-baked full-room snapshot (#149 epic). `gzippedData` is
+ *  exactly what the client compressed with CompressionStream('gzip') — see
+ *  engine's bakeNetworkSnapshot — decompressed here once to compute `hash`
+ *  (sha256 of the *decompressed* bytes, so gzip's own non-determinism, if
+ *  any, can never masquerade as a pixel/determinism bug).
+ *
+ *  Dedup is unconditional: `(roomId, seq)` is unique, so a second upload for
+ *  a seq this room already has is always just discarded (first arrival
+ *  wins — several clients independently crossing the same checkpoint and
+ *  uploading concurrently is the expected, normal case, not a race to
+ *  avoid). Only the *comparison* against the already-stored hash (and its
+ *  resulting warning log on a mismatch) is gated behind
+ *  SNAPSHOT_VERIFY_DETERMINISM, since it's pure overhead when nobody's
+ *  watching for it. */
+export async function saveSnapshot(
+  roomId: string, seq: number, layerState: unknown, gzippedData: Uint8Array,
+): Promise<SaveSnapshotResult> {
+  const record = rooms.get(roomId)
+  if (!record) return { ok: false, error: 'unknown_room' }
+  if (seq <= 0 || seq % SNAPSHOT_SEQ_INTERVAL !== 0) return { ok: false, error: 'not_a_checkpoint_seq' }
+
+  const decompressed = gunzipSync(gzippedData)
+  const hash = createHash('sha256').update(decompressed).digest('hex')
+
+  try {
+    await prisma.roomSnapshot.create({
+      // Copied into a fresh, plain-ArrayBuffer-backed Uint8Array — Prisma's
+      // generated Bytes-field type is narrower than the Uint8Array this
+      // function accepts (which could technically be SharedArrayBuffer-
+      // backed), so a straight pass-through doesn't typecheck.
+      data: { roomId, seq, layerState: layerState as object, data: new Uint8Array(gzippedData), hash },
+    })
+    record.latestSnapshotSeq = Math.max(record.latestSnapshotSeq ?? 0, seq)
+    return { ok: true, created: true }
+  } catch (err) {
+    // P2002: unique constraint violation on (roomId, seq) — a snapshot for
+    // this checkpoint already exists. Not an error: this is the expected
+    // outcome whenever more than one client bakes the same checkpoint.
+    const isDuplicate = typeof err === 'object' && err !== null && 'code' in err && err.code === 'P2002'
+    if (!isDuplicate) throw err
+
+    if (!verifyDeterminismEnabled()) return { ok: true, created: false, hashMismatch: false }
+
+    const existing = await prisma.roomSnapshot.findUnique({
+      where: { roomId_seq: { roomId, seq } }, select: { hash: true },
+    })
+    const hashMismatch = existing !== null && existing.hash !== hash
+    return { ok: true, created: false, hashMismatch }
+  }
+}
+
+/** The room's most recently stored snapshot, or `null` if it has none yet
+ *  (short room — same case `latestSnapshotSeq === null` covers in
+ *  `getRoomSnapshot`). Read from Postgres directly rather than the in-memory
+ *  Map: unlike operations, snapshot pixel/layerState payloads are never
+ *  cached in `RoomRecord` (#149 epic design — kept out of the hot,
+ *  always-resident path since they're only needed at join time). */
+export async function getLatestSnapshot(
+  roomId: string,
+): Promise<{ seq: number; layerState: unknown; data: Uint8Array } | null> {
+  const row = await prisma.roomSnapshot.findFirst({
+    where: { roomId }, orderBy: { seq: 'desc' },
+    select: { seq: true, layerState: true, data: true },
+  })
+  return row
+}
+
+/** Paginated backfill (#169): operations strictly before `beforeSeq`
+ *  (typically the room's `latestSnapshotSeq`), in ascending seq order,
+ *  starting after `cursorSeq` — a fresh join's tail/snapshot already cover
+ *  everything from `beforeSeq` on, this is purely for the client's
+ *  background history backfill (undo/redo bookkeeping for operations older
+ *  than its restored snapshot). Reads from the in-memory Map, same as
+ *  `getRoomSnapshot` — `ensureRoomLoaded` already pulls a room's *entire*
+ *  operation history into `record.operations`, unbounded, so there's no
+ *  separate cold Postgres path needed here. */
+export function getOperationsBefore(
+  roomId: string, beforeSeq: number, cursorSeq: number, limit: number,
+): Operation[] {
+  const record = rooms.get(roomId)
+  if (!record) return []
+  const out: Operation[] = []
+  for (const op of record.operations) {
+    const seq = op.seq ?? 0
+    if (seq <= cursorSeq || seq >= beforeSeq) continue
+    out.push(op)
+    if (out.length >= limit) break
+  }
+  return out
 }
 
 /** Appends an operation to the room's log (#34/#35), stamping it with the

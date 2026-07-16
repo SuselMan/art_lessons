@@ -45,6 +45,7 @@ model Room {
   owner        User              @relation(fields: [ownerId], references: [id])
   operations   Operation[]
   participants RoomParticipant[]
+  snapshots    RoomSnapshot[]
   createdAt    DateTime          @default(now())
 }
 
@@ -79,6 +80,30 @@ model Operation {
   tool      String?
   data      Json
   createdAt DateTime @default(now())
+
+  @@unique([roomId, seq])
+}
+
+// Client-baked full-room snapshot (#149 epic): `layerState` is the reducer
+// state derived from the log's structural operations as of `seq` (which
+// layers exist, order/name/opacity/visibility — pixel content alone isn't
+// enough to reconstruct a room, see the epic's own design notes), `data` is
+// gzip-compressed raw tile pixels for every layer (see
+// apps/web/src/engine/index.ts's bakeNetworkSnapshot). `hash` is sha256 of
+// the *decompressed* `data` — used both to dedup (a second upload for a seq
+// this room already has is just discarded) and, when
+// SNAPSHOT_VERIFY_DETERMINISM is on, to detect a same-seq upload whose
+// pixels don't match what's already stored (a cross-device determinism
+// violation — see rooms.ts's saveSnapshot).
+model RoomSnapshot {
+  id         String   @id @default(uuid())
+  roomId     String
+  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  seq        Int
+  layerState Json
+  data       Bytes
+  hash       String
+  createdAt  DateTime @default(now())
 
   @@unique([roomId, seq])
 }
