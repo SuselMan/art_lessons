@@ -37,7 +37,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // first"). `create_room`'s wire payload carries no participant name
     // (unlike `join_room`) — that's how the shared contract was defined, so
     // the owner gets a fixed label until account names exist.
-    socket.on('create_room', async ({ room, password }, ack) => {
+    socket.on('create_room', async ({ room, password, lastKnownSeq }, ack) => {
       const userId = socket.data.userId!
       // Same reload-safety as join_room below: the creator's own tab can
       // legitimately emit create_room again for a room that already exists
@@ -55,14 +55,14 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // room and emit the snapshot synchronously, before yielding back to the
       // event loop, so nothing else can interleave between them.
       socket.join(room.id)
-      const snapshot = getRoomSnapshot(room.id)
+      const snapshot = getRoomSnapshot(room.id, lastKnownSeq)
       if (snapshot) socket.emit('room_state', snapshot)
 
       log.info({ socketId: socket.id, roomId: room.id, userId }, 'socket created room')
       ack({ ok: true, userId })
     })
 
-    socket.on('join_room', async ({ roomId, name, password }, ack) => {
+    socket.on('join_room', async ({ roomId, name, password, lastKnownSeq }, ack) => {
       const userId = socket.data.userId!
       // Repopulates the in-memory room from Postgres (#74) if this is the
       // first time this process has touched it this session — a cold server
@@ -88,7 +88,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // snapshot read happens before that relay's write, so nothing is
       // double-delivered or lost.
       socket.join(roomId)
-      const snapshot = getRoomSnapshot(roomId)
+      const snapshot = getRoomSnapshot(roomId, lastKnownSeq)
       if (snapshot) socket.emit('room_state', snapshot)
       socket.to(roomId).emit('peer_joined', result.participant)
 
@@ -111,7 +111,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // that happened in production (root cause fixed separately in
     // leaveRoom/currentSocketForParticipant — see rooms.ts — but this stays
     // as a backstop against *any* unexpected throw here, not just that one).
-    socket.on('operation', (op: Operation) => {
+    socket.on('operation', (op: Operation, ack) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) {
         log.warn({ socketId: socket.id }, 'operation received before join_room, ignoring')
@@ -131,6 +131,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         }
 
         const stamped = recordOperation(roomId, op)
+        // Tells the author their own operation's authoritative seq (#149) —
+        // socket.to() below deliberately never echoes it back to them, so
+        // without this ack they'd have no way to learn it (see the doc
+        // comment on ClientToServerEvents.operation in packages/shared).
+        ack?.(stamped)
         socket.to(roomId).emit('peer_operation', stamped)
       } catch (err) {
         log.error(

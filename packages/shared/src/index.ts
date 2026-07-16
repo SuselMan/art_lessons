@@ -291,8 +291,26 @@ export type CursorMoveData = {
   drawing: boolean // true while a stroke is actively in progress
 }
 
+// (#149 epic) Every SNAPSHOT_SEQ_INTERVAL operations (by the room's global,
+// server-assigned seq — see Operation.seq), any client that's caught up to
+// that point independently bakes and uploads a full-room pixel+layerState
+// snapshot; the server just dedups by (roomId, seq), first arrival wins (see
+// apps/server/src/rooms.ts's saveSnapshot). Shared so both the client
+// (deciding when to bake) and the server (validating an upload actually
+// lands on a real boundary) agree on the same points without coordination.
+export const SNAPSHOT_SEQ_INTERVAL = 300
+
 export type ServerToClientEvents = {
-  room_state: (state: { room: Room; operations: Operation[]; participants: Participant[] }) => void
+  // `latestSnapshotSeq` is null until the room has ever crossed
+  // SNAPSHOT_SEQ_INTERVAL (short rooms) — `tailOperations` is then simply
+  // the room's entire history, same shape/behavior as before the #149 epic.
+  // Once non-null, `tailOperations` is only what's after
+  // max(latestSnapshotSeq, the caller's own lastKnownSeq) — the caller is
+  // expected to fetch the snapshot itself (GET /api/rooms/:id/snapshots/latest)
+  // separately when it doesn't already have local state at least that fresh.
+  room_state: (state: {
+    room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+  }) => void
   peer_operation: (op: Operation) => void
   peer_cursor: (data: CursorMoveData & { userId: string }) => void
   peer_joined: (participant: Participant) => void
@@ -307,11 +325,27 @@ export type ClientToServerEvents = {
     data: {
       room: Pick<Room, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
       password?: string
+      // Highest operation seq this socket already knows about locally (a
+      // reconnecting creator whose tab never really lost its content) — lets
+      // the server trim `room_state`'s tailOperations instead of resending
+      // everything. Omitted (or 0) means "I have nothing," same as before.
+      lastKnownSeq?: number
     },
     ack: (result: JoinResult) => void,
   ) => void
-  join_room: (data: { roomId: string; password?: string; name: string }, ack: (result: JoinResult) => void) => void
-  operation: (op: Operation) => void
+  join_room: (
+    data: { roomId: string; password?: string; name: string; lastKnownSeq?: number },
+    ack: (result: JoinResult) => void,
+  ) => void
+  // `ack`, when provided, receives the server-stamped copy (with the real,
+  // authoritative `seq` — see recordOperation) right after it's recorded.
+  // Only the author needs this: everyone else learns `seq` for free off the
+  // `peer_operation` relay, which already carries the stamped copy. Without
+  // this the author would never learn their own operation's real seq
+  // (`socket.to(roomId)` deliberately excludes the sender — see
+  // socketHandlers.ts), and so could never independently notice crossing a
+  // SNAPSHOT_SEQ_INTERVAL boundary on their own operations.
+  operation: (op: Operation, ack?: (stamped: Operation) => void) => void
   cursor_move: (data: CursorMoveData) => void
 }
 

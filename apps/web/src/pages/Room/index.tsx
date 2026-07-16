@@ -371,7 +371,13 @@ export function Room() {
   // mounts once `config` is set (see the mount-engine effect below). Its
   // operations/participants are stashed here and replayed once the engine is
   // up, instead of being dropped.
-  const pendingSnapshotRef = useRef<{ operations: Operation[]; participants: Participant[] } | null>(null)
+  const pendingSnapshotRef = useRef<{ tailOperations: Operation[]; participants: Participant[] } | null>(null)
+  // Highest operation seq this client has definitely seen — from ack'd local
+  // operations and from peer_operation's stamped copies (#149). Sent back as
+  // lastKnownSeq on every join_room/create_room (including reconnects), so
+  // the server can trim room_state's tailOperations instead of resending
+  // everything already known. 0 means "nothing yet," same as omitting it.
+  const latestKnownSeqRef = useRef(0)
   // Tracks whether create_room/join_room has ever succeeded on this socket
   // connection's lineage, so a later auto-reconnect (socket.io's default
   // behavior on a dropped connection) rejoins rather than re-creating the
@@ -502,7 +508,9 @@ export function Room() {
       // Remote ops are applied via appendOperation(op, 'remote') below, which
       // skips it, so they're never echoed back to the server.
       onLocalOperation: op => {
-        socketRef.current?.emit('operation', op)
+        socketRef.current?.emit('operation', op, stamped => {
+          latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, stamped.seq ?? 0)
+        })
         if (op.type === 'stroke') markActive(userIdRef.current)
       },
       // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
@@ -601,7 +609,7 @@ export function Room() {
         // of that to one _display() right after the loop — see their own
         // doc comments.
         engine.suspendDisplay()
-        for (const op of pending.operations) applyRemoteOp(op)
+        for (const op of pending.tailOperations) applyRemoteOp(op)
         engine.resumeDisplay()
         syncFromLog()
         dispatchParticipants({ type: 'room_state', participants: pending.participants })
@@ -1258,17 +1266,27 @@ export function Room() {
 
       if (isCreator && creatorDraft) {
         if (!hasJoinedRef.current) {
-          socket.emit('create_room', { room: creatorDraft.room, password: creatorDraft.password }, result => {
-            if (result.ok) { hasJoinedRef.current = true; applyIdentity(result.userId) }
-            // Practically unreachable (would need a nanoid(8) id collision —
-            // see rooms.ts's createRoom doc comment); nothing sensible to
-            // retry into, so just surface it for debugging.
-            else console.error('create_room failed unexpectedly', result)
-          })
+          socket.emit(
+            'create_room',
+            {
+              room: creatorDraft.room, password: creatorDraft.password,
+              lastKnownSeq: latestKnownSeqRef.current || undefined,
+            },
+            result => {
+              if (result.ok) { hasJoinedRef.current = true; applyIdentity(result.userId) }
+              // Practically unreachable (would need a nanoid(8) id collision —
+              // see rooms.ts's createRoom doc comment); nothing sensible to
+              // retry into, so just surface it for debugging.
+              else console.error('create_room failed unexpectedly', result)
+            },
+          )
         } else {
           socket.emit(
             'join_room',
-            { roomId: id, name: getOrCreateDisplayName(localStorage), password: creatorDraft.password },
+            {
+              roomId: id, name: getOrCreateDisplayName(localStorage), password: creatorDraft.password,
+              lastKnownSeq: latestKnownSeqRef.current || undefined,
+            },
             result => {
               if (result.ok) applyIdentity(result.userId)
               else console.error('join_room failed on reconnect', result)
@@ -1283,21 +1301,33 @@ export function Room() {
       // credentials automatically so an already-joined user isn't dropped
       // back to the gate.
       if (hasJoinedRef.current && lastJoinAttemptRef.current) {
-        socket.emit('join_room', { roomId: id, ...lastJoinAttemptRef.current }, result => {
-          if (result.ok) applyIdentity(result.userId)
-          else console.error('join_room failed on reconnect', result)
-        })
+        socket.emit(
+          'join_room',
+          { roomId: id, ...lastJoinAttemptRef.current, lastKnownSeq: latestKnownSeqRef.current || undefined },
+          result => {
+            if (result.ok) applyIdentity(result.userId)
+            else console.error('join_room failed on reconnect', result)
+          },
+        )
       }
     }
 
-    const handleRoomState = async ({ room, operations, participants: roomParticipants }: {
-      room: RoomEntity; operations: Operation[]; participants: Participant[]
+    const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants }: {
+      room: RoomEntity; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
     }) => {
+      // (#149) latestSnapshotSeq is always null until #168/#169 land — every
+      // room behaves exactly as before, tailOperations is simply the whole
+      // history. Once non-null and this client isn't already caught up to
+      // it, restoring the snapshot itself is #169's job; for now the tail
+      // keeps being applied the same way regardless.
+      void latestSnapshotSeq
+      for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
+
       if (!configRef.current) {
         // Joiner's first snapshot: this is how we learn paper/canvas size —
-        // the engine doesn't exist yet to apply `operations` to, so stash them
-        // for the mount-engine effect to replay once it does.
-        pendingSnapshotRef.current = { operations, participants: roomParticipants }
+        // the engine doesn't exist yet to apply `tailOperations` to, so stash
+        // them for the mount-engine effect to replay once it does.
+        pendingSnapshotRef.current = { tailOperations, participants: roomParticipants }
         setConfig(toRoomConfig(room))
         return
       }
@@ -1313,7 +1343,7 @@ export function Room() {
       // (#147) Same reasoning as the initial-join replay above — see
       // suspendDisplay/resumeDisplay's own doc comments.
       engineRef.current?.suspendDisplay()
-      for (const op of operations) {
+      for (const op of tailOperations) {
         if (pendingPreviewOpIdsRef.current.has(op.id)) {
           engineRef.current?.dropPendingPreview(op.id)
           pendingPreviewOpIdsRef.current.delete(op.id)
@@ -1326,6 +1356,7 @@ export function Room() {
     }
 
     const handlePeerOperation = (op: Operation) => {
+      latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
       // Stroke ops are revealed progressively (#37 follow-up v2) rather than
       // committed on arrival — see the engine's onPreviewApplied option
       // above, which does the actual applyRemoteOp/syncFromLog once the
@@ -1411,14 +1442,18 @@ export function Room() {
     setJoinSubmitting(true)
     const password = joinPassword || undefined
     lastJoinAttemptRef.current = { name: trimmed, password }
-    socketRef.current?.emit('join_room', { roomId: id, name: trimmed, password }, result => {
-      setJoinSubmitting(false)
-      if (!result.ok) { setJoinError(describeJoinError(result.error)); return }
-      hasJoinedRef.current = true
-      applyIdentity(result.userId)
-      // room_state (already wired above) populates `config` from here, which
-      // unmounts the gate in favor of the editor.
-    })
+    socketRef.current?.emit(
+      'join_room',
+      { roomId: id, name: trimmed, password, lastKnownSeq: latestKnownSeqRef.current || undefined },
+      result => {
+        setJoinSubmitting(false)
+        if (!result.ok) { setJoinError(describeJoinError(result.error)); return }
+        hasJoinedRef.current = true
+        applyIdentity(result.userId)
+        // room_state (already wired above) populates `config` from here, which
+        // unmounts the gate in favor of the editor.
+      },
+    )
   }, [id, joinName, joinPassword, applyIdentity])
 
   // ── keyboard shortcuts ────────────────────────────────────────────────────────

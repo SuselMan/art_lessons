@@ -77,7 +77,7 @@ describe('createRoom', () => {
     const second = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
 
     expect(second.participant.role).toBe('teacher')
-    expect(getRoomSnapshot(roomId)?.operations.map(o => o.id)).toEqual(['a'])
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['a'])
   })
 
   it('a different owner claiming the same id still overwrites (real collision, unchanged behavior)', () => {
@@ -88,7 +88,7 @@ describe('createRoom', () => {
     const second = createRoom(roomDraft(roomId), undefined, 'owner-2', 'Teacher', sock('owner-2'))
 
     expect(second.room.ownerId).toBe('owner-2')
-    expect(getRoomSnapshot(roomId)?.operations).toEqual([])
+    expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
   })
 
   it('derives hasPassword from whether a password was given', () => {
@@ -185,6 +185,40 @@ describe('getRoomSnapshot', () => {
   it('returns undefined for an unregistered room', () => {
     expect(getRoomSnapshot('never-created')).toBeUndefined()
   })
+
+  // #149/#166: no RoomSnapshot storage exists yet, so latestSnapshotSeq is
+  // always null and lastKnownSeq is the only thing trimming tailOperations —
+  // this is the reconnect-cost fix, already live ahead of the rest of the
+  // #149 epic.
+  it('is null and returns the full history when lastKnownSeq is omitted', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    recordOperation(roomId, stroke({ id: 'a' }))
+    recordOperation(roomId, stroke({ id: 'b' }))
+
+    const snapshot = getRoomSnapshot(roomId)
+    expect(snapshot?.latestSnapshotSeq).toBeNull()
+    expect(snapshot?.tailOperations.map(o => o.id)).toEqual(['a', 'b'])
+  })
+
+  it('trims tailOperations to only what is after lastKnownSeq', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const a = recordOperation(roomId, stroke({ id: 'a' }))
+    recordOperation(roomId, stroke({ id: 'b' }))
+    recordOperation(roomId, stroke({ id: 'c' }))
+
+    const snapshot = getRoomSnapshot(roomId, a.seq)
+    expect(snapshot?.tailOperations.map(o => o.id)).toEqual(['b', 'c'])
+  })
+
+  it('returns nothing when lastKnownSeq is already caught up to the latest operation', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const a = recordOperation(roomId, stroke({ id: 'a' }))
+
+    expect(getRoomSnapshot(roomId, a.seq)?.tailOperations).toEqual([])
+  })
 })
 
 describe('leaveRoom', () => {
@@ -218,7 +252,7 @@ describe('leaveRoom', () => {
     const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-2'))
 
     expect(rejoin).toEqual({ ok: true, participant: expect.objectContaining({ role: 'teacher' }) })
-    expect(getRoomSnapshot(roomId)?.operations.map(o => o.id)).toEqual(['a'])
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['a'])
   })
 
   it('is a no-op on an unknown room or participant', () => {
@@ -287,7 +321,7 @@ describe('recordOperation', () => {
 
     expect(a.seq).toBe(1)
     expect(b.seq).toBe(2)
-    expect(getRoomSnapshot(roomId)?.operations.map(o => o.id)).toEqual(['a', 'b'])
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['a', 'b'])
   })
 
   it('returns a stamped copy without mutating the input', () => {

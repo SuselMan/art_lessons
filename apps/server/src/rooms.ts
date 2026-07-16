@@ -279,18 +279,33 @@ export function getParticipant(roomId: string, userId: string): Participant | un
   return rooms.get(roomId)?.participants.get(userId)
 }
 
-/** Snapshot for a newly joined participant (#36): the room's metadata plus
- *  everything that happened in it so far, in server-assigned order. Returns
- *  `undefined` for an unregistered room — callers only reach this after a
- *  successful `createRoom`/`joinRoom`, so that should never happen in
+/** State for a newly joined (or reconnecting) participant (#36, #149): the
+ *  room's metadata, participants, and only the *tail* of the operation log —
+ *  everything after `max(lastKnownSeq, latestSnapshotSeq)`. `latestSnapshotSeq`
+ *  is always `null` until the #149 epic's snapshot storage exists (every room
+ *  behaves exactly as before: `tailOperations` is the entire history); once
+ *  snapshots exist, a caller whose own `tailOperations` includes the whole
+ *  gap (i.e. it already had `lastKnownSeq >= latestSnapshotSeq`) can skip
+ *  fetching the snapshot blob entirely — that's the reconnect fast path
+ *  (closes #166) falling out of the same mechanism as a fresh join's fast
+ *  path (#169), not a separate code path.
+ *
+ *  Returns `undefined` for an unregistered room — callers only reach this
+ *  after a successful `createRoom`/`joinRoom`, so that should never happen in
  *  practice, but the type keeps that assumption honest rather than silently
  *  fabricating a `Room`. */
 export function getRoomSnapshot(
   roomId: string,
-): { room: Room; operations: Operation[]; participants: Participant[] } | undefined {
+  lastKnownSeq?: number,
+): { room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[] } | undefined {
   const record = rooms.get(roomId)
   if (!record) return undefined
-  return { room: record.room, operations: [...record.operations], participants: [...record.participants.values()] }
+  // TODO(#168): replace with the room's actual latest stored snapshot seq
+  // once RoomSnapshot storage exists.
+  const latestSnapshotSeq: number | null = null
+  const floor = Math.max(lastKnownSeq ?? 0, latestSnapshotSeq ?? 0)
+  const tailOperations = floor > 0 ? record.operations.filter(op => (op.seq ?? 0) > floor) : [...record.operations]
+  return { room: record.room, latestSnapshotSeq, tailOperations, participants: [...record.participants.values()] }
 }
 
 /** Appends an operation to the room's log (#34/#35), stamping it with the
