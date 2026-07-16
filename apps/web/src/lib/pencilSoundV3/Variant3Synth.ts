@@ -173,8 +173,8 @@ export class Variant3Synth {
   // scales `gain`, which gates bedMix/grainMix/modeMix (the continuous
   // scratch texture) — `transient` (tap/lift, above) is additive and
   // bypasses `gain` entirely, so the touchdown click's own loudness is
-  // untouched by this.
-  private masterScale = 0.2
+  // untouched by this. Round 15: another 15% off (Ilya: "шум еще тише на 15%").
+  private masterScale = 0.17
   private gainCeiling = 0.5
   private outScale = 0.9
   // exponent on the ±1 uniform draw behind patchTarget — round 12 tuning axis
@@ -195,12 +195,12 @@ export class Variant3Synth {
     this.liftDecay = Math.exp(-1 / (0.012 * sampleRate))
     this.kGrainHp = this.freqCoef(1200)
     this.grainDecay = Math.exp(-1 / (0.0018 * sampleRate))
-    // Touchdown click resonator — fixed, still comfortably above the modal
-    // bank's bass mode (430Hz) so the click doesn't blur into it, but
-    // dropped a fifth from round 13's 1700Hz (Ilya: "стук ниже тоном") for a
-    // deeper knock; short tau (~9ms) for a tick, not a ring.
+    // Touchdown click resonator — fixed, still above the modal bank's bass
+    // mode (430Hz) so the click doesn't blur into it, but dropped further
+    // still from round 14's 900Hz (Ilya: "стук еще ниже") for a deeper
+    // knock; short tau (~9ms) for a tick, not a ring.
     {
-      const tapRingFreq = 900
+      const tapRingFreq = 600
       const rTap = Math.exp(-1 / (0.009 * sampleRate))
       this.tapRingA1 = 2 * rTap * Math.cos((2 * Math.PI * tapRingFreq) / sampleRate)
       this.tapRingA2 = -rTap * rTap
@@ -394,7 +394,11 @@ export class Variant3Synth {
       this.tapRingY2 = this.tapRingY1; this.tapRingY1 = tapY
       const lift = gNoise * this.liftEnv
       this.liftEnv *= this.liftDecay
-      const transient = (tapY * 4 + lift) * this.transientMix
+      // Round 15: tap's own output multiplier bumped 4 -> 4.8 (Ilya: "стук
+      // ... чуть громче") — isolated from `lift`, which shares
+      // `transientMix` below but not this factor, so lift's loudness is
+      // unaffected.
+      const transient = (tapY * 4.8 + lift) * this.transientMix
 
       // ── modal resonator bank: grains (and a touch of the tap kick, for
       //    body/continuity while an active stroke is already ringing it)
