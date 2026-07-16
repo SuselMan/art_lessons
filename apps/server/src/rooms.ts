@@ -2,10 +2,25 @@ import bcrypt from 'bcryptjs'
 import { gunzipSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
 import type { Operation, Participant, Room } from '@art-lessons/shared'
-import { SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
+
+// Duplicated from packages/shared/src/index.ts's own SNAPSHOT_SEQ_INTERVAL —
+// MUST stay equal to it. Not imported as a value on purpose: every other
+// apps/server import from @art-lessons/shared is `import type`, erased by
+// tsc, so the production Docker image's runtime stage has never needed the
+// package to actually be resolvable by plain `node` (see apps/server/
+// Dockerfile's own comment) — packages/shared's package.json points `main`
+// straight at its TypeScript source (`./src/index.ts`), which Vite/tsx can
+// transform on the fly but plain `node dist/index.js` cannot, and the
+// runtime image doesn't even copy packages/shared into that stage. A real
+// value import here crash-looped the production container
+// (ERR_MODULE_NOT_FOUND) the first time this file ever tried it. Tracked
+// as #170 to fix properly (give packages/shared a real dist build apps/
+// server's runtime image can resolve) rather than duplicating constants
+// indefinitely.
+const SNAPSHOT_SEQ_INTERVAL = 300
 
 // In-memory room store, backed by Postgres (#74) for durability across
 // restarts and RAM eviction — but the Map stays the single source of truth
