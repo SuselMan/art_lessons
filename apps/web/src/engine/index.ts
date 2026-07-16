@@ -20,6 +20,7 @@ import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
+import { encodeLayerTiles } from './src/snapshotCodec'
 
 export type { HapticGrainStats }
 export type { AffineMatrix }
@@ -180,6 +181,15 @@ export interface PencilEngineAPI {
   // re-paint once the real texture arrives (only the *display*/composite
   // step re-runs on demand, not already-applied pixel operations).
   paperReady(): Promise<void>
+  // (#149 epic) Raw (uncompressed) tile payload for this layer's current
+  // resident content — the same allResident() gather _takeCheckpoint already
+  // does for local undo checkpoints, just serialized for network upload
+  // instead of kept in memory. Null when the layer has no pixel content yet
+  // (nothing to snapshot) — mirrors _takeCheckpoint's own early-return.
+  // Bundling several layers together, compressing, and uploading is the
+  // caller's job (Room's snapshot orchestration), not the engine's — the
+  // engine only knows about one layer at a time.
+  bakeNetworkSnapshot(layerId: string): Uint8Array | null
   getOperations(): Operation[]
   undo(): Operation | null
   redo(): Operation | null
@@ -2042,6 +2052,26 @@ export class PencilEngine implements PencilEngineAPI {
       const evicted = this._checkpoints.shift()
       if (evicted) this._checkpointBytes -= evicted.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
     }
+  }
+
+  /** See the PencilEngineAPI doc comment. Same allResident() gather as
+   *  _takeCheckpoint, just serialized (encodeLayerTiles) instead of kept as
+   *  an in-memory Checkpoint — this is for network upload (#149 epic), a
+   *  parallel, independent mechanism from the local checkpoint list above,
+   *  not a replacement for it. No _contextLost guard needed here the way
+   *  _takeCheckpoint has one: a caller only reaches this from Room's own
+   *  orchestration on a live seq boundary, never from a code path that could
+   *  race a context loss the way idle-scheduled local checkpointing can. */
+  bakeNetworkSnapshot(layerId: string): Uint8Array | null {
+    const buf = this._layers.get(layerId)
+    if (!buf) return null
+    const ops = this._log.layerPixelOps(layerId)
+    if (!ops.length) return null
+    const tiles = buf.allResident().map(({ buffer, originX, originY }) => ({
+      originX, originY, width: buffer.width, height: buffer.height, pixels: buffer.readPixels(),
+    }))
+    if (!tiles.length) return null
+    return encodeLayerTiles(tiles)
   }
 
   /** Deepest checkpoint whose baked operations are exactly the current done

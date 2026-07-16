@@ -42,6 +42,7 @@ import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import { loadToolSettings, saveToolSettings, type ToolConfig } from './toolSettings'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
+import { createSnapshotUploader } from './snapshotSync'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
@@ -378,6 +379,35 @@ export function Room() {
   // the server can trim room_state's tailOperations instead of resending
   // everything already known. 0 means "nothing yet," same as omitting it.
   const latestKnownSeqRef = useRef(0)
+  // Bakes+uploads a full-room snapshot every time latestKnownSeqRef crosses
+  // a SNAPSHOT_SEQ_INTERVAL boundary (#149/#167) — see snapshotSync.ts. One
+  // instance per room id; recreated (fresh `attempted` set) if `id` ever
+  // changes, same lifetime as the socket-wiring effect below.
+  const snapshotUploader = useMemo(() => (id ? createSnapshotUploader(id) : null), [id])
+  // Highest seq the engine buffer has actually *committed* (painted) up to —
+  // deliberately decoupled from latestKnownSeqRef's "arrived" tracking.
+  // A peer stroke doesn't commit on arrival: it reveals progressively
+  // (previewOperation/onPreviewApplied, paced by the stroke's own recorded
+  // dab timing — see PencilEngineOptions.onPreviewApplied), and two peers'
+  // reveals can finish out of order (a short stroke's reveal completing
+  // before a longer, earlier-seq one that's still animating). Baking a
+  // network snapshot the moment a seq merely *arrives* could therefore miss
+  // an earlier op that hasn't actually painted yet. pendingCommitSeqsRef
+  // holds every stroke seq that has arrived but not yet committed; the
+  // watermark can only advance past the smallest still-pending one — see
+  // checkSnapshotBoundary below, the single place that reads both.
+  const pendingCommitSeqsRef = useRef<Set<number>>(new Set())
+  const committedWatermarkRef = useRef(0)
+  const checkSnapshotBoundary = useCallback(() => {
+    const engine = engineRef.current
+    if (!engine || !snapshotUploader) return
+    const pending = pendingCommitSeqsRef.current
+    const watermark = pending.size ? Math.min(...pending) - 1 : latestKnownSeqRef.current
+    if (watermark <= committedWatermarkRef.current) return
+    const previous = committedWatermarkRef.current
+    committedWatermarkRef.current = watermark
+    snapshotUploader.onSeqObserved(previous, watermark, engine, layerStateRef.current)
+  }, [snapshotUploader])
   // Tracks whether create_room/join_room has ever succeeded on this socket
   // connection's lineage, so a later auto-reconnect (socket.io's default
   // behavior on a dropped connection) rejoins rather than re-creating the
@@ -509,7 +539,14 @@ export function Room() {
       // skips it, so they're never echoed back to the server.
       onLocalOperation: op => {
         socketRef.current?.emit('operation', op, stamped => {
+          // A local op always paints synchronously (real-time, as the user
+          // draws) — never goes through the peer-reveal delay — so it's
+          // always safe to treat as committed the instant its ack arrives.
+          // Still routed through the shared watermark (not applied
+          // directly), since an *earlier*, still-revealing peer stroke can
+          // legitimately hold the watermark back below this op's own seq.
           latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, stamped.seq ?? 0)
+          checkSnapshotBoundary()
         })
         if (op.type === 'stroke') markActive(userIdRef.current)
       },
@@ -517,8 +554,10 @@ export function Room() {
       // commit it for real now, matching what's already visible on screen.
       onPreviewApplied: op => {
         pendingPreviewOpIdsRef.current.delete(op.id)
+        pendingCommitSeqsRef.current.delete(op.seq ?? 0)
         applyRemoteOp(op)
         syncFromLog()
+        checkSnapshotBoundary()
       },
       debug: debugEnabled,
       onStrokeDebugStats: debugEnabled ? stats => {
@@ -622,7 +661,10 @@ export function Room() {
       pencilSoundRef.current?.destroy()
       pencilSoundRef.current = null
     }
-  }, [config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting, hapticGrainEnabled])
+  }, [
+    config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
+    hapticGrainEnabled, checkSnapshotBoundary,
+  ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1321,6 +1363,12 @@ export function Room() {
       // it, restoring the snapshot itself is #169's job; for now the tail
       // keeps being applied the same way regardless.
       void latestSnapshotSeq
+      // Bulk catch-up (join/reconnect), not a live single operation — doesn't
+      // trigger snapshotUploader here even if it spans a checkpoint
+      // boundary. Any client live at the moment a boundary was actually
+      // crossed already baked it (see onLocalOperation/handlePeerOperation
+      // below); this client wasn't present for it, and doesn't need to
+      // retroactively contribute a bake for history it's only now replaying.
       for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
 
       if (!configRef.current) {
@@ -1363,6 +1411,10 @@ export function Room() {
       // reveal finishes playing every dab back.
       if (op.type === 'stroke') {
         pendingPreviewOpIdsRef.current.add(op.id)
+        // Arrived, not yet committed (#149) — held out of the snapshot
+        // watermark until onPreviewApplied's reveal-complete commit deletes
+        // it. See pendingCommitSeqsRef's own doc comment.
+        pendingCommitSeqsRef.current.add(op.seq ?? 0)
         engineRef.current?.previewOperation(op)
         return
       }
@@ -1379,13 +1431,18 @@ export function Room() {
       ) {
         const target = engineRef.current?.dropPendingPreview(op.targetOpId)
         pendingPreviewOpIdsRef.current.delete(op.targetOpId)
-        if (target) applyRemoteOp(target)
+        if (target) {
+          pendingCommitSeqsRef.current.delete(target.seq ?? 0)
+          applyRemoteOp(target)
+        }
         applyRemoteOp(op)
         syncFromLog()
+        checkSnapshotBoundary()
         return
       }
       applyRemoteOp(op)
       syncFromLog()
+      checkSnapshotBoundary()
     }
 
     const handlePeerJoined = (participant: Participant) => {
@@ -1402,9 +1459,13 @@ export function Room() {
       const stranded = engineRef.current?.flushPeerPreview(leftUserId) ?? []
       for (const op of stranded) {
         pendingPreviewOpIdsRef.current.delete(op.id)
+        pendingCommitSeqsRef.current.delete(op.seq ?? 0)
         applyRemoteOp(op)
       }
-      if (stranded.length) syncFromLog()
+      if (stranded.length) {
+        syncFromLog()
+        checkSnapshotBoundary()
+      }
     }
 
     // (#152) peer_cursor itself is no longer handled here at all — Room had
@@ -1426,7 +1487,7 @@ export function Room() {
       socket.disconnect()
       socketRef.current = null
     }
-  }, [id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity])
+  }, [id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary])
 
   // Submits the join gate (joiner path only): connects/join_room's with the
   // entered name + optional password. Kept separate from the socket-wiring
