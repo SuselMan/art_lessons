@@ -50,10 +50,10 @@ Follow "Dev server hygiene" below for backgrounding/killing these two processes.
 
 ## Dev server hygiene
 
-- Before starting `npm run dev` in the background, check whether something is already listening on the port you're about to use (`Get-NetTCPConnection -State Listen`) — don't blindly stack a new instance on top of a stray one.
-- Track the PID of any dev server you start in the background for the current task.
-- Kill it explicitly (`taskkill //PID <pid> //F` or equivalent) once you're done testing with it — don't leave it running "just in case." A background `npm run dev` that outlives its task is the default failure mode to watch for here, since ports pile up across sessions/agents and the next session then binds to a different port and gets confused about which one is live.
-- If you start a dev server for one worktree/branch, kill it before switching to test a different branch's dev server — don't let two instances of the same app fight over similar ports.
+- Before starting `npm run dev` in the background, check whether something is already listening on the port you're about to use (`Get-NetTCPConnection -State Listen`) — don't blindly stack a new instance on top of a stray one. If one's already listening, check for active/ESTABLISHED connections to it (not just LISTEN) before assuming it's a stray leftover — an established connection means someone (Ilya, on a device on the LAN) is actively using it right now.
+- **Never kill a dev server (yours or one you find already running) unless Ilya explicitly asks.** Previously this rule said to always clean up after yourself once done testing — that was wrong: a "kill whatever's listening on the port" cleanup can (and did) kill a session Ilya was actively relying on, e.g. testing from a tablet mid-conversation, not just an agent's own temporary instance. If you started a background dev server purely for your own verification, leave it running when you're done and mention in your response that it's still up (with the port) — let Ilya decide whether to stop it, don't decide for him.
+- If you must positively identify "is this listening process mine," track the exact PID you started (never kill by re-deriving "whatever's on the port" later — that's exactly the mechanism that killed an active session once already).
+- If you start a dev server for one worktree/branch and genuinely need a different one for a different branch on the *same port*, ask before killing the first — don't assume it's safe to stop.
 
 ## Git workflow
 

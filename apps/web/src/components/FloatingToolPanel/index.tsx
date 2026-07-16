@@ -24,7 +24,6 @@ interface Props {
   /** Bounds the drag/clamp against — the editor root, same element the
    *  panel itself is positioned absolute within. */
   containerRef: React.RefObject<HTMLElement | null>
-  hidden?: boolean
   strokeBlocked?: boolean
 }
 
@@ -33,9 +32,17 @@ interface Props {
  *  eraser), independent of the existing header/left-toolbar (both stay as
  *  they are). Position persists per room (see panelPosition.ts) so it
  *  doesn't reset to a default corner on every visit once someone's moved
- *  it somewhere that suits their hand/device. */
+ *  it somewhere that suits their hand/device.
+ *
+ *  Deliberately never hides with the rest of the chrome when #99's tap-to-
+ *  hide minimal-UI mode is active (unlike header/toolbar/side-panel, which
+ *  do) — it's the opposite relationship: this panel *is* the minimal set
+ *  of actions meant to survive everything else disappearing, not another
+ *  piece of chrome to fade along with it. Always visible regardless of
+ *  that mode (or of whether the experimental tapToHideUI flag is even on),
+ *  so it isn't stranded inaccessible for anyone without that flag either. */
 export function FloatingToolPanel({
-  tool, onSetTool, onUndo, onRedo, roomId, position, onPositionChange, containerRef, hidden, strokeBlocked,
+  tool, onSetTool, onUndo, onRedo, roomId, position, onPositionChange, containerRef, strokeBlocked,
 }: Props) {
   const clamp = useCallback((pos: PanelPosition): PanelPosition => {
     const container = containerRef.current
@@ -77,7 +84,6 @@ export function FloatingToolPanel({
       className={clsx(
         styles.panel,
         !position && styles.panelDefaultCorner,
-        hidden && styles.uiHidden,
         strokeBlocked && styles.strokeBlocked,
       )}
       style={position ? { left: position.x, top: position.y } : undefined}
