@@ -169,7 +169,12 @@ export class Variant3Synth {
   private grainMix = 2.3
   private modeMix = 0.7
   private transientMix = 0.7
-  private masterScale = 0.4
+  // Round 14: halved from 0.4 (Ilya: "шум весь в два раза тише"). Only
+  // scales `gain`, which gates bedMix/grainMix/modeMix (the continuous
+  // scratch texture) — `transient` (tap/lift, above) is additive and
+  // bypasses `gain` entirely, so the touchdown click's own loudness is
+  // untouched by this.
+  private masterScale = 0.2
   private gainCeiling = 0.5
   private outScale = 0.9
   // exponent on the ±1 uniform draw behind patchTarget — round 12 tuning axis
@@ -190,12 +195,12 @@ export class Variant3Synth {
     this.liftDecay = Math.exp(-1 / (0.012 * sampleRate))
     this.kGrainHp = this.freqCoef(1200)
     this.grainDecay = Math.exp(-1 / (0.0018 * sampleRate))
-    // Touchdown click resonator — fixed, deliberately brighter than the
-    // modal bank's bass mode (430Hz) so the click itself doesn't read as
-    // "low" the way the old lowpassed-noise burst did; short tau (~9ms) for
-    // a tick, not a ring.
+    // Touchdown click resonator — fixed, still comfortably above the modal
+    // bank's bass mode (430Hz) so the click doesn't blur into it, but
+    // dropped a fifth from round 13's 1700Hz (Ilya: "стук ниже тоном") for a
+    // deeper knock; short tau (~9ms) for a tick, not a ring.
     {
-      const tapRingFreq = 1700
+      const tapRingFreq = 900
       const rTap = Math.exp(-1 / (0.009 * sampleRate))
       this.tapRingA1 = 2 * rTap * Math.cos((2 * Math.PI * tapRingFreq) / sampleRate)
       this.tapRingA2 = -rTap * rTap
