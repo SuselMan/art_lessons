@@ -72,13 +72,14 @@ const ENUM = {
   VERTEX_SHADER: 1, FRAGMENT_SHADER: 2,
   COMPILE_STATUS: 3, LINK_STATUS: 4,
   ARRAY_BUFFER: 5, STATIC_DRAW: 6,
-  TEXTURE_2D: 7, RGBA: 8, UNSIGNED_BYTE: 9,
+  TEXTURE_2D: 7, RGBA: 8, UNSIGNED_BYTE: 9, LUMINANCE: 26, LUMINANCE_ALPHA: 27,
   TEXTURE_MIN_FILTER: 10, TEXTURE_MAG_FILTER: 11, LINEAR: 12,
   TEXTURE_WRAP_S: 13, TEXTURE_WRAP_T: 14, CLAMP_TO_EDGE: 15,
   FRAMEBUFFER: 16, COLOR_ATTACHMENT0: 17, FRAMEBUFFER_COMPLETE: 18,
   COLOR_BUFFER_BIT: 19, TRIANGLES: 20, FLOAT: 21,
   BLEND: 22, ONE: 23, ONE_MINUS_SRC_ALPHA: 24, ZERO: 25,
   TEXTURE0: 100, TEXTURE1: 101,
+  UNPACK_ALIGNMENT: 102,
   // #141: infinite-canvas paper texture wrap mode — REPEAT vs CLAMP_TO_EDGE
   // is otherwise never observable through this mock (texParameteri used to
   // be a total no-op — see its own comment), so a test asserting the fix
@@ -98,6 +99,8 @@ export class MockGL {
   readonly TEXTURE_2D = ENUM.TEXTURE_2D
   readonly RGBA = ENUM.RGBA
   readonly UNSIGNED_BYTE = ENUM.UNSIGNED_BYTE
+  readonly LUMINANCE = ENUM.LUMINANCE
+  readonly LUMINANCE_ALPHA = ENUM.LUMINANCE_ALPHA
   readonly TEXTURE_MIN_FILTER = ENUM.TEXTURE_MIN_FILTER
   readonly TEXTURE_MAG_FILTER = ENUM.TEXTURE_MAG_FILTER
   readonly LINEAR = ENUM.LINEAR
@@ -117,6 +120,7 @@ export class MockGL {
   readonly TEXTURE0 = ENUM.TEXTURE0
   readonly TEXTURE1 = ENUM.TEXTURE1
   readonly REPEAT = ENUM.REPEAT
+  readonly UNPACK_ALIGNMENT = ENUM.UNPACK_ALIGNMENT
 
   private _textureData = new Map<object, TextureInfo>()
   // #141 introspection only (see texParameteri) — never read by any
@@ -285,17 +289,42 @@ export class MockGL {
     this._textureWrap.set(tex, wrap)
   }
 
+  // pixelStorei affects only real-GL row-alignment during unpack — this
+  // mock reads whole typed arrays directly (no row-stride math), so it's a
+  // true no-op; kept only so callers (e.g. paperLoader.ts's
+  // uploadPaperTexture, matching real-browser practice for a LUMINANCE
+  // upload) don't hit a missing-method error under vitest's mocked gl.
+  pixelStorei(_pname: number, _param: number): void { /* no-op */ }
+
   texImage2D(
     _target: number, _level: number, _internalFormat: number,
     width: number, height: number, _border: number,
-    _format: number, _type: number, pixels: ArrayBufferView | null,
+    format: number, _type: number, pixels: ArrayBufferView | null,
   ): void {
     const tex = this._boundTextureTarget
     if (!tex) return
     const data = new Float32Array(width * height)
     if (pixels && (pixels as Uint8Array).length > 0) {
       const src = pixels as Uint8Array
-      for (let i = 0; i < width * height; i++) data[i] = src[i * 4 + 3] / 255
+      // LUMINANCE (unused directly by paperLoader.ts anymore, kept for any
+      // other single-channel caller): 1 byte per texel, already the real
+      // value — no channel to pick out. LUMINANCE_ALPHA (paperLoader.ts's
+      // baked paper-grain uploads, R=height/A=catch — see paperNoise.ts's
+      // paperCatchValue): 2 bytes per texel; this mock's own single-scalar-
+      // per-texel model (see the module docstring) stores just the first
+      // (height) channel — it never rasterizes DAB_FRAG's/PAPER_BLEND_
+      // FRAG's paper sampling anyway (documented scope cut), so this is
+      // introspection-only, never read back for paper. RGBA
+      // (AccumulationBuffer's checkpoint/undo pixel restore): 4 bytes per
+      // texel, alpha carries the value — see the module docstring's
+      // "R===G===B===A" invariant.
+      if (format === ENUM.LUMINANCE) {
+        for (let i = 0; i < width * height; i++) data[i] = src[i] / 255
+      } else if (format === ENUM.LUMINANCE_ALPHA) {
+        for (let i = 0; i < width * height; i++) data[i] = src[i * 2] / 255
+      } else {
+        for (let i = 0; i < width * height; i++) data[i] = src[i * 4 + 3] / 255
+      }
     }
     this._textureData.set(tex, { width, height, data })
   }

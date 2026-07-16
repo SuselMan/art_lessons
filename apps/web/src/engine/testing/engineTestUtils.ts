@@ -12,6 +12,8 @@ import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation,
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { AccumulationBuffer } from '../src/AccumulationBuffer'
 import type { ILayerBuffer } from '../src/ILayerBuffer'
+import { __setPaperLoaderForTesting } from '../src/paperLoader'
+import { PAPER_BAKE_RESOLUTION } from '../src/paperNoise'
 import type { PointerData } from '../src/PointerInput'
 import { TiledLayerBuffer } from '../src/TiledLayerBuffer'
 import { TILE_SIZE, tileWorldRect } from '../src/tileMath'
@@ -25,6 +27,18 @@ if (typeof globalThis.requestAnimationFrame === 'undefined') {
     setTimeout(() => cb(Date.now()), 0) as unknown as number) as typeof requestAnimationFrame
   globalThis.cancelAnimationFrame = ((id: number): void => clearTimeout(id as unknown as ReturnType<typeof setTimeout>)) as typeof cancelAnimationFrame
 }
+
+// Real fetch()/DecompressionStream (paperLoader.ts's default loader) don't
+// exist in vitest's 'node' environment — no browser, no dev server to fetch
+// from. Install a synchronous, deterministic stand-in once, process-wide,
+// same pattern as the rAF stub above — individual tests that care about the
+// *loading* behavior itself (cache hits, placeholder-then-swap) install
+// their own fake via __setPaperLoaderForTesting and should call
+// __resetPaperLoaderForTesting (or re-install this one) in an afterEach/
+// finally so they don't leak into later test files.
+// LUMINANCE_ALPHA: 2 bytes/texel (R=height, A=precomputed graphite-catch —
+// see paperNoise.ts's paperCatchValue).
+__setPaperLoaderForTesting(async () => new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128))
 
 interface FakeCanvas {
   width: number
@@ -105,8 +119,12 @@ interface EngineInternals {
   // lastPaperDabUniform below.
   gl: MockGL
   _paperTex: object
+  // Resolves once _initPaper's async load has swapped the placeholder for
+  // the real baked texture — see engine/index.ts's own field comment.
+  _paperReady: Promise<void>
   _dabUni: Record<string, MockLocation | null>
   _dabInstUni: Record<string, MockLocation | null>
+  _handleContextRestored: () => void
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -311,18 +329,35 @@ export function compositeCenterFor(engine: PencilEngine): { x: number; y: number
 // behavior) the same documented way the rest of this file reaches past
 // PencilEngine's private fields.
 
-/** The paper texture's own GL pixel dimensions — canvas-sized for a bounded
- *  room, a fixed constant for an infinite one (see _initPaper). */
+/** The paper texture's own GL pixel dimensions — the same fixed, offline-
+ *  baked resolution for both bounded and infinite rooms (see _initPaper);
+ *  a 1x1 placeholder until `await internals(engine)._paperReady` resolves. */
 export function paperTextureSize(engine: PencilEngine): { width: number; height: number } | null {
   const eng = internals(engine)
   return eng.gl.getTextureSize(eng._paperTex)
 }
 
-/** The paper texture's wrap mode — CLAMP_TO_EDGE for a bounded room,
- *  REPEAT for an infinite one (see _initPaper/PaperTexture.ts). */
+/** The paper texture's wrap mode — REPEAT for both bounded and infinite
+ *  rooms (see _initPaper/paperLoader.ts). */
 export function paperTextureWrap(engine: PencilEngine): { wrapS: number; wrapT: number } | null {
   const eng = internals(engine)
   return eng.gl.getTextureWrap(eng._paperTex)
+}
+
+/** Awaits _initPaper's in-flight (or already-settled) load — see
+ *  engine/index.ts's own _paperReady field comment. Lets a test observe the
+ *  post-load texture deterministically instead of guessing tick counts. */
+export function paperReady(engine: PencilEngine): Promise<void> {
+  return internals(engine)._paperReady
+}
+
+/** Simulates a WebGL context-restore (webglcontextrestored) without needing
+ *  a real event to fire through the mock canvas's no-op addEventListener —
+ *  drives PencilEngine's own private handler directly, same reach-past-
+ *  private-fields pattern as simulateStroke below reaches past _onStart/
+ *  _onMove/_onEnd. */
+export function triggerContextRestore(engine: PencilEngine): void {
+  internals(engine)._handleContextRestored()
 }
 
 /** The last value a named dab-shader uniform (e.g. 'u_paperOrigin',

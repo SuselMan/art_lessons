@@ -1,120 +1,3 @@
-// Generates paper height map via GPU noise — no tiling, no sin() artifacts
-export const PAPER_GEN_VERT = `
-  attribute vec2 a_position;
-  void main() { gl_Position = vec4(a_position, 0.0, 1.0); }
-`;
-
-export const PAPER_GEN_FRAG = `
-  precision highp float;
-  uniform vec2 u_resolution;
-  uniform float u_scale;    // base grain frequency (cells across canvas width)
-  uniform float u_gain;     // per-octave amplitude falloff
-  uniform float u_contrast;
-  uniform float u_warp;     // domain warp strength
-  // #141: 1.0 for an infinite-canvas (GL_REPEAT-wrapped) texture, 0.0 for a
-  // bounded-canvas (CLAMP_TO_EDGE, never-tiled) one — see PaperTexture.ts's
-  // createPaperTexture, which sets this from the same 'repeat' flag that
-  // picks the wrap mode. GL_REPEAT only wraps the *sample coordinate*; it
-  // doesn't make this noise's own hash lookups periodic, so without this a
-  // repeated texture would show a hard seam every time it tiles (this
-  // hash/vnoise/fbm was never designed to be periodic over any domain).
-  // Bounded rooms don't need that (sampled 0..1 exactly once, never
-  // tiled) and don't want it either: forcing periodicity nudges each
-  // octave's effective frequency by a fraction of a percent (see fbm's
-  // freqRatio) and changes the wrapped-neighbor lookup at the far edge —
-  // both irrelevant for a texture that's never tiled, but real bit-level
-  // differences from before #141 — so this gates the whole seamless-noise
-  // path off for them, reducing to the exact original formula.
-  uniform float u_seamless;
-
-  // Artifact-free hash — no sin(), no diagonal banding (Inigo Quilez)
-  float hash(vec2 p) {
-    p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
-    return fract(p.x * p.y * (p.x + p.y));
-  }
-
-  // #141: 'period' (only consulted when u_seamless is on) is an integer
-  // cell count this call's domain wraps over — wrapping the integer grid
-  // index i by an integer period before hashing makes hash(i) exactly
-  // equal hash(i + period) (integer-to-integer, no floating-point drift),
-  // which in turn makes vnoise exactly periodic in p with that same
-  // period. u_seamless off skips the wrap entirely, reducing to exactly
-  // the original vnoise.
-  float vnoise(vec2 p, vec2 period) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    vec2 i00 = i,                 i10 = i + vec2(1.0, 0.0);
-    vec2 i01 = i + vec2(0.0, 1.0), i11 = i + vec2(1.0, 1.0);
-    if (u_seamless > 0.5) {
-      i00 = mod(i00, period); i10 = mod(i10, period);
-      i01 = mod(i01, period); i11 = mod(i11, period);
-    }
-    return mix(
-      mix(hash(i00), hash(i10), u.x),
-      mix(hash(i01), hash(i11), u.x),
-      u.y
-    );
-  }
-
-  // #141: an octave's frequency multiplier is normally the exact
-  // mathematical ratio (1, 2.1, 2.1^2, 2.1^3 — see fbm) — kept exactly
-  // that way when u_seamless is off, for bit-for-bit bounded-room output.
-  // When seamless, basePeriod * ratio (the octave's own cell count over
-  // the seamless domain) is snapped to the nearest integer first: 2.1
-  // isn't a whole number, so an octave's *exact* frequency almost never
-  // divides evenly into basePeriod (the domain GL_REPEAT wraps over) —
-  // rounding it to the nearest integer cell count is what lets vnoise's
-  // integer-modulus trick above apply to every octave, so their sum
-  // (fbm) stays exactly periodic over basePeriod too, at the cost of a
-  // less-than-1%, imperceptible nudge to that octave's actual frequency
-  // — the standard trade-off tileable value/Perlin noise always makes.
-  float seamlessRatio(float ratio, float basePeriod) {
-    if (u_seamless > 0.5) return floor(basePeriod * ratio + 0.5) / basePeriod;
-    return ratio;
-  }
-
-  // 4-octave fBm (WebGL1: fixed loop count). 'basePeriod' is the domain
-  // this whole call must stay periodic over once u_seamless is on — see
-  // seamlessRatio/vnoise above. Ignored (no periodicity enforced) when off.
-  float fbm(vec2 p, float basePeriod) {
-    float v=0., a=0.5, s=0.;
-    float f0 = seamlessRatio(1.0,               basePeriod);
-    float f1 = seamlessRatio(2.1,               basePeriod);
-    float f2 = seamlessRatio(2.1 * 2.1,         basePeriod);
-    float f3 = seamlessRatio(2.1 * 2.1 * 2.1,   basePeriod);
-    v+=a*vnoise(p*f0, vec2(f0*basePeriod)); s+=a; a*=u_gain;
-    v+=a*vnoise(p*f1, vec2(f1*basePeriod)); s+=a; a*=u_gain;
-    v+=a*vnoise(p*f2, vec2(f2*basePeriod)); s+=a; a*=u_gain;
-    v+=a*vnoise(p*f3, vec2(f3*basePeriod)); s+=a;
-    return v / s;
-  }
-
-  void main() {
-    // u_scale = how many grain cells fit across canvas width
-    // e.g. scale=200 → cell = canvasWidth/200 ≈ 5px physical (for 1000px canvas)
-    vec2 uv = gl_FragCoord.xy / u_resolution * u_scale;
-
-    // Domain warping: displace uv by another noise pass
-    // This breaks up any grid/banding artifacts and creates organic fiber-like look.
-    // #141: q must itself be periodic in uv (period u_scale) for the outer
-    // fbm's own periodicity to hold once warped — it is, automatically,
-    // since q's fbm calls below use the same seamless vnoise/fbm with the
-    // same basePeriod=u_scale (a fixed translation before a periodic call,
-    // like the vec2(3.7, 5.4) offset here, never breaks that call's own
-    // periodicity).
-    vec2 q = vec2(
-      fbm(uv + vec2(0.0,  0.0), u_scale),
-      fbm(uv + vec2(3.7,  5.4), u_scale)
-    );
-    float h = fbm(uv + u_warp * q, u_scale);
-
-    // Contrast: >1 sharpens peaks (rougher feel), <1 softens
-    h = pow(clamp(h, 0.0, 1.0), 1.0 / u_contrast);
-    gl_FragColor = vec4(h, h, h, 1.0);
-  }
-`;
-
 // Per-dab varying parameters (pressure/tilt/opacity/aspect ratio) are
 // forwarded from vertex to fragment stage as `varying`s rather than read
 // directly as fragment-stage uniforms, so DAB_FRAG below is shared
@@ -263,9 +146,6 @@ export const DAB_FRAG = `
   // the texture's own pixel resolution; see that constant's comment.
   uniform vec2 u_paperOrigin;
   uniform vec2 u_paperTexSize;
-  // 0=bristol (graphite fills valleys too, near-uniform deposit)
-  // 1=rough   (graphite only on peaks, strong grain in stroke)
-  uniform float u_paperRoughness;
   uniform float u_eraseMode; // 1.0 = eraser, 0.0 = pencil
   // Baked into the accumulation buffer per dab (premultiplied below) so each
   // stroke keeps the color it was drawn with — see u_graphiteColor's removal
@@ -279,10 +159,23 @@ export const DAB_FRAG = `
   varying float v_opacity;
   varying float v_aspectRatio;
 
-  #define PI 3.14159265
-
+  // Per-fragment dither for the 'grain' term below. Deliberately NOT the
+  // classic sin()-based hash (fract(sin(dot(p, big-constants)) * big-
+  // constant)) this used to be: 'precision highp float' is a *request* in a
+  // WebGL1/GLSL-ES-1.0 fragment shader, not a guarantee — many mobile GPUs
+  // silently fall back to mediump there, which lacks the mantissa bits to
+  // accurately range-reduce sin()'s argument once dot(p, (127.1,311.7))
+  // reaches into the hundreds of thousands (any canvas more than ~1000px
+  // wide gets gl_FragCoord values that large). The result on affected
+  // hardware wasn't subtle: real cross-device comparison showed this
+  // desaturating to salt-and-pepper noise (many pixels jumping all the way
+  // to zero deposit) on a tablet GPU while looking fine on desktop, at the
+  // exact same stroke. Same fix as paperNoise.ts's own hash — Inigo
+  // Quilez's artifact-free hash, built from fract/floor/multiply only, no
+  // transcendental functions to lose precision under mediump.
   float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
+    return fract(p.x * p.y * (p.x + p.y));
   }
 
   void main() {
@@ -303,35 +196,26 @@ export const DAB_FRAG = `
 
     vec2 paperUV = (gl_FragCoord.xy + u_paperOrigin) / u_paperTexSize * u_paperScale;
 
-    float texelX = 1.0 / (u_paperTexSize.x * u_paperScale.x);
-    float texelY = 1.0 / (u_paperTexSize.y * u_paperScale.y);
-    float h   = texture2D(u_paperHeightMap, paperUV).r;
-    float hDx = texture2D(u_paperHeightMap, paperUV + vec2(texelX, 0.0)).r;
-    float hDy = texture2D(u_paperHeightMap, paperUV + vec2(0.0, texelY)).r;
-
-    // Scale normal influence by roughness: rough paper has sharper peaks to catch
-    float normalScale = mix(2.0, 10.0, u_paperRoughness);
-    vec2 surfaceNormal = vec2(h - hDx, h - hDy) * normalScale;
-
-    float tx = sin(v_tiltX * PI / 180.0);
-    float ty = sin(v_tiltY * PI / 180.0);
-    float tiltMag = sqrt(tx * tx + ty * ty);
-
-    // paperCatch: how much graphite this surface point receives.
-    // floor  = deposit even in deepest valley (high on smooth, low on rough)
-    // power  = contrast of height response (high=strong grain, low=uniform fill)
-    float floor_ = mix(0.82, 0.15, u_paperRoughness);
-    float power  = mix(0.35, 2.8,  u_paperRoughness);
-
-    float paperCatch;
-    if (tiltMag < 0.05) {
-      paperCatch = mix(floor_, 1.0, pow(h, power));
-    } else {
-      vec2 tiltDir = vec2(tx, ty) / tiltMag;
-      float directionalHit = max(0.0, dot(tiltDir, surfaceNormal) * 3.0 + 0.5);
-      float heightBase = mix(floor_, 1.0, pow(h, power));
-      paperCatch = mix(heightBase, clamp(directionalHit, 0.0, 1.0), min(tiltMag * 1.5, 1.0));
-    }
+    // paperCatch: how much graphite this surface point receives, from the
+    // paper's own surface normal. Precomputed at bake time (see
+    // paperNoise.ts's paperCatchValue), not derived here from a live
+    // texture2D finite-difference the way it used to be — that computation
+    // (h - hDx, amplified by up to ~30x total gain before a hard
+    // directional threshold) turned out to be exactly the kind of thing
+    // GPU floating-point precision differences ruin: a real cross-device
+    // comparison (same room, same paper bytes — confirmed byte-identical)
+    // showed the stroke's own deposit diverging wildly between a desktop
+    // and a tablet GPU, most likely 'precision highp float' silently
+    // falling back to mediump on the tablet (an allowed WebGL1/GLSL-ES-1.0
+    // fragment-shader fallback) and losing precision in exactly the
+    // subtraction this amplification cared about most. Baking the final
+    // result once, in plain JS double precision, and reading it back here
+    // via a single texture2D removes the GPU from that computation's
+    // critical path entirely — see paperCatchValue's own comment for the
+    // full reasoning. u_paperHeightMap is LUMINANCE_ALPHA now: .r is the
+    // raw height (still used by DISPLAY_FRAG/PAPER_BLEND_FRAG for the
+    // blank-paper tint), .a is this precomputed catch value.
+    float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
 
     float grain = hash(gl_FragCoord.xy * 0.5) * 0.12 - 0.06;
     float deposit = clamp(v_pressure * v_opacity * paperCatch * shape + grain * shape, 0.0, 1.0);

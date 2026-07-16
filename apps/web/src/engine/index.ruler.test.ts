@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { StrokeOperation } from '@art-lessons/shared'
 
-import { createTestEngine, makeLayerAdd, simulateStroke } from './testing/engineTestUtils'
+import { createTestEngine, makeLayerAdd, paperReady, simulateStroke } from './testing/engineTestUtils'
 
 // A hand-drawn path that wobbles a few px above/below y=20 — comfortably
 // inside RULER_SNAP_TOLERANCE_PX (28) the whole way.
@@ -30,8 +30,9 @@ const WOBBLY_NEAR_RULER = [
 const WOBBLY_FAR_FROM_RULER = WOBBLY_NEAR_RULER.map(p => ({ x: p.x, y: p.y + 60 }))
 
 describe('ruler tool (#89): live-stroke snapping', () => {
-  it('snaps a wobbly drag onto the ruler line, and records only the stroke (no separate ruler operation)', () => {
+  it('snaps a wobbly drag onto the ruler line, and records only the stroke (no separate ruler operation)', async () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 64, height: 64 })
+    await paperReady(engine)
     engine.appendOperation(makeLayerAdd('user-a', 'L1'))
     engine.setActiveLayer('L1')
 
@@ -52,8 +53,9 @@ describe('ruler tool (#89): live-stroke snapping', () => {
     }
   })
 
-  it('leaves a stroke that stays outside the snap tolerance untouched', () => {
+  it('leaves a stroke that stays outside the snap tolerance untouched', async () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 96, height: 96 })
+    await paperReady(engine)
     engine.appendOperation(makeLayerAdd('user-a', 'L1'))
     engine.setActiveLayer('L1')
 
@@ -69,8 +71,9 @@ describe('ruler tool (#89): live-stroke snapping', () => {
     expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(1)
   })
 
-  it('setRuler(null) turns snapping back off', () => {
+  it('setRuler(null) turns snapping back off', async () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 64, height: 64 })
+    await paperReady(engine)
     engine.appendOperation(makeLayerAdd('user-a', 'L1'))
     engine.setActiveLayer('L1')
 
@@ -84,8 +87,9 @@ describe('ruler tool (#89): live-stroke snapping', () => {
     expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(1)
   })
 
-  it('a diagonal ruler snaps a near stroke onto its exact slope', () => {
+  it('a diagonal ruler snaps a near stroke onto its exact slope', async () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 64, height: 64 })
+    await paperReady(engine)
     engine.appendOperation(makeLayerAdd('user-a', 'L1'))
     engine.setActiveLayer('L1')
 

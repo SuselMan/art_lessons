@@ -20,7 +20,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import {
-  createTestEngine, dab, makeLayerAdd, makeStroke, readCompositePixels,
+  createTestEngine, dab, makeLayerAdd, makeStroke, paperReady, readCompositePixels,
   simulatePredictedSamples, simulateStrokeMove, simulateStrokeStart,
 } from './testing/engineTestUtils'
 
@@ -43,8 +43,9 @@ const BASE = { x: 10_000, y: 5_000 }
 const FAR_AWAY = { x: 999_999, y: 999_999 }
 
 describe('infinite canvas: camera-relative preview buffers (#138)', () => {
-  it('the live-tip (#104) preview follows the camera to its own world position', () => {
+  it('the live-tip (#104) preview follows the camera to its own world position', async () => {
     const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 64, height: 64 })
+    await paperReady(engine)
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
     engine.setActiveLayer('L')
     engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
@@ -77,10 +78,11 @@ describe('infinite canvas: camera-relative preview buffers (#138)', () => {
     expect(alphaAt(farAway, 64, 32, 32)).toBe(0)
   })
 
-  it('the speculative pointer-prediction preview (#92) is camera-relative too', () => {
+  it('the speculative pointer-prediction preview (#92) is camera-relative too', async () => {
     const { engine } = createTestEngine(
       { userId: 'user-a', infinite: true, predictPointer: true }, { width: 64, height: 64 },
     )
+    await paperReady(engine)
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
     engine.setActiveLayer('L')
     engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
@@ -146,8 +148,9 @@ describe('infinite canvas: camera-relative preview buffers (#138)', () => {
     }
   })
 
-  it('a bounded (fixed-canvas) room still blends the live-tip preview in directly, unaffected by #138', () => {
+  it('a bounded (fixed-canvas) room still blends the live-tip preview in directly, unaffected by #138', async () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 64, height: 64 })
+    await paperReady(engine)
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
     engine.setActiveLayer('L')
     engine.setCompositeOrder([{ id: 'L', opacity: 1 }])

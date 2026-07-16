@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "bake:paper": "tsx scripts/bakePaperTextures.ts"
   },
   "dependencies": {
     "@art-lessons/shared": "*",
@@ -32,6 +33,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "oxlint": "^1.69.0",
+    "tsx": "^4.20.3",
     "typescript": "~6.0.2",
     "vite": "^8.1.0",
     "vite-plugin-mkcert": "^1.17.12"

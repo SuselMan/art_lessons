@@ -15,6 +15,39 @@
 
 - Before finishing a task run `npm run typecheck` and `npm run lint` and fix all issues.
 
+## Cross-device pixel determinism
+
+Anything that must render identically on every participant's device (paper grain, and any future value baked into what other users see on the shared canvas) must not depend on live, per-device GPU floating-point computation for its final value. WebGL/GLSL gives no cross-vendor bit-exactness guarantee: `precision highp float` in a fragment shader is a *request*, not a guarantee (many mobile GPUs silently fall back to `mediump`), and texture bilinear filtering isn't bit-exact across vendors either. This broke silently three separate times during the paper-grain redesign — a live per-GPU bake, a `sin()`-based hash, and a finite-difference normal amplified ~30x by gain all diverged between a desktop and a tablet despite 200+ passing unit tests each time (see the `project_paper_grain_redesign` memory for the full history). None of those failures were visible on a single device — each needed a real side-by-side comparison to catch.
+
+Rules for any code in this category (currently: paper grain; treat anything else explicitly designed to look identical across participants the same way):
+
+- Compute it **once, offline, deterministically** (a Node script, plain JS/TS, no GPU) and ship the result as a static asset every client loads identically — never recompute it live per-device if the result has to match.
+- Avoid `sin()`/`cos()`/other transcendental functions in any hash or noise function whose result must be portable — use fract/floor/multiply-based hashes instead (see `paperNoise.ts`'s `hash()` for the pattern).
+- Avoid amplifying a finite-difference/derivative by a large gain in a shader when the inputs come from a texture sample — texture-filtering precision differences get amplified right along with the signal.
+- A change touching this system is not verified by unit tests alone (MockGL deliberately never rasterizes this kind of GPU-side math) and not verified by testing on one device. Before calling it done, get a real side-by-side comparison across at least two different GPUs/devices (export identical content from both, pixel-diff the files) — ask Ilya to do this if a second device isn't otherwise available.
+
+## Starting the project (frontend + backend, tablet-reachable)
+
+When Ilya asks to "start"/"run"/"spin up" the project (start it, "запусти проект", "заведи проект"), start **both** frontend and backend locally in the background, then give him both URLs so he can open the frontend one from a tablet on the same LAN. Use these exact commands — don't re-derive them each time:
+
+1. LAN IP (once per session):
+   `(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.PrefixOrigin -ne 'WellKnown' -and $_.IPAddress -notlike '169.254.*' }).IPAddress`
+   Fall back to `ipconfig` and read the IPv4 Address if this returns nothing/multiple.
+
+2. Backend needs Postgres first (see `project_backend_dev_setup` memory):
+   `docker start art_lessons_pg`
+   then from repo root, in the background: `npm run dev:server` — Fastify listens on `0.0.0.0:4000`.
+
+3. Frontend, from repo root, in the background: `npm run dev` — Vite already runs with `--host` + HTTPS (mkcert) on port 5173 (see `apps/web/vite.config.ts`).
+
+4. Report both links to Ilya:
+   - Frontend (open this on the tablet): `https://<LAN-IP>:5173`
+   - Backend (direct, debugging only — the frontend proxies `/api` and `/socket.io` to it for actual app use): `http://<LAN-IP>:4000`
+
+5. If the tablet shows a cert warning, its mkcert root CA isn't trusted yet — that's a one-time manual step on the tablet, not a bug to fix.
+
+Follow "Dev server hygiene" below for backgrounding/killing these two processes.
+
 ## Dev server hygiene
 
 - Before starting `npm run dev` in the background, check whether something is already listening on the port you're about to use (`Get-NetTCPConnection -State Listen`) — don't blindly stack a new instance on top of a stray one.

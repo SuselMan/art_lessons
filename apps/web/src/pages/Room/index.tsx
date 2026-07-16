@@ -575,17 +575,28 @@ export function Room() {
     const pending = pendingSnapshotRef.current
     if (pending) {
       pendingSnapshotRef.current = null
-      // (#147) A fresh room's history can be hundreds/thousands of ops —
-      // without this, appendOperation's own per-op _display() (full
-      // composite + paper-blend) fires once per operation on the very first
-      // paint the user sees, a visible join-time freeze that grows with the
-      // room's history. suspendDisplay/resumeDisplay defer all of that to
-      // one _display() right after the loop — see their own doc comments.
-      engine.suspendDisplay()
-      for (const op of pending.operations) applyRemoteOp(op)
-      engine.resumeDisplay()
-      syncFromLog()
-      dispatchParticipants({ type: 'room_state', participants: pending.participants })
+      // Awaits engine.paperReady() first (see its own doc comment): a
+      // stroke replayed before the real paper texture has loaded would
+      // permanently bake in the placeholder's flat response, with nothing
+      // later to re-paint it once the real texture arrives. Wrapped in an
+      // async IIFE rather than making this whole effect async — the effect
+      // still needs to register handlers/cleanup synchronously below,
+      // unaffected by this deferred branch.
+      void (async () => {
+        await engine.paperReady()
+        // (#147) A fresh room's history can be hundreds/thousands of ops —
+        // without this, appendOperation's own per-op _display() (full
+        // composite + paper-blend) fires once per operation on the very
+        // first paint the user sees, a visible join-time freeze that grows
+        // with the room's history. suspendDisplay/resumeDisplay defer all
+        // of that to one _display() right after the loop — see their own
+        // doc comments.
+        engine.suspendDisplay()
+        for (const op of pending.operations) applyRemoteOp(op)
+        engine.resumeDisplay()
+        syncFromLog()
+        dispatchParticipants({ type: 'room_state', participants: pending.participants })
+      })()
     }
 
     return () => {
@@ -1270,7 +1281,7 @@ export function Room() {
       }
     }
 
-    const handleRoomState = ({ room, operations, participants: roomParticipants }: {
+    const handleRoomState = async ({ room, operations, participants: roomParticipants }: {
       room: RoomEntity; operations: Operation[]; participants: Participant[]
     }) => {
       if (!configRef.current) {
@@ -1281,6 +1292,11 @@ export function Room() {
         setConfig(toRoomConfig(room))
         return
       }
+      // See the mount-engine effect's own comment on engine.paperReady() —
+      // same reasoning applies to a reconnect's full-history replay. A
+      // no-op await in the overwhelmingly common case (paper long since
+      // loaded by the time a reconnect happens).
+      await engineRef.current?.paperReady()
       // A reconnect's full-history replay supersedes any reveal still
       // in-flight from before the drop — cancel it rather than let it keep
       // painting the same stroke a second time on top of what this loop is

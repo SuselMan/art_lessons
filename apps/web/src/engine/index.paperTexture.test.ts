@@ -1,51 +1,69 @@
-// Engine-level tests for the #141 paper-texture grain fix. Three related
-// defects, all in engine/index.ts + src/shaders.ts:
+// Engine-level tests for the #141 paper-texture grain fix, updated for the
+// later move to an offline-baked, raw-byte-uploaded texture (see
+// ../scripts/bakePaperTextures.ts and src/paperLoader.ts): the
+// world-position uniform plumbing DAB_FRAG needs (u_paperOrigin/
+// u_paperTexSize) is unchanged by that move — it's still what turns a dab's
+// local-buffer position into the true world position the paper texture is
+// sampled at — so those tests stay as they were. What's new is that both
+// bounded and infinite rooms now share the exact same fixed-resolution,
+// REPEAT-wrapped texture (see engine/index.ts's _paperWorldSize), and that
+// loading it is now asynchronous (a placeholder is bound synchronously,
+// swapped for the real texture once the load resolves — see _paperReady).
+//
+// Three original defects, all in engine/index.ts + src/shaders.ts:
 //  1. _initPaper generated the paper texture at canvas.width x
 //     canvas.height — an infinite room's *current on-screen viewport size*,
-//     not any fixed world/paper resolution.
+//     not any fixed world/paper resolution. (Moot now — the texture is
+//     baked offline, at a fixed resolution, for every room.)
 //  2. resizeCanvas (infinite-only) never re-ran _initPaper, so after the
-//     first live resize (which always happens once, right after
-//     construction) the texture was stuck stretched across whatever size
-//     it happened to be created at.
-//  3. DAB_FRAG/DISPLAY_FRAG sampled the paper texture via local buffer/
-//     screen UV, never world position — every tile independently sampled
-//     the same local sub-region of that texture, so the grain pattern
-//     discontinuously repeated at every tile boundary.
-//
-// MockGL deliberately doesn't rasterize DAB_FRAG's/PAPER_BLEND_FRAG's paper-
-// height sampling or PAPER_GEN_FRAG's noise generation (see its module
-// docstring) — a pixel readback can't observe any of this directly. These
-// tests instead check the underlying plumbing the shader math depends on:
-// the uniforms the engine computes and hands to the paper-sampling shaders,
-// and the texture the engine actually creates — via the read-only
-// introspection helpers added to MockGL/engineTestUtils for this fix (see
-// paperTextureSize/paperTextureWrap/lastPaperDabUniform).
+//     first live resize the texture was stuck stretched. (Moot now.)
+//  3. DAB_FRAG sampled the paper texture via local buffer/screen UV, never
+//     world position — every tile independently sampled the same local
+//     sub-region, so the grain pattern discontinuously repeated at every
+//     tile boundary. Still relevant: the texture is a pure function of its
+//     input UV, so it still needs the true world position, not a
+//     tile-local one, to stay continuous across tile boundaries.
 import { describe, expect, it } from 'vitest'
 
 import {
   createTestEngine, dab, lastPaperDabUniform, makeLayerAdd, makeStroke,
-  paperTextureSize, paperTextureWrap,
+  paperReady, paperTextureSize, paperTextureWrap, simulateStroke, triggerContextRestore,
 } from './testing/engineTestUtils'
+import { __resetPaperLoaderForTesting, __setPaperLoaderForTesting } from './src/paperLoader'
+import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperNoise'
 import { TILE_SIZE } from './src/tileMath'
 
 describe('paper texture: world-space grain sampling (#141)', () => {
-  describe('bounded rooms: unchanged from before', () => {
-    it('paper texture is still generated at exactly canvas size, with CLAMP_TO_EDGE', () => {
-      const { engine } = createTestEngine({ userId: 'user-a' }, { width: 37, height: 51 })
-      expect(paperTextureSize(engine)).toEqual({ width: 37, height: 51 })
+  describe('bounded and infinite rooms share the exact same baked texture', () => {
+    for (const infinite of [false, true]) {
+      it(`${infinite ? 'infinite' : 'bounded'} room: paper texture is PAPER_BAKE_RESOLUTION^2 with REPEAT wrap, once loaded`, async () => {
+        const { engine } = createTestEngine({ userId: 'user-a', infinite }, { width: 37, height: 51 })
+        await paperReady(engine)
 
-      const wrap = paperTextureWrap(engine)
-      const CLAMP_TO_EDGE = 15 // MockGL's own enum value — see mockGL.ts
-      expect(wrap).toEqual({ wrapS: CLAMP_TO_EDGE, wrapT: CLAMP_TO_EDGE })
+        expect(paperTextureSize(engine)).toEqual({ width: PAPER_BAKE_RESOLUTION, height: PAPER_BAKE_RESOLUTION })
+
+        const wrap = paperTextureWrap(engine)
+        const REPEAT = 200 // MockGL's own enum value — see mockGL.ts
+        expect(wrap).toEqual({ wrapS: REPEAT, wrapT: REPEAT })
+      })
+    }
+
+    it('a dab always gets paper-tex-size equal to PAPER_WORLD_SIZE, not the canvas size', () => {
+      const { engine } = createTestEngine({ userId: 'user-a' }, { width: 40, height: 30 })
+      engine.appendOperation(makeLayerAdd('user-a', 'L'))
+      engine.appendOperation(makeStroke('user-a', 'L', [dab(10, 12, { size: 4 })]))
+
+      expect(lastPaperDabUniform(engine, 'u_paperTexSize')).toEqual([PAPER_WORLD_SIZE, PAPER_WORLD_SIZE])
     })
+  })
 
-    it('a dab always gets paper origin (0,0) and paper-tex-size equal to the canvas — reduces to the old screen-UV formula exactly', () => {
+  describe('bounded rooms: unchanged from before', () => {
+    it('a dab always gets paper origin (0,0) — reduces to the old screen-UV formula exactly', () => {
       const { engine } = createTestEngine({ userId: 'user-a' }, { width: 40, height: 30 })
       engine.appendOperation(makeLayerAdd('user-a', 'L'))
       engine.appendOperation(makeStroke('user-a', 'L', [dab(10, 12, { size: 4 })]))
 
       expect(lastPaperDabUniform(engine, 'u_paperOrigin')).toEqual([0, 0])
-      expect(lastPaperDabUniform(engine, 'u_paperTexSize')).toEqual([40, 30])
     })
 
     it('a second dab at a different position still reports paper origin (0,0) — bounded rooms never have a nonzero tile origin', () => {
@@ -57,20 +75,9 @@ describe('paper texture: world-space grain sampling (#141)', () => {
   })
 
   describe('infinite rooms: fixed world-space texture, decoupled from canvas size', () => {
-    it('paper texture is a fixed, power-of-two resolution with REPEAT wrap, independent of canvas size', () => {
-      const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 37, height: 51 })
-      const size = paperTextureSize(engine)
-      expect(size).not.toBeNull()
-      expect(size!.width).toBe(size!.height) // square
-      expect(Number.isInteger(Math.log2(size!.width))).toBe(true) // power of two
-
-      const wrap = paperTextureWrap(engine)
-      const REPEAT = 200 // MockGL's own enum value — see mockGL.ts
-      expect(wrap).toEqual({ wrapS: REPEAT, wrapT: REPEAT })
-    })
-
-    it('resizeCanvas never changes the (now canvas-size-independent) paper texture — the #2 bug this fix makes moot', () => {
+    it('resizeCanvas never changes the (canvas-size-independent) paper texture', async () => {
       const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 64, height: 64 })
+      await paperReady(engine)
       const before = paperTextureSize(engine)
 
       engine.resizeCanvas(500, 300)
@@ -143,8 +150,110 @@ describe('paper texture: world-space grain sampling (#141)', () => {
       // coincided with TILE_SIZE would make u_paperOrigin's threading a
       // no-op under GL_REPEAT (every tile origin is an exact multiple of
       // TILE_SIZE), silently reintroducing the same per-tile-repeat bug
-      // this fix targets (see INFINITE_PAPER_WORLD_SIZE's own comment).
+      // this fix targets (see PAPER_WORLD_SIZE's own comment).
       expect((texSizeTile0 as number[])[0]).not.toBe(TILE_SIZE)
     })
+  })
+})
+
+describe('paper texture: async load (placeholder, cache, context-restore)', () => {
+  it('a dab painted before the real texture has loaded does not throw, and reads a 1x1 placeholder', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 20, height: 20 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+
+    // No `await paperReady(engine)` here — this exercises the gap between
+    // construction and the (in tests, still-microtask-async) load
+    // resolving. The default test loader (installed process-wide in
+    // engineTestUtils.ts) never runs synchronously, so the texture is
+    // still the constructor's own placeholder at this point.
+    expect(() => {
+      engine.appendOperation(makeStroke('user-a', 'L', [dab(10, 10, { size: 4 })]))
+    }).not.toThrow()
+    expect(paperTextureSize(engine)).toEqual({ width: 1, height: 1 })
+  })
+
+  it('a real (pointer-driven) stroke started before the paper texture is ready is silently dropped, not painted against the placeholder', async () => {
+    // Found via a live cross-device paper-grain comparison: a stroke drawn
+    // right after opening a room, before the paper texture finished its own
+    // async load, permanently baked in the placeholder's flat response —
+    // nothing later re-paints an already-applied pixel operation. _onStart
+    // now refuses to begin a stroke at all until _paperTexLoaded flips true
+    // (see engine/index.ts's own field comment), rather than risk that.
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 20, height: 20 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.setActiveLayer('L')
+
+    // No await paperReady(engine) yet — same still-microtask-async gap as
+    // the "does not throw" test above.
+    simulateStroke(engine, [{ x: 5, y: 5 }, { x: 10, y: 10 }])
+    expect(engine.getOperations().map(op => op.type)).toEqual(['layer_add']) // no stroke recorded
+
+    await paperReady(engine)
+
+    simulateStroke(engine, [{ x: 5, y: 5 }, { x: 10, y: 10 }])
+    expect(engine.getOperations().map(op => op.type)).toEqual(['layer_add', 'stroke'])
+  })
+
+  it('the placeholder is swapped for the real texture once _paperReady resolves', async () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 20, height: 20 })
+    expect(paperTextureSize(engine)).toEqual({ width: 1, height: 1 })
+
+    await paperReady(engine)
+
+    expect(paperTextureSize(engine)).toEqual({ width: PAPER_BAKE_RESOLUTION, height: PAPER_BAKE_RESOLUTION })
+  })
+
+  it('setPaper() reuses the byte cache — cycling through all 3 paper types never exceeds one loader call per type', async () => {
+    let calls = 0
+    __setPaperLoaderForTesting(async () => {
+      calls++
+      return new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128)
+    })
+    try {
+      const { engine } = createTestEngine({ userId: 'user-a', paper: 'rough' })
+      await paperReady(engine)
+      // The constructor's own prefetchAllPaperTypes() warms all 3 types
+      // once, up front — so this is 3 (rough/smooth/bristol), not 1.
+      expect(calls).toBe(3)
+
+      engine.setPaper('smooth')
+      await paperReady(engine)
+      engine.setPaper('bristol')
+      await paperReady(engine)
+      engine.setPaper('rough')
+      await paperReady(engine)
+
+      // Every type was already cached by the initial prefetch — cycling
+      // through them again must not trigger any further loader calls.
+      expect(calls).toBe(3)
+    } finally {
+      __resetPaperLoaderForTesting()
+    }
+  })
+
+  it('context-restore re-uploads from the byte cache without a new loader call', async () => {
+    let calls = 0
+    __setPaperLoaderForTesting(async () => {
+      calls++
+      return new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128)
+    })
+    try {
+      const { engine } = createTestEngine({ userId: 'user-a', paper: 'rough' })
+      await paperReady(engine)
+      const callsAfterConstruction = calls
+
+      triggerContextRestore(engine)
+      // Context-restore rebinds a fresh 1x1 placeholder immediately (the
+      // dead gl context took the old texture object with it), same as a
+      // fresh construction.
+      expect(paperTextureSize(engine)).toEqual({ width: 1, height: 1 })
+
+      await paperReady(engine)
+
+      expect(calls).toBe(callsAfterConstruction) // all 3 types already cached — no new fetch
+      expect(paperTextureSize(engine)).toEqual({ width: PAPER_BAKE_RESOLUTION, height: PAPER_BAKE_RESOLUTION })
+    } finally {
+      __resetPaperLoaderForTesting()
+    }
   })
 })

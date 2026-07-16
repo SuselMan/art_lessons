@@ -2,7 +2,10 @@ import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
 import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_BLEND_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
-import { createPaperTexture } from './src/PaperTexture'
+import { PAPER_WORLD_SIZE } from './src/paperNoise'
+import {
+  createPlaceholderPaperTexture, getPaperBytes, prefetchAllPaperTypes, uploadPaperTexture,
+} from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import { DabSystem } from './src/DabSystem'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
@@ -166,6 +169,17 @@ export interface PencilEngineAPI {
   // one-at-a-time local/remote operations are unaffected either way.
   suspendDisplay(): void
   resumeDisplay(): void
+  // Resolves once the real paper-grain texture has replaced the placeholder
+  // bound at construction (see _initPaper/paperLoader.ts) — a network fetch
+  // + decompress, not instant. A caller about to replay a batch of
+  // historical stroke operations (initial room join, reconnect — see
+  // suspendDisplay's own doc comment for the same batch) should await this
+  // first: appendOperation paints dabs into a layer's accumulation buffer
+  // immediately and permanently — a stroke painted before this resolves
+  // would bake in the placeholder's flat response forever, with no later
+  // re-paint once the real texture arrives (only the *display*/composite
+  // step re-runs on demand, not already-applied pixel operations).
+  paperReady(): Promise<void>
   getOperations(): Operation[]
   undo(): Operation | null
   redo(): Operation | null
@@ -330,37 +344,12 @@ const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
   bristol: [0.99, 0.99, 0.98],
 }
 
-// #141: infinite-canvas paper texture sizing. Two deliberately separate
-// numbers:
-//  - INFINITE_PAPER_TEX_PIXELS is the GL texture's own pixel resolution —
-//    fixed and power-of-two (WebGL1 only allows gl.REPEAT wrap on a POT
-//    texture), so unlike a bounded room's paper texture (generated at
-//    exactly canvas.width x canvas.height) this never depends on canvas
-//    size and never needs regenerating on resizeCanvas().
-//  - INFINITE_PAPER_WORLD_SIZE is how many world *units* that texture
-//    spans before its GL_REPEAT tiling repeats — deliberately NOT a
-//    multiple or divisor of TILE_SIZE (1024, see tileMath.ts). If it were,
-//    every tile's origin (always an exact multiple of TILE_SIZE) would
-//    land on an exact multiple of the paper's own repeat period too,
-//    making u_paperOrigin's threading in DAB_FRAG a no-op under
-//    GL_REPEAT — every tile would silently keep re-sampling the same
-//    [0,1) sub-range, reintroducing the exact "grain repeats identically
-//    at every tile boundary" bug #141 fixes, just with unused extra math.
-//    157 shares no common factor with 1024 (1024 is a power of 2, 157 is
-//    odd — prime, in fact) — tuned from real-use feedback testing on a
-//    Surface, in two rounds: first from 900 to 315 (a measured 100%-vs-35%
-//    ratio — see git history for that derivation), then a further /2 by
-//    feel (315 still read coarser than wanted) — 315/2 = 157.5, rounded
-//    down to the nearest odd. Grain cell size in world units works out to
-//    exactly INFINITE_PAPER_WORLD_SIZE / cfg.scale (see PaperTexture.ts's
-//    CONFIGS) — the texture's own pixel resolution
-//    (INFINITE_PAPER_TEX_PIXELS) cancels out of that ratio entirely, so
-//    tuning grain size never needs to touch it. This is a by-feel visual
-//    tuning constant, same as CONFIGS' own scale/gain/contrast values
-//    (see that file's revision history) — expect it to keep moving with
-//    more real-use feedback, not a one-shot fix.
-const INFINITE_PAPER_TEX_PIXELS = 1024
-const INFINITE_PAPER_WORLD_SIZE = 157
+// Paper-grain texture: baked once, offline (see ../scripts/bakePaperTextures.ts
+// and src/paperNoise.ts), identical bytes shipped to every client — see
+// _initPaper/paperLoader.ts. PAPER_WORLD_SIZE (imported from paperNoise.ts,
+// which is also where the bake script gets it from) is the world-space size
+// the baked tile repeats over, used identically by bounded and infinite
+// rooms alike — see _paperWorldSize().
 
 // #145: hard clamp (per axis) on exportPNG's infinite-room "whole drawing"
 // render target — see _buildContentComposite's own doc comment for why this
@@ -373,29 +362,6 @@ const INFINITE_PAPER_WORLD_SIZE = 157
 const MAX_EXPORT_DIMENSION_PX = 8192
 
 export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.17]
-
-// Drives how much the pencil itself "feels" the paper grain while drawing —
-// see DAB_FRAG's normalScale/floor_/power (shaders.ts), all mix()'d by this
-// over a 0..1 range (0 = bristol-like uniform fill, 1 = max tooth) —
-// independent of PaperTexture.ts's CONFIGS, which only shape how the blank
-// paper looks.
-//
-// Careful: below ~0.02 this range is visually flat — mix(2.0,10.0,r) etc.
-// are already within a couple percent of their r=0 floor there, so e.g.
-// 0.0001 vs 0.002 vs 0.02 all look identical. Stay above that if a tier is
-// meant to have *some* perceptible tooth; use 0 outright for "none".
-//
-// Third follow-up: current bristol is the new reference for "roughest" —
-// but bristol's old value (0.002) was already deep in that flat zone, i.e.
-// functionally "no tooth". So the honest reading of "make rough feel like
-// that" is: give rough a small-but-actually-perceptible tooth (not the old
-// number verbatim, which wouldn't read as anything), and drop smooth/
-// bristol to barely-there / none.
-const PAPER_ROUGHNESS: Record<PaperType, number> = {
-  rough:   0.05,
-  smooth:  0.02,
-  bristol: 0,
-}
 
 // Undo depth is bounded by the log, not by memory: checkpoints only shorten the
 // replay tail. Interval/budget are starting points to be tuned by measurement (#76).
@@ -674,8 +640,31 @@ export class PencilEngine implements PencilEngineAPI {
   // redecodes an image it's already decoded once this session.
   private _imageCache = new Map<string, HTMLImageElement>()
 
-  // Paper texture — assigned in _initPaper()
+  // Paper texture — a placeholder set synchronously in the constructor (and
+  // on context-restore), swapped for the real baked texture once _initPaper's
+  // async load resolves. _paperReady lets a caller (tests, Room.tsx's
+  // history-replay sites) await that swap deterministically instead of
+  // guessing tick counts.
   private _paperTex!: WebGLTexture
+  private _paperReady: Promise<void> = Promise.resolve()
+  // True once the real (non-placeholder) paper texture has loaded at least
+  // once — false right after construction and right after a context-restore
+  // (both rebind a genuinely-meaningless placeholder), but never reset by a
+  // later setPaper() type switch: that swaps between two already-loaded real
+  // textures (the previous type stays bound and valid until the new one is
+  // ready — see _initPaper), so there's nothing invalid to guard against
+  // there. Gates _onStart below: a stroke painted against the placeholder
+  // would bake in its flat, meaningless response permanently, with nothing
+  // later to re-paint it once the real texture arrives (only the display/
+  // composite step re-runs on demand, not already-applied pixel operations)
+  // — a real bug this closes, found via a live cross-device paper-grain
+  // comparison where the very first strokes of a freshly-opened room came
+  // out wrong on whichever device's network happened to be slower to load
+  // the (multi-MB) paper asset. Deliberately separate from `_locked` (a
+  // public, user-controlled room-lock feature) rather than reusing it —
+  // conflating the two would risk this auto-clearing a lock the user
+  // explicitly asked for.
+  private _paperTexLoaded = false
 
   // Infinite (tiled) canvas mode (#133 Phase 1) — see PencilEngineOptions.infinite.
   private readonly _infinite: boolean
@@ -691,6 +680,11 @@ export class PencilEngine implements PencilEngineAPI {
   // webglcontextrestored. Only gates _takeCheckpoint (see there for why);
   // everything else is a harmless no-op on a lost context per spec.
   private _contextLost = false
+
+  // Set at the top of destroy() — guards _initPaper's async continuation
+  // (its getPaperBytes() await can still resolve after destroy() ran) from
+  // touching a dead gl context.
+  private _destroyed = false
 
   // Operation log — source of truth; buffers and checkpoints are derived caches
   private _log: OperationLog
@@ -774,7 +768,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._haptic = options.hapticGrain ? new HapticGrain(10, 0.35, 16, options.onHapticGrainStats, 40) : null
 
     this._initGL()
-    this._initPaper(this._opts.paper)
+    // A flat mid-gray texture bound immediately so every paint call between
+    // now and the real bake finishing loading still has something valid to
+    // sample — see paperLoader.ts's createPlaceholderPaperTexture.
+    this._paperTex = createPlaceholderPaperTexture(this.gl)
+    prefetchAllPaperTypes()
+    this._paperReady = this._initPaper(this._opts.paper)
     this._pointer = new PointerInput(canvas)
     this._dabs    = new DabSystem()
 
@@ -848,6 +847,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._displaySuspendDepth = Math.max(0, this._displaySuspendDepth - 1)
     if (this._displaySuspendDepth === 0) this._display()
   }
+
+  /** See PencilEngineAPI's doc comment. */
+  paperReady(): Promise<void> { return this._paperReady }
 
   /** (#147) What appendOperation's own branches and _applyHistoryChange/
    *  _execMergeLive call instead of `this._display()` directly — a no-op
@@ -1065,7 +1067,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   setPaper(type: PaperType): void {
     this._opts.paper = type
-    this._initPaper(type)
+    this._paperReady = this._initPaper(type)
     this._display()
   }
 
@@ -1265,14 +1267,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
     this._paperBlendFBO = new AccumulationBuffer(gl, ew, eh)
     this._splitCacheDirty = true
-    // #141: the paper texture itself is NOT recreated here (unlike
+    // The paper texture itself is NOT recreated here (unlike
     // _belowCache/_assemblyFBO/etc. above, which are genuinely canvas-size-
-    // dependent) — for an infinite room it's a fixed world-space resolution
-    // (see _initPaper/INFINITE_PAPER_TEX_PIXELS), decoupled from canvas
-    // size entirely, so there's nothing for a canvas resize to invalidate.
-    // This used to be a real bug: the old canvas-sized paper texture was
-    // never regenerated here, leaving it stuck stretched across whatever
-    // size it happened to be created at through every later resize.
+    // dependent) — it's a fixed, baked-offline resolution (see
+    // _initPaper/paperLoader.ts), decoupled from canvas size entirely, so
+    // there's nothing for a canvas resize to invalidate.
     this._display()
   }
 
@@ -1594,8 +1593,16 @@ export class PencilEngine implements PencilEngineAPI {
    *
    *  #145: this camera-viewport path is exactly right for a bounded room
    *  (unchanged below) but is handed off to _exportInfinitePNG for an
-   *  infinite one instead — see that method's own doc comment. */
-  exportPNG(transparent = false): Promise<Blob | null> {
+   *  infinite one instead — see that method's own doc comment.
+   *
+   *  Awaits _paperReady first: the paper texture loads asynchronously (see
+   *  _initPaper), and an export triggered in the brief window before it
+   *  resolves would otherwise bake in the flat placeholder gray instead of
+   *  real paper grain. In practice this is a no-op wait almost always — the
+   *  3 baked assets are small and prefetched from construction — but a
+   *  slow/offline first load makes the gap real. */
+  async exportPNG(transparent = false): Promise<Blob | null> {
+    await this._paperReady
     if (this._infinite) return this._exportInfinitePNG(transparent)
     if (transparent) this._displayTransparent()
     else this._display()
@@ -1605,6 +1612,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   destroy(): void {
+    this._destroyed = true
     cancelAnimationFrame(this._raf)
     if (this._displayRafId !== null) cancelAnimationFrame(this._displayRafId)
     this.canvas.removeEventListener('webglcontextlost', this._handleContextLost)
@@ -1956,7 +1964,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _handleContextRestored = (): void => {
     this._contextLost = false
     this._initGL()
-    this._initPaper(this._opts.paper)
+    // The dead gl context already took the previous _paperTex (placeholder
+    // or real) with it — rebind a fresh placeholder immediately, same as
+    // the constructor does, then re-upload from the byte cache (paperLoader
+    // caches by PaperType, not by gl context, so this never re-fetches over
+    // the network — see getPaperBytes).
+    this._paperTex = createPlaceholderPaperTexture(this.gl)
+    this._paperTexLoaded = false
+    this._paperReady = this._initPaper(this._opts.paper)
     this._layers.clear() // handles are already dead; not worth destroy()ing
     this._previewBuf = null
     this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
@@ -2076,11 +2091,11 @@ export class PencilEngine implements PencilEngineAPI {
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
-      'u_paperRoughness', 'u_eraseMode', 'u_color',
+      'u_eraseMode', 'u_color',
     ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_paperRoughness', 'u_eraseMode', 'u_color',
+      'u_hardness', 'u_eraseMode', 'u_color',
     ])
     this._dispUni = getUniforms(gl, this._dispProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale',
@@ -2125,33 +2140,37 @@ export class PencilEngine implements PencilEngineAPI {
     this._splitCacheDirty = true
   }
 
-  private _initPaper(type: PaperType): void {
-    const { gl, canvas } = this
-    if (this._paperTex) gl.deleteTexture(this._paperTex)
-    // #141: infinite rooms get a fixed, power-of-two, world-space-resolution
-    // REPEAT texture — decoupled from canvas size entirely (see
-    // INFINITE_PAPER_TEX_PIXELS/INFINITE_PAPER_WORLD_SIZE's own comment) —
-    // instead of the old canvas-sized CLAMP_TO_EDGE texture bounded rooms
-    // still get unchanged below. This also incidentally fixes resizeCanvas()
-    // never re-initializing the paper texture: there's simply nothing
-    // canvas-size-dependent left for a resize to invalidate.
-    this._paperTex = this._infinite
-      ? createPaperTexture(gl, type, INFINITE_PAPER_TEX_PIXELS, INFINITE_PAPER_TEX_PIXELS, true)
-      : createPaperTexture(gl, type, canvas.width, canvas.height)
+  // Awaits the shared byte cache (getPaperBytes — a network fetch only on
+  // the very first call for a given PaperType, an already-resolved promise
+  // on every later one, see paperLoader.ts), then uploads and swaps in the
+  // real texture, replacing whatever placeholder or previous paper texture
+  // was bound before. Guarded by _destroyed since the await can still
+  // resolve after destroy() ran. Both bounded and infinite rooms go through
+  // this same path and end up with the exact same 2048px REPEAT texture —
+  // see _paperWorldSize()'s own comment for why unifying them is safe.
+  private async _initPaper(type: PaperType): Promise<void> {
+    const bytes = await getPaperBytes(type)
+    if (this._destroyed) return
+    const gl = this.gl
+    const newTex = uploadPaperTexture(gl, bytes)
+    const old = this._paperTex
+    this._paperTex = newTex
+    this._paperTexLoaded = true
+    gl.deleteTexture(old)
+    this._display()
   }
 
-  /** World-space size the paper texture repeats over (not the same as its
-   *  own GL pixel resolution for infinite rooms — see
-   *  INFINITE_PAPER_WORLD_SIZE's comment): a bounded room's texture is
-   *  generated at exactly canvas size (see _initPaper) and sampled 0..1
-   *  across it once, so this is just the canvas's own size there — the
-   *  same value u_paperTexSize/u_resolution were both already reading
-   *  pre-#141, kept identical so the paper-UV formula reduces to exactly
-   *  the old one for bounded rooms. */
+  /** World-space size the baked paper texture repeats over — see
+   *  paperNoise.ts's PAPER_WORLD_SIZE for the full reasoning (coprimality
+   *  with TILE_SIZE, etc.). Both bounded and infinite rooms use the exact
+   *  same fixed-resolution, offline-baked REPEAT texture (see _initPaper) —
+   *  there's no longer a canvas-size-dependent bounded-room case to special-
+   *  case here; a bounded room's own TiledLayerBuffer never chunks along a
+   *  TILE_SIZE grid in the first place (see tileMath.ts), so the
+   *  coprimality property that matters for infinite rooms is simply
+   *  irrelevant, not violated, for bounded ones. */
   private _paperWorldSize(): { w: number; h: number } {
-    return this._infinite
-      ? { w: INFINITE_PAPER_WORLD_SIZE, h: INFINITE_PAPER_WORLD_SIZE }
-      : { w: this.canvas.width, h: this.canvas.height }
+    return { w: PAPER_WORLD_SIZE, h: PAPER_WORLD_SIZE }
   }
 
   private get _physicalSize(): number {
@@ -2187,7 +2206,13 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   private _onStart(e: PointerData): void {
-    if (this._locked) return
+    // See _paperTexLoaded's own field comment: painting before the real
+    // paper texture has loaded would bake in the placeholder's flat,
+    // meaningless response permanently. Blocking the stroke from starting
+    // at all (rather than trying to special-case the paint path) means
+    // there is nothing to later "fix up" — matches how `_locked` already
+    // blocks drawing for a different reason, just orthogonal to it.
+    if (this._locked || !this._paperTexLoaded) return
     const layerId = this._activeId
     if (!layerId || !this._layers.has(layerId)) return
     this._strokeLayerId = layerId
@@ -2648,7 +2673,6 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperHeightMap, 0)
     gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
-    gl.uniform1f(u.u_paperRoughness, PAPER_ROUGHNESS[this._opts.paper] ?? 1.0)
     gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
     gl.uniform3fv(u.u_color, color)
 
@@ -2712,7 +2736,6 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperHeightMap, 0)
     gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
-    gl.uniform1f(u.u_paperRoughness, PAPER_ROUGHNESS[this._opts.paper] ?? 1.0)
     gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
     gl.uniform3fv(u.u_color, color)
 
