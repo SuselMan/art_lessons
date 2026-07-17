@@ -1,3 +1,5 @@
+import { ROUGH_VARIANTS } from '../engine/src/paperNoise'
+
 export interface FeatureFlagDef {
   key: string
   label: string
@@ -72,22 +74,64 @@ export function setPencilSoundSetting(value: PencilSoundSetting): void {
 // Dev-only paper-grain fiber-variant comparison (see paperNoise.ts's
 // ROUGH_VARIANTS / bakeRoughVariantTextures.ts) — same "own pair of
 // functions instead of a boolean flag" reasoning as pencil sound above.
-// 'off' means the real, shipped rough.paper asset; '1'..'10' overrides just
-// the rough paper texture with that candidate's bake from
-// public/paper-variants/ (see engine/index.ts's paperVariantUrl option) —
-// never affects smooth/bristol, which have no variant bake at all.
-export type PaperGrainVariant = 'off' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
+// 'off' means the real, shipped rough.paper asset; '1'..String(ROUGH_
+// VARIANTS.length) overrides just the rough paper texture with that
+// candidate's bake from public/paper-variants/ (see engine/index.ts's
+// paperVariantUrl option) — never affects smooth/bristol, which have no
+// variant bake at all. Validated against ROUGH_VARIANTS.length rather than
+// a hardcoded literal union so adding an 11th (or 20th) variant there can't
+// silently desync from what this accepts — a fixed list here once meant a
+// freshly-added variant's own value failed validation and got quietly
+// coerced back to 'off' on every reload, with no error anywhere.
+export type PaperGrainVariant = string
 const PAPER_GRAIN_VARIANT_STORAGE_KEY = 'paperGrainVariant'
-const PAPER_GRAIN_VARIANT_VALUES: readonly PaperGrainVariant[] =
-  ['off', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 
 export function getPaperGrainVariant(): PaperGrainVariant {
   const raw = localStorage.getItem(PAPER_GRAIN_VARIANT_STORAGE_KEY)
-  return (PAPER_GRAIN_VARIANT_VALUES as readonly string[]).includes(raw ?? '')
-    ? (raw as PaperGrainVariant)
-    : 'off'
+  if (raw === 'off') return 'off'
+  const n = raw ? Number(raw) : NaN
+  return Number.isInteger(n) && n >= 1 && n <= ROUGH_VARIANTS.length ? raw! : 'off'
 }
 
 export function setPaperGrainVariant(value: PaperGrainVariant): void {
   localStorage.setItem(PAPER_GRAIN_VARIANT_STORAGE_KEY, value)
 }
+
+// Dev-only graphite-grain fiber-variant comparison (see DAB_FRAG's
+// computeGrain) — same shape as PaperGrainVariant above, but this one's
+// live-shader (u_grainMode), not a texture-asset swap, and applies to every
+// paper type rather than just rough.
+export type GraphiteGrainVariant = 'off' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
+const GRAPHITE_GRAIN_VARIANT_STORAGE_KEY = 'graphiteGrainVariant'
+const GRAPHITE_GRAIN_VARIANT_VALUES: readonly GraphiteGrainVariant[] =
+  ['off', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+
+export function getGraphiteGrainVariant(): GraphiteGrainVariant {
+  const raw = localStorage.getItem(GRAPHITE_GRAIN_VARIANT_STORAGE_KEY)
+  return (GRAPHITE_GRAIN_VARIANT_VALUES as readonly string[]).includes(raw ?? '')
+    ? (raw as GraphiteGrainVariant)
+    : 'off'
+}
+
+export function setGraphiteGrainVariant(value: GraphiteGrainVariant): void {
+  localStorage.setItem(GRAPHITE_GRAIN_VARIANT_STORAGE_KEY, value)
+}
+
+// Labels for '1'..'10', index 0 unused ('off' has no shader mode number) —
+// mirrors DAB_FRAG's computeGrain's own u_grainMode branches 1-10 exactly;
+// keep the two in sync if either changes. No shared TS source of truth is
+// possible here the way ROUGH_VARIANTS is for paper, since these live as
+// GLSL, not portable JS/TS functions.
+export const GRAPHITE_GRAIN_LABELS: readonly string[] = [
+  '',
+  'Stronger fine noise',
+  'Blotchy (low-freq)',
+  'Streaky (tilt-aligned)',
+  'Stipple',
+  'Two-octave layered',
+  'Edge-emphasized',
+  'Posterized speckle',
+  'Fixed-tilt chatter',
+  'Kitchen sink',
+  'Solid (no texture)',
+]

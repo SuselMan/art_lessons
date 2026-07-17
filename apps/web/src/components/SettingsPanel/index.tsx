@@ -4,6 +4,7 @@ import {
   FEATURE_FLAGS, getFeatureFlag, setFeatureFlag,
   getPencilSoundSetting, setPencilSoundSetting, type PencilSoundSetting,
   getPaperGrainVariant, setPaperGrainVariant, type PaperGrainVariant,
+  getGraphiteGrainVariant, setGraphiteGrainVariant, type GraphiteGrainVariant, GRAPHITE_GRAIN_LABELS,
 } from '../../lib/featureFlags'
 import { ROUGH_VARIANTS } from '../../engine/src/paperNoise'
 import styles from './SettingsPanel.module.css'
@@ -21,6 +22,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [vibrateResult, setVibrateResult] = useState<string | null>(null)
   const [pencilSound, setPencilSoundState] = useState<PencilSoundSetting>(() => getPencilSoundSetting())
   const [paperVariant, setPaperVariantState] = useState<PaperGrainVariant>(() => getPaperGrainVariant())
+  const [grainVariant, setGrainVariantState] = useState<GraphiteGrainVariant>(() => getGraphiteGrainVariant())
 
   // Every flag toggle/select below only edits this local draft — nothing
   // touches localStorage or reloads until Save is pressed. Reloading on
@@ -33,11 +35,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const dirty = FEATURE_FLAGS.some(f => pendingFlags[f.key] !== getFeatureFlag(f.key))
     || pencilSound !== getPencilSoundSetting()
     || paperVariant !== getPaperGrainVariant()
+    || grainVariant !== getGraphiteGrainVariant()
 
   function handleSave() {
     for (const flag of FEATURE_FLAGS) setFeatureFlag(flag.key, pendingFlags[flag.key])
     setPencilSoundSetting(pencilSound)
     setPaperGrainVariant(paperVariant)
+    setGraphiteGrainVariant(grainVariant)
     window.location.reload()
   }
 
@@ -99,6 +103,26 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               <option value="off">Off (shipped default)</option>
               {ROUGH_VARIANTS.map((v, i) => (
                 <option key={i} value={String(i + 1)}>{i + 1}. {v.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className={styles.flagRow} style={{ cursor: 'default' }}>
+          <div style={{ width: '100%' }}>
+            <div className={styles.flagLabel}>Graphite grain variant (dev)</div>
+            <div className={styles.flagDescription}>
+              Overrides the pencil mark's own texture (live in the shader, independent of paper) for
+              comparison — applies to every paper type, unlike the paper-grain control above.
+            </div>
+            <select
+              className={styles.select}
+              value={grainVariant}
+              onChange={e => setGrainVariantState(e.target.value as GraphiteGrainVariant)}
+            >
+              <option value="off">Off (shipped default)</option>
+              {GRAPHITE_GRAIN_LABELS.slice(1).map((label, i) => (
+                <option key={i} value={String(i + 1)}>{i + 1}. {label}</option>
               ))}
             </select>
           </div>

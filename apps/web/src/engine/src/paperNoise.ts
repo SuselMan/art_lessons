@@ -460,6 +460,17 @@ export const ROUGH_VARIANTS: readonly RoughVariant[] = [
       return flow + f * 0.35
     },
   },
+  {
+    label: 'Flat (no texture)',
+    // Constant everywhere — no fbm, no fiber, nothing. Both the blank-paper
+    // tint and paperCatch end up spatially uniform: a zero height-gradient
+    // makes paperCatchValue's (h-hDx)/(h-hDy) terms exactly 0, which its
+    // own directionalHit formula maps to a flat, neutral 0.5 — not the
+    // formula's floor or ceiling, just what falls out naturally with no
+    // gradient to amplify. The graphite-grain "Solid" mode's own paper-side
+    // counterpart, for isolating the stroke's own grain from paper bumps.
+    rawHeight() { return 0.5 },
+  },
 ]
 
 export function paperHeightForRoughVariant(

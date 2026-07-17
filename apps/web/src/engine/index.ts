@@ -123,6 +123,21 @@ export interface PencilEngineOptions {
   // fetches this URL instead of the real committed rough.paper asset. Never
   // touches smooth/bristol — those have no variant bake at all.
   paperVariantUrl?: string
+  // Dev-only graphite-grain A/B (see DAB_FRAG's computeGrain,
+  // SettingsPanel's "Graphite grain variant" control) — 0 or omitted is the
+  // real shipped default, 1-10 select an experimental candidate. Unlike
+  // paperVariantUrl this applies to every paper type (the grain term itself
+  // has nothing paper-type-specific about it).
+  grainMode?: number
+  // Dev-only live tuning, initial value only — see PencilEngineAPI's
+  // setPaperFillThreshold for the runtime setter a debug-overlay slider
+  // actually drags. Defaults to 0 when omitted — see the shader-side
+  // comment for why that ended up being the tuned value, not a "feature
+  // off" placeholder.
+  paperFillThreshold?: number
+  // Dev-only live tuning, initial value only — see PencilEngineAPI's
+  // setPaperFillCap. Defaults to 0.25 when omitted.
+  paperFillCap?: number
 }
 
 export interface StrokeDebugStats {
@@ -179,6 +194,17 @@ export interface PencilEngineAPI {
   initLayer(id: string): void
   setActiveLayer(id: string): void
   setLocked(locked: boolean): void
+  // Dev-only live tuning (see DAB_FRAG's paperFillThreshold uniform and its
+  // own comment) — the pressure smoothstep() lower bound above which a
+  // single dab starts crushing graphite into the paper's own low spots.
+  // Applied on the very next paint call, no engine restart/reload needed —
+  // meant for a debug-overlay slider to drag in real time and feel out.
+  setPaperFillThreshold(threshold: number): void
+  // Dev-only live tuning (see DAB_FRAG's u_paperFillCap and its own
+  // comment) — hard ceiling on how far toward 1.0 a single dab's own fill
+  // term can ever push paperCatch, regardless of pressure. Applied on the
+  // very next paint call, same as setPaperFillThreshold.
+  setPaperFillCap(cap: number): void
   setCompositeOrder(items: CompositeItem[]): void
   appendOperation(op: Operation, source?: OperationSource): void
   // (#147) Suspends the _display() (full composite + paper-blend) call that
@@ -439,6 +465,9 @@ export class PencilEngine implements PencilEngineAPI {
   private gl: WebGLRenderingContext
   private _opts: EngineOpts
   private _paperVariantUrl: string | undefined
+  private _grainMode: number
+  private _paperFillThreshold: number
+  private _paperFillCap: number
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
   private _onPreviewApplied?: (op: StrokeOperation) => void
@@ -851,6 +880,9 @@ export class PencilEngine implements PencilEngineAPI {
     // unlike `paper`, this never changes via a public setter, so it doesn't
     // belong in the "live, mutable tool state" struct _opts represents.
     this._paperVariantUrl = options.paperVariantUrl
+    this._grainMode = options.grainMode ?? 0
+    this._paperFillThreshold = options.paperFillThreshold ?? 0
+    this._paperFillCap = options.paperFillCap ?? 0.25
 
     this._initGL()
     // A flat mid-gray texture bound immediately so every paint call between
@@ -909,6 +941,14 @@ export class PencilEngine implements PencilEngineAPI {
 
   setLocked(locked: boolean): void {
     this._locked = locked
+  }
+
+  setPaperFillThreshold(threshold: number): void {
+    this._paperFillThreshold = threshold
+  }
+
+  setPaperFillCap(cap: number): void {
+    this._paperFillCap = cap
   }
 
   setCompositeOrder(items: CompositeItem[]): void {
@@ -2236,11 +2276,11 @@ export class PencilEngine implements PencilEngineAPI {
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
-      'u_eraseMode', 'u_color',
+      'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap',
     ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_eraseMode', 'u_color',
+      'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap',
     ])
     this._dispUni = getUniforms(gl, this._dispProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale',
@@ -2861,6 +2901,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
     gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
     gl.uniform3fv(u.u_color, color)
+    gl.uniform1i(u.u_grainMode, this._grainMode)
+    gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
+    gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     const posLoc = this._dabPosLoc
@@ -2924,6 +2967,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
     gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
     gl.uniform3fv(u.u_color, color)
+    gl.uniform1i(u.u_grainMode, this._grainMode)
+    gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
+    gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
 
     // Shared unit quad, divisor 0 — same 6 vertices/2 triangles per instance
     // as the uniform path's per-dab quad.

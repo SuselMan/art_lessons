@@ -18,7 +18,7 @@ import { SettingsPanel } from '../../components/SettingsPanel'
 import { PrecisionSlider } from '../../components/PrecisionSlider'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
-import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant } from '../../lib/featureFlags'
+import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant, getGraphiteGrainVariant } from '../../lib/featureFlags'
 import { rgbToHex } from '../../lib/color'
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, PENCIL_SOUND_VARIANT_3, type PencilSoundAPI } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
@@ -177,6 +177,21 @@ export function Room() {
   const debugEnabled = getFeatureFlag('debugOverlay')
   const [strokeStats, setStrokeStats] = useState<StrokeDebugStats | null>(null)
 
+  // Dev-only live tuning (see PencilEngineAPI.setPaperFillThreshold) — a
+  // debug-overlay slider that calls straight through to the engine on every
+  // drag, no Save/reload round-trip: this one's meant to be dragged and
+  // felt out in real time while actually drawing, not toggled once and
+  // reloaded like every other Settings-panel control. Not persisted —
+  // purely a session tuning aid; once a value's picked, it becomes the
+  // engine's own hardcoded default instead of staying a runtime knob.
+  const [paperFillThreshold, setPaperFillThresholdState] = useState(0)
+  // Companion slider (see PencilEngineAPI.setPaperFillCap) — hard ceiling
+  // on how far a single dab's own fill can push paperCatch toward 1.0.
+  // Threshold alone couldn't express "impossible to fully flatten in one
+  // pass, only through repeated passes" — some pressure always fully
+  // triggered it eventually, no matter how close the threshold sat to 1.0.
+  const [paperFillCap, setPaperFillCapState] = useState(0.25)
+
   // Optional pointer-prediction experiment (#92) — same feature-flag pattern
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
   // before deciding whether to keep it.
@@ -234,6 +249,11 @@ export function Room() {
   // PencilEngineOptions.paperVariantUrl's own comment).
   const paperGrainVariant = getPaperGrainVariant()
   const paperVariantUrl = paperGrainVariant === 'off' ? undefined : `/paper-variants/rough-v${paperGrainVariant}.paper`
+
+  // Dev-only graphite-grain A/B (see SettingsPanel / DAB_FRAG's
+  // computeGrain) — live shader mode, applies to every paper type.
+  const graphiteGrainVariant = getGraphiteGrainVariant()
+  const grainMode = graphiteGrainVariant === 'off' ? undefined : Number(graphiteGrainVariant)
 
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
@@ -650,6 +670,7 @@ export function Room() {
       hapticGrain: hapticGrainEnabled,
       onHapticGrainStats: hapticGrainEnabled ? setHapticStats : undefined,
       paperVariantUrl,
+      grainMode,
     })
     engineRef.current = engine
 
@@ -768,6 +789,7 @@ export function Room() {
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory, paperVariantUrl,
+    grainMode,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -2184,6 +2206,48 @@ export function Room() {
               ) : (
                 <div>draw a stroke to see stats</div>
               )}
+              {/* Live paper-fill-threshold tuning (see chat) — applies to
+                  the very next dab painted, no Save/reload. */}
+              {/* pointerEvents: 'auto' overrides .debugStack's own
+                  pointer-events: none (deliberate there — an informational
+                  overlay must never block drawing/touch on the canvas
+                  beneath it) — this is the one real control in that stack,
+                  so it alone needs to opt back in or no pointer/touch input
+                  ever reaches it at all. */}
+              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                <span>fill @</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={0.999}
+                  step={0.001}
+                  value={paperFillThreshold}
+                  onChange={e => {
+                    const v = Number(e.target.value)
+                    setPaperFillThresholdState(v)
+                    engineRef.current?.setPaperFillThreshold(v)
+                  }}
+                  style={{ width: 90 }}
+                />
+                <span>{paperFillThreshold.toFixed(3)}</span>
+              </div>
+              <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                <span>fill cap</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={paperFillCap}
+                  onChange={e => {
+                    const v = Number(e.target.value)
+                    setPaperFillCapState(v)
+                    engineRef.current?.setPaperFillCap(v)
+                  }}
+                  style={{ width: 90 }}
+                />
+                <span>{paperFillCap.toFixed(2)}</span>
+              </div>
             </div>
           )}
 

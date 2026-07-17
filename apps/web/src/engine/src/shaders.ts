@@ -151,6 +151,23 @@ export const DAB_FRAG = `
   // stroke keeps the color it was drawn with — see u_graphiteColor's removal
   // from DISPLAY_FRAG for why color can no longer live at composite time.
   uniform vec3 u_color;
+  // Dev-only graphite-grain A/B (see SettingsPanel's "Graphite grain
+  // variant" control, featureFlags.ts's getGraphiteGrainVariant,
+  // engine/index.ts's grainMode option): 0 is the real shipped default
+  // (computeGrain's own fallback), 1-10 select an experimental candidate.
+  // First prototyped as a throwaway HTML canvas comparison — see
+  // computeGrain's own comment for what changed porting it in here.
+  uniform int u_grainMode;
+  // Live-tunable (see PencilEngineAPI.setPaperFillThreshold's own comment)
+  // — the pressure smoothstep() lower bound below which a single dab never
+  // crushes graphite into the paper's own low spots at all. See its use
+  // further down for the full reasoning/tuning history.
+  uniform float u_paperFillThreshold;
+  // Live-tunable (see PencilEngineAPI.setPaperFillCap) — hard ceiling on
+  // how far toward 1.0 (fully flat) a *single* dab's own fill term can ever
+  // push paperCatch, regardless of pressure. See u_paperFillThreshold's own
+  // comment for why this exists at all.
+  uniform float u_paperFillCap;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -176,6 +193,81 @@ export const DAB_FRAG = `
   float hash(vec2 p) {
     p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
     return fract(p.x * p.y * (p.x + p.y));
+  }
+
+  // Interpolated value noise built on the same portable hash() above — only
+  // needed by the experimental grain candidates below (u_grainMode>0); the
+  // real shipped default (mode 0) never calls this. No seamless/tiling wrap
+  // (unlike paperNoise.ts's own vnoise) — this is live per-fragment, per-
+  // dab noise, never baked into a texture that has to repeat.
+  float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  }
+
+  // Ten experimental candidates for the mark's own graphite texture —
+  // ported from a throwaway HTML canvas comparison (see chat), ranked and
+  // picked by eye there before landing here. p is gl_FragCoord.xy (same
+  // basis the original mode-0 dither already used); dir is this dab's own
+  // tilt direction (falls back to (1,0) when there's no tilt signal, e.g. a
+  // mouse) — used only by mode 3's stroke-aligned streaks.
+  float computeGrain(vec2 p, float shape, vec2 dir) {
+    if (u_grainMode == 1) {
+      // Stronger fine noise — same shape as the default, turned up.
+      return hash(p * 0.5) * 0.28 - 0.14;
+    } else if (u_grainMode == 2) {
+      // Blotchy (low-freq): smooth mottled clumps instead of per-pixel speckle.
+      return vnoise(p * 0.08) * 0.34 - 0.17;
+    } else if (u_grainMode == 3) {
+      // Streaky: noise stretched along this dab's own tilt direction.
+      float along  =  p.x * dir.x + p.y * dir.y;
+      float across = -p.x * dir.y + p.y * dir.x;
+      return vnoise(vec2(along * 0.045, across * 0.4)) * 0.3 - 0.15;
+    } else if (u_grainMode == 4) {
+      // Stipple: jittered dot grid, discrete flecks instead of continuous noise.
+      float cell = 3.2;
+      vec2 c = floor(p / cell);
+      vec2 f = (p / cell) - c - 0.5;
+      float r = 0.28 + 0.22 * hash(c);
+      return length(f) < r ? 0.22 : -0.05;
+    } else if (u_grainMode == 5) {
+      // Two-octave layered: blotch + fine dither combined.
+      return (vnoise(p * 0.08) * 0.22 - 0.11) + (hash(p * 0.5) * 0.14 - 0.07);
+    } else if (u_grainMode == 6) {
+      // Edge-emphasized: grain strongest at the dab's own rim, fades toward center.
+      float base = hash(p * 0.5) * 0.24 - 0.12;
+      return base * (0.4 + 1.2 * (1.0 - shape));
+    } else if (u_grainMode == 7) {
+      // Posterized speckle: hard on/off flecks, not a smooth dither.
+      float h = hash(p * 0.6);
+      if (h > 0.85) return -0.32;
+      if (h < 0.12) return 0.14;
+      return 0.0;
+    } else if (u_grainMode == 8) {
+      // Fixed-tilt chatter: streaks at a constant ~30 degrees regardless of
+      // this dab's own direction — a fixed "wood-grain" bias.
+      float a = 0.5235988; // pi/6
+      float ca = cos(a), sa = sin(a);
+      float along  =  p.x * ca + p.y * sa;
+      float across = -p.x * sa + p.y * ca;
+      return vnoise(vec2(along * 0.035, across * 0.42)) * 0.32 - 0.16;
+    } else if (u_grainMode == 9) {
+      // Kitchen sink: blotch + fine dither, edge-emphasis-scaled.
+      float blotch = vnoise(p * 0.09) * 0.2 - 0.1;
+      float fine = hash(p * 0.5) * 0.14 - 0.07;
+      return (blotch + fine) * (0.55 + 1.0 * (1.0 - shape));
+    } else if (u_grainMode == 10) {
+      // Solid: no stroke-side grain at all — deposit is purely paperCatch-driven.
+      return 0.0;
+    }
+    // 0 (default): the real shipped formula, unchanged.
+    return hash(p * 0.5) * 0.12 - 0.06;
   }
 
   void main() {
@@ -217,8 +309,44 @@ export const DAB_FRAG = `
     // blank-paper tint), .a is this precomputed catch value.
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
 
-    float grain = hash(gl_FragCoord.xy * 0.5) * 0.12 - 0.06;
-    float deposit = clamp(v_pressure * v_opacity * paperCatch * shape + grain * shape, 0.0, 1.0);
+    // Heavy pressure crushes graphite into the paper's own low spots (real
+    // pencils do this — press hard enough and the tooth starts filling in)
+    // — without this, paperCatch acted as a hard per-pixel ceiling on
+    // deposit no amount of pressure/opacity could ever push past, so even a
+    // maxed-out stroke left the paper's valleys visibly lighter than its
+    // peaks forever.
+    //
+    // Chasing a single "right" threshold value alone turned out to be the
+    // wrong axis to tune: smoothstep(0.9,...) with no ceiling still let one
+    // enough-pressure pass go fully flat, and pushing the threshold toward
+    // 1.0 to stop that just swung to the opposite failure (0.99 still too
+    // easy, 1.0 itself literally unreachable — smoothstep's edges must not
+    // be equal). The real fix is u_paperFillCap: a hard ceiling on how far
+    // a *single* dab's fill term can ever push effectiveCatch, independent
+    // of threshold or pressure — real graphite doesn't fill paper's tooth
+    // completely in one stroke no matter how hard you press either; it
+    // takes repeated working of the same area. Capped well under 1.0, even
+    // pressure pinned at max for an entire pass leaves paperCatch's texture
+    // still partially showing through — only the normal "over" accumulation
+    // below, across *multiple* overlapping passes, can still get an area
+    // genuinely flat over time.
+    //
+    // With that ceiling in place as the actual safety net, the threshold
+    // itself settled (by feel, live-tuned via the debug-overlay sliders —
+    // see PencilEngineAPI.setPaperFillThreshold/setPaperFillCap) at 0: not
+    // "a pressure gate," just smoothstep(0, 1, pressure) == pressure — the
+    // fill term scales continuously with pressure from the very first touch
+    // instead of only kicking in past some cutoff, with u_paperFillCap
+    // (tuned to 0.25) alone doing the work of keeping any single pass from
+    // ever fully flattening the texture. mix(paperCatch, 1.0, fill) -->
+    // paperCatch itself, unaffected, at fill=0 (pressure=0).
+    float fill = smoothstep(u_paperFillThreshold, 1.0, v_pressure) * u_paperFillCap;
+    float effectiveCatch = mix(paperCatch, 1.0, fill);
+
+    float tiltLen = length(vec2(v_tiltX, v_tiltY));
+    vec2 dir = tiltLen > 0.001 ? vec2(v_tiltX, v_tiltY) / tiltLen : vec2(1.0, 0.0);
+    float grain = computeGrain(gl_FragCoord.xy, shape, dir);
+    float deposit = clamp(v_pressure * v_opacity * effectiveCatch * shape + grain * shape, 0.0, 1.0);
     // Premultiplied by deposit, matching the ONE,ONE_MINUS_SRC_ALPHA "over"
     // blend AccumulationBuffer.beginDraw() sets up — this is what lets dabs of
     // different colors composite correctly over each other and over earlier
