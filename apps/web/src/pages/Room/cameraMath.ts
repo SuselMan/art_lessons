@@ -28,8 +28,22 @@ import { clientToCanvas, type CanvasSize } from './pointerTransform'
 // mapping is screen = (vp.cx, vp.cy) + R(vp.angle) * vp.zoom * world, which
 // is exactly what worldToScreen computes.
 
+// Ceiling on the DPR this file will size the infinite canvas's backing
+// store to — see deviceNativeZoom's own comment for why an *uncapped* DPR
+// is a real perf problem, not just a quality knob. Found empirically
+// on-device (Ilya's own tablet, DPR ~2.75): 1.5 and 1.25 both still felt
+// laggy drawing on an infinite canvas; 1 (no DPR upscale at all — the
+// pre-#154 backing-store size) was the first value that felt normal again.
+// Effectively reverts #154's sharpness fix on any DPR>1 device — a
+// deliberate trade Ilya chose after confirming smaller caps didn't recover
+// enough headroom; a real fix that keeps both #154's sharpness *and*
+// tablet performance would need to cut the per-pointermove/composite cost
+// itself (e.g. dirty-rect tip/preview updates) rather than the resolution.
+const MAX_BACKING_STORE_DPR = 1
+
 /** The CSS zoom at which one world unit covers exactly one physical device
- *  pixel — 1 on a classic 96-dpi display, 1/2 on a 2x-scaled tablet, etc.
+ *  pixel — 1 on a classic 96-dpi display, 1/2 on a 2x-scaled tablet, etc.,
+ *  clamped to `MAX_BACKING_STORE_DPR` (see its own comment).
  *
  *  Infinite-canvas world units are document pixels (a stroke's world-space
  *  width is device-independent and shared by every peer), and tiles store
@@ -45,10 +59,23 @@ import { clientToCanvas, type CanvasSize } from './pointerTransform'
  *  ~2.8 physical pixels — the whole drawing (most visibly the paper grain
  *  baked into strokes) read ~2.8x coarser than its native resolution.
  *
+ *  #154 sized the backing store to the *uncapped* DPR, which fixed that
+ *  blur but scales the canvas's pixel count — and therefore the per-
+ *  pointermove tip/preview-buffer clear+paint and every _display() full-
+ *  canvas composite pass's GPU cost — with DPR². Invisible on a desktop
+ *  GPU's huge fill-rate margin; on a real tablet (found on-device: DPR
+ *  2.75, an otherwise-modest 1400x900 viewport ballooning to a 9.5-
+ *  megapixel backing store, bigger than even an A2 bounded room's fixed
+ *  2480x3508) it made drawing on an infinite canvas feel unusably laggy.
+ *  Capping here (see MAX_BACKING_STORE_DPR) trades away that sharpness gain
+ *  on any DPR>1 device for keeping per-frame cost bounded — confirmed on
+ *  the same tablet that only a full revert to DPR-independent sizing
+ *  actually fixed the lag (see the constant's own comment).
+ *
  *  Read live (not cached) — devicePixelRatio changes with browser zoom and
  *  monitor moves. */
 export function deviceNativeZoom(): number {
-  return 1 / (window.devicePixelRatio || 1)
+  return 1 / Math.min(window.devicePixelRatio || 1, MAX_BACKING_STORE_DPR)
 }
 
 export function worldToScreen(worldX: number, worldY: number, vp: Viewport): { x: number; y: number } {

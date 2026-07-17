@@ -2690,8 +2690,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _dabsWorldBounds(dabs: Dab[], erasing: boolean, preset: PencilPreset): WorldRect {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const d of dabs) {
-      const baseR = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
-      const r = baseR * Math.max(1, 1 / Math.max(d.aspectRatio, 0.01))
+      const r = this._dabWorldRadius(d, erasing, preset)
       minX = Math.min(minX, d.x - r); maxX = Math.max(maxX, d.x + r)
       minY = Math.min(minY, d.y - r); maxY = Math.max(maxY, d.y + r)
     }
@@ -2700,6 +2699,15 @@ export class PencilEngine implements PencilEngineAPI {
       minX: Math.max(minX, 0), minY: Math.max(minY, 0),
       maxX: Math.min(maxX, this.canvas.width), maxY: Math.min(maxY, this.canvas.height),
     }
+  }
+
+  /** One dab's conservative world-space padded radius — same formula
+   *  `_dabsWorldBounds` unions across a whole batch, factored out so
+   *  `_paintDabs`'s per-tile filter (see its own comment) can apply it to
+   *  one dab at a time without duplicating the math. */
+  private _dabWorldRadius(d: Dab, erasing: boolean, preset: PencilPreset): number {
+    const baseR = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
+    return baseR * Math.max(1, 1 / Math.max(d.aspectRatio, 0.01))
   }
 
   /** `target` is usually a real layer's `ILayerBuffer`, but a few callers
@@ -2723,6 +2731,28 @@ export class PencilEngine implements PencilEngineAPI {
       : target.resolveForPaint(worldBounds)
 
     for (const { buffer, originX, originY } of targets) {
+      // A stroke's dab batch is resolved against every tile its *union*
+      // bounding box overlaps (resolveForPaint), but an individual dab
+      // rarely overlaps every one of those tiles itself — e.g. an infinite
+      // room's tile grid is rooted at world (0,0), exactly where the
+      // default camera centers the visible page, so ordinary drawing near
+      // the middle routinely resolves 2-4 tiles at once even though any
+      // given ~8px dab only ever lands in one of them. Before this filter,
+      // every target got the *entire* batch re-uploaded and redrawn
+      // (`_paintDabsInstanced`'s bufferData + drawArraysInstancedANGLE),
+      // regardless of overlap — harmless for final pixels (dabs outside a
+      // tile's viewport just get clipped by the rasterizer) but multiplied
+      // real GPU submission cost by the tile count on every pointermove.
+      // Skipped for the single-target case (the overwhelming common case:
+      // every bounded room, and most infinite strokes) to avoid the filter
+      // allocation on the hot path where it can only ever keep everything.
+      const tileDabs = targets.length === 1 ? dabs : dabs.filter(d => {
+        const r = this._dabWorldRadius(d, erasing, preset)
+        return d.x + r > originX && d.x - r < originX + buffer.width &&
+               d.y + r > originY && d.y - r < originY + buffer.height
+      })
+      if (!tileDabs.length) continue
+
       if (erasing) buffer.beginErase()
       else buffer.beginDraw()
 
@@ -2731,9 +2761,9 @@ export class PencilEngine implements PencilEngineAPI {
       // _paintDabsInstanced's docstring for why this preserves the exact
       // sequential per-dab blend order the fallback loop below relies on.
       if (this._instancedArraysExt) {
-        this._paintDabsInstanced(dabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsInstanced(tileDabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
       } else {
-        this._paintDabsUniform(dabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsUniform(tileDabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
       }
 
       buffer.endDraw()
