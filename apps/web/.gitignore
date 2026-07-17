@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Dev-only paper-grain fiber-variant comparison bake (npm run
+# bake:paper-variants) — disposable exploration assets, not shipped.
+/public/paper-variants/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

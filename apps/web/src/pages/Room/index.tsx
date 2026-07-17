@@ -18,7 +18,7 @@ import { SettingsPanel } from '../../components/SettingsPanel'
 import { PrecisionSlider } from '../../components/PrecisionSlider'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
-import { getFeatureFlag, getPencilSoundSetting } from '../../lib/featureFlags'
+import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant } from '../../lib/featureFlags'
 import { rgbToHex } from '../../lib/color'
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, PENCIL_SOUND_VARIANT_3, type PencilSoundAPI } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
@@ -177,37 +177,6 @@ export function Room() {
   const debugEnabled = getFeatureFlag('debugOverlay')
   const [strokeStats, setStrokeStats] = useState<StrokeDebugStats | null>(null)
 
-  // Browser-native input-to-paint timing (#154 chase, see chat) — a second,
-  // independent measurement alongside strokeStats.avgE2eLatencyMs. That one
-  // only covers the JS side (PointerEvent.timeStamp -> the moment _display()
-  // *returns*), which says nothing about GPU/compositor time after the draw
-  // calls are queued — exactly the gap suspected once e2e latency looked
-  // fine (35/100ms) but the line still visibly lagged. The Event Timing API
-  // (PerformanceObserver({type:'event'})) times a *browser-real* pointermove
-  // from input to the next actual paint, GPU included, for free. Samples
-  // collect into a ref during a stroke (durationThreshold as low as Chrome
-  // allows, so nothing under ~8ms gets silently dropped) and are
-  // summarized/reset once per stroke, right alongside strokeStats itself.
-  const eventDurSamplesRef = useRef<number[]>([])
-  const [eventTimingStats, setEventTimingStats] = useState<{ avg: number; max: number; count: number } | null>(null)
-  useEffect(() => {
-    if (!debugEnabled || typeof PerformanceObserver === 'undefined') return
-    if (!PerformanceObserver.supportedEntryTypes?.includes('event')) return
-    const observer = new PerformanceObserver(list => {
-      for (const entry of list.getEntries()) {
-        if (entry.name === 'pointermove' || entry.name === 'pointerdown') {
-          eventDurSamplesRef.current.push(entry.duration)
-        }
-      }
-    })
-    // durationThreshold: 0 asks for every event regardless of duration —
-    // Chrome clamps this internally (historically ~8ms for 'event' entries,
-    // spec default is 104ms), so this is "as fine-grained as the browser
-    // will actually give us," not a literal zero floor.
-    observer.observe({ type: 'event', durationThreshold: 0, buffered: false } as PerformanceObserverInit)
-    return () => observer.disconnect()
-  }, [debugEnabled])
-
   // Optional pointer-prediction experiment (#92) — same feature-flag pattern
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
   // before deciding whether to keep it.
@@ -258,6 +227,13 @@ export function Room() {
   // above. Off by default — for-fun prototype, Android Chrome only.
   const hapticGrainEnabled = getFeatureFlag('hapticGrain')
   const [hapticStats, setHapticStats] = useState<HapticGrainStats | null>(null)
+
+  // Dev-only paper-grain fiber-variant comparison (see SettingsPanel /
+  // paperNoise.ts's ROUGH_VARIANTS) — 'off' unless explicitly picked in
+  // Settings; only ever overrides *rough* paper's texture (see
+  // PencilEngineOptions.paperVariantUrl's own comment).
+  const paperGrainVariant = getPaperGrainVariant()
+  const paperVariantUrl = paperGrainVariant === 'off' ? undefined : `/paper-variants/rough-v${paperGrainVariant}.paper`
 
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
@@ -669,15 +645,11 @@ export function Room() {
       debug: debugEnabled,
       onStrokeDebugStats: debugEnabled ? stats => {
         setStrokeStats(stats)
-        const samples = eventDurSamplesRef.current
-        setEventTimingStats(samples.length
-          ? { avg: samples.reduce((a, b) => a + b, 0) / samples.length, max: Math.max(...samples), count: samples.length }
-          : null)
-        eventDurSamplesRef.current = []
       } : undefined,
       predictPointer: predictEnabled,
       hapticGrain: hapticGrainEnabled,
       onHapticGrainStats: hapticGrainEnabled ? setHapticStats : undefined,
+      paperVariantUrl,
     })
     engineRef.current = engine
 
@@ -706,9 +678,6 @@ export function Room() {
         setIsDrawing(true)
         markActive(userIdRef.current)
         pencilSoundRef.current?.start(e.pressure, e.speed, e.tiltX, e.tiltY)
-        // Fresh per-stroke window for the Event Timing samples above — drop
-        // anything that landed between strokes (idle hover, UI clicks).
-        eventDurSamplesRef.current = []
       })
       .on('strokeEnd', () => {
         strokeActiveRef.current = false
@@ -798,7 +767,7 @@ export function Room() {
     }
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
-    hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory,
+    hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory, paperVariantUrl,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -2199,15 +2168,18 @@ export function Room() {
                       StrokeDebugStats if needed again. */}
                   <div>e2e latency: avg {strokeStats.avgE2eLatencyMs.toFixed(1)}ms / max {strokeStats.maxE2eLatencyMs.toFixed(1)}ms</div>
                   <div>tip latency: avg {strokeStats.avgTipLatencyMs.toFixed(1)}ms / max {strokeStats.maxTipLatencyMs.toFixed(1)}ms</div>
-                  {/* Browser-native Event Timing (#154 chase) — input to
-                      actual paint, GPU/compositor included, unlike the two
-                      lines above (JS-only). See eventDurSamplesRef's own
-                      comment for why this exists. */}
-                  {eventTimingStats ? (
-                    <div>browser paint: avg {eventTimingStats.avg.toFixed(1)}ms / max {eventTimingStats.max.toFixed(1)}ms (n={eventTimingStats.count})</div>
-                  ) : (
-                    <div>browser paint: no samples ≥ threshold</div>
-                  )}
+                  {/* rAF-anchored real display latency (replaces a prior
+                      attempt at this via the browser's Event Timing API —
+                      PerformanceObserver({type:'event'}) — which never
+                      populated: the spec excludes exactly the continuous
+                      event types we cared about, pointermove/touchmove/etc,
+                      from ever generating an 'event' entry at all, so it
+                      silently reported zero samples for the entire life of
+                      that approach. See StrokeDebugStats.avgFrameLatencyMs
+                      for what this actually measures and why it's a better
+                      proxy for "did it hit the screen yet" than the two
+                      JS-only lines above. */}
+                  <div>frame latency: avg {strokeStats.avgFrameLatencyMs.toFixed(1)}ms / max {strokeStats.maxFrameLatencyMs.toFixed(1)}ms</div>
                 </>
               ) : (
                 <div>draw a stroke to see stats</div>

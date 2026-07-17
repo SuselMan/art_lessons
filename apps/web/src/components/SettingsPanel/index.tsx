@@ -3,7 +3,9 @@ import { Icon } from '../Icon'
 import {
   FEATURE_FLAGS, getFeatureFlag, setFeatureFlag,
   getPencilSoundSetting, setPencilSoundSetting, type PencilSoundSetting,
+  getPaperGrainVariant, setPaperGrainVariant, type PaperGrainVariant,
 } from '../../lib/featureFlags'
+import { ROUGH_VARIANTS } from '../../engine/src/paperNoise'
 import styles from './SettingsPanel.module.css'
 
 interface SettingsPanelProps {
@@ -18,6 +20,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   // returns false — so the raw return value is the only signal available.
   const [vibrateResult, setVibrateResult] = useState<string | null>(null)
   const [pencilSound, setPencilSoundState] = useState<PencilSoundSetting>(() => getPencilSoundSetting())
+  const [paperVariant, setPaperVariantState] = useState<PaperGrainVariant>(() => getPaperGrainVariant())
 
   // Every flag toggle/select below only edits this local draft — nothing
   // touches localStorage or reloads until Save is pressed. Reloading on
@@ -29,10 +32,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   )
   const dirty = FEATURE_FLAGS.some(f => pendingFlags[f.key] !== getFeatureFlag(f.key))
     || pencilSound !== getPencilSoundSetting()
+    || paperVariant !== getPaperGrainVariant()
 
   function handleSave() {
     for (const flag of FEATURE_FLAGS) setFeatureFlag(flag.key, pendingFlags[flag.key])
     setPencilSoundSetting(pencilSound)
+    setPaperGrainVariant(paperVariant)
     window.location.reload()
   }
 
@@ -75,6 +80,26 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               <option value="variant1">Variant 1</option>
               <option value="variant2">Variant 2</option>
               <option value="variant3">Variant 3 (realistic, experimental)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className={styles.flagRow} style={{ cursor: 'default' }}>
+          <div style={{ width: '100%' }}>
+            <div className={styles.flagLabel}>Paper grain variant (dev, rough only)</div>
+            <div className={styles.flagDescription}>
+              Overrides rough paper's texture with a candidate fiber algorithm for comparison — never
+              affects smooth/bristol. Requires `npm run bake:paper-variants` to have been run locally.
+            </div>
+            <select
+              className={styles.select}
+              value={paperVariant}
+              onChange={e => setPaperVariantState(e.target.value as PaperGrainVariant)}
+            >
+              <option value="off">Off (shipped default)</option>
+              {ROUGH_VARIANTS.map((v, i) => (
+                <option key={i} value={String(i + 1)}>{i + 1}. {v.label}</option>
+              ))}
             </select>
           </div>
         </div>

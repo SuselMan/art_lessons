@@ -16,6 +16,18 @@ export interface PaperGrainConfig {
   gain: number
   contrast: number
   warp: number
+  // Felted cellulose-fiber layer (see fiberContribution's own comment) —
+  // additive on top of the base fbm above, not a replacement: real paper
+  // reads as a fine grain *sitting on* coarser fiber structure, not either
+  // one alone. fiberPeriod must evenly divide `scale` (same exact-
+  // periodicity integer-modulus trick vnoise's own corner wrap uses) so
+  // this layer closes up exactly at the same texture edge the base fbm
+  // already does — pick it smaller than `scale` (fewer, bigger cells),
+  // since fibers should read as coarser than the fine background grain.
+  fiberPeriod: number
+  fiberHalfLen: number   // fiber half-length, in fiber-cell units (1 = one full cell)
+  fiberWidth: number     // fiber width, in fiber-cell units
+  fiberStrength: number  // 0..1 blend weight vs. the base fbm height
 }
 
 // scale = noise cells across the seamless period (see PAPER_BAKE_RESOLUTION):
@@ -27,10 +39,20 @@ export interface PaperGrainConfig {
 // as too bas-relief; real paper grain is a much fainter variation. Relative
 // ordering (rough roughest, bristol nearly flat) kept throughout every
 // revision.
+// Fiber values are a first guess, not yet visually tuned (see paperNoise's
+// own fiberPeriod comment for why each must evenly divide its row's
+// `scale`: 580/20=29, 780/26=30, 1050/30=35) — same relative-ordering
+// pattern as gain/contrast/warp above, rough getting the strongest/coarsest
+// fiber presence and bristol barely any, extrapolated one and two steps
+// finer. Expect a bake:paper + look-at-it round or several before these
+// settle, same as every previous PAPER_GRAIN_CONFIGS tuning pass.
 export const PAPER_GRAIN_CONFIGS: Record<PaperType, PaperGrainConfig> = {
-  rough:   { scale: 580,  gain: 0.18,  contrast: 0.3,   warp: 0.15 },
-  smooth:  { scale: 780,  gain: 0.135, contrast: 0.225, warp: 0.09 },
-  bristol: { scale: 1050, gain: 0.1,   contrast: 0.17,  warp: 0.05 },
+  rough:   { scale: 580,  gain: 0.18,  contrast: 0.3,   warp: 0.15,
+             fiberPeriod: 20, fiberHalfLen: 0.75, fiberWidth: 0.18, fiberStrength: 0.45 },
+  smooth:  { scale: 780,  gain: 0.135, contrast: 0.225, warp: 0.09,
+             fiberPeriod: 26, fiberHalfLen: 0.65, fiberWidth: 0.14, fiberStrength: 0.28 },
+  bristol: { scale: 1050, gain: 0.1,   contrast: 0.17,  warp: 0.05,
+             fiberPeriod: 30, fiberHalfLen: 0.5,  fiberWidth: 0.1,  fiberStrength: 0.08 },
 }
 
 // The baked texture's own pixel resolution — deliberately unrelated to
@@ -168,6 +190,63 @@ function fbm(px: number, py: number, basePeriod: number, gain: number, seamless:
   return v / s
 }
 
+// One scattered, randomly oriented capsule-shaped fiber strand per grid
+// cell — closer to how felted cellulose paper fibers actually look than
+// the isotropic-blob base fbm, since each strand has a length and a
+// direction rather than just a round hash peak. One fiber per cell (not
+// denser): a fiber's visible footprint spans many pixels, unlike a single
+// vnoise hash corner, so packing more per cell reads as repetitive fast.
+// `cx,cy` are already in this layer's own cell space (period-integer
+// units, see fiberPeriod's own comment) — cellX/cellY is which cell
+// (cx,cy) itself falls in, but the strand seeded in ANY of its 8
+// neighbors can still reach into it (halfLen/width can exceed 1 cell), so
+// all 9 are checked and the strongest contribution wins.
+//
+// Per cell: three hashes, each offset by a different additive constant
+// before hashing (same "decorrelate via an arbitrary offset" trick fbm's
+// own qx/qy domain-warp passes use) so a fiber's position, angle, and
+// strength don't correlate with each other or with the base fbm layer
+// sharing the same underlying hash() — jittered seed position, a
+// uniformly random angle in [0, pi) (a line has no head/tail, so this
+// already covers every possible orientation without a 2x-redundant
+// [0, 2*pi) range), and a per-fiber strength for texture variety.
+// Distance to the strand is the standard clamped-projection formula (t
+// clamped to [-halfLen, halfLen] keeps the closest point from sliding past
+// either end onto the strand's infinite extension), soft linear falloff
+// over `width`.
+//
+// The hash lookup key (gx,gy) is wrapped by `period` — same integer-
+// modulus trick vnoise's own corner wrap uses — but the strand's actual
+// *position* (seedX/seedY) stays in unwrapped, continuous cell space, so
+// distance math in the local neighborhood around (cx,cy) is unaffected;
+// only which hash value a given cell resolves to needs to agree across the
+// wrap boundary (cell 0 and cell `period` must hash identically) for this
+// layer to close up exactly at the texture's own edge.
+function fiberContribution(cx: number, cy: number, period: number, halfLen: number, width: number): number {
+  const cellX = Math.floor(cx), cellY = Math.floor(cy)
+  let best = 0
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const gx = glslMod(cellX + dx, period)
+      const gy = glslMod(cellY + dy, period)
+      const seedX = cellX + dx + hash(gx, gy)
+      const seedY = cellY + dy + hash(gx + 31.7, gy + 47.3)
+      const angle = hash(gx + 91.3, gy + 12.1) * Math.PI
+      const dirX = Math.cos(angle), dirY = Math.sin(angle)
+
+      const relX = cx - seedX, relY = cy - seedY
+      const t = clampNum(relX * dirX + relY * dirY, -halfLen, halfLen)
+      const closeX = seedX + dirX * t, closeY = seedY + dirY * t
+      const dist = Math.hypot(cx - closeX, cy - closeY)
+
+      const strength = 0.4 + 0.6 * hash(gx + 5.5, gy + 77.7)
+      const contribution = Math.max(0, 1 - dist / width) * strength
+      if (contribution > best) best = contribution
+    }
+  }
+  return best
+}
+
 // uv = fragCoord/resolution*scale, domain-warp via q, fbm again on the
 // warped point, contrast curve last. `seamless` should be true for every
 // real bake (see PAPER_BAKE_RESOLUTION) — false is kept only so
@@ -185,7 +264,229 @@ export function paperHeight(
   const qy = fbm(uvx + 3.7, uvy + 5.4, scale, gain, seamless)
 
   const h = fbm(uvx + warp * qx, uvy + warp * qy, scale, gain, seamless)
-  return Math.pow(clampNum(h, 0, 1), 1 / contrast)
+
+  // Fiber layer only applies in seamless (real-bake) mode — it's always
+  // exactly periodic by construction (see fiberContribution's own comment),
+  // so blending it into the deliberately-*non*-periodic `seamless: false`
+  // path would make that path partially periodic and undermine the tests
+  // that rely on it staying the old, unfixed, non-periodic formula.
+  //
+  // Additive, not a cross-fade: a cross-fade (`h*(1-s) + fiber*s`) mutes
+  // the base grain by `s` *everywhere*, including the vast majority of
+  // pixels a sparse fiber layer doesn't reach at all (fiber=0 there),
+  // which read as flatter overall rather than "fibrous" — added on top
+  // instead, the base grain stays exactly as present as before and fiber
+  // strands read as ridges layered over it, closer to how a felted fiber
+  // structure actually sits under a finer surface grain.
+  let combined = h
+  if (seamless && cfg.fiberStrength > 0) {
+    const cellsPerBaseUnit = cfg.fiberPeriod / scale
+    const fiber = fiberContribution(
+      uvx * cellsPerBaseUnit, uvy * cellsPerBaseUnit, cfg.fiberPeriod, cfg.fiberHalfLen, cfg.fiberWidth,
+    )
+    combined = h + fiber * cfg.fiberStrength
+  }
+
+  return Math.pow(clampNum(combined, 0, 1), 1 / contrast)
+}
+
+// ─── Rough-paper fiber-variant exploration (dev-only comparison) ──────────
+// 10 candidate replacements for variant #2's fiber layer above (which is
+// what's actually shipping right now) — rough paper only for now, wired up
+// behind the Settings panel's "Paper grain variant" dev control (see
+// featureFlags.ts's getPaperGrainVariant / SettingsPanel / bakePaperTextures
+// --rough-variants). First prototyped as a throwaway HTML comparison with
+// no tiling requirement; every variant here is re-derived to stay exactly
+// seamless, since these bake to real REPEAT textures the app loads.
+
+function fiberLayer(uvx: number, uvy: number, fiberPeriod: number, halfLen: number, width: number): number {
+  const cellsPerBaseUnit = fiberPeriod / PAPER_GRAIN_CONFIGS.rough.scale
+  return fiberContribution(uvx * cellsPerBaseUnit, uvy * cellsPerBaseUnit, fiberPeriod, halfLen, width)
+}
+
+// Seamless Worley/cellular distance field (nearest scattered point, jittered
+// within its own cell) — same integer-modulus hash-key wrap fiberContribution
+// uses, just for point distance instead of line-segment distance.
+function worleyLayer(uvx: number, uvy: number, period: number, jitter: number): number {
+  const cellsPerBaseUnit = period / PAPER_GRAIN_CONFIGS.rough.scale
+  const cx = uvx * cellsPerBaseUnit, cy = uvy * cellsPerBaseUnit
+  const cellX = Math.floor(cx), cellY = Math.floor(cy)
+  let best = 999
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const gx = glslMod(cellX + dx, period), gy = glslMod(cellY + dy, period)
+      const px = cellX + dx + 0.5 + jitter * (hash(gx, gy) - 0.5)
+      const py = cellY + dy + 0.5 + jitter * (hash(gx + 19.1, gy + 7.3) - 0.5)
+      best = Math.min(best, Math.hypot(cx - px, cy - py))
+    }
+  }
+  return clampNum(best, 0, 1)
+}
+
+// A from-scratch 3-octave fbm with *integer* frequency ratios (1x, 2x, 3x)
+// and independently-wrappable X/Y periods — deliberately NOT the shared
+// `fbm` above, whose octave frequencies (2.1, 2.1², 2.1³) are snapped
+// against one shared basePeriod for both axes. Stretching only one axis
+// before feeding that fbm would need every fractional-ratio octave's own
+// wrap period to scale by the same stretch factor too, which doesn't land
+// on an integer in general — breaking exact seamlessness in the stretched
+// axis. Integer ratios sidestep that entirely: octave k's own
+// (periodX*k, periodY*k) pair is exactly what its (px*k, py*k) sample
+// needs to wrap correctly under a full-period shift in *either* axis,
+// independently of the other.
+function anisoFbm(px: number, py: number, periodX: number, periodY: number, gain: number): number {
+  let v = 0, a = 0.5, s = 0
+  for (const k of [1, 2, 3]) {
+    v += a * vnoise(px * k, py * k, periodX * k, periodY * k, true)
+    s += a; a *= gain
+  }
+  return v / s
+}
+
+interface RoughVariant {
+  label: string
+  /** Raw (pre-contrast) height — same (fragX, fragY, resW, resH) convention
+   *  as paperHeight, always seamless. */
+  rawHeight(fragX: number, fragY: number, resW: number, resH: number): number
+}
+
+function roughBaseHeight(uvx: number, uvy: number): number {
+  const { scale, gain, warp } = PAPER_GRAIN_CONFIGS.rough
+  const qx = fbm(uvx, uvy, scale, gain, true)
+  const qy = fbm(uvx + 3.7, uvy + 5.4, scale, gain, true)
+  return fbm(uvx + warp * qx, uvy + warp * qy, scale, gain, true)
+}
+
+function roughUv(fragX: number, fragY: number, resW: number, resH: number): { uvx: number; uvy: number } {
+  const { scale } = PAPER_GRAIN_CONFIGS.rough
+  return { uvx: (fragX / resW) * scale, uvy: (fragY / resH) * scale }
+}
+
+export const ROUGH_VARIANTS: readonly RoughVariant[] = [
+  {
+    label: 'Base fBm (no fiber)',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      return roughBaseHeight(uvx, uvy)
+    },
+  },
+  {
+    label: 'Capsules · moderate (current)',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      const h = roughBaseHeight(uvx, uvy)
+      const f = fiberLayer(uvx, uvy, 20, 0.75, 0.18)
+      return h + f * 0.45
+    },
+  },
+  {
+    label: 'Capsules · dense/thin',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      const h = roughBaseHeight(uvx, uvy)
+      const f = fiberLayer(uvx, uvy, 58, 0.4, 0.08)
+      return h + f * 0.5
+    },
+  },
+  {
+    label: 'Capsules · bold',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      const h = roughBaseHeight(uvx, uvy)
+      const f = fiberLayer(uvx, uvy, 10, 0.9, 0.35)
+      return h + f * 0.6
+    },
+  },
+  {
+    label: 'Capsules · cross-fade blend',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      const h = roughBaseHeight(uvx, uvy)
+      const f = fiberLayer(uvx, uvy, 20, 0.75, 0.18)
+      return h * 0.55 + f * 0.45
+    },
+  },
+  {
+    label: 'Horizontal streak',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      const { scale, gain } = PAPER_GRAIN_CONFIGS.rough
+      const stretch = 4
+      return anisoFbm(uvx, uvy * stretch, scale, scale * stretch, gain)
+    },
+  },
+  {
+    label: 'Patchy direction',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      const { scale, gain } = PAPER_GRAIN_CONFIGS.rough
+      const stretch = 4
+      const horiz = anisoFbm(uvx, uvy * stretch, scale, scale * stretch, gain)
+      const vert  = anisoFbm(uvx * stretch, uvy, scale * stretch, scale, gain)
+      const mix = vnoise(uvx, uvy, scale, scale, true)
+      return lerp(horiz, vert, mix)
+    },
+  },
+  {
+    label: 'Two-scale capsules',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      const h = roughBaseHeight(uvx, uvy)
+      const coarse = fiberLayer(uvx, uvy, 10, 0.8, 0.3)
+      const fine = fiberLayer(uvx, uvy, 58, 0.35, 0.07)
+      return h + coarse * 0.35 + fine * 0.3
+    },
+  },
+  {
+    label: 'Worley mottle',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      const h = roughBaseHeight(uvx, uvy)
+      const w = worleyLayer(uvx, uvy, 20, 0.9)
+      return h * 0.4 + (1 - w) * 0.6
+    },
+  },
+  {
+    label: 'Patchy + capsules',
+    rawHeight(fragX, fragY, resW, resH) {
+      const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
+      const { scale, gain } = PAPER_GRAIN_CONFIGS.rough
+      const stretch = 3
+      const horiz = anisoFbm(uvx, uvy * stretch, scale, scale * stretch, gain)
+      const vert  = anisoFbm(uvx * stretch, uvy, scale * stretch, scale, gain)
+      const mix = vnoise(uvx, uvy, scale, scale, true)
+      const flow = lerp(horiz, vert, mix)
+      const f = fiberLayer(uvx, uvy, 20, 0.7, 0.16)
+      return flow + f * 0.35
+    },
+  },
+]
+
+export function paperHeightForRoughVariant(
+  fragX: number, fragY: number, resW: number, resH: number, variantIndex: number,
+): number {
+  const raw = ROUGH_VARIANTS[variantIndex].rawHeight(fragX, fragY, resW, resH)
+  return Math.pow(clampNum(raw, 0, 1), 1 / PAPER_GRAIN_CONFIGS.rough.contrast)
+}
+
+// Mirrors paperCatchValue exactly (see its own comment for the full
+// reasoning), just against paperHeightForRoughVariant instead of the
+// shipped paperHeight/cfg pair.
+export function paperCatchValueForRoughVariant(
+  fragX: number, fragY: number, resW: number, resH: number, variantIndex: number,
+): number {
+  const h   = paperHeightForRoughVariant(fragX,     fragY,     resW, resH, variantIndex)
+  const hDx = paperHeightForRoughVariant(fragX + 1, fragY,     resW, resH, variantIndex)
+  const hDy = paperHeightForRoughVariant(fragX,     fragY + 1, resW, resH, variantIndex)
+
+  const normalScale = lerp(2.0, 10.0, PAPER_ROUGHNESS.rough)
+  const nx = (h - hDx) * normalScale
+  const ny = (h - hDy) * normalScale
+
+  const tiltDirX = 0.6, tiltDirY = 0.8
+  const dot = nx * tiltDirX + ny * tiltDirY
+  const directionalHit = Math.max(0, dot * 3.0 + 0.5)
+  return clampNum(directionalHit, 0, 1)
 }
 
 // How much graphite a surface point catches, from the paper's own local

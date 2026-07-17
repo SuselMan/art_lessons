@@ -22,19 +22,40 @@ function paperAssetURL(type: PaperType): string {
   return `/paper/${type}.paper`
 }
 
-type PaperBytesLoader = (type: PaperType) => Promise<Uint8Array>
-
-async function fetchPaperBytes(type: PaperType): Promise<Uint8Array> {
-  const res = await fetch(paperAssetURL(type))
+async function fetchBytesFromUrl(url: string): Promise<Uint8Array> {
+  const res = await fetch(url)
   if (!res.ok || !res.body) {
-    throw new Error(`Failed to fetch paper texture '${type}': HTTP ${res.status}`)
+    throw new Error(`Failed to fetch paper texture '${url}': HTTP ${res.status}`)
   }
   const decompressed = res.body.pipeThrough(new DecompressionStream('gzip'))
   const buf = await new Response(decompressed).arrayBuffer()
   return new Uint8Array(buf)
 }
 
+type PaperBytesLoader = (type: PaperType) => Promise<Uint8Array>
+
+async function fetchPaperBytes(type: PaperType): Promise<Uint8Array> {
+  return fetchBytesFromUrl(paperAssetURL(type))
+}
+
 let loadPaperBytesImpl: PaperBytesLoader = fetchPaperBytes
+
+// Dev-only rough-variant comparison path (see bakeRoughVariantTextures.ts /
+// SettingsPanel's "Paper grain variant" control) — same byte format and
+// upload path as a real PaperType's bytes, just fetched from a different,
+// disposable /paper-variants/ URL instead of the committed /paper/ one.
+// Cached separately by URL so switching variants doesn't collide with (or
+// evict) the real byteCache below.
+const variantByteCache = new Map<string, Promise<Uint8Array>>()
+
+export function getPaperBytesFromUrl(url: string): Promise<Uint8Array> {
+  let cached = variantByteCache.get(url)
+  if (!cached) {
+    cached = fetchBytesFromUrl(url)
+    variantByteCache.set(url, cached)
+  }
+  return cached
+}
 
 // Cached by PaperType, not by gl context — a WebGLTexture is tied to one gl
 // context, but the decoded bytes behind it are the same for every engine

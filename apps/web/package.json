@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "lint": "oxlint",
     "preview": "vite preview",
-    "bake:paper": "tsx scripts/bakePaperTextures.ts"
+    "bake:paper": "tsx scripts/bakePaperTextures.ts",
+    "bake:paper-variants": "tsx scripts/bakeRoughVariantTextures.ts"
   },
   "dependencies": {
     "@art-lessons/shared": "*",

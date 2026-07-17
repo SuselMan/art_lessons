@@ -68,3 +68,26 @@ export function getPencilSoundSetting(): PencilSoundSetting {
 export function setPencilSoundSetting(value: PencilSoundSetting): void {
   localStorage.setItem(PENCIL_SOUND_STORAGE_KEY, value)
 }
+
+// Dev-only paper-grain fiber-variant comparison (see paperNoise.ts's
+// ROUGH_VARIANTS / bakeRoughVariantTextures.ts) — same "own pair of
+// functions instead of a boolean flag" reasoning as pencil sound above.
+// 'off' means the real, shipped rough.paper asset; '1'..'10' overrides just
+// the rough paper texture with that candidate's bake from
+// public/paper-variants/ (see engine/index.ts's paperVariantUrl option) —
+// never affects smooth/bristol, which have no variant bake at all.
+export type PaperGrainVariant = 'off' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
+const PAPER_GRAIN_VARIANT_STORAGE_KEY = 'paperGrainVariant'
+const PAPER_GRAIN_VARIANT_VALUES: readonly PaperGrainVariant[] =
+  ['off', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+
+export function getPaperGrainVariant(): PaperGrainVariant {
+  const raw = localStorage.getItem(PAPER_GRAIN_VARIANT_STORAGE_KEY)
+  return (PAPER_GRAIN_VARIANT_VALUES as readonly string[]).includes(raw ?? '')
+    ? (raw as PaperGrainVariant)
+    : 'off'
+}
+
+export function setPaperGrainVariant(value: PaperGrainVariant): void {
+  localStorage.setItem(PAPER_GRAIN_VARIANT_STORAGE_KEY, value)
+}

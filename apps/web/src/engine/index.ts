@@ -4,7 +4,7 @@ import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DIS
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperNoise'
 import {
-  createPlaceholderPaperTexture, getPaperBytes, prefetchAllPaperTypes, uploadPaperTexture,
+  createPlaceholderPaperTexture, getPaperBytes, getPaperBytesFromUrl, prefetchAllPaperTypes, uploadPaperTexture,
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import { DabSystem } from './src/DabSystem'
@@ -117,6 +117,12 @@ export interface PencilEngineOptions {
   // simulating paper grain via touch. Off by default; Android Chrome only.
   hapticGrain?: boolean
   onHapticGrainStats?: (stats: HapticGrainStats) => void
+  // Dev-only fiber-variant comparison (see paperNoise.ts's ROUGH_VARIANTS /
+  // bakeRoughVariantTextures.ts / SettingsPanel's "Paper grain variant"
+  // control): when set, and only while `paper` is 'rough', _initPaper
+  // fetches this URL instead of the real committed rough.paper asset. Never
+  // touches smooth/bristol — those have no variant bake at all.
+  paperVariantUrl?: string
 }
 
 export interface StrokeDebugStats {
@@ -141,6 +147,24 @@ export interface StrokeDebugStats {
   // 0 if liveTipSegment was explicitly forced off.
   avgTipLatencyMs: number
   maxTipLatencyMs: number
+  // Real requestAnimationFrame-anchored latency: PointerEvent.timeStamp of
+  // the last move sample that fed a given _scheduleDisplay() coalesced
+  // batch → performance.now() at the top of that batch's rAF callback,
+  // right before _display() actually runs. rAF callbacks fire immediately
+  // before the browser's next paint for that frame, so this is the
+  // closest proxy to real screen latency available without a forced
+  // gl.finish()/readPixels stall — unlike avgE2eLatencyMs/avgTipLatencyMs
+  // (which only measure up to the moment JS finished *submitting* GL
+  // commands, not when the GPU/compositor actually presented anything),
+  // this also covers whatever queues up between submission and the
+  // browser's next paint. Still doesn't cover actual GPU execution time or
+  // OS-level compositor/vsync after the rAF callback returns — the true
+  // photon-to-photon number needs hardware most users can't measure with
+  // either. 0 if no move produced a coalesced display this stroke (e.g. a
+  // single-dab tap, which paints via the direct _onStart/_onEnd _display()
+  // calls this metric doesn't cover).
+  avgFrameLatencyMs: number
+  maxFrameLatencyMs: number
 }
 
 type EngineEventName = 'strokeStart' | 'strokeEnd' | 'pointer'
@@ -414,6 +438,7 @@ export class PencilEngine implements PencilEngineAPI {
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
   private _opts: EngineOpts
+  private _paperVariantUrl: string | undefined
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
   private _onPreviewApplied?: (op: StrokeOperation) => void
@@ -437,6 +462,15 @@ export class PencilEngine implements PencilEngineAPI {
   private _dbgTipSum = 0
   private _dbgTipCount = 0
   private _dbgMaxTip = 0
+  // rAF-anchored display latency — see StrokeDebugStats.avgFrameLatencyMs.
+  // Pending is the timestamp of the latest move sample not yet consumed by
+  // a _scheduleDisplay() rAF firing; null when there's nothing outstanding
+  // (just reset, or already consumed) so that rAF callback knows not to
+  // double-count a frame no new input actually fed.
+  private _dbgPendingFrameTimestamp: number | null = null
+  private _dbgFrameSum = 0
+  private _dbgFrameCount = 0
+  private _dbgMaxFrame = 0
 
   // Pointer-prediction preview (#92) — all no-ops unless _predictPointer is
   // true. _previewBuf is a dedicated, stroke-scoped AccumulationBuffer (not
@@ -812,6 +846,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._predictPointer = options.predictPointer ?? false
     this._liveTip = options.liveTipSegment ?? true
     this._haptic = options.hapticGrain ? new HapticGrain(10, 0.35, 16, options.onHapticGrainStats, 40) : null
+    // Fixed for this engine instance's whole lifetime (like _debug/
+    // _predictPointer above) rather than folded into EngineOpts/_opts —
+    // unlike `paper`, this never changes via a public setter, so it doesn't
+    // belong in the "live, mutable tool state" struct _opts represents.
+    this._paperVariantUrl = options.paperVariantUrl
 
     this._initGL()
     // A flat mid-gray texture bound immediately so every paint call between
@@ -2255,7 +2294,9 @@ export class PencilEngine implements PencilEngineAPI {
   // this same path and end up with the exact same 2048px REPEAT texture —
   // see _paperWorldSize()'s own comment for why unifying them is safe.
   private async _initPaper(type: PaperType): Promise<void> {
-    const bytes = await getPaperBytes(type)
+    const bytes = type === 'rough' && this._paperVariantUrl
+      ? await getPaperBytesFromUrl(this._paperVariantUrl)
+      : await getPaperBytes(type)
     if (this._destroyed) return
     const gl = this.gl
     const newTex = uploadPaperTexture(gl, bytes)
@@ -2343,6 +2384,10 @@ export class PencilEngine implements PencilEngineAPI {
       this._dbgTipSum = 0
       this._dbgTipCount = 0
       this._dbgMaxTip = 0
+      this._dbgPendingFrameTimestamp = null
+      this._dbgFrameSum = 0
+      this._dbgFrameCount = 0
+      this._dbgMaxFrame = 0
     }
     if (this._predictPointer) {
       this._previewBuf = this._acquirePooledBuf('_previewBufPool')
@@ -2418,7 +2463,10 @@ export class PencilEngine implements PencilEngineAPI {
         if (tipLatency > this._dbgMaxTip) this._dbgMaxTip = tipLatency
       }
     }
-    if (painted) this._scheduleDisplay()
+    if (painted) {
+      if (this._debug) this._dbgPendingFrameTimestamp = e.timeStamp
+      this._scheduleDisplay()
+    }
     if (this._debug) this._dbgPrevMoveTimestamp = e.timeStamp
   }
 
@@ -2515,6 +2563,8 @@ export class PencilEngine implements PencilEngineAPI {
         maxE2eLatencyMs:   this._dbgMaxE2e,
         avgTipLatencyMs:   this._dbgTipCount > 0 ? this._dbgTipSum / this._dbgTipCount : 0,
         maxTipLatencyMs:   this._dbgMaxTip,
+        avgFrameLatencyMs: this._dbgFrameCount > 0 ? this._dbgFrameSum / this._dbgFrameCount : 0,
+        maxFrameLatencyMs: this._dbgMaxFrame,
       })
     }
 
@@ -3763,7 +3813,30 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._displayRafId !== null) return
     this._displayRafId = requestAnimationFrame(() => {
       this._displayRafId = null
+      const pendingTs = this._debug ? this._dbgPendingFrameTimestamp : null
+      this._dbgPendingFrameTimestamp = null
       this._display()
+      // See StrokeDebugStats.avgFrameLatencyMs. gl.finish() — debug-only,
+      // never called otherwise (see the field's own comment on why) —
+      // blocks until every GL command _display() just queued, *and* any
+      // backlog already sitting in the GPU's command queue from earlier
+      // frames, has actually finished executing. Measuring before this call
+      // (the first version of this metric) only proved the rAF callback
+      // fired on schedule and JS kept submitting work — not that the GPU
+      // was keeping up — so it badly under-reported lag under real
+      // fill-rate pressure: confirmed on-device reading ~18ms average here
+      // while the felt lag was severe (same tablet, same room, DPR-uncapped
+      // for the test). gl.finish() itself stalls the pipeline, so debug-mode
+      // numbers run somewhat pessimistic vs. real (no-stall) production
+      // timing — an accepted tradeoff for a number that's supposed to catch
+      // exactly this kind of GPU backlog.
+      if (this._debug && pendingTs !== null) {
+        this.gl.finish()
+        const frameLatency = performance.now() - pendingTs
+        this._dbgFrameSum += frameLatency
+        this._dbgFrameCount++
+        if (frameLatency > this._dbgMaxFrame) this._dbgMaxFrame = frameLatency
+      }
     })
   }
 
