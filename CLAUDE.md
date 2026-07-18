@@ -9,7 +9,7 @@ Development currently runs entirely locally (the dev server and `apps/server` on
 - **Monorepo**: npm workspaces (`apps/web`, `apps/server`, `packages/shared`)
 - **Frontend**: React 19 + TypeScript 5 + Vite 8, CSS Modules + CSS variables (no Tailwind)
 - **Routing**: `react-router-dom` v7
-- **State**: local React state + refs for engine within the editor itself; a global store (planned: Zustand, see epic #2) is expected for cross-page/account state (user/auth already exists, more shared-UI state is coming as the app grows beyond the editor) — this does not replace the editor's local-state approach, which stays as-is for engine/room-local concerns
+- **State**: migrating to one global store (Zustand, epic #2) for all app state, including the editor's own — layers, viewport, tool/preset/color, room data — not just cross-page/account state (reverses the 2026-07-08 narrowing; pre-production with a single user, so the cost of doing this properly now is lower than doing it later). The one thing that never moves into the store: the WebGL engine's own internals (`engineRef`, pixel buffers, the imperative pointer/dab pipeline) — store state is always a *reflection* of what's already been applied to the engine via an imperative call (e.g. `engine.setTool(tool)`), never the engine's source of truth (epic #2's own #25 tracks this boundary). Migration via #19→20→21→22→23→24 in order, one slice at a time; until it lands, most of the editor still reads local `useState`
 - **Rendering**: WebGL1, dab-based pencil engine with Catmull-Rom spline
 - **Icons**: Material Symbols Outlined, thin variant (`wght: 200`)
 - **Backend**: Fastify + Socket.io skeleton (not wired to UI yet)
