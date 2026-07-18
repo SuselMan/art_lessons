@@ -136,117 +136,146 @@ export function useViewport(
 
   // Touch pinch/pan/rotate + middle-click pan
   useEffect(() => {
-    const el = vpRef.current; if (!el) return
+    // This effect can re-run (deps include `updateVp`/`toolActive`, not
+    // guaranteed referentially stable across every Room re-render) at a
+    // moment where `vpRef.current` happens to be null — the same class of
+    // bug confirmed live on Android for useTapToggle's identical pattern
+    // (see its own comment): a one-shot `if (!el) return` with no retry
+    // means the effect permanently gives up if the ref isn't ready at that
+    // exact instant, breaking every gesture for the rest of the session
+    // even though `.viewport` itself never actually unmounted. Retry via
+    // rAF until the ref is actually available, instead of a one-shot check.
+    let cancelled = false
+    let rafId: number | null = null
+    let detach: (() => void) | null = null
 
-    const toVp = (e: PointerEvent) => {
-      const r = el.getBoundingClientRect()
-      return { x: e.clientX - r.left, y: e.clientY - r.top }
-    }
-
-    const onDown = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') {
-        diagLog('vp: down', { id: e.pointerId, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current, toolActive: toolActive.current })
-        if (toolActive.current && reservedTouchId.current === null && touchPtrs.current.size === 0) {
-          reservedTouchId.current = e.pointerId
-          return
-        }
-        try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
-        touchPtrs.current.set(e.pointerId, toVp(e))
-      } else if (e.button === 1) {
-        try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
-        const v = vpState.current
-        midPanRef.current = { sx: e.clientX, sy: e.clientY, ocx: v.cx, ocy: v.cy }
-        e.preventDefault()
+    const attach = (el: HTMLDivElement) => {
+      const toVp = (e: PointerEvent) => {
+        const r = el.getBoundingClientRect()
+        return { x: e.clientX - r.left, y: e.clientY - r.top }
       }
-    }
 
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') {
-        const ptrs = touchPtrs.current
-        if (!ptrs.has(e.pointerId)) return
-        const prev = ptrs.get(e.pointerId)!
-        const curr = toVp(e)
-
-        if (ptrs.size === 1) {
-          ptrs.set(e.pointerId, curr)
+      const onDown = (e: PointerEvent) => {
+        if (e.pointerType === 'touch') {
+          diagLog('vp: down', { id: e.pointerId, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current, toolActive: toolActive.current })
+          if (toolActive.current && reservedTouchId.current === null && touchPtrs.current.size === 0) {
+            reservedTouchId.current = e.pointerId
+            return
+          }
+          try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
+          touchPtrs.current.set(e.pointerId, toVp(e))
+        } else if (e.button === 1) {
+          try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
           const v = vpState.current
-          updateVp({ ...v, cx: v.cx + curr.x - prev.x, cy: v.cy + curr.y - prev.y })
+          midPanRef.current = { sx: e.clientX, sy: e.clientY, ocx: v.cx, ocy: v.cy }
+          e.preventDefault()
+        }
+      }
+
+      const onMove = (e: PointerEvent) => {
+        if (e.pointerType === 'touch') {
+          const ptrs = touchPtrs.current
+          if (!ptrs.has(e.pointerId)) return
+          const prev = ptrs.get(e.pointerId)!
+          const curr = toVp(e)
+
+          if (ptrs.size === 1) {
+            ptrs.set(e.pointerId, curr)
+            const v = vpState.current
+            updateVp({ ...v, cx: v.cx + curr.x - prev.x, cy: v.cy + curr.y - prev.y })
+          } else {
+            const otherId = [...ptrs.keys()].find(id => id !== e.pointerId)
+            if (otherId === undefined) { ptrs.set(e.pointerId, curr); return }
+            const other = ptrs.get(otherId)!
+
+            const prevMid = { x: (prev.x + other.x) / 2, y: (prev.y + other.y) / 2 }
+            const currMid = { x: (curr.x + other.x) / 2, y: (curr.y + other.y) / 2 }
+            const d1     = Math.hypot(other.x - prev.x, other.y - prev.y)
+            const d2     = Math.hypot(other.x - curr.x, other.y - curr.y)
+            const scale  = d2 / (d1 || 1)
+            const dAngle = Math.atan2(other.y - curr.y, other.x - curr.x)
+                         - Math.atan2(other.y - prev.y, other.x - prev.x)
+
+            ptrs.set(e.pointerId, curr)
+            const v = vpState.current
+            const newZoom = clamp(v.zoom * scale, 0.04, 20)
+            const newCx   = prevMid.x + (v.cx - prevMid.x) * scale + (currMid.x - prevMid.x)
+            const newCy   = prevMid.y + (v.cy - prevMid.y) * scale + (currMid.y - prevMid.y)
+            // Infinite canvas (#134): the tile compositor now applies camera
+            // angle too (via the assembly-buffer + final rotate blit in
+            // _finishInfiniteComposite), matching setInfiniteCamera's pointer
+            // mapping — so the rotation component of this gesture no longer
+            // needs to be dropped for infinite rooms.
+            updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: v.angle + dAngle })
+          }
+        } else if (midPanRef.current) {
+          const { sx, sy, ocx, ocy } = midPanRef.current
+          const v = vpState.current
+          updateVp({ ...v, cx: ocx + e.clientX - sx, cy: ocy + e.clientY - sy })
+        }
+      }
+
+      const onUp = (e: PointerEvent) => {
+        if (e.pointerType === 'touch') {
+          diagLog('vp: up/cancel', { id: e.pointerId, type: e.type, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current })
+          if (reservedTouchId.current === e.pointerId) { reservedTouchId.current = null; return }
+          touchPtrs.current.delete(e.pointerId)
+          try { el.releasePointerCapture(e.pointerId) } catch { /* context loss */ }
         } else {
-          const otherId = [...ptrs.keys()].find(id => id !== e.pointerId)
-          if (otherId === undefined) { ptrs.set(e.pointerId, curr); return }
-          const other = ptrs.get(otherId)!
-
-          const prevMid = { x: (prev.x + other.x) / 2, y: (prev.y + other.y) / 2 }
-          const currMid = { x: (curr.x + other.x) / 2, y: (curr.y + other.y) / 2 }
-          const d1     = Math.hypot(other.x - prev.x, other.y - prev.y)
-          const d2     = Math.hypot(other.x - curr.x, other.y - curr.y)
-          const scale  = d2 / (d1 || 1)
-          const dAngle = Math.atan2(other.y - curr.y, other.x - curr.x)
-                       - Math.atan2(other.y - prev.y, other.x - prev.x)
-
-          ptrs.set(e.pointerId, curr)
-          const v = vpState.current
-          const newZoom = clamp(v.zoom * scale, 0.04, 20)
-          const newCx   = prevMid.x + (v.cx - prevMid.x) * scale + (currMid.x - prevMid.x)
-          const newCy   = prevMid.y + (v.cy - prevMid.y) * scale + (currMid.y - prevMid.y)
-          // Infinite canvas (#134): the tile compositor now applies camera
-          // angle too (via the assembly-buffer + final rotate blit in
-          // _finishInfiniteComposite), matching setInfiniteCamera's pointer
-          // mapping — so the rotation component of this gesture no longer
-          // needs to be dropped for infinite rooms.
-          updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: v.angle + dAngle })
+          midPanRef.current = null
         }
-      } else if (midPanRef.current) {
-        const { sx, sy, ocx, ocy } = midPanRef.current
-        const v = vpState.current
-        updateVp({ ...v, cx: ocx + e.clientX - sx, cy: ocy + e.clientY - sy })
       }
-    }
 
-    const onUp = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') {
-        diagLog('vp: up/cancel', { id: e.pointerId, type: e.type, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current })
-        if (reservedTouchId.current === e.pointerId) { reservedTouchId.current = null; return }
-        touchPtrs.current.delete(e.pointerId)
-        try { el.releasePointerCapture(e.pointerId) } catch { /* context loss */ }
-      } else {
+      // A pointerup/pointercancel can be lost entirely (app backgrounded
+      // mid-gesture, an OS-level gesture stealing the touch sequence, a
+      // permission prompt, etc.) — when that happens, `touchPtrs` keeps a
+      // stale entry forever with no real finger behind it. A later genuine
+      // 2-finger gesture would then see that phantom entry as "the other
+      // finger" (pinch/rotate math computed against a position from long ago,
+      // reading as broken/stuck), and a genuine lone finger would be treated
+      // as a 2-finger gesture instead of triggering the plain single-finger
+      // pan branch — matching reports of "pinch-zoom" and "single-finger pan"
+      // both randomly breaking, not clearing even on reload if the same
+      // device/OS state repro's it again immediately. visibilitychange/blur
+      // are the most reliable generic "can't trust this pointer's own
+      // up/cancel anymore" signals available — full reset on either.
+      const resetTouchState = () => {
+        diagLog('vp: resetTouchState fired', { hadPtrs: [...touchPtrs.current.keys()], hadReserved: reservedTouchId.current })
+        touchPtrs.current.clear()
+        reservedTouchId.current = null
         midPanRef.current = null
       }
+      document.addEventListener('visibilitychange', resetTouchState)
+      window.addEventListener('blur', resetTouchState)
+
+      el.addEventListener('pointerdown',   onDown)
+      el.addEventListener('pointermove',   onMove)
+      el.addEventListener('pointerup',     onUp)
+      el.addEventListener('pointercancel', onUp)
+
+      detach = () => {
+        el.removeEventListener('pointerdown',   onDown)
+        el.removeEventListener('pointermove',   onMove)
+        el.removeEventListener('pointerup',     onUp)
+        el.removeEventListener('pointercancel', onUp)
+        document.removeEventListener('visibilitychange', resetTouchState)
+        window.removeEventListener('blur', resetTouchState)
+      }
     }
 
-    // A pointerup/pointercancel can be lost entirely (app backgrounded
-    // mid-gesture, an OS-level gesture stealing the touch sequence, a
-    // permission prompt, etc.) — when that happens, `touchPtrs` keeps a
-    // stale entry forever with no real finger behind it. A later genuine
-    // 2-finger gesture would then see that phantom entry as "the other
-    // finger" (pinch/rotate math computed against a position from long ago,
-    // reading as broken/stuck), and a genuine lone finger would be treated
-    // as a 2-finger gesture instead of triggering the plain single-finger
-    // pan branch — matching reports of "pinch-zoom" and "single-finger pan"
-    // both randomly breaking, not clearing even on reload if the same
-    // device/OS state repro's it again immediately. visibilitychange/blur
-    // are the most reliable generic "can't trust this pointer's own
-    // up/cancel anymore" signals available — full reset on either.
-    const resetTouchState = () => {
-      diagLog('vp: resetTouchState fired', { hadPtrs: [...touchPtrs.current.keys()], hadReserved: reservedTouchId.current })
-      touchPtrs.current.clear()
-      reservedTouchId.current = null
-      midPanRef.current = null
+    const tryAttach = () => {
+      if (cancelled) return
+      const el = vpRef.current
+      if (el) { attach(el); return }
+      diagLog('vp: vpRef.current is null, retrying next frame')
+      rafId = requestAnimationFrame(tryAttach)
     }
-    document.addEventListener('visibilitychange', resetTouchState)
-    window.addEventListener('blur', resetTouchState)
+    tryAttach()
 
-    el.addEventListener('pointerdown',   onDown)
-    el.addEventListener('pointermove',   onMove)
-    el.addEventListener('pointerup',     onUp)
-    el.addEventListener('pointercancel', onUp)
     return () => {
-      el.removeEventListener('pointerdown',   onDown)
-      el.removeEventListener('pointermove',   onMove)
-      el.removeEventListener('pointerup',     onUp)
-      el.removeEventListener('pointercancel', onUp)
-      document.removeEventListener('visibilitychange', resetTouchState)
-      window.removeEventListener('blur', resetTouchState)
+      cancelled = true
+      if (rafId !== null) cancelAnimationFrame(rafId)
+      detach?.()
     }
   }, [canvas, toolActive, updateVp, infinite])
 
