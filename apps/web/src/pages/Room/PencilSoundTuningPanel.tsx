@@ -116,7 +116,7 @@ export function PencilSoundTuningPanel({ pencilSoundRef }: { pencilSoundRef: Ref
           <Section title="touchdown tap">
             <Row label="tap.minGain" value={tap.minGain} min={0} max={1} step={0.01} onChange={v => patchTap({ minGain: v })} />
             <Row label="tap.maxGain" value={tap.maxGain} min={0} max={1} step={0.01} onChange={v => patchTap({ maxGain: v })} />
-            <Row label="tap.freqHz" value={tap.freqHz} min={10} max={800} step={1} onChange={v => patchTap({ freqHz: v })} />
+            <Row label="tap.freqHz" value={tap.freqHz} min={1} max={800} step={0.5} onChange={v => patchTap({ freqHz: v })} />
             <Row label="tap.decaySeconds" value={tap.decaySeconds} min={0.005} max={0.15} step={0.001} onChange={v => patchTap({ decaySeconds: v })} />
             <Row label="tap.noiseMix" value={tap.noiseMix} min={0} max={1} step={0.01} onChange={v => patchTap({ noiseMix: v })} />
             <Row label="tap.pressureCurve" value={tap.pressureCurve} min={0.5} max={4} step={0.1} onChange={v => patchTap({ pressureCurve: v })} />
@@ -127,6 +127,7 @@ export function PencilSoundTuningPanel({ pencilSoundRef }: { pencilSoundRef: Ref
             <Row label="minFreq" value={PENCIL_SOUND_TUNING.minFreq} min={100} max={3000} step={10} onChange={v => patchTuning('minFreq', v)} />
             <Row label="maxFreq" value={PENCIL_SOUND_TUNING.maxFreq} min={500} max={8000} step={10} onChange={v => patchTuning('maxFreq', v)} />
             <Row label="brightnessRamp" value={PENCIL_SOUND_TUNING.brightnessRamp} min={0.02} max={0.5} step={0.01} onChange={v => patchTuning('brightnessRamp', v)} />
+            <Row label="carrierHighpassHz" value={PENCIL_SOUND_TUNING.carrierHighpassHz} min={20} max={500} step={5} onChange={v => patchTuning('carrierHighpassHz', v)} />
           </Section>
           <Section title="hardness / tilt shelves">
             <Row label="hardnessShelfFreq" value={PENCIL_SOUND_TUNING.hardnessShelfFreq} min={500} max={5000} step={10} onChange={v => patchTuning('hardnessShelfFreq', v)} />
@@ -160,9 +161,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function decimals(step: number): number {
-  if (step >= 1) return 0
-  if (step >= 0.01) return 2
-  return 3
+  const dot = step.toString().indexOf('.')
+  return dot === -1 ? 0 : step.toString().length - dot - 1
 }
 
 function Row({ label, value, min, max, step, onChange }: {

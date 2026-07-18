@@ -734,8 +734,76 @@ Takes 8-10's reasoning (wav analysis, sub-linear-vs-super-linear speed curve, tr
 pitch perception) stays in this log and in `PencilSound.ts`'s comments as a record of what was tried
 and why, in case it's worth revisiting — none of it is live right now.
 
-**Result:** _pending — Ilya tuning directly via the panel from here; log what he lands on when he
-sends back a "copy config" JSON, same as any other round._
+**Result:** widened `tap.freqHz`'s slider down to 1Hz (was 10) — but even at the lowest settings
+across the whole range, the tap kept reading as a "чик-чик" (click-click), not a table knock:
+"как не крути всё равно какой-то чик чик выходит." Structural, not a wrong number.
+
+## Round 13, take 12 — tap redesigned as two modes instead of one
+
+Root cause: `createClickBuffer()` excited a single 2-pole resonator per tap — a lone decaying
+sinusoid always reads as a tone/click, however low its frequency, because there's only one pitch
+for the ear to lock onto. A real knock excites *several* modes of the struck body at once (the same
+reason the abandoned AudioWorklet engine used a 4-mode resonator bank for "body" — see round 11).
+
+Changes to `createClickBuffer()` (`PencilSound.ts`), no new tunables — both new modes derive from
+the existing `freqHz`/`decaySeconds`:
+- Kept the original resonator as a "body" mode (`freqHz`/`decaySeconds`, the low tail).
+- Added a "knock" mode at `freqHz * 3.2`, decaying at `decaySeconds * 0.18` (much faster) — gives the
+  attack a percussive character distinct from the low boom, mixed in below the body mode (0.7/0.45).
+- The "contact" noise burst switched from raw white noise to lowpassed noise (cutoff scales with
+  `freqHz`, floor 400Hz) — unfiltered noise is bright/thin regardless of how low the tone underneath
+  it is, plausibly still reading as part of the "chik" even at a small `noiseMix`.
+
+**Result:** _pending — awaiting Ilya's listening pass on the two-mode redesign._
+
+## Round 13, take 13 — deep analysis of the reference recordings
+
+Ilya, unable to land the noise texture by ear via the panel alone ("не выходит у меня крутить шум
+похоже"): asked for a proper deep analysis of `temp/Write on Paper with Pencil 03.wav`. Extended the
+earlier coarse analyzer (round 13 take 8 — centroid/flatness/8 linear bands) with: 1/3-octave-ish
+band energy (24 bands, a real spectral envelope shape instead of 8 coarse buckets), time-varying
+RMS/centroid (100ms frames), the amplitude envelope's own modulation spectrum (the rate the "grain"
+texture actually fluctuates at — maps directly onto `minHz`/`maxHz`), and onset/grain detection
+(inter-onset-interval + amplitude stats on envelope peaks).
+
+Key findings (02.wav and 03.wav agree on both):
+
+1. **~35%+ of real energy sits at 100-250Hz specifically** (13.7%/18.1% alone at the 160Hz band),
+   not spread evenly across 0-500Hz as the coarser round-8 analysis suggested — this is a consistent
+   feature across both independent recordings, not mic/handling noise. **The carrier's fixed 180Hz
+   highpass filter was discarding almost exactly this range.**
+2. Onset/grain detection: mean inter-onset interval 2.71-7.92ms → an effective grain rate of
+   **~126-368 grains/sec**, well above our synth's `maxHz: 220` ceiling (already tunable in the panel
+   — worth trying higher, e.g. 300+).
+3. Time-varying centroid swings 2071-9033Hz *within a single continuous recording* — brightness
+   genuinely varies a lot stroke-to-stroke, not just a fixed target value.
+4. 100ms-frame RMS CV 0.43-0.74 — same ballpark as round 3's original ≈0.75 target, not new
+   information, but confirms it's still the right order of magnitude.
+
+Change: `carrierHighpassHz` (was a fixed `180` inside `buildLayer()`, invisible to the panel) is now
+part of `PENCIL_SOUND_TUNING` and exposed as a slider (20-500Hz) — defaults to the same 180 (no
+behavior change yet), but finding #1 above suggests lowering it is worth trying, since real signal
+lives right where it currently cuts.
+
+**Result:** Ilya asked Claude to apply the findings directly instead of leaving them as slider
+suggestions ("накрути под новый анализ, я подкручу дальше сам, скажу норм или нет").
+
+## Round 13, take 14 — applied take 13's findings directly
+
+- `PENCIL_SOUND_TUNING.minFreq` 1200→250: at `brightnessScale: 0.45`, 1200 put the carrier's lowest
+  reachable center (slow strokes) at 540Hz — nowhere near the 100-250Hz real-energy hump take 13
+  found. 250×0.45≈112Hz lands slow-stroke brightness right at that hump instead; `maxFreq` (fast
+  strokes' top end) untouched.
+- `PENCIL_SOUND_TUNING.carrierHighpassHz` 180→70: was cutting most of that same 100-250Hz hump
+  outright; 70 still clears near-DC/handling rumble.
+- `PENCIL_SOUND_VARIANT_3.maxHz` 220→300 (new explicit override, was inherited from BASE/Variant 1):
+  take 13's onset detection measured real grain rate at ~126-368/s, above the old 220 ceiling.
+
+`brightnessScale`/`qScale`/`curvePower` (the timbre-shaping knobs from earlier rounds) left as-is —
+take 13's evidence was about frequency *reachability* (minFreq/highpass) and grain *rate* (maxHz),
+a different axis, not about re-litigating those.
+
+**Result:** _pending — awaiting Ilya's listening pass; he'll adjust further via the panel from here._
 
 ## How to log a result
 

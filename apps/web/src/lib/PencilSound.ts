@@ -78,10 +78,25 @@ export interface PencilSoundTuning {
   masterOutputScale: number // flat multiplier after speed/pressure/paper, before gainCeiling clamp
   qBase: number // bandpassQ(pressure) = qBase + pressure*qPressureScale
   qPressureScale: number // harder press → narrower/more resonant → "denser scratch"
+  // Carrier's highpass cutoff — cuts rumble below any real paper-friction
+  // content. Round 13 take 12: a 1/3-octave analysis of real recordings
+  // found ~35%+ of real energy at 100-250Hz specifically, which the
+  // original fixed 180Hz cutoff discards. Set only at graph-build time
+  // otherwise, so PencilSound.retuneGlobals() re-applies this explicitly.
+  carrierHighpassHz: number
 }
 
+// Round 13, take 14: applied the take-13 deep-analysis findings directly
+// (Ilya: "накрути под новый анализ, я подкручу дальше сам") rather than just
+// leaving them as notes — minFreq and carrierHighpassHz below both move
+// toward what the real recordings actually showed.
 export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
-  minFreq: 1200,
+  // Was 1200 — at brightnessScale 0.45 (PENCIL_SOUND_VARIANT_3's current
+  // value) that put the carrier's lowest reachable center (slow strokes) at
+  // 540Hz, nowhere near the 100-250Hz hump take 13 found carrying ~35%+ of
+  // real energy. 250*0.45≈112Hz puts slow-stroke brightness right at that
+  // hump instead; maxFreq (top end, fast strokes) untouched.
+  minFreq: 250,
   maxFreq: 5000,
   maxSpeed: 6,
   speedDeadzone: 0.12,
@@ -107,6 +122,10 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   pressureFloor: 0.5,
   pressureScale: 0.9,
   masterOutputScale: 0.4,
+  // Was 180 — take 13 found ~35%+ of real energy at 100-250Hz specifically;
+  // 180Hz was cutting most of it. 70 clears near-DC/handling rumble while
+  // letting that range through.
+  carrierHighpassHz: 70,
   qBase: 0.7,
   qPressureScale: 1.2,
 }
@@ -294,8 +313,13 @@ export const PENCIL_SOUND_VARIANT_2: GrainVariant = { ...BASE, secondary: { vari
 // continue blind by-ear rounds through Claude — takes 8-10's reasoning stays
 // above as a record of what was tried and why, in case it's worth
 // revisiting, but none of it is currently live.
+//
+// Round 13, take 14: `maxHz` (grain rate ceiling) raised from inherited
+// BASE/Variant-1 220 to 300 — take 13's onset detection on the real
+// recordings measured an effective grain rate of ~126-368/s, well above 220.
 export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   ...PENCIL_SOUND_VARIANT_1,
+  maxHz: 300,
   tap: { minGain: 0.02, maxGain: 0.5, freqHz: 120, decaySeconds: 0.02, noiseMix: 0.35, pressureCurve: 2.2 },
   speedPresenceFloor: 0.08,
   outputGainScale: 0.5,
@@ -406,29 +430,66 @@ function createNoiseBuffer(ctx: AudioContext): AudioBuffer {
   return buffer
 }
 
+// Round 13, take 12: a *single* decaying sinusoid always read as a "click"/
+// tone no matter how low freqHz went (Ilya, after freqHz had already been
+// pushed from 120 down toward single digits via the tuning panel: "как не
+// крути всё равно чик-чик" — however you turn the knobs it's still a
+// click-click, not a table knock). That's structural, not a wrong number: a
+// real knock excites *several* modes of the struck body at once (the same
+// reason the abandoned AudioWorklet engine — PENCIL_SOUND_TUNING_LOG.md
+// round 11 — used a 4-mode resonator bank for "body"), and a lone pure tone
+// only ever gives the ear one pitch to lock onto, however deep. Added a
+// second, higher, much-faster-decaying "knock" mode derived from the same
+// freqHz/decaySeconds (no new tunables needed) so the attack has a
+// percussive character distinct from the low "boom" tail, and switched the
+// noise-burst "contact" texture from raw white noise to lowpassed noise —
+// unfiltered noise is itself bright/thin regardless of how low the tone
+// underneath it is, which was plausibly still reading as part of the
+// "chik".
 /** Bakes an exact impulse response for GrainVariant.tap: a single-sample
- *  kick into a 2-pole resonator (same r/a1/a2 math a modal synth would use),
- *  computed once into a mono AudioBuffer and blended with a very brief
- *  separate noise transient (the first `noiseMix`-weighted ~1.5ms) for
- *  "contact" texture. See GrainVariant.tap's docstring for why this exists
- *  as a pre-baked buffer rather than a live-gated BiquadFilterNode — two
- *  earlier live-graph attempts both still read as noise with an envelope. */
+ *  kick into two 2-pole resonators — `freqHz`/`decaySeconds` as before (the
+ *  long, low "body" mode) plus a fixed-ratio higher/shorter "knock" mode for
+ *  the percussive attack — computed once into a mono AudioBuffer and
+ *  blended with a brief, lowpassed noise transient (the first
+ *  `noiseMix`-weighted ~1.5ms) for "contact" texture. See GrainVariant.tap's
+ *  docstring for why this exists as a pre-baked buffer rather than a
+ *  live-gated BiquadFilterNode — two earlier live-graph attempts both still
+ *  read as noise with an envelope. */
 function createClickBuffer(ctx: AudioContext, freqHz: number, decaySeconds: number, noiseMix: number): AudioBuffer {
   const n = Math.max(8, Math.round(ctx.sampleRate * decaySeconds * 6))
   const buffer = ctx.createBuffer(1, n, ctx.sampleRate)
   const data = buffer.getChannelData(0)
-  const r = Math.exp(-1 / (decaySeconds * ctx.sampleRate))
-  const a1 = 2 * r * Math.cos((2 * Math.PI * freqHz) / ctx.sampleRate)
-  const a2 = -r * r
-  let y1 = 0
-  let y2 = 0
+
+  const rBody = Math.exp(-1 / (decaySeconds * ctx.sampleRate))
+  const a1Body = 2 * rBody * Math.cos((2 * Math.PI * freqHz) / ctx.sampleRate)
+  const a2Body = -rBody * rBody
+
+  const knockFreq = freqHz * 3.2
+  const knockDecay = Math.max(0.002, decaySeconds * 0.18)
+  const rKnock = Math.exp(-1 / (knockDecay * ctx.sampleRate))
+  const a1Knock = 2 * rKnock * Math.cos((2 * Math.PI * knockFreq) / ctx.sampleRate)
+  const a2Knock = -rKnock * rKnock
+
+  let y1Body = 0
+  let y2Body = 0
+  let y1Knock = 0
+  let y2Knock = 0
+  let noiseLp = 0
+  // Cutoff scales with freqHz so the contact texture stays proportionate
+  // (a very low tap shouldn't keep a bright noise transient on top) — never
+  // below 400Hz so there's still some audible "contact" grit at the lowest
+  // freqHz settings.
+  const noiseLpK = 1 - Math.exp((-2 * Math.PI * Math.max(400, freqHz * 6)) / ctx.sampleRate)
   const noiseSamples = Math.round(ctx.sampleRate * 0.0015)
   for (let i = 0; i < n; i++) {
     const impulse = i === 0 ? 1 : 0
-    const y = (1 - r) * impulse + a1 * y1 + a2 * y2
-    y2 = y1; y1 = y
-    const noise = i < noiseSamples ? (Math.random() * 2 - 1) * (1 - i / noiseSamples) : 0
-    data[i] = y * (1 - noiseMix) + noise * noiseMix
+    const yBody = (1 - rBody) * impulse + a1Body * y1Body + a2Body * y2Body
+    y2Body = y1Body; y1Body = yBody
+    const yKnock = (1 - rKnock) * impulse + a1Knock * y1Knock + a2Knock * y2Knock
+    y2Knock = y1Knock; y1Knock = yKnock
+    const rawNoise = i < noiseSamples ? (Math.random() * 2 - 1) * (1 - i / noiseSamples) : 0
+    noiseLp += noiseLpK * (rawNoise - noiseLp)
+    data[i] = (yBody * 0.7 + yKnock * 0.45) * (1 - noiseMix) + noiseLp * noiseMix
   }
   return buffer
 }
@@ -456,6 +517,7 @@ function createGrainCurve(power: number): Float32Array<ArrayBuffer> {
 interface GrainLayer {
   recipe: GrainVariant
   bandpass: BiquadFilterNode
+  highpass: BiquadFilterNode
   carrierGain: GainNode
   grainLowpass: BiquadFilterNode
   grainNormGain: GainNode
@@ -545,11 +607,12 @@ export class PencilSound implements PencilSoundAPI {
   retuneGlobals(): void {
     if (!this.graph) return
     const now = this.graph.ctx.currentTime
-    const { lowShelfFreq, hardnessShelfFreq, rampSlow } = PENCIL_SOUND_TUNING
+    const { lowShelfFreq, hardnessShelfFreq, carrierHighpassHz, rampSlow } = PENCIL_SOUND_TUNING
     this.graph.lowShelf.frequency.setTargetAtTime(lowShelfFreq, now, rampSlow)
     this.graph.hardnessShelf.frequency.setTargetAtTime(hardnessShelfFreq, now, rampSlow)
     this.graph.hardnessShelf.gain.setTargetAtTime(hardnessShelfDb(this.hardness), now, rampSlow)
     this.graph.lowShelf.gain.setTargetAtTime(lowShelfDb(this.hardness), now, rampSlow)
+    for (const layer of this.graph.layers) layer.highpass.frequency.setTargetAtTime(carrierHighpassHz, now, rampSlow)
   }
 
   /** Current recipe snapshot — debug/tuning panel only, to seed its editable
@@ -684,7 +747,14 @@ export class PencilSound implements PencilSoundAPI {
 
     const highpass = ctx.createBiquadFilter()
     highpass.type = 'highpass'
-    highpass.frequency.value = 180 // cuts rumble below any real paper-friction content
+    // Round 13, take 12/14: a deep analysis of `temp/Write on Paper with
+    // Pencil 02/03.wav` (1/3-octave band energy) found ~35%+ of real energy
+    // sitting at 100-250Hz specifically — a real acoustic feature (consistent
+    // across both independent recordings), not mic/handling noise. The
+    // original fixed 180Hz cutoff here was silently discarding most of that;
+    // now tunable via PENCIL_SOUND_TUNING.carrierHighpassHz, defaulting to 70
+    // (see that field's own comment).
+    highpass.frequency.value = PENCIL_SOUND_TUNING.carrierHighpassHz
 
     const carrierGain = ctx.createGain()
     carrierGain.gain.value = recipe.floor // base floor; the grain modulator adds the rest (see below)
@@ -717,7 +787,7 @@ export class PencilSound implements PencilSoundAPI {
     modulator.connect(grainLowpass).connect(grainNormGain).connect(rectify).connect(grainDepth).connect(carrierGain.gain)
     modulator.start()
 
-    return { recipe, bandpass, carrierGain, grainLowpass, grainNormGain, rectify, grainDepthGain: grainDepth, mixGain }
+    return { recipe, bandpass, highpass, carrierGain, grainLowpass, grainNormGain, rectify, grainDepthGain: grainDepth, mixGain }
   }
 
   /** Builds the audio graph on first use and leaves every noise source looping for the module's
