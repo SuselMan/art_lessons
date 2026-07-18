@@ -147,10 +147,19 @@ export function Room() {
   // client, while the operation itself still gets recorded server-side
   // (invisible until a later reconnect/backfill surfaces it, which is
   // exactly the "мерцает первый вариант потом перезатёртый" symptom).
-  // Starts ready for the creator (a brand-new room has nothing to restore);
-  // a joiner starts blocked until the mount-engine effect's replay (or
-  // handleRoomState's reconnect branch) flips it.
-  const [roomContentReady, setRoomContentReady] = useState(isCreator)
+  // Always starts blocked, creator included — a creator's own tab reloading
+  // an already-drawn-on room looks identical, at mount time, to a genuinely
+  // brand-new room (see handleRoomState's own doc comment on this exact
+  // ambiguity); only handleRoomState's first room_state can actually tell
+  // the two apart, so it alone gets to decide when this flips true, whether
+  // that's "nothing to restore" (a real new room, decided quickly) or after
+  // a full restore/replay (a reload). Optimistically starting `true` for
+  // every creator used to mean the editor opened immediately, empty and
+  // interactive, with the preloader only flashing on *afterward* if a
+  // restore turned out to be needed — backwards from "preloader first, then
+  // ready to draw." A joiner already started blocked the same way, via the
+  // mount-engine effect's own replay / handleRoomState's reconnect branch.
+  const [roomContentReady, setRoomContentReady] = useState(false)
   useEffect(() => {
     diagLog('roomContentReady changed to', roomContentReady)
   }, [roomContentReady])
@@ -806,10 +815,19 @@ export function Room() {
           setRoomContentReady(true)
         }
       })()
-    } else {
+    } else if (!isCreator) {
       // Nothing to restore on this particular mount (e.g. a remount after
       // the first join already completed) — don't leave a stale `false`
       // from a prior mount stuck forever with nothing left to flip it.
+      // Creator excluded: `pending` is always null for a creator's very
+      // first mount too (its config is known synchronously, so
+      // handleRoomState never has a reason to populate pendingSnapshotRef
+      // the way a joiner's does — see its own doc comment), but at this
+      // point nothing has confirmed yet whether this is a genuinely new
+      // room or the creator's own reload of one with real content to
+      // restore. Marking ready here regardless used to race ahead of that
+      // answer; handleRoomState's first room_state is what actually knows,
+      // and sets this itself either way (see its own two branches).
       setRoomContentReady(true)
     }
 
@@ -822,7 +840,7 @@ export function Room() {
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory, paperVariantUrl,
-    grainMode, dispatchParticipants,
+    grainMode, dispatchParticipants, isCreator,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -1566,6 +1584,12 @@ export function Room() {
         if (tailOperations.length === 0 && latestSnapshotSeq === null) {
           dispatchParticipants({ type: 'room_state', participants: roomParticipants })
           useRoomStore.getState().setPalette(palette)
+          // The genuinely-new-room case: roomContentReady now starts
+          // `false` for every creator (see its own doc comment), and
+          // nothing else sets it for this branch — a real new room has
+          // nothing to restore, so it's ready the instant that's confirmed,
+          // not after some later event that may never come.
+          setRoomContentReady(true)
           return
         }
       }
