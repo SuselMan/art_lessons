@@ -582,27 +582,43 @@ export function Room() {
     }
   }, [applyRemoteOp, syncFromLog, checkSnapshotBoundary])
 
-  // (#169) Seeds the engine's layer buffers + structural state straight from
-  // a restored snapshot's own layerState — the same initLayer/setActiveLayer/
-  // setCompositeOrder calls the mount-engine effect already makes from
-  // layerStateRef below, just driven by the snapshot instead of local React
-  // state (which a fresh joiner doesn't have yet).
+  // (#169) Creates the engine's layer buffers from a restored snapshot's own
+  // layerState — the same initLayer calls the mount-engine effect already
+  // makes from layerStateRef below, just driven by the snapshot instead of
+  // local React state (which a fresh joiner doesn't have yet). Deliberately
+  // just buffer creation, no setActiveLayer/setCompositeOrder here — see
+  // restoreFromSnapshot's own comment for why those must come *after* pixel
+  // restoration, not before.
   const initLayersFromLayerState = useCallback((engine: PencilEngineAPI, ls: LayerState) => {
     for (const item of Object.values(ls.items)) {
       if (item.kind === 'layer') engine.initLayer(item.id)
     }
-    engine.setActiveLayer(ls.activeId)
-    engine.setCompositeOrder(computeCompositeOrder(ls))
   }, [])
 
-  // (#169) Injects a downloaded snapshot's pixels + structure into `engine`
-  // and sets restoredLayerStateRef so syncFromLog starts deriving LayerState
-  // from it. Awaited by the caller before applying tailOperations on top —
-  // unlike backfillHistory below, this must finish first (the tail paints
-  // relative to this restored buffer state).
+  // (#169 bug fix) Injects a downloaded snapshot's pixels + structure into
+  // `engine` and sets restoredLayerStateRef so syncFromLog starts deriving
+  // LayerState from it. Awaited by the caller before applying tailOperations
+  // on top — unlike backfillHistory below, this must finish first (the tail
+  // paints relative to this restored buffer state).
+  //
+  // setActiveLayer/setCompositeOrder must run *after* every
+  // restoreLayerFromSnapshot call, not before: setCompositeOrder
+  // unconditionally invalidates and repaints the engine's below/above
+  // split-composite cache (#122) right when it's called — calling it while
+  // layers are still freshly initLayer'd (i.e. empty) bakes that emptiness
+  // into the cache for every layer except whichever one is active, and
+  // nothing afterward invalidates it again just because pixels got injected
+  // later. The result: any non-active layer's restored content is silently
+  // missing from the composite until some *later*, unrelated event forces
+  // another invalidation (a stroke on yet another layer, or an undo/redo,
+  // whose own history-replay path always invalidates unconditionally) —
+  // exactly the "part of the drawing disappeared after reload, drawing
+  // something and hitting undo brought it back" report (#121).
   const restoreFromSnapshot = useCallback(async (engine: PencilEngineAPI, snapshot: RestoredSnapshot) => {
     initLayersFromLayerState(engine, snapshot.layerState)
     for (const [layerId, tiles] of snapshot.tiles) engine.restoreLayerFromSnapshot(layerId, tiles)
+    engine.setActiveLayer(snapshot.layerState.activeId)
+    engine.setCompositeOrder(computeCompositeOrder(snapshot.layerState))
     restoredLayerStateRef.current = snapshot.layerState
   }, [initLayersFromLayerState])
 
