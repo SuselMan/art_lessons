@@ -1985,7 +1985,16 @@ export function Room() {
             <Icon name="fit_screen" />
           </button>
           <button className={styles.toolIconBtn} title="Clear canvas" aria-label="Clear canvas"
-            onClick={() => engineRef.current?.clear()}>
+            onClick={() => {
+              // #171: a bare confirm() for now — clear() only wipes the
+              // active layer (not the whole drawing), undoable like any
+              // other operation, but on a shared board an accidental tap
+              // still shouldn't be silent. A real (non-native) confirm
+              // dialog is tracked separately for later.
+              if (window.confirm('Clear the active layer? This can be undone with Ctrl+Z.')) {
+                engineRef.current?.clear()
+              }
+            }}>
             <Icon name="delete_forever" />
           </button>
 
