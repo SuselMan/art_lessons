@@ -469,8 +469,6 @@ export function Room() {
 
   const { vp, setVp, vpRef, canvasWrapRef, fitCanvas, angleDeg, canvasTransform } =
     useViewport(config, toolActiveRef, config?.infinite ?? false)
-  const vpValueRef = useRef(vp)
-  vpValueRef.current = vp
 
   // Drag up/down on the zoom label to adjust zoom without a two-finger pinch
   // (#97); a plain click still resets to 100%, mirroring angleLabel's
@@ -944,7 +942,7 @@ export function Room() {
       // conversion, see the render section below) lands on the actual
       // world point the cursor is over, not wherever it happened to be
       // relative to an arbitrary placeholder canvas size.
-      const { x, y } = clientToRoomPoint(e.clientX, e.clientY, rect, vpValueRef.current, config)
+      const { x, y } = clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config)
       socketRef.current?.emit('cursor_move', { x, y, drawing: strokeActiveRef.current })
     }
     el.addEventListener('pointermove', handleMove)

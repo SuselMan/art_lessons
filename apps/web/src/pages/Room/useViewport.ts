@@ -1,8 +1,9 @@
-import { useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react'
+import { useRef, useCallback, useLayoutEffect, useEffect } from 'react'
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
 import { deviceNativeZoom } from './cameraMath'
+import { useRoomStore } from '../../stores/roomStore'
 
 export interface Viewport { cx: number; cy: number; zoom: number; angle: number }
 
@@ -40,7 +41,11 @@ export interface UseViewportResult {
 export function useViewport(
   canvas: CanvasSize | null, toolActive: RefObject<boolean>, infinite = false,
 ): UseViewportResult {
-  const [vp, setVp] = useState<Viewport>({ cx: 0, cy: 0, zoom: 1, angle: 0 })
+  // (#22) Backed by the store now — internal architecture (rAF-throttled
+  // updates, vpState ref for hot gesture math, direct DOM transform writes
+  // bypassing React) is unchanged; only the target of the already-
+  // throttled flush moved from a local useState setter to the store.
+  const vp = useRoomStore(s => s.viewport)
 
   const vpRef        = useRef<HTMLDivElement>(null)
   const canvasWrapRef = useRef<HTMLDivElement>(null)
@@ -86,7 +91,7 @@ export function useViewport(
       rafScheduled.current = true
       requestAnimationFrame(() => {
         rafScheduled.current = false
-        setVp(vpState.current)
+        useRoomStore.getState().setViewport(vpState.current)
       })
     }
   }, [transformFor])
@@ -106,7 +111,7 @@ export function useViewport(
           zoom: Math.min(el.clientWidth / canvas.width, el.clientHeight / canvas.height) * 0.88,
         }
     vpState.current = v
-    setVp(v)
+    useRoomStore.getState().setViewport(v)
   }, [canvas, infinite])
 
   // Wheel zoom toward cursor
@@ -234,7 +239,7 @@ export function useViewport(
           zoom: Math.min(el.clientWidth / c.width, el.clientHeight / c.height) * 0.88,
         }
     vpState.current = v
-    setVp(v)
+    useRoomStore.getState().setViewport(v)
   }, [infinite])
 
   // Room also calls `setVp` directly for one-off, non-gesture updates (zoom%
@@ -249,11 +254,10 @@ export function useViewport(
   // stale render clobbering an in-flight gesture's `vpState.current` between
   // rAF flushes.
   const setVpTracked = useCallback<Dispatch<SetStateAction<Viewport>>>((action) => {
-    setVp(prev => {
-      const next = typeof action === 'function' ? (action as (v: Viewport) => Viewport)(prev) : action
-      vpState.current = next
-      return next
-    })
+    const prev = vpState.current
+    const next = typeof action === 'function' ? (action as (v: Viewport) => Viewport)(prev) : action
+    vpState.current = next
+    useRoomStore.getState().setViewport(next)
   }, [])
 
   const angleDeg        = Math.round(vp.angle * 180 / Math.PI)
