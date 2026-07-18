@@ -24,6 +24,7 @@ import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, PENCIL_SOU
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
+import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
@@ -150,6 +151,9 @@ export function Room() {
   // a joiner starts blocked until the mount-engine effect's replay (or
   // handleRoomState's reconnect branch) flips it.
   const [roomContentReady, setRoomContentReady] = useState(isCreator)
+  useEffect(() => {
+    diagLog('roomContentReady changed to', roomContentReady)
+  }, [roomContentReady])
 
   // Device performance investigation (#91) — shows a live per-stroke input/
   // render timing readout. Controlled by the "Debug overlay" feature flag
@@ -194,6 +198,7 @@ export function Room() {
   // pattern as debugEnabled/predictEnabled; off by default until there's
   // real-usage feedback on whether to keep it.
   const tapToHideEnabled = getFeatureFlag('tapToHideUI')
+  useEffect(() => { diagLog('tapToHideEnabled is', tapToHideEnabled) }, [tapToHideEnabled])
   const [uiHidden, setUiHidden] = useState(false)
   const toggleUI = useCallback(() => setUiHidden(h => !h), [])
 
@@ -1505,6 +1510,8 @@ export function Room() {
       for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
 
       if (!firstRoomStateReceivedRef.current) {
+        ;(window as unknown as { __debugReload?: unknown }).__debugReload = { engineExists: !!engineRef.current, tailLen: tailOperations.length, latestSnapshotSeq }
+        console.log('[DEBUG-RELOAD]', JSON.stringify((window as unknown as { __debugReload?: unknown }).__debugReload))
         firstRoomStateReceivedRef.current = true
         useRoomStore.getState().setRoomInfo(toRoomConfig(room))
         if (!engineRef.current) {
@@ -1526,14 +1533,27 @@ export function Room() {
         // producing a visible "loads fine, then the preloader flashes on
         // for no reason" — reported after #185 made this window visible for
         // the first time (previously silent, just pointer-events:none).
-        // Nothing to actually restore here (a brand-new room's
-        // tailOperations/latestSnapshotSeq are empty/null), but
-        // participants/palette are still genuinely new — apply them
-        // directly and skip the lock/restore/unlock below entirely, which
-        // exists for real reconnects, not this.
-        dispatchParticipants({ type: 'room_state', participants: roomParticipants })
-        useRoomStore.getState().setPalette(palette)
-        return
+        //
+        // That "nothing to restore" assumption only holds for a genuinely
+        // brand-new room, though — this exact same branch (fresh refs +
+        // engine already mounted) is also what the *creator's own tab
+        // reloading an already-drawn-on room* looks like, and there
+        // `tailOperations`/`latestSnapshotSeq` are not empty at all. The old
+        // code never checked, so a creator's reload silently produced a
+        // blank canvas with no restore and no preloader — as if a brand-new
+        // room had just been created — dropping whatever was drawn before
+        // the reload (still safe on the server/Postgres side, just never
+        // fetched back). Tell the two apart by the payload itself: only
+        // take the early-return shortcut when there's truly nothing to
+        // restore; otherwise fall through into the exact same restore-from-
+        // snapshot/replay-tail logic below a real reconnect uses — this
+        // engine instance is just as freshly empty as a reconnecting
+        // client's would be.
+        if (tailOperations.length === 0 && latestSnapshotSeq === null) {
+          dispatchParticipants({ type: 'room_state', participants: roomParticipants })
+          useRoomStore.getState().setPalette(palette)
+          return
+        }
       }
       // See the mount-engine effect's own comment on engine.paperReady() —
       // same reasoning applies to a reconnect's full-history replay. A
@@ -2218,6 +2238,28 @@ export function Room() {
           earlier testing. */}
       {(debugEnabled || hapticGrainEnabled || tapToHideEnabled || pencilSoundTuningEnabled) && (
         <div className={styles.debugStack}>
+          {/* On-device log capture (see lib/diagLog.ts) — for field reports
+              from a device with no attached inspector (Android tablets,
+              mainly): diagLog() calls throughout the tap-toggle/viewport
+              gesture code (and roomContentReady transitions) feed an
+              in-memory ring buffer; this copies it to the clipboard so it
+              can be pasted back in chat instead of needing devtools. */}
+          <div className={styles.debugOverlay} style={{ pointerEvents: 'auto' }}>
+            <button
+              type="button"
+              onClick={() => { void navigator.clipboard.writeText(getDiagLogs()) }}
+              style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer', marginRight: 6 }}
+            >
+              copy logs
+            </button>
+            <button
+              type="button"
+              onClick={() => clearDiagLogs()}
+              style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer' }}
+            >
+              clear logs
+            </button>
+          </div>
           {/* Device performance readout (#91, extended #104) — ?debug=1
               only. Shows the last completed stroke's real input-sample
               rate, paint cost, and end-to-end (PointerEvent.timeStamp →

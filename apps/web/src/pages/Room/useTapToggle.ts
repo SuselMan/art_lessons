@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { RefObject } from 'react'
 
+import { diagLog } from '../../lib/diagLog'
 import { TapTracker } from './tapTracker'
 
 // Diagnostic for "tap doesn't hide UI" reports that vary by device (see
@@ -38,9 +39,10 @@ export function useTapToggle(
   onDebug?: (info: TapDebugInfo) => void,
 ): void {
   useEffect(() => {
-    if (!enabled) return
+    if (!enabled) { diagLog('useTapToggle: disabled, not attaching') ; return }
     const el = ref.current
-    if (!el) return
+    if (!el) { diagLog('useTapToggle: enabled but ref.current is null, not attaching') ; return }
+    diagLog('useTapToggle: attached listeners on', el.className || el.tagName)
 
     const tracker = new TapTracker()
     // Diagnostic-only bookkeeping, parallel to TapTracker's own internal
@@ -51,6 +53,7 @@ export function useTapToggle(
     let concurrent = 0
 
     const onDown = (e: PointerEvent) => {
+      diagLog('tap: down', { id: e.pointerId, type: e.pointerType, activeBefore: [...starts.keys()] })
       if (e.pointerType === 'touch') {
         tracker.down(e.pointerId, e.clientX, e.clientY)
         starts.set(e.pointerId, { x: e.clientX, y: e.clientY })
@@ -71,6 +74,7 @@ export function useTapToggle(
     const onUp = (e: PointerEvent) => {
       if (e.pointerType === 'touch') {
         const wasTap = tracker.up(e.pointerId)
+        diagLog('tap: up', { id: e.pointerId, wasTap, maxDistPx: maxDist.get(e.pointerId) ?? 0, concurrent, staleIdsBefore: [...starts.keys()] })
         onDebug?.({
           pointerType: e.pointerType,
           maxDistPx: maxDist.get(e.pointerId) ?? 0,
@@ -81,9 +85,12 @@ export function useTapToggle(
         maxDist.delete(e.pointerId)
         concurrent = Math.max(0, concurrent - 1)
         if (wasTap) onTap()
+      } else {
+        diagLog('tap: up ignored, pointerType is', e.pointerType)
       }
     }
     const onCancel = (e: PointerEvent) => {
+      diagLog('tap: cancel', { id: e.pointerId, type: e.pointerType })
       if (e.pointerType === 'touch') {
         tracker.cancel(e.pointerId)
         starts.delete(e.pointerId)
@@ -103,6 +110,7 @@ export function useTapToggle(
     // are the most reliable generic "can't trust this pointer's own
     // up/cancel anymore" signals available — full reset on either.
     const resetAll = () => {
+      diagLog('tap: resetAll fired', { reason: document.hidden ? 'visibilitychange(hidden)' : 'blur/visibilitychange(visible)', hadStale: [...starts.keys()] })
       tracker.reset()
       starts.clear()
       maxDist.clear()

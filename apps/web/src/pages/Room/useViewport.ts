@@ -3,6 +3,7 @@ import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
 import { deviceNativeZoom } from './cameraMath'
+import { diagLog } from '../../lib/diagLog'
 import { useRoomStore } from '../../stores/roomStore'
 
 export interface Viewport { cx: number; cy: number; zoom: number; angle: number }
@@ -144,6 +145,7 @@ export function useViewport(
 
     const onDown = (e: PointerEvent) => {
       if (e.pointerType === 'touch') {
+        diagLog('vp: down', { id: e.pointerId, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current, toolActive: toolActive.current })
         if (toolActive.current && reservedTouchId.current === null && touchPtrs.current.size === 0) {
           reservedTouchId.current = e.pointerId
           return
@@ -203,6 +205,7 @@ export function useViewport(
 
     const onUp = (e: PointerEvent) => {
       if (e.pointerType === 'touch') {
+        diagLog('vp: up/cancel', { id: e.pointerId, type: e.type, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current })
         if (reservedTouchId.current === e.pointerId) { reservedTouchId.current = null; return }
         touchPtrs.current.delete(e.pointerId)
         try { el.releasePointerCapture(e.pointerId) } catch { /* context loss */ }
@@ -225,6 +228,7 @@ export function useViewport(
     // are the most reliable generic "can't trust this pointer's own
     // up/cancel anymore" signals available — full reset on either.
     const resetTouchState = () => {
+      diagLog('vp: resetTouchState fired', { hadPtrs: [...touchPtrs.current.keys()], hadReserved: reservedTouchId.current })
       touchPtrs.current.clear()
       reservedTouchId.current = null
       midPanRef.current = null
