@@ -39,7 +39,7 @@ import { TransformGizmo, type TransformHandleKind, type TransformBounds } from '
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
-import { TOOL_SCHEMAS, loadToolSettings, saveToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor } from './toolSchemas'
+import { TOOL_SCHEMAS, loadToolSettings, saveToolSettings } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader } from './snapshotSync'
 import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
@@ -250,31 +250,23 @@ export function Room() {
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
   )
-  const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil')
+  const tool = useRoomStore(s => s.tool)
+  const setTool = useRoomStore(s => s.setTool)
   // Unified per-tool settings (#196) — grade/size/opacity/color for every
   // registered tool (TOOL_SCHEMAS in toolSchemas.ts), persisted per room
-  // (#156) and loaded once up front (id is stable for the component's
-  // lifetime; a room switch remounts it) rather than re-read on every
-  // render. Color used to be its own top-level `color` state shared by
-  // whatever tool happened to be active; it now lives at
+  // (#156). Backed by the store (#23): seeded once up front from this
+  // room's localStorage — same one-shot timing the old
+  // `useState(() => loadToolSettings(...))` had (id is stable for the
+  // component's lifetime; a room switch remounts it), just done as a side
+  // effect inside a throwaway useState initializer so it still runs
+  // synchronously during the first render, before initialToolRef below
+  // reads the store. Color used to be its own top-level `color` state
+  // shared by whatever tool happened to be active; it now lives at
   // `toolSettings.pencil.color` — the schema's per-tool slot — same value,
   // same behavior, just no longer a second parallel place settings live.
-  const [toolSettings, setToolSettingsState] = useState<ToolSettingsMap>(
-    () => loadToolSettings(localStorage, id ?? ''),
-  )
-  const setToolSetting = useCallback((
-    toolId: UiToolId,
-    key: string,
-    value: SettingDescriptor['default'] | ((prev: SettingDescriptor['default']) => SettingDescriptor['default']),
-  ) => {
-    setToolSettingsState(prev => ({
-      ...prev,
-      [toolId]: {
-        ...prev[toolId],
-        [key]: typeof value === 'function' ? value(prev[toolId][key]) : value,
-      },
-    }))
-  }, [])
+  useState(() => useRoomStore.setState({ toolSettings: loadToolSettings(localStorage, id ?? '') }))
+  const toolSettings = useRoomStore(s => s.toolSettings)
+  const setToolSetting = useRoomStore(s => s.setToolSetting)
   // Floating tool panel's dragged-to position (#157) — same load-once-up-
   // front pattern as toolSettings above; null until the panel's
   // ever been dragged in this room, in which case it renders at its
@@ -297,7 +289,12 @@ export function Room() {
   // guided lines along the same edge — and is only cleared when the tool
   // is toggled off, or another one-shot tool takes over the pointer catcher.
   const [rulerActive, setRulerActive] = useState(false)
-  const [rulerLine, setRulerLine] = useState<{ a: RulerPoint; b: RulerPoint } | null>(null)
+  // (#23) Backed by the store now, alongside the transform-preview fields
+  // below — moved for architectural consistency, but deliberately NEVER
+  // persisted (see layerSlice.ts's own comment: a ruler is for quickly
+  // comparing distances mid-drawing, not a saved setting).
+  const rulerLine = useRoomStore(s => s.rulerLine)
+  const setRulerLine = useRoomStore(s => s.setRulerLine)
   // True once the initial placement drag has actually finished (pointerup).
   // Deliberately NOT the same thing as "rulerLine !== null": rulerLine is
   // set to a (degenerate, a===b) value on the very first pointerdown of the
@@ -326,7 +323,8 @@ export function Room() {
   // frame. null while the tool is off, or before the first computation
   // lands, or (edge case) an active target with no content bounds and no
   // config to fall back to yet.
-  const [transformBounds, setTransformBounds] = useState<TransformBounds | null>(null)
+  const transformBounds = useRoomStore(s => s.transformBounds)
+  const setTransformBounds = useRoomStore(s => s.setTransformBounds)
   // Custom rotation pivot (Adobe Animate-style draggable transform point) —
   // null means "use the content bounds' own center". Reset on activation
   // and after every commit: each drag already commits immediately (no
@@ -335,11 +333,13 @@ export function Room() {
   // an absolute canvas-space point through a move/scale that just changed
   // where the content actually is keeps this from silently pointing
   // somewhere stale.
-  const [transformCenterOverride, setTransformCenterOverride] = useState<{ x: number; y: number } | null>(null)
+  const transformCenterOverride = useRoomStore(s => s.transformCenterOverride)
+  const setTransformCenterOverride = useRoomStore(s => s.setTransformCenterOverride)
   // Matrix for the *current* drag frame, fed to TransformGizmo so its handles
   // visually ride along with the content instead of staying glued to the
   // pre-drag bounds (see TransformGizmo's docstring) — null between drags.
-  const [transformLiveMatrix, setTransformLiveMatrix] = useState<AffineMatrix | null>(null)
+  const transformLiveMatrix = useRoomStore(s => s.transformLiveMatrix)
+  const setTransformLiveMatrix = useRoomStore(s => s.setTransformLiveMatrix)
   // (#21) Backed by the store now — layerState is still a *derived cache*
   // of the engine's operation log (ADR 002), never independently mutable
   // content state; see syncFromLog below and roomStore's layerSlice.
@@ -1026,7 +1026,7 @@ export function Room() {
     setRulerLine(null)
     setRulerPlaced(false)
     engineRef.current?.setRuler(null)
-  }, [])
+  }, [setRulerLine])
 
   // Eyedropper, ruler, and transform mode all take over the same
   // canvas-pointer catcher slot (or, for transform, the gizmo's own handles;
@@ -1060,7 +1060,7 @@ export function Room() {
       }
       return next
     })
-  }, [])
+  }, [setRulerLine])
 
   // Active layer, or the current multi-select from LayerPanel — background
   // is never a legal transform target, same as merge/delete (#120).
@@ -1090,12 +1090,12 @@ export function Room() {
     // whole canvas rather than making the gizmo just vanish.
     setTransformBounds(bounds ?? (config ? { x: 0, y: 0, width: config.width, height: config.height } : null))
     setTransformCenterOverride(null)
-  }, [transformTargetIds, config])
+  }, [transformTargetIds, config, setTransformBounds, setTransformCenterOverride])
 
   useEffect(() => {
     if (!transformActive) { setTransformBounds(null); setTransformCenterOverride(null); return }
     refreshTransformBounds()
-  }, [transformActive, refreshTransformBounds])
+  }, [transformActive, refreshTransformBounds, setTransformBounds, setTransformCenterOverride])
 
   // Ruler tool (#89): initial placement drag — down/move/up tracked
   // manually via setPointerCapture + direct DOM listeners, the same pattern
@@ -1148,7 +1148,7 @@ export function Room() {
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config])
+  }, [vpRef, vp, config, setRulerLine])
 
   // Ruler tool (#89): once placed, repositioning — grabbing an endpoint
   // rotates/resizes it, grabbing the body translates both endpoints
@@ -1204,7 +1204,7 @@ export function Room() {
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, rulerLine])
+  }, [vpRef, vp, config, rulerLine, setRulerLine])
 
   // Layer transform tool (#120): mirrors handleRulerPlaceDown's drag-capture
   // pattern exactly, but per-handle (body/corner/rotate) rather than a
@@ -1307,7 +1307,7 @@ export function Room() {
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, transformBounds, transformTargetIds, transformCenterOverride, dispatchOp, refreshTransformBounds])
+  }, [vpRef, vp, config, transformBounds, transformTargetIds, transformCenterOverride, dispatchOp, refreshTransformBounds, setTransformLiveMatrix])
 
   // Adobe Animate-style draggable rotation pivot — a separate gesture from
   // the scale/rotate/translate handles above: it only ever updates
@@ -1342,9 +1342,12 @@ export function Room() {
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config])
+  }, [vpRef, vp, config, setTransformCenterOverride])
 
-  const handleTransformCenterReset = useCallback(() => setTransformCenterOverride(null), [])
+  const handleTransformCenterReset = useCallback(
+    () => setTransformCenterOverride(null),
+    [setTransformCenterOverride],
+  )
 
   // ── who's-drawing indicator (#38) ─────────────────────────────────────────────
   // Periodically prunes `lastActiveAtRef` (refreshed by markActive) into the
@@ -1664,7 +1667,7 @@ export function Room() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [tool, setToolSetting, setVp, handleUndo, handleRedo])
+  }, [tool, setTool, setToolSetting, setVp, handleUndo, handleRedo])
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
