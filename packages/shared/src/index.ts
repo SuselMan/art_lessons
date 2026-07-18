@@ -85,8 +85,13 @@ export type Participant = {
 // a field on `Room` itself (participants isn't a `Room` field either, for the
 // same reason: both are room-scoped state assembled independently of the
 // Prisma `Room` row — see roomMapper.ts's `toWireRoom`).
+// First entry is the pencil's own default graphite color (engine's
+// DEFAULT_GRAPHITE_COLOR, [0.14, 0.14, 0.17] converted via rgbToHex) —
+// duplicated as a literal rather than imported since `packages/shared` sits
+// below `apps/web/engine` in the dependency graph; keep the two in sync by
+// hand if the engine's default ever changes.
 export const DEFAULT_PALETTE_COLORS: string[] = [
-  '#ffffff', '#000000', '#390099', '#9e0059', '#ff0054', '#ff5400', '#ffbd00',
+  '#24242b', '#ffffff', '#000000', '#390099', '#9e0059', '#ff0054', '#ff5400', '#ffbd00',
 ]
 
 // Operations (drawing actions — serializable, replayable).

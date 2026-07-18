@@ -3,8 +3,8 @@
    truth possible across CSS/TS). */
 .panel {
   position: absolute;
-  width: 128px;
-  height: 128px;
+  width: 152px;
+  height: 152px;
   border-radius: 50%;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
@@ -35,19 +35,18 @@
   pointer-events: none;
 }
 
-/* Purely decorative center dot — signals "this whole circle drags", same
-   role a grip icon plays elsewhere. Never intercepts pointer events itself
-   (the drag handler is on .panel, not this). */
-.grip {
+/* Center dot showing the current pencil color — not yet clickable (the drag
+   handler is on .panel; this has no handler of its own, so pointer events
+   simply bubble up same as everywhere else on the panel that isn't a .btn). */
+.colorDot {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 6px;
-  height: 6px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--color-border);
+  border: 2px solid var(--color-border);
   transform: translate(-50%, -50%);
-  pointer-events: none;
 }
 
 .btn {
@@ -71,9 +70,10 @@
   color: var(--color-accent);
 }
 
-/* Compass layout — each button sits at radius 40 from the panel's own
-   center (64,64), well inside the 64px panel radius once the button's own
-   22px half-width is added back (40 + 22 = 62 < 64). */
+/* Compass layout — each button sits at radius 52 from the panel's own
+   center (76,76), well inside the 76px panel radius once the button's own
+   22px half-width is added back (52 + 22 = 74 < 76). Positions: pencil top,
+   redo right, eraser bottom, undo left. */
 .btnTop    { top: 2px; left: 50%; transform: translateX(-50%); }
 .btnRight  { right: 2px; top: 50%; transform: translateY(-50%); }
 .btnBottom { bottom: 2px; left: 50%; transform: translateX(-50%); }

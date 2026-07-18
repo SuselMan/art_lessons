@@ -2127,6 +2127,7 @@ export function Room() {
           onSetTool={setTool}
           onUndo={handleUndo}
           onRedo={handleRedo}
+          pencilColor={pencilColor}
           roomId={id ?? ''}
           position={panelPosition}
           onPositionChange={setPanelPosition}
