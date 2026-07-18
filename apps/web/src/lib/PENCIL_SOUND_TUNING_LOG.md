@@ -900,6 +900,55 @@ take 16's render-calibrated starting point), `midMix` 0.35→0.36 (negligible), 
 
 **Result:** confirmed better by ear — current shipped state. Further tuning continues via the panel.
 
+## Round 13, take 18 — shared-excitation experiment (outside expert review)
+
+Ilya asked an outside audio expert to review PencilSound.ts's design (given the take-17 writeup).
+Their central critique: mid/body/hiss are three genuinely independent noise sources that only share
+a *slow* loudness envelope (speed/pressure) — real graphite-on-paper contact is one micro-event
+(a sharp high-frequency crack) simultaneously exciting several resonant responses at once (a paper/
+table body ring, a mid-band scrape), not three unrelated generators that happen to overlap in
+spectrum. Their hypothesis: independent layers read as "stacked noise generators" even at a matching
+spectrum, because the ear is sensitive to shared micro-event timing, not just average frequency
+content — and cross-band envelope correlation would be the way to measure it.
+
+**Extended the analyzer first** (`analyzeCorrelation.mjs`, new): per-frame low/mid/high band energy
+via STFT, Pearson correlation between bands, plus a detrended version (subtracts a ~120ms moving
+average from each band's energy-over-time before correlating) — raw correlation conflates "shared
+slow speed envelope" with genuine fast/transient shared structure, detrending isolates the latter,
+which is the actual question.
+
+Baseline measurement (real recordings vs. our synth, independent renders): raw correlation was
+*higher* for our synth (0.84-0.96) than either reference recording (0.10-0.55) — but this reversed
+almost entirely once detrended (real: 0.04-0.90 depending on band pair and which recording; ours:
+0.59-0.81) — real-to-real variance between the two reference files was itself huge (e.g. low<->mid
+0.36 vs 0.90), making this too small/noisy a sample to treat as a hard target either way. Didn't
+block on this — the expert's physical/perceptual argument stands on its own regardless of what one
+noisy statistic shows.
+
+**Implemented**: `GrainVariant.midGrainCoupling`/`bodyGrainCoupling` (0-1, both default 0 = unchanged
+prior behavior) — the *same* grain envelope already driving hiss (see take 16) now also feeds
+carrierGain.gain (mid) and, through an extra smoothing lowpass (`bodyGrainSmoothHz`, default 20Hz —
+a resonant body responds more slowly to an impact than the sharp contact noise exciting it, so it
+shouldn't reuse the identical spiky shape mid gets), bodyGain.gain (body). `PENCIL_SOUND_VARIANT_3`
+ships with modest starting weights (midGrainCoupling 0.3, bodyGrainCoupling 0.15) — explicitly an
+ear-tuned experimental default, not a calibrated one like the mix values above. All three new knobs
+exposed in the panel.
+
+**Measured the effect properly this time**: the very first A/B (before vs. after, independent
+renders) showed a large swing, but re-running both configurations against an *identical seeded noise
+source* (a mulberry32 PRNG feeding every noise buffer, so only the coupling parameter differs between
+runs) showed the true effect is negligible at these weights — detrended correlation moved by ~0.003
+in every band pair. The earlier "large" difference was entirely random-noise-instance variance
+between separate un-seeded renders, not a real effect of the code change — a reminder that render-
+and-compare needs matched noise seeds for a clean A/B, not just "before/after."
+
+**Result:** _pending — the mechanism is in place and shippable (default-safe), but not proven to move
+the needle at its current depth. Either turn midGrainCoupling/bodyGrainCoupling up well past 0.3/0.15
+via the panel and judge by ear (the metric may simply not be sensitive enough at this scale to be a
+useful gate), or treat this as inconclusive and move to the distance-driven-grain experiment next
+(reviving the relevant piece of the abandoned AudioWorklet variant — see round 11 — instead of the
+current speed-driven grain-rate LFO)._
+
 ## How to log a result
 
 After each round, replace the pending line above with the winner and a short

@@ -112,6 +112,11 @@ export function PencilSoundTuningPanel({ pencilSoundRef }: { pencilSoundRef: Ref
             <Row label="hissLowHz" value={PENCIL_SOUND_TUNING.hissLowHz} min={2000} max={14000} step={100} onChange={v => patchTuning('hissLowHz', v)} />
             <Row label="hissHighHz" value={PENCIL_SOUND_TUNING.hissHighHz} min={4000} max={18000} step={100} onChange={v => patchTuning('hissHighHz', v)} />
           </Section>
+          <Section title="shared excitation (mid/body coupled to grain)">
+            <Row label="midGrainCoupling" value={grain.midGrainCoupling ?? 0} min={0} max={1} step={0.01} onChange={v => patchGrain({ midGrainCoupling: v })} />
+            <Row label="bodyGrainCoupling" value={grain.bodyGrainCoupling ?? 0} min={0} max={1} step={0.01} onChange={v => patchGrain({ bodyGrainCoupling: v })} />
+            <Row label="bodyGrainSmoothHz" value={PENCIL_SOUND_TUNING.bodyGrainSmoothHz} min={2} max={100} step={1} onChange={v => patchTuning('bodyGrainSmoothHz', v)} />
+          </Section>
           <Section title="speed → loudness">
             <Row label="speedPresenceFloor" value={grain.speedPresenceFloor ?? 1} min={0} max={1} step={0.01} onChange={v => patchGrain({ speedPresenceFloor: v })} />
             <Row label="outputGainScale" value={grain.outputGainScale ?? 1} min={0} max={2} step={0.01} onChange={v => patchGrain({ outputGainScale: v })} />

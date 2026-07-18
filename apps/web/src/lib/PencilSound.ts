@@ -117,6 +117,13 @@ export interface PencilSoundTuning {
   bodyPresenceFloor: number
   hissLowHz: number // high "hiss/grit" band's highpass edge
   hissHighHz: number // high "hiss/grit" band's lowpass edge
+  // Round 13, take 18: cutoff for the extra lowpass on body's coupled-grain
+  // path (see GrainVariant.bodyGrainCoupling and buildLayer()) — a real
+  // resonant body responds to an impact more slowly/smoothly than the sharp
+  // contact noise that excited it; this smooths the shared grain envelope
+  // into a duller, slower-following version before it reaches bodyGain,
+  // rather than reusing the exact same spiky shape mid/hiss get.
+  bodyGrainSmoothHz: number
 }
 
 // Round 13, take 14: applied the take-13 deep-analysis findings directly
@@ -175,6 +182,7 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   bodyPresenceFloor: 0.6,
   hissLowHz: 6000,
   hissHighHz: 12000,
+  bodyGrainSmoothHz: 20,
 }
 
 export interface GrainVariant {
@@ -262,6 +270,20 @@ export interface GrainVariant {
   // texture is a more plausible physical home for discrete grain "ticks"
   // than a mid-range tonal sweep.
   hissMix?: number
+  // Round 13, take 18 (#153, outside expert review): the three bands above
+  // are still driven by *independent* noise sources with no shared
+  // causality — real graphite-on-paper contact is one micro-event exciting
+  // several resonant responses at once (a sharp high crack, a paper/table
+  // body ring), not three unrelated generators that merely share a slow
+  // loudness envelope. These two couple the *same* grain envelope that
+  // already drives hiss (see buildLayer()) into mid/body too, at a much
+  // smaller weight each — "one contact event, several responses" instead of
+  // "three independent textures." 0/undefined = no coupling (exact prior
+  // behavior). See buildLayer() for why body's path also gets an extra
+  // lowpass (a slower-responding resonant body versus mid's near-instant
+  // one).
+  midGrainCoupling?: number
+  bodyGrainCoupling?: number
 }
 
 // The original, untuned sound this app shipped with — floor-dominated, barely-modulated broadband
@@ -410,6 +432,16 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   midMix: 0.36,
   bodyMix: 0.84,
   hissMix: 0.65,
+  // Round 13, take 18: experimental — modest starting weights, meant to be
+  // tuned by ear via the panel, not a calibrated result like bodyMix/hissMix
+  // above. The hypothesis (an outside expert's review) is that a shared
+  // excitation reads as "one material" where independent layers read as
+  // "noise generators stacked" even at a matching spectrum — cross-band
+  // envelope correlation measured on the real recordings didn't confirm the
+  // expected direction cleanly (small, noisy sample), so this is a by-ear
+  // call, not a data-driven one like the mix values above.
+  midGrainCoupling: 0.3,
+  bodyGrainCoupling: 0.15,
 }
 
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
@@ -608,6 +640,10 @@ interface GrainLayer {
   hissHighpass: BiquadFilterNode
   hissLowpass: BiquadFilterNode
   hissGain: GainNode
+  // Round 13, take 18 — see buildLayer()'s comment.
+  midGrainGain: GainNode
+  bodyGrainLowpass: BiquadFilterNode
+  bodyGrainGain: GainNode
 }
 
 interface AudioGraph {
@@ -771,7 +807,7 @@ export class PencilSound implements PencilSoundAPI {
 
   private applyTarget(graph: AudioGraph, pressure: number, speed: number, tiltX: number, tiltY: number): void {
     const now = graph.ctx.currentTime
-    const { minFreq, maxFreq, brightnessRamp, rampSlow, rampFast, bodyFreqHz, bodyQ, bodyPresenceFloor, hissLowHz, hissHighHz } = PENCIL_SOUND_TUNING
+    const { minFreq, maxFreq, brightnessRamp, rampSlow, rampFast, bodyFreqHz, bodyQ, bodyPresenceFloor, hissLowHz, hissHighHz, bodyGrainSmoothHz } = PENCIL_SOUND_TUNING
     const brightness = brightnessFreq(speed, this.hardness)
     const q = bandpassQ(pressure)
     const speedT = speedNorm(speed)
@@ -834,6 +870,19 @@ export class PencilSound implements PencilSoundAPI {
         layer.hissHighpass.frequency.setTargetAtTime(hissLowHz, now, rampSlow)
         layer.hissLowpass.frequency.setTargetAtTime(hissHighHz, now, rampSlow)
       }
+
+      // Round 13, take 18: shared-excitation coupling — the same grain
+      // envelope driving hiss above also leaks into mid/body, at
+      // independent (typically much smaller) weights, so a single contact
+      // "event" reads as one thing exciting several responses rather than
+      // three unrelated noise generators. depth*presenceScale mirrors
+      // grainDepthGain's own scaling (see above) so the coupled weight
+      // tracks the same speed-driven intensity the primary grain does.
+      const midGrainCoupling = layer.recipe.midGrainCoupling ?? 0
+      layer.midGrainGain.gain.setTargetAtTime(layer.recipe.depth * midGrainCoupling * presenceScale, now, rampSlow)
+      const bodyGrainCoupling = layer.recipe.bodyGrainCoupling ?? 0
+      layer.bodyGrainGain.gain.setTargetAtTime(layer.recipe.depth * bodyGrainCoupling * presenceScale, now, rampSlow)
+      layer.bodyGrainLowpass.frequency.setTargetAtTime(bodyGrainSmoothHz, now, rampSlow)
     }
     graph.tiltLowpass.frequency.setTargetAtTime(tiltLowpassFreq(tiltX, tiltY), now, rampSlow)
     const master = masterGainTarget(pressure, speed, this.paperFactor) * (this.grain.outputGainScale ?? 1)
@@ -936,12 +985,35 @@ export class PencilSound implements PencilSoundAPI {
     const grainDepth = ctx.createGain()
     grainDepth.gain.value = recipe.depth
 
-    modulator.connect(grainLowpass).connect(grainNormGain).connect(rectify).connect(grainDepth).connect(hissGain.gain)
+    modulator.connect(grainLowpass).connect(grainNormGain).connect(rectify)
+    rectify.connect(grainDepth).connect(hissGain.gain)
+
+    // Round 13, take 18 (#153, outside expert review): "one contact event,
+    // several responses" instead of three unrelated noise generators that
+    // merely share a slow loudness envelope — see GrainVariant.
+    // midGrainCoupling/bodyGrainCoupling's own doc. Same `rectify` envelope
+    // as hiss's above, fanned out to two more destinations at independent
+    // (much smaller) weights, each set in applyTarget(). Body's path gets
+    // an extra lowpass first — a resonant body responds more slowly/smoothly
+    // to an impact than the sharp contact noise that excited it, so it
+    // shouldn't reuse the exact same spiky shape mid gets.
+    const midGrainGain = ctx.createGain()
+    midGrainGain.gain.value = 0
+    rectify.connect(midGrainGain).connect(carrierGain.gain)
+
+    const bodyGrainLowpass = ctx.createBiquadFilter()
+    bodyGrainLowpass.type = 'lowpass'
+    bodyGrainLowpass.frequency.value = PENCIL_SOUND_TUNING.bodyGrainSmoothHz
+    const bodyGrainGain = ctx.createGain()
+    bodyGrainGain.gain.value = 0
+    rectify.connect(bodyGrainLowpass).connect(bodyGrainGain).connect(bodyGain.gain)
+
     modulator.start()
 
     return {
       recipe, bandpass, highpass, carrierGain, grainLowpass, grainNormGain, rectify, grainDepthGain: grainDepth, mixGain,
       bodyLowpass, bodyGain, hissHighpass, hissLowpass, hissGain,
+      midGrainGain, bodyGrainLowpass, bodyGrainGain,
     }
   }
 
