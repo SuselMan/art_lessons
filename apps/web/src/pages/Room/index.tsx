@@ -1510,10 +1510,24 @@ export function Room() {
       for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
 
       if (!firstRoomStateReceivedRef.current) {
-        ;(window as unknown as { __debugReload?: unknown }).__debugReload = { engineExists: !!engineRef.current, tailLen: tailOperations.length, latestSnapshotSeq }
-        console.log('[DEBUG-RELOAD]', JSON.stringify((window as unknown as { __debugReload?: unknown }).__debugReload))
         firstRoomStateReceivedRef.current = true
-        useRoomStore.getState().setRoomInfo(toRoomConfig(room))
+        // Only a joiner needs this — `config` is one of the mount-engine
+        // effect's own deps (so it can wait for "not yet known" -> "known"),
+        // and setRoomInfo always writes a *new* object even when every
+        // field is identical (toRoomConfig has no memoization), which reads
+        // to that effect as "config changed" and makes it tear down and
+        // recreate the engine. A creator's config is already known
+        // synchronously from navigation state (see creatorDraft/toRoomConfig
+        // above) with the exact same fields toRoomConfig(room) would produce
+        // here (both are Pick<Room, 'id'|'name'|'paper'|'infinite'|
+        // 'canvasWidth'|'canvasHeight'> from the same data) — calling this
+        // again for the creator is redundant, and specifically harmful right
+        // here: it silently destroyed whatever this handler had just
+        // restored into the engine below (the tail replay would finish, then
+        // React's next effect pass would blow the engine away and rebuild it
+        // empty) — invisible before the tailOperations/latestSnapshotSeq fix
+        // just above, since there used to be nothing to lose in this branch.
+        if (!isCreator) useRoomStore.getState().setRoomInfo(toRoomConfig(room))
         if (!engineRef.current) {
           // Real first join: this is how we learn paper/canvas size — the
           // engine doesn't exist yet to apply `tailOperations` to, so stash
