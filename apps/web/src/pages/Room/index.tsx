@@ -27,6 +27,7 @@ import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
+import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
@@ -975,19 +976,29 @@ export function Room() {
   // ── operation log bridge ──────────────────────────────────────────────────────
   // (syncFromLog is defined above, alongside markActive, since the mount-engine
   // effect needs it too — see the pending-snapshot replay there.)
+  // #185's audit: LayerPanel's onOp and TransformGizmo's commit both go
+  // through dispatchOp, and undo/redo has both header buttons and hotkeys —
+  // all four paths are safe no-ops while roomContentReady is false, the same
+  // window the canvas itself is already pointer-events:none for (see
+  // roomContentReady's own doc comment). A single guard here rather than
+  // disabling each control individually — the visible preloader already
+  // covers the canvas, and this window is a couple of seconds at most.
   const dispatchOp = useCallback((draft: OperationDraft) => {
+    if (!roomContentReady) return
     const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
     engineRef.current?.appendOperation(op) // source defaults to 'local' → broadcast via onLocalOperation
     syncFromLog()
-  }, [syncFromLog])
+  }, [syncFromLog, roomContentReady])
 
   const handleUndo = useCallback(() => {
+    if (!roomContentReady) return
     if (engineRef.current?.undo()) syncFromLog()
-  }, [syncFromLog])
+  }, [syncFromLog, roomContentReady])
 
   const handleRedo = useCallback(() => {
+    if (!roomContentReady) return
     if (engineRef.current?.redo()) syncFromLog()
-  }, [syncFromLog])
+  }, [syncFromLog, roomContentReady])
 
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen()
@@ -2075,6 +2086,12 @@ export function Room() {
           {rulerActive && !rulerPlaced && (
             <div className={styles.rulerPlaceOverlay} onPointerDown={handleRulerPlaceDown} />
           )}
+          {/* #185: visible while the initial content restore (snapshot fetch
+              + operation-log replay/backfill) is still in flight — a direct
+              child of .viewport (not .canvasWrap) so it never pans/zooms/
+              rotates with the canvas underneath it, and covers both the
+              bounded and infinite render paths above with one overlay. */}
+          {!roomContentReady && <RoomLoadingOverlay />}
         </div>
 
         {/* ── Side panel (layers, color, …) ── */}
