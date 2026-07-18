@@ -117,6 +117,11 @@ export function PencilSoundTuningPanel({ pencilSoundRef }: { pencilSoundRef: Ref
             <Row label="bodyGrainCoupling" value={grain.bodyGrainCoupling ?? 0} min={0} max={1} step={0.01} onChange={v => patchGrain({ bodyGrainCoupling: v })} />
             <Row label="bodyGrainSmoothHz" value={PENCIL_SOUND_TUNING.bodyGrainSmoothHz} min={2} max={100} step={1} onChange={v => patchTuning('bodyGrainSmoothHz', v)} />
           </Section>
+          <Section title="distance-driven grain (Experiment Б, #153 round 13)">
+            <Row label="distanceGrainMix" value={grain.distanceGrainMix ?? 0} min={0} max={2} step={0.01} onChange={v => patchGrain({ distanceGrainMix: v })} />
+            <Row label="distanceGrainSpacingPx" value={PENCIL_SOUND_TUNING.distanceGrainSpacingPx} min={1} max={40} step={0.5} onChange={v => patchTuning('distanceGrainSpacingPx', v)} />
+            <Row label="distanceGrainDecaySeconds" value={PENCIL_SOUND_TUNING.distanceGrainDecaySeconds} min={0.0005} max={0.02} step={0.0005} onChange={v => patchTuning('distanceGrainDecaySeconds', v)} />
+          </Section>
           <Section title="speed → loudness">
             <Row label="speedPresenceFloor" value={grain.speedPresenceFloor ?? 1} min={0} max={1} step={0.01} onChange={v => patchGrain({ speedPresenceFloor: v })} />
             <Row label="outputGainScale" value={grain.outputGainScale ?? 1} min={0} max={2} step={0.01} onChange={v => patchGrain({ outputGainScale: v })} />

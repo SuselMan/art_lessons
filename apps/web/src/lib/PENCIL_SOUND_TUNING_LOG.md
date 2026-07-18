@@ -959,14 +959,59 @@ harder to matter perceptually, which is exactly what happened here.
 
 **Result:** confirmed better by ear — current shipped state.
 
-## Round 13, take 20 — distance-driven grain (in progress)
+## Round 13, take 20 — distance-driven grain (Experiment Б)
 
-Next: revive the distance-driven-grain idea from the abandoned AudioWorklet variant (round 11) —
-grain excitation tied to *pixels of stroke traveled*, not elapsed time/speed directly, so grain rate
-falls out of integrating speed rather than being a speed→rate LFO, and a stationary tip is
-structurally silent rather than relying on the deadzone/presence-floor machinery to approximate it.
-Goal per Ilya: "добейся максимального сходства с настоящим звуком" — direct optimization target is
-matching the reference recordings, not just "try the idea and see."
+Revived the distance-driven-grain idea from the abandoned AudioWorklet variant (round 11) — grain
+excitation tied to *pixels of stroke traveled*, not elapsed time/speed directly, so grain rate falls
+out of integrating speed rather than being a speed→rate LFO. Implemented as an additive mechanism
+(`GrainVariant.distanceGrainMix`, `PENCIL_SOUND_TUNING.distanceGrainSpacingPx`/
+`distanceGrainDecaySeconds`): `PencilSound` itself integrates `speed * dt` between `start()`/`update()`
+calls (real wall-clock px/ms × ms, dt clamped to 100ms to avoid a runaway burst after a long gap) and
+fires a one-shot pre-baked micro-grain (`createMicroGrainBuffer()`, hiss-band-filtered noise burst)
+into `layerSum` every `distanceGrainSpacingPx` (jittered 0.6-1.4×), amplitude heavy-tailed and
+pressure-scaled — same algorithm as the worklet's own `distPx`/`nextGrainAt`, adapted from per-sample
+to per-pointer-event granularity. Shipped default `distanceGrainMix: 0.5`.
+
+Goal per Ilya: "добейся максимального сходства с настоящим звуком" — measured via the established
+render-and-compare methodology (seeded-noise A/B, same seed with `distanceGrainMix` 0 vs 0.5, isolating
+the mechanism's actual effect from noise-instance variance) against both `Write on Paper with Pencil
+02/03.wav`, using onset detection (take 13's method) and cross-band envelope correlation (take 18's
+method — raw + detrended).
+
+**Onset rate:** both variants are already far denser than either reference before this mechanism is
+even added — off=478/s, on=441/s, vs. references' 337/s (file 02) and 118/s (file 03). Enabling
+distance-grain barely moves this metric (478→441, if anything slightly *down*) — the existing
+continuous grain-rate mechanism already produces enough envelope fluctuation to dominate onset
+detection at a 2ms envelope time-constant, so this metric doesn't cleanly validate the addition either
+way.
+
+**Cross-band correlation (detrended, the take-18 "shared event" test):**
+```
+                    low-high   low-mid   mid-high
+off (mix=0):         0.325      0.750     0.469
+on  (mix=0.5):        0.138      0.197     0.929
+file 02 (ref):        0.040      0.359     0.587
+file 03 (ref):        0.373      0.902     0.520
+```
+Turning distance-grain on is not a "no measurable effect" result like take 18's initial coupling
+weights — it's a directional move, and not clearly toward the references: mid-high correlation
+overshoots to 0.93 (both references sit at 0.52-0.59 — near-perfect correlation reads as *less*
+physically realistic, not more), while low-mid collapses to 0.20 (below both references' 0.36-0.90).
+Likely cause: the micro-grain buffer is pre-filtered to the hiss band but summed into `layerSum`
+*before* the shared tilt/shelf/master chain, alongside a burst that's exactly time-locked with
+everything else driven by the same pressure/speed sample — so it reads as "one more perfectly
+synchronized event" rather than a physically independent contact, inflating high↔mid lock-step beyond
+what real recordings show.
+
+**RMS/loudness:** +52% with distance-grain on (0.00225→0.00343) — a real, audible level increase not
+captured by either metric above.
+
+**Result:** ambiguous-to-negative on the two measured metrics, real audible effect on level — same
+epistemic situation as take 18's initial coupling weights (data doesn't confirm the hypothesis, but by-
+ear judgment might still find it an improvement, since neither onset-rate nor pairwise correlation is a
+complete proxy for perceived realism). Not promoted/demoted by Claude — Ilya's call via the panel
+(`distanceGrainMix` slider, `PencilSoundTuningPanel.tsx`) on whether this reads as closer to the real
+sound despite the metrics, same as take 19's by-ear coupling call.
 
 ## How to log a result
 

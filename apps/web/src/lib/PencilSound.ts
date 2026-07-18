@@ -124,6 +124,14 @@ export interface PencilSoundTuning {
   // into a duller, slower-following version before it reaches bodyGain,
   // rather than reusing the exact same spiky shape mid/hiss get.
   bodyGrainSmoothHz: number
+  // Round 13, take 20 — see GrainVariant.distanceGrainMix's doc. Spacing
+  // calibrated against take 13's onset detection on the real recordings
+  // (~126-368 grains/sec measured at the strokes' actual speeds) rather
+  // than copied from the abandoned worklet's own 3px default, which was
+  // tuned for a different amplitude/decay design and reads far too dense at
+  // this app's typical drawing speeds.
+  distanceGrainSpacingPx: number
+  distanceGrainDecaySeconds: number
 }
 
 // Round 13, take 14: applied the take-13 deep-analysis findings directly
@@ -185,6 +193,8 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   // Round 13, take 19: Ilya's panel session pushed this 20→29 alongside
   // much higher midGrainCoupling/bodyGrainCoupling below.
   bodyGrainSmoothHz: 29,
+  distanceGrainSpacingPx: 9,
+  distanceGrainDecaySeconds: 0.003,
 }
 
 export interface GrainVariant {
@@ -286,6 +296,24 @@ export interface GrainVariant {
   // one).
   midGrainCoupling?: number
   bodyGrainCoupling?: number
+  // Round 13, take 20 (#153): the continuous grain-rate mechanism above
+  // (grainLowpass/rectify/grainDepth) is fundamentally a speed→rate LFO —
+  // it never asks "how far has the tip actually moved," so a stroke that
+  // slows to a crawl over the same patch of paper doesn't re-trigger the
+  // same asperities the way a real tip dragging back and forth would. This
+  // adds a *second*, independent grain mechanism modeled on the abandoned
+  // AudioWorklet variant's distance-triggered grains (round 11,
+  // lib/pencilSoundV3/Variant3Synth.ts, still on disk unused): PencilSound
+  // itself (not the node graph) integrates pixels-of-stroke-traveled
+  // between update() calls and fires a discrete, pre-baked micro-grain
+  // one-shot (see createMicroGrainBuffer()) every
+  // PENCIL_SOUND_TUNING.distanceGrainSpacingPx or so, amplitude heavy-tailed
+  // (mostly quiet ticks, occasional loud one) and pressure-scaled — grain
+  // *rate* falls out of how fast distance accumulates, exactly like the
+  // worklet's, rather than being swept directly. 0/undefined = off (exact
+  // prior behavior) — additive alongside the continuous mechanism above, not
+  // a replacement for it.
+  distanceGrainMix?: number
 }
 
 // The original, untuned sound this app shipped with — floor-dominated, barely-modulated broadband
@@ -456,6 +484,12 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   // matter at all. Confirmed sounding closer to the real recordings by ear.
   midGrainCoupling: 0.64,
   bodyGrainCoupling: 0.6,
+  // Round 13, take 20: distance-driven micro-grain, additive alongside the
+  // continuous grain-rate mechanism above — see its own doc and
+  // createMicroGrainBuffer()/PencilSound's distance-tracking in
+  // start()/update(). Starting weight, to be calibrated against the real
+  // recordings' onset density (render-and-compare), not just picked by ear.
+  distanceGrainMix: 0.5,
 }
 
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
@@ -633,6 +667,36 @@ function createGrainCurve(power: number): Float32Array<ArrayBuffer> {
   return curve
 }
 
+/** Bakes a single short, decaying, band-limited noise burst — the "grain" a
+ *  distance-triggered micro-event plays (see GrainVariant.distanceGrainMix
+ *  and PencilSound's own distance-tracking in start()/update()). Filtered to
+ *  roughly the hiss band (loHz/hiHz — same range hissLowHz/hissHighHz use)
+ *  since that's where round 16's analysis found the continuous grain
+ *  texture actually belongs; a one-pole highpass into a one-pole lowpass
+ *  (same technique as createClickBuffer's own contact-noise blend) rather
+ *  than a proper bandpass biquad, since this only needs to bake once and
+ *  doesn't need to be exact. */
+function createMicroGrainBuffer(ctx: AudioContext, decaySeconds: number, loHz: number, hiHz: number): AudioBuffer {
+  const n = Math.max(4, Math.round(ctx.sampleRate * decaySeconds * 6))
+  const buffer = ctx.createBuffer(1, n, ctx.sampleRate)
+  const data = buffer.getChannelData(0)
+  const r = Math.exp(-1 / (decaySeconds * ctx.sampleRate))
+  const kHp = 1 - Math.exp((-2 * Math.PI * loHz) / ctx.sampleRate)
+  const kLp = 1 - Math.exp((-2 * Math.PI * hiHz) / ctx.sampleRate)
+  let hp = 0
+  let lp = 0
+  let env = 1
+  for (let i = 0; i < n; i++) {
+    const raw = Math.random() * 2 - 1
+    hp += kHp * (raw - hp)
+    const hpOut = raw - hp // highpass
+    lp += kLp * (hpOut - lp) // lowpass the highpassed signal -> bandpass-ish
+    data[i] = lp * env
+    env *= r
+  }
+  return buffer
+}
+
 // One full, independent noise+grain recipe: its own carrier noise, its own brightness bandpass, its
 // own grain modulator. A GrainVariant's primary sound is always one GrainLayer; `secondary` (see
 // GrainVariant's docstring) adds a second one, mixed in via `mixGain`. `recipe` is the GrainVariant
@@ -663,6 +727,11 @@ interface GrainLayer {
 interface AudioGraph {
   ctx: AudioContext
   layers: GrainLayer[] // 1 for a solo variant, 2 (primary + secondary) for a combo
+  // Sums the layers before the shared tilt/shelf/master stages — stored here
+  // (not just a local in ensureGraph()) so fireDistanceGrain() has somewhere
+  // to connect its one-shots into, same reasoning as distanceGrainBuffer's
+  // own doc below.
+  layerSum: GainNode
   tiltLowpass: BiquadFilterNode
   lowShelf: BiquadFilterNode
   hardnessShelf: BiquadFilterNode
@@ -675,6 +744,14 @@ interface AudioGraph {
   // createClickBuffer()); triggerTap() plays a fresh one-shot source from
   // it per tap, same pattern as any other short one-off sound effect.
   tapBuffer: AudioBuffer | null
+  // Round 13, take 20 — see GrainVariant.distanceGrainMix's doc. Built
+  // whenever the graph is (and rebuilt by retuneGlobals() when the relevant
+  // PENCIL_SOUND_TUNING fields change), same pre-baked-buffer idiom as
+  // tapBuffer above; connects to layerSum (not outputSum) since, unlike the
+  // tap, these should be gated by the same masterGain everything else is —
+  // they represent in-motion texture, not a touchdown moment where
+  // masterGain is deliberately ~0.
+  distanceGrainBuffer: AudioBuffer | null
 }
 
 // Room/index.tsx's ref type for the active pencil-sound engine. Only
@@ -697,6 +774,12 @@ export class PencilSound implements PencilSoundAPI {
   private grain: GrainVariant
   private idleTimer: number | null = null
   private lastSampleAt = 0
+  // Round 13, take 20 — distance-driven grain (see GrainVariant.distanceGrainMix
+  // and fireDistanceGrain()). distPx accumulates real pixels-of-stroke-traveled
+  // across start()/update() calls; nextGrainAtPx is the next threshold it must
+  // cross to fire a grain, jittered around distanceGrainSpacingPx each time.
+  private distPx = 0
+  private nextGrainAtPx = 0
 
   constructor(paper: PaperType, grain: GrainVariant) {
     this.paperFactor = PAPER_SOUND_FACTOR[paper]
@@ -741,12 +824,17 @@ export class PencilSound implements PencilSoundAPI {
   retuneGlobals(): void {
     if (!this.graph) return
     const now = this.graph.ctx.currentTime
-    const { lowShelfFreq, hardnessShelfFreq, carrierHighpassHz, rampSlow } = PENCIL_SOUND_TUNING
+    const { lowShelfFreq, hardnessShelfFreq, carrierHighpassHz, rampSlow, distanceGrainDecaySeconds, hissLowHz, hissHighHz } = PENCIL_SOUND_TUNING
     this.graph.lowShelf.frequency.setTargetAtTime(lowShelfFreq, now, rampSlow)
     this.graph.hardnessShelf.frequency.setTargetAtTime(hardnessShelfFreq, now, rampSlow)
     this.graph.hardnessShelf.gain.setTargetAtTime(hardnessShelfDb(this.hardness), now, rampSlow)
     this.graph.lowShelf.gain.setTargetAtTime(lowShelfDb(this.hardness), now, rampSlow)
     for (const layer of this.graph.layers) layer.highpass.frequency.setTargetAtTime(carrierHighpassHz, now, rampSlow)
+    // distanceGrainSpacingPx is read fresh per-fire in fireDistanceGrain(), but
+    // the buffer itself (decay/band shape) is baked once — rebuild it here so
+    // panel tweaks to decaySeconds/hissLowHz/hissHighHz actually take effect
+    // without a full graph rebuild, same idiom as retune()'s tapBuffer rebuild.
+    this.graph.distanceGrainBuffer = createMicroGrainBuffer(this.graph.ctx, distanceGrainDecaySeconds, hissLowHz, hissHighHz)
   }
 
   /** Current recipe snapshot — debug/tuning panel only, to seed its editable
@@ -760,7 +848,10 @@ export class PencilSound implements PencilSoundAPI {
     const graph = this.ensureGraph()
     void graph.ctx.resume()
     this.lastSampleAt = performance.now()
-    this.applyTarget(graph, pressure, speed, tiltX, tiltY)
+    // dtMs=0: a fresh touchdown shouldn't credit distance for the (arbitrarily
+    // long) gap since the previous stroke ended — only update()'s real
+    // inter-sample gaps count toward distanceGrain's pixel accumulation.
+    this.applyTarget(graph, pressure, speed, tiltX, tiltY, 0)
     this.triggerTap(graph, pressure)
     if (this.idleTimer === null) {
       this.idleTimer = window.setInterval(() => this.checkIdle(), IDLE_CHECK_MS)
@@ -789,8 +880,10 @@ export class PencilSound implements PencilSoundAPI {
   /** Call on every 'pointer' event while a stroke is active. */
   update(pressure: number, speed: number, tiltX = 0, tiltY = 0): void {
     if (!this.graph) return
-    this.lastSampleAt = performance.now()
-    this.applyTarget(this.graph, pressure, speed, tiltX, tiltY)
+    const now = performance.now()
+    const dtMs = now - this.lastSampleAt
+    this.lastSampleAt = now
+    this.applyTarget(this.graph, pressure, speed, tiltX, tiltY, dtMs)
   }
 
   /** Call on strokeEnd — fades out rather than stopping the source, so the
@@ -819,7 +912,7 @@ export class PencilSound implements PencilSoundAPI {
     }
   }
 
-  private applyTarget(graph: AudioGraph, pressure: number, speed: number, tiltX: number, tiltY: number): void {
+  private applyTarget(graph: AudioGraph, pressure: number, speed: number, tiltX: number, tiltY: number, dtMs: number): void {
     const now = graph.ctx.currentTime
     const { minFreq, maxFreq, brightnessRamp, rampSlow, rampFast, bodyFreqHz, bodyQ, bodyPresenceFloor, hissLowHz, hissHighHz, bodyGrainSmoothHz } = PENCIL_SOUND_TUNING
     const brightness = brightnessFreq(speed, this.hardness)
@@ -901,6 +994,39 @@ export class PencilSound implements PencilSoundAPI {
     graph.tiltLowpass.frequency.setTargetAtTime(tiltLowpassFreq(tiltX, tiltY), now, rampSlow)
     const master = masterGainTarget(pressure, speed, this.paperFactor) * (this.grain.outputGainScale ?? 1)
     graph.masterGain.gain.setTargetAtTime(master, now, rampFast)
+    this.fireDistanceGrain(graph, speed, pressure, dtMs)
+  }
+
+  /** Round 13, take 20 (#153) — see GrainVariant.distanceGrainMix's doc.
+   *  Integrates real pixels-of-stroke-traveled (speed, px/ms, times the
+   *  wall-clock gap since the last sample) and fires a one-shot micro-grain
+   *  from the pre-baked distanceGrainBuffer every ~distanceGrainSpacingPx,
+   *  jittered so it doesn't tick metronomically — the same algorithm as the
+   *  abandoned AudioWorklet variant's own distance-triggered grains (round 11,
+   *  lib/pencilSoundV3/Variant3Synth.ts), adapted from per-sample to
+   *  per-pointer-event granularity. Amplitude is heavy-tailed (mostly quiet
+   *  ticks, occasional loud one) and pressure-scaled, same as that source.
+   *  dtMs is clamped so a long gap (tab backgrounded, stroke resumed after a
+   *  pause) can't make distPx jump so far it fires a runaway burst of
+   *  overlapping one-shots in a single call. */
+  private fireDistanceGrain(graph: AudioGraph, speed: number, pressure: number, dtMs: number): void {
+    const mix = this.grain.distanceGrainMix ?? 0
+    if (mix <= 0 || !graph.distanceGrainBuffer || dtMs <= 0) return
+    const clampedDtMs = Math.min(dtMs, 100)
+    this.distPx += speed * clampedDtMs
+    const { distanceGrainSpacingPx } = PENCIL_SOUND_TUNING
+    const p = Math.max(0, Math.min(1, pressure))
+    while (this.distPx >= this.nextGrainAtPx) {
+      const u = Math.random()
+      const amp = (0.15 + 2.5 * u * u * u * u * u) * (0.4 + 0.8 * p) * mix
+      const source = graph.ctx.createBufferSource()
+      source.buffer = graph.distanceGrainBuffer
+      const gain = graph.ctx.createGain()
+      gain.gain.value = amp
+      source.connect(gain).connect(graph.layerSum)
+      source.start()
+      this.nextGrainAtPx = this.distPx + distanceGrainSpacingPx * (0.6 + 0.8 * Math.random())
+    }
   }
 
   /** Builds one independent noise+grain layer and connects its output into `sumNode` at
@@ -1082,7 +1208,14 @@ export class PencilSound implements PencilSoundAPI {
       ? createClickBuffer(ctx, this.grain.tap.freqHz, this.grain.tap.decaySeconds, this.grain.tap.noiseMix)
       : null
 
-    this.graph = { ctx, layers, tiltLowpass, lowShelf, hardnessShelf, masterGain, outputSum, tapBuffer }
+    const distanceGrainBuffer = createMicroGrainBuffer(
+      ctx,
+      PENCIL_SOUND_TUNING.distanceGrainDecaySeconds,
+      PENCIL_SOUND_TUNING.hissLowHz,
+      PENCIL_SOUND_TUNING.hissHighHz,
+    )
+
+    this.graph = { ctx, layers, layerSum, tiltLowpass, lowShelf, hardnessShelf, masterGain, outputSum, tapBuffer, distanceGrainBuffer }
     return this.graph
   }
 }
