@@ -3,7 +3,7 @@ import { clamp } from 'lodash-es'
 import clsx from 'clsx'
 import styles from './PrecisionSlider.module.css'
 
-// Dragging the full track height only covers 1/sensitivityFactor() of the
+// Dragging the full track length only covers 1/sensitivityFactor() of the
 // range — the rest requires dragging further than the visible track,
 // trading travel distance for precision (same idea as Photoshop/Blender
 // numeric drag fields). The factor itself scales with the finger's
@@ -33,9 +33,17 @@ interface PrecisionSliderProps {
   min: number
   max: number
   step?: number
-  /** Height of the track in px — vertical orientation only (matches the
-   *  toolbar's existing vertical-slider layout). */
-  trackHeight: number
+  /** 'vertical' (default): drag up increases — matches the toolbar's narrow
+   *  quick-access column. 'horizontal': drag right increases — matches the
+   *  wider "Tool settings" panel rows. */
+  orientation?: 'vertical' | 'horizontal'
+  /** Track length in px along its sliding axis (height for vertical, width
+   *  for horizontal) — sets the element's CSS size. Optional: omit to let
+   *  CSS/flex layout size it (e.g. a panel row filling available width).
+   *  The drag sensitivity math always measures the actual rendered size at
+   *  drag start, so this is a styling hint only, never a correctness
+   *  requirement. */
+  trackSize?: number
   onChange: (value: number) => void
   /** Formats the value shown in the touch-drag bubble; defaults to String(value). */
   formatValue?: (value: number) => string
@@ -44,15 +52,17 @@ interface PrecisionSliderProps {
 }
 
 export function PrecisionSlider({
-  value, min, max, step = 1, trackHeight, onChange, formatValue, title, className,
+  value, min, max, step = 1, orientation = 'vertical', trackSize, onChange, formatValue, title, className,
 }: PrecisionSliderProps) {
-  // `value`/`lastY`/`lastT` drive the incremental (per-move-delta) accumulation
+  // `value`/`last`/`lastT` drive the incremental (per-move-delta) accumulation
   // that lets sensitivity vary mid-drag (#105) — unlike a pure function of
   // total displacement from drag start, this has to carry state forward move
   // by move. `value` is the unrounded running total (roundToStep only applied
   // when calling onChange/showBubble) so per-step rounding never accumulates
   // drift. `speed` is the EMA-smoothed px/ms driving sensitivityFactor().
-  const dragRef = useRef<{ lastY: number; lastT: number; value: number; speed: number } | null>(null)
+  // `length` is the track's actual rendered extent (height or width,
+  // depending on orientation), measured once at drag start.
+  const dragRef = useRef<{ last: number; lastT: number; value: number; speed: number; length: number } | null>(null)
   const [bubble, setBubble] = useState<{ x: number; y: number; text: string } | null>(null)
 
   const roundToStep = useCallback((v: number) => Math.round(v / step) * step, [step])
@@ -73,7 +83,10 @@ export function PrecisionSlider({
     const el = e.currentTarget
     el.setPointerCapture(e.pointerId)
 
-    dragRef.current = { lastY: e.clientY, lastT: performance.now(), value, speed: 0 }
+    const rect = el.getBoundingClientRect()
+    const length = orientation === 'vertical' ? rect.height : rect.width
+    const startPos = orientation === 'vertical' ? e.clientY : e.clientX
+    dragRef.current = { last: startPos, lastT: performance.now(), value, speed: 0, length }
     if (e.pointerType === 'touch') showBubble(e.clientX, e.clientY, roundToStep(value))
 
     const handleMove = (ev: PointerEvent) => {
@@ -81,13 +94,16 @@ export function PrecisionSlider({
       if (!drag) return
       const now = performance.now()
       const dt = Math.max(1, now - drag.lastT) // guard div-by-zero on same-ms coalesced events
-      const dy = drag.lastY - ev.clientY
-      const instantSpeed = Math.abs(dy) / dt
+      const pos = orientation === 'vertical' ? ev.clientY : ev.clientX
+      // Vertical: drag up (smaller clientY) increases value. Horizontal:
+      // drag right (larger clientX) increases value.
+      const delta = orientation === 'vertical' ? drag.last - pos : pos - drag.last
+      const instantSpeed = Math.abs(delta) / dt
       const speed = drag.speed + (instantSpeed - drag.speed) * SPEED_SMOOTHING
       const factor = sensitivityFactor(speed)
 
-      const rawValue = clamp(drag.value + dy * (max - min) / (trackHeight * factor), min, max)
-      drag.lastY = ev.clientY
+      const rawValue = clamp(drag.value + delta * (max - min) / (drag.length * factor), min, max)
+      drag.last = pos
       drag.lastT = now
       drag.value = rawValue
       drag.speed = speed
@@ -107,33 +123,44 @@ export function PrecisionSlider({
     el.addEventListener('pointermove', handleMove)
     el.addEventListener('pointerup', handleUp)
     el.addEventListener('pointercancel', handleUp)
-  }, [value, onChange, min, max, trackHeight, roundToStep, showBubble])
+  }, [value, onChange, min, max, orientation, roundToStep, showBubble])
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     const big = e.key === 'PageUp' || e.key === 'PageDown'
-    if (e.key === 'ArrowUp' || e.key === 'PageUp')     { onChange(clamp(value + step * (big ? 10 : 1), min, max)); e.preventDefault() }
-    else if (e.key === 'ArrowDown' || e.key === 'PageDown') { onChange(clamp(value - step * (big ? 10 : 1), min, max)); e.preventDefault() }
+    const incKey = orientation === 'vertical' ? 'ArrowUp' : 'ArrowRight'
+    const decKey = orientation === 'vertical' ? 'ArrowDown' : 'ArrowLeft'
+    if (e.key === incKey || e.key === 'PageUp')     { onChange(clamp(value + step * (big ? 10 : 1), min, max)); e.preventDefault() }
+    else if (e.key === decKey || e.key === 'PageDown') { onChange(clamp(value - step * (big ? 10 : 1), min, max)); e.preventDefault() }
     else if (e.key === 'Home') { onChange(min); e.preventDefault() }
     else if (e.key === 'End')  { onChange(max); e.preventDefault() }
-  }, [value, min, max, step, onChange])
+  }, [value, min, max, step, onChange, orientation])
 
   const proportion = clamp((value - min) / (max - min || 1), 0, 1)
+  const orientationClass = orientation === 'horizontal' ? styles.trackHorizontal : styles.trackVertical
+  const sizeStyle = trackSize == null ? undefined : (orientation === 'vertical' ? { height: trackSize } : { width: trackSize })
 
   return (
     <div
-      className={clsx(styles.track, className)}
-      style={{ height: trackHeight }}
+      className={clsx(styles.track, orientationClass, className)}
+      style={sizeStyle}
       role="slider"
       tabIndex={0}
       aria-valuemin={min}
       aria-valuemax={max}
       aria-valuenow={value}
+      aria-orientation={orientation}
       title={title}
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
     >
-      <div className={styles.fill} style={{ height: `${proportion * 100}%` }} />
-      <div className={styles.thumb} style={{ bottom: `${proportion * 100}%` }} />
+      <div
+        className={styles.fill}
+        style={orientation === 'vertical' ? { height: `${proportion * 100}%` } : { width: `${proportion * 100}%` }}
+      />
+      <div
+        className={styles.thumb}
+        style={orientation === 'vertical' ? { bottom: `${proportion * 100}%` } : { left: `${proportion * 100}%` }}
+      />
       {bubble && (
         <div className={styles.bubble} style={{ left: bubble.x, top: bubble.y }}>
           {bubble.text}

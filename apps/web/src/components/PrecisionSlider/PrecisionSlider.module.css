@@ -1,6 +1,5 @@
 .track {
   position: relative;
-  width: 28px;
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -10,6 +9,16 @@
   user-select: none;
 }
 
+.trackVertical {
+  width: 28px;
+}
+
+.trackHorizontal {
+  width: 100%;
+  height: 28px;
+  min-width: 0;
+}
+
 .track:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
@@ -17,24 +26,43 @@
 
 .fill {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
   border-radius: var(--radius-sm);
   background: var(--color-accent);
   pointer-events: none;
 }
 
+.trackVertical .fill {
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.trackHorizontal .fill {
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+
 .thumb {
   position: absolute;
+  border-radius: var(--radius-sm);
+  background: var(--color-text-bright);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.trackVertical .thumb {
   left: 50%;
   width: 20px;
   height: 8px;
-  border-radius: var(--radius-sm);
-  background: var(--color-text-bright);
   transform: translate(-50%, 50%);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  pointer-events: none;
+}
+
+.trackHorizontal .thumb {
+  top: 50%;
+  width: 8px;
+  height: 20px;
+  transform: translate(-50%, -50%);
 }
 
 .bubble {

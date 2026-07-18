@@ -41,7 +41,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
             <PrecisionSlider
               value={numValue}
               min={valueType.min} max={valueType.max} step={valueType.step}
-              trackHeight={RANGE_TRACK_HEIGHT}
+              trackSize={RANGE_TRACK_HEIGHT}
               onChange={v => onChange(v)}
               formatValue={valueType.format}
               title={descriptor.name}
@@ -51,19 +51,23 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
       )
     }
     return (
-      <label className={styles.panelRow}>
-        <span className={styles.panelLabel}>{descriptor.name}</span>
-        <input
-          type="range"
+      <div className={styles.panelRow}>
+        <div className={styles.panelRowHead}>
+          <span className={styles.panelLabel}>{descriptor.name}</span>
+          <span className={styles.panelValue}>
+            {valueType.format ? valueType.format(numValue) : numValue}
+          </span>
+        </div>
+        <PrecisionSlider
           className={styles.panelRange}
-          min={valueType.min} max={valueType.max} step={valueType.step}
+          orientation="horizontal"
           value={numValue}
-          onChange={e => onChange(Number(e.target.value))}
+          min={valueType.min} max={valueType.max} step={valueType.step}
+          onChange={v => onChange(v)}
+          formatValue={valueType.format}
+          title={descriptor.name}
         />
-        <span className={styles.panelValue}>
-          {valueType.format ? valueType.format(numValue) : numValue}
-        </span>
-      </label>
+      </div>
     )
   }
 
@@ -77,7 +81,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
             <PrecisionSlider
               value={index}
               min={0} max={valueType.options.length - 1} step={1}
-              trackHeight={ENUM_TRACK_HEIGHT}
+              trackSize={ENUM_TRACK_HEIGHT}
               onChange={v => onChange(valueType.options[v])}
               formatValue={v => valueType.options[v]}
               title={descriptor.name}
@@ -88,17 +92,21 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
       )
     }
     return (
-      <label className={styles.panelRow}>
-        <span className={styles.panelLabel}>{descriptor.name}</span>
-        <input
-          type="range"
+      <div className={styles.panelRow}>
+        <div className={styles.panelRowHead}>
+          <span className={styles.panelLabel}>{descriptor.name}</span>
+          <span className={styles.panelValue}>{strValue}</span>
+        </div>
+        <PrecisionSlider
           className={styles.panelRange}
-          min={0} max={valueType.options.length - 1} step={1}
+          orientation="horizontal"
           value={index}
-          onChange={e => onChange(valueType.options[Number(e.target.value)])}
+          min={0} max={valueType.options.length - 1} step={1}
+          onChange={v => onChange(valueType.options[v])}
+          formatValue={v => valueType.options[v]}
+          title={descriptor.name}
         />
-        <span className={styles.panelValue}>{strValue}</span>
-      </label>
+      </div>
     )
   }
 
@@ -117,7 +125,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
       )
     }
     return (
-      <label className={styles.panelRow}>
+      <label className={styles.panelToggleRow}>
         <span className={styles.panelLabel}>{descriptor.name}</span>
         <input
           type="checkbox"
