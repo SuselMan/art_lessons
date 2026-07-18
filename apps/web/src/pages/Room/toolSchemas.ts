@@ -78,9 +78,9 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // a second independent Color Pencil slot, is a separate not-yet-built
   // issue). 'colorPencil' already has a real schema entry so #188 is purely
   // UI wiring when it lands, not a data-model change.
-  pencil: pencilLikeSchema(DEFAULT_GRAPHITE_COLOR, 8),
+  pencil: pencilLikeSchema(DEFAULT_GRAPHITE_COLOR, 4),
   // Colors are [0,1] floats (WebGL convention), not 0-255 — see lib/color.ts.
-  colorPencil: pencilLikeSchema([0.86, 0.16, 0.16], 8),
+  colorPencil: pencilLikeSchema([0.86, 0.16, 0.16], 4),
   eraser: {
     size: {
       name: 'Size',
