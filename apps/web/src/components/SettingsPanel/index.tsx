@@ -88,25 +88,36 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </div>
         </div>
 
-        <div className={styles.flagRow} style={{ cursor: 'default' }}>
-          <div style={{ width: '100%' }}>
-            <div className={styles.flagLabel}>Paper grain variant (dev, rough only)</div>
-            <div className={styles.flagDescription}>
-              Overrides rough paper's texture with a candidate fiber algorithm for comparison — never
-              affects smooth/bristol. Requires `npm run bake:paper-variants` to have been run locally.
+        {/* Dev-only, and not just by convention: the candidate bakes this
+            reads (apps/web/public/paper-variants/) are gitignored and never
+            deployed (see paperLoader.ts's own comment) — selecting one in a
+            production build has no real asset to load. Used to be shown
+            unconditionally with only a "(dev)" label as a hint, which a real
+            prod user (or Ilya testing prod) could still select; the engine
+            now falls back gracefully either way (see _initPaper's own
+            comment), but hiding the control entirely is the actual fix —
+            there's nothing for it to do in a deployed build. */}
+        {import.meta.env.DEV && (
+          <div className={styles.flagRow} style={{ cursor: 'default' }}>
+            <div style={{ width: '100%' }}>
+              <div className={styles.flagLabel}>Paper grain variant (dev, rough only)</div>
+              <div className={styles.flagDescription}>
+                Overrides rough paper's texture with a candidate fiber algorithm for comparison — never
+                affects smooth/bristol. Requires `npm run bake:paper-variants` to have been run locally.
+              </div>
+              <select
+                className={styles.select}
+                value={paperVariant}
+                onChange={e => setPaperVariantState(e.target.value as PaperGrainVariant)}
+              >
+                <option value="off">Off (shipped default)</option>
+                {ROUGH_VARIANTS.map((v, i) => (
+                  <option key={i} value={String(i + 1)}>{i + 1}. {v.label}</option>
+                ))}
+              </select>
             </div>
-            <select
-              className={styles.select}
-              value={paperVariant}
-              onChange={e => setPaperVariantState(e.target.value as PaperGrainVariant)}
-            >
-              <option value="off">Off (shipped default)</option>
-              {ROUGH_VARIANTS.map((v, i) => (
-                <option key={i} value={String(i + 1)}>{i + 1}. {v.label}</option>
-              ))}
-            </select>
           </div>
-        </div>
+        )}
 
         <div className={styles.flagRow} style={{ cursor: 'default' }}>
           <div style={{ width: '100%' }}>

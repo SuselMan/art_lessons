@@ -2334,9 +2334,27 @@ export class PencilEngine implements PencilEngineAPI {
   // this same path and end up with the exact same 2048px REPEAT texture —
   // see _paperWorldSize()'s own comment for why unifying them is safe.
   private async _initPaper(type: PaperType): Promise<void> {
-    const bytes = type === 'rough' && this._paperVariantUrl
-      ? await getPaperBytesFromUrl(this._paperVariantUrl)
-      : await getPaperBytes(type)
+    let bytes: Uint8Array
+    if (type === 'rough' && this._paperVariantUrl) {
+      try {
+        bytes = await getPaperBytesFromUrl(this._paperVariantUrl)
+      } catch (err) {
+        // The dev-only rough-variant comparison bakes (paperVariantUrl) are
+        // gitignored and never deployed (see paperLoader.ts's own comment) —
+        // a stale/invalid variant selection left over in someone's
+        // localStorage (or a link shared before this got dev-gated) would
+        // otherwise reject here, leaving _paperReady permanently rejected:
+        // every caller awaiting engine.paperReady() (this component's own
+        // mount/restore paths included) would throw too, and the canvas
+        // would be stuck on the flat gray placeholder texture forever
+        // instead of ever getting the real paper. Fall back to the real,
+        // always-available bytes for this type instead of propagating.
+        console.warn(`paper grain variant '${this._paperVariantUrl}' failed to load, falling back to the real '${type}' texture`, err)
+        bytes = await getPaperBytes(type)
+      }
+    } else {
+      bytes = await getPaperBytes(type)
+    }
     if (this._destroyed) return
     const gl = this.gl
     const newTex = uploadPaperTexture(gl, bytes)
