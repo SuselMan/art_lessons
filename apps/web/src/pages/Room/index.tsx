@@ -169,7 +169,7 @@ export function Room() {
   // Threshold alone couldn't express "impossible to fully flatten in one
   // pass, only through repeated passes" — some pressure always fully
   // triggered it eventually, no matter how close the threshold sat to 1.0.
-  const [paperFillCap, setPaperFillCapState] = useState(0.25)
+  const [paperFillCap, setPaperFillCapState] = useState(0.35)
 
   // Optional pointer-prediction experiment (#92) — same feature-flag pattern
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware

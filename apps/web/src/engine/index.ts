@@ -136,7 +136,7 @@ export interface PencilEngineOptions {
   // off" placeholder.
   paperFillThreshold?: number
   // Dev-only live tuning, initial value only — see PencilEngineAPI's
-  // setPaperFillCap. Defaults to 0.25 when omitted.
+  // setPaperFillCap. Defaults to 0.35 when omitted.
   paperFillCap?: number
 }
 
@@ -882,7 +882,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperVariantUrl = options.paperVariantUrl
     this._grainMode = options.grainMode ?? 0
     this._paperFillThreshold = options.paperFillThreshold ?? 0
-    this._paperFillCap = options.paperFillCap ?? 0.25
+    this._paperFillCap = options.paperFillCap ?? 0.35
 
     this._initGL()
     // A flat mid-gray texture bound immediately so every paint call between
