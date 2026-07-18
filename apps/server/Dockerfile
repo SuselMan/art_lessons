@@ -4,11 +4,16 @@
 # package.json to resolve consistently — apps/server alone isn't a valid
 # npm-ci context on its own.
 #
-# @art-lessons/shared is a type-only dependency here (every import site in
-# apps/server/src is `import type`, see grep) — tsc erases it entirely from
-# the compiled output, so the runtime stage never needs the shared package's
-# source or a build step for it at all, just its types during the build
-# stage's own tsc pass.
+# @art-lessons/shared (#184): package.json's main/exports point at its own
+# compiled ./dist, built by the root postinstall script that `npm ci` below
+# already triggers — so by the time it finishes, packages/shared/dist exists
+# in this build stage same as apps/server's own dist does. The runtime stage
+# below copies packages/shared alongside node_modules (whose
+# @art-lessons/shared entry is a symlink into it) so plain `node
+# dist/index.js` can actually resolve real (not type-only) imports from it —
+# previously it couldn't at all, since main pointed straight at TypeScript
+# source, and this stage never copied packages/shared in the first place;
+# see #184/#170 for the incident this caused.
 FROM node:20-bookworm-slim AS build
 WORKDIR /app
 # Prisma generate (npm ci's postinstall, below) detects the *build* image's
@@ -39,6 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -
 WORKDIR /app
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/server ./apps/server
+COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/package.json ./package.json
 WORKDIR /app/apps/server
 EXPOSE 4000

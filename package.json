@@ -9,11 +9,12 @@
   "scripts": {
     "dev": "npm run dev --workspace=apps/web",
     "dev:server": "npm run dev --workspace=apps/server",
-    "build": "npm run build --workspace=apps/web",
+    "build": "npm run build --workspace=packages/shared && npm run build --workspace=apps/web",
     "typecheck": "npm run typecheck --workspaces",
     "lint": "npm run lint --workspace=apps/web",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "postinstall": "npm run build --workspace=packages/shared"
   },
   "devDependencies": {
     "vitest": "^4.1.9"
