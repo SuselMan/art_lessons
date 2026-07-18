@@ -803,7 +803,54 @@ suggestions ("накрути под новый анализ, я подкручу
 take 13's evidence was about frequency *reachability* (minFreq/highpass) and grain *rate* (maxHz),
 a different axis, not about re-litigating those.
 
-**Result:** _pending — awaiting Ilya's listening pass; he'll adjust further via the panel from here._
+**Result:** still doesn't sound like the reference file to Ilya. Asked for the actual generated
+sound to be recorded and compared directly against `Write on Paper with Pencil 03.wav`, rather than
+inferring from the recording alone — and floated that the *approach* itself might be wrong ("может
+подход менять надо, не знаю").
+
+## Round 13, take 15 — recorded and compared our own synth against the reference: inverted spectrum
+
+For the first time, rendered `PencilSound`'s actual output to a file and ran it through the same
+analyzer as the reference recordings. No Web Audio in Node, so this used a real `OfflineAudioContext`
+in the browser — a faithful port of `PencilSound.ts`'s current graph (same `BiquadFilterNode`/
+`WaveShaperNode` math, not an approximation), driven by a simulated multi-stroke "signature" (4
+strokes, pen-lift gaps, varying speed/pressure over ~2.3s), encoded to WAV client-side and POSTed to
+a throwaway local save server so the Node analyzer could read it as a plain file.
+
+1/3-octave band energy, our render vs. `03.wav`:
+
+| band | our synth | 03.wav |
+|---|---|---|
+| 100-250Hz combined | ~6.2% | ~42% |
+| 1000-4000Hz combined | ~56% | ~3.4% |
+| 8000-12500Hz combined | ~6.8% | ~18.4% |
+
+**The two spectra are close to inverted.** Real pencil-scratch energy sits in two humps — a low body
+hum (100-250Hz) and a high hiss (8-12kHz) — with almost nothing in between. Our synth puts the vast
+majority of its energy in exactly that empty middle (1-4kHz), because that's where the single
+speed-swept carrier bandpass spends most of its time once a stroke has any real speed to it (the
+low end, ~112Hz at `brightnessScale 0.45`, is only reached in the brief moments speed is near the
+deadzone — it's structurally tied to *slow*, not *always-on* the way the real recording's low hum
+clearly is, present throughout regardless of instantaneous speed). Mean spectral centroid: ours
+4151Hz vs. real recordings' 5988-7394Hz — confirms the same gap in aggregate, not just per-band.
+
+This is a structural finding, not a parameter miss: **one swept bandpass covering the whole
+audible range can't produce two independent, mostly speed-independent humps at the opposite ends of
+the spectrum with a gap in the middle.** Matches Ilya's own suspicion that the approach, not just the
+numbers, might need to change. Candidate direction for a future session (not attempted yet — this
+is a bigger structural change than a parameter nudge, worth discussing first per this repo's own
+"discuss architecture before implementing non-trivial features" rule, and Ilya was done tuning for
+the day): split into two more independent components instead of one swept carrier —
+  - a low "body" component around 100-250Hz, present at roughly constant level regardless of speed
+    (pressure/paper-dependent instead, closer to how the real hum seems to behave);
+  - a high "hiss/grit" component, broadband around 6-12kHz — likely *this*, not the current mid-band
+    carrier, is what should actually carry the perceptual "grain" texture;
+  - the current swept bandpass (or something like it) demoted to a much smaller contribution, since
+    real recordings carry so little energy where it currently lives.
+
+**Result:** no code changes this round beyond the analysis + recording tooling — Ilya said he's done
+tuning for today; committed and pushed the round 11-14 state as-is per his instruction ("запуши все
+равно"). This finding is the open item for the next session.
 
 ## How to log a result
 
