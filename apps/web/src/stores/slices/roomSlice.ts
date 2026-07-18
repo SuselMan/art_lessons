@@ -28,6 +28,12 @@ export interface RoomInfoSlice {
   applyParticipantAction: (action: ParticipantsAction) => void
   userId: string
   setUserId: (id: string) => void
+  // Room palette (#190 epic) — hex colors, room-scoped like `participants`
+  // above. A plain setter rather than a reducer: both events that ever touch
+  // this (`room_state`, `palette_updated`) always send the full current
+  // list, never a delta to fold in.
+  palette: string[]
+  setPalette: (palette: string[]) => void
 }
 
 export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
@@ -42,4 +48,6 @@ export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
   // identity (#41) — see applyIdentity in Room/index.tsx.
   userId: 'local',
   setUserId: id => set({ userId: id }),
+  palette: [],
+  setPalette: palette => set({ palette }),
 })

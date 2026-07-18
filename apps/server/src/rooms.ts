@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs'
 import { gunzipSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
 import type { Operation, Participant, Room } from '@art-lessons/shared'
-import { SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
+import { DEFAULT_PALETTE_COLORS, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
@@ -46,6 +46,10 @@ interface RoomRecord {
   // this file's synchronous API assumes live room state is always resident
   // in memory once `ensureRoomLoaded` has run once.
   latestSnapshotSeq: number | null
+  // (#190 epic) Hex colors, cached here and pushed live same as
+  // `participants` — small, needed on every room_state, unlike RoomSnapshot's
+  // pixel blobs which stay Postgres-only (see getLatestSnapshot below).
+  palette: string[]
 }
 
 const rooms = new Map<string, RoomRecord>()
@@ -111,6 +115,14 @@ function persistParticipant(roomId: string, userId: string): void {
   }))
 }
 
+function persistPalette(roomId: string, colors: string[]): void {
+  enqueueWrite(roomId, () => prisma.roomPalette.upsert({
+    where: { roomId },
+    create: { roomId, colors },
+    update: { colors },
+  }))
+}
+
 function persistOperation(roomId: string, op: Operation): void {
   const layerId = 'layerId' in op ? op.layerId : null
   enqueueWrite(roomId, () => prisma.operation.create({
@@ -146,6 +158,13 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     where: { roomId }, orderBy: { seq: 'desc' }, select: { seq: true },
   })
 
+  // A room created before this feature existed has no RoomPalette row yet —
+  // seed it with the defaults now rather than leaving `palette` permanently
+  // empty for every room that predates #190.
+  const existingPalette = await prisma.roomPalette.findUnique({ where: { roomId }, select: { colors: true } })
+  const palette = existingPalette?.colors ?? [...DEFAULT_PALETTE_COLORS]
+  if (!existingPalette) persistPalette(roomId, palette)
+
   rooms.set(roomId, {
     room: toWireRoom(dbRoom),
     passwordHash: dbRoom.passwordHash ?? undefined,
@@ -153,6 +172,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     participants: new Map(),
     nextSeq,
     latestSnapshotSeq: latestSnapshot?.seq ?? null,
+    palette,
   })
   return true
 }
@@ -205,10 +225,12 @@ export function createRoom(
   const passwordHash = password ? bcrypt.hashSync(password, BCRYPT_ROUNDS) : undefined
   const participant: Participant = { userId: ownerId, name: ownerName, role: 'teacher', color: CURSOR_COLORS[0] }
   const participants = new Map<string, Participant>([[ownerId, participant]])
-  rooms.set(room.id, { room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null })
+  const palette = [...DEFAULT_PALETTE_COLORS]
+  rooms.set(room.id, { room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette })
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
   persistParticipant(room.id, ownerId)
+  persistPalette(room.id, palette)
   return { room, participant }
 }
 
@@ -311,13 +333,45 @@ export function getParticipant(roomId: string, userId: string): Participant | un
 export function getRoomSnapshot(
   roomId: string,
   lastKnownSeq?: number,
-): { room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[] } | undefined {
+): {
+  room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+  palette: string[]
+} | undefined {
   const record = rooms.get(roomId)
   if (!record) return undefined
   const latestSnapshotSeq = record.latestSnapshotSeq
   const floor = Math.max(lastKnownSeq ?? 0, latestSnapshotSeq ?? 0)
   const tailOperations = floor > 0 ? record.operations.filter(op => (op.seq ?? 0) > floor) : [...record.operations]
-  return { room: record.room, latestSnapshotSeq, tailOperations, participants: [...record.participants.values()] }
+  return {
+    room: record.room, latestSnapshotSeq, tailOperations, participants: [...record.participants.values()],
+    palette: record.palette,
+  }
+}
+
+/** Appends `color` to the room's palette (#190 epic) if it isn't already
+ *  there (dedup, case-insensitive since hex casing isn't meaningful) and
+ *  persists the result. Returns the new full palette, or `undefined` for an
+ *  unknown room. Returns the *existing* array unchanged (not a copy) when
+ *  the color is already present, so a caller can tell "nothing changed" by
+ *  reference equality if it ever needs to — not currently relied upon. */
+export function addPaletteColor(roomId: string, color: string): string[] | undefined {
+  const record = rooms.get(roomId)
+  if (!record) return undefined
+  if (record.palette.some(c => c.toLowerCase() === color.toLowerCase())) return record.palette
+  record.palette = [...record.palette, color]
+  persistPalette(roomId, record.palette)
+  return record.palette
+}
+
+/** Removes `color` from the room's palette if present. A no-op (returns the
+ *  existing array unchanged) if it isn't there — nothing to persist. */
+export function removePaletteColor(roomId: string, color: string): string[] | undefined {
+  const record = rooms.get(roomId)
+  if (!record) return undefined
+  if (!record.palette.some(c => c.toLowerCase() === color.toLowerCase())) return record.palette
+  record.palette = record.palette.filter(c => c.toLowerCase() !== color.toLowerCase())
+  persistPalette(roomId, record.palette)
+  return record.palette
 }
 
 /** Whether the server should log a hash mismatch when a redundant snapshot

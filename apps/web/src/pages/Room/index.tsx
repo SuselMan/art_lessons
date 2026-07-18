@@ -13,6 +13,7 @@ import { PencilEngine, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeNam
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
 import { ColorPicker } from '../../components/ColorPicker'
+import { PaletteBar } from '../../components/PaletteBar'
 import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
@@ -399,7 +400,7 @@ export function Room() {
   // operations/participants are stashed here and replayed once the engine is
   // up, instead of being dropped.
   const pendingSnapshotRef = useRef<{
-    latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+    latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]; palette: string[]
   } | null>(null)
   // Highest operation seq this client has definitely seen — from ack'd local
   // operations and from peer_operation's stamped copies (#149). Sent back as
@@ -776,6 +777,7 @@ export function Room() {
           engine.resumeDisplay()
           syncFromLog()
           dispatchParticipants({ type: 'room_state', participants: pending.participants })
+          useRoomStore.getState().setPalette(pending.palette)
 
           if (id && restoredFromSnapshot && pending.latestSnapshotSeq !== null) {
             void backfillHistory(id, engine, pending.latestSnapshotSeq)
@@ -820,6 +822,18 @@ export function Room() {
   }, [activeCfg])
   const pencilColor = toolSettings.pencil.color as [number, number, number]
   useEffect(() => { engineRef.current?.setColor(pencilColor) }, [pencilColor])
+  // (#190 epic) Room palette — see roomSlice's own doc comment for why this
+  // is a plain setter, not a reducer. Add/remove requests round-trip through
+  // the server (dedup lives there, see rooms.ts's addPaletteColor) rather
+  // than being applied optimistically here — palette_updated is the only
+  // thing that ever actually writes this store field.
+  const palette = useRoomStore(s => s.palette)
+  const addPaletteColor = useCallback((color: string) => {
+    socketRef.current?.emit('palette_add_color', { color })
+  }, [])
+  const removePaletteColor = useCallback((color: string) => {
+    socketRef.current?.emit('palette_remove_color', { color })
+  }, [])
   // Persist last-used settings per room (#156/#196) — mirrors the pattern
   // above (derived state -> engine), just targeting storage instead.
   useEffect(() => {
@@ -1436,8 +1450,9 @@ export function Room() {
       }
     }
 
-    const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants }: {
+    const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette }: {
       room: RoomEntity; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+      palette: string[]
     }) => {
       // What this socket already had *before* this room_state's own tail —
       // the reconnect fast-path check below needs this, not the value after
@@ -1455,7 +1470,7 @@ export function Room() {
         // Joiner's first snapshot: this is how we learn paper/canvas size —
         // the engine doesn't exist yet to apply `tailOperations` to, so stash
         // them for the mount-engine effect to replay once it does.
-        pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants }
+        pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette }
         useRoomStore.getState().setRoomInfo(toRoomConfig(room))
         return
       }
@@ -1497,6 +1512,7 @@ export function Room() {
         engine?.resumeDisplay()
         syncFromLog()
         dispatchParticipants({ type: 'room_state', participants: roomParticipants })
+        useRoomStore.getState().setPalette(palette)
 
         // Runs fully in the background — never awaited, must not block this
         // handler or the first paint it just produced.
@@ -1599,12 +1615,17 @@ export function Room() {
 
     const handleDisconnect = () => setConnected(false)
 
-    socket.on('connect',        handleConnect)
-    socket.on('room_state',     handleRoomState)
-    socket.on('peer_operation', handlePeerOperation)
-    socket.on('peer_joined',    handlePeerJoined)
-    socket.on('peer_left',      handlePeerLeft)
-    socket.on('disconnect',     handleDisconnect)
+    const handlePaletteUpdated = ({ palette }: { palette: string[] }) => {
+      useRoomStore.getState().setPalette(palette)
+    }
+
+    socket.on('connect',         handleConnect)
+    socket.on('room_state',      handleRoomState)
+    socket.on('peer_operation',  handlePeerOperation)
+    socket.on('peer_joined',     handlePeerJoined)
+    socket.on('peer_left',       handlePeerLeft)
+    socket.on('palette_updated', handlePaletteUpdated)
+    socket.on('disconnect',      handleDisconnect)
 
     return () => {
       socket.disconnect()
@@ -2055,7 +2076,18 @@ export function Room() {
               },
               {
                 id: 'color', icon: 'palette', title: 'Color',
-                content: <ColorPicker value={pencilColor} onChange={v => setToolSetting('pencil', 'color', v)} />,
+                content: (
+                  <>
+                    <ColorPicker value={pencilColor} onChange={v => setToolSetting('pencil', 'color', v)} />
+                    <PaletteBar
+                      palette={palette}
+                      value={pencilColor}
+                      onSelect={v => setToolSetting('pencil', 'color', v)}
+                      onAdd={addPaletteColor}
+                      onRemove={removePaletteColor}
+                    />
+                  </>
+                ),
               },
               {
                 // #197: full settings for the *currently active* tool, same

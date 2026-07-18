@@ -74,7 +74,8 @@ export type Participant = {
 
 // Room color palette (#190 epic). One palette per room (not per-user, and not
 // a named/multi-palette choice) — created with DEFAULT_PALETTE_COLORS when
-// the room is created, added-to only for now (no per-color removal UI yet).
+// the room is created; any participant can add the currently selected color
+// or remove one already in the palette (toggle, not a delete-only UI).
 // Modeled as a plain hex-string array rather than a `Palette { id, name }`
 // type since there is exactly one per room; a richer type can be introduced
 // later if multiple/named palettes are ever needed. Lives outside the
@@ -332,10 +333,11 @@ export type ServerToClientEvents = {
   peer_cursor: (data: CursorMoveData & { userId: string }) => void
   peer_joined: (participant: Participant) => void
   peer_left: (userId: string) => void
-  // Broadcast to every participant (including the adder) after palette_add_color
-  // is accepted — see DEFAULT_PALETTE_COLORS' doc comment above for why this
-  // isn't an Operation. Always the full current list, not a delta: this is a
-  // handful of hex strings, not worth reconciling incrementally.
+  // Broadcast to every participant (including the one who triggered it) after
+  // palette_add_color/palette_remove_color is accepted — see
+  // DEFAULT_PALETTE_COLORS' doc comment above for why this isn't an
+  // Operation. Always the full current list, not a delta: this is a handful
+  // of hex strings, not worth reconciling incrementally.
   palette_updated: (data: { palette: string[] }) => void
 }
 
@@ -369,10 +371,13 @@ export type ClientToServerEvents = {
   // SNAPSHOT_SEQ_INTERVAL boundary on their own operations.
   operation: (op: Operation, ack?: (stamped: Operation) => void) => void
   cursor_move: (data: CursorMoveData) => void
-  // Appends one hex color to the room's palette (v1: add-only, no removal
-  // UI yet — see DEFAULT_PALETTE_COLORS' doc comment above). Server dedups
-  // and broadcasts the result via palette_updated.
+  // Appends one hex color to the room's palette (see DEFAULT_PALETTE_COLORS'
+  // doc comment above). Server dedups and broadcasts the result via
+  // palette_updated.
   palette_add_color: (data: { color: string }) => void
+  // Removes one hex color from the room's palette. A no-op (still broadcasts
+  // the unchanged palette) if the color isn't present.
+  palette_remove_color: (data: { color: string }) => void
 }
 
 // Hotkeys

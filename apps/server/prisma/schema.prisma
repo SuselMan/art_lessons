@@ -46,6 +46,7 @@ model Room {
   operations   Operation[]
   participants RoomParticipant[]
   snapshots    RoomSnapshot[]
+  palette      RoomPalette?
   createdAt    DateTime          @default(now())
 }
 
@@ -106,6 +107,19 @@ model RoomSnapshot {
   createdAt  DateTime @default(now())
 
   @@unique([roomId, seq])
+}
+
+// One row per room (#190 epic) — kept separate from `Room` rather than a
+// JSON column on it, since `Room` is otherwise write-once after creation
+// (like Operation/RoomSnapshot, everything that actually mutates during a
+// session lives in its own table); see packages/shared's DEFAULT_PALETTE_COLORS
+// doc comment for why this isn't part of the Operation log instead.
+model RoomPalette {
+  id        String   @id @default(uuid())
+  roomId    String   @unique
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  colors    String[]
+  updatedAt DateTime @updatedAt
 }
 
 enum UserRole {

@@ -2,7 +2,10 @@ import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@art-lessons/shared'
 
-import { createRoom, ensureRoomLoaded, getParticipant, getRoomSnapshot, joinRoom, leaveRoom, recordOperation } from './rooms.js'
+import {
+  addPaletteColor, createRoom, ensureRoomLoaded, getParticipant, getRoomSnapshot, joinRoom, leaveRoom,
+  recordOperation, removePaletteColor,
+} from './rooms.js'
 import { resolveSocketIdentity } from './identity.js'
 
 /** Per-connection state. `userId` is resolved once, in the `io.use()`
@@ -152,6 +155,26 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       const { roomId, userId } = socket.data
       if (!roomId || !userId) return
       socket.to(roomId).emit('peer_cursor', { ...data, userId })
+    })
+
+    // (#190 epic) Palette changes broadcast to the *whole* room via `io.to`,
+    // not `socket.to` like every other event above — unlike an operation or
+    // cursor move, the participant who triggered this must also see the
+    // resulting palette (it's not something their own client already
+    // applied optimistically), so the sender needs the same `palette_updated`
+    // every other peer gets, not to be excluded from it.
+    socket.on('palette_add_color', ({ color }) => {
+      const { roomId } = socket.data
+      if (!roomId) return
+      const palette = addPaletteColor(roomId, color)
+      if (palette) io.to(roomId).emit('palette_updated', { palette })
+    })
+
+    socket.on('palette_remove_color', ({ color }) => {
+      const { roomId } = socket.data
+      if (!roomId) return
+      const palette = removePaletteColor(roomId, color)
+      if (palette) io.to(roomId).emit('palette_updated', { palette })
     })
 
     socket.on('disconnect', (reason) => {
