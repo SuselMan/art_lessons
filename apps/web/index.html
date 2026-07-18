@@ -4,7 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Art Lessons</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200,0,0" />
+    <!-- #179: preconnect shaves off the connection-setup round-trip to both
+         Google Fonts hosts (the CSS itself from googleapis.com, the actual
+         woff2 file from gstatic.com) before the stylesheet request below
+         even starts. display=block (Google's CSS API supports this as a
+         query param, same as a hand-written @font-face's font-display)
+         makes the icon glyphs render invisible rather than as literal
+         fallback text ("delete" etc.) during the short block period before
+         the font loads, instead of the reported flash-of-unstyled-text. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,200,0,0&display=block" />
   </head>
   <body>
     <div id="root"></div>
