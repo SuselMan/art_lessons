@@ -9,17 +9,16 @@ import type {
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
-import { PencilEngine, PENCIL_GRADES, PENCIL_PRESETS, DEFAULT_GRAPHITE_COLOR, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
 import { ColorPicker } from '../../components/ColorPicker'
 import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
-import { PrecisionSlider } from '../../components/PrecisionSlider'
+import { SettingField } from '../../components/SettingField'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
 import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant, getGraphiteGrainVariant } from '../../lib/featureFlags'
-import { rgbToHex } from '../../lib/color'
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, PENCIL_SOUND_VARIANT_3, type PencilSoundAPI } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
@@ -33,14 +32,13 @@ import { clientToCanvas } from './pointerTransform'
 import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom } from './cameraMath'
 import { describeJoinError } from './joinError'
 import { PeerCursors } from './PeerCursors'
-import { MeasureOverlay, type MeasurePoint } from './MeasureOverlay'
 import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
-import { loadToolSettings, saveToolSettings, type ToolConfig } from './toolSettings'
+import { TOOL_SCHEMAS, loadToolSettings, saveToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader } from './snapshotSync'
 import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
@@ -84,8 +82,6 @@ function toRoomConfig(
     height: room.canvasHeight ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
   }
 }
-
-const DEFAULT_TOOL_SETTINGS = { pencil: { size: 8, opacity: 1.0 }, eraser: { size: 24, opacity: 1.0 } }
 
 const INITIAL_LAYER_ID = 'layer-1'
 // Placeholder id until the socket connects and create_room/join_room's ack
@@ -258,46 +254,52 @@ export function Room() {
   const [config,     setConfig]     = useState<RoomConfig | null>(
     () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
   )
-  const [pencil,     setPencil]     = useState<PencilGradeName>('HB')
-  const [tool,       setTool]       = useState<'pencil' | 'eraser'>('pencil')
-  // Last-used size/opacity persist per room (#156) — loaded once up front
-  // (id is stable for the component's lifetime; a room switch remounts it)
-  // rather than re-read on every render.
-  const [initialToolSettings] = useState(() => loadToolSettings(localStorage, id ?? '', DEFAULT_TOOL_SETTINGS))
-  const [pencilCfg,  setPencilCfg]  = useState<ToolConfig>(initialToolSettings.pencil)
-  const [eraserCfg,  setEraserCfg]  = useState<ToolConfig>(initialToolSettings.eraser)
+  const [tool, setTool] = useState<'pencil' | 'eraser'>('pencil')
+  // Unified per-tool settings (#196) — grade/size/opacity/color for every
+  // registered tool (TOOL_SCHEMAS in toolSchemas.ts), persisted per room
+  // (#156) and loaded once up front (id is stable for the component's
+  // lifetime; a room switch remounts it) rather than re-read on every
+  // render. Color used to be its own top-level `color` state shared by
+  // whatever tool happened to be active; it now lives at
+  // `toolSettings.pencil.color` — the schema's per-tool slot — same value,
+  // same behavior, just no longer a second parallel place settings live.
+  const [toolSettings, setToolSettingsState] = useState<ToolSettingsMap>(
+    () => loadToolSettings(localStorage, id ?? ''),
+  )
+  const setToolSetting = useCallback((
+    toolId: UiToolId,
+    key: string,
+    value: SettingDescriptor['default'] | ((prev: SettingDescriptor['default']) => SettingDescriptor['default']),
+  ) => {
+    setToolSettingsState(prev => ({
+      ...prev,
+      [toolId]: {
+        ...prev[toolId],
+        [key]: typeof value === 'function' ? value(prev[toolId][key]) : value,
+      },
+    }))
+  }, [])
   // Floating tool panel's dragged-to position (#157) — same load-once-up-
-  // front pattern as initialToolSettings above; null until the panel's
+  // front pattern as toolSettings above; null until the panel's
   // ever been dragged in this room, in which case it renders at its
   // CSS-anchored default corner instead (see FloatingToolPanel).
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(
     () => loadPanelPosition(localStorage, id ?? ''),
   )
-  const [color,      setColor]      = useState<[number, number, number]>(DEFAULT_GRAPHITE_COLOR)
   // Eyedropper (#82) is a one-shot mode, not a recorded ToolType — it never
   // paints or produces an Operation, so it lives entirely as local UI state
   // rather than going through engine.setTool(). See .eyedropperOverlay in
   // Room.module.css for how it intercepts the next canvas pointerdown.
   const [eyedropperActive, setEyedropperActive] = useState(false)
-  // Measure tool (#119) — same non-recorded local-UI-state shape as the
-  // eyedropper above: it never paints or produces an Operation, so it's
-  // plain React state rather than an engine.setTool() mode. `measurePoints`
-  // is the transient A→B line; it's cleared on every toggle (see
-  // toggleMeasure) rather than persisting across a tool switch — "measure
-  // mode off means nothing measured" is the simplest invariant to reason
-  // about, at the cost of losing the last measurement when you switch away.
-  const [measureActive, setMeasureActive] = useState(false)
-  const [measurePoints, setMeasurePoints] = useState<{ a: MeasurePoint; b: MeasurePoint } | null>(null)
   // Ruler tool (#89) — a draggable straight-edge guide that a pencil stroke
   // snaps to while it's placed (see engine.setRuler / engine/src/
   // rulerSnap.ts for the actual snapping math, which runs inside the
   // pointer pipeline, not here). Local UI state, same non-Operation status
-  // as eyedropper/measure above. Unlike measure's one-shot A→B drag,
-  // `rulerLine` is a *persistent* guide once placed — it survives across
-  // strokes so a student can draw several guided lines along the same
-  // edge — and is only cleared when the tool is toggled off (mirrors
-  // measure's "off means nothing measured" simplicity) or another one-shot
-  // tool takes over the pointer catcher.
+  // as eyedropper above (it never paints or produces an Operation either).
+  // Unlike a one-shot A→B drag, `rulerLine` is a *persistent* guide once
+  // placed — it survives across strokes so a student can draw several
+  // guided lines along the same edge — and is only cleared when the tool
+  // is toggled off, or another one-shot tool takes over the pointer catcher.
   const [rulerActive, setRulerActive] = useState(false)
   const [rulerLine, setRulerLine] = useState<{ a: RulerPoint; b: RulerPoint } | null>(null)
   // True once the initial placement drag has actually finished (pointerup).
@@ -313,13 +315,14 @@ export function Room() {
   // handleRulerPlaceDown's onUp, so the catcher div survives the entire
   // placement drag.
   const [rulerPlaced, setRulerPlaced] = useState(false)
-  // Construction grid (#89) — unlike eyedropper/measure above, a passive
+  // Construction grid (#89) — unlike eyedropper/ruler above, a passive
   // toggle rather than a one-shot tool: it never intercepts pointer events,
   // so it doesn't need its own overlay div, just a conditional render.
   const [gridActive, setGridActive] = useState(false)
-  // Layer transform tool (#120) — same one-shot-mode shape as measure, but
-  // unlike measure it *does* produce an Operation (layer_transform) on
-  // commit, via the engine's live preview + dispatchOp, not engine.setTool().
+  // Layer transform tool (#120) — same one-shot-mode shape as eyedropper/
+  // ruler above, but unlike them it *does* produce an Operation
+  // (layer_transform) on commit, via the engine's live preview + dispatchOp,
+  // not engine.setTool().
   const [transformActive, setTransformActive] = useState(false)
   // Content bounding box (engine.getContentBounds, unioned across the
   // current target(s)) — recomputed on activation/selection change and
@@ -342,7 +345,7 @@ export function Room() {
   // pre-drag bounds (see TransformGizmo's docstring) — null between drags.
   const [transformLiveMatrix, setTransformLiveMatrix] = useState<AffineMatrix | null>(null)
   const [layerState, setLayerState] = useState<LayerState>(makeInitialLayerState)
-  const [activePanel, setActivePanel] = useState<'layers' | 'color' | null>('layers')
+  const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'toolSettings' | null>('layers')
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
@@ -359,7 +362,11 @@ export function Room() {
   const engineRef     = useRef<PencilEngineAPI | null>(null)
   const pencilSoundRef = useRef<PencilSoundAPI | null>(null)
   const layerStateRef = useRef<LayerState>(layerState)
-  const initialToolRef = useRef({ pencil, size: pencilCfg.size, opacity: pencilCfg.opacity })
+  const initialToolRef = useRef({
+    pencil: toolSettings.pencil.grade as PencilGradeName,
+    size: toolSettings.pencil.size as number,
+    opacity: toolSettings.pencil.opacity as number,
+  })
 
   const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
   const userIdRef         = useRef(INITIAL_USER_ID)
@@ -450,16 +457,15 @@ export function Room() {
   layerStateRef.current = layerState
   configRef.current     = config
 
-  const activeCfg    = tool === 'pencil' ? pencilCfg : eraserCfg
-  const setActiveCfg = tool === 'pencil' ? setPencilCfg : setEraserCfg
+  const activeCfg = toolSettings[tool]
 
   // Read directly inside useViewport's native pointerdown listener — see
   // that hook's doc comment for why a ref (checked synchronously, before
   // React ever re-renders) is required here instead of just having the
-  // eyedropper overlay call e.stopPropagation() itself. Measure is pen-only
-  // (see handleMeasureDown) so it never needs to reserve a touch here — a
-  // finger always pans/zooms while measuring, exactly like it does while
-  // drawing with the pencil.
+  // eyedropper overlay call e.stopPropagation() itself. Ruler placement is
+  // pen-only (see handleRulerPlaceDown) so it never needs to reserve a touch
+  // here — a finger always pans/zooms while placing a ruler, exactly like it
+  // does while drawing with the pencil.
   const toolActiveRef = useRef(false)
   toolActiveRef.current = eyedropperActive
 
@@ -809,22 +815,24 @@ export function Room() {
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
+  const pencilGrade = toolSettings.pencil.grade as PencilGradeName
   useEffect(() => {
-    engineRef.current?.setPencil(pencil)
-    pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencil].hardness)
-  }, [pencil])
+    engineRef.current?.setPencil(pencilGrade)
+    pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
+  }, [pencilGrade])
   useEffect(() => { engineRef.current?.setTool(tool) },     [tool])
   useEffect(() => {
-    engineRef.current?.setSize(activeCfg.size)
-    engineRef.current?.setOpacity(activeCfg.opacity)
+    engineRef.current?.setSize(activeCfg.size as number)
+    engineRef.current?.setOpacity(activeCfg.opacity as number)
   }, [activeCfg])
-  useEffect(() => { engineRef.current?.setColor(color) }, [color])
-  // Persist last-used size/opacity per room (#156) — mirrors the pattern
+  const pencilColor = toolSettings.pencil.color as [number, number, number]
+  useEffect(() => { engineRef.current?.setColor(pencilColor) }, [pencilColor])
+  // Persist last-used settings per room (#156/#196) — mirrors the pattern
   // above (derived state -> engine), just targeting storage instead.
   useEffect(() => {
     if (!id) return
-    saveToolSettings(localStorage, id, { pencil: pencilCfg, eraser: eraserCfg })
-  }, [id, pencilCfg, eraserCfg])
+    saveToolSettings(localStorage, id, toolSettings)
+  }, [id, toolSettings])
 
   // ── sync layer state → engine ─────────────────────────────────────────────────
   useEffect(() => {
@@ -1007,11 +1015,11 @@ export function Room() {
         )
     const picked = engineRef.current?.pickColor(x, y)
     if (picked) {
-      setColor(picked)
+      setToolSetting('pencil', 'color', picked)
       setActivePanel('color')
     }
     setEyedropperActive(false)
-  }, [vpRef, vp, config])
+  }, [vpRef, vp, config, setToolSetting])
 
   // Shared by every other tool's toggle below, so activating any of them
   // also clears the ruler — see toggleRuler's own doc comment for why
@@ -1024,42 +1032,28 @@ export function Room() {
     engineRef.current?.setRuler(null)
   }, [])
 
-  // Eyedropper, measure, ruler, and transform mode all take over the same
+  // Eyedropper, ruler, and transform mode all take over the same
   // canvas-pointer catcher slot (or, for transform, the gizmo's own handles;
   // for ruler, its own SVG handles once placed) — only one should ever be
   // armed at a time, so each toggle turns the others off.
   const toggleEyedropper = useCallback(() => {
-    setMeasureActive(false)
-    setMeasurePoints(null)
     setTransformActive(false)
     deactivateRuler()
     setEyedropperActive(a => !a)
   }, [deactivateRuler])
 
-  const toggleMeasure = useCallback(() => {
-    setEyedropperActive(false)
-    setTransformActive(false)
-    deactivateRuler()
-    setMeasureActive(a => !a)
-    setMeasurePoints(null)
-  }, [deactivateRuler])
-
   const toggleTransform = useCallback(() => {
     setEyedropperActive(false)
-    setMeasureActive(false)
-    setMeasurePoints(null)
     deactivateRuler()
     setTransformActive(a => !a)
   }, [deactivateRuler])
 
-  // Ruler tool (#89): unlike measure, turning it OFF (not on) is when
-  // rulerLine/the engine guide get cleared — while it's on, rulerLine is
-  // meant to persist across strokes (see its declaration above), so
-  // clearing it on every toggle the way measure does would defeat that.
+  // Ruler tool (#89): turning it OFF (not on) is when rulerLine/the engine
+  // guide get cleared — while it's on, rulerLine is meant to persist across
+  // strokes (see its declaration above), so clearing it on every toggle
+  // would defeat that.
   const toggleRuler = useCallback(() => {
     setEyedropperActive(false)
-    setMeasureActive(false)
-    setMeasurePoints(null)
     setTransformActive(false)
     setRulerActive(a => {
       const next = !a
@@ -1107,64 +1101,14 @@ export function Room() {
     refreshTransformBounds()
   }, [transformActive, refreshTransformBounds])
 
-  // Measure tool (#119): mirrors handleEyedropperPick's drag-capture
-  // pattern, but for a full drag rather than a single click, and (#143)
-  // via clientToRoomPoint rather than eyedropper's plain clientToCanvas —
-  // down/move/up
-  // tracked manually via setPointerCapture + direct DOM listeners, the same
-  // pattern ColorPicker's onSvDown/onHueDown use for their own drag handling.
+  // Ruler tool (#89): initial placement drag — down/move/up tracked
+  // manually via setPointerCapture + direct DOM listeners, the same pattern
+  // ColorPicker's onSvDown/onHueDown use for their own drag handling.
   // Pen-only, same as the pencil itself ignores touch (see PointerInput.ts) —
-  // a finger on .measureOverlay falls straight through to useViewport's own
-  // panning untouched, instead of trying to arbitrate whose gesture a given
-  // touch belongs to. Fewer finger/ruler conflicts, and one fewer thing to
-  // explain than the old touch-reservation scheme.
-  const handleMeasureDown = useCallback((e: React.PointerEvent) => {
-    if (e.pointerType === 'touch') return
-    const el = vpRef.current
-    if (!el || !config) return
-    e.stopPropagation()
-    const overlay = e.currentTarget as HTMLElement
-    const penPointerId = e.pointerId
-    // Same defensive try/catch as useViewport's own setPointerCapture calls
-    // (search "context loss" there) — without it, a throw here (observed:
-    // NotFoundError, "no active pointer with the given id") would abort the
-    // rest of this handler before setMeasurePoints ever runs, silently
-    // dropping the whole gesture.
-    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
-
-    const rect = el.getBoundingClientRect()
-    // #143: world-space for infinite rooms (clientToRoomPoint) — the same
-    // space MeasureOverlay's a/b props are now expected in for infinite
-    // rooms (see the render section below).
-    const toPoint = (clientX: number, clientY: number): MeasurePoint => clientToRoomPoint(clientX, clientY, rect, vp, config)
-
-    const start = toPoint(e.clientX, e.clientY)
-    setMeasurePoints({ a: start, b: start })
-
-    // Filtered by pointerId: these listeners sit on the overlay (not scoped
-    // to a single pointer by the DOM), and a concurrent second finger
-    // panning/zooming with useViewport's own touch handling (see that hook's
-    // docstring — measure never reserves a touch, so it's free to pan) also
-    // dispatches pointermove/pointerup at this same overlay. Without this
-    // check, that finger's moves were observed corrupting the measurement's
-    // endpoint, and its pointerup was observed tearing down the pen's own
-    // tracking before the pen had actually lifted.
-    const onMove = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      setMeasurePoints(prev => prev && { a: prev.a, b: toPoint(ev.clientX, ev.clientY) })
-    }
-    const onUp = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      overlay.removeEventListener('pointermove', onMove)
-      overlay.removeEventListener('pointerup', onUp)
-    }
-    overlay.addEventListener('pointermove', onMove)
-    overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config])
-
-  // Ruler tool (#89): initial placement drag — mirrors handleMeasureDown's
-  // drag-capture pattern and pen-only reasoning exactly, but only runs
-  // pre-placement (while !rulerPlaced; see .rulerPlaceOverlay's render
+  // a finger on .rulerPlaceOverlay falls straight through to useViewport's
+  // own panning untouched, instead of trying to arbitrate whose gesture a
+  // given touch belongs to. Only runs pre-placement (while !rulerPlaced; see
+  // .rulerPlaceOverlay's render
   // below, and rulerPlaced's own doc comment for why this catcher div's
   // presence is gated on that flag rather than on rulerLine itself).
   // rulerPlaced only flips true in onUp below, so this div — and its
@@ -1266,7 +1210,7 @@ export function Room() {
     overlay.addEventListener('pointerup', onUp)
   }, [vpRef, vp, config, rulerLine])
 
-  // Layer transform tool (#120): mirrors handleMeasureDown's drag-capture
+  // Layer transform tool (#120): mirrors handleRulerPlaceDown's drag-capture
   // pattern exactly, but per-handle (body/corner/rotate) rather than a
   // single A→B drag, and it actually mutates content — every frame previews
   // via the engine (never touching the real buffer, see
@@ -1716,15 +1660,15 @@ export function Room() {
       // A representative spread across the full 6H-6B range, not all 14 grades —
       // the grade slider below gives full-range access; these are just quick picks.
       const map: Record<string, PencilGradeName> = { '1':'H','2':'HB','3':'2B','4':'4B','5':'6B' }
-      if (map[e.key]) { setPencil(map[e.key]); setTool('pencil') }
-      if (e.key === '[') setActiveCfg(c => ({ ...c, size: Math.max(1,   c.size - 1) }))
-      if (e.key === ']') setActiveCfg(c => ({ ...c, size: Math.min(120, c.size + 1) }))
+      if (map[e.key]) { setToolSetting('pencil', 'grade', map[e.key]); setTool('pencil') }
+      if (e.key === '[') setToolSetting(tool, 'size', prev => Math.max(1,   (prev as number) - 1))
+      if (e.key === ']') setToolSetting(tool, 'size', prev => Math.min(120, (prev as number) + 1))
       if (e.shiftKey && e.key === '{') setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))
       if (e.shiftKey && e.key === '}') setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [setActiveCfg, setVp, handleUndo, handleRedo])
+  }, [tool, setToolSetting, setVp, handleUndo, handleRedo])
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -1779,9 +1723,6 @@ export function Room() {
     )
   }
 
-  const dotSize = clamp(activeCfg.size * vp.zoom * 0.5, 3, 36)
-  const gradePreset  = PENCIL_PRESETS[pencil]
-  const gradeDotSize = clamp(gradePreset.sizeMultiplier * 14, 6, 22)
 
   return (
     <div
@@ -1853,6 +1794,25 @@ export function Room() {
             <Icon name="screen_rotation_alt" />
             {angleDeg}°
           </button>
+          {/* Rotate/Fit (#198): viewport actions, moved out of the tool
+              toolbar (they aren't tools) to sit next to the zoom/angle
+              controls they're already conceptually grouped with. */}
+          <button
+            className={styles.headerIconBtn} title="Rotate −15°  (Shift+[)" aria-label="Rotate −15°  (Shift+[)"
+            onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}
+          >
+            <Icon name="rotate_left" />
+          </button>
+          <button
+            className={styles.headerIconBtn} title="Rotate +15°  (Shift+])" aria-label="Rotate +15°  (Shift+])"
+            onClick={() => setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))}
+          >
+            <Icon name="rotate_right" />
+          </button>
+          <button className={styles.headerIconBtn} title="Fit canvas" aria-label="Fit canvas" onClick={fitCanvas}>
+            <Icon name="fit_screen" />
+          </button>
+          <div className={styles.headerDivider} />
           <button className={styles.headerBtn} onClick={handleUndo} title="Undo  Ctrl+Z">
             <Icon name="undo" /><span>Undo</span>
           </button>
@@ -1868,6 +1828,21 @@ export function Room() {
           <button className={styles.headerBtn} onClick={handleSaveSession} title="Save session as JSON">
             <Icon name="save" /><span>Save</span>
           </button>
+          <div className={styles.headerDivider} />
+          {/* Clear canvas (#198): destructive content action, deliberately
+              set apart from the frequently-used buttons above (not a
+              viewport action like Rotate/Fit, and not something to reach
+              for by accident) — moved out of the tool toolbar, it was never
+              a tool either. Existing confirm() (#171) unchanged by the move;
+              a real non-native confirm dialog is still tracked separately. */}
+          <button className={styles.headerIconBtn} title="Clear canvas" aria-label="Clear canvas"
+            onClick={() => {
+              if (window.confirm('Clear the active layer? This can be undone with Ctrl+Z.')) {
+                engineRef.current?.clear()
+              }
+            }}>
+            <Icon name="delete_forever" />
+          </button>
         </div>
       </header>
 
@@ -1875,32 +1850,18 @@ export function Room() {
 
       <div className={styles.body}>
 
-        {/* ── Left toolbar ── */}
+        {/* ── Left toolbar — tool selection only, fixed height per row ── */}
         <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
 
-          {/* Pencil grade — compact vertical slider over the full 6H-6B (+F) range.
-              Quick picks: number keys 1-5 jump to H / HB / 2B / 4B / 6B. */}
-          <div className={styles.sliderBlock} onClick={() => setTool('pencil')}>
-            <div className={styles.sliderPreview}>
-              <div className={styles.sizeDot}
-                style={{ width: gradeDotSize, height: gradeDotSize, opacity: gradePreset.opacity }} />
-            </div>
-            <div className={styles.gradeTrack}>
-              <PrecisionSlider
-                value={PENCIL_GRADES.indexOf(pencil)}
-                min={0} max={PENCIL_GRADES.length - 1} step={1}
-                trackHeight={108}
-                onChange={v => { setPencil(PENCIL_GRADES[v]); setTool('pencil') }}
-                formatValue={v => PENCIL_GRADES[v]}
-                title={`Pencil grade: ${pencil}  (1-5 for quick picks)`} />
-            </div>
-            <span className={clsx(styles.sliderVal, styles.gradeLabel, tool === 'pencil' && styles.gradeLabelActive)}>
-              {pencil}
-            </span>
-          </div>
-
-          <div className={styles.toolDivider} />
-
+          {/* Quick picks: number keys 1-5 jump the pencil grade to
+              H / HB / 2B / 4B / 6B; [ / ] resize whichever tool is active
+              (handled by the quick-settings panel to the right, not here). */}
+          <button
+            className={clsx(styles.toolIconBtn, tool === 'pencil' && styles.toolIconBtnActive)}
+            title="Pencil  (1-5 for quick grade picks)"
+            aria-label="Pencil"
+            onClick={() => setTool('pencil')}
+          ><Icon name="edit" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
             title="Eraser  E"
@@ -1910,50 +1871,10 @@ export function Room() {
 
           <div className={styles.toolDivider} />
 
-          {/* Size slider */}
-          <div className={styles.sliderBlock}>
-            <div className={styles.sliderPreview}>
-              <div className={styles.sizeDot} style={{ width: dotSize, height: dotSize }} />
-            </div>
-            <div className={styles.sliderTrack}>
-              <PrecisionSlider
-                value={activeCfg.size} min={1} max={120} step={1} trackHeight={76}
-                onChange={v => setActiveCfg(c => ({ ...c, size: v }))}
-                formatValue={v => `${v}px`}
-                title={`Size: ${activeCfg.size}px  ([ / ])`} />
-            </div>
-            <span className={styles.sliderVal}>{activeCfg.size}</span>
-          </div>
-
-          <div className={styles.toolDivider} />
-
-          {/* Opacity slider */}
-          <div className={styles.sliderBlock}>
-            <Icon name="opacity" />
-            <div className={styles.sliderTrack}>
-              <PrecisionSlider
-                value={Math.round(activeCfg.opacity * 100)} min={0} max={100} step={1} trackHeight={76}
-                onChange={v => setActiveCfg(c => ({ ...c, opacity: v / 100 }))}
-                formatValue={v => `${v}%`}
-                title={`Opacity: ${Math.round(activeCfg.opacity * 100)}%`} />
-            </div>
-            <span className={styles.sliderVal}>{Math.round(activeCfg.opacity * 100)}%</span>
-          </div>
-
-          <div className={styles.toolDivider} />
-
-          {/* Color (#81) — current-color swatch opens the ColorPicker tab of
-              the unified right-side SidePanel (see .layerPanelWrap below);
-              the actual palette (saved custom colors) is a separate, later
-              task. Eyedropper (#82) picks a color from the canvas and opens
-              the same tab to refine it. */}
-          <button
-            className={styles.colorSwatch}
-            style={{ background: rgbToHex(color) }}
-            title="Color"
-            aria-label="Color"
-            onClick={() => setActivePanel('color')}
-          />
+          {/* Eyedropper (#82) picks a color from the canvas and opens the
+              ColorPicker tab of the unified right-side SidePanel (see
+              .layerPanelWrap below) to refine it; the actual palette (saved
+              custom colors) is a separate, later task. */}
           <button
             className={clsx(styles.toolIconBtn, eyedropperActive && styles.toolIconBtnActive)}
             title="Eyedropper — pick a color from the canvas"
@@ -1961,15 +1882,9 @@ export function Room() {
             onClick={toggleEyedropper}
           ><Icon name="colorize" /></button>
           <button
-            className={clsx(styles.toolIconBtn, measureActive && styles.toolIconBtnActive)}
-            title="Measure — drag between two points to see the distance"
-            aria-label="Measure — drag between two points to see the distance"
-            onClick={toggleMeasure}
-          ><Icon name="straighten" /></button>
-          <button
             className={clsx(styles.toolIconBtn, rulerActive && styles.toolIconBtnActive)}
-            title="Ruler — drag a straight edge; pencil strokes drawn near it snap to its line"
-            aria-label="Ruler — drag a straight edge; pencil strokes drawn near it snap to its line"
+            title="Ruler — drag a straight edge; pencil strokes drawn near it snap to its line and show the distance"
+            aria-label="Ruler — drag a straight edge; pencil strokes drawn near it snap to its line and show the distance"
             onClick={toggleRuler}
           ><Icon name="square_foot" /></button>
           <button
@@ -1983,46 +1898,35 @@ export function Room() {
           <div className={styles.toolDivider} />
 
           <button
-            className={styles.toolIconBtn} title="Rotate −15°  (Shift+[)" aria-label="Rotate −15°  (Shift+[)"
-            onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}
-          >
-            <Icon name="rotate_left" />
-          </button>
-          <button
-            className={styles.toolIconBtn} title="Rotate +15°  (Shift+])" aria-label="Rotate +15°  (Shift+])"
-            onClick={() => setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))}
-          >
-            <Icon name="rotate_right" />
-          </button>
-
-          <div className={styles.toolDivider} />
-
-          <button className={styles.toolIconBtn} title="Fit canvas" aria-label="Fit canvas" onClick={fitCanvas}>
-            <Icon name="fit_screen" />
-          </button>
-          <button className={styles.toolIconBtn} title="Clear canvas" aria-label="Clear canvas"
-            onClick={() => {
-              // #171: a bare confirm() for now — clear() only wipes the
-              // active layer (not the whole drawing), undoable like any
-              // other operation, but on a shared board an accidental tap
-              // still shouldn't be silent. A real (non-native) confirm
-              // dialog is tracked separately for later.
-              if (window.confirm('Clear the active layer? This can be undone with Ctrl+Z.')) {
-                engineRef.current?.clear()
-              }
-            }}>
-            <Icon name="delete_forever" />
-          </button>
-
-          <div className={styles.toolDivider} />
-
-          <button
             className={clsx(styles.toolIconBtn, gridActive && styles.toolIconBtnActive)}
             title="Toggle construction grid"
             aria-label="Toggle construction grid"
             onClick={() => setGridActive(a => !a)}
           ><Icon name="grid_on" /></button>
 
+        </aside>
+
+        {/* ── Quick-settings panel — the active tool's quick-access fields
+            (#196), driven entirely by TOOL_SCHEMAS. Kept as its own
+            same-width column next to the toolbar rather than interleaved
+            with the tool-select buttons above: interleaving made the
+            buttons visually jump every time the field count changed
+            switching tools (pencil: grade+size+opacity+color, eraser:
+            size+opacity only) — a fixed button column plus a separately
+            reflowing settings column reads far more stable. */}
+        <aside className={clsx(styles.quickSettingsBar, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
+          {Object.entries(TOOL_SCHEMAS[tool])
+            .filter(([, descriptor]) => descriptor.quickAccess)
+            .map(([key, descriptor]) => (
+              <SettingField
+                key={key}
+                descriptor={descriptor}
+                value={toolSettings[tool][key]}
+                onChange={v => setToolSetting(tool, key, v)}
+                layout="toolbar"
+                onExpand={key === 'color' ? () => setActivePanel('color') : undefined}
+              />
+            ))}
         </aside>
 
         {/* ── Viewport ── */}
@@ -2063,12 +1967,9 @@ export function Room() {
                 angle={vp.angle}
               />
             )}
-            {!config.infinite && measurePoints && (
-              <MeasureOverlay a={measurePoints.a} b={measurePoints.b} zoom={vp.zoom} angle={vp.angle} />
-            )}
             {!config.infinite && gridActive && <GridOverlay width={config.width} height={config.height} />}
             {!config.infinite && rulerActive && rulerLine && (
-              <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} />
+              <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} zoom={vp.zoom} angle={vp.angle} />
             )}
             {!config.infinite && transformActive && transformBounds && (
               <TransformGizmo
@@ -2108,9 +2009,6 @@ export function Room() {
                 zoom={vp.zoom}
                 angle={vp.angle}
               />
-              {measurePoints && (
-                <MeasureOverlay a={measurePoints.a} b={measurePoints.b} zoom={vp.zoom} angle={vp.angle} />
-              )}
               {gridActive && (
                 <InfiniteGridOverlay
                   vp={vp}
@@ -2119,7 +2017,7 @@ export function Room() {
                 />
               )}
               {rulerActive && rulerLine && (
-                <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} />
+                <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} zoom={vp.zoom} angle={vp.angle} />
               )}
               {transformActive && transformBounds && (
                 <TransformGizmo
@@ -2138,9 +2036,6 @@ export function Room() {
           )}
           {eyedropperActive && (
             <div className={styles.eyedropperOverlay} onPointerDown={handleEyedropperPick} />
-          )}
-          {measureActive && (
-            <div className={styles.measureOverlay} onPointerDown={handleMeasureDown} />
           )}
           {rulerActive && !rulerPlaced && (
             <div className={styles.rulerPlaceOverlay} onPointerDown={handleRulerPlaceDown} />
@@ -2164,7 +2059,30 @@ export function Room() {
               },
               {
                 id: 'color', icon: 'palette', title: 'Color',
-                content: <ColorPicker value={color} onChange={setColor} />,
+                content: <ColorPicker value={pencilColor} onChange={v => setToolSetting('pencil', 'color', v)} />,
+              },
+              {
+                // #197: full settings for the *currently active* tool, same
+                // TOOL_SCHEMAS/SettingField data + component the toolbar's
+                // quick-access row uses (#196) — this tab just renders every
+                // field, not only the quickAccess-flagged ones.
+                id: 'toolSettings', icon: 'tune', title: 'Tool settings',
+                content: Object.keys(TOOL_SCHEMAS[tool]).length === 0 ? (
+                  <p className={styles.noToolSettings}>This tool has no settings yet.</p>
+                ) : (
+                  <div className={styles.toolSettingsPanel}>
+                    {Object.entries(TOOL_SCHEMAS[tool]).map(([key, descriptor]) => (
+                      <SettingField
+                        key={key}
+                        descriptor={descriptor}
+                        value={toolSettings[tool][key]}
+                        onChange={v => setToolSetting(tool, key, v)}
+                        layout="panel"
+                        onExpand={key === 'color' ? () => setActivePanel('color') : undefined}
+                      />
+                    ))}
+                  </div>
+                ),
               },
             ]}
           />

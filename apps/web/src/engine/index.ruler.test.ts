@@ -6,7 +6,7 @@
 // not just that the pure snapToRuler() function is correct in isolation
 // (see rulerSnap.test.ts for that). Also verifies the ruler itself never
 // shows up in the operation log, per #89's own "not part of the drawing"
-// scope note (same status as the grid/measure overlays).
+// scope note (same status as the grid overlay).
 import { describe, expect, it } from 'vitest'
 
 import type { StrokeOperation } from '@art-lessons/shared'

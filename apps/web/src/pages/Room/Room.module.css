@@ -114,6 +114,17 @@
   gap: 4px;
 }
 
+/* Separates the header's clusters (viewport controls / undo-redo-export /
+   the deliberately-set-apart Clear canvas, #198) — vertical bar, mirrors
+   .toolDivider's role in the left toolbar but for a horizontal row. */
+.headerDivider {
+  width: 1px;
+  height: 22px;
+  background: var(--color-border);
+  flex-shrink: 0;
+  margin: 0 3px;
+}
+
 .zoomLabel {
   font-size: 11px;
   font-family: var(--font-mono);
@@ -193,6 +204,29 @@
   transition: opacity var(--duration-normal) ease;
 }
 
+/* Quick-settings panel (#196 follow-up) — same width/shape as .toolbar,
+   sitting immediately to its right so the tool-select buttons in .toolbar
+   never reflow when the active tool's field count changes (pencil has 4
+   quick fields, eraser has 2 — interleaving them in one column made the
+   buttons visibly jump on every tool switch). */
+.quickSettingsBar {
+  position: absolute;
+  top: var(--header-h);
+  left: 56px;
+  bottom: 0;
+  z-index: 2;
+  width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  gap: 10px;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  overflow: hidden;
+  transition: opacity var(--duration-normal) ease;
+}
+
 .toolSection {
   display: flex;
   flex-direction: column;
@@ -240,14 +274,6 @@
   padding: 0 6px;
 }
 
-.colorSwatch {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid var(--color-border);
-  transition: transform var(--duration-fast), border-color var(--duration-fast);
-}
-.colorSwatch:hover { transform: scale(1.15); }
 .colorSwatchActive {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 1px var(--color-accent);
@@ -283,23 +309,7 @@
   touch-action: none;
 }
 
-/* Same catcher purpose as .eyedropperOverlay, for the measure tool (#119) —
-   a full-drag gesture rather than a single click, see handleMeasureDown.
-   touch-action: none explicitly, matching .viewport — relying on the
-   ancestor's value alone was observed (real device testing) to let the
-   browser's native pinch/pan gesture recognition swallow a second finger
-   before useViewport's own touch pan/pinch handling ever saw it, since this
-   overlay is the actual hit-test target and gets its own composited
-   touch-action region. */
-.measureOverlay {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  cursor: crosshair;
-  touch-action: none;
-}
-
-/* Same catcher purpose as .measureOverlay, but only for the ruler tool's
+/* Same catcher purpose as .eyedropperOverlay, but only for the ruler tool's
    (#89) initial placement drag — removed from the DOM entirely (not just
    inert) once a ruler exists (see Room's render), because after that the
    ruler's own SVG handles (RulerOverlay) are the drag surface and the rest
@@ -310,66 +320,6 @@
   z-index: 4;
   cursor: crosshair;
   touch-action: none;
-}
-
-/* ── Sliders ── */
-.sliderBlock {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  color: var(--color-text-dim);
-}
-
-.sliderBlock :global(.material-symbols-outlined) {
-  font-size: 16px;
-}
-
-.sliderPreview {
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sizeDot {
-  border-radius: 50%;
-  background: var(--color-text);
-  flex-shrink: 0;
-  transition: width var(--duration-fast), height var(--duration-fast);
-}
-
-.sliderTrack {
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sliderVal {
-  font-size: 9px;
-  font-family: var(--font-mono);
-  color: var(--color-text-dim);
-  line-height: 1;
-}
-
-/* Pencil grade slider — same vertical-slider language as size/opacity, just
-   taller (14 discrete steps) and with a text label instead of a number. */
-.gradeTrack {
-  height: 112px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.gradeLabel {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.gradeLabelActive {
-  color: var(--color-accent);
 }
 
 /* ── Viewport ── */
@@ -443,8 +393,15 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 
-/* ── Measure tool (#119) ── */
-.measureLayer {
+/* ── Ruler tool (#89) — also renders the distance label that used to
+   belong to the deleted Measure tool (#195: the two were redundant, see
+   #170) ──
+   Unlike grid above but like the transform gizmo, this overlay's own
+   shapes (once placed) ARE the interactive surface — the svg root
+   stays pointer-events:none so it never blocks the canvas outside the
+   ruler's own line/handles, and each shape opts back in individually
+   (matching .transformSvg/.transformBody/.transformHandle's pattern). */
+.rulerLayer {
   position: absolute;
   top: 0;
   left: 0;
@@ -453,30 +410,6 @@
   pointer-events: none;
 }
 
-.measureSvg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-.measureLine {
-  stroke: var(--color-accent);
-  stroke-width: 2;
-}
-
-.measureEndpoint {
-  fill: var(--color-accent);
-}
-
-/* ── Ruler tool (#89) ──
-   Unlike measure/grid above but like the transform gizmo, this overlay's
-   own shapes (once placed) ARE the interactive surface — the svg root
-   stays pointer-events:none so it never blocks the canvas outside the
-   ruler's own line/handles, and each shape opts back in individually
-   (matching .transformSvg/.transformBody/.transformHandle's pattern). */
 .rulerSvg {
   position: absolute;
   top: 0;
@@ -543,8 +476,8 @@
 
 /* Infinite-room world-space overlay layer (#143) — the counterpart of
    .canvasWrap's own CSS pan/zoom/rotate transform (see canvasTransform in
-   useViewport.ts) for the five overlays (PeerCursors/MeasureOverlay/
-   GridOverlay's infinite variant/RulerOverlay/TransformGizmo), applied to a
+   useViewport.ts) for the four overlays (PeerCursors/GridOverlay's
+   infinite variant/RulerOverlay/TransformGizmo), applied to a
    sibling that holds *only* those overlays, never the <canvas> itself —
    the canvas already draws camera-relative content directly
    (engine.setInfiniteCamera); wrapping it in a second, redundant CSS
@@ -566,7 +499,7 @@
   pointer-events: none;
 }
 
-.measureLabel {
+.rulerDistanceLabel {
   position: absolute;
   top: 0;
   left: 0;
@@ -583,7 +516,7 @@
 }
 
 /* ── Layer transform gizmo (#120) ──
-   Unlike measure/grid above, this overlay's own shapes ARE the interactive
+   Unlike grid above, this overlay's own shapes ARE the interactive
    surface (no separate full-viewport catcher div) — the svg root stays
    pointer-events:none so it never blocks the canvas outside the gizmo's own
    shapes, and each shape opts back in individually. overflow:visible
@@ -827,4 +760,18 @@
   line-height: 1.5;
   border-radius: var(--radius-sm);
   white-space: nowrap;
+}
+
+/* ── Tool settings tab (#197) ── */
+.toolSettingsPanel {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.noToolSettings {
+  padding: 16px 10px;
+  font-size: 12px;
+  color: var(--color-text-dim);
+  text-align: center;
 }

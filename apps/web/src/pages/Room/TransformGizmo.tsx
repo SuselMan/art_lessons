@@ -48,7 +48,7 @@ const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHan
  *
  *  Purely presentational: drag capture, viewport math, and the actual
  *  engine preview/commit calls all live in Room/index.tsx, same division
- *  of responsibility as MeasureOverlay/handleMeasureDown. `matrix` is the
+ *  of responsibility as RulerOverlay/handleRulerPlaceDown. `matrix` is the
  *  one exception carried in from there — without it the handles stayed at
  *  the pre-drag bounds while only the WebGL preview underneath moved,
  *  which read as broken (the thing you're dragging visually detaches from

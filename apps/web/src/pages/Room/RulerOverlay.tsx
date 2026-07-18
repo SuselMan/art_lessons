@@ -16,6 +16,13 @@ interface RulerOverlayProps {
   a: RulerPoint
   b: RulerPoint
   onHandleDown: (kind: RulerHandleKind, e: React.PointerEvent<SVGElement>) => void
+  /** Drives the distance label's counter-scale/rotate so it stays upright
+   *  and a constant screen size regardless of the viewer's zoom/rotation —
+   *  same trick as the old MeasureOverlay's label used (#195: Measure was
+   *  deleted, its distance-bubble display absorbed into Ruler here, since
+   *  the two tools were redundant with each other — see #170). */
+  zoom: number
+  angle: number
 }
 
 const ENDPOINT_RADIUS = 7
@@ -24,12 +31,13 @@ const ENDPOINT_RADIUS = 7
  *  pencil stroke drawn near it snaps to its line (see engine.setRuler /
  *  engine/src/rulerSnap.ts for the actual snapping math, applied in the
  *  pointer pipeline before dabs are generated, not here). Purely
- *  presentational, same division of responsibility as TransformGizmo/
- *  MeasureOverlay: drag capture and viewport math live in Room/index.tsx
- *  (handleRulerHandleDown), this component only renders the line and its
- *  two draggable endpoints and reports which handle was grabbed.
+ *  presentational, same division of responsibility as TransformGizmo:
+ *  drag capture and viewport math live in Room/index.tsx
+ *  (handleRulerHandleDown), this component only renders the line, its two
+ *  draggable endpoints, and the distance label, and reports which handle
+ *  was grabbed.
  *
- *  Same placement convention as MeasureOverlay/GridOverlay, for both
+ *  Same placement convention as PeerCursors/GridOverlay, for both
  *  bounded rooms (a sibling of `<canvas>` inside `canvasWrap`, which
  *  carries the viewport's own CSS transform) and infinite rooms (#143 — a
  *  sibling inside Room's `.worldOverlayWrap`, carrying the equivalent
@@ -44,25 +52,38 @@ const ENDPOINT_RADIUS = 7
  *  ruler" gesture (translate both endpoints together), the same "fat
  *  invisible hit area under a thin visible shape" trick as TransformGizmo's
  *  rotate-zone ring around its (also small) scale handles. */
-export function RulerOverlay({ a, b, onHandleDown }: RulerOverlayProps) {
+export function RulerOverlay({ a, b, onHandleDown, zoom, angle }: RulerOverlayProps) {
+  const distance = Math.hypot(b.x - a.x, b.y - a.y)
+  const midX = (a.x + b.x) / 2
+  const midY = (a.y + b.y) / 2
+  const counterScale = 1 / (zoom || 1)
+
   return (
-    <svg className={styles.rulerSvg}>
-      <line
-        x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-        className={styles.rulerHitLine}
-        onPointerDown={e => onHandleDown('body', e)}
-      />
-      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} className={styles.rulerLine} />
-      <circle
-        cx={a.x} cy={a.y} r={ENDPOINT_RADIUS}
-        className={styles.rulerEndpoint}
-        onPointerDown={e => onHandleDown('a', e)}
-      />
-      <circle
-        cx={b.x} cy={b.y} r={ENDPOINT_RADIUS}
-        className={styles.rulerEndpoint}
-        onPointerDown={e => onHandleDown('b', e)}
-      />
-    </svg>
+    <div className={styles.rulerLayer}>
+      <svg className={styles.rulerSvg}>
+        <line
+          x1={a.x} y1={a.y} x2={b.x} y2={b.y}
+          className={styles.rulerHitLine}
+          onPointerDown={e => onHandleDown('body', e)}
+        />
+        <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} className={styles.rulerLine} />
+        <circle
+          cx={a.x} cy={a.y} r={ENDPOINT_RADIUS}
+          className={styles.rulerEndpoint}
+          onPointerDown={e => onHandleDown('a', e)}
+        />
+        <circle
+          cx={b.x} cy={b.y} r={ENDPOINT_RADIUS}
+          className={styles.rulerEndpoint}
+          onPointerDown={e => onHandleDown('b', e)}
+        />
+      </svg>
+      <div
+        className={styles.rulerDistanceLabel}
+        style={{ transform: `translate(${midX}px, ${midY}px) scale(${counterScale}) rotate(${-angle}rad) translate(-50%, -150%)` }}
+      >
+        {Math.round(distance)} px
+      </div>
+    </div>
   )
 }

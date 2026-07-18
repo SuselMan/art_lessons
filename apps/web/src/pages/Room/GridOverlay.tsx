@@ -16,7 +16,7 @@ interface GridOverlayProps {
  *  aspect ratio, unlike a fixed rows×cols subdivision (e.g. rule-of-thirds),
  *  which would stretch on a non-square canvas.
  *
- *  Same placement convention as PeerCursors/MeasureOverlay: a sibling of
+ *  Same placement convention as PeerCursors/RulerOverlay: a sibling of
  *  `<canvas>` inside `canvasWrap`, which already carries the viewport's CSS
  *  transform, so this is drawn once in canvas-pixel space and automatically
  *  pans/zooms/rotates with the paper — a construction grid needs to stay

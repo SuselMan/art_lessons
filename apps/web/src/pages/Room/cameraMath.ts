@@ -2,8 +2,8 @@ import type { Viewport } from './useViewport'
 import { clientToCanvas, type CanvasSize } from './pointerTransform'
 
 // #143: world<->screen conversion for infinite-canvas rooms' overlay
-// components (PeerCursors/MeasureOverlay/GridOverlay/RulerOverlay/
-// TransformGizmo), which for bounded rooms lean entirely on canvasWrap's
+// components (PeerCursors/GridOverlay/RulerOverlay/TransformGizmo), which
+// for bounded rooms lean entirely on canvasWrap's
 // own CSS transform (see useViewport's `canvasTransform`) to pan/zoom/
 // rotate along with the canvas — a transform infinite rooms don't have
 // (the canvas element never moves; the engine redraws its contents under a
@@ -135,7 +135,7 @@ export function visibleWorldRect(
  *  in whatever space this room's overlays/tools are defined in" — bounded
  *  rooms answer in canvas-pixel space (`clientToCanvas`, unchanged),
  *  infinite rooms answer in genuine world space (`screenToWorld` above).
- *  Room's measure/ruler/transform drag handlers and the #37 cursor
+ *  Room's ruler/transform drag handlers and the #37 cursor
  *  broadcast used to call `clientToCanvas` unconditionally, even for
  *  infinite rooms — since `config.width/height` there is only the
  *  PLACEHOLDER_INFINITE_CANVAS_SIZE placeholder (see Room/index.tsx), not

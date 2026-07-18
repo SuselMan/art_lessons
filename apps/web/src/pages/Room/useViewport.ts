@@ -22,8 +22,8 @@ export interface UseViewportResult {
 }
 
 /** `toolActive`: true while a one-shot canvas tool (currently just the
- *  eyedropper — see Room's `toolActiveRef`; the measure tool is pen-only and
- *  never sets this, see handleMeasureDown) wants the *first* touch that
+ *  eyedropper — see Room's `toolActiveRef`; ruler placement is pen-only and
+ *  never sets this, see handleRulerPlaceDown) wants the *first* touch that
  *  lands on the canvas for itself, not panning. Checked directly in the
  *  native `onDown` handler
  *  below rather than relying on `e.stopPropagation()` from the tool's own
@@ -76,7 +76,7 @@ export function useViewport(
   // before — decoupled entirely from React, and (3) throttles the actual
   // `setVp` (React state) flush to at most once per animation frame, so
   // consumers that legitimately need a re-render (zoom%/angle° labels,
-  // PeerCursors, MeasureOverlay, TransformGizmo, the viewport→engine sync
+  // PeerCursors, RulerOverlay, TransformGizmo, the viewport→engine sync
   // effect) still update every frame, just not every single raw event.
   const updateVp = useCallback((v: Viewport) => {
     vpState.current = v
