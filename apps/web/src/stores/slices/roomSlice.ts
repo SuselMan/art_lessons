@@ -3,13 +3,15 @@ import type { Participant } from '@art-lessons/shared'
 
 import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants'
 
-// Skeleton only (#20) — this is the spec's vaguest bucket ("room: id, name,
-// participants, local userId"). Real wiring (absorbing Room's `config`/
-// `configRef`, deciding whether `userId` needs to be a reactive field at
-// all given it has zero current reactive consumers) is deferred to #24,
-// the final sweep — folding it in there since the original task spec never
-// gave "room" its own dedicated migration issue the way layerState/
-// viewport/tool each got.
+// This is the spec's vaguest bucket ("room: id, name, participants, local
+// userId") — wired up in #24, folded in there since the original task
+// spec never gave "room" its own dedicated migration issue the way
+// layerState/viewport/tool each got. `RoomInfo` absorbs what was Room's
+// own local `config`/`configRef` (same shape, renamed). `userId` has zero
+// reactive consumers (read only at "moment of action," e.g. stamping an
+// operation, never rendered directly) — kept as a plain store field set
+// via applyIdentity, read via getState() at use-sites, deliberately never
+// subscribed to reactively anywhere.
 export interface RoomInfo {
   id: string
   name: string
@@ -35,6 +37,9 @@ export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
   applyParticipantAction: action => set(state => ({
     participants: participantsReducer(state.participants, action),
   })),
-  userId: '',
+  // Matches Room's own former INITIAL_USER_ID placeholder, used until the
+  // socket's create_room/join_room ack hands back the server-resolved
+  // identity (#41) — see applyIdentity in Room/index.tsx.
+  userId: 'local',
   setUserId: id => set({ userId: id }),
 })

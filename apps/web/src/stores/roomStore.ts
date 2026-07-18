@@ -25,3 +25,19 @@ export const useRoomStore = create<RoomStore>()((...a) => ({
   ...createToolSlice(...a),
   ...createRoomInfoSlice(...a),
 }))
+
+const initialRoomStoreState = useRoomStore.getState()
+
+/** The store is a module-level singleton — unlike a component's local
+ *  `useState`, it does NOT reset itself just because Room unmounts and
+ *  later remounts (e.g. `/room/A` → `/create` → `/room/B`, two genuinely
+ *  different mounts of the same component). Room calls this once, as the
+ *  very first thing it does on mount (#24), so a fresh room session never
+ *  briefly renders with a previous room's stale layerState/viewport/tool/
+ *  room data. `true` replaces the whole state rather than merging — action
+ *  functions are restored to the same stable references (they close over
+ *  this store's own set/get, never over stale data), only the data fields
+ *  actually reset. */
+export function resetRoomStore(): void {
+  useRoomStore.setState(initialRoomStoreState, true)
+}

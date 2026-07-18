@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo, useReducer } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { io, type Socket } from 'socket.io-client'
 import clsx from 'clsx'
@@ -25,7 +25,6 @@ import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
-import { participantsReducer } from './participants'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
@@ -43,29 +42,20 @@ import { TOOL_SCHEMAS, loadToolSettings, saveToolSettings } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader } from './snapshotSync'
 import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
-import { useRoomStore } from '../../stores/roomStore'
+import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
+import type { RoomInfo } from '../../stores/slices/roomSlice'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
 // — camera-relative tile rendering (a separate follow-up) is what actually
 // makes the canvas element's own size independent of "room size". Until
-// that lands, an infinite room's RoomConfig gets this placeholder finite
+// that lands, an infinite room's RoomInfo gets this placeholder finite
 // size so the existing fixed-canvas-shaped rendering/viewport/pointer
 // pipeline below (all written in terms of one fixed-size canvas) keeps
 // working unmodified rather than needing every call site touched twice.
 // Large enough that "infinite" still feels roomy for this interim state.
 const PLACEHOLDER_INFINITE_CANVAS_SIZE = 8192
-
-interface RoomConfig {
-  id: string
-  name: string
-  paper: 'rough' | 'smooth' | 'bristol'
-  // Infinite (tiled) canvas (#133 Phase 1) — see PLACEHOLDER_INFINITE_CANVAS_SIZE.
-  infinite: boolean
-  width: number
-  height: number
-}
 
 /** Navigation state CreateRoom hands off to a freshly created room (see
  *  CreateRoom/index.tsx) — its presence is how this component tells "I am
@@ -78,7 +68,7 @@ interface CreatorNavState {
 
 function toRoomConfig(
   room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
-): RoomConfig {
+): RoomInfo {
   return {
     id: room.id, name: room.name, paper: room.paper, infinite: room.infinite,
     width: room.canvasWidth ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
@@ -86,11 +76,6 @@ function toRoomConfig(
   }
 }
 
-// Placeholder id until the socket connects and create_room/join_room's ack
-// hands us the server-resolved identity (#41) — see applyIdentity. Kept as
-// the pre-connection fallback so drawing before the socket connects still
-// works (single-user/offline-ish behavior).
-const INITIAL_USER_ID = 'local'
 // LAN dev server port (apps/server); derived from window.location.hostname
 // How long a stroke's "drawing" activity (local or peer) stays visible before
 // the #38 indicator clears it — see drawingIndicator.ts.
@@ -132,6 +117,13 @@ export function Room() {
   const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+
+  // (#24) The store is a module-level singleton — reset it before anything
+  // below reads a selector, so a genuine unmount+remount (e.g. via an
+  // intermediate /create stop between two different rooms) never leaks a
+  // previous room's stale data into this fresh mount. See resetRoomStore's
+  // own doc comment.
+  useState(resetRoomStore)
 
   // Captured once, at mount: CreateRoom hands the freshly-created room's
   // config off via navigation state. A second device opening the same room
@@ -247,9 +239,10 @@ export function Room() {
   const graphiteGrainVariant = getGraphiteGrainVariant()
   const grainMode = graphiteGrainVariant === 'off' ? undefined : Number(graphiteGrainVariant)
 
-  const [config,     setConfig]     = useState<RoomConfig | null>(
-    () => (creatorDraft?.room ? toRoomConfig(creatorDraft.room) : null),
-  )
+  // (#24) Backed by the store now — same one-shot seeding timing the old
+  // useState(() => creatorDraft?.room ? toRoomConfig(...) : null) had.
+  useState(() => { if (creatorDraft?.room) useRoomStore.setState({ room: toRoomConfig(creatorDraft.room) }) })
+  const config = useRoomStore(s => s.room)
   const tool = useRoomStore(s => s.tool)
   const setTool = useRoomStore(s => s.setTool)
   // Unified per-tool settings (#196) — grade/size/opacity/color for every
@@ -349,7 +342,11 @@ export function Room() {
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
-  const [participants, dispatchParticipants] = useReducer(participantsReducer, [])
+  // (#24) Backed by the store now — applyParticipantAction still just
+  // folds each socket event through the same pure participantsReducer
+  // (participants.ts), reused unchanged.
+  const participants = useRoomStore(s => s.participants)
+  const dispatchParticipants = useRoomStore(s => s.applyParticipantAction)
   // (#152) Cursor *positions* used to live here (setPeerCursors on every
   // incoming peer_cursor packet — up to ~30Hz per peer, summed across
   // however many peers are moving a pointer at once, all landing on this
@@ -368,11 +365,14 @@ export function Room() {
   })
 
   const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
-  const userIdRef         = useRef(INITIAL_USER_ID)
+  // (#24) userId lives in the store now (roomSlice) but is deliberately
+  // never read reactively — it's only ever needed at "moment of action"
+  // (e.g. stamping an operation), same non-reactive-ref-like usage as
+  // before, just via useRoomStore.getState().userId instead of a ref.
   // Stamped by every create_room/join_room ack (#41) with the server's
   // cookie-resolved identity — stable across reconnects, unlike socket.id.
   const applyIdentity = useCallback((userId: string) => {
-    userIdRef.current = userId
+    useRoomStore.getState().setUserId(userId)
     engineRef.current?.setUserId(userId)
   }, [])
   const appliedOpIdsRef   = useRef<Set<string>>(new Set())
@@ -393,7 +393,6 @@ export function Room() {
   // one of these can drop it from the reveal instead of trying (and
   // silently failing) to undo an op the log was never given.
   const pendingPreviewOpIdsRef = useRef<Set<string>>(new Set())
-  const configRef         = useRef(config)
   // A joiner's first room_state can arrive before the engine exists — we need
   // that very event to learn `config` in the first place, and the engine only
   // mounts once `config` is set (see the mount-engine effect below). Its
@@ -452,8 +451,6 @@ export function Room() {
   const [joinPassword,   setJoinPassword]   = useState('')
   const [joinError,      setJoinError]      = useState<string | null>(null)
   const [joinSubmitting, setJoinSubmitting] = useState(false)
-
-  configRef.current = config
 
   const activeCfg = toolSettings[tool]
 
@@ -652,7 +649,7 @@ export function Room() {
       pencilType: initialToolRef.current.pencil,
       size: initialToolRef.current.size,
       opacity: initialToolRef.current.opacity,
-      userId: userIdRef.current,
+      userId: useRoomStore.getState().userId,
       // Broadcast-loop fix (#84): only genuinely local appends (layer-panel
       // ops via dispatchOp, and the stroke this engine records internally on
       // pointer up) reach this callback — see PencilEngineOptions.onLocalOperation.
@@ -669,7 +666,7 @@ export function Room() {
           latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, stamped.seq ?? 0)
           checkSnapshotBoundary()
         })
-        if (op.type === 'stroke') markActive(userIdRef.current)
+        if (op.type === 'stroke') markActive(useRoomStore.getState().userId)
       },
       // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
       // commit it for real now, matching what's already visible on screen.
@@ -715,7 +712,7 @@ export function Room() {
       .on('strokeStart', e => {
         strokeActiveRef.current = true
         setIsDrawing(true)
-        markActive(userIdRef.current)
+        markActive(useRoomStore.getState().userId)
         pencilSoundRef.current?.start(e.pressure, e.speed, e.tiltX, e.tiltY)
       })
       .on('strokeEnd', () => {
@@ -725,7 +722,7 @@ export function Room() {
       })
       .on('pointer', e => {
         if (strokeActiveRef.current) {
-          markActive(userIdRef.current)
+          markActive(useRoomStore.getState().userId)
           pencilSoundRef.current?.update(e.pressure, e.speed, e.tiltX, e.tiltY)
         }
       })
@@ -807,7 +804,7 @@ export function Room() {
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory, paperVariantUrl,
-    grainMode,
+    grainMode, dispatchParticipants,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -956,7 +953,7 @@ export function Room() {
   // (syncFromLog is defined above, alongside markActive, since the mount-engine
   // effect needs it too — see the pending-snapshot replay there.)
   const dispatchOp = useCallback((draft: OperationDraft) => {
-    const op = { ...draft, id: nanoid(10), userId: userIdRef.current, timestamp: Date.now() }
+    const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
     engineRef.current?.appendOperation(op) // source defaults to 'local' → broadcast via onLocalOperation
     syncFromLog()
   }, [syncFromLog])
@@ -1454,12 +1451,12 @@ export function Room() {
       // retroactively contribute a bake for history it's only now replaying.
       for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
 
-      if (!configRef.current) {
+      if (!useRoomStore.getState().room) {
         // Joiner's first snapshot: this is how we learn paper/canvas size —
         // the engine doesn't exist yet to apply `tailOperations` to, so stash
         // them for the mount-engine effect to replay once it does.
         pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants }
-        setConfig(toRoomConfig(room))
+        useRoomStore.getState().setRoomInfo(toRoomConfig(room))
         return
       }
       // See the mount-engine effect's own comment on engine.paperReady() —
@@ -1615,7 +1612,7 @@ export function Room() {
     }
   }, [
     id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary,
-    restoreFromSnapshot, backfillHistory, drainDeferredQueue,
+    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants,
   ])
 
   // Submits the join gate (joiner path only): connects/join_room's with the
