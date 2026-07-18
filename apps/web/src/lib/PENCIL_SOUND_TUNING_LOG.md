@@ -942,12 +942,31 @@ in every band pair. The earlier "large" difference was entirely random-noise-ins
 between separate un-seeded renders, not a real effect of the code change — a reminder that render-
 and-compare needs matched noise seeds for a clean A/B, not just "before/after."
 
-**Result:** _pending — the mechanism is in place and shippable (default-safe), but not proven to move
-the needle at its current depth. Either turn midGrainCoupling/bodyGrainCoupling up well past 0.3/0.15
-via the panel and judge by ear (the metric may simply not be sensitive enough at this scale to be a
-useful gate), or treat this as inconclusive and move to the distance-driven-grain experiment next
-(reviving the relevant piece of the abandoned AudioWorklet variant — see round 11 — instead of the
-current speed-driven grain-rate LFO)._
+**Result:** Ilya turned midGrainCoupling/bodyGrainCoupling up well past the starting weights via the
+panel and confirmed it sounds closer to the real recordings — promoted to defaults, see take 19.
+
+## Round 13, take 19 — coupling promoted to defaults, much stronger
+
+Sent back via panel: `midGrainCoupling` 0.3→0.64, `bodyGrainCoupling` 0.15→0.6 (both roughly doubled
+to quadrupled), `bodyGrainSmoothHz` 20→29, and — separately — `brightnessScale` 0.45→0.05 (pulls the
+mid carrier's sweep down close to its floor almost regardless of speed). Everything else unchanged.
+Confirmed sounding closer to the real recordings by ear; applied directly as the new shipped
+defaults.
+
+Take 18's own seeded-noise A/B (at the old 0.3/0.15 weights) found essentially no measurable effect
+on cross-band correlation — in hindsight consistent with the coupling needing to be pushed much
+harder to matter perceptually, which is exactly what happened here.
+
+**Result:** confirmed better by ear — current shipped state.
+
+## Round 13, take 20 — distance-driven grain (in progress)
+
+Next: revive the distance-driven-grain idea from the abandoned AudioWorklet variant (round 11) —
+grain excitation tied to *pixels of stroke traveled*, not elapsed time/speed directly, so grain rate
+falls out of integrating speed rather than being a speed→rate LFO, and a stationary tip is
+structurally silent rather than relying on the deadzone/presence-floor machinery to approximate it.
+Goal per Ilya: "добейся максимального сходства с настоящим звуком" — direct optimization target is
+matching the reference recordings, not just "try the idea and see."
 
 ## How to log a result
 

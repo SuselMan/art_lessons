@@ -182,7 +182,9 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   bodyPresenceFloor: 0.6,
   hissLowHz: 6000,
   hissHighHz: 12000,
-  bodyGrainSmoothHz: 20,
+  // Round 13, take 19: Ilya's panel session pushed this 20→29 alongside
+  // much higher midGrainCoupling/bodyGrainCoupling below.
+  bodyGrainSmoothHz: 29,
 }
 
 export interface GrainVariant {
@@ -408,7 +410,14 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   tap: { minGain: 0.02, maxGain: 0.5, freqHz: 120, decaySeconds: 0.02, noiseMix: 0.35, pressureCurve: 2.2 },
   speedPresenceFloor: 0.08,
   outputGainScale: 0.5,
-  brightnessScale: 0.45,
+  // Round 13, take 19: 0.45→0.05 — Ilya's panel session, alongside pushing
+  // midGrainCoupling/bodyGrainCoupling way up (below), confirmed sounding
+  // closer to the real recordings by ear. Pulls the mid carrier's sweep
+  // down close to its floor almost regardless of speed — consistent with
+  // take 16's finding that real energy is weak in the 1-4kHz range this
+  // carrier covers, so a near-static, very low center frequency there may
+  // matter less than the coupling driving it.
+  brightnessScale: 0.05,
   curvePower: 2.0,
   qScale: 0.6,
   // Asked whether tone tracks speed and to strengthen it — it already did
@@ -440,8 +449,13 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   // envelope correlation measured on the real recordings didn't confirm the
   // expected direction cleanly (small, noisy sample), so this is a by-ear
   // call, not a data-driven one like the mix values above.
-  midGrainCoupling: 0.3,
-  bodyGrainCoupling: 0.15,
+  // Round 13, take 19: Ilya's panel session pushed both much higher (0.3→0.64,
+  // 0.15→0.6) — a clean seeded-noise A/B at the old, much smaller weights
+  // showed almost no measurable effect on cross-band correlation, so this
+  // isn't surprising in hindsight: the coupling needed to be strong to
+  // matter at all. Confirmed sounding closer to the real recordings by ear.
+  midGrainCoupling: 0.64,
+  bodyGrainCoupling: 0.6,
 }
 
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
