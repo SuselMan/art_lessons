@@ -2,6 +2,7 @@
 node_modules
 **/node_modules
 **/dist
+**/*.tsbuildinfo
 apps/web/src
 apps/web/public
 apps/web/index.html
