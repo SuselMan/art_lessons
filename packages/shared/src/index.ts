@@ -72,6 +72,22 @@ export type Participant = {
   color: string // cursor color
 }
 
+// Room color palette (#190 epic). One palette per room (not per-user, and not
+// a named/multi-palette choice) — created with DEFAULT_PALETTE_COLORS when
+// the room is created, added-to only for now (no per-color removal UI yet).
+// Modeled as a plain hex-string array rather than a `Palette { id, name }`
+// type since there is exactly one per room; a richer type can be introduced
+// later if multiple/named palettes are ever needed. Lives outside the
+// Operation log — it's not a drawing action and must not participate in
+// undo/redo/replay — and syncs via its own socket events below instead of an
+// Operation, sitting alongside `participants` in `room_state` rather than as
+// a field on `Room` itself (participants isn't a `Room` field either, for the
+// same reason: both are room-scoped state assembled independently of the
+// Prisma `Room` row — see roomMapper.ts's `toWireRoom`).
+export const DEFAULT_PALETTE_COLORS: string[] = [
+  '#ffffff', '#000000', '#390099', '#9e0059', '#ff0054', '#ff5400', '#ffbd00',
+]
+
 // Operations (drawing actions — serializable, replayable).
 // The room's append-only operation log is the source of truth; layer pixel
 // buffers and LayerState are derived by replaying it (ADR 002).
@@ -310,11 +326,17 @@ export type ServerToClientEvents = {
   // separately when it doesn't already have local state at least that fresh.
   room_state: (state: {
     room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+    palette: string[]
   }) => void
   peer_operation: (op: Operation) => void
   peer_cursor: (data: CursorMoveData & { userId: string }) => void
   peer_joined: (participant: Participant) => void
   peer_left: (userId: string) => void
+  // Broadcast to every participant (including the adder) after palette_add_color
+  // is accepted — see DEFAULT_PALETTE_COLORS' doc comment above for why this
+  // isn't an Operation. Always the full current list, not a delta: this is a
+  // handful of hex strings, not worth reconciling incrementally.
+  palette_updated: (data: { palette: string[] }) => void
 }
 
 export type ClientToServerEvents = {
@@ -347,6 +369,10 @@ export type ClientToServerEvents = {
   // SNAPSHOT_SEQ_INTERVAL boundary on their own operations.
   operation: (op: Operation, ack?: (stamped: Operation) => void) => void
   cursor_move: (data: CursorMoveData) => void
+  // Appends one hex color to the room's palette (v1: add-only, no removal
+  // UI yet — see DEFAULT_PALETTE_COLORS' doc comment above). Server dedups
+  // and broadcasts the result via palette_updated.
+  palette_add_color: (data: { color: string }) => void
 }
 
 // Hotkeys
