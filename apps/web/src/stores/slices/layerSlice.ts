@@ -8,7 +8,7 @@ import type { AffineMatrix } from '../../pages/Room/transformMath'
 
 const INITIAL_LAYER_ID = 'layer-1'
 
-function makeInitialLayerState(): LayerState {
+export function makeInitialLayerState(): LayerState {
   return {
     items: {
       [BACKGROUND_LAYER_ID]: { kind: 'layer', id: BACKGROUND_LAYER_ID, name: 'Background', opacity: 1, visible: true },

@@ -17,13 +17,14 @@ import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
-import { computeCompositeOrder, replayLayerState, overlayLocalFields } from '../../lib/layers'
+import { computeCompositeOrder } from '../../lib/layers'
 import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant, getGraphiteGrainVariant } from '../../lib/featureFlags'
-import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, PENCIL_SOUND_VARIANT_3, type PencilSoundAPI } from '../../lib/PencilSound'
+import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, PENCIL_SOUND_VARIANT_3 } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
+import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { participantsReducer } from './participants'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
@@ -42,6 +43,8 @@ import { TOOL_SCHEMAS, loadToolSettings, saveToolSettings, type ToolSettingsMap,
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader } from './snapshotSync'
 import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
+import { useRoomStore } from '../../stores/roomStore'
+import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
@@ -83,7 +86,6 @@ function toRoomConfig(
   }
 }
 
-const INITIAL_LAYER_ID = 'layer-1'
 // Placeholder id until the socket connects and create_room/join_room's ack
 // hands us the server-resolved identity (#41) — see applyIdentity. Kept as
 // the pre-connection fallback so drawing before the socket connects still
@@ -124,18 +126,6 @@ function isNegligibleTransform(handle: TransformHandleKind, m: AffineMatrix): bo
   if (handle === 't' || handle === 'b') return Math.abs(m[3] - 1) < 0.001 // scaleY = d
   if (handle === 'l' || handle === 'r') return Math.abs(m[0] - 1) < 0.001 // scaleX = a
   return Math.abs(m[0] - 1) < 0.001 // corners: uniform, m[0] === m[3] === scale
-}
-
-function makeInitialLayerState(): LayerState {
-  return {
-    items: {
-      [BACKGROUND_LAYER_ID]: { kind: 'layer', id: BACKGROUND_LAYER_ID, name: 'Background', opacity: 1, visible: true },
-      [INITIAL_LAYER_ID]:    { kind: 'layer', id: INITIAL_LAYER_ID,    name: 'Layer 1',    opacity: 1, visible: true },
-    },
-    rootOrder:  [INITIAL_LAYER_ID, BACKGROUND_LAYER_ID],
-    activeId:   INITIAL_LAYER_ID,
-    selectedIds: [],
-  }
 }
 
 export function Room() {
@@ -233,6 +223,12 @@ export function Room() {
   // PENCIL_SOUND_TUNING_LOG.md for what each variant is and how they were
   // chosen.
   const pencilSoundSetting = getPencilSoundSetting()
+
+  // Live-tuning debug panel for every PencilSound knob (#153 round 13, see
+  // PencilSoundTuningPanel.tsx) — only meaningful for variant3 (the only
+  // recipe with tap/brightnessScale/qScale/etc.), same feature-flag pattern
+  // as debugEnabled/hapticGrain above.
+  const pencilSoundTuningEnabled = getFeatureFlag('pencilSoundTuning') && pencilSoundSetting === 'variant3'
 
   // Haptic paper-grain experiment: same feature-flag pattern as the ones
   // above. Off by default — for-fun prototype, Android Chrome only.
@@ -344,7 +340,11 @@ export function Room() {
   // visually ride along with the content instead of staying glued to the
   // pre-drag bounds (see TransformGizmo's docstring) — null between drags.
   const [transformLiveMatrix, setTransformLiveMatrix] = useState<AffineMatrix | null>(null)
-  const [layerState, setLayerState] = useState<LayerState>(makeInitialLayerState)
+  // (#21) Backed by the store now — layerState is still a *derived cache*
+  // of the engine's operation log (ADR 002), never independently mutable
+  // content state; see syncFromLog below and roomStore's layerSlice.
+  const layerState = useRoomStore(s => s.layerState)
+  const setLayerStateLocal = useRoomStore(s => s.setLayerStateLocal)
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'toolSettings' | null>('layers')
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
@@ -360,8 +360,7 @@ export function Room() {
 
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   const engineRef     = useRef<PencilEngineAPI | null>(null)
-  const pencilSoundRef = useRef<PencilSoundAPI | null>(null)
-  const layerStateRef = useRef<LayerState>(layerState)
+  const pencilSoundRef = useRef<PencilSound | null>(null)
   const initialToolRef = useRef({
     pencil: toolSettings.pencil.grade as PencilGradeName,
     size: toolSettings.pencil.size as number,
@@ -436,7 +435,7 @@ export function Room() {
     if (watermark <= committedWatermarkRef.current) return
     const previous = committedWatermarkRef.current
     committedWatermarkRef.current = watermark
-    snapshotUploader.onSeqObserved(previous, watermark, engine, layerStateRef.current)
+    snapshotUploader.onSeqObserved(previous, watermark, engine, useRoomStore.getState().layerState)
   }, [snapshotUploader])
   // Tracks whether create_room/join_room has ever succeeded on this socket
   // connection's lineage, so a later auto-reconnect (socket.io's default
@@ -454,8 +453,7 @@ export function Room() {
   const [joinError,      setJoinError]      = useState<string | null>(null)
   const [joinSubmitting, setJoinSubmitting] = useState(false)
 
-  layerStateRef.current = layerState
-  configRef.current     = config
+  configRef.current = config
 
   const activeCfg = toolSettings[tool]
 
@@ -545,7 +543,7 @@ export function Room() {
       const ops = base
         ? (engineRef.current?.getOperationsSinceRestore() ?? [])
         : (engineRef.current?.getOperations() ?? [])
-      setLayerState(prev => overlayLocalFields(replayLayerState(base ?? makeInitialLayerState(), ops), prev))
+      useRoomStore.getState().syncLayerStateFromLog(base ?? makeInitialLayerState(), ops)
     })
   }, [])
 
@@ -590,8 +588,8 @@ export function Room() {
 
   // (#169) Creates the engine's layer buffers from a restored snapshot's own
   // layerState — the same initLayer calls the mount-engine effect already
-  // makes from layerStateRef below, just driven by the snapshot instead of
-  // local React state (which a fresh joiner doesn't have yet). Deliberately
+  // makes from the store below, just driven by the snapshot instead of
+  // store state (which a fresh joiner doesn't have yet). Deliberately
   // just buffer creation, no setActiveLayer/setCompositeOrder here — see
   // restoreFromSnapshot's own comment for why those must come *after* pixel
   // restoration, not before.
@@ -734,7 +732,7 @@ export function Room() {
         }
       })
 
-    const ls = layerStateRef.current
+    const ls = useRoomStore.getState().layerState
     for (const id of ls.rootOrder) {
       if (ls.items[id]?.kind === 'layer') engine.initLayer(id)
     }
@@ -2055,7 +2053,7 @@ export function Room() {
             tabs={[
               {
                 id: 'layers', icon: 'layers', title: 'Layers',
-                content: <LayerPanel layerState={layerState} onChange={setLayerState} onOp={dispatchOp} />,
+                content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} />,
               },
               {
                 id: 'color', icon: 'palette', title: 'Color',
@@ -2115,7 +2113,7 @@ export function Room() {
           same fixed corner — see chat, this is exactly what happened while
           chasing #154's latency regression with hapticGrain still on from
           earlier testing. */}
-      {(debugEnabled || hapticGrainEnabled || tapToHideEnabled) && (
+      {(debugEnabled || hapticGrainEnabled || tapToHideEnabled || pencilSoundTuningEnabled) && (
         <div className={styles.debugStack}>
           {/* Device performance readout (#91, extended #104) — ?debug=1
               only. Shows the last completed stroke's real input-sample
@@ -2241,6 +2239,8 @@ export function Room() {
               )}
             </div>
           )}
+
+          {pencilSoundTuningEnabled && <PencilSoundTuningPanel pencilSoundRef={pencilSoundRef} />}
         </div>
       )}
     </div>
