@@ -163,12 +163,14 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   qPressureScale: 1.2,
   // Round 13, take 16: lowpass cutoff for the new body-hum band — a
   // rendered-vs-reference comparison found the real low hump is a broad
-  // shelf spanning ~60-800Hz (not a narrow peak, hence lowpass + 500Hz + a
-  // gentle Q instead of the first pass's narrow 170Hz bandpass).
+  // shelf spanning ~60-800Hz (not a narrow peak, hence lowpass + a gentle Q
+  // instead of the first pass's narrow 170Hz bandpass). Round 13, take 17:
+  // Ilya's own panel session found 330 (down from take 16's 500) sounded
+  // better — see PENCIL_SOUND_TUNING_LOG.md.
   // bodyPresenceFloor much higher than GrainVariant.speedPresenceFloor's
   // default (0.08) — the real hum barely fades with speed, unlike
   // mid/hiss's texture.
-  bodyFreqHz: 500,
+  bodyFreqHz: 330,
   bodyQ: 0.7,
   bodyPresenceFloor: 0.6,
   hissLowHz: 6000,
@@ -402,9 +404,12 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   // against `Write on Paper with Pencil 03.wav` directly — not by ear —
   // landing on roughly the same low:mid:high ratio the reference recordings
   // show (see PENCIL_SOUND_TUNING_LOG.md take 16 for the actual numbers).
-  midMix: 0.35,
-  bodyMix: 1.6,
-  hissMix: 0.35,
+  // Round 13, take 17: Ilya's own panel session (bodyMix down to 0.84, hissMix
+  // up to 0.65 from take 16's 1.6/0.35 — more hiss, less body than the
+  // render-calibrated starting point) confirmed as sounding better by ear.
+  midMix: 0.36,
+  bodyMix: 0.84,
+  hissMix: 0.65,
 }
 
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise

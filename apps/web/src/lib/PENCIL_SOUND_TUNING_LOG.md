@@ -887,10 +887,18 @@ analyzer against `03.wav`, adjust:
    mid ~7% (real ~9%), high ~13% (real ~27%, lower than real but present and in the right shape,
    unlike the 0%/81% extremes above). Kept as the shipped default.
 
-**Result:** _pending — awaiting Ilya's listening pass on the three-band structure. The panel's
-`midMix`/`bodyMix`/`hissMix`/`bodyFreqHz`/`bodyQ`/`hissLowHz`/`hissHighHz` sliders are the tool for
-any further balance correction — better suited to it than more render-and-compare rounds, since a
-synthetic driven "signature" is itself only an approximation of how Ilya actually draws._
+**Result:** "Вот так получше звучит" — Ilya tuned it himself via the panel from the take-16 starting
+point and confirmed the result sounds better. "Мы стали ближе... кажется как минимум мы сдвинулись
+с места."
+
+## Round 13, take 17 — Ilya's own panel session, promoted to defaults
+
+Sent back via "copy config": `bodyMix` 1.6→0.84, `hissMix` 0.35→0.65 (more hiss, less body than
+take 16's render-calibrated starting point), `midMix` 0.35→0.36 (negligible), `bodyFreqHz` 500→330
+(lower lowpass cutoff). Everything else unchanged from take 16. Applied directly to
+`PENCIL_SOUND_VARIANT_3`/`PENCIL_SOUND_TUNING` as the new shipped defaults.
+
+**Result:** confirmed better by ear — current shipped state. Further tuning continues via the panel.
 
 ## How to log a result
 
