@@ -44,6 +44,18 @@ export class PointerInput {
   private _lastY: number
   private _transform: ((clientX: number, clientY: number) => { x: number; y: number }) | null
 
+  // (#187 diagnostic instrumentation, temporary — remove once root-caused)
+  // Which pointer actually started/owns the in-progress stroke. Move events
+  // never checked this against the incoming event's own pointerId before —
+  // the working theory is that a second input source (mouse hover, a
+  // secondary touch) sending its own pointermove while a stylus stroke is
+  // active gets silently misattributed to that stroke, producing the
+  // reported mid-stroke "jump"/break. This doesn't change behavior (no
+  // early return added), just makes a mismatch visible in the console —
+  // filter devtools for "[PointerInput]".
+  private _activePointerId: number | null
+  private _activePointerType: string | null
+
   private _down: (e: PointerEvent) => void
   private _move: (e: PointerEvent) => void
   private _up: (e: PointerEvent) => void
@@ -56,6 +68,8 @@ export class PointerInput {
     this._lastX = 0
     this._lastY = 0
     this._transform = null
+    this._activePointerId = null
+    this._activePointerType = null
 
     this._down   = this._handleDown.bind(this)
     this._move   = this._handleMove.bind(this)
@@ -138,16 +152,63 @@ export class PointerInput {
   private _handleDown(e: PointerEvent): void {
     if (e.button !== 0) return
     if (e.pointerType === 'touch') return // touch → pan/zoom/rotate at viewport level
+    // (#187 diagnostic instrumentation, temporary — remove once root-caused;
+    // filter devtools console for "[PointerInput]") — a pointerdown while a
+    // stroke is already active would mean two input sources are down at
+    // once, which _handleMove's mismatch check below can't itself explain
+    // (it only fires on *moves* from an unexpected pointer).
+    if (this._active) {
+      console.warn('[PointerInput] pointerdown while a stroke is already active', {
+        newPointerId: e.pointerId, newPointerType: e.pointerType,
+        activePointerId: this._activePointerId, activePointerType: this._activePointerType,
+      })
+    }
+    console.log('[PointerInput] down', { pointerId: e.pointerId, pointerType: e.pointerType, clientX: e.clientX, clientY: e.clientY })
     try { this.canvas.setPointerCapture(e.pointerId) } catch { /* context loss */ }
     this._active = true
+    this._activePointerId = e.pointerId
+    this._activePointerType = e.pointerType
     this._lastT = performance.now()
     this._emit('start', this._extract(e))
   }
 
   private _handleMove(e: PointerEvent): void {
     if (!this._active) return
+    // (#187 diagnostic instrumentation, temporary) — the working theory: a
+    // second input source (mouse hover, a secondary touch) sends its own
+    // pointermove while a stylus stroke is active, and — since nothing
+    // before this ever checked pointerId — gets silently misattributed to
+    // that stroke, producing the reported mid-stroke jump/break. Logging
+    // only, no early return: behavior must stay exactly as before until
+    // this is actually confirmed, so a reproduction here is trustworthy.
+    if (e.pointerId !== this._activePointerId) {
+      console.warn('[PointerInput] MOVE FROM MISMATCHED POINTER — likely the "mouse conflict" (#187)', {
+        movePointerId: e.pointerId, movePointerType: e.pointerType,
+        activePointerId: this._activePointerId, activePointerType: this._activePointerType,
+      })
+    }
+    const beforeX = this._lastX, beforeY = this._lastY, beforeT = this._lastT
     const events = e.getCoalescedEvents?.() ?? [e]
     for (const ev of events) this._emit('move', this._extract(ev))
+    // A big time gap since the last real sample, or an implausibly large
+    // jump in canvas-pixel coordinates, could independently produce a
+    // visible break — logging both to see whether either actually happens,
+    // and whether it correlates with "especially at high zoom" (jump
+    // distance is canvas-pixel space, which a caller's setTransform scales
+    // very differently at high zoom than at 100%).
+    const dt = this._lastT - beforeT
+    if (dt > 80) {
+      console.warn('[PointerInput] large gap since last move sample', {
+        dtMs: Math.round(dt), pointerId: e.pointerId, pointerType: e.pointerType,
+      })
+    }
+    const jumpPx = Math.hypot(this._lastX - beforeX, this._lastY - beforeY)
+    if (jumpPx > 400) {
+      console.warn('[PointerInput] large coordinate jump since last move sample', {
+        jumpPx: Math.round(jumpPx), dtMs: Math.round(dt), pointerId: e.pointerId, pointerType: e.pointerType,
+        from: { x: beforeX, y: beforeY }, to: { x: this._lastX, y: this._lastY },
+      })
+    }
 
     // Prediction is opt-in and additive: only touched at all when a caller
     // registered onPredict() (see PencilEngineOptions.predictPointer), so
@@ -160,7 +221,17 @@ export class PointerInput {
 
   private _handleUp(e: PointerEvent): void {
     if (!this._active) return
+    // (#187 diagnostic instrumentation, temporary) — distinguishes a normal
+    // pointerup from a pointercancel (both routed here) — e.g. a tablet OS
+    // canceling the stylus's pointer mid-stroke (palm rejection, focus
+    // switch) would end the stroke abruptly too, a distinct cause from the
+    // mismatched-pointer theory above.
+    console.log('[PointerInput] ' + (e.type === 'pointercancel' ? 'CANCEL' : 'up'), {
+      pointerId: e.pointerId, pointerType: e.pointerType, clientX: e.clientX, clientY: e.clientY,
+    })
     this._active = false
+    this._activePointerId = null
+    this._activePointerType = null
     this._emit('end', this._extract(e))
   }
 
