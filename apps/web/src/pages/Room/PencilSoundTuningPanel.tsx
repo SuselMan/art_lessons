@@ -102,6 +102,16 @@ export function PencilSoundTuningPanel({ pencilSoundRef }: { pencilSoundRef: Ref
             <Row label="qScale" value={grain.qScale ?? 1} min={0.05} max={2} step={0.01} onChange={v => patchGrain({ qScale: v })} />
             <Row label="brightnessRangeBoost" value={grain.brightnessRangeBoost ?? 1} min={1} max={3} step={0.05} onChange={v => patchGrain({ brightnessRangeBoost: v })} />
           </Section>
+          <Section title="band mix (mid / body / hiss)">
+            <Row label="midMix" value={grain.midMix ?? 1} min={0} max={1} step={0.01} onChange={v => patchGrain({ midMix: v })} />
+            <Row label="bodyMix" value={grain.bodyMix ?? 0} min={0} max={2} step={0.01} onChange={v => patchGrain({ bodyMix: v })} />
+            <Row label="hissMix" value={grain.hissMix ?? 0} min={0} max={2} step={0.01} onChange={v => patchGrain({ hissMix: v })} />
+            <Row label="bodyFreqHz (lowpass cutoff)" value={PENCIL_SOUND_TUNING.bodyFreqHz} min={80} max={1200} step={10} onChange={v => patchTuning('bodyFreqHz', v)} />
+            <Row label="bodyQ" value={PENCIL_SOUND_TUNING.bodyQ} min={0.3} max={4} step={0.05} onChange={v => patchTuning('bodyQ', v)} />
+            <Row label="bodyPresenceFloor" value={PENCIL_SOUND_TUNING.bodyPresenceFloor} min={0} max={1} step={0.01} onChange={v => patchTuning('bodyPresenceFloor', v)} />
+            <Row label="hissLowHz" value={PENCIL_SOUND_TUNING.hissLowHz} min={2000} max={14000} step={100} onChange={v => patchTuning('hissLowHz', v)} />
+            <Row label="hissHighHz" value={PENCIL_SOUND_TUNING.hissHighHz} min={4000} max={18000} step={100} onChange={v => patchTuning('hissHighHz', v)} />
+          </Section>
           <Section title="speed → loudness">
             <Row label="speedPresenceFloor" value={grain.speedPresenceFloor ?? 1} min={0} max={1} step={0.01} onChange={v => patchGrain({ speedPresenceFloor: v })} />
             <Row label="outputGainScale" value={grain.outputGainScale ?? 1} min={0} max={2} step={0.01} onChange={v => patchGrain({ outputGainScale: v })} />

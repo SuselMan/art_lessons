@@ -19,7 +19,17 @@
 //      which reads as a spray can, not paper. Each grain layer (see
 //      GrainLayer/buildLayer below) synthesizes texture by lowpassing a
 //      second, independent noise source at a speed-dependent rate and
-//      rectifying it into an envelope that amplitude-modulates the carrier.
+//      rectifying it into an envelope that amplitude-modulates a carrier.
+//
+// Round 13, take 16 (#153): each grain layer is actually *three* independent
+// noise sources now, not one — a direct recording-vs-recording comparison
+// (PENCIL_SOUND_TUNING_LOG.md round 13 take 15) found real pencil-scratch
+// energy sitting in two humps, a low ~100-250Hz body hum and a high
+// ~6-12kHz hiss, with almost nothing between — while the original single
+// swept "mid" carrier spent most of an active stroke centered right in that
+// empty middle. GrainVariant.midMix/bodyMix/hissMix balance the three (see
+// buildLayer() for the full wiring); the grain-rate AM modulation described
+// above now drives the hiss band specifically, not the mid carrier.
 //
 // Also modeled: pencil hardness (harder = drier/brighter scratch, softer =
 // duller/deeper/velvety — a high-shelf + low-shelf pair driven by
@@ -84,6 +94,29 @@ export interface PencilSoundTuning {
   // original fixed 180Hz cutoff discards. Set only at graph-build time
   // otherwise, so PencilSound.retuneGlobals() re-applies this explicitly.
   carrierHighpassHz: number
+  // Round 13, take 16: take 15 recorded PencilSound's own output and
+  // compared it against the real recordings — found the two spectra close
+  // to inverted (real energy sits in a low ~100-250Hz hum and a high
+  // ~6-12kHz hiss, with almost nothing between; our single swept mid
+  // carrier spent most of an active stroke centered right in that empty
+  // middle). These four plus GrainVariant's bodyMix/hissMix/midMix
+  // (see there) split the carrier into three independent bands instead of
+  // one swept one — see buildLayer()'s comment for the full picture.
+  // Take 16's first pass used a bandpass centered at 170Hz — a rendered-vs-
+  // reference comparison (see PENCIL_SOUND_TUNING_LOG.md) then showed the
+  // real low hump is actually a broad shelf spanning ~60-800Hz, not a narrow
+  // peak, so this is a *lowpass* cutoff instead (bodyQ is that lowpass's Q,
+  // kept near the Butterworth default 0.7 for a smooth rolloff, not peaky).
+  bodyFreqHz: number
+  bodyQ: number
+  // How little the body hum fades at low speed, unlike the mid/hiss layers'
+  // GrainVariant.speedPresenceFloor (default 0.08, i.e. nearly gone at low
+  // speed) — the real low hum reads as present through most of a stroke
+  // regardless of instantaneous speed, only actually silent when the
+  // overall stroke is (masterGain already handles that gate).
+  bodyPresenceFloor: number
+  hissLowHz: number // high "hiss/grit" band's highpass edge
+  hissHighHz: number // high "hiss/grit" band's lowpass edge
 }
 
 // Round 13, take 14: applied the take-13 deep-analysis findings directly
@@ -128,6 +161,18 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   carrierHighpassHz: 70,
   qBase: 0.7,
   qPressureScale: 1.2,
+  // Round 13, take 16: lowpass cutoff for the new body-hum band — a
+  // rendered-vs-reference comparison found the real low hump is a broad
+  // shelf spanning ~60-800Hz (not a narrow peak, hence lowpass + 500Hz + a
+  // gentle Q instead of the first pass's narrow 170Hz bandpass).
+  // bodyPresenceFloor much higher than GrainVariant.speedPresenceFloor's
+  // default (0.08) — the real hum barely fades with speed, unlike
+  // mid/hiss's texture.
+  bodyFreqHz: 500,
+  bodyQ: 0.7,
+  bodyPresenceFloor: 0.6,
+  hissLowHz: 6000,
+  hissHighHz: 12000,
 }
 
 export interface GrainVariant {
@@ -199,6 +244,22 @@ export interface GrainVariant {
   // them — widens the range instead of just shifting it. 1 (or omitted) =
   // no extra effect, Variant 1/2's prior behavior.
   brightnessRangeBoost?: number
+  // Round 13, take 16 (see buildLayer()'s comment for the full picture):
+  // splits the carrier into three independent bands instead of one swept
+  // one, since take 15 found real recordings carry their energy in two
+  // humps (low + high) with almost nothing where the swept mid carrier
+  // actually spends most of an active stroke. All three 1 (or omitted) =
+  // Variant 1/2's exact prior behavior (midMix defaults to 1 — unchanged;
+  // bodyMix/hissMix default to 0 — the two new bands are silent, built but
+  // inert, unless explicitly given a nonzero mix).
+  midMix?: number // multiplier on the original swept mid-band carrier
+  bodyMix?: number // base level of the new low "body hum" band (~bodyFreqHz)
+  // Base level of the new high "hiss/grit" band (~hissLowHz-hissHighHz) —
+  // this is also where the grain-rate AM modulation now connects (moved off
+  // the mid carrier entirely, see buildLayer()), since a broadband high
+  // texture is a more plausible physical home for discrete grain "ticks"
+  // than a mid-range tonal sweep.
+  hissMix?: number
 }
 
 // The original, untuned sound this app shipped with — floor-dominated, barely-modulated broadband
@@ -332,6 +393,18 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   // speed nothing changes, at high speed the tone reaches noticeably higher
   // than brightnessScale alone would put it.
   brightnessRangeBoost: 1.6,
+  // Round 13, take 16: demote the swept mid carrier (real recordings carry
+  // almost no energy where it spends most of an active stroke) and add the
+  // two bands that measurably do carry real energy — see buildLayer()'s
+  // comment and PENCIL_SOUND_TUNING's bodyFreqHz/hissLowHz/hissHighHz.
+  // bodyMix/hissMix calibrated by actually rendering PencilSound's own
+  // output (OfflineAudioContext) and comparing its 1/3-octave band energy
+  // against `Write on Paper with Pencil 03.wav` directly — not by ear —
+  // landing on roughly the same low:mid:high ratio the reference recordings
+  // show (see PENCIL_SOUND_TUNING_LOG.md take 16 for the actual numbers).
+  midMix: 0.35,
+  bodyMix: 1.6,
+  hissMix: 0.35,
 }
 
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
@@ -524,6 +597,12 @@ interface GrainLayer {
   rectify: WaveShaperNode
   grainDepthGain: GainNode
   mixGain: GainNode
+  // Round 13, take 16 — see buildLayer()'s comment.
+  bodyLowpass: BiquadFilterNode
+  bodyGain: GainNode
+  hissHighpass: BiquadFilterNode
+  hissLowpass: BiquadFilterNode
+  hissGain: GainNode
 }
 
 interface AudioGraph {
@@ -687,7 +766,7 @@ export class PencilSound implements PencilSoundAPI {
 
   private applyTarget(graph: AudioGraph, pressure: number, speed: number, tiltX: number, tiltY: number): void {
     const now = graph.ctx.currentTime
-    const { minFreq, maxFreq, brightnessRamp, rampSlow, rampFast } = PENCIL_SOUND_TUNING
+    const { minFreq, maxFreq, brightnessRamp, rampSlow, rampFast, bodyFreqHz, bodyQ, bodyPresenceFloor, hissLowHz, hissHighHz } = PENCIL_SOUND_TUNING
     const brightness = brightnessFreq(speed, this.hardness)
     const q = bandpassQ(pressure)
     const speedT = speedNorm(speed)
@@ -720,8 +799,36 @@ export class PencilSound implements PencilSoundAPI {
       // very bottom of the range.
       const presenceFloor = layer.recipe.speedPresenceFloor ?? 1
       const presenceScale = presenceFloor + (1 - presenceFloor) * Math.pow(speedT, 1.4)
-      layer.carrierGain.gain.setTargetAtTime(layer.recipe.floor * presenceScale, now, rampSlow)
+      // Round 13, take 16: demoted — see GrainVariant.midMix's doc.
+      layer.carrierGain.gain.setTargetAtTime(layer.recipe.floor * presenceScale * (layer.recipe.midMix ?? 1), now, rampSlow)
+      // The grain envelope now drives the hiss band's gain (see buildLayer()
+      // — grainDepth connects to hissGain.gain, not carrierGain.gain
+      // anymore), so this is unchanged in meaning (still "how hard each
+      // grain hits") but a different destination than before take 16.
       layer.grainDepthGain.gain.setTargetAtTime(layer.recipe.depth * presenceScale, now, rampSlow)
+
+      // Round 13, take 16: low "body hum" band — its own, much gentler
+      // presence curve (bodyPresenceFloor, default 0.6 vs. speedPresenceFloor's
+      // 0.08) since take 15 found the real hum present through most of a
+      // stroke regardless of instantaneous speed, not just near the
+      // deadzone. No grain AM — meant to be a steady hum, not gritty.
+      const bodyMix = layer.recipe.bodyMix ?? 0
+      if (bodyMix > 0) {
+        const bodyPresence = bodyPresenceFloor + (1 - bodyPresenceFloor) * Math.pow(speedT, 1.4)
+        layer.bodyGain.gain.setTargetAtTime(layer.recipe.floor * bodyMix * bodyPresence, now, rampSlow)
+        layer.bodyLowpass.frequency.setTargetAtTime(bodyFreqHz, now, rampSlow)
+        layer.bodyLowpass.Q.setTargetAtTime(bodyQ, now, rampSlow)
+      }
+      // Round 13, take 16: high "hiss/grit" band — base level here, grain AM
+      // depth added via grainDepthGain above (connected in buildLayer()).
+      // Uses the same presenceScale as the old mid carrier did, since grain
+      // rate/density should still track speed the way it always has.
+      const hissMix = layer.recipe.hissMix ?? 0
+      if (hissMix > 0) {
+        layer.hissGain.gain.setTargetAtTime(layer.recipe.floor * hissMix * presenceScale, now, rampSlow)
+        layer.hissHighpass.frequency.setTargetAtTime(hissLowHz, now, rampSlow)
+        layer.hissLowpass.frequency.setTargetAtTime(hissHighHz, now, rampSlow)
+      }
     }
     graph.tiltLowpass.frequency.setTargetAtTime(tiltLowpassFreq(tiltX, tiltY), now, rampSlow)
     const master = masterGainTarget(pressure, speed, this.paperFactor) * (this.grain.outputGainScale ?? 1)
@@ -765,8 +872,48 @@ export class PencilSound implements PencilSoundAPI {
     carrier.connect(bandpass).connect(highpass).connect(carrierGain).connect(mixGain).connect(sumNode)
     carrier.start()
 
+    // Round 13, take 16: a low, mostly-speed-independent "body hum" band —
+    // see PENCIL_SOUND_TUNING.bodyFreqHz's comment and the class-level
+    // comment above for why. Gain starts at 0; applyTarget() only sets it
+    // (and only bothers scheduling frequency/Q) when recipe.bodyMix > 0, so
+    // Variant 1/2 (bodyMix undefined) get a real but permanently-silent node
+    // — negligible cost, no behavior change.
+    const bodyCarrier = ctx.createBufferSource()
+    bodyCarrier.buffer = createNoiseBuffer(ctx)
+    bodyCarrier.loop = true
+    const bodyLowpass = ctx.createBiquadFilter()
+    bodyLowpass.type = 'lowpass'
+    bodyLowpass.frequency.value = PENCIL_SOUND_TUNING.bodyFreqHz
+    bodyLowpass.Q.value = PENCIL_SOUND_TUNING.bodyQ
+    const bodyGain = ctx.createGain()
+    bodyGain.gain.value = 0
+    bodyCarrier.connect(bodyLowpass).connect(bodyGain).connect(mixGain)
+    bodyCarrier.start()
+
+    // Round 13, take 16: a high, broadband "hiss/grit" band — same silent-
+    // unless-hissMix-is-set reasoning as bodyCarrier above. This is where
+    // the grain modulator connects now (see below), not carrierGain.gain.
+    const hissCarrier = ctx.createBufferSource()
+    hissCarrier.buffer = createNoiseBuffer(ctx)
+    hissCarrier.loop = true
+    const hissHighpass = ctx.createBiquadFilter()
+    hissHighpass.type = 'highpass'
+    hissHighpass.frequency.value = PENCIL_SOUND_TUNING.hissLowHz
+    const hissLowpass = ctx.createBiquadFilter()
+    hissLowpass.type = 'lowpass'
+    hissLowpass.frequency.value = PENCIL_SOUND_TUNING.hissHighHz
+    const hissGain = ctx.createGain()
+    hissGain.gain.value = 0
+    hissCarrier.connect(hissHighpass).connect(hissLowpass).connect(hissGain).connect(mixGain)
+    hissCarrier.start()
+
     // ── Grain modulator: turns the carrier from smooth hiss into discrete
-    //    micro-texture — see the class-level comment for why this exists. ──
+    //    micro-texture — see the class-level comment for why this exists.
+    //    Round 13, take 16: now drives hissGain, not carrierGain — a
+    //    broadband high texture is a more plausible physical home for
+    //    discrete grain "ticks" than the mid-range tonal sweep, and take 15
+    //    found real recordings carry almost no energy in the mid band this
+    //    used to modulate. ──
     const modulator = ctx.createBufferSource()
     modulator.buffer = createNoiseBuffer(ctx) // independent buffer — must not correlate with the carrier
     modulator.loop = true
@@ -784,10 +931,13 @@ export class PencilSound implements PencilSoundAPI {
     const grainDepth = ctx.createGain()
     grainDepth.gain.value = recipe.depth
 
-    modulator.connect(grainLowpass).connect(grainNormGain).connect(rectify).connect(grainDepth).connect(carrierGain.gain)
+    modulator.connect(grainLowpass).connect(grainNormGain).connect(rectify).connect(grainDepth).connect(hissGain.gain)
     modulator.start()
 
-    return { recipe, bandpass, highpass, carrierGain, grainLowpass, grainNormGain, rectify, grainDepthGain: grainDepth, mixGain }
+    return {
+      recipe, bandpass, highpass, carrierGain, grainLowpass, grainNormGain, rectify, grainDepthGain: grainDepth, mixGain,
+      bodyLowpass, bodyGain, hissHighpass, hissLowpass, hissGain,
+    }
   }
 
   /** Builds the audio graph on first use and leaves every noise source looping for the module's

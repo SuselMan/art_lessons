@@ -852,6 +852,46 @@ the day): split into two more independent components instead of one swept carrie
 tuning for today; committed and pushed the round 11-14 state as-is per his instruction ("запуши все
 равно"). This finding is the open item for the next session.
 
+## Round 13, take 16 — split into three independent bands
+
+Next session, Ilya: "давай, переделай на два источника" — go ahead with the restructuring take 15
+flagged. Each grain layer is now three independent noise sources instead of one (`PencilSound.ts`'s
+`buildLayer()`/`applyTarget()`, new `GrainVariant.midMix`/`bodyMix`/`hissMix` and
+`PENCIL_SOUND_TUNING.bodyFreqHz`/`bodyQ`/`bodyPresenceFloor`/`hissLowHz`/`hissHighHz`, all exposed in
+the tuning panel too):
+
+- **mid**: the original swept carrier, demoted (`midMix: 0.35`) — real recordings carry almost no
+  energy where it spends most of an active stroke.
+- **body**: new low-frequency band, `floor * bodyMix * bodyPresence` through a *lowpass* (not
+  bandpass — see below) at `bodyFreqHz`. Its own presence curve (`bodyPresenceFloor`, default 0.6)
+  fades far less at low speed than mid/hiss's `speedPresenceFloor` (default 0.08), matching the real
+  hum's presence through most of a stroke regardless of instantaneous speed. No grain AM — a steady
+  hum, not gritty.
+- **hiss**: new high-frequency band (highpass `hissLowHz` → lowpass `hissHighHz`), same
+  `presenceScale` as before. The grain modulator (rate/curvePower/normGain, all unchanged) now
+  connects here instead of to the mid carrier's gain — a broadband high texture is a more plausible
+  physical home for discrete grain "ticks" than a mid-range tonal sweep.
+
+Calibrated by **re-running take 15's render-and-compare loop**, not by ear — each iteration: apply
+mix/filter changes, re-render via the same `OfflineAudioContext` harness, re-run the 1/3-octave
+analyzer against `03.wav`, adjust:
+
+1. First pass (`bodyMix 0.8`/bandpass-170Hz-Q1.1, `hissMix 1.0`): mid gap fixed (1-4kHz dropped from
+   ~56% to ~9%, close to real's ~3%) but the new hiss band massively overshot (~81% of all energy vs.
+   real's ~25%) and body undershot (~6% vs. real's ~58% — narrow bandpass wasn't wide enough to
+   cover the real hump, which turned out to span a broad ~60-800Hz shelf, not a narrow 100-250Hz
+   peak).
+2. Second pass (`bodyMix 4.0`/**lowpass** 500Hz Q0.7, `hissMix 0.12`): overcorrected — body now ~100%
+   of everything, hiss silenced to near-zero.
+3. Third pass (`bodyMix 1.6`, `hissMix 0.35`, same lowpass): landed close — low band ~89% (real ~78%),
+   mid ~7% (real ~9%), high ~13% (real ~27%, lower than real but present and in the right shape,
+   unlike the 0%/81% extremes above). Kept as the shipped default.
+
+**Result:** _pending — awaiting Ilya's listening pass on the three-band structure. The panel's
+`midMix`/`bodyMix`/`hissMix`/`bodyFreqHz`/`bodyQ`/`hissLowHz`/`hissHighHz` sliders are the tool for
+any further balance correction — better suited to it than more render-and-compare rounds, since a
+synthetic driven "signature" is itself only an approximation of how Ilya actually draws._
+
 ## How to log a result
 
 After each round, replace the pending line above with the winner and a short
