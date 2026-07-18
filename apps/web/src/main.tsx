@@ -4,6 +4,10 @@ import './styles/global.css'
 import { fetchMe } from './lib/api'
 import { ME_QUERY_KEY } from './lib/authState'
 import { queryClient } from './lib/queryClient'
+// Side-effecting import: registers its popstate listener before
+// <BrowserRouter> (inside App) ever mounts and adds its own — see the
+// module's own comment for why registration order matters here.
+import './lib/backNavigationGuard'
 import { App } from './App'
 
 // (#186) A stale chunk reference — this tab was left open across a deploy,

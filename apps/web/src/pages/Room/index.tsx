@@ -23,6 +23,7 @@ import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant, getGraphit
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, PENCIL_SOUND_VARIANT_3 } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
+import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
@@ -1001,6 +1002,15 @@ export function Room() {
     document.addEventListener('fullscreenchange', onFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
   }, [])
+
+  // Guards against Chrome's edge-swipe-back gesture kicking the user out of
+  // the room mid-drag (see backNavigationGuard's own comment) — armed only
+  // while this room is actually mounted, so back navigation elsewhere in the
+  // app (/create, /my-lessons) is unaffected.
+  useEffect(() => {
+    setBackNavigationGuard(location.pathname + location.search + location.hash)
+    return () => setBackNavigationGuard(null)
+  }, [location.pathname, location.search, location.hash])
 
   // Eyedropper (#82): consumes the next pointerdown on .eyedropperOverlay
   // (armed only while eyedropperActive) instead of letting it reach the

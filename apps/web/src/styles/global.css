@@ -10,12 +10,21 @@ html, body, #root {
   height: 100%;
 }
 
+html {
+  /* Edge-swipe back/forward navigation is a separate gesture from
+     touch-action's scroll/zoom — without this, dragging a touch control near
+     the screen edge (e.g. the Tool settings panel's sliders) can trigger the
+     browser's history-swipe and navigate the user out of the room. */
+  overscroll-behavior-x: none;
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-text);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   touch-action: none; /* prevent browser scroll/zoom interfering with canvas */
+  overscroll-behavior-x: none;
 }
 
 button {
