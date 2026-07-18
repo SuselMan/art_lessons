@@ -834,6 +834,14 @@ export function Room() {
   const removePaletteColor = useCallback((color: string) => {
     socketRef.current?.emit('palette_remove_color', { color })
   }, [])
+  // FloatingToolPanel's palette flyout escape hatch: show the full chrome
+  // and land on the Color tab, same destination the eyedropper's pick
+  // handler already uses (see handleEyedropperPick) for "go refine this
+  // further than a quick swatch tap allows."
+  const openColorPickerFromFlyout = useCallback(() => {
+    setUiHidden(false)
+    setActivePanel('color')
+  }, [])
   // Persist last-used settings per room (#156/#196) — mirrors the pattern
   // above (derived state -> engine), just targeting storage instead.
   useEffect(() => {
@@ -2128,6 +2136,9 @@ export function Room() {
           onUndo={handleUndo}
           onRedo={handleRedo}
           pencilColor={pencilColor}
+          palette={palette}
+          onSelectColor={v => setToolSetting('pencil', 'color', v)}
+          onOpenColorPicker={openColorPickerFromFlyout}
           roomId={id ?? ''}
           position={panelPosition}
           onPositionChange={setPanelPosition}

@@ -74,6 +74,21 @@ export function useDraggablePosition(
       el.removeEventListener('pointercancel', handleUp)
       if (dragging) {
         try { el.releasePointerCapture(pointerId) } catch { /* already released */ }
+        // Belt-and-suspenders cleanup for suppressClick, rather than relying
+        // solely on its own `once: true` removal: a real trailing click
+        // doesn't always follow a drag's pointerup the way it reliably does
+        // with a desktop mouse — plenty of touch browsers never synthesize
+        // one at all once a gesture moved far enough to count as a drag
+        // (same "no click ever comes" gap pointercancel already has, just
+        // hit here via an ordinary pointerup instead — this was the actual
+        // cause of "drag the panel, first tap after does nothing" reported
+        // on a real tablet; #159 already hit this same class of bug on
+        // ColorPicker's own slider). Deferred via setTimeout rather than
+        // removed immediately so a click that *does* arrive (synchronously,
+        // as part of the same input dispatch, same as a mouse drag) still
+        // gets suppressed first — this fallback only ever matters for the
+        // gestures where no click was coming anyway.
+        setTimeout(() => el.removeEventListener('click', suppressClick, { capture: true }), 0)
       }
     }
 

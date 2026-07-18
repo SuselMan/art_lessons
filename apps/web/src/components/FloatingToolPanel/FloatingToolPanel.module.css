@@ -35,9 +35,10 @@
   pointer-events: none;
 }
 
-/* Center dot showing the current pencil color — not yet clickable (the drag
-   handler is on .panel; this has no handler of its own, so pointer events
-   simply bubble up same as everywhere else on the panel that isn't a .btn). */
+/* Center dot showing the current pencil color — tap it to fan out the
+   palette flyout (see .flyout below). A real <button>, same
+   tap-vs-drag disambiguation as every other .btn (see
+   useDraggablePosition's own doc comment). */
 .colorDot {
   position: absolute;
   top: 50%;
@@ -47,6 +48,7 @@
   border-radius: 50%;
   border: 2px solid var(--color-border);
   transform: translate(-50%, -50%);
+  cursor: pointer;
 }
 
 .btn {
@@ -78,3 +80,50 @@
 .btnRight  { right: 2px; top: 50%; transform: translateY(-50%); }
 .btnBottom { bottom: 2px; left: 50%; transform: translateX(-50%); }
 .btnLeft   { left: 2px; top: 50%; transform: translateY(-50%); }
+
+/* Invisible tap-catcher (#190 follow-up) — see index.tsx's own comment on
+   why this exists as a real element rather than a document-level listener.
+   z-index 4: above plain canvas content, below .panel's own 5 so the
+   panel's buttons/flyout items stay on top and clickable. */
+.flyoutBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+}
+
+/* Palette flyout (#190 follow-up) — a zero-size anchor at the panel's own
+   center; every child is independently positioned via its own inline
+   transform (see colorFlyout.ts's computed x/y offsets), so this element
+   itself never needs a size. */
+.flyout {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+}
+
+.flyoutSwatch,
+.flyoutPickerBtn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  /* Mount-then-transition (see index.tsx's `animateIn`): only `transform`
+     changes after mount, so only it needs to transition — a plain CSS
+     transition is cheap to render vs. driving this via JS/rAF each frame. */
+  transition: transform 180ms ease-out;
+}
+
+.flyoutPickerBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
