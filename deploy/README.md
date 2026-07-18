@@ -6,12 +6,22 @@ IP `80.209.232.109`. Deploys automatically on every push to `main` via
 
 ## Architecture
 
-- **apps/web**: built as a static bundle (`npm run build --workspace=apps/web`)
-  and served directly by nginx from `/var/www/art-lessons/dist` — no
-  container, no Node process for the frontend.
-- **apps/server**: Docker container (`apps/server/Dockerfile`), built and run
-  via `docker-compose.prod.yml`. Published to `127.0.0.1:4000` only — nginx
-  is the sole public entry point (see `deploy/nginx.conf`).
+- **Builds happen in CI, not on the VPS** (#199). The VPS is a 1 vCPU / 1GB
+  RAM / no-swap box — running `npm ci` + the apps/web Vite build *and* a
+  Docker build for apps/server, all at once, on top of the already-live
+  containers, reliably OOM-killed it mid-deploy (confirmed via `dmesg`:
+  `Out of memory: Killed process ... (npm ci)`). The `build` job in
+  `.github/workflows/deploy.yml` now does all of that on a GitHub-hosted
+  runner; the VPS only ever receives already-finished output (a pulled
+  Docker image, an rsynced static bundle) — see "What happens on every push"
+  below.
+- **apps/web**: built as a static bundle in CI, rsynced to the VPS and
+  served directly by nginx from `/var/www/art-lessons/dist` — no container,
+  no Node process for the frontend.
+- **apps/server**: Docker image built and pushed to GitHub Container
+  Registry (`ghcr.io/<owner>/art-lessons-server`) in CI, pulled and run on
+  the VPS via `docker-compose.prod.yml`. Published to `127.0.0.1:4000`
+  only — nginx is the sole public entry point (see `deploy/nginx.conf`).
 - **Postgres**: Docker container (`postgres:16-alpine`), named volume for
   persistence, healthchecked before the server container is allowed to
   start.
@@ -46,6 +56,15 @@ IP `80.209.232.109`. Deploys automatically on every push to `main` via
 - First cert issued once via `sudo certbot --nginx -d 5ryx.l.time4vps.cloud`
   (interactive the very first time only — picks the redirect-to-https
   option; every renewal after that is unattended via the systemd timer).
+- (#199) The `art-lessons-server` GHCR package is set to **public**
+  visibility (Settings → Packages on the repo, or `gh api -X PATCH
+  /user/packages/container/art-lessons-server -f visibility=public` once it
+  exists — a brand new package defaults to private on its first push
+  regardless of the repo's own visibility) — so `docker compose pull` on the
+  VPS needs no credentials. If it ever needs to go private instead, the VPS
+  will need its own `docker login ghcr.io` (a PAT with `read:packages`,
+  `docker login` once, credentials persist in `~deploy/.docker/config.json`)
+  before `deploy.sh`'s pull step will work again.
 
 ## GitHub Actions secrets (repo settings → Secrets and variables → Actions)
 
@@ -59,14 +78,24 @@ IP `80.209.232.109`. Deploys automatically on every push to `main` via
 ## What happens on every push to main
 
 1. `.github/workflows/deploy.yml`'s `test` job: `npm ci` +
-   `typecheck`/`lint`/`test` — identical gate to `ci.yml`'s PR checks. The
-   `deploy` job only runs if this is green.
-2. GitHub Actions SSHes into the VPS as `deploy` and runs
-   `deploy/deploy.sh`, which:
-   - `git fetch` + `reset --hard origin/main` in `/opt/art-lessons`
-   - `npm ci` + builds `apps/web`, publishes the build to nginx's webroot
-   - `docker compose -f docker-compose.prod.yml up -d --build` (rebuilds
-     the server image, recreates the container only if it changed)
+   `typecheck`/`lint`/`test` — identical gate to `ci.yml`'s PR checks.
+2. `build` job (only if `test` is green, #199 — this is the part that used
+   to happen ON the VPS): `npm ci` on the runner, builds `apps/web`'s static
+   bundle (uploaded as a workflow artifact), builds the `apps/server`
+   Docker image and pushes it to `ghcr.io/<owner>/art-lessons-server`
+   tagged with the commit SHA (and `latest`).
+3. `deploy` job (only if `build` succeeded): SSHes into the VPS as `deploy`
+   — rsyncs the built `apps/web` bundle into `~deploy/web-dist-incoming/`,
+   then runs `deploy/deploy.sh` with `SERVER_IMAGE` set to the pushed
+   ghcr.io tag. The script:
+   - `git fetch` + `reset --hard origin/main` in `/opt/art-lessons` (just
+     config files now — `docker-compose.prod.yml`, this script itself,
+     nginx config — no build inputs)
+   - rsyncs `~deploy/web-dist-incoming/` into nginx's webroot
+   - `docker compose -f docker-compose.prod.yml pull` + `up -d` (pulls the
+     already-built image, recreates the container only if the resolved
+     image reference actually changed — SHA-tagged, so it always does when
+     the code did)
    - waits for Postgres's healthcheck, then runs
      `prisma migrate deploy` inside the server container
    - `nginx -t` + reload (picks up a config change, never restarts — no
@@ -77,7 +106,11 @@ IP `80.209.232.109`. Deploys automatically on every push to `main` via
 
 ```sh
 ssh deploy@80.209.232.109
-cd /opt/art-lessons && bash deploy/deploy.sh   # same thing CI runs
+# deploy.sh alone only pulls+starts whatever SERVER_IMAGE already points at
+# — it doesn't build anything anymore (#199), so a *manual* redeploy needs
+# an image tag from an actual CI build (check the `build` job's own output,
+# or just `:latest`, which the workflow always pushes alongside the SHA tag):
+cd /opt/art-lessons && SERVER_IMAGE=ghcr.io/suselman/art-lessons-server:latest bash deploy/deploy.sh
 docker compose -f docker-compose.prod.yml logs -f server   # server logs
 docker compose -f docker-compose.prod.yml ps               # container status
 sudo systemctl status nginx

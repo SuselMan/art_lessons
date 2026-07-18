@@ -1,9 +1,9 @@
 name: Deploy
 
 # On every push to main (i.e. every merge): the same typecheck/lint/test
-# gate ci.yml already runs on PRs, then — only if that's green — SSH into
-# the VPS and run deploy/deploy.sh there (git pull, rebuild, migrate,
-# reload). See deploy/README.md for the one-time VPS setup this assumes.
+# gate ci.yml already runs on PRs, then — only if that's green — build (in
+# CI, not on the VPS — see #199) and ship the result. See deploy/README.md
+# for the one-time VPS setup this assumes.
 on:
   push:
     branches: [main]
@@ -33,8 +33,77 @@ jobs:
       - name: Test
         run: npm run test
 
-  deploy:
+  # (#199) Builds happen here, on a runner with real RAM/CPU to spare — the
+  # VPS (1 vCPU, 1GB RAM, no swap) was getting OOM-killed running `npm ci` +
+  # the apps/web Vite build *and* a Docker build for apps/server, all at
+  # once, on top of the already-live postgres+server containers. The `deploy`
+  # job below now only ever pulls/rsyncs already-built output — no
+  # compilation on the VPS at all.
+  build:
     needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.image.outputs.image }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build apps/web static bundle
+        run: npm run build --workspace=apps/web
+
+      - name: Upload web build (handed to the deploy job below)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: apps/web/dist
+          retention-days: 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve image tag
+        id: image
+        # Docker/GHCR image refs must be all-lowercase — github.repository_owner
+        # preserves the account's actual casing ("SuselMan"), which produces an
+        # invalid ref if used directly.
+        run: |
+          owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')
+          echo "image=ghcr.io/$owner/art-lessons-server:${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          echo "image_latest=ghcr.io/$owner/art-lessons-server:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push apps/server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.image.outputs.image }}
+            ${{ steps.image.outputs.image_latest }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Set up SSH
@@ -44,7 +113,18 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
+      - name: Download web build
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web-dist
+
+      - name: Upload web build to the VPS
+        run: |
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o BatchMode=yes" \
+            web-dist/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/web-dist-incoming/"
+
       - name: Deploy over SSH
         run: |
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "bash /opt/art-lessons/deploy/deploy.sh"
+            "SERVER_IMAGE='${{ needs.build.outputs.image }}' bash /opt/art-lessons/deploy/deploy.sh"

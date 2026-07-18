@@ -9,6 +9,13 @@
 #
 # Secrets (POSTGRES_PASSWORD, JWT_SECRET) come from a .env file living only
 # on the VPS (see deploy/README.md) — never committed here.
+#
+# server's image (#199) is built in CI, not here — the VPS (1 vCPU, 1GB RAM,
+# no swap) was getting OOM-killed running that build itself on top of the
+# already-live containers. SERVER_IMAGE is set by deploy.sh (from the
+# workflow's own build job output — see deploy/README.md); `docker compose
+# pull` fetches it, `up -d` recreates the container whenever the resolved
+# image reference actually changed.
 services:
   postgres:
     image: postgres:16-alpine
@@ -26,9 +33,7 @@ services:
       retries: 10
 
   server:
-    build:
-      context: .
-      dockerfile: apps/server/Dockerfile
+    image: ${SERVER_IMAGE:?SERVER_IMAGE must be set, e.g. ghcr.io/suselman/art-lessons-server:<sha>}
     restart: unless-stopped
     depends_on:
       postgres:
