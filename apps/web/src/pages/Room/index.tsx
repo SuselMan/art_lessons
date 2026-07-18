@@ -404,6 +404,15 @@ export function Room() {
   const pendingSnapshotRef = useRef<{
     latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]; palette: string[]
   } | null>(null)
+  // True once this session's `handleRoomState` has processed its very first
+  // `room_state` — governs "initial handshake" vs. "genuine reconnect" there.
+  // Deliberately a dedicated ref rather than checking `!useRoomStore.getState().room`:
+  // that field is seeded synchronously for the *creator* (from navigation
+  // state, before any socket round-trip — see the `useState` near this
+  // component's top), so it doesn't distinguish "have we had our first
+  // room_state yet" the way it does for a joiner (whose `room` is only ever
+  // learned from that same first event).
+  const firstRoomStateReceivedRef = useRef(false)
   // Highest operation seq this client has definitely seen — from ack'd local
   // operations and from peer_operation's stamped copies (#149). Sent back as
   // lastKnownSeq on every join_room/create_room (including reconnects), so
@@ -1495,12 +1504,35 @@ export function Room() {
       // retroactively contribute a bake for history it's only now replaying.
       for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
 
-      if (!useRoomStore.getState().room) {
-        // Joiner's first snapshot: this is how we learn paper/canvas size —
-        // the engine doesn't exist yet to apply `tailOperations` to, so stash
-        // them for the mount-engine effect to replay once it does.
-        pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette }
+      if (!firstRoomStateReceivedRef.current) {
+        firstRoomStateReceivedRef.current = true
         useRoomStore.getState().setRoomInfo(toRoomConfig(room))
+        if (!engineRef.current) {
+          // Real first join: this is how we learn paper/canvas size — the
+          // engine doesn't exist yet to apply `tailOperations` to, so stash
+          // them for the mount-engine effect to replay once it does.
+          pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette }
+          return
+        }
+        // The creator's one legitimate first room_state — arrives *after*
+        // the mount-engine effect already ran, since a creator's `config` is
+        // known synchronously from navigation state (see the `useState`
+        // seeding `room` near this component's top), well before any socket
+        // round-trip. Used to be misclassified as a reconnect here (the old
+        // check was `!useRoomStore.getState().room`, which that same
+        // synchronous seeding already makes truthy for the creator) —
+        // needlessly re-locked roomContentReady (setRoomContentReady(false)
+        // below) right after the mount effect had already marked it ready,
+        // producing a visible "loads fine, then the preloader flashes on
+        // for no reason" — reported after #185 made this window visible for
+        // the first time (previously silent, just pointer-events:none).
+        // Nothing to actually restore here (a brand-new room's
+        // tailOperations/latestSnapshotSeq are empty/null), but
+        // participants/palette are still genuinely new — apply them
+        // directly and skip the lock/restore/unlock below entirely, which
+        // exists for real reconnects, not this.
+        dispatchParticipants({ type: 'room_state', participants: roomParticipants })
+        useRoomStore.getState().setPalette(palette)
         return
       }
       // See the mount-engine effect's own comment on engine.paperReady() —
@@ -2086,12 +2118,6 @@ export function Room() {
           {rulerActive && !rulerPlaced && (
             <div className={styles.rulerPlaceOverlay} onPointerDown={handleRulerPlaceDown} />
           )}
-          {/* #185: visible while the initial content restore (snapshot fetch
-              + operation-log replay/backfill) is still in flight — a direct
-              child of .viewport (not .canvasWrap) so it never pans/zooms/
-              rotates with the canvas underneath it, and covers both the
-              bounded and infinite render paths above with one overlay. */}
-          {!roomContentReady && <RoomLoadingOverlay />}
         </div>
 
         {/* ── Side panel (layers, color, …) ── */}
@@ -2174,6 +2200,14 @@ export function Room() {
           strokeBlocked={isDrawing}
         />
 
+        {/* #185: visible while the initial content restore (snapshot fetch
+            + operation-log replay/backfill) is still in flight — a direct
+            child of .editor (not .viewport), rendered last and with a
+            z-index above every other child (.header 3, .toolbar/
+            .layerPanelWrap 2) so it genuinely covers the whole screen, not
+            just the canvas — an earlier version lived inside .viewport
+            (z-index 1) and could never rise above those. */}
+        {!roomContentReady && <RoomLoadingOverlay />}
       </div>
 
       {/* Debug overlays share one positioning stack (.debugStack) so having

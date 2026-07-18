@@ -1,7 +1,11 @@
 .overlay {
+  /* Rendered as .editor's own last child (see Room/index.tsx) — .editor is
+     position:relative, and every sibling that must be covered (.header,
+     .toolbar, .layerPanelWrap) tops out at z-index 3, so 10 here guarantees
+     this is above all of them, not just the canvas underneath. */
   position: absolute;
   inset: 0;
-  z-index: 5;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: center;
