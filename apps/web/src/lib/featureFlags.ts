@@ -34,6 +34,12 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'Vibrates in a fixed hash-grid pattern over the paper as the stroke crosses it, to try simulating paper texture by touch. Android Chrome only (no Vibration API on iOS); for-fun prototype, not tuned.',
     envVar: 'VITE_HAPTIC_GRAIN',
   },
+  {
+    key: 'pencilSoundTuning',
+    label: 'Pencil sound tuning panel (dev only)',
+    description: 'Collapsible live-tuning panel for every PencilSound/PENCIL_SOUND_VARIANT_3 knob (#153 round 13), plus a "copy config" button to hand tuned values back. Only shown while pencilSoundSetting is variant3.',
+    envVar: 'VITE_PENCIL_SOUND_TUNING',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'

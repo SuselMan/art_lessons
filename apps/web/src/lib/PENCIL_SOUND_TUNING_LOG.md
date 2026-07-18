@@ -611,7 +611,131 @@ low-speed tone (already tuned right) is untouched but high speed reaches further
 `speedT=0` no change, at `speedT=1` roughly +1kHz beyond what `brightnessScale` alone gives (with
 Variant 3's 1.6). `undefined`/1 leaves Variant 1/2 exactly as before.
 
-**Result:** _pending — awaiting Ilya's next listening pass._
+**Result:** still too "щщщ" (sibilant hiss), and the tap still doesn't read as a table knock — too
+high-pitched.
+
+## Round 13, take 8 — measured against real recordings for the first time
+
+Up to now every "щщщ ⇄ фффф" and tap-pitch call was by ear alone, no reference audio in the repo.
+Wrote a standalone (no-deps) WAV analyzer — RIFF/PCM parser, FFT-based spectral centroid, spectral
+flatness (Wiener entropy: 0 = pure tone/peaky, 1 = white noise), and per-band energy fractions — and
+ran it against `temp/Write on Paper with Pencil 02.wav` and `03.wav` (real pencil-on-paper
+recordings already sitting in the repo, previously unanalyzed):
+
+| file | rms | macroCV | crest | centroid | flatness | strongest peak |
+|---|---|---|---|---|---|---|
+| 02.wav | 0.031 | 0.69 | 6.6 | 6078Hz | 0.546 | 156Hz |
+| 03.wav | 0.025 | 0.99 | 10.3 | 7131Hz | 0.632 | 188Hz |
+
+Band energy (03.wav): 56% in 0-500Hz, 8.7% in 500Hz-1k, only 1.3%/3.6%/4.7%/3.1% in 1-2k/2-4k/4-6k/
+6-8k, then a second hump — 16.4% — at 8-12k. (02.wav: same shape, 57.7%/14.1% low, 1.9-4.1% through
+1-8k, 14.5% at 8-12k.)
+
+Two things this confirms, both already suspected from listening but not previously quantified:
+
+1. **Spectral flatness 0.55-0.63 is fairly broadband, not peaky** — miles from a pure tone (≈0) but
+   also clearly not flat white noise (1.0). The carrier bandpass's resonant peak (Q ≈0.5-1.1 after
+   round-13-take-6's `qScale: 0.6`) is still narrow/tonal enough by comparison to read as a "color"
+   or whistle riding the noise — consistent with "щ" persisting despite `brightnessScale`/`qScale`
+   already having moved in the right direction. Real friction noise apparently doesn't have a strong
+   single resonant color the ear can track as a pitch; it's diffuse.
+2. **Both recordings' single strongest spectral peak sits at 156-275Hz** — squarely in "low thump"
+   territory, not anywhere near round 13 take 6's already-lowered `tap.freqHz: 120`. Confirms "lower
+   still" was the right call every time it's been made (500→300→180→120) and that 120 likely isn't
+   the floor either.
+
+(1-4kHz specifically being *weak* in the real recordings, not strong, also rules out one alternative
+reading of "breathier" as "push more energy into 1-4kHz" — the opposite of what was tried. The actual
+real-recording energy that isn't low-frequency handling noise sits broadband, weighted toward 8-12kHz,
+which is a further-out, more diffuse hiss than our carrier's current 540Hz-3.3kHz sweep reaches at all
+— a genuinely closer match would extend the whole sweep's *range* upward and broaden it rather than
+just shifting it down; noted for a future round if shifting/broadening the current range further
+doesn't fully close the gap, since widening the range outright is a bigger structural change than a
+parameter nudge.)
+
+Changes (see `PencilSound.ts`'s `PENCIL_SOUND_VARIANT_3` comment for the full per-field rationale):
+
+- `brightnessScale` 0.45→0.35, `qScale` 0.6→0.45 — sweep shifted down further and the resonant peak
+  broadened further, both continuing the already-validated direction rather than reversing it.
+- `tap.freqHz` 120→85, `tap.decaySeconds` 0.02→0.03 (a couple more cycles to actually ring before
+  decay), `tap.noiseMix` 0.35→0.18 (the baked "contact" blend is *raw, unfiltered* white noise for
+  its first ~1.5ms — full-band and disproportionately bright next to an 85Hz fundamental, which is a
+  plausible reason the click kept reading as "high" even as `freqHz` itself kept dropping across
+  three prior rounds; cut back rather than zeroed, some contact transient is still wanted).
+
+**Result:** "Все еще недостаточно" — still not there, right direction, too small a step.
+
+## Round 13, take 9 — same direction, much bigger step
+
+Take 8's deltas were modest (~25-30% moves on brightnessScale/qScale/freqHz) compared to every
+earlier round that actually landed a confirmed improvement (freqHz alone moved 33-40%+ per step:
+500→300→180→120). Rather than inch further, pushed harder on both already-validated axes at once:
+
+- `brightnessScale` 0.35→0.22, `qScale` 0.45→0.28 — effective bandpass Q now ≈0.3-0.5 (was ≈0.5-1.1
+  two rounds ago), close to "no audible pitch to track" rather than "still a bit narrow."
+- `tap.freqHz` 85→50 (sub-bass thump, not just "low"), `decaySeconds` 0.03→0.045 (more ring time,
+  reads as a boom rather than a tick), `noiseMix` 0.18→0.08 (cut the raw-white-noise contact blend
+  again — even a small unfiltered fraction is disproportionately bright next to a 50Hz fundamental).
+
+Both axes moved this round, so if the result overshoots (too dull/muffled, or the tap disappears
+rather than deepens), the useful reply is *which* axis specifically (noise texture vs. tap pitch),
+not another "still not enough" — that pins down whether the target sits between take 8 and take 9 on
+that one axis, instead of restarting the search on both.
+
+**Result:** two separate, specific notes — slow strokes sound unnaturally loud ("neестественно
+шумит когда медленно ведешь карандаш"), and the tap "definitely" needs to go lower still. Noise
+*texture* explicitly left unresolved/undiagnosed for now ("с шумом я пока не пойму в целом что не
+так"), not touched this round.
+
+## Round 13, take 10 — tap pitch again, plus speed→loudness curve (texture untouched)
+
+Two independent fixes, neither touching brightnessScale/qScale/curvePower (timbre) since Ilya hasn't
+pinned down what's still wrong there and both notes below are about loudness/pitch, not color:
+
+- **Tap lower again**: `freqHz` 50→32 (proper sub-bass), `decaySeconds` 0.045→0.06 (more ring time),
+  `noiseMix` 0.08→0.04. Worth naming *why* freqHz alone hasn't been enough despite four straight
+  rounds of lowering it (120→85→50→32): a percussive attack's perceived pitch/brightness is carried
+  mostly by the first few ms of transient, not the steady-state tone underneath it — the baked
+  click's noiseMix component is raw unfiltered white noise for its first ~1.5ms, so even a small
+  fraction of it can dominate what the ear reads as "how high is this," independent of how low
+  `freqHz` itself goes. Cut again this round rather than left alone.
+- **Speed→loudness curve flipped.** Root cause of "unnatural at slow speed" wasn't
+  `speedPresenceFloor` (which only scales the grain layer's own floor/depth) — it was
+  `masterGainTarget`'s `speedGain = Math.sqrt(t)`, a *sub-linear* curve that is loudest relative to
+  its input right off the deadzone (`sqrt(0.1) ≈ 0.32` — 32% of ceiling at just 10% of the speed
+  range) by original design ("fast rise off the deadzone — speed dominates loudness", round 11).
+  That design goal is exactly backwards from what's wanted now. Flipped to `t^1.6` (super-linear:
+  quiet near the deadzone, ramping up later, full ceiling unchanged at max speed).
+  `speedPresenceFloor` also nudged down 0.08→0.05 as a smaller second-order assist in the same
+  direction.
+
+**Result:** Ilya asked for a live-tuning debug panel instead of continuing another blind by-ear
+round (see below) — no verdict on take 10's specific numbers landed either way.
+
+## Round 13, take 11 — debug panel built, takes 8-10 reverted
+
+Built `Room/PencilSoundTuningPanel.tsx` (collapsible, gated behind a new `pencilSoundTuning` feature
+flag + `pencilSoundSetting === 'variant3'`): a slider for every `GrainVariant` field (floor/depth/
+curvePower/minHz/maxHz/useNormGain/brightnessScale/qScale/brightnessRangeBoost/speedPresenceFloor/
+outputGainScale/tap.*) plus every module-level constant that used to be a plain `const`
+(`PENCIL_SOUND_TUNING` — deadzone/speed-curve shape/global filter ranges/ramp times, now a mutable
+exported singleton so the panel can nudge those too), a "copy config" button (clipboard JSON of both
+blocks), and a "reset" button (back to whatever shipped at page load, snapshotted once at module
+load before any slider touches it).
+
+Then reverted takes 8-10 back to take 6's values — Ilya wants to explore from here himself with the
+panel now that it exists, rather than have Claude keep guessing rounds by ear:
+
+- `tap`: `freqHz` 32→120, `decaySeconds` 0.06→0.02, `noiseMix` 0.04→0.35 (take 6's values).
+- `speedPresenceFloor` 0.05→0.08, `brightnessScale` 0.22→0.45, `qScale` 0.28→0.6 (take 6's values).
+- `PENCIL_SOUND_TUNING.masterSpeedExponent` 1.6→0.5 (take 10's `masterGainTarget` change reverted).
+
+Takes 8-10's reasoning (wav analysis, sub-linear-vs-super-linear speed curve, transient-vs-tone
+pitch perception) stays in this log and in `PencilSound.ts`'s comments as a record of what was tried
+and why, in case it's worth revisiting — none of it is live right now.
+
+**Result:** _pending — Ilya tuning directly via the panel from here; log what he lands on when he
+sends back a "copy config" JSON, same as any other round._
 
 ## How to log a result
 
