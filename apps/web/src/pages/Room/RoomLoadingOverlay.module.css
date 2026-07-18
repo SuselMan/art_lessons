@@ -6,6 +6,22 @@
   position: absolute;
   inset: 0;
   z-index: 10;
+  /* Purely informational (no interactive controls of its own) — must not
+     swallow touch/pointer input meant for what's underneath. roomContentReady
+     also flips false on a genuine mid-session *reconnect*, not just initial
+     load (see handleRoomState), so this overlay can appear briefly at any
+     point during a live lesson. Viewport pan/zoom/rotate and the minimal-UI
+     tap-toggle both bind their listeners on vpRef (a native addEventListener,
+     not React's synthetic system) and deliberately never touch the
+     operation log, so they're meant to keep working through that window —
+     without this, this overlay's default pointer-events:auto silently ate
+     every touch landing anywhere on screen for that stretch, which is
+     exactly what read as "pan/zoom/rotate or tap-to-hide randomly stops
+     responding, first one then the other" depending on what the user
+     happened to be doing when a reconnect blip hit.
+     Only the canvas itself still actually blocks input while loading (its
+     own dedicated pointer-events:none, gated the same way). */
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: center;

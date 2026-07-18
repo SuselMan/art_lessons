@@ -66,4 +66,15 @@ describe('TapTracker (#99)', () => {
     t.down(2, 300, 300)
     expect(t.up(2)).toBe(true)
   })
+
+  it('reset() recovers from a leaked finger (missed up/cancel) so a later lone tap works again', () => {
+    const t = new TapTracker()
+    t.down(1, 100, 100)
+    // No up/cancel ever arrives for finger 1 (e.g. app backgrounded
+    // mid-touch) — without reset(), every subsequent single-finger tap
+    // would see active.size === 2 and never register again.
+    t.reset()
+    t.down(2, 200, 200)
+    expect(t.up(2)).toBe(true)
+  })
 })

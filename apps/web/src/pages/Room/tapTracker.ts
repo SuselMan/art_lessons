@@ -39,4 +39,19 @@ export class TapTracker {
     this.active.delete(id)
     this.candidateId = null
   }
+
+  /** Forced full reset, independent of any specific pointer id — for when
+   *  the caller can no longer trust the pointer event stream to reliably
+   *  deliver an up/cancel for whatever's currently down (see useTapToggle's
+   *  visibilitychange/blur handler). Without this, a single missed up/
+   *  cancel leaves `active` with a stale entry forever: `up()`'s tap check
+   *  requires `active.size === 1`, so a leaked extra entry permanently
+   *  disqualifies every future single-finger tap, with nothing short of a
+   *  reload able to recover — and per #185-adjacent reports, not even that
+   *  reliably did, hence a defensive reset here rather than relying solely
+   *  on every up/cancel arriving. */
+  reset(): void {
+    this.active.clear()
+    this.candidateId = null
+  }
 }

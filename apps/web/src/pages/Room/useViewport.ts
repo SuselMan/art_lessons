@@ -211,6 +211,27 @@ export function useViewport(
       }
     }
 
+    // A pointerup/pointercancel can be lost entirely (app backgrounded
+    // mid-gesture, an OS-level gesture stealing the touch sequence, a
+    // permission prompt, etc.) — when that happens, `touchPtrs` keeps a
+    // stale entry forever with no real finger behind it. A later genuine
+    // 2-finger gesture would then see that phantom entry as "the other
+    // finger" (pinch/rotate math computed against a position from long ago,
+    // reading as broken/stuck), and a genuine lone finger would be treated
+    // as a 2-finger gesture instead of triggering the plain single-finger
+    // pan branch — matching reports of "pinch-zoom" and "single-finger pan"
+    // both randomly breaking, not clearing even on reload if the same
+    // device/OS state repro's it again immediately. visibilitychange/blur
+    // are the most reliable generic "can't trust this pointer's own
+    // up/cancel anymore" signals available — full reset on either.
+    const resetTouchState = () => {
+      touchPtrs.current.clear()
+      reservedTouchId.current = null
+      midPanRef.current = null
+    }
+    document.addEventListener('visibilitychange', resetTouchState)
+    window.addEventListener('blur', resetTouchState)
+
     el.addEventListener('pointerdown',   onDown)
     el.addEventListener('pointermove',   onMove)
     el.addEventListener('pointerup',     onUp)
@@ -220,6 +241,8 @@ export function useViewport(
       el.removeEventListener('pointermove',   onMove)
       el.removeEventListener('pointerup',     onUp)
       el.removeEventListener('pointercancel', onUp)
+      document.removeEventListener('visibilitychange', resetTouchState)
+      window.removeEventListener('blur', resetTouchState)
     }
   }, [canvas, toolActive, updateVp, infinite])
 

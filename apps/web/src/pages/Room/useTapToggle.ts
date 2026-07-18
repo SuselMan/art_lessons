@@ -92,6 +92,25 @@ export function useTapToggle(
       }
     }
 
+    // A pointerup/pointercancel can be lost entirely (app backgrounded
+    // mid-touch, an OS-level gesture stealing the sequence, a permission
+    // prompt, etc.) — when that happens, TapTracker's `active` Map keeps a
+    // stale entry forever, and since `up()`'s tap check requires
+    // `active.size === 1`, that alone silently disqualifies every future
+    // single-finger tap from ever registering again (reported as "minimal
+    // UI stops responding to tap," not clearing even on reload if the same
+    // device/OS state repro's it again immediately). visibilitychange/blur
+    // are the most reliable generic "can't trust this pointer's own
+    // up/cancel anymore" signals available — full reset on either.
+    const resetAll = () => {
+      tracker.reset()
+      starts.clear()
+      maxDist.clear()
+      concurrent = 0
+    }
+    document.addEventListener('visibilitychange', resetAll)
+    window.addEventListener('blur', resetAll)
+
     el.addEventListener('pointerdown', onDown)
     el.addEventListener('pointermove', onMove)
     el.addEventListener('pointerup', onUp)
@@ -101,6 +120,8 @@ export function useTapToggle(
       el.removeEventListener('pointermove', onMove)
       el.removeEventListener('pointerup', onUp)
       el.removeEventListener('pointercancel', onCancel)
+      document.removeEventListener('visibilitychange', resetAll)
+      window.removeEventListener('blur', resetAll)
     }
   }, [ref, onTap, enabled, onDebug])
 }
