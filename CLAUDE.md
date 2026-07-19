@@ -2,18 +2,18 @@
 
 Monorepo for a collaborative academic drawing app. Teacher hosts a room, students join remotely over the internet (not LAN-only — participants are not assumed to share a network). Shared canvas content and layers, local per-user viewport (pan/zoom/rotate).
 
-Development currently runs entirely locally (the dev server and `apps/server` on Ilya's own machine/LAN, tested against his own devices) — production hosting (where `apps/server` will actually run so non-local participants can connect) is not yet decided and does not need Redis; see `.claude/rules.md` if that decision has since been made.
+Production hosting is live: a VPS (time4vps) runs `apps/server` + Postgres via Docker Compose behind nginx+certbot, at `https://5ryx.l.time4vps.cloud`, with GitHub Actions auto-deploying on push to `main` after typecheck/lint/test pass (see `deploy/README.md`). Still no Redis — single process is enough at current scale. Day-to-day development/iteration still happens locally (`vite --host` on Ilya's own machine/LAN, tested against his own devices) — the VPS is the deploy target, not the dev loop.
 
 ## Stack
 
 - **Monorepo**: npm workspaces (`apps/web`, `apps/server`, `packages/shared`)
 - **Frontend**: React 19 + TypeScript 5 + Vite 8, CSS Modules + CSS variables (no Tailwind)
 - **Routing**: `react-router-dom` v7
-- **State**: migrating to one global store (Zustand, epic #2) for all app state, including the editor's own — layers, viewport, tool/preset/color, room data — not just cross-page/account state (reverses the 2026-07-08 narrowing; pre-production with a single user, so the cost of doing this properly now is lower than doing it later). The one thing that never moves into the store: the WebGL engine's own internals (`engineRef`, pixel buffers, the imperative pointer/dab pipeline) — store state is always a *reflection* of what's already been applied to the engine via an imperative call (e.g. `engine.setTool(tool)`), never the engine's source of truth (epic #2's own #25 tracks this boundary). Migration via #19→20→21→22→23→24 in order, one slice at a time; until it lands, most of the editor still reads local `useState`
+- **State**: one global store (Zustand, `apps/web/src/stores/roomStore.ts`) for all app state, including the editor's own — layers, viewport, tool/preset/color, room data — not just cross-page/account state. The editor-state migration (#19→20→21→22→23→24) is complete; most of the editor now reads/writes the store, not local `useState`. The one thing that never moves into the store: the WebGL engine's own internals (`engineRef`, pixel buffers, the imperative pointer/dab pipeline) — store state is always a *reflection* of what's already been applied to the engine via an imperative call (e.g. `engine.setTool(tool)`), never the engine's source of truth (#25, still open, is an audit pass confirming that boundary holds).
 - **Rendering**: WebGL1, dab-based pencil engine with Catmull-Rom spline
 - **Icons**: Material Symbols Outlined, thin variant (`wght: 200`)
-- **Backend**: Fastify + Socket.io skeleton (not wired to UI yet)
-- **DB/Cache**: PostgreSQL + Prisma + Redis (planned)
+- **Backend**: Fastify + Socket.io, fully wired to the UI — room join/reconnect, Operation Log relay, undo/redo, and periodic client-baked snapshots for fast rejoin on long rooms (epic #149)
+- **DB/Cache**: PostgreSQL + Prisma; no Redis (single server process is enough at current scale — see `.claude/rules.md`)
 - **Mobile**: Capacitor later; start with PWA-ready responsive UI
 
 ## Monorepo Structure
