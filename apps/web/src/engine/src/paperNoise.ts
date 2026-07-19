@@ -291,13 +291,15 @@ export function paperHeight(
 }
 
 // ─── Rough-paper fiber-variant exploration (dev-only comparison) ──────────
-// 10 candidate replacements for variant #2's fiber layer above (which is
-// what's actually shipping right now) — rough paper only for now, wired up
-// behind the Settings panel's "Paper grain variant" dev control (see
-// featureFlags.ts's getPaperGrainVariant / SettingsPanel / bakePaperTextures
-// --rough-variants). First prototyped as a throwaway HTML comparison with
-// no tiling requirement; every variant here is re-derived to stay exactly
-// seamless, since these bake to real REPEAT textures the app loads.
+// 11 candidates compared by ear/eye via the Settings panel's "Paper grain
+// variant" dev control (see featureFlags.ts's getPaperGrainVariant /
+// SettingsPanel / bakeRoughVariantTextures.ts) before picking a winner —
+// SHIPPED_ROUGH_VARIANT_INDEX below records which one that is; every other
+// candidate stays here only as a rejected alternative, still bakeable for
+// comparison but never the real public/paper/rough.paper asset. First
+// prototyped as a throwaway HTML comparison with no tiling requirement;
+// every variant here is re-derived to stay exactly seamless, since these
+// bake to real REPEAT textures the app loads.
 
 function fiberLayer(uvx: number, uvy: number, fiberPeriod: number, halfLen: number, width: number): number {
   const cellsPerBaseUnit = fiberPeriod / PAPER_GRAIN_CONFIGS.rough.scale
@@ -371,7 +373,7 @@ export const ROUGH_VARIANTS: readonly RoughVariant[] = [
     },
   },
   {
-    label: 'Capsules · moderate (current)',
+    label: 'Capsules · moderate',
     rawHeight(fragX, fragY, resW, resH) {
       const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
       const h = roughBaseHeight(uvx, uvy)
@@ -472,6 +474,24 @@ export const ROUGH_VARIANTS: readonly RoughVariant[] = [
     rawHeight() { return 0.5 },
   },
 ]
+
+// Ilya's pick after comparing every ROUGH_VARIANTS candidate via the
+// Settings panel's dev-only picker — this is the real, shipped rough paper
+// texture (see bakePaperTextures.ts, which bakes rough specifically via
+// paperHeightForRoughVariant/paperCatchValueForRoughVariant against this
+// index rather than the generic paperHeight/paperCatchValue+cfg path smooth/
+// bristol still use). A bare index into an array that gets reordered/edited
+// freely above is fragile silently, so this asserts the label it actually
+// points at rather than trusting the number — a future reorder that isn't
+// also updated here fails loudly at import time instead of quietly re-
+// shipping the wrong texture.
+export const SHIPPED_ROUGH_VARIANT_INDEX = 5
+if (ROUGH_VARIANTS[SHIPPED_ROUGH_VARIANT_INDEX]?.label !== 'Horizontal streak') {
+  throw new Error(
+    `SHIPPED_ROUGH_VARIANT_INDEX (${SHIPPED_ROUGH_VARIANT_INDEX}) no longer points at 'Horizontal streak' ` +
+    `(found '${ROUGH_VARIANTS[SHIPPED_ROUGH_VARIANT_INDEX]?.label}') — ROUGH_VARIANTS was reordered/edited; update the index above.`,
+  )
+}
 
 export function paperHeightForRoughVariant(
   fragX: number, fragY: number, resW: number, resH: number, variantIndex: number,

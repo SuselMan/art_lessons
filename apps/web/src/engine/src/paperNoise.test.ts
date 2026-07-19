@@ -34,6 +34,7 @@ import type { PaperType } from '@art-lessons/shared'
 
 import {
   PAPER_BAKE_RESOLUTION, PAPER_GRAIN_CONFIGS, PAPER_ROUGHNESS, paperCatchValue, paperHeight,
+  paperCatchValueForRoughVariant, paperHeightForRoughVariant, SHIPPED_ROUGH_VARIANT_INDEX,
 } from './paperNoise'
 
 const RES = PAPER_BAKE_RESOLUTION
@@ -157,13 +158,20 @@ describe('committed public/paper/*.paper assets', () => {
     })
 
     it(`${name}: sampled height (R) and catch (A) bytes match paperNoise.ts recomputed from the current config`, () => {
+      // rough ships a ROUGH_VARIANTS candidate (see bakePaperTextures.ts and
+      // SHIPPED_ROUGH_VARIANT_INDEX's own comment), not the generic
+      // paperHeight/paperCatchValue+cfg formula smooth/bristol still use.
       const bytes = readBakedAsset(name as PaperType)
       for (const [x, y] of SAMPLE_POINTS) {
         const px = Math.floor(x)
         const py = Math.floor(y)
         const idx = (py * RES + px) * 2
-        const expectedHeight = Math.round(paperHeight(px + 0.5, py + 0.5, RES, RES, cfg, true) * 255)
-        const expectedCatch = Math.round(paperCatchValue(px + 0.5, py + 0.5, RES, RES, cfg, roughness) * 255)
+        const expectedHeight = name === 'rough'
+          ? Math.round(paperHeightForRoughVariant(px + 0.5, py + 0.5, RES, RES, SHIPPED_ROUGH_VARIANT_INDEX) * 255)
+          : Math.round(paperHeight(px + 0.5, py + 0.5, RES, RES, cfg, true) * 255)
+        const expectedCatch = name === 'rough'
+          ? Math.round(paperCatchValueForRoughVariant(px + 0.5, py + 0.5, RES, RES, SHIPPED_ROUGH_VARIANT_INDEX) * 255)
+          : Math.round(paperCatchValue(px + 0.5, py + 0.5, RES, RES, cfg, roughness) * 255)
         expect(Math.abs(bytes[idx] - expectedHeight)).toBeLessThanOrEqual(1)
         expect(Math.abs(bytes[idx + 1] - expectedCatch)).toBeLessThanOrEqual(1)
       }

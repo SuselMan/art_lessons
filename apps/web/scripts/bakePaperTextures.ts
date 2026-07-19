@@ -26,6 +26,7 @@ import type { PaperType } from '@art-lessons/shared'
 
 import {
   PAPER_BAKE_RESOLUTION, PAPER_GRAIN_CONFIGS, PAPER_ROUGHNESS, paperCatchValue, paperHeight,
+  paperCatchValueForRoughVariant, paperHeightForRoughVariant, SHIPPED_ROUGH_VARIANT_INDEX,
 } from '../src/engine/src/paperNoise.js'
 
 const PAPER_TYPES = Object.keys(PAPER_GRAIN_CONFIGS) as PaperType[]
@@ -44,10 +45,18 @@ for (const type of PAPER_TYPES) {
   // (catch) respectively.
   const bytes = new Uint8Array(res * res * 2)
 
+  // rough ships one of the ROUGH_VARIANTS candidates (see
+  // SHIPPED_ROUGH_VARIANT_INDEX's own comment — picked by ear/eye via the
+  // Settings panel's dev picker) instead of the generic paperHeight/
+  // paperCatchValue+cfg formula smooth/bristol still use.
   for (let y = 0; y < res; y++) {
     for (let x = 0; x < res; x++) {
-      const h = paperHeight(x + 0.5, y + 0.5, res, res, cfg, /* seamless */ true)
-      const catchV = paperCatchValue(x + 0.5, y + 0.5, res, res, cfg, roughness)
+      const h = type === 'rough'
+        ? paperHeightForRoughVariant(x + 0.5, y + 0.5, res, res, SHIPPED_ROUGH_VARIANT_INDEX)
+        : paperHeight(x + 0.5, y + 0.5, res, res, cfg, /* seamless */ true)
+      const catchV = type === 'rough'
+        ? paperCatchValueForRoughVariant(x + 0.5, y + 0.5, res, res, SHIPPED_ROUGH_VARIANT_INDEX)
+        : paperCatchValue(x + 0.5, y + 0.5, res, res, cfg, roughness)
       const idx = (y * res + x) * 2
       bytes[idx] = Math.round(h * 255)
       bytes[idx + 1] = Math.round(catchV * 255)
