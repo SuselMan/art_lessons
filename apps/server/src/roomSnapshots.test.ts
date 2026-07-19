@@ -4,7 +4,12 @@ import { createHash } from 'node:crypto'
 
 import { SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 
-import { createRoom, getLatestSnapshot, getRoomSnapshot, saveSnapshot } from './rooms.js'
+import type { StrokeOperation } from '@art-lessons/shared'
+
+import {
+  _flushPendingWrites, createRoom, getLatestSnapshot, getRoomSnapshot, joinRoom, leaveRoom, recordOperation,
+  saveSnapshot,
+} from './rooms.js'
 
 // rooms.test.ts deliberately runs with no real Postgres — every DB call it
 // touches (createRoom/recordOperation/etc.) is fire-and-forget, so a
@@ -13,12 +18,18 @@ import { createRoom, getLatestSnapshot, getRoomSnapshot, saveSnapshot } from './
 // directly (the snapshot payload is never cached in RoomRecord — see
 // rooms.ts's own doc comments), so exercising them without a real DB (CI has
 // none — see .github/workflows/ci.yml) needs prisma mocked. Scoped to this
-// file only, so rooms.test.ts's all-real style is untouched.
+// file only, so rooms.test.ts's all-real style is untouched. `operation` is
+// here too (not a separate file) for the leaveRoom-prunes-on-idle tests
+// below, which need to assert *whether* deleteMany fired — a fire-and-forget
+// call rooms.test.ts's plain style has no way to observe.
 const mockPrisma = vi.hoisted(() => ({
   roomSnapshot: {
     create: vi.fn(),
     findUnique: vi.fn(),
     findFirst: vi.fn(),
+  },
+  operation: {
+    deleteMany: vi.fn(),
   },
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
@@ -38,12 +49,20 @@ function makeRoom(): string {
   return roomId
 }
 
+function stroke(id: string): StrokeOperation {
+  return {
+    id, type: 'stroke', userId: 'owner-1', timestamp: 0,
+    layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0.14, 0.14, 0.17], dabs: [],
+  }
+}
+
 const gzippedPayload = gzipSync(Buffer.from('fake tile pixels'))
 
 beforeEach(() => {
   mockPrisma.roomSnapshot.create.mockReset()
   mockPrisma.roomSnapshot.findUnique.mockReset()
   mockPrisma.roomSnapshot.findFirst.mockReset()
+  mockPrisma.operation.deleteMany.mockReset().mockResolvedValue({ count: 0 })
 })
 
 afterEach(() => {
@@ -130,5 +149,57 @@ describe('getLatestSnapshot', () => {
     const row = { seq: SNAPSHOT_SEQ_INTERVAL, layerState: { rootOrder: ['a'] }, data: gzippedPayload }
     mockPrisma.roomSnapshot.findFirst.mockResolvedValueOnce(row)
     expect(await getLatestSnapshot(makeRoom())).toEqual(row)
+  })
+})
+
+// 2026-07-19 (#206/#207): replay was dropped from the roadmap, so full
+// operation history no longer needs to survive past the session that
+// produced it — leaveRoom now prunes whatever's already covered by a
+// snapshot once the room goes genuinely idle. See rooms.ts's own doc
+// comments on leaveRoom/pruneOperationsBeforeSnapshot for the full
+// reasoning (in particular: why this can never delete *unsafely*, and why
+// the worst-case unpruned leftover is bounded, not unbounded).
+describe('leaveRoom prunes operations once the room has a covering snapshot', () => {
+  it('deletes every operation at or before the latest snapshot once the last participant leaves', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, stroke('a'))
+    mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)
+
+    leaveRoom(roomId, 'owner-1', `sock-${roomId}`)
+    // Deferred eviction (see leaveRoom's own doc comment) chains the prune
+    // itself onto a *new* per-room write only once the room's already-
+    // pending writes settle — one flush can race that hand-off, so flush
+    // twice: once to let that happen, once more to wait for the prune write
+    // it just enqueued.
+    await _flushPendingWrites(roomId)
+    await _flushPendingWrites(roomId)
+
+    expect(mockPrisma.operation.deleteMany).toHaveBeenCalledWith({
+      where: { roomId, seq: { lte: SNAPSHOT_SEQ_INTERVAL } },
+    })
+  })
+
+  it('does nothing when the room has never crossed a checkpoint (no covering snapshot yet)', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, stroke('a'))
+
+    leaveRoom(roomId, 'owner-1', `sock-${roomId}`)
+    await _flushPendingWrites(roomId)
+
+    expect(mockPrisma.operation.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('does not prune while another participant is still in the room', async () => {
+    const roomId = makeRoom()
+    joinRoom(roomId, 'student-1', 'Student', undefined, `sock-${roomId}-student`)
+    mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)
+
+    // The owner leaves, but the student is still connected — not idle yet.
+    leaveRoom(roomId, 'owner-1', `sock-${roomId}`)
+    await _flushPendingWrites(roomId)
+
+    expect(mockPrisma.operation.deleteMany).not.toHaveBeenCalled()
   })
 })

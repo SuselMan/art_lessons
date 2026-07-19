@@ -134,6 +134,27 @@ function persistOperation(roomId: string, op: Operation): void {
   }))
 }
 
+/** Deletes every Operation row at or before `latestSnapshotSeq` (2026-07-19:
+ *  replay was dropped from the roadmap — see #207/#206 — so full history no
+ *  longer needs to survive past the session that produced it; retention is
+ *  now "this live session's undo/redo depth", not "forever"). Only called
+ *  once a room has gone genuinely empty (see `leaveRoom`), and only prunes
+ *  what's already safely covered by an existing RoomSnapshot — a room that
+ *  never crossed the first SNAPSHOT_SEQ_INTERVAL boundary has no covering
+ *  snapshot yet, so this is a no-op for it (nothing unsafe to delete, and
+ *  short rooms are cheap to keep whole anyway). The next session's own
+ *  growth will eventually cross a boundary and make this room prunable
+ *  again on its next idle — worst-case steady-state leftover per room is
+ *  bounded by one SNAPSHOT_SEQ_INTERVAL's worth of operations, never
+ *  unbounded. Fire-and-forget, chained through the same per-room write
+ *  queue as every other Postgres write here. */
+function pruneOperationsBeforeSnapshot(roomId: string, latestSnapshotSeq: number | null): void {
+  if (latestSnapshotSeq === null) return
+  enqueueWrite(roomId, () => prisma.operation.deleteMany({
+    where: { roomId, seq: { lte: latestSnapshotSeq } },
+  }))
+}
+
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
  *  already there — called by socketHandlers.ts right before `createRoom`/
  *  `joinRoom` so those can stay synchronous. A no-op (returns immediately,
@@ -260,12 +281,17 @@ export function joinRoom(
 }
 
 /** Removes a participant on disconnect. Evicts the room from memory once
- *  it's empty (frees RAM for idle rooms) — Postgres keeps the room and its
- *  history regardless (#74); the next `join_room` for this id repopulates
- *  the Map via `ensureRoomLoaded`. Waits for this room's pending writes to
- *  settle before actually evicting, so a fast reconnect (page refresh right
- *  after drawing) finds the room still live in memory instead of racing a
- *  Postgres read against the last stroke's own write — see `enqueueWrite`.
+ *  it's empty (frees RAM for idle rooms) — Postgres keeps the room itself
+ *  regardless (#74); the next `join_room` for this id repopulates the Map
+ *  via `ensureRoomLoaded`. Operation history is a different story since
+ *  2026-07-19 (#206/#207): once the room is confirmed genuinely empty, this
+ *  also prunes every Operation already covered by the room's latest
+ *  snapshot (see `pruneOperationsBeforeSnapshot`) — full history now only
+ *  lives as long as the session that produced it, not forever. Waits for
+ *  this room's pending writes to settle before actually evicting, so a fast
+ *  reconnect (page refresh right after drawing) finds the room still live
+ *  in memory instead of racing a Postgres read against the last stroke's
+ *  own write — see `enqueueWrite`.
  *  Re-checks participants after the wait: a reconnect that lands during it
  *  re-populates the Map, and that room must not then be deleted out from
  *  under it.
@@ -295,9 +321,16 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
   if (record.participants.size !== 0) return removed
 
   const pending = pendingWrite.get(roomId)
-  if (!pending) { rooms.delete(roomId); return removed }
+  if (!pending) {
+    pruneOperationsBeforeSnapshot(roomId, record.latestSnapshotSeq)
+    rooms.delete(roomId)
+    return removed
+  }
   pending.finally(() => {
-    if (rooms.get(roomId)?.participants.size === 0) rooms.delete(roomId)
+    if (rooms.get(roomId)?.participants.size === 0) {
+      pruneOperationsBeforeSnapshot(roomId, record.latestSnapshotSeq)
+      rooms.delete(roomId)
+    }
   })
   return removed
 }
@@ -473,10 +506,15 @@ export async function getLatestSnapshot(
  *  prependHistorical's own doc comment). An empty result means backfill has
  *  reached the beginning of the room's history.
  *
- *  Reads from the in-memory Map, same as `getRoomSnapshot` —
- *  `ensureRoomLoaded` already pulls a room's *entire* operation history into
- *  `record.operations`, unbounded, so there's no separate cold Postgres path
- *  needed here. */
+ *  Reads from the in-memory Map, same as `getRoomSnapshot` — `ensureRoomLoaded`
+ *  already pulls everything Postgres still has for this room into
+ *  `record.operations`, so there's no separate cold Postgres path needed
+ *  here. Since 2026-07-19 (#206/#207) that's no longer literally the room's
+ *  entire history forever — `leaveRoom` prunes whatever's already covered by
+ *  a snapshot once the room goes idle — so "the beginning of the room's
+ *  history" below means the oldest operation Postgres still has, which for
+ *  a room that's had an idle gap is its current session's own start, not
+ *  necessarily the room's true beginning. */
 export function getOperationsBefore(roomId: string, beforeSeq: number, limit: number): Operation[] {
   const record = rooms.get(roomId)
   if (!record) return []
