@@ -41,7 +41,8 @@ done
 echo "==> Applying Prisma migrations"
 docker compose -f docker-compose.prod.yml exec -T server npx prisma migrate deploy
 
-echo "==> Reloading nginx (picks up any config change)"
+echo "==> Syncing nginx config and reloading"
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/art-lessons
 sudo nginx -t
 sudo systemctl reload nginx
 
