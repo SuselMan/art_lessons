@@ -467,6 +467,20 @@ export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.1
 const CHECKPOINT_INTERVAL = 20
 const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
 
+// A single StrokeOperation's JSON size is unbounded in principle — a long
+// fill/scribble held down for a while can reach thousands of dabs, and a
+// production room hit strokes over 1MB (~4000 dabs) this way. That's large
+// enough to silently fail to reach the server at all (past nginx's/Socket.IO's
+// buffer limits — both default to ~1MB, and every proxy in between has its
+// own such ceiling somewhere), which is a real, observed cause of "I drew
+// something and it was gone after reload, undo/redo couldn't get it back" —
+// the operation never made it into the log in the first place. 800 dabs is
+// ~200KB at the byte-per-dab rate observed in that room's data, comfortably
+// under any of those ceilings even before accounting for the safety margin
+// raising them separately (see apps/server/src/index.ts's maxHttpBufferSize)
+// already buys. See _flushStrokeChunk's own comment for the mechanism.
+const STROKE_DAB_CHUNK_LIMIT = 800
+
 // ─── Engine ────────────────────────────────────────────────────────────────────
 
 export class PencilEngine implements PencilEngineAPI {
@@ -2693,6 +2707,33 @@ export class PencilEngine implements PencilEngineAPI {
     // from _activeId for the rest of this stroke, and every further dab
     // painted into it must keep invalidating too, not just the first one.
     if (this._strokeLayerId !== this._activeId) this._invalidateSplitCache()
+    // A stroke held down long enough (a big fill, a slow scribble) can
+    // accumulate dabs indefinitely — see STROKE_DAB_CHUNK_LIMIT's own
+    // comment on why that's a real problem, not just a memory nicety.
+    if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT) this._flushStrokeChunk()
+  }
+
+  /** Flushes the in-progress stroke's accumulated dabs as a complete
+   *  StrokeOperation without ending the stroke itself — same Operation
+   *  shape _onEnd's own dispatch builds, just none of _onEnd's stroke
+   *  teardown (_strokeLayerId/_previewBuf/_tipBuf/_display() are all still
+   *  legitimately mid-stroke and untouched here; the pointer is still
+   *  down, painting continues into the same buffer right after this
+   *  returns). See STROKE_DAB_CHUNK_LIMIT's own comment for why this
+   *  exists. Guarded by `_strokeDabs.length` the same way _onEnd's own
+   *  dispatch is — never called with nothing to flush. */
+  private _flushStrokeChunk(): void {
+    const layerId = this._strokeLayerId
+    if (!layerId || !this._strokeDabs.length) return
+    const op: Operation = {
+      id: nanoid(10), type: 'stroke', userId: this._userId,
+      layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
+      dabs: this._strokeDabs, timestamp: Date.now(),
+    }
+    this._log.append(op)
+    this._maybeCheckpoint(layerId)
+    this._onLocalOperation?.(op)
+    this._strokeDabs = []
   }
 
   // ─── Reference image import (#88) ──────────────────────────────────────────────

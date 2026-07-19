@@ -43,8 +43,20 @@ registerRoomRoutes(app)
 registerSnapshotRoutes(app)
 registerReplayRoutes(app)
 
+// Engine.IO's own default maxHttpBufferSize is 1e6 (~1MB) and applies to a
+// single packet in *either* direction — not just what the server accepts
+// from a client, but what it can successfully emit to one too. A room with
+// enough history (or one long stroke — see engine/index.ts's
+// STROKE_DAB_CHUNK_LIMIT) can need to send room_state's tailOperations well
+// past that in one shot; without this, the packet is silently dropped and
+// the join just hangs (found via a live "room never finishes loading"
+// report — nginx's client_max_body_size, raised separately in
+// deploy/nginx.conf, is the same class of ceiling on the incoming side).
+const MAX_HTTP_BUFFER_SIZE_BYTES = 20 * 1024 * 1024
+
 const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>(app.server, {
   cors: { origin: true, credentials: true },
+  maxHttpBufferSize: MAX_HTTP_BUFFER_SIZE_BYTES,
 })
 
 // Room state (#32), operation relay + log (#34/#35), room_state snapshot

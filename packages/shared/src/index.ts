@@ -342,7 +342,19 @@ export type CursorMoveData = {
 // apps/server/src/rooms.ts's saveSnapshot). Shared so both the client
 // (deciding when to bake) and the server (validating an upload actually
 // lands on a real boundary) agree on the same points without coordination.
-export const SNAPSHOT_SEQ_INTERVAL = 300
+//
+// This bounds *operation count*, not bytes — a fine proxy when most ops are
+// small, but a room with few, huge strokes (a long fill/scribble — see
+// engine/index.ts's STROKE_DAB_CHUNK_LIMIT) can carry tens of MB in far
+// fewer than 300 ops, never crossing even one checkpoint and paying full-
+// history replay on every join no matter how big it gets (a real, observed
+// case: a room's own load hanging for minutes on 25MB of history in just
+// 117 ops). Lowered from 300 to 100 so heavy-content rooms hit a checkpoint
+// much sooner; still coarse for a genuinely pathological room, which is why
+// Room/index.tsx's handleRoomState now also bakes once, retroactively, the
+// first time any client fully catches up a room that has never had a
+// snapshot at all — see its own comment.
+export const SNAPSHOT_SEQ_INTERVAL = 100
 
 export type ServerToClientEvents = {
   // `latestSnapshotSeq` is null until the room has ever crossed

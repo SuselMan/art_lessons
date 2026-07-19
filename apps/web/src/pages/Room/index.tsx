@@ -816,6 +816,19 @@ export function Room() {
           if (id && restoredFromSnapshot && pending.latestSnapshotSeq !== null) {
             void backfillHistory(id, engine, pending.latestSnapshotSeq)
           }
+          // A room that has never had a snapshot at all stays stuck doing
+          // this same full-history replay on every future join, no matter
+          // how large its history grows — nobody is ever "live" at the
+          // moment a checkpoint boundary is crossed for a room like that
+          // (see handleRoomState's own comment on why bulk catch-up is
+          // normally *not* baked). Bootstrapping one here, right after
+          // finishing this catch-up, specifically only when
+          // latestSnapshotSeq is still null, fixes that without changing
+          // behavior for any room that already has a snapshot (every
+          // future join of *this* room now gets the fast path instead).
+          if (pending.latestSnapshotSeq === null && snapshotUploader) {
+            snapshotUploader.onSeqObserved(0, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
+          }
         } finally {
           // Runs even if paperReady/fetchLatestSnapshot/etc. throws — a
           // failed restore must still unblock drawing rather than leave the
@@ -849,7 +862,7 @@ export function Room() {
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory, paperVariantUrl,
-    grainMode, dispatchParticipants, isCreator,
+    grainMode, dispatchParticipants, isCreator, snapshotUploader,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -1647,6 +1660,13 @@ export function Room() {
         if (restoredFromSnapshot && engine && latestSnapshotSeq !== null) {
           void backfillHistory(id, engine, latestSnapshotSeq)
         }
+        // Same bootstrap as the mount-engine effect's own first-join branch
+        // (see its comment) — a reconnect can just as easily be the first
+        // time anyone's stayed caught-up long enough to bake this room's
+        // very first snapshot.
+        if (latestSnapshotSeq === null && engine && snapshotUploader) {
+          snapshotUploader.onSeqObserved(alreadyHadSeq, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
+        }
       } finally {
         // (#169 bug fix) Must run even on a plain, no-snapshot reconnect
         // (the common case) — otherwise the *next* stroke this same user
@@ -1761,7 +1781,7 @@ export function Room() {
     }
   }, [
     id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary,
-    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants,
+    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, snapshotUploader,
   ])
 
   // Submits the join gate (joiner path only): connects/join_room's with the
