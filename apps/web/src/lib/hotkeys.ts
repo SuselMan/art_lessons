@@ -16,12 +16,15 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from './roo
 // drawing they're working on.
 
 export interface HotkeyBinding {
-  /** KeyboardEvent.key of the *unshifted* key, e.g. 'z', 'e', '[', ']', '1'.
-   *  Shifted symbols (e.g. Shift+[ producing '{') are normalized back to
-   *  their base key by captureHotkeyBinding/matchesHotkey below, so 'shift'
-   *  is the only place that information lives — matches this project's
-   *  existing "Shift+[" style tooltip wording. */
-  key: string
+  /** KeyboardEvent.code — the *physical* key position (e.g. 'KeyZ',
+   *  'BracketLeft', 'Digit1'), not KeyboardEvent.key. Layout-independent:
+   *  `code` names which key was pressed regardless of the OS input
+   *  language, whereas `key` names the character that layout produces —
+   *  matching on `key` meant Ctrl+Z only worked while a Latin layout was
+   *  active (a Cyrillic layout puts 'я' on that same physical key, so
+   *  Ctrl+Z became literal "Ctrl+Я"). See MDN's KeyboardEvent.code table
+   *  for the full physical-key list. */
+  code: string
   /** Ctrl on Windows/Linux, Cmd on Mac — treated as one modifier. */
   mod: boolean
   shift: boolean
@@ -34,19 +37,19 @@ export interface HotkeyActionDef {
 }
 
 export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
-  { id: 'undo', label: 'Undo', default: { key: 'z', mod: true, shift: false } },
-  { id: 'redo', label: 'Redo', default: { key: 'z', mod: true, shift: true } },
-  { id: 'toggleEraser', label: 'Toggle eraser / pencil', default: { key: 'e', mod: false, shift: false } },
-  { id: 'resetRotation', label: 'Reset rotation to 0°', default: { key: 'r', mod: false, shift: false } },
-  { id: 'decreaseSize', label: 'Decrease brush size', default: { key: '[', mod: false, shift: false } },
-  { id: 'increaseSize', label: 'Increase brush size', default: { key: ']', mod: false, shift: false } },
-  { id: 'rotateCCW', label: 'Rotate view −15°', default: { key: '[', mod: false, shift: true } },
-  { id: 'rotateCW', label: 'Rotate view +15°', default: { key: ']', mod: false, shift: true } },
-  { id: 'gradeH', label: 'Pencil grade: H (quick pick)', default: { key: '1', mod: false, shift: false } },
-  { id: 'gradeHB', label: 'Pencil grade: HB (quick pick)', default: { key: '2', mod: false, shift: false } },
-  { id: 'grade2B', label: 'Pencil grade: 2B (quick pick)', default: { key: '3', mod: false, shift: false } },
-  { id: 'grade4B', label: 'Pencil grade: 4B (quick pick)', default: { key: '4', mod: false, shift: false } },
-  { id: 'grade6B', label: 'Pencil grade: 6B (quick pick)', default: { key: '5', mod: false, shift: false } },
+  { id: 'undo', label: 'Undo', default: { code: 'KeyZ', mod: true, shift: false } },
+  { id: 'redo', label: 'Redo', default: { code: 'KeyZ', mod: true, shift: true } },
+  { id: 'toggleEraser', label: 'Toggle eraser / pencil', default: { code: 'KeyE', mod: false, shift: false } },
+  { id: 'resetRotation', label: 'Reset rotation to 0°', default: { code: 'KeyR', mod: false, shift: false } },
+  { id: 'decreaseSize', label: 'Decrease brush size', default: { code: 'BracketLeft', mod: false, shift: false } },
+  { id: 'increaseSize', label: 'Increase brush size', default: { code: 'BracketRight', mod: false, shift: false } },
+  { id: 'rotateCCW', label: 'Rotate view −15°', default: { code: 'BracketLeft', mod: false, shift: true } },
+  { id: 'rotateCW', label: 'Rotate view +15°', default: { code: 'BracketRight', mod: false, shift: true } },
+  { id: 'gradeH', label: 'Pencil grade: H (quick pick)', default: { code: 'Digit1', mod: false, shift: false } },
+  { id: 'gradeHB', label: 'Pencil grade: HB (quick pick)', default: { code: 'Digit2', mod: false, shift: false } },
+  { id: 'grade2B', label: 'Pencil grade: 2B (quick pick)', default: { code: 'Digit3', mod: false, shift: false } },
+  { id: 'grade4B', label: 'Pencil grade: 4B (quick pick)', default: { code: 'Digit4', mod: false, shift: false } },
+  { id: 'grade6B', label: 'Pencil grade: 6B (quick pick)', default: { code: 'Digit5', mod: false, shift: false } },
 ]
 
 // roomStorage.ts's key format is `al_room_settings:<roomId>` — reusing it
@@ -62,13 +65,13 @@ interface StoredHotkeys {
 
 function isValidBinding(v: unknown): v is HotkeyBinding {
   return !!v && typeof v === 'object'
-    && typeof (v as HotkeyBinding).key === 'string' && (v as HotkeyBinding).key.length > 0
+    && typeof (v as HotkeyBinding).code === 'string' && (v as HotkeyBinding).code.length > 0
     && typeof (v as HotkeyBinding).mod === 'boolean'
     && typeof (v as HotkeyBinding).shift === 'boolean'
 }
 
 export function bindingsEqual(a: HotkeyBinding, b: HotkeyBinding): boolean {
-  return a.key.toLowerCase() === b.key.toLowerCase() && a.mod === b.mod && a.shift === b.shift
+  return a.code === b.code && a.mod === b.mod && a.shift === b.shift
 }
 
 /** Every action's current binding — a stored override where present and
@@ -91,24 +94,16 @@ export function setHotkeyBindings(storage: KeyValueStorage, bindings: Record<str
   writeRoomSettings<StoredHotkeys>(storage, GLOBAL_SCOPE, { hotkeys: bindings })
 }
 
-// Shifted punctuation this app currently binds hotkeys to, mapped back to
-// the physical (unshifted) key that produces it on a standard US layout —
-// so a binding's `key` field always names the physical key, and `shift` is
-// the only place "was shift held" lives. Extend if a future default binds
-// another shifted symbol.
-const SHIFTED_SYMBOL_TO_BASE: Record<string, string> = { '{': '[', '}': ']' }
+const MODIFIER_CODES = new Set([
+  'ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight',
+  'MetaLeft', 'MetaRight', 'AltLeft', 'AltRight',
+])
 
-function normalizeKey(rawKey: string, shiftHeld: boolean): string {
-  return shiftHeld && SHIFTED_SYMBOL_TO_BASE[rawKey] ? SHIFTED_SYMBOL_TO_BASE[rawKey] : rawKey
-}
-
-/** True if `e` matches `binding`. Key compared case-insensitively (some
- *  platforms report an uppercase KeyboardEvent.key for Ctrl+Shift combos,
- *  others don't) after normalizing away shifted-symbol substitution;
- *  modifiers compared exactly. */
+/** True if `e` matches `binding` — compares the physical key (`code`)
+ *  exactly and modifiers exactly, so the result is the same regardless of
+ *  which input language/layout is currently active. */
 export function matchesHotkey(e: KeyboardEvent, binding: HotkeyBinding): boolean {
-  const key = normalizeKey(e.key, e.shiftKey)
-  return key.toLowerCase() === binding.key.toLowerCase()
+  return e.code === binding.code
     && (e.ctrlKey || e.metaKey) === binding.mod
     && e.shiftKey === binding.shift
 }
@@ -117,8 +112,25 @@ export function matchesHotkey(e: KeyboardEvent, binding: HotkeyBinding): boolean
  *  modifier keypress (Ctrl/Shift/Meta/Alt alone, before the real key lands)
  *  never resolves to a binding — the caller should keep listening. */
 export function captureHotkeyBinding(e: KeyboardEvent): HotkeyBinding | null {
-  if (e.key === 'Control' || e.key === 'Meta' || e.key === 'Shift' || e.key === 'Alt') return null
-  return { key: normalizeKey(e.key, e.shiftKey), mod: e.ctrlKey || e.metaKey, shift: e.shiftKey }
+  if (MODIFIER_CODES.has(e.code)) return null
+  return { code: e.code, mod: e.ctrlKey || e.metaKey, shift: e.shiftKey }
+}
+
+// Display label for a physical key `code`, independent of the active input
+// layout — always shown as if a US QWERTY layout were active (the de facto
+// convention for on-screen shortcut hints, same as most desktop apps), even
+// though matching itself works under any layout. Extend if a future default
+// binds a code outside this list.
+const CODE_LABELS: Record<string, string> = {
+  BracketLeft: '[',
+  BracketRight: ']',
+}
+
+function codeLabel(code: string): string {
+  if (CODE_LABELS[code]) return CODE_LABELS[code]
+  if (code.startsWith('Key')) return code.slice('Key'.length)
+  if (code.startsWith('Digit')) return code.slice('Digit'.length)
+  return code
 }
 
 /** Human-readable label, e.g. "Ctrl+Shift+Z", "E", "Shift+[". Always shows
@@ -129,7 +141,7 @@ export function formatHotkeyLabel(binding: HotkeyBinding): string {
   const parts: string[] = []
   if (binding.mod) parts.push('Ctrl')
   if (binding.shift) parts.push('Shift')
-  parts.push(binding.key.length === 1 ? binding.key.toUpperCase() : binding.key)
+  parts.push(codeLabel(binding.code))
   return parts.join('+')
 }
 
