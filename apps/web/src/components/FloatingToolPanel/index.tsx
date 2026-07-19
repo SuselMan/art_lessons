@@ -64,6 +64,12 @@ interface Props {
    *  relationship is inverted from every other piece of chrome). */
   hidden?: boolean
   strokeBlocked?: boolean
+  /** Hotkey hints for the Undo/Redo tooltips, formatted by the caller (see
+   *  lib/hotkeys.ts's formatHotkeyLabel) — this component stays decoupled
+   *  from the hotkeys registry itself, same as it already is for every
+   *  other piece of Room state it's handed as props. */
+  undoHotkeyLabel: string
+  redoHotkeyLabel: string
 }
 
 /** First minimal iteration of a "floating" UI cluster (#157) — a draggable
@@ -87,6 +93,7 @@ interface Props {
 export function FloatingToolPanel({
   tool, onSetTool, onUndo, onRedo, pencilColor, palette, onSelectColor, onOpenColorPicker,
   roomId, position, onPositionChange, containerRef, hidden, strokeBlocked,
+  undoHotkeyLabel, redoHotkeyLabel,
 }: Props) {
   const [flyoutOpen, setFlyoutOpen] = useState(false)
   // Mount-then-transition: items first render collapsed onto the panel's
@@ -215,10 +222,10 @@ export function FloatingToolPanel({
         >
           <Icon name="edit" />
         </button>
-        <button className={clsx(styles.btn, styles.btnRight)} onClick={onRedo} title="Redo  Ctrl+Shift+Z" aria-label="Redo">
+        <button className={clsx(styles.btn, styles.btnRight)} onClick={onRedo} title={`Redo  ${redoHotkeyLabel}`} aria-label="Redo">
           <Icon name="redo" />
         </button>
-        <button className={clsx(styles.btn, styles.btnLeft)} onClick={onUndo} title="Undo  Ctrl+Z" aria-label="Undo">
+        <button className={clsx(styles.btn, styles.btnLeft)} onClick={onUndo} title={`Undo  ${undoHotkeyLabel}`} aria-label="Undo">
           <Icon name="undo" />
         </button>
         <button

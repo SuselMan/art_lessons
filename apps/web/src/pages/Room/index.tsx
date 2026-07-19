@@ -25,6 +25,7 @@ import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
+import { getHotkeyBindings, matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
@@ -284,6 +285,14 @@ export function Room() {
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(
     () => loadPanelPosition(localStorage, id ?? ''),
   )
+  // Desktop keyboard shortcuts (#174) — same load-once-up-front pattern as
+  // toolSettings/panelPosition above, but global (per-browser, not per-
+  // room): a rebound key is a habit of whoever's typing, not a property of
+  // this drawing. SettingsPanel reloads the page on save (same as every
+  // other setting there), so re-reading on every render isn't needed.
+  const [hotkeys] = useState(() => getHotkeyBindings(localStorage))
+  const gradeHotkeyLabels = ['gradeH', 'gradeHB', 'grade2B', 'grade4B', 'grade6B']
+    .map(id => formatHotkeyLabel(hotkeys[id])).join('/')
   // Eyedropper (#82) is a one-shot mode, not a recorded ToolType — it never
   // paints or produces an Operation, so it lives entirely as local UI state
   // rather than going through engine.setTool(). See .eyedropperOverlay in
@@ -1783,28 +1792,32 @@ export function Room() {
     )
   }, [id, joinName, joinPassword, applyIdentity])
 
-  // ── keyboard shortcuts ────────────────────────────────────────────────────────
+  // ── keyboard shortcuts (#174: bindings come from the `hotkeys` registry
+  // loaded above, not hardcoded here — see lib/hotkeys.ts) ─────────────────
   useEffect(() => {
+    // A representative spread across the full 6H-6B range, not all 14 grades —
+    // the grade slider below gives full-range access; these are just quick picks.
+    const gradeActions: Record<string, PencilGradeName> = {
+      gradeH: 'H', gradeHB: 'HB', grade2B: '2B', grade4B: '4B', grade6B: '6B',
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && e.target.tagName === 'INPUT') return
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
-        if (e.shiftKey) handleRedo(); else handleUndo()
-        e.preventDefault(); return
+      const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
+      if (is('undo')) { handleUndo(); e.preventDefault(); return }
+      if (is('redo')) { handleRedo(); e.preventDefault(); return }
+      if (is('toggleEraser')) { setTool(t => t === 'eraser' ? 'pencil' : 'eraser'); return }
+      if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
+      if (is('decreaseSize')) { setToolSetting(tool, 'size', prev => Math.max(1,   (prev as number) - 1)); return }
+      if (is('increaseSize')) { setToolSetting(tool, 'size', prev => Math.min(120, (prev as number) + 1)); return }
+      if (is('rotateCCW')) { setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 })); return }
+      if (is('rotateCW')) { setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 })); return }
+      for (const [actionId, grade] of Object.entries(gradeActions)) {
+        if (is(actionId)) { setToolSetting('pencil', 'grade', grade); setTool('pencil'); return }
       }
-      if (e.key === 'e' || e.key === 'E') { setTool(t => t === 'eraser' ? 'pencil' : 'eraser'); return }
-      if (e.key === 'r' || e.key === 'R') { setVp(v => ({ ...v, angle: 0 })); return }
-      // A representative spread across the full 6H-6B range, not all 14 grades —
-      // the grade slider below gives full-range access; these are just quick picks.
-      const map: Record<string, PencilGradeName> = { '1':'H','2':'HB','3':'2B','4':'4B','5':'6B' }
-      if (map[e.key]) { setToolSetting('pencil', 'grade', map[e.key]); setTool('pencil') }
-      if (e.key === '[') setToolSetting(tool, 'size', prev => Math.max(1,   (prev as number) - 1))
-      if (e.key === ']') setToolSetting(tool, 'size', prev => Math.min(120, (prev as number) + 1))
-      if (e.shiftKey && e.key === '{') setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))
-      if (e.shiftKey && e.key === '}') setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [tool, setTool, setToolSetting, setVp, handleUndo, handleRedo])
+  }, [tool, setTool, setToolSetting, setVp, handleUndo, handleRedo, hotkeys])
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -1925,7 +1938,7 @@ export function Room() {
               const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
               return { ...v, angle: nextDeg * Math.PI / 180 }
             })}
-            title="Rotation — click to rotate 90°  (R to reset)"
+            title={`Rotation — click to rotate 90°  (${formatHotkeyLabel(hotkeys.resetRotation)} to reset)`}
           >
             <Icon name="screen_rotation_alt" />
             {angleDeg}°
@@ -1934,13 +1947,17 @@ export function Room() {
               toolbar (they aren't tools) to sit next to the zoom/angle
               controls they're already conceptually grouped with. */}
           <button
-            className={styles.headerIconBtn} title="Rotate −15°  (Shift+[)" aria-label="Rotate −15°  (Shift+[)"
+            className={styles.headerIconBtn}
+            title={`Rotate −15°  (${formatHotkeyLabel(hotkeys.rotateCCW)})`}
+            aria-label={`Rotate −15°  (${formatHotkeyLabel(hotkeys.rotateCCW)})`}
             onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}
           >
             <Icon name="rotate_left" />
           </button>
           <button
-            className={styles.headerIconBtn} title="Rotate +15°  (Shift+])" aria-label="Rotate +15°  (Shift+])"
+            className={styles.headerIconBtn}
+            title={`Rotate +15°  (${formatHotkeyLabel(hotkeys.rotateCW)})`}
+            aria-label={`Rotate +15°  (${formatHotkeyLabel(hotkeys.rotateCW)})`}
             onClick={() => setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))}
           >
             <Icon name="rotate_right" />
@@ -1949,10 +1966,10 @@ export function Room() {
             <Icon name="fit_screen" />
           </button>
           <div className={styles.headerDivider} />
-          <button className={styles.headerBtn} onClick={handleUndo} title="Undo  Ctrl+Z">
+          <button className={styles.headerBtn} onClick={handleUndo} title={`Undo  ${formatHotkeyLabel(hotkeys.undo)}`}>
             <Icon name="undo" /><span>Undo</span>
           </button>
-          <button className={styles.headerBtn} onClick={handleRedo} title="Redo  Ctrl+Shift+Z">
+          <button className={styles.headerBtn} onClick={handleRedo} title={`Redo  ${formatHotkeyLabel(hotkeys.redo)}`}>
             <Icon name="redo" /><span>Redo</span>
           </button>
           <button className={styles.headerBtn} onClick={handleExport} title="Export PNG">
@@ -1973,7 +1990,7 @@ export function Room() {
               a real non-native confirm dialog is still tracked separately. */}
           <button className={styles.headerIconBtn} title="Clear canvas" aria-label="Clear canvas"
             onClick={() => {
-              if (window.confirm('Clear the active layer? This can be undone with Ctrl+Z.')) {
+              if (window.confirm(`Clear the active layer? This can be undone with ${formatHotkeyLabel(hotkeys.undo)}.`)) {
                 engineRef.current?.clear()
               }
             }}>
@@ -1989,19 +2006,19 @@ export function Room() {
         {/* ── Left toolbar — tool selection only, fixed height per row ── */}
         <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
 
-          {/* Quick picks: number keys 1-5 jump the pencil grade to
+          {/* Quick picks: the gradeHotkeyLabels keys jump the pencil grade to
               H / HB / 2B / 4B / 6B; [ / ] resize whichever tool is active
               (handled by the quick-settings panel to the right, not here). */}
           <button
             className={clsx(styles.toolIconBtn, tool === 'pencil' && styles.toolIconBtnActive)}
-            title="Pencil  (1-5 for quick grade picks)"
+            title={`Pencil  (${gradeHotkeyLabels} for quick grade picks)`}
             aria-label="Pencil"
             onClick={() => setTool('pencil')}
           ><Icon name="edit" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
-            title="Eraser  E"
-            aria-label="Eraser  E"
+            title={`Eraser  ${formatHotkeyLabel(hotkeys.toggleEraser)}`}
+            aria-label={`Eraser  ${formatHotkeyLabel(hotkeys.toggleEraser)}`}
             onClick={() => setTool(t => t === 'eraser' ? 'pencil' : 'eraser')}
           ><Icon name="ink_eraser" /></button>
 
@@ -2256,6 +2273,8 @@ export function Room() {
           containerRef={editorRef}
           hidden={!uiHidden}
           strokeBlocked={isDrawing}
+          undoHotkeyLabel={formatHotkeyLabel(hotkeys.undo)}
+          redoHotkeyLabel={formatHotkeyLabel(hotkeys.redo)}
         />
 
         {/* #185: visible while the initial content restore (snapshot fetch
