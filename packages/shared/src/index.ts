@@ -286,6 +286,25 @@ export type OperationDraft = Operation extends infer O
   ? O extends Operation ? Omit<O, 'id' | 'userId' | 'timestamp' | 'seq'> : never
   : never
 
+// Lesson replay (#108)
+
+/** One recorded Operation plus the server's own persisted insertion time
+ *  (Prisma `Operation.createdAt`) — distinct from `OperationBase.timestamp`
+ *  (client-stamped at emission, used for live stroke-dab pacing). The replay
+ *  player paces playback off real wall-clock gaps between operations landing
+ *  on the server, which only `createdAt` reflects. */
+export type ReplayOperation = Operation & { createdAt: string }
+
+/** Response shape for `GET /api/rooms/:roomId/replay` — a room's full
+ *  operation history in seq order, for the standalone lesson-replay viewer
+ *  (not a live participant path; no `latestSnapshotSeq`/`participants` the
+ *  way `room_state` has, since replay always rebuilds from the very start —
+ *  see #108). */
+export type RoomReplay = {
+  room: Room
+  operations: ReplayOperation[]
+}
+
 // Socket events
 
 /** Result of a `create_room`/`join_room` attempt. `not_found` means no room

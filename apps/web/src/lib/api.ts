@@ -1,4 +1,4 @@
-import type { Room } from '@art-lessons/shared'
+import type { Room, RoomReplay } from '@art-lessons/shared'
 
 // Same-origin: the Vite dev server proxies /api to apps/server (see
 // vite.config.ts) — needed because the dev server runs https (for
@@ -86,4 +86,11 @@ export function listMyRooms(): Promise<MyRooms> {
 
 export function deleteRoom(id: string): Promise<{ ok: true }> {
   return apiFetch<{ ok: true }>(`/api/rooms/${id}`, { method: 'DELETE' })
+}
+
+/** Lesson replay (#108): the room plus its full operation history, in seq
+ *  order. Available to the room's owner or anyone who was ever a
+ *  participant — see the server's getRoomReplay for the exact check. */
+export function fetchRoomReplay(roomId: string): Promise<RoomReplay> {
+  return apiFetch<RoomReplay>(`/api/rooms/${roomId}/replay`)
 }

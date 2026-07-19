@@ -33,6 +33,14 @@ function RoomCard({ room, confirming, deleting, onDeleteClick, onCancelClick }: 
           <span className={styles.paper}>{room.paper}</span>
         </div>
       </Link>
+      <Link
+        className={styles.replayButton}
+        to={`/lesson/${room.id}/replay`}
+        aria-label={`Watch replay of ${room.name}`}
+        title="Watch replay"
+      >
+        <Icon name="play_arrow" />
+      </Link>
       {onDeleteClick && (
         confirming ? (
           <div className={styles.confirmRow}>

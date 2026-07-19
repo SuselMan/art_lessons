@@ -9,6 +9,7 @@ import { identityHook } from './identity.js'
 import { registerAuthRoutes } from './authRoutes.js'
 import { registerRoomRoutes } from './roomRoutes.js'
 import { registerSnapshotRoutes } from './snapshotRoutes.js'
+import { registerReplayRoutes } from './replayRoutes.js'
 
 const app = Fastify({ logger: true })
 
@@ -40,6 +41,7 @@ app.get('/health', async () => ({ ok: true }))
 registerAuthRoutes(app)
 registerRoomRoutes(app)
 registerSnapshotRoutes(app)
+registerReplayRoutes(app)
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>(app.server, {
   cors: { origin: true, credentials: true },
