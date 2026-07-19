@@ -4,7 +4,7 @@ import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DIS
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperNoise'
 import {
-  createPlaceholderPaperTexture, getPaperBytes, getPaperBytesFromUrl, prefetchAllPaperTypes, uploadPaperTexture,
+  createPlaceholderPaperTexture, getPaperBytes, getPaperBytesFromUrl, uploadPaperTexture,
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import { DabSystem } from './src/DabSystem'
@@ -327,7 +327,11 @@ export interface PencilEngineAPI {
   // real layer) at their original recorded pacing (Dab.t), queueing if that
   // peer already has one in flight. Fires onPreviewApplied with the exact
   // same op once every dab has played, so the caller can commit it for real.
-  previewOperation(op: StrokeOperation): void
+  // `rate` (#108) scales that pacing — 2 plays the dabs twice as fast, 0.5
+  // half as fast; defaults to 1 (real recorded speed, what the live-room
+  // peer-reveal path above always uses). Captured once per queued op, not
+  // live-adjustable mid-reveal — see PeerPreviewState's own doc comment.
+  previewOperation(op: StrokeOperation, rate?: number): void
   // Cancels a specific peer stroke's reveal *animation* before it's fully
   // played — used when an operation_undo/operation_revoke targets it before
   // it ever finished appearing, so its reveal is skipped rather than run to
@@ -381,7 +385,12 @@ interface EngineOpts {
 // while hidden but never fully suspended, so the reveal (and the commit
 // after it) always eventually completes regardless of tab visibility.
 interface PeerPreviewState {
-  queue: StrokeOperation[]
+  // `rate` travels with each queued op (not the peer state as a whole): the
+  // lesson-replay player (#108) can change its global speed between two
+  // strokes by the same author queued back-to-back, and each should play at
+  // whatever rate was requested when *it* was queued, not retroactively
+  // affect one already animating — see previewOperation's own doc comment.
+  queue: Array<{ op: StrokeOperation; rate: number }>
   buf: AccumulationBuffer
   // (#138) World point this buffer's own pixel (0,0) represents — see
   // PencilEngine._cameraCenteredOrigin's doc comment for why this has to be
@@ -889,7 +898,6 @@ export class PencilEngine implements PencilEngineAPI {
     // now and the real bake finishing loading still has something valid to
     // sample — see paperLoader.ts's createPlaceholderPaperTexture.
     this._paperTex = createPlaceholderPaperTexture(this.gl)
-    prefetchAllPaperTypes(this._opts.paper)
     this._paperReady = this._initPaper(this._opts.paper)
     this._pointer = new PointerInput(canvas)
     this._dabs    = new DabSystem()
@@ -1600,7 +1608,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. Queues `op` for its author's reveal;
    *  starts the reveal loop immediately if this peer has nothing else in
    *  flight, otherwise it plays once the current head of the queue finishes. */
-  previewOperation(op: StrokeOperation): void {
+  previewOperation(op: StrokeOperation, rate = 1): void {
     let state = this._peerPreviews.get(op.userId)
     if (!state) {
       state = {
@@ -1614,7 +1622,7 @@ export class PencilEngine implements PencilEngineAPI {
       state.buf.clear()
       this._peerPreviews.set(op.userId, state)
     }
-    state.queue.push(op)
+    state.queue.push({ op, rate })
     if (state.timer === null) this._startPeerPreviewHead(op.userId)
   }
 
@@ -1627,9 +1635,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  reveal only ever affects the animation, never the operation data. */
   dropPendingPreview(opId: string): StrokeOperation | null {
     for (const [peerId, state] of this._peerPreviews) {
-      const idx = state.queue.findIndex(op => op.id === opId)
+      const idx = state.queue.findIndex(item => item.op.id === opId)
       if (idx === -1) continue
-      const [op] = state.queue.splice(idx, 1)
+      const [removed] = state.queue.splice(idx, 1)
       if (idx === 0) {
         // It was the one actually animating — stop it and either move on to
         // whatever's queued behind it or tear this peer down entirely.
@@ -1638,7 +1646,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (state.queue.length) this._startPeerPreviewHead(peerId)
         else { state.buf.destroy(); this._peerPreviews.delete(peerId); this._display() }
       }
-      return op
+      return removed.op
     }
     return null
   }
@@ -1651,7 +1659,7 @@ export class PencilEngine implements PencilEngineAPI {
     state.buf.destroy()
     this._peerPreviews.delete(peerId)
     this._display()
-    return state.queue
+    return state.queue.map(item => item.op)
   }
 
   // Starts (or restarts, for the next queued op) animating peerId's queue
@@ -1673,10 +1681,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _stepPeerPreview(peerId: string): void {
     const state = this._peerPreviews.get(peerId)
     if (!state) return
-    const op = state.queue[0]
-    if (!op) return
+    const head = state.queue[0]
+    if (!head) return
+    const { op, rate } = head
 
-    const elapsed = performance.now() - state.startTime
+    const elapsed = (performance.now() - state.startTime) * rate
     const due: Dab[] = []
     while (state.dabIdx < op.dabs.length && op.dabs[state.dabIdx].t <= elapsed) {
       due.push(op.dabs[state.dabIdx])

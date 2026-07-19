@@ -29,10 +29,7 @@ import {
   createTestEngine, dab, lastPaperDabUniform, makeLayerAdd, makeStroke,
   paperReady, paperTextureSize, paperTextureWrap, simulateStroke, triggerContextRestore,
 } from './testing/engineTestUtils'
-import {
-  __resetPaperLoaderForTesting, __resetPrefetchSchedulerForTesting, __setPaperLoaderForTesting,
-  __setPrefetchSchedulerForTesting,
-} from './src/paperLoader'
+import { __resetPaperLoaderForTesting, __setPaperLoaderForTesting } from './src/paperLoader'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperNoise'
 import { TILE_SIZE } from './src/tileMath'
 
@@ -206,7 +203,7 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
     expect(paperTextureSize(engine)).toEqual({ width: PAPER_BAKE_RESOLUTION, height: PAPER_BAKE_RESOLUTION })
   })
 
-  it('setPaper() reuses the byte cache — cycling through all 3 paper types never exceeds one loader call per type', async () => {
+  it('construction only fetches the room\'s own paper type — the other 2 are never touched (no in-room paper switcher exists)', async () => {
     let calls = 0
     __setPaperLoaderForTesting(async () => {
       calls++
@@ -215,53 +212,39 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
     try {
       const { engine } = createTestEngine({ userId: 'user-a', paper: 'rough' })
       await paperReady(engine)
-      // _initPaper loads the active type ('rough') directly; the
-      // constructor's own prefetchAllPaperTypes('rough') warms the other 2
-      // (smooth/bristol) — so this is 3 (all of them), not 1.
-      expect(calls).toBe(3)
-
-      engine.setPaper('smooth')
-      await paperReady(engine)
-      engine.setPaper('bristol')
-      await paperReady(engine)
-      engine.setPaper('rough')
-      await paperReady(engine)
-
-      // Every type was already cached by the initial prefetch — cycling
-      // through them again must not trigger any further loader calls.
-      expect(calls).toBe(3)
+      expect(calls).toBe(1)
     } finally {
       __resetPaperLoaderForTesting()
     }
   })
 
-  it('the active paper type loads immediately; the other 2 are only scheduled, not fetched up front', async () => {
-    // Real behavior check (not the process-wide synchronous test stand-in
-    // installed by engineTestUtils.ts) — captures what prefetchAllPaperTypes
-    // schedules instead of running it, so this can assert the room's own
-    // paper type never goes through the scheduler and the other 2 aren't
-    // fetched until whatever the scheduler was given actually runs.
+  it('setPaper() reuses the byte cache — a type already loaded once never triggers a second loader call', async () => {
     let calls = 0
     __setPaperLoaderForTesting(async () => {
       calls++
       return new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128)
     })
-    const scheduled: Array<() => void> = []
-    __setPrefetchSchedulerForTesting(fn => { scheduled.push(fn) })
     try {
       const { engine } = createTestEngine({ userId: 'user-a', paper: 'rough' })
       await paperReady(engine)
+      expect(calls).toBe(1) // just 'rough' — nothing else is prefetched
 
-      // Only 'rough' (the active type) loaded — the other 2 were merely
-      // scheduled, not run yet.
-      expect(calls).toBe(1)
-      expect(scheduled.length).toBe(2)
+      // Each new type fetches once, the first time it's actually used...
+      engine.setPaper('smooth')
+      await paperReady(engine)
+      expect(calls).toBe(2)
+      engine.setPaper('bristol')
+      await paperReady(engine)
+      expect(calls).toBe(3)
 
-      for (const run of scheduled) run()
+      // ...but revisiting an already-loaded type must not trigger another.
+      engine.setPaper('rough')
+      await paperReady(engine)
+      engine.setPaper('smooth')
+      await paperReady(engine)
       expect(calls).toBe(3)
     } finally {
       __resetPaperLoaderForTesting()
-      __resetPrefetchSchedulerForTesting()
     }
   })
 
@@ -284,7 +267,7 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
 
       await paperReady(engine)
 
-      expect(calls).toBe(callsAfterConstruction) // all 3 types already cached — no new fetch
+      expect(calls).toBe(callsAfterConstruction) // 'rough' already cached — no new fetch
       expect(paperTextureSize(engine)).toEqual({ width: PAPER_BAKE_RESOLUTION, height: PAPER_BAKE_RESOLUTION })
     } finally {
       __resetPaperLoaderForTesting()
