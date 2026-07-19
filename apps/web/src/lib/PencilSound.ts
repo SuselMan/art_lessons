@@ -166,8 +166,13 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   // (Math.sqrt) — see PENCIL_SOUND_VARIANT_3's own take-11 note; the take-10
   // rationale for 1.6 (below, on masterGainTarget) stays as a record of what
   // was tried, but 0.5 is what's live again.
-  masterSpeedExponent: 0.5,
-  pressureFloor: 0.5,
+  // Round 13, take 21: Ilya's own panel session — reverted back toward
+  // take 10's super-linear curve (0.5→1.6), the opposite direction from
+  // take 11's revert back to 0.5. pressureFloor pulled down (0.5→0.18) so
+  // a light touch reads noticeably quieter than a firm one instead of
+  // starting most of the way to full presence regardless of pressure.
+  masterSpeedExponent: 1.6,
+  pressureFloor: 0.18,
   pressureScale: 0.9,
   masterOutputScale: 0.4,
   // Was 180 — take 13 found ~35%+ of real energy at 100-250Hz specifically;
@@ -181,19 +186,25 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   // shelf spanning ~60-800Hz (not a narrow peak, hence lowpass + a gentle Q
   // instead of the first pass's narrow 170Hz bandpass). Round 13, take 17:
   // Ilya's own panel session found 330 (down from take 16's 500) sounded
-  // better — see PENCIL_SOUND_TUNING_LOG.md.
+  // better — see PENCIL_SOUND_TUNING_LOG.md. Round 13, take 21: pushed back
+  // up to 390.
   // bodyPresenceFloor much higher than GrainVariant.speedPresenceFloor's
   // default (0.08) — the real hum barely fades with speed, unlike
   // mid/hiss's texture.
-  bodyFreqHz: 330,
+  bodyFreqHz: 390,
   bodyQ: 0.7,
   bodyPresenceFloor: 0.6,
-  hissLowHz: 6000,
-  hissHighHz: 12000,
+  // Round 13, take 21: narrowed 6000-12000 -> 3400-7700 — hiss band centered
+  // lower/tighter, alongside GrainVariant.hissMix (below) pushed way up to
+  // compensate for the narrower band's own lower energy.
+  hissLowHz: 3400,
+  hissHighHz: 7700,
   // Round 13, take 19: Ilya's panel session pushed this 20→29 alongside
   // much higher midGrainCoupling/bodyGrainCoupling below.
   bodyGrainSmoothHz: 29,
-  distanceGrainSpacingPx: 9,
+  // Round 13, take 21: 9→24.5 — sparser distance-triggered micro-grain
+  // ticks, alongside distanceGrainMix (below) pulled down a touch.
+  distanceGrainSpacingPx: 24.5,
   distanceGrainDecaySeconds: 0.003,
 }
 
@@ -436,7 +447,11 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   ...PENCIL_SOUND_VARIANT_1,
   maxHz: 300,
   tap: { minGain: 0.02, maxGain: 0.5, freqHz: 120, decaySeconds: 0.02, noiseMix: 0.35, pressureCurve: 2.2 },
-  speedPresenceFloor: 0.08,
+  // Round 13, take 21: Ilya's own panel session pushed this way up (0.08→0.84)
+  // — texture now stays present through most of a stroke's speed range
+  // instead of nearly vanishing at low speed, much closer to
+  // PENCIL_SOUND_TUNING.bodyPresenceFloor's own already-high 0.6.
+  speedPresenceFloor: 0.84,
   outputGainScale: 0.5,
   // Round 13, take 19: 0.45→0.05 — Ilya's panel session, alongside pushing
   // midGrainCoupling/bodyGrainCoupling way up (below), confirmed sounding
@@ -468,7 +483,9 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   // render-calibrated starting point) confirmed as sounding better by ear.
   midMix: 0.36,
   bodyMix: 0.84,
-  hissMix: 0.65,
+  // Round 13, take 21: 0.65→2 alongside PENCIL_SOUND_TUNING.hissLowHz/
+  // hissHighHz narrowed down — a much stronger push on a now-tighter band.
+  hissMix: 2,
   // Round 13, take 18: experimental — modest starting weights, meant to be
   // tuned by ear via the panel, not a calibrated result like bodyMix/hissMix
   // above. The hypothesis (an outside expert's review) is that a shared
@@ -489,7 +506,10 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   // createMicroGrainBuffer()/PencilSound's distance-tracking in
   // start()/update(). Starting weight, to be calibrated against the real
   // recordings' onset density (render-and-compare), not just picked by ear.
-  distanceGrainMix: 0.5,
+  // Round 13, take 21: Ilya's own panel session nudged this down slightly
+  // (0.5→0.41) alongside distanceGrainSpacingPx sparsening the ticks
+  // themselves.
+  distanceGrainMix: 0.41,
 }
 
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
