@@ -73,16 +73,42 @@ export function getPaperBytes(type: PaperType): Promise<Uint8Array> {
   return cached
 }
 
-// Fire-and-forget warm-up for all 3 paper types (there are only 3, and the
-// compressed assets are a few MB each — see bakePaperTextures.ts's own
-// size log) — makes setPaper() feel instant after the first room load
-// instead of re-triggering a fetch every time the user switches paper type.
-// Failures surface later, when whatever _initPaper() call actually needs
+// Fire-and-forget warm-up for the 2 paper types the room *isn't* currently
+// using (there are only 3 total, and each compressed asset is several MB —
+// see bakePaperTextures.ts's own size log) — makes setPaper() feel instant
+// if the user switches paper type later, without making every room join pay
+// for all 3 (~20MB) up front. The active type doesn't need warming here:
+// whatever _initPaper() call already triggers its own getPaperBytes(),
+// which populates the exact same cache this reads from.
+//
+// Scheduled via schedulePrefetch (idle time in real browsers) rather than
+// fired immediately, so these non-essential fetches don't compete for the
+// browser's limited concurrent connections against the active paper type
+// (or the page's own JS/CSS) during the critical early-load window.
+// Failures surface later, when whatever setPaper() call actually needs
 // the bytes awaits this same cached promise and rejects.
-export function prefetchAllPaperTypes(): void {
+export function prefetchAllPaperTypes(activeType: PaperType): void {
   for (const type of PAPER_TYPES) {
-    getPaperBytes(type).catch(() => {})
+    if (type === activeType) continue
+    schedulePrefetch(() => { getPaperBytes(type).catch(() => {}) })
   }
+}
+
+type PrefetchScheduler = (fn: () => void) => void
+
+const defaultSchedulePrefetch: PrefetchScheduler = fn => {
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(() => fn())
+  else setTimeout(fn, 0)
+}
+
+let schedulePrefetch: PrefetchScheduler = defaultSchedulePrefetch
+
+export function __setPrefetchSchedulerForTesting(fn: PrefetchScheduler): void {
+  schedulePrefetch = fn
+}
+
+export function __resetPrefetchSchedulerForTesting(): void {
+  schedulePrefetch = defaultSchedulePrefetch
 }
 
 function setPaperTextureParams(gl: WebGLRenderingContext): void {

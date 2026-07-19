@@ -12,7 +12,7 @@ import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation,
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { AccumulationBuffer } from '../src/AccumulationBuffer'
 import type { ILayerBuffer } from '../src/ILayerBuffer'
-import { __setPaperLoaderForTesting } from '../src/paperLoader'
+import { __setPaperLoaderForTesting, __setPrefetchSchedulerForTesting } from '../src/paperLoader'
 import { PAPER_BAKE_RESOLUTION } from '../src/paperNoise'
 import type { PointerData } from '../src/PointerInput'
 import { TiledLayerBuffer } from '../src/TiledLayerBuffer'
@@ -39,6 +39,15 @@ if (typeof globalThis.requestAnimationFrame === 'undefined') {
 // LUMINANCE_ALPHA: 2 bytes/texel (R=height, A=precomputed graphite-catch —
 // see paperNoise.ts's paperCatchValue).
 __setPaperLoaderForTesting(async () => new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128))
+
+// requestIdleCallback doesn't exist in vitest's 'node' environment either,
+// so paperLoader.ts's default scheduler would fall back to a real
+// setTimeout — deferring the non-active paper types' prefetch into a
+// macrotask a plain `await paperReady(engine)` (which only awaits the
+// *active* type's own load) wouldn't wait for. Run it synchronously
+// instead, same "process-wide deterministic stand-in" pattern as the loader
+// override above.
+__setPrefetchSchedulerForTesting(fn => fn())
 
 interface FakeCanvas {
   width: number

@@ -889,7 +889,7 @@ export class PencilEngine implements PencilEngineAPI {
     // now and the real bake finishing loading still has something valid to
     // sample — see paperLoader.ts's createPlaceholderPaperTexture.
     this._paperTex = createPlaceholderPaperTexture(this.gl)
-    prefetchAllPaperTypes()
+    prefetchAllPaperTypes(this._opts.paper)
     this._paperReady = this._initPaper(this._opts.paper)
     this._pointer = new PointerInput(canvas)
     this._dabs    = new DabSystem()
