@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { gunzipSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
-import type { Operation, Participant, ReplayOperation, Room } from '@art-lessons/shared'
+import type { Operation, Participant, Room } from '@art-lessons/shared'
 import { DEFAULT_PALETTE_COLORS, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 
 import { prisma } from './prisma.js'
@@ -499,43 +499,4 @@ export function recordOperation(roomId: string, op: Operation): Operation {
   record.operations.push(stamped)
   persistOperation(roomId, stamped)
   return stamped
-}
-
-export type GetRoomReplayResult =
-  | { ok: true; room: Room; operations: ReplayOperation[] }
-  | { ok: false; error: 'not_found' | 'forbidden' }
-
-/** Lesson replay (#108): a room's full operation history, with each op's
- *  persisted `createdAt` alongside it — the standalone replay viewer paces
- *  playback off that, not `OperationBase.timestamp`. Deliberately reads
- *  straight from Postgres rather than `ensureRoomLoaded` + the in-memory
- *  Map: replay is meant to work for a room nobody is currently live in
- *  (the whole point is watching it *after* the lesson), and the in-memory
- *  `operations` array drops `createdAt` entirely (see `ensureRoomLoaded`'s
- *  `dbRoom.operations.map(o => o.data as Operation)`) — reconstructing it
- *  from there would need a second Postgres round-trip anyway.
- *
- *  Authorization here is deliberately DB-backed (owner, or an ever-existing
- *  `RoomParticipant` row), not `getParticipant`'s live in-memory check that
- *  the snapshot/backfill routes use — those exist to stop a plain HTTP
- *  client from bypassing a live room's socket-level password gate, which
- *  doesn't apply here: replay's whole premise is viewing history after
- *  everyone (including the room's live presence) is long gone. */
-export async function getRoomReplay(roomId: string, userId: string): Promise<GetRoomReplayResult> {
-  const dbRoom = await prisma.room.findUnique({ where: { id: roomId } })
-  if (!dbRoom) return { ok: false, error: 'not_found' }
-
-  if (dbRoom.ownerId !== userId) {
-    const participant = await prisma.roomParticipant.findUnique({
-      where: { roomId_userId: { roomId, userId } },
-    })
-    if (!participant) return { ok: false, error: 'forbidden' }
-  }
-
-  const rows = await prisma.operation.findMany({ where: { roomId }, orderBy: { seq: 'asc' } })
-  const operations: ReplayOperation[] = rows.map(row => ({
-    ...(row.data as Operation),
-    createdAt: row.createdAt.toISOString(),
-  }))
-  return { ok: true, room: toWireRoom(dbRoom), operations }
 }

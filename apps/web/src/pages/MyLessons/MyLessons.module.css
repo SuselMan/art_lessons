@@ -77,7 +77,6 @@
 }
 
 .card {
-  position: relative;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -91,30 +90,8 @@
   flex-direction: column;
   gap: 6px;
   padding: 16px;
-  padding-right: 56px; /* room for .replayButton, absolutely positioned over this corner */
   text-decoration: none;
   transition: background var(--duration-fast);
-}
-
-.replayButton {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--touch-target-sm);
-  height: var(--touch-target-sm);
-  border-radius: 50%;
-  color: var(--color-text);
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  transition: background var(--duration-fast), color var(--duration-fast);
-}
-
-.replayButton:hover {
-  color: var(--color-text-bright);
-  background: var(--color-accent);
 }
 
 .cardLink:hover {
