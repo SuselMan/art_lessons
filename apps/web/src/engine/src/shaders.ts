@@ -355,6 +355,71 @@ export const DAB_FRAG = `
   }
 `;
 
+// Растушёвка/smudge (#14): redistributes graphite already on the layer
+// instead of depositing new color — the tool's whole point is a blending-
+// stump feel for academic shading, not a Photoshop-style liquify. Paired
+// with the existing DAB_VERT (unmodified — same quad-at-a-dab-center
+// geometry/radial falloff every pencil dab already uses), never
+// DAB_VERT_INSTANCED: unlike pencil/eraser dabs, which are independent of
+// each other and safely batchable, each smudge dab's own *input* (the
+// patch it samples) depends on the *output* of the dab before it — see
+// engine/index.ts's _paintOneSmudgeDab for why that forces one draw call
+// (plus one copyRegionTo) per dab, no instancing.
+//
+// u_patch is a small scratch texture engine/index.ts already populated via
+// AccumulationBuffer.copyRegionTo, sampled NEAREST (see that buffer's own
+// 'nearest' filter comment for why — bilinear here would reintroduce
+// exactly the cross-GPU precision risk paper grain already got burned by).
+// Its content is already premultiplied (copied straight from a real tile,
+// and every tile writer — DAB_FRAG included — always outputs premultiplied
+// color), so this is a pure "redeposit a fraction of it, shaped like a
+// dab" pass: no color of its own, no paper-catch/grain recomputation (the
+// graphite being moved already baked those in when it was first laid
+// down — see the shader's own doc comment below for the full reasoning).
+export const SMUDGE_FRAG = `
+  precision highp float;
+
+  uniform sampler2D u_patch;
+  uniform float u_hardness;
+  uniform float u_pressure;
+  uniform float u_opacity; // per-dab "strength" — see _bakeDabOpacity's smudge branch
+
+  varying vec2 v_localUV;
+
+  void main() {
+    // Circular only (v1) — DAB_VERT always sets u_aspectRatio=1/u_angle=0
+    // for a smudge dab (see _paintOneSmudgeDab), so v_localUV is already
+    // exactly the unit-circle-space DAB_FRAG's own uv would be for a
+    // circular dab; no aspect-ratio divide needed here.
+    float dist = length(v_localUV);
+    if (dist > 1.0) discard;
+
+    float innerEdge = u_hardness * 0.85;
+    float shape = 1.0 - smoothstep(innerEdge, 1.0, dist);
+    shape *= 1.0 - exp(-8.0 * (1.0 - dist));
+
+    // u_patch was copied 1:1 (same pixel grid, no scale/rotate) from a
+    // world position *behind* this dab (see _paintOneSmudgeDab) — so
+    // sampling it at this fragment's own local position is exactly
+    // "what was already here a moment ago, upstream along the stroke".
+    vec2 patchUV = v_localUV * 0.5 + 0.5;
+    vec4 picked = texture2D(u_patch, patchUV);
+
+    // picked.rgb is already premultiplied by picked.a (see the doc comment
+    // above) — scaling both by the same (shape * pressure * opacity) factor
+    // redeposits a *fraction* of what was picked up, shaped like a dab,
+    // while keeping the premultiplied invariant every AccumulationBuffer
+    // writer relies on (rgb == unpremultiplied_color * alpha). This is also
+    // exactly what makes a long smudge stroke self-limit rather than smear
+    // forever: dragging into untouched paper means u_patch keeps sampling
+    // ever-more-transparent content, so picked.a — and therefore this
+    // dab's own deposit — fades toward zero on its own, no separate decay
+    // constant needed.
+    float amount = clamp(shape * u_pressure * u_opacity, 0.0, 1.0);
+    gl_FragColor = picked * amount;
+  }
+`;
+
 export const DISPLAY_VERT = `
   attribute vec2 a_position;
   varying vec2 v_uv;

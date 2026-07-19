@@ -12,7 +12,7 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../..
 // still emits `tool: 'pencil'` at the Operation/protocol level. Mapping one
 // to the other happens only at the moment of emitting a stroke, not here.
 export type UiToolId =
-  | 'pencil' | 'colorPencil' | 'eraser' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
+  | 'pencil' | 'colorPencil' | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
 
 export type SettingValueType =
   | { kind: 'numberRange'; min: number; max: number; step: number; format?: (v: number) => string }
@@ -95,6 +95,31 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       uiControls: ['slider'],
       quickAccess: true,
       default: 1,
+    },
+  },
+  // Растушёвка/smudge (#14): redistributes graphite already on the layer,
+  // so there's no color field (unlike pencil/colorPencil) — 'opacity' is
+  // relabeled 'Strength' here, feeding the same Dab.opacity field
+  // pencil/eraser already use (see _bakeDabOpacity's own smudge branch in
+  // engine/index.ts), just interpreted as "how much of what's picked up
+  // gets redeposited" rather than "how much new graphite". Default size is
+  // bigger than a pencil's own (a blending stump covers more area than a
+  // pencil point); default strength held below 1 so a light stroke reads
+  // as a gradual blend rather than an instant full-opacity smear.
+  smudge: {
+    size: {
+      name: 'Size',
+      valueType: { kind: 'numberRange', min: 4, max: 160, step: 1, format: pxFormat },
+      uiControls: ['slider', 'input'],
+      quickAccess: true,
+      default: 32,
+    },
+    opacity: {
+      name: 'Strength',
+      valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+      uiControls: ['slider'],
+      quickAccess: true,
+      default: 0.6,
     },
   },
   eyedropper: {

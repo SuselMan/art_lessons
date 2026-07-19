@@ -40,6 +40,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   { id: 'undo', label: 'Undo', default: { code: 'KeyZ', mod: true, shift: false } },
   { id: 'redo', label: 'Redo', default: { code: 'KeyZ', mod: true, shift: true } },
   { id: 'toggleEraser', label: 'Toggle eraser / pencil', default: { code: 'KeyE', mod: false, shift: false } },
+  { id: 'toggleSmudge', label: 'Toggle smudge / pencil', default: { code: 'KeyS', mod: false, shift: false } },
   { id: 'resetRotation', label: 'Reset rotation to 0°', default: { code: 'KeyR', mod: false, shift: false } },
   { id: 'decreaseSize', label: 'Decrease brush size', default: { code: 'BracketLeft', mod: false, shift: false } },
   { id: 'increaseSize', label: 'Increase brush size', default: { code: 'BracketRight', mod: false, shift: false } },

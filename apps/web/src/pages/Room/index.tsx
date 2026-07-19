@@ -1826,6 +1826,7 @@ export function Room() {
       if (is('undo')) { handleUndo(); e.preventDefault(); return }
       if (is('redo')) { handleRedo(); e.preventDefault(); return }
       if (is('toggleEraser')) { setTool(t => t === 'eraser' ? 'pencil' : 'eraser'); return }
+      if (is('toggleSmudge')) { setTool(t => t === 'smudge' ? 'pencil' : 'smudge'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
       if (is('decreaseSize')) { setToolSetting(tool, 'size', prev => Math.max(1,   (prev as number) - 1)); return }
       if (is('increaseSize')) { setToolSetting(tool, 'size', prev => Math.min(120, (prev as number) + 1)); return }
@@ -2041,6 +2042,12 @@ export function Room() {
             aria-label={`Eraser  ${formatHotkeyLabel(hotkeys.toggleEraser)}`}
             onClick={() => setTool(t => t === 'eraser' ? 'pencil' : 'eraser')}
           ><Icon name="ink_eraser" /></button>
+          <button
+            className={clsx(styles.toolIconBtn, tool === 'smudge' && styles.toolIconBtnActive)}
+            title={`Smudge — blend graphite already on the page  ${formatHotkeyLabel(hotkeys.toggleSmudge)}`}
+            aria-label={`Smudge  ${formatHotkeyLabel(hotkeys.toggleSmudge)}`}
+            onClick={() => setTool(t => t === 'smudge' ? 'pencil' : 'smudge')}
+          ><Icon name="blur_on" /></button>
 
           <div className={styles.toolDivider} />
 
@@ -2279,7 +2286,15 @@ export function Room() {
             #99 replacement toolkit, so it only shows up once the rest of
             the chrome has hidden, not the other way round. */}
         <FloatingToolPanel
-          tool={tool}
+          // FloatingToolPanel (#157) is a fixed 4-slot compass layout with no
+          // room for a third drawing-tool button (see its own doc comment —
+          // "the 4 most-reached-for actions") — smudge isn't one of its
+          // slots, same as ruler/transform/grid/eyedropper already aren't.
+          // Folds into "not eraser" here purely so its own pencil/eraser
+          // highlight stays correct while smudge is active elsewhere (the
+          // left toolbar); tapping either of *this* panel's two buttons
+          // still switches away from smudge normally via onSetTool.
+          tool={tool === 'eraser' ? 'eraser' : 'pencil'}
           onSetTool={setTool}
           onUndo={handleUndo}
           onRedo={handleRedo}

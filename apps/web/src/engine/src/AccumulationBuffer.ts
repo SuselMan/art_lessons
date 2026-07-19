@@ -9,21 +9,33 @@ export class AccumulationBuffer {
   _texture: WebGLTexture
   _fbo: WebGLFramebuffer
 
-  constructor(gl: WebGLRenderingContext, width: number, height: number) {
+  // Smudge's scratch "picked up patch" buffers (engine/index.ts's
+  // _paintOneSmudgeDab) request 'nearest': the patch is later sampled at a
+  // dab-quad's fragment positions, which don't generally land on exact
+  // texel centers, so LINEAR would blend between texels there — the same
+  // cross-GPU bilinear-filtering precision risk flagged in .claude/rules.md
+  // (paper grain's own hard-won lesson). NEAREST's texel selection is a
+  // simple floor/round, not a weighted blend, so it stays deterministic
+  // across vendors. Every other caller keeps the original LINEAR default —
+  // real paint/composite/display content benefits from the smoothing and
+  // was never part of that determinism class (see DAB_FRAG's own paper-catch
+  // comment for what *is*).
+  constructor(gl: WebGLRenderingContext, width: number, height: number, filter: 'linear' | 'nearest' = 'linear') {
     this.gl = gl
     this.width = width
     this.height = height
-    this._texture = this._makeTexture()
+    this._texture = this._makeTexture(filter)
     this._fbo     = this._makeFBO(this._texture)
   }
 
-  private _makeTexture(): WebGLTexture {
+  private _makeTexture(filter: 'linear' | 'nearest'): WebGLTexture {
     const { gl, width, height } = this
+    const glFilter = filter === 'nearest' ? gl.NEAREST : gl.LINEAR
     const tex = gl.createTexture()!
     gl.bindTexture(gl.TEXTURE_2D, tex)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, glFilter)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, glFilter)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
     return tex
@@ -92,6 +104,30 @@ export class AccumulationBuffer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.bindTexture(gl.TEXTURE_2D, dest._texture)
     gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 0, 0, this.width, this.height, 0)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** Like copyTo, but for an arbitrary sub-rect rather than the whole
+   *  buffer — smudge's own "pick up whatever's currently under/behind the
+   *  dab" step (engine/index.ts's _paintOneSmudgeDab), copied into an
+   *  independent scratch texture so it can be sampled while this buffer's
+   *  own tile keeps being the render target (WebGL1 forbids reading and
+   *  writing the same texture in one draw call — same reasoning
+   *  _bakeTransform's scratch-then-copyTo two-phase commit exists for).
+   *  `glX`/`glY` are bottom-up (native GL framebuffer convention, like
+   *  copyTexImage2D's own x/y) — the caller flips from this engine's usual
+   *  top-down app-space convention, same as every other app-space/GL-space
+   *  boundary in this codebase (DAB_VERT, pickColor). Redefines `dest`'s own
+   *  texture storage to exactly `w x h` (copyTexImage2D always does this,
+   *  regardless of dest's previous size — see copyTo's identical behavior),
+   *  so a pooled dest buffer sized differently than `w x h` is silently
+   *  resized, not rejected — callers that care about pool reuse must size
+   *  their own request to match before calling this. */
+  copyRegionTo(dest: AccumulationBuffer, glX: number, glY: number, w: number, h: number): void {
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.bindTexture(gl.TEXTURE_2D, dest._texture)
+    gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, glX, glY, w, h, 0)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 

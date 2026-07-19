@@ -37,7 +37,7 @@
 export type UniformValue = number | number[]
 
 interface MockProgram {
-  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'other'
+  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'smudge' | 'other'
   uniforms: Map<string, UniformValue>
 }
 
@@ -73,7 +73,7 @@ const ENUM = {
   COMPILE_STATUS: 3, LINK_STATUS: 4,
   ARRAY_BUFFER: 5, STATIC_DRAW: 6,
   TEXTURE_2D: 7, RGBA: 8, UNSIGNED_BYTE: 9, LUMINANCE: 26, LUMINANCE_ALPHA: 27,
-  TEXTURE_MIN_FILTER: 10, TEXTURE_MAG_FILTER: 11, LINEAR: 12,
+  TEXTURE_MIN_FILTER: 10, TEXTURE_MAG_FILTER: 11, LINEAR: 12, NEAREST: 29,
   TEXTURE_WRAP_S: 13, TEXTURE_WRAP_T: 14, CLAMP_TO_EDGE: 15,
   FRAMEBUFFER: 16, COLOR_ATTACHMENT0: 17, FRAMEBUFFER_COMPLETE: 18,
   COLOR_BUFFER_BIT: 19, TRIANGLES: 20, FLOAT: 21,
@@ -104,6 +104,7 @@ export class MockGL {
   readonly TEXTURE_MIN_FILTER = ENUM.TEXTURE_MIN_FILTER
   readonly TEXTURE_MAG_FILTER = ENUM.TEXTURE_MAG_FILTER
   readonly LINEAR = ENUM.LINEAR
+  readonly NEAREST = ENUM.NEAREST
   readonly TEXTURE_WRAP_S = ENUM.TEXTURE_WRAP_S
   readonly TEXTURE_WRAP_T = ENUM.TEXTURE_WRAP_T
   readonly CLAMP_TO_EDGE = ENUM.CLAMP_TO_EDGE
@@ -180,6 +181,7 @@ export class MockGL {
 
   private _tagFragShader(source: string): MockProgram['fragTag'] {
     if (source.includes('u_eraseMode')) return 'dab'
+    if (source.includes('u_patch')) return 'smudge'
     if (source.includes('u_layer')) return 'composite'
     if (source.includes('u_accumulation')) return 'display'
     if (source.includes('u_warp')) return 'papergen'
@@ -357,17 +359,43 @@ export class MockGL {
     return this._textureWrap.get(tex) ?? null
   }
 
-  // Mirrors AccumulationBuffer.copyTo: reads from the bound-for-read
-  // framebuffer's own texture (same convention _currentTargetTexture()
-  // already uses for readPixels/drawArrays), writes into the texture bound
-  // via bindTexture. Only ever called with matching source/dest dimensions
-  // in this codebase, so no scaling/clipping to worry about.
-  copyTexImage2D(_target: number, _level: number, _internalFormat: number, _x: number, _y: number, width: number, height: number, _border: number): void {
+  // Mirrors AccumulationBuffer.copyTo/copyRegionTo: reads a `width x
+  // height` rect from the bound-for-read framebuffer's own texture (same
+  // convention _currentTargetTexture() already uses for readPixels/
+  // drawArrays), writing into the texture bound via bindTexture.
+  // AccumulationBuffer.copyTo always passes (x,y)=(0,0) with width/height
+  // matching the source exactly (a whole-buffer copy) — copyRegionTo
+  // (smudge's own scratch-patch pickup, #14) passes an arbitrary sub-rect,
+  // so this must actually honor x/y, not just assume (0,0) the way it used
+  // to when copyTo was the only caller.
+  //
+  // (x,y) arrive GL-native bottom-up (row 0 = framebuffer bottom), same as
+  // real copyTexImage2D — but this mock's own `data` is top-down throughout
+  // (see _rasterComposite's identical topY flip for gl.viewport's y), so
+  // the source rect's top-down starting row has to be recovered the same
+  // way before indexing into it. Out-of-bounds rows/columns (a request
+  // reaching past the source texture's own edge) read as 0 — real
+  // copyTexImage2D's behavior there is implementation-defined/clamped, not
+  // something any caller in this codebase relies on (see
+  // _paintOneSmudgeDab's own bounds check, which skips a dab rather than
+  // ever requesting an out-of-range rect).
+  copyTexImage2D(_target: number, _level: number, _internalFormat: number, x: number, y: number, width: number, height: number, _border: number): void {
     const destTex = this._boundTextureTarget
     if (!destTex) return
     const srcInfo = this._currentTargetTexture()
     const data = new Float32Array(width * height)
-    if (srcInfo) data.set(srcInfo.data.subarray(0, width * height))
+    if (srcInfo) {
+      const topY = srcInfo.height - (y + height)
+      for (let row = 0; row < height; row++) {
+        const srcRow = topY + row
+        if (srcRow < 0 || srcRow >= srcInfo.height) continue
+        for (let col = 0; col < width; col++) {
+          const srcCol = x + col
+          if (srcCol < 0 || srcCol >= srcInfo.width) continue
+          data[row * width + col] = srcInfo.data[srcRow * srcInfo.width + srcCol]
+        }
+      }
+    }
     this._textureData.set(destTex, { width, height, data })
   }
 
@@ -429,6 +457,7 @@ export class MockGL {
       case 'dab': this._rasterDab(info, prog.uniforms); break
       case 'composite': this._rasterComposite(info, prog.uniforms); break
       case 'transform': this._rasterTransform(info, prog.uniforms); break
+      case 'smudge': this._rasterSmudge(info, prog.uniforms); break
       // 'display' / 'papergen': visual-only passes never read back via
       // readPixels() in these tests — intentionally not rasterized.
       default: break
@@ -576,6 +605,57 @@ export class MockGL {
           const deposit = clamp(pressure * opacity * shape, 0, 1)
           data[idx] = deposit * sf + data[idx] * (1 - deposit)
         }
+      }
+    }
+  }
+
+  // Mirrors SMUDGE_FRAG (#14) — circular-only (angle=0, aspectRatio=1 always
+  // for a smudge dab, see _paintOneSmudgeDab), so this skips _rasterDab's
+  // rotation/aspect math entirely and computes (uvx,uvy) the same way that
+  // reduces to. u_patch's texture was populated by this mock's own
+  // (now sub-rect-aware) copyTexImage2D, in the same top-down `data`
+  // convention every other texture here uses — so patchUV maps to a patch
+  // pixel with no extra flip, same reasoning as every other direct `data`
+  // index in this file.
+  private _rasterSmudge(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const { width, height, data } = info
+    const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
+    const dabRadius = (uniforms.get('u_dabRadius') as number) ?? 1
+    const hardness = (uniforms.get('u_hardness') as number) ?? 0.5
+    const pressure = (uniforms.get('u_pressure') as number) ?? 1
+    const opacity = (uniforms.get('u_opacity') as number) ?? 1
+    const unit = (uniforms.get('u_patch') as number) ?? 0
+    const patchTex = this._textureUnits[unit] ?? null
+    const patch = patchTex ? this._textureData.get(patchTex) : undefined
+    const innerEdge = hardness * 0.85
+    const sf = this._blendSrcFactor()
+    if (!patch) return // nothing bound — a real GL context would sample garbage/black; treat as no-op here
+
+    const pad = dabRadius * 2.5 + 2
+    const minX = Math.max(0, Math.floor(cx - pad))
+    const maxX = Math.min(width, Math.ceil(cx + pad))
+    const minY = Math.max(0, Math.floor(cy - pad))
+    const maxY = Math.min(height, Math.ceil(cy + pad))
+
+    for (let py = minY; py < maxY; py++) {
+      for (let px = minX; px < maxX; px++) {
+        const uvx = (px + 0.5 - cx) / dabRadius
+        const uvy = (py + 0.5 - cy) / dabRadius
+        const dist = Math.hypot(uvx, uvy)
+        if (dist > 1) continue
+
+        let shape = 1 - smoothstep(innerEdge, 1, dist)
+        shape *= 1 - Math.exp(-8 * (1 - dist))
+
+        const patchU = clamp(uvx * 0.5 + 0.5, 0, 1)
+        const patchV = clamp(uvy * 0.5 + 0.5, 0, 1)
+        const patchPx = Math.min(patch.width - 1, Math.floor(patchU * patch.width))
+        const patchPy = Math.min(patch.height - 1, Math.floor(patchV * patch.height))
+        const picked = patch.data[patchPy * patch.width + patchPx] ?? 0
+
+        const idx = py * width + px
+        const deposit = clamp(picked * shape * pressure * opacity, 0, 1)
+        data[idx] = deposit * sf + data[idx] * (1 - deposit)
       }
     }
   }

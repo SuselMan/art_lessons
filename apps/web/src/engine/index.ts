@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_BLEND_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, SMUDGE_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_BLEND_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperNoise'
 import {
@@ -481,6 +481,30 @@ const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
 // already buys. See _flushStrokeChunk's own comment for the mechanism.
 const STROKE_DAB_CHUNK_LIMIT = 800
 
+// Smudge (#14) tuning constants — picked by eye, not yet exposed as
+// settings (the tool's user-facing knobs are just size/pressure/opacity,
+// reusing the existing dab fields — see toolSchemas.ts's smudge entry and
+// _bakeDabOpacity's own smudge branch). See _paintOneSmudgeDab for how each
+// is used.
+// How far behind a dab (in dab radii) its source patch is sampled from —
+// higher drags graphite further per dab; lower keeps the smear tighter/
+// closer to a soft local blur.
+const SMUDGE_OFFSET_FACTOR = 0.8
+// Dab radius relative to Dab.size — matches pencil's own sizeMultiplier
+// scale (see PENCIL_PRESETS) rather than a from-scratch tuning.
+const SMUDGE_SIZE_MULTIPLIER = 1.0
+// Fixed edge softness (DAB_FRAG/SMUDGE_FRAG's u_hardness) — smudge has no
+// per-grade preset the way pencil does to pull this from.
+const SMUDGE_HARDNESS = 0.5
+// Scratch-patch size rounding, in px — a smudge stroke normally keeps a
+// constant brush size, so rounding to a coarse grid here means every dab
+// after the first reuses the same pooled buffer instead of reallocating.
+const SMUDGE_PATCH_GRANULARITY = 8
+// Hard ceiling on the scratch patch's own side length, regardless of how
+// large a brush size requests — bounds a single dab's worst-case GPU
+// texture allocation.
+const SMUDGE_MAX_PATCH_SIZE = 512
+
 // ─── Engine ────────────────────────────────────────────────────────────────────
 
 export class PencilEngine implements PencilEngineAPI {
@@ -573,6 +597,16 @@ export class PencilEngine implements PencilEngineAPI {
   // this settles into a pool of uniformly-sized buffers after the first bake.
   private _transformScratchPool: AccumulationBuffer[] = []
 
+  // Smudge scratch patches (#14) — a small size-keyed free list, same
+  // pooling shape as _transformScratchPool above (see
+  // _acquireSmudgeScratchBuf/_releaseSmudgeScratchBuf), kept deliberately
+  // separate from it rather than sharing it: transform's scratch buffers
+  // are always LINEAR-filtered (its resample relies on that), smudge's are
+  // always NEAREST (see AccumulationBuffer's own 'nearest' filter comment
+  // for why) — sharing one pool would risk handing either caller a buffer
+  // filtered the wrong way for what it's about to do with it.
+  private _smudgeScratchPool: AccumulationBuffer[] = []
+
   // Haptic grain experiment (see HapticGrain.ts) — null unless opted in.
   private _haptic: HapticGrain | null
   private _hapticX = 0
@@ -604,18 +638,27 @@ export class PencilEngine implements PencilEngineAPI {
   private _compositeProg!: WebGLProgram
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
+  // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_FRAG's own
+  // doc comment for why it never uses DAB_VERT_INSTANCED).
+  private _smudgeProg!: WebGLProgram
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispUni!: Record<string, WebGLUniformLocation | null>
   private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
   private _blitUni!: Record<string, WebGLUniformLocation | null>
   private _transformUni!: Record<string, WebGLUniformLocation | null>
+  private _smudgeUni!: Record<string, WebGLUniformLocation | null>
   private _dabPosLoc!: number
   private _dispPosLoc!: number
   private _dispTransparentPosLoc!: number
   private _compositePosLoc!: number
   private _blitPosLoc!: number
   private _transformPosLoc!: number
+  // Attribute locations are per-*program*, not per-shader-source — even
+  // though _smudgeProg shares DAB_VERT's exact source with _dabProg, it's a
+  // separately linked program, so 'a_position' can land at a different
+  // location number in it and _dabPosLoc must not be reused here.
+  private _smudgePosLoc!: number
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
@@ -1784,6 +1827,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._tipBuf = null
     for (const b of this._transformScratchPool) b.destroy()
     this._transformScratchPool = []
+    for (const b of this._smudgeScratchPool) b.destroy()
+    this._smudgeScratchPool = []
     for (const { buf, timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
       buf.destroy()
@@ -2126,6 +2171,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._tipBuf = null
     this._tipBufPool = null
     this._transformScratchPool = [] // (#155) pooled GL objects are dead too, not worth destroy()ing
+    this._smudgeScratchPool = [] // same reasoning, see #14
     for (const { timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
     }
@@ -2294,6 +2340,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
     this._paperBlendProg      = createProgram(gl, DISPLAY_VERT, PAPER_BLEND_FRAG)
+    this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
@@ -2316,6 +2363,10 @@ export class PencilEngine implements PencilEngineAPI {
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_paperCamera', 'u_paperExtHalf', 'u_paperInvZoom',
     ])
+    this._smudgeUni = getUniforms(gl, this._smudgeProg, [
+      'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
+      'u_patch', 'u_hardness', 'u_pressure', 'u_opacity',
+    ])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
     this._dispPosLoc           = gl.getAttribLocation(this._dispProg, 'a_position')
@@ -2324,6 +2375,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
     this._paperBlendPosLoc     = gl.getAttribLocation(this._paperBlendProg, 'a_position')
+    this._smudgePosLoc         = gl.getAttribLocation(this._smudgeProg, 'a_position')
 
     this._instPosLoc     = gl.getAttribLocation(this._dabProgInstanced, 'a_position')
     this._instALoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instA')
@@ -2671,13 +2723,17 @@ export class PencilEngine implements PencilEngineAPI {
    *  user's own _strokeTool/_strokePreset/_opts.opacity) purely so both
    *  callers can pass their own state through one shared implementation. */
   private _bakeDabOpacity(dabs: Dab[], speed: number, tool: ToolType, presetName: string, opacity: number): void {
-    const erasing     = tool === 'eraser'
     const preset      = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
     const speedFactor = Math.max(0.7, 1.0 - speed * 0.15)
     for (const dab of dabs) {
-      dab.opacity = erasing
-        ? opacity
-        : preset.opacity * opacity * speedFactor
+      if (tool === 'eraser') dab.opacity = opacity
+      // Smudge (#14) has no pencil preset to draw an opacity from (the
+      // opacity slider here is repurposed as "strength" — see toolSchemas'
+      // own smudge entry) — same speedFactor as pencil though: moving
+      // slower still means a firmer, more thorough blend, matching how a
+      // real blending stump behaves.
+      else if (tool === 'smudge') dab.opacity = opacity * speedFactor
+      else dab.opacity = preset.opacity * opacity * speedFactor
     }
   }
 
@@ -2696,7 +2752,14 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
     for (const dab of dabs) dab.t = elapsedMs
-    this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor)
+    // Smudge only (#14): the dab immediately before this call's own batch,
+    // read *before* pushing this call's dabs onto _strokeDabs below — a
+    // fresh stroke's very first _onStart call correctly sees undefined
+    // (nothing to smear from yet), and every _onMove call after that sees
+    // the real previous dab regardless of where the last batch happened to
+    // end, so a smudge stroke smears continuously across _onMove's own
+    // internal batching instead of restarting at each call.
+    this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._strokeDabs.at(-1))
     this._strokeDabs.push(...dabs)
     // #122: this is the hot path the split cache exists to keep off — a
     // stroke normally targets _strokeLayerId, captured as _activeId at
@@ -2875,12 +2938,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  tile resolution (see their own field comments: transient, visual-only,
    *  never outlive "what's on screen right now"), so they're painted at a
    *  fixed origin (0,0) covering that one buffer, same as before this
-   *  method was generalized for tiling. */
+   *  method was generalized for tiling.
+   *
+   *  `prevDab` (smudge only, #14): the dab immediately before `dabs[0]` in
+   *  the same stroke, if any — see _paintSmudgeDabs' own doc comment for
+   *  why this is the one extra piece of context smudge needs that pencil/
+   *  eraser don't (every other tool's dabs are independent of each other;
+   *  smudge's aren't). */
   private _paintDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
-    color: [number, number, number],
+    color: [number, number, number], prevDab?: Dab,
   ): void {
     if (!dabs.length) return
+    if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, prevDab); return }
     const erasing = tool === 'eraser'
     const preset  = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
     const worldBounds = this._dabsWorldBounds(dabs, erasing, preset)
@@ -3096,6 +3166,131 @@ export class PencilEngine implements PencilEngineAPI {
     ext.vertexAttribDivisorANGLE(this._instALoc, 0)
     ext.vertexAttribDivisorANGLE(this._instBLoc, 0)
     ext.vertexAttribDivisorANGLE(this._instOpacityLoc, 0)
+  }
+
+  /** See SMUDGE_FRAG's own doc comment for the algorithm and
+   *  _paintDabs' doc comment for `prevDab`. Never batched (unlike pencil/
+   *  eraser's _paintDabsInstanced): each dab's own source patch has to be
+   *  copied from whatever the *previous* dab (in this same call, or —
+   *  courtesy of `prevDab` — the previous _paintDabs call in this stroke)
+   *  already deposited, so dab N+1 can't be submitted until dab N has
+   *  actually landed. One extra GPU copy plus one draw call per dab is a
+   *  real cost pencil/eraser don't pay, but smudge strokes are a
+   *  deliberate, comparatively low-frequency gesture (blending a shaded
+   *  area), not fast scribbling — not the same hot path #123 batched. */
+  private _paintSmudgeDabs(target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], prevDab: Dab | undefined): void {
+    // Transient scratch targets (live-tip/prediction preview, a peer's
+    // reveal buffer) are a single un-tiled buffer, freshly cleared before
+    // every refresh — nothing meaningful to pick up, and reading it back
+    // while it's also the render target would need the same same-texture
+    // read+write WebGL1 forbids. A harmless no-op: the real dabs below
+    // always paint straight into the real layer regardless (see
+    // _paintDabs' own doc comment on this parameter).
+    if (target instanceof AccumulationBuffer) return
+    let prev = prevDab
+    for (const dab of dabs) {
+      if (prev) this._paintOneSmudgeDab(target, prev, dab)
+      prev = dab
+    }
+  }
+
+  /** One smudge dab: copies a small patch of whatever's currently painted
+   *  *behind* `dab` (opposite its direction of travel from `prev`) into a
+   *  pooled scratch texture, then redeposits a fraction of it — shaped like
+   *  a soft dab — at `dab`'s own position. The "carry" effect (graphite
+   *  trailing along the stroke) falls entirely out of *where* the patch is
+   *  sampled from vs *where* it's redrawn; there's no separate persistent
+   *  "carried" state to thread between dabs (see SMUDGE_FRAG's own doc
+   *  comment for why that keeps a long stroke self-limiting for free).
+   *
+   *  v1 scope: skips the dab entirely (rather than clipping or attempting
+   *  cross-tile compositing) whenever its source or destination patch
+   *  doesn't fit fully inside a single resident/creatable tile — an
+   *  infinite room's tile grid means a smudge stroke crossing a tile
+   *  boundary currently just has a gap there. Acceptable for now (typical
+   *  brush sizes are far smaller than TILE_SIZE, so this only bites right
+   *  at a boundary) — full cross-tile sampling would need the same
+   *  multi-source-tile treatment _bakeTransform already has, not yet
+   *  ported here. */
+  private _paintOneSmudgeDab(target: ILayerBuffer, prev: Dab, dab: Dab): void {
+    const radius = dab.size * 0.5 * SMUDGE_SIZE_MULTIPLIER
+    if (radius < 0.5) return
+
+    const dx = dab.x - prev.x
+    const dy = dab.y - prev.y
+    const len = Math.hypot(dx, dy)
+    if (len < 1e-3) return // no direction to smear from (a stationary/duplicate sample)
+    const dirX = dx / len
+    const dirY = dy / len
+    const offset = radius * SMUDGE_OFFSET_FACTOR
+    const srcCenterX = dab.x - dirX * offset
+    const srcCenterY = dab.y - dirY * offset
+
+    const patchWorld = Math.ceil(radius * 2)
+    const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE, Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY)
+    if (patchSize < 1) return
+    const half = patchSize / 2
+
+    const srcTargets = target.resolveForPaint({
+      minX: srcCenterX - half, minY: srcCenterY - half, maxX: srcCenterX + half, maxY: srcCenterY + half,
+    })
+    if (srcTargets.length !== 1) return // spans more than one tile (or none) — see this method's own doc comment
+    const srcTile = srcTargets[0]
+    const srcLocalX = Math.round(srcCenterX - half - srcTile.originX)
+    const srcLocalY = Math.round(srcCenterY - half - srcTile.originY)
+    if (srcLocalX < 0 || srcLocalY < 0
+      || srcLocalX + patchSize > srcTile.buffer.width || srcLocalY + patchSize > srcTile.buffer.height) return
+
+    const destTargets = target.resolveForPaint({
+      minX: dab.x - radius, minY: dab.y - radius, maxX: dab.x + radius, maxY: dab.y + radius,
+    })
+    if (destTargets.length !== 1) return
+    const destTile = destTargets[0]
+
+    const { gl } = this
+    const patch = this._acquireSmudgeScratchBuf(patchSize)
+    // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
+    // (bottom-up) — same flip every other app-space/GL boundary in this
+    // file applies (DAB_VERT's clip.y flip, pickColor) — see
+    // copyRegionTo's own doc comment.
+    const glSrcY = srcTile.buffer.height - srcLocalY - patchSize
+    srcTile.buffer.copyRegionTo(patch, srcLocalX, glSrcY, patchSize, patchSize)
+
+    destTile.buffer.beginDraw()
+    gl.useProgram(this._smudgeProg)
+    const u = this._smudgeUni
+    gl.uniform2f(u.u_resolution, destTile.buffer.width, destTile.buffer.height)
+    gl.uniform1f(u.u_hardness, SMUDGE_HARDNESS)
+    gl.uniform1f(u.u_pressure, dab.pressure)
+    gl.uniform1f(u.u_opacity, dab.opacity)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, patch.texture)
+    gl.uniform1i(u.u_patch, 0)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
+    gl.enableVertexAttribArray(this._smudgePosLoc)
+    gl.vertexAttribPointer(this._smudgePosLoc, 2, gl.FLOAT, false, 0, 0)
+
+    gl.uniform2f(u.u_dabCenter, dab.x - destTile.originX, dab.y - destTile.originY)
+    gl.uniform1f(u.u_dabRadius, radius)
+    gl.uniform1f(u.u_angle, 0)
+    gl.uniform1f(u.u_aspectRatio, 1)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    destTile.buffer.endDraw()
+    this._releaseSmudgeScratchBuf(patch)
+    target.markContentPainted({ minX: dab.x - radius, minY: dab.y - radius, maxX: dab.x + radius, maxY: dab.y + radius })
+  }
+
+  private _acquireSmudgeScratchBuf(size: number): AccumulationBuffer {
+    const pool = this._smudgeScratchPool
+    const idx = pool.findIndex(b => b.width === size && b.height === size)
+    if (idx !== -1) return pool.splice(idx, 1)[0]
+    return new AccumulationBuffer(this.gl, size, size, 'nearest')
+  }
+
+  private _releaseSmudgeScratchBuf(buf: AccumulationBuffer): void {
+    this._smudgeScratchPool.push(buf)
   }
 
   private _compositeTextures(

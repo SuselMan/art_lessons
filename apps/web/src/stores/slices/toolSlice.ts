@@ -2,9 +2,11 @@ import type { StateCreator } from 'zustand'
 
 import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor } from '../../pages/Room/toolSchemas'
 
+export type DrawingTool = 'pencil' | 'eraser' | 'smudge'
+
 export interface ToolSlice {
-  tool: 'pencil' | 'eraser'
-  setTool: (updater: 'pencil' | 'eraser' | ((prev: 'pencil' | 'eraser') => 'pencil' | 'eraser')) => void
+  tool: DrawingTool
+  setTool: (updater: DrawingTool | ((prev: DrawingTool) => DrawingTool)) => void
   // TOOL_SCHEMAS-shaped settings for every registered tool (#170/#196) —
   // seeded with schema defaults here; Room re-seeds this from
   // loadToolSettings(localStorage, roomId) once at mount via
