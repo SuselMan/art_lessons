@@ -506,12 +506,11 @@ export type GetRoomReplayResult =
   | { ok: false; error: 'not_found' | 'forbidden' }
 
 /** Lesson replay (#108): a room's full operation history, with each op's
- *  persisted `createdAt` alongside it (see `ReplayOperation`'s own doc
- *  comment in packages/shared — kept as metadata, not used for the replay
- *  player's own pacing). Deliberately reads straight from Postgres rather
- *  than `ensureRoomLoaded` + the in-memory Map: replay is meant to work for
- *  a room nobody is currently live in (the whole point is watching it
- *  *after* the lesson), and the in-memory
+ *  persisted `createdAt` alongside it — the standalone replay viewer paces
+ *  playback off that, not `OperationBase.timestamp`. Deliberately reads
+ *  straight from Postgres rather than `ensureRoomLoaded` + the in-memory
+ *  Map: replay is meant to work for a room nobody is currently live in
+ *  (the whole point is watching it *after* the lesson), and the in-memory
  *  `operations` array drops `createdAt` entirely (see `ensureRoomLoaded`'s
  *  `dbRoom.operations.map(o => o.data as Operation)`) — reconstructing it
  *  from there would need a second Postgres round-trip anyway.

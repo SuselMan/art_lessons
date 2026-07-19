@@ -290,12 +290,9 @@ export type OperationDraft = Operation extends infer O
 
 /** One recorded Operation plus the server's own persisted insertion time
  *  (Prisma `Operation.createdAt`) — distinct from `OperationBase.timestamp`
- *  (client-stamped at emission, used for live stroke-dab pacing). Not used
- *  for the replay player's own timeline/pacing (see apps/web/src/pages/
- *  Replay/playback.ts's buildTimeline — idle gaps between operations are
- *  deliberately cut, not replayed at their real recorded length), kept here
- *  as generically useful metadata (e.g. showing when a room was actually
- *  worked on). */
+ *  (client-stamped at emission, used for live stroke-dab pacing). The replay
+ *  player paces playback off real wall-clock gaps between operations landing
+ *  on the server, which only `createdAt` reflects. */
 export type ReplayOperation = Operation & { createdAt: string }
 
 /** Response shape for `GET /api/rooms/:roomId/replay` — a room's full
