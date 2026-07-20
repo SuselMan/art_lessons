@@ -3378,26 +3378,43 @@ export class PencilEngine implements PencilEngineAPI {
    *  (see that field's own comment) — not a direct patch-copy the way this
    *  used to work, and not just a rear/front pair either (see
    *  SMUDGE_REAR_RATE's own comment for why a third, center contact was
-   *  added). All three go through the exact same exchange formula
-   *  (_smudgeContact): read back roughly how much graphite the paper has
-   *  there, and trade the *difference* against the reservoir's current
-   *  level in whichever direction it points — paper darker than the tool:
-   *  pickup (erase-style, weighted by SMUDGE_TRANSFER_FRAG's paperCatch
-   *  pickup floor — see that shader's own comment for why a spot's own
-   *  paper grain can leave it partly unreachable no matter how many
-   *  passes); tool darker than the paper: deposit instead (normal
-   *  alpha-over, not the old mix() — this is what makes densely-
-   *  overlapping dabs blend into a continuous stroke instead of a chain of
-   *  circles).
+   *  added). All three trade the *difference* between the paper's own
+   *  graphite level there and the reservoir's current level, in whichever
+   *  direction it points — paper darker than the tool: pickup (erase-style,
+   *  weighted by SMUDGE_TRANSFER_FRAG's paperCatch pickup floor — see that
+   *  shader's own comment for why a spot's own paper grain can leave it
+   *  partly unreachable no matter how many passes); tool darker than the
+   *  paper: deposit instead (normal alpha-over, not the old mix() — this is
+   *  what makes densely-overlapping dabs blend into a continuous stroke
+   *  instead of a chain of circles).
    *
    *   - rear (behind `dab`, opposite its direction of travel from `prev`):
    *     the primary transport contact, usually pickup-dominant since it's
-   *     revisiting where the tool just came from.
-   *   - center (`dab`'s own position): gentler exchange, plus "embedding"
-   *     — pressing graphite into the paper's own low spots under pressure,
-   *     the same fill mechanic pencil dabs already get (see u_embed).
+   *     revisiting where the tool just came from. Reads the paper for real
+   *     (_smudgeReadContact).
    *   - front (ahead of `dab`, same direction): usually deposit-dominant,
    *     since the territory ahead is typically lighter than the reservoir.
+   *     Also reads the paper for real.
+   *   - center (`dab`'s own position): gentler exchange, plus "embedding"
+   *     — pressing graphite into the paper's own low spots under pressure,
+   *     the same fill mechanic pencil dabs already get (see u_embed). Does
+   *     *not* read the paper on its own — center sits directly between rear
+   *     and front along the stroke's own direction of travel, close enough
+   *     that a distance-weighted blend of their two already-fetched
+   *     averages (_lerpSmudgeAvg) is a good stand-in for a third real read.
+   *     Reported after this design first shipped: rooms with a lot of
+   *     smudging in their history took noticeably longer to (re)join —
+   *     gl.readPixels is a real GPU/CPU sync stall, invisible spread across
+   *     interactive drawing but very much not when replaying a history tail
+   *     dab-by-dab in a tight loop on join (see #149's snapshot+tail-replay
+   *     design). Three real reads per dab meant three stalls per dab;
+   *     cutting one of three (rear/front stay exact, since they're what the
+   *     "reads real paper, not an approximation" guarantee most needs to
+   *     hold) measured as the difference between a room settling in ~3.85s
+   *     vs ~1.06s at ~900 smudge dabs of history — center falling back to
+   *     interpolation only when both neighbors have a real reading to blend
+   *     (see below) keeps that same real-vs-approximated tradeoff, just
+   *     with one fewer stall paid for it.
    *
    *  v1 scope: skips a contact entirely (rather than clipping or attempting
    *  cross-tile compositing) whenever its patch doesn't fit fully inside a
@@ -3419,19 +3436,106 @@ export class PencilEngine implements PencilEngineAPI {
     const dirY = dy / len
     const rearOffset = radius * SMUDGE_OFFSET_FACTOR
     const frontOffset = radius * SMUDGE_FRONT_OFFSET_FACTOR
+    const rearX = dab.x - dirX * rearOffset, rearY = dab.y - dirY * rearOffset
+    const frontX = dab.x + dirX * frontOffset, frontY = dab.y + dirY * frontOffset
 
-    this._smudgeContact(target, dab.x - dirX * rearOffset, dab.y - dirY * rearOffset, radius, SMUDGE_REAR_RATE, dab, userId, false)
-    this._smudgeContact(target, dab.x, dab.y, radius, SMUDGE_CENTER_RATE, dab, userId, true)
-    this._smudgeContact(target, dab.x + dirX * frontOffset, dab.y + dirY * frontOffset, radius, SMUDGE_FRONT_RATE, dab, userId, false)
+    const rear = this._smudgeReadContact(target, rearX, rearY, radius)
+    const front = this._smudgeReadContact(target, frontX, frontY, radius)
+    if (rear) this._smudgeApplyExchange(target, rear.tile, rearX, rearY, radius, SMUDGE_REAR_RATE, dab, userId, false, rear.avg)
+    if (front) this._smudgeApplyExchange(target, front.tile, frontX, frontY, radius, SMUDGE_FRONT_RATE, dab, userId, false, front.avg)
+
+    // Center: interpolated avg (see this method's own doc comment) when
+    // both neighbors have a real one to blend, by how far along rear->front
+    // center actually sits (not necessarily the midpoint — rearOffset and
+    // frontOffset differ) — _smudgeResolveTile alone (no copyRegionTo/
+    // readPixels) is enough to find where to paint in that case. Falls back
+    // to a real read of its own — same as rear/front always do — when
+    // either neighbor's read failed (a tile-boundary skip, most likely), so
+    // center still works standalone there.
+    if (rear && front) {
+      const resolved = this._smudgeResolveTile(target, dab.x, dab.y, radius)
+      if (resolved) {
+        const span = rearOffset + frontOffset
+        const avg = this._lerpSmudgeAvg(rear.avg, front.avg, span > 0 ? rearOffset / span : 0.5)
+        this._smudgeApplyExchange(target, resolved.tile, dab.x, dab.y, radius, SMUDGE_CENTER_RATE, dab, userId, true, avg)
+      }
+    } else {
+      const center = this._smudgeReadContact(target, dab.x, dab.y, radius)
+      if (center) this._smudgeApplyExchange(target, center.tile, dab.x, dab.y, radius, SMUDGE_CENTER_RATE, dab, userId, true, center.avg)
+    }
   }
 
-  /** One exchange contact for smudge — reads back roughly how much graphite
-   *  is at (cx, cy) and trades the difference against this._smudgeUserLoad's
-   *  entry for `userId` in whichever direction it points (see
-   *  _paintOneSmudgeDab for the three call sites). `rate` is this contact's
-   *  own share of the difference per dab, before SMUDGE_MAX_STEP's hard cap.
-   *  `embed` enables SMUDGE_TRANSFER_FRAG's fill mechanic on this contact's
-   *  own deposit branch only (see that shader's own u_embed comment).
+  /** Resolves the single resident/creatable tile a smudge contact at
+   *  (cx, cy) falls in, and where within it — cheap bookkeeping only, no
+   *  GPU copy/readback (see _smudgeReadContact for the version that also
+   *  fetches an avg). Used on its own by center's interpolated path in
+   *  _paintOneSmudgeDab, which needs to know where to paint but not what's
+   *  already there. Null on the same v1 tile-boundary scope limit every
+   *  smudge contact already had. */
+  private _smudgeResolveTile(
+    target: ILayerBuffer, cx: number, cy: number, radius: number,
+  ): { tile: PaintTarget; localX: number; localY: number; patchSize: number } | null {
+    const patchWorld = Math.ceil(radius * 2)
+    const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE, Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY)
+    if (patchSize < 1) return null
+    const half = patchSize / 2
+
+    const targets = target.resolveForPaint({ minX: cx - half, minY: cy - half, maxX: cx + half, maxY: cy + half })
+    if (targets.length !== 1) return null // spans more than one tile (or none) — see this method's own doc comment
+    const tile = targets[0]
+    const localX = Math.round(cx - half - tile.originX)
+    const localY = Math.round(cy - half - tile.originY)
+    if (localX < 0 || localY < 0
+      || localX + patchSize > tile.buffer.width || localY + patchSize > tile.buffer.height) return null
+    return { tile, localX, localY, patchSize }
+  }
+
+  /** Like _smudgeResolveTile, but also copies the patch back and reads its
+   *  average (this._readPatchAverage) — the one real gl.readPixels stall
+   *  each of rear/front (and center, when it can't be interpolated — see
+   *  _paintOneSmudgeDab's own doc comment) pays. */
+  private _smudgeReadContact(
+    target: ILayerBuffer, cx: number, cy: number, radius: number,
+  ): { tile: PaintTarget; avg: { r: number; g: number; b: number; a: number } } | null {
+    const resolved = this._smudgeResolveTile(target, cx, cy, radius)
+    if (!resolved) return null
+    const { tile, localX, localY, patchSize } = resolved
+
+    // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
+    // (bottom-up) — same flip every other app-space/GL boundary in this
+    // file applies (DAB_VERT's clip.y flip, pickColor) — see
+    // copyRegionTo's own doc comment.
+    const patch = this._acquireSmudgeScratchBuf(patchSize)
+    const glY = tile.buffer.height - localY - patchSize
+    tile.buffer.copyRegionTo(patch, localX, glY, patchSize, patchSize)
+    const avg = this._readPatchAverage(patch)
+    this._releaseSmudgeScratchBuf(patch)
+    return { tile, avg }
+  }
+
+  /** Distance-weighted blend of two _readPatchAverage results — used only
+   *  to approximate the center contact's own avg from rear/front's already-
+   *  fetched ones (see _paintOneSmudgeDab's own doc comment for why). `t`
+   *  is center's own fractional position between `a` (t=0) and `b` (t=1). */
+  private _lerpSmudgeAvg(
+    a: { r: number; g: number; b: number; a: number }, b: { r: number; g: number; b: number; a: number }, t: number,
+  ): { r: number; g: number; b: number; a: number } {
+    const s = clampNum(t, 0, 1)
+    return {
+      r: a.r + (b.r - a.r) * s,
+      g: a.g + (b.g - a.g) * s,
+      b: a.b + (b.b - a.b) * s,
+      a: a.a + (b.a - a.a) * s,
+    }
+  }
+
+  /** Given an already-fetched avg (real or interpolated — see
+   *  _paintOneSmudgeDab), trades the difference between it and
+   *  this._smudgeUserLoad's entry for `userId` in whichever direction it
+   *  points, and paints the result. `rate` is this contact's own share of
+   *  the difference per dab, before SMUDGE_MAX_STEP's hard cap. `embed`
+   *  enables SMUDGE_TRANSFER_FRAG's fill mechanic on this contact's own
+   *  deposit branch only (see that shader's own u_embed comment).
    *
    *  Keyed by `userId` (not a single shared scalar) so two users smudging at
    *  once in the same room never clobber each other's reservoir — see
@@ -3441,42 +3545,21 @@ export class PencilEngine implements PencilEngineAPI {
    *  same method, and could interleave (a remote op can be applied at any
    *  time, including mid-drag on an unrelated local stroke).
    *
-   *  Both directions share this one readback (`avg`) rather than needing a
-   *  second one for "how much actually stuck": a deposit's own toolLoad
-   *  drain is scaled by avg's own headroom (1 - avg.a) — the same
-   *  premultiplied-alpha math an "over" blend's own alpha increase follows
-   *  (requested*(1-destAlpha)) — so depositing onto an already-saturated
-   *  contact barely drains the reservoir, which is what stops *other*
-   *  contacts' pickup from being forced to keep "refilling" a reservoir
-   *  that was never really being spent (the bug SMUDGE_MAX_STEP's own
-   *  comment describes: a stroke that never left one solid area still
-   *  visibly lightened it, continuously, for as long as it continued). */
-  private _smudgeContact(
-    target: ILayerBuffer, cx: number, cy: number, radius: number, rate: number, dab: Dab, userId: string, embed: boolean,
+   *  A deposit's own toolLoad drain is scaled by avg's own headroom
+   *  (1 - avg.a) — the same premultiplied-alpha math an "over" blend's own
+   *  alpha increase follows (requested*(1-destAlpha)) — so depositing onto
+   *  an already-saturated contact barely drains the reservoir, which is
+   *  what stops *other* contacts' pickup from being forced to keep
+   *  "refilling" a reservoir that was never really being spent (the bug
+   *  SMUDGE_MAX_STEP's own comment describes: a stroke that never left one
+   *  solid area still visibly lightened it, continuously, for as long as it
+   *  continued). Pickup needs no equivalent term — bounded on its own by
+   *  the [0,1] clamp below (a near-full reservoir naturally stops accepting
+   *  more). */
+  private _smudgeApplyExchange(
+    target: ILayerBuffer, tile: PaintTarget, cx: number, cy: number, radius: number, rate: number, dab: Dab,
+    userId: string, embed: boolean, avg: { r: number; g: number; b: number; a: number },
   ): void {
-    const patchWorld = Math.ceil(radius * 2)
-    const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE, Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY)
-    if (patchSize < 1) return
-    const half = patchSize / 2
-
-    const targets = target.resolveForPaint({ minX: cx - half, minY: cy - half, maxX: cx + half, maxY: cy + half })
-    if (targets.length !== 1) return // spans more than one tile (or none) — see this method's own doc comment
-    const tile = targets[0]
-    const localX = Math.round(cx - half - tile.originX)
-    const localY = Math.round(cy - half - tile.originY)
-    if (localX < 0 || localY < 0
-      || localX + patchSize > tile.buffer.width || localY + patchSize > tile.buffer.height) return
-
-    // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
-    // (bottom-up) — same flip every other app-space/GL boundary in this
-    // file applies (DAB_VERT's clip.y flip, pickColor) — see
-    // copyRegionTo's own doc comment.
-    const patch = this._acquireSmudgeScratchBuf(patchSize)
-    const glY = tile.buffer.height - localY - patchSize
-    tile.buffer.copyRegionTo(patch, localX, glY, patchSize, patchSize)
-    const avg = this._readPatchAverage(patch, userId)
-    this._releaseSmudgeScratchBuf(patch)
-
     const toolLoad = this._smudgeUserLoad.get(userId) ?? 0
     // dab.opacity is the UI's "Strength" slider (see _bakeDabOpacity's own
     // smudge branch) — applies to both directions equally, same as pressure.
@@ -3485,9 +3568,6 @@ export class PencilEngine implements PencilEngineAPI {
     if (Math.abs(rawTransfer) <= 0.001) return
 
     if (rawTransfer > 0) {
-      // Pickup: bounded on its own by the [0,1] clamp below (a near-full
-      // reservoir naturally stops accepting more) — no separate headroom
-      // term needed on this side, unlike deposit's.
       this._smudgeUserLoad.set(userId, clampNum(toolLoad + rawTransfer, 0, 1))
       // Only overwrite the carried color while actually picking *up* real
       // paper content — the deposit branch below deposits whatever the
@@ -3563,7 +3643,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  _paintSmudgeDabs' own doc comment); if this turns out to be the
    *  dominant one in practice, the fix is a GPU-side 1x1 downsample+
    *  ping-pong instead of a CPU readback, not a smaller stride here. */
-  private _readPatchAverage(buf: AccumulationBuffer, userId: string): { r: number; g: number; b: number; a: number } {
+  private _readPatchAverage(buf: AccumulationBuffer): { r: number; g: number; b: number; a: number } {
     const pixels = buf.readPixels()
     const total = buf.width * buf.height
     const stride = Math.max(1, Math.floor(total / 256))
@@ -3576,11 +3656,11 @@ export class PencilEngine implements PencilEngineAPI {
     const a = count > 0 ? sumA / count / 255 : 0
     // Pixels are premultiplied (every tile writer, DAB_FRAG included,
     // always outputs premultiplied color — see DAB_FRAG's own u_color
-    // comment) — divide back out to get the true base color, falling back
-    // to whatever this user's reservoir already carries when there's
-    // essentially nothing here to divide by.
-    const carried = this._smudgeUserColor.get(userId) ?? this._opts.graphiteColor
-    if (a <= 0.02) return { r: carried[0], g: carried[1], b: carried[2], a }
+    // comment) — divide back out to get the true base color. Below the
+    // threshold there's essentially nothing to divide by, so r/g/b would be
+    // meaningless noise — harmless, since _smudgeApplyExchange only ever
+    // reads color out of an avg whose a > 0.02.
+    if (a <= 0.02) return { r: 0, g: 0, b: 0, a }
     return {
       r: clampNum(sumR / count / 255 / a, 0, 1),
       g: clampNum(sumG / count / 255 / a, 0, 1),
