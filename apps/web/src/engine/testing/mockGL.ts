@@ -37,7 +37,7 @@
 export type UniformValue = number | number[]
 
 interface MockProgram {
-  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'smudge' | 'other'
+  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'smudge' | 'smudgeCompute' | 'other'
   uniforms: Map<string, UniformValue>
 }
 
@@ -124,6 +124,22 @@ export class MockGL {
   readonly UNPACK_ALIGNMENT = ENUM.UNPACK_ALIGNMENT
 
   private _textureData = new Map<object, TextureInfo>()
+  // Smudge's reservoir (#14 round 4) needs genuinely distinct channels per
+  // texel — reservoirTex is rgb=color/a=load, transferTex is r=pickup/
+  // g=deposit — breaking the module docstring's core "R===G===B===A"
+  // simplification every other texture in this codebase still satisfies.
+  // Rather than generalize TextureInfo.data to 4 channels everywhere (a
+  // much bigger change for every existing raster path), these two side
+  // maps carry the *extra* values _rasterSmudgeCompute writes and
+  // _rasterSmudge reads, keyed by the same texture object _textureData
+  // already uses — the single-channel `data` array still carries the
+  // "primary" value (load for reservoirTex, pickup for transferTex), so
+  // readPixels() (used by _smudgeCaptureLoad) keeps working unmodified.
+  // Color is never asserted on by anything in this test suite, so
+  // _rasterSmudgeCompute's own approximation of it doesn't need to be
+  // exact — see that method's own comment.
+  private _smudgeColorSide = new Map<object, [number, number, number]>() // reservoirTex -> rgb
+  private _smudgeDepositSide = new Map<object, number>() // transferTex -> g (deposit); r (pickup) lives in the regular single-channel data
   // #141 introspection only (see texParameteri) — never read by any
   // rasterization path in this mock.
   private _textureWrap = new Map<object, { wrapS: number; wrapT: number }>()
@@ -181,7 +197,8 @@ export class MockGL {
 
   private _tagFragShader(source: string): MockProgram['fragTag'] {
     if (source.includes('u_eraseMode')) return 'dab'
-    if (source.includes('u_amount') && source.includes('u_mode')) return 'smudge'
+    if (source.includes('u_oldReservoir')) return 'smudgeCompute'
+    if (source.includes('u_transferTex')) return 'smudge'
     if (source.includes('u_layer')) return 'composite'
     if (source.includes('u_accumulation')) return 'display'
     if (source.includes('u_warp')) return 'papergen'
@@ -458,6 +475,7 @@ export class MockGL {
       case 'composite': this._rasterComposite(info, prog.uniforms); break
       case 'transform': this._rasterTransform(info, prog.uniforms); break
       case 'smudge': this._rasterSmudge(info, prog.uniforms); break
+      case 'smudgeCompute': this._rasterSmudgeCompute(info, prog.uniforms); break
       // 'display' / 'papergen': visual-only passes never read back via
       // readPixels() in these tests — intentionally not rasterized.
       default: break
@@ -500,6 +518,15 @@ export class MockGL {
     const fboInfo = this._framebuffers.get(fbo)
     if (!fboInfo || !fboInfo.texture) return null
     return this._textureData.get(fboInfo.texture) ?? null
+  }
+
+  // Same resolution as _currentTargetTexture, but the texture *object*
+  // itself rather than its TextureInfo — needed by _rasterSmudgeCompute to
+  // key its own side-channel maps (see their own comment).
+  private _currentTargetTextureObject(): object | null {
+    const fbo = this._boundFramebuffer
+    if (!fbo) return null
+    return this._framebuffers.get(fbo)?.texture ?? null
   }
 
   private _blendSrcFactor(): number {
@@ -609,17 +636,15 @@ export class MockGL {
     }
   }
 
-  // Mirrors SMUDGE_TRANSFER_FRAG (#14 round 2) — circular-only (angle=0,
+  // Mirrors SMUDGE_TRANSFER_FRAG (#14 round 4) — circular-only (angle=0,
   // aspectRatio=1 always for a smudge dab, see _paintOneSmudgeDab), so this
   // skips _rasterDab's rotation/aspect math entirely. Real GL blending is on
-  // for both pickup and deposit draw calls now (_drawSmudgeTransferDab calls
-  // beginErase()/beginDraw(), same as a real eraser/pencil dab) — unlike the
-  // old patch-mix version this replaced, which bypassed GL blending and
-  // wrote mix() directly. u_mode itself doesn't need to be read here: which
-  // mode was drawn is already fully captured by the blend state
-  // _blendSrcFactor() reads (ZERO for pickup/erase-style, ONE for
-  // deposit/over-style) — same unification _rasterDab's own erase/pencil
-  // branches collapse to via `sf`.
+  // for both pickup and deposit draw calls (_drawSmudgeTransferDab calls
+  // beginErase()/beginDraw(), same as a real eraser/pencil dab). u_mode is
+  // read here (unlike round 2/3) to pick which of transferTex's two channels
+  // (pickup vs deposit) this particular draw call spends — the blend state
+  // alone no longer disambiguates that on its own now that the amount comes
+  // from a shared texture rather than a per-call uniform.
   //
   // No paperCatch weighting here — this mock doesn't replicate paper-
   // texture shading at all (see the module's own scope-cut doc comment at
@@ -632,7 +657,13 @@ export class MockGL {
     const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
     const dabRadius = (uniforms.get('u_dabRadius') as number) ?? 1
     const hardness = (uniforms.get('u_hardness') as number) ?? 0.5
-    const amount = (uniforms.get('u_amount') as number) ?? 0
+    const mode = (uniforms.get('u_mode') as number) ?? 0
+    const transferUnit = (uniforms.get('u_transferTex') as number) ?? 0
+    const transferTex = this._textureUnits[transferUnit] ?? null
+    const transferInfo = transferTex ? this._textureData.get(transferTex) : undefined
+    const pickup = transferInfo?.data[0] ?? 0
+    const deposit = (transferTex && this._smudgeDepositSide.get(transferTex)) ?? 0
+    const amount = mode > 0.5 ? deposit : pickup
     const innerEdge = hardness * 0.85
     const sf = this._blendSrcFactor()
 
@@ -655,6 +686,65 @@ export class MockGL {
         const transfer = clamp(amount * shape, 0, 1)
         const idx = py * width + px
         data[idx] = transfer * sf + data[idx] * (1 - transfer)
+      }
+    }
+  }
+
+  // Mirrors SMUDGE_COMPUTE_FRAG (#14 round 4) — the GPU-resident exchange
+  // compute pass. Unlike that shader's own 8x8 grid-tap average (needed
+  // there because a real texture can hold arbitrary per-texel variation),
+  // this mock's patch data is already single-channel (R===G===B===A, see
+  // the module docstring), so a plain mean over every element is exactly
+  // equivalent — no grid needed. See u_outputMode's own two branches for
+  // what gets written where; both write "load"/"pickup" into the target's
+  // regular single-channel `info.data[0]` (so readPixels — used by
+  // _smudgeCaptureLoad — keeps working unmodified) and the second value
+  // ("color"/"deposit") into this mock's own side-channel maps (see their
+  // own comment for why a real 4-channel texture needs one here at all).
+  private _rasterSmudgeCompute(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const patchUnit = (uniforms.get('u_patch') as number) ?? 0
+    const oldReservoirUnit = (uniforms.get('u_oldReservoir') as number) ?? 1
+    const rate = (uniforms.get('u_rate') as number) ?? 0
+    const pressure = (uniforms.get('u_pressure') as number) ?? 1
+    const opacity = (uniforms.get('u_opacity') as number) ?? 1
+    const maxStep = (uniforms.get('u_maxStep') as number) ?? 1
+    const outputMode = (uniforms.get('u_outputMode') as number) ?? 0
+
+    const patchTex = this._textureUnits[patchUnit] ?? null
+    const patchInfo = patchTex ? this._textureData.get(patchTex) : undefined
+    const oldReservoirTex = this._textureUnits[oldReservoirUnit] ?? null
+    const oldReservoirInfo = oldReservoirTex ? this._textureData.get(oldReservoirTex) : undefined
+    if (!patchInfo || !oldReservoirInfo) return // nothing bound — see _rasterSmudge's identical guard reasoning
+
+    let sum = 0
+    for (let i = 0; i < patchInfo.data.length; i++) sum += patchInfo.data[i]
+    const avgA = patchInfo.data.length > 0 ? sum / patchInfo.data.length : 0
+
+    const oldLoad = oldReservoirInfo.data[0] ?? 0
+    const oldColor = (oldReservoirTex && this._smudgeColorSide.get(oldReservoirTex)) ?? [0, 0, 0]
+
+    const difference = avgA - oldLoad
+    const raw = clamp(difference * rate * pressure * opacity, -maxStep, maxStep)
+    const pickupAmount = Math.max(raw, 0)
+    const depositAmount = Math.max(-raw, 0)
+    const headroom = clamp(1 - avgA, 0, 1)
+    const actualStick = depositAmount * headroom
+
+    const targetTex = this._currentTargetTextureObject()
+    if (outputMode > 0.5) {
+      info.data[0] = pickupAmount
+      if (targetTex) this._smudgeDepositSide.set(targetTex, depositAmount)
+    } else {
+      info.data[0] = clamp(oldLoad + pickupAmount - actualStick, 0, 1)
+      // The mock's single-channel patch model already collapsed color into
+      // the same scalar as alpha (R===G===B===A) — there's no separate
+      // "picked-up color" to recover the way the real shader's own
+      // premultiplied-RGB-vs-alpha division can. avgA itself is the closest
+      // available stand-in; nothing in this test suite asserts on smudge's
+      // carried color specifically (only on alpha/coverage), so this is a
+      // pre-existing simplification, not a new gap.
+      if (targetTex) {
+        this._smudgeColorSide.set(targetTex, (pickupAmount > 0.001 && avgA > 0.02) ? [avgA, avgA, avgA] : oldColor)
       }
     }
   }
