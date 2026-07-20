@@ -496,6 +496,13 @@ const SMUDGE_SIZE_MULTIPLIER = 1.0
 // Fixed edge softness (DAB_FRAG/SMUDGE_FRAG's u_hardness) — smudge has no
 // per-grade preset the way pencil does to pull this from.
 const SMUDGE_HARDNESS = 0.5
+// SMUDGE_FRAG's own MAX_TRANSFER (currently 0.35) caps how much even a
+// dead-center, full-pressure/strength dab can move toward what it picked
+// up in one hop — no JS-side constant needed here since nothing on this
+// side reads it (GLSL can't import a JS constant either way); see that
+// shader's own doc comment for why the cap exists at all, and
+// testing/mockGL.ts's _rasterSmudge for the mirrored value the mock needs
+// to stay a faithful regression check.
 // Scratch-patch size rounding, in px — a smudge stroke normally keeps a
 // constant brush size, so rounding to a coarse grid here means every dab
 // after the first reuses the same pooled buffer instead of reallocating.
@@ -2365,7 +2372,7 @@ export class PencilEngine implements PencilEngineAPI {
     ])
     this._smudgeUni = getUniforms(gl, this._smudgeProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
-      'u_patch', 'u_hardness', 'u_pressure', 'u_opacity',
+      'u_patch', 'u_dest', 'u_hardness', 'u_pressure', 'u_opacity',
     ])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
@@ -3195,13 +3202,22 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** One smudge dab: copies a small patch of whatever's currently painted
-   *  *behind* `dab` (opposite its direction of travel from `prev`) into a
-   *  pooled scratch texture, then redeposits a fraction of it — shaped like
-   *  a soft dab — at `dab`'s own position. The "carry" effect (graphite
-   *  trailing along the stroke) falls entirely out of *where* the patch is
-   *  sampled from vs *where* it's redrawn; there's no separate persistent
-   *  "carried" state to thread between dabs (see SMUDGE_FRAG's own doc
-   *  comment for why that keeps a long stroke self-limiting for free).
+   *  *behind* `dab` (opposite its direction of travel from `prev`, "the
+   *  source") and a second patch of whatever's currently *at* `dab`'s own
+   *  position ("the destination"), then repaints the destination as a
+   *  per-fragment mix of the two — shaped like a soft dab, weighted toward
+   *  the source in proportion to pressure/opacity — rather than
+   *  compositing the source on top of it. The "carry" effect (graphite
+   *  trailing along the stroke) falls out of *where* the source patch is
+   *  sampled from vs *where* it's mixed in; there's no separate persistent
+   *  "carried" state to thread between dabs. Mixing (not additively
+   *  depositing) is what keeps this conservative: a destination can only
+   *  ever move *between* what it already had and what the source patch
+   *  carries, never past either, so no amount of dragging back and forth
+   *  over one small mark can make it paint more graphite than it started
+   *  with (see SMUDGE_FRAG's own doc comment for the full reasoning — this
+   *  replaced an earlier over-blend version that could, reported after
+   *  shipping, smudge a single thin line into filling the whole page).
    *
    *  v1 scope: skips the dab entirely (rather than clipping or attempting
    *  cross-tile compositing) whenever its source or destination patch
@@ -3248,15 +3264,47 @@ export class PencilEngine implements PencilEngineAPI {
     const destTile = destTargets[0]
 
     const { gl } = this
-    const patch = this._acquireSmudgeScratchBuf(patchSize)
     // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
     // (bottom-up) — same flip every other app-space/GL boundary in this
     // file applies (DAB_VERT's clip.y flip, pickColor) — see
     // copyRegionTo's own doc comment.
+    const srcPatch = this._acquireSmudgeScratchBuf(patchSize)
     const glSrcY = srcTile.buffer.height - srcLocalY - patchSize
-    srcTile.buffer.copyRegionTo(patch, srcLocalX, glSrcY, patchSize, patchSize)
+    srcTile.buffer.copyRegionTo(srcPatch, srcLocalX, glSrcY, patchSize, patchSize)
 
-    destTile.buffer.beginDraw()
+    // The destination's *own current* content, at this same patch size and
+    // 1:1 aligned with the dab quad below — SMUDGE_FRAG mixes toward
+    // srcPatch by a per-fragment weight rather than additively compositing
+    // it on top (see that shader's own doc comment for why: a plain "over"
+    // blend here made a smudge stroke an inexhaustible well — dragging
+    // back and forth over one small mark could paint unbounded graphite
+    // elsewhere, since picking a spot up never took anything away from it.
+    // A per-pixel mix(dest, picked, t) can only ever move a destination's
+    // value *between* what it already was and what's being picked up —
+    // never past either — so total "ink" can shift around but never
+    // manufacture itself out of nowhere; reported after shipping — a
+    // single thin line could be smudged into filling the whole page
+    // black). destLocalX/Y round the same way srcLocalX/Y already do, and
+    // for the exact same reason (copyTexImage2D needs integer bounds).
+    const destLocalX = Math.round(dab.x - radius - destTile.originX)
+    const destLocalY = Math.round(dab.y - radius - destTile.originY)
+    if (destLocalX < 0 || destLocalY < 0
+      || destLocalX + patchSize > destTile.buffer.width || destLocalY + patchSize > destTile.buffer.height) {
+      this._releaseSmudgeScratchBuf(srcPatch)
+      return
+    }
+    const destPatch = this._acquireSmudgeScratchBuf(patchSize)
+    const glDestY = destTile.buffer.height - destLocalY - patchSize
+    destTile.buffer.copyRegionTo(destPatch, destLocalX, glDestY, patchSize, patchSize)
+
+    // A straight overwrite, not the usual beginDraw()/beginErase() blend —
+    // SMUDGE_FRAG's own mix() against u_dest already *is* the blend against
+    // whatever's currently there, so GL blending must stay off (an
+    // additional over/erase blend on top would reintroduce exactly the
+    // non-conservative accumulation this design avoids).
+    gl.bindFramebuffer(gl.FRAMEBUFFER, destTile.buffer.fbo)
+    gl.viewport(0, 0, destTile.buffer.width, destTile.buffer.height)
+    gl.disable(gl.BLEND)
     gl.useProgram(this._smudgeProg)
     const u = this._smudgeUni
     gl.uniform2f(u.u_resolution, destTile.buffer.width, destTile.buffer.height)
@@ -3264,8 +3312,11 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_pressure, dab.pressure)
     gl.uniform1f(u.u_opacity, dab.opacity)
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, patch.texture)
+    gl.bindTexture(gl.TEXTURE_2D, srcPatch.texture)
     gl.uniform1i(u.u_patch, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, destPatch.texture)
+    gl.uniform1i(u.u_dest, 1)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     gl.enableVertexAttribArray(this._smudgePosLoc)
@@ -3277,8 +3328,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_aspectRatio, 1)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
-    destTile.buffer.endDraw()
-    this._releaseSmudgeScratchBuf(patch)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    this._releaseSmudgeScratchBuf(srcPatch)
+    this._releaseSmudgeScratchBuf(destPatch)
     target.markContentPainted({ minX: dab.x - radius, minY: dab.y - radius, maxX: dab.x + radius, maxY: dab.y + radius })
   }
 
