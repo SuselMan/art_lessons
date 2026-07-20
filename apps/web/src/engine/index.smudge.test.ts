@@ -1,16 +1,20 @@
 // Engine-level tests for the smudge tool (#14) — see SMUDGE_TRANSFER_FRAG's
-// own doc comment in shaders.ts, and _paintOneSmudgeDab's in index.ts, for
-// the algorithm this exercises: each dab exchanges graphite with a small
-// reservoir the tool itself carries (engine's this._smudgeToolLoad) at two
-// contacts — pick up (or top up) behind the dab, then lay some of the
-// reservoir back down at the dab's own position — rather than copying a
-// patch of pixels directly from one spot to another. These tests predate
-// that redesign and were kept passing unchanged through it: the properties
-// they check (nothing on the very first dab, no-op on an empty layer, no
-// spontaneous color, determinism, fading over a long drag, no growth beyond
-// where the tool actually reached) are still exactly what a believable
-// blending-stump tool should guarantee, regardless of which algorithm
-// underneath provides them.
+// own doc comment in shaders.ts, and _paintOneSmudgeDab's/_smudgeContact's in
+// index.ts, for the algorithm this exercises: each dab exchanges graphite
+// with a per-user reservoir (engine's this._smudgeUserLoad, keyed by userId)
+// at three contacts along its own footprint (rear/center/front) — pick up
+// (or top up) behind the dab, work the material in place at the dab's own
+// center (plus press some into the paper under pressure), then lay more of
+// the reservoir down ahead — rather than copying a patch of pixels directly
+// from one spot to another. The reservoir now also persists across separate
+// strokes by the same user (see StrokeOperation.smudgeLoadAtStart/End in
+// packages/shared), instead of resetting to empty at every stroke start.
+// Most of these tests predate all of that and were kept passing unchanged
+// through each redesign: the properties they check (nothing on the very
+// first dab, no-op on an empty layer, no spontaneous color, determinism,
+// fading over a long drag, no growth beyond where the tool actually reached)
+// are still exactly what a believable blending-stump tool should guarantee,
+// regardless of which algorithm underneath provides them.
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -220,5 +224,68 @@ describe('smudge tool (#14)', () => {
     // fix in place, vs ~255->126 (49%) without it (same geometry) — 65% is
     // a safety margin under the real number, not the target itself.
     expect(after).toBeGreaterThan(before * 0.65)
+  })
+
+  // Regression coverage for #14 round 3: the reservoir now persists across
+  // separate strokes by the same user (see StrokeOperation.smudgeLoadAtStart)
+  // instead of resetting to empty every time, and it's keyed per-user so two
+  // people smudging at once in the same room can't corrupt each other's tool.
+  describe('reservoir persistence and per-user isolation (#14 round 3)', () => {
+    it('a recorded smudgeLoadAtStart seeds the reservoir instead of starting empty', () => {
+      const engine = setupLayer()
+      const targetX = 40, targetY = 32
+      expect(alphaAt(readLayerPixels(engine, 'L')!, 64, targetX, targetY)).toBe(0)
+
+      // No disc to pick up from at all here — a fresh (0-start) reservoir
+      // would have nothing to deposit. A pre-loaded one (as if this user's
+      // tool was already carrying graphite from earlier, unrelated work)
+      // should deposit right away on its very first dab.
+      const dabs = [dab(36, 32, { size: 16, pressure: 1, opacity: 1 }), dab(targetX, 32, { size: 16, pressure: 1, opacity: 1 })]
+      engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'smudge', smudgeLoadAtStart: 0.9 }))
+
+      expect(alphaAt(readLayerPixels(engine, 'L')!, 64, targetX, targetY)).toBeGreaterThan(0)
+    })
+
+    it('two different users smudging do not corrupt each other\'s reservoir', () => {
+      const engine = setupLayer(120, 60)
+      engine.appendOperation(fillStroke('user-a', 'L', 20, 30, 15))
+      engine.appendOperation(fillStroke('user-b', 'L', 100, 30, 15))
+
+      const dabsA1 = [dab(20, 30, { size: 16, pressure: 1, opacity: 1 }), dab(30, 30, { size: 16, pressure: 1, opacity: 1 })]
+      engine.appendOperation(makeStroke('user-a', 'L', dabsA1, { tool: 'smudge' }))
+      const afterA1 = readLayerPixels(engine, 'L')!
+
+      // User B smudges their own, unrelated disc in between — must not
+      // observably change anything about user A's own area, and must not
+      // itself behave as if it inherited user A's in-progress reservoir.
+      const dabsB = [dab(100, 30, { size: 16, pressure: 1, opacity: 1 }), dab(90, 30, { size: 16, pressure: 1, opacity: 1 })]
+      engine.appendOperation(makeStroke('user-b', 'L', dabsB, { tool: 'smudge' }))
+      const afterB = readLayerPixels(engine, 'L')!
+      // User A's side of the canvas (x < 60) is untouched by user B's stroke.
+      for (let x = 0; x < 60; x += 5) {
+        expect(afterB[(30 * 120 + x) * 4 + 3]).toBe(afterA1[(30 * 120 + x) * 4 + 3])
+      }
+
+      // User A continues their own stroke as a separate op (same user,
+      // fresh op) — comparing against a from-scratch engine that runs
+      // user A's *combined* dab sequence as one uninterrupted stroke (never
+      // touched by user B at all) checks that B's interleaved stroke left
+      // A's own reservoir exactly where A's own dabs left it, unaffected.
+      const dabsA2 = [dab(30, 30, { size: 16, pressure: 1, opacity: 1 }), dab(40, 30, { size: 16, pressure: 1, opacity: 1 })]
+      engine.appendOperation(makeStroke('user-a', 'L', dabsA2, { tool: 'smudge' }))
+
+      const reference = setupLayer(120, 60)
+      reference.appendOperation(fillStroke('user-a', 'L', 20, 30, 15))
+      reference.appendOperation(makeStroke('user-a', 'L', dabsA1, { tool: 'smudge' }))
+      reference.appendOperation(makeStroke('user-a', 'L', dabsA2, { tool: 'smudge' }))
+
+      // Only compare user A's own side — the reference engine never painted
+      // user B's disc at all.
+      const withB = readLayerPixels(engine, 'L')!
+      const withoutB = readLayerPixels(reference, 'L')!
+      for (let x = 0; x < 60; x += 5) {
+        expect(withB[(30 * 120 + x) * 4 + 3]).toBe(withoutB[(30 * 120 + x) * 4 + 3])
+      }
+    })
   })
 })

@@ -355,20 +355,20 @@ export const DAB_FRAG = `
   }
 `;
 
-// Растушёвка/smudge (#14, reworked): models the tool as carrying its own
-// small graphite reservoir (engine/index.ts's this._smudgeToolLoad) that
-// exchanges with the paper at two separate contact points per dab — see
-// _paintOneSmudgeDab's own doc comment for the full two-step exchange this
-// shader is one half of (the other half is a plain JS scalar, no shader
-// involved). This one shader paints EITHER step, picked per draw call by
+// Растушёвка/smudge (#14, reworked twice — see engine/index.ts's
+// SMUDGE_REAR_RATE comment for the "three contacts" round): models the tool
+// as carrying its own small graphite reservoir (engine/index.ts's
+// this._smudgeToolLoad) that exchanges with the paper at three separate
+// contact points per dab (rear/center/front — see _paintOneSmudgeDab) — see
+// that method's own doc comment for the full exchange this shader is one
+// half of (the other half is a plain JS scalar, no shader involved). This
+// one shader paints ONE contact's ONE direction, picked per draw call by
 // u_mode:
-//   - pickup (u_mode 0): the tool is drier than the paper at the *source*
-//     contact (behind the dab) — lift some graphite off the paper there.
-//     Rendered with AccumulationBuffer.beginErase()'s (ZERO, ONE_MINUS_SRC_
-//     ALPHA) blend, same as a real eraser dab.
-//   - deposit (u_mode 1): the tool is wetter than the paper at a contact
-//     point (usually the *destination*, dab.x/y — but also used back at the
-//     source when the exchange runs the other way, see _paintOneSmudgeDab)
+//   - pickup (u_mode 0): the tool is drier than the paper at this contact —
+//     lift some graphite off the paper there. Rendered with
+//     AccumulationBuffer.beginErase()'s (ZERO, ONE_MINUS_SRC_ALPHA) blend,
+//     same as a real eraser dab.
+//   - deposit (u_mode 1): the tool is wetter than the paper at this contact
 //     — lay some carried graphite down. Rendered with beginDraw()'s (ONE,
 //     ONE_MINUS_SRC_ALPHA) "over" blend, same as a real pencil dab — this is
 //     what makes densely-overlapping smudge dabs blend into a continuous
@@ -377,10 +377,10 @@ export const DAB_FRAG = `
 //     the way "over" does).
 //
 // u_amount is a single JS-computed scalar per draw call (already folding in
-// pressure, the configured transfer/deposit rate, and how much the tool's
-// own reservoir differed from the paper) — this shader only ever spends it
-// through the *same* per-fragment shape/paperCatch weighting DAB_FRAG's own
-// pencil dabs use.
+// pressure, this contact's own rate, and how much the tool's own reservoir
+// differed from the paper there) — this shader only ever spends it through
+// the *same* per-fragment shape/paperCatch weighting DAB_FRAG's own pencil
+// dabs use.
 //
 // paperCatch as a plain multiplier on *pickup* turned out not to be enough
 // of a floor by itself: it only slows how fast a spot empties, it doesn't
@@ -404,6 +404,16 @@ export const DAB_FRAG = `
 // paperCatch (no floor) — the "can't remove everything" problem is specific
 // to *removal*, laying graphite into a paper's low spots is already exactly
 // what pencil's own effectiveCatch/fill mechanism handles.
+//
+// u_embed (center contact only, see engine/index.ts's SMUDGE_CENTER_RATE):
+// on a deposit, swaps plain paperCatch for the exact same effectiveCatch
+// DAB_FRAG's own pencil branch computes from u_pressure/u_paperFillThreshold/
+// u_paperFillCap — real fingertip pressure doesn't just leave graphite on
+// top of the paper's surface, it also presses some of it into the paper's
+// own low spots, the same "crushing the tooth flat" pencil dabs already
+// model under enough pressure. Rear/front stay on plain paperCatch (no
+// embedding) — they're doing transport, not working material into the
+// sheet.
 export const SMUDGE_TRANSFER_FRAG = `
   precision highp float;
 
@@ -417,6 +427,12 @@ export const SMUDGE_TRANSFER_FRAG = `
   uniform vec3 u_color;   // carried graphite color, used only when u_mode==1 (see this._smudgeCarriedColor)
   // Pickup-only floor on paperCatch — see this file's own comment above.
   uniform float u_pickupFloor;
+  // Embedding (center contact's own deposit only) — see this file's own
+  // u_embed comment above.
+  uniform float u_embed;
+  uniform float u_pressure;
+  uniform float u_paperFillThreshold;
+  uniform float u_paperFillCap;
 
   varying vec2 v_localUV;
 
@@ -439,7 +455,19 @@ export const SMUDGE_TRANSFER_FRAG = `
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
 
     if (u_mode > 0.5) {
-      float amount = clamp(u_amount * shape * paperCatch, 0.0, 1.0);
+      // Embedding (center contact only, u_embed==1 — see this file's own
+      // comment above): swap plain paperCatch for the same effectiveCatch
+      // DAB_FRAG's own pencil branch computes — pressing graphite into the
+      // paper's own low spots, not just leaving it on the surface. Mirrors
+      // DAB_FRAG's fill/effectiveCatch math exactly (mix(paperCatch, 1.0,
+      // fill), fill = smoothstep(threshold,1,pressure)*cap) so the same
+      // live-tunable pencil knobs (setPaperFillThreshold/Cap) govern both.
+      float depositCatch = paperCatch;
+      if (u_embed > 0.5) {
+        float fill = smoothstep(u_paperFillThreshold, 1.0, u_pressure) * u_paperFillCap;
+        depositCatch = mix(paperCatch, 1.0, fill);
+      }
+      float amount = clamp(u_amount * shape * depositCatch, 0.0, 1.0);
       // Deposit: premultiplied "over" output, matches DAB_FRAG's own pencil
       // branch exactly (gl_FragColor = vec4(color*deposit, deposit)) so
       // dense overlapping smudge dabs blend the same way overlapping pencil

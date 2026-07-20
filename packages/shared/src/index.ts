@@ -133,6 +133,17 @@ export type StrokeOperation = OperationBase & {
   preset: string        // 'HB', '2B' etc — for pencil
   color: [number, number, number] // baked at record time, so replay/undo never repaints with today's live color
   dabs: Dab[]
+  // Smudge only (#14): this user's own carried-graphite reservoir level
+  // (0..1) immediately before/after this op's own dabs, baked at record
+  // time for the same reason `color` is — replay/a remote client applying
+  // this op must reproduce the exact same pickup/deposit amounts the
+  // originating client's engine computed, and that depends on reservoir
+  // state that lives *outside* any single dab (see engine/index.ts's
+  // _smudgeUserLoad). Absent for every other tool, and for legacy strokes
+  // recorded before this field existed (treated as 0 — an empty reservoir,
+  // the same default a brand-new user's tool would have).
+  smudgeLoadAtStart?: number
+  smudgeLoadAtEnd?: number
 }
 
 /** Inserts a new raster layer at the top of rootOrder. */
