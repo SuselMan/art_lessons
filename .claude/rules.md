@@ -5,6 +5,7 @@
 - Discuss architecture before implementing non-trivial features.
 - Do not add dependencies without a clear reason.
 - Do not switch frameworks or major libraries without explicit approval.
+- **Pre-production bias: prefer the best solution over the fast/safe one.** Until this product has live users in production, correctness/quality of the underlying approach beats shipping speed or minimizing churn — there's no user-facing risk yet to a bigger rewrite, and no deadline being missed by doing it right now instead of patching around it. Don't reach for a quick mitigation (a tuning knob, a partial fix, a workaround) when the actual best-known solution is identifiable and buildable now, even if it's a bigger lift — e.g. prefer a real architectural fix (a GPU-side pipeline instead of a CPU readback) over a partial one (cutting readback count) when the real fix is known and the partial one was only reached for under time pressure. This flips once real users depend on production — then the usual stability/blast-radius caution applies.
 
 ## Code style
 
