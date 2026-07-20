@@ -558,33 +558,48 @@ const SMUDGE_FRONT_OFFSET_FACTOR = 0.5
 // the same "one hop nearly replaces everything" failure mode the old
 // MAX_TRANSFER constant guarded against.
 //
-// Also, separately, what bounds how hard the very first few dabs of *every*
-// stroke can bite: this._smudgeToolLoad always starts empty at stroke start
-// (see that field's own comment on why it can't just persist across
-// strokes — determinism under #149's snapshot-based rejoin needs it reset
-// somewhere cheap and predictable), so a fresh stroke's first dab or two
-// always sees a large paper-vs-reservoir difference regardless of context.
-// Reported after the first round of this redesign shipped: working a
-// blending stump back and forth *within* one already-solid, heavily-pressed
-// area still visibly lightened it — because pickup at the source contact is
-// a plain proportional reduction with no equivalent to deposit's natural
-// ceiling (an "over" blend onto already-near-opaque content is close to a
-// no-op, but erasing from it is not), so every fresh stroke's own ramp-up
-// phase erodes a real, visible amount at its own early source contacts
-// before the reservoir catches up — even though the eventual redeposit
-// mostly can't show up against content that dark already. Lowering this
-// (was 0.3) spreads that same ramp-up over more dabs/more stroke distance,
-// so each individual erosion event is small enough not to read as "the area
-// visibly lightened" during normal use, without changing the asymptotic
-// paperCatch-floor behavior (see SMUDGE_PICKUP_FLOOR) at all.
-const SMUDGE_MAX_STEP = 0.08
+// Also, separately, what bounds how hard the first few dabs of a *genuinely
+// fresh* reservoir (a user's very first-ever smudge touch, or a legacy
+// stroke recorded before smudgeLoadAtStart existed) can bite: round 1 found
+// that working a blending stump back and forth *within* one already-solid,
+// heavily-pressed area still visibly lightened it, because pickup at a
+// contact is a plain proportional reduction with no equivalent to deposit's
+// natural ceiling (an "over" blend onto already-near-opaque content is
+// close to a no-op, but erasing from it is not) — a fresh reservoir's own
+// ramp-up phase eroded a real, visible amount before it caught up, even
+// though the eventual redeposit mostly couldn't show up against content
+// that dark already.
+//
+// That first fix lowered this from 0.3 to 0.08, which also turned out to
+// quietly cap how strong smudging could ever feel: rate*pressure*opacity
+// (up to ~0.6 at full Strength) almost always exceeded 0.08 once there was
+// any real paper-vs-reservoir difference to work with, so this constant —
+// not the Strength slider — was the actual ceiling on every dab regardless
+// of setting (reported: "even at 100% it feels weak"). Round 3's other
+// fixes (three contacts sharing one exchange formula, headroom-aware
+// deposit accounting, a per-user reservoir that persists across strokes
+// instead of ramping up from empty every time) already address the
+// original round-1 bug through different, sturdier mechanisms than a tiny
+// cap ever did, so this can afford to be far less conservative now — the
+// "fresh reservoir bites too hard" case is also just much rarer post-
+// persistence (a user's very first touch, not every single stroke).
+const SMUDGE_MAX_STEP = 0.75
 // paperCatch floor below which SMUDGE_TRANSFER_FRAG's pickup branch
 // contributes ~zero, regardless of pressure/rate or how many separate
 // strokes have already worked the spot — see that shader's own comment for
 // why a plain per-dab rate penalty (paperCatch as a multiplier) still let a
 // mark be smudged into full invisibility given enough repeated strokes, and
 // why a real per-pixel ceiling was needed instead.
-const SMUDGE_PICKUP_FLOOR = 0.4
+//
+// Lowered from 0.4 (reported smudging still felt weak even at max Strength
+// and a raised SMUDGE_MAX_STEP): 0.4 meant a sizeable share of the paper's
+// own texture — everywhere its paperCatch sits below that — never gave up
+// any graphite at all, on top of every other rate limit. The floor's own
+// job (a spot's paper grain can leave *some* of it permanently unreachable
+// — see SMUDGE_PICKUP_FLOOR's file-level comment above) is still intact at
+// a lower value, just covering a narrower share of the paper's own texture
+// (its deepest valleys, not its whole lower half).
+const SMUDGE_PICKUP_FLOOR = 0.25
 
 function clampNum(x: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, x))
