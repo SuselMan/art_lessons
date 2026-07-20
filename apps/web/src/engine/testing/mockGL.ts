@@ -181,7 +181,7 @@ export class MockGL {
 
   private _tagFragShader(source: string): MockProgram['fragTag'] {
     if (source.includes('u_eraseMode')) return 'dab'
-    if (source.includes('u_patch')) return 'smudge'
+    if (source.includes('u_amount') && source.includes('u_mode')) return 'smudge'
     if (source.includes('u_layer')) return 'composite'
     if (source.includes('u_accumulation')) return 'display'
     if (source.includes('u_warp')) return 'papergen'
@@ -609,32 +609,32 @@ export class MockGL {
     }
   }
 
-  // Mirrors SMUDGE_FRAG (#14) — circular-only (angle=0, aspectRatio=1 always
-  // for a smudge dab, see _paintOneSmudgeDab), so this skips _rasterDab's
-  // rotation/aspect math entirely and computes (uvx,uvy) the same way that
-  // reduces to. u_patch/u_dest's textures were populated by this mock's own
-  // (now sub-rect-aware) copyTexImage2D, in the same top-down `data`
-  // convention every other texture here uses — so their UV maps to a patch
-  // pixel with no extra flip, same reasoning as every other direct `data`
-  // index in this file. Writes mix(destBefore, picked, t) directly — no
-  // _blendSrcFactor() involved, since the real draw this mirrors runs with
-  // GL blending disabled (see _paintOneSmudgeDab's own doc comment on why:
-  // the mix against u_dest already *is* the blend against what's there).
+  // Mirrors SMUDGE_TRANSFER_FRAG (#14 round 2) — circular-only (angle=0,
+  // aspectRatio=1 always for a smudge dab, see _paintOneSmudgeDab), so this
+  // skips _rasterDab's rotation/aspect math entirely. Real GL blending is on
+  // for both pickup and deposit draw calls now (_drawSmudgeTransferDab calls
+  // beginErase()/beginDraw(), same as a real eraser/pencil dab) — unlike the
+  // old patch-mix version this replaced, which bypassed GL blending and
+  // wrote mix() directly. u_mode itself doesn't need to be read here: which
+  // mode was drawn is already fully captured by the blend state
+  // _blendSrcFactor() reads (ZERO for pickup/erase-style, ONE for
+  // deposit/over-style) — same unification _rasterDab's own erase/pencil
+  // branches collapse to via `sf`.
+  //
+  // No paperCatch weighting here — this mock doesn't replicate paper-
+  // texture shading at all (see the module's own scope-cut doc comment at
+  // the top of this file), so every dab behaves as if paperCatch were a
+  // flat 1.0. The paper-grain "floor" this redesign relies on (see
+  // SMUDGE_TRANSFER_FRAG's own doc comment) is real-browser-only; nothing
+  // in this test suite asserts on it.
   private _rasterSmudge(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
     const { width, height, data } = info
     const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]
     const dabRadius = (uniforms.get('u_dabRadius') as number) ?? 1
     const hardness = (uniforms.get('u_hardness') as number) ?? 0.5
-    const pressure = (uniforms.get('u_pressure') as number) ?? 1
-    const opacity = (uniforms.get('u_opacity') as number) ?? 1
-    const patchUnit = (uniforms.get('u_patch') as number) ?? 0
-    const destUnit = (uniforms.get('u_dest') as number) ?? 1
-    const patchTex = this._textureUnits[patchUnit] ?? null
-    const destTex = this._textureUnits[destUnit] ?? null
-    const patch = patchTex ? this._textureData.get(patchTex) : undefined
-    const dest = destTex ? this._textureData.get(destTex) : undefined
+    const amount = (uniforms.get('u_amount') as number) ?? 0
     const innerEdge = hardness * 0.85
-    if (!patch || !dest) return // nothing bound — a real GL context would sample garbage/black; treat as no-op here
+    const sf = this._blendSrcFactor()
 
     const pad = dabRadius * 2.5 + 2
     const minX = Math.max(0, Math.floor(cx - pad))
@@ -652,22 +652,9 @@ export class MockGL {
         let shape = 1 - smoothstep(innerEdge, 1, dist)
         shape *= 1 - Math.exp(-8 * (1 - dist))
 
-        const u = clamp(uvx * 0.5 + 0.5, 0, 1)
-        const v = clamp(uvy * 0.5 + 0.5, 0, 1)
-        const patchPx = Math.min(patch.width - 1, Math.floor(u * patch.width))
-        const patchPy = Math.min(patch.height - 1, Math.floor(v * patch.height))
-        const picked = patch.data[patchPy * patch.width + patchPx] ?? 0
-        const destPx = Math.min(dest.width - 1, Math.floor(u * dest.width))
-        const destPy = Math.min(dest.height - 1, Math.floor(v * dest.height))
-        const destBefore = dest.data[destPy * dest.width + destPx] ?? 0
-
-        // MAX_TRANSFER: kept in sync by hand with the identical literal in
-        // SMUDGE_FRAG (shaders.ts) — see that shader's own doc comment for
-        // why a real GPU draw needs this cap.
-        const MAX_TRANSFER = 0.35
-        const t = clamp(shape * pressure * opacity, 0, 1) * MAX_TRANSFER
+        const transfer = clamp(amount * shape, 0, 1)
         const idx = py * width + px
-        data[idx] = destBefore * (1 - t) + picked * t
+        data[idx] = transfer * sf + data[idx] * (1 - transfer)
       }
     }
   }

@@ -355,48 +355,68 @@ export const DAB_FRAG = `
   }
 `;
 
-// Растушёвка/smudge (#14): redistributes graphite already on the layer
-// instead of depositing new color — the tool's whole point is a blending-
-// stump feel for academic shading, not a Photoshop-style liquify. Paired
-// with the existing DAB_VERT (unmodified — same quad-at-a-dab-center
-// geometry/radial falloff every pencil dab already uses), never
-// DAB_VERT_INSTANCED: unlike pencil/eraser dabs, which are independent of
-// each other and safely batchable, each smudge dab's own *input* (both
-// samplers below) depends on the *output* of the dab before it — see
-// engine/index.ts's _paintOneSmudgeDab for why that forces one draw call
-// (plus two copyRegionTo calls) per dab, no instancing.
+// Растушёвка/smudge (#14, reworked): models the tool as carrying its own
+// small graphite reservoir (engine/index.ts's this._smudgeToolLoad) that
+// exchanges with the paper at two separate contact points per dab — see
+// _paintOneSmudgeDab's own doc comment for the full two-step exchange this
+// shader is one half of (the other half is a plain JS scalar, no shader
+// involved). This one shader paints EITHER step, picked per draw call by
+// u_mode:
+//   - pickup (u_mode 0): the tool is drier than the paper at the *source*
+//     contact (behind the dab) — lift some graphite off the paper there.
+//     Rendered with AccumulationBuffer.beginErase()'s (ZERO, ONE_MINUS_SRC_
+//     ALPHA) blend, same as a real eraser dab.
+//   - deposit (u_mode 1): the tool is wetter than the paper at a contact
+//     point (usually the *destination*, dab.x/y — but also used back at the
+//     source when the exchange runs the other way, see _paintOneSmudgeDab)
+//     — lay some carried graphite down. Rendered with beginDraw()'s (ONE,
+//     ONE_MINUS_SRC_ALPHA) "over" blend, same as a real pencil dab — this is
+//     what makes densely-overlapping smudge dabs blend into a continuous
+//     stroke instead of a chain of visible circles the way the old mix()-
+//     based version did (mix() doesn't accumulate across overlapping dabs
+//     the way "over" does).
 //
-// u_patch/u_dest are small scratch textures engine/index.ts already
-// populated via AccumulationBuffer.copyRegionTo, sampled NEAREST (see that
-// buffer's own 'nearest' filter comment for why — bilinear here would
-// reintroduce exactly the cross-GPU precision risk paper grain already got
-// burned by). Both are already premultiplied (copied straight from a real
-// tile, and every tile writer — DAB_FRAG included — always outputs
-// premultiplied color).
+// u_amount is a single JS-computed scalar per draw call (already folding in
+// pressure, the configured transfer/deposit rate, and how much the tool's
+// own reservoir differed from the paper) — this shader only ever spends it
+// through the *same* per-fragment shape/paperCatch weighting DAB_FRAG's own
+// pencil dabs use.
 //
-// This mixes the destination *toward* the source patch, rather than
-// compositing the source on top of it (a first version did exactly that —
-// shipped, then reported: repeatedly dragging back and forth over one
-// small mark could paint arbitrarily much graphite elsewhere, since
-// depositing more on top of a destination never took anything away from
-// wherever it was picked up — an inexhaustible source). mix()'s result
-// always lies *between* its two inputs, so a destination pixel can only
-// ever move toward what the source patch currently carries, never past
-// it — no per-dab compositing sequence can manufacture more graphite than
-// already existed somewhere on the canvas, regardless of how many times
-// the same area is revisited. This is also what keeps a stroke
-// self-limiting when it runs off the edge of a mark: dragging into
-// untouched paper means u_patch samples ever-more-transparent content, so
-// mixing toward it can only ever fade the destination out, never brighten
-// it back up on its own.
-export const SMUDGE_FRAG = `
+// paperCatch as a plain multiplier on *pickup* turned out not to be enough
+// of a floor by itself: it only slows how fast a spot empties, it doesn't
+// stop it — this._smudgeToolLoad resets to empty at the start of every
+// stroke (see that field's own comment), so a *fresh* stroke dragged across
+// an already-heavily-smudged spot still finds a nonzero difference and
+// dutifully picks more of it up, however slowly. Given enough separate
+// strokes (not even that many), the whole spot still asymptotes toward
+// fully clear — reported after the first round of this redesign shipped: a
+// real pencil's dark areas barely lighten under a real blending stump, but
+// this tool could still smudge a mark into invisibility.
+// u_pickupFloor turns that per-dab *rate* penalty into a per-pixel *ceiling*
+// specifically for pickup: paperCatch below the floor contributes ~zero
+// pickup no matter how many times or how hard the spot is worked (smoothstep,
+// not a hard cliff, so the cutoff itself isn't a visible edge in the
+// paper's own grain). Since paperCatch varies texel-to-texel with the
+// paper's own grain, this leaves a fixed, position-locked *pattern* of
+// never-fully-erasable texels behind a heavily-smudged area, rather than a
+// spot fading to nothing — closer to how a real page's tooth keeps a faint
+// trace of a mark no amount of blending fully lifts. Deposit keeps plain
+// paperCatch (no floor) — the "can't remove everything" problem is specific
+// to *removal*, laying graphite into a paper's low spots is already exactly
+// what pencil's own effectiveCatch/fill mechanism handles.
+export const SMUDGE_TRANSFER_FRAG = `
   precision highp float;
 
-  uniform sampler2D u_patch; // sampled from behind the dab (see _paintOneSmudgeDab)
-  uniform sampler2D u_dest;  // the destination's own content, before this dab
+  uniform sampler2D u_paperHeightMap;
+  uniform vec2 u_paperScale;
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
   uniform float u_hardness;
-  uniform float u_pressure;
-  uniform float u_opacity; // per-dab "strength" — see _bakeDabOpacity's smudge branch
+  uniform float u_amount; // JS-computed transfer strength for this contact, 0..1-ish before shape/catch weighting
+  uniform float u_mode;   // 0 = pickup (erase-style), 1 = deposit (over-style) — see file comment above
+  uniform vec3 u_color;   // carried graphite color, used only when u_mode==1 (see this._smudgeCarriedColor)
+  // Pickup-only floor on paperCatch — see this file's own comment above.
+  uniform float u_pickupFloor;
 
   varying vec2 v_localUV;
 
@@ -412,41 +432,29 @@ export const SMUDGE_FRAG = `
     float shape = 1.0 - smoothstep(innerEdge, 1.0, dist);
     shape *= 1.0 - exp(-8.0 * (1.0 - dist));
 
-    // Both patches were copied 1:1 (same pixel grid, no scale/rotate) —
-    // u_patch from a world position *behind* this dab, u_dest from exactly
-    // *this* dab's own position — so sampling both at this fragment's own
-    // local position compares "what's upstream along the stroke" against
-    // "what's already sitting right here".
-    vec2 uv = v_localUV * 0.5 + 0.5;
-    vec4 picked = texture2D(u_patch, uv);
-    vec4 destBefore = texture2D(u_dest, uv);
+    // Same world-space paper sampling DAB_FRAG uses (see its own #141
+    // comment) — two dabs at the same true world position must sample the
+    // same paper texel regardless of which tile either lands in.
+    vec2 paperUV = (gl_FragCoord.xy + u_paperOrigin) / u_paperTexSize * u_paperScale;
+    float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
 
-    // How far this fragment moves from destBefore toward picked — not a
-    // deposit amount, a mix weight (see the file-level doc comment above
-    // for why that distinction is what makes this conservative). Written
-    // with GL blending disabled (see _paintOneSmudgeDab) — this *is* the
-    // blend against whatever's currently there, done once, per-fragment,
-    // in the shader instead of the fixed-function blend stage.
-    //
-    // MAX_TRANSFER caps how much even a dead-center, full-pressure/strength
-    // dab can move in one hop — kept in sync by hand with the identical
-    // 0.35 literal in testing/mockGL.ts's _rasterSmudge (GLSL can't import
-    // a JS constant, and nothing on the JS side of this file needs the
-    // value either, so there's no single shared source of truth to import
-    // from). Without this, shape alone still reaches ~1.0 right at a dab's
-    // own center, so mixing at *that* point
-    // is nearly a hard replace rather than a blend — and since consecutive
-    // dabs along a stroke land close enough to each other's centers to
-    // each replace what the last one just set, a long enough drag barely
-    // decayed at all despite being conservative in the aggregate (the bug
-    // #14's mix-based fix was meant to close, still reproducible without
-    // this cap — see index.smudge.test.ts's conservation tests). Capping
-    // well under 1.0 forces genuine, compounding dilution every hop
-    // (t^n shrinks fast for t<=0.35) regardless of how tightly consecutive
-    // dabs happen to line up.
-    const float MAX_TRANSFER = 0.35;
-    float t = clamp(shape * u_pressure * u_opacity, 0.0, 1.0) * MAX_TRANSFER;
-    gl_FragColor = mix(destBefore, picked, t);
+    if (u_mode > 0.5) {
+      float amount = clamp(u_amount * shape * paperCatch, 0.0, 1.0);
+      // Deposit: premultiplied "over" output, matches DAB_FRAG's own pencil
+      // branch exactly (gl_FragColor = vec4(color*deposit, deposit)) so
+      // dense overlapping smudge dabs blend the same way overlapping pencil
+      // dabs already do.
+      gl_FragColor = vec4(u_color * amount, amount);
+    } else {
+      // Pickup: erase-style output, matches DAB_FRAG's own eraser branch —
+      // only the alpha channel is read under the (ZERO, ONE_MINUS_SRC_ALPHA)
+      // blend beginErase() sets up. pickupWeight (not plain paperCatch) is
+      // what turns this into a real per-pixel ceiling — see this file's own
+      // comment above u_pickupFloor.
+      float pickupWeight = smoothstep(u_pickupFloor, u_pickupFloor + 0.3, paperCatch);
+      float amount = clamp(u_amount * shape * pickupWeight, 0.0, 1.0);
+      gl_FragColor = vec4(0.0, 0.0, 0.0, amount);
+    }
   }
 `;
 
