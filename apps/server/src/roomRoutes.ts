@@ -39,4 +39,22 @@ export function registerRoomRoutes(app: FastifyInstance): void {
     await prisma.room.delete({ where: { id: room.id } })
     return { ok: true }
   })
+
+  // (#213) Lets a non-owner participant remove themselves from a room —
+  // unlike the owner-only DELETE above, this only drops the caller's own
+  // `RoomParticipant` row. `Room` and every other participant's data (and
+  // that participant's own Operations) are untouched.
+  app.delete<{ Params: { id: string } }>('/api/rooms/:id/participation', async (request, reply) => {
+    const room = await prisma.room.findUnique({ where: { id: request.params.id } })
+    if (!room) return reply.code(404).send({ error: 'not_found' })
+    if (room.ownerId === request.userId) return reply.code(403).send({ error: 'owner_cannot_leave' })
+
+    const participant = await prisma.roomParticipant.findUnique({
+      where: { roomId_userId: { roomId: room.id, userId: request.userId } },
+    })
+    if (!participant) return reply.code(404).send({ error: 'not_found' })
+
+    await prisma.roomParticipant.delete({ where: { id: participant.id } })
+    return { ok: true }
+  })
 }
