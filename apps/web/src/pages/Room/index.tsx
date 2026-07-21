@@ -46,7 +46,7 @@ import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import { TOOL_SCHEMAS, loadToolSettings, saveToolSettings } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
-import { createSnapshotUploader } from './snapshotSync'
+import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
@@ -859,10 +859,20 @@ export function Room() {
     }
 
     return () => {
-      engine.destroy()
       engineRef.current = null
       pencilSoundRef.current?.destroy()
       pencilSoundRef.current = null
+      // (#211 epic follow-up) Best-effort final thumbnail bake on room exit —
+      // see uploadThumbnail's doc comment in snapshotSync.ts for why this
+      // needs to exist alongside the seq-boundary trigger. `engine` (this
+      // closure's local, not engineRef.current — already nulled above) stays
+      // alive until the export settles; destroy() only runs after, so
+      // exportPNG never reads from a torn-down GL context.
+      if (id) {
+        void uploadThumbnail(id, engine).finally(() => engine.destroy())
+      } else {
+        engine.destroy()
+      }
     }
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,

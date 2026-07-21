@@ -60,31 +60,12 @@
   background: var(--color-surface-2);
 }
 
+/* Just the width/spacing wrapper — TextInput (#211 feedback) owns its own
+   visual styling (border, background, focus state). */
 .searchRow {
   width: 100%;
-  max-width: 860px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--touch-target-sm);
-  padding: 0 12px;
+  max-width: 320px;
   margin-bottom: 16px;
-  color: var(--color-text-dim);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-
-.searchInput {
-  flex: 1;
-  min-height: var(--touch-target-sm);
-  font-size: 13px;
-  color: var(--color-text-bright);
-  background: transparent;
-}
-
-.searchInput::placeholder {
-  color: var(--color-text-dim);
 }
 
 .breadcrumbs {
@@ -273,6 +254,26 @@
   background: var(--color-surface-2);
 }
 
+/* (#211 feedback) Shown instead of .cardThumbnail for a room that hasn't
+   been baked one yet (see snapshotSync.ts's uploadThumbnail — every room
+   now gets one attempt on exit, but a brand-new room can still be viewed
+   before that first exit happens) — same footprint/position as the real
+   thumbnail so the card doesn't jump once one arrives. */
+.cardThumbnailPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% + 32px);
+  margin: -16px -16px 0;
+  aspect-ratio: 4 / 3;
+  background: #f3f3f3;
+  color: #b0b0b0;
+}
+
+.cardThumbnailPlaceholder .material-symbols-outlined {
+  font-size: 32px;
+}
+
 .cardName {
   font-size: 15px;
   font-weight: 600;
@@ -287,15 +288,17 @@
   color: var(--color-text-dim);
 }
 
+/* (#211 feedback) Icon-above-name layout, matching a typical folder tile
+   (Finder/Explorer-style) rather than the old inline icon+name row — and
+   `position: relative` so .cardMenuOverlay (shared with RoomCard) can anchor
+   to this card's own corner, keeping the ⋮ in the same spot on both kinds
+   of card. */
 .folderCard {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-height: var(--touch-target-sm);
-  padding: 6px 8px 6px 16px;
+  position: relative;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  overflow: hidden;
 }
 
 /* (#217) A room/another folder is being dragged over this folder — dropping
@@ -323,13 +326,15 @@
 
 .folderOpenButton {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-height: var(--touch-target-sm);
-  min-width: 0;
-  text-align: left;
-  border-radius: var(--radius-sm);
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 128px;
+  padding: 20px 12px;
+  text-align: center;
   transition: background var(--duration-fast);
 }
 
@@ -337,13 +342,22 @@
   background: var(--color-surface-2);
 }
 
+.folderOpenButton .material-symbols-outlined {
+  font-size: 40px;
+  color: var(--color-text-dim);
+}
+
 .folderName {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-bright);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 100%;
+  word-break: break-word;
 }
 
 .renameInput {
@@ -358,25 +372,16 @@
   width: 100%;
 }
 
+/* .folderOpenButton is swapped out entirely for the rename input, so it
+   loses that button's own centering padding — restore comparable spacing
+   here rather than leaving the input flush against the card's edges. */
+.folderCard .renameInput {
+  margin: 44px 12px;
+  width: calc(100% - 24px);
+}
+
 .dot {
   opacity: 0.6;
-}
-
-.deleteButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: var(--touch-target-sm);
-  font-size: 13px;
-  font-weight: 600;
-  color: #cc6666;
-  border-top: 1px solid var(--color-border);
-  transition: background var(--duration-fast);
-}
-
-.deleteButton:hover {
-  background: rgba(170, 85, 85, 0.1);
 }
 
 .confirmRow {

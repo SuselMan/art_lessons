@@ -17,6 +17,7 @@ import { isLoggedIn, useAuth } from '../../lib/authState'
 import { AccountNav } from '../../components/AccountNav'
 import { Icon } from '../../components/Icon'
 import { CardMenu } from '../../components/CardMenu'
+import { TextInput } from '../../components/TextInput'
 import { MoveToDialog } from '../../components/MoveToDialog'
 import { EmptyState, ErrorState } from '../../components/ListState'
 import styles from './MyLessons.module.css'
@@ -136,8 +137,14 @@ function RoomCard({
           ]}
         />
       </div>
-      <Link className={styles.cardLink} to={`/room/${room.id}`}>
-        {room.thumbnailUpdatedAt && (
+      {/* (#217 follow-up) draggable={false} on both the link and the image —
+          without it, starting a drag on either triggers the browser's own
+          native link/image drag (an <a>/<img> is draggable by default),
+          which swallows the pointer gesture before dnd-kit's PointerSensor
+          ever sees it. That's what made room→folder drag-and-drop silently
+          do nothing. */}
+      <Link className={styles.cardLink} to={`/room/${room.id}`} draggable={false}>
+        {room.thumbnailUpdatedAt ? (
           // `v=` is pure cache-busting for when a new thumbnail is uploaded
           // (#210) — same room id would otherwise keep serving a stale
           // browser-cached image forever since the URL never changes.
@@ -146,7 +153,12 @@ function RoomCard({
             src={`/api/rooms/${room.id}/thumbnail?v=${encodeURIComponent(room.thumbnailUpdatedAt)}`}
             alt=""
             loading="lazy"
+            draggable={false}
           />
+        ) : (
+          <div className={styles.cardThumbnailPlaceholder}>
+            <Icon name="image_not_supported" />
+          </div>
         )}
         {renaming ? (
           <input
@@ -223,11 +235,23 @@ function FolderCard({
       {...listeners}
       {...attributes}
     >
+      {/* Same top-right overlay position as RoomCard's menu (#211 feedback:
+          keep the ⋮ in one consistent spot regardless of card kind). */}
+      <div className={styles.cardMenuOverlay}>
+        <CardMenu
+          actions={[
+            { label: 'Rename', onClick: onRenameClick },
+            { label: 'Move to...', onClick: onMoveClick },
+            { label: 'Delete', onClick: onDeleteClick, danger: true },
+          ]}
+        />
+      </div>
       {renaming ? (
         <input
           className={styles.renameInput}
           autoFocus
           value={renameText}
+          onClick={e => e.preventDefault()}
           onChange={e => onRenameTextChange(e.target.value)}
           onKeyDown={e => {
             if (e.key === 'Enter') { e.preventDefault(); onRenameSubmit() }
@@ -241,13 +265,6 @@ function FolderCard({
           <span className={styles.folderName}>{folder.name}</span>
         </button>
       )}
-      <CardMenu
-        actions={[
-          { label: 'Rename', onClick: onRenameClick },
-          { label: 'Move to...', onClick: onMoveClick },
-          { label: 'Delete', onClick: onDeleteClick, danger: true },
-        ]}
-      />
     </div>
   )
 }
@@ -530,10 +547,9 @@ export function MyLessons() {
       </div>
 
       <div className={styles.searchRow}>
-        <Icon name="search" />
-        <input
+        <TextInput
+          icon="search"
           type="search"
-          className={styles.searchInput}
           placeholder="Search rooms…"
           value={searchInput}
           onChange={e => setSearchInput(e.target.value)}

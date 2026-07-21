@@ -30,18 +30,25 @@ async function uploadSnapshot(
   }
 }
 
-/** #210: room-list preview thumbnail, piggybacked on the very same seq
- *  boundary as uploadSnapshot above (not a separate timer or unload hook —
- *  discussed and rejected, see #210's issue thread) but otherwise
- *  independent of it: exports the full composite (paper/background baked
- *  in, same as the manual "export PNG" button — see Room/index.tsx's
- *  handleExport), downscales it client-side (downscaleForThumbnail — never
- *  send full-resolution pixels to the thumbnail endpoint), and uploads the
- *  result. Best-effort like uploadSnapshot: no retry, swallow failures —
- *  another client crossing the same boundary will very likely succeed even
- *  if this one is dropped, and until then the room list just keeps showing
- *  whatever thumbnail (if any) it already has. */
-async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): Promise<void> {
+/** #210: room-list preview thumbnail. Exports the full composite (paper/
+ *  background baked in, same as the manual "export PNG" button — see
+ *  Room/index.tsx's handleExport), downscales it client-side
+ *  (downscaleForThumbnail — never send full-resolution pixels to the
+ *  thumbnail endpoint), and uploads the result. Best-effort: no retry,
+ *  swallow failures.
+ *
+ *  Two call sites (#211 epic follow-up): `createSnapshotUploader`'s
+ *  `onSeqObserved` below piggybacks it on the same SNAPSHOT_SEQ_INTERVAL
+ *  boundary as uploadSnapshot, and Room/index.tsx's unmount cleanup also
+ *  calls this directly on room exit. The boundary-only trigger (the
+ *  original #210 design — a separate unload hook was discussed and
+ *  rejected then) turned out to leave any room under SNAPSHOT_SEQ_INTERVAL
+ *  operations with no thumbnail at all, since it never crosses a boundary;
+ *  the exit hook guarantees every room gets baked at least once, the first
+ *  time anyone leaves it — the boundary path still matters on its own for
+ *  long-running rooms so the list preview updates without anyone having to
+ *  leave first. */
+export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): Promise<void> {
   try {
     const full = await engine.exportPNG()
     if (!full) return
