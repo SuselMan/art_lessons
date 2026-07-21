@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import type { Dab } from '@art-lessons/shared'
 
-import { LINER_PRESET, LINER_SIZES_MM, applyLinerEndTaper, linerSpeedFlow, linerTiltFlow } from './linerPresets'
+import {
+  LINER_PRESET, LINER_SIZES_MM, LINER_DWELL, applyLinerEndTaper,
+  linerSpeedFlow, linerTiltFlow, dwellFlow, dwellConfigForTool,
+} from './linerPresets'
 
 describe('LINER_SIZES_MM', () => {
   it('is the fixed, ascending MVP size ladder from ADR 003', () => {
@@ -18,13 +21,47 @@ describe('LINER_PRESET', () => {
   })
 })
 
-describe('linerSpeedFlow', () => {
-  it('peaks near rest/slow movement and settles to a soft floor when fast, never fading to 0', () => {
-    expect(linerSpeedFlow(0)).toBeCloseTo(1.08)
-    expect(linerSpeedFlow(2)).toBeCloseTo(0.88)
-    expect(linerSpeedFlow(100)).toBeCloseTo(0.88) // clamped, not a runaway negative
-    expect(linerSpeedFlow(1)).toBeGreaterThan(0.88)
-    expect(linerSpeedFlow(1)).toBeLessThan(1.08)
+describe('linerSpeedFlow (#245: constant-flow-over-time model)', () => {
+  it('is 1.0 (baseline) at the reference "comfortable" speed', () => {
+    expect(linerSpeedFlow(1)).toBeCloseTo(1.0)
+  })
+
+  it('drops toward the lighter floor as speed increases, without ever reaching 0', () => {
+    expect(linerSpeedFlow(2)).toBeCloseTo(0.5)
+    expect(linerSpeedFlow(100)).toBeCloseTo(0.5) // clamped, not a runaway toward 0
+    expect(linerSpeedFlow(2)).toBeLessThan(linerSpeedFlow(1))
+  })
+
+  it('rises toward the darker ceiling as speed drops toward a stop', () => {
+    expect(linerSpeedFlow(0)).toBeCloseTo(1.4)
+    expect(linerSpeedFlow(0.01)).toBeCloseTo(1.4) // clamped, not a runaway toward infinity
+    expect(linerSpeedFlow(0.5)).toBeGreaterThan(linerSpeedFlow(1))
+  })
+
+  it('is monotonically decreasing in speed', () => {
+    const speeds = [0, 0.25, 0.5, 1, 1.5, 2, 3]
+    const flows = speeds.map(linerSpeedFlow)
+    for (let i = 1; i < flows.length; i++) expect(flows[i]).toBeLessThanOrEqual(flows[i - 1])
+  })
+})
+
+describe('dwellFlow / dwellConfigForTool / LINER_DWELL (#245)', () => {
+  it('starts at 1.0 (continuous with linerSpeedFlow at the moment movement stops)', () => {
+    expect(dwellFlow(0, LINER_DWELL)).toBeCloseTo(1.0)
+  })
+
+  it('ramps up monotonically toward, but never past, maxFlow', () => {
+    const samples = [0, 50, 150, 300, 600, 2000].map(ms => dwellFlow(ms, LINER_DWELL))
+    for (let i = 1; i < samples.length; i++) expect(samples[i]).toBeGreaterThan(samples[i - 1])
+    expect(samples.at(-1)).toBeLessThan(LINER_DWELL.maxFlow)
+    expect(samples.at(-1)).toBeGreaterThan(LINER_DWELL.maxFlow - 0.01) // effectively saturated by 2s
+  })
+
+  it('only liner opts into dwell today', () => {
+    expect(dwellConfigForTool('liner')).toBe(LINER_DWELL)
+    expect(dwellConfigForTool('pencil')).toBeNull()
+    expect(dwellConfigForTool('eraser')).toBeNull()
+    expect(dwellConfigForTool('smudge')).toBeNull()
   })
 })
 

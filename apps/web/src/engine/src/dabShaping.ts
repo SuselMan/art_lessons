@@ -14,16 +14,6 @@ export interface DabShapingProfile {
   size(pressure: number): number
   /** Aspect ratio (1 = circular), given tiltNorm = tiltMag/90 (unclamped). */
   aspect(tiltNorm: number): number
-  /** Remaps pressure before it reaches DAB_FRAG's deposit gate (u_pressure) —
-   *  geometry above always sees the real stylus pressure; this only affects
-   *  how strongly *ink deposit* responds to it. Omitted = identity, i.e.
-   *  pencil's real pressure-gated deposit (a light touch fades to nothing).
-   *  A fineliner needs a floor here (ADR 003 §6: no taper to zero even at
-   *  near-zero reported pressure), which the size curve's own floor alone
-   *  can't provide — size only ever scaled dab *radius*, but DAB_FRAG's
-   *  `deposit = v_pressure * v_opacity * effectiveCatch * shape + ...`
-   *  multiplies raw pressure into ink amount directly. */
-  depositPressure?(pressure: number): number
 }
 
 function clamp01(v: number): number {
@@ -50,12 +40,23 @@ const LINER_WIDTH_FLOOR = 0.94
 const LINER_WIDTH_CEIL  = 1.08
 
 export const LINER_DAB_SHAPING: DabShapingProfile = {
-  size:            pressure  => lerp(LINER_WIDTH_FLOOR, LINER_WIDTH_CEIL, pressure),
+  size:   pressure => lerp(LINER_WIDTH_FLOOR, LINER_WIDTH_CEIL, pressure),
   // ADR 003 §1: "короткий цилиндрический наконечник" — a mild ellipticity,
   // not the pencil's tiltNorm^3*6 (which reaches x7 at full tilt).
-  aspect:          tiltNorm  => 1 + 0.15 * tiltNorm,
-  depositPressure: pressure  => lerp(LINER_WIDTH_FLOOR, LINER_WIDTH_CEIL, pressure),
+  aspect: tiltNorm => 1 + 0.15 * tiltNorm,
 }
+
+// #245: the deposit-pressure floor (ADR 003 §6 — no taper to zero at
+// near-zero reported pressure) used to be a DabShapingProfile.
+// depositPressure hook baked into the *stored* Dab.pressure at record time.
+// Reverted: that collapsed Dab.pressure's whole range down to [0.94, 1.08]
+// for every liner dab, which then broke the paper-fill mechanism
+// (DAB_FRAG's u_inkMode branch) added in the same follow-up — that branch
+// needs the real, unfloored pressure to tell a genuinely light touch from a
+// firm one (see shaders.ts's own comment). The floor now lives entirely in
+// the shader instead, computed straight from the real per-fragment
+// pressure, so Dab.pressure stays the true value for every tool, same as
+// before #241 ever introduced the hook.
 
 // pencil/eraser/smudge never had their own geometry (only opacity branched
 // per-tool, see engine/index.ts's _bakeDabOpacity) — they all keep riding

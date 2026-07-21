@@ -125,6 +125,8 @@ interface EngineInternals {
   _dabUni: Record<string, MockLocation | null>
   _dabInstUni: Record<string, MockLocation | null>
   _handleContextRestored: () => void
+  // #245 white-box access — see inProgressStrokeDabs below.
+  _strokeDabs: Dab[]
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -477,6 +479,25 @@ export function simulateStrokeMove(
   engine: PencilEngine, x: number, y: number, overrides: Partial<PointerData> = {},
 ): void {
   (engine as unknown as EngineInternals)._onMove(pointerSample(x, y, overrides))
+}
+
+/** Drives PencilEngine._onEnd directly, for a test that opened a stroke via
+ *  simulateStrokeStart/simulateStrokeMove (rather than the all-in-one
+ *  simulateStroke) and needs to control exactly when it finishes — e.g. a
+ *  dwell (#245) test that advances fake timers between start and end
+ *  without ever calling _onMove. */
+export function simulateStrokeEnd(
+  engine: PencilEngine, x: number, y: number, overrides: Partial<PointerData> = {},
+): void {
+  (engine as unknown as EngineInternals)._onEnd(pointerSample(x, y, overrides))
+}
+
+/** Reads the in-progress stroke's accumulated dabs before it's ended — once
+ *  ended they're only visible via engine.getOperations(), but a dwell
+ *  (#245) test may need to inspect state mid-stroke (e.g. right before a
+ *  real-movement anchor reset). */
+export function inProgressStrokeDabs(engine: PencilEngine): Dab[] {
+  return internals(engine)._strokeDabs
 }
 
 /** Drives PencilEngine._onPredict (#92) with the given predicted samples —

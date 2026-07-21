@@ -1,4 +1,4 @@
-import type { Dab } from '@art-lessons/shared'
+import type { Dab, ToolType } from '@art-lessons/shared'
 import { clamp } from 'lodash-es'
 
 import type { PencilPreset } from './pencilPresets'
@@ -24,21 +24,22 @@ export type LinerSizeMm = (typeof LINER_SIZES_MM)[number]
 //    physical width directly; no extra per-preset radius fudge needed.
 export const LINER_PRESET: PencilPreset = { opacity: 0.95, hardness: 0.88, sizeMultiplier: 1.0 }
 
-// ─── Flow (ADR 003 §3, §7) ──────────────────────────────────────────────────
+// ─── Flow (ADR 003 §3, §7, revised #245) ────────────────────────────────────
 // "Flow" here means the per-dab opacity multiplier baked in by
-// engine/index.ts's _bakeDabOpacity. Deliberately does NOT re-derive its own
-// pressure response (ADR 003 §2's "flow = baseFlow * lerp(0.9, 1.12,
-// pressureCurve)") from `dab.pressure` here — by the time a dab reaches
-// _bakeDabOpacity, `dab.pressure` has already been remapped by
-// DabShapingProfile.depositPressure (dabShaping.ts) from raw stylus pressure
-// into the same kind of ~0.94-1.08 multiplier this function would otherwise
-// produce, and DAB_FRAG multiplies that value into the deposit gate
-// (u_pressure) directly — feeding the *already-remapped* value through a
-// second independent pressure curve here would double-apply it (and, worse,
-// collapse most of this curve's range, since its input would then sit inside
-// [0.94, 1.08] instead of the [0, 1] it expects). Pressure's contribution to
-// flow lives in exactly one place (the shader-level gate); this file only
-// adds speed and tilt on top.
+// engine/index.ts's _bakeDabOpacity. Pressure's own contribution to flow
+// lives in the shader instead (DAB_FRAG's u_inkMode branch derives its
+// deposit-pressure floor straight from the real per-fragment pressure — see
+// that branch's own comment) — this file only adds speed and tilt on top.
+//
+// Physical model agreed with Ilya (2026-07-21 chat), replacing the original
+// ADR §3's mild ±8-12% curve: ink leaves the tip at roughly a constant rate
+// *per unit time*, not a fixed amount per dab. A fast stroke spreads that
+// same rate over more distance -> less ink per unit length -> visibly
+// lighter; a slow stroke concentrates it -> visibly darker. This unifies
+// speed's own effect with dwell's (linerDwell.ts... see dwellFlow below) —
+// both are the same underlying "ink accumulates over time, not distance"
+// idea, just measured two different ways (instantaneous speed while
+// moving vs. elapsed time while fully stopped).
 
 function clamp01(v: number): number {
   return clamp(v, 0, 1)
@@ -52,21 +53,24 @@ function lerp(a: number, b: number, t: number): number {
 // use for pencil's own speedFactor (Math.max(0.7, 1 - speed*0.15), floor at
 // speed≈2) — reusing that scale so "very fast" means the same thing for both
 // tools. First-pass, not yet calibrated against a real device (same caveat
-// as PENCIL_PRESETS' own interpolation comment).
-const LINER_SPEED_FLOW_MAX = 1.08 // ADR 003 §3: "~1.08 на медленном"
-const LINER_SPEED_FLOW_MIN = 0.88 // ADR 003 §3: "до 0.88 на очень быстром"
-const LINER_SPEED_FLOW_SLOPE = (LINER_SPEED_FLOW_MAX - LINER_SPEED_FLOW_MIN) / 2 // reaches the floor by speed≈2
+// as PENCIL_PRESETS' own interpolation comment) — verify by eye against a
+// real stroke and retune LINER_SPEED_REFERENCE/_MIN/_MAX if the effect reads
+// too strong or too weak.
+const LINER_SPEED_REFERENCE = 1    // "comfortable" drawing speed -> flow 1.0 (baseline, no change)
+const LINER_SPEED_FLOW_MIN = 0.5   // very fast stroke -> visibly lighter
+const LINER_SPEED_FLOW_MAX = 1.4   // very slow stroke -> visibly darker/thicker, continuous with dwellFlow's own start
+const LINER_SPEED_EPS = 0.05       // guards divide-by-zero as speed -> 0; clamp (not this) does the real bounding
 
-/** ADR 003 §3: speedResponse — soft range, not the pencil's one-directional
- *  fade. Slow movement (including a near-stopped pointer right before
- *  release) sits near the max, which is also what stands in for the
- *  "маленькая dwell-точка на остановке" behavior in §6/§9 — no separate
- *  idle-dab timer exists (or exists for any tool: DabSystem only emits dabs
- *  along actual movement, see its arc-length spacing), so a stroke that
- *  slows to a stop before lifting naturally ends on this curve's high end
- *  instead of needing a bespoke mechanism. */
+/** ADR 003 §3 (revised #245): flow ~ REFERENCE / speed — a real inverse
+ *  relationship (ink deposited per unit length rises as speed drops),
+ *  clamped to a sane range instead of the original mild linear curve.
+ *  Continuous with dwellFlow's own start value (both equal 1.0 at
+ *  "comfortable" speed / zero elapsed dwell), so a stroke slowing toward a
+ *  stop doesn't visibly jump when _paintDwellDab's timer takes over once
+ *  DabSystem itself stops producing dabs (see engine/index.ts's own dwell
+ *  comment for why that handoff exists at all). */
 export function linerSpeedFlow(speed: number): number {
-  return clamp(LINER_SPEED_FLOW_MAX - speed * LINER_SPEED_FLOW_SLOPE, LINER_SPEED_FLOW_MIN, LINER_SPEED_FLOW_MAX)
+  return clamp(LINER_SPEED_REFERENCE / Math.max(speed, LINER_SPEED_EPS), LINER_SPEED_FLOW_MIN, LINER_SPEED_FLOW_MAX)
 }
 
 /** ADR 003 §7: tilt affects flow only in the extreme range — almost no
@@ -81,9 +85,9 @@ export function linerTiltFlow(tiltDeg: number): number {
 }
 
 // ─── Start/end (ADR 003 §6) ─────────────────────────────────────────────────
-// "Без pressure-taper в ноль" is already structurally guaranteed by
-// DabShapingProfile's width/depositPressure floors (dabShaping.ts) — a
-// stylus reporting near-zero pressure right at liftoff never shrinks or
+// "Без pressure-taper в ноль" is already guaranteed by DabShapingProfile's
+// own width floor (dabShaping.ts) and DAB_FRAG's shader-level deposit floor
+// — a stylus reporting near-zero pressure right at liftoff never shrinks or
 // fades the line to nothing. The one taper this tool *does* want is the
 // opposite case: a fast release should narrow the very tip slightly (ADR:
 // "5-15%"), which pressure alone can't express (a fast flick often still
@@ -111,4 +115,64 @@ export function applyLinerEndTaper(dabs: Dab[], exitSpeed: number): void {
     const t = (i + 1) / n // ramps toward the very last dab
     d.size *= 1 - strength * t
   }
+}
+
+// ─── Dwell (#245, ADR 003 §3/§9 revised) ────────────────────────────────────
+// A resting stylus keeps leaking ink into the same spot — the same
+// constant-flow-over-time model linerSpeedFlow above uses for a moving
+// stroke, taken to its limit as speed -> 0. DabSystem itself never produces
+// a dab for a stationary pointer (its arc-length spacing needs real
+// distance travelled, see continueStroke's own >0.5px guard) for any tool,
+// so this needs its own timer-driven mechanism in the engine
+// (PencilEngine._paintDwellDab) — this file only owns the *config* and the
+// pure elapsed-time -> flow curve, kept generic per-tool (not liner-only)
+// since Ilya flagged this will matter for Rapidograph and possibly a future
+// marker tool too.
+
+export interface DwellConfig {
+  /** Net movement (px) below which the pointer counts as "resting" — see
+   *  engine/index.ts's own _dwellAnchorX/Y for how this is tracked. */
+  stillThresholdPx: number
+  /** How often (ms) the engine's timer checks in and, if still resting,
+   *  paints one more pooling dab. */
+  intervalMs: number
+  /** Grace period (ms) after movement stops before the first pooling dab —
+   *  without this, an ordinary stroke's brief pause at a corner would start
+   *  visibly pooling ink; only a genuinely sustained rest should. */
+  minDwellMs: number
+  /** Time constant (ms) for dwellFlow's own saturating ramp — larger means
+   *  it takes longer to approach maxFlow. */
+  tau: number
+  /** Ceiling flow can ever reach while dwelling — bounds how dark a resting
+   *  point can get, matching linerSpeedFlow's own upper bound at speed 0. */
+  maxFlow: number
+}
+
+// First-pass, not yet calibrated against a real device (same caveat as
+// PENCIL_PRESETS' own interpolation comment) — verify by eye and retune.
+export const LINER_DWELL: DwellConfig = {
+  stillThresholdPx: 2,
+  intervalMs: 70,
+  minDwellMs: 150,
+  tau: 250,
+  maxFlow: LINER_SPEED_FLOW_MAX,
+}
+
+/** Saturating ramp from 1.0 (the instant movement stops — continuous with
+ *  linerSpeedFlow's own value at "comfortable" speed) up toward
+ *  cfg.maxFlow as elapsedMs (time since the pointer last moved past
+ *  cfg.stillThresholdPx) grows — an exponential approach, never actually
+ *  reaching the ceiling but close enough within a few multiples of
+ *  cfg.tau. */
+export function dwellFlow(elapsedMs: number, cfg: DwellConfig): number {
+  return 1 + (cfg.maxFlow - 1) * (1 - Math.exp(-elapsedMs / cfg.tau))
+}
+
+/** Only 'liner' opts in today — Technical Pen/Rapidograph and a possible
+ *  future marker are expected to reuse this same mechanism with their own
+ *  DwellConfig once they exist (see this section's own file comment); every
+ *  other current tool gets null (no dwell timer at all, unchanged from
+ *  before this existed). */
+export function dwellConfigForTool(tool: ToolType): DwellConfig | null {
+  return tool === 'liner' ? LINER_DWELL : null
 }
