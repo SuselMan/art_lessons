@@ -213,12 +213,27 @@
 }
 
 .card {
+  position: relative;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Overlaid on the card's top-right corner rather than laid out inline next
+   to .cardLink — keeps the Link's own internal flex column (thumbnail, name,
+   meta) untouched by the menu's presence. A dark chip behind the trigger
+   keeps it legible sitting on top of a bright thumbnail. */
+.cardMenuOverlay {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  border-radius: var(--radius-sm);
+  background: rgba(17, 17, 19, 0.55);
+  backdrop-filter: blur(2px);
 }
 
 .cardLink {
@@ -266,17 +281,27 @@
 .folderCard {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
   min-height: var(--touch-target-sm);
-  padding: 16px;
+  padding: 6px 8px 6px 16px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+}
+
+.folderOpenButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-height: var(--touch-target-sm);
+  min-width: 0;
   text-align: left;
+  border-radius: var(--radius-sm);
   transition: background var(--duration-fast);
 }
 
-.folderCard:hover {
+.folderOpenButton:hover {
   background: var(--color-surface-2);
 }
 
@@ -284,6 +309,21 @@
   font-size: 15px;
   font-weight: 600;
   color: var(--color-text-bright);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.renameInput {
+  min-height: var(--touch-target-sm);
+  padding: 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  width: 100%;
 }
 
 .dot {
