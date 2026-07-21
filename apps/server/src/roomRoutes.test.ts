@@ -9,6 +9,7 @@ const mockPrisma = vi.hoisted(() => ({
   room: {
     findUnique: vi.fn(),
     findMany: vi.fn(),
+    delete: vi.fn(),
   },
   roomParticipant: {
     findUnique: vi.fn(),
@@ -30,9 +31,24 @@ function leaveRoom(app: FastifyInstance, roomId: string) {
   return app.inject({ method: 'DELETE', url: `/api/rooms/${roomId}/participation` })
 }
 
+function search(app: FastifyInstance, q?: string) {
+  return app.inject({
+    method: 'GET',
+    url: q === undefined ? '/api/rooms/search' : `/api/rooms/search?q=${encodeURIComponent(q)}`,
+  })
+}
+
+const dbRoom = (overrides: Partial<Record<string, unknown>> = {}) => ({
+  id: 'room-1', name: 'Still Life Study', paper: 'rough', infinite: false,
+  canvasWidth: 800, canvasHeight: 600, passwordHash: null, ownerId: 'user-1',
+  createdAt: new Date('2026-01-01'), thumbnail: null, owner: { name: 'Ilya' },
+  ...overrides,
+})
+
 beforeEach(() => {
   mockPrisma.room.findUnique.mockReset()
   mockPrisma.room.findMany.mockReset()
+  mockPrisma.room.delete.mockReset()
   mockPrisma.roomParticipant.findUnique.mockReset()
   mockPrisma.roomParticipant.delete.mockReset()
 })
@@ -83,5 +99,51 @@ describe('DELETE /api/rooms/:id/participation', () => {
     expect(res.statusCode).toBe(404)
     expect(res.json()).toEqual({ error: 'not_found' })
     expect(mockPrisma.roomParticipant.delete).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/rooms/search', () => {
+  it('returns matches scoped to the caller and maps owner name', async () => {
+    mockPrisma.room.findMany.mockResolvedValueOnce([dbRoom()])
+    const app = buildApp('user-1')
+
+    const res = await search(app, 'still')
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({
+      rooms: [expect.objectContaining({ id: 'room-1', name: 'Still Life Study', ownerName: 'Ilya' })],
+    })
+    expect(mockPrisma.room.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          name: { contains: 'still', mode: 'insensitive' },
+          OR: [
+            { ownerId: 'user-1' },
+            { participants: { some: { userId: 'user-1' } } },
+          ],
+        }),
+        take: 50,
+      }),
+    )
+  })
+
+  it('returns an empty list without querying Postgres when q is missing', async () => {
+    const app = buildApp()
+
+    const res = await search(app)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ rooms: [] })
+    expect(mockPrisma.room.findMany).not.toHaveBeenCalled()
+  })
+
+  it('returns an empty list without querying Postgres when q is blank', async () => {
+    const app = buildApp()
+
+    const res = await search(app, '   ')
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ rooms: [] })
+    expect(mockPrisma.room.findMany).not.toHaveBeenCalled()
   })
 })

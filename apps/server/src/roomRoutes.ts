@@ -30,6 +30,31 @@ export function registerRoomRoutes(app: FastifyInstance): void {
     return { owned: owned.map(toWireRoom), participated: participated.map(toWireRoom) }
   })
 
+  // (#211 epic, #214) Search is server-side and deliberately ignores the
+  // caller's current folder — folder browsing (#212) is scoped to one level
+  // at a time for perf, so the client has nothing to filter locally across
+  // the whole tree. Same "owned OR participated" universe as `/mine`.
+  app.get<{ Querystring: { q?: string } }>('/api/rooms/search', async (request) => {
+    const q = request.query.q?.trim()
+    // Empty/missing q -> empty result rather than 400: keeps a debounced
+    // search box simple (clearing the input just clears results, no error).
+    if (!q) return { rooms: [] }
+
+    const rooms = await prisma.room.findMany({
+      where: {
+        name: { contains: q, mode: 'insensitive' },
+        OR: [
+          { ownerId: request.userId },
+          { participants: { some: { userId: request.userId } } },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50, // bound the response; "top 50 matches" is plenty for a name search
+      include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
+    })
+    return { rooms: rooms.map(toWireRoom) }
+  })
+
   app.delete<{ Params: { id: string } }>('/api/rooms/:id', async (request, reply) => {
     const room = await prisma.room.findUnique({ where: { id: request.params.id } })
     if (!room) return reply.code(404).send({ error: 'not_found' })
