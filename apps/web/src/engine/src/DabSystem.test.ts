@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { DabSystem } from './DabSystem'
+import { PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'
 
 // Geometry-focused tests for the #91 centripetal Catmull-Rom fix.
 //
@@ -707,6 +708,44 @@ describe('DabSystem C1 continuity across segment boundaries', () => {
     for (let s = 0; s < nonEmpty.length - 1; s++) {
       const seamJump = angleDelta(nonEmpty[s + 1][0].angle, nonEmpty[s][nonEmpty[s].length - 1].angle)
       expect(seamJump).toBeLessThanOrEqual(maxWithinSegmentJump + 0.01)
+    }
+  })
+})
+
+describe('DabSystem per-tool dab shaping (#240)', () => {
+  const FLAT_SHAPING: DabShapingProfile = { size: () => 1, aspect: () => 1 }
+  const baseSize = 20
+
+  it('defaults to PENCIL_DAB_SHAPING, matching the pre-#240 hardcoded formulas', () => {
+    const dab = new DabSystem()
+    const [d] = dab.startStroke(0, 0, 0.5, 0, 0, baseSize)
+    expect(d.size).toBeCloseTo(baseSize * PENCIL_DAB_SHAPING.size(0.5))
+    expect(d.aspectRatio).toBeCloseTo(PENCIL_DAB_SHAPING.aspect(0))
+  })
+
+  it('setShaping overrides size/aspect for subsequently produced dabs', () => {
+    const dab = new DabSystem()
+    dab.setShaping(FLAT_SHAPING)
+    // Pressure 0.1 and a sharp tilt would move the default pencil curve
+    // well away from 1 — FLAT_SHAPING must win regardless.
+    const [d] = dab.startStroke(0, 0, 0.1, 60, 0, baseSize)
+    expect(d.size).toBeCloseTo(baseSize)
+    expect(d.aspectRatio).toBeCloseTo(1)
+  })
+
+  it('forkForPreview carries over the current shaping profile, not the default', () => {
+    const real = new DabSystem()
+    real.setShaping(FLAT_SHAPING)
+    real.startStroke(0, 0, 1, 0, 0, baseSize)
+    real.continueStroke(10, 0, 0.1, 60, 0, baseSize)
+    real.continueStroke(20, 0, 0.1, 60, 0, baseSize)
+
+    const fork = real.forkForPreview()
+    const dabs = fork.continueStroke(30, 0, 0.1, 60, 0, baseSize)
+    expect(dabs.length).toBeGreaterThan(0)
+    for (const d of dabs) {
+      expect(d.size).toBeCloseTo(baseSize)
+      expect(d.aspectRatio).toBeCloseTo(1)
     }
   })
 })

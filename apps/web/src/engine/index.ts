@@ -8,6 +8,7 @@ import {
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import { DabSystem } from './src/DabSystem'
+import { shapingForTool } from './src/dabShaping'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
@@ -2676,6 +2677,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!layerId || !this._layers.has(layerId)) return
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
+    this._dabs.setShaping(shapingForTool(this._strokeTool))
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     // Smudge's reservoir now persists across separate strokes (see
