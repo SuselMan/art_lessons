@@ -221,7 +221,11 @@
   right: 6px;
   z-index: 2;
   border-radius: var(--radius-sm);
-  background: rgba(17, 17, 19, 0.55);
+  /* (#211 feedback) Bumped from 0.55 — too translucent gave inconsistent
+     contrast for the trigger icon depending on what thumbnail/content sits
+     underneath; a more opaque chip plus the trigger's own bright-at-rest
+     color (CardMenu.module.css) keeps it visibly a "button" regardless. */
+  background: rgba(17, 17, 19, 0.72);
   backdrop-filter: blur(2px);
 }
 
@@ -355,7 +359,12 @@
 }
 
 .folderIconArea .material-symbols-outlined {
-  font-size: 72px;
+  /* !important: other pages' global icon-font base rules (e.g.
+     Room.module.css's :global(.material-symbols-outlined), which stays
+     loaded/in the cascade for the rest of an SPA session once visited) were
+     apparently still winning here despite this selector's higher
+     specificity — not fully diagnosed, this guarantees it regardless. */
+  font-size: 72px !important;
   color: var(--color-text-dim);
 }
 

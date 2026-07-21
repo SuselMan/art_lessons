@@ -9,14 +9,26 @@
   width: var(--touch-target-sm);
   height: var(--touch-target-sm);
   border-radius: var(--radius-sm);
-  color: var(--color-text-dim);
-  transition: background var(--duration-fast), color var(--duration-fast);
+  /* (#211 feedback) Was --color-text-dim (#666) — nearly invisible at rest
+     sitting on the semi-transparent dark chip (.cardMenuOverlay) over a
+     variable-brightness room thumbnail. Bright at rest, not just on
+     hover/focus, since the whole point is being discoverable before you
+     interact with it. */
+  color: var(--color-text-bright);
+  transition: background var(--duration-fast);
 }
 
 .trigger:hover,
 .trigger[aria-expanded='true'] {
-  color: var(--color-text-bright);
   background: var(--color-surface-2);
+}
+
+/* Explicit rather than relying on whatever ambient font-size happens to be
+   inherited on a given page — other pages' global icon-font base rules
+   (e.g. Room.module.css's :global(.material-symbols-outlined)) shouldn't be
+   what decides this button's icon size. */
+.trigger .material-symbols-outlined {
+  font-size: 20px !important;
 }
 
 .menu {
