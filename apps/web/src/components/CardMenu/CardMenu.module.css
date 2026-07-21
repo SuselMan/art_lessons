@@ -23,12 +23,12 @@
   background: var(--color-surface-2);
 }
 
-/* Explicit rather than relying on whatever ambient font-size happens to be
-   inherited on a given page — other pages' global icon-font base rules
-   (e.g. Room.module.css's :global(.material-symbols-outlined)) shouldn't be
-   what decides this button's icon size. */
-.trigger .material-symbols-outlined {
-  font-size: 20px !important;
+/* :global() — plain "material-symbols-outlined" gets hashed by CSS Modules
+   otherwise, silently never matching Icon.tsx's actual unscoped span (root-
+   caused via devtools, #211 feedback round 3 — see MyLessons.module.css's
+   .folderIconArea rule for the fuller writeup). */
+.trigger :global(.material-symbols-outlined) {
+  font-size: 20px;
 }
 
 .menu {

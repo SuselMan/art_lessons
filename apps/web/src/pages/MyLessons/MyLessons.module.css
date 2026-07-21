@@ -273,7 +273,11 @@
   color: #b0b0b0;
 }
 
-.cardThumbnailPlaceholder .material-symbols-outlined {
+/* :global() — without it, CSS Modules hashes "material-symbols-outlined"
+   into a local class that never matches Icon.tsx's literal, unscoped
+   <span class="material-symbols-outlined">, so the rule silently matches
+   nothing (see .folderIconArea below for the fuller story on this). */
+.cardThumbnailPlaceholder :global(.material-symbols-outlined) {
   font-size: 32px;
 }
 
@@ -358,13 +362,20 @@
   background: var(--color-surface-2);
 }
 
-.folderIconArea .material-symbols-outlined {
-  /* !important: other pages' global icon-font base rules (e.g.
-     Room.module.css's :global(.material-symbols-outlined), which stays
-     loaded/in the cascade for the rest of an SPA session once visited) were
-     apparently still winning here despite this selector's higher
-     specificity — not fully diagnosed, this guarantees it regardless. */
-  font-size: 72px !important;
+/* Root-caused via the browser's own devtools (#211 feedback round 3): CSS
+   Modules hashes any bare class selector in a .module.css file, including
+   "material-symbols-outlined" — so `.folderIconArea .material-symbols-outlined`
+   compiled to `._folderIconArea_xxx ._material-symbols-outlined_xxx`, which
+   never matched Icon.tsx's actual `<span class="material-symbols-outlined">`
+   (that literal, unscoped string, never hashed). The !important from the
+   previous round was chasing a specificity fight that was never the real
+   problem — this element had NO matching rule at all, hence exactly 24px,
+   the browser default. `:global(...)` is the fix (see Room.module.css's own
+   `:global(.material-symbols-outlined)` for the one place that already did
+   this correctly) — wrap the icon-font class specifically, not the whole
+   selector, so `.folderIconArea` itself stays properly scoped. */
+.folderIconArea :global(.material-symbols-outlined) {
+  font-size: 72px;
   color: var(--color-text-dim);
 }
 

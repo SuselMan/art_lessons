@@ -20,7 +20,10 @@
   background: var(--color-surface-raised);
 }
 
-.wrapper .material-symbols-outlined {
+/* :global() — see MyLessons.module.css's .folderIconArea rule for why this
+   matters: a bare "material-symbols-outlined" here gets hashed by CSS
+   Modules and never matches Icon.tsx's actual unscoped span. */
+.wrapper :global(.material-symbols-outlined) {
   font-size: 18px;
   flex-shrink: 0;
 }

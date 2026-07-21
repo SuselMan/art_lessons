@@ -31,7 +31,10 @@
   transition: color var(--duration-fast), background var(--duration-fast);
 }
 .stripTab:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.stripTab .material-symbols-outlined { font-size: 20px; }
+/* :global() — bare "material-symbols-outlined" gets hashed by CSS Modules
+   and never matches Icon.tsx's actual unscoped span otherwise (#211
+   feedback round 3 root-caused this same bug on MyLessons). */
+.stripTab :global(.material-symbols-outlined) { font-size: 20px; }
 
 .stripTabActive {
   color: var(--color-accent);
@@ -80,4 +83,4 @@
   transition: color var(--duration-fast), background var(--duration-fast);
 }
 .collapseBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.collapseBtn .material-symbols-outlined { font-size: 16px; }
+.collapseBtn :global(.material-symbols-outlined) { font-size: 16px; }

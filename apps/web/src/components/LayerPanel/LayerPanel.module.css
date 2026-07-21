@@ -68,7 +68,11 @@
 }
 .toolbarBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
 .toolbarBtn:disabled { opacity: 0.3; pointer-events: none; }
-.toolbarBtn .material-symbols-outlined { font-size: 17px; }
+/* :global() — bare "material-symbols-outlined" here gets hashed by CSS
+   Modules and never matches Icon.tsx's actual unscoped span (#211 feedback
+   round 3 caught this same bug on MyLessons; fixing it here too since it's
+   the identical root cause, just less noticeable at these smaller sizes). */
+.toolbarBtn :global(.material-symbols-outlined) { font-size: 17px; }
 
 .toolbarBtnDanger { color: var(--color-error, #e05252); }
 .toolbarBtnDanger:hover { background: color-mix(in srgb, var(--color-error, #e05252) 12%, transparent); }
@@ -105,7 +109,7 @@
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
-.touchHint .material-symbols-outlined { font-size: 14px; flex-shrink: 0; }
+.touchHint :global(.material-symbols-outlined) { font-size: 14px; flex-shrink: 0; }
 .touchHint span { flex: 1; }
 
 .touchHintDismiss {
@@ -121,7 +125,7 @@
   transition: color var(--duration-fast), background var(--duration-fast);
 }
 .touchHintDismiss:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.touchHintDismiss .material-symbols-outlined { font-size: 13px; }
+.touchHintDismiss :global(.material-symbols-outlined) { font-size: 13px; }
 
 /* ── Scrollable layer list ────────────────────────────────────────────────── */
 .list {
@@ -205,7 +209,7 @@
 }
 .rowMain:hover .grip { opacity: 0.6; }
 .rowMain:active .grip { cursor: grabbing; }
-.grip .material-symbols-outlined { font-size: 15px; }
+.grip :global(.material-symbols-outlined) { font-size: 15px; }
 
 .gripSpacer { width: 18px; flex-shrink: 0; }
 
@@ -223,7 +227,7 @@
   transition: color var(--duration-fast), background var(--duration-fast);
 }
 .rowIconBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.rowIconBtn .material-symbols-outlined { font-size: 13px; }
+.rowIconBtn :global(.material-symbols-outlined) { font-size: 13px; }
 
 /* Lock icon: dim (unlocked state) */
 .rowIconBtnDim {
@@ -256,7 +260,7 @@
   transition: color var(--duration-fast), background var(--duration-fast);
 }
 .folderToggleBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.folderToggleBtn .material-symbols-outlined { font-size: 14px; }
+.folderToggleBtn :global(.material-symbols-outlined) { font-size: 14px; }
 
 /* Raster layer type icon (non-clickable) */
 .typeIcon {
@@ -267,7 +271,7 @@
   color: var(--color-text-dim);
   opacity: 0.55;
 }
-.typeIcon .material-symbols-outlined { font-size: 13px; }
+.typeIcon :global(.material-symbols-outlined) { font-size: 13px; }
 
 /* Name */
 .name {
