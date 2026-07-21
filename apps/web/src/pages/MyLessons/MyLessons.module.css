@@ -58,18 +58,6 @@
   padding: 18px;
 }
 
-.error {
-  width: 100%;
-  max-width: 860px;
-  font-size: 13px;
-  color: #cc6666;
-  background: rgba(170, 85, 85, 0.1);
-  border: 1px solid rgba(170, 85, 85, 0.25);
-  border-radius: var(--radius-sm);
-  padding: 9px 13px;
-  margin-bottom: 20px;
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
