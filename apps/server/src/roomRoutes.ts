@@ -16,7 +16,7 @@ export function registerRoomRoutes(app: FastifyInstance): void {
       prisma.room.findMany({
         where: { ownerId: request.userId },
         orderBy: { createdAt: 'desc' },
-        include: { thumbnail: { select: { updatedAt: true } } },
+        include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
       }),
       prisma.room.findMany({
         where: {
@@ -24,7 +24,7 @@ export function registerRoomRoutes(app: FastifyInstance): void {
           participants: { some: { userId: request.userId } },
         },
         orderBy: { createdAt: 'desc' },
-        include: { thumbnail: { select: { updatedAt: true } } },
+        include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
       }),
     ])
     return { owned: owned.map(toWireRoom), participated: participated.map(toWireRoom) }

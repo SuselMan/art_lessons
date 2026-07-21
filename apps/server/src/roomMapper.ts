@@ -12,11 +12,15 @@ export function toWireRoom(r: {
   // `data` Bytes column is never fetched just to build a room list/card.
   // Optional/nullable so callers that don't need it can omit it entirely.
   thumbnail?: { updatedAt: Date } | null
+  // (#211 epic) Optional `owner` relation — only callers that `include: {
+  // owner: { select: { name: true } } }` populate `ownerName` on the wire type.
+  owner?: { name: string | null } | null
 }): Room {
   return {
     id: r.id, name: r.name, paper: r.paper as Room['paper'], infinite: r.infinite,
     canvasWidth: r.canvasWidth ?? undefined, canvasHeight: r.canvasHeight ?? undefined,
     hasPassword: r.passwordHash !== null, ownerId: r.ownerId,
+    ownerName: r.owner?.name ?? undefined,
     createdAt: r.createdAt.toISOString(),
     thumbnailUpdatedAt: r.thumbnail?.updatedAt.toISOString(),
   }

@@ -57,12 +57,35 @@ export type Room = {
   canvasHeight?: number
   hasPassword: boolean
   ownerId: string
+  // Owner's display name, joined in server-side (User.name is nullable —
+  // guest/anonymous accounts, see schema.prisma's User comment — so this is
+  // too). Only populated by list-style endpoints (e.g. GET /api/rooms/mine)
+  // that explicitly include it; absent elsewhere (e.g. the in-memory room
+  // state built by rooms.ts's cold-load path).
+  ownerName?: string
   createdAt: string
   // #146: set once a client has uploaded a composite-PNG preview of the
   // room's content (RoomThumbnail table) — absent until the first upload.
   // Client-only cache-busting key for `<img src="/api/rooms/:id/thumbnail">`;
   // the bytes themselves are fetched separately, never inlined here.
   thumbnailUpdatedAt?: string
+  // (#211 epic) This room's folder placement for the *current* caller —
+  // folders are per-user organization (RoomParticipant.folderId), not a
+  // property of the room itself, so this reflects the caller's own filing,
+  // not a global fact about the room. Absent/undefined = root level.
+  folderId?: string
+}
+
+// (#211 epic) Per-user room-list folder. Nesting via `parentFolderId`
+// (null = root level); see issue #212 for the cycle-guard/empty-only-delete
+// rules enforced server-side. Purely organizational metadata — deleting a
+// folder never deletes the rooms filed in it (see Room.folderId above).
+export type RoomFolder = {
+  id: string
+  userId: string
+  name: string
+  parentFolderId: string | null
+  createdAt: string
 }
 
 // Users & roles
