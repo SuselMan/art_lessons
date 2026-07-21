@@ -47,6 +47,7 @@ model Room {
   participants RoomParticipant[]
   snapshots    RoomSnapshot[]
   palette      RoomPalette?
+  thumbnail    RoomThumbnail?
   createdAt    DateTime          @default(now())
 }
 
@@ -119,6 +120,20 @@ model RoomPalette {
   roomId    String   @unique
   room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
   colors    String[]
+  updatedAt DateTime @updatedAt
+}
+
+// One row per room (#209), same "kept separate from `Room`" reasoning as
+// RoomPalette above — a downscaled composite PNG the client periodically
+// POSTs (see thumbnailRoutes.ts) purely so "Мои уроки" room cards (#116) can
+// show a preview. Not to be confused with RoomSnapshot (#149 epic): those are
+// opaque per-layer tile blobs for fast rejoin, this is a single flat image
+// meant to be displayed directly.
+model RoomThumbnail {
+  id        String   @id @default(uuid())
+  roomId    String   @unique
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  data      Bytes
   updatedAt DateTime @updatedAt
 }
 
