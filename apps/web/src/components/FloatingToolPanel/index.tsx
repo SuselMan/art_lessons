@@ -38,13 +38,21 @@ const FLYOUT_LAYOUT: RayLayoutConfig = {
 }
 
 interface Props {
-  tool: 'pencil' | 'eraser'
-  onSetTool: (tool: 'pencil' | 'eraser') => void
+  /** Current actual tool, for the eraser button's own active-highlight —
+   *  'pencil' | 'liner' here mean "not erasing", not literally which of the
+   *  two is active (see primaryTool for that). */
+  tool: 'pencil' | 'liner' | 'eraser'
+  /** Last of pencil/liner actually selected (toolSlice.ts's
+   *  lastDrawingTool) — drives the top button's icon/label and what it
+   *  switches back to, so it reflects liner rather than assuming pencil. */
+  primaryTool: 'pencil' | 'liner'
+  onSetTool: (tool: 'pencil' | 'liner' | 'eraser') => void
   onUndo: () => void
   onRedo: () => void
-  /** Current pencil color, shown as the center dot — tap it to fan out the
-   *  room palette (see the flyout state below). */
-  pencilColor: [number, number, number]
+  /** Current color of whichever tool primaryTool names, shown as the
+   *  center dot — tap it to fan out the room palette (see the flyout state
+   *  below). */
+  primaryColor: [number, number, number]
   /** Room palette (#190) — the flyout shows up to COLOR_FLYOUT_MAX of these. */
   palette: string[]
   onSelectColor: (rgb: [number, number, number]) => void
@@ -73,11 +81,14 @@ interface Props {
 }
 
 /** First minimal iteration of a "floating" UI cluster (#157) — a draggable
- *  circular panel with the 4 most-reached-for actions (undo/redo/pencil/
- *  eraser), independent of the existing header/left-toolbar (both stay as
- *  they are). Position persists per room (see panelPosition.ts) so it
- *  doesn't reset to a default corner on every visit once someone's moved
- *  it somewhere that suits their hand/device.
+ *  circular panel with the 4 most-reached-for actions (undo/redo/[primary
+ *  drawing tool]/eraser), independent of the existing header/left-toolbar
+ *  (both stay as they are). The top slot follows whichever of pencil/liner
+ *  was last actually selected (primaryTool, #245 follow-up) rather than
+ *  always pencil — there's still only one drawing-tool slot here, it just
+ *  now shows the right one. Position persists per room (see
+ *  panelPosition.ts) so it doesn't reset to a default corner on every visit
+ *  once someone's moved it somewhere that suits their hand/device.
  *
  *  Visibility is the *inverse* of #99's tap-to-hide minimal-UI mode,
  *  opposite to every other piece of chrome (header/toolbar/side-panel):
@@ -91,7 +102,7 @@ interface Props {
  *  same "further detail TBD" scope the issue itself calls out), not an
  *  oversight. */
 export function FloatingToolPanel({
-  tool, onSetTool, onUndo, onRedo, pencilColor, palette, onSelectColor, onOpenColorPicker,
+  tool, primaryTool, onSetTool, onUndo, onRedo, primaryColor, palette, onSelectColor, onOpenColorPicker,
   roomId, position, onPositionChange, containerRef, hidden, strokeBlocked,
   undoHotkeyLabel, redoHotkeyLabel,
 }: Props) {
@@ -211,16 +222,18 @@ export function FloatingToolPanel({
       >
         <button
           className={styles.colorDot}
-          style={{ background: rgbToHex(pencilColor) }}
+          style={{ background: rgbToHex(primaryColor) }}
           onClick={toggleFlyout}
           title="Palette"
           aria-label={flyoutOpen ? 'Close palette' : 'Open palette'}
         />
         <button
-          className={clsx(styles.btn, styles.btnTop, tool === 'pencil' && styles.btnActive)}
-          onClick={() => onSetTool('pencil')} title="Pencil" aria-label="Pencil"
+          className={clsx(styles.btn, styles.btnTop, tool === primaryTool && styles.btnActive)}
+          onClick={() => onSetTool(primaryTool)}
+          title={primaryTool === 'liner' ? 'Liner' : 'Pencil'}
+          aria-label={primaryTool === 'liner' ? 'Liner' : 'Pencil'}
         >
-          <Icon name="edit" />
+          <Icon name={primaryTool === 'liner' ? 'stylus' : 'edit'} />
         </button>
         <button className={clsx(styles.btn, styles.btnRight)} onClick={onRedo} title={`Redo  ${redoHotkeyLabel}`} aria-label="Redo">
           <Icon name="redo" />
