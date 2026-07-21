@@ -16,6 +16,8 @@ const mockPrisma = vi.hoisted(() => ({
   },
   roomParticipant: {
     findMany: vi.fn(),
+    findUnique: vi.fn(),
+    update: vi.fn(),
     count: vi.fn(),
   },
 }))
@@ -38,6 +40,8 @@ beforeEach(() => {
   mockPrisma.roomFolder.delete.mockReset()
   mockPrisma.roomFolder.count.mockReset()
   mockPrisma.roomParticipant.findMany.mockReset()
+  mockPrisma.roomParticipant.findUnique.mockReset()
+  mockPrisma.roomParticipant.update.mockReset()
   mockPrisma.roomParticipant.count.mockReset()
 })
 
@@ -150,6 +154,64 @@ describe('PATCH /api/rooms/folders/:id (reparent)', () => {
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().parentFolderId).toBe('folder-2')
+  })
+})
+
+describe('PATCH /api/rooms/:id/folder', () => {
+  it('moves the room into a folder the caller owns', async () => {
+    const app = buildApp()
+    mockPrisma.roomFolder.findUnique.mockResolvedValueOnce({
+      id: 'folder-1', userId: 'user-1', name: 'A', parentFolderId: null, createdAt: new Date(),
+    })
+    mockPrisma.roomParticipant.findUnique.mockResolvedValueOnce({ id: 'participant-1' })
+    mockPrisma.roomParticipant.update.mockResolvedValueOnce({})
+
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/rooms/room-1/folder', payload: { folderId: 'folder-1' },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.roomParticipant.update).toHaveBeenCalledWith({
+      where: { id: 'participant-1' }, data: { folderId: 'folder-1' },
+    })
+  })
+
+  it('clears the folder when folderId is null (move to root)', async () => {
+    const app = buildApp()
+    mockPrisma.roomParticipant.findUnique.mockResolvedValueOnce({ id: 'participant-1' })
+    mockPrisma.roomParticipant.update.mockResolvedValueOnce({})
+
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/rooms/room-1/folder', payload: { folderId: null },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.roomFolder.findUnique).not.toHaveBeenCalled()
+    expect(mockPrisma.roomParticipant.update).toHaveBeenCalledWith({
+      where: { id: 'participant-1' }, data: { folderId: null },
+    })
+  })
+
+  it('404s moving into another user\'s folder', async () => {
+    const app = buildApp()
+    mockPrisma.roomFolder.findUnique.mockResolvedValueOnce({
+      id: 'folder-1', userId: 'someone-else', name: 'A', parentFolderId: null, createdAt: new Date(),
+    })
+
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/rooms/room-1/folder', payload: { folderId: 'folder-1' },
+    })
+    expect(res.statusCode).toBe(404)
+    expect(mockPrisma.roomParticipant.update).not.toHaveBeenCalled()
+  })
+
+  it('404s when the caller is not a participant of the room', async () => {
+    const app = buildApp()
+    mockPrisma.roomParticipant.findUnique.mockResolvedValueOnce(null)
+
+    const res = await app.inject({
+      method: 'PATCH', url: '/api/rooms/room-1/folder', payload: { folderId: null },
+    })
+    expect(res.statusCode).toBe(404)
+    expect(mockPrisma.roomParticipant.update).not.toHaveBeenCalled()
   })
 })
 

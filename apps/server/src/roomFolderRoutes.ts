@@ -97,6 +97,30 @@ export function registerRoomFolderRoutes(app: FastifyInstance): void {
     },
   )
 
+  // Sets/clears the *caller's own* folder placement for one room — the
+  // shared primitive behind "move room to folder" (drag&drop, the "Move
+  // to..." menu action, and "create room inside this folder", all issues
+  // downstream of #212). Only ever touches the caller's own RoomParticipant
+  // row, same per-user-organization model as everything else here.
+  app.patch<{ Params: { id: string }; Body: { folderId: string | null } }>(
+    '/api/rooms/:id/folder',
+    async (request, reply) => {
+      const { folderId } = request.body
+      if (folderId !== null) {
+        const folder = await prisma.roomFolder.findUnique({ where: { id: folderId } })
+        if (!folder || folder.userId !== request.userId) return reply.code(404).send({ error: 'not_found' })
+      }
+
+      const participant = await prisma.roomParticipant.findUnique({
+        where: { roomId_userId: { roomId: request.params.id, userId: request.userId } },
+      })
+      if (!participant) return reply.code(404).send({ error: 'not_found' })
+
+      await prisma.roomParticipant.update({ where: { id: participant.id }, data: { folderId } })
+      return { ok: true }
+    },
+  )
+
   app.delete<{ Params: { id: string } }>('/api/rooms/folders/:id', async (request, reply) => {
     const folder = await prisma.roomFolder.findUnique({ where: { id: request.params.id } })
     if (!folder || folder.userId !== request.userId) return reply.code(404).send({ error: 'not_found' })
