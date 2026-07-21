@@ -1,4 +1,4 @@
-import type { Room } from '@art-lessons/shared'
+import type { Room, RoomFolder } from '@art-lessons/shared'
 
 // Same-origin: the Vite dev server proxies /api to apps/server (see
 // vite.config.ts) — needed because the dev server runs https (for
@@ -86,4 +86,34 @@ export function listMyRooms(): Promise<MyRooms> {
 
 export function deleteRoom(id: string): Promise<{ ok: true }> {
   return apiFetch<{ ok: true }>(`/api/rooms/${id}`, { method: 'DELETE' })
+}
+
+// (#211 epic, #215) Folder-scoped browsing — only the direct children of one
+// level (folders + rooms), not the whole tree (see roomFolderRoutes.ts's own
+// doc comment for the perf rationale). Omitted folderId = root level.
+export interface RoomsAtFolder {
+  folders: RoomFolder[]
+  rooms: Room[]
+}
+
+export function listRoomsAt(folderId?: string): Promise<RoomsAtFolder> {
+  const qs = folderId ? `?folderId=${encodeURIComponent(folderId)}` : ''
+  return apiFetch<RoomsAtFolder>(`/api/rooms${qs}`)
+}
+
+export function createFolder(name: string, parentFolderId?: string): Promise<RoomFolder> {
+  return apiFetch<RoomFolder>('/api/rooms/folders', {
+    method: 'POST',
+    body: JSON.stringify({ name, parentFolderId }),
+  })
+}
+
+/** Files (or un-files, with `folderId: null`) a room into a folder for the
+ *  caller. Shared primitive behind create-in-folder, the future "Move
+ *  to..." menu action, and drag & drop. */
+export function moveRoomToFolder(roomId: string, folderId: string | null): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>(`/api/rooms/${roomId}/folder`, {
+    method: 'PATCH',
+    body: JSON.stringify({ folderId }),
+  })
 }

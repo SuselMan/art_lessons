@@ -1,15 +1,21 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate } from 'react-router-dom'
-import type { Room } from '@art-lessons/shared'
-import { deleteRoom, listMyRooms, type MyRooms } from '../../lib/api'
+import type { Room, RoomFolder } from '@art-lessons/shared'
+import { createFolder, deleteRoom, listRoomsAt, type RoomsAtFolder } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
 import { AccountNav } from '../../components/AccountNav'
 import { Icon } from '../../components/Icon'
 import { EmptyState, ErrorState } from '../../components/ListState'
 import styles from './MyLessons.module.css'
 
-const ROOMS_QUERY_KEY = ['rooms', 'mine'] as const
+// A folder-scoped level's query key — 'root' rather than `undefined` so
+// react-query treats it as a stable, cacheable key (an `undefined` segment
+// is dropped from the key, which would collide root's cache entry with
+// itself across renders in surprising ways).
+function roomsQueryKey(folderId: string | undefined) {
+  return ['rooms', 'at', folderId ?? 'root'] as const
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
@@ -17,13 +23,14 @@ function formatDate(iso: string): string {
 
 interface RoomCardProps {
   room: Room
+  isOwnRoom: boolean
   confirming: boolean
   deleting: boolean
-  onDeleteClick?: () => void
-  onCancelClick?: () => void
+  onDeleteClick: () => void
+  onCancelClick: () => void
 }
 
-function RoomCard({ room, confirming, deleting, onDeleteClick, onCancelClick }: RoomCardProps) {
+function RoomCard({ room, isOwnRoom, confirming, deleting, onDeleteClick, onCancelClick }: RoomCardProps) {
   return (
     <div className={styles.card}>
       <Link className={styles.cardLink} to={`/room/${room.id}`}>
@@ -42,10 +49,10 @@ function RoomCard({ room, confirming, deleting, onDeleteClick, onCancelClick }: 
         <div className={styles.cardMeta}>
           <span>{formatDate(room.createdAt)}</span>
           <span className={styles.dot}>·</span>
-          <span className={styles.paper}>{room.paper}</span>
+          <span>{isOwnRoom ? 'You' : (room.ownerName ?? 'Unknown owner')}</span>
         </div>
       </Link>
-      {onDeleteClick && (
+      {isOwnRoom && (
         confirming ? (
           <div className={styles.confirmRow}>
             <span className={styles.confirmText}>Delete permanently?</span>
@@ -67,21 +74,54 @@ function RoomCard({ room, confirming, deleting, onDeleteClick, onCancelClick }: 
   )
 }
 
+interface FolderCardProps {
+  folder: RoomFolder
+  onOpen: () => void
+}
+
+function FolderCard({ folder, onOpen }: FolderCardProps) {
+  return (
+    <button type="button" className={styles.folderCard} onClick={onOpen}>
+      <Icon name="folder" />
+      <span className={styles.folderName}>{folder.name}</span>
+    </button>
+  )
+}
+
 export function MyLessons() {
   const { me, loading: authLoading } = useAuth()
   const loggedIn = isLoggedIn(me)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [newFolderOpen, setNewFolderOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  // Breadcrumb path from root to the currently open folder — root itself
+  // isn't a real RoomFolder (no id), so an empty path means "at root".
+  const [path, setPath] = useState<{ id: string; name: string }[]>([])
+  const currentFolderId = path.length > 0 ? path[path.length - 1].id : undefined
 
   const queryClient = useQueryClient()
-  const { data: rooms, isError: loadFailed, refetch } = useQuery({
-    queryKey: ROOMS_QUERY_KEY, queryFn: listMyRooms, enabled: loggedIn,
+  const queryKey = roomsQueryKey(currentFolderId)
+  const { data, isError: loadFailed, refetch } = useQuery({
+    queryKey, queryFn: () => listRoomsAt(currentFolderId), enabled: loggedIn,
   })
+
   const deleteMutation = useMutation({
     mutationFn: deleteRoom,
     onSuccess: (_, id) => {
-      queryClient.setQueryData<MyRooms | undefined>(
-        ROOMS_QUERY_KEY, prev => prev && { ...prev, owned: prev.owned.filter(r => r.id !== id) },
+      queryClient.setQueryData<RoomsAtFolder | undefined>(
+        queryKey, prev => prev && { ...prev, rooms: prev.rooms.filter(r => r.id !== id) },
       )
+    },
+  })
+
+  const createFolderMutation = useMutation({
+    mutationFn: (name: string) => createFolder(name, currentFolderId),
+    onSuccess: folder => {
+      queryClient.setQueryData<RoomsAtFolder | undefined>(
+        queryKey, prev => prev && { ...prev, folders: [folder, ...prev.folders] },
+      )
+      setNewFolderOpen(false)
+      setNewFolderName('')
     },
   })
 
@@ -93,8 +133,19 @@ export function MyLessons() {
     deleteMutation.mutate(id)
   }
 
+  function openFolder(folder: { id: string; name: string }) {
+    setPath(p => [...p, folder])
+  }
+
+  // -1 = root (truncate the whole path).
+  function goToCrumb(index: number) {
+    setPath(p => p.slice(0, index + 1))
+  }
+
   const loadError = loadFailed ? 'Could not load your rooms' : null
   const deleteError = deleteMutation.isError ? 'Could not delete the room' : null
+  const createFolderError = createFolderMutation.isError ? 'Could not create the folder' : null
+  const isEmpty = data !== undefined && data.folders.length === 0 && data.rooms.length === 0
 
   return (
     <div className={styles.page}>
@@ -103,46 +154,108 @@ export function MyLessons() {
         <AccountNav />
       </header>
 
-      <h1 className={styles.heading}>My Lessons</h1>
+      <div className={styles.titleRow}>
+        <h1 className={styles.heading}>My Lessons</h1>
+        <Link
+          className={styles.newRoomLink}
+          to="/create"
+          state={currentFolderId ? { folderId: currentFolderId } : undefined}
+        >
+          <Icon name="add" />
+          New room
+        </Link>
+      </div>
+
+      <nav className={styles.breadcrumbs} aria-label="Folder path">
+        <button type="button" className={styles.crumb} onClick={() => goToCrumb(-1)} disabled={path.length === 0}>
+          My Lessons
+        </button>
+        {path.map((crumb, i) => (
+          <span key={crumb.id} className={styles.crumbGroup}>
+            <span className={styles.crumbSep}>/</span>
+            <button
+              type="button"
+              className={styles.crumb}
+              onClick={() => goToCrumb(i)}
+              disabled={i === path.length - 1}
+            >
+              {crumb.name}
+            </button>
+          </span>
+        ))}
+      </nav>
+
+      <div className={styles.toolbar}>
+        {newFolderOpen ? (
+          <form
+            className={styles.newFolderForm}
+            onSubmit={e => {
+              e.preventDefault()
+              if (newFolderName.trim()) createFolderMutation.mutate(newFolderName.trim())
+            }}
+          >
+            <input
+              className={styles.newFolderInput}
+              autoFocus
+              value={newFolderName}
+              onChange={e => setNewFolderName(e.target.value)}
+              placeholder="Folder name"
+              maxLength={50}
+            />
+            <button type="submit" className={styles.newFolderSubmit} disabled={createFolderMutation.isPending}>
+              Create
+            </button>
+            <button
+              type="button"
+              className={styles.newFolderCancel}
+              onClick={() => { setNewFolderOpen(false); setNewFolderName('') }}
+            >
+              Cancel
+            </button>
+          </form>
+        ) : (
+          <button type="button" className={styles.newFolderButton} onClick={() => setNewFolderOpen(true)}>
+            <Icon name="create_new_folder" />
+            New folder
+          </button>
+        )}
+      </div>
 
       {loadError ? (
         <ErrorState message={loadError} onRetry={() => refetch()} />
       ) : deleteError ? (
         <ErrorState message={deleteError} />
+      ) : createFolderError ? (
+        <ErrorState message={createFolderError} />
       ) : null}
 
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Created by me</h2>
-        {rooms === undefined ? (
+        {data === undefined ? (
           <div className={styles.empty}>Loading…</div>
-        ) : rooms.owned.length === 0 ? (
-          <EmptyState icon="folder_open" message="You haven't created any rooms yet." />
+        ) : isEmpty ? (
+          <EmptyState
+            icon="folder_open"
+            message={path.length > 0 ? 'This folder is empty.' : "You don't have any rooms yet."}
+          />
         ) : (
           <div className={styles.grid}>
-            {rooms.owned.map(room => (
+            {data.folders.map(folder => (
+              <FolderCard
+                key={folder.id}
+                folder={folder}
+                onOpen={() => openFolder({ id: folder.id, name: folder.name })}
+              />
+            ))}
+            {data.rooms.map(room => (
               <RoomCard
                 key={room.id}
                 room={room}
+                isOwnRoom={room.ownerId === me?.userId}
                 confirming={confirmingId === room.id}
                 deleting={deleteMutation.isPending && deleteMutation.variables === room.id}
                 onDeleteClick={() => confirmingId === room.id ? handleDelete(room.id) : setConfirmingId(room.id)}
                 onCancelClick={() => setConfirmingId(null)}
               />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>Invited to</h2>
-        {rooms === undefined ? (
-          <div className={styles.empty}>Loading…</div>
-        ) : rooms.participated.length === 0 ? (
-          <EmptyState icon="folder_open" message="No rooms you've joined yet." />
-        ) : (
-          <div className={styles.grid}>
-            {rooms.participated.map(room => (
-              <RoomCard key={room.id} room={room} confirming={false} deleting={false} />
             ))}
           </div>
         )}
