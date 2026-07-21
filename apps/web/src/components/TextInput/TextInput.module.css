@@ -32,6 +32,13 @@
   font-size: 13px;
   color: var(--color-text-bright);
   background: transparent;
+  /* The wrapper owns the border/focus ring (.wrapper:focus-within above) —
+     without resetting these, the raw <input> layers its own native focus
+     outline and (for type="search" especially, Safari) a rounded default
+     field appearance on top, reading as a mismatched double border. */
+  border: none;
+  outline: none;
+  appearance: none;
 }
 
 .input::placeholder {

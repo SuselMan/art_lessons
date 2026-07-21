@@ -246,25 +246,36 @@ function FolderCard({
           ]}
         />
       </div>
-      {renaming ? (
-        <input
-          className={styles.renameInput}
-          autoFocus
-          value={renameText}
-          onClick={e => e.preventDefault()}
-          onChange={e => onRenameTextChange(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') { e.preventDefault(); onRenameSubmit() }
-            if (e.key === 'Escape') { e.preventDefault(); onRenameCancel() }
-          }}
-          onBlur={onRenameSubmit}
-        />
-      ) : (
-        <button type="button" className={styles.folderOpenButton} onClick={onOpen}>
+      {/* Mirrors RoomCard's thumbnail(4:3 hero)+name structure exactly (same
+          padding/aspect-ratio math) so a folder tile and a room tile are
+          always the same height, regardless of what else shares their grid
+          row (#211 feedback: folder-only rows were shrinking otherwise). */}
+      <button type="button" className={styles.folderOpenButton} onClick={onOpen}>
+        <div className={styles.folderIconArea}>
           <Icon name="folder" />
+        </div>
+        {renaming ? (
+          // Unlike RoomCard's Link (preventDefault alone stops react-router
+          // navigation), this input lives inside a plain <button
+          // onClick={onOpen}> — a click bubbles straight to that handler
+          // regardless of preventDefault, so it needs stopPropagation too or
+          // every click to place the cursor would also open the folder.
+          <input
+            className={styles.renameInput}
+            autoFocus
+            value={renameText}
+            onClick={e => e.stopPropagation()}
+            onChange={e => onRenameTextChange(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); onRenameSubmit() }
+              if (e.key === 'Escape') { e.preventDefault(); onRenameCancel() }
+            }}
+            onBlur={onRenameSubmit}
+          />
+        ) : (
           <span className={styles.folderName}>{folder.name}</span>
-        </button>
-      )}
+        )}
+      </button>
     </div>
   )
 }
@@ -535,7 +546,16 @@ export function MyLessons() {
       </header>
 
       <div className={styles.titleRow}>
-        <h1 className={styles.heading}>My Lessons</h1>
+        <div className={styles.searchRow}>
+          <TextInput
+            icon="search"
+            type="search"
+            placeholder="Search rooms…"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            aria-label="Search rooms"
+          />
+        </div>
         <Link
           className={styles.newRoomLink}
           to="/create"
@@ -544,17 +564,6 @@ export function MyLessons() {
           <Icon name="add" />
           New room
         </Link>
-      </div>
-
-      <div className={styles.searchRow}>
-        <TextInput
-          icon="search"
-          type="search"
-          placeholder="Search rooms…"
-          value={searchInput}
-          onChange={e => setSearchInput(e.target.value)}
-          aria-label="Search rooms"
-        />
       </div>
 
       {isSearching ? (

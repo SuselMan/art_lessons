@@ -24,19 +24,12 @@
   color: var(--color-text-dim);
 }
 
-.heading {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-text-bright);
-  letter-spacing: -0.01em;
-}
-
 .titleRow {
   width: 100%;
   max-width: 860px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 18px;
 }
 
@@ -61,11 +54,12 @@
 }
 
 /* Just the width/spacing wrapper — TextInput (#211 feedback) owns its own
-   visual styling (border, background, focus state). */
+   visual styling (border, background, focus state). Lives in .titleRow now,
+   sharing the line with "New room" rather than the page heading, which was
+   dropped as redundant (#211 feedback round 2). */
 .searchRow {
-  width: 100%;
-  max-width: 320px;
-  margin-bottom: 16px;
+  flex: 1;
+  max-width: 480px;
 }
 
 .breadcrumbs {
@@ -210,6 +204,11 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  /* (#211 feedback) Without this, touch browsers claim a press-and-hold on
+     this card for their own scroll/pan handling before dnd-kit's delayed
+     TouchSensor ever gets to see the gesture — drag silently never started
+     on tablet even though the same interaction worked fine with a mouse. */
+  touch-action: none;
 }
 
 /* Overlaid on the card's top-right corner rather than laid out inline next
@@ -299,6 +298,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
+  touch-action: none; /* see .card's own comment on this */
 }
 
 /* (#217) A room/another folder is being dragged over this folder — dropping
@@ -324,17 +324,19 @@
   pointer-events: none;
 }
 
+/* Same padding/gap/flow as .cardLink — this and .folderIconArea below exist
+   specifically to match .cardLink+.cardThumbnail's box model so a folder
+   tile comes out exactly as tall as a room tile at any grid column width,
+   not just when grid row-stretch happens to have a taller sibling next to
+   it (#211 feedback: folder-only rows were shrinking otherwise). */
 .folderOpenButton {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
   width: 100%;
   height: 100%;
-  min-height: 128px;
-  padding: 20px 12px;
-  text-align: center;
+  gap: 6px;
+  padding: 16px;
+  text-align: left;
   transition: background var(--duration-fast);
 }
 
@@ -342,22 +344,29 @@
   background: var(--color-surface-2);
 }
 
-.folderOpenButton .material-symbols-outlined {
-  font-size: 40px;
+.folderIconArea {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% + 32px);
+  margin: -16px -16px 0;
+  aspect-ratio: 4 / 3;
+  background: var(--color-surface-2);
+}
+
+.folderIconArea .material-symbols-outlined {
+  font-size: 72px;
   color: var(--color-text-dim);
 }
 
 .folderName {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--color-text-bright);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
   width: 100%;
-  word-break: break-word;
 }
 
 .renameInput {
@@ -370,14 +379,6 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   width: 100%;
-}
-
-/* .folderOpenButton is swapped out entirely for the rename input, so it
-   loses that button's own centering padding — restore comparable spacing
-   here rather than leaving the input flush against the card's edges. */
-.folderCard .renameInput {
-  margin: 44px 12px;
-  width: calc(100% - 24px);
 }
 
 .dot {
