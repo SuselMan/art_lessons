@@ -2,6 +2,7 @@ import type { LayerState } from '@art-lessons/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { encodeRoomSnapshot } from '../../engine/src/snapshotCodec'
+import { downscaleForThumbnail } from '../../lib/thumbnail'
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -26,6 +27,35 @@ async function uploadSnapshot(
     // dropped (offline tab, a server hiccup) — nothing here retries. If
     // truly nobody ever uploads a given boundary, the room just keeps
     // behaving as if no snapshot exists yet, same as before this epic.
+  }
+}
+
+/** #210: room-list preview thumbnail, piggybacked on the very same seq
+ *  boundary as uploadSnapshot above (not a separate timer or unload hook —
+ *  discussed and rejected, see #210's issue thread) but otherwise
+ *  independent of it: exports the full composite (paper/background baked
+ *  in, same as the manual "export PNG" button — see Room/index.tsx's
+ *  handleExport), downscales it client-side (downscaleForThumbnail — never
+ *  send full-resolution pixels to the thumbnail endpoint), and uploads the
+ *  result. Best-effort like uploadSnapshot: no retry, swallow failures —
+ *  another client crossing the same boundary will very likely succeed even
+ *  if this one is dropped, and until then the room list just keeps showing
+ *  whatever thumbnail (if any) it already has. */
+async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): Promise<void> {
+  try {
+    const full = await engine.exportPNG()
+    if (!full) return
+    const thumbnail = await downscaleForThumbnail(full)
+    if (!thumbnail) return
+    const bytes = new Uint8Array(await thumbnail.arrayBuffer())
+    await fetch(`/api/rooms/${roomId}/thumbnail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ data: bytesToBase64(bytes) }),
+    })
+  } catch {
+    // Best-effort — see doc comment above.
   }
 }
 
@@ -64,9 +94,13 @@ export function createSnapshotUploader(roomId: string) {
         const baked = engine.bakeNetworkSnapshot(item.id)
         if (baked) layers.set(item.id, baked)
       }
-      if (layers.size === 0) return
+      if (layers.size > 0) void uploadSnapshot(roomId, boundarySeq, layerState, layers)
 
-      void uploadSnapshot(roomId, boundarySeq, layerState, layers)
+      // #210: independent of the layer-snapshot path above (fires even if
+      // layers.size was 0 — a blank room still gets a thumbnail attempt,
+      // harmless either way) and never awaited here, so its own encode/
+      // downscale/upload work can't delay uploadSnapshot or the caller.
+      void uploadThumbnail(roomId, engine)
     },
   }
 }
