@@ -1,6 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate } from 'react-router-dom'
+import clsx from 'clsx'
+import {
+  DndContext, DragOverlay, PointerSensor, TouchSensor, closestCenter, pointerWithin,
+  useDraggable, useDroppable, useSensor, useSensors,
+  type CollisionDetection, type DragEndEvent, type DragStartEvent,
+} from '@dnd-kit/core'
 import type { Room, RoomFolder } from '@art-lessons/shared'
 import {
   ApiError, createFolder, deleteFolder, deleteRoom, leaveRoom, listRoomsAt, moveFolder,
@@ -13,6 +20,41 @@ import { CardMenu } from '../../components/CardMenu'
 import { MoveToDialog } from '../../components/MoveToDialog'
 import { EmptyState, ErrorState } from '../../components/ListState'
 import styles from './MyLessons.module.css'
+
+// (#217) dnd-kit ids are flat strings — encode kind+id so one onDragEnd can
+// dispatch to the right mutation regardless of what's dragged/dropped onto
+// (a room, a folder, or a breadcrumb level standing in for "move up to
+// here"). Reuses the same moveRoomToFolder/moveFolder mutations #216's
+// "Move to..." dialog already calls — this is just a second way to trigger
+// them, not a new API.
+type DragTarget = { kind: 'room' | 'folder' | 'crumb'; id: string | null }
+
+function encodeDragId(kind: 'room' | 'folder', id: string): string {
+  return `${kind}:${id}`
+}
+function encodeCrumbId(id: string | null): string {
+  return `crumb:${id ?? ''}`
+}
+function decodeDragId(raw: string): DragTarget {
+  const sep = raw.indexOf(':')
+  const kind = raw.slice(0, sep)
+  const id = raw.slice(sep + 1)
+  if (kind === 'crumb') return { kind: 'crumb', id: id || null }
+  return { kind: kind as 'room' | 'folder', id }
+}
+
+/** A folder card is simultaneously a drag source (it can itself be moved)
+ *  and a drop target (rooms/folders can be dropped onto it) — dnd-kit hands
+ *  out a separate ref-setter for each role, so both need to land on the same
+ *  DOM node. */
+function useCombinedRefs(
+  ...refs: Array<(node: HTMLElement | null) => void>
+): (node: HTMLElement | null) => void {
+  return useCallback((node: HTMLElement | null) => {
+    for (const ref of refs) ref(node)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, refs)
+}
 
 // A folder-scoped level's query key — 'root' rather than `undefined` so
 // react-query treats it as a stable, cacheable key (an `undefined` segment
@@ -70,8 +112,16 @@ function RoomCard({
   room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit, onRenameCancel,
   busy, onRenameClick, onMoveClick, onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
 }: RoomCardProps) {
+  // (#217) Draggable only — a room is never a drop target itself.
+  const { setNodeRef, attributes, listeners, transform, isDragging } = useDraggable({
+    id: encodeDragId('room', room.id),
+  })
+  const dragStyle: CSSProperties | undefined = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.4 : 1 }
+    : undefined
+
   return (
-    <div className={styles.card}>
+    <div ref={setNodeRef} style={dragStyle} className={styles.card} {...listeners} {...attributes}>
       <div className={styles.cardMenuOverlay}>
         <CardMenu
           actions={[
@@ -154,8 +204,25 @@ function FolderCard({
   folder, onOpen, renaming, renameText, onRenameTextChange, onRenameSubmit, onRenameCancel,
   onRenameClick, onMoveClick, onDeleteClick,
 }: FolderCardProps) {
+  // (#217) Both a drag source (this folder can be moved) and a drop target
+  // (rooms/other folders can be dropped onto it to move inside) — same id
+  // serves both registries, dnd-kit keeps them separate internally.
+  const dragId = encodeDragId('folder', folder.id)
+  const { setNodeRef: setDragRef, attributes, listeners, transform, isDragging } = useDraggable({ id: dragId })
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: dragId })
+  const setRefs = useCombinedRefs(setDragRef, setDropRef)
+  const dragStyle: CSSProperties | undefined = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, opacity: isDragging ? 0.4 : 1 }
+    : undefined
+
   return (
-    <div className={styles.folderCard}>
+    <div
+      ref={setRefs}
+      style={dragStyle}
+      className={clsx(styles.folderCard, isOver && styles.folderCardDropActive)}
+      {...listeners}
+      {...attributes}
+    >
       {renaming ? (
         <input
           className={styles.renameInput}
@@ -185,6 +252,33 @@ function FolderCard({
   )
 }
 
+interface CrumbButtonProps {
+  label: string
+  onClick: () => void
+  navDisabled: boolean
+  // (#217) The current (last) crumb is always nav-disabled AND drop-disabled
+  // — dropping something "here" would be a no-op, it's already at this
+  // level. Every ancestor crumb (including root) is a valid "move up to
+  // this level" target.
+  dropDisabled: boolean
+  dropId: string
+}
+
+function CrumbButton({ label, onClick, navDisabled, dropDisabled, dropId }: CrumbButtonProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: dropId, disabled: dropDisabled })
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      className={clsx(styles.crumb, isOver && !dropDisabled && styles.crumbDropActive)}
+      onClick={onClick}
+      disabled={navDisabled}
+    >
+      {label}
+    </button>
+  )
+}
+
 export function MyLessons() {
   const { me, loading: authLoading } = useAuth()
   const loggedIn = isLoggedIn(me)
@@ -199,6 +293,24 @@ export function MyLessons() {
   // isn't a real RoomFolder (no id), so an empty path means "at root".
   const [path, setPath] = useState<{ id: string; name: string }[]>([])
   const currentFolderId = path.length > 0 ? path[path.length - 1].id : undefined
+
+  // (#217) Name of whatever's currently being dragged, for the DragOverlay —
+  // looked up once at drag start rather than tracked live, since the
+  // dragged item's own card is already rendering its own dimmed state.
+  const [draggingLabel, setDraggingLabel] = useState<string | null>(null)
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+  )
+  // pointerWithin catches small/edge drop targets (a breadcrumb button)
+  // that closestCenter tends to skip in favor of a nearby larger card;
+  // falls back to closestCenter when the pointer isn't over any droppable
+  // at all (e.g. released past the edge of the grid) — same pattern as
+  // LayerPanel's own collisionDetection.
+  const dndCollision: CollisionDetection = useCallback(args => {
+    const hits = pointerWithin(args)
+    return hits.length > 0 ? hits : closestCenter(args)
+  }, [])
 
   const [searchInput, setSearchInput] = useState('')
   const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS).trim()
@@ -263,6 +375,13 @@ export function MyLessons() {
     mutationFn: ({ id, parentFolderId }: { id: string; parentFolderId: string | null }) =>
       moveFolder(id, parentFolderId),
     onSuccess: updated => updateFolders(folders => folders.filter(f => f.id !== updated.id)),
+    onError: (err) => {
+      setFolderError(
+        err instanceof ApiError && err.code === 'cycle'
+          ? "Can't move a folder into its own subfolder."
+          : 'Could not move the folder',
+      )
+    },
   })
   const deleteFolderMutation = useMutation({
     mutationFn: deleteFolder,
@@ -315,6 +434,45 @@ export function MyLessons() {
     if (moveTarget.kind === 'room') moveRoomMutation.mutate({ id: moveTarget.id, folderId })
     else moveFolderMutation.mutate({ id: moveTarget.id, parentFolderId: folderId })
     setMoveTarget(null)
+  }
+
+  // (#217) Drag & drop — a second way to trigger the same move mutations
+  // "Move to..." (#216) already uses. Same-level reordering is out of scope:
+  // there's no `order` field on Room/RoomFolder to persist it against, so
+  // only "drop onto a folder = move inside" and "drop onto a breadcrumb =
+  // move up to that level" are supported.
+  function handleDragStart(e: DragStartEvent) {
+    const dragged = decodeDragId(String(e.active.id))
+    const label = dragged.kind === 'room'
+      ? data?.rooms.find(r => r.id === dragged.id)?.name
+      : dragged.kind === 'folder'
+        ? data?.folders.find(f => f.id === dragged.id)?.name
+        : undefined
+    setDraggingLabel(label ?? null)
+  }
+
+  function handleDragEnd(e: DragEndEvent) {
+    setDraggingLabel(null)
+    const { active, over } = e
+    if (!over) return
+
+    const dragged = decodeDragId(String(active.id))
+    const target = decodeDragId(String(over.id))
+    if (dragged.kind === 'crumb' || dragged.id === null) return // crumbs aren't draggable
+
+    const destinationFolderId = target.id // null for both target.kind 'crumb' at root and n/a cases
+
+    if (target.kind === 'folder') {
+      if (dragged.kind === 'folder' && dragged.id === target.id) return // dropped on itself, no-op
+      if (dragged.kind === 'room') moveRoomMutation.mutate({ id: dragged.id, folderId: target.id })
+      else moveFolderMutation.mutate({ id: dragged.id, parentFolderId: target.id })
+      return
+    }
+
+    if (target.kind === 'crumb') {
+      if (dragged.kind === 'room') moveRoomMutation.mutate({ id: dragged.id, folderId: destinationFolderId })
+      else moveFolderMutation.mutate({ id: dragged.id, parentFolderId: destinationFolderId })
+    }
   }
 
   const loadError = loadFailed ? 'Could not load your rooms' : null
@@ -405,24 +563,30 @@ export function MyLessons() {
           </section>
         </>
       ) : (
-        <>
+        <DndContext
+          sensors={dndSensors}
+          collisionDetection={dndCollision}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
           <nav className={styles.breadcrumbs} aria-label="Folder path">
-            <button
-              type="button" className={styles.crumb} onClick={() => goToCrumb(-1)} disabled={path.length === 0}
-            >
-              My Lessons
-            </button>
+            <CrumbButton
+              label="My Lessons"
+              onClick={() => goToCrumb(-1)}
+              navDisabled={path.length === 0}
+              dropDisabled={path.length === 0}
+              dropId={encodeCrumbId(null)}
+            />
             {path.map((crumb, i) => (
               <span key={crumb.id} className={styles.crumbGroup}>
                 <span className={styles.crumbSep}>/</span>
-                <button
-                  type="button"
-                  className={styles.crumb}
+                <CrumbButton
+                  label={crumb.name}
                   onClick={() => goToCrumb(i)}
-                  disabled={i === path.length - 1}
-                >
-                  {crumb.name}
-                </button>
+                  navDisabled={i === path.length - 1}
+                  dropDisabled={i === path.length - 1}
+                  dropId={encodeCrumbId(crumb.id)}
+                />
               </span>
             ))}
           </nav>
@@ -504,7 +668,11 @@ export function MyLessons() {
               </div>
             )}
           </section>
-        </>
+
+          <DragOverlay>
+            {draggingLabel && <div className={styles.dragOverlay}>{draggingLabel}</div>}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {moveTarget && (

@@ -127,6 +127,15 @@
   color: var(--color-text-bright);
 }
 
+/* (#217) A room/folder is being dragged over this breadcrumb — dropping
+   moves it up to that level. */
+.crumbDropActive {
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+  outline: 2px solid var(--color-text-bright);
+  outline-offset: -2px;
+}
+
 .toolbar {
   width: 100%;
   max-width: 860px;
@@ -287,6 +296,29 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+}
+
+/* (#217) A room/another folder is being dragged over this folder — dropping
+   moves it inside. */
+.folderCardDropActive {
+  background: var(--color-surface-2);
+  outline: 2px solid var(--color-text-bright);
+  outline-offset: -2px;
+}
+
+/* (#217) Follows the pointer while dragging a room/folder card. */
+.dragOverlay {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
 }
 
 .folderOpenButton {
