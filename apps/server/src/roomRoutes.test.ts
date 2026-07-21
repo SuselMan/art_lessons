@@ -9,6 +9,7 @@ const mockPrisma = vi.hoisted(() => ({
   room: {
     findUnique: vi.fn(),
     findMany: vi.fn(),
+    update: vi.fn(),
     delete: vi.fn(),
   },
   roomParticipant: {
@@ -48,9 +49,53 @@ const dbRoom = (overrides: Partial<Record<string, unknown>> = {}) => ({
 beforeEach(() => {
   mockPrisma.room.findUnique.mockReset()
   mockPrisma.room.findMany.mockReset()
+  mockPrisma.room.update.mockReset()
   mockPrisma.room.delete.mockReset()
   mockPrisma.roomParticipant.findUnique.mockReset()
   mockPrisma.roomParticipant.delete.mockReset()
+})
+
+describe('PATCH /api/rooms/:id (rename)', () => {
+  const dbRoom = (overrides: Partial<Record<string, unknown>> = {}) => ({
+    id: 'room-1', name: 'New name', paper: 'rough', infinite: false,
+    canvasWidth: 800, canvasHeight: 600, passwordHash: null, ownerId: 'user-1',
+    createdAt: new Date('2026-01-01'), thumbnail: null, owner: { name: 'Ilya' },
+    ...overrides,
+  })
+
+  it('renames the room for its owner', async () => {
+    mockPrisma.room.findUnique.mockResolvedValueOnce({ id: 'room-1', ownerId: 'user-1' })
+    mockPrisma.room.update.mockResolvedValueOnce(dbRoom())
+    const app = buildApp('user-1')
+
+    const res = await app.inject({ method: 'PATCH', url: '/api/rooms/room-1', payload: { name: 'New name' } })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual(expect.objectContaining({ id: 'room-1', name: 'New name' }))
+    expect(mockPrisma.room.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'room-1' }, data: { name: 'New name' } }),
+    )
+  })
+
+  it('403s a non-owner', async () => {
+    mockPrisma.room.findUnique.mockResolvedValueOnce({ id: 'room-1', ownerId: 'owner-1' })
+    const app = buildApp('user-2')
+
+    const res = await app.inject({ method: 'PATCH', url: '/api/rooms/room-1', payload: { name: 'New name' } })
+
+    expect(res.statusCode).toBe(403)
+    expect(mockPrisma.room.update).not.toHaveBeenCalled()
+  })
+
+  it('400s a blank name', async () => {
+    mockPrisma.room.findUnique.mockResolvedValueOnce({ id: 'room-1', ownerId: 'user-1' })
+    const app = buildApp('user-1')
+
+    const res = await app.inject({ method: 'PATCH', url: '/api/rooms/room-1', payload: { name: '   ' } })
+
+    expect(res.statusCode).toBe(400)
+    expect(mockPrisma.room.update).not.toHaveBeenCalled()
+  })
 })
 
 describe('DELETE /api/rooms/:id/participation', () => {

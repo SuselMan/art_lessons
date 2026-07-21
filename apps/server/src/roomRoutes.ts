@@ -55,6 +55,25 @@ export function registerRoomRoutes(app: FastifyInstance): void {
     return { rooms: rooms.map(toWireRoom) }
   })
 
+  // (#211 epic, #216) Owner-only rename — same ownership gate as delete
+  // below, since renaming is a structural change to shared room metadata,
+  // not per-user organization (contrast with folder placement, which is the
+  // caller's own and needs no ownership check).
+  app.patch<{ Params: { id: string }; Body: { name: string } }>('/api/rooms/:id', async (request, reply) => {
+    const room = await prisma.room.findUnique({ where: { id: request.params.id } })
+    if (!room) return reply.code(404).send({ error: 'not_found' })
+    if (room.ownerId !== request.userId) return reply.code(403).send({ error: 'forbidden' })
+
+    const name = request.body.name?.trim()
+    if (!name) return reply.code(400).send({ error: 'invalid_name' })
+
+    const updated = await prisma.room.update({
+      where: { id: room.id }, data: { name },
+      include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
+    })
+    return toWireRoom(updated)
+  })
+
   app.delete<{ Params: { id: string } }>('/api/rooms/:id', async (request, reply) => {
     const room = await prisma.room.findUnique({ where: { id: request.params.id } })
     if (!room) return reply.code(404).send({ error: 'not_found' })
