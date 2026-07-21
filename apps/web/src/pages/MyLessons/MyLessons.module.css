@@ -60,6 +60,33 @@
   background: var(--color-surface-2);
 }
 
+.searchRow {
+  width: 100%;
+  max-width: 860px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch-target-sm);
+  padding: 0 12px;
+  margin-bottom: 16px;
+  color: var(--color-text-dim);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.searchInput {
+  flex: 1;
+  min-height: var(--touch-target-sm);
+  font-size: 13px;
+  color: var(--color-text-bright);
+  background: transparent;
+}
+
+.searchInput::placeholder {
+  color: var(--color-text-dim);
+}
+
 .breadcrumbs {
   width: 100%;
   max-width: 860px;
