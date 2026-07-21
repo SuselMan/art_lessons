@@ -8,14 +8,23 @@ import { toWireRoom } from './roomMapper.js'
  *  derived from who's currently connected). */
 export function registerRoomRoutes(app: FastifyInstance): void {
   app.get('/api/rooms/mine', async (request) => {
+    // (#209) `include` the thumbnail relation `select`-narrowed to just
+    // `updatedAt` — this list can be long, and pulling every room's full PNG
+    // `data` blob in just to build a card list would be wasteful; the actual
+    // image bytes are fetched separately via GET /api/rooms/:roomId/thumbnail.
     const [owned, participated] = await Promise.all([
-      prisma.room.findMany({ where: { ownerId: request.userId }, orderBy: { createdAt: 'desc' } }),
+      prisma.room.findMany({
+        where: { ownerId: request.userId },
+        orderBy: { createdAt: 'desc' },
+        include: { thumbnail: { select: { updatedAt: true } } },
+      }),
       prisma.room.findMany({
         where: {
           ownerId: { not: request.userId },
           participants: { some: { userId: request.userId } },
         },
         orderBy: { createdAt: 'desc' },
+        include: { thumbnail: { select: { updatedAt: true } } },
       }),
     ])
     return { owned: owned.map(toWireRoom), participated: participated.map(toWireRoom) }

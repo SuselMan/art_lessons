@@ -166,7 +166,10 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
 
   const dbRoom = await prisma.room.findUnique({
     where: { id: roomId },
-    include: { operations: { orderBy: { seq: 'asc' } } },
+    // (#209) thumbnail narrowed to `updatedAt` only, same reasoning as
+    // roomRoutes.ts's list query — the PNG bytes themselves are never needed
+    // just to populate in-memory room state.
+    include: { operations: { orderBy: { seq: 'asc' } }, thumbnail: { select: { updatedAt: true } } },
   })
   if (!dbRoom) return false
 

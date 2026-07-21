@@ -58,6 +58,11 @@ export type Room = {
   hasPassword: boolean
   ownerId: string
   createdAt: string
+  // #146: set once a client has uploaded a composite-PNG preview of the
+  // room's content (RoomThumbnail table) — absent until the first upload.
+  // Client-only cache-busting key for `<img src="/api/rooms/:id/thumbnail">`;
+  // the bytes themselves are fetched separately, never inlined here.
+  thumbnailUpdatedAt?: string
 }
 
 // Users & roles

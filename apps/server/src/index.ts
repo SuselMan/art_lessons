@@ -9,6 +9,7 @@ import { identityHook } from './identity.js'
 import { registerAuthRoutes } from './authRoutes.js'
 import { registerRoomRoutes } from './roomRoutes.js'
 import { registerSnapshotRoutes } from './snapshotRoutes.js'
+import { registerThumbnailRoutes } from './thumbnailRoutes.js'
 
 const app = Fastify({ logger: true })
 
@@ -40,6 +41,7 @@ app.get('/health', async () => ({ ok: true }))
 registerAuthRoutes(app)
 registerRoomRoutes(app)
 registerSnapshotRoutes(app)
+registerThumbnailRoutes(app)
 
 // Engine.IO's own default maxHttpBufferSize is 1e6 (~1MB) and applies to a
 // single packet in *either* direction — not just what the server accepts
