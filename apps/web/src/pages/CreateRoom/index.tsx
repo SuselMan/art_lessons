@@ -1,11 +1,19 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
 import type { PaperType } from '@art-lessons/shared'
 import { PaperPreview } from '../../components/PaperPreview'
 import { AccountNav } from '../../components/AccountNav'
 import styles from './CreateRoom.module.css'
+
+// (#211 epic, #215) MyLessons hands this off via `<Link state={{ folderId }}>`
+// when "New room" is clicked while a folder is open — carried through to
+// Room/index.tsx's create_room ack so the freshly created room gets filed
+// into that folder immediately (see CreatorNavState.folderId there).
+interface CreateRoomNavState {
+  folderId?: string
+}
 
 type SizePreset = 'a4' | 'a3' | 'a2' | 'square' | '16:9' | 'custom' | 'infinite'
 
@@ -46,6 +54,8 @@ function SizeIcon({ width, height }: { width: number; height: number }) {
 
 export function CreateRoom() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const { folderId } = (location.state as CreateRoomNavState | undefined) ?? {}
   const [roomName,    setRoomName]    = useState('')
   const [paper,       setPaper]       = useState<PaperType>('rough')
   const [sizePreset,  setSizePreset]  = useState<SizePreset>('a4')
@@ -68,7 +78,7 @@ export function CreateRoom() {
     const pw = usePassword && password ? password : undefined
 
     if (sizePreset === 'infinite') {
-      navigate(`/room/${id}`, { state: { room: { id, name, paper, infinite: true }, password: pw } })
+      navigate(`/room/${id}`, { state: { room: { id, name, paper, infinite: true }, password: pw, folderId } })
       return
     }
 
@@ -90,6 +100,7 @@ export function CreateRoom() {
       state: {
         room: { id, name, paper, infinite: false, canvasWidth: width, canvasHeight: height },
         password: pw,
+        folderId,
       },
     })
   }

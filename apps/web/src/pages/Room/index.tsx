@@ -26,6 +26,7 @@ import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { getHotkeyBindings, matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
+import { moveRoomToFolder } from '../../lib/api'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
@@ -69,6 +70,10 @@ const PLACEHOLDER_INFINITE_CANVAS_SIZE = 8192
 interface CreatorNavState {
   room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
   password?: string
+  // (#211 epic, #215) Set when CreateRoom was opened via "New room" while a
+  // folder was open on MyLessons — files the freshly created room into it
+  // right after create_room succeeds (see the ack handler below).
+  folderId?: string
 }
 
 function toRoomConfig(
@@ -1494,7 +1499,17 @@ export function Room() {
               lastKnownSeq: latestKnownSeqRef.current || undefined,
             },
             result => {
-              if (result.ok) { hasJoinedRef.current = true; applyIdentity(result.userId) }
+              if (result.ok) {
+                hasJoinedRef.current = true
+                applyIdentity(result.userId)
+                // Best-effort: room creation already succeeded either way, so
+                // a failure here just leaves the room at root level (still
+                // visible on MyLessons) rather than blocking anything.
+                if (creatorDraft.folderId) {
+                  moveRoomToFolder(id, creatorDraft.folderId).catch(err =>
+                    console.error('failed to file newly created room into its folder', err))
+                }
+              }
               // Practically unreachable (would need a nanoid(8) id collision —
               // see rooms.ts's createRoom doc comment); nothing sensible to
               // retry into, so just surface it for debugging.
