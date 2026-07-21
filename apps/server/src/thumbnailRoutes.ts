@@ -3,6 +3,27 @@ import type { FastifyInstance } from 'fastify'
 import { prisma } from './prisma.js'
 import { getParticipant } from './rooms.js'
 
+/** GET is fetched from "Мои уроки" (`RoomCard`'s `<img>`), precisely when the
+ *  caller is *not* live-connected to the room — `getParticipant` (the
+ *  in-memory live-socket registry POST correctly uses below, since uploads
+ *  only ever happen from inside an open room) would 403 almost every real
+ *  request here, exactly the failure mode QA caught: the thumbnail loaded
+ *  fine immediately after leaving the room but started 403ing once the
+ *  in-memory participant entry aged out. Access must instead be checked
+ *  against the same *persisted* signal `/api/rooms/mine` itself already uses
+ *  to decide whether this room even belongs in the caller's list — owner, or
+ *  a `RoomParticipant` row (only ever created in `joinRoom` after the
+ *  password check passes, so this preserves the same "no guessing a
+ *  password-protected room's id" property the live check was added for). */
+async function hasPersistedRoomAccess(roomId: string, userId: string): Promise<boolean> {
+  const room = await prisma.room.findUnique({
+    where: { id: roomId },
+    select: { ownerId: true, participants: { where: { userId }, select: { userId: true } } },
+  })
+  if (!room) return false
+  return room.ownerId === userId || room.participants.length > 0
+}
+
 // Base64 JSON, matching snapshotRoutes.ts's POST /snapshots — kept
 // consistent with the existing upload route's style rather than accepting a
 // raw octet-stream body.
@@ -47,9 +68,12 @@ function sniffPng(buffer: Buffer): { ok: true; width: number; height: number } |
  *  PNG per room, shown as a preview on "Мои уроки" room cards (#116). Not to
  *  be confused with the #149 epic's RoomSnapshot — that's opaque per-layer
  *  tile blobs for fast rejoin; this is a single flat image meant to be
- *  displayed directly. Same participant guard as snapshotRoutes.ts and for
- *  the same reason: without it, a plain HTTP client could read or overwrite
- *  a password-protected room's thumbnail by guessing its id, bypassing the
+ *  displayed directly. POST reuses the same live-participant guard as
+ *  snapshotRoutes.ts (uploads only ever happen from inside an open room);
+ *  GET uses a persisted-access check instead — see hasPersistedRoomAccess's
+ *  own doc comment for why. Both exist for the same underlying reason:
+ *  without a guard, a plain HTTP client could read or overwrite a
+ *  password-protected room's thumbnail by guessing its id, bypassing the
  *  socket-level password check entirely. */
 export function registerThumbnailRoutes(app: FastifyInstance): void {
   app.post<{ Params: { roomId: string }; Body: { data: string } }>(
@@ -87,7 +111,7 @@ export function registerThumbnailRoutes(app: FastifyInstance): void {
 
   app.get<{ Params: { roomId: string } }>('/api/rooms/:roomId/thumbnail', async (request, reply) => {
     const { roomId } = request.params
-    if (!getParticipant(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+    if (!(await hasPersistedRoomAccess(roomId, request.userId))) return reply.code(403).send({ error: 'forbidden' })
 
     const thumbnail = await prisma.roomThumbnail.findUnique({
       where: { roomId },

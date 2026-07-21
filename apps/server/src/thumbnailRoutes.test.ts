@@ -13,8 +13,19 @@ const mockPrisma = vi.hoisted(() => ({
     upsert: vi.fn(),
     findUnique: vi.fn(),
   },
+  room: {
+    findUnique: vi.fn(),
+  },
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
+
+/** GET's access check (hasPersistedRoomAccess) shapes its query result as
+ *  `{ ownerId, participants: [...] }` — see thumbnailRoutes.ts. */
+function mockRoomAccess(app: { ownerId: string; participantIds: string[] } | null) {
+  mockPrisma.room.findUnique.mockResolvedValueOnce(
+    app && { ownerId: app.ownerId, participants: app.participantIds.map(userId => ({ userId })) },
+  )
+}
 
 const mockGetParticipant = vi.hoisted(() => vi.fn())
 vi.mock('./rooms.js', () => ({ getParticipant: mockGetParticipant }))
@@ -55,6 +66,7 @@ function postThumbnail(app: FastifyInstance, roomId: string, buffer: Buffer) {
 beforeEach(() => {
   mockPrisma.roomThumbnail.upsert.mockReset()
   mockPrisma.roomThumbnail.findUnique.mockReset()
+  mockPrisma.room.findUnique.mockReset()
   mockGetParticipant.mockReset()
 })
 
@@ -123,8 +135,13 @@ describe('POST /api/rooms/:roomId/thumbnail', () => {
 })
 
 describe('GET /api/rooms/:roomId/thumbnail', () => {
-  it('streams back the stored bytes with an image/png content-type', async () => {
-    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'teacher', color: '#fff' })
+  // #209 follow-up (caught in live QA): GET is fetched from MyLessons'
+  // RoomCard, precisely when the caller is *not* live-connected to the room
+  // — so unlike POST, its guard is hasPersistedRoomAccess (owner or a
+  // persisted RoomParticipant row), not the in-memory getParticipant.
+
+  it('streams back the stored bytes with an image/png content-type (owner)', async () => {
+    mockRoomAccess({ ownerId: 'user-1', participantIds: [] })
     const data = pngHeader(200, 100)
     const updatedAt = new Date('2026-07-21T00:00:00.000Z')
     mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data, updatedAt })
@@ -138,8 +155,22 @@ describe('GET /api/rooms/:roomId/thumbnail', () => {
     expect(Buffer.compare(res.rawPayload, data)).toBe(0)
   })
 
+  it('streams back the stored bytes for a persisted (not live-connected) participant', async () => {
+    mockRoomAccess({ ownerId: 'someone-else', participantIds: ['user-1'] })
+    const data = pngHeader(200, 100)
+    const updatedAt = new Date('2026-07-21T00:00:00.000Z')
+    mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data, updatedAt })
+    const app = buildApp()
+
+    const res = await app.inject({ method: 'GET', url: '/api/rooms/room-1/thumbnail' })
+
+    expect(res.statusCode).toBe(200)
+    // The live-only registry must never be consulted for GET (that was the bug).
+    expect(mockGetParticipant).not.toHaveBeenCalled()
+  })
+
   it('returns 404 when the room has no thumbnail yet', async () => {
-    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'teacher', color: '#fff' })
+    mockRoomAccess({ ownerId: 'user-1', participantIds: [] })
     mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce(null)
     const app = buildApp()
 
@@ -148,8 +179,18 @@ describe('GET /api/rooms/:roomId/thumbnail', () => {
     expect(res.statusCode).toBe(404)
   })
 
-  it('rejects a non-participant with 403 without touching Postgres', async () => {
-    mockGetParticipant.mockReturnValue(undefined)
+  it('rejects a caller who is neither owner nor a persisted participant, without touching the thumbnail table', async () => {
+    mockRoomAccess({ ownerId: 'someone-else', participantIds: [] })
+    const app = buildApp()
+
+    const res = await app.inject({ method: 'GET', url: '/api/rooms/room-1/thumbnail' })
+
+    expect(res.statusCode).toBe(403)
+    expect(mockPrisma.roomThumbnail.findUnique).not.toHaveBeenCalled()
+  })
+
+  it('rejects a request for an unknown room with 403', async () => {
+    mockRoomAccess(null)
     const app = buildApp()
 
     const res = await app.inject({ method: 'GET', url: '/api/rooms/room-1/thumbnail' })
@@ -159,7 +200,7 @@ describe('GET /api/rooms/:roomId/thumbnail', () => {
   })
 
   it('returns 304 when If-None-Match matches the current ETag', async () => {
-    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'teacher', color: '#fff' })
+    mockRoomAccess({ ownerId: 'user-1', participantIds: [] })
     const data = pngHeader(200, 100)
     const updatedAt = new Date('2026-07-21T00:00:00.000Z')
     mockPrisma.roomThumbnail.findUnique.mockResolvedValueOnce({ data, updatedAt })
