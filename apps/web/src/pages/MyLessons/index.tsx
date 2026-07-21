@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate } from 'react-router-dom'
 import type { Room, RoomFolder } from '@art-lessons/shared'
-import { createFolder, deleteRoom, listRoomsAt, type RoomsAtFolder } from '../../lib/api'
+import { createFolder, deleteRoom, listRoomsAt, searchRooms, type RoomsAtFolder } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
 import { AccountNav } from '../../components/AccountNav'
 import { Icon } from '../../components/Icon'
@@ -15,6 +15,24 @@ import styles from './MyLessons.module.css'
 // itself across renders in surprising ways).
 function roomsQueryKey(folderId: string | undefined) {
   return ['rooms', 'at', folderId ?? 'root'] as const
+}
+
+function searchQueryKey(q: string) {
+  return ['rooms', 'search', q] as const
+}
+
+const SEARCH_DEBOUNCE_MS = 300
+
+/** Delays reacting to a fast-changing value (keystrokes) until it's been
+ *  stable for `delayMs` — keeps #218's search box from firing a request per
+ *  keystroke. */
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs)
+    return () => clearTimeout(timer)
+  }, [value, delayMs])
+  return debounced
 }
 
 function formatDate(iso: string): string {
@@ -99,17 +117,32 @@ export function MyLessons() {
   const [path, setPath] = useState<{ id: string; name: string }[]>([])
   const currentFolderId = path.length > 0 ? path[path.length - 1].id : undefined
 
+  const [searchInput, setSearchInput] = useState('')
+  const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS).trim()
+  const isSearching = debouncedSearch.length > 0
+
   const queryClient = useQueryClient()
   const queryKey = roomsQueryKey(currentFolderId)
   const { data, isError: loadFailed, refetch } = useQuery({
-    queryKey, queryFn: () => listRoomsAt(currentFolderId), enabled: loggedIn,
+    queryKey, queryFn: () => listRoomsAt(currentFolderId), enabled: loggedIn && !isSearching,
+  })
+
+  const searchKey = searchQueryKey(debouncedSearch)
+  const { data: searchData, isError: searchFailed, refetch: refetchSearch } = useQuery({
+    queryKey: searchKey, queryFn: () => searchRooms(debouncedSearch), enabled: loggedIn && isSearching,
   })
 
   const deleteMutation = useMutation({
     mutationFn: deleteRoom,
     onSuccess: (_, id) => {
+      // Delete can happen from either view (folder browsing or search
+      // results) — update whichever cache entry currently holds this room;
+      // setQueryData is a no-op for a key that isn't cached.
       queryClient.setQueryData<RoomsAtFolder | undefined>(
         queryKey, prev => prev && { ...prev, rooms: prev.rooms.filter(r => r.id !== id) },
+      )
+      queryClient.setQueryData<{ rooms: Room[] } | undefined>(
+        searchKey, prev => prev && { ...prev, rooms: prev.rooms.filter(r => r.id !== id) },
       )
     },
   })
@@ -145,7 +178,23 @@ export function MyLessons() {
   const loadError = loadFailed ? 'Could not load your rooms' : null
   const deleteError = deleteMutation.isError ? 'Could not delete the room' : null
   const createFolderError = createFolderMutation.isError ? 'Could not create the folder' : null
+  const searchError = searchFailed ? 'Search failed' : null
   const isEmpty = data !== undefined && data.folders.length === 0 && data.rooms.length === 0
+  const isSearchEmpty = searchData !== undefined && searchData.rooms.length === 0
+
+  function renderRoomCard(room: Room) {
+    return (
+      <RoomCard
+        key={room.id}
+        room={room}
+        isOwnRoom={room.ownerId === me?.userId}
+        confirming={confirmingId === room.id}
+        deleting={deleteMutation.isPending && deleteMutation.variables === room.id}
+        onDeleteClick={() => confirmingId === room.id ? handleDelete(room.id) : setConfirmingId(room.id)}
+        onCancelClick={() => setConfirmingId(null)}
+      />
+    )
+  }
 
   return (
     <div className={styles.page}>
@@ -166,100 +215,127 @@ export function MyLessons() {
         </Link>
       </div>
 
-      <nav className={styles.breadcrumbs} aria-label="Folder path">
-        <button type="button" className={styles.crumb} onClick={() => goToCrumb(-1)} disabled={path.length === 0}>
-          My Lessons
-        </button>
-        {path.map((crumb, i) => (
-          <span key={crumb.id} className={styles.crumbGroup}>
-            <span className={styles.crumbSep}>/</span>
-            <button
-              type="button"
-              className={styles.crumb}
-              onClick={() => goToCrumb(i)}
-              disabled={i === path.length - 1}
-            >
-              {crumb.name}
-            </button>
-          </span>
-        ))}
-      </nav>
-
-      <div className={styles.toolbar}>
-        {newFolderOpen ? (
-          <form
-            className={styles.newFolderForm}
-            onSubmit={e => {
-              e.preventDefault()
-              if (newFolderName.trim()) createFolderMutation.mutate(newFolderName.trim())
-            }}
-          >
-            <input
-              className={styles.newFolderInput}
-              autoFocus
-              value={newFolderName}
-              onChange={e => setNewFolderName(e.target.value)}
-              placeholder="Folder name"
-              maxLength={50}
-            />
-            <button type="submit" className={styles.newFolderSubmit} disabled={createFolderMutation.isPending}>
-              Create
-            </button>
-            <button
-              type="button"
-              className={styles.newFolderCancel}
-              onClick={() => { setNewFolderOpen(false); setNewFolderName('') }}
-            >
-              Cancel
-            </button>
-          </form>
-        ) : (
-          <button type="button" className={styles.newFolderButton} onClick={() => setNewFolderOpen(true)}>
-            <Icon name="create_new_folder" />
-            New folder
-          </button>
-        )}
+      <div className={styles.searchRow}>
+        <Icon name="search" />
+        <input
+          type="search"
+          className={styles.searchInput}
+          placeholder="Search rooms…"
+          value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          aria-label="Search rooms"
+        />
       </div>
 
-      {loadError ? (
-        <ErrorState message={loadError} onRetry={() => refetch()} />
-      ) : deleteError ? (
-        <ErrorState message={deleteError} />
-      ) : createFolderError ? (
-        <ErrorState message={createFolderError} />
-      ) : null}
+      {isSearching ? (
+        <>
+          {searchError ? (
+            <ErrorState message={searchError} onRetry={() => refetchSearch()} />
+          ) : deleteError ? (
+            <ErrorState message={deleteError} />
+          ) : null}
+          <section className={styles.section}>
+            {searchData === undefined ? (
+              <div className={styles.empty}>Searching…</div>
+            ) : isSearchEmpty ? (
+              <EmptyState icon="search_off" message={`No rooms match "${debouncedSearch}".`} />
+            ) : (
+              <div className={styles.grid}>
+                {searchData.rooms.map(renderRoomCard)}
+              </div>
+            )}
+          </section>
+        </>
+      ) : (
+        <>
+          <nav className={styles.breadcrumbs} aria-label="Folder path">
+            <button
+              type="button" className={styles.crumb} onClick={() => goToCrumb(-1)} disabled={path.length === 0}
+            >
+              My Lessons
+            </button>
+            {path.map((crumb, i) => (
+              <span key={crumb.id} className={styles.crumbGroup}>
+                <span className={styles.crumbSep}>/</span>
+                <button
+                  type="button"
+                  className={styles.crumb}
+                  onClick={() => goToCrumb(i)}
+                  disabled={i === path.length - 1}
+                >
+                  {crumb.name}
+                </button>
+              </span>
+            ))}
+          </nav>
 
-      <section className={styles.section}>
-        {data === undefined ? (
-          <div className={styles.empty}>Loading…</div>
-        ) : isEmpty ? (
-          <EmptyState
-            icon="folder_open"
-            message={path.length > 0 ? 'This folder is empty.' : "You don't have any rooms yet."}
-          />
-        ) : (
-          <div className={styles.grid}>
-            {data.folders.map(folder => (
-              <FolderCard
-                key={folder.id}
-                folder={folder}
-                onOpen={() => openFolder({ id: folder.id, name: folder.name })}
-              />
-            ))}
-            {data.rooms.map(room => (
-              <RoomCard
-                key={room.id}
-                room={room}
-                isOwnRoom={room.ownerId === me?.userId}
-                confirming={confirmingId === room.id}
-                deleting={deleteMutation.isPending && deleteMutation.variables === room.id}
-                onDeleteClick={() => confirmingId === room.id ? handleDelete(room.id) : setConfirmingId(room.id)}
-                onCancelClick={() => setConfirmingId(null)}
-              />
-            ))}
+          <div className={styles.toolbar}>
+            {newFolderOpen ? (
+              <form
+                className={styles.newFolderForm}
+                onSubmit={e => {
+                  e.preventDefault()
+                  if (newFolderName.trim()) createFolderMutation.mutate(newFolderName.trim())
+                }}
+              >
+                <input
+                  className={styles.newFolderInput}
+                  autoFocus
+                  value={newFolderName}
+                  onChange={e => setNewFolderName(e.target.value)}
+                  placeholder="Folder name"
+                  maxLength={50}
+                />
+                <button type="submit" className={styles.newFolderSubmit} disabled={createFolderMutation.isPending}>
+                  Create
+                </button>
+                <button
+                  type="button"
+                  className={styles.newFolderCancel}
+                  onClick={() => { setNewFolderOpen(false); setNewFolderName('') }}
+                >
+                  Cancel
+                </button>
+              </form>
+            ) : (
+              <button type="button" className={styles.newFolderButton} onClick={() => setNewFolderOpen(true)}>
+                <Icon name="create_new_folder" />
+                New folder
+              </button>
+            )}
           </div>
-        )}
-      </section>
+
+          {loadError ? (
+            <ErrorState message={loadError} onRetry={() => refetch()} />
+          ) : deleteError ? (
+            <ErrorState message={deleteError} />
+          ) : createFolderError ? (
+            <ErrorState message={createFolderError} />
+          ) : null}
+
+          <section className={styles.section}>
+            {data === undefined ? (
+              <div className={styles.empty}>Loading…</div>
+            ) : isEmpty ? (
+              <EmptyState
+                icon="folder_open"
+                message={path.length > 0 ? 'This folder is empty.' : "You don't have any rooms yet."}
+              />
+            ) : (
+              <div className={styles.grid}>
+                {data.folders.map(folder => (
+                  <FolderCard
+                    key={folder.id}
+                    folder={folder}
+                    onOpen={() => openFolder({ id: folder.id, name: folder.name })}
+                  />
+                ))}
+                {data.rooms.map(renderRoomCard)}
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   )
 }

@@ -117,3 +117,11 @@ export function moveRoomToFolder(roomId: string, folderId: string | null): Promi
     body: JSON.stringify({ folderId }),
   })
 }
+
+// (#211 epic, #218) Server-side, cross-folder — deliberately not filtered
+// against a locally-loaded list, since folder browsing (#215) only ever
+// holds one level's worth of rooms in memory. See roomRoutes.ts's own doc
+// comment on the endpoint for the matching rationale.
+export function searchRooms(q: string): Promise<{ rooms: Room[] }> {
+  return apiFetch<{ rooms: Room[] }>(`/api/rooms/search?q=${encodeURIComponent(q)}`)
+}
