@@ -1,0 +1,141 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 420px;
+  max-height: 70vh;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-bright);
+}
+
+.close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-sm);
+  height: var(--touch-target-sm);
+  color: var(--color-text-dim);
+  border-radius: var(--radius-sm);
+}
+
+.close:hover {
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 10px 16px 0;
+}
+
+.crumbGroup {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.crumbSep {
+  color: var(--color-text-dim);
+  opacity: 0.6;
+  margin: 0 2px;
+}
+
+.crumb {
+  min-height: var(--touch-target-sm);
+  padding: 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  border-radius: var(--radius-sm);
+}
+
+.crumb:not(:disabled):hover {
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+}
+
+.crumb:disabled {
+  color: var(--color-text-bright);
+}
+
+.moveHereButton {
+  margin: 8px 16px;
+  min-height: var(--touch-target-sm);
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-bg);
+  background: var(--color-text-bright);
+  border-radius: var(--radius-sm);
+  align-self: flex-start;
+}
+
+.moveHereButton:hover {
+  opacity: 0.9;
+}
+
+.folderList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px 8px;
+  overflow-y: auto;
+}
+
+.folderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch-target);
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-bright);
+  border-radius: var(--radius-sm);
+}
+
+.folderRow:hover {
+  background: var(--color-surface-2);
+}
+
+.folderRow span {
+  flex: 1;
+  text-align: left;
+}
+
+.loading,
+.noFolders {
+  padding: 16px;
+  font-size: 13px;
+  color: var(--color-text-dim);
+}

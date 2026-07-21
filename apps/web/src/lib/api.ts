@@ -88,6 +88,17 @@ export function deleteRoom(id: string): Promise<{ ok: true }> {
   return apiFetch<{ ok: true }>(`/api/rooms/${id}`, { method: 'DELETE' })
 }
 
+// (#211 epic, #216) Non-owner's own exit — drops only the caller's
+// RoomParticipant row, unlike deleteRoom above (owner-only, removes the
+// room for everyone).
+export function leaveRoom(id: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>(`/api/rooms/${id}/participation`, { method: 'DELETE' })
+}
+
+export function renameRoom(id: string, name: string): Promise<Room> {
+  return apiFetch<Room>(`/api/rooms/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
+}
+
 // (#211 epic, #215) Folder-scoped browsing — only the direct children of one
 // level (folders + rooms), not the whole tree (see roomFolderRoutes.ts's own
 // doc comment for the perf rationale). Omitted folderId = root level.
@@ -109,11 +120,31 @@ export function createFolder(name: string, parentFolderId?: string): Promise<Roo
 }
 
 /** Files (or un-files, with `folderId: null`) a room into a folder for the
- *  caller. Shared primitive behind create-in-folder, the future "Move
- *  to..." menu action, and drag & drop. */
+ *  caller. Shared primitive behind create-in-folder, the "Move to..." menu
+ *  action (#216), and the future drag & drop (#217). */
 export function moveRoomToFolder(roomId: string, folderId: string | null): Promise<{ ok: true }> {
   return apiFetch<{ ok: true }>(`/api/rooms/${roomId}/folder`, {
     method: 'PATCH',
     body: JSON.stringify({ folderId }),
   })
+}
+
+export function renameFolder(id: string, name: string): Promise<RoomFolder> {
+  return apiFetch<RoomFolder>(`/api/rooms/folders/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
+}
+
+/** Reparents a folder — server rejects (400 `cycle`) moving it into its own
+ *  descendant (#212's `isDescendantOf` guard). `parentFolderId: null` moves
+ *  it to root. */
+export function moveFolder(id: string, parentFolderId: string | null): Promise<RoomFolder> {
+  return apiFetch<RoomFolder>(`/api/rooms/folders/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ parentFolderId }),
+  })
+}
+
+/** 409 (`not_empty`) if the folder still has any direct child room or
+ *  subfolder — folders only delete empty (#212). */
+export function deleteFolder(id: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>(`/api/rooms/folders/${id}`, { method: 'DELETE' })
 }
