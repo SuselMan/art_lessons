@@ -168,6 +168,13 @@ export const DAB_FRAG = `
   // push paperCatch, regardless of pressure. See u_paperFillThreshold's own
   // comment for why this exists at all.
   uniform float u_paperFillCap;
+  // 1.0 = fineliner (#241/#242, ADR 003), 0.0 = every other tool (unchanged
+  // graphite path below). A separate mode flag rather than folding into
+  // u_eraseMode/u_grainMode: those two are about *how much* deposit or
+  // *which* dither variant, this is a completely different deposit formula
+  // (weak paper reaction, no grain dither, a soft absorption edge) — see the
+  // branch below, right after the erase branch.
+  uniform float u_inkMode;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -308,6 +315,39 @@ export const DAB_FRAG = `
     // raw height (still used by DISPLAY_FRAG/PAPER_BLEND_FRAG for the
     // blank-paper tint), .a is this precomputed catch value.
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
+
+    // Fineliner (#242, ADR 003 sections 4/8): a completely different, much
+    // simpler deposit formula - no pressure-crushes-into-paper 'fill' term
+    // (that is a graphite-specific behavior, see the comment below this
+    // branch), no computeGrain dither. Both paperCatch and shape above are
+    // already safe, portable, deterministic values (a single texture2D
+    // sample of a value baked once offline, and pure smoothstep/exp
+    // arithmetic) - see paperCatch's own comment on why that matters for a
+    // shared canvas. This branch only adds equally-safe multiply/mix/clamp
+    // on top, no new hash or noise function and no finite-difference of a
+    // texture sample.
+    if (u_inkMode > 0.5) {
+      // ADR section 8 coverage formula directly: paper reduces coverage by
+      // at most ~4% instead of pencil's much larger swing - the rare, faint
+      // spots this leaves where paperCatch is locally low are the
+      // 'micropores'; no separate dither needed to see them.
+      float paperCoverage = mix(0.96, 1.0, paperCatch);
+      float core = v_pressure * v_opacity * shape * paperCoverage;
+      // Wick/halo (ADR section 4): a soft absorption ring reusing the same
+      // edge falloff 'shape' already computes (1-shape rises from 0 in the
+      // solid interior to 1 right at the rim) instead of a second edge mask
+      // - stronger on absorbent paper (paperCatch low) and on a slow/
+      // dwelling stroke. v_opacity already bakes in the speed response
+      // deterministically at record time (_bakeDabOpacity's liner branch,
+      // linerSpeedFlow) - no new per-viewer-nondeterministic input here, and
+      // no fiber-direction bias in v1 (ADR's own 'Потом' follow-up list -
+      // deliberately isotropic, this is a first pass, not final tuning).
+      float paperAbsorbency = 1.0 - paperCatch;
+      float wick = (1.0 - shape) * paperAbsorbency * v_opacity * 0.4;
+      float deposit = clamp(core + wick, 0.0, 1.0);
+      gl_FragColor = vec4(u_color * deposit, deposit);
+      return;
+    }
 
     // Heavy pressure crushes graphite into the paper's own low spots (real
     // pencils do this — press hard enough and the tooth starts filling in)

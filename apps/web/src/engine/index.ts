@@ -2522,11 +2522,11 @@ export class PencilEngine implements PencilEngineAPI {
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
-      'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap',
+      'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
     ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap',
+      'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
     ])
     this._dispUni = getUniforms(gl, this._dispProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale',
@@ -3190,7 +3190,8 @@ export class PencilEngine implements PencilEngineAPI {
   ): void {
     if (!dabs.length) return
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab); return }
-    const erasing = tool === 'eraser'
+    const erasing   = tool === 'eraser'
+    const linerMode = tool === 'liner'
     const preset  = this._resolvePreset(tool, presetName)
     const worldBounds = this._dabsWorldBounds(dabs, erasing, preset)
     const targets: PaintTarget[] = target instanceof AccumulationBuffer
@@ -3228,9 +3229,9 @@ export class PencilEngine implements PencilEngineAPI {
       // _paintDabsInstanced's docstring for why this preserves the exact
       // sequential per-dab blend order the fallback loop below relies on.
       if (this._instancedArraysExt) {
-        this._paintDabsInstanced(tileDabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsInstanced(tileDabs, erasing, linerMode, preset, color, buffer.width, buffer.height, originX, originY)
       } else {
-        this._paintDabsUniform(tileDabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsUniform(tileDabs, erasing, linerMode, preset, color, buffer.width, buffer.height, originX, originY)
       }
 
       buffer.endDraw()
@@ -3251,7 +3252,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  translates each dab's world-space center into that buffer's local
    *  space (bounded: always (0,0), so this is a no-op there). */
   private _paintDabsUniform(
-    dabs: Dab[], erasing: boolean, preset: PencilPreset, color: [number, number, number],
+    dabs: Dab[], erasing: boolean, linerMode: boolean, preset: PencilPreset, color: [number, number, number],
     resW: number, resH: number, originX: number, originY: number,
   ): void {
     const { gl } = this
@@ -3281,6 +3282,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1i(u.u_grainMode, this._grainMode)
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
+    gl.uniform1f(u.u_inkMode, linerMode ? 1.0 : 0.0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     const posLoc = this._dabPosLoc
@@ -3322,7 +3324,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the shader changed, from one gl.uniform* call per dab to one instanced
    *  vertex attribute read per dab out of a single buffer uploaded once. */
   private _paintDabsInstanced(
-    dabs: Dab[], erasing: boolean, preset: PencilPreset, color: [number, number, number],
+    dabs: Dab[], erasing: boolean, linerMode: boolean, preset: PencilPreset, color: [number, number, number],
     resW: number, resH: number, originX: number, originY: number,
   ): void {
     const { gl } = this
@@ -3347,6 +3349,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1i(u.u_grainMode, this._grainMode)
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
+    gl.uniform1f(u.u_inkMode, linerMode ? 1.0 : 0.0)
 
     // Shared unit quad, divisor 0 — same 6 vertices/2 triangles per instance
     // as the uniform path's per-dab quad.

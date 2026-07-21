@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest'
 import type { StrokeOperation } from '@art-lessons/shared'
 
 import type { PencilEngine } from './index'
-import { createTestEngine, makeLayerAdd, paperReady, simulateStroke } from './testing/engineTestUtils'
+import { createTestEngine, makeLayerAdd, lastPaperDabUniform, paperReady, simulateStroke } from './testing/engineTestUtils'
 
 async function setupLayer() {
   const { engine } = createTestEngine({ userId: 'user-a' }, { width: 160, height: 160 })
@@ -99,5 +99,23 @@ describe('liner tool (#241, ADR 003)', () => {
     engine.setTool('liner')
     simulateStroke(engine, PATH_A, { pressure: 0.6 })
     expect(lastStroke(engine).tool).toBe('liner')
+  })
+
+  // #242: DAB_FRAG's liner branch (weak paper reaction + wick halo, no
+  // computeGrain dither) is gated by u_inkMode — verifies the engine
+  // actually flips it per-tool. MockGL never compiles/runs the GLSL itself
+  // (compileShader always "succeeds", see mockGL.ts), so this only proves
+  // the uniform wiring is correct, not that the shader math renders as
+  // intended — that still needs a real WebGL context (browser QA).
+  it('sets u_inkMode for a liner stroke and clears it for a pencil stroke', async () => {
+    const engine = await setupLayer()
+
+    engine.setTool('liner')
+    simulateStroke(engine, PATH_A, { pressure: 0.6 })
+    expect(lastPaperDabUniform(engine, 'u_inkMode')).toBe(1)
+
+    engine.setTool('pencil')
+    simulateStroke(engine, PATH_B, { pressure: 0.6 })
+    expect(lastPaperDabUniform(engine, 'u_inkMode')).toBe(0)
   })
 })
