@@ -307,17 +307,15 @@ export class DabSystem {
     const size       = baseSize * this._shaping.size(pressure)
     const aspectRatio = this._shaping.aspect(tiltNorm)
     const angle      = tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
-    // Stored `pressure` feeds DAB_FRAG's deposit gate (u_pressure) downstream
-    // — see DabShapingProfile.depositPressure's own comment. Geometry above
-    // already used the real, unmapped pressure; only the stored/recorded
-    // value is remapped, and only for tools whose profile defines it
-    // (pencil/eraser/smudge: identity, unchanged from before this existed).
-    const depositPressure = this._shaping.depositPressure ? this._shaping.depositPressure(pressure) : pressure
+    // `pressure` is stored as the real, unmapped value for every tool (see
+    // dabShaping.ts's own #245 comment on why a per-tool remap used to live
+    // here and was reverted) — DAB_FRAG derives whatever deposit-gate floor
+    // it needs straight from this true value.
     // opacity is geometric-neutral here; the engine bakes the final value
     // (preset × user opacity × speed) before rendering and recording. `t` is
     // likewise stamped by the engine (PencilEngine._paintStrokeDabs), which
     // is the only place that knows elapsed wall-clock time.
-    return { x, y, pressure: depositPressure, tiltX, tiltY, size, aspectRatio, angle, opacity: 1, t: 0 }
+    return { x, y, pressure, tiltX, tiltY, size, aspectRatio, angle, opacity: 1, t: 0 }
   }
 }
 

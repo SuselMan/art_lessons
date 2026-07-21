@@ -12,7 +12,10 @@ import { shapingForTool } from './src/dabShaping'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
-import { LINER_PRESET, LINER_SIZES_MM, linerSpeedFlow, linerTiltFlow, applyLinerEndTaper, type LinerSizeMm } from './src/linerPresets'
+import {
+  LINER_PRESET, LINER_SIZES_MM, linerSpeedFlow, linerTiltFlow, applyLinerEndTaper,
+  dwellConfigForTool, dwellFlow, type DwellConfig, type LinerSizeMm,
+} from './src/linerPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
   applyAffine, composeAffine, invertAffine, scaleRotateMatrix, toMat3, translationMatrix,
@@ -1032,6 +1035,28 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokeDabs: Dab[]
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
+  // Dwell (#245, ADR 003 §3/§9 revised): while the active tool has a
+  // DwellConfig (currently only liner) and the pointer sits within
+  // stillThresholdPx of _dwellAnchorX/Y, _dwellTimer periodically paints an
+  // extra "pooling" dab at the last known real position via
+  // _paintDwellDab — real ink continuing to flow into one spot the longer
+  // the stylus rests there, capped by dwellFlow's own saturating ramp.
+  // _lastPointer* is updated on every real _onStart/_onMove regardless of
+  // whether DabSystem itself produced a new spline dab (it doesn't, once
+  // movement drops under DabSystem's own ~0.5px threshold — see its
+  // continueStroke), so this timer is the only place a stationary stylus
+  // ever paints anything.
+  private _lastPointerX = 0
+  private _lastPointerY = 0
+  private _lastPointerPressure = 0
+  private _lastPointerTiltX = 0
+  private _lastPointerTiltY = 0
+  private _dwellCfg: DwellConfig | null = null
+  private _dwellAnchorX = 0
+  private _dwellAnchorY = 0
+  private _dwellAnchorTimestamp = 0
+  private _dwellTimer: ReturnType<typeof setInterval> | null = null
+
   private _handlers: Partial<Record<EngineEventName, EngineHandler>>
   private _raf: number
   // (#155) Coalesces high-frequency _display() calls (every real pointer
@@ -1968,6 +1993,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   destroy(): void {
     this._destroyed = true
+    // Dwell (#245): the one non-rAF timer this engine owns — must not
+    // outlive destroy() (e.g. a component unmounting mid-stroke).
+    if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
     cancelAnimationFrame(this._raf)
     if (this._displayRafId !== null) cancelAnimationFrame(this._displayRafId)
     this.canvas.removeEventListener('webglcontextlost', this._handleContextLost)
@@ -2730,6 +2758,20 @@ export class PencilEngine implements PencilEngineAPI {
       this._hapticX = x
       this._hapticY = y
     }
+    this._lastPointerX = x; this._lastPointerY = y
+    this._lastPointerPressure = e.pressure
+    this._lastPointerTiltX = e.tiltX; this._lastPointerTiltY = e.tiltY
+    // Dwell (#245): fresh anchor for this stroke, timer only runs for tools
+    // that opt in (see dwellConfigForTool). Defensive clear first — a
+    // previous stroke's _onEnd always clears its own timer, but a stray
+    // leftover must never carry into a new stroke's anchor/state.
+    if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
+    this._dwellCfg = dwellConfigForTool(this._strokeTool)
+    this._dwellAnchorX = x; this._dwellAnchorY = y; this._dwellAnchorTimestamp = performance.now()
+    if (this._dwellCfg) {
+      const cfg = this._dwellCfg
+      this._dwellTimer = setInterval(() => this._paintDwellDab(cfg), cfg.intervalMs)
+    }
     const dabs = this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     this._paintStrokeDabs(dabs, e.speed, 0)
     this._display()
@@ -2758,6 +2800,19 @@ export class PencilEngine implements PencilEngineAPI {
       this._haptic.sample(this._hapticX, this._hapticY, x, y)
       this._hapticX = x
       this._hapticY = y
+    }
+    this._lastPointerX = x; this._lastPointerY = y
+    this._lastPointerPressure = e.pressure
+    this._lastPointerTiltX = e.tiltX; this._lastPointerTiltY = e.tiltY
+    // Dwell (#245): real movement past the still-threshold resets the
+    // anchor/clock — only genuinely resting near one spot (including
+    // moving very slowly, which naturally stays under threshold between
+    // consecutive samples) lets _paintDwellDab's elapsed-time ramp grow.
+    if (this._dwellCfg) {
+      const dx = x - this._dwellAnchorX, dy = y - this._dwellAnchorY
+      if (Math.hypot(dx, dy) > this._dwellCfg.stillThresholdPx) {
+        this._dwellAnchorX = x; this._dwellAnchorY = y; this._dwellAnchorTimestamp = performance.now()
+      }
     }
     const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
     let painted = false
@@ -2851,6 +2906,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _onEnd(e: PointerData): void {
     const layerId = this._strokeLayerId
     if (!layerId) return
+    // Dwell (#245): stop pooling the instant the stroke ends — real
+    // movement/lift always reaches here before any next stroke's _onStart.
+    if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
+    this._dwellCfg = null
     const t0 = this._debug ? performance.now() : 0
     const dabs = this._dabs.endStroke(this._physicalSize)
     if (this._strokeTool === 'liner') applyLinerEndTaper(dabs, e.speed)
@@ -2987,6 +3046,54 @@ export class PencilEngine implements PencilEngineAPI {
     // accumulate dabs indefinitely — see STROKE_DAB_CHUNK_LIMIT's own
     // comment on why that's a real problem, not just a memory nicety.
     if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT) this._flushStrokeChunk()
+  }
+
+  /** Dwell tick (#245, ADR 003 §3/§9): paints one extra dab at the stylus's
+   *  last known resting position, its opacity driven by dwellFlow's own
+   *  saturating ramp over how long that spot has been the current dwell
+   *  anchor — real ink continuing to pool the longer the stylus rests,
+   *  bounded so it never runs away past cfg.maxFlow. Called on cfg's own
+   *  setInterval (see _onStart) — every tick while the stroke is open, but
+   *  only actually paints once elapsed time past the anchor clears
+   *  cfg.minDwellMs, so a normal stroke's brief pauses (corners, direction
+   *  changes) don't start pooling ink the instant movement merely slows.
+   *
+   *  Bypasses _bakeDabOpacity/_paintStrokeDabs on purpose: those bake
+   *  opacity from *speed*, meaningless for a dab with no real movement
+   *  behind it — this dab's opacity comes from elapsed dwell time instead,
+   *  via the exact same preset/user-opacity/tilt factors _bakeDabOpacity's
+   *  liner branch already applies, just swapping linerSpeedFlow(speed) for
+   *  dwellFlow(elapsedMs). Otherwise mirrors _paintStrokeDabs exactly
+   *  (paint, stamp Dab.t, push onto _strokeDabs, split-cache/chunk-limit
+   *  bookkeeping) so this dab replays identically to any other one — it's
+   *  baked into the recorded Operation the same way, nothing about replay
+   *  needs to know a timer produced it. */
+  private _paintDwellDab(cfg: DwellConfig): void {
+    if (!this._strokeLayerId) return
+    const elapsed = performance.now() - this._dwellAnchorTimestamp
+    if (elapsed < cfg.minDwellMs) return
+    const buf = this._layers.get(this._strokeLayerId)
+    if (!buf) return
+
+    const shaping = shapingForTool(this._strokeTool)
+    const tiltNorm = Math.hypot(this._lastPointerTiltX, this._lastPointerTiltY) / 90
+    const dab: Dab = {
+      x: this._lastPointerX, y: this._lastPointerY,
+      pressure: this._lastPointerPressure, tiltX: this._lastPointerTiltX, tiltY: this._lastPointerTiltY,
+      size: this._physicalSize * shaping.size(this._lastPointerPressure),
+      aspectRatio: shaping.aspect(tiltNorm),
+      angle: 0, // no path direction while resting — liner's own aspect response is mild enough this doesn't matter
+      opacity: 1, t: performance.now() - this._strokeStartTimestamp,
+    }
+    const preset = this._resolvePreset(this._strokeTool, this._strokePreset)
+    const tiltDeg = Math.hypot(this._lastPointerTiltX, this._lastPointerTiltY)
+    dab.opacity = preset.opacity * this._opts.opacity * linerTiltFlow(tiltDeg) * dwellFlow(elapsed, cfg)
+
+    this._paintDabs(buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId, this._strokeDabs.at(-1))
+    this._strokeDabs.push(dab)
+    if (this._strokeLayerId !== this._activeId) this._invalidateSplitCache()
+    if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT) this._flushStrokeChunk()
+    this._scheduleDisplay()
   }
 
   /** Flushes the in-progress stroke's accumulated dabs as a complete

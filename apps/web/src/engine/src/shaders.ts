@@ -316,32 +316,51 @@ export const DAB_FRAG = `
     // blank-paper tint), .a is this precomputed catch value.
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
 
-    // Fineliner (#242, ADR 003 sections 4/8): a completely different, much
-    // simpler deposit formula - no pressure-crushes-into-paper 'fill' term
-    // (that is a graphite-specific behavior, see the comment below this
-    // branch), no computeGrain dither. Both paperCatch and shape above are
-    // already safe, portable, deterministic values (a single texture2D
+    // Fineliner (#242/#245, ADR 003 sections 4/6/8): a different deposit
+    // formula from graphite's below - no computeGrain dither (liner's own
+    // "micropores" come from the paper-contact term itself, not a separate
+    // noise function), and its own pressure-dependent paper-contact term
+    // instead of graphite's fill/effectiveCatch. paperCatch and shape above
+    // are already safe, portable, deterministic values (a single texture2D
     // sample of a value baked once offline, and pure smoothstep/exp
     // arithmetic) - see paperCatch's own comment on why that matters for a
     // shared canvas. This branch only adds equally-safe multiply/mix/clamp
     // on top, no new hash or noise function and no finite-difference of a
     // texture sample.
     if (u_inkMode > 0.5) {
-      // ADR section 8 coverage formula directly: paper reduces coverage by
-      // at most ~4% instead of pencil's much larger swing - the rare, faint
-      // spots this leaves where paperCatch is locally low are the
-      // 'micropores'; no separate dither needed to see them.
-      float paperCoverage = mix(0.96, 1.0, paperCatch);
-      float core = v_pressure * v_opacity * shape * paperCoverage;
+      // ADR section 6 deposit-pressure floor: DabShapingProfile used to bake
+      // this into the *stored* Dab.pressure at record time, which collapsed
+      // v_pressure's whole range down to [0.94, 1.08] here - fine for the
+      // floor itself, but it also fed into the paper-contact term below and
+      // made every touch (light or firm) look identical, which is wrong (a
+      // real fineliner should show much more paper grain at a genuinely
+      // light touch - #245). Computed here instead, straight from the real,
+      // unmapped per-fragment pressure, so both this floor and the contact
+      // term below see the true touch weight.
+      float depositPressure = mix(0.94, 1.08, v_pressure);
+
+      // ADR section 8 paper contact (revised #245): pressure now genuinely
+      // controls how much of the paper's own texture shows through - same
+      // fill/effectiveCatch mechanism graphite uses below, just with a much
+      // gentler cap so paper never fully disappears even at full pressure.
+      // At near-zero pressure this reduces to raw paperCatch (grain clearly
+      // visible); LINER_FILL_CAP is a first-pass constant, not yet
+      // calibrated against a real device.
+      const float LINER_FILL_CAP = 0.55;
+      float linerFill = smoothstep(0.0, 1.0, v_pressure) * LINER_FILL_CAP;
+      float paperContact = mix(paperCatch, 1.0, linerFill);
+      float core = depositPressure * v_opacity * shape * paperContact;
+
       // Wick/halo (ADR section 4): a soft absorption ring reusing the same
       // edge falloff 'shape' already computes (1-shape rises from 0 in the
       // solid interior to 1 right at the rim) instead of a second edge mask
       // - stronger on absorbent paper (paperCatch low) and on a slow/
-      // dwelling stroke. v_opacity already bakes in the speed response
-      // deterministically at record time (_bakeDabOpacity's liner branch,
-      // linerSpeedFlow) - no new per-viewer-nondeterministic input here, and
-      // no fiber-direction bias in v1 (ADR's own 'Потом' follow-up list -
-      // deliberately isotropic, this is a first pass, not final tuning).
+      // dwelling stroke. v_opacity already bakes in the speed/dwell
+      // response deterministically at record time (_bakeDabOpacity's liner
+      // branch and _paintDwellDab, both in engine/index.ts) - no new
+      // per-viewer-nondeterministic input here, and no fiber-direction bias
+      // in v1 (ADR's own 'Потом' follow-up list - deliberately isotropic,
+      // this is a first pass, not final tuning).
       float paperAbsorbency = 1.0 - paperCatch;
       float wick = (1.0 - shape) * paperAbsorbency * v_opacity * 0.4;
       float deposit = clamp(core + wick, 0.0, 1.0);
