@@ -24,6 +24,7 @@ model User {
   role              UserRole          @default(FREE_TEACHER)
   ownedRooms        Room[]
   participatedRooms RoomParticipant[]
+  roomFolders       RoomFolder[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 }
@@ -54,15 +55,42 @@ model Room {
 // Persisted join history — one row per (room, user) ever, so "Мои уроки"
 // (#116) can list rooms a user was invited into, not just ones they own.
 model RoomParticipant {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   roomId        String
-  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  room          Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
   userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstJoinedAt DateTime @default(now())
-  lastActiveAt  DateTime @updatedAt
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstJoinedAt DateTime    @default(now())
+  lastActiveAt  DateTime    @updatedAt
+  // (#211 epic) This room's folder placement for *this* user — folders are
+  // per-user organization, not a property of Room, and RoomParticipant is
+  // already one row per (room, user) for both owner and guest (see
+  // rooms.ts's persistParticipant, called for both). `null` = root level.
+  // SetNull on folder delete: folders are pure organizational metadata and
+  // never own room data (see RoomFolder below) — deleting one un-files its
+  // contents rather than touching the room/participation itself.
+  folderId      String?
+  folder        RoomFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   @@unique([roomId, userId])
+}
+
+// (#211 epic, issue #212) Per-user, nestable folder for organizing "Мои
+// уроки". Purely organizational metadata (see RoomParticipant.folderId
+// above) — never owns a Room, so deleting a folder is always safe data-wise;
+// the API layer still restricts delete to empty folders only (no direct
+// child rooms or subfolders) to avoid silently reshuffling a user's
+// organization (see roomFolderRoutes.ts).
+model RoomFolder {
+  id             String            @id @default(uuid())
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  parentFolderId String?
+  parentFolder   RoomFolder?       @relation("RoomFolderChildren", fields: [parentFolderId], references: [id], onDelete: SetNull)
+  children       RoomFolder[]      @relation("RoomFolderChildren")
+  participants   RoomParticipant[]
+  createdAt      DateTime          @default(now())
 }
 
 // One row per Operation (@art-lessons/shared) as broadcast over the wire —
