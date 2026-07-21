@@ -2,7 +2,7 @@ import type { StateCreator } from 'zustand'
 
 import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor } from '../../pages/Room/toolSchemas'
 
-export type DrawingTool = 'pencil' | 'eraser' | 'smudge'
+export type DrawingTool = 'pencil' | 'eraser' | 'smudge' | 'liner'
 
 export interface ToolSlice {
   tool: DrawingTool

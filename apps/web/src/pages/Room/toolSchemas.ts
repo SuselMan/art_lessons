@@ -1,4 +1,4 @@
-import { PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, type PencilGradeName } from '../../engine'
+import { PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, type PencilGradeName, type LinerSizeMm } from '../../engine'
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
 
 // Unified, extensible tool-settings registry (#196). Replaces the old
@@ -12,7 +12,7 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../..
 // still emits `tool: 'pencil'` at the Operation/protocol level. Mapping one
 // to the other happens only at the moment of emitting a stroke, not here.
 export type UiToolId =
-  | 'pencil' | 'colorPencil' | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
+  | 'pencil' | 'colorPencil' | 'liner' | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
 
 export type SettingValueType =
   | { kind: 'numberRange'; min: number; max: number; step: number; format?: (v: number) => string }
@@ -72,6 +72,65 @@ const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: n
   },
 })
 
+// Liner (#243, ADR 003): fixed calibrated width steps are the primary
+// identity of a real fineliner set ("rOtring выпускает Isograph в наборе
+// определённых line widths, а не как один непрерывно регулируемый
+// наконечник" — ADR 003's own Technical Pen section) — modeled as
+// enumOptions (same rendering path PENCIL_GRADES already uses), not a
+// continuous numberRange slider like pencil/eraser/smudge's own 'size'.
+// A free/advanced size override is explicitly listed in the ADR as a v2
+// nice-to-have, not part of this pass — deferred, not silently dropped.
+export const LINER_SIZE_LABELS = LINER_SIZES_MM.map(String)
+
+// mm labels are branding/identity (matching how a real fineliner package is
+// marked), not a calibrated physical-to-screen DPI conversion — this app has
+// no such system anywhere else either (pencil's own 'size' field is already
+// just a plain px diameter, see pencilLikeSchema above). First-pass values,
+// not yet tuned against a real device (same caveat as PENCIL_PRESETS' own
+// interpolation comment).
+const LINER_SIZE_PX: Record<string, number> = { '0.1': 2, '0.2': 3, '0.3': 4, '0.5': 6, '0.8': 9 }
+
+export function linerSizeToPx(label: string): number {
+  return LINER_SIZE_PX[label] ?? LINER_SIZE_PX[String(LINER_SIZES_MM[0])]
+}
+
+/** Steps the liner's size one notch up/down its fixed ladder (ADR 003) —
+ *  used by the '['/']' size hotkeys, which otherwise assume a continuous
+ *  numeric 'size' field (see Room/index.tsx's keydown handler). Clamps at
+ *  either end rather than wrapping. */
+export function stepLinerSize(current: string, direction: 1 | -1): string {
+  const idx = LINER_SIZE_LABELS.indexOf(current)
+  const nextIdx = Math.min(LINER_SIZE_LABELS.length - 1, Math.max(0, (idx === -1 ? 0 : idx) + direction))
+  return LINER_SIZE_LABELS[nextIdx]
+}
+
+const linerSchema = (): ToolSchema => ({
+  size: {
+    name: 'Size',
+    valueType: { kind: 'enumOptions', options: LINER_SIZE_LABELS },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: String(0.3 satisfies LinerSizeMm),
+  },
+  opacity: {
+    name: 'Opacity',
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 1,
+  },
+  // ADR 003: "чёрная пигментная ручка" is the identity default, but v1
+  // allows arbitrary color (same as Color pencil) rather than locking it —
+  // decided explicitly, not a placeholder.
+  color: {
+    name: 'Color',
+    valueType: { kind: 'color' },
+    uiControls: ['swatch'],
+    quickAccess: true,
+    default: [0, 0, 0],
+  },
+})
+
 export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // Color is a fully editable per-tool field here, same as before this
   // schema existed — today only 'pencil' has a toolbar slot wired up (#188,
@@ -81,6 +140,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   pencil: pencilLikeSchema(DEFAULT_GRAPHITE_COLOR, 4),
   // Colors are [0,1] floats (WebGL convention), not 0-255 — see lib/color.ts.
   colorPencil: pencilLikeSchema([0.86, 0.16, 0.16], 4),
+  liner: linerSchema(),
   eraser: {
     size: {
       name: 'Size',
