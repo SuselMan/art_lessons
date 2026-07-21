@@ -4,9 +4,29 @@ import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingD
 
 export type DrawingTool = 'pencil' | 'eraser' | 'smudge' | 'liner'
 
+// The subset of DrawingTool that actually lays ink and has its own color
+// (unlike eraser/smudge, which modify what's already there) — what a
+// "return to drawing" affordance (the toolbar's eraser/smudge toggle-off,
+// FloatingToolPanel's top button) should switch back to. Excludes smudge
+// deliberately: smudging isn't "drawing" either, it just isn't the thing
+// most in need of a quick way back out (no dedicated toggle exists for it
+// today beyond its own toolbar button).
+export type PrimaryDrawingTool = 'pencil' | 'liner'
+
+function isPrimaryDrawingTool(tool: DrawingTool): tool is PrimaryDrawingTool {
+  return tool === 'pencil' || tool === 'liner'
+}
+
 export interface ToolSlice {
   tool: DrawingTool
   setTool: (updater: DrawingTool | ((prev: DrawingTool) => DrawingTool)) => void
+  // Most recent PrimaryDrawingTool `tool` held, kept in sync automatically
+  // by setTool below — not its own separate setter. Lets a "return to
+  // drawing" affordance (eraser/smudge toggle-off, FloatingToolPanel's top
+  // button) go back to whichever of pencil/liner was actually active
+  // before, instead of assuming pencil (a real gap once liner became a
+  // second real drawing tool - #245 follow-up).
+  lastDrawingTool: PrimaryDrawingTool
   // TOOL_SCHEMAS-shaped settings for every registered tool (#170/#196) —
   // seeded with schema defaults here; Room re-seeds this from
   // loadToolSettings(localStorage, roomId) once at mount via
@@ -23,9 +43,14 @@ export interface ToolSlice {
 
 export const createToolSlice: StateCreator<ToolSlice> = set => ({
   tool: 'pencil',
-  setTool: updater => set(state => ({
-    tool: typeof updater === 'function' ? updater(state.tool) : updater,
-  })),
+  lastDrawingTool: 'pencil',
+  setTool: updater => set(state => {
+    const next = typeof updater === 'function' ? updater(state.tool) : updater
+    return {
+      tool: next,
+      lastDrawingTool: isPrimaryDrawingTool(next) ? next : state.lastDrawingTool,
+    }
+  }),
   toolSettings: defaultToolSettings(),
   setToolSetting: (toolId, key, value) => set(state => ({
     toolSettings: {

@@ -268,6 +268,10 @@ export function Room() {
   const config = useRoomStore(s => s.room)
   const tool = useRoomStore(s => s.tool)
   const setTool = useRoomStore(s => s.setTool)
+  // Last of pencil/liner actually selected — what a "return to drawing"
+  // toggle (eraser/smudge off) should go back to, instead of assuming
+  // pencil (kept in sync by the store's own setTool, see toolSlice.ts).
+  const lastDrawingTool = useRoomStore(s => s.lastDrawingTool)
   // Unified per-tool settings (#196) — grade/size/opacity/color for every
   // registered tool (TOOL_SCHEMAS in toolSchemas.ts), persisted per room
   // (#156). Backed by the store (#23): seeded once up front from this
@@ -910,9 +914,12 @@ export function Room() {
   useEffect(() => {
     engineRef.current?.setColor(tool === 'liner' ? linerColor : pencilColor)
   }, [tool, pencilColor, linerColor])
-  // Which tool's own color field the "Color" SidePanel tab edits — see that
-  // tab's own comment.
-  const colorTool: 'pencil' | 'liner' = tool === 'liner' ? 'liner' : 'pencil'
+  // Which tool's own color field the "Color" SidePanel tab (and
+  // FloatingToolPanel's color dot) edits — lastDrawingTool rather than
+  // `tool` directly, so it still reflects liner while eraser/smudge is
+  // briefly active on top of it, same reasoning as lastDrawingTool itself
+  // (see toolSlice.ts).
+  const colorTool: 'pencil' | 'liner' = lastDrawingTool
   const colorToolColor = colorTool === 'liner' ? linerColor : pencilColor
   // (#190 epic) Room palette — see roomSlice's own doc comment for why this
   // is a plain setter, not a reducer. Add/remove requests round-trip through
@@ -1871,8 +1878,8 @@ export function Room() {
       const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
       if (is('undo')) { handleUndo(); e.preventDefault(); return }
       if (is('redo')) { handleRedo(); e.preventDefault(); return }
-      if (is('toggleEraser')) { setTool(t => t === 'eraser' ? 'pencil' : 'eraser'); return }
-      if (is('toggleSmudge')) { setTool(t => t === 'smudge' ? 'pencil' : 'smudge'); return }
+      if (is('toggleEraser')) { setTool(t => t === 'eraser' ? lastDrawingTool : 'eraser'); return }
+      if (is('toggleSmudge')) { setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge'); return }
       if (is('toggleLiner')) { setTool(t => t === 'liner' ? 'pencil' : 'liner'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
       if (is('decreaseSize')) {
@@ -1896,7 +1903,7 @@ export function Room() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [tool, setTool, setToolSetting, setVp, handleUndo, handleRedo, hotkeys])
+  }, [tool, setTool, lastDrawingTool, setToolSetting, setVp, handleUndo, handleRedo, hotkeys])
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -2098,13 +2105,13 @@ export function Room() {
             className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
             title={`Eraser  ${formatHotkeyLabel(hotkeys.toggleEraser)}`}
             aria-label={`Eraser  ${formatHotkeyLabel(hotkeys.toggleEraser)}`}
-            onClick={() => setTool(t => t === 'eraser' ? 'pencil' : 'eraser')}
+            onClick={() => setTool(t => t === 'eraser' ? lastDrawingTool : 'eraser')}
           ><Icon name="ink_eraser" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'smudge' && styles.toolIconBtnActive)}
             title={`Smudge — blend graphite already on the page  ${formatHotkeyLabel(hotkeys.toggleSmudge)}`}
             aria-label={`Smudge  ${formatHotkeyLabel(hotkeys.toggleSmudge)}`}
-            onClick={() => setTool(t => t === 'smudge' ? 'pencil' : 'smudge')}
+            onClick={() => setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge')}
           ><Icon name="blur_on" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'liner' && styles.toolIconBtnActive)}
@@ -2361,17 +2368,18 @@ export function Room() {
           // room for a third drawing-tool button (see its own doc comment —
           // "the 4 most-reached-for actions") — smudge isn't one of its
           // slots, same as ruler/transform/grid/eyedropper already aren't.
-          // Folds into "not eraser" here purely so its own pencil/eraser
+          // Folds into "not eraser" here purely so its own top-button/eraser
           // highlight stays correct while smudge is active elsewhere (the
           // left toolbar); tapping either of *this* panel's two buttons
           // still switches away from smudge normally via onSetTool.
-          tool={tool === 'eraser' ? 'eraser' : 'pencil'}
+          tool={tool === 'eraser' ? 'eraser' : lastDrawingTool}
+          primaryTool={lastDrawingTool}
           onSetTool={setTool}
           onUndo={handleUndo}
           onRedo={handleRedo}
-          pencilColor={pencilColor}
+          primaryColor={colorToolColor}
           palette={palette}
-          onSelectColor={v => setToolSetting('pencil', 'color', v)}
+          onSelectColor={v => setToolSetting(colorTool, 'color', v)}
           onOpenColorPicker={openColorPickerFromFlyout}
           roomId={id ?? ''}
           position={panelPosition}
