@@ -8,9 +8,11 @@ import {
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import { DabSystem } from './src/DabSystem'
+import { shapingForTool } from './src/dabShaping'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
+import { LINER_PRESET, LINER_SIZES_MM, linerSpeedFlow, linerTiltFlow, applyLinerEndTaper, type LinerSizeMm } from './src/linerPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
   applyAffine, composeAffine, invertAffine, scaleRotateMatrix, toMat3, translationMatrix,
@@ -27,6 +29,7 @@ export type { AffineMatrix }
 export type { RulerLine }
 
 export { PENCIL_PRESETS, PENCIL_GRADES, type PencilGradeName, type PencilPreset }
+export { LINER_SIZES_MM, type LinerSizeMm }
 
 // Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
 // uses (#123) — not in lib.dom.d.ts's WebGLRenderingContext, so this is typed
@@ -2519,11 +2522,11 @@ export class PencilEngine implements PencilEngineAPI {
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
-      'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap',
+      'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
     ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap',
+      'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
     ])
     this._dispUni = getUniforms(gl, this._dispProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale',
@@ -2676,6 +2679,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!layerId || !this._layers.has(layerId)) return
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
+    this._dabs.setShaping(shapingForTool(this._strokeTool))
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     // Smudge's reservoir now persists across separate strokes (see
@@ -2849,6 +2853,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!layerId) return
     const t0 = this._debug ? performance.now() : 0
     const dabs = this._dabs.endStroke(this._physicalSize)
+    if (this._strokeTool === 'liner') applyLinerEndTaper(dabs, e.speed)
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
     // Discard the speculative preview entirely once the real stroke has
     // ended — the final _display() below must show only real content.
@@ -2902,6 +2907,18 @@ export class PencilEngine implements PencilEngineAPI {
     this._handlers.strokeEnd?.(e)
   }
 
+  /** Resolves a StrokeOperation's (tool, preset) pair to the {opacity,
+   *  hardness, sizeMultiplier} triple that drives both opacity baking
+   *  (_bakeDabOpacity) and rendering (_paintDabs/_dabWorldRadius). Liner has
+   *  no hardness scale (see LINER_PRESET's own comment) — every calibrated
+   *  width/free size resolves to the one flat preset regardless of
+   *  `presetName`'s actual value. pencil/eraser/smudge keep the exact
+   *  pre-existing fallback-to-HB behavior for an unrecognized presetName. */
+  private _resolvePreset(tool: ToolType, presetName: string): PencilPreset {
+    if (tool === 'liner') return LINER_PRESET
+    return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+  }
+
   /** Bakes final dab opacity (preset × user opacity × speed) in place. Shared
    *  by the real stroke path and the #92 prediction preview, so predicted
    *  dabs render with visually consistent opacity to real ones. tool/
@@ -2909,8 +2926,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  user's own _strokeTool/_strokePreset/_opts.opacity) purely so both
    *  callers can pass their own state through one shared implementation. */
   private _bakeDabOpacity(dabs: Dab[], speed: number, tool: ToolType, presetName: string, opacity: number): void {
-    const preset      = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+    const preset      = this._resolvePreset(tool, presetName)
     const speedFactor = Math.max(0.7, 1.0 - speed * 0.15)
+    const linerSpeed   = tool === 'liner' ? linerSpeedFlow(speed) : 0
     for (const dab of dabs) {
       if (tool === 'eraser') dab.opacity = opacity
       // Smudge (#14) has no pencil preset to draw an opacity from (the
@@ -2919,6 +2937,15 @@ export class PencilEngine implements PencilEngineAPI {
       // slower still means a firmer, more thorough blend, matching how a
       // real blending stump behaves.
       else if (tool === 'smudge') dab.opacity = opacity * speedFactor
+      // Liner (#241, ADR 003 §2-3, §7): pressure's own contribution to flow
+      // lives entirely in DabShapingProfile.depositPressure (dabShaping.ts),
+      // baked into dab.pressure before this ever runs — see linerPresets.ts's
+      // own comment on why it isn't re-derived here. Speed and tilt are the
+      // only two factors this branch adds on top of the flat preset opacity.
+      else if (tool === 'liner') {
+        const tiltDeg = Math.sqrt(dab.tiltX * dab.tiltX + dab.tiltY * dab.tiltY)
+        dab.opacity = preset.opacity * opacity * linerSpeed * linerTiltFlow(tiltDeg)
+      }
       else dab.opacity = preset.opacity * opacity * speedFactor
     }
   }
@@ -3163,8 +3190,9 @@ export class PencilEngine implements PencilEngineAPI {
   ): void {
     if (!dabs.length) return
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab); return }
-    const erasing = tool === 'eraser'
-    const preset  = isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+    const erasing   = tool === 'eraser'
+    const linerMode = tool === 'liner'
+    const preset  = this._resolvePreset(tool, presetName)
     const worldBounds = this._dabsWorldBounds(dabs, erasing, preset)
     const targets: PaintTarget[] = target instanceof AccumulationBuffer
       ? [{ buffer: target, originX: 0, originY: 0, contentRect: null }]
@@ -3201,9 +3229,9 @@ export class PencilEngine implements PencilEngineAPI {
       // _paintDabsInstanced's docstring for why this preserves the exact
       // sequential per-dab blend order the fallback loop below relies on.
       if (this._instancedArraysExt) {
-        this._paintDabsInstanced(tileDabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsInstanced(tileDabs, erasing, linerMode, preset, color, buffer.width, buffer.height, originX, originY)
       } else {
-        this._paintDabsUniform(tileDabs, erasing, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsUniform(tileDabs, erasing, linerMode, preset, color, buffer.width, buffer.height, originX, originY)
       }
 
       buffer.endDraw()
@@ -3224,7 +3252,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  translates each dab's world-space center into that buffer's local
    *  space (bounded: always (0,0), so this is a no-op there). */
   private _paintDabsUniform(
-    dabs: Dab[], erasing: boolean, preset: PencilPreset, color: [number, number, number],
+    dabs: Dab[], erasing: boolean, linerMode: boolean, preset: PencilPreset, color: [number, number, number],
     resW: number, resH: number, originX: number, originY: number,
   ): void {
     const { gl } = this
@@ -3254,6 +3282,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1i(u.u_grainMode, this._grainMode)
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
+    gl.uniform1f(u.u_inkMode, linerMode ? 1.0 : 0.0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     const posLoc = this._dabPosLoc
@@ -3295,7 +3324,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  the shader changed, from one gl.uniform* call per dab to one instanced
    *  vertex attribute read per dab out of a single buffer uploaded once. */
   private _paintDabsInstanced(
-    dabs: Dab[], erasing: boolean, preset: PencilPreset, color: [number, number, number],
+    dabs: Dab[], erasing: boolean, linerMode: boolean, preset: PencilPreset, color: [number, number, number],
     resW: number, resH: number, originX: number, originY: number,
   ): void {
     const { gl } = this
@@ -3320,6 +3349,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1i(u.u_grainMode, this._grainMode)
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
+    gl.uniform1f(u.u_inkMode, linerMode ? 1.0 : 0.0)
 
     // Shared unit quad, divisor 0 — same 6 vertices/2 triangles per instance
     // as the uniform path's per-dab quad.

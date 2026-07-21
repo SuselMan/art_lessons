@@ -10,6 +10,8 @@
 import type { Dab } from '@art-lessons/shared'
 import { clamp } from 'lodash-es'
 
+import { PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'
+
 interface ControlPoint {
   x: number
   y: number
@@ -89,6 +91,7 @@ export class DabSystem {
   spacingFactor: number
   private _buf: ControlPoint[]
   private _remainder: number
+  private _shaping: DabShapingProfile
 
   // Reusable arc-length lookup table scratch storage for _splineDabs, sized
   // STEPS + 1 (index 0 is the segment start p1). Parallel Float64Arrays
@@ -101,14 +104,23 @@ export class DabSystem {
   private _sampleX: Float64Array
   private _sampleY: Float64Array
 
-  constructor({ spacingFactor = 0.22 }: { spacingFactor?: number } = {}) {
+  constructor({ spacingFactor = 0.22, shaping = PENCIL_DAB_SHAPING }: { spacingFactor?: number; shaping?: DabShapingProfile } = {}) {
     this.spacingFactor = spacingFactor
     this._buf = []
     this._remainder = 0
+    this._shaping = shaping
     this._sampleT = new Float64Array(STEPS + 1)
     this._sampleLen = new Float64Array(STEPS + 1)
     this._sampleX = new Float64Array(STEPS + 1)
     this._sampleY = new Float64Array(STEPS + 1)
+  }
+
+  // Switches the pressure/tilt→geometry response for subsequent dabs (#240).
+  // Engine calls this once per stroke start, from the same place it latches
+  // _strokeTool — never expected mid-stroke, so no special handling for a
+  // profile change partway through an in-progress _buf.
+  setShaping(shaping: DabShapingProfile): void {
+    this._shaping = shaping
   }
 
   private _reset(): void {
@@ -126,7 +138,7 @@ export class DabSystem {
   // pointermove, re-forking fresh from the real, now-updated state each
   // time) rather than keep feeding it more real points.
   forkForPreview(): DabSystem {
-    const fork = new DabSystem({ spacingFactor: this.spacingFactor })
+    const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
     // fork already got its own fresh scratch Float64Arrays from its own
@@ -291,15 +303,21 @@ export class DabSystem {
 
   private _makeDab(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, pathAngle: number): Dab {
     const tiltMag    = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
-    const size       = baseSize * (0.3 + 0.7 * pressure)
     const tiltNorm   = tiltMag / 90
-    const aspectRatio = 1 + tiltNorm * tiltNorm * tiltNorm * 6.0
+    const size       = baseSize * this._shaping.size(pressure)
+    const aspectRatio = this._shaping.aspect(tiltNorm)
     const angle      = tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
+    // Stored `pressure` feeds DAB_FRAG's deposit gate (u_pressure) downstream
+    // — see DabShapingProfile.depositPressure's own comment. Geometry above
+    // already used the real, unmapped pressure; only the stored/recorded
+    // value is remapped, and only for tools whose profile defines it
+    // (pencil/eraser/smudge: identity, unchanged from before this existed).
+    const depositPressure = this._shaping.depositPressure ? this._shaping.depositPressure(pressure) : pressure
     // opacity is geometric-neutral here; the engine bakes the final value
     // (preset × user opacity × speed) before rendering and recording. `t` is
     // likewise stamped by the engine (PencilEngine._paintStrokeDabs), which
     // is the only place that knows elapsed wall-clock time.
-    return { x, y, pressure, tiltX, tiltY, size, aspectRatio, angle, opacity: 1, t: 0 }
+    return { x, y, pressure: depositPressure, tiltX, tiltY, size, aspectRatio, angle, opacity: 1, t: 0 }
   }
 }
 

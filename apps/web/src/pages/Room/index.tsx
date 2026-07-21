@@ -44,7 +44,7 @@ import { TransformGizmo, type TransformHandleKind, type TransformBounds } from '
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
-import { TOOL_SCHEMAS, loadToolSettings, saveToolSettings } from './toolSchemas'
+import { TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
@@ -882,17 +882,38 @@ export function Room() {
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
   const pencilGrade = toolSettings.pencil.grade as PencilGradeName
+  const linerSize = toolSettings.liner.size as string
   useEffect(() => {
-    engineRef.current?.setPencil(pencilGrade)
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
   }, [pencilGrade])
+  useEffect(() => {
+    // engine.setPencil's argument is a generic preset-name string
+    // (StrokeOperation.preset) — pencil's own grade normally, but the
+    // liner's own size label while it's the active tool. _resolvePreset in
+    // engine/index.ts ignores this string for 'liner' rendering (liner has
+    // one flat preset regardless of size, see LINER_PRESET's own comment),
+    // but the recorded Operation should still reflect what was actually
+    // selected, not silently keep whatever pencil's grade happened to be.
+    engineRef.current?.setPencil(tool === 'liner' ? linerSize : pencilGrade)
+  }, [tool, pencilGrade, linerSize])
   useEffect(() => { engineRef.current?.setTool(tool) },     [tool])
   useEffect(() => {
-    engineRef.current?.setSize(activeCfg.size as number)
+    // Liner's own 'size' field is a fixed-mm-label enum (ADR 003), not a
+    // plain px number like every other tool's — see linerSizeToPx's own
+    // comment for why the mm→px mapping lives in the UI layer.
+    const sizePx = tool === 'liner' ? linerSizeToPx(activeCfg.size as string) : (activeCfg.size as number)
+    engineRef.current?.setSize(sizePx)
     engineRef.current?.setOpacity(activeCfg.opacity as number)
-  }, [activeCfg])
+  }, [tool, activeCfg])
   const pencilColor = toolSettings.pencil.color as [number, number, number]
-  useEffect(() => { engineRef.current?.setColor(pencilColor) }, [pencilColor])
+  const linerColor = toolSettings.liner.color as [number, number, number]
+  useEffect(() => {
+    engineRef.current?.setColor(tool === 'liner' ? linerColor : pencilColor)
+  }, [tool, pencilColor, linerColor])
+  // Which tool's own color field the "Color" SidePanel tab edits — see that
+  // tab's own comment.
+  const colorTool: 'pencil' | 'liner' = tool === 'liner' ? 'liner' : 'pencil'
+  const colorToolColor = colorTool === 'liner' ? linerColor : pencilColor
   // (#190 epic) Room palette — see roomSlice's own doc comment for why this
   // is a plain setter, not a reducer. Add/remove requests round-trip through
   // the server (dedup lives there, see rooms.ts's addPaletteColor) rather
@@ -1852,9 +1873,21 @@ export function Room() {
       if (is('redo')) { handleRedo(); e.preventDefault(); return }
       if (is('toggleEraser')) { setTool(t => t === 'eraser' ? 'pencil' : 'eraser'); return }
       if (is('toggleSmudge')) { setTool(t => t === 'smudge' ? 'pencil' : 'smudge'); return }
+      if (is('toggleLiner')) { setTool(t => t === 'liner' ? 'pencil' : 'liner'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
-      if (is('decreaseSize')) { setToolSetting(tool, 'size', prev => Math.max(1,   (prev as number) - 1)); return }
-      if (is('increaseSize')) { setToolSetting(tool, 'size', prev => Math.min(120, (prev as number) + 1)); return }
+      if (is('decreaseSize')) {
+        // Liner's own 'size' is a fixed-mm-label enum (ADR 003), not the
+        // plain px number every other tool's 'size' field holds — step
+        // through the ladder instead of subtracting 1.
+        if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, -1))
+        else setToolSetting(tool, 'size', prev => Math.max(1, (prev as number) - 1))
+        return
+      }
+      if (is('increaseSize')) {
+        if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, 1))
+        else setToolSetting(tool, 'size', prev => Math.min(120, (prev as number) + 1))
+        return
+      }
       if (is('rotateCCW')) { setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 })); return }
       if (is('rotateCW')) { setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 })); return }
       for (const [actionId, grade] of Object.entries(gradeActions)) {
@@ -2073,6 +2106,12 @@ export function Room() {
             aria-label={`Smudge  ${formatHotkeyLabel(hotkeys.toggleSmudge)}`}
             onClick={() => setTool(t => t === 'smudge' ? 'pencil' : 'smudge')}
           ><Icon name="blur_on" /></button>
+          <button
+            className={clsx(styles.toolIconBtn, tool === 'liner' && styles.toolIconBtnActive)}
+            title={`Liner — ink pen, near-constant line width  ${formatHotkeyLabel(hotkeys.toggleLiner)}`}
+            aria-label={`Liner  ${formatHotkeyLabel(hotkeys.toggleLiner)}`}
+            onClick={() => setTool(t => t === 'liner' ? 'pencil' : 'liner')}
+          ><Icon name="stylus" /></button>
 
           <div className={styles.toolDivider} />
 
@@ -2263,14 +2302,21 @@ export function Room() {
                 content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} />,
               },
               {
+                // Reflects whichever of pencil/liner is actually active (the
+                // only two drawing tools with a real 'color' field) rather
+                // than always pencil — this tab is reached both from either
+                // tool's own quick-field expand button and from
+                // FloatingToolPanel's escape hatch, which only ever shows
+                // pencil (see its own props), so falling back to pencil's
+                // color there is unchanged from before liner existed.
                 id: 'color', icon: 'palette', title: 'Color',
                 content: (
                   <>
-                    <ColorPicker value={pencilColor} onChange={v => setToolSetting('pencil', 'color', v)} />
+                    <ColorPicker value={colorToolColor} onChange={v => setToolSetting(colorTool, 'color', v)} />
                     <PaletteBar
                       palette={palette}
-                      value={pencilColor}
-                      onSelect={v => setToolSetting('pencil', 'color', v)}
+                      value={colorToolColor}
+                      onSelect={v => setToolSetting(colorTool, 'color', v)}
                       onAdd={addPaletteColor}
                       onRemove={removePaletteColor}
                     />
