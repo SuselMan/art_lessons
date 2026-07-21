@@ -6,6 +6,7 @@ import { deleteRoom, listMyRooms, type MyRooms } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
 import { AccountNav } from '../../components/AccountNav'
 import { Icon } from '../../components/Icon'
+import { EmptyState, ErrorState } from '../../components/ListState'
 import styles from './MyLessons.module.css'
 
 const ROOMS_QUERY_KEY = ['rooms', 'mine'] as const
@@ -72,7 +73,7 @@ export function MyLessons() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
-  const { data: rooms, isError: loadFailed } = useQuery({
+  const { data: rooms, isError: loadFailed, refetch } = useQuery({
     queryKey: ROOMS_QUERY_KEY, queryFn: listMyRooms, enabled: loggedIn,
   })
   const deleteMutation = useMutation({
@@ -104,14 +105,18 @@ export function MyLessons() {
 
       <h1 className={styles.heading}>My Lessons</h1>
 
-      {(loadError || deleteError) && <div className={styles.error}>{loadError ?? deleteError}</div>}
+      {loadError ? (
+        <ErrorState message={loadError} onRetry={() => refetch()} />
+      ) : deleteError ? (
+        <ErrorState message={deleteError} />
+      ) : null}
 
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Created by me</h2>
         {rooms === undefined ? (
           <div className={styles.empty}>Loading…</div>
         ) : rooms.owned.length === 0 ? (
-          <div className={styles.empty}>You haven't created any rooms yet.</div>
+          <EmptyState icon="folder_open" message="You haven't created any rooms yet." />
         ) : (
           <div className={styles.grid}>
             {rooms.owned.map(room => (
@@ -133,7 +138,7 @@ export function MyLessons() {
         {rooms === undefined ? (
           <div className={styles.empty}>Loading…</div>
         ) : rooms.participated.length === 0 ? (
-          <div className={styles.empty}>No rooms you've joined yet.</div>
+          <EmptyState icon="folder_open" message="No rooms you've joined yet." />
         ) : (
           <div className={styles.grid}>
             {rooms.participated.map(room => (

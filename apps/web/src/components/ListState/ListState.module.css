@@ -1,0 +1,43 @@
+.empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--color-text-dim);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  font-size: 13px;
+  color: #cc6666;
+  background: rgba(170, 85, 85, 0.1);
+  border: 1px solid rgba(170, 85, 85, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 9px 13px;
+}
+
+.errorMessage {
+  flex: 1;
+}
+
+.retryButton {
+  min-height: var(--touch-target-sm);
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: #aa5555;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.retryButton:hover {
+  background: #bb6666;
+}
