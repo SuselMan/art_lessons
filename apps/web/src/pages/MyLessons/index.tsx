@@ -26,6 +26,17 @@ function RoomCard({ room, confirming, deleting, onDeleteClick, onCancelClick }: 
   return (
     <div className={styles.card}>
       <Link className={styles.cardLink} to={`/room/${room.id}`}>
+        {room.thumbnailUpdatedAt && (
+          // `v=` is pure cache-busting for when a new thumbnail is uploaded
+          // (#210) — same room id would otherwise keep serving a stale
+          // browser-cached image forever since the URL never changes.
+          <img
+            className={styles.cardThumbnail}
+            src={`/api/rooms/${room.id}/thumbnail?v=${encodeURIComponent(room.thumbnailUpdatedAt)}`}
+            alt=""
+            loading="lazy"
+          />
+        )}
         <div className={styles.cardName}>{room.name}</div>
         <div className={styles.cardMeta}>
           <span>{formatDate(room.createdAt)}</span>

@@ -98,6 +98,21 @@
   background: var(--color-surface-2);
 }
 
+.cardThumbnail {
+  /* Pulled flush to cardLink's own 16px padding on three sides so it reads
+     as a hero image at the top of the card, not an inset photo — .card's
+     own overflow: hidden + border-radius (above) clips its top corners to
+     match. object-fit: cover rather than contain — a slightly cropped
+     drawing reads better in a small fixed-aspect card than one letterboxed
+     on an arbitrary room aspect ratio. */
+  display: block;
+  width: calc(100% + 32px);
+  margin: -16px -16px 0;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  background: var(--color-surface-2);
+}
+
 .cardName {
   font-size: 15px;
   font-weight: 600;
