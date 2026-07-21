@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate } from 'react-router-dom'
 import clsx from 'clsx'
 import {
-  DndContext, DragOverlay, PointerSensor, TouchSensor, closestCenter, pointerWithin,
+  DndContext, DragOverlay, PointerSensor, TouchSensor, pointerWithin, rectIntersection,
   useDraggable, useDroppable, useSensor, useSensors,
   type CollisionDetection, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
@@ -330,14 +330,21 @@ export function MyLessons() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
   )
-  // pointerWithin catches small/edge drop targets (a breadcrumb button)
-  // that closestCenter tends to skip in favor of a nearby larger card;
-  // falls back to closestCenter when the pointer isn't over any droppable
-  // at all (e.g. released past the edge of the grid) — same pattern as
-  // LayerPanel's own collisionDetection.
+  // pointerWithin catches small/edge drop targets (a breadcrumb button) that
+  // a pure rect-intersection check can miss when the pointer's exactly on a
+  // shared border. Falls back to rectIntersection — NOT closestCenter — for
+  // the rest: closestCenter always returns *some* droppable, however far
+  // away the pointer actually is (it has no distance cutoff, just picks the
+  // nearest), which was the bug (#211 feedback round 4) behind "dragging a
+  // room away from a folder doesn't clear the target" — the last folder the
+  // pointer had been near stayed the closestCenter "winner" for the entire
+  // rest of the drag, so it always got the drop regardless of where the
+  // pointer was released. rectIntersection only matches when the dragged
+  // item's rect actually overlaps a droppable's, so moving away from every
+  // folder/breadcrumb correctly clears `over` back to nothing.
   const dndCollision: CollisionDetection = useCallback(args => {
     const hits = pointerWithin(args)
-    return hits.length > 0 ? hits : closestCenter(args)
+    return hits.length > 0 ? hits : rectIntersection(args)
   }, [])
 
   const [searchInput, setSearchInput] = useState('')
