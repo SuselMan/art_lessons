@@ -545,6 +545,10 @@ export const TOOL_SOUND_CONFIGS: Record<ToolType, GrainVariant | null> = {
   eraser: PENCIL_SOUND_VARIANT_3,
   smudge: PENCIL_SOUND_VARIANT_3,
   liner: LINER_SOUND_VARIANT_3,
+  // No sound design yet (docs/adr/004-marker-tool.md's "Потом" list) — null
+  // is the documented "this tool makes no drawing sound" case above, not a
+  // placeholder oversight.
+  marker: null,
 }
 
 // Frozen snapshots of the above, taken at module-eval time before any live tuning-panel patch can
@@ -555,6 +559,7 @@ export const TOOL_SOUND_DEFAULTS: Record<ToolType, GrainVariant | null> = {
   eraser: cloneGrain(PENCIL_SOUND_VARIANT_3),
   smudge: cloneGrain(PENCIL_SOUND_VARIANT_3),
   liner: cloneGrain(LINER_SOUND_VARIANT_3),
+  marker: null,
 }
 
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
