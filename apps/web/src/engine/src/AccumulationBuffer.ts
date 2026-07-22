@@ -71,6 +71,22 @@ export class AccumulationBuffer {
     gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA)
   }
 
+  /** Marker's own inkLoad accumulation (ADR 004 "Ревизия v1.5"): a pure sum,
+   *  `result = src + dst`, no alpha-weighted saturation at all — unlike
+   *  beginDraw()'s (ONE, ONE_MINUS_SRC_ALPHA) "over" (which is exactly what
+   *  `coverage` still wants, for a fast-saturating silhouette), inkLoad is
+   *  meant to keep growing across repeated overlapping dabs within one
+   *  stroke with no ceiling at the accumulation stage — the only saturation
+   *  happens later, once, in DAB_FRAG's composite branch
+   *  (`1 - exp(-inkLoad * rate)`), not here. */
+  beginAdditiveDraw(): void {
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE)
+  }
+
   endDraw(): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null)
     this.gl.disable(this.gl.BLEND)

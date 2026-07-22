@@ -168,17 +168,18 @@ export const DAB_FRAG = `
   // push paperCatch, regardless of pressure. See u_paperFillThreshold's own
   // comment for why this exists at all.
   uniform float u_paperFillCap;
-  // 1.0 = fineliner (#241/#242, ADR 003), 2.0 = marker (#250, ADR 004 §3),
-  // 0.0 = every other tool (unchanged graphite path below). A separate mode
-  // flag rather than folding into u_eraseMode/u_grainMode: those two are
-  // about *how much* deposit or *which* dither variant, this is a
-  // completely different deposit formula per value (liner: weak paper
-  // reaction, no grain dither, a soft absorption edge; marker: multiply-
-  // with-coverage against this layer's own current content instead of a
-  // single-pass "over") — see the branches below, right after the erase
-  // branch. Marker checks > 1.5 (not == 2.0) for the same
-  // float-equality-is-fragile reason every other threshold in this shader
-  // is a smoothstep/comparison band, not an exact match.
+  // 1.0 = fineliner (#241/#242, ADR 003), 2.0 = marker composite (#250, ADR
+  // 004 §3), 3.0 = marker coverage-splat, 4.0 = marker inkLoad-splat
+  // ("Ревизия v1.5" — see u_inkLoad's own comment), 0.0 = every other tool
+  // (unchanged graphite path below). A separate mode flag rather than
+  // folding into u_eraseMode/u_grainMode: those two are about *how much*
+  // deposit or *which* dither variant, this is a completely different
+  // deposit formula per value — see the branches below, right after the
+  // erase branch. Each branch checks a "> threshold" band (not "==") for
+  // the same float-equality-is-fragile reason every other threshold in
+  // this shader is a smoothstep/comparison band, not an exact match —
+  // ordered highest-value-first since these are independent if/return
+  // checks, not an else-if chain.
   uniform float u_inkMode;
   // Marker only, redesigned in a follow-up to #250 (see engine/index.ts's
   // MarkerStrokeScratch for the full story of *why*): this tile's own
@@ -203,10 +204,22 @@ export const DAB_FRAG = `
   // smooth flat coverage instead of compounding — see u_original's own
   // comment above for the full story.
   uniform sampler2D u_strokeCoverage;
+  // ADR 004 "Ревизия v1.5": how much ink this stroke has actually deposited
+  // at each pixel, distance-normalized (engine/index.ts computes each dab's
+  // own contribution as dab.opacity * segmentLength, not a flat per-dab
+  // amount — see _paintOneMarkerDab) and accumulated *additively*
+  // (AccumulationBuffer.beginAdditiveDraw — no per-accumulation ceiling,
+  // unlike u_strokeCoverage's saturating splat). Separating this from
+  // u_strokeCoverage is what lets scribbling back and forth over an
+  // already-fully-covered spot keep darkening it instead of the coverage
+  // ceiling silently capping darkness too (u_strokeCoverage still governs
+  // the stroke's silhouette/alpha; this governs how dark the color mix
+  // goes — see the composite branch below).
+  uniform sampler2D u_inkLoad;
   // Every _dabProg draw already sets this (see engine/index.ts's own
   // _drawMarkerCompositeDab/_drawMarkerCoverageDab and every other caller)
   // — declared here too so this fragment shader can read it back for the
-  // u_original/u_strokeCoverage gl_FragCoord mapping above.
+  // u_original/u_strokeCoverage/u_inkLoad gl_FragCoord mapping above.
   uniform vec2 u_resolution;
   // Flat paper-white constant (ADR 004 §3/§8) — the color an untouched
   // (alpha=0) spot of this layer multiplies against, standing in for "the
@@ -358,30 +371,57 @@ export const DAB_FRAG = `
     // blank-paper tint), .a is this precomputed catch value.
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
 
-    // Marker coverage-splat (follow-up to #250 — see u_strokeCoverage's own
-    // comment above): paints ONLY this dab's own shape*opacity into this
-    // stroke's running coverage total, a perfectly ordinary saturating
-    // "over" splat with no multiply/color/paper involved at all. Checked
-    // *before* the composite branch below (u_inkMode>1.5 would also be
-    // true for this branch's own 3.0) since the two are mutually exclusive
-    // draws against two different targets, not layered on top of each
-    // other.
+    // Marker inkLoad-splat (ADR 004 "Ревизия v1.5"): this dab's own
+    // distance-normalized deposit (engine/index.ts's _paintOneMarkerDab
+    // computes u_opacity here as dab.opacity * segmentLength, already
+    // baked before this draw — the shader itself never sees positions or
+    // distances, just the final per-dab deposit amount), splatted
+    // *additively* (AccumulationBuffer.beginAdditiveDraw — no per-splat
+    // ceiling) into u_inkLoad. Checked before every other marker branch
+    // (u_inkMode>2.5/>1.5 would also be true for this branch's own 4.0)
+    // since all three are mutually exclusive draws against different
+    // targets, not layered on top of each other.
+    if (u_inkMode > 3.5) {
+      gl_FragColor = vec4(vec3(shape * v_opacity), shape * v_opacity);
+      return;
+    }
+
+    // Marker coverage-splat (#250, extended in "Ревизия v1.5" with a small
+    // edge-only paper bleed): paints this dab's own shape*opacity into this
+    // stroke's running *coverage* total — a perfectly ordinary saturating
+    // "over" splat, no multiply/color/ink-darkness involved. This is
+    // deliberately kept separate from u_inkLoad above: coverage governs
+    // only the stroke's silhouette/alpha (see the composite branch below),
+    // so it must saturate fast regardless of how dark the stroke eventually
+    // gets — conflating the two was v1's own mistake (see u_inkLoad's own
+    // comment above).
     if (u_inkMode > 2.5) {
-      float amt = clamp(shape * v_opacity, 0.0, 1.0);
+      // ADR 004 "Ревизия v1.5" §6: a light paper-edge interaction, not the
+      // graphite pressure-fill mechanism (that's about compressing graphite
+      // into paper tooth under pressure — irrelevant to a felt/alcohol
+      // tip). Reuses the exact same edge mask liner's own wick term already
+      // established ((1-shape), zero at the dab's solid core, rising to 1
+      // right at the rim) so an absorbent paper (rough: low paperCatch)
+      // shows a soft bleed only at the mark's very edge, while bristol
+      // (paperCatch near 1) stays almost perfectly crisp.
+      const float MARKER_BLEED_STRENGTH = 0.35; // uncalibrated first pass
+      float paperAbsorbency = 1.0 - paperCatch;
+      float bleed = (1.0 - shape) * paperAbsorbency * MARKER_BLEED_STRENGTH;
+      float amt = clamp(shape * v_opacity + bleed * v_opacity, 0.0, 1.0);
       gl_FragColor = vec4(vec3(amt), amt);
       return;
     }
 
-    // Marker composite (#250, ADR 004 §3, redesigned in a follow-up — see
-    // u_original/u_strokeCoverage's own comments above for why this no
-    // longer reads a small per-dab copied patch): multiply-with-coverage
-    // compositing, not a single-pass "over" the way every mode above/below
-    // writes. Checked before the liner branch (u_inkMode>0.5 would also be
-    // true for marker's own 2.0) since the two modes are mutually
-    // exclusive deposit formulas, not layered on top of each other.
+    // Marker composite (#250, ADR 004 §3, redesigned in "Ревизия v1.5" —
+    // see u_original/u_strokeCoverage/u_inkLoad's own comments above):
+    // multiply-with-coverage compositing, not a single-pass "over" the way
+    // every mode above/below writes. Checked before the liner branch
+    // (u_inkMode>0.5 would also be true for marker's own 2.0) since the two
+    // modes are mutually exclusive deposit formulas, not layered on top of
+    // each other.
     if (u_inkMode > 1.5) {
-      // u_original/u_strokeCoverage are always exactly the same size and
-      // pixel-aligned with the tile this draws into (see
+      // u_original/u_strokeCoverage/u_inkLoad are always exactly the same
+      // size and pixel-aligned with the tile this draws into (see
       // MarkerStrokeScratch's own doc comment) — a plain 0..1 UV, no
       // patch-relative origin/size math needed.
       vec2 tileUV = gl_FragCoord.xy / u_resolution;
@@ -392,33 +432,40 @@ export const DAB_FRAG = `
       // happened to be there. An alpha near zero has no real color to
       // recover (and would blow up dividing by it) — ADR 004 §3 explicitly
       // wants a flat paperWhite constant there instead of trying to
-      // extrapolate a color from near-nothing, since v1 has no real
-      // paper-grain interaction anyway (§8). 1/255 is the smallest alpha an
-      // 8-bit-backed accumulation buffer can even represent as nonzero, so
-      // anything at or below that is indistinguishable from untouched.
+      // extrapolate a color from near-nothing. 1/255 is the smallest alpha
+      // an 8-bit-backed accumulation buffer can even represent as nonzero,
+      // so anything at or below that is indistinguishable from untouched.
       vec3 effectiveBase = dst.a > 0.004 ? clamp(dst.rgb / dst.a, 0.0, 1.0) : u_paperWhite;
-      // This stroke's *total* accumulated coverage at this pixel so far —
-      // not a fresh per-dab shape*opacity recompute (see u_strokeCoverage's
-      // own comment above for why that used to compound multiply at every
-      // dab overlap instead of converging to one smooth tone).
+      // Coverage still governs the stroke's silhouette/alpha only (fast-
+      // saturating — see u_strokeCoverage's own comment).
       float coverage = texture2D(u_strokeCoverage, tileUV).a;
+      // ADR 004 "Ревизия v1.5" §1: darkness comes from *inkLoad*, not
+      // coverage — an unbounded-at-accumulation-time sum, turned into a
+      // saturating [0,1) darkness *here*, once, at read time. This is what
+      // lets scribbling back and forth over an already-fully-covered spot
+      // (coverage long since 1) keep darkening it: inkLoad keeps growing
+      // even after coverage can't. MARKER_DARKEN_RATE is a first-pass,
+      // uncalibrated constant (same status every other first-pass number in
+      // this codebase carries) — higher means fewer overlapping passes
+      // needed to approach full darkness.
+      const float MARKER_DARKEN_RATE = 3.0; // uncalibrated first pass
+      float inkLoad = texture2D(u_inkLoad, tileUV).a;
+      float darkness = 1.0 - exp(-inkLoad * MARKER_DARKEN_RATE);
       // Beer-Lambert-style multiply for a translucent marker film (ADR 004
       // "Контекст" — physically correct for overlapping translucent dye,
       // unlike graphite/ink's saturating "over" coverage below).
-      vec3 result = mix(effectiveBase, effectiveBase * u_color, coverage);
-      // Alpha bookkeeping (not nailed down to an exact equation by the ADR
-      // — this is this implementation's own reasoned choice, documented
-      // here rather than left silent): blend the *original* dst.a toward
-      // 1.0 by the stroke's total coverage, mirroring how graphite/liner's
-      // own deposit already approaches full coverage under repeated
-      // overlapping passes rather than stacking past it.
+      vec3 result = mix(effectiveBase, effectiveBase * u_color, darkness);
+      // Alpha bookkeeping: blend the *original* dst.a toward 1.0 by
+      // *coverage* (silhouette, not darkness) — mirrors how graphite/
+      // liner's own deposit already approaches full coverage under
+      // repeated overlapping passes rather than stacking past it, and
+      // keeps alpha independent of how dark the color mix above ends up.
       float newAlpha = mix(dst.a, 1.0, coverage);
       // Premultiplied output, matching every other accumulation-buffer
       // writer in this shader — composites correctly via the same (ONE,
       // ONE_MINUS_SRC_ALPHA) "over" write-back every other dab uses (the
-      // multiply itself already happened just above, against the frozen
-      // original and the accumulated coverage — this write-back blend is
-      // unchanged from a plain "over").
+      // multiply itself already happened just above — this write-back
+      // blend is unchanged from a plain "over").
       gl_FragColor = vec4(result * newAlpha, newAlpha);
       return;
     }
