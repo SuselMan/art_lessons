@@ -8,7 +8,7 @@ function participant(overrides: Partial<Participant> = {}): Participant {
   return {
     userId: overrides.userId ?? 'user-a',
     name: overrides.name ?? 'Alice',
-    role: overrides.role ?? 'student',
+    role: overrides.role ?? 'member',
     color: overrides.color ?? '#ef4444',
   }
 }

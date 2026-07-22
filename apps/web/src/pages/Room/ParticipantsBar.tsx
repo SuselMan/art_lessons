@@ -28,7 +28,7 @@ export const ParticipantsBar = memo(function ParticipantsBar({ participants, dra
             key={p.userId}
             className={clsx(styles.participantDot, drawing && styles.participantDotDrawing)}
             style={{ backgroundColor: p.color }}
-            title={`${p.name}${p.role === 'teacher' ? ' — teacher' : ''}${drawing ? ' — drawing' : ''}`}
+            title={`${p.name}${p.role === 'owner' ? ' — owner' : ''}${drawing ? ' — drawing' : ''}`}
           >
             {p.name.slice(0, 1).toUpperCase()}
           </div>

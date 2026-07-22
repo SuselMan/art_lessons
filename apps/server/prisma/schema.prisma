@@ -19,9 +19,10 @@ model User {
   email             String?           @unique
   name              String?
   passwordHash      String?
-  // Subscription/monetization tier (#5) — unrelated to teacher/student, which
-  // are per-room roles (see Room.ownerId / RoomParticipant), not account types.
-  role              UserRole          @default(FREE_TEACHER)
+  // Subscription/monetization tier (#5). Gates unrestricted room ownership
+  // (paid) vs free-tier limits — orthogonal to per-room roles, which come
+  // from Room.ownerId / RoomParticipant, not from account type.
+  role              UserRole          @default(FREE)
   ownedRooms        Room[]
   participatedRooms RoomParticipant[]
   roomFolders       RoomFolder[]
@@ -166,7 +167,7 @@ model RoomThumbnail {
 }
 
 enum UserRole {
-  FREE_TEACHER
-  PRO_TEACHER
+  FREE
+  PRO
   ADMIN
 }

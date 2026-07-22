@@ -57,13 +57,13 @@ function sock(userId: string, suffix = ''): string {
 }
 
 describe('createRoom', () => {
-  it('seats the creator as teacher and fixes ownerId', () => {
+  it('seats the creator as owner and fixes ownerId', () => {
     const roomId = freshRoomId()
     const { room, participant } = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
 
     expect(room.ownerId).toBe('owner-1')
     expect(room.id).toBe(roomId)
-    expect(participant.role).toBe('teacher')
+    expect(participant.role).toBe('owner')
     expect(participant.userId).toBe('owner-1')
   })
 
@@ -79,7 +79,7 @@ describe('createRoom', () => {
 
     const second = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
 
-    expect(second.participant.role).toBe('teacher')
+    expect(second.participant.role).toBe('owner')
     expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['a'])
   })
 
@@ -134,29 +134,29 @@ describe('joinRoom', () => {
     createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher', sock('owner-1'))
 
     const result = joinRoom(roomId, 'u1', 'Alice', 'secret', sock('u1'))
-    expect(result).toEqual({ ok: true, participant: expect.objectContaining({ userId: 'u1', role: 'student' }) })
+    expect(result).toEqual({ ok: true, participant: expect.objectContaining({ userId: 'u1', role: 'member' }) })
   })
 
-  it('never assigns teacher to a non-owner, regardless of join order', () => {
+  it('never assigns owner to a non-owner, regardless of join order', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     const first = joinRoom(roomId, 'u1', 'Alice', undefined, sock('u1'))
     const second = joinRoom(roomId, 'u2', 'Bob', undefined, sock('u2'))
 
-    expect(first.ok && first.participant.role).toBe('student')
-    expect(second.ok && second.participant.role).toBe('student')
+    expect(first.ok && first.participant.role).toBe('member')
+    expect(second.ok && second.participant.role).toBe('member')
   })
 
-  it("assigns teacher when the room's owner rejoins via join_room (#41 identity fix)", () => {
+  it("assigns owner when the room's owner rejoins via join_room (#41 identity fix)", () => {
     // The client always goes through join_room, never create_room again, for
     // a returning owner (reconnect after a drop, or just reopening the link
     // later) — see rooms.ts createRoom's doc comment. Before identity was
-    // stable, this always fell through to `student`.
+    // stable, this always fell through to `member`.
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-2'))
 
-    expect(rejoin.ok && rejoin.participant.role).toBe('teacher')
+    expect(rejoin.ok && rejoin.participant.role).toBe('owner')
   })
 
   it('assigns distinct cursor colors by join order, cycling if needed', () => {
@@ -164,7 +164,7 @@ describe('joinRoom', () => {
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     const joiners = Array.from({ length: 8 }, (_, i) => joinRoom(roomId, `u${i}`, `User ${i}`, undefined, sock(`u${i}`)))
     const colors = joiners.map(r => r.ok && r.participant.color)
-    // Owner took the first color at creation; 8 students plus the owner cycle
+    // Owner took the first color at creation; 8 members plus the owner cycle
     // through the 8-color palette, so the 8th joiner (index 7) should repeat
     // the owner's color.
     expect(colors[7]).toBe(getParticipant(roomId, 'owner-1')?.color)
@@ -181,7 +181,7 @@ describe('getRoomSnapshot', () => {
     expect(snapshot?.room.id).toBe(roomId)
     expect(snapshot?.participants).toHaveLength(2)
 
-    snapshot?.participants.push({ userId: 'ghost', name: 'x', role: 'student', color: '#000' })
+    snapshot?.participants.push({ userId: 'ghost', name: 'x', role: 'member', color: '#000' })
     expect(getRoomSnapshot(roomId)?.participants).toHaveLength(2) // mutation didn't leak back
   })
 
@@ -254,7 +254,7 @@ describe('leaveRoom', () => {
     leaveRoom(roomId, 'owner-1', sock('owner-1')) // eviction deferred, not immediate — no await yet
     const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-2'))
 
-    expect(rejoin).toEqual({ ok: true, participant: expect.objectContaining({ role: 'teacher' }) })
+    expect(rejoin).toEqual({ ok: true, participant: expect.objectContaining({ role: 'owner' }) })
     expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['a'])
   })
 

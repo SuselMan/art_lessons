@@ -201,14 +201,14 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   return true
 }
 
-/** Registers a new room and immediately seats its creator as `teacher`.
+/** Registers a new room and immediately seats its creator as `owner`.
  *  `ownerId` is fixed here, at creation time, and never changes afterward —
  *  this replaces the old "first socket to join becomes teacher" rule (#39),
  *  which raced whenever more than one person opened a room link around the
- *  same time. `join_room` (below) now only ever produces `student`s *for
+ *  same time. `join_room` (below) now only ever produces `member`s *for
  *  anyone but the persisted owner* — see the role check there for how a
  *  returning owner reconnecting (or reopening the link on any later day)
- *  gets `teacher` back despite always going through `join_room`, not this.
+ *  gets `owner` back despite always going through `join_room`, not this.
  *
  *  `roomData.id` already existing here is *not* a rare nanoid collision —
  *  it's the expected, common case of the creator's own tab refreshing:
@@ -218,7 +218,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
  *  is just a JS ref, which does reset on reload — see Room/index.tsx). Only
  *  actually recreates when the id is genuinely new; otherwise this is a
  *  no-op rejoin that leaves existing content untouched, same spirit as
- *  `join_room`'s teacher-role check just below. A real id collision from a
+ *  `join_room`'s owner-role check just below. A real id collision from a
  *  *different* owner (astronomically unlikely) still falls through to
  *  overwriting, same as always — not worth a dedicated error path for
  *  something this rare. `socketHandlers.ts` calls `ensureRoomLoaded` before
@@ -234,7 +234,7 @@ export function createRoom(
 ): { room: Room; participant: Participant } {
   const existing = rooms.get(roomData.id)
   if (existing && existing.room.ownerId === ownerId) {
-    const participant: Participant = { userId: ownerId, name: ownerName, role: 'teacher', color: CURSOR_COLORS[0] }
+    const participant: Participant = { userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0] }
     existing.participants.set(ownerId, participant)
     currentSocketForParticipant.set(participantKey(roomData.id, ownerId), socketId)
     return { room: existing.room, participant }
@@ -247,7 +247,7 @@ export function createRoom(
     createdAt: new Date().toISOString(),
   }
   const passwordHash = password ? bcrypt.hashSync(password, BCRYPT_ROUNDS) : undefined
-  const participant: Participant = { userId: ownerId, name: ownerName, role: 'teacher', color: CURSOR_COLORS[0] }
+  const participant: Participant = { userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0] }
   const participants = new Map<string, Participant>([[ownerId, participant]])
   const palette = [...DEFAULT_PALETTE_COLORS]
   rooms.set(room.id, { room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette })
@@ -261,10 +261,10 @@ export function createRoom(
 /** Joins an existing room. Fails with `not_found` if no room has been
  *  registered under this id yet and `ensureRoomLoaded` couldn't find it in
  *  Postgres either, or `wrong_password` if it requires one and it doesn't
- *  match. Assigns `teacher` when `userId` is the room's persisted owner
+ *  match. Assigns `owner` when `userId` is the room's persisted owner
  *  (reconnecting after a drop, or just reopening the link days later — see
  *  `createRoom`'s doc comment, this is the *only* path a returning owner
- *  goes through) and `student` otherwise. */
+ *  goes through) and `member` otherwise. */
 export function joinRoom(
   roomId: string, userId: string, name: string, password: string | undefined, socketId: string,
 ): JoinRoomOutcome {
@@ -274,7 +274,7 @@ export function joinRoom(
     return { ok: false, error: 'wrong_password' }
   }
 
-  const role = userId === record.room.ownerId ? 'teacher' : 'student'
+  const role = userId === record.room.ownerId ? 'owner' : 'member'
   const color = CURSOR_COLORS[record.participants.size % CURSOR_COLORS.length]
   const participant: Participant = { userId, name, role, color }
   record.participants.set(userId, participant)

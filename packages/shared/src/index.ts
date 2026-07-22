@@ -6,8 +6,8 @@ export interface RasterLayer {
   name: string
   opacity: number   // 0–1
   visible: boolean
-  locked?: boolean        // local guard against the user's own hand
-  teacherLocked?: boolean // server rejects student operations on this layer
+  locked?: boolean     // local guard against the user's own hand
+  ownerLocked?: boolean // server rejects non-owner operations on this layer
 }
 
 export interface LayerFolder {
@@ -18,7 +18,7 @@ export interface LayerFolder {
   visible: boolean
   collapsed: boolean
   locked?: boolean
-  teacherLocked?: boolean
+  ownerLocked?: boolean
   children: string[]  // ordered ids, top→bottom
 }
 
@@ -90,8 +90,8 @@ export type RoomFolder = {
 
 // Users & roles
 
-export type UserRole = 'FREE_TEACHER' | 'PRO_TEACHER' | 'ADMIN'
-export type ParticipantRole = 'teacher' | 'student'
+export type UserRole = 'FREE' | 'PRO' | 'ADMIN'
+export type ParticipantRole = 'owner' | 'member'
 
 export type Participant = {
   userId: string
@@ -289,7 +289,7 @@ export type OperationRevokeOperation = OperationBase & {
  *  `undo`/`redo` already are: only the operation's own author's ops are
  *  ever legal targets (see `OperationLog.applyUndo`) — unlike
  *  `operation_revoke`, this is reversible via `OperationRedoOperation` and
- *  needs no teacher privilege. */
+ *  needs no owner privilege. */
 export type OperationUndoOperation = OperationBase & {
   type: 'operation_undo'
   targetOpId: string
@@ -398,7 +398,7 @@ export type ServerToClientEvents = {
 }
 
 export type ClientToServerEvents = {
-  /** Registers a new room and joins the calling socket as its `teacher` —
+  /** Registers a new room and joins the calling socket as its `owner` —
    *  the room's `ownerId` is fixed to this socket's connection, deterministic
    *  regardless of when other participants subsequently call `join_room`. */
   create_room: (
