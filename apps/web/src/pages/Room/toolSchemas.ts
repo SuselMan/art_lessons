@@ -12,7 +12,7 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../..
 // still emits `tool: 'pencil'` at the Operation/protocol level. Mapping one
 // to the other happens only at the moment of emitting a stroke, not here.
 export type UiToolId =
-  | 'pencil' | 'colorPencil' | 'liner' | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
+  | 'pencil' | 'colorPencil' | 'liner' | 'marker' | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
 
 export type SettingValueType =
   | { kind: 'numberRange'; min: number; max: number; step: number; format?: (v: number) => string }
@@ -131,6 +131,84 @@ const linerSchema = (): ToolSchema => ({
   },
 })
 
+// Marker (#252, ADR 004 §7/MVP-scope): UI/toolbar plumbing only — the actual
+// dab shaping (bullet vs. chisel geometry, fixed angle-mode hook) and
+// multiply-with-coverage compositing are #249/#250/#251, separate in-flight
+// engine work this schema deliberately does not depend on. Until those land,
+// `_resolvePreset` in engine/index.ts has no 'marker' branch of its own (only
+// 'liner' gets one) — an unrecognized presetName for any other tool falls
+// back to PENCIL_PRESETS['HB'], so a marker stroke renders as a flat HB
+// pencil dab for now. That's the expected, explicitly-fine placeholder
+// behavior per the issue, not a bug to work around here.
+export const MARKER_NIB_TYPES = ['bullet', 'chisel'] as const
+export type MarkerNibType = (typeof MARKER_NIB_TYPES)[number]
+
+// Same fixed-ladder identity choice as the liner (see LINER_SIZE_LABELS'
+// own comment) — real Copic-style marker nibs also come in a handful of
+// discrete barrel widths, not one continuously-adjustable size. Placeholder
+// mm-ish labels/px values, not yet calibrated against a real device or the
+// eventual chisel aspect-ratio math (ADR 004 §1) — exact numbers are
+// explicitly not load-bearing for this UI pass.
+export const MARKER_SIZE_LABELS = ['2', '4', '6', '9', '12']
+const MARKER_SIZE_PX: Record<string, number> = { '2': 10, '4': 18, '6': 26, '9': 36, '12': 46 }
+
+export function markerSizeToPx(label: string): number {
+  return MARKER_SIZE_PX[label] ?? MARKER_SIZE_PX[MARKER_SIZE_LABELS[0]]
+}
+
+/** Steps the marker's size one notch up/down its fixed ladder — same
+ *  clamp-don't-wrap behavior as stepLinerSize, used by the same '['/']'
+ *  size hotkeys. */
+export function stepMarkerSize(current: string, direction: 1 | -1): string {
+  const idx = MARKER_SIZE_LABELS.indexOf(current)
+  const nextIdx = Math.min(MARKER_SIZE_LABELS.length - 1, Math.max(0, (idx === -1 ? 0 : idx) + direction))
+  return MARKER_SIZE_LABELS[nextIdx]
+}
+
+const markerSchema = (): ToolSchema => ({
+  // Bullet/chisel (ADR 004 §1) — rendered via the same enumOptions control
+  // path PENCIL_GRADES/LINER_SIZE_LABELS already use (SettingField switches
+  // purely on valueType.kind), not a bespoke toggle. Defaults to 'bullet':
+  // the rounder, tilt/angle-independent nib is the one that already
+  // resembles what the engine's current HB-preset fallback (see this
+  // schema's own doc comment above) actually renders, before chisel's fixed-
+  // angle hook (#249-251) exists to make chisel look like chisel.
+  nib: {
+    name: 'Nib',
+    valueType: { kind: 'enumOptions', options: MARKER_NIB_TYPES },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 'bullet' satisfies MarkerNibType,
+  },
+  size: {
+    name: 'Size',
+    valueType: { kind: 'enumOptions', options: MARKER_SIZE_LABELS },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: '6',
+  },
+  opacity: {
+    name: 'Opacity',
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 1,
+  },
+  // One independent color slot (own tool, not shared with pencil/color
+  // pencil/liner — ADR 004 §7: "один инструмент-слот", switched via
+  // ColorPicker + palette swatches, not several parallel marker slots the
+  // way pencil/color pencil are #188). Defaults to a warm marker-ish orange
+  // so it reads as visibly distinct from pencil's graphite and liner's
+  // black at a glance — not calibrated to any real Copic swatch.
+  color: {
+    name: 'Color',
+    valueType: { kind: 'color' },
+    uiControls: ['swatch'],
+    quickAccess: true,
+    default: [0.95, 0.55, 0.12],
+  },
+})
+
 export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // Color is a fully editable per-tool field here, same as before this
   // schema existed — today only 'pencil' has a toolbar slot wired up (#188,
@@ -141,6 +219,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // Colors are [0,1] floats (WebGL convention), not 0-255 — see lib/color.ts.
   colorPencil: pencilLikeSchema([0.86, 0.16, 0.16], 4),
   liner: linerSchema(),
+  marker: markerSchema(),
   eraser: {
     size: {
       name: 'Size',

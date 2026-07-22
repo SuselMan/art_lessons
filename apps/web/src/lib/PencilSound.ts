@@ -545,9 +545,9 @@ export const TOOL_SOUND_CONFIGS: Record<ToolType, GrainVariant | null> = {
   eraser: PENCIL_SOUND_VARIANT_3,
   smudge: PENCIL_SOUND_VARIANT_3,
   liner: LINER_SOUND_VARIANT_3,
-  // marker has no sound design yet (added to ToolType after #253) — null
-  // per this record's own "no drawing sound" convention above, same as
-  // every other tool would default to before getting one.
+  // No sound design yet (docs/adr/004-marker-tool.md's "Потом" list) — null
+  // is the documented "this tool makes no drawing sound" case above, not a
+  // placeholder oversight.
   marker: null,
 }
 

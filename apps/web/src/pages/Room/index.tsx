@@ -45,7 +45,9 @@ import { TransformGizmo, type TransformHandleKind, type TransformBounds } from '
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
-import { TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize } from './toolSchemas'
+import {
+  TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, markerSizeToPx, stepMarkerSize,
+} from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
@@ -917,6 +919,8 @@ export function Room() {
   // ── sync tool → engine ────────────────────────────────────────────────────────
   const pencilGrade = toolSettings.pencil.grade as PencilGradeName
   const linerSize = toolSettings.liner.size as string
+  const markerNib = toolSettings.marker.nib as string
+  const markerSize = toolSettings.marker.size as string
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
   }, [pencilGrade])
@@ -928,8 +932,17 @@ export function Room() {
     // one flat preset regardless of size, see LINER_PRESET's own comment),
     // but the recorded Operation should still reflect what was actually
     // selected, not silently keep whatever pencil's grade happened to be.
-    engineRef.current?.setPencil(tool === 'liner' ? linerSize : pencilGrade)
-  }, [tool, pencilGrade, linerSize])
+    // Marker (#252) piggybacks on this same free-form string rather than
+    // needing a new Operation field: `_resolvePreset` has no 'marker' branch
+    // yet (that's #249-251, the actual dab-shaping/compositing work), so an
+    // unrecognized presetName like this just falls back to PENCIL_PRESETS
+    // ['HB'] — the intended, explicitly-fine placeholder rendering until
+    // then — while nib+size are still faithfully recorded/replicated on the
+    // wire via the existing preset string for whenever the engine side is
+    // ready to actually read them back out of it.
+    const markerPreset = `${markerNib}:${markerSize}`
+    engineRef.current?.setPencil(tool === 'liner' ? linerSize : tool === 'marker' ? markerPreset : pencilGrade)
+  }, [tool, pencilGrade, linerSize, markerNib, markerSize])
   useEffect(() => { engineRef.current?.setTool(tool) },     [tool])
   useEffect(() => {
     // #253: variant1/2 have no per-tool split (see the sound-construction effect above) — only
@@ -940,25 +953,35 @@ export function Room() {
     if (grain) pencilSoundRef.current?.setActiveGrain(grain)
   }, [tool, pencilSoundSetting])
   useEffect(() => {
-    // Liner's own 'size' field is a fixed-mm-label enum (ADR 003), not a
-    // plain px number like every other tool's — see linerSizeToPx's own
-    // comment for why the mm→px mapping lives in the UI layer.
-    const sizePx = tool === 'liner' ? linerSizeToPx(activeCfg.size as string) : (activeCfg.size as number)
+    // Liner/marker's own 'size' fields are fixed-label enums (ADR 003/004),
+    // not a plain px number like every other tool's — see linerSizeToPx's
+    // own comment for why the mm→px mapping lives in the UI layer.
+    const sizePx = tool === 'liner' ? linerSizeToPx(activeCfg.size as string)
+      : tool === 'marker' ? markerSizeToPx(activeCfg.size as string)
+      : (activeCfg.size as number)
     engineRef.current?.setSize(sizePx)
     engineRef.current?.setOpacity(activeCfg.opacity as number)
   }, [tool, activeCfg])
   const pencilColor = toolSettings.pencil.color as [number, number, number]
   const linerColor = toolSettings.liner.color as [number, number, number]
+  const markerColor = toolSettings.marker.color as [number, number, number]
   useEffect(() => {
-    engineRef.current?.setColor(tool === 'liner' ? linerColor : pencilColor)
-  }, [tool, pencilColor, linerColor])
+    engineRef.current?.setColor(tool === 'liner' ? linerColor : tool === 'marker' ? markerColor : pencilColor)
+  }, [tool, pencilColor, linerColor, markerColor])
   // Which tool's own color field the "Color" SidePanel tab (and
   // FloatingToolPanel's color dot) edits — lastDrawingTool rather than
-  // `tool` directly, so it still reflects liner while eraser/smudge is
-  // briefly active on top of it, same reasoning as lastDrawingTool itself
+  // `tool` directly, so it still reflects liner/marker while eraser/smudge
+  // is briefly active on top of it, same reasoning as lastDrawingTool itself
   // (see toolSlice.ts).
-  const colorTool: 'pencil' | 'liner' = lastDrawingTool
-  const colorToolColor = colorTool === 'liner' ? linerColor : pencilColor
+  const colorTool: 'pencil' | 'liner' | 'marker' = lastDrawingTool
+  const colorToolColor = colorTool === 'liner' ? linerColor : colorTool === 'marker' ? markerColor : pencilColor
+  // FloatingToolPanel (#157) is a fixed 4-slot compass layout with room for
+  // only one drawing-tool button (see its own doc comment — "the 4 most-
+  // reached-for actions"); marker isn't one of its slots, same precedent
+  // already set for smudge. Folds marker down to 'pencil' here purely for
+  // this panel's own top-button icon/highlight — the left toolbar and
+  // hotkey remain marker's real, fully-functional entry points.
+  const floatingPrimaryTool: 'pencil' | 'liner' = lastDrawingTool === 'liner' ? 'liner' : 'pencil'
   // (#190 epic) Room palette — see roomSlice's own doc comment for why this
   // is a plain setter, not a reducer. Add/remove requests round-trip through
   // the server (dedup lives there, see rooms.ts's addPaletteColor) rather
@@ -1958,17 +1981,20 @@ export function Room() {
       if (is('toggleEraser')) { setTool(t => t === 'eraser' ? lastDrawingTool : 'eraser'); return }
       if (is('toggleSmudge')) { setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge'); return }
       if (is('toggleLiner')) { setTool(t => t === 'liner' ? 'pencil' : 'liner'); return }
+      if (is('toggleMarker')) { setTool(t => t === 'marker' ? 'pencil' : 'marker'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
       if (is('decreaseSize')) {
-        // Liner's own 'size' is a fixed-mm-label enum (ADR 003), not the
-        // plain px number every other tool's 'size' field holds — step
-        // through the ladder instead of subtracting 1.
+        // Liner/marker's own 'size' fields are fixed-label enums (ADR 003/
+        // 004), not the plain px number every other tool's 'size' field
+        // holds — step through the ladder instead of subtracting 1.
         if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, -1))
+        else if (tool === 'marker') setToolSetting('marker', 'size', prev => stepMarkerSize(prev as string, -1))
         else setToolSetting(tool, 'size', prev => Math.max(1, (prev as number) - 1))
         return
       }
       if (is('increaseSize')) {
         if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, 1))
+        else if (tool === 'marker') setToolSetting('marker', 'size', prev => stepMarkerSize(prev as string, 1))
         else setToolSetting(tool, 'size', prev => Math.min(120, (prev as number) + 1))
         return
       }
@@ -2213,6 +2239,18 @@ export function Room() {
             aria-label={`Liner  ${formatHotkeyLabel(hotkeys.toggleLiner)}`}
             onClick={() => setTool(t => t === 'liner' ? 'pencil' : 'liner')}
           ><Icon name="stylus" /></button>
+          {/* Marker (#252, ADR 004) — UI/toolbar plumbing only; the actual
+              bullet/chisel dab shaping and multiply compositing are separate
+              in-flight engine sub-issues (#249-251), so this renders however
+              the engine's current unrecognized-preset fallback handles it
+              (a flat HB pencil dab) until those land — see markerSchema's
+              own doc comment in toolSchemas.ts. */}
+          <button
+            className={clsx(styles.toolIconBtn, tool === 'marker' && styles.toolIconBtnActive)}
+            title={`Marker — two-nib (bullet/chisel) marker rendering  ${formatHotkeyLabel(hotkeys.toggleMarker)}`}
+            aria-label={`Marker  ${formatHotkeyLabel(hotkeys.toggleMarker)}`}
+            onClick={() => setTool(t => t === 'marker' ? 'pencil' : 'marker')}
+          ><Icon name="ink_highlighter" /></button>
 
           <div className={styles.toolDivider} />
 
@@ -2412,13 +2450,15 @@ export function Room() {
                 content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} isOwner={isOwner} />,
               },
               {
-                // Reflects whichever of pencil/liner is actually active (the
-                // only two drawing tools with a real 'color' field) rather
-                // than always pencil — this tab is reached both from either
-                // tool's own quick-field expand button and from
+                // Reflects whichever of pencil/liner/marker is actually
+                // active (the drawing tools with a real 'color' field)
+                // rather than always pencil — this tab is reached both from
+                // any of those tools' own quick-field expand button and from
                 // FloatingToolPanel's escape hatch, which only ever shows
-                // pencil (see its own props), so falling back to pencil's
-                // color there is unchanged from before liner existed.
+                // pencil/liner (see floatingPrimaryTool below — marker isn't
+                // one of its 4 fixed slots, same as smudge isn't), so
+                // falling back to pencil's color there is unchanged from
+                // before liner/marker existed.
                 id: 'color', icon: 'palette', title: 'Color',
                 content: (
                   <>
@@ -2469,14 +2509,15 @@ export function Room() {
         <FloatingToolPanel
           // FloatingToolPanel (#157) is a fixed 4-slot compass layout with no
           // room for a third drawing-tool button (see its own doc comment —
-          // "the 4 most-reached-for actions") — smudge isn't one of its
-          // slots, same as ruler/transform/grid/eyedropper already aren't.
-          // Folds into "not eraser" here purely so its own top-button/eraser
-          // highlight stays correct while smudge is active elsewhere (the
-          // left toolbar); tapping either of *this* panel's two buttons
-          // still switches away from smudge normally via onSetTool.
-          tool={tool === 'eraser' ? 'eraser' : lastDrawingTool}
-          primaryTool={lastDrawingTool}
+          // "the 4 most-reached-for actions") — smudge/marker aren't one of
+          // its slots, same as ruler/transform/grid/eyedropper already
+          // aren't (see floatingPrimaryTool's own doc comment above). Folds
+          // into "not eraser" here purely so its own top-button/eraser
+          // highlight stays correct while smudge/marker is active elsewhere
+          // (the left toolbar); tapping either of *this* panel's two buttons
+          // still switches away from smudge/marker normally via onSetTool.
+          tool={tool === 'eraser' ? 'eraser' : floatingPrimaryTool}
+          primaryTool={floatingPrimaryTool}
           onSetTool={setTool}
           onUndo={handleUndo}
           onRedo={handleRedo}

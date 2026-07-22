@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { DabSystem } from './DabSystem'
-import { PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'
+import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'
 
 // Geometry-focused tests for the #91 centripetal Catmull-Rom fix.
 //
@@ -713,7 +713,10 @@ describe('DabSystem C1 continuity across segment boundaries', () => {
 })
 
 describe('DabSystem per-tool dab shaping (#240)', () => {
-  const FLAT_SHAPING: DabShapingProfile = { size: () => 1, aspect: () => 1 }
+  // Angle is deliberately left at the shared default here (not exercised by
+  // these size/aspect-focused tests) — see the #249 describe block below for
+  // angle-specific coverage.
+  const FLAT_SHAPING: DabShapingProfile = { size: () => 1, aspect: () => 1, angle: (_tiltMag, _tiltX, _tiltY, pathAngle) => pathAngle }
   const baseSize = 20
 
   it('defaults to PENCIL_DAB_SHAPING, matching the pre-#240 hardcoded formulas', () => {
@@ -747,5 +750,81 @@ describe('DabSystem per-tool dab shaping (#240)', () => {
       expect(d.size).toBeCloseTo(baseSize)
       expect(d.aspectRatio).toBeCloseTo(1)
     }
+  })
+})
+
+describe('DabSystem per-tool angle shaping (#249)', () => {
+  const baseSize = 20
+
+  // Bit-for-bit pin of the pre-#249 hardcoded formula in DabSystem._makeDab:
+  // `tiltMag > 15 ? atan2(tiltY, tiltX) : pathAngle`. Every existing tool
+  // (pencil/eraser/smudge via PENCIL_DAB_SHAPING, and liner via
+  // LINER_DAB_SHAPING) must still produce exactly this angle.
+  function referenceAngle(tiltX: number, tiltY: number, pathAngle: number): number {
+    const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
+    return tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
+  }
+
+  it('PENCIL_DAB_SHAPING.angle reproduces the pre-#249 formula for low and high tilt', () => {
+    // Low tilt (magnitude <= 15) -> falls back to path angle regardless of
+    // tilt direction.
+    expect(PENCIL_DAB_SHAPING.angle(10, 10, 0, 1.2345)).toBeCloseTo(referenceAngle(10, 0, 1.2345))
+    expect(PENCIL_DAB_SHAPING.angle(0, 0, 0, -0.75)).toBeCloseTo(referenceAngle(0, 0, -0.75))
+    // High tilt (magnitude > 15) -> tilt direction wins, path angle ignored.
+    expect(PENCIL_DAB_SHAPING.angle(30, 21.21, 21.21, 1.2345)).toBeCloseTo(referenceAngle(21.21, 21.21, 1.2345))
+    expect(PENCIL_DAB_SHAPING.angle(90, 0, -90, 0)).toBeCloseTo(referenceAngle(0, -90, 0))
+  })
+
+  it('LINER_DAB_SHAPING.angle uses the same default tilt-or-path formula as pencil', () => {
+    const cases: Array<[number, number, number]> = [[10, 0, 1.2345], [21.21, 21.21, 1.2345], [0, -90, 0]]
+    for (const [tiltX, tiltY, pathAngle] of cases) {
+      const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
+      expect(LINER_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle)).toBeCloseTo(referenceAngle(tiltX, tiltY, pathAngle))
+    }
+  })
+
+  it('DabSystem._makeDab produces bit-for-bit the pre-#249 angle for pencil/liner shaping via the public API', () => {
+    for (const shaping of [PENCIL_DAB_SHAPING, LINER_DAB_SHAPING]) {
+      const dab = new DabSystem({ shaping })
+      // tiltX=30, tiltY=40 -> tiltMag=50 (> 15) -> tilt direction wins,
+      // path angle (whatever it is for a stroke's first dab) is ignored.
+      const [highTilt] = dab.startStroke(0, 0, 0.5, 30, 40, baseSize)
+      expect(highTilt.angle).toBeCloseTo(Math.atan2(40, 30))
+    }
+  })
+
+  it('DabSystem._makeDab falls back to path angle at/under the tilt threshold, matching the reference formula (via a straight-line stroke with a known tangent)', () => {
+    for (const shaping of [PENCIL_DAB_SHAPING, LINER_DAB_SHAPING]) {
+      const dab = new DabSystem({ shaping })
+      // A straight horizontal stroke with zero tilt on every point: the
+      // spline's tangent is unambiguously along +x (angle 0) everywhere,
+      // including at segment boundaries, so this pins the low-tilt branch
+      // without depending on Catmull-Rom internals.
+      dab.startStroke(0, 0, 0.5, 0, 0, baseSize)
+      dab.continueStroke(50, 0, 0.5, 0, 0, baseSize)
+      // 1-event lag (see file header): a segment's dabs only materialize
+      // once the *next* real point is known, so a second continueStroke is
+      // needed before any land.
+      const dabs = dab.continueStroke(100, 0, 0.5, 0, 0, baseSize)
+      expect(dabs.length).toBeGreaterThan(0)
+      for (const d of dabs) {
+        expect(d.angle).toBeCloseTo(referenceAngle(0, 0, 0))
+      }
+    }
+  })
+
+  it('fixedAngleShaping ignores tilt and path direction entirely', () => {
+    const fixed = Math.PI / 4
+    const shaping: DabShapingProfile = { size: () => 1, aspect: () => 1, angle: fixedAngleShaping(fixed) }
+    const dab = new DabSystem({ shaping })
+
+    // Even with a strong, opposite-direction tilt and a real path angle,
+    // the fixed angle wins.
+    const [d1] = dab.startStroke(0, 0, 0.5, -90, -90, baseSize)
+    expect(d1.angle).toBeCloseTo(fixed)
+
+    dab.continueStroke(10, 10, 0.5, 0, 0, baseSize)
+    const [d2] = dab.continueStroke(20, 20, 0.5, 0, 0, baseSize)
+    expect(d2.angle).toBeCloseTo(fixed)
   })
 })
