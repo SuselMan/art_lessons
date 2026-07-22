@@ -51,4 +51,19 @@ describe('lastDrawingTool (#245 follow-up)', () => {
     setTool(t => (t === 'eraser' ? lastDrawingTool : 'eraser'))
     expect(useRoomStore.getState().tool).toBe('liner')
   })
+
+  // #252: marker joined pencil/liner as a PrimaryDrawingTool (own color
+  // field, real drawing tool) — same "return to drawing" behavior liner
+  // already gets above.
+  it('follows setTool when switching to marker, and remembers it across an eraser detour', () => {
+    useRoomStore.getState().setTool('marker')
+    expect(useRoomStore.getState().lastDrawingTool).toBe('marker')
+
+    useRoomStore.getState().setTool('eraser')
+    expect(useRoomStore.getState().lastDrawingTool).toBe('marker')
+
+    const { lastDrawingTool, setTool } = useRoomStore.getState()
+    setTool(t => (t === 'eraser' ? lastDrawingTool : 'eraser'))
+    expect(useRoomStore.getState().tool).toBe('marker')
+  })
 })
