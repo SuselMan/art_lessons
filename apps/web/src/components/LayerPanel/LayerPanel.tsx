@@ -39,6 +39,11 @@ export interface LayerPanelProps {
   // still *sees* an owner-locked layer's indicator; only the owner can
   // flip it.
   isOwner:    boolean
+  // (#263) Engine-backed read-only check — does this layer currently have
+  // any painted content? Gates handleDelete's confirm() the same way
+  // Clear-layer's own confirm (#171) is gated, except per-layer rather than
+  // always-on: an empty layer/selection still deletes with no prompt.
+  hasLayerContent: (layerId: string) => boolean
 }
 
 // Long-tap-to-multi-select (#129) has no discoverable affordance for touch
@@ -63,9 +68,12 @@ function markTouchHintSeen(): void {
 // already stable across unrelated Room re-renders: onChange is Room's
 // setLayerState (a setState setter, stable by React's own guarantee) and
 // onOp is Room's dispatchOp, itself useCallback'd off syncFromLog, which
-// has an empty dependency array — see Room/index.tsx.
+// has an empty dependency array — see Room/index.tsx. hasLayerContent
+// (#263) is the same shape as onOp: a useCallback'd wrapper over
+// engineRef.current with an empty dependency array, stable for the same
+// reason.
 export const LayerPanel = memo(function LayerPanel({
-  layerState, onChange, onOp, isOwner,
+  layerState, onChange, onOp, isOwner, hasLayerContent,
 }: LayerPanelProps) {
   const { items, rootOrder, activeId, selectedIds } = layerState
   const activeItem = items[activeId]
@@ -256,9 +264,16 @@ export const LayerPanel = memo(function LayerPanel({
       for (const d of collectDescendants(layerState, id)) idSet.add(d)
     }
 
+    // (#263) Mirrors Clear-layer's own confirm (#171): only prompt when
+    // there's actually something to lose — an empty layer/selection still
+    // deletes silently, same as today.
+    if ([...idSet].some(hasLayerContent) && !window.confirm(
+      'Delete the selected layer(s)? Any painted content on them — including content from other participants — will be lost.',
+    )) return
+
     onOp({ type: 'layer_delete', layerIds: [...idSet] })
     onChange(p => ({ ...p, selectedIds: [] }))
-  }, [activeId, selectedIds, layerState, onChange, onOp])
+  }, [activeId, selectedIds, layerState, onChange, onOp, hasLayerContent])
 
   // ── merge ────────────────────────────────────────────────────────────────────
 
