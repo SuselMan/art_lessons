@@ -35,6 +35,30 @@ export type { RulerLine }
 export { PENCIL_PRESETS, PENCIL_GRADES, type PencilGradeName, type PencilPreset }
 export { LINER_SIZES_MM, type LinerSizeMm }
 
+/** Pure dab-shape query for UI overlays (brush cursor) — mirrors
+ *  DabSystem._makeDab's own geometry formula (tiltMag/tiltNorm ->
+ *  size/aspect/angle) exactly, but as a standalone function so a hover
+ *  preview can read a tool's current dab shape without spinning up a real
+ *  DabSystem/stroke or touching any GL state. `baseSize` is caller-supplied
+ *  physical px (same units engine.setSize already takes — see Room's own
+ *  sizePx computation). `pathAngle` defaults to 0: a hover has no stroke
+ *  path yet to derive a tangent from, and tiltOrPathAngle only falls back to
+ *  it when tilt is below the 15deg trust threshold, so this just means an
+ *  untilted mouse hover previews angle 0 rather than an arbitrary direction. */
+export function previewDabShape(
+  tool: ToolType, presetName: string | undefined,
+  baseSize: number, pressure: number, tiltX: number, tiltY: number, pathAngle = 0,
+): { size: number; aspectRatio: number; angle: number } {
+  const shaping = shapingForTool(tool, presetName)
+  const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
+  const tiltNorm = tiltMag / 90
+  return {
+    size: baseSize * shaping.size(pressure),
+    aspectRatio: shaping.aspect(tiltNorm),
+    angle: shaping.angle(tiltMag, tiltX, tiltY, pathAngle),
+  }
+}
+
 // Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
 // uses (#123) — not in lib.dom.d.ts's WebGLRenderingContext, so this is typed
 // by hand instead of relying on an ambient DOM type.

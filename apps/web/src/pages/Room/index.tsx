@@ -39,6 +39,7 @@ import { clientToCanvas } from './pointerTransform'
 import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom } from './cameraMath'
 import { describeJoinError } from './joinError'
 import { PeerCursors } from './PeerCursors'
+import { BrushCursor } from './BrushCursor'
 import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
@@ -921,6 +922,12 @@ export function Room() {
   const linerSize = toolSettings.liner.size as string
   const markerNib = toolSettings.marker.nib as string
   const markerSize = toolSettings.marker.size as string
+  // Same preset string engine.setPencil below records (`${nib}:${size}` for
+  // marker, the size label for liner, the grade name otherwise) — only
+  // marker's own dispatch (bullet/chisel) actually reads it
+  // (shapingForTool -> shapingForMarkerPreset), but BrushCursor takes the
+  // same shape every tool's real stroke would, not a marker-only special case.
+  const cursorPresetName = tool === 'marker' ? `${markerNib}:${markerSize}` : tool === 'liner' ? linerSize : pencilGrade
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
   }, [pencilGrade])
@@ -952,16 +959,18 @@ export function Room() {
     const grain = TOOL_SOUND_CONFIGS[tool]
     if (grain) pencilSoundRef.current?.setActiveGrain(grain)
   }, [tool, pencilSoundSetting])
+  // Liner/marker's own 'size' fields are fixed-label enums (ADR 003/004),
+  // not a plain px number like every other tool's — see linerSizeToPx's own
+  // comment for why the mm→px mapping lives in the UI layer. Hoisted out of
+  // the engine-sync effect below (not effect-local) so BrushCursor can read
+  // the same physical-px value for its hover preview without recomputing it.
+  const sizePx = tool === 'liner' ? linerSizeToPx(activeCfg.size as string)
+    : tool === 'marker' ? markerSizeToPx(activeCfg.size as string)
+    : (activeCfg.size as number)
   useEffect(() => {
-    // Liner/marker's own 'size' fields are fixed-label enums (ADR 003/004),
-    // not a plain px number like every other tool's — see linerSizeToPx's
-    // own comment for why the mm→px mapping lives in the UI layer.
-    const sizePx = tool === 'liner' ? linerSizeToPx(activeCfg.size as string)
-      : tool === 'marker' ? markerSizeToPx(activeCfg.size as string)
-      : (activeCfg.size as number)
     engineRef.current?.setSize(sizePx)
     engineRef.current?.setOpacity(activeCfg.opacity as number)
-  }, [tool, activeCfg])
+  }, [sizePx, activeCfg])
   const pencilColor = toolSettings.pencil.color as [number, number, number]
   const linerColor = toolSettings.liner.color as [number, number, number]
   const markerColor = toolSettings.marker.color as [number, number, number]
@@ -2377,6 +2386,16 @@ export function Room() {
                 angle={vp.angle}
               />
             )}
+            {!config.infinite && (
+              <BrushCursor
+                vpRef={vpRef}
+                tool={tool}
+                presetName={cursorPresetName}
+                baseSize={sizePx}
+                vp={vp}
+                config={config}
+              />
+            )}
             {!config.infinite && gridActive && <GridOverlay width={config.width} height={config.height} />}
             {!config.infinite && rulerActive && rulerLine && (
               <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} zoom={vp.zoom} angle={vp.angle} />
@@ -2418,6 +2437,14 @@ export function Room() {
                 participants={participants}
                 zoom={vp.zoom}
                 angle={vp.angle}
+              />
+              <BrushCursor
+                vpRef={vpRef}
+                tool={tool}
+                presetName={cursorPresetName}
+                baseSize={sizePx}
+                vp={vp}
+                config={config}
               />
               {gridActive && (
                 <InfiniteGridOverlay
