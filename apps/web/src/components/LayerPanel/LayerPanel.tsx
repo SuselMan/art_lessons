@@ -34,6 +34,11 @@ export interface LayerPanelProps {
   onChange:   Dispatch<SetStateAction<LayerState>>
   /** Shared content changes go through the operation log (ADR 002). */
   onOp:       (draft: OperationDraft) => void
+  // (#254/#260) Whether the current viewer is this room's owner — gates the
+  // owner-lock toggle (toolbar button + LayerRow's own badge). Everyone
+  // still *sees* an owner-locked layer's indicator; only the owner can
+  // flip it.
+  isOwner:    boolean
 }
 
 // Long-tap-to-multi-select (#129) has no discoverable affordance for touch
@@ -60,7 +65,7 @@ function markTouchHintSeen(): void {
 // onOp is Room's dispatchOp, itself useCallback'd off syncFromLog, which
 // has an empty dependency array — see Room/index.tsx.
 export const LayerPanel = memo(function LayerPanel({
-  layerState, onChange, onOp,
+  layerState, onChange, onOp, isOwner,
 }: LayerPanelProps) {
   const { items, rootOrder, activeId, selectedIds } = layerState
   const activeItem = items[activeId]
@@ -108,6 +113,19 @@ export const LayerPanel = memo(function LayerPanel({
   const handleToggleLock = useCallback((id: string) =>
     onChange(patchItem(id, prev => ({ locked: !prev.locked })))
   , [onChange])
+
+  // (#254/#260) Unlike handleToggleLock above (a purely local view-state
+  // patch), this goes through the operation log — ownerLocked must be
+  // synchronized to every participant and enforced server-side (#258), not
+  // just a client-side gate. Server-side, non-owner senders of this op type
+  // are rejected outright (see socketHandlers.ts's isOperationAllowed), so
+  // this is never actually wired to a control a non-owner can reach — but
+  // stays independent of `isOwner` itself so it doesn't silently no-op if
+  // that ever changes.
+  const handleToggleOwnerLock = useCallback((id: string) => {
+    const item = items[id]
+    if (item) onOp({ type: 'layer_owner_lock', layerId: id, locked: !item.ownerLocked })
+  }, [items, onOp])
 
   const handleToggleVisible = useCallback((id: string) => {
     const item = items[id]
@@ -466,6 +484,7 @@ export const LayerPanel = memo(function LayerPanel({
   const canMerge        = canMergeSelected || canMergeDown
   const canDelete       = activeId !== BACKGROUND_LAYER_ID || selectedIds.some(id => id !== BACKGROUND_LAYER_ID)
   const isActiveLocked  = !!activeItem?.locked
+  const isActiveOwnerLocked = !!activeItem?.ownerLocked
 
   // ── render ────────────────────────────────────────────────────────────────────
 
@@ -508,6 +527,16 @@ export const LayerPanel = memo(function LayerPanel({
           aria-label={isActiveLocked ? 'Unlock layer' : 'Lock layer'}>
           <Icon name={isActiveLocked ? 'lock' : 'lock_open'} />
         </button>
+        {isOwner && (
+          <button
+            className={clsx(styles.toolbarBtn, isActiveOwnerLocked && styles.toolbarBtnOwnerLocked)}
+            onClick={() => handleToggleOwnerLock(activeId)}
+            disabled={activeId === BACKGROUND_LAYER_ID}
+            title={isActiveOwnerLocked ? 'Unlock layer for others (owner)' : 'Lock layer for others (owner)'}
+            aria-label={isActiveOwnerLocked ? 'Unlock layer for others' : 'Lock layer for others'}>
+            <Icon name="lock_person" />
+          </button>
+        )}
         <button
           className={styles.toolbarBtn}
           disabled={!canMerge}
@@ -567,9 +596,11 @@ export const LayerPanel = memo(function LayerPanel({
                   isActive={activeId === entry.id}
                   isSelected={selectedIds.includes(entry.id)}
                   isDragOverFolder={dragOverFolderId === entry.id}
+                  isOwner={isOwner}
                   onActivate={handleActivate}
                   onToggleVisible={handleToggleVisible}
                   onToggleLock={handleToggleLock}
+                  onToggleOwnerLock={handleToggleOwnerLock}
                   onRename={handleRename}
                   onToggleCollapse={handleToggleCollapse}
                   onOpenMenu={handleOpenMenu}
