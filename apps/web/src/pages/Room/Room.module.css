@@ -406,6 +406,43 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
 
+/* ── Brush cursor (#new — size/rotation preview) ──
+   Deliberately NOT counter-scaled/rotated like .cursorMarker above — see
+   BrushCursor.tsx's own doc comment for why this one should track the
+   viewport instead of cancel it out. Solid white + mix-blend-mode:difference
+   inverts whatever's underneath rather than occluding it (classic
+   Photoshop/Procreate brush-cursor trick) — the specific tool color never
+   matters here, only that this layer is opaque white. */
+.brushCursorLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.brushCursorCircle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  border-radius: 50%;
+  background: #fff;
+  mix-blend-mode: difference;
+}
+
+.brushCursorLine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: none;
+  height: 2px;
+  background: #fff;
+  mix-blend-mode: difference;
+}
+
 /* ── Ruler tool (#89) — also renders the distance label that used to
    belong to the deleted Measure tool (#195: the two were redundant, see
    #170) ──

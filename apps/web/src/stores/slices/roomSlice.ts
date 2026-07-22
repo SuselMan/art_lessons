@@ -16,6 +16,10 @@ export interface RoomInfo {
   id: string
   name: string
   paper: 'rough' | 'smooth' | 'bristol'
+  // Hex color the creator picked for the paper background — see the shared
+  // `Room.paperColor` doc comment. Absent on rooms created before this field
+  // existed; the engine falls back to its own per-texture default then.
+  paperColor?: string
   infinite: boolean
   width: number
   height: number

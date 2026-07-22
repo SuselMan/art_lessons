@@ -37,6 +37,18 @@ export const BACKGROUND_LAYER_ID = 'background'
 
 export type PaperType = 'rough' | 'smooth' | 'bristol'
 
+// Default background color per paper texture (hex, sRGB) — the engine's
+// PAPER_BLEND_FRAG uniform falls back to this when a room has no explicit
+// `Room.paperColor` (rooms created before that field existed, or a creator
+// who never opened the color picker). Lives here rather than only in
+// engine/index.ts so CreateRoom's paper-color picker can default/preview
+// against the exact same values the engine will actually render.
+export const DEFAULT_PAPER_COLORS: Record<PaperType, string> = {
+  rough:   '#f5f0e6',
+  smooth:  '#f7f7f5',
+  bristol: '#fcfcfa',
+}
+
 export type CanvasSize = {
   width: number
   height: number
@@ -47,6 +59,14 @@ export type Room = {
   id: string
   name: string
   paper: PaperType
+  // Hex color (sRGB, e.g. "#f5f0e6") the creator picked for the paper
+  // background, decided once at creation alongside `paper` itself — never
+  // changed after (same "fixed after creation" rule the CreateRoom UI
+  // states for `paper`). Absent on rooms created before this field existed;
+  // renderers fall back to DEFAULT_PAPER_COLORS[paper] in that case (see
+  // engine/index.ts's PAPER_COLORS usage) rather than treating it as
+  // required everywhere.
+  paperColor?: string
   // Infinite (tiled) canvas — see the engine's ILayerBuffer/TiledLayerBuffer.
   // canvasWidth/canvasHeight are present iff !infinite; an explicit boolean
   // discriminant rather than a sentinel width/height so every existing
@@ -438,7 +458,7 @@ export type ClientToServerEvents = {
    *  regardless of when other participants subsequently call `join_room`. */
   create_room: (
     data: {
-      room: Pick<Room, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
+      room: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
       password?: string
       // Highest operation seq this socket already knows about locally (a
       // reconnecting creator whose tab never really lost its content) — lets

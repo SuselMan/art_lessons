@@ -4,7 +4,7 @@ import type { Room, RoomFolder } from '@art-lessons/shared'
  *  from Postgres) so both map a Prisma `Room` row to the wire `Room` type
  *  identically. */
 export function toWireRoom(r: {
-  id: string; name: string; paper: string; infinite: boolean
+  id: string; name: string; paper: string; paperColor: string | null; infinite: boolean
   canvasWidth: number | null; canvasHeight: number | null
   passwordHash: string | null; ownerId: string; createdAt: Date
   // (#209) A `select`-based relation, not the full RoomThumbnail row — every
@@ -21,7 +21,8 @@ export function toWireRoom(r: {
   folderId?: string | null
 }): Room {
   return {
-    id: r.id, name: r.name, paper: r.paper as Room['paper'], infinite: r.infinite,
+    id: r.id, name: r.name, paper: r.paper as Room['paper'], paperColor: r.paperColor ?? undefined,
+    infinite: r.infinite,
     canvasWidth: r.canvasWidth ?? undefined, canvasHeight: r.canvasHeight ?? undefined,
     hasPassword: r.passwordHash !== null, ownerId: r.ownerId,
     ownerName: r.owner?.name ?? undefined,

@@ -35,6 +35,30 @@ export type { RulerLine }
 export { PENCIL_PRESETS, PENCIL_GRADES, type PencilGradeName, type PencilPreset }
 export { LINER_SIZES_MM, type LinerSizeMm }
 
+/** Pure dab-shape query for UI overlays (brush cursor) — mirrors
+ *  DabSystem._makeDab's own geometry formula (tiltMag/tiltNorm ->
+ *  size/aspect/angle) exactly, but as a standalone function so a hover
+ *  preview can read a tool's current dab shape without spinning up a real
+ *  DabSystem/stroke or touching any GL state. `baseSize` is caller-supplied
+ *  physical px (same units engine.setSize already takes — see Room's own
+ *  sizePx computation). `pathAngle` defaults to 0: a hover has no stroke
+ *  path yet to derive a tangent from, and tiltOrPathAngle only falls back to
+ *  it when tilt is below the 15deg trust threshold, so this just means an
+ *  untilted mouse hover previews angle 0 rather than an arbitrary direction. */
+export function previewDabShape(
+  tool: ToolType, presetName: string | undefined,
+  baseSize: number, pressure: number, tiltX: number, tiltY: number, pathAngle = 0,
+): { size: number; aspectRatio: number; angle: number } {
+  const shaping = shapingForTool(tool, presetName)
+  const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
+  const tiltNorm = tiltMag / 90
+  return {
+    size: baseSize * shaping.size(pressure),
+    aspectRatio: shaping.aspect(tiltNorm),
+    angle: shaping.angle(tiltMag, tiltX, tiltY, pathAngle),
+  }
+}
+
 // Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
 // uses (#123) — not in lib.dom.d.ts's WebGLRenderingContext, so this is typed
 // by hand instead of relying on an ambient DOM type.
@@ -62,6 +86,10 @@ export interface PencilEngineOptions {
   // construction — an engine instance never switches modes mid-life.
   infinite?: boolean
   paper?: PaperType
+  // Overrides PAPER_COLORS[paper]'s default background RGB for this room —
+  // set from the creator's own pick (Room.paperColor, hex, converted via
+  // hexToRgb) when present; omit to use the plain per-texture default.
+  paperColor?: [number, number, number]
   pencilType?: string
   size?: number
   opacity?: number
@@ -407,6 +435,7 @@ export interface PencilEngineAPI {
 
 interface EngineOpts {
   paper: PaperType
+  paperColor?: [number, number, number]
   pencilType: string
   size: number
   paperScale: number
@@ -479,6 +508,12 @@ interface Checkpoint {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
+// Default per-texture background, used when a room has no explicit
+// PencilEngineOptions.paperColor override (see EngineOpts.paperColor below).
+// Kept numerically identical to @art-lessons/shared's DEFAULT_PAPER_COLORS
+// (hex there, since CreateRoom's color picker needs a hex/RGB string; RGB
+// float triple here, since that's what the shader uniform wants) — update
+// both together if these defaults ever change.
 const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
   rough:   [0.96, 0.94, 0.90],
   smooth:  [0.97, 0.97, 0.96],
@@ -1271,6 +1306,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._opts = {
       paper:         options.paper         ?? 'rough',
+      paperColor:    options.paperColor,
       pencilType:    options.pencilType    ?? 'HB',
       size:          options.size          ?? 24,
       paperScale:    options.paperScale    ?? 1.0,
@@ -4973,7 +5009,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperMap, 1)
 
-    gl.uniform3fv(u.u_paperColor, PAPER_COLORS[this._opts.paper])
+    gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? PAPER_COLORS[this._opts.paper])
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
@@ -5379,7 +5415,7 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
 
-    const paperColor = PAPER_COLORS[this._opts.paper]
+    const paperColor = this._opts.paperColor ?? PAPER_COLORS[this._opts.paper]
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.viewport(0, 0, w, h)
@@ -5597,7 +5633,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperMap, 1)
 
-    gl.uniform3fv(u.u_paperColor, PAPER_COLORS[this._opts.paper])
+    gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? PAPER_COLORS[this._opts.paper])
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)

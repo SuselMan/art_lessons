@@ -19,6 +19,7 @@ import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { computeCompositeOrder } from '../../lib/layers'
+import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant, getGraphiteGrainVariant } from '../../lib/featureFlags'
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
@@ -39,6 +40,7 @@ import { clientToCanvas } from './pointerTransform'
 import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom } from './cameraMath'
 import { describeJoinError } from './joinError'
 import { PeerCursors } from './PeerCursors'
+import { BrushCursor } from './BrushCursor'
 import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
@@ -71,7 +73,7 @@ const PLACEHOLDER_INFINITE_CANVAS_SIZE = 8192
  *  the creator, opening my own room" apart from "I opened someone else's
  *  room link" (no state at all, e.g. a second device). */
 interface CreatorNavState {
-  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
+  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
   password?: string
   // (#211 epic, #215) Set when CreateRoom was opened via "New room" while a
   // folder was open on MyLessons — files the freshly created room into it
@@ -80,10 +82,10 @@ interface CreatorNavState {
 }
 
 function toRoomConfig(
-  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
+  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
 ): RoomInfo {
   return {
-    id: room.id, name: room.name, paper: room.paper, infinite: room.infinite,
+    id: room.id, name: room.name, paper: room.paper, paperColor: room.paperColor, infinite: room.infinite,
     width: room.canvasWidth ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
     height: room.canvasHeight ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
   }
@@ -716,6 +718,7 @@ export function Room() {
     const engine = new PencilEngine(canvasRef.current, {
       infinite: config.infinite,
       paper: config.paper,
+      paperColor: config.paperColor ? hexToRgb(config.paperColor) : undefined,
       pencilType: initialToolRef.current.pencil,
       size: initialToolRef.current.size,
       opacity: initialToolRef.current.opacity,
@@ -921,6 +924,12 @@ export function Room() {
   const linerSize = toolSettings.liner.size as string
   const markerNib = toolSettings.marker.nib as string
   const markerSize = toolSettings.marker.size as string
+  // Same preset string engine.setPencil below records (`${nib}:${size}` for
+  // marker, the size label for liner, the grade name otherwise) — only
+  // marker's own dispatch (bullet/chisel) actually reads it
+  // (shapingForTool -> shapingForMarkerPreset), but BrushCursor takes the
+  // same shape every tool's real stroke would, not a marker-only special case.
+  const cursorPresetName = tool === 'marker' ? `${markerNib}:${markerSize}` : tool === 'liner' ? linerSize : pencilGrade
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
   }, [pencilGrade])
@@ -952,16 +961,18 @@ export function Room() {
     const grain = TOOL_SOUND_CONFIGS[tool]
     if (grain) pencilSoundRef.current?.setActiveGrain(grain)
   }, [tool, pencilSoundSetting])
+  // Liner/marker's own 'size' fields are fixed-label enums (ADR 003/004),
+  // not a plain px number like every other tool's — see linerSizeToPx's own
+  // comment for why the mm→px mapping lives in the UI layer. Hoisted out of
+  // the engine-sync effect below (not effect-local) so BrushCursor can read
+  // the same physical-px value for its hover preview without recomputing it.
+  const sizePx = tool === 'liner' ? linerSizeToPx(activeCfg.size as string)
+    : tool === 'marker' ? markerSizeToPx(activeCfg.size as string)
+    : (activeCfg.size as number)
   useEffect(() => {
-    // Liner/marker's own 'size' fields are fixed-label enums (ADR 003/004),
-    // not a plain px number like every other tool's — see linerSizeToPx's
-    // own comment for why the mm→px mapping lives in the UI layer.
-    const sizePx = tool === 'liner' ? linerSizeToPx(activeCfg.size as string)
-      : tool === 'marker' ? markerSizeToPx(activeCfg.size as string)
-      : (activeCfg.size as number)
     engineRef.current?.setSize(sizePx)
     engineRef.current?.setOpacity(activeCfg.opacity as number)
-  }, [tool, activeCfg])
+  }, [sizePx, activeCfg])
   const pencilColor = toolSettings.pencil.color as [number, number, number]
   const linerColor = toolSettings.liner.color as [number, number, number]
   const markerColor = toolSettings.marker.color as [number, number, number]
@@ -2377,6 +2388,16 @@ export function Room() {
                 angle={vp.angle}
               />
             )}
+            {!config.infinite && (
+              <BrushCursor
+                vpRef={vpRef}
+                tool={tool}
+                presetName={cursorPresetName}
+                baseSize={sizePx}
+                vp={vp}
+                config={config}
+              />
+            )}
             {!config.infinite && gridActive && <GridOverlay width={config.width} height={config.height} />}
             {!config.infinite && rulerActive && rulerLine && (
               <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} zoom={vp.zoom} angle={vp.angle} />
@@ -2418,6 +2439,14 @@ export function Room() {
                 participants={participants}
                 zoom={vp.zoom}
                 angle={vp.angle}
+              />
+              <BrushCursor
+                vpRef={vpRef}
+                tool={tool}
+                presetName={cursorPresetName}
+                baseSize={sizePx}
+                vp={vp}
+                config={config}
               />
               {gridActive && (
                 <InfiniteGridOverlay

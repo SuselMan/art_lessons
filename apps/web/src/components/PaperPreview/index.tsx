@@ -6,6 +6,10 @@ interface Props {
   width?: number
   height?: number
   className?: string
+  // Overrides this texture's own default background (see CONFIGS.bg) — hex,
+  // e.g. "#f5f0e6" — so CreateRoom's paper-color picker can preview the
+  // creator's actual pick instead of the fixed per-texture default.
+  bgColorHex?: string
 }
 
 const CONFIGS = {
@@ -14,17 +18,28 @@ const CONFIGS = {
   bristol: { bg: [249, 249, 248] as const, coarse: 0.02, fine: 0.01 },
 }
 
-function drawNoise(canvas: HTMLCanvasElement, type: PaperType) {
+function drawNoise(canvas: HTMLCanvasElement, type: PaperType, bgColorHex?: string) {
   const ctx = canvas.getContext('2d')!
   const w = canvas.width
   const h = canvas.height
   const cfg = CONFIGS[type]
 
-  ctx.fillStyle = `rgb(${cfg.bg[0]},${cfg.bg[1]},${cfg.bg[2]})`
+  ctx.fillStyle = bgColorHex ?? `rgb(${cfg.bg[0]},${cfg.bg[1]},${cfg.bg[2]})`
   ctx.fillRect(0, 0, w, h)
 
-  // coarse grain
-  const coarse = ctx.createImageData(w, h)
+  // coarse grain — built on its own offscreen canvas and composited in via
+  // drawImage rather than ctx.putImageData(coarse, 0, 0) directly: putImageData
+  // writes raw pixels straight into the canvas buffer, bypassing alpha
+  // compositing entirely, so it was overwriting the fillRect background above
+  // with this layer's own (mostly near-transparent) pixels instead of blending
+  // over it — the background color barely showed through, easy to miss since
+  // stray specks still visually read as "grain" either way. drawImage (used by
+  // the fine layer just below already) composites normally.
+  const coarseSrc = document.createElement('canvas')
+  coarseSrc.width  = w
+  coarseSrc.height = h
+  const coarseCtx = coarseSrc.getContext('2d')!
+  const coarse = coarseCtx.createImageData(w, h)
   for (let i = 0; i < coarse.data.length; i += 4) {
     const v = Math.random() > 0.5 ? 255 : 0
     coarse.data[i]   = v
@@ -32,7 +47,8 @@ function drawNoise(canvas: HTMLCanvasElement, type: PaperType) {
     coarse.data[i+2] = v
     coarse.data[i+3] = Math.random() * cfg.coarse * 255
   }
-  ctx.putImageData(coarse, 0, 0)
+  coarseCtx.putImageData(coarse, 0, 0)
+  ctx.drawImage(coarseSrc, 0, 0)
 
   // fine grain at half resolution, scaled up (softer)
   const fw = Math.ceil(w / 2)
@@ -52,12 +68,12 @@ function drawNoise(canvas: HTMLCanvasElement, type: PaperType) {
   ctx.drawImage(tmp, 0, 0, w, h)
 }
 
-export function PaperPreview({ type, width = 200, height = 150, className }: Props) {
+export function PaperPreview({ type, width = 200, height = 150, className, bgColorHex }: Props) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
-    if (ref.current) drawNoise(ref.current, type)
-  }, [type])
+    if (ref.current) drawNoise(ref.current, type, bgColorHex)
+  }, [type, bgColorHex])
 
   return (
     <canvas
