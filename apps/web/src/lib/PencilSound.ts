@@ -545,6 +545,11 @@ export const TOOL_SOUND_CONFIGS: Record<ToolType, GrainVariant | null> = {
   eraser: PENCIL_SOUND_VARIANT_3,
   smudge: PENCIL_SOUND_VARIANT_3,
   liner: LINER_SOUND_VARIANT_3,
+  // Marker (#252/ADR 004) has no sound design yet — explicitly deferred to
+  // its own later issue ("Потом", ADR 004), same "no drawing sound" meaning
+  // this record's own doc comment already gives `null`, not a placeholder
+  // reuse of pencil's grain.
+  marker: null,
 }
 
 // Frozen snapshots of the above, taken at module-eval time before any live tuning-panel patch can
@@ -555,6 +560,7 @@ export const TOOL_SOUND_DEFAULTS: Record<ToolType, GrainVariant | null> = {
   eraser: cloneGrain(PENCIL_SOUND_VARIANT_3),
   smudge: cloneGrain(PENCIL_SOUND_VARIANT_3),
   liner: cloneGrain(LINER_SOUND_VARIANT_3),
+  marker: null,
 }
 
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
