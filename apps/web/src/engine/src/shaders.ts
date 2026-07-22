@@ -448,7 +448,14 @@ export const DAB_FRAG = `
       // uncalibrated constant (same status every other first-pass number in
       // this codebase carries) — higher means fewer overlapping passes
       // needed to approach full darkness.
-      const float MARKER_DARKEN_RATE = 3.0; // uncalibrated first pass
+      // 8.0, not the first-draft 3.0: live testing (repeating the exact same
+      // stroke over itself N times) showed 3.0 needed ~20 overlapping passes
+      // before darkness visibly stopped climbing — a real alcohol marker
+      // reaches its own ceiling within roughly 2-4 passes. Still a first-
+      // pass calibration (verify by eye and retune further if it still
+      // reads as too fast/slow once bullet/chisel's own opacity presets are
+      // also tuned), just no longer off by an order of magnitude.
+      const float MARKER_DARKEN_RATE = 8.0;
       float inkLoad = texture2D(u_inkLoad, tileUV).a;
       float darkness = 1.0 - exp(-inkLoad * MARKER_DARKEN_RATE);
       // Beer-Lambert-style multiply for a translucent marker film (ADR 004
