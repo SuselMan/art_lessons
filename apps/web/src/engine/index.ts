@@ -196,6 +196,19 @@ type EngineHandler = (data: PointerData) => void
 // participant (room_state replay, peer_operation); must not be re-broadcast.
 export type OperationSource = 'local' | 'remote'
 
+// (#263) See PencilEngineAPI.peekUndo/peekRedo's own doc comments.
+export interface StructuralUndoRedoPeek {
+  // One of the layer ids the pending undo/redo would affect. layer_add and
+  // layer_merge each target exactly one; layer_delete's layerIds may list
+  // several — the first is reported here, but hasOtherContent already
+  // reflects the whole set, not just this one id.
+  layerId: string
+  // True if ANY of the targeted layer(s) currently carry done pixel content
+  // from any author — the whole point being to warn about content that
+  // isn't only the current user's own (see #263's issue body).
+  hasOtherContent: boolean
+}
+
 export interface PencilEngineAPI {
   initLayer(id: string): void
   setActiveLayer(id: string): void
@@ -279,6 +292,21 @@ export interface PencilEngineAPI {
   getOperationsSinceRestore(): Operation[]
   undo(): Operation | null
   redo(): Operation | null
+  // (#263) Read-only peek at what undo()/redo() would act on *without*
+  // applying it — null unless the target is a structural op that would
+  // actually *remove* content from any author, not just the one about to
+  // undo/redo: peekUndo only flags layer_add/layer_merge (undoing
+  // layer_delete just restores a layer, never destructive); peekRedo only
+  // flags layer_delete and layer_merge (redoing layer_add just re-creates).
+  // See _peekStructuralTarget's own doc comment for the full reasoning —
+  // getting a direction backwards here would warn "this removes content" on
+  // a call that's actually restoring it. Callers (Room's handleUndo/
+  // handleRedo) use this to gate a confirm() in front of the real undo()/
+  // redo() call, the same shape as the existing Clear-layer confirm (#171)
+  // — never mutates the log itself, same contract as OperationLog's own
+  // undoTarget/redoTarget it wraps.
+  peekUndo(): StructuralUndoRedoPeek | null
+  peekRedo(): StructuralUndoRedoPeek | null
   clear(): void
   setUserId(id: string): void
   setPaper(type: PaperType): void
@@ -304,6 +332,13 @@ export interface PencilEngineAPI {
   // Bounding box of a layer's actual painted content, canvas-pixel space —
   // see the implementation's docstring for cost/call-frequency notes (#120).
   getContentBounds(layerId: string): { x: number; y: number; width: number; height: number } | null
+  // (#263) O(1) read-only check: does this layer currently have any done
+  // pixel operations (stroke/clear/merge/image_import/layer_transform),
+  // from any author? Thin wrapper over OperationLog.pixelOpDoneCount, the
+  // same incremental counter _maybeCheckpoint already uses — see its own
+  // doc comment. Used by LayerPanel's delete confirm (mirrors Clear layer's
+  // existing confirm, #171) to skip the dialog for a genuinely empty layer.
+  hasLayerContent(layerId: string): boolean
   setViewport(cx: number, cy: number, zoom: number, angle: number): void
   // Infinite canvas (#133 Phase 1) — camera-relative on-screen rendering.
   // (wx, wy) is the world point currently at screen center (unlike
@@ -1464,6 +1499,60 @@ export class PencilEngine implements PencilEngineAPI {
     return target
   }
 
+  /** Shared by peekUndo/peekRedo: reduces a candidate target op (already
+   *  read via undoTarget/redoTarget, never mutated) down to the
+   *  StructuralUndoRedoPeek callers actually need — null for anything that
+   *  isn't actually about to *remove* content.
+   *
+   *  Direction matters here, not just op type: undoing layer_add/layer_merge
+   *  removes the layer they created, but undoing layer_delete only ever
+   *  *restores* one — never destructive, regardless of what's on it.
+   *  Symmetrically for redo: redoing layer_delete removes the layer(s)
+   *  again, but redoing layer_add only ever re-creates. layer_merge redo is
+   *  its own case — it re-consumes `sources`, not `layerId` (the merge
+   *  *result*, which redo is simply re-creating, same as layer_add); the
+   *  content actually at risk is whatever's been repainted onto a source
+   *  layer while the merge sat undone. Getting this backwards would show a
+   *  "this will remove content" warning on a redo that's actually
+   *  *restoring* the very content #263 exists to protect. */
+  private _peekStructuralTarget(target: Operation | null, direction: 'undo' | 'redo'): StructuralUndoRedoPeek | null {
+    if (!target) return null
+    let layerIds: string[]
+    if (direction === 'undo') {
+      switch (target.type) {
+        case 'layer_add':
+        case 'layer_merge':
+          layerIds = [target.layerId]
+          break
+        default:
+          return null
+      }
+    } else {
+      switch (target.type) {
+        case 'layer_delete':
+          layerIds = target.layerIds
+          break
+        case 'layer_merge':
+          layerIds = target.sources.map(s => s.id)
+          break
+        default:
+          return null
+      }
+    }
+    const hasOtherContent = layerIds.some(id => this._log.pixelOpDoneCount(id) > 0)
+    return { layerId: layerIds[0], hasOtherContent }
+  }
+
+  /** See PencilEngineAPI's own doc comment. */
+  peekUndo(): StructuralUndoRedoPeek | null {
+    return this._peekStructuralTarget(this._log.undoTarget(this._userId), 'undo')
+  }
+
+  /** See PencilEngineAPI's own doc comment. */
+  peekRedo(): StructuralUndoRedoPeek | null {
+    return this._peekStructuralTarget(this._log.redoTarget(this._userId), 'redo')
+  }
+
   /** Clears the active layer — a logged, undoable operation. */
   clear(): void {
     const id = this._activeId
@@ -1571,6 +1660,11 @@ export class PencilEngine implements PencilEngineAPI {
     const rect = layerBuf.getContentBoundsWorld()
     if (!rect) return null
     return { x: rect.minX, y: rect.minY, width: rect.maxX - rect.minX, height: rect.maxY - rect.minY }
+  }
+
+  /** See PencilEngineAPI's own doc comment. */
+  hasLayerContent(layerId: string): boolean {
+    return this._log.pixelOpDoneCount(layerId) > 0
   }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {
