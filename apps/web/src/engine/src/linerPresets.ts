@@ -2,6 +2,7 @@ import type { Dab, ToolType } from '@art-lessons/shared'
 import { clamp } from 'lodash-es'
 
 import type { PencilPreset } from './pencilPresets'
+import { MARKER_DWELL } from './markerPresets'
 
 // Fixed calibrated width steps (ADR 003, MVP scope) — real fineliner sets
 // ship discrete tip sizes, not a free slider; a free/advanced size is a UI
@@ -168,11 +169,14 @@ export function dwellFlow(elapsedMs: number, cfg: DwellConfig): number {
   return 1 + (cfg.maxFlow - 1) * (1 - Math.exp(-elapsedMs / cfg.tau))
 }
 
-/** Only 'liner' opts in today — Technical Pen/Rapidograph and a possible
- *  future marker are expected to reuse this same mechanism with their own
- *  DwellConfig once they exist (see this section's own file comment); every
- *  other current tool gets null (no dwell timer at all, unchanged from
- *  before this existed). */
+/** 'liner' and 'marker' (ADR 004 "Ревизия v1.5" §3 — marker's own
+ *  MARKER_DWELL lives in markerPresets.ts, not here, since its physics
+ *  genuinely differ) opt in today — Technical Pen/Rapidograph is expected
+ *  to reuse this same mechanism with its own DwellConfig once it exists
+ *  (see this section's own file comment); every other current tool gets
+ *  null (no dwell timer at all, unchanged from before this existed). */
 export function dwellConfigForTool(tool: ToolType): DwellConfig | null {
-  return tool === 'liner' ? LINER_DWELL : null
+  if (tool === 'liner') return LINER_DWELL
+  if (tool === 'marker') return MARKER_DWELL
+  return null
 }

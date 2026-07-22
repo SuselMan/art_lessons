@@ -1,6 +1,7 @@
 import { clamp } from 'lodash-es'
 
 import { fixedAngleShaping, tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
+import type { DwellConfig } from './linerPresets'
 
 // #251, ADR 004 §1: the two marker nib dab-shaping profiles. Mirrors
 // linerPresets.ts's structure/documentation style, but there's no
@@ -93,4 +94,40 @@ export function markerNibFromPreset(presetName: string | undefined): MarkerNib {
 /** dabShaping.ts's shapingForTool dispatches here for tool === 'marker'. */
 export function shapingForMarkerPreset(presetName: string | undefined): DabShapingProfile {
   return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_DAB_SHAPING : MARKER_BULLET_DAB_SHAPING
+}
+
+// ADR 004 "Ревизия v1.5" §1/§4 (expert's proposal): pressure gets its own
+// named term in the deposit formula (`flowPerDistance * segmentLength *
+// pressureFactor`) instead of being silently absorbed into "flow" the way
+// speed/tilt already are — mild influence by design (a felt/alcohol tip
+// doesn't compress the way graphite does, same reasoning
+// MARKER_WIDTH_FLOOR/_CEIL already give for width), never a resonant swing.
+const MARKER_PRESSURE_FLOW_FLOOR = 0.85 // uncalibrated first pass
+const MARKER_PRESSURE_FLOW_CEIL = 1.15  // uncalibrated first pass
+
+export function markerPressureFlow(pressure: number): number {
+  return lerp(MARKER_PRESSURE_FLOW_FLOOR, MARKER_PRESSURE_FLOW_CEIL, pressure)
+}
+
+// ADR 004 "Ревизия v1.5" §3: marker's own dwell config, not shared with
+// LINER_DWELL — same reasoning MARKER_BULLET_DAB_SHAPING's own comment
+// gives for not just aliasing liner's constant (a future divergence
+// shouldn't need touching call sites), but here the numbers *also* differ
+// already: a felt/alcohol tip pools less aggressively at rest than a
+// fineliner's fiber nib, so a longer minDwellMs/tau and a lower maxFlow
+// ceiling than LINER_DWELL's. First-pass, uncalibrated (same "verify by eye
+// and retune" status every other first-pass constant here carries).
+// linerPresets.ts's dwellConfigForTool imports this — a second, separate
+// circular-import edge between these two files (this one, `linerPresets.ts
+// -> markerPresets.ts`, at the *value* level this time) alongside the
+// dabShaping.ts one at the top of this file; safe for the identical reason:
+// dwellConfigForTool is a function declaration (hoisted before either
+// module's top-level body runs), and this file's own import of
+// `DwellConfig` from linerPresets.ts is type-only (erased entirely).
+export const MARKER_DWELL: DwellConfig = {
+  stillThresholdPx: 2,
+  intervalMs: 70,
+  minDwellMs: 220,
+  tau: 320,
+  maxFlow: 1.25,
 }
