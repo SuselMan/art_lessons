@@ -144,8 +144,11 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   // 540Hz, nowhere near the 100-250Hz hump take 13 found carrying ~35%+ of
   // real energy. 250*0.45≈112Hz puts slow-stroke brightness right at that
   // hump instead; maxFreq (top end, fast strokes) untouched.
-  minFreq: 250,
-  maxFreq: 5000,
+  // Round 14: 250→100, 5000→1680 — Ilya's own panel session, post-#253 split
+  // (this field is still shared across every tool, not pencil-only — see
+  // TOOL_SOUND_CONFIGS' own doc for why PENCIL_SOUND_TUNING stays global).
+  minFreq: 100,
+  maxFreq: 1680,
   maxSpeed: 6,
   speedDeadzone: 0.12,
   gainCeiling: 0.5,
@@ -179,8 +182,9 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   // 180Hz was cutting most of it. 70 clears near-DC/handling rumble while
   // letting that range through.
   carrierHighpassHz: 70,
-  qBase: 0.7,
-  qPressureScale: 1.2,
+  // Round 14: qBase 0.7→1.25, qPressureScale 1.2→1 — Ilya's own panel session.
+  qBase: 1.25,
+  qPressureScale: 1,
   // Round 13, take 16: lowpass cutoff for the new body-hum band — a
   // rendered-vs-reference comparison found the real low hump is a broad
   // shelf spanning ~60-800Hz (not a narrow peak, hence lowpass + a gentle Q
@@ -443,9 +447,27 @@ export const PENCIL_SOUND_VARIANT_2: GrainVariant = { ...BASE, secondary: { vari
 // Round 13, take 14: `maxHz` (grain rate ceiling) raised from inherited
 // BASE/Variant-1 220 to 300 — take 13's onset detection on the real
 // recordings measured an effective grain rate of ~126-368/s, well above 220.
+// #253 follow-up: this whole block was the *shared* pencil/liner recipe
+// through round 13 — now that #253 splits pencil and liner into independent
+// configs (LINER_SOUND_VARIANT_3 below), this is pencil-only. Ilya's own
+// tuning-panel session after the split (round 14) pushed several fields
+// further than round 13 take 21 ever did — floor/depth/curvePower/minHz/
+// maxHz and the mid/body/hiss mix all moved again below; every field not
+// called out there is unchanged from round 13. Historical Round-13 comments
+// stay as a record of how take 21's values were reached, even where round
+// 14 has since moved past them.
 export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   ...PENCIL_SOUND_VARIANT_1,
-  maxHz: 300,
+  // Round 14: floor 0.12→0.26, depth 0.02→0 (grain modulator fully off —
+  // texture is carried entirely by curvePower/minHz/maxHz below now, not by
+  // AM depth on top of a floor), curvePower 2.0→6 (sharper, more discrete
+  // grain shape), minHz 8→1 and maxHz 300→95 (grain rate swept far slower
+  // overall) — Ilya's own panel session, post-#253 split.
+  floor: 0.26,
+  depth: 0,
+  curvePower: 6,
+  minHz: 1,
+  maxHz: 95,
   tap: { minGain: 0.02, maxGain: 0.5, freqHz: 120, decaySeconds: 0.02, noiseMix: 0.35, pressureCurve: 2.2 },
   // Round 13, take 21: Ilya's own panel session pushed this way up (0.08→0.84)
   // — texture now stays present through most of a stroke's speed range
@@ -461,7 +483,6 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   // carrier covers, so a near-static, very low center frequency there may
   // matter less than the coupling driving it.
   brightnessScale: 0.05,
-  curvePower: 2.0,
   qScale: 0.6,
   // Asked whether tone tracks speed and to strengthen it — it already did
   // (brightnessFreq()'s own sweep, just scaled down by brightnessScale), so
@@ -481,11 +502,12 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   // Round 13, take 17: Ilya's own panel session (bodyMix down to 0.84, hissMix
   // up to 0.65 from take 16's 1.6/0.35 — more hiss, less body than the
   // render-calibrated starting point) confirmed as sounding better by ear.
-  midMix: 0.36,
-  bodyMix: 0.84,
-  // Round 13, take 21: 0.65→2 alongside PENCIL_SOUND_TUNING.hissLowHz/
-  // hissHighHz narrowed down — a much stronger push on a now-tighter band.
-  hissMix: 2,
+  // Round 14: midMix 0.36→1 (mid carrier back to full level), bodyMix
+  // 0.84→0 (body hum band silenced), hissMix 2→0.82 — Ilya's own panel
+  // session, post-#253 split.
+  midMix: 1,
+  bodyMix: 0,
+  hissMix: 0.82,
   // Round 13, take 18: experimental — modest starting weights, meant to be
   // tuned by ear via the panel, not a calibrated result like bodyMix/hissMix
   // above. The hypothesis (an outside expert's review) is that a shared
@@ -531,14 +553,40 @@ function cloneGrain(g: GrainVariant): GrainVariant {
 // pencil/eraser/smudge all point at the exact same PENCIL_SOUND_VARIANT_3
 // object for now — eraser/smudge have no distinct sound design yet (Ilya:
 // "сделай им тоже как у карандаша"), so tuning pencil via the debug panel
-// moves all three at once. liner gets its own independent clone
-// (LINER_SOUND_VARIANT_3) — identical starting values today, but a separate
-// object so pencil and liner can diverge from here without touching each
-// other, per Ilya's own plan to tune pencil further and hand back new
-// values separately. Only meaningful while PencilSoundSetting is 'variant3'
-// (see featureFlags.ts) — 'variant1'/'variant2' are untuned legacy A/B
-// baselines with no per-tool split, same as before this change.
-export const LINER_SOUND_VARIANT_3: GrainVariant = cloneGrain(PENCIL_SOUND_VARIANT_3)
+// moves all three at once. liner gets its own independent recipe
+// (LINER_SOUND_VARIANT_3) so pencil and liner can diverge without touching
+// each other. Only meaningful while PencilSoundSetting is 'variant3' (see
+// featureFlags.ts) — 'variant1'/'variant2' are untuned legacy A/B baselines
+// with no per-tool split, same as before this change.
+//
+// LINER_SOUND_VARIANT_3 started (at the #253 split) as a straight clone of
+// whatever PENCIL_SOUND_VARIANT_3 was at that moment — deliberately no
+// longer derived from it now (round 14: Ilya tuned pencil further and sent
+// back new values for PENCIL_SOUND_VARIANT_3 only) — a `cloneGrain(
+// PENCIL_SOUND_VARIANT_3)` here would silently drag liner along with every
+// future pencil-only retune, exactly the coupling #253 removed. This is
+// pencil's pre-round-14 recipe, frozen as liner's own literal — liner still
+// sounds exactly as it did before round 14's pencil-only changes below.
+export const LINER_SOUND_VARIANT_3: GrainVariant = {
+  floor: 0.12,
+  depth: 0.02,
+  curvePower: 2.0,
+  minHz: 8,
+  maxHz: 300,
+  useNormGain: true,
+  tap: { minGain: 0.02, maxGain: 0.5, freqHz: 120, decaySeconds: 0.02, noiseMix: 0.35, pressureCurve: 2.2 },
+  speedPresenceFloor: 0.84,
+  outputGainScale: 0.5,
+  brightnessScale: 0.05,
+  qScale: 0.6,
+  brightnessRangeBoost: 1.6,
+  midMix: 0.36,
+  bodyMix: 0.84,
+  hissMix: 2,
+  midGrainCoupling: 0.64,
+  bodyGrainCoupling: 0.6,
+  distanceGrainMix: 0.41,
+}
 
 export const TOOL_SOUND_CONFIGS: Record<ToolType, GrainVariant | null> = {
   pencil: PENCIL_SOUND_VARIANT_3,
