@@ -91,4 +91,51 @@ describe('#263: peekUndo/peekRedo', () => {
 
     expect(engine.peekUndo()).toEqual({ layerId: 'M', hasOtherContent: true })
   })
+
+  // Direction matters, not just op type: undoing layer_delete only ever
+  // *restores* a layer, and redoing layer_add only ever *re-creates* one —
+  // neither is ever destructive, regardless of what's on the layer. Getting
+  // this backwards would warn "this removes content" on a call that's
+  // actually restoring/protecting it, exactly backwards from #263's intent.
+
+  it('peekUndo reports no risk for undoing a layer_delete — that direction only ever restores a layer', () => {
+    const { engine } = createTestEngine({ userId: 'teacher' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('teacher', 'L'))
+    engine.appendOperation(fillStroke('student-1', 'L', 4, 4, 3))
+    engine.appendOperation(makeLayerDelete('teacher', ['L']))
+
+    // Teacher's own last op is the delete; undoing it brings L (and
+    // student-1's content) back — never something to warn about.
+    expect(engine.peekUndo()).toBeNull()
+  })
+
+  it('peekRedo reports no risk for redoing a layer_add — that direction only ever re-creates a layer', () => {
+    const { engine } = createTestEngine({ userId: 'teacher' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('teacher', 'L'))
+    engine.appendOperation(fillStroke('student-1', 'L', 4, 4, 3))
+    expect(engine.undo()?.type).toBe('layer_add')
+
+    // The layer (and student-1's still-`done` stroke on it) is hidden now;
+    // redoing brings it back — never something to warn about, even though
+    // the layer's own pixel-op count is still > 0 from before it was hidden.
+    expect(engine.peekRedo()).toBeNull()
+  })
+
+  it('peekRedo reports content-at-risk for a layer_merge redo that would re-consume a repainted source layer', () => {
+    const { engine } = createTestEngine({ userId: 'teacher' }, { width: 16, height: 16 })
+    engine.appendOperation(makeLayerAdd('teacher', 'A'))
+    engine.appendOperation(makeLayerAdd('teacher', 'B'))
+    engine.appendOperation(makeLayerMerge('teacher', 'M', [{ id: 'A', opacity: 1 }, { id: 'B', opacity: 1 }]))
+
+    // Undo the merge: A and B come back, M is gone.
+    expect(engine.undo()?.type).toBe('layer_merge')
+    expect(hasLayerBuffer(engine, 'A')).toBe(true)
+    expect(hasLayerBuffer(engine, 'M')).toBe(false)
+
+    // Another participant repaints one of the restored sources before the
+    // merge is redone — redoing would consume (destroy) it again.
+    engine.appendOperation(makeStroke('student-1', 'A', [dab(2, 2, { size: 4, opacity: 1 })]))
+
+    expect(engine.peekRedo()).toEqual({ layerId: 'A', hasOtherContent: true })
+  })
 })

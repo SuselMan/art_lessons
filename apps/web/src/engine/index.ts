@@ -293,13 +293,18 @@ export interface PencilEngineAPI {
   undo(): Operation | null
   redo(): Operation | null
   // (#263) Read-only peek at what undo()/redo() would act on *without*
-  // applying it — null unless the target is a structural op (layer_add/
-  // layer_delete/layer_merge) whose layer(s) currently carry done pixel
-  // content from any author, not just the one about to undo/redo. Callers
-  // (Room's handleUndo/handleRedo) use this to gate a confirm() in front of
-  // the real undo()/redo() call, the same shape as the existing Clear-layer
-  // confirm (#171) — never mutates the log itself, same contract as
-  // OperationLog's own undoTarget/redoTarget it wraps.
+  // applying it — null unless the target is a structural op that would
+  // actually *remove* content from any author, not just the one about to
+  // undo/redo: peekUndo only flags layer_add/layer_merge (undoing
+  // layer_delete just restores a layer, never destructive); peekRedo only
+  // flags layer_delete and layer_merge (redoing layer_add just re-creates).
+  // See _peekStructuralTarget's own doc comment for the full reasoning —
+  // getting a direction backwards here would warn "this removes content" on
+  // a call that's actually restoring it. Callers (Room's handleUndo/
+  // handleRedo) use this to gate a confirm() in front of the real undo()/
+  // redo() call, the same shape as the existing Clear-layer confirm (#171)
+  // — never mutates the log itself, same contract as OperationLog's own
+  // undoTarget/redoTarget it wraps.
   peekUndo(): StructuralUndoRedoPeek | null
   peekRedo(): StructuralUndoRedoPeek | null
   clear(): void
@@ -1496,22 +1501,43 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Shared by peekUndo/peekRedo: reduces a candidate target op (already
    *  read via undoTarget/redoTarget, never mutated) down to the
-   *  StructuralUndoRedoPeek callers actually need. Null for anything but the
-   *  three structural op types (#263's own scope) — the common case (a
-   *  plain stroke) must stay a silent no-op, never a spurious confirm. */
-  private _peekStructuralTarget(target: Operation | null): StructuralUndoRedoPeek | null {
+   *  StructuralUndoRedoPeek callers actually need — null for anything that
+   *  isn't actually about to *remove* content.
+   *
+   *  Direction matters here, not just op type: undoing layer_add/layer_merge
+   *  removes the layer they created, but undoing layer_delete only ever
+   *  *restores* one — never destructive, regardless of what's on it.
+   *  Symmetrically for redo: redoing layer_delete removes the layer(s)
+   *  again, but redoing layer_add only ever re-creates. layer_merge redo is
+   *  its own case — it re-consumes `sources`, not `layerId` (the merge
+   *  *result*, which redo is simply re-creating, same as layer_add); the
+   *  content actually at risk is whatever's been repainted onto a source
+   *  layer while the merge sat undone. Getting this backwards would show a
+   *  "this will remove content" warning on a redo that's actually
+   *  *restoring* the very content #263 exists to protect. */
+  private _peekStructuralTarget(target: Operation | null, direction: 'undo' | 'redo'): StructuralUndoRedoPeek | null {
     if (!target) return null
     let layerIds: string[]
-    switch (target.type) {
-      case 'layer_add':
-      case 'layer_merge':
-        layerIds = [target.layerId]
-        break
-      case 'layer_delete':
-        layerIds = target.layerIds
-        break
-      default:
-        return null
+    if (direction === 'undo') {
+      switch (target.type) {
+        case 'layer_add':
+        case 'layer_merge':
+          layerIds = [target.layerId]
+          break
+        default:
+          return null
+      }
+    } else {
+      switch (target.type) {
+        case 'layer_delete':
+          layerIds = target.layerIds
+          break
+        case 'layer_merge':
+          layerIds = target.sources.map(s => s.id)
+          break
+        default:
+          return null
+      }
     }
     const hasOtherContent = layerIds.some(id => this._log.pixelOpDoneCount(id) > 0)
     return { layerId: layerIds[0], hasOtherContent }
@@ -1519,12 +1545,12 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's own doc comment. */
   peekUndo(): StructuralUndoRedoPeek | null {
-    return this._peekStructuralTarget(this._log.undoTarget(this._userId))
+    return this._peekStructuralTarget(this._log.undoTarget(this._userId), 'undo')
   }
 
   /** See PencilEngineAPI's own doc comment. */
   peekRedo(): StructuralUndoRedoPeek | null {
-    return this._peekStructuralTarget(this._log.redoTarget(this._userId))
+    return this._peekStructuralTarget(this._log.redoTarget(this._userId), 'redo')
   }
 
   /** Clears the active layer — a logged, undoable operation. */
