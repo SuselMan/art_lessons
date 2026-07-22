@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
-import type { PaperType } from '@art-lessons/shared'
+import { DEFAULT_PAPER_COLORS, type PaperType } from '@art-lessons/shared'
+import { hexToRgb, rgbToHex } from '../../lib/color'
 import { PaperPreview } from '../../components/PaperPreview'
 import { AccountNav } from '../../components/AccountNav'
+import { ColorPicker } from '../../components/ColorPicker'
 import styles from './CreateRoom.module.css'
 
 // (#211 epic, #215) MyLessons hands this off via `<Link state={{ folderId }}>`
@@ -58,12 +60,39 @@ export function CreateRoom() {
   const { folderId } = (location.state as CreateRoomNavState | undefined) ?? {}
   const [roomName,    setRoomName]    = useState('')
   const [paper,       setPaper]       = useState<PaperType>('rough')
+  // null = "follow the selected texture's own default" (DEFAULT_PAPER_COLORS
+  // below); becomes a concrete RGB the moment the creator touches the picker,
+  // and from then on stays fixed regardless of which texture card is picked.
+  const [paperColor,  setPaperColor]  = useState<[number, number, number] | null>(null)
+  const [colorPickerOpen, setColorPickerOpen] = useState(false)
+  const colorPickerRef = useRef<HTMLDivElement>(null)
   const [sizePreset,  setSizePreset]  = useState<SizePreset>('a4')
   const [customW,     setCustomW]     = useState('1920')
   const [customH,     setCustomH]     = useState('1080')
   const [usePassword, setUsePassword] = useState(false)
   const [password,    setPassword]    = useState('')
   const [error,       setError]       = useState<string | null>(null)
+
+  const resolvedPaperColorHex = paperColor ? rgbToHex(paperColor) : DEFAULT_PAPER_COLORS[paper]
+
+  // Same outside-click/Escape close as CardMenu (components/CardMenu) —
+  // kept local rather than shared since this is the only other popover in
+  // the app right now; extract a shared hook if a third one shows up.
+  useEffect(() => {
+    if (!colorPickerOpen) return
+    function onPointerDown(e: PointerEvent) {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) setColorPickerOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setColorPickerOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [colorPickerOpen])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -78,7 +107,9 @@ export function CreateRoom() {
     const pw = usePassword && password ? password : undefined
 
     if (sizePreset === 'infinite') {
-      navigate(`/room/${id}`, { state: { room: { id, name, paper, infinite: true }, password: pw, folderId } })
+      navigate(`/room/${id}`, {
+        state: { room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true }, password: pw, folderId },
+      })
       return
     }
 
@@ -98,7 +129,7 @@ export function CreateRoom() {
 
     navigate(`/room/${id}`, {
       state: {
-        room: { id, name, paper, infinite: false, canvasWidth: width, canvasHeight: height },
+        room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: false, canvasWidth: width, canvasHeight: height },
         password: pw,
         folderId,
       },
@@ -130,7 +161,33 @@ export function CreateRoom() {
 
         {/* Paper texture */}
         <div className={styles.section}>
-          <div className={styles.label}>Paper texture — fixed after creation</div>
+          <div className={styles.paperSectionHeader}>
+            <div className={styles.label}>Paper texture — fixed after creation</div>
+            <div className={styles.colorPickerAnchor} ref={colorPickerRef}>
+              <button
+                type="button"
+                className={styles.colorSwatchTrigger}
+                style={{ background: resolvedPaperColorHex }}
+                aria-label="Paper color"
+                aria-haspopup="dialog"
+                aria-expanded={colorPickerOpen}
+                onClick={() => setColorPickerOpen(o => !o)}
+              />
+              {colorPickerOpen && (
+                <div className={styles.colorPopover} onClick={e => e.stopPropagation()}>
+                  <ColorPicker
+                    value={paperColor ?? hexToRgb(DEFAULT_PAPER_COLORS[paper])}
+                    onChange={setPaperColor}
+                  />
+                  {paperColor && (
+                    <button type="button" className={styles.colorReset} onClick={() => setPaperColor(null)}>
+                      Use default
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
           <div className={styles.paperCards}>
             {PAPER_OPTIONS.map(({ type, label, desc }) => (
               <div
@@ -139,7 +196,7 @@ export function CreateRoom() {
                 onClick={() => setPaper(type)}
               >
                 <div className={styles.paperPreviewWrap}>
-                  <PaperPreview type={type} width={200} height={150} />
+                  <PaperPreview type={type} width={200} height={150} bgColorHex={resolvedPaperColorHex} />
                 </div>
                 <div className={styles.paperInfo}>
                   <div className={styles.paperName}>{label}</div>

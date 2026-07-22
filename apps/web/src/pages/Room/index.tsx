@@ -19,6 +19,7 @@ import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { computeCompositeOrder } from '../../lib/layers'
+import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant, getGraphiteGrainVariant } from '../../lib/featureFlags'
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
@@ -72,7 +73,7 @@ const PLACEHOLDER_INFINITE_CANVAS_SIZE = 8192
  *  the creator, opening my own room" apart from "I opened someone else's
  *  room link" (no state at all, e.g. a second device). */
 interface CreatorNavState {
-  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
+  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
   password?: string
   // (#211 epic, #215) Set when CreateRoom was opened via "New room" while a
   // folder was open on MyLessons — files the freshly created room into it
@@ -81,10 +82,10 @@ interface CreatorNavState {
 }
 
 function toRoomConfig(
-  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
+  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
 ): RoomInfo {
   return {
-    id: room.id, name: room.name, paper: room.paper, infinite: room.infinite,
+    id: room.id, name: room.name, paper: room.paper, paperColor: room.paperColor, infinite: room.infinite,
     width: room.canvasWidth ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
     height: room.canvasHeight ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
   }
@@ -717,6 +718,7 @@ export function Room() {
     const engine = new PencilEngine(canvasRef.current, {
       infinite: config.infinite,
       paper: config.paper,
+      paperColor: config.paperColor ? hexToRgb(config.paperColor) : undefined,
       pencilType: initialToolRef.current.pencil,
       size: initialToolRef.current.size,
       opacity: initialToolRef.current.opacity,
