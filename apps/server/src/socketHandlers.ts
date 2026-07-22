@@ -3,8 +3,8 @@ import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@art-lessons/shared'
 
 import {
-  addPaletteColor, createRoom, ensureRoomLoaded, getParticipant, getRoomSnapshot, joinRoom, leaveRoom,
-  recordOperation, removePaletteColor,
+  addPaletteColor, createRoom, ensureRoomLoaded, getParticipant, getRoomSnapshot, isOperationAllowed, joinRoom,
+  leaveRoom, recordOperation, removePaletteColor, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen,
 } from './rooms.js'
 import { resolveSocketIdentity } from './identity.js'
 
@@ -100,11 +100,16 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     })
 
     // Operation relay (#34/#35): broadcast to every other socket in the room
-    // and append to the room's log, which backs the #36 snapshot. The one
-    // privileged case is `operation_revoke` (#73), which only the room's
-    // `owner` may submit — other members are silently dropped (no ack/error
-    // contract exists in the shared types for this yet, so this just logs
-    // and stops).
+    // and append to the room's log, which backs the #36 snapshot.
+    //
+    // (#254 epic) `isOperationAllowed` is the single choke point for every
+    // owner-only runtime privilege this epic adds on top of the original
+    // `operation_revoke`-only check (#73): room-wide freeze (#256),
+    // per-participant freeze (#257), and owner-locked layers (#258) — see
+    // its own doc comment in rooms.ts for the exact rules. Non-owner senders
+    // of a rejected op are silently dropped (no ack/error contract exists in
+    // the shared types for this yet, so this just logs and stops), same as
+    // the original operation_revoke-only check always did.
     //
     // #164: wrapped in try/catch as a defensive backstop — an uncaught
     // exception inside a socket.io event handler isn't caught by the
@@ -123,16 +128,20 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       }
 
       try {
-        if (op.type === 'operation_revoke') {
-          const participant = getParticipant(roomId, userId)
-          if (participant?.role !== 'owner') {
-            log.warn(
-              { socketId: socket.id, roomId, userId, opId: op.id },
-              'rejected operation_revoke from non-owner participant',
-            )
-            return
-          }
+        if (!isOperationAllowed(roomId, userId, op)) {
+          log.warn(
+            { socketId: socket.id, roomId, userId, opId: op.id, opType: op.type },
+            'rejected operation (role/freeze/owner-lock check)',
+          )
+          return
         }
+
+        // (#254/#258) Keeps the server's owner-lock mirror in sync the
+        // instant this op is accepted, so the very next operation on this
+        // socket connection already sees it — must run before
+        // recordOperation, not after, though the two never race each other
+        // either way (single-threaded, no `await` in between).
+        if (op.type === 'layer_owner_lock') setLayerOwnerLocked(roomId, op.layerId, op.locked)
 
         const stamped = recordOperation(roomId, op)
         // Tells the author their own operation's authoritative seq (#149) —
@@ -147,6 +156,43 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
           'failed to record/relay operation, dropping it',
         )
       }
+    })
+
+    // (#254/#256 epic) Room-wide freeze — owner-only, same role-check shape
+    // as operation_revoke had before isOperationAllowed absorbed it above
+    // (this event is its own socket message, not an Operation, so it needs
+    // its own check). Broadcasts to the *whole* room via `io.to`, not
+    // `socket.to` — same reasoning as palette_add_color/palette_remove_color
+    // below: the owner who triggered it needs the same confirmation every
+    // other participant gets, not to be excluded from it.
+    socket.on('set_room_frozen', frozen => {
+      const { roomId, userId } = socket.data
+      if (!roomId || !userId) return
+      const participant = getParticipant(roomId, userId)
+      if (participant?.role !== 'owner') {
+        log.warn({ socketId: socket.id, roomId, userId }, 'rejected set_room_frozen from non-owner participant')
+        return
+      }
+      if (setRoomFrozen(roomId, frozen)) io.to(roomId).emit('room_frozen_changed', { frozen })
+    })
+
+    // (#254/#257 epic) Point freeze — same owner-only shape as
+    // set_room_frozen above. setParticipantFrozen itself refuses to freeze
+    // the room's owner (see rooms.ts), so no separate check is needed here
+    // for that case.
+    socket.on('set_participant_frozen', ({ userId: targetUserId, frozen }) => {
+      const { roomId, userId } = socket.data
+      if (!roomId || !userId) return
+      const participant = getParticipant(roomId, userId)
+      if (participant?.role !== 'owner') {
+        log.warn(
+          { socketId: socket.id, roomId, userId, targetUserId },
+          'rejected set_participant_frozen from non-owner participant',
+        )
+        return
+      }
+      const updated = setParticipantFrozen(roomId, targetUserId, frozen)
+      if (updated) io.to(roomId).emit('participant_frozen_changed', { userId: targetUserId, frozen })
     })
 
     // Bonus: cursor relay follows the exact same broadcast pattern and adds
