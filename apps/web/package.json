@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
     "preview": "vite preview",
     "bake:paper": "tsx scripts/bakePaperTextures.ts",
     "bake:paper-variants": "tsx scripts/bakeRoughVariantTextures.ts"

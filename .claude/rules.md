@@ -14,7 +14,7 @@
 
 ## Quality gates
 
-- Before finishing a task run `npm run typecheck` and `npm run lint` and fix all issues.
+- Before finishing a task run `npm run typecheck` and `npm run lint:fix` (not `lint`) — it auto-fixes what it can and reports the rest, saving a manual fix-and-rerun round trip. Fix whatever it still flags.
 
 ## Cross-device pixel determinism
 
@@ -80,7 +80,7 @@ We parallelize work across isolated Claude Code sessions ("agents"), coordinated
 - An agent must stop and report to the manager if a task requires touching files outside its declared area, instead of proceeding.
 - Agents commit atomically after each logical step, with a clear commit message — not only once at the end. This makes interrupted work resumable (see below).
 - If an agent session is interrupted (rate limit, crash, closed terminal), work is not restarted from scratch: a new session on the same branch reads the issue plus `git log`/`git diff` since the last commit and continues from there.
-- Before merging an agent branch into `dev`, the manager runs `npm run typecheck` and `npm run lint` on that branch and fixes what it can, plus the QA pass described below.
+- Before merging an agent branch into `dev`, the manager runs `npm run typecheck` and `npm run lint:fix` on that branch and fixes what it can, plus the QA pass described below.
 - Merging an agent branch into `dev` does not require asking Ilya each time — that's the manager's call once QA is clean. Merging `dev` into `master` always does (see branch model above).
 - After a branch is merged into `dev`, its worktree and branch are deleted.
 
