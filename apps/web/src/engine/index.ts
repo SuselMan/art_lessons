@@ -2781,7 +2781,7 @@ export class PencilEngine implements PencilEngineAPI {
       // own comments on why marker can't batch through _dabProgInstanced);
       // not added to _dabInstUni below since nothing ever draws marker
       // through it.
-      'u_original', 'u_strokeCoverage', 'u_inkLoad', 'u_paperWhite',
+      'u_original', 'u_strokeCoverage', 'u_inkLoad',
     ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
@@ -4454,12 +4454,13 @@ export class PencilEngine implements PencilEngineAPI {
     // "Ревизия v1.5" — see MarkerStrokeScratch's own doc comment): this
     // tile's frozen pre-stroke content, this stroke's own running coverage
     // (silhouette/alpha) and running inkLoad (darkness) — both just updated
-    // by the two splat passes above, same quad, moments ago. PAPER_COLORS
-    // [this._opts.paper] is the same real per-paper-type base tone
-    // DISPLAY_FRAG/PAPER_BLEND_FRAG already tint blank canvas with —
-    // reused here rather than a separate hardcoded "generic off-white," so
-    // a marker's first pass over blank paper tints against whichever paper
-    // color this room actually has.
+    // by the two splat passes above, same quad, moments ago. No paper-color
+    // uniform any more: DAB_FRAG's own effectiveBase now falls back to a
+    // flat vec3(1.0) for an untouched spot, not this room's actual paper
+    // tone — a fully built-up marker mark on blank layer content multiplies
+    // out to exactly the picked swatch color that way (1.0 * color =
+    // color), while still correctly darkening toward whatever's *really*
+    // underneath (a pencil line, say) wherever this layer isn't blank.
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, original.texture)
     gl.uniform1i(u.u_original, 1)
@@ -4469,7 +4470,6 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE3)
     gl.bindTexture(gl.TEXTURE_2D, inkLoad.texture)
     gl.uniform1i(u.u_inkLoad, 3)
-    gl.uniform3fv(u.u_paperWhite, PAPER_COLORS[this._opts.paper])
     gl.uniform1f(u.u_hardness, preset.hardness)
     gl.uniform1f(u.u_eraseMode, 0.0)
     gl.uniform3fv(u.u_color, color)

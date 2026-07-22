@@ -221,15 +221,6 @@ export const DAB_FRAG = `
   // — declared here too so this fragment shader can read it back for the
   // u_original/u_strokeCoverage/u_inkLoad gl_FragCoord mapping above.
   uniform vec2 u_resolution;
-  // Flat paper-white constant (ADR 004 §3/§8) — the color an untouched
-  // (alpha=0) spot of this layer multiplies against, standing in for "the
-  // paper showing through" without actually sampling the real paper-grain
-  // texture (deliberately out of v1 scope — see u_paperHeightMap's own use
-  // above, which marker's branch never touches). Always this room's real
-  // configured paper base tone (engine/index.ts's PAPER_COLORS[paper type]),
-  // not a hardcoded generic off-white, so a marker's very first pass over
-  // blank paper tints against whatever paper color is actually showing.
-  uniform vec3 u_paperWhite;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -430,12 +421,15 @@ export const DAB_FRAG = `
       // *before* this stroke touched it, so the multiply below works
       // against a real color, not one pre-scaled by whatever alpha
       // happened to be there. An alpha near zero has no real color to
-      // recover (and would blow up dividing by it) — ADR 004 §3 explicitly
-      // wants a flat paperWhite constant there instead of trying to
-      // extrapolate a color from near-nothing. 1/255 is the smallest alpha
-      // an 8-bit-backed accumulation buffer can even represent as nonzero,
-      // so anything at or below that is indistinguishable from untouched.
-      vec3 effectiveBase = dst.a > 0.004 ? clamp(dst.rgb / dst.a, 0.0, 1.0) : u_paperWhite;
+      // recover (and would blow up dividing by it) — a flat vec3(1.0)
+      // (pure white, *not* this room's actual paper tone — ADR 004
+      // "Ревизия v1.5" §1, requested by Ilya: a fully built-up marker mark
+      // should read back as exactly the picked swatch color) stands in
+      // instead of trying to extrapolate a color from near-nothing. 1/255
+      // is the smallest alpha an 8-bit-backed accumulation buffer can even
+      // represent as nonzero, so anything at or below that is
+      // indistinguishable from untouched.
+      vec3 effectiveBase = dst.a > 0.004 ? clamp(dst.rgb / dst.a, 0.0, 1.0) : vec3(1.0);
       // Coverage still governs the stroke's silhouette/alpha only (fast-
       // saturating — see u_strokeCoverage's own comment).
       float coverage = texture2D(u_strokeCoverage, tileUV).a;
@@ -448,14 +442,15 @@ export const DAB_FRAG = `
       // uncalibrated constant (same status every other first-pass number in
       // this codebase carries) — higher means fewer overlapping passes
       // needed to approach full darkness.
-      // 8.0, not the first-draft 3.0: live testing (repeating the exact same
-      // stroke over itself N times) showed 3.0 needed ~20 overlapping passes
-      // before darkness visibly stopped climbing — a real alcohol marker
-      // reaches its own ceiling within roughly 2-4 passes. Still a first-
-      // pass calibration (verify by eye and retune further if it still
-      // reads as too fast/slow once bullet/chisel's own opacity presets are
-      // also tuned), just no longer off by an order of magnitude.
-      const float MARKER_DARKEN_RATE = 8.0;
+      // 15.0, not the earlier 8.0 (itself already a correction from a
+      // first-draft 3.0 that took ~20 overlapping passes to plateau):
+      // Ilya asked for the ceiling within *two* passes specifically — live
+      // testing (repeating the exact same stroke over itself N times) with
+      // 15.0 reaches ~90% darkness by pass 2 and is visually flat by pass
+      // 3. Still first-pass/uncalibrated in the sense that the exact curve
+      // shape hasn't been tuned per nib/preset, just no longer the wrong
+      // order of magnitude.
+      const float MARKER_DARKEN_RATE = 15.0;
       float inkLoad = texture2D(u_inkLoad, tileUV).a;
       float darkness = 1.0 - exp(-inkLoad * MARKER_DARKEN_RATE);
       // Beer-Lambert-style multiply for a translucent marker film (ADR 004
