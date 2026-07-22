@@ -306,7 +306,7 @@ export class DabSystem {
     const tiltNorm   = tiltMag / 90
     const size       = baseSize * this._shaping.size(pressure)
     const aspectRatio = this._shaping.aspect(tiltNorm)
-    const angle      = tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
+    const angle      = this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle)
     // `pressure` is stored as the real, unmapped value for every tool (see
     // dabShaping.ts's own #245 comment on why a per-tool remap used to live
     // here and was reverted) — DAB_FRAG derives whatever deposit-gate floor
