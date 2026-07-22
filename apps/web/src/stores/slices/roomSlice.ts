@@ -34,6 +34,16 @@ export interface RoomInfoSlice {
   // list, never a delta to fold in.
   palette: string[]
   setPalette: (palette: string[]) => void
+  // (#254/#255/#256 epic) Room-wide freeze — a *reflection* of the server's
+  // own ephemeral `RoomRecord.roomFrozen` (rooms.ts), same "store state
+  // mirrors what's already true server/engine-side" rule this store follows
+  // everywhere else (see roomStore.ts's own top-of-file comment). Set from
+  // `room_state`'s `frozen` field and kept live via `room_frozen_changed`
+  // (see Room/index.tsx's socket wiring). A participant's own per-user
+  // freeze doesn't need a twin field here — it's already carried on their
+  // own entry in `participants` above (Participant.frozen).
+  roomFrozen: boolean
+  setRoomFrozen: (frozen: boolean) => void
 }
 
 export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
@@ -50,4 +60,6 @@ export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
   setUserId: id => set({ userId: id }),
   palette: [],
   setPalette: palette => set({ palette }),
+  roomFrozen: false,
+  setRoomFrozen: frozen => set({ roomFrozen: frozen }),
 })

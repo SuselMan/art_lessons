@@ -98,6 +98,19 @@
 }
 .headerIconBtn:hover { color: var(--color-text); background: var(--color-surface-2); }
 
+/* (#254/#256/#259) Room-frozen toggle's own "on" state — amber, same family
+   as the owner-lock controls in LayerPanel.module.css, so every owner-only
+   "I've restricted something for everyone else" control reads consistently
+   across the app. */
+.headerIconBtnActive {
+  color: var(--color-warning, #e0a952);
+  background: color-mix(in srgb, var(--color-warning, #e0a952) 14%, transparent);
+}
+.headerIconBtnActive:hover {
+  color: var(--color-warning, #e0a952);
+  background: color-mix(in srgb, var(--color-warning, #e0a952) 22%, transparent);
+}
+
 .roomName {
   font-size: 14px;
   font-weight: 500;
@@ -602,6 +615,50 @@
   box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-accent);
   animation: participant-drawing-pulse 1.2s ease-in-out infinite;
 }
+
+/* (#254/#257/#259) Frozen participant dot — dimmed + a snowflake glyph
+   swapped in for the initial-letter (see ParticipantsBar.tsx), distinct
+   from the drawing-pulse ring above so the two states never read as the
+   same thing at a glance. */
+.participantDotFrozen {
+  opacity: 0.55;
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-warning, #e0a952);
+}
+.participantDotFrozen :global(.material-symbols-outlined) { font-size: 13px; }
+
+/* Wraps one dot + its (owner-only) freeze toggle so the toggle can sit as a
+   small badge in the dot's own corner instead of taking a whole extra slot
+   in the bar. */
+.participantDotWrap {
+  position: relative;
+  display: flex;
+}
+
+.participantFreezeBtn {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-surface-2);
+  color: var(--color-text-dim);
+  box-shadow: 0 0 0 1px var(--color-border);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--duration-fast), color var(--duration-fast), background var(--duration-fast);
+}
+.participantDotWrap:hover .participantFreezeBtn {
+  opacity: 1;
+}
+.participantFreezeBtn:hover {
+  color: var(--color-warning, #e0a952);
+  background: var(--color-surface-hover);
+}
+.participantFreezeBtn :global(.material-symbols-outlined) { font-size: 10px; }
 
 @keyframes participant-drawing-pulse {
   0%, 100% { opacity: 1; }
