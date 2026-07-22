@@ -433,30 +433,35 @@ export const DAB_FRAG = `
       // Coverage still governs the stroke's silhouette/alpha only (fast-
       // saturating — see u_strokeCoverage's own comment).
       float coverage = texture2D(u_strokeCoverage, tileUV).a;
-      // ADR 004 "Ревизия v1.5" §1: darkness comes from *inkLoad*, not
-      // coverage — an unbounded-at-accumulation-time sum, turned into a
-      // saturating [0,1) darkness *here*, once, at read time. This is what
-      // lets scribbling back and forth over an already-fully-covered spot
-      // (coverage long since 1) keep darkening it: inkLoad keeps growing
-      // even after coverage can't. MARKER_DARKEN_RATE is a first-pass,
-      // uncalibrated constant (same status every other first-pass number in
-      // this codebase carries) — higher means fewer overlapping passes
-      // needed to approach full darkness.
-      // 15.0, not the earlier 8.0 (itself already a correction from a
-      // first-draft 3.0 that took ~20 overlapping passes to plateau):
-      // Ilya asked for the ceiling within *two* passes specifically — live
-      // testing (repeating the exact same stroke over itself N times) with
-      // 15.0 reaches ~90% darkness by pass 2 and is visually flat by pass
-      // 3. Still first-pass/uncalibrated in the sense that the exact curve
-      // shape hasn't been tuned per nib/preset, just no longer the wrong
-      // order of magnitude.
-      const float MARKER_DARKEN_RATE = 15.0;
+      // ADR 004 "Ревизия v1.5" §1 (revised again — Ilya: exactly two
+      // *discrete* layers, not a soft asymptote that a single continuous
+      // stroke or exponentially many separate strokes can keep inching up
+      // forever): the first pass over a spot should read back as *exactly*
+      // the picked color (effectiveBase=1 case: 1.0*color=color); a second
+      // pass over the same spot should read as one further Beer-Lambert
+      // layer of the identical translucent film (color*color — physically
+      // exact for two stacked layers of one dye); a third and every later
+      // pass must leave it there, hard-capped, not still creeping toward
+      // black. Modeled as two sequential, independently-saturating stages
+      // driven by the same inkLoad — the first stage's own darkness must
+      // reach its own ceiling before the second stage starts moving at all
+      // (clamp(), not exp(), specifically because exp() never actually
+      // reaches 1.0 — it would leave the tiniest continuing drift forever,
+      // exactly what this revision exists to remove). MARKER_LAYER1_INK/
+      // MARKER_LAYER2_INK (how much inkLoad each stage needs to fully
+      // resolve) are first-pass, uncalibrated numbers — verify by eye and
+      // retune, same status every other first-pass constant here carries.
       float inkLoad = texture2D(u_inkLoad, tileUV).a;
-      float darkness = 1.0 - exp(-inkLoad * MARKER_DARKEN_RATE);
+      const float MARKER_LAYER1_INK = 0.6;
+      const float MARKER_LAYER2_INK = 1.2;
+      float layer1 = smoothstep(0.0, MARKER_LAYER1_INK, inkLoad);
+      float layer2 = smoothstep(0.0, MARKER_LAYER2_INK, max(inkLoad - MARKER_LAYER1_INK, 0.0));
       // Beer-Lambert-style multiply for a translucent marker film (ADR 004
       // "Контекст" — physically correct for overlapping translucent dye,
-      // unlike graphite/ink's saturating "over" coverage below).
-      vec3 result = mix(effectiveBase, effectiveBase * u_color, darkness);
+      // unlike graphite/ink's saturating "over" coverage below) — applied
+      // twice, sequentially, once per capped stage.
+      vec3 afterLayer1 = mix(effectiveBase, effectiveBase * u_color, layer1);
+      vec3 result = mix(afterLayer1, afterLayer1 * u_color, layer2);
       // Alpha bookkeeping: blend the *original* dst.a toward 1.0 by
       // *coverage* (silhouette, not darkness) — mirrors how graphite/
       // liner's own deposit already approaches full coverage under
