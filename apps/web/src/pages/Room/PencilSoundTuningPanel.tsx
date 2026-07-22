@@ -1,15 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { RefObject } from 'react'
 
-import { PENCIL_SOUND_VARIANT_3, PENCIL_SOUND_TUNING, type PencilSound, type GrainVariant, type PencilSoundTuning } from '../../lib/PencilSound'
+import type { ToolType } from '@art-lessons/shared'
+
+import { TOOL_SOUND_CONFIGS, TOOL_SOUND_DEFAULTS, PENCIL_SOUND_TUNING, type PencilSound, type GrainVariant, type PencilSoundTuning } from '../../lib/PencilSound'
 
 import styles from './Room.module.css'
 
 // Snapshotted once, at module load — before any slider in this panel has had
-// a chance to mutate PENCIL_SOUND_VARIANT_3/PENCIL_SOUND_TUNING in place —
-// so "reset" always means "back to what shipped," not "back to whatever it
-// was a few drags ago."
-const DEFAULT_GRAIN: GrainVariant = { ...PENCIL_SOUND_VARIANT_3, tap: { ...PENCIL_SOUND_VARIANT_3.tap! } }
+// a chance to mutate PENCIL_SOUND_TUNING in place — so "reset" always means
+// "back to what shipped," not "back to whatever it was a few drags ago."
+// The per-tool GrainVariant equivalent (#253) is TOOL_SOUND_DEFAULTS, a
+// similar module-load-time snapshot living in PencilSound.ts itself.
 const DEFAULT_TUNING: PencilSoundTuning = { ...PENCIL_SOUND_TUNING }
 
 // Live-tuning debug panel for every PencilSound knob (#153 round 13's tuning
@@ -21,23 +23,36 @@ const DEFAULT_TUNING: PencilSoundTuning = { ...PENCIL_SOUND_TUNING }
 //     the WaveShaper curve/tap buffer for the two fields that don't
 //     otherwise pick up a live mutation (see PencilSound.retune()'s doc).
 //   - `PENCIL_SOUND_TUNING` (deadzone/speed-curve/global filter ranges) is a
-//     single mutable exported singleton, mutated directly here, then
-//     `retuneGlobals()` re-applies the two fields that don't have an
-//     existing per-block call site (shelf center frequencies).
+//     single mutable exported singleton *shared across every tool* (not
+//     split by #253 — Ilya confirmed the shared hardness/speed/global-filter
+//     behavior already sounds right for both pencil and liner), mutated
+//     directly here, then `retuneGlobals()` re-applies the two fields that
+//     don't have an existing per-block call site (shelf center frequencies).
 // Only meaningful for variant3 (the only recipe with tap/brightnessScale/
 // qScale/etc.) — gated on that in Room/index.tsx alongside the
 // pencilSoundTuning feature flag, same pattern as hapticGrain/tapToHideUI.
-export function PencilSoundTuningPanel({ pencilSoundRef }: { pencilSoundRef: RefObject<PencilSound | null> }): React.JSX.Element {
+// `tool` (#253): PencilSound now holds a different GrainVariant per active
+// tool (see TOOL_SOUND_CONFIGS) — this panel always edits whichever one is
+// currently live, so its local `grain`/`tap` state is reseeded from
+// pencilSoundRef.current.getGrain() every time `tool` changes, rather than
+// being seeded once from a single hardcoded constant.
+export function PencilSoundTuningPanel({ pencilSoundRef, tool }: { pencilSoundRef: RefObject<PencilSound | null>; tool: ToolType }): React.JSX.Element {
   const [collapsed, setCollapsed] = useState(true)
-  // Seeded from the exported constant/singleton rather than the ref, since
-  // both are read before Room's own effect has necessarily constructed the
-  // PencilSound instance yet — grain is the *same object* PencilSound ends
-  // up holding (Room/index.tsx passes PENCIL_SOUND_VARIANT_3 straight
-  // through, no clone), so this is never stale once the instance exists.
-  const [grain, setGrain] = useState<GrainVariant>({ ...PENCIL_SOUND_VARIANT_3 })
-  const [tap, setTap] = useState({ ...PENCIL_SOUND_VARIANT_3.tap! })
+  // Non-null: this panel only ever renders while pencilSoundSetting is
+  // 'variant3' (see Room/index.tsx's gating), and every tool currently has a
+  // non-null TOOL_SOUND_CONFIGS entry — see that map's own doc if a future
+  // tool needs to go silent instead.
+  const [grain, setGrain] = useState<GrainVariant>(() => ({ ...(pencilSoundRef.current?.getGrain() ?? TOOL_SOUND_CONFIGS[tool])! }))
+  const [tap, setTap] = useState(() => ({ ...(pencilSoundRef.current?.getGrain() ?? TOOL_SOUND_CONFIGS[tool])!.tap! }))
   const [, forceTuningRerender] = useState(0)
   const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    const active = pencilSoundRef.current?.getGrain() ?? TOOL_SOUND_CONFIGS[tool]
+    if (!active) return
+    setGrain({ ...active })
+    if (active.tap) setTap({ ...active.tap })
+  }, [tool, pencilSoundRef])
 
   function patchGrain(patch: Partial<GrainVariant>): void {
     setGrain(g => ({ ...g, ...patch }))
@@ -57,16 +72,18 @@ export function PencilSoundTuningPanel({ pencilSoundRef }: { pencilSoundRef: Ref
   }
 
   function handleCopy(): void {
-    const payload = { grain, tuning: { ...PENCIL_SOUND_TUNING } }
+    const payload = { tool, grain, tuning: { ...PENCIL_SOUND_TUNING } }
     navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
       .then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) })
       .catch(() => {})
   }
 
   function handleReset(): void {
-    const resetGrain: GrainVariant = { ...DEFAULT_GRAIN, tap: { ...DEFAULT_GRAIN.tap! } }
+    const def = TOOL_SOUND_DEFAULTS[tool]
+    if (!def) return
+    const resetGrain: GrainVariant = { ...def, tap: { ...def.tap! } }
     setGrain(resetGrain)
-    setTap({ ...DEFAULT_GRAIN.tap! })
+    setTap({ ...def.tap! })
     // A full-object patch (not a diff) so retune()'s curvePower/tap checks
     // above both trigger unconditionally — every knob goes back at once,
     // not just whichever ones happen to differ from default right now.
@@ -80,7 +97,7 @@ export function PencilSoundTuningPanel({ pencilSoundRef }: { pencilSoundRef: Ref
     <div className={styles.debugOverlay} style={{ pointerEvents: 'auto', maxWidth: 320 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <button type="button" onClick={() => setCollapsed(c => !c)} style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer' }}>
-          {collapsed ? '▸' : '▾'} pencil sound tuning
+          {collapsed ? '▸' : '▾'} pencil sound tuning — {tool}
         </button>
         <button type="button" onClick={handleCopy} style={{ font: 'inherit', color: 'inherit', background: 'none', border: '1px solid currentColor', borderRadius: 4, padding: '1px 6px', cursor: 'pointer' }}>
           {copied ? 'copied!' : 'copy config'}

@@ -37,7 +37,7 @@
 // tip contact area = duller tone — a lowpass driven by PointerData.tiltX/
 // tiltY, which the engine already reports).
 
-import type { PaperType } from '@art-lessons/shared'
+import type { PaperType, ToolType } from '@art-lessons/shared'
 
 // Every module-level numeric knob that isn't part of a GrainVariant recipe
 // (deadzone/speed curve shape/global filter ranges/ramp times) used to be a
@@ -512,6 +512,51 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   distanceGrainMix: 0.41,
 }
 
+function cloneGrain(g: GrainVariant): GrainVariant {
+  return {
+    ...g,
+    ...(g.tap ? { tap: { ...g.tap } } : {}),
+    ...(g.secondary ? { secondary: { ...g.secondary, variant: cloneGrain(g.secondary.variant) } } : {}),
+  }
+}
+
+// #253: PencilSound used to be a single app-wide instance playing one
+// hardcoded recipe (PENCIL_SOUND_VARIANT_3 above) off every tool's
+// strokeStart/pointer/strokeEnd regardless of which tool was actually
+// active — eraser and smudge silently played the pencil's own scratch sound
+// too, and pencil/liner (similar by ear, but not necessarily identical) had
+// no way to diverge. TOOL_SOUND_CONFIGS is the per-tool registry Room/
+// index.tsx feeds into PencilSound.setActiveGrain() on every tool switch —
+// null would mean "this tool makes no drawing sound" (none currently do).
+// pencil/eraser/smudge all point at the exact same PENCIL_SOUND_VARIANT_3
+// object for now — eraser/smudge have no distinct sound design yet (Ilya:
+// "сделай им тоже как у карандаша"), so tuning pencil via the debug panel
+// moves all three at once. liner gets its own independent clone
+// (LINER_SOUND_VARIANT_3) — identical starting values today, but a separate
+// object so pencil and liner can diverge from here without touching each
+// other, per Ilya's own plan to tune pencil further and hand back new
+// values separately. Only meaningful while PencilSoundSetting is 'variant3'
+// (see featureFlags.ts) — 'variant1'/'variant2' are untuned legacy A/B
+// baselines with no per-tool split, same as before this change.
+export const LINER_SOUND_VARIANT_3: GrainVariant = cloneGrain(PENCIL_SOUND_VARIANT_3)
+
+export const TOOL_SOUND_CONFIGS: Record<ToolType, GrainVariant | null> = {
+  pencil: PENCIL_SOUND_VARIANT_3,
+  eraser: PENCIL_SOUND_VARIANT_3,
+  smudge: PENCIL_SOUND_VARIANT_3,
+  liner: LINER_SOUND_VARIANT_3,
+}
+
+// Frozen snapshots of the above, taken at module-eval time before any live tuning-panel patch can
+// touch them — PencilSoundTuningPanel's "reset" button (per-tool since #253) restores from these
+// rather than TOOL_SOUND_CONFIGS itself, which the panel mutates in place via PencilSound.retune().
+export const TOOL_SOUND_DEFAULTS: Record<ToolType, GrainVariant | null> = {
+  pencil: cloneGrain(PENCIL_SOUND_VARIANT_3),
+  eraser: cloneGrain(PENCIL_SOUND_VARIANT_3),
+  smudge: cloneGrain(PENCIL_SOUND_VARIANT_3),
+  liner: cloneGrain(LINER_SOUND_VARIANT_3),
+}
+
 // A 2nd-order non-resonant BiquadFilterNode lowpass only lets a narrow band of a broadband noise
 // source through, so its output amplitude is small AND scales with the cutoff frequency — measured
 // empirically against real BiquadFilterNode output: std ≈ NORM_K * sqrt(freq). The `rectify`
@@ -832,6 +877,28 @@ export class PencilSound implements PencilSoundAPI {
       const { freqHz, decaySeconds, noiseMix } = this.grain.tap
       this.graph.tapBuffer = createClickBuffer(this.graph.ctx, freqHz, decaySeconds, noiseMix)
     }
+  }
+
+  /** Call when the active tool changes (#253) — Room/index.tsx keeps one PencilSound instance for
+   *  the whole session rather than tearing the AudioContext graph down and rebuilding it per tool,
+   *  so this swaps which GrainVariant recipe drives the *existing* nodes going forward, same idiom
+   *  as retune() above: applyTarget()/fireDistanceGrain()/etc. already read this.grain or a layer's
+   *  own .recipe fresh on every call, so only the two fields baked once (curvePower's WaveShaper
+   *  curve, tap's click buffer) need explicit regeneration here.
+   *  Constraint: this never adds/removes audio nodes, so every tool's config must keep the same
+   *  `secondary` presence (defined vs. undefined) as whichever grain the graph was first built with —
+   *  only field values may differ between tools. All of TOOL_SOUND_CONFIGS satisfies this today. */
+  setActiveGrain(grain: GrainVariant): void {
+    if (this.grain === grain) return
+    this.grain = grain
+    if (!this.graph) return
+    const [primary, secondary] = this.graph.layers
+    primary.recipe = grain
+    if (secondary) secondary.recipe = grain.secondary?.variant ?? secondary.recipe
+    for (const layer of this.graph.layers) layer.rectify.curve = createGrainCurve(layer.recipe.curvePower)
+    this.graph.tapBuffer = grain.tap
+      ? createClickBuffer(this.graph.ctx, grain.tap.freqHz, grain.tap.decaySeconds, grain.tap.noiseMix)
+      : null
   }
 
   /** Re-applies the two PENCIL_SOUND_TUNING fields that don't otherwise have

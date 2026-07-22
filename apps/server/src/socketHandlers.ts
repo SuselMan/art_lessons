@@ -35,7 +35,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   io.on('connection', (socket) => {
     log.info({ socketId: socket.id, userId: socket.data.userId }, 'socket connected')
 
-    // Registers a brand-new room and seats the caller as its `teacher` (#39
+    // Registers a brand-new room and seats the caller as its `owner` (#39
     // fix: ownership is now fixed at creation time, not "whoever joins
     // first"). `create_room`'s wire payload carries no participant name
     // (unlike `join_room`) — that's how the shared contract was defined, so
@@ -101,9 +101,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
 
     // Operation relay (#34/#35): broadcast to every other socket in the room
     // and append to the room's log, which backs the #36 snapshot. The one
-    // privileged case is `operation_revoke` (#73), which only a `teacher`
-    // may submit — students are silently dropped (no ack/error contract
-    // exists in the shared types for this yet, so this just logs and stops).
+    // privileged case is `operation_revoke` (#73), which only the room's
+    // `owner` may submit — other members are silently dropped (no ack/error
+    // contract exists in the shared types for this yet, so this just logs
+    // and stops).
     //
     // #164: wrapped in try/catch as a defensive backstop — an uncaught
     // exception inside a socket.io event handler isn't caught by the
@@ -124,10 +125,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       try {
         if (op.type === 'operation_revoke') {
           const participant = getParticipant(roomId, userId)
-          if (participant?.role !== 'teacher') {
+          if (participant?.role !== 'owner') {
             log.warn(
               { socketId: socket.id, roomId, userId, opId: op.id },
-              'rejected operation_revoke from non-teacher participant',
+              'rejected operation_revoke from non-owner participant',
             )
             return
           }

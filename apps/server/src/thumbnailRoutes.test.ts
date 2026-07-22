@@ -76,7 +76,7 @@ afterEach(async () => {
 
 describe('POST /api/rooms/:roomId/thumbnail', () => {
   it('upserts a valid PNG upload', async () => {
-    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'teacher', color: '#fff' })
+    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'owner', color: '#fff' })
     mockPrisma.roomThumbnail.upsert.mockResolvedValueOnce({})
     const app = buildApp()
 
@@ -100,7 +100,7 @@ describe('POST /api/rooms/:roomId/thumbnail', () => {
   })
 
   it('rejects an oversized (>800px) image with 400 without touching Postgres', async () => {
-    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'teacher', color: '#fff' })
+    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'owner', color: '#fff' })
     const app = buildApp()
 
     const res = await postThumbnail(app, 'room-1', pngHeader(801, 100))
@@ -111,7 +111,7 @@ describe('POST /api/rooms/:roomId/thumbnail', () => {
   })
 
   it('rejects a corrupt/truncated buffer with 400', async () => {
-    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'teacher', color: '#fff' })
+    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'owner', color: '#fff' })
     const app = buildApp()
 
     const res = await postThumbnail(app, 'room-1', Buffer.from('not a png'))
@@ -122,7 +122,7 @@ describe('POST /api/rooms/:roomId/thumbnail', () => {
   })
 
   it('rejects a buffer with the wrong signature with 400', async () => {
-    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'teacher', color: '#fff' })
+    mockGetParticipant.mockReturnValue({ userId: 'user-1', name: 'A', role: 'owner', color: '#fff' })
     const app = buildApp()
     const badSignature = pngHeader(200, 100)
     badSignature[0] = 0x00 // corrupt the PNG magic byte
