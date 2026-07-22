@@ -641,14 +641,16 @@ const SMUDGE_MAX_STEP = 0.75
 // (its deepest valleys, not its whole lower half).
 const SMUDGE_PICKUP_FLOOR = 0.25
 
-// Marker (#250, ADR 004): placeholder flat preset — a real marker has no
-// hardness scale any more than a fineliner does (same reasoning
-// LINER_PRESET's own comment gives: one physical material, not a per-grade
-// spread), so one preset covers every marker stroke regardless of
-// `presetName`, same as liner. Distinct bullet/chisel nib presets (ADR 004
-// §1, the actual `presetName` values #252's toolbar sends, e.g.
-// "bullet:0.3") are #251's job — this is intentionally a single, uncalibrated
-// placeholder so #250's compositing work doesn't have to wait on that:
+// Marker (#250, ADR 004): a real marker has no hardness scale any more than
+// a fineliner does (same reasoning LINER_PRESET's own comment gives: one
+// physical material, not a per-grade spread), so one preset covers every
+// marker stroke regardless of `presetName`, same as liner. #251 (ADR 004 §1)
+// gave bullet/chisel their own distinct dab-shaping profiles (shape/angle —
+// see markerPresets.ts and dabShaping.ts's shapingForTool), but the ADR
+// never asked for the two nibs to differ on opacity/hardness/sizeMultiplier
+// too, so this stays the one shared preset for both — still uncalibrated
+// first-pass numbers (same "verify by eye and retune" status every other
+// first-pass constant in this codebase carries):
 //  - opacity: moderate, well under liner's near-saturated 0.95 — ADR 004 §5
 //    deliberately relies on multiply's own asymptotic saturation ("2-3
 //    passes darkens toward a limit") rather than a single stroke reaching
@@ -656,8 +658,8 @@ const SMUDGE_PICKUP_FLOOR = 0.25
 //  - hardness: fairly crisp but not razor (innerEdge = hardness*0.85) — a
 //    felt/alcohol-marker tip has a cleaner edge than soft graphite but isn't
 //    as hard-edged as a fineliner nib.
-//  - sizeMultiplier: 1 — no calibrated size step to derive this from yet
-//    (#251again), same "no fudge factor" reasoning as LINER_PRESET's own.
+//  - sizeMultiplier: 1 — no calibrated size step to derive this from yet,
+//    same "no fudge factor" reasoning as LINER_PRESET's own.
 const MARKER_PRESET: PencilPreset = { opacity: 0.45, hardness: 0.75, sizeMultiplier: 1.0 }
 
 // Marker (#250) scratch-patch pooling tuning — mirrors smudge's own
@@ -2850,7 +2852,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (!layerId || !this._layers.has(layerId)) return
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
-    this._dabs.setShaping(shapingForTool(this._strokeTool))
+    // #251: this._strokePreset isn't assigned until the next line — pass the
+    // raw incoming preset (this._opts.pencilType) directly so a marker
+    // stroke's bullet/chisel dispatch (shapingForTool -> markerPresets.ts's
+    // shapingForMarkerPreset) sees this stroke's actual nib, not whatever
+    // preset the *previous* stroke left in _strokePreset.
+    this._dabs.setShaping(shapingForTool(this._strokeTool, this._opts.pencilType))
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     // Smudge's reservoir now persists across separate strokes (see
@@ -3119,7 +3126,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  Marker (#250, ADR 004) is the same flat-single-preset shape as liner —
    *  see MARKER_PRESET's own comment for why `presetName` (the actual
    *  nib/size string #252's toolbar sends, e.g. "bullet:0.3") is ignored
-   *  here for now; distinguishing it per nib is #251's job. */
+   *  here: the ADR doesn't call for bullet/chisel to differ on
+   *  opacity/hardness, only on dab shape/angle, which #251 wires through
+   *  shapingForTool (dabShaping.ts) instead — a separate path from this
+   *  one, keyed off the same presetName string. */
   private _resolvePreset(tool: ToolType, presetName: string): PencilPreset {
     if (tool === 'liner') return LINER_PRESET
     if (tool === 'marker') return MARKER_PRESET
@@ -3236,7 +3246,9 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(this._strokeLayerId)
     if (!buf) return
 
-    const shaping = shapingForTool(this._strokeTool)
+    // #251: mid-stroke here, so _strokePreset is already this stroke's own
+    // preset (unlike _onStart's call site above) — safe to read directly.
+    const shaping = shapingForTool(this._strokeTool, this._strokePreset)
     const tiltNorm = Math.hypot(this._lastPointerTiltX, this._lastPointerTiltY) / 90
     const dab: Dab = {
       x: this._lastPointerX, y: this._lastPointerY,

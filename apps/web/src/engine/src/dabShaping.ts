@@ -1,6 +1,8 @@
 import type { ToolType } from '@art-lessons/shared'
 import { clamp } from 'lodash-es'
 
+import { shapingForMarkerPreset } from './markerPresets'
+
 // Per-tool pressure→size and tilt→aspect response curves for DabSystem's
 // dab geometry (#240). Previously hardcoded directly in DabSystem._makeDab
 // as graphite-pencil curves shared by every tool — only per-dab *opacity*
@@ -36,8 +38,11 @@ function lerp(a: number, b: number, t: number): number {
 // this refactor — tilt direction wins once tilt is large enough to trust
 // (>15deg magnitude), otherwise fall back to the spline's own path-tangent
 // direction. Every existing tool (pencil, eraser, smudge, liner) keeps this
-// exact formula; it is the default angle mode, not just pencil's.
-function tiltOrPathAngle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number): number {
+// exact formula; it is the default angle mode, not just pencil's. Exported
+// (#251) so markerPresets.ts's bullet nib profile can reuse it verbatim —
+// bullet is round enough that per-dab angle barely shows, but there's no
+// reason to give it a different default than every other non-chisel tool.
+export function tiltOrPathAngle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number): number {
   return tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
 }
 
@@ -84,8 +89,8 @@ export const LINER_DAB_SHAPING: DabShapingProfile = {
 // needs (ADR 004 §1): a flat, elongated dab stamped at a constant angle
 // produces a calligraphy-pen-like variable stroke width purely from
 // overlapping dab geometry along the spline, with no new pointer-input
-// model. Nothing wires this into shapingForTool yet — the marker tool's own
-// nib presets are #251's job, not this refactor's.
+// model. Wired into shapingForTool via markerPresets.ts's
+// MARKER_CHISEL_DAB_SHAPING (#251).
 export function fixedAngleShaping(angleRadians: number): DabShapingProfile['angle'] {
   return () => angleRadians
 }
@@ -93,6 +98,20 @@ export function fixedAngleShaping(angleRadians: number): DabShapingProfile['angl
 // pencil/eraser/smudge never had their own geometry (only opacity branched
 // per-tool, see engine/index.ts's _bakeDabOpacity) — they all keep riding
 // PENCIL_DAB_SHAPING.
-export function shapingForTool(tool: ToolType): DabShapingProfile {
-  return tool === 'liner' ? LINER_DAB_SHAPING : PENCIL_DAB_SHAPING
+//
+// #251: widened to also take the raw preset/presetName string so a 'marker'
+// stroke can pick between its two nib shapes (bullet/chisel) — every other
+// tool ignores the second argument entirely (it's optional, and neither
+// pencil/eraser/smudge/liner ever look at it), so this is a purely additive
+// change for them: same return value regardless of what (if anything) gets
+// passed as presetName. The actual bullet/chisel dispatch lives in
+// markerPresets.ts (shapingForMarkerPreset), not here, so this file and
+// markerPresets.ts can import small helpers from each other (tiltOrPathAngle/
+// fixedAngleShaping one way, shapingForMarkerPreset the other) without a
+// real circular-const problem — see markerPresets.ts's own comment on why
+// only functions/types cross that boundary, never a top-level const.
+export function shapingForTool(tool: ToolType, presetName?: string): DabShapingProfile {
+  if (tool === 'liner') return LINER_DAB_SHAPING
+  if (tool === 'marker') return shapingForMarkerPreset(presetName)
+  return PENCIL_DAB_SHAPING
 }
