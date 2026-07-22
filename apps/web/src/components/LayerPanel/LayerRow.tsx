@@ -14,9 +14,15 @@ export interface LayerRowProps {
   isActive: boolean
   isSelected: boolean
   isDragOverFolder?: boolean
+  // (#254/#260) Whether the *current viewer* is this room's owner — gates
+  // whether the owner-lock badge below is an interactive toggle or a
+  // read-only indicator. Not the same thing as `item.ownerLocked` (the
+  // layer's own state, visible to everyone once true).
+  isOwner: boolean
   onActivate: (id: string, e: React.MouseEvent) => void
   onToggleVisible: (id: string) => void
   onToggleLock: (id: string) => void
+  onToggleOwnerLock?: (id: string) => void
   onRename: (id: string, name: string) => void
   onToggleCollapse?: (id: string) => void
   onOpenMenu?: (id: string, anchor: HTMLElement) => void
@@ -26,8 +32,8 @@ export interface LayerRowProps {
 }
 
 function LayerRowImpl({
-  item, depth, isActive, isSelected, isDragOverFolder,
-  onActivate, onToggleVisible, onToggleLock, onRename, onToggleCollapse, onOpenMenu, onOpenOpacity,
+  item, depth, isActive, isSelected, isDragOverFolder, isOwner,
+  onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename, onToggleCollapse, onOpenMenu, onOpenOpacity,
   onPointerDown, onPointerUp,
 }: LayerRowProps) {
   const [editing, setEditing] = useState(false)
@@ -36,6 +42,7 @@ function LayerRowImpl({
   const isFolderItem = isFolder(item)
   const isBackground = item.id === BACKGROUND_LAYER_ID
   const isLocked = !!item.locked
+  const isOwnerLocked = !!item.ownerLocked
   const collapsed = isFolderItem && !!item.collapsed
 
   const {
@@ -97,6 +104,33 @@ function LayerRowImpl({
       >
         <Icon name={isLocked ? 'lock' : 'lock_open'} />
       </button>
+
+      {/* Owner-lock badge (#254/#260) — visually distinct from the plain
+          lock button above (amber, `lock_person` icon), and shown to
+          non-owners only once the layer actually *is* locked (nothing to
+          toggle, so no point cluttering every row with a permanently-dim
+          icon the way the plain lock button above does). The owner always
+          sees it, locked or not, since it's their own toggle. */}
+      {!isBackground && (isOwner || isOwnerLocked) && (
+        <button
+          className={clsx(
+            styles.rowIconBtn,
+            isOwner
+              ? (isOwnerLocked ? styles.rowIconBtnOwnerLocked : styles.rowIconBtnDim)
+              : styles.rowIconBtnOwnerLockedReadOnly,
+          )}
+          onClick={isOwner ? e => { e.stopPropagation(); onToggleOwnerLock?.(item.id) } : undefined}
+          disabled={!isOwner}
+          title={isOwner
+            ? (isOwnerLocked ? 'Unlock layer for others (owner)' : 'Lock layer for others (owner)')
+            : 'Locked by the room owner'}
+          aria-label={isOwner
+            ? (isOwnerLocked ? 'Unlock layer for others' : 'Lock layer for others')
+            : 'Locked by the room owner'}
+        >
+          <Icon name="lock_person" />
+        </button>
+      )}
 
       {isFolderItem ? (
         <button

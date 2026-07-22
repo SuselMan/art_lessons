@@ -152,6 +152,11 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
       if (!item) return state
       return { ...state, items: { ...state.items, [op.layerId]: { ...item, visible: op.visible } } }
     }
+    case 'layer_owner_lock': {
+      const item = state.items[op.layerId]
+      if (!item) return state
+      return { ...state, items: { ...state.items, [op.layerId]: { ...item, ownerLocked: op.locked } } }
+    }
     case 'layer_rename': {
       const item = state.items[op.layerId]
       if (!item) return state

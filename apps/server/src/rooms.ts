@@ -50,6 +50,31 @@ interface RoomRecord {
   // `participants` — small, needed on every room_state, unlike RoomSnapshot's
   // pixel blobs which stay Postgres-only (see getLatestSnapshot below).
   palette: string[]
+  // (#254/#256 epic) Room-wide freeze — an owner-triggered runtime control,
+  // never persisted to Postgres (same ephemeral status as `participants`
+  // itself): a server restart or a room going idle and being evicted simply
+  // loses it, same as every participant's own live presence does. See
+  // setRoomFrozen/isRoomFrozen.
+  roomFrozen: boolean
+  // (#254/#257 epic) Per-participant freeze, keyed by userId rather than
+  // stored directly on the live `Participant` record in `participants` —
+  // that map entry gets fully replaced on every join/reconnect (see
+  // joinRoom), which would silently clear a freeze the instant its target
+  // refreshed their tab. Keeping it here instead, and recomputing each
+  // Participant's own `frozen` field from membership in this set at
+  // join/create time (same pattern `role` already uses against
+  // `room.ownerId`), makes a freeze survive a reconnect the way it needs to
+  // for the "settle down one noisy student" use case to actually work.
+  frozenUserIds: Set<string>
+  // (#254/#258 epic) The one place the server inspects operation *content*
+  // rather than just relaying it (see LayerOwnerLockOperation's own doc
+  // comment in packages/shared) — a lightweight mirror of which layer ids
+  // are currently owner-locked, kept in sync by `setLayerOwnerLocked`
+  // whenever a `layer_owner_lock` operation is accepted. Rebuilt by folding
+  // over `operations` in `ensureRoomLoaded` on a cold load, since (unlike
+  // `roomFrozen`/`frozenUserIds`) this mirrors real operation-log content,
+  // not ephemeral session state.
+  lockedLayerIds: Set<string>
 }
 
 const rooms = new Map<string, RoomRecord>()
@@ -189,6 +214,18 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   const palette = existingPalette?.colors ?? [...DEFAULT_PALETTE_COLORS]
   if (!existingPalette) persistPalette(roomId, palette)
 
+  // (#254/#258) Rebuild the owner-lock mirror from the operation log itself
+  // — `layer_owner_lock` is a normal, persisted Operation (unlike
+  // roomFrozen/frozenUserIds below, which never touch Postgres at all), so a
+  // cold-loaded room must replay its history to know which layers are
+  // locked, the same way a client's own applyContentOp would.
+  const lockedLayerIds = new Set<string>()
+  for (const op of operations) {
+    if (op.type !== 'layer_owner_lock') continue
+    if (op.locked) lockedLayerIds.add(op.layerId)
+    else lockedLayerIds.delete(op.layerId)
+  }
+
   rooms.set(roomId, {
     room: toWireRoom(dbRoom),
     passwordHash: dbRoom.passwordHash ?? undefined,
@@ -197,6 +234,9 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     nextSeq,
     latestSnapshotSeq: latestSnapshot?.seq ?? null,
     palette,
+    roomFrozen: false,
+    frozenUserIds: new Set(),
+    lockedLayerIds,
   })
   return true
 }
@@ -234,7 +274,11 @@ export function createRoom(
 ): { room: Room; participant: Participant } {
   const existing = rooms.get(roomData.id)
   if (existing && existing.room.ownerId === ownerId) {
-    const participant: Participant = { userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0] }
+    // The owner can never be frozen (#254/#257) — always `false` regardless
+    // of whatever frozenUserIds might contain from before (it never would,
+    // see setParticipantFrozen, but this stays explicit rather than trusting
+    // that invariant silently).
+    const participant: Participant = { userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0], frozen: false }
     existing.participants.set(ownerId, participant)
     currentSocketForParticipant.set(participantKey(roomData.id, ownerId), socketId)
     return { room: existing.room, participant }
@@ -247,10 +291,13 @@ export function createRoom(
     createdAt: new Date().toISOString(),
   }
   const passwordHash = password ? bcrypt.hashSync(password, BCRYPT_ROUNDS) : undefined
-  const participant: Participant = { userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0] }
+  const participant: Participant = { userId: ownerId, name: ownerName, role: 'owner', color: CURSOR_COLORS[0], frozen: false }
   const participants = new Map<string, Participant>([[ownerId, participant]])
   const palette = [...DEFAULT_PALETTE_COLORS]
-  rooms.set(room.id, { room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette })
+  rooms.set(room.id, {
+    room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette,
+    roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
+  })
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
   persistParticipant(room.id, ownerId)
@@ -276,7 +323,15 @@ export function joinRoom(
 
   const role = userId === record.room.ownerId ? 'owner' : 'member'
   const color = CURSOR_COLORS[record.participants.size % CURSOR_COLORS.length]
-  const participant: Participant = { userId, name, role, color }
+  // (#254/#257) Recomputed from frozenUserIds on every join/reconnect — same
+  // "derived, like role" treatment the shared contract's own doc comment on
+  // Participant.frozen calls for, and the reason a freeze survives a
+  // disconnect/reconnect instead of resetting the moment the live
+  // Participant record itself gets replaced below. The owner is never frozen
+  // (setParticipantFrozen refuses to add them to the set in the first
+  // place), but this stays explicit rather than relying on that alone.
+  const frozen = role === 'member' && record.frozenUserIds.has(userId)
+  const participant: Participant = { userId, name, role, color, frozen }
   record.participants.set(userId, participant)
   currentSocketForParticipant.set(participantKey(roomId, userId), socketId)
   persistParticipant(roomId, userId)
@@ -351,6 +406,95 @@ export function getParticipant(roomId: string, userId: string): Participant | un
   return rooms.get(roomId)?.participants.get(userId)
 }
 
+// ── Owner runtime privileges (#254 epic) ──────────────────────────────────
+
+export function isRoomFrozen(roomId: string): boolean {
+  return rooms.get(roomId)?.roomFrozen ?? false
+}
+
+/** Sets the room-wide freeze (#256). Returns `false` for an unknown room
+ *  (nothing to set), `true` on success — callers (socketHandlers.ts) only
+ *  broadcast `room_frozen_changed` on `true`. No role check here: that's the
+ *  caller's job (see socket.on('set_room_frozen', ...) — same division of
+ *  responsibility as recordOperation/isOperationAllowed below). */
+export function setRoomFrozen(roomId: string, frozen: boolean): boolean {
+  const record = rooms.get(roomId)
+  if (!record) return false
+  record.roomFrozen = frozen
+  return true
+}
+
+/** Sets one participant's freeze (#257), independent of the room-wide flag.
+ *  Returns the updated `Participant` on success, or `undefined` if the room
+ *  or participant doesn't exist *or* the target is the room's own owner —
+ *  the owner can never be frozen, mirroring the "owner never rejects
+ *  themselves" invariant `operation_revoke`'s role check already relies on
+ *  elsewhere. Like `setRoomFrozen`, does not itself check the *caller's*
+ *  role — see socketHandlers.ts. */
+export function setParticipantFrozen(roomId: string, userId: string, frozen: boolean): Participant | undefined {
+  const record = rooms.get(roomId)
+  if (!record) return undefined
+  const participant = record.participants.get(userId)
+  if (!participant || participant.role === 'owner') return undefined
+
+  if (frozen) record.frozenUserIds.add(userId)
+  else record.frozenUserIds.delete(userId)
+  const updated: Participant = { ...participant, frozen }
+  record.participants.set(userId, updated)
+  return updated
+}
+
+export function isLayerOwnerLocked(roomId: string, layerId: string): boolean {
+  return rooms.get(roomId)?.lockedLayerIds.has(layerId) ?? false
+}
+
+/** Updates the server's lightweight owner-lock mirror (#258) — called by
+ *  socketHandlers.ts right before recording an accepted `layer_owner_lock`
+ *  operation, so the very next operation already sees the new state. A
+ *  no-op for an unknown room (recordOperation itself will already have
+ *  thrown by the time that could happen in practice). */
+export function setLayerOwnerLocked(roomId: string, layerId: string, locked: boolean): void {
+  const record = rooms.get(roomId)
+  if (!record) return
+  if (locked) record.lockedLayerIds.add(layerId)
+  else record.lockedLayerIds.delete(layerId)
+}
+
+/** The single choke point for "should this operation be applied" (#254
+ *  epic) — pure and synchronous so it's unit-testable without a live
+ *  socket.io harness (see rooms.test.ts). Folds together every owner-only
+ *  runtime privilege check added by the epic:
+ *   - `operation_revoke` and `layer_owner_lock` themselves are owner-only to
+ *     *send at all* (same role-check shape `operation_revoke` already had
+ *     before this epic).
+ *   - the room owner's own operations are never rejected by anything below
+ *     (an owner can't freeze or lock-out themselves — see
+ *     setParticipantFrozen — but this stays an explicit early return rather
+ *     than relying on that alone).
+ *   - room-wide freeze (#256) and this participant's own freeze (#257)
+ *     reject *every* operation type, not just drawing ones.
+ *   - an owner-locked layer (#258) rejects only operations that target it
+ *     (anything carrying a top-level `layerId`, e.g. `stroke`/`image_import`
+ *     — see packages/shared's Operation union for the full set).
+ *  Returns `false` (not throw) for an unknown room — recordOperation is the
+ *  one that throws for that case; this function is only ever asked to
+ *  gate an operation for a room the caller believes is live. */
+export function isOperationAllowed(roomId: string, userId: string, op: Operation): boolean {
+  const record = rooms.get(roomId)
+  if (!record) return false
+  const participant = record.participants.get(userId)
+  const isOwner = participant?.role === 'owner'
+
+  if (op.type === 'operation_revoke' && !isOwner) return false
+  if (op.type === 'layer_owner_lock' && !isOwner) return false
+  if (isOwner) return true
+
+  if (record.roomFrozen) return false
+  if (record.frozenUserIds.has(userId)) return false
+  if ('layerId' in op && record.lockedLayerIds.has(op.layerId)) return false
+  return true
+}
+
 /** State for a newly joined (or reconnecting) participant (#36, #149): the
  *  room's metadata, participants, and only the *tail* of the operation log —
  *  everything after `max(lastKnownSeq, latestSnapshotSeq)`. `latestSnapshotSeq`
@@ -371,7 +515,7 @@ export function getRoomSnapshot(
   lastKnownSeq?: number,
 ): {
   room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
-  palette: string[]
+  palette: string[]; frozen: boolean
 } | undefined {
   const record = rooms.get(roomId)
   if (!record) return undefined
@@ -380,7 +524,7 @@ export function getRoomSnapshot(
   const tailOperations = floor > 0 ? record.operations.filter(op => (op.seq ?? 0) > floor) : [...record.operations]
   return {
     room: record.room, latestSnapshotSeq, tailOperations, participants: [...record.participants.values()],
-    palette: record.palette,
+    palette: record.palette, frozen: record.roomFrozen,
   }
 }
 

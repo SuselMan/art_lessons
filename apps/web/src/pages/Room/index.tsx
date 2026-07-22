@@ -31,6 +31,7 @@ import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
+import { FrozenBanner } from './FrozenBanner'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
@@ -384,6 +385,25 @@ export function Room() {
   // (participants.ts), reused unchanged.
   const participants = useRoomStore(s => s.participants)
   const dispatchParticipants = useRoomStore(s => s.applyParticipantAction)
+  // (#254 epic) `userId` is normally read only non-reactively via getState()
+  // at "moment of action" call sites (see its own doc comment on
+  // roomSlice.ts) — this is the one legitimate exception: owner-only UI
+  // (the freeze toggle, the ownerLocked control) and the frozen-self banner
+  // both need to know, on every render, who "I" am relative to the live
+  // `participants` list below.
+  const myUserId = useRoomStore(s => s.userId)
+  const myParticipant = participants.find(p => p.userId === myUserId)
+  const isOwner = myParticipant?.role === 'owner'
+  // Room-wide freeze (#256) OR this participant's own point freeze (#257) —
+  // independent mechanisms, either one alone is enough to block input. The
+  // owner is structurally exempt from both (see rooms.ts's
+  // isOperationAllowed/setParticipantFrozen), so this only ever gates
+  // non-owners, matching the server's own enforcement exactly — this is a
+  // client-side UX gate, not a security boundary (see dispatchOp/handleUndo/
+  // handleRedo below and the canvas's own pointerEvents for where it's
+  // actually applied).
+  const roomFrozen = useRoomStore(s => s.roomFrozen)
+  const isBlockedByFreeze = !isOwner && (roomFrozen || !!myParticipant?.frozen)
   // (#152) Cursor *positions* used to live here (setPeerCursors on every
   // incoming peer_cursor packet — up to ~30Hz per peer, summed across
   // however many peers are moving a pointer at once, all landing on this
@@ -438,6 +458,9 @@ export function Room() {
   // up, instead of being dropped.
   const pendingSnapshotRef = useRef<{
     latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]; palette: string[]
+    // (#254/#255 epic) Room-wide freeze at the moment this snapshot was
+    // taken — see the mount-engine effect's pending-snapshot replay below.
+    frozen: boolean
   } | null>(null)
   // True once this session's `handleRoomState` has processed its very first
   // `room_state` — governs "initial handshake" vs. "genuine reconnect" there.
@@ -829,6 +852,7 @@ export function Room() {
           syncFromLog()
           dispatchParticipants({ type: 'room_state', participants: pending.participants })
           useRoomStore.getState().setPalette(pending.palette)
+          useRoomStore.getState().setRoomFrozen(pending.frozen)
 
           if (id && restoredFromSnapshot && pending.latestSnapshotSeq !== null) {
             void backfillHistory(id, engine, pending.latestSnapshotSeq)
@@ -969,6 +993,20 @@ export function Room() {
   }, [])
   const removePaletteColor = useCallback((color: string) => {
     socketRef.current?.emit('palette_remove_color', { color })
+  }, [])
+  // (#254/#256/#259) Optimistic-free, same as palette add/remove above — the
+  // server is the only writer of `roomFrozen` (via room_frozen_changed);
+  // this just requests the change. socketHandlers.ts rejects the request
+  // outright for a non-owner, so wiring the button to always be callable
+  // here is safe (the header button itself is also only rendered for the
+  // owner — see the render section below — this stays defensive either way).
+  const toggleRoomFrozen = useCallback(() => {
+    socketRef.current?.emit('set_room_frozen', !useRoomStore.getState().roomFrozen)
+  }, [])
+  // (#254/#257/#259) Same reasoning as toggleRoomFrozen above, targeted at
+  // one participant — passed to ParticipantsBar's onToggleFreeze.
+  const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
+    socketRef.current?.emit('set_participant_frozen', { userId, frozen })
   }, [])
   // FloatingToolPanel's palette flyout escape hatch: show the full chrome
   // and land on the Color tab, same destination the eyedropper's pick
@@ -1117,22 +1155,28 @@ export function Room() {
   // roomContentReady's own doc comment). A single guard here rather than
   // disabling each control individually — the visible preloader already
   // covers the canvas, and this window is a couple of seconds at most.
+  //
+  // (#254 epic) isBlockedByFreeze added to the same guard: the server
+  // rejects these operations outright once frozen (#256/#257), so without
+  // this a frozen participant could still see their own stroke/undo/redo
+  // apply locally before silently failing to ever reach anyone else —
+  // "drawing into the void" (see isBlockedByFreeze's own doc comment).
   const dispatchOp = useCallback((draft: OperationDraft) => {
-    if (!roomContentReady) return
+    if (!roomContentReady || isBlockedByFreeze) return
     const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
     engineRef.current?.appendOperation(op) // source defaults to 'local' → broadcast via onLocalOperation
     syncFromLog()
-  }, [syncFromLog, roomContentReady])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze])
 
   const handleUndo = useCallback(() => {
-    if (!roomContentReady) return
+    if (!roomContentReady || isBlockedByFreeze) return
     if (engineRef.current?.undo()) syncFromLog()
-  }, [syncFromLog, roomContentReady])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze])
 
   const handleRedo = useCallback(() => {
-    if (!roomContentReady) return
+    if (!roomContentReady || isBlockedByFreeze) return
     if (engineRef.current?.redo()) syncFromLog()
-  }, [syncFromLog, roomContentReady])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze])
 
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen()
@@ -1623,9 +1667,9 @@ export function Room() {
       }
     }
 
-    const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette }: {
+    const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen }: {
       room: RoomEntity; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
-      palette: string[]
+      palette: string[]; frozen: boolean
     }) => {
       // What this socket already had *before* this room_state's own tail —
       // the reconnect fast-path check below needs this, not the value after
@@ -1662,7 +1706,7 @@ export function Room() {
           // Real first join: this is how we learn paper/canvas size — the
           // engine doesn't exist yet to apply `tailOperations` to, so stash
           // them for the mount-engine effect to replay once it does.
-          pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette }
+          pendingSnapshotRef.current = { latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen }
           return
         }
         // The creator's one legitimate first room_state — arrives *after*
@@ -1696,6 +1740,7 @@ export function Room() {
         if (tailOperations.length === 0 && latestSnapshotSeq === null) {
           dispatchParticipants({ type: 'room_state', participants: roomParticipants })
           useRoomStore.getState().setPalette(palette)
+          useRoomStore.getState().setRoomFrozen(frozen)
           // The genuinely-new-room case: roomContentReady now starts
           // `false` for every creator (see its own doc comment), and
           // nothing else sets it for this branch — a real new room has
@@ -1744,6 +1789,7 @@ export function Room() {
         syncFromLog()
         dispatchParticipants({ type: 'room_state', participants: roomParticipants })
         useRoomStore.getState().setPalette(palette)
+        useRoomStore.getState().setRoomFrozen(frozen)
 
         // Runs fully in the background — never awaited, must not block this
         // handler or the first paint it just produced.
@@ -1857,13 +1903,30 @@ export function Room() {
       useRoomStore.getState().setPalette(palette)
     }
 
-    socket.on('connect',         handleConnect)
-    socket.on('room_state',      handleRoomState)
-    socket.on('peer_operation',  handlePeerOperation)
-    socket.on('peer_joined',     handlePeerJoined)
-    socket.on('peer_left',       handlePeerLeft)
-    socket.on('palette_updated', handlePaletteUpdated)
-    socket.on('disconnect',      handleDisconnect)
+    // (#254/#256/#259) Room-wide freeze toggled by the owner — broadcast to
+    // everyone including the owner themselves (io.to, see socketHandlers.ts),
+    // so this fires for the owner's own toggle too, same as palette_updated
+    // above.
+    const handleRoomFrozenChanged = ({ frozen }: { frozen: boolean }) => {
+      useRoomStore.getState().setRoomFrozen(frozen)
+    }
+
+    // (#254/#257/#259) One participant's freeze toggled — broadcast to the
+    // whole room so ParticipantsBar can show the indicator for everyone,
+    // not just the target themselves.
+    const handleParticipantFrozenChanged = ({ userId, frozen }: { userId: string; frozen: boolean }) => {
+      dispatchParticipants({ type: 'participant_frozen_changed', userId, frozen })
+    }
+
+    socket.on('connect',                    handleConnect)
+    socket.on('room_state',                 handleRoomState)
+    socket.on('peer_operation',             handlePeerOperation)
+    socket.on('peer_joined',                handlePeerJoined)
+    socket.on('peer_left',                  handlePeerLeft)
+    socket.on('palette_updated',            handlePaletteUpdated)
+    socket.on('room_frozen_changed',        handleRoomFrozenChanged)
+    socket.on('participant_frozen_changed', handleParticipantFrozenChanged)
+    socket.on('disconnect',                 handleDisconnect)
 
     return () => {
       socket.disconnect()
@@ -2035,7 +2098,24 @@ export function Room() {
               <Icon name={isFullscreen ? 'fullscreen_exit' : 'fullscreen'} />
             </button>
           )}
-          <ParticipantsBar participants={participants} drawingIds={drawingIds} connected={connected} />
+          {/* (#254/#256/#259) Room-wide freeze — owner-only control, a
+              one-button "stop everyone" for pulling the group's attention
+              without waiting for each student to notice and stop on their
+              own. */}
+          {isOwner && (
+            <button
+              className={clsx(styles.headerIconBtn, roomFrozen && styles.headerIconBtnActive)}
+              onClick={toggleRoomFrozen}
+              title={roomFrozen ? 'Unfreeze room — let everyone draw again' : 'Freeze room — pause everyone\'s drawing'}
+              aria-label={roomFrozen ? 'Unfreeze room' : 'Freeze room'}
+            >
+              <Icon name="ac_unit" />
+            </button>
+          )}
+          <ParticipantsBar
+            participants={participants} drawingIds={drawingIds} connected={connected}
+            isOwner={isOwner} onToggleFreeze={toggleParticipantFrozen}
+          />
           {/* Infinite rooms display (and reset to) zoom relative to the
               device-native 1-world-unit-per-physical-pixel scale, so "100%"
               means the drawing's actual 1:1 resolution on every screen —
@@ -2253,9 +2333,14 @@ export function Room() {
               // own doc comment. PointerInput binds pointerdown/move/up
               // directly on this element, so this fully blocks drawing
               // input (nothing to un-wire/re-wire in the engine itself).
+              // (#254 epic) isBlockedByFreeze gates it the same way — the
+              // server would reject the resulting operation anyway
+              // (#256/#257), so this keeps a frozen participant from
+              // drawing into the void (see FrozenBanner for the visible
+              // explanation of *why* input stopped responding).
               style={{
                 ...(config.infinite ? { width: '100%', height: '100%' } : { width: config.width, height: config.height }),
-                pointerEvents: roomContentReady ? undefined : 'none',
+                pointerEvents: (roomContentReady && !isBlockedByFreeze) ? undefined : 'none',
               }}
             />
             {/* Bounded rooms: these five assume canvas-pixel-space
@@ -2343,6 +2428,10 @@ export function Room() {
           {rulerActive && !rulerPlaced && (
             <div className={styles.rulerPlaceOverlay} onPointerDown={handleRulerPlaceDown} />
           )}
+          {/* (#254/#259) Only ever shown to a blocked non-owner — the owner
+              triggering their own room-wide freeze isn't blocked by it (see
+              isBlockedByFreeze), so this never shows for them. */}
+          {isBlockedByFreeze && <FrozenBanner roomFrozen={roomFrozen} />}
         </div>
 
         {/* ── Side panel (layers, color, …) ── */}
@@ -2358,7 +2447,7 @@ export function Room() {
             tabs={[
               {
                 id: 'layers', icon: 'layers', title: 'Layers',
-                content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} />,
+                content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} isOwner={isOwner} />,
               },
               {
                 // Reflects whichever of pencil/liner/marker is actually

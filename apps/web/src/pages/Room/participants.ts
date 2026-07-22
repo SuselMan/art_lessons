@@ -8,6 +8,10 @@ export type ParticipantsAction =
   | { type: 'room_state'; participants: Participant[] }
   | { type: 'peer_joined'; participant: Participant }
   | { type: 'peer_left'; userId: string }
+  // (#254/#257/#259) Server broadcast after a `set_participant_frozen` call
+  // is accepted — every participant gets this (not just the target), so
+  // ParticipantsBar can show the frozen indicator for everyone else too.
+  | { type: 'participant_frozen_changed'; userId: string; frozen: boolean }
 
 export function participantsReducer(state: Participant[], action: ParticipantsAction): Participant[] {
   switch (action.type) {
@@ -24,5 +28,7 @@ export function participantsReducer(state: Participant[], action: ParticipantsAc
     }
     case 'peer_left':
       return state.filter(p => p.userId !== action.userId)
+    case 'participant_frozen_changed':
+      return state.map(p => (p.userId === action.userId ? { ...p, frozen: action.frozen } : p))
   }
 }

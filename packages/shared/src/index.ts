@@ -98,6 +98,11 @@ export type Participant = {
   name: string
   role: ParticipantRole
   color: string // cursor color
+  // (#254 epic) Owner-triggered runtime privilege, computed server-side same
+  // as `role` — never persisted, reset whenever the in-memory room record
+  // itself is (server restart / room evicted then reloaded). The room's
+  // owner can never be frozen (see rooms.ts's setParticipantFrozen).
+  frozen: boolean
 }
 
 // Room color palette (#190 epic). One palette per room (not per-user, and not
@@ -243,6 +248,22 @@ export type LayerRenameOperation = OperationBase & {
   name: string
 }
 
+/** Owner-only (#254/#258): reserves (or releases) a layer for the room
+ *  owner — the server rejects `stroke`/other layerId-bearing operations
+ *  targeting a `locked: true` layer from anyone but the owner. Goes through
+ *  the normal Operation Log/replay path like `layer_visibility`/
+ *  `layer_opacity` (so every participant's `RasterLayer.ownerLocked`/
+ *  `LayerFolder.ownerLocked` stays in sync via applyContentOp), but is also
+ *  the one operation type the server itself inspects the content of — see
+ *  rooms.ts's `lockedLayerIds` tracking and its own doc comment for why
+ *  that's a deliberate, narrow exception to "server never renders/parses
+ *  operation content" (CLAUDE.md). */
+export type LayerOwnerLockOperation = OperationBase & {
+  type: 'layer_owner_lock'
+  layerId: string
+  locked: boolean
+}
+
 export type LayerClearOperation = OperationBase & {
   type: 'layer_clear'
   layerId: string
@@ -312,6 +333,7 @@ export type Operation =
   | LayerOpacityOperation
   | LayerVisibilityOperation
   | LayerRenameOperation
+  | LayerOwnerLockOperation
   | LayerClearOperation
   | LayerMergeOperation
   | LayerTransformOperation
@@ -384,6 +406,11 @@ export type ServerToClientEvents = {
   room_state: (state: {
     room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
     palette: string[]
+    // (#254/#255 epic) Room-wide freeze, live in-memory only (never
+    // persisted — see rooms.ts's RoomRecord.roomFrozen) — included in the
+    // join/reconnect snapshot so a reconnecting client sees the current
+    // status immediately, same reasoning as `participants`/`palette` above.
+    frozen: boolean
   }) => void
   peer_operation: (op: Operation) => void
   peer_cursor: (data: CursorMoveData & { userId: string }) => void
@@ -395,6 +422,14 @@ export type ServerToClientEvents = {
   // Operation. Always the full current list, not a delta: this is a handful
   // of hex strings, not worth reconciling incrementally.
   palette_updated: (data: { palette: string[] }) => void
+  // (#254/#256 epic) Broadcast to the whole room (including the owner who
+  // triggered it, same `io.to` reasoning as palette_updated above) whenever
+  // `set_room_frozen` is accepted.
+  room_frozen_changed: (data: { frozen: boolean }) => void
+  // (#254/#257 epic) Broadcast to the whole room whenever `set_participant_frozen`
+  // is accepted — every participant needs this, not just the target, so
+  // ParticipantsBar can show the frozen indicator for everyone else too.
+  participant_frozen_changed: (data: { userId: string; frozen: boolean }) => void
 }
 
 export type ClientToServerEvents = {
@@ -434,6 +469,16 @@ export type ClientToServerEvents = {
   // Removes one hex color from the room's palette. A no-op (still broadcasts
   // the unchanged palette) if the color isn't present.
   palette_remove_color: (data: { color: string }) => void
+  // (#254/#256 epic) Owner-only — server verifies `role` itself via
+  // getParticipant, never trusts the client (same pattern as
+  // `operation_revoke`'s existing role check in socketHandlers.ts). Freezes
+  // (or unfreezes) every non-owner participant's operations at once.
+  set_room_frozen: (frozen: boolean) => void
+  // (#254/#257 epic) Owner-only, same role-check pattern as `set_room_frozen`.
+  // Targets one participant without touching the room-wide freeze — the two
+  // are independent and can both be active at once. A no-op if `userId` is
+  // the room's own owner (see rooms.ts's setParticipantFrozen).
+  set_participant_frozen: (data: { userId: string; frozen: boolean }) => void
 }
 
 // Hotkeys
