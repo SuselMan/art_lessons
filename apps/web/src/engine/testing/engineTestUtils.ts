@@ -375,6 +375,22 @@ export function lastPaperDabUniform(engine: PencilEngine, name: string): Uniform
   return loc ? eng.gl.readUniform(loc) : undefined
 }
 
+/** Like lastPaperDabUniform, but reads only the non-batched per-dab program
+ *  (_dabUni) — needed for marker (#250), whose own paint path
+ *  (_paintOneMarkerDab/_drawMarkerDab) always draws through _dabProg
+ *  directly and never _paintDabsInstanced/_dabProgInstanced (see
+ *  _paintMarkerDabs' own doc comment on why marker dabs can't batch).
+ *  lastPaperDabUniform's own "prefer the instanced location" order would
+ *  silently read whatever some *other*, unrelated tool's instanced draw
+ *  last left in that uniform (both programs compile the same shared
+ *  DAB_FRAG source, so the location always resolves to something, just not
+ *  to a value marker's own draw call ever touched). */
+export function lastMarkerDabUniform(engine: PencilEngine, name: string): UniformValue | undefined {
+  const eng = internals(engine)
+  const loc = eng._dabUni[name]
+  return loc ? eng.gl.readUniform(loc) : undefined
+}
+
 /** Simulates checkpoint eviction (in production this happens under
  *  CHECKPOINT_BUDGET_BYTES pressure — impractical to reach honestly in a
  *  small-canvas unit test) so a rebuild is forced to fall back to full
