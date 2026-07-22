@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import { DabSystem } from './DabSystem'
-import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'
+import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
+import { MARKER_BULLET_DAB_SHAPING, MARKER_CHISEL_DAB_SHAPING } from './markerPresets'
 
 // Geometry-focused tests for the #91 centripetal Catmull-Rom fix.
 //
@@ -826,5 +827,41 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     dab.continueStroke(10, 10, 0.5, 0, 0, baseSize)
     const [d2] = dab.continueStroke(20, 20, 0.5, 0, 0, baseSize)
     expect(d2.angle).toBeCloseTo(fixed)
+  })
+
+  // #251, ADR 004 §1: shapingForTool's widened (tool, presetName) signature
+  // must dispatch a 'marker' stroke to one of the two nib profiles based on
+  // the parsed nib token, and every non-marker tool must keep returning
+  // exactly what it did before the widening, regardless of what (if
+  // anything) gets passed as presetName.
+  it('shapingForTool dispatches marker strokes to the bullet/chisel nib profile parsed from presetName', () => {
+    expect(shapingForTool('marker', 'bullet:0.3')).toBe(MARKER_BULLET_DAB_SHAPING)
+    expect(shapingForTool('marker', 'chisel:0.5')).toBe(MARKER_CHISEL_DAB_SHAPING)
+    // Unrecognized/missing nib token falls back to bullet, not chisel.
+    expect(shapingForTool('marker', 'unknown:1')).toBe(MARKER_BULLET_DAB_SHAPING)
+    expect(shapingForTool('marker', undefined)).toBe(MARKER_BULLET_DAB_SHAPING)
+    expect(shapingForTool('marker')).toBe(MARKER_BULLET_DAB_SHAPING)
+  })
+
+  it("shapingForTool('marker', 'chisel:0.3') ignores tilt/path for angle and tiltNorm for aspect, unlike bullet", () => {
+    const chisel = shapingForTool('marker', 'chisel:0.3')
+    const bullet = shapingForTool('marker', 'bullet:0.3')
+
+    const fixedAngle = chisel.angle(0, 0, 0, 0)
+    expect(chisel.angle(90, -50, 80, Math.PI / 2)).toBeCloseTo(fixedAngle) // strong tilt + real path angle, still fixed
+    expect(chisel.aspect(0)).toBeCloseTo(chisel.aspect(2)) // tiltNorm makes no difference at all
+
+    // Bullet, by contrast, keeps liner's real tilt-or-path angle response and
+    // mild tiltNorm-driven aspect — the two nibs are genuinely different.
+    expect(bullet.aspect(0)).not.toBeCloseTo(bullet.aspect(2), 1)
+  })
+
+  it('non-marker tools are unaffected by the widened signature regardless of presetName', () => {
+    for (const presetName of [undefined, '', 'HB', 'bullet:0.3', 'chisel:0.5']) {
+      expect(shapingForTool('pencil', presetName)).toBe(PENCIL_DAB_SHAPING)
+      expect(shapingForTool('eraser', presetName)).toBe(PENCIL_DAB_SHAPING)
+      expect(shapingForTool('smudge', presetName)).toBe(PENCIL_DAB_SHAPING)
+      expect(shapingForTool('liner', presetName)).toBe(LINER_DAB_SHAPING)
+    }
   })
 })
