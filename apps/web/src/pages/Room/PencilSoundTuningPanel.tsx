@@ -33,26 +33,37 @@ const DEFAULT_TUNING: PencilSoundTuning = { ...PENCIL_SOUND_TUNING }
 // pencilSoundTuning feature flag, same pattern as hapticGrain/tapToHideUI.
 // `tool` (#253): PencilSound now holds a different GrainVariant per active
 // tool (see TOOL_SOUND_CONFIGS) — this panel always edits whichever one is
-// currently live, so its local `grain`/`tap` state is reseeded from
-// pencilSoundRef.current.getGrain() every time `tool` changes, rather than
-// being seeded once from a single hardcoded constant.
+// currently live, so its local `grain`/`tap` state is reseeded every time
+// `tool` changes. Reseeded from TOOL_SOUND_CONFIGS[tool] directly, *not*
+// pencilSoundRef.current.getGrain() — the two aren't interchangeable here:
+// getGrain() only reflects the new tool once Room's own tool-switch effect
+// (the one calling setActiveGrain()) has actually run, and this panel is a
+// *child* of Room, so React fires this effect before that one on the same
+// commit — reading getGrain() here raced and showed the outgoing tool's
+// values relabeled under the new tool (Ilya: "ползунки сбрасываются").
+// TOOL_SOUND_CONFIGS[tool] has no such race: PencilSound.retune() always
+// mutates that exact object in place (this.grain *is* TOOL_SOUND_CONFIGS[
+// activeTool] by construction — see setActiveGrain()'s doc), so it already
+// holds live, up-to-date values regardless of which effect has run yet.
 export function PencilSoundTuningPanel({ pencilSoundRef, tool }: { pencilSoundRef: RefObject<PencilSound | null>; tool: ToolType }): React.JSX.Element {
   const [collapsed, setCollapsed] = useState(true)
   // Non-null: this panel only ever renders while pencilSoundSetting is
   // 'variant3' (see Room/index.tsx's gating), and every tool currently has a
   // non-null TOOL_SOUND_CONFIGS entry — see that map's own doc if a future
   // tool needs to go silent instead.
-  const [grain, setGrain] = useState<GrainVariant>(() => ({ ...(pencilSoundRef.current?.getGrain() ?? TOOL_SOUND_CONFIGS[tool])! }))
-  const [tap, setTap] = useState(() => ({ ...(pencilSoundRef.current?.getGrain() ?? TOOL_SOUND_CONFIGS[tool])!.tap! }))
+  const [grain, setGrain] = useState<GrainVariant>(() => ({ ...TOOL_SOUND_CONFIGS[tool]! }))
+  const [tap, setTap] = useState(() => ({ ...TOOL_SOUND_CONFIGS[tool]!.tap! }))
   const [, forceTuningRerender] = useState(0)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    const active = pencilSoundRef.current?.getGrain() ?? TOOL_SOUND_CONFIGS[tool]
+    // No entry (e.g. 'marker' — no sound design yet) — nothing to show;
+    // leave whatever the panel was already displaying rather than clearing it.
+    const active = TOOL_SOUND_CONFIGS[tool]
     if (!active) return
     setGrain({ ...active })
     if (active.tap) setTap({ ...active.tap })
-  }, [tool, pencilSoundRef])
+  }, [tool])
 
   function patchGrain(patch: Partial<GrainVariant>): void {
     setGrain(g => ({ ...g, ...patch }))

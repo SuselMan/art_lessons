@@ -10,6 +10,7 @@ function participant(overrides: Partial<Participant> = {}): Participant {
     name: overrides.name ?? 'Alice',
     role: overrides.role ?? 'member',
     color: overrides.color ?? '#ef4444',
+    frozen: overrides.frozen ?? false,
   }
 }
 
@@ -49,5 +50,26 @@ describe('participantsReducer', () => {
     const state = [participant({ userId: 'a' })]
     const next = participantsReducer(state, { type: 'peer_left', userId: 'ghost' })
     expect(next).toEqual(state)
+  })
+
+  describe('participant_frozen_changed', () => {
+    it('flips the matching participant\'s frozen field', () => {
+      const state = [participant({ userId: 'a', frozen: false }), participant({ userId: 'b', frozen: false })]
+      const next = participantsReducer(state, { type: 'participant_frozen_changed', userId: 'a', frozen: true })
+      expect(next.find(p => p.userId === 'a')?.frozen).toBe(true)
+      expect(next.find(p => p.userId === 'b')?.frozen).toBe(false)
+    })
+
+    it('can unfreeze', () => {
+      const state = [participant({ userId: 'a', frozen: true })]
+      const next = participantsReducer(state, { type: 'participant_frozen_changed', userId: 'a', frozen: false })
+      expect(next[0].frozen).toBe(false)
+    })
+
+    it('is a no-op when the userId is not present', () => {
+      const state = [participant({ userId: 'a' })]
+      const next = participantsReducer(state, { type: 'participant_frozen_changed', userId: 'ghost', frozen: true })
+      expect(next).toEqual(state)
+    })
   })
 })

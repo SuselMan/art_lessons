@@ -2,7 +2,7 @@ import type { StateCreator } from 'zustand'
 
 import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor } from '../../pages/Room/toolSchemas'
 
-export type DrawingTool = 'pencil' | 'eraser' | 'smudge' | 'liner'
+export type DrawingTool = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker'
 
 // The subset of DrawingTool that actually lays ink and has its own color
 // (unlike eraser/smudge, which modify what's already there) — what a
@@ -10,11 +10,14 @@ export type DrawingTool = 'pencil' | 'eraser' | 'smudge' | 'liner'
 // FloatingToolPanel's top button) should switch back to. Excludes smudge
 // deliberately: smudging isn't "drawing" either, it just isn't the thing
 // most in need of a quick way back out (no dedicated toggle exists for it
-// today beyond its own toolbar button).
-export type PrimaryDrawingTool = 'pencil' | 'liner'
+// today beyond its own toolbar button). Marker (#252) joined pencil/liner
+// here for the same reason liner did (#245 follow-up): it's a real drawing
+// tool with its own color field, so the Color side-panel tab/colorTool logic
+// in Room/index.tsx needs to be able to name it too.
+export type PrimaryDrawingTool = 'pencil' | 'liner' | 'marker'
 
 function isPrimaryDrawingTool(tool: DrawingTool): tool is PrimaryDrawingTool {
-  return tool === 'pencil' || tool === 'liner'
+  return tool === 'pencil' || tool === 'liner' || tool === 'marker'
 }
 
 export interface ToolSlice {

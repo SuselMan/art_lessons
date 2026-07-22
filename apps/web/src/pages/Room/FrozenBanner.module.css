@@ -1,0 +1,28 @@
+/* (#254/#259) A non-blocking strip near the top of the viewport — unlike
+   RoomLoadingOverlay (which covers the whole canvas while content is still
+   restoring), this must not swallow pointer input meant for the canvas
+   underneath: the canvas already has its own pointerEvents:none while
+   blocked (see Room/index.tsx), and pan/zoom/rotate must keep working. */
+.banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-warning, #e0a952) 16%, var(--color-surface));
+  color: var(--color-text-bright);
+  border: 1px solid color-mix(in srgb, var(--color-warning, #e0a952) 45%, transparent);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.banner :global(.material-symbols-outlined) {
+  font-size: 18px;
+  color: var(--color-warning, #e0a952);
+}

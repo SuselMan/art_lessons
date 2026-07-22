@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import type { StrokeOperation } from '@art-lessons/shared'
+import type { LayerOwnerLockOperation, LayerVisibilityOperation, Operation, StrokeOperation } from '@art-lessons/shared'
 
 import {
-  _flushPendingWrites, createRoom, getOperationsBefore, getParticipant, getRoomSnapshot, joinRoom, leaveRoom,
-  recordOperation,
+  _flushPendingWrites, createRoom, getOperationsBefore, getParticipant, getRoomSnapshot, isLayerOwnerLocked,
+  isOperationAllowed, isRoomFrozen, joinRoom, leaveRoom, recordOperation, setLayerOwnerLocked,
+  setParticipantFrozen, setRoomFrozen,
 } from './rooms.js'
 
 // Each test uses its own roomId — `rooms` is module-level shared state with no
@@ -43,6 +44,30 @@ function stroke(overrides: Partial<StrokeOperation> = {}): StrokeOperation {
     preset: overrides.preset ?? 'HB',
     color: overrides.color ?? [0.14, 0.14, 0.17],
     dabs: overrides.dabs ?? [],
+    ...overrides,
+  }
+}
+
+function layerOwnerLock(overrides: Partial<LayerOwnerLockOperation> = {}): LayerOwnerLockOperation {
+  return {
+    id: overrides.id ?? 'op-lock-1',
+    type: 'layer_owner_lock',
+    userId: overrides.userId ?? 'user-a',
+    timestamp: overrides.timestamp ?? 0,
+    layerId: overrides.layerId ?? 'layer-1',
+    locked: overrides.locked ?? true,
+    ...overrides,
+  }
+}
+
+function layerVisibility(overrides: Partial<LayerVisibilityOperation> = {}): LayerVisibilityOperation {
+  return {
+    id: overrides.id ?? 'op-vis-1',
+    type: 'layer_visibility',
+    userId: overrides.userId ?? 'user-a',
+    timestamp: overrides.timestamp ?? 0,
+    layerId: overrides.layerId ?? 'layer-1',
+    visible: overrides.visible ?? false,
     ...overrides,
   }
 }
@@ -181,7 +206,7 @@ describe('getRoomSnapshot', () => {
     expect(snapshot?.room.id).toBe(roomId)
     expect(snapshot?.participants).toHaveLength(2)
 
-    snapshot?.participants.push({ userId: 'ghost', name: 'x', role: 'member', color: '#000' })
+    snapshot?.participants.push({ userId: 'ghost', name: 'x', role: 'member', color: '#000', frozen: false })
     expect(getRoomSnapshot(roomId)?.participants).toHaveLength(2) // mutation didn't leak back
   })
 
@@ -385,5 +410,237 @@ describe('getOperationsBefore', () => {
 
   it('returns nothing for an unknown room', () => {
     expect(getOperationsBefore('never-created', 100, 500)).toEqual([])
+  })
+})
+
+// #254/#256: room-wide freeze — a plain in-memory flag, never persisted.
+describe('setRoomFrozen / isRoomFrozen', () => {
+  it('freezes and unfreezes the whole room', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(isRoomFrozen(roomId)).toBe(false)
+    expect(setRoomFrozen(roomId, true)).toBe(true)
+    expect(isRoomFrozen(roomId)).toBe(true)
+    expect(setRoomFrozen(roomId, false)).toBe(true)
+    expect(isRoomFrozen(roomId)).toBe(false)
+  })
+
+  it('is a no-op (returns false) for an unknown room', () => {
+    expect(setRoomFrozen('never-created', true)).toBe(false)
+    expect(isRoomFrozen('never-created')).toBe(false)
+  })
+})
+
+// #254/#257: point freeze — independent of setRoomFrozen, and must survive a
+// reconnect (frozenUserIds, not the live Participant record itself — see
+// rooms.ts's own doc comment on why).
+describe('setParticipantFrozen', () => {
+  it('freezes a member and is reflected on their Participant record', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+
+    const updated = setParticipantFrozen(roomId, 'student-1', true)
+    expect(updated?.frozen).toBe(true)
+    expect(getParticipant(roomId, 'student-1')?.frozen).toBe(true)
+  })
+
+  it('unfreezes a previously frozen member', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    setParticipantFrozen(roomId, 'student-1', true)
+
+    const updated = setParticipantFrozen(roomId, 'student-1', false)
+    expect(updated?.frozen).toBe(false)
+    expect(getParticipant(roomId, 'student-1')?.frozen).toBe(false)
+  })
+
+  it('never freezes the room owner — no-op', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(setParticipantFrozen(roomId, 'owner-1', true)).toBeUndefined()
+    expect(getParticipant(roomId, 'owner-1')?.frozen).toBe(false)
+  })
+
+  it('leaves other participants unaffected', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-2', 'Bob', undefined, sock('student-2'))
+
+    setParticipantFrozen(roomId, 'student-1', true)
+
+    expect(getParticipant(roomId, 'student-1')?.frozen).toBe(true)
+    expect(getParticipant(roomId, 'student-2')?.frozen).toBe(false)
+    expect(getParticipant(roomId, 'owner-1')?.frozen).toBe(false)
+  })
+
+  it('returns undefined for an unknown room or participant', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(setParticipantFrozen('never-created', 'owner-1', true)).toBeUndefined()
+    expect(setParticipantFrozen(roomId, 'ghost', true)).toBeUndefined()
+  })
+
+  it('survives a disconnect/reconnect (join_room) — the whole point of keying it by userId, not the live Participant record', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1', '-old'))
+    setParticipantFrozen(roomId, 'student-1', true)
+
+    // Reconnect: a brand-new socket, brand-new join_room call — a naive
+    // "frozen lives on the Participant object" design would silently reset
+    // this to false right here.
+    const rejoin = joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1', '-new'))
+
+    expect(rejoin.ok && rejoin.participant.frozen).toBe(true)
+    expect(getParticipant(roomId, 'student-1')?.frozen).toBe(true)
+  })
+})
+
+// #254/#258: owner-lock tracking — mirrors just the set of locked layer ids,
+// updated by socketHandlers.ts right before recording an accepted
+// layer_owner_lock operation.
+describe('setLayerOwnerLocked / isLayerOwnerLocked', () => {
+  it('locks and unlocks a layer', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(isLayerOwnerLocked(roomId, 'layer-1')).toBe(false)
+    setLayerOwnerLocked(roomId, 'layer-1', true)
+    expect(isLayerOwnerLocked(roomId, 'layer-1')).toBe(true)
+    setLayerOwnerLocked(roomId, 'layer-1', false)
+    expect(isLayerOwnerLocked(roomId, 'layer-1')).toBe(false)
+  })
+
+  it('only affects the targeted layer id', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    setLayerOwnerLocked(roomId, 'layer-1', true)
+    expect(isLayerOwnerLocked(roomId, 'layer-2')).toBe(false)
+  })
+
+  it('is a no-op for an unknown room', () => {
+    expect(() => setLayerOwnerLocked('never-created', 'layer-1', true)).not.toThrow()
+    expect(isLayerOwnerLocked('never-created', 'layer-1')).toBe(false)
+  })
+})
+
+// #254 epic: the single choke point socketHandlers.ts's 'operation' handler
+// delegates to for every owner-only runtime privilege check.
+describe('isOperationAllowed', () => {
+  it('allows a plain operation from an unfrozen, unlocked member', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+
+    expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe(true)
+  })
+
+  it('always allows the owner\'s own operations, frozen room/self/locked layer notwithstanding', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    setRoomFrozen(roomId, true)
+    setLayerOwnerLocked(roomId, 'layer-1', true)
+
+    expect(isOperationAllowed(roomId, 'owner-1', stroke({ userId: 'owner-1' }))).toBe(true)
+  })
+
+  it('rejects operation_revoke from a non-owner', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+
+    const revoke: Operation = { id: 'r1', type: 'operation_revoke', userId: 'student-1', timestamp: 0, targetOpId: 'x' }
+    expect(isOperationAllowed(roomId, 'student-1', revoke)).toBe(false)
+  })
+
+  it('allows operation_revoke from the owner', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    const revoke: Operation = { id: 'r1', type: 'operation_revoke', userId: 'owner-1', timestamp: 0, targetOpId: 'x' }
+    expect(isOperationAllowed(roomId, 'owner-1', revoke)).toBe(true)
+  })
+
+  it('rejects layer_owner_lock from a non-owner', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+
+    expect(isOperationAllowed(roomId, 'student-1', layerOwnerLock({ userId: 'student-1' }))).toBe(false)
+  })
+
+  it('allows layer_owner_lock from the owner', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(isOperationAllowed(roomId, 'owner-1', layerOwnerLock({ userId: 'owner-1' }))).toBe(true)
+  })
+
+  it('rejects every operation type from a non-owner while the room is frozen', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    setRoomFrozen(roomId, true)
+
+    expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe(false)
+    expect(isOperationAllowed(roomId, 'student-1', layerVisibility({ userId: 'student-1' }))).toBe(false)
+  })
+
+  it('room-wide freeze does not affect the owner', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    setRoomFrozen(roomId, true)
+
+    expect(isOperationAllowed(roomId, 'owner-1', stroke({ userId: 'owner-1' }))).toBe(true)
+  })
+
+  it('rejects a frozen participant\'s own operations', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    setParticipantFrozen(roomId, 'student-1', true)
+
+    expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe(false)
+  })
+
+  it('does not affect an unfrozen participant when another one is frozen', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-2', 'Bob', undefined, sock('student-2'))
+    setParticipantFrozen(roomId, 'student-1', true)
+
+    expect(isOperationAllowed(roomId, 'student-2', stroke({ userId: 'student-2' }))).toBe(true)
+  })
+
+  it('rejects only operations targeting the locked layer, not other layers', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    setLayerOwnerLocked(roomId, 'layer-locked', true)
+
+    expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'layer-locked' }))).toBe(false)
+    expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'layer-open' }))).toBe(true)
+  })
+
+  it('an owner-locked layer does not block operations that carry no layerId', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    setLayerOwnerLocked(roomId, 'layer-1', true)
+
+    const undo: Operation = { id: 'u1', type: 'operation_undo', userId: 'student-1', timestamp: 0, targetOpId: 'x' }
+    expect(isOperationAllowed(roomId, 'student-1', undo)).toBe(true)
+  })
+
+  it('returns false for an unknown room', () => {
+    expect(isOperationAllowed('never-created', 'someone', stroke())).toBe(false)
   })
 })
