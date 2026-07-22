@@ -20,7 +20,7 @@ import { SettingField } from '../../components/SettingField'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { computeCompositeOrder } from '../../lib/layers'
 import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant, getGraphiteGrainVariant } from '../../lib/featureFlags'
-import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, PENCIL_SOUND_VARIANT_3 } from '../../lib/PencilSound'
+import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
@@ -397,6 +397,7 @@ export function Room() {
     pencil: toolSettings.pencil.grade as PencilGradeName,
     size: toolSettings.pencil.size as number,
     opacity: toolSettings.pencil.opacity as number,
+    tool,
   })
 
   const socketRef        = useRef<Socket<ServerToClientEvents, ClientToServerEvents> | null>(null)
@@ -737,12 +738,17 @@ export function Room() {
     // below (a real pointerdown gesture, satisfying the autoplay-unlock
     // requirement) — see PencilSound's docstring.
     if (pencilSoundSetting !== 'off') {
+      // #253: variant1/2 are untuned legacy A/B baselines shared by every tool (no per-tool
+      // split); variant3 is the live, tunable recipe — TOOL_SOUND_CONFIGS[tool] there, kept in
+      // sync with the active tool by the setActiveGrain() effect below.
       const grain = pencilSoundSetting === 'variant1' ? PENCIL_SOUND_VARIANT_1
         : pencilSoundSetting === 'variant2' ? PENCIL_SOUND_VARIANT_2
-        : PENCIL_SOUND_VARIANT_3
-      const sound = new PencilSound(config.paper, grain)
-      sound.setHardness(PENCIL_PRESETS[initialToolRef.current.pencil].hardness)
-      pencilSoundRef.current = sound
+        : TOOL_SOUND_CONFIGS[initialToolRef.current.tool]
+      if (grain) {
+        const sound = new PencilSound(config.paper, grain)
+        sound.setHardness(PENCIL_PRESETS[initialToolRef.current.pencil].hardness)
+        pencilSoundRef.current = sound
+      }
     }
 
     // Local "drawing" activity (#38): strokeStart/strokeEnd bound the local
@@ -901,6 +907,14 @@ export function Room() {
     engineRef.current?.setPencil(tool === 'liner' ? linerSize : pencilGrade)
   }, [tool, pencilGrade, linerSize])
   useEffect(() => { engineRef.current?.setTool(tool) },     [tool])
+  useEffect(() => {
+    // #253: variant1/2 have no per-tool split (see the sound-construction effect above) — only
+    // variant3's TOOL_SOUND_CONFIGS entries actually differ per tool, so swapping is a no-op for
+    // the other settings.
+    if (pencilSoundSetting !== 'variant3') return
+    const grain = TOOL_SOUND_CONFIGS[tool]
+    if (grain) pencilSoundRef.current?.setActiveGrain(grain)
+  }, [tool, pencilSoundSetting])
   useEffect(() => {
     // Liner's own 'size' field is a fixed-mm-label enum (ADR 003), not a
     // plain px number like every other tool's — see linerSizeToPx's own
@@ -2556,7 +2570,7 @@ export function Room() {
             </div>
           )}
 
-          {pencilSoundTuningEnabled && <PencilSoundTuningPanel pencilSoundRef={pencilSoundRef} />}
+          {pencilSoundTuningEnabled && <PencilSoundTuningPanel pencilSoundRef={pencilSoundRef} tool={tool} />}
         </div>
       )}
     </div>
