@@ -180,26 +180,34 @@ export const DAB_FRAG = `
   // float-equality-is-fragile reason every other threshold in this shader
   // is a smoothstep/comparison band, not an exact match.
   uniform float u_inkMode;
-  // Marker only (#250): this layer's own current pixels directly behind
-  // this dab, copied into a small scratch texture by engine/index.ts's
-  // _drawMarkerDab *before* this draw call — WebGL1 forbids reading and
-  // writing the same texture in one draw call, so the shader can't just
-  // sample the render target it's currently writing into (same reasoning
-  // smudge's own u_patch/_smudgeContact patch-copy exists for). Mapped from
-  // this fragment's own gl_FragCoord via u_destPatchOrigin/u_destPatchSize
-  // below, the same gl_FragCoord-to-patch-space technique u_paperOrigin/
-  // u_paperTexSize already use for the (much bigger, canvas/world-sized)
-  // paper texture above.
-  uniform sampler2D u_destPatch;
-  // GL-framebuffer-space (bottom-up, like u_paperOrigin) origin of the
-  // patch this draw's u_destPatch was copied from, in the *same* buffer
-  // this draw call itself renders into — lets this fragment recover which
-  // texel of the small patch corresponds to its own position.
-  uniform vec2 u_destPatchOrigin;
-  // Side length (px) of the (always square) u_destPatch patch — see
-  // engine/index.ts's _paintOneMarkerDab for how it's sized (the dab's own
-  // world diameter, rounded up to a pooling-friendly granularity).
-  uniform float u_destPatchSize;
+  // Marker only, redesigned in a follow-up to #250 (see engine/index.ts's
+  // MarkerStrokeScratch for the full story of *why*): this tile's own
+  // content exactly as it was before this stroke started touching it,
+  // frozen once and never updated again for the rest of the stroke —
+  // reading it here instead of the tile's *current* (already partly
+  // marker-modified) content is what stops overlapping dabs within one
+  // stroke from re-multiplying an already-darkened result over and over
+  // (multiply has no natural ceiling the way normal "over" accumulation
+  // does, so that used to compound into visible banding/chevrons at every
+  // dab overlap). Same size and 1:1 pixel alignment as the tile this draws
+  // into (see u_resolution below), so no patch-relative origin/size
+  // uniforms are needed the way an earlier version of this needed for a
+  // small per-dab copy — plain gl_FragCoord/u_resolution mapping.
+  uniform sampler2D u_original;
+  // This stroke's own accumulated coverage at each pixel so far — a plain
+  // saturating "over" splat (u_inkMode>2.5 branch below), painted by
+  // engine/index.ts's _drawMarkerCoverageDab *before* this draw call, using
+  // the exact same dab quad this draw call itself uses. Reading the
+  // *accumulated* value here (rather than recomputing this one dab's own
+  // shape*opacity) is what makes densely-overlapping dabs converge to one
+  // smooth flat coverage instead of compounding — see u_original's own
+  // comment above for the full story.
+  uniform sampler2D u_strokeCoverage;
+  // Every _dabProg draw already sets this (see engine/index.ts's own
+  // _drawMarkerCompositeDab/_drawMarkerCoverageDab and every other caller)
+  // — declared here too so this fragment shader can read it back for the
+  // u_original/u_strokeCoverage gl_FragCoord mapping above.
+  uniform vec2 u_resolution;
   // Flat paper-white constant (ADR 004 §3/§8) — the color an untouched
   // (alpha=0) spot of this layer multiplies against, standing in for "the
   // paper showing through" without actually sampling the real paper-grain
@@ -350,54 +358,67 @@ export const DAB_FRAG = `
     // blank-paper tint), .a is this precomputed catch value.
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
 
-    // Marker (#250, ADR 004 §3): multiply-with-coverage compositing, not a
-    // single-pass "over" the way every mode above/below writes. Checked
-    // before the liner branch (u_inkMode>0.5 would also be true for
-    // marker's own 2.0) since the two modes are mutually exclusive deposit
-    // formulas, not layered on top of each other.
+    // Marker coverage-splat (follow-up to #250 — see u_strokeCoverage's own
+    // comment above): paints ONLY this dab's own shape*opacity into this
+    // stroke's running coverage total, a perfectly ordinary saturating
+    // "over" splat with no multiply/color/paper involved at all. Checked
+    // *before* the composite branch below (u_inkMode>1.5 would also be
+    // true for this branch's own 3.0) since the two are mutually exclusive
+    // draws against two different targets, not layered on top of each
+    // other.
+    if (u_inkMode > 2.5) {
+      float amt = clamp(shape * v_opacity, 0.0, 1.0);
+      gl_FragColor = vec4(vec3(amt), amt);
+      return;
+    }
+
+    // Marker composite (#250, ADR 004 §3, redesigned in a follow-up — see
+    // u_original/u_strokeCoverage's own comments above for why this no
+    // longer reads a small per-dab copied patch): multiply-with-coverage
+    // compositing, not a single-pass "over" the way every mode above/below
+    // writes. Checked before the liner branch (u_inkMode>0.5 would also be
+    // true for marker's own 2.0) since the two modes are mutually
+    // exclusive deposit formulas, not layered on top of each other.
     if (u_inkMode > 1.5) {
-      // gl_FragCoord-to-patch-space mapping, same technique u_paperOrigin/
-      // u_paperTexSize use above for the paper texture — u_destPatch is
-      // only ever as big as this one dab's own footprint (not the whole
-      // canvas), so this maps directly to a 0..1 UV rather than needing a
-      // world-space translation.
-      vec2 patchUV = (gl_FragCoord.xy - u_destPatchOrigin) / u_destPatchSize;
-      vec4 dst = texture2D(u_destPatch, patchUV);
-      // Un-premultiply what's already on the layer under this dab so the
-      // multiply below works against a real color, not one pre-scaled by
-      // whatever alpha happened to be there. An alpha near zero has no real
-      // color to recover (and would blow up dividing by it) — ADR 004 §3
-      // explicitly wants a flat paperWhite constant there instead of trying
-      // to extrapolate a color from near-nothing, since v1 has no real
+      // u_original/u_strokeCoverage are always exactly the same size and
+      // pixel-aligned with the tile this draws into (see
+      // MarkerStrokeScratch's own doc comment) — a plain 0..1 UV, no
+      // patch-relative origin/size math needed.
+      vec2 tileUV = gl_FragCoord.xy / u_resolution;
+      vec4 dst = texture2D(u_original, tileUV);
+      // Un-premultiply what was already on the layer under this dab
+      // *before* this stroke touched it, so the multiply below works
+      // against a real color, not one pre-scaled by whatever alpha
+      // happened to be there. An alpha near zero has no real color to
+      // recover (and would blow up dividing by it) — ADR 004 §3 explicitly
+      // wants a flat paperWhite constant there instead of trying to
+      // extrapolate a color from near-nothing, since v1 has no real
       // paper-grain interaction anyway (§8). 1/255 is the smallest alpha an
       // 8-bit-backed accumulation buffer can even represent as nonzero, so
       // anything at or below that is indistinguishable from untouched.
       vec3 effectiveBase = dst.a > 0.004 ? clamp(dst.rgb / dst.a, 0.0, 1.0) : u_paperWhite;
+      // This stroke's *total* accumulated coverage at this pixel so far —
+      // not a fresh per-dab shape*opacity recompute (see u_strokeCoverage's
+      // own comment above for why that used to compound multiply at every
+      // dab overlap instead of converging to one smooth tone).
+      float coverage = texture2D(u_strokeCoverage, tileUV).a;
       // Beer-Lambert-style multiply for a translucent marker film (ADR 004
       // "Контекст" — physically correct for overlapping translucent dye,
-      // unlike graphite/ink's saturating "over" coverage below) faded in by
-      // 'shape' (this dab's own radial falloff, already computed above —
-      // reused as-is, not reinvented) times v_opacity (the per-dab "flow"
-      // _bakeDabOpacity's marker branch already bakes in) — exactly ADR
-      // 004 section 3's mix(base, base*color, coverage*flow).
-      float coverage = clamp(shape * v_opacity, 0.0, 1.0);
+      // unlike graphite/ink's saturating "over" coverage below).
       vec3 result = mix(effectiveBase, effectiveBase * u_color, coverage);
       // Alpha bookkeeping (not nailed down to an exact equation by the ADR
       // — this is this implementation's own reasoned choice, documented
-      // here rather than left silent): blend dst.a toward 1.0 by the same
-      // coverage term, mirroring how graphite/liner's own deposit already
-      // approaches full coverage under repeated overlapping passes rather
-      // than stacking past it. This is also what makes the *next* marker
-      // dab correctly see "there's real content here" (dst.a large enough
-      // to un-premultiply above) after only a single pass over blank paper,
-      // instead of needing several passes before this layer's own alpha
-      // caught up to what's visually already a solid mark.
+      // here rather than left silent): blend the *original* dst.a toward
+      // 1.0 by the stroke's total coverage, mirroring how graphite/liner's
+      // own deposit already approaches full coverage under repeated
+      // overlapping passes rather than stacking past it.
       float newAlpha = mix(dst.a, 1.0, coverage);
       // Premultiplied output, matching every other accumulation-buffer
       // writer in this shader — composites correctly via the same (ONE,
-      // ONE_MINUS_SRC_ALPHA) "over" write-back every other dab uses (ADR
-      // 004 §3: the multiply happens *here*, in the read-modify-write of
-      // this dab's own patch: the write-back blend itself is unchanged).
+      // ONE_MINUS_SRC_ALPHA) "over" write-back every other dab uses (the
+      // multiply itself already happened just above, against the frozen
+      // original and the accumulated coverage — this write-back blend is
+      // unchanged from a plain "over").
       gl_FragColor = vec4(result * newAlpha, newAlpha);
       return;
     }
