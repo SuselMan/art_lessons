@@ -1168,13 +1168,35 @@ export function Room() {
     syncFromLog()
   }, [syncFromLog, roomContentReady, isBlockedByFreeze])
 
+  // (#263) LayerPanel has no direct engine access — this is the same
+  // engineRef-backed-callback shape as dispatchOp above, threaded down as a
+  // prop so its own delete confirm can ask "does this layer have content"
+  // without the panel needing to know the engine exists at all.
+  const hasLayerContent = useCallback((layerId: string): boolean =>
+    engineRef.current?.hasLayerContent(layerId) ?? false
+  , [])
+
+  // (#263) A structural undo/redo (layer_add/layer_delete/layer_merge) can
+  // silently wipe a layer's content on the canvas even though nothing is
+  // actually lost from the log (see docs/adr/002-collaborative-undo.md and
+  // this issue's own repro) — peekUndo/peekRedo is a read-only look at what
+  // the pending call would act on, so a decline here leaves state exactly
+  // as if the button/hotkey was never pressed.
   const handleUndo = useCallback(() => {
     if (!roomContentReady || isBlockedByFreeze) return
+    const peek = engineRef.current?.peekUndo()
+    if (peek?.hasOtherContent && !window.confirm(
+      'Undo will remove a layer that has content from other participants. Continue?',
+    )) return
     if (engineRef.current?.undo()) syncFromLog()
   }, [syncFromLog, roomContentReady, isBlockedByFreeze])
 
   const handleRedo = useCallback(() => {
     if (!roomContentReady || isBlockedByFreeze) return
+    const peek = engineRef.current?.peekRedo()
+    if (peek?.hasOtherContent && !window.confirm(
+      'Redo will remove a layer that has content from other participants. Continue?',
+    )) return
     if (engineRef.current?.redo()) syncFromLog()
   }, [syncFromLog, roomContentReady, isBlockedByFreeze])
 
@@ -2447,7 +2469,7 @@ export function Room() {
             tabs={[
               {
                 id: 'layers', icon: 'layers', title: 'Layers',
-                content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} isOwner={isOwner} />,
+                content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} isOwner={isOwner} hasLayerContent={hasLayerContent} />,
               },
               {
                 // Reflects whichever of pencil/liner/marker is actually

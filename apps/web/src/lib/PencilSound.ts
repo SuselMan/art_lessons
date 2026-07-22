@@ -195,8 +195,11 @@ export const PENCIL_SOUND_TUNING: PencilSoundTuning = {
   // bodyPresenceFloor much higher than GrainVariant.speedPresenceFloor's
   // default (0.08) — the real hum barely fades with speed, unlike
   // mid/hiss's texture.
-  bodyFreqHz: 390,
-  bodyQ: 0.7,
+  // Round 15: 390→720 and Q 0.7→4 — Ilya's own panel session, alongside
+  // GrainVariant.bodyMix pushed back up (see PENCIL_SOUND_VARIANT_3) — much
+  // narrower/more resonant peak at a higher center than the old broad shelf.
+  bodyFreqHz: 720,
+  bodyQ: 4,
   bodyPresenceFloor: 0.6,
   // Round 13, take 21: narrowed 6000-12000 -> 3400-7700 — hiss band centered
   // lower/tighter, alongside GrainVariant.hissMix (below) pushed way up to
@@ -502,11 +505,14 @@ export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
   // Round 13, take 17: Ilya's own panel session (bodyMix down to 0.84, hissMix
   // up to 0.65 from take 16's 1.6/0.35 — more hiss, less body than the
   // render-calibrated starting point) confirmed as sounding better by ear.
-  // Round 14: midMix 0.36→1 (mid carrier back to full level), bodyMix
-  // 0.84→0 (body hum band silenced), hissMix 2→0.82 — Ilya's own panel
-  // session, post-#253 split.
-  midMix: 1,
-  bodyMix: 0,
+  // Round 14: midMix 0.36→1, bodyMix 0.84→0, hissMix 2→0.82 — Ilya's own
+  // panel session, post-#253 split.
+  // Round 15: midMix 1→0.33, bodyMix 0→1.59 (body hum brought back, now
+  // louder than round 13 ever had it — alongside bodyFreqHz/bodyQ below
+  // retuned into a tighter, higher resonance rather than the old broad
+  // shelf) — Ilya's own panel session.
+  midMix: 0.33,
+  bodyMix: 1.59,
   hissMix: 0.82,
   // Round 13, take 18: experimental — modest starting weights, meant to be
   // tuned by ear via the panel, not a calibrated result like bodyMix/hissMix
