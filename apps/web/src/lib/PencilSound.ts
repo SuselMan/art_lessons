@@ -737,7 +737,14 @@ function createNoiseBuffer(ctx: AudioContext): AudioBuffer {
  *  docstring for why this exists as a pre-baked buffer rather than a
  *  live-gated BiquadFilterNode — two earlier live-graph attempts both still
  *  read as noise with an envelope. */
-function createClickBuffer(ctx: AudioContext, freqHz: number, decaySeconds: number, noiseMix: number): AudioBuffer {
+// Exported for lib/InterfaceClick.ts (#280) — reuses this exact synthesis
+// primitive for the radial-dial angle control's per-degree UI click,
+// deliberately not the rest of this file's continuous, speed-driven paper-
+// friction graph (a fundamentally different, always-looping sound source —
+// see this file's own header comment). A discrete percussive click was
+// already exactly what this function bakes, just previously only ever used
+// for GrainVariant.tap's touchdown/lift transient.
+export function createClickBuffer(ctx: AudioContext, freqHz: number, decaySeconds: number, noiseMix: number): AudioBuffer {
   const n = Math.max(8, Math.round(ctx.sampleRate * decaySeconds * 6))
   const buffer = ctx.createBuffer(1, n, ctx.sampleRate)
   const data = buffer.getChannelData(0)

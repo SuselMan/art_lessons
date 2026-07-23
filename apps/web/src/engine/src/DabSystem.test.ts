@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { DabSystem } from './DabSystem'
 import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
-import { MARKER_BULLET_DAB_SHAPING, MARKER_CHISEL_DAB_SHAPING } from './markerPresets'
+import { MARKER_BULLET_DAB_SHAPING } from './markerPresets'
 
 // Geometry-focused tests for the #91 centripetal Catmull-Rom fix.
 //
@@ -836,7 +836,13 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
   // anything) gets passed as presetName.
   it('shapingForTool dispatches marker strokes to the bullet/chisel nib profile parsed from presetName', () => {
     expect(shapingForTool('marker', 'bullet:0.3')).toBe(MARKER_BULLET_DAB_SHAPING)
-    expect(shapingForTool('marker', 'chisel:0.5')).toBe(MARKER_CHISEL_DAB_SHAPING)
+    // #278: chisel's shaping is now a factory (its angle is a live setting,
+    // not a fixed constant), so it's no longer the same object reference on
+    // every call — check it dispatched to chisel's behavior instead (fixed
+    // aspect ratio in ADR 004's 4-6:1 range, unlike bullet's tilt-driven one).
+    const chisel = shapingForTool('marker', 'chisel:0.5')
+    expect(chisel).not.toBe(MARKER_BULLET_DAB_SHAPING)
+    expect(chisel.aspect(0)).toBeCloseTo(chisel.aspect(2))
     // Unrecognized/missing nib token falls back to bullet, not chisel.
     expect(shapingForTool('marker', 'unknown:1')).toBe(MARKER_BULLET_DAB_SHAPING)
     expect(shapingForTool('marker', undefined)).toBe(MARKER_BULLET_DAB_SHAPING)

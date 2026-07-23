@@ -1,0 +1,56 @@
+/* #277: the pointer hit-region — a plain filled circle (border-radius: 50%)
+   covering the whole disc out to hitOuterRadius. It never needs to be
+   shaped as an actual annulus (a real hole would need an SVG clip-path):
+   z-index 4 sits *below* FloatingToolPanel's own .panel (z-index 5, see
+   FloatingToolPanel.module.css) — same z-index-shadowing trick that
+   module's own .flyoutBackdrop already relies on — so the anchor's opaque
+   circular body, painted on top at the same center, naturally "shadows"
+   hitInnerRadius from ever receiving a pointerdown here. Only the genuinely
+   uncovered annulus between the anchor's own edge and hitOuterRadius is
+   ever actually reachable through this element. */
+.hitRing {
+  position: absolute;
+  border-radius: 50%;
+  z-index: 4;
+  touch-action: none;
+  cursor: pointer;
+}
+
+/* Small visual indicator of the current value — purely decorative
+   (pointer-events: none; the whole hit region above is what's actually
+   interactive, per #276 point 6: any point in the ring jumps the value,
+   not just this dot). */
+.handle {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  margin-left: -11px;
+  margin-top: -11px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-surface-raised);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* Center readout (#276 point 4) — sits directly over the anchor's own
+   center at a higher z-index (7) than both the hit ring (4) and the anchor
+   itself (5), so it visually replaces the anchor's normal content only
+   while a drag is in progress. */
+.readout {
+  position: absolute;
+  border-radius: 50%;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1rem;
+  font-weight: 600;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}

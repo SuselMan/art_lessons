@@ -1,7 +1,7 @@
 import type { ToolType } from '@art-lessons/shared'
 import { clamp } from 'lodash-es'
 
-import { shapingForMarkerPreset } from './markerPresets'
+import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
 
 // Per-tool pressure→size and tilt→aspect response curves for DabSystem's
 // dab geometry (#240). Previously hardcoded directly in DabSystem._makeDab
@@ -95,6 +95,17 @@ export function fixedAngleShaping(angleRadians: number): DabShapingProfile['angl
   return () => angleRadians
 }
 
+// #278: the chisel nib's "follow stroke direction" mode — angleRadians is an
+// offset added to the spline's own path-tangent angle (same pathAngle
+// fixedAngleShaping's sibling ignores entirely) rather than replacing it.
+// Lets a chisel-style nib keep the calligraphy-pen taper fixedAngleShaping
+// gives while still turning with the stroke, the same way a bullet nib's
+// tiltOrPathAngle already does when tilt is absent — just with a
+// user-configured offset baked in rather than assuming 0.
+export function offsetAngleShaping(angleRadians: number): DabShapingProfile['angle'] {
+  return (_tiltMag, _tiltX, _tiltY, pathAngle) => pathAngle + angleRadians
+}
+
 // pencil/eraser/smudge never had their own geometry (only opacity branched
 // per-tool, see engine/index.ts's _bakeDabOpacity) — they all keep riding
 // PENCIL_DAB_SHAPING.
@@ -110,8 +121,8 @@ export function fixedAngleShaping(angleRadians: number): DabShapingProfile['angl
 // fixedAngleShaping one way, shapingForMarkerPreset the other) without a
 // real circular-const problem — see markerPresets.ts's own comment on why
 // only functions/types cross that boundary, never a top-level const.
-export function shapingForTool(tool: ToolType, presetName?: string): DabShapingProfile {
+export function shapingForTool(tool: ToolType, presetName?: string, markerAngle?: MarkerAngleConfig): DabShapingProfile {
   if (tool === 'liner') return LINER_DAB_SHAPING
-  if (tool === 'marker') return shapingForMarkerPreset(presetName)
+  if (tool === 'marker') return shapingForMarkerPreset(presetName, markerAngle)
   return PENCIL_DAB_SHAPING
 }

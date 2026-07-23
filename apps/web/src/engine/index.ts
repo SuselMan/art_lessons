@@ -9,6 +9,7 @@ import {
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import { DabSystem } from './src/DabSystem'
 import { shapingForTool } from './src/dabShaping'
+import type { MarkerAngleConfig } from './src/markerPresets'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
@@ -48,8 +49,9 @@ export { LINER_SIZES_MM, type LinerSizeMm }
 export function previewDabShape(
   tool: ToolType, presetName: string | undefined,
   baseSize: number, pressure: number, tiltX: number, tiltY: number, pathAngle = 0,
+  markerAngle?: MarkerAngleConfig,
 ): { size: number; aspectRatio: number; angle: number } {
-  const shaping = shapingForTool(tool, presetName)
+  const shaping = shapingForTool(tool, presetName, markerAngle)
   const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
   const tiltNorm = tiltMag / 90
   return {
@@ -344,6 +346,17 @@ export interface PencilEngineAPI {
   setOpacity(v: number): void
   setSize(px: number): void
   setColor(rgb: [number, number, number]): void
+  // #278: marker chisel nib's angle setting — angleRadians is always
+  // canvas-space (the caller is responsible for resolving the "lock to
+  // canvas" checkbox and the local viewport's own rotation into this one
+  // number, same "engine only ever sees canvas-space" boundary
+  // setViewport/PointerInput already keep for pointer coordinates).
+  // followStrokeDirection selects between the two chiselDabShaping modes
+  // (see markerPresets.ts) — false: angleRadians is the nib's absolute
+  // angle (ADR 004's original fixed-angle behavior, just configurable);
+  // true: angleRadians is an offset added to the stroke's own path-tangent
+  // angle. Has no effect on the bullet nib (round, angle-independent).
+  setMarkerAngle(angleRadians: number, followStrokeDirection: boolean): void
   /** Ruler tool (#89): sets (or clears, with null) the straight-edge guide
    *  that live pointer input snaps to before it ever reaches DabSystem —
    *  see rulerSnap.ts's snapToRuler and the private _snapPoint/_onStart/
@@ -1232,6 +1245,18 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokeDabs: Dab[]
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
+  // #278: marker chisel nib's live angle setting — canvas-space radians
+  // (the caller, Room/index.tsx, resolves the "lock to canvas" checkbox and
+  // the local viewport's own rotation into this single canvas-space number
+  // before calling setMarkerAngle; the engine itself never needs to know
+  // about either). Read at both shapingForTool call sites (_onStart and
+  // _paintDwellDab) so a live change takes effect on the *next* stroke, same
+  // as every other setXxx tool option — never mid-stroke (DabSystem.
+  // setShaping's own doc comment: a profile change partway through an
+  // in-progress _buf isn't supported).
+  private _markerAngleRadians = Math.PI / 4 // ADR 004 §1 "~45°" default, matches markerPresets.ts's own fallback
+  private _markerFollowStroke = false
+
   // Dwell (#245, ADR 003 §3/§9 revised): while the active tool has a
   // DwellConfig (currently only liner) and the pointer sits within
   // stillThresholdPx of _dwellAnchorX/Y, _dwellTimer periodically paints an
@@ -1711,6 +1736,14 @@ export class PencilEngine implements PencilEngineAPI {
   // _strokeColor, which gets baked into that stroke's dabs (and its recorded
   // StrokeOperation), so changing it never repaints already-drawn strokes.
   setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
+
+  /** See PencilEngineAPI's doc comment. Only the *next* stroke picks this
+   *  up (same "never mid-stroke" rule as _markerAngleRadians' own field
+   *  comment) — no need to touch the in-progress DabSystem shaping here. */
+  setMarkerAngle(angleRadians: number, followStrokeDirection: boolean): void {
+    this._markerAngleRadians = angleRadians
+    this._markerFollowStroke = followStrokeDirection
+  }
 
   /** See PencilEngineAPI's doc comment. */
   setRuler(line: RulerLine | null): void { this._ruler = line }
@@ -2984,7 +3017,10 @@ export class PencilEngine implements PencilEngineAPI {
     // stroke's bullet/chisel dispatch (shapingForTool -> markerPresets.ts's
     // shapingForMarkerPreset) sees this stroke's actual nib, not whatever
     // preset the *previous* stroke left in _strokePreset.
-    this._dabs.setShaping(shapingForTool(this._strokeTool, this._opts.pencilType))
+    this._dabs.setShaping(shapingForTool(
+      this._strokeTool, this._opts.pencilType,
+      { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
+    ))
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     // Smudge's reservoir now persists across separate strokes (see
@@ -3389,14 +3425,27 @@ export class PencilEngine implements PencilEngineAPI {
 
     // #251: mid-stroke here, so _strokePreset is already this stroke's own
     // preset (unlike _onStart's call site above) — safe to read directly.
-    const shaping = shapingForTool(this._strokeTool, this._strokePreset)
-    const tiltNorm = Math.hypot(this._lastPointerTiltX, this._lastPointerTiltY) / 90
+    const shaping = shapingForTool(
+      this._strokeTool, this._strokePreset,
+      { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
+    )
+    const tiltMag = Math.hypot(this._lastPointerTiltX, this._lastPointerTiltY)
+    const tiltNorm = tiltMag / 90
     const dab: Dab = {
       x: this._lastPointerX, y: this._lastPointerY,
       pressure: this._lastPointerPressure, tiltX: this._lastPointerTiltX, tiltY: this._lastPointerTiltY,
       size: this._physicalSize * shaping.size(this._lastPointerPressure),
       aspectRatio: shaping.aspect(tiltNorm),
-      angle: 0, // no path direction while resting — liner's own aspect response is mild enough this doesn't matter
+      // #278: used to be hardcoded 0 for every tool ("no path direction
+      // while resting — liner's own aspect response is mild enough this
+      // doesn't matter") — true for liner (kept at 0 below, unchanged), but
+      // not for marker's chisel nib: its angle is now a real user setting
+      // and its aspect is highly elongated (~5:1), so a resting dwell dab
+      // must still render at the configured angle, not always horizontal.
+      // pathAngle 0 is passed (no path while resting, same as before) —
+      // chisel's fixed/offset shaping ignores it anyway; bullet's
+      // tiltOrPathAngle still falls back to it exactly as liner's dwell did.
+      angle: this._strokeTool === 'marker' ? shaping.angle(tiltMag, this._lastPointerTiltX, this._lastPointerTiltY, 0) : 0,
       opacity: 1, t: performance.now() - this._strokeStartTimestamp,
     }
     const preset = this._resolvePreset(this._strokeTool, this._strokePreset)

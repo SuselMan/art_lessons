@@ -18,6 +18,7 @@ import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
+import { RadialDial } from '../../components/RadialDial'
 import { computeCompositeOrder } from '../../lib/layers'
 import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant, getGraphiteGrainVariant } from '../../lib/featureFlags'
@@ -49,8 +50,9 @@ import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, markerSizeToPx, stepMarkerSize,
+  formatDegreesMinutes,
 } from './toolSchemas'
-import { loadPanelPosition, type PanelPosition } from './panelPosition'
+import { loadPanelPosition, PANEL_SIZE, measureFloatingPanelCenter, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
@@ -933,6 +935,34 @@ export function Room() {
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
   }, [pencilGrade])
+  // #278/#279: marker chisel angle → engine.setMarkerAngle, always resolved
+  // to canvas-space radians before it ever reaches the engine (same
+  // "engine only ever sees canvas-space" boundary PointerInput.setTransform
+  // already keeps for pointer coordinates). "Зафиксировать угол кисти
+  // относительно холста" off means the angle should look visually
+  // unchanged on screen as the local camera rotates — since a canvas-space
+  // mark gets carried along by vp.angle's own CSS rotation at display time
+  // (useViewport.ts: `rotate(${v.angle}rad)`), staying screen-fixed means
+  // continuously subtracting the live vp.angle here. On (or in
+  // followStrokeDirection mode, where the angle is inherently already
+  // canvas-space via the stroke's own tangent) the configured value is used
+  // as-is. Reads vp.angle directly (not the throttled roomStore viewport
+  // copy) so this tracks a live rotate gesture without lag.
+  const markerAngleDeg = toolSettings.marker.angle as number
+  const markerFollowStroke = toolSettings.marker.followStrokeDirection as boolean
+  const lockAngleToCanvas = getFeatureFlag('lockBrushAngleToCanvas')
+  // Also fed to BrushCursor's hover preview below (previewDabShape), so the
+  // preview shows the exact same canvas-space angle a real stroke would
+  // record — BrushCursor's own doc comment: its angle is rendered as a
+  // plain canvas-space value, with the viewport's own CSS transform (an
+  // ancestor element) supplying the on-screen rotation for free, same as
+  // Dab.angle itself.
+  const markerCanvasAngleRadians = markerFollowStroke || lockAngleToCanvas
+    ? (markerAngleDeg * Math.PI) / 180
+    : (markerAngleDeg * Math.PI) / 180 - vp.angle
+  useEffect(() => {
+    engineRef.current?.setMarkerAngle(markerCanvasAngleRadians, markerFollowStroke)
+  }, [markerCanvasAngleRadians, markerFollowStroke])
   useEffect(() => {
     // engine.setPencil's argument is a generic preset-name string
     // (StrokeOperation.preset) — pencil's own grade normally, but the
@@ -2094,6 +2124,18 @@ export function Room() {
     )
   }
 
+  // #277/#278: the marker chisel-angle radial dial only ever orbits
+  // FloatingToolPanel while that panel is itself actually visible — same
+  // uiHidden/isDrawing gating the panel already applies to its own `hidden`/
+  // `strokeBlocked` props (see its own JSX usage below) — and only while
+  // chisel is the active nib (bullet is round; an angle control would do
+  // nothing visible for it, per markerSchema's own visibleWhen). The panel
+  // itself is always mounted (never conditionally unmounted, just opacity-0
+  // when hidden — see FloatingToolPanel.module.css's .uiHidden), so its DOM
+  // element is always there to measure against once this is true.
+  const chiselAngleDialCenter = (uiHidden && !isDrawing && tool === 'marker' && markerNib === 'chisel')
+    ? measureFloatingPanelCenter(panelPosition, editorRef)
+    : null
 
   return (
     <div
@@ -2333,6 +2375,7 @@ export function Room() {
         <aside className={clsx(styles.quickSettingsBar, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
           {Object.entries(TOOL_SCHEMAS[tool])
             .filter(([, descriptor]) => descriptor.quickAccess)
+            .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[tool]))
             .map(([key, descriptor]) => (
               <SettingField
                 key={key}
@@ -2396,6 +2439,8 @@ export function Room() {
                 baseSize={sizePx}
                 vp={vp}
                 config={config}
+                markerAngleRadians={markerCanvasAngleRadians}
+                markerFollowStroke={markerFollowStroke}
               />
             )}
             {!config.infinite && gridActive && <GridOverlay width={config.width} height={config.height} />}
@@ -2447,6 +2492,8 @@ export function Room() {
                 baseSize={sizePx}
                 vp={vp}
                 config={config}
+                markerAngleRadians={markerCanvasAngleRadians}
+                markerFollowStroke={markerFollowStroke}
               />
               {gridActive && (
                 <InfiniteGridOverlay
@@ -2534,7 +2581,9 @@ export function Room() {
                   <p className={styles.noToolSettings}>This tool has no settings yet.</p>
                 ) : (
                   <div className={styles.toolSettingsPanel}>
-                    {Object.entries(TOOL_SCHEMAS[tool]).map(([key, descriptor]) => (
+                    {Object.entries(TOOL_SCHEMAS[tool])
+                      .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[tool]))
+                      .map(([key, descriptor]) => (
                       <SettingField
                         key={key}
                         descriptor={descriptor}
@@ -2585,6 +2634,24 @@ export function Room() {
           undoHotkeyLabel={formatHotkeyLabel(hotkeys.undo)}
           redoHotkeyLabel={formatHotkeyLabel(hotkeys.redo)}
         />
+
+        {/* #277/#278: marker chisel-nib angle dial — orbits FloatingToolPanel
+            the same way its own color flyout does, but as a continuously
+            draggable ring instead of fixed swatch slots (see RadialDial's
+            own doc comment for the interaction spec and why it deliberately
+            differs from PrecisionSlider's no-tap-jump rule). */}
+        {chiselAngleDialCenter && (
+          <RadialDial
+            center={chiselAngleDialCenter}
+            handleRadius={PANEL_SIZE / 2 + 24}
+            hitOuterRadius={PANEL_SIZE / 2 + 56}
+            readoutSize={PANEL_SIZE}
+            value={markerAngleDeg}
+            onChange={v => setToolSetting('marker', 'angle', v)}
+            formatValue={formatDegreesMinutes}
+            title="Marker angle"
+          />
+        )}
 
         {/* #185: visible while the initial content restore (snapshot fetch
             + operation-log replay/backfill) is still in flight — a direct
