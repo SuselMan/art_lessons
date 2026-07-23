@@ -2,6 +2,38 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../..
 
 export interface PanelPosition { x: number; y: number }
 
+// Diameter in CSS px — must match FloatingToolPanel.module.css's .panel
+// width/height (no shared source of truth possible across TS/CSS; keep the
+// two in sync by hand if either changes). Lives here rather than in
+// FloatingToolPanel/index.tsx itself so a plain-function/const consumer
+// (RadialDial's caller, Room/index.tsx — #277) doesn't have to import
+// alongside the component (keeps FloatingToolPanel's own file component-only
+// for React Fast Refresh).
+export const PANEL_SIZE = 152
+
+export const PANEL_DOM_ID = 'floating-tool-panel'
+
+/** #277: same "measure the CSS-anchored default corner" fallback
+ *  FloatingToolPanel's own measureCurrentPosition needs — a sibling overlay
+ *  (RadialDial, positioned around the panel from Room/index.tsx) computes
+ *  the same center point via this, without reaching into that component's
+ *  internals. Returns null if the panel isn't in the DOM yet (nothing to
+ *  measure against). */
+export function measureFloatingPanelCenter(
+  position: PanelPosition | null, containerRef: React.RefObject<HTMLElement | null>,
+): { x: number; y: number } | null {
+  if (position) return { x: position.x + PANEL_SIZE / 2, y: position.y + PANEL_SIZE / 2 }
+  const el = document.getElementById(PANEL_DOM_ID)
+  const container = containerRef.current
+  if (!el || !container) return null
+  const panelRect = el.getBoundingClientRect()
+  const containerRect = container.getBoundingClientRect()
+  return {
+    x: panelRect.left - containerRect.left + PANEL_SIZE / 2,
+    y: panelRect.top - containerRect.top + PANEL_SIZE / 2,
+  }
+}
+
 interface StoredPanelPosition {
   panelPosition: PanelPosition
 }

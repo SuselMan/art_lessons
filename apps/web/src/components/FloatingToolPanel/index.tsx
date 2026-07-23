@@ -4,16 +4,11 @@ import clsx from 'clsx'
 import { useDraggablePosition } from '../../lib/useDraggablePosition'
 import { Icon } from '../Icon'
 import { hexToRgb, rgbToHex } from '../../lib/color'
-import { clampPanelPosition, savePanelPosition, type PanelPosition } from '../../pages/Room/panelPosition'
+import {
+  clampPanelPosition, savePanelPosition, PANEL_SIZE, PANEL_DOM_ID, type PanelPosition,
+} from '../../pages/Room/panelPosition'
 import { layoutFlyoutItems, type RayLayoutConfig } from './colorFlyout'
 import styles from './FloatingToolPanel.module.css'
-
-// Diameter in CSS px — must match FloatingToolPanel.module.css's .panel
-// width/height (no shared source of truth possible across TS/CSS; keep the
-// two in sync by hand if either changes).
-const PANEL_SIZE = 152
-
-const PANEL_DOM_ID = 'floating-tool-panel'
 
 // Palette flyout (#190 follow-up) tuning constants — kept as plain numbers
 // here, not a settings-panel toggle, so they're quick to hand-tune while
