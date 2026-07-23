@@ -40,6 +40,16 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'Collapsible live-tuning panel for every PencilSound/PENCIL_SOUND_VARIANT_3 knob (#153 round 13), plus a "copy config" button to hand tuned values back. Only shown while pencilSoundSetting is variant3.',
     envVar: 'VITE_PENCIL_SOUND_TUNING',
   },
+  {
+    key: 'lockBrushAngleToCanvas',
+    label: 'Зафиксировать угол кисти относительно холста',
+    description: 'Включено: настроенный угол кисти (маркер, #278) — величина в системе координат холста, поворачивается вместе с ним при повороте локальной камеры. Выключено: угол живёт независимо от холста — визуально не меняется на экране при повороте камеры.',
+  },
+  {
+    key: 'interfaceSound',
+    label: 'Звук интерфейса',
+    description: 'Щелчок на каждый градус при настройке угла кисти через радиальный дайл (#277/#280) — обратная связь как у точного инструмента. Не влияет на "Pencil sound" (звук графита о бумагу) — это отдельная настройка.',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'
