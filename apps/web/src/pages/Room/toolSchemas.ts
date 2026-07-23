@@ -34,12 +34,33 @@ export interface SettingDescriptor {
   /** Also rendered inline in the left toolbar, not just the settings tab. */
   quickAccess?: boolean
   default: number | boolean | [number, number, number] | string
+  /** #278: gates rendering on this tool's *other* current field values (e.g.
+   *  marker's chisel-only `angle`/`followStrokeDirection` — bullet is round,
+   *  so an angle control would do nothing visible for it). Takes this
+   *  tool's own ToolSettingsValue, not the whole ToolSettingsMap — a
+   *  descriptor never depends on a *different* tool's settings. Omit for a
+   *  field that's always shown once its tool is active (every existing
+   *  field before #278). */
+  visibleWhen?: (values: ToolSettingsValue) => boolean
 }
 
 export type ToolSchema = Record<string, SettingDescriptor>
 
 const percentFormat = (v: number) => `${Math.round(v * 100)}%`
 const pxFormat = (v: number) => `${v}px`
+
+// #278/#277: degrees+arc-minutes, matching the radial dial's own 1' minimum
+// step (RadialDial's own doc comment) — plain toFixed(2) degrees would round
+// away exactly the precision the dial is built to offer. Rounds to the
+// nearest whole minute rather than truncating, and normalizes a 60' rollover
+// (e.g. 44.999...°) back to the next whole degree so it never displays "44°60′".
+export function formatDegreesMinutes(v: number): string {
+  const wrapped = ((v % 360) + 360) % 360
+  let deg = Math.floor(wrapped)
+  let min = Math.round((wrapped - deg) * 60)
+  if (min === 60) { min = 0; deg = (deg + 1) % 360 }
+  return `${deg}°${String(min).padStart(2, '0')}′`
+}
 
 const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: number): ToolSchema => ({
   grade: {
@@ -206,6 +227,32 @@ const markerSchema = (): ToolSchema => ({
     uiControls: ['swatch'],
     quickAccess: true,
     default: [0.95, 0.55, 0.12],
+  },
+  // #278: chisel's nib angle used to be a hardcoded ~45° engine constant
+  // (ADR 004 §1) — now a real user setting. `visibleWhen` hides both this
+  // and `followStrokeDirection` for the bullet nib, which is round enough
+  // that an angle control would visibly do nothing (same reasoning
+  // MARKER_BULLET_DAB_SHAPING's own tiltOrPathAngle default already relies
+  // on). Step is 1 arc-minute (1/60°) — the radial dial's (#277) own
+  // minimum step; the plain slider rendering (SettingField/PrecisionSlider)
+  // shares the same descriptor, so it gets the same fine-grained step too,
+  // just via drag/arrow-key increments instead of the dial's ring gesture.
+  angle: {
+    name: 'Angle',
+    valueType: { kind: 'numberRange', min: 0, max: 360, step: 1 / 60, format: formatDegreesMinutes },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 45,
+    visibleWhen: v => v.nib === 'chisel',
+  },
+  // Off by default: preserves ADR 004's original "angle is a fixed property
+  // of the tool, not the stroke" behavior unless explicitly turned on.
+  followStrokeDirection: {
+    name: 'Follow stroke direction',
+    valueType: { kind: 'boolean' },
+    uiControls: ['toggle'],
+    default: false,
+    visibleWhen: v => v.nib === 'chisel',
   },
 })
 

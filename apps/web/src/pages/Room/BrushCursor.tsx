@@ -32,6 +32,12 @@ interface BrushCursorProps {
   baseSize: number
   vp: ViewportTransform
   config: { infinite: boolean } & CanvasSize
+  /** #278: marker chisel-nib angle setting, already resolved to canvas-space
+   *  radians (same value fed to engine.setMarkerAngle — see Room's own
+   *  markerCanvasAngleRadians) — only marker's chisel dispatch actually
+   *  reads either of these two. */
+  markerAngleRadians?: number
+  markerFollowStroke?: boolean
 }
 
 /** A brush-size/rotation preview that follows the pointer: a circle sized to
@@ -66,7 +72,9 @@ interface BrushCursorProps {
  *  show while a finger is actually down, not just resting near the glass —
  *  so touch gets its own pointerdown/pointerup pair gating visibility,
  *  instead of showing continuously the way mouse/pen hover does. */
-export function BrushCursor({ vpRef, tool, presetName, baseSize, vp, config }: BrushCursorProps) {
+export function BrushCursor({
+  vpRef, tool, presetName, baseSize, vp, config, markerAngleRadians = 0, markerFollowStroke = false,
+}: BrushCursorProps) {
   const circleRef = useRef<HTMLDivElement>(null)
   const lineRef = useRef<HTMLDivElement>(null)
   const touchActiveRef = useRef(false)
@@ -77,8 +85,8 @@ export function BrushCursor({ vpRef, tool, presetName, baseSize, vp, config }: B
   // the native listener down and rebuilding it on every one of those would
   // also throw away the cached bounding-rect below. Same reasoning as
   // Room's own #37 cursor-broadcast effect.
-  const stateRef = useRef({ tool, presetName, baseSize, vp, config })
-  stateRef.current = { tool, presetName, baseSize, vp, config }
+  const stateRef = useRef({ tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke })
+  stateRef.current = { tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke }
 
   useEffect(() => {
     if (!DAB_TOOLS.has(tool)) {
@@ -106,12 +114,18 @@ export function BrushCursor({ vpRef, tool, presetName, baseSize, vp, config }: B
       const circle = circleRef.current
       const line = lineRef.current
       if (!circle || !line) return
-      const { tool: curTool, presetName: curPreset, baseSize: curBaseSize, vp: curVp, config: curConfig } = stateRef.current
+      const {
+        tool: curTool, presetName: curPreset, baseSize: curBaseSize, vp: curVp, config: curConfig,
+        markerAngleRadians: curMarkerAngle, markerFollowStroke: curMarkerFollow,
+      } = stateRef.current
       if (!DAB_TOOLS.has(curTool)) { hide(); return }
 
       const rect = rectCache ??= el.getBoundingClientRect()
       const { x, y } = clientToRoomPoint(clientX, clientY, rect, curVp, curConfig)
-      const { size, aspectRatio, angle } = previewDabShape(curTool, curPreset, curBaseSize, pressure, tiltX, tiltY)
+      const { size, aspectRatio, angle } = previewDabShape(
+        curTool, curPreset, curBaseSize, pressure, tiltX, tiltY, 0,
+        { angle: curMarkerAngle, followStrokeDirection: curMarkerFollow },
+      )
       const diameter = Math.max(size, 2)
 
       circle.style.display = 'block'
