@@ -6,12 +6,6 @@ import { InterfaceClick } from '../../lib/InterfaceClick'
 import { angleToCompassDegrees, roundToStep, wholeUnitsCrossed, wrapDegrees, wrapValue, type Point } from './radialDialMath'
 import styles from './RadialDial.module.css'
 
-// A burst of clicks for one single big jump (a tap far from the handle,
-// #6) is expected — a real fast turn of a physical dial does click
-// rapidly — but an accidental full-circle jump shouldn't ever fire hundreds
-// of overlapping click sounds at once.
-const MAX_CLICK_BURST = 30
-
 export interface RadialDialProps {
   /** The anchor this dial orbits (e.g. FloatingToolPanel's own measured
    *  center) — same coordinate space as the container both are rendered
@@ -100,10 +94,17 @@ export function RadialDial({
       const prevCompass = valueToCompass(prevValue)
       const nextCompass = valueToCompass(next)
       const crossed = wholeUnitsCrossed(prevCompass, nextCompass, wholeUnit * (360 / range))
-      const bursts = Math.min(MAX_CLICK_BURST, Math.abs(crossed))
-      if (bursts > 0) {
+      // One play() per pointer *event* that crossed at least one boundary,
+      // not one per boundary crossed — a fast drag can cross a dozen+
+      // degrees in a single event, and firing that many clicks all at the
+      // same instant is exactly what reads as a buzz rather than discrete
+      // ticks (Ilya: "гудит как счётчик Гейгера"). InterfaceClick.play()
+      // itself also rate-limits (see its own doc comment), so a fast
+      // continuous spin still can't fire faster than that cap regardless of
+      // how many pointermove events arrive.
+      if (Math.abs(crossed) > 0) {
         if (!clickRef.current) clickRef.current = new InterfaceClick()
-        for (let i = 0; i < bursts; i++) clickRef.current.play()
+        clickRef.current.play()
       }
     }
     return next
