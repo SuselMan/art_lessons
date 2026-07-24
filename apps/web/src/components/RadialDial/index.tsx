@@ -113,7 +113,14 @@ export function RadialDial({
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const el = e.currentTarget
-    el.setPointerCapture(e.pointerId)
+    // Real-device pen/touch input can reject capture (same "context loss"
+    // class of failure PointerInput.ts/useViewport.ts's own setPointerCapture
+    // calls already guard against) — capture is a nice-to-have (keeps
+    // tracking if the pointer strays outside the ring mid-drag), not a
+    // precondition for the interaction itself. An unguarded throw here used
+    // to abort this whole handler before the tap-jump/listeners below ever
+    // ran, silently breaking the dial entirely on whatever device threw.
+    try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
     setDragging(true)
 
     let currentValue = applyPointer(e.clientX, e.clientY, value)

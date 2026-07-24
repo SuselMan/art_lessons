@@ -62,7 +62,12 @@ export const ColorPicker = memo(function ColorPicker({ value, onChange }: ColorP
   const onSvDown = (e: React.PointerEvent) => {
     const el = svRef.current
     if (!el) return
-    el.setPointerCapture(e.pointerId)
+    // Real-device pen/touch input can reject capture (same "context loss"
+    // class PointerInput.ts/useViewport.ts's own setPointerCapture calls
+    // already guard against, and the exact device-dependent flavor this
+    // handler's own comment above already documents) — an unguarded throw
+    // here used to abort before the listeners below were ever attached.
+    try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
     const update = (clientX: number, clientY: number) => {
       const rect = el.getBoundingClientRect()
       const s = clamp((clientX - rect.left) / rect.width, 0, 1)
@@ -84,7 +89,8 @@ export const ColorPicker = memo(function ColorPicker({ value, onChange }: ColorP
   const onHueDown = (e: React.PointerEvent) => {
     const el = hueRef.current
     if (!el) return
-    el.setPointerCapture(e.pointerId)
+    // See onSvDown's own comment above — same guard, same reasoning.
+    try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
     const update = (clientX: number) => {
       const rect = el.getBoundingClientRect()
       const h = clamp((clientX - rect.left) / rect.width, 0, 1) * 360
