@@ -145,6 +145,7 @@ export type Participant = {
 // hand if the engine's default ever changes.
 export const DEFAULT_PALETTE_COLORS: string[] = [
   '#24242b', '#ffffff', '#000000', '#390099', '#9e0059', '#ff0054', '#ff5400', '#ffbd00',
+  '#ddf21f', '#00f3ff',
 ]
 
 // Operations (drawing actions — serializable, replayable).
