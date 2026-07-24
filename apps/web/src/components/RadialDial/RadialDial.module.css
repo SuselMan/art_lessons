@@ -16,6 +16,26 @@
   cursor: pointer;
 }
 
+/* Diameter needle (see index.tsx's own doc comment above its JSX) — a
+   thin bar through the anchor's own center, rotated to the current angle,
+   so the value reads as a clock hand across the whole panel rather than
+   only the small dot orbiting outside it. z-index 8, above .readout's own
+   7: .readout is an opaque disc the same diameter as this line (both sized
+   off readoutSize/PANEL_SIZE), so anything under it would be fully hidden
+   — the line has to draw on top to actually cross the visible panel,
+   same as a clock hand crossing its own center readout. Only 3px thick,
+   so it clips a thin stripe of the number rather than covering it. */
+.angleLine {
+  position: absolute;
+  height: 3px;
+  margin-top: -1.5px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 8;
+}
+
 /* Small visual indicator of the current value — purely decorative
    (pointer-events: none; the whole hit region above is what's actually
    interactive, per #276 point 6: any point in the ring jumps the value,

@@ -185,7 +185,7 @@ const markerSchema = (): ToolSchema => ({
     valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
     uiControls: ['slider', 'input'],
     quickAccess: true,
-    default: 26,
+    default: 10,
   },
   opacity: {
     name: 'Opacity',

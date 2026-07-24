@@ -3,6 +3,7 @@ import clsx from 'clsx'
 
 import { getFeatureFlag } from '../../lib/featureFlags'
 import { InterfaceClick } from '../../lib/InterfaceClick'
+import { diagLog } from '../../lib/diagLog'
 import { angleToCompassDegrees, roundToStep, wholeUnitsCrossed, wrapDegrees, wrapValue, type Point } from './radialDialMath'
 import styles from './RadialDial.module.css'
 
@@ -120,18 +121,32 @@ export function RadialDial({
     // precondition for the interaction itself. An unguarded throw here used
     // to abort this whole handler before the tap-jump/listeners below ever
     // ran, silently breaking the dial entirely on whatever device threw.
-    try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
+    let captureOk = true
+    try { el.setPointerCapture(e.pointerId) } catch { captureOk = false }
+    // Diagnostic for "dial doesn't respond to a real pen drag" reports —
+    // logs whether capture actually succeeded and whether move events keep
+    // arriving through the whole gesture, so a real device's copy-logs
+    // output can show exactly where it stops (never starts vs. stops mid-
+    // drag vs. arrives but the value doesn't visibly update).
+    diagLog('dial: down', {
+      pointerType: e.pointerType, pointerId: e.pointerId, captureOk,
+      clientX: e.clientX, clientY: e.clientY, center,
+    })
     setDragging(true)
 
     let currentValue = applyPointer(e.clientX, e.clientY, value)
     onChange(currentValue)
+    let moveCount = 0
 
     const handleMove = (ev: PointerEvent) => {
+      moveCount++
       const next = applyPointer(ev.clientX, ev.clientY, currentValue)
       currentValue = next
       onChange(next)
+      diagLog('dial: move', { n: moveCount, clientX: ev.clientX, clientY: ev.clientY, value: next })
     }
     const handleUp = () => {
+      diagLog('dial: up', { moveCount, finalValue: currentValue })
       setDragging(false)
       el.removeEventListener('pointermove', handleMove)
       el.removeEventListener('pointerup', handleUp)
@@ -141,7 +156,7 @@ export function RadialDial({
     el.addEventListener('pointermove', handleMove)
     el.addEventListener('pointerup', handleUp)
     el.addEventListener('pointercancel', handleUp)
-  }, [applyPointer, onChange, value])
+  }, [applyPointer, onChange, value, center])
 
   const handleCompass = valueToCompass(value)
   const handleRad = ((handleCompass - 90) * Math.PI) / 180
@@ -165,6 +180,27 @@ export function RadialDial({
         aria-valuemax={max}
         aria-valuenow={value}
       />
+      {/* Diameter needle (Ilya, 2026-07-24): the ring handle dot alone made
+          the current angle hard to read at a glance while actually turning
+          it — this draws a line straight through the anchor's own center,
+          at the same angle, so the angle reads as a clock-hand pointing
+          across the whole panel rather than a single dot orbiting outside
+          it. Same handleCompass math as the dot below, just as a CSS
+          rotation instead of a polar offset: rotate(0deg) points along the
+          local x-axis (3 o'clock/east), and compass 0 is north — hence the
+          same `- 90` used for handleRad above, just in degrees for CSS.
+          Shown only while dragging (same gate as .readout) — Ilya: wants it
+          just during the actual adjustment, not as a permanent overlay on
+          the panel the rest of the time. */}
+      {dragging && (
+        <div
+          className={styles.angleLine}
+          style={{
+            left: center.x, top: center.y, width: readoutSize,
+            transform: `translate(-50%, -50%) rotate(${handleCompass - 90}deg)`,
+          }}
+        />
+      )}
       <div
         className={styles.handle}
         style={{ left: handleX, top: handleY }}
