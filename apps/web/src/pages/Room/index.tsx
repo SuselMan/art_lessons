@@ -49,7 +49,7 @@ import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix 
 import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import {
-  TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, markerSizeToPx, stepMarkerSize,
+  TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
   formatDegreesMinutes,
 } from './toolSchemas'
 import { loadPanelPosition, PANEL_SIZE, measureFloatingPanelCenter, type PanelPosition } from './panelPosition'
@@ -925,7 +925,7 @@ export function Room() {
   const pencilGrade = toolSettings.pencil.grade as PencilGradeName
   const linerSize = toolSettings.liner.size as string
   const markerNib = toolSettings.marker.nib as string
-  const markerSize = toolSettings.marker.size as string
+  const markerSize = toolSettings.marker.size as number
   // Same preset string engine.setPencil below records (`${nib}:${size}` for
   // marker, the size label for liner, the grade name otherwise) — only
   // marker's own dispatch (bullet/chisel) actually reads it
@@ -991,13 +991,13 @@ export function Room() {
     const grain = TOOL_SOUND_CONFIGS[tool]
     if (grain) pencilSoundRef.current?.setActiveGrain(grain)
   }, [tool, pencilSoundSetting])
-  // Liner/marker's own 'size' fields are fixed-label enums (ADR 003/004),
-  // not a plain px number like every other tool's — see linerSizeToPx's own
-  // comment for why the mm→px mapping lives in the UI layer. Hoisted out of
-  // the engine-sync effect below (not effect-local) so BrushCursor can read
-  // the same physical-px value for its hover preview without recomputing it.
+  // Liner's own 'size' field is a fixed-label enum (ADR 003), not a plain px
+  // number like every other tool's (marker included, since it dropped its
+  // own ladder for a plain px slider) — see linerSizeToPx's own comment for
+  // why the mm→px mapping lives in the UI layer. Hoisted out of the
+  // engine-sync effect below (not effect-local) so BrushCursor can read the
+  // same physical-px value for its hover preview without recomputing it.
   const sizePx = tool === 'liner' ? linerSizeToPx(activeCfg.size as string)
-    : tool === 'marker' ? markerSizeToPx(activeCfg.size as string)
     : (activeCfg.size as number)
   useEffect(() => {
     engineRef.current?.setSize(sizePx)
@@ -2047,17 +2047,15 @@ export function Room() {
       if (is('toggleMarker')) { setTool(t => t === 'marker' ? 'pencil' : 'marker'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
       if (is('decreaseSize')) {
-        // Liner/marker's own 'size' fields are fixed-label enums (ADR 003/
-        // 004), not the plain px number every other tool's 'size' field
-        // holds — step through the ladder instead of subtracting 1.
+        // Liner's own 'size' field is a fixed-label enum (ADR 003), not the
+        // plain px number every other tool's 'size' field holds (marker
+        // included) — step through the ladder instead of subtracting 1.
         if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, -1))
-        else if (tool === 'marker') setToolSetting('marker', 'size', prev => stepMarkerSize(prev as string, -1))
         else setToolSetting(tool, 'size', prev => Math.max(1, (prev as number) - 1))
         return
       }
       if (is('increaseSize')) {
         if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, 1))
-        else if (tool === 'marker') setToolSetting('marker', 'size', prev => stepMarkerSize(prev as string, 1))
         else setToolSetting(tool, 'size', prev => Math.min(120, (prev as number) + 1))
         return
       }
