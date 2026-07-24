@@ -164,49 +164,28 @@ const linerSchema = (): ToolSchema => ({
 export const MARKER_NIB_TYPES = ['bullet', 'chisel'] as const
 export type MarkerNibType = (typeof MARKER_NIB_TYPES)[number]
 
-// Same fixed-ladder identity choice as the liner (see LINER_SIZE_LABELS'
-// own comment) — real Copic-style marker nibs also come in a handful of
-// discrete barrel widths, not one continuously-adjustable size. Placeholder
-// mm-ish labels/px values, not yet calibrated against a real device or the
-// eventual chisel aspect-ratio math (ADR 004 §1) — exact numbers are
-// explicitly not load-bearing for this UI pass.
-export const MARKER_SIZE_LABELS = ['2', '4', '6', '9', '12']
-const MARKER_SIZE_PX: Record<string, number> = { '2': 10, '4': 18, '6': 26, '9': 36, '12': 46 }
-
-export function markerSizeToPx(label: string): number {
-  return MARKER_SIZE_PX[label] ?? MARKER_SIZE_PX[MARKER_SIZE_LABELS[0]]
-}
-
-/** Steps the marker's size one notch up/down its fixed ladder — same
- *  clamp-don't-wrap behavior as stepLinerSize, used by the same '['/']'
- *  size hotkeys. */
-export function stepMarkerSize(current: string, direction: 1 | -1): string {
-  const idx = MARKER_SIZE_LABELS.indexOf(current)
-  const nextIdx = Math.min(MARKER_SIZE_LABELS.length - 1, Math.max(0, (idx === -1 ? 0 : idx) + direction))
-  return MARKER_SIZE_LABELS[nextIdx]
-}
-
 const markerSchema = (): ToolSchema => ({
   // Bullet/chisel (ADR 004 §1) — rendered via the same enumOptions control
-  // path PENCIL_GRADES/LINER_SIZE_LABELS already use (SettingField switches
-  // purely on valueType.kind), not a bespoke toggle. Defaults to 'bullet':
-  // the rounder, tilt/angle-independent nib is the one that already
-  // resembles what the engine's current HB-preset fallback (see this
-  // schema's own doc comment above) actually renders, before chisel's fixed-
-  // angle hook (#249-251) exists to make chisel look like chisel.
+  // path PENCIL_GRADES already uses (SettingField switches purely on
+  // valueType.kind), not a bespoke toggle. Defaults to 'chisel' — the
+  // nib that actually looks like a marker (flat, angle-dependent edge);
+  // 'bullet' remains available as the round alternative.
   nib: {
     name: 'Nib',
     valueType: { kind: 'enumOptions', options: MARKER_NIB_TYPES },
     uiControls: ['slider'],
     quickAccess: true,
-    default: 'bullet' satisfies MarkerNibType,
+    default: 'chisel' satisfies MarkerNibType,
   },
+  // Plain px diameter, same continuous slider as pencil/eraser/smudge's own
+  // 'size' field (pencilLikeSchema above) — not a fixed label ladder like
+  // the liner's (ADR 003's calibrated-pen-set reasoning doesn't apply here).
   size: {
     name: 'Size',
-    valueType: { kind: 'enumOptions', options: MARKER_SIZE_LABELS },
-    uiControls: ['slider'],
+    valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
+    uiControls: ['slider', 'input'],
     quickAccess: true,
-    default: '6',
+    default: 26,
   },
   opacity: {
     name: 'Opacity',
