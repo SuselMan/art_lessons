@@ -61,8 +61,12 @@ export function useDraggablePosition(
         // capture (so it keeps tracking smoothly even if the pointer
         // leaves the panel's own bounds) and arm the click-suppressor
         // (so the synthetic click this same gesture ends with doesn't
-        // also register as a tap on whatever's under the pointer).
-        el.setPointerCapture(pointerId)
+        // also register as a tap on whatever's under the pointer). Real-
+        // device pen/touch input can reject capture (same "context loss"
+        // class PointerInput.ts/useViewport.ts's own setPointerCapture calls
+        // already guard against) — an unguarded throw here used to abort
+        // before onChange below ever ran, silently breaking the drag.
+        try { el.setPointerCapture(pointerId) } catch { /* context loss */ }
         el.addEventListener('click', suppressClick, { capture: true, once: true })
       }
       const next = { x: startPos.x + dx, y: startPos.y + dy }

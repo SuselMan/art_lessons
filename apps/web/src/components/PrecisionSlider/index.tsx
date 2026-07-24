@@ -81,7 +81,12 @@ export function PrecisionSlider({
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const el = e.currentTarget
-    el.setPointerCapture(e.pointerId)
+    // Real-device pen/touch input can reject capture (same "context loss"
+    // class PointerInput.ts/useViewport.ts's own setPointerCapture calls
+    // already guard against) — an unguarded throw here used to abort this
+    // whole handler before dragRef/the listeners below were ever set up,
+    // silently breaking every drag on whatever device threw.
+    try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
 
     const rect = el.getBoundingClientRect()
     const length = orientation === 'vertical' ? rect.height : rect.width

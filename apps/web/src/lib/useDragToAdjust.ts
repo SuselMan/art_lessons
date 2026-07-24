@@ -50,7 +50,11 @@ export function useDragToAdjust(
       try { el.releasePointerCapture(e.pointerId) } catch { /* already released */ }
     }
 
-    el.setPointerCapture(e.pointerId)
+    // Real-device pen/touch input can reject capture (same "context loss"
+    // class PointerInput.ts/useViewport.ts's own setPointerCapture calls
+    // already guard against) — an unguarded throw here used to abort before
+    // the listeners below were ever attached, silently breaking the drag.
+    try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
     el.addEventListener('pointermove', handleMove)
     el.addEventListener('pointerup', handleUp)
     el.addEventListener('pointercancel', handleUp)
