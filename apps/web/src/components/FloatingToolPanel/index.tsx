@@ -20,6 +20,15 @@ import styles from './FloatingToolPanel.module.css'
 const COLOR_FLYOUT_MAX = 32
 const FLYOUT_SWATCH_SIZE = 40
 const FLYOUT_GAP = 8
+// Icon + label for the top slot's primaryTool — same icon each tool's own
+// left-toolbar button already uses (Room/index.tsx), so the floating panel
+// and the toolbar never disagree about what a tool "looks like".
+const PRIMARY_TOOL_DISPLAY: Record<'pencil' | 'liner' | 'marker', { icon: string; label: string }> = {
+  pencil: { icon: 'edit', label: 'Pencil' },
+  liner: { icon: 'stylus', label: 'Liner' },
+  marker: { icon: 'ink_highlighter', label: 'Marker' },
+}
+
 const FLYOUT_LAYOUT: RayLayoutConfig = {
   // Ring 1 sits just outside the *whole panel's* own edge (radius
   // PANEL_SIZE/2 = 76), not just the small center dot — orbiting the dot
@@ -34,14 +43,16 @@ const FLYOUT_LAYOUT: RayLayoutConfig = {
 
 interface Props {
   /** Current actual tool, for the eraser button's own active-highlight —
-   *  'pencil' | 'liner' here mean "not erasing", not literally which of the
-   *  two is active (see primaryTool for that). */
-  tool: 'pencil' | 'liner' | 'eraser'
-  /** Last of pencil/liner actually selected (toolSlice.ts's
-   *  lastDrawingTool) — drives the top button's icon/label and what it
-   *  switches back to, so it reflects liner rather than assuming pencil. */
-  primaryTool: 'pencil' | 'liner'
-  onSetTool: (tool: 'pencil' | 'liner' | 'eraser') => void
+   *  'pencil' | 'liner' | 'marker' here mean "not erasing", not literally
+   *  which of the three is active (see primaryTool for that). */
+  tool: 'pencil' | 'liner' | 'marker' | 'eraser'
+  /** Last of pencil/liner/marker actually selected (toolSlice.ts's
+   *  lastDrawingTool, #252 follow-up: marker joined this slot the same way
+   *  liner did) — drives the top button's icon/label and what it switches
+   *  back to, so it reflects whichever was really active rather than
+   *  assuming pencil. */
+  primaryTool: 'pencil' | 'liner' | 'marker'
+  onSetTool: (tool: 'pencil' | 'liner' | 'marker' | 'eraser') => void
   onUndo: () => void
   onRedo: () => void
   /** Current color of whichever tool primaryTool names, shown as the
@@ -78,10 +89,11 @@ interface Props {
 /** First minimal iteration of a "floating" UI cluster (#157) — a draggable
  *  circular panel with the 4 most-reached-for actions (undo/redo/[primary
  *  drawing tool]/eraser), independent of the existing header/left-toolbar
- *  (both stay as they are). The top slot follows whichever of pencil/liner
- *  was last actually selected (primaryTool, #245 follow-up) rather than
- *  always pencil — there's still only one drawing-tool slot here, it just
- *  now shows the right one. Position persists per room (see
+ *  (both stay as they are). The top slot follows whichever of pencil/liner/
+ *  marker was last actually selected (primaryTool, #245 follow-up; marker
+ *  joined the same slot in a later follow-up) rather than always pencil —
+ *  there's still only one drawing-tool slot here, it just now shows the
+ *  right one. Position persists per room (see
  *  panelPosition.ts) so it doesn't reset to a default corner on every visit
  *  once someone's moved it somewhere that suits their hand/device.
  *
@@ -225,10 +237,10 @@ export function FloatingToolPanel({
         <button
           className={clsx(styles.btn, styles.btnTop, tool === primaryTool && styles.btnActive)}
           onClick={() => onSetTool(primaryTool)}
-          title={primaryTool === 'liner' ? 'Liner' : 'Pencil'}
-          aria-label={primaryTool === 'liner' ? 'Liner' : 'Pencil'}
+          title={PRIMARY_TOOL_DISPLAY[primaryTool].label}
+          aria-label={PRIMARY_TOOL_DISPLAY[primaryTool].label}
         >
-          <Icon name={primaryTool === 'liner' ? 'stylus' : 'edit'} />
+          <Icon name={PRIMARY_TOOL_DISPLAY[primaryTool].icon} />
         </button>
         <button className={clsx(styles.btn, styles.btnRight)} onClick={onRedo} title={`Redo  ${redoHotkeyLabel}`} aria-label="Redo">
           <Icon name="redo" />
