@@ -1018,11 +1018,11 @@ export function Room() {
   const colorToolColor = colorTool === 'liner' ? linerColor : colorTool === 'marker' ? markerColor : pencilColor
   // FloatingToolPanel (#157) is a fixed 4-slot compass layout with room for
   // only one drawing-tool button (see its own doc comment — "the 4 most-
-  // reached-for actions"); marker isn't one of its slots, same precedent
-  // already set for smudge. Folds marker down to 'pencil' here purely for
-  // this panel's own top-button icon/highlight — the left toolbar and
-  // hotkey remain marker's real, fully-functional entry points.
-  const floatingPrimaryTool: 'pencil' | 'liner' = lastDrawingTool === 'liner' ? 'liner' : 'pencil'
+  // reached-for actions") — marker now shares that one slot with pencil/
+  // liner (whichever was actually last selected), the same way liner joined
+  // it in #245's own follow-up. Only smudge stays outside it — no
+  // dedicated "return to smudge" affordance exists anywhere today.
+  const floatingPrimaryTool: 'pencil' | 'liner' | 'marker' = lastDrawingTool
   // (#190 epic) Room palette — see roomSlice's own doc comment for why this
   // is a plain setter, not a reducer. Add/remove requests round-trip through
   // the server (dedup lives there, see rooms.ts's addPaletteColor) rather
@@ -2552,11 +2552,10 @@ export function Room() {
                 // active (the drawing tools with a real 'color' field)
                 // rather than always pencil — this tab is reached both from
                 // any of those tools' own quick-field expand button and from
-                // FloatingToolPanel's escape hatch, which only ever shows
-                // pencil/liner (see floatingPrimaryTool below — marker isn't
-                // one of its 4 fixed slots, same as smudge isn't), so
-                // falling back to pencil's color there is unchanged from
-                // before liner/marker existed.
+                // FloatingToolPanel's escape hatch (see floatingPrimaryTool
+                // below — pencil/liner/marker all share its one drawing-tool
+                // slot now), so falling back to pencil's color there only
+                // ever matters before any of the three has been picked yet.
                 id: 'color', icon: 'palette', title: 'Color',
                 content: (
                   <>
@@ -2607,15 +2606,14 @@ export function Room() {
             #99 replacement toolkit, so it only shows up once the rest of
             the chrome has hidden, not the other way round. */}
         <FloatingToolPanel
-          // FloatingToolPanel (#157) is a fixed 4-slot compass layout with no
-          // room for a third drawing-tool button (see its own doc comment —
-          // "the 4 most-reached-for actions") — smudge/marker aren't one of
-          // its slots, same as ruler/transform/grid/eyedropper already
-          // aren't (see floatingPrimaryTool's own doc comment above). Folds
-          // into "not eraser" here purely so its own top-button/eraser
-          // highlight stays correct while smudge/marker is active elsewhere
-          // (the left toolbar); tapping either of *this* panel's two buttons
-          // still switches away from smudge/marker normally via onSetTool.
+          // FloatingToolPanel (#157) is a fixed 4-slot compass layout with
+          // one shared drawing-tool slot (pencil/liner/marker — see
+          // floatingPrimaryTool's own doc comment above); smudge/ruler/
+          // transform/grid/eyedropper stay outside it, same as before.
+          // Folds into "not eraser" here purely so its own top-button/eraser
+          // highlight stays correct while smudge is active elsewhere (the
+          // left toolbar); tapping either of *this* panel's two buttons
+          // still switches away from smudge normally via onSetTool.
           tool={tool === 'eraser' ? 'eraser' : floatingPrimaryTool}
           primaryTool={floatingPrimaryTool}
           onSetTool={setTool}
