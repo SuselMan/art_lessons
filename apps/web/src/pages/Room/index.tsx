@@ -222,7 +222,25 @@ export function Room() {
   const tapToHideEnabled = getFeatureFlag('tapToHideUI')
   useEffect(() => { diagLog('tapToHideEnabled is', tapToHideEnabled) }, [tapToHideEnabled])
   const [uiHidden, setUiHidden] = useState(false)
-  const toggleUI = useCallback(() => setUiHidden(h => !h), [])
+  // Read via a ref (not the setUiHidden updater's own `h` param) purely so
+  // the diagLog call sits in toggleUI's own body, not inside the updater —
+  // StrictMode double-invokes updater functions to check purity, which
+  // would otherwise log every real toggle twice with a misleadingly
+  // identical "before" value both times. toggleUI itself stays `[]`-stable
+  // (useTapToggle's effect deps include `onTap`; a churning identity there
+  // re-attaches its native listeners on every toggle — see its own doc
+  // comment on exactly that class of bug).
+  const uiHiddenRef = useRef(uiHidden)
+  uiHiddenRef.current = uiHidden
+  // Diagnostic (matches useTapToggle/useViewport's own tap:/vp: diagLog
+  // calls) for the "floating panel flickers after a stroke" reports — logs
+  // every actual flip plus the stack-free "why" (never which call site;
+  // there's only one), so a real device's copy-logs output can be
+  // correlated against the tap:/vp:/stroke: timeline below.
+  const toggleUI = useCallback(() => {
+    diagLog('toggleUI: uiHidden', uiHiddenRef.current, '->', !uiHiddenRef.current)
+    setUiHidden(h => !h)
+  }, [])
 
   // #94: a resting hand/finger on a tablet can brush the surrounding chrome
   // (most often the size slider) mid-stroke and corrupt settings partway
@@ -792,12 +810,14 @@ export function Room() {
       .on('strokeStart', e => {
         strokeActiveRef.current = true
         setIsDrawing(true)
+        diagLog('stroke: start')
         markActive(useRoomStore.getState().userId)
         pencilSoundRef.current?.start(e.pressure, e.speed, e.tiltX, e.tiltY)
       })
       .on('strokeEnd', () => {
         strokeActiveRef.current = false
         setIsDrawing(false)
+        diagLog('stroke: end')
         pencilSoundRef.current?.stop()
       })
       .on('pointer', e => {

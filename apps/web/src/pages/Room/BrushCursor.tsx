@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import type { ToolType } from '@art-lessons/shared'
 
 import { previewDabShape } from '../../engine'
+import { diagLog } from '../../lib/diagLog'
 import { clientToRoomPoint } from './cameraMath'
 import type { ViewportTransform, CanvasSize } from './pointerTransform'
 import styles from './Room.module.css'
@@ -110,6 +111,20 @@ export function BrushCursor({
       if (lineRef.current) lineRef.current.style.display = 'none'
     }
 
+    // Diagnostic-only (chasing the "pen cursor flickers mid-stroke" report):
+    // a genuine pointerleave firing while the pen is still physically down
+    // (buttons !== 0) would mean the browser/OS is reporting spurious
+    // boundary events during capture rather than the cursor logic itself
+    // being at fault — pairs with a matching "re-entered" line on the next
+    // move so the gap between them (and whether it lines up with dab
+    // timing) shows up in an on-device "copy logs" capture.
+    let leftBoundsWhileDown = false
+    const onLeave = (e: PointerEvent) => {
+      leftBoundsWhileDown = e.buttons !== 0
+      diagLog('[BrushCursor] pointerleave', { pointerType: e.pointerType, pointerId: e.pointerId, buttons: e.buttons })
+      hide()
+    }
+
     const applyAt = (clientX: number, clientY: number, pressure: number, tiltX: number, tiltY: number) => {
       const circle = circleRef.current
       const line = lineRef.current
@@ -149,6 +164,10 @@ export function BrushCursor({
 
     const handleMove = (e: PointerEvent) => {
       if (e.pointerType === 'touch' && !touchActiveRef.current) return
+      if (leftBoundsWhileDown) {
+        leftBoundsWhileDown = false
+        diagLog('[BrushCursor] re-entered after leave-while-down', { pointerType: e.pointerType, pointerId: e.pointerId, buttons: e.buttons })
+      }
       const pressure = e.pointerType === 'mouse' && e.pressure === 0 ? 0.5 : (e.pressure || 0.5)
       applyAt(e.clientX, e.clientY, pressure, e.tiltX ?? 0, e.tiltY ?? 0)
     }
@@ -167,13 +186,13 @@ export function BrushCursor({
     el.addEventListener('pointerdown', handleDown)
     el.addEventListener('pointerup', handleTouchEnd)
     el.addEventListener('pointercancel', handleTouchEnd)
-    el.addEventListener('pointerleave', hide)
+    el.addEventListener('pointerleave', onLeave)
     return () => {
       el.removeEventListener('pointermove', handleMove)
       el.removeEventListener('pointerdown', handleDown)
       el.removeEventListener('pointerup', handleTouchEnd)
       el.removeEventListener('pointercancel', handleTouchEnd)
-      el.removeEventListener('pointerleave', hide)
+      el.removeEventListener('pointerleave', onLeave)
       observer.disconnect()
     }
   }, [vpRef])
