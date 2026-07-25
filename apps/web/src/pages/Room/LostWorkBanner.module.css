@@ -1,0 +1,54 @@
+/* (#297 §17) Same non-blocking strip shape as FrozenBanner, stacked just
+   below it so the two can coexist (a frozen participant can still have had
+   an operation rejected). Unlike FrozenBanner this one IS interactive — it
+   carries a dismiss button — so it opts back into pointer events for the
+   banner itself while leaving the canvas underneath untouched. */
+.banner {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 16px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-danger, #d06a52) 16%, var(--color-surface));
+  color: var(--color-text-bright);
+  border: 1px solid color-mix(in srgb, var(--color-danger, #d06a52) 45%, transparent);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  max-width: min(520px, calc(100vw - 32px));
+  pointer-events: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+.banner :global(.material-symbols-outlined) {
+  font-size: 18px;
+  color: var(--color-danger, #d06a52);
+  flex-shrink: 0;
+}
+
+.dismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-dim);
+  cursor: pointer;
+}
+.dismiss:hover {
+  background: color-mix(in srgb, var(--color-text-bright) 10%, transparent);
+  color: var(--color-text-bright);
+}
+.dismiss:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

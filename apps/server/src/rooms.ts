@@ -186,20 +186,26 @@ function persistOperation(roomId: string, op: Operation): void {
  *  longer needs to survive past the session that produced it; retention is
  *  now "this live session's undo/redo depth", not "forever"). Only called
  *  once a room has gone genuinely empty (see `leaveRoom`), and only prunes
- *  what's already safely covered by an existing RoomSnapshot — a room that
- *  never crossed the first SNAPSHOT_SEQ_INTERVAL boundary has no covering
- *  snapshot yet, so this is a no-op for it (nothing unsafe to delete, and
- *  short rooms are cheap to keep whole anyway). The next session's own
- *  growth will eventually cross a boundary and make this room prunable
- *  again on its next idle — worst-case steady-state leftover per room is
- *  bounded by one SNAPSHOT_SEQ_INTERVAL's worth of operations, never
- *  unbounded. Fire-and-forget, chained through the same per-room write
- *  queue as every other Postgres write here. */
-function pruneOperationsBeforeSnapshot(roomId: string, latestSnapshotSeq: number | null): void {
-  if (latestSnapshotSeq === null) return
-  enqueueWrite(roomId, () => prisma.operation.deleteMany({
-    where: { roomId, seq: { lte: latestSnapshotSeq } },
-  }))
+ *  what's already safely covered by an existing RoomSnapshot.
+ *
+ *  (#297 epic, reliable history spec v0.2 §5/§13 — 2026-07-25) DISABLED
+ *  pending snapshot verification. The rule this used to rely on — "a
+ *  snapshot exists for this seq, therefore the operations it covers are
+ *  redundant" — is exactly the assumption #287 falsified in production: a
+ *  snapshot can be baked from a client whose own view was already corrupt,
+ *  and pruning then destroys the only evidence that could have rebuilt it.
+ *  Nothing may justify deletion except a snapshot independently corroborated
+ *  (see the engine's bakeLayerByFullReplay oracle and RoomSnapshot's new
+ *  `verification` column), which isn't wired end-to-end yet.
+ *
+ *  Ilya's call (2026-07-25): keep full history for now, while the product has
+ *  no live users and this doubles as debugging material; revisit before
+ *  release, when the storage cost actually starts mattering (#207 tracks the
+ *  hot/cold tiering that should carry it then). Kept as a function rather
+ *  than deleted so re-enabling it is a one-line change once verification
+ *  gates it properly. */
+function pruneOperationsBeforeSnapshot(_roomId: string, _latestSnapshotSeq: number | null): void {
+  // Intentionally a no-op — see the doc comment above.
 }
 
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't

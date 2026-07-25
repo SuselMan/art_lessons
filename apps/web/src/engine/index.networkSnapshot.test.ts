@@ -7,7 +7,9 @@ import { describe, expect, it } from 'vitest'
 import { nanoid } from 'nanoid'
 import type { OperationRedoOperation, OperationUndoOperation } from '@art-lessons/shared'
 
-import { checkpointCountFor, createTestEngine, dab, makeLayerAdd, makeStroke, readTilePixels } from './testing/engineTestUtils'
+import {
+  checkpointCountFor, createTestEngine, dab, expectPixelsClose, makeLayerAdd, makeStroke, readTilePixels,
+} from './testing/engineTestUtils'
 import { decodeLayerTiles } from './src/snapshotCodec'
 
 describe('bakeNetworkSnapshot (#149)', () => {

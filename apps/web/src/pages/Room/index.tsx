@@ -34,12 +34,14 @@ import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { FrozenBanner } from './FrozenBanner'
+import { LostWorkBanner } from './LostWorkBanner'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
 import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom } from './cameraMath'
 import { describeJoinError } from './joinError'
+import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { isLocalIslandSafe } from './optimism'
 import { Outbox } from './outbox'
 import { createIndexedDbOutboxStorage } from './outboxStorage'
@@ -424,6 +426,11 @@ export function Room() {
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
+  // (#297 §17) Set when the server rejected an operation as `target_gone` —
+  // the only rejection that can read as "my work vanished" (drawn while
+  // offline/dropped onto a layer since deleted). Shown as a dismissible
+  // notice; deliberately not an automatic room fork (see Outbox's onSettled).
+  const [lostWorkNotice, setLostWorkNotice] = useState(false)
   // (#24) Backed by the store now — applyParticipantAction still just
   // folds each socket event through the same pure participantsReducer
   // (participants.ts), reused unchanged.
@@ -515,6 +522,14 @@ export function Room() {
   // a peer could plausibly reference too; rejected means it never became
   // real in the first place.
   const pendingIdsRef = useRef<Set<string>>(new Set())
+  // (#297 §12) Last seq seen on the live confirmed stream — distinct from
+  // latestKnownSeqRef, which also folds in bulk room_state catch-up and so
+  // can't tell "the live stream skipped something" from "we just replayed a
+  // batch". Reset on every full resync, since the stream restarts there.
+  const lastConfirmedSeqRef = useRef(0)
+  // (#297 §16) True while this client is deliberately skipping peer-stroke
+  // reveal animation to work through a backlog — see handleOperationConfirmed.
+  const catchingUpRef = useRef(false)
   // (#169) A live operation_undo/operation_redo/operation_revoke whose
   // targetOpId isn't in appliedOpIdsRef yet — the target is somewhere in
   // pre-snapshot history background backfill hasn't reached yet. Applying it
@@ -609,6 +624,14 @@ export function Room() {
         // Never became real — drop it back out of the local island so a
         // later delete/merge targeting it isn't wrongly treated as safe.
         if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
+        // (#297 §17) `target_gone` on a stroke-bearing op is the one
+        // rejection a user can actually perceive as lost work — typically
+        // drawn offline (or during a drop) onto a layer someone deleted in
+        // the meantime. Deliberately a quiet notice, not an automatic
+        // room fork: forking on every conflict was considered and rejected
+        // as worse than the problem (a pile of near-duplicate rooms after
+        // any flaky wifi). Nothing else on the canvas is affected.
+        if (result.reason === 'target_gone') setLostWorkNotice(true)
         return
       }
       latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, result.seq)
@@ -1330,6 +1353,17 @@ export function Room() {
       return
     }
 
+    // (#297 §17) The same operation offline: it can only be resolved by the
+    // server (that's what made it non-optimistic in the first place), and
+    // queueing it would let it land minutes later against a room that has
+    // since moved on. Refuse it up front, visibly, rather than appearing to
+    // accept it. Operations confined to this client's own local island are
+    // unaffected — they took the optimistic branch above and work offline.
+    if (!connected) {
+      window.alert('Нет связи с комнатой — это действие затрагивает общие слои и станет доступно после переподключения.')
+      return
+    }
+
     // (#297 §2/§4) References at least one id this client didn't itself
     // just create — a concurrent delete/merge/transform race is possible
     // (the server checks aliveIds, see rooms.ts), so this must not become
@@ -1341,7 +1375,7 @@ export function Room() {
     // so a dropped packet is retried rather than silently swallowed — its
     // `onSettled` handles the verdict either way.
     void outbox.enqueue(op)
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected])
 
   // (#263) LayerPanel has no direct engine access — this is the same
   // engineRef-backed-callback shape as dispatchOp above, threaded down as a
@@ -1871,6 +1905,26 @@ export function Room() {
       }
     }
 
+    // (#297 §12) Re-requests the room's state from scratch-as-of-what-we-
+    // have, the same way a reconnect does, without waiting for (or needing)
+    // an actual socket drop — the response arrives as an ordinary
+    // `room_state`, which handleRoomState already knows how to fold in.
+    // Used when the live confirmed stream turns out to have a gap, i.e. the
+    // connection was interrupted at some point without this client noticing.
+    const requestFullResync = () => {
+      lastConfirmedSeqRef.current = 0 // the stream restarts from this room_state
+      const credentials = lastJoinAttemptRef.current
+        ?? { name: getOrCreateDisplayName(localStorage), password: creatorDraft?.password }
+      socket.emit(
+        'join_room',
+        { roomId: id, ...credentials, lastKnownSeq: latestKnownSeqRef.current || undefined },
+        result => {
+          if (result.ok) applyIdentity(result.userId)
+          else console.error('join_room failed during gap resync', result)
+        },
+      )
+    }
+
     const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen }: {
       room: RoomEntity; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
       palette: string[]; frozen: boolean
@@ -2027,6 +2081,18 @@ export function Room() {
     // from the envelope, not `operation.seq` (optional until stamped) —
     // simpler for logging/diagnostics, per the same spec.
     const handleOperationConfirmed = ({ seq, operation: op }: { seq: number; operation: Operation }) => {
+      // (#297 §12) A gap in this stream is impossible on an unbroken
+      // connection (TCP never silently drops or reorders within one), so
+      // seeing one means the connection was interrupted without this client
+      // noticing — a backgrounded tab, a sleeping device, a proxy recycling
+      // the socket. Don't try to patch the hole; distrust the live stream
+      // and redo the same full catch-up a normal reconnect does.
+      if (hasSeqGap(lastConfirmedSeqRef.current, seq)) {
+        console.warn(`[sync] seq gap: expected ${lastConfirmedSeqRef.current + 1}, got ${seq} — resyncing`)
+        requestFullResync()
+        return
+      }
+      lastConfirmedSeqRef.current = Math.max(lastConfirmedSeqRef.current, seq)
       latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, seq)
       if (appliedOpIdsRef.current.has(op.id)) {
         // This client's own operation, looping back through the same
@@ -2046,6 +2112,24 @@ export function Room() {
       // reveal finishes playing every dab back.
       if (op.type === 'stroke') {
         noteLayerSeq(op.layerId, seq)
+        // (#297 §16) A live client that simply can't keep up (weak device,
+        // several peers drawing at once) used to accumulate an unbounded
+        // reveal backlog with nothing watching it. Past the threshold, drop
+        // the animation and apply immediately — the same "correct content
+        // now, no animation" tradeoff join/reconnect catch-up already
+        // makes — until the backlog is comfortably small again.
+        const backlog = pendingPreviewOpIdsRef.current.size
+        if (catchingUpRef.current ? !shouldLeaveCatchUp(backlog) : shouldEnterCatchUp(backlog)) {
+          if (!catchingUpRef.current) {
+            catchingUpRef.current = true
+            console.warn(`[sync] falling behind (${backlog} strokes queued) — applying without animation`)
+          }
+          applyRemoteOp(op)
+          syncFromLog()
+          checkSnapshotBoundary()
+          return
+        }
+        catchingUpRef.current = false
         pendingPreviewOpIdsRef.current.add(op.id)
         // Arrived, not yet committed (#149) — held out of the snapshot
         // watermark until onPreviewApplied's reveal-complete commit deletes
@@ -2691,6 +2775,9 @@ export function Room() {
               triggering their own room-wide freeze isn't blocked by it (see
               isBlockedByFreeze), so this never shows for them. */}
           {isBlockedByFreeze && <FrozenBanner roomFrozen={roomFrozen} />}
+          {/* (#297 §17) Independent of the freeze banner above — both can be
+              up at once, hence the stacked offset in its own CSS. */}
+          {lostWorkNotice && <LostWorkBanner onDismiss={() => setLostWorkNotice(false)} />}
         </div>
 
         {/* ── Side panel (layers, color, …) ── */}
