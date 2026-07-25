@@ -5,7 +5,7 @@ import clsx from 'clsx'
 import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
-  LayerState, OperationDraft, Operation, Participant, Room as RoomEntity,
+  LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, SendResult,
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
@@ -34,12 +34,17 @@ import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { FrozenBanner } from './FrozenBanner'
+import { LostWorkBanner } from './LostWorkBanner'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
 import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom } from './cameraMath'
 import { describeJoinError } from './joinError'
+import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
+import { isLocalIslandSafe } from './optimism'
+import { Outbox } from './outbox'
+import { createIndexedDbOutboxStorage } from './outboxStorage'
 import { PeerCursors } from './PeerCursors'
 import { BrushCursor } from './BrushCursor'
 import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
@@ -128,6 +133,25 @@ function isNegligibleTransform(handle: TransformHandleKind, m: AffineMatrix): bo
   if (handle === 't' || handle === 'b') return Math.abs(m[3] - 1) < 0.001 // scaleY = d
   if (handle === 'l' || handle === 'r') return Math.abs(m[0] - 1) < 0.001 // scaleX = a
   return Math.abs(m[0] - 1) < 0.001 // corners: uniform, m[0] === m[3] === scale
+}
+
+// (#289 epic, reliable history spec v0.2 §9) A bare socket.io ack has no
+// timeout of its own — a dropped packet (either leg) would otherwise leave
+// the Outbox waiting forever instead of ever retrying. `socket` is read at
+// call time by the caller (never closed over stale), since Outbox.send is
+// invoked long after the socket that existed when the Outbox itself was
+// constructed may have been replaced by a reconnect.
+function sendOperationWithTimeout(
+  socket: Socket<ServerToClientEvents, ClientToServerEvents> | null, op: Operation, timeoutMs = 5000,
+): Promise<SendResult> {
+  return new Promise((resolve, reject) => {
+    if (!socket) { reject(new Error('sendOperationWithTimeout: no active socket')); return }
+    const timer = setTimeout(() => reject(new Error('operation send timed out')), timeoutMs)
+    socket.emit('operation', op, result => {
+      clearTimeout(timer)
+      resolve(result)
+    })
+  })
 }
 
 export function Room() {
@@ -402,6 +426,11 @@ export function Room() {
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
+  // (#289 §17) Set when the server rejected an operation as `target_gone` —
+  // the only rejection that can read as "my work vanished" (drawn while
+  // offline/dropped onto a layer since deleted). Shown as a dismissible
+  // notice; deliberately not an automatic room fork (see Outbox's onSettled).
+  const [lostWorkNotice, setLostWorkNotice] = useState(false)
   // (#24) Backed by the store now — applyParticipantAction still just
   // folds each socket event through the same pure participantsReducer
   // (participants.ts), reused unchanged.
@@ -456,6 +485,51 @@ export function Room() {
     engineRef.current?.setUserId(userId)
   }, [])
   const appliedOpIdsRef   = useRef<Set<string>>(new Set())
+  // (#289 epic — reliable history spec v0.2 §2/§4, Phase 2 diagnostic) Highest
+  // confirmed `seq` applied to each layer so far, keyed by layerId. Exists
+  // purely to *detect and log* the one remaining ordering hazard Phase 1
+  // doesn't close: this client's own stroke still paints immediately, at
+  // `_onEnd` time, before its `seq` is even known — if a peer's concurrent
+  // stroke on the same layer turns out to have an *earlier* true seq, it
+  // still arrives (and gets composited) after this client's own already did.
+  // Closing that gap for real means deferring a local stroke's commit into
+  // the confirmed buffer until its own operation_confirmed arrives (the same
+  // machinery peer reveals already use) — real engine-level surgery on the
+  // live pointer/stroke-completion path, which needs a real device to verify
+  // safely (see CLAUDE.md's cross-device pixel-determinism history) and is
+  // deliberately not attempted unsupervised here. This tracker at least
+  // turns the hazard from invisible into a logged, countable event, so
+  // whether it's worth that follow-up can be judged from real usage instead
+  // of guessing.
+  const layerAppliedSeqRef = useRef<Map<string, number>>(new Map())
+  const noteLayerSeq = useCallback((layerId: string, seq: number) => {
+    const highest = layerAppliedSeqRef.current.get(layerId) ?? 0
+    if (seq < highest) {
+      console.warn(
+        `[order] layer ${layerId}: seq ${seq} applied after ${highest} was already on screen — `
+        + 'a concurrent stroke likely composited out of true order (see layerAppliedSeqRef\'s doc comment)',
+      )
+      return
+    }
+    layerAppliedSeqRef.current.set(layerId, seq)
+  }, [])
+  // (#289 epic — reliable history spec v0.2 §2/§4) layerId/folderId this
+  // client itself created but the server hasn't confirmed yet — the
+  // "local island" isLocalIslandSafe checks a layer_delete/layer_merge/
+  // layer_transform's targets against. Added the instant a layer_add/
+  // folder_add is dispatched (see onLocalOperation below), removed once
+  // its SendResult settles either way — confirmed means it's now something
+  // a peer could plausibly reference too; rejected means it never became
+  // real in the first place.
+  const pendingIdsRef = useRef<Set<string>>(new Set())
+  // (#289 §12) Last seq seen on the live confirmed stream — distinct from
+  // latestKnownSeqRef, which also folds in bulk room_state catch-up and so
+  // can't tell "the live stream skipped something" from "we just replayed a
+  // batch". Reset on every full resync, since the stream restarts there.
+  const lastConfirmedSeqRef = useRef(0)
+  // (#289 §16) True while this client is deliberately skipping peer-stroke
+  // reveal animation to work through a backlog — see handleOperationConfirmed.
+  const catchingUpRef = useRef(false)
   // (#169) A live operation_undo/operation_redo/operation_revoke whose
   // targetOpId isn't in appliedOpIdsRef yet — the target is somewhere in
   // pre-snapshot history background backfill hasn't reached yet. Applying it
@@ -469,9 +543,9 @@ export function Room() {
   const lastCursorSentRef = useRef(0)
   // Stroke ops whose live reveal (previewOperation) hasn't finished playing
   // yet — i.e. not yet appendOperation'd into the log/layer. Consulted by
-  // handlePeerOperation so a fast operation_undo/operation_revoke targeting
-  // one of these can drop it from the reveal instead of trying (and
-  // silently failing) to undo an op the log was never given.
+  // handleOperationConfirmed so a fast operation_undo/operation_revoke
+  // targeting one of these can drop it from the reveal instead of trying
+  // (and silently failing) to undo an op the log was never given.
   const pendingPreviewOpIdsRef = useRef<Set<string>>(new Set())
   // A joiner's first room_state can arrive before the engine exists — we need
   // that very event to learn `config` in the first place, and the engine only
@@ -494,7 +568,7 @@ export function Room() {
   // learned from that same first event).
   const firstRoomStateReceivedRef = useRef(false)
   // Highest operation seq this client has definitely seen — from ack'd local
-  // operations and from peer_operation's stamped copies (#149). Sent back as
+  // operations and from operation_confirmed's envelopes (#149/#289). Sent back as
   // lastKnownSeq on every join_room/create_room (including reconnects), so
   // the server can trim room_state's tailOperations instead of resending
   // everything already known. 0 means "nothing yet," same as omitting it.
@@ -528,6 +602,47 @@ export function Room() {
     committedWatermarkRef.current = watermark
     snapshotUploader.onSeqObserved(previous, watermark, engine, useRoomStore.getState().layerState)
   }, [snapshotUploader])
+
+  // (#289 epic, reliable history spec v0.2 §9) Every outgoing operation goes
+  // through here rather than a bare `socket.emit` — persisted to IndexedDB
+  // first, retried with exponential backoff until a real `SendResult`
+  // arrives, and replayed wholesale on reconnect (see handleConnect's
+  // resendAll below). Without this, an operation whose packet was dropped
+  // was simply lost forever: it painted locally, never reached the server,
+  // and nothing ever noticed or retried it.
+  //
+  // `onSettled` is the one place a definitive verdict lands, for both
+  // dispatch paths (optimistic and confirmation-gated) — the same
+  // watermark/pendingIds/noteLayerSeq bookkeeping onLocalOperation's own ack
+  // callback used to do inline.
+  const outbox = useMemo(() => new Outbox({
+    storage: createIndexedDbOutboxStorage(),
+    send: op => sendOperationWithTimeout(socketRef.current, op),
+    onSettled: (op, result) => {
+      if (!result.ok) {
+        console.error('operation rejected by server', op.type, op.id, result.reason)
+        // Never became real — drop it back out of the local island so a
+        // later delete/merge targeting it isn't wrongly treated as safe.
+        if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
+        // (#289 §17) `target_gone` on a stroke-bearing op is the one
+        // rejection a user can actually perceive as lost work — typically
+        // drawn offline (or during a drop) onto a layer someone deleted in
+        // the meantime. Deliberately a quiet notice, not an automatic
+        // room fork: forking on every conflict was considered and rejected
+        // as worse than the problem (a pile of near-duplicate rooms after
+        // any flaky wifi). Nothing else on the canvas is affected.
+        if (result.reason === 'target_gone') setLostWorkNotice(true)
+        return
+      }
+      latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, result.seq)
+      if (op.type === 'stroke') noteLayerSeq(op.layerId, result.seq)
+      // Confirmed — a peer could plausibly reference this id from now on, so
+      // it no longer qualifies as this client's own private local island
+      // (see isLocalIslandSafe/dispatchOp).
+      if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
+      checkSnapshotBoundary()
+    },
+  }), [checkSnapshotBoundary, noteLayerSeq])
   // Tracks whether create_room/join_room has ever succeeded on this socket
   // connection's lineage, so a later auto-reconnect (socket.io's default
   // behavior on a dropped connection) rejoins rather than re-creating the
@@ -598,7 +713,7 @@ export function Room() {
   // (#148) replayLayerState walks the *entire* done-operations array from
   // scratch on every call — cost scaling with total session length, not the
   // current canvas — and syncFromLog is called once per incoming
-  // peer_operation, undo/redo, and finished stroke-reveal (onPreviewApplied).
+  // operation_confirmed, undo/redo, and finished stroke-reveal (onPreviewApplied).
   // Several peers drawing at once easily produces a burst of these calls
   // within the same tick/microtask turn (a socket 'message' handler firing
   // several times before the event loop yields), each currently paying its
@@ -635,7 +750,7 @@ export function Room() {
   }, [])
 
   // Applies an operation that arrived from the network (room_state replay or
-  // peer_operation) exactly once. The guard isn't full reconnect/catch-up
+  // operation_confirmed) exactly once. The guard isn't full reconnect/catch-up
   // logic (#74) — it's a minimal idempotency net: since a reconnect re-runs
   // join_room and gets the *entire* history back in a fresh room_state,
   // without this guard every op already applied before the drop would be
@@ -748,17 +863,23 @@ export function Room() {
       // pointer up) reach this callback — see PencilEngineOptions.onLocalOperation.
       // Remote ops are applied via appendOperation(op, 'remote') below, which
       // skips it, so they're never echoed back to the server.
+      //
+      // (#289 §7/§11) `operation_confirmed` now reaches the author too (see
+      // handleOperationConfirmed below) — mark this id as already-applied
+      // *before* it's even sent, so that later arrival doesn't repaint it a
+      // second time.
+      //
+      // (#289 §9) Sending goes through the Outbox rather than a bare emit:
+      // persisted first, retried with backoff, replayed on reconnect. Its
+      // `onSettled` (see the Outbox construction above) owns everything the
+      // old inline ack callback did — watermark, pendingIds, noteLayerSeq.
       onLocalOperation: op => {
-        socketRef.current?.emit('operation', op, stamped => {
-          // A local op always paints synchronously (real-time, as the user
-          // draws) — never goes through the peer-reveal delay — so it's
-          // always safe to treat as committed the instant its ack arrives.
-          // Still routed through the shared watermark (not applied
-          // directly), since an *earlier*, still-revealing peer stroke can
-          // legitimately hold the watermark back below this op's own seq.
-          latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, stamped.seq ?? 0)
-          checkSnapshotBoundary()
-        })
+        appliedOpIdsRef.current.add(op.id)
+        // (#289 §2/§4) A fresh layer/folder is a "local island" member from
+        // the instant it's created — nobody else could possibly reference
+        // it yet — until its own SendResult settles one way or the other.
+        if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.add(op.layerId)
+        void outbox.enqueue(op)
         if (op.type === 'stroke') markActive(useRoomStore.getState().userId)
       },
       // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
@@ -938,7 +1059,7 @@ export function Room() {
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory, paperVariantUrl,
-    grainMode, dispatchParticipants, isCreator, snapshotUploader,
+    grainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -1170,7 +1291,7 @@ export function Room() {
   // this cursor at its last position instead of following it — the actual
   // stroke shape isn't approximated live any more (#37 follow-up v2): peers
   // instead replay the finished StrokeOperation's own dabs once it lands
-  // (see handlePeerOperation below).
+  // (see handleOperationConfirmed below).
   useEffect(() => {
     const el = vpRef.current
     if (!el || !config) return
@@ -1225,9 +1346,36 @@ export function Room() {
   const dispatchOp = useCallback((draft: OperationDraft) => {
     if (!roomContentReady || isBlockedByFreeze) return
     const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
-    engineRef.current?.appendOperation(op) // source defaults to 'local' → broadcast via onLocalOperation
-    syncFromLog()
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze])
+
+    if (isLocalIslandSafe(op, pendingIdsRef.current)) {
+      engineRef.current?.appendOperation(op) // source defaults to 'local' → broadcast via onLocalOperation
+      syncFromLog()
+      return
+    }
+
+    // (#289 §17) The same operation offline: it can only be resolved by the
+    // server (that's what made it non-optimistic in the first place), and
+    // queueing it would let it land minutes later against a room that has
+    // since moved on. Refuse it up front, visibly, rather than appearing to
+    // accept it. Operations confined to this client's own local island are
+    // unaffected — they took the optimistic branch above and work offline.
+    if (!connected) {
+      window.alert('Нет связи с комнатой — это действие затрагивает общие слои и станет доступно после переподключения.')
+      return
+    }
+
+    // (#289 §2/§4) References at least one id this client didn't itself
+    // just create — a concurrent delete/merge/transform race is possible
+    // (the server checks aliveIds, see rooms.ts), so this must not become
+    // visible locally until confirmed. Sent directly, bypassing
+    // appendOperation/onLocalOperation (which would paint it immediately) —
+    // handleOperationConfirmed's ordinary applyRemoteOp fallback applies it
+    // for real if/when operation_confirmed for this id actually arrives,
+    // exactly like a peer's own op. Still goes through the Outbox (#289 §9)
+    // so a dropped packet is retried rather than silently swallowed — its
+    // `onSettled` handles the verdict either way.
+    void outbox.enqueue(op)
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected])
 
   // (#263) LayerPanel has no direct engine access — this is the same
   // engineRef-backed-callback shape as dispatchOp above, threaded down as a
@@ -1691,6 +1839,13 @@ export function Room() {
     // ownership/authorship key off the same stable id every time.
     const handleConnect = () => {
       setConnected(true)
+      // (#289 §9) A fresh connection means any send still in flight on the
+      // old one is moot, whether or not it actually reached the server —
+      // replay everything the Outbox still holds. Safe to resend blindly:
+      // the server dedups by Operation.id (see rooms.ts's
+      // findDuplicateOperation), so a redundant resend just comes back
+      // `{ ok: true, duplicate: true }`.
+      void outbox.resendAll()
 
       if (isCreator && creatorDraft) {
         if (!hasJoinedRef.current) {
@@ -1750,6 +1905,26 @@ export function Room() {
       }
     }
 
+    // (#289 §12) Re-requests the room's state from scratch-as-of-what-we-
+    // have, the same way a reconnect does, without waiting for (or needing)
+    // an actual socket drop — the response arrives as an ordinary
+    // `room_state`, which handleRoomState already knows how to fold in.
+    // Used when the live confirmed stream turns out to have a gap, i.e. the
+    // connection was interrupted at some point without this client noticing.
+    const requestFullResync = () => {
+      lastConfirmedSeqRef.current = 0 // the stream restarts from this room_state
+      const credentials = lastJoinAttemptRef.current
+        ?? { name: getOrCreateDisplayName(localStorage), password: creatorDraft?.password }
+      socket.emit(
+        'join_room',
+        { roomId: id, ...credentials, lastKnownSeq: latestKnownSeqRef.current || undefined },
+        result => {
+          if (result.ok) applyIdentity(result.userId)
+          else console.error('join_room failed during gap resync', result)
+        },
+      )
+    }
+
     const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen }: {
       room: RoomEntity; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
       palette: string[]; frozen: boolean
@@ -1761,7 +1936,7 @@ export function Room() {
       // Bulk catch-up (join/reconnect), not a live single operation — doesn't
       // trigger snapshotUploader here even if it spans a checkpoint
       // boundary. Any client live at the moment a boundary was actually
-      // crossed already baked it (see onLocalOperation/handlePeerOperation
+      // crossed already baked it (see onLocalOperation/handleOperationConfirmed
       // below); this client wasn't present for it, and doesn't need to
       // retroactively contribute a bake for history it's only now replaying.
       for (const op of tailOperations) latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
@@ -1897,18 +2072,69 @@ export function Room() {
       }
     }
 
-    const handlePeerOperation = (op: Operation) => {
-      latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, op.seq ?? 0)
+    // (#289 §7/§11 — reliable history spec v0.2) Renamed from
+    // handlePeerOperation: this now fires for *every* confirmed operation,
+    // including this client's own — `operation_confirmed` is broadcast via
+    // `io.to`, not `socket.to`, specifically so every client (author
+    // included) paints strictly through this one WebSocket-ordered stream
+    // rather than racing it against a separate, faster ack. `seq` comes
+    // from the envelope, not `operation.seq` (optional until stamped) —
+    // simpler for logging/diagnostics, per the same spec.
+    const handleOperationConfirmed = ({ seq, operation: op }: { seq: number; operation: Operation }) => {
+      // (#289 §12) A gap in this stream is impossible on an unbroken
+      // connection (TCP never silently drops or reorders within one), so
+      // seeing one means the connection was interrupted without this client
+      // noticing — a backgrounded tab, a sleeping device, a proxy recycling
+      // the socket. Don't try to patch the hole; distrust the live stream
+      // and redo the same full catch-up a normal reconnect does.
+      if (hasSeqGap(lastConfirmedSeqRef.current, seq)) {
+        console.warn(`[sync] seq gap: expected ${lastConfirmedSeqRef.current + 1}, got ${seq} — resyncing`)
+        requestFullResync()
+        return
+      }
+      lastConfirmedSeqRef.current = Math.max(lastConfirmedSeqRef.current, seq)
+      latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, seq)
+      if (appliedOpIdsRef.current.has(op.id)) {
+        // This client's own operation, looping back through the same
+        // ordered stream every peer gets — onLocalOperation already applied
+        // it optimistically at dispatch time, so there is nothing left to
+        // paint here. Advancing the watermark above is the only thing this
+        // arrival still needs to do (noteLayerSeq is also called from
+        // onLocalOperation's own ack — calling it again here is redundant
+        // but harmless, and covers the rare case this arrives first).
+        if (op.type === 'stroke') noteLayerSeq(op.layerId, seq)
+        checkSnapshotBoundary()
+        return
+      }
       // Stroke ops are revealed progressively (#37 follow-up v2) rather than
       // committed on arrival — see the engine's onPreviewApplied option
       // above, which does the actual applyRemoteOp/syncFromLog once the
       // reveal finishes playing every dab back.
       if (op.type === 'stroke') {
+        noteLayerSeq(op.layerId, seq)
+        // (#289 §16) A live client that simply can't keep up (weak device,
+        // several peers drawing at once) used to accumulate an unbounded
+        // reveal backlog with nothing watching it. Past the threshold, drop
+        // the animation and apply immediately — the same "correct content
+        // now, no animation" tradeoff join/reconnect catch-up already
+        // makes — until the backlog is comfortably small again.
+        const backlog = pendingPreviewOpIdsRef.current.size
+        if (catchingUpRef.current ? !shouldLeaveCatchUp(backlog) : shouldEnterCatchUp(backlog)) {
+          if (!catchingUpRef.current) {
+            catchingUpRef.current = true
+            console.warn(`[sync] falling behind (${backlog} strokes queued) — applying without animation`)
+          }
+          applyRemoteOp(op)
+          syncFromLog()
+          checkSnapshotBoundary()
+          return
+        }
+        catchingUpRef.current = false
         pendingPreviewOpIdsRef.current.add(op.id)
         // Arrived, not yet committed (#149) — held out of the snapshot
         // watermark until onPreviewApplied's reveal-complete commit deletes
         // it. See pendingCommitSeqsRef's own doc comment.
-        pendingCommitSeqsRef.current.add(op.seq ?? 0)
+        pendingCommitSeqsRef.current.add(seq)
         engineRef.current?.previewOperation(op)
         return
       }
@@ -2003,7 +2229,7 @@ export function Room() {
 
     socket.on('connect',                    handleConnect)
     socket.on('room_state',                 handleRoomState)
-    socket.on('peer_operation',             handlePeerOperation)
+    socket.on('operation_confirmed',        handleOperationConfirmed)
     socket.on('peer_joined',                handlePeerJoined)
     socket.on('peer_left',                  handlePeerLeft)
     socket.on('palette_updated',            handlePaletteUpdated)
@@ -2017,7 +2243,8 @@ export function Room() {
     }
   }, [
     id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary,
-    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, snapshotUploader,
+    restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, snapshotUploader, noteLayerSeq,
+    outbox,
   ])
 
   // Submits the join gate (joiner path only): connects/join_room's with the
@@ -2548,6 +2775,9 @@ export function Room() {
               triggering their own room-wide freeze isn't blocked by it (see
               isBlockedByFreeze), so this never shows for them. */}
           {isBlockedByFreeze && <FrozenBanner roomFrozen={roomFrozen} />}
+          {/* (#289 §17) Independent of the freeze banner above — both can be
+              up at once, hence the stacked offset in its own CSS. */}
+          {lostWorkNotice && <LostWorkBanner onDismiss={() => setLostWorkNotice(false)} />}
         </div>
 
         {/* ── Side panel (layers, color, …) ── */}

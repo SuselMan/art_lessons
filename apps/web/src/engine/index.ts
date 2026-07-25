@@ -307,6 +307,27 @@ export interface PencilEngineAPI {
   // start, one page at a time — see Room's backfill orchestration). Safe to
   // call repeatedly, once per page.
   absorbHistoricalOperations(ops: Operation[]): void
+  // (#289 epic, reliable history spec v0.2 §13) Bakes the same bytes
+  // bakeNetworkSnapshot would, but reached by a deliberately *independent*
+  // route: a scratch buffer replayed from zero through every one of this
+  // layer's done pixel operations, never consulting `_checkpoints` and
+  // never reading the live layer buffer. Comparing the two is what turns
+  // "the incremental/checkpoint path agrees with itself" into a real check.
+  //
+  // This is the oracle that would have caught #287: there, the *live*
+  // buffer held snapshot-restored pixels that the checkpoint machinery
+  // couldn't see, so an undo silently rebuilt the layer from an
+  // incomplete log — while every client, running that same buggy path,
+  // agreed with every other client. Two clients comparing hashes prove
+  // nothing about a bug they both execute identically; a second, simpler
+  // path within one client does.
+  //
+  // Returns null on the same conditions bakeNetworkSnapshot does (unknown
+  // layer, no pixel ops, nothing resident) so the two are directly
+  // comparable — a caller checks `bake === null && verify === null` as
+  // agreement too. Deliberately expensive (full from-scratch replay): for
+  // background verification, never the live path.
+  bakeLayerByFullReplay(layerId: string): Uint8Array | null
   getOperations(): Operation[]
   // (#169) Same as getOperations(), but excludes whatever
   // absorbHistoricalOperations has merged in so far. Room's LayerState is
@@ -2773,6 +2794,35 @@ export class PencilEngine implements PencilEngineAPI {
     }))
     if (!tiles.length) return null
     return encodeLayerTiles(tiles)
+  }
+
+  /** See the PencilEngineAPI doc comment for the full reasoning on why this
+   *  exists alongside bakeNetworkSnapshot rather than sharing its code.
+   *
+   *  The independence is the entire point, so this deliberately does NOT
+   *  route through `_replayInto` (which consults `_bestCheckpoint` and would
+   *  reintroduce exactly the shared machinery being checked) — it walks the
+   *  done pixel ops itself, from an empty scratch buffer, applying each via
+   *  the same `_applyPixelOp` primitive a first-ever paint would. Any future
+   *  optimization added here would silently destroy its value as an oracle;
+   *  keep it dumb. */
+  bakeLayerByFullReplay(layerId: string): Uint8Array | null {
+    if (!this._layers.has(layerId)) return null
+    const ops = this._log.layerPixelOps(layerId)
+    if (!ops.length) return null
+
+    const scratch = this._makeLayerBuffer(layerId)
+    try {
+      scratch.clear()
+      for (const op of ops) this._applyPixelOp(scratch, layerId, op)
+      const tiles = scratch.allResident().map(({ buffer, originX, originY }) => ({
+        originX, originY, width: buffer.width, height: buffer.height, pixels: buffer.readPixels(),
+      }))
+      if (!tiles.length) return null
+      return encodeLayerTiles(tiles)
+    } finally {
+      scratch.destroy()
+    }
   }
 
   /** See the PencilEngineAPI doc comment. Mirrors _replayInto's own

@@ -152,32 +152,32 @@ describe('getLatestSnapshot', () => {
   })
 })
 
-// 2026-07-19 (#206/#207): replay was dropped from the roadmap, so full
-// operation history no longer needs to survive past the session that
-// produced it — leaveRoom now prunes whatever's already covered by a
-// snapshot once the room goes genuinely idle. See rooms.ts's own doc
-// comments on leaveRoom/pruneOperationsBeforeSnapshot for the full
-// reasoning (in particular: why this can never delete *unsafely*, and why
-// the worst-case unpruned leftover is bounded, not unbounded).
-describe('leaveRoom prunes operations once the room has a covering snapshot', () => {
-  it('deletes every operation at or before the latest snapshot once the last participant leaves', async () => {
+// 2026-07-19 (#206/#207) introduced idle-time pruning of operations already
+// covered by a snapshot. 2026-07-25 (#289, reliable history spec v0.2 §5)
+// disabled it: #287 proved in production that "a snapshot exists for this
+// seq" does NOT imply the operations it covers are safely redundant — a
+// snapshot baked from an already-corrupt client passes that test perfectly,
+// and pruning then destroys the only evidence that could rebuild the room.
+// Deletion now requires independent corroboration (see the engine's
+// bakeLayerByFullReplay oracle and RoomSnapshot.verification), which isn't
+// wired end-to-end yet — so nothing is deleted at all for now. See
+// pruneOperationsBeforeSnapshot's own doc comment in rooms.ts.
+describe('leaveRoom no longer prunes operations (#289 — pending snapshot verification)', () => {
+  it('keeps operations even once a covering snapshot exists and the room goes idle', async () => {
     const roomId = makeRoom()
     recordOperation(roomId, stroke('a'))
     mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
     await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)
 
     leaveRoom(roomId, 'owner-1', `sock-${roomId}`)
-    // Deferred eviction (see leaveRoom's own doc comment) chains the prune
-    // itself onto a *new* per-room write only once the room's already-
-    // pending writes settle — one flush can race that hand-off, so flush
-    // twice: once to let that happen, once more to wait for the prune write
-    // it just enqueued.
+    // Two flushes, as before: deferred eviction chains onto a *new* per-room
+    // write once the already-pending ones settle (see leaveRoom's doc
+    // comment) — flushing twice makes sure a prune would have landed by now
+    // if one were still being issued at all.
     await _flushPendingWrites(roomId)
     await _flushPendingWrites(roomId)
 
-    expect(mockPrisma.operation.deleteMany).toHaveBeenCalledWith({
-      where: { roomId, seq: { lte: SNAPSHOT_SEQ_INTERVAL } },
-    })
+    expect(mockPrisma.operation.deleteMany).not.toHaveBeenCalled()
   })
 
   it('does nothing when the room has never crossed a checkpoint (no covering snapshot yet)', async () => {

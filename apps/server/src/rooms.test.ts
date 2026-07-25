@@ -1,11 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import type { LayerOwnerLockOperation, LayerVisibilityOperation, Operation, StrokeOperation } from '@art-lessons/shared'
+import type {
+  LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerOwnerLockOperation, LayerTransformOperation,
+  LayerVisibilityOperation, Operation, StrokeOperation,
+} from '@art-lessons/shared'
 
 import {
-  _flushPendingWrites, createRoom, getOperationsBefore, getParticipant, getRoomSnapshot, isLayerOwnerLocked,
-  isOperationAllowed, isRoomFrozen, joinRoom, leaveRoom, recordOperation, setLayerOwnerLocked,
-  setParticipantFrozen, setRoomFrozen,
+  _flushPendingWrites, createRoom, findDuplicateOperation, getOperationRejectReason, getOperationsBefore,
+  getParticipant, getRoomSnapshot, isLayerOwnerLocked, isOperationAllowed, isRoomFrozen, joinRoom, leaveRoom,
+  recordOperation, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 
 // Each test uses its own roomId — `rooms` is module-level shared state with no
@@ -68,6 +71,55 @@ function layerVisibility(overrides: Partial<LayerVisibilityOperation> = {}): Lay
     timestamp: overrides.timestamp ?? 0,
     layerId: overrides.layerId ?? 'layer-1',
     visible: overrides.visible ?? false,
+    ...overrides,
+  }
+}
+
+function layerAdd(overrides: Partial<LayerAddOperation> = {}): LayerAddOperation {
+  return {
+    id: overrides.id ?? 'op-add-1',
+    type: 'layer_add',
+    userId: overrides.userId ?? 'user-a',
+    timestamp: overrides.timestamp ?? 0,
+    layerId: overrides.layerId ?? 'layer-1',
+    name: overrides.name ?? 'Layer',
+    ...overrides,
+  }
+}
+
+function layerDelete(overrides: Partial<LayerDeleteOperation> = {}): LayerDeleteOperation {
+  return {
+    id: overrides.id ?? 'op-del-1',
+    type: 'layer_delete',
+    userId: overrides.userId ?? 'user-a',
+    timestamp: overrides.timestamp ?? 0,
+    layerIds: overrides.layerIds ?? ['layer-1'],
+    ...overrides,
+  }
+}
+
+function layerMerge(overrides: Partial<LayerMergeOperation> = {}): LayerMergeOperation {
+  return {
+    id: overrides.id ?? 'op-merge-1',
+    type: 'layer_merge',
+    userId: overrides.userId ?? 'user-a',
+    timestamp: overrides.timestamp ?? 0,
+    layerId: overrides.layerId ?? 'layer-merged',
+    name: overrides.name ?? 'Merged',
+    sources: overrides.sources ?? [{ id: 'layer-1', opacity: 1 }, { id: 'layer-2', opacity: 1 }],
+    parentId: overrides.parentId ?? null,
+    index: overrides.index ?? 0,
+    ...overrides,
+  }
+}
+
+function layerTransform(overrides: Partial<LayerTransformOperation> = {}): LayerTransformOperation {
+  return {
+    id: overrides.id ?? 'op-transform-1',
+    type: 'layer_transform',
+    userId: overrides.userId ?? 'user-a',
+    timestamp: overrides.timestamp ?? 0,
+    transforms: overrides.transforms ?? [{ layerId: 'layer-1', matrix: [1, 0, 0, 1, 0, 0] }],
     ...overrides,
   }
 }
@@ -642,5 +694,185 @@ describe('isOperationAllowed', () => {
 
   it('returns false for an unknown room', () => {
     expect(isOperationAllowed('never-created', 'someone', stroke())).toBe(false)
+  })
+})
+
+// (#289 epic, reliable history spec v0.2 §8) getOperationRejectReason is the
+// same choke point as isOperationAllowed above, just returning *why* rather
+// than a bare boolean — a rejected operation now gets an explicit SendResult
+// back instead of silence.
+describe('getOperationRejectReason', () => {
+  it('returns null for an allowed operation', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+
+    expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBeNull()
+  })
+
+  it('reports room_frozen for a non-owner while the room is frozen', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    setRoomFrozen(roomId, true)
+
+    expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe('room_frozen')
+  })
+
+  it('reports participant_frozen for a frozen participant\'s own operation', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    setParticipantFrozen(roomId, 'student-1', true)
+
+    expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe('participant_frozen')
+  })
+
+  it('reports layer_owner_locked for an operation targeting a locked layer', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    setLayerOwnerLocked(roomId, 'layer-locked', true)
+
+    expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'layer-locked' })))
+      .toBe('layer_owner_locked')
+  })
+
+  it('reports not_owner for operation_revoke/layer_owner_lock from a non-owner', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+
+    const revoke: Operation = { id: 'r1', type: 'operation_revoke', userId: 'student-1', timestamp: 0, targetOpId: 'x' }
+    expect(getOperationRejectReason(roomId, 'student-1', revoke)).toBe('not_owner')
+    expect(getOperationRejectReason(roomId, 'student-1', layerOwnerLock({ userId: 'student-1' }))).toBe('not_owner')
+  })
+})
+
+// (#289 epic, reliable history spec v0.2 §10) findDuplicateOperation backs
+// the server-side dedup: a retried send must resolve to the same seq, not
+// record the same content a second time.
+describe('findDuplicateOperation', () => {
+  it('returns undefined for an operation id never recorded', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(findDuplicateOperation(roomId, 'never-sent')).toBeUndefined()
+  })
+
+  it('finds a previously recorded operation by its client-generated id', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const stamped = recordOperation(roomId, stroke({ id: 'dup-1', userId: 'owner-1' }))
+
+    const found = findDuplicateOperation(roomId, 'dup-1')
+    expect(found?.seq).toBe(stamped.seq)
+  })
+
+  it('returns undefined for an unknown room', () => {
+    expect(findDuplicateOperation('never-created', 'op-1')).toBeUndefined()
+  })
+})
+
+// (#289 epic, reliable history spec v0.2 §8) The one place besides the
+// owner-lock mirror the server inspects operation *content* — rejects
+// layer_delete/layer_merge/layer_transform outright when they reference an
+// id updateAliveIds doesn't currently know as alive, instead of silently
+// accepting a race (concurrent delete + merge of the same layer) that used
+// to resolve independently, and possibly differently, on every client.
+describe('getOperationRejectReason — target_gone', () => {
+  it('allows layer_delete targeting a layer updateAliveIds already knows about', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-1' }))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-1'] }))).toBeNull()
+  })
+
+  it('rejects layer_delete targeting a layer that was never added', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['never-added'] })))
+      .toBe('target_gone')
+  })
+
+  it('rejects layer_merge when a source was already deleted (the delete-vs-merge race)', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-a' }))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-b' }))
+    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-b'] })) // raced in first
+
+    const merge = layerMerge({ sources: [{ id: 'layer-a', opacity: 1 }, { id: 'layer-b', opacity: 1 }] })
+    expect(getOperationRejectReason(roomId, 'owner-1', merge)).toBe('target_gone')
+  })
+
+  it('allows layer_merge when every source is still alive', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-a' }))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-b' }))
+
+    const merge = layerMerge({ sources: [{ id: 'layer-a', opacity: 1 }, { id: 'layer-b', opacity: 1 }] })
+    expect(getOperationRejectReason(roomId, 'owner-1', merge)).toBeNull()
+  })
+
+  it('rejects layer_transform targeting an id that does not exist', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    const transform = layerTransform({ transforms: [{ layerId: 'never-added', matrix: [1, 0, 0, 1, 0, 0] }] })
+    expect(getOperationRejectReason(roomId, 'owner-1', transform)).toBe('target_gone')
+  })
+
+  it('rejects target_gone even for the room owner — existence is not a privilege', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['never-added'] })))
+      .toBe('target_gone')
+  })
+
+  it('does not gate operation types outside delete/merge/transform', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+
+    // A stroke on a nonexistent layer degrades gracefully client-side (see
+    // engine/index.ts's appendOperation) — the server never rejects it.
+    expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'never-added' })))
+      .toBeNull()
+  })
+})
+
+describe('updateAliveIds', () => {
+  it('adds layer_add/folder_add ids, removes layer_delete ids', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-1' }))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-1'] }))).toBeNull()
+
+    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-1'] }))
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-1'] })))
+      .toBe('target_gone')
+  })
+
+  it('layer_merge adds the merged result and removes every source', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-a' }))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-b' }))
+    updateAliveIds(roomId, layerMerge({
+      layerId: 'layer-merged', sources: [{ id: 'layer-a', opacity: 1 }, { id: 'layer-b', opacity: 1 }],
+    }))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-a'] }))).toBe('target_gone')
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-merged'] }))).toBeNull()
+  })
+
+  it('is a no-op for an unknown room', () => {
+    expect(() => updateAliveIds('never-created', layerAdd())).not.toThrow()
   })
 })
