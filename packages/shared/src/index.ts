@@ -416,7 +416,7 @@ export type CursorMoveData = {
 // snapshot at all — see its own comment.
 export const SNAPSHOT_SEQ_INTERVAL = 100
 
-// Result of sending one `Operation` to the server (#297 epic — reliable
+// Result of sending one `Operation` to the server (#289 epic — reliable
 // history spec v0.2). Replaces the old "ack always receives the stamped
 // copy" contract: every operation now gets an explicit verdict, including
 // ones previously rejected in total silence (room/participant freeze,

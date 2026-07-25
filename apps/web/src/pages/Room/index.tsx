@@ -135,7 +135,7 @@ function isNegligibleTransform(handle: TransformHandleKind, m: AffineMatrix): bo
   return Math.abs(m[0] - 1) < 0.001 // corners: uniform, m[0] === m[3] === scale
 }
 
-// (#297 epic, reliable history spec v0.2 §9) A bare socket.io ack has no
+// (#289 epic, reliable history spec v0.2 §9) A bare socket.io ack has no
 // timeout of its own — a dropped packet (either leg) would otherwise leave
 // the Outbox waiting forever instead of ever retrying. `socket` is read at
 // call time by the caller (never closed over stale), since Outbox.send is
@@ -426,7 +426,7 @@ export function Room() {
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
-  // (#297 §17) Set when the server rejected an operation as `target_gone` —
+  // (#289 §17) Set when the server rejected an operation as `target_gone` —
   // the only rejection that can read as "my work vanished" (drawn while
   // offline/dropped onto a layer since deleted). Shown as a dismissible
   // notice; deliberately not an automatic room fork (see Outbox's onSettled).
@@ -485,7 +485,7 @@ export function Room() {
     engineRef.current?.setUserId(userId)
   }, [])
   const appliedOpIdsRef   = useRef<Set<string>>(new Set())
-  // (#297 epic — reliable history spec v0.2 §2/§4, Phase 2 diagnostic) Highest
+  // (#289 epic — reliable history spec v0.2 §2/§4, Phase 2 diagnostic) Highest
   // confirmed `seq` applied to each layer so far, keyed by layerId. Exists
   // purely to *detect and log* the one remaining ordering hazard Phase 1
   // doesn't close: this client's own stroke still paints immediately, at
@@ -513,7 +513,7 @@ export function Room() {
     }
     layerAppliedSeqRef.current.set(layerId, seq)
   }, [])
-  // (#297 epic — reliable history spec v0.2 §2/§4) layerId/folderId this
+  // (#289 epic — reliable history spec v0.2 §2/§4) layerId/folderId this
   // client itself created but the server hasn't confirmed yet — the
   // "local island" isLocalIslandSafe checks a layer_delete/layer_merge/
   // layer_transform's targets against. Added the instant a layer_add/
@@ -522,12 +522,12 @@ export function Room() {
   // a peer could plausibly reference too; rejected means it never became
   // real in the first place.
   const pendingIdsRef = useRef<Set<string>>(new Set())
-  // (#297 §12) Last seq seen on the live confirmed stream — distinct from
+  // (#289 §12) Last seq seen on the live confirmed stream — distinct from
   // latestKnownSeqRef, which also folds in bulk room_state catch-up and so
   // can't tell "the live stream skipped something" from "we just replayed a
   // batch". Reset on every full resync, since the stream restarts there.
   const lastConfirmedSeqRef = useRef(0)
-  // (#297 §16) True while this client is deliberately skipping peer-stroke
+  // (#289 §16) True while this client is deliberately skipping peer-stroke
   // reveal animation to work through a backlog — see handleOperationConfirmed.
   const catchingUpRef = useRef(false)
   // (#169) A live operation_undo/operation_redo/operation_revoke whose
@@ -568,7 +568,7 @@ export function Room() {
   // learned from that same first event).
   const firstRoomStateReceivedRef = useRef(false)
   // Highest operation seq this client has definitely seen — from ack'd local
-  // operations and from operation_confirmed's envelopes (#149/#297). Sent back as
+  // operations and from operation_confirmed's envelopes (#149/#289). Sent back as
   // lastKnownSeq on every join_room/create_room (including reconnects), so
   // the server can trim room_state's tailOperations instead of resending
   // everything already known. 0 means "nothing yet," same as omitting it.
@@ -603,7 +603,7 @@ export function Room() {
     snapshotUploader.onSeqObserved(previous, watermark, engine, useRoomStore.getState().layerState)
   }, [snapshotUploader])
 
-  // (#297 epic, reliable history spec v0.2 §9) Every outgoing operation goes
+  // (#289 epic, reliable history spec v0.2 §9) Every outgoing operation goes
   // through here rather than a bare `socket.emit` — persisted to IndexedDB
   // first, retried with exponential backoff until a real `SendResult`
   // arrives, and replayed wholesale on reconnect (see handleConnect's
@@ -624,7 +624,7 @@ export function Room() {
         // Never became real — drop it back out of the local island so a
         // later delete/merge targeting it isn't wrongly treated as safe.
         if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
-        // (#297 §17) `target_gone` on a stroke-bearing op is the one
+        // (#289 §17) `target_gone` on a stroke-bearing op is the one
         // rejection a user can actually perceive as lost work — typically
         // drawn offline (or during a drop) onto a layer someone deleted in
         // the meantime. Deliberately a quiet notice, not an automatic
@@ -864,18 +864,18 @@ export function Room() {
       // Remote ops are applied via appendOperation(op, 'remote') below, which
       // skips it, so they're never echoed back to the server.
       //
-      // (#297 §7/§11) `operation_confirmed` now reaches the author too (see
+      // (#289 §7/§11) `operation_confirmed` now reaches the author too (see
       // handleOperationConfirmed below) — mark this id as already-applied
       // *before* it's even sent, so that later arrival doesn't repaint it a
       // second time.
       //
-      // (#297 §9) Sending goes through the Outbox rather than a bare emit:
+      // (#289 §9) Sending goes through the Outbox rather than a bare emit:
       // persisted first, retried with backoff, replayed on reconnect. Its
       // `onSettled` (see the Outbox construction above) owns everything the
       // old inline ack callback did — watermark, pendingIds, noteLayerSeq.
       onLocalOperation: op => {
         appliedOpIdsRef.current.add(op.id)
-        // (#297 §2/§4) A fresh layer/folder is a "local island" member from
+        // (#289 §2/§4) A fresh layer/folder is a "local island" member from
         // the instant it's created — nobody else could possibly reference
         // it yet — until its own SendResult settles one way or the other.
         if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.add(op.layerId)
@@ -1353,7 +1353,7 @@ export function Room() {
       return
     }
 
-    // (#297 §17) The same operation offline: it can only be resolved by the
+    // (#289 §17) The same operation offline: it can only be resolved by the
     // server (that's what made it non-optimistic in the first place), and
     // queueing it would let it land minutes later against a room that has
     // since moved on. Refuse it up front, visibly, rather than appearing to
@@ -1364,14 +1364,14 @@ export function Room() {
       return
     }
 
-    // (#297 §2/§4) References at least one id this client didn't itself
+    // (#289 §2/§4) References at least one id this client didn't itself
     // just create — a concurrent delete/merge/transform race is possible
     // (the server checks aliveIds, see rooms.ts), so this must not become
     // visible locally until confirmed. Sent directly, bypassing
     // appendOperation/onLocalOperation (which would paint it immediately) —
     // handleOperationConfirmed's ordinary applyRemoteOp fallback applies it
     // for real if/when operation_confirmed for this id actually arrives,
-    // exactly like a peer's own op. Still goes through the Outbox (#297 §9)
+    // exactly like a peer's own op. Still goes through the Outbox (#289 §9)
     // so a dropped packet is retried rather than silently swallowed — its
     // `onSettled` handles the verdict either way.
     void outbox.enqueue(op)
@@ -1839,7 +1839,7 @@ export function Room() {
     // ownership/authorship key off the same stable id every time.
     const handleConnect = () => {
       setConnected(true)
-      // (#297 §9) A fresh connection means any send still in flight on the
+      // (#289 §9) A fresh connection means any send still in flight on the
       // old one is moot, whether or not it actually reached the server —
       // replay everything the Outbox still holds. Safe to resend blindly:
       // the server dedups by Operation.id (see rooms.ts's
@@ -1905,7 +1905,7 @@ export function Room() {
       }
     }
 
-    // (#297 §12) Re-requests the room's state from scratch-as-of-what-we-
+    // (#289 §12) Re-requests the room's state from scratch-as-of-what-we-
     // have, the same way a reconnect does, without waiting for (or needing)
     // an actual socket drop — the response arrives as an ordinary
     // `room_state`, which handleRoomState already knows how to fold in.
@@ -2072,7 +2072,7 @@ export function Room() {
       }
     }
 
-    // (#297 §7/§11 — reliable history spec v0.2) Renamed from
+    // (#289 §7/§11 — reliable history spec v0.2) Renamed from
     // handlePeerOperation: this now fires for *every* confirmed operation,
     // including this client's own — `operation_confirmed` is broadcast via
     // `io.to`, not `socket.to`, specifically so every client (author
@@ -2081,7 +2081,7 @@ export function Room() {
     // from the envelope, not `operation.seq` (optional until stamped) —
     // simpler for logging/diagnostics, per the same spec.
     const handleOperationConfirmed = ({ seq, operation: op }: { seq: number; operation: Operation }) => {
-      // (#297 §12) A gap in this stream is impossible on an unbroken
+      // (#289 §12) A gap in this stream is impossible on an unbroken
       // connection (TCP never silently drops or reorders within one), so
       // seeing one means the connection was interrupted without this client
       // noticing — a backgrounded tab, a sleeping device, a proxy recycling
@@ -2112,7 +2112,7 @@ export function Room() {
       // reveal finishes playing every dab back.
       if (op.type === 'stroke') {
         noteLayerSeq(op.layerId, seq)
-        // (#297 §16) A live client that simply can't keep up (weak device,
+        // (#289 §16) A live client that simply can't keep up (weak device,
         // several peers drawing at once) used to accumulate an unbounded
         // reveal backlog with nothing watching it. Past the threshold, drop
         // the animation and apply immediately — the same "correct content
@@ -2775,7 +2775,7 @@ export function Room() {
               triggering their own room-wide freeze isn't blocked by it (see
               isBlockedByFreeze), so this never shows for them. */}
           {isBlockedByFreeze && <FrozenBanner roomFrozen={roomFrozen} />}
-          {/* (#297 §17) Independent of the freeze banner above — both can be
+          {/* (#289 §17) Independent of the freeze banner above — both can be
               up at once, hence the stacked offset in its own CSS. */}
           {lostWorkNotice && <LostWorkBanner onDismiss={() => setLostWorkNotice(false)} />}
         </div>

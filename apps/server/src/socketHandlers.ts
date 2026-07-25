@@ -100,11 +100,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       ack({ ok: true, userId })
     })
 
-    // Operation relay (#34/#35, reworked by #297 — reliable history spec
+    // Operation relay (#34/#35, reworked by #289 — reliable history spec
     // v0.2): broadcast to *every* socket in the room, including the sender,
     // and append to the room's log, which backs the #36 snapshot.
     //
-    // (#297 §7/§11) `operation_confirmed` replaces `peer_operation` as the
+    // (#289 §7/§11) `operation_confirmed` replaces `peer_operation` as the
     // one and only channel that ever paints into a client's confirmed
     // buffer — sent via `io.to`, not `socket.to`, specifically so the
     // author receives their own operation through the exact same
@@ -122,7 +122,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // silent drop (indistinguishable from a lost packet to the sender —
     // an outbox retry loop needs to tell the two apart).
     //
-    // (#297 §10) `findDuplicateOperation` dedups by the client-generated
+    // (#289 §10) `findDuplicateOperation` dedups by the client-generated
     // `Operation.id` before ever assigning a new seq — a retried send
     // (outbox timeout racing an ack that was merely slow) must resolve to
     // the same seq, not record the stroke a second time.
@@ -166,7 +166,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // recordOperation, not after, though the two never race each other
         // either way (single-threaded, no `await` in between).
         if (op.type === 'layer_owner_lock') setLayerOwnerLocked(roomId, op.layerId, op.locked)
-        // (#297 epic) Same reasoning, for the aliveIds mirror
+        // (#289 epic) Same reasoning, for the aliveIds mirror
         // getOperationRejectReason's target_gone check above just read.
         updateAliveIds(roomId, op)
 

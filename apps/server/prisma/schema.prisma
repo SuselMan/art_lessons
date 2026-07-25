@@ -139,7 +139,7 @@ model RoomSnapshot {
   data       Bytes
   hash       String
   createdAt  DateTime @default(now())
-  // (#297 epic, reliable history spec v0.2 §13) Whether this snapshot has
+  // (#289 epic, reliable history spec v0.2 §13) Whether this snapshot has
   // been independently corroborated. `unverified` on arrival; `verified`
   // once a second, independently-produced bake of the same seq matched this
   // one's hash; `disputed` if one didn't. Only a `verified` snapshot may

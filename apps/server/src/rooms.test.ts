@@ -697,7 +697,7 @@ describe('isOperationAllowed', () => {
   })
 })
 
-// (#297 epic, reliable history spec v0.2 §8) getOperationRejectReason is the
+// (#289 epic, reliable history spec v0.2 §8) getOperationRejectReason is the
 // same choke point as isOperationAllowed above, just returning *why* rather
 // than a bare boolean — a rejected operation now gets an explicit SendResult
 // back instead of silence.
@@ -749,7 +749,7 @@ describe('getOperationRejectReason', () => {
   })
 })
 
-// (#297 epic, reliable history spec v0.2 §10) findDuplicateOperation backs
+// (#289 epic, reliable history spec v0.2 §10) findDuplicateOperation backs
 // the server-side dedup: a retried send must resolve to the same seq, not
 // record the same content a second time.
 describe('findDuplicateOperation', () => {
@@ -774,7 +774,7 @@ describe('findDuplicateOperation', () => {
   })
 })
 
-// (#297 epic, reliable history spec v0.2 §8) The one place besides the
+// (#289 epic, reliable history spec v0.2 §8) The one place besides the
 // owner-lock mirror the server inspects operation *content* — rejects
 // layer_delete/layer_merge/layer_transform outright when they reference an
 // id updateAliveIds doesn't currently know as alive, instead of silently

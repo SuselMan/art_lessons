@@ -307,7 +307,7 @@ export interface PencilEngineAPI {
   // start, one page at a time — see Room's backfill orchestration). Safe to
   // call repeatedly, once per page.
   absorbHistoricalOperations(ops: Operation[]): void
-  // (#297 epic, reliable history spec v0.2 §13) Bakes the same bytes
+  // (#289 epic, reliable history spec v0.2 §13) Bakes the same bytes
   // bakeNetworkSnapshot would, but reached by a deliberately *independent*
   // route: a scratch buffer replayed from zero through every one of this
   // layer's done pixel operations, never consulting `_checkpoints` and

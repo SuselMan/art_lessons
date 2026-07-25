@@ -75,7 +75,7 @@ interface RoomRecord {
   // `roomFrozen`/`frozenUserIds`) this mirrors real operation-log content,
   // not ephemeral session state.
   lockedLayerIds: Set<string>
-  // (#297 epic, reliable history spec v0.2 §8) Which layerId/folderId are
+  // (#289 epic, reliable history spec v0.2 §8) Which layerId/folderId are
   // currently alive — created (base `BACKGROUND_LAYER_ID`, or a done
   // `layer_add`/`folder_add`/`layer_merge` result) and not since destroyed
   // (listed in a done `layer_delete`, or consumed as a `layer_merge`
@@ -88,7 +88,7 @@ interface RoomRecord {
   // set, instead of silently accepting a race that would otherwise resolve
   // differently (and possibly divergently) on every client's own replay.
   aliveIds: Set<string>
-  // (#297 epic, reliable history spec v0.2 §10) Index of every operation
+  // (#289 epic, reliable history spec v0.2 §10) Index of every operation
   // currently in `operations`, keyed by its client-generated `Operation.id`
   // — lets `findDuplicateOperation` answer "have we already recorded this
   // exact operation" in O(1) instead of scanning `operations` on every
@@ -188,7 +188,7 @@ function persistOperation(roomId: string, op: Operation): void {
  *  once a room has gone genuinely empty (see `leaveRoom`), and only prunes
  *  what's already safely covered by an existing RoomSnapshot.
  *
- *  (#297 epic, reliable history spec v0.2 §5/§13 — 2026-07-25) DISABLED
+ *  (#289 epic, reliable history spec v0.2 §5/§13 — 2026-07-25) DISABLED
  *  pending snapshot verification. The rule this used to rely on — "a
  *  snapshot exists for this seq, therefore the operations it covers are
  *  redundant" — is exactly the assumption #287 falsified in production: a
@@ -254,7 +254,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     else lockedLayerIds.delete(op.layerId)
   }
 
-  // (#297 epic) Rebuild the aliveIds mirror the same way — see its own doc
+  // (#289 epic) Rebuild the aliveIds mirror the same way — see its own doc
   // comment on RoomRecord.
   const aliveIds = new Set<string>([BACKGROUND_LAYER_ID])
   for (const op of operations) {
@@ -520,7 +520,7 @@ export function setLayerOwnerLocked(roomId: string, layerId: string, locked: boo
  *     (anything carrying a top-level `layerId`, e.g. `stroke`/`image_import`
  *     — see packages/shared's Operation union for the full set).
  *
- *  (#297 epic, reliable history spec v0.2) Returns the specific
+ *  (#289 epic, reliable history spec v0.2) Returns the specific
  *  `RejectReason` rather than a bare boolean — a rejected operation now gets
  *  an explicit `SendResult` back instead of the silence isOperationAllowed's
  *  boolean used to produce (socketHandlers.ts just `return`ed with no ack at
@@ -538,7 +538,7 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
   if (op.type === 'operation_revoke' && !isOwner) return 'not_owner'
   if (op.type === 'layer_owner_lock' && !isOwner) return 'not_owner'
 
-  // (#297 epic, reliable history spec v0.2 §8) Existence isn't a privilege —
+  // (#289 epic, reliable history spec v0.2 §8) Existence isn't a privilege —
   // checked before the owner short-circuit below, so not even the room's
   // owner can delete/merge/transform a layer that's already gone (a
   // concurrent delete/merge racing this one, the exact class of bug the
@@ -575,7 +575,7 @@ function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
 }
 
 /** Keeps `RoomRecord.aliveIds` in sync the instant an operation is accepted
- *  (#297 epic) — called by socketHandlers.ts right before `recordOperation`,
+ *  (#289 epic) — called by socketHandlers.ts right before `recordOperation`,
  *  same ordering/reasoning as the existing `setLayerOwnerLocked` call for
  *  `layer_owner_lock` just above it. A no-op for any operation type that
  *  doesn't create or destroy a layer/folder id. */
@@ -604,7 +604,7 @@ export function isOperationAllowed(roomId: string, userId: string, op: Operation
   return getOperationRejectReason(roomId, userId, op) === null
 }
 
-/** O(1) lookup for #297's send-side dedup (reliable history spec v0.2 §10):
+/** O(1) lookup for #289's send-side dedup (reliable history spec v0.2 §10):
  *  a retried send (outbox timeout racing an ack that was merely slow, not
  *  lost) must be recognized as the *same* operation, not recorded a second
  *  time. `Operation.id` is generated client-side before the first send and

@@ -5,7 +5,7 @@ interface LostWorkBannerProps {
   onDismiss: () => void
 }
 
-/** (#297 §17) Shown once the server rejects an operation as `target_gone` —
+/** (#289 §17) Shown once the server rejects an operation as `target_gone` —
  *  in practice: something drawn while offline (or during a connection drop)
  *  onto a layer another participant deleted in the meantime.
  *

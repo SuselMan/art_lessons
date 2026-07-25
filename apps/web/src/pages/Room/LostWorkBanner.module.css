@@ -1,4 +1,4 @@
-/* (#297 §17) Same non-blocking strip shape as FrozenBanner, stacked just
+/* (#289 §17) Same non-blocking strip shape as FrozenBanner, stacked just
    below it so the two can coexist (a frozen participant can still have had
    an operation rejected). Unlike FrozenBanner this one IS interactive — it
    carries a dismiss button — so it opts back into pointer events for the

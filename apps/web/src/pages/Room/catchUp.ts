@@ -1,4 +1,4 @@
-// (#297 epic, reliable history spec v0.2 §12/§16) Two small, pure decisions
+// (#289 epic, reliable history spec v0.2 §12/§16) Two small, pure decisions
 // Room/index.tsx's confirmed-operation handler asks on every arrival. Kept
 // here rather than inline so both are unit-testable without a live socket.
 

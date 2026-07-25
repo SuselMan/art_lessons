@@ -1,6 +1,6 @@
 import type { Operation } from '@art-lessons/shared'
 
-// (#297 epic, reliable history spec v0.2 §2/§4) Whether an operation is safe
+// (#289 epic, reliable history spec v0.2 §2/§4) Whether an operation is safe
 // to apply optimistically right now, given which layer/folder ids this
 // client itself created but the server hasn't confirmed yet (`pendingIds` —
 // see Room/index.tsx's pendingIdsRef). Only layer_delete/layer_merge/

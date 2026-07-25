@@ -153,7 +153,7 @@ describe('getLatestSnapshot', () => {
 })
 
 // 2026-07-19 (#206/#207) introduced idle-time pruning of operations already
-// covered by a snapshot. 2026-07-25 (#297, reliable history spec v0.2 §5)
+// covered by a snapshot. 2026-07-25 (#289, reliable history spec v0.2 §5)
 // disabled it: #287 proved in production that "a snapshot exists for this
 // seq" does NOT imply the operations it covers are safely redundant — a
 // snapshot baked from an already-corrupt client passes that test perfectly,
@@ -162,7 +162,7 @@ describe('getLatestSnapshot', () => {
 // bakeLayerByFullReplay oracle and RoomSnapshot.verification), which isn't
 // wired end-to-end yet — so nothing is deleted at all for now. See
 // pruneOperationsBeforeSnapshot's own doc comment in rooms.ts.
-describe('leaveRoom no longer prunes operations (#297 — pending snapshot verification)', () => {
+describe('leaveRoom no longer prunes operations (#289 — pending snapshot verification)', () => {
   it('keeps operations even once a covering snapshot exists and the room goes idle', async () => {
     const roomId = makeRoom()
     recordOperation(roomId, stroke('a'))

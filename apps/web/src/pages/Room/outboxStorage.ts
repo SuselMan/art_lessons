@@ -1,6 +1,6 @@
 import type { Operation } from '@art-lessons/shared'
 
-// (#297 epic, reliable history spec v0.2 §9) One record per operation this
+// (#289 epic, reliable history spec v0.2 §9) One record per operation this
 // client has sent but not yet gotten a definitive SendResult for.
 export interface OutboxEntry {
   op: Operation

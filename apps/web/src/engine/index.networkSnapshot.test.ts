@@ -136,11 +136,11 @@ describe('restoreLayerFromSnapshot (#169)', () => {
   })
 })
 
-// (#297 epic, reliable history spec v0.2 §13) The verification oracle: a
+// (#289 epic, reliable history spec v0.2 §13) The verification oracle: a
 // from-scratch replay that never consults the checkpoint machinery, so
 // comparing it against bakeNetworkSnapshot's incremental result is a real
 // check rather than the incremental path agreeing with itself.
-describe('bakeLayerByFullReplay (#297)', () => {
+describe('bakeLayerByFullReplay (#289)', () => {
   it('agrees with bakeNetworkSnapshot for an ordinary painted layer', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
