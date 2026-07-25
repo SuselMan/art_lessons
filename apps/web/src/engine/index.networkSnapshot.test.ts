@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { nanoid } from 'nanoid'
 import type { OperationRedoOperation, OperationUndoOperation } from '@art-lessons/shared'
 
-import { createTestEngine, dab, makeLayerAdd, makeStroke, readTilePixels } from './testing/engineTestUtils'
+import { checkpointCountFor, createTestEngine, dab, makeLayerAdd, makeStroke, readTilePixels } from './testing/engineTestUtils'
 import { decodeLayerTiles } from './src/snapshotCodec'
 
 describe('bakeNetworkSnapshot (#149)', () => {
@@ -73,6 +73,64 @@ describe('restoreLayerFromSnapshot (#169)', () => {
   it('is a no-op for a layer that was never initLayer-created', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     expect(() => engine.restoreLayerFromSnapshot('nonexistent', [])).not.toThrow()
+  })
+
+  // #287: a real production room lost content this way — restoreLayerFromSnapshot
+  // paints pixels directly into the buffer with no corresponding OperationLog
+  // entry, so _rebuildLayer (the machinery every undo/redo/revoke replay goes
+  // through) had nothing to fall back on except `buf.clear()` the moment any
+  // pixel op on that layer changed done/undone state — silently wiping every
+  // bit of content this restore had just brought in. Fixed by seeding a pinned
+  // local checkpoint alongside the restored pixels (see restoreLayerFromSnapshot's
+  // own doc comment).
+  it('seeds a pinned local checkpoint so the restored content is not lost to undo/redo/revoke', () => {
+    const { engine: source } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    source.appendOperation(makeLayerAdd('user-a', 'L'))
+    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    const { tiles } = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0)
+    const restoredPixels = [...readTilePixels(source, 'L', 0, 0, 8, 8)!]
+
+    // A fresh client joining after that snapshot — same restore path a real
+    // fast-join takes, with no pre-snapshot history available locally at all
+    // (e.g. the server already pruned it, see rooms.ts's
+    // pruneOperationsBeforeSnapshot — background backfill has nothing to
+    // recover in that case).
+    const { engine: target } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
+    target.initLayer('L')
+    target.restoreLayerFromSnapshot('L', tiles)
+    expect(checkpointCountFor(target, 'L')).toBe(1)
+
+    // This client draws its own, totally unrelated stroke on the same layer,
+    // then undoes it — the exact "добавил линию, сделал undo" repro.
+    target.appendOperation(makeStroke('user-b', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]))
+    const undone = target.undo()
+    expect(undone?.type).toBe('stroke')
+
+    // The snapshot-restored content must survive the undo's _rebuildLayer
+    // replay — before the fix this came back all zero (wiped to blank).
+    expect([...readTilePixels(target, 'L', 0, 0, 8, 8)!]).toEqual(restoredPixels)
+  })
+
+  it('replaces a stale pinned checkpoint rather than keeping both when restored twice (reconnect re-restoring a live engine)', () => {
+    const { engine: source } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    source.appendOperation(makeLayerAdd('user-a', 'L'))
+    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    const firstTiles = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles
+    source.appendOperation(makeStroke('user-a', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]))
+    const secondTiles = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0).tiles
+    const finalPixels = [...readTilePixels(source, 'L', 0, 0, 8, 8)!]
+
+    const { engine: target } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
+    target.initLayer('L')
+    target.restoreLayerFromSnapshot('L', firstTiles) // first restore, e.g. initial join
+    target.restoreLayerFromSnapshot('L', secondTiles) // a later reconnect re-restoring the newer snapshot
+    expect(checkpointCountFor(target, 'L')).toBe(1) // stale one replaced, not accumulated
+
+    target.appendOperation(makeStroke('user-b', 'L', [dab(6, 6, { size: 4, pressure: 1, opacity: 0.5 })]))
+    target.undo()
+
+    // Must reflect the *second*, more complete restore — not the first, stale one.
+    expect([...readTilePixels(target, 'L', 0, 0, 8, 8)!]).toEqual(finalPixels)
   })
 })
 
