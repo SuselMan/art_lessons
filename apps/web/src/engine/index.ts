@@ -538,6 +538,10 @@ interface Checkpoint {
   layerId: string
   opIds: string[]
   tiles: CheckpointTile[]
+  // (#287) Set only for the synthetic checkpoint restoreLayerFromSnapshot
+  // seeds — see its own doc comment for why this one must never be evicted
+  // by the byte budget below the way an ordinary checkpoint can be.
+  pinned?: boolean
 }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
@@ -2749,9 +2753,26 @@ export class PencilEngine implements PencilEngineAPI {
     if (!tiles.length) return
     this._checkpoints.push({ layerId, opIds: ops.map(o => o.id), tiles })
     this._checkpointBytes += tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
-    while (this._checkpointBytes > CHECKPOINT_BUDGET_BYTES && this._checkpoints.length > 1) {
-      const evicted = this._checkpoints.shift()
-      if (evicted) this._checkpointBytes -= evicted.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+    this._evictCheckpointsOverBudget()
+  }
+
+  /** Evicts the oldest *unpinned* checkpoints (in insertion order) until
+   *  either the byte budget is satisfied or nothing evictable is left.
+   *  Pinned checkpoints (#287 — see restoreLayerFromSnapshot) are never
+   *  touched: unlike an ordinary checkpoint, whose eviction only makes the
+   *  next undo/redo/revoke replay fall back to a slower-but-still-correct
+   *  full from-log replay, a pinned one is the *only* record of a layer's
+   *  pre-snapshot content — evicting it would silently wipe real content on
+   *  the next replay instead. If every remaining checkpoint is pinned, this
+   *  simply stops rather than exceeding the budget, same "never impossible,
+   *  just slower/bigger" philosophy CHECKPOINT_BUDGET_BYTES's own doc
+   *  comment already commits to for the unpinned case. */
+  private _evictCheckpointsOverBudget(): void {
+    while (this._checkpointBytes > CHECKPOINT_BUDGET_BYTES) {
+      const index = this._checkpoints.findIndex(cp => !cp.pinned)
+      if (index === -1) break
+      const [evicted] = this._checkpoints.splice(index, 1)
+      this._checkpointBytes -= evicted.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
     }
   }
 
@@ -2808,7 +2829,29 @@ export class PencilEngine implements PencilEngineAPI {
    *  checkpoint-restore branch exactly (resolveForPaint + restorePixels +
    *  restoreTileContent) — a network snapshot's tiles are structurally the
    *  same kind of "exact historical pixels, not a fresh paint" data a local
-   *  checkpoint's tiles are, just sourced from the server instead of memory. */
+   *  checkpoint's tiles are, just sourced from the server instead of memory.
+   *
+   *  (#287) Also seeds a *pinned* local checkpoint from these same tiles —
+   *  without it, this layer's pre-snapshot content exists only in the buffer
+   *  itself, invisible to `_bestCheckpoint`/`_rebuildLayer`. The very next
+   *  undo/redo/revoke of a stroke/layer_clear/layer_transform on this layer
+   *  (this client's own, or any peer's — every replica applies the same
+   *  meta-op) would then find no matching checkpoint, `buf.clear()`, and
+   *  replay only whatever pixel ops this client's own OperationLog happens
+   *  to know about — the live tail plus whatever background backfill has
+   *  absorbed so far, which after a room-idle prune (rooms.ts's
+   *  pruneOperationsBeforeSnapshot) can permanently exclude everything this
+   *  snapshot was restoring in the first place. Pinning this exact state as
+   *  a checkpoint with an empty `opIds` prefix makes it the correct fallback
+   *  instead: `_bestCheckpoint` matches it trivially against any current
+   *  `ops` (an empty array prefixes anything), so replay restores these
+   *  tiles and then re-applies only the pixel ops this client actually
+   *  knows happened since — exactly what already happens for an ordinary
+   *  local checkpoint, just sourced from the network instead of a live
+   *  paint. Naturally superseded (never has to be invalidated by hand) once
+   *  real historical ops eventually get backfilled in front of it: their
+   *  presence shifts the current `ops` prefix, and the id-based prefix
+   *  match in `_bestCheckpoint` stops matching this checkpoint on its own. */
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[]): void {
     const buf = this._layers.get(layerId)
     if (!buf) return
@@ -2817,6 +2860,29 @@ export class PencilEngine implements PencilEngineAPI {
       for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
       buf.restoreTileContent(rect, t.pixels)
     }
+    this._pinSnapshotCheckpoint(layerId, tiles)
+  }
+
+  /** See restoreLayerFromSnapshot's own doc comment for why this exists.
+   *  Replaces (rather than adds to) any pinned checkpoint this layer already
+   *  had — only relevant if restoreLayerFromSnapshot is ever called twice
+   *  for the same layer in one engine lifetime (e.g. a reconnect re-restoring
+   *  a still-mounted engine); the newer restore is always a superset, and
+   *  `_bestCheckpoint`'s "first checkpoint of the longest matching length
+   *  wins" tie-break would otherwise let a stale one linger and win ties
+   *  against the newer, more complete one at the same (empty) opIds length. */
+  private _pinSnapshotCheckpoint(layerId: string, tiles: SnapshotTile[]): void {
+    if (!tiles.length) return
+    for (let i = this._checkpoints.length - 1; i >= 0; i--) {
+      const cp = this._checkpoints[i]
+      if (cp.pinned && cp.layerId === layerId) {
+        this._checkpointBytes -= cp.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+        this._checkpoints.splice(i, 1)
+      }
+    }
+    this._checkpoints.push({ layerId, opIds: [], tiles, pinned: true })
+    this._checkpointBytes += tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+    this._evictCheckpointsOverBudget()
   }
 
   /** See the PencilEngineAPI doc comment and OperationLog.prependHistorical's
@@ -2872,6 +2938,18 @@ export class PencilEngine implements PencilEngineAPI {
     if (buf) {
       buf.destroy()
       this._layers.delete(id)
+    }
+    // (#287) A pinned checkpoint (see restoreLayerFromSnapshot) is exempt
+    // from budget eviction, so unlike an ordinary one it would otherwise
+    // linger forever for a layer id that's gone for good (ids are never
+    // reused — see _syncBuffersToLog's own doc comment) instead of ever
+    // being reclaimed.
+    for (let i = this._checkpoints.length - 1; i >= 0; i--) {
+      const cp = this._checkpoints[i]
+      if (cp.pinned && cp.layerId === id) {
+        this._checkpointBytes -= cp.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+        this._checkpoints.splice(i, 1)
+      }
     }
   }
 
