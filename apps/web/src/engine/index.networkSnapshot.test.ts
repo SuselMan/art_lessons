@@ -76,6 +76,65 @@ describe('restoreLayerFromSnapshot (#169)', () => {
   })
 })
 
+// (#297 epic, reliable history spec v0.2 §13) The verification oracle: a
+// from-scratch replay that never consults the checkpoint machinery, so
+// comparing it against bakeNetworkSnapshot's incremental result is a real
+// check rather than the incremental path agreeing with itself.
+describe('bakeLayerByFullReplay (#297)', () => {
+  it('agrees with bakeNetworkSnapshot for an ordinary painted layer', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(2, 2, { size: 4, pressure: 1, opacity: 0.5 })]))
+
+    const incremental = decodeLayerTiles(engine.bakeNetworkSnapshot('L')!, 0).tiles
+    const replayed = decodeLayerTiles(engine.bakeLayerByFullReplay('L')!, 0).tiles
+
+    expect(replayed).toHaveLength(incremental.length)
+    // Restoring an 8-bit checkpoint dequantizes back to float, so a
+    // replay-through-a-checkpoint result can differ by ~1/255 from a pure
+    // from-scratch accumulation — see expectPixelsClose's own doc comment.
+    // A real disagreement (the kind this oracle exists to catch) is gross.
+    expectPixelsClose(replayed[0].pixels, incremental[0].pixels)
+  })
+
+  it('returns null on the same conditions bakeNetworkSnapshot does, so the two stay comparable', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+
+    expect(engine.bakeLayerByFullReplay('nonexistent')).toBeNull()
+    expect(engine.bakeNetworkSnapshot('nonexistent')).toBeNull()
+    expect(engine.bakeLayerByFullReplay('L')).toBeNull() // exists, but no pixel ops yet
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+  })
+
+  it('disagrees with the live buffer when it holds pixels no operation accounts for (the #287 shape)', () => {
+    // #287's exact hazard: the live buffer carries snapshot-restored content
+    // that the operation log has no pixel op for. The incremental bake
+    // (reading the live buffer) sees it; a from-scratch replay of the log
+    // cannot — and that disagreement is precisely the signal. Before the
+    // pinned-checkpoint fix this state was silently destructive; the oracle
+    // makes it observable either way.
+    const { engine: source } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    source.appendOperation(makeLayerAdd('user-a', 'L'))
+    source.appendOperation(makeStroke('user-a', 'L', [dab(4, 4, { size: 6, pressure: 1, opacity: 0.5 })]))
+    const { tiles } = decodeLayerTiles(source.bakeNetworkSnapshot('L')!, 0)
+
+    const { engine: target } = createTestEngine({ userId: 'user-b' }, { width: 8, height: 8 })
+    target.initLayer('L')
+    target.restoreLayerFromSnapshot('L', tiles)
+    // One own stroke, so both paths have something to bake at all.
+    target.appendOperation(makeStroke('user-b', 'L', [dab(1, 1, { size: 3, pressure: 1, opacity: 0.5 })]))
+
+    const incremental = decodeLayerTiles(target.bakeNetworkSnapshot('L')!, 0).tiles[0].pixels
+    const replayed = decodeLayerTiles(target.bakeLayerByFullReplay('L')!, 0).tiles[0].pixels
+
+    // The restored content exists only in the live buffer, so the two paths
+    // must NOT match — that mismatch is the verification signal.
+    expect([...replayed]).not.toEqual([...incremental])
+  })
+})
+
 describe('absorbHistoricalOperations (#169)', () => {
   it('merges historical ops before the live tail, in correct order, without painting', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })

@@ -139,6 +139,16 @@ model RoomSnapshot {
   data       Bytes
   hash       String
   createdAt  DateTime @default(now())
+  // (#297 epic, reliable history spec v0.2 §13) Whether this snapshot has
+  // been independently corroborated. `unverified` on arrival; `verified`
+  // once a second, independently-produced bake of the same seq matched this
+  // one's hash; `disputed` if one didn't. Only a `verified` snapshot may
+  // ever justify deleting the raw operations it claims to cover — see
+  // rooms.ts's pruneOperationsBeforeSnapshot, which now refuses to prune
+  // against anything else. `disputed` is deliberately terminal and never
+  // auto-resolved: nothing here can tell which of two disagreeing bakes is
+  // the correct one, so both stay and the raw operations stay too.
+  verification String  @default("unverified")
 
   @@unique([roomId, seq])
 }

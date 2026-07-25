@@ -3,8 +3,9 @@ import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@art-lessons/shared'
 
 import {
-  addPaletteColor, createRoom, ensureRoomLoaded, getParticipant, getRoomSnapshot, isOperationAllowed, joinRoom,
-  leaveRoom, recordOperation, removePaletteColor, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen,
+  addPaletteColor, createRoom, ensureRoomLoaded, findDuplicateOperation, getOperationRejectReason, getParticipant,
+  getRoomSnapshot, joinRoom, leaveRoom, recordOperation, removePaletteColor, setLayerOwnerLocked,
+  setParticipantFrozen, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 import { resolveSocketIdentity } from './identity.js'
 
@@ -99,17 +100,32 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       ack({ ok: true, userId })
     })
 
-    // Operation relay (#34/#35): broadcast to every other socket in the room
+    // Operation relay (#34/#35, reworked by #297 — reliable history spec
+    // v0.2): broadcast to *every* socket in the room, including the sender,
     // and append to the room's log, which backs the #36 snapshot.
     //
-    // (#254 epic) `isOperationAllowed` is the single choke point for every
-    // owner-only runtime privilege this epic adds on top of the original
-    // `operation_revoke`-only check (#73): room-wide freeze (#256),
-    // per-participant freeze (#257), and owner-locked layers (#258) — see
-    // its own doc comment in rooms.ts for the exact rules. Non-owner senders
-    // of a rejected op are silently dropped (no ack/error contract exists in
-    // the shared types for this yet, so this just logs and stops), same as
-    // the original operation_revoke-only check always did.
+    // (#297 §7/§11) `operation_confirmed` replaces `peer_operation` as the
+    // one and only channel that ever paints into a client's confirmed
+    // buffer — sent via `io.to`, not `socket.to`, specifically so the
+    // author receives their own operation through the exact same
+    // WebSocket-ordered stream as everyone else's, instead of learning
+    // their own seq from a separate ack that could race ahead of an
+    // earlier peer operation still in flight. The direct `ack` is now pure
+    // bookkeeping (`SendResult`) — never a paint trigger.
+    //
+    // (#254 epic) `getOperationRejectReason` is the single choke point for
+    // every owner-only runtime privilege this epic adds on top of the
+    // original `operation_revoke`-only check (#73): room-wide freeze
+    // (#256), per-participant freeze (#257), and owner-locked layers
+    // (#258) — see its own doc comment in rooms.ts. Rejections now get an
+    // explicit `SendResult: { ok: false, reason }` instead of the old
+    // silent drop (indistinguishable from a lost packet to the sender —
+    // an outbox retry loop needs to tell the two apart).
+    //
+    // (#297 §10) `findDuplicateOperation` dedups by the client-generated
+    // `Operation.id` before ever assigning a new seq — a retried send
+    // (outbox timeout racing an ack that was merely slow) must resolve to
+    // the same seq, not record the stroke a second time.
     //
     // #164: wrapped in try/catch as a defensive backstop — an uncaught
     // exception inside a socket.io event handler isn't caught by the
@@ -128,11 +144,19 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       }
 
       try {
-        if (!isOperationAllowed(roomId, userId, op)) {
+        const existing = findDuplicateOperation(roomId, op.id)
+        if (existing) {
+          ack?.({ ok: true, seq: existing.seq!, duplicate: true })
+          return
+        }
+
+        const reason = getOperationRejectReason(roomId, userId, op)
+        if (reason) {
           log.warn(
-            { socketId: socket.id, roomId, userId, opId: op.id, opType: op.type },
+            { socketId: socket.id, roomId, userId, opId: op.id, opType: op.type, reason },
             'rejected operation (role/freeze/owner-lock check)',
           )
+          ack?.({ ok: false, reason })
           return
         }
 
@@ -142,14 +166,13 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // recordOperation, not after, though the two never race each other
         // either way (single-threaded, no `await` in between).
         if (op.type === 'layer_owner_lock') setLayerOwnerLocked(roomId, op.layerId, op.locked)
+        // (#297 epic) Same reasoning, for the aliveIds mirror
+        // getOperationRejectReason's target_gone check above just read.
+        updateAliveIds(roomId, op)
 
         const stamped = recordOperation(roomId, op)
-        // Tells the author their own operation's authoritative seq (#149) —
-        // socket.to() below deliberately never echoes it back to them, so
-        // without this ack they'd have no way to learn it (see the doc
-        // comment on ClientToServerEvents.operation in packages/shared).
-        ack?.(stamped)
-        socket.to(roomId).emit('peer_operation', stamped)
+        ack?.({ ok: true, seq: stamped.seq! })
+        io.to(roomId).emit('operation_confirmed', { seq: stamped.seq!, operation: stamped })
       } catch (err) {
         log.error(
           { socketId: socket.id, roomId, userId, opId: op.id, opType: op.type, err },

@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs'
 import { gunzipSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
-import type { Operation, Participant, Room } from '@art-lessons/shared'
-import { DEFAULT_PALETTE_COLORS, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
+import type { Operation, Participant, RejectReason, Room } from '@art-lessons/shared'
+import { BACKGROUND_LAYER_ID, DEFAULT_PALETTE_COLORS, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
@@ -75,6 +75,27 @@ interface RoomRecord {
   // `roomFrozen`/`frozenUserIds`) this mirrors real operation-log content,
   // not ephemeral session state.
   lockedLayerIds: Set<string>
+  // (#297 epic, reliable history spec v0.2 §8) Which layerId/folderId are
+  // currently alive — created (base `BACKGROUND_LAYER_ID`, or a done
+  // `layer_add`/`folder_add`/`layer_merge` result) and not since destroyed
+  // (listed in a done `layer_delete`, or consumed as a `layer_merge`
+  // source). Kept in sync by `updateAliveIds` whenever an operation is
+  // accepted — same "lightweight derived mirror, folded from the log on a
+  // cold load" pattern `lockedLayerIds` already uses. The one thing the
+  // server checks operation content for besides the owner-lock mirror:
+  // `getOperationRejectReason` rejects `layer_delete`/`layer_merge`/
+  // `layer_transform` outright when they reference an id no longer in this
+  // set, instead of silently accepting a race that would otherwise resolve
+  // differently (and possibly divergently) on every client's own replay.
+  aliveIds: Set<string>
+  // (#297 epic, reliable history spec v0.2 §10) Index of every operation
+  // currently in `operations`, keyed by its client-generated `Operation.id`
+  // — lets `findDuplicateOperation` answer "have we already recorded this
+  // exact operation" in O(1) instead of scanning `operations` on every
+  // single incoming message. Needed once a retried send (outbox timeout
+  // racing an ack that was merely slow, not lost) must be recognized as the
+  // same operation rather than recorded a second time.
+  operationsById: Map<string, Operation>
 }
 
 const rooms = new Map<string, RoomRecord>()
@@ -227,6 +248,18 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     else lockedLayerIds.delete(op.layerId)
   }
 
+  // (#297 epic) Rebuild the aliveIds mirror the same way — see its own doc
+  // comment on RoomRecord.
+  const aliveIds = new Set<string>([BACKGROUND_LAYER_ID])
+  for (const op of operations) {
+    if (op.type === 'layer_add' || op.type === 'folder_add') aliveIds.add(op.layerId)
+    else if (op.type === 'layer_delete') { for (const id of op.layerIds) aliveIds.delete(id) }
+    else if (op.type === 'layer_merge') {
+      aliveIds.add(op.layerId)
+      for (const s of op.sources) aliveIds.delete(s.id)
+    }
+  }
+
   rooms.set(roomId, {
     room: toWireRoom(dbRoom),
     passwordHash: dbRoom.passwordHash ?? undefined,
@@ -238,6 +271,8 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     roomFrozen: false,
     frozenUserIds: new Set(),
     lockedLayerIds,
+    aliveIds,
+    operationsById: new Map(operations.map(op => [op.id, op])),
   })
   return true
 }
@@ -298,6 +333,7 @@ export function createRoom(
   rooms.set(room.id, {
     room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette,
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
+    aliveIds: new Set([BACKGROUND_LAYER_ID]), operationsById: new Map(),
   })
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
@@ -477,23 +513,99 @@ export function setLayerOwnerLocked(roomId: string, layerId: string, locked: boo
  *   - an owner-locked layer (#258) rejects only operations that target it
  *     (anything carrying a top-level `layerId`, e.g. `stroke`/`image_import`
  *     — see packages/shared's Operation union for the full set).
- *  Returns `false` (not throw) for an unknown room — recordOperation is the
- *  one that throws for that case; this function is only ever asked to
- *  gate an operation for a room the caller believes is live. */
-export function isOperationAllowed(roomId: string, userId: string, op: Operation): boolean {
+ *
+ *  (#297 epic, reliable history spec v0.2) Returns the specific
+ *  `RejectReason` rather than a bare boolean — a rejected operation now gets
+ *  an explicit `SendResult` back instead of the silence isOperationAllowed's
+ *  boolean used to produce (socketHandlers.ts just `return`ed with no ack at
+ *  all, indistinguishable to the sender from a dropped packet). The
+ *  `not_owner` fallback for an unknown room is arbitrary/unreachable in
+ *  practice — socketHandlers.ts only ever calls this for a roomId a socket
+ *  has already successfully joined; recordOperation is the one that throws
+ *  for a genuinely missing room. */
+export function getOperationRejectReason(roomId: string, userId: string, op: Operation): RejectReason | null {
   const record = rooms.get(roomId)
-  if (!record) return false
+  if (!record) return 'not_owner'
   const participant = record.participants.get(userId)
   const isOwner = participant?.role === 'owner'
 
-  if (op.type === 'operation_revoke' && !isOwner) return false
-  if (op.type === 'layer_owner_lock' && !isOwner) return false
-  if (isOwner) return true
+  if (op.type === 'operation_revoke' && !isOwner) return 'not_owner'
+  if (op.type === 'layer_owner_lock' && !isOwner) return 'not_owner'
 
-  if (record.roomFrozen) return false
-  if (record.frozenUserIds.has(userId)) return false
-  if ('layerId' in op && record.lockedLayerIds.has(op.layerId)) return false
-  return true
+  // (#297 epic, reliable history spec v0.2 §8) Existence isn't a privilege —
+  // checked before the owner short-circuit below, so not even the room's
+  // owner can delete/merge/transform a layer that's already gone (a
+  // concurrent delete/merge racing this one, the exact class of bug the
+  // spec's §5 "merge vs delete" discussion covers). Rejecting outright here,
+  // once, on the server, replaces the old behavior of silently accepting
+  // both and letting every client's own replay resolve the conflict
+  // independently — which could (and did, in the reasoning that led here)
+  // resolve differently on different clients.
+  if (hasMissingAliveTarget(record, op)) return 'target_gone'
+
+  if (isOwner) return null
+
+  if (record.roomFrozen) return 'room_frozen'
+  if (record.frozenUserIds.has(userId)) return 'participant_frozen'
+  if ('layerId' in op && record.lockedLayerIds.has(op.layerId)) return 'layer_owner_locked'
+  return null
+}
+
+/** True if `op` references at least one layerId/folderId not currently in
+ *  `record.aliveIds` — see RoomRecord.aliveIds' own doc comment. Only the
+ *  three operation types that can *destructively* act on someone else's
+ *  reference are checked (`layer_owner_lock`/`layer_clear`/`stroke`/etc.
+ *  targeting a dead layer already degrade gracefully client-side — see
+ *  engine/index.ts's appendOperation, which revokes rather than crashes —
+ *  so they're deliberately not gated here; see the reliable history spec's
+ *  §4 classification table for the full reasoning). */
+function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
+  switch (op.type) {
+    case 'layer_delete': return op.layerIds.some(id => !record.aliveIds.has(id))
+    case 'layer_merge': return op.sources.some(s => !record.aliveIds.has(s.id))
+    case 'layer_transform': return op.transforms.some(t => !record.aliveIds.has(t.layerId))
+    default: return false
+  }
+}
+
+/** Keeps `RoomRecord.aliveIds` in sync the instant an operation is accepted
+ *  (#297 epic) — called by socketHandlers.ts right before `recordOperation`,
+ *  same ordering/reasoning as the existing `setLayerOwnerLocked` call for
+ *  `layer_owner_lock` just above it. A no-op for any operation type that
+ *  doesn't create or destroy a layer/folder id. */
+export function updateAliveIds(roomId: string, op: Operation): void {
+  const record = rooms.get(roomId)
+  if (!record) return
+  switch (op.type) {
+    case 'layer_add':
+    case 'folder_add':
+      record.aliveIds.add(op.layerId)
+      break
+    case 'layer_delete':
+      for (const id of op.layerIds) record.aliveIds.delete(id)
+      break
+    case 'layer_merge':
+      record.aliveIds.add(op.layerId)
+      for (const s of op.sources) record.aliveIds.delete(s.id)
+      break
+  }
+}
+
+/** Boolean convenience wrapper kept for existing callers/tests that only
+ *  ever cared about yes/no — see getOperationRejectReason for the version
+ *  socketHandlers.ts actually uses now, which needs the specific reason. */
+export function isOperationAllowed(roomId: string, userId: string, op: Operation): boolean {
+  return getOperationRejectReason(roomId, userId, op) === null
+}
+
+/** O(1) lookup for #297's send-side dedup (reliable history spec v0.2 §10):
+ *  a retried send (outbox timeout racing an ack that was merely slow, not
+ *  lost) must be recognized as the *same* operation, not recorded a second
+ *  time. `Operation.id` is generated client-side before the first send and
+ *  never changes across a retry, so it's already the idempotency key —
+ *  no separate `clientOperationId` needed. */
+export function findDuplicateOperation(roomId: string, operationId: string): Operation | undefined {
+  return rooms.get(roomId)?.operationsById.get(operationId)
 }
 
 /** State for a newly joined (or reconnecting) participant (#36, #149): the
@@ -683,6 +795,7 @@ export function recordOperation(roomId: string, op: Operation): Operation {
   if (!record) throw new Error(`recordOperation: unknown room "${roomId}"`)
   const stamped: Operation = { ...op, seq: record.nextSeq++ }
   record.operations.push(stamped)
+  record.operationsById.set(stamped.id, stamped)
   persistOperation(roomId, stamped)
   return stamped
 }

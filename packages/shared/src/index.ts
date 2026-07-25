@@ -416,6 +416,25 @@ export type CursorMoveData = {
 // snapshot at all — see its own comment.
 export const SNAPSHOT_SEQ_INTERVAL = 100
 
+// Result of sending one `Operation` to the server (#297 epic — reliable
+// history spec v0.2). Replaces the old "ack always receives the stamped
+// copy" contract: every operation now gets an explicit verdict, including
+// ones previously rejected in total silence (room/participant freeze,
+// owner-lock — see isOperationAllowed in rooms.ts, which used to just
+// `return` with no ack at all, indistinguishable from a dropped packet).
+// `duplicate: true` on an `ok` result means this exact `Operation.id` had
+// already been recorded (see rooms.ts's dedup) — the sender's own retry
+// raced its earlier attempt's ack, not a new operation.
+export type SendResult =
+  | { ok: true; seq: number; duplicate?: boolean }
+  | { ok: false; reason: RejectReason }
+
+export type RejectReason =
+  | 'room_frozen' | 'participant_frozen' | 'layer_owner_locked' | 'not_owner'
+  // The operation references a layerId/folderId no longer in the room's
+  // alive set (deleted or consumed by a merge) — see rooms.ts's aliveIds.
+  | 'target_gone'
+
 export type ServerToClientEvents = {
   // `latestSnapshotSeq` is null until the room has ever crossed
   // SNAPSHOT_SEQ_INTERVAL (short rooms) — `tailOperations` is then simply
@@ -433,7 +452,17 @@ export type ServerToClientEvents = {
     // status immediately, same reasoning as `participants`/`palette` above.
     frozen: boolean
   }) => void
-  peer_operation: (op: Operation) => void
+  // The single channel that drives painting into every client's confirmed
+  // buffer — including the author's own (unlike the old `peer_operation`,
+  // which `socket.to()` deliberately excluded the sender from). Broadcast
+  // via `io.to(roomId)`, one emit per accepted operation, in the exact
+  // order the server accepted them — WebSocket/TCP guarantees a single
+  // connection never reorders its own message stream, so this is already a
+  // strictly seq-ordered feed with no separate reorder buffer needed on the
+  // client (reliable history spec v0.2, §11). `seq` is carried at the top
+  // level (not just inside `operation`, where it's optional until stamped)
+  // so logging/replay/gap-detection never has to reach into the union.
+  operation_confirmed: (msg: { seq: number; operation: Operation }) => void
   peer_cursor: (data: CursorMoveData & { userId: string }) => void
   peer_joined: (participant: Participant) => void
   peer_left: (userId: string) => void
@@ -473,15 +502,13 @@ export type ClientToServerEvents = {
     data: { roomId: string; password?: string; name: string; lastKnownSeq?: number },
     ack: (result: JoinResult) => void,
   ) => void
-  // `ack`, when provided, receives the server-stamped copy (with the real,
-  // authoritative `seq` — see recordOperation) right after it's recorded.
-  // Only the author needs this: everyone else learns `seq` for free off the
-  // `peer_operation` relay, which already carries the stamped copy. Without
-  // this the author would never learn their own operation's real seq
-  // (`socket.to(roomId)` deliberately excludes the sender — see
-  // socketHandlers.ts), and so could never independently notice crossing a
-  // SNAPSHOT_SEQ_INTERVAL boundary on their own operations.
-  operation: (op: Operation, ack?: (stamped: Operation) => void) => void
+  // `ack`, when provided, receives an explicit `SendResult` — accepted
+  // (with the real, authoritative `seq`) or rejected (with a reason), never
+  // silence. This is bookkeeping only (outbox retry/rollback decisions,
+  // local "pending" UI) — it is never what paints an operation into the
+  // confirmed buffer; that's `operation_confirmed` alone, which now reaches
+  // the author too (reliable history spec v0.2, §7/§9).
+  operation: (op: Operation, ack?: (result: SendResult) => void) => void
   cursor_move: (data: CursorMoveData) => void
   // Appends one hex color to the room's palette (see DEFAULT_PALETTE_COLORS'
   // doc comment above). Server dedups and broadcasts the result via
