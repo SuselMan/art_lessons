@@ -40,7 +40,20 @@ function openDb(): Promise<IDBDatabase> {
  *  lazily, once, on first use. */
 export function createIndexedDbOutboxStorage(): OutboxStorage {
   let dbPromise: Promise<IDBDatabase> | null = null
-  const getDb = (): Promise<IDBDatabase> => (dbPromise ??= openDb())
+  // (#296) A *rejected* promise must not be cached. `dbPromise ??= openDb()`
+  // alone kept one failed open forever, so a single transient error — the
+  // browser prompting for storage, a database left inconsistent by a crashed
+  // tab — disabled persistence for the rest of the page's life with no way
+  // back. Clearing it on failure means the next call simply tries again.
+  const getDb = async (): Promise<IDBDatabase> => {
+    dbPromise ??= openDb()
+    try {
+      return await dbPromise
+    } catch (err) {
+      dbPromise = null
+      throw err
+    }
+  }
 
   return {
     async getAll() {

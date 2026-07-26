@@ -1,5 +1,5 @@
 import type { Operation, SendResult } from '@art-lessons/shared'
-import type { OutboxStorage } from './outboxStorage'
+import type { OutboxEntry, OutboxStorage } from './outboxStorage'
 
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30000
@@ -45,6 +45,19 @@ export class Outbox {
   // called again before an earlier attempt's timeout has even settled), not
   // a correctness requirement (see the class doc comment on duplicates).
   private readonly inFlight = new Set<string>()
+  // (#296) The queue itself. `storage` is now *only* a durability mirror —
+  // it exists so a reload or crash doesn't lose unconfirmed work, and
+  // nothing on the send path reads from it.
+  //
+  // It used to be the other way round: enqueue awaited storage.put before
+  // attempting a send, and runAttempt looked the operation up via
+  // storage.getAll(). One IndexedDB failure therefore meant the operation
+  // was never sent at all — it painted locally and silently never left the
+  // device. Reported from a real Android tablet on 2026-07-26: strokes drawn
+  // there never reached the server or any peer, while the same room worked
+  // from desktop. A crashed tab is a very ordinary way to leave IndexedDB
+  // unopenable, so this failed exactly when it was needed most.
+  private readonly pending = new Map<string, OutboxEntry>()
 
   constructor(deps: OutboxDeps) {
     this.storage = deps.storage
@@ -54,19 +67,44 @@ export class Outbox {
     this.schedule = deps.schedule ?? ((fn, ms) => { setTimeout(fn, ms) })
   }
 
-  /** Persists `op` and makes the first send attempt immediately. */
+  /** Queues `op` and makes the first send attempt immediately. Persisting it
+   *  is best-effort and never gates the send (#296). */
   async enqueue(op: Operation): Promise<void> {
-    await this.storage.put({ op, attempts: 0, nextRetryAt: this.now() })
+    const entry: OutboxEntry = { op, attempts: 0, nextRetryAt: this.now() }
+    this.pending.set(op.id, entry)
+    await this.persist(entry)
     this.attempt(op.id)
   }
 
   /** Re-attempts every operation still in the queue — call once on every
    *  reconnect (a fresh socket connection means any attempt in flight on
    *  the old one is moot, whether or not it actually reached the server;
-   *  the dedup check above is exactly what makes resending safe). */
+   *  the dedup check above is exactly what makes resending safe).
+   *
+   *  Also the point where a previous page load's unconfirmed work is
+   *  recovered from storage: anything durable that this instance doesn't
+   *  already know about joins the queue. */
   async resendAll(): Promise<void> {
-    const entries = await this.storage.getAll()
-    for (const entry of entries) this.attempt(entry.op.id)
+    try {
+      for (const entry of await this.storage.getAll()) {
+        if (!this.pending.has(entry.op.id)) this.pending.set(entry.op.id, entry)
+      }
+    } catch (err) {
+      // Nothing to recover from a broken store, but everything queued in
+      // this session still has to go out.
+      console.error('outbox: could not read persisted queue', err)
+    }
+    for (const opId of [...this.pending.keys()]) this.attempt(opId)
+  }
+
+  private async persist(entry: OutboxEntry): Promise<void> {
+    try {
+      await this.storage.put(entry)
+    } catch (err) {
+      // Durability across reloads is lost for this operation; delivery is
+      // not. Never rethrow — see `pending`'s doc comment.
+      console.error('outbox: could not persist operation', entry.op.id, err)
+    }
   }
 
   private attempt(opId: string): void {
@@ -82,18 +120,25 @@ export class Outbox {
     // enqueue racing it) start a fully redundant second send while the
     // first is still genuinely in flight, not just "not yet started".
     try {
-      const entries = await this.storage.getAll()
-      const entry = entries.find(e => e.op.id === opId)
+      const entry = this.pending.get(opId)
       if (!entry) return // already settled (by this attempt's own earlier sibling, or resendAll racing enqueue)
 
       try {
         const result = await this.send(entry.op)
-        await this.storage.delete(opId)
+        this.pending.delete(opId)
+        try {
+          await this.storage.delete(opId)
+        } catch (err) {
+          // Worst case a settled operation is re-sent after a reload and the
+          // server dedups it by id — see the class doc comment.
+          console.error('outbox: could not clear persisted operation', opId, err)
+        }
         this.onSettled?.(entry.op, result)
       } catch {
-        const attempts = entry.attempts + 1
-        const delay = Math.min(INITIAL_BACKOFF_MS * 2 ** (attempts - 1), MAX_BACKOFF_MS)
-        await this.storage.put({ op: entry.op, attempts, nextRetryAt: this.now() + delay })
+        entry.attempts += 1
+        const delay = Math.min(INITIAL_BACKOFF_MS * 2 ** (entry.attempts - 1), MAX_BACKOFF_MS)
+        entry.nextRetryAt = this.now() + delay
+        await this.persist(entry)
         this.schedule(() => this.attempt(opId), delay)
       }
     } finally {
