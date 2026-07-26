@@ -156,7 +156,16 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     socket.on('operation', (op: Operation, ack) => {
       const { roomId, userId } = socket.data
       if (!roomId || !userId) {
-        log.warn({ socketId: socket.id }, 'operation received before join_room, ignoring')
+        // (#298) Must ack. Returning silently here is indistinguishable from
+        // a dropped packet, so the sender's outbox waited out its timeout and
+        // retried — forever, since nothing about this socket was going to
+        // change on its own. Observed on a real tablet: 384 operations at
+        // 42-49 attempts each, every reconnect blasting all of them at a
+        // socket that had not joined yet, ~55 MB of stroke JSON serialized
+        // per round. That allocation storm is what the low-memory killer
+        // eventually shot the renderer for.
+        log.warn({ socketId: socket.id }, 'operation received before join_room, rejecting')
+        ack?.({ ok: false, reason: 'not_joined' })
         return
       }
 
