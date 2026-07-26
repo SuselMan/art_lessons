@@ -82,6 +82,36 @@ const CORNER_ANGLE_START = (60 * Math.PI) / 180 // below this: full smoothing, u
 const CORNER_ANGLE_FULL = (150 * Math.PI) / 180 // at/above this: tangent fully zeroed
 const MIN_TURN_VEC_LEN = 1e-6 // guards near-zero-length segment vectors
 
+// --- Control-point deadband -------------------------------------------------
+// A pointer sample closer than this (world px) to the last admitted control
+// point is not a new point — it's the same point re-reported by a digitizer
+// sampling faster than the pen is moving. Such a sample is dropped rather
+// than buffered (its pressure/tilt still refresh the point it collapses
+// into), so every buffered segment is at least this long.
+//
+// This used to be a *segment* check instead: the sample was always buffered,
+// and then the segment about to be rendered was skipped whenever it came out
+// shorter than half a pixel — which threw that segment's arc length away
+// entirely (`_remainder` untouched, the buffer moves on regardless), so the
+// stroke silently lost path. Measured on a Galaxy Tab S7+ (S Pen, 360Hz
+// whenever coalesced samples flow, median step 0.94 world px): 3.3% of a slow
+// ruler-guided stroke's path was lost this way, 14% on a slower one, 69% with
+// the pen held still — while the same gestures sampled at 60Hz lost 0.0-0.4%.
+// Same hand, same stroke, a different amount of ink depending on how fast the
+// tablet happens to report. Admitting-or-dropping the *sample* keeps all of
+// the real path instead (the deadband only ever defers a point until the pen
+// has genuinely moved half a pixel; only the final sub-threshold tail, at
+// most this distance, goes undrawn) and, as a bonus, guarantees the spline
+// never sees two near-coincident control points — the degenerate knot
+// spacing MIN_KNOT_DELTA above exists to paper over.
+//
+// Deliberately in world px, not client px: the quantity being protected is
+// "never emit a spline segment shorter than half an output pixel", which is a
+// property of the rendered result, not of the input device. Zooming in
+// therefore admits finer real pen movement (correctly — it resolves to more
+// output pixels), not less.
+const MIN_CONTROL_POINT_DISTANCE = 0.5
+
 // Arc-length lookup table resolution for _splineDabs (see below). Hoisted so
 // the scratch buffers sized off it can be allocated once per instance rather
 // than once per call.
@@ -156,6 +186,21 @@ export class DabSystem {
   // Returns dabs for the segment one step behind the current point.
   // Segment [n-3]→[n-2] is rendered once [n-1] (=P3) is known.
   continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number): Dab[] {
+    // Deadband (see MIN_CONTROL_POINT_DISTANCE): a sample that hasn't cleared
+    // half a pixel since the last control point collapses *into* that point
+    // rather than becoming one of its own. Its pressure/tilt still count —
+    // they're the freshest reading available at that position — so pressing
+    // harder without moving is not lost, it just doesn't manufacture
+    // geometry. A stationary stylus still produces no dabs from here at all
+    // (that's what the engine's dwell tick is for, see _paintDwellDab).
+    const last = this._buf[this._buf.length - 1]
+    if (last && Math.hypot(x - last.x, y - last.y) < MIN_CONTROL_POINT_DISTANCE) {
+      last.pressure = pressure
+      last.tiltX = tiltX
+      last.tiltY = tiltY
+      return []
+    }
+
     this._buf.push({ x, y, pressure, tiltX, tiltY })
     const n = this._buf.length
 
@@ -167,9 +212,6 @@ export class DabSystem {
     const p3 = this._buf[n - 1]
 
     if (n > 4) this._buf.shift() // keep buffer at max 4
-
-    const dx = p2.x - p1.x, dy = p2.y - p1.y
-    if (Math.hypot(dx, dy) < 0.5) return []
 
     return this._splineDabs(p0, p1, p2, p3, baseSize)
   }
@@ -185,8 +227,12 @@ export class DabSystem {
     // Extrapolate P3 only at end — no alternative here
     const p3: ControlPoint = { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y, pressure: p2.pressure, tiltX: p2.tiltX, tiltY: p2.tiltY }
 
+    // Defensive only: continueStroke's own deadband already guarantees any two
+    // consecutive buffered points are at least this far apart, so this can no
+    // longer discard a real segment the way it used to (see
+    // MIN_CONTROL_POINT_DISTANCE). _splineDabs guards degenerate length too.
     const dx = p2.x - p1.x, dy = p2.y - p1.y
-    if (Math.hypot(dx, dy) < 0.5) return []
+    if (Math.hypot(dx, dy) < MIN_CONTROL_POINT_DISTANCE) return []
 
     return this._splineDabs(p0, p1, p2, p3, baseSize)
   }
@@ -216,8 +262,9 @@ export class DabSystem {
     const p0 = n >= 3 ? this._buf[n - 3] : mirrorBefore(p1, p2)
     const p3: ControlPoint = { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y, pressure: p2.pressure, tiltX: p2.tiltX, tiltY: p2.tiltY }
 
+    // Defensive only — same reasoning as endStroke's own copy of this check.
     const dx = p2.x - p1.x, dy = p2.y - p1.y
-    if (Math.hypot(dx, dy) < 0.5) return []
+    if (Math.hypot(dx, dy) < MIN_CONTROL_POINT_DISTANCE) return []
 
     const savedRemainder = this._remainder
     const dabs = this._splineDabs(p0, p1, p2, p3, baseSize)

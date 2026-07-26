@@ -77,6 +77,12 @@ class UniformReference {
   }
 
   continue(x: number, y: number, baseSize: number, spacingFactor = 0.22): Pt[] {
+    // Mirrors DabSystem's control-point deadband (MIN_CONTROL_POINT_DISTANCE)
+    // — these reference classes exist to isolate *tangent math* differences,
+    // so their buffering has to stay an exact copy of the real one or a
+    // densely-sampled test path would diverge for an unrelated reason.
+    const last = this.buf[this.buf.length - 1]
+    if (last && Math.hypot(x - last.x, y - last.y) < 0.5) return []
     this.buf.push({ x, y })
     const n = this.buf.length
     if (n < 3) return []
@@ -86,8 +92,6 @@ class UniformReference {
     const p2 = this.buf[n - 2]
     const p3 = this.buf[n - 1]
     if (n > 4) this.buf.shift()
-
-    if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 0.5) return []
 
     const spacing = Math.max(1, baseSize * spacingFactor)
     const { dabs, remainderOut } = splineDabsUniform(p0, p1, p2, p3, spacing, this.remainder)
@@ -187,6 +191,9 @@ class CentripetalNoCornerReference {
   }
 
   continue(x: number, y: number, baseSize: number, spacingFactor = 0.22): Pt[] {
+    // Same deadband the real DabSystem applies — see UniformReference.continue.
+    const last = this.buf[this.buf.length - 1]
+    if (last && Math.hypot(x - last.x, y - last.y) < 0.5) return []
     this.buf.push({ x, y })
     const n = this.buf.length
     if (n < 3) return []
@@ -196,8 +203,6 @@ class CentripetalNoCornerReference {
     const p2 = this.buf[n - 2]
     const p3 = this.buf[n - 1]
     if (n > 4) this.buf.shift()
-
-    if (Math.hypot(p2.x - p1.x, p2.y - p1.y) < 0.5) return []
 
     const spacing = Math.max(1, baseSize * spacingFactor)
     const { dabs, remainderOut } = splineDabsCentripetalNoCorner(p0, p1, p2, p3, spacing, this.remainder)
@@ -549,6 +554,93 @@ describe('DabSystem dab spacing and arc-length remainder carry-over', () => {
     for (let i = 1; i < dabs.length - 1; i++) {
       expect(Math.abs(dabs[i].x - dabs[i - 1].x - spacing)).toBeLessThan(spacing * 0.01)
     }
+  })
+})
+
+// A digitizer reporting faster than the pen moves (measured: 360Hz on a Galaxy
+// Tab S7+ whenever coalesced samples flow, median step 0.94 world px) delivers
+// a lot of sub-pixel steps. Those used to be handled by skipping the *segment*
+// about to be rendered, which silently discarded its arc length — 3.3% of a
+// slow ruler-guided stroke's path on that device, 14% on a slower one, 69% with
+// the pen held nearly still, versus 0.0-0.4% for the same gestures sampled at
+// 60Hz. The deadband (MIN_CONTROL_POINT_DISTANCE) turns that into deferral
+// instead: the sample collapses into the last control point and the path is
+// kept whole, so the same gesture deposits the same ink regardless of report
+// rate.
+describe('DabSystem control-point deadband (sub-pixel sample handling)', () => {
+  const baseSize = 20
+  const spacingFactor = 0.22
+  const spacing = Math.max(1, baseSize * spacingFactor) // 4.4
+
+  function feed(steps: number[]): Pt[] {
+    const dab = new DabSystem({ spacingFactor })
+    const dabs: Pt[] = []
+    let x = 0
+    dabs.push(...dab.startStroke(x, 0, 1, 0, 0, baseSize))
+    for (const s of steps) {
+      x += s
+      dabs.push(...dab.continueStroke(x, 0, 1, 0, 0, baseSize))
+    }
+    dabs.push(...dab.endStroke(baseSize))
+    return dabs
+  }
+
+  it('draws the whole path of a stroke sampled entirely in sub-pixel steps', () => {
+    // 200 steps of 0.2px = 40px of real, deliberate pen travel. Every single
+    // step is under the threshold, so before this fix *every* segment was
+    // skipped and the stroke produced no dabs at all past the initial one,
+    // however far the pen actually went.
+    const dabs = feed(Array(200).fill(0.2))
+    const travelled = dabs[dabs.length - 1].x - dabs[0].x
+    expect(travelled).toBeGreaterThan(40 - spacing) // whole path, minus the final partial step
+    expect(dabs.length).toBeGreaterThan(40 / spacing - 1)
+  })
+
+  it('deposits the same path whether the same gesture is sampled densely or coarsely', () => {
+    // The measurement's core complaint: identical hand movement, two report
+    // rates. 60 steps of 1px vs 600 steps of 0.1px — same 60px of travel.
+    const coarse = feed(Array(60).fill(1))
+    const dense = feed(Array(600).fill(0.1))
+    const span = (d: Pt[]) => d[d.length - 1].x - d[0].x
+    expect(span(dense)).toBeCloseTo(span(coarse), 1)
+    expect(dense.length).toBe(coarse.length)
+  })
+
+  it('keeps every admitted control point at least one deadband apart, so no spline segment is degenerate', () => {
+    // Mixed real movement and sub-pixel noise: the dabs must still come out
+    // evenly spaced, i.e. the deadband defers points rather than corrupting
+    // the arc-length bookkeeping.
+    const steps: number[] = []
+    for (let i = 0; i < 120; i++) steps.push(i % 4 === 0 ? 1.5 : 0.1)
+    const dabs = feed(steps)
+    expect(dabs.length).toBeGreaterThan(5)
+    for (let i = 1; i < dabs.length - 1; i++) {
+      expect(Math.abs(dabs[i].x - dabs[i - 1].x - spacing)).toBeLessThan(spacing * 0.02)
+    }
+  })
+
+  it('a stationary stylus still produces no dabs at all (the dwell tick owns that case)', () => {
+    const dab = new DabSystem({ spacingFactor })
+    dab.startStroke(10, 10, 1, 0, 0, baseSize)
+    const produced: Pt[] = []
+    for (let i = 0; i < 50; i++) produced.push(...dab.continueStroke(10.1, 10.05, 1, 0, 0, baseSize))
+    expect(produced).toHaveLength(0)
+  })
+
+  it('a dropped sample still refreshes pressure at the point it collapsed into', () => {
+    // Pressing harder without moving must not be lost: the next real segment
+    // has to interpolate from the freshest pressure reading, not the stale one
+    // the control point was first admitted with.
+    const dab = new DabSystem({ spacingFactor })
+    dab.startStroke(0, 0, 0.2, 0, 0, baseSize)
+    dab.continueStroke(10, 0, 0.2, 0, 0, baseSize)   // admitted, pressure 0.2
+    dab.continueStroke(10.1, 0, 0.9, 0, 0, baseSize) // deadbanded: pressure 0.9 at the same spot
+    const dabs = dab.continueStroke(20, 0, 0.9, 0, 0, baseSize)
+    expect(dabs.length).toBeGreaterThan(0)
+    // Segment rendered here is the 0->10 one, whose far endpoint now carries
+    // the refreshed 0.9 — so the last dab of it must have risen well above the
+    // 0.2 it would show if the update had been dropped.
+    expect(dabs[dabs.length - 1].pressure).toBeGreaterThan(0.4)
   })
 })
 
