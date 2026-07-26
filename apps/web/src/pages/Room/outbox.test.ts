@@ -173,3 +173,109 @@ describe('Outbox', () => {
     expect(await storage.getAll()).toEqual([])
   })
 })
+
+// (#296) The send path must not depend on storage at all. It used to:
+// enqueue awaited storage.put before attempting a send, and runAttempt
+// looked the operation up through storage.getAll(). One IndexedDB failure
+// therefore meant the operation was never sent — it painted locally and
+// silently never left the device. Observed on a real Android tablet where
+// strokes reached neither the server nor any peer while the same room worked
+// from desktop; a crashed tab is an ordinary way to leave IndexedDB
+// unopenable, so this failed exactly when it mattered most.
+describe('Outbox with broken storage', () => {
+  function brokenStorage(broken: Partial<Record<'getAll' | 'put' | 'delete', boolean>>) {
+    const inner = createInMemoryOutboxStorage()
+    return {
+      getAll: async () => {
+        if (broken.getAll) throw new Error('IndexedDB unavailable')
+        return inner.getAll()
+      },
+      put: async (entry: Parameters<typeof inner.put>[0]) => {
+        if (broken.put) throw new Error('IndexedDB unavailable')
+        return inner.put(entry)
+      },
+      delete: async (id: string) => {
+        if (broken.delete) throw new Error('IndexedDB unavailable')
+        return inner.delete(id)
+      },
+    }
+  }
+
+  it('still sends when the operation cannot be persisted', async () => {
+    const send = vi.fn(async () => ({ ok: true, seq: 1 }) satisfies SendResult)
+    const onSettled = vi.fn()
+    const outbox = new Outbox({ storage: brokenStorage({ put: true }), send, onSettled })
+
+    await outbox.enqueue(op('a'))
+    await flushMicrotasks()
+
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), { ok: true, seq: 1 })
+  })
+
+  it('still reports the result when the settled entry cannot be cleared', async () => {
+    const onSettled = vi.fn()
+    const outbox = new Outbox({
+      storage: brokenStorage({ delete: true }),
+      send: async () => ({ ok: true, seq: 7 }) satisfies SendResult,
+      onSettled,
+    })
+
+    await outbox.enqueue(op('a'))
+    await flushMicrotasks()
+
+    expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), { ok: true, seq: 7 })
+  })
+
+  it('resendAll still retries this session\'s queue when the store cannot be read', async () => {
+    const { scheduled, schedule } = captureSchedule()
+    let failSend = true
+    const send = vi.fn(async () => {
+      if (failSend) throw new Error('offline')
+      return { ok: true, seq: 3 } satisfies SendResult
+    })
+    const onSettled = vi.fn()
+    const outbox = new Outbox({ storage: brokenStorage({ getAll: true, put: true }), send, onSettled, schedule })
+
+    await outbox.enqueue(op('a'))
+    await flushMicrotasks()
+    expect(send).toHaveBeenCalledTimes(1) // first attempt happened despite put failing
+    expect(scheduled).toHaveLength(1)     // and it queued a retry after failing
+
+    failSend = false
+    await outbox.resendAll()
+    await flushMicrotasks()
+
+    expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), { ok: true, seq: 3 })
+  })
+
+  it('delivers every operation with storage completely unavailable', async () => {
+    const sent: string[] = []
+    const outbox = new Outbox({
+      storage: brokenStorage({ getAll: true, put: true, delete: true }),
+      send: async o => { sent.push(o.id); return { ok: true, seq: sent.length } satisfies SendResult },
+    })
+
+    await outbox.enqueue(op('a'))
+    await outbox.enqueue(op('b'))
+    await outbox.enqueue(op('c'))
+    await flushMicrotasks()
+
+    expect(sent).toEqual(['a', 'b', 'c'])
+  })
+
+  it('recovers a previous page load\'s operations from storage on resendAll', async () => {
+    const storage = createInMemoryOutboxStorage()
+    await storage.put({ op: op('from-last-session'), attempts: 2, nextRetryAt: 0 })
+    const sent: string[] = []
+    const outbox = new Outbox({
+      storage,
+      send: async o => { sent.push(o.id); return { ok: true, seq: 1 } satisfies SendResult },
+    })
+
+    await outbox.resendAll()
+    await flushMicrotasks()
+
+    expect(sent).toEqual(['from-last-session'])
+  })
+})
