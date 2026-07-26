@@ -409,10 +409,19 @@
 /* ── Brush cursor (#new — size/rotation preview) ──
    Deliberately NOT counter-scaled/rotated like .cursorMarker above — see
    BrushCursor.tsx's own doc comment for why this one should track the
-   viewport instead of cancel it out. Solid white + mix-blend-mode:difference
-   inverts whatever's underneath rather than occluding it (classic
-   Photoshop/Procreate brush-cursor trick) — the specific tool color never
-   matters here, only that this layer is opaque white. */
+   viewport instead of cancel it out.
+
+   Contrast ring, NOT mix-blend-mode:difference. The blend version (a solid
+   white disc inverting whatever was underneath) flickered visibly on every
+   stroke on Android: blending has to read its backdrop each frame, and the
+   backdrop here is an accelerated WebGL canvas inside a promoted layer
+   (.canvasWrap's will-change:transform) that repaints while drawing.
+   Measured on Ilya's Tab S7+ over CDP — the DOM never hid the cursor once
+   across 40 strokes, so nothing in BrushCursor's own logic was at fault;
+   dropping the blend mode fixed it outright. A light stroke fenced by dark
+   halos on both sides is the compositing-safe way to stay legible over
+   both blank paper and dark graphite, and it composites like any other
+   plain layer. */
 .brushCursorLayer {
   position: absolute;
   top: 0;
@@ -423,14 +432,20 @@
   overflow: hidden;
 }
 
+/* border-box so the ring's outer edge lands exactly on the dab footprint
+   BrushCursor writes into width/height — with the default content-box the
+   border would inflate the previewed size by 2px at every zoom level. */
 .brushCursorCircle {
   position: absolute;
   top: 0;
   left: 0;
   display: none;
+  box-sizing: border-box;
   border-radius: 50%;
-  background: #fff;
-  mix-blend-mode: difference;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.55);
 }
 
 .brushCursorLine {
@@ -439,8 +454,8 @@
   left: 0;
   display: none;
   height: 2px;
-  background: #fff;
-  mix-blend-mode: difference;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
 }
 
 /* ── Ruler tool (#89) — also renders the distance label that used to

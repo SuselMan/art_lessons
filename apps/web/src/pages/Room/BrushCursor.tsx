@@ -44,10 +44,13 @@ interface BrushCursorProps {
 /** A brush-size/rotation preview that follows the pointer: a circle sized to
  *  the current tool's dab footprint, plus a line through it at the dab's
  *  angle when the shape is elongated enough for that to mean anything (a
- *  chisel marker, a heavily tilted pencil/liner). Both are rendered as solid
- *  white with `mix-blend-mode: difference`, so whatever's underneath gets
- *  visually inverted rather than occluded — the classic
- *  Photoshop/Procreate-style brush-cursor trick, not a flat color swatch.
+ *  chisel marker, a heavily tilted pencil/liner). Both are drawn as a light
+ *  stroke fenced by dark halos (see .brushCursorCircle) so they stay legible
+ *  over blank paper and dark graphite alike. That used to be a solid white
+ *  fill with `mix-blend-mode: difference` instead; it flickered on every
+ *  stroke on Android because the blend has to re-read a WebGL backdrop that
+ *  is actively repainting — see the CSS rule's own comment for the
+ *  measurement.
  *
  *  Rendered as a sibling of `<canvas>`/`<PeerCursors>` inside whichever
  *  ancestor already carries the viewport's CSS transform (`canvasWrap` for
