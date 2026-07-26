@@ -47,7 +47,11 @@ const PREVIEW_RESOLUTION = 256
 // exactly what makes a picker useless. Magnifying 4x is the honest
 // compromise every drawing app makes: the *pattern* becomes legible while
 // the *contrast* stays truthful, because the tint formula is unchanged.
-const PREVIEW_MAGNIFICATION = 4
+// 8 is close to the practical ceiling: at this magnification one preview
+// pixel covers ~1.6 texels, so pushing further stops revealing detail and
+// starts interpolating texels that aren't there. 4 was legible but still
+// too polite to choose by.
+const PREVIEW_MAGNIFICATION = 8
 const TEXELS_PER_PREVIEW_PIXEL = PAPER_BAKE_RESOLUTION / PAPER_WORLD_SIZE / PREVIEW_MAGNIFICATION
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), '../public/paper')

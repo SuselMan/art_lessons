@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
 import {
-  DEFAULT_PAPER_COLORS, FEATURED_PAPER_TYPES, PAPER_TYPES, paperCharacterOf, paperCoarsenessOf,
-  paperTypeLabel, type PaperType,
+  DEFAULT_PAPER_COLORS, PAPER_CHARACTER, PAPER_CHARACTER_LABELS, PAPER_COARSENESS,
+  PAPER_COARSENESS_LABELS, paperCharacterOf, paperCoarsenessOf,
+  type PaperCharacter, type PaperCoarseness, type PaperType,
 } from '@art-lessons/shared'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { PaperPreview } from '../../components/PaperPreview'
@@ -60,20 +61,33 @@ function resolveSize(opt: SizeOption, orientation: Orientation): { width: number
 // of the grid is that it grows. Three are shown inline; the rest live behind
 // "Show all", because a room's paper is a one-time decision that does not
 // deserve a wall of twelve cards up front.
-function paperDescription(type: PaperType): string {
-  if (type === 'flat') return 'No tooth at all — the pencil glides'
-  const coarseness = paperCoarsenessOf(type)!
-  const character = paperCharacterOf(type)!
-  const feel = { coarse: 'Strong tooth', medium: 'Moderate tooth', fine: 'Barely any tooth' }[coarseness]
-  const look = { fbm: 'even grain', capsules: 'visible fibres', streak: 'laid, horizontal grain' }[character]
-  return `${feel}, ${look}`
+const COARSENESS_DESC: Record<PaperCoarseness, string> = {
+  coarse: 'Strong tooth',
+  medium: 'Moderate tooth',
+  fine:   'Barely any tooth',
 }
 
+const CHARACTER_DESC: Record<PaperCharacter, string> = {
+  fbm:      'Even, uniform grain',
+  capsules: 'Visible cellulose fibres',
+  streak:   'Laid, horizontal grain',
+}
 
-/** One paper option. Deliberately a plain button rather than the old bare
- *  div — the picker is a real choice and needs to be keyboard-reachable. */
-function PaperCard({ type, selected, bgColorHex, onSelect }: {
+/** Flat sits in the coarseness row rather than off on its own: it has no
+ *  grain to be coarse or fine about, but perceptually it *is* that axis's
+ *  end stop, so the row reads as "how much tooth — strong / moderate /
+ *  barely / none". Picking it skips the texture step entirely, because
+ *  there is no character to choose. */
+const COARSENESS_ROW: readonly (PaperCoarseness | 'flat')[] = [...PAPER_COARSENESS, 'flat']
+
+
+/** One card in either row. Deliberately a <button> rather than the bare div
+ *  this used to be — the picker is a real choice and has to be reachable
+ *  from the keyboard. */
+function PaperCard({ type, label, desc, selected, bgColorHex, onSelect }: {
   type: PaperType
+  label: string
+  desc: string
   selected: boolean
   bgColorHex: string
   onSelect: () => void
@@ -89,8 +103,8 @@ function PaperCard({ type, selected, bgColorHex, onSelect }: {
         <PaperPreview type={type} bgColorHex={bgColorHex} />
       </div>
       <div className={styles.paperInfo}>
-        <div className={styles.paperName}>{paperTypeLabel(type)}</div>
-        <div className={styles.paperDesc}>{paperDescription(type)}</div>
+        <div className={styles.paperName}>{label}</div>
+        <div className={styles.paperDesc}>{desc}</div>
       </div>
     </button>
   )
@@ -114,19 +128,25 @@ export function CreateRoom() {
   const location = useLocation()
   const { folderId } = (location.state as CreateRoomNavState | undefined) ?? {}
   const [roomName,    setRoomName]    = useState('')
-  const [paper,       setPaper]       = useState<PaperType>(FEATURED_PAPER_TYPES[0])
+  const [paper,       setPaper]       = useState<PaperType>('coarse-streak')
   // null = "follow the selected texture's own default" (DEFAULT_PAPER_COLORS
   // below); becomes a concrete RGB the moment the creator touches the picker,
   // and from then on stays fixed regardless of which texture card is picked.
   const [paperColor,  setPaperColor]  = useState<[number, number, number] | null>(null)
   const [paperModalOpen, setPaperModalOpen] = useState(false)
-  // The featured trio, except that a paper picked from the modal replaces
-  // the last of them — otherwise closing the modal appears to discard the
-  // choice, since the selected card would not be on screen any more.
-  const shownPaperTypes = useMemo(() => {
-    if (FEATURED_PAPER_TYPES.includes(paper)) return [...FEATURED_PAPER_TYPES]
-    return [...FEATURED_PAPER_TYPES.slice(0, 2), paper]
-  }, [paper])
+  // Remembered across a trip through Flat and back: Flat carries no
+  // character, so without this, choosing it would silently reset the fibre
+  // pick to a default the user never made.
+  const [lastCharacter, setLastCharacter] = useState<PaperCharacter>('streak')
+
+  const selectedCoarseness = paperCoarsenessOf(paper)
+  const selectedCharacter = paperCharacterOf(paper) ?? lastCharacter
+
+  // Each coarseness card previews the character currently chosen, so
+  // switching coarseness keeps the fibre and the card shows what you will
+  // actually get rather than an arbitrary representative.
+  const coarsenessCardType = (row: PaperCoarseness | 'flat'): PaperType =>
+    row === 'flat' ? 'flat' : `${row}-${selectedCharacter}` as PaperType
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const colorPickerRef = useRef<HTMLDivElement>(null)
   const [sizePreset,  setSizePreset]  = useState<SizePreset>('a4')
@@ -268,33 +288,48 @@ export function CreateRoom() {
               )}
             </div>
           </div>
+          {/* Row one: how much tooth. Flat is the end stop of this axis. */}
           <div className={styles.paperCards}>
-            {shownPaperTypes.map(type => (
-              <PaperCard
-                key={type}
-                type={type}
-                selected={paper === type}
-                bgColorHex={resolvedPaperColorHex}
-                onSelect={() => setPaper(type)}
-              />
-            ))}
+            {COARSENESS_ROW.map(row => {
+              const type = coarsenessCardType(row)
+              return (
+                <PaperCard
+                  key={row}
+                  type={type}
+                  label={row === 'flat' ? 'Flat' : PAPER_COARSENESS_LABELS[row]}
+                  desc={row === 'flat' ? 'No tooth at all' : COARSENESS_DESC[row]}
+                  selected={row === 'flat' ? paper === 'flat' : selectedCoarseness === row}
+                  bgColorHex={resolvedPaperColorHex}
+                  onSelect={() => setPaper(type)}
+                />
+              )
+            })}
           </div>
-          <button type="button" className={styles.showAllPapers} onClick={() => setPaperModalOpen(true)}>
-            Show all {PAPER_TYPES.length} papers
-          </button>
+
+          {/* Row two lives behind a modal: the character axis is the one
+              expected to grow, so it is the one that shouldn't have to fit
+              on this page forever. Flat has no characters, so there is
+              nothing to open. */}
+          {paper !== 'flat' && (
+            <button type="button" className={styles.showAllPapers} onClick={() => setPaperModalOpen(true)}>
+              Choose texture — {PAPER_CHARACTER_LABELS[selectedCharacter]}
+            </button>
+          )}
         </div>
 
-        {paperModalOpen && (
+        {paperModalOpen && selectedCoarseness && (
           <div
             className={styles.paperModalBackdrop}
             role="dialog"
             aria-modal="true"
-            aria-label="Choose paper"
+            aria-label="Choose texture"
             onClick={() => setPaperModalOpen(false)}
           >
             <div className={styles.paperModal} onClick={e => e.stopPropagation()}>
               <div className={styles.paperModalHeader}>
-                <div className={styles.paperModalTitle}>Paper</div>
+                <div className={styles.paperModalTitle}>
+                  Texture — {PAPER_COARSENESS_LABELS[selectedCoarseness].toLowerCase()} grain
+                </div>
                 <button
                   type="button"
                   className={styles.paperModalClose}
@@ -304,19 +339,27 @@ export function CreateRoom() {
                   <Icon name="close" />
                 </button>
               </div>
-              {/* Every card is tinted with the colour actually chosen above,
-                  so the grid reads as "how will my canvas look", not "what
-                  noise is this". */}
+              {/* Only the chosen coarseness: showing all ten at once made the
+                  two axes read as one flat list of near-identical cards. */}
               <div className={styles.paperModalGrid}>
-                {PAPER_TYPES.map(type => (
-                  <PaperCard
-                    key={type}
-                    type={type}
-                    selected={paper === type}
-                    bgColorHex={resolvedPaperColorHex}
-                    onSelect={() => { setPaper(type); setPaperModalOpen(false) }}
-                  />
-                ))}
+                {PAPER_CHARACTER.map(character => {
+                  const type = `${selectedCoarseness}-${character}` as PaperType
+                  return (
+                    <PaperCard
+                      key={character}
+                      type={type}
+                      label={PAPER_CHARACTER_LABELS[character]}
+                      desc={CHARACTER_DESC[character]}
+                      selected={paper === type}
+                      bgColorHex={resolvedPaperColorHex}
+                      onSelect={() => {
+                        setPaper(type)
+                        setLastCharacter(character)
+                        setPaperModalOpen(false)
+                      }}
+                    />
+                  )
+                })}
               </div>
             </div>
           </div>
