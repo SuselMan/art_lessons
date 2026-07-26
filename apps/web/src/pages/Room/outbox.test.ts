@@ -279,3 +279,146 @@ describe('Outbox with broken storage', () => {
     expect(sent).toEqual(['from-last-session'])
   })
 })
+
+// (#298) The failure that bricked a tablet: the server answered nothing at
+// all for an operation sent before join_room, so every send timed out and
+// retried forever, and resendAll fired every queued entry at once. Measured
+// on the device: 384 strokes at 42-49 attempts each, ~55 MB of JSON
+// serialized per round, renderer RSS sawtoothing 275 -> 512 MB until the
+// low-memory killer took it out — which reloaded the tab, back to the gate,
+// and started the whole cycle again.
+describe('Outbox send gating and concurrency', () => {
+  it('sends nothing at all while canSend is false', async () => {
+    const send = vi.fn(async () => ({ ok: true, seq: 1 }) satisfies SendResult)
+    const outbox = new Outbox({
+      storage: createInMemoryOutboxStorage(), send, canSend: () => false,
+    })
+
+    await outbox.enqueue(op('a'))
+    await outbox.enqueue(op('b'))
+    await flushMicrotasks()
+
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('releases the parked queue once canSend turns true', async () => {
+    let joined = false
+    const sent: string[] = []
+    const outbox = new Outbox({
+      storage: createInMemoryOutboxStorage(),
+      send: async o => { sent.push(o.id); return { ok: true, seq: 1 } satisfies SendResult },
+      canSend: () => joined,
+    })
+
+    await outbox.enqueue(op('a'))
+    await outbox.enqueue(op('b'))
+    await flushMicrotasks()
+    expect(sent).toEqual([])
+
+    joined = true
+    await outbox.resendAll()
+    await flushMicrotasks(12)
+
+    expect(sent.sort()).toEqual(['a', 'b'])
+  })
+
+  it('never has more than MAX_CONCURRENT_SENDS operations in flight', async () => {
+    let inFlight = 0
+    let peak = 0
+    const release: Array<() => void> = []
+    const outbox = new Outbox({
+      storage: createInMemoryOutboxStorage(),
+      send: async () => {
+        inFlight++
+        peak = Math.max(peak, inFlight)
+        await new Promise<void>(res => release.push(res))
+        inFlight--
+        return { ok: true, seq: 1 } satisfies SendResult
+      },
+    })
+
+    for (let i = 0; i < 10; i++) await outbox.enqueue(op(`op-${i}`))
+    await flushMicrotasks(12)
+
+    expect(peak).toBeLessThanOrEqual(2)
+    // Drain so the test doesn't leave promises hanging.
+    while (release.length) release.shift()!()
+    await flushMicrotasks(40)
+  })
+
+  it('retries `not_joined` instead of discarding the operation', async () => {
+    const { scheduled, schedule } = captureSchedule()
+    const onSettled = vi.fn()
+    let joined = false
+    const outbox = new Outbox({
+      storage: createInMemoryOutboxStorage(),
+      send: async () => (joined
+        ? { ok: true, seq: 5 } satisfies SendResult
+        : { ok: false, reason: 'not_joined' } satisfies SendResult),
+      onSettled, schedule,
+    })
+
+    await outbox.enqueue(op('a'))
+    await flushMicrotasks()
+    // Not settled — a transient rejection must not count as a verdict.
+    expect(onSettled).not.toHaveBeenCalled()
+    expect(scheduled).toHaveLength(1)
+
+    joined = true
+    scheduled[0].fn()
+    await flushMicrotasks(12)
+
+    expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), { ok: true, seq: 5 })
+  })
+
+  it('stops retrying after MAX_ATTEMPTS but keeps the operation queued', async () => {
+    const { scheduled, schedule } = captureSchedule()
+    const storage = createInMemoryOutboxStorage()
+    const onStalled = vi.fn()
+    const outbox = new Outbox({
+      storage, schedule, onStalled,
+      send: async () => { throw new Error('timeout') },
+    })
+
+    await outbox.enqueue(op('a'))
+    await flushMicrotasks()
+    // Drive every scheduled retry until the outbox gives up on its own.
+    for (let i = 0; i < 30 && scheduled.length > 0; i++) {
+      const next = scheduled.shift()!
+      next.fn()
+      await flushMicrotasks(12)
+    }
+
+    expect(onStalled).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }))
+    expect(scheduled).toHaveLength(0)            // nothing left retrying in the background
+    expect(await storage.getAll()).toHaveLength(1) // but the work is NOT thrown away
+  })
+
+  it('re-arms stalled operations on the next resendAll', async () => {
+    const { scheduled, schedule } = captureSchedule()
+    let failing = true
+    const sent: string[] = []
+    const outbox = new Outbox({
+      storage: createInMemoryOutboxStorage(), schedule,
+      send: async o => {
+        if (failing) throw new Error('timeout')
+        sent.push(o.id)
+        return { ok: true, seq: 1 } satisfies SendResult
+      },
+    })
+
+    await outbox.enqueue(op('a'))
+    await flushMicrotasks()
+    for (let i = 0; i < 30 && scheduled.length > 0; i++) {
+      scheduled.shift()!.fn()
+      await flushMicrotasks(12)
+    }
+    expect(sent).toEqual([])
+
+    failing = false
+    await outbox.resendAll()
+    await flushMicrotasks(12)
+
+    expect(sent).toEqual(['a'])
+  })
+})

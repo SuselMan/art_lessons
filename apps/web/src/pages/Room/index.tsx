@@ -627,6 +627,16 @@ export function Room() {
   const outbox = useMemo(() => new Outbox({
     storage: createIndexedDbOutboxStorage(),
     send: op => sendOperationWithTimeout(socketRef.current, op),
+    // (#298) Nothing may go out before create_room/join_room has completed:
+    // the server has no room to record against and answers `not_joined`, so
+    // every such send is guaranteed to fail. This used to drain on *connect*
+    // instead, which on a tablet with a 384-operation backlog meant blasting
+    // ~55 MB of stroke JSON at a socket that had joined nothing — every
+    // reconnect, forever.
+    canSend: () => hasJoinedRef.current,
+    onStalled: op => {
+      console.error('operation stopped retrying after repeated failures', op.type, op.id)
+    },
     onSettled: (op, result) => {
       if (!result.ok) {
         console.error('operation rejected by server', op.type, op.id, result.reason)
@@ -1867,14 +1877,12 @@ export function Room() {
     // ownership/authorship key off the same stable id every time.
     const handleConnect = () => {
       setConnected(true)
-      // (#289 §9) A fresh connection means any send still in flight on the
-      // old one is moot, whether or not it actually reached the server —
-      // replay everything the Outbox still holds. Safe to resend blindly:
-      // the server dedups by Operation.id (see rooms.ts's
-      // findDuplicateOperation), so a redundant resend just comes back
-      // `{ ok: true, duplicate: true }`.
-      void outbox.resendAll()
-
+      // (#298) resendAll deliberately does NOT happen here any more. It used
+      // to, and a fresh connection is precisely the moment the socket has
+      // joined nothing — so the whole backlog went out against a socket the
+      // server would answer `not_joined` for (or, before that reason
+      // existed, not answer at all). Each of the join paths below calls it
+      // once its own join has actually succeeded.
       if (isCreator && creatorDraft) {
         if (!hasJoinedRef.current) {
           socket.emit(
@@ -1887,6 +1895,7 @@ export function Room() {
               if (result.ok) {
                 hasJoinedRef.current = true
                 applyIdentity(result.userId)
+                void outbox.resendAll()
                 // Best-effort: room creation already succeeded either way, so
                 // a failure here just leaves the room at root level (still
                 // visible on MyLessons) rather than blocking anything.
@@ -1909,7 +1918,7 @@ export function Room() {
               lastKnownSeq: latestKnownSeqRef.current || undefined,
             },
             result => {
-              if (result.ok) applyIdentity(result.userId)
+              if (result.ok) { applyIdentity(result.userId); void outbox.resendAll() }
               else console.error('join_room failed on reconnect', result)
             },
           )
@@ -1926,7 +1935,7 @@ export function Room() {
           'join_room',
           { roomId: id, ...lastJoinAttemptRef.current, lastKnownSeq: latestKnownSeqRef.current || undefined },
           result => {
-            if (result.ok) applyIdentity(result.userId)
+            if (result.ok) { applyIdentity(result.userId); void outbox.resendAll() }
             else console.error('join_room failed on reconnect', result)
           },
         )
@@ -2297,11 +2306,13 @@ export function Room() {
         if (!result.ok) { setJoinError(describeJoinError(result.error)); return }
         hasJoinedRef.current = true
         applyIdentity(result.userId)
+        // (#298) Only now may the outbox drain — see its canSend gate.
+        void outbox.resendAll()
         // room_state (already wired above) populates `config` from here, which
         // unmounts the gate in favor of the editor.
       },
     )
-  }, [id, joinName, joinPassword, applyIdentity])
+  }, [id, joinName, joinPassword, applyIdentity, outbox])
 
   // ── keyboard shortcuts (#174: bindings come from the `hotkeys` registry
   // loaded above, not hardcoded here — see lib/hotkeys.ts) ─────────────────

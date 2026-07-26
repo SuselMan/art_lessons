@@ -4,6 +4,22 @@ import type { OutboxEntry, OutboxStorage } from './outboxStorage'
 const INITIAL_BACKOFF_MS = 1000
 const MAX_BACKOFF_MS = 30000
 
+// (#298) How many operations may be on the wire at once. Previously
+// unbounded: resendAll fired an attempt for every queued entry
+// simultaneously, so a backlog of 384 strokes serialized ~55 MB of JSON into
+// the socket in one go, every retry round. That is what drove the renderer's
+// 275 MB -> 512 MB sawtooth on a tablet until the low-memory killer shot it.
+// Small on purpose — a backlog is by definition not latency-sensitive, and
+// the live path (one stroke at a time) never reaches this limit anyway.
+const MAX_CONCURRENT_SENDS = 2
+
+// (#298) After this many consecutive failures an entry stops retrying on its
+// own. It is NOT discarded — it stays queued and persisted, and the next
+// resendAll (a reconnect, or rejoining the room) re-arms it. The point is
+// only to stop an entry that cannot currently succeed from retrying forever
+// in the background; losing the drawing instead would be the worse failure.
+const MAX_ATTEMPTS = 12
+
 export interface OutboxDeps {
   storage: OutboxStorage
   // Resolves with the server's verdict, or rejects/never settles on a
@@ -17,6 +33,17 @@ export interface OutboxDeps {
   // callback always did, now shared by both the always-optimistic and the
   // deferred (requires_confirmation) dispatch paths.
   onSettled?: (op: Operation, result: SendResult) => void
+  // (#298) Whether the socket is in a state where an operation can actually
+  // be recorded — i.e. create_room/join_room has completed. Without this the
+  // queue drained on *connect*, before the socket had joined anything, and
+  // the server has no room to record against: every one of those sends was
+  // guaranteed to fail. Returning false parks the queue instead; the next
+  // resendAll (called once the join succeeds) releases it.
+  canSend?: () => boolean
+  // Fires when an entry hits MAX_ATTEMPTS and stops retrying on its own. The
+  // operation is still queued and persisted — this is a "stuck, tell the
+  // user" signal, not a discard.
+  onStalled?: (op: Operation) => void
   now?: () => number
   schedule?: (fn: () => void, delayMs: number) => void
 }
@@ -38,8 +65,14 @@ export class Outbox {
   private readonly storage: OutboxStorage
   private readonly send: (op: Operation) => Promise<SendResult>
   private readonly onSettled?: (op: Operation, result: SendResult) => void
+  private readonly canSend?: () => boolean
+  private readonly onStalled?: (op: Operation) => void
   private readonly now: () => number
   private readonly schedule: (fn: () => void, delayMs: number) => void
+  // Ids waiting for a send slot, oldest first — see MAX_CONCURRENT_SENDS.
+  private readonly waiting: string[] = []
+  // Ids that hit MAX_ATTEMPTS and stopped retrying until the next resendAll.
+  private readonly stalled = new Set<string>()
   // opIds with a runAttempt currently in flight — purely to avoid piling up
   // redundant concurrent attempts for the same entry (e.g. resendAll()
   // called again before an earlier attempt's timeout has even settled), not
@@ -63,6 +96,8 @@ export class Outbox {
     this.storage = deps.storage
     this.send = deps.send
     this.onSettled = deps.onSettled
+    this.canSend = deps.canSend
+    this.onStalled = deps.onStalled
     this.now = deps.now ?? Date.now
     this.schedule = deps.schedule ?? ((fn, ms) => { setTimeout(fn, ms) })
   }
@@ -94,6 +129,10 @@ export class Outbox {
       // this session still has to go out.
       console.error('outbox: could not read persisted queue', err)
     }
+    // Re-arms anything that gave up: a reconnect (or a completed join) is
+    // exactly the change of circumstances that could make it succeed now.
+    this.stalled.clear()
+    for (const entry of this.pending.values()) entry.attempts = 0
     for (const opId of [...this.pending.keys()]) this.attempt(opId)
   }
 
@@ -108,9 +147,23 @@ export class Outbox {
   }
 
   private attempt(opId: string): void {
-    if (this.inFlight.has(opId)) return
-    this.inFlight.add(opId)
-    void this.runAttempt(opId)
+    if (this.inFlight.has(opId) || this.stalled.has(opId)) return
+    if (!this.waiting.includes(opId)) this.waiting.push(opId)
+    this.pump()
+  }
+
+  /** Starts as many queued attempts as MAX_CONCURRENT_SENDS allows. Parks
+   *  the whole queue while `canSend` says the socket cannot record anything
+   *  yet — entries stay in `waiting`, and the resendAll that follows a
+   *  successful join releases them. */
+  private pump(): void {
+    while (this.inFlight.size < MAX_CONCURRENT_SENDS && this.waiting.length > 0) {
+      if (this.canSend && !this.canSend()) return
+      const opId = this.waiting.shift()!
+      if (!this.pending.has(opId) || this.inFlight.has(opId)) continue
+      this.inFlight.add(opId)
+      void this.runAttempt(opId)
+    }
   }
 
   private async runAttempt(opId: string): Promise<void> {
@@ -125,6 +178,12 @@ export class Outbox {
 
       try {
         const result = await this.send(entry.op)
+        // (#298) `not_joined` is the one rejection that isn't a verdict on
+        // the operation — the socket simply hadn't joined a room yet, which
+        // the canSend gate should already prevent. Treat it exactly like a
+        // timeout: back off and try again, rather than discarding work over
+        // a race the user had no part in.
+        if (!result.ok && result.reason === 'not_joined') throw new Error('not_joined')
         this.pending.delete(opId)
         try {
           await this.storage.delete(opId)
@@ -136,13 +195,22 @@ export class Outbox {
         this.onSettled?.(entry.op, result)
       } catch {
         entry.attempts += 1
+        await this.persist(entry)
+        if (entry.attempts >= MAX_ATTEMPTS) {
+          // Stop retrying on our own — but keep it queued and persisted, so
+          // the next reconnect/join gets to try again rather than the work
+          // being thrown away. See MAX_ATTEMPTS.
+          this.stalled.add(opId)
+          this.onStalled?.(entry.op)
+          return
+        }
         const delay = Math.min(INITIAL_BACKOFF_MS * 2 ** (entry.attempts - 1), MAX_BACKOFF_MS)
         entry.nextRetryAt = this.now() + delay
-        await this.persist(entry)
         this.schedule(() => this.attempt(opId), delay)
       }
     } finally {
       this.inFlight.delete(opId)
+      this.pump()
     }
   }
 }

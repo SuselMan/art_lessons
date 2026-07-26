@@ -444,6 +444,14 @@ export type RejectReason =
   // The operation references a layerId/folderId no longer in the room's
   // alive set (deleted or consumed by a merge) — see rooms.ts's aliveIds.
   | 'target_gone'
+  // (#298) This socket has not completed create_room/join_room, so the
+  // server has no room to record against. Unlike every other reason here it
+  // is *transient* — the client simply sent too early — so the client
+  // retries rather than discarding the operation. It exists at all because
+  // the server used to `return` with no ack in this case, which is
+  // indistinguishable from a dropped packet: the sender waited out its
+  // timeout and retried forever. See socketHandlers.ts's 'operation' handler.
+  | 'not_joined'
 
 export type ServerToClientEvents = {
   // `latestSnapshotSeq` is null until the room has ever crossed
