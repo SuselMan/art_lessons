@@ -66,7 +66,7 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
         return reply.code(400).send({ error: 'bad_request' })
       }
 
-      return getOperationsBefore(roomId, beforeSeq, limit)
+      return await getOperationsBefore(roomId, beforeSeq, limit)
     },
   )
 }

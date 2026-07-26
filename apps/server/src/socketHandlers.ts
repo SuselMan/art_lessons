@@ -4,7 +4,7 @@ import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@art
 
 import {
   addPaletteColor, createRoom, ensureRoomLoaded, findDuplicateOperation, getOperationRejectReason, getParticipant,
-  getRoomSnapshot, joinRoom, leaveRoom, recordOperation, removePaletteColor, setLayerOwnerLocked,
+  getRoomSnapshot, joinRoom, leaveRoom, recordOperation, releaseRoomIfUnused, removePaletteColor, setLayerOwnerLocked,
   setParticipantFrozen, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 import { resolveSocketIdentity } from './identity.js'
@@ -76,11 +76,28 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
 
       const result = joinRoom(roomId, userId, name, password, socket.id)
       if (!result.ok) {
+        // (#292) The load above just pulled this room into memory, and a
+        // rejected join means nobody is in it — without this it would sit
+        // there, fully populated, until the process restarted. No-op if
+        // anyone else is actually present.
+        releaseRoomIfUnused(roomId)
         log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')
         ack(result)
         return
       }
 
+      // (#292) A socket that joins a second room must leave the first, or
+      // the first keeps a participant nobody can ever remove: `disconnect`
+      // below reads this single field, so it would only ever leave the last
+      // room joined, and the earlier one could never reach zero
+      // participants — the sole condition under which a room is evicted.
+      const previousRoomId = socket.data.roomId
+      if (previousRoomId && previousRoomId !== roomId) {
+        if (leaveRoom(previousRoomId, userId, socket.id)) {
+          socket.to(previousRoomId).emit('peer_left', userId)
+        }
+        void socket.leave(previousRoomId)
+      }
       socket.data.roomId = roomId
 
       // Join the Socket.IO room and emit the snapshot synchronously, in that
