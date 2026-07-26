@@ -38,6 +38,8 @@
 // tiltY, which the engine already reports).
 
 import type { PaperType, ToolType } from '@art-lessons/shared'
+import { paperCoarsenessOf } from '@art-lessons/shared'
+import type { PaperCoarseness } from '@art-lessons/shared'
 
 // Every module-level numeric knob that isn't part of a GrainVariant recipe
 // (deadzone/speed curve shape/global filter ranges/ramp times) used to be a
@@ -639,10 +641,18 @@ const IDLE_CHECK_MS = 30
 // (a shader-tuning constant retuned for visual reasons, unrelated to and
 // less stable than what an acoustic "how gritty/loud is this paper" factor
 // needs).
-const PAPER_SOUND_FACTOR: Record<PaperType, number> = {
-  rough: 1.0,
-  smooth: 0.75,
-  bristol: 0.55,
+// (#300) Keyed by coarseness — how gritty the paper sounds follows how
+// coarse it is, not what its fibre pattern looks like. Flat is quietest of
+// all: no tooth means nothing for the graphite to rasp against.
+const PAPER_SOUND_FACTOR_BY_COARSENESS: Record<PaperCoarseness, number> = {
+  coarse: 1.0,
+  medium: 0.75,
+  fine:   0.55,
+}
+
+function paperSoundFactor(type: PaperType): number {
+  const coarseness = paperCoarsenessOf(type)
+  return coarseness ? PAPER_SOUND_FACTOR_BY_COARSENESS[coarseness] : 0.4
 }
 
 function speedNorm(speed: number): number {
@@ -913,7 +923,7 @@ export class PencilSound implements PencilSoundAPI {
   private nextGrainAtPx = 0
 
   constructor(paper: PaperType, grain: GrainVariant) {
-    this.paperFactor = PAPER_SOUND_FACTOR[paper]
+    this.paperFactor = paperSoundFactor(paper)
     this.grain = grain
   }
 

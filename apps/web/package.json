@@ -11,6 +11,7 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "preview": "vite preview",
+    "prebuild": "tsx scripts/bakePaperTextures.ts --if-missing",
     "bake:paper": "tsx scripts/bakePaperTextures.ts",
     "bake:paper-variants": "tsx scripts/bakeRoughVariantTextures.ts"
   },

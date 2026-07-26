@@ -28,6 +28,8 @@ import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from '.
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
+import { paperCoarsenessOf } from '@art-lessons/shared'
+import type { PaperCoarseness } from '@art-lessons/shared'
 
 export type { HapticGrainStats }
 export type { AffineMatrix }
@@ -88,7 +90,7 @@ export interface PencilEngineOptions {
   // construction — an engine instance never switches modes mid-life.
   infinite?: boolean
   paper?: PaperType
-  // Overrides PAPER_COLORS[paper]'s default background RGB for this room —
+  // Overrides paperColorOf(paper)'s default background RGB for this room —
   // set from the creator's own pick (Room.paperColor, hex, converted via
   // hexToRgb) when present; omit to use the plain per-texture default.
   paperColor?: [number, number, number]
@@ -552,10 +554,17 @@ interface Checkpoint {
 // (hex there, since CreateRoom's color picker needs a hex/RGB string; RGB
 // float triple here, since that's what the shader uniform wants) — update
 // both together if these defaults ever change.
-const PAPER_COLORS: Record<PaperType, [number, number, number]> = {
-  rough:   [0.96, 0.94, 0.90],
-  smooth:  [0.97, 0.97, 0.96],
-  bristol: [0.99, 0.99, 0.98],
+// (#300) Keyed by coarseness, matching DEFAULT_PAPER_COLORS in shared —
+// the tint tracks how coarse the stock is, not its fibre character.
+const PAPER_COLORS_BY_COARSENESS: Record<PaperCoarseness, [number, number, number]> = {
+  coarse: [0.96, 0.94, 0.90],
+  medium: [0.97, 0.97, 0.96],
+  fine:   [0.99, 0.99, 0.98],
+}
+
+function paperColorOf(type: PaperType): [number, number, number] {
+  const coarseness = paperCoarsenessOf(type)
+  return coarseness ? PAPER_COLORS_BY_COARSENESS[coarseness] : PAPER_COLORS_BY_COARSENESS.fine
 }
 
 // Paper-grain texture: baked once, offline (see ../scripts/bakePaperTextures.ts
@@ -1355,7 +1364,7 @@ export class PencilEngine implements PencilEngineAPI {
     this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
 
     this._opts = {
-      paper:         options.paper         ?? 'rough',
+      paper:         options.paper         ?? 'coarse-streak',
       paperColor:    options.paperColor,
       pencilType:    options.pencilType    ?? 'HB',
       size:          options.size          ?? 24,
@@ -3048,7 +3057,7 @@ export class PencilEngine implements PencilEngineAPI {
   // see _paperWorldSize()'s own comment for why unifying them is safe.
   private async _initPaper(type: PaperType): Promise<void> {
     let bytes: Uint8Array
-    if (type === 'rough' && this._paperVariantUrl) {
+    if (type === 'coarse-streak' && this._paperVariantUrl) {
       try {
         bytes = await getPaperBytesFromUrl(this._paperVariantUrl)
       } catch (err) {
@@ -5186,7 +5195,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperMap, 1)
 
-    gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? PAPER_COLORS[this._opts.paper])
+    gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
@@ -5592,7 +5601,7 @@ export class PencilEngine implements PencilEngineAPI {
       return
     }
 
-    const paperColor = this._opts.paperColor ?? PAPER_COLORS[this._opts.paper]
+    const paperColor = this._opts.paperColor ?? paperColorOf(this._opts.paper)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.viewport(0, 0, w, h)
@@ -5810,7 +5819,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperMap, 1)
 
-    gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? PAPER_COLORS[this._opts.paper])
+    gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)

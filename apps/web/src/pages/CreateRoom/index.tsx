@@ -1,12 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
-import { DEFAULT_PAPER_COLORS, type PaperType } from '@art-lessons/shared'
+import {
+  DEFAULT_PAPER_COLORS, FEATURED_PAPER_TYPES, PAPER_TYPES, paperCharacterOf, paperCoarsenessOf,
+  paperTypeLabel, type PaperType,
+} from '@art-lessons/shared'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { PaperPreview } from '../../components/PaperPreview'
 import { AccountNav } from '../../components/AccountNav'
 import { ColorPicker } from '../../components/ColorPicker'
+import { Icon } from '../../components/Icon'
 import styles from './CreateRoom.module.css'
 
 // (#211 epic, #215) MyLessons hands this off via `<Link state={{ folderId }}>`
@@ -19,27 +23,78 @@ interface CreateRoomNavState {
 
 type SizePreset = 'a4' | 'a3' | 'a2' | 'square' | '16:9' | 'custom' | 'infinite'
 
+type Orientation = 'portrait' | 'landscape'
+
 interface SizeOption {
   id: SizePreset
   label: string
   width: number
   height: number
+  // Clicking an already-selected rotatable card flips the orientation
+  // (see handleSizeClick). Only the paper formats rotate: Square is a no-op
+  // at 1:1, "16:9" would have to relabel itself to stay honest, and Custom
+  // takes explicit width/height from the creator anyway.
+  rotatable?: boolean
 }
 
 const SIZE_OPTIONS: SizeOption[] = [
-  { id: 'a4',     label: 'A4',     width: 1240, height: 1754 },
-  { id: 'a3',     label: 'A3',     width: 1754, height: 2480 },
-  { id: 'a2',     label: 'A2',     width: 2480, height: 3508 },
+  { id: 'a4',     label: 'A4',     width: 1240, height: 1754, rotatable: true },
+  { id: 'a3',     label: 'A3',     width: 1754, height: 2480, rotatable: true },
+  { id: 'a2',     label: 'A2',     width: 2480, height: 3508, rotatable: true },
   { id: 'square', label: 'Square', width: 1500, height: 1500 },
   { id: '16:9',   label: '16:9',   width: 1920, height: 1080 },
   { id: 'custom', label: 'Custom', width: 0,    height: 0    },
 ]
 
-const PAPER_OPTIONS: { type: PaperType; label: string; desc: string }[] = [
-  { type: 'rough',   label: 'Rough',   desc: 'Visible grain, classic feel' },
-  { type: 'smooth',  label: 'Smooth',  desc: 'Fine grain, versatile' },
-  { type: 'bristol', label: 'Bristol', desc: 'Near-flat, precise lines' },
-]
+// Presets above are stored portrait (width < height); landscape swaps them.
+// Orientation is one global value rather than per-card state, so a creator who
+// picked landscape A4 and then switches to A3 gets landscape A3 — the choice
+// follows them across formats instead of resetting on every click.
+function resolveSize(opt: SizeOption, orientation: Orientation): { width: number; height: number } {
+  if (!opt.rotatable || orientation === 'portrait') return { width: opt.width, height: opt.height }
+  return { width: opt.height, height: opt.width }
+}
+
+// (#300) The picker no longer hardcodes a list — papers are a grid now
+// (coarseness x fibre character, see PAPER_TYPES in shared), and the point
+// of the grid is that it grows. Three are shown inline; the rest live behind
+// "Show all", because a room's paper is a one-time decision that does not
+// deserve a wall of twelve cards up front.
+function paperDescription(type: PaperType): string {
+  if (type === 'flat') return 'No tooth at all — the pencil glides'
+  const coarseness = paperCoarsenessOf(type)!
+  const character = paperCharacterOf(type)!
+  const feel = { coarse: 'Strong tooth', medium: 'Moderate tooth', fine: 'Barely any tooth' }[coarseness]
+  const look = { fbm: 'even grain', capsules: 'visible fibres', streak: 'laid, horizontal grain' }[character]
+  return `${feel}, ${look}`
+}
+
+
+/** One paper option. Deliberately a plain button rather than the old bare
+ *  div — the picker is a real choice and needs to be keyboard-reachable. */
+function PaperCard({ type, selected, bgColorHex, onSelect }: {
+  type: PaperType
+  selected: boolean
+  bgColorHex: string
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={clsx(styles.paperCard, selected && styles.selected)}
+      aria-pressed={selected}
+      onClick={onSelect}
+    >
+      <div className={styles.paperPreviewWrap}>
+        <PaperPreview type={type} bgColorHex={bgColorHex} />
+      </div>
+      <div className={styles.paperInfo}>
+        <div className={styles.paperName}>{paperTypeLabel(type)}</div>
+        <div className={styles.paperDesc}>{paperDescription(type)}</div>
+      </div>
+    </button>
+  )
+}
 
 function SizeIcon({ width, height }: { width: number; height: number }) {
   const BOX = 38
@@ -59,14 +114,23 @@ export function CreateRoom() {
   const location = useLocation()
   const { folderId } = (location.state as CreateRoomNavState | undefined) ?? {}
   const [roomName,    setRoomName]    = useState('')
-  const [paper,       setPaper]       = useState<PaperType>('rough')
+  const [paper,       setPaper]       = useState<PaperType>(FEATURED_PAPER_TYPES[0])
   // null = "follow the selected texture's own default" (DEFAULT_PAPER_COLORS
   // below); becomes a concrete RGB the moment the creator touches the picker,
   // and from then on stays fixed regardless of which texture card is picked.
   const [paperColor,  setPaperColor]  = useState<[number, number, number] | null>(null)
+  const [paperModalOpen, setPaperModalOpen] = useState(false)
+  // The featured trio, except that a paper picked from the modal replaces
+  // the last of them — otherwise closing the modal appears to discard the
+  // choice, since the selected card would not be on screen any more.
+  const shownPaperTypes = useMemo(() => {
+    if (FEATURED_PAPER_TYPES.includes(paper)) return [...FEATURED_PAPER_TYPES]
+    return [...FEATURED_PAPER_TYPES.slice(0, 2), paper]
+  }, [paper])
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const colorPickerRef = useRef<HTMLDivElement>(null)
   const [sizePreset,  setSizePreset]  = useState<SizePreset>('a4')
+  const [orientation, setOrientation] = useState<Orientation>('portrait')
   const [customW,     setCustomW]     = useState('1920')
   const [customH,     setCustomH]     = useState('1080')
   const [usePassword, setUsePassword] = useState(false)
@@ -93,6 +157,21 @@ export function CreateRoom() {
       document.removeEventListener('keydown', onKeyDown)
     }
   }, [colorPickerOpen])
+
+  function toggleOrientation() {
+    setOrientation(o => (o === 'portrait' ? 'landscape' : 'portrait'))
+  }
+
+  // First click selects; clicking the already-selected card rotates it. The
+  // rotate badge on the selected card is what makes that second click
+  // discoverable — it fires this same toggle.
+  function handleSizeClick(opt: SizeOption) {
+    if (sizePreset === opt.id && opt.rotatable) {
+      toggleOrientation()
+      return
+    }
+    setSizePreset(opt.id)
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -123,8 +202,9 @@ export function CreateRoom() {
       }
     } else {
       const preset = SIZE_OPTIONS.find(s => s.id === sizePreset)!
-      width  = preset.width
-      height = preset.height
+      const resolved = resolveSize(preset, orientation)
+      width  = resolved.width
+      height = resolved.height
     }
 
     navigate(`/room/${id}`, {
@@ -189,36 +269,88 @@ export function CreateRoom() {
             </div>
           </div>
           <div className={styles.paperCards}>
-            {PAPER_OPTIONS.map(({ type, label, desc }) => (
-              <div
+            {shownPaperTypes.map(type => (
+              <PaperCard
                 key={type}
-                className={clsx(styles.paperCard, paper === type && styles.selected)}
-                onClick={() => setPaper(type)}
-              >
-                <div className={styles.paperPreviewWrap}>
-                  <PaperPreview type={type} width={200} height={150} bgColorHex={resolvedPaperColorHex} />
-                </div>
-                <div className={styles.paperInfo}>
-                  <div className={styles.paperName}>{label}</div>
-                  <div className={styles.paperDesc}>{desc}</div>
-                </div>
-              </div>
+                type={type}
+                selected={paper === type}
+                bgColorHex={resolvedPaperColorHex}
+                onSelect={() => setPaper(type)}
+              />
             ))}
           </div>
+          <button type="button" className={styles.showAllPapers} onClick={() => setPaperModalOpen(true)}>
+            Show all {PAPER_TYPES.length} papers
+          </button>
         </div>
+
+        {paperModalOpen && (
+          <div
+            className={styles.paperModalBackdrop}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Choose paper"
+            onClick={() => setPaperModalOpen(false)}
+          >
+            <div className={styles.paperModal} onClick={e => e.stopPropagation()}>
+              <div className={styles.paperModalHeader}>
+                <div className={styles.paperModalTitle}>Paper</div>
+                <button
+                  type="button"
+                  className={styles.paperModalClose}
+                  aria-label="Close"
+                  onClick={() => setPaperModalOpen(false)}
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
+              {/* Every card is tinted with the colour actually chosen above,
+                  so the grid reads as "how will my canvas look", not "what
+                  noise is this". */}
+              <div className={styles.paperModalGrid}>
+                {PAPER_TYPES.map(type => (
+                  <PaperCard
+                    key={type}
+                    type={type}
+                    selected={paper === type}
+                    bgColorHex={resolvedPaperColorHex}
+                    onSelect={() => { setPaper(type); setPaperModalOpen(false) }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Canvas size */}
         <div className={styles.section}>
           <div className={styles.label}>Canvas size</div>
           <div className={styles.sizeCards}>
-            {SIZE_OPTIONS.map(opt => (
+            {SIZE_OPTIONS.map(opt => {
+              const { width, height } = resolveSize(opt, orientation)
+              const selected = sizePreset === opt.id
+              return (
               <div
                 key={opt.id}
-                className={clsx(styles.sizeCard, sizePreset === opt.id && styles.selected)}
-                onClick={() => setSizePreset(opt.id)}
+                className={clsx(styles.sizeCard, selected && styles.selected)}
+                onClick={() => handleSizeClick(opt)}
               >
+                {selected && opt.rotatable && (
+                  // Duplicates the card's own second-click toggle on purpose:
+                  // the gesture is the shortcut, this is the thing that tells
+                  // you the gesture exists (and gives it a keyboard path).
+                  <button
+                    type="button"
+                    className={styles.rotateBadge}
+                    title={orientation === 'portrait' ? 'Rotate to landscape' : 'Rotate to portrait'}
+                    aria-label={orientation === 'portrait' ? 'Rotate to landscape' : 'Rotate to portrait'}
+                    onClick={e => { e.stopPropagation(); toggleOrientation() }}
+                  >
+                    <Icon name="rotate_90_degrees_cw" />
+                  </button>
+                )}
                 {opt.id !== 'custom' ? (
-                  <SizeIcon width={opt.width} height={opt.height} />
+                  <SizeIcon width={width} height={height} />
                 ) : (
                   <div className={styles.sizeIconWrap}>
                     <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -231,10 +363,11 @@ export function CreateRoom() {
                 )}
                 <div className={styles.sizeName}>{opt.label}</div>
                 {opt.id !== 'custom' && (
-                  <div className={styles.sizeDims}>{opt.width} × {opt.height}</div>
+                  <div className={styles.sizeDims}>{width} × {height}</div>
                 )}
               </div>
-            ))}
+              )
+            })}
             <div
               key="infinite"
               className={clsx(styles.sizeCard, sizePreset === 'infinite' && styles.selected)}

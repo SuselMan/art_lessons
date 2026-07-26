@@ -24,17 +24,17 @@
 // import straight from paperNoise.ts instead of hand-duplicating the math —
 // a single source of truth shared with the bake script itself.
 import { gunzipSync } from 'node:zlib'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import type { PaperType } from '@art-lessons/shared'
+import type { PaperGrainType } from '@art-lessons/shared'
+import { PAPER_COARSENESS, PAPER_GRAIN_TYPES } from '@art-lessons/shared'
 
 import {
-  PAPER_BAKE_RESOLUTION, PAPER_GRAIN_CONFIGS, PAPER_ROUGHNESS, paperCatchValue, paperHeight,
-  paperCatchValueForRoughVariant, paperHeightForRoughVariant, SHIPPED_ROUGH_VARIANT_INDEX,
+  PAPER_BAKE_RESOLUTION, PAPER_GRAIN_CONFIGS, paperGridCatch, paperGridHeight, paperHeight,
 } from './paperNoise'
 
 const RES = PAPER_BAKE_RESOLUTION
@@ -117,7 +117,7 @@ describe('paper noise seamlessness (#141 follow-up)', () => {
     // (a real, non-negligible mismatch a full period apart), so the
     // periodicity asserted above is this fix actually doing something, not
     // a property the noise already had for free.
-    const cfg = PAPER_GRAIN_CONFIGS.rough
+    const cfg = PAPER_GRAIN_CONFIGS.coarse
     let maxDiff = 0
     for (const [x, y] of SAMPLE_POINTS) {
       const h1 = paperHeight(x, y, RES, RES, cfg, false)
@@ -143,38 +143,67 @@ describe('paper noise seamlessness (#141 follow-up)', () => {
 
 const PAPER_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../../public/paper')
 
-function readBakedAsset(type: PaperType): Uint8Array {
+function readBakedAsset(type: PaperGrainType): Uint8Array {
   const compressed = readFileSync(join(PAPER_DIR, `${type}.paper`))
   return new Uint8Array(gunzipSync(compressed))
 }
 
-describe('committed public/paper/*.paper assets', () => {
-  for (const [name, cfg] of Object.entries(PAPER_GRAIN_CONFIGS)) {
-    const roughness = PAPER_ROUGHNESS[name as PaperType]
+describe('baked public/paper assets', () => {
+  // (#300) These files are no longer committed — CI bakes them (see
+  // bakePaperTextures.ts's own comment on why ~60 MB of reproducible blobs
+  // don't belong in git history). That makes this suite conditional: it
+  // still catches "the generator changed and the bake wasn't re-run" for
+  // anyone working on the noise locally, and simply skips where nothing has
+  // been baked yet.
+  const baked = PAPER_GRAIN_TYPES.filter(t => existsSync(join(PAPER_DIR, `${t}.paper`)))
 
-    it(`${name}: decompresses to exactly PAPER_BAKE_RESOLUTION^2 interleaved LUMINANCE_ALPHA pairs`, () => {
-      const bytes = readBakedAsset(name as PaperType)
-      expect(bytes.length).toBe(RES * RES * 2)
+  it('bakes every grain type in the grid, or none at all', () => {
+    expect(baked.length === 0 || baked.length === PAPER_GRAIN_TYPES.length).toBe(true)
+  })
+
+  for (const type of PAPER_GRAIN_TYPES) {
+    const run = existsSync(join(PAPER_DIR, `${type}.paper`)) ? it : it.skip
+
+    run(`${type}: decompresses to exactly PAPER_BAKE_RESOLUTION^2 interleaved LUMINANCE_ALPHA pairs`, () => {
+      expect(readBakedAsset(type).length).toBe(RES * RES * 2)
     })
 
-    it(`${name}: sampled height (R) and catch (A) bytes match paperNoise.ts recomputed from the current config`, () => {
-      // rough ships a ROUGH_VARIANTS candidate (see bakePaperTextures.ts and
-      // SHIPPED_ROUGH_VARIANT_INDEX's own comment), not the generic
-      // paperHeight/paperCatchValue+cfg formula smooth/bristol still use.
-      const bytes = readBakedAsset(name as PaperType)
+    run(`${type}: sampled height (R) and catch (A) bytes match paperNoise.ts recomputed from the current config`, () => {
+      const bytes = readBakedAsset(type)
       for (const [x, y] of SAMPLE_POINTS) {
         const px = Math.floor(x)
         const py = Math.floor(y)
         const idx = (py * RES + px) * 2
-        const expectedHeight = name === 'rough'
-          ? Math.round(paperHeightForRoughVariant(px + 0.5, py + 0.5, RES, RES, SHIPPED_ROUGH_VARIANT_INDEX) * 255)
-          : Math.round(paperHeight(px + 0.5, py + 0.5, RES, RES, cfg, true) * 255)
-        const expectedCatch = name === 'rough'
-          ? Math.round(paperCatchValueForRoughVariant(px + 0.5, py + 0.5, RES, RES, SHIPPED_ROUGH_VARIANT_INDEX) * 255)
-          : Math.round(paperCatchValue(px + 0.5, py + 0.5, RES, RES, cfg, roughness) * 255)
+        const expectedHeight = Math.round(paperGridHeight(type, px + 0.5, py + 0.5, RES, RES) * 255)
+        const expectedCatch = Math.round(paperGridCatch(type, px + 0.5, py + 0.5, RES, RES) * 255)
         expect(Math.abs(bytes[idx] - expectedHeight)).toBeLessThanOrEqual(1)
         expect(Math.abs(bytes[idx + 1] - expectedCatch)).toBeLessThanOrEqual(1)
       }
     })
   }
+})
+
+// (#300) The grid's own invariants — these hold regardless of whether
+// anything has been baked.
+describe('paper grid', () => {
+  it('every grain type produces a seamless tile', () => {
+    for (const type of PAPER_GRAIN_TYPES) {
+      for (const [x, y] of SAMPLE_POINTS.slice(0, 4)) {
+        const h1 = paperGridHeight(type, x, y, RES, RES)
+        const h2 = paperGridHeight(type, x + RES, y, RES, RES)
+        // Same 1e-4 the per-config periodicity suite above uses, for the
+        // same reason — see its own comment: the residual is float rounding
+        // in seamlessRatio, ~2e-5 measured, and quantising to a byte at bake
+        // time swallows anything under 1/255 (0.0039) whole.
+        expect(Math.abs(h1 - h2), `${type} must wrap in x`).toBeLessThan(1e-4)
+      }
+    }
+  })
+
+  it('capsule fibre period divides its coarseness scale exactly, or the tile seams', () => {
+    for (const coarseness of PAPER_COARSENESS) {
+      const { scale } = PAPER_GRAIN_CONFIGS[coarseness]
+      expect(scale % (scale / 10), `${coarseness}`).toBe(0)
+    }
+  })
 })

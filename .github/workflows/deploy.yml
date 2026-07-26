@@ -60,6 +60,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # (#300) Baked paper textures are no longer committed — the bake is
+      # byte-reproducible, so keeping ~60 MB of binary blobs in git history
+      # (and that much again on every re-tune) bought nothing. apps/web's
+      # `prebuild` regenerates them, which takes ~3.5 minutes for the full
+      # grid; this cache means that only happens when the noise generator
+      # itself changes, not on every deploy.
+      - name: Cache baked paper textures
+        uses: actions/cache@v4
+        with:
+          path: apps/web/public/paper
+          key: paper-${{ hashFiles('apps/web/src/engine/src/paperNoise.ts', 'apps/web/scripts/bakePaperTextures.ts', 'packages/shared/src/index.ts') }}
+
       - name: Build apps/web static bundle
         run: npm run build --workspace=apps/web
 

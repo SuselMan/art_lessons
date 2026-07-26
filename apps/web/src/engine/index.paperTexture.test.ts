@@ -210,7 +210,7 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
       return new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128)
     })
     try {
-      const { engine } = createTestEngine({ userId: 'user-a', paper: 'rough' })
+      const { engine } = createTestEngine({ userId: 'user-a', paper: 'coarse-streak' })
       await paperReady(engine)
       expect(calls).toBe(1)
     } finally {
@@ -225,22 +225,22 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
       return new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128)
     })
     try {
-      const { engine } = createTestEngine({ userId: 'user-a', paper: 'rough' })
+      const { engine } = createTestEngine({ userId: 'user-a', paper: 'coarse-streak' })
       await paperReady(engine)
-      expect(calls).toBe(1) // just 'rough' — nothing else is prefetched
+      expect(calls).toBe(1) // just 'coarse-streak' — nothing else is prefetched
 
       // Each new type fetches once, the first time it's actually used...
-      engine.setPaper('smooth')
+      engine.setPaper('medium-capsules')
       await paperReady(engine)
       expect(calls).toBe(2)
-      engine.setPaper('bristol')
+      engine.setPaper('fine-capsules')
       await paperReady(engine)
       expect(calls).toBe(3)
 
       // ...but revisiting an already-loaded type must not trigger another.
-      engine.setPaper('rough')
+      engine.setPaper('coarse-streak')
       await paperReady(engine)
-      engine.setPaper('smooth')
+      engine.setPaper('medium-capsules')
       await paperReady(engine)
       expect(calls).toBe(3)
     } finally {
@@ -255,7 +255,7 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
       return new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128)
     })
     try {
-      const { engine } = createTestEngine({ userId: 'user-a', paper: 'rough' })
+      const { engine } = createTestEngine({ userId: 'user-a', paper: 'coarse-streak' })
       await paperReady(engine)
       const callsAfterConstruction = calls
 
@@ -267,7 +267,7 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
 
       await paperReady(engine)
 
-      expect(calls).toBe(callsAfterConstruction) // 'rough' already cached — no new fetch
+      expect(calls).toBe(callsAfterConstruction) // 'coarse-streak' already cached — no new fetch
       expect(paperTextureSize(engine)).toEqual({ width: PAPER_BAKE_RESOLUTION, height: PAPER_BAKE_RESOLUTION })
     } finally {
       __resetPaperLoaderForTesting()

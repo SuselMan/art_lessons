@@ -8,7 +8,7 @@ import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, SendResult,
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
-import { BACKGROUND_LAYER_ID, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
+import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 import { PencilEngine, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -92,7 +92,12 @@ function toRoomConfig(
   room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
 ): RoomInfo {
   return {
-    id: room.id, name: room.name, paper: room.paper, paperColor: room.paperColor, infinite: room.infinite,
+    id: room.id, name: room.name,
+    // (#300) The wire carries whatever the database holds — including the
+    // three pre-grid names. Normalising here, at the single point a room
+    // enters the client, keeps every downstream consumer (engine, sound,
+    // picker) free of legacy handling.
+    paper: normalizePaperType(room.paper), paperColor: room.paperColor, infinite: room.infinite,
     width: room.canvasWidth ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
     height: room.canvasHeight ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
   }

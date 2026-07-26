@@ -1,4 +1,5 @@
-import type { PaperType } from '@art-lessons/shared'
+import type { PaperCharacter, PaperCoarseness, PaperGrainType, PaperType } from '@art-lessons/shared'
+import { paperCharacterOf, paperCoarsenessOf } from '@art-lessons/shared'
 
 // The paper-grain noise algorithm — a value-noise fBm with domain warp and
 // an exact-periodicity ("seamless") mode, originally #141's GLSL
@@ -46,13 +47,17 @@ export interface PaperGrainConfig {
 // fiber presence and bristol barely any, extrapolated one and two steps
 // finer. Expect a bake:paper + look-at-it round or several before these
 // settle, same as every previous PAPER_GRAIN_CONFIGS tuning pass.
-export const PAPER_GRAIN_CONFIGS: Record<PaperType, PaperGrainConfig> = {
-  rough:   { scale: 580,  gain: 0.18,  contrast: 0.3,   warp: 0.15,
-             fiberPeriod: 20, fiberHalfLen: 0.75, fiberWidth: 0.18, fiberStrength: 0.45 },
-  smooth:  { scale: 780,  gain: 0.135, contrast: 0.225, warp: 0.09,
-             fiberPeriod: 26, fiberHalfLen: 0.65, fiberWidth: 0.14, fiberStrength: 0.28 },
-  bristol: { scale: 1050, gain: 0.1,   contrast: 0.17,  warp: 0.05,
-             fiberPeriod: 30, fiberHalfLen: 0.5,  fiberWidth: 0.1,  fiberStrength: 0.08 },
+// (#300) Keyed by coarseness, not by paper name — these three rows always
+// *were* three coarseness steps, the old rough/smooth/bristol names just
+// hid that. The fibre fields stay for the ROUGH_VARIANTS exploration path
+// below; the shipped grid derives its own fibre from CAPSULE_* instead.
+export const PAPER_GRAIN_CONFIGS: Record<PaperCoarseness, PaperGrainConfig> = {
+  coarse: { scale: 580,  gain: 0.18,  contrast: 0.3,   warp: 0.15,
+            fiberPeriod: 20, fiberHalfLen: 0.75, fiberWidth: 0.18, fiberStrength: 0.45 },
+  medium: { scale: 780,  gain: 0.135, contrast: 0.225, warp: 0.09,
+            fiberPeriod: 26, fiberHalfLen: 0.65, fiberWidth: 0.14, fiberStrength: 0.28 },
+  fine:   { scale: 1050, gain: 0.1,   contrast: 0.17,  warp: 0.05,
+            fiberPeriod: 30, fiberHalfLen: 0.5,  fiberWidth: 0.1,  fiberStrength: 0.08 },
 }
 
 // The baked texture's own pixel resolution — deliberately unrelated to
@@ -96,10 +101,19 @@ export const PAPER_WORLD_SIZE = 157
 // takes the old bristol config outright, smooth/bristol extrapolate one
 // and two steps finer still (same scale/gain/contrast/warp trend as the
 // previous follow-up, continued).
-export const PAPER_ROUGHNESS: Record<PaperType, number> = {
-  rough:   0.05,
-  smooth:  0.02,
-  bristol: 0,
+// (#300) Now keyed by coarseness — how strongly the pencil feels the tooth
+// is a property of how coarse the stock is, not of its fibre pattern.
+// Values carried over unchanged from the old rough/smooth/bristol triple.
+export const PAPER_ROUGHNESS_BY_COARSENESS: Record<PaperCoarseness, number> = {
+  coarse: 0.05,
+  medium: 0.02,
+  fine:   0,
+}
+
+export function paperRoughnessOf(type: PaperType): number {
+  const coarseness = paperCoarsenessOf(type)
+  // Flat has no tooth at all — that is the whole point of it.
+  return coarseness ? PAPER_ROUGHNESS_BY_COARSENESS[coarseness] : 0
 }
 
 // GLSL fract(x) = x - floor(x), always in [0,1) even for negative x —
@@ -302,7 +316,7 @@ export function paperHeight(
 // bake to real REPEAT textures the app loads.
 
 function fiberLayer(uvx: number, uvy: number, fiberPeriod: number, halfLen: number, width: number): number {
-  const cellsPerBaseUnit = fiberPeriod / PAPER_GRAIN_CONFIGS.rough.scale
+  const cellsPerBaseUnit = fiberPeriod / PAPER_GRAIN_CONFIGS.coarse.scale
   return fiberContribution(uvx * cellsPerBaseUnit, uvy * cellsPerBaseUnit, fiberPeriod, halfLen, width)
 }
 
@@ -310,7 +324,7 @@ function fiberLayer(uvx: number, uvy: number, fiberPeriod: number, halfLen: numb
 // within its own cell) — same integer-modulus hash-key wrap fiberContribution
 // uses, just for point distance instead of line-segment distance.
 function worleyLayer(uvx: number, uvy: number, period: number, jitter: number): number {
-  const cellsPerBaseUnit = period / PAPER_GRAIN_CONFIGS.rough.scale
+  const cellsPerBaseUnit = period / PAPER_GRAIN_CONFIGS.coarse.scale
   const cx = uvx * cellsPerBaseUnit, cy = uvy * cellsPerBaseUnit
   const cellX = Math.floor(cx), cellY = Math.floor(cy)
   let best = 999
@@ -353,14 +367,14 @@ interface RoughVariant {
 }
 
 function roughBaseHeight(uvx: number, uvy: number): number {
-  const { scale, gain, warp } = PAPER_GRAIN_CONFIGS.rough
+  const { scale, gain, warp } = PAPER_GRAIN_CONFIGS.coarse
   const qx = fbm(uvx, uvy, scale, gain, true)
   const qy = fbm(uvx + 3.7, uvy + 5.4, scale, gain, true)
   return fbm(uvx + warp * qx, uvy + warp * qy, scale, gain, true)
 }
 
 function roughUv(fragX: number, fragY: number, resW: number, resH: number): { uvx: number; uvy: number } {
-  const { scale } = PAPER_GRAIN_CONFIGS.rough
+  const { scale } = PAPER_GRAIN_CONFIGS.coarse
   return { uvx: (fragX / resW) * scale, uvy: (fragY / resH) * scale }
 }
 
@@ -412,7 +426,7 @@ export const ROUGH_VARIANTS: readonly RoughVariant[] = [
     label: 'Horizontal streak',
     rawHeight(fragX, fragY, resW, resH) {
       const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
-      const { scale, gain } = PAPER_GRAIN_CONFIGS.rough
+      const { scale, gain } = PAPER_GRAIN_CONFIGS.coarse
       const stretch = 4
       return anisoFbm(uvx, uvy * stretch, scale, scale * stretch, gain)
     },
@@ -421,7 +435,7 @@ export const ROUGH_VARIANTS: readonly RoughVariant[] = [
     label: 'Patchy direction',
     rawHeight(fragX, fragY, resW, resH) {
       const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
-      const { scale, gain } = PAPER_GRAIN_CONFIGS.rough
+      const { scale, gain } = PAPER_GRAIN_CONFIGS.coarse
       const stretch = 4
       const horiz = anisoFbm(uvx, uvy * stretch, scale, scale * stretch, gain)
       const vert  = anisoFbm(uvx * stretch, uvy, scale * stretch, scale, gain)
@@ -452,7 +466,7 @@ export const ROUGH_VARIANTS: readonly RoughVariant[] = [
     label: 'Patchy + capsules',
     rawHeight(fragX, fragY, resW, resH) {
       const { uvx, uvy } = roughUv(fragX, fragY, resW, resH)
-      const { scale, gain } = PAPER_GRAIN_CONFIGS.rough
+      const { scale, gain } = PAPER_GRAIN_CONFIGS.coarse
       const stretch = 3
       const horiz = anisoFbm(uvx, uvy * stretch, scale, scale * stretch, gain)
       const vert  = anisoFbm(uvx * stretch, uvy, scale * stretch, scale, gain)
@@ -485,6 +499,82 @@ export const ROUGH_VARIANTS: readonly RoughVariant[] = [
 // points at rather than trusting the number — a future reorder that isn't
 // also updated here fails loudly at import time instead of quietly re-
 // shipping the wrong texture.
+// ─── The paper grid (#300) ────────────────────────────────────────────────
+// Two independent axes — coarseness (how fine the grain is) and character
+// (what the fibre structure on top of it looks like). Every point bakes to
+// its own asset except `flat`, which needs none.
+
+// `capsules` is ROUGH_VARIANTS' "dense/thin" shape — the one Ilya picked out
+// of the exploration set. Expressed as *cells across the period* rather than
+// an absolute period so the character stays the same at every coarseness:
+// fiberPeriod must divide `scale` exactly or the tile stops being seamless
+// (580/58, 780/78, 1050/105 — all exactly 10).
+const CAPSULE_CELLS_ACROSS = 10
+const CAPSULE_HALF_LEN = 0.4
+const CAPSULE_WIDTH = 0.08
+const CAPSULE_STRENGTH = 0.5
+
+// `streak` stretches the noise 4:1 horizontally — a laid/rolled paper look.
+const STREAK_STRETCH = 4
+
+/** Raw (pre-contrast) height for one point of the grid. `flat` never reaches
+ *  here — it has no texture to bake. */
+function gridRawHeight(
+  coarseness: PaperCoarseness, character: PaperCharacter,
+  fragX: number, fragY: number, resW: number, resH: number,
+): number {
+  const { scale, gain, warp } = PAPER_GRAIN_CONFIGS[coarseness]
+  const uvx = (fragX / resW) * scale
+  const uvy = (fragY / resH) * scale
+
+  if (character === 'streak') {
+    return anisoFbm(uvx, uvy * STREAK_STRETCH, scale, scale * STREAK_STRETCH, gain)
+  }
+
+  const qx = fbm(uvx, uvy, scale, gain, true)
+  const qy = fbm(uvx + 3.7, uvy + 5.4, scale, gain, true)
+  const base = fbm(uvx + warp * qx, uvy + warp * qy, scale, gain, true)
+  if (character === 'fbm') return base
+
+  const period = scale / CAPSULE_CELLS_ACROSS
+  const cellsPerBaseUnit = period / scale
+  const fiber = fiberContribution(
+    uvx * cellsPerBaseUnit, uvy * cellsPerBaseUnit, period, CAPSULE_HALF_LEN, CAPSULE_WIDTH,
+  )
+  return base + fiber * CAPSULE_STRENGTH
+}
+
+/** Height map value for a grid paper type, contrast applied — the `.r`
+ *  channel of the baked asset, used for the blank-paper tint. */
+export function paperGridHeight(
+  type: PaperGrainType, fragX: number, fragY: number, resW: number, resH: number,
+): number {
+  const coarseness = paperCoarsenessOf(type)!
+  const character = paperCharacterOf(type)!
+  const { contrast } = PAPER_GRAIN_CONFIGS[coarseness]
+  const raw = gridRawHeight(coarseness, character, fragX, fragY, resW, resH)
+  return Math.pow(clampNum(raw, 0, 1), 1 / contrast)
+}
+
+/** Graphite-catch value — the `.a` channel. Same finite-difference-and-
+ *  amplify math as paperCatchValue, and baked here for the same reason: it
+ *  must never run live on a GPU (see paperCatchValue's own comment). */
+export function paperGridCatch(
+  type: PaperGrainType, fragX: number, fragY: number, resW: number, resH: number,
+): number {
+  const h   = paperGridHeight(type, fragX,     fragY,     resW, resH)
+  const hDx = paperGridHeight(type, fragX + 1, fragY,     resW, resH)
+  const hDy = paperGridHeight(type, fragX,     fragY + 1, resW, resH)
+
+  const normalScale = lerp(2.0, 10.0, paperRoughnessOf(type))
+  const nx = (h - hDx) * normalScale
+  const ny = (h - hDy) * normalScale
+
+  const tiltDirX = 0.6, tiltDirY = 0.8
+  const dot = nx * tiltDirX + ny * tiltDirY
+  return clampNum(Math.max(0, dot * 3.0 + 0.5), 0, 1)
+}
+
 export const SHIPPED_ROUGH_VARIANT_INDEX = 5
 if (ROUGH_VARIANTS[SHIPPED_ROUGH_VARIANT_INDEX]?.label !== 'Horizontal streak') {
   throw new Error(
@@ -497,7 +587,7 @@ export function paperHeightForRoughVariant(
   fragX: number, fragY: number, resW: number, resH: number, variantIndex: number,
 ): number {
   const raw = ROUGH_VARIANTS[variantIndex].rawHeight(fragX, fragY, resW, resH)
-  return Math.pow(clampNum(raw, 0, 1), 1 / PAPER_GRAIN_CONFIGS.rough.contrast)
+  return Math.pow(clampNum(raw, 0, 1), 1 / PAPER_GRAIN_CONFIGS.coarse.contrast)
 }
 
 // Mirrors paperCatchValue exactly (see its own comment for the full
@@ -510,7 +600,7 @@ export function paperCatchValueForRoughVariant(
   const hDx = paperHeightForRoughVariant(fragX + 1, fragY,     resW, resH, variantIndex)
   const hDy = paperHeightForRoughVariant(fragX,     fragY + 1, resW, resH, variantIndex)
 
-  const normalScale = lerp(2.0, 10.0, PAPER_ROUGHNESS.rough)
+  const normalScale = lerp(2.0, 10.0, PAPER_ROUGHNESS_BY_COARSENESS.coarse)
   const nx = (h - hDx) * normalScale
   const ny = (h - hDy) * normalScale
 

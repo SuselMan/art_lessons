@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand'
 import type { Participant } from '@art-lessons/shared'
 
 import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants'
+import type { PaperType } from '@art-lessons/shared'
 
 // This is the spec's vaguest bucket ("room: id, name, participants, local
 // userId") — wired up in #24, folded in there since the original task
@@ -15,7 +16,7 @@ import { participantsReducer, type ParticipantsAction } from '../../pages/Room/p
 export interface RoomInfo {
   id: string
   name: string
-  paper: 'rough' | 'smooth' | 'bristol'
+  paper: PaperType
   // Hex color the creator picked for the paper background — see the shared
   // `Room.paperColor` doc comment. Absent on rooms created before this field
   // existed; the engine falls back to its own per-texture default then.

@@ -38,6 +38,7 @@
 // texture comes mostly from the distance-triggered grains.
 
 import type { PaperType } from '@art-lessons/shared'
+import { paperCoarsenessOf } from '@art-lessons/shared'
 
 export type V3Message =
   | { type: 'start'; pressure: number; tiltNorm: number }
@@ -252,9 +253,12 @@ export class Variant3Synth {
     } else if (m.type === 'config') {
       // PENCIL_PRESETS clamps hardness to [0.05, 0.95] — normalize to 0..1
       this.hardT = Math.min(1, Math.max(0, (m.hardness - 0.05) / 0.9))
-      if (m.paper === 'rough') {
+      // (#300) Branches on coarseness now — the grid's fibre character
+      // changes how paper *looks*, coarseness is what changes how it sounds.
+      const coarseness = paperCoarsenessOf(m.paper)
+      if (coarseness === 'coarse') {
         this.grainSpacingPx = 3.0; this.grainGainPaper = 1.0; this.paperGain = 1.0
-      } else if (m.paper === 'smooth') {
+      } else if (coarseness === 'medium') {
         this.grainSpacingPx = 4.5; this.grainGainPaper = 0.7; this.paperGain = 0.8
       } else {
         this.grainSpacingPx = 6.5; this.grainGainPaper = 0.45; this.paperGain = 0.62

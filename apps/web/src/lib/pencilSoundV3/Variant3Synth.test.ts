@@ -144,7 +144,7 @@ function correlation(a: Float32Array, b: Float32Array): number {
 
 function makeSynth(): Variant3Synth {
   const synth = new Variant3Synth(FS)
-  synth.handleMessage({ type: 'config', hardness: 0.38, paper: 'rough' })
+  synth.handleMessage({ type: 'config', hardness: 0.38, paper: 'coarse-streak' })
   return synth
 }
 

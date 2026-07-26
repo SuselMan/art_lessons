@@ -1,6 +1,5 @@
 import type { PaperType } from '@art-lessons/shared'
 
-import { PAPER_BAKE_RESOLUTION } from './paperNoise'
 
 // Loads the offline-baked paper-grain textures (see
 // ../../../scripts/bakePaperTextures.ts) as raw interleaved LUMINANCE_ALPHA
@@ -32,8 +31,45 @@ async function fetchBytesFromUrl(url: string): Promise<Uint8Array> {
 
 type PaperBytesLoader = (type: PaperType) => Promise<Uint8Array>
 
+// (#300) `flat` has no asset and never will — a texture with no grain is
+// two constant bytes, so it's synthesised here rather than costing a ~7 MB
+// download. Height 255 is the paper's own colour untouched (see
+// DISPLAY_FRAG's paperTone) and catch 128 is the neutral mid the dab shader
+// reads when there's no tooth to bias deposit either way. Sized 2x2 rather
+// than 1x1 only because WebGL1 REPEAT wrapping wants a power-of-two texture
+// and 1x1 trips some drivers' mipmap completeness checks.
+const FLAT_PAPER_BYTES = new Uint8Array(2 * 2 * 2).fill(0).map((_, i) => (i % 2 === 0 ? 255 : 128))
+export const FLAT_PAPER_RESOLUTION = 2
+
 async function fetchPaperBytes(type: PaperType): Promise<Uint8Array> {
+  if (type === 'flat') return FLAT_PAPER_BYTES
   return fetchBytesFromUrl(paperAssetURL(type))
+}
+
+/** Where the paper picker's miniature for `type` lives — a ~25 KB
+ *  height-only downsample of the same bake (see bakePaperTextures.ts's
+ *  downsampleToPreview). `flat` has none: there is nothing to show. */
+export function paperPreviewURL(type: PaperType): string | null {
+  return type === 'flat' ? null : `/paper/${type}.preview`
+}
+
+/** Decoded preview bytes — one byte per pixel, PAPER_PREVIEW_RESOLUTION
+ *  square. Cached like the real textures, since the picker re-renders on
+ *  every colour change. */
+export const PAPER_PREVIEW_RESOLUTION = 256
+
+const previewCache = new Map<PaperType, Promise<Uint8Array>>()
+
+export function getPaperPreviewBytes(type: PaperType): Promise<Uint8Array> {
+  let cached = previewCache.get(type)
+  if (!cached) {
+    const url = paperPreviewURL(type)
+    cached = url
+      ? fetchBytesFromUrl(url)
+      : Promise.resolve(new Uint8Array(PAPER_PREVIEW_RESOLUTION * PAPER_PREVIEW_RESOLUTION).fill(255))
+    previewCache.set(type, cached)
+  }
+  return cached
 }
 
 let loadPaperBytesImpl: PaperBytesLoader = fetchPaperBytes
@@ -97,9 +133,14 @@ export function uploadPaperTexture(gl: WebGLRenderingContext, bytes: Uint8Array)
   const tex = gl.createTexture()!
   gl.bindTexture(gl.TEXTURE_2D, tex)
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+  // (#300) Derived from the payload rather than assumed to be
+  // PAPER_BAKE_RESOLUTION: `flat` ships a 2x2 constant instead of a ~7 MB
+  // baked tile (see FLAT_PAPER_BYTES), and passing the wrong dimensions for
+  // the byte count is a GL error, not a stretch.
+  const res = Math.sqrt(bytes.length / 2)
   gl.texImage2D(
     gl.TEXTURE_2D, 0, gl.LUMINANCE_ALPHA,
-    PAPER_BAKE_RESOLUTION, PAPER_BAKE_RESOLUTION, 0,
+    res, res, 0,
     gl.LUMINANCE_ALPHA, gl.UNSIGNED_BYTE, bytes,
   )
   setPaperTextureParams(gl)

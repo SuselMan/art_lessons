@@ -146,12 +146,23 @@
 }
 
 .paperCard {
+  /* A real <button> since #300 — keyboard-reachable, so it needs the usual
+     UA button styling reset (padding/font/alignment) on top of the card look. */
+  display: block;
+  width: 100%;
+  padding: 0;
+  text-align: left;
+  font-family: inherit;
   border: 2px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
   background: var(--color-surface-2);
   transition: border-color var(--duration-fast);
+}
+.paperCard:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .paperCard:hover {
@@ -192,6 +203,7 @@
 }
 
 .sizeCard {
+  position: relative; /* anchors .rotateBadge */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -232,6 +244,46 @@
 .sizeCard.selected .sizeRect {
   opacity: 1;
   background: color-mix(in srgb, var(--color-accent) 15%, var(--color-surface));
+}
+
+/* Shown only on the selected A4/A3/A2 card — the visible hint that clicking
+   the card again rotates it. Sized past the 40px touch-target rule via a
+   transparent padding ring so it stays tappable on a tablet without the
+   visible chip swallowing the small card. */
+.rotateBadge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: none;
+  background: none;
+  /* Accent, not text-dim: this icon is the only thing advertising that the
+     second click rotates, so it has to read at a glance. Tied to the same
+     accent as the selected card's border since it only ever appears there. */
+  color: var(--color-accent);
+  opacity: 0.75;
+  cursor: pointer;
+  transition: opacity var(--duration-fast);
+}
+
+.rotateBadge:hover {
+  opacity: 1;
+}
+
+.rotateBadge:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+/* :global() — CSS Modules would otherwise hash "material-symbols-outlined"
+   into a local class that never matches Icon.tsx's literal unscoped span
+   (see MyLessons.module.css's .folderIconArea rule for the full writeup). */
+.rotateBadge :global(.material-symbols-outlined) {
+  font-size: 16px;
 }
 
 .sizeName {
@@ -370,4 +422,84 @@
   border-radius: 4px;
   padding: 2px 5px;
   line-height: 1.4;
+}
+
+/* (#300) Paper picker: three inline, the rest behind a modal. The grid is
+   extensible by design, so the inline row deliberately never grows. */
+.showAllPapers {
+  margin-top: 10px;
+  padding: 7px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-dim);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--duration-fast), color var(--duration-fast);
+}
+.showAllPapers:hover {
+  border-color: #4a4a99;
+  color: var(--color-text-bright);
+}
+
+.paperModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.paperModal {
+  width: min(920px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.paperModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.paperModalTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-bright);
+}
+
+.paperModalClose {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-dim);
+  cursor: pointer;
+}
+.paperModalClose:hover {
+  background: color-mix(in srgb, var(--color-text-bright) 10%, transparent);
+  color: var(--color-text-bright);
+}
+
+.paperModalGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+  padding: 16px;
+  overflow-y: auto;
 }
