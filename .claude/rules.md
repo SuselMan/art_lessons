@@ -49,6 +49,16 @@ When Ilya asks to "start"/"run"/"spin up" the project (start it, "запусти
 
 Follow "Dev server hygiene" below for backgrounding/killing these two processes.
 
+## Debugging *on* the tablet
+
+Some bugs only exist there — #298 was invisible from desktop and needed the
+device's own logcat and IndexedDB to diagnose. `.claude/tablet-debugging.md`
+has the working setup (wireless adb, Chrome DevTools Protocol over
+`adb forward`), which measurements answer which question, and the traps that
+cost time the first time round. Read it before improvising: the Chrome
+extension MCP tools drive the *desktop* browser only and cannot see the
+tablet.
+
 ## Dev server hygiene
 
 - Before starting `npm run dev` in the background, check whether something is already listening on the port you're about to use (`Get-NetTCPConnection -State Listen`) — don't blindly stack a new instance on top of a stray one. If one's already listening, check for active/ESTABLISHED connections to it (not just LISTEN) before assuming it's a stray leftover — an established connection means someone (Ilya, on a device on the LAN) is actively using it right now.
