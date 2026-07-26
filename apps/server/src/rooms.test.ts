@@ -4,6 +4,7 @@ import type {
   LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerOwnerLockOperation, LayerTransformOperation,
   LayerVisibilityOperation, Operation, StrokeOperation,
 } from '@art-lessons/shared'
+import { INITIAL_LAYER_ID } from '@art-lessons/shared'
 
 import {
   _flushPendingWrites, createRoom, findDuplicateOperation, getOperationRejectReason, getOperationsBefore,
@@ -784,9 +785,37 @@ describe('getOperationRejectReason — target_gone', () => {
   it('allows layer_delete targeting a layer updateAliveIds already knows about', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    updateAliveIds(roomId, layerAdd({ layerId: 'layer-1' }))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-new' }))
 
-    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-1'] }))).toBeNull()
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-new'] }))).toBeNull()
+  })
+
+  // Regression: the room's two baked-in layers (`IMPLICIT_LAYER_IDS`) exist
+  // from seq 0 with no `layer_add` in the log to prove it, so seeding
+  // aliveIds from the log alone made deleting the initial layer — the one
+  // every drawing actually starts on — permanently impossible.
+  it('allows deleting the baked-in initial layer, which no layer_add ever created', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: [INITIAL_LAYER_ID] }))).toBeNull()
+  })
+
+  it('allows merging the baked-in initial layer with a later one', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-new' }))
+
+    const merge = layerMerge({ sources: [{ id: INITIAL_LAYER_ID, opacity: 1 }, { id: 'layer-new', opacity: 1 }] })
+    expect(getOperationRejectReason(roomId, 'owner-1', merge)).toBeNull()
+  })
+
+  it('allows transforming the baked-in initial layer', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    const transform = layerTransform({ transforms: [{ layerId: INITIAL_LAYER_ID, matrix: [1, 0, 0, 1, 0, 0] }] })
+    expect(getOperationRejectReason(roomId, 'owner-1', transform)).toBeNull()
   })
 
   it('rejects layer_delete targeting a layer that was never added', () => {
@@ -850,12 +879,12 @@ describe('updateAliveIds', () => {
   it('adds layer_add/folder_add ids, removes layer_delete ids', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    updateAliveIds(roomId, layerAdd({ layerId: 'layer-1' }))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-x' }))
 
-    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-1'] }))).toBeNull()
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBeNull()
 
-    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-1'] }))
-    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-1'] })))
+    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-x'] }))
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] })))
       .toBe('target_gone')
   })
 

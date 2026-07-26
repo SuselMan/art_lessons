@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs'
 import { gunzipSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
 import type { Operation, Participant, RejectReason, Room } from '@art-lessons/shared'
-import { BACKGROUND_LAYER_ID, DEFAULT_PALETTE_COLORS, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
+import { DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
@@ -76,7 +76,7 @@ interface RoomRecord {
   // not ephemeral session state.
   lockedLayerIds: Set<string>
   // (#289 epic, reliable history spec v0.2 §8) Which layerId/folderId are
-  // currently alive — created (base `BACKGROUND_LAYER_ID`, or a done
+  // currently alive — created (the baked-in `IMPLICIT_LAYER_IDS`, or a done
   // `layer_add`/`folder_add`/`layer_merge` result) and not since destroyed
   // (listed in a done `layer_delete`, or consumed as a `layer_merge`
   // source). Kept in sync by `updateAliveIds` whenever an operation is
@@ -256,7 +256,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
 
   // (#289 epic) Rebuild the aliveIds mirror the same way — see its own doc
   // comment on RoomRecord.
-  const aliveIds = new Set<string>([BACKGROUND_LAYER_ID])
+  const aliveIds = new Set<string>(IMPLICIT_LAYER_IDS)
   for (const op of operations) {
     if (op.type === 'layer_add' || op.type === 'folder_add') aliveIds.add(op.layerId)
     else if (op.type === 'layer_delete') { for (const id of op.layerIds) aliveIds.delete(id) }
@@ -339,7 +339,7 @@ export function createRoom(
   rooms.set(room.id, {
     room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette,
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
-    aliveIds: new Set([BACKGROUND_LAYER_ID]), operationsById: new Map(),
+    aliveIds: new Set(IMPLICIT_LAYER_IDS), operationsById: new Map(),
   })
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
