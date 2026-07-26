@@ -671,7 +671,7 @@ export function Room() {
   const toolActiveRef = useRef(false)
   toolActiveRef.current = eyedropperActive
 
-  const { vp, setVp, vpRef, canvasWrapRef, fitCanvas, angleDeg, canvasTransform } =
+  const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, angleDeg, canvasTransform } =
     useViewport(config, toolActiveRef, config?.infinite ?? false)
 
   // Drag up/down on the zoom label to adjust zoom without a two-finger pinch
@@ -684,9 +684,10 @@ export function Room() {
   )
 
   // #99: layered independently on top of useViewport's own touch pan/pinch
-  // handling on the same vpRef element — see useTapToggle's docstring for
-  // why the two never conflict.
-  useTapToggle(vpRef, toggleUI, tapToHideEnabled, tapToHideEnabled ? setTapDebug : undefined)
+  // handling on the same `.viewport` element — see useTapToggle's docstring
+  // for why the two never conflict, and why it takes the element (`vpEl`)
+  // rather than the ref.
+  useTapToggle(vpEl, toggleUI, tapToHideEnabled, tapToHideEnabled ? setTapDebug : undefined)
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
@@ -2634,7 +2635,7 @@ export function Room() {
         </aside>
 
         {/* ── Viewport ── */}
-        <div ref={vpRef} className={styles.viewport}>
+        <div ref={setVpNode} className={styles.viewport}>
           <div
             ref={canvasWrapRef}
             className={styles.canvasWrap}

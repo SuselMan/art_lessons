@@ -1,4 +1,4 @@
-import { useRef, useCallback, useLayoutEffect, useEffect } from 'react'
+import { useRef, useState, useCallback, useLayoutEffect, useEffect } from 'react'
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
@@ -14,6 +14,16 @@ export interface UseViewportResult {
   vp: Viewport
   setVp: Dispatch<SetStateAction<Viewport>>
   vpRef: RefObject<HTMLDivElement | null>
+  /** Attach to the `.viewport` element (`ref={setVpNode}`) instead of `vpRef`
+   *  — a callback ref, so every listener-attaching effect here (and
+   *  useTapToggle's) can key off `vpEl` and run exactly when the element
+   *  mounts/unmounts, rather than off a RefObject whose `.current` an effect
+   *  can legitimately observe as null. `vpRef` is kept in sync by it and stays
+   *  the read path for imperative `.current` consumers. */
+  setVpNode: (el: HTMLDivElement | null) => void
+  /** The `.viewport` element as *state* — non-null exactly while it's mounted,
+   *  so it can be an effect dependency. */
+  vpEl: HTMLDivElement | null
   /** Attach to the `.canvasWrap` element — see the docstring above `updateVp`
    *  below for why its `transform` is also written imperatively here rather
    *  than solely through the `canvasTransform` style string. */
@@ -49,6 +59,18 @@ export function useViewport(
   const vp = useRoomStore(s => s.viewport)
 
   const vpRef        = useRef<HTMLDivElement>(null)
+  // `.viewport` mirrored as state as well as a ref: Room mounts it only once
+  // `config` is known (it renders the join gate before that), so every effect
+  // below runs at least once with nothing to attach to. Keying those effects
+  // off `vpEl` makes them re-run for real the moment the element appears —
+  // which is what the previous rAF "retry next frame" loops were emulating,
+  // except those never terminated (and logged a diag line every frame,
+  // forever) while the join gate was up.
+  const [vpEl, setVpEl] = useState<HTMLDivElement | null>(null)
+  const setVpNode = useCallback((el: HTMLDivElement | null) => {
+    vpRef.current = el
+    setVpEl(el)
+  }, [])
   const canvasWrapRef = useRef<HTMLDivElement>(null)
   const vpState      = useRef<Viewport>(vp)
   const canvasRef    = useRef<CanvasSize | null>(canvas)
@@ -103,8 +125,8 @@ export function useViewport(
   // pixel — the zoom the UI presents as 100%, see deviceNativeZoom's doc
   // comment); see fitCanvas's same branch below.
   useLayoutEffect(() => {
-    if (!canvas || !vpRef.current) return
-    const el = vpRef.current
+    const el = vpEl
+    if (!canvas || !el) return
     const v = infinite
       ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: deviceNativeZoom(), angle: 0 }
       : {
@@ -113,11 +135,11 @@ export function useViewport(
         }
     vpState.current = v
     useRoomStore.getState().setViewport(v)
-  }, [canvas, infinite])
+  }, [canvas, infinite, vpEl])
 
   // Wheel zoom toward cursor
   useEffect(() => {
-    const el = vpRef.current; if (!el) return
+    const el = vpEl; if (!el) return
     const handler = (e: WheelEvent) => {
       e.preventDefault()
       const rect = el.getBoundingClientRect()
@@ -132,22 +154,20 @@ export function useViewport(
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
-  }, [canvas, updateVp])
+  }, [canvas, updateVp, vpEl])
 
   // Touch pinch/pan/rotate + middle-click pan
   useEffect(() => {
-    // This effect can re-run (deps include `updateVp`/`toolActive`, not
-    // guaranteed referentially stable across every Room re-render) at a
-    // moment where `vpRef.current` happens to be null — the same class of
-    // bug confirmed live on Android for useTapToggle's identical pattern
-    // (see its own comment): a one-shot `if (!el) return` with no retry
-    // means the effect permanently gives up if the ref isn't ready at that
-    // exact instant, breaking every gesture for the rest of the session
-    // even though `.viewport` itself never actually unmounted. Retry via
-    // rAF until the ref is actually available, instead of a one-shot check.
-    let cancelled = false
-    let rafId: number | null = null
-    let detach: (() => void) | null = null
+    // This effect re-runs freely (deps include `updateVp`/`toolActive`, not
+    // guaranteed referentially stable across every Room re-render), and used
+    // to read `vpRef.current` — which an effect can legitimately observe as
+    // null (confirmed live on Android for useTapToggle's identical pattern,
+    // see its own comment), and always does while Room is still showing the
+    // join gate. A one-shot `if (!el) return` there permanently gave up,
+    // breaking every gesture for the rest of the session even though
+    // `.viewport` itself never actually unmounted. `vpEl` is state, so this
+    // effect simply re-runs when the element really does appear.
+    if (!vpEl) return
 
     const attach = (el: HTMLDivElement) => {
       const toVp = (e: PointerEvent) => {
@@ -253,7 +273,7 @@ export function useViewport(
       el.addEventListener('pointerup',     onUp)
       el.addEventListener('pointercancel', onUp)
 
-      detach = () => {
+      return () => {
         el.removeEventListener('pointerdown',   onDown)
         el.removeEventListener('pointermove',   onMove)
         el.removeEventListener('pointerup',     onUp)
@@ -263,21 +283,9 @@ export function useViewport(
       }
     }
 
-    const tryAttach = () => {
-      if (cancelled) return
-      const el = vpRef.current
-      if (el) { attach(el); return }
-      diagLog('vp: vpRef.current is null, retrying next frame')
-      rafId = requestAnimationFrame(tryAttach)
-    }
-    tryAttach()
-
-    return () => {
-      cancelled = true
-      if (rafId !== null) cancelAnimationFrame(rafId)
-      detach?.()
-    }
-  }, [canvas, toolActive, updateVp, infinite])
+    diagLog('vp: attaching gesture listeners on', vpEl.className || vpEl.tagName)
+    return attach(vpEl)
+  }, [canvas, toolActive, updateVp, infinite, vpEl])
 
   // "Fit canvas" for infinite mode has no fixed extent to fit against — see
   // the initial-fit effect's same reasoning — so this resets to origin
@@ -319,5 +327,5 @@ export function useViewport(
   const angleDeg        = Math.round(vp.angle * 180 / Math.PI)
   const canvasTransform = transformFor(vp, canvas)
 
-  return { vp, setVp: setVpTracked, vpRef, canvasWrapRef, fitCanvas, angleDeg, canvasTransform }
+  return { vp, setVp: setVpTracked, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, angleDeg, canvasTransform }
 }
