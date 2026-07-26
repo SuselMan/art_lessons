@@ -134,6 +134,12 @@ export class DabSystem {
   private _sampleX: Float64Array
   private _sampleY: Float64Array
 
+  // Low-passed tilt (#305), or null while no stroke is in flight / for a
+  // profile that doesn't ask for filtering. See _filterTilt for why this is a
+  // *vector* rather than a smoothed magnitude plus a smoothed azimuth.
+  private _tiltFilterX: number | null = null
+  private _tiltFilterY: number | null = null
+
   constructor({ spacingFactor = 0.22, shaping = PENCIL_DAB_SHAPING }: { spacingFactor?: number; shaping?: DabShapingProfile } = {}) {
     this.spacingFactor = spacingFactor
     this._buf = []
@@ -156,6 +162,46 @@ export class DabSystem {
   private _reset(): void {
     this._buf = []
     this._remainder = 0
+    // Cleared, not zeroed: _filterTilt seeds itself from the stroke's first
+    // real sample. Zeroing would instead start every stroke at "perfectly
+    // upright" and let the shape swing up to the true tilt over the first
+    // several dabs, which reads as the stroke's head being the wrong shape.
+    this._tiltFilterX = null
+    this._tiltFilterY = null
+  }
+
+  /**
+   * One-pole low-pass over the tilt *vector* (#305, ADR 005). Stylus tilt is
+   * markedly noisier than position, and charcoal's shape depends on it far
+   * more than any other tool's, so unfiltered tilt makes the dab visibly
+   * flutter between round/edge/broad.
+   *
+   * Filtering the vector rather than the two values actually used downstream
+   * (magnitude and azimuth) is the whole trick, and it buys three things at
+   * once:
+   *  - No ±π wrap to handle: there's no angle being averaged, so no need for
+   *    an angular-difference damper at all.
+   *  - Azimuth is *ill-defined* near vertical — it's atan2 of two near-zero
+   *    numbers, i.e. mostly noise, and it thrashes hardest exactly when the
+   *    pen is most upright. Here a near-vertical sample simply contributes a
+   *    short vector, so it barely moves the filtered direction. The weighting
+   *    falls out of the geometry instead of needing a special case.
+   *  - One piece of state instead of two that can drift apart.
+   *
+   * Returns raw tilt untouched when the active profile declares no smoothing,
+   * which is every tool but charcoal.
+   */
+  private _filterTilt(tiltX: number, tiltY: number): { tiltX: number; tiltY: number } {
+    const k = this._shaping.tiltSmoothing
+    if (k === undefined) return { tiltX, tiltY }
+    if (this._tiltFilterX === null || this._tiltFilterY === null) {
+      this._tiltFilterX = tiltX
+      this._tiltFilterY = tiltY
+    } else {
+      this._tiltFilterX += (tiltX - this._tiltFilterX) * k
+      this._tiltFilterY += (tiltY - this._tiltFilterY) * k
+    }
+    return { tiltX: this._tiltFilterX, tiltY: this._tiltFilterY }
   }
 
   // Non-mutating fork for speculative pointer prediction (#92): clones the
@@ -171,6 +217,12 @@ export class DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
+    // #305: the fork continues *this* stroke speculatively, so it must inherit
+    // the tilt filter's current position — starting it at null would re-seed
+    // from the predicted sample and give the preview a different shape than
+    // the real dabs that land a moment later.
+    fork._tiltFilterX = this._tiltFilterX
+    fork._tiltFilterY = this._tiltFilterY
     // fork already got its own fresh scratch Float64Arrays from its own
     // constructor call above — do not share this instance's arrays with it.
     return fork
@@ -348,10 +400,19 @@ export class DabSystem {
     return dabs
   }
 
-  private _makeDab(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, pathAngle: number): Dab {
+  private _makeDab(x: number, y: number, pressure: number, rawTiltX: number, rawTiltY: number, baseSize: number, pathAngle: number): Dab {
+    // #305: the *filtered* tilt is what gets stored on the Dab, not just what
+    // feeds the shaping below. Everything downstream that reads Dab.tiltX/Y —
+    // the shader's own grain direction (charcoal's default variant is
+    // tilt-aligned "Streaky", so an unfiltered direction there would make the
+    // texture shimmer while the outline sat still) and opacity baking — has to
+    // agree with the geometry, or the mark and its texture disagree about
+    // which way the stick is lying. A no-op for every profile that declares no
+    // smoothing.
+    const { tiltX, tiltY } = this._filterTilt(rawTiltX, rawTiltY)
     const tiltMag    = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
     const tiltNorm   = tiltMag / 90
-    const size       = baseSize * this._shaping.size(pressure)
+    const size       = baseSize * this._shaping.size(pressure, tiltNorm)
     const aspectRatio = this._shaping.aspect(tiltNorm)
     const angle      = this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle)
     // `pressure` is stored as the real, unmapped value for every tool (see

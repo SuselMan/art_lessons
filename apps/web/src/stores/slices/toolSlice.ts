@@ -2,7 +2,7 @@ import type { StateCreator } from 'zustand'
 
 import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor } from '../../pages/Room/toolSchemas'
 
-export type DrawingTool = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker'
+export type DrawingTool = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker' | 'charcoal'
 
 // The subset of DrawingTool that actually lays ink and has its own color
 // (unlike eraser/smudge, which modify what's already there) — what a
@@ -15,16 +15,22 @@ export type DrawingTool = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker'
 // tool with its own color field, so the Color side-panel tab/colorTool logic
 // in Room/index.tsx needs to be able to name it too.
 //
+// Charcoal (#304) joined for the same reason marker and liner did — it lays
+// material and owns a color field, so it must be nameable here too.
+//
 // NOT the list of tools that own a color — that's ColorCapableTool in
-// toolSchemas.ts, a separate capability that today happens to cover the same
-// three members but answers a different question (see its own comment). Any
+// toolSchemas.ts, a separate capability that answers a different question (see
+// its own comment); the two lists have already come apart, since colorPencil
+// is color-capable there without being a selectable drawing tool here. Any
 // consumer that means "whose color am I editing?" should say ColorCapableTool;
 // this type only means "what do I switch back to when the eraser is toggled
 // off?".
-export type PrimaryDrawingTool = 'pencil' | 'liner' | 'marker'
+export type PrimaryDrawingTool = 'pencil' | 'charcoal' | 'liner' | 'marker'
+
+const PRIMARY_DRAWING_TOOLS: readonly PrimaryDrawingTool[] = ['pencil', 'charcoal', 'liner', 'marker']
 
 function isPrimaryDrawingTool(tool: DrawingTool): tool is PrimaryDrawingTool {
-  return tool === 'pencil' || tool === 'liner' || tool === 'marker'
+  return (PRIMARY_DRAWING_TOOLS as readonly DrawingTool[]).includes(tool)
 }
 
 export interface ToolSlice {

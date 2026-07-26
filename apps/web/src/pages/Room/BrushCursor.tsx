@@ -12,7 +12,7 @@ import styles from './Room.module.css'
 // oriented dabs (see engine's DabSystem). Every other current tool (grid/
 // ruler/transform/eyedropper etc. aren't drawing tools at all, and fill-style
 // tools don't exist yet) has no dab shape to preview.
-const DAB_TOOLS: ReadonlySet<ToolType> = new Set(['pencil', 'eraser', 'smudge', 'liner', 'marker'])
+const DAB_TOOLS: ReadonlySet<ToolType> = new Set(['pencil', 'eraser', 'smudge', 'liner', 'marker', 'charcoal'])
 
 // Below this aspect ratio the dab is close enough to circular that a
 // rotation line would show for a barely-there tilt with nothing meaningful

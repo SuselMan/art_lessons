@@ -4,8 +4,11 @@ import { Tabs } from '../Tabs'
 import {
   FEATURE_FLAGS, getFeatureFlag, setFeatureFlag,
   getPencilSoundSetting, setPencilSoundSetting, type PencilSoundSetting,
-  getGraphiteGrainVariant, setGraphiteGrainVariant, type GraphiteGrainVariant, GRAPHITE_GRAIN_LABELS,
+  getGraphiteGrainVariant, setGraphiteGrainVariant,
+  getCharcoalGrainVariant, setCharcoalGrainVariant,
+  type GrainVariant, GRAPHITE_GRAIN_LABELS,
 } from '../../lib/featureFlags'
+import { GRAPHITE_GRAIN_DEFAULT, CHARCOAL_GRAIN_STREAKY } from '../../engine'
 import {
   HOTKEY_ACTIONS, bindingsEqual, captureHotkeyBinding, findHotkeyConflict,
   formatHotkeyLabel, getHotkeyBindings, setHotkeyBindings, type HotkeyBinding,
@@ -27,7 +30,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   // returns false — so the raw return value is the only signal available.
   const [vibrateResult, setVibrateResult] = useState<string | null>(null)
   const [pencilSound, setPencilSoundState] = useState<PencilSoundSetting>(() => getPencilSoundSetting())
-  const [grainVariant, setGrainVariantState] = useState<GraphiteGrainVariant>(() => getGraphiteGrainVariant())
+  const [grainVariant, setGrainVariantState] = useState<GrainVariant>(() => getGraphiteGrainVariant())
+  const [charcoalGrainVariant, setCharcoalGrainVariantState] = useState<GrainVariant>(() => getCharcoalGrainVariant())
 
   // Hotkeys (#174) — same edit-a-draft-then-Save-reloads pattern as every
   // other setting in this panel. recordingActionId is which row is
@@ -70,12 +74,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const dirty = FEATURE_FLAGS.some(f => pendingFlags[f.key] !== getFeatureFlag(f.key))
     || pencilSound !== getPencilSoundSetting()
     || grainVariant !== getGraphiteGrainVariant()
+    || charcoalGrainVariant !== getCharcoalGrainVariant()
     || HOTKEY_ACTIONS.some(a => !bindingsEqual(pendingHotkeys[a.id], getHotkeyBindings(localStorage)[a.id]))
 
   function handleSave() {
     for (const flag of FEATURE_FLAGS) setFeatureFlag(flag.key, pendingFlags[flag.key])
     setPencilSoundSetting(pencilSound)
     setGraphiteGrainVariant(grainVariant)
+    setCharcoalGrainVariant(charcoalGrainVariant)
     setHotkeyBindings(localStorage, pendingHotkeys)
     window.location.reload()
   }
@@ -115,25 +121,47 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         </div>
       </div>
 
-      <div className={styles.flagRow} style={{ cursor: 'default' }}>
-        <div style={{ width: '100%' }}>
-          <div className={styles.flagLabel}>Graphite grain variant (dev)</div>
-          <div className={styles.flagDescription}>
-            Overrides the pencil mark's own texture (live in the shader, independent of paper) for
-            comparison — applies to every paper type, unlike the paper-grain control above.
+      {/* #304 follow-up: one selector per material, not one shared override.
+          Their shipped defaults differ (graphite 10 "Solid", charcoal 3
+          "Streaky"), so a single control couldn't express both — and
+          auditioning a variant on one used to disturb the other. */}
+      {([
+        {
+          label: 'Graphite grain variant (dev)',
+          defaultMode: GRAPHITE_GRAIN_DEFAULT,
+          value: grainVariant,
+          onChange: setGrainVariantState,
+        },
+        {
+          label: 'Charcoal grain variant (dev)',
+          defaultMode: CHARCOAL_GRAIN_STREAKY,
+          value: charcoalGrainVariant,
+          onChange: setCharcoalGrainVariantState,
+        },
+      ] as const).map(row => (
+        <div key={row.label} className={styles.flagRow} style={{ cursor: 'default' }}>
+          <div style={{ width: '100%' }}>
+            <div className={styles.flagLabel}>{row.label}</div>
+            <div className={styles.flagDescription}>
+              Overrides this tool's own mark texture (live in the shader, independent of paper)
+              for comparison — applies to every paper type, unlike the paper-grain control above.
+              Each tool keeps its own default and its own override.
+            </div>
+            <select
+              className={styles.select}
+              value={row.value}
+              onChange={e => row.onChange(e.target.value as GrainVariant)}
+            >
+              <option value="off">
+                Default ({row.defaultMode}. {GRAPHITE_GRAIN_LABELS[row.defaultMode]})
+              </option>
+              {GRAPHITE_GRAIN_LABELS.map((label, i) => (
+                <option key={i} value={String(i)}>{i}. {label}</option>
+              ))}
+            </select>
           </div>
-          <select
-            className={styles.select}
-            value={grainVariant}
-            onChange={e => setGrainVariantState(e.target.value as GraphiteGrainVariant)}
-          >
-            <option value="off">Off (shipped default)</option>
-            {GRAPHITE_GRAIN_LABELS.slice(1).map((label, i) => (
-              <option key={i} value={String(i + 1)}>{i + 1}. {label}</option>
-            ))}
-          </select>
         </div>
-      </div>
+      ))}
 
       <div className={styles.flagRow} style={{ cursor: 'default' }}>
         <button

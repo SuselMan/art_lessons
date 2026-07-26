@@ -26,7 +26,7 @@ describe('markerNibFromPreset (#251, ADR 004 §1)', () => {
 describe('MARKER_BULLET_DAB_SHAPING (#251, ADR 004 §1: reuse liner\'s curve as-is)', () => {
   it('matches LINER_DAB_SHAPING\'s own weak pressure response exactly', () => {
     for (const pressure of [0, 0.25, 0.5, 0.75, 1]) {
-      expect(MARKER_BULLET_DAB_SHAPING.size(pressure)).toBeCloseTo(LINER_DAB_SHAPING.size(pressure))
+      expect(MARKER_BULLET_DAB_SHAPING.size(pressure, 0)).toBeCloseTo(LINER_DAB_SHAPING.size(pressure, 0))
     }
   })
 
@@ -51,7 +51,7 @@ describe('MARKER_BULLET_DAB_SHAPING (#251, ADR 004 §1: reuse liner\'s curve as-
 describe('MARKER_CHISEL_DAB_SHAPING (#251, ADR 004 §1: fixed aspect + fixed angle)', () => {
   it('has the same weak pressure response as bullet/liner (ADR 004 §2)', () => {
     for (const pressure of [0, 0.5, 1]) {
-      expect(MARKER_CHISEL_DAB_SHAPING.size(pressure)).toBeCloseTo(MARKER_BULLET_DAB_SHAPING.size(pressure))
+      expect(MARKER_CHISEL_DAB_SHAPING.size(pressure, 0)).toBeCloseTo(MARKER_BULLET_DAB_SHAPING.size(pressure, 0))
     }
   })
 

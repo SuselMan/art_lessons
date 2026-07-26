@@ -9,7 +9,7 @@ import type {
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
-import { PencilEngine, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
 import { ColorPicker } from '../../components/ColorPicker'
@@ -21,7 +21,7 @@ import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { RadialDial } from '../../components/RadialDial'
 import { computeCompositeOrder } from '../../lib/layers'
 import { hexToRgb } from '../../lib/color'
-import { getFeatureFlag, getPencilSoundSetting, getGraphiteGrainVariant } from '../../lib/featureFlags'
+import { getFeatureFlag, getPencilSoundSetting, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
@@ -62,6 +62,7 @@ import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { fetchLatestSnapshot, walkHistoryBackward, type RestoredSnapshot } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
+import type { PrimaryDrawingTool } from '../../stores/slices/toolSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
 import styles from './Room.module.css'
 
@@ -236,6 +237,10 @@ export function Room() {
   // pass, only through repeated passes" — some pressure always fully
   // triggered it eventually, no matter how close the threshold sat to 1.0.
   const [paperFillCap, setPaperFillCapState] = useState(0.35)
+  // #305: charcoal's tilt ladder, seeded from the engine module's own current
+  // values rather than a second hardcoded copy here — CHARCOAL_FEEL is the one
+  // source of truth, and these sliders only ever push deltas back into it.
+  const [charcoalFeel, setCharcoalFeelState] = useState<CharcoalFeelConfig>(() => ({ ...CHARCOAL_FEEL }))
 
   // Optional pointer-prediction experiment (#92) — same feature-flag pattern
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
@@ -313,10 +318,12 @@ export function Room() {
   const hapticGrainEnabled = getFeatureFlag('hapticGrain')
   const [hapticStats, setHapticStats] = useState<HapticGrainStats | null>(null)
 
-  // Dev-only graphite-grain A/B (see SettingsPanel / DAB_FRAG's
-  // computeGrain) — live shader mode, applies to every paper type.
-  const graphiteGrainVariant = getGraphiteGrainVariant()
-  const grainMode = graphiteGrainVariant === 'off' ? undefined : Number(graphiteGrainVariant)
+  // Dev-only grain A/B (see SettingsPanel / DAB_FRAG's computeGrain) — live
+  // shader mode, applies to every paper type. One per material (#304
+  // follow-up): 'off' leaves it undefined, and the engine falls back to that
+  // material's own shipped default rather than to a shared one.
+  const grainMode = grainVariantToMode(getGraphiteGrainVariant())
+  const charcoalGrainMode = grainVariantToMode(getCharcoalGrainVariant())
 
   // (#24) Backed by the store now — same one-shot seeding timing the old
   // useState(() => creatorDraft?.room ? toRoomConfig(...) : null) had.
@@ -929,6 +936,7 @@ export function Room() {
       hapticGrain: hapticGrainEnabled,
       onHapticGrainStats: hapticGrainEnabled ? setHapticStats : undefined,
       grainMode,
+      charcoalGrainMode,
     })
     engineRef.current = engine
 
@@ -1088,7 +1096,7 @@ export function Room() {
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory,
-    grainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
+    grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -1096,12 +1104,17 @@ export function Room() {
   const linerSize = toolSettings.liner.size as string
   const markerNib = toolSettings.marker.nib as string
   const markerSize = toolSettings.marker.size as number
+  const charcoalType = toolSettings.charcoal.type as string
   // Same preset string engine.setPencil below records (`${nib}:${size}` for
-  // marker, the size label for liner, the grade name otherwise) — only
-  // marker's own dispatch (bullet/chisel) actually reads it
-  // (shapingForTool -> shapingForMarkerPreset), but BrushCursor takes the
-  // same shape every tool's real stroke would, not a marker-only special case.
-  const cursorPresetName = tool === 'marker' ? `${markerNib}:${markerSize}` : tool === 'liner' ? linerSize : pencilGrade
+  // marker, the size label for liner, the charcoal type for charcoal, the
+  // grade name otherwise) — only marker's own dispatch (bullet/chisel)
+  // actually reads it (shapingForTool -> shapingForMarkerPreset), but
+  // BrushCursor takes the same shape every tool's real stroke would, not a
+  // marker-only special case.
+  const cursorPresetName = tool === 'marker' ? `${markerNib}:${markerSize}`
+    : tool === 'liner' ? linerSize
+    : tool === 'charcoal' ? charcoalType
+    : pencilGrade
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
   }, [pencilGrade])
@@ -1149,9 +1162,18 @@ export function Room() {
     // then — while nib+size are still faithfully recorded/replicated on the
     // wire via the existing preset string for whenever the engine side is
     // ready to actually read them back out of it.
+    // Charcoal (#304) is the one tool whose preset string the engine reads
+    // back *and* which needs nothing composed into it: the type name alone
+    // ('vine'/'willow'/'compressed') is what _resolvePreset -> charcoalPresetFor
+    // resolves, since all three types share one dab geometry (ADR 005 §2).
     const markerPreset = `${markerNib}:${markerSize}`
-    engineRef.current?.setPencil(tool === 'liner' ? linerSize : tool === 'marker' ? markerPreset : pencilGrade)
-  }, [tool, pencilGrade, linerSize, markerNib, markerSize])
+    engineRef.current?.setPencil(
+      tool === 'liner' ? linerSize
+        : tool === 'marker' ? markerPreset
+        : tool === 'charcoal' ? charcoalType
+        : pencilGrade,
+    )
+  }, [tool, pencilGrade, linerSize, markerNib, markerSize, charcoalType])
   useEffect(() => { engineRef.current?.setTool(tool) },     [tool])
   useEffect(() => {
     // #253: variant1/2 have no per-tool split (see the sound-construction effect above) — only
@@ -1194,7 +1216,7 @@ export function Room() {
   // liner (whichever was actually last selected), the same way liner joined
   // it in #245's own follow-up. Only smudge stays outside it — no
   // dedicated "return to smudge" affordance exists anywhere today.
-  const floatingPrimaryTool: 'pencil' | 'liner' | 'marker' = lastDrawingTool
+  const floatingPrimaryTool: PrimaryDrawingTool = lastDrawingTool
   // (#190 epic) Room palette — see roomSlice's own doc comment for why this
   // is a plain setter, not a reducer. Add/remove requests round-trip through
   // the server (dedup lives there, see rooms.ts's addPaletteColor) rather
@@ -2326,6 +2348,7 @@ export function Room() {
       if (is('redo')) { handleRedo(); e.preventDefault(); return }
       if (is('toggleEraser')) { setTool(t => t === 'eraser' ? lastDrawingTool : 'eraser'); return }
       if (is('toggleSmudge')) { setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge'); return }
+      if (is('toggleCharcoal')) { setTool(t => t === 'charcoal' ? 'pencil' : 'charcoal'); return }
       if (is('toggleLiner')) { setTool(t => t === 'liner' ? 'pencil' : 'liner'); return }
       if (is('toggleMarker')) { setTool(t => t === 'marker' ? 'pencil' : 'marker'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
@@ -2588,7 +2611,17 @@ export function Room() {
             title={`Smudge — blend graphite already on the page  ${formatHotkeyLabel(hotkeys.toggleSmudge)}`}
             aria-label={`Smudge  ${formatHotkeyLabel(hotkeys.toggleSmudge)}`}
             onClick={() => setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge')}
-          ><Icon name="blur_on" /></button>
+          ><Icon name="smudge" /></button>
+          {/* Charcoal (#304, ADR 005) — its own material, not a soft black
+              pencil: three types (vine/willow/compressed) selected through
+              the quick-settings panel to the right, the same way the pencil's
+              6H-6B grade is, rather than as three toolbar buttons. */}
+          <button
+            className={clsx(styles.toolIconBtn, tool === 'charcoal' && styles.toolIconBtnActive)}
+            title={`Charcoal — loose carbon stick; grabs the paper's tooth, crumbles, sheds dust  ${formatHotkeyLabel(hotkeys.toggleCharcoal)}`}
+            aria-label={`Charcoal  ${formatHotkeyLabel(hotkeys.toggleCharcoal)}`}
+            onClick={() => setTool(t => t === 'charcoal' ? 'pencil' : 'charcoal')}
+          ><Icon name="charcoal" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'liner' && styles.toolIconBtnActive)}
             title={`Liner — ink pen, near-constant line width  ${formatHotkeyLabel(hotkeys.toggleLiner)}`}
@@ -3049,6 +3082,37 @@ export function Room() {
                 />
                 <span>{paperFillCap.toFixed(2)}</span>
               </div>
+
+              {/* #305: charcoal's tilt ladder. Only shown while charcoal is the
+                  active tool — these knobs do nothing for anything else, and
+                  the overlay is already crowded. Takes effect on the next
+                  stroke (shape is baked per dab at record time), so tuning is
+                  "draw, nudge, draw again" rather than live-morphing what's
+                  already on the page. */}
+              {tool === 'charcoal' && (
+                <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
+                  <div style={{ opacity: 0.7 }}>charcoal tilt (next stroke)</div>
+                  {CHARCOAL_FEEL_SLIDERS.map(s => (
+                    <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                      <span style={{ width: 78 }}>{s.label}</span>
+                      <input
+                        type="range"
+                        min={s.min}
+                        max={s.max}
+                        step={s.step}
+                        value={charcoalFeel[s.key]}
+                        onChange={e => {
+                          const v = Number(e.target.value)
+                          setCharcoalFeelState(prev => ({ ...prev, [s.key]: v }))
+                          engineRef.current?.setCharcoalFeel({ [s.key]: v })
+                        }}
+                        style={{ width: 90 }}
+                      />
+                      <span>{charcoalFeel[s.key].toFixed(s.step < 1 ? 2 : 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

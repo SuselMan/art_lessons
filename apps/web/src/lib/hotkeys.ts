@@ -41,6 +41,7 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   { id: 'redo', label: 'Redo', default: { code: 'KeyZ', mod: true, shift: true } },
   { id: 'toggleEraser', label: 'Toggle eraser / pencil', default: { code: 'KeyE', mod: false, shift: false } },
   { id: 'toggleSmudge', label: 'Toggle smudge / pencil', default: { code: 'KeyS', mod: false, shift: false } },
+  { id: 'toggleCharcoal', label: 'Toggle charcoal / pencil', default: { code: 'KeyC', mod: false, shift: false } },
   { id: 'toggleLiner', label: 'Toggle liner / pencil', default: { code: 'KeyL', mod: false, shift: false } },
   { id: 'toggleMarker', label: 'Toggle marker / pencil', default: { code: 'KeyM', mod: false, shift: false } },
   { id: 'resetRotation', label: 'Reset rotation to 0°', default: { code: 'KeyR', mod: false, shift: false } },

@@ -86,32 +86,68 @@ export function setPencilSoundSetting(value: PencilSoundSetting): void {
   localStorage.setItem(PENCIL_SOUND_STORAGE_KEY, value)
 }
 
-// Dev-only graphite-grain fiber-variant comparison (see DAB_FRAG's
-// computeGrain) — a live shader mode (u_grainMode) rather than a texture
-// swap, so it applies to every paper type.
-export type GraphiteGrainVariant = 'off' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
-const GRAPHITE_GRAIN_VARIANT_STORAGE_KEY = 'graphiteGrainVariant'
-const GRAPHITE_GRAIN_VARIANT_VALUES: readonly GraphiteGrainVariant[] =
-  ['off', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+// Dev-only mark-grain variant comparison (see DAB_FRAG's computeGrain) — a
+// live shader mode (u_grainMode) rather than a texture swap, so it applies to
+// every paper type.
+//
+// #304: charcoal has its own mark texture too, and the two materials get
+// *separate* selectors rather than one shared override, because their shipped
+// defaults genuinely differ now — graphite is GRAPHITE_GRAIN_DEFAULT (10,
+// "Solid": no stroke-side texture at all), charcoal is CHARCOAL_PRESETS.grain
+// (3, "Streaky"). One shared control couldn't express that, and auditioning a
+// variant on one material would have kept disturbing the other.
+//
+// 'off' means "this tool's own shipped default", NOT mode 0 — which is why '0'
+// is its own selectable value here: with neither default sitting at 0 anymore,
+// there'd otherwise be no way to audition the fine-dither variant at all.
+//
+// The graphite storage key and the GRAPHITE_ prefixes are kept from the era
+// when this was graphite-only: renaming a persisted localStorage key would
+// silently reset an already-stored pick.
+export type GrainVariant = 'off' | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
+const GRAIN_VARIANT_VALUES: readonly GrainVariant[] =
+  ['off', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
 
-export function getGraphiteGrainVariant(): GraphiteGrainVariant {
-  const raw = localStorage.getItem(GRAPHITE_GRAIN_VARIANT_STORAGE_KEY)
-  return (GRAPHITE_GRAIN_VARIANT_VALUES as readonly string[]).includes(raw ?? '')
-    ? (raw as GraphiteGrainVariant)
+const GRAPHITE_GRAIN_VARIANT_STORAGE_KEY = 'graphiteGrainVariant'
+const CHARCOAL_GRAIN_VARIANT_STORAGE_KEY = 'charcoalGrainVariant'
+
+function readGrainVariant(storageKey: string): GrainVariant {
+  const raw = localStorage.getItem(storageKey)
+  return (GRAIN_VARIANT_VALUES as readonly string[]).includes(raw ?? '')
+    ? (raw as GrainVariant)
     : 'off'
 }
 
-export function setGraphiteGrainVariant(value: GraphiteGrainVariant): void {
+export function getGraphiteGrainVariant(): GrainVariant {
+  return readGrainVariant(GRAPHITE_GRAIN_VARIANT_STORAGE_KEY)
+}
+
+export function setGraphiteGrainVariant(value: GrainVariant): void {
   localStorage.setItem(GRAPHITE_GRAIN_VARIANT_STORAGE_KEY, value)
 }
 
-// Labels for '1'..'10', index 0 unused ('off' has no shader mode number) —
-// mirrors DAB_FRAG's computeGrain's own u_grainMode branches 1-10 exactly;
-// keep the two in sync if either changes. No shared TS source of truth is
-// possible here the way ROUGH_VARIANTS is for paper, since these live as
-// GLSL, not portable JS/TS functions.
+export function getCharcoalGrainVariant(): GrainVariant {
+  return readGrainVariant(CHARCOAL_GRAIN_VARIANT_STORAGE_KEY)
+}
+
+export function setCharcoalGrainVariant(value: GrainVariant): void {
+  localStorage.setItem(CHARCOAL_GRAIN_VARIANT_STORAGE_KEY, value)
+}
+
+/** 'off' -> undefined (the engine falls back to the material's own default);
+ *  any explicit variant -> its shader mode number. The single place this
+ *  string->number narrowing happens, so both selectors and both engine options
+ *  agree on what 'off' means. */
+export function grainVariantToMode(value: GrainVariant): number | undefined {
+  return value === 'off' ? undefined : Number(value)
+}
+
+// Labels indexed by shader mode — mirrors DAB_FRAG's computeGrain's own
+// u_grainMode branches 0-10 exactly; keep the two in sync if either changes.
+// No shared TS source of truth is possible here the way ROUGH_VARIANTS is for
+// paper, since these live as GLSL, not portable JS/TS functions.
 export const GRAPHITE_GRAIN_LABELS: readonly string[] = [
-  '',
+  'Fine dither',
   'Stronger fine noise',
   'Blotchy (low-freq)',
   'Streaky (tilt-aligned)',

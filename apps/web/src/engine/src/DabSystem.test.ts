@@ -815,7 +815,7 @@ describe('DabSystem per-tool dab shaping (#240)', () => {
   it('defaults to PENCIL_DAB_SHAPING, matching the pre-#240 hardcoded formulas', () => {
     const dab = new DabSystem()
     const [d] = dab.startStroke(0, 0, 0.5, 0, 0, baseSize)
-    expect(d.size).toBeCloseTo(baseSize * PENCIL_DAB_SHAPING.size(0.5))
+    expect(d.size).toBeCloseTo(baseSize * PENCIL_DAB_SHAPING.size(0.5, 0))
     expect(d.aspectRatio).toBeCloseTo(PENCIL_DAB_SHAPING.aspect(0))
   })
 

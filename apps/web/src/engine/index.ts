@@ -7,12 +7,23 @@ import {
   createPlaceholderPaperTexture, getPaperBytes, uploadPaperTexture,
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
+import {
+  charcoalPresetFor, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY,
+  type CharcoalPreset, type CharcoalType,
+} from './src/charcoalPresets'
+import {
+  CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, charcoalBroadness, charcoalBroadDensity,
+  type CharcoalFeelConfig,
+} from './src/charcoalFeel'
 import { DabSystem } from './src/DabSystem'
 import { shapingForTool } from './src/dabShaping'
 import type { MarkerAngleConfig } from './src/markerPresets'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
-import { PENCIL_PRESETS, PENCIL_GRADES, isPencilGrade, type PencilGradeName, type PencilPreset } from './src/pencilPresets'
+import {
+  PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, isPencilGrade,
+  type PencilGradeName, type PencilPreset,
+} from './src/pencilPresets'
 import {
   LINER_PRESET, LINER_SIZES_MM, linerSpeedFlow, linerTiltFlow, applyLinerEndTaper,
   dwellConfigForTool, dwellFlow, type DwellConfig, type LinerSizeMm,
@@ -35,8 +46,13 @@ export type { HapticGrainStats }
 export type { AffineMatrix }
 export type { RulerLine }
 
-export { PENCIL_PRESETS, PENCIL_GRADES, type PencilGradeName, type PencilPreset }
+export { PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, type PencilGradeName, type PencilPreset }
 export { LINER_SIZES_MM, type LinerSizeMm }
+export {
+  CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY,
+  type CharcoalType, type CharcoalPreset,
+}
+export { CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig }
 
 /** Pure dab-shape query for UI overlays (brush cursor) — mirrors
  *  DabSystem._makeDab's own geometry formula (tiltMag/tiltNorm ->
@@ -57,7 +73,7 @@ export function previewDabShape(
   const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
   const tiltNorm = tiltMag / 90
   return {
-    size: baseSize * shaping.size(pressure),
+    size: baseSize * shaping.size(pressure, tiltNorm),
     aspectRatio: shaping.aspect(tiltNorm),
     angle: shaping.angle(tiltMag, tiltX, tiltY, pathAngle),
   }
@@ -156,12 +172,15 @@ export interface PencilEngineOptions {
   // simulating paper grain via touch. Off by default; Android Chrome only.
   hapticGrain?: boolean
   onHapticGrainStats?: (stats: HapticGrainStats) => void
-  // Dev-only graphite-grain A/B (see DAB_FRAG's computeGrain,
-  // SettingsPanel's "Graphite grain variant" control) — 0 or omitted is the
-  // real shipped default, 1-10 select an experimental candidate. Applies to
-  // every paper type; the grain term has nothing paper-type-specific
+  // Dev-only grain A/B (see DAB_FRAG's computeGrain and SettingsPanel's two
+  // "grain variant" controls) — omitted means "use that material's own shipped
+  // default" (GRAPHITE_GRAIN_DEFAULT / CHARCOAL_PRESETS.grain), 0-10 override
+  // it with a specific variant. Separate per material (#304 follow-up): their
+  // defaults differ, and auditioning one must not disturb the other. Applies
+  // to every paper type; the grain term has nothing paper-type-specific
   // about it.
   grainMode?: number
+  charcoalGrainMode?: number
   // Dev-only live tuning, initial value only — see PencilEngineAPI's
   // setPaperFillThreshold for the runtime setter a debug-overlay slider
   // actually drags. Defaults to 0 when omitted — see the shader-side
@@ -251,6 +270,15 @@ export interface PencilEngineAPI {
   // term can ever push paperCatch, regardless of pressure. Applied on the
   // very next paint call, same as setPaperFillThreshold.
   setPaperFillCap(cap: number): void
+  // Dev-only live tuning of charcoal's tilt ladder (#305, ADR 005) — the
+  // thresholds depend on how a particular hand holds a particular stylus, so
+  // they're calibrated by dragging sliders on the tablet rather than agreed as
+  // numbers up front. Mutates the shared CHARCOAL_FEEL in place, so it takes
+  // effect on the next *stroke*, not retroactively: shape is baked into each
+  // Dab at record time, which is exactly what keeps already-drawn and replayed
+  // marks stable while a slider moves.
+  setCharcoalFeel(patch: Partial<CharcoalFeelConfig>): void
+  getCharcoalFeel(): CharcoalFeelConfig
   setCompositeOrder(items: CompositeItem[]): void
   appendOperation(op: Operation, source?: OperationSource): void
   // (#147) Suspends the _display() (full composite + paper-blend) call that
@@ -843,7 +871,8 @@ export class PencilEngine implements PencilEngineAPI {
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
   private _opts: EngineOpts
-  private _grainMode: number
+  private _grainMode: number | undefined
+  private _charcoalGrainMode: number | undefined
   private _paperFillThreshold: number
   private _paperFillCap: number
   private _userId: string
@@ -1403,7 +1432,8 @@ export class PencilEngine implements PencilEngineAPI {
     // _predictPointer above) rather than folded into EngineOpts/_opts —
     // unlike `paper`, this never changes via a public setter, so it doesn't
     // belong in the "live, mutable tool state" struct _opts represents.
-    this._grainMode = options.grainMode ?? 0
+    this._grainMode = options.grainMode
+    this._charcoalGrainMode = options.charcoalGrainMode
     this._paperFillThreshold = options.paperFillThreshold ?? 0
     this._paperFillCap = options.paperFillCap ?? 0.35
 
@@ -1471,6 +1501,14 @@ export class PencilEngine implements PencilEngineAPI {
 
   setPaperFillCap(cap: number): void {
     this._paperFillCap = cap
+  }
+
+  setCharcoalFeel(patch: Partial<CharcoalFeelConfig>): void {
+    Object.assign(CHARCOAL_FEEL, patch)
+  }
+
+  getCharcoalFeel(): CharcoalFeelConfig {
+    return { ...CHARCOAL_FEEL }
   }
 
   setCompositeOrder(items: CompositeItem[]): void {
@@ -3014,6 +3052,12 @@ export class PencilEngine implements PencilEngineAPI {
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
       'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
+      // Charcoal only (#304, ADR 005) — per-preset, so needed by both this
+      // program and the instanced one below (unlike marker's three samplers,
+      // which never draw through the batched path).
+      'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
+      'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
+      'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
       // Marker only (#250, follow-up) — only ever set by
       // _drawMarkerCoverageDab/_drawMarkerInkLoadDab/_drawMarkerCompositeDab,
       // which always use this non-instanced program (see those methods'
@@ -3025,6 +3069,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
+      'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
+      'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
+      'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
     ])
     this._dispUni = getUniforms(gl, this._dispProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale',
@@ -3444,11 +3491,33 @@ export class PencilEngine implements PencilEngineAPI {
    *  MARKER_BULLET_PRESET/MARKER_CHISEL_PRESET's own comment) reuses the
    *  same nib token dabShaping.ts's shapingForTool already parses out of
    *  `presetName` (e.g. "bullet:0.3") for dab shape/angle — this is a
-   *  separate path keyed off the same string, not a shared cache. */
+   *  separate path keyed off the same string, not a shared cache.
+   *  Charcoal (#304, ADR 005) resolves one of its three types (vine/willow/
+   *  compressed) out of `presetName`, falling back to willow — see
+   *  charcoalPresetFor. Its CharcoalPreset carries three extra fields on top
+   *  of PencilPreset, read only by _charcoalPresetFor's own callers below;
+   *  everything that just needs {opacity, hardness, sizeMultiplier} (opacity
+   *  baking, dab extents) works off it unchanged through this return type. */
   private _resolvePreset(tool: ToolType, presetName: string): PencilPreset {
     if (tool === 'liner') return LINER_PRESET
     if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
+    if (tool === 'charcoal') return charcoalPresetFor(presetName)
     return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+  }
+
+  /** Which computeGrain variant (DAB_FRAG's u_grainMode) this draw should use.
+   *
+   *  Each material carries its own shipped default — GRAPHITE_GRAIN_DEFAULT
+   *  (10, "Solid") for graphite, CHARCOAL_PRESETS.grain (3, "Streaky") per
+   *  charcoal type — and each has its own independent dev override
+   *  (`grainMode` / `charcoalGrainMode`), which is `undefined` when that
+   *  selector sits at "default". Two separate overrides rather than one shared
+   *  flag specifically so auditioning a variant on one material doesn't
+   *  disturb the other (#304 follow-up). */
+  private _resolveGrainMode(charcoal: CharcoalPreset | null): number {
+    return charcoal
+      ? this._charcoalGrainMode ?? charcoal.grain
+      : this._grainMode ?? GRAPHITE_GRAIN_DEFAULT
   }
 
   /** Bakes final dab opacity (preset × user opacity × speed) in place. Shared
@@ -3498,6 +3567,20 @@ export class PencilEngine implements PencilEngineAPI {
       else if (tool === 'marker') {
         const tiltDeg = Math.sqrt(dab.tiltX * dab.tiltX + dab.tiltY * dab.tiltY)
         dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg) * markerPressureFlow(dab.pressure)
+      }
+      // Charcoal (#304 §3, plus #305's broad-side lightening): shares pencil's
+      // speed curve deliberately — "slower stroke -> denser deposit" is equally
+      // true of both materials — and adds one term graphite has no analogue
+      // for. Laid on its broad side, the stick spreads the same pressure over a
+      // far larger contact patch, so it must deposit lighter; without this, the
+      // broad regime just paints a much bigger *and* equally dark mark, which
+      // reads as a fat marker rather than a stick on its side. Derived from the
+      // dab's own baked aspectRatio rather than re-running the ladder on tilt,
+      // so it can't disagree with the geometry actually being drawn (see
+      // charcoalBroadness' own comment).
+      else if (tool === 'charcoal') {
+        const broadness = charcoalBroadness(dab.aspectRatio)
+        dab.opacity = preset.opacity * opacity * speedFactor * charcoalBroadDensity(broadness)
       }
       else dab.opacity = preset.opacity * opacity * speedFactor
     }
@@ -3583,7 +3666,7 @@ export class PencilEngine implements PencilEngineAPI {
     const dab: Dab = {
       x: this._lastPointerX, y: this._lastPointerY,
       pressure: this._lastPointerPressure, tiltX: this._lastPointerTiltX, tiltY: this._lastPointerTiltY,
-      size: this._physicalSize * shaping.size(this._lastPointerPressure),
+      size: this._physicalSize * shaping.size(this._lastPointerPressure, tiltNorm),
       aspectRatio: shaping.aspect(tiltNorm),
       // #278: used to be hardcoded 0 for every tool ("no path direction
       // while resting — liner's own aspect response is mild enough this
@@ -3858,8 +3941,18 @@ export class PencilEngine implements PencilEngineAPI {
     // dab's own position) — unlike the smudge branch above, userId is still
     // unused (no per-user state).
     if (tool === 'marker') { this._paintMarkerDabs(target, dabs, presetName, color, markerScratch, prevDab); return }
-    const erasing   = tool === 'eraser'
-    const linerMode = tool === 'liner'
+    const erasing = tool === 'eraser'
+    // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
+    // table). Resolved once here as a number rather than one boolean flag per
+    // tool — #304 would otherwise have added a second `charcoalMode` boolean
+    // alongside `linerMode` and threaded both through the two paint methods
+    // below, which is exactly how two flags for one mutually-exclusive
+    // switch drift out of sync.
+    const inkMode = tool === 'liner' ? 1.0 : tool === 'charcoal' ? 5.0 : 0.0
+    // Charcoal's own three extra preset fields (#304) — null for every other
+    // tool, in which case the paint methods below leave their uniforms at 0
+    // (never read outside DAB_FRAG's u_inkMode>4.5 branch).
+    const charcoal: CharcoalPreset | null = tool === 'charcoal' ? charcoalPresetFor(presetName) : null
     const preset  = this._resolvePreset(tool, presetName)
     const worldBounds = this._dabsWorldBounds(dabs, erasing, preset)
     const targets: PaintTarget[] = target instanceof AccumulationBuffer
@@ -3897,9 +3990,9 @@ export class PencilEngine implements PencilEngineAPI {
       // _paintDabsInstanced's docstring for why this preserves the exact
       // sequential per-dab blend order the fallback loop below relies on.
       if (this._instancedArraysExt) {
-        this._paintDabsInstanced(tileDabs, erasing, linerMode, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsInstanced(tileDabs, erasing, inkMode, charcoal, preset, color, buffer.width, buffer.height, originX, originY)
       } else {
-        this._paintDabsUniform(tileDabs, erasing, linerMode, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsUniform(tileDabs, erasing, inkMode, charcoal, preset, color, buffer.width, buffer.height, originX, originY)
       }
 
       buffer.endDraw()
@@ -3920,7 +4013,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  translates each dab's world-space center into that buffer's local
    *  space (bounded: always (0,0), so this is a no-op there). */
   private _paintDabsUniform(
-    dabs: Dab[], erasing: boolean, linerMode: boolean, preset: PencilPreset, color: [number, number, number],
+    dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
+    preset: PencilPreset, color: [number, number, number],
     resW: number, resH: number, originX: number, originY: number,
   ): void {
     const { gl } = this
@@ -3947,10 +4041,23 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
     gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
     gl.uniform3fv(u.u_color, color)
-    gl.uniform1i(u.u_grainMode, this._grainMode)
+    gl.uniform1i(u.u_grainMode, this._resolveGrainMode(charcoal))
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    gl.uniform1f(u.u_inkMode, linerMode ? 1.0 : 0.0)
+    gl.uniform1f(u.u_inkMode, inkMode)
+    gl.uniform1f(u.u_charcoalTooth,   charcoal?.tooth   ?? 0)
+    gl.uniform1f(u.u_charcoalCrumble, charcoal?.crumble ?? 0)
+    gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
+    // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
+    // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
+    // tiltSmoothing is a getter.
+    gl.uniform1f(u.u_charcoalBroadAspect, charcoal ? CHARCOAL_FEEL.broadAspect : 0)
+    gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
+    gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
+    gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)
+    gl.uniform1f(u.u_charcoalSkipFloor,   charcoal ? CHARCOAL_FEEL.skipFloor : 1)
+    gl.uniform1f(u.u_charcoalGateRelief,  charcoal ? CHARCOAL_FEEL.gateRelief : 0)
+    gl.uniform1f(u.u_charcoalGrainDepth,  charcoal ? CHARCOAL_FEEL.grainDepth : 0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     const posLoc = this._dabPosLoc
@@ -3992,7 +4099,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  the shader changed, from one gl.uniform* call per dab to one instanced
    *  vertex attribute read per dab out of a single buffer uploaded once. */
   private _paintDabsInstanced(
-    dabs: Dab[], erasing: boolean, linerMode: boolean, preset: PencilPreset, color: [number, number, number],
+    dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
+    preset: PencilPreset, color: [number, number, number],
     resW: number, resH: number, originX: number, originY: number,
   ): void {
     const { gl } = this
@@ -4014,10 +4122,23 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_hardness, erasing ? 0.85 : preset.hardness)
     gl.uniform1f(u.u_eraseMode, erasing ? 1.0 : 0.0)
     gl.uniform3fv(u.u_color, color)
-    gl.uniform1i(u.u_grainMode, this._grainMode)
+    gl.uniform1i(u.u_grainMode, this._resolveGrainMode(charcoal))
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    gl.uniform1f(u.u_inkMode, linerMode ? 1.0 : 0.0)
+    gl.uniform1f(u.u_inkMode, inkMode)
+    gl.uniform1f(u.u_charcoalTooth,   charcoal?.tooth   ?? 0)
+    gl.uniform1f(u.u_charcoalCrumble, charcoal?.crumble ?? 0)
+    gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
+    // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
+    // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
+    // tiltSmoothing is a getter.
+    gl.uniform1f(u.u_charcoalBroadAspect, charcoal ? CHARCOAL_FEEL.broadAspect : 0)
+    gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
+    gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
+    gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)
+    gl.uniform1f(u.u_charcoalSkipFloor,   charcoal ? CHARCOAL_FEEL.skipFloor : 1)
+    gl.uniform1f(u.u_charcoalGateRelief,  charcoal ? CHARCOAL_FEEL.gateRelief : 0)
+    gl.uniform1f(u.u_charcoalGrainDepth,  charcoal ? CHARCOAL_FEEL.grainDepth : 0)
 
     // Shared unit quad, divisor 0 — same 6 vertices/2 triangles per instance
     // as the uniform path's per-dab quad.

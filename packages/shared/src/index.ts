@@ -259,7 +259,7 @@ export const DEFAULT_PALETTE_COLORS: string[] = [
 // The room's append-only operation log is the source of truth; layer pixel
 // buffers and LayerState are derived by replaying it (ADR 002).
 
-export type ToolType = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker'
+export type ToolType = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker' | 'charcoal'
 
 export type Dab = {
   x: number
@@ -291,7 +291,11 @@ export type StrokeOperation = OperationBase & {
   type: 'stroke'
   layerId: string
   tool: ToolType
-  preset: string        // 'HB', '2B' etc — for pencil
+  // 'HB'/'2B' etc for pencil, the liner's own size label, `${nib}:${size}`
+  // for marker, 'vine'/'willow'/'compressed' for charcoal (ADR 005 §1 — the
+  // three charcoal types ride this existing field rather than needing one of
+  // their own, exactly as pencil's hardness grades already do).
+  preset: string
   color: [number, number, number] // baked at record time, so replay/undo never repaints with today's live color
   dabs: Dab[]
   // Smudge only (#14): this user's own carried-graphite reservoir level

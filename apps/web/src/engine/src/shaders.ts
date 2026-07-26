@@ -170,8 +170,9 @@ export const DAB_FRAG = `
   uniform float u_paperFillCap;
   // 1.0 = fineliner (#241/#242, ADR 003), 2.0 = marker composite (#250, ADR
   // 004 §3), 3.0 = marker coverage-splat, 4.0 = marker inkLoad-splat
-  // ("Ревизия v1.5" — see u_inkLoad's own comment), 0.0 = every other tool
-  // (unchanged graphite path below). A separate mode flag rather than
+  // ("Ревизия v1.5" — see u_inkLoad's own comment), 5.0 = charcoal (#304,
+  // ADR 005), 0.0 = every other tool (unchanged graphite path below). A
+  // separate mode flag rather than
   // folding into u_eraseMode/u_grainMode: those two are about *how much*
   // deposit or *which* dither variant, this is a completely different
   // deposit formula per value — see the branches below, right after the
@@ -181,6 +182,40 @@ export const DAB_FRAG = `
   // ordered highest-value-first since these are independent if/return
   // checks, not an else-if chain.
   uniform float u_inkMode;
+  // Charcoal only (#304, ADR 005 §4-6) — the per-type fields graphite
+  // has no equivalent for, straight off CHARCOAL_PRESETS (charcoalPresets.ts).
+  // Plain uniforms rather than per-instance attributes: they're properties of
+  // the *preset*, constant for a whole stroke, so they don't need to ride the
+  // instance buffer the way per-dab pressure/opacity do. Left at 0 by every
+  // non-charcoal draw, and never read outside the u_inkMode>4.5 branch.
+  uniform float u_charcoalTooth;
+  uniform float u_charcoalCrumble;
+  uniform float u_charcoalDust;
+  // #305: the tilt ladder's own top aspect (CHARCOAL_FEEL.broadAspect) and how
+  // much extra grain the broad side shows. Together with v_aspectRatio — which
+  // every dab already carries — these let this branch recover "how far onto its
+  // broad side is the stick right now" without a new per-dab attribute, and
+  // without duplicating the ladder's thresholds in GLSL where a live slider
+  // change could no longer reach them.
+  uniform float u_charcoalBroadAspect;
+  uniform float u_charcoalBroadGrain;
+  // Charcoal's own pressure response (CHARCOAL_FEEL.pressureFloor/Gamma) —
+  // charcoal transfers far more readily than graphite, so its deposit must not
+  // be linear in pressure the way the graphite branch below is.
+  uniform float u_charcoalPressFloor;
+  uniform float u_charcoalPressGamma;
+  // Smallest share of deposit a skipped/dropped-out spot still receives
+  // (CHARCOAL_FEEL.skipFloor). Above 0 by design — see the presence term below
+  // for why a hard zero made whole-sheet coverage impossible.
+  uniform float u_charcoalSkipFloor;
+  // How strongly pressure closes the dropout gaps (CHARCOAL_FEEL.gateRelief).
+  // 0 = pressure has no effect on skipping; 1 = a full-pressure pass never
+  // skips at all.
+  uniform float u_charcoalGateRelief;
+  // Depth of the mark-grain modulation (CHARCOAL_FEEL.grainDepth). Deep enough
+  // that the selected variant's structure reads as real breaks in the stroke,
+  // rather than as a faint dither — see the grainMul term below.
+  uniform float u_charcoalGrainDepth;
   // Marker only, redesigned in a follow-up to #250 (see engine/index.ts's
   // MarkerStrokeScratch for the full story of *why*): this tile's own
   // content exactly as it was before this stroke started touching it,
@@ -264,12 +299,15 @@ export const DAB_FRAG = `
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
 
-  // Ten experimental candidates for the mark's own graphite texture —
-  // ported from a throwaway HTML canvas comparison (see chat), ranked and
-  // picked by eye there before landing here. p is gl_FragCoord.xy (same
-  // basis the original mode-0 dither already used); dir is this dab's own
-  // tilt direction (falls back to (1,0) when there's no tilt signal, e.g. a
-  // mouse) — used only by mode 3's stroke-aligned streaks.
+  // Ten experimental candidates for the mark's own texture — ported from a
+  // throwaway HTML canvas comparison (see chat), ranked and picked by eye
+  // there before landing here. Shared by graphite and charcoal (#304): the
+  // graphite path passes p = gl_FragCoord.xy (the basis the original mode-0
+  // dither used), charcoal passes the world-space gl_FragCoord + u_paperOrigin
+  // instead so its much stronger texture doesn't shift at tile boundaries —
+  // every mode here is a pure function of p, so either basis is valid. dir is
+  // this dab's own tilt direction (falls back to (1,0) when there's no tilt
+  // signal, e.g. a mouse) — used only by mode 3's stroke-aligned streaks.
   float computeGrain(vec2 p, float shape, vec2 dir) {
     if (u_grainMode == 1) {
       // Stronger fine noise — same shape as the default, turned up.
@@ -361,6 +399,161 @@ export const DAB_FRAG = `
     // raw height (still used by DISPLAY_FRAG/PAPER_BLEND_FRAG for the
     // blank-paper tint), .a is this precomputed catch value.
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
+
+    // Charcoal (#304, ADR 005 §4-7). Graphite's own accumulating "over"
+    // deposit — identical premultiplied output, so charcoal composites with
+    // graphite/ink/marker exactly as graphite already does, with no special
+    // overlap handling anywhere — but with three terms graphite has none of:
+    // a contrast-expanded paper tooth, a crumbling/breaking mark, and a faint
+    // dust ring.
+    //
+    // Checked before every marker branch below because their own bands
+    // ("u_inkMode > 3.5" etc.) would match charcoal's 5.0 too — these are
+    // independent if/return checks ordered highest-value-first, not an else-if
+    // chain (see u_inkMode's own comment above).
+    if (u_inkMode > 4.5) {
+      // #305: how far onto its broad side the stick is, recovered from this
+      // dab's own baked aspect. Matches charcoalBroadness() in charcoalFeel.ts
+      // exactly — the JS side derives it the same way, from the same baked
+      // value, so opacity baking and this branch can't disagree about which
+      // regime a given dab is in.
+      float broadness = u_charcoalBroadAspect > 1.0
+        ? clamp((v_aspectRatio - 1.0) / (u_charcoalBroadAspect - 1.0), 0.0, 1.0)
+        : 0.0;
+
+      // Charcoal transfers far more readily than graphite: a friable carbon
+      // stick leaves a real mark from little more than contact, where a hard
+      // lead has to be pushed into the sheet. Graphite's linear-in-pressure
+      // deposit therefore makes a light charcoal touch read as almost nothing,
+      // which is wrong. Mirrors charcoalPressureResponse() in charcoalFeel.ts
+      // exactly — kept in both places rather than baked into the Dab because
+      // the graphite fill term below deliberately needs the *raw* pressure.
+      float pressCharcoal = u_charcoalPressFloor
+        + (1.0 - u_charcoalPressFloor) * pow(clamp(v_pressure, 0.0, 1.0), u_charcoalPressGamma);
+
+      // §4 Tooth: the same baked paperCatch, contrast-expanded around its own
+      // 0.5 midpoint. u_charcoalTooth > 1 pulls the paper's peaks toward full
+      // deposit and its valleys toward none, so the stick visibly rides the
+      // tooth instead of filling it evenly the way graphite does.
+      float tooth = clamp((paperCatch - 0.5) * u_charcoalTooth + 0.5, 0.0, 1.0);
+      // Pressure crushes material down into the tooth — physically the same
+      // mechanism as graphite's own fill below, so the same two uniforms. Fed
+      // the *raw* pressure on purpose, not pressCharcoal: "the material comes
+      // off easily" and "the tooth gets flattened" are different mechanisms,
+      // and flattening genuinely does take force. Routing the lifted pressure
+      // here too would fill the paper's valleys at a feather touch and erase
+      // exactly the grain that makes the mark read as charcoal.
+      float fill = smoothstep(u_paperFillThreshold, 1.0, v_pressure) * u_paperFillCap;
+      float effectiveCatch = mix(tooth, 1.0, fill);
+
+      // §5 Dropouts — where the stick simply didn't touch the paper. Read out
+      // of the *already-baked* paper texture at a coarser UV rather than
+      // generated live (no vnoise here, unlike computeGrain's experimental
+      // modes): this value gates deposit to a hard zero, and a gate is exactly
+      // where a cross-device floating-point difference stops being a subtle
+      // shade change and becomes "this pixel is present on my screen and
+      // absent on yours" — a real problem here, since a room's pixels are
+      // re-derived by replaying the op log on every participant's own GPU (see
+      // .claude/rules.md's cross-device-determinism rules and ADR 005 §5).
+      // Sampling a baked asset is deterministic, physically truer (charcoal
+      // really does skip where the paper dips), and rides paperUV, which is
+      // already world-space — so unlike computeGrain's raw gl_FragCoord basis
+      // this doesn't shift at an infinite canvas's tile boundaries.
+      const float CHARCOAL_BLOTCH_SCALE = 0.17; // magnifies the paper's own grain to stick-scale blotches
+      const float CHARCOAL_GATE_BAND = 0.14;    // deliberately wide, so a tiny numeric drift moves an edge rather than flipping a pixel
+      float blotch = texture2D(u_paperHeightMap, paperUV * CHARCOAL_BLOTCH_SCALE).r;
+      // Threshold is highest at the rim (shape -> 0) and lowest in the core
+      // (shape -> 1), so gaps concentrate along the mark's edges while still
+      // occasionally breaking its body outright.
+      //
+      // Pressure is what closes the gaps: bear down and the stick reaches into
+      // the paper dips it would otherwise skip. This is the term that makes
+      // covering a sheet solid possible *without flattening the material's
+      // character* — a feather-light pass still breaks up exactly as before,
+      // while a firm one lays down continuously. Leaning on the skip floor
+      // below for that job instead muted the gaps at every pressure, which is
+      // what a first attempt at this fix did, and it visibly killed the
+      // texture of the broad-side stroke.
+      float gateRelief = 1.0 - clamp(v_pressure, 0.0, 1.0) * u_charcoalGateRelief;
+      float gate = mix(0.10, 0.40, u_charcoalCrumble) * (1.0 - shape * 0.6) * gateRelief;
+      // Floored, never a hard zero. blotch is a fixed function of world
+      // position, so a pixel gated to exactly 0 is a hole that NO number of
+      // passes can ever fill — charcoal couldn't cover a sheet solid the way
+      // graphite can (measured: 0.61% of a heavily scrubbed patch still pure
+      // paper after 45 full-pressure passes, against graphite's 0%). This is
+      // the same failure the graphite branch below already learned about its
+      // own paperCatch ceiling ("no amount of pressure/opacity could ever push
+      // past"), reintroduced here in a harsher form — an absolute veto rather
+      // than a ceiling. A dropout must *reduce* deposit, not forbid it: one
+      // pass still reads as broken and crumbling, while repeated working
+      // closes the gaps, which is exactly what charcoal does on real paper.
+      float presence = mix(u_charcoalSkipFloor, 1.0, smoothstep(gate, gate + CHARCOAL_GATE_BAND, blotch));
+
+      // World-space basis for the two live hashes below — same tile-seam
+      // reasoning as paperUV's own u_paperOrigin term (#141).
+      vec2 wp = gl_FragCoord.xy + u_paperOrigin;
+
+      float core = pressCharcoal * v_opacity * effectiveCatch * shape * presence;
+      // §5.1 Grain: the mark's own texture, taken from the *same* computeGrain
+      // variant set graphite uses (u_grainMode) rather than a charcoal-only
+      // dither — so the dev grain-variant selector can audition all eleven for
+      // charcoal, and whichever wins becomes CHARCOAL_PRESETS' own grain field
+      // (see charcoalPresets.ts, and _resolveGrainMode in engine/index.ts for
+      // how a preset default and a live override combine).
+      //
+      // Two charcoal-specific differences from how the graphite path below
+      // calls the same function:
+      //  - p is the world-space wp, not the raw gl_FragCoord graphite passes,
+      //    so the texture doesn't shift across an infinite canvas's tile
+      //    boundaries (graphite's own call still has that pre-existing seam).
+      //  - amplified by CHARCOAL_GRAIN_GAIN * crumble: every variant's own
+      //    amplitude was tuned for graphite, and a coarse crumbling stick
+      //    should read stronger than a pencil on the same variant — while
+      //    still letting crumble keep vine rougher than compressed whichever
+      //    variant is selected.
+      // Additive (like graphite's own grain term), never a gate, so this
+      // carries no cross-device risk beyond what the graphite path already
+      // ships — see the dropout comment above for why that distinction is the
+      // one that matters here.
+      // #305 adds the broadness term: on its broad side the stick presses far
+      // less firmly per unit area, so it rides the paper's grain instead of
+      // being crushed into it — the mark comes out visibly coarser, not just
+      // wider and lighter. Note v_tiltX/v_tiltY are the *filtered* tilt (see
+      // DabSystem._filterTilt), which matters here because charcoal's default
+      // grain variant is tilt-aligned: an unfiltered direction would make the
+      // streaks shimmer while the outline stayed put.
+      float tiltLenC = length(vec2(v_tiltX, v_tiltY));
+      vec2 dirC = tiltLenC > 0.001 ? vec2(v_tiltX, v_tiltY) / tiltLenC : vec2(1.0, 0.0);
+      float grainAmp = (u_charcoalGrainDepth + u_charcoalCrumble) * (1.0 + u_charcoalBroadGrain * broadness);
+      // A bounded *multiplier* on the deposit, not an additive term the way
+      // graphite's own grain is. Two reasons, and the first is a real bug this
+      // fixes: charcoal amplifies computeGrain far beyond graphite's ±0.06
+      // (up to roughly ±0.4 here), enough for a negative excursion to cancel
+      // core outright and clamp deposit to exactly 0 — and since the grain is
+      // a fixed function of world position, that too was a permanent hole no
+      // repetition could fill. Second, it's simply more honest: a spot that
+      // catches less material shows more contrast, it doesn't receive nothing.
+      // The floor guarantees deposit stays positive wherever core is — and it
+      // is what lets the depth above be pushed hard enough for the variant's
+      // streaks to read as genuine breaks in the stroke without any of them
+      // ever becoming a permanent hole.
+      const float CHARCOAL_GRAIN_MUL_FLOOR = 0.08;
+      float grainMul = max(CHARCOAL_GRAIN_MUL_FLOOR, 1.0 + computeGrain(wp, shape, dirC) * grainAmp * shape);
+      // §6 Dust: a faint speckled ring of loose particles that didn't stick.
+      // (1.0 - dist) is load-bearing, not decoration — without it the ring
+      // would end in a hard circle right at dist == 1.0, where the discard at
+      // the top of main() cuts the dab off (liner's own wick term has exactly
+      // that shape and gets away with it only because its amplitude is tiny;
+      // this one's isn't). Scaled by tooth so the dust settles on the paper's
+      // grain, and by hash so it reads as loose particles rather than a smooth
+      // glow.
+      float rim = (1.0 - shape) * (1.0 - dist);
+      float dust = rim * u_charcoalDust * v_opacity * tooth * hash(wp * 0.9);
+
+      float deposit = clamp(core * grainMul + dust, 0.0, 1.0);
+      gl_FragColor = vec4(u_color * deposit, deposit);
+      return;
+    }
 
     // Marker inkLoad-splat (ADR 004 "Ревизия v1.5"): this dab's own
     // distance-normalized deposit (engine/index.ts's _paintOneMarkerDab

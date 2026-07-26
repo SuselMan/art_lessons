@@ -20,11 +20,20 @@ import styles from './FloatingToolPanel.module.css'
 const COLOR_FLYOUT_MAX = 32
 const FLYOUT_SWATCH_SIZE = 40
 const FLYOUT_GAP = 8
+/** The material-laying tools that can occupy this panel's single drawing-tool
+ *  slot. Structurally the same set as toolSlice.ts's PrimaryDrawingTool, but
+ *  written out here rather than imported: nothing under components/ imports
+ *  from stores/, and this panel is a presentational component that shouldn't
+ *  be the first to. Declared once as an alias (it appears in four places
+ *  below) so adding a tool — charcoal was #304 — is one edit, not four. */
+type FloatingPrimaryTool = 'pencil' | 'charcoal' | 'liner' | 'marker'
+
 // Icon + label for the top slot's primaryTool — same icon each tool's own
 // left-toolbar button already uses (Room/index.tsx), so the floating panel
 // and the toolbar never disagree about what a tool "looks like".
-const PRIMARY_TOOL_DISPLAY: Record<'pencil' | 'liner' | 'marker', { icon: string; label: string }> = {
+const PRIMARY_TOOL_DISPLAY: Record<FloatingPrimaryTool, { icon: string; label: string }> = {
   pencil: { icon: 'edit', label: 'Pencil' },
+  charcoal: { icon: 'charcoal', label: 'Charcoal' },
   liner: { icon: 'stylus', label: 'Liner' },
   marker: { icon: 'ink_highlighter', label: 'Marker' },
 }
@@ -42,17 +51,17 @@ const FLYOUT_LAYOUT: RayLayoutConfig = {
 }
 
 interface Props {
-  /** Current actual tool, for the eraser button's own active-highlight —
-   *  'pencil' | 'liner' | 'marker' here mean "not erasing", not literally
-   *  which of the three is active (see primaryTool for that). */
-  tool: 'pencil' | 'liner' | 'marker' | 'eraser'
-  /** Last of pencil/liner/marker actually selected (toolSlice.ts's
+  /** Current actual tool, for the eraser button's own active-highlight — a
+   *  FloatingPrimaryTool here means "not erasing", not literally which one of
+   *  them is active (see primaryTool for that). */
+  tool: FloatingPrimaryTool | 'eraser'
+  /** Last FloatingPrimaryTool actually selected (toolSlice.ts's
    *  lastDrawingTool, #252 follow-up: marker joined this slot the same way
-   *  liner did) — drives the top button's icon/label and what it switches
-   *  back to, so it reflects whichever was really active rather than
-   *  assuming pencil. */
-  primaryTool: 'pencil' | 'liner' | 'marker'
-  onSetTool: (tool: 'pencil' | 'liner' | 'marker' | 'eraser') => void
+   *  liner did, and charcoal in #304) — drives the top button's icon/label and
+   *  what it switches back to, so it reflects whichever was really active
+   *  rather than assuming pencil. */
+  primaryTool: FloatingPrimaryTool
+  onSetTool: (tool: FloatingPrimaryTool | 'eraser') => void
   onUndo: () => void
   onRedo: () => void
   /** Current color of whichever tool primaryTool names, shown as the

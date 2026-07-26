@@ -600,6 +600,14 @@ export const TOOL_SOUND_CONFIGS: Record<ToolType, GrainVariant | null> = {
   pencil: PENCIL_SOUND_VARIANT_3,
   eraser: PENCIL_SOUND_VARIANT_3,
   smudge: PENCIL_SOUND_VARIANT_3,
+  // Charcoal (#304, ADR 005 "Потом") shares pencil's recipe for now, the same
+  // deliberate reuse eraser/smudge already make. Real charcoal on paper is
+  // audibly duller and broader than graphite, but designing that recipe is its
+  // own piece of work — and silence (null) would read as broken for a tool
+  // that's actively marking, which is a worse placeholder than a close-enough
+  // scratch. Note this means tuning pencil via the debug panel moves charcoal
+  // along with it.
+  charcoal: PENCIL_SOUND_VARIANT_3,
   liner: LINER_SOUND_VARIANT_3,
   // No sound design yet (docs/adr/004-marker-tool.md's "Потом" list) — null
   // is the documented "this tool makes no drawing sound" case above, not a
@@ -614,6 +622,7 @@ export const TOOL_SOUND_DEFAULTS: Record<ToolType, GrainVariant | null> = {
   pencil: cloneGrain(PENCIL_SOUND_VARIANT_3),
   eraser: cloneGrain(PENCIL_SOUND_VARIANT_3),
   smudge: cloneGrain(PENCIL_SOUND_VARIANT_3),
+  charcoal: cloneGrain(PENCIL_SOUND_VARIANT_3),
   liner: cloneGrain(LINER_SOUND_VARIANT_3),
   marker: null,
 }

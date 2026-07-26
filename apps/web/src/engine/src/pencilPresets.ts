@@ -92,3 +92,18 @@ function buildPresets(): Record<PencilGradeName, PencilPreset> {
 }
 
 export const PENCIL_PRESETS: Record<PencilGradeName, PencilPreset> = buildPresets()
+
+/** Which of DAB_FRAG's computeGrain variants graphite's own mark uses (#304
+ *  follow-up) — 10 is "Solid": no stroke-side dither at all, so a pencil mark's
+ *  entire texture comes from the paper's own tooth.
+ *
+ *  Was 0 (a fine per-pixel hash dither) up to this point, and that was the
+ *  shipped look for the tool's whole life — Ilya's call to drop it, made while
+ *  picking charcoal's own variant (see CHARCOAL_PRESETS.grain, which is 3
+ *  "Streaky"). The two materials now differ deliberately, which is why this is
+ *  a per-material constant rather than one engine-wide default.
+ *
+ *  Not part of PencilPreset: every grade shares it (a 6H and a 6B are the same
+ *  graphite, just more or less of it), unlike charcoal, where the three types
+ *  are genuinely different stock and each carries its own. */
+export const GRAPHITE_GRAIN_DEFAULT = 10

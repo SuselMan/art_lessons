@@ -1,4 +1,7 @@
-import { PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, type PencilGradeName, type LinerSizeMm } from '../../engine'
+import {
+  PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
+  type PencilGradeName, type LinerSizeMm, type CharcoalType,
+} from '../../engine'
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
 
 // Unified, extensible tool-settings registry (#196). Replaces the old
@@ -12,7 +15,8 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../..
 // still emits `tool: 'pencil'` at the Operation/protocol level. Mapping one
 // to the other happens only at the moment of emitting a stroke, not here.
 export type UiToolId =
-  | 'pencil' | 'colorPencil' | 'liner' | 'marker' | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
+  | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker'
+  | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
 
 export type SettingValueType =
   | { kind: 'numberRange'; min: number; max: number; step: number; format?: (v: number) => string }
@@ -152,6 +156,52 @@ const linerSchema = (): ToolSchema => ({
   },
 })
 
+// Charcoal (#304, ADR 005 §1): the three real charcoal types ride the same
+// enumOptions control PENCIL_GRADES already uses — one toolbar slot with a
+// type selector, deliberately not three separate tools (see the ADR for why
+// three toolbar buttons for one material would fight the manifesto, and why
+// hiding the choice in a settings tab would be equally wrong).
+const charcoalSchema = (): ToolSchema => ({
+  type: {
+    name: 'Type',
+    valueType: { kind: 'enumOptions', options: CHARCOAL_TYPES },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: DEFAULT_CHARCOAL_TYPE satisfies CharcoalType,
+  },
+  // Default size well above pencil's 4px: a charcoal stick's contact patch is
+  // broad even at a light touch (the same physical fact CHARCOAL_DAB_SHAPING's
+  // own raised width floor encodes), and the upper bound matches every other
+  // px-slider tool's.
+  size: {
+    name: 'Size',
+    valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
+    uiControls: ['slider', 'input'],
+    quickAccess: true,
+    default: 18,
+  },
+  opacity: {
+    name: 'Opacity',
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 1,
+  },
+  // Charcoal is black by definition, but the color stays editable rather than
+  // locked — same v1 decision liner made (see linerSchema's own comment), and
+  // white/sanguine charcoal on toned paper is a real academic technique, not a
+  // hypothetical. Default is a near-black rather than pure [0,0,0]: real
+  // charcoal reads slightly warm-grey at full density, and DEFAULT_GRAPHITE_
+  // COLOR would make it indistinguishable from the pencil at a glance.
+  color: {
+    name: 'Color',
+    valueType: { kind: 'color' },
+    uiControls: ['swatch'],
+    quickAccess: true,
+    default: [0.09, 0.08, 0.08],
+  },
+})
+
 // Marker (#252, ADR 004 §7/MVP-scope): UI/toolbar plumbing only — the actual
 // dab shaping (bullet vs. chisel geometry, fixed angle-mode hook) and
 // multiply-with-coverage compositing are #249/#250/#251, separate in-flight
@@ -244,6 +294,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   pencil: pencilLikeSchema(DEFAULT_GRAPHITE_COLOR, 4),
   // Colors are [0,1] floats (WebGL convention), not 0-255 — see lib/color.ts.
   colorPencil: pencilLikeSchema([0.86, 0.16, 0.16], 4),
+  charcoal: charcoalSchema(),
   liner: linerSchema(),
   marker: markerSchema(),
   eraser: {
@@ -320,7 +371,7 @@ export type ToolSettingsMap = Record<UiToolId, ToolSettingsValue>
 // so it carries a real union type; `toolSchemas.test.ts` asserts it matches
 // exactly the set of schemas that actually declare a `color` field, so the
 // two can't silently drift when a tool is added.
-export const COLOR_CAPABLE_TOOLS = ['pencil', 'colorPencil', 'liner', 'marker'] as const satisfies readonly UiToolId[]
+export const COLOR_CAPABLE_TOOLS = ['pencil', 'colorPencil', 'charcoal', 'liner', 'marker'] as const satisfies readonly UiToolId[]
 
 export type ColorCapableTool = (typeof COLOR_CAPABLE_TOOLS)[number]
 
