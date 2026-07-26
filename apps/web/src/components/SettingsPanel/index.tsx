@@ -4,14 +4,12 @@ import { Tabs } from '../Tabs'
 import {
   FEATURE_FLAGS, getFeatureFlag, setFeatureFlag,
   getPencilSoundSetting, setPencilSoundSetting, type PencilSoundSetting,
-  getPaperGrainVariant, setPaperGrainVariant, type PaperGrainVariant,
   getGraphiteGrainVariant, setGraphiteGrainVariant, type GraphiteGrainVariant, GRAPHITE_GRAIN_LABELS,
 } from '../../lib/featureFlags'
 import {
   HOTKEY_ACTIONS, bindingsEqual, captureHotkeyBinding, findHotkeyConflict,
   formatHotkeyLabel, getHotkeyBindings, setHotkeyBindings, type HotkeyBinding,
 } from '../../lib/hotkeys'
-import { ROUGH_VARIANTS } from '../../engine/src/paperNoise'
 import styles from './SettingsPanel.module.css'
 
 interface SettingsPanelProps {
@@ -29,7 +27,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   // returns false — so the raw return value is the only signal available.
   const [vibrateResult, setVibrateResult] = useState<string | null>(null)
   const [pencilSound, setPencilSoundState] = useState<PencilSoundSetting>(() => getPencilSoundSetting())
-  const [paperVariant, setPaperVariantState] = useState<PaperGrainVariant>(() => getPaperGrainVariant())
   const [grainVariant, setGrainVariantState] = useState<GraphiteGrainVariant>(() => getGraphiteGrainVariant())
 
   // Hotkeys (#174) — same edit-a-draft-then-Save-reloads pattern as every
@@ -72,14 +69,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   )
   const dirty = FEATURE_FLAGS.some(f => pendingFlags[f.key] !== getFeatureFlag(f.key))
     || pencilSound !== getPencilSoundSetting()
-    || paperVariant !== getPaperGrainVariant()
     || grainVariant !== getGraphiteGrainVariant()
     || HOTKEY_ACTIONS.some(a => !bindingsEqual(pendingHotkeys[a.id], getHotkeyBindings(localStorage)[a.id]))
 
   function handleSave() {
     for (const flag of FEATURE_FLAGS) setFeatureFlag(flag.key, pendingFlags[flag.key])
     setPencilSoundSetting(pencilSound)
-    setPaperGrainVariant(paperVariant)
     setGraphiteGrainVariant(grainVariant)
     setHotkeyBindings(localStorage, pendingHotkeys)
     window.location.reload()
@@ -119,37 +114,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           </select>
         </div>
       </div>
-
-      {/* Dev-only, and not just by convention: the candidate bakes this
-          reads (apps/web/public/paper-variants/) are gitignored and never
-          deployed (see paperLoader.ts's own comment) — selecting one in a
-          production build has no real asset to load. Used to be shown
-          unconditionally with only a "(dev)" label as a hint, which a real
-          prod user (or Ilya testing prod) could still select; the engine
-          now falls back gracefully either way (see _initPaper's own
-          comment), but hiding the control entirely is the actual fix —
-          there's nothing for it to do in a deployed build. */}
-      {import.meta.env.DEV && (
-        <div className={styles.flagRow} style={{ cursor: 'default' }}>
-          <div style={{ width: '100%' }}>
-            <div className={styles.flagLabel}>Paper grain variant (dev, rough only)</div>
-            <div className={styles.flagDescription}>
-              Overrides rough paper's texture with a candidate fiber algorithm for comparison — never
-              affects smooth/bristol. Requires `npm run bake:paper-variants` to have been run locally.
-            </div>
-            <select
-              className={styles.select}
-              value={paperVariant}
-              onChange={e => setPaperVariantState(e.target.value as PaperGrainVariant)}
-            >
-              <option value="off">Off (shipped default)</option>
-              {ROUGH_VARIANTS.map((v, i) => (
-                <option key={i} value={String(i + 1)}>{i + 1}. {v.label}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
 
       <div className={styles.flagRow} style={{ cursor: 'default' }}>
         <div style={{ width: '100%' }}>

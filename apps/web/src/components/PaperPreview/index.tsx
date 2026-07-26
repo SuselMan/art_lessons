@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { PaperType } from '@art-lessons/shared'
 
 import { getPaperPreviewBytes, PAPER_PREVIEW_RESOLUTION } from '../../engine/src/paperLoader'
-import { PAPER_TONE_BASE, PAPER_TONE_GAIN } from '../../engine/src/shaders'
+import { PAPER_TONE_RELIEF_VALUE } from '../../engine/src/shaders'
 
 interface Props {
   type: PaperType
@@ -32,10 +32,16 @@ function paint(canvas: HTMLCanvasElement, height: Uint8Array, bgColorHex: string
   const image = ctx.createImageData(res, res)
 
   for (let i = 0; i < height.length; i++) {
-    const tone = PAPER_TONE_BASE + PAPER_TONE_GAIN * (height[i] / 255)
-    image.data[i * 4]     = Math.round(r * tone)
-    image.data[i * 4 + 1] = Math.round(g * tone)
-    image.data[i * 4 + 2] = Math.round(b * tone)
+    // Same headroom-relative offset the display shaders apply (see
+    // paperToneGLSL) — scaled per channel by whatever room is left in the
+    // direction it's heading, so the grain reads on a black paper colour
+    // exactly as it does on a white one.
+    const signed = (height[i] / 255) * 2 - 1
+    const shift = (channel: number) =>
+      Math.round(channel + PAPER_TONE_RELIEF_VALUE * signed * (signed > 0 ? 255 - channel : channel))
+    image.data[i * 4]     = shift(r)
+    image.data[i * 4 + 1] = shift(g)
+    image.data[i * 4 + 2] = shift(b)
     image.data[i * 4 + 3] = 255
   }
   ctx.putImageData(image, 0, 0)

@@ -894,31 +894,41 @@ export const DISPLAY_TRANSPARENT_FRAG = `
 // samples paper via true world position, camera-relative. The two must be
 // kept in sync by hand (no #include in GLSL ES1.0/WebGL1) whenever this
 // blend's math changes.
-// (#300) How strongly the paper's own height map shades its base color:
-// paperTone spans `u_paperColor * [1 - relief, 1]`, brightest on the raised
-// grain. It was 0.03 (#95, softened again after follow-up feedback), which
-// read as almost no texture at all on a real screen — Ilya's "её почти не
-// видно". At 0.07 the grain is legible without becoming the bas-relief that
-// the original softening was reacting to.
+// (#300) How far the paper's height map pushes its base colour. Applied as
+// a signed offset toward whichever end of the range has room, NOT as a
+// multiplier — see paperToneGLSL below.
 //
-// Interpolated into both display shaders rather than written out twice:
-// DISPLAY_FRAG (bounded rooms, screen-locked UV) and PAPER_BLEND_FRAG
-// (infinite rooms, world-locked UV) must agree, and GLSL ES 1.0 has no
-// #include to enforce it. `toFixed` matters — a bare `1` would be an int
-// literal and fail to compile.
-const PAPER_TONE_RELIEF = 0.07
-// Exported as numbers too (#300): the paper picker paints its miniatures
-// with this exact formula, so what the card shows and what the canvas
-// renders cannot drift apart.
-export const PAPER_TONE_BASE = 1 - PAPER_TONE_RELIEF
-export const PAPER_TONE_GAIN = PAPER_TONE_RELIEF
-const TONE_BASE_GLSL = PAPER_TONE_BASE.toFixed(3)
-const TONE_GAIN_GLSL = PAPER_TONE_GAIN.toFixed(3)
+// History: this was `color * (1 - relief + relief*h)`, which made the effect
+// proportional to the colour's own brightness. On white paper it read (just
+// about); on a dark paper colour it faded out; and on black it vanished
+// completely, because 0 * anything is 0. The grain has to be legible on any
+// paper colour the creator picks, which a multiplier structurally cannot do.
+const PAPER_TONE_RELIEF = 0.16
 
-// Display-time only: this shades what's on screen, never what's stored. Layer
-// buffers (and therefore snapshots, which bake from them) hold accumulation
-// output, so changing these numbers can't diverge stored content between
-// devices — unlike the paper *catch* map, which does feed real dab math.
+// Exported as a number too: the paper picker paints its miniatures with the
+// same maths (see PaperPreview), so a card cannot drift from the canvas it
+// is previewing.
+export const PAPER_TONE_RELIEF_VALUE = PAPER_TONE_RELIEF
+
+/** Shared GLSL for turning `u_paperColor` + a height sample into the paper's
+ *  rendered tone. Scaling the offset by the *remaining headroom* in the
+ *  direction it's heading is what keeps it visible at both extremes without
+ *  ever clipping: on black the whole range is available upward, on white
+ *  it's available downward, and in between it's symmetric. Emitted from one
+ *  place because DISPLAY_FRAG (bounded rooms, screen-locked UV) and
+ *  PAPER_BLEND_FRAG (infinite rooms, world-locked UV) must agree and GLSL
+ *  ES 1.0 has no #include to enforce it. */
+const paperToneGLSL = (heightExpr: string) => `
+    float reliefSigned = (${heightExpr}) * 2.0 - 1.0;
+    vec3 headroom = reliefSigned > 0.0 ? (vec3(1.0) - u_paperColor) : u_paperColor;
+    vec3 paperTone = u_paperColor + ${PAPER_TONE_RELIEF.toFixed(3)} * reliefSigned * headroom;
+`
+
+// Display-time only: this shades what's on screen, never what's stored.
+// Layer buffers (and therefore snapshots, which bake from them) hold
+// accumulation output, so changing these numbers can't diverge stored
+// content between devices — unlike the paper *catch* map, which does feed
+// real dab math.
 
 export const DISPLAY_FRAG = `
   precision highp float;
@@ -939,9 +949,7 @@ export const DISPLAY_FRAG = `
     vec2 paperUV = v_uv * u_paperScale;
     float paperHeight = texture2D(u_paperMap, paperUV).r;
 
-    // Paper color varies with texture, brightest on the raised grain — see
-    // PAPER_TONE_RELIEF for why this amount.
-    vec3 paperTone = u_paperColor * (${TONE_BASE_GLSL} + ${TONE_GAIN_GLSL} * paperHeight);
+    ${paperToneGLSL('paperHeight')}
 
     // Graphite shows paper texture through it — in valleys paper peeks through even in dark areas.
     // Blending toward paperTone (rather than scaling strokeColor toward black) is what actually
@@ -997,7 +1005,7 @@ export const PAPER_BLEND_FRAG = `
     vec2 paperUV = worldPos / u_paperTexSize * u_paperScale;
     float paperHeight = texture2D(u_paperMap, paperUV).r;
 
-    vec3 paperTone = u_paperColor * (${TONE_BASE_GLSL} + ${TONE_GAIN_GLSL} * paperHeight);
+    ${paperToneGLSL('paperHeight')}
     float graphiteTexture = mix(1.0, paperHeight * 0.5 + 0.2, graphite * 0.25);
     vec3 graphiteTone = mix(paperTone, strokeColor, graphiteTexture);
     vec3 color = mix(paperTone, graphiteTone, graphite);

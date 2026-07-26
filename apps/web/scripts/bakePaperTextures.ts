@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url'
 import { PAPER_GRAIN_TYPES } from '@art-lessons/shared'
 
 import {
-  PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE, paperGridCatch, paperGridHeight,
+  PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE, paperDisplayHeight, paperGridCatch, paperGridHeight,
 } from '../src/engine/src/paperNoise.js'
 
 // The picker has to show paper the way the canvas does, which means sampling
@@ -108,7 +108,9 @@ for (const type of PAPER_GRAIN_TYPES) {
 
   for (let y = 0; y < res; y++) {
     for (let x = 0; x < res; x++) {
-      const h = paperGridHeight(type, x + 0.5, y + 0.5, res, res)
+      // `.r` is the display curve, `.a` the raw-height-derived catch — see
+      // paperDisplayHeight on why only one of them is remapped.
+      const h = paperDisplayHeight(paperGridHeight(type, x + 0.5, y + 0.5, res, res))
       const catchV = paperGridCatch(type, x + 0.5, y + 0.5, res, res)
       const i = y * res + x
       height[i] = h

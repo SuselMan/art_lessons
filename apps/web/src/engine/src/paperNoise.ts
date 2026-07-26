@@ -556,6 +556,24 @@ export function paperGridHeight(
   return Math.pow(clampNum(raw, 0, 1), 1 / contrast)
 }
 
+// (#300) The raw height map is heavily skewed toward black — measured mean
+// ~0.15 with sd ~0.10 across the grid, because the fBm sits low and the
+// contrast exponent pushes it lower still. That's fine for `catch`, which
+// only ever looks at *differences* between neighbouring texels, but it makes
+// the display tint useless: a tone offset centred on 0.5 spends almost all
+// its range pushing a value that's already near zero further down, leaving
+// well under one 8-bit level of actual variation on a dark paper colour.
+//
+// Applied to the `.r` channel only. `paperGridCatch` deliberately keeps
+// reading the raw height: this is a display curve, and running it through
+// the finite differences that feed real dab deposit would change how the
+// pencil behaves, not just how the page looks.
+const PAPER_DISPLAY_GAMMA = 0.45
+
+export function paperDisplayHeight(rawHeight: number): number {
+  return Math.pow(clampNum(rawHeight, 0, 1), PAPER_DISPLAY_GAMMA)
+}
+
 /** Graphite-catch value — the `.a` channel. Same finite-difference-and-
  *  amplify math as paperCatchValue, and baked here for the same reason: it
  *  must never run live on a GPU (see paperCatchValue's own comment). */

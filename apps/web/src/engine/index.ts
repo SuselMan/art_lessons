@@ -4,7 +4,7 @@ import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_CO
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperNoise'
 import {
-  createPlaceholderPaperTexture, getPaperBytes, getPaperBytesFromUrl, uploadPaperTexture,
+  createPlaceholderPaperTexture, getPaperBytes, uploadPaperTexture,
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import { DabSystem } from './src/DabSystem'
@@ -156,17 +156,11 @@ export interface PencilEngineOptions {
   // simulating paper grain via touch. Off by default; Android Chrome only.
   hapticGrain?: boolean
   onHapticGrainStats?: (stats: HapticGrainStats) => void
-  // Dev-only fiber-variant comparison (see paperNoise.ts's ROUGH_VARIANTS /
-  // bakeRoughVariantTextures.ts / SettingsPanel's "Paper grain variant"
-  // control): when set, and only while `paper` is 'rough', _initPaper
-  // fetches this URL instead of the real committed rough.paper asset. Never
-  // touches smooth/bristol — those have no variant bake at all.
-  paperVariantUrl?: string
   // Dev-only graphite-grain A/B (see DAB_FRAG's computeGrain,
   // SettingsPanel's "Graphite grain variant" control) — 0 or omitted is the
-  // real shipped default, 1-10 select an experimental candidate. Unlike
-  // paperVariantUrl this applies to every paper type (the grain term itself
-  // has nothing paper-type-specific about it).
+  // real shipped default, 1-10 select an experimental candidate. Applies to
+  // every paper type; the grain term has nothing paper-type-specific
+  // about it.
   grainMode?: number
   // Dev-only live tuning, initial value only — see PencilEngineAPI's
   // setPaperFillThreshold for the runtime setter a debug-overlay slider
@@ -849,7 +843,6 @@ export class PencilEngine implements PencilEngineAPI {
   private canvas: HTMLCanvasElement
   private gl: WebGLRenderingContext
   private _opts: EngineOpts
-  private _paperVariantUrl: string | undefined
   private _grainMode: number
   private _paperFillThreshold: number
   private _paperFillCap: number
@@ -1385,7 +1378,6 @@ export class PencilEngine implements PencilEngineAPI {
     // _predictPointer above) rather than folded into EngineOpts/_opts —
     // unlike `paper`, this never changes via a public setter, so it doesn't
     // belong in the "live, mutable tool state" struct _opts represents.
-    this._paperVariantUrl = options.paperVariantUrl
     this._grainMode = options.grainMode ?? 0
     this._paperFillThreshold = options.paperFillThreshold ?? 0
     this._paperFillCap = options.paperFillCap ?? 0.35
@@ -3056,27 +3048,7 @@ export class PencilEngine implements PencilEngineAPI {
   // this same path and end up with the exact same 2048px REPEAT texture —
   // see _paperWorldSize()'s own comment for why unifying them is safe.
   private async _initPaper(type: PaperType): Promise<void> {
-    let bytes: Uint8Array
-    if (type === 'coarse-streak' && this._paperVariantUrl) {
-      try {
-        bytes = await getPaperBytesFromUrl(this._paperVariantUrl)
-      } catch (err) {
-        // The dev-only rough-variant comparison bakes (paperVariantUrl) are
-        // gitignored and never deployed (see paperLoader.ts's own comment) —
-        // a stale/invalid variant selection left over in someone's
-        // localStorage (or a link shared before this got dev-gated) would
-        // otherwise reject here, leaving _paperReady permanently rejected:
-        // every caller awaiting engine.paperReady() (this component's own
-        // mount/restore paths included) would throw too, and the canvas
-        // would be stuck on the flat gray placeholder texture forever
-        // instead of ever getting the real paper. Fall back to the real,
-        // always-available bytes for this type instead of propagating.
-        console.warn(`paper grain variant '${this._paperVariantUrl}' failed to load, falling back to the real '${type}' texture`, err)
-        bytes = await getPaperBytes(type)
-      }
-    } else {
-      bytes = await getPaperBytes(type)
-    }
+    const bytes = await getPaperBytes(type)
     if (this._destroyed) return
     const gl = this.gl
     const newTex = uploadPaperTexture(gl, bytes)
@@ -3423,7 +3395,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** Resolves a StrokeOperation's (tool, preset) pair to the {opacity,
    *  hardness, sizeMultiplier} triple that drives both opacity baking
-   *  (_bakeDabOpacity) and rendering (_paintDabs/_dabWorldRadius). Liner has
+   *  (_bakeDabOpacity) and rendering (_paintDabs/_dabWorldHalfExtents). Liner has
    *  no hardness scale (see LINER_PRESET's own comment) — every calibrated
    *  width/free size resolves to the one flat preset regardless of
    *  `presetName`'s actual value. pencil/eraser/smudge keep the exact
@@ -3754,9 +3726,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _dabsWorldBounds(dabs: Dab[], erasing: boolean, preset: PencilPreset): WorldRect {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const d of dabs) {
-      const r = this._dabWorldRadius(d, erasing, preset)
-      minX = Math.min(minX, d.x - r); maxX = Math.max(maxX, d.x + r)
-      minY = Math.min(minY, d.y - r); maxY = Math.max(maxY, d.y + r)
+      const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset)
+      minX = Math.min(minX, d.x - hx); maxX = Math.max(maxX, d.x + hx)
+      minY = Math.min(minY, d.y - hy); maxY = Math.max(maxY, d.y + hy)
     }
     if (this._infinite) return { minX, minY, maxX, maxY }
     return {
@@ -3765,13 +3737,40 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  /** One dab's conservative world-space padded radius — same formula
+  /** One dab's exact world-space half-extents (an axis-aligned box around
+   *  everything that dab can possibly rasterize) — the same per-dab quantity
    *  `_dabsWorldBounds` unions across a whole batch, factored out so
-   *  `_paintDabs`'s per-tile filter (see its own comment) can apply it to
-   *  one dab at a time without duplicating the math. */
-  private _dabWorldRadius(d: Dab, erasing: boolean, preset: PencilPreset): number {
+   *  `_paintDabs`'s per-tile filter (see its own comment) and marker's own
+   *  per-dab tile resolution (_paintOneMarkerDab) can apply it to one dab at
+   *  a time without duplicating the math.
+   *
+   *  Derived straight from DAB_VERT/DAB_VERT_INSTANCED's own geometry, which
+   *  is the true clipping envelope no matter what DAB_FRAG's `discard` does
+   *  inside it: the unit quad spans ±0.5, gets stretched by `aspectRatio`
+   *  along local X, rotated by `angle`, then scaled by `dabRadius * 2` — so
+   *  the footprint is a rotated rectangle with half-extents
+   *  (aspectRatio * baseR, baseR), whose AABB is what's computed below.
+   *
+   *  This used to pad by `max(1, 1/aspectRatio)` instead, i.e. it padded for
+   *  the one direction aspect *doesn't* stretch in and ignored the one it
+   *  does. Harmless while aspectRatio was pencil/liner-only (1..1.15, a few
+   *  px of under-padding at most), but marker's chisel nib is a fixed 5:1
+   *  (MARKER_CHISEL_ASPECT_RATIO) at up to 120px width: a dab whose center
+   *  sat 60-300px from a tile boundary resolved only its own tile, so the
+   *  rest of the nib mark was clipped away by that tile's viewport and the
+   *  stroke visibly broke off along the tile edge (and, because the missing
+   *  side never accumulated into `coverage`/`inkLoad` either, resumed at a
+   *  different darkness on the far side once a later dab's center crossed
+   *  over). */
+  private _dabWorldHalfExtents(d: Dab, erasing: boolean, preset: PencilPreset): { hx: number; hy: number } {
     const baseR = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
-    return baseR * Math.max(1, 1 / Math.max(d.aspectRatio, 0.01))
+    // Rotated-rect AABB, not a `baseR * aspectRatio` circle: a 5:1 chisel dab
+    // is long *along the nib only*, and inflating the short axis to match
+    // would resolve (and so lazily create — 4MB each) whole tiles the dab
+    // never actually reaches.
+    const halfLong = baseR * Math.max(1, d.aspectRatio)
+    const c = Math.abs(Math.cos(d.angle)), s = Math.abs(Math.sin(d.angle))
+    return { hx: halfLong * c + baseR * s, hy: halfLong * s + baseR * c }
   }
 
   /** `target` is usually a real layer's `ILayerBuffer`, but a few callers
@@ -3844,9 +3843,9 @@ export class PencilEngine implements PencilEngineAPI {
       // every bounded room, and most infinite strokes) to avoid the filter
       // allocation on the hot path where it can only ever keep everything.
       const tileDabs = targets.length === 1 ? dabs : dabs.filter(d => {
-        const r = this._dabWorldRadius(d, erasing, preset)
-        return d.x + r > originX && d.x - r < originX + buffer.width &&
-               d.y + r > originY && d.y - r < originY + buffer.height
+        const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset)
+        return d.x + hx > originX && d.x - hx < originX + buffer.width &&
+               d.y + hy > originY && d.y - hy < originY + buffer.height
       })
       if (!tileDabs.length) continue
 
@@ -4465,7 +4464,12 @@ export class PencilEngine implements PencilEngineAPI {
     const radius = dab.size * 0.5 * preset.sizeMultiplier
     if (radius < 0.5) return
 
-    const bounds = { minX: dab.x - radius, minY: dab.y - radius, maxX: dab.x + radius, maxY: dab.y + radius }
+    // The tile set this dab needs comes from its *real* footprint, not from
+    // `radius` alone: the chisel nib's own 5:1 aspectRatio stretches the dab
+    // quad to 5x `radius` along the nib axis (see _dabWorldHalfExtents, which
+    // documents the boundary-clipping bug that under-padding caused here).
+    const { hx, hy } = this._dabWorldHalfExtents(dab, false, preset)
+    const bounds = { minX: dab.x - hx, minY: dab.y - hy, maxX: dab.x + hx, maxY: dab.y + hy }
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
     const segmentLength = this._markerSegmentLength(dab, prevDab, radius)

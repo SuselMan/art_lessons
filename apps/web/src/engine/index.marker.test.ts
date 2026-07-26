@@ -27,6 +27,7 @@ import {
   createTestEngine, dab, fillStroke, makeLayerAdd, makeStroke,
   readLayerPixels, expectPixelsEqual,
   lastPaperDabUniform, lastMarkerDabUniform, simulateStroke, paperReady,
+  readTilePixels,
 } from './testing/engineTestUtils'
 import { TILE_SIZE } from './src/tileMath'
 
@@ -114,6 +115,35 @@ describe('marker tool (#250, ADR 004)', () => {
 
     const dabs = [TILE_SIZE - 20, TILE_SIZE - 10, TILE_SIZE, TILE_SIZE + 10].map(x => dab(x, 0, { size: 20 }))
     expect(() => engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'marker' }))).not.toThrow()
+  })
+
+  // Regression: a chisel dab's quad is stretched to aspectRatio x radius
+  // along the nib axis (DAB_VERT), so a 5:1 nib reaches 5x further than
+  // `radius` there. _paintOneMarkerDab used to resolve tiles from a plain
+  // ±radius box (and _dabWorldRadius padded by 1/aspectRatio, the wrong
+  // direction entirely), so every dab whose center sat more than `radius`
+  // but less than `aspectRatio * radius` from a tile boundary only ever
+  // resolved its own tile — the rest of the nib mark was clipped away by
+  // that tile's viewport and the stroke broke off along the tile edge.
+  it('paints the whole chisel nib across a tile boundary, not just the part in the dab center’s own tile', () => {
+    const engine = setupLayer(64, 64, true)
+    // radius 30, aspect 5, angle 0 -> footprint spans x in [754, 1054],
+    // i.e. 30px past the x=TILE_SIZE boundary, from a center 120px short of it.
+    const nib = dab(TILE_SIZE - 120, 500, { size: 60, aspectRatio: 5, angle: 0 })
+    engine.appendOperation(makeStroke('user-a', 'L', [nib], { tool: 'marker', preset: 'chisel:60' }))
+
+    const alphaAtWorldLocal = (px: Uint8Array, localX: number, localY: number) =>
+      // readTilePixels rows are GL bottom-up; these are tile-local world coords.
+      px[((TILE_SIZE - 1 - localY) * TILE_SIZE + localX) * 4 + 3]
+
+    const home = readTilePixels(engine, 'L', 0, 0)
+    expect(home).not.toBeNull()
+    expect(alphaAtWorldLocal(home!, TILE_SIZE - 120, 500)).toBeGreaterThan(0) // dab center
+    expect(alphaAtWorldLocal(home!, TILE_SIZE - 2, 500)).toBeGreaterThan(0)   // right at the seam
+
+    const across = readTilePixels(engine, 'L', 1, 0)
+    expect(across).not.toBeNull()
+    expect(alphaAtWorldLocal(across!, 2, 500)).toBeGreaterThan(0)             // just past it
   })
 
   it('skips a degenerate zero-radius dab without throwing', () => {

@@ -66,7 +66,9 @@ export function getPaperPreviewBytes(type: PaperType): Promise<Uint8Array> {
     const url = paperPreviewURL(type)
     cached = url
       ? fetchBytesFromUrl(url)
-      : Promise.resolve(new Uint8Array(PAPER_PREVIEW_RESOLUTION * PAPER_PREVIEW_RESOLUTION).fill(255))
+      : // 128 is the neutral mid — flat paper must render as exactly its own
+        // colour, and 255 would push it a sixth of the way to white.
+        Promise.resolve(new Uint8Array(PAPER_PREVIEW_RESOLUTION * PAPER_PREVIEW_RESOLUTION).fill(128))
     previewCache.set(type, cached)
   }
   return cached

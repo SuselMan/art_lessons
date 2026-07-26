@@ -34,7 +34,7 @@ import type { PaperGrainType } from '@art-lessons/shared'
 import { PAPER_COARSENESS, PAPER_GRAIN_TYPES } from '@art-lessons/shared'
 
 import {
-  PAPER_BAKE_RESOLUTION, PAPER_GRAIN_CONFIGS, paperGridCatch, paperGridHeight, paperHeight,
+  PAPER_BAKE_RESOLUTION, PAPER_GRAIN_CONFIGS, paperDisplayHeight, paperGridCatch, paperGridHeight, paperHeight,
 } from './paperNoise'
 
 const RES = PAPER_BAKE_RESOLUTION
@@ -174,7 +174,7 @@ describe('baked public/paper assets', () => {
         const px = Math.floor(x)
         const py = Math.floor(y)
         const idx = (py * RES + px) * 2
-        const expectedHeight = Math.round(paperGridHeight(type, px + 0.5, py + 0.5, RES, RES) * 255)
+        const expectedHeight = Math.round(paperDisplayHeight(paperGridHeight(type, px + 0.5, py + 0.5, RES, RES)) * 255)
         const expectedCatch = Math.round(paperGridCatch(type, px + 0.5, py + 0.5, RES, RES) * 255)
         expect(Math.abs(bytes[idx] - expectedHeight)).toBeLessThanOrEqual(1)
         expect(Math.abs(bytes[idx + 1] - expectedCatch)).toBeLessThanOrEqual(1)

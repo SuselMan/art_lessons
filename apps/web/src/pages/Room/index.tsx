@@ -21,7 +21,7 @@ import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { RadialDial } from '../../components/RadialDial'
 import { computeCompositeOrder } from '../../lib/layers'
 import { hexToRgb } from '../../lib/color'
-import { getFeatureFlag, getPencilSoundSetting, getPaperGrainVariant, getGraphiteGrainVariant } from '../../lib/featureFlags'
+import { getFeatureFlag, getPencilSoundSetting, getGraphiteGrainVariant } from '../../lib/featureFlags'
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
@@ -312,13 +312,6 @@ export function Room() {
   // above. Off by default — for-fun prototype, Android Chrome only.
   const hapticGrainEnabled = getFeatureFlag('hapticGrain')
   const [hapticStats, setHapticStats] = useState<HapticGrainStats | null>(null)
-
-  // Dev-only paper-grain fiber-variant comparison (see SettingsPanel /
-  // paperNoise.ts's ROUGH_VARIANTS) — 'off' unless explicitly picked in
-  // Settings; only ever overrides *rough* paper's texture (see
-  // PencilEngineOptions.paperVariantUrl's own comment).
-  const paperGrainVariant = getPaperGrainVariant()
-  const paperVariantUrl = paperGrainVariant === 'off' ? undefined : `/paper-variants/rough-v${paperGrainVariant}.paper`
 
   // Dev-only graphite-grain A/B (see SettingsPanel / DAB_FRAG's
   // computeGrain) — live shader mode, applies to every paper type.
@@ -935,7 +928,6 @@ export function Room() {
       predictPointer: predictEnabled,
       hapticGrain: hapticGrainEnabled,
       onHapticGrainStats: hapticGrainEnabled ? setHapticStats : undefined,
-      paperVariantUrl,
       grainMode,
     })
     engineRef.current = engine
@@ -1095,7 +1087,7 @@ export function Room() {
     }
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
-    hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory, paperVariantUrl,
+    hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory,
     grainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
   ])
 

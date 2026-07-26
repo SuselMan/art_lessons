@@ -1,4 +1,3 @@
-import { ROUGH_VARIANTS } from '../engine/src/paperNoise'
 
 export interface FeatureFlagDef {
   key: string
@@ -87,36 +86,9 @@ export function setPencilSoundSetting(value: PencilSoundSetting): void {
   localStorage.setItem(PENCIL_SOUND_STORAGE_KEY, value)
 }
 
-// Dev-only paper-grain fiber-variant comparison (see paperNoise.ts's
-// ROUGH_VARIANTS / bakeRoughVariantTextures.ts) — same "own pair of
-// functions instead of a boolean flag" reasoning as pencil sound above.
-// 'off' means the real, shipped rough.paper asset; '1'..String(ROUGH_
-// VARIANTS.length) overrides just the rough paper texture with that
-// candidate's bake from public/paper-variants/ (see engine/index.ts's
-// paperVariantUrl option) — never affects smooth/bristol, which have no
-// variant bake at all. Validated against ROUGH_VARIANTS.length rather than
-// a hardcoded literal union so adding an 11th (or 20th) variant there can't
-// silently desync from what this accepts — a fixed list here once meant a
-// freshly-added variant's own value failed validation and got quietly
-// coerced back to 'off' on every reload, with no error anywhere.
-export type PaperGrainVariant = string
-const PAPER_GRAIN_VARIANT_STORAGE_KEY = 'paperGrainVariant'
-
-export function getPaperGrainVariant(): PaperGrainVariant {
-  const raw = localStorage.getItem(PAPER_GRAIN_VARIANT_STORAGE_KEY)
-  if (raw === 'off') return 'off'
-  const n = raw ? Number(raw) : NaN
-  return Number.isInteger(n) && n >= 1 && n <= ROUGH_VARIANTS.length ? raw! : 'off'
-}
-
-export function setPaperGrainVariant(value: PaperGrainVariant): void {
-  localStorage.setItem(PAPER_GRAIN_VARIANT_STORAGE_KEY, value)
-}
-
 // Dev-only graphite-grain fiber-variant comparison (see DAB_FRAG's
-// computeGrain) — same shape as PaperGrainVariant above, but this one's
-// live-shader (u_grainMode), not a texture-asset swap, and applies to every
-// paper type rather than just rough.
+// computeGrain) — a live shader mode (u_grainMode) rather than a texture
+// swap, so it applies to every paper type.
 export type GraphiteGrainVariant = 'off' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10'
 const GRAPHITE_GRAIN_VARIANT_STORAGE_KEY = 'graphiteGrainVariant'
 const GRAPHITE_GRAIN_VARIANT_VALUES: readonly GraphiteGrainVariant[] =
