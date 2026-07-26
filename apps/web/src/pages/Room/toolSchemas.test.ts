@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest'
 import {
   loadToolSettings, saveToolSettings, defaultToolSettings,
   LINER_SIZE_LABELS, linerSizeToPx, stepLinerSize,
+  TOOL_SCHEMAS, COLOR_CAPABLE_TOOLS, isColorCapableTool, getToolColor,
+  type UiToolId,
 } from './toolSchemas'
 import type { KeyValueStorage } from '../../lib/roomStorage'
 
@@ -77,6 +79,38 @@ describe('toolSchemas load/save', () => {
       v: 1, data: { toolSettings: { liner: { size: '999' } } },
     }))
     expect(loadToolSettings(storage, 'room1').liner.size).toBe(defaultToolSettings().liner.size)
+  })
+})
+
+describe('color-capable tools', () => {
+  // The guard against COLOR_CAPABLE_TOOLS (a hand-written list, so it can
+  // carry a union type) drifting from the schemas it claims to describe —
+  // add a tool with a `color` field and forget the list, and this fails.
+  it('lists exactly the tools whose schema declares a color field', () => {
+    const fromSchemas = (Object.keys(TOOL_SCHEMAS) as UiToolId[])
+      .filter(id => Object.values(TOOL_SCHEMAS[id]).some(d => d.valueType.kind === 'color'))
+    expect([...COLOR_CAPABLE_TOOLS].sort()).toEqual(fromSchemas.sort())
+  })
+
+  it('rejects tools that only modify existing pixels or have no settings', () => {
+    expect(isColorCapableTool('eraser')).toBe(false)
+    expect(isColorCapableTool('smudge')).toBe(false)
+    expect(isColorCapableTool('eyedropper')).toBe(false)
+    expect(isColorCapableTool('ruler')).toBe(false)
+  })
+
+  it('reads each color tool\'s own slot, not a shared one', () => {
+    const settings = defaultToolSettings()
+    settings.liner = { ...settings.liner, color: [0.1, 0.2, 0.3] }
+    expect(getToolColor(settings, 'liner')).toEqual([0.1, 0.2, 0.3])
+    expect(getToolColor(settings, 'pencil')).toEqual(TOOL_SCHEMAS.pencil.color.default)
+    expect(getToolColor(settings, 'marker')).toEqual(TOOL_SCHEMAS.marker.color.default)
+  })
+
+  it('falls back to the schema default when the stored value is not an RGB triple', () => {
+    const settings = defaultToolSettings()
+    settings.marker = { ...settings.marker, color: 0.5 }
+    expect(getToolColor(settings, 'marker')).toEqual(TOOL_SCHEMAS.marker.color.default)
   })
 })
 

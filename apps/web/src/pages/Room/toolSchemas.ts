@@ -305,6 +305,40 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
 export type ToolSettingsValue = Record<string, SettingDescriptor['default']>
 export type ToolSettingsMap = Record<UiToolId, ToolSettingsValue>
 
+// ── "has a color" as its own tool capability ────────────────────────────────
+// Deliberately NOT the same concept as toolSlice's PrimaryDrawingTool, even
+// though today the two lists happen to hold the same members: "lays ink /
+// is something to return to when the eraser is toggled off" and "owns an
+// editable color field the eyedropper/ColorPicker/palette can write into"
+// are different questions, and they come apart as soon as either side grows
+// — colorPencil (#188) is already color-capable here while not being a
+// selectable drawing tool yet, and a future fill/text tool would be
+// color-capable without being a stroke tool at all (just as eraser/smudge
+// are stroke tools with no color).
+//
+// The list is written out rather than derived from TOOL_SCHEMAS at runtime
+// so it carries a real union type; `toolSchemas.test.ts` asserts it matches
+// exactly the set of schemas that actually declare a `color` field, so the
+// two can't silently drift when a tool is added.
+export const COLOR_CAPABLE_TOOLS = ['pencil', 'colorPencil', 'liner', 'marker'] as const satisfies readonly UiToolId[]
+
+export type ColorCapableTool = (typeof COLOR_CAPABLE_TOOLS)[number]
+
+export function isColorCapableTool(toolId: UiToolId): toolId is ColorCapableTool {
+  return (COLOR_CAPABLE_TOOLS as readonly UiToolId[]).includes(toolId)
+}
+
+/** The single place the `color` field's stored value gets narrowed back to an
+ *  RGB triple — every consumer (engine sync, ColorPicker, eyedropper,
+ *  palette) goes through here instead of casting `ToolSettingsValue`'s union
+ *  at its own call site. Takes a ColorCapableTool, so "does this tool even
+ *  have a color?" is answered by the type system (or `isColorCapableTool`),
+ *  never by a null check further down. */
+export function getToolColor(settings: ToolSettingsMap, toolId: ColorCapableTool): [number, number, number] {
+  const value = settings[toolId].color
+  return Array.isArray(value) ? value : (TOOL_SCHEMAS[toolId].color.default as [number, number, number])
+}
+
 export function defaultToolSettings(): ToolSettingsMap {
   const map = {} as ToolSettingsMap
   for (const toolId of Object.keys(TOOL_SCHEMAS) as UiToolId[]) {

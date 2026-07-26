@@ -8,7 +8,7 @@ import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, SendResult,
   ClientToServerEvents, ServerToClientEvents,
 } from '@art-lessons/shared'
-import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
+import { BACKGROUND_LAYER_ID, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 import { PencilEngine, PENCIL_PRESETS, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -55,11 +55,11 @@ import { ParticipantsBar } from './ParticipantsBar'
 import { JoinGate } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
-  formatDegreesMinutes,
+  formatDegreesMinutes, getToolColor, isColorCapableTool, type ColorCapableTool,
 } from './toolSchemas'
 import { loadPanelPosition, PANEL_SIZE, measureFloatingPanelCenter, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
-import { fetchHistoryPage, fetchLatestSnapshot, type RestoredSnapshot } from './snapshotRestore'
+import { fetchLatestSnapshot, walkHistoryBackward, type RestoredSnapshot } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
@@ -102,6 +102,15 @@ function toRoomConfig(
 // How long a stroke's "drawing" activity (local or peer) stays visible before
 // the #38 indicator clears it — see drawingIndicator.ts.
 const DRAWING_TIMEOUT_MS = 1500
+
+// (#291) How far back of the pre-snapshot operation log backfillHistory
+// pulls in for undo/redo coverage. One snapshot interval below the restored
+// snapshot's own seq means a joining client ends up holding roughly the last
+// two snapshots' worth of history — exactly the undo depth spec v0.2 §7
+// commits to, and nothing beyond it, since an operation older than that can
+// never be undone anyway. See backfillHistory for why an unbounded walk is
+// not an option.
+const HISTORY_BACKFILL_DEPTH = SNAPSHOT_SEQ_INTERVAL
 
 // Layer transform tool (#120): canvas-space pivot for a scale handle is
 // always the *opposite* corner/edge of the content bounding box (see
@@ -836,16 +845,28 @@ export function Room() {
   // this runs fully in the background, must not block first paint, and its
   // own best-effort failure handling (fetchHistoryPage swallows errors,
   // returning []) means it simply stops rather than throwing.
+  //
+  // (#291) Bounded to HISTORY_BACKFILL_DEPTH, not the room's whole history.
+  // This used to walk all the way to seq 0, which stayed cheap only because
+  // `pruneOperationsBeforeSnapshot` deleted pre-snapshot operations once a
+  // room went idle — there was simply nothing old left to fetch. #289
+  // disabled that prune (a snapshot can't authorize deleting its own
+  // evidence until it's independently verified), and the unbounded walk
+  // immediately became the dominant cost of opening any long room:
+  // production room nHImlawW served 66 MB of stroke JSON in a single
+  // response, 22 s on the wire, and hard-froze the renderer while parsing —
+  // a tablet just OOMs instead.
+  //
+  // The depth matches the agreed undo rule (spec v0.2 §7): an operation
+  // older than roughly the last two snapshots is permanently out of undo
+  // reach, so backfilling past that point buys nothing anyone can use. This
+  // bound holds regardless of whether pruning is ever re-enabled.
   const backfillHistory = useCallback(async (roomId: string, engine: PencilEngineAPI, fromSeq: number) => {
-    let cursor = fromSeq
-    while (cursor > 0) {
-      const page = await fetchHistoryPage(roomId, cursor)
-      if (page.length === 0) break
+    await walkHistoryBackward(roomId, fromSeq, HISTORY_BACKFILL_DEPTH, page => {
       engine.absorbHistoricalOperations(page)
       for (const op of page) appliedOpIdsRef.current.add(op.id)
       drainDeferredQueue()
-      cursor = page[0].seq ?? 0
-    }
+    })
   }, [drainDeferredQueue])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
@@ -1145,19 +1166,21 @@ export function Room() {
     engineRef.current?.setSize(sizePx)
     engineRef.current?.setOpacity(activeCfg.opacity as number)
   }, [sizePx, activeCfg])
-  const pencilColor = toolSettings.pencil.color as [number, number, number]
-  const linerColor = toolSettings.liner.color as [number, number, number]
-  const markerColor = toolSettings.marker.color as [number, number, number]
-  useEffect(() => {
-    engineRef.current?.setColor(tool === 'liner' ? linerColor : tool === 'marker' ? markerColor : pencilColor)
-  }, [tool, pencilColor, linerColor, markerColor])
-  // Which tool's own color field the "Color" SidePanel tab (and
-  // FloatingToolPanel's color dot) edits — lastDrawingTool rather than
-  // `tool` directly, so it still reflects liner/marker while eraser/smudge
-  // is briefly active on top of it, same reasoning as lastDrawingTool itself
-  // (see toolSlice.ts).
-  const colorTool: 'pencil' | 'liner' | 'marker' = lastDrawingTool
-  const colorToolColor = colorTool === 'liner' ? linerColor : colorTool === 'marker' ? markerColor : pencilColor
+  // Which tool's own color field the "Color" SidePanel tab, the palette
+  // swatches, FloatingToolPanel's color dot and the eyedropper all read and
+  // write — lastDrawingTool rather than `tool` directly, so it still reflects
+  // liner/marker while eraser/smudge is briefly active on top of it, same
+  // reasoning as lastDrawingTool itself (see toolSlice.ts). Typed as
+  // ColorCapableTool (toolSchemas.ts), the capability these consumers
+  // actually depend on — not re-listing pencil/liner/marker by hand here.
+  const colorTool: ColorCapableTool = lastDrawingTool
+  const colorToolColor = getToolColor(toolSettings, colorTool)
+  // Falls back to colorTool's color for eraser/smudge, which have no color
+  // field of their own — the engine keeps one current color regardless of
+  // which tool is active, so it should already hold what the next drawing
+  // stroke will use.
+  const activeColor = getToolColor(toolSettings, isColorCapableTool(tool) ? tool : colorTool)
+  useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor])
   // FloatingToolPanel (#157) is a fixed 4-slot compass layout with room for
   // only one drawing-tool button (see its own doc comment — "the 4 most-
   // reached-for actions") — marker now shares that one slot with pencil/
@@ -1461,11 +1484,15 @@ export function Room() {
         )
     const picked = engineRef.current?.pickColor(x, y)
     if (picked) {
-      setToolSetting('pencil', 'color', picked)
+      // Writes the *active* color tool's own slot, not a hardcoded 'pencil'
+      // — picking a color while the liner or marker was selected used to
+      // silently repaint the pencil's swatch instead, so the picked color
+      // never showed up in the stroke that followed.
+      setToolSetting(colorTool, 'color', picked)
       setActivePanel('color')
     }
     setEyedropperActive(false)
-  }, [vpRef, vp, config, setToolSetting])
+  }, [vpRef, vp, config, setToolSetting, colorTool])
 
   // Shared by every other tool's toggle below, so activating any of them
   // also clears the ruler — see toggleRuler's own doc comment for why
