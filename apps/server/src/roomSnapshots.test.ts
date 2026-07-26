@@ -43,7 +43,7 @@ function freshRoomId(): string {
 }
 
 function roomDraft(id: string) {
-  return { id, name: 'Still life', paper: 'rough' as const, infinite: false, canvasWidth: 1240, canvasHeight: 1754 }
+  return { id, name: 'Still life', paper: 'coarse-streak' as const, infinite: false, canvasWidth: 1240, canvasHeight: 1754 }
 }
 
 function makeRoom(): string {

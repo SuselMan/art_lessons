@@ -40,7 +40,7 @@ function search(app: FastifyInstance, q?: string) {
 }
 
 const dbRoom = (overrides: Partial<Record<string, unknown>> = {}) => ({
-  id: 'room-1', name: 'Still Life Study', paper: 'rough', infinite: false,
+  id: 'room-1', name: 'Still Life Study', paper: 'coarse-streak', infinite: false,
   canvasWidth: 800, canvasHeight: 600, passwordHash: null, ownerId: 'user-1',
   createdAt: new Date('2026-01-01'), thumbnail: null, owner: { name: 'Ilya' },
   ...overrides,
@@ -57,7 +57,7 @@ beforeEach(() => {
 
 describe('PATCH /api/rooms/:id (rename)', () => {
   const dbRoom = (overrides: Partial<Record<string, unknown>> = {}) => ({
-    id: 'room-1', name: 'New name', paper: 'rough', infinite: false,
+    id: 'room-1', name: 'New name', paper: 'coarse-streak', infinite: false,
     canvasWidth: 800, canvasHeight: 600, passwordHash: null, ownerId: 'user-1',
     createdAt: new Date('2026-01-01'), thumbnail: null, owner: { name: 'Ilya' },
     ...overrides,
