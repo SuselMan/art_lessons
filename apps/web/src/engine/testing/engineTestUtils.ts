@@ -10,6 +10,7 @@ import { nanoid } from 'nanoid'
 import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@art-lessons/shared'
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
+import type { AffineMatrix } from '../src/affine'
 import type { AccumulationBuffer } from '../src/AccumulationBuffer'
 import type { ILayerBuffer } from '../src/ILayerBuffer'
 import { __setPaperLoaderForTesting } from '../src/paperLoader'
@@ -103,12 +104,18 @@ interface EngineInternals {
   _onEnd: (e: PointerData) => void
   _onPredict: (samples: PointerData[]) => void
   _compositeFBO: AccumulationBuffer
+  // #301 white-box access — see readCompositePixels below.
+  _composeToFBO: (needCompositeFBO?: boolean) => void
   // #145 white-box access — see buildExportComposite below.
   _buildContentComposite: () => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
   // #134-follow-up white-box access — see assemblyPad/compositeCenterFor below.
   _assemblyPad: () => { padX: number; padY: number }
   _compositeCenterX: number
   _compositeCenterY: number
+  _compositeScale: number
+  // #301 white-box access — see screenToWorldFor/rotateMatrixInvFor below.
+  _screenToWorldMatrix: () => AffineMatrix
+  _infiniteRotateMatrixInv: () => AffineMatrix
   // Live gizmo-drag preview (#120/#139) — see engine/index.ts's own
   // PreviewTile. Structurally identical, redeclared here rather than
   // exported from index.ts since there's no product reason a real caller
@@ -207,14 +214,24 @@ export function readTilePixels(
   return target ? target.buffer.readPixels() : null
 }
 
-/** Reads back the final on-screen composite (#122) — what _display() last
- *  blended every visible layer/folder-child into, *before* the paper-color
- *  display pass (which MockGL never rasterizes — see its module docstring).
- *  Used by index.recompositeCache.test.ts to check the below/above
- *  split-cache optimization never diverges from a guaranteed-fresh full
- *  recompute of the same layer state. */
+/** Reads back the final on-screen composite (#122) — every visible layer/
+ *  folder-child blended together, *before* the paper-color display pass
+ *  (which MockGL never rasterizes — see its module docstring). Used by
+ *  index.recompositeCache.test.ts to check the below/above split-cache
+ *  optimization never diverges from a guaranteed-fresh full recompute of
+ *  the same layer state.
+ *
+ *  (#301) Recomposes on demand rather than reading whatever _display() left
+ *  behind: an infinite room's on-screen path doesn't populate _compositeFBO
+ *  at all any more (it composes _assemblyFBO straight to the screen — see
+ *  _composeToFBO's own comment), so this asks for the canvas-sized rotated
+ *  copy the same way the export/transparent paths do. Composing is
+ *  idempotent for a given layer state, so this stays a pure read as far as
+ *  every caller is concerned. */
 export function readCompositePixels(engine: PencilEngine): Uint8Array {
-  return internals(engine)._compositeFBO.readPixels()
+  const eng = internals(engine)
+  eng._composeToFBO(true)
+  return eng._compositeFBO.readPixels()
 }
 
 // ─── exportPNG infinite-room composite (#145) ──────────────────────────────
@@ -317,6 +334,29 @@ export function assemblyPad(engine: PencilEngine): { padX: number; padY: number 
 export function compositeCenterFor(engine: PencilEngine): { x: number; y: number } {
   const i = internals(engine)
   return { x: i._compositeCenterX, y: i._compositeCenterY }
+}
+
+/** #301 white-box access: the two destination-driven inverse mappings
+ *  PAPER_COMPOSE_FRAG runs on every screen pixel — screen px -> world (what
+ *  the paper grain is sampled through) and screen px -> assembly px (what
+ *  the strokes are sampled through). MockGL never rasterizes that shader
+ *  (see its module docstring), so the only way to check the two agree — and
+ *  therefore that grain and strokes land on the same world position — is to
+ *  compare the matrices themselves against where the composite actually put
+ *  content. See index.tiledDisplay.test.ts's paper-alignment test. */
+export function screenToWorldFor(engine: PencilEngine): AffineMatrix {
+  return internals(engine)._screenToWorldMatrix()
+}
+
+/** #301 white-box access: composite-target pixels per world unit — min(1,
+ *  zoom) for an infinite room, i.e. NOT the camera's zoom above 1. See the
+ *  field's own comment in engine/index.ts. */
+export function compositeScaleFor(engine: PencilEngine): number {
+  return internals(engine)._compositeScale
+}
+
+export function rotateMatrixInvFor(engine: PencilEngine): AffineMatrix {
+  return internals(engine)._infiniteRotateMatrixInv()
 }
 
 // ─── Paper-texture white-box access (#141) ─────────────────────────────────

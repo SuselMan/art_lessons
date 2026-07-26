@@ -174,7 +174,7 @@ describe('baked public/paper assets', () => {
         const px = Math.floor(x)
         const py = Math.floor(y)
         const idx = (py * RES + px) * 2
-        const expectedHeight = Math.round(paperDisplayHeight(paperGridHeight(type, px + 0.5, py + 0.5, RES, RES)) * 255)
+        const expectedHeight = Math.round(paperDisplayHeight(type, paperGridHeight(type, px + 0.5, py + 0.5, RES, RES)) * 255)
         const expectedCatch = Math.round(paperGridCatch(type, px + 0.5, py + 0.5, RES, RES) * 255)
         expect(Math.abs(bytes[idx] - expectedHeight)).toBeLessThanOrEqual(1)
         expect(Math.abs(bytes[idx + 1] - expectedCatch)).toBeLessThanOrEqual(1)
@@ -197,6 +197,28 @@ describe('paper grid', () => {
         // time swallows anything under 1/255 (0.0039) whole.
         expect(Math.abs(h1 - h2), `${type} must wrap in x`).toBeLessThan(1e-4)
       }
+    }
+  })
+
+  // (#300) Guards the hand-measured PAPER_DISPLAY_GAMMA table: the tone
+  // offset is symmetric around the midpoint, so a type whose display height
+  // drifts off 0.5 reads with the wrong strength on light vs dark paper —
+  // the exact failure that table exists to fix. A failure here means the
+  // noise changed and the gammas need re-measuring, not that the tolerance
+  // should be widened.
+  it('every grain type has its display height centred near the midpoint', () => {
+    const N = 96
+    for (const type of PAPER_GRAIN_TYPES) {
+      let sum = 0
+      for (let y = 0; y < N; y++) {
+        for (let x = 0; x < N; x++) {
+          const fx = (x + 0.5) * RES / N
+          const fy = (y + 0.5) * RES / N
+          sum += paperDisplayHeight(type, paperGridHeight(type, fx, fy, RES, RES))
+        }
+      }
+      expect(sum / (N * N), `${type} display mean`).toBeGreaterThan(0.45)
+      expect(sum / (N * N), `${type} display mean`).toBeLessThan(0.55)
     }
   })
 

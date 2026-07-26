@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_COMPUTE_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_BLEND_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_COMPUTE_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperNoise'
 import {
@@ -21,7 +21,7 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
   applyAffine, composeAffine, invertAffine, scaleRotateMatrix, toMat3, translationMatrix,
-  type AffineMatrix,
+  IDENTITY_MATRIX, type AffineMatrix,
 } from './src/affine'
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
@@ -1155,21 +1155,46 @@ export class PencilEngine implements PencilEngineAPI {
   private _compositeCenterX = 0
   private _compositeCenterY = 0
 
+  // (#301) Composite-target pixels per world unit — the scale
+  // _worldToScreenEdgeX/Y place tiles at, set alongside _compositeCenterX/Y
+  // and read by the same callers under the same "one _runComposite, all
+  // synchronous" contract.
+  //
+  // NOT simply the camera's zoom for an infinite room: it's min(1, zoom),
+  // with whatever's left over (zoom / this) applied by the single screen
+  // pass at the end instead. Above zoom 1 that's the difference between one
+  // resample and two. The old assembly-at-zoom arrangement magnified tiles
+  // into the assembly buffer (resample #1) and then rotated that (resample
+  // #2), and two chained bilinear passes over pencil texture visibly mush
+  // it. Drawing the assembly at world resolution instead makes the first
+  // step an exact 1:1 texel copy — tile origins are integers, so every
+  // rounded edge in _worldToScreenEdgeX/Y lands exactly on a texel boundary
+  // — leaving exactly one resample, in _composePaperToScreen, the same
+  // count a bounded room's CSS-transformed canvas has always had.
+  //
+  // Capped at 1 rather than following zoom upward because there is no
+  // information above world resolution to preserve: strokes are stored in
+  // world-space tiles, so an assembly buffer denser than that would just be
+  // an early magnification of the same texels. Below zoom 1 it does follow
+  // zoom (the screen genuinely holds fewer pixels than the world does), so
+  // that case keeps its existing behavior exactly.
+  //
+  // Costs nothing in memory: the assembly buffer stays its fixed
+  // half-diagonal square (see _renderBufferExtent) and a zoomed-in camera
+  // simply needs less of it — no reallocation on zoom, which would be GPU
+  // alloc churn on the one gesture that can least afford it.
+  private _compositeScale = 1
+
   // #141: infinite-only, camera-relative "paper peeking through" pass —
-  // see PAPER_BLEND_FRAG's own comment for the full pipeline reasoning.
-  // _applyPaperBlend renders _assemblyFBO (raw, unblended accumulation)
-  // through PAPER_BLEND_FRAG into this buffer (same size as _assemblyFBO,
-  // recreated alongside it); _finishPaperBlend then rotates *this* down to
-  // the screen, in place of (never instead of — _compositeFBO/
-  // _finishInfiniteComposite are untouched, still needed unblended by
-  // _displayTransparent()) the old single DISPLAY_FRAG screen pass.
-  // Bounded rooms never read/write this — allocated anyway at plain canvas
-  // size for them, matching _assemblyFBO's own "no mode branch in
-  // _initGL/resizeCanvas" precedent.
-  private _paperBlendFBO!: AccumulationBuffer
-  private _paperBlendProg!: WebGLProgram
-  private _paperBlendUni!: Record<string, WebGLUniformLocation | null>
-  private _paperBlendPosLoc!: number
+  // see PAPER_COMPOSE_FRAG's own comment for the full pipeline reasoning.
+  // (#301) One pass, straight from _assemblyFBO to the screen: it applies
+  // the camera's rotation *and* samples paper at the resulting world
+  // position, so the grain is generated per screen pixel and never
+  // resampled. The separate pre-rotation blend buffer this used to need is
+  // gone entirely.
+  private _paperComposeProg!: WebGLProgram
+  private _paperComposeUni!: Record<string, WebGLUniformLocation | null>
+  private _paperComposePosLoc!: number
 
   // Batched dab rendering (#123) — one instanced draw call per _paintDabs
   // invocation instead of one gl.drawArrays + ~9 gl.uniform* calls per dab.
@@ -1955,12 +1980,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache.destroy()
     this._aboveCache.destroy()
     this._assemblyFBO.destroy()
-    this._paperBlendFBO.destroy()
     this._compositeFBO = new AccumulationBuffer(gl, width, height)
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
-    this._paperBlendFBO = new AccumulationBuffer(gl, ew, eh)
     this._splitCacheDirty = true
     // The paper texture itself is NOT recreated here (unlike
     // _belowCache/_assemblyFBO/etc. above, which are genuinely canvas-size-
@@ -1984,7 +2007,7 @@ export class PencilEngine implements PencilEngineAPI {
     return { w: extent, h: extent }
   }
 
-  /** How much bigger _assemblyFBO/_paperBlendFBO are than the real canvas,
+  /** How much bigger _assemblyFBO is than the real canvas,
    *  split (roughly) evenly on each side, *rounded to the nearest whole
    *  pixel* — see _compositeCenterX/Y's own field comment for why this
    *  integer-ness is exactly the fix for infinite rooms always looking
@@ -1996,6 +2019,25 @@ export class PencilEngine implements PencilEngineAPI {
     if (!this._infinite) return { padX: 0, padY: 0 }
     const { w: ew, h: eh } = this._renderBufferExtent()
     return { padX: Math.round((ew - canvas.width) / 2), padY: Math.round((eh - canvas.height) / 2) }
+  }
+
+  /** (#301) The scale _runComposite draws the assembly buffer at — see
+   *  _compositeScale's own field comment for the full reasoning. A bounded
+   *  room's camera zoom is the constructor's fixed 1 for the engine's whole
+   *  lifetime (its real zoom is the DOM canvasWrap's CSS transform), so the
+   *  min() below leaves that path at exactly 1, unchanged. */
+  private _infiniteCompositeScale(): number {
+    return Math.min(1, this._infiniteCamera.zoom)
+  }
+
+  /** (#301) How much magnification the final screen pass still has to apply
+   *  on top of what the assembly buffer was already drawn at — 1 whenever
+   *  the camera is at or below zoom 1, and the zoom itself above that (the
+   *  assembly caps at world resolution). Also the flag for whether that pass
+   *  resamples at all: combined with a nonzero angle it decides between
+   *  Catmull-Rom and a plain bilinear tap (see PAPER_COMPOSE_FRAG). */
+  private _residualScale(): number {
+    return this._infiniteCamera.zoom / this._infiniteCompositeScale()
   }
 
   /** Live gizmo-drag preview (#120) — renders each entry's *current* layer
@@ -2322,7 +2364,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache.destroy()
     this._aboveCache.destroy()
     this._assemblyFBO.destroy()
-    this._paperBlendFBO.destroy()
     // (#155) The pool fields are the real owners now — _previewBuf/_tipBuf
     // are just a possibly-mid-stroke alias of the same object (see
     // _acquirePooledBuf), so destroying via the pool alone avoids a
@@ -2964,7 +3005,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
-    this._paperBlendProg      = createProgram(gl, DISPLAY_VERT, PAPER_BLEND_FRAG)
+    this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
     this._smudgeComputeProg   = createProgram(gl, DISPLAY_VERT, SMUDGE_COMPUTE_FRAG)
 
@@ -2992,9 +3033,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
-    this._paperBlendUni = getUniforms(gl, this._paperBlendProg, [
+    this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
-      'u_paperCamera', 'u_paperExtHalf', 'u_paperInvZoom',
+      'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
     ])
     this._smudgeUni = getUniforms(gl, this._smudgeProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
@@ -3012,7 +3053,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
-    this._paperBlendPosLoc     = gl.getAttribLocation(this._paperBlendProg, 'a_position')
+    this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
     this._smudgePosLoc         = gl.getAttribLocation(this._smudgeProg, 'a_position')
     this._smudgeComputePosLoc  = gl.getAttribLocation(this._smudgeComputeProg, 'a_position')
 
@@ -3035,7 +3076,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
     this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
-    this._paperBlendFBO = new AccumulationBuffer(gl, ew, eh)
     this._splitCacheDirty = true
   }
 
@@ -5026,15 +5066,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  target's own half-size (targetW/2): see that field's own comment for
    *  why the two aren't the same thing for infinite rooms, and why that
    *  distinction is what keeps an unrotated infinite-room frame pixel-
-   *  aligned (no blur) instead of resampled through a fractional offset. */
+   *  aligned (no blur) instead of resampled through a fractional offset.
+   *
+   *  (#301) Scales by _compositeScale, not the camera's raw zoom — above
+   *  zoom 1 the two differ, and the leftover magnification is applied later,
+   *  by the same pass that applies the rotation. See that field's comment. */
   private _worldToScreenEdgeX(worldX: number): number {
-    const { wx, zoom } = this._infiniteCamera
-    return Math.round((worldX - wx) * zoom + this._compositeCenterX)
+    const { wx } = this._infiniteCamera
+    return Math.round((worldX - wx) * this._compositeScale + this._compositeCenterX)
   }
 
   private _worldToScreenEdgeY(worldY: number): number {
-    const { wy, zoom } = this._infiniteCamera
-    return Math.round((worldY - wy) * zoom + this._compositeCenterY)
+    const { wy } = this._infiniteCamera
+    return Math.round((worldY - wy) * this._compositeScale + this._compositeCenterY)
   }
 
   private _drawTileComposite(
@@ -5100,6 +5144,7 @@ export class PencilEngine implements PencilEngineAPI {
     const { padX, padY } = this._assemblyPad()
     this._compositeCenterX = this.canvas.width / 2 + padX
     this._compositeCenterY = this.canvas.height / 2 + padY
+    this._compositeScale = this._infiniteCompositeScale()
     if (this._infinite) this._assemblyFBO.clear()
 
     if (this._transformPreview.size > 0) {
@@ -5154,43 +5199,80 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** The destination(canvas)->source(assembly) matrix _finishInfiniteComposite
-   *  rotates through — factored out so _finishPaperBlend (#141) can reuse the
-   *  exact same rotation for its own, separate, paper-blended rotate blit
-   *  (see _paperBlendFBO's field comment) without duplicating the math.
+   *  rotates through — factored out so the on-screen pass
+   *  (_composePaperToScreen, #301) can apply the exact same rotation
+   *  without duplicating the math.
    *
    *  Uses _assemblyPad()'s *rounded* half-difference as the assembly
    *  buffer's own center, not its literal half-size (ext/2) — see
    *  _compositeCenterX/Y's field comment for why that distinction is what
    *  keeps an unrotated (angle 0, by far the common case) frame an exact,
    *  lossless pixel copy instead of a permanently-blurred bilinear
-   *  resample. */
+   *  resample.
+   *
+   *  (#301) Carries the residual magnification too, not just the rotation:
+   *  above zoom 1 the assembly buffer is drawn at world resolution rather
+   *  than at zoom, and this pass is where the rest of the zoom gets applied
+   *  — which is the point, since doing both here means one resample instead
+   *  of two. At or below zoom 1 the residual is exactly 1 and this reduces
+   *  to the pure rotation it has always been. */
   private _infiniteRotateMatrixInv(): AffineMatrix {
     const { canvas } = this
     const { angle } = this._infiniteCamera
     const { padX, padY } = this._assemblyPad()
     return composeAffine(
       translationMatrix(canvas.width / 2 + padX, canvas.height / 2 + padY),
-      composeAffine(scaleRotateMatrix(1, -angle), translationMatrix(-canvas.width / 2, -canvas.height / 2)),
+      composeAffine(
+        scaleRotateMatrix(1 / this._residualScale(), -angle),
+        translationMatrix(-canvas.width / 2, -canvas.height / 2),
+      ),
     )
   }
 
-  /** #141: infinite-only. Renders _assemblyFBO (raw, unblended accumulation
-   *  — see its own field comment) through PAPER_BLEND_FRAG into
-   *  _paperBlendFBO, sampling paper via true world position (camera-
-   *  relative) instead of DISPLAY_FRAG's screen-locked v_uv. Pre-rotation,
-   *  same as _assemblyFBO itself — _finishPaperBlend applies the camera's
-   *  actual rotation afterwards, exactly like _finishInfiniteComposite does
-   *  for the (separate, still-unblended) accumulation buffer. */
-  private _applyPaperBlend(): void {
-    const { gl } = this
-    const ext = this._assemblyFBO.width
-    const { wx, wy, zoom } = this._infiniteCamera
+  /** Screen(canvas)-pixel -> world-unit mapping for the live camera — the
+   *  full inverse of the forward chain the composite actually draws
+   *  through, carried one step further than _infiniteRotateMatrixInv (which
+   *  stops at assembly pixels). Forward, that chain is
+   *  screenPx = canvasCenter + R(angle) * (world - camera) * zoom
+   *  — composed of _worldToScreenEdgeX/Y (world -> assembly px, zoom and
+   *  _compositeCenterX/Y) and _infiniteRotateMatrixInv (assembly px ->
+   *  screen px, rotation about canvasCenter); the assembly buffer's own
+   *  padding cancels out between the two, which is why it doesn't appear
+   *  here at all. Inverting gives world = camera + R(-angle) * (screenPx -
+   *  canvasCenter) / zoom, i.e. exactly the composition below.
+   *
+   *  (#301) What lets PAPER_COMPOSE_FRAG sample paper at a screen pixel's
+   *  true world position *after* the rotation instead of before it — see
+   *  that shader's own comment for why doing it after is the whole point. */
+  private _screenToWorldMatrix(): AffineMatrix {
+    const { canvas } = this
+    const { wx, wy, zoom, angle } = this._infiniteCamera
+    return composeAffine(
+      translationMatrix(wx, wy),
+      composeAffine(scaleRotateMatrix(1 / zoom, -angle), translationMatrix(-canvas.width / 2, -canvas.height / 2)),
+    )
+  }
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this._paperBlendFBO.fbo)
-    gl.viewport(0, 0, ext, ext)
+  /** (#301) The entire infinite-room display pass: rotates _assemblyFBO
+   *  (raw, unblended accumulation — see its own field comment) down onto
+   *  the real screen and blends paper into it in the same draw, sampling
+   *  the grain at each *screen* pixel's world position (see
+   *  PAPER_COMPOSE_FRAG's comment for why that ordering is what keeps a
+   *  rotated canvas sharp). Replaces the old _applyPaperBlend +
+   *  _finishPaperBlend pair — one pass, one buffer less.
+   *
+   *  Writes opaque paper everywhere (alpha 1.0, blending off), so unlike
+   *  _runTransformBlit there's nothing underneath for it to blend against
+   *  and no need to pre-clear the screen. */
+  private _composePaperToScreen(): void {
+    const { gl, canvas } = this
+    const ext = this._assemblyFBO.width // square: width === height
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    gl.viewport(0, 0, canvas.width, canvas.height)
     gl.disable(gl.BLEND)
-    gl.useProgram(this._paperBlendProg)
-    const u = this._paperBlendUni
+    gl.useProgram(this._paperComposeProg)
+    const u = this._paperComposeUni
 
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._assemblyFBO.texture)
@@ -5203,37 +5285,23 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperCamera, wx, wy)
-    // #134-follow-up: the assembly-buffer pixel that the camera's world
-    // point (wx, wy) actually landed on when content was drawn into it —
-    // _compositeCenterX/Y, not this buffer's own literal half-size (ext/2).
-    // Passing ext/2 here would resample paper from the wrong position
-    // whenever the two differ (see _compositeCenterX's own field comment) —
-    // a paper/content misalignment, independent of (but the same root
-    // cause as) the blur that mismatch causes in _infiniteRotateMatrixInv.
-    gl.uniform2f(u.u_paperExtHalf, this._compositeCenterX, this._compositeCenterY)
-    gl.uniform1f(u.u_paperInvZoom, 1 / zoom)
+    gl.uniform2f(u.u_dstSize, canvas.width, canvas.height)
+    gl.uniform2f(u.u_srcSize, ext, ext)
+    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(this._infiniteRotateMatrixInv()))
+    gl.uniformMatrix3fv(u.u_screenToWorld, false, toMat3(this._screenToWorldMatrix()))
+    // Catmull-Rom only when this pass genuinely resamples. An unrotated
+    // camera at or below zoom 1 maps screen pixels onto assembly texels one
+    // for one, offset by an exact integer (that integer-ness is what
+    // _assemblyPad/_compositeCenterX exist to guarantee) — a plain bilinear
+    // tap is then already lossless and 9x cheaper. See PAPER_COMPOSE_FRAG.
+    const resamples = this._infiniteCamera.angle !== 0 || this._residualScale() !== 1
+    gl.uniform1f(u.u_sharpResample, resamples ? 1 : 0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._paperBlendPosLoc
+    const posLoc = this._paperComposePosLoc
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
-
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-  }
-
-  /** #141: rotates _paperBlendFBO's already-paper-blended, pre-rotation
-   *  content down onto the real screen — the paper-aware counterpart to
-   *  _finishInfiniteComposite, called from _display() instead of it (not
-   *  in addition — _finishInfiniteComposite/_compositeFBO stay exactly as
-   *  they were, still needed unblended by _displayTransparent()). */
-  private _finishPaperBlend(): void {
-    const { canvas } = this
-    const ext = this._assemblyFBO.width
-    this._runTransformBlit(
-      this._paperBlendFBO.texture, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, ext, ext, null,
-    )
   }
 
   /** Low-level transform-blit draw call — renders `sourceTex` (sized
@@ -5255,11 +5323,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  rotation/scale; each pass is transparent everywhere outside its own
    *  source tile's mapped region, so blending — not replacing — is what
    *  lets a later pass avoid wiping out an earlier one's already-valid
-   *  pixels), the final rotate blit (`_finishInfiniteComposite`), and
-   *  #141's paper-blend rotate blit (`_finishPaperBlend`) — the only
-   *  caller that ever passes `null` (the real screen), since it's the last
-   *  drawing step of a frame rather than a scratch buffer another pass
-   *  reads from afterwards. */
+   *  pixels), and the export/transparent path's rotate blit
+   *  (`_finishInfiniteComposite`). Every caller targets a scratch buffer
+   *  another pass reads from afterwards — since #301 the frame's last
+   *  drawing step is _composePaperToScreen, which writes the screen through
+   *  its own program rather than this one. */
   private _runTransformBlit(
     sourceTex: WebGLTexture, matrixInv: AffineMatrix,
     dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer | null,
@@ -5495,15 +5563,28 @@ export class PencilEngine implements PencilEngineAPI {
    *  _runComposite above just populated, *before* _finishInfiniteComposite's
    *  single rotate blit at the bottom applies the camera's actual rotation
    *  to everything (real content and previews alike) at once. */
-  private _composeToFBO(): void {
+  private _composeToFBO(needCompositeFBO = true): void {
     const { gl, canvas } = this
     const w = canvas.width, h = canvas.height
+    // (#301) An infinite room's on-screen path never reads _compositeFBO —
+    // _composePaperToScreen goes straight from _assemblyFBO to the screen,
+    // and the only consumers of the rotated, unblended canvas-sized copy
+    // (_displayTransparent, which is bounded-only in practice) ask for it
+    // explicitly. So for the every-frame display case this skips both a
+    // full-canvas clear and the rotate blit at the bottom of this method —
+    // two screen-sized passes per frame that were being rendered and thrown
+    // away. Bounded rooms are unaffected: _compositeFBO *is* their composite
+    // target, so `needCompositeFBO` is meaningless for them and the flag
+    // only ever gates infinite-room work.
+    const skipCompositeFBO = this._infinite && !needCompositeFBO
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this._compositeFBO.fbo)
-    gl.viewport(0, 0, w, h)
-    gl.clearColor(0, 0, 0, 0)
-    gl.clear(gl.COLOR_BUFFER_BIT)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    if (!skipCompositeFBO) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this._compositeFBO.fbo)
+      gl.viewport(0, 0, w, h)
+      gl.clearColor(0, 0, 0, 0)
+      gl.clear(gl.COLOR_BUFFER_BIT)
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+    }
 
     this._runComposite(this._compositeOrder, this._compositeFBO.fbo)
 
@@ -5543,8 +5624,12 @@ export class PencilEngine implements PencilEngineAPI {
     // (#138) The one place camera rotation is applied for infinite rooms —
     // now runs once, after both real content and every preview buffer are
     // in `_assemblyFBO`, rather than from inside _runComposite. No-op for
-    // bounded rooms (see _finishInfiniteComposite's own comment).
-    this._finishInfiniteComposite(this._compositeFBO.fbo)
+    // bounded rooms (see _finishInfiniteComposite's own comment), and
+    // skipped entirely for an infinite room's on-screen frames (#301 — see
+    // `skipCompositeFBO` above): the screen pass rotates _assemblyFBO
+    // itself, so doing it a second time here would only be building a copy
+    // nobody reads.
+    if (!skipCompositeFBO) this._finishInfiniteComposite(this._compositeFBO.fbo)
   }
 
   /** (#155) See _displayRafId's own doc comment for why this exists. Safe to
@@ -5586,22 +5671,20 @@ export class PencilEngine implements PencilEngineAPI {
     const { gl, canvas } = this
     const w = canvas.width, h = canvas.height
 
-    this._composeToFBO()
+    this._composeToFBO(!this._infinite)
 
     if (this._infinite) {
-      // #141: paper must pan/zoom with the world for an infinite room, which
-      // needs world position recovered *before* the camera's rotation is
-      // applied (see PAPER_BLEND_FRAG's own comment) — so this reads
-      // _assemblyFBO (pre-rotation) rather than the plain screen-locked
-      // DISPLAY_FRAG pass bounded rooms use below. _compositeFBO is left
-      // completely untouched here (still raw, unblended accumulation) —
-      // _displayTransparent()/exportPNG(true) still needs it in exactly
-      // that format. _applyPaperBlend/_finishPaperBlend each manage their
-      // own framebuffer/viewport/blend state (mirroring _runComposite/
-      // _finishInfiniteComposite's own division of labor), so neither
-      // needs it set up here first.
-      this._applyPaperBlend()
-      this._finishPaperBlend()
+      // #141: paper must pan/zoom with the world for an infinite room, so
+      // this can't use the screen-locked DISPLAY_FRAG pass bounded rooms
+      // use below — it recovers each screen pixel's true world position
+      // instead (see PAPER_COMPOSE_FRAG's own comment). (#301) That's now
+      // one pass doing the camera's rotation and the paper blend together,
+      // straight from _assemblyFBO to the screen; _compositeFBO isn't
+      // written at all on this path (see _composeToFBO's own comment).
+      // _composePaperToScreen manages its own framebuffer/viewport/blend
+      // state, mirroring _runComposite/_finishInfiniteComposite's division
+      // of labor, so nothing needs setting up here first.
+      this._composePaperToScreen()
       return
     }
 
@@ -5744,6 +5827,7 @@ export class PencilEngine implements PencilEngineAPI {
     const savedCamera = this._infiniteCamera
     const savedCenterX = this._compositeCenterX
     const savedCenterY = this._compositeCenterY
+    const savedScale = this._compositeScale
     this._infiniteCamera = { wx: bounds.x + width / 2, wy: bounds.y + height / 2, zoom: 1, angle: 0 }
     // #134-follow-up: _drawTileComposite/_worldToScreenEdgeX/Y center on
     // _compositeCenterX/Y, not this target's own half-size, since #136 —
@@ -5752,6 +5836,12 @@ export class PencilEngine implements PencilEngineAPI {
     // width/2, height/2, exactly matching the synthetic camera above.
     this._compositeCenterX = width / 2
     this._compositeCenterY = height / 2
+    // (#301) Same story for the scale those two are paired with: this target
+    // is 1 world unit = 1 pixel by construction (see the synthetic camera's
+    // zoom above), which is what min(1, zoom) yields here anyway — set
+    // explicitly rather than left at whatever the last on-screen frame used,
+    // since nothing calls _runComposite on this path to refresh it.
+    this._compositeScale = 1
     const viewRect: WorldRect = { minX: bounds.x, minY: bounds.y, maxX: bounds.x + width, maxY: bounds.y + height }
     try {
       for (const { id, opacity } of this._compositeOrder) {
@@ -5761,6 +5851,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._infiniteCamera = savedCamera
       this._compositeCenterX = savedCenterX
       this._compositeCenterY = savedCenterY
+      this._compositeScale = savedScale
     }
 
     return { bounds, buffer }
@@ -5794,18 +5885,20 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** Paper-baked export variant (#145) of PAPER_BLEND_FRAG, parameterized
-   *  like _renderDisplayTransparentInto above instead of hardcoding
-   *  _assemblyFBO/_paperBlendFBO the way _applyPaperBlend does. Unlike
-   *  _applyPaperBlend/_finishPaperBlend's two-step (unrotated-and-padded,
-   *  then rotate down to screen size), this needs only the one step: the
-   *  synthetic export camera _buildContentComposite sets up is never
-   *  rotated (angle 0), so there's no second rotate-blit to apply — this
-   *  writes the paper-blended result directly at final size. Must be kept
-   *  in sync by hand with DISPLAY_FRAG/PAPER_BLEND_FRAG if their math ever
-   *  changes (same manual-sync note those shaders' own comments call out —
-   *  no #include in GLSL ES1.0/WebGL1). */
-  private _renderPaperBlendFlatInto(
+  /** Paper-baked export variant (#145) — the same PAPER_COMPOSE_FRAG the
+   *  live screen pass uses, just pointed at an arbitrary source/target
+   *  instead of _assemblyFBO/the screen, like _renderDisplayTransparentInto
+   *  above. The export camera _buildContentComposite sets up is never
+   *  rotated and always renders at exactly 1 world unit = 1 pixel, so both
+   *  of that shader's mappings degenerate here: the accumulation lookup is
+   *  the identity (source and target are the same size, pixel for pixel),
+   *  and screen->world is a pure translation by the content bounds' origin.
+   *  (#301) Sharing one shader between the two paths is also what stops the
+   *  exported image and the on-screen one from drifting apart — this used to
+   *  be a hand-synced copy of PAPER_BLEND_FRAG's math (no #include in GLSL
+   *  ES1.0/WebGL1, so a second shader would have to be kept in step by
+   *  hand; DISPLAY_FRAG, the bounded-room path, still is). */
+  private _renderPaperComposeInto(
     sourceTex: WebGLTexture, targetFbo: WebGLFramebuffer, w: number, h: number,
     bounds: { x: number; y: number },
   ): void {
@@ -5813,8 +5906,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
     gl.viewport(0, 0, w, h)
     gl.disable(gl.BLEND)
-    gl.useProgram(this._paperBlendProg)
-    const u = this._paperBlendUni
+    gl.useProgram(this._paperComposeProg)
+    const u = this._paperComposeUni
 
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, sourceTex)
@@ -5827,15 +5920,16 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
     gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-    gl.uniform2f(u.u_paperCamera, bounds.x + w / 2, bounds.y + h / 2)
-    gl.uniform2f(u.u_paperExtHalf, w / 2, h / 2)
-    // Export always renders at exactly 1 world unit = 1 pixel — see
-    // _buildContentComposite's synthetic camera — so invZoom is always 1,
-    // unlike _applyPaperBlend's live 1/this._infiniteCamera.zoom.
-    gl.uniform1f(u.u_paperInvZoom, 1)
+    gl.uniform2f(u.u_dstSize, w, h)
+    gl.uniform2f(u.u_srcSize, w, h)
+    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(IDENTITY_MATRIX))
+    gl.uniformMatrix3fv(u.u_screenToWorld, false, toMat3(translationMatrix(bounds.x, bounds.y)))
+    // Identity mapping — nothing to reconstruct, so the plain tap is both
+    // cheaper and exactly correct here.
+    gl.uniform1f(u.u_sharpResample, 0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    const posLoc = this._paperBlendPosLoc
+    const posLoc = this._paperComposePosLoc
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
@@ -5916,7 +6010,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     const out = new AccumulationBuffer(gl, w, h)
     if (transparent) this._renderDisplayTransparentInto(buffer.texture, out.fbo, w, h)
-    else this._renderPaperBlendFlatInto(buffer.texture, out.fbo, w, h, bounds)
+    else this._renderPaperComposeInto(buffer.texture, out.fbo, w, h, bounds)
 
     const pixels = out.readPixels()
     buffer.destroy()

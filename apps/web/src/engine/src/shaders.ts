@@ -894,34 +894,39 @@ export const DISPLAY_TRANSPARENT_FRAG = `
 // samples paper via true world position, camera-relative. The two must be
 // kept in sync by hand (no #include in GLSL ES1.0/WebGL1) whenever this
 // blend's math changes.
-// (#300) How far the paper's height map pushes its base colour. Applied as
-// a signed offset toward whichever end of the range has room, NOT as a
-// multiplier — see paperToneGLSL below.
+// (#300) How far the paper's height map pushes its base colour, as an
+// absolute amount — deliberately NOT scaled by the colour itself.
 //
-// History: this was `color * (1 - relief + relief*h)`, which made the effect
-// proportional to the colour's own brightness. On white paper it read (just
-// about); on a dark paper colour it faded out; and on black it vanished
-// completely, because 0 * anything is 0. The grain has to be legible on any
-// paper colour the creator picks, which a multiplier structurally cannot do.
-const PAPER_TONE_RELIEF = 0.16
+// Two earlier shapes both failed, in opposite directions:
+//
+//   colour * (1 - r + r*h)   — proportional to brightness. Fine on white,
+//                              weak on dark, exactly zero on black.
+//   colour + r*signed*headroom — scaled by the room left in the direction
+//                              it's heading. Better, but the height
+//                              distribution leans to one side, so the
+//                              dominant direction got the big headroom on
+//                              light paper (too strong) and the crushed one
+//                              on dark paper (invisible). Same number,
+//                              opposite failure at each end.
+//
+// A fixed absolute swing is the only shape that reads the same on any paper
+// colour, which is the actual requirement. The midpoint is clamped away from
+// the ends so the full swing always fits: on near-black paper the texture
+// sits just above black rather than half-clipped into it.
+const PAPER_TONE_AMPLITUDE = 0.035
 
-// Exported as a number too: the paper picker paints its miniatures with the
-// same maths (see PaperPreview), so a card cannot drift from the canvas it
-// is previewing.
-export const PAPER_TONE_RELIEF_VALUE = PAPER_TONE_RELIEF
+// Exported for the paper picker, which paints its miniatures with the same
+// maths (see PaperPreview) so a card cannot drift from the canvas.
+export const PAPER_TONE_AMPLITUDE_VALUE = PAPER_TONE_AMPLITUDE
 
-/** Shared GLSL for turning `u_paperColor` + a height sample into the paper's
- *  rendered tone. Scaling the offset by the *remaining headroom* in the
- *  direction it's heading is what keeps it visible at both extremes without
- *  ever clipping: on black the whole range is available upward, on white
- *  it's available downward, and in between it's symmetric. Emitted from one
- *  place because DISPLAY_FRAG (bounded rooms, screen-locked UV) and
- *  PAPER_BLEND_FRAG (infinite rooms, world-locked UV) must agree and GLSL
- *  ES 1.0 has no #include to enforce it. */
+/** Shared GLSL turning `u_paperColor` + a height sample into rendered tone.
+ *  Emitted from one place because DISPLAY_FRAG (bounded rooms, screen-locked
+ *  UV) and the infinite-room path must agree, and GLSL ES 1.0 has no
+ *  #include to enforce it. */
 const paperToneGLSL = (heightExpr: string) => `
-    float reliefSigned = (${heightExpr}) * 2.0 - 1.0;
-    vec3 headroom = reliefSigned > 0.0 ? (vec3(1.0) - u_paperColor) : u_paperColor;
-    vec3 paperTone = u_paperColor + ${PAPER_TONE_RELIEF.toFixed(3)} * reliefSigned * headroom;
+    float toneSigned = (${heightExpr}) * 2.0 - 1.0;
+    vec3 toneCenter = clamp(u_paperColor, ${PAPER_TONE_AMPLITUDE.toFixed(3)}, 1.0 - ${PAPER_TONE_AMPLITUDE.toFixed(3)});
+    vec3 paperTone = toneCenter + ${PAPER_TONE_AMPLITUDE.toFixed(3)} * toneSigned;
 `
 
 // Display-time only: this shades what's on screen, never what's stored.
@@ -967,41 +972,134 @@ export const DISPLAY_FRAG = `
 
 // #141: infinite-canvas counterpart to DISPLAY_FRAG's "paper peeking
 // through" blend, kept in sync with it by hand (see DISPLAY_FRAG's own
-// comment). Runs once per frame, over the *pre-rotation* assembly buffer
-// (engine/index.ts's _assemblyFBO — unrotated, zoom-applied, centered on
-// the camera's world point) rather than the final rotated canvas-sized
-// image DISPLAY_FRAG reads — so recovering this fragment's world position
-// only ever needs a translate+scale (u_paperCamera/u_paperExtHalf/
-// u_paperInvZoom below), never the camera's rotation: _finishPaperBlend
-// applies that separately, afterwards, by rotating this pass's *output*
-// down to the screen — mirroring exactly how _finishInfiniteComposite
-// rotates the (never paper-blended) raw accumulation buffer
-// _displayTransparent() still needs untouched. Reuses DISPLAY_VERT (same
-// fullscreen-quad convention as every other composite/display pass).
-export const PAPER_BLEND_FRAG = `
+// comment). Reuses DISPLAY_VERT (same fullscreen-quad convention as every
+// other composite/display pass).
+//
+// (#301) This is the *whole* infinite display pass now — the camera's
+// rotation included. It used to be two passes: blend paper into a second
+// assembly-sized buffer, then rotate that result down to the screen. That
+// ordering is what made a rotated infinite canvas look soft: paper grain is
+// the highest-frequency content on screen (per-pixel noise, by
+// construction), it was rasterized crisp at assembly resolution, and then
+// the whole image — grain and all — went through a bilinear rotate. A
+// bilinear resample at ~1:1 is the maximum-blur case (every destination
+// pixel lands between source texels), and it turned the grain to mush.
+//
+// Sampling paper here, *after* the rotation, fixes that structurally: the
+// grain is generated at exactly one sample per screen pixel and is never
+// resampled at all. Only the accumulation buffer (strokes) still goes
+// through the rotate, which is unavoidable — it's a rasterized image, not a
+// function of position the way paper is. Costs nothing extra: this pass
+// does the rotate blit that _finishPaperBlend was doing anyway, so the
+// whole separate paper-blend pass and its assembly-sized FBO are simply
+// gone.
+//
+// u_matrixInv (destination px -> accumulation px) is the same convention
+// TRANSFORM_BLIT_FRAG uses, and u_screenToWorld (destination px -> world)
+// is the rest of that same inverse camera chain, carried through to world
+// space instead of stopping at the assembly buffer. Both are plain
+// destination-driven inverse mappings, so both reduce to the identity/
+// translate-only case the flat export path needs without a second shader:
+// see _renderPaperComposeInto's callers in engine/index.ts.
+export const PAPER_COMPOSE_FRAG = `
   precision highp float;
 
   uniform sampler2D u_accumulation;
   uniform sampler2D u_paperMap;
   uniform vec3 u_paperColor;
   uniform vec2 u_paperScale;
-  uniform vec2 u_paperTexSize;  // world units per paper repeat period — see DAB_FRAG's own comment
-  uniform vec2 u_paperCamera;   // world point (wx, wy) at the assembly buffer's center
-  uniform vec2 u_paperExtHalf;  // assembly buffer half-size, in px (ext/2, ext/2)
-  uniform float u_paperInvZoom; // 1 / camera zoom
+  uniform vec2 u_paperTexSize;   // world units per paper repeat period — see DAB_FRAG's own comment
+  uniform vec2 u_dstSize;        // destination (screen / export target) size, px
+  uniform vec2 u_srcSize;        // accumulation source size, px
+  uniform mat3 u_matrixInv;      // destination px -> accumulation px, both app-space top-down
+  uniform mat3 u_screenToWorld;  // destination px -> world units
+  uniform float u_sharpResample; // 1.0 = Catmull-Rom, 0.0 = plain bilinear — see below
 
   varying vec2 v_uv;
 
-  void main() {
-    vec4 acc = texture2D(u_accumulation, v_uv);
-    float graphite = acc.a;
-    vec3 strokeColor = graphite > 0.001 ? acc.rgb / graphite : vec3(0.0);
+  // (#301) Catmull-Rom resample of the accumulation buffer, in 9 bilinear
+  // taps rather than the naive 16 point taps (the standard trick: within
+  // each pair of adjacent taps, one hardware-bilinear fetch positioned at
+  // the pair's own weight ratio returns exactly their weighted sum, and the
+  // source is LINEAR/CLAMP_TO_EDGE filtered — see AccumulationBuffer).
+  //
+  // Why not just bilinear: rotating the canvas resamples at roughly 1:1,
+  // which is bilinear's worst case — every destination pixel lands between
+  // source texels and comes back as a blend of four, so the whole image
+  // softens the moment the canvas is turned. That's the "мыло" this exists
+  // to kill. Catmull-Rom's negative lobes reconstruct the detail bilinear
+  // averages away, at the cost of slight overshoot at hard edges — clamped
+  // by the caller below, since the accumulation buffer is premultiplied and
+  // a negative or >1 sample there is not a representable color.
+  //
+  // Only worth its 9 taps when the mapping actually resamples: an unrotated,
+  // unscaled camera is an exact integer translation, where this reduces to
+  // a single unit-weight tap anyway (f=0 makes w1 the only nonzero weight)
+  // and a plain texture2D is the same result for 1/9th of the bandwidth.
+  // u_sharpResample is what the engine uses to say which case this is.
+  vec4 sampleCatmullRom(vec2 uv) {
+    vec2 samplePos = uv * u_srcSize;
+    vec2 texPos1 = floor(samplePos - 0.5) + 0.5;
+    vec2 f = samplePos - texPos1;
 
-    // World position of this fragment — the assembly buffer is unrotated,
-    // zoom-applied, and centered on u_paperCamera (see _worldToScreenEdgeX/Y
-    // in engine/index.ts for the forward mapping this inverts).
-    vec2 local = gl_FragCoord.xy - u_paperExtHalf;
-    vec2 worldPos = u_paperCamera + vec2(local.x, -local.y) * u_paperInvZoom;
+    vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    vec2 w3 = f * f * (-0.5 + 0.5 * f);
+
+    vec2 w12 = w1 + w2;
+    vec2 offset12 = w2 / w12;
+
+    vec2 texPos0  = (texPos1 - 1.0) / u_srcSize;
+    vec2 texPos3  = (texPos1 + 2.0) / u_srcSize;
+    vec2 texPos12 = (texPos1 + offset12) / u_srcSize;
+
+    vec4 result = vec4(0.0);
+    result += texture2D(u_accumulation, vec2(texPos0.x,  texPos0.y))  * w0.x  * w0.y;
+    result += texture2D(u_accumulation, vec2(texPos12.x, texPos0.y))  * w12.x * w0.y;
+    result += texture2D(u_accumulation, vec2(texPos3.x,  texPos0.y))  * w3.x  * w0.y;
+
+    result += texture2D(u_accumulation, vec2(texPos0.x,  texPos12.y)) * w0.x  * w12.y;
+    result += texture2D(u_accumulation, vec2(texPos12.x, texPos12.y)) * w12.x * w12.y;
+    result += texture2D(u_accumulation, vec2(texPos3.x,  texPos12.y)) * w3.x  * w12.y;
+
+    result += texture2D(u_accumulation, vec2(texPos0.x,  texPos3.y))  * w0.x  * w3.y;
+    result += texture2D(u_accumulation, vec2(texPos12.x, texPos3.y))  * w12.x * w3.y;
+    result += texture2D(u_accumulation, vec2(texPos3.x,  texPos3.y))  * w3.x  * w3.y;
+
+    return result;
+  }
+
+  void main() {
+    vec2 dstPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_dstSize;
+
+    vec3 srcPx = u_matrixInv * vec3(dstPx, 1.0);
+    vec2 srcUV = vec2(srcPx.x / u_srcSize.x, 1.0 - srcPx.y / u_srcSize.y);
+    // Outside the accumulation buffer reads as "no strokes here", not as a
+    // transparent hole: the assembly buffer is sized so any rotation still
+    // covers the screen (see _renderBufferExtent), but if that ever fails
+    // at a corner the honest fallback is bare paper, not a punched-out gap.
+    bool inside = srcUV.x >= 0.0 && srcUV.x <= 1.0 && srcUV.y >= 0.0 && srcUV.y <= 1.0;
+    vec4 acc = vec4(0.0);
+    if (inside) {
+      // Branch on a uniform, so it's uniform control flow across the whole
+      // draw — every fragment takes the same side, no divergence cost.
+      acc = u_sharpResample > 0.5 ? sampleCatmullRom(srcUV) : texture2D(u_accumulation, srcUV);
+    }
+    // Catmull-Rom overshoot clamp (see sampleCatmullRom's own comment): the
+    // accumulation buffer holds premultiplied color in .rgb and coverage in
+    // .a, so every valid sample is within [0,1] and anything outside is
+    // ringing, not signal. Harmless for the bilinear path, which can't
+    // leave that range to begin with.
+    acc = clamp(acc, 0.0, 1.0);
+
+    float graphite = acc.a;
+    // Clamped for the same reason: un-premultiplying a slightly-overshot
+    // color by a small alpha can land well outside [0,1], which the mix()es
+    // below would happily extrapolate into a bright fringe.
+    vec3 strokeColor = graphite > 0.001 ? clamp(acc.rgb / graphite, 0.0, 1.0) : vec3(0.0);
+
+    vec2 worldPos = (u_screenToWorld * vec3(dstPx, 1.0)).xy;
     vec2 paperUV = worldPos / u_paperTexSize * u_paperScale;
     float paperHeight = texture2D(u_paperMap, paperUV).r;
 

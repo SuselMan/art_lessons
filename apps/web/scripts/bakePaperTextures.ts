@@ -110,7 +110,7 @@ for (const type of PAPER_GRAIN_TYPES) {
     for (let x = 0; x < res; x++) {
       // `.r` is the display curve, `.a` the raw-height-derived catch — see
       // paperDisplayHeight on why only one of them is remapped.
-      const h = paperDisplayHeight(paperGridHeight(type, x + 0.5, y + 0.5, res, res))
+      const h = paperDisplayHeight(type, paperGridHeight(type, x + 0.5, y + 0.5, res, res))
       const catchV = paperGridCatch(type, x + 0.5, y + 0.5, res, res)
       const i = y * res + x
       height[i] = h

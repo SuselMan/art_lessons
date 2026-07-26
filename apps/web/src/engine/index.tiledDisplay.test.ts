@@ -6,7 +6,8 @@
 // unaffected on-screen compositing path.
 import { describe, expect, it } from 'vitest'
 
-import { compositeCenterFor, createTestEngine, fillStroke, makeLayerAdd, readCompositePixels } from './testing/engineTestUtils'
+import { compositeCenterFor, compositeScaleFor, createTestEngine, fillStroke, makeLayerAdd, readCompositePixels, rotateMatrixInvFor, screenToWorldFor } from './testing/engineTestUtils'
+import { applyAffine } from './src/affine'
 import { TILE_SIZE } from './src/tileMath'
 
 // Reads one texel's alpha out of a readCompositePixels() Uint8Array
@@ -200,5 +201,54 @@ describe('infinite canvas: camera-relative on-screen composite (#133)', () => {
     const offsetY = center.y - canvas.height / 2
     expect(Number.isInteger(offsetX)).toBe(true)
     expect(Number.isInteger(offsetY)).toBe(true)
+  })
+
+  // (#301) The single screen pass samples strokes through one inverse
+  // mapping (screen px -> assembly px) and paper grain through another
+  // (screen px -> world). If those two ever disagree, the grain slides out
+  // from under the strokes it's supposed to be sitting in — the exact
+  // failure mode moving the paper blend *after* the rotation could
+  // introduce, and one MockGL can't see (it never rasterizes
+  // PAPER_COMPOSE_FRAG — see its module docstring). So this checks the
+  // matrices compose correctly instead: pushing a screen pixel through
+  // screen->world and then back through the composite's own forward
+  // world->assembly mapping must land exactly where screen->assembly says
+  // it does, at a rotated, off-origin, non-unit-zoom camera where every
+  // term is in play.
+  it('the paper and stroke lookups of the screen pass agree on where a screen pixel is in the world', () => {
+    const { engine, canvas } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 64, height: 64 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
+    const camera = { wx: 137.5, wy: -820.25, zoom: 1.75, angle: 0.6 }
+    engine.setInfiniteCamera(camera.wx, camera.wy, camera.zoom, camera.angle)
+
+    const toWorld = screenToWorldFor(engine)
+    const toAssembly = rotateMatrixInvFor(engine)
+    const center = compositeCenterFor(engine)
+    // (#301) The assembly caps at world resolution, so above zoom 1 this is
+    // deliberately not the camera's zoom — the rest of the magnification
+    // rides along in the rotate matrix instead. That split is exactly what
+    // this test has to hold across.
+    const scale = compositeScaleFor(engine)
+    expect(scale).toBe(1)
+
+    for (const [sx, sy] of [[0, 0], [32, 32], [63, 17], [7, 61]]) {
+      const [worldX, worldY] = applyAffine(toWorld, sx, sy)
+      // The composite's own forward placement of that world point — the
+      // unrounded form of _worldToScreenEdgeX/Y (which rounds only to keep
+      // adjacent tile edges sharing a pixel; see its own doc comment).
+      const expectedAssemblyX = (worldX - camera.wx) * scale + center.x
+      const expectedAssemblyY = (worldY - camera.wy) * scale + center.y
+
+      const [assemblyX, assemblyY] = applyAffine(toAssembly, sx, sy)
+      expect(assemblyX).toBeCloseTo(expectedAssemblyX, 6)
+      expect(assemblyY).toBeCloseTo(expectedAssemblyY, 6)
+    }
+
+    // Sanity anchor on the same mapping: the canvas center is, by
+    // definition, the camera's own world point — whatever the rotation.
+    const [centerWorldX, centerWorldY] = applyAffine(toWorld, canvas.width / 2, canvas.height / 2)
+    expect(centerWorldX).toBeCloseTo(camera.wx, 6)
+    expect(centerWorldY).toBeCloseTo(camera.wy, 6)
   })
 })

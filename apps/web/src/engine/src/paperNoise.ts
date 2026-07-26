@@ -556,22 +556,43 @@ export function paperGridHeight(
   return Math.pow(clampNum(raw, 0, 1), 1 / contrast)
 }
 
-// (#300) The raw height map is heavily skewed toward black — measured mean
-// ~0.15 with sd ~0.10 across the grid, because the fBm sits low and the
+// (#300) The raw height map is heavily skewed toward black — measured means
+// run 0.065 to 0.174 across the grid, because the fBm sits low and the
 // contrast exponent pushes it lower still. That's fine for `catch`, which
-// only ever looks at *differences* between neighbouring texels, but it makes
-// the display tint useless: a tone offset centred on 0.5 spends almost all
-// its range pushing a value that's already near zero further down, leaving
-// well under one 8-bit level of actual variation on a dark paper colour.
+// only ever looks at *differences* between neighbouring texels, but it wrecks
+// the display tint: the tone offset is symmetric around the midpoint, so a
+// distribution parked near 0.1 spends almost every pixel on one side of it.
+// That asymmetry is what made the same grain read as far too strong on white
+// paper and completely invisible on black.
+//
+// One gamma can't fix all nine — the raw means differ by a factor of nearly
+// three — so each type carries its own, chosen as log(0.5)/log(rawMean) to
+// land that type's mean at the midpoint. Measured, not guessed;
+// paperNoise.test.ts re-derives the means and fails if any type has drifted
+// away from 0.5, which is the signal to re-solve this table.
 //
 // Applied to the `.r` channel only. `paperGridCatch` deliberately keeps
-// reading the raw height: this is a display curve, and running it through
-// the finite differences that feed real dab deposit would change how the
-// pencil behaves, not just how the page looks.
-const PAPER_DISPLAY_GAMMA = 0.45
+// reading raw height: this is a display curve, and running it through the
+// finite differences that feed real dab deposit would change how the pencil
+// behaves, not just how the page looks.
+// Solved numerically for mean(h^gamma) = 0.5, by bisection over a dense
+// sample of each type. Not log(0.5)/log(mean h) — that centres the mean
+// *raised to* gamma, which by Jensen's inequality is a different (and here
+// visibly wrong) quantity.
+const PAPER_DISPLAY_GAMMA: Record<PaperGrainType, number> = {
+  'coarse-fbm':      0.296,
+  'coarse-capsules': 0.319,
+  'coarse-streak':   0.298,
+  'medium-fbm':      0.224,
+  'medium-capsules': 0.242,
+  'medium-streak':   0.224,
+  'fine-fbm':        0.170,
+  'fine-capsules':   0.184,
+  'fine-streak':     0.169,
+}
 
-export function paperDisplayHeight(rawHeight: number): number {
-  return Math.pow(clampNum(rawHeight, 0, 1), PAPER_DISPLAY_GAMMA)
+export function paperDisplayHeight(type: PaperGrainType, rawHeight: number): number {
+  return Math.pow(clampNum(rawHeight, 0, 1), PAPER_DISPLAY_GAMMA[type])
 }
 
 /** Graphite-catch value — the `.a` channel. Same finite-difference-and-
