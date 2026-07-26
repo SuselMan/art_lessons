@@ -14,6 +14,13 @@ export type DrawingTool = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker'
 // here for the same reason liner did (#245 follow-up): it's a real drawing
 // tool with its own color field, so the Color side-panel tab/colorTool logic
 // in Room/index.tsx needs to be able to name it too.
+//
+// NOT the list of tools that own a color — that's ColorCapableTool in
+// toolSchemas.ts, a separate capability that today happens to cover the same
+// three members but answers a different question (see its own comment). Any
+// consumer that means "whose color am I editing?" should say ColorCapableTool;
+// this type only means "what do I switch back to when the eraser is toggled
+// off?".
 export type PrimaryDrawingTool = 'pencil' | 'liner' | 'marker'
 
 function isPrimaryDrawingTool(tool: DrawingTool): tool is PrimaryDrawingTool {

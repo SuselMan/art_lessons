@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LayerState } from '@art-lessons/shared'
+import type { LayerState, Operation } from '@art-lessons/shared'
 
 import { encodeLayerTiles, encodeRoomSnapshot } from '../../engine/src/snapshotCodec'
-import { fetchHistoryPage, fetchLatestSnapshot } from './snapshotRestore'
+import { fetchHistoryPage, fetchLatestSnapshot, HISTORY_PAGE_LIMIT, walkHistoryBackward } from './snapshotRestore'
 
 function bytesToBase64(bytes: Uint8Array): string {
   let binary = ''
@@ -76,5 +76,77 @@ describe('fetchHistoryPage', () => {
   it('returns an empty array when the request itself throws', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('network down'))
     await expect(fetchHistoryPage('room-1', 300)).resolves.toEqual([])
+  })
+})
+
+// (#291) The walk used to run to seq 0 unconditionally. That only stayed
+// affordable while the server pruned pre-snapshot operations on idle; once
+// #289 disabled pruning, opening a long room pulled its entire history —
+// 66 MB in one response for production room nHImlawW, enough to freeze a
+// desktop renderer and OOM a tablet. These pin the bound.
+describe('walkHistoryBackward', () => {
+  // Server contract (getOperationsBefore): the newest `limit` operations
+  // strictly below `beforeSeq`, oldest first.
+  function fakeServer(totalOps: number) {
+    const calls: Array<{ beforeSeq: number; limit: number }> = []
+    const fetchPage = async (_roomId: string, beforeSeq: number, limit = HISTORY_PAGE_LIMIT) => {
+      calls.push({ beforeSeq, limit })
+      const all = Array.from({ length: totalOps }, (_, i) => ({ id: `op-${i + 1}`, seq: i + 1 }))
+      const below = all.filter(op => op.seq < beforeSeq)
+      return below.slice(Math.max(0, below.length - limit)) as unknown as Operation[]
+    }
+    return { calls, fetchPage }
+  }
+
+  it('stops `depth` operations short of fromSeq instead of walking to the room start', async () => {
+    const { fetchPage } = fakeServer(500)
+    const seen: number[] = []
+    await walkHistoryBackward('room-1', 500, 100, page => seen.push(...page.map(op => op.seq!)), fetchPage)
+
+    // Exactly `depth` operations, ending just below fromSeq — 400..499, not
+    // 1..499.
+    expect(Math.min(...seen)).toBe(400)
+    expect(Math.max(...seen)).toBe(499)
+    expect(seen).toHaveLength(100)
+  })
+
+  it('never asks for more than the window still needs', async () => {
+    const { calls, fetchPage } = fakeServer(500)
+    await walkHistoryBackward('room-1', 500, 100, () => {}, fetchPage)
+
+    expect(calls[0]).toEqual({ beforeSeq: 500, limit: 100 })
+    for (const call of calls) expect(call.limit).toBeLessThanOrEqual(100)
+  })
+
+  it('walks the whole history when the room is younger than the window', async () => {
+    const { fetchPage } = fakeServer(30)
+    const seen: number[] = []
+    await walkHistoryBackward('room-1', 30, 100, page => seen.push(...page.map(op => op.seq!)), fetchPage)
+
+    expect(Math.min(...seen)).toBe(1)
+    expect(seen).toHaveLength(29)
+  })
+
+  it('does nothing at all for depth 0', async () => {
+    const { calls, fetchPage } = fakeServer(500)
+    await walkHistoryBackward('room-1', 500, 0, () => { throw new Error('should not be called') }, fetchPage)
+    expect(calls).toHaveLength(0)
+  })
+
+  it('gives up on an empty page rather than spinning', async () => {
+    const fetchPage = vi.fn().mockResolvedValue([])
+    await walkHistoryBackward('room-1', 500, 100, () => { throw new Error('should not be called') }, fetchPage)
+    expect(fetchPage).toHaveBeenCalledTimes(1)
+  })
+
+  // A server that ignored beforeSeq (or rows with no seq) would otherwise
+  // hand back the same page forever.
+  it('gives up when a page does not actually advance the cursor', async () => {
+    const fetchPage = vi.fn().mockResolvedValue([{ id: 'x', seq: 500 }, { id: 'y', seq: 501 }])
+    let pages = 0
+    await walkHistoryBackward('room-1', 500, 100, () => { pages++ }, fetchPage)
+
+    expect(fetchPage).toHaveBeenCalledTimes(1)
+    expect(pages).toBe(1)
   })
 })

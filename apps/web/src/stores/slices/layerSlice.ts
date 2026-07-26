@@ -1,12 +1,10 @@
 import type { StateCreator } from 'zustand'
-import { BACKGROUND_LAYER_ID, type LayerState, type Operation } from '@art-lessons/shared'
+import { BACKGROUND_LAYER_ID, INITIAL_LAYER_ID, type LayerState, type Operation } from '@art-lessons/shared'
 
 import { replayLayerState, overlayLocalFields } from '../../lib/layers'
 import type { RulerPoint } from '../../pages/Room/RulerOverlay'
 import type { TransformBounds } from '../../pages/Room/TransformGizmo'
 import type { AffineMatrix } from '../../pages/Room/transformMath'
-
-const INITIAL_LAYER_ID = 'layer-1'
 
 export function makeInitialLayerState(): LayerState {
   return {

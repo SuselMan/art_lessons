@@ -1,8 +1,10 @@
 import bcrypt from 'bcryptjs'
-import { gunzipSync } from 'node:zlib'
+import { createGunzip } from 'node:zlib'
 import { createHash } from 'node:crypto'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import type { Operation, Participant, RejectReason, Room } from '@art-lessons/shared'
-import { BACKGROUND_LAYER_ID, DEFAULT_PALETTE_COLORS, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
+import { DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
@@ -76,7 +78,7 @@ interface RoomRecord {
   // not ephemeral session state.
   lockedLayerIds: Set<string>
   // (#289 epic, reliable history spec v0.2 §8) Which layerId/folderId are
-  // currently alive — created (base `BACKGROUND_LAYER_ID`, or a done
+  // currently alive — created (the baked-in `IMPLICIT_LAYER_IDS`, or a done
   // `layer_add`/`folder_add`/`layer_merge` result) and not since destroyed
   // (listed in a done `layer_delete`, or consumed as a `layer_merge`
   // source). Kept in sync by `updateAliveIds` whenever an operation is
@@ -136,10 +138,22 @@ const pendingWrite = new Map<string, Promise<void>>()
 
 function enqueueWrite(roomId: string, run: () => Promise<unknown>): void {
   const prior = pendingWrite.get(roomId) ?? Promise.resolve()
-  const next = prior.then(run).then(
+  const next: Promise<void> = prior.then(run).then(
     () => {},
     err => { console.error(`failed to persist write for room ${roomId}`, err) },
-  )
+  ).finally(() => {
+    // (#292) Drop the entry once it's settled and nothing has chained onto
+    // it since. Without this the map only ever grew: one entry per room this
+    // process has *ever* written to, outliving the room's own eviction and
+    // living until restart. Individually tiny, but unbounded in count — and
+    // it kept the last write's whole closure reachable along with it.
+    //
+    // The identity check is what makes this safe: a write enqueued while
+    // this one was in flight has already replaced the entry with its own
+    // promise, and that one must survive so `leaveRoom` still defers
+    // eviction behind it.
+    if (pendingWrite.get(roomId) === next) pendingWrite.delete(roomId)
+  })
   pendingWrite.set(roomId, next)
 }
 
@@ -208,6 +222,53 @@ function pruneOperationsBeforeSnapshot(_roomId: string, _latestSnapshotSeq: numb
   // Intentionally a no-op — see the doc comment above.
 }
 
+/** (#292) Operation types that must stay resident for a room's whole life,
+ *  however old they are. `aliveIds` and `lockedLayerIds` are rebuilt by
+ *  folding over `RoomRecord.operations`, so dropping any of these from the
+ *  window would silently corrupt those mirrors: a `layer_add` older than the
+ *  window would make its layer permanently undeletable (`target_gone` — the
+ *  exact shape of #291's initial-layer bug), and a dropped `layer_owner_lock`
+ *  would quietly unlock a layer on the next server restart.
+ *
+ *  All of them are a few hundred bytes each. The heavy types — `stroke` and
+ *  `image_import`, which carry dab arrays and inline base64 image data — are
+ *  deliberately absent: their pixels are exactly what a snapshot already
+ *  contains, so below the snapshot they are pure weight. */
+const STRUCTURAL_OP_TYPES = ['layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_owner_lock']
+
+/** (#292) The subset of a room's log that has to live in RAM.
+ *
+ *  Everything strictly after the latest snapshot (that's the part no
+ *  snapshot covers, so it must be replayed on top of one), plus the
+ *  structural operations above, at any age. Everything else stays in
+ *  Postgres and is served page-by-page by `getOperationsBefore` when a
+ *  client actually backfills undo history.
+ *
+ *  A room with no snapshot yet loads in full: there is nothing to bound
+ *  against, and `getRoomSnapshot` would otherwise hand a joining client a
+ *  tail with holes in it. */
+async function loadResidentOperations(roomId: string, latestSnapshotSeq: number | null): Promise<Operation[]> {
+  const where = latestSnapshotSeq === null
+    ? { roomId }
+    : { roomId, OR: [{ seq: { gt: latestSnapshotSeq } }, { type: { in: STRUCTURAL_OP_TYPES } }] }
+  const rows = await prisma.operation.findMany({ where, orderBy: { seq: 'asc' }, select: { data: true } })
+  return rows.map(row => row.data as Operation)
+}
+
+/** (#292) Drops what a freshly-stored snapshot has just made redundant, so a
+ *  long live session stays as bounded as a cold load is. Without this the
+ *  resident set only ever grows between restarts — the snapshot mechanism
+ *  would bound rejoins while the process itself kept every stroke of a
+ *  marathon room in the heap. Same window rule as loadResidentOperations. */
+function trimResidentOperations(record: RoomRecord): void {
+  const floor = record.latestSnapshotSeq
+  if (floor === null) return
+  record.operations = record.operations.filter(
+    op => (op.seq ?? 0) > floor || STRUCTURAL_OP_TYPES.includes(op.type),
+  )
+  record.operationsById = new Map(record.operations.map(op => [op.id, op]))
+}
+
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
  *  already there — called by socketHandlers.ts right before `createRoom`/
  *  `joinRoom` so those can stay synchronous. A no-op (returns immediately,
@@ -222,18 +283,27 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     // (#209) thumbnail narrowed to `updatedAt` only, same reasoning as
     // roomRoutes.ts's list query — the PNG bytes themselves are never needed
     // just to populate in-memory room state.
-    include: { operations: { orderBy: { seq: 'asc' } }, thumbnail: { select: { updatedAt: true } } },
+    //
+    // (#292) `operations` deliberately NOT included here any more — that
+    // was one unbounded query pulling every row the room had ever written
+    // into the heap. See loadResidentOperations.
+    include: { thumbnail: { select: { updatedAt: true } } },
   })
   if (!dbRoom) return false
-
-  const operations = dbRoom.operations.map(o => o.data as Operation)
-  let maxSeq = 0
-  for (const op of operations) maxSeq = Math.max(maxSeq, op.seq ?? 0)
-  const nextSeq = operations.length ? maxSeq + 1 : 1
 
   const latestSnapshot = await prisma.roomSnapshot.findFirst({
     where: { roomId }, orderBy: { seq: 'desc' }, select: { seq: true },
   })
+  const operations = await loadResidentOperations(roomId, latestSnapshot?.seq ?? null)
+
+  // (#292) Read from Postgres rather than from `operations`: the resident
+  // set is now a *window*, so its own highest seq is not necessarily the
+  // room's. A room whose newest operation sits at or below its latest
+  // snapshot loads no tail at all, and deriving nextSeq from the window
+  // would restart numbering in the middle of existing history — every new
+  // operation colliding with a stored seq.
+  const maxSeq = await prisma.operation.aggregate({ where: { roomId }, _max: { seq: true } })
+  const nextSeq = (maxSeq._max.seq ?? 0) + 1
 
   // A room created before this feature existed has no RoomPalette row yet —
   // seed it with the defaults now rather than leaving `palette` permanently
@@ -256,7 +326,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
 
   // (#289 epic) Rebuild the aliveIds mirror the same way — see its own doc
   // comment on RoomRecord.
-  const aliveIds = new Set<string>([BACKGROUND_LAYER_ID])
+  const aliveIds = new Set<string>(IMPLICIT_LAYER_IDS)
   for (const op of operations) {
     if (op.type === 'layer_add' || op.type === 'folder_add') aliveIds.add(op.layerId)
     else if (op.type === 'layer_delete') { for (const id of op.layerIds) aliveIds.delete(id) }
@@ -339,7 +409,7 @@ export function createRoom(
   rooms.set(room.id, {
     room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette,
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
-    aliveIds: new Set([BACKGROUND_LAYER_ID]), operationsById: new Map(),
+    aliveIds: new Set(IMPLICIT_LAYER_IDS), operationsById: new Map(),
   })
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
@@ -421,19 +491,47 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
   const removed = record.participants.delete(userId)
   if (record.participants.size !== 0) return removed
 
+  evictWhenIdle(roomId, record.latestSnapshotSeq)
+  return removed
+}
+
+/** Evicts `roomId` from memory once it's genuinely unused, waiting out this
+ *  room's in-flight Postgres writes first (see `enqueueWrite`) and
+ *  re-checking participants afterward — a reconnect landing during the wait
+ *  repopulates the Map, and that room must not then be deleted out from
+ *  under it. */
+function evictWhenIdle(roomId: string, latestSnapshotSeq: number | null): void {
   const pending = pendingWrite.get(roomId)
   if (!pending) {
-    pruneOperationsBeforeSnapshot(roomId, record.latestSnapshotSeq)
+    pruneOperationsBeforeSnapshot(roomId, latestSnapshotSeq)
     rooms.delete(roomId)
-    return removed
+    return
   }
   pending.finally(() => {
     if (rooms.get(roomId)?.participants.size === 0) {
-      pruneOperationsBeforeSnapshot(roomId, record.latestSnapshotSeq)
+      pruneOperationsBeforeSnapshot(roomId, latestSnapshotSeq)
       rooms.delete(roomId)
     }
   })
-  return removed
+}
+
+/** (#292) Drops a room that was cold-loaded but never actually joined.
+ *
+ *  `ensureRoomLoaded` has to run *before* `joinRoom`, not after — the
+ *  password it checks lives in the record that load produces — so a wrong
+ *  password (or a disconnect during the load) left a fully populated room
+ *  sitting in the Map with zero participants. `leaveRoom` is the only thing
+ *  that ever evicts, and it never fires for someone who never got in, so
+ *  those rooms stayed resident until the process restarted. On a box where
+ *  one room can be tens of megabytes, a handful of mistyped passwords was
+ *  enough to strand a meaningful share of RAM.
+ *
+ *  Safe to call unconditionally after a rejected join: it does nothing at
+ *  all if anyone is actually in the room. */
+export function releaseRoomIfUnused(roomId: string): void {
+  const record = rooms.get(roomId)
+  if (!record || record.participants.size !== 0) return
+  evictWhenIdle(roomId, record.latestSnapshotSeq)
 }
 
 /** Test-only seam: resolves once `roomId`'s in-flight Postgres writes (if
@@ -683,6 +781,63 @@ function verifyDeterminismEnabled(): boolean {
   return process.env.SNAPSHOT_VERIFY_DETERMINISM === 'true'
 }
 
+/** sha256 of a gzipped payload's *decompressed* bytes, without ever holding
+ *  those bytes.
+ *
+ *  Hashing the decompressed form rather than the gzip bytes is deliberate
+ *  and must stay that way: gzip output is not guaranteed identical across
+ *  browsers or zlib versions for identical input, so hashing the compressed
+ *  form would report determinism violations that aren't ones — and catching
+ *  real pixel-determinism violations is the entire point of this hash (#149).
+ *
+ *  (#292) It used to be `gunzipSync(gzippedData)` into one buffer. Raw RGBA
+ *  tiles compress extremely well, so ~15 MB of gzip expanded to well over a
+ *  hundred megabytes in a single allocation, on a 960 MB box — the measured
+ *  source of the server's 730 MB memory peak, and all of it thrown away
+ *  immediately afterward. Streaming keeps only a chunk at a time; the hash
+ *  it produces is byte-for-byte the same. */
+async function hashOfDecompressed(gzipped: Uint8Array): Promise<string> {
+  const sha = createHash('sha256')
+  await pipeline(
+    // `Readable.from(buffer)` would iterate the buffer *byte by byte* (a
+    // Buffer is an iterable of numbers) — the single-element array is what
+    // makes this one chunk rather than N one-byte chunks.
+    Readable.from([Buffer.from(gzipped)]),
+    createGunzip(),
+    async source => { for await (const chunk of source) sha.update(chunk) },
+  )
+  return sha.digest('hex')
+}
+
+/** (#292) How many snapshots a room keeps. Nothing has ever deleted a
+ *  superseded one, so they accumulated indefinitely: on 2026-07-26 prod held
+ *  93 rows totalling 117 MB, of which 65 rows / 83 MB were older than each
+ *  room's newest and read by nothing at all — `getLatestSnapshot` only ever
+ *  takes `orderBy: seq desc` first.
+ *
+ *  Two rather than one: the previous snapshot is the only fallback if the
+ *  newest turns out to be baked from a corrupt client view (#287), and two
+ *  is exactly the depth the agreed undo rule already works in (spec v0.2
+ *  §7). This does not touch the raw operations — those are the actual
+ *  evidence #289's verification needs, and they stay untouched. */
+const SNAPSHOT_RETENTION = 2
+
+/** Deletes every snapshot older than this room's newest `SNAPSHOT_RETENTION`.
+ *  Fire-and-forget, and deliberately swallows its own errors: failing to
+ *  reclaim space must never fail the upload that triggered it. */
+async function deleteSupersededSnapshots(roomId: string): Promise<void> {
+  try {
+    const keep = await prisma.roomSnapshot.findMany({
+      where: { roomId }, orderBy: { seq: 'desc' }, take: SNAPSHOT_RETENTION, select: { seq: true },
+    })
+    if (keep.length < SNAPSHOT_RETENTION) return
+    const oldestKept = keep[keep.length - 1].seq
+    await prisma.roomSnapshot.deleteMany({ where: { roomId, seq: { lt: oldestKept } } })
+  } catch (err) {
+    console.error(`failed to prune superseded snapshots for room ${roomId}`, err)
+  }
+}
+
 export type SaveSnapshotResult =
   | { ok: true; created: true }
   | { ok: true; created: false; hashMismatch: boolean }
@@ -709,8 +864,7 @@ export async function saveSnapshot(
   if (!record) return { ok: false, error: 'unknown_room' }
   if (seq <= 0 || seq % SNAPSHOT_SEQ_INTERVAL !== 0) return { ok: false, error: 'not_a_checkpoint_seq' }
 
-  const decompressed = gunzipSync(gzippedData)
-  const hash = createHash('sha256').update(decompressed).digest('hex')
+  const hash = await hashOfDecompressed(gzippedData)
 
   try {
     await prisma.roomSnapshot.create({
@@ -721,6 +875,10 @@ export async function saveSnapshot(
       data: { roomId, seq, layerState: layerState as object, data: new Uint8Array(gzippedData), hash },
     })
     record.latestSnapshotSeq = Math.max(record.latestSnapshotSeq ?? 0, seq)
+    // (#292) This snapshot now covers everything up to `seq`, so the strokes
+    // it covers no longer need to be resident — see trimResidentOperations.
+    trimResidentOperations(record)
+    void deleteSupersededSnapshots(roomId)
     return { ok: true, created: true }
   } catch (err) {
     // P2002: unique constraint violation on (roomId, seq) — a snapshot for
@@ -772,20 +930,25 @@ export async function getLatestSnapshot(
  *  prependHistorical's own doc comment). An empty result means backfill has
  *  reached the beginning of the room's history.
  *
- *  Reads from the in-memory Map, same as `getRoomSnapshot` — `ensureRoomLoaded`
- *  already pulls everything Postgres still has for this room into
- *  `record.operations`, so there's no separate cold Postgres path needed
- *  here. Since 2026-07-19 (#206/#207) that's no longer literally the room's
- *  entire history forever — `leaveRoom` prunes whatever's already covered by
- *  a snapshot once the room goes idle — so "the beginning of the room's
- *  history" below means the oldest operation Postgres still has, which for
- *  a room that's had an idle gap is its current session's own start, not
- *  necessarily the room's true beginning. */
-export function getOperationsBefore(roomId: string, beforeSeq: number, limit: number): Operation[] {
-  const record = rooms.get(roomId)
-  if (!record) return []
-  const matching = record.operations.filter(op => (op.seq ?? 0) < beforeSeq)
-  return matching.slice(Math.max(0, matching.length - limit))
+ *  (#292) Queries Postgres directly rather than the in-memory Map. It used
+ *  to read `record.operations` on the premise that `ensureRoomLoaded` had
+ *  pulled the room's entire history into RAM — which is precisely the
+ *  premise that made a 1 GB box hold 500 MB of stroke JSON. The resident set
+ *  is now a window around the latest snapshot, and this endpoint asks for
+ *  exactly the operations that window deliberately excludes, so it has to go
+ *  to the source. An empty result means backfill has reached the beginning
+ *  of the room's stored history. */
+export async function getOperationsBefore(roomId: string, beforeSeq: number, limit: number): Promise<Operation[]> {
+  // `orderBy: seq desc` + take, then reversed: "the newest `limit`
+  // operations below beforeSeq" is a suffix, and the (roomId, seq) unique
+  // index makes it an indexed range scan rather than a full-table sort.
+  const rows = await prisma.operation.findMany({
+    where: { roomId, seq: { lt: beforeSeq } },
+    orderBy: { seq: 'desc' },
+    take: limit,
+    select: { data: true },
+  })
+  return rows.reverse().map(row => row.data as Operation)
 }
 
 /** Appends an operation to the room's log (#34/#35), stamping it with the

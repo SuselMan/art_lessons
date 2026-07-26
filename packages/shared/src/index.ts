@@ -33,6 +33,16 @@ export interface LayerState {
 
 export const BACKGROUND_LAYER_ID = 'background'
 
+// The two layers every room starts with. Neither is ever produced by a
+// `layer_add` operation — they are baked into the client's initial
+// LayerState (see makeInitialLayerState) and therefore exist from seq 0 with
+// nothing in the operation log to prove it. Anything that reconstructs "which
+// layers exist" by folding over the log alone (the server's `aliveIds`
+// mirror, #289) MUST seed itself from this list, or it will treat the initial
+// layer as never-created and reject every delete/merge/transform touching it.
+export const INITIAL_LAYER_ID = 'layer-1'
+export const IMPLICIT_LAYER_IDS: readonly string[] = [BACKGROUND_LAYER_ID, INITIAL_LAYER_ID]
+
 // Room
 
 export type PaperType = 'rough' | 'smooth' | 'bristol'

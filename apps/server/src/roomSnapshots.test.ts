@@ -7,8 +7,8 @@ import { SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
 import type { StrokeOperation } from '@art-lessons/shared'
 
 import {
-  _flushPendingWrites, createRoom, getLatestSnapshot, getRoomSnapshot, joinRoom, leaveRoom, recordOperation,
-  saveSnapshot,
+  _flushPendingWrites, createRoom, getLatestSnapshot, getOperationsBefore, getRoomSnapshot, joinRoom, leaveRoom,
+  recordOperation, saveSnapshot,
 } from './rooms.js'
 
 // rooms.test.ts deliberately runs with no real Postgres — every DB call it
@@ -27,9 +27,12 @@ const mockPrisma = vi.hoisted(() => ({
     create: vi.fn(),
     findUnique: vi.fn(),
     findFirst: vi.fn(),
+    findMany: vi.fn(),
+    deleteMany: vi.fn(),
   },
   operation: {
     deleteMany: vi.fn(),
+    findMany: vi.fn(),
   },
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
@@ -63,6 +66,11 @@ beforeEach(() => {
   mockPrisma.roomSnapshot.findUnique.mockReset()
   mockPrisma.roomSnapshot.findFirst.mockReset()
   mockPrisma.operation.deleteMany.mockReset().mockResolvedValue({ count: 0 })
+  // (#292) saveSnapshot now fires deleteSupersededSnapshots — default these
+  // to "room has one snapshot, nothing to prune" so the tests above, which
+  // are about saving rather than retention, stay unaffected by it.
+  mockPrisma.roomSnapshot.findMany.mockReset().mockResolvedValue([])
+  mockPrisma.roomSnapshot.deleteMany.mockReset().mockResolvedValue({ count: 0 })
 })
 
 afterEach(() => {
@@ -201,5 +209,106 @@ describe('leaveRoom no longer prunes operations (#289 — pending snapshot verif
     await _flushPendingWrites(roomId)
 
     expect(mockPrisma.operation.deleteMany).not.toHaveBeenCalled()
+  })
+})
+
+// (#292) Moved here from rooms.test.ts when this stopped reading
+// `record.operations`. The resident set is now a window around the latest
+// snapshot; this endpoint serves exactly the operations that window
+// excludes, so it has to query Postgres.
+describe('getOperationsBefore', () => {
+  beforeEach(() => { mockPrisma.operation.findMany.mockReset() })
+
+  it('asks for the newest `limit` operations strictly below beforeSeq', async () => {
+    mockPrisma.operation.findMany.mockResolvedValueOnce([])
+    await getOperationsBefore('room-1', 400, 100)
+
+    expect(mockPrisma.operation.findMany).toHaveBeenCalledWith({
+      where: { roomId: 'room-1', seq: { lt: 400 } },
+      orderBy: { seq: 'desc' },
+      take: 100,
+      select: { data: true },
+    })
+  })
+
+  // The client merges every page at the very front of its log
+  // (OperationLog.prependHistorical), so a page must arrive oldest-first
+  // even though the query that produced it walks backward.
+  it('returns the page oldest-first, reversing the descending query', async () => {
+    mockPrisma.operation.findMany.mockResolvedValueOnce([
+      { data: { id: 'c', seq: 3 } }, { data: { id: 'b', seq: 2 } }, { data: { id: 'a', seq: 1 } },
+    ])
+    expect((await getOperationsBefore('room-1', 4, 3)).map(o => o.id)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('returns an empty page once backfill reaches the start of stored history', async () => {
+    mockPrisma.operation.findMany.mockResolvedValueOnce([])
+    expect(await getOperationsBefore('room-1', 1, 100)).toEqual([])
+  })
+
+  // No in-memory record is consulted any more, so a room this process has
+  // never loaded is answerable — it simply has no rows.
+  it('answers for a room that was never loaded into memory', async () => {
+    mockPrisma.operation.findMany.mockResolvedValueOnce([{ data: { id: 'a', seq: 1 } }])
+    expect((await getOperationsBefore('never-loaded', 100, 500)).map(o => o.id)).toEqual(['a'])
+  })
+})
+
+// (#292) Nothing ever deleted a superseded snapshot: prod held 93 rows /
+// 117 MB on 2026-07-26, 65 of them older than their room's newest and read
+// by nothing.
+describe('snapshot retention', () => {
+  beforeEach(() => {
+    mockPrisma.roomSnapshot.findMany.mockReset()
+    mockPrisma.roomSnapshot.deleteMany.mockReset()
+    mockPrisma.roomSnapshot.deleteMany.mockResolvedValue({ count: 0 })
+  })
+
+  async function saveAt(roomId: string, seq: number) {
+    mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, seq, {}, gzippedPayload)
+    // deleteSupersededSnapshots is fire-and-forget from saveSnapshot.
+    await new Promise(resolve => setImmediate(resolve))
+  }
+
+  it('deletes everything below the second-newest snapshot', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomSnapshot.findMany.mockResolvedValueOnce([
+      { seq: 300 }, { seq: 200 },
+    ])
+    await saveAt(roomId, 300)
+
+    expect(mockPrisma.roomSnapshot.deleteMany).toHaveBeenCalledWith({
+      where: { roomId, seq: { lt: 200 } },
+    })
+  })
+
+  it('keeps both when a room only has two — nothing is superseded yet', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomSnapshot.findMany.mockResolvedValueOnce([{ seq: 200 }, { seq: 100 }])
+    await saveAt(roomId, 200)
+
+    // Still issues the delete, but bounded below the older of the two, so it
+    // matches nothing — simpler than special-casing, and the query is indexed.
+    expect(mockPrisma.roomSnapshot.deleteMany).toHaveBeenCalledWith({
+      where: { roomId, seq: { lt: 100 } },
+    })
+  })
+
+  it('deletes nothing at all when the room has fewer than two snapshots', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomSnapshot.findMany.mockResolvedValueOnce([{ seq: 100 }])
+    await saveAt(roomId, 100)
+
+    expect(mockPrisma.roomSnapshot.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('never fails the upload when pruning throws', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomSnapshot.findMany.mockRejectedValueOnce(new Error('db down'))
+    mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
+
+    await expect(saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload))
+      .resolves.toEqual({ ok: true, created: true })
   })
 })

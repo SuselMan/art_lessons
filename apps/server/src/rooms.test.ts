@@ -4,11 +4,12 @@ import type {
   LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerOwnerLockOperation, LayerTransformOperation,
   LayerVisibilityOperation, Operation, StrokeOperation,
 } from '@art-lessons/shared'
+import { INITIAL_LAYER_ID } from '@art-lessons/shared'
 
 import {
-  _flushPendingWrites, createRoom, findDuplicateOperation, getOperationRejectReason, getOperationsBefore,
+  _flushPendingWrites, createRoom, findDuplicateOperation, getOperationRejectReason,
   getParticipant, getRoomSnapshot, isLayerOwnerLocked, isOperationAllowed, isRoomFrozen, joinRoom, leaveRoom,
-  recordOperation, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, updateAliveIds,
+  recordOperation, releaseRoomIfUnused, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 
 // Each test uses its own roomId — `rooms` is module-level shared state with no
@@ -419,51 +420,12 @@ describe('recordOperation', () => {
   })
 })
 
-// #169 background backfill: purely in-memory (record.operations already
-// holds the room's full history — see ensureRoomLoaded), so unlike
-// saveSnapshot/getLatestSnapshot this needs no Postgres mocking.
-describe('getOperationsBefore', () => {
-  it('returns every operation strictly before beforeSeq when it all fits in one page', () => {
-    const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    recordOperation(roomId, stroke({ id: 'a' })) // seq 1
-    recordOperation(roomId, stroke({ id: 'b' })) // seq 2
-    recordOperation(roomId, stroke({ id: 'c' })) // seq 3
-    recordOperation(roomId, stroke({ id: 'd' })) // seq 4
-
-    expect(getOperationsBefore(roomId, 4, 500).map(o => o.id)).toEqual(['a', 'b', 'c'])
-  })
-
-  it('caps a page to the last `limit` operations before beforeSeq — the page immediately preceding it', () => {
-    // Anchored at beforeSeq and walking backward (not forward from a
-    // cursor): the client always merges a page at the very front of its
-    // log, so pages must arrive oldest-page-last, newest-before-the-anchor-
-    // first — see the function's own doc comment.
-    const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    for (let i = 0; i < 5; i++) recordOperation(roomId, stroke({ id: `op-${i}` })) // seq 1..5
-
-    expect(getOperationsBefore(roomId, 100, 2).map(o => o.id)).toEqual(['op-3', 'op-4'])
-  })
-
-  it('walking a room\'s full history backward, page by page, eventually reaches an empty page', () => {
-    const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    for (let i = 0; i < 5; i++) recordOperation(roomId, stroke({ id: `op-${i}` })) // seq 1..5
-
-    const page1 = getOperationsBefore(roomId, 6, 2)
-    expect(page1.map(o => o.id)).toEqual(['op-3', 'op-4'])
-    const page2 = getOperationsBefore(roomId, page1[0].seq!, 2)
-    expect(page2.map(o => o.id)).toEqual(['op-1', 'op-2'])
-    const page3 = getOperationsBefore(roomId, page2[0].seq!, 2)
-    expect(page3.map(o => o.id)).toEqual(['op-0'])
-    expect(getOperationsBefore(roomId, page3[0].seq!, 2)).toEqual([])
-  })
-
-  it('returns nothing for an unknown room', () => {
-    expect(getOperationsBefore('never-created', 100, 500)).toEqual([])
-  })
-})
+// (#292) getOperationsBefore's tests moved to roomSnapshots.test.ts. It used
+// to read `record.operations`, which made it testable in this file's
+// all-in-memory style; it now queries Postgres (the resident set is a window
+// around the latest snapshot, and this endpoint serves exactly what that
+// window excludes), so it belongs with the other DB-awaiting functions,
+// where prisma is mocked.
 
 // #254/#256: room-wide freeze — a plain in-memory flag, never persisted.
 describe('setRoomFrozen / isRoomFrozen', () => {
@@ -784,9 +746,37 @@ describe('getOperationRejectReason — target_gone', () => {
   it('allows layer_delete targeting a layer updateAliveIds already knows about', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    updateAliveIds(roomId, layerAdd({ layerId: 'layer-1' }))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-new' }))
 
-    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-1'] }))).toBeNull()
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-new'] }))).toBeNull()
+  })
+
+  // Regression: the room's two baked-in layers (`IMPLICIT_LAYER_IDS`) exist
+  // from seq 0 with no `layer_add` in the log to prove it, so seeding
+  // aliveIds from the log alone made deleting the initial layer — the one
+  // every drawing actually starts on — permanently impossible.
+  it('allows deleting the baked-in initial layer, which no layer_add ever created', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: [INITIAL_LAYER_ID] }))).toBeNull()
+  })
+
+  it('allows merging the baked-in initial layer with a later one', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-new' }))
+
+    const merge = layerMerge({ sources: [{ id: INITIAL_LAYER_ID, opacity: 1 }, { id: 'layer-new', opacity: 1 }] })
+    expect(getOperationRejectReason(roomId, 'owner-1', merge)).toBeNull()
+  })
+
+  it('allows transforming the baked-in initial layer', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    const transform = layerTransform({ transforms: [{ layerId: INITIAL_LAYER_ID, matrix: [1, 0, 0, 1, 0, 0] }] })
+    expect(getOperationRejectReason(roomId, 'owner-1', transform)).toBeNull()
   })
 
   it('rejects layer_delete targeting a layer that was never added', () => {
@@ -850,12 +840,12 @@ describe('updateAliveIds', () => {
   it('adds layer_add/folder_add ids, removes layer_delete ids', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    updateAliveIds(roomId, layerAdd({ layerId: 'layer-1' }))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-x' }))
 
-    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-1'] }))).toBeNull()
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBeNull()
 
-    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-1'] }))
-    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-1'] })))
+    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-x'] }))
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] })))
       .toBe('target_gone')
   })
 
@@ -874,5 +864,55 @@ describe('updateAliveIds', () => {
 
   it('is a no-op for an unknown room', () => {
     expect(() => updateAliveIds('never-created', layerAdd())).not.toThrow()
+  })
+})
+
+// (#292) ensureRoomLoaded has to run before joinRoom (the password it checks
+// lives in the record that load produces), so a rejected join used to leave
+// a fully populated room in memory with nobody in it — and leaveRoom, the
+// only thing that evicts, never fires for someone who never got in.
+// Note on coverage: the end-to-end path this exists for — ensureRoomLoaded
+// materialises a room, joinRoom then rejects the password, nobody is left in
+// it — lives in socketHandlers.ts, which has no test harness here. What
+// follows pins the eviction primitive itself.
+describe('releaseRoomIfUnused', () => {
+  it('evicts a resident room that has no participants left', async () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), 'hunter2', 'owner-1', 'Teacher', sock('owner-1'))
+    // leaveRoom drops the last participant but defers the eviction itself
+    // behind this room's pending writes, so right here the room is still
+    // resident with zero participants — the same shape a rejected join
+    // leaves behind.
+    leaveRoom(roomId, 'owner-1', sock('owner-1'))
+    expect(getRoomSnapshot(roomId)).toBeDefined()
+
+    releaseRoomIfUnused(roomId)
+    await _flushPendingWrites(roomId)
+    expect(getRoomSnapshot(roomId)).toBeUndefined()
+  })
+
+  it('leaves a room alone while anyone is still in it', async () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    releaseRoomIfUnused(roomId)
+    await _flushPendingWrites(roomId)
+    expect(getRoomSnapshot(roomId)).toBeDefined()
+    expect(getParticipant(roomId, 'owner-1')).toBeDefined()
+  })
+
+  it('is a no-op on a room that was never loaded', () => {
+    expect(() => releaseRoomIfUnused('never-created')).not.toThrow()
+  })
+
+  it('does not disturb a room someone rejoined during the eviction window', async () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    leaveRoom(roomId, 'owner-1', sock('owner-1'))
+    joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-2'))
+
+    releaseRoomIfUnused(roomId)
+    await _flushPendingWrites(roomId)
+    expect(getRoomSnapshot(roomId)).toBeDefined()
   })
 })
