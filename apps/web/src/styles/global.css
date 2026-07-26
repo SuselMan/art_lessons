@@ -33,6 +33,16 @@ body {
   overscroll-behavior-x: none;
 }
 
+/* Custom (hand-drawn) icons are inlined inside the same
+   .material-symbols-outlined wrapper the font glyphs use, so that every
+   call site's `font-size` rule keeps controlling their size — 1em makes the
+   SVG match the glyph the font would have drawn. See components/Icon.tsx. */
+.material-symbols-outlined > svg {
+  display: block;
+  width: 1em;
+  height: 1em;
+}
+
 button {
   cursor: pointer;
   border: none;
