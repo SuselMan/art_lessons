@@ -19,8 +19,5 @@
   },
   "devDependencies": {
     "vitest": "^4.1.9"
-  },
-  "dependencies": {
-    "@grafetto/web": "^0.0.0"
   }
 }
