@@ -1,5 +1,5 @@
-import type { PaperCharacter, PaperCoarseness, PaperGrainType, PaperType } from '@art-lessons/shared'
-import { paperCharacterOf, paperCoarsenessOf } from '@art-lessons/shared'
+import type { PaperCharacter, PaperCoarseness, PaperGrainType, PaperType } from '@grafetto/shared'
+import { paperCharacterOf, paperCoarsenessOf } from '@grafetto/shared'
 
 // The paper-grain noise algorithm — a value-noise fBm with domain warp and
 // an exact-periodicity ("seamless") mode, originally #141's GLSL

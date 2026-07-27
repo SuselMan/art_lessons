@@ -1,4 +1,4 @@
-# Art Lessons — Project Rules
+# Grafetto — Project Rules
 
 Monorepo for a collaborative academic drawing app. Teacher hosts a room, students join remotely over the internet (not LAN-only — participants are not assumed to share a network). Shared canvas content and layers, local per-user viewport (pan/zoom/rotate).
 
@@ -20,7 +20,7 @@ Production hosting is live: a VPS (time4vps) runs `apps/server` + Postgres via D
 ## Monorepo Structure
 
 ```
-art-lessons/
+grafetto/
 ├── apps/
 │   ├── web/                # React app
 │   │   src/
@@ -48,14 +48,14 @@ art-lessons/
 - **Imports order**:
   1. React / framework
   2. External libraries
-  3. `@art-lessons/shared`
+  3. `@grafetto/shared`
   4. Project `components/`, `lib/`, `engine/`
   5. Local `./` files
   6. CSS Modules last
 - **Helpers**:
   - `components/Icon.tsx` for all Material Symbols icons.
   - `lib/layers.ts` for layer-state helpers (`computeCompositeOrder`).
-- **Types**: import shared types from `@art-lessons/shared`. Avoid redefining them locally. Avoid `as any` and `as` casts when a type guard or narrowing works.
+- **Types**: import shared types from `@grafetto/shared`. Avoid redefining them locally. Avoid `as any` and `as` casts when a type guard or narrowing works.
 - **CSS**: CSS Modules + CSS variables from `styles/tokens.css`. Touch targets minimum 40–48 px on tablet.
 - **Engine**: public API surface is `PencilEngineAPI` from `engine/index.ts`. Internal classes live in `engine/src/`.
 

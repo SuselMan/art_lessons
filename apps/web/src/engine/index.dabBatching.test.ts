@@ -18,7 +18,7 @@
 // float-precision drift: it's the same values, same order, same blend.
 import { describe, expect, it } from 'vitest'
 
-import type { Dab } from '@art-lessons/shared'
+import type { Dab } from '@grafetto/shared'
 
 import {
   createTestEngine, dab, expectPixelsEqual, makeLayerAdd, makeStroke, readLayerPixels,

@@ -8,7 +8,7 @@ import {
   useDraggable, useDroppable, useSensor, useSensors,
   type CollisionDetection, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
-import type { Room, RoomFolder } from '@art-lessons/shared'
+import type { Room, RoomFolder } from '@grafetto/shared'
 import {
   ApiError, createFolder, deleteFolder, deleteRoom, leaveRoom, listRoomsAt, moveFolder,
   moveRoomToFolder, renameFolder, renameRoom, searchRooms, type RoomsAtFolder,
@@ -21,6 +21,7 @@ import { CardMenu } from '../../components/CardMenu'
 import { TextInput } from '../../components/TextInput'
 import { MoveToDialog } from '../../components/MoveToDialog'
 import { EmptyState, ErrorState } from '../../components/ListState'
+import { Logo } from '../../components/Logo'
 import styles from './MyLessons.module.css'
 
 // (#217) dnd-kit ids are flat strings — encode kind+id so one onDragEnd can
@@ -559,7 +560,7 @@ export function MyLessons() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.logo}>Art Lessons</div>
+        <div className={styles.logo}><Logo /></div>
         <AccountNav />
       </header>
 

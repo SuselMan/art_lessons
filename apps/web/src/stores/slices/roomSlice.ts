@@ -1,8 +1,8 @@
 import type { StateCreator } from 'zustand'
-import type { Participant } from '@art-lessons/shared'
+import type { Participant } from '@grafetto/shared'
 
 import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants'
-import type { PaperType } from '@art-lessons/shared'
+import type { PaperType } from '@grafetto/shared'
 
 // This is the spec's vaguest bucket ("room: id, name, participants, local
 // userId") — wired up in #24, folded in there since the original task

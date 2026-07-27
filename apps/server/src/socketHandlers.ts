@@ -1,6 +1,6 @@
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
-import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@art-lessons/shared'
+import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
 
 import {
   addPaletteColor, createRoom, ensureRoomLoaded, findDuplicateOperation, getOperationRejectReason, getParticipant,

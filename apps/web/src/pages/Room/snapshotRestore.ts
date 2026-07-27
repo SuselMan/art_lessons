@@ -1,4 +1,4 @@
-import type { LayerState, Operation } from '@art-lessons/shared'
+import type { LayerState, Operation } from '@grafetto/shared'
 import { decodeRoomSnapshot, type SnapshotTile } from '../../engine/src/snapshotCodec'
 
 function base64ToBytes(base64: string): Uint8Array {

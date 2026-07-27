@@ -7,7 +7,7 @@
 //   With extrapolated P3 the tangent at P2 doesn't match the next segment → visible kinks.
 //   The lag is one pointer event (~5-16ms) which is imperceptible.
 
-import type { Dab } from '@art-lessons/shared'
+import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'

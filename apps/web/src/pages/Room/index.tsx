@@ -7,8 +7,8 @@ import { nanoid } from 'nanoid'
 import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, SendResult,
   ClientToServerEvents, ServerToClientEvents,
-} from '@art-lessons/shared'
-import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
+} from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'

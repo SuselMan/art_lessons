@@ -25,7 +25,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { PAPER_GRAIN_TYPES } from '@art-lessons/shared'
+import { PAPER_GRAIN_TYPES } from '@grafetto/shared'
 
 import {
   PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE, paperDisplayHeight, paperGridCatch, paperGridHeight,

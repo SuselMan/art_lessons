@@ -7,7 +7,7 @@
 //   gone   — unreachable history branch (author acted after undo, or a teacher
 //            revoked it); can never return to `done`
 
-import type { Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, ImageImportOperation, LayerTransformOperation } from '@art-lessons/shared'
+import type { Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, ImageImportOperation, LayerTransformOperation } from '@grafetto/shared'
 
 export type OperationState = 'done' | 'undone' | 'gone'
 

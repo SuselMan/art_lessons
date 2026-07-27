@@ -1,4 +1,4 @@
-import type { Room, RoomFolder } from '@art-lessons/shared'
+import type { Room, RoomFolder } from '@grafetto/shared'
 
 /** Shared by roomRoutes.ts (REST "Мои уроки" list) and rooms.ts (cold-load
  *  from Postgres) so both map a Prisma `Room` row to the wire `Room` type

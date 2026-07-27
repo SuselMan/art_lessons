@@ -11,7 +11,7 @@ import type { TranslationKey } from '../../i18n'
 // new interface + a new save/load function + a new settings component.
 //
 // UI-level tool identity, deliberately distinct from the shared `ToolType`
-// ('pencil'|'eraser'|'smudge' in @art-lessons/shared) — once Color Pencil
+// ('pencil'|'eraser'|'smudge' in @grafetto/shared) — once Color Pencil
 // ships it's a separate toolbar entry with its own remembered settings, but
 // still emits `tool: 'pencil'` at the Operation/protocol level. Mapping one
 // to the other happens only at the moment of emitting a stroke, not here.

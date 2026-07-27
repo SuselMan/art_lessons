@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand'
-import { BACKGROUND_LAYER_ID, INITIAL_LAYER_ID, type LayerState, type Operation } from '@art-lessons/shared'
+import { BACKGROUND_LAYER_ID, INITIAL_LAYER_ID, type LayerState, type Operation } from '@grafetto/shared'
 
 import { translate } from '../../i18n/translate'
 import { replayLayerState, overlayLocalFields } from '../../lib/layers'

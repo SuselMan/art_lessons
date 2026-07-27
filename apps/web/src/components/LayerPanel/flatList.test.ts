@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { LayerFolder, LayerItem, LayerState, RasterLayer } from '@art-lessons/shared'
+import type { LayerFolder, LayerItem, LayerState, RasterLayer } from '@grafetto/shared'
 
 import { S_BOT, buildFlatList, buildDropZoneMap, reconstructHierarchy } from './flatList'
 

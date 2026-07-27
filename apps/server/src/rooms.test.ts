@@ -3,8 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type {
   LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerOwnerLockOperation, LayerTransformOperation,
   LayerVisibilityOperation, Operation, StrokeOperation,
-} from '@art-lessons/shared'
-import { INITIAL_LAYER_ID } from '@art-lessons/shared'
+} from '@grafetto/shared'
+import { INITIAL_LAYER_ID } from '@grafetto/shared'
 
 import {
   _flushPendingWrites, createRoom, findDuplicateOperation, getOperationRejectReason,

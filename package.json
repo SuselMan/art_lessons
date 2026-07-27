@@ -1,5 +1,5 @@
 {
-  "name": "art-lessons",
+  "name": "grafetto",
   "version": "1.0.0",
   "private": true,
   "workspaces": [
@@ -21,6 +21,6 @@
     "vitest": "^4.1.9"
   },
   "dependencies": {
-    "@art-lessons/web": "^0.0.0"
+    "@grafetto/web": "^0.0.0"
   }
 }

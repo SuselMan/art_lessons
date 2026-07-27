@@ -37,8 +37,8 @@
 // structure, so the bed modulation here is deliberately moderate and the
 // texture comes mostly from the distance-triggered grains.
 
-import type { PaperType } from '@art-lessons/shared'
-import { paperCoarsenessOf } from '@art-lessons/shared'
+import type { PaperType } from '@grafetto/shared'
+import { paperCoarsenessOf } from '@grafetto/shared'
 
 export type V3Message =
   | { type: 'start'; pressure: number; tiltNorm: number }

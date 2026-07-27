@@ -37,9 +37,9 @@
 // tip contact area = duller tone — a lowpass driven by PointerData.tiltX/
 // tiltY, which the engine already reports).
 
-import type { PaperType, ToolType } from '@art-lessons/shared'
-import { paperCoarsenessOf } from '@art-lessons/shared'
-import type { PaperCoarseness } from '@art-lessons/shared'
+import type { PaperType, ToolType } from '@grafetto/shared'
+import { paperCoarsenessOf } from '@grafetto/shared'
+import type { PaperCoarseness } from '@grafetto/shared'
 
 // Every module-level numeric knob that isn't part of a GrainVariant recipe
 // (deadzone/speed curve shape/global filter ranges/ramp times) used to be a

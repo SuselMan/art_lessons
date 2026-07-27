@@ -16,7 +16,7 @@
 // call Room.tsx's applyRemoteOp makes for a real peer_operation.
 import { describe, expect, it } from 'vitest'
 
-import type { Operation } from '@art-lessons/shared'
+import type { Operation } from '@grafetto/shared'
 
 import {
   createTestEngine, dab, fillStroke, hasLayerBuffer, makeLayerAdd, makeLayerDelete,

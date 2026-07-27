@@ -1,4 +1,4 @@
-import type { PaperType } from '@art-lessons/shared'
+import type { PaperType } from '@grafetto/shared'
 
 
 // Loads the offline-baked paper-grain textures (see

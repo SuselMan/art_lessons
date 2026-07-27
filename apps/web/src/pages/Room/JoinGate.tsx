@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import { useT } from '../../i18n'
+import { Logo } from '../../components/Logo'
 import styles from './Room.module.css'
 
 // Shown instead of the canvas when this browser opened a room link directly
@@ -24,7 +25,7 @@ export function JoinGate({
   const t = useT()
   return (
     <div className={styles.gatePage}>
-      <div className={styles.gateLogo}>Art Lessons</div>
+      <div className={styles.gateLogo}><Logo /></div>
 
       <form className={styles.gateCard} onSubmit={onSubmit} noValidate>
         <h1 className={styles.gateHeading}>

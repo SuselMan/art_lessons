@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import clsx from 'clsx'
-import type { Participant } from '@art-lessons/shared'
+import type { Participant } from '@grafetto/shared'
 import { useT } from '../../i18n'
 import { Icon } from '../../components/Icon'
 import styles from './Room.module.css'

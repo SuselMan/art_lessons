@@ -30,8 +30,8 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import type { PaperGrainType } from '@art-lessons/shared'
-import { PAPER_COARSENESS, PAPER_GRAIN_TYPES } from '@art-lessons/shared'
+import type { PaperGrainType } from '@grafetto/shared'
+import { PAPER_COARSENESS, PAPER_GRAIN_TYPES } from '@grafetto/shared'
 
 import {
   PAPER_BAKE_RESOLUTION, PAPER_GRAIN_CONFIGS, paperDisplayHeight, paperGridCatch, paperGridHeight, paperHeight,

@@ -1,4 +1,4 @@
-import type { Operation } from '@art-lessons/shared'
+import type { Operation } from '@grafetto/shared'
 
 // (#289 epic, reliable history spec v0.2 §2/§4) Whether an operation is safe
 // to apply optimistically right now, given which layer/folder ids this

@@ -4,6 +4,7 @@ import { AccountNav } from '../../components/AccountNav'
 import { Icon } from '../../components/Icon'
 import { LOCALES, LOCALE_NAMES, useT } from '../../i18n'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { Logo } from '../../components/Logo'
 import styles from './Settings.module.css'
 
 /** App-wide settings (#208) — the person's own preferences, as opposed to
@@ -22,7 +23,7 @@ export function Settings() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <div className={styles.logo}>Art Lessons</div>
+        <div className={styles.logo}><Logo /></div>
         <AccountNav />
       </header>
 

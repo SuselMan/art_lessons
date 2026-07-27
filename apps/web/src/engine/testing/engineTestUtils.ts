@@ -7,7 +7,7 @@
 // `appendOperation` in engine/index.ts: it is deliberately origin-agnostic).
 
 import { nanoid } from 'nanoid'
-import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@art-lessons/shared'
+import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@grafetto/shared'
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { AffineMatrix } from '../src/affine'

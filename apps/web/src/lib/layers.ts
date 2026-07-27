@@ -1,5 +1,5 @@
-import type { LayerFolder, LayerItem, LayerState, Operation, RasterLayer, LayerMoveOperation } from '@art-lessons/shared'
-import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
+import type { LayerFolder, LayerItem, LayerState, Operation, RasterLayer, LayerMoveOperation } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 
 export function isFolder(item: LayerItem): item is LayerFolder {
   return item.kind === 'folder'

@@ -1,4 +1,4 @@
-import type { Room, RoomFolder } from '@art-lessons/shared'
+import type { Room, RoomFolder } from '@grafetto/shared'
 
 // Same-origin: the Vite dev server proxies /api to apps/server (see
 // vite.config.ts) — needed because the dev server runs https (for

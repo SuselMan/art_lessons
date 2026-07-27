@@ -1,4 +1,4 @@
-import type { ToolType } from '@art-lessons/shared'
+import type { ToolType } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'

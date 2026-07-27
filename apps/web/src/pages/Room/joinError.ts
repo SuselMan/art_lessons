@@ -1,4 +1,4 @@
-import type { JoinResult } from '@art-lessons/shared'
+import type { JoinResult } from '@grafetto/shared'
 
 import type { TFunction } from '../../i18n'
 

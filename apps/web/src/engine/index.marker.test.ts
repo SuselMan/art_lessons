@@ -20,7 +20,7 @@
 // limitation smudge already has, and pure-function-of-dabs determinism.
 import { describe, expect, it } from 'vitest'
 
-import type { StrokeOperation } from '@art-lessons/shared'
+import type { StrokeOperation } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
 import {

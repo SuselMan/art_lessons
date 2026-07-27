@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import { ApiError, login, register } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { useT, type TFunction } from '../../i18n'
+import { Logo } from '../../components/Logo'
 import styles from './Auth.module.css'
 
 type Mode = 'login' | 'register'
@@ -63,7 +64,7 @@ export function Auth() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.logo}>Art Lessons</div>
+      <div className={styles.logo}><Logo /></div>
 
       <form className={styles.card} onSubmit={handleSubmit} noValidate>
         <div className={styles.tabs}>

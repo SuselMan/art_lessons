@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { PaperType } from '@art-lessons/shared'
+import type { PaperType } from '@grafetto/shared'
 
 import { getPaperPreviewBytes, PAPER_PREVIEW_RESOLUTION } from '../../engine/src/paperLoader'
 import { PAPER_TONE_AMPLITUDE_VALUE } from '../../engine/src/shaders'

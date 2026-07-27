@@ -1,4 +1,4 @@
-import type { Operation, SendResult } from '@art-lessons/shared'
+import type { Operation, SendResult } from '@grafetto/shared'
 import type { OutboxEntry, OutboxStorage } from './outboxStorage'
 
 const INITIAL_BACKOFF_MS = 1000

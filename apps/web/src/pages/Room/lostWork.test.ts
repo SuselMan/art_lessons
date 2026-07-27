@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { LayerState, Operation, StrokeOperation } from '@art-lessons/shared'
+import type { LayerState, Operation, StrokeOperation } from '@grafetto/shared'
 
 import { groupLostOpsByLayer, isRecoverableContentOp, resolveDeletedLayerName, retargetToLayer } from './lostWork'
 

@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { createHash } from 'node:crypto'
 
-import { SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
+import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
-import type { StrokeOperation } from '@art-lessons/shared'
+import type { StrokeOperation } from '@grafetto/shared'
 
 import {
   _flushPendingWrites, createRoom, getLatestSnapshot, getOperationsBefore, getRoomSnapshot, joinRoom, leaveRoom,

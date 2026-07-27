@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { SendResult, StrokeOperation } from '@art-lessons/shared'
+import type { SendResult, StrokeOperation } from '@grafetto/shared'
 
 import { Outbox } from './outbox'
 import { createInMemoryOutboxStorage } from './outboxStorage'

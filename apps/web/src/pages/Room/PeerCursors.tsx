@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Socket } from 'socket.io-client'
-import type { Participant, CursorMoveData, ClientToServerEvents, ServerToClientEvents } from '@art-lessons/shared'
+import type { Participant, CursorMoveData, ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 import styles from './Room.module.css'
 
 export interface PeerCursorPosition {

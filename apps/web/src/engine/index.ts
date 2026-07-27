@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@art-lessons/shared'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@grafetto/shared'
 import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_COMPUTE_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperNoise'
@@ -39,8 +39,8 @@ import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from '.
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
-import { paperCoarsenessOf } from '@art-lessons/shared'
-import type { PaperCoarseness } from '@art-lessons/shared'
+import { paperCoarsenessOf } from '@grafetto/shared'
+import type { PaperCoarseness } from '@grafetto/shared'
 
 export type { HapticGrainStats }
 export type { AffineMatrix }
@@ -572,7 +572,7 @@ interface Checkpoint {
 
 // Default per-texture background, used when a room has no explicit
 // PencilEngineOptions.paperColor override (see EngineOpts.paperColor below).
-// Kept numerically identical to @art-lessons/shared's DEFAULT_PAPER_COLORS
+// Kept numerically identical to @grafetto/shared's DEFAULT_PAPER_COLORS
 // (hex there, since CreateRoom's color picker needs a hex/RGB string; RGB
 // float triple here, since that's what the shader uniform wants) — update
 // both together if these defaults ever change.

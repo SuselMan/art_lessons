@@ -1,4 +1,4 @@
-import type { Participant } from '@art-lessons/shared'
+import type { Participant } from '@grafetto/shared'
 
 // Folds the room's participant-related socket events into a flat list.
 // Pure so the join/leave/replace semantics can be unit tested without a

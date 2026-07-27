@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type {
   LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation,
-} from '@art-lessons/shared'
+} from '@grafetto/shared'
 
 import { isLocalIslandSafe } from './optimism'
 

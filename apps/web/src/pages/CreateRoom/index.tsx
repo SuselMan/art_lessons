@@ -6,7 +6,7 @@ import {
   DEFAULT_PAPER_COLORS, PAPER_CHARACTER, PAPER_COARSENESS,
   paperCharacterOf, paperCoarsenessOf,
   type PaperCharacter, type PaperCoarseness, type PaperType,
-} from '@art-lessons/shared'
+} from '@grafetto/shared'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { useT, type TFunction, type TranslationKey } from '../../i18n'
 import { PaperPreview } from '../../components/PaperPreview'
@@ -14,6 +14,7 @@ import { AccountNav } from '../../components/AccountNav'
 import { ColorPicker } from '../../components/ColorPicker'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
+import { Logo } from '../../components/Logo'
 import styles from './CreateRoom.module.css'
 
 // (#211 epic, #215) MyLessons hands this off via `<Link state={{ folderId }}>`
@@ -72,7 +73,7 @@ function resolveSize(opt: SizeOption, orientation: Orientation): { width: number
 // "Show all", because a room's paper is a one-time decision that does not
 // deserve a wall of twelve cards up front.
 // (#208) The picker's own vocabulary lives in the web dictionary rather than
-// in `PAPER_*_LABELS` from @art-lessons/shared: these are UI copy, and shared
+// in `PAPER_*_LABELS` from @grafetto/shared: these are UI copy, and shared
 // is the frontend/backend contract, not a home for one client's
 // translations. `.grain` is the lowercase noun phrase used mid-sentence in
 // the modal title — Russian can't derive it by lowercasing the standalone
@@ -266,7 +267,7 @@ export function CreateRoom() {
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <div className={styles.logo}>Art Lessons</div>
+        <div className={styles.logo}><Logo /></div>
         <AccountNav />
       </div>
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LayerState, Operation } from '@art-lessons/shared'
+import type { LayerState, Operation } from '@grafetto/shared'
 
 import { encodeLayerTiles, encodeRoomSnapshot } from '../../engine/src/snapshotCodec'
 import { fetchHistoryPage, fetchLatestSnapshot, HISTORY_PAGE_LIMIT, walkHistoryBackward } from './snapshotRestore'

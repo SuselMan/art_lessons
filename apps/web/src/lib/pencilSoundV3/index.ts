@@ -15,7 +15,7 @@
 // working under minification — the production build may rename the class,
 // but the serialized expression is bound to our own stable name.
 
-import type { PaperType } from '@art-lessons/shared'
+import type { PaperType } from '@grafetto/shared'
 
 import type { PencilSoundAPI } from '../PencilSound'
 import { Variant3Synth, type V3Message } from './Variant3Synth'

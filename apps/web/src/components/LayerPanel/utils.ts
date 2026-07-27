@@ -1,4 +1,4 @@
-import type { LayerState, LayerItem } from '@art-lessons/shared'
+import type { LayerState, LayerItem } from '@grafetto/shared'
 
 /** Merges a partial patch into a single item, accepting either a plain patch or a
  *  function that receives the previous item and returns a patch. */

@@ -7,7 +7,7 @@
 // testing snapToRuler() in isolation.
 import { describe, expect, it, vi } from 'vitest'
 
-import type { StrokeOperation } from '@art-lessons/shared'
+import type { StrokeOperation } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
 import {

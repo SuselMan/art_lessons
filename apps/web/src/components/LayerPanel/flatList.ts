@@ -1,4 +1,4 @@
-import type { LayerState } from '@art-lessons/shared'
+import type { LayerState } from '@grafetto/shared'
 import { isFolder } from '../../lib/layers'
 
 export const S_BOT = '__bot_'

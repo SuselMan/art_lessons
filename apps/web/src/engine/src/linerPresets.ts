@@ -1,4 +1,4 @@
-import type { Dab, ToolType } from '@art-lessons/shared'
+import type { Dab, ToolType } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import type { PencilPreset } from './pencilPresets'

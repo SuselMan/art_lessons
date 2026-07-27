@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Dab } from '@art-lessons/shared'
+import type { Dab } from '@grafetto/shared'
 
 import {
   LINER_PRESET, LINER_SIZES_MM, LINER_DWELL, applyLinerEndTaper,

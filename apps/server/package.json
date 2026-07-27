@@ -1,5 +1,5 @@
 {
-  "name": "@art-lessons/server",
+  "name": "@grafetto/server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "start": "node --env-file-if-exists=.env dist/index.js"
   },
   "dependencies": {
-    "@art-lessons/shared": "*",
+    "@grafetto/shared": "*",
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^11.2.0",
     "@prisma/client": "^6.19.3",

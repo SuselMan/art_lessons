@@ -9,7 +9,7 @@
 // scope note (same status as the grid overlay).
 import { describe, expect, it } from 'vitest'
 
-import type { StrokeOperation } from '@art-lessons/shared'
+import type { StrokeOperation } from '@grafetto/shared'
 
 import { createTestEngine, makeLayerAdd, paperReady, simulateStroke } from './testing/engineTestUtils'
 

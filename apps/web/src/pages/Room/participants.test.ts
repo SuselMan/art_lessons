@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { Participant } from '@art-lessons/shared'
+import type { Participant } from '@grafetto/shared'
 
 import { participantsReducer } from './participants'
 

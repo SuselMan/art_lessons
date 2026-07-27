@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
-import type { ToolType } from '@art-lessons/shared'
+import type { ToolType } from '@grafetto/shared'
 
 import { previewDabShape } from '../../engine'
 import { diagLog } from '../../lib/diagLog'

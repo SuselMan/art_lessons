@@ -1,4 +1,4 @@
-import type { LayerState, Operation } from '@art-lessons/shared'
+import type { LayerState, Operation } from '@grafetto/shared'
 
 // (#312) Recovering work the server refused as `target_gone` — in practice:
 // strokes made while offline onto a layer another participant deleted in the

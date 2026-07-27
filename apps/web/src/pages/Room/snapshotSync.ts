@@ -1,5 +1,5 @@
-import type { LayerState } from '@art-lessons/shared'
-import { SNAPSHOT_SEQ_INTERVAL } from '@art-lessons/shared'
+import type { LayerState } from '@grafetto/shared'
+import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { encodeRoomSnapshot } from '../../engine/src/snapshotCodec'
 import { downscaleForThumbnail } from '../../lib/thumbnail'

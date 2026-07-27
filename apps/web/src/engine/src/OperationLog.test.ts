@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ImageImportOperation, LayerOpacityOperation, LayerTransformOperation, StrokeOperation } from '@art-lessons/shared'
+import type { ImageImportOperation, LayerOpacityOperation, LayerTransformOperation, StrokeOperation } from '@grafetto/shared'
 
 import { OperationLog } from './OperationLog'
 

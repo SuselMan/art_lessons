@@ -5,8 +5,8 @@ import type {
   LayerAddOperation, FolderAddOperation, LayerDeleteOperation,
   LayerMoveOperation, LayerOpacityOperation, LayerVisibilityOperation,
   LayerRenameOperation, LayerMergeOperation,
-} from '@art-lessons/shared'
-import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
+} from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 
 import {
   applyContentOp, replayLayerState, overlayLocalFields, sanitizeSelection,

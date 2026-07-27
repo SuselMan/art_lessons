@@ -3,7 +3,7 @@ import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
 import { Server, type DefaultEventsMap } from 'socket.io'
 
-import type { ClientToServerEvents, ServerToClientEvents } from '@art-lessons/shared'
+import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 import { registerRoomHandlers, type SocketData } from './socketHandlers.js'
 import { identityHook } from './identity.js'
 import { registerAuthRoutes } from './authRoutes.js'

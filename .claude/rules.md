@@ -1,4 +1,4 @@
-# Claude Rules for Art Lessons
+# Claude Rules for Grafetto
 
 ## Decision-making
 
