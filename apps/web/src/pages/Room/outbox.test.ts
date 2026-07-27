@@ -421,4 +421,106 @@ describe('Outbox send gating and concurrency', () => {
 
     expect(sent).toEqual(['a'])
   })
+
+  // (#201) The queue used to be entirely invisible to the UI, so a user who
+  // drew through a long drop had no way to tell whether any of it survived.
+  describe('pending count reporting', () => {
+    it('reports the queue growing and shrinking', async () => {
+      const changes: Array<[number, number]> = []
+      const outbox = new Outbox({
+        storage: createInMemoryOutboxStorage(),
+        onPendingChange: (pending, stalled) => changes.push([pending, stalled]),
+        send: async () => ({ ok: true, seq: 1 }) satisfies SendResult,
+      })
+
+      await outbox.enqueue(op('a'))
+      await flushMicrotasks()
+
+      expect(changes[0]).toEqual([1, 0])
+      expect(changes.at(-1)).toEqual([0, 0])
+      expect(outbox.pendingCount).toBe(0)
+    })
+
+    it('keeps counting an operation that could not be sent', async () => {
+      const { schedule } = captureSchedule()
+      const outbox = new Outbox({
+        storage: createInMemoryOutboxStorage(),
+        schedule,
+        send: async () => { throw new Error('offline') },
+      })
+
+      await outbox.enqueue(op('a'))
+      await flushMicrotasks()
+
+      expect(outbox.pendingCount).toBe(1)
+    })
+
+    it('counts stalled entries separately once they stop retrying', async () => {
+      const { scheduled, schedule } = captureSchedule()
+      const changes: Array<[number, number]> = []
+      const outbox = new Outbox({
+        storage: createInMemoryOutboxStorage(),
+        schedule,
+        onPendingChange: (pending, stalled) => changes.push([pending, stalled]),
+        send: async () => { throw new Error('offline') },
+      })
+
+      await outbox.enqueue(op('a'))
+      await flushMicrotasks()
+      for (let i = 0; i < 30 && scheduled.length > 0; i++) {
+        scheduled.shift()!.fn()
+        await flushMicrotasks(12)
+      }
+
+      // Still queued and persisted — stalled is "given up for now", never a
+      // discard (see MAX_ATTEMPTS).
+      expect(outbox.pendingCount).toBe(1)
+      expect(outbox.stalledCount).toBe(1)
+      expect(changes.at(-1)).toEqual([1, 1])
+    })
+  })
+
+  // (#313) The offline screen needs this number at exactly the moment a join
+  // has not happened and cannot — resendAll would be gated by canSend.
+  describe('hydrate', () => {
+    it('surfaces a queue left by an earlier page load without sending anything', async () => {
+      const storage = createInMemoryOutboxStorage()
+      await storage.put({ op: op('from-last-session'), attempts: 0, nextRetryAt: 0 })
+
+      const send = vi.fn()
+      const outbox = new Outbox({ storage, send, canSend: () => false })
+      await outbox.hydrate()
+
+      expect(outbox.pendingCount).toBe(1)
+      expect(send).not.toHaveBeenCalled()
+    })
+
+    it('reports the recovered count through onPendingChange', async () => {
+      const storage = createInMemoryOutboxStorage()
+      await storage.put({ op: op('a'), attempts: 0, nextRetryAt: 0 })
+      await storage.put({ op: op('b'), attempts: 0, nextRetryAt: 0 })
+      const onPendingChange = vi.fn()
+
+      const outbox = new Outbox({
+        storage, onPendingChange, canSend: () => false,
+        send: async () => ({ ok: true, seq: 1 }) satisfies SendResult,
+      })
+      await outbox.hydrate()
+
+      expect(onPendingChange).toHaveBeenCalledWith(2, 0)
+    })
+
+    it('does not double-count an operation already queued in this session', async () => {
+      const storage = createInMemoryOutboxStorage()
+      const outbox = new Outbox({
+        storage, canSend: () => false,
+        send: async () => ({ ok: true, seq: 1 }) satisfies SendResult,
+      })
+
+      await outbox.enqueue(op('a'))
+      await outbox.hydrate()
+
+      expect(outbox.pendingCount).toBe(1)
+    })
+  })
 })

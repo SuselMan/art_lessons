@@ -44,6 +44,12 @@ export interface OutboxDeps {
   // operation is still queued and persisted — this is a "stuck, tell the
   // user" signal, not a discard.
   onStalled?: (op: Operation) => void
+  // (#201) Fires whenever the queue's size changes, so the UI can say how
+  // much work is not yet saved. Before this, the queue was completely
+  // invisible: a user who drew through a long drop had no way to tell
+  // whether any of it had survived, which is the difference between "I lost
+  // an hour" and "the app knows about my 43 strokes".
+  onPendingChange?: (pending: number, stalled: number) => void
   now?: () => number
   schedule?: (fn: () => void, delayMs: number) => void
 }
@@ -67,6 +73,7 @@ export class Outbox {
   private readonly onSettled?: (op: Operation, result: SendResult) => void
   private readonly canSend?: () => boolean
   private readonly onStalled?: (op: Operation) => void
+  private readonly onPendingChange?: (pending: number, stalled: number) => void
   private readonly now: () => number
   private readonly schedule: (fn: () => void, delayMs: number) => void
   // Ids waiting for a send slot, oldest first — see MAX_CONCURRENT_SENDS.
@@ -98,17 +105,50 @@ export class Outbox {
     this.onSettled = deps.onSettled
     this.canSend = deps.canSend
     this.onStalled = deps.onStalled
+    this.onPendingChange = deps.onPendingChange
     this.now = deps.now ?? Date.now
     this.schedule = deps.schedule ?? ((fn, ms) => { setTimeout(fn, ms) })
   }
+
+  /** How many operations are queued but not yet confirmed, and how many of
+   *  those have stopped retrying on their own (#201). */
+  get pendingCount(): number { return this.pending.size }
+  get stalledCount(): number { return this.stalled.size }
 
   /** Queues `op` and makes the first send attempt immediately. Persisting it
    *  is best-effort and never gates the send (#296). */
   async enqueue(op: Operation): Promise<void> {
     const entry: OutboxEntry = { op, attempts: 0, nextRetryAt: this.now() }
     this.pending.set(op.id, entry)
+    this.onPendingChange?.(this.pending.size, this.stalled.size)
     await this.persist(entry)
     this.attempt(op.id)
+  }
+
+  /** (#313) Pulls a previous page load's unconfirmed work into the live
+   *  queue *without* attempting to send any of it.
+   *
+   *  `resendAll` already does this as a side effect, but it may only run
+   *  once a join has succeeded (#298's canSend gate) — and the moment the
+   *  count matters most is exactly when that hasn't happened and can't:
+   *  opening a room with no connection. Separating the load lets the offline
+   *  screen say how much work is waiting instead of leaving the user to
+   *  guess whether any of it survived. */
+  async hydrate(): Promise<void> {
+    await this.loadPersisted()
+    this.onPendingChange?.(this.pending.size, this.stalled.size)
+  }
+
+  private async loadPersisted(): Promise<void> {
+    try {
+      for (const entry of await this.storage.getAll()) {
+        if (!this.pending.has(entry.op.id)) this.pending.set(entry.op.id, entry)
+      }
+    } catch (err) {
+      // Nothing to recover from a broken store, but everything queued in
+      // this session still has to go out.
+      console.error('outbox: could not read persisted queue', err)
+    }
   }
 
   /** Re-attempts every operation still in the queue — call once on every
@@ -120,19 +160,12 @@ export class Outbox {
    *  recovered from storage: anything durable that this instance doesn't
    *  already know about joins the queue. */
   async resendAll(): Promise<void> {
-    try {
-      for (const entry of await this.storage.getAll()) {
-        if (!this.pending.has(entry.op.id)) this.pending.set(entry.op.id, entry)
-      }
-    } catch (err) {
-      // Nothing to recover from a broken store, but everything queued in
-      // this session still has to go out.
-      console.error('outbox: could not read persisted queue', err)
-    }
+    await this.loadPersisted()
     // Re-arms anything that gave up: a reconnect (or a completed join) is
     // exactly the change of circumstances that could make it succeed now.
     this.stalled.clear()
     for (const entry of this.pending.values()) entry.attempts = 0
+    this.onPendingChange?.(this.pending.size, this.stalled.size)
     for (const opId of [...this.pending.keys()]) this.attempt(opId)
   }
 
@@ -185,6 +218,7 @@ export class Outbox {
         // a race the user had no part in.
         if (!result.ok && result.reason === 'not_joined') throw new Error('not_joined')
         this.pending.delete(opId)
+        this.onPendingChange?.(this.pending.size, this.stalled.size)
         try {
           await this.storage.delete(opId)
         } catch (err) {
@@ -201,6 +235,7 @@ export class Outbox {
           // the next reconnect/join gets to try again rather than the work
           // being thrown away. See MAX_ATTEMPTS.
           this.stalled.add(opId)
+          this.onPendingChange?.(this.pending.size, this.stalled.size)
           this.onStalled?.(entry.op)
           return
         }

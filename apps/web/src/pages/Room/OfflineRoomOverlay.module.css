@@ -1,0 +1,59 @@
+/* (#313) Stands in for RoomLoadingOverlay, so it takes the same geometry and
+   the same deliberate pointer-events:none — see that file's own comment for
+   why swallowing pointer input here would break pan/zoom/tap-to-hide. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: var(--color-bg);
+}
+
+.overlay :global(.material-symbols-outlined) {
+  font-size: 40px;
+  color: var(--color-text-dim);
+  margin-bottom: 4px;
+}
+
+.title {
+  color: var(--color-text-bright);
+  font-family: var(--font-sans);
+  font-size: 17px;
+}
+
+.body {
+  max-width: 420px;
+  color: var(--color-text-dim);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* The one line that has to land: the work is not gone. Given its own
+   emphasis rather than folded into .body, because everything else here is
+   context and this is the answer to the question the user is actually
+   asking. */
+.reassurance {
+  max-width: 420px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-text-bright);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.retry {
+  color: var(--color-text-dim);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  opacity: 0.8;
+}

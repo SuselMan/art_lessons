@@ -214,6 +214,32 @@ export const en = {
   'room.participant.unfreeze': 'Unfreeze {name}',
   'room.frozenEveryone': 'The room owner has paused drawing for everyone.',
   'room.frozenYou': 'The room owner has paused your drawing.',
+  // (#201) The queue is durable, so these describe a delay, never a loss —
+  // the wording has to carry that, since the whole point is to stop people
+  // concluding their work is gone.
+  // (#313) Shown instead of the preloader when the room can't load because
+  // there's no connection. Three things, in order: why, that the work is
+  // safe, and that nothing needs doing about it.
+  'room.offline.title': 'No connection',
+  'room.offline.body': 'This room lives on the server, so opening it needs a connection.',
+  'room.offline.pending': {
+    one: 'Your {n} unsent stroke is safe on this device and will be sent automatically.',
+    other: 'Your {n} unsent strokes are safe on this device and will be sent automatically.',
+  },
+  'room.offline.retrying': 'Trying to reconnect…',
+  'room.connection.offline': 'No connection — reconnecting…',
+  'room.connection.offlineWithPending': {
+    one: 'No connection. {n} stroke is saved on this device and will be sent once you reconnect.',
+    other: 'No connection. {n} strokes are saved on this device and will be sent once you reconnect.',
+  },
+  'room.connection.syncing': {
+    one: 'Saving {n} stroke…',
+    other: 'Saving {n} strokes…',
+  },
+  'room.connection.stalled': {
+    one: '{n} stroke could not be sent yet — it is kept on this device and will be retried.',
+    other: '{n} strokes could not be sent yet — they are kept on this device and will be retried.',
+  },
   'room.lostWork': 'Some of what you drew was not saved — the layer was deleted by another participant.',
   // (#312) The recoverable case: the strokes came back and are already on a
   // new layer by the time this shows.

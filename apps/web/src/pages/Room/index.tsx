@@ -35,8 +35,10 @@ import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
+import { OfflineRoomOverlay } from './OfflineRoomOverlay'
 import { FrozenBanner } from './FrozenBanner'
 import { LostWorkBanner } from './LostWorkBanner'
+import { ConnectionBanner } from './ConnectionBanner'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { getOrCreateDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
@@ -122,6 +124,12 @@ const DRAWING_TIMEOUT_MS = 1500
 // enough backlog would otherwise keep re-arming the timer forever.
 const LOST_WORK_QUIET_MS = 800
 const LOST_WORK_MAX_WAIT_MS = 5000
+
+// (#313) How long a room may sit unloaded with no socket before the
+// preloader is replaced by an explicit "no connection" screen. Long enough
+// that an ordinary slow load or a brief blip never trips it, short enough
+// that nobody watches a spinner wondering whether their work survived.
+const OFFLINE_OVERLAY_GRACE_MS = 6000
 
 // (#291) How far back of the pre-snapshot operation log backfillHistory
 // pulls in for undo/redo coverage. One snapshot interval below the restored
@@ -478,6 +486,11 @@ export function Room() {
   // Assigned once recoverLostWork exists (it needs the engine and
   // syncFromLog, both defined well below the Outbox this is called from).
   const recoverLostWorkRef = useRef<(() => void) | null>(null)
+  // (#201) Live size of the outbox — how much drawing exists only on this
+  // device so far. Mirrored into state (rather than read off the Outbox on
+  // render) because the Outbox is not a React store and its changes come
+  // from socket acks, not renders.
+  const [outboxState, setOutboxState] = useState({ pending: 0, stalled: 0 })
   // (#24) Backed by the store now — applyParticipantAction still just
   // folds each socket event through the same pure participantsReducer
   // (participants.ts), reused unchanged.
@@ -703,6 +716,10 @@ export function Room() {
     onStalled: op => {
       console.error('operation stopped retrying after repeated failures', op.type, op.id)
     },
+    // (#201) The counter the ConnectionBanner reports. Passing a plain
+    // setState is safe from any callsite: React batches, and the Outbox
+    // only ever calls this after a real size change.
+    onPendingChange: (pending, stalled) => setOutboxState({ pending, stalled }),
     onSettled: (op, result) => {
       if (!result.ok) {
         console.error('operation rejected by server', op.type, op.id, result.reason)
@@ -898,6 +915,48 @@ export function Room() {
   useEffect(() => {
     recoverLostWorkRef.current = recoverLostWork
   }, [recoverLostWork])
+
+  // (#313) Surfaces a previous page load's unconfirmed work immediately,
+  // without waiting for a join that may never come on this visit — the
+  // offline screen's whole job is to report that number at exactly the
+  // moment nothing can be sent.
+  useEffect(() => {
+    void outbox.hydrate()
+  }, [outbox])
+
+  // (#313) A disconnected socket alone isn't enough to give up on loading —
+  // socket.io reconnects on its own, and a slow network looks identical for
+  // the first moments. Only after this grace period does a still-absent
+  // connection get reported as offline rather than as "still loading".
+  const [offlineGraceElapsed, setOfflineGraceElapsed] = useState(false)
+  useEffect(() => {
+    if (connected) { setOfflineGraceElapsed(false); return }
+    const id = window.setTimeout(() => setOfflineGraceElapsed(true), OFFLINE_OVERLAY_GRACE_MS)
+    return () => window.clearTimeout(id)
+  }, [connected])
+  // Deliberately gated on `roomContentReady`, not on `connected` alone: a
+  // mid-session reconnect blip also flips roomContentReady false (see
+  // handleRoomState), and covering a room the user has already loaded — and
+  // can still pan and zoom — with "no connection" would be a lie about what
+  // they're looking at. This is only for a room that never opened.
+  const showOfflineOverlay = !roomContentReady && !connected && offlineGraceElapsed
+
+  // (#313) Unconfirmed work lives in IndexedDB and survives a reload, but it
+  // only leaves this device if the tab eventually gets back online. Closing
+  // it while the queue is full is the one ordinary action that turns a
+  // recoverable situation into a permanent loss — and it's usually taken by
+  // someone who has concluded the work is already gone.
+  useEffect(() => {
+    if (outboxState.pending === 0) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Browsers ignore custom text here and show their own wording; the
+      // preventDefault is what actually triggers the prompt.
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [outboxState.pending])
 
   // Any pending batch dies with the room — a timer firing after unmount would
   // append to an engine that no longer exists.
@@ -3021,6 +3080,10 @@ export function Room() {
               onDismiss={() => setLostWork(null)}
             />
           )}
+          {/* (#201) Bottom-anchored, so it can coexist with the event
+              banners above for as long as a bad connection lasts. Hidden
+              entirely while connected with an empty queue. */}
+          <ConnectionBanner connected={connected} pending={outboxState.pending} stalled={outboxState.stalled} />
         </div>
 
         {/* ── Side panel (layers, color, …) ── */}
@@ -3149,7 +3212,9 @@ export function Room() {
             .layerPanelWrap 2) so it genuinely covers the whole screen, not
             just the canvas — an earlier version lived inside .viewport
             (z-index 1) and could never rise above those. */}
-        {!roomContentReady && <RoomLoadingOverlay />}
+        {!roomContentReady && (
+          showOfflineOverlay ? <OfflineRoomOverlay pending={outboxState.pending} /> : <RoomLoadingOverlay />
+        )}
       </div>
 
       {/* Debug overlays share one positioning stack (.debugStack) so having
