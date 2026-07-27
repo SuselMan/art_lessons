@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useT } from '../../i18n'
-import { Icon } from '../Icon'
+import { Modal } from '../Modal'
 import { Tabs } from '../Tabs'
 import {
   FEATURE_FLAGS, getFeatureFlag, setFeatureFlag,
@@ -225,15 +225,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   )
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.panel} onClick={e => e.stopPropagation()}>
-        <div className={styles.panelHeader}>
-          <span>{t('editorSettings.title')}</span>
-          <button className={styles.closeBtn} onClick={onClose} title={t('common.close')} aria-label={t('common.close')}>
-            <Icon name="close" />
-          </button>
-        </div>
-
+    <Modal title={t('editorSettings.title')} size="sm" onClose={onClose}>
+      {/* Scrolls the tabs, not the save bar — the bar stays reachable no
+          matter how long the flag list gets. Before #310 the whole panel
+          (save bar included) was the scroll container. */}
+      <div className={styles.scrollArea}>
         <Tabs
           tabs={[
             { id: 'general', label: t('editorSettings.tab.general'), content: generalContent },
@@ -242,16 +238,16 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           active={activeTab}
           onSelect={setActiveTab}
         />
-
-        <div className={styles.saveBar}>
-          <span className={styles.hint}>
-            {t(dirty ? 'editorSettings.unsaved' : 'editorSettings.applyAfterSave')}
-          </span>
-          <button type="button" className={styles.saveBtn} disabled={!dirty} onClick={handleSave}>
-            {t('common.save')}
-          </button>
-        </div>
       </div>
-    </div>
+
+      <div className={styles.saveBar}>
+        <span className={styles.hint}>
+          {t(dirty ? 'editorSettings.unsaved' : 'editorSettings.applyAfterSave')}
+        </span>
+        <button type="button" className={styles.saveBtn} disabled={!dirty} onClick={handleSave}>
+          {t('common.save')}
+        </button>
+      </div>
+    </Modal>
   )
 }

@@ -27,6 +27,14 @@ export const en = {
   'common.working': 'Working…',
   'common.moveTo': 'Move to...',
   'common.moreActions': 'More actions',
+  'common.continue': 'Continue',
+  'common.ok': 'OK',
+
+  // ── dialogs (#310) ─────────────────────────────────────────────────────
+  // Accessible names for a confirm/notice opened without a visible title —
+  // a screen reader still has to announce what kind of dialog appeared.
+  'dialog.confirmLabel': 'Confirm',
+  'dialog.noticeLabel': 'Notice',
 
   // ── account navigation ─────────────────────────────────────────────────
   'nav.newLesson': 'New lesson',
@@ -69,7 +77,6 @@ export const en = {
   'create.paperColor': 'Paper color',
   'create.useDefaultColor': 'Use default',
   'create.chooseTexture': 'Choose texture — {character}',
-  'create.textureModalLabel': 'Choose texture',
   'create.textureModalTitle': 'Texture — {coarseness} grain',
   'create.canvasSize': 'Canvas size',
   'create.size.square': 'Square',
@@ -289,7 +296,6 @@ export const en = {
   'layers.touchHint': 'Tip: press and hold a layer to select multiple',
   'layers.dismissHint': 'Dismiss',
   'layers.confirmDelete': 'Delete the selected layer(s)? Any painted content on them — including content from other participants — will be lost.',
-  'layers.renamePrompt': 'Rename layer',
   'layers.importFailed': 'Could not import image',
   'layers.hide': 'Hide',
   'layers.show': 'Show',

@@ -17,6 +17,8 @@ import { PaletteBar } from '../../components/PaletteBar'
 import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
+import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
+import { isModalOpen } from '../../components/Modal/modalSlot'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { RadialDial } from '../../components/RadialDial'
 import { computeCompositeOrder } from '../../lib/layers'
@@ -175,6 +177,10 @@ export function Room() {
   const navigate = useNavigate()
   const location = useLocation()
   const t        = useT()
+  // (#310) In-app replacements for the window.confirm/window.alert this
+  // editor used to reach for. `alert` is renamed on the way in so a reader
+  // can't mistake it for the global it replaces.
+  const { confirm, alert: showAlert } = useConfirmDialog()
 
   // (#24) The store is a module-level singleton — reset it before anything
   // below reads a selector, so a genuine unmount+remount (e.g. via an
@@ -1415,7 +1421,9 @@ export function Room() {
     // accept it. Operations confined to this client's own local island are
     // unaffected — they took the optimistic branch above and work offline.
     if (!connected) {
-      window.alert(t('room.offlineSharedAction'))
+      // Fire-and-forget (#310): nothing here waits on the dismissal, the
+      // operation is refused either way.
+      void showAlert({ message: t('room.offlineSharedAction') })
       return
     }
 
@@ -1430,7 +1438,7 @@ export function Room() {
     // so a dropped packet is retried rather than silently swallowed — its
     // `onSettled` handles the verdict either way.
     void outbox.enqueue(op)
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected, t])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected, t, showAlert])
 
   // (#263) LayerPanel has no direct engine access — this is the same
   // engineRef-backed-callback shape as dispatchOp above, threaded down as a
@@ -1446,19 +1454,36 @@ export function Room() {
   // this issue's own repro) — peekUndo/peekRedo is a read-only look at what
   // the pending call would act on, so a decline here leaves state exactly
   // as if the button/hotkey was never pressed.
-  const handleUndo = useCallback(() => {
+  //
+  // (#310) These two now await an in-app dialog instead of blocking on
+  // window.confirm. One real difference: window.confirm froze all JS, so the
+  // peek below could not go stale while it was up — an awaited dialog lets
+  // peers' operations keep arriving. That's acceptable here because the peek
+  // only decides whether to *ask*: undo()/redo() re-resolve their own target
+  // when they actually run, so a confirmed undo still acts on current state.
+  const handleUndo = useCallback(async () => {
     if (!roomContentReady || isBlockedByFreeze) return
     const peek = engineRef.current?.peekUndo()
-    if (peek?.hasOtherContent && !window.confirm(t('room.confirmUndo'))) return
+    if (peek?.hasOtherContent && !await confirm({
+      title: t('room.undo'),
+      message: t('room.confirmUndo'),
+      confirmLabel: t('room.undo'),
+      danger: true,
+    })) return
     if (engineRef.current?.undo()) syncFromLog()
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze, t])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, t, confirm])
 
-  const handleRedo = useCallback(() => {
+  const handleRedo = useCallback(async () => {
     if (!roomContentReady || isBlockedByFreeze) return
     const peek = engineRef.current?.peekRedo()
-    if (peek?.hasOtherContent && !window.confirm(t('room.confirmRedo'))) return
+    if (peek?.hasOtherContent && !await confirm({
+      title: t('room.redo'),
+      message: t('room.confirmRedo'),
+      confirmLabel: t('room.redo'),
+      danger: true,
+    })) return
     if (engineRef.current?.redo()) syncFromLog()
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze, t])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, t, confirm])
 
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen()
@@ -2341,9 +2366,14 @@ export function Room() {
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && e.target.tagName === 'INPUT') return
+      // (#310) A modal owns the keyboard while it is up. This listener is on
+      // `window` in the bubble phase, so a key pressed inside a dialog reaches
+      // it too — without this, typing in a dialog would still be switching
+      // tools behind it.
+      if (isModalOpen()) return
       const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
-      if (is('undo')) { handleUndo(); e.preventDefault(); return }
-      if (is('redo')) { handleRedo(); e.preventDefault(); return }
+      if (is('undo')) { void handleUndo(); e.preventDefault(); return }
+      if (is('redo')) { void handleRedo(); e.preventDefault(); return }
       if (is('toggleEraser')) { setTool(t => t === 'eraser' ? lastDrawingTool : 'eraser'); return }
       if (is('toggleSmudge')) { setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge'); return }
       if (is('toggleCharcoal')) { setTool(t => t === 'charcoal' ? 'pencil' : 'charcoal'); return }
@@ -2569,11 +2599,16 @@ export function Room() {
               set apart from the frequently-used buttons above (not a
               viewport action like Rotate/Fit, and not something to reach
               for by accident) — moved out of the tool toolbar, it was never
-              a tool either. Existing confirm() (#171) unchanged by the move;
-              a real non-native confirm dialog is still tracked separately. */}
+              a tool either. Its confirm (#171) is the app's own dialog as of
+              #310, no longer window.confirm. */}
           <button className={styles.headerIconBtn} title={t('room.clearCanvas')} aria-label={t('room.clearCanvas')}
-            onClick={() => {
-              if (window.confirm(t('room.confirmClear', { hotkey: formatHotkeyLabel(hotkeys.undo) }))) {
+            onClick={async () => {
+              if (await confirm({
+                title: t('room.clearCanvas'),
+                message: t('room.confirmClear', { hotkey: formatHotkeyLabel(hotkeys.undo) }),
+                confirmLabel: t('room.clearCanvas'),
+                danger: true,
+              })) {
                 engineRef.current?.clear()
               }
             }}>

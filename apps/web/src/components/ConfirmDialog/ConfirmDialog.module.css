@@ -1,0 +1,60 @@
+.message {
+  padding: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text);
+  overflow-y: auto;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.button {
+  min-height: var(--touch-target-sm);
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.cancel {
+  color: var(--color-text);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+.cancel:hover {
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+}
+
+.confirm {
+  color: var(--color-text-bright);
+  background: var(--color-accent);
+}
+
+.confirm:hover {
+  background: var(--color-accent-hover);
+}
+
+/* Destructive confirm. Red rather than the accent violet, and it is *not*
+   the autofocused button (see the component) — Enter on a dialog that just
+   appeared must not delete anything. */
+.danger {
+  color: #ffffff;
+  background: #a33a3a;
+}
+
+.danger:hover {
+  background: #b94545;
+}

@@ -16,6 +16,12 @@ export const ru: Dictionary = {
   'common.working': 'Выполняется…',
   'common.moveTo': 'Переместить…',
   'common.moreActions': 'Ещё действия',
+  'common.continue': 'Продолжить',
+  'common.ok': 'ОК',
+
+  // ── диалоги (#310) ─────────────────────────────────────────────────────
+  'dialog.confirmLabel': 'Подтверждение',
+  'dialog.noticeLabel': 'Уведомление',
 
   // ── навигация ──────────────────────────────────────────────────────────
   'nav.newLesson': 'Новый урок',
@@ -58,7 +64,6 @@ export const ru: Dictionary = {
   'create.paperColor': 'Цвет бумаги',
   'create.useDefaultColor': 'Вернуть цвет по умолчанию',
   'create.chooseTexture': 'Выбрать фактуру — {character}',
-  'create.textureModalLabel': 'Выбор фактуры',
   'create.textureModalTitle': 'Фактура — {coarseness} зерно',
   'create.canvasSize': 'Размер холста',
   'create.size.square': 'Квадрат',
@@ -274,7 +279,6 @@ export const ru: Dictionary = {
   'layers.touchHint': 'Подсказка: нажмите и удерживайте слой, чтобы выбрать несколько',
   'layers.dismissHint': 'Скрыть',
   'layers.confirmDelete': 'Удалить выбранные слои? Всё нарисованное на них — включая работу других участников — будет потеряно.',
-  'layers.renamePrompt': 'Переименовать слой',
   'layers.importFailed': 'Не удалось импортировать изображение',
   'layers.hide': 'Скрыть',
   'layers.show': 'Показать',
