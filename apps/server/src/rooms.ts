@@ -90,6 +90,22 @@ interface RoomRecord {
   // set, instead of silently accepting a race that would otherwise resolve
   // differently (and possibly divergently) on every client's own replay.
   aliveIds: Set<string>
+  // (#311) Ids that were alive and have since been destroyed — the strict
+  // subset of "not in aliveIds" that we can positively attribute to a
+  // `layer_delete`/`layer_merge` rather than to an id the server simply
+  // never heard of. Content-bearing operations (`stroke`/`image_import`/
+  // `layer_clear`) are gated on *this*, not on `aliveIds`.
+  //
+  // The distinction is the whole point. Gating strokes has an incomparably
+  // larger blast radius than gating deletes: any hole in `aliveIds` would
+  // start rejecting ordinary drawing, i.e. break the product outright, and
+  // #291 is precedent that such holes happen (a layer left permanently
+  // undeletable by exactly that shape of bug). Keying off a positive record
+  // of destruction means an unknown id (never created, or a `layer_add`
+  // that got lost) falls through to the pre-#311 behavior — the stroke is
+  // accepted and degrades client-side — which is the status quo rather than
+  // a regression.
+  deletedIds: Set<string>
   // (#289 epic, reliable history spec v0.2 §10) Index of every operation
   // currently in `operations`, keyed by its client-generated `Operation.id`
   // — lets `findDuplicateOperation` answer "have we already recorded this
@@ -223,12 +239,16 @@ function pruneOperationsBeforeSnapshot(_roomId: string, _latestSnapshotSeq: numb
 }
 
 /** (#292) Operation types that must stay resident for a room's whole life,
- *  however old they are. `aliveIds` and `lockedLayerIds` are rebuilt by
- *  folding over `RoomRecord.operations`, so dropping any of these from the
- *  window would silently corrupt those mirrors: a `layer_add` older than the
- *  window would make its layer permanently undeletable (`target_gone` — the
- *  exact shape of #291's initial-layer bug), and a dropped `layer_owner_lock`
- *  would quietly unlock a layer on the next server restart.
+ *  however old they are. `aliveIds`, `deletedIds` and `lockedLayerIds` are
+ *  rebuilt by folding over `RoomRecord.operations`, so dropping any of these
+ *  from the window would silently corrupt those mirrors: a `layer_add` older
+ *  than the window would make its layer permanently undeletable
+ *  (`target_gone` — the exact shape of #291's initial-layer bug), and a
+ *  dropped `layer_owner_lock` would quietly unlock a layer on the next
+ *  server restart. (#311) A dropped `layer_delete` would additionally lose a
+ *  `deletedIds` entry — that one fails safe (back to accepting content on a
+ *  dead layer, the pre-#311 behavior) rather than breaking drawing, but it's
+ *  still a mirror this list exists to protect.
  *
  *  All of them are a few hundred bytes each. The heavy types — `stroke` and
  *  `image_import`, which carry dab arrays and inline base64 image data — are
@@ -325,14 +345,19 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   }
 
   // (#289 epic) Rebuild the aliveIds mirror the same way — see its own doc
-  // comment on RoomRecord.
+  // comment on RoomRecord. (#311) `deletedIds` folds from the same pass:
+  // it only ever grows, since a destroyed id is never reissued (they're
+  // nanoids, unique per creation).
   const aliveIds = new Set<string>(IMPLICIT_LAYER_IDS)
+  const deletedIds = new Set<string>()
   for (const op of operations) {
     if (op.type === 'layer_add' || op.type === 'folder_add') aliveIds.add(op.layerId)
-    else if (op.type === 'layer_delete') { for (const id of op.layerIds) aliveIds.delete(id) }
+    else if (op.type === 'layer_delete') {
+      for (const id of op.layerIds) { aliveIds.delete(id); deletedIds.add(id) }
+    }
     else if (op.type === 'layer_merge') {
       aliveIds.add(op.layerId)
-      for (const s of op.sources) aliveIds.delete(s.id)
+      for (const s of op.sources) { aliveIds.delete(s.id); deletedIds.add(s.id) }
     }
   }
 
@@ -348,6 +373,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     frozenUserIds: new Set(),
     lockedLayerIds,
     aliveIds,
+    deletedIds,
     operationsById: new Map(operations.map(op => [op.id, op])),
   })
   return true
@@ -409,7 +435,7 @@ export function createRoom(
   rooms.set(room.id, {
     room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette,
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
-    aliveIds: new Set(IMPLICIT_LAYER_IDS), operationsById: new Map(),
+    aliveIds: new Set(IMPLICIT_LAYER_IDS), deletedIds: new Set(), operationsById: new Map(),
   })
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
@@ -655,19 +681,40 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
   return null
 }
 
-/** True if `op` references at least one layerId/folderId not currently in
- *  `record.aliveIds` — see RoomRecord.aliveIds' own doc comment. Only the
- *  three operation types that can *destructively* act on someone else's
- *  reference are checked (`layer_owner_lock`/`layer_clear`/`stroke`/etc.
- *  targeting a dead layer already degrade gracefully client-side — see
- *  engine/index.ts's appendOperation, which revokes rather than crashes —
- *  so they're deliberately not gated here; see the reliable history spec's
- *  §4 classification table for the full reasoning). */
+/** True if `op` targets an id that can no longer receive it — see
+ *  RoomRecord.aliveIds/deletedIds for the two mirrors this reads.
+ *
+ *  Two classes, deliberately gated against different sets:
+ *
+ *  1. *Destructive* operations on someone else's reference
+ *     (`layer_delete`/`layer_merge`/`layer_transform`) are gated on
+ *     `aliveIds`: a target that isn't positively alive must not be acted
+ *     on, whatever the reason (#289 §8).
+ *  2. *Content-bearing* operations (`stroke`/`image_import`/`layer_clear`)
+ *     are gated on `deletedIds` — a positively-destroyed target only
+ *     (#311, revising #289 §4's classification).
+ *
+ *  §4 originally left class 2 ungated on the grounds that it degrades
+ *  gracefully client-side (see engine/index.ts's appendOperation, which
+ *  revokes rather than crashes). That reasoning holds for a three-second
+ *  drop and fails for a long offline stretch: the operations are accepted,
+ *  recorded, broadcast, and then quietly evaporate on every client — the
+ *  one path by which a user silently loses drawing they already did. The
+ *  author can't even be told, since `target_gone` never fires. Rejecting
+ *  instead hands the operations back intact so the client can re-target
+ *  them onto a fresh layer (#312).
+ *
+ *  Property-only operations (`layer_move`/`layer_opacity`/
+ *  `layer_visibility`/`layer_rename`) stay ungated: they carry nothing that
+ *  can be lost and are fine as last-write-wins, exactly as §4 classified. */
 function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
   switch (op.type) {
     case 'layer_delete': return op.layerIds.some(id => !record.aliveIds.has(id))
     case 'layer_merge': return op.sources.some(s => !record.aliveIds.has(s.id))
     case 'layer_transform': return op.transforms.some(t => !record.aliveIds.has(t.layerId))
+    case 'stroke':
+    case 'image_import':
+    case 'layer_clear': return record.deletedIds.has(op.layerId)
     default: return false
   }
 }
@@ -686,11 +733,11 @@ export function updateAliveIds(roomId: string, op: Operation): void {
       record.aliveIds.add(op.layerId)
       break
     case 'layer_delete':
-      for (const id of op.layerIds) record.aliveIds.delete(id)
+      for (const id of op.layerIds) { record.aliveIds.delete(id); record.deletedIds.add(id) }
       break
     case 'layer_merge':
       record.aliveIds.add(op.layerId)
-      for (const s of op.sources) record.aliveIds.delete(s.id)
+      for (const s of op.sources) { record.aliveIds.delete(s.id); record.deletedIds.add(s.id) }
       break
   }
 }

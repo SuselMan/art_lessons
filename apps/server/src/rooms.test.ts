@@ -824,15 +824,89 @@ describe('getOperationRejectReason — target_gone', () => {
       .toBe('target_gone')
   })
 
-  it('does not gate operation types outside delete/merge/transform', () => {
+  // (#311) An id the server has no record of is NOT treated as gone: the
+  // content gate keys off a positive record of destruction (`deletedIds`),
+  // never off "absent from aliveIds". Gating strokes on absence would mean
+  // any hole in the aliveIds mirror stops drawing working at all — #291 is
+  // precedent that such holes happen. Unknown ids keep the pre-#311
+  // behavior: accepted here, degraded client-side.
+  it('does not gate content operations on a layer it simply never heard of', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
 
-    // A stroke on a nonexistent layer degrades gracefully client-side (see
-    // engine/index.ts's appendOperation) — the server never rejects it.
     expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'never-added' })))
       .toBeNull()
+  })
+
+  it('does not gate property-only operations on a deleted layer', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-x' }))
+    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-x'] }))
+
+    // Carries nothing that can be lost — fine as last-write-wins (#289 §4).
+    expect(getOperationRejectReason(roomId, 'owner-1', layerVisibility({ layerId: 'layer-x' }))).toBeNull()
+  })
+
+  // (#311) The scenario this whole gate exists for: drawn offline onto a
+  // layer someone deleted meanwhile. Before this, the stroke was accepted,
+  // recorded, broadcast, and then quietly evaporated on every client — the
+  // author never even learned it happened.
+  it('rejects a stroke on a layer that was deleted while its author was away', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-x' }))
+    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-x'] }))
+
+    expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'layer-x' })))
+      .toBe('target_gone')
+  })
+
+  it('rejects a stroke on a layer consumed as a layer_merge source', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-a' }))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-b' }))
+    updateAliveIds(roomId, layerMerge({
+      layerId: 'layer-merged', sources: [{ id: 'layer-a', opacity: 1 }, { id: 'layer-b', opacity: 1 }],
+    }))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', stroke({ layerId: 'layer-a' }))).toBe('target_gone')
+    expect(getOperationRejectReason(roomId, 'owner-1', stroke({ layerId: 'layer-merged' }))).toBeNull()
+  })
+
+  it('rejects layer_clear and image_import on a deleted layer too', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-x' }))
+    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-x'] }))
+
+    const clear: Operation = {
+      id: 'op-clear-1', type: 'layer_clear', userId: 'owner-1', timestamp: 0, layerId: 'layer-x',
+    }
+    const importOp: Operation = {
+      id: 'op-img-1', type: 'image_import', userId: 'owner-1', timestamp: 0, layerId: 'layer-x',
+      image: 'data:image/png;base64,', width: 10, height: 10,
+    }
+    expect(getOperationRejectReason(roomId, 'owner-1', clear)).toBe('target_gone')
+    expect(getOperationRejectReason(roomId, 'owner-1', importOp)).toBe('target_gone')
+  })
+
+  // A retried send whose ack was merely slow must not be mistaken for lost
+  // work: socketHandlers dedups by Operation.id *before* consulting this,
+  // so an already-recorded stroke resolves to its original seq even if the
+  // layer has since been deleted.
+  it('dedup runs before the gate, so a slow-ack retry is never reported as lost', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-x' }))
+    const op = stroke({ id: 'op-race-1', layerId: 'layer-x' })
+    recordOperation(roomId, op)
+    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-x'] }))
+
+    expect(findDuplicateOperation(roomId, 'op-race-1')).toBeDefined()
   })
 })
 
