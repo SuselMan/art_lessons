@@ -1,3 +1,4 @@
+import { useT } from '../../i18n'
 import { Icon } from '../../components/Icon'
 import styles from './LostWorkBanner.module.css'
 
@@ -15,11 +16,12 @@ interface LostWorkBannerProps {
  *  problem than the one it solves. Tell the user plainly what happened
  *  instead, and let them decide whether anything needs redoing. */
 export function LostWorkBanner({ onDismiss }: LostWorkBannerProps): React.JSX.Element {
+  const t = useT()
   return (
     <div className={styles.banner} role="status">
       <Icon name="cloud_off" />
-      <span>Часть нарисованного не сохранилась — слой был удалён другим участником.</span>
-      <button type="button" className={styles.dismiss} onClick={onDismiss} aria-label="Скрыть">
+      <span>{t('room.lostWork')}</span>
+      <button type="button" className={styles.dismiss} onClick={onDismiss} aria-label={t('room.dismiss')}>
         <Icon name="close" />
       </button>
     </div>

@@ -4,6 +4,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { LayerItem } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
+import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { isFolder } from '../../lib/layers'
 import styles from './LayerPanel.module.css'
@@ -36,6 +37,7 @@ function LayerRowImpl({
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename, onToggleCollapse, onOpenMenu, onOpenOpacity,
   onPointerDown, onPointerUp,
 }: LayerRowProps) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
 
@@ -90,8 +92,8 @@ function LayerRowImpl({
       <button
         className={styles.rowIconBtn}
         onClick={e => { e.stopPropagation(); onToggleVisible(item.id) }}
-        title={item.visible ? 'Hide' : 'Show'}
-        aria-label={item.visible ? 'Hide' : 'Show'}
+        title={t(item.visible ? 'layers.hide' : 'layers.show')}
+        aria-label={t(item.visible ? 'layers.hide' : 'layers.show')}
       >
         <Icon name={item.visible ? 'visibility' : 'visibility_off'} />
       </button>
@@ -99,8 +101,8 @@ function LayerRowImpl({
       <button
         className={clsx(styles.rowIconBtn, isLocked ? styles.rowIconBtnLocked : styles.rowIconBtnDim)}
         onClick={e => { e.stopPropagation(); onToggleLock(item.id) }}
-        title={isLocked ? 'Unlock' : 'Lock'}
-        aria-label={isLocked ? 'Unlock' : 'Lock'}
+        title={t(isLocked ? 'layers.unlock' : 'layers.lock')}
+        aria-label={t(isLocked ? 'layers.unlock' : 'layers.lock')}
       >
         <Icon name={isLocked ? 'lock' : 'lock_open'} />
       </button>
@@ -122,11 +124,11 @@ function LayerRowImpl({
           onClick={isOwner ? e => { e.stopPropagation(); onToggleOwnerLock?.(item.id) } : undefined}
           disabled={!isOwner}
           title={isOwner
-            ? (isOwnerLocked ? 'Unlock layer for others (owner)' : 'Lock layer for others (owner)')
-            : 'Locked by the room owner'}
+            ? t(isOwnerLocked ? 'layers.ownerUnlock' : 'layers.ownerLock')
+            : t('layers.lockedByOwner')}
           aria-label={isOwner
-            ? (isOwnerLocked ? 'Unlock layer for others' : 'Lock layer for others')
-            : 'Locked by the room owner'}
+            ? t(isOwnerLocked ? 'layers.ownerUnlockShort' : 'layers.ownerLockShort')
+            : t('layers.lockedByOwner')}
         >
           <Icon name="lock_person" />
         </button>
@@ -136,8 +138,8 @@ function LayerRowImpl({
         <button
           className={styles.folderToggleBtn}
           onClick={e => { e.stopPropagation(); onToggleCollapse?.(item.id) }}
-          title={collapsed ? 'Expand' : 'Collapse'}
-          aria-label={collapsed ? 'Expand' : 'Collapse'}
+          title={t(collapsed ? 'layers.expand' : 'layers.collapse')}
+          aria-label={t(collapsed ? 'layers.expand' : 'layers.collapse')}
         >
           <Icon name={collapsed ? 'chevron_right' : 'expand_more'} />
           <Icon name={collapsed ? 'folder' : 'folder_open'} />
@@ -168,7 +170,7 @@ function LayerRowImpl({
       <button
         className={styles.opacityDisplay}
         onClick={e => { e.stopPropagation(); onOpenOpacity?.(item.id, e.currentTarget) }}
-        title="Opacity"
+        title={t('layers.opacity')}
       >
         {Math.round(item.opacity * 100)}%
       </button>
@@ -177,8 +179,8 @@ function LayerRowImpl({
         <button
           className={styles.rowIconBtn}
           onClick={e => { e.stopPropagation(); onOpenMenu?.(item.id, e.currentTarget) }}
-          title="More"
-          aria-label="More"
+          title={t('layers.more')}
+          aria-label={t('layers.more')}
         >
           <Icon name="more_vert" />
         </button>

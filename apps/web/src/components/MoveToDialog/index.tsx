@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { listRoomsAt } from '../../lib/api'
+import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import styles from './MoveToDialog.module.css'
 
@@ -17,6 +18,7 @@ interface MoveToDialogProps {
  *  needing a "flat list of every folder" endpoint — reparent cycle-checking
  *  still happens server-side regardless of how the destination was picked. */
 export function MoveToDialog({ title, onCancel, onSelect }: MoveToDialogProps) {
+  const t = useT()
   const [path, setPath] = useState<{ id: string; name: string }[]>([])
   const currentFolderId = path.length > 0 ? path[path.length - 1].id : undefined
 
@@ -30,19 +32,19 @@ export function MoveToDialog({ title, onCancel, onSelect }: MoveToDialogProps) {
       <div className={styles.dialog} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
           <span className={styles.title}>{title}</span>
-          <button type="button" className={styles.close} aria-label="Cancel" onClick={onCancel}>
+          <button type="button" className={styles.close} aria-label={t('common.cancel')} onClick={onCancel}>
             <Icon name="close" />
           </button>
         </div>
 
-        <nav className={styles.breadcrumbs} aria-label="Destination folder path">
+        <nav className={styles.breadcrumbs} aria-label={t('moveTo.destinationLabel')}>
           <button
             type="button"
             className={styles.crumb}
             onClick={() => setPath([])}
             disabled={path.length === 0}
           >
-            My Lessons
+            {t('lessons.root')}
           </button>
           {path.map((crumb, i) => (
             <span key={crumb.id} className={styles.crumbGroup}>
@@ -60,14 +62,14 @@ export function MoveToDialog({ title, onCancel, onSelect }: MoveToDialogProps) {
         </nav>
 
         <button type="button" className={styles.moveHereButton} onClick={() => onSelect(currentFolderId ?? null)}>
-          Move here
+          {t('moveTo.moveHere')}
         </button>
 
         <div className={styles.folderList}>
           {data === undefined ? (
-            <div className={styles.loading}>Loading…</div>
+            <div className={styles.loading}>{t('common.loading')}</div>
           ) : data.folders.length === 0 ? (
-            <div className={styles.noFolders}>No subfolders here.</div>
+            <div className={styles.noFolders}>{t('moveTo.noSubfolders')}</div>
           ) : (
             data.folders.map(folder => (
               <button

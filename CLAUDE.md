@@ -9,7 +9,8 @@ Production hosting is live: a VPS (time4vps) runs `apps/server` + Postgres via D
 - **Monorepo**: npm workspaces (`apps/web`, `apps/server`, `packages/shared`)
 - **Frontend**: React 19 + TypeScript 5 + Vite 8, CSS Modules + CSS variables (no Tailwind)
 - **Routing**: `react-router-dom` v7
-- **State**: one global store (Zustand, `apps/web/src/stores/roomStore.ts`) for all app state, including the editor's own — layers, viewport, tool/preset/color, room data — not just cross-page/account state. The editor-state migration (#19→20→21→22→23→24) is complete; most of the editor now reads/writes the store, not local `useState`. The one thing that never moves into the store: the WebGL engine's own internals (`engineRef`, pixel buffers, the imperative pointer/dab pipeline) — store state is always a *reflection* of what's already been applied to the engine via an imperative call (e.g. `engine.setTool(tool)`), never the engine's source of truth (#25, still open, is an audit pass confirming that boundary holds).
+- **i18n**: own minimal layer, `apps/web/src/i18n/` — no library (see `docs/adr/006-i18n.md`). Flat typed keys, English is the source of truth for the key set, every other locale is typed as `Dictionary` so a missing translation is a typecheck error. Use `useT()` in components; data registries (tool schemas, hotkeys) store a `TranslationKey`, never a finished label. Dev-only panels (feature flags, tuning, debug overlays) stay English on purpose.
+- **State**: one global store (Zustand, `apps/web/src/stores/roomStore.ts`) for all app state, including the editor's own — layers, viewport, tool/preset/color, room data — not just cross-page/account state. The editor-state migration (#19→20→21→22→23→24) is complete; most of the editor now reads/writes the store, not local `useState`. The one exception on the "one store" rule is `stores/settingsStore.ts` (#208): app-level preferences (language, later theme) outlive any room, and `resetRoomStore()` wipes the room store on every Room mount. The other thing that never moves into the store: the WebGL engine's own internals (`engineRef`, pixel buffers, the imperative pointer/dab pipeline) — store state is always a *reflection* of what's already been applied to the engine via an imperative call (e.g. `engine.setTool(tool)`), never the engine's source of truth (#25, still open, is an audit pass confirming that boundary holds).
 - **Rendering**: WebGL1, dab-based pencil engine with Catmull-Rom spline
 - **Icons**: Material Symbols Outlined, thin variant (`wght: 200`)
 - **Backend**: Fastify + Socket.io, fully wired to the UI — room join/reconnect, Operation Log relay, undo/redo, and periodic client-baked snapshots for fast rejoin on long rooms (epic #149)
@@ -28,10 +29,12 @@ art-lessons/
 │   │   │   ├── LayerPanel/
 │   │   │   └── PaperPreview/
 │   │   ├── engine/         # WebGL pencil engine
+│   │   ├── i18n/           # translation layer + per-locale dictionaries
 │   │   ├── lib/            # small shared helpers (layers)
 │   │   ├── pages/
 │   │   │   ├── CreateRoom/
-│   │   │   └── Room/
+│   │   │   ├── Room/
+│   │   │   └── Settings/   # app-wide settings (language), not the editor's
 │   │   └── styles/
 │   └── server/             # Fastify + Socket.io
 ├── packages/shared/        # shared types and constants

@@ -14,6 +14,7 @@ import {
   moveRoomToFolder, renameFolder, renameRoom, searchRooms, type RoomsAtFolder,
 } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
+import { useLocale, useT, type TFunction } from '../../i18n'
 import { AccountNav } from '../../components/AccountNav'
 import { Icon } from '../../components/Icon'
 import { CardMenu } from '../../components/CardMenu'
@@ -83,8 +84,11 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+// Month names and field order follow the app's language, not the browser's
+// — someone reading a Russian UI expects "27 июл. 2026", whatever their OS
+// locale happens to be (#208).
+function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 // Identifies whichever room/folder is mid inline-rename, mid delete/leave
@@ -93,6 +97,8 @@ function formatDate(iso: string): string {
 type ItemRef = { kind: 'room' | 'folder'; id: string }
 
 interface RoomCardProps {
+  t: TFunction
+  locale: string
   room: Room
   isOwnRoom: boolean
   confirmingAction: boolean
@@ -110,8 +116,8 @@ interface RoomCardProps {
 }
 
 function RoomCard({
-  room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit, onRenameCancel,
-  busy, onRenameClick, onMoveClick, onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
+  t, locale, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
+  onRenameCancel, busy, onRenameClick, onMoveClick, onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
 }: RoomCardProps) {
   // (#217) Draggable only — a room is never a drop target itself.
   const { setNodeRef, attributes, listeners, transform, isDragging } = useDraggable({
@@ -126,11 +132,11 @@ function RoomCard({
       <div className={styles.cardMenuOverlay}>
         <CardMenu
           actions={[
-            { label: 'Rename', onClick: onRenameClick },
-            { label: 'Move to...', onClick: onMoveClick },
-            { label: 'Fork/Clone', onClick: () => {}, disabled: true, title: 'Coming soon' },
+            { label: t('common.rename'), onClick: onRenameClick },
+            { label: t('common.moveTo'), onClick: onMoveClick },
+            { label: t('lessons.forkClone'), onClick: () => {}, disabled: true, title: t('lessons.comingSoon') },
             {
-              label: isOwnRoom ? 'Delete' : 'Leave room',
+              label: t(isOwnRoom ? 'common.delete' : 'lessons.leaveRoom'),
               onClick: onDeleteOrLeaveClick,
               danger: true,
             },
@@ -177,21 +183,21 @@ function RoomCard({
           <div className={styles.cardName}>{room.name}</div>
         )}
         <div className={styles.cardMeta}>
-          <span>{formatDate(room.createdAt)}</span>
+          <span>{formatDate(room.createdAt, locale)}</span>
           <span className={styles.dot}>·</span>
-          <span>{isOwnRoom ? 'You' : (room.ownerName ?? 'Unknown owner')}</span>
+          <span>{isOwnRoom ? t('lessons.ownerYou') : (room.ownerName ?? t('lessons.ownerUnknown'))}</span>
         </div>
       </Link>
       {confirmingAction && (
         <div className={styles.confirmRow}>
           <span className={styles.confirmText}>
-            {isOwnRoom ? 'Delete permanently for everyone?' : 'Leave this room? It stays for everyone else.'}
+            {t(isOwnRoom ? 'lessons.confirmDelete' : 'lessons.confirmLeave')}
           </span>
           <button type="button" className={styles.confirmButton} onClick={onConfirmClick} disabled={busy}>
-            {busy ? 'Working…' : isOwnRoom ? 'Yes, delete' : 'Yes, leave'}
+            {busy ? t('common.working') : t(isOwnRoom ? 'lessons.yesDelete' : 'lessons.yesLeave')}
           </button>
           <button type="button" className={styles.cancelButton} onClick={onCancelConfirmClick} disabled={busy}>
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
       )}
@@ -200,6 +206,7 @@ function RoomCard({
 }
 
 interface FolderCardProps {
+  t: TFunction
   folder: RoomFolder
   onOpen: () => void
   renaming: boolean
@@ -213,7 +220,7 @@ interface FolderCardProps {
 }
 
 function FolderCard({
-  folder, onOpen, renaming, renameText, onRenameTextChange, onRenameSubmit, onRenameCancel,
+  t, folder, onOpen, renaming, renameText, onRenameTextChange, onRenameSubmit, onRenameCancel,
   onRenameClick, onMoveClick, onDeleteClick,
 }: FolderCardProps) {
   // (#217) Both a drag source (this folder can be moved) and a drop target
@@ -240,9 +247,9 @@ function FolderCard({
       <div className={styles.cardMenuOverlay}>
         <CardMenu
           actions={[
-            { label: 'Rename', onClick: onRenameClick },
-            { label: 'Move to...', onClick: onMoveClick },
-            { label: 'Delete', onClick: onDeleteClick, danger: true },
+            { label: t('common.rename'), onClick: onRenameClick },
+            { label: t('common.moveTo'), onClick: onMoveClick },
+            { label: t('common.delete'), onClick: onDeleteClick, danger: true },
           ]}
         />
       </div>
@@ -308,6 +315,8 @@ function CrumbButton({ label, onClick, navDisabled, dropDisabled, dropId }: Crum
 }
 
 export function MyLessons() {
+  const t = useT()
+  const locale = useLocale()
   const { me, loading: authLoading } = useAuth()
   const loggedIn = isLoggedIn(me)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
@@ -411,22 +420,22 @@ export function MyLessons() {
       moveFolder(id, parentFolderId),
     onSuccess: updated => updateFolders(folders => folders.filter(f => f.id !== updated.id)),
     onError: (err) => {
-      setFolderError(
+      setFolderError(t(
         err instanceof ApiError && err.code === 'cycle'
-          ? "Can't move a folder into its own subfolder."
-          : 'Could not move the folder',
-      )
+          ? 'lessons.error.moveFolderCycle'
+          : 'lessons.error.moveFolder',
+      ))
     },
   })
   const deleteFolderMutation = useMutation({
     mutationFn: deleteFolder,
     onSuccess: (_, id) => updateFolders(folders => folders.filter(f => f.id !== id)),
     onError: (err) => {
-      setFolderError(
+      setFolderError(t(
         err instanceof ApiError && err.code === 'not_empty'
-          ? 'This folder still has rooms or subfolders in it — move or delete those first.'
-          : 'Could not delete the folder',
-      )
+          ? 'lessons.error.folderNotEmpty'
+          : 'lessons.error.deleteFolder',
+      ))
     },
   })
   const createFolderMutation = useMutation({
@@ -510,11 +519,11 @@ export function MyLessons() {
     }
   }
 
-  const loadError = loadFailed ? 'Could not load your rooms' : null
-  const deleteError = deleteMutation.isError ? 'Could not delete the room' : null
-  const leaveError = leaveMutation.isError ? 'Could not leave the room' : null
-  const createFolderError = createFolderMutation.isError ? 'Could not create the folder' : null
-  const searchError = searchFailed ? 'Search failed' : null
+  const loadError = loadFailed ? t('lessons.error.load') : null
+  const deleteError = deleteMutation.isError ? t('lessons.error.delete') : null
+  const leaveError = leaveMutation.isError ? t('lessons.error.leave') : null
+  const createFolderError = createFolderMutation.isError ? t('lessons.error.createFolder') : null
+  const searchError = searchFailed ? t('lessons.error.search') : null
   const isEmpty = data !== undefined && data.folders.length === 0 && data.rooms.length === 0
   const isSearchEmpty = searchData !== undefined && searchData.rooms.length === 0
   const confirmBusy = deleteMutation.isPending || leaveMutation.isPending
@@ -523,6 +532,8 @@ export function MyLessons() {
     return (
       <RoomCard
         key={room.id}
+        t={t}
+        locale={locale}
         room={room}
         isOwnRoom={room.ownerId === me?.userId}
         confirmingAction={confirmingId === room.id}
@@ -557,10 +568,10 @@ export function MyLessons() {
           <TextInput
             icon="search"
             type="search"
-            placeholder="Search rooms…"
+            placeholder={t('lessons.searchPlaceholder')}
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            aria-label="Search rooms"
+            aria-label={t('lessons.searchLabel')}
           />
         </div>
         <Link
@@ -569,7 +580,7 @@ export function MyLessons() {
           state={currentFolderId ? { folderId: currentFolderId } : undefined}
         >
           <Icon name="add" />
-          New room
+          {t('lessons.newRoom')}
         </Link>
       </div>
 
@@ -584,9 +595,9 @@ export function MyLessons() {
           ) : null}
           <section className={styles.section}>
             {searchData === undefined ? (
-              <div className={styles.empty}>Searching…</div>
+              <div className={styles.empty}>{t('lessons.searching')}</div>
             ) : isSearchEmpty ? (
-              <EmptyState icon="search_off" message={`No rooms match "${debouncedSearch}".`} />
+              <EmptyState icon="search_off" message={t('lessons.noMatches', { query: debouncedSearch })} />
             ) : (
               <div className={styles.grid}>
                 {searchData.rooms.map(renderRoomCard)}
@@ -601,9 +612,9 @@ export function MyLessons() {
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <nav className={styles.breadcrumbs} aria-label="Folder path">
+          <nav className={styles.breadcrumbs} aria-label={t('lessons.breadcrumbLabel')}>
             <CrumbButton
-              label="My Lessons"
+              label={t('lessons.root')}
               onClick={() => goToCrumb(-1)}
               navDisabled={path.length === 0}
               dropDisabled={path.length === 0}
@@ -637,24 +648,24 @@ export function MyLessons() {
                   autoFocus
                   value={newFolderName}
                   onChange={e => setNewFolderName(e.target.value)}
-                  placeholder="Folder name"
+                  placeholder={t('lessons.folderNamePlaceholder')}
                   maxLength={50}
                 />
                 <button type="submit" className={styles.newFolderSubmit} disabled={createFolderMutation.isPending}>
-                  Create
+                  {t('common.create')}
                 </button>
                 <button
                   type="button"
                   className={styles.newFolderCancel}
                   onClick={() => { setNewFolderOpen(false); setNewFolderName('') }}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
               </form>
             ) : (
               <button type="button" className={styles.newFolderButton} onClick={() => setNewFolderOpen(true)}>
                 <Icon name="create_new_folder" />
-                New folder
+                {t('lessons.newFolder')}
               </button>
             )}
           </div>
@@ -673,17 +684,18 @@ export function MyLessons() {
 
           <section className={styles.section}>
             {data === undefined ? (
-              <div className={styles.empty}>Loading…</div>
+              <div className={styles.empty}>{t('common.loading')}</div>
             ) : isEmpty ? (
               <EmptyState
                 icon="folder_open"
-                message={path.length > 0 ? 'This folder is empty.' : "You don't have any rooms yet."}
+                message={t(path.length > 0 ? 'lessons.folderEmpty' : 'lessons.empty')}
               />
             ) : (
               <div className={styles.grid}>
                 {data.folders.map(folder => (
                   <FolderCard
                     key={folder.id}
+                    t={t}
                     folder={folder}
                     onOpen={() => openFolder({ id: folder.id, name: folder.name })}
                     renaming={renamingItem?.kind === 'folder' && renamingItem.id === folder.id}
@@ -709,7 +721,7 @@ export function MyLessons() {
 
       {moveTarget && (
         <MoveToDialog
-          title={moveTarget.kind === 'room' ? 'Move room to...' : 'Move folder to...'}
+          title={t(moveTarget.kind === 'room' ? 'lessons.moveRoomTitle' : 'lessons.moveFolderTitle')}
           onCancel={() => setMoveTarget(null)}
           onSelect={handleMoveSelect}
         />

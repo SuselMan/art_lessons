@@ -3,11 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
 import {
-  DEFAULT_PAPER_COLORS, PAPER_CHARACTER, PAPER_CHARACTER_LABELS, PAPER_COARSENESS,
-  PAPER_COARSENESS_LABELS, paperCharacterOf, paperCoarsenessOf,
+  DEFAULT_PAPER_COLORS, PAPER_CHARACTER, PAPER_COARSENESS,
+  paperCharacterOf, paperCoarsenessOf,
   type PaperCharacter, type PaperCoarseness, type PaperType,
 } from '@art-lessons/shared'
 import { hexToRgb, rgbToHex } from '../../lib/color'
+import { useT, type TFunction, type TranslationKey } from '../../i18n'
 import { PaperPreview } from '../../components/PaperPreview'
 import { AccountNav } from '../../components/AccountNav'
 import { ColorPicker } from '../../components/ColorPicker'
@@ -28,7 +29,11 @@ type Orientation = 'portrait' | 'landscape'
 
 interface SizeOption {
   id: SizePreset
-  label: string
+  /** Paper format names (A4, 16:9) are international notation and stay as
+   *  they are; the two options that are ordinary words carry a translation
+   *  key instead (#208). */
+  label?: string
+  labelKey?: TranslationKey
   width: number
   height: number
   // Clicking an already-selected rotatable card flips the orientation
@@ -39,13 +44,17 @@ interface SizeOption {
 }
 
 const SIZE_OPTIONS: SizeOption[] = [
-  { id: 'a4',     label: 'A4',     width: 1240, height: 1754, rotatable: true },
-  { id: 'a3',     label: 'A3',     width: 1754, height: 2480, rotatable: true },
-  { id: 'a2',     label: 'A2',     width: 2480, height: 3508, rotatable: true },
-  { id: 'square', label: 'Square', width: 1500, height: 1500 },
-  { id: '16:9',   label: '16:9',   width: 1920, height: 1080 },
-  { id: 'custom', label: 'Custom', width: 0,    height: 0    },
+  { id: 'a4',     label: 'A4',                    width: 1240, height: 1754, rotatable: true },
+  { id: 'a3',     label: 'A3',                    width: 1754, height: 2480, rotatable: true },
+  { id: 'a2',     label: 'A2',                    width: 2480, height: 3508, rotatable: true },
+  { id: 'square', labelKey: 'create.size.square', width: 1500, height: 1500 },
+  { id: '16:9',   label: '16:9',                  width: 1920, height: 1080 },
+  { id: 'custom', labelKey: 'create.size.custom', width: 0,    height: 0    },
 ]
+
+function sizeOptionLabel(opt: SizeOption, t: TFunction): string {
+  return opt.labelKey ? t(opt.labelKey) : opt.label ?? ''
+}
 
 // Presets above are stored portrait (width < height); landscape swaps them.
 // Orientation is one global value rather than per-card state, so a creator who
@@ -61,16 +70,32 @@ function resolveSize(opt: SizeOption, orientation: Orientation): { width: number
 // of the grid is that it grows. Three are shown inline; the rest live behind
 // "Show all", because a room's paper is a one-time decision that does not
 // deserve a wall of twelve cards up front.
-const COARSENESS_DESC: Record<PaperCoarseness, string> = {
-  coarse: 'Strong tooth',
-  medium: 'Moderate tooth',
-  fine:   'Barely any tooth',
+// (#208) The picker's own vocabulary lives in the web dictionary rather than
+// in `PAPER_*_LABELS` from @art-lessons/shared: these are UI copy, and shared
+// is the frontend/backend contract, not a home for one client's
+// translations. `.grain` is the lowercase noun phrase used mid-sentence in
+// the modal title — Russian can't derive it by lowercasing the standalone
+// label the way English can.
+const COARSENESS_KEYS: Record<PaperCoarseness | 'flat', {
+  label: TranslationKey
+  desc: TranslationKey
+}> = {
+  coarse: { label: 'paper.coarseness.coarse', desc: 'paper.coarseness.coarse.desc' },
+  medium: { label: 'paper.coarseness.medium', desc: 'paper.coarseness.medium.desc' },
+  fine:   { label: 'paper.coarseness.fine',   desc: 'paper.coarseness.fine.desc' },
+  flat:   { label: 'paper.coarseness.flat',   desc: 'paper.coarseness.flat.desc' },
 }
 
-const CHARACTER_DESC: Record<PaperCharacter, string> = {
-  fbm:      'Even, uniform grain',
-  capsules: 'Visible cellulose fibres',
-  streak:   'Laid, horizontal grain',
+const COARSENESS_GRAIN_KEYS: Record<PaperCoarseness, TranslationKey> = {
+  coarse: 'paper.coarseness.coarse.grain',
+  medium: 'paper.coarseness.medium.grain',
+  fine:   'paper.coarseness.fine.grain',
+}
+
+const CHARACTER_KEYS: Record<PaperCharacter, { label: TranslationKey; desc: TranslationKey }> = {
+  fbm:      { label: 'paper.character.fbm',      desc: 'paper.character.fbm.desc' },
+  capsules: { label: 'paper.character.capsules', desc: 'paper.character.capsules.desc' },
+  streak:   { label: 'paper.character.streak',   desc: 'paper.character.streak.desc' },
 }
 
 /** Flat sits in the coarseness row rather than off on its own: it has no
@@ -124,6 +149,7 @@ function SizeIcon({ width, height }: { width: number; height: number }) {
 }
 
 export function CreateRoom() {
+  const t = useT()
   const navigate = useNavigate()
   const location = useLocation()
   const { folderId } = (location.state as CreateRoomNavState | undefined) ?? {}
@@ -197,7 +223,7 @@ export function CreateRoom() {
     e.preventDefault()
     setError(null)
 
-    const name = roomName.trim() || 'Untitled'
+    const name = roomName.trim() || t('create.untitled')
 
     const id = nanoid(8)
     // Handed to Room via navigation state (not localStorage) so it reaches
@@ -217,7 +243,7 @@ export function CreateRoom() {
       width  = parseInt(customW)
       height = parseInt(customH)
       if (!width || !height || width < 100 || height < 100 || width > 4096 || height > 4096) {
-        setError('Custom size must be between 100 and 4096 pixels')
+        setError(t('create.error.customSize'))
         return
       }
     } else {
@@ -244,15 +270,15 @@ export function CreateRoom() {
       </div>
 
       <form className={styles.card} onSubmit={handleSubmit} noValidate>
-        <h1 className={styles.heading}>Create a room</h1>
+        <h1 className={styles.heading}>{t('create.heading')}</h1>
 
         {/* Room name */}
         <div className={styles.section}>
-          <div className={styles.label}>Room name (optional)</div>
+          <div className={styles.label}>{t('create.roomName')}</div>
           <input
             className={styles.input}
             type="text"
-            placeholder="Untitled"
+            placeholder={t('create.untitled')}
             maxLength={50}
             value={roomName}
             onChange={e => setRoomName(e.target.value)}
@@ -262,13 +288,13 @@ export function CreateRoom() {
         {/* Paper texture */}
         <div className={styles.section}>
           <div className={styles.paperSectionHeader}>
-            <div className={styles.label}>Paper texture — fixed after creation</div>
+            <div className={styles.label}>{t('create.paperSection')}</div>
             <div className={styles.colorPickerAnchor} ref={colorPickerRef}>
               <button
                 type="button"
                 className={styles.colorSwatchTrigger}
                 style={{ background: resolvedPaperColorHex }}
-                aria-label="Paper color"
+                aria-label={t('create.paperColor')}
                 aria-haspopup="dialog"
                 aria-expanded={colorPickerOpen}
                 onClick={() => setColorPickerOpen(o => !o)}
@@ -281,7 +307,7 @@ export function CreateRoom() {
                   />
                   {paperColor && (
                     <button type="button" className={styles.colorReset} onClick={() => setPaperColor(null)}>
-                      Use default
+                      {t('create.useDefaultColor')}
                     </button>
                   )}
                 </div>
@@ -296,8 +322,8 @@ export function CreateRoom() {
                 <PaperCard
                   key={row}
                   type={type}
-                  label={row === 'flat' ? 'Flat' : PAPER_COARSENESS_LABELS[row]}
-                  desc={row === 'flat' ? 'No tooth at all' : COARSENESS_DESC[row]}
+                  label={t(COARSENESS_KEYS[row].label)}
+                  desc={t(COARSENESS_KEYS[row].desc)}
                   selected={row === 'flat' ? paper === 'flat' : selectedCoarseness === row}
                   bgColorHex={resolvedPaperColorHex}
                   onSelect={() => setPaper(type)}
@@ -312,7 +338,7 @@ export function CreateRoom() {
               nothing to open. */}
           {paper !== 'flat' && (
             <button type="button" className={styles.showAllPapers} onClick={() => setPaperModalOpen(true)}>
-              Choose texture — {PAPER_CHARACTER_LABELS[selectedCharacter]}
+              {t('create.chooseTexture', { character: t(CHARACTER_KEYS[selectedCharacter].label) })}
             </button>
           )}
         </div>
@@ -322,18 +348,18 @@ export function CreateRoom() {
             className={styles.paperModalBackdrop}
             role="dialog"
             aria-modal="true"
-            aria-label="Choose texture"
+            aria-label={t('create.textureModalLabel')}
             onClick={() => setPaperModalOpen(false)}
           >
             <div className={styles.paperModal} onClick={e => e.stopPropagation()}>
               <div className={styles.paperModalHeader}>
                 <div className={styles.paperModalTitle}>
-                  Texture — {PAPER_COARSENESS_LABELS[selectedCoarseness].toLowerCase()} grain
+                  {t('create.textureModalTitle', { coarseness: t(COARSENESS_GRAIN_KEYS[selectedCoarseness]) })}
                 </div>
                 <button
                   type="button"
                   className={styles.paperModalClose}
-                  aria-label="Close"
+                  aria-label={t('common.close')}
                   onClick={() => setPaperModalOpen(false)}
                 >
                   <Icon name="close" />
@@ -348,8 +374,8 @@ export function CreateRoom() {
                     <PaperCard
                       key={character}
                       type={type}
-                      label={PAPER_CHARACTER_LABELS[character]}
-                      desc={CHARACTER_DESC[character]}
+                      label={t(CHARACTER_KEYS[character].label)}
+                      desc={t(CHARACTER_KEYS[character].desc)}
                       selected={paper === type}
                       bgColorHex={resolvedPaperColorHex}
                       onSelect={() => {
@@ -367,7 +393,7 @@ export function CreateRoom() {
 
         {/* Canvas size */}
         <div className={styles.section}>
-          <div className={styles.label}>Canvas size</div>
+          <div className={styles.label}>{t('create.canvasSize')}</div>
           <div className={styles.sizeCards}>
             {SIZE_OPTIONS.map(opt => {
               const { width, height } = resolveSize(opt, orientation)
@@ -385,8 +411,8 @@ export function CreateRoom() {
                   <button
                     type="button"
                     className={styles.rotateBadge}
-                    title={orientation === 'portrait' ? 'Rotate to landscape' : 'Rotate to portrait'}
-                    aria-label={orientation === 'portrait' ? 'Rotate to landscape' : 'Rotate to portrait'}
+                    title={t(orientation === 'portrait' ? 'create.rotateToLandscape' : 'create.rotateToPortrait')}
+                    aria-label={t(orientation === 'portrait' ? 'create.rotateToLandscape' : 'create.rotateToPortrait')}
                     onClick={e => { e.stopPropagation(); toggleOrientation() }}
                   >
                     <Icon name="rotate_90_degrees_cw" />
@@ -404,7 +430,7 @@ export function CreateRoom() {
                     </svg>
                   </div>
                 )}
-                <div className={styles.sizeName}>{opt.label}</div>
+                <div className={styles.sizeName}>{sizeOptionLabel(opt, t)}</div>
                 {opt.id !== 'custom' && (
                   <div className={styles.sizeDims}>{width} × {height}</div>
                 )}
@@ -424,8 +450,8 @@ export function CreateRoom() {
                   />
                 </svg>
               </div>
-              <div className={styles.sizeName}>Infinite</div>
-              <div className={styles.sizeDims}>No fixed size</div>
+              <div className={styles.sizeName}>{t('create.size.infinite')}</div>
+              <div className={styles.sizeDims}>{t('create.size.noFixedSize')}</div>
             </div>
           </div>
 
@@ -436,7 +462,7 @@ export function CreateRoom() {
                 type="number"
                 min={100}
                 max={4096}
-                placeholder="Width"
+                placeholder={t('create.width')}
                 value={customW}
                 onChange={e => setCustomW(e.target.value)}
               />
@@ -446,7 +472,7 @@ export function CreateRoom() {
                 type="number"
                 min={100}
                 max={4096}
-                placeholder="Height"
+                placeholder={t('create.height')}
                 value={customH}
                 onChange={e => setCustomH(e.target.value)}
               />
@@ -457,13 +483,13 @@ export function CreateRoom() {
 
         {/* Password */}
         <div className={styles.section}>
-          <div className={styles.label}>Access</div>
+          <div className={styles.label}>{t('create.access')}</div>
           <label className={styles.toggleRow}>
             <div className={clsx(styles.toggle, usePassword && styles.toggleOn)}>
               <div className={clsx(styles.toggleThumb, usePassword && styles.toggleThumbOn)} />
             </div>
             <span className={styles.toggleLabel}>
-              {usePassword ? 'Password protected' : 'Open — anyone with the link can join'}
+              {t(usePassword ? 'create.passwordProtected' : 'create.openAccess')}
             </span>
             <input
               type="checkbox"
@@ -476,7 +502,7 @@ export function CreateRoom() {
             <input
               className={styles.input}
               type="password"
-              placeholder="Room password"
+              placeholder={t('create.roomPassword')}
               value={password}
               onChange={e => setPassword(e.target.value)}
               autoComplete="new-password"
@@ -487,7 +513,7 @@ export function CreateRoom() {
         {error && <div className={styles.error}>{error}</div>}
 
         <button type="submit" className={styles.submit}>
-          Create room
+          {t('create.submit')}
         </button>
       </form>
     </div>

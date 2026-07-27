@@ -1,6 +1,7 @@
 import { PrecisionSlider } from '../PrecisionSlider'
 import { Icon } from '../Icon'
 import { rgbToHex } from '../../lib/color'
+import { useT } from '../../i18n'
 import type { SettingDescriptor } from '../../pages/Room/toolSchemas'
 import styles from './SettingField.module.css'
 
@@ -27,13 +28,23 @@ const RANGE_TRACK_HEIGHT = 76
  *  `descriptor.valueType.kind`. Adding a new tool/setting is a data change in
  *  toolSchemas.ts; this file does not grow per tool. */
 export function SettingField({ descriptor, value, onChange, layout, onExpand }: SettingFieldProps) {
+  const t = useT()
   const { valueType } = descriptor
+  const label = t(descriptor.nameKey)
+
+  /** An enum option's display text: its own translation where the schema
+   *  provides one (nib, charcoal type), otherwise the raw value — pencil
+   *  grades and liner widths are notation, the same in every language. */
+  const optionLabel = (option: string): string => {
+    const key = descriptor.optionLabelKeys?.[option]
+    return key ? t(key) : option
+  }
 
   if (valueType.kind === 'numberRange') {
     const numValue = value as number
     if (layout === 'toolbar') {
       return (
-        <div className={styles.toolbarBlock} title={descriptor.name}>
+        <div className={styles.toolbarBlock} title={label}>
           <span className={styles.toolbarValue}>
             {valueType.format ? valueType.format(numValue) : numValue}
           </span>
@@ -44,7 +55,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
               trackSize={RANGE_TRACK_HEIGHT}
               onChange={v => onChange(v)}
               formatValue={valueType.format}
-              title={descriptor.name}
+              title={label}
             />
           </div>
         </div>
@@ -53,7 +64,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
     return (
       <div className={styles.panelRow}>
         <div className={styles.panelRowHead}>
-          <span className={styles.panelLabel}>{descriptor.name}</span>
+          <span className={styles.panelLabel}>{label}</span>
           <span className={styles.panelValue}>
             {valueType.format ? valueType.format(numValue) : numValue}
           </span>
@@ -65,7 +76,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
           min={valueType.min} max={valueType.max} step={valueType.step}
           onChange={v => onChange(v)}
           formatValue={valueType.format}
-          title={descriptor.name}
+          title={label}
         />
       </div>
     )
@@ -76,26 +87,26 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
     const index = Math.max(0, valueType.options.indexOf(strValue))
     if (layout === 'toolbar') {
       return (
-        <div className={styles.toolbarBlock} title={descriptor.name}>
+        <div className={styles.toolbarBlock} title={label}>
           <div className={styles.toolbarTrack} style={{ height: ENUM_TRACK_HEIGHT }}>
             <PrecisionSlider
               value={index}
               min={0} max={valueType.options.length - 1} step={1}
               trackSize={ENUM_TRACK_HEIGHT}
               onChange={v => onChange(valueType.options[v])}
-              formatValue={v => valueType.options[v]}
-              title={descriptor.name}
+              formatValue={v => optionLabel(valueType.options[v])}
+              title={label}
             />
           </div>
-          <span className={styles.toolbarValue}>{strValue}</span>
+          <span className={styles.toolbarValue}>{optionLabel(strValue)}</span>
         </div>
       )
     }
     return (
       <div className={styles.panelRow}>
         <div className={styles.panelRowHead}>
-          <span className={styles.panelLabel}>{descriptor.name}</span>
-          <span className={styles.panelValue}>{strValue}</span>
+          <span className={styles.panelLabel}>{label}</span>
+          <span className={styles.panelValue}>{optionLabel(strValue)}</span>
         </div>
         <PrecisionSlider
           className={styles.panelRange}
@@ -103,8 +114,8 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
           value={index}
           min={0} max={valueType.options.length - 1} step={1}
           onChange={v => onChange(valueType.options[v])}
-          formatValue={v => valueType.options[v]}
-          title={descriptor.name}
+          formatValue={v => optionLabel(valueType.options[v])}
+          title={label}
         />
       </div>
     )
@@ -117,7 +128,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
         <button
           className={styles.toolbarToggle}
           aria-pressed={boolValue}
-          title={descriptor.name}
+          title={label}
           onClick={() => onChange(!boolValue)}
         >
           <Icon name={boolValue ? 'check_box' : 'check_box_outline_blank'} />
@@ -126,7 +137,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
     }
     return (
       <label className={styles.panelToggleRow}>
-        <span className={styles.panelLabel}>{descriptor.name}</span>
+        <span className={styles.panelLabel}>{label}</span>
         <input
           type="checkbox"
           checked={boolValue}
@@ -142,8 +153,8 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
     <button
       className={layout === 'toolbar' ? styles.toolbarSwatch : styles.panelSwatch}
       style={{ background: rgbToHex(rgb) }}
-      title={descriptor.name}
-      aria-label={descriptor.name}
+      title={label}
+      aria-label={label}
       onClick={onExpand}
     />
   )

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import styles from './CardMenu.module.css'
 
@@ -20,6 +21,7 @@ interface CardMenuProps {
  *  running (so a caller that opens its own dialog, e.g. "Move to...", isn't
  *  fighting this component's own open state). */
 export function CardMenu({ actions }: CardMenuProps) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -44,7 +46,7 @@ export function CardMenu({ actions }: CardMenuProps) {
       <button
         type="button"
         className={styles.trigger}
-        aria-label="More actions"
+        aria-label={t('common.moreActions')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={e => { e.preventDefault(); e.stopPropagation(); setOpen(o => !o) }}

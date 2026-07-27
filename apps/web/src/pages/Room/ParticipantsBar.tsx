@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import clsx from 'clsx'
 import type { Participant } from '@art-lessons/shared'
+import { useT } from '../../i18n'
 import { Icon } from '../../components/Icon'
 import styles from './Room.module.css'
 
@@ -31,13 +32,22 @@ interface ParticipantsBarProps {
 export const ParticipantsBar = memo(function ParticipantsBar({
   participants, drawingIds, connected, isOwner, onToggleFreeze,
 }: ParticipantsBarProps) {
+  const t = useT()
   if (!participants.length) return null
   return (
     <div className={styles.participantsBar}>
-      {!connected && <span className={styles.connectionDot} title="Reconnecting…" />}
+      {!connected && <span className={styles.connectionDot} title={t('room.reconnecting')} />}
       {participants.map(p => {
         const drawing = drawingIds.includes(p.userId)
         const canFreeze = isOwner && p.role !== 'owner'
+        // Built by joining parts rather than concatenating suffix strings —
+        // a translated suffix would have to carry its own leading separator,
+        // which is exactly the kind of thing that gets lost in translation.
+        const tags = [
+          ...(p.role === 'owner' ? [t('room.participant.owner')] : []),
+          ...(drawing ? [t('room.participant.drawing')] : []),
+          ...(p.frozen ? [t('room.participant.frozen')] : []),
+        ]
         return (
           <div key={p.userId} className={styles.participantDotWrap}>
             <div
@@ -47,7 +57,7 @@ export const ParticipantsBar = memo(function ParticipantsBar({
                 p.frozen && styles.participantDotFrozen,
               )}
               style={{ backgroundColor: p.color }}
-              title={`${p.name}${p.role === 'owner' ? ' — owner' : ''}${drawing ? ' — drawing' : ''}${p.frozen ? ' — frozen by owner' : ''}`}
+              title={[p.name, ...tags].join(' — ')}
             >
               {p.frozen ? <Icon name="ac_unit" /> : p.name.slice(0, 1).toUpperCase()}
             </div>
@@ -56,8 +66,8 @@ export const ParticipantsBar = memo(function ParticipantsBar({
                 type="button"
                 className={styles.participantFreezeBtn}
                 onClick={() => onToggleFreeze?.(p.userId, !p.frozen)}
-                title={p.frozen ? `Unfreeze ${p.name}` : `Freeze ${p.name}`}
-                aria-label={p.frozen ? `Unfreeze ${p.name}` : `Freeze ${p.name}`}
+                title={t(p.frozen ? 'room.participant.unfreeze' : 'room.participant.freeze', { name: p.name })}
+                aria-label={t(p.frozen ? 'room.participant.unfreeze' : 'room.participant.freeze', { name: p.name })}
               >
                 <Icon name="ac_unit" />
               </button>

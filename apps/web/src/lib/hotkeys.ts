@@ -1,4 +1,5 @@
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from './roomStorage'
+import type { TranslationKey } from '../i18n'
 
 // Single source of truth for desktop keyboard shortcuts (#174): one registry
 // drives keydown handling, the hotkey hint shown in each tool's tooltip, and
@@ -32,28 +33,31 @@ export interface HotkeyBinding {
 
 export interface HotkeyActionDef {
   id: string
-  label: string
+  /** Translation key for the action's name (#208) — this registry is data
+   *  shared by the keydown handler, the tooltips and the rebind UI, so it
+   *  carries the key and each consumer resolves it in the active language. */
+  labelKey: TranslationKey
   default: HotkeyBinding
 }
 
 export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
-  { id: 'undo', label: 'Undo', default: { code: 'KeyZ', mod: true, shift: false } },
-  { id: 'redo', label: 'Redo', default: { code: 'KeyZ', mod: true, shift: true } },
-  { id: 'toggleEraser', label: 'Toggle eraser / pencil', default: { code: 'KeyE', mod: false, shift: false } },
-  { id: 'toggleSmudge', label: 'Toggle smudge / pencil', default: { code: 'KeyS', mod: false, shift: false } },
-  { id: 'toggleCharcoal', label: 'Toggle charcoal / pencil', default: { code: 'KeyC', mod: false, shift: false } },
-  { id: 'toggleLiner', label: 'Toggle liner / pencil', default: { code: 'KeyL', mod: false, shift: false } },
-  { id: 'toggleMarker', label: 'Toggle marker / pencil', default: { code: 'KeyM', mod: false, shift: false } },
-  { id: 'resetRotation', label: 'Reset rotation to 0°', default: { code: 'KeyR', mod: false, shift: false } },
-  { id: 'decreaseSize', label: 'Decrease brush size', default: { code: 'BracketLeft', mod: false, shift: false } },
-  { id: 'increaseSize', label: 'Increase brush size', default: { code: 'BracketRight', mod: false, shift: false } },
-  { id: 'rotateCCW', label: 'Rotate view −15°', default: { code: 'BracketLeft', mod: false, shift: true } },
-  { id: 'rotateCW', label: 'Rotate view +15°', default: { code: 'BracketRight', mod: false, shift: true } },
-  { id: 'gradeH', label: 'Pencil grade: H (quick pick)', default: { code: 'Digit1', mod: false, shift: false } },
-  { id: 'gradeHB', label: 'Pencil grade: HB (quick pick)', default: { code: 'Digit2', mod: false, shift: false } },
-  { id: 'grade2B', label: 'Pencil grade: 2B (quick pick)', default: { code: 'Digit3', mod: false, shift: false } },
-  { id: 'grade4B', label: 'Pencil grade: 4B (quick pick)', default: { code: 'Digit4', mod: false, shift: false } },
-  { id: 'grade6B', label: 'Pencil grade: 6B (quick pick)', default: { code: 'Digit5', mod: false, shift: false } },
+  { id: 'undo', labelKey: 'hotkey.undo', default: { code: 'KeyZ', mod: true, shift: false } },
+  { id: 'redo', labelKey: 'hotkey.redo', default: { code: 'KeyZ', mod: true, shift: true } },
+  { id: 'toggleEraser', labelKey: 'hotkey.toggleEraser', default: { code: 'KeyE', mod: false, shift: false } },
+  { id: 'toggleSmudge', labelKey: 'hotkey.toggleSmudge', default: { code: 'KeyS', mod: false, shift: false } },
+  { id: 'toggleCharcoal', labelKey: 'hotkey.toggleCharcoal', default: { code: 'KeyC', mod: false, shift: false } },
+  { id: 'toggleLiner', labelKey: 'hotkey.toggleLiner', default: { code: 'KeyL', mod: false, shift: false } },
+  { id: 'toggleMarker', labelKey: 'hotkey.toggleMarker', default: { code: 'KeyM', mod: false, shift: false } },
+  { id: 'resetRotation', labelKey: 'hotkey.resetRotation', default: { code: 'KeyR', mod: false, shift: false } },
+  { id: 'decreaseSize', labelKey: 'hotkey.decreaseSize', default: { code: 'BracketLeft', mod: false, shift: false } },
+  { id: 'increaseSize', labelKey: 'hotkey.increaseSize', default: { code: 'BracketRight', mod: false, shift: false } },
+  { id: 'rotateCCW', labelKey: 'hotkey.rotateCCW', default: { code: 'BracketLeft', mod: false, shift: true } },
+  { id: 'rotateCW', labelKey: 'hotkey.rotateCW', default: { code: 'BracketRight', mod: false, shift: true } },
+  { id: 'gradeH', labelKey: 'hotkey.gradeH', default: { code: 'Digit1', mod: false, shift: false } },
+  { id: 'gradeHB', labelKey: 'hotkey.gradeHB', default: { code: 'Digit2', mod: false, shift: false } },
+  { id: 'grade2B', labelKey: 'hotkey.grade2B', default: { code: 'Digit3', mod: false, shift: false } },
+  { id: 'grade4B', labelKey: 'hotkey.grade4B', default: { code: 'Digit4', mod: false, shift: false } },
+  { id: 'grade6B', labelKey: 'hotkey.grade6B', default: { code: 'Digit5', mod: false, shift: false } },
 ]
 
 // roomStorage.ts's key format is `al_room_settings:<roomId>` — reusing it

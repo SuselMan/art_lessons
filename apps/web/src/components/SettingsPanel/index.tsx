@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { Tabs } from '../Tabs'
 import {
@@ -21,7 +22,12 @@ interface SettingsPanelProps {
 
 type SettingsTabId = 'general' | 'hotkeys'
 
+// The General tab is a developer instrument (feature flags, grain-variant
+// comparison, a vibration probe) and stays in English on purpose (#208) —
+// its contents churn with whatever is being investigated. The panel chrome
+// and the Hotkeys tab are real user-facing features and are translated.
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
+  const t = useT()
   const [activeTab, setActiveTab] = useState<SettingsTabId>('general')
   // Ad-hoc diagnostic for the hapticGrain experiment (see chat): bypasses the
   // hash-grid entirely and calls navigator.vibrate() directly, so "did the
@@ -52,7 +58,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
       const captured = captureHotkeyBinding(e)
       if (!captured) return // bare modifier (Ctrl/Shift/Meta/Alt alone) — keep listening
       const conflict = findHotkeyConflict(recordingActionId, captured, pendingHotkeys)
-      if (conflict) { setHotkeyError(`Already used by "${conflict.label}"`); return }
+      if (conflict) { setHotkeyError(t('editorSettings.hotkeyConflict', { action: t(conflict.labelKey) })); return }
       setPendingHotkeys(p => ({ ...p, [recordingActionId]: captured }))
       setHotkeyError(null)
       setRecordingActionId(null)
@@ -61,7 +67,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     // listener higher up the tree while this panel is open.
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [recordingActionId, pendingHotkeys])
+  }, [recordingActionId, pendingHotkeys, t])
 
   // Every flag toggle/select below only edits this local draft — nothing
   // touches localStorage or reloads until Save is pressed. Reloading on
@@ -190,13 +196,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
       {HOTKEY_ACTIONS.map(action => (
         <div key={action.id} className={styles.flagRow} style={{ cursor: 'default' }}>
           <div className={styles.hotkeyRow}>
-            <span className={styles.flagLabel}>{action.label}</span>
+            <span className={styles.flagLabel}>{t(action.labelKey)}</span>
             <button
               type="button"
               className={styles.hotkeyBtn}
               onClick={() => { setRecordingActionId(action.id); setHotkeyError(null) }}
             >
-              {recordingActionId === action.id ? 'Press a key…' : formatHotkeyLabel(pendingHotkeys[action.id])}
+              {recordingActionId === action.id ? t('editorSettings.pressKey') : formatHotkeyLabel(pendingHotkeys[action.id])}
             </button>
           </div>
           {recordingActionId === action.id && hotkeyError && (
@@ -213,7 +219,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           setHotkeyError(null)
         }}
       >
-        Reset hotkeys to defaults
+        {t('editorSettings.resetHotkeys')}
       </button>
     </div>
   )
@@ -222,16 +228,16 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     <div className={styles.backdrop} onClick={onClose}>
       <div className={styles.panel} onClick={e => e.stopPropagation()}>
         <div className={styles.panelHeader}>
-          <span>Settings</span>
-          <button className={styles.closeBtn} onClick={onClose} title="Close" aria-label="Close">
+          <span>{t('editorSettings.title')}</span>
+          <button className={styles.closeBtn} onClick={onClose} title={t('common.close')} aria-label={t('common.close')}>
             <Icon name="close" />
           </button>
         </div>
 
         <Tabs
           tabs={[
-            { id: 'general', label: 'General', content: generalContent },
-            { id: 'hotkeys', label: 'Hotkeys', content: hotkeysContent },
+            { id: 'general', label: t('editorSettings.tab.general'), content: generalContent },
+            { id: 'hotkeys', label: t('editorSettings.tab.hotkeys'), content: hotkeysContent },
           ]}
           active={activeTab}
           onSelect={setActiveTab}
@@ -239,10 +245,10 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
         <div className={styles.saveBar}>
           <span className={styles.hint}>
-            {dirty ? 'Unsaved changes — reloads the page.' : 'Changes apply after Save.'}
+            {t(dirty ? 'editorSettings.unsaved' : 'editorSettings.applyAfterSave')}
           </span>
           <button type="button" className={styles.saveBtn} disabled={!dirty} onClick={handleSave}>
-            Save
+            {t('common.save')}
           </button>
         </div>
       </div>

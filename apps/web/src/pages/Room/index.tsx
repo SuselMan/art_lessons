@@ -61,6 +61,7 @@ import { loadPanelPosition, PANEL_SIZE, measureFloatingPanelCenter, type PanelPo
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { fetchLatestSnapshot, walkHistoryBackward, type RestoredSnapshot } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
+import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import type { PrimaryDrawingTool } from '../../stores/slices/toolSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
@@ -173,6 +174,7 @@ export function Room() {
   const { id }   = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  const t        = useT()
 
   // (#24) The store is a module-level singleton — reset it before anything
   // below reads a selector, so a genuine unmount+remount (e.g. via an
@@ -1413,7 +1415,7 @@ export function Room() {
     // accept it. Operations confined to this client's own local island are
     // unaffected — they took the optimistic branch above and work offline.
     if (!connected) {
-      window.alert('Нет связи с комнатой — это действие затрагивает общие слои и станет доступно после переподключения.')
+      window.alert(t('room.offlineSharedAction'))
       return
     }
 
@@ -1428,7 +1430,7 @@ export function Room() {
     // so a dropped packet is retried rather than silently swallowed — its
     // `onSettled` handles the verdict either way.
     void outbox.enqueue(op)
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected, t])
 
   // (#263) LayerPanel has no direct engine access — this is the same
   // engineRef-backed-callback shape as dispatchOp above, threaded down as a
@@ -1447,20 +1449,16 @@ export function Room() {
   const handleUndo = useCallback(() => {
     if (!roomContentReady || isBlockedByFreeze) return
     const peek = engineRef.current?.peekUndo()
-    if (peek?.hasOtherContent && !window.confirm(
-      'Undo will remove a layer that has content from other participants. Continue?',
-    )) return
+    if (peek?.hasOtherContent && !window.confirm(t('room.confirmUndo'))) return
     if (engineRef.current?.undo()) syncFromLog()
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, t])
 
   const handleRedo = useCallback(() => {
     if (!roomContentReady || isBlockedByFreeze) return
     const peek = engineRef.current?.peekRedo()
-    if (peek?.hasOtherContent && !window.confirm(
-      'Redo will remove a layer that has content from other participants. Continue?',
-    )) return
+    if (peek?.hasOtherContent && !window.confirm(t('room.confirmRedo'))) return
     if (engineRef.current?.redo()) syncFromLog()
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, t])
 
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen()
@@ -2310,7 +2308,7 @@ export function Room() {
   const handleJoinSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     const trimmed = joinName.trim()
-    if (!trimmed) { setJoinError('Name is required'); return }
+    if (!trimmed) { setJoinError(t('join.error.nameRequired')); return }
     if (!id) return
 
     setJoinError(null)
@@ -2322,7 +2320,7 @@ export function Room() {
       { roomId: id, name: trimmed, password, lastKnownSeq: latestKnownSeqRef.current || undefined },
       result => {
         setJoinSubmitting(false)
-        if (!result.ok) { setJoinError(describeJoinError(result.error)); return }
+        if (!result.ok) { setJoinError(describeJoinError(result.error, t)); return }
         hasJoinedRef.current = true
         applyIdentity(result.userId)
         // (#298) Only now may the outbox drain — see its canSend gate.
@@ -2331,7 +2329,7 @@ export function Room() {
         // unmounts the gate in favor of the editor.
       },
     )
-  }, [id, joinName, joinPassword, applyIdentity, outbox])
+  }, [id, joinName, joinPassword, applyIdentity, outbox, t])
 
   // ── keyboard shortcuts (#174: bindings come from the `hotkeys` registry
   // loaded above, not hardcoded here — see lib/hotkeys.ts) ─────────────────
@@ -2458,21 +2456,21 @@ export function Room() {
 
       {/* ── Header ── */}
       <header className={clsx(styles.header, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
-        <button className={styles.headerIconBtn} onClick={() => navigate('/create')} title="New room" aria-label="New room">
+        <button className={styles.headerIconBtn} onClick={() => navigate('/create')} title={t('room.newRoom')} aria-label={t('room.newRoom')}>
           <Icon name="arrow_back" />
         </button>
         <span className={styles.roomName}>{config.name}</span>
 
         <div className={styles.headerRight}>
-          <button className={styles.headerIconBtn} onClick={() => setSettingsOpen(true)} title="Settings" aria-label="Settings">
+          <button className={styles.headerIconBtn} onClick={() => setSettingsOpen(true)} title={t('room.settings')} aria-label={t('room.settings')}>
             <Icon name="settings" />
           </button>
           {fullscreenSupported && (
             <button
               className={styles.headerIconBtn}
               onClick={toggleFullscreen}
-              title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+              title={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
+              aria-label={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
             >
               <Icon name={isFullscreen ? 'fullscreen_exit' : 'fullscreen'} />
             </button>
@@ -2485,8 +2483,8 @@ export function Room() {
             <button
               className={clsx(styles.headerIconBtn, roomFrozen && styles.headerIconBtnActive)}
               onClick={toggleRoomFrozen}
-              title={roomFrozen ? 'Unfreeze room — let everyone draw again' : 'Freeze room — pause everyone\'s drawing'}
-              aria-label={roomFrozen ? 'Unfreeze room' : 'Freeze room'}
+              title={t(roomFrozen ? 'room.unfreeze' : 'room.freeze')}
+              aria-label={t(roomFrozen ? 'room.unfreezeShort' : 'room.freezeShort')}
             >
               <Icon name="ac_unit" />
             </button>
@@ -2505,7 +2503,7 @@ export function Room() {
             className={styles.zoomLabel}
             onPointerDown={onZoomDragDown}
             onClick={() => setVp(v => ({ ...v, zoom: config?.infinite ? deviceNativeZoom() : 1 }))}
-            title="Zoom — drag up/down to adjust, click to reset to 100%"
+            title={t('room.zoom')}
           >
             {Math.round(vp.zoom / (config?.infinite ? deviceNativeZoom() : 1) * 100)}%
           </button>
@@ -2523,7 +2521,7 @@ export function Room() {
               const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
               return { ...v, angle: nextDeg * Math.PI / 180 }
             })}
-            title={`Rotation — click to rotate 90°  (${formatHotkeyLabel(hotkeys.resetRotation)} to reset)`}
+            title={t('room.rotation', { hotkey: formatHotkeyLabel(hotkeys.resetRotation) })}
           >
             <Icon name="screen_rotation_alt" />
             {angleDeg}°
@@ -2533,38 +2531,38 @@ export function Room() {
               controls they're already conceptually grouped with. */}
           <button
             className={styles.headerIconBtn}
-            title={`Rotate −15°  (${formatHotkeyLabel(hotkeys.rotateCCW)})`}
-            aria-label={`Rotate −15°  (${formatHotkeyLabel(hotkeys.rotateCCW)})`}
+            title={t('room.rotateCCW', { hotkey: formatHotkeyLabel(hotkeys.rotateCCW) })}
+            aria-label={t('room.rotateCCW', { hotkey: formatHotkeyLabel(hotkeys.rotateCCW) })}
             onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}
           >
             <Icon name="rotate_left" />
           </button>
           <button
             className={styles.headerIconBtn}
-            title={`Rotate +15°  (${formatHotkeyLabel(hotkeys.rotateCW)})`}
-            aria-label={`Rotate +15°  (${formatHotkeyLabel(hotkeys.rotateCW)})`}
+            title={t('room.rotateCW', { hotkey: formatHotkeyLabel(hotkeys.rotateCW) })}
+            aria-label={t('room.rotateCW', { hotkey: formatHotkeyLabel(hotkeys.rotateCW) })}
             onClick={() => setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))}
           >
             <Icon name="rotate_right" />
           </button>
-          <button className={styles.headerIconBtn} title="Fit canvas" aria-label="Fit canvas" onClick={fitCanvas}>
+          <button className={styles.headerIconBtn} title={t('room.fitCanvas')} aria-label={t('room.fitCanvas')} onClick={fitCanvas}>
             <Icon name="fit_screen" />
           </button>
           <div className={styles.headerDivider} />
-          <button className={styles.headerBtn} onClick={handleUndo} title={`Undo  ${formatHotkeyLabel(hotkeys.undo)}`}>
-            <Icon name="undo" /><span>Undo</span>
+          <button className={styles.headerBtn} onClick={handleUndo} title={t('room.undoTitle', { hotkey: formatHotkeyLabel(hotkeys.undo) })}>
+            <Icon name="undo" /><span>{t('room.undo')}</span>
           </button>
-          <button className={styles.headerBtn} onClick={handleRedo} title={`Redo  ${formatHotkeyLabel(hotkeys.redo)}`}>
-            <Icon name="redo" /><span>Redo</span>
+          <button className={styles.headerBtn} onClick={handleRedo} title={t('room.redoTitle', { hotkey: formatHotkeyLabel(hotkeys.redo) })}>
+            <Icon name="redo" /><span>{t('room.redo')}</span>
           </button>
-          <button className={styles.headerBtn} onClick={handleExport} title="Export PNG">
-            <Icon name="download" /><span>Export</span>
+          <button className={styles.headerBtn} onClick={handleExport} title={t('room.exportTitle')}>
+            <Icon name="download" /><span>{t('room.export')}</span>
           </button>
-          <button className={styles.headerBtn} onClick={handleExportTransparent} title="Export PNG with transparent background">
-            <Icon name="image" /><span>Transparent</span>
+          <button className={styles.headerBtn} onClick={handleExportTransparent} title={t('room.exportTransparentTitle')}>
+            <Icon name="image" /><span>{t('room.exportTransparent')}</span>
           </button>
-          <button className={styles.headerBtn} onClick={handleSaveSession} title="Save session as JSON">
-            <Icon name="save" /><span>Save</span>
+          <button className={styles.headerBtn} onClick={handleSaveSession} title={t('room.saveSessionTitle')}>
+            <Icon name="save" /><span>{t('room.saveSession')}</span>
           </button>
           <div className={styles.headerDivider} />
           {/* Clear canvas (#198): destructive content action, deliberately
@@ -2573,9 +2571,9 @@ export function Room() {
               for by accident) — moved out of the tool toolbar, it was never
               a tool either. Existing confirm() (#171) unchanged by the move;
               a real non-native confirm dialog is still tracked separately. */}
-          <button className={styles.headerIconBtn} title="Clear canvas" aria-label="Clear canvas"
+          <button className={styles.headerIconBtn} title={t('room.clearCanvas')} aria-label={t('room.clearCanvas')}
             onClick={() => {
-              if (window.confirm(`Clear the active layer? This can be undone with ${formatHotkeyLabel(hotkeys.undo)}.`)) {
+              if (window.confirm(t('room.confirmClear', { hotkey: formatHotkeyLabel(hotkeys.undo) }))) {
                 engineRef.current?.clear()
               }
             }}>
@@ -2596,20 +2594,20 @@ export function Room() {
               (handled by the quick-settings panel to the right, not here). */}
           <button
             className={clsx(styles.toolIconBtn, tool === 'pencil' && styles.toolIconBtnActive)}
-            title={`Pencil  (${gradeHotkeyLabels} for quick grade picks)`}
-            aria-label="Pencil"
+            title={t('tool.pencilTitle', { hotkeys: gradeHotkeyLabels })}
+            aria-label={t('tool.pencil')}
             onClick={() => setTool('pencil')}
           ><Icon name="edit" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
-            title={`Eraser  ${formatHotkeyLabel(hotkeys.toggleEraser)}`}
-            aria-label={`Eraser  ${formatHotkeyLabel(hotkeys.toggleEraser)}`}
+            title={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
+            aria-label={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
             onClick={() => setTool(t => t === 'eraser' ? lastDrawingTool : 'eraser')}
           ><Icon name="ink_eraser" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'smudge' && styles.toolIconBtnActive)}
-            title={`Smudge — blend graphite already on the page  ${formatHotkeyLabel(hotkeys.toggleSmudge)}`}
-            aria-label={`Smudge  ${formatHotkeyLabel(hotkeys.toggleSmudge)}`}
+            title={t('tool.smudgeTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSmudge) })}
+            aria-label={t('tool.smudge')}
             onClick={() => setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge')}
           ><Icon name="smudge" /></button>
           {/* Charcoal (#304, ADR 005) — its own material, not a soft black
@@ -2618,14 +2616,14 @@ export function Room() {
               6H-6B grade is, rather than as three toolbar buttons. */}
           <button
             className={clsx(styles.toolIconBtn, tool === 'charcoal' && styles.toolIconBtnActive)}
-            title={`Charcoal — loose carbon stick; grabs the paper's tooth, crumbles, sheds dust  ${formatHotkeyLabel(hotkeys.toggleCharcoal)}`}
-            aria-label={`Charcoal  ${formatHotkeyLabel(hotkeys.toggleCharcoal)}`}
+            title={t('tool.charcoalTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleCharcoal) })}
+            aria-label={t('tool.charcoal')}
             onClick={() => setTool(t => t === 'charcoal' ? 'pencil' : 'charcoal')}
           ><Icon name="charcoal" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'liner' && styles.toolIconBtnActive)}
-            title={`Liner — ink pen, near-constant line width  ${formatHotkeyLabel(hotkeys.toggleLiner)}`}
-            aria-label={`Liner  ${formatHotkeyLabel(hotkeys.toggleLiner)}`}
+            title={t('tool.linerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleLiner) })}
+            aria-label={t('tool.liner')}
             onClick={() => setTool(t => t === 'liner' ? 'pencil' : 'liner')}
           ><Icon name="stylus" /></button>
           {/* Marker (#252, ADR 004) — UI/toolbar plumbing only; the actual
@@ -2636,8 +2634,8 @@ export function Room() {
               own doc comment in toolSchemas.ts. */}
           <button
             className={clsx(styles.toolIconBtn, tool === 'marker' && styles.toolIconBtnActive)}
-            title={`Marker — two-nib (bullet/chisel) marker rendering  ${formatHotkeyLabel(hotkeys.toggleMarker)}`}
-            aria-label={`Marker  ${formatHotkeyLabel(hotkeys.toggleMarker)}`}
+            title={t('tool.markerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleMarker) })}
+            aria-label={t('tool.marker')}
             onClick={() => setTool(t => t === 'marker' ? 'pencil' : 'marker')}
           ><Icon name="ink_highlighter" /></button>
 
@@ -2649,20 +2647,20 @@ export function Room() {
               custom colors) is a separate, later task. */}
           <button
             className={clsx(styles.toolIconBtn, eyedropperActive && styles.toolIconBtnActive)}
-            title="Eyedropper — pick a color from the canvas"
-            aria-label="Eyedropper — pick a color from the canvas"
+            title={t('tool.eyedropper')}
+            aria-label={t('tool.eyedropper')}
             onClick={toggleEyedropper}
           ><Icon name="colorize" /></button>
           <button
             className={clsx(styles.toolIconBtn, rulerActive && styles.toolIconBtnActive)}
-            title="Ruler — drag a straight edge; pencil strokes drawn near it snap to its line and show the distance"
-            aria-label="Ruler — drag a straight edge; pencil strokes drawn near it snap to its line and show the distance"
+            title={t('tool.ruler')}
+            aria-label={t('tool.ruler')}
             onClick={toggleRuler}
           ><Icon name="square_foot" /></button>
           <button
             className={clsx(styles.toolIconBtn, transformActive && styles.toolIconBtnActive)}
-            title="Transform — move/scale/rotate the active layer or current selection"
-            aria-label="Transform — move/scale/rotate the active layer or current selection"
+            title={t('tool.transform')}
+            aria-label={t('tool.transform')}
             disabled={transformTargetIds.length === 0}
             onClick={toggleTransform}
           ><Icon name="transform" /></button>
@@ -2671,8 +2669,8 @@ export function Room() {
 
           <button
             className={clsx(styles.toolIconBtn, gridActive && styles.toolIconBtnActive)}
-            title="Toggle construction grid"
-            aria-label="Toggle construction grid"
+            title={t('tool.grid')}
+            aria-label={t('tool.grid')}
             onClick={() => setGridActive(a => !a)}
           ><Icon name="grid_on" /></button>
 
@@ -2861,7 +2859,7 @@ export function Room() {
             onSelect={setActivePanel}
             tabs={[
               {
-                id: 'layers', icon: 'layers', title: 'Layers',
+                id: 'layers', icon: 'layers', title: t('room.panel.layers'),
                 content: <LayerPanel layerState={layerState} onChange={setLayerStateLocal} onOp={dispatchOp} isOwner={isOwner} hasLayerContent={hasLayerContent} />,
               },
               {
@@ -2873,7 +2871,7 @@ export function Room() {
                 // below — pencil/liner/marker all share its one drawing-tool
                 // slot now), so falling back to pencil's color there only
                 // ever matters before any of the three has been picked yet.
-                id: 'color', icon: 'palette', title: 'Color',
+                id: 'color', icon: 'palette', title: t('room.panel.color'),
                 content: (
                   <>
                     <ColorPicker value={colorToolColor} onChange={v => setToolSetting(colorTool, 'color', v)} />
@@ -2892,9 +2890,9 @@ export function Room() {
                 // TOOL_SCHEMAS/SettingField data + component the toolbar's
                 // quick-access row uses (#196) — this tab just renders every
                 // field, not only the quickAccess-flagged ones.
-                id: 'toolSettings', icon: 'tune', title: 'Tool settings',
+                id: 'toolSettings', icon: 'tune', title: t('room.panel.toolSettings'),
                 content: Object.keys(TOOL_SCHEMAS[tool]).length === 0 ? (
-                  <p className={styles.noToolSettings}>This tool has no settings yet.</p>
+                  <p className={styles.noToolSettings}>{t('room.noToolSettings')}</p>
                 ) : (
                   <div className={styles.toolSettingsPanel}>
                     {Object.entries(TOOL_SCHEMAS[tool])
@@ -2964,7 +2962,7 @@ export function Room() {
             value={markerAngleDeg}
             onChange={v => setToolSetting('marker', 'angle', v)}
             formatValue={formatDegreesMinutes}
-            title="Marker angle"
+            title={t('room.markerAngle')}
           />
         )}
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 
 import { useDraggablePosition } from '../../lib/useDraggablePosition'
+import { useT, type TranslationKey } from '../../i18n'
 import { Icon } from '../Icon'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import {
@@ -31,11 +32,11 @@ type FloatingPrimaryTool = 'pencil' | 'charcoal' | 'liner' | 'marker'
 // Icon + label for the top slot's primaryTool — same icon each tool's own
 // left-toolbar button already uses (Room/index.tsx), so the floating panel
 // and the toolbar never disagree about what a tool "looks like".
-const PRIMARY_TOOL_DISPLAY: Record<FloatingPrimaryTool, { icon: string; label: string }> = {
-  pencil: { icon: 'edit', label: 'Pencil' },
-  charcoal: { icon: 'charcoal', label: 'Charcoal' },
-  liner: { icon: 'stylus', label: 'Liner' },
-  marker: { icon: 'ink_highlighter', label: 'Marker' },
+const PRIMARY_TOOL_DISPLAY: Record<FloatingPrimaryTool, { icon: string; labelKey: TranslationKey }> = {
+  pencil: { icon: 'edit', labelKey: 'tool.pencil' },
+  charcoal: { icon: 'charcoal', labelKey: 'tool.charcoal' },
+  liner: { icon: 'stylus', labelKey: 'tool.liner' },
+  marker: { icon: 'ink_highlighter', labelKey: 'tool.marker' },
 }
 
 const FLYOUT_LAYOUT: RayLayoutConfig = {
@@ -122,6 +123,7 @@ export function FloatingToolPanel({
   roomId, position, onPositionChange, containerRef, hidden, strokeBlocked,
   undoHotkeyLabel, redoHotkeyLabel,
 }: Props) {
+  const t = useT()
   const [flyoutOpen, setFlyoutOpen] = useState(false)
   // Mount-then-transition: items first render collapsed onto the panel's
   // center (see the `animateIn` className below), then this flips true one
@@ -234,32 +236,32 @@ export function FloatingToolPanel({
         )}
         style={position ? { left: position.x, top: position.y } : undefined}
         onPointerDown={onPointerDown}
-        title="Drag to move"
+        title={t('palette.dragPanel')}
       >
         <button
           className={styles.colorDot}
           style={{ background: rgbToHex(primaryColor) }}
           onClick={toggleFlyout}
-          title="Palette"
-          aria-label={flyoutOpen ? 'Close palette' : 'Open palette'}
+          title={t('palette.open')}
+          aria-label={t(flyoutOpen ? 'palette.closeLabel' : 'palette.openLabel')}
         />
         <button
           className={clsx(styles.btn, styles.btnTop, tool === primaryTool && styles.btnActive)}
           onClick={() => onSetTool(primaryTool)}
-          title={PRIMARY_TOOL_DISPLAY[primaryTool].label}
-          aria-label={PRIMARY_TOOL_DISPLAY[primaryTool].label}
+          title={t(PRIMARY_TOOL_DISPLAY[primaryTool].labelKey)}
+          aria-label={t(PRIMARY_TOOL_DISPLAY[primaryTool].labelKey)}
         >
           <Icon name={PRIMARY_TOOL_DISPLAY[primaryTool].icon} />
         </button>
-        <button className={clsx(styles.btn, styles.btnRight)} onClick={onRedo} title={`Redo  ${redoHotkeyLabel}`} aria-label="Redo">
+        <button className={clsx(styles.btn, styles.btnRight)} onClick={onRedo} title={t('room.redoTitle', { hotkey: redoHotkeyLabel })} aria-label={t('room.redo')}>
           <Icon name="redo" />
         </button>
-        <button className={clsx(styles.btn, styles.btnLeft)} onClick={onUndo} title={`Undo  ${undoHotkeyLabel}`} aria-label="Undo">
+        <button className={clsx(styles.btn, styles.btnLeft)} onClick={onUndo} title={t('room.undoTitle', { hotkey: undoHotkeyLabel })} aria-label={t('room.undo')}>
           <Icon name="undo" />
         </button>
         <button
           className={clsx(styles.btn, styles.btnBottom, tool === 'eraser' && styles.btnActive)}
-          onClick={() => onSetTool('eraser')} title="Eraser" aria-label="Eraser"
+          onClick={() => onSetTool('eraser')} title={t('tool.eraser')} aria-label={t('tool.eraser')}
         >
           <Icon name="ink_eraser" />
         </button>
@@ -279,7 +281,7 @@ export function FloatingToolPanel({
                   className={styles.flyoutSwatch}
                   style={{ background: item.color, transform }}
                   title={item.color}
-                  aria-label={`Select color ${item.color}`}
+                  aria-label={t('palette.selectColor', { color: item.color })}
                   onClick={() => { onSelectColor(hexToRgb(item.color!)); setFlyoutOpen(false) }}
                 />
               ) : (
@@ -287,8 +289,8 @@ export function FloatingToolPanel({
                   key="open-picker"
                   className={styles.flyoutPickerBtn}
                   style={{ transform }}
-                  title="Open color picker"
-                  aria-label="Open color picker"
+                  title={t('palette.openPicker')}
+                  aria-label={t('palette.openPicker')}
                   onClick={() => { onOpenColorPicker(); setFlyoutOpen(false) }}
                 >
                   <Icon name="palette" />

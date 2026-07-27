@@ -3,6 +3,7 @@ import {
   type PencilGradeName, type LinerSizeMm, type CharcoalType,
 } from '../../engine'
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
+import type { TranslationKey } from '../../i18n'
 
 // Unified, extensible tool-settings registry (#196). Replaces the old
 // hand-typed `RoomToolSettings{pencil,eraser}` (toolSettings.ts) — adding a
@@ -31,8 +32,17 @@ export type SettingUiControl = 'slider' | 'input' | 'toggle' | 'swatch'
  *  handful of fields; every consumer narrows via `descriptor.valueType.kind`
  *  at the point of use instead (see SettingField). */
 export interface SettingDescriptor {
-  name: string
+  /** Translation key for this field's label (#208) — the schema is data, so
+   *  it carries the key rather than a language-specific string; SettingField
+   *  resolves it at render time. */
+  nameKey: TranslationKey
   valueType: SettingValueType
+  /** Translation keys for individual `enumOptions` values, where the option
+   *  is a word rather than notation. Grades ('HB', '2B') and liner widths
+   *  ('0.3') are international pencil/pen markings and stay as they are; a
+   *  marker nib or a charcoal type is an ordinary noun and gets translated.
+   *  An option missing from this map renders as its own raw value. */
+  optionLabelKeys?: Readonly<Record<string, TranslationKey>>
   /** Which control(s) this field can render as; first is the default. */
   uiControls: readonly SettingUiControl[]
   /** Also rendered inline in the left toolbar, not just the settings tab. */
@@ -68,28 +78,28 @@ export function formatDegreesMinutes(v: number): string {
 
 const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: number): ToolSchema => ({
   grade: {
-    name: 'Grade',
+    nameKey: 'tool.field.grade',
     valueType: { kind: 'enumOptions', options: PENCIL_GRADES },
     uiControls: ['slider'],
     quickAccess: true,
     default: 'HB' satisfies PencilGradeName,
   },
   size: {
-    name: 'Size',
+    nameKey: 'tool.field.size',
     valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
     uiControls: ['slider', 'input'],
     quickAccess: true,
     default: defaultSize,
   },
   opacity: {
-    name: 'Opacity',
+    nameKey: 'tool.field.opacity',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
     uiControls: ['slider'],
     quickAccess: true,
     default: 1,
   },
   color: {
-    name: 'Color',
+    nameKey: 'tool.field.color',
     valueType: { kind: 'color' },
     uiControls: ['swatch'],
     quickAccess: true,
@@ -131,14 +141,14 @@ export function stepLinerSize(current: string, direction: 1 | -1): string {
 
 const linerSchema = (): ToolSchema => ({
   size: {
-    name: 'Size',
+    nameKey: 'tool.field.size',
     valueType: { kind: 'enumOptions', options: LINER_SIZE_LABELS },
     uiControls: ['slider'],
     quickAccess: true,
     default: String(0.3 satisfies LinerSizeMm),
   },
   opacity: {
-    name: 'Opacity',
+    nameKey: 'tool.field.opacity',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
     uiControls: ['slider'],
     quickAccess: true,
@@ -148,7 +158,7 @@ const linerSchema = (): ToolSchema => ({
   // allows arbitrary color (same as Color pencil) rather than locking it —
   // decided explicitly, not a placeholder.
   color: {
-    name: 'Color',
+    nameKey: 'tool.field.color',
     valueType: { kind: 'color' },
     uiControls: ['swatch'],
     quickAccess: true,
@@ -163,8 +173,13 @@ const linerSchema = (): ToolSchema => ({
 // hiding the choice in a settings tab would be equally wrong).
 const charcoalSchema = (): ToolSchema => ({
   type: {
-    name: 'Type',
+    nameKey: 'tool.field.type',
     valueType: { kind: 'enumOptions', options: CHARCOAL_TYPES },
+    optionLabelKeys: {
+      vine: 'tool.charcoalType.vine',
+      willow: 'tool.charcoalType.willow',
+      compressed: 'tool.charcoalType.compressed',
+    },
     uiControls: ['slider'],
     quickAccess: true,
     default: DEFAULT_CHARCOAL_TYPE satisfies CharcoalType,
@@ -174,14 +189,14 @@ const charcoalSchema = (): ToolSchema => ({
   // own raised width floor encodes), and the upper bound matches every other
   // px-slider tool's.
   size: {
-    name: 'Size',
+    nameKey: 'tool.field.size',
     valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
     uiControls: ['slider', 'input'],
     quickAccess: true,
     default: 18,
   },
   opacity: {
-    name: 'Opacity',
+    nameKey: 'tool.field.opacity',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
     uiControls: ['slider'],
     quickAccess: true,
@@ -194,7 +209,7 @@ const charcoalSchema = (): ToolSchema => ({
   // charcoal reads slightly warm-grey at full density, and DEFAULT_GRAPHITE_
   // COLOR would make it indistinguishable from the pencil at a glance.
   color: {
-    name: 'Color',
+    nameKey: 'tool.field.color',
     valueType: { kind: 'color' },
     uiControls: ['swatch'],
     quickAccess: true,
@@ -221,8 +236,12 @@ const markerSchema = (): ToolSchema => ({
   // nib that actually looks like a marker (flat, angle-dependent edge);
   // 'bullet' remains available as the round alternative.
   nib: {
-    name: 'Nib',
+    nameKey: 'tool.field.nib',
     valueType: { kind: 'enumOptions', options: MARKER_NIB_TYPES },
+    optionLabelKeys: {
+      bullet: 'tool.nib.bullet',
+      chisel: 'tool.nib.chisel',
+    },
     uiControls: ['slider'],
     quickAccess: true,
     default: 'chisel' satisfies MarkerNibType,
@@ -231,14 +250,14 @@ const markerSchema = (): ToolSchema => ({
   // 'size' field (pencilLikeSchema above) — not a fixed label ladder like
   // the liner's (ADR 003's calibrated-pen-set reasoning doesn't apply here).
   size: {
-    name: 'Size',
+    nameKey: 'tool.field.size',
     valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
     uiControls: ['slider', 'input'],
     quickAccess: true,
     default: 10,
   },
   opacity: {
-    name: 'Opacity',
+    nameKey: 'tool.field.opacity',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
     uiControls: ['slider'],
     quickAccess: true,
@@ -251,7 +270,7 @@ const markerSchema = (): ToolSchema => ({
   // so it reads as visibly distinct from pencil's graphite and liner's
   // black at a glance — not calibrated to any real Copic swatch.
   color: {
-    name: 'Color',
+    nameKey: 'tool.field.color',
     valueType: { kind: 'color' },
     uiControls: ['swatch'],
     quickAccess: true,
@@ -267,7 +286,7 @@ const markerSchema = (): ToolSchema => ({
   // shares the same descriptor, so it gets the same fine-grained step too,
   // just via drag/arrow-key increments instead of the dial's ring gesture.
   angle: {
-    name: 'Angle',
+    nameKey: 'tool.field.angle',
     valueType: { kind: 'numberRange', min: 0, max: 360, step: 1 / 60, format: formatDegreesMinutes },
     uiControls: ['slider'],
     quickAccess: true,
@@ -277,7 +296,7 @@ const markerSchema = (): ToolSchema => ({
   // Off by default: preserves ADR 004's original "angle is a fixed property
   // of the tool, not the stroke" behavior unless explicitly turned on.
   followStrokeDirection: {
-    name: 'Follow stroke direction',
+    nameKey: 'tool.field.followStroke',
     valueType: { kind: 'boolean' },
     uiControls: ['toggle'],
     default: false,
@@ -299,14 +318,14 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   marker: markerSchema(),
   eraser: {
     size: {
-      name: 'Size',
+      nameKey: 'tool.field.size',
       valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
       uiControls: ['slider', 'input'],
       quickAccess: true,
       default: 24,
     },
     opacity: {
-      name: 'Opacity',
+      nameKey: 'tool.field.opacity',
       valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
       uiControls: ['slider'],
       quickAccess: true,
@@ -324,14 +343,14 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // as a gradual blend rather than an instant full-opacity smear.
   smudge: {
     size: {
-      name: 'Size',
+      nameKey: 'tool.field.size',
       valueType: { kind: 'numberRange', min: 4, max: 160, step: 1, format: pxFormat },
       uiControls: ['slider', 'input'],
       quickAccess: true,
       default: 32,
     },
     opacity: {
-      name: 'Strength',
+      nameKey: 'tool.field.strength',
       valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
       uiControls: ['slider'],
       quickAccess: true,
@@ -340,7 +359,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   },
   eyedropper: {
     addToPalette: {
-      name: 'Add to palette on pick',
+      nameKey: 'tool.field.addToPalette',
       valueType: { kind: 'boolean' },
       uiControls: ['toggle'],
       default: false,

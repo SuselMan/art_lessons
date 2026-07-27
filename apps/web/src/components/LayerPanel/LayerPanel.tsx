@@ -20,6 +20,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import type { LayerState, OperationDraft } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
+import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
@@ -75,6 +76,7 @@ function markTouchHintSeen(): void {
 export const LayerPanel = memo(function LayerPanel({
   layerState, onChange, onOp, isOwner, hasLayerContent,
 }: LayerPanelProps) {
+  const t = useT()
   const { items, rootOrder, activeId, selectedIds } = layerState
   const activeItem = items[activeId]
 
@@ -210,13 +212,16 @@ export const LayerPanel = memo(function LayerPanel({
   const handleAddLayer = useCallback(() => {
     const newId = nanoid(8)
     const count = Object.values(layerState.items).filter(i => i.kind === 'layer').length
-    onOp({ type: 'layer_add', layerId: newId, name: `Layer ${count + 1}` })
+    // Names created here are shared content, not local chrome: they ride the
+    // operation log to every participant, so a layer created by a Russian UI
+    // reads as "Слой 3" for everyone, exactly like a room name does.
+    onOp({ type: 'layer_add', layerId: newId, name: t('layers.defaultLayerName', { n: count + 1 }) })
     onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
-  }, [layerState.items, onChange, onOp])
+  }, [layerState.items, onChange, onOp, t])
 
   const handleAddFolder = useCallback(() => {
-    onOp({ type: 'folder_add', layerId: nanoid(8), name: 'Folder' })
-  }, [onOp])
+    onOp({ type: 'folder_add', layerId: nanoid(8), name: t('layers.defaultFolderName') })
+  }, [onOp, t])
 
   // Reference image import (#88) — always its own new layer (never onto an
   // existing one), so image_import can assume a blank target with nothing
@@ -238,11 +243,11 @@ export const LayerPanel = memo(function LayerPanel({
     try {
       const { dataUrl, width, height } = await readImageFile(file)
       const newId = nanoid(8)
-      onOp({ type: 'layer_add', layerId: newId, name: file.name.replace(/\.[^./]+$/, '') || 'Reference' })
+      onOp({ type: 'layer_add', layerId: newId, name: file.name.replace(/\.[^./]+$/, '') || t('layers.referenceName') })
       onOp({ type: 'image_import', layerId: newId, image: dataUrl, width, height })
       onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
     } catch (err) {
-      setImportError(err instanceof Error ? err.message : 'Could not import image')
+      setImportError(err instanceof Error ? err.message : t('layers.importFailed'))
     } finally {
       // Reset only once the read has actually finished (success or failure)
       // rather than immediately on change — resetting the input's value
@@ -250,7 +255,7 @@ export const LayerPanel = memo(function LayerPanel({
       // there's no upside to doing it before the read is done, either.
       input.value = ''
     }
-  }, [onChange, onOp])
+  }, [onChange, onOp, t])
 
   const handleDelete = useCallback((ids?: string[]) => {
     const targets = (ids ?? (selectedIds.length > 0 ? selectedIds : [activeId]))
@@ -267,13 +272,11 @@ export const LayerPanel = memo(function LayerPanel({
     // (#263) Mirrors Clear-layer's own confirm (#171): only prompt when
     // there's actually something to lose — an empty layer/selection still
     // deletes silently, same as today.
-    if ([...idSet].some(hasLayerContent) && !window.confirm(
-      'Delete the selected layer(s)? Any painted content on them — including content from other participants — will be lost.',
-    )) return
+    if ([...idSet].some(hasLayerContent) && !window.confirm(t('layers.confirmDelete'))) return
 
     onOp({ type: 'layer_delete', layerIds: [...idSet] })
     onChange(p => ({ ...p, selectedIds: [] }))
-  }, [activeId, selectedIds, layerState, onChange, onOp, hasLayerContent])
+  }, [activeId, selectedIds, layerState, onChange, onOp, hasLayerContent, t])
 
   // ── merge ────────────────────────────────────────────────────────────────────
 
@@ -298,8 +301,8 @@ export const LayerPanel = memo(function LayerPanel({
     const container = containerId ? items[containerId] : null
     const siblings = container && isFolder(container) ? container.children : rootOrder
     const idx = Math.min(...ids.map(id => siblings.indexOf(id)).filter(i => i >= 0))
-    emitMerge(ids, 'Merged', containerId, idx)
-  }, [selectedIds, items, layerState, rootOrder, emitMerge])
+    emitMerge(ids, t('layers.mergedName'), containerId, idx)
+  }, [selectedIds, items, layerState, rootOrder, emitMerge, t])
 
   const handleMergeDown = useCallback((id?: string) => {
     const sourceId = id ?? activeId
@@ -331,10 +334,10 @@ export const LayerPanel = memo(function LayerPanel({
     if (!menuId) return
     const item = items[menuId]
     if (!item) return
-    const next = window.prompt('Rename layer', item.name)
+    const next = window.prompt(t('layers.renamePrompt'), item.name)
     if (next?.trim()) handleRename(menuId, next.trim())
     handleCloseMenu()
-  }, [menuId, items, handleRename, handleCloseMenu])
+  }, [menuId, items, handleRename, handleCloseMenu, t])
 
   const handleMenuMergeDown = useCallback(() => {
     handleCloseMenu()
@@ -507,7 +510,7 @@ export const LayerPanel = memo(function LayerPanel({
     <div className={styles.body} onPointerDown={handlePanelPointerDown} onPointerUp={handlePointerUp}>
       {activeItem && (
         <div className={styles.opacityBar}>
-          <span className={styles.opacityBarLabel}>Opacity</span>
+          <span className={styles.opacityBarLabel}>{t('layers.opacity')}</span>
           <input type="range" min={0} max={100}
             value={Math.round(activeItem.opacity * 100)}
             onChange={e => handleOpacity(activeId, Number(e.target.value) / 100)}
@@ -517,13 +520,13 @@ export const LayerPanel = memo(function LayerPanel({
       )}
 
       <div className={styles.listToolbar}>
-        <button className={styles.toolbarBtn} onClick={handleAddLayer} title="Add layer" aria-label="Add layer">
+        <button className={styles.toolbarBtn} onClick={handleAddLayer} title={t('layers.addLayer')} aria-label={t('layers.addLayer')}>
           <Icon name="add" />
         </button>
-        <button className={styles.toolbarBtn} onClick={handleAddFolder} title="Add folder" aria-label="Add folder">
+        <button className={styles.toolbarBtn} onClick={handleAddFolder} title={t('layers.addFolder')} aria-label={t('layers.addFolder')}>
           <Icon name="create_new_folder" />
         </button>
-        <button className={styles.toolbarBtn} onClick={handleImportImageClick} title="Import reference image" aria-label="Import reference image">
+        <button className={styles.toolbarBtn} onClick={handleImportImageClick} title={t('layers.importImage')} aria-label={t('layers.importImage')}>
           <Icon name="add_photo_alternate" />
         </button>
         <input
@@ -538,8 +541,8 @@ export const LayerPanel = memo(function LayerPanel({
           className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
           onClick={() => handleToggleLock(activeId)}
           disabled={activeId === BACKGROUND_LAYER_ID}
-          title={isActiveLocked ? 'Unlock layer' : 'Lock layer'}
-          aria-label={isActiveLocked ? 'Unlock layer' : 'Lock layer'}>
+          title={t(isActiveLocked ? 'layers.unlockLayer' : 'layers.lockLayer')}
+          aria-label={t(isActiveLocked ? 'layers.unlockLayer' : 'layers.lockLayer')}>
           <Icon name={isActiveLocked ? 'lock' : 'lock_open'} />
         </button>
         {isOwner && (
@@ -547,8 +550,8 @@ export const LayerPanel = memo(function LayerPanel({
             className={clsx(styles.toolbarBtn, isActiveOwnerLocked && styles.toolbarBtnOwnerLocked)}
             onClick={() => handleToggleOwnerLock(activeId)}
             disabled={activeId === BACKGROUND_LAYER_ID}
-            title={isActiveOwnerLocked ? 'Unlock layer for others (owner)' : 'Lock layer for others (owner)'}
-            aria-label={isActiveOwnerLocked ? 'Unlock layer for others' : 'Lock layer for others'}>
+            title={t(isActiveOwnerLocked ? 'layers.ownerUnlock' : 'layers.ownerLock')}
+            aria-label={t(isActiveOwnerLocked ? 'layers.ownerUnlockShort' : 'layers.ownerLockShort')}>
             <Icon name="lock_person" />
           </button>
         )}
@@ -556,16 +559,16 @@ export const LayerPanel = memo(function LayerPanel({
           className={styles.toolbarBtn}
           disabled={!canMerge}
           onClick={() => canMergeSelected ? handleMergeSelected() : handleMergeDown()}
-          title={canMergeSelected ? 'Merge selected' : 'Merge down'}
-          aria-label={canMergeSelected ? 'Merge selected' : 'Merge down'}>
+          title={t(canMergeSelected ? 'layers.mergeSelected' : 'layers.mergeDown')}
+          aria-label={t(canMergeSelected ? 'layers.mergeSelected' : 'layers.mergeDown')}>
           <Icon name="move_down" />
         </button>
         <button
           className={clsx(styles.toolbarBtn, styles.toolbarBtnDanger)}
           onClick={() => handleDelete()}
           disabled={!canDelete}
-          title={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}
-          aria-label={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}>
+          title={t(selectedIds.length > 0 ? 'layers.deleteSelected' : 'layers.deleteLayer')}
+          aria-label={t(selectedIds.length > 0 ? 'layers.deleteSelected' : 'layers.deleteLayer')}>
           <Icon name="delete" />
         </button>
       </div>
@@ -573,11 +576,11 @@ export const LayerPanel = memo(function LayerPanel({
       {showTouchHint && (
         <div className={styles.touchHint}>
           <Icon name="info" />
-          <span>Tip: press and hold a layer to select multiple</span>
+          <span>{t('layers.touchHint')}</span>
           <button
             className={styles.touchHintDismiss}
             onClick={handleDismissTouchHint}
-            title="Dismiss"
+            title={t('layers.dismissHint')}
           >
             <Icon name="close" />
           </button>
@@ -640,9 +643,9 @@ export const LayerPanel = memo(function LayerPanel({
           anchor={menuAnchor}
           onClose={handleCloseMenu}
           items={[
-            { label: 'Rename',   onClick: handleMenuRename },
-            { label: 'Merge down', onClick: handleMenuMergeDown, disabled: items[menuId]?.kind !== 'layer' },
-            { label: 'Delete',   onClick: handleMenuDelete,   disabled: menuId === BACKGROUND_LAYER_ID },
+            { label: t('common.rename'),      onClick: handleMenuRename },
+            { label: t('layers.mergeDown'),   onClick: handleMenuMergeDown, disabled: items[menuId]?.kind !== 'layer' },
+            { label: t('common.delete'),      onClick: handleMenuDelete,    disabled: menuId === BACKGROUND_LAYER_ID },
           ]}
         />
       )}

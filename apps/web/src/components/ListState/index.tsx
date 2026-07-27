@@ -1,3 +1,4 @@
+import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import styles from './ListState.module.css'
 
@@ -21,13 +22,14 @@ interface ErrorStateProps {
 }
 
 export function ErrorState({ message, onRetry }: ErrorStateProps) {
+  const t = useT()
   return (
     <div className={styles.error}>
       <Icon name="error" />
       <span className={styles.errorMessage}>{message}</span>
       {onRetry && (
         <button type="button" className={styles.retryButton} onClick={onRetry}>
-          Retry
+          {t('common.retry')}
         </button>
       )}
     </div>

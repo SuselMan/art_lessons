@@ -3,26 +3,31 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import clsx from 'clsx'
 import { ApiError, login, register } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
+import { useT, type TFunction } from '../../i18n'
 import styles from './Auth.module.css'
 
 type Mode = 'login' | 'register'
 
-function describeError(err: unknown, mode: Mode): string {
+/** The server answers with a code, never with prose (#208 leaves server
+ *  responses untranslated on purpose) — this is where a code becomes a
+ *  sentence in the reader's own language. */
+function describeError(err: unknown, mode: Mode, t: TFunction): string {
   if (err instanceof ApiError) {
     switch (err.code) {
-      case 'invalid_email': return 'Enter a valid email address'
-      case 'weak_password': return 'Password must be at least 8 characters'
-      case 'email_taken': return 'An account with this email already exists'
-      case 'invalid_credentials': return 'Incorrect email or password'
+      case 'invalid_email': return t('auth.error.invalidEmail')
+      case 'weak_password': return t('auth.error.weakPassword')
+      case 'email_taken': return t('auth.error.emailTaken')
+      case 'invalid_credentials': return t('auth.error.invalidCredentials')
     }
   }
-  return mode === 'register' ? 'Registration failed — try again' : 'Log in failed — try again'
+  return t(mode === 'register' ? 'auth.error.registerFailed' : 'auth.error.loginFailed')
 }
 
 export function Auth() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { refetch } = useAuth()
+  const t = useT()
 
   const [mode, setMode] = useState<Mode>(searchParams.get('mode') === 'register' ? 'register' : 'login')
   const [email, setEmail] = useState('')
@@ -36,9 +41,9 @@ export function Auth() {
     setError(null)
 
     const trimmedEmail = email.trim()
-    if (!trimmedEmail) { setError('Email is required'); return }
-    if (mode === 'register' && password.length < 8) { setError('Password must be at least 8 characters'); return }
-    if (mode === 'login' && !password) { setError('Password is required'); return }
+    if (!trimmedEmail) { setError(t('auth.error.emailRequired')); return }
+    if (mode === 'register' && password.length < 8) { setError(t('auth.error.weakPassword')); return }
+    if (mode === 'login' && !password) { setError(t('auth.error.passwordRequired')); return }
 
     setSubmitting(true)
     try {
@@ -50,7 +55,7 @@ export function Auth() {
       await refetch()
       navigate('/my-lessons')
     } catch (err) {
-      setError(describeError(err, mode))
+      setError(describeError(err, mode, t))
     } finally {
       setSubmitting(false)
     }
@@ -67,23 +72,23 @@ export function Auth() {
             className={clsx(styles.tab, mode === 'login' && styles.tabActive)}
             onClick={() => setMode('login')}
           >
-            Log in
+            {t('auth.logIn')}
           </button>
           <button
             type="button"
             className={clsx(styles.tab, mode === 'register' && styles.tabActive)}
             onClick={() => setMode('register')}
           >
-            Register
+            {t('auth.register')}
           </button>
         </div>
 
         <div className={styles.section}>
-          <div className={styles.label}>Email</div>
+          <div className={styles.label}>{t('auth.email')}</div>
           <input
             className={styles.input}
             type="email"
-            placeholder="you@example.com"
+            placeholder={t('auth.emailPlaceholder')}
             autoComplete="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
@@ -92,11 +97,11 @@ export function Auth() {
 
         {mode === 'register' && (
           <div className={styles.section}>
-            <div className={styles.label}>Name (optional)</div>
+            <div className={styles.label}>{t('auth.name')}</div>
             <input
               className={styles.input}
               type="text"
-              placeholder="Your name"
+              placeholder={t('auth.namePlaceholder')}
               autoComplete="name"
               value={name}
               onChange={e => setName(e.target.value)}
@@ -105,11 +110,11 @@ export function Auth() {
         )}
 
         <div className={styles.section}>
-          <div className={styles.label}>Password</div>
+          <div className={styles.label}>{t('auth.password')}</div>
           <input
             className={styles.input}
             type="password"
-            placeholder={mode === 'register' ? 'At least 8 characters' : 'Password'}
+            placeholder={t(mode === 'register' ? 'auth.passwordPlaceholderNew' : 'auth.passwordPlaceholder')}
             autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
             value={password}
             onChange={e => setPassword(e.target.value)}
@@ -119,7 +124,7 @@ export function Auth() {
         {error && <div className={styles.error}>{error}</div>}
 
         <button type="submit" className={styles.submit} disabled={submitting}>
-          {mode === 'login' ? 'Log in' : 'Create account'}
+          {t(mode === 'login' ? 'auth.logIn' : 'auth.createAccount')}
         </button>
       </form>
     </div>

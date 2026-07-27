@@ -1,3 +1,4 @@
+import { useT } from '../../i18n'
 import { Icon } from '../../components/Icon'
 import styles from './FrozenBanner.module.css'
 
@@ -17,14 +18,11 @@ interface FrozenBannerProps {
  *  place, without the full-viewport takeover RoomLoadingOverlay uses (input
  *  is blocked here, not the whole room's content). */
 export function FrozenBanner({ roomFrozen }: FrozenBannerProps): React.JSX.Element {
+  const t = useT()
   return (
     <div className={styles.banner}>
       <Icon name="ac_unit" />
-      <span>
-        {roomFrozen
-          ? 'The room owner has paused drawing for everyone.'
-          : 'The room owner has paused your drawing.'}
-      </span>
+      <span>{t(roomFrozen ? 'room.frozenEveryone' : 'room.frozenYou')}</span>
     </div>
   )
 }

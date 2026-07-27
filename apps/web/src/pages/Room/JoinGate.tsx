@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { useT } from '../../i18n'
 import styles from './Room.module.css'
 
 // Shown instead of the canvas when this browser opened a room link directly
@@ -20,19 +21,22 @@ interface JoinGateProps {
 export function JoinGate({
   roomName, name, onNameChange, password, onPasswordChange, error, submitting, onSubmit,
 }: JoinGateProps) {
+  const t = useT()
   return (
     <div className={styles.gatePage}>
       <div className={styles.gateLogo}>Art Lessons</div>
 
       <form className={styles.gateCard} onSubmit={onSubmit} noValidate>
-        <h1 className={styles.gateHeading}>{roomName ? `Join "${roomName}"` : 'Join room'}</h1>
+        <h1 className={styles.gateHeading}>
+          {roomName ? t('join.headingNamed', { room: roomName }) : t('join.heading')}
+        </h1>
 
         <div className={styles.gateSection}>
-          <div className={styles.gateLabel}>Your name</div>
+          <div className={styles.gateLabel}>{t('join.yourName')}</div>
           <input
             className={clsx(styles.gateInput, error && !name.trim() && styles.gateInputError)}
             type="text"
-            placeholder="e.g. Alex"
+            placeholder={t('join.namePlaceholder')}
             maxLength={40}
             autoFocus
             value={name}
@@ -41,11 +45,11 @@ export function JoinGate({
         </div>
 
         <div className={styles.gateSection}>
-          <div className={styles.gateLabel}>Password (if the room has one)</div>
+          <div className={styles.gateLabel}>{t('join.password')}</div>
           <input
             className={styles.gateInput}
             type="password"
-            placeholder="Leave blank if none"
+            placeholder={t('join.passwordPlaceholder')}
             value={password}
             onChange={e => onPasswordChange(e.target.value)}
             autoComplete="current-password"
@@ -55,7 +59,7 @@ export function JoinGate({
         {error && <div className={styles.gateError}>{error}</div>}
 
         <button type="submit" className={styles.gateSubmit} disabled={submitting}>
-          {submitting ? 'Joining…' : 'Join room'}
+          {t(submitting ? 'join.submitting' : 'join.submit')}
         </button>
       </form>
     </div>

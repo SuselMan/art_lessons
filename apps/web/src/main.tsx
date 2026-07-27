@@ -8,7 +8,12 @@ import { queryClient } from './lib/queryClient'
 // <BrowserRouter> (inside App) ever mounts and adds its own — see the
 // module's own comment for why registration order matters here.
 import './lib/backNavigationGuard'
+import { syncDocumentLanguage } from './stores/settingsStore'
 import { App } from './App'
+
+// (#208) index.html can only carry a static `lang`; the real one is the
+// stored/detected locale, and assistive tech reads this attribute.
+syncDocumentLanguage()
 
 // (#186) A stale chunk reference — this tab was left open across a deploy,
 // and lazy-loaded route chunks (App.tsx's lazy() calls) are content-hashed,

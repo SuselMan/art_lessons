@@ -1,16 +1,33 @@
 import type { StateCreator } from 'zustand'
 import { BACKGROUND_LAYER_ID, INITIAL_LAYER_ID, type LayerState, type Operation } from '@art-lessons/shared'
 
+import { translate } from '../../i18n/translate'
 import { replayLayerState, overlayLocalFields } from '../../lib/layers'
+import { useSettingsStore } from '../settingsStore'
 import type { RulerPoint } from '../../pages/Room/RulerOverlay'
 import type { TransformBounds } from '../../pages/Room/TransformGizmo'
 import type { AffineMatrix } from '../../pages/Room/transformMath'
 
+// (#208) The two baseline layers are the only ones whose names never travel
+// through the operation log — they're the implicit state every replay starts
+// from, reconstructed locally by each client. So unlike a layer someone
+// creates (whose name IS an operation, and reaches everyone in the creator's
+// language), these are local chrome and are named in the reader's own
+// language. Resolved at construction rather than at render because a
+// `layer_rename` op turns the name into shared content from then on — a
+// later language switch must not silently undo somebody's rename.
 export function makeInitialLayerState(): LayerState {
+  const locale = useSettingsStore.getState().locale
   return {
     items: {
-      [BACKGROUND_LAYER_ID]: { kind: 'layer', id: BACKGROUND_LAYER_ID, name: 'Background', opacity: 1, visible: true },
-      [INITIAL_LAYER_ID]:    { kind: 'layer', id: INITIAL_LAYER_ID,    name: 'Layer 1',    opacity: 1, visible: true },
+      [BACKGROUND_LAYER_ID]: {
+        kind: 'layer', id: BACKGROUND_LAYER_ID,
+        name: translate(locale, 'layers.backgroundName'), opacity: 1, visible: true,
+      },
+      [INITIAL_LAYER_ID]: {
+        kind: 'layer', id: INITIAL_LAYER_ID,
+        name: translate(locale, 'layers.defaultLayerName', { n: 1 }), opacity: 1, visible: true,
+      },
     },
     rootOrder:   [INITIAL_LAYER_ID, BACKGROUND_LAYER_ID],
     activeId:    INITIAL_LAYER_ID,
