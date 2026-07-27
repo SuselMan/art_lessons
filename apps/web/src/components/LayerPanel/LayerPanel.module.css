@@ -332,7 +332,8 @@
   user-select: text;
 }
 
-/* Read-only opacity display on each row */
+/* Read-only opacity display on each row — the panel's opacity bar is the one
+   place opacity is edited, so this is a readout and nothing more. */
 .opacityDisplay {
   font-size: 9px;
   font-family: var(--font-mono);
@@ -341,14 +342,6 @@
   flex-shrink: 0;
   width: 26px;
   text-align: right;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
-
-.opacityDisplay:hover {
-  opacity: 1;
-  color: var(--color-text);
 }
 
 /* DragOverlay ghost */
@@ -391,30 +384,3 @@
   cursor: default;
 }
 
-.opacityPopup {
-  position: fixed;
-  z-index: 101;
-  width: 160px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
-}
-
-.opacityPopupSlider {
-  flex: 1;
-  min-width: 0;
-  accent-color: var(--color-accent);
-}
-
-.opacityPopupValue {
-  font-size: 10px;
-  font-family: var(--font-mono);
-  color: var(--color-text-dim);
-  width: 32px;
-  text-align: right;
-}

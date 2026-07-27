@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, useRef } from 'react'
+import { memo, useCallback, useLayoutEffect, useMemo, useState, useRef } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
@@ -89,8 +89,6 @@ export const LayerPanel = memo(function LayerPanel({
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
   const [menuId, setMenuId]                     = useState<string | null>(null)
   const [menuAnchor, setMenuAnchor]             = useState<HTMLElement | null>(null)
-  const [opacityId, setOpacityId]               = useState<string | null>(null)
-  const [opacityAnchor, setOpacityAnchor]       = useState<HTMLElement | null>(null)
   // (#310) Which row's name is being edited in place. Lifted out of LayerRow
   // so the context menu's Rename can start the same inline edit a double-click
   // starts — it used to open a window.prompt instead.
@@ -365,18 +363,6 @@ export const LayerPanel = memo(function LayerPanel({
     if (menuId) void handleDelete([menuId])
   }, [menuId, handleCloseMenu, handleDelete])
 
-  // ── opacity popup ────────────────────────────────────────────────────────────
-
-  const handleOpenOpacity = useCallback((id: string, anchor: HTMLElement) => {
-    setOpacityId(id)
-    setOpacityAnchor(anchor)
-  }, [])
-
-  const handleCloseOpacity = useCallback(() => {
-    setOpacityId(null)
-    setOpacityAnchor(null)
-  }, [])
-
   // ── DnD ──────────────────────────────────────────────────────────────────────
 
   // pointerWithin does literal hit-testing (pointer inside rect), so it reliably
@@ -641,7 +627,6 @@ export const LayerPanel = memo(function LayerPanel({
                   onStopEditing={handleStopEditing}
                   onToggleCollapse={handleToggleCollapse}
                   onOpenMenu={handleOpenMenu}
-                  onOpenOpacity={handleOpenOpacity}
                   onPointerDown={handlePointerDown}
                   onPointerUp={handlePointerUp}
                 />
@@ -666,15 +651,6 @@ export const LayerPanel = memo(function LayerPanel({
             { label: t('layers.mergeDown'),   onClick: handleMenuMergeDown, disabled: items[menuId]?.kind !== 'layer' },
             { label: t('common.delete'),      onClick: handleMenuDelete,    disabled: menuId === BACKGROUND_LAYER_ID },
           ]}
-        />
-      )}
-
-      {opacityId && opacityAnchor && items[opacityId] && (
-        <OpacityPopup
-          anchor={opacityAnchor}
-          value={items[opacityId].opacity}
-          onChange={v => handleOpacity(opacityId, v)}
-          onClose={handleCloseOpacity}
         />
       )}
     </div>
@@ -707,14 +683,46 @@ interface ContextMenuProps {
   items: Array<{ label: string; onClick: () => void; disabled?: boolean }>
 }
 
+/** Distance kept between the menu and the viewport edges when clamping. */
+const MENU_VIEWPORT_MARGIN = 8
+
 function ContextMenu({ anchor, onClose, items }: ContextMenuProps) {
-  const rect = anchor.getBoundingClientRect()
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+
+  // The panel is docked against the right edge of the window and the "⋮" that
+  // anchors this menu sits at the row's own right edge, so the old
+  // `left: rect.left` put the whole menu off screen. Hang it from the anchor's
+  // *right* edge instead, then clamp both axes against the measured size — a
+  // row near the bottom of a long list would otherwise push it below the fold.
+  useLayoutEffect(() => {
+    const el = menuRef.current
+    if (!el) return
+    const rect = anchor.getBoundingClientRect()
+    const { width, height } = el.getBoundingClientRect()
+    const m = MENU_VIEWPORT_MARGIN
+
+    // Flip above the anchor rather than merely sliding up when there's no room
+    // below, so the menu never covers the row it belongs to.
+    let top = rect.bottom + 4
+    if (top + height > window.innerHeight - m) top = rect.top - height - 4
+    top = Math.max(m, Math.min(top, window.innerHeight - height - m))
+
+    const left = Math.max(m, Math.min(rect.right - width, window.innerWidth - width - m))
+    setPos({ top, left })
+  }, [anchor])
+
   return (
     <>
       <div className={styles.overlay} onClick={onClose} />
       <div
+        ref={menuRef}
         className={styles.contextMenu}
-        style={{ top: rect.bottom + 4, left: rect.left }}
+        // Rendered off-anchor for one frame so it can be measured; hidden
+        // meanwhile so that frame isn't visible as a jump.
+        style={pos
+          ? { top: pos.top, left: pos.left }
+          : { top: 0, left: 0, visibility: 'hidden' }}
       >
         {items.map(item => (
           <button
@@ -726,36 +734,6 @@ function ContextMenu({ anchor, onClose, items }: ContextMenuProps) {
             {item.label}
           </button>
         ))}
-      </div>
-    </>
-  )
-}
-
-interface OpacityPopupProps {
-  anchor: HTMLElement
-  value: number
-  onChange: (v: number) => void
-  onClose: () => void
-}
-
-function OpacityPopup({ anchor, value, onChange, onClose }: OpacityPopupProps) {
-  const rect = anchor.getBoundingClientRect()
-  return (
-    <>
-      <div className={styles.overlay} onClick={onClose} />
-      <div
-        className={styles.opacityPopup}
-        style={{ top: rect.bottom + 4, right: window.innerWidth - rect.right }}
-      >
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={Math.round(value * 100)}
-          onChange={e => onChange(Number(e.target.value) / 100)}
-          className={styles.opacityPopupSlider}
-        />
-        <span className={styles.opacityPopupValue}>{Math.round(value * 100)}%</span>
       </div>
     </>
   )

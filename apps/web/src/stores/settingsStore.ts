@@ -15,10 +15,29 @@ import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/loc
 // Same `al_` localStorage prefix as every other client-side preference in
 // this app (hotkeys, panel position, one-time hints).
 const LOCALE_STORAGE_KEY = 'al_locale'
+const LESSONS_VIEW_STORAGE_KEY = 'al_lessons_view'
 
 function readStoredLocale(): Locale | null {
   const raw = localStorage.getItem(LOCALE_STORAGE_KEY)
   return isLocale(raw) ? raw : null
+}
+
+/** How the My Lessons list is laid out: 'grid' = the thumbnail tiles this
+ *  page has always used, 'list' = compact horizontal rows with a small
+ *  preview, for scanning a long list of rooms rather than recognising one by
+ *  its drawing. A per-person preference, not a per-room one, so it lives
+ *  here next to the language rather than in `roomStore` (which is wiped on
+ *  every Room mount). */
+export type LessonsView = 'grid' | 'list'
+
+function isLessonsView(value: unknown): value is LessonsView {
+  return value === 'grid' || value === 'list'
+}
+
+function initialLessonsView(): LessonsView {
+  if (typeof window === 'undefined') return 'grid'
+  const raw = localStorage.getItem(LESSONS_VIEW_STORAGE_KEY)
+  return isLessonsView(raw) ? raw : 'grid'
 }
 
 /** The language to start in: an explicit earlier choice if there is one,
@@ -39,6 +58,8 @@ function initialLocale(): Locale {
 export interface SettingsStore {
   locale: Locale
   setLocale: (locale: Locale) => void
+  lessonsView: LessonsView
+  setLessonsView: (view: LessonsView) => void
 }
 
 export const useSettingsStore = create<SettingsStore>()(set => ({
@@ -47,6 +68,11 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
     localStorage.setItem(LOCALE_STORAGE_KEY, locale)
     document.documentElement.lang = locale
     set({ locale })
+  },
+  lessonsView: initialLessonsView(),
+  setLessonsView: view => {
+    localStorage.setItem(LESSONS_VIEW_STORAGE_KEY, view)
+    set({ lessonsView: view })
   },
 }))
 

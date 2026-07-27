@@ -33,7 +33,6 @@ export interface LayerRowProps {
   onStopEditing?: () => void
   onToggleCollapse?: (id: string) => void
   onOpenMenu?: (id: string, anchor: HTMLElement) => void
-  onOpenOpacity?: (id: string, anchor: HTMLElement) => void
   onPointerDown?: (id: string) => void
   onPointerUp?: () => void
 }
@@ -42,7 +41,7 @@ function LayerRowImpl({
   item, depth, isActive, isSelected, isDragOverFolder, isOwner,
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
-  onToggleCollapse, onOpenMenu, onOpenOpacity,
+  onToggleCollapse, onOpenMenu,
   onPointerDown, onPointerUp,
 }: LayerRowProps) {
   const t = useT()
@@ -174,13 +173,13 @@ function LayerRowImpl({
         </span>
       )}
 
-      <button
-        className={styles.opacityDisplay}
-        onClick={e => { e.stopPropagation(); onOpenOpacity?.(item.id, e.currentTarget) }}
-        title={t('layers.opacity')}
-      >
+      {/* Read-only readout. Clicking it used to open a per-row slider popup —
+          a second control for something the panel's own opacity bar already
+          does; the click now falls through to the row, activating the layer so
+          that one shared slider targets it. */}
+      <span className={styles.opacityDisplay} title={t('layers.opacity')}>
         {Math.round(item.opacity * 100)}%
-      </button>
+      </span>
 
       {!isBackground && (
         <button

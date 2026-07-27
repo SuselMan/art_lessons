@@ -14,14 +14,14 @@ import {
   moveRoomToFolder, renameFolder, renameRoom, searchRooms, type RoomsAtFolder,
 } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
-import { useLocale, useT, type TFunction } from '../../i18n'
-import { AccountNav } from '../../components/AccountNav'
+import { useSettingsStore, type LessonsView } from '../../stores/settingsStore'
+import { useLocale, useT, type TFunction, type TranslationKey } from '../../i18n'
+import { AppHeader } from '../../components/AppHeader'
 import { Icon } from '../../components/Icon'
 import { CardMenu } from '../../components/CardMenu'
 import { TextInput } from '../../components/TextInput'
 import { MoveToDialog } from '../../components/MoveToDialog'
 import { EmptyState, ErrorState } from '../../components/ListState'
-import { Logo } from '../../components/Logo'
 import styles from './MyLessons.module.css'
 
 // (#217) dnd-kit ids are flat strings — encode kind+id so one onDragEnd can
@@ -100,6 +100,7 @@ type ItemRef = { kind: 'room' | 'folder'; id: string }
 interface RoomCardProps {
   t: TFunction
   locale: string
+  view: LessonsView
   room: Room
   isOwnRoom: boolean
   confirmingAction: boolean
@@ -117,7 +118,7 @@ interface RoomCardProps {
 }
 
 function RoomCard({
-  t, locale, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
+  t, locale, view, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
   onRenameCancel, busy, onRenameClick, onMoveClick, onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
 }: RoomCardProps) {
   // (#217) Draggable only — a room is never a drop target itself.
@@ -129,7 +130,13 @@ function RoomCard({
     : undefined
 
   return (
-    <div ref={setNodeRef} style={dragStyle} className={styles.card} {...listeners} {...attributes}>
+    <div
+      ref={setNodeRef}
+      style={dragStyle}
+      className={clsx(styles.card, view === 'list' && styles.cardListItem)}
+      {...listeners}
+      {...attributes}
+    >
       <div className={styles.cardMenuOverlay}>
         <CardMenu
           actions={[
@@ -167,26 +174,33 @@ function RoomCard({
             <Icon name="image_not_supported" />
           </div>
         )}
-        {renaming ? (
-          <input
-            className={styles.renameInput}
-            autoFocus
-            value={renameText}
-            onClick={e => e.preventDefault()}
-            onChange={e => onRenameTextChange(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') { e.preventDefault(); onRenameSubmit() }
-              if (e.key === 'Escape') { e.preventDefault(); onRenameCancel() }
-            }}
-            onBlur={onRenameSubmit}
-          />
-        ) : (
-          <div className={styles.cardName}>{room.name}</div>
-        )}
-        <div className={styles.cardMeta}>
-          <span>{formatDate(room.createdAt, locale)}</span>
-          <span className={styles.dot}>·</span>
-          <span>{isOwnRoom ? t('lessons.ownerYou') : (room.ownerName ?? t('lessons.ownerUnknown'))}</span>
+        {/* Name+meta share a wrapper so the two layouts differ by one axis
+            flip: in 'grid' this column sits *under* the hero thumbnail, in
+            'list' it sits *beside* a small one. Without it, a row-direction
+            .cardLink would put the thumbnail, the name and the meta line all
+            side by side. */}
+        <div className={styles.cardText}>
+          {renaming ? (
+            <input
+              className={styles.renameInput}
+              autoFocus
+              value={renameText}
+              onClick={e => e.preventDefault()}
+              onChange={e => onRenameTextChange(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); onRenameSubmit() }
+                if (e.key === 'Escape') { e.preventDefault(); onRenameCancel() }
+              }}
+              onBlur={onRenameSubmit}
+            />
+          ) : (
+            <div className={styles.cardName}>{room.name}</div>
+          )}
+          <div className={styles.cardMeta}>
+            <span>{formatDate(room.createdAt, locale)}</span>
+            <span className={styles.dot}>·</span>
+            <span>{isOwnRoom ? t('lessons.ownerYou') : (room.ownerName ?? t('lessons.ownerUnknown'))}</span>
+          </div>
         </div>
       </Link>
       {confirmingAction && (
@@ -208,6 +222,7 @@ function RoomCard({
 
 interface FolderCardProps {
   t: TFunction
+  view: LessonsView
   folder: RoomFolder
   onOpen: () => void
   renaming: boolean
@@ -221,7 +236,7 @@ interface FolderCardProps {
 }
 
 function FolderCard({
-  t, folder, onOpen, renaming, renameText, onRenameTextChange, onRenameSubmit, onRenameCancel,
+  t, view, folder, onOpen, renaming, renameText, onRenameTextChange, onRenameSubmit, onRenameCancel,
   onRenameClick, onMoveClick, onDeleteClick,
 }: FolderCardProps) {
   // (#217) Both a drag source (this folder can be moved) and a drop target
@@ -239,7 +254,11 @@ function FolderCard({
     <div
       ref={setRefs}
       style={dragStyle}
-      className={clsx(styles.folderCard, isOver && styles.folderCardDropActive)}
+      className={clsx(
+        styles.folderCard,
+        view === 'list' && styles.folderListItem,
+        isOver && styles.folderCardDropActive,
+      )}
       {...listeners}
       {...attributes}
     >
@@ -315,9 +334,43 @@ function CrumbButton({ label, onClick, navDisabled, dropDisabled, dropId }: Crum
   )
 }
 
+/** Tiles ⇄ list. Two buttons rather than one toggling button: which layout
+ *  you're in and which one you'd switch to are both visible at rest, and the
+ *  choice stays a choice rather than a mystery state you have to click to
+ *  discover. */
+function ViewToggle({ t, view, onChange }: {
+  t: TFunction
+  view: LessonsView
+  onChange: (view: LessonsView) => void
+}) {
+  const options: { value: LessonsView; icon: string; label: TranslationKey }[] = [
+    { value: 'grid', icon: 'grid_view', label: 'lessons.viewGrid' },
+    { value: 'list', icon: 'view_list', label: 'lessons.viewList' },
+  ]
+  return (
+    <div className={styles.viewToggle} role="group" aria-label={t('lessons.viewLabel')}>
+      {options.map(option => (
+        <button
+          key={option.value}
+          type="button"
+          className={clsx(styles.viewButton, view === option.value && styles.viewButtonActive)}
+          onClick={() => onChange(option.value)}
+          aria-pressed={view === option.value}
+          aria-label={t(option.label)}
+          title={t(option.label)}
+        >
+          <Icon name={option.icon} />
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function MyLessons() {
   const t = useT()
   const locale = useLocale()
+  const view = useSettingsStore(s => s.lessonsView)
+  const setView = useSettingsStore(s => s.setLessonsView)
   const { me, loading: authLoading } = useAuth()
   const loggedIn = isLoggedIn(me)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
@@ -535,6 +588,7 @@ export function MyLessons() {
         key={room.id}
         t={t}
         locale={locale}
+        view={view}
         room={room}
         isOwnRoom={room.ownerId === me?.userId}
         confirmingAction={confirmingId === room.id}
@@ -559,10 +613,7 @@ export function MyLessons() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.logo}><Logo /></div>
-        <AccountNav />
-      </header>
+      <AppHeader />
 
       <div className={styles.titleRow}>
         <div className={styles.searchRow}>
@@ -575,6 +626,7 @@ export function MyLessons() {
             aria-label={t('lessons.searchLabel')}
           />
         </div>
+        <ViewToggle t={t} view={view} onChange={setView} />
         <Link
           className={styles.newRoomLink}
           to="/create"
@@ -600,7 +652,7 @@ export function MyLessons() {
             ) : isSearchEmpty ? (
               <EmptyState icon="search_off" message={t('lessons.noMatches', { query: debouncedSearch })} />
             ) : (
-              <div className={styles.grid}>
+              <div className={view === 'list' ? styles.list : styles.grid}>
                 {searchData.rooms.map(renderRoomCard)}
               </div>
             )}
@@ -692,11 +744,12 @@ export function MyLessons() {
                 message={t(path.length > 0 ? 'lessons.folderEmpty' : 'lessons.empty')}
               />
             ) : (
-              <div className={styles.grid}>
+              <div className={view === 'list' ? styles.list : styles.grid}>
                 {data.folders.map(folder => (
                   <FolderCard
                     key={folder.id}
                     t={t}
+                    view={view}
                     folder={folder}
                     onOpen={() => openFolder({ id: folder.id, name: folder.name })}
                     renaming={renamingItem?.kind === 'folder' && renamingItem.id === folder.id}

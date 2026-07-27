@@ -4,20 +4,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 24px 16px 72px;
-}
-
-.header {
-  width: 100%;
-  max-width: 860px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 40px;
-}
-
-.logo {
-  height: 28px;
+  /* Top padding clears the fixed AppHeader (components/AppHeader). */
+  padding: calc(var(--app-header-h) + 32px) 16px 72px;
 }
 
 .titleRow {
@@ -192,6 +180,56 @@
   gap: 12px;
 }
 
+/* The 'list' half of the view toggle: one full-width row per item instead of
+   a tile grid. Everything below that flips a card into row form is scoped
+   under .cardListItem / .folderListItem (set on the card root), so the two
+   layouts share one set of components and one DOM structure — only the axis
+   and the preview size change. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Both toggle buttons visible at rest, the active one filled — see
+   ViewToggle's own comment on why this isn't a single toggling button. */
+.viewToggle {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.viewButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 3px;
+  color: var(--color-text-dim);
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+
+.viewButton:hover {
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+}
+
+.viewButtonActive,
+.viewButtonActive:hover {
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+}
+
+/* :global() for the same reason as everywhere else in this file — CSS
+   Modules would hash the icon-font class and match nothing. */
+.viewButton :global(.material-symbols-outlined) {
+  font-size: 20px;
+}
+
 .card {
   position: relative;
   background: var(--color-surface);
@@ -275,6 +313,15 @@
    nothing (see .folderIconArea below for the fuller story on this). */
 .cardThumbnailPlaceholder :global(.material-symbols-outlined) {
   font-size: 32px;
+}
+
+/* Holds the name (or its rename input) and the meta line together as one
+   block, so switching .cardLink between column and row moves them as a unit
+   instead of laying all three children out along the same axis. */
+.cardText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .cardName {
@@ -383,6 +430,81 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   width: 100%;
+}
+
+/* ── list view ─────────────────────────────────────────────────────────────
+   A room/folder card in 'list' mode. Same components, same DOM — the card
+   root just carries one extra class, and everything here flips the layout
+   axis and shrinks the preview. The preview stays 4:3 (same crop as the
+   tile) rather than becoming a square/other ratio, so switching views never
+   changes *what* of the drawing you see, only how big. */
+/* The tile layout needs `overflow: hidden` to clip its bleeding hero
+   thumbnail to the card's rounded corners. A row's preview is inset and
+   carries its own radius, so here that clip does nothing except chop off the
+   ⋮ menu — a ~180px popover opening out of a ~53px tall row, which was
+   invisible in the tile layout only because a tile is taller than the menu.
+   The menu keeps its own z-index and still paints over the rows below. */
+.cardListItem,
+.folderListItem {
+  overflow: visible;
+}
+
+.cardListItem .cardLink,
+.folderListItem .folderOpenButton {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  /* With the clip above gone, the hover fill has to round its own corners —
+     otherwise it paints as a square over the card's rounded ones. */
+  border-radius: inherit;
+  /* Right padding clears the ⋮ button, which in this mode is vertically
+     centred at the row's end rather than overlaying a thumbnail corner. */
+  padding: 8px calc(var(--touch-target-sm) + 8px) 8px 8px;
+}
+
+.cardListItem .cardThumbnail,
+.cardListItem .cardThumbnailPlaceholder,
+.folderListItem .folderIconArea {
+  width: 76px;
+  flex: none;
+  margin: 0;
+  border-radius: var(--radius-sm);
+}
+
+.cardListItem .cardThumbnailPlaceholder :global(.material-symbols-outlined) {
+  font-size: 20px;
+}
+
+.folderListItem .folderIconArea :global(.material-symbols-outlined) {
+  font-size: 32px;
+}
+
+/* min-width: 0 — without it this flex item refuses to shrink below its text's
+   intrinsic width, so a long room name pushes the row wider than the page
+   instead of ellipsising. */
+.cardListItem .cardText {
+  min-width: 0;
+  gap: 2px;
+}
+
+.cardListItem .cardName,
+.folderListItem .folderName {
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardListItem .cardMenuOverlay,
+.folderListItem .cardMenuOverlay {
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  /* The trigger sits on the card's own surface here, not on top of an
+     unpredictably bright thumbnail — the contrast chip .cardMenuOverlay adds
+     for the tile layout would just be a floating dark square. */
+  background: none;
+  backdrop-filter: none;
 }
 
 .renameInput {
