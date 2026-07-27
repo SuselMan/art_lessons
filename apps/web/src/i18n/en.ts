@@ -215,6 +215,16 @@ export const en = {
   'room.frozenEveryone': 'The room owner has paused drawing for everyone.',
   'room.frozenYou': 'The room owner has paused your drawing.',
   'room.lostWork': 'Some of what you drew was not saved — the layer was deleted by another participant.',
+  // (#312) The recoverable case: the strokes came back and are already on a
+  // new layer by the time this shows.
+  'room.lostWork.recoveredOne':
+    'The “{name}” layer was deleted while you were drawing. Your strokes were restored onto a separate layer.',
+  'room.lostWork.recoveredMany': {
+    other: '{n} layers you were drawing on were deleted. Your strokes were restored onto separate layers.',
+  },
+  'room.lostWork.undo': 'Undo',
+  'room.lostWork.restoredLayerName': '{name} (restored)',
+  'room.lostWork.unnamedLayer': 'Deleted layer',
   'room.dismiss': 'Dismiss',
 
   // ── room: loading flavor text ──────────────────────────────────────────

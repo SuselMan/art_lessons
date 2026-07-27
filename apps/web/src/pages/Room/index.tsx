@@ -45,6 +45,9 @@ import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom 
 import { describeJoinError } from './joinError'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { isLocalIslandSafe } from './optimism'
+import {
+  groupLostOpsByLayer, isRecoverableContentOp, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
+} from './lostWork'
 import { Outbox } from './outbox'
 import { createIndexedDbOutboxStorage } from './outboxStorage'
 import { PeerCursors } from './PeerCursors'
@@ -111,6 +114,14 @@ function toRoomConfig(
 // How long a stroke's "drawing" activity (local or peer) stays visible before
 // the #38 indicator clears it — see drawingIndicator.ts.
 const DRAWING_TIMEOUT_MS = 1500
+
+// (#312) How long lost-work recovery waits for the outbox to stop producing
+// `target_gone` rejections before it mints replacement layers, and the hard
+// cap on that wait. Quiet period: rejections come back at the rate the
+// outbox drains, so a gap this long means the backlog is done. Cap: a large
+// enough backlog would otherwise keep re-arming the timer forever.
+const LOST_WORK_QUIET_MS = 800
+const LOST_WORK_MAX_WAIT_MS = 5000
 
 // (#291) How far back of the pre-snapshot operation log backfillHistory
 // pulls in for undo/redo coverage. One snapshot interval below the restored
@@ -448,11 +459,25 @@ export function Room() {
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
-  // (#289 §17) Set when the server rejected an operation as `target_gone` —
-  // the only rejection that can read as "my work vanished" (drawn while
-  // offline/dropped onto a layer since deleted). Shown as a dismissible
-  // notice; deliberately not an automatic room fork (see Outbox's onSettled).
-  const [lostWorkNotice, setLostWorkNotice] = useState(false)
+  // (#289 §17, #312) Set when the server rejected an operation as
+  // `target_gone` — the only rejection that can read as "my work vanished"
+  // (drawn while offline/dropped onto a layer since deleted).
+  //
+  // `restoredLayerIds` non-empty means the content was actually recovered
+  // onto fresh layers (see recoverLostWork) and the banner offers to undo
+  // that; empty means there was nothing recoverable — a rejected
+  // merge/transform — and it stays the plain notice it has always been.
+  // Deliberately not an automatic room fork (see Outbox's onSettled).
+  const [lostWork, setLostWork] = useState<{ layerNames: string[]; restoredLayerIds: string[] } | null>(null)
+  // Rejected content operations waiting to be recovered as a batch. They
+  // arrive one ack at a time as the outbox drains, so recovery debounces
+  // rather than reacting to each — see scheduleLostWorkRecovery.
+  const lostContentOpsRef = useRef<LostContentOp[]>([])
+  const lostWorkTimerRef = useRef<number | null>(null)
+  const lostWorkFirstAtRef = useRef<number | null>(null)
+  // Assigned once recoverLostWork exists (it needs the engine and
+  // syncFromLog, both defined well below the Outbox this is called from).
+  const recoverLostWorkRef = useRef<(() => void) | null>(null)
   // (#24) Backed by the store now — applyParticipantAction still just
   // folds each socket event through the same pure participantsReducer
   // (participants.ts), reused unchanged.
@@ -625,6 +650,34 @@ export function Room() {
     snapshotUploader.onSeqObserved(previous, watermark, engine, useRoomStore.getState().layerState)
   }, [snapshotUploader])
 
+  // (#312) Queues one rejected content operation for recovery and (re)arms
+  // the batch timer.
+  //
+  // Debounced rather than immediate because these arrive one ack at a time
+  // as the outbox drains (MAX_CONCURRENT_SENDS at once, #298): reacting per
+  // operation would mint one replacement layer per lost stroke. Debounce
+  // alone would never fire on a long enough backlog, so it's capped — after
+  // LOST_WORK_MAX_WAIT_MS from the first rejection the batch goes through
+  // regardless, and anything still arriving simply forms the next batch.
+  const scheduleLostWorkRecovery = useCallback((op: LostContentOp) => {
+    lostContentOpsRef.current.push(op)
+    const now = Date.now()
+    lostWorkFirstAtRef.current ??= now
+
+    const run = () => {
+      lostWorkTimerRef.current = null
+      lostWorkFirstAtRef.current = null
+      recoverLostWorkRef.current?.()
+    }
+    if (now - lostWorkFirstAtRef.current >= LOST_WORK_MAX_WAIT_MS) {
+      if (lostWorkTimerRef.current !== null) window.clearTimeout(lostWorkTimerRef.current)
+      run()
+      return
+    }
+    if (lostWorkTimerRef.current !== null) window.clearTimeout(lostWorkTimerRef.current)
+    lostWorkTimerRef.current = window.setTimeout(run, LOST_WORK_QUIET_MS)
+  }, [])
+
   // (#289 epic, reliable history spec v0.2 §9) Every outgoing operation goes
   // through here rather than a bare `socket.emit` — persisted to IndexedDB
   // first, retried with exponential backoff until a real `SendResult`
@@ -656,14 +709,23 @@ export function Room() {
         // Never became real — drop it back out of the local island so a
         // later delete/merge targeting it isn't wrongly treated as safe.
         if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
-        // (#289 §17) `target_gone` on a stroke-bearing op is the one
+        // (#289 §17, #312) `target_gone` on a content-bearing op is the one
         // rejection a user can actually perceive as lost work — typically
         // drawn offline (or during a drop) onto a layer someone deleted in
-        // the meantime. Deliberately a quiet notice, not an automatic
-        // room fork: forking on every conflict was considered and rejected
-        // as worse than the problem (a pile of near-duplicate rooms after
-        // any flaky wifi). Nothing else on the canvas is affected.
-        if (result.reason === 'target_gone') setLostWorkNotice(true)
+        // the meantime. Since #311 the server hands those operations back
+        // intact instead of swallowing them, so they can be recovered onto
+        // a fresh layer rather than merely reported.
+        //
+        // Deliberately still not an automatic room fork: forking on every
+        // conflict was considered and rejected as worse than the problem (a
+        // pile of near-duplicate rooms after any flaky wifi). A replacement
+        // layer is the far smaller intervention — and it doesn't undo the
+        // deletion either, since whoever deleted the layer deleted what they
+        // could see; this only brings back what they couldn't.
+        if (result.reason === 'target_gone') {
+          if (isRecoverableContentOp(op)) scheduleLostWorkRecovery(op)
+          else setLostWork({ layerNames: [], restoredLayerIds: [] })
+        }
         return
       }
       latestKnownSeqRef.current = Math.max(latestKnownSeqRef.current, result.seq)
@@ -674,7 +736,7 @@ export function Room() {
       if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
       checkSnapshotBoundary()
     },
-  }), [checkSnapshotBoundary, noteLayerSeq])
+  }), [checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery])
   // Tracks whether create_room/join_room has ever succeeded on this socket
   // connection's lineage, so a later auto-reconnect (socket.io's default
   // behavior on a dropped connection) rejoins rather than re-creating the
@@ -780,6 +842,67 @@ export function Room() {
         : (engineRef.current?.getOperations() ?? [])
       useRoomStore.getState().syncLayerStateFromLog(base ?? makeInitialLayerState(), ops)
     })
+  }, [])
+
+  // (#312) Mints one replacement layer per dead target and replays the
+  // rejected operations onto it, in their original draw order.
+  //
+  // A *new* layer rather than resurrecting the deleted one, deliberately:
+  // `aliveIds` on the server is a monotonic fold over the log, so un-deleting
+  // an id would break that invariant and leave every client to answer "what
+  // about the operations between the delete and the resurrection" on its
+  // own — the exact class of divergence #289 exists to remove. A fresh layer
+  // is an ordinary `layer_add` plus ordinary strokes: no new server
+  // semantics, and replay converges everywhere by construction.
+  //
+  // The content comes from this client's own rejected operations, never from
+  // a pixel bake of the dead layer. Those operations go through the same
+  // validation as any other, so the server is asked to trust nothing new —
+  // whereas uploading client-baked pixels as truth is exactly #287, which
+  // poisoned a room and is why snapshot pruning is still switched off. Worth
+  // noting this is also the only source that survives at all once pruning
+  // returns (#207): a snapshot taken after the deletion no longer contains
+  // the layer, and the strokes below it get pruned, so the author's own
+  // device is the last place this work exists.
+  const recoverLostWork = useCallback(() => {
+    const collected = lostContentOpsRef.current
+    lostContentOpsRef.current = []
+    const engine = engineRef.current
+    if (!collected.length || !engine) return
+
+    const { layerState: liveLayerState, userId } = useRoomStore.getState()
+    const log = engine.getOperations()
+    const layerNames: string[] = []
+    const restoredLayerIds: string[] = []
+
+    for (const [deadLayerId, ops] of groupLostOpsByLayer(collected)) {
+      const originalName = resolveDeletedLayerName(deadLayerId, liveLayerState, log, restoredLayerStateRef.current)
+        ?? t('room.lostWork.unnamedLayer')
+      const newLayerId = nanoid(10)
+      // Same optimistic path dispatchOp takes for local-island work: a
+      // brand-new layer and strokes onto it can't conflict with anything,
+      // since nobody else has heard of the id yet.
+      engine.appendOperation({
+        id: nanoid(10), type: 'layer_add', userId, timestamp: Date.now(),
+        layerId: newLayerId, name: t('room.lostWork.restoredLayerName', { name: originalName }),
+      })
+      for (const op of ops) engine.appendOperation(retargetToLayer(op, newLayerId, nanoid(10), Date.now()))
+      layerNames.push(originalName)
+      restoredLayerIds.push(newLayerId)
+    }
+
+    syncFromLog()
+    setLostWork({ layerNames, restoredLayerIds })
+  }, [syncFromLog, t])
+
+  useEffect(() => {
+    recoverLostWorkRef.current = recoverLostWork
+  }, [recoverLostWork])
+
+  // Any pending batch dies with the room — a timer firing after unmount would
+  // append to an engine that no longer exists.
+  useEffect(() => () => {
+    if (lostWorkTimerRef.current !== null) window.clearTimeout(lostWorkTimerRef.current)
   }, [])
 
   // Applies an operation that arrived from the network (room_state replay or
@@ -1439,6 +1562,17 @@ export function Room() {
     // `onSettled` handles the verdict either way.
     void outbox.enqueue(op)
   }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected, t, showAlert])
+
+  // (#312) The banner's "undo" — drops the replacement layers again, for
+  // when the deletion was right and the recovered strokes aren't wanted.
+  // An ordinary layer_delete on this client's own new ids, so it goes
+  // through every normal path (confirmation, undo history) rather than
+  // reaching behind them.
+  const undoLostWorkRecovery = useCallback(() => {
+    const ids = lostWork?.restoredLayerIds ?? []
+    setLostWork(null)
+    if (ids.length) dispatchOp({ type: 'layer_delete', layerIds: ids })
+  }, [lostWork, dispatchOp])
 
   // (#263) LayerPanel has no direct engine access — this is the same
   // engineRef-backed-callback shape as dispatchOp above, threaded down as a
@@ -2879,7 +3013,14 @@ export function Room() {
           {isBlockedByFreeze && <FrozenBanner roomFrozen={roomFrozen} />}
           {/* (#289 §17) Independent of the freeze banner above — both can be
               up at once, hence the stacked offset in its own CSS. */}
-          {lostWorkNotice && <LostWorkBanner onDismiss={() => setLostWorkNotice(false)} />}
+          {lostWork && (
+            <LostWorkBanner
+              layerNames={lostWork.layerNames}
+              recovered={lostWork.restoredLayerIds.length > 0}
+              onUndo={undoLostWorkRecovery}
+              onDismiss={() => setLostWork(null)}
+            />
+          )}
         </div>
 
         {/* ── Side panel (layers, color, …) ── */}
