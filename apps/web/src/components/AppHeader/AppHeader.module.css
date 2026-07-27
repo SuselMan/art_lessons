@@ -1,0 +1,46 @@
+/* Fixed to the viewport rather than laid out inside each page's centred
+   column. Every page used to render its own copy of this row *inside* that
+   column, and the pages don't agree on how wide it is — 580px for the forms,
+   860px for the lesson list — so the wordmark jumped horizontally on every
+   navigation, purely as a side effect of what the page below happened to
+   contain. Anchored to the viewport it is the one element on screen whose
+   position never depends on content. */
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  height: var(--app-header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  /* Pages scroll under it, so it needs its own opaque surface. */
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  /* Left padding is the logo's own inset; the right side is the account nav,
+     whose links carry their own 2px of horizontal padding. */
+  padding: 0 18px 0 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  height: var(--app-logo-h);
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  /* A wordmark that navigates home is only discoverable if it reacts, and the
+     mark itself has fixed brand colors (see components/Logo) — so the feedback
+     is opacity, not color. */
+  transition: opacity var(--duration-fast);
+}
+
+.logo:hover {
+  opacity: 0.75;
+}
+
+.logo:focus-visible {
+  outline: 2px solid var(--color-accent-hover);
+  outline-offset: 4px;
+}

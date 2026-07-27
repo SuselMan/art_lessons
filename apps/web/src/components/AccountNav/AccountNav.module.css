@@ -2,14 +2,49 @@
   display: flex;
   align-items: center;
   gap: 18px;
+  /* Lets the row give way instead of running past the viewport edge — the
+     account trigger below is the only part that shrinks, and it ellipsises. */
+  min-width: 0;
 }
 
+/* The account-menu trigger, and the last thing in the header row. Reads as a
+   nav link at rest — it is one more thing in the same row — but carries the
+   avatar and chevron that say it opens something. */
 .identity {
   display: flex;
   align-items: center;
   gap: 6px;
+  max-width: 220px;
+  min-width: 0;
+  min-height: var(--touch-target-sm);
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
-  color: var(--color-text-dim);
+  font-weight: 600;
+  color: var(--color-text);
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+
+.identity:hover,
+.identity[aria-expanded='true'] {
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+}
+
+/* An email address is long enough to push the rest of the row around, and the
+   name is the least important thing here to read in full. */
+.identityName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* :global() — CSS Modules would hash this class and never match the unscoped
+   span Icon.tsx actually renders. Keeps the avatar and chevron at full size
+   while .identityName is the part that gives way. */
+.identity :global(.material-symbols-outlined) {
+  flex-shrink: 0;
 }
 
 .link {
@@ -21,6 +56,8 @@
   min-height: var(--touch-target-sm);
   display: inline-flex;
   align-items: center;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: color var(--duration-fast);
 }
 

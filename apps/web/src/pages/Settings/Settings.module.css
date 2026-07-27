@@ -1,5 +1,6 @@
-/* Mirrors CreateRoom's page/header/card/section rhythm so the two
-   full-page forms read as the same surface, just with different content. */
+/* Mirrors CreateRoom's page/card/section rhythm so the two full-page forms
+   read as the same surface, just with different content. The top bar itself is
+   shared outright — components/AppHeader. */
 
 .page {
   min-height: 100%;
@@ -7,20 +8,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48px 16px 72px;
-}
-
-.header {
-  width: 100%;
-  max-width: 580px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 40px;
-}
-
-.logo {
-  height: 28px;
+  padding: calc(var(--app-header-h) + 40px) 16px 72px;
 }
 
 .card {

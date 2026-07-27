@@ -15,6 +15,12 @@
   --touch-target:    48px;
   --touch-target-sm: 40px;
 
+  /* The app's top bar (components/AppHeader) — a token because it is
+     position: fixed, so every page has to reserve the same space under it.
+     The editor's own header is denser and keeps its local --header-h. */
+  --app-header-h: 60px;
+  --app-logo-h:   34px;
+
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;

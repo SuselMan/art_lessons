@@ -8,8 +8,21 @@
 }
 
 .logo {
-  height: 28px;
+  display: flex;
+  align-items: center;
+  height: var(--app-logo-h);
   margin-bottom: 40px;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--duration-fast);
+}
+
+.logo:hover {
+  opacity: 0.75;
+}
+
+.logo:focus-visible {
+  outline: 2px solid var(--color-accent-hover);
+  outline-offset: 4px;
 }
 
 .card {

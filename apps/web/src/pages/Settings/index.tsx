@@ -1,10 +1,9 @@
 import clsx from 'clsx'
 
-import { AccountNav } from '../../components/AccountNav'
+import { AppHeader } from '../../components/AppHeader'
 import { Icon } from '../../components/Icon'
 import { LOCALES, LOCALE_NAMES, useT } from '../../i18n'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { Logo } from '../../components/Logo'
 import styles from './Settings.module.css'
 
 /** App-wide settings (#208) — the person's own preferences, as opposed to
@@ -22,10 +21,7 @@ export function Settings() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.logo}><Logo /></div>
-        <AccountNav />
-      </header>
+      <AppHeader />
 
       <div className={styles.card}>
         <h1 className={styles.heading}>{t('settingsPage.title')}</h1>

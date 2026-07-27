@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import clsx from 'clsx'
 import { ApiError, login, register } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
@@ -64,7 +64,10 @@ export function Auth() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.logo}><Logo /></div>
+      {/* No AppHeader here — this page's whole job is the form, and the
+          wordmark above it is already the brand mark, not a second copy of the
+          app's chrome. It leads home like every other one, though. */}
+      <Link className={styles.logo} to="/" aria-label="Grafetto"><Logo /></Link>
 
       <form className={styles.card} onSubmit={handleSubmit} noValidate>
         <div className={styles.tabs}>

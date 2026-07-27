@@ -152,7 +152,11 @@ export const ru: Dictionary = {
   'join.error.wrongPassword': 'Неверный пароль — попробуйте ещё раз.',
 
   // ── комната: шапка и действия с холстом ────────────────────────────────
-  'room.newRoom': 'Новая комната',
+  'room.home': 'Grafetto — выйти из комнаты',
+  'room.confirmLeaveTitle': 'Выйти из комнаты?',
+  'room.confirmLeaveMessage': 'Рисунок останется в комнате, вы сможете открыть её снова из «Моих уроков».',
+  'room.confirmLeave': 'Выйти',
+  'room.confirmLeaveStay': 'Остаться',
   'room.settings': 'Настройки',
   'room.fullscreen': 'Во весь экран',
   'room.exitFullscreen': 'Выйти из полноэкранного режима',

@@ -169,7 +169,11 @@ export const en = {
   'join.error.wrongPassword': 'Wrong password — try again.',
 
   // ── room: header & canvas actions ──────────────────────────────────────
-  'room.newRoom': 'New room',
+  'room.home': 'Grafetto — leave this room',
+  'room.confirmLeaveTitle': 'Leave this room?',
+  'room.confirmLeaveMessage': 'The drawing stays in the room and you can open it again from My Lessons.',
+  'room.confirmLeave': 'Leave',
+  'room.confirmLeaveStay': 'Stay',
   'room.settings': 'Settings',
   'room.fullscreen': 'Fullscreen',
   'room.exitFullscreen': 'Exit fullscreen',

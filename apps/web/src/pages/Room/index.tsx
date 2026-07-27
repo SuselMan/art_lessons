@@ -15,6 +15,7 @@ import { SidePanel } from '../../components/SidePanel'
 import { ColorPicker } from '../../components/ColorPicker'
 import { PaletteBar } from '../../components/PaletteBar'
 import { Icon } from '../../components/Icon'
+import { Logo } from '../../components/Logo'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
@@ -941,13 +942,24 @@ export function Room() {
   // they're looking at. This is only for a room that never opened.
   const showOfflineOverlay = !roomContentReady && !connected && offlineGraceElapsed
 
-  // (#313) Unconfirmed work lives in IndexedDB and survives a reload, but it
-  // only leaves this device if the tab eventually gets back online. Closing
-  // it while the queue is full is the one ordinary action that turns a
-  // recoverable situation into a permanent loss — and it's usually taken by
-  // someone who has concluded the work is already gone.
+  // The unload half of "confirm before leaving a room": closing the tab or
+  // reloading can't be intercepted by the app's own dialog (see leaveRoom),
+  // only by the browser's, so this is what covers those paths. Armed for the
+  // whole life of the room rather than only when work is unsent — the two
+  // reasons to ask are different in weight but the prompt is the same one:
+  //
+  //  - ordinary case: an accidental close mid-lesson drops the user out of a
+  //    live session, and the way back in is a room link they may not have.
+  //  - (#313) unconfirmed work lives in IndexedDB and survives a reload, but
+  //    it only leaves this device if the tab eventually gets back online.
+  //    Closing it while the queue is full turns a recoverable situation into a
+  //    permanent loss — and it's usually done by someone who has already
+  //    concluded the work is gone.
+  //
+  // Same `config` gate as the back guard below: at the join gate there is no
+  // session and nothing unsent, so a prompt would be pure friction.
   useEffect(() => {
-    if (outboxState.pending === 0) return
+    if (!config) return
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       // Browsers ignore custom text here and show their own wording; the
       // preventDefault is what actually triggers the prompt.
@@ -956,7 +968,7 @@ export function Room() {
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)
-  }, [outboxState.pending])
+  }, [config])
 
   // Any pending batch dies with the room — a timer firing after unmount would
   // append to an engine that no longer exists.
@@ -1692,14 +1704,59 @@ export function Room() {
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
   }, [])
 
+  // Every way out of the editor asks first. Leaving a room is not destructive
+  // — the drawing is in the room, not in this tab — but it is disorienting
+  // mid-lesson, and the exit sits in the same header strip as controls that
+  // get tapped constantly, so an accidental one is easy.
+  const leavePendingRef = useRef(false)
+  const leaveRoom = useCallback(async () => {
+    // A second back press (or a tap while the dialog is already up) would
+    // otherwise pre-empt the first dialog, which resolves it as `false` — a
+    // cancel the user never asked for.
+    if (leavePendingRef.current) return
+    leavePendingRef.current = true
+    try {
+      const leaving = await confirm({
+        title: t('room.confirmLeaveTitle'),
+        message: t('room.confirmLeaveMessage'),
+        confirmLabel: t('room.confirmLeave'),
+        cancelLabel: t('room.confirmLeaveStay'),
+      })
+      if (leaving) navigate('/')
+    } finally {
+      leavePendingRef.current = false
+    }
+  }, [confirm, navigate, t])
+
+  // Read by the popstate handler below, which is registered once and can't see
+  // render-scoped state.
+  const isDrawingRef = useRef(isDrawing)
+  isDrawingRef.current = isDrawing
+
   // Guards against Chrome's edge-swipe-back gesture kicking the user out of
   // the room mid-drag (see backNavigationGuard's own comment) — armed only
   // while this room is actually mounted, so back navigation elsewhere in the
   // app (/create, /my-lessons) is unaffected.
+  //
+  // `config` is what says the editor itself is on screen rather than the join
+  // gate. Nothing at the gate can trigger the accidental edge-swipe this guard
+  // exists for (the draggable controls are all in the editor), and there is no
+  // room to be kept in yet — trapping back there would only strand someone who
+  // opened a link they've decided not to follow.
   useEffect(() => {
-    setBackNavigationGuard(location.pathname + location.search + location.hash)
+    if (!config) return
+    setBackNavigationGuard(location.pathname + location.search + location.hash, () => {
+      // The URL is already reverted by the time this runs; what's left is
+      // deciding whether the gesture meant anything. Mid-stroke it did not —
+      // that's the accidental edge-strip trigger this guard exists for, and
+      // popping "leave this room?" over a stroke in progress would turn a
+      // silent non-event into an interruption. Otherwise it's a real back
+      // press, and it gets the same question the header's wordmark asks.
+      if (isDrawingRef.current) return
+      void leaveRoom()
+    })
     return () => setBackNavigationGuard(null)
-  }, [location.pathname, location.search, location.hash])
+  }, [config, location.pathname, location.search, location.hash, leaveRoom])
 
   // Eyedropper (#82): consumes the next pointerdown on .eyedropperOverlay
   // (armed only while eyedropperActive) instead of letting it reach the
@@ -2679,8 +2736,11 @@ export function Room() {
 
       {/* ── Header ── */}
       <header className={clsx(styles.header, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
-        <button className={styles.headerIconBtn} onClick={() => navigate('/create')} title={t('room.newRoom')} aria-label={t('room.newRoom')}>
-          <Icon name="arrow_back" />
+        {/* The wordmark is the way out of the editor, same as on every other
+            page — it replaced an arrow_back that went to /create rather than
+            anywhere back, and left without asking. */}
+        <button className={styles.headerLogoBtn} onClick={() => void leaveRoom()} title={t('room.home')} aria-label={t('room.home')}>
+          <Logo />
         </button>
         <span className={styles.roomName}>{config.name}</span>
 

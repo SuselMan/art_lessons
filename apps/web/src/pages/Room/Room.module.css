@@ -85,6 +85,26 @@
   transition: opacity var(--duration-normal) ease;
 }
 
+/* The editor's own, smaller wordmark — the header is 44px tall and shared with
+   a dense row of 32px icon buttons, so it can't take AppHeader's --app-logo-h.
+   Not a <Link>: leaving asks first (see leaveRoom in index.tsx), and a real
+   link would let a middle-click or ⌘-click bypass the question. */
+.headerLogoBtn {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  opacity: 0.8;
+  transition: opacity var(--duration-fast), background var(--duration-fast);
+}
+
+.headerLogoBtn:hover {
+  opacity: 1;
+  background: var(--color-surface-2);
+}
+
 .headerIconBtn {
   width: 32px;
   height: 32px;

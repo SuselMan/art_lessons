@@ -1,23 +1,12 @@
+/* Top padding clears the fixed AppHeader (components/AppHeader) and then adds
+   the page's own breathing room above the card. */
 .page {
   min-height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48px 16px 72px;
-}
-
-.header {
-  width: 100%;
-  max-width: 580px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 40px;
-}
-
-.logo {
-  height: 28px;
+  padding: calc(var(--app-header-h) + 40px) 16px 72px;
 }
 
 .card {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
@@ -8,13 +8,13 @@ import {
   type PaperCharacter, type PaperCoarseness, type PaperType,
 } from '@grafetto/shared'
 import { hexToRgb, rgbToHex } from '../../lib/color'
+import { useDismissOnOutside } from '../../lib/useDismissOnOutside'
 import { useT, type TFunction, type TranslationKey } from '../../i18n'
 import { PaperPreview } from '../../components/PaperPreview'
-import { AccountNav } from '../../components/AccountNav'
+import { AppHeader } from '../../components/AppHeader'
 import { ColorPicker } from '../../components/ColorPicker'
 import { Icon } from '../../components/Icon'
 import { Modal } from '../../components/Modal'
-import { Logo } from '../../components/Logo'
 import styles from './CreateRoom.module.css'
 
 // (#211 epic, #215) MyLessons hands this off via `<Link state={{ folderId }}>`
@@ -187,24 +187,7 @@ export function CreateRoom() {
 
   const resolvedPaperColorHex = paperColor ? rgbToHex(paperColor) : DEFAULT_PAPER_COLORS[paper]
 
-  // Same outside-click/Escape close as CardMenu (components/CardMenu) —
-  // kept local rather than shared since this is the only other popover in
-  // the app right now; extract a shared hook if a third one shows up.
-  useEffect(() => {
-    if (!colorPickerOpen) return
-    function onPointerDown(e: PointerEvent) {
-      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) setColorPickerOpen(false)
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setColorPickerOpen(false)
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [colorPickerOpen])
+  useDismissOnOutside(colorPickerOpen, colorPickerRef, () => setColorPickerOpen(false))
 
   function toggleOrientation() {
     setOrientation(o => (o === 'portrait' ? 'landscape' : 'portrait'))
@@ -266,10 +249,7 @@ export function CreateRoom() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.header}>
-        <div className={styles.logo}><Logo /></div>
-        <AccountNav />
-      </div>
+      <AppHeader />
 
       <form className={styles.card} onSubmit={handleSubmit} noValidate>
         <h1 className={styles.heading}>{t('create.heading')}</h1>
