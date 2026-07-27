@@ -71,3 +71,5 @@ art-lessons/
 ## Rules for Claude
 
 Operational rules for Claude — coding conventions, quality gates, Git workflow, and issue tracking — live in `.claude/rules.md`.
+
+**Release track:** issue #314 (pinned) is the single list of what must be covered before the first release. Before starting non-trivial work, check it against #314 and name the item it unblocks; if it maps to nothing there, say so to Ilya before doing it, and decide together whether it belongs in the track. Full rule in `.claude/rules.md` → "Release track".
