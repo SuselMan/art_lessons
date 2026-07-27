@@ -17,6 +17,8 @@ import { PaletteBar } from '../../components/PaletteBar'
 import { Icon } from '../../components/Icon'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
+import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
+import { isModalOpen } from '../../components/Modal/modalSlot'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { RadialDial } from '../../components/RadialDial'
 import { computeCompositeOrder } from '../../lib/layers'
@@ -247,6 +249,11 @@ export function Room() {
   // before deciding whether to keep it.
   const predictEnabled = getFeatureFlag('predictPointer')
   const [settingsOpen, setSettingsOpen] = useState(false)
+
+  // (#310) In-app replacements for the window.confirm/window.alert this
+  // editor used to reach for. `alert` is renamed on the way in so a reader
+  // can't mistake it for the global it replaces.
+  const { confirm, alert: showAlert } = useConfirmDialog()
 
   // #93: fullscreen toggle for the whole editor root — removes tablet
   // browser chrome (address bar/nav), which eats real estate especially in
@@ -1413,7 +1420,11 @@ export function Room() {
     // accept it. Operations confined to this client's own local island are
     // unaffected — they took the optimistic branch above and work offline.
     if (!connected) {
-      window.alert('Нет связи с комнатой — это действие затрагивает общие слои и станет доступно после переподключения.')
+      // Fire-and-forget (#310): nothing here waits on the dismissal, the
+      // operation is refused either way.
+      void showAlert({
+        message: 'Нет связи с комнатой — это действие затрагивает общие слои и станет доступно после переподключения.',
+      })
       return
     }
 
@@ -1428,7 +1439,7 @@ export function Room() {
     // so a dropped packet is retried rather than silently swallowed — its
     // `onSettled` handles the verdict either way.
     void outbox.enqueue(op)
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected, showAlert])
 
   // (#263) LayerPanel has no direct engine access — this is the same
   // engineRef-backed-callback shape as dispatchOp above, threaded down as a
@@ -1444,23 +1455,36 @@ export function Room() {
   // this issue's own repro) — peekUndo/peekRedo is a read-only look at what
   // the pending call would act on, so a decline here leaves state exactly
   // as if the button/hotkey was never pressed.
-  const handleUndo = useCallback(() => {
+  //
+  // (#310) These two now await an in-app dialog instead of blocking on
+  // window.confirm. One real difference: window.confirm froze all JS, so the
+  // peek below could not go stale while it was up — an awaited dialog lets
+  // peers' operations keep arriving. That's acceptable here because the peek
+  // only decides whether to *ask*: undo()/redo() re-resolve their own target
+  // when they actually run, so a confirmed undo still acts on current state.
+  const handleUndo = useCallback(async () => {
     if (!roomContentReady || isBlockedByFreeze) return
     const peek = engineRef.current?.peekUndo()
-    if (peek?.hasOtherContent && !window.confirm(
-      'Undo will remove a layer that has content from other participants. Continue?',
-    )) return
+    if (peek?.hasOtherContent && !await confirm({
+      title: 'Undo',
+      message: 'Undo will remove a layer that has content from other participants. Continue?',
+      confirmLabel: 'Undo',
+      danger: true,
+    })) return
     if (engineRef.current?.undo()) syncFromLog()
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, confirm])
 
-  const handleRedo = useCallback(() => {
+  const handleRedo = useCallback(async () => {
     if (!roomContentReady || isBlockedByFreeze) return
     const peek = engineRef.current?.peekRedo()
-    if (peek?.hasOtherContent && !window.confirm(
-      'Redo will remove a layer that has content from other participants. Continue?',
-    )) return
+    if (peek?.hasOtherContent && !await confirm({
+      title: 'Redo',
+      message: 'Redo will remove a layer that has content from other participants. Continue?',
+      confirmLabel: 'Redo',
+      danger: true,
+    })) return
     if (engineRef.current?.redo()) syncFromLog()
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze])
+  }, [syncFromLog, roomContentReady, isBlockedByFreeze, confirm])
 
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen()
@@ -2343,9 +2367,14 @@ export function Room() {
     }
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLElement && e.target.tagName === 'INPUT') return
+      // (#310) A modal owns the keyboard while it is up. This listener is on
+      // `window` in the bubble phase, so a key pressed inside a dialog reaches
+      // it too — without this, typing in a dialog would still be switching
+      // tools behind it.
+      if (isModalOpen()) return
       const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
-      if (is('undo')) { handleUndo(); e.preventDefault(); return }
-      if (is('redo')) { handleRedo(); e.preventDefault(); return }
+      if (is('undo')) { void handleUndo(); e.preventDefault(); return }
+      if (is('redo')) { void handleRedo(); e.preventDefault(); return }
       if (is('toggleEraser')) { setTool(t => t === 'eraser' ? lastDrawingTool : 'eraser'); return }
       if (is('toggleSmudge')) { setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge'); return }
       if (is('toggleCharcoal')) { setTool(t => t === 'charcoal' ? 'pencil' : 'charcoal'); return }
@@ -2571,11 +2600,16 @@ export function Room() {
               set apart from the frequently-used buttons above (not a
               viewport action like Rotate/Fit, and not something to reach
               for by accident) — moved out of the tool toolbar, it was never
-              a tool either. Existing confirm() (#171) unchanged by the move;
-              a real non-native confirm dialog is still tracked separately. */}
+              a tool either. Its confirm (#171) is the app's own dialog as of
+              #310, no longer window.confirm. */}
           <button className={styles.headerIconBtn} title="Clear canvas" aria-label="Clear canvas"
-            onClick={() => {
-              if (window.confirm(`Clear the active layer? This can be undone with ${formatHotkeyLabel(hotkeys.undo)}.`)) {
+            onClick={async () => {
+              if (await confirm({
+                title: 'Clear canvas',
+                message: `Clear the active layer? This can be undone with ${formatHotkeyLabel(hotkeys.undo)}.`,
+                confirmLabel: 'Clear',
+                danger: true,
+              })) {
                 engineRef.current?.clear()
               }
             }}>

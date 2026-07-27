@@ -20,6 +20,12 @@
   --radius-md: 8px;
   --radius-lg: 16px;
 
+  /* Stacking (#310) — only for a layer that leaves its own component and has
+     to sit above unrelated page chrome. Numbers that are local to one
+     component (toolbars, docked panels, their popovers) stay in that
+     component's own CSS, where the neighbours they order against live. */
+  --z-modal: 500;
+
   /* Transitions */
   --duration-fast:   100ms;
   --duration-normal: 200ms;

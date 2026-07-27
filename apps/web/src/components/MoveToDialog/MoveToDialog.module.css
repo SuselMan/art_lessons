@@ -1,54 +1,5 @@
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.5);
-}
-
-.dialog {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 420px;
-  max-height: 70vh;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-text-bright);
-}
-
-.close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--touch-target-sm);
-  height: var(--touch-target-sm);
-  color: var(--color-text-dim);
-  border-radius: var(--radius-sm);
-}
-
-.close:hover {
-  color: var(--color-text-bright);
-  background: var(--color-surface-2);
-}
+/* Backdrop, box, header and close button all live in components/Modal now
+   (#310) — what's left here is this dialog's own body. */
 
 .breadcrumbs {
   display: flex;
@@ -109,6 +60,9 @@
   flex-direction: column;
   gap: 2px;
   padding: 0 8px 8px;
+  /* min-height:0 so this actually shrinks and scrolls inside the modal's flex
+     column instead of pushing the box past its max-height. */
+  min-height: 0;
   overflow-y: auto;
 }
 

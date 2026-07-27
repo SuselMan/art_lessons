@@ -21,6 +21,7 @@ import { CSS } from '@dnd-kit/utilities'
 import type { LayerState, OperationDraft } from '@art-lessons/shared'
 import { BACKGROUND_LAYER_ID } from '@art-lessons/shared'
 import { Icon } from '../Icon'
+import { useConfirmDialog } from '../ConfirmDialog/useConfirmDialog'
 import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
 import { patchItem } from './utils'
@@ -88,6 +89,12 @@ export const LayerPanel = memo(function LayerPanel({
   const [menuAnchor, setMenuAnchor]             = useState<HTMLElement | null>(null)
   const [opacityId, setOpacityId]               = useState<string | null>(null)
   const [opacityAnchor, setOpacityAnchor]       = useState<HTMLElement | null>(null)
+  // (#310) Which row's name is being edited in place. Lifted out of LayerRow
+  // so the context menu's Rename can start the same inline edit a double-click
+  // starts — it used to open a window.prompt instead.
+  const [editingId, setEditingId]               = useState<string | null>(null)
+
+  const { confirm } = useConfirmDialog()
 
   const longPressRef = useRef<{ id: string; timer: number } | null>(null)
 
@@ -252,7 +259,7 @@ export const LayerPanel = memo(function LayerPanel({
     }
   }, [onChange, onOp])
 
-  const handleDelete = useCallback((ids?: string[]) => {
+  const handleDelete = useCallback(async (ids?: string[]) => {
     const targets = (ids ?? (selectedIds.length > 0 ? selectedIds : [activeId]))
       .filter(id => id !== BACKGROUND_LAYER_ID)
     if (!targets.length) return
@@ -267,13 +274,16 @@ export const LayerPanel = memo(function LayerPanel({
     // (#263) Mirrors Clear-layer's own confirm (#171): only prompt when
     // there's actually something to lose — an empty layer/selection still
     // deletes silently, same as today.
-    if ([...idSet].some(hasLayerContent) && !window.confirm(
-      'Delete the selected layer(s)? Any painted content on them — including content from other participants — will be lost.',
-    )) return
+    if ([...idSet].some(hasLayerContent) && !await confirm({
+      title: 'Delete layers',
+      message: 'Delete the selected layer(s)? Any painted content on them — including content from other participants — will be lost.',
+      confirmLabel: 'Delete',
+      danger: true,
+    })) return
 
     onOp({ type: 'layer_delete', layerIds: [...idSet] })
     onChange(p => ({ ...p, selectedIds: [] }))
-  }, [activeId, selectedIds, layerState, onChange, onOp, hasLayerContent])
+  }, [activeId, selectedIds, layerState, onChange, onOp, hasLayerContent, confirm])
 
   // ── merge ────────────────────────────────────────────────────────────────────
 
@@ -327,14 +337,18 @@ export const LayerPanel = memo(function LayerPanel({
     setMenuAnchor(null)
   }, [])
 
+  // (#310) Starts the row's own inline edit — the same one a double-click on
+  // the name starts, and the same in-place shape MyLessons uses for renaming
+  // a room. Replaces a window.prompt that duplicated an editor the row
+  // already had.
   const handleMenuRename = useCallback(() => {
-    if (!menuId) return
-    const item = items[menuId]
-    if (!item) return
-    const next = window.prompt('Rename layer', item.name)
-    if (next?.trim()) handleRename(menuId, next.trim())
+    if (!menuId || !items[menuId]) return
+    setEditingId(menuId)
     handleCloseMenu()
-  }, [menuId, items, handleRename, handleCloseMenu])
+  }, [menuId, items, handleCloseMenu])
+
+  const handleStartEditing = useCallback((id: string) => setEditingId(id), [])
+  const handleStopEditing = useCallback(() => setEditingId(null), [])
 
   const handleMenuMergeDown = useCallback(() => {
     handleCloseMenu()
@@ -343,7 +357,7 @@ export const LayerPanel = memo(function LayerPanel({
 
   const handleMenuDelete = useCallback(() => {
     handleCloseMenu()
-    if (menuId) handleDelete([menuId])
+    if (menuId) void handleDelete([menuId])
   }, [menuId, handleCloseMenu, handleDelete])
 
   // ── opacity popup ────────────────────────────────────────────────────────────
@@ -562,7 +576,7 @@ export const LayerPanel = memo(function LayerPanel({
         </button>
         <button
           className={clsx(styles.toolbarBtn, styles.toolbarBtnDanger)}
-          onClick={() => handleDelete()}
+          onClick={() => void handleDelete()}
           disabled={!canDelete}
           title={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}
           aria-label={selectedIds.length > 0 ? 'Delete selected' : 'Delete layer'}>
@@ -617,6 +631,9 @@ export const LayerPanel = memo(function LayerPanel({
                   onToggleLock={handleToggleLock}
                   onToggleOwnerLock={handleToggleOwnerLock}
                   onRename={handleRename}
+                  editing={editingId === entry.id}
+                  onStartEditing={handleStartEditing}
+                  onStopEditing={handleStopEditing}
                   onToggleCollapse={handleToggleCollapse}
                   onOpenMenu={handleOpenMenu}
                   onOpenOpacity={handleOpenOpacity}

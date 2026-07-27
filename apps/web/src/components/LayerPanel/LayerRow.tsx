@@ -1,4 +1,4 @@
-import { useState, useRef, memo } from 'react'
+import { useRef, memo } from 'react'
 import clsx from 'clsx'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -24,6 +24,12 @@ export interface LayerRowProps {
   onToggleLock: (id: string) => void
   onToggleOwnerLock?: (id: string) => void
   onRename: (id: string, name: string) => void
+  // (#310) Inline name editing is controlled by LayerPanel rather than owned
+  // here, so the row's context menu ("Rename") can open the very same editor a
+  // double-click opens instead of a window.prompt.
+  editing?: boolean
+  onStartEditing?: (id: string) => void
+  onStopEditing?: () => void
   onToggleCollapse?: (id: string) => void
   onOpenMenu?: (id: string, anchor: HTMLElement) => void
   onOpenOpacity?: (id: string, anchor: HTMLElement) => void
@@ -33,10 +39,11 @@ export interface LayerRowProps {
 
 function LayerRowImpl({
   item, depth, isActive, isSelected, isDragOverFolder, isOwner,
-  onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename, onToggleCollapse, onOpenMenu, onOpenOpacity,
+  onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
+  editing = false, onStartEditing, onStopEditing,
+  onToggleCollapse, onOpenMenu, onOpenOpacity,
   onPointerDown, onPointerUp,
 }: LayerRowProps) {
-  const [editing, setEditing] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
 
   const isFolderItem = isFolder(item)
@@ -57,7 +64,7 @@ function LayerRowImpl({
   const commit = () => {
     const v = nameRef.current?.value.trim()
     if (v) onRename(item.id, v)
-    setEditing(false)
+    onStopEditing?.()
   }
 
   return (
@@ -153,13 +160,13 @@ function LayerRowImpl({
           defaultValue={item.name}
           autoFocus
           onBlur={commit}
-          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') setEditing(false) }}
+          onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') onStopEditing?.() }}
           onClick={e => e.stopPropagation()}
         />
       ) : (
         <span
           className={styles.name}
-          onDoubleClick={e => { e.stopPropagation(); setEditing(true) }}
+          onDoubleClick={e => { e.stopPropagation(); onStartEditing?.(item.id) }}
         >
           {item.name}
         </span>

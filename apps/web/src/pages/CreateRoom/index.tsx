@@ -12,6 +12,7 @@ import { PaperPreview } from '../../components/PaperPreview'
 import { AccountNav } from '../../components/AccountNav'
 import { ColorPicker } from '../../components/ColorPicker'
 import { Icon } from '../../components/Icon'
+import { Modal } from '../../components/Modal'
 import styles from './CreateRoom.module.css'
 
 // (#211 epic, #215) MyLessons hands this off via `<Link state={{ folderId }}>`
@@ -318,51 +319,34 @@ export function CreateRoom() {
         </div>
 
         {paperModalOpen && selectedCoarseness && (
-          <div
-            className={styles.paperModalBackdrop}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Choose texture"
-            onClick={() => setPaperModalOpen(false)}
+          <Modal
+            size="lg"
+            title={`Texture — ${PAPER_COARSENESS_LABELS[selectedCoarseness].toLowerCase()} grain`}
+            onClose={() => setPaperModalOpen(false)}
           >
-            <div className={styles.paperModal} onClick={e => e.stopPropagation()}>
-              <div className={styles.paperModalHeader}>
-                <div className={styles.paperModalTitle}>
-                  Texture — {PAPER_COARSENESS_LABELS[selectedCoarseness].toLowerCase()} grain
-                </div>
-                <button
-                  type="button"
-                  className={styles.paperModalClose}
-                  aria-label="Close"
-                  onClick={() => setPaperModalOpen(false)}
-                >
-                  <Icon name="close" />
-                </button>
-              </div>
-              {/* Only the chosen coarseness: showing all ten at once made the
-                  two axes read as one flat list of near-identical cards. */}
-              <div className={styles.paperModalGrid}>
-                {PAPER_CHARACTER.map(character => {
-                  const type = `${selectedCoarseness}-${character}` as PaperType
-                  return (
-                    <PaperCard
-                      key={character}
-                      type={type}
-                      label={PAPER_CHARACTER_LABELS[character]}
-                      desc={CHARACTER_DESC[character]}
-                      selected={paper === type}
-                      bgColorHex={resolvedPaperColorHex}
-                      onSelect={() => {
-                        setPaper(type)
-                        setLastCharacter(character)
-                        setPaperModalOpen(false)
-                      }}
-                    />
-                  )
-                })}
-              </div>
+            {/* Only the chosen coarseness: showing all ten at once made the
+                two axes read as one flat list of near-identical cards. */}
+            <div className={styles.paperModalGrid}>
+              {PAPER_CHARACTER.map(character => {
+                const type = `${selectedCoarseness}-${character}` as PaperType
+                return (
+                  <PaperCard
+                    key={character}
+                    type={type}
+                    label={PAPER_CHARACTER_LABELS[character]}
+                    desc={CHARACTER_DESC[character]}
+                    selected={paper === type}
+                    bgColorHex={resolvedPaperColorHex}
+                    onSelect={() => {
+                      setPaper(type)
+                      setLastCharacter(character)
+                      setPaperModalOpen(false)
+                    }}
+                  />
+                )
+              })}
             </div>
-          </div>
+          </Modal>
         )}
 
         {/* Canvas size */}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Icon } from '../Icon'
+import { Modal } from '../Modal'
 import { Tabs } from '../Tabs'
 import {
   FEATURE_FLAGS, getFeatureFlag, setFeatureFlag,
@@ -219,15 +219,11 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   )
 
   return (
-    <div className={styles.backdrop} onClick={onClose}>
-      <div className={styles.panel} onClick={e => e.stopPropagation()}>
-        <div className={styles.panelHeader}>
-          <span>Settings</span>
-          <button className={styles.closeBtn} onClick={onClose} title="Close" aria-label="Close">
-            <Icon name="close" />
-          </button>
-        </div>
-
+    <Modal title="Settings" size="sm" onClose={onClose}>
+      {/* Scrolls the tabs, not the save bar — the bar stays reachable no
+          matter how long the flag list gets. Before #310 the whole panel
+          (save bar included) was the scroll container. */}
+      <div className={styles.scrollArea}>
         <Tabs
           tabs={[
             { id: 'general', label: 'General', content: generalContent },
@@ -236,16 +232,16 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           active={activeTab}
           onSelect={setActiveTab}
         />
-
-        <div className={styles.saveBar}>
-          <span className={styles.hint}>
-            {dirty ? 'Unsaved changes — reloads the page.' : 'Changes apply after Save.'}
-          </span>
-          <button type="button" className={styles.saveBtn} disabled={!dirty} onClick={handleSave}>
-            Save
-          </button>
-        </div>
       </div>
-    </div>
+
+      <div className={styles.saveBar}>
+        <span className={styles.hint}>
+          {dirty ? 'Unsaved changes — reloads the page.' : 'Changes apply after Save.'}
+        </span>
+        <button type="button" className={styles.saveBtn} disabled={!dirty} onClick={handleSave}>
+          Save
+        </button>
+      </div>
+    </Modal>
   )
 }

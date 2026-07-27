@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { ConfirmDialogProvider } from './components/ConfirmDialog'
 import { queryClient } from './lib/queryClient'
 
 // Route-level code splitting (#130): Room alone pulls in the WebGL pencil
@@ -21,17 +22,22 @@ function RouteFallback() {
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Suspense fallback={<RouteFallback />}>
-          <Routes>
-            <Route path="/" element={<Navigate to="/create" replace />} />
-            <Route path="/create" element={<CreateRoom />} />
-            <Route path="/room/:id" element={<Room />} />
-            <Route path="/login" element={<Auth />} />
-            <Route path="/my-lessons" element={<MyLessons />} />
-          </Routes>
-        </Suspense>
-      </BrowserRouter>
+      {/* Above the router (#310): a confirm can be awaited from any page, and
+          its dialog must outlive a route's own render tree — the dialog itself
+          portals to <body> regardless. */}
+      <ConfirmDialogProvider>
+        <BrowserRouter>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<Navigate to="/create" replace />} />
+              <Route path="/create" element={<CreateRoom />} />
+              <Route path="/room/:id" element={<Room />} />
+              <Route path="/login" element={<Auth />} />
+              <Route path="/my-lessons" element={<MyLessons />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </ConfirmDialogProvider>
     </QueryClientProvider>
   )
 }

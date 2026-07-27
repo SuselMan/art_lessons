@@ -444,63 +444,15 @@
   color: var(--color-text-bright);
 }
 
-.paperModalBackdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.6);
-}
-
-.paperModal {
-  width: min(720px, 100%);
-  max-height: 100%;
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
-}
-
-.paperModalHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.paperModalTitle {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-bright);
-}
-
-.paperModalClose {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 40px;
-  min-height: 40px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-dim);
-  cursor: pointer;
-}
-.paperModalClose:hover {
-  background: color-mix(in srgb, var(--color-text-bright) 10%, transparent);
-  color: var(--color-text-bright);
-}
-
+/* Backdrop, box, header and close button live in components/Modal now (#310) —
+   only this dialog's own grid body is left. */
 .paperModalGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   padding: 16px;
+  /* min-height:0 so the grid scrolls inside the modal's flex column instead
+     of pushing the box past its max-height. */
+  min-height: 0;
   overflow-y: auto;
 }
