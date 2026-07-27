@@ -4,6 +4,36 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Grafetto</title>
+    <meta name="description" content="Learn traditional freehand drawing online — pencil and ink on a shared canvas, with a teacher." />
+
+    <!-- #47: installable-PWA metadata. Icons are baked from
+         src/assets/logo-icon.svg by `npm run bake:icons` — see
+         scripts/bakeAppIcons.ts for why "any" and "maskable" have to be
+         two different files rather than one. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#1a1a1e" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- PNG fallback for engines that don't take an SVG favicon (Safari). -->
+    <link rel="icon" href="/favicon-96.png" sizes="96x96" type="image/png" />
+
+    <!-- #49: iOS ignores the manifest almost entirely — it reads these
+         instead. The apple-prefixed capability meta is formally deprecated
+         in favour of `mobile-web-app-capable`, but Safari still only honours
+         the old spelling, so both ship.
+
+         status-bar-style is deliberately `black`, not `black-translucent`:
+         translucent hands the app the full screen including the area under
+         the notch and the home indicator, which is only safe once the layout
+         reads `env(safe-area-inset-*)`. It doesn't yet (0 occurrences across
+         all CSS), so translucent would put the toolbar under the Dynamic
+         Island today. Flip it — together with `viewport-fit=cover` on the
+         viewport meta above — in the same change that adds the insets. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="Grafetto" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
     <!-- #179: preconnect shaves off the connection-setup round-trip to both
          Google Fonts hosts (the CSS itself from googleapis.com, the actual
          woff2 file from gstatic.com) before the stylesheet request below
