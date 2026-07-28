@@ -209,16 +209,26 @@ export const en = {
   'room.panel.layers': 'Layers',
   'room.panel.color': 'Color',
   'room.panel.toolSettings': 'Tool settings',
+  'room.panel.participants': 'Participants',
   'room.noToolSettings': 'This tool has no settings yet.',
   'room.markerAngle': 'Marker angle',
 
   // ── room: participants & status banners ────────────────────────────────
-  'room.reconnecting': 'Reconnecting…',
   'room.participant.owner': 'owner',
   'room.participant.drawing': 'drawing',
   'room.participant.frozen': 'frozen by owner',
   'room.participant.freeze': 'Freeze {name}',
   'room.participant.unfreeze': 'Unfreeze {name}',
+  // (#328) Participants panel. The freeze/unfreeze labels here are menu items
+  // on an already-named row, so they don't repeat the name the way the old
+  // hover-badge tooltips above had to.
+  'room.participants.you': '(you)',
+  'room.participants.idle': 'in the room',
+  'room.participants.empty': 'Nobody else is here yet.',
+  'room.participants.freeze': 'Freeze drawing',
+  'room.participants.unfreeze': 'Unfreeze drawing',
+  'room.participants.ban': 'Block',
+  'room.participants.banUnavailable': 'Room access control is not built yet',
   'room.frozenEveryone': 'The room owner has paused drawing for everyone.',
   'room.frozenYou': 'The room owner has paused your drawing.',
   // (#201) The queue is durable, so these describe a delay, never a loss —

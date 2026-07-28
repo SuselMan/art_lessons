@@ -597,7 +597,7 @@ export type ServerToClientEvents = {
   room_frozen_changed: (data: { frozen: boolean }) => void
   // (#254/#257 epic) Broadcast to the whole room whenever `set_participant_frozen`
   // is accepted — every participant needs this, not just the target, so
-  // ParticipantsBar can show the frozen indicator for everyone else too.
+  // ParticipantsPanel can show the frozen indicator for everyone else too.
   participant_frozen_changed: (data: { userId: string; frozen: boolean }) => void
 }
 
@@ -609,6 +609,13 @@ export type ClientToServerEvents = {
     data: {
       room: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
       password?: string
+      // (#328) The creator's own display name, same field `join_room` has
+      // always carried. Before this the server labelled every room owner
+      // "Teacher" because this payload had nowhere to put a name — which then
+      // showed up verbatim in the participants list, next to everyone else's
+      // real name, and flipped to their actual name the moment they reloaded
+      // (a reload rejoins through `join_room`, which does carry one).
+      name: string
       // Highest operation seq this socket already knows about locally (a
       // reconnecting creator whose tab never really lost its content) — lets
       // the server trim `room_state`'s tailOperations instead of resending

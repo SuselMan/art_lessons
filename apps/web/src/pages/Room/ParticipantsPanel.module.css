@@ -1,0 +1,145 @@
+/* (#328) Participants tab of the right-hand SidePanel. The panel's content
+   column is 204px wide (SidePanel.module.css), so every row here is built to
+   survive that: the name ellipsises, nothing else is allowed to grow. */
+
+/* `flex: 1; min-height: 0` rather than a plain overflow: the SidePanel content
+   column is `overflow: hidden`, so an unbounded list would be clipped by it
+   instead of scrolling inside itself once a class fills up. */
+.list {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 4px;
+  gap: 2px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch-target-sm);
+  padding: 4px 2px 4px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.row:hover {
+  background: var(--color-surface-hover);
+}
+
+/* Identity dot — same visual language as the peer cursor's own color, which is
+   what makes "who is this row" answerable without reading the name. */
+.dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #111;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--color-surface-raised);
+  transition: box-shadow var(--duration-fast);
+}
+
+.dotDrawing {
+  box-shadow: 0 0 0 2px var(--color-surface-raised), 0 0 0 4px var(--color-accent);
+  animation: participant-drawing-pulse 1.2s ease-in-out infinite;
+}
+
+/* (#254/#257) Frozen — dimmed, with a snowflake in place of the initial and a
+   warning-colored ring, deliberately unlike the drawing pulse above so the two
+   never read as the same state at a glance. */
+.dotFrozen {
+  opacity: 0.55;
+  box-shadow: 0 0 0 2px var(--color-surface-raised), 0 0 0 4px var(--color-warning, #e0a952);
+}
+.dotFrozen :global(.material-symbols-outlined) { font-size: 14px; }
+
+@keyframes participant-drawing-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selfTag {
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-dim);
+}
+
+.status {
+  font-size: 10px;
+  color: var(--color-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.statusFrozen {
+  color: var(--color-warning, #e0a952);
+}
+
+.rowMenuBtn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  cursor: pointer;
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+.rowMenuBtn:hover { color: var(--color-text); background: var(--color-surface-2); }
+.rowMenuBtn :global(.material-symbols-outlined) { font-size: 16px; }
+
+.empty {
+  padding: 12px 10px;
+  font-size: 11px;
+  color: var(--color-text-dim);
+}
+
+/* ── Room-wide actions in the panel header ────────────────────────────────── */
+/* Sized to match SidePanel's own collapse button so the header row stays even. */
+.headerBtn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--duration-fast), background var(--duration-fast);
+}
+.headerBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
+.headerBtn :global(.material-symbols-outlined) { font-size: 16px; }
+
+.headerBtnActive {
+  color: var(--color-warning, #e0a952);
+  background: color-mix(in srgb, var(--color-warning, #e0a952) 16%, transparent);
+}

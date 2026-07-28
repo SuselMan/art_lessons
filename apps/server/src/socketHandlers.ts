@@ -19,6 +19,12 @@ export interface SocketData {
   userId?: string
 }
 
+/** (#328) Last resort when a client sends a blank display name. The client
+ *  always has something to send (an account name, or a per-device "Guest-XXXX"
+ *  — see the web app's `resolveDisplayName`), so this is a guard against a
+ *  malformed payload, not a name anyone should normally see. */
+const FALLBACK_PARTICIPANT_NAME = 'Guest'
+
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>
 
 export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): void {
@@ -38,10 +44,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
 
     // Registers a brand-new room and seats the caller as its `owner` (#39
     // fix: ownership is now fixed at creation time, not "whoever joins
-    // first"). `create_room`'s wire payload carries no participant name
-    // (unlike `join_room`) — that's how the shared contract was defined, so
-    // the owner gets a fixed label until account names exist.
-    socket.on('create_room', async ({ room, password, lastKnownSeq }, ack) => {
+    // first"). (#328) The payload now carries the creator's own display name,
+    // same as `join_room` — it used to not, and the owner was labelled
+    // "Teacher" here as a result.
+    socket.on('create_room', async ({ room, password, name, lastKnownSeq }, ack) => {
       const userId = socket.data.userId!
       // Same reload-safety as join_room below: the creator's own tab can
       // legitimately emit create_room again for a room that already exists
@@ -52,7 +58,10 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       await ensureRoomLoaded(room.id)
       // No one else is in the room yet, so there's no peer_joined broadcast
       // to make — unlike join_room below, the returned participant is unused.
-      createRoom(room, password, userId, 'Teacher', socket.id)
+      // Same defensive trim/fallback `join_room` gets from the gate's own
+      // validation — a socket is not a form, and an empty label would leave a
+      // nameless row in every participants list in the room.
+      createRoom(room, password, userId, name?.trim() || FALLBACK_PARTICIPANT_NAME, socket.id)
       socket.data.roomId = room.id
 
       // Same ordering guarantee as join_room below (#36): join the Socket.IO
@@ -74,7 +83,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // no-op, synchronously fast, when the room's already live.
       await ensureRoomLoaded(roomId)
 
-      const result = joinRoom(roomId, userId, name, password, socket.id)
+      const result = joinRoom(roomId, userId, name?.trim() || FALLBACK_PARTICIPANT_NAME, password, socket.id)
       if (!result.ok) {
         // (#292) The load above just pulled this room into memory, and a
         // rejected join means nobody is in it — without this it would sit

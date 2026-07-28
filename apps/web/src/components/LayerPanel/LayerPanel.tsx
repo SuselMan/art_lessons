@@ -1,4 +1,4 @@
-import { memo, useCallback, useLayoutEffect, useMemo, useState, useRef } from 'react'
+import { memo, useCallback, useMemo, useState, useRef } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
@@ -87,10 +87,8 @@ export const LayerPanel = memo(function LayerPanel({
 
   const [dragId, setDragId]                     = useState<string | null>(null)
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
-  const [menuId, setMenuId]                     = useState<string | null>(null)
-  const [menuAnchor, setMenuAnchor]             = useState<HTMLElement | null>(null)
   // (#310) Which row's name is being edited in place. Lifted out of LayerRow
-  // so the context menu's Rename can start the same inline edit a double-click
+  // so the row menu's Rename can start the same inline edit a double-click
   // starts — it used to open a window.prompt instead.
   const [editingId, setEditingId]               = useState<string | null>(null)
 
@@ -328,40 +326,16 @@ export const LayerPanel = memo(function LayerPanel({
     emitMerge([sourceId, belowId], `${items[sourceId].name} + ${items[belowId].name}`, containerId, idx)
   }, [activeId, layerState, rootOrder, items, emitMerge])
 
-  // ── context menu ─────────────────────────────────────────────────────────────
+  // ── row menu ─────────────────────────────────────────────────────────────────
 
-  const handleOpenMenu = useCallback((id: string, anchor: HTMLElement) => {
-    setMenuId(id)
-    setMenuAnchor(anchor)
-  }, [])
-
-  const handleCloseMenu = useCallback(() => {
-    setMenuId(null)
-    setMenuAnchor(null)
-  }, [])
-
-  // (#310) Starts the row's own inline edit — the same one a double-click on
-  // the name starts, and the same in-place shape MyLessons uses for renaming
-  // a room. Replaces a window.prompt that duplicated an editor the row
-  // already had.
-  const handleMenuRename = useCallback(() => {
-    if (!menuId || !items[menuId]) return
-    setEditingId(menuId)
-    handleCloseMenu()
-  }, [menuId, items, handleCloseMenu])
-
+  // (#328) The menu itself now lives in the row (shared `Menu`), so the panel
+  // only supplies the actions. (#310) Rename starts the row's own inline edit —
+  // the same one a double-click on the name starts, and the same in-place shape
+  // MyLessons uses for renaming a room.
   const handleStartEditing = useCallback((id: string) => setEditingId(id), [])
   const handleStopEditing = useCallback(() => setEditingId(null), [])
 
-  const handleMenuMergeDown = useCallback(() => {
-    handleCloseMenu()
-    if (menuId) handleMergeDown(menuId)
-  }, [menuId, handleCloseMenu, handleMergeDown])
-
-  const handleMenuDelete = useCallback(() => {
-    handleCloseMenu()
-    if (menuId) void handleDelete([menuId])
-  }, [menuId, handleCloseMenu, handleDelete])
+  const handleMenuDelete = useCallback((id: string) => { void handleDelete([id]) }, [handleDelete])
 
   // ── DnD ──────────────────────────────────────────────────────────────────────
 
@@ -626,7 +600,8 @@ export const LayerPanel = memo(function LayerPanel({
                   onStartEditing={handleStartEditing}
                   onStopEditing={handleStopEditing}
                   onToggleCollapse={handleToggleCollapse}
-                  onOpenMenu={handleOpenMenu}
+                  onMergeDown={handleMergeDown}
+                  onDelete={handleMenuDelete}
                   onPointerDown={handlePointerDown}
                   onPointerUp={handlePointerUp}
                 />
@@ -642,17 +617,6 @@ export const LayerPanel = memo(function LayerPanel({
         </DndContext>
       </div>
 
-      {menuId && menuAnchor && (
-        <ContextMenu
-          anchor={menuAnchor}
-          onClose={handleCloseMenu}
-          items={[
-            { label: t('common.rename'),      onClick: handleMenuRename },
-            { label: t('layers.mergeDown'),   onClick: handleMenuMergeDown, disabled: items[menuId]?.kind !== 'layer' },
-            { label: t('common.delete'),      onClick: handleMenuDelete,    disabled: menuId === BACKGROUND_LAYER_ID },
-          ]}
-        />
-      )}
     </div>
   )
 })
@@ -677,64 +641,3 @@ function Sentinel({ id }: { id: string }) {
   )
 }
 
-interface ContextMenuProps {
-  anchor: HTMLElement
-  onClose: () => void
-  items: Array<{ label: string; onClick: () => void; disabled?: boolean }>
-}
-
-/** Distance kept between the menu and the viewport edges when clamping. */
-const MENU_VIEWPORT_MARGIN = 8
-
-function ContextMenu({ anchor, onClose, items }: ContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-
-  // The panel is docked against the right edge of the window and the "⋮" that
-  // anchors this menu sits at the row's own right edge, so the old
-  // `left: rect.left` put the whole menu off screen. Hang it from the anchor's
-  // *right* edge instead, then clamp both axes against the measured size — a
-  // row near the bottom of a long list would otherwise push it below the fold.
-  useLayoutEffect(() => {
-    const el = menuRef.current
-    if (!el) return
-    const rect = anchor.getBoundingClientRect()
-    const { width, height } = el.getBoundingClientRect()
-    const m = MENU_VIEWPORT_MARGIN
-
-    // Flip above the anchor rather than merely sliding up when there's no room
-    // below, so the menu never covers the row it belongs to.
-    let top = rect.bottom + 4
-    if (top + height > window.innerHeight - m) top = rect.top - height - 4
-    top = Math.max(m, Math.min(top, window.innerHeight - height - m))
-
-    const left = Math.max(m, Math.min(rect.right - width, window.innerWidth - width - m))
-    setPos({ top, left })
-  }, [anchor])
-
-  return (
-    <>
-      <div className={styles.overlay} onClick={onClose} />
-      <div
-        ref={menuRef}
-        className={styles.contextMenu}
-        // Rendered off-anchor for one frame so it can be measured; hidden
-        // meanwhile so that frame isn't visible as a jump.
-        style={pos
-          ? { top: pos.top, left: pos.left }
-          : { top: 0, left: 0, visibility: 'hidden' }}
-      >
-        {items.map(item => (
-          <button
-            key={item.label}
-            className={styles.contextMenuItem}
-            disabled={item.disabled}
-            onClick={item.onClick}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-    </>
-  )
-}

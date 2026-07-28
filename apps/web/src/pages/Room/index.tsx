@@ -32,6 +32,7 @@ import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { getHotkeyBindings, matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
 import { moveRoomToFolder } from '../../lib/api'
+import { useAuth } from '../../lib/authState'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
@@ -41,7 +42,7 @@ import { FrozenBanner } from './FrozenBanner'
 import { LostWorkBanner } from './LostWorkBanner'
 import { ConnectionBanner } from './ConnectionBanner'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
-import { getOrCreateDisplayName } from './displayName'
+import { resolveDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
 import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom } from './cameraMath'
@@ -59,7 +60,7 @@ import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOver
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
-import { ParticipantsBar } from './ParticipantsBar'
+import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
 import { JoinGate } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
@@ -464,7 +465,7 @@ export function Room() {
   // content state; see syncFromLog below and roomStore's layerSlice.
   const layerState = useRoomStore(s => s.layerState)
   const setLayerStateLocal = useRoomStore(s => s.setLayerStateLocal)
-  const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'toolSettings' | null>('layers')
+  const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'participants' | 'toolSettings' | null>('layers')
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
@@ -506,6 +507,17 @@ export function Room() {
   const myUserId = useRoomStore(s => s.userId)
   const myParticipant = participants.find(p => p.userId === myUserId)
   const isOwner = myParticipant?.role === 'owner'
+  // (#328) What this user is called in the room — their account name if they
+  // have one, otherwise the per-device guest name (see resolveDisplayName).
+  // `me` is prefetched before the app tree mounts (main.tsx), so this is
+  // already the final answer on the first render rather than a guest name that
+  // later flips. Mirrored into a ref because the socket effect below emits
+  // create_room/join_room and must not re-subscribe when the auth query
+  // settles.
+  const { me } = useAuth()
+  const myDisplayName = resolveDisplayName(me, localStorage)
+  const myDisplayNameRef = useRef(myDisplayName)
+  myDisplayNameRef.current = myDisplayName
   // Room-wide freeze (#256) OR this participant's own point freeze (#257) —
   // independent mechanisms, either one alone is enough to block input. The
   // owner is structurally exempt from both (see rooms.ts's
@@ -766,7 +778,9 @@ export function Room() {
   const lastJoinAttemptRef = useRef<{ name: string; password?: string } | null>(null)
 
   // ── join gate state (joiner path only) ──────────────────────────────────────
-  const [joinName,       setJoinName]       = useState(() => getOrCreateDisplayName(localStorage))
+  // Prefilled, not fixed: the joiner can overwrite it in the gate, and what
+  // they type is what the room sees.
+  const [joinName,       setJoinName]       = useState(myDisplayName)
   const [joinPassword,   setJoinPassword]   = useState('')
   const [joinError,      setJoinError]      = useState<string | null>(null)
   const [joinSubmitting, setJoinSubmitting] = useState(false)
@@ -1441,7 +1455,7 @@ export function Room() {
     socketRef.current?.emit('set_room_frozen', !useRoomStore.getState().roomFrozen)
   }, [])
   // (#254/#257/#259) Same reasoning as toggleRoomFrozen above, targeted at
-  // one participant — passed to ParticipantsBar's onToggleFreeze.
+  // one participant — passed to ParticipantsPanel's onToggleFreeze.
   const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
     socketRef.current?.emit('set_participant_frozen', { userId, frozen })
   }, [])
@@ -2181,6 +2195,7 @@ export function Room() {
             'create_room',
             {
               room: creatorDraft.room, password: creatorDraft.password,
+              name: myDisplayNameRef.current,
               lastKnownSeq: latestKnownSeqRef.current || undefined,
             },
             result => {
@@ -2206,7 +2221,7 @@ export function Room() {
           socket.emit(
             'join_room',
             {
-              roomId: id, name: getOrCreateDisplayName(localStorage), password: creatorDraft.password,
+              roomId: id, name: myDisplayNameRef.current, password: creatorDraft.password,
               lastKnownSeq: latestKnownSeqRef.current || undefined,
             },
             result => {
@@ -2243,7 +2258,7 @@ export function Room() {
     const requestFullResync = () => {
       lastConfirmedSeqRef.current = 0 // the stream restarts from this room_state
       const credentials = lastJoinAttemptRef.current
-        ?? { name: getOrCreateDisplayName(localStorage), password: creatorDraft?.password }
+        ?? { name: myDisplayNameRef.current, password: creatorDraft?.password }
       socket.emit(
         'join_room',
         { roomId: id, ...credentials, lastKnownSeq: latestKnownSeqRef.current || undefined },
@@ -2550,7 +2565,7 @@ export function Room() {
     }
 
     // (#254/#257/#259) One participant's freeze toggled — broadcast to the
-    // whole room so ParticipantsBar can show the indicator for everyone,
+    // whole room so ParticipantsPanel can show the indicator for everyone,
     // not just the target themselves.
     const handleParticipantFrozenChanged = ({ userId, frozen }: { userId: string; frozen: boolean }) => {
       dispatchParticipants({ type: 'participant_frozen_changed', userId, frozen })
@@ -2758,24 +2773,10 @@ export function Room() {
               <Icon name={isFullscreen ? 'fullscreen_exit' : 'fullscreen'} />
             </button>
           )}
-          {/* (#254/#256/#259) Room-wide freeze — owner-only control, a
-              one-button "stop everyone" for pulling the group's attention
-              without waiting for each student to notice and stop on their
-              own. */}
-          {isOwner && (
-            <button
-              className={clsx(styles.headerIconBtn, roomFrozen && styles.headerIconBtnActive)}
-              onClick={toggleRoomFrozen}
-              title={t(roomFrozen ? 'room.unfreeze' : 'room.freeze')}
-              aria-label={t(roomFrozen ? 'room.unfreezeShort' : 'room.freezeShort')}
-            >
-              <Icon name="ac_unit" />
-            </button>
-          )}
-          <ParticipantsBar
-            participants={participants} drawingIds={drawingIds} connected={connected}
-            isOwner={isOwner} onToggleFreeze={toggleParticipantFrozen}
-          />
+          {/* (#328) The room-wide freeze (#254/#256/#259) and the participants
+              list both moved into the side panel's participants tab — see
+              ParticipantsPanel. The header keeps only what acts on the
+              viewport (#320). */}
           {/* Infinite rooms display (and reset to) zoom relative to the
               device-native 1-world-unit-per-physical-pixel scale, so "100%"
               means the drawing's actual 1:1 resolution on every screen —
@@ -3182,6 +3183,29 @@ export function Room() {
                       onRemove={removePaletteColor}
                     />
                   </>
+                ),
+              },
+              {
+                // (#328) Who's in the room, their live status, and the owner's
+                // moderation actions on each of them — plus the room-wide
+                // freeze in this tab's own header, which is where it moved to
+                // from the top bar.
+                id: 'participants', icon: 'group', title: t('room.panel.participants'),
+                headerActions: (
+                  <ParticipantsRoomActions
+                    isOwner={isOwner}
+                    roomFrozen={roomFrozen}
+                    onToggleRoomFrozen={toggleRoomFrozen}
+                  />
+                ),
+                content: (
+                  <ParticipantsPanel
+                    participants={participants}
+                    drawingIds={drawingIds}
+                    myUserId={myUserId}
+                    isOwner={isOwner}
+                    onToggleFreeze={toggleParticipantFrozen}
+                  />
                 ),
               },
               {

@@ -6,6 +6,7 @@ import type { LayerItem } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
+import { Menu } from '../Menu'
 import { isFolder } from '../../lib/layers'
 import styles from './LayerPanel.module.css'
 
@@ -32,7 +33,10 @@ export interface LayerRowProps {
   onStartEditing?: (id: string) => void
   onStopEditing?: () => void
   onToggleCollapse?: (id: string) => void
-  onOpenMenu?: (id: string, anchor: HTMLElement) => void
+  // (#328) The row's "⋮" is the shared `Menu` now, so the panel hands down the
+  // actions themselves instead of an open-at-this-anchor callback.
+  onMergeDown?: (id: string) => void
+  onDelete?: (id: string) => void
   onPointerDown?: (id: string) => void
   onPointerUp?: () => void
 }
@@ -41,7 +45,7 @@ function LayerRowImpl({
   item, depth, isActive, isSelected, isDragOverFolder, isOwner,
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
-  onToggleCollapse, onOpenMenu,
+  onToggleCollapse, onMergeDown, onDelete,
   onPointerDown, onPointerUp,
 }: LayerRowProps) {
   const t = useT()
@@ -182,14 +186,16 @@ function LayerRowImpl({
       </span>
 
       {!isBackground && (
-        <button
-          className={styles.rowIconBtn}
-          onClick={e => { e.stopPropagation(); onOpenMenu?.(item.id, e.currentTarget) }}
-          title={t('layers.more')}
-          aria-label={t('layers.more')}
-        >
-          <Icon name="more_vert" />
-        </button>
+        <Menu
+          triggerClassName={styles.rowIconBtn}
+          triggerLabel={t('layers.more')}
+          trigger={<Icon name="more_vert" />}
+          actions={[
+            { label: t('common.rename'),    onClick: () => onStartEditing?.(item.id) },
+            { label: t('layers.mergeDown'), onClick: () => onMergeDown?.(item.id), disabled: isFolderItem },
+            { label: t('common.delete'),    onClick: () => onDelete?.(item.id) },
+          ]}
+        />
       )}
     </div>
   )

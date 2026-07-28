@@ -9,6 +9,11 @@ export interface SidePanelTab<Id extends string = string> {
   icon:    string
   title:   string
   content: ReactNode
+  /** (#328) Controls that belong to the panel as a whole rather than to any one
+   *  row in it — the participants tab puts the room-wide freeze here. Sits in
+   *  the header strip, left of the collapse chevron, so it stays reachable no
+   *  matter how far the content below is scrolled. */
+  headerActions?: ReactNode
 }
 
 interface SidePanelProps<Id extends string> {
@@ -48,6 +53,7 @@ export function SidePanel<Id extends string>({ tabs, active, onSelect }: SidePan
         <div className={styles.content}>
           <div className={styles.panelHeader}>
             <span className={styles.panelTitle}>{activeTab.title}</span>
+            {activeTab.headerActions}
             <button
               className={styles.collapseBtn}
               onClick={() => onSelect(null)}

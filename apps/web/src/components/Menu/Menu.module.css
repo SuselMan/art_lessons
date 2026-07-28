@@ -9,11 +9,12 @@
   min-width: 0;
 }
 
-.menu,
-.menuLeft {
-  position: absolute;
-  top: calc(100% + 4px);
-  z-index: 10;
+/* Portaled to <body> and positioned in viewport coordinates by Menu itself
+   (see its doc comment) — hence `fixed` and no left/right edge rules here. The
+   z-index has to beat the editor's own panels, which the menu overhangs. */
+.menu {
+  position: fixed;
+  z-index: 100;
   display: flex;
   flex-direction: column;
   min-width: 180px;
@@ -24,16 +25,10 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
-.menu {
-  right: 0;
-}
-
-.menuLeft {
-  left: 0;
-}
-
 .item,
 .dangerItem {
+  display: flex;
+  align-items: center;
   min-height: var(--touch-target-sm);
   padding: 0 12px;
   font-size: 13px;
@@ -43,10 +38,13 @@
   color: var(--color-text-bright);
 }
 
-.item:hover:not(:disabled) {
+.item:hover:not(:disabled):not(.itemDisabled) {
   background: var(--color-surface-2);
 }
 
+/* Applies to both the plain and the danger variant — a stubbed-out destructive
+   action must not keep shouting in red while it can't be used. */
+.itemDisabled,
 .item:disabled {
   color: var(--color-text-dim);
   cursor: default;
