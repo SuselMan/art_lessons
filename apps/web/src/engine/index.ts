@@ -3249,15 +3249,33 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** World-space size the baked paper texture repeats over — see
    *  paperNoise.ts's PAPER_WORLD_SIZE for the full reasoning (coprimality
-   *  with TILE_SIZE, etc.). Both bounded and infinite rooms use the exact
-   *  same fixed-resolution, offline-baked REPEAT texture (see _initPaper) —
-   *  there's no longer a canvas-size-dependent bounded-room case to special-
-   *  case here; a bounded room's own TiledLayerBuffer never chunks along a
-   *  TILE_SIZE grid in the first place (see tileMath.ts), so the
-   *  coprimality property that matters for infinite rooms is simply
-   *  irrelevant, not violated, for bounded ones. */
+   *  with TILE_SIZE, etc.). Both kinds of room read the exact same
+   *  fixed-resolution, offline-baked REPEAT texture (see _initPaper); they
+   *  differ only in how far it is stretched.
+   *
+   *  A bounded room maps the tile across its sheet exactly once, because
+   *  that is what DISPLAY_FRAG has always done for the blank-paper tint
+   *  (`paperUV = v_uv`, no repeat) and the two must agree: with the tile
+   *  repeating every PAPER_WORLD_SIZE (157) here while the tint spanned the
+   *  whole sheet, the grain a stroke bit into was an order of magnitude
+   *  finer than the grain visible underneath it — the same sheet rendered
+   *  at two different scales, which is exactly what it looked like.
+   *
+   *  Safe for cross-device determinism (the property .claude/rules.md guards
+   *  and #162/#165 were about) specifically because a bounded room's canvas
+   *  is fixed by its paper format — A2 is 2480x3508 on every device, never
+   *  DPR-scaled, unlike an infinite room's backing store (see cameraMath's
+   *  deviceNativeZoom). Two clients therefore derive the identical UV for
+   *  the identical buffer pixel, which is what feeds real dab deposit. An
+   *  infinite room has no sheet to span, so it keeps the world-space repeat.
+   *
+   *  Note this is not square for a bounded room: the square tile takes the
+   *  sheet's aspect ratio, so the grain stretches with it. That is inherited
+   *  from the tint's own mapping rather than chosen, and matching it is the
+   *  entire point here. */
   private _paperWorldSize(): { w: number; h: number } {
-    return { w: PAPER_WORLD_SIZE, h: PAPER_WORLD_SIZE }
+    if (this._infinite) return { w: PAPER_WORLD_SIZE, h: PAPER_WORLD_SIZE }
+    return { w: this.canvas.width, h: this.canvas.height }
   }
 
   private get _physicalSize(): number {

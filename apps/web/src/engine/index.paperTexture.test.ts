@@ -48,12 +48,26 @@ describe('paper texture: world-space grain sampling (#141)', () => {
       })
     }
 
-    it('a dab always gets paper-tex-size equal to PAPER_WORLD_SIZE, not the canvas size', () => {
-      const { engine } = createTestEngine({ userId: 'user-a' }, { width: 40, height: 30 })
+    it('an infinite room gets paper-tex-size equal to PAPER_WORLD_SIZE — it has no sheet to span', () => {
+      const { engine } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 40, height: 30 })
       engine.appendOperation(makeLayerAdd('user-a', 'L'))
       engine.appendOperation(makeStroke('user-a', 'L', [dab(10, 12, { size: 4 })]))
 
       expect(lastPaperDabUniform(engine, 'u_paperTexSize')).toEqual([PAPER_WORLD_SIZE, PAPER_WORLD_SIZE])
+    })
+
+    // The tint (DISPLAY_FRAG) maps the tile across a bounded sheet exactly
+    // once and always has; a dab reading it at PAPER_WORLD_SIZE meant the
+    // grain a stroke bit into was ~an order of magnitude finer than the
+    // grain drawn underneath it. Deposit must sample the same sheet at the
+    // same scale, which for a bounded room means the canvas — fixed by paper
+    // format, identical on every device, so this stays deterministic.
+    it('a bounded room gets paper-tex-size equal to its canvas — the same mapping the tint uses', () => {
+      const { engine } = createTestEngine({ userId: 'user-a' }, { width: 40, height: 30 })
+      engine.appendOperation(makeLayerAdd('user-a', 'L'))
+      engine.appendOperation(makeStroke('user-a', 'L', [dab(10, 12, { size: 4 })]))
+
+      expect(lastPaperDabUniform(engine, 'u_paperTexSize')).toEqual([40, 30])
     })
   })
 
