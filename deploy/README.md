@@ -136,17 +136,28 @@ Retention: 14 locally in `/var/backups/art-lessons` (`KEEP_LOCAL` in
 `/opt/art-lessons/.env`), 60 days off-site — the off-site half enforced by a
 lifecycle rule on the bucket, not by this script.
 
-That split is the security model, not an accident. The key on the VPS can
-upload and list; it cannot read or delete. So a compromised server cannot
-wipe the backups before encrypting the database — the standard opening move
-against exactly this setup — and cannot download the dumps either, which hold
-e-mail addresses and password hashes. Expiring old copies is therefore B2's
-job, since nothing on the VPS is allowed to delete anything.
+That split is the security model, not an accident. The intent is that the key
+on the VPS can upload and list but neither read nor delete, so a compromised
+server can neither wipe the backups before encrypting the database — the
+standard opening move against exactly this setup — nor download the dumps,
+which hold e-mail addresses and password hashes.
 
-Object Lock adds the second layer: uploaded objects are immutable for 30 days
-in Governance mode, so even a stolen *master* key cannot destroy the last
-month of backups. 30 rather than 60 on purpose — the lock must expire before
-the lifecycle rule tries to delete, or objects pile up forever.
+**The key in use does not match that intent** (28.07): it is Backblaze's "Read
+and Write", which can read *and* delete, because their web console offers no
+read-plus-write-without-delete preset — that needs `b2 key create` with an
+explicit capability list. Accepted deliberately for now and tracked in #332 to
+narrow before release. Read access is also what makes the restore runbook below
+work from the box itself; a narrowed key means restoring from a trusted machine
+instead.
+
+Object Lock is the layer that still holds regardless: uploaded objects are
+immutable for 30 days in **compliance** mode — stricter than the Governance
+mode this document originally described, since compliance cannot be bypassed
+even with the master key. Nothing, including the account owner, can destroy the
+last month of backups. It also cuts both ways: an accidentally uploaded object
+cannot be cleaned up early either. The lock must expire before the lifecycle
+rule tries to delete, or objects pile up forever — hence 30 days of lock
+against a rule that deletes at 31.
 
 `.github/workflows/backup-check.yml` asks the VPS once a day (07:00 UTC)
 whether a fresh dump exists in both places, and fails — i.e. e-mails — when it
@@ -195,16 +206,37 @@ Bucket and key settings this assumes, most of them fixed at creation time:
 
 - **Bucket**: private, region EU Central (region is fixed per account and
   cannot be migrated later), **Object Lock enabled** — it can only be turned on
-  when the bucket is created. Governance mode, 30-day default retention.
-- **Lifecycle rule**: delete files older than 60 days. This is what expires old
-  backups; the script deliberately has no way to delete anything.
-- **Application key**: scoped to this one bucket, capabilities `listFiles` +
-  `writeFiles` only. The console's "Write Only" preset is the closest it
-  offers; `b2 key create --bucket <bucket> vps-backup-write listFiles,writeFiles`
-  sets exactly these if the preset turns out to include more.
+  when the bucket is created. Compliance mode, 30-day default retention
+  (verified against the API on 28.07).
+- **Lifecycle rule**: `daysFromUploadingToHiding: 30`, `daysFromHidingToDeleting: 1`
+  — so about 31 days of history off-site, against 14 on the box. This is what
+  expires old backups; the script deliberately has no way to delete anything.
+  Set 28.07, when it turned out no rule existed at all and copies had been
+  accumulating with nothing to expire them.
 
-Restores need a key that can read, which the VPS deliberately does not have —
-use the console or a separate short-lived key from a trusted machine.
+  30 rather than the 60 this document first specified (Ilya, 28.07): a month of
+  daily dumps covers what off-site storage is actually for — the box or its disk
+  is gone — and a fault that stays unnoticed past a month is not one a longer
+  tail would have saved either, since every dump after it is equally poisoned.
+  It also has to clear the 30-day Object Lock, so anything shorter would leave
+  objects the rule cannot delete.
+
+  30 rather than the 60 this document first specified (Ilya, 28.07): a month of
+  daily dumps covers what off-site storage is actually for — the box or its disk
+  is gone — and a fault that stays unnoticed past a month is not one a longer
+  tail would have saved either, since every dump after it is equally poisoned.
+  It also has to clear the 30-day Object Lock, so anything shorter would leave
+  objects that the rule cannot delete.
+- **Application key**: scoped to this one bucket. Intended capabilities are
+  `listBuckets,listFiles,readFiles,writeFiles`, via
+  `b2 key create --bucket <bucket> grafetto-backup listBuckets,listFiles,readFiles,writeFiles`
+  — the console's presets cannot express that combination. In use right now is
+  the console's "Read and Write", which also grants `deleteFiles` (see #332).
+
+  Read access is not optional: without `listFiles` the daily check cannot see
+  the bucket at all, and without `readFiles` a restore has nothing to download.
+  The original key was "Write Only" and had neither, which is why the check had
+  never once passed.
 
 Losing the application key costs a new application key — GitHub Secrets can't
 be read back, but they can be replaced. Leaking it costs an attacker the
@@ -216,35 +248,95 @@ Cloudflare R2, Hetzner Storage Box, or any S3 endpoint work identically — only
 
 ### Restoring
 
-`.dump` files are custom-format, so `pg_restore` — not `psql`. Off-site copy
-first if the box itself is gone: `rclone copy b2:Grafetto/<file> .`
+Rehearsed end to end on 28.07 (#315, and the drill half of #314 §9) — the
+timings and the verification below are from that run, not from theory. What
+has *not* been rehearsed is the last step, promoting a restored database on
+the live box; treat that one as untested-in-anger.
+
+`.dump` files are custom-format, so `pg_restore` — not `psql`.
+
+**Use `docker exec`, not `docker compose exec`.** Every `docker compose -f
+docker-compose.prod.yml ...` command needs `SERVER_IMAGE` set or it dies with
+`required variable SERVER_IMAGE is missing a value` before doing anything —
+the compose file interpolates the image tag the deploy passes in. At 3am that
+error reads like the stack is broken when it is only the shell that is. The
+container is `art-lessons-postgres-1`.
+
+#### 1. Get a dump, and know it is intact
 
 ```sh
 cd /opt/art-lessons
-# Restore into a scratch database first and look at it. `-c` on the live
-# database drops every object it is about to recreate, so a wrong file or a
-# half-finished run leaves nothing to go back to.
-docker compose -f docker-compose.prod.yml exec -T postgres \
-  createdb -U art_lessons art_lessons_restore
-docker compose -f docker-compose.prod.yml exec -T postgres \
-  pg_restore -U art_lessons -d art_lessons_restore --no-owner \
-  < /var/backups/art-lessons/art_lessons-<timestamp>.dump
+set -a; . ./backup.env; set +a          # the b2: remote lives in these vars
 
-# Sanity-check what you just restored before trusting it
-docker compose -f docker-compose.prod.yml exec -T postgres \
-  psql -U art_lessons -d art_lessons_restore \
-  -c 'SELECT count(*) FROM "User"; SELECT count(*) FROM "Room";'
+# If the box still has its disk, the newest local dump is the fastest source:
+ls -1t /var/backups/art-lessons/*.dump | head -1
+
+# Either way, check the off-site copy matches before trusting either:
+rclone check /var/backups/art-lessons/<file>.dump b2:Grafetto   # "0 differences found"
+
+# If the box is gone, pull from off-site instead (~6 min for 293 MB):
+rclone copy b2:Grafetto/<file>.dump .
 ```
 
-To promote it, stop the server container first (`docker compose -f
-docker-compose.prod.yml stop server`) so nothing writes mid-swap, rename the
-databases, then start it again. Migrations are already inside the dump — do
-not run `prisma migrate deploy` against a restored database until you have
-confirmed which migration it was taken at.
+#### 2. Restore into a scratch database first
 
-**Restoring has not been rehearsed on this VPS yet** — that drill is its own
-release-track item (#314 §9). Until it has been, treat the commands above as
-untested-in-anger.
+Never straight over the live one: `pg_restore -c` drops every object it is
+about to recreate, so a wrong file or a half-finished run leaves nothing to go
+back to.
+
+```sh
+docker exec art-lessons-postgres-1 createdb -U art_lessons art_lessons_restore
+docker exec -i art-lessons-postgres-1 pg_restore -U art_lessons \
+  -d art_lessons_restore --no-owner --no-acl \
+  < /var/backups/art-lessons/<file>.dump
+```
+
+293 MB restored in 40 s on a laptop; allow more on the VPS's single core.
+
+#### 3. Verify before trusting it
+
+Row counts first — every table, exact:
+
+```sh
+docker exec -i art-lessons-postgres-1 psql -U art_lessons -d art_lessons_restore -tAF' ' <<'SQL'
+select table_name,
+       (xpath('/row/cnt/text()', query_to_xml(
+          format('select count(*) as cnt from %I.%I', table_schema, table_name),
+          false, true, '')))[1]::text::bigint as rows
+from information_schema.tables where table_schema='public' order by table_name;
+SQL
+```
+
+Equal row counts are not equal data, so hash the rows themselves — run this
+against both the restored database and the source, if the source still exists:
+
+```sh
+docker exec -i art-lessons-postgres-1 psql -U art_lessons -d art_lessons_restore -tA <<'SQL'
+select 'Operation    ' || md5(string_agg(t::text, '|' order by t::text)) from "Operation" t
+union all select 'RoomSnapshot ' || md5(string_agg(t::text, '|' order by t::text)) from "RoomSnapshot" t
+union all select 'User         ' || md5(string_agg(t::text, '|' order by t::text)) from "User" t
+union all select 'Room         ' || md5(string_agg(t::text, '|' order by t::text)) from "Room" t;
+SQL
+```
+
+`RoomSnapshot` is the one to watch: it holds the baked binary snapshots, so it
+is where a corrupted round trip would show up first.
+
+#### 4. Promote it
+
+```sh
+SERVER_IMAGE=<tag> docker compose -f docker-compose.prod.yml stop server  # nothing writes mid-swap
+docker exec art-lessons-postgres-1 psql -U art_lessons -d postgres \
+  -c 'ALTER DATABASE art_lessons RENAME TO art_lessons_broken' \
+  -c 'ALTER DATABASE art_lessons_restore RENAME TO art_lessons'
+cd /opt/art-lessons
+SERVER_IMAGE=<tag from the last green deploy> docker compose -f docker-compose.prod.yml start server
+```
+
+Keep `art_lessons_broken` until the app has been exercised — rooms open,
+strokes replay, a lesson runs. Migrations are already inside the dump: do not
+run `prisma migrate deploy` against a restored database until you have
+confirmed which migration it was taken at.
 
 ## Known gaps / deliberately deferred
 
