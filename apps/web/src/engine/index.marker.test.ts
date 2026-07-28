@@ -27,7 +27,7 @@ import type { PencilEngine } from './index'
 import {
   createTestEngine, dab, fillStroke, makeLayerAdd, makeStroke,
   readLayerPixels, expectPixelsEqual,
-  lastPaperDabUniform, lastMarkerDabUniform, markerPassDraw, simulateStroke, paperReady,
+  lastPaperDabUniform, lastMarkerDabUniform, markerPassDraw, markerReplayChunk, simulateStroke, paperReady,
   readTilePixels,
 } from './testing/engineTestUtils'
 import { TILE_SIZE } from './src/tileMath'
@@ -233,5 +233,75 @@ describe('marker tool (#250, ADR 004)', () => {
       // a bare pencil-style curve could at low pressure.
       expect(d.opacity).toBeGreaterThan(0.3)
     }
+  })
+})
+
+// A gesture longer than STROKE_DAB_CHUNK_LIMIT is recorded as several
+// operations. Live they all paint through one MarkerStrokeScratch, so the
+// content the marker multiplies is frozen once, at pen-down. Replay used to
+// give each operation its own, freezing the content *including what the
+// previous chunk had just painted* — so the second chunk multiplied over the
+// first one's output and left a nib-shaped dark band across the stroke at
+// every boundary, which is what a long marker line looked like after an undo.
+describe('marker stroke chunks (#330 follow-up)', () => {
+  const chunk = (engine: PencilEngine, xs: number[], strokeId?: string) =>
+    engine.appendOperation(makeStroke(
+      'user-a', 'L', xs.map(x => dab(x, 32, { size: 20 })),
+      { tool: 'marker', ...(strokeId ? { strokeId } : {}) },
+    ))
+
+  it('paints both chunks of one gesture through the same scratch', () => {
+    const engine = setupLayer()
+    chunk(engine, [20, 24], 'gesture-1')
+    const first = markerReplayChunk(engine)
+    chunk(engine, [28, 32], 'gesture-1')
+    const second = markerReplayChunk(engine)
+
+    expect(first?.scratch).toBeTruthy()
+    expect(second?.scratch).toBe(first?.scratch)
+  })
+
+  // The other half of the same bug: with nothing to hand the ribbon as the
+  // previous dab, no band bridged the gap between one chunk's last dab and the
+  // next chunk's first.
+  it('carries the previous chunk\u2019s last dab into the next one', () => {
+    const engine = setupLayer()
+    chunk(engine, [20, 24], 'gesture-1')
+    expect(markerReplayChunk(engine)?.lastDab.x).toBe(24)
+    chunk(engine, [28, 32], 'gesture-1')
+    expect(markerReplayChunk(engine)?.lastDab.x).toBe(32)
+  })
+
+  it('starts a fresh scratch for a different gesture', () => {
+    const engine = setupLayer()
+    chunk(engine, [20, 24], 'gesture-1')
+    const first = markerReplayChunk(engine)
+    chunk(engine, [28, 32], 'gesture-2')
+    const second = markerReplayChunk(engine)
+
+    expect(second?.strokeId).toBe('gesture-2')
+    expect(second?.scratch).not.toBe(first?.scratch)
+  })
+
+  // Rooms drawn before strokeId existed must keep replaying exactly as they
+  // did — each operation standing alone, no stitching attempted.
+  it('leaves a stroke with no gesture id unstitched', () => {
+    const engine = setupLayer()
+    chunk(engine, [20, 24])
+    expect(markerReplayChunk(engine)).toBeNull()
+  })
+
+  it('stamps one gesture id on every operation a live stroke emits', async () => {
+    const engine = setupLayer()
+    await paperReady(engine)
+    engine.setActiveLayer('L')
+    engine.setTool('marker')
+    simulateStroke(engine, [10, 35, 60, 85, 110].map(x => ({ x, y: 20 })), { pressure: 0.6, speed: 1 })
+
+    const strokes = engine.getOperations().filter((op): op is StrokeOperation => op.type === 'stroke')
+    expect(strokes.length).toBeGreaterThan(0)
+    const ids = new Set(strokes.map(op => op.strokeId))
+    expect(ids.size).toBe(1)
+    expect([...ids][0]).toBeTruthy()
   })
 })

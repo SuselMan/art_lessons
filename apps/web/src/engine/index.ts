@@ -1032,6 +1032,27 @@ export class PencilEngine implements PencilEngineAPI {
   // down its own throwaway instance within that single call instead (see
   // _paintMarkerDabs' own doc comment).
   private _markerStrokeScratch: MarkerStrokeScratch | null = null
+  // The gesture this stroke belongs to (StrokeOperation.strokeId) — one id
+  // from pen-down to pen-up, stamped on every chunk _flushStrokeChunk emits
+  // along the way as well as on the final op.
+  private _strokeId: string | null = null
+  /** Replay-side counterpart of _markerStrokeScratch: keeps one gesture's
+   *  scratch alive across the several operations it was chunked into.
+   *
+   *  Live, every chunk of a gesture paints through the same scratch, so the
+   *  layer content the marker multiplies is frozen once, at pen-down. Replay
+   *  gave each operation a throwaway scratch instead, which froze the content
+   *  *including whatever the previous chunk had just painted* — so the second
+   *  chunk multiplied over the first one's output and left a nib-shaped dark
+   *  band across the stroke at every boundary. It also had no previous dab to
+   *  hand the ribbon, so no band bridged the two chunks.
+   *
+   *  One slot, not a map: a gesture's chunks are consecutive in the log and
+   *  arrive in order, so anything else interleaving simply starts a new slot —
+   *  which is the old behaviour, a seam, rather than a wrong result. */
+  private _replayMarkerChunk:
+    | { strokeId: string; target: ILayerBuffer; scratch: MarkerStrokeScratch; lastDab: Dab }
+    | null = null
 
   // Smudge's own carried-graphite reservoir (#14 round 4), keyed by userId —
   // "the tool belongs to whoever's holding it": two users smudging at the
@@ -1686,7 +1707,7 @@ export class PencilEngine implements PencilEngineAPI {
           // right now (leftover from an unrelated earlier op, or nothing at
           // all) — see StrokeOperation.smudgeLoadAtStart's own comment.
           if (op.tool === 'smudge') this._smudgeSeedReservoir(op.userId, op.smudgeLoadAtStart ?? 0)
-          this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color, op.userId)
+          this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
           this._maybeCheckpoint(op.layerId)
           // #122: this branch is only reached for strokes this engine
           // instance didn't itself just paint (remote peer strokes, or
@@ -2485,6 +2506,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudgeScratchPool = []
     this._markerStrokeScratch?.destroy()
     this._markerStrokeScratch = null
+    this._strokeId = null
+    this._replayMarkerChunk?.scratch.destroy()
+    this._replayMarkerChunk = null
     for (const { bufs } of this._smudgeReservoirs.values()) { bufs[0].destroy(); bufs[1].destroy() }
     this._smudgeReservoirs.clear()
     this._smudgeTransferScratch?.destroy()
@@ -2628,7 +2652,7 @@ export class PencilEngine implements PencilEngineAPI {
         // keeps replay/undo/redo deterministic regardless of processing
         // order or what ran before this op.
         if (op.tool === 'smudge') this._smudgeSeedReservoir(op.userId, op.smudgeLoadAtStart ?? 0)
-        this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color, op.userId)
+        this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
         break
       case 'layer_clear':
         buf.clear()
@@ -2838,6 +2862,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._transformScratchPool = [] // (#155) pooled GL objects are dead too, not worth destroy()ing
     this._smudgeScratchPool = [] // same reasoning, see #14
     this._markerStrokeScratch = null // same reasoning — pooled GL objects are dead too
+    this._replayMarkerChunk = null
     this._smudgeReservoirs.clear() // same reasoning — pooled GL objects are dead too
     this._smudgeTransferScratch = null
     for (const { timer } of this._peerPreviews.values()) {
@@ -3284,6 +3309,7 @@ export class PencilEngine implements PencilEngineAPI {
     // even for a non-marker stroke: nothing allocates any GL resource until
     // a marker dab's own getOrCreate() first touches a tile.
     this._markerStrokeScratch = new MarkerStrokeScratch(this.gl)
+    this._strokeId = nanoid(10)
     // #251: this._strokePreset isn't assigned until the next line — pass the
     // raw incoming preset (this._opts.pencilType) directly so a marker
     // stroke's bullet/chisel dispatch (shapingForTool -> markerPresets.ts's
@@ -3550,12 +3576,16 @@ export class PencilEngine implements PencilEngineAPI {
         id: nanoid(10), type: 'stroke', userId: this._userId,
         layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         dabs: this._strokeDabs, timestamp: Date.now(),
+        ...(this._strokeId ? { strokeId: this._strokeId } : {}),
         ...this._smudgeOpLoadFields(),
       }
       this._log.append(op)
       this._maybeCheckpoint(layerId)
       this._onLocalOperation?.(op)
     }
+    // Only now: the operation built just above still needed it, and _onEnd
+    // tears the marker scratch down well before reaching here.
+    this._strokeId = null
     this._strokeLayerId = null
     this._strokeDabs = []
     this._handlers.strokeEnd?.(e)
@@ -3791,6 +3821,7 @@ export class PencilEngine implements PencilEngineAPI {
       id: nanoid(10), type: 'stroke', userId: this._userId,
       layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
       dabs: this._strokeDabs, timestamp: Date.now(),
+      ...(this._strokeId ? { strokeId: this._strokeId } : {}),
       ...this._smudgeOpLoadFields(),
     }
     this._log.append(op)
@@ -4010,6 +4041,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number], userId: string, prevDab?: Dab, markerScratch?: MarkerStrokeScratch,
+    strokeId?: string,
   ): void {
     if (!dabs.length) return
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab); return }
@@ -4021,7 +4053,7 @@ export class PencilEngine implements PencilEngineAPI {
     // `dab.opacity * segmentLength`, and segmentLength needs the previous
     // dab's own position) — unlike the smudge branch above, userId is still
     // unused (no per-user state).
-    if (tool === 'marker') { this._paintMarkerDabs(target, dabs, presetName, color, markerScratch, prevDab); return }
+    if (tool === 'marker') { this._paintMarkerDabs(target, dabs, presetName, color, markerScratch, prevDab, strokeId); return }
     const erasing = tool === 'eraser'
     // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
     // table). Resolved once here as a number rather than one boolean flag per
@@ -4641,7 +4673,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  _onEnd) owns that instance's lifetime across every slice. */
   private _paintMarkerDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], presetName: string, color: [number, number, number],
-    markerScratch?: MarkerStrokeScratch, prevDab?: Dab,
+    markerScratch?: MarkerStrokeScratch, prevDab?: Dab, strokeId?: string,
   ): void {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
@@ -4653,14 +4685,37 @@ export class PencilEngine implements PencilEngineAPI {
     // `target`).
     if (target instanceof AccumulationBuffer) return
     const preset = this._resolvePreset('marker', presetName)
-    const scratch = markerScratch ?? new MarkerStrokeScratch(this.gl)
+    const chunk = markerScratch ? null : this._replayChunkScratch(target, strokeId, dabs)
+    const scratch = markerScratch ?? chunk?.scratch ?? new MarkerStrokeScratch(this.gl)
     // `prevDab` is threaded the same way smudge threads its own
     // (_paintSmudgeDabs): the dab immediately before dabs[0] may come from a
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
     // markerScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
-    this._paintMarkerRibbon(target, dabs, preset, color, scratch, prevDab, presetName)
-    if (!markerScratch) scratch.destroy()
+    this._paintMarkerRibbon(target, dabs, preset, color, scratch, prevDab ?? chunk?.prevDab, presetName)
+    // The cached one belongs to the gesture, not to this call — it is released
+    // when a different gesture arrives, or with the engine.
+    if (!markerScratch && !chunk) scratch.destroy()
+  }
+
+  /** The scratch this replayed operation should paint through, given the
+   *  gesture it belongs to — see _replayMarkerChunk. Returns null for an
+   *  operation with no gesture id (a stroke recorded before strokeId existed),
+   *  which then falls back to a throwaway scratch, exactly as before. */
+  private _replayChunkScratch(
+    target: ILayerBuffer, strokeId: string | undefined, dabs: Dab[],
+  ): { scratch: MarkerStrokeScratch; prevDab?: Dab } | null {
+    if (!strokeId || !dabs.length) return null
+    const cached = this._replayMarkerChunk
+    if (cached && cached.strokeId === strokeId && cached.target === target) {
+      const prevDab = cached.lastDab
+      cached.lastDab = dabs[dabs.length - 1]
+      return { scratch: cached.scratch, prevDab }
+    }
+    cached?.scratch.destroy()
+    const scratch = new MarkerStrokeScratch(this.gl)
+    this._replayMarkerChunk = { strokeId, target, scratch, lastDab: dabs[dabs.length - 1] }
+    return { scratch }
   }
 
   /** #330 — the marker's rasterizer: the stroke as one connected swept figure.

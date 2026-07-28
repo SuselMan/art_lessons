@@ -134,6 +134,8 @@ interface EngineInternals {
   _handleContextRestored: () => void
   // #245 white-box access — see inProgressStrokeDabs below.
   _strokeDabs: Dab[]
+  // Marker chunk stitching white-box access — see markerReplayChunk below.
+  _replayMarkerChunk: { strokeId: string; scratch: object; lastDab: Dab } | null
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -436,6 +438,15 @@ export function lastMarkerDabUniform(engine: PencilEngine, name: string): Unifor
  *  marker fires several draws per batch (nib coverage=6, nib ink=7,
  *  composite=2), and lastMarkerDabUniform can only ever see whichever ran
  *  last. See MockGL's own lastDabDraw. */
+/** The gesture the replay path is currently stitching marker chunks for, if
+ *  any (engine's _replayMarkerChunk). Exposed because the thing worth pinning
+ *  is identity — that two operations of one gesture share a single scratch, so
+ *  the second doesn't multiply over the first one's output — and identity is
+ *  precisely what a pixel assertion can't see through MockGL. */
+export function markerReplayChunk(engine: PencilEngine): { strokeId: string; scratch: object; lastDab: Dab } | null {
+  return internals(engine)._replayMarkerChunk
+}
+
 export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7): { blendEnabled: boolean; opacity: number; count: number } | undefined {
   return internals(engine).gl.lastDabDraw(inkMode)
 }
