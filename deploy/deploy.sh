@@ -18,9 +18,23 @@ set -euo pipefail
 APP_DIR=/opt/art-lessons
 cd "$APP_DIR"
 
-echo "==> Fetching latest main (config files only — code is pre-built in CI)"
-git fetch origin main
-git reset --hard origin/main
+# The checkout is brought up to date by whoever invokes this script, NOT here.
+# It used to do its own `git fetch && git reset --hard origin/main` on the two
+# lines above this comment, which quietly made every change to this file take
+# effect one deploy late: bash reads a script incrementally as it runs, so
+# resetting the checkout rewrites this very file underneath the running
+# process, which carries on with what it had already read — the *previous*
+# version.
+#
+# That is not theoretical. #315's backup provisioning (further down) sat on the
+# box unexecuted through two successful deploys, and prod ran without any
+# Postgres backup at all, while CI reported green both times. The tell was the
+# deploy log jumping straight from "Syncing nginx config" to "Pruning unused
+# Docker images" with the step between them missing, against a copy of this
+# file on the box that plainly had it.
+#
+# So: update first, then run. See the workflow's "Deploy over SSH" step and
+# README's manual-redeploy snippet, which both do it in that order.
 
 echo "==> Publishing pre-built static web bundle to nginx webroot"
 sudo mkdir -p /var/www/art-lessons

@@ -86,11 +86,15 @@ IP `80.209.232.109`. Deploys automatically on every push to `main` via
    tagged with the commit SHA (and `latest`).
 3. `deploy` job (only if `build` succeeded): SSHes into the VPS as `deploy`
    — rsyncs the built `apps/web` bundle into `~deploy/web-dist-incoming/`,
-   then runs `deploy/deploy.sh` with `SERVER_IMAGE` set to the pushed
-   ghcr.io tag. The script:
-   - `git fetch` + `reset --hard origin/main` in `/opt/art-lessons` (just
-     config files now — `docker-compose.prod.yml`, this script itself,
-     nginx config — no build inputs)
+   then brings `/opt/art-lessons` up to date (`git fetch` + `reset --hard
+   origin/main` — just config files now: `docker-compose.prod.yml`, the
+   deploy script itself, nginx config; no build inputs) and *only then* runs
+   `deploy/deploy.sh` with `SERVER_IMAGE` set to the pushed ghcr.io tag.
+
+   That order is deliberate: the script used to reset the checkout itself,
+   which rewrote the script underneath the running bash and made any change
+   to it take effect one deploy late — see the comment at the top of
+   `deploy.sh`. The script:
    - rsyncs `~deploy/web-dist-incoming/` into nginx's webroot
    - `docker compose -f docker-compose.prod.yml pull` + `up -d` (pulls the
      already-built image, recreates the container only if the resolved
@@ -110,7 +114,10 @@ ssh deploy@80.209.232.109
 # — it doesn't build anything anymore (#199), so a *manual* redeploy needs
 # an image tag from an actual CI build (check the `build` job's own output,
 # or just `:latest`, which the workflow always pushes alongside the SHA tag):
-cd /opt/art-lessons && SERVER_IMAGE=ghcr.io/suselman/art-lessons-server:latest bash deploy/deploy.sh
+cd /opt/art-lessons && git fetch origin main && git reset --hard origin/main
+SERVER_IMAGE=ghcr.io/suselman/art-lessons-server:latest bash deploy/deploy.sh
+# Updating the checkout is a separate step on purpose: deploy.sh must not
+# reset the checkout it is itself running from — see the comment at its top.
 docker compose -f docker-compose.prod.yml logs -f server   # server logs
 docker compose -f docker-compose.prod.yml ps               # container status
 sudo systemctl status nginx
