@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, Navigate } from 'react-router-dom'
 import clsx from 'clsx'
 import {
-  DndContext, DragOverlay, PointerSensor, TouchSensor, pointerWithin, rectIntersection,
+  DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, rectIntersection,
   useDraggable, useDroppable, useSensor, useSensors,
   type CollisionDetection, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
@@ -31,6 +31,26 @@ import styles from './MyLessons.module.css'
 // "Move to..." dialog already calls — this is just a second way to trigger
 // them, not a new API.
 type DragTarget = { kind: 'room' | 'folder' | 'crumb'; id: string | null }
+
+/** (#331) How long a finger has to rest on a card before it comes loose for
+ *  dragging. Everything below this stays the browser's, so the list scrolls
+ *  normally — which it could not do at all while the cards carried
+ *  `touch-action: none`. */
+const LONG_PRESS_MS = 400
+
+/** (#331) A single short buzz at the moment a card detaches. This is what
+ *  makes press-and-hold legible without anyone being taught it: the finger
+ *  hasn't moved yet, so nothing on screen has told you the gesture landed.
+ *
+ *  Touch activations only — a mouse drag has no such moment, it starts when
+ *  you're already moving. Feature-detected because iOS Safari has no
+ *  Vibration API at all; there the overlay's lift is the whole feedback, and
+ *  that's why it exists rather than being decoration. */
+function pulseOnDetach(activatorEvent: Event | null): void {
+  const fromTouch = typeof TouchEvent !== 'undefined' && activatorEvent instanceof TouchEvent
+  if (!fromTouch || typeof navigator.vibrate !== 'function') return
+  navigator.vibrate(15)
+}
 
 function encodeDragId(kind: 'room' | 'folder', id: string): string {
   return `${kind}:${id}`
@@ -389,9 +409,23 @@ export function MyLessons() {
   // looked up once at drag start rather than tracked live, since the
   // dragged item's own card is already rendering its own dimmed state.
   const [draggingLabel, setDraggingLabel] = useState<string | null>(null)
+  // (#331) MouseSensor + TouchSensor, deliberately *not* PointerSensor.
+  // Pointer events cover mouse and touch alike, so a single PointerSensor was
+  // racing the delayed TouchSensor on every tablet gesture and winning it
+  // after 5 px of movement — which on a list is a scroll, not a drag. Split
+  // by event family and the two can never contend, which is the general shape
+  // ADR #318 settles on: both control schemes registered at all times, kept
+  // apart by the events they listen to rather than by a device flag, so a
+  // wrong guess about the device can't take a gesture away.
+  //
+  // On touch a drag now has to be asked for: press and hold, and any movement
+  // past `tolerance` before the delay is up cancels it and stays a scroll.
+  // The delay is long enough not to fire while flicking through a list and
+  // short enough not to feel stuck — the same range the OS itself uses for
+  // press-and-hold.
   const dndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: LONG_PRESS_MS, tolerance: 5 } }),
   )
   // pointerWithin catches small/edge drop targets (a breadcrumb button) that
   // a pure rect-intersection check can miss when the pointer's exactly on a
@@ -540,6 +574,7 @@ export function MyLessons() {
   // only "drop onto a folder = move inside" and "drop onto a breadcrumb =
   // move up to that level" are supported.
   function handleDragStart(e: DragStartEvent) {
+    pulseOnDetach(e.activatorEvent)
     const dragged = decodeDragId(String(e.active.id))
     const label = dragged.kind === 'room'
       ? data?.rooms.find(r => r.id === dragged.id)?.name

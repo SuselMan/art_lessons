@@ -238,11 +238,22 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  /* (#211 feedback) Without this, touch browsers claim a press-and-hold on
-     this card for their own scroll/pan handling before dnd-kit's delayed
-     TouchSensor ever gets to see the gesture — drag silently never started
-     on tablet even though the same interaction worked fine with a mouse. */
-  touch-action: none;
+  /* (#331) Was `touch-action: none` (#211), which forbade the browser from
+     scrolling over a card at all — and cards cover nearly the whole screen,
+     so the lessons list simply could not be flicked through on a tablet. The
+     press-and-hold that `none` was protecting was never really being eaten
+     by the browser: it was being eaten by a PointerSensor racing the delayed
+     TouchSensor (see the sensor setup in index.tsx). With that gone, panning
+     and pinch-zoom go back to the browser, and dnd-kit calls preventDefault
+     itself once a long press has actually promoted the gesture to a drag.
+     Horizontal panning stays ours — nothing here scrolls sideways, and
+     leaving it to the browser would let a diagonal drag turn into a swipe. */
+  touch-action: pan-y pinch-zoom;
+  /* A long press is a text-selection gesture (and, over the card's <a>, a
+     link callout) until we claim it — both fire before dnd-kit's delay is up
+     and would leave a selection highlight sitting under the drag. */
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* Overlaid on the card's top-right corner rather than laid out inline next
@@ -349,7 +360,10 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
-  touch-action: none; /* see .card's own comment on this */
+  /* see .card's own comment on all three */
+  touch-action: pan-y pinch-zoom;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* (#217) A room/another folder is being dragged over this folder — dropping
@@ -371,8 +385,23 @@
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
   pointer-events: none;
+  /* (#331) The overlay appears the instant a long press promotes to a drag,
+     while the finger is still sitting still — a quick lift is what says "it
+     came loose" on iOS, where there's no Vibration API to say it. Kept to a
+     single short pop so it reads as the item detaching, not as an animation
+     playing. */
+  animation: dragDetach 140ms ease-out;
+}
+
+@keyframes dragDetach {
+  from { transform: scale(0.96); }
+  to { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dragOverlay { animation: none; }
 }
 
 /* Same padding/gap/flow as .cardLink — this and .folderIconArea below exist
