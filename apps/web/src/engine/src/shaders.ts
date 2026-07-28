@@ -312,7 +312,7 @@ export const DAB_FRAG = `
   // ADR 004 "Ревизия v1.5": how much ink this stroke has actually deposited
   // at each pixel, distance-normalized (engine/index.ts computes each dab's
   // own contribution as dab.opacity * segmentLength, not a flat per-dab
-  // amount — see _paintOneMarkerDab) and accumulated *additively*
+  // amount — see _paintMarkerRibbon) and accumulated *additively*
   // (AccumulationBuffer.beginAdditiveDraw — no per-accumulation ceiling,
   // unlike u_strokeCoverage's saturating splat). Separating this from
   // u_strokeCoverage is what lets scribbling back and forth over an
@@ -513,10 +513,9 @@ export const DAB_FRAG = `
     // u_inkMode=7 — the ribbon's ink deposit. Same geometry as the coverage
     // pass, so pigment lands exactly where the silhouette says the nib was,
     // eased off slightly toward the rim by u_inkEdge so the mark doesn't read
-    // as mechanically flat. The stamp path's own ink (u_inkMode=4, further
-    // down) instead tapers all the way to zero across a soft profile — which is
-    // what made a light marker touch look like an airbrush rather than a
-    // marker pressed less hard.
+    // as mechanically flat. The superseded per-dab splat instead tapered all
+    // the way to zero across a soft profile — which is what made a light marker
+    // touch look like an airbrush rather than a marker pressed less hard.
     if (u_inkMode > 6.5) {
       float dPx = markerNibDistPx();
       float cov = clamp(-dPx / u_aaPx, 0.0, 1.0);
@@ -719,57 +718,13 @@ export const DAB_FRAG = `
       return;
     }
 
-    // Marker inkLoad-splat (ADR 004 "Ревизия v1.5"): this dab's own
-    // distance-normalized deposit (engine/index.ts's _paintOneMarkerDab
-    // computes u_opacity here as dab.opacity * segmentLength, already
-    // baked before this draw — the shader itself never sees positions or
-    // distances, just the final per-dab deposit amount), splatted
-    // *additively* (AccumulationBuffer.beginAdditiveDraw — no per-splat
-    // ceiling) into u_inkLoad. Checked before every other marker branch
-    // (u_inkMode>2.5/>1.5 would also be true for this branch's own 4.0)
-    // since all three are mutually exclusive draws against different
-    // targets, not layered on top of each other.
-    if (u_inkMode > 3.5) {
-      gl_FragColor = vec4(vec3(shape * v_opacity), shape * v_opacity);
-      return;
-    }
-
-    // Marker coverage-splat (#250, extended in "Ревизия v1.5" with a small
-    // edge-only paper bleed): paints this dab's own shape*opacity into this
-    // stroke's running *coverage* total — a perfectly ordinary saturating
-    // "over" splat, no multiply/color/ink-darkness involved. This is
-    // deliberately kept separate from u_inkLoad above: coverage governs
-    // only the stroke's silhouette/alpha (see the composite branch below),
-    // so it must saturate fast regardless of how dark the stroke eventually
-    // gets — conflating the two was v1's own mistake (see u_inkLoad's own
-    // comment above).
-    if (u_inkMode > 2.5) {
-      // ADR 004 "Ревизия v1.5" §6: a light paper-edge interaction, not the
-      // graphite pressure-fill mechanism (that's about compressing graphite
-      // into paper tooth under pressure — irrelevant to a felt/alcohol
-      // tip). Reuses the exact same edge mask liner's own wick term already
-      // established ((1-shape), zero at the dab's solid core, rising to 1
-      // right at the rim) so an absorbent paper (rough: low paperCatch)
-      // shows a soft bleed only at the mark's very edge, while bristol
-      // (paperCatch near 1) stays almost perfectly crisp.
-      const float MARKER_BLEED_STRENGTH = 0.35; // uncalibrated first pass
-      float paperAbsorbency = 1.0 - paperCatch;
-      // (1.0 - dist) is load-bearing, not decoration — exactly the same trap
-      // charcoal's own dust ring documents further up, and marker fell into it
-      // (#330): (1-shape) *rises* toward the rim, so without this term the
-      // bleed reaches its maximum right where the discard at the top of main()
-      // cuts the dab off, leaving a hard ~0.08 coverage step around every
-      // single dab. That step survived the composite-pass fix (it lives in the
-      // coverage splat itself, not in how the composite is written) and still
-      // measured 20/255 at the dab-spacing interval — enough to keep reading as
-      // separate stamped shapes on a wide stroke. Liner's own wick term has the
-      // identical shape and gets away with it only because its amplitude is
-      // tiny; marker's, at 0.35 * absorbency * opacity, is not.
-      float bleed = (1.0 - shape) * (1.0 - dist) * paperAbsorbency * MARKER_BLEED_STRENGTH;
-      float amt = clamp(shape * v_opacity + bleed * v_opacity, 0.0, 1.0);
-      gl_FragColor = vec4(vec3(amt), amt);
-      return;
-    }
+    // The paper-edge bleed that used to live in the superseded coverage
+    // splat is gone with it (#330). It was a soft outer halo scaled by the
+    // paper's own absorbency, and it belongs back here eventually as a small
+    // separate term over the crisp geometric edge — 0.3-0.8px of it on smooth
+    // paper, 0.8-2.0px on coarse. Deliberately not reinstated blind: the whole
+    // reason the rasterizer was rewritten is that the mark's edge was too soft,
+    // and softness is exactly what this adds back.
 
     // Marker composite (#250, ADR 004 §3, redesigned in "Ревизия v1.5" —
     // see u_original/u_strokeCoverage/u_inkLoad's own comments above):

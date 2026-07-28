@@ -255,9 +255,9 @@ export function buildRibbonBands(
     const d0 = chain[i], d1 = chain[i + 1]
     const travel = Math.hypot(d1.x - d0.x, d1.y - d0.y)
     if (travel < 1e-6) continue // no travel
-    // Distance-normalized, same quantity the stamp path deposits per dab (ADR
-    // 004 "Ревизия v1.5" §2) — halved because the sample stamps deposit too and
-    // the two overlap almost everywhere. Where they don't (exactly the regions
+    // Distance-normalized, the same quantity the nib stamps carry (ADR 004
+    // "Ревизия v1.5" §2) — halved because those deposit too and the two overlap
+    // almost everywhere. Where they don't (exactly the regions
     // this exists to cover) a half dose still lands, instead of nothing.
     ink = d1.opacity * travel * 0.5
 

@@ -417,7 +417,7 @@ export function lastPaperDabUniform(engine: PencilEngine, name: string): Uniform
 
 /** Like lastPaperDabUniform, but reads only the non-batched per-dab program
  *  (_dabUni) — needed for marker (#250), whose own paint path
- *  (_paintOneMarkerDab/_drawMarkerDab) always draws through _dabProg
+ *  (_paintMarkerRibbon) always draws through _dabProg
  *  directly and never _paintDabsInstanced/_dabProgInstanced (see
  *  _paintMarkerDabs' own doc comment on why marker dabs can't batch).
  *  lastPaperDabUniform's own "prefer the instanced location" order would
@@ -432,11 +432,11 @@ export function lastMarkerDabUniform(engine: PencilEngine, name: string): Unifor
 }
 
 /** How the most recent dab draw with this u_inkMode was issued — its blend
- *  state and its u_opacity, captured at draw time (#330). Needed because
- *  marker fires three dab draws per dab (coverage=3, inkLoad=4, composite=2),
- *  and lastMarkerDabUniform can only ever see whichever ran last. See MockGL's
- *  own lastDabDraw. */
-export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 3 | 4 | 6 | 7): { blendEnabled: boolean; opacity: number; count: number } | undefined {
+ *  state and its u_opacity, captured at draw time (#330). Needed because the
+ *  marker fires several draws per batch (nib coverage=6, nib ink=7,
+ *  composite=2), and lastMarkerDabUniform can only ever see whichever ran
+ *  last. See MockGL's own lastDabDraw. */
+export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7): { blendEnabled: boolean; opacity: number; count: number } | undefined {
   return internals(engine).gl.lastDabDraw(inkMode)
 }
 

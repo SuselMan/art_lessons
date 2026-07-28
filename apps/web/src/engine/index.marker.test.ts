@@ -1,9 +1,10 @@
-// Engine-level tests for the marker tool (#250, ADR 004 section 3): each
-// marker dab is a self-contained patch-copy-then-draw against this layer's
-// own current content (_paintOneMarkerDab/_drawMarkerDab in index.ts),
-// feeding DAB_FRAG's u_inkMode>1.5 branch (shaders.ts), which multiplies
-// against whatever's already there (or a flat paper-white constant over
-// untouched content) instead of the usual single-pass "over" compositing.
+// Engine-level tests for the marker tool (#250, ADR 004 section 3; rasterizer
+// rewritten in #330). The marker draws its stroke as one connected swept figure
+// — nib stamps at each sample plus the ribbon between them (_paintMarkerRibbon
+// in index.ts, markerRibbon.ts for the geometry) — then composites it through
+// DAB_FRAG's u_inkMode>1.5 branch, which multiplies against whatever was
+// already there (or a flat paper-white constant over untouched content)
+// instead of the usual single-pass "over".
 //
 // What these tests can and can't check: MockGL (see mockGL.ts's own module
 // docstring) deliberately never rasterizes DAB_FRAG's own GLSL — its
@@ -35,8 +36,8 @@ function alphaAt(pixels: Uint8Array, width: number, x: number, y: number): numbe
   return pixels[(y * width + x) * 4 + 3]
 }
 
-function setupLayer(width = 64, height = 64, infinite = false, markerRasterizer?: 'ribbon' | 'stamps') {
-  const { engine } = createTestEngine({ userId: 'user-a', infinite, markerRasterizer }, { width, height })
+function setupLayer(width = 64, height = 64, infinite = false) {
+  const { engine } = createTestEngine({ userId: 'user-a', infinite }, { width, height })
   engine.appendOperation(makeLayerAdd('user-a', 'L'))
   engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
   return engine
@@ -85,35 +86,20 @@ describe('marker tool (#250, ADR 004)', () => {
   // #330: the composite pass recomputes the finished pixel from the frozen
   // `original` + accumulated coverage/inkLoad, so it must *overwrite* the tile,
   // not blend into its own previous output — blending compounded alpha once per
-  // dab and left a hard step along every dab's rim (visible as separate stamped
-  // shapes on a wide stroke). The two splat passes feeding it still blend:
-  // coverage saturates like an ordinary "over" deposit, inkLoad sums additively.
+  // dab and left a hard step along every dab's rim, up to 53/255. The two
+  // passes feeding it still blend: coverage saturates like an ordinary "over"
+  // deposit, ink sums additively.
+  //
   // MockGL can't check the resulting pixels (it never rasterizes DAB_FRAG's own
   // GLSL — see this file's header), but which blend each pass is issued with is
   // exactly the part that regressed, and that it can hold onto.
-  it('draws the composite pass with blending off and the two splat passes with it on', () => {
-    const engine = setupLayer(64, 64, false, 'stamps')
+  it('draws the composite pass with blending off and the nib passes with it on', () => {
+    const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
 
     expect(markerPassDraw(engine, 2)?.blendEnabled).toBe(false) // composite — overwrite
-    expect(markerPassDraw(engine, 3)?.blendEnabled).toBe(true)  // coverage splat
-    expect(markerPassDraw(engine, 4)?.blendEnabled).toBe(true)  // inkLoad splat
-  })
-
-  // #330: MARKER_COVERAGE_GAIN buys back the edge crispness the removed alpha
-  // compounding used to fake, and it must stay confined to the coverage splat —
-  // the same number reaching inkLoad would darken the dye at the same time,
-  // which is the coupling the separate gain exists to avoid. Asserted as the
-  // ratio between the two passes' u_opacity rather than an absolute value, so
-  // this doesn't re-hardcode a preset constant that's still tuned by eye.
-  it('applies the coverage gain to the coverage splat only, not to the composite', () => {
-    const engine = setupLayer(64, 64, false, 'stamps')
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
-
-    const coverage = markerPassDraw(engine, 3)!.opacity
-    const composite = markerPassDraw(engine, 2)!.opacity
-    expect(composite).toBeGreaterThan(0)
-    expect(coverage / composite).toBeCloseTo(1.4, 5)
+    expect(markerPassDraw(engine, 6)?.blendEnabled).toBe(true)  // nib coverage
+    expect(markerPassDraw(engine, 7)?.blendEnabled).toBe(true)  // nib ink, additive
   })
 
   // #330 stage 2. What MockGL can and can't see here is the same split this
@@ -123,14 +109,12 @@ describe('marker tool (#250, ADR 004)', () => {
   // pure functions. What is checkable here is that the marker now goes down the
   // ribbon path by default and that the passes are issued the way the design
   // requires.
-  it('uses geometric nib coverage by default, not the old soft coverage splat', () => {
+  it('draws one geometric nib pass per dab, for coverage and for ink alike', () => {
     const engine = setupLayer()
     engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
 
-    expect(markerPassDraw(engine, 6)?.blendEnabled).toBe(true) // nib stamp, geometric
-    expect(markerPassDraw(engine, 3)).toBeUndefined()          // soft coverage splat never runs
-    expect(markerPassDraw(engine, 4)).toBeUndefined()          // nor the soft ink splat
-    expect(markerPassDraw(engine, 7)?.count).toBe(2)           // geometric ink, still per dab
+    expect(markerPassDraw(engine, 6)?.count).toBe(2)
+    expect(markerPassDraw(engine, 7)?.count).toBe(2)
   })
 
   // The composite is a full recomputation from (original, coverage, inkLoad),
@@ -144,14 +128,6 @@ describe('marker tool (#250, ADR 004)', () => {
 
     expect(markerPassDraw(engine, 6)?.count).toBe(dabs.length)
     expect(markerPassDraw(engine, 2)?.count).toBe(1)
-  })
-
-  it('still honours the stamp rasterizer when it is asked for explicitly', () => {
-    const engine = setupLayer(64, 64, false, 'stamps')
-    engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
-
-    expect(markerPassDraw(engine, 3)?.count).toBe(2) // soft coverage splat, per dab
-    expect(markerPassDraw(engine, 6)).toBeUndefined()
   })
 
   it('actually deposits something over blank paper (dispatch reaches a real paint, not a silent no-op)', () => {
@@ -191,7 +167,7 @@ describe('marker tool (#250, ADR 004)', () => {
 
   // Regression: a chisel dab's quad is stretched to aspectRatio x radius
   // along the nib axis (DAB_VERT), so a 5:1 nib reaches 5x further than
-  // `radius` there. _paintOneMarkerDab used to resolve tiles from a plain
+  // `radius` there. The marker used to resolve tiles from a plain
   // ±radius box (and _dabWorldRadius padded by 1/aspectRatio, the wrong
   // direction entirely), so every dab whose center sat more than `radius`
   // but less than `aspectRatio * radius` from a tile boundary only ever
