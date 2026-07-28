@@ -166,18 +166,28 @@ describe('marker tool (#250, ADR 004)', () => {
     const nib = dab(TILE_SIZE - 120, 500, { size: 60, aspectRatio: 5, angle: 0 })
     engine.appendOperation(makeStroke('user-a', 'L', [nib], { tool: 'marker', preset: 'chisel:60' }))
 
-    const alphaAtWorldLocal = (px: Uint8Array, localX: number, localY: number) =>
-      // readTilePixels rows are GL bottom-up; these are tile-local world coords.
-      px[((TILE_SIZE - 1 - localY) * TILE_SIZE + localX) * 4 + 3]
+    // Brightest pixel in a whole tile-local column: this test is about how far
+    // the nib reaches *along x*, and asking that question per column keeps it
+    // independent of which row the dab's own centre lands on. It used to sample
+    // one hardcoded row instead, which quietly sat ~26px off that centre — a
+    // miss the dab shape hid until #330, because the old (buggy) elongated dab
+    // had constant alpha along its whole length, so any row inside it read the
+    // same. With a correctly elliptical dab an off-centre row tapers out early
+    // and the assertion failed for a reason that had nothing to do with tiles.
+    const columnMax = (px: Uint8Array, localX: number) => {
+      let max = 0
+      for (let row = 0; row < TILE_SIZE; row++) max = Math.max(max, px[(row * TILE_SIZE + localX) * 4 + 3])
+      return max
+    }
 
     const home = readTilePixels(engine, 'L', 0, 0)
     expect(home).not.toBeNull()
-    expect(alphaAtWorldLocal(home!, TILE_SIZE - 120, 500)).toBeGreaterThan(0) // dab center
-    expect(alphaAtWorldLocal(home!, TILE_SIZE - 2, 500)).toBeGreaterThan(0)   // right at the seam
+    expect(columnMax(home!, TILE_SIZE - 120)).toBeGreaterThan(0) // dab center
+    expect(columnMax(home!, TILE_SIZE - 2)).toBeGreaterThan(0)   // right at the seam
 
     const across = readTilePixels(engine, 'L', 1, 0)
     expect(across).not.toBeNull()
-    expect(alphaAtWorldLocal(across!, 2, 500)).toBeGreaterThan(0)             // just past it
+    expect(columnMax(across!, 2)).toBeGreaterThan(0)             // just past it
   })
 
   it('skips a degenerate zero-radius dab without throwing', () => {

@@ -661,7 +661,10 @@ export class MockGL {
         const scaledY = -rx * s + ry * c
         const aPosX = scaledX / aspectRatio
         const aPosY = scaledY
-        const uvx = (aPosX * 2) / Math.max(aspectRatio, 1)
+        // #330: mirrors DAB_FRAG — v_localUV (a_position * 2) is already the
+        // dab's normalized space, so no second divide by aspectRatio here. See
+        // that shader's own comment for what the extra divide used to do.
+        const uvx = aPosX * 2
         const uvy = aPosY * 2
         const dist = Math.hypot(uvx, uvy)
         if (dist > 1) continue

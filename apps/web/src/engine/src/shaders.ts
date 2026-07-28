@@ -362,8 +362,25 @@ export const DAB_FRAG = `
   }
 
   void main() {
-    vec2 uv = vec2(v_localUV.x / max(v_aspectRatio, 1.0), v_localUV.y);
-    float dist = length(uv);
+    // #330: v_localUV is ALREADY the dab's own normalized space — both vertex
+    // shaders stretch the quad by u_aspectRatio along local X *before* this,
+    // while v_localUV stays a_position*2, i.e. -1..1 across the stretched quad
+    // whatever the aspect. So length(v_localUV) <= 1.0 is exactly the ellipse
+    // inscribed in that quad, and no further normalization belongs here.
+    //
+    // This used to divide v_localUV.x by max(aspectRatio, 1.0) a second time,
+    // which pushed the falloff contour out to aspect² * radius while the
+    // geometry still ended at aspect * radius — so along the long axis the
+    // falloff never happened at all and the quad's own edge cut the dab dead.
+    // A 5:1 chisel nib rendered as a hard-edged 10R x 2R *rectangle* with alpha
+    // 1.00 right up to the boundary (and a tilted pencil dab as a smaller one),
+    // which is what made a wide marker stroke read as a row of stamped
+    // rectangles no amount of compositing work could smooth out.
+    //
+    // Unchanged for aspect <= 1: max(aspect, 1.0) was 1.0 there, so this only
+    // ever differed for an elongated dab — marker's chisel nib, a tilted
+    // pencil, and charcoal's tilt ladder.
+    float dist = length(v_localUV);
     if (dist > 1.0) discard;
 
     float innerEdge = u_hardness * 0.85;
@@ -639,8 +656,8 @@ export const DAB_FRAG = `
       float coverage = texture2D(u_strokeCoverage, tileUV).a;
       // ADR 004 "Ревизия v1.5" §1 (revised again — Ilya: exactly two
       // *discrete* layers, not a soft asymptote that a single continuous
-      // stroke or exponentially many separate strokes can keep inching up
-      // forever): the first pass over a spot should read back as *exactly*
+      // stroke can keep inching up forever): the first pass over a spot
+      // should read back as *exactly*
       // the picked color (effectiveBase=1 case: 1.0*color=color); a second
       // pass over the same spot should read as one further Beer-Lambert
       // layer of the identical translucent film (color*color — physically
@@ -655,6 +672,17 @@ export const DAB_FRAG = `
       // MARKER_LAYER2_INK (how much inkLoad each stage needs to fully
       // resolve) are first-pass, uncalibrated numbers — verify by eye and
       // retune, same status every other first-pass constant here carries.
+      //
+      // SCOPE, decided 2026-07-28 (Ilya): this ceiling is **per stroke**, not
+      // global. Each stroke gets its own MarkerStrokeScratch, so u_original is
+      // whatever the previous stroke already darkened and inkLoad restarts at
+      // zero — lift the stylus, go over the same spot again, and the multiply
+      // applies afresh (color^2 after one stroke, color^4 after two). Making it
+      // global would mean carrying a persistent per-pixel pigment load on the
+      // layer, at real memory cost per tile; weighed against how rarely anyone
+      // stacks marker passes deliberately, it isn't worth it. A deliberate
+      // limitation, not an oversight — don't "fix" it without reopening that
+      // trade.
       float inkLoad = texture2D(u_inkLoad, tileUV).a;
       const float MARKER_LAYER1_INK = 0.6;
       const float MARKER_LAYER2_INK = 1.2;
