@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@grafetto/shared'
 import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_COMPUTE_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
-import { PAPER_WORLD_SIZE } from './src/paperNoise'
+import { PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
   createPlaceholderPaperTexture, getPaperBytes, uploadPaperTexture,
 } from './src/paperLoader'
@@ -1499,7 +1499,7 @@ export class PencilEngine implements PencilEngineAPI {
     this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
 
     this._opts = {
-      paper:         options.paper         ?? 'coarse-streak',
+      paper:         options.paper         ?? 'coarse',
       paperColor:    options.paperColor,
       pencilType:    options.pencilType    ?? 'HB',
       size:          options.size          ?? 24,

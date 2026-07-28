@@ -13,9 +13,7 @@
     "preview": "vite preview",
     "prebuild": "tsx scripts/bakePaperTextures.ts --if-missing",
     "bake:icons": "tsx scripts/bakeAppIcons.ts",
-    "bake:paper": "tsx scripts/bakePaperTextures.ts",
-    "bake:paper-variants": "tsx scripts/bakeRoughVariantTextures.ts",
-    "bake:paper-scan": "tsx scripts/bakeScannedPaper.ts"
+    "bake:paper": "tsx scripts/bakePaperTextures.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

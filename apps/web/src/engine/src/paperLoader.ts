@@ -3,8 +3,8 @@ import type { PaperType } from '@grafetto/shared'
 
 // Loads the offline-baked paper-grain textures (see
 // ../../../scripts/bakePaperTextures.ts) as raw interleaved LUMINANCE_ALPHA
-// bytes (R=height, A=precomputed graphite-catch — see paperNoise.ts's
-// paperCatchValue) and uploads them straight into a WebGL texture via
+// bytes (R=height, A=precomputed graphite-catch — see
+// ../../../scripts/bakePaperTextures.ts) and uploads them straight into a WebGL texture via
 // texImage2D(TypedArray) — deliberately never through an <img>/
 // createImageBitmap decode step, since that browser-owned image pipeline
 // can apply its own color-space conversion inconsistently across platforms
@@ -75,23 +75,6 @@ export function getPaperPreviewBytes(type: PaperType): Promise<Uint8Array> {
 }
 
 let loadPaperBytesImpl: PaperBytesLoader = fetchPaperBytes
-
-// Dev-only rough-variant comparison path (see bakeRoughVariantTextures.ts /
-// SettingsPanel's "Paper grain variant" control) — same byte format and
-// upload path as a real PaperType's bytes, just fetched from a different,
-// disposable /paper-variants/ URL instead of the committed /paper/ one.
-// Cached separately by URL so switching variants doesn't collide with (or
-// evict) the real byteCache below.
-const variantByteCache = new Map<string, Promise<Uint8Array>>()
-
-export function getPaperBytesFromUrl(url: string): Promise<Uint8Array> {
-  let cached = variantByteCache.get(url)
-  if (!cached) {
-    cached = fetchBytesFromUrl(url)
-    variantByteCache.set(url, cached)
-  }
-  return cached
-}
 
 // Cached by PaperType, not by gl context — a WebGLTexture is tied to one gl
 // context, but the decoded bytes behind it are the same for every engine

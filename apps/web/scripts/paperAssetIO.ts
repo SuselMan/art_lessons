@@ -1,15 +1,13 @@
 // Shared output half of the paper bake: turning a finished height/catch pair
 // into the two files a client actually fetches. Extracted from
-// bakePaperTextures.ts so the scanned-source experiment
-// (bakeScannedPaper.ts) writes byte-identical assets rather than
-// hand-duplicating the format — the interleaving, the gzip and the
+// bakePaperTextures.ts to keep the format in one place — the interleaving, the gzip and the
 // deliberately-unrecognised extension are all load-bearing (see below), and
 // two copies of that would drift.
 import { gzipSync } from 'node:zlib'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from '../src/engine/src/paperNoise.js'
+import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from '../src/engine/src/paperConstants.js'
 
 // The picker has to show paper the way the canvas does, which means sampling
 // it at the same texel-per-pixel ratio the canvas uses — not the whole tile

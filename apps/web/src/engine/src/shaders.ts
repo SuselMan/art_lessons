@@ -4,7 +4,7 @@
 // exactly how DAB_FRAG's finite-difference step went wrong once before (it
 // read a world-space size where it needed a texel count). paperNoise is a
 // leaf module — no engine internals come with it.
-import { PAPER_WORLD_SIZE } from './paperNoise'
+import { PAPER_WORLD_SIZE } from './paperConstants'
 
 // Per-dab varying parameters (pressure/tilt/opacity/aspect ratio) are
 // forwarded from vertex to fragment stage as `varying`s rather than read

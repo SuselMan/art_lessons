@@ -144,8 +144,8 @@ export function grainVariantToMode(value: GrainVariant): number | undefined {
 
 // Labels indexed by shader mode — mirrors DAB_FRAG's computeGrain's own
 // u_grainMode branches 0-10 exactly; keep the two in sync if either changes.
-// No shared TS source of truth is possible here the way ROUGH_VARIANTS is for
-// paper, since these live as GLSL, not portable JS/TS functions.
+// No shared TS source of truth is possible here — these live as GLSL, not as
+// portable JS/TS functions that a table could index.
 export const GRAPHITE_GRAIN_LABELS: readonly string[] = [
   'Fine dither',
   'Stronger fine noise',

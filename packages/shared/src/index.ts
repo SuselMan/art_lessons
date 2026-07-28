@@ -45,64 +45,63 @@ export const IMPLICIT_LAYER_IDS: readonly string[] = [BACKGROUND_LAYER_ID, INITI
 
 // Room
 
-// (#300) Paper is a grid, not a list. Two axes that vary independently:
-// how fine the grain is, and what the fibre structure looks like on top of
-// it. The old three names ('rough' | 'smooth' | 'bristol') were three
-// arbitrary points on that grid presented as if they were the whole space —
-// and two of them differed only in coarseness while the third differed only
-// in character, which is exactly why the set felt unextendable.
+// Paper is one axis: how coarse the stock is. It was briefly a grid — a
+// coarseness axis crossed with a "character" axis (fbm/capsules/streak) —
+// back when the grain was generated procedurally and a second axis cost
+// nothing but a few noise parameters (#300). Every one of those nine came
+// from the same synthetic fBm, and none of them read as paper; the whole
+// grid was replaced by three bakes of one photographed sheet at three
+// magnifications (#333), which is what these three names now mean. A future
+// second sheet is a new *stock*, not a second axis — it gets its own entry
+// here, the way real paper is sold.
 export const PAPER_COARSENESS = ['coarse', 'medium', 'fine'] as const
 export type PaperCoarseness = typeof PAPER_COARSENESS[number]
 
 // `flat` is deliberately not on this axis — it has no grain to be coarse or
-// fine, so it is its own single type below rather than three identical ones.
-export const PAPER_CHARACTER = ['fbm', 'capsules', 'streak'] as const
-export type PaperCharacter = typeof PAPER_CHARACTER[number]
-
-export type PaperGrainType = `${PaperCoarseness}-${PaperCharacter}`
+// fine, so it is its own single type rather than three identical ones.
+export type PaperGrainType = PaperCoarseness
 export type PaperType = PaperGrainType | 'flat'
 
-export const PAPER_GRAIN_TYPES: readonly PaperGrainType[] =
-  PAPER_COARSENESS.flatMap(c => PAPER_CHARACTER.map(f => `${c}-${f}` as PaperGrainType))
+export const PAPER_GRAIN_TYPES: readonly PaperGrainType[] = PAPER_COARSENESS
 
 export const PAPER_TYPES: readonly PaperType[] = [...PAPER_GRAIN_TYPES, 'flat']
 
-/** Rooms created before the grid existed. Kept as a translation rather than
- *  migrated in the database: each maps to the grid point it already *was*,
- *  so an old room keeps the exact texture it was drawn on. Cheaper and
- *  safer than a migration, and it costs five lines. */
+/** Rooms created before the current set existed. A translation rather than a
+ *  database migration: it costs a few lines, needs no downtime, and cannot
+ *  half-apply. Two generations to carry now — the original three names, and
+ *  the nine grid names, whose coarseness half survives verbatim (see
+ *  normalizePaperType, which reads it straight off the prefix). */
 const LEGACY_PAPER_TYPES: Record<string, PaperType> = {
-  rough:   'coarse-streak',    // shipped rough baked ROUGH_VARIANTS[5], 'Horizontal streak'
-  smooth:  'medium-capsules',
-  bristol: 'fine-capsules',
+  rough:   'coarse',
+  smooth:  'medium',
+  bristol: 'fine',
 }
 
 export function isPaperType(value: string): value is PaperType {
   return (PAPER_TYPES as readonly string[]).includes(value)
 }
 
-/** Accepts anything the database might hold — a current type, one of the
- *  three legacy names, or a value from a newer build that this one doesn't
- *  know — and always answers with something renderable. */
+/** Accepts anything the database might hold — a current type, a legacy name,
+ *  a grid name like `medium-capsules`, or a value from a newer build that
+ *  this one doesn't know — and always answers with something renderable. */
 export function normalizePaperType(value: string | null | undefined): PaperType {
-  if (value && isPaperType(value)) return value
-  if (value && value in LEGACY_PAPER_TYPES) return LEGACY_PAPER_TYPES[value]
-  return 'coarse-streak'
+  if (!value) return 'coarse'
+  if (isPaperType(value)) return value
+  if (value in LEGACY_PAPER_TYPES) return LEGACY_PAPER_TYPES[value]
+  // A grid name: the character half no longer exists, but the coarseness
+  // half is exactly what it always meant, so an old room keeps the grain
+  // size it was drawn at.
+  return paperCoarsenessOf(value) ?? 'coarse'
 }
 
-// Both validate rather than cast: these are reached with whatever string the
-// database holds (a legacy name, or a type from a build newer than this one),
-// and silently returning an invalid key produced `undefined` lookups deep in
-// the engine and the sound synth rather than an obvious failure. `null` means
-// "no grain axis" — which is exactly how `flat` behaves too.
+// Validates rather than casts: this is reached with whatever string the
+// database holds (a legacy name, or a type from a build newer than this
+// one), and silently returning an invalid key produced `undefined` lookups
+// deep in the engine and the sound synth rather than an obvious failure.
+// `null` means "no grain axis" — which is exactly how `flat` behaves too.
 export function paperCoarsenessOf(type: string): PaperCoarseness | null {
   const head = type.split('-')[0]
   return (PAPER_COARSENESS as readonly string[]).includes(head) ? head as PaperCoarseness : null
-}
-
-export function paperCharacterOf(type: string): PaperCharacter | null {
-  const tail = type.split('-')[1]
-  return (PAPER_CHARACTER as readonly string[]).includes(tail) ? tail as PaperCharacter : null
 }
 
 // Default background color per paper texture (hex, sRGB) — the engine's
@@ -130,31 +129,17 @@ export function defaultPaperColor(type: PaperType): string {
 export const DEFAULT_PAPER_COLORS: Record<PaperType, string> =
   Object.fromEntries(PAPER_TYPES.map(t => [t, defaultPaperColor(t)])) as Record<PaperType, string>
 
-// Shown in the paper picker. Character names are the user-facing description
-// of the fibre structure, not the internal noise term.
+// Shown in the paper picker.
 export const PAPER_COARSENESS_LABELS: Record<PaperCoarseness, string> = {
   coarse: 'Coarse',
   medium: 'Medium',
   fine:   'Fine',
 }
 
-export const PAPER_CHARACTER_LABELS: Record<PaperCharacter, string> = {
-  fbm:      'Plain grain',
-  capsules: 'Fibrous',
-  streak:   'Streaked',
-}
-
 export function paperTypeLabel(type: PaperType): string {
   if (type === 'flat') return 'Flat'
-  const coarseness = paperCoarsenessOf(type)!
-  const character = paperCharacterOf(type)!
-  return `${PAPER_COARSENESS_LABELS[coarseness]} · ${PAPER_CHARACTER_LABELS[character]}`
+  return PAPER_COARSENESS_LABELS[type]
 }
-
-/** The three offered without opening the full grid — one per character, at
- *  the coarseness each reads best on. Everything else lives behind "Show
- *  all". */
-export const FEATURED_PAPER_TYPES: readonly PaperType[] = ['coarse-streak', 'medium-capsules', 'fine-fbm']
 
 export type CanvasSize = {
   width: number
