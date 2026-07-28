@@ -68,6 +68,10 @@ export const en = {
   'settingsPage.title': 'Settings',
   'settingsPage.language': 'Language',
   'settingsPage.languageHint': 'Detected from your browser at first visit. Saved in this browser only.',
+  'settingsPage.deviceType': 'Interface',
+  'settingsPage.deviceTablet': 'Tablet',
+  'settingsPage.deviceDesktop': 'Computer',
+  'settingsPage.deviceTypeHint': 'Tablet is laid out for a finger and a stylus, computer for a mouse, a keyboard and a graphics tablet. Detected from your device at first visit — each of your devices keeps its own.',
 
   // ── create room ────────────────────────────────────────────────────────
   'create.heading': 'Create a room',

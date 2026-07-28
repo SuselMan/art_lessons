@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 
+import { detectDeviceType, isDeviceType, type DeviceType } from '../lib/deviceType'
 import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/locale'
 
 // App-wide user preferences (#208) — settings that belong to the person, not
@@ -16,6 +17,7 @@ import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/loc
 // this app (hotkeys, panel position, one-time hints).
 const LOCALE_STORAGE_KEY = 'al_locale'
 const LESSONS_VIEW_STORAGE_KEY = 'al_lessons_view'
+const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
 
 function readStoredLocale(): Locale | null {
   const raw = localStorage.getItem(LOCALE_STORAGE_KEY)
@@ -40,6 +42,22 @@ function initialLessonsView(): LessonsView {
   return isLessonsView(raw) ? raw : 'grid'
 }
 
+/** Which control scheme to lay the interface out for (#331, ADR #318): an
+ *  explicit earlier choice if there is one, otherwise whatever the hardware
+ *  suggests. Like the language, detection only ever decides the *first*
+ *  visit — once a person has picked, nothing overrides it.
+ *
+ *  Stored per browser and deliberately never synced through the account: the
+ *  same teacher runs a lesson from a PC and reviews the work from a tablet,
+ *  so an account-wide setting would mean a choice made on one device breaks
+ *  the interface on the other. This describes the hardware in front of you,
+ *  not the person using it. */
+function initialDeviceType(): DeviceType {
+  if (typeof window === 'undefined') return 'desktop'
+  const raw = localStorage.getItem(DEVICE_TYPE_STORAGE_KEY)
+  return isDeviceType(raw) ? raw : detectDeviceType()
+}
+
 /** The language to start in: an explicit earlier choice if there is one,
  *  otherwise whatever the browser asks for. Detection only ever decides the
  *  *first* visit — once a choice is stored, changing the browser's language
@@ -60,6 +78,8 @@ export interface SettingsStore {
   setLocale: (locale: Locale) => void
   lessonsView: LessonsView
   setLessonsView: (view: LessonsView) => void
+  deviceType: DeviceType
+  setDeviceType: (deviceType: DeviceType) => void
 }
 
 export const useSettingsStore = create<SettingsStore>()(set => ({
@@ -74,6 +94,12 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
     localStorage.setItem(LESSONS_VIEW_STORAGE_KEY, view)
     set({ lessonsView: view })
   },
+  deviceType: initialDeviceType(),
+  setDeviceType: deviceType => {
+    localStorage.setItem(DEVICE_TYPE_STORAGE_KEY, deviceType)
+    document.documentElement.dataset.device = deviceType
+    set({ deviceType })
+  },
 }))
 
 /** Puts the starting language on `<html lang>` (the index.html literal is
@@ -82,4 +108,16 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
  *  writes. */
 export function syncDocumentLanguage(): void {
   document.documentElement.lang = useSettingsStore.getState().locale
+}
+
+/** Publishes the chosen control scheme as `<html data-device>` so stylesheets
+ *  can branch on it (`:root[data-device='tablet'] .foo { … }`) without every
+ *  component that only differs in spacing having to subscribe to the store.
+ *  Components that differ in *behaviour* still read `deviceType` directly.
+ *
+ *  Same shape as `syncDocumentLanguage`: called once from main.tsx rather
+ *  than as a module-level side effect, and kept current afterwards by
+ *  `setDeviceType`. */
+export function syncDeviceTypeAttribute(): void {
+  document.documentElement.dataset.device = useSettingsStore.getState().deviceType
 }

@@ -55,6 +55,10 @@ export const ru: Dictionary = {
   'settingsPage.title': 'Настройки',
   'settingsPage.language': 'Язык',
   'settingsPage.languageHint': 'При первом заходе определяется по языку браузера. Сохраняется только в этом браузере.',
+  'settingsPage.deviceType': 'Интерфейс',
+  'settingsPage.deviceTablet': 'Планшет',
+  'settingsPage.deviceDesktop': 'Компьютер',
+  'settingsPage.deviceTypeHint': 'Планшет — под палец и стилус, компьютер — под мышь, клавиатуру и графический планшет. При первом заходе определяется по устройству, у каждого вашего устройства свой выбор.',
 
   // ── создание комнаты ───────────────────────────────────────────────────
   'create.heading': 'Новая комната',
