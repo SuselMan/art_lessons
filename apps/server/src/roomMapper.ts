@@ -7,6 +7,10 @@ export function toWireRoom(r: {
   id: string; name: string; paper: string; paperColor: string | null; infinite: boolean
   canvasWidth: number | null; canvasHeight: number | null
   passwordHash: string | null; ownerId: string; createdAt: Date
+  // (#317) Present on rows read straight from Prisma; absent on the callers
+  // that build this shape by hand (rooms.ts's in-memory record), which is why
+  // it's optional rather than `string | null`.
+  parentRoomId?: string | null
   // (#209) A `select`-based relation, not the full RoomThumbnail row — every
   // call site includes only `{ updatedAt: true }` so the (potentially large)
   // `data` Bytes column is never fetched just to build a room list/card.
@@ -29,6 +33,7 @@ export function toWireRoom(r: {
     createdAt: r.createdAt.toISOString(),
     thumbnailUpdatedAt: r.thumbnail?.updatedAt.toISOString(),
     folderId: r.folderId ?? undefined,
+    parentRoomId: r.parentRoomId ?? undefined,
   }
 }
 

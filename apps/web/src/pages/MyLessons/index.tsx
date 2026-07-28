@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core'
 import type { Room, RoomFolder } from '@grafetto/shared'
 import {
-  ApiError, createFolder, deleteFolder, deleteRoom, leaveRoom, listRoomsAt, moveFolder,
+  ApiError, createFolder, deleteFolder, deleteRoom, forkRoom, leaveRoom, listRoomsAt, moveFolder,
   moveRoomToFolder, renameFolder, renameRoom, searchRooms, type RoomsAtFolder,
 } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
@@ -132,6 +132,7 @@ interface RoomCardProps {
   busy: boolean
   onRenameClick: () => void
   onMoveClick: () => void
+  onForkClick: () => void
   onDeleteOrLeaveClick: () => void
   onConfirmClick: () => void
   onCancelConfirmClick: () => void
@@ -139,7 +140,8 @@ interface RoomCardProps {
 
 function RoomCard({
   t, locale, view, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
-  onRenameCancel, busy, onRenameClick, onMoveClick, onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
+  onRenameCancel, busy, onRenameClick, onMoveClick, onForkClick, onDeleteOrLeaveClick, onConfirmClick,
+  onCancelConfirmClick,
 }: RoomCardProps) {
   // (#217) Draggable only — a room is never a drop target itself.
   const { setNodeRef, attributes, listeners, transform, isDragging } = useDraggable({
@@ -162,7 +164,7 @@ function RoomCard({
           actions={[
             { label: t('common.rename'), onClick: onRenameClick },
             { label: t('common.moveTo'), onClick: onMoveClick },
-            { label: t('lessons.forkClone'), onClick: () => {}, disabled: true, title: t('lessons.comingSoon') },
+            { label: t('lessons.fork'), onClick: onForkClick, disabled: busy },
             {
               label: t(isOwnRoom ? 'common.delete' : 'lessons.leaveRoom'),
               onClick: onDeleteOrLeaveClick,
@@ -495,6 +497,13 @@ export function MyLessons() {
     mutationFn: ({ id, name }: { id: string; name: string }) => renameRoom(id, name),
     onSuccess: updated => updateRoomsEverywhere(rooms => rooms.map(r => r.id === updated.id ? updated : r)),
   })
+  // (#317) Lands the copy in the list rather than navigating into it: forking
+  // is usually done to *hand out* a copy, and being dropped inside it would
+  // make forking three of them a matter of going back twice.
+  const forkMutation = useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, name),
+    onSuccess: ({ room }) => updateRoomsInFolder(rooms => [room, ...rooms]),
+  })
   const renameFolderMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => renameFolder(id, name),
     onSuccess: updated => updateFolders(folders => folders.map(f => f.id === updated.id ? updated : f)),
@@ -611,6 +620,7 @@ export function MyLessons() {
   const loadError = loadFailed ? t('lessons.error.load') : null
   const deleteError = deleteMutation.isError ? t('lessons.error.delete') : null
   const leaveError = leaveMutation.isError ? t('lessons.error.leave') : null
+  const forkError = forkMutation.isError ? t('lessons.error.fork') : null
   const createFolderError = createFolderMutation.isError ? t('lessons.error.createFolder') : null
   const searchError = searchFailed ? t('lessons.error.search') : null
   const isEmpty = data !== undefined && data.folders.length === 0 && data.rooms.length === 0
@@ -635,6 +645,7 @@ export function MyLessons() {
         onRenameCancel={() => setRenamingItem(null)}
         onRenameClick={() => startRename({ kind: 'room', id: room.id }, room.name)}
         onMoveClick={() => setMoveTarget({ kind: 'room', id: room.id })}
+        onForkClick={() => forkMutation.mutate({ id: room.id, name: t('lessons.forkedName', { name: room.name }) })}
         onDeleteOrLeaveClick={() => setConfirmingId(room.id)}
         onConfirmClick={() => {
           setConfirmingId(null)
@@ -680,6 +691,8 @@ export function MyLessons() {
             <ErrorState message={deleteError} />
           ) : leaveError ? (
             <ErrorState message={leaveError} />
+          ) : forkError ? (
+            <ErrorState message={forkError} />
           ) : null}
           <section className={styles.section}>
             {searchData === undefined ? (

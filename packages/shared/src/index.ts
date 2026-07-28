@@ -186,6 +186,40 @@ export type Room = {
   // property of the room itself, so this reflects the caller's own filing,
   // not a global fact about the room. Absent/undefined = root level.
   folderId?: string
+  // (#317) The room this one was forked from — the homework model's whole
+  // lineage record (see §4 of the release track #314: a lesson is closed for
+  // editing and each student forks it). Absent on rooms created from
+  // scratch. Deliberately survives the parent's deletion as `undefined`
+  // rather than taking the fork with it: a student's own work must not
+  // disappear because the teacher tidied up their side.
+  parentRoomId?: string
+}
+
+// (#317) Author stamped on the operations a fork inherits from its source.
+//
+// Undo is personal — the engine's OperationLog only ever offers a user their
+// *own* operations, and refuses to apply an undo whose target someone else
+// authored. Re-stamping the inherited log with an id no live participant can
+// ever hold therefore makes the seeded content unundoable for everyone,
+// without a new column or a new rule anywhere in the undo path.
+//
+// The case this exists for is not the student: their own id already fails
+// that check against the teacher's operations. It's the *teacher* opening a
+// student's fork to mark it (#87) — every seeded operation is theirs, so
+// their first Ctrl+Z, before they have corrected anything, would start
+// dismantling the assignment itself.
+//
+// The trade: authorship inside the seeded region is not recoverable
+// afterwards. For homework that reads as a feature — "this part is the
+// assignment, that part is the student's" — but it is one-way.
+export const FORK_SEED_USER_PREFIX = 'seed:'
+
+export function forkSeedUserId(roomId: string): string {
+  return `${FORK_SEED_USER_PREFIX}${roomId}`
+}
+
+export function isForkSeedUser(userId: string): boolean {
+  return userId.startsWith(FORK_SEED_USER_PREFIX)
 }
 
 // (#211 epic) Per-user room-list folder. Nesting via `parentFolderId`

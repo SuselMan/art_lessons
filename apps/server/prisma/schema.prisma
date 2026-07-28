@@ -47,6 +47,15 @@ model Room {
   canvasHeight Int?
   passwordHash String?
   closedAt     DateTime?
+  // (#317) Fork lineage. `SetNull` rather than the `Cascade` every other
+  // relation here uses, and deliberately so: deleting the lesson a student
+  // forked from must never delete the student's own work with it. The fork
+  // keeps everything it was seeded with — that content lives in its own
+  // snapshot and operation rows, not in the parent's — and only forgets
+  // where it came from.
+  parentRoomId String?
+  parent       Room?             @relation("RoomForks", fields: [parentRoomId], references: [id], onDelete: SetNull)
+  forks        Room[]            @relation("RoomForks")
   ownerId      String
   owner        User              @relation(fields: [ownerId], references: [id])
   operations   Operation[]

@@ -11,6 +11,7 @@ import { registerRateLimit } from './rateLimit.js'
 import { registerAuthRoutes } from './authRoutes.js'
 import { registerRoomRoutes } from './roomRoutes.js'
 import { registerRoomFolderRoutes } from './roomFolderRoutes.js'
+import { registerForkRoutes } from './forkRoutes.js'
 import { registerSnapshotRoutes } from './snapshotRoutes.js'
 import { registerThumbnailRoutes } from './thumbnailRoutes.js'
 
@@ -59,6 +60,7 @@ registerHealthRoutes(app)
 registerAuthRoutes(app)
 registerRoomRoutes(app)
 registerRoomFolderRoutes(app)
+registerForkRoutes(app)
 registerSnapshotRoutes(app)
 registerThumbnailRoutes(app)
 

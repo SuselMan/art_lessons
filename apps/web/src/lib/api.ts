@@ -99,6 +99,17 @@ export function renameRoom(id: string, name: string): Promise<Room> {
   return apiFetch<Room>(`/api/rooms/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
 }
 
+// (#317) Copies a room's content into a new room owned by the caller — the
+// mechanism homework runs on (#314 §4). The name is passed from here rather
+// than composed server-side because server responses stay untranslated
+// (#208), and "Still life — copy" has to be in the reader's own language.
+export function forkRoom(id: string, name?: string): Promise<{ room: Room }> {
+  return apiFetch<{ room: Room }>(`/api/rooms/${id}/fork`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
 // (#211 epic, #215) Folder-scoped browsing — only the direct children of one
 // level (folders + rooms), not the whole tree (see roomFolderRoutes.ts's own
 // doc comment for the perf rationale). Omitted folderId = root level.

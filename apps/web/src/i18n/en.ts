@@ -125,8 +125,10 @@ export const en = {
   'lessons.noMatches': 'No projects match "{query}".',
   'lessons.empty': "You don't have any projects yet.",
   'lessons.folderEmpty': 'This folder is empty.',
-  'lessons.forkClone': 'Fork/Clone',
-  'lessons.comingSoon': 'Coming soon',
+  'lessons.fork': 'Make a copy',
+  // The copy lands next to the original, so it needs a name that tells the
+  // two apart at a glance in a list of twenty (#317).
+  'lessons.forkedName': '{name} — copy',
   'lessons.leaveRoom': 'Leave project',
   'lessons.ownerYou': 'You',
   'lessons.ownerUnknown': 'Unknown owner',
@@ -138,6 +140,7 @@ export const en = {
   'lessons.moveFolderTitle': 'Move folder to...',
   'lessons.error.load': 'Could not load your projects',
   'lessons.error.delete': 'Could not delete the project',
+  'lessons.error.fork': 'Could not copy the project',
   'lessons.error.leave': 'Could not leave the project',
   'lessons.error.createFolder': 'Could not create the folder',
   'lessons.error.search': 'Search failed',

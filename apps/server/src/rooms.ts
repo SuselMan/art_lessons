@@ -173,6 +173,17 @@ function enqueueWrite(roomId: string, run: () => Promise<unknown>): void {
   pendingWrite.set(roomId, next)
 }
 
+/** Waits out whatever writes are already queued for `roomId` (#317).
+ *
+ *  Every persist here is fire-and-forget by design — the socket path must not
+ *  wait on Postgres — which means "what the database holds" trails "what the
+ *  room is" by however long the queue is. Anything that reads a room's
+ *  content straight from Postgres, rather than from the in-memory record, has
+ *  to close that gap first or it silently copies a stale room. */
+export function flushRoomWrites(roomId: string): Promise<void> {
+  return pendingWrite.get(roomId) ?? Promise.resolve()
+}
+
 function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
   enqueueWrite(room.id, () => prisma.room.create({
     data: {
@@ -255,6 +266,12 @@ function pruneOperationsBeforeSnapshot(_roomId: string, _latestSnapshotSeq: numb
  *  deliberately absent: their pixels are exactly what a snapshot already
  *  contains, so below the snapshot they are pure weight. */
 const STRUCTURAL_OP_TYPES = ['layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_owner_lock']
+
+/** The same list, for anything outside this module that has to reproduce the
+ *  resident window rather than guess at it — currently forkRoutes.ts (#317),
+ *  which copies exactly what a cold load would consider resident. Exported as
+ *  a readonly view so the definition above stays the only one. */
+export const RESIDENT_OP_TYPES: readonly string[] = STRUCTURAL_OP_TYPES
 
 /** (#292) The subset of a room's log that has to live in RAM.
  *
