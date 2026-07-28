@@ -384,3 +384,73 @@ describe('OperationLog', () => {
     })
   })
 })
+
+// A stroke longer than the engine's dab-chunk limit becomes several
+// operations carrying one strokeId. To the person drawing it is a single
+// movement, so undo has to take all of it — otherwise a long line needs
+// several Ctrl+Z presses and stands there cut short in between.
+describe('undo/redo grouped by gesture (strokeId)', () => {
+  const gesture = (ids: string[], strokeId: string, userId = 'user-a') =>
+    ids.map(id => stroke({ id, strokeId, userId }))
+
+  function logWith(...ops: StrokeOperation[]): OperationLog {
+    const log = new OperationLog()
+    for (const op of ops) log.append(op)
+    return log
+  }
+
+  it('undoes every chunk of one gesture in a single call', () => {
+    const log = logWith(...gesture(['a1', 'a2', 'a3'], 'g1'))
+    const target = log.undoTarget('user-a')!
+    log.applyUndo(target.id, 'user-a')
+
+    expect(log.entries.filter(e => e.state === 'done')).toHaveLength(0)
+    expect(log.entries.filter(e => e.state === 'undone')).toHaveLength(3)
+  })
+
+  it('redoes the whole gesture back', () => {
+    const log = logWith(...gesture(['a1', 'a2', 'a3'], 'g1'))
+    log.applyUndo(log.undoTarget('user-a')!.id, 'user-a')
+    log.applyRedo(log.redoTarget('user-a')!.id, 'user-a')
+
+    expect(log.entries.filter(e => e.state === 'done')).toHaveLength(3)
+  })
+
+  it('leaves a different gesture alone', () => {
+    const log = logWith(...gesture(['a1', 'a2'], 'g1'), ...gesture(['b1', 'b2'], 'g2'))
+    log.applyUndo(log.undoTarget('user-a')!.id, 'user-a')
+
+    const done = log.entries.filter(e => e.state === 'done').map(e => e.op.id)
+    expect(done).toEqual(['a1', 'a2'])
+  })
+
+  // Grouping is by author as well as by gesture: two people's ids can't
+  // collide in practice, but undo must never reach across authors regardless.
+  it('never reaches into another author', () => {
+    const log = logWith(...gesture(['a1'], 'shared'), ...gesture(['b1'], 'shared', 'user-b'))
+    log.applyUndo('b1', 'user-b')
+
+    expect(log.entries.find(e => e.op.id === 'a1')!.state).toBe('done')
+    expect(log.entries.find(e => e.op.id === 'b1')!.state).toBe('undone')
+  })
+
+  it('still undoes one at a time for strokes recorded before strokeId existed', () => {
+    const log = logWith(stroke({ id: 'a1' }), stroke({ id: 'a2' }))
+    log.applyUndo(log.undoTarget('user-a')!.id, 'user-a')
+
+    expect(log.entries.filter(e => e.state === 'done').map(e => e.op.id)).toEqual(['a1'])
+  })
+
+  // The checkpoint budget keys off this count, so it has to move by the whole
+  // gesture too rather than by one chunk.
+  it('keeps the per-layer done count in step with the whole gesture', () => {
+    const log = logWith(...gesture(['a1', 'a2', 'a3'], 'g1'))
+    expect(log.pixelOpDoneCount('layer-1')).toBe(3)
+
+    log.applyUndo(log.undoTarget('user-a')!.id, 'user-a')
+    expect(log.pixelOpDoneCount('layer-1')).toBe(0)
+
+    log.applyRedo(log.redoTarget('user-a')!.id, 'user-a')
+    expect(log.pixelOpDoneCount('layer-1')).toBe(3)
+  })
+})

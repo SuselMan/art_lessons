@@ -145,26 +145,48 @@ export class OperationLog {
    *  Guards `op.userId` against the target's own author: even without real
    *  auth (#41) yet, a client can never undo an op it didn't author. */
   applyUndo(targetOpId: string, userId: string): Operation | null {
-    for (const e of this._entries) {
-      if (e.op.id === targetOpId && e.state === 'done' && e.op.userId === userId) {
-        e.state = 'undone'
-        this._bumpPixelOpCount(e.op, -1)
-        return e.op
-      }
+    const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'done' && e.op.userId === userId)
+    if (!target) return null
+    for (const e of this._gestureEntries(target, 'done')) {
+      e.state = 'undone'
+      this._bumpPixelOpCount(e.op, -1)
     }
-    return null
+    return target.op
+  }
+
+  /** Every entry that belongs to the same gesture as `target` and is currently
+   *  in `state` — which is just `[target]` for anything that isn't part of a
+   *  multi-operation stroke.
+   *
+   *  A stroke longer than the engine's dab-chunk limit is recorded as several
+   *  operations (see StrokeOperation.strokeId). They are one pen-down-to-pen-up
+   *  movement as far as the person drawing is concerned, so one Ctrl+Z has to
+   *  take all of them: otherwise a long line needs several presses and stands
+   *  there cut short in between, and a marker one comes back seamed, since its
+   *  chunks composite as a unit (see the engine's _replayMarkerChunk).
+   *
+   *  Resolved here rather than by broadcasting several operation_undo ops:
+   *  every replica already applies the same single id through this method, so
+   *  expanding the id to its gesture keeps them converging on exactly the same
+   *  set with nothing added to the wire. Strokes recorded before strokeId
+   *  existed carry none, and undo one operation at a time as they always did. */
+  private _gestureEntries(target: LogEntry, state: OperationState): LogEntry[] {
+    const { op } = target
+    const strokeId = op.type === 'stroke' ? op.strokeId : undefined
+    if (!strokeId) return [target]
+    return this._entries.filter(e =>
+      e.state === state && e.op.type === 'stroke' && e.op.userId === op.userId && e.op.strokeId === strokeId)
   }
 
   /** Symmetric with `applyUndo`: undone → done for one specific entry. */
   applyRedo(targetOpId: string, userId: string): Operation | null {
-    for (const e of this._entries) {
-      if (e.op.id === targetOpId && e.state === 'undone' && e.op.userId === userId) {
-        e.state = 'done'
-        this._bumpPixelOpCount(e.op, 1)
-        return e.op
-      }
+    const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'undone' && e.op.userId === userId)
+    if (!target) return null
+    for (const e of this._gestureEntries(target, 'undone')) {
+      e.state = 'done'
+      this._bumpPixelOpCount(e.op, 1)
     }
-    return null
+    return target.op
   }
 
   /** Convenience: find-then-flip in one call, for callers that don't need
