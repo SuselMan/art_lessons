@@ -358,6 +358,9 @@ export function Room() {
   // shader mode, applies to every paper type. One per material (#304
   // follow-up): 'off' leaves it undefined, and the engine falls back to that
   // material's own shipped default rather than to a shared one.
+  // #330 — dev A/B only: the ribbon rasterizer is the marker's real path, this
+  // just keeps the superseded stamp one reachable while it is being tuned.
+  const markerRasterizer = getFeatureFlag('markerLegacyStamps') ? 'stamps' as const : 'ribbon' as const
   const grainMode = grainVariantToMode(getGraphiteGrainVariant())
   const charcoalGrainMode = grainVariantToMode(getCharcoalGrainVariant())
 
@@ -1172,6 +1175,7 @@ export function Room() {
       onHapticGrainStats: hapticGrainEnabled ? setHapticStats : undefined,
       grainMode,
       charcoalGrainMode,
+      markerRasterizer,
     })
     engineRef.current = engine
 
@@ -1331,7 +1335,7 @@ export function Room() {
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory,
-    grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
+    grainMode, charcoalGrainMode, markerRasterizer, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────

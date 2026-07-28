@@ -35,8 +35,8 @@ function alphaAt(pixels: Uint8Array, width: number, x: number, y: number): numbe
   return pixels[(y * width + x) * 4 + 3]
 }
 
-function setupLayer(width = 64, height = 64, infinite = false) {
-  const { engine } = createTestEngine({ userId: 'user-a', infinite }, { width, height })
+function setupLayer(width = 64, height = 64, infinite = false, markerRasterizer?: 'ribbon' | 'stamps') {
+  const { engine } = createTestEngine({ userId: 'user-a', infinite, markerRasterizer }, { width, height })
   engine.appendOperation(makeLayerAdd('user-a', 'L'))
   engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
   return engine
@@ -92,7 +92,7 @@ describe('marker tool (#250, ADR 004)', () => {
   // GLSL — see this file's header), but which blend each pass is issued with is
   // exactly the part that regressed, and that it can hold onto.
   it('draws the composite pass with blending off and the two splat passes with it on', () => {
-    const engine = setupLayer()
+    const engine = setupLayer(64, 64, false, 'stamps')
     engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
 
     expect(markerPassDraw(engine, 2)?.blendEnabled).toBe(false) // composite — overwrite
@@ -107,13 +107,51 @@ describe('marker tool (#250, ADR 004)', () => {
   // ratio between the two passes' u_opacity rather than an absolute value, so
   // this doesn't re-hardcode a preset constant that's still tuned by eye.
   it('applies the coverage gain to the coverage splat only, not to the composite', () => {
-    const engine = setupLayer()
+    const engine = setupLayer(64, 64, false, 'stamps')
     engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
 
     const coverage = markerPassDraw(engine, 3)!.opacity
     const composite = markerPassDraw(engine, 2)!.opacity
     expect(composite).toBeGreaterThan(0)
     expect(coverage / composite).toBeCloseTo(1.4, 5)
+  })
+
+  // #330 stage 2. What MockGL can and can't see here is the same split this
+  // file's header describes: it never rasterizes DAB_FRAG's GLSL, and it
+  // doesn't rasterize the ribbon program at all, so the *shape* of the result
+  // is out of reach — markerRibbon.test.ts covers that geometry directly, as
+  // pure functions. What is checkable here is that the marker now goes down the
+  // ribbon path by default and that the passes are issued the way the design
+  // requires.
+  it('uses geometric nib coverage by default, not the old soft coverage splat', () => {
+    const engine = setupLayer()
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
+
+    expect(markerPassDraw(engine, 6)?.blendEnabled).toBe(true) // nib stamp, geometric
+    expect(markerPassDraw(engine, 3)).toBeUndefined()          // soft coverage splat never runs
+    expect(markerPassDraw(engine, 4)).toBeUndefined()          // nor the soft ink splat
+    expect(markerPassDraw(engine, 7)?.count).toBe(2)           // geometric ink, still per dab
+  })
+
+  // The composite is a full recomputation from (original, coverage, inkLoad),
+  // and coverage now reaches *between* the dabs, so a per-dab quad would miss
+  // what the bands wrote. One pass over the batch's dirty rect is both correct
+  // and cheaper — this pins the "once per batch" half of that.
+  it('composites once per batch rather than once per dab', () => {
+    const engine = setupLayer()
+    const dabs = [20, 24, 28, 32, 36].map(x => dab(x, 32, { size: 20 }))
+    engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'marker' }))
+
+    expect(markerPassDraw(engine, 6)?.count).toBe(dabs.length)
+    expect(markerPassDraw(engine, 2)?.count).toBe(1)
+  })
+
+  it('still honours the stamp rasterizer when it is asked for explicitly', () => {
+    const engine = setupLayer(64, 64, false, 'stamps')
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
+
+    expect(markerPassDraw(engine, 3)?.count).toBe(2) // soft coverage splat, per dab
+    expect(markerPassDraw(engine, 6)).toBeUndefined()
   })
 
   it('actually deposits something over blank paper (dispatch reaches a real paint, not a silent no-op)', () => {

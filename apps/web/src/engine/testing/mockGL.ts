@@ -251,6 +251,11 @@ export class MockGL {
     this._attribBindings.set(loc, b)
   }
 
+  disableVertexAttribArray(loc: number): void {
+    const b = this._attribBindings.get(loc)
+    if (b) b.enabled = false
+  }
+
   vertexAttribPointer(loc: number, size: number, _type: number, _normalized: boolean, strideBytes: number, offsetBytes: number): void {
     const existing = this._attribBindings.get(loc)
     this._attribBindings.set(loc, {
@@ -470,19 +475,20 @@ export class MockGL {
    *
    *  Keyed by ink mode rather than appended to a log so this stays O(1) — a
    *  pencil pixel test draws thousands of dabs through this same path. */
-  private _dabDraws = new Map<number, { blendEnabled: boolean; opacity: number }>()
+  private _dabDraws = new Map<number, { blendEnabled: boolean; opacity: number; count: number }>()
 
   private _recordDabDraw(uniforms: Map<string, UniformValue>): void {
     const inkMode = (uniforms.get('u_inkMode') as number) ?? 0
     this._dabDraws.set(inkMode, {
       blendEnabled: this._blendEnabled,
       opacity: (uniforms.get('u_opacity') as number) ?? 1,
+      count: (this._dabDraws.get(inkMode)?.count ?? 0) + 1,
     })
   }
 
-  /** The most recent dab draw made with this u_inkMode, or undefined if no
-   *  such draw happened. See _dabDraws. */
-  lastDabDraw(inkMode: number): { blendEnabled: boolean; opacity: number } | undefined {
+  /** The most recent dab draw made with this u_inkMode plus how many there have
+   *  been, or undefined if no such draw happened. See _dabDraws. */
+  lastDabDraw(inkMode: number): { blendEnabled: boolean; opacity: number; count: number } | undefined {
     return this._dabDraws.get(inkMode)
   }
 

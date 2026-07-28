@@ -436,7 +436,7 @@ export function lastMarkerDabUniform(engine: PencilEngine, name: string): Unifor
  *  marker fires three dab draws per dab (coverage=3, inkLoad=4, composite=2),
  *  and lastMarkerDabUniform can only ever see whichever ran last. See MockGL's
  *  own lastDabDraw. */
-export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 3 | 4): { blendEnabled: boolean; opacity: number } | undefined {
+export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 3 | 4 | 6 | 7): { blendEnabled: boolean; opacity: number; count: number } | undefined {
   return internals(engine).gl.lastDabDraw(inkMode)
 }
 

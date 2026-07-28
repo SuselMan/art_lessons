@@ -119,6 +119,27 @@ const STEPS = 16
 
 export class DabSystem {
   spacingFactor: number
+  /**
+   * #330 stage 3 — marker only, null for every other tool (which keeps plain
+   * `baseSize * spacingFactor` spacing, unchanged).
+   *
+   * The marker's silhouette is no longer the union of these samples' own
+   * stamps: markerRibbon.ts connects consecutive samples with a band, and for a
+   * convex nib that band is the *exact* swept figure. What the band cannot
+   * represent is the path's curvature — it is a straight chord between two
+   * samples, so a curve is rendered as a polygon whose error is the chord's
+   * sagitta, s²κ/8.
+   *
+   * Measured against that formula, the residual is already under a pixel almost
+   * everywhere (0.87px for a 120px brush on a 100px-radius curve, 0.22px for a
+   * 60px brush) — the stamp scalloping the ribbon replaced was 20.8px in the
+   * same conditions. It only becomes visible in one corner of the space: a very
+   * wide brush on a very tight curve (2.9px at 120px brush / 30px radius). So
+   * rather than pay for dense sampling everywhere, this caps the step at the
+   * value that keeps the sagitta inside `curvatureTolerancePx` given the turn
+   * actually measured on the segment about to be emitted.
+   */
+  curvatureTolerancePx: number | null = null
   private _buf: ControlPoint[]
   private _remainder: number
   private _shaping: DabShapingProfile
@@ -215,6 +236,7 @@ export class DabSystem {
   // time) rather than keep feeding it more real points.
   forkForPreview(): DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
+    fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
     // #305: the fork continues *this* stroke speculatively, so it must inherit
@@ -371,7 +393,10 @@ export class DabSystem {
 
     if (totalLen < 0.001) return []
 
-    const spacing = Math.max(1, baseSize * this.spacingFactor)
+    const spacing = Math.max(1, Math.min(
+      baseSize * this.spacingFactor,
+      this._curvatureSpacingLimit(p1, p2, m1, m2, totalLen),
+    ))
     const dabs: Dab[] = []
     let arcPos = spacing - this._remainder
     let si = 0
@@ -398,6 +423,32 @@ export class DabSystem {
 
     this._remainder = Math.max(0, totalLen - (arcPos - spacing))
     return dabs
+  }
+
+  /**
+   * Largest step that keeps a straight chord within `curvatureTolerancePx` of
+   * this segment's actual curve (see curvatureTolerancePx). Infinity — i.e. no
+   * limit at all — whenever the caller hasn't opted in, or the segment is
+   * straight enough that the ordinary spacing already satisfies it.
+   *
+   * Curvature is estimated from the turn the tangent actually makes across the
+   * segment (κ ≈ Δangle / arc length) rather than from the analytic second
+   * derivative: it costs two tangent evaluations we can afford, it degrades
+   * gracefully on a near-degenerate segment, and it is the same quantity the
+   * sagitta formula is about.
+   */
+  private _curvatureSpacingLimit(
+    p1: ControlPoint, p2: ControlPoint, m1: { x: number; y: number }, m2: { x: number; y: number }, totalLen: number,
+  ): number {
+    const tol = this.curvatureTolerancePx
+    if (tol === null || totalLen < 1e-6) return Infinity
+    const t0 = hermiteTangent(p1, p2, m1, m2, 0)
+    const t1 = hermiteTangent(p1, p2, m1, m2, 1)
+    const turn = turnAngle(t0.x, t0.y, t1.x, t1.y)
+    if (turn < 1e-6) return Infinity
+    const curvature = turn / totalLen
+    // sagitta = s²κ/8 <= tol  ->  s <= sqrt(8·tol/κ)
+    return Math.sqrt((8 * tol) / curvature)
   }
 
   private _makeDab(x: number, y: number, pressure: number, rawTiltX: number, rawTiltY: number, baseSize: number, pathAngle: number): Dab {

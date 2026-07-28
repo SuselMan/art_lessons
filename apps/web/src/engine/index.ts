@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_COMPUTE_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_COMPUTE_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperNoise'
 import {
@@ -29,6 +29,7 @@ import {
   dwellConfigForTool, dwellFlow, type DwellConfig, type LinerSizeMm,
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
+import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX, type NibShape } from './src/markerRibbon'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
   applyAffine, composeAffine, invertAffine, scaleRotateMatrix, toMat3, translationMatrix,
@@ -180,6 +181,12 @@ export interface PencilEngineOptions {
   // to every paper type; the grain term has nothing paper-type-specific
   // about it.
   grainMode?: number
+  // #330 stage 2: which marker rasterizer to use. 'ribbon' (the default) draws
+  // the stroke as a connected swept figure with a fixed-width edge; 'stamps' is
+  // the previous per-dab path, kept behind the dev feature flag purely so the
+  // two can be compared side by side while the ribbon is being tuned. Expect
+  // 'stamps' to be deleted once it has served that purpose.
+  markerRasterizer?: 'ribbon' | 'stamps'
   charcoalGrainMode?: number
   // Dev-only live tuning, initial value only — see PencilEngineAPI's
   // setPaperFillThreshold for the runtime setter a debug-overlay slider
@@ -796,6 +803,53 @@ const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, siz
 // reproduces today's measured edge on the model, and the final call is by eye.
 const MARKER_COVERAGE_GAIN = 1.4
 
+// #330 stage 2: width of the marker's edge ramp, in canvas pixels — the one
+// number that decides how crisp the tool reads, and deliberately an absolute
+// one. The profile it replaces spent a fixed *fraction* of the dab on its
+// falloff (36-40% of the mark's half-width at every size), so a 120px brush
+// came out with a ~44px gradient; a real felt/alcohol tip has an edge whose
+// width is a property of the tip, not of how wide the tip is.
+//
+// Canvas pixels, not screen pixels: dabs are baked into the layer's own
+// world-space buffer and the viewport transform is applied later at display
+// time, so a screen-space width would make the same Operation Log render
+// differently at different zoom — see .claude/rules.md on cross-device
+// determinism for why that class of dependency is not acceptable here.
+//
+// 1.0 is the natural starting point (one pixel of ramp is what a hard edge
+// costs to antialias at all); this is an uncalibrated first pass like every
+// other marker constant, and the paper-driven bleed that used to hide inside
+// the old falloff is deliberately not folded back in yet — stage 3.
+const MARKER_EDGE_AA_PX = 1.0
+
+// #330 stage 3: how far the ribbon's straight chords may deviate from the path
+// they approximate before sampling gets denser (DabSystem.curvatureTolerancePx).
+// Half a pixel — below the edge ramp's own width, so a curve can't read as a
+// polygon before the edge itself blurs it out.
+const MARKER_CURVATURE_TOLERANCE_PX = 0.5
+
+// #330 stage 3, ADR 004 §1 revisited: the chisel nib is a rounded rectangle,
+// not an ellipse. A flat felt tip really does have parallel sides and a short
+// rounded end; an ellipse tapers all the way along its length, which reads as a
+// calligraphy pen and never produces the flat broad band a chisel marker is
+// bought for. Only reachable now that the ribbon makes the union exact for any
+// convex nib — as a *stamp* shape a rounded box was measurably worse than the
+// ellipse (26.3px of scalloping against 21.0px at the same spacing), because a
+// flat side translates as a whole.
+//
+// Corner radius as a fraction of the nib's short half-axis; the expert's
+// suggested range was 0.20-0.35 and this sits in the middle. Uncalibrated first
+// pass like every other marker constant.
+const MARKER_CHISEL_CORNER_FRACTION = 0.28
+
+// #330 stage 3: how much less ink the nib lays down right at its rim than at
+// its centre. Deliberately shallow — a marker's mark is close to uniform across
+// the tip, and the old soft profile (which tapered all the way to zero) is what
+// made a light touch read as an airbrush instead of a marker. The silhouette's
+// crispness now comes from geometry, so this term no longer has to double as an
+// edge; it only keeps the mark from looking mechanically flat.
+const MARKER_INK_EDGE_FALLOFF = 0.9
+
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
  *  every dab overlap, since it multiplied whatever the *previous dab of
@@ -899,6 +953,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _opts: EngineOpts
   private _grainMode: number | undefined
   private _charcoalGrainMode: number | undefined
+  // #330 stage 2 — see PencilEngineOptions.markerRasterizer.
+  private _markerRibbon: boolean
   private _paperFillThreshold: number
   private _paperFillCap: number
   private _userId: string
@@ -1092,6 +1148,16 @@ export class PencilEngine implements PencilEngineAPI {
   // DISPLAY_VERT (a plain full-screen quad; its own 1x1 target doesn't need
   // dab-quad geometry) rather than DAB_VERT.
   private _smudgeComputeProg!: WebGLProgram
+  // Marker ribbon (#330 stage 2) — the bands between consecutive nib stamps
+  // (markerRibbon.ts). Its own tiny program: unlike every other dab draw, the
+  // vertices arrive already positioned by the CPU and carry a per-vertex
+  // distance-to-edge, so neither DAB_VERT's uniforms nor DAB_FRAG's branches
+  // apply.
+  private _ribbonProg!: WebGLProgram
+  private _ribbonUni!: Record<string, WebGLUniformLocation | null>
+  private _ribbonPosLoc!: number
+  private _ribbonEdgeLoc!: number
+  private _ribbonBuf!: WebGLBuffer
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispUni!: Record<string, WebGLUniformLocation | null>
   private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
@@ -1459,6 +1525,7 @@ export class PencilEngine implements PencilEngineAPI {
     // unlike `paper`, this never changes via a public setter, so it doesn't
     // belong in the "live, mutable tool state" struct _opts represents.
     this._grainMode = options.grainMode
+    this._markerRibbon = options.markerRasterizer !== 'stamps'
     this._charcoalGrainMode = options.charcoalGrainMode
     this._paperFillThreshold = options.paperFillThreshold ?? 0
     this._paperFillCap = options.paperFillCap ?? 0.35
@@ -3072,6 +3139,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
     this._smudgeComputeProg   = createProgram(gl, DISPLAY_VERT, SMUDGE_COMPUTE_FRAG)
+    this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
@@ -3091,7 +3159,12 @@ export class PencilEngine implements PencilEngineAPI {
       // not added to _dabInstUni below since nothing ever draws marker
       // through it.
       'u_original', 'u_strokeCoverage', 'u_inkLoad',
+      // #330 stage 2/3 — the marker nib's own geometry: edge ramp width in canvas
+      // px, which outline the nib is, its corner radius, and how much the ink
+      // eases off at the rim.
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge',
     ])
+    this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
@@ -3135,9 +3208,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._instBLoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instB')
     this._instOpacityLoc = gl.getAttribLocation(this._dabProgInstanced, 'a_opacity')
 
+    this._ribbonPosLoc  = gl.getAttribLocation(this._ribbonProg, 'a_position')
+    this._ribbonEdgeLoc = gl.getAttribLocation(this._ribbonProg, 'a_edge')
+
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
     this._dabInstBuf = gl.createBuffer()!
+    this._ribbonBuf  = gl.createBuffer()!
 
     this._instancedArraysExt = gl.getExtension('ANGLE_instanced_arrays') as InstancedArraysExt | null
 
@@ -3243,6 +3320,11 @@ export class PencilEngine implements PencilEngineAPI {
       this._strokeTool, this._opts.pencilType,
       { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
     ))
+    // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are
+    // straight chords between samples); every other tool keeps its plain
+    // size-proportional spacing untouched. See DabSystem.curvatureTolerancePx.
+    this._dabs.curvatureTolerancePx =
+      this._strokeTool === 'marker' && this._markerRibbon ? MARKER_CURVATURE_TOLERANCE_PX : null
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     // Smudge's reservoir now persists across separate strokes (see
@@ -4604,12 +4686,101 @@ export class PencilEngine implements PencilEngineAPI {
     // same stroke (see _paintDabs' own doc comment on markerScratch/
     // prevDab) — "Ревизия v1.5" needs this now too, to compute each dab's
     // own distance-normalized ink deposit (segmentLength).
+    if (this._markerRibbon) {
+      this._paintMarkerRibbon(target, dabs, preset, color, scratch, prevDab, presetName)
+      if (!markerScratch) scratch.destroy()
+      return
+    }
     let prev = prevDab
     for (const dab of dabs) {
       this._paintOneMarkerDab(target, dab, prev, preset, color, scratch)
       prev = dab
     }
     if (!markerScratch) scratch.destroy()
+  }
+
+  /** #330 stage 2 — the ribbon rasterizer, and the marker's default path.
+   *
+   *  Same three fields as the stamp path (coverage / inkLoad / composite, see
+   *  MarkerStrokeScratch), but each is produced differently:
+   *
+   *  - **coverage** stops being an accumulation of soft stamp profiles and
+   *    becomes plain geometry: a nib stamp at every sample (DAB_FRAG's
+   *    u_inkMode=6, an analytic in-pixel distance to the nib ellipse) plus the
+   *    bands between consecutive samples (markerRibbon.ts + RIBBON_FRAG). Both
+   *    resolve their edge over a fixed ~1 canvas px ramp, so the mark's edge no
+   *    longer widens with the brush — the actual complaint that started this.
+   *    Their union is exact: for a convex nib, sweeping it along a segment is
+   *    precisely the convex hull of its two endpoint copies (see
+   *    markerRibbon.ts), which stamp+band+stamp reproduces with nothing missing
+   *    and nothing extra.
+   *  - **inkLoad** is unchanged, still one soft-profiled additive stamp per
+   *    dab. It is a smooth scalar field feeding a saturating curve, not a
+   *    silhouette, so the stamp scalloping that ruined the edge is invisible
+   *    here — and leaving it alone keeps every calibrated marker constant valid.
+   *  - **composite** runs *once per batch* over the batch's own dirty rect
+   *    rather than once per dab. It was always a pure recomputation from
+   *    (original, coverage, inkLoad); with coverage now coming from geometry
+   *    that reaches between the dabs, a per-dab quad would no longer cover
+   *    everything the other two passes just wrote.
+   *
+   *  Blending for coverage stays the ordinary saturating "over" rather than
+   *  needing EXT_blend_minmax: interior coverage here is a flat 1.0, and
+   *  over(x, 1) == 1, so a stamp's antialiased rim landing inside a band (or
+   *  vice versa) resolves to solid either way. The two only ever meet at a
+   *  tangent point, where both are ramping, and the difference between max and
+   *  over there is a fraction of one pixel. */
+  private _paintMarkerRibbon(
+    target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, color: [number, number, number],
+    scratch: MarkerStrokeScratch, prevDab: Dab | undefined, presetName: string,
+  ): void {
+    const drawable = dabs.filter(d => d.size * 0.5 * preset.sizeMultiplier >= 0.5)
+    if (!drawable.length) return
+
+    // #330 stage 3: the chisel is a rounded rectangle, the bullet an ellipse —
+    // see MARKER_CHISEL_CORNER_FRACTION. Resolved once per call and threaded
+    // through both the CPU-side band builder and the shader, which must agree
+    // on the outline or the bands would connect a different shape than the
+    // stamps they sit between.
+    const chisel = markerNibFromPreset(presetName) === 'chisel'
+    const nibShape: NibShape = chisel ? 'roundedBox' : 'ellipse'
+    const cornerFraction = chisel ? MARKER_CHISEL_CORNER_FRACTION : 0
+
+    // One bounds box for the whole batch: the tiles to paint, and the rect the
+    // single composite pass covers. Padded per dab by the same half-extents the
+    // stamp path uses, so a chisel nib's 5x reach is accounted for.
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const d of prevDab ? [prevDab, ...drawable] : drawable) {
+      const { hx, hy } = this._dabWorldHalfExtents(d, false, preset)
+      minX = Math.min(minX, d.x - hx); maxX = Math.max(maxX, d.x + hx)
+      minY = Math.min(minY, d.y - hy); maxY = Math.max(maxY, d.y + hy)
+    }
+    const bounds = { minX, minY, maxX, maxY }
+    const targets = target.resolveForPaint(bounds)
+    if (!targets.length) return
+
+    const bands = buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction)
+
+    for (const tile of targets) {
+      const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
+
+      for (const dab of drawable) this._drawMarkerNibPass(coverage, tile, dab, preset, nibShape, cornerFraction, 6, 0)
+      if (bands.length) this._drawMarkerBands(coverage, tile, bands)
+
+      let prev = prevDab
+      for (const dab of drawable) {
+        const radius = dab.size * 0.5 * preset.sizeMultiplier
+        const deposit = dab.opacity * this._markerSegmentLength(dab, prev, radius)
+        inkLoad.beginAdditiveDraw()
+        this._drawMarkerNibPass(inkLoad, tile, dab, preset, nibShape, cornerFraction, 7, deposit, false)
+        inkLoad.endDraw()
+        prev = dab
+      }
+
+      this._drawMarkerCompositeRect(tile, bounds, preset, original, coverage, inkLoad, color)
+    }
+
+    target.markContentPainted(bounds)
   }
 
   /** One marker dab, three draws against `scratch`'s (original, coverage,
@@ -4780,6 +4951,120 @@ export class PencilEngine implements PencilEngineAPI {
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     coverage.endDraw()
+  }
+
+  /** #330 stage 2/3: one nib stamp drawn from its own analytic in-pixel outline
+   *  — the coverage pass (`inkMode` 6, the ribbon's caps) and the ink pass
+   *  (`inkMode` 7) are the same geometry and differ only in what they write, so
+   *  they share one method. That sharing is the point: silhouette and pigment
+   *  cannot disagree about where the nib ended.
+   *
+   *  Sets none of the paper/hardness/grain uniforms the old soft splat needed —
+   *  neither branch reads them. The three samplers still need *something* bound
+   *  (WebGL validates every active sampler in a linked program, not just the
+   *  branch that runs) and must not be the render target itself, which would be
+   *  a feedback loop — see _drawMarkerCoverageDab's own comment for the day
+   *  that cost.
+   *
+   *  `ownTarget` false leaves framebuffer/blend setup to the caller, which the
+   *  ink pass needs (it accumulates additively, not "over"). */
+  private _drawMarkerNibPass(
+    dest: AccumulationBuffer, tile: PaintTarget, dab: Dab, preset: PencilPreset,
+    nibShape: NibShape, cornerFraction: number, inkMode: 6 | 7, opacity: number, ownTarget = true,
+  ): void {
+    const { gl } = this
+    if (ownTarget) dest.beginDraw()
+
+    gl.useProgram(this._dabProg)
+    const u = this._dabUni
+    gl.uniform2f(u.u_resolution, dest.width, dest.height)
+    for (const [unit, loc] of [[0, u.u_paperHeightMap], [1, u.u_original], [2, u.u_strokeCoverage], [3, u.u_inkLoad]] as const) {
+      gl.activeTexture(gl.TEXTURE0 + unit)
+      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+      gl.uniform1i(loc, unit)
+    }
+    const radius = dab.size * 0.5 * preset.sizeMultiplier
+    gl.uniform1f(u.u_eraseMode, 0.0)
+    gl.uniform1i(u.u_grainMode, 0)
+    gl.uniform1f(u.u_inkMode, inkMode)
+    gl.uniform1f(u.u_aaPx, MARKER_EDGE_AA_PX)
+    gl.uniform1f(u.u_nibShape, nibShape === 'roundedBox' ? 1 : 0)
+    gl.uniform1f(u.u_nibCorner, radius * cornerFraction)
+    gl.uniform1f(u.u_inkEdge, MARKER_INK_EDGE_FALLOFF)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
+    gl.enableVertexAttribArray(this._dabPosLoc)
+    gl.vertexAttribPointer(this._dabPosLoc, 2, gl.FLOAT, false, 0, 0)
+
+    gl.uniform2f(u.u_dabCenter, dab.x - tile.originX, dab.y - tile.originY)
+    gl.uniform1f(u.u_dabRadius, radius)
+    gl.uniform1f(u.u_angle, dab.angle)
+    gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
+    gl.uniform1f(u.u_opacity, opacity)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    if (ownTarget) dest.endDraw()
+  }
+
+  /** #330 stage 2, coverage pass part 2: every band of this batch in one draw
+   *  (markerRibbon.ts built them; RIBBON_FRAG turns each vertex's carried
+   *  distance-to-edge into coverage). Positions are world-space, shifted into
+   *  this tile's own pixel space here — the only per-tile work, which is why
+   *  the geometry itself is built once for the whole batch rather than per
+   *  tile. */
+  private _drawMarkerBands(coverage: AccumulationBuffer, tile: PaintTarget, bands: Float32Array): void {
+    const { gl } = this
+    const local = new Float32Array(bands.length)
+    for (let i = 0; i < bands.length; i += RIBBON_FLOATS_PER_VERTEX) {
+      local[i]     = bands[i]     - tile.originX
+      local[i + 1] = bands[i + 1] - tile.originY
+      local[i + 2] = bands[i + 2]
+    }
+
+    coverage.beginDraw()
+    gl.useProgram(this._ribbonProg)
+    gl.uniform2f(this._ribbonUni.u_resolution, coverage.width, coverage.height)
+    gl.uniform1f(this._ribbonUni.u_aaPx, MARKER_EDGE_AA_PX)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
+    gl.bufferData(gl.ARRAY_BUFFER, local, gl.STREAM_DRAW)
+    const stride = RIBBON_FLOATS_PER_VERTEX * 4
+    gl.enableVertexAttribArray(this._ribbonPosLoc)
+    gl.vertexAttribPointer(this._ribbonPosLoc, 2, gl.FLOAT, false, stride, 0)
+    gl.enableVertexAttribArray(this._ribbonEdgeLoc)
+    gl.vertexAttribPointer(this._ribbonEdgeLoc, 1, gl.FLOAT, false, stride, 8)
+
+    gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
+
+    // Leaving this enabled would make the *next* program's draw read a stale
+    // per-vertex stream for whatever attribute index happens to collide with
+    // it (a_edge's slot is not reserved across programs).
+    gl.disableVertexAttribArray(this._ribbonEdgeLoc)
+    coverage.endDraw()
+  }
+
+  /** #330 stage 2, composite pass: the same DAB_FRAG u_inkMode=2 branch the
+   *  stamp path uses, but drawn once over the whole batch's dirty rect instead
+   *  of once per dab — see _paintMarkerRibbon's own doc comment for why a
+   *  per-dab quad no longer covers what the coverage pass wrote.
+   *
+   *  The rect is covered by a circumscribing dab quad (aspect 1, angle 0,
+   *  radius = half the diagonal) rather than a new full-rect program: DAB_FRAG
+   *  discards outside `dist > 1`, and a circle through the rect's corners
+   *  contains every pixel of it. The extra fragments cost nothing — the branch
+   *  discards any pixel this stroke hasn't covered anyway. */
+  private _drawMarkerCompositeRect(
+    tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }, preset: PencilPreset,
+    original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer, color: [number, number, number],
+  ): void {
+    const cx = (bounds.minX + bounds.maxX) * 0.5
+    const cy = (bounds.minY + bounds.maxY) * 0.5
+    const radius = 0.5 * Math.hypot(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY)
+    const rectDab: Dab = {
+      x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
+      size: radius * 2, aspectRatio: 1, angle: 0, opacity: 1, t: 0,
+    }
+    this._drawMarkerCompositeDab(tile, rectDab, radius, preset, original, coverage, inkLoad, color)
   }
 
   /** New pass (ADR 004 "Ревизия v1.5" §1/§2), between the coverage splat
