@@ -19,7 +19,6 @@ set -euo pipefail
 APP_DIR=${APP_DIR:-/opt/art-lessons}
 BACKUP_DIR=${BACKUP_DIR:-/var/backups/art-lessons}
 KEEP_LOCAL=${KEEP_LOCAL:-14}
-KEEP_REMOTE_DAYS=${KEEP_REMOTE_DAYS:-60}
 DB_NAME=${DB_NAME:-art_lessons}
 DB_USER=${DB_USER:-art_lessons}
 
@@ -96,9 +95,13 @@ if [ -n "${BACKUP_REMOTE:-}" ]; then
   log "uploading to $BACKUP_REMOTE"
   rclone copy "$final" "$BACKUP_REMOTE" --contimeout 30s --timeout 5m --retries 3 \
     || fail "off-site upload failed — local dump kept, but it is not safe from disk loss"
-  rclone delete "$BACKUP_REMOTE" --min-age "${KEEP_REMOTE_DAYS}d" --rmdirs \
-    || log "WARNING: remote prune failed (upload succeeded, so this run is still good)"
   log "off-site copy done"
+  # Nothing prunes the remote from here on purpose. This key can upload and
+  # list, and that is all it can do — so whoever takes this VPS cannot delete
+  # the backups it made, which is the attack the off-site copy is otherwise
+  # wide open to (wipe the backups first, then the database). Expiry is a
+  # lifecycle rule on the bucket instead: same result, run by B2, out of reach
+  # of anything on this machine. See deploy/README.md → Backups.
 else
   # Deliberately loud and non-zero: a backup that only exists on the machine
   # it is backing up is not a backup, and this should read as broken in cron

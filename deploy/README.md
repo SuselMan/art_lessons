@@ -125,8 +125,21 @@ dumps Postgres in custom format, verifies the archive end to end with
 failed upload as a failed run — a copy that lives only on the disk it is
 backing up does not survive that disk.
 
-Retention: 14 locally in `/var/backups/art-lessons`, 60 days off-site.
-Both are `KEEP_LOCAL` / `KEEP_REMOTE_DAYS` in `/opt/art-lessons/.env`.
+Retention: 14 locally in `/var/backups/art-lessons` (`KEEP_LOCAL` in
+`/opt/art-lessons/.env`), 60 days off-site — the off-site half enforced by a
+lifecycle rule on the bucket, not by this script.
+
+That split is the security model, not an accident. The key on the VPS can
+upload and list; it cannot read or delete. So a compromised server cannot
+wipe the backups before encrypting the database — the standard opening move
+against exactly this setup — and cannot download the dumps either, which hold
+e-mail addresses and password hashes. Expiring old copies is therefore B2's
+job, since nothing on the VPS is allowed to delete anything.
+
+Object Lock adds the second layer: uploaded objects are immutable for 30 days
+in Governance mode, so even a stolen *master* key cannot destroy the last
+month of backups. 30 rather than 60 on purpose — the lock must expire before
+the lifecycle rule tries to delete, or objects pile up forever.
 
 `.github/workflows/backup-check.yml` asks the VPS once a day (07:00 UTC)
 whether a fresh dump exists in both places, and fails — i.e. e-mails — when it
@@ -149,7 +162,7 @@ rclone config   # interactive; see below
 
 # Backup settings live alongside the stack's existing secrets
 sudo -u deploy tee -a /opt/art-lessons/.env >/dev/null <<'EOF'
-BACKUP_REMOTE=b2:grafetto-backups
+BACKUP_REMOTE=b2:Grafetto
 EOF
 
 sudo cp /opt/art-lessons/deploy/backup.cron /etc/cron.d/art-lessons-backup
@@ -163,9 +176,30 @@ bash /opt/art-lessons/deploy/backup-status.sh
 `rclone config` answers for Backblaze B2 (10 GB free, no card required, and
 S3-compatible so nothing here is B2-specific): `n` for a new remote, name it
 `b2`, storage type `b2`, then the **application key** `keyID` and
-`applicationKey` from the B2 console — create it scoped to a single bucket, not
-the master key. Create the bucket private, and turn on B2's own lifecycle rules
-only if you want a second layer of expiry beyond `KEEP_REMOTE_DAYS`.
+`applicationKey` from the B2 console. Never the master key.
+
+Bucket and key settings this assumes, all chosen at creation time and most of
+them not changeable afterwards:
+
+- **Bucket**: private, region EU Central (region is fixed per account and
+  cannot be migrated later), **Object Lock enabled** — it can only be turned on
+  when the bucket is created. Governance mode, 30-day default retention.
+- **Lifecycle rule**: delete files older than 60 days. This is what expires old
+  backups; the script deliberately has no way to delete anything.
+- **Application key**: scoped to this one bucket, capabilities `listFiles` +
+  `writeFiles` only. The console's "Write Only" preset is the closest it
+  offers; `b2 key create --bucket <bucket> vps-backup-write listFiles,writeFiles`
+  sets exactly these if the preset turns out to include more.
+
+Restores need a key that can read, which the VPS deliberately does not have —
+use the console or a separate short-lived key from a trusted machine.
+
+The rclone config lands in `~deploy/.config/rclone/rclone.conf` and holds
+credentials in the clear — it is as sensitive as `/opt/art-lessons/.env`, and
+backed up nowhere on purpose. Losing it costs a new application key; leaking it
+costs an attacker the ability to *add* backups, and nothing else. Cloudflare
+R2, Hetzner Storage Box, or any S3 endpoint work identically — only
+`BACKUP_REMOTE` changes.
 
 The rclone config lands in `~deploy/.config/rclone/rclone.conf` and holds
 credentials in the clear — it is as sensitive as `/opt/art-lessons/.env`, and
@@ -176,7 +210,7 @@ endpoint work identically — only `BACKUP_REMOTE` changes.
 ### Restoring
 
 `.dump` files are custom-format, so `pg_restore` — not `psql`. Off-site copy
-first if the box itself is gone: `rclone copy b2:grafetto-backups/<file> .`
+first if the box itself is gone: `rclone copy b2:Grafetto/<file> .`
 
 ```sh
 cd /opt/art-lessons
