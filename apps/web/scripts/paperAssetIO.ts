@@ -1,0 +1,97 @@
+// Shared output half of the paper bake: turning a finished height/catch pair
+// into the two files a client actually fetches. Extracted from
+// bakePaperTextures.ts so the scanned-source experiment
+// (bakeScannedPaper.ts) writes byte-identical assets rather than
+// hand-duplicating the format — the interleaving, the gzip and the
+// deliberately-unrecognised extension are all load-bearing (see below), and
+// two copies of that would drift.
+import { gzipSync } from 'node:zlib'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from '../src/engine/src/paperNoise.js'
+
+// The picker has to show paper the way the canvas does, which means sampling
+// it at the same texel-per-pixel ratio the canvas uses — not the whole tile
+// squeezed into a thumbnail. At 100% zoom one tile spans PAPER_WORLD_SIZE
+// (157) screen pixels while holding PAPER_BAKE_RESOLUTION (2048) texels, so
+// one screen pixel covers ~13 texels. Shrinking the tile to fit a thumbnail
+// instead would show a frequency the user never actually sees, and every
+// coarseness would look nearly the same in the picker.
+const PREVIEW_RESOLUTION = 256
+
+// ...but sampled at true canvas frequency the nine grain types were
+// indistinguishable in a 100px card — tried it, every one of them read as
+// flat beige. At ~13 texels per preview pixel the box filter averages the
+// grain away, which is exactly what the eye sees on a full canvas and
+// exactly what makes a picker useless. Magnifying 4x is the honest
+// compromise every drawing app makes: the *pattern* becomes legible while
+// the *contrast* stays truthful, because the tint formula is unchanged.
+// 8 is close to the practical ceiling: at this magnification one preview
+// pixel covers ~1.6 texels, so pushing further stops revealing detail and
+// starts interpolating texels that aren't there. 4 was legible but still
+// too polite to choose by.
+const PREVIEW_MAGNIFICATION = 8
+const TEXELS_PER_PREVIEW_PIXEL = PAPER_BAKE_RESOLUTION / PAPER_WORLD_SIZE / PREVIEW_MAGNIFICATION
+
+/** Box-averages the full-resolution height grid down to preview size. The
+ *  averaging is what makes it an honest miniature rather than an aliased
+ *  point-sample: at ~13 texels per preview pixel, picking a single texel
+ *  turns the grain into moiré that looks nothing like the real surface.
+ *  Wraps, since the tile is seamless and the preview spans more than one
+ *  repeat. */
+export function downsampleToPreview(height: Float64Array, res: number): Uint8Array {
+  const out = new Uint8Array(PREVIEW_RESOLUTION * PREVIEW_RESOLUTION)
+  const block = Math.max(1, Math.round(TEXELS_PER_PREVIEW_PIXEL))
+  for (let py = 0; py < PREVIEW_RESOLUTION; py++) {
+    for (let px = 0; px < PREVIEW_RESOLUTION; px++) {
+      const tx0 = Math.round(px * TEXELS_PER_PREVIEW_PIXEL)
+      const ty0 = Math.round(py * TEXELS_PER_PREVIEW_PIXEL)
+      let sum = 0
+      for (let dy = 0; dy < block; dy++) {
+        const ty = (ty0 + dy) % res
+        for (let dx = 0; dx < block; dx++) sum += height[ty * res + ((tx0 + dx) % res)]
+      }
+      out[py * PREVIEW_RESOLUTION + px] = Math.round((sum / (block * block)) * 255)
+    }
+  }
+  return out
+}
+
+const kib = (n: number) => `${Math.round(n / 1024)} KiB`
+
+/** Writes `<type>.paper` + `<type>.preview` for one paper.
+ *
+ *  `height` and `catch` are both 0..1 grids of `res * res`; `height` is the
+ *  already-display-curved value (the `.r` channel, blank-paper tint) and
+ *  `catchGrid` the already-amplified graphite response (`.a`, stroke) — see
+ *  paperNoise.ts's paperCatchValue on why the amplification happens here and
+ *  never on the GPU. */
+export function writePaperAsset(
+  outDir: string, type: string, height: Float64Array, catchGrid: Float64Array, res: number,
+): void {
+  // Interleaved LUMINANCE_ALPHA: [height0, catch0, height1, catch1, ...] —
+  // matches gl.texImage2D(..., gl.LUMINANCE_ALPHA, ...)'s expected layout
+  // (see paperLoader.ts's uploadPaperTexture) and what texture2D(...).r / .a
+  // read back in DISPLAY_FRAG/PAPER_BLEND_FRAG (height) and DAB_FRAG (catch).
+  const bytes = new Uint8Array(res * res * 2)
+  for (let i = 0; i < res * res; i++) {
+    bytes[i * 2] = Math.round(height[i] * 255)
+    bytes[i * 2 + 1] = Math.round(catchGrid[i] * 255)
+  }
+
+  // Extension is deliberately NOT `.gz` (or any other extension a static file
+  // server might special-case): some servers (Vite's own dev server included
+  // — confirmed by hand) auto-tag a `.gz` file with `Content-Encoding: gzip`,
+  // which makes the *browser itself* transparently decompress it before
+  // paperLoader.ts's fetch() ever sees the bytes, silently breaking its own
+  // explicit DecompressionStream('gzip') step. An unrecognized extension
+  // guarantees no server has a reason to reinterpret the payload.
+  const compressed = gzipSync(bytes, { level: 9 })
+  writeFileSync(join(outDir, `${type}.paper`), compressed)
+
+  const preview = gzipSync(downsampleToPreview(height, res), { level: 9 })
+  writeFileSync(join(outDir, `${type}.preview`), preview)
+
+  console.log(`${type}: ${kib(bytes.byteLength)} -> ${kib(compressed.byteLength)} texture, ${kib(preview.byteLength)} preview`)
+}

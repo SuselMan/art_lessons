@@ -99,12 +99,20 @@ if [ -n "${BACKUP_REMOTE:-}" ]; then
   rclone copy "$final" "$BACKUP_REMOTE" --contimeout 30s --timeout 5m --retries 3 \
     || fail "off-site upload failed — local dump kept, but it is not safe from disk loss"
   log "off-site copy done"
-  # Nothing prunes the remote from here on purpose. This key can upload and
-  # list, and that is all it can do — so whoever takes this VPS cannot delete
-  # the backups it made, which is the attack the off-site copy is otherwise
-  # wide open to (wipe the backups first, then the database). Expiry is a
-  # lifecycle rule on the bucket instead: same result, run by B2, out of reach
-  # of anything on this machine. See deploy/README.md → Backups.
+  # Nothing prunes the remote from here on purpose. Expiry belongs in a
+  # lifecycle rule on the bucket instead: run by B2, out of reach of anything
+  # on this machine. See deploy/README.md → Backups.
+  #
+  # The intent was also that the key *cannot* delete, so whoever takes this
+  # VPS cannot wipe the backups it made — the attack an off-site copy is
+  # otherwise wide open to (wipe the backups first, then the database).
+  # Reality as of 28.07 does not match: the key in use is Backblaze's "Read
+  # and Write", which includes deleteFiles, because the web UI offers no
+  # read+write-without-delete option — that needs `b2 key create` with an
+  # explicit capability list. Accepted for now, to be narrowed before release
+  # (Ilya, 28.07). The previous key had no listFiles/readFiles at all, which
+  # is why the daily check could never verify anything and a restore would
+  # have had nothing to download.
 else
   # Deliberately loud and non-zero: a backup that only exists on the machine
   # it is backing up is not a backup, and this should read as broken in cron
