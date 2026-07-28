@@ -146,40 +146,45 @@ whether a fresh dump exists in both places, and fails — i.e. e-mails — when 
 doesn't. The script it runs, `deploy/backup-status.sh`, is worth running by
 hand whenever you're already on the box.
 
-Both scripts live in the repo, so `deploy.sh`'s `git reset --hard origin/main`
-keeps them current on every deploy. The cron file does not — `/etc/cron.d` is
-outside the repo, so changing the schedule means copying it over again.
+### Setup — nothing to do on the VPS by hand
 
-### One-time setup on the VPS
+`deploy.sh` installs rclone, creates `/var/backups/art-lessons`, and refreshes
+`/etc/cron.d/art-lessons-backup` on every deploy, all idempotently. Credentials
+arrive the same way: the workflow writes `/opt/art-lessons/backup.env` (mode
+600) from GitHub Secrets, and rclone reads the remote's definition straight out
+of the environment, so there is no `rclone.conf` to create or keep in sync.
+
+That means a **migration to a new VPS needs no backup-specific steps at all** —
+finish the box's general setup above, push, and the first deploy leaves working
+backups behind. This was seven commands in the right order from a document,
+which is exactly the kind of thing that gets half-done right after a move.
+
+`backup.env` is separate from the stack's `.env` deliberately. `.env` holds
+`POSTGRES_PASSWORD`, which is baked into the Postgres volume when the database
+is first initialised — having CI rewrite that file on every deploy puts one
+wrong character between a routine push and a server that cannot open its own
+database. CI owns `backup.env`; `.env` stays hand-written and untouched.
+
+Required in repo settings (Settings → Secrets and variables → Actions):
+
+| | |
+|---|---|
+| secret `B2_KEY_ID` | application key's `keyID` |
+| secret `B2_APPLICATION_KEY` | application key's secret half |
+| variable `BACKUP_REMOTE` | `b2:Grafetto` — a variable, not a secret: the bucket name isn't sensitive, and renaming or moving it shouldn't need a commit |
+
+Without them the deploy still succeeds and says so in its summary; backups then
+fail loudly on their next run rather than pretending to work.
+
+To verify after the first deploy, or any time:
 
 ```sh
 ssh deploy@80.209.232.109
-sudo mkdir -p /var/backups/art-lessons
-sudo chown deploy:deploy /var/backups/art-lessons
-
-sudo apt-get install -y rclone
-rclone config   # interactive; see below
-
-# Backup settings live alongside the stack's existing secrets
-sudo -u deploy tee -a /opt/art-lessons/.env >/dev/null <<'EOF'
-BACKUP_REMOTE=b2:Grafetto
-EOF
-
-sudo cp /opt/art-lessons/deploy/backup.cron /etc/cron.d/art-lessons-backup
-sudo chmod 644 /etc/cron.d/art-lessons-backup
-
-# Prove it works now, rather than finding out at 03:20
-bash /opt/art-lessons/deploy/backup.sh
+bash /opt/art-lessons/deploy/backup.sh        # ~a minute, writes a real dump
 bash /opt/art-lessons/deploy/backup-status.sh
 ```
 
-`rclone config` answers for Backblaze B2 (10 GB free, no card required, and
-S3-compatible so nothing here is B2-specific): `n` for a new remote, name it
-`b2`, storage type `b2`, then the **application key** `keyID` and
-`applicationKey` from the B2 console. Never the master key.
-
-Bucket and key settings this assumes, all chosen at creation time and most of
-them not changeable afterwards:
+Bucket and key settings this assumes, most of them fixed at creation time:
 
 - **Bucket**: private, region EU Central (region is fixed per account and
   cannot be migrated later), **Object Lock enabled** — it can only be turned on
@@ -194,18 +199,13 @@ them not changeable afterwards:
 Restores need a key that can read, which the VPS deliberately does not have —
 use the console or a separate short-lived key from a trusted machine.
 
-The rclone config lands in `~deploy/.config/rclone/rclone.conf` and holds
-credentials in the clear — it is as sensitive as `/opt/art-lessons/.env`, and
-backed up nowhere on purpose. Losing it costs a new application key; leaking it
-costs an attacker the ability to *add* backups, and nothing else. Cloudflare
-R2, Hetzner Storage Box, or any S3 endpoint work identically — only
-`BACKUP_REMOTE` changes.
+Losing the application key costs a new application key — GitHub Secrets can't
+be read back, but they can be replaced. Leaking it costs an attacker the
+ability to *add* files to the bucket, and nothing else: no reading the dumps,
+no deleting them.
 
-The rclone config lands in `~deploy/.config/rclone/rclone.conf` and holds
-credentials in the clear — it is as sensitive as `/opt/art-lessons/.env`, and
-backed up nowhere on purpose. Losing it costs a new application key; leaking it
-costs the backups themselves. Cloudflare R2, Hetzner Storage Box, or any S3
-endpoint work identically — only `BACKUP_REMOTE` changes.
+Cloudflare R2, Hetzner Storage Box, or any S3 endpoint work identically — only
+`BACKUP_REMOTE` and the two secrets change.
 
 ### Restoring
 

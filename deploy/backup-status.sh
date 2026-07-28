@@ -20,12 +20,14 @@ DB_NAME=${DB_NAME:-art_lessons}
 # older than this means a run was skipped or died.
 MAX_AGE_HOURS=${MAX_AGE_HOURS:-26}
 
-if [ -f "$APP_DIR/.env" ]; then
+# Same pair backup.sh reads — see the comment there for why they are separate.
+for env_file in "$APP_DIR/.env" "$APP_DIR/backup.env"; do
+  [ -f "$env_file" ] || continue
   set -a
   # shellcheck disable=SC1091
-  . "$APP_DIR/.env"
+  . "$env_file"
   set +a
-fi
+done
 
 status=0
 problem() { echo "PROBLEM: $*"; status=1; }

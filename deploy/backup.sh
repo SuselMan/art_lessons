@@ -24,16 +24,19 @@ DB_USER=${DB_USER:-art_lessons}
 
 cd "$APP_DIR"
 
-# Same .env the stack already reads (POSTGRES_PASSWORD, JWT_SECRET), plus the
-# backup settings documented in deploy/README.md — BACKUP_REMOTE above all.
-# `docker compose` picks this file up on its own for interpolation; this makes
-# the same values visible to the script itself.
-if [ -f "$APP_DIR/.env" ]; then
+# Two files, on purpose. `.env` is the stack's own (POSTGRES_PASSWORD,
+# JWT_SECRET) — hand-written once, never touched by CI, because the Postgres
+# password in it is baked into the database volume. `backup.env` is written by
+# the deploy workflow from GitHub Secrets on every deploy and holds only what
+# backups need: BACKUP_REMOTE and the rclone remote's definition, which rclone
+# reads straight from the environment instead of a config file.
+for env_file in "$APP_DIR/.env" "$APP_DIR/backup.env"; do
+  [ -f "$env_file" ] || continue
   set -a
   # shellcheck disable=SC1091
-  . "$APP_DIR/.env"
+  . "$env_file"
   set +a
-fi
+done
 
 # docker-compose.prod.yml declares `image: ${SERVER_IMAGE:?...}`, so *every*
 # compose subcommand refuses to run without it — including one that only

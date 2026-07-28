@@ -1,11 +1,6 @@
-# (#315) Nightly Postgres backup — install once with:
-#   sudo cp /opt/art-lessons/deploy/backup.cron /etc/cron.d/art-lessons-backup
-#   sudo chmod 644 /etc/cron.d/art-lessons-backup
-# (cron.d ignores files that are group/world-writable, so the mode matters.)
-#
-# Unlike everything else under deploy/, this file is NOT picked up by
-# deploy.sh's git reset — /etc/cron.d is outside the repo. Editing the schedule
-# means copying it again.
+# (#315) Nightly Postgres backup. Installed into /etc/cron.d by deploy.sh on
+# every deploy, so editing the schedule here and pushing is enough — no copying
+# by hand, and no drift between what the repo says and what the box does.
 #
 # 03:20 UTC: after any realistic lesson has ended, and well before the 07:00
 # UTC backup check (.github/workflows/backup-check.yml) asks whether it worked.

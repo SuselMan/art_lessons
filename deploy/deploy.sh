@@ -46,6 +46,29 @@ sudo cp deploy/nginx.conf /etc/nginx/sites-available/art-lessons
 sudo nginx -t
 sudo systemctl reload nginx
 
+# (#315) Everything the nightly backup needs, applied on every deploy rather
+# than once by hand on a runbook. Deliberately *after* the app is back up:
+# none of it is on the critical path for serving a lesson, and a broken
+# apt mirror should not hold the deploy open.
+#
+# The point is migration. A rented box plus this script should end up with
+# working backups; the previous version of this needed seven commands typed
+# in the right order, remembered from a document, at the exact moment you are
+# least inclined to read one — right after moving servers.
+echo "==> Ensuring backup tooling is present"
+if ! command -v rclone > /dev/null; then
+  echo "    installing rclone"
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq rclone
+fi
+# Owned by whoever runs the deploy (the same user cron runs the backup as),
+# rather than a hardcoded `deploy`.
+sudo install -d -o "$(id -un)" -g "$(id -gn)" -m 755 /var/backups/art-lessons
+# `install` sets mode and ownership in one atomic step — cron silently ignores
+# files in /etc/cron.d that are group- or world-writable, which is a
+# spectacularly quiet way to have no backups at all.
+sudo install -m 644 -o root -g root deploy/backup.cron /etc/cron.d/art-lessons-backup
+
 echo "==> Pruning unused Docker images (keeps disk from growing every deploy)"
 docker image prune -f
 

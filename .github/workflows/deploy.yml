@@ -136,6 +136,41 @@ jobs:
           rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -o BatchMode=yes" \
             web-dist/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:~/web-dist-incoming/"
 
+      # (#315) Backup credentials live here rather than in a file typed onto the
+      # VPS by hand, so a rebuilt or migrated box gets working backups from the
+      # first deploy instead of from remembering to redo a runbook.
+      #
+      # Written to backup.env, NOT appended to the stack's own .env: that file
+      # holds POSTGRES_PASSWORD, which is baked into the Postgres volume at
+      # initdb time. Rewriting it from CI on every deploy puts one character
+      # between a normal push and a server that can no longer open its own
+      # database.
+      #
+      # Piped over stdin instead of passed as arguments — an ssh command line
+      # is visible in the VPS's process list while it runs; stdin is not.
+      # `umask 077` means the file is 600 from the moment it exists, rather
+      # than briefly world-readable before a chmod.
+      - name: Install backup credentials on the VPS
+        env:
+          B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+          B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+          BACKUP_REMOTE: ${{ vars.BACKUP_REMOTE }}
+        run: |
+          set -euo pipefail
+          if [ -z "${B2_KEY_ID:-}" ] || [ -z "${B2_APPLICATION_KEY:-}" ]; then
+            echo "B2 credentials not configured — skipping. Backups will fail loudly until they are."
+            echo "Set B2_KEY_ID / B2_APPLICATION_KEY (secrets) and BACKUP_REMOTE (variable)." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # rclone reads any remote's definition straight from the environment,
+          # so there is no rclone.conf to generate or keep in sync: these four
+          # lines *are* the `b2:` remote.
+          printf 'RCLONE_CONFIG_B2_TYPE=b2\nRCLONE_CONFIG_B2_ACCOUNT=%s\nRCLONE_CONFIG_B2_KEY=%s\nBACKUP_REMOTE=%s\n' \
+            "$B2_KEY_ID" "$B2_APPLICATION_KEY" "${BACKUP_REMOTE:-b2:Grafetto}" \
+          | ssh -i ~/.ssh/deploy_key -o BatchMode=yes \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              'umask 077 && cat > /opt/art-lessons/backup.env'
+
       - name: Deploy over SSH
         run: |
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
