@@ -213,6 +213,20 @@ Bucket and key settings this assumes, most of them fixed at creation time:
   expires old backups; the script deliberately has no way to delete anything.
   Set 28.07, when it turned out no rule existed at all and copies had been
   accumulating with nothing to expire them.
+
+  30 rather than the 60 this document first specified (Ilya, 28.07): a month of
+  daily dumps covers what off-site storage is actually for — the box or its disk
+  is gone — and a fault that stays unnoticed past a month is not one a longer
+  tail would have saved either, since every dump after it is equally poisoned.
+  It also has to clear the 30-day Object Lock, so anything shorter would leave
+  objects the rule cannot delete.
+
+  30 rather than the 60 this document first specified (Ilya, 28.07): a month of
+  daily dumps covers what off-site storage is actually for — the box or its disk
+  is gone — and a fault that stays unnoticed past a month is not one a longer
+  tail would have saved either, since every dump after it is equally poisoned.
+  It also has to clear the 30-day Object Lock, so anything shorter would leave
+  objects that the rule cannot delete.
 - **Application key**: scoped to this one bucket. Intended capabilities are
   `listBuckets,listFiles,readFiles,writeFiles`, via
   `b2 key create --bucket <bucket> grafetto-backup listBuckets,listFiles,readFiles,writeFiles`
