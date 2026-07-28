@@ -19,6 +19,7 @@ function describeError(err: unknown, mode: Mode, t: TFunction): string {
       case 'weak_password': return t('auth.error.weakPassword')
       case 'email_taken': return t('auth.error.emailTaken')
       case 'invalid_credentials': return t('auth.error.invalidCredentials')
+      case 'rate_limited': return t('auth.error.rateLimited')
     }
   }
   return t(mode === 'register' ? 'auth.error.registerFailed' : 'auth.error.loginFailed')

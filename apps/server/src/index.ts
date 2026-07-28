@@ -7,13 +7,23 @@ import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/share
 import { registerRoomHandlers, type SocketData } from './socketHandlers.js'
 import { identityHook } from './identity.js'
 import { registerHealthRoutes } from './healthRoutes.js'
+import { registerRateLimit } from './rateLimit.js'
 import { registerAuthRoutes } from './authRoutes.js'
 import { registerRoomRoutes } from './roomRoutes.js'
 import { registerRoomFolderRoutes } from './roomFolderRoutes.js'
 import { registerSnapshotRoutes } from './snapshotRoutes.js'
 import { registerThumbnailRoutes } from './thumbnailRoutes.js'
 
-const app = Fastify({ logger: true })
+// `trustProxy: 1` — trust exactly one hop, the host's nginx, which is the
+// sole public entry point (docker-compose.prod.yml binds this process to
+// 127.0.0.1). Without it `request.ip` is the docker bridge gateway for every
+// visitor alike, which would quietly turn the per-IP auth limits (#237) into
+// one shared global counter — the failure mode being that the first person to
+// mistype a password locks out everyone else. One hop rather than `true`
+// because nginx *appends* to X-Forwarded-For: a client that sends its own
+// forged header gets it pushed leftwards, and only the rightmost entry — the
+// address nginx actually saw — is trustworthy.
+const app = Fastify({ logger: true, trustProxy: 1 })
 
 // `origin: true` (reflect the request's own Origin) + `credentials: true` is
 // required for the identity cookie (#41) to ride along cross-origin — LAN dev
@@ -33,6 +43,10 @@ await app.register(cors, {
   methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
 })
 await app.register(cookie)
+// Registers the limiter itself; which routes it covers is declared per route
+// (rateLimit.ts). Must come before registerAuthRoutes — that's where the
+// failed-login counter is built off `app.createRateLimit`.
+await registerRateLimit(app)
 
 // Resolves req.userId (identity.ts) for every HTTP route — /api/auth/*,
 // /api/rooms/*, /api/me etc. all get it for free. Registration order is not

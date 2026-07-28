@@ -61,6 +61,7 @@ export const en = {
   'auth.error.weakPassword': 'Password must be at least 8 characters',
   'auth.error.emailTaken': 'An account with this email already exists',
   'auth.error.invalidCredentials': 'Incorrect email or password',
+  'auth.error.rateLimited': 'Too many attempts — wait a few minutes and try again',
   'auth.error.registerFailed': 'Registration failed — try again',
   'auth.error.loginFailed': 'Log in failed — try again',
 

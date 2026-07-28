@@ -3,6 +3,12 @@ import type { FastifyInstance } from 'fastify'
 
 import { prisma } from './prisma.js'
 import { IDENTITY_COOKIE, identityCookieOptions, signIdentityToken } from './identity.js'
+import {
+  createFailedLoginLimiter,
+  LOGIN_IP_LIMIT,
+  LOGOUT_IP_LIMIT,
+  REGISTER_IP_LIMIT,
+} from './rateLimit.js'
 
 const BCRYPT_ROUNDS = 10
 
@@ -20,6 +26,10 @@ function isValidEmail(email: string): boolean {
  *  resolves to (see identityHook), so a room you created anonymously in this
  *  browser is still yours the moment you register in it. */
 export function registerAuthRoutes(app: FastifyInstance): void {
+  const failedLogins = createFailedLoginLimiter(app)
+
+  // Unthrottled on purpose: a plain read, and every page load makes exactly
+  // one of them (main.tsx) — a limit here would fire on people, not attackers.
   app.get('/api/me', async (request) => {
     const user = await prisma.user.findUnique({
       where: { id: request.userId },
@@ -28,7 +38,9 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     return { userId: request.userId, email: user?.email ?? null, name: user?.name ?? null }
   })
 
-  app.post<{ Body: { email: string; password: string; name?: string } }>('/api/auth/register', async (request, reply) => {
+  app.post<{ Body: { email: string; password: string; name?: string } }>('/api/auth/register', {
+    config: { rateLimit: REGISTER_IP_LIMIT },
+  }, async (request, reply) => {
     const { email, password, name } = request.body ?? {}
     if (!email || !isValidEmail(email)) return reply.code(400).send({ error: 'invalid_email' })
     if (!password || password.length < 8) return reply.code(400).send({ error: 'weak_password' })
@@ -50,12 +62,22 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     return { userId: user.id, email: user.email, name: user.name }
   })
 
-  app.post<{ Body: { email: string; password: string } }>('/api/auth/login', async (request, reply) => {
+  app.post<{ Body: { email: string; password: string } }>('/api/auth/login', {
+    config: { rateLimit: LOGIN_IP_LIMIT },
+  }, async (request, reply) => {
     const { email, password } = request.body ?? {}
     if (!email || !password) return reply.code(400).send({ error: 'invalid_credentials' })
 
+    // Checked before the hash comparison, so an exhausted account also stops
+    // costing bcrypt time; spent only on a genuine failure, so a correct
+    // password is never refused for attempts that weren't the owner's (#237).
+    if (await failedLogins.isExhausted(request)) {
+      return reply.code(429).send({ error: 'rate_limited' })
+    }
+
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user?.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      await failedLogins.countFailure(request)
       return reply.code(401).send({ error: 'invalid_credentials' })
     }
 
@@ -68,7 +90,9 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     return { userId: user.id, email: user.email, name: user.name }
   })
 
-  app.post('/api/auth/logout', async (request, reply) => {
+  app.post('/api/auth/logout', {
+    config: { rateLimit: LOGOUT_IP_LIMIT },
+  }, async (request, reply) => {
     // Logging out drops back to a *fresh* anonymous guest identity rather
     // than clearing the cookie outright — every future request still needs
     // some User row to attribute new rooms/operations to (see identityHook).

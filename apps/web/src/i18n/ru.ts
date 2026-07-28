@@ -48,6 +48,7 @@ export const ru: Dictionary = {
   'auth.error.weakPassword': 'Пароль должен быть не короче 8 символов',
   'auth.error.emailTaken': 'Аккаунт с таким email уже существует',
   'auth.error.invalidCredentials': 'Неверный email или пароль',
+  'auth.error.rateLimited': 'Слишком много попыток — подождите несколько минут',
   'auth.error.registerFailed': 'Не удалось зарегистрироваться — попробуйте ещё раз',
   'auth.error.loginFailed': 'Не удалось войти — попробуйте ещё раз',
 
