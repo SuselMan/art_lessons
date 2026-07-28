@@ -8,6 +8,10 @@ dist/
 .env
 .env.local
 .env.*.local
+# Written by the deploy workflow into /opt/art-lessons — which is itself a git
+# checkout, so an untracked file holding the B2 key sits one `git add -A` away
+# from the repo (#315)
+backup.env
 
 # IDE
 /.idea/
