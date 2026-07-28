@@ -337,6 +337,21 @@ export const LayerPanel = memo(function LayerPanel({
 
   const handleMenuDelete = useCallback((id: string) => { void handleDelete([id]) }, [handleDelete])
 
+  // (#329) Clearing a layer used to be a "Clear canvas" button in the room
+  // header, which was never what it did: it emits `layer_clear` for one layer
+  // — the active one, whichever that happened to be. As a row action it says
+  // what it means and names its target. Same confirm-only-if-there's-something
+  // -to-lose gate as handleDelete above (#263).
+  const handleClear = useCallback(async (id: string) => {
+    if (hasLayerContent(id) && !await confirm({
+      title: t('layers.clearLayer'),
+      message: t('layers.confirmClear', { name: items[id]?.name ?? '' }),
+      confirmLabel: t('layers.clearLayer'),
+      danger: true,
+    })) return
+    onOp({ type: 'layer_clear', layerId: id })
+  }, [items, onOp, hasLayerContent, confirm, t])
+
   // ── DnD ──────────────────────────────────────────────────────────────────────
 
   // pointerWithin does literal hit-testing (pointer inside rect), so it reliably
@@ -601,6 +616,7 @@ export const LayerPanel = memo(function LayerPanel({
                   onStopEditing={handleStopEditing}
                   onToggleCollapse={handleToggleCollapse}
                   onMergeDown={handleMergeDown}
+                  onClear={handleClear}
                   onDelete={handleMenuDelete}
                   onPointerDown={handlePointerDown}
                   onPointerUp={handlePointerUp}

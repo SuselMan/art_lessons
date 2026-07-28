@@ -134,9 +134,9 @@
   gap: 4px;
 }
 
-/* Separates the header's clusters (viewport controls / undo-redo-export /
-   the deliberately-set-apart Clear canvas, #198) — vertical bar, mirrors
-   .toolDivider's role in the left toolbar but for a horizontal row. */
+/* Separates the header's clusters (#329: rotation / zoom + fit / undo + redo /
+   fullscreen / the ≡ menu) — vertical bar, mirrors .toolDivider's role in the
+   left toolbar but for a horizontal row. */
 .headerDivider {
   width: 1px;
   height: 22px;
@@ -168,6 +168,10 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-dim);
   border: 1px solid transparent;
+  cursor: pointer;
+  /* (#329) This readout is a rotation control now — the browser must not
+     claim the vertical drag as a page scroll/pan first, same as .zoomLabel. */
+  touch-action: none;
   transition: color var(--duration-fast), background var(--duration-fast), border-color var(--duration-fast);
 }
 .angleLabel :global(.material-symbols-outlined) { font-size: 14px; }
@@ -178,23 +182,6 @@
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 .angleLabelActive:hover { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
-
-.headerBtn {
-  height: 30px;
-  padding: 0 10px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  font-weight: 500;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  transition: background var(--duration-fast);
-}
-.headerBtn:hover { background: #2a2a34; }
-.headerBtn :global(.material-symbols-outlined) { font-size: 16px; }
 
 /* ── Body ── */
 /* Just a positioning root for the canvas + its floating overlays below —

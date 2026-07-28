@@ -36,6 +36,7 @@ export interface LayerRowProps {
   // (#328) The row's "⋮" is the shared `Menu` now, so the panel hands down the
   // actions themselves instead of an open-at-this-anchor callback.
   onMergeDown?: (id: string) => void
+  onClear?: (id: string) => void
   onDelete?: (id: string) => void
   onPointerDown?: (id: string) => void
   onPointerUp?: () => void
@@ -45,7 +46,7 @@ function LayerRowImpl({
   item, depth, isActive, isSelected, isDragOverFolder, isOwner,
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
-  onToggleCollapse, onMergeDown, onDelete,
+  onToggleCollapse, onMergeDown, onClear, onDelete,
   onPointerDown, onPointerUp,
 }: LayerRowProps) {
   const t = useT()
@@ -191,9 +192,13 @@ function LayerRowImpl({
           triggerLabel={t('layers.more')}
           trigger={<Icon name="more_vert" />}
           actions={[
-            { label: t('common.rename'),    onClick: () => onStartEditing?.(item.id) },
-            { label: t('layers.mergeDown'), onClick: () => onMergeDown?.(item.id), disabled: isFolderItem },
-            { label: t('common.delete'),    onClick: () => onDelete?.(item.id) },
+            { label: t('common.rename'),     icon: 'edit',            onClick: () => onStartEditing?.(item.id) },
+            { label: t('layers.mergeDown'),  icon: 'vertical_align_bottom', onClick: () => onMergeDown?.(item.id), disabled: isFolderItem },
+            // (#329) A folder holds no pixels of its own — clearing one would
+            // have to mean clearing its children, which is a different action
+            // nobody asked for.
+            { label: t('layers.clearLayer'), icon: 'delete_forever',  onClick: () => onClear?.(item.id), disabled: isFolderItem },
+            { label: t('common.delete'),     icon: 'delete',          onClick: () => onDelete?.(item.id), danger: true },
           ]}
         />
       )}

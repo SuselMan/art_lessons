@@ -29,6 +29,7 @@
 .dangerItem {
   display: flex;
   align-items: center;
+  gap: 10px;
   min-height: var(--touch-target-sm);
   padding: 0 12px;
   font-size: 13px;
@@ -48,6 +49,14 @@
 .item:disabled {
   color: var(--color-text-dim);
   cursor: default;
+}
+
+/* Sized down from the global 20px so the glyph reads as a label's companion
+   rather than as the item's main event. */
+.item :global(.material-symbols-outlined),
+.dangerItem :global(.material-symbols-outlined) {
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
 .dangerItem {

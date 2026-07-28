@@ -324,7 +324,10 @@ export function useViewport(
     useRoomStore.getState().setViewport(next)
   }, [])
 
-  const angleDeg        = Math.round(vp.angle * 180 / Math.PI)
+  // Normalized into 0–359 (#329): the readout is a control now — dragged and
+  // clicked — so it has to stay readable whatever `vp.angle` accumulated to,
+  // rather than growing into "-412°" after a few two-finger rotations.
+  const angleDeg        = ((Math.round(vp.angle * 180 / Math.PI) % 360) + 360) % 360
   const canvasTransform = transformFor(vp, canvas)
 
   return { vp, setVp: setVpTracked, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, angleDeg, canvasTransform }

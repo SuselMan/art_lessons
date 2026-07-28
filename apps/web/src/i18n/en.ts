@@ -185,9 +185,7 @@ export const en = {
   'room.unfreeze': 'Unfreeze room — let everyone draw again',
   'room.unfreezeShort': 'Unfreeze room',
   'room.zoom': 'Zoom — drag up/down to adjust, click to reset to 100%',
-  'room.rotation': 'Rotation — click to rotate 90°  ({hotkey} to reset)',
-  'room.rotateCCW': 'Rotate −15°  ({hotkey})',
-  'room.rotateCW': 'Rotate +15°  ({hotkey})',
+  'room.rotation': 'Rotation — drag up/down to turn the canvas, click for a quarter turn  ({hotkey} to reset)',
   'room.fitCanvas': 'Fit canvas',
   'room.undo': 'Undo',
   'room.undoTitle': 'Undo  {hotkey}',
@@ -195,12 +193,11 @@ export const en = {
   'room.redoTitle': 'Redo  {hotkey}',
   'room.export': 'Export',
   'room.exportTitle': 'Export PNG',
-  'room.exportTransparent': 'Transparent',
-  'room.exportTransparentTitle': 'Export PNG with transparent background',
   'room.saveSession': 'Save',
   'room.saveSessionTitle': 'Save session as JSON',
-  'room.clearCanvas': 'Clear canvas',
-  'room.confirmClear': 'Clear the active layer? This can be undone with {hotkey}.',
+  // (#329) The header's "≡" — export/save/settings, everything reached for
+  // between strokes rather than during one.
+  'room.menu': 'Menu',
   'room.confirmUndo': 'Undo will remove a layer that has content from other participants. Continue?',
   'room.confirmRedo': 'Redo will remove a layer that has content from other participants. Continue?',
   'room.offlineSharedAction': 'No connection to the room — this action affects shared layers and becomes available again once you reconnect.',
@@ -346,6 +343,10 @@ export const en = {
   'layers.mergeDown': 'Merge down',
   'layers.deleteSelected': 'Delete selected',
   'layers.deleteLayer': 'Delete layer',
+  // (#329) Was "Clear canvas" in the room header, which is not what it ever
+  // did — it clears one layer, and now says which.
+  'layers.clearLayer': 'Clear layer',
+  'layers.confirmClear': 'Erase everything painted on "{name}"? Other participants\' work on this layer goes too. This can be undone.',
   'layers.touchHint': 'Tip: press and hold a layer to select multiple',
   'layers.dismissHint': 'Dismiss',
   'layers.confirmDelete': 'Delete the selected layer(s)? Any painted content on them — including content from other participants — will be lost.',

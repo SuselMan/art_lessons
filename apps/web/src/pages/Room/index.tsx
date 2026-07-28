@@ -16,6 +16,7 @@ import { ColorPicker } from '../../components/ColorPicker'
 import { PaletteBar } from '../../components/PaletteBar'
 import { Icon } from '../../components/Icon'
 import { Logo } from '../../components/Logo'
+import { Menu } from '../../components/Menu'
 import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
@@ -118,6 +119,12 @@ function toRoomConfig(
 // How long a stroke's "drawing" activity (local or peer) stays visible before
 // the #38 indicator clears it — see drawingIndicator.ts.
 const DRAWING_TIMEOUT_MS = 1500
+
+// (#329) Degrees of canvas rotation per pixel of vertical drag on the angle
+// readout. Deliberately fine: the gesture has to be able to land on a specific
+// angle (a horizon line, a construction axis), and a quarter turn is a click
+// away regardless — so precision matters more here than reach.
+const ROTATE_DEG_PER_PX = 0.5
 
 // (#312) How long lost-work recovery waits for the outbox to stop producing
 // `target_gone` rejections before it mints replacement layers, and the hard
@@ -807,6 +814,18 @@ export function Room() {
     vp.zoom,
     z => setVp(v => ({ ...v, zoom: clamp(z, 0.04, 20) })),
     { min: 0.04, max: 20, sensitivity: 0.01 },
+  )
+
+  // (#329) Rotation by the same drag gesture, on the angle readout — this
+  // replaced the two rotate-by-15° buttons, which could only ever step. Worked
+  // in degrees rather than radians so the sensitivity is a number that means
+  // something: at 0.5°/px a quarter turn is a ~180px drag, and single degrees
+  // are still individually reachable. Wrapping, not clamping: half a turn is
+  // not a wall anyone rotating a sheet of paper expects to hit.
+  const { onPointerDown: onAngleDragDown } = useDragToAdjust(
+    vp.angle * 180 / Math.PI,
+    deg => setVp(v => ({ ...v, angle: deg * Math.PI / 180 })),
+    { min: 0, max: 360, sensitivity: ROTATE_DEG_PER_PX, wrap: true },
   )
 
   // #99: layered independently on top of useViewport's own touch pan/pinch
@@ -2677,15 +2696,11 @@ export function Room() {
     URL.revokeObjectURL(url)
   }, [config])
 
-  // #15: same as handleExport, but with no paper texture/color baked in —
-  // just the graphite/ink content, transparent where nothing is drawn.
-  const handleExportTransparent = useCallback(async () => {
-    const blob = await engineRef.current?.exportPNG(true); if (!blob) return
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = `${config?.name ?? 'drawing'}-transparent.png`; a.click()
-    URL.revokeObjectURL(url)
-  }, [config])
+  // (#329) The transparent-PNG variant (#15) is gone along with its header
+  // button: a second export button for a rarely-wanted variant, sitting
+  // permanently in the panel #320 is trying to empty. `exportPNG` still takes
+  // the flag, so it can come back as an option inside a real export dialog if
+  // it's ever actually missed.
 
   // #15: serializes the operation log as-is (same shape appendOperation/
   // getOperations already deal in) so the exact same JSON could later be
@@ -2759,24 +2774,42 @@ export function Room() {
         </button>
         <span className={styles.roomName}>{config.name}</span>
 
+        {/* (#329) Four sections, divider-separated, in the order they're
+            reached for: rotation | zoom + fit | undo/redo | fullscreen | ≡.
+            Everything that isn't a per-second viewport or history action moved
+            out — export/save/settings into the ≡ menu, Clear into the layer's
+            own "⋮" (it always cleared *a layer*, never the canvas), the
+            participants list and room freeze into the side panel (#328), and
+            the transparent-PNG export and the two rotate-by-15° buttons are
+            gone: the first was a second export button for a rarely-wanted
+            variant, the second is what dragging the rotation readout does now.
+            The rule this panel is held to from here on (#320): a control earns
+            a place here by being needed *while drawing*. */}
         <div className={styles.headerRight}>
-          <button className={styles.headerIconBtn} onClick={() => setSettingsOpen(true)} title={t('room.settings')} aria-label={t('room.settings')}>
-            <Icon name="settings" />
+          {/* Rotation: drag up/down to turn the canvas by fine degrees, click
+              to snap to the next quarter turn. (#106) If the angle is already
+              exactly one of 0/90/180/270, a click advances to the next one,
+              wrapping 270 back to 0; from any other angle (a free rotation
+              gesture, or a drag) it resets straight to 0 rather than rounding
+              up to the next multiple. */}
+          <button
+            className={clsx(styles.angleLabel, angleDeg !== 0 && styles.angleLabelActive)}
+            onPointerDown={onAngleDragDown}
+            onClick={() => setVp(v => {
+              const deg = Math.round(v.angle * 180 / Math.PI)
+              const normalizedDeg = ((deg % 360) + 360) % 360
+              const isAtCanonicalAngle = normalizedDeg % 90 === 0
+              const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
+              return { ...v, angle: nextDeg * Math.PI / 180 }
+            })}
+            title={t('room.rotation', { hotkey: formatHotkeyLabel(hotkeys.resetRotation) })}
+          >
+            <Icon name="screen_rotation_alt" />
+            {angleDeg}°
           </button>
-          {fullscreenSupported && (
-            <button
-              className={styles.headerIconBtn}
-              onClick={toggleFullscreen}
-              title={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
-              aria-label={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
-            >
-              <Icon name={isFullscreen ? 'fullscreen_exit' : 'fullscreen'} />
-            </button>
-          )}
-          {/* (#328) The room-wide freeze (#254/#256/#259) and the participants
-              list both moved into the side panel's participants tab — see
-              ParticipantsPanel. The header keeps only what acts on the
-              viewport (#320). */}
+
+          <div className={styles.headerDivider} />
+
           {/* Infinite rooms display (and reset to) zoom relative to the
               device-native 1-world-unit-per-physical-pixel scale, so "100%"
               means the drawing's actual 1:1 resolution on every screen —
@@ -2791,83 +2824,58 @@ export function Room() {
           >
             {Math.round(vp.zoom / (config?.infinite ? deviceNativeZoom() : 1) * 100)}%
           </button>
-          <button
-            className={clsx(styles.angleLabel, angleDeg !== 0 && styles.angleLabelActive)}
-            // (#106) If the current angle is already exactly one of the four canonical
-            // 0/90/180/270 positions (e.g. reached via a previous tap, or via free rotation
-            // landing exactly on one), tap advances to the next one, wrapping 270 back to 0.
-            // Otherwise (a free-rotation gesture left it at some other angle, e.g. 45°) tap
-            // resets straight to 0 rather than rounding up to the next multiple.
-            onClick={() => setVp(v => {
-              const deg = Math.round(v.angle * 180 / Math.PI)
-              const normalizedDeg = ((deg % 360) + 360) % 360
-              const isAtCanonicalAngle = normalizedDeg % 90 === 0
-              const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
-              return { ...v, angle: nextDeg * Math.PI / 180 }
-            })}
-            title={t('room.rotation', { hotkey: formatHotkeyLabel(hotkeys.resetRotation) })}
-          >
-            <Icon name="screen_rotation_alt" />
-            {angleDeg}°
-          </button>
-          {/* Rotate/Fit (#198): viewport actions, moved out of the tool
-              toolbar (they aren't tools) to sit next to the zoom/angle
-              controls they're already conceptually grouped with. */}
-          <button
-            className={styles.headerIconBtn}
-            title={t('room.rotateCCW', { hotkey: formatHotkeyLabel(hotkeys.rotateCCW) })}
-            aria-label={t('room.rotateCCW', { hotkey: formatHotkeyLabel(hotkeys.rotateCCW) })}
-            onClick={() => setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 }))}
-          >
-            <Icon name="rotate_left" />
-          </button>
-          <button
-            className={styles.headerIconBtn}
-            title={t('room.rotateCW', { hotkey: formatHotkeyLabel(hotkeys.rotateCW) })}
-            aria-label={t('room.rotateCW', { hotkey: formatHotkeyLabel(hotkeys.rotateCW) })}
-            onClick={() => setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 }))}
-          >
-            <Icon name="rotate_right" />
-          </button>
           <button className={styles.headerIconBtn} title={t('room.fitCanvas')} aria-label={t('room.fitCanvas')} onClick={fitCanvas}>
             <Icon name="fit_screen" />
           </button>
+
           <div className={styles.headerDivider} />
-          <button className={styles.headerBtn} onClick={handleUndo} title={t('room.undoTitle', { hotkey: formatHotkeyLabel(hotkeys.undo) })}>
-            <Icon name="undo" /><span>{t('room.undo')}</span>
+
+          <button
+            className={styles.headerIconBtn}
+            onClick={handleUndo}
+            title={t('room.undoTitle', { hotkey: formatHotkeyLabel(hotkeys.undo) })}
+            aria-label={t('room.undo')}
+          >
+            <Icon name="undo" />
           </button>
-          <button className={styles.headerBtn} onClick={handleRedo} title={t('room.redoTitle', { hotkey: formatHotkeyLabel(hotkeys.redo) })}>
-            <Icon name="redo" /><span>{t('room.redo')}</span>
+          <button
+            className={styles.headerIconBtn}
+            onClick={handleRedo}
+            title={t('room.redoTitle', { hotkey: formatHotkeyLabel(hotkeys.redo) })}
+            aria-label={t('room.redo')}
+          >
+            <Icon name="redo" />
           </button>
-          <button className={styles.headerBtn} onClick={handleExport} title={t('room.exportTitle')}>
-            <Icon name="download" /><span>{t('room.export')}</span>
-          </button>
-          <button className={styles.headerBtn} onClick={handleExportTransparent} title={t('room.exportTransparentTitle')}>
-            <Icon name="image" /><span>{t('room.exportTransparent')}</span>
-          </button>
-          <button className={styles.headerBtn} onClick={handleSaveSession} title={t('room.saveSessionTitle')}>
-            <Icon name="save" /><span>{t('room.saveSession')}</span>
-          </button>
+
+          {fullscreenSupported && (
+            <>
+              <div className={styles.headerDivider} />
+              <button
+                className={styles.headerIconBtn}
+                onClick={toggleFullscreen}
+                title={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
+                aria-label={t(isFullscreen ? 'room.exitFullscreen' : 'room.fullscreen')}
+              >
+                <Icon name={isFullscreen ? 'fullscreen_exit' : 'fullscreen'} />
+              </button>
+            </>
+          )}
+
           <div className={styles.headerDivider} />
-          {/* Clear canvas (#198): destructive content action, deliberately
-              set apart from the frequently-used buttons above (not a
-              viewport action like Rotate/Fit, and not something to reach
-              for by accident) — moved out of the tool toolbar, it was never
-              a tool either. Its confirm (#171) is the app's own dialog as of
-              #310, no longer window.confirm. */}
-          <button className={styles.headerIconBtn} title={t('room.clearCanvas')} aria-label={t('room.clearCanvas')}
-            onClick={async () => {
-              if (await confirm({
-                title: t('room.clearCanvas'),
-                message: t('room.confirmClear', { hotkey: formatHotkeyLabel(hotkeys.undo) }),
-                confirmLabel: t('room.clearCanvas'),
-                danger: true,
-              })) {
-                engineRef.current?.clear()
-              }
-            }}>
-            <Icon name="delete_forever" />
-          </button>
+
+          {/* Everything you reach for between strokes rather than during
+              one. Same shared Menu as every other dropdown in the app
+              (#328), with icons (#329). */}
+          <Menu
+            triggerClassName={styles.headerIconBtn}
+            triggerLabel={t('room.menu')}
+            trigger={<Icon name="menu" />}
+            actions={[
+              { label: t('room.export'), icon: 'download', onClick: handleExport, title: t('room.exportTitle') },
+              { label: t('room.saveSession'), icon: 'save', onClick: handleSaveSession, title: t('room.saveSessionTitle') },
+              { label: t('room.settings'), icon: 'settings', onClick: () => setSettingsOpen(true) },
+            ]}
+          />
         </div>
       </header>
 

@@ -3,12 +3,17 @@ import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 
 import { useDismissOnOutside } from '../../lib/useDismissOnOutside'
+import { Icon } from '../Icon'
 
 import styles from './Menu.module.css'
 
 export interface MenuAction {
   label: string
   onClick: () => void
+  /** (#329) Material Symbols name, drawn before the label. Optional per action,
+   *  but a menu should either icon every item or none of them — a lone icon in
+   *  a list of bare labels reads as an accident. */
+  icon?: string
   danger?: boolean
   disabled?: boolean
   title?: string // tooltip — e.g. explaining why a stub action is disabled
@@ -138,6 +143,7 @@ export function Menu({ trigger, triggerClassName, triggerLabel, actions, align =
                 className={clsx(styles.item, styles.itemDisabled)}
                 title={action.title}
               >
+                {action.icon && <Icon name={action.icon} />}
                 {action.label}
               </span>
             ) : (
@@ -149,6 +155,7 @@ export function Menu({ trigger, triggerClassName, triggerLabel, actions, align =
                 title={action.title}
                 onClick={() => { setOpen(false); action.onClick() }}
               >
+                {action.icon && <Icon name={action.icon} />}
                 {action.label}
               </button>
             )
