@@ -37,10 +37,9 @@ export const en = {
   'dialog.noticeLabel': 'Notice',
 
   // ── account navigation ─────────────────────────────────────────────────
-  'nav.newLesson': 'New lesson',
   'nav.logIn': 'Log in',
   'nav.register': 'Register',
-  'nav.myLessons': 'My Lessons',
+  'nav.myLessons': 'My Projects',
   'nav.logOut': 'Log out',
   'nav.settings': 'Settings',
 
@@ -74,9 +73,9 @@ export const en = {
   'settingsPage.deviceDesktop': 'Computer',
   'settingsPage.deviceTypeHint': 'Tablet is laid out for a finger and a stylus, computer for a mouse, a keyboard and a graphics tablet. Detected from your device at first visit — each of your devices keeps its own.',
 
-  // ── create room ────────────────────────────────────────────────────────
-  'create.heading': 'Create a room',
-  'create.roomName': 'Room name (optional)',
+  // ── create project ─────────────────────────────────────────────────────
+  'create.heading': 'New project',
+  'create.roomName': 'Project name (optional)',
   'create.untitled': 'Untitled',
   'create.paperSection': 'Paper texture — fixed after creation',
   'create.paperColor': 'Paper color',
@@ -93,12 +92,15 @@ export const en = {
   'create.access': 'Access',
   'create.passwordProtected': 'Password protected',
   'create.openAccess': 'Open — anyone with the link can join',
-  'create.roomPassword': 'Room password',
-  'create.submit': 'Create room',
+  'create.roomPassword': 'Project password',
+  'create.submit': 'Create project',
   'create.error.customSize': 'Custom size must be between 100 and 4096 pixels',
 
   // ── paper picker vocabulary ────────────────────────────────────────────
-  // One axis — how much tooth the sheet has — with `flat` as its end stop.
+  // Two axes (how much tooth × what the fibre looks like) plus `flat`, the
+  // end stop of the tooth axis. The `.grain` forms are the lowercase noun
+  // phrase used mid-sentence in the texture modal's title, which Russian
+  // can't build by lowercasing the standalone label the way English can.
   'paper.coarseness.coarse': 'Coarse',
   'paper.coarseness.coarse.desc': 'Strong tooth',
   'paper.coarseness.medium': 'Medium',
@@ -108,11 +110,11 @@ export const en = {
   'paper.coarseness.flat': 'Flat',
   'paper.coarseness.flat.desc': 'No tooth at all',
 
-  // ── my lessons ─────────────────────────────────────────────────────────
-  'lessons.root': 'My Lessons',
-  'lessons.searchPlaceholder': 'Search rooms…',
-  'lessons.searchLabel': 'Search rooms',
-  'lessons.newRoom': 'New room',
+  // ── my projects ────────────────────────────────────────────────────────
+  'lessons.root': 'My Projects',
+  'lessons.searchPlaceholder': 'Search projects…',
+  'lessons.searchLabel': 'Search projects',
+  'lessons.newRoom': 'New project',
   'lessons.newFolder': 'New folder',
   'lessons.viewLabel': 'View',
   'lessons.viewGrid': 'Tiles',
@@ -120,28 +122,28 @@ export const en = {
   'lessons.folderNamePlaceholder': 'Folder name',
   'lessons.breadcrumbLabel': 'Folder path',
   'lessons.searching': 'Searching…',
-  'lessons.noMatches': 'No rooms match "{query}".',
-  'lessons.empty': "You don't have any rooms yet.",
+  'lessons.noMatches': 'No projects match "{query}".',
+  'lessons.empty': "You don't have any projects yet.",
   'lessons.folderEmpty': 'This folder is empty.',
   'lessons.forkClone': 'Fork/Clone',
   'lessons.comingSoon': 'Coming soon',
-  'lessons.leaveRoom': 'Leave room',
+  'lessons.leaveRoom': 'Leave project',
   'lessons.ownerYou': 'You',
   'lessons.ownerUnknown': 'Unknown owner',
   'lessons.confirmDelete': 'Delete permanently for everyone?',
-  'lessons.confirmLeave': 'Leave this room? It stays for everyone else.',
+  'lessons.confirmLeave': 'Leave this project? It stays for everyone else.',
   'lessons.yesDelete': 'Yes, delete',
   'lessons.yesLeave': 'Yes, leave',
-  'lessons.moveRoomTitle': 'Move room to...',
+  'lessons.moveRoomTitle': 'Move project to...',
   'lessons.moveFolderTitle': 'Move folder to...',
-  'lessons.error.load': 'Could not load your rooms',
-  'lessons.error.delete': 'Could not delete the room',
-  'lessons.error.leave': 'Could not leave the room',
+  'lessons.error.load': 'Could not load your projects',
+  'lessons.error.delete': 'Could not delete the project',
+  'lessons.error.leave': 'Could not leave the project',
   'lessons.error.createFolder': 'Could not create the folder',
   'lessons.error.search': 'Search failed',
   'lessons.error.moveFolderCycle': "Can't move a folder into its own subfolder.",
   'lessons.error.moveFolder': 'Could not move the folder',
-  'lessons.error.folderNotEmpty': 'This folder still has rooms or subfolders in it — move or delete those first.',
+  'lessons.error.folderNotEmpty': 'This folder still has projects or subfolders in it — move or delete those first.',
   'lessons.error.deleteFolder': 'Could not delete the folder',
 
   // ── "move to..." dialog ────────────────────────────────────────────────
@@ -151,30 +153,30 @@ export const en = {
 
   // ── join gate ──────────────────────────────────────────────────────────
   'join.headingNamed': 'Join "{room}"',
-  'join.heading': 'Join room',
+  'join.heading': 'Join project',
   'join.yourName': 'Your name',
   'join.namePlaceholder': 'e.g. Alex',
-  'join.password': 'Password (if the room has one)',
+  'join.password': 'Password (if the project has one)',
   'join.passwordPlaceholder': 'Leave blank if none',
-  'join.submit': 'Join room',
+  'join.submit': 'Join project',
   'join.submitting': 'Joining…',
   'join.error.nameRequired': 'Name is required',
-  'join.error.notFound': "This room doesn't exist. Check the link, or ask the host to create it.",
+  'join.error.notFound': "This project doesn't exist. Check the link, or ask the host to create it.",
   'join.error.wrongPassword': 'Wrong password — try again.',
 
-  // ── room: header & canvas actions ──────────────────────────────────────
-  'room.home': 'Grafetto — leave this room',
-  'room.confirmLeaveTitle': 'Leave this room?',
-  'room.confirmLeaveMessage': 'The drawing stays in the room and you can open it again from My Lessons.',
+  // ── project: header & canvas actions ───────────────────────────────────
+  'room.home': 'Grafetto — leave this project',
+  'room.confirmLeaveTitle': 'Leave this project?',
+  'room.confirmLeaveMessage': 'The drawing stays in the project and you can open it again from My Projects.',
   'room.confirmLeave': 'Leave',
   'room.confirmLeaveStay': 'Stay',
   'room.settings': 'Settings',
   'room.fullscreen': 'Fullscreen',
   'room.exitFullscreen': 'Exit fullscreen',
-  'room.freeze': "Freeze room — pause everyone's drawing",
-  'room.freezeShort': 'Freeze room',
-  'room.unfreeze': 'Unfreeze room — let everyone draw again',
-  'room.unfreezeShort': 'Unfreeze room',
+  'room.freeze': "Freeze project — pause everyone's drawing",
+  'room.freezeShort': 'Freeze project',
+  'room.unfreeze': 'Unfreeze project — let everyone draw again',
+  'room.unfreezeShort': 'Unfreeze project',
   'room.zoom': 'Zoom — drag up/down to adjust, click to reset to 100%',
   'room.rotation': 'Rotation — drag up/down to turn the canvas, click for a quarter turn  ({hotkey} to reset)',
   'room.fitCanvas': 'Fit canvas',
@@ -191,9 +193,9 @@ export const en = {
   'room.menu': 'Menu',
   'room.confirmUndo': 'Undo will remove a layer that has content from other participants. Continue?',
   'room.confirmRedo': 'Redo will remove a layer that has content from other participants. Continue?',
-  'room.offlineSharedAction': 'No connection to the room — this action affects shared layers and becomes available again once you reconnect.',
+  'room.offlineSharedAction': 'No connection to the project — this action affects shared layers and becomes available again once you reconnect.',
 
-  // ── room: side panel ───────────────────────────────────────────────────
+  // ── project: side panel ────────────────────────────────────────────────
   'room.panel.layers': 'Layers',
   'room.panel.color': 'Color',
   'room.panel.toolSettings': 'Tool settings',
@@ -201,7 +203,7 @@ export const en = {
   'room.noToolSettings': 'This tool has no settings yet.',
   'room.markerAngle': 'Marker angle',
 
-  // ── room: participants & status banners ────────────────────────────────
+  // ── project: participants & status banners ─────────────────────────────
   'room.participant.owner': 'owner',
   'room.participant.drawing': 'drawing',
   'room.participant.frozen': 'frozen by owner',
@@ -211,22 +213,22 @@ export const en = {
   // on an already-named row, so they don't repeat the name the way the old
   // hover-badge tooltips above had to.
   'room.participants.you': '(you)',
-  'room.participants.idle': 'in the room',
+  'room.participants.idle': 'in the project',
   'room.participants.empty': 'Nobody else is here yet.',
   'room.participants.freeze': 'Freeze drawing',
   'room.participants.unfreeze': 'Unfreeze drawing',
   'room.participants.ban': 'Block',
-  'room.participants.banUnavailable': 'Room access control is not built yet',
-  'room.frozenEveryone': 'The room owner has paused drawing for everyone.',
-  'room.frozenYou': 'The room owner has paused your drawing.',
+  'room.participants.banUnavailable': 'Project access control is not built yet',
+  'room.frozenEveryone': 'The project owner has paused drawing for everyone.',
+  'room.frozenYou': 'The project owner has paused your drawing.',
   // (#201) The queue is durable, so these describe a delay, never a loss —
   // the wording has to carry that, since the whole point is to stop people
   // concluding their work is gone.
-  // (#313) Shown instead of the preloader when the room can't load because
+  // (#313) Shown instead of the preloader when the project can't load because
   // there's no connection. Three things, in order: why, that the work is
   // safe, and that nothing needs doing about it.
   'room.offline.title': 'No connection',
-  'room.offline.body': 'This room lives on the server, so opening it needs a connection.',
+  'room.offline.body': 'This project lives on the server, so opening it needs a connection.',
   'room.offline.pending': {
     one: 'Your {n} unsent stroke is safe on this device and will be sent automatically.',
     other: 'Your {n} unsent strokes are safe on this device and will be sent automatically.',
@@ -258,7 +260,7 @@ export const en = {
   'room.lostWork.unnamedLayer': 'Deleted layer',
   'room.dismiss': 'Dismiss',
 
-  // ── room: loading flavor text ──────────────────────────────────────────
+  // ── project: loading flavor text ───────────────────────────────────────
   'room.loading.1': 'Sharpening pencil...',
   'room.loading.2': 'Gluing paper to canvas...',
   'room.loading.3': 'Arranging layers...',
@@ -331,7 +333,7 @@ export const en = {
   'layers.ownerUnlock': 'Unlock layer for others (owner)',
   'layers.ownerLockShort': 'Lock layer for others',
   'layers.ownerUnlockShort': 'Unlock layer for others',
-  'layers.lockedByOwner': 'Locked by the room owner',
+  'layers.lockedByOwner': 'Locked by the project owner',
   'layers.mergeSelected': 'Merge selected',
   'layers.mergeDown': 'Merge down',
   'layers.deleteSelected': 'Delete selected',
@@ -354,7 +356,7 @@ export const en = {
   'layers.more': 'More',
   // Layer names travel through the operation log to every participant, so
   // these are named in whatever language the person who created the layer
-  // was using — same as a room name. Shared content, not local chrome.
+  // was using — same as a project name. Shared content, not local chrome.
   'layers.backgroundName': 'Background',
   'layers.defaultLayerName': 'Layer {n}',
   'layers.defaultFolderName': 'Folder',

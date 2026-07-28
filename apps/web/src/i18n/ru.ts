@@ -24,10 +24,9 @@ export const ru: Dictionary = {
   'dialog.noticeLabel': 'Уведомление',
 
   // ── навигация ──────────────────────────────────────────────────────────
-  'nav.newLesson': 'Новый урок',
   'nav.logIn': 'Войти',
   'nav.register': 'Регистрация',
-  'nav.myLessons': 'Мои уроки',
+  'nav.myLessons': 'Мои проекты',
   'nav.logOut': 'Выйти',
   'nav.settings': 'Настройки',
 
@@ -61,9 +60,9 @@ export const ru: Dictionary = {
   'settingsPage.deviceDesktop': 'Компьютер',
   'settingsPage.deviceTypeHint': 'Планшет — под палец и стилус, компьютер — под мышь, клавиатуру и графический планшет. При первом заходе определяется по устройству, у каждого вашего устройства свой выбор.',
 
-  // ── создание комнаты ───────────────────────────────────────────────────
-  'create.heading': 'Новая комната',
-  'create.roomName': 'Название комнаты (необязательно)',
+  // ── создание проекта ───────────────────────────────────────────────────
+  'create.heading': 'Новый проект',
+  'create.roomName': 'Название проекта (необязательно)',
   'create.untitled': 'Без названия',
   'create.paperSection': 'Текстура бумаги — после создания не меняется',
   'create.paperColor': 'Цвет бумаги',
@@ -78,10 +77,12 @@ export const ru: Dictionary = {
   'create.width': 'Ширина',
   'create.height': 'Высота',
   'create.access': 'Доступ',
-  'create.passwordProtected': 'Защищено паролем',
-  'create.openAccess': 'Открытая — зайти может любой, у кого есть ссылка',
-  'create.roomPassword': 'Пароль комнаты',
-  'create.submit': 'Создать комнату',
+  // Обе половины тумблера согласованы по мужскому роду: подпись над ним —
+  // «Доступ», а сам объект теперь «проект», а не «комната».
+  'create.passwordProtected': 'Защищён паролем',
+  'create.openAccess': 'Открытый — зайти может любой, у кого есть ссылка',
+  'create.roomPassword': 'Пароль проекта',
+  'create.submit': 'Создать проект',
   'create.error.customSize': 'Свой размер — от 100 до 4096 пикселей',
 
   // ── лексика выбора бумаги ──────────────────────────────────────────────
@@ -94,11 +95,11 @@ export const ru: Dictionary = {
   'paper.coarseness.flat': 'Гладкая',
   'paper.coarseness.flat.desc': 'Совсем без зерна',
 
-  // ── мои уроки ──────────────────────────────────────────────────────────
-  'lessons.root': 'Мои уроки',
-  'lessons.searchPlaceholder': 'Поиск комнат…',
-  'lessons.searchLabel': 'Поиск комнат',
-  'lessons.newRoom': 'Новая комната',
+  // ── мои проекты ────────────────────────────────────────────────────────
+  'lessons.root': 'Мои проекты',
+  'lessons.searchPlaceholder': 'Поиск проектов…',
+  'lessons.searchLabel': 'Поиск проектов',
+  'lessons.newRoom': 'Новый проект',
   'lessons.newFolder': 'Новая папка',
   'lessons.viewLabel': 'Вид',
   'lessons.viewGrid': 'Плитки',
@@ -107,27 +108,27 @@ export const ru: Dictionary = {
   'lessons.breadcrumbLabel': 'Путь по папкам',
   'lessons.searching': 'Идёт поиск…',
   'lessons.noMatches': 'По запросу «{query}» ничего не найдено.',
-  'lessons.empty': 'У вас пока нет ни одной комнаты.',
+  'lessons.empty': 'У вас пока нет ни одного проекта.',
   'lessons.folderEmpty': 'Папка пуста.',
   'lessons.forkClone': 'Форк/Клон',
   'lessons.comingSoon': 'Скоро',
-  'lessons.leaveRoom': 'Покинуть комнату',
+  'lessons.leaveRoom': 'Покинуть проект',
   'lessons.ownerYou': 'Вы',
   'lessons.ownerUnknown': 'Владелец неизвестен',
   'lessons.confirmDelete': 'Удалить навсегда и для всех участников?',
-  'lessons.confirmLeave': 'Покинуть комнату? Для остальных она останется.',
+  'lessons.confirmLeave': 'Покинуть проект? Для остальных он останется.',
   'lessons.yesDelete': 'Да, удалить',
   'lessons.yesLeave': 'Да, выйти',
-  'lessons.moveRoomTitle': 'Переместить комнату…',
+  'lessons.moveRoomTitle': 'Переместить проект…',
   'lessons.moveFolderTitle': 'Переместить папку…',
-  'lessons.error.load': 'Не удалось загрузить ваши комнаты',
-  'lessons.error.delete': 'Не удалось удалить комнату',
-  'lessons.error.leave': 'Не удалось покинуть комнату',
+  'lessons.error.load': 'Не удалось загрузить ваши проекты',
+  'lessons.error.delete': 'Не удалось удалить проект',
+  'lessons.error.leave': 'Не удалось покинуть проект',
   'lessons.error.createFolder': 'Не удалось создать папку',
   'lessons.error.search': 'Поиск не удался',
   'lessons.error.moveFolderCycle': 'Нельзя переместить папку внутрь неё самой.',
   'lessons.error.moveFolder': 'Не удалось переместить папку',
-  'lessons.error.folderNotEmpty': 'В папке ещё есть комнаты или подпапки — сначала переместите или удалите их.',
+  'lessons.error.folderNotEmpty': 'В папке ещё есть проекты или подпапки — сначала переместите или удалите их.',
   'lessons.error.deleteFolder': 'Не удалось удалить папку',
 
   // ── диалог «Переместить…» ──────────────────────────────────────────────
@@ -135,32 +136,32 @@ export const ru: Dictionary = {
   'moveTo.moveHere': 'Переместить сюда',
   'moveTo.noSubfolders': 'Здесь нет подпапок.',
 
-  // ── вход в комнату ─────────────────────────────────────────────────────
+  // ── вход в проект ──────────────────────────────────────────────────────
   'join.headingNamed': 'Присоединиться к «{room}»',
-  'join.heading': 'Присоединиться к комнате',
+  'join.heading': 'Присоединиться к проекту',
   'join.yourName': 'Ваше имя',
   'join.namePlaceholder': 'например, Алексей',
-  'join.password': 'Пароль (если комната им защищена)',
+  'join.password': 'Пароль (если проект им защищён)',
   'join.passwordPlaceholder': 'Оставьте пустым, если пароля нет',
-  'join.submit': 'Войти в комнату',
+  'join.submit': 'Войти в проект',
   'join.submitting': 'Подключение…',
   'join.error.nameRequired': 'Укажите имя',
-  'join.error.notFound': 'Такой комнаты не существует. Проверьте ссылку или попросите ведущего создать её.',
+  'join.error.notFound': 'Такого проекта не существует. Проверьте ссылку или попросите ведущего создать его.',
   'join.error.wrongPassword': 'Неверный пароль — попробуйте ещё раз.',
 
-  // ── комната: шапка и действия с холстом ────────────────────────────────
-  'room.home': 'Grafetto — выйти из комнаты',
-  'room.confirmLeaveTitle': 'Выйти из комнаты?',
-  'room.confirmLeaveMessage': 'Рисунок останется в комнате, вы сможете открыть её снова из «Моих уроков».',
+  // ── проект: шапка и действия с холстом ─────────────────────────────────
+  'room.home': 'Grafetto — выйти из проекта',
+  'room.confirmLeaveTitle': 'Выйти из проекта?',
+  'room.confirmLeaveMessage': 'Рисунок останется в проекте, вы сможете открыть его снова из «Моих проектов».',
   'room.confirmLeave': 'Выйти',
   'room.confirmLeaveStay': 'Остаться',
   'room.settings': 'Настройки',
   'room.fullscreen': 'Во весь экран',
   'room.exitFullscreen': 'Выйти из полноэкранного режима',
-  'room.freeze': 'Заморозить комнату — приостановить рисование для всех',
-  'room.freezeShort': 'Заморозить комнату',
-  'room.unfreeze': 'Разморозить комнату — снова разрешить всем рисовать',
-  'room.unfreezeShort': 'Разморозить комнату',
+  'room.freeze': 'Заморозить проект — приостановить рисование для всех',
+  'room.freezeShort': 'Заморозить проект',
+  'room.unfreeze': 'Разморозить проект — снова разрешить всем рисовать',
+  'room.unfreezeShort': 'Разморозить проект',
   'room.zoom': 'Масштаб — тяните вверх/вниз, щелчок возвращает к 100%',
   'room.rotation': 'Поворот — тяните вверх/вниз, чтобы вращать холст, щелчок — на четверть оборота  ({hotkey} — сброс)',
   'room.fitCanvas': 'Вписать холст',
@@ -175,9 +176,9 @@ export const ru: Dictionary = {
   'room.menu': 'Меню',
   'room.confirmUndo': 'Отмена удалит слой, на котором есть работа других участников. Продолжить?',
   'room.confirmRedo': 'Возврат удалит слой, на котором есть работа других участников. Продолжить?',
-  'room.offlineSharedAction': 'Нет связи с комнатой — это действие затрагивает общие слои и станет доступно после переподключения.',
+  'room.offlineSharedAction': 'Нет связи с проектом — это действие затрагивает общие слои и станет доступно после переподключения.',
 
-  // ── комната: боковая панель ────────────────────────────────────────────
+  // ── проект: боковая панель ─────────────────────────────────────────────
   'room.panel.layers': 'Слои',
   'room.panel.color': 'Цвет',
   'room.panel.toolSettings': 'Настройки инструмента',
@@ -185,23 +186,23 @@ export const ru: Dictionary = {
   'room.noToolSettings': 'У этого инструмента пока нет настроек.',
   'room.markerAngle': 'Угол маркера',
 
-  // ── комната: участники и статусы ───────────────────────────────────────
+  // ── проект: участники и статусы ────────────────────────────────────────
   'room.participant.owner': 'владелец',
   'room.participant.drawing': 'рисует',
   'room.participant.frozen': 'заморожен владельцем',
   'room.participant.freeze': 'Заморозить: {name}',
   'room.participant.unfreeze': 'Разморозить: {name}',
   'room.participants.you': '(вы)',
-  'room.participants.idle': 'в комнате',
+  'room.participants.idle': 'в проекте',
   'room.participants.empty': 'Пока никого больше нет.',
   'room.participants.freeze': 'Заморозить рисование',
   'room.participants.unfreeze': 'Разморозить рисование',
   'room.participants.ban': 'Заблокировать',
-  'room.participants.banUnavailable': 'Управление доступом к комнате ещё не реализовано',
-  'room.frozenEveryone': 'Владелец комнаты приостановил рисование для всех.',
-  'room.frozenYou': 'Владелец комнаты приостановил ваше рисование.',
+  'room.participants.banUnavailable': 'Управление доступом к проекту ещё не реализовано',
+  'room.frozenEveryone': 'Владелец проекта приостановил рисование для всех.',
+  'room.frozenYou': 'Владелец проекта приостановил ваше рисование.',
   'room.offline.title': 'Нет связи',
-  'room.offline.body': 'Эта комната живёт на сервере, поэтому для её открытия нужно соединение.',
+  'room.offline.body': 'Этот проект живёт на сервере, поэтому для его открытия нужно соединение.',
   'room.offline.pending': {
     one: 'Ваш {n} неотправленный штрих сохранён на устройстве и уйдёт автоматически.',
     few: 'Ваши {n} неотправленных штриха сохранены на устройстве и уйдут автоматически.',
@@ -241,7 +242,7 @@ export const ru: Dictionary = {
   'room.lostWork.unnamedLayer': 'Удалённый слой',
   'room.dismiss': 'Скрыть',
 
-  // ── комната: тексты загрузки ───────────────────────────────────────────
+  // ── проект: тексты загрузки ────────────────────────────────────────────
   'room.loading.1': 'Точим карандаш...',
   'room.loading.2': 'Натягиваем бумагу на планшет...',
   'room.loading.3': 'Раскладываем слои...',
@@ -314,7 +315,7 @@ export const ru: Dictionary = {
   'layers.ownerUnlock': 'Открыть слой для остальных (владелец)',
   'layers.ownerLockShort': 'Закрыть слой для остальных',
   'layers.ownerUnlockShort': 'Открыть слой для остальных',
-  'layers.lockedByOwner': 'Закрыт владельцем комнаты',
+  'layers.lockedByOwner': 'Закрыт владельцем проекта',
   'layers.mergeSelected': 'Объединить выбранные',
   'layers.mergeDown': 'Объединить с нижним',
   'layers.deleteSelected': 'Удалить выбранные',

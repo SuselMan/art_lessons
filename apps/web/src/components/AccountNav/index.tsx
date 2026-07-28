@@ -27,7 +27,6 @@ export function AccountNav() {
   if (!isLoggedIn(me)) {
     return (
       <nav className={styles.nav}>
-        <Link className={styles.link} to="/create">{t('nav.newLesson')}</Link>
         <Link className={styles.link} to="/login">{t('nav.logIn')}</Link>
         <Link className={styles.link} to="/login?mode=register">{t('nav.register')}</Link>
         {/* Settings stays a standing link only while signed out: the menu that
@@ -43,7 +42,8 @@ export function AccountNav() {
 
   return (
     <nav className={styles.nav}>
-      <Link className={styles.link} to="/create">{t('nav.newLesson')}</Link>
+      {/* No "new project" link here on purpose: creating one is an action of
+          the projects list, and it already carries its own button there. */}
       <Link className={styles.link} to="/my-lessons">{t('nav.myLessons')}</Link>
       <Menu
         triggerClassName={styles.identity}
