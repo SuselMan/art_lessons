@@ -81,8 +81,6 @@ export const en = {
   'create.paperSection': 'Paper texture — fixed after creation',
   'create.paperColor': 'Paper color',
   'create.useDefaultColor': 'Use default',
-  'create.chooseTexture': 'Choose texture — {character}',
-  'create.textureModalTitle': 'Texture — {coarseness} grain',
   'create.canvasSize': 'Canvas size',
   'create.size.square': 'Square',
   'create.size.custom': 'Custom',
@@ -100,27 +98,15 @@ export const en = {
   'create.error.customSize': 'Custom size must be between 100 and 4096 pixels',
 
   // ── paper picker vocabulary ────────────────────────────────────────────
-  // Two axes (how much tooth × what the fibre looks like) plus `flat`, the
-  // end stop of the tooth axis. The `.grain` forms are the lowercase noun
-  // phrase used mid-sentence in the texture modal's title, which Russian
-  // can't build by lowercasing the standalone label the way English can.
+  // One axis — how much tooth the sheet has — with `flat` as its end stop.
   'paper.coarseness.coarse': 'Coarse',
   'paper.coarseness.coarse.desc': 'Strong tooth',
-  'paper.coarseness.coarse.grain': 'coarse',
   'paper.coarseness.medium': 'Medium',
   'paper.coarseness.medium.desc': 'Moderate tooth',
-  'paper.coarseness.medium.grain': 'medium',
   'paper.coarseness.fine': 'Fine',
   'paper.coarseness.fine.desc': 'Barely any tooth',
-  'paper.coarseness.fine.grain': 'fine',
   'paper.coarseness.flat': 'Flat',
   'paper.coarseness.flat.desc': 'No tooth at all',
-  'paper.character.fbm': 'Plain grain',
-  'paper.character.fbm.desc': 'Even, uniform grain',
-  'paper.character.capsules': 'Fibrous',
-  'paper.character.capsules.desc': 'Visible cellulose fibres',
-  'paper.character.streak': 'Streaked',
-  'paper.character.streak.desc': 'Laid, horizontal grain',
 
   // ── my lessons ─────────────────────────────────────────────────────────
   'lessons.root': 'My Lessons',
