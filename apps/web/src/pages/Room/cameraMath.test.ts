@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint } from './cameraMath'
+import { worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround } from './cameraMath'
 import type { Viewport } from './useViewport'
 
 describe('worldToScreen / screenToWorld', () => {
@@ -93,5 +93,48 @@ describe('clientToRoomPoint', () => {
     const { x, y } = clientToRoomPoint(rect.left, rect.top, rect, vp, config)
     expect(x).toBeCloseTo(100)
     expect(y).toBeCloseTo(50)
+  })
+})
+
+describe('rotateViewportAround (#319)', () => {
+  const vp: Viewport = { cx: 400, cy: 250, zoom: 1.5, angle: 0.3 }
+
+  it('holds the anchor over the same point of the drawing', () => {
+    // The whole reason the function exists: turn the view and the pixel you
+    // grabbed must not slide out from under the cursor. Anchored well away
+    // from (cx, cy), because at the pivot itself any implementation passes.
+    const anchor = { x: 120, y: 640 }
+    const before = screenToWorld(anchor.x, anchor.y, vp)
+
+    const rotated = rotateViewportAround(vp, anchor.x, anchor.y, 0.7)
+    const after = worldToScreen(before.x, before.y, rotated)
+
+    expect(after.x).toBeCloseTo(anchor.x)
+    expect(after.y).toBeCloseTo(anchor.y)
+  })
+
+  it('turns the rest of the drawing by exactly the requested angle', () => {
+    const rotated = rotateViewportAround(vp, 120, 640, 0.7)
+    expect(rotated.angle).toBeCloseTo(vp.angle + 0.7)
+    expect(rotated.zoom).toBe(vp.zoom)
+  })
+
+  it('is a no-op at zero, whatever the anchor', () => {
+    // Guards the drag path: every pointermove recomputes from the drag's
+    // start, so a pointer that has not moved horizontally must leave the
+    // viewport untouched rather than drift by an epsilon per event.
+    const rotated = rotateViewportAround(vp, -900, 33, 0)
+    expect(rotated.cx).toBeCloseTo(vp.cx)
+    expect(rotated.cy).toBeCloseTo(vp.cy)
+    expect(rotated.angle).toBeCloseTo(vp.angle)
+  })
+
+  it('comes back to where it started when the drag is undone', () => {
+    const anchor = { x: 40, y: 90 }
+    const there = rotateViewportAround(vp, anchor.x, anchor.y, 0.9)
+    const back = rotateViewportAround(there, anchor.x, anchor.y, -0.9)
+    expect(back.cx).toBeCloseTo(vp.cx)
+    expect(back.cy).toBeCloseTo(vp.cy)
+    expect(back.angle).toBeCloseTo(vp.angle)
   })
 })

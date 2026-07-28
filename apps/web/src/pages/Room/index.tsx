@@ -807,6 +807,14 @@ export function Room() {
   const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, angleDeg, canvasTransform } =
     useViewport(config, toolActiveRef, config?.infinite ?? false)
 
+  // Hand tool (#319) — the drag itself lives in useViewport; Room owns the
+  // ways in and out of the mode, and what the mode looks like.
+  const handTool = useRoomStore(s => s.handTool)
+  const setHandTool = useRoomStore(s => s.setHandTool)
+  const setHandHeld = useRoomStore(s => s.setHandHeld)
+  const handHeld = useRoomStore(s => s.handHeld)
+  const handActive = handTool || handHeld
+
   // Drag up/down on the zoom label to adjust zoom without a two-finger pinch
   // (#97); a plain click still resets to 100%, mirroring angleLabel's
   // click-to-reset-rotation below.
@@ -2664,6 +2672,7 @@ export function Room() {
       if (is('toggleLiner')) { setTool(t => t === 'liner' ? 'pencil' : 'liner'); return }
       if (is('toggleMarker')) { setTool(t => t === 'marker' ? 'pencil' : 'marker'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
+      if (is('toggleHand')) { setHandTool(h => !h); return }
       if (is('decreaseSize')) {
         // Liner's own 'size' field is a fixed-label enum (ADR 003), not the
         // plain px number every other tool's 'size' field holds (marker
@@ -2685,7 +2694,45 @@ export function Room() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [tool, setTool, lastDrawingTool, setToolSetting, setVp, handleUndo, handleRedo, hotkeys])
+  }, [tool, setTool, lastDrawingTool, setToolSetting, setVp, setHandTool, handleUndo, handleRedo, hotkeys])
+
+  // ── Space = hold to pan (#319, ADR 007 §4) ────────────────────────────────
+  // Separate from the registry-driven effect above because this is a hold,
+  // not an action: it needs the keyup half, and it must not be rebindable
+  // (see lib/hotkeys.ts). Same guards as the shortcuts above — a Space typed
+  // into a room name or a dialog is a space, not a gesture.
+  useEffect(() => {
+    const isTyping = (target: EventTarget | null) =>
+      target instanceof HTMLElement && (target.tagName === 'INPUT' || target.isContentEditable)
+
+    const onDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || e.repeat) return
+      if (isTyping(e.target) || isModalOpen()) return
+      // Otherwise the page scrolls under the canvas on every hold.
+      e.preventDefault()
+      setHandHeld(true)
+    }
+    const onUp = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return
+      setHandHeld(false)
+    }
+    // A keyup that never arrives — alt-tabbing away mid-hold, an OS shortcut
+    // swallowing it — would otherwise leave the canvas permanently in a mode
+    // the person can't see the cause of and didn't ask for.
+    const release = () => setHandHeld(false)
+
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup', onUp)
+    window.addEventListener('blur', release)
+    document.addEventListener('visibilitychange', release)
+    return () => {
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup', onUp)
+      window.removeEventListener('blur', release)
+      document.removeEventListener('visibilitychange', release)
+      setHandHeld(false)
+    }
+  }, [setHandHeld])
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
@@ -2938,6 +2985,19 @@ export function Room() {
 
           <div className={styles.toolDivider} />
 
+          {/* Hand (#319, ADR 007) — the only way to move the canvas with
+              nothing in hand but a stylus: a pen has no middle button, and
+              Space needs a free second hand. Sits above the divider with the
+              other non-painting modes, not among the drawing tools, because
+              it is one (ADR 007 §5). */}
+          <button
+            className={clsx(styles.toolIconBtn, handTool && styles.toolIconBtnActive)}
+            title={t('tool.handTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleHand) })}
+            aria-label={t('tool.hand')}
+            aria-pressed={handTool}
+            onClick={() => setHandTool(h => !h)}
+          ><Icon name="pan_tool" /></button>
+
           {/* Eyedropper (#82) picks a color from the canvas and opens the
               ColorPicker tab of the unified right-side SidePanel (see
               .layerPanelWrap below) to refine it; the actual palette (saved
@@ -2998,7 +3058,10 @@ export function Room() {
         </aside>
 
         {/* ── Viewport ── */}
-        <div ref={setVpNode} className={styles.viewport}>
+        {/* (#319) The grab cursor lives on .viewport rather than the canvas
+            because the canvas is inert while the hand is on — a cursor set on
+            an element that isn't hit-testable never shows. */}
+        <div ref={setVpNode} className={clsx(styles.viewport, handActive && styles.viewportHand)}>
           <div
             ref={canvasWrapRef}
             className={styles.canvasWrap}
@@ -3023,9 +3086,14 @@ export function Room() {
               // (#256/#257), so this keeps a frozen participant from
               // drawing into the void (see FrozenBanner for the visible
               // explanation of *why* input stopped responding).
+              // (#319) The hand tool rides the same mechanism: with the
+              // canvas inert, a press lands on .canvasWrap and bubbles to
+              // .viewport's own drag handlers, so the view moves and nothing
+              // paints — no second "is the hand on?" check inside the engine's
+              // pointer path, which is where the two would drift apart.
               style={{
                 ...(config.infinite ? { width: '100%', height: '100%' } : { width: config.width, height: config.height }),
-                pointerEvents: (roomContentReady && !isBlockedByFreeze) ? undefined : 'none',
+                pointerEvents: (roomContentReady && !isBlockedByFreeze && !handActive) ? undefined : 'none',
               }}
             />
             {/* Bounded rooms: these five assume canvas-pixel-space
@@ -3040,7 +3108,10 @@ export function Room() {
                 angle={vp.angle}
               />
             )}
-            {!config.infinite && (
+            {/* (#319) No brush ring while the hand is on: nothing is going to
+                be painted, and a ring that follows a grab cursor reads as if
+                it still would. */}
+            {!config.infinite && !handActive && (
               <BrushCursor
                 vpRef={vpRef}
                 tool={tool}

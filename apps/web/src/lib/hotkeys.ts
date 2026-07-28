@@ -49,6 +49,11 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   { id: 'toggleLiner', labelKey: 'hotkey.toggleLiner', default: { code: 'KeyL', mod: false, shift: false } },
   { id: 'toggleMarker', labelKey: 'hotkey.toggleMarker', default: { code: 'KeyM', mod: false, shift: false } },
   { id: 'resetRotation', labelKey: 'hotkey.resetRotation', default: { code: 'KeyR', mod: false, shift: false } },
+  // Only the *toggle* is an action and therefore rebindable. Hold-to-pan
+  // (Space) isn't in this registry at all: it has no keyup half here, and a
+  // registry entry for it would be a binding the rebind UI could break into
+  // a state the person can never leave (see Room's own Space effect, #319).
+  { id: 'toggleHand', labelKey: 'hotkey.toggleHand', default: { code: 'KeyH', mod: false, shift: false } },
   { id: 'decreaseSize', labelKey: 'hotkey.decreaseSize', default: { code: 'BracketLeft', mod: false, shift: false } },
   { id: 'increaseSize', labelKey: 'hotkey.increaseSize', default: { code: 'BracketRight', mod: false, shift: false } },
   { id: 'rotateCCW', labelKey: 'hotkey.rotateCCW', default: { code: 'BracketLeft', mod: false, shift: true } },

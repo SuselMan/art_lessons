@@ -346,6 +346,17 @@
   touch-action: none;
 }
 
+/* (#319) Hand tool on. `:active` covers both routes into a drag — the middle
+   button and the left one — without either handler having to reach into the
+   DOM to swap a class mid-gesture. */
+.viewportHand {
+  cursor: grab;
+}
+
+.viewportHand:active {
+  cursor: grabbing;
+}
+
 .canvasWrap {
   position: absolute;
   top: 0;

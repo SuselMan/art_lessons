@@ -2,13 +2,40 @@ import { useRef, useState, useCallback, useLayoutEffect, useEffect } from 'react
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
-import { deviceNativeZoom } from './cameraMath'
+import { deviceNativeZoom, rotateViewportAround } from './cameraMath'
 import { diagLog } from '../../lib/diagLog'
 import { useRoomStore } from '../../stores/roomStore'
+import { isHandActive } from '../../stores/slices/viewportSlice'
 
 export interface Viewport { cx: number; cy: number; zoom: number; angle: number }
 
 interface CanvasSize { width: number; height: number }
+
+/** One in-progress mouse/pen drag of the *view* (#319) — the middle button,
+ *  or the left button while the hand tool is on. `mode` is decided once, at
+ *  pointerdown, from whether Shift was down: a drag that silently changed
+ *  meaning halfway through because a finger slipped onto Shift would be far
+ *  worse than having to release and start again. */
+interface PointerDrag {
+  mode: 'pan' | 'rotate'
+  /** Client coords where the drag began — pan is measured against these. */
+  sx: number
+  sy: number
+  /** The same point in viewport coords: the pivot rotation turns around, so
+   *  whatever was under the cursor when the drag started stays under it. */
+  ax: number
+  ay: number
+  ocx: number
+  ocy: number
+  oangle: number
+}
+
+/** Horizontal drag distance → rotation. Displacement-based rather than
+ *  "angle of the cursor around a pivot": the latter has a singularity at the
+ *  pivot itself, where a one-pixel wobble spins the canvas through a right
+ *  angle. Krita's canvas rotation reads displacement for the same reason.
+ *  ~0.3°/px puts a full 180° turn at roughly 600 px of travel. */
+const ROTATE_RADIANS_PER_PX = 0.3 * Math.PI / 180
 
 export interface UseViewportResult {
   vp: Viewport
@@ -75,7 +102,7 @@ export function useViewport(
   const vpState      = useRef<Viewport>(vp)
   const canvasRef    = useRef<CanvasSize | null>(canvas)
   const touchPtrs = useRef(new Map<number, { x: number; y: number }>())
-  const midPanRef = useRef<{ sx: number; sy: number; ocx: number; ocy: number } | null>(null)
+  const dragRef = useRef<PointerDrag | null>(null)
   const reservedTouchId = useRef<number | null>(null)
 
   // rAF-flush bookkeeping for updateVp below.
@@ -184,12 +211,29 @@ export function useViewport(
           }
           try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
           touchPtrs.current.set(e.pointerId, toVp(e))
-        } else if (e.button === 1) {
-          try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
-          const v = vpState.current
-          midPanRef.current = { sx: e.clientX, sy: e.clientY, ocx: v.cx, ocy: v.cy }
-          e.preventDefault()
+          return
         }
+
+        // Mouse/pen. Two ways in (#319, ADR 007 §4): the middle button, which
+        // a pen doesn't have at all, and the left button while the hand tool
+        // is on, which is the only route available to someone holding nothing
+        // but a stylus. Read from the store at event time rather than closed
+        // over: this effect must not re-attach its listeners every time the
+        // hand tool toggles, and a stale closure here would mean the mode
+        // silently stops working after the first toggle.
+        const handActive = isHandActive(useRoomStore.getState())
+        if (e.button !== 1 && !(handActive && e.button === 0)) return
+
+        try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
+        const v = vpState.current
+        const anchor = toVp(e)
+        dragRef.current = {
+          mode: e.shiftKey ? 'rotate' : 'pan',
+          sx: e.clientX, sy: e.clientY,
+          ax: anchor.x, ay: anchor.y,
+          ocx: v.cx, ocy: v.cy, oangle: v.angle,
+        }
+        e.preventDefault()
       }
 
       const onMove = (e: PointerEvent) => {
@@ -228,10 +272,30 @@ export function useViewport(
             // needs to be dropped for infinite rooms.
             updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: v.angle + dAngle })
           }
-        } else if (midPanRef.current) {
-          const { sx, sy, ocx, ocy } = midPanRef.current
+        } else if (dragRef.current) {
+          const d = dragRef.current
           const v = vpState.current
-          updateVp({ ...v, cx: ocx + e.clientX - sx, cy: ocy + e.clientY - sy })
+          if (d.mode === 'pan') {
+            updateVp({ ...v, cx: d.ocx + e.clientX - d.sx, cy: d.ocy + e.clientY - d.sy })
+            return
+          }
+          // The canvas element rotates about (cx, cy) — its own centre's
+          // screen position, not the screen's centre (see transformFor). So
+          // turning the angle alone would swing the view away whenever the
+          // canvas centre is off-screen, which is most of the time at working
+          // zoom. Rotating (cx, cy) about the grab point by the same delta
+          // cancels that: the pixel under the cursor holds still and the rest
+          // of the drawing turns around it, which is what the two-finger
+          // gesture does on a tablet.
+          const dAngle = (e.clientX - d.sx) * ROTATE_RADIANS_PER_PX
+          // Applied to the viewport as it was when the drag began, not to the
+          // live one: accumulating a delta per move event would compound
+          // rounding every frame, and a drag returned to where it started
+          // would not land back on the angle it started from.
+          const rotated = rotateViewportAround(
+            { ...v, cx: d.ocx, cy: d.ocy, angle: d.oangle }, d.ax, d.ay, dAngle,
+          )
+          updateVp(rotated)
         }
       }
 
@@ -242,7 +306,7 @@ export function useViewport(
           touchPtrs.current.delete(e.pointerId)
           try { el.releasePointerCapture(e.pointerId) } catch { /* context loss */ }
         } else {
-          midPanRef.current = null
+          dragRef.current = null
         }
       }
 
@@ -263,7 +327,7 @@ export function useViewport(
         diagLog('vp: resetTouchState fired', { hadPtrs: [...touchPtrs.current.keys()], hadReserved: reservedTouchId.current })
         touchPtrs.current.clear()
         reservedTouchId.current = null
-        midPanRef.current = null
+        dragRef.current = null
       }
       document.addEventListener('visibilitychange', resetTouchState)
       window.addEventListener('blur', resetTouchState)

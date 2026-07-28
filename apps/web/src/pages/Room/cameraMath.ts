@@ -156,3 +156,31 @@ export function clientToRoomPoint(
     config,
   )
 }
+
+/** Turning the view around a fixed screen point (#319, ADR 007 §4).
+ *
+ *  Changing `angle` alone pivots around `(cx, cy)` — the canvas centre's own
+ *  screen position in bounded rooms, the camera origin in infinite ones —
+ *  which at working zoom is usually somewhere off-screen, so the drawing
+ *  swings out of view instead of turning under the cursor. Carrying `(cx, cy)`
+ *  the same way around `anchor` cancels that exactly: whatever the anchor was
+ *  over stays there, and everything else turns around it — the single-pointer
+ *  equivalent of what a two-finger twist does about the midpoint between the
+ *  fingers.
+ *
+ *  `anchor` is in viewport-container coordinates (`clientX - rect.left`), the
+ *  same space `cx`/`cy` live in. */
+export function rotateViewportAround(
+  vp: Viewport, anchorX: number, anchorY: number, dAngle: number,
+): Viewport {
+  const cos = Math.cos(dAngle)
+  const sin = Math.sin(dAngle)
+  const rx = vp.cx - anchorX
+  const ry = vp.cy - anchorY
+  return {
+    ...vp,
+    angle: vp.angle + dAngle,
+    cx: anchorX + rx * cos - ry * sin,
+    cy: anchorY + rx * sin + ry * cos,
+  }
+}
