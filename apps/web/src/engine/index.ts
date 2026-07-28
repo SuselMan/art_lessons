@@ -822,11 +822,19 @@ const MARKER_COVERAGE_GAIN = 1.4
 // the old falloff is deliberately not folded back in yet — stage 3.
 const MARKER_EDGE_AA_PX = 1.0
 
-// #330 stage 3: how far the ribbon's straight chords may deviate from the path
+// #330 stage 3: how far the ribbon's straight chords may deviate from the curve
 // they approximate before sampling gets denser (DabSystem.curvatureTolerancePx).
-// Half a pixel — below the edge ramp's own width, so a curve can't read as a
-// polygon before the edge itself blurs it out.
-const MARKER_CURVATURE_TOLERANCE_PX = 0.5
+//
+// 0.15px, not the half pixel this started at. The first value was picked
+// against the path's own sagitta alone and left visible rounded scalloping on
+// turns with a wide nib: the dominant error is the nib's *reach* amplifying the
+// turn (see DabSystem.curvatureTolerancePx), and against a 1px edge ramp a
+// periodic 0.5px wobble is roughly half the boundary pixel's alpha — plainly
+// visible now that nothing blurs it. A fraction of the ramp width is the right
+// scale for this; sample count only grows with sqrt(1/tol), so tightening it
+// this far costs ~1.8x the samples on the curves where it binds at all, and
+// nothing on straight strokes.
+const MARKER_CURVATURE_TOLERANCE_PX = 0.15
 
 // #330 stage 3, ADR 004 §1 revisited: the chisel nib is a rounded rectangle,
 // not an ellipse. A flat felt tip really does have parallel sides and a short
