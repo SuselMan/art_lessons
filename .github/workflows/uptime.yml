@@ -1,0 +1,107 @@
+name: Uptime
+
+# (#178) Cheapest honest answer to "is prod up, and do we find out before a
+# teacher does" — a scheduled probe of the public health endpoint, no external
+# service and no account to keep alive. A failing run e-mails whoever last
+# touched this file (GitHub's default for scheduled workflows), so the alert
+# channel is one that already exists.
+#
+# What this deliberately is NOT: an SLA monitor. GitHub's cron is best-effort —
+# runs get delayed under load and can be skipped entirely, so a *missing* run
+# is not evidence of health, only a failing one is evidence of trouble. It also
+# only runs from the default branch, and GitHub disables scheduled workflows
+# after 60 days without repo activity. If prod ever needs sub-minute detection
+# or a push/SMS alert, a free UptimeRobot-class monitor is the upgrade — it is
+# independent of this repo, which is precisely its advantage.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+# Nothing here needs the repo token.
+permissions: {}
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      # A repo variable rather than a hardcoded host, so pointing this at the
+      # brand domain later (#327) is a settings change, not a commit.
+      - name: Resolve origin
+        id: origin
+        run: |
+          origin="${{ vars.PROD_ORIGIN }}"
+          [ -n "$origin" ] || origin="https://5ryx.l.time4vps.cloud"
+          echo "origin=$origin" >> "$GITHUB_OUTPUT"
+          echo "host=${origin#https://}" >> "$GITHUB_OUTPUT"
+
+      # /api/health, not /health: nginx proxies the /api/ prefix, while
+      # everything else falls through to the SPA's index.html fallback — a
+      # probe of /health would answer 200 with an HTML page even with the
+      # server container stopped (see deploy/nginx.conf).
+      #
+      # Three attempts because a deploy restarts the server container, and a
+      # single blip landing inside that window is not an outage worth waking
+      # anyone for. Three consecutive failures 20s apart is.
+      - name: Probe /api/health
+        env:
+          ORIGIN: ${{ steps.origin.outputs.origin }}
+        run: |
+          set -uo pipefail
+          for attempt in 1 2 3; do
+            code=$(curl -sS -o body.json -w '%{http_code}' --max-time 10 "$ORIGIN/api/health" || echo 000)
+            body=$(cat body.json 2>/dev/null || true)
+            if [ "$code" = "200" ] && printf '%s' "$body" | grep -q '"ok":true'; then
+              echo "healthy (attempt $attempt): $body"
+              echo "✅ $ORIGIN — healthy: \`$body\`" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "attempt $attempt failed — HTTP $code, body: ${body:-<empty>}"
+            if [ "$attempt" -lt 3 ]; then sleep 20; fi
+          done
+          {
+            echo "🚨 **$ORIGIN is not healthy**"
+            echo ""
+            echo "Last response: HTTP \`$code\`"
+            echo ""
+            echo '```'
+            echo "${body:-<empty body>}"
+            echo '```'
+            echo ""
+            echo "\`db: down\` with a 200 means Postgres is gone but the server lives;"
+            echo "a 502/timeout means the server container or nginx is down."
+            echo "Runbook: \`deploy/README.md\` → Manual redeploy / troubleshooting."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
+      # Certbot renews at 30 days remaining via its own systemd timer, entirely
+      # unattended — which means a broken renewal is silent until the morning
+      # every browser refuses to open the app. Under 14 days left is that
+      # failure, caught with two weeks to spare.
+      - name: Check TLS certificate expiry
+        if: always()
+        env:
+          HOST: ${{ steps.origin.outputs.host }}
+        run: |
+          set -uo pipefail
+          host="${HOST%%/*}"
+          if ! openssl s_client -connect "$host:443" -servername "$host" </dev/null 2>/dev/null > cert.pem; then
+            echo "could not fetch the certificate — covered by the health probe above"
+            exit 0
+          fi
+          expiry=$(openssl x509 -in cert.pem -noout -enddate | cut -d= -f2)
+          if openssl x509 -in cert.pem -noout -checkend $((14 * 86400)) >/dev/null; then
+            echo "certificate valid until $expiry"
+            exit 0
+          fi
+          {
+            echo "🚨 **TLS certificate for $host expires in under 14 days** ($expiry)"
+            echo ""
+            echo "Certbot's unattended renewal has stopped working. On the VPS:"
+            echo "\`sudo certbot certificates\` / \`sudo certbot renew --dry-run\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1

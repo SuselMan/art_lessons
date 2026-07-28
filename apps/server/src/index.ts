@@ -6,6 +6,7 @@ import { Server, type DefaultEventsMap } from 'socket.io'
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 import { registerRoomHandlers, type SocketData } from './socketHandlers.js'
 import { identityHook } from './identity.js'
+import { registerHealthRoutes } from './healthRoutes.js'
 import { registerAuthRoutes } from './authRoutes.js'
 import { registerRoomRoutes } from './roomRoutes.js'
 import { registerRoomFolderRoutes } from './roomFolderRoutes.js'
@@ -33,12 +34,14 @@ await app.register(cors, {
 })
 await app.register(cookie)
 
-// Resolves req.userId (identity.ts) for every HTTP route from here on —
-// registered globally so /api/auth/*, /api/rooms/*, /api/me etc. all get it
-// for free. Routes registered above this line would NOT have req.userId.
+// Resolves req.userId (identity.ts) for every HTTP route — /api/auth/*,
+// /api/rooms/*, /api/me etc. all get it for free. Registration order is not
+// what scopes this: a route declared before this line still gets the hook.
+// The only way out is `config: { skipIdentity: true }` on the route itself,
+// which is how the health checks avoid minting a guest User per probe (#178).
 app.addHook('preHandler', identityHook)
 
-app.get('/health', async () => ({ ok: true }))
+registerHealthRoutes(app)
 registerAuthRoutes(app)
 registerRoomRoutes(app)
 registerRoomFolderRoutes(app)

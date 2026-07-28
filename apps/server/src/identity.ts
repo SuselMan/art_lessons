@@ -57,8 +57,20 @@ export function identityCookieOptions() {
 /** Fastify preHandler: resolves `request.userId` from the identity cookie,
  *  minting a fresh guest `User` + cookie on first-ever visit. Registered
  *  globally so every HTTP route (including future ones) gets `request.userId`
- *  for free without repeating this per-route. */
+ *  for free without repeating this per-route.
+ *
+ *  A route can opt out with `config: { skipIdentity: true }` — needed by
+ *  anything a machine calls while never holding a cookie, since for those
+ *  "mint a guest User on first visit" means a fresh row on *every* request,
+ *  forever (see healthRoutes.ts, #178). The opt-out lives per-route rather
+ *  than as a path list here so it stays next to the route that needs it.
+ *
+ *  It has to be an explicit flag rather than registration order: adding this
+ *  hook *after* a route still applies it to that route, so registering
+ *  something "above the hook" exempts nothing (asserted in
+ *  healthRoutes.test.ts, because the failure mode is silent). */
 export async function identityHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+  if (request.routeOptions.config?.skipIdentity) return
   const existing = request.cookies[IDENTITY_COOKIE]
   const userId = existing && verifyIdentityToken(existing)
   if (userId) {
@@ -101,5 +113,10 @@ function extractCookie(header: string | undefined, name: string): string | undef
 declare module 'fastify' {
   interface FastifyRequest {
     userId: string
+  }
+  interface FastifyContextConfig {
+    /** Opt this route out of `identityHook` — no `request.userId`, no cookie,
+     *  no guest `User` row. Only for routes never called by a browser. */
+    skipIdentity?: boolean
   }
 }
