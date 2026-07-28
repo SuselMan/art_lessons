@@ -117,6 +117,94 @@ sudo systemctl status nginx
 sudo certbot certificates                                   # cert expiry/status
 ```
 
+## Backups (#315)
+
+`deploy/backup.sh` runs nightly at 03:20 UTC from `/etc/cron.d/art-lessons-backup`:
+dumps Postgres in custom format, verifies the archive end to end with
+`pg_restore`, uploads it off the VPS with rclone, then rotates. It treats a
+failed upload as a failed run — a copy that lives only on the disk it is
+backing up does not survive that disk.
+
+Retention: 14 locally in `/var/backups/art-lessons`, 60 days off-site.
+Both are `KEEP_LOCAL` / `KEEP_REMOTE_DAYS` in `/opt/art-lessons/.env`.
+
+`.github/workflows/backup-check.yml` asks the VPS once a day (07:00 UTC)
+whether a fresh dump exists in both places, and fails — i.e. e-mails — when it
+doesn't. The script it runs, `deploy/backup-status.sh`, is worth running by
+hand whenever you're already on the box.
+
+Both scripts live in the repo, so `deploy.sh`'s `git reset --hard origin/main`
+keeps them current on every deploy. The cron file does not — `/etc/cron.d` is
+outside the repo, so changing the schedule means copying it over again.
+
+### One-time setup on the VPS
+
+```sh
+ssh deploy@80.209.232.109
+sudo mkdir -p /var/backups/art-lessons
+sudo chown deploy:deploy /var/backups/art-lessons
+
+sudo apt-get install -y rclone
+rclone config   # interactive; see below
+
+# Backup settings live alongside the stack's existing secrets
+sudo -u deploy tee -a /opt/art-lessons/.env >/dev/null <<'EOF'
+BACKUP_REMOTE=b2:grafetto-backups
+EOF
+
+sudo cp /opt/art-lessons/deploy/backup.cron /etc/cron.d/art-lessons-backup
+sudo chmod 644 /etc/cron.d/art-lessons-backup
+
+# Prove it works now, rather than finding out at 03:20
+bash /opt/art-lessons/deploy/backup.sh
+bash /opt/art-lessons/deploy/backup-status.sh
+```
+
+`rclone config` answers for Backblaze B2 (10 GB free, no card required, and
+S3-compatible so nothing here is B2-specific): `n` for a new remote, name it
+`b2`, storage type `b2`, then the **application key** `keyID` and
+`applicationKey` from the B2 console — create it scoped to a single bucket, not
+the master key. Create the bucket private, and turn on B2's own lifecycle rules
+only if you want a second layer of expiry beyond `KEEP_REMOTE_DAYS`.
+
+The rclone config lands in `~deploy/.config/rclone/rclone.conf` and holds
+credentials in the clear — it is as sensitive as `/opt/art-lessons/.env`, and
+backed up nowhere on purpose. Losing it costs a new application key; leaking it
+costs the backups themselves. Cloudflare R2, Hetzner Storage Box, or any S3
+endpoint work identically — only `BACKUP_REMOTE` changes.
+
+### Restoring
+
+`.dump` files are custom-format, so `pg_restore` — not `psql`. Off-site copy
+first if the box itself is gone: `rclone copy b2:grafetto-backups/<file> .`
+
+```sh
+cd /opt/art-lessons
+# Restore into a scratch database first and look at it. `-c` on the live
+# database drops every object it is about to recreate, so a wrong file or a
+# half-finished run leaves nothing to go back to.
+docker compose -f docker-compose.prod.yml exec -T postgres \
+  createdb -U art_lessons art_lessons_restore
+docker compose -f docker-compose.prod.yml exec -T postgres \
+  pg_restore -U art_lessons -d art_lessons_restore --no-owner \
+  < /var/backups/art-lessons/art_lessons-<timestamp>.dump
+
+# Sanity-check what you just restored before trusting it
+docker compose -f docker-compose.prod.yml exec -T postgres \
+  psql -U art_lessons -d art_lessons_restore \
+  -c 'SELECT count(*) FROM "User"; SELECT count(*) FROM "Room";'
+```
+
+To promote it, stop the server container first (`docker compose -f
+docker-compose.prod.yml stop server`) so nothing writes mid-swap, rename the
+databases, then start it again. Migrations are already inside the dump — do
+not run `prisma migrate deploy` against a restored database until you have
+confirmed which migration it was taken at.
+
+**Restoring has not been rehearsed on this VPS yet** — that drill is its own
+release-track item (#314 §9). Until it has been, treat the commands above as
+untested-in-anger.
+
 ## Known gaps / deliberately deferred
 
 - No rollback automation — a bad deploy needs a manual `git reset` to the
@@ -124,5 +212,11 @@ sudo certbot certificates                                   # cert expiry/status
   (one operator), worth revisiting if that changes.
 - No staging environment — `main` is directly production. Matches this
   project's actual review process (PRs gate on CI, not on a staging deploy).
-- Postgres backups: not yet automated (no issue filed for this yet — worth
-  one before real student data accumulates).
+- Monitoring is GitHub-cron-based (`.github/workflows/uptime.yml`, #178):
+  good enough to learn about an outage before a teacher reports it, but its
+  schedule is best-effort and only runs from the default branch, so a *missing*
+  run proves nothing. A free UptimeRobot-class monitor is the upgrade if prod
+  ever needs detection independent of this repo.
+- Backups are not encrypted at rest off-site — B2 holds them under a
+  bucket-scoped key. Worth revisiting when the data is other people's students
+  rather than test rooms.

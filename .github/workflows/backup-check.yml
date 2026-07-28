@@ -1,0 +1,58 @@
+name: Backup check
+
+# (#315) A backup nobody checks is a guess. backup.sh fails loudly, but it
+# fails into cron's local mail, which nothing reads — so this asks the VPS once
+# a day whether a fresh, verified dump exists both on the box and off it, and
+# turns "no" into a failing run, which GitHub e-mails about.
+#
+# Deliberately a *separate* question from the uptime probe: prod can be
+# perfectly up for weeks while backups have been silently broken since the
+# first night. Those two failures need to be distinguishable at a glance.
+#
+# Runs after the nightly backup window (03:20 UTC, see deploy/README.md), with
+# enough gap that a slow run is not mistaken for a missing one.
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # Reuses the deploy key that already exists for this VPS — no new secret
+      # and no new access path to keep track of.
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Ask the VPS about its backups
+        run: |
+          set -uo pipefail
+          report=$(ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o ConnectTimeout=20 \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "bash /opt/art-lessons/deploy/backup-status.sh" 2>&1)
+          exit_code=$?
+          echo "$report"
+          {
+            if [ "$exit_code" -eq 0 ]; then
+              echo "### ✅ Backups are current"
+            else
+              echo "### 🚨 Backups need attention"
+            fi
+            echo ""
+            echo '```'
+            echo "$report"
+            echo '```'
+            if [ "$exit_code" -ne 0 ]; then
+              echo ""
+              echo "Runbook: \`deploy/README.md\` → Backups. Start with"
+              echo "\`sudo journalctl -t grafetto-backup --since -3d\` on the VPS."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$exit_code"
