@@ -1,3 +1,11 @@
+// PAPER_WORLD_SIZE is imported rather than restated as a GLSL literal
+// because the charcoal dropout period below is derived from it: a hand-copied
+// number here would drift the moment that constant is retuned, which is
+// exactly how DAB_FRAG's finite-difference step went wrong once before (it
+// read a world-space size where it needed a texel count). paperNoise is a
+// leaf module — no engine internals come with it.
+import { PAPER_WORLD_SIZE } from './paperNoise'
+
 // Per-dab varying parameters (pressure/tilt/opacity/aspect ratio) are
 // forwarded from vertex to fragment stage as `varying`s rather than read
 // directly as fragment-stage uniforms, so DAB_FRAG below is shared
@@ -618,13 +626,25 @@ export const DAB_FRAG = `
       // absent on yours" — a real problem here, since a room's pixels are
       // re-derived by replaying the op log on every participant's own GPU (see
       // .claude/rules.md's cross-device-determinism rules and ADR 005 §5).
-      // Sampling a baked asset is deterministic, physically truer (charcoal
-      // really does skip where the paper dips), and rides paperUV, which is
-      // already world-space — so unlike computeGrain's raw gl_FragCoord basis
-      // this doesn't shift at an infinite canvas's tile boundaries.
-      const float CHARCOAL_BLOTCH_SCALE = 0.17; // magnifies the paper's own grain to stick-scale blotches
+      // Sampling a baked asset is deterministic and physically truer (charcoal
+      // really does skip where the paper dips), and the UV below carries
+      // u_paperOrigin — so unlike computeGrain's raw gl_FragCoord basis this
+      // doesn't shift at an infinite canvas's tile boundaries.
+      //
+      // Deliberately NOT derived from paperUV, though it used to be (as
+      // paperUV * 0.17, back when paperUV repeated every PAPER_WORLD_SIZE in
+      // every room). #333 made paperUV span a bounded sheet exactly once so
+      // deposit would bite the grain the tint actually draws — which silently
+      // rescaled this too, stretching a sixth of the tile across a whole page:
+      // stick-scale blotches became page-scale blobs, and their gaps became
+      // holes no amount of scrubbing could close. Blotch size is a property of
+      // the stick, not of the sheet's dimensions, so it keeps its own fixed
+      // period. Still built on gl_FragCoord + u_paperOrigin, so it stays
+      // world-space and doesn't shift at an infinite canvas's tile boundaries.
+      const float CHARCOAL_BLOTCH_PERIOD = ${(PAPER_WORLD_SIZE / 0.17).toFixed(1)}; // = PAPER_WORLD_SIZE / the old 0.17 magnification
       const float CHARCOAL_GATE_BAND = 0.14;    // deliberately wide, so a tiny numeric drift moves an edge rather than flipping a pixel
-      float blotch = texture2D(u_paperHeightMap, paperUV * CHARCOAL_BLOTCH_SCALE).r;
+      vec2 blotchUV = (gl_FragCoord.xy + u_paperOrigin) / CHARCOAL_BLOTCH_PERIOD * u_paperScale;
+      float blotch = texture2D(u_paperHeightMap, blotchUV).r;
       // Threshold is highest at the rim (shape -> 0) and lowest in the core
       // (shape -> 1), so gaps concentrate along the mark's edges while still
       // occasionally breaking its body outright.
