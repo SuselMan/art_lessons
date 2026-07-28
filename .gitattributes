@@ -1,0 +1,9 @@
+# Everything text is stored with LF, whatever the checkout platform. Without
+# this, an editor on Windows that saves CRLF turns the next diff of that file
+# into "every line changed" — which is what happened to the i18n dictionaries
+# and to CreateRoom, and it hides the actual edit inside the noise.
+* text=auto eol=lf
+
+# Binary assets: don't normalize them, don't try to diff them as text.
+*.png binary
+*.jpg binary
