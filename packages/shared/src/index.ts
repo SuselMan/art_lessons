@@ -309,6 +309,23 @@ export type StrokeOperation = OperationBase & {
   // the same default a brand-new user's tool would have).
   smudgeLoadAtStart?: number
   smudgeLoadAtEnd?: number
+  /** Which gesture this operation belongs to. A stroke longer than
+   *  STROKE_DAB_CHUNK_LIMIT dabs is recorded as several operations (see the
+   *  engine's _flushStrokeChunk and that constant's own comment for why the
+   *  log can't hold one unbounded op); every chunk of one pen-down-to-pen-up
+   *  gesture carries the same value here, and a stroke short enough to fit in
+   *  one op carries it too.
+   *
+   *  Needed because a marker stroke is not the sum of its dabs: it composites
+   *  by multiplying the layer's *pre-stroke* content, frozen once per gesture
+   *  (see MarkerStrokeScratch). Replay a gesture's chunks as unrelated
+   *  operations and the second one multiplies over the first one's output
+   *  instead — a nib-shaped dark band across the stroke at every boundary,
+   *  which is what a long marker line looked like after an undo.
+   *
+   *  Absent on strokes recorded before this existed; they replay as they
+   *  always did, each chunk standing alone. */
+  strokeId?: string
 }
 
 /** Inserts a new raster layer at the top of rootOrder. */

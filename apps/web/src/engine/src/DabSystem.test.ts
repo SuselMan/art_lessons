@@ -963,3 +963,87 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     }
   })
 })
+
+// #330 stage 3: the marker's ribbon draws straight bands between samples, so a
+// curve is only as smooth as the sampling. Two chord errors bound the step —
+// the path's own sagitta, and the nib's reach amplifying the turn — and it was
+// missing the second one that left visible rounded scalloping on turns with a
+// wide chisel nib. Opt-in: null (every tool but marker) must not change spacing
+// at all.
+describe('DabSystem curvature-adaptive spacing (#330)', () => {
+  // Chisel-like: a wide, elongated nib, which is exactly the case where a small
+  // turn moves the far edge a long way.
+  const wideNib: DabShapingProfile = {
+    size: () => 1,
+    aspect: () => 5,
+    angle: () => 0,
+  }
+
+  /** Dabs along a circular arc of the given radius, at a fixed base size. */
+  function arcDabs(radius: number, tolerance: number | null, baseSize = 120) {
+    const dabs = new DabSystem({ shaping: wideNib })
+    dabs.curvatureTolerancePx = tolerance
+    const pt = (i: number) => ({
+      x: radius * Math.cos(i * 0.12),
+      y: radius * Math.sin(i * 0.12),
+    })
+    const first = pt(0)
+    const out = [...dabs.startStroke(first.x, first.y, 1, 0, 0, baseSize)]
+    for (let i = 1; i < 14; i++) {
+      const p = pt(i)
+      out.push(...dabs.continueStroke(p.x, p.y, 1, 0, 0, baseSize))
+    }
+    return out
+  }
+
+  function meanStep(dabs: Array<{ x: number; y: number }>): number {
+    let total = 0
+    for (let i = 1; i < dabs.length; i++) total += Math.hypot(dabs[i].x - dabs[i - 1].x, dabs[i].y - dabs[i - 1].y)
+    return total / (dabs.length - 1)
+  }
+
+  it('leaves spacing alone when no tolerance is set (every tool but marker)', () => {
+    const step = meanStep(arcDabs(150, null))
+    expect(step).toBeCloseTo(120 * 0.22, 1) // plain baseSize * spacingFactor
+  })
+
+  it('leaves a straight stroke alone even with a tolerance set', () => {
+    const dabs = new DabSystem({ shaping: wideNib })
+    dabs.curvatureTolerancePx = 0.15
+    const out = [...dabs.startStroke(0, 0, 1, 0, 0, 120)]
+    for (let i = 1; i < 14; i++) out.push(...dabs.continueStroke(i * 40, 0, 1, 0, 0, 120))
+    expect(meanStep(out)).toBeCloseTo(120 * 0.22, 1)
+  })
+
+  it('samples a curve more densely, and more so the tighter it turns', () => {
+    const gentle = meanStep(arcDabs(600, 0.15))
+    const medium = meanStep(arcDabs(150, 0.15))
+    const tight = meanStep(arcDabs(60, 0.15))
+    expect(gentle).toBeGreaterThan(medium)
+    expect(medium).toBeGreaterThan(tight)
+    expect(tight).toBeLessThan(120 * 0.22)
+  })
+
+  // The regression that prompted the second term: with only the path's own
+  // sagitta bounded, a wide nib on a moderate curve got no refinement worth
+  // speaking of, because s²κ/8 stays small while reach·(κs)²/8 does not.
+  it('refines for a wide nib where a narrow one needs no refinement', () => {
+    const narrowNib: DabShapingProfile = { size: () => 1, aspect: () => 1, angle: () => 0 }
+    const narrow = new DabSystem({ shaping: narrowNib })
+    narrow.curvatureTolerancePx = 0.15
+    const wideStep = meanStep(arcDabs(300, 0.15))
+
+    const pt = (i: number) => ({ x: 300 * Math.cos(i * 0.12), y: 300 * Math.sin(i * 0.12) })
+    const first = pt(0)
+    const out = [...narrow.startStroke(first.x, first.y, 1, 0, 0, 120)]
+    for (let i = 1; i < 14; i++) { const p = pt(i); out.push(...narrow.continueStroke(p.x, p.y, 1, 0, 0, 120)) }
+
+    expect(wideStep).toBeLessThan(meanStep(out))
+  })
+
+  it('carries the tolerance into a speculative preview fork', () => {
+    const dabs = new DabSystem({ shaping: wideNib })
+    dabs.curvatureTolerancePx = 0.15
+    expect(dabs.forkForPreview().curvatureTolerancePx).toBe(0.15)
+  })
+})

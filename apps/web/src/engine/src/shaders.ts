@@ -30,6 +30,10 @@ export const DAB_VERT = `
   varying float v_tiltY;
   varying float v_opacity;
   varying float v_aspectRatio;
+  // #330: the dab's own radius in canvas px, forwarded so the fragment stage
+  // can express a distance in *pixels* rather than in normalized dab space.
+  // Only the marker's nib-coverage branch reads it.
+  varying float v_radius;
 
   void main() {
     v_localUV = a_position * 2.0;
@@ -38,6 +42,7 @@ export const DAB_VERT = `
     v_tiltY = u_tiltY;
     v_opacity = u_opacity;
     v_aspectRatio = u_aspectRatio;
+    v_radius = u_dabRadius;
 
     float c = cos(u_angle);
     float s = sin(u_angle);
@@ -85,6 +90,7 @@ export const DAB_VERT_INSTANCED = `
   varying float v_tiltY;
   varying float v_opacity;
   varying float v_aspectRatio;
+  varying float v_radius; // #330 — see DAB_VERT's own comment
 
   void main() {
     vec2 dabCenter    = a_instA.xy;
@@ -92,6 +98,7 @@ export const DAB_VERT_INSTANCED = `
     float angle       = a_instA.w;
     float aspectRatio = a_instB.x;
 
+    v_radius = dabRadius;
     v_localUV = a_position * 2.0;
     v_pressure = a_instB.y;
     v_tiltX = a_instB.z;
@@ -115,6 +122,69 @@ export const DAB_VERT_INSTANCED = `
     clip.y = -clip.y;
 
     gl_Position = vec4(clip, 0.0, 1.0);
+  }
+`;
+
+// #330 stage 2: the marker ribbon's band geometry (markerRibbon.ts's
+// buildRibbonBands). Positions arrive already in tile-local pixels — unlike
+// DAB_VERT, there is no centre/radius/angle to apply here, the CPU already
+// placed every vertex — and each one carries its own distance to the ribbon's
+// nearest outer boundary, in canvas pixels.
+//
+// That attribute is the whole point of the exercise: coverage comes out of a
+// distance measured in *pixels*, so the edge stays the same width whatever the
+// brush size, instead of the old normalized-space falloff whose width was a
+// fixed fraction of the dab (36-40% of the mark's half-width at any size — see
+// docs/marker-edge-problem.md).
+export const RIBBON_VERT = `
+  attribute vec2 a_position;
+  attribute float a_edge;
+  // How much ink the segment this vertex belongs to deposits — already
+  // distance-normalized by the CPU (dab.opacity * segmentLength). Ignored by
+  // the coverage pass.
+  attribute float a_ink;
+
+  uniform vec2 u_resolution;
+
+  varying float v_edge;
+  varying float v_ink;
+
+  void main() {
+    v_edge = a_edge;
+    v_ink = a_ink;
+    vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
+    clip.y = -clip.y;
+    gl_Position = vec4(clip, 0.0, 1.0);
+  }
+`;
+
+export const RIBBON_FRAG = `
+  precision highp float;
+
+  uniform float u_aaPx;
+  // 0 = silhouette (coverage), 1 = ink deposit. The ribbon is drawn twice with
+  // identical geometry, which is the whole point (#330 follow-up): the mark's
+  // shape and its pigment must come from the same figure. Depositing ink only
+  // at the sample stamps while the silhouette came from the ribbon left the
+  // regions between stamps fully opaque but *unpainted* — the composite
+  // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
+  // turn came out bitten by rounded white notches.
+  uniform float u_mode;
+
+  varying float v_edge;
+  varying float v_ink;
+
+  void main() {
+    // Inset ramp: coverage reaches 0 exactly *at* the geometric boundary and
+    // 1.0 one u_aaPx inside it, rather than straddling the boundary. Keeps
+    // every fragment this shader needs inside the geometry the CPU emitted (a
+    // centred ramp would need the band widened by half a pixel on each side),
+    // and matches the identical convention in DAB_FRAG's own nib branch so the
+    // two primitives agree where they meet.
+    float cov = clamp(v_edge / u_aaPx, 0.0, 1.0);
+    if (cov <= 0.0) discard;
+    float amount = u_mode > 0.5 ? cov * v_ink : cov;
+    gl_FragColor = vec4(vec3(amount), amount);
   }
 `;
 
@@ -242,7 +312,7 @@ export const DAB_FRAG = `
   // ADR 004 "Ревизия v1.5": how much ink this stroke has actually deposited
   // at each pixel, distance-normalized (engine/index.ts computes each dab's
   // own contribution as dab.opacity * segmentLength, not a flat per-dab
-  // amount — see _paintOneMarkerDab) and accumulated *additively*
+  // amount — see _paintMarkerRibbon) and accumulated *additively*
   // (AccumulationBuffer.beginAdditiveDraw — no per-accumulation ceiling,
   // unlike u_strokeCoverage's saturating splat). Separating this from
   // u_strokeCoverage is what lets scribbling back and forth over an
@@ -256,6 +326,18 @@ export const DAB_FRAG = `
   // — declared here too so this fragment shader can read it back for the
   // u_original/u_strokeCoverage/u_inkLoad gl_FragCoord mapping above.
   uniform vec2 u_resolution;
+  // #330 stage 2: width of the marker's edge ramp, in canvas pixels. Shared
+  // with RIBBON_FRAG so the nib stamps and the bands between them resolve their
+  // shared boundary identically.
+  uniform float u_aaPx;
+  // #330 stage 3 — 0 = elliptical nib (bullet), 1 = rounded rectangle (chisel),
+  // with u_nibCorner the corner radius in canvas px. Only the marker's two
+  // geometric branches read either.
+  uniform float u_nibShape;
+  uniform float u_nibCorner;
+  // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
+  // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
+  uniform float u_inkEdge;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -263,6 +345,36 @@ export const DAB_FRAG = `
   varying float v_tiltY;
   varying float v_opacity;
   varying float v_aspectRatio;
+  varying float v_radius;
+
+  // #330: signed distance from this fragment to the marker nib's own boundary,
+  // in canvas pixels — negative inside, positive outside. The one place the
+  // marker's geometry is defined, shared by the coverage pass (u_inkMode=6) and
+  // the ink pass (u_inkMode=7) so the mark's silhouette and its pigment can
+  // never disagree about where the nib ends.
+  //
+  // Pixels, not normalized dab space, is the entire point: the profile this
+  // replaced spent a fixed *fraction* of the dab on its falloff, so the edge
+  // widened with the brush (36-40% of the mark's half-width at every size) and
+  // a big marker read as an airbrush.
+  float markerNibDistPx() {
+    float bAxis = max(v_radius, 1e-4);
+    float aAxis = bAxis * max(v_aspectRatio, 1.0);
+    if (u_nibShape > 0.5) {
+      // Exact SDF of a rounded box, in local pixels.
+      vec2 lp = vec2(v_localUV.x * aAxis, v_localUV.y * bAxis);
+      float r = min(u_nibCorner, min(aAxis, bAxis));
+      vec2 q = abs(lp) - vec2(aAxis, bAxis) + r;
+      return min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - r;
+    }
+    // Ellipse: first-order estimate d = (f - 1) / |grad f| for the implicit
+    // f = (x/a)² + (y/b)² = 1. Exact in the limit at the boundary, which is the
+    // only place it is ever used, and free of the iteration a true ellipse
+    // distance would need.
+    float f = dot(v_localUV, v_localUV);
+    vec2 gradPx = 2.0 * vec2(v_localUV.x / aAxis, v_localUV.y / bAxis);
+    return (f - 1.0) / max(length(gradPx), 1e-6);
+  }
 
   // Per-fragment dither for the 'grain' term below. Deliberately NOT the
   // classic sin()-based hash (fract(sin(dot(p, big-constants)) * big-
@@ -380,6 +492,40 @@ export const DAB_FRAG = `
     // Unchanged for aspect <= 1: max(aspect, 1.0) was 1.0 there, so this only
     // ever differed for an elongated dab — marker's chisel nib, a tilted
     // pencil, and charcoal's tilt ladder.
+    // #330 — the marker's two geometric passes come first, and deliberately
+    // *before* the ellipse discard below: a rounded-box chisel nib has corners
+    // outside the unit circle, and that discard would clip them off.
+    //
+    // u_inkMode=6 — the ribbon's nib stamp: one is drawn at every sample, and
+    // markerRibbon.ts's bands fill between them. Their union is exact; for a
+    // convex nib, sweeping it along a segment is precisely the convex hull of
+    // its two endpoint copies.
+    if (u_inkMode > 5.5 && u_inkMode < 6.5) {
+      // Inset ramp: 0 exactly at the boundary, 1 one u_aaPx inside. Matches
+      // RIBBON_FRAG's convention so a stamp and a band agree where they meet —
+      // see its own comment for why the ramp is one-sided.
+      float cov = clamp(-markerNibDistPx() / u_aaPx, 0.0, 1.0);
+      if (cov <= 0.0) discard;
+      gl_FragColor = vec4(vec3(cov), cov);
+      return;
+    }
+
+    // u_inkMode=7 — the ribbon's ink deposit. Same geometry as the coverage
+    // pass, so pigment lands exactly where the silhouette says the nib was,
+    // eased off slightly toward the rim by u_inkEdge so the mark doesn't read
+    // as mechanically flat. The superseded per-dab splat instead tapered all
+    // the way to zero across a soft profile — which is what made a light marker
+    // touch look like an airbrush rather than a marker pressed less hard.
+    if (u_inkMode > 6.5) {
+      float dPx = markerNibDistPx();
+      float cov = clamp(-dPx / u_aaPx, 0.0, 1.0);
+      if (cov <= 0.0) discard;
+      float depth = clamp(-dPx / max(v_radius, 1e-4), 0.0, 1.0);
+      float amount = cov * mix(u_inkEdge, 1.0, depth) * v_opacity;
+      gl_FragColor = vec4(vec3(amount), amount);
+      return;
+    }
+
     float dist = length(v_localUV);
     if (dist > 1.0) discard;
 
@@ -572,57 +718,13 @@ export const DAB_FRAG = `
       return;
     }
 
-    // Marker inkLoad-splat (ADR 004 "Ревизия v1.5"): this dab's own
-    // distance-normalized deposit (engine/index.ts's _paintOneMarkerDab
-    // computes u_opacity here as dab.opacity * segmentLength, already
-    // baked before this draw — the shader itself never sees positions or
-    // distances, just the final per-dab deposit amount), splatted
-    // *additively* (AccumulationBuffer.beginAdditiveDraw — no per-splat
-    // ceiling) into u_inkLoad. Checked before every other marker branch
-    // (u_inkMode>2.5/>1.5 would also be true for this branch's own 4.0)
-    // since all three are mutually exclusive draws against different
-    // targets, not layered on top of each other.
-    if (u_inkMode > 3.5) {
-      gl_FragColor = vec4(vec3(shape * v_opacity), shape * v_opacity);
-      return;
-    }
-
-    // Marker coverage-splat (#250, extended in "Ревизия v1.5" with a small
-    // edge-only paper bleed): paints this dab's own shape*opacity into this
-    // stroke's running *coverage* total — a perfectly ordinary saturating
-    // "over" splat, no multiply/color/ink-darkness involved. This is
-    // deliberately kept separate from u_inkLoad above: coverage governs
-    // only the stroke's silhouette/alpha (see the composite branch below),
-    // so it must saturate fast regardless of how dark the stroke eventually
-    // gets — conflating the two was v1's own mistake (see u_inkLoad's own
-    // comment above).
-    if (u_inkMode > 2.5) {
-      // ADR 004 "Ревизия v1.5" §6: a light paper-edge interaction, not the
-      // graphite pressure-fill mechanism (that's about compressing graphite
-      // into paper tooth under pressure — irrelevant to a felt/alcohol
-      // tip). Reuses the exact same edge mask liner's own wick term already
-      // established ((1-shape), zero at the dab's solid core, rising to 1
-      // right at the rim) so an absorbent paper (rough: low paperCatch)
-      // shows a soft bleed only at the mark's very edge, while bristol
-      // (paperCatch near 1) stays almost perfectly crisp.
-      const float MARKER_BLEED_STRENGTH = 0.35; // uncalibrated first pass
-      float paperAbsorbency = 1.0 - paperCatch;
-      // (1.0 - dist) is load-bearing, not decoration — exactly the same trap
-      // charcoal's own dust ring documents further up, and marker fell into it
-      // (#330): (1-shape) *rises* toward the rim, so without this term the
-      // bleed reaches its maximum right where the discard at the top of main()
-      // cuts the dab off, leaving a hard ~0.08 coverage step around every
-      // single dab. That step survived the composite-pass fix (it lives in the
-      // coverage splat itself, not in how the composite is written) and still
-      // measured 20/255 at the dab-spacing interval — enough to keep reading as
-      // separate stamped shapes on a wide stroke. Liner's own wick term has the
-      // identical shape and gets away with it only because its amplitude is
-      // tiny; marker's, at 0.35 * absorbency * opacity, is not.
-      float bleed = (1.0 - shape) * (1.0 - dist) * paperAbsorbency * MARKER_BLEED_STRENGTH;
-      float amt = clamp(shape * v_opacity + bleed * v_opacity, 0.0, 1.0);
-      gl_FragColor = vec4(vec3(amt), amt);
-      return;
-    }
+    // The paper-edge bleed that used to live in the superseded coverage
+    // splat is gone with it (#330). It was a soft outer halo scaled by the
+    // paper's own absorbency, and it belongs back here eventually as a small
+    // separate term over the crisp geometric edge — 0.3-0.8px of it on smooth
+    // paper, 0.8-2.0px on coarse. Deliberately not reinstated blind: the whole
+    // reason the rasterizer was rewritten is that the mark's edge was too soft,
+    // and softness is exactly what this adds back.
 
     // Marker composite (#250, ADR 004 §3, redesigned in "Ревизия v1.5" —
     // see u_original/u_strokeCoverage/u_inkLoad's own comments above):
@@ -654,6 +756,15 @@ export const DAB_FRAG = `
       // Coverage still governs the stroke's silhouette/alpha only (fast-
       // saturating — see u_strokeCoverage's own comment).
       float coverage = texture2D(u_strokeCoverage, tileUV).a;
+      // #330 stage 2: the ribbon rasterizer runs this pass once over the whole
+      // dirty rect of a batch instead of once per dab quad, so most fragments
+      // it now sees were never touched by the stroke at all. With zero coverage
+      // and zero inkLoad the maths below reproduces dst exactly — a no-op
+      // worth skipping outright, both to save the work and to keep the pass
+      // from round-tripping untouched pixels through un-premultiply and back
+      // (which can shift them by a least-significant bit on an 8-bit buffer).
+      // 1/255 is the smallest alpha this buffer can represent as nonzero.
+      if (coverage < 0.004) discard;
       // ADR 004 "Ревизия v1.5" §1 (revised again — Ilya: exactly two
       // *discrete* layers, not a soft asymptote that a single continuous
       // stroke can keep inching up forever): the first pass over a spot

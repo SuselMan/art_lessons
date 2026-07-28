@@ -26,7 +26,7 @@ import { useConfirmDialog } from '../ConfirmDialog/useConfirmDialog'
 import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
 import { patchItem } from './utils'
-import { isFolder, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder } from '../../lib/layers'
+import { isFolder, isLayerLocked, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder } from '../../lib/layers'
 import { readImageFile } from '../../lib/image'
 import styles from './LayerPanel.module.css'
 
@@ -123,9 +123,12 @@ export const LayerPanel = memo(function LayerPanel({
     onOp({ type: 'layer_opacity', layerId: id, opacity: v })
   , [onOp])
 
-  const handleToggleLock = useCallback((id: string) =>
+  // The background's lock isn't the user's to flip (see isLayerLocked) — its
+  // own row renders the button disabled, and this ignores it either way.
+  const handleToggleLock = useCallback((id: string) => {
+    if (id === BACKGROUND_LAYER_ID) return
     onChange(patchItem(id, prev => ({ locked: !prev.locked })))
-  , [onChange])
+  }, [onChange])
 
   // (#254/#260) Unlike handleToggleLock above (a purely local view-state
   // patch), this goes through the operation log — ownerLocked must be
@@ -492,7 +495,7 @@ export const LayerPanel = memo(function LayerPanel({
     && activeId !== BACKGROUND_LAYER_ID
   const canMerge        = canMergeSelected || canMergeDown
   const canDelete       = activeId !== BACKGROUND_LAYER_ID || selectedIds.some(id => id !== BACKGROUND_LAYER_ID)
-  const isActiveLocked  = !!activeItem?.locked
+  const isActiveLocked  = isLayerLocked(activeItem)
   const isActiveOwnerLocked = !!activeItem?.ownerLocked
 
   // ── render ────────────────────────────────────────────────────────────────────

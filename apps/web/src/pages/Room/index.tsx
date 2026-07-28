@@ -23,7 +23,7 @@ import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialo
 import { isModalOpen } from '../../components/Modal/modalSlot'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { RadialDial } from '../../components/RadialDial'
-import { computeCompositeOrder } from '../../lib/layers'
+import { computeCompositeOrder, isLayerLocked } from '../../lib/layers'
 import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getPencilSoundSetting, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
@@ -1509,7 +1509,7 @@ export function Room() {
     // locked in LayerPanel; it's purely "don't start a new stroke right
     // now," same effect a real per-layer lock has, just for a different
     // reason.
-    engine.setLocked(!!(layerState.items[layerState.activeId]?.locked) || transformActive)
+    engine.setLocked(isLayerLocked(layerState.items[layerState.activeId]) || transformActive)
     engine.setCompositeOrder(computeCompositeOrder(layerState))
   }, [layerState, transformActive])
 

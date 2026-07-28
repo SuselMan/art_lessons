@@ -119,6 +119,37 @@ const STEPS = 16
 
 export class DabSystem {
   spacingFactor: number
+  /**
+   * #330 stage 3 — marker only, null for every other tool (which keeps plain
+   * `baseSize * spacingFactor` spacing, unchanged).
+   *
+   * The marker's silhouette is no longer the union of these samples' own
+   * stamps: markerRibbon.ts connects consecutive samples with a band, and for a
+   * convex nib that band is the *exact* swept figure. What the band cannot
+   * represent is the path's curvature — it is a straight chord between two
+   * samples, so a curve is rendered as a polygon whose error is the chord's
+   * sagitta, s²κ/8.
+   *
+   * There are *two* such errors, and the second one is the one that matters —
+   * missing it first time round left visible scalloping on turns:
+   *
+   *  - the path's own sagitta, s²κ/8, independent of the nib. Sub-pixel almost
+   *    everywhere (0.87px for a 120px brush on a 100px-radius curve).
+   *  - the nib's *reach* amplifying the turn. A fixed-orientation nib swept
+   *    along a curve has an outer boundary offset by its support value in the
+   *    local normal direction, and for a 5:1 chisel that offset swings by up to
+   *    the long semi-axis as the travel direction rotates. Approximating the
+   *    path by chords therefore pulls the far edge in by roughly
+   *    reach·(κs)²/8 — measured 1.36px at a 120px brush on an 80px-radius arc,
+   *    against 0.34px for the path term alone. Small in absolute terms, but it
+   *    repeats at the sample interval and the edge is now a 1px ramp with
+   *    nothing left to hide it.
+   *
+   * So the limit is the tighter of the two, and the tolerance is deliberately a
+   * fraction of the edge ramp's own width rather than a fraction of a pixel-ish
+   * "close enough".
+   */
+  curvatureTolerancePx: number | null = null
   private _buf: ControlPoint[]
   private _remainder: number
   private _shaping: DabShapingProfile
@@ -215,6 +246,7 @@ export class DabSystem {
   // time) rather than keep feeding it more real points.
   forkForPreview(): DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
+    fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
     // #305: the fork continues *this* stroke speculatively, so it must inherit
@@ -371,7 +403,10 @@ export class DabSystem {
 
     if (totalLen < 0.001) return []
 
-    const spacing = Math.max(1, baseSize * this.spacingFactor)
+    const spacing = Math.max(1, Math.min(
+      baseSize * this.spacingFactor,
+      this._curvatureSpacingLimit(p1, p2, m1, m2, totalLen, baseSize),
+    ))
     const dabs: Dab[] = []
     let arcPos = spacing - this._remainder
     let si = 0
@@ -398,6 +433,44 @@ export class DabSystem {
 
     this._remainder = Math.max(0, totalLen - (arcPos - spacing))
     return dabs
+  }
+
+  /**
+   * Largest step that keeps both chord errors within `curvatureTolerancePx` on
+   * this segment (see that field). Infinity — no limit at all — whenever the
+   * caller hasn't opted in or the segment is straight.
+   *
+   * Curvature is estimated from the turn the tangent actually makes across the
+   * segment (κ ≈ Δangle / arc length) rather than from the analytic second
+   * derivative: two tangent evaluations we can afford, it degrades gracefully
+   * on a near-degenerate segment, and it is exactly the quantity both sagitta
+   * formulas are about.
+   */
+  private _curvatureSpacingLimit(
+    p1: ControlPoint, p2: ControlPoint, m1: { x: number; y: number }, m2: { x: number; y: number },
+    totalLen: number, baseSize: number,
+  ): number {
+    const tol = this.curvatureTolerancePx
+    if (tol === null || totalLen < 1e-6) return Infinity
+    const t0 = hermiteTangent(p1, p2, m1, m2, 0)
+    const t1 = hermiteTangent(p1, p2, m1, m2, 1)
+    const turn = turnAngle(t0.x, t0.y, t1.x, t1.y)
+    if (turn < 1e-6) return Infinity
+    const curvature = turn / totalLen
+
+    // Path term: sagitta = s²κ/8 <= tol  ->  s <= sqrt(8·tol/κ)
+    const pathLimit = Math.sqrt((8 * tol) / curvature)
+
+    // Nib term: reach·(κs)²/8 <= tol  ->  s <= sqrt(8·tol/reach)/κ. `reach` is
+    // how far this nib extends from its own centre — the long semi-axis for an
+    // elongated one, which is what makes a small turn move the far edge a long
+    // way. Taken from the active shaping profile so it follows whatever the tool
+    // actually is, at this segment's own tilt.
+    const tiltNorm = Math.hypot(p1.tiltX, p1.tiltY) / 90
+    const reach = baseSize * 0.5 * this._shaping.size(p1.pressure, tiltNorm) * Math.max(this._shaping.aspect(tiltNorm), 1)
+    const nibLimit = reach > 1e-6 ? Math.sqrt((8 * tol) / reach) / curvature : Infinity
+
+    return Math.min(pathLimit, nibLimit)
   }
 
   private _makeDab(x: number, y: number, pressure: number, rawTiltX: number, rawTiltY: number, baseSize: number, pathAngle: number): Dab {
