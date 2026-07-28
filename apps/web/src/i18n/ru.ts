@@ -337,6 +337,7 @@ export const ru: Dictionary = {
   'layers.show': 'Показать',
   'layers.lock': 'Заблокировать',
   'layers.unlock': 'Разблокировать',
+  'layers.backgroundLocked': 'Фон всегда заблокирован',
   'layers.expand': 'Развернуть',
   'layers.collapse': 'Свернуть',
   'layers.more': 'Ещё',

@@ -11,7 +11,7 @@ import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import {
   applyContentOp, replayLayerState, overlayLocalFields, sanitizeSelection,
   removeItems, parentOf, computeCompositeOrder, computeMergeOrder, getVisibleOrder,
-  collectDescendants,
+  collectDescendants, isLayerLocked,
 } from './layers'
 
 function layer(id: string, overrides: Partial<RasterLayer> = {}): RasterLayer {
@@ -293,5 +293,32 @@ describe('composite/merge order', () => {
     const state = stateOf({ a: layer('a'), b: layer('b', { visible: false }) }, ['a', 'b'])
     const order = computeMergeOrder(state, ['a', 'b'])
     expect(order.map(o => o.id)).toEqual(['b', 'a']) // bottom-to-top
+  })
+})
+
+describe('isLayerLocked', () => {
+  it('follows the flag for an ordinary layer', () => {
+    expect(isLayerLocked(layer('a'))).toBe(false)
+    expect(isLayerLocked(layer('a', { locked: true }))).toBe(true)
+  })
+
+  // The bug this exists for: the background carries no `locked` flag — nothing
+  // ever set one — so every caller reading `.locked` directly concluded it was
+  // paintable, and it was.
+  it('locks the background even though nothing set the flag', () => {
+    expect(isLayerLocked(layer(BACKGROUND_LAYER_ID))).toBe(true)
+  })
+
+  it('keeps the background locked when the flag says otherwise', () => {
+    expect(isLayerLocked(layer(BACKGROUND_LAYER_ID, { locked: false }))).toBe(true)
+  })
+
+  it('locks a folder by its own flag too', () => {
+    expect(isLayerLocked(folder('f', []))).toBe(false)
+    expect(isLayerLocked(folder('f', [], { locked: true }))).toBe(true)
+  })
+
+  it('treats a missing item as unlocked rather than throwing', () => {
+    expect(isLayerLocked(undefined)).toBe(false)
   })
 })

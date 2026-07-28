@@ -359,6 +359,7 @@ export const en = {
   'layers.show': 'Show',
   'layers.lock': 'Lock',
   'layers.unlock': 'Unlock',
+  'layers.backgroundLocked': 'The background is always locked',
   'layers.expand': 'Expand',
   'layers.collapse': 'Collapse',
   'layers.more': 'More',

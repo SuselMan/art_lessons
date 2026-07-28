@@ -7,7 +7,7 @@ import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { Menu } from '../Menu'
-import { isFolder } from '../../lib/layers'
+import { isFolder, isLayerLocked } from '../../lib/layers'
 import styles from './LayerPanel.module.css'
 
 export interface LayerRowProps {
@@ -54,7 +54,7 @@ function LayerRowImpl({
 
   const isFolderItem = isFolder(item)
   const isBackground = item.id === BACKGROUND_LAYER_ID
-  const isLocked = !!item.locked
+  const isLocked = isLayerLocked(item)
   const isOwnerLocked = !!item.ownerLocked
   const collapsed = isFolderItem && !!item.collapsed
 
@@ -109,11 +109,14 @@ function LayerRowImpl({
         <Icon name={item.visible ? 'visibility' : 'visibility_off'} />
       </button>
 
+      {/* The background shows the same lock, permanently on and not clickable:
+          it is the paper, and painting on it was never meant to be possible. */}
       <button
         className={clsx(styles.rowIconBtn, isLocked ? styles.rowIconBtnLocked : styles.rowIconBtnDim)}
         onClick={e => { e.stopPropagation(); onToggleLock(item.id) }}
-        title={t(isLocked ? 'layers.unlock' : 'layers.lock')}
-        aria-label={t(isLocked ? 'layers.unlock' : 'layers.lock')}
+        disabled={isBackground}
+        title={isBackground ? t('layers.backgroundLocked') : t(isLocked ? 'layers.unlock' : 'layers.lock')}
+        aria-label={isBackground ? t('layers.backgroundLocked') : t(isLocked ? 'layers.unlock' : 'layers.lock')}
       >
         <Icon name={isLocked ? 'lock' : 'lock_open'} />
       </button>

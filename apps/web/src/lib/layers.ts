@@ -5,6 +5,22 @@ export function isFolder(item: LayerItem): item is LayerFolder {
   return item.kind === 'folder'
 }
 
+/**
+ * Whether this item refuses paint. The `locked` flag is the user's own toggle,
+ * but the background is locked unconditionally and cannot be unlocked: it is
+ * the paper, and every other rule about it already says so (it can't be moved,
+ * deleted, merged, renamed, or multi-selected — see this file's own
+ * BACKGROUND_LAYER_ID guards and the layer panel's).
+ *
+ * Ask this rather than reading `.locked` directly, or the background ends up
+ * paintable simply because nothing ever set a flag on it — which is exactly
+ * what happened.
+ */
+export function isLayerLocked(item: LayerItem | undefined): boolean {
+  if (!item) return false
+  return item.id === BACKGROUND_LAYER_ID || !!item.locked
+}
+
 /** Returns the folder id that holds the item, or null if the item is at root. */
 export function parentOf(state: LayerState, id: string): string | null {
   for (const item of Object.values(state.items))
