@@ -139,13 +139,19 @@ export const DAB_VERT_INSTANCED = `
 export const RIBBON_VERT = `
   attribute vec2 a_position;
   attribute float a_edge;
+  // How much ink the segment this vertex belongs to deposits — already
+  // distance-normalized by the CPU (dab.opacity * segmentLength). Ignored by
+  // the coverage pass.
+  attribute float a_ink;
 
   uniform vec2 u_resolution;
 
   varying float v_edge;
+  varying float v_ink;
 
   void main() {
     v_edge = a_edge;
+    v_ink = a_ink;
     vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
@@ -156,8 +162,17 @@ export const RIBBON_FRAG = `
   precision highp float;
 
   uniform float u_aaPx;
+  // 0 = silhouette (coverage), 1 = ink deposit. The ribbon is drawn twice with
+  // identical geometry, which is the whole point (#330 follow-up): the mark's
+  // shape and its pigment must come from the same figure. Depositing ink only
+  // at the sample stamps while the silhouette came from the ribbon left the
+  // regions between stamps fully opaque but *unpainted* — the composite
+  // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
+  // turn came out bitten by rounded white notches.
+  uniform float u_mode;
 
   varying float v_edge;
+  varying float v_ink;
 
   void main() {
     // Inset ramp: coverage reaches 0 exactly *at* the geometric boundary and
@@ -168,7 +183,8 @@ export const RIBBON_FRAG = `
     // two primitives agree where they meet.
     float cov = clamp(v_edge / u_aaPx, 0.0, 1.0);
     if (cov <= 0.0) discard;
-    gl_FragColor = vec4(vec3(cov), cov);
+    float amount = u_mode > 0.5 ? cov * v_ink : cov;
+    gl_FragColor = vec4(vec3(amount), amount);
   }
 `;
 

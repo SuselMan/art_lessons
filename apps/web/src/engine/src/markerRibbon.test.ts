@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { Dab } from '@grafetto/shared'
 
-import { buildRibbonBands, nibSupport, nibGeometry, RIBBON_FLOATS_PER_VERTEX } from './markerRibbon'
+import { buildRibbonBands, nibSupport, nibGeometry, poseSubdivisions, RIBBON_FLOATS_PER_VERTEX } from './markerRibbon'
 
 function dab(x: number, y: number, opts: Partial<Dab> = {}): Dab {
   return { x, y, pressure: 1, tiltX: 0, tiltY: 0, size: 20, aspectRatio: 1, angle: 0, opacity: 1, t: 0, ...opts }
@@ -161,5 +161,63 @@ describe('buildRibbonBands', () => {
   it('emits 12 vertices per band', () => {
     const three = buildRibbonBands([dab(0, 0), dab(10, 0), dab(20, 0)], 1)
     expect(three.length / RIBBON_FLOATS_PER_VERTEX).toBe(24)
+  })
+})
+
+// #330 follow-up: the rounded notches that survived the first two fixes.
+describe('pose subdivision (#330 — rotating and growing nibs)', () => {
+  const g = (angle: number, size = 24, aspect = 5) =>
+    nibGeometry(dab(0, 0, { size, aspectRatio: aspect, angle }), 1, 'roundedBox', 0.28)
+
+  it('does not subdivide a pure translation', () => {
+    expect(poseSubdivisions(g(0.4), g(0.4))).toBe(1)
+  })
+
+  // "Band plus two nibs is the exact swept figure" is only true for translation.
+  // Once the nib turns, the poses in between bulge outside the hull of the two
+  // ends, and the wider the nib the further that bulge reaches.
+  it('subdivides more the further the nib reaches, for the same turn', () => {
+    const narrow = poseSubdivisions(g(0, 24, 1), g(0.05, 24, 1))
+    const wide = poseSubdivisions(g(0, 24, 5), g(0.05, 24, 5))
+    expect(wide).toBeGreaterThan(narrow)
+  })
+
+  it('subdivides for a size change even with the angle held fixed', () => {
+    expect(poseSubdivisions(g(0.4, 24), g(0.4, 40))).toBeGreaterThan(1)
+  })
+
+  it('takes the short way round rather than spinning through a full turn', () => {
+    const justBelowPi = poseSubdivisions(g(Math.PI - 0.01), g(-Math.PI + 0.01))
+    const wholeTurn = poseSubdivisions(g(0), g(Math.PI - 0.02))
+    expect(justBelowPi).toBeLessThan(wholeTurn)
+  })
+
+  it('stays bounded however wild the pose change', () => {
+    expect(poseSubdivisions(g(0, 200, 5), g(3, 400, 5))).toBeLessThanOrEqual(12)
+  })
+
+  // Ink rides the same vertices as the silhouette now — that is the whole point
+  // of the fix, so a band must actually carry a nonzero deposit.
+  it('carries an ink deposit on every band vertex', () => {
+    const data = buildRibbonBands([dab(0, 0), dab(40, 0)], 1, undefined, 'ellipse', 0, 1)
+    expect(data.length).toBeGreaterThan(0)
+    for (let i = 0; i < data.length; i += RIBBON_FLOATS_PER_VERTEX) {
+      expect(data[i + 3]).toBeGreaterThan(0)
+    }
+  })
+
+  it('scales that deposit with distance travelled, not with dab count', () => {
+    const short = buildRibbonBands([dab(0, 0), dab(10, 0)], 1, undefined, 'ellipse', 0, 1)
+    const long = buildRibbonBands([dab(0, 0), dab(40, 0)], 1, undefined, 'ellipse', 0, 1)
+    expect(long[3] / short[3]).toBeCloseTo(4, 5)
+  })
+
+  it('emits extra geometry for a turning nib and none for a straight one', () => {
+    const straight = buildRibbonBands([dab(0, 0, { aspectRatio: 5 }), dab(40, 0, { aspectRatio: 5 })], 1, undefined, 'roundedBox', 0.28, 1)
+    const turning = buildRibbonBands(
+      [dab(0, 0, { aspectRatio: 5, angle: 0 }), dab(40, 0, { aspectRatio: 5, angle: 0.3 })],
+      1, undefined, 'roundedBox', 0.28, 1,
+    )
+    expect(turning.length).toBeGreaterThan(straight.length * 3)
   })
 })

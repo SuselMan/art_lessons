@@ -1165,6 +1165,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonUni!: Record<string, WebGLUniformLocation | null>
   private _ribbonPosLoc!: number
   private _ribbonEdgeLoc!: number
+  private _ribbonInkLoc!: number
   private _ribbonBuf!: WebGLBuffer
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispUni!: Record<string, WebGLUniformLocation | null>
@@ -3172,7 +3173,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim.
       'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge',
     ])
-    this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx'])
+    this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
@@ -3218,6 +3219,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._ribbonPosLoc  = gl.getAttribLocation(this._ribbonProg, 'a_position')
     this._ribbonEdgeLoc = gl.getAttribLocation(this._ribbonProg, 'a_edge')
+    this._ribbonInkLoc  = gl.getAttribLocation(this._ribbonProg, 'a_ink')
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
@@ -4767,23 +4769,30 @@ export class PencilEngine implements PencilEngineAPI {
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
 
-    const bands = buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction)
+    const bands = buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, MARKER_EDGE_AA_PX)
 
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
 
       for (const dab of drawable) this._drawMarkerNibPass(coverage, tile, dab, preset, nibShape, cornerFraction, 6, 0)
-      if (bands.length) this._drawMarkerBands(coverage, tile, bands)
+      if (bands.length) this._drawMarkerBands(coverage, tile, bands, 'coverage')
 
+      // Ink follows the *same* figure as the silhouette. Depositing it only at
+      // the sample stamps is what produced the rounded white notches on turns:
+      // between stamps the ribbon still made the mark fully opaque, but with an
+      // ink load of zero the composite multiplies by nothing and the paper
+      // shows straight through. Both halves carry half a dose each (see
+      // buildRibbonBands) so their overlap sums to the calibrated amount.
       let prev = prevDab
       for (const dab of drawable) {
         const radius = dab.size * 0.5 * preset.sizeMultiplier
-        const deposit = dab.opacity * this._markerSegmentLength(dab, prev, radius)
+        const deposit = dab.opacity * this._markerSegmentLength(dab, prev, radius) * 0.5
         inkLoad.beginAdditiveDraw()
         this._drawMarkerNibPass(inkLoad, tile, dab, preset, nibShape, cornerFraction, 7, deposit, false)
         inkLoad.endDraw()
         prev = dab
       }
+      if (bands.length) this._drawMarkerBands(inkLoad, tile, bands, 'ink')
 
       this._drawMarkerCompositeRect(tile, bounds, preset, original, coverage, inkLoad, color)
     }
@@ -5020,19 +5029,21 @@ export class PencilEngine implements PencilEngineAPI {
    *  this tile's own pixel space here — the only per-tile work, which is why
    *  the geometry itself is built once for the whole batch rather than per
    *  tile. */
-  private _drawMarkerBands(coverage: AccumulationBuffer, tile: PaintTarget, bands: Float32Array): void {
+  private _drawMarkerBands(dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink'): void {
     const { gl } = this
     const local = new Float32Array(bands.length)
     for (let i = 0; i < bands.length; i += RIBBON_FLOATS_PER_VERTEX) {
       local[i]     = bands[i]     - tile.originX
       local[i + 1] = bands[i + 1] - tile.originY
       local[i + 2] = bands[i + 2]
+      local[i + 3] = bands[i + 3]
     }
 
-    coverage.beginDraw()
+    if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
     gl.useProgram(this._ribbonProg)
-    gl.uniform2f(this._ribbonUni.u_resolution, coverage.width, coverage.height)
+    gl.uniform2f(this._ribbonUni.u_resolution, dest.width, dest.height)
     gl.uniform1f(this._ribbonUni.u_aaPx, MARKER_EDGE_AA_PX)
+    gl.uniform1f(this._ribbonUni.u_mode, mode === 'ink' ? 1 : 0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
     gl.bufferData(gl.ARRAY_BUFFER, local, gl.STREAM_DRAW)
@@ -5041,14 +5052,17 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._ribbonPosLoc, 2, gl.FLOAT, false, stride, 0)
     gl.enableVertexAttribArray(this._ribbonEdgeLoc)
     gl.vertexAttribPointer(this._ribbonEdgeLoc, 1, gl.FLOAT, false, stride, 8)
+    gl.enableVertexAttribArray(this._ribbonInkLoc)
+    gl.vertexAttribPointer(this._ribbonInkLoc, 1, gl.FLOAT, false, stride, 12)
 
     gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
 
-    // Leaving this enabled would make the *next* program's draw read a stale
+    // Leaving these enabled would make the *next* program's draw read a stale
     // per-vertex stream for whatever attribute index happens to collide with
-    // it (a_edge's slot is not reserved across programs).
+    // them (these slots are not reserved across programs).
     gl.disableVertexAttribArray(this._ribbonEdgeLoc)
-    coverage.endDraw()
+    gl.disableVertexAttribArray(this._ribbonInkLoc)
+    dest.endDraw()
   }
 
   /** #330 stage 2, composite pass: the same DAB_FRAG u_inkMode=2 branch the
