@@ -87,6 +87,40 @@ export class AccumulationBuffer {
     gl.blendFunc(gl.ONE, gl.ONE)
   }
 
+  /** Marker's own composite pass (#330): a straight overwrite, `result = src`,
+   *  no blending with what's already in the target at all.
+   *
+   *  Every other writer here is an *increment* — one dab's own deposit,
+   *  meaningless without whatever is already underneath it, so it has to blend.
+   *  Marker's composite (DAB_FRAG's u_inkMode>1.5 branch) is the one exception:
+   *  it is a complete recomputation of the final pixel from this stroke's
+   *  frozen `original` plus its accumulated `coverage`/`inkLoad` (see
+   *  MarkerStrokeScratch), so the value it produces is already the answer, not
+   *  a contribution toward one.
+   *
+   *  Running that through beginDraw()'s "over" instead compounded alpha once
+   *  per dab (`A = a + A*(1-a)`): a pixel inside N dab footprints went through
+   *  N compositions, its neighbour through N-1, leaving a hard alpha step along
+   *  every dab's own rim — measured up to 53/255, repeating at the dab-spacing
+   *  interval, which is what made a wide stroke visibly break into separate
+   *  stamped shapes (rectangular ones on the 5:1 chisel nib). #266 fixed the
+   *  same compounding on the *colour* side; this is its alpha-side twin.
+   *
+   *  Safe to overwrite rather than blend because `coverage`/`inkLoad` only ever
+   *  change where a dab actually landed, and the composite draw uses that same
+   *  dab quad — so a pixel is recomputed exactly when its own inputs change,
+   *  and is left alone (still holding its last correct value) when they don't.
+   *  Accepted consequence: within a marker stroke's own footprint, anything a
+   *  *peer* painted into the same tile mid-stroke is overwritten rather than
+   *  preserved — same class of accepted v1 gap as MarkerStrokeScratch's own
+   *  mid-stroke tile-eviction note. */
+  beginReplaceDraw(): void {
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.disable(gl.BLEND)
+  }
+
   endDraw(): void {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null)
     this.gl.disable(this.gl.BLEND)

@@ -150,6 +150,7 @@ export class MockGL {
   private _boundFramebuffer: object | null = null
   private _currentProgram: MockProgram | null = null
   private _blendSrc: number = ENUM.ONE
+  private _blendEnabled = true
   private _clearAlpha = 0
   private _shaderSources = new Map<object, { type: number; source: string }>()
 
@@ -442,12 +443,48 @@ export class MockGL {
   // viewport to the full target size), a composite draw can now rasterize
   // into a sub-rect. Recorded here and consulted by _rasterComposite.
   viewport(x: number, y: number, w: number, h: number): void { this._viewport = { x, y, w, h } }
-  // BLEND is enabled at every dab/composite draw call site in this codebase
-  // (beginDraw/beginErase/_compositeTextures) and disabled only around the
-  // 'papergen'/'display' passes this mock doesn't rasterize — so there's no
-  // draw call where tracking on/off would change rasterization behavior.
-  enable(_cap: number): void { /* no-op: see above */ }
-  disable(_cap: number): void { /* no-op: see above */ }
+  // Tracked since #330: BLEND used to be enabled at every dab/composite draw
+  // call site in this codebase (beginDraw/beginErase/_compositeTextures) and
+  // disabled only around the 'papergen'/'display' passes this mock doesn't
+  // rasterize, so on/off could safely be ignored. That stopped being true when
+  // marker's composite pass moved to AccumulationBuffer.beginReplaceDraw() — a
+  // real dab draw with blending genuinely off, whose output *overwrites* the
+  // destination. Left untracked, this mock would keep silently modelling it as
+  // the "over" blend the fix exists to remove.
+  enable(cap: number): void { if (cap === ENUM.BLEND) this._blendEnabled = true }
+  disable(cap: number): void { if (cap === ENUM.BLEND) this._blendEnabled = false }
+
+  /** True when the last draw call ran with blending on. Exposed for tests that
+   *  assert *which* blend mode a pass uses (see index.marker.test.ts) — the
+   *  rasterizers below consult the same flag. */
+  get blendEnabled(): boolean { return this._blendEnabled }
+
+  /** Per-u_inkMode snapshot of the most recent dab draw (#330).
+   *
+   *  Reading `blendEnabled`/`readUniform` after the fact can't answer "how was
+   *  *that* pass drawn": marker fires three dab draws per dab in a fixed order
+   *  (coverage 3 -> inkLoad 4 -> composite 2), each with its own blend state
+   *  and its own u_opacity, and every one of them is immediately followed by
+   *  endDraw() turning blending back off. Recording at draw time is the only
+   *  way to assert on a pass that isn't the last one.
+   *
+   *  Keyed by ink mode rather than appended to a log so this stays O(1) — a
+   *  pencil pixel test draws thousands of dabs through this same path. */
+  private _dabDraws = new Map<number, { blendEnabled: boolean; opacity: number }>()
+
+  private _recordDabDraw(uniforms: Map<string, UniformValue>): void {
+    const inkMode = (uniforms.get('u_inkMode') as number) ?? 0
+    this._dabDraws.set(inkMode, {
+      blendEnabled: this._blendEnabled,
+      opacity: (uniforms.get('u_opacity') as number) ?? 1,
+    })
+  }
+
+  /** The most recent dab draw made with this u_inkMode, or undefined if no
+   *  such draw happened. See _dabDraws. */
+  lastDabDraw(inkMode: number): { blendEnabled: boolean; opacity: number } | undefined {
+    return this._dabDraws.get(inkMode)
+  }
 
   // The dst factor is never tracked: every blendFunc call in this codebase
   // pairs its src factor with ONE_MINUS_SRC_ALPHA (paint/composite use ONE,
@@ -471,7 +508,7 @@ export class MockGL {
     if (!info) return // e.g. drawing to the (unmocked) canvas — display pass, not asserted on
 
     switch (prog.fragTag) {
-      case 'dab': this._rasterDab(info, prog.uniforms); break
+      case 'dab': this._recordDabDraw(prog.uniforms); this._rasterDab(info, prog.uniforms); break
       case 'composite': this._rasterComposite(info, prog.uniforms); break
       case 'transform': this._rasterTransform(info, prog.uniforms); break
       case 'smudge': this._rasterSmudge(info, prog.uniforms); break
@@ -531,6 +568,14 @@ export class MockGL {
 
   private _blendSrcFactor(): number {
     return this._blendSrc === ENUM.ONE ? 1 : 0
+  }
+
+  /** The `dst * (1 - srcAlpha)` weight every rasterizer below pairs with
+   *  _blendSrcFactor(). 0 with blending off (#330): the source simply replaces
+   *  whatever was there, which is exactly what marker's composite pass now
+   *  relies on. */
+  private _blendDstWeight(srcAlpha: number): number {
+    return this._blendEnabled ? 1 - srcAlpha : 0
   }
 
   // #123: replays the same per-instance dab in submission order (0..N-1),
@@ -627,10 +672,10 @@ export class MockGL {
         const idx = py * width + px
         if (eraseMode > 0.5) {
           const eraseAmount = clamp(pressure * opacity * shape, 0, 1)
-          data[idx] = eraseAmount * sf + data[idx] * (1 - eraseAmount)
+          data[idx] = eraseAmount * sf + data[idx] * this._blendDstWeight(eraseAmount)
         } else {
           const deposit = clamp(pressure * opacity * shape, 0, 1)
-          data[idx] = deposit * sf + data[idx] * (1 - deposit)
+          data[idx] = deposit * sf + data[idx] * this._blendDstWeight(deposit)
         }
       }
     }

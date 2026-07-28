@@ -770,6 +770,32 @@ const SMUDGE_PICKUP_FLOOR = 0.25
 const MARKER_BULLET_PRESET: PencilPreset = { opacity: 0.45, hardness: 0.78, sizeMultiplier: 1.0 }
 const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, sizeMultiplier: 1.0 }
 
+// #330: the coverage splat's own gain on `dab.opacity`, applied *only* there
+// (_drawMarkerCoverageDab) and nowhere else.
+//
+// Removing the composite's alpha compounding left the stroke's edge honest but
+// softer: the compounding used to drive alpha to ~0.997 and clip the falloff
+// short, so what read as a crisp marker edge was really an overflow artifact of
+// the same bug that produced the visible dab shapes. The true saturation level
+// at the old numbers is ~0.88, and the 90%->10% falloff widened from 11.1px to
+// 14.7px on an 80px brush.
+//
+// This is the knob that buys the crispness back, and it is deliberately *not*
+// preset.opacity: that value also feeds inkLoad (`inkDeposit = dab.opacity *
+// segmentLength`), so raising it there would darken the dye at the same time —
+// two unrelated properties on one number. Coverage governs the silhouette
+// alone, so a coverage-only gain restores the edge with the colour untouched.
+//
+// 1.4 was picked off a sweep of the modelled pipeline (gain x hardness, at
+// radii 8/20/40px): it lands the 90->10% falloff at 11.2px, i.e. exactly the
+// edge width the tool has today, with peak alpha 0.97 and the residual
+// along-stroke ripple at its minimum (1.4/255 — the sweep's best, and below any
+// visible threshold). Raising `hardness` instead moves the edge far less per
+// unit of added ripple, which is why there's no second constant here.
+// Uncalibrated in the same sense as every other first-pass marker number: it
+// reproduces today's measured edge on the model, and the final call is by eye.
+const MARKER_COVERAGE_GAIN = 1.4
+
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
  *  every dab overlap, since it multiplied whatever the *previous dab of
@@ -4747,7 +4773,10 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_dabRadius, radius)
     gl.uniform1f(u.u_angle, dab.angle)
     gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
-    gl.uniform1f(u.u_opacity, dab.opacity)
+    // Silhouette-only gain (#330) — see MARKER_COVERAGE_GAIN. The shader
+    // clamps the result, so a gain that pushes a dense dab past 1.0 saturates
+    // rather than overshooting.
+    gl.uniform1f(u.u_opacity, dab.opacity * MARKER_COVERAGE_GAIN)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     coverage.endDraw()
@@ -4818,7 +4847,10 @@ export class PencilEngine implements PencilEngineAPI {
   ): void {
     const { gl } = this
     const { buffer } = tile
-    buffer.beginDraw()
+    // Overwrite, not "over" (#330) — this branch recomputes the finished pixel
+    // from scratch every time, so blending it into its own previous output
+    // compounded alpha once per dab. See beginReplaceDraw's own comment.
+    buffer.beginReplaceDraw()
 
     gl.useProgram(this._dabProg)
     const u = this._dabUni

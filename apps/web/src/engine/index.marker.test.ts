@@ -26,7 +26,7 @@ import type { PencilEngine } from './index'
 import {
   createTestEngine, dab, fillStroke, makeLayerAdd, makeStroke,
   readLayerPixels, expectPixelsEqual,
-  lastPaperDabUniform, lastMarkerDabUniform, simulateStroke, paperReady,
+  lastPaperDabUniform, lastMarkerDabUniform, markerPassDraw, simulateStroke, paperReady,
   readTilePixels,
 } from './testing/engineTestUtils'
 import { TILE_SIZE } from './src/tileMath'
@@ -80,6 +80,40 @@ describe('marker tool (#250, ADR 004)', () => {
     engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
     engine.appendOperation(fillStroke('user-a', 'L', 40, 40, 8))
     expect(lastPaperDabUniform(engine, 'u_inkMode')).toBe(0)
+  })
+
+  // #330: the composite pass recomputes the finished pixel from the frozen
+  // `original` + accumulated coverage/inkLoad, so it must *overwrite* the tile,
+  // not blend into its own previous output — blending compounded alpha once per
+  // dab and left a hard step along every dab's rim (visible as separate stamped
+  // shapes on a wide stroke). The two splat passes feeding it still blend:
+  // coverage saturates like an ordinary "over" deposit, inkLoad sums additively.
+  // MockGL can't check the resulting pixels (it never rasterizes DAB_FRAG's own
+  // GLSL — see this file's header), but which blend each pass is issued with is
+  // exactly the part that regressed, and that it can hold onto.
+  it('draws the composite pass with blending off and the two splat passes with it on', () => {
+    const engine = setupLayer()
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
+
+    expect(markerPassDraw(engine, 2)?.blendEnabled).toBe(false) // composite — overwrite
+    expect(markerPassDraw(engine, 3)?.blendEnabled).toBe(true)  // coverage splat
+    expect(markerPassDraw(engine, 4)?.blendEnabled).toBe(true)  // inkLoad splat
+  })
+
+  // #330: MARKER_COVERAGE_GAIN buys back the edge crispness the removed alpha
+  // compounding used to fake, and it must stay confined to the coverage splat —
+  // the same number reaching inkLoad would darken the dye at the same time,
+  // which is the coupling the separate gain exists to avoid. Asserted as the
+  // ratio between the two passes' u_opacity rather than an absolute value, so
+  // this doesn't re-hardcode a preset constant that's still tuned by eye.
+  it('applies the coverage gain to the coverage splat only, not to the composite', () => {
+    const engine = setupLayer()
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(20, 32, { size: 20 }), dab(24, 32, { size: 20 })], { tool: 'marker' }))
+
+    const coverage = markerPassDraw(engine, 3)!.opacity
+    const composite = markerPassDraw(engine, 2)!.opacity
+    expect(composite).toBeGreaterThan(0)
+    expect(coverage / composite).toBeCloseTo(1.4, 5)
   })
 
   it('actually deposits something over blank paper (dispatch reaches a real paint, not a silent no-op)', () => {

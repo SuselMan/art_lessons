@@ -590,7 +590,18 @@ export const DAB_FRAG = `
       // (paperCatch near 1) stays almost perfectly crisp.
       const float MARKER_BLEED_STRENGTH = 0.35; // uncalibrated first pass
       float paperAbsorbency = 1.0 - paperCatch;
-      float bleed = (1.0 - shape) * paperAbsorbency * MARKER_BLEED_STRENGTH;
+      // (1.0 - dist) is load-bearing, not decoration — exactly the same trap
+      // charcoal's own dust ring documents further up, and marker fell into it
+      // (#330): (1-shape) *rises* toward the rim, so without this term the
+      // bleed reaches its maximum right where the discard at the top of main()
+      // cuts the dab off, leaving a hard ~0.08 coverage step around every
+      // single dab. That step survived the composite-pass fix (it lives in the
+      // coverage splat itself, not in how the composite is written) and still
+      // measured 20/255 at the dab-spacing interval — enough to keep reading as
+      // separate stamped shapes on a wide stroke. Liner's own wick term has the
+      // identical shape and gets away with it only because its amplitude is
+      // tiny; marker's, at 0.35 * absorbency * opacity, is not.
+      float bleed = (1.0 - shape) * (1.0 - dist) * paperAbsorbency * MARKER_BLEED_STRENGTH;
       float amt = clamp(shape * v_opacity + bleed * v_opacity, 0.0, 1.0);
       gl_FragColor = vec4(vec3(amt), amt);
       return;

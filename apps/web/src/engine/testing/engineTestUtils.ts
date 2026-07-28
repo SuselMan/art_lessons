@@ -431,6 +431,15 @@ export function lastMarkerDabUniform(engine: PencilEngine, name: string): Unifor
   return loc ? eng.gl.readUniform(loc) : undefined
 }
 
+/** How the most recent dab draw with this u_inkMode was issued — its blend
+ *  state and its u_opacity, captured at draw time (#330). Needed because
+ *  marker fires three dab draws per dab (coverage=3, inkLoad=4, composite=2),
+ *  and lastMarkerDabUniform can only ever see whichever ran last. See MockGL's
+ *  own lastDabDraw. */
+export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 3 | 4): { blendEnabled: boolean; opacity: number } | undefined {
+  return internals(engine).gl.lastDabDraw(inkMode)
+}
+
 /** Simulates checkpoint eviction (in production this happens under
  *  CHECKPOINT_BUDGET_BYTES pressure — impractical to reach honestly in a
  *  small-canvas unit test) so a rebuild is forced to fall back to full
