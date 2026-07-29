@@ -116,10 +116,20 @@ in `apps/server/tsconfig.json`.
 
 **Cost in RAM, worth knowing before it surprises anyone** (§1 of #314 is
 partly about not being surprised by this box's memory): initialising the Node
-SDK costs ~47 MB RSS — 42.5 MB bare node against 89.8 MB with it up. That is
-~5% of a 1 GB box against #292's measured 532 MB of room history. Without a
-DSN the SDK is not even imported (`apps/server/src/instrument.ts` loads it
-dynamically), so dev machines and CI pay nothing.
+SDK costs ~47 MB RSS locally (42.5 MB bare node against 89.8 MB with it up),
+and the production container measured 38 MB before this deploy against 97 MB
+after. Without a DSN the SDK is not even imported
+(`apps/server/src/instrument.ts` loads it dynamically), so dev machines and
+CI pay nothing.
+
+While measuring that, a discrepancy worth recording: **the VPS is 2 vCPU,
+3.9 GB RAM and 2 GB swap** (verified 29.07 on the live box). The comments
+scattered through `deploy.sh`, `deploy.yml`, `apps/server/Dockerfile` and the
+sections above still describe the 1 vCPU / 1 GB / no-swap plan this started
+on — the OOM-kill story behind #199 really happened, just on the smaller box.
+Anything reasoning about headroom (#292's 532 MB of room history, §1 of #314's
+"know the ceiling") is calibrated against a machine roughly four times
+smaller than the one now running.
 
 ## What happens on every push to main
 

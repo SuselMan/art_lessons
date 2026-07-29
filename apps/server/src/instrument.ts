@@ -9,9 +9,11 @@ import { buildSentryOptions } from './sentryOptions.js'
 // The import is dynamic, and that is not style: `@sentry/node` pulls in
 // OpenTelemetry, and merely loading it costs ~34 MB of RSS before it has
 // reported anything (measured on node 20: 42.5 MB bare, 77 MB imported,
-// 89.8 MB initialised). This box is 1 GB with no swap and #292 measured
-// 532 MB of it already spent on room history, so a process with no DSN —
-// every dev machine, every test run — pays nothing instead of paying that.
+// 89.8 MB initialised; on prod the container went 38 MB → 97 MB across this
+// deploy). That is affordable on the VPS as it stands today — 2 vCPU, 3.9 GB
+// and 2 GB of swap, not the 1 GB box the older comments around the deploy
+// scripts still describe — but there is no reason for a process that isn't
+// reporting to pay it, and every dev machine and CI run is such a process.
 const options = buildSentryOptions(process.env)
 const sentry = options ? await import('@sentry/node') : null
 if (sentry && options) sentry.init(options)
