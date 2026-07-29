@@ -146,6 +146,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The hint is a word, not a code — inheriting the field's display tracking
+   spreads "6 digits" across the box and reads as something gone wrong. */
+.codeInput::placeholder {
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
 .confirmation {
   display: flex;
   flex-direction: column;

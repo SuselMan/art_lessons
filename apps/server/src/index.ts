@@ -115,7 +115,11 @@ const start = async () => {
     if (process.env.NODE_ENV === 'production' && !isEmailConfigured()) {
       app.log.error('RESEND_API_KEY is not set — nobody can sign in (see deploy/README.md)')
     }
-    await app.listen({ port: 4000, host: '0.0.0.0' })
+    // 4000 unless told otherwise (compose publishes that, and the Vite proxy
+    // expects it). The override exists so a second checkout can be run and
+    // tested next to a live dev server instead of fighting it for the port —
+    // this repo routinely has several worktrees open at once.
+    await app.listen({ port: Number(process.env.PORT ?? 4000), host: '0.0.0.0' })
   } catch (err) {
     app.log.error(err)
     process.exit(1)

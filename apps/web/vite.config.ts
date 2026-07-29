@@ -24,7 +24,10 @@ import { workboxConfig } from './src/pwa/workboxConfig.ts'
 // On by default; run `npm run dev:http` (`vite --host --mode http`) for
 // plain http instead — e.g. quick localhost work where the AudioWorklet
 // path isn't needed and you'd rather skip mkcert's cert prompts.
-const SERVER_PORT = 4000
+// Where `/api` and `/socket.io` are proxied. Overridable for the same reason
+// the server's own PORT is: two checkouts running side by side (a worktree
+// under review next to the live dev server) need two ports, not a queue.
+const SERVER_PORT = Number(process.env.SERVER_PORT ?? 4000)
 
 // (#177) Source-map upload. Without it a production stack trace is a column
 // number inside a minified chunk, which is the same as having no stack trace
