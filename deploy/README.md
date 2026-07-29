@@ -1,8 +1,15 @@
 # Production deploy (#111, #112)
 
-Live at **https://5ryx.l.time4vps.cloud** — a Debian 12 VPS (time4vps),
-IP `80.209.232.109`. Deploys automatically on every push to `main` via
+Live at **https://grafetto.com** — a Debian 12 VPS (time4vps), IP
+`80.209.232.109`. Deploys automatically on every push to `main` via
 `.github/workflows/deploy.yml`.
+
+The hoster's original name, `5ryx.l.time4vps.cloud`, still resolves and now
+301s to the canonical domain, path intact (#352): room links handed out under
+it are already in people's chats. It also stays in the certificate, because a
+redirect over a name whose TLS doesn't validate is not a redirect anyone
+reaches. `www.grafetto.com` is treated the same way — answered, redirected,
+not canonical.
 
 ## Architecture
 
@@ -30,10 +37,13 @@ IP `80.209.232.109`. Deploys automatically on every push to `main` via
   `index.html` fallback for client-side routing). Exact same same-origin
   shape `apps/web/vite.config.ts`'s dev proxy already uses — the built
   frontend needs no separate prod config of its own.
-- **certbot**: Let's Encrypt cert for `5ryx.l.time4vps.cloud` via the nginx
-  plugin (`certbot --nginx`), auto-renews via certbot's own systemd timer
-  (`certbot.timer`, installed automatically with the Debian package — no
-  cron job needed).
+- **certbot**: one Let's Encrypt cert covering `grafetto.com`,
+  `www.grafetto.com` and `5ryx.l.time4vps.cloud`, auto-renews via certbot's
+  own systemd timer (`certbot.timer`, installed automatically with the Debian
+  package — no cron job needed). The lineage is still named after the old
+  host (`/etc/letsencrypt/live/5ryx.l.time4vps.cloud/`) because it was
+  extended rather than reissued — renaming it would mean new paths in
+  `nginx.conf` for no benefit.
 - No Redis (single server process — see CLAUDE.md), no object storage for
   binaries (Postgres bytea is enough at this scale — see #114). Both
   deferred, tracked separately (#113/#114).
@@ -56,6 +66,14 @@ IP `80.209.232.109`. Deploys automatically on every push to `main` via
 - First cert issued once via `sudo certbot --nginx -d 5ryx.l.time4vps.cloud`
   (interactive the very first time only — picks the redirect-to-https
   option; every renewal after that is unattended via the systemd timer).
+- (#352) Extended to the brand domain with
+  `sudo certbot certonly --webroot -w /var/www/certbot --cert-name
+  5ryx.l.time4vps.cloud -d 5ryx.l.time4vps.cloud -d grafetto.com -d
+  www.grafetto.com --expand`. `--webroot` rather than `--nginx` on purpose:
+  the nginx plugin rewrites `/etc/nginx/sites-available/art-lessons`, which
+  `deploy.sh` overwrites from this repo on the next push — the edit would
+  survive until the next deploy and then quietly vanish. `/var/www/certbot`
+  is the challenge root, deliberately outside the rsynced bundle.
 - (#199) The `art-lessons-server` GHCR package is set to **public**
   visibility (Settings → Packages on the repo, or `gh api -X PATCH
   /user/packages/container/art-lessons-server -f visibility=public` once it
