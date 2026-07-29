@@ -1,0 +1,55 @@
+name: Baked paper textures
+description: >-
+  Restores apps/web/public/paper from cache, baking it only when the cache
+  misses. Assumes `npm ci` has already run.
+
+# (#322) Extracted into a composite action because three jobs need the baked
+# paper now — ci.yml's `test`, deploy.yml's `test`, and deploy.yml's `build` —
+# and the cache key below is the single thing that notices a changed bake
+# input. `prebuild --if-missing` deliberately cannot notice: it would have to
+# bake to know. A key copied into three workflows is a key that will be updated
+# in two of them.
+#
+# Why the test jobs need this at all: apps/web/public/paper is gitignored, so
+# on a fresh checkout paperAssets.test.ts's `describe.skipIf(!baked)` skipped
+# all 13 of its tests — silently, on every PR and every push to main. Those are
+# the tests that guard the invariant the immutable cache rests on ("the
+# manifest names a file that exists, for every paper type, and no others"),
+# whose whole point is to catch a build where every paper fetch 404s and
+# drawing is silently disabled for the room. Reporting green while never
+# running them was worse than not having them.
+#
+# Cost on a cache miss is ~3.5 minutes in the test job. That is the price of
+# the assertions being real, and a miss only happens when a bake input
+# actually changed.
+
+runs:
+  using: composite
+  steps:
+    # The manifest lives inside `path`, so it is cached and restored with the
+    # assets it names — the two can never be restored out of step with each
+    # other. A restore from before #322 has no manifest at all, which
+    # `--if-missing` treats as an incomplete bake and re-bakes; that is the one
+    # stale-restore case the key cannot cover, since those commits hash to
+    # something this key will never produce again.
+    #
+    # package-lock.json is in the key on purpose, despite busting the cache on
+    # every unrelated dependency bump. The bake resamples through sharp, and
+    # paperAssetIO.ts's own comment concedes it is "only reproducible for a
+    # fixed sharp/libvips build" — so without the lockfile a sharp upgrade
+    # keeps the same key, restores the old bake, and `--if-missing` skips: a
+    # stale bake deployed silently, which is exactly the class this key exists
+    # to prevent. Paying 3.5 minutes occasionally beats shipping a grain that
+    # does not match the source.
+    - name: Restore cached bake
+      uses: actions/cache@v4
+      with:
+        path: apps/web/public/paper
+        key: paper-${{ hashFiles('apps/web/scripts/bakePaperTextures.ts', 'apps/web/scripts/paperAssetIO.ts', 'apps/web/src/engine/src/paperConstants.ts', 'apps/web/src/engine/src/paperManifest.ts', 'assets/paper-sources/**', 'packages/shared/src/index.ts', 'package-lock.json') }}
+
+    # No-op on a cache hit (bakeIsComplete verifies the manifest parses, names
+    # every grain type, and that every file it names is present at the recorded
+    # size — so a half-restored cache re-bakes rather than passing).
+    - name: Bake if the cache missed
+      shell: bash
+      run: npm run prebuild --workspace=apps/web

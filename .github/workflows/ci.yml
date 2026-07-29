@@ -19,6 +19,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # (#322) Without this the 13 paperAssets tests skip silently — the bake
+      # output is gitignored, so a fresh checkout has nothing for them to
+      # check. See .github/actions/paper-bake.
+      - name: Baked paper textures
+        uses: ./.github/actions/paper-bake
+
       - name: Typecheck
         run: npm run typecheck
 

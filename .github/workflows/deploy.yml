@@ -24,6 +24,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # (#322) Same reason as ci.yml's copy: the paper assertions are only
+      # real if something baked. See .github/actions/paper-bake.
+      - name: Baked paper textures
+        uses: ./.github/actions/paper-bake
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -63,31 +68,18 @@ jobs:
       # (#300) Baked paper textures are no longer committed — the bake is
       # byte-reproducible, so keeping ~60 MB of binary blobs in git history
       # (and that much again on every re-tune) bought nothing. apps/web's
-      # `prebuild` regenerates them, which takes ~3.5 minutes; this cache
-      # means that only happens when the bake's own inputs change, not on
-      # every deploy.
+      # `prebuild` regenerates them, which takes ~3.5 minutes; the cache in the
+      # action below means that only happens when the bake's inputs change.
       #
-      # The key is the ONLY thing that notices a changed input.
-      # `prebuild --if-missing` deliberately cannot: it would have to bake to
-      # know. So every file that can change the output bytes has to be listed
-      # here, and one that has been deleted has to be taken out — until #322
-      # this key hashed `paperNoise.ts`, removed back in #333, which
-      # contributes nothing and quietly made the key blind to the three
-      # inputs it never listed: paperAssetIO.ts (the file that writes the
-      # bytes), paperConstants.ts (PAPER_BAKE_RESOLUTION / PAPER_WORLD_SIZE,
-      # both consumed by the bake) and the photographed sheet itself. A
-      # change confined to any of those deployed a stale bake.
+      # (#322) The cache key used to live here inline. It moved into a
+      # composite action once the `test` jobs needed the same bake — the key is
+      # the ONLY thing that notices a changed input, and three copies of it is
+      # two copies that will not get updated. The reasoning for what belongs in
+      # it lives with it.
       #
-      # The manifest is inside `path`, so it is cached and restored with the
-      # assets it names. A restore from before #322 has no manifest at all,
-      # which `--if-missing` treats as an incomplete bake and re-bakes — that
-      # is the one stale-restore case the key cannot cover, since those
-      # commits hash to something this key will never produce again.
-      - name: Cache baked paper textures
-        uses: actions/cache@v4
-        with:
-          path: apps/web/public/paper
-          key: paper-${{ hashFiles('apps/web/scripts/bakePaperTextures.ts', 'apps/web/scripts/paperAssetIO.ts', 'apps/web/src/engine/src/paperConstants.ts', 'apps/web/src/engine/src/paperManifest.ts', 'assets/paper-sources/**', 'packages/shared/src/index.ts') }}
+      # `npm run build` below runs `prebuild` again; it is a no-op by then.
+      - name: Baked paper textures
+        uses: ./.github/actions/paper-bake
 
       # (#177) The DSN is baked into the bundle at build time — it has to be,
       # a browser has nowhere else to read it from — hence a repo *variable*
