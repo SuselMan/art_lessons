@@ -35,19 +35,31 @@ let manifestPromise: Promise<PaperManifest> | null = null
 function getPaperManifest(): Promise<PaperManifest> {
   if (!manifestPromise) {
     manifestPromise = (async () => {
+      // Both failure branches below name the file and the fix on purpose.
+      // The overwhelmingly common way to reach either is a fresh checkout
+      // running `npm run dev`, which does not run `prebuild` and so has no
+      // public/paper/ at all; a bare "HTTP 404" or "Unexpected token <"
+      // would send someone hunting a network bug instead of running one
+      // command.
+      const missing = 'Run `npm run bake:paper` in apps/web (the bake is a prebuild step and its output is not committed).'
       const res = await fetch(PAPER_MANIFEST_URL)
       if (!res.ok) {
-        // Names the file and the fix on purpose. The overwhelmingly common
-        // way to see this is a fresh checkout running `npm run dev`, which
-        // does not run `prebuild` and therefore has no public/paper/ at all;
-        // a bare "HTTP 404" would send someone hunting a network bug instead
-        // of running one command.
-        throw new Error(
-          `Failed to fetch paper manifest '${PAPER_MANIFEST_URL}': HTTP ${res.status}. `
-          + 'Run `npm run bake:paper` in apps/web (the bake is a prebuild step and its output is not committed).',
-        )
+        throw new Error(`Failed to fetch paper manifest '${PAPER_MANIFEST_URL}': HTTP ${res.status}. ${missing}`)
       }
-      return parsePaperManifest(await res.json(), PAPER_MANIFEST_URL)
+      let json: unknown
+      try {
+        json = await res.json()
+      } catch {
+        // Not a redundant guard on top of res.ok: an SPA fallback answers a
+        // missing file with index.html and a *200*, so on the Vite dev
+        // server (and anywhere else `try_files ... /index.html` is in play)
+        // the unbaked case never reaches the branch above at all — it
+        // arrives here as HTML being parsed as JSON. Production nginx
+        // deliberately 404s instead (there is no try_files under /paper/,
+        // see deploy/nginx.conf), which is why both paths need covering.
+        throw new Error(`Paper manifest '${PAPER_MANIFEST_URL}' did not return JSON — a dev server's SPA fallback answers a missing file with index.html and a 200. ${missing}`)
+      }
+      return parsePaperManifest(json, PAPER_MANIFEST_URL)
     })().catch(err => {
       manifestPromise = null
       throw err
