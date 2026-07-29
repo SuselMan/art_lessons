@@ -30,6 +30,11 @@ const PAPER_MANIFEST_URL = `${PAPER_DIR}/${PAPER_MANIFEST_FILENAME}`
 // so a single transient blip — a flaky connection during a reconnect, a
 // deploy landing mid-fetch — must not poison every later attempt for the
 // lifetime of the tab.
+//
+// That is only half of it, and on its own it was worth nothing: the callers
+// below sit behind their own caches, so if those memoize the rejection then
+// nothing ever re-enters this function to benefit from the reset. Both ends
+// have to evict — see cacheEvictingRejection.
 let manifestPromise: Promise<PaperManifest> | null = null
 
 function getPaperManifest(): Promise<PaperManifest> {
@@ -68,6 +73,18 @@ function getPaperManifest(): Promise<PaperManifest> {
   return manifestPromise
 }
 
+// Drops the memoized manifest so the next read re-fetches it. Called when an
+// asset the manifest named turns out not to exist (see fetchPaperAsset): that
+// is the signature of a deploy having landed under a long-lived tab. `main`
+// auto-deploys on every push, so a teacher's room open across a lesson can
+// outlive the bake it was told about — the old hashed files are gone from the
+// server (deploy.sh rsyncs with --delete) and every later fetch for them 404s.
+// Before #322 the filenames were fixed, so a long-lived tab survived any
+// number of deploys; re-reading the document is what buys that back.
+function invalidatePaperManifest(): void {
+  manifestPromise = null
+}
+
 // `.paper`, not `.gz` — see bakePaperTextures.ts's own comment on why the
 // extension is deliberately unrecognizable to any static file server's
 // Content-Encoding auto-tagging. The hash sits before that extension for the
@@ -77,14 +94,61 @@ async function paperAssetURL(type: PaperGrainType, kind: 'texture' | 'preview'):
   return `${PAPER_DIR}/${manifest.assets[type][kind]}`
 }
 
+// Distinguished from every other fetch failure because it is the one with a
+// known cure: a name the manifest gave us that the server does not have can
+// only mean the manifest is stale, and re-reading it fixes that. A connection
+// blip, by contrast, must not spend a second request on the same 7.4 MB.
+class PaperAssetGoneError extends Error {}
+
 async function fetchBytesFromUrl(url: string): Promise<Uint8Array> {
   const res = await fetch(url)
   if (!res.ok || !res.body) {
-    throw new Error(`Failed to fetch paper texture '${url}': HTTP ${res.status}`)
+    const message = `Failed to fetch paper texture '${url}': HTTP ${res.status}`
+    throw res.status === 404 ? new PaperAssetGoneError(message) : new Error(message)
   }
   const decompressed = res.body.pipeThrough(new DecompressionStream('gzip'))
   const buf = await new Response(decompressed).arrayBuffer()
   return new Uint8Array(buf)
+}
+
+/** Resolves `type`'s hashed filename through the manifest and fetches it,
+ *  re-reading the manifest once if the name it gave has gone missing (a
+ *  deploy landing under an open tab — see invalidatePaperManifest). Retries
+ *  exactly once: if the freshly-fetched manifest still names something absent,
+ *  the server is genuinely inconsistent and looping would only turn that into
+ *  a request storm against a 7.4 MB asset. */
+async function fetchPaperAsset(type: PaperGrainType, kind: 'texture' | 'preview'): Promise<Uint8Array> {
+  try {
+    return await fetchBytesFromUrl(await paperAssetURL(type, kind))
+  } catch (err) {
+    if (!(err instanceof PaperAssetGoneError)) throw err
+    invalidatePaperManifest()
+    return fetchBytesFromUrl(await paperAssetURL(type, kind))
+  }
+}
+
+/** Memoizes the in-flight/fulfilled promise but evicts a rejected one, so a
+ *  single transient failure does not permanently disable paper for the tab.
+ *
+ *  This is the half that getPaperManifest's own un-memoized rejection could
+ *  not deliver on its own: nothing ever re-entered it, because both callers
+ *  below sat behind caches that had already stored the rejection. Without
+ *  this, one failed fetch left `_paperTexLoaded` false forever, and
+ *  engine/index.ts's paint guard turns that into a room that silently refuses
+ *  to draw with nothing on screen to say why. */
+function cacheEvictingRejection<K>(
+  cache: Map<K, Promise<Uint8Array>>, key: K, start: () => Promise<Uint8Array>,
+): Promise<Uint8Array> {
+  const cached = cache.get(key)
+  if (cached) return cached
+  const pending: Promise<Uint8Array> = start().catch(err => {
+    // Only evict our own entry: a later call may already have replaced it
+    // with a fresh attempt, and deleting that would lose an in-flight fetch.
+    if (cache.get(key) === pending) cache.delete(key)
+    throw err
+  })
+  cache.set(key, pending)
+  return pending
 }
 
 type PaperBytesLoader = (type: PaperType) => Promise<Uint8Array>
@@ -105,7 +169,7 @@ async function fetchPaperBytes(type: PaperType): Promise<Uint8Array> {
   // anything. It also keeps the flat path synchronous-in-spirit — one
   // already-resolved promise, no network at all.
   if (type === 'flat') return FLAT_PAPER_BYTES
-  return fetchBytesFromUrl(await paperAssetURL(type, 'texture'))
+  return fetchPaperAsset(type, 'texture')
 }
 
 /** Decoded preview bytes — one byte per pixel, PAPER_PREVIEW_RESOLUTION
@@ -124,16 +188,13 @@ const previewCache = new Map<PaperType, Promise<Uint8Array>>()
  *  outside this file ever wanted the URL rather than the bytes, so it folded
  *  in here instead of growing an awaited signature for one caller. */
 export function getPaperPreviewBytes(type: PaperType): Promise<Uint8Array> {
-  let cached = previewCache.get(type)
-  if (!cached) {
-    cached = type === 'flat'
+  return cacheEvictingRejection(previewCache, type, () => (
+    type === 'flat'
       // 128 is the neutral mid — flat paper must render as exactly its own
       // colour, and 255 would push it a sixth of the way to white.
       ? Promise.resolve(new Uint8Array(PAPER_PREVIEW_RESOLUTION * PAPER_PREVIEW_RESOLUTION).fill(128))
-      : (async () => fetchBytesFromUrl(await paperAssetURL(type, 'preview')))()
-    previewCache.set(type, cached)
-  }
-  return cached
+      : fetchPaperAsset(type, 'preview')
+  ))
 }
 
 let loadPaperBytesImpl: PaperBytesLoader = fetchPaperBytes
@@ -146,12 +207,7 @@ let loadPaperBytesImpl: PaperBytesLoader = fetchPaperBytes
 const byteCache = new Map<PaperType, Promise<Uint8Array>>()
 
 export function getPaperBytes(type: PaperType): Promise<Uint8Array> {
-  let cached = byteCache.get(type)
-  if (!cached) {
-    cached = loadPaperBytesImpl(type)
-    byteCache.set(type, cached)
-  }
-  return cached
+  return cacheEvictingRejection(byteCache, type, () => loadPaperBytesImpl(type))
 }
 
 function setPaperTextureParams(gl: WebGLRenderingContext): void {
