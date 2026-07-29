@@ -1,5 +1,6 @@
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
+import type { IconName } from '../../icons/iconNames'
 import styles from './Notice.module.css'
 
 /** What the strip means, which is the only thing a caller should have to pick
@@ -26,7 +27,7 @@ export interface NoticeAction {
  *  Overridable because the meaning is sometimes more specific than the
  *  variant: an offline queue is a warning, but `cloud_off` says more about it
  *  than `warning` does. */
-const VARIANT_ICONS: Record<NoticeVariant, string> = {
+const VARIANT_ICONS: Record<NoticeVariant, IconName> = {
   error: 'error',
   warning: 'warning',
   success: 'check_circle',
@@ -36,7 +37,7 @@ const VARIANT_ICONS: Record<NoticeVariant, string> = {
 interface NoticeProps {
   variant: NoticeVariant
   message: React.ReactNode
-  icon?: string
+  icon?: IconName
   action?: NoticeAction
   onDismiss?: () => void
   /** `status` is announced politely and is right for a state being reported;

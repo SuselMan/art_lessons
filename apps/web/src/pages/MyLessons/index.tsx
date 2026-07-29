@@ -24,6 +24,7 @@ import { TextInput } from '../../components/TextInput'
 import { MoveToDialog } from '../../components/MoveToDialog'
 import { EmptyState, ErrorState } from '../../components/ListState'
 import styles from './MyLessons.module.css'
+import type { IconName } from '../../icons/iconNames'
 
 // (#217) dnd-kit ids are flat strings — encode kind+id so one onDragEnd can
 // dispatch to the right mutation regardless of what's dragged/dropped onto
@@ -386,7 +387,7 @@ function ViewToggle({ t, view, onChange }: {
   view: LessonsView
   onChange: (view: LessonsView) => void
 }) {
-  const options: { value: LessonsView; icon: string; label: TranslationKey }[] = [
+  const options: { value: LessonsView; icon: IconName; label: TranslationKey }[] = [
     { value: 'grid', icon: 'grid_view', label: 'lessons.viewGrid' },
     { value: 'list', icon: 'view_list', label: 'lessons.viewList' },
   ]

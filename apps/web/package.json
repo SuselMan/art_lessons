@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "prebuild": "tsx scripts/bakePaperTextures.ts --if-missing",
     "bake:icons": "tsx scripts/bakeAppIcons.ts",
-    "bake:paper": "tsx scripts/bakePaperTextures.ts"
+    "bake:paper": "tsx scripts/bakePaperTextures.ts",
+    "bake:icon-font": "tsx scripts/bakeIconFont.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -33,13 +34,18 @@
   },
   "devDependencies": {
     "@sentry/vite-plugin": "^5.4.0",
+    "@types/fontkit": "^2.0.9",
     "@types/lodash-es": "^4.17.12",
     "@types/node": "^24.13.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
+    "@types/subset-font": "^2.3.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "fontkit": "^2.0.4",
+    "material-symbols": "0.45.9",
     "oxlint": "^1.69.0",
     "sharp": "^0.35.3",
+    "subset-font": "^2.5.0",
     "tsx": "^4.20.3",
     "typescript": "~6.0.2",
     "vite": "^8.1.0",

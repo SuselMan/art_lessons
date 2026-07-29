@@ -6,6 +6,7 @@ import { parseNumberInput } from '../../components/NumberField/numberField'
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import type { TranslationKey } from '../../i18n'
+import type { IconName } from '../../icons/iconNames'
 
 // Unified, extensible tool-settings registry (#196). Replaces the old
 // hand-typed `RoomToolSettings{pencil,eraser}` (toolSettings.ts) — adding a
@@ -64,7 +65,7 @@ export interface SettingDescriptor {
    *  a *shape* rather than a tone — the marker's two nibs. Mutually exclusive
    *  with `optionImages` in practice; a descriptor carrying both would render
    *  the icon. */
-  optionIcons?: Readonly<Record<string, string>>
+  optionIcons?: Readonly<Record<string, IconName>>
   /** Which control(s) this field can render as; first is the default. */
   uiControls: readonly SettingUiControl[]
   /** Also rendered inline in the left toolbar, not just the settings tab. */

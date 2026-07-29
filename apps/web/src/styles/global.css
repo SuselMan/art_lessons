@@ -33,6 +33,44 @@ body {
   overscroll-behavior-x: none;
 }
 
+/* The icon font (#322). Self-hosted, and subsetted down to the ~60 glyphs
+   listed in src/icons/iconNames.ts — the full Material Symbols variable font
+   is 3.9 MB. Baked by `npm run bake:icon-font`; Vite content-hashes the woff2
+   through this url(), so it can be cached immutably and precached by the
+   service worker (#48).
+
+   font-display: block keeps the decision from #179 — an unloaded icon glyph
+   renders as nothing rather than as its literal name ("delete"). That used to
+   be the lesser evil against a flash of fallback text; now that the font is
+   local and 4.7 KB, the block period is effectively over before first paint.
+
+   No `font-feature-settings: "liga"` here, unlike Google's stylesheet: this
+   subset is addressed by codepoint, not by ligature, so there are no letters
+   in it to substitute. See scripts/bakeIconFont.ts for why. */
+@font-face {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: normal;
+  font-display: block;
+  src: url('../assets/fonts/material-symbols-subset.woff2') format('woff2');
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
 /* Custom (hand-drawn) icons are inlined inside the same
    .material-symbols-outlined wrapper the font glyphs use, so that every
    call site's `font-size` rule keeps controlling their size — 1em makes the

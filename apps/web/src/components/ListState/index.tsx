@@ -1,9 +1,10 @@
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import styles from './ListState.module.css'
+import type { IconName } from '../../icons/iconNames'
 
 interface EmptyStateProps {
-  icon: string
+  icon: IconName
   message: string
 }
 

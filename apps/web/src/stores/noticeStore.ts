@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import type { NoticeAction, NoticePosition, NoticeVariant } from '../components/Notice/Notice'
+import type { IconName } from '../icons/iconNames'
 
 // (#343) Notices that report an *event* — a request that failed, an action
 // that succeeded. Nothing in application state implies they should be
@@ -42,7 +43,7 @@ export interface Notice {
   id: string
   variant: NoticeVariant
   message: string
-  icon?: string
+  icon?: IconName
   position: NoticePosition
   action?: NoticeAction
   dismissible: boolean
@@ -55,7 +56,7 @@ export interface PushNoticeInput {
    *  has `t` in scope, and interpolated values (a layer name, a count) are
    *  resolved at that moment anyway. */
   message: string
-  icon?: string
+  icon?: IconName
   position?: NoticePosition
   /** `null` = stays until dismissed. Omitted = the variant's default. */
   durationMs?: number | null

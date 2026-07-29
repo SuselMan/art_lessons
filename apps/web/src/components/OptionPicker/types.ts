@@ -1,3 +1,4 @@
+import type { IconName } from '../../icons/iconNames'
 /** One choice in a tool-type picker (#335) — a pencil grade, a charcoal type,
  *  a marker nib. Built by the call site from a schema descriptor's
  *  `enumOptions` plus its `optionPreviews`/`optionIcons`, so this component
@@ -11,5 +12,5 @@ export interface PickerOption {
   image?: string
   /** Icon name for `<Icon>`, for options a photo of a stroke doesn't suit —
    *  the marker's two nibs, which differ in tip shape, not in tone. */
-  icon?: string
+  icon?: IconName
 }

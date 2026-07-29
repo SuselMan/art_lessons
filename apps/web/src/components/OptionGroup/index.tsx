@@ -2,6 +2,7 @@ import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import clsx from 'clsx'
 
 import { Icon } from '../Icon'
+import type { IconName } from '../../icons/iconNames'
 import { nextOptionIndex } from './optionGroupKeys'
 import styles from './OptionGroup.module.css'
 
@@ -10,7 +11,7 @@ export interface OptionDef<Id extends string = string> {
   label: string
   /** Material Symbols name, or a custom glyph from `assets/icons` (see Icon).
    *  The `segmented` variant shows this instead of the label. */
-  icon?: string
+  icon?: IconName
   /** Rendered below the strip while this option is active. Only the `tab`
    *  selection mode has a panel — a group that merely picks a value has
    *  nothing to put in one. */

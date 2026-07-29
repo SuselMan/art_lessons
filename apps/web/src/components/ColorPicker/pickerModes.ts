@@ -1,4 +1,5 @@
 import type { TranslationKey } from '../../i18n'
+import type { IconName } from '../../icons/iconNames'
 
 /** The shapes the color picker can take (#337). Different editors have trained
  *  different habits over decades — a hue strip, a hue ring around a square, a
@@ -26,7 +27,7 @@ export function isColorPickerMode(value: unknown): value is ColorPickerMode {
 /** Icon and label per mode, as a registry so the switch stays one map over
  *  COLOR_PICKER_MODES as modes are added rather than a growing block of JSX.
  *  Holds a TranslationKey, never a finished label (CLAUDE.md). */
-export const COLOR_PICKER_MODE_META: Record<ColorPickerMode, { icon: string; label: TranslationKey }> = {
+export const COLOR_PICKER_MODE_META: Record<ColorPickerMode, { icon: IconName; label: TranslationKey }> = {
   bar: { icon: 'gradient', label: 'palette.mode.bar' },
   ring: { icon: 'trip_origin', label: 'palette.mode.ring' },
   triangle: { icon: 'change_history', label: 'palette.mode.triangle' },

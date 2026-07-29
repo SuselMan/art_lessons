@@ -1,9 +1,10 @@
 import type { InputHTMLAttributes } from 'react'
 import { Icon } from '../Icon'
+import type { IconName } from '../../icons/iconNames'
 import styles from './TextInput.module.css'
 
 interface TextInputProps extends InputHTMLAttributes<HTMLInputElement> {
-  icon?: string
+  icon?: IconName
 }
 
 /** Generic styled text input — a leading icon (optional) + a borderless

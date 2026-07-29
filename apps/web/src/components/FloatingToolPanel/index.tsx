@@ -10,6 +10,7 @@ import {
 } from '../../pages/Room/panelPosition'
 import { layoutFlyoutItems, type RayLayoutConfig } from './colorFlyout'
 import styles from './FloatingToolPanel.module.css'
+import type { IconName } from '../../icons/iconNames'
 
 // Palette flyout (#190 follow-up) tuning constants — kept as plain numbers
 // here, not a settings-panel toggle, so they're quick to hand-tune while
@@ -32,7 +33,7 @@ type FloatingPrimaryTool = 'pencil' | 'charcoal' | 'liner' | 'marker'
 // Icon + label for the top slot's primaryTool — same icon each tool's own
 // left-toolbar button already uses (Room/index.tsx), so the floating panel
 // and the toolbar never disagree about what a tool "looks like".
-const PRIMARY_TOOL_DISPLAY: Record<FloatingPrimaryTool, { icon: string; labelKey: TranslationKey }> = {
+const PRIMARY_TOOL_DISPLAY: Record<FloatingPrimaryTool, { icon: IconName; labelKey: TranslationKey }> = {
   pencil: { icon: 'edit', labelKey: 'tool.pencil' },
   charcoal: { icon: 'charcoal', labelKey: 'tool.charcoal' },
   liner: { icon: 'stylus', labelKey: 'tool.liner' },

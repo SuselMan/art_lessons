@@ -3,10 +3,11 @@ import clsx from 'clsx'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import styles from './SidePanel.module.css'
+import type { IconName } from '../../icons/iconNames'
 
 export interface SidePanelTab<Id extends string = string> {
   id:      Id
-  icon:    string
+  icon:    IconName
   title:   string
   content: ReactNode
   /** (#328) Controls that belong to the panel as a whole rather than to any one

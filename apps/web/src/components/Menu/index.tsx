@@ -4,6 +4,7 @@ import clsx from 'clsx'
 
 import { usePopupAnchor } from '../../lib/usePopupAnchor'
 import { Icon } from '../Icon'
+import type { IconName } from '../../icons/iconNames'
 
 import styles from './Menu.module.css'
 
@@ -13,7 +14,7 @@ export interface MenuAction {
   /** (#329) Material Symbols name, drawn before the label. Optional per action,
    *  but a menu should either icon every item or none of them — a lone icon in
    *  a list of bare labels reads as an accident. */
-  icon?: string
+  icon?: IconName
   danger?: boolean
   disabled?: boolean
   title?: string // tooltip — e.g. explaining why a stub action is disabled
@@ -26,10 +27,14 @@ interface MenuProps {
   trigger: ReactNode
   triggerClassName?: string
   /** Accessible name for the trigger. Needed whenever its content doesn't
-   *  produce a clean one on its own — an icon-only trigger has no text at all,
-   *  and an icon *beside* text is worse: Material Symbols draw from a ligature,
-   *  so the raw glyph name ("account_circle") ends up in the computed name (see
-   *  components/Icon). Pass the visible label verbatim in that case. */
+   *  produce a clean one on its own — an icon-only trigger has no text at all.
+   *
+   *  This used to matter for the opposite reason too: icons were ligatures, so
+   *  an icon beside text leaked the raw glyph name ("account_circle") into the
+   *  computed name. Since #322 they are private-use codepoints behind
+   *  `aria-hidden`, which fixes that leak and removes the accidental name an
+   *  icon-only trigger used to get from it — so this prop is now the only
+   *  thing naming such a trigger, not a tidy-up on top of one. */
   triggerLabel?: string
   actions: MenuAction[]
   /** Which of the trigger's edges the panel lines up with. Defaults to `right`,
