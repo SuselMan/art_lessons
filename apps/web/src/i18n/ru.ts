@@ -312,6 +312,7 @@ export const ru: Dictionary = {
   'palette.mode': 'Вид палитры',
   'palette.mode.bar': 'Полоса оттенка',
   'palette.mode.ring': 'Кольцо оттенка',
+  'palette.mode.triangle': 'Треугольник оттенка',
 
   // ── боковая панель ─────────────────────────────────────────────────────
   'sidePanel.collapse': 'Свернуть',

@@ -5,6 +5,7 @@ import { rgbToHsv, hsvToRgb, rgbToHex, hexToRgb, type Hsv } from '../../lib/colo
 import { OptionGroup } from '../OptionGroup'
 import { BarSquare } from './modes/BarSquare'
 import { RingSquare } from './modes/RingSquare'
+import { RingTriangle } from './modes/RingTriangle'
 import type { ColorPickerModeProps } from './modes/types'
 import {
   COLOR_PICKER_MODES,
@@ -20,6 +21,7 @@ import styles from './ColorPicker.module.css'
 const MODE_SURFACES: Record<ColorPickerMode, ComponentType<ColorPickerModeProps>> = {
   bar: BarSquare,
   ring: RingSquare,
+  triangle: RingTriangle,
 }
 
 interface ColorPickerProps {

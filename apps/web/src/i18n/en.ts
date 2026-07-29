@@ -336,6 +336,7 @@ export const en = {
   'palette.mode': 'Picker shape',
   'palette.mode.bar': 'Hue strip',
   'palette.mode.ring': 'Hue ring',
+  'palette.mode.triangle': 'Hue triangle',
 
   // ── side panel chrome ──────────────────────────────────────────────────
   'sidePanel.collapse': 'Collapse',
