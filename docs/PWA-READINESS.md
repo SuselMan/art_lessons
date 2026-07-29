@@ -51,7 +51,7 @@ iOS-метатегов, нет `safe-area-inset` в вёрстке. Ни одн�
 | HTTPS в деве (для SW-разработки) | ✅ | `vite-plugin-mkcert`, `vite.config.ts` |
 | Один origin для API/сокета | ✅ | `API_BASE = ''`, nginx проксирует `/api` и `/socket.io` |
 | SPA-фолбэк на deep-link | ✅ | `try_files $uri /index.html` |
-| Кэш-заголовки | ✅ (частично) | `/assets/` immutable, `index.html` `no-cache` (#294) |
+| Кэш-заголовки | ✅ | `/assets/` и `/paper/*.{paper,preview}` immutable, `index.html` и `/paper/manifest.json` `no-cache` (#294, #322) |
 
 Service worker требует secure context — этот пункт закрыт и в проде, и в деве.
 Отдельного действия не требует.
@@ -146,27 +146,35 @@ Accessibility недостижимо**, и не надо тратить на э�
 
 ```
 dist/assets/        ~780 КБ  (JS ~700 КБ + CSS ~60 КБ, всё content-hashed)
-dist/paper/          65 МБ   (9 × ~7.5 МБ .paper + 9 × ~60 КБ .preview)
+dist/paper/          21 МБ   (3 × ~7.3 МБ .paper + 3 × ~60 КБ .preview + manifest.json)
 dist/paper-variants/ 69 МБ   ← только локально, см. ниже
 ```
 
-`vite-plugin-pwa` по умолчанию прекэширует **весь `dist`**. Это 65 МБ
+`vite-plugin-pwa` по умолчанию прекэширует **весь `dist`**. Это 21 МБ
 скачивания при первом визите — на мобильном трафике неприемлемо, а на iOS
 почти гарантированно упрётся в квоту хранилища.
 
 Правильная конфигурация:
 
-- **Precache**: только `index.html` + `assets/**` (~800 КБ) + иконки/манифест.
-- **Явное исключение** `paper/**` и `paper-variants/**` из
-  `globPatterns`/`globIgnores`.
+- **Precache**: `index.html` + `assets/**` (~800 КБ) + иконки/манифест +
+  `paper/manifest.json`.
+- **Явное исключение** `paper/*.paper` и `paper-variants/**` из
+  `globPatterns`/`globIgnores`. Именно `paper/*.paper`, а не `paper/**`:
+  манифест и превью прекэшировать надо (см. ниже).
 - **Runtime-кэш** для `/paper/*.paper` — стратегия `CacheFirst` с
   `ExpirationPlugin({ maxEntries: 2–3 })`. Комната использует **одну**
   текстуру (`PaperType` комнаты), так что кэшировать надо ровно ту, которую
-  пользователь реально открыл, а не все девять. Один файл — 7.5 МБ gzip
+  пользователь реально открыл, а не все три. Один файл — ~7.3 МБ gzip
   (2048×2048×2 байта = 8 МБ после распаковки, `PAPER_BAKE_RESOLUTION = 2048`).
-- **Отдельно `/paper/*.preview`** (~60 КБ каждый, 9 штук ≈ 540 КБ) — их
+  Глоб продолжает работать с хэшированными именами: `coarse.d93ef331.paper`
+  по-прежнему заканчивается на `.paper` (#322 сознательно ставит хэш *перед*
+  расширением).
+- **Отдельно `/paper/*.preview`** (~60 КБ каждый, 3 штуки ≈ 180 КБ) — их
   можно прекэшировать целиком: это миниатюры пикера бумаги, они нужны все
-  сразу при открытии панели.
+  сразу при открытии панели. Вместе с ними обязателен и
+  `paper/manifest.json`: имена превью хэшированы, и манифест — единственное,
+  что их называет, так что прекэшированные превью без него недостижимы
+  офлайн.
 
 **Про `paper-variants` (69 МБ).** Это dev-only ассеты для сравнения вариантов
 зерна (`bakeRoughVariantTextures.ts`, переключатель в SettingsPanel). Каталог
@@ -177,15 +185,32 @@ dist/paper-variants/ 69 МБ   ← только локально, см. ниже
 файлов, и правило прекэша, отлаженное на локальном `dist`, обязано молча
 переживать отсутствие этого каталога.
 
-**Ловушка — версионирование `.paper`.** Имена файлов **не** content-hashed
-(`coarse-streak.paper` — фиксированное имя), поэтому nginx отдаёт их с
-`max-age=86400` вместо `immutable` — комментарий в `deploy/nginx.conf` это
-прямо оговаривает. Для `CacheFirst`-кэша это хуже, чем для HTTP-кэша: SW
-будет держать устаревшую выпечку **бессрочно**, а не сутки. Либо
-content-хэшировать имена (правка `bakePaperTextures.ts` + маленький манифест
-имён, который читает `paperLoader.ts`), либо версионировать имя кэша
-Workbox и инвалидировать его на каждой пере-выпечке. Первое чище и заодно
-снимает ограничение `max-age` в nginx.
+**Версионирование `.paper` — закрыто в #322.** Раньше это была главная ловушка
+раздела: имена были фиксированные, nginx мог отдавать их только с
+`max-age=86400`, и для `CacheFirst` это было хуже, чем для HTTP-кэша — SW
+держал бы устаревшую выпечку **бессрочно**, а не сутки.
+
+Теперь имена content-hashed (`coarse.d93ef331.paper`, хэш по несжатым байтам
+payload), а `bakePaperTextures.ts` пишет рядом `manifest.json`, который
+`paperLoader.ts` читает в рантайме. `CacheFirst` для `/paper/*.paper` стал
+безопасным по построению: устаревшего содержимого по тому же URL больше не
+бывает. Требование в обмен ровно одно — **манифест нельзя кэшировать
+агрессивно**, ни в nginx (там он `no-cache`, см. `deploy/nginx.conf`), ни в
+SW. Это единственный нехэшированный указатель внутрь immutable-набора, и
+устаревший манифест называет файл, который прошлый `rsync --delete` уже снёс,
+то есть даёт 404 и полное отсутствие бумаги — не косметическую устарелость.
+Для SW это значит `NetworkFirst`/`StaleWhileRevalidate` на манифест, никогда
+`CacheFirst`.
+
+Манифест сознательно фетчится, а не генерируется в бандл: `public/paper/` в
+`.gitignore`, `npm run dev` не запускает `prebuild`, и закоммиченный TS-модуль
+был бы утверждением о выпечке, которой в репозитории нет — полное обоснование
+в шапке `apps/web/src/engine/src/paperManifest.ts`.
+
+Заодно в #342 с этих файлов снят двойной gzip: они уже gzip-потоки, но уходили
+как `application/octet-stream`, который есть в `gzip_types`, и nginx жал их
+второй раз — теряя `Content-Length` и `Accept-Ranges`. Для SW это важно тем,
+что без `Content-Length` нельзя показать прогресс скачивания текстуры.
 
 **Ловушка — взаимодействие с #186 и #294.** В `main.tsx` уже живёт обработчик
 `vite:preloadError`, который делает `location.reload()` (однократно, под
@@ -313,19 +338,26 @@ navigation fallback, и дальше приложение показывает �
 
 - [ ] Self-host Material Symbols сабсетом по реально используемым лигатурам;
       убрать `preconnect`/`stylesheet` на Google (§2.3).
-- [ ] Content-хэшировать имена `.paper` / `.preview` в
+- [x] Content-хэшировать имена `.paper` / `.preview` в
       `bakePaperTextures.ts` + манифест имён для `paperLoader.ts`;
-      поднять `/paper/` в nginx до `immutable` (комментарий в
-      `deploy/nginx.conf` уже предусматривает этот шаг).
+      поднять `/paper/` в nginx до `immutable` (#322). Вместе с этим уехал
+      #342 — `gzip off` на этих файлах: они уже gzip-потоки, а nginx жал их
+      второй раз и терял `Content-Length`, без которого не сделать честный
+      прогресс загрузки.
 - [ ] Убедиться, что CI-сборка не содержит `paper-variants` (сейчас так и
       есть — зафиксировать проверкой, а не наблюдением).
 
 ### Этап 3 — Service worker · **1.5–2 дня** · #48
 
 - [ ] `vite-plugin-pwa` в `injectManifest`- или `generateSW`-режиме.
-- [ ] Precache: `index.html`, `assets/**`, иконки, манифест, `paper/*.preview`.
+- [ ] Precache: `index.html`, `assets/**`, иконки, манифест,
+      `paper/*.preview` **и `paper/manifest.json`** — без последнего
+      прекэшированные превью недостижимы офлайн, их имена хэшированы и
+      называет их только он.
       **Явно исключить** `paper/*.paper` и `paper-variants/**`.
-- [ ] Runtime `CacheFirst` для `/paper/*.paper`, `maxEntries: 3`.
+- [ ] Runtime `CacheFirst` для `/paper/*.paper`, `maxEntries: 3` — безопасно
+      с #322, имена content-hashed. `paper/manifest.json` — только
+      `NetworkFirst`/`StaleWhileRevalidate`, никогда `CacheFirst`.
 - [ ] `NetworkOnly` для `/api/**` и `/socket.io/**` (не дать Workbox
       случайно закэшировать хендшейк).
 - [ ] Стратегия обновления + согласование с обработчиком `vite:preloadError`
