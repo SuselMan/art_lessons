@@ -1,6 +1,5 @@
 import { useT } from '../../i18n'
-import { Icon } from '../../components/Icon'
-import styles from './ConnectionBanner.module.css'
+import { Notice } from '../../components/Notice'
 
 interface ConnectionBannerProps {
   connected: boolean
@@ -27,7 +26,14 @@ interface ConnectionBannerProps {
  *  Deliberately does not appear for a clean connected-and-empty state, and
  *  stays up through the post-reconnect drain rather than vanishing the
  *  instant the socket comes back — the work isn't safe until the server has
- *  actually acknowledged it. */
+ *  actually acknowledged it.
+ *
+ *  (#343) The clearest case for keeping this derived rather than pushed: its
+ *  text interpolates `pending`, which ticks on every operation queued and
+ *  every ack. As a render that is free — the count recomputes. As a pushed
+ *  notice it would need an `updateNotice` on every one of those transitions,
+ *  which is this render written by hand, plus a way for the number to go
+ *  stale. */
 export function ConnectionBanner({ connected, pending, stalled }: ConnectionBannerProps): React.JSX.Element | null {
   const t = useT()
   if (connected && pending === 0) return null
@@ -39,9 +45,11 @@ export function ConnectionBanner({ connected, pending, stalled }: ConnectionBann
       : t('room.connection.syncing', { n: pending })
 
   return (
-    <div className={styles.banner} role="status" aria-live="polite">
-      <Icon name={connected ? 'cloud_sync' : 'cloud_off'} />
-      <span>{message}</span>
-    </div>
+    <Notice
+      variant="warning"
+      icon={connected ? 'cloud_sync' : 'cloud_off'}
+      role="status"
+      message={message}
+    />
   )
 }

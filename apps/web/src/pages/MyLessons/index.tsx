@@ -14,6 +14,7 @@ import {
   moveRoomToFolder, renameFolder, renameRoom, searchRooms, setRoomClosed, type RoomsAtFolder,
 } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
+import { notifyError } from '../../stores/noticeStore'
 import { useSettingsStore, type LessonsView } from '../../stores/settingsStore'
 import { useLocale, useT, type TFunction, type TranslationKey } from '../../i18n'
 import { AppHeader } from '../../components/AppHeader'
@@ -421,7 +422,6 @@ export function MyLessons() {
   const [renamingItem, setRenamingItem] = useState<ItemRef | null>(null)
   const [renameText, setRenameText] = useState('')
   const [moveTarget, setMoveTarget] = useState<ItemRef | null>(null)
-  const [folderError, setFolderError] = useState<string | null>(null)
   // Breadcrumb path from root to the currently open folder — root itself
   // isn't a real RoomFolder (no id), so an empty path means "at root".
   const [path, setPath] = useState<{ id: string; name: string }[]>([])
@@ -505,17 +505,33 @@ export function MyLessons() {
     )
   }
 
+  // (#343) Every failure below reports itself as a pushed notice, and the
+  // `key` is what keeps a retried action from stacking copies of the same
+  // sentence — a second failed delete replaces the first report rather than
+  // adding to it.
+  //
+  // These are events, not state: nothing in the page implies "the delete
+  // failed" once the request has settled, which is exactly the half of the
+  // system that needs an id and a store. Contrast the two query failures
+  // further down, which stay inline — a list that could not load has no
+  // content to show, so its error belongs in the space the list would have
+  // occupied, with the retry that fixes it.
+  const notifyFailure = (message: string, key: string) => notifyError(message, { key })
+
   const deleteMutation = useMutation({
     mutationFn: deleteRoom,
     onSuccess: (_, id) => updateRoomsEverywhere(rooms => rooms.filter(r => r.id !== id)),
+    onError: () => notifyFailure(t('lessons.error.delete'), 'delete-room'),
   })
   const leaveMutation = useMutation({
     mutationFn: leaveRoom,
     onSuccess: (_, id) => updateRoomsEverywhere(rooms => rooms.filter(r => r.id !== id)),
+    onError: () => notifyFailure(t('lessons.error.leave'), 'leave-room'),
   })
   const renameRoomMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => renameRoom(id, name),
     onSuccess: updated => updateRoomsEverywhere(rooms => rooms.map(r => r.id === updated.id ? updated : r)),
+    onError: () => notifyFailure(t('lessons.error.renameRoom'), 'rename-room'),
   })
   // (#317) Lands the copy in the list rather than navigating into it: forking
   // is usually done to *hand out* a copy, and being dropped inside it would
@@ -523,42 +539,46 @@ export function MyLessons() {
   const forkMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, name),
     onSuccess: ({ room }) => updateRoomsInFolder(rooms => [room, ...rooms]),
+    onError: () => notifyFailure(t('lessons.error.fork'), 'fork-room'),
   })
   // (#222) The room comes back with its new `closedAt`, so the card updates
   // from the server's answer rather than from an assumption about it.
   const closedMutation = useMutation({
     mutationFn: ({ id, closed }: { id: string; closed: boolean }) => setRoomClosed(id, closed),
     onSuccess: updated => updateRoomsEverywhere(rooms => rooms.map(r => r.id === updated.id ? updated : r)),
+    onError: () => notifyFailure(t('lessons.error.close'), 'close-room'),
   })
   const renameFolderMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => renameFolder(id, name),
     onSuccess: updated => updateFolders(folders => folders.map(f => f.id === updated.id ? updated : f)),
+    onError: () => notifyFailure(t('lessons.error.renameFolder'), 'rename-folder'),
   })
   const moveRoomMutation = useMutation({
     mutationFn: ({ id, folderId }: { id: string; folderId: string | null }) => moveRoomToFolder(id, folderId),
     onSuccess: (_, { id }) => updateRoomsInFolder(rooms => rooms.filter(r => r.id !== id)),
+    onError: () => notifyFailure(t('lessons.error.moveRoom'), 'move-room'),
   })
   const moveFolderMutation = useMutation({
     mutationFn: ({ id, parentFolderId }: { id: string; parentFolderId: string | null }) =>
       moveFolder(id, parentFolderId),
     onSuccess: updated => updateFolders(folders => folders.filter(f => f.id !== updated.id)),
     onError: (err) => {
-      setFolderError(t(
+      notifyFailure(t(
         err instanceof ApiError && err.code === 'cycle'
           ? 'lessons.error.moveFolderCycle'
           : 'lessons.error.moveFolder',
-      ))
+      ), 'move-folder')
     },
   })
   const deleteFolderMutation = useMutation({
     mutationFn: deleteFolder,
     onSuccess: (_, id) => updateFolders(folders => folders.filter(f => f.id !== id)),
     onError: (err) => {
-      setFolderError(t(
+      notifyFailure(t(
         err instanceof ApiError && err.code === 'not_empty'
           ? 'lessons.error.folderNotEmpty'
           : 'lessons.error.deleteFolder',
-      ))
+      ), 'delete-folder')
     },
   })
   const createFolderMutation = useMutation({
@@ -568,6 +588,7 @@ export function MyLessons() {
       setNewFolderOpen(false)
       setNewFolderName('')
     },
+    onError: () => notifyFailure(t('lessons.error.createFolder'), 'create-folder'),
   })
 
   if (authLoading) return null
@@ -643,12 +664,13 @@ export function MyLessons() {
     }
   }
 
+  // (#343) Only the two *query* failures are still rendered from state. Both
+  // mean there is no list to show, so the message belongs where the list
+  // would have been, together with the retry that resolves it — a strip that
+  // floats over the page and then times out would leave an empty list behind
+  // it with no explanation and no way to try again. The six mutation failures
+  // that used to live here are pushed from their own `onError` instead.
   const loadError = loadFailed ? t('lessons.error.load') : null
-  const deleteError = deleteMutation.isError ? t('lessons.error.delete') : null
-  const leaveError = leaveMutation.isError ? t('lessons.error.leave') : null
-  const forkError = forkMutation.isError ? t('lessons.error.fork') : null
-  const closedError = closedMutation.isError ? t('lessons.error.close') : null
-  const createFolderError = createFolderMutation.isError ? t('lessons.error.createFolder') : null
   const searchError = searchFailed ? t('lessons.error.search') : null
   const isEmpty = data !== undefined && data.folders.length === 0 && data.rooms.length === 0
   const isSearchEmpty = searchData !== undefined && searchData.rooms.length === 0
@@ -713,17 +735,7 @@ export function MyLessons() {
 
       {isSearching ? (
         <>
-          {searchError ? (
-            <ErrorState message={searchError} onRetry={() => refetchSearch()} />
-          ) : deleteError ? (
-            <ErrorState message={deleteError} />
-          ) : leaveError ? (
-            <ErrorState message={leaveError} />
-          ) : forkError ? (
-            <ErrorState message={forkError} />
-          ) : closedError ? (
-            <ErrorState message={closedError} />
-          ) : null}
+          {searchError && <ErrorState message={searchError} onRetry={() => refetchSearch()} />}
           <section className={styles.section}>
             {searchData === undefined ? (
               <div className={styles.empty}>{t('lessons.searching')}</div>
@@ -801,19 +813,7 @@ export function MyLessons() {
             )}
           </div>
 
-          {loadError ? (
-            <ErrorState message={loadError} onRetry={() => refetch()} />
-          ) : deleteError ? (
-            <ErrorState message={deleteError} />
-          ) : leaveError ? (
-            <ErrorState message={leaveError} />
-          ) : createFolderError ? (
-            <ErrorState message={createFolderError} />
-          ) : closedError ? (
-            <ErrorState message={closedError} />
-          ) : folderError ? (
-            <ErrorState message={folderError} onRetry={() => setFolderError(null)} />
-          ) : null}
+          {loadError && <ErrorState message={loadError} onRetry={() => refetch()} />}
 
           <section className={styles.section}>
             {data === undefined ? (

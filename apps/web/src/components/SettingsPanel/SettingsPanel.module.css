@@ -69,7 +69,7 @@
 .hotkeyBtn:hover { border-color: var(--color-accent); }
 
 .hotkeyError {
-  color: var(--color-danger, #e05555);
+  color: var(--color-error);
   font-size: 11px;
   margin-top: 2px;
 }

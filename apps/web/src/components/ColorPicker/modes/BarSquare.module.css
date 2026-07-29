@@ -1,6 +1,17 @@
 /* The S/V square is shared with the ring mode — see SvSquare.module.css. */
 
+/* Fills the square area the picker gives every mode (#344): the strip keeps
+   its own height and the square takes the rest, so this mode is exactly as
+   tall as the round ones without anyone having to keep two numbers in step. */
+.mode {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .hueStrip {
+  flex-shrink: 0;
   position: relative;
   width: 100%;
   height: 14px;

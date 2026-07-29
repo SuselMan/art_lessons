@@ -1,6 +1,5 @@
 import { useT } from '../../i18n'
-import { Icon } from '../../components/Icon'
-import styles from './ClosedBanner.module.css'
+import { Notice } from '../../components/Notice'
 
 interface ClosedBannerProps {
   isOwner: boolean
@@ -21,21 +20,25 @@ interface ClosedBannerProps {
  *
  *  Unlike FrozenBanner this is shown to the owner too — closing binds them
  *  as well (see rooms.ts's getOperationRejectReason), so an owner who saw no
- *  explanation would meet a canvas that simply ignores the pencil. */
+ *  explanation would meet a canvas that simply ignores the pencil.
+ *
+ *  (#343) `neutral`, not a warning: a closed lesson is its normal state once
+ *  handed out, and colouring it as a problem would misreport what happened.
+ *  Its button is also the only route to reopening or forking without leaving
+ *  the room, so this is the clearest case in the app of a strip that must not
+ *  be allowed to time out. */
 export function ClosedBanner({ isOwner, busy, onReopen, onTakeCopy }: ClosedBannerProps): React.JSX.Element {
   const t = useT()
   return (
-    <div className={styles.banner}>
-      <Icon name="lock" />
-      <span>{t(isOwner ? 'room.closedOwner' : 'room.closedMember')}</span>
-      <button
-        type="button"
-        className={styles.action}
-        onClick={isOwner ? onReopen : onTakeCopy}
-        disabled={busy}
-      >
-        {busy ? t('common.working') : t(isOwner ? 'room.reopen' : 'room.takeCopy')}
-      </button>
-    </div>
+    <Notice
+      variant="neutral"
+      icon="lock"
+      message={t(isOwner ? 'room.closedOwner' : 'room.closedMember')}
+      action={{
+        label: busy ? t('common.working') : t(isOwner ? 'room.reopen' : 'room.takeCopy'),
+        onClick: isOwner ? onReopen : onTakeCopy,
+        disabled: busy,
+      }}
+    />
   )
 }

@@ -13,9 +13,21 @@
   width: 208px;
 }
 
-/* Each mode's own surface is styled next to it, in modes/*.module.css — what
+/* One square area every mode is drawn into (#344). Before this each mode was
+   whatever height its own parts added up to — 164px for the strip, 184 for the
+   ring — so switching modes shoved the hex field and the palette below it up
+   and down. Not a matched pair of constants, because the round modes' height
+   follows the panel width and a hand-tuned number would come apart the next
+   time that changes (#173 promises different layouts for tablet and PC): the
+   shape is declared once here, and each mode fills it.
+
+   Each mode's own parts are styled next to it, in modes/*.module.css — what
    stays here is the frame around them: the mode switch, the current swatch and
    the hex field, which every mode shares. */
+.surface {
+  width: 100%;
+  aspect-ratio: 1;
+}
 
 .swatchRow {
   display: flex;

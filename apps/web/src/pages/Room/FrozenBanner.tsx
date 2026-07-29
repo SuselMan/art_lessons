@@ -1,6 +1,5 @@
 import { useT } from '../../i18n'
-import { Icon } from '../../components/Icon'
-import styles from './FrozenBanner.module.css'
+import { Notice } from '../../components/Notice'
 
 interface FrozenBannerProps {
   // Room-wide freeze (#256) vs. this participant's own point freeze (#257)
@@ -16,13 +15,20 @@ interface FrozenBannerProps {
  *  freeze targeting them specifically (#257). A silently-inert canvas would
  *  read as broken ("why isn't my pencil working"); this explains *why* in
  *  place, without the full-viewport takeover RoomLoadingOverlay uses (input
- *  is blocked here, not the whole room's content). */
+ *  is blocked here, not the whole room's content).
+ *
+ *  (#343) Derived, not pushed: it is visible exactly while the freeze is on,
+ *  so the freeze flag is its whole lifetime. Nothing to dismiss and no timer —
+ *  a countdown here would hide the explanation while the pencil is still
+ *  dead. Position comes from the room's own top column; the strip itself is
+ *  the shared `Notice`. */
 export function FrozenBanner({ roomFrozen }: FrozenBannerProps): React.JSX.Element {
   const t = useT()
   return (
-    <div className={styles.banner}>
-      <Icon name="ac_unit" />
-      <span>{t(roomFrozen ? 'room.frozenEveryone' : 'room.frozenYou')}</span>
-    </div>
+    <Notice
+      variant="warning"
+      icon="ac_unit"
+      message={t(roomFrozen ? 'room.frozenEveryone' : 'room.frozenYou')}
+    />
   )
 }

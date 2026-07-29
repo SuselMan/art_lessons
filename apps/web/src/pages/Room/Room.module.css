@@ -329,6 +329,50 @@
   touch-action: none;
 }
 
+/* (#343) The room's two notice columns. The derived banners (frozen, closed,
+   lost-work, connection) are anchored here rather than by NoticeStack: they
+   belong to the canvas area, which means below the editor header and clear of
+   the toolbar, not to the viewport the way a pushed notice is.
+
+   Replaces four separate `position: absolute` blocks, one per banner, which
+   had drifted: three measured their offset from `--header-h` while
+   LostWorkBanner hardcoded `top: 60px` — an approximation of "below the
+   frozen banner" that was wrong whenever the frozen banner wasn't up. A
+   column removes the question: they stack because they are siblings in a
+   flex column, so nothing has to guess at anyone else's height.
+
+   `pointer-events: none` on the column, re-enabled per strip by Notice's own
+   `.interactive` — the area a banner does not occupy must stay free for
+   pan/zoom, and an empty column must not become a click target. */
+.noticesTop,
+.noticesBottom {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 32px);
+  pointer-events: none;
+}
+
+.noticesTop {
+  /* `--header-h` is declared on the page root below and inherits down here,
+     so this tracks the header's real height. Found in QA (#222): at a plain
+     `top: 12px` a strip sits *behind* the header, which for a banner carrying
+     a button also means the button cannot be clicked. */
+  top: calc(var(--header-h, 44px) + 12px);
+}
+
+.noticesBottom {
+  /* The connection strip can be up for the whole length of a bad connection,
+     so it is kept at the opposite edge from the banners reporting discrete
+     events — it must not compete with them for the same space. */
+  bottom: 16px;
+}
+
 /* ── Viewport ── */
 .viewport {
   /* Always the full editor, regardless of header/toolbar/layer-panel
@@ -708,14 +752,14 @@
 }
 
 .gateInputError {
-  border-color: #aa5555 !important;
+  border-color: color-mix(in srgb, var(--color-error) 80%, black) !important;
 }
 
 .gateError {
   font-size: 13px;
-  color: #cc6666;
-  background: rgba(170, 85, 85, 0.1);
-  border: 1px solid rgba(170, 85, 85, 0.25);
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 25%, transparent);
   border-radius: var(--radius-sm);
   padding: 9px 13px;
 }

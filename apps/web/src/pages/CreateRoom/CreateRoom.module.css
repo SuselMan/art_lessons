@@ -356,12 +356,13 @@
   left: 19px;
 }
 
-/* error */
+/* error — inline for the same reason as Auth's (#343): it reports a value in
+   a field on this form, so it belongs next to that form. Colours tokenised. */
 .error {
   font-size: 13px;
-  color: #cc6666;
-  background: rgba(170, 85, 85, 0.1);
-  border: 1px solid rgba(170, 85, 85, 0.25);
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 25%, transparent);
   border-radius: var(--radius-sm);
   padding: 9px 13px;
 }

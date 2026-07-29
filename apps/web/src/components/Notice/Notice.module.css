@@ -1,0 +1,113 @@
+/* (#343) The one notification strip. Geometry here, position nowhere — see
+   Notice.tsx on why the caller anchors it.
+
+   Each variant sets `--notice-accent` and everything tinted reads from that
+   one value, so a new variant is one declaration rather than three
+   coordinated ones that can disagree. */
+.notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 16px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--notice-accent) 16%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--notice-accent) 45%, transparent);
+  color: var(--color-text-bright);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  max-width: min(520px, calc(100vw - 32px));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  /* Informational by default: these float over the canvas, and one that ate
+     pointer events would break panning through the area it covers.
+     `.interactive` opts back in when there is something to click. */
+  pointer-events: none;
+}
+
+.interactive {
+  pointer-events: auto;
+}
+
+.notice :global(.material-symbols-outlined) {
+  font-size: 18px;
+  color: var(--notice-accent);
+  flex-shrink: 0;
+}
+
+.message {
+  flex: 1;
+}
+
+.error   { --notice-accent: var(--color-error); }
+.warning { --notice-accent: var(--color-warning); }
+.success { --notice-accent: var(--color-success); }
+
+/* Not a tinted variant: a neutral strip reports a normal state, so it takes
+   the plain surface treatment and a dim icon rather than a coloured wash. */
+.neutral {
+  --notice-accent: var(--color-border);
+  background: var(--color-surface);
+}
+
+.neutral :global(.material-symbols-outlined) {
+  color: var(--color-text-dim);
+}
+
+/* Quiet, not primary. Every action offered from a notice is an escape hatch
+   from something that already happened (undo the recovery, reopen the lesson,
+   retry the request) — never the thing to reach for by default. */
+.action {
+  flex-shrink: 0;
+  min-height: var(--touch-target-sm);
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--color-text-bright) 25%, transparent);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-bright);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-text-bright) 10%, transparent);
+  border-color: var(--color-accent);
+}
+
+.action:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.action:focus-visible,
+.dismiss:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.dismiss {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-target-sm);
+  min-height: var(--touch-target-sm);
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-dim);
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  background: color-mix(in srgb, var(--color-text-bright) 10%, transparent);
+  color: var(--color-text-bright);
+}
+
+/* The close glyph is chrome, not the subject — it must not take the variant's
+   accent colour the way the leading icon does. */
+.dismiss :global(.material-symbols-outlined) {
+  color: currentColor;
+}
