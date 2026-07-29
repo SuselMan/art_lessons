@@ -89,30 +89,40 @@ tablet.
 ## Git workflow
 
 - Do not commit unless explicitly asked; stage and report status instead.
-- Exception: on `dev` and on isolated agent worktree branches (see "Multi-agent parallel workflow" below), atomic commits are pre-approved. This does not apply to `master`/`main` — commits and merges there always require explicit confirmation from Ilya.
+- Exception: on isolated agent/task branches (see "Multi-agent parallel workflow" below), atomic commits are pre-approved. This does not apply to `main` — commits and merges there always require explicit confirmation from Ilya.
 - Commit message subject lines start with the GitHub issue they belong to, e.g. `#86: add full pencil grade range`. If a commit isn't tied to a tracked issue (ad-hoc fix, chore, infra tweak), just write a normal message — do not invent or attach a fake issue number to satisfy the format.
 
-## Branch model: master / dev / agents
+## Branch model: main / agents
 
-- `master` — stable, Ilya-controlled. The manager never commits or merges here without explicit per-merge approval.
-- `dev` — the manager's own integration branch. The manager leads day-to-day work here: merging in finished, QA'd agent branches, making small manager-only changes (e.g. `packages/shared` contract updates), and generally living here between master syncs. Commits on `dev` are pre-approved, same as agent branches.
-- `agents/<issue-number>-<slug>` — one per task, worktree-isolated (see below). Once a branch's QA pass is clean, the manager merges it into `dev`, not directly into `master`.
-- Periodically, when Ilya says so, the manager merges `dev` into `master`. This is the only path anything reaches `master`. This is the current flow for the project and may evolve.
+- `main` — the single long-lived branch: stable, deployed, and Ilya-controlled. GitHub Actions
+  auto-deploys it to production on every push (see `deploy/README.md`), which is exactly why
+  nothing lands here without Ilya saying so. The manager never commits or merges here without
+  explicit per-merge approval.
+- `agents/<issue-number>-<slug>` — one per task, branched from `main`, worktree-isolated where
+  parallelism needs it (see below). Commits on these are pre-approved. Once a branch's QA pass
+  is clean, the manager reports it and asks Ilya before merging into `main`.
+
+There is deliberately **no `dev` integration branch**. There used to be one in this document,
+and it died of disuse rather than by decision: by 2026-07-29 `dev` sat 100 commits behind `main`
+and zero ahead, while every merge had been going straight to `main` for months. A branch that
+the actual workflow routes around is worse than no branch — it makes this file lie about where
+code lives, and it silently mis-bases any agent branched from it. If a staging branch is ever
+wanted again, it gets re-introduced on purpose, with a reason, not restored from habit.
 
 ## Multi-agent parallel workflow
 
 We parallelize work across isolated Claude Code sessions ("agents"), coordinated by the main session ("manager"). Agents do not talk to each other directly — all coordination goes through the manager.
 
 - The manager assigns tasks from GitHub Issues, one task per agent session.
-- Each task runs in its own git worktree on a dedicated branch: `agents/<issue-number>-<slug>`, branched from `dev` (not `master`).
+- Each task runs on a dedicated branch `agents/<issue-number>-<slug>`, branched from `main`. Give it its own git worktree when two tasks would otherwise edit the same checkout concurrently; a single serial task can just use the main checkout.
 - One agent session = one `area:*` label (e.g. `area:ui` → frontend agent, `area:server` → backend agent). Don't mix areas in one agent session.
-- Changes to `packages/shared` (the contract between frontend and backend) are made by the manager only, on `dev`, *before* dependent frontend/backend tasks are handed out. Agents never edit `packages/shared` themselves.
+- Changes to `packages/shared` (the contract between frontend and backend) are made by the manager only, on its own branch off `main` and merged *before* dependent frontend/backend tasks are handed out. Agents never edit `packages/shared` themselves.
 - An agent must stop and report to the manager if a task requires touching files outside its declared area, instead of proceeding.
 - Agents commit atomically after each logical step, with a clear commit message — not only once at the end. This makes interrupted work resumable (see below).
 - If an agent session is interrupted (rate limit, crash, closed terminal), work is not restarted from scratch: a new session on the same branch reads the issue plus `git log`/`git diff` since the last commit and continues from there.
-- Before merging an agent branch into `dev`, the manager runs `npm run typecheck` and `npm run lint:fix` on that branch and fixes what it can, plus the QA pass described below.
-- Merging an agent branch into `dev` does not require asking Ilya each time — that's the manager's call once QA is clean. Merging `dev` into `master` always does (see branch model above).
-- After a branch is merged into `dev`, its worktree and branch are deleted.
+- Before an agent branch goes to Ilya, the manager runs `npm run typecheck` and `npm run lint:fix` on it and fixes what it can, plus the QA pass described below.
+- Merging an agent branch into `main` requires Ilya's explicit go-ahead each time — `main` auto-deploys to production, so there is no longer an intermediate branch where a merge is the manager's own call. The manager's job is to hand over a branch that is already QA'd and ready, not to merge it.
+- After a branch is merged into `main`, its worktree and branch are deleted.
 
 ### Resuming after a break (new manager session)
 
