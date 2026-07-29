@@ -23,7 +23,6 @@ import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { isModalOpen } from '../../components/Modal/modalSlot'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
-import { RadialDial } from '../../components/RadialDial'
 import { computeCompositeOrder, isLayerLocked } from '../../lib/layers'
 import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getPencilSoundSetting, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
@@ -68,9 +67,10 @@ import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
 import { JoinGate } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
-  formatDegreesMinutes, getToolColor, isColorCapableTool, toolSizeRange, type ColorCapableTool,
+  getToolColor, isColorCapableTool, toolSizeRange, type ColorCapableTool,
 } from './toolSchemas'
-import { loadPanelPosition, PANEL_SIZE, measureFloatingPanelCenter, type PanelPosition } from './panelPosition'
+import { loadPanelPosition, type PanelPosition } from './panelPosition'
+import { ChiselAngleDial } from './ChiselAngleDial'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { fetchLatestSnapshot, walkHistoryBackward, type RestoredSnapshot } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
@@ -341,17 +341,15 @@ export function Room() {
     setUiHidden(h => !h)
   }, [])
 
-  // #94: a resting hand/finger on a tablet can brush the surrounding chrome
-  // (most often the size slider) mid-stroke and corrupt settings partway
-  // through drawing. Real state (not just strokeActiveRef below) because it
-  // needs to trigger a re-render to actually apply/remove pointer-events —
-  // only flipped twice per stroke (start/end), so the cost is negligible
-  // despite this codebase's general perf-consciousness about per-move state
-  // (see e.g. the vp-state discussion elsewhere). Mirrors uiHidden's own
-  // "toggle a class on the header/toolbar/layer-panel wrapper" shape (#99),
-  // but pointer-events only — the UI stays visible, just unresponsive, unlike
-  // uiHidden's fade.
-  const [isDrawing, setIsDrawing] = useState(false)
+  // #94's "a resting hand mid-stroke corrupts settings" guard used to be a
+  // `useState` here, on the theory that two flips per stroke are too cheap to
+  // matter. On a Tab S7+ they were not: #309 measured a median 55 ms (worst
+  // 99 ms) from pen-down to the UI reacting, plus a 60–85 ms dropped frame at
+  // every stroke start, all of it Room re-rendering its whole tree twice per
+  // stroke to change `pointer-events` on four wrappers. It now lives in the
+  // store as `strokeActive` (see strokeSlice for the full rule) and reaches
+  // the DOM without a render at all — see the projection effect below.
+
   // Diagnostic for "works on Samsung, not on a Surface" (see chat) — see
   // TapDebugInfo's docstring for what each field means.
   const [tapDebug, setTapDebug] = useState<TapDebugInfo | null>(null)
@@ -1247,14 +1245,14 @@ export function Room() {
     engine
       .on('strokeStart', e => {
         strokeActiveRef.current = true
-        setIsDrawing(true)
+        useRoomStore.getState().setStrokeActive(true)
         diagLog('stroke: start')
         markActive(useRoomStore.getState().userId)
         pencilSoundRef.current?.start(e.pressure, e.speed, e.tiltX, e.tiltY)
       })
       .on('strokeEnd', () => {
         strokeActiveRef.current = false
-        setIsDrawing(false)
+        useRoomStore.getState().setStrokeActive(false)
         diagLog('stroke: end')
         pencilSoundRef.current?.stop()
       })
@@ -1847,10 +1845,22 @@ export function Room() {
     }
   }, [confirm, navigate, t])
 
-  // Read by the popstate handler below, which is registered once and can't see
-  // render-scoped state.
-  const isDrawingRef = useRef(isDrawing)
-  isDrawingRef.current = isDrawing
+  // (#309) The only place `strokeActive` reaches this component's own DOM:
+  // one attribute on the editor root, from which CSS blocks pointer events on
+  // the four chrome wrappers and the floating panel (`.strokeBlockable` in
+  // Room.module.css / FloatingToolPanel.module.css). A store *subscription*,
+  // not a selector — the point is that this runs without React re-rendering
+  // anything, which is what a `useRoomStore(s => s.strokeActive)` here would
+  // do to the whole tree twice per stroke.
+  //
+  // React never sets this attribute itself (it appears in no JSX), so it
+  // can't be clobbered by an unrelated re-render the way a className toggled
+  // behind React's back would be. It dies with the element on unmount, so
+  // there is nothing to clean up beyond the subscription.
+  useEffect(() => useRoomStore.subscribe((state, prev) => {
+    if (state.strokeActive === prev.strokeActive) return
+    editorRef.current?.toggleAttribute('data-stroke-active', state.strokeActive)
+  }), [])
 
   // Guards against Chrome's edge-swipe-back gesture kicking the user out of
   // the room mid-drag (see backNavigationGuard's own comment) — armed only
@@ -1871,7 +1881,7 @@ export function Room() {
       // popping "leave this room?" over a stroke in progress would turn a
       // silent non-event into an interruption. Otherwise it's a real back
       // press, and it gets the same question the header's wordmark asks.
-      if (isDrawingRef.current) return
+      if (strokeActiveRef.current) return
       void leaveRoom()
     })
     return () => setBackNavigationGuard(null)
@@ -2877,19 +2887,6 @@ export function Room() {
     )
   }
 
-  // #277/#278: the marker chisel-angle radial dial only ever orbits
-  // FloatingToolPanel while that panel is itself actually visible — same
-  // uiHidden/isDrawing gating the panel already applies to its own `hidden`/
-  // `strokeBlocked` props (see its own JSX usage below) — and only while
-  // chisel is the active nib (bullet is round; an angle control would do
-  // nothing visible for it, per markerSchema's own visibleWhen). The panel
-  // itself is always mounted (never conditionally unmounted, just opacity-0
-  // when hidden — see FloatingToolPanel.module.css's .uiHidden), so its DOM
-  // element is always there to measure against once this is true.
-  const chiselAngleDialCenter = (uiHidden && !isDrawing && tool === 'marker' && markerNib === 'chisel')
-    ? measureFloatingPanelCenter(panelPosition, editorRef)
-    : null
-
   return (
     <div
       ref={editorRef}
@@ -2906,7 +2903,7 @@ export function Room() {
     >
 
       {/* ── Header ── */}
-      <header className={clsx(styles.header, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
+      <header className={clsx(styles.header, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
         {/* The wordmark is the way out of the editor, same as on every other
             page — it replaced an arrow_back that went to /create rather than
             anywhere back, and left without asking. */}
@@ -3025,7 +3022,7 @@ export function Room() {
       <div className={styles.body}>
 
         {/* ── Left toolbar — tool selection only, fixed height per row ── */}
-        <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
+        <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
 
           {/* Quick picks: the gradeHotkeyLabels keys jump the pencil grade to
               H / HB / 2B / 4B / 6B; [ / ] resize whichever tool is active
@@ -3135,7 +3132,7 @@ export function Room() {
             switching tools (pencil: grade+size+opacity+color, eraser:
             size+opacity only) — a fixed button column plus a separately
             reflowing settings column reads far more stable. */}
-        <aside className={clsx(styles.quickSettingsBar, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
+        <aside className={clsx(styles.quickSettingsBar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
           {Object.entries(TOOL_SCHEMAS[tool])
             .filter(([, descriptor]) => descriptor.quickAccess)
             .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[tool]))
@@ -3345,7 +3342,7 @@ export function Room() {
             fades in/out, so the panel stays mounted (no lost focus/state)
             and the canvas underneath never resizes, same as header/toolbar
             above. */}
-        <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, isDrawing && styles.strokeBlocked)}>
+        <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
           <SidePanel
             active={activePanel}
             onSelect={setActivePanel}
@@ -3463,7 +3460,6 @@ export function Room() {
           onPositionChange={setPanelPosition}
           containerRef={editorRef}
           hidden={!uiHidden}
-          strokeBlocked={isDrawing}
           undoHotkeyLabel={formatHotkeyLabel(hotkeys.undo)}
           redoHotkeyLabel={formatHotkeyLabel(hotkeys.redo)}
         />
@@ -3472,19 +3468,16 @@ export function Room() {
             the same way its own color flyout does, but as a continuously
             draggable ring instead of fixed swatch slots (see RadialDial's
             own doc comment for the interaction spec and why it deliberately
-            differs from PrecisionSlider's no-tap-jump rule). */}
-        {chiselAngleDialCenter && (
-          <RadialDial
-            center={chiselAngleDialCenter}
-            handleRadius={PANEL_SIZE / 2 + 24}
-            hitOuterRadius={PANEL_SIZE / 2 + 56}
-            readoutSize={PANEL_SIZE}
-            value={markerAngleDeg}
-            onChange={v => setToolSetting('marker', 'angle', v)}
-            formatValue={formatDegreesMinutes}
-            title={t('room.markerAngle')}
-          />
-        )}
+            differs from PrecisionSlider's no-tap-jump rule). Decides for
+            itself whether to render (#309) — it is the one bit of chrome
+            that unmounts mid-stroke instead of merely going unresponsive,
+            and keeping that decision out here would put `strokeActive` back
+            in Room's render path. */}
+        <ChiselAngleDial
+          panelPosition={panelPosition}
+          containerRef={editorRef}
+          uiHidden={uiHidden}
+        />
 
         {/* #185: visible while the initial content restore (snapshot fetch
             + operation-log replay/backfill) is still in flight — a direct

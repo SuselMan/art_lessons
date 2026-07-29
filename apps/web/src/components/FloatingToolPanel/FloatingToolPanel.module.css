@@ -31,7 +31,17 @@
   pointer-events: none;
 }
 
-.strokeBlocked {
+/* #94, via #309: this panel stops taking touches while a stroke is in
+   progress, for the same resting-hand reason as the header/toolbar (see
+   .strokeBlocked's successor `.strokeBlockable` in Room.module.css). The
+   class sits on the panel unconditionally and the switch is an ancestor
+   attribute — Room writes `data-stroke-active` on the editor root straight
+   to the DOM, precisely so that neither Room nor this component re-renders
+   twice per stroke. Matched by attribute rather than by the editor's own
+   class because that class lives in a different CSS module and its hashed
+   name isn't reachable from here; the attribute is only ever written to
+   that one element. */
+:global([data-stroke-active]) .strokeBlockable {
   pointer-events: none;
 }
 
