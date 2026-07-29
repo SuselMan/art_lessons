@@ -5,7 +5,10 @@
    blocked (see Room/index.tsx), and pan/zoom/rotate must keep working. */
 .banner {
   position: absolute;
-  top: 12px;
+  /* (#222 QA) Was `top: 12px`, which put the strip behind the editor header
+     — the explanation for "why isn't my pencil working" was itself invisible.
+     Same offset as ClosedBanner, off the header's own height variable. */
+  top: calc(var(--header-h, 44px) + 12px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;

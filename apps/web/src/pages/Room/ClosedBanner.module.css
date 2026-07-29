@@ -5,7 +5,12 @@
    itself rather than on the strip. */
 .banner {
   position: absolute;
-  top: 12px;
+  /* Below the editor header, not under it. `--header-h` is declared on the
+     page root in Room.module.css and inherits down here, so this tracks the
+     header's real height instead of the magic 60px LostWorkBanner hardcodes.
+     Found in QA: at a plain `top: 12px` the strip sits behind the header,
+     which for this banner also means its button can't be clicked. */
+  top: calc(var(--header-h, 44px) + 12px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 4;
