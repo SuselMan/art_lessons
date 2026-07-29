@@ -41,6 +41,7 @@ import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
+import { PaperFailedOverlay } from './PaperFailedOverlay'
 import { FrozenBanner } from './FrozenBanner'
 import { ClosedBanner } from './ClosedBanner'
 import { LostWorkBanner } from './LostWorkBanner'
@@ -272,6 +273,35 @@ export function Room() {
   // progress is ever emitted and the overlay should not flash an empty bar.
   const [paperProgress, setPaperProgress] = useState<PaperLoadProgress | null>(null)
   useEffect(() => subscribePaperLoadProgress(setPaperProgress), [])
+
+  // (#346) The paper texture failed to load, and with it this mount's whole
+  // catch-up: every replay site below awaits `paperReady()` first, so a
+  // rejection there means nothing was restored either. Both facts point the
+  // same way — the room is not open, and saying otherwise is the bug this
+  // closes. `paperRetrying` is the retry's own in-flight flag.
+  const [paperFailed,   setPaperFailed]   = useState(false)
+  const [paperRetrying, setPaperRetrying] = useState(false)
+
+  /** Awaits the paper texture at a replay site, reporting a failure instead of
+   *  letting it through. Returns whether the caller may proceed — `false`
+   *  means it must leave `roomContentReady` alone (i.e. false) so the failure
+   *  overlay stands, rather than run its restore against a placeholder
+   *  texture and an engine that will refuse every stroke.
+   *
+   *  This is the `catch` the old `try/finally` sites were missing: the error
+   *  itself is worth reading (paperLoader names the file, the HTTP status and
+   *  the command to run), and it used to reach nothing but an unhandled
+   *  rejection. */
+  const awaitPaper = useCallback(async (engine: PencilEngineAPI | null): Promise<boolean> => {
+    try {
+      await engine?.paperReady()
+      return true
+    } catch (err) {
+      console.error('paper texture failed to load — room cannot draw', err)
+      setPaperFailed(true)
+      return false
+    }
+  }, [])
 
   // Device performance investigation (#91) — shows a live per-stroke input/
   // render timing readout. Controlled by the "Debug overlay" feature flag
@@ -520,6 +550,11 @@ export function Room() {
   // Assigned once recoverLostWork exists (it needs the engine and
   // syncFromLog, both defined well below the Outbox this is called from).
   const recoverLostWorkRef = useRef<(() => void) | null>(null)
+  // (#346) Same shape, same reason: `requestFullResync` is defined inside the
+  // socket-wiring effect (it needs that effect's own `socket`), and the paper
+  // retry below — a UI callback with no socket of its own — is what has to
+  // call it.
+  const requestFullResyncRef = useRef<(() => void) | null>(null)
   // (#201) Live size of the outbox — how much drawing exists only on this
   // device so far. Mirrored into state (rather than read off the Outbox on
   // render) because the Outbox is not a React store and its changes come
@@ -1015,6 +1050,41 @@ export function Room() {
   // can still pan and zoom — with "no connection" would be a lie about what
   // they're looking at. This is only for a room that never opened.
   const showOfflineOverlay = !roomContentReady && !connected && offlineGraceElapsed
+  // (#346) Offline wins the tie. With no socket the paper fetch fails too, so
+  // both are true at once — and "no connection" is the diagnosis that explains
+  // the other one, while a retry button that cannot possibly succeed is just
+  // an invitation to press it.
+  const showPaperFailedOverlay = !roomContentReady && paperFailed && !showOfflineOverlay
+
+  /** (#346) Load the paper texture again, without reloading the page — which
+   *  for a room is never a neutral act: it throws away whatever the reload
+   *  catches mid-flight, and #313 cares enough about that to put a
+   *  beforeunload prompt in the way.
+   *
+   *  The retry is two steps because the failure cost two things. The texture
+   *  comes back via the engine (the byte and manifest caches evict rejections
+   *  rather than memoize them — see paperLoader — so this genuinely re-fetches).
+   *  The room's *content* has to be asked for again separately: the room_state
+   *  that would have restored it was consumed by the attempt that failed, so
+   *  this re-runs the same full catch-up a seq gap does, and the ordinary
+   *  handleRoomState path takes it from there. */
+  const retryPaper = useCallback(async () => {
+    const engine = engineRef.current
+    if (!engine) return
+    setPaperRetrying(true)
+    try {
+      await engine.retryPaper()
+      setPaperFailed(false)
+      requestFullResyncRef.current?.()
+    } catch (err) {
+      // Stays on this screen with the button live again — a second attempt is
+      // exactly as reasonable as the first was, and there is nothing else to
+      // offer that reloading would not do worse.
+      console.error('paper texture retry failed', err)
+    } finally {
+      setPaperRetrying(false)
+    }
+  }, [])
 
   // The unload half of "confirm before leaving a room": closing the tab or
   // reloading can't be intercepted by the app's own dialog (see leaveRoom),
@@ -1295,8 +1365,11 @@ export function Room() {
       // still needs to register handlers/cleanup synchronously below,
       // unaffected by this deferred branch.
       void (async () => {
+        // (#346) A failure here abandons the replay rather than running it
+        // against the placeholder: awaitPaper puts up the retry screen, and
+        // roomContentReady stays false so the room is not claimed to be open.
+        if (!(await awaitPaper(engine))) return
         try {
-          await engine.paperReady()
           // (#147) A fresh room's history can be hundreds/thousands of ops —
           // without this, appendOperation's own per-op _display() (full
           // composite + paper-blend) fires once per operation on the very
@@ -1340,10 +1413,15 @@ export function Room() {
             snapshotUploader.onSeqObserved(0, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
           }
         } finally {
-          // Runs even if paperReady/fetchLatestSnapshot/etc. throws — a
-          // failed restore must still unblock drawing rather than leave the
-          // canvas permanently inert (see roomContentReady's own doc
-          // comment for what this guards against).
+          // Runs even if fetchLatestSnapshot/restore/replay throws — a failed
+          // restore must still unblock drawing rather than leave the canvas
+          // permanently inert (see roomContentReady's own doc comment for what
+          // this guards against). Deliberately no longer covers the paper
+          // load, which moved above it: those two failures look alike and are
+          // opposites. A missing snapshot leaves an engine that draws fine on
+          // an incomplete canvas, so unblocking is the lesser harm; a missing
+          // paper texture leaves an engine that cannot draw at all, so
+          // unblocking buys nothing and costs the only honest signal there is.
           setRoomContentReady(true)
         }
       })()
@@ -1366,7 +1444,7 @@ export function Room() {
       // and the engine refuses to start a stroke until the real texture has
       // loaded (see _paperTexLoaded). Marking ready before then hands over a
       // room that looks open and silently ignores every stroke.
-      void engine.paperReady().catch(() => {}).finally(() => setRoomContentReady(true))
+      void (async () => { if (await awaitPaper(engine)) setRoomContentReady(true) })()
     }
 
     return () => {
@@ -1389,6 +1467,7 @@ export function Room() {
     id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory,
     grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
+    awaitPaper,
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -2425,6 +2504,9 @@ export function Room() {
         },
       )
     }
+    // (#346) Published for the paper retry, which lives outside this effect —
+    // see requestFullResyncRef's own comment.
+    requestFullResyncRef.current = requestFullResync
 
     const handleRoomState = async ({ room, latestSnapshotSeq, tailOperations, participants: roomParticipants, palette, frozen }: {
       room: RoomEntity; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
@@ -2514,11 +2596,8 @@ export function Room() {
           // visibly, since #345 put a real progress bar on it — and opened
           // onto a canvas with no paper on it that quietly ignored the
           // pencil until the remaining ~7 MB landed.
-          try {
-            await engineRef.current?.paperReady()
-          } finally {
-            setRoomContentReady(true)
-          }
+          if (!(await awaitPaper(engineRef.current))) return
+          setRoomContentReady(true)
           return
         }
       }
@@ -2528,8 +2607,11 @@ export function Room() {
       // loaded by the time a reconnect happens).
       const engine = engineRef.current
       setRoomContentReady(false)
+      // (#346) Outside the try/finally below, for the same reason as the mount
+      // effect's own site: a paper failure must leave the room closed and
+      // explained, not opened and mute.
+      if (!(await awaitPaper(engine))) return
       try {
-        await engine?.paperReady()
         // A reconnect's full-history replay supersedes any reveal still
         // in-flight from before the drop — cancel it rather than let it keep
         // painting the same stroke a second time on top of what this loop is
@@ -2762,11 +2844,12 @@ export function Room() {
     return () => {
       socket.disconnect()
       socketRef.current = null
+      requestFullResyncRef.current = null
     }
   }, [
     id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary,
     restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, snapshotUploader, noteLayerSeq,
-    outbox,
+    outbox, awaitPaper,
   ])
 
   // Submits the join gate (joiner path only): connects/join_room's with the
@@ -3574,8 +3657,15 @@ export function Room() {
             .layerPanelWrap 2) so it genuinely covers the whole screen, not
             just the canvas — an earlier version lived inside .viewport
             (z-index 1) and could never rise above those. */}
+        {/* Three ways a room can be not-open, in order of how much they know:
+            no socket at all (#313), the paper texture failed (#346), or it is
+            simply still loading. Each replaces the one below it. */}
         {!roomContentReady && (
-          showOfflineOverlay ? <OfflineRoomOverlay pending={outboxState.pending} /> : <RoomLoadingOverlay paper={paperProgress} />
+          showOfflineOverlay
+            ? <OfflineRoomOverlay pending={outboxState.pending} />
+            : showPaperFailedOverlay
+              ? <PaperFailedOverlay retrying={paperRetrying} onRetry={() => void retryPaper()} />
+              : <RoomLoadingOverlay paper={paperProgress} />
         )}
       </div>
 

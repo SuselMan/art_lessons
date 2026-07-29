@@ -129,6 +129,10 @@ export const en = {
   'paper.coarseness.fine.desc': 'Barely any tooth',
   'paper.coarseness.flat': 'Flat',
   'paper.coarseness.flat.desc': 'No tooth at all',
+  // (#346) The card can't show this paper. Worth saying rather than showing a
+  // plausible-looking swatch: a flat fill is what `flat` really looks like,
+  // and the texture is the one choice a project can never change later.
+  'paper.previewUnavailable': "Preview didn't load",
 
   // ── my projects ────────────────────────────────────────────────────────
   'lessons.root': 'My Projects',
@@ -280,6 +284,16 @@ export const en = {
     other: 'Your {n} unsent strokes are safe on this device and will be sent automatically.',
   },
   'room.offline.retrying': 'Trying to reconnect…',
+
+  // (#346) The paper texture failed to load. Deliberately says what it means
+  // for the person rather than what failed technically: without the texture
+  // the engine refuses every stroke, so the honest headline is that the room
+  // cannot be drawn in — and the honest reassurance is that nothing of theirs
+  // is at stake, since this happens before anything of theirs is on screen.
+  'room.paperFailed.title': "The paper didn't load",
+  'room.paperFailed.body': 'Drawing needs the paper texture, so the project stays closed until it loads. Nothing has been lost — the drawing is on the server.',
+  'room.paperFailed.retry': 'Try again',
+  'room.paperFailed.retrying': 'Loading…',
   'room.connection.offline': 'No connection — reconnecting…',
   'room.connection.offlineWithPending': {
     one: 'No connection. {n} stroke is saved on this device and will be sent once you reconnect.',

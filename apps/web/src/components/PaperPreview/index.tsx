@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { PaperType } from '@grafetto/shared'
 
+import { useT } from '../../i18n'
 import { getPaperPreviewBytes, PAPER_PREVIEW_RESOLUTION } from '../../engine/src/paperLoader'
 import { PAPER_TONE_AMPLITUDE_VALUE } from '../../engine/src/shaders'
 
@@ -60,15 +61,55 @@ function paint(canvas: HTMLCanvasElement, height: Uint8Array, bgColorHex: string
   ctx.putImageData(image, 0, 0)
 }
 
+/** (#346) What a card shows when its preview could not be fetched.
+ *
+ *  It used to be a flat fill in the paper's own colour, described as "cosmetic,
+ *  never blocking". The cosmetic part is true and the harmless part is not: a
+ *  flat fill in the paper colour is *exactly* what the `flat` card legitimately
+ *  looks like, so a failed Coarse card doesn't read as broken, it reads as a
+ *  paper with no tooth. The picker then quietly misrepresents the one choice
+ *  the room can never change afterwards.
+ *
+ *  Diagonal hatching over a dimmed fill is the smallest thing that cannot be
+ *  mistaken for any real paper — no layout, no new element, nothing for a
+ *  caller's grid to accommodate. The accessible name below carries the words. */
+function paintUnavailable(canvas: HTMLCanvasElement, bgColorHex: string): void {
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  const { width: w, height: h } = canvas
+  ctx.fillStyle = bgColorHex
+  ctx.fillRect(0, 0, w, h)
+  // Dimmed so the hatching reads on a light and a near-black paper alike.
+  ctx.fillStyle = 'rgba(128, 128, 128, 0.35)'
+  ctx.fillRect(0, 0, w, h)
+
+  const step = Math.max(6, Math.round(Math.min(w, h) / 8))
+  ctx.strokeStyle = 'rgba(128, 128, 128, 0.9)'
+  ctx.lineWidth = Math.max(1, Math.round(step / 6))
+  ctx.beginPath()
+  for (let x = -h; x < w; x += step) {
+    ctx.moveTo(x, 0)
+    ctx.lineTo(x + h, h)
+  }
+  ctx.stroke()
+}
+
 export function PaperPreview({ type, className, bgColorHex }: Props) {
+  const t = useT()
   const ref = useRef<HTMLCanvasElement>(null)
+  // (#346) Two copies of the same fact on purpose: the state drives the
+  // accessible name, the ref is what the ResizeObserver closure reads — it is
+  // created once per effect run and would otherwise capture `false` forever.
+  const [failed, setFailed] = useState(false)
+  const failedRef = useRef(false)
 
   useEffect(() => {
     const canvas = ref.current
     if (!canvas) return
     let cancelled = false
 
-    const render = (height: Uint8Array) => {
+    // Null height = the preview could not be fetched (#346).
+    const render = (height: Uint8Array | null) => {
       if (cancelled) return
       // Backing store matched to the element's real box, so nothing is
       // resampled on the way to the screen. devicePixelRatio included: on a
@@ -80,24 +121,33 @@ export function PaperPreview({ type, className, bgColorHex }: Props) {
         canvas.width = width
         canvas.height = height2
       }
-      paint(canvas, height, bgColorHex)
+      if (height) paint(canvas, height, bgColorHex)
+      else paintUnavailable(canvas, bgColorHex)
     }
 
     let bytes: Uint8Array | null = null
     // Re-paint on resize: the card is grid-sized, so its width depends on the
-    // viewport, and a stale backing store would be scaled again.
-    const observer = new ResizeObserver(() => { if (bytes) render(bytes) })
+    // viewport, and a stale backing store would be scaled again. (#346) The
+    // unavailable state resizes with it too — it is painted into the same
+    // backing store, so without this it would stretch like any stale bitmap.
+    const observer = new ResizeObserver(() => {
+      if (bytes) render(bytes)
+      else if (failedRef.current) render(null)
+    })
     observer.observe(canvas)
 
     void getPaperPreviewBytes(type)
       .then(loaded => { bytes = loaded; render(loaded) })
       .catch(err => {
-        // A missing preview is cosmetic, never blocking — the card just
-        // stays the flat paper colour.
+        // Still never blocking — a picker that cannot draw its thumbnails is
+        // no reason to stop someone creating a room. But no longer silent
+        // either: see paintUnavailable on why a flat fill was the one wrong
+        // way to say this.
         console.error('paper preview failed to load', type, err)
         if (cancelled) return
-        const ctx = canvas.getContext('2d')
-        if (ctx) { ctx.fillStyle = bgColorHex; ctx.fillRect(0, 0, canvas.width, canvas.height) }
+        failedRef.current = true
+        setFailed(true)
+        render(null)
       })
 
     return () => { cancelled = true; observer.disconnect() }
@@ -107,6 +157,12 @@ export function PaperPreview({ type, className, bgColorHex }: Props) {
     <canvas
       ref={ref}
       className={className}
+      // (#346) Silent for a working preview — it is decoration next to a card
+      // that already names the paper — and named only when it is reporting a
+      // failure, which the hatching alone cannot spell out.
+      role={failed ? 'img' : undefined}
+      aria-label={failed ? t('paper.previewUnavailable') : undefined}
+      title={failed ? t('paper.previewUnavailable') : undefined}
       style={{ display: 'block', width: '100%', height: '100%' }}
     />
   )

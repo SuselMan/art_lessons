@@ -27,7 +27,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   createTestEngine, dab, lastPaperDabUniform, makeLayerAdd, makeStroke,
-  paperReady, paperTextureSize, paperTextureWrap, simulateStroke, triggerContextRestore,
+  paperReady, paperTextureSize, paperTextureWrap, readLayerPixels, simulateStroke, triggerContextRestore,
 } from './testing/engineTestUtils'
 import { __resetPaperLoaderForTesting, __setPaperLoaderForTesting } from './src/paperLoader'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
@@ -257,6 +257,68 @@ describe('paper texture: async load (placeholder, cache, context-restore)', () =
       engine.setPaper('medium')
       await paperReady(engine)
       expect(calls).toBe(3)
+    } finally {
+      __resetPaperLoaderForTesting()
+    }
+  })
+
+  // (#346) A failed load used to be terminal for the tab: the placeholder
+  // stayed bound, _onStart dropped every stroke, and the only way out was a
+  // page reload — which for a room means discarding whatever it catches
+  // mid-flight. The caches underneath already evicted rejections rather than
+  // memoizing them (#345); what was missing was a way to ask again.
+  it('a failed paper load can be retried without recreating the engine', async () => {
+    let calls = 0
+    __setPaperLoaderForTesting(async () => {
+      calls++
+      if (calls === 1) throw new Error('simulated paper fetch failure')
+      return new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128)
+    })
+    try {
+      const { engine } = createTestEngine({ userId: 'user-a', paper: 'coarse' }, { width: 64, height: 64 })
+      await expect(engine.paperReady()).rejects.toThrow('simulated paper fetch failure')
+      // Still the 1x1 placeholder — nothing real was ever uploaded.
+      expect(paperTextureSize(engine)).toEqual({ width: 1, height: 1 })
+
+      // The user-visible half of the failure: strokes are silently dropped,
+      // which is what made an open room look functional and behave broken.
+      engine.appendOperation(makeLayerAdd('user-a', 'L'))
+      engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
+      engine.setActiveLayer('L')
+      simulateStroke(engine, [{ x: 20, y: 20 }, { x: 44, y: 44 }], { pressure: 1 })
+      expect(readLayerPixels(engine, 'L')?.some(v => v !== 0)).toBe(false)
+
+      await expect(engine.retryPaper()).resolves.toBeUndefined()
+      expect(calls).toBe(2)
+      expect(paperTextureSize(engine)).toEqual({ width: PAPER_BAKE_RESOLUTION, height: PAPER_BAKE_RESOLUTION })
+      // paperReady() now tracks the successful attempt, so the replay sites
+      // that await it proceed instead of re-reporting the old failure.
+      await expect(engine.paperReady()).resolves.toBeUndefined()
+
+      simulateStroke(engine, [{ x: 20, y: 20 }, { x: 44, y: 44 }], { pressure: 1 })
+      expect(readLayerPixels(engine, 'L')?.some(v => v !== 0)).toBe(true)
+    } finally {
+      __resetPaperLoaderForTesting()
+    }
+  })
+
+  it('retryPaper() is a no-op once the texture is loaded', async () => {
+    let calls = 0
+    __setPaperLoaderForTesting(async () => {
+      calls++
+      return new Uint8Array(PAPER_BAKE_RESOLUTION * PAPER_BAKE_RESOLUTION * 2).fill(128)
+    })
+    try {
+      const { engine } = createTestEngine({ userId: 'user-a', paper: 'coarse' })
+      await paperReady(engine)
+      expect(calls).toBe(1)
+
+      // Not just about the fetch (the byte cache would absorb that anyway):
+      // re-running the load would swap a live texture out from under whatever
+      // is mid-composite, to end up exactly where it already is.
+      await engine.retryPaper()
+      expect(calls).toBe(1)
+      expect(paperTextureSize(engine)).toEqual({ width: PAPER_BAKE_RESOLUTION, height: PAPER_BAKE_RESOLUTION })
     } finally {
       __resetPaperLoaderForTesting()
     }

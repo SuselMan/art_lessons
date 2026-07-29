@@ -104,6 +104,7 @@ export const ru: Dictionary = {
   'paper.coarseness.fine.desc': 'Почти без зерна',
   'paper.coarseness.flat': 'Гладкая',
   'paper.coarseness.flat.desc': 'Совсем без зерна',
+  'paper.previewUnavailable': 'Превью не загрузилось',
 
   // ── мои проекты ────────────────────────────────────────────────────────
   'lessons.root': 'Мои проекты',
@@ -236,6 +237,11 @@ export const ru: Dictionary = {
     other: 'Ваши {n} неотправленных штрихов сохранены на устройстве и уйдут автоматически.',
   },
   'room.offline.retrying': 'Пробуем переподключиться…',
+
+  'room.paperFailed.title': 'Бумага не загрузилась',
+  'room.paperFailed.body': 'Без текстуры бумаги рисовать нельзя, поэтому проект пока не открыт. Ничего не потеряно — рисунок хранится на сервере.',
+  'room.paperFailed.retry': 'Попробовать ещё раз',
+  'room.paperFailed.retrying': 'Загружаем…',
   'room.connection.offline': 'Нет связи — переподключение…',
   'room.connection.offlineWithPending': {
     one: 'Нет связи. {n} штрих сохранён на этом устройстве и уйдёт при подключении.',

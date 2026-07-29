@@ -306,6 +306,16 @@ export interface PencilEngineAPI {
   // re-paint once the real texture arrives (only the *display*/composite
   // step re-runs on demand, not already-applied pixel operations).
   paperReady(): Promise<void>
+  // (#346) Starts the same load again after `paperReady()` rejected, and
+  // returns the new attempt. A failed texture leaves the engine permanently
+  // unable to draw (see _paperTexLoaded's own comment), and the only way out
+  // used to be reloading the page — which for a room means throwing away
+  // whatever the reload happens to catch mid-flight. The caches underneath
+  // already evict a rejection rather than memoize it (see paperLoader's
+  // cacheEvictingRejection and getPaperManifest), so this genuinely re-fetches
+  // instead of handing back the same failure; all that was missing was
+  // something allowed to pull the trigger. A no-op once the texture is loaded.
+  retryPaper(): Promise<void>
   // (#149 epic) Raw (uncompressed) tile payload for this layer's current
   // resident content — the same allResident() gather _takeCheckpoint already
   // does for local undo checkpoints, just serialized for network upload
@@ -1530,7 +1540,7 @@ export class PencilEngine implements PencilEngineAPI {
     // now and the real bake finishing loading still has something valid to
     // sample — see paperLoader.ts's createPlaceholderPaperTexture.
     this._paperTex = createPlaceholderPaperTexture(this.gl)
-    this._paperReady = this._initPaper(this._opts.paper)
+    this._startPaperLoad(this._opts.paper)
     this._pointer = new PointerInput(canvas)
     this._dabs    = new DabSystem()
 
@@ -1623,6 +1633,28 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   paperReady(): Promise<void> { return this._paperReady }
+
+  /** See PencilEngineAPI's doc comment. */
+  retryPaper(): Promise<void> {
+    // Not merely an optimization: re-running the load for a texture that is
+    // already bound would swap a live texture out from under whatever is
+    // mid-composite, to arrive at exactly the state it is already in.
+    if (this._paperTexLoaded) return this._paperReady
+    return this._startPaperLoad(this._opts.paper)
+  }
+
+  /** The one place `_paperReady` is assigned. Keeps a no-op handler attached
+   *  to every attempt: the real consumers (Room's replay sites) await it,
+   *  but they attach *later* — a creator's own await does not happen until a
+   *  socket round-trip has completed — and a rejection with no handler yet
+   *  attached is reported as an unhandled rejection, i.e. as a crash in
+   *  Sentry rather than as the handled failure it is. The returned promise is
+   *  the original, so every real caller still sees the rejection. */
+  private _startPaperLoad(type: PaperType): Promise<void> {
+    this._paperReady = this._initPaper(type)
+    void this._paperReady.catch(() => {})
+    return this._paperReady
+  }
 
   /** (#147) What appendOperation's own branches and _applyHistoryChange/
    *  _execMergeLive call instead of `this._display()` directly — a no-op
@@ -1900,7 +1932,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   setPaper(type: PaperType): void {
     this._opts.paper = type
-    this._paperReady = this._initPaper(type)
+    this._startPaperLoad(type)
     this._display()
   }
 
@@ -2853,7 +2885,7 @@ export class PencilEngine implements PencilEngineAPI {
     // the network — see getPaperBytes).
     this._paperTex = createPlaceholderPaperTexture(this.gl)
     this._paperTexLoaded = false
-    this._paperReady = this._initPaper(this._opts.paper)
+    this._startPaperLoad(this._opts.paper)
     this._layers.clear() // handles are already dead; not worth destroy()ing
     this._previewBuf = null
     this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
