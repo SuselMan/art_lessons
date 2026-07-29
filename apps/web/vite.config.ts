@@ -1,7 +1,14 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import mkcert from 'vite-plugin-mkcert'
+import { VitePWA } from 'vite-plugin-pwa'
 import { sentryVitePlugin } from '@sentry/vite-plugin'
+
+// Explicit extension: this file is typechecked under the node16 resolution of
+// tsconfig.node.json, unlike src/ — same reason scripts/bakeIconFont.ts spells
+// its imports out. `npm run typecheck` covers only the app project, so this
+// one is caught by `tsc -b` in the build.
+import { workboxConfig } from './src/pwa/workboxConfig.ts'
 
 // Dev-server HTTPS (mkcert-signed, LAN-trusted once its CA is installed on a
 // tablet — see apps/web's README/CLAUDE.md) — needed for AudioWorklet (pencil
@@ -34,6 +41,37 @@ const SERVER_PORT = 4000
 // called.
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN
 
+// (#48) Service worker. The whole point is the cold start with no network —
+// inside an already-loaded app offline was handled in #201/#313, but opening
+// the URL or launching from the home screen without a connection still hit the
+// browser's own "no internet" page, because nothing of ours ever ran.
+//
+// What it caches lives in src/pwa/workboxConfig.ts, next to the test that
+// asserts it — the precache-size trap is silent on a developer's wifi, so it
+// needs a check that runs without a build. The three settings kept here are
+// the ones about registration rather than caching.
+const pwa = VitePWA({
+  // Not `autoUpdate`, which is skipWaiting + reload. This app must not reload
+  // itself: a room can hold operations that have not reached the server yet,
+  // and #313 treats losing them as serious enough for a beforeunload prompt.
+  // A background refresh would walk straight through that guard. The new
+  // version waits and the user is offered it — see lib/registerServiceWorker.
+  registerType: 'prompt',
+  // The manifest already exists as a static file (#47) and is linked from
+  // index.html; generating one here would produce a second, competing one.
+  manifest: false,
+  // Registration is ours (lib/registerServiceWorker.ts), because the update
+  // offer has to go through the app's own notification strip (#343).
+  injectRegister: null,
+  workbox: workboxConfig,
+  // The dev loop stays exactly as it was: no service worker under `npm run
+  // dev`. A worker in dev caches modules Vite is trying to hot-swap, and the
+  // resulting "why is my edit not showing" is expensive to recognise. Test it
+  // against a real build instead — `npm run build && npm run preview`, where
+  // localhost counts as a trustworthy origin and workers are allowed.
+  devOptions: { enabled: false },
+})
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const useHttps = mode !== 'http'
@@ -49,6 +87,7 @@ export default defineConfig(({ mode }) => {
     define: { __SENTRY_DEBUG__: false, __SENTRY_TRACING__: false },
     plugins: [
       react(),
+      pwa,
       ...(useHttps ? [mkcert()] : []),
       ...(sentryAuthToken
         ? [sentryVitePlugin({

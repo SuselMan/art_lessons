@@ -13,6 +13,7 @@ import { setSentryDeviceType, setSentryUser } from './lib/sentry'
 // <BrowserRouter> (inside App) ever mounts and adds its own — see the
 // module's own comment for why registration order matters here.
 import './lib/backNavigationGuard'
+import { registerServiceWorker } from './lib/registerServiceWorker'
 import { syncDeviceTypeAttribute, syncDocumentLanguage, useSettingsStore } from './stores/settingsStore'
 import { App } from './App'
 
@@ -35,6 +36,15 @@ setSentryDeviceType(useSettingsStore.getState().deviceType)
 // reload loop — a genuinely offline/broken network would otherwise reload
 // forever — via a one-shot sessionStorage flag; a real fix (a newer deploy,
 // or the network coming back) clears on the next fresh tab/session anyway.
+//
+// (#48) The service worker does not replace this and does not fight it. It
+// makes the case rarer — every lazy chunk is precached, so a tab open across
+// a deploy keeps loading routes out of its own cache instead of asking a
+// server that no longer has them — but not impossible: a chunk requested for
+// the first time after the precache was evicted under storage pressure still
+// misses. The two also cannot both fire: the SW's own update path is an offer
+// the user clicks (registerServiceWorker.ts), never a spontaneous reload, so
+// the only thing that reloads on its own is still this handler.
 window.addEventListener('vite:preloadError', () => {
   const key = 'al_chunk_reload_once'
   if (sessionStorage.getItem(key)) return
@@ -61,6 +71,11 @@ queryClient.getQueryCache().subscribe(event => {
   if (event.query.queryKey[0] !== ME_QUERY_KEY[0]) return
   setSentryUser(queryClient.getQueryData<Me>(ME_QUERY_KEY)?.userId ?? null)
 })
+
+// (#48) After the identity warm-up is queued, not before: registration opens
+// its own request for the worker script, and the cookie warm-up is the one
+// thing on this path that races (see the comment above it).
+registerServiceWorker()
 
 queryClient.prefetchQuery({ queryKey: ME_QUERY_KEY, queryFn: fetchMe })
   .catch(err => console.error('failed to warm up identity', err))
