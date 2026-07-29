@@ -131,6 +131,45 @@ Anything reasoning about headroom (#292's 532 MB of room history, §1 of #314's
 "know the ceiling") is calibrated against a machine roughly four times
 smaller than the one now running.
 
+## Transactional email (#244) and what depends on it (#316)
+
+Signing in is a one-time code mailed to the address — there are no passwords
+(see #314 §2 for that decision). So mail delivery is **on the critical path
+for logging in**, not a side channel for notifications: with no provider
+configured, existing sessions keep working and nobody new can get in. The
+server says so once at boot (`index.ts`) rather than leaving it to be
+discovered by whoever tries first.
+
+Provider is Resend, reached with a plain `fetch` from
+`apps/server/src/email.ts` (one POST; no SDK dependency for that).
+
+**Secret**:
+
+- `RESEND_API_KEY` — a Resend key with *sending* permission only. Unlike the
+  Sentry DSN above this is a real credential: it can send mail from our
+  domain, so it's a secret, not a variable, and it's scoped down for the same
+  reason the B2 backup key is (#332).
+
+**Variable**:
+
+- `EMAIL_FROM` — e.g. `Grafetto <login@example.com>`. Not sensitive. Left
+  empty it falls back to `onboarding@resend.dev`, Resend's shared test sender:
+  that works with zero DNS setup but **only delivers to the Resend account
+  owner's own mailbox**, which is enough to smoke-test a deploy and not enough
+  to release.
+
+Both travel the same route as `SENTRY_SERVER_DSN`: workflow → `deploy.sh` →
+`docker-compose.prod.yml` → container. Deliberately *not* written into the
+VPS's `.env`, for the reason given in the Sentry section — that file holds
+`POSTGRES_PASSWORD`, and CI rewriting it puts one typo between a push and a
+server that cannot open its own database.
+
+**Manual step, on Ilya, still open:** verify a real sending domain in Resend
+(SPF + DKIM records at the registrar, DMARC afterwards) and set `EMAIL_FROM`
+to an address on it. Until that is done, sign-in mail reaches nobody but the
+account owner. The domain is not chosen yet (#327) — which makes the brand
+domain a blocker for logging in, not just for branding.
+
 ## What happens on every push to main
 
 1. `.github/workflows/deploy.yml`'s `test` job: `npm ci` +

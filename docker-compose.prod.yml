@@ -51,6 +51,17 @@ services:
       # deployed to by CI.
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      # (#316) Sign-in mails the person a one-time code, so this is not an
+      # optional notification channel: with no key, nobody can log in. It
+      # travels the same way as the DSN above — from the deploy invocation,
+      # not from the VPS's .env, so CI never has to rewrite the file that
+      # holds POSTGRES_PASSWORD. Unlike the DSN it *is* a credential (it can
+      # send mail as us), hence a repo secret rather than a variable.
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      # Sender address. Empty falls back to Resend's shared onboarding domain,
+      # which only ever delivers to the account owner — enough to smoke-test a
+      # box, not enough to release. Set once a real domain is verified.
+      EMAIL_FROM: ${EMAIL_FROM:-}
     ports:
       # Bound to loopback only — nginx on the host is the sole public entry
       # point (see deploy/nginx.conf), same reasoning as any reverse-proxied

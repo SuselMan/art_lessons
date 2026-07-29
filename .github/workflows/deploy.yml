@@ -214,4 +214,6 @@ jobs:
              && SERVER_IMAGE='${{ needs.build.outputs.image }}' \
                 SENTRY_DSN='${{ vars.SENTRY_SERVER_DSN }}' \
                 SENTRY_RELEASE='${{ github.sha }}' \
+                RESEND_API_KEY='${{ secrets.RESEND_API_KEY }}' \
+                EMAIL_FROM='${{ vars.EMAIL_FROM }}' \
                 bash deploy/deploy.sh"

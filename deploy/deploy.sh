@@ -90,6 +90,13 @@ export SERVER_IMAGE="${SERVER_IMAGE:?SERVER_IMAGE env var must be set by the cal
 # working server, not a broken deploy.
 export SENTRY_DSN="${SENTRY_DSN:-}"
 export SENTRY_RELEASE="${SENTRY_RELEASE:-}"
+# (#316) Same mechanism, different stakes: absent means nobody can sign in,
+# because signing in is a code mailed to the address. The deploy still goes
+# through — a box that can't send mail is better than no deploy, and the
+# server says so loudly at boot (see index.ts) — but this is the one of these
+# whose absence is an outage rather than a missing feature.
+export RESEND_API_KEY="${RESEND_API_KEY:-}"
+export EMAIL_FROM="${EMAIL_FROM:-}"
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 
