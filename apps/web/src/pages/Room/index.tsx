@@ -34,6 +34,7 @@ import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { getHotkeyBindings, matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
 import { forkRoom, moveRoomToFolder, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
@@ -1462,6 +1463,11 @@ export function Room() {
   // actually depend on — not re-listing pencil/liner/marker by hand here.
   const colorTool: ColorCapableTool = lastDrawingTool
   const colorToolColor = getToolColor(toolSettings, colorTool)
+  // Which shape the picker takes is a per-person preference, so it comes from
+  // settingsStore, not the room store — the latter is wiped on every Room
+  // mount (#337).
+  const colorPickerMode = useSettingsStore(s => s.colorPickerMode)
+  const setColorPickerMode = useSettingsStore(s => s.setColorPickerMode)
   // Falls back to colorTool's color for eraser/smudge, which have no color
   // field of their own — the engine keeps one current color regardless of
   // which tool is active, so it should already hold what the next drawing
@@ -3331,7 +3337,12 @@ export function Room() {
                 id: 'color', icon: 'palette', title: t('room.panel.color'),
                 content: (
                   <>
-                    <ColorPicker value={colorToolColor} onChange={v => setToolSetting(colorTool, 'color', v)} />
+                    <ColorPicker
+                      value={colorToolColor}
+                      onChange={v => setToolSetting(colorTool, 'color', v)}
+                      mode={colorPickerMode}
+                      onModeChange={setColorPickerMode}
+                    />
                     <PaletteBar
                       palette={palette}
                       value={colorToolColor}

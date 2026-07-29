@@ -1,5 +1,10 @@
 import { create } from 'zustand'
 
+import {
+  DEFAULT_COLOR_PICKER_MODE,
+  isColorPickerMode,
+  type ColorPickerMode,
+} from '../components/ColorPicker/pickerModes'
 import { detectDeviceType, isDeviceType, type DeviceType } from '../lib/deviceType'
 import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/locale'
 
@@ -18,6 +23,7 @@ import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/loc
 const LOCALE_STORAGE_KEY = 'al_locale'
 const LESSONS_VIEW_STORAGE_KEY = 'al_lessons_view'
 const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
+const COLOR_PICKER_MODE_STORAGE_KEY = 'al_color_picker_mode'
 
 function readStoredLocale(): Locale | null {
   const raw = localStorage.getItem(LOCALE_STORAGE_KEY)
@@ -73,6 +79,17 @@ function initialLocale(): Locale {
   return readStoredLocale() ?? detectLocale(navigator.languages ?? [navigator.language])
 }
 
+/** Which shape the color picker takes (#337). A habit built over years in
+ *  another editor, so it belongs to the person and outlives any room — but
+ *  stored per browser rather than on the account, for the same reason the
+ *  device type is: it costs a server-side user-settings model we don't have,
+ *  to sync something nobody misses across devices. */
+function initialColorPickerMode(): ColorPickerMode {
+  if (typeof window === 'undefined') return DEFAULT_COLOR_PICKER_MODE
+  const raw = localStorage.getItem(COLOR_PICKER_MODE_STORAGE_KEY)
+  return isColorPickerMode(raw) ? raw : DEFAULT_COLOR_PICKER_MODE
+}
+
 export interface SettingsStore {
   locale: Locale
   setLocale: (locale: Locale) => void
@@ -80,6 +97,8 @@ export interface SettingsStore {
   setLessonsView: (view: LessonsView) => void
   deviceType: DeviceType
   setDeviceType: (deviceType: DeviceType) => void
+  colorPickerMode: ColorPickerMode
+  setColorPickerMode: (mode: ColorPickerMode) => void
 }
 
 export const useSettingsStore = create<SettingsStore>()(set => ({
@@ -99,6 +118,11 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
     localStorage.setItem(DEVICE_TYPE_STORAGE_KEY, deviceType)
     document.documentElement.dataset.device = deviceType
     set({ deviceType })
+  },
+  colorPickerMode: initialColorPickerMode(),
+  setColorPickerMode: mode => {
+    localStorage.setItem(COLOR_PICKER_MODE_STORAGE_KEY, mode)
+    set({ colorPickerMode: mode })
   },
 }))
 

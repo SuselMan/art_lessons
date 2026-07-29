@@ -309,6 +309,8 @@ export const ru: Dictionary = {
   'palette.add': 'Добавить в палитру',
   'palette.remove': 'Убрать из палитры',
   'palette.dragPanel': 'Потяните, чтобы переместить',
+  'palette.mode': 'Вид палитры',
+  'palette.mode.bar': 'Полоса оттенка',
 
   // ── боковая панель ─────────────────────────────────────────────────────
   'sidePanel.collapse': 'Свернуть',
