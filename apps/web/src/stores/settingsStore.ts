@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+import { isPaperType, type PaperType } from '@grafetto/shared'
+
 import {
   DEFAULT_COLOR_PICKER_MODE,
   isColorPickerMode,
@@ -24,6 +26,7 @@ const LOCALE_STORAGE_KEY = 'al_locale'
 const LESSONS_VIEW_STORAGE_KEY = 'al_lessons_view'
 const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
 const COLOR_PICKER_MODE_STORAGE_KEY = 'al_color_picker_mode'
+const LAST_PAPER_TYPE_STORAGE_KEY = 'al_last_paper_type'
 
 function readStoredLocale(): Locale | null {
   const raw = localStorage.getItem(LOCALE_STORAGE_KEY)
@@ -90,9 +93,32 @@ function initialColorPickerMode(): ColorPickerMode {
   return isColorPickerMode(raw) ? raw : DEFAULT_COLOR_PICKER_MODE
 }
 
+/** (#345) The paper the last room this browser opened was drawn on — read at
+ *  launch to decide which ~7.4 MB texture to start downloading before anyone
+ *  has opened anything (see prefetchPaper).
+ *
+ *  A preference in the weak sense: nobody sets it and nobody sees it. It lives
+ *  here rather than in `roomStore` for the usual reason — `resetRoomStore()`
+ *  wipes that on every Room mount, and a value whose entire purpose is to
+ *  outlive the room that produced it cannot live somewhere that is cleared
+ *  when a room opens.
+ *
+ *  Seeded with CreateRoom's own default so a browser that has never opened a
+ *  room still guesses the same paper a new room would be created with, rather
+ *  than downloading nothing and paying full price on the first join. */
+const DEFAULT_LAST_PAPER: PaperType = 'coarse'
+
+function initialLastPaperType(): PaperType {
+  if (typeof window === 'undefined') return DEFAULT_LAST_PAPER
+  const raw = localStorage.getItem(LAST_PAPER_TYPE_STORAGE_KEY)
+  return raw !== null && isPaperType(raw) ? raw : DEFAULT_LAST_PAPER
+}
+
 export interface SettingsStore {
   locale: Locale
   setLocale: (locale: Locale) => void
+  lastPaperType: PaperType
+  setLastPaperType: (type: PaperType) => void
   lessonsView: LessonsView
   setLessonsView: (view: LessonsView) => void
   deviceType: DeviceType
@@ -107,6 +133,11 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
     localStorage.setItem(LOCALE_STORAGE_KEY, locale)
     document.documentElement.lang = locale
     set({ locale })
+  },
+  lastPaperType: initialLastPaperType(),
+  setLastPaperType: type => {
+    localStorage.setItem(LAST_PAPER_TYPE_STORAGE_KEY, type)
+    set({ lastPaperType: type })
   },
   lessonsView: initialLessonsView(),
   setLessonsView: view => {

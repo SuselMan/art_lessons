@@ -4,10 +4,12 @@
 // deliberately-unrecognised extension are all load-bearing (see below), and
 // two copies of that would drift.
 import { gzipSync } from 'node:zlib'
+import { createHash } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from '../src/engine/src/paperConstants.js'
+import type { PaperAssetEntry } from '../src/engine/src/paperManifest.js'
 
 // The picker has to show paper the way the canvas does, which means sampling
 // it at the same texel-per-pixel ratio the canvas uses — not the whole tile
@@ -58,7 +60,54 @@ export function downsampleToPreview(height: Float64Array, res: number): Uint8Arr
 
 const kib = (n: number) => `${Math.round(n / 1024)} KiB`
 
-/** Writes `<type>.paper` + `<type>.preview` for one paper.
+/** (#322) Content hash that goes into the filename, over the **uncompressed**
+ *  payload rather than the gzip stream that actually lands on disk.
+ *
+ *  The hash's job is to identify *the bake* — the grain a client will draw on
+ *  — so that a byte-identical URL can never mean two different textures and
+ *  nginx can serve it `immutable`. gzip's output is a function of the zlib
+ *  build as well as the input, so hashing the compressed stream would churn
+ *  every filename on a Node upgrade that changed nothing about the grain,
+ *  forcing every returning user to re-download 22 MB for no reason. Hashing
+ *  the payload also makes the hash the honest answer to "is this the same
+ *  paper?", which is the question the cache is really asking.
+ *
+ *  8 hex chars (32 bits) is plenty, but be honest about what a collision would
+ *  cost rather than waving it off: two *different* payloads landing on the
+ *  same name means a client holding the immutably-cached old texture never
+ *  fetches the new one and draws on a different grain than its peers — the
+ *  silent cross-device divergence .claude/rules.md exists to prevent, and the
+ *  hardest possible class of bug to trace. What makes 32 bits fine is the
+ *  namespace, not the blast radius: it is three papers per bake, re-baked by
+ *  hand a handful of times over the project's life, so the probability is
+ *  negligible even by birthday-bound reasoning. If the paper set ever grows by
+ *  orders of magnitude, lengthen this rather than re-deriving the argument. */
+function contentHash(payload: Uint8Array): string {
+  return createHash('sha256').update(payload).digest('hex').slice(0, 8)
+}
+
+/** One paper's two files, as the manifest records them. `*Bytes` are the
+ *  **on-disk / on-the-wire** sizes (the gzip streams), not the decompressed
+ *  payload: that is what a Content-Length would report, what a progress
+ *  indicator has to count against, and what a `statSync().size` check can
+ *  compare to catch a half-restored CI cache.
+ *
+ *  An alias for the reader's benefit, not a second declaration: this is
+ *  literally the manifest's entry type, and CLAUDE.md's "avoid redefining
+ *  shared types" is pointed at exactly this. Two identical four-field
+ *  interfaces tied together only by structural assignment at one call site
+ *  would let a field added to one and not the other typecheck everywhere that
+ *  matters, right up until something read the missing field at runtime. */
+export type PaperAssetNames = PaperAssetEntry
+
+/** Writes `<type>.<hash>.paper` + `<type>.<hash>.preview` for one paper, and
+ *  returns the names it chose — the caller cannot reconstruct them, which is
+ *  the whole point of hashing, so the manifest has to be assembled from these
+ *  return values (see bakePaperTextures.ts).
+ *
+ *  The two files get **independent** hashes: the preview is a downsample of
+ *  `height` alone and carries no catch channel, so it is a different payload
+ *  and a shared hash would be a lie about one of them.
  *
  *  `height` and `catch` are both 0..1 grids of `res * res`; `height` is the
  *  already-display-curved value (the `.r` channel, blank-paper tint) and
@@ -67,7 +116,7 @@ const kib = (n: number) => `${Math.round(n / 1024)} KiB`
  *  never on the GPU. */
 export function writePaperAsset(
   outDir: string, type: string, height: Float64Array, catchGrid: Float64Array, res: number,
-): void {
+): PaperAssetNames {
   // Interleaved LUMINANCE_ALPHA: [height0, catch0, height1, catch1, ...] —
   // matches gl.texImage2D(..., gl.LUMINANCE_ALPHA, ...)'s expected layout
   // (see paperLoader.ts's uploadPaperTexture) and what texture2D(...).r / .a
@@ -85,11 +134,27 @@ export function writePaperAsset(
   // paperLoader.ts's fetch() ever sees the bytes, silently breaking its own
   // explicit DecompressionStream('gzip') step. An unrecognized extension
   // guarantees no server has a reason to reinterpret the payload.
+  //
+  // (#322) The hash goes *before* that extension, never after it: a
+  // `<type>.paper.<hash>` would hand every static server a brand-new unknown
+  // final extension to guess at, and the guessing is exactly what the
+  // paragraph above exists to prevent. `.paper`/`.preview` stay the last
+  // segment, so nothing about how a server treats these files changes.
   const compressed = gzipSync(bytes, { level: 9 })
-  writeFileSync(join(outDir, `${type}.paper`), compressed)
+  const textureName = `${type}.${contentHash(bytes)}.paper`
+  writeFileSync(join(outDir, textureName), compressed)
 
-  const preview = gzipSync(downsampleToPreview(height, res), { level: 9 })
-  writeFileSync(join(outDir, `${type}.preview`), preview)
+  const previewPayload = downsampleToPreview(height, res)
+  const preview = gzipSync(previewPayload, { level: 9 })
+  const previewName = `${type}.${contentHash(previewPayload)}.preview`
+  writeFileSync(join(outDir, previewName), preview)
 
-  console.log(`${type}: ${kib(bytes.byteLength)} -> ${kib(compressed.byteLength)} texture, ${kib(preview.byteLength)} preview`)
+  console.log(`${type}: ${kib(bytes.byteLength)} -> ${kib(compressed.byteLength)} texture (${textureName}), ${kib(preview.byteLength)} preview (${previewName})`)
+
+  return {
+    texture: textureName,
+    textureBytes: compressed.byteLength,
+    preview: previewName,
+    previewBytes: preview.byteLength,
+  }
 }

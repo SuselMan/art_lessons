@@ -24,6 +24,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # (#322) Same reason as ci.yml's copy: the paper assertions are only
+      # real if something baked. See .github/actions/paper-bake.
+      - name: Baked paper textures
+        uses: ./.github/actions/paper-bake
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -63,14 +68,18 @@ jobs:
       # (#300) Baked paper textures are no longer committed — the bake is
       # byte-reproducible, so keeping ~60 MB of binary blobs in git history
       # (and that much again on every re-tune) bought nothing. apps/web's
-      # `prebuild` regenerates them, which takes ~3.5 minutes for the full
-      # grid; this cache means that only happens when the noise generator
-      # itself changes, not on every deploy.
-      - name: Cache baked paper textures
-        uses: actions/cache@v4
-        with:
-          path: apps/web/public/paper
-          key: paper-${{ hashFiles('apps/web/src/engine/src/paperNoise.ts', 'apps/web/scripts/bakePaperTextures.ts', 'packages/shared/src/index.ts') }}
+      # `prebuild` regenerates them, which takes ~3.5 minutes; the cache in the
+      # action below means that only happens when the bake's inputs change.
+      #
+      # (#322) The cache key used to live here inline. It moved into a
+      # composite action once the `test` jobs needed the same bake — the key is
+      # the ONLY thing that notices a changed input, and three copies of it is
+      # two copies that will not get updated. The reasoning for what belongs in
+      # it lives with it.
+      #
+      # `npm run build` below runs `prebuild` again; it is a no-op by then.
+      - name: Baked paper textures
+        uses: ./.github/actions/paper-bake
 
       # (#177) The DSN is baked into the bundle at build time — it has to be,
       # a browser has nowhere else to read it from — hence a repo *variable*

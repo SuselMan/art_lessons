@@ -295,6 +295,11 @@ export const en = {
   'room.loading.6': 'Dusting off eraser...',
   'room.loading.7': 'Unrolling paper...',
   'room.loading.8': 'Sorting pencils by grade...',
+  // (#345) Shown instead of the rotating flavour text while the paper texture
+  // is actually downloading — the one part of the room load with a real
+  // percentage. Names the paper rather than saying "Loading" so the megabyte
+  // count underneath reads as explaining itself.
+  'room.loading.paper': 'Unrolling the paper...',
 
   // ── tools ──────────────────────────────────────────────────────────────
   'tool.pencil': 'Pencil',

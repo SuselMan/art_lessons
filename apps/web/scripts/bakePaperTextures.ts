@@ -28,7 +28,7 @@
 // The bake is byte-reproducible, so CI regenerates it on every build and the
 // binary blobs never enter git history. Run locally with `npm run bake:paper`
 // when iterating.
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -37,6 +37,10 @@ import sharp from 'sharp'
 import { PAPER_GRAIN_TYPES, type PaperGrainType } from '@grafetto/shared'
 
 import { PAPER_BAKE_RESOLUTION } from '../src/engine/src/paperConstants.js'
+import {
+  PAPER_MANIFEST_FILENAME, PAPER_MANIFEST_VERSION, parsePaperManifest,
+  type PaperAssetEntry, type PaperManifest,
+} from '../src/engine/src/paperManifest.js'
 import { writePaperAsset } from './paperAssetIO.js'
 
 const RES = PAPER_BAKE_RESOLUTION
@@ -238,19 +242,88 @@ function catchAt(field: Float64Array, x: number, y: number, gain: number): numbe
 
 mkdirSync(outDir, { recursive: true })
 
+const manifestPath = join(outDir, PAPER_MANIFEST_FILENAME)
+
+/** True only if the directory holds a complete, self-consistent bake.
+ *
+ *  (#322) With content-hashed names this can no longer be "do the files I
+ *  would write already exist" — the names aren't knowable without baking. It
+ *  becomes "does the manifest describe something that is actually all there",
+ *  and every one of these checks earns its place by turning a specific silent
+ *  failure into a re-bake:
+ *
+ *   - manifest absent/unparseable/wrong version, or its key set no longer
+ *     matches PAPER_GRAIN_TYPES (parsePaperManifest's job) — includes the
+ *     case of a CI cache restored from before hashing existed, which has
+ *     `coarse.paper` and no manifest at all;
+ *   - a file the manifest names is missing. This one is mandatory, not
+ *     belt-and-braces: skipping on "the manifest exists" alone would ship a
+ *     build where every paper fetch 404s, which does not fail visibly — it
+ *     leaves _paperTexLoaded false forever and quietly disables drawing for
+ *     the whole room (see engine/index.ts);
+ *   - a file's size differs from the manifest's, which is how a truncated or
+ *     half-restored cache looks. O(1) per file, no read.
+ *
+ *  What it deliberately cannot check is whether the bake *inputs* changed
+ *  since — that would mean baking. That has always been true of this flag;
+ *  the input-change signal is the CI cache key (see deploy.yml), not this. */
+function bakeIsComplete(): boolean {
+  if (!existsSync(manifestPath)) {
+    // Logged like every other branch below, and for a sharper reason: this is
+    // the one the CI cache key cannot cover. A cache restored from before #322
+    // has all six assets and no manifest, so the operator sees three and a
+    // half minutes of unexplained baking where they expected "already baked,
+    // skipping" — with nothing in the log to attribute it to.
+    console.log(`paper: no ${PAPER_MANIFEST_FILENAME} next to the assets — re-baking`)
+    return false
+  }
+  let manifest: PaperManifest
+  try {
+    manifest = parsePaperManifest(JSON.parse(readFileSync(manifestPath, 'utf8')), manifestPath)
+  } catch (err) {
+    console.log(`paper: ${(err as Error).message}`)
+    return false
+  }
+  for (const type of PAPER_GRAIN_TYPES) {
+    const entry = manifest.assets[type]
+    for (const [name, expectedBytes] of [
+      [entry.texture, entry.textureBytes], [entry.preview, entry.previewBytes],
+    ] as const) {
+      const path = join(outDir, name)
+      if (!existsSync(path)) {
+        console.log(`paper: manifest names '${name}', which is not on disk — re-baking`)
+        return false
+      }
+      if (statSync(path).size !== expectedBytes) {
+        console.log(`paper: '${name}' is ${statSync(path).size} B, manifest says ${expectedBytes} B — re-baking`)
+        return false
+      }
+    }
+  }
+  return true
+}
+
 // `--if-missing` is what makes this safe to hang off `prebuild`: a full bake
 // is minutes, far too long to pay on every `npm run build`. CI caches
 // public/paper keyed on a hash of the bake inputs, so on a cache hit the
 // files are already there and this exits immediately. Running the script
 // directly (npm run bake:paper) always re-bakes, which is what you want while
 // iterating.
-const skipIfPresent = process.argv.includes('--if-missing')
-const expected = PAPER_GRAIN_TYPES.flatMap(t => [`${t}.paper`, `${t}.preview`])
-
-if (skipIfPresent && expected.every(f => existsSync(join(outDir, f)))) {
+if (process.argv.includes('--if-missing') && bakeIsComplete()) {
   console.log(`paper: ${PAPER_GRAIN_TYPES.length} textures already baked, skipping`)
   process.exit(0)
 }
+
+// Removed *before* the first byte is written, not overwritten at the end. The
+// manifest is this directory's only claim to be complete, so it must never
+// outlive the completeness it asserts: a bake killed halfway (Ctrl-C, a CI
+// timeout) would otherwise leave the previous manifest sitting on top of a
+// directory that now holds a mix of two bakes, and the check above would
+// happily skip on the next run. With it gone first, an interrupted bake is
+// unambiguously incomplete and the next `--if-missing` re-bakes.
+rmSync(manifestPath, { force: true })
+
+const assets = {} as Record<PaperGrainType, PaperAssetEntry>
 
 for (const type of PAPER_GRAIN_TYPES) {
   const { window, catchGain } = PAPERS[type]
@@ -268,8 +341,45 @@ for (const type of PAPER_GRAIN_TYPES) {
   }
 
   console.log(`${type}: window ${window} (${(RES / window).toFixed(2)}x resample), display gamma ${gamma.toFixed(3)}`)
-  writePaperAsset(outDir, type, height, catchGrid, RES)
+  assets[type] = writePaperAsset(outDir, type, height, catchGrid, RES)
 }
 
-console.log(`\n${PAPER_GRAIN_TYPES.length} papers baked into ${outDir}`)
+// (#322) Hashed names never overwrite their predecessor, so without this the
+// directory grows by ~22 MB on every re-tune — and since Vite copies
+// `public/` into `dist/` verbatim, a local `npm run build` would ship every
+// bake ever made from this working tree. Pruning by extension and by
+// not-in-the-fresh-set rather than emptying the directory: something else may
+// legitimately be dropped in here, and a bake has no business deleting it.
+//
+// After the new files exist, before the manifest: pruning first would leave a
+// window where an interrupted bake has removed the old assets and not yet
+// written the new ones, which is strictly worse than holding two bakes for a
+// few seconds.
+const tmpPath = `${manifestPath}.tmp`
+const tmpName = `${PAPER_MANIFEST_FILENAME}.tmp`
+
+const keep = new Set(Object.values<PaperAssetEntry>(assets).flatMap(a => [a.texture, a.preview]))
+for (const name of readdirSync(outDir)) {
+  // The tmp file is swept too, not just assets: a crash between the write and
+  // the rename below leaves it behind, nothing else would ever remove it, and
+  // Vite copies `public/` into `dist/` verbatim — so it would ship, and keep
+  // shipping. Cleaning it here catches the leftover from a previous run,
+  // which is the only run that could have left one.
+  const disposable = /\.(paper|preview)$/.test(name) || name === tmpName
+  if (!disposable || keep.has(name)) continue
+  rmSync(join(outDir, name))
+  console.log(`pruned stale ${name}`)
+}
+
+// Written last, and atomically. Last, because it is the flag that says the
+// three bakes above finished (see bakeIsComplete). Atomically, because
+// `prebuild` and a hand-run `bake:paper` can in principle overlap, and a
+// half-written manifest read by the other one is a parse error at best and a
+// truncated-but-valid JSON at worst — rename() is the one filesystem
+// operation that has no such intermediate state.
+const manifest: PaperManifest = { version: PAPER_MANIFEST_VERSION, assets }
+writeFileSync(tmpPath, `${JSON.stringify(manifest, null, 2)}\n`)
+renameSync(tmpPath, manifestPath)
+
+console.log(`\n${PAPER_GRAIN_TYPES.length} papers baked into ${outDir}, indexed by ${PAPER_MANIFEST_FILENAME}`)
 console.log("('flat' needs no asset at all — it has no grain to bake.)")

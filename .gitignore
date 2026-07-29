@@ -26,4 +26,10 @@ backup.env
 # CI on every build. Deliberately not committed: the bake is byte-
 # reproducible, and the grid would otherwise add ~60 MB of binary blobs to
 # git history permanently, plus that much again on every re-tune.
+#
+# (#322) The directory, not a `*.paper` glob, and that now matters: the bake
+# also writes a manifest.json naming its content-hashed files, and the
+# manifest must be ignored with the assets it describes rather than
+# committed. A committed manifest would be a claim about a bake nobody can
+# check out, and a wrong claim is a 404 — see paperManifest.ts's own comment.
 apps/web/public/paper/
