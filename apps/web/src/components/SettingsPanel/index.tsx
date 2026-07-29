@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useT } from '../../i18n'
 import { Modal } from '../Modal'
-import { Tabs } from '../Tabs'
+import { OptionGroup } from '../OptionGroup'
 import {
   FEATURE_FLAGS, getFeatureFlag, setFeatureFlag,
   getPencilSoundSetting, setPencilSoundSetting, type PencilSoundSetting,
@@ -230,13 +230,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           matter how long the flag list gets. Before #310 the whole panel
           (save bar included) was the scroll container. */}
       <div className={styles.scrollArea}>
-        <Tabs
-          tabs={[
+        <OptionGroup
+          options={[
             { id: 'general', label: t('editorSettings.tab.general'), content: generalContent },
             { id: 'hotkeys', label: t('editorSettings.tab.hotkeys'), content: hotkeysContent },
           ]}
           active={activeTab}
           onSelect={setActiveTab}
+          ariaLabel={t('editorSettings.title')}
         />
       </div>
 
