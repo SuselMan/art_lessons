@@ -36,9 +36,50 @@ cd "$APP_DIR"
 # So: update first, then run. See the workflow's "Deploy over SSH" step and
 # README's manual-redeploy snippet, which both do it in that order.
 
+# (#322) nginx first, webroot second — the reverse of the obvious order, and
+# load-bearing since the paper bake became content-hashed.
+#
+# The webroot lands ~30-120s before this point if the config sync stays where
+# it used to be (below, after the image pull, the postgres health wait and the
+# migrations). In that window `/paper/manifest.json` exists on disk but is
+# still being served by the *previous* config, whose `/paper/` block gave
+# everything `max-age=86400`. Any client opening a room in that window pins the
+# manifest for a day with no revalidation — and the next deploy that changes
+# the bake deletes the files that manifest names, so those clients get a 404,
+# no paper, and a canvas that refuses to draw until the cache expires. Exactly
+# the failure the `no-cache` on the manifest exists to prevent, arriving
+# through deploy ordering instead of through the config.
+#
+# Reloading first is safe in the other direction: the new config applied to the
+# old bundle only means the old fixed-name assets are served immutably for the
+# minute before they are replaced, and no bundle after this deploy ever asks
+# for those URLs again.
+echo "==> Syncing nginx config and reloading"
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/art-lessons
+sudo nginx -t
+sudo systemctl reload nginx
+
 echo "==> Publishing pre-built static web bundle to nginx webroot"
 sudo mkdir -p /var/www/art-lessons
-sudo rsync -a --delete ~/web-dist-incoming/ /var/www/art-lessons/dist/
+# (#322) --delete-after --delay-updates, not a bare --delete, because the paper
+# manifest and the files it names must never be visible in disagreement.
+#
+# `--delete` defaults to --delete-during: rsync removes vanished files as it
+# walks each directory, so the previous bake's `coarse.<oldhash>.paper` is gone
+# while the old manifest.json — same name, so never "vanished" — is still being
+# served and still naming it. And within a directory rsync works in sorted
+# order, so `manifest.json` is written before `medium.*` ('ma' < 'me'): the new
+# manifest names files that do not exist yet. Either window is a 404 on a
+# 7.4 MB asset, which the client cannot distinguish from "this room has no
+# paper". Before hashing, every name was fixed and rsync replaced each file
+# atomically, so a client always got *a* valid texture — old or new, never
+# nothing.
+#
+# --delay-updates stages the whole update and renames it into place at the end;
+# --delete-after holds the removals until after that. The two together shrink
+# the disagreement window to the final rename pass instead of the length of a
+# ~22 MB copy on a 1-vCPU box.
+sudo rsync -a --delete-after --delay-updates ~/web-dist-incoming/ /var/www/art-lessons/dist/
 
 echo "==> Pulling pre-built server image and starting containers"
 export SERVER_IMAGE="${SERVER_IMAGE:?SERVER_IMAGE env var must be set by the caller}"
@@ -61,11 +102,6 @@ done
 
 echo "==> Applying Prisma migrations"
 docker compose -f docker-compose.prod.yml exec -T server npx prisma migrate deploy
-
-echo "==> Syncing nginx config and reloading"
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/art-lessons
-sudo nginx -t
-sudo systemctl reload nginx
 
 # (#315) Everything the nightly backup needs, applied on every deploy rather
 # than once by hand on a runbook. Deliberately *after* the app is back up:
