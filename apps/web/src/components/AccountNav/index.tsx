@@ -27,8 +27,10 @@ export function AccountNav() {
   if (!isLoggedIn(me)) {
     return (
       <nav className={styles.nav}>
+        {/* One entry point, not two: since #316 there is no separate
+            registration — the same address-and-code screen either signs you in
+            or makes the account, so a second link would lead to the first. */}
         <Link className={styles.link} to="/login">{t('nav.logIn')}</Link>
-        <Link className={styles.link} to="/login?mode=register">{t('nav.register')}</Link>
         {/* Settings stays a standing link only while signed out: the menu that
             holds it hangs off the username, and there is no username yet — and
             the language choice is exactly the thing someone may need before

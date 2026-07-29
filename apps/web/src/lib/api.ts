@@ -14,11 +14,15 @@ const API_BASE = ''
 export class ApiError extends Error {
   status: number
   code: string | undefined
+  /** Set by the endpoints that answer "not now" rather than "no" — currently
+   *  the sign-in code cooldown (#316), where the wait is the whole message. */
+  retryAfterSeconds: number | undefined
 
-  constructor(status: number, code: string | undefined) {
+  constructor(status: number, code: string | undefined, retryAfterSeconds?: number) {
     super(`request failed: ${status}${code ? ` (${code})` : ''}`)
     this.status = status
     this.code = code
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
@@ -35,7 +39,11 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     const code = body && typeof body === 'object' && 'error' in body && typeof body.error === 'string'
       ? body.error
       : undefined
-    throw new ApiError(res.status, code)
+    const retryAfter = body && typeof body === 'object' && 'retryAfterSeconds' in body
+      && typeof body.retryAfterSeconds === 'number'
+      ? body.retryAfterSeconds
+      : undefined
+    throw new ApiError(res.status, code, retryAfter)
   }
   return res.json()
 }
@@ -57,17 +65,33 @@ export function fetchMe(): Promise<Me> {
   return apiFetch<Me>('/api/me')
 }
 
-export function register(email: string, password: string, name?: string): Promise<Me> {
-  return apiFetch<Me>('/api/auth/register', {
+export interface RequestedLoginCode {
+  /** Four characters also printed in the email, so the person can see the
+   *  mail belongs to the page in front of them (#316). */
+  confirmation: string
+  expiresAt: string
+}
+
+/** Step one of signing in: mail a one-time code to `email`. There is no
+ *  separate registration — an address without an account gets one when the
+ *  code comes back (see authRoutes.ts).
+ *
+ *  `locale` picks the language of the mail. It travels per-request because
+ *  the server has no dictionaries: #208 keeps translation on the client, and
+ *  this one message is the exception that has no client to translate it. */
+export function requestLoginCode(email: string, locale: string): Promise<RequestedLoginCode> {
+  return apiFetch<RequestedLoginCode>('/api/auth/code/request', {
     method: 'POST',
-    body: JSON.stringify({ email, password, name }),
+    body: JSON.stringify({ email, locale }),
   })
 }
 
-export function login(email: string, password: string): Promise<Me> {
-  return apiFetch<Me>('/api/auth/login', {
+/** Step two. Only works in the browser that asked for the code: the request
+ *  set a short-lived nonce cookie that this call is checked against. */
+export function verifyLoginCode(email: string, code: string): Promise<Me> {
+  return apiFetch<Me>('/api/auth/code/verify', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, code }),
   })
 }
 

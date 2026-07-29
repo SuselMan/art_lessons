@@ -37,29 +37,26 @@
   gap: 24px;
 }
 
-.tabs {
-  display: flex;
-  gap: 4px;
-  background: var(--color-surface-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 4px;
-}
+/* The log-in/register tab pair lived here until #316. It has no successor:
+   with a mailed code there is only one door, and which side of it an address
+   is on is not something the person has to declare up front. */
 
-.tab {
-  flex: 1;
-  padding: 9px;
-  border-radius: var(--radius-sm);
-  font-size: 14px;
+.title {
+  font-size: 20px;
   font-weight: 600;
-  color: var(--color-text-dim);
-  min-height: var(--touch-target-sm);
-  transition: background var(--duration-fast), color var(--duration-fast);
+  color: var(--color-text-bright);
 }
 
-.tabActive {
-  background: var(--color-accent);
-  color: #fff;
+.subtitle {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-dim);
+  /* Pulled up under the title: the two are one block, and the card's 24px
+     gap between sections reads as a separation they don't have. */
+  margin-top: -16px;
+  /* Long addresses ("teacher.name@school.example.org") must not push the
+     card wider than the viewport on a phone. */
+  overflow-wrap: anywhere;
 }
 
 .section {
@@ -133,5 +130,66 @@
 
 .submit:disabled {
   opacity: 0.6;
+  cursor: default;
+}
+
+/* Six digits, typed once, often from another device's lock screen — so they
+   get the size and tracking of something meant to be read back and checked,
+   not the size of a regular text field. */
+.codeInput {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-align: center;
+  padding: 14px;
+  /* Tabular figures so the glyphs don't shift width as they're typed. */
+  font-variant-numeric: tabular-nums;
+}
+
+.confirmation {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: -12px;
+}
+
+.confirmationPhrase {
+  font-size: 14px;
+  color: var(--color-text-bright);
+}
+
+.confirmationHint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-dim);
+}
+
+.secondaryRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: -12px;
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  padding: 6px 0;
+  font-size: 13px;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  /* Not a touch target of its own on tablet by accident: both of these are
+     secondary actions sitting under a 48px primary button, so they get the
+     smaller of the two minimums rather than none at all. */
+  min-height: var(--touch-target-sm);
+  transition: color var(--duration-fast);
+}
+
+.linkButton:hover:not(:disabled) {
+  color: var(--color-text-bright);
+}
+
+.linkButton:disabled {
+  opacity: 0.55;
   cursor: default;
 }
