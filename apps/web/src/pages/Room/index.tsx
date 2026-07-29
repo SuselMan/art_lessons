@@ -10,6 +10,7 @@ import type {
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
+import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
 import { ColorPicker } from '../../components/ColorPicker'
@@ -259,6 +260,17 @@ export function Room() {
   useEffect(() => {
     diagLog('roomContentReady changed to', roomContentReady)
   }, [roomContentReady])
+
+  // (#345) Paper-download progress for the loading overlay. Local state next
+  // to roomContentReady rather than in roomStore, for the same reason that one
+  // is local: it describes this mount's own loading sequence and dies with it.
+  //
+  // Null means "no texture download is happening" — which covers both `flat`
+  // paper (synthesised, never fetched) and, importantly, the case the prefetch
+  // makes common: the bytes were already in hand before the room opened, so no
+  // progress is ever emitted and the overlay should not flash an empty bar.
+  const [paperProgress, setPaperProgress] = useState<PaperLoadProgress | null>(null)
+  useEffect(() => subscribePaperLoadProgress(setPaperProgress), [])
 
   // Device performance investigation (#91) — shows a live per-stroke input/
   // render timing readout. Controlled by the "Debug overlay" feature flag
@@ -1142,6 +1154,15 @@ export function Room() {
       drainDeferredQueue()
     })
   }, [drainDeferredQueue])
+
+  // (#345) Remember this room's paper so the *next* launch can start
+  // downloading the right ~7.4 MB texture before anything is opened (see
+  // App's usePaperPrefetch). Recorded on every room, not just the first: the
+  // useful guess is the paper the person actually works on, and a teacher who
+  // always uses one grain should never pay for the texture twice.
+  useEffect(() => {
+    if (config) useSettingsStore.getState().setLastPaperType(config.paper)
+  }, [config])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -3473,7 +3494,7 @@ export function Room() {
             just the canvas — an earlier version lived inside .viewport
             (z-index 1) and could never rise above those. */}
         {!roomContentReady && (
-          showOfflineOverlay ? <OfflineRoomOverlay pending={outboxState.pending} /> : <RoomLoadingOverlay />
+          showOfflineOverlay ? <OfflineRoomOverlay pending={outboxState.pending} /> : <RoomLoadingOverlay paper={paperProgress} />
         )}
       </div>
 

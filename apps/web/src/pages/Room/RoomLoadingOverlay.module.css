@@ -45,6 +45,41 @@
   font-size: 14px;
 }
 
+/* (#345) Fixed width rather than a percentage of the viewport: the bar sits
+   under a centred spinner on everything from a phone to a desktop, and a
+   viewport-relative track would be a hairline on one and span the screen on
+   the other. 240px is wide enough that a percent is legible as movement. */
+.progressTrack {
+  width: 240px;
+  max-width: 60vw;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.progressBar {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: inherit;
+  /* Smooths the step between network chunks — they arrive in bursts of wildly
+     uneven size, so an untweened width jumps. Short enough not to lag behind
+     the real number on a fast connection. */
+  transition: width 120ms linear;
+}
+
+.progressLabel {
+  color: var(--color-text-dim);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  /* Tabular figures so the digits don't shuffle sideways as they count up. */
+  font-variant-numeric: tabular-nums;
+  /* The gap the overlay sets between children is tuned for the spinner and one
+     line of text; the number belongs to the bar above it, not to a third
+     unrelated row. */
+  margin-top: -8px;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
