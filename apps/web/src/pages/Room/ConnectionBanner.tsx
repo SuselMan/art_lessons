@@ -1,16 +1,10 @@
 import { useT } from '../../i18n'
 import { Notice } from '../../components/Notice'
+import { connectionNotice, type ConnectionNoticeInput } from './connectionNotice'
 
-interface ConnectionBannerProps {
-  connected: boolean
-  /** Operations queued but not yet confirmed by the server. */
-  pending: number
-  /** How many of those have stopped retrying on their own (#298's
-   *  MAX_ATTEMPTS). They are still queued and persisted — the next reconnect
-   *  re-arms them — but saying so matters, because "retrying" and "given up
-   *  for now" feel very different to someone watching a counter. */
-  stalled: number
-}
+/** See ConnectionNoticeInput — the wording lives in connectionNotice.ts, and
+ *  the field-by-field reasoning with it. */
+type ConnectionBannerProps = ConnectionNoticeInput
 
 /** (#201) Connection state, and — the part that actually matters — how much
  *  drawing is not yet saved.
@@ -34,22 +28,17 @@ interface ConnectionBannerProps {
  *  notice it would need an `updateNotice` on every one of those transitions,
  *  which is this render written by hand, plus a way for the number to go
  *  stale. */
-export function ConnectionBanner({ connected, pending, stalled }: ConnectionBannerProps): React.JSX.Element | null {
+export function ConnectionBanner(props: ConnectionBannerProps): React.JSX.Element | null {
   const t = useT()
-  if (connected && pending === 0) return null
-
-  const message = !connected
-    ? (pending > 0 ? t('room.connection.offlineWithPending', { n: pending }) : t('room.connection.offline'))
-    : stalled > 0
-      ? t('room.connection.stalled', { n: stalled })
-      : t('room.connection.syncing', { n: pending })
+  const notice = connectionNotice(props)
+  if (!notice) return null
 
   return (
     <Notice
       variant="warning"
-      icon={connected ? 'cloud_sync' : 'cloud_off'}
+      icon={props.connected ? 'cloud_sync' : 'cloud_off'}
       role="status"
-      message={message}
+      message={t(notice.key, { n: notice.n })}
     />
   )
 }

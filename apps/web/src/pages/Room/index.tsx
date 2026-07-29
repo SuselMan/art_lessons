@@ -495,6 +495,12 @@ export function Room() {
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
   const [connected,   setConnected]   = useState(false)
+  // Whether the socket has ever completed a connection on this mount. The
+  // distinction `connected` alone cannot make: "still opening" and "was open,
+  // dropped" both read as false, and only the second is worth warning about
+  // (see ConnectionBanner, which is what this is for). Latches once true — a
+  // later drop is a drop, not a return to the opening state.
+  const [everConnected, setEverConnected] = useState(false)
   // (#289 §17, #312) Set when the server rejected an operation as
   // `target_gone` — the only rejection that can read as "my work vanished"
   // (drawn while offline/dropped onto a layer since deleted).
@@ -1354,7 +1360,13 @@ export function Room() {
       // restore. Marking ready here regardless used to race ahead of that
       // answer; handleRoomState's first room_state is what actually knows,
       // and sets this itself either way (see its own two branches).
-      setRoomContentReady(true)
+      //
+      // Still gated on paperReady() even though there is nothing to replay:
+      // "ready" is what takes the preloader down and lets the pencil through,
+      // and the engine refuses to start a stroke until the real texture has
+      // loaded (see _paperTexLoaded). Marking ready before then hands over a
+      // room that looks open and silently ignores every stroke.
+      void engine.paperReady().catch(() => {}).finally(() => setRoomContentReady(true))
     }
 
     return () => {
@@ -2300,6 +2312,7 @@ export function Room() {
     // ownership/authorship key off the same stable id every time.
     const handleConnect = () => {
       setConnected(true)
+      setEverConnected(true)
       // (#298) resendAll deliberately does NOT happen here any more. It used
       // to, and a fresh connection is precisely the moment the socket has
       // joined nothing — so the whole backlog went out against a socket the
@@ -2463,9 +2476,22 @@ export function Room() {
           // The genuinely-new-room case: roomContentReady now starts
           // `false` for every creator (see its own doc comment), and
           // nothing else sets it for this branch — a real new room has
-          // nothing to restore, so it's ready the instant that's confirmed,
-          // not after some later event that may never come.
-          setRoomContentReady(true)
+          // nothing to restore, so it's ready the instant that's confirmed.
+          //
+          // "Nothing to restore" is not the same as "nothing to wait for",
+          // though: the paper texture is a hard prerequisite for drawing at
+          // all (the engine drops any stroke that starts before it has
+          // loaded — see _paperTexLoaded), so this awaits it exactly like
+          // every other exit from this handler does. Without the await, a
+          // freshly created room dismissed its own preloader mid-download —
+          // visibly, since #345 put a real progress bar on it — and opened
+          // onto a canvas with no paper on it that quietly ignored the
+          // pencil until the remaining ~7 MB landed.
+          try {
+            await engineRef.current?.paperReady()
+          } finally {
+            setRoomContentReady(true)
+          }
           return
         }
       }
@@ -3334,7 +3360,12 @@ export function Room() {
               banners above for as long as a bad connection lasts. Hidden
               entirely while connected with an empty queue. */}
           <div className={styles.noticesBottom}>
-            <ConnectionBanner connected={connected} pending={outboxState.pending} stalled={outboxState.stalled} />
+            <ConnectionBanner
+              connected={connected}
+              everConnected={everConnected}
+              pending={outboxState.pending}
+              stalled={outboxState.stalled}
+            />
           </div>
         </div>
 
