@@ -1,3 +1,11 @@
+// (#177) Deliberately the first import in the file, and deliberately also
+// loaded through node's `--import` in production (see package.json's start
+// script and the Dockerfile). The flag is what gets the SDK up before
+// *anything* else in the process, which is what it needs to instrument the
+// modules below; this line is what makes `npm run dev` — plain tsx, no flag
+// — behave the same for anyone who sets a DSN locally. Both resolve to the
+// same module URL, so init still happens exactly once.
+import { setupSentryErrorHandler } from './instrument.js'
 import Fastify from 'fastify'
 import cookie from '@fastify/cookie'
 import cors from '@fastify/cors'
@@ -25,6 +33,13 @@ import { registerThumbnailRoutes } from './thumbnailRoutes.js'
 // forged header gets it pushed leftwards, and only the rightmost entry — the
 // address nginx actually saw — is trustworthy.
 const app = Fastify({ logger: true, trustProxy: 1 })
+
+// (#177) The SDK itself is already up by the time this file is evaluated —
+// instrument.ts is loaded through node's `--import` (and, for `npm run dev`,
+// as the first import above). This is the part that has to know about `app`,
+// and it goes here rather than after the routes below so a route registered
+// later can't quietly end up outside it. A no-op without a DSN.
+setupSentryErrorHandler(app)
 
 // `origin: true` (reflect the request's own Origin) + `credentials: true` is
 // required for the identity cookie (#41) to ride along cross-origin — LAN dev

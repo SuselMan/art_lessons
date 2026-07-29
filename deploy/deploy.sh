@@ -42,6 +42,13 @@ sudo rsync -a --delete ~/web-dist-incoming/ /var/www/art-lessons/dist/
 
 echo "==> Pulling pre-built server image and starting containers"
 export SERVER_IMAGE="${SERVER_IMAGE:?SERVER_IMAGE env var must be set by the caller}"
+# (#177) Optional, unlike SERVER_IMAGE: passed by the workflow the same way,
+# read by docker-compose.prod.yml's ${SENTRY_DSN:-}. Exported explicitly so a
+# manual redeploy that sets them on the command line behaves identically to a
+# CI one. Absent means the server runs without error reporting, which is a
+# working server, not a broken deploy.
+export SENTRY_DSN="${SENTRY_DSN:-}"
+export SENTRY_RELEASE="${SENTRY_RELEASE:-}"
 docker compose -f docker-compose.prod.yml pull
 docker compose -f docker-compose.prod.yml up -d
 

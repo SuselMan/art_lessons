@@ -41,6 +41,16 @@ services:
     environment:
       DATABASE_URL: postgresql://art_lessons:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/art_lessons
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set}
+      # (#177) Unlike the two above, these are optional and come from the
+      # deploy invocation rather than the VPS's .env — the workflow passes
+      # them alongside SERVER_IMAGE (see deploy.yml). A DSN is a write-only
+      # ingest key, not a credential: it can be used to send events to the
+      # project and to do nothing else, which is why it lives in a repo
+      # variable instead of a secret. Empty means the server simply doesn't
+      # report, which is also what happens on a box that has never been
+      # deployed to by CI.
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
     ports:
       # Bound to loopback only — nginx on the host is the sole public entry
       # point (see deploy/nginx.conf), same reasoning as any reverse-proxied

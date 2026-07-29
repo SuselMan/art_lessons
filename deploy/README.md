@@ -75,6 +75,52 @@ IP `80.209.232.109`. Deploys automatically on every push to `main` via
   nothing else, so it can be rotated independently any time by generating a
   new pair and replacing both halves).
 
+## Error reporting (#177)
+
+Two Sentry projects, because the two halves fail differently and a shared
+project would mean one alert rule for both: a browser one (`@sentry/react`,
+DSN baked into the bundle at build time) and a Node one (`@sentry/node`, DSN
+handed to the container on deploy). Everything below is optional — with none
+of it set, both halves start with reporting disabled and nothing else changes.
+
+**Variables** (Settings → Secrets and variables → Actions → *Variables*, not
+Secrets — a DSN is a write-only ingest key: it can send events to the project
+and do nothing else, and the browser one is publicly readable in the shipped
+JS by necessity):
+
+- `VITE_SENTRY_DSN` — the browser project's DSN.
+- `SENTRY_SERVER_DSN` — the Node project's DSN. Passed to `deploy.sh` next to
+  `SERVER_IMAGE`, read by `docker-compose.prod.yml`. Deliberately *not*
+  written into the VPS's `.env`: that file holds `POSTGRES_PASSWORD`, which
+  is baked into the Postgres volume at initdb time, and CI rewriting it puts
+  one typo between a push and a server that cannot open its own database.
+- `SENTRY_ORG`, `SENTRY_WEB_PROJECT` — org and project slugs, used only for
+  the source-map upload below.
+
+**Secret**:
+
+- `SENTRY_AUTH_TOKEN` — an org auth token with `project:releases` (and
+  `org:read`). This one *is* a credential. It uploads the browser bundle's
+  source maps during the `build` job; without it the upload is skipped and
+  the build still succeeds, but every production stack trace is a column
+  number inside a minified chunk.
+
+The maps are generated as `sourcemap: 'hidden'`, uploaded, then deleted
+before `dist/` is rsynced to the VPS (`apps/web/vite.config.ts`) — so they
+reach Sentry and nowhere else. `release` is the commit SHA on both halves;
+map-to-code matching is by debug ID, so it holds regardless.
+
+The server's own stack traces point at `src/*.ts` rather than compiled
+output: `--enable-source-maps` in the Dockerfile's `CMD`, `sourceMap: true`
+in `apps/server/tsconfig.json`.
+
+**Cost in RAM, worth knowing before it surprises anyone** (§1 of #314 is
+partly about not being surprised by this box's memory): initialising the Node
+SDK costs ~47 MB RSS — 42.5 MB bare node against 89.8 MB with it up. That is
+~5% of a 1 GB box against #292's measured 532 MB of room history. Without a
+DSN the SDK is not even imported (`apps/server/src/instrument.ts` loads it
+dynamically), so dev machines and CI pay nothing.
+
 ## What happens on every push to main
 
 1. `.github/workflows/deploy.yml`'s `test` job: `npm ci` +
@@ -89,7 +135,8 @@ IP `80.209.232.109`. Deploys automatically on every push to `main` via
    then brings `/opt/art-lessons` up to date (`git fetch` + `reset --hard
    origin/main` — just config files now: `docker-compose.prod.yml`, the
    deploy script itself, nginx config; no build inputs) and *only then* runs
-   `deploy/deploy.sh` with `SERVER_IMAGE` set to the pushed ghcr.io tag.
+   `deploy/deploy.sh` with `SERVER_IMAGE` set to the pushed ghcr.io tag (and
+   `SENTRY_DSN`/`SENTRY_RELEASE` alongside it, when configured — see above).
 
    That order is deliberate: the script used to reset the checkout itself,
    which rewrote the script underneath the running bash and made any change
@@ -115,6 +162,9 @@ ssh deploy@80.209.232.109
 # an image tag from an actual CI build (check the `build` job's own output,
 # or just `:latest`, which the workflow always pushes alongside the SHA tag):
 cd /opt/art-lessons && git fetch origin main && git reset --hard origin/main
+# SENTRY_DSN is passed the same way and defaults to empty — a manual
+# redeploy without it produces a working server that reports nothing until
+# the next CI deploy puts it back. Add it here to keep reporting on:
 SERVER_IMAGE=ghcr.io/suselman/art-lessons-server:latest bash deploy/deploy.sh
 # Updating the checkout is a separate step on purpose: deploy.sh must not
 # reset the checkout it is itself running from — see the comment at its top.

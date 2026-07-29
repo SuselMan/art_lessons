@@ -48,4 +48,8 @@ COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/package.json ./package.json
 WORKDIR /app/apps/server
 EXPOSE 4000
-CMD ["node", "dist/index.js"]
+# (#177) `--import` loads the Sentry init before any application module, and
+# `--enable-source-maps` makes the reported stack frames point at src/*.ts
+# rather than at compiled output. Both are inert without SENTRY_DSN in the
+# environment (docker-compose.prod.yml).
+CMD ["node", "--import", "./dist/instrument.js", "--enable-source-maps", "dist/index.js"]

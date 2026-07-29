@@ -4,6 +4,11 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "./dist",
+    // (#177) So `--enable-source-maps` (see package.json's start script and
+    // the Dockerfile) can turn a stack frame in dist/*.js back into the
+    // src/*.ts line that produced it — the difference between a Sentry issue
+    // you can read and one you have to decompile by hand.
+    "sourceMap": true,
     "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,

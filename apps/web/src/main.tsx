@@ -1,14 +1,19 @@
+// (#177) Must stay the first import in the file — see the module's own
+// comment for why the order is the whole point of it existing.
+import './lib/initSentry'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import * as Sentry from '@sentry/react'
 import './styles/global.css'
-import { fetchMe } from './lib/api'
+import { fetchMe, type Me } from './lib/api'
 import { ME_QUERY_KEY } from './lib/authState'
 import { queryClient } from './lib/queryClient'
+import { setSentryDeviceType, setSentryUser } from './lib/sentry'
 // Side-effecting import: registers its popstate listener before
 // <BrowserRouter> (inside App) ever mounts and adds its own — see the
 // module's own comment for why registration order matters here.
 import './lib/backNavigationGuard'
-import { syncDeviceTypeAttribute, syncDocumentLanguage } from './stores/settingsStore'
+import { syncDeviceTypeAttribute, syncDocumentLanguage, useSettingsStore } from './stores/settingsStore'
 import { App } from './App'
 
 // (#208) index.html can only carry a static `lang`; the real one is the
@@ -18,6 +23,7 @@ syncDocumentLanguage()
 // (#331, ADR #318) Same idea for the tablet/desktop control scheme — set
 // before the first paint so nothing renders one layout and then swaps.
 syncDeviceTypeAttribute()
+setSentryDeviceType(useSettingsStore.getState().deviceType)
 
 // (#186) A stale chunk reference — this tab was left open across a deploy,
 // and lazy-loaded route chunks (App.tsx's lazy() calls) are content-hashed,
@@ -46,10 +52,30 @@ window.addEventListener('vite:preloadError', () => {
 // this cookie existed at all. Prefetches into the same queryClient every
 // useAuth() reads from, so this is the only /api/me call on load — not one
 // here plus another from the first component that calls useAuth().
+// (#177) Follows identity for the lifetime of the tab rather than reading it
+// once: the id changes on register/login/logout (#41 mints a guest first),
+// and a stale guest id on an error from a logged-in teacher answers the wrong
+// question — "one person's device or everyone's deploy" is the only thing we
+// ask this tag.
+queryClient.getQueryCache().subscribe(event => {
+  if (event.query.queryKey[0] !== ME_QUERY_KEY[0]) return
+  setSentryUser(queryClient.getQueryData<Me>(ME_QUERY_KEY)?.userId ?? null)
+})
+
 queryClient.prefetchQuery({ queryKey: ME_QUERY_KEY, queryFn: fetchMe })
   .catch(err => console.error('failed to warm up identity', err))
   .finally(() => {
-    createRoot(document.getElementById('root')!).render(
+    // (#177) React 19 routes render-time errors through these two hooks
+    // instead of letting them reach window.onerror, so without them every
+    // component crash — the blank-screen class of bug — would be invisible
+    // to Sentry. `onCaughtError` covers what an error boundary swallows;
+    // there is none in the tree yet, and when one arrives (#326) this keeps
+    // reporting what it hides. Neither changes behaviour: reactErrorHandler
+    // reports and then defers to React's own default.
+    createRoot(document.getElementById('root')!, {
+      onUncaughtError: Sentry.reactErrorHandler(),
+      onCaughtError: Sentry.reactErrorHandler(),
+    }).render(
       <StrictMode>
         <App />
       </StrictMode>,

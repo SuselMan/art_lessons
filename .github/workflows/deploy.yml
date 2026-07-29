@@ -72,7 +72,20 @@ jobs:
           path: apps/web/public/paper
           key: paper-${{ hashFiles('apps/web/src/engine/src/paperNoise.ts', 'apps/web/scripts/bakePaperTextures.ts', 'packages/shared/src/index.ts') }}
 
+      # (#177) The DSN is baked into the bundle at build time — it has to be,
+      # a browser has nowhere else to read it from — hence a repo *variable*
+      # rather than a secret: it ends up publicly readable in the shipped JS
+      # by design, and a DSN can only send events, never read them. The auth
+      # token is a real secret and is a different thing entirely: it uploads
+      # source maps to our org (see apps/web/vite.config.ts). Missing token
+      # simply skips the upload, so a fork or a PR build still builds.
       - name: Build apps/web static bundle
+        env:
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+          VITE_SENTRY_RELEASE: ${{ github.sha }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_WEB_PROJECT }}
         run: npm run build --workspace=apps/web
 
       - name: Upload web build (handed to the deploy job below)
@@ -176,10 +189,20 @@ jobs:
       # itself while bash is still reading it, so a change to deploy.sh landed
       # one deploy late — see that file's own comment for the two deploys of
       # missing backups that cost.
+      # (#177) SENTRY_DSN rides along the same way SERVER_IMAGE does, rather
+      # than being written into the VPS's .env: that file holds
+      # POSTGRES_PASSWORD, which is baked into the Postgres volume at initdb
+      # time, and rewriting it from CI puts one typo between a push and a
+      # server that can't open its own database (same reasoning as the backup
+      # credentials above, which is why those went to their own file). Unset
+      # variable means a server that doesn't report — not a failed deploy.
       - name: Deploy over SSH
         run: |
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
             "cd /opt/art-lessons \
              && git fetch origin main \
              && git reset --hard origin/main \
-             && SERVER_IMAGE='${{ needs.build.outputs.image }}' bash deploy/deploy.sh"
+             && SERVER_IMAGE='${{ needs.build.outputs.image }}' \
+                SENTRY_DSN='${{ vars.SENTRY_SERVER_DSN }}' \
+                SENTRY_RELEASE='${{ github.sha }}' \
+                bash deploy/deploy.sh"
