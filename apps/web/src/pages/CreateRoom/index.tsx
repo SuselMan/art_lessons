@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
@@ -7,6 +7,7 @@ import {
   type PaperCoarseness, type PaperType,
 } from '@grafetto/shared'
 import { hexToRgb, rgbToHex } from '../../lib/color'
+import { preloadRoomPage } from '../../lib/roomChunk'
 import { useDismissOnOutside } from '../../lib/useDismissOnOutside'
 import { useT, type TFunction, type TranslationKey } from '../../i18n'
 import { PaperPreview } from '../../components/PaperPreview'
@@ -154,6 +155,17 @@ export function CreateRoom() {
   const [usePassword, setUsePassword] = useState(false)
   const [password,    setPassword]    = useState('')
   const [error,       setError]       = useState<string | null>(null)
+  // (#351) Set once the form has handed off to `navigate` and the page is
+  // waiting to be replaced. Not a network request — creating a room is purely
+  // local (see handleSubmit) — but the Room chunk still has to load, and
+  // react-router keeps this page on screen for the whole of it. Without this
+  // the only feedback for the click is the URL, and the button reads as dead.
+  const [entering,    setEntering]    = useState(false)
+
+  // (#351) The chunk that click will need, fetched while the creator is still
+  // choosing a size — see lib/roomChunk.ts. Nothing depends on it having
+  // finished; it only decides whether the wait above is seconds or nothing.
+  useEffect(preloadRoomPage, [])
 
   const resolvedPaperColorHex = paperColor ? rgbToHex(paperColor) : DEFAULT_PAPER_COLORS[paper]
 
@@ -176,6 +188,10 @@ export function CreateRoom() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    // A second submit would mint a second room id and navigate again, while
+    // the first navigation is still resolving and this page is still on
+    // screen — precisely the double-click the missing feedback invited.
+    if (entering) return
     setError(null)
 
     const name = roomName.trim() || t('create.untitled')
@@ -187,6 +203,7 @@ export function CreateRoom() {
     const pw = usePassword && password ? password : undefined
 
     if (sizePreset === 'infinite') {
+      setEntering(true)
       navigate(`/room/${id}`, {
         state: { room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true }, password: pw, folderId },
       })
@@ -208,6 +225,9 @@ export function CreateRoom() {
       height = resolved.height
     }
 
+    // After the size validation above, never before it — a rejected custom
+    // size leaves the form usable rather than stuck behind a disabled button.
+    setEntering(true)
     navigate(`/room/${id}`, {
       state: {
         room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: false, canvasWidth: width, canvasHeight: height },
@@ -404,8 +424,8 @@ export function CreateRoom() {
 
         {error && <div className={styles.error}>{error}</div>}
 
-        <button type="submit" className={styles.submit}>
-          {t('create.submit')}
+        <button type="submit" className={styles.submit} disabled={entering}>
+          {t(entering ? 'create.submitting' : 'create.submit')}
         </button>
       </form>
     </div>

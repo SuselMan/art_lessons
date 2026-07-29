@@ -5,13 +5,16 @@ import { ConfirmDialogProvider } from './components/ConfirmDialog'
 import { NoticeStack } from './components/Notice'
 import { prefetchPaper } from './engine/src/paperLoader'
 import { queryClient } from './lib/queryClient'
+import { importRoomPage } from './lib/roomChunk'
 import { useSettingsStore } from './stores/settingsStore'
 
 // Route-level code splitting (#130): Room alone pulls in the WebGL pencil
 // engine, @dnd-kit, and socket.io-client — none of which /login, /create, or
 // /my-lessons need. Each page ships as its own chunk, fetched on navigation.
 const CreateRoom = lazy(() => import('./pages/CreateRoom').then(m => ({ default: m.CreateRoom })))
-const Room       = lazy(() => import('./pages/Room').then(m => ({ default: m.Room })))
+// Through `importRoomPage` rather than an inline `import()` so the pages that
+// preload this chunk share one specifier with it — see lib/roomChunk.ts.
+const Room       = lazy(() => importRoomPage().then(m => ({ default: m.Room })))
 const Auth       = lazy(() => import('./pages/Auth').then(m => ({ default: m.Auth })))
 const MyLessons  = lazy(() => import('./pages/MyLessons').then(m => ({ default: m.MyLessons })))
 const Settings   = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })))

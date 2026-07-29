@@ -86,6 +86,7 @@ export const ru: Dictionary = {
   'create.openAccess': 'Открытый — зайти может любой, у кого есть ссылка',
   'create.roomPassword': 'Пароль проекта',
   'create.submit': 'Создать проект',
+  'create.submitting': 'Открываем…',
   'create.error.customSize': 'Свой размер — от 100 до 4096 пикселей',
 
   // ── лексика выбора бумаги ──────────────────────────────────────────────

@@ -14,6 +14,7 @@ import {
   moveRoomToFolder, renameFolder, renameRoom, searchRooms, setRoomClosed, type RoomsAtFolder,
 } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
+import { preloadRoomPage } from '../../lib/roomChunk'
 import { notifyError } from '../../stores/noticeStore'
 import { useSettingsStore, type LessonsView } from '../../stores/settingsStore'
 import { useLocale, useT, type TFunction, type TranslationKey } from '../../i18n'
@@ -418,6 +419,11 @@ export function MyLessons() {
   const { me, loading: authLoading } = useAuth()
   const loggedIn = isLoggedIn(me)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  // (#351) Every card on this page is a door into the Room chunk, so start
+  // fetching it now rather than on whichever card gets clicked — see
+  // lib/roomChunk.ts for why that click is otherwise a multi-second wait
+  // with the old page still on screen.
+  useEffect(preloadRoomPage, [])
   const [newFolderOpen, setNewFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [renamingItem, setRenamingItem] = useState<ItemRef | null>(null)

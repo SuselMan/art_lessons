@@ -104,6 +104,10 @@ export const en = {
   'create.openAccess': 'Open — anyone with the link can join',
   'create.roomPassword': 'Project password',
   'create.submit': 'Create project',
+  // (#351) The room is created locally and instantly; what this waits on is
+  // the editor's own code chunk loading. "Opening" describes what the person
+  // is waiting for, which "Creating…" would not.
+  'create.submitting': 'Opening…',
   'create.error.customSize': 'Custom size must be between 100 and 4096 pixels',
 
   // ── paper picker vocabulary ────────────────────────────────────────────
