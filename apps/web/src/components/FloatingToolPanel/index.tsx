@@ -88,7 +88,6 @@ interface Props {
    *  not `uiHidden` (see this component's own doc comment for why the
    *  relationship is inverted from every other piece of chrome). */
   hidden?: boolean
-  strokeBlocked?: boolean
   /** Hotkey hints for the Undo/Redo tooltips, formatted by the caller (see
    *  lib/hotkeys.ts's formatHotkeyLabel) — this component stays decoupled
    *  from the hotkeys registry itself, same as it already is for every
@@ -121,7 +120,7 @@ interface Props {
  *  oversight. */
 export function FloatingToolPanel({
   tool, primaryTool, onSetTool, onUndo, onRedo, primaryColor, palette, onSelectColor, onOpenColorPicker,
-  roomId, position, onPositionChange, containerRef, hidden, strokeBlocked,
+  roomId, position, onPositionChange, containerRef, hidden,
   undoHotkeyLabel, redoHotkeyLabel,
 }: Props) {
   const t = useT()
@@ -233,7 +232,7 @@ export function FloatingToolPanel({
           styles.panel,
           !position && styles.panelDefaultCorner,
           hidden && styles.uiHidden,
-          strokeBlocked && styles.strokeBlocked,
+          styles.strokeBlockable,
         )}
         style={position ? { left: position.x, top: position.y } : undefined}
         onPointerDown={onPointerDown}

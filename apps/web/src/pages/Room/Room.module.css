@@ -31,12 +31,20 @@
 
 /* #94: while a stroke is active, a resting hand/finger can brush the
    surrounding chrome (most often the size slider) and corrupt settings
-   partway through drawing. Toggled on the same header/toolbar/layer-panel
+   partway through drawing. Carried by the same header/toolbar/layer-panel
    wrappers as .uiHidden above, but pointer-events only — the UI stays fully
    visible (unlike .uiHidden's fade), it just stops reacting to touches for
-   the stroke's duration. Unblocks immediately on strokeEnd (see Room's
-   isDrawing state), no transition/delay. */
-.strokeBlocked {
+   the stroke's duration. Blocks and unblocks immediately, no
+   transition/delay.
+
+   (#309) The class itself is unconditional in the JSX; what switches is the
+   `data-stroke-active` attribute on .editor, written straight to the DOM by
+   Room's store subscription (see strokeSlice). That indirection is the whole
+   point: the alternative — adding/removing this class from React — meant
+   re-rendering Room's entire tree twice per stroke, which measured 42–99 ms
+   from pen-down to the UI reacting on a Tab S7+. Nothing here may go back to
+   being conditional in JSX. */
+.editor[data-stroke-active] .strokeBlockable {
   pointer-events: none;
 }
 
