@@ -13,7 +13,7 @@ import type { TranslationKey } from '../../i18n'
  *  type guard below, and the store is pulled into node-run unit tests that
  *  have no DOM and no CSS-module loader. The mode → component mapping lives in
  *  the picker itself. */
-export const COLOR_PICKER_MODES = ['bar'] as const
+export const COLOR_PICKER_MODES = ['bar', 'ring'] as const
 
 export type ColorPickerMode = (typeof COLOR_PICKER_MODES)[number]
 
@@ -28,4 +28,5 @@ export function isColorPickerMode(value: unknown): value is ColorPickerMode {
  *  Holds a TranslationKey, never a finished label (CLAUDE.md). */
 export const COLOR_PICKER_MODE_META: Record<ColorPickerMode, { icon: string; label: TranslationKey }> = {
   bar: { icon: 'gradient', label: 'palette.mode.bar' },
+  ring: { icon: 'trip_origin', label: 'palette.mode.ring' },
 }

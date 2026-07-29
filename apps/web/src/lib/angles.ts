@@ -1,6 +1,10 @@
-// Pure geometry/value helpers for RadialDial (#277) — kept separate from the
-// component so the angle math (the part most worth getting exactly right,
-// especially the wraparound cases) is unit-testable without React/DOM.
+// Pure circular-geometry helpers, kept out of any component so the angle math
+// (the part most worth getting exactly right, especially the wraparound cases)
+// is unit-testable without React/DOM.
+//
+// Written for RadialDial (#277), moved here when the color picker's hue ring
+// (#340) turned out to need the same compass-angle mapping — a second caller
+// is the point at which "this component's math" becomes "this app's math".
 
 export interface Point { x: number; y: number }
 
@@ -40,6 +44,14 @@ export function wrapValue(v: number, domainMin: number, range: number): number {
 
 export function distanceFromCenter(center: Point, point: Point): number {
   return Math.hypot(point.x - center.x, point.y - center.y)
+}
+
+/** The inverse of angleToCompassDegrees: where on a circle of `radius` a given
+ *  compass angle lands. Used to place a thumb on a ring at the value it
+ *  represents, so paint and hit-test can't drift apart. */
+export function pointOnCircle(center: Point, radius: number, compassDegrees: number): Point {
+  const rad = ((compassDegrees - 90) * Math.PI) / 180 // undo the north-up shift
+  return { x: center.x + radius * Math.cos(rad), y: center.y + radius * Math.sin(rad) }
 }
 
 /** Shortest signed distance from `from` to `to` on a 360°-wrapping circle,

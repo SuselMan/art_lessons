@@ -42,8 +42,11 @@
 }
 
 /* Expandable content panel */
+/* 232 rather than the original 204 (#340): the color tab's ring mode needs
+   the width, and one panel width for every tab beats a panel that resizes
+   under you as you switch tabs. */
 .content {
-  width: 204px;
+  width: 232px;
   display: flex;
   flex-direction: column;
   background: var(--color-surface-raised);

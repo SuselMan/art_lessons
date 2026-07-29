@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { angleToCompassDegrees, roundToStep, shortestDelta, wholeUnitsCrossed, wrapDegrees, wrapValue } from './radialDialMath'
+import { angleToCompassDegrees, roundToStep, shortestDelta, wholeUnitsCrossed, wrapDegrees, wrapValue } from './angles'
 
 describe('angleToCompassDegrees (#277)', () => {
   const center = { x: 100, y: 100 }

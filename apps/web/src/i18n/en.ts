@@ -335,6 +335,7 @@ export const en = {
   'palette.dragPanel': 'Drag to move',
   'palette.mode': 'Picker shape',
   'palette.mode.bar': 'Hue strip',
+  'palette.mode.ring': 'Hue ring',
 
   // ── side panel chrome ──────────────────────────────────────────────────
   'sidePanel.collapse': 'Collapse',

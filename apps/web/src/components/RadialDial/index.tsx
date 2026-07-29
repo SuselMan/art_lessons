@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { getFeatureFlag } from '../../lib/featureFlags'
 import { InterfaceClick } from '../../lib/InterfaceClick'
 import { diagLog } from '../../lib/diagLog'
-import { angleToCompassDegrees, roundToStep, wholeUnitsCrossed, wrapDegrees, wrapValue, type Point } from './radialDialMath'
+import { angleToCompassDegrees, roundToStep, wholeUnitsCrossed, wrapDegrees, wrapValue, type Point } from '../../lib/angles'
 import styles from './RadialDial.module.css'
 
 export interface RadialDialProps {

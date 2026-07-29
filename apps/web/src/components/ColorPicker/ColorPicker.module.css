@@ -1,9 +1,16 @@
+/* Wider than the 180px this picker used to be (#340). The ring mode's square
+   is inscribed in the ring's hole, so it loses the band twice over and then
+   another √2 — at 180px it came out ~79px, which is not a surface anyone can
+   choose a color on. At 208 it is ~99px, in line with the same picker in
+   Krita. A ring mode simply has a smaller square than a strip mode; the width
+   buys back what can be bought back, and the side panel was widened to match
+   rather than letting the picker overflow it. */
 .picker {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  width: 180px;
+  width: 208px;
 }
 
 /* Each mode's own surface is styled next to it, in modes/*.module.css — what

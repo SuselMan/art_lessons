@@ -4,6 +4,7 @@ import { useT } from '../../i18n'
 import { rgbToHsv, hsvToRgb, rgbToHex, hexToRgb, type Hsv } from '../../lib/color'
 import { OptionGroup } from '../OptionGroup'
 import { BarSquare } from './modes/BarSquare'
+import { RingSquare } from './modes/RingSquare'
 import type { ColorPickerModeProps } from './modes/types'
 import {
   COLOR_PICKER_MODES,
@@ -18,6 +19,7 @@ import styles from './ColorPicker.module.css'
  *  tests load without a DOM. */
 const MODE_SURFACES: Record<ColorPickerMode, ComponentType<ColorPickerModeProps>> = {
   bar: BarSquare,
+  ring: RingSquare,
 }
 
 interface ColorPickerProps {

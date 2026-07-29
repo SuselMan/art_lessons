@@ -311,6 +311,7 @@ export const ru: Dictionary = {
   'palette.dragPanel': 'Потяните, чтобы переместить',
   'palette.mode': 'Вид палитры',
   'palette.mode.bar': 'Полоса оттенка',
+  'palette.mode.ring': 'Кольцо оттенка',
 
   // ── боковая панель ─────────────────────────────────────────────────────
   'sidePanel.collapse': 'Свернуть',
