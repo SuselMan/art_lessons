@@ -1,8 +1,8 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import clsx from 'clsx'
 
-import { useDismissOnOutside } from '../../lib/useDismissOnOutside'
+import { usePopupAnchor } from '../../lib/usePopupAnchor'
 import { Icon } from '../Icon'
 
 import styles from './Menu.module.css'
@@ -39,12 +39,6 @@ interface MenuProps {
   align?: 'left' | 'right'
 }
 
-/** Distance kept between the menu and the viewport edges when clamping. */
-const VIEWPORT_MARGIN = 8
-
-/** Gap between the trigger and the menu hanging off it. */
-const ANCHOR_GAP = 4
-
 /** The app's dropdown menu: a button that opens a list of actions below it.
  *  Closes on an outside pointerdown or Escape, and each action closes the menu
  *  *before* running — so a caller that opens its own dialog isn't fighting
@@ -60,56 +54,17 @@ const ANCHOR_GAP = 4
  *  window edge, so a menu wider than the panel simply left the screen, and a
  *  row near the bottom of a long list pushed it below the fold. `LayerPanel`
  *  had already grown its own measured-and-clamped copy for exactly that reason
- *  — this is that logic, moved to where every "⋮" in the app gets it. */
+ *  — this is that logic, moved to where every "⋮" in the app gets it. (#335)
+ *  That geometry now lives in `usePopupAnchor`, shared with the tool-type
+ *  pickers; what stays here is the action-list itself. */
 export function Menu({ trigger, triggerClassName, triggerLabel, actions, align = 'right' }: MenuProps) {
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-
-  useDismissOnOutside(open, [rootRef, menuRef], () => setOpen(false))
-
-  // Measure once per open. Everything the menu is positioned against — the
-  // trigger's box and the viewport — is read here rather than tracked, so an
-  // open menu is pinned where it was placed; a scroll or resize underneath it
-  // closes it instead (below), which is what a dropdown does everywhere else.
-  useLayoutEffect(() => {
-    if (!open) { setPos(null); return }
-    const menuEl = menuRef.current
-    const triggerEl = rootRef.current
-    if (!menuEl || !triggerEl) return
-
-    const rect = triggerEl.getBoundingClientRect()
-    const { width, height } = menuEl.getBoundingClientRect()
-    const m = VIEWPORT_MARGIN
-
-    // Flip above the trigger rather than merely sliding up when there's no room
-    // below, so the menu never covers the row it belongs to.
-    let top = rect.bottom + ANCHOR_GAP
-    if (top + height > window.innerHeight - m) top = rect.top - height - ANCHOR_GAP
-    top = Math.max(m, Math.min(top, window.innerHeight - height - m))
-
-    const preferredLeft = align === 'left' ? rect.left : rect.right - width
-    const left = Math.max(m, Math.min(preferredLeft, window.innerWidth - width - m))
-
-    setPos({ top, left })
-  }, [open, align, actions.length])
-
-  useLayoutEffect(() => {
-    if (!open) return
-    const close = () => setOpen(false)
-    // Capture phase: the scroll that matters is usually an inner container's
-    // (the layer list, the room list), and those don't bubble to window.
-    window.addEventListener('scroll', close, true)
-    window.addEventListener('resize', close)
-    return () => {
-      window.removeEventListener('scroll', close, true)
-      window.removeEventListener('resize', close)
-    }
-  }, [open])
+  const { triggerRef, popupRef, style } = usePopupAnchor<HTMLDivElement, HTMLDivElement>(
+    open, () => setOpen(false), { align, remeasureKey: actions.length },
+  )
 
   return (
-    <div className={styles.root} ref={rootRef}>
+    <div className={styles.root} ref={triggerRef}>
       <button
         type="button"
         className={triggerClassName}
@@ -122,13 +77,11 @@ export function Menu({ trigger, triggerClassName, triggerLabel, actions, align =
       </button>
       {open && createPortal(
         <div
-          ref={menuRef}
+          ref={popupRef}
           className={styles.menu}
           role="menu"
           onClick={e => e.stopPropagation()}
-          // Rendered at the origin for one frame so it can be measured; hidden
-          // meanwhile so that frame isn't visible as a jump.
-          style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
+          style={style}
         >
           {actions.map(action => (
             // A disabled item is a <span>, not a disabled <button>: a disabled

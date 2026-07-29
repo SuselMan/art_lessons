@@ -14,11 +14,20 @@
   justify-content: center;
 }
 
+/* Fits the toolbar column (56px wide) whatever the value is: a px number, a
+   grade, or a word as long as "Прессованный" — which overflowed into the
+   canvas before this. The full text stays available in the control's own
+   tooltip. */
 .toolbarValue {
+  max-width: 52px;
   font-size: 9px;
   font-family: var(--font-mono);
   color: var(--color-text-dim);
   line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .toolbarToggle {

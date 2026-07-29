@@ -1,0 +1,88 @@
+/* A bordered pill holding the value plus its hover spinner — deliberately
+   close to TextInput's own treatment, scaled down to a settings row. */
+.field {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  /* Fixed, and never a flex-grow candidate: this sits in a space-between row
+     next to its label, where "as wide as there is room" made it read as a
+     panel-wide block rather than as a field. Sized for the longest value any
+     of these fields produces ("359°59′"), so the number never reflows the row
+     as it changes. */
+  flex: 0 0 auto;
+  width: 84px;
+  height: 26px;
+  padding: 0 2px 0 8px;
+  /* Always visible, not hover-only: the border is the only thing that says
+     "you can type in here" — without it the value reads as a plain readout,
+     which is exactly what it used to be. */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  /* The whole pill is a vertical drag handle, so neither the browser's own
+     touch scrolling nor a text selection may claim the gesture. */
+  touch-action: none;
+  user-select: none;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+
+.field:hover {
+  border-color: var(--color-text-dim);
+  background: var(--color-surface-2);
+}
+
+.field:focus-within {
+  border-color: var(--color-accent-hover);
+  background: var(--color-surface-2);
+}
+
+.input {
+  width: 100%;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  text-align: right;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+  cursor: ns-resize;
+}
+
+.field:focus-within .input {
+  color: var(--color-text-bright);
+  cursor: text;
+}
+
+.spinner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 14px;
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+}
+
+.field:hover .spinner,
+.field:focus-within .spinner {
+  opacity: 1;
+}
+
+.spinnerBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 11px;
+  color: var(--color-text-dim);
+  border-radius: 2px;
+}
+
+.spinnerBtn:hover {
+  color: var(--color-text-bright);
+}
+
+.spinnerBtn :global(.material-symbols-outlined) {
+  font-size: 14px;
+  line-height: 1;
+}

@@ -4,7 +4,7 @@ import {
   loadToolSettings, saveToolSettings, defaultToolSettings,
   LINER_SIZE_LABELS, linerSizeToPx, stepLinerSize,
   TOOL_SCHEMAS, COLOR_CAPABLE_TOOLS, isColorCapableTool, getToolColor,
-  MAX_TOOL_SIZE_PX, toolSizeRange,
+  MAX_TOOL_SIZE_PX, toolSizeRange, degreesMinutesParse, formatDegreesMinutes,
   type UiToolId,
 } from './toolSchemas'
 import type { KeyValueStorage } from '../../lib/roomStorage'
@@ -163,5 +163,59 @@ describe('liner size helpers (#243, ADR 003)', () => {
     it('starts from the bottom of the ladder for an unrecognized current value', () => {
       expect(stepLinerSize('nonsense', 1)).toBe(LINER_SIZE_LABELS[1])
     })
+  })
+})
+
+describe('tool-type pickers (#335)', () => {
+  const selectFields = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
+    Object.entries(TOOL_SCHEMAS[toolId])
+      .filter(([, d]) => d.uiControls[0] === 'select')
+      .map(([key, d]) => ({ toolId, key, descriptor: d })),
+  )
+
+  it('covers exactly the three tool-type fields the issue names', () => {
+    expect(selectFields.map(f => `${f.toolId}.${f.key}`).sort()).toEqual(
+      ['charcoal.type', 'colorPencil.grade', 'marker.nib', 'pencil.grade'],
+    )
+  })
+
+  // The picker's whole point is showing what an option draws, so a missing
+  // asset is a blank row rather than a visible fallback — worth a test, since
+  // the images are picked up from disk by filename (toolTypeImages.ts) and
+  // nothing else would notice a renamed or forgotten file.
+  it('gives every option of every select field an image or an icon', () => {
+    for (const { toolId, key, descriptor } of selectFields) {
+      const { valueType } = descriptor
+      expect(valueType.kind).toBe('enumOptions')
+      if (valueType.kind !== 'enumOptions') continue
+      for (const option of valueType.options) {
+        const visual = descriptor.optionImages?.[option] ?? descriptor.optionIcons?.[option]
+        expect(visual, `${toolId}.${key} option "${option}" has no image or icon`).toBeTruthy()
+      }
+    }
+  })
+})
+
+describe('degreesMinutesParse (#335)', () => {
+  it('round-trips what formatDegreesMinutes produces', () => {
+    for (const deg of [0, 45, 45.5, 180.25, 359.75]) {
+      expect(degreesMinutesParse(formatDegreesMinutes(deg))).toBeCloseTo(deg, 6)
+    }
+  })
+
+  it('reads a bare number as degrees', () => {
+    expect(degreesMinutesParse('45')).toBe(45)
+    expect(degreesMinutesParse('45.5')).toBe(45.5)
+    expect(degreesMinutesParse('45,5')).toBe(45.5)
+  })
+
+  it('adds arc-minutes to the degrees when both are given', () => {
+    expect(degreesMinutesParse('45°30′')).toBe(45.5)
+    expect(degreesMinutesParse('45° 30')).toBe(45.5)
+  })
+
+  it('returns null when there is no number to read', () => {
+    expect(degreesMinutesParse('')).toBeNull()
+    expect(degreesMinutesParse('°′')).toBeNull()
   })
 })

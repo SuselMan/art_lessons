@@ -1,0 +1,159 @@
+/* ── Previews ────────────────────────────────────────────────────────────────
+   The sample strokes are graphite baked into alpha over transparency, so they
+   need paper under them the way a real swatch does — on the app's own near-
+   black surface a charcoal stroke would simply be invisible. The tint is a
+   warm off-white rather than #fff: these are photographs of paper, and pure
+   white around them reads as a lit box rather than a sheet. */
+.preview {
+  flex-shrink: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-color: #efece6;
+  /* A compressed-charcoal swatch is nearly solid black, which on this app's
+     own near-black chrome loses its outline entirely — the paper tint alone
+     isn't enough to bound it. The border is what makes it read as a swatch
+     rather than a hole. */
+  border: 1px solid var(--color-border);
+}
+
+/* Landscape sample for a list row. `auto 100%` fits the stroke's *height* and
+   lets its length overflow the box, so the visible part stays at ~1/3 scale
+   and keeps its grain — fitting the whole 512-px strip into a panel row would
+   shrink it to a flat grey bar, which is exactly the information this control
+   exists to show. */
+.previewStrip {
+  width: 88px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background-size: auto 100%;
+}
+
+/* The middle of that same strip, cropped round, for the quick-panel button. */
+.previewDot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-size: auto 200%;
+}
+
+/* Options that carry an icon instead of a photographed stroke (marker nibs)
+   draw in the UI's own foreground color, so they get no paper behind them. */
+.previewIcon,
+.previewIconDot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--color-text);
+}
+.previewIcon { width: 34px; height: 34px; }
+.previewIconDot { width: 30px; height: 30px; }
+.previewIcon :global(.material-symbols-outlined) { font-size: 24px; }
+.previewIconDot :global(.material-symbols-outlined) { font-size: 26px; }
+
+/* ── Panel trigger (a select-shaped row) ──────────────────────────────────── */
+.select {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--touch-target-sm);
+  padding: 4px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  text-align: left;
+  transition: border-color var(--duration-fast), background var(--duration-fast);
+}
+
+.select:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-bright);
+}
+
+.selectLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select :global(.material-symbols-outlined) {
+  font-size: 18px;
+  color: var(--color-text-dim);
+  flex-shrink: 0;
+}
+
+/* ── Quick-panel trigger (one toolbar-sized square) ───────────────────────── */
+.quickButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-sm);
+  height: var(--touch-target-sm);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  transition: background var(--duration-fast);
+}
+
+.quickButton:hover { background: var(--color-surface-2); }
+
+/* ── The shared list ─────────────────────────────────────────────────────────
+   Portaled to <body> and positioned in viewport coordinates by usePopupAnchor,
+   hence `fixed` with no edge rules here. Same surface treatment as Menu — it
+   is the same kind of object, one level up in the same stack. */
+.popup {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* No max-height here — usePopupAnchor sets the measured one, so the list
+     scrolls only when the viewport genuinely can't hold it. */
+  overflow-y: auto;
+  /* `body` sets touch-action: none app-wide (the canvas needs it), which
+     otherwise leaves this list unscrollable by finger on a tablet. */
+  touch-action: pan-y;
+  padding: 4px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--touch-target-sm);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-align: left;
+}
+
+.item:hover { background: var(--color-surface-2); }
+
+.itemSelected { color: var(--color-text-bright); }
+
+.itemLabel {
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.item :global(.material-symbols-outlined) {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+/* The check mark trailing the current option — dimmed to the accent rather
+   than the text color so the row's own label stays the loudest thing in it. */
+.itemSelected > :global(.material-symbols-outlined):last-child {
+  color: var(--color-accent-hover);
+}

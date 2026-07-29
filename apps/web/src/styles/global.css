@@ -43,6 +43,45 @@ body {
   height: 1em;
 }
 
+/* Scrollbars, app-wide (#335). The platform default is a light, chunky bar
+   with its own track — on this app's dark surfaces it reads as a piece of
+   browser chrome that wandered into the UI. Kept deliberately quiet: no
+   track at all, a thumb in the same family as our borders, brightening on
+   hover. Both syntaxes on purpose — `scrollbar-*` is what Firefox honours,
+   `::-webkit-scrollbar` what Chrome and Safari do. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  /* The transparent border + padding-box clip is what makes the thumb read as
+     a slim pill inside a wider gutter, rather than a bar filling the full
+     track width. */
+  background: var(--color-border);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-dim);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 button {
   cursor: pointer;
   border: none;

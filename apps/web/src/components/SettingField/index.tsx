@@ -1,4 +1,6 @@
 import { PrecisionSlider } from '../PrecisionSlider'
+import { NumberField } from '../NumberField'
+import { OptionButton, OptionSelect, type PickerOption } from '../OptionPicker'
 import { Icon } from '../Icon'
 import { rgbToHex } from '../../lib/color'
 import { useT } from '../../i18n'
@@ -61,13 +63,23 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
         </div>
       )
     }
+    // (#335) The panel's read-only value readout became an editable field:
+    // the slider stays for "roughly this much", the field is for the times a
+    // number is actually known ("28px", "60%"). The toolbar keeps its plain
+    // readout above — there's no room for a text field in a 40px column, and
+    // no keyboard on the device it's designed for.
     return (
       <div className={styles.panelRow}>
         <div className={styles.panelRowHead}>
           <span className={styles.panelLabel}>{label}</span>
-          <span className={styles.panelValue}>
-            {valueType.format ? valueType.format(numValue) : numValue}
-          </span>
+          <NumberField
+            value={numValue}
+            min={valueType.min} max={valueType.max} step={valueType.step}
+            onChange={onChange}
+            format={valueType.format}
+            parse={valueType.parse}
+            label={label}
+          />
         </div>
         <PrecisionSlider
           className={styles.panelRange}
@@ -85,6 +97,35 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
   if (valueType.kind === 'enumOptions') {
     const strValue = value as string
     const index = Math.max(0, valueType.options.indexOf(strValue))
+
+    // (#335) Tool *type* fields — pencil grade, charcoal type, marker nib —
+    // render as a picker showing what each option draws, in both panels. The
+    // remaining enum (the liner's mm ladder) keeps the slider: its options are
+    // a single number on a scale, which is what a slider is, and there's
+    // nothing to show about 0.3mm that "0.3" doesn't already say.
+    if (descriptor.uiControls[0] === 'select') {
+      const options: PickerOption[] = valueType.options.map(option => ({
+        value: option,
+        label: optionLabel(option),
+        image: descriptor.optionImages?.[option],
+        icon: descriptor.optionIcons?.[option],
+      }))
+      return layout === 'toolbar' ? (
+        // Same block shape as the toolbar's other fields: the control, with
+        // the current value spelled out under it — the preview alone says
+        // "darker than the last one", not "2B".
+        <div className={styles.toolbarBlock} title={label}>
+          <OptionButton options={options} value={strValue} onChange={onChange} label={label} />
+          <span className={styles.toolbarValue}>{optionLabel(strValue)}</span>
+        </div>
+      ) : (
+        <div className={styles.panelRow}>
+          <span className={styles.panelLabel}>{label}</span>
+          <OptionSelect options={options} value={strValue} onChange={onChange} label={label} />
+        </div>
+      )
+    }
+
     if (layout === 'toolbar') {
       return (
         <div className={styles.toolbarBlock} title={label}>

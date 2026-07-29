@@ -2,7 +2,9 @@ import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
   type PencilGradeName, type LinerSizeMm, type CharcoalType,
 } from '../../engine'
+import { parseNumberInput } from '../../components/NumberField/numberField'
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
+import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import type { TranslationKey } from '../../i18n'
 
 // Unified, extensible tool-settings registry (#196). Replaces the old
@@ -20,12 +22,22 @@ export type UiToolId =
   | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
 
 export type SettingValueType =
-  | { kind: 'numberRange'; min: number; max: number; step: number; format?: (v: number) => string }
+  | {
+      kind: 'numberRange'; min: number; max: number; step: number
+      format?: (v: number) => string
+      /** (#335) Reads a typed string back into a raw value, inverting
+       *  `format` — needed once these fields became directly editable
+       *  (NumberField). Only formats that *change* the number need one:
+       *  'px'/plain degrees just decorate it and fall back to a plain number
+       *  read, while percent rescales it and degrees+minutes has two
+       *  components. */
+      parse?: (text: string) => number | null
+    }
   | { kind: 'boolean' }
   | { kind: 'color' }
   | { kind: 'enumOptions'; options: readonly string[] }
 
-export type SettingUiControl = 'slider' | 'input' | 'toggle' | 'swatch'
+export type SettingUiControl = 'slider' | 'input' | 'toggle' | 'swatch' | 'select'
 
 /** `default`'s type isn't derived per-descriptor via a conditional type — the
  *  `as const`-per-field boilerplate that'd require wasn't worth it for a
@@ -43,6 +55,16 @@ export interface SettingDescriptor {
    *  marker nib or a charcoal type is an ordinary noun and gets translated.
    *  An option missing from this map renders as its own raw value. */
   optionLabelKeys?: Readonly<Record<string, TranslationKey>>
+  /** (#335) Sample-stroke image per `enumOptions` value, for the 'select'
+   *  control — what a grade or a charcoal type actually lays down, which is
+   *  the entire basis for choosing one and which no amount of labelling
+   *  conveys. Keyed by option value; see toolTypeImages.ts. */
+  optionImages?: Readonly<Record<string, string>>
+  /** (#335) Icon name per `enumOptions` value, for options whose difference is
+   *  a *shape* rather than a tone — the marker's two nibs. Mutually exclusive
+   *  with `optionImages` in practice; a descriptor carrying both would render
+   *  the icon. */
+  optionIcons?: Readonly<Record<string, string>>
   /** Which control(s) this field can render as; first is the default. */
   uiControls: readonly SettingUiControl[]
   /** Also rendered inline in the left toolbar, not just the settings tab. */
@@ -62,6 +84,25 @@ export type ToolSchema = Record<string, SettingDescriptor>
 
 const percentFormat = (v: number) => `${Math.round(v * 100)}%`
 const pxFormat = (v: number) => `${v}px`
+
+/** Inverse of `percentFormat` — the field is edited in the units it displays,
+ *  so "80" typed over "100%" means 0.8, not 80. */
+const percentParse = (text: string): number | null => {
+  const n = parseNumberInput(text)
+  return n === null ? null : n / 100
+}
+
+/** Inverse of `formatDegreesMinutes`. Accepts what that function produces
+ *  ("45°30′") and what someone is likelier to type instead ("45", "45.5") —
+ *  a bare number is degrees, and a second number after the degree mark is
+ *  arc-minutes. */
+export const degreesMinutesParse = (text: string): number | null => {
+  const [degPart, minPart] = text.split(/[°º]/)
+  const deg = parseNumberInput(degPart ?? '')
+  if (deg === null) return null
+  const min = minPart === undefined ? null : parseNumberInput(minPart)
+  return min === null ? deg : deg + Math.sign(deg || 1) * (min / 60)
+}
 
 /** #336: the upper bound of every continuous px size slider (pencil, color
  *  pencil, charcoal, marker, eraser, smudge), in one place so it stays one
@@ -88,10 +129,14 @@ export function formatDegreesMinutes(v: number): string {
 }
 
 const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: number): ToolSchema => ({
+  // (#335) A picker showing each grade's own sample stroke, not a slider over
+  // notation: "6H vs 2B" is a question about how dark and how soft the mark
+  // comes out, and the swatch answers it directly.
   grade: {
     nameKey: 'tool.field.grade',
     valueType: { kind: 'enumOptions', options: PENCIL_GRADES },
-    uiControls: ['slider'],
+    optionImages: PENCIL_GRADE_IMAGES,
+    uiControls: ['select'],
     quickAccess: true,
     default: 'HB' satisfies PencilGradeName,
   },
@@ -104,7 +149,7 @@ const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: n
   },
   opacity: {
     nameKey: 'tool.field.opacity',
-    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
     default: 1,
@@ -160,7 +205,7 @@ const linerSchema = (): ToolSchema => ({
   },
   opacity: {
     nameKey: 'tool.field.opacity',
-    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
     default: 1,
@@ -191,7 +236,8 @@ const charcoalSchema = (): ToolSchema => ({
       willow: 'tool.charcoalType.willow',
       compressed: 'tool.charcoalType.compressed',
     },
-    uiControls: ['slider'],
+    optionImages: CHARCOAL_TYPE_IMAGES,
+    uiControls: ['select'],
     quickAccess: true,
     default: DEFAULT_CHARCOAL_TYPE satisfies CharcoalType,
   },
@@ -208,7 +254,7 @@ const charcoalSchema = (): ToolSchema => ({
   },
   opacity: {
     nameKey: 'tool.field.opacity',
-    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
     default: 1,
@@ -253,7 +299,10 @@ const markerSchema = (): ToolSchema => ({
       bullet: 'tool.nib.bullet',
       chisel: 'tool.nib.chisel',
     },
-    uiControls: ['slider'],
+    // Icons rather than sample strokes (#335): a bullet and a chisel mark
+    // differ in the shape of the tip, and the tip is what the glyph draws.
+    optionIcons: MARKER_NIB_ICONS,
+    uiControls: ['select'],
     quickAccess: true,
     default: 'chisel' satisfies MarkerNibType,
   },
@@ -276,7 +325,7 @@ const markerSchema = (): ToolSchema => ({
   },
   opacity: {
     nameKey: 'tool.field.opacity',
-    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
     default: 1,
@@ -305,7 +354,7 @@ const markerSchema = (): ToolSchema => ({
   // just via drag/arrow-key increments instead of the dial's ring gesture.
   angle: {
     nameKey: 'tool.field.angle',
-    valueType: { kind: 'numberRange', min: 0, max: 360, step: 1 / 60, format: formatDegreesMinutes },
+    valueType: { kind: 'numberRange', min: 0, max: 360, step: 1 / 60, format: formatDegreesMinutes, parse: degreesMinutesParse },
     uiControls: ['slider'],
     quickAccess: true,
     default: 45,
@@ -344,7 +393,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     },
     opacity: {
       nameKey: 'tool.field.opacity',
-      valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+      valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider'],
       quickAccess: true,
       default: 1,
@@ -369,7 +418,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     },
     opacity: {
       nameKey: 'tool.field.strength',
-      valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat },
+      valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider'],
       quickAccess: true,
       default: 0.6,
