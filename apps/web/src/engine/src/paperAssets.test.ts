@@ -20,7 +20,8 @@
 // which a mid-tile discontinuity passes perfectly, because both sampled
 // points move together. Nothing looked at neighbouring columns.
 import { gunzipSync } from 'node:zlib'
-import { existsSync, readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -29,13 +30,30 @@ import { describe, expect, it } from 'vitest'
 import { PAPER_GRAIN_TYPES } from '@grafetto/shared'
 
 import { PAPER_BAKE_RESOLUTION } from './paperConstants'
+import { PAPER_MANIFEST_FILENAME, parsePaperManifest, type PaperManifest } from './paperManifest'
 
 const RES = PAPER_BAKE_RESOLUTION
 const paperDir = join(dirname(fileURLToPath(import.meta.url)), '../../../public/paper')
 
 // The bake is a prebuild step and its output is gitignored, so a clean
 // checkout that has not built yet legitimately has nothing to check.
-const baked = existsSync(join(paperDir, `${PAPER_GRAIN_TYPES[0]}.paper`))
+//
+// (#322) Probing the manifest rather than a fixed `coarse.paper`, because
+// with content-hashed names there is no longer a filename this test could
+// guess. The manifest is also the stricter probe: it is written last and only
+// on a complete bake (see bakePaperTextures.ts), so its presence means the
+// three papers are all there, not just the first one.
+const manifestPath = join(paperDir, PAPER_MANIFEST_FILENAME)
+let manifest: PaperManifest | null = null
+if (existsSync(manifestPath)) {
+  // Deliberately not wrapped in a try: a manifest that exists but does not
+  // parse is a broken bake, not an unbuilt checkout, and the two must not
+  // collapse into the same silent skip. Letting it throw during collection
+  // fails the run loudly, which is the only signal that would ever reach
+  // anyone — nothing else in CI reads these files.
+  manifest = parsePaperManifest(JSON.parse(readFileSync(manifestPath, 'utf8')), manifestPath)
+}
+const baked = manifest !== null
 
 // Measured across the three shipped papers: worst neighbouring-column jump
 // runs 6.5 to 11.9 levels. #302's procedural seam was 24 to 34 against a
@@ -45,8 +63,23 @@ const baked = existsSync(join(paperDir, `${PAPER_GRAIN_TYPES[0]}.paper`))
 const MAX_MEAN_JUMP = 16
 
 describe.skipIf(!baked)('baked paper assets', () => {
+  // The invariant paperLoader.ts leans on at runtime: it looks a type up in
+  // the manifest and fetches whatever it finds, with no fallback. A name that
+  // points at nothing is a 404, and a 404 leaves _paperTexLoaded false, which
+  // disables drawing for the whole room without an error anywhere near it.
+  it('manifest names a file that exists for every paper type, and no others', () => {
+    expect(Object.keys(manifest!.assets).sort()).toEqual([...PAPER_GRAIN_TYPES].sort())
+    for (const type of PAPER_GRAIN_TYPES) {
+      const entry = manifest!.assets[type]
+      expect(existsSync(join(paperDir, entry.texture)), entry.texture).toBe(true)
+      expect(existsSync(join(paperDir, entry.preview)), entry.preview).toBe(true)
+    }
+  })
+
   for (const type of PAPER_GRAIN_TYPES) {
-    const bytes = baked ? gunzipSync(readFileSync(join(paperDir, `${type}.paper`))) : new Uint8Array()
+    // Read at collection time, outside any `it`, so `skipIf` does not protect
+    // it — hence the guard, same reason it was here before hashing.
+    const bytes = baked ? gunzipSync(readFileSync(join(paperDir, manifest!.assets[type].texture))) : new Uint8Array()
 
     it(`${type}: is an interleaved LUMINANCE_ALPHA grid of exactly PAPER_BAKE_RESOLUTION²`, () => {
       // uploadPaperTexture derives the texture's dimensions from this length;
@@ -54,8 +87,22 @@ describe.skipIf(!baked)('baked paper assets', () => {
       expect(bytes.length).toBe(RES * RES * 2)
     })
 
-    it(`${type}: has a preview for the picker`, () => {
-      expect(existsSync(join(paperDir, `${type}.preview`))).toBe(true)
+    it(`${type}: is named after its own content`, () => {
+      // (#322) The hash is what makes an `immutable` cache safe: if it were
+      // ever computed over something other than the bytes it names — the
+      // gzip stream, say, or a stale buffer — two different grains could
+      // share a URL, and a client that cached the first would never see the
+      // second. Recomputed here from the file itself rather than trusted.
+      const hash = createHash('sha256').update(bytes).digest('hex').slice(0, 8)
+      expect(manifest!.assets[type].texture).toBe(`${type}.${hash}.paper`)
+    })
+
+    it(`${type}: manifest records the on-the-wire size of both files`, () => {
+      // Not decorative: this is what the `--if-missing` prebuild check
+      // compares against to spot a truncated or half-restored CI cache, and
+      // what a download-progress readout would have to count against.
+      expect(statSync(join(paperDir, manifest!.assets[type].texture)).size).toBe(manifest!.assets[type].textureBytes)
+      expect(statSync(join(paperDir, manifest!.assets[type].preview)).size).toBe(manifest!.assets[type].previewBytes)
     })
 
     it(`${type}: has no hard discontinuity between neighbouring columns or rows, wrap included`, () => {

@@ -1,4 +1,6 @@
-import type { PaperType } from '@grafetto/shared'
+import type { PaperGrainType, PaperType } from '@grafetto/shared'
+
+import { PAPER_MANIFEST_FILENAME, parsePaperManifest, type PaperManifest } from './paperManifest'
 
 
 // Loads the offline-baked paper-grain textures (see
@@ -12,11 +14,55 @@ import type { PaperType } from '@grafetto/shared'
 // raw-byte fetch + gunzip has no image codec in the loop at all, so
 // there's nothing left to diverge.
 
+// (#322) Filenames are content-hashed, so they cannot be built from the type
+// alone any more — the manifest written by the bake is what maps one to the
+// other. See paperManifest.ts for why the map is fetched rather than bundled.
+const PAPER_DIR = '/paper'
+const PAPER_MANIFEST_URL = `${PAPER_DIR}/${PAPER_MANIFEST_FILENAME}`
+
+// One shared, module-level promise rather than one per paper type: the room's
+// texture and the picker's previews are all named by the same document, and
+// caching per-type would fire a second request the moment someone opened the
+// paper picker while a room was still loading.
+//
+// A *rejection* is deliberately not memoized (the catch nulls it back out).
+// The manifest is now the first hop on the critical path to any paper at all,
+// so a single transient blip — a flaky connection during a reconnect, a
+// deploy landing mid-fetch — must not poison every later attempt for the
+// lifetime of the tab.
+let manifestPromise: Promise<PaperManifest> | null = null
+
+function getPaperManifest(): Promise<PaperManifest> {
+  if (!manifestPromise) {
+    manifestPromise = (async () => {
+      const res = await fetch(PAPER_MANIFEST_URL)
+      if (!res.ok) {
+        // Names the file and the fix on purpose. The overwhelmingly common
+        // way to see this is a fresh checkout running `npm run dev`, which
+        // does not run `prebuild` and therefore has no public/paper/ at all;
+        // a bare "HTTP 404" would send someone hunting a network bug instead
+        // of running one command.
+        throw new Error(
+          `Failed to fetch paper manifest '${PAPER_MANIFEST_URL}': HTTP ${res.status}. `
+          + 'Run `npm run bake:paper` in apps/web (the bake is a prebuild step and its output is not committed).',
+        )
+      }
+      return parsePaperManifest(await res.json(), PAPER_MANIFEST_URL)
+    })().catch(err => {
+      manifestPromise = null
+      throw err
+    })
+  }
+  return manifestPromise
+}
+
 // `.paper`, not `.gz` — see bakePaperTextures.ts's own comment on why the
 // extension is deliberately unrecognizable to any static file server's
-// Content-Encoding auto-tagging.
-function paperAssetURL(type: PaperType): string {
-  return `/paper/${type}.paper`
+// Content-Encoding auto-tagging. The hash sits before that extension for the
+// same reason.
+async function paperAssetURL(type: PaperGrainType, kind: 'texture' | 'preview'): Promise<string> {
+  const manifest = await getPaperManifest()
+  return `${PAPER_DIR}/${manifest.assets[type][kind]}`
 }
 
 async function fetchBytesFromUrl(url: string): Promise<Uint8Array> {
@@ -42,15 +88,12 @@ const FLAT_PAPER_BYTES = new Uint8Array(2 * 2 * 2).fill(0).map((_, i) => (i % 2 
 export const FLAT_PAPER_RESOLUTION = 2
 
 async function fetchPaperBytes(type: PaperType): Promise<Uint8Array> {
+  // Before the manifest, not after: `flat` has no asset, so a manifest
+  // failure must not be able to break a room that was never going to fetch
+  // anything. It also keeps the flat path synchronous-in-spirit — one
+  // already-resolved promise, no network at all.
   if (type === 'flat') return FLAT_PAPER_BYTES
-  return fetchBytesFromUrl(paperAssetURL(type))
-}
-
-/** Where the paper picker's miniature for `type` lives — a ~25 KB
- *  height-only downsample of the same bake (see bakePaperTextures.ts's
- *  downsampleToPreview). `flat` has none: there is nothing to show. */
-export function paperPreviewURL(type: PaperType): string | null {
-  return type === 'flat' ? null : `/paper/${type}.preview`
+  return fetchBytesFromUrl(await paperAssetURL(type, 'texture'))
 }
 
 /** Decoded preview bytes — one byte per pixel, PAPER_PREVIEW_RESOLUTION
@@ -60,15 +103,22 @@ export const PAPER_PREVIEW_RESOLUTION = 256
 
 const previewCache = new Map<PaperType, Promise<Uint8Array>>()
 
+/** The paper picker's miniature for `type` — a ~60 KB height-only downsample
+ *  of the same bake (see bakePaperTextures.ts's downsampleToPreview). `flat`
+ *  has no file: there is nothing to show, so it is synthesised.
+ *
+ *  (#322) There used to be an exported `paperPreviewURL` alongside this; with
+ *  hashed names a URL can only be produced asynchronously, and nothing
+ *  outside this file ever wanted the URL rather than the bytes, so it folded
+ *  in here instead of growing an awaited signature for one caller. */
 export function getPaperPreviewBytes(type: PaperType): Promise<Uint8Array> {
   let cached = previewCache.get(type)
   if (!cached) {
-    const url = paperPreviewURL(type)
-    cached = url
-      ? fetchBytesFromUrl(url)
-      : // 128 is the neutral mid — flat paper must render as exactly its own
-        // colour, and 255 would push it a sixth of the way to white.
-        Promise.resolve(new Uint8Array(PAPER_PREVIEW_RESOLUTION * PAPER_PREVIEW_RESOLUTION).fill(128))
+    cached = type === 'flat'
+      // 128 is the neutral mid — flat paper must render as exactly its own
+      // colour, and 255 would push it a sixth of the way to white.
+      ? Promise.resolve(new Uint8Array(PAPER_PREVIEW_RESOLUTION * PAPER_PREVIEW_RESOLUTION).fill(128))
+      : (async () => fetchBytesFromUrl(await paperAssetURL(type, 'preview')))()
     previewCache.set(type, cached)
   }
   return cached
@@ -132,12 +182,27 @@ export function uploadPaperTexture(gl: WebGLRenderingContext, bytes: Uint8Array)
   return tex
 }
 
+// The manifest fetch lives *below* this seam, inside fetchPaperBytes — never
+// in front of getPaperBytes. engineTestUtils.ts replaces loadPaperBytesImpl
+// process-wide precisely because vitest's 'node' environment has no fetch()
+// and no DecompressionStream; hoisting the manifest above the seam would put
+// a real network call back into every one of the ~200 engine tests.
 export function __setPaperLoaderForTesting(fn: PaperBytesLoader): void {
   loadPaperBytesImpl = fn
-  byteCache.clear()
+  clearPaperCachesForTesting()
 }
 
 export function __resetPaperLoaderForTesting(): void {
   loadPaperBytesImpl = fetchPaperBytes
+  clearPaperCachesForTesting()
+}
+
+// previewCache and the manifest promise are cleared alongside byteCache, not
+// just byteCache: all three are module-level and therefore shared by every
+// test *file* in a worker. A manifest promise left resolved (or rejected)
+// from one file silently decides what the next file's previews resolve to.
+function clearPaperCachesForTesting(): void {
   byteCache.clear()
+  previewCache.clear()
+  manifestPromise = null
 }

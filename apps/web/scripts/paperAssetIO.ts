@@ -4,6 +4,7 @@
 // deliberately-unrecognised extension are all load-bearing (see below), and
 // two copies of that would drift.
 import { gzipSync } from 'node:zlib'
+import { createHash } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -58,7 +59,47 @@ export function downsampleToPreview(height: Float64Array, res: number): Uint8Arr
 
 const kib = (n: number) => `${Math.round(n / 1024)} KiB`
 
-/** Writes `<type>.paper` + `<type>.preview` for one paper.
+/** (#322) Content hash that goes into the filename, over the **uncompressed**
+ *  payload rather than the gzip stream that actually lands on disk.
+ *
+ *  The hash's job is to identify *the bake* — the grain a client will draw on
+ *  — so that a byte-identical URL can never mean two different textures and
+ *  nginx can serve it `immutable`. gzip's output is a function of the zlib
+ *  build as well as the input, so hashing the compressed stream would churn
+ *  every filename on a Node upgrade that changed nothing about the grain,
+ *  forcing every returning user to re-download 22 MB for no reason. Hashing
+ *  the payload also makes the hash the honest answer to "is this the same
+ *  paper?", which is the question the cache is really asking.
+ *
+ *  8 hex chars (32 bits) is plenty: the entire namespace is three papers per
+ *  bake, and a collision would have to happen between two *different* bakes
+ *  of the same type, where the only consequence is a stale cache hit — not a
+ *  wrong file, since a colliding name still names a texture with the same
+ *  content by construction of the rest of the pipeline. */
+function contentHash(payload: Uint8Array): string {
+  return createHash('sha256').update(payload).digest('hex').slice(0, 8)
+}
+
+/** One paper's two files, as the manifest records them. `*Bytes` are the
+ *  **on-disk / on-the-wire** sizes (the gzip streams), not the decompressed
+ *  payload: that is what a Content-Length would report, what a progress
+ *  indicator has to count against, and what a `statSync().size` check can
+ *  compare to catch a half-restored CI cache. */
+export interface PaperAssetNames {
+  texture: string
+  textureBytes: number
+  preview: string
+  previewBytes: number
+}
+
+/** Writes `<type>.<hash>.paper` + `<type>.<hash>.preview` for one paper, and
+ *  returns the names it chose — the caller cannot reconstruct them, which is
+ *  the whole point of hashing, so the manifest has to be assembled from these
+ *  return values (see bakePaperTextures.ts).
+ *
+ *  The two files get **independent** hashes: the preview is a downsample of
+ *  `height` alone and carries no catch channel, so it is a different payload
+ *  and a shared hash would be a lie about one of them.
  *
  *  `height` and `catch` are both 0..1 grids of `res * res`; `height` is the
  *  already-display-curved value (the `.r` channel, blank-paper tint) and
@@ -67,7 +108,7 @@ const kib = (n: number) => `${Math.round(n / 1024)} KiB`
  *  never on the GPU. */
 export function writePaperAsset(
   outDir: string, type: string, height: Float64Array, catchGrid: Float64Array, res: number,
-): void {
+): PaperAssetNames {
   // Interleaved LUMINANCE_ALPHA: [height0, catch0, height1, catch1, ...] —
   // matches gl.texImage2D(..., gl.LUMINANCE_ALPHA, ...)'s expected layout
   // (see paperLoader.ts's uploadPaperTexture) and what texture2D(...).r / .a
@@ -85,11 +126,27 @@ export function writePaperAsset(
   // paperLoader.ts's fetch() ever sees the bytes, silently breaking its own
   // explicit DecompressionStream('gzip') step. An unrecognized extension
   // guarantees no server has a reason to reinterpret the payload.
+  //
+  // (#322) The hash goes *before* that extension, never after it: a
+  // `<type>.paper.<hash>` would hand every static server a brand-new unknown
+  // final extension to guess at, and the guessing is exactly what the
+  // paragraph above exists to prevent. `.paper`/`.preview` stay the last
+  // segment, so nothing about how a server treats these files changes.
   const compressed = gzipSync(bytes, { level: 9 })
-  writeFileSync(join(outDir, `${type}.paper`), compressed)
+  const textureName = `${type}.${contentHash(bytes)}.paper`
+  writeFileSync(join(outDir, textureName), compressed)
 
-  const preview = gzipSync(downsampleToPreview(height, res), { level: 9 })
-  writeFileSync(join(outDir, `${type}.preview`), preview)
+  const previewPayload = downsampleToPreview(height, res)
+  const preview = gzipSync(previewPayload, { level: 9 })
+  const previewName = `${type}.${contentHash(previewPayload)}.preview`
+  writeFileSync(join(outDir, previewName), preview)
 
-  console.log(`${type}: ${kib(bytes.byteLength)} -> ${kib(compressed.byteLength)} texture, ${kib(preview.byteLength)} preview`)
+  console.log(`${type}: ${kib(bytes.byteLength)} -> ${kib(compressed.byteLength)} texture (${textureName}), ${kib(preview.byteLength)} preview (${previewName})`)
+
+  return {
+    texture: textureName,
+    textureBytes: compressed.byteLength,
+    preview: previewName,
+    previewBytes: preview.byteLength,
+  }
 }
