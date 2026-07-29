@@ -146,12 +146,23 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* The hint is a word, not a code — inheriting the field's display tracking
-   spreads "6 digits" across the box and reads as something gone wrong. */
-.codeInput::placeholder {
-  font-size: 15px;
-  font-weight: 400;
-  letter-spacing: normal;
+/* (#353) No placeholder rule here any more, and no placeholder on the input.
+   A hint at the field's own 26px would not fit; shrunk to 15px it sat on the
+   26px baseline, which put it visibly below the centre of the box — the field
+   looked broken rather than empty. The length hint moved into the label,
+   where it needs no styling to survive. */
+
+/* (#353) Dev-only strip. Deliberately unlike anything else on the page —
+   dashed, muted, no brand colour — so a screenshot of the dev stack can never
+   be mistaken for what a real person sees. */
+.devNote {
+  margin-top: -12px;
+  padding: 8px 11px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-dim);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
 }
 
 .confirmation {

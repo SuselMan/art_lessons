@@ -59,8 +59,11 @@ export const en = {
   'auth.emailPlaceholder': 'you@example.com',
   'auth.sendCode': 'Send code',
   'auth.codeSent': 'We sent a code to {email}',
-  'auth.code': 'Code from the email',
-  'auth.codePlaceholder': '6 digits',
+  // (#353) The length hint lives in the label, not in a placeholder: the
+  // placeholder had to be smaller than the field's own display-size digits,
+  // and a smaller glyph on the same baseline sits visibly below the box's
+  // optical centre. One place to read, nothing to misalign.
+  'auth.code': 'Code from the email — 6 digits',
   'auth.confirmation': 'The email shows {phrase}',
   'auth.confirmationHint': "If it shows something else, that email isn't for this page — don't enter it.",
   'auth.signIn': 'Sign in',

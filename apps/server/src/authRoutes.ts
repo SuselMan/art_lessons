@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 
 import { prisma } from './prisma.js'
 import { IDENTITY_COOKIE, identityCookieOptions, signIdentityToken } from './identity.js'
-import { sendEmail } from './email.js'
+import { isEmailConfigured, sendEmail } from './email.js'
 import { buildLoginCodeEmail, isEmailLocale } from './loginCodeEmail.js'
 import {
   CODE_TTL_MS,
@@ -102,6 +102,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     return {
       confirmation: issued.confirmation,
       expiresAt: issued.expiresAt.toISOString(),
+      ...(devCodeFor(issued.code) ?? {}),
     }
   })
 
@@ -144,6 +145,25 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     reply.setCookie(IDENTITY_COOKIE, signIdentityToken(guest.id), identityCookieOptions())
     return { userId: guest.id, email: null, name: null }
   })
+}
+
+/** Hands the code back to the client, but only where there is no mailbox for
+ *  it to be in (#353): local development with no provider configured, where
+ *  `sendEmail` prints to the server log instead of sending. Reading a terminal
+ *  to sign in is the kind of friction that makes people add a back door
+ *  instead — the point of this is to be the safe version of that.
+ *
+ *  Two independent conditions, because either one alone is a bad guard. A
+ *  `NODE_ENV` check alone would leak the code on any staging box that forgot
+ *  to set it; a "no API key" check alone would do the same on a production
+ *  deploy whose key went missing — which is a real state (`index.ts` logs it
+ *  at boot). Both must hold, and both are asserted in authRoutes.test.ts,
+ *  because the failure mode here is silent and total: anyone who can ask for
+ *  a code for an address would be handed the code for it. */
+function devCodeFor(code: string): { devCode: string } | undefined {
+  if (process.env.NODE_ENV === 'production') return undefined
+  if (isEmailConfigured()) return undefined
+  return { devCode: code }
 }
 
 interface ClaimedUser {

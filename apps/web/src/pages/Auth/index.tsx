@@ -50,6 +50,7 @@ export function Auth() {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [confirmation, setConfirmation] = useState('')
+  const [devCode, setDevCode] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [cooldown, setCooldown] = useState(0)
@@ -71,6 +72,12 @@ export function Auth() {
   async function sendCode(target: string): Promise<void> {
     const sent = await requestLoginCode(target, locale)
     setConfirmation(sent.confirmation)
+    // (#353) Local development with no mail provider: the server hands the
+    // code back because there is no inbox it could have gone to. Filled in
+    // rather than merely displayed — signing in is a step on the way to
+    // whatever is actually being worked on, not the thing being tested.
+    setDevCode(sent.devCode ?? null)
+    setCode(sent.devCode ?? '')
     setCooldown(RESEND_COOLDOWN_SECONDS)
     setStep('code')
   }
@@ -186,13 +193,21 @@ export function Auth() {
               inputMode="numeric"
               pattern="[0-9]*"
               maxLength={CODE_LENGTH}
-              placeholder={t('auth.codePlaceholder')}
               value={code}
               // Digits only, so pasting "code: 123456" out of the mail still
               // lands correctly instead of failing as an invisible typo.
               onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, CODE_LENGTH))}
             />
           </div>
+
+          {/* English on purpose: dev-only surfaces stay untranslated
+              (CLAUDE.md), and this one is a note to whoever is running the
+              stack, not to a person signing in. */}
+          {devCode && (
+            <div className={styles.devNote}>
+              Dev mode — no mail provider configured, so nothing was sent and the code is filled in.
+            </div>
+          )}
 
           {confirmation && (
             <div className={styles.confirmation}>

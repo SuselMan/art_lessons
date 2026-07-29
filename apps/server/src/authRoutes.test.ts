@@ -37,7 +37,11 @@ vi.mock('./loginCodes.js', async (importOriginal) => ({
 }))
 
 const mockSendEmail = vi.hoisted(() => vi.fn())
-vi.mock('./email.js', () => ({ sendEmail: mockSendEmail }))
+const mockIsEmailConfigured = vi.hoisted(() => vi.fn())
+vi.mock('./email.js', () => ({
+  sendEmail: mockSendEmail,
+  isEmailConfigured: mockIsEmailConfigured,
+}))
 
 // Wired exactly like index.ts, identityHook included: the "a throttled request
 // never reaches the guest-User branch" property below is a property of that
@@ -89,6 +93,10 @@ beforeEach(() => {
   mockCodes.issueCode.mockResolvedValue(ISSUED)
   mockCodes.redeemCode.mockResolvedValue({ ok: true })
   mockSendEmail.mockResolvedValue(undefined)
+  // The default for these tests is a configured provider — i.e. the shape
+  // production has, where the code must never come back over HTTP.
+  mockIsEmailConfigured.mockReturnValue(true)
+  delete process.env.NODE_ENV
 })
 
 describe('requesting a code (#316)', () => {
@@ -138,6 +146,40 @@ describe('requesting a code (#316)', () => {
     // an empty inbox, deciding they typed their own address wrong.
     expect(res.statusCode).toBe(502)
     expect(res.json()).toMatchObject({ error: 'email_failed' })
+  })
+
+  it('hands the code back only where there is no mailbox for it (#353)', async () => {
+    mockIsEmailConfigured.mockReturnValue(false)
+    const app = await buildApp()
+
+    const res = await requestCode(app, 'dev@example.com', '10.0.0.1')
+
+    // Local development: sendEmail printed to the log instead of sending, so
+    // the code has nowhere else to be read and the sign-in screen fills it in.
+    expect(res.json()).toMatchObject({ devCode: '123456' })
+  })
+
+  it('never hands the code back once a provider is configured', async () => {
+    const app = await buildApp()
+
+    // The dangerous case is not production-with-a-key — it's a box where one
+    // of the two conditions quietly flips. With mail actually being sent, the
+    // code lives in someone's inbox and returning it over HTTP would hand
+    // any address's code to whoever asked for it.
+    expect(await (await requestCode(app, 'teacher@example.com', '10.0.0.1')).json())
+      .not.toHaveProperty('devCode')
+  })
+
+  it('never hands the code back in production, even with no provider', async () => {
+    process.env.NODE_ENV = 'production'
+    mockIsEmailConfigured.mockReturnValue(false)
+    const app = await buildApp()
+
+    // A production deploy whose key went missing is a real state — index.ts
+    // logs it at boot. It must degrade to "nobody can sign in", never to
+    // "anybody can sign in as anybody".
+    expect(await (await requestCode(app, 'teacher@example.com', '10.0.0.1')).json())
+      .not.toHaveProperty('devCode')
   })
 
   it('passes the cooldown through as a number of seconds', async () => {

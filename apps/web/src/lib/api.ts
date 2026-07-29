@@ -70,6 +70,10 @@ export interface RequestedLoginCode {
    *  mail belongs to the page in front of them (#316). */
   confirmation: string
   expiresAt: string
+  /** Only ever present in local development with no mail provider configured
+   *  (#353) — the server refuses to include it otherwise. Its presence is the
+   *  signal that no mail was sent and the code has nowhere else to be read. */
+  devCode?: string
 }
 
 /** Step one of signing in: mail a one-time code to `email`. There is no
