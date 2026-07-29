@@ -9,17 +9,20 @@
 }
 
 /* ── Active layer opacity bar ─────────────────────────────────────────────── */
+/* (#326) Second of the three stacked rules, also removed — see .panelHeader
+   in SidePanel.module.css. Padding 5/10 → 10/14 so the slider has the same
+   left margin as the layer rows below it and isn't pinched against the
+   panel header. */
 .opacityBar {
   display: flex;
   align-items: center;
-  padding: 5px 10px;
-  gap: 7px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 10px 14px;
+  gap: 9px;
   flex-shrink: 0;
 }
 
 .opacityBarLabel {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--color-text-dim);
   flex-shrink: 0;
   user-select: none;
@@ -33,7 +36,7 @@
 }
 
 .opacityBarValue {
-  font-size: 10px;
+  font-size: 11px;
   font-family: var(--font-mono);
   color: var(--color-text-dim);
   width: 30px;
@@ -43,13 +46,16 @@
 }
 
 /* ── List toolbar ─────────────────────────────────────────────────────────── */
+/* (#326) Third of the three stacked rules, removed for the same reason. The
+   6px bottom padding is what now separates it from the list — the toolbar's
+   own buttons and the rows below have visibly different shapes, so the gap
+   does the work the line was doing. */
 .listToolbar {
   display: flex;
   flex-direction: row;
   align-items: center;
-  padding: 4px 6px;
-  gap: 2px;
-  border-bottom: 1px solid var(--color-border);
+  padding: 2px 10px 8px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -59,8 +65,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   color: var(--color-text-dim);
@@ -103,10 +109,9 @@
 }
 
 .importError {
-  padding: 6px 10px;
+  padding: 8px 14px;
   font-size: 11px;
   color: var(--color-error, #e05252);
-  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 
@@ -114,11 +119,10 @@
 .touchHint {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 8px;
+  padding: 8px 14px;
   font-size: 11px;
   color: var(--color-text-dim);
-  border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
 .touchHint :global(.material-symbols-outlined) { font-size: 14px; flex-shrink: 0; }
@@ -143,13 +147,13 @@
 .list {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 0;
+  padding: 2px 0 8px;
 }
 
 .sentinel {
-  height: 4px;
+  height: 6px;
   flex-shrink: 0;
-  margin: 0 3px;
+  margin: 0 6px;
   border-radius: var(--radius-sm);
   transition: background var(--duration-fast);
   display: flex;
@@ -163,7 +167,7 @@
   content: '';
   width: 100%;
   height: 1px;
-  background: var(--color-border);
+  background: var(--color-border-soft);
 }
 
 .sentinel[data-over="true"] {
@@ -172,15 +176,24 @@
 }
 
 /* ── Layer row ────────────────────────────────────────────────────────────── */
+/* (#326) 34 → 42 tall. This row is the densest thing in the editor — grip,
+   visibility, lock, owner-lock, type icon, name, opacity readout, ⋮ — and at
+   34px its 20px buttons had 7px of air above and below and 2px between them,
+   under any usable touch target on a tablet.
+   Vertical air is free here; horizontal air is not, and the control count has
+   already spent the whole horizontal budget: at 26px buttons the name was
+   left with ~30px and truncated to "Laye…". Hence 24px buttons and 3px gaps
+   against a widened panel — the row is at its limit, and the next round of
+   this has to be "which of these six belongs in the ⋮ menu", not more px. */
 .rowMain {
   display: flex;
   flex-direction: row;
   align-items: center;
-  height: 34px;
-  padding: 0 4px;
-  gap: 2px;
-  border-radius: var(--radius-sm);
-  margin: 0 3px;
+  height: 42px;
+  padding: 0 5px;
+  gap: 3px;
+  border-radius: var(--radius-md);
+  margin: 0 5px;
   cursor: grab;
   touch-action: none; /* required for dnd-kit touch dragging — without this the browser intercepts touch for scroll */
   transition: background var(--duration-fast);
@@ -225,13 +238,17 @@
 
 .gripSpacer { width: 18px; flex-shrink: 0; }
 
+/* Holds a .rowIconBtn's place on rows that don't render one — see LayerRow's
+   own comment at the owner-lock button. Must track .rowIconBtn's width. */
+.rowIconSpacer { width: 24px; flex-shrink: 0; }
+
 /* Inline icon buttons on rows (visibility, lock) */
 .rowIconBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   flex-shrink: 0;
   border-radius: var(--radius-sm);
   cursor: pointer;
@@ -239,7 +256,7 @@
   transition: color var(--duration-fast), background var(--duration-fast);
 }
 .rowIconBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.rowIconBtn :global(.material-symbols-outlined) { font-size: 13px; }
+.rowIconBtn :global(.material-symbols-outlined) { font-size: 15px; }
 
 /* Lock icon: dim (unlocked state) */
 .rowIconBtnDim {
@@ -308,7 +325,7 @@
 /* Name */
 .name {
   flex: 1;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--color-text);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -335,7 +352,7 @@
 /* Read-only opacity display on each row — the panel's opacity bar is the one
    place opacity is edited, so this is a readout and nothing more. */
 .opacityDisplay {
-  font-size: 9px;
+  font-size: 10px;
   font-family: var(--font-mono);
   color: var(--color-text-dim);
   opacity: 0.5;
