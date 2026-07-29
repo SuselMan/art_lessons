@@ -2938,6 +2938,11 @@ export function Room() {
         <button className={styles.headerLogoBtn} onClick={() => void leaveRoom()} title={t('room.home')} aria-label={t('room.home')}>
           <Logo />
         </button>
+        {/* Same divider the control clusters use on the right (#329) — the
+            wordmark is a button that leaves the room, the name beside it is
+            static text, and without a break between them they read as one
+            label. */}
+        <div className={styles.headerDivider} />
         <span className={styles.roomName}>{config.name}</span>
 
         {/* (#329) Four sections, divider-separated, in the order they're

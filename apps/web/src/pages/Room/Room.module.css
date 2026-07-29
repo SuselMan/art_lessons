@@ -66,7 +66,12 @@
   bottom: 0;
   z-index: 2;
   display: flex;
-  background: var(--color-surface-raised);
+  /* Matches the left toolbar's --color-surface. The two docked panels were on
+     different surfaces (raised on the right, plain on the left) for no reason
+     either of them could name, which also made the *same* --color-border edge
+     read as two different greys: against #1c1c22 it nearly vanished, against
+     #111113 it reads. One surface, one edge. */
+  background: var(--color-surface);
   transition: opacity var(--duration-normal) ease;
 }
 
@@ -90,11 +95,12 @@
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  /* (#326) The rule under the header is gone: --color-surface (#111113)
-     against the viewport's #0d0d10 already separates them, and the line was
-     one of five horizontal rules stacked down the right half of the editor.
-     A border here is what makes the chrome read as a form rather than as a
-     surface the drawing floats on. */
+  /* Back after the #326 pass briefly dropped it: with the side panel now on
+     --color-surface too, the header's bottom edge is the boundary between the
+     chrome and everything below it on both sides, and #111113 against #0d0d10
+     alone was too quiet to carry that. Same token as the panels' own edges, so
+     all three read as one frame. */
+  border-bottom: 1px solid var(--color-border);
   background: var(--color-surface);
   user-select: none;
   transition: opacity var(--duration-normal) ease;

@@ -32,7 +32,10 @@
 }
 
 /* Identity dot — same visual language as the peer cursor's own color, which is
-   what makes "who is this row" answerable without reading the name. */
+   what makes "who is this row" answerable without reading the name.
+   The 2px ring below has to be the panel's own background (both panels are
+   --color-surface now): it exists to punch a gap between the dot and the
+   accent/warning ring outside it, so it is a hole, not a colour. */
 .dot {
   width: 24px;
   height: 24px;
@@ -44,12 +47,12 @@
   font-weight: 700;
   color: #111;
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px var(--color-surface-raised);
+  box-shadow: 0 0 0 2px var(--color-surface);
   transition: box-shadow var(--duration-fast);
 }
 
 .dotDrawing {
-  box-shadow: 0 0 0 2px var(--color-surface-raised), 0 0 0 4px var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-accent);
   animation: participant-drawing-pulse 1.2s ease-in-out infinite;
 }
 
@@ -58,7 +61,7 @@
    never read as the same state at a glance. */
 .dotFrozen {
   opacity: 0.55;
-  box-shadow: 0 0 0 2px var(--color-surface-raised), 0 0 0 4px var(--color-warning);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-warning);
 }
 .dotFrozen :global(.material-symbols-outlined) { font-size: 14px; }
 
