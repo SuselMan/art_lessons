@@ -23,6 +23,12 @@ export const en = {
   'common.rename': 'Rename',
   'common.delete': 'Delete',
   'common.retry': 'Retry',
+  // (#48) The service worker found a newer deploy. Deliberately an offer and
+  // not an automatic reload: a teacher mid-lesson can have unsent operations
+  // in the queue (#313 guards the same thing with beforeunload), and losing
+  // them to a background refresh would be the app breaking its own promise.
+  'update.available': 'A new version is available',
+  'update.reload': 'Update',
   // (#343) Was `room.dismiss` — moved into the shared vocabulary when the
   // notification strip became one component used on every page, not just in
   // the room.

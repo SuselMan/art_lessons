@@ -12,6 +12,8 @@ export const ru: Dictionary = {
   'common.rename': 'Переименовать',
   'common.delete': 'Удалить',
   'common.retry': 'Повторить',
+  'update.available': 'Доступна новая версия',
+  'update.reload': 'Обновить',
   'common.dismiss': 'Скрыть',
   'common.loading': 'Загрузка…',
   'common.working': 'Выполняется…',
