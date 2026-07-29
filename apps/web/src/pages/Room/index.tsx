@@ -32,7 +32,7 @@ import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { getHotkeyBindings, matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
-import { moveRoomToFolder } from '../../lib/api'
+import { forkRoom, moveRoomToFolder, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { useViewport } from './useViewport'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
@@ -40,6 +40,7 @@ import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
 import { FrozenBanner } from './FrozenBanner'
+import { ClosedBanner } from './ClosedBanner'
 import { LostWorkBanner } from './LostWorkBanner'
 import { ConnectionBanner } from './ConnectionBanner'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
@@ -101,7 +102,8 @@ interface CreatorNavState {
 }
 
 function toRoomConfig(
-  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
+  room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
+    & Partial<Pick<RoomEntity, 'closedAt'>>,
 ): RoomInfo {
   return {
     id: room.id, name: room.name,
@@ -112,6 +114,11 @@ function toRoomConfig(
     paper: normalizePaperType(room.paper), paperColor: room.paperColor, infinite: room.infinite,
     width: room.canvasWidth ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
     height: room.canvasHeight ?? PLACEHOLDER_INFINITE_CANVAS_SIZE,
+    // (#222) Optional in the Pick because the creator's own branch builds a
+    // RoomInfo from navigation state, where the field cannot exist yet — a
+    // room is never born closed. Every other entry point comes from
+    // `room_state`, which carries it.
+    closedAt: room.closedAt,
   }
 }
 
@@ -535,6 +542,14 @@ export function Room() {
   // actually applied).
   const roomFrozen = useRoomStore(s => s.roomFrozen)
   const isBlockedByFreeze = !isOwner && (roomFrozen || !!myParticipant?.frozen)
+  // (#222) Closed for editing — the lesson has been handed out and stopped
+  // changing. Deliberately *not* `!isOwner`: the server binds the owner too
+  // (see getOperationRejectReason in rooms.ts), and a client gate that let
+  // them draw anyway would produce exactly the "drawing into the void" the
+  // freeze gate below exists to prevent.
+  const roomClosed = useRoomStore(s => s.room?.closedAt !== undefined)
+  // Everything that would write to the room goes through this one condition.
+  const editingBlocked = isBlockedByFreeze || roomClosed
   // (#152) Cursor *positions* used to live here (setPeerCursors on every
   // incoming peer_cursor packet — up to ~30Hz per peer, summed across
   // however many peers are moving a pointer at once, all landing on this
@@ -1481,6 +1496,42 @@ export function Room() {
   const toggleRoomFrozen = useCallback(() => {
     socketRef.current?.emit('set_room_frozen', !useRoomStore.getState().roomFrozen)
   }, [])
+  // (#222) Reopening from inside the room. Unlike the freeze toggles around
+  // it this goes over REST, because closing is persisted and the same call
+  // has to work from the lesson list where there is no socket for the room
+  // (see roomRoutes.ts). The store is patched from the answer rather than
+  // waiting for the server's own `room_closed_changed` broadcast to come
+  // back: the broadcast is what tells *everyone else*, and relying on it
+  // here would leave the person who pressed the button looking at a room
+  // that is still closed if their socket happens to be down.
+  const [closedBusy, setClosedBusy] = useState(false)
+  const reopenRoom = useCallback(async () => {
+    if (!id) return
+    setClosedBusy(true)
+    try {
+      const updated = await setRoomClosed(id, false)
+      useRoomStore.getState().setRoomClosedAt(updated.closedAt ?? null)
+    } catch {
+      void showAlert({ message: t('room.error.reopen') })
+    } finally {
+      setClosedBusy(false)
+    }
+  }, [id, showAlert, t])
+  // (#222/#317) The student half: a closed lesson is homework, and this is
+  // how it gets taken. Navigates *into* the copy — the opposite of the same
+  // action in the lesson list (#317), and for the opposite reason: there the
+  // point is to hand copies out, here the point is to start working.
+  const takeRoomCopy = useCallback(async () => {
+    if (!id) return
+    setClosedBusy(true)
+    try {
+      const { room: copy } = await forkRoom(id, t('lessons.forkedName', { name: config?.name ?? '' }))
+      navigate(`/room/${copy.id}`)
+    } catch {
+      void showAlert({ message: t('room.error.takeCopy') })
+      setClosedBusy(false)
+    }
+  }, [id, navigate, config?.name, showAlert, t])
   // (#254/#257/#259) Same reasoning as toggleRoomFrozen above, targeted at
   // one participant — passed to ParticipantsPanel's onToggleFreeze.
   const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
@@ -1634,13 +1685,13 @@ export function Room() {
   // disabling each control individually — the visible preloader already
   // covers the canvas, and this window is a couple of seconds at most.
   //
-  // (#254 epic) isBlockedByFreeze added to the same guard: the server
-  // rejects these operations outright once frozen (#256/#257), so without
-  // this a frozen participant could still see their own stroke/undo/redo
-  // apply locally before silently failing to ever reach anyone else —
-  // "drawing into the void" (see isBlockedByFreeze's own doc comment).
+  // (#254 epic, #222) editingBlocked added to the same guard: the server
+  // rejects these operations outright once the room is frozen (#256/#257) or
+  // closed for editing (#222), so without this the sender could still see
+  // their own stroke/undo/redo apply locally before silently failing to ever
+  // reach anyone else — "drawing into the void" (see its own doc comment).
   const dispatchOp = useCallback((draft: OperationDraft) => {
-    if (!roomContentReady || isBlockedByFreeze) return
+    if (!roomContentReady || editingBlocked) return
     const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
 
     if (isLocalIslandSafe(op, pendingIdsRef.current)) {
@@ -1673,7 +1724,7 @@ export function Room() {
     // so a dropped packet is retried rather than silently swallowed — its
     // `onSettled` handles the verdict either way.
     void outbox.enqueue(op)
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze, outbox, connected, t, showAlert])
+  }, [syncFromLog, roomContentReady, editingBlocked, outbox, connected, t, showAlert])
 
   // (#312) The banner's "undo" — drops the replacement layers again, for
   // when the deletion was right and the recovered strokes aren't wanted.
@@ -1708,7 +1759,7 @@ export function Room() {
   // only decides whether to *ask*: undo()/redo() re-resolve their own target
   // when they actually run, so a confirmed undo still acts on current state.
   const handleUndo = useCallback(async () => {
-    if (!roomContentReady || isBlockedByFreeze) return
+    if (!roomContentReady || editingBlocked) return
     const peek = engineRef.current?.peekUndo()
     if (peek?.hasOtherContent && !await confirm({
       title: t('room.undo'),
@@ -1717,10 +1768,10 @@ export function Room() {
       danger: true,
     })) return
     if (engineRef.current?.undo()) syncFromLog()
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze, t, confirm])
+  }, [syncFromLog, roomContentReady, editingBlocked, t, confirm])
 
   const handleRedo = useCallback(async () => {
-    if (!roomContentReady || isBlockedByFreeze) return
+    if (!roomContentReady || editingBlocked) return
     const peek = engineRef.current?.peekRedo()
     if (peek?.hasOtherContent && !await confirm({
       title: t('room.redo'),
@@ -1729,7 +1780,7 @@ export function Room() {
       danger: true,
     })) return
     if (engineRef.current?.redo()) syncFromLog()
-  }, [syncFromLog, roomContentReady, isBlockedByFreeze, t, confirm])
+  }, [syncFromLog, roomContentReady, editingBlocked, t, confirm])
 
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen()
@@ -2591,6 +2642,13 @@ export function Room() {
       useRoomStore.getState().setRoomFrozen(frozen)
     }
 
+    // (#222) Closed-for-editing toggled by the owner, from here or from the
+    // lesson list. The point of the event is that someone mid-lesson finds
+    // out when it happens rather than on the rejection of their next stroke.
+    const handleRoomClosedChanged = ({ closedAt }: { closedAt: string | null }) => {
+      useRoomStore.getState().setRoomClosedAt(closedAt)
+    }
+
     // (#254/#257/#259) One participant's freeze toggled — broadcast to the
     // whole room so ParticipantsPanel can show the indicator for everyone,
     // not just the target themselves.
@@ -2605,6 +2663,7 @@ export function Room() {
     socket.on('peer_left',                  handlePeerLeft)
     socket.on('palette_updated',            handlePaletteUpdated)
     socket.on('room_frozen_changed',        handleRoomFrozenChanged)
+    socket.on('room_closed_changed',        handleRoomClosedChanged)
     socket.on('participant_frozen_changed', handleParticipantFrozenChanged)
     socket.on('disconnect',                 handleDisconnect)
 
@@ -3089,10 +3148,10 @@ export function Room() {
               // own doc comment. PointerInput binds pointerdown/move/up
               // directly on this element, so this fully blocks drawing
               // input (nothing to un-wire/re-wire in the engine itself).
-              // (#254 epic) isBlockedByFreeze gates it the same way — the
-              // server would reject the resulting operation anyway
-              // (#256/#257), so this keeps a frozen participant from
-              // drawing into the void (see FrozenBanner for the visible
+              // (#254 epic, #222) editingBlocked gates it the same way —
+              // the server would reject the resulting operation anyway
+              // (#256/#257, #222), so this keeps anyone from drawing into
+              // the void (see FrozenBanner/ClosedBanner for the visible
               // explanation of *why* input stopped responding).
               // (#319) The hand tool rides the same mechanism: with the
               // canvas inert, a press lands on .canvasWrap and bubbles to
@@ -3101,7 +3160,7 @@ export function Room() {
               // pointer path, which is where the two would drift apart.
               style={{
                 ...(config.infinite ? { width: '100%', height: '100%' } : { width: config.width, height: config.height }),
-                pointerEvents: (roomContentReady && !isBlockedByFreeze && !handActive) ? undefined : 'none',
+                pointerEvents: (roomContentReady && !editingBlocked && !handActive) ? undefined : 'none',
               }}
             />
             {/* Bounded rooms: these five assume canvas-pixel-space
@@ -3217,7 +3276,18 @@ export function Room() {
           {/* (#254/#259) Only ever shown to a blocked non-owner — the owner
               triggering their own room-wide freeze isn't blocked by it (see
               isBlockedByFreeze), so this never shows for them. */}
-          {isBlockedByFreeze && <FrozenBanner roomFrozen={roomFrozen} />}
+          {isBlockedByFreeze && !roomClosed && <FrozenBanner roomFrozen={roomFrozen} />}
+          {/* (#222) Wins over the freeze banner when both apply: a closed
+              lesson is the more complete explanation, and unlike freeze it
+              offers the way forward (reopen, or take a copy). */}
+          {roomClosed && (
+            <ClosedBanner
+              isOwner={isOwner}
+              busy={closedBusy}
+              onReopen={reopenRoom}
+              onTakeCopy={takeRoomCopy}
+            />
+          )}
           {/* (#289 §17) Independent of the freeze banner above — both can be
               up at once, hence the stacked offset in its own CSS. */}
           {lostWork && (

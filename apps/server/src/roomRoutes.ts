@@ -2,11 +2,19 @@ import type { FastifyInstance } from 'fastify'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
+import { setRoomClosed } from './rooms.js'
+
+/** (#222) Told when a room's closed-for-editing state changes, so whoever is
+ *  currently *in* that room hears about it. Injected rather than reached for
+ *  directly: this file otherwise knows nothing about socket.io, and keeping
+ *  it that way is what lets roomRoutes.test.ts run without a socket harness.
+ *  index.ts supplies the real one. */
+export type RoomClosedNotifier = (roomId: string, closedAt: string | null) => void
 
 /** Backs "Мои уроки" (#116): rooms the caller owns, and rooms they were ever
  *  a participant in (join history persisted via `RoomParticipant`, not
  *  derived from who's currently connected). */
-export function registerRoomRoutes(app: FastifyInstance): void {
+export function registerRoomRoutes(app: FastifyInstance, notifyRoomClosed?: RoomClosedNotifier): void {
   app.get('/api/rooms/mine', async (request) => {
     // (#209) `include` the thumbnail relation `select`-narrowed to just
     // `updatedAt` — this list can be long, and pulling every room's full PNG
@@ -73,6 +81,46 @@ export function registerRoomRoutes(app: FastifyInstance): void {
     })
     return toWireRoom(updated)
   })
+
+  // (#222) Owner-only toggle of "closed for editing" — the state a lesson
+  // sits in once it has been handed out as homework (release track #314 §4).
+  //
+  // REST rather than a socket event, unlike its neighbours room/participant
+  // freeze (#256/#257), for two reasons that both point the same way: it is
+  // persisted, and it is reachable from the lesson list, where the caller has
+  // no socket joined to that room to send one on. Someone who *is* in the
+  // room learns about it through `room_closed_changed` below.
+  //
+  // Idempotent by design: closing an already-closed room keeps the original
+  // timestamp rather than restamping it, so "when was this handed out"
+  // survives a double click on the toggle.
+  app.patch<{ Params: { id: string }; Body: { closed: boolean } }>(
+    '/api/rooms/:id/closed',
+    async (request, reply) => {
+      const room = await prisma.room.findUnique({ where: { id: request.params.id } })
+      if (!room) return reply.code(404).send({ error: 'not_found' })
+      if (room.ownerId !== request.userId) return reply.code(403).send({ error: 'forbidden' })
+      if (typeof request.body?.closed !== 'boolean') return reply.code(400).send({ error: 'invalid_closed' })
+
+      const alreadyInState = (room.closedAt !== null) === request.body.closed
+      const closedAt = alreadyInState ? room.closedAt : (request.body.closed ? new Date() : null)
+
+      const updated = alreadyInState ? room : await prisma.room.update({
+        where: { id: room.id }, data: { closedAt },
+        include: { thumbnail: { select: { updatedAt: true } }, owner: { select: { name: true } } },
+      })
+
+      // The in-memory mirror has to move before the broadcast, not after: a
+      // client told the room is open again will send its next stroke
+      // immediately, and rooms.ts is what judges it.
+      if (!alreadyInState) {
+        const iso = closedAt?.toISOString() ?? null
+        setRoomClosed(room.id, iso)
+        notifyRoomClosed?.(room.id, iso)
+      }
+      return toWireRoom(updated)
+    },
+  )
 
   app.delete<{ Params: { id: string } }>('/api/rooms/:id', async (request, reply) => {
     const room = await prisma.room.findUnique({ where: { id: request.params.id } })

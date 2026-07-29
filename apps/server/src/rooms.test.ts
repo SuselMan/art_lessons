@@ -8,8 +8,9 @@ import { INITIAL_LAYER_ID } from '@grafetto/shared'
 
 import {
   _flushPendingWrites, createRoom, findDuplicateOperation, getOperationRejectReason,
-  getParticipant, getRoomSnapshot, isLayerOwnerLocked, isOperationAllowed, isRoomFrozen, joinRoom, leaveRoom,
-  recordOperation, releaseRoomIfUnused, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, updateAliveIds,
+  getParticipant, getRoomSnapshot, isLayerOwnerLocked, isOperationAllowed, isRoomClosed, isRoomFrozen, joinRoom,
+  leaveRoom, recordOperation, releaseRoomIfUnused, setLayerOwnerLocked, setParticipantFrozen, setRoomClosed,
+  setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 
 // Each test uses its own roomId — `rooms` is module-level shared state with no
@@ -708,6 +709,70 @@ describe('getOperationRejectReason', () => {
     const revoke: Operation = { id: 'r1', type: 'operation_revoke', userId: 'student-1', timestamp: 0, targetOpId: 'x' }
     expect(getOperationRejectReason(roomId, 'student-1', revoke)).toBe('not_owner')
     expect(getOperationRejectReason(roomId, 'student-1', layerOwnerLock({ userId: 'student-1' }))).toBe('not_owner')
+  })
+})
+
+// (#222) Closing a room for editing — the state a lesson sits in once it has
+// been handed out. Unlike every other check in getOperationRejectReason this
+// one is not a privilege of the owner but a property of the document, which
+// is why the owner is bound by it too.
+describe('closed for editing', () => {
+  it('reports room_closed for a participant while the room is closed', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    setRoomClosed(roomId, '2026-07-29T10:00:00.000Z')
+
+    expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe('room_closed')
+  })
+
+  // The whole point of the state: a fork is only a faithful copy of the
+  // assignment if the assignment cannot drift after the copy was taken. An
+  // owner exemption here would make that guarantee a matter of trust.
+  it('binds the owner too, unlike freeze', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    setRoomClosed(roomId, '2026-07-29T10:00:00.000Z')
+
+    expect(getOperationRejectReason(roomId, 'owner-1', stroke({ userId: 'owner-1' }))).toBe('room_closed')
+
+    setRoomFrozen(roomId, true)
+    setRoomClosed(roomId, null)
+    expect(getOperationRejectReason(roomId, 'owner-1', stroke({ userId: 'owner-1' }))).toBeNull()
+  })
+
+  // Not just strokes: undo of your own work and the owner's own revoke both
+  // change content, so a closed lesson has to refuse them as well.
+  it('rejects undo and revoke, not only drawing', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    setRoomClosed(roomId, '2026-07-29T10:00:00.000Z')
+
+    const undo: Operation = { id: 'u1', type: 'operation_undo', userId: 'owner-1', timestamp: 0, targetOpId: 'x' }
+    const revoke: Operation = { id: 'r1', type: 'operation_revoke', userId: 'owner-1', timestamp: 0, targetOpId: 'x' }
+    expect(getOperationRejectReason(roomId, 'owner-1', undo)).toBe('room_closed')
+    expect(getOperationRejectReason(roomId, 'owner-1', revoke)).toBe('room_closed')
+  })
+
+  it('lets operations through again once reopened', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+
+    setRoomClosed(roomId, '2026-07-29T10:00:00.000Z')
+    expect(isRoomClosed(roomId)).toBe(true)
+    setRoomClosed(roomId, null)
+
+    expect(isRoomClosed(roomId)).toBe(false)
+    expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBeNull()
+  })
+
+  // A room nobody is connected to has no in-memory record to correct. That's
+  // not a failure the REST route should report — the next cold load reads
+  // `closedAt` straight from Postgres.
+  it('reports an unknown room without throwing', () => {
+    expect(setRoomClosed('never-created', '2026-07-29T10:00:00.000Z')).toBe(false)
+    expect(isRoomClosed('never-created')).toBe(false)
   })
 })
 

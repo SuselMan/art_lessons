@@ -99,6 +99,14 @@ export function renameRoom(id: string, name: string): Promise<Room> {
   return apiFetch<Room>(`/api/rooms/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) })
 }
 
+// (#222) Owner-only toggle of "closed for editing". Returns the updated room
+// so the caller can reflect the new `closedAt` without a refetch; anyone
+// currently inside the room hears about it over the socket instead
+// (`room_closed_changed`).
+export function setRoomClosed(id: string, closed: boolean): Promise<Room> {
+  return apiFetch<Room>(`/api/rooms/${id}/closed`, { method: 'PATCH', body: JSON.stringify({ closed }) })
+}
+
 // (#317) Copies a room's content into a new room owned by the caller — the
 // mechanism homework runs on (#314 §4). The name is passed from here rather
 // than composed server-side because server responses stay untranslated

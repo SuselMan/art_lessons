@@ -24,6 +24,11 @@ export interface RoomInfo {
   infinite: boolean
   width: number
   height: number
+  // (#222) Closed for editing — see the shared `Room.closedAt` doc comment.
+  // ISO timestamp while closed, absent while open. Unlike the rest of this
+  // shape it changes during a session (the owner can toggle it from here or
+  // from the lesson list), which is what `setRoomClosedAt` below is for.
+  closedAt?: string
 }
 
 export interface RoomInfoSlice {
@@ -49,6 +54,12 @@ export interface RoomInfoSlice {
   // own entry in `participants` above (Participant.frozen).
   roomFrozen: boolean
   setRoomFrozen: (frozen: boolean) => void
+  // (#222) Closed for editing. Unlike `roomFrozen` above this isn't a
+  // separate field: it's a column of the room itself, so it arrives inside
+  // `room` on join and this action only patches it when
+  // `room_closed_changed` says it moved. A no-op before `room` exists — the
+  // event can't arrive before the join that would have delivered the room.
+  setRoomClosedAt: (closedAt: string | null) => void
 }
 
 export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
@@ -67,4 +78,7 @@ export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
   setPalette: palette => set({ palette }),
   roomFrozen: false,
   setRoomFrozen: frozen => set({ roomFrozen: frozen }),
+  setRoomClosedAt: closedAt => set(state => (
+    state.room ? { room: { ...state.room, closedAt: closedAt ?? undefined } } : {}
+  )),
 })

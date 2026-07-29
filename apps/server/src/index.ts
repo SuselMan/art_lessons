@@ -56,14 +56,6 @@ await registerRateLimit(app)
 // which is how the health checks avoid minting a guest User per probe (#178).
 app.addHook('preHandler', identityHook)
 
-registerHealthRoutes(app)
-registerAuthRoutes(app)
-registerRoomRoutes(app)
-registerRoomFolderRoutes(app)
-registerForkRoutes(app)
-registerSnapshotRoutes(app)
-registerThumbnailRoutes(app)
-
 // Engine.IO's own default maxHttpBufferSize is 1e6 (~1MB) and applies to a
 // single packet in *either* direction — not just what the server accepts
 // from a client, but what it can successfully emit to one too. A room with
@@ -84,6 +76,17 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsM
 // (#36), teacher/student roles (#39), and operation_revoke authorization
 // (#73) all live in socketHandlers.ts / rooms.ts — see those for details.
 registerRoomHandlers(io, app.log)
+
+// The HTTP routes come after `io` exists, not because Fastify needs it to,
+// but because one of them does: closing a room for editing (#222) is a REST
+// call whose effect has to reach the people already inside that room.
+registerHealthRoutes(app)
+registerAuthRoutes(app)
+registerRoomRoutes(app, (roomId, closedAt) => io.to(roomId).emit('room_closed_changed', { closedAt }))
+registerRoomFolderRoutes(app)
+registerForkRoutes(app)
+registerSnapshotRoutes(app)
+registerThumbnailRoutes(app)
 
 const start = async () => {
   try {

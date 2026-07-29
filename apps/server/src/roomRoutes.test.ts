@@ -19,12 +19,19 @@ const mockPrisma = vi.hoisted(() => ({
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 
-function buildApp(userId = 'user-1'): FastifyInstance {
+// (#222) The route mirrors the closed state into rooms.ts's live record;
+// stubbed here so this stays a route test — rooms.ts's own half of the
+// behavior is covered in rooms.test.ts.
+const mockSetRoomClosed = vi.hoisted(() => vi.fn())
+vi.mock('./rooms.js', () => ({ setRoomClosed: mockSetRoomClosed }))
+
+function buildApp(userId = 'user-1', notifyRoomClosed?: (roomId: string, closedAt: string | null) => void)
+: FastifyInstance {
   const app = Fastify()
   app.addHook('preHandler', async (request) => {
     request.userId = userId
   })
-  registerRoomRoutes(app)
+  registerRoomRoutes(app, notifyRoomClosed)
   return app
 }
 
@@ -53,6 +60,90 @@ beforeEach(() => {
   mockPrisma.room.delete.mockReset()
   mockPrisma.roomParticipant.findUnique.mockReset()
   mockPrisma.roomParticipant.delete.mockReset()
+  mockSetRoomClosed.mockReset()
+})
+
+// (#222) Owner-only toggle of "closed for editing" — REST rather than a
+// socket event because it is persisted and is reachable from the lesson list,
+// where the caller has no socket joined to that room.
+describe('PATCH /api/rooms/:id/closed', () => {
+  const closedRoom = (closedAt: Date | null) => dbRoom({ closedAt })
+
+  function toggle(app: FastifyInstance, closed: unknown, roomId = 'room-1') {
+    return app.inject({ method: 'PATCH', url: `/api/rooms/${roomId}/closed`, payload: { closed } })
+  }
+
+  it('closes an open room, stamping and returning closedAt', async () => {
+    mockPrisma.room.findUnique.mockResolvedValue(closedRoom(null))
+    mockPrisma.room.update.mockImplementation(({ data }: { data: { closedAt: Date | null } }) =>
+      Promise.resolve(closedRoom(data.closedAt)))
+
+    const res = await toggle(buildApp(), true)
+
+    expect(res.statusCode).toBe(200)
+    expect(typeof res.json().closedAt).toBe('string')
+    expect(mockPrisma.room.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'room-1' }, data: { closedAt: expect.any(Date) },
+    }))
+  })
+
+  it('reopens a closed room, clearing closedAt', async () => {
+    mockPrisma.room.findUnique.mockResolvedValue(closedRoom(new Date('2026-07-01')))
+    mockPrisma.room.update.mockResolvedValue(closedRoom(null))
+
+    const res = await toggle(buildApp(), false)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().closedAt).toBeUndefined()
+    expect(mockPrisma.room.update).toHaveBeenCalledWith(expect.objectContaining({ data: { closedAt: null } }))
+  })
+
+  // The timestamp answers "when was this handed out". Restamping it on a
+  // second click of an already-closed toggle would quietly destroy that.
+  it('keeps the original timestamp when closing an already-closed room', async () => {
+    const alreadyClosed = new Date('2026-07-01T09:00:00.000Z')
+    mockPrisma.room.findUnique.mockResolvedValue(closedRoom(alreadyClosed))
+
+    const res = await toggle(buildApp(), true)
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json().closedAt).toBe(alreadyClosed.toISOString())
+    expect(mockPrisma.room.update).not.toHaveBeenCalled()
+  })
+
+  it('notifies the room and updates the live mirror, but only on a real change', async () => {
+    const notify = vi.fn()
+    mockPrisma.room.findUnique.mockResolvedValue(closedRoom(null))
+    mockPrisma.room.update.mockImplementation(({ data }: { data: { closedAt: Date | null } }) =>
+      Promise.resolve(closedRoom(data.closedAt)))
+
+    await toggle(buildApp('user-1', notify), true)
+    expect(mockSetRoomClosed).toHaveBeenCalledWith('room-1', expect.any(String))
+    expect(notify).toHaveBeenCalledWith('room-1', expect.any(String))
+
+    notify.mockReset()
+    mockSetRoomClosed.mockReset()
+    mockPrisma.room.findUnique.mockResolvedValue(closedRoom(new Date('2026-07-01')))
+    await toggle(buildApp('user-1', notify), true)
+    expect(notify).not.toHaveBeenCalled()
+    expect(mockSetRoomClosed).not.toHaveBeenCalled()
+  })
+
+  it('refuses a non-owner and an unknown room', async () => {
+    mockPrisma.room.findUnique.mockResolvedValue(closedRoom(null))
+    expect((await toggle(buildApp('someone-else'), true)).statusCode).toBe(403)
+
+    mockPrisma.room.findUnique.mockResolvedValue(null)
+    expect((await toggle(buildApp(), true)).statusCode).toBe(404)
+    expect(mockPrisma.room.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects a body without a boolean `closed`', async () => {
+    mockPrisma.room.findUnique.mockResolvedValue(closedRoom(null))
+
+    expect((await toggle(buildApp(), 'yes')).statusCode).toBe(400)
+    expect(mockPrisma.room.update).not.toHaveBeenCalled()
+  })
 })
 
 describe('PATCH /api/rooms/:id (rename)', () => {
