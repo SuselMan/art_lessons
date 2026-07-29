@@ -1,7 +1,9 @@
+/* The square shape comes from the picker's shared surface (#344), not from
+   here — this just fills it. */
 .box {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
+  height: 100%;
   touch-action: none;
 }
 

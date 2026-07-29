@@ -40,12 +40,12 @@ export function BarSquare({ hsv, onChange }: ColorPickerModeProps) {
   }
 
   return (
-    <>
-      <SvSquare hsv={hsv} onChange={onChange} style={{ width: '100%', height: 140 }} />
+    <div className={styles.mode}>
+      <SvSquare hsv={hsv} onChange={onChange} style={{ width: '100%', flex: 1, minHeight: 0 }} />
 
       <div ref={hueRef} className={styles.hueStrip} onPointerDown={onHueDown}>
         <div className={styles.hueThumb} style={{ left: `${(hsv.h / 360) * 100}%` }} />
       </div>
-    </>
+    </div>
   )
 }

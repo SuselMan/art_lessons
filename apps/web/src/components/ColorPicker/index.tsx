@@ -102,7 +102,11 @@ export const ColorPicker = memo(function ColorPicker({
         />
       )}
 
-      <Surface hsv={hsv} onChange={emit} />
+      {/* Every mode is drawn into the same square area, so switching one for
+          another doesn't shove everything below it up or down (#344). */}
+      <div className={styles.surface}>
+        <Surface hsv={hsv} onChange={emit} />
+      </div>
 
       <div className={styles.swatchRow}>
         <div className={styles.currentSwatch} style={{ background: rgbToHex(value) }} />
