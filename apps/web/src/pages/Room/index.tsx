@@ -23,6 +23,7 @@ import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { isModalOpen } from '../../components/Modal/modalSlot'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
+import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import { computeCompositeOrder, isLayerLocked } from '../../lib/layers'
 import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getPencilSoundSetting, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
@@ -1217,6 +1218,7 @@ export function Room() {
       charcoalGrainMode,
     })
     engineRef.current = engine
+    exposeEngineForDev(engine)
 
     // Pencil sound: lazy AudioContext built on the engine's own 'strokeStart'
     // below (a real pointerdown gesture, satisfying the autoplay-unlock
