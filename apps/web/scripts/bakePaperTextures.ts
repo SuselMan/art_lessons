@@ -268,7 +268,15 @@ const manifestPath = join(outDir, PAPER_MANIFEST_FILENAME)
  *  since — that would mean baking. That has always been true of this flag;
  *  the input-change signal is the CI cache key (see deploy.yml), not this. */
 function bakeIsComplete(): boolean {
-  if (!existsSync(manifestPath)) return false
+  if (!existsSync(manifestPath)) {
+    // Logged like every other branch below, and for a sharper reason: this is
+    // the one the CI cache key cannot cover. A cache restored from before #322
+    // has all six assets and no manifest, so the operator sees three and a
+    // half minutes of unexplained baking where they expected "already baked,
+    // skipping" — with nothing in the log to attribute it to.
+    console.log(`paper: no ${PAPER_MANIFEST_FILENAME} next to the assets — re-baking`)
+    return false
+  }
   let manifest: PaperManifest
   try {
     manifest = parsePaperManifest(JSON.parse(readFileSync(manifestPath, 'utf8')), manifestPath)
@@ -347,9 +355,18 @@ for (const type of PAPER_GRAIN_TYPES) {
 // window where an interrupted bake has removed the old assets and not yet
 // written the new ones, which is strictly worse than holding two bakes for a
 // few seconds.
+const tmpPath = `${manifestPath}.tmp`
+const tmpName = `${PAPER_MANIFEST_FILENAME}.tmp`
+
 const keep = new Set(Object.values<PaperAssetEntry>(assets).flatMap(a => [a.texture, a.preview]))
 for (const name of readdirSync(outDir)) {
-  if (!/\.(paper|preview)$/.test(name) || keep.has(name)) continue
+  // The tmp file is swept too, not just assets: a crash between the write and
+  // the rename below leaves it behind, nothing else would ever remove it, and
+  // Vite copies `public/` into `dist/` verbatim — so it would ship, and keep
+  // shipping. Cleaning it here catches the leftover from a previous run,
+  // which is the only run that could have left one.
+  const disposable = /\.(paper|preview)$/.test(name) || name === tmpName
+  if (!disposable || keep.has(name)) continue
   rmSync(join(outDir, name))
   console.log(`pruned stale ${name}`)
 }
@@ -361,7 +378,6 @@ for (const name of readdirSync(outDir)) {
 // truncated-but-valid JSON at worst — rename() is the one filesystem
 // operation that has no such intermediate state.
 const manifest: PaperManifest = { version: PAPER_MANIFEST_VERSION, assets }
-const tmpPath = `${manifestPath}.tmp`
 writeFileSync(tmpPath, `${JSON.stringify(manifest, null, 2)}\n`)
 renameSync(tmpPath, manifestPath)
 

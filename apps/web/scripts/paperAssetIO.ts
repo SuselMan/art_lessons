@@ -9,6 +9,7 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from '../src/engine/src/paperConstants.js'
+import type { PaperAssetEntry } from '../src/engine/src/paperManifest.js'
 
 // The picker has to show paper the way the canvas does, which means sampling
 // it at the same texel-per-pixel ratio the canvas uses — not the whole tile
@@ -71,11 +72,16 @@ const kib = (n: number) => `${Math.round(n / 1024)} KiB`
  *  the payload also makes the hash the honest answer to "is this the same
  *  paper?", which is the question the cache is really asking.
  *
- *  8 hex chars (32 bits) is plenty: the entire namespace is three papers per
- *  bake, and a collision would have to happen between two *different* bakes
- *  of the same type, where the only consequence is a stale cache hit — not a
- *  wrong file, since a colliding name still names a texture with the same
- *  content by construction of the rest of the pipeline. */
+ *  8 hex chars (32 bits) is plenty, but be honest about what a collision would
+ *  cost rather than waving it off: two *different* payloads landing on the
+ *  same name means a client holding the immutably-cached old texture never
+ *  fetches the new one and draws on a different grain than its peers — the
+ *  silent cross-device divergence .claude/rules.md exists to prevent, and the
+ *  hardest possible class of bug to trace. What makes 32 bits fine is the
+ *  namespace, not the blast radius: it is three papers per bake, re-baked by
+ *  hand a handful of times over the project's life, so the probability is
+ *  negligible even by birthday-bound reasoning. If the paper set ever grows by
+ *  orders of magnitude, lengthen this rather than re-deriving the argument. */
 function contentHash(payload: Uint8Array): string {
   return createHash('sha256').update(payload).digest('hex').slice(0, 8)
 }
@@ -84,13 +90,15 @@ function contentHash(payload: Uint8Array): string {
  *  **on-disk / on-the-wire** sizes (the gzip streams), not the decompressed
  *  payload: that is what a Content-Length would report, what a progress
  *  indicator has to count against, and what a `statSync().size` check can
- *  compare to catch a half-restored CI cache. */
-export interface PaperAssetNames {
-  texture: string
-  textureBytes: number
-  preview: string
-  previewBytes: number
-}
+ *  compare to catch a half-restored CI cache.
+ *
+ *  An alias for the reader's benefit, not a second declaration: this is
+ *  literally the manifest's entry type, and CLAUDE.md's "avoid redefining
+ *  shared types" is pointed at exactly this. Two identical four-field
+ *  interfaces tied together only by structural assignment at one call site
+ *  would let a field added to one and not the other typecheck everywhere that
+ *  matters, right up until something read the missing field at runtime. */
+export type PaperAssetNames = PaperAssetEntry
 
 /** Writes `<type>.<hash>.paper` + `<type>.<hash>.preview` for one paper, and
  *  returns the names it chose — the caller cannot reconstruct them, which is

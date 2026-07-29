@@ -55,11 +55,24 @@ export interface PaperManifest {
   assets: Record<PaperGrainType, PaperAssetEntry>
 }
 
+/** The exact shape the bake emits: `<type>.<8 hex>.<paper|preview>`.
+ *
+ *  These two strings are the only values in the whole pipeline that arrive
+ *  over the network and are then concatenated into a URL that gets fetched, so
+ *  they are the one place a shape check is worth more than the strictness it
+ *  costs. A name containing `../` would climb out of /paper/, and one starting
+ *  `//` would become protocol-relative and point at another origin entirely.
+ *  Same-origin delivery makes that unreachable today; the check is here so it
+ *  stays unreachable if the manifest ever gains another writer. It also
+ *  catches the duller failure — a differently-shaped future bake — at parse
+ *  time, with a message, rather than as a 404 three calls later. */
+const ASSET_NAME = /^[a-z]+\.[0-9a-f]{8}\.(paper|preview)$/
+
 function isEntry(v: unknown): v is PaperAssetEntry {
   if (typeof v !== 'object' || v === null) return false
   const e = v as Record<string, unknown>
-  return typeof e.texture === 'string' && e.texture.length > 0
-    && typeof e.preview === 'string' && e.preview.length > 0
+  return typeof e.texture === 'string' && ASSET_NAME.test(e.texture)
+    && typeof e.preview === 'string' && ASSET_NAME.test(e.preview)
     && typeof e.textureBytes === 'number' && typeof e.previewBytes === 'number'
 }
 
