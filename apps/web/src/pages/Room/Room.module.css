@@ -440,7 +440,7 @@
 /* border-box so the ring's outer edge lands exactly on the dab footprint
    BrushCursor writes into width/height — with the default content-box the
    border would inflate the previewed size by 2px at every zoom level. */
-.brushCursorCircle {
+.brushCursorOutline {
   position: absolute;
   top: 0;
   left: 0;
@@ -453,15 +453,6 @@
     inset 0 0 0 1px rgba(0, 0, 0, 0.55);
 }
 
-.brushCursorLine {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: none;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55);
-}
 
 /* ── Ruler tool (#89) — also renders the distance label that used to
    belong to the deleted Measure tool (#195: the two were redundant, see

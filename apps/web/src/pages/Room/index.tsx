@@ -65,7 +65,7 @@ import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
 import { JoinGate } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
-  formatDegreesMinutes, getToolColor, isColorCapableTool, type ColorCapableTool,
+  formatDegreesMinutes, getToolColor, isColorCapableTool, toolSizeRange, type ColorCapableTool,
 } from './toolSchemas'
 import { loadPanelPosition, PANEL_SIZE, measureFloatingPanelCenter, type PanelPosition } from './panelPosition'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
@@ -2673,17 +2673,25 @@ export function Room() {
       if (is('toggleMarker')) { setTool(t => t === 'marker' ? 'pencil' : 'marker'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
       if (is('toggleHand')) { setHandTool(h => !h); return }
+      // Both size hotkeys clamp to the tool's own schema range (toolSizeRange)
+      // rather than to literals — see its comment for why (#336).
       if (is('decreaseSize')) {
         // Liner's own 'size' field is a fixed-label enum (ADR 003), not the
         // plain px number every other tool's 'size' field holds (marker
         // included) — step through the ladder instead of subtracting 1.
         if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, -1))
-        else setToolSetting(tool, 'size', prev => Math.max(1, (prev as number) - 1))
+        else {
+          const range = toolSizeRange(tool)
+          if (range) setToolSetting(tool, 'size', prev => Math.max(range.min, (prev as number) - 1))
+        }
         return
       }
       if (is('increaseSize')) {
         if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, 1))
-        else setToolSetting(tool, 'size', prev => Math.min(120, (prev as number) + 1))
+        else {
+          const range = toolSizeRange(tool)
+          if (range) setToolSetting(tool, 'size', prev => Math.min(range.max, (prev as number) + 1))
+        }
         return
       }
       if (is('rotateCCW')) { setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 })); return }

@@ -49,9 +49,27 @@ describe('MARKER_BULLET_DAB_SHAPING (#251, ADR 004 §1: reuse liner\'s curve as-
 })
 
 describe('MARKER_CHISEL_DAB_SHAPING (#251, ADR 004 §1: fixed aspect + fixed angle)', () => {
-  it('has the same weak pressure response as bullet/liner (ADR 004 §2)', () => {
+  it('has the same weak pressure response as bullet/liner (ADR 004 §2), just scaled down by the nib elongation', () => {
+    const aspect = MARKER_CHISEL_DAB_SHAPING.aspect(0)
     for (const pressure of [0, 0.5, 1]) {
-      expect(MARKER_CHISEL_DAB_SHAPING.size(pressure, 0)).toBeCloseTo(MARKER_BULLET_DAB_SHAPING.size(pressure, 0))
+      expect(MARKER_CHISEL_DAB_SHAPING.size(pressure, 0))
+        .toBeCloseTo(MARKER_BULLET_DAB_SHAPING.size(pressure, 0) / aspect)
+    }
+  })
+
+  // #336: `size` is the dab's short axis and the painted footprint's long axis
+  // is size * aspectRatio, so a chisel whose short axis were bullet's `size`
+  // would paint 5x the width the user asked for. What the toolbar number means
+  // is the broad edge — assert that directly, at the same base size a stroke
+  // would feed in.
+  it('lays a broad edge exactly as wide as the requested base size (not aspectRatio times it)', () => {
+    for (const baseSize of [1, 10, 120, 400]) {
+      for (const pressure of [0, 0.5, 1]) {
+        const broadEdge = baseSize * MARKER_CHISEL_DAB_SHAPING.size(pressure, 0) * MARKER_CHISEL_DAB_SHAPING.aspect(0)
+        // Within the ±6-8% pressure swing every marker nib has (MARKER_WIDTH_
+        // FLOOR/_CEIL), same as bullet's own mark is around its base size.
+        expect(broadEdge).toBeCloseTo(baseSize * MARKER_BULLET_DAB_SHAPING.size(pressure, 0))
+      }
     }
   })
 

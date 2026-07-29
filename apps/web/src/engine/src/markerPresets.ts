@@ -90,7 +90,19 @@ export function chiselDabShaping(angleRadians: number, followStrokeDirection: bo
   return {
     // ADR 004 §2: chisel gets the same weak pressure response as bullet/liner
     // — a real chisel-tip marker doesn't compress any more than a bullet one.
-    size:   pressure => lerp(MARKER_WIDTH_FLOOR, MARKER_WIDTH_CEIL, pressure),
+    //
+    // #336: divided by the aspect ratio, because `size` here is the dab's
+    // *short* axis (the shader stretches the quad's local X by aspectRatio,
+    // so the painted footprint's long axis is size * aspectRatio) while the
+    // number the user picks in the toolbar is the broad edge — a chisel
+    // marker is sold and thought of by the width of the mark its flat side
+    // lays down, exactly the way a bullet nib's number is the width of its
+    // round mark. Without this the chisel painted 5x the requested width,
+    // and the brush cursor's own angle line — which is drawn at the true
+    // size * aspectRatio — showed it (#336's report). The short axis is now
+    // size/5, i.e. the nib's thin edge, which is what a real chisel tip's
+    // profile is.
+    size:   pressure => lerp(MARKER_WIDTH_FLOOR, MARKER_WIDTH_CEIL, pressure) / MARKER_CHISEL_ASPECT_RATIO,
     // Fixed elongation, ignores tiltNorm entirely.
     aspect: () => MARKER_CHISEL_ASPECT_RATIO,
     angle:  followStrokeDirection ? offsetAngleShaping(angleRadians) : fixedAngleShaping(angleRadians),

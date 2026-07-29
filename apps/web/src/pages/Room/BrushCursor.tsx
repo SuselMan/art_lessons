@@ -14,11 +14,9 @@ import styles from './Room.module.css'
 // tools don't exist yet) has no dab shape to preview.
 const DAB_TOOLS: ReadonlySet<ToolType> = new Set(['pencil', 'eraser', 'smudge', 'liner', 'marker', 'charcoal'])
 
-// Below this aspect ratio the dab is close enough to circular that a
-// rotation line would show for a barely-there tilt with nothing meaningful
-// to communicate — every dab-tool's own shaping curve keeps aspect near 1.0
-// except at extreme tilt (bullet/liner) or never at all (chisel, always 5).
-const MIN_ASPECT_FOR_LINE = 1.15
+// Never let the outline collapse to nothing at a 1px brush (or, for a chisel
+// nib, on its short axis — that one is a fifth of the picked size).
+const MIN_CURSOR_EXTENT_PX = 2
 
 interface BrushCursorProps {
   /** Same viewport container ref Room's own #37 cursor-broadcast effect
@@ -41,16 +39,22 @@ interface BrushCursorProps {
   markerFollowStroke?: boolean
 }
 
-/** A brush-size/rotation preview that follows the pointer: a circle sized to
- *  the current tool's dab footprint, plus a line through it at the dab's
- *  angle when the shape is elongated enough for that to mean anything (a
- *  chisel marker, a heavily tilted pencil/liner). Both are drawn as a light
- *  stroke fenced by dark halos (see .brushCursorCircle) so they stay legible
- *  over blank paper and dark graphite alike. That used to be a solid white
- *  fill with `mix-blend-mode: difference` instead; it flickered on every
- *  stroke on Android because the blend has to re-read a WebGL backdrop that
- *  is actively repainting — see the CSS rule's own comment for the
- *  measurement.
+/** A brush-footprint preview that follows the pointer: an outline of the dab
+ *  the current tool would lay down right now — a circle for a round nib, an
+ *  ellipse at the dab's own angle for an elongated one (a chisel marker, a
+ *  heavily tilted pencil/liner). It is drawn as a light stroke fenced by dark
+ *  halos (see .brushCursorOutline) so it stays legible over blank paper and
+ *  dark graphite alike. That used to be a solid white fill with
+ *  `mix-blend-mode: difference` instead; it flickered on every stroke on
+ *  Android because the blend has to re-read a WebGL backdrop that is actively
+ *  repainting — see the CSS rule's own comment for the measurement.
+ *
+ *  #336: it used to be a circle of `size` *plus* a separate line of
+ *  `size * aspectRatio` laid across it, which for a 5:1 chisel drew a mark
+ *  five times longer than the circle it went through and read as the cursor
+ *  contradicting itself. One ellipse states the same two numbers (both axes)
+ *  and the angle at once, and — unlike a circle — is what the tool actually
+ *  paints.
  *
  *  Rendered as a sibling of `<canvas>`/`<PeerCursors>` inside whichever
  *  ancestor already carries the viewport's CSS transform (`canvasWrap` for
@@ -80,7 +84,6 @@ export function BrushCursor({
   vpRef, tool, presetName, baseSize, vp, config, markerAngleRadians = 0, markerFollowStroke = false,
 }: BrushCursorProps) {
   const circleRef = useRef<HTMLDivElement>(null)
-  const lineRef = useRef<HTMLDivElement>(null)
   const touchActiveRef = useRef(false)
 
   // Read via a ref inside the listener rather than in the effect's own
@@ -93,10 +96,7 @@ export function BrushCursor({
   stateRef.current = { tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke }
 
   useEffect(() => {
-    if (!DAB_TOOLS.has(tool)) {
-      if (circleRef.current) circleRef.current.style.display = 'none'
-      if (lineRef.current) lineRef.current.style.display = 'none'
-    }
+    if (!DAB_TOOLS.has(tool) && circleRef.current) circleRef.current.style.display = 'none'
   }, [tool])
 
   useEffect(() => {
@@ -111,7 +111,6 @@ export function BrushCursor({
 
     const hide = () => {
       if (circleRef.current) circleRef.current.style.display = 'none'
-      if (lineRef.current) lineRef.current.style.display = 'none'
     }
 
     // Diagnostic-only (chasing the "pen cursor flickers mid-stroke" report):
@@ -130,8 +129,7 @@ export function BrushCursor({
 
     const applyAt = (clientX: number, clientY: number, pressure: number, tiltX: number, tiltY: number) => {
       const circle = circleRef.current
-      const line = lineRef.current
-      if (!circle || !line) return
+      if (!circle) return
       const {
         tool: curTool, presetName: curPreset, baseSize: curBaseSize, vp: curVp, config: curConfig,
         markerAngleRadians: curMarkerAngle, markerFollowStroke: curMarkerFollow,
@@ -144,25 +142,19 @@ export function BrushCursor({
         curTool, curPreset, curBaseSize, pressure, tiltX, tiltY, 0,
         { angle: curMarkerAngle, followStrokeDirection: curMarkerFollow },
       )
-      const diameter = Math.max(size, 2)
+      // DAB_VERT scales the quad's local X axis by aspectRatio before rotating
+      // by `angle` (shaders.ts), so the painted footprint's long axis is
+      // exactly `size * aspectRatio` and its short one is `size`.
+      const longAxis = Math.max(size * Math.max(aspectRatio, 1), MIN_CURSOR_EXTENT_PX)
+      const shortAxis = Math.max(size, MIN_CURSOR_EXTENT_PX)
 
       circle.style.display = 'block'
-      circle.style.width = `${diameter}px`
-      circle.style.height = `${diameter}px`
-      circle.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
-
-      if (aspectRatio >= MIN_ASPECT_FOR_LINE) {
-        // Full long-axis length of the dab ellipse — DAB_VERT scales the
-        // quad's local X axis by aspectRatio before rotating by `angle`
-        // (shaders.ts), so the actual painted footprint's long axis is
-        // exactly `size * aspectRatio`, not just `size`.
-        const lineLen = size * aspectRatio
-        line.style.display = 'block'
-        line.style.width = `${lineLen}px`
-        line.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${angle}rad)`
-      } else {
-        line.style.display = 'none'
-      }
+      circle.style.width = `${longAxis}px`
+      circle.style.height = `${shortAxis}px`
+      // transform-origin stays at the element's own centre, so rotate() spins
+      // the ellipse about that centre while the translates put that centre on
+      // the pointer.
+      circle.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${angle}rad)`
     }
 
     const handleMove = (e: PointerEvent) => {
@@ -202,8 +194,7 @@ export function BrushCursor({
 
   return (
     <div className={styles.brushCursorLayer}>
-      <div ref={circleRef} className={styles.brushCursorCircle} />
-      <div ref={lineRef} className={styles.brushCursorLine} />
+      <div ref={circleRef} className={styles.brushCursorOutline} />
     </div>
   )
 }

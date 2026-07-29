@@ -4,6 +4,7 @@ import {
   loadToolSettings, saveToolSettings, defaultToolSettings,
   LINER_SIZE_LABELS, linerSizeToPx, stepLinerSize,
   TOOL_SCHEMAS, COLOR_CAPABLE_TOOLS, isColorCapableTool, getToolColor,
+  MAX_TOOL_SIZE_PX, toolSizeRange,
   type UiToolId,
 } from './toolSchemas'
 import type { KeyValueStorage } from '../../lib/roomStorage'
@@ -45,7 +46,7 @@ describe('toolSchemas load/save', () => {
     settings.eraser = { ...settings.eraser, size: -10, opacity: -1 }
     saveToolSettings(storage, 'room1', settings)
     const loaded = loadToolSettings(storage, 'room1')
-    expect(loaded.pencil.size).toBe(120)
+    expect(loaded.pencil.size).toBe(MAX_TOOL_SIZE_PX)
     expect(loaded.pencil.opacity).toBe(1)
     expect(loaded.eraser.size).toBe(1)
     expect(loaded.eraser.opacity).toBe(0)
@@ -79,6 +80,23 @@ describe('toolSchemas load/save', () => {
       v: 1, data: { toolSettings: { liner: { size: '999' } } },
     }))
     expect(loadToolSettings(storage, 'room1').liner.size).toBe(defaultToolSettings().liner.size)
+  })
+})
+
+describe('toolSizeRange (#336)', () => {
+  it('reports the schema range for every tool with a continuous px size', () => {
+    for (const toolId of ['pencil', 'colorPencil', 'charcoal', 'marker', 'eraser', 'smudge'] as const) {
+      expect(toolSizeRange(toolId)).toEqual({
+        min: expect.any(Number) as number,
+        max: MAX_TOOL_SIZE_PX,
+      })
+    }
+  })
+
+  it('returns null where there is no numeric size to step — the size hotkeys must not invent one', () => {
+    expect(toolSizeRange('liner')).toBeNull() // fixed mm ladder (ADR 003)
+    expect(toolSizeRange('ruler')).toBeNull() // no settings at all
+    expect(toolSizeRange('eyedropper')).toBeNull()
   })
 })
 

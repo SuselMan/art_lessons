@@ -63,6 +63,17 @@ export type ToolSchema = Record<string, SettingDescriptor>
 const percentFormat = (v: number) => `${Math.round(v * 100)}%`
 const pxFormat = (v: number) => `${v}px`
 
+/** #336: the upper bound of every continuous px size slider (pencil, color
+ *  pencil, charcoal, marker, eraser, smudge), in one place so it stays one
+ *  edit to move. Was 120 (160 for smudge, arbitrarily) — far too small for
+ *  the broad tonal work charcoal and a chisel marker are for, on a canvas
+ *  that is already thousands of px wide. Deliberately shared rather than
+ *  per-tool: nothing about a specific tool argues for a different ceiling,
+ *  and a split would just be a number to forget when this one moves again.
+ *  Liner is not affected — its size is a fixed mm ladder (ADR 003), not a
+ *  slider. */
+export const MAX_TOOL_SIZE_PX = 400
+
 // #278/#277: degrees+arc-minutes, matching the radial dial's own 1' minimum
 // step (RadialDial's own doc comment) — plain toFixed(2) degrees would round
 // away exactly the precision the dial is built to offer. Rounds to the
@@ -86,7 +97,7 @@ const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: n
   },
   size: {
     nameKey: 'tool.field.size',
-    valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
+    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
     uiControls: ['slider', 'input'],
     quickAccess: true,
     default: defaultSize,
@@ -190,7 +201,7 @@ const charcoalSchema = (): ToolSchema => ({
   // px-slider tool's.
   size: {
     nameKey: 'tool.field.size',
-    valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
+    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
     uiControls: ['slider', 'input'],
     quickAccess: true,
     default: 18,
@@ -246,15 +257,22 @@ const markerSchema = (): ToolSchema => ({
     quickAccess: true,
     default: 'chisel' satisfies MarkerNibType,
   },
-  // Plain px diameter, same continuous slider as pencil/eraser/smudge's own
-  // 'size' field (pencilLikeSchema above) — not a fixed label ladder like
-  // the liner's (ADR 003's calibrated-pen-set reasoning doesn't apply here).
+  // Plain px width of the mark, same continuous slider as pencil/eraser/
+  // smudge's own 'size' field (pencilLikeSchema above) — not a fixed label
+  // ladder like the liner's (ADR 003's calibrated-pen-set reasoning doesn't
+  // apply here). For the chisel nib that's the *broad* edge, the way a real
+  // chisel marker is sold and thought of (#336 — see chiselDabShaping).
+  //
+  // Default raised from 10 with that same fix: 10 used to mean a 50px mark
+  // (the engine multiplied it by the 5:1 nib elongation), and a marker whose
+  // default lays a 10px line is a fineliner, not the tool ADR 004 describes
+  // as the one for "заливку крупных форм".
   size: {
     nameKey: 'tool.field.size',
-    valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
+    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
     uiControls: ['slider', 'input'],
     quickAccess: true,
-    default: 10,
+    default: 50,
   },
   opacity: {
     nameKey: 'tool.field.opacity',
@@ -319,7 +337,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   eraser: {
     size: {
       nameKey: 'tool.field.size',
-      valueType: { kind: 'numberRange', min: 1, max: 120, step: 1, format: pxFormat },
+      valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
       uiControls: ['slider', 'input'],
       quickAccess: true,
       default: 24,
@@ -344,7 +362,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   smudge: {
     size: {
       nameKey: 'tool.field.size',
-      valueType: { kind: 'numberRange', min: 4, max: 160, step: 1, format: pxFormat },
+      valueType: { kind: 'numberRange', min: 4, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
       uiControls: ['slider', 'input'],
       quickAccess: true,
       default: 32,
@@ -374,6 +392,18 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
 
 export type ToolSettingsValue = Record<string, SettingDescriptor['default']>
 export type ToolSettingsMap = Record<UiToolId, ToolSettingsValue>
+
+/** Bounds of a tool's continuous px `size` field, or null for a tool whose
+ *  size isn't a plain number (liner's mm ladder, ADR 003) or that has no size
+ *  at all (ruler/grid/…). The '['/']' size hotkeys clamp through this instead
+ *  of repeating literals that drift from the schema — they used to hardcode
+ *  `Math.min(120, …)`/`Math.max(1, …)`, which both survived past the smudge
+ *  tool getting its own 4..160 range and would have survived #336's move to
+ *  MAX_TOOL_SIZE_PX too. */
+export function toolSizeRange(toolId: UiToolId): { min: number; max: number } | null {
+  const valueType = TOOL_SCHEMAS[toolId].size?.valueType
+  return valueType?.kind === 'numberRange' ? { min: valueType.min, max: valueType.max } : null
+}
 
 // ── "has a color" as its own tool capability ────────────────────────────────
 // Deliberately NOT the same concept as toolSlice's PrimaryDrawingTool, even
