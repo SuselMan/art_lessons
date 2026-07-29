@@ -11,7 +11,7 @@ import {
 import type { Room, RoomFolder } from '@grafetto/shared'
 import {
   ApiError, createFolder, deleteFolder, deleteRoom, forkRoom, leaveRoom, listRoomsAt, moveFolder,
-  moveRoomToFolder, renameFolder, renameRoom, searchRooms, type RoomsAtFolder,
+  moveRoomToFolder, renameFolder, renameRoom, searchRooms, setRoomClosed, type RoomsAtFolder,
 } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
 import { useSettingsStore, type LessonsView } from '../../stores/settingsStore'
@@ -133,6 +133,7 @@ interface RoomCardProps {
   onRenameClick: () => void
   onMoveClick: () => void
   onForkClick: () => void
+  onToggleClosedClick: () => void
   onDeleteOrLeaveClick: () => void
   onConfirmClick: () => void
   onCancelConfirmClick: () => void
@@ -140,9 +141,13 @@ interface RoomCardProps {
 
 function RoomCard({
   t, locale, view, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
-  onRenameCancel, busy, onRenameClick, onMoveClick, onForkClick, onDeleteOrLeaveClick, onConfirmClick,
-  onCancelConfirmClick,
+  onRenameCancel, busy, onRenameClick, onMoveClick, onForkClick, onToggleClosedClick, onDeleteOrLeaveClick,
+  onConfirmClick, onCancelConfirmClick,
 }: RoomCardProps) {
+  // (#222) Closed for editing — homework that has been handed out, or a
+  // template kept from drifting. Owner-only to toggle; visible to everyone,
+  // since it changes what the room does when you open it.
+  const closed = room.closedAt !== undefined
   // (#217) Draggable only — a room is never a drop target itself.
   const { setNodeRef, attributes, listeners, transform, isDragging } = useDraggable({
     id: encodeDragId('room', room.id),
@@ -165,6 +170,12 @@ function RoomCard({
             { label: t('common.rename'), onClick: onRenameClick },
             { label: t('common.moveTo'), onClick: onMoveClick },
             { label: t('lessons.fork'), onClick: onForkClick, disabled: busy },
+            // Only the owner can toggle it, and the server enforces that
+            // independently (#222) — hiding the item for everyone else keeps
+            // the menu honest rather than offering an action that 403s.
+            ...(isOwnRoom
+              ? [{ label: t(closed ? 'lessons.reopen' : 'lessons.close'), onClick: onToggleClosedClick, disabled: busy }]
+              : []),
             {
               label: t(isOwnRoom ? 'common.delete' : 'lessons.leaveRoom'),
               onClick: onDeleteOrLeaveClick,
@@ -222,6 +233,15 @@ function RoomCard({
             <span>{formatDate(room.createdAt, locale)}</span>
             <span className={styles.dot}>·</span>
             <span>{isOwnRoom ? t('lessons.ownerYou') : (room.ownerName ?? t('lessons.ownerUnknown'))}</span>
+            {closed && (
+              <>
+                <span className={styles.dot}>·</span>
+                <span className={styles.closedBadge}>
+                  <Icon name="lock" />
+                  {t('lessons.closedBadge')}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </Link>
@@ -504,6 +524,12 @@ export function MyLessons() {
     mutationFn: ({ id, name }: { id: string; name: string }) => forkRoom(id, name),
     onSuccess: ({ room }) => updateRoomsInFolder(rooms => [room, ...rooms]),
   })
+  // (#222) The room comes back with its new `closedAt`, so the card updates
+  // from the server's answer rather than from an assumption about it.
+  const closedMutation = useMutation({
+    mutationFn: ({ id, closed }: { id: string; closed: boolean }) => setRoomClosed(id, closed),
+    onSuccess: updated => updateRoomsEverywhere(rooms => rooms.map(r => r.id === updated.id ? updated : r)),
+  })
   const renameFolderMutation = useMutation({
     mutationFn: ({ id, name }: { id: string; name: string }) => renameFolder(id, name),
     onSuccess: updated => updateFolders(folders => folders.map(f => f.id === updated.id ? updated : f)),
@@ -621,6 +647,7 @@ export function MyLessons() {
   const deleteError = deleteMutation.isError ? t('lessons.error.delete') : null
   const leaveError = leaveMutation.isError ? t('lessons.error.leave') : null
   const forkError = forkMutation.isError ? t('lessons.error.fork') : null
+  const closedError = closedMutation.isError ? t('lessons.error.close') : null
   const createFolderError = createFolderMutation.isError ? t('lessons.error.createFolder') : null
   const searchError = searchFailed ? t('lessons.error.search') : null
   const isEmpty = data !== undefined && data.folders.length === 0 && data.rooms.length === 0
@@ -646,6 +673,7 @@ export function MyLessons() {
         onRenameClick={() => startRename({ kind: 'room', id: room.id }, room.name)}
         onMoveClick={() => setMoveTarget({ kind: 'room', id: room.id })}
         onForkClick={() => forkMutation.mutate({ id: room.id, name: t('lessons.forkedName', { name: room.name }) })}
+        onToggleClosedClick={() => closedMutation.mutate({ id: room.id, closed: room.closedAt === undefined })}
         onDeleteOrLeaveClick={() => setConfirmingId(room.id)}
         onConfirmClick={() => {
           setConfirmingId(null)
@@ -693,6 +721,8 @@ export function MyLessons() {
             <ErrorState message={leaveError} />
           ) : forkError ? (
             <ErrorState message={forkError} />
+          ) : closedError ? (
+            <ErrorState message={closedError} />
           ) : null}
           <section className={styles.section}>
             {searchData === undefined ? (
@@ -779,6 +809,8 @@ export function MyLessons() {
             <ErrorState message={leaveError} />
           ) : createFolderError ? (
             <ErrorState message={createFolderError} />
+          ) : closedError ? (
+            <ErrorState message={closedError} />
           ) : folderError ? (
             <ErrorState message={folderError} onRetry={() => setFolderError(null)} />
           ) : null}

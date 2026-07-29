@@ -552,6 +552,20 @@
   opacity: 0.6;
 }
 
+/* (#222) Closed for editing. Reads as one more fact in the meta line rather
+   than a loud badge — a lesson being closed is its normal resting state once
+   it has been handed out, not a warning. The icon carries the meaning for
+   anyone scanning the list without reading it. */
+.closedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.closedBadge :global(.material-symbols-outlined) {
+  font-size: 14px;
+}
+
 .confirmRow {
   display: flex;
   align-items: center;

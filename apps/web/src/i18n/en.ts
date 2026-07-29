@@ -129,6 +129,11 @@ export const en = {
   // The copy lands next to the original, so it needs a name that tells the
   // two apart at a glance in a list of twenty (#317).
   'lessons.forkedName': '{name} — copy',
+  // (#222) Closed for editing — how a lesson rests once it has been handed
+  // out as homework, and what keeps a template from drifting.
+  'lessons.close': 'Close for editing',
+  'lessons.reopen': 'Reopen for editing',
+  'lessons.closedBadge': 'Closed',
   'lessons.leaveRoom': 'Leave project',
   'lessons.ownerYou': 'You',
   'lessons.ownerUnknown': 'Unknown owner',
@@ -141,6 +146,7 @@ export const en = {
   'lessons.error.load': 'Could not load your projects',
   'lessons.error.delete': 'Could not delete the project',
   'lessons.error.fork': 'Could not copy the project',
+  'lessons.error.close': 'Could not change who can edit this project',
   'lessons.error.leave': 'Could not leave the project',
   'lessons.error.createFolder': 'Could not create the folder',
   'lessons.error.search': 'Search failed',
@@ -224,6 +230,14 @@ export const en = {
   'room.participants.banUnavailable': 'Project access control is not built yet',
   'room.frozenEveryone': 'The project owner has paused drawing for everyone.',
   'room.frozenYou': 'The project owner has paused your drawing.',
+  // (#222) Two readers, two different next steps — the owner wants back in,
+  // everyone else wants a copy of their own to work in.
+  'room.closedOwner': 'This project is closed for editing — including for you.',
+  'room.closedMember': 'This project is closed for editing.',
+  'room.reopen': 'Reopen',
+  'room.takeCopy': 'Take a copy',
+  'room.error.reopen': 'Could not reopen the project',
+  'room.error.takeCopy': 'Could not make your copy',
   // (#201) The queue is durable, so these describe a delay, never a loss —
   // the wording has to carry that, since the whole point is to stop people
   // concluding their work is gone.

@@ -1,0 +1,53 @@
+/* (#222) Same strip geometry as FrozenBanner, and for the same reason: it
+   must not swallow input meant for the canvas underneath — pan/zoom/rotate
+   keep working in a closed room, only editing stops. Unlike that banner this
+   one carries a button, so `pointer-events` is re-enabled on the button
+   itself rather than on the strip. */
+.banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-bright);
+  border: 1px solid var(--color-border);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Neutral, not warning-colored (contrast with FrozenBanner): a closed lesson
+   is its normal state once handed out, not something going wrong. */
+.banner :global(.material-symbols-outlined) {
+  font-size: 18px;
+  color: var(--color-text-dim);
+}
+
+.action {
+  pointer-events: auto;
+  padding: 6px 12px;
+  min-height: 32px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised, var(--color-surface));
+  color: var(--color-text-bright);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.action:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+.action:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
