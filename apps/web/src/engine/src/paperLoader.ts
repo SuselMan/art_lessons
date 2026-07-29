@@ -85,14 +85,13 @@ function invalidatePaperManifest(): void {
   manifestPromise = null
 }
 
-// `.paper`, not `.gz` — see bakePaperTextures.ts's own comment on why the
-// extension is deliberately unrecognizable to any static file server's
-// Content-Encoding auto-tagging. The hash sits before that extension for the
-// same reason.
-async function paperAssetURL(type: PaperGrainType, kind: 'texture' | 'preview'): Promise<string> {
-  const manifest = await getPaperManifest()
-  return `${PAPER_DIR}/${manifest.assets[type][kind]}`
-}
+// URL shape note, kept here because it is the reason the manifest can name
+// files at all: `.paper`, not `.gz` — see bakePaperTextures.ts's own comment
+// on why the extension is deliberately unrecognizable to any static file
+// server's Content-Encoding auto-tagging. The hash sits before that extension
+// for the same reason. fetchPaperAsset builds the URL inline, since it needs
+// the manifest *entry* (for the byte count a progress bar counts against),
+// not just the name.
 
 // Distinguished from every other fetch failure because it is the one with a
 // known cure: a name the manifest gave us that the server does not have can
@@ -100,15 +99,76 @@ async function paperAssetURL(type: PaperGrainType, kind: 'texture' | 'preview'):
 // blip, by contrast, must not spend a second request on the same 7.4 MB.
 class PaperAssetGoneError extends Error {}
 
-async function fetchBytesFromUrl(url: string): Promise<Uint8Array> {
-  const res = await fetch(url)
+interface FetchOptions {
+  signal?: AbortSignal
+  /** Called with bytes received so far, on the **compressed** stream. */
+  onProgress?: (loaded: number) => void
+}
+
+async function fetchBytesFromUrl(url: string, opts: FetchOptions = {}): Promise<Uint8Array> {
+  const res = await fetch(url, { signal: opts.signal })
   if (!res.ok || !res.body) {
     const message = `Failed to fetch paper texture '${url}': HTTP ${res.status}`
     throw res.status === 404 ? new PaperAssetGoneError(message) : new Error(message)
   }
-  const decompressed = res.body.pipeThrough(new DecompressionStream('gzip'))
+
+  // The counter goes *before* the decompressor, not after. Content-Length —
+  // and the manifest's recorded `*Bytes` — describe the gzip stream on the
+  // wire, which is what a download is actually spending time on; counting the
+  // inflated side would report 8 MB against a 7.4 MB total and race ahead of
+  // the network. This is only measurable at all because #342 stopped nginx
+  // re-compressing these: a response compressed on the fly is chunked and
+  // carries no length to count against.
+  //
+  // Both sides pinned to `Uint8Array<ArrayBuffer>` — the element type
+  // `res.body` actually carries. Leaving the generics off makes the counter's
+  // output widen to `ArrayBufferLike`, which DecompressionStream's own
+  // readable side then refuses to line up with.
+  let loaded = 0
+  const counter = new TransformStream<Uint8Array<ArrayBuffer>, Uint8Array<ArrayBuffer>>({
+    transform(chunk, controller) {
+      loaded += chunk.byteLength
+      opts.onProgress?.(loaded)
+      controller.enqueue(chunk)
+    },
+  })
+
+  // Annotated as res.body's own type so the DecompressionStream hop below is
+  // the exact expression it was before the counter existed — inferring it
+  // instead narrows the chunk type and stops DecompressionStream matching.
+  const counted: typeof res.body = res.body.pipeThrough(counter)
+  const decompressed = counted.pipeThrough(new DecompressionStream('gzip'))
   const buf = await new Response(decompressed).arrayBuffer()
   return new Uint8Array(buf)
+}
+
+/** How far the current paper texture download has got. `total` comes from the
+ *  manifest rather than from Content-Length: it is known before the request is
+ *  even made, so the bar can start at a real denominator instead of jumping
+ *  once the first response header lands, and it is one fewer thing to be
+ *  missing on a server we do not control. */
+export interface PaperLoadProgress {
+  type: PaperGrainType
+  loaded: number
+  total: number
+  done: boolean
+}
+
+const progressListeners = new Set<(p: PaperLoadProgress) => void>()
+
+/** Subscribe to texture-download progress; returns an unsubscribe.
+ *
+ *  Previews are deliberately not reported. They are ~60 KB against the
+ *  texture's 7.4 MB, so a bar for them would flash to 100% and mean nothing,
+ *  and the picker fetches several of them at once — which would make a single
+ *  global "loaded/total" a lie about all of them. */
+export function subscribePaperLoadProgress(cb: (p: PaperLoadProgress) => void): () => void {
+  progressListeners.add(cb)
+  return () => { progressListeners.delete(cb) }
+}
+
+function emitProgress(p: PaperLoadProgress): void {
+  for (const cb of progressListeners) cb(p)
 }
 
 /** Resolves `type`'s hashed filename through the manifest and fetches it,
@@ -117,13 +177,36 @@ async function fetchBytesFromUrl(url: string): Promise<Uint8Array> {
  *  exactly once: if the freshly-fetched manifest still names something absent,
  *  the server is genuinely inconsistent and looping would only turn that into
  *  a request storm against a 7.4 MB asset. */
-async function fetchPaperAsset(type: PaperGrainType, kind: 'texture' | 'preview'): Promise<Uint8Array> {
+async function fetchPaperAsset(
+  type: PaperGrainType, kind: 'texture' | 'preview', signal?: AbortSignal,
+): Promise<Uint8Array> {
+  const attempt = async (): Promise<Uint8Array> => {
+    const manifest = await getPaperManifest()
+    const entry = manifest.assets[type]
+    const url = `${PAPER_DIR}/${entry[kind]}`
+    if (kind !== 'texture') return fetchBytesFromUrl(url, { signal })
+
+    const total = entry.textureBytes
+    emitProgress({ type, loaded: 0, total, done: false })
+    const bytes = await fetchBytesFromUrl(url, {
+      signal,
+      onProgress: loaded => emitProgress({ type, loaded, total, done: false }),
+    })
+    // Reached only on success, and that is deliberate: nothing emits `done` on
+    // a failure. A listener reasonably treats done as "the bar can go away",
+    // and letting a failed download say that would clear the overlay on a room
+    // that has not loaded at all. The failure travels by the rejected promise
+    // instead, which is the path that already has somewhere to report it.
+    emitProgress({ type, loaded: total, total, done: true })
+    return bytes
+  }
+
   try {
-    return await fetchBytesFromUrl(await paperAssetURL(type, kind))
+    return await attempt()
   } catch (err) {
     if (!(err instanceof PaperAssetGoneError)) throw err
     invalidatePaperManifest()
-    return fetchBytesFromUrl(await paperAssetURL(type, kind))
+    return attempt()
   }
 }
 
@@ -151,7 +234,7 @@ function cacheEvictingRejection<K>(
   return pending
 }
 
-type PaperBytesLoader = (type: PaperType) => Promise<Uint8Array>
+type PaperBytesLoader = (type: PaperType, signal?: AbortSignal) => Promise<Uint8Array>
 
 // (#300) `flat` has no asset and never will — a texture with no grain is
 // two constant bytes, so it's synthesised here rather than costing a ~7 MB
@@ -163,13 +246,13 @@ type PaperBytesLoader = (type: PaperType) => Promise<Uint8Array>
 const FLAT_PAPER_BYTES = new Uint8Array(2 * 2 * 2).fill(0).map((_, i) => (i % 2 === 0 ? 255 : 128))
 export const FLAT_PAPER_RESOLUTION = 2
 
-async function fetchPaperBytes(type: PaperType): Promise<Uint8Array> {
+async function fetchPaperBytes(type: PaperType, signal?: AbortSignal): Promise<Uint8Array> {
   // Before the manifest, not after: `flat` has no asset, so a manifest
   // failure must not be able to break a room that was never going to fetch
   // anything. It also keeps the flat path synchronous-in-spirit — one
   // already-resolved promise, no network at all.
   if (type === 'flat') return FLAT_PAPER_BYTES
-  return fetchPaperAsset(type, 'texture')
+  return fetchPaperAsset(type, 'texture', signal)
 }
 
 /** Decoded preview bytes — one byte per pixel, PAPER_PREVIEW_RESOLUTION
@@ -206,7 +289,51 @@ let loadPaperBytesImpl: PaperBytesLoader = fetchPaperBytes
 // re-fetching).
 const byteCache = new Map<PaperType, Promise<Uint8Array>>()
 
+// (#345) The speculative download started at app launch, if one is still in
+// flight and still speculative. Held so it can be *cancelled*: that is the
+// whole difference between this being a win and being a regression.
+//
+// byteCache already makes a correct guess free — a room asking for the type
+// being prefetched just awaits the same promise. A wrong guess is the
+// dangerous case: without cancellation the room's real 7.4 MB download would
+// share the connection with 7.4 MB nobody asked for, and the room would open
+// *slower* than with no prefetch at all.
+let speculative: { type: PaperGrainType; abort: AbortController } | null = null
+
+/** Called by every non-speculative read. Either the guess was right — in which
+ *  case the download stops being speculative and must never be cancelled from
+ *  under its real consumer — or it was wrong and dies now. Both end with
+ *  `speculative` cleared, which is what makes a later call for a third type
+ *  unable to abort a load-bearing fetch. */
+function claimSpeculative(type: PaperType): void {
+  if (!speculative) return
+  if (speculative.type !== type) speculative.abort.abort(new Error('paper prefetch superseded'))
+  speculative = null
+}
+
+/** Starts downloading `type` in the background, off any critical path.
+ *
+ *  Fire-and-forget by design: a failure here is not the user's problem, it is
+ *  a guess that did not pay off, and the real load will report its own errors
+ *  when it happens. Deliberately a no-op when the type is already cached or
+ *  in flight, so calling it more than once costs nothing. */
+export function prefetchPaper(type: PaperType): void {
+  if (type === 'flat' || byteCache.has(type) || speculative) return
+  const abort = new AbortController()
+  speculative = { type, abort }
+  const started: Promise<Uint8Array> = cacheEvictingRejection(
+    byteCache, type, () => loadPaperBytesImpl(type, abort.signal),
+  )
+  void started.catch(() => {
+    // Swallowed, and only here: the same promise handed to a real caller
+    // rejects for them too, so nothing is being hidden — this only stops an
+    // unhandled rejection from a download nobody is waiting on yet.
+    if (speculative?.abort === abort) speculative = null
+  })
+}
+
 export function getPaperBytes(type: PaperType): Promise<Uint8Array> {
+  claimSpeculative(type)
   return cacheEvictingRejection(byteCache, type, () => loadPaperBytesImpl(type))
 }
 
@@ -273,4 +400,10 @@ function clearPaperCachesForTesting(): void {
   byteCache.clear()
   previewCache.clear()
   manifestPromise = null
+  // Aborted, not just dropped: a prefetch left running would resolve into a
+  // byteCache the next test has already cleared, and its abort controller
+  // would outlive the state it belongs to.
+  speculative?.abort.abort(new Error('paper loader reset for testing'))
+  speculative = null
+  progressListeners.clear()
 }
