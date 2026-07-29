@@ -7,21 +7,23 @@
   border-left: 1px solid var(--color-border);
 }
 
-/* Always-visible 36px icon strip */
+/* Always-visible icon strip. (#326) 36 → 44 wide with 36px targets and 6px
+   gaps: it was the densest column in the editor and the one a finger hits
+   most often to switch panels. */
 .tabStrip {
-  width: 36px;
+  width: 44px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 0;
+  padding: 10px 0;
   background: var(--color-surface-raised);
-  gap: 2px;
+  gap: 6px;
   flex-shrink: 0;
 }
 
 .stripTab {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -45,22 +47,33 @@
 /* 232 rather than the original 204 (#340): the color tab's ring mode needs
    the width, and one panel width for every tab beats a panel that resizes
    under you as you switch tabs. */
+/* (#326) 232 → 256: the row inside carries six controls plus a name plus a
+   readout, and once those got usable touch sizes the name had ~30px left and
+   truncated to "Laye…". 256 is what buys the name back. That this width is
+   driven by the control count and not by the content is the finding, not the
+   fix — see .rowMain in LayerPanel.module.css. The
+   border-left that used to separate this from .tabStrip is gone — both are
+   --color-surface-raised, so the line was drawing a seam through one
+   continuous surface. The panel's real edge (against the canvas) is
+   .panel's own border-left and that one stays. */
 .content {
-  width: 232px;
+  width: 256px;
   display: flex;
   flex-direction: column;
   background: var(--color-surface-raised);
   overflow: hidden;
-  border-left: 1px solid var(--color-border);
 }
 
 /* ── Panel header ─────────────────────────────────────────────────────────── */
+/* (#326) No bottom rule: this was the first of three horizontal lines within
+   the top ~100px of the panel (header / opacity bar / list toolbar). The
+   uppercase 10px title is already a strong enough boundary on its own; what
+   it lacked was room, so the height went 36 → 44. */
 .panelHeader {
   display: flex;
   align-items: center;
-  height: 36px;
-  padding: 0 6px 0 10px;
-  border-bottom: 1px solid var(--color-border);
+  height: 44px;
+  padding: 0 8px 0 14px;
   flex-shrink: 0;
 }
 
@@ -75,8 +88,8 @@
 }
 
 .collapseBtn {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -127,7 +127,13 @@ function LayerRowImpl({
           toggle, so no point cluttering every row with a permanently-dim
           icon the way the plain lock button above does). The owner always
           sees it, locked or not, since it's their own toggle. */}
-      {!isBackground && (isOwner || isOwnerLocked) && (
+      {/* (#326) When it isn't shown its slot still is, as an empty spacer —
+          otherwise every row that lacks it (the background, and any row a
+          non-owner sees unlocked) pulls its name and everything right of it
+          24px left, and the panel's column of names ends up ragged. Same
+          reason `.gripSpacer` above exists for the background's missing
+          drag handle. */}
+      {!isBackground && (isOwner || isOwnerLocked) ? (
         <button
           className={clsx(
             styles.rowIconBtn,
@@ -146,6 +152,8 @@ function LayerRowImpl({
         >
           <Icon name="lock_person" />
         </button>
+      ) : (
+        <span className={styles.rowIconSpacer} />
       )}
 
       {isFolderItem ? (

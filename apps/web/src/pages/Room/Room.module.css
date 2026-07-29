@@ -7,7 +7,10 @@
    LayerPanel.module.css — rather than this rule enumerating every non-input
    element it should apply to. */
 .editor {
-  --header-h: 44px;
+  /* (#326) 44 → 52. The header carries 32px icon buttons plus a wordmark; at
+     44px there were 6px of air above and below them, which is what made the
+     whole top edge read as "packed". */
+  --header-h: 52px;
   width: 100%;
   height: 100%;
   position: relative;
@@ -85,9 +88,13 @@
   height: var(--header-h);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  border-bottom: 1px solid var(--color-border);
+  gap: 12px;
+  padding: 0 16px;
+  /* (#326) The rule under the header is gone: --color-surface (#111113)
+     against the viewport's #0d0d10 already separates them, and the line was
+     one of five horizontal rules stacked down the right half of the editor.
+     A border here is what makes the chrome read as a form rather than as a
+     surface the drawing floats on. */
   background: var(--color-surface);
   user-select: none;
   transition: opacity var(--duration-normal) ease;
@@ -114,8 +121,8 @@
 }
 
 .headerIconBtn {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -139,18 +146,23 @@
 .headerRight {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 /* Separates the header's clusters (#329: rotation / zoom + fit / undo + redo /
    fullscreen / the ≡ menu) — vertical bar, mirrors .toolDivider's role in the
    left toolbar but for a horizontal row. */
+/* (#326) These stay — unlike the section rules elsewhere they carry real
+   grouping (#329's five clusters) in a row that has no other way to show it.
+   But they got quieter and further from their neighbours: --color-border-soft
+   and 8px of margin instead of 3, so the clusters are read from the gaps
+   first and the line only confirms them. */
 .headerDivider {
   width: 1px;
-  height: 22px;
-  background: var(--color-border);
+  height: 20px;
+  background: var(--color-border-soft);
   flex-shrink: 0;
-  margin: 0 3px;
+  margin: 0 8px;
 }
 
 .zoomLabel {
@@ -207,14 +219,16 @@
   left: 0;
   bottom: 0;
   z-index: 2;
-  width: 56px;
+  /* (#326) 56 → 62, padding 10 → 14, gap 4 → 6. The buttons inside are 44px
+     touch targets; at 56px wide with 4px gaps they were a contiguous column
+     of chips with no air between them. */
+  width: 62px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 0;
-  gap: 4px;
+  padding: 14px 0;
+  gap: 6px;
   background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
   overflow: hidden;
   transition: opacity var(--duration-normal) ease;
 }
@@ -227,16 +241,21 @@
 .quickSettingsBar {
   position: absolute;
   top: var(--header-h);
-  left: 56px;
+  /* Must track .toolbar's width above — this bar is anchored to its right
+     edge, not laid out next to it. */
+  left: 62px;
   bottom: 0;
   z-index: 2;
-  width: 56px;
+  width: 62px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 0;
-  gap: 10px;
+  padding: 14px 0;
+  gap: 14px;
   background: var(--color-surface);
+  /* (#326) Kept, unlike .toolbar's own: this is the boundary between the
+     chrome and the canvas, the one place on the left where a real edge
+     exists. The line between the two bars is gone — they are one surface. */
   border-right: 1px solid var(--color-border);
   overflow: hidden;
   transition: opacity var(--duration-normal) ease;
@@ -246,23 +265,26 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   width: 100%;
   padding: 0 6px;
 }
 
+/* (#326) Was a 36×1px rule between every tool group. It is now pure space:
+   the groups are still legible — a 14px gap against a 4px one inside a group
+   is a 3.5× step, which the eye reads as a break without a drawn line — and
+   the column stops looking like a ruled form. Kept as an element rather than
+   folded into a margin so the grouping stays declared in the JSX. */
 .toolDivider {
-  width: 36px;
-  height: 1px;
-  background: var(--color-border);
+  width: 100%;
+  height: 8px;
   flex-shrink: 0;
-  margin: 3px 0;
 }
 
 /* Icon tool buttons */
 .toolIconBtn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -828,14 +850,17 @@
 }
 
 /* ── Tool settings tab (#197) ── */
+/* (#326) 10 → 14px inline, matching the panel header and the opacity bar in
+   the layers tab — switching tabs should not shift the left edge of the
+   content under the same title. */
 .toolSettingsPanel {
-  padding: 8px 10px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
 }
 
 .noToolSettings {
-  padding: 16px 10px;
+  padding: 16px 14px;
   font-size: 12px;
   color: var(--color-text-dim);
   text-align: center;

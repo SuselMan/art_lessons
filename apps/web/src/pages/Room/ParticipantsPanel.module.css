@@ -1,5 +1,5 @@
 /* (#328) Participants tab of the right-hand SidePanel. The panel's content
-   column is 204px wide (SidePanel.module.css), so every row here is built to
+   column is 256px wide (SidePanel.module.css), so every row here is built to
    survive that: the name ellipsises, nothing else is allowed to grow. */
 
 /* `flex: 1; min-height: 0` rather than a plain overflow: the SidePanel content
@@ -10,8 +10,10 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: 4px;
-  gap: 2px;
+  /* (#326) Matches the layer list's own row inset (5px margin + 5px padding)
+     so the two tabs' first column of content starts at the same x. */
+  padding: 2px 5px 8px;
+  gap: 3px;
   overflow-y: auto;
   list-style: none;
 }
@@ -20,9 +22,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: var(--touch-target-sm);
-  padding: 4px 2px 4px 6px;
-  border-radius: var(--radius-sm);
+  min-height: 42px;
+  padding: 4px 4px 4px 5px;
+  border-radius: var(--radius-md);
 }
 
 .row:hover {
@@ -117,7 +119,7 @@
 .rowMenuBtn :global(.material-symbols-outlined) { font-size: 16px; }
 
 .empty {
-  padding: 12px 10px;
+  padding: 12px 14px;
   font-size: 11px;
   color: var(--color-text-dim);
 }
@@ -125,8 +127,8 @@
 /* ── Room-wide actions in the panel header ────────────────────────────────── */
 /* Sized to match SidePanel's own collapse button so the header row stays even. */
 .headerBtn {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;

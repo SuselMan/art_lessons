@@ -4,7 +4,18 @@
   --color-surface:   #111113;
   --color-surface-raised: #1c1c22;
   --color-surface-2: #222228;
+  /* (#326) Was referenced by seven hover rules across LayerPanel/SidePanel and
+     declared nowhere — every one of those hovers resolved to nothing. Sits
+     between --color-surface-raised and --color-surface-2 on purpose: a hover
+     on a row inside a raised panel must read as "warmer", not as a second
+     surface level. */
+  --color-surface-hover: #26262d;
   --color-border:    #2a2a30;
+  /* (#326) For dividers that only exist to say "different thing below" inside
+     one panel — the strong --color-border stays for real edges between
+     surfaces (panel vs. canvas). Most inner dividers were removed outright in
+     favour of spacing; this is for the few that carry real meaning. */
+  --color-border-soft: #202027;
   --color-accent:    #5555aa;
   --color-accent-hover: #6666bb;
   --color-text:      #cccccc;
@@ -34,7 +45,11 @@
   --app-logo-h:   34px;
 
   /* Border radius */
-  --radius-sm: 4px;
+  /* (#326) 4px → 6px on the small step: it is the radius every icon button in
+     the editor chrome uses, and at 40–44px targets a 4px corner reads as a
+     square chip. 6px is still not "pill", it just stops the toolbar looking
+     like a grid of tiles. */
+  --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 16px;
 
