@@ -10,15 +10,20 @@
   padding: 18px;
 }
 
+/* (#343) An inline error, not a notice: this takes the space the list would
+   have occupied, because a list that could not load has no content to show
+   and the retry that fixes it belongs next to the explanation. Colours come
+   from --color-error now rather than three hardcoded reds that were meant to
+   be the same one. */
 .error {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   font-size: 13px;
-  color: #cc6666;
-  background: rgba(170, 85, 85, 0.1);
-  border: 1px solid rgba(170, 85, 85, 0.25);
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 25%, transparent);
   border-radius: var(--radius-sm);
   padding: 9px 13px;
 }
@@ -33,11 +38,11 @@
   font-size: 12px;
   font-weight: 700;
   color: #fff;
-  background: #aa5555;
+  background: color-mix(in srgb, var(--color-error) 80%, black);
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
 .retryButton:hover {
-  background: #bb6666;
+  background: var(--color-error);
 }

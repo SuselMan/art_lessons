@@ -23,6 +23,10 @@ export const en = {
   'common.rename': 'Rename',
   'common.delete': 'Delete',
   'common.retry': 'Retry',
+  // (#343) Was `room.dismiss` — moved into the shared vocabulary when the
+  // notification strip became one component used on every page, not just in
+  // the room.
+  'common.dismiss': 'Dismiss',
   'common.loading': 'Loading…',
   'common.working': 'Working…',
   'common.moveTo': 'Move to...',
@@ -152,6 +156,12 @@ export const en = {
   'lessons.error.search': 'Search failed',
   'lessons.error.moveFolderCycle': "Can't move a folder into its own subfolder.",
   'lessons.error.moveFolder': 'Could not move the folder',
+  // (#343) These three had no message at all: their mutations carried no
+  // `onError`, so a failed rename or move reverted the card silently and
+  // looked like the click had simply not registered.
+  'lessons.error.renameRoom': 'Could not rename the project',
+  'lessons.error.renameFolder': 'Could not rename the folder',
+  'lessons.error.moveRoom': 'Could not move the project',
   'lessons.error.folderNotEmpty': 'This folder still has projects or subfolders in it — move or delete those first.',
   'lessons.error.deleteFolder': 'Could not delete the folder',
 
@@ -275,7 +285,6 @@ export const en = {
   'room.lostWork.undo': 'Undo',
   'room.lostWork.restoredLayerName': '{name} (restored)',
   'room.lostWork.unnamedLayer': 'Deleted layer',
-  'room.dismiss': 'Dismiss',
 
   // ── project: loading flavor text ───────────────────────────────────────
   'room.loading.1': 'Sharpening pencil...',

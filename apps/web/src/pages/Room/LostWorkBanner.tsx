@@ -1,6 +1,5 @@
 import { useT } from '../../i18n'
-import { Icon } from '../../components/Icon'
-import styles from './LostWorkBanner.module.css'
+import { Notice } from '../../components/Notice'
 
 interface LostWorkBannerProps {
   /** Names of the deleted layers this is about. Empty when nothing was
@@ -33,7 +32,14 @@ interface LostWorkBannerProps {
  *
  *  Still not an automatic room fork, which was considered and rejected in
  *  #289: forking would turn one flaky-wifi session into a pile of
- *  near-duplicate rooms, a worse problem than the one it solves. */
+ *  near-duplicate rooms, a worse problem than the one it solves.
+ *
+ *  (#343) The one banner here that looks like a pushed notice — a discrete
+ *  event, a dismiss button, no live condition behind it — and still is not
+ *  one. Its undo targets layer ids minted in *this* room, so a notice store
+ *  that deliberately survives navigation is the wrong owner: the strip has to
+ *  die with the room, which the local state holding it already guarantees.
+ *  Shape and lifetime are separate questions, and only the shape is shared. */
 export function LostWorkBanner({ layerNames, recovered, onUndo, onDismiss }: LostWorkBannerProps): React.JSX.Element {
   const t = useT()
 
@@ -48,17 +54,13 @@ export function LostWorkBanner({ layerNames, recovered, onUndo, onDismiss }: Los
       : t('room.lostWork.recoveredMany', { n: layerNames.length })
 
   return (
-    <div className={styles.banner} role="status">
-      <Icon name="cloud_off" />
-      <span>{message}</span>
-      {recovered && (
-        <button type="button" className={styles.undo} onClick={onUndo}>
-          {t('room.lostWork.undo')}
-        </button>
-      )}
-      <button type="button" className={styles.dismiss} onClick={onDismiss} aria-label={t('room.dismiss')}>
-        <Icon name="close" />
-      </button>
-    </div>
+    <Notice
+      variant="error"
+      icon="cloud_off"
+      role="status"
+      message={message}
+      action={recovered ? { label: t('room.lostWork.undo'), onClick: onUndo } : undefined}
+      onDismiss={onDismiss}
+    />
   )
 }

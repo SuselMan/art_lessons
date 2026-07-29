@@ -11,6 +11,18 @@
   --color-text-dim:  #666666;
   --color-text-bright: #eeeeee;
 
+  /* Status colors (#343). Before these, every notification strip and form
+     error carried its own hex, and "the same" meaning had drifted into
+     several: warning was #e0a952 in one banner and #c8912f in another, error
+     was #d06a52 in the room and #cc6666 on the forms. Both pairs were meant
+     to read as one colour, which is exactly what a token is for.
+     `--color-danger` was referenced as a var() fallback in a couple of places
+     but never actually declared anywhere; it is now `--color-error`, matching
+     the variant names components branch on. */
+  --color-error:     #cc6666;
+  --color-warning:   #e0a952;
+  --color-success:   #68a06d;
+
   /* Touch targets */
   --touch-target:    48px;
   --touch-target-sm: 40px;
@@ -31,6 +43,10 @@
      component (toolbars, docked panels, their popovers) stay in that
      component's own CSS, where the neighbours they order against live. */
   --z-modal: 500;
+  /* (#343) Above --z-modal on purpose: a request can fail while a dialog is
+     open, and the report of that failure has to be readable without closing
+     the thing that caused it. */
+  --z-notice: 600;
 
   /* Transitions */
   --duration-fast:   100ms;

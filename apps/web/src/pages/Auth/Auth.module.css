@@ -96,11 +96,14 @@
   border-color: var(--color-accent);
 }
 
+/* (#343) Stays inline, next to the submit button that produced it — a
+   validation failure belongs beside the field you have to fix, not floating
+   at the edge of the viewport. Only the colours were shared out to tokens. */
 .error {
   font-size: 13px;
-  color: #cc6666;
-  background: rgba(170, 85, 85, 0.1);
-  border: 1px solid rgba(170, 85, 85, 0.25);
+  color: var(--color-error);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-error) 25%, transparent);
   border-radius: var(--radius-sm);
   padding: 9px 13px;
 }

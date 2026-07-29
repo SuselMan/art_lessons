@@ -12,6 +12,7 @@ export const ru: Dictionary = {
   'common.rename': 'Переименовать',
   'common.delete': 'Удалить',
   'common.retry': 'Повторить',
+  'common.dismiss': 'Скрыть',
   'common.loading': 'Загрузка…',
   'common.working': 'Выполняется…',
   'common.moveTo': 'Переместить…',
@@ -133,6 +134,9 @@ export const ru: Dictionary = {
   'lessons.error.search': 'Поиск не удался',
   'lessons.error.moveFolderCycle': 'Нельзя переместить папку внутрь неё самой.',
   'lessons.error.moveFolder': 'Не удалось переместить папку',
+  'lessons.error.renameRoom': 'Не удалось переименовать проект',
+  'lessons.error.renameFolder': 'Не удалось переименовать папку',
+  'lessons.error.moveRoom': 'Не удалось переместить проект',
   'lessons.error.folderNotEmpty': 'В папке ещё есть проекты или подпапки — сначала переместите или удалите их.',
   'lessons.error.deleteFolder': 'Не удалось удалить папку',
 
@@ -251,7 +255,6 @@ export const ru: Dictionary = {
   'room.lostWork.undo': 'Отменить',
   'room.lostWork.restoredLayerName': '{name} (восстановлено)',
   'room.lostWork.unnamedLayer': 'Удалённый слой',
-  'room.dismiss': 'Скрыть',
 
   // ── проект: тексты загрузки ────────────────────────────────────────────
   'room.loading.1': 'Точим карандаш...',

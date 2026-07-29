@@ -3279,35 +3279,43 @@ export function Room() {
           {rulerActive && !rulerPlaced && (
             <div className={styles.rulerPlaceOverlay} onPointerDown={handleRulerPlaceDown} />
           )}
-          {/* (#254/#259) Only ever shown to a blocked non-owner — the owner
-              triggering their own room-wide freeze isn't blocked by it (see
-              isBlockedByFreeze), so this never shows for them. */}
-          {isBlockedByFreeze && !roomClosed && <FrozenBanner roomFrozen={roomFrozen} />}
-          {/* (#222) Wins over the freeze banner when both apply: a closed
-              lesson is the more complete explanation, and unlike freeze it
-              offers the way forward (reopen, or take a copy). */}
-          {roomClosed && (
-            <ClosedBanner
-              isOwner={isOwner}
-              busy={closedBusy}
-              onReopen={reopenRoom}
-              onTakeCopy={takeRoomCopy}
-            />
-          )}
-          {/* (#289 §17) Independent of the freeze banner above — both can be
-              up at once, hence the stacked offset in its own CSS. */}
-          {lostWork && (
-            <LostWorkBanner
-              layerNames={lostWork.layerNames}
-              recovered={lostWork.restoredLayerIds.length > 0}
-              onUndo={undoLostWorkRecovery}
-              onDismiss={() => setLostWork(null)}
-            />
-          )}
+          {/* (#343) Derived notices — each one visible exactly while its own
+              condition holds, so the condition is the whole lifetime and
+              there is nothing to dismiss or time out. Stacked as siblings in
+              a flex column instead of each guessing at the others' height. */}
+          <div className={styles.noticesTop}>
+            {/* (#254/#259) Only ever shown to a blocked non-owner — the owner
+                triggering their own room-wide freeze isn't blocked by it (see
+                isBlockedByFreeze), so this never shows for them. */}
+            {isBlockedByFreeze && !roomClosed && <FrozenBanner roomFrozen={roomFrozen} />}
+            {/* (#222) Wins over the freeze banner when both apply: a closed
+                lesson is the more complete explanation, and unlike freeze it
+                offers the way forward (reopen, or take a copy). */}
+            {roomClosed && (
+              <ClosedBanner
+                isOwner={isOwner}
+                busy={closedBusy}
+                onReopen={reopenRoom}
+                onTakeCopy={takeRoomCopy}
+              />
+            )}
+            {/* (#289 §17) Independent of the freeze banner above — both can
+                be up at once, which the column now handles on its own. */}
+            {lostWork && (
+              <LostWorkBanner
+                layerNames={lostWork.layerNames}
+                recovered={lostWork.restoredLayerIds.length > 0}
+                onUndo={undoLostWorkRecovery}
+                onDismiss={() => setLostWork(null)}
+              />
+            )}
+          </div>
           {/* (#201) Bottom-anchored, so it can coexist with the event
               banners above for as long as a bad connection lasts. Hidden
               entirely while connected with an empty queue. */}
-          <ConnectionBanner connected={connected} pending={outboxState.pending} stalled={outboxState.stalled} />
+          <div className={styles.noticesBottom}>
+            <ConnectionBanner connected={connected} pending={outboxState.pending} stalled={outboxState.stalled} />
+          </div>
         </div>
 
         {/* ── Side panel (layers, color, …) ── */}
