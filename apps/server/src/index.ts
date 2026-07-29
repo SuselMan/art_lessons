@@ -17,6 +17,7 @@ import { identityHook } from './identity.js'
 import { registerHealthRoutes } from './healthRoutes.js'
 import { registerRateLimit } from './rateLimit.js'
 import { registerAuthRoutes } from './authRoutes.js'
+import { isEmailConfigured } from './email.js'
 import { registerRoomRoutes } from './roomRoutes.js'
 import { registerRoomFolderRoutes } from './roomFolderRoutes.js'
 import { registerForkRoutes } from './forkRoutes.js'
@@ -105,6 +106,15 @@ registerThumbnailRoutes(app)
 
 const start = async () => {
   try {
+    // (#316) Signing in is a code mailed to the address, so a production box
+    // with no mail provider is a box nobody can log into. Said once, at boot,
+    // rather than discovered from the first teacher who can't get in — the
+    // request path can only report the failure after someone has already hit
+    // it. Not fatal on purpose: rooms already open keep working, and refusing
+    // to start would turn a sign-in outage into a total one.
+    if (process.env.NODE_ENV === 'production' && !isEmailConfigured()) {
+      app.log.error('RESEND_API_KEY is not set — nobody can sign in (see deploy/README.md)')
+    }
     await app.listen({ port: 4000, host: '0.0.0.0' })
   } catch (err) {
     app.log.error(err)

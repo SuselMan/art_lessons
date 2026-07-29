@@ -8,17 +8,20 @@ datasource db {
 }
 
 // Every browser gets a User row from its first visit on, via a long-lived
-// identity cookie (#41) — email/passwordHash start out null (anonymous/guest)
-// and get filled in place on registration, same row, same id. So `ownerId`
-// on Room is never optional: anonymous room creation still has a real user
-// behind it, just not (yet) an email+password one. email stays @unique even
+// identity cookie (#41) — `email` starts out null (anonymous/guest) and gets
+// filled in place the first time this browser signs in, same row, same id. So
+// `ownerId` on Room is never optional: anonymous room creation still has a
+// real user behind it, just not (yet) a named one. email stays @unique even
 // though many guest rows share `null` — Postgres treats NULLs as distinct for
 // uniqueness, so this only constrains actual registered emails.
+//
+// There is no password column (#316): sign-in is a one-time code mailed to
+// the address, so the mailbox is the credential and there is nothing else to
+// store, forget, or leak.
 model User {
   id                String            @id @default(uuid())
   email             String?           @unique
   name              String?
-  passwordHash      String?
   // Subscription/monetization tier (#5). Gates unrestricted room ownership
   // (paid) vs free-tier limits — orthogonal to per-room roles, which come
   // from Room.ownerId / RoomParticipant, not from account type.
@@ -28,6 +31,39 @@ model User {
   roomFolders       RoomFolder[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
+}
+
+// One outstanding sign-in code (#316). Not a relation to User on purpose: a
+// code is requested by an *address*, and the address may not have an account
+// yet — asking for a code is how an account gets created in the first place.
+//
+// Stored hashed for the same reason a password was: six digits is a million
+// possibilities, which a dump of this table turns into an offline search of a
+// second or two. The ten-minute TTL doesn't help there — a dump can be taken
+// while codes are live.
+model LoginCode {
+  id           String    @id @default(uuid())
+  // Normalized (trimmed + lowercased) by loginCodes.ts before it ever gets
+  // here, so lookups can't miss a code because of how someone typed it.
+  email        String
+  codeHash     String
+  // Ties the code to the browser that asked for it (cookie `al_login_nonce`).
+  // Without it, a code read aloud to an attacker over the phone is enough to
+  // sign in from anywhere — the one attack this flow is actually exposed to.
+  requestNonce String
+  // Wrong guesses against *this* code. At ATTEMPT_LIMIT the row is burned:
+  // a per-code ceiling is what makes six digits safe, since a time-window
+  // limit alone lets a patient attacker keep guessing the same live code.
+  attempts     Int       @default(0)
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  // Lookup is always "the newest live code for this address".
+  @@index([email, createdAt])
+  // Sweeping expired rows: this endpoint takes no credentials, so the table
+  // grows with every attempt anyone makes.
+  @@index([expiresAt])
 }
 
 model Room {
