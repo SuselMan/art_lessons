@@ -186,6 +186,20 @@ export type Room = {
   // property of the room itself, so this reflects the caller's own filing,
   // not a global fact about the room. Absent/undefined = root level.
   folderId?: string
+  // (#222) Set while the room is closed for editing — the state the homework
+  // model's source lesson sits in (release track #314 §4), and what makes a
+  // template trustworthy: a fork can only be a faithful copy if its source
+  // cannot drift after the copy was taken.
+  //
+  // Unlike the room/participant freeze (#256/#257), which is a live
+  // classroom control held in memory and lost on restart, this is a property
+  // of the document and is persisted. It is also stricter: freeze exempts the
+  // owner, closing does not — see getOperationRejectReason in rooms.ts.
+  //
+  // A timestamp rather than a boolean because the column already existed as
+  // one (schema.prisma) and "when was this handed out" is worth more later
+  // than the bit alone. Absent = open.
+  closedAt?: string
   // (#317) The room this one was forked from — the homework model's whole
   // lineage record (see §4 of the release track #314: a lesson is closed for
   // editing and each student forks it). Absent on rooms created from
@@ -578,6 +592,12 @@ export type SendResult =
 
 export type RejectReason =
   | 'room_frozen' | 'participant_frozen' | 'layer_owner_locked' | 'not_owner'
+  // (#222) The room is closed for editing (Room.closedAt). Distinct from
+  // `room_frozen` on purpose, even though both mean "nobody may draw right
+  // now": freeze is a live control the owner is holding down during a lesson,
+  // closing is a state the lesson is in — different UI, different wording,
+  // and only one of them survives a server restart.
+  | 'room_closed'
   // The operation references a layerId/folderId no longer in the room's
   // alive set (deleted or consumed by a merge) — see rooms.ts's aliveIds.
   | 'target_gone'
@@ -635,6 +655,15 @@ export type ServerToClientEvents = {
   // is accepted — every participant needs this, not just the target, so
   // ParticipantsPanel can show the frozen indicator for everyone else too.
   participant_frozen_changed: (data: { userId: string; frozen: boolean }) => void
+  // (#222) Broadcast to everyone in the room when its closed-for-editing
+  // state is toggled. The toggle itself is REST, not a socket event (see
+  // roomRoutes.ts): it is owner-only, persisted, and reachable from the
+  // lesson list where there is no socket for that room at all. This event
+  // exists so people already *inside* the room find out at the moment it
+  // happens rather than on the rejection of their next stroke.
+  // ISO timestamp while closed, null once reopened — the same shape the
+  // wire `Room.closedAt` carries.
+  room_closed_changed: (data: { closedAt: string | null }) => void
 }
 
 export type ClientToServerEvents = {

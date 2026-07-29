@@ -628,6 +628,28 @@ export function setParticipantFrozen(roomId: string, userId: string, frozen: boo
   return updated
 }
 
+// ── Closed for editing (#222) ─────────────────────────────────────────────
+
+export function isRoomClosed(roomId: string): boolean {
+  return rooms.get(roomId)?.room.closedAt !== undefined
+}
+
+/** Mirrors a `Room.closedAt` change into the live in-memory record, so the
+ *  very next operation is judged against it (#222). Returns `false` when the
+ *  room isn't resident — which is not a failure: a room nobody is connected
+ *  to has no in-memory state to correct and no one to broadcast to, and its
+ *  next cold load reads the new value straight from Postgres (see
+ *  ensureRoomLoaded's toWireRoom). Persisting is the caller's job
+ *  (roomRoutes.ts), same division as setRoomFrozen above — with the
+ *  difference that this one *is* persisted at all, because a closed lesson
+ *  must still be closed after a restart. */
+export function setRoomClosed(roomId: string, closedAt: string | null): boolean {
+  const record = rooms.get(roomId)
+  if (!record) return false
+  record.room = { ...record.room, closedAt: closedAt ?? undefined }
+  return true
+}
+
 export function isLayerOwnerLocked(roomId: string, layerId: string): boolean {
   return rooms.get(roomId)?.lockedLayerIds.has(layerId) ?? false
 }
@@ -655,6 +677,9 @@ export function setLayerOwnerLocked(roomId: string, layerId: string, locked: boo
  *     (an owner can't freeze or lock-out themselves — see
  *     setParticipantFrozen — but this stays an explicit early return rather
  *     than relying on that alone).
+ *   - a room closed for editing (#222) rejects every operation from
+ *     everyone, the owner included — the one check here that is not a
+ *     privilege of the owner but a state of the document.
  *   - room-wide freeze (#256) and this participant's own freeze (#257)
  *     reject *every* operation type, not just drawing ones.
  *   - an owner-locked layer (#258) rejects only operations that target it
@@ -689,6 +714,17 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
   // independently — which could (and did, in the reasoning that led here)
   // resolve differently on different clients.
   if (hasMissingAliveTarget(record, op)) return 'target_gone'
+
+  // (#222) Checked *before* the owner short-circuit below — unlike every
+  // other privilege here, closing binds the owner too. The point of a closed
+  // lesson is that it has stopped changing: students fork it, and a fork is
+  // only a faithful copy of the assignment if the assignment cannot drift
+  // afterwards. An owner who wants to correct something reopens the room,
+  // which is one toggle away and, being persisted and broadcast, is visible
+  // to everyone rather than being a silent exemption. Contrast `room_frozen`
+  // below, which is a live control over *other people* and never applies to
+  // the person holding it.
+  if (record.room.closedAt !== undefined) return 'room_closed'
 
   if (isOwner) return null
 
