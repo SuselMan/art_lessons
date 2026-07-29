@@ -205,6 +205,8 @@ export const en = {
   'room.confirmLeaveMessage': 'The drawing stays in the project and you can open it again from My Projects.',
   'room.confirmLeave': 'Leave',
   'room.confirmLeaveStay': 'Stay',
+  // (#216) The header name doubles as its own rename field for the owner.
+  'room.rename': 'Rename this project',
   'room.settings': 'Settings',
   'room.fullscreen': 'Fullscreen',
   'room.exitFullscreen': 'Exit fullscreen',
@@ -262,6 +264,7 @@ export const en = {
   'room.closedMember': 'This project is closed for editing.',
   'room.reopen': 'Reopen',
   'room.takeCopy': 'Take a copy',
+  'room.error.rename': 'Could not rename the project',
   'room.error.reopen': 'Could not reopen the project',
   'room.error.takeCopy': 'Could not make your copy',
   // (#201) The queue is durable, so these describe a delay, never a loss —

@@ -33,7 +33,7 @@ import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { getHotkeyBindings, matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
-import { forkRoom, moveRoomToFolder, setRoomClosed } from '../../lib/api'
+import { forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './useViewport'
@@ -1571,6 +1571,33 @@ export function Room() {
       setClosedBusy(false)
     }
   }, [id, navigate, config?.name, showAlert, t])
+  // (#211 epic, #216) The same owner-only rename the lesson list offers, in
+  // the one place the name is already on screen: click the header label and
+  // it becomes the field. Non-null draft *is* the editing state — there is no
+  // separate boolean, so the two can't disagree. REST rather than a socket
+  // event, same reasoning as reopenRoom above: the name is persisted room
+  // metadata, not canvas content, and PATCH /api/rooms/:id is where it lives
+  // (roomRoutes.ts, which re-checks ownership — the owner gate here is UI,
+  // not a boundary). Deliberately not broadcast: everyone else keeps the name
+  // they joined with until their next join, and nothing but this label and
+  // the export filename reads it.
+  const [renameDraft, setRenameDraft] = useState<string | null>(null)
+  const submitRename = useCallback(async () => {
+    const draft = renameDraft
+    setRenameDraft(null)
+    const name = draft?.trim()
+    const previous = useRoomStore.getState().room?.name
+    if (!id || !name || name === previous) return
+    // Optimistic: the field is already gone by now, so the label has to be
+    // carrying the new name or the edit reads as having been dropped.
+    useRoomStore.getState().setRoomName(name)
+    try {
+      await renameRoom(id, name)
+    } catch {
+      if (previous !== undefined) useRoomStore.getState().setRoomName(previous)
+      void showAlert({ message: t('room.error.rename') })
+    }
+  }, [id, renameDraft, showAlert, t])
   // (#254/#257/#259) Same reasoning as toggleRoomFrozen above, targeted at
   // one participant — passed to ParticipantsPanel's onToggleFreeze.
   const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
@@ -2939,11 +2966,34 @@ export function Room() {
           <Logo />
         </button>
         {/* Same divider the control clusters use on the right (#329) — the
-            wordmark is a button that leaves the room, the name beside it is
-            static text, and without a break between them they read as one
-            label. */}
+            wordmark is a button that leaves the room, and without a break
+            between them it and the name beside it read as one label. */}
         <div className={styles.headerDivider} />
-        <span className={styles.roomName}>{config.name}</span>
+        {renameDraft !== null ? (
+          <input
+            className={clsx(styles.roomName, styles.roomNameInput)}
+            autoFocus
+            value={renameDraft}
+            aria-label={t('room.rename')}
+            onFocus={e => e.currentTarget.select()}
+            onChange={e => setRenameDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter')  { e.preventDefault(); void submitRename() }
+              if (e.key === 'Escape') { e.preventDefault(); setRenameDraft(null) }
+            }}
+            onBlur={() => void submitRename()}
+          />
+        ) : isOwner ? (
+          <button
+            className={clsx(styles.roomName, styles.roomNameBtn)}
+            onClick={() => setRenameDraft(config.name)}
+            title={t('room.rename')}
+          >
+            {config.name}
+          </button>
+        ) : (
+          <span className={styles.roomName}>{config.name}</span>
+        )}
 
         {/* (#329) Four sections, divider-separated, in the order they're
             reached for: rotation | zoom + fit | undo/redo | fullscreen | ≡.

@@ -54,6 +54,12 @@ export interface RoomInfoSlice {
   // own entry in `participants` above (Participant.frozen).
   roomFrozen: boolean
   setRoomFrozen: (frozen: boolean) => void
+  // (#211 epic, #216) Renamed from inside the editor — the header label is
+  // an owner-only inline field (see Room/index.tsx). Same shape as
+  // `setRoomClosedAt` below and for the same reason: the name is a column of
+  // the room that arrives inside `room` on join, so this only patches it when
+  // the owner moves it. A no-op before `room` exists.
+  setRoomName: (name: string) => void
   // (#222) Closed for editing. Unlike `roomFrozen` above this isn't a
   // separate field: it's a column of the room itself, so it arrives inside
   // `room` on join and this action only patches it when
@@ -78,6 +84,9 @@ export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
   setPalette: palette => set({ palette }),
   roomFrozen: false,
   setRoomFrozen: frozen => set({ roomFrozen: frozen }),
+  setRoomName: name => set(state => (
+    state.room ? { room: { ...state.room, name } } : {}
+  )),
   setRoomClosedAt: closedAt => set(state => (
     state.room ? { room: { ...state.room, closedAt: closedAt ?? undefined } } : {}
   )),

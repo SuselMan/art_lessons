@@ -149,6 +149,37 @@
   text-overflow: ellipsis;
 }
 
+/* Owner-only: the label is a button that swaps itself for .roomNameInput.
+   Padding/border-radius match the input's so nothing shifts on the swap, and
+   the hover surface is the only thing announcing it's clickable — a pencil
+   icon beside a name that is already the page's title would be noise. */
+.roomNameBtn {
+  text-align: left;
+  min-width: 0;
+  padding: 3px 6px;
+  margin-left: -7px;
+  /* Transparent, not absent: the input below draws a real 1px border, and
+     without a matching one here the header jumps 2px on the swap. */
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast);
+}
+.roomNameBtn:hover { background: var(--color-surface-2); }
+
+.roomNameInput {
+  min-width: 0;
+  padding: 3px 6px;
+  margin-left: -7px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  outline: none;
+  /* #115: opts back into text selection/caret against .editor's blanket
+     user-select: none — same exception LayerPanel's .nameInput takes. */
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 .headerRight {
   display: flex;
   align-items: center;
