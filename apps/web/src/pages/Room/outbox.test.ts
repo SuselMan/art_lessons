@@ -605,4 +605,115 @@ describe('Outbox send gating and concurrency', () => {
       expect(outbox.pendingCount).toBe(1)
     })
   })
+
+  // (#358) Retiring the queue of a room that has been left. Scoping storage by
+  // room was only half the fix: Room keeps one component across every
+  // `/room/:id`, so the previous room's Outbox stayed alive with its retry
+  // timers and a `send` closing over a socket that had since joined the next
+  // room — and that is where its work went. These assert on the queue that is
+  // being left behind, not on the new one.
+  describe('dispose', () => {
+    it('sends nothing when a retry scheduled before dispose fires afterwards', async () => {
+      const storage = createInMemoryOutboxStorage()
+      const { scheduled, schedule } = captureSchedule()
+      const send = vi.fn(async () => { throw new Error('offline') })
+      const outbox = new Outbox({ roomId: ROOM, storage, send, schedule })
+
+      await outbox.enqueue(op('a'))
+      await flushMicrotasks()
+      expect(send).toHaveBeenCalledTimes(1) // the first attempt, made while the room was still open
+
+      outbox.dispose()
+      scheduled[0].fn() // the timer cannot be cancelled — see dispose's own comment
+      await flushMicrotasks()
+
+      expect(send).toHaveBeenCalledTimes(1)
+    })
+
+    it('sends nothing enqueued after dispose', async () => {
+      const storage = createInMemoryOutboxStorage()
+      const send = vi.fn(async () => ({ ok: true, seq: 1 }) satisfies SendResult)
+      const outbox = new Outbox({ roomId: ROOM, storage, send })
+
+      outbox.dispose()
+      await outbox.enqueue(op('a'))
+      await flushMicrotasks()
+
+      expect(send).not.toHaveBeenCalled()
+    })
+
+    it('stops reporting a count, so the room now on screen does not inherit one', async () => {
+      const storage = createInMemoryOutboxStorage()
+      const { scheduled, schedule } = captureSchedule()
+      const onPendingChange = vi.fn()
+      const outbox = new Outbox({
+        roomId: ROOM,
+        storage, schedule, onPendingChange,
+        send: async () => { throw new Error('offline') },
+      })
+
+      await outbox.enqueue(op('a'))
+      await flushMicrotasks()
+      outbox.dispose()
+      onPendingChange.mockClear()
+
+      scheduled[0].fn()
+      await flushMicrotasks()
+
+      // The counter belongs to whichever room is mounted now; a retiring queue
+      // reporting its own leftovers would make that room claim work it never
+      // had (see ConnectionBanner's "N unsent").
+      expect(onPendingChange).not.toHaveBeenCalled()
+    })
+
+    it('leaves its unsent work durable, so its own room still sends it later', async () => {
+      const storage = createInMemoryOutboxStorage()
+      const { schedule } = captureSchedule()
+      const outbox = new Outbox({
+        roomId: ROOM,
+        storage, schedule,
+        send: async () => { throw new Error('offline') },
+      })
+
+      await outbox.enqueue(op('a'))
+      await flushMicrotasks()
+      outbox.dispose()
+
+      // Disposing is not discarding: the entry is still stored under its own
+      // room, which is the only place it may legally go.
+      expect(await storage.getAll(ROOM)).toHaveLength(1)
+
+      const reopened = new Outbox({
+        roomId: ROOM,
+        storage,
+        send: async () => ({ ok: true, seq: 7 }) satisfies SendResult,
+      })
+      await reopened.hydrate()
+
+      expect(reopened.pendingCount).toBe(1)
+    })
+
+    it('neither settles nor clears an operation whose send resolves after dispose', async () => {
+      const storage = createInMemoryOutboxStorage()
+      const onSettled = vi.fn()
+      let settleSend: ((result: SendResult) => void) | undefined
+      const outbox = new Outbox({
+        roomId: ROOM,
+        storage, onSettled,
+        send: () => new Promise<SendResult>(resolve => { settleSend = resolve }),
+      })
+
+      await outbox.enqueue(op('a'))
+      await flushMicrotasks()
+      outbox.dispose()
+      settleSend?.({ ok: true, seq: 1 })
+      await flushMicrotasks()
+
+      // Whatever the server did with it, this queue no longer speaks for
+      // anyone: the durable copy stays (the id dedup makes the re-send free)
+      // and the UI that has moved on hears nothing.
+      expect(onSettled).not.toHaveBeenCalled()
+      expect(await storage.getAll(ROOM)).toHaveLength(1)
+    })
+  })
 })

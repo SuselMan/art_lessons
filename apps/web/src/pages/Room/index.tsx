@@ -1066,7 +1066,27 @@ export function Room() {
   // without waiting for a join that may never come on this visit — the
   // offline screen's whole job is to report that number at exactly the
   // moment nothing can be sent.
+  //
+  // (#358) Also where the *previous* room's queue is retired. Room is one
+  // component for every `/room/:id` (no `key` on the route), so an in-place id
+  // change — taking a copy of a closed room, opening a fork — swaps `outbox`
+  // without unmounting anything, and the instance left behind kept its retry
+  // timers, its unsent entries, and a `send` closing over the shared socket
+  // ref that has since joined the new room. Its next retry then landed in that
+  // room, because an operation carries no room of its own and the server
+  // records whatever arrives against the socket's current one.
+  //
+  // Retired by comparing instances rather than from this effect's cleanup:
+  // StrictMode runs mount → cleanup → mount while `useMemo` keeps handing back
+  // the same Outbox, so a disposing cleanup would leave the live queue dead in
+  // development and nowhere else. Comparing means a simulated remount sees two
+  // identical refs and does nothing.
+  const previousOutbox = useRef(outbox)
   useEffect(() => {
+    if (previousOutbox.current !== outbox) {
+      previousOutbox.current.dispose()
+      previousOutbox.current = outbox
+    }
     void outbox.hydrate()
   }, [outbox])
 

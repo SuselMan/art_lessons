@@ -108,6 +108,9 @@ export class Outbox {
   // from desktop. A crashed tab is a very ordinary way to leave IndexedDB
   // unopenable, so this failed exactly when it was needed most.
   private readonly pending = new Map<string, OutboxEntry>()
+  // (#358) Set by dispose(): this queue's room is behind us and nothing it
+  // still holds may reach the wire or the UI. See dispose's own comment.
+  private disposed = false
 
   constructor(deps: OutboxDeps) {
     this.storage = deps.storage
@@ -126,9 +129,41 @@ export class Outbox {
   get pendingCount(): number { return this.pending.size }
   get stalledCount(): number { return this.stalled.size }
 
+  /** (#358) Retires this queue when its room is left. After this nothing it
+   *  holds is sent, and none of its callbacks fire again.
+   *
+   *  Scoping storage by room was only half of "one room's unsent work stays
+   *  out of the next room". Room builds one Outbox per room id but never
+   *  unmounts between rooms (`/room/:id` is one route, one component), so
+   *  without this the previous room's instance stayed alive with its retry
+   *  timers armed — and its `send` closes over the *shared* socket ref, which
+   *  by then has joined the next room. An operation carries no room of its
+   *  own, so the server recorded whatever arrived against the room the socket
+   *  was in: the original bug, reached through the live queue instead of
+   *  through IndexedDB.
+   *
+   *  The work is not lost and is deliberately not flushed here — every entry
+   *  is already persisted under its own `roomId`, so opening that room again
+   *  loads and sends it (see loadPersisted). Timers are not cancelled either,
+   *  because `schedule` is a seam with no handle to cancel: the callbacks
+   *  still fire and `attempt` turns them into no-ops, which costs one dead
+   *  function call per stranded entry and keeps the seam a one-liner.
+   *
+   *  `onPendingChange` must stop firing too, not merely stop being useful:
+   *  it drives the "N unsent" counter of whichever room is now on screen, so
+   *  a retiring queue reporting its own leftovers would make the new room
+   *  claim work it never had. */
+  dispose(): void {
+    this.disposed = true
+    this.waiting.length = 0
+    this.pending.clear()
+    this.stalled.clear()
+  }
+
   /** Queues `op` and makes the first send attempt immediately. Persisting it
    *  is best-effort and never gates the send (#296). */
   async enqueue(op: Operation): Promise<void> {
+    if (this.disposed) return
     const entry: OutboxEntry = { op, roomId: this.roomId, attempts: 0, nextRetryAt: this.now() }
     this.pending.set(op.id, entry)
     this.onPendingChange?.(this.pending.size, this.stalled.size)
@@ -147,15 +182,22 @@ export class Outbox {
    *  guess whether any of it survived. */
   async hydrate(): Promise<void> {
     await this.loadPersisted()
+    if (this.disposed) return
     this.onPendingChange?.(this.pending.size, this.stalled.size)
   }
 
   private async loadPersisted(): Promise<void> {
+    // Checked again *after* the read below, not only here: a room switch is
+    // exactly the kind of thing that happens while an IndexedDB read is in
+    // flight, and repopulating `pending` after dispose would undo it (#358).
+    if (this.disposed) return
     try {
       // Scoped to this room (#358). Everything queued for a *different* room
       // stays exactly where it is — durable, unsent, and waiting for that room
       // to be opened again, which is the only place it can legally go.
-      for (const entry of await this.storage.getAll(this.roomId)) {
+      const persisted = await this.storage.getAll(this.roomId)
+      if (this.disposed) return
+      for (const entry of persisted) {
         if (!this.pending.has(entry.op.id)) this.pending.set(entry.op.id, entry)
       }
     } catch (err) {
@@ -175,6 +217,7 @@ export class Outbox {
    *  already know about joins the queue. */
   async resendAll(): Promise<void> {
     await this.loadPersisted()
+    if (this.disposed) return
     // Re-arms anything that gave up: a reconnect (or a completed join) is
     // exactly the change of circumstances that could make it succeed now.
     this.stalled.clear()
@@ -194,6 +237,9 @@ export class Outbox {
   }
 
   private attempt(opId: string): void {
+    // Where a scheduled retry of a retired queue dies (#358) — see dispose on
+    // why the timers themselves are left to fire.
+    if (this.disposed) return
     if (this.inFlight.has(opId) || this.stalled.has(opId)) return
     if (!this.waiting.includes(opId)) this.waiting.push(opId)
     this.pump()
@@ -204,6 +250,7 @@ export class Outbox {
    *  yet — entries stay in `waiting`, and the resendAll that follows a
    *  successful join releases them. */
   private pump(): void {
+    if (this.disposed) return
     while (this.inFlight.size < MAX_CONCURRENT_SENDS && this.waiting.length > 0) {
       if (this.canSend && !this.canSend()) return
       const opId = this.waiting.shift()!
@@ -225,6 +272,13 @@ export class Outbox {
 
       try {
         const result = await this.send(entry.op)
+        // (#358) The room was left while this was on the wire. Whatever the
+        // server made of it, this queue no longer speaks for anybody: don't
+        // clear the durable copy and don't report a settlement to a UI that
+        // has moved to another room. The entry stays persisted under its own
+        // roomId and goes out again — deduped by id — when that room is next
+        // opened.
+        if (this.disposed) return
         // (#298) `not_joined` is the one rejection that isn't a verdict on
         // the operation — the socket simply hadn't joined a room yet, which
         // the canSend gate should already prevent. Treat it exactly like a
@@ -242,6 +296,7 @@ export class Outbox {
         }
         this.onSettled?.(entry.op, result)
       } catch {
+        if (this.disposed) return
         entry.attempts += 1
         await this.persist(entry)
         if (entry.attempts >= MAX_ATTEMPTS) {
