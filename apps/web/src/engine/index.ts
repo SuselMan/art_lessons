@@ -5157,9 +5157,18 @@ export class PencilEngine implements PencilEngineAPI {
     id: string, opacity: number, targetFbo: WebGLFramebuffer, viewRect: WorldRect,
     targetW: number, targetH: number,
   ): void {
+    // (#365) Whether this pass is shrinking tiles on the way to its target.
+    // Only then is a mip chain worth having: at or above 1:1 the base level
+    // is already the right size, and generating levels nobody samples would
+    // be pure cost on the one path (drawing at 100%) that must stay fast.
+    // The export path sets _compositeScale to exactly 1 for the same reason
+    // — see _buildContentComposite.
+    const minifying = this._compositeScale < 1
+
     const preview = this._transformPreview.get(id)
     if (preview) {
       for (const { originX, originY, buffer } of preview) {
+        if (minifying) buffer.refreshMipmaps()
         this._drawTileComposite(
           buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
         )
@@ -5169,6 +5178,7 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(id)
     if (!buf) return
     for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
+      if (minifying) buffer.refreshMipmaps()
       this._drawTileComposite(
         buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
       )

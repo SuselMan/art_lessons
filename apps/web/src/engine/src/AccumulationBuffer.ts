@@ -1,6 +1,10 @@
 // Persistent WebGL framebuffer that accumulates graphite over strokes.
 // Blending: ONE, ONE_MINUS_SRC_ALPHA  →  result = src + dst*(1-src.a)
 
+function isPowerOfTwo(n: number): boolean {
+  return n > 0 && (n & (n - 1)) === 0
+}
+
 export class AccumulationBuffer {
   readonly gl: WebGLRenderingContext
   readonly width: number
@@ -26,6 +30,10 @@ export class AccumulationBuffer {
     this.height = height
     this._texture = this._makeTexture(filter)
     this._fbo     = this._makeFBO(this._texture)
+    // Computed here rather than as a field initializer: those run before the
+    // constructor body assigns width/height, so an initializer would have
+    // silently read undefined and disabled mipmaps everywhere.
+    this._mipCapable = isPowerOfTwo(width) && isPowerOfTwo(height)
   }
 
   private _makeTexture(filter: 'linear' | 'nearest'): WebGLTexture {
@@ -55,7 +63,65 @@ export class AccumulationBuffer {
   get texture(): WebGLTexture { return this._texture }
   get fbo(): WebGLFramebuffer { return this._fbo }
 
+  /** (#365) Whether a mip chain can legally exist for this buffer at all.
+   *  WebGL1 only allows mipmaps on power-of-two textures, and a texture whose
+   *  min filter asks for mip levels that aren't there is *incomplete* — it
+   *  samples as opaque black, the same failure mode #363's use-after-free
+   *  produced. So this is checked once, up front, and every mip path below
+   *  is a no-op without it rather than something that can half-apply.
+   *
+   *  True for an infinite room's tiles (a square TILE_SIZE = 1024) and false
+   *  for a bounded room's (its own canvas size, e.g. A4's 1240x1754) and for
+   *  every viewport-sized scratch/assembly buffer. That split is exactly the
+   *  one that matters: minification without mip levels is what makes an
+   *  infinite room's low zoom crawl and sparkle, while a bounded room is
+   *  scaled down by the browser's own compositor (its canvas element carries
+   *  a CSS transform) and never samples its buffers minified at all. */
+  private readonly _mipCapable: boolean
+
+  // Whether the mip chain currently matches level 0. Starts false: nothing
+  // has generated it yet, and the constructor leaves the plain LINEAR min
+  // filter in place, so the texture is complete from the moment it exists.
+  private _mipsValid = false
+
+  /** Call before *any* write to level 0. Drops back to the plain LINEAR min
+   *  filter rather than merely noting staleness: leaving a mip filter in
+   *  place over a stale chain would keep sampling pixels that are no longer
+   *  there, and at the zooms this exists for that reads as content lagging a
+   *  frame behind the stroke drawing it. Two texParameteri calls per write
+   *  batch is nothing next to the draws around them. */
+  private _invalidateMips(): void {
+    if (!this._mipCapable || !this._mipsValid) return
+    const { gl } = this
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    this._mipsValid = false
+  }
+
+  /** (#365) Brings the mip chain back in sync with level 0 and switches the
+   *  min filter to trilinear, so a later minifying sample reads a level sized
+   *  near its own footprint instead of point-sampling one texel out of
+   *  hundreds. Idempotent and cheap when nothing has changed since the last
+   *  call — which is the common case, since a composite re-samples the same
+   *  tiles every frame while only the tile under the pointer is being
+   *  written.
+   *
+   *  Deliberately the caller's job to invoke right before sampling, not
+   *  something the write path does eagerly: a stroke writes a tile many times
+   *  per frame and the result is only ever *looked at* once, at composite
+   *  time, so regenerating on write would pay for the chain repeatedly and
+   *  throw all but the last away. */
+  refreshMipmaps(): void {
+    if (!this._mipCapable || this._mipsValid) return
+    const { gl } = this
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.generateMipmap(gl.TEXTURE_2D)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+    this._mipsValid = true
+  }
+
   beginDraw(): void {
+    this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.viewport(0, 0, width, height)
@@ -64,6 +130,7 @@ export class AccumulationBuffer {
   }
 
   beginErase(): void {
+    this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.viewport(0, 0, width, height)
@@ -80,6 +147,7 @@ export class AccumulationBuffer {
    *  happens later, once, in DAB_FRAG's composite branch
    *  (`1 - exp(-inkLoad * rate)`), not here. */
   beginAdditiveDraw(): void {
+    this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.viewport(0, 0, width, height)
@@ -115,6 +183,7 @@ export class AccumulationBuffer {
    *  preserved — same class of accepted v1 gap as MarkerStrokeScratch's own
    *  mid-stroke tile-eviction note. */
   beginReplaceDraw(): void {
+    this._invalidateMips()
     const { gl, width, height } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.viewport(0, 0, width, height)
@@ -127,6 +196,7 @@ export class AccumulationBuffer {
   }
 
   clear(): void {
+    this._invalidateMips()
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.clearColor(0, 0, 0, 0)
@@ -144,12 +214,14 @@ export class AccumulationBuffer {
   }
 
   restorePixels(pixels: Uint8Array): void {
+    this._invalidateMips()
     const { gl, width, height } = this
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
   }
 
   copyTo(dest: AccumulationBuffer): void {
+    dest._invalidateMips() // copyTexImage2D redefines dest's level 0
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.bindTexture(gl.TEXTURE_2D, dest._texture)
@@ -174,6 +246,7 @@ export class AccumulationBuffer {
    *  resized, not rejected — callers that care about pool reuse must size
    *  their own request to match before calling this. */
   copyRegionTo(dest: AccumulationBuffer, glX: number, glY: number, w: number, h: number): void {
+    dest._invalidateMips() // copyTexImage2D redefines dest's level 0
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.bindTexture(gl.TEXTURE_2D, dest._texture)

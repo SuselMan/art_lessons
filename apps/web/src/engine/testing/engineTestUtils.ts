@@ -216,6 +216,15 @@ export function readTilePixels(
   return target ? target.buffer.readPixels() : null
 }
 
+/** (#365) Every resident tile texture of a layer — the handles a test needs
+ *  to ask MockGL what mip state the composite left them in (see
+ *  MockGL.getMipmapGenerations/getMinFilter). Empty if the layer doesn't
+ *  exist. */
+export function layerTileTextures(engine: PencilEngine, layerId: string): WebGLTexture[] {
+  const buf = internals(engine)._layers.get(layerId)
+  return buf ? buf.allResident().map(t => t.buffer.texture) : []
+}
+
 /** Reads back the final on-screen composite (#122) — every visible layer/
  *  folder-child blended together, *before* the paper-color display pass
  *  (which MockGL never rasterizes — see its module docstring). Used by
