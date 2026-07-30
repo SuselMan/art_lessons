@@ -38,7 +38,7 @@ import {
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
-import { COARSE_FACTOR, TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
+import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
 import { paperCoarsenessOf } from '@grafetto/shared'
 import type { PaperCoarseness } from '@grafetto/shared'
@@ -5200,19 +5200,18 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(id)
     if (!buf) return
 
-    // (#365) Far enough out that a fine tile would occupy at most as many
-    // screen pixels as a coarse tile's slot holds texels — from here down,
-    // drawing the fine grid costs COARSE_FACTOR² draw calls per coarse tile
-    // and buys nothing anyone can see. At the room's zoom floor this is the
-    // difference between ~576 draws per layer per frame and ~9.
-    //
-    // Strictly below, not at or below, so the changeover happens where a
-    // coarse tile is still being minified rather than exactly at 1:1 — the
-    // fine level is authoritative and stays in use for as long as it is
-    // worth anything.
-    const coarse = this._compositeScale < 1 / COARSE_FACTOR ? buf.resolveCoarse(viewRect) : null
-    if (coarse) {
-      const { w: coarseW, h: coarseH } = buf.coarseWorldSize
+    // (#365) Which pyramid level this frame should draw, or null for the fine
+    // tiles — see coarseFactorFor. The level is never more than a factor of
+    // two off 1:1, so the visible tile count stays flat (~9-16 per layer)
+    // across the whole zoom range instead of spiking just above a single
+    // level's threshold, which is what made one specific zoom freeze: the
+    // fine tiles it fell back to had been evicted while the coarse level was
+    // on screen, and recovering hundreds of them at once costs an Operation
+    // Log replay plus a readback and re-upload each.
+    const factor = coarseFactorFor(this._compositeScale)
+    const coarse = factor === null ? null : buf.resolveCoarse(viewRect, factor)
+    if (coarse && factor !== null) {
+      const { w: coarseW, h: coarseH } = buf.coarseWorldSize(factor)
       for (const { buffer, originX, originY } of coarse) {
         buffer.setMipSampling(buffer.ensureMipmaps())
         this._drawTileComposite(

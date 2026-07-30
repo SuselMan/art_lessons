@@ -1,6 +1,6 @@
-// (#365) The coarse level — one reduced-resolution buffer per
-// COARSE_FACTOR x COARSE_FACTOR block of fine tiles, so a view zoomed far
-// enough out costs one draw call per block instead of 64.
+// (#365) The reduced-resolution pyramid — one buffer per F x F block of
+// fine tiles at each level F, so a view zoomed far enough out costs one draw
+// call per block instead of F² of them.
 //
 // The interesting property is not "a coarse tile exists" but *when* fine
 // content gets folded into it. Fold too early (before the caller has written)
@@ -12,14 +12,18 @@ import { describe, expect, it } from 'vitest'
 
 import { MockGL } from '../testing/mockGL'
 import { TiledLayerBuffer, type TileDownsampler, type TileRebuilder } from './TiledLayerBuffer'
-import { COARSE_FACTOR } from './tileMath'
+import { COARSE_FACTORS } from './tileMath'
 
 function gl(): WebGLRenderingContext { return new MockGL() as unknown as WebGLRenderingContext }
 
 const TILE_W = 8
 const TILE_H = 8
 const TILE_BYTES = TILE_W * TILE_H * 4
-const COARSE_WORLD = TILE_W * COARSE_FACTOR
+// Exercised against the coarsest level; the finer ones fold by the same code
+// with a different factor, and which level the composite picks is engine-level
+// behaviour covered in index.tiledMipmaps.test.ts.
+const FACTOR = COARSE_FACTORS[COARSE_FACTORS.length - 1]
+const COARSE_WORLD = TILE_W * FACTOR
 
 function recordingDownsampler() {
   const folds: Array<{ x: number; y: number; w: number; h: number }> = []
@@ -44,7 +48,7 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     // layer is empty and draw nothing.
     const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H)
     paintFineTile(buf, 0)
-    expect(buf.resolveCoarse(wholeWorld)).toBeNull()
+    expect(buf.resolveCoarse(wholeWorld, FACTOR)).toBeNull()
   })
 
   it('folds a painted tile into a coarse tile, and reports it at its world extent', () => {
@@ -52,13 +56,13 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
     paintFineTile(buf, 0)
 
-    const targets = buf.resolveCoarse(wholeWorld)!
+    const targets = buf.resolveCoarse(wholeWorld, FACTOR)!
     expect(targets).toHaveLength(1)
     expect(targets[0].originX).toBe(0)
     expect(targets[0].originY).toBe(0)
     // A coarse tile's buffer is fine-tile-sized but stands for COARSE_FACTOR
     // times that much world — the composite has to place it by the latter.
-    expect(buf.coarseWorldSize).toEqual({ w: COARSE_WORLD, h: COARSE_WORLD })
+    expect(buf.coarseWorldSize(FACTOR)).toEqual({ w: COARSE_WORLD, h: COARSE_WORLD })
   })
 
   it('does not fold a tile before its caller has written to it', () => {
@@ -70,26 +74,29 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     paintFineTile(buf, 0)
     expect(folds).toHaveLength(0)
 
-    buf.resolveCoarse(wholeWorld)
-    expect(folds).toHaveLength(1)
+    // One fold per level: which level the camera will ask for is not known
+    // when the write happens, so a level left out would be stale the moment
+    // the camera settled on it.
+    buf.resolveCoarse(wholeWorld, FACTOR)
+    expect(folds).toHaveLength(COARSE_FACTORS.length)
   })
 
   it('folds only once for a tile that has not changed since', () => {
     const { downsample, folds } = recordingDownsampler()
     const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
     paintFineTile(buf, 0)
-    for (let frame = 0; frame < 5; frame++) buf.resolveCoarse(wholeWorld)
-    expect(folds).toHaveLength(1)
+    for (let frame = 0; frame < 5; frame++) buf.resolveCoarse(wholeWorld, FACTOR)
+    expect(folds).toHaveLength(COARSE_FACTORS.length)
   })
 
   it('folds again after the tile is painted again', () => {
     const { downsample, folds } = recordingDownsampler()
     const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
     paintFineTile(buf, 0)
-    buf.resolveCoarse(wholeWorld)
+    buf.resolveCoarse(wholeWorld, FACTOR)
     paintFineTile(buf, 0)
-    buf.resolveCoarse(wholeWorld)
-    expect(folds).toHaveLength(2)
+    buf.resolveCoarse(wholeWorld, FACTOR)
+    expect(folds).toHaveLength(COARSE_FACTORS.length * 2)
   })
 
   it('folds a tile before eviction can destroy it', () => {
@@ -114,10 +121,15 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     const { downsample, folds } = recordingDownsampler()
     const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
     buf.resolveForPaint({ minX: -TILE_W, minY: 0, maxX: -TILE_W + 1, maxY: 1 })
-    buf.resolveCoarse(wholeWorld)
+    buf.resolveCoarse(wholeWorld, FACTOR)
 
-    const slot = TILE_W / COARSE_FACTOR
-    expect(folds).toEqual([{ x: (COARSE_FACTOR - 1) * slot, y: 0, w: slot, h: slot }])
+    // One entry per level, in COARSE_FACTORS order. Tile -1 must land in the
+    // *last* column of the level tile to its left at every factor — the case
+    // truncating division would fold onto tile 0 instead.
+    expect(folds).toEqual(COARSE_FACTORS.map(factor => {
+      const slot = TILE_W / factor
+      return { x: (factor - 1) * slot, y: 0, w: slot, h: slot }
+    }))
   })
 
   it('separates content either side of the coarse boundary', () => {
@@ -126,7 +138,7 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     paintFineTile(buf, 0)
     buf.resolveForPaint({ minX: -TILE_W, minY: 0, maxX: -TILE_W + 1, maxY: 1 })
 
-    const targets = buf.resolveCoarse(wholeWorld)!
+    const targets = buf.resolveCoarse(wholeWorld, FACTOR)!
     expect(targets.map(t => t.originX).sort((a, b) => a - b)).toEqual([-COARSE_WORLD, 0])
   })
 
@@ -134,9 +146,9 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     const { downsample } = recordingDownsampler()
     const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
     paintFineTile(buf, 0)
-    expect(buf.resolveCoarse(wholeWorld)).toHaveLength(1)
+    expect(buf.resolveCoarse(wholeWorld, FACTOR)).toHaveLength(1)
 
     buf.clear()
-    expect(buf.resolveCoarse(wholeWorld)).toHaveLength(0)
+    expect(buf.resolveCoarse(wholeWorld, FACTOR)).toHaveLength(0)
   })
 })

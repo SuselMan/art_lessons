@@ -1,6 +1,6 @@
 import { AccumulationBuffer } from './AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from './ILayerBuffer'
-import { COARSE_FACTOR, TILE_SIZE, coarseTileWorldRect, fineTileSlot, fineToCoarseTile, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToTile, type WorldRect } from './tileMath'
+import { COARSE_FACTORS, TILE_SIZE, coarseTileWorldRect, fineTileSlot, fineToCoarseTile, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToTile, type CoarseFactor, type WorldRect } from './tileMath'
 
 /** (#155 Tier 2) Scans a tile's exact RGBA8 pixel content for its real
  *  alpha!=0 bounding box, tile-local pixel space, half-open like WorldRect
@@ -172,12 +172,13 @@ export class TiledLayerBuffer implements ILayerBuffer {
   // downsampleTile (real layers in an infinite room); everything else keeps
   // exactly the pre-#365 behaviour of having no coarse level at all.
   //
-  // Not budgeted, unlike `tiles`. A coarse tile covers COARSE_FACTOR² = 64
-  // fine tiles' worth of world area for one tile's worth of memory, so
-  // reaching even the fine level's own 32-tile cap here would take 2048 fine
-  // tiles of real painted content — two orders of magnitude past anything a
-  // lesson produces. Worth revisiting only if that stops being true.
-  private readonly coarse = new Map<string, AccumulationBuffer>()
+  // Not budgeted, unlike `tiles`. Every level together costs about a third of
+  // what the same content costs at full resolution (1/4 + 1/16 + 1/64), and
+  // the coarsest level covers 64 fine tiles' worth of world area per tile —
+  // so reaching even the fine level's own 32-tile cap there would take 2048
+  // fine tiles of real painted content, two orders of magnitude past anything
+  // a lesson produces. Worth revisiting only if that stops being true.
+  private readonly coarse = new Map<CoarseFactor, Map<string, AccumulationBuffer>>()
   // Fine tile keys whose content has changed since it was last folded into
   // the coarse level. Populated by resolveForPaint — the single gate every
   // write path in the engine passes through to get a target — rather than by
@@ -259,7 +260,9 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  across a clear() would be actively wrong, leaving a low-zoom view
    *  showing content the layer no longer has. */
   private dropCoarse(): void {
-    for (const tile of this.coarse.values()) tile.destroy()
+    for (const level of this.coarse.values()) {
+      for (const tile of level.values()) tile.destroy()
+    }
     this.coarse.clear()
     this.pendingDownsample.clear()
   }
@@ -281,16 +284,25 @@ export class TiledLayerBuffer implements ILayerBuffer {
       const tile = this.tiles.get(key)
       if (!tile) continue // cannot normally happen — see the ordering note above
       const { tileX, tileY } = parseTileKey(key)
-      const coarseCoord = fineToCoarseTile(tileX, tileY)
-      const coarseKey = tileKey(coarseCoord.tileX, coarseCoord.tileY)
-      let dest = this.coarse.get(coarseKey)
-      if (!dest) {
-        dest = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
-        dest.clear()
-        this.coarse.set(coarseKey, dest)
+      // Into every level, not just one: which level the camera will ask for
+      // is not known here, and a level that skipped this fold would be stale
+      // the moment the camera settled on it. Each fold is one quad draw into
+      // a slot, so three of them per written tile is nothing next to the
+      // paint that produced the tile in the first place.
+      for (const factor of COARSE_FACTORS) {
+        const coarseCoord = fineToCoarseTile(tileX, tileY, factor)
+        const coarseKey = tileKey(coarseCoord.tileX, coarseCoord.tileY)
+        let level = this.coarse.get(factor)
+        if (!level) { level = new Map(); this.coarse.set(factor, level) }
+        let dest = level.get(coarseKey)
+        if (!dest) {
+          dest = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
+          dest.clear()
+          level.set(coarseKey, dest)
+        }
+        const slot = fineTileSlot(tileX, tileY, factor, this.tileW, this.tileH)
+        downsample(tile, dest, slot.x, slot.y, slot.w, slot.h)
       }
-      const slot = fineTileSlot(tileX, tileY, this.tileW, this.tileH)
-      downsample(tile, dest, slot.x, slot.y, slot.w, slot.h)
     }
     this.pendingDownsample.clear()
   }
@@ -307,35 +319,38 @@ export class TiledLayerBuffer implements ILayerBuffer {
     for (const key of keys) this.pendingDownsample.add(key)
   }
 
-  /** (#365) The coarse level's counterpart to resolveVisible: whichever
-   *  coarse tiles overlap `worldRect` and actually hold content. Null — not
-   *  an empty array — when this instance has no coarse level at all (bounded
+  /** (#365) The pyramid's counterpart to resolveVisible: whichever tiles of
+   *  level `factor` overlap `worldRect` and actually hold content. Null — not
+   *  an empty array — when this instance keeps no levels at all (bounded
    *  rooms, scratch buffers), so the caller can tell "nothing to draw here"
    *  apart from "ask me for fine tiles instead".
    *
-   *  Never creates a coarse tile and never touches the fine level's residency
-   *  or budget, which is the point: at the zooms this exists for, resolving
-   *  the equivalent fine tiles is exactly the work being avoided. */
-  resolveCoarse(worldRect: WorldRect): PaintTarget[] | null {
+   *  Never creates a tile and never touches the fine level's residency or
+   *  budget, which is the point: at the zooms this exists for, resolving the
+   *  equivalent fine tiles is exactly the work being avoided — and, since
+   *  those tiles have usually been evicted by then, the Operation Log replay
+   *  that recovering them would cost is the freeze this whole level exists to
+   *  remove. */
+  resolveCoarse(worldRect: WorldRect, factor: CoarseFactor): PaintTarget[] | null {
     if (!this.downsampleTile) return null
     this.flushDownsamples()
-    const coarseW = this.tileW * COARSE_FACTOR
-    const coarseH = this.tileH * COARSE_FACTOR
+    const level = this.coarse.get(factor)
+    if (!level) return []
     const targets: PaintTarget[] = []
-    for (const { tileX, tileY } of tilesOverlappingRect(worldRect, coarseW, coarseH)) {
-      const buffer = this.coarse.get(tileKey(tileX, tileY))
+    for (const { tileX, tileY } of tilesOverlappingRect(worldRect, this.tileW * factor, this.tileH * factor)) {
+      const buffer = level.get(tileKey(tileX, tileY))
       if (!buffer) continue
-      const rect = coarseTileWorldRect(tileX, tileY, this.tileW, this.tileH)
+      const rect = coarseTileWorldRect(tileX, tileY, factor, this.tileW, this.tileH)
       targets.push({ buffer, originX: rect.minX, originY: rect.minY, contentRect: null })
     }
     return targets
   }
 
-  /** (#365) World-space size one coarse tile spans — what the composite needs
-   *  to place a resolveCoarse target, since unlike a fine tile its buffer
-   *  dimensions and its world extent are no longer the same number. */
-  get coarseWorldSize(): { w: number; h: number } {
-    return { w: this.tileW * COARSE_FACTOR, h: this.tileH * COARSE_FACTOR }
+  /** (#365) World-space size one tile of `factor` spans — what the composite
+   *  needs to place a resolveCoarse target, since unlike a fine tile its
+   *  buffer dimensions and its world extent are no longer the same number. */
+  coarseWorldSize(factor: CoarseFactor): { w: number; h: number } {
+    return { w: this.tileW * factor, h: this.tileH * factor }
   }
 
   /** Suspends eviction until a matching resumeEviction() — used by

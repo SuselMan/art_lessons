@@ -20,22 +20,55 @@
 // canvas rather than to this constant.
 export const TILE_SIZE = 1024
 
-// (#365) How many fine tiles a coarse tile covers along each axis. A coarse
-// tile is stored in a texture the same size as a fine one (TILE_SIZE square),
-// so it holds the same world area as COARSE_FACTOR² fine tiles at 1/
-// COARSE_FACTOR of their resolution — 8192 world units across, at 1 texel per
-// 8, for the values here.
+// (#365) The reduced-resolution levels each layer keeps alongside its fine
+// tiles, as "how many fine tiles this level's tile covers along each axis".
+// A level's tile is stored in a texture the same size as a fine one
+// (TILE_SIZE square), so factor F holds F² fine tiles' worth of world area at
+// 1/F of their resolution.
 //
 // This is the draw-call fix rather than the quality fix (mip levels are
 // that): the composite issues one draw per visible tile, and tiles in view
-// grow with 1/zoom², so at zoom 0.1 a 1920x1080 viewport spans ~576 fine
-// tiles but only ~9 coarse ones. 8 is chosen against the room's own zoom
-// floor (0.1, see cameraMath's minZoom): the coarse level takes over at or
-// below 1/8, and at the furthest the camera can go a coarse tile still draws
-// to ~819 screen px from a 1024-texel texture — minified 1.25x, never
-// magnified. A larger factor would start magnifying (visibly soft) before the
-// floor; a smaller one would leave more draw calls on the table.
-export const COARSE_FACTOR = 8
+// grow with 1/zoom². A single level was not enough — it left the band just
+// above its own threshold as the worst case in the whole range, and worse,
+// crossing back up into that band meant resolving hundreds of fine tiles that
+// had sat evicted while the coarse level was on screen, each one an Operation
+// Log replay's worth of readback and re-upload. That is a freeze at one
+// specific zoom, not a slowdown. A pyramid removes the cliff: see
+// coarseFactorFor, which always has a level within a factor of two of what
+// the camera is asking for, so no zoom ever has to fall back to hundreds of
+// fine tiles.
+//
+// Powers of two so a level's slot size divides TILE_SIZE exactly, and capped
+// at 8 by the room's own zoom floor (0.1, see cameraMath's minZoom): at the
+// furthest the camera can go, a factor-8 tile still draws to ~819 screen px
+// from a 1024-texel texture, minified rather than magnified.
+export const COARSE_FACTORS = [2, 4, 8] as const
+
+export type CoarseFactor = typeof COARSE_FACTORS[number]
+
+/** (#365) Which level to composite from at a given world-to-screen scale, or
+ *  null for "use the fine tiles".
+ *
+ *  Picks the *coarsest* level that still is not magnified. A level with
+ *  factor F holds F * tileW world units in tileW texels, so it draws
+ *  unmagnified exactly while F <= 1/scale — and among the levels that
+ *  qualify, the coarsest is both the cheapest (fewest draws) and no worse to
+ *  look at, since mip levels handle the extra minification. Below every
+ *  level's threshold there is nothing to pick and the fine tiles are already
+ *  the right choice.
+ *
+ *  The consequence worth stating: the level in use is never more than a
+ *  factor of two away from 1:1, at any zoom the camera can reach. That is
+ *  what keeps the visible tile count flat instead of exploding just above a
+ *  threshold. */
+export function coarseFactorFor(scale: number): CoarseFactor | null {
+  if (!(scale > 0)) return null
+  let chosen: CoarseFactor | null = null
+  for (const factor of COARSE_FACTORS) {
+    if (factor <= 1 / scale) chosen = factor
+  }
+  return chosen
+}
 
 export interface TileCoord {
   tileX: number
@@ -85,12 +118,12 @@ export function tileWorldRect(tileX: number, tileY: number, tileW = TILE_SIZE, t
   return { minX, minY, maxX: minX + tileW, maxY: minY + tileH }
 }
 
-/** (#365) The coarse tile a fine tile belongs to. Floor division, so it is
- *  correct for negative coordinates too — an infinite room's tile grid runs
- *  in both directions from world origin, and `Math.trunc` would fold tiles
- *  -7..-1 and 0..7 onto the same coarse tile. */
-export function fineToCoarseTile(tileX: number, tileY: number): TileCoord {
-  return { tileX: Math.floor(tileX / COARSE_FACTOR), tileY: Math.floor(tileY / COARSE_FACTOR) }
+/** (#365) The tile of level `factor` a fine tile belongs to. Floor division,
+ *  so it is correct for negative coordinates too — an infinite room's tile
+ *  grid runs in both directions from world origin, and `Math.trunc` would
+ *  fold tiles -7..-1 and 0..7 onto the same coarse tile. */
+export function fineToCoarseTile(tileX: number, tileY: number, factor: number): TileCoord {
+  return { tileX: Math.floor(tileX / factor), tileY: Math.floor(tileY / factor) }
 }
 
 /** Where a fine tile's downsampled content sits inside its coarse tile's
@@ -102,21 +135,21 @@ export function fineToCoarseTile(tileX: number, tileY: number): TileCoord {
  *  JS `%` keeps the sign of the dividend, so tile -1 would land at offset -1
  *  rather than at the last slot of the coarse tile to its left. */
 export function fineTileSlot(
-  tileX: number, tileY: number, tileW = TILE_SIZE, tileH = TILE_SIZE,
+  tileX: number, tileY: number, factor: number, tileW = TILE_SIZE, tileH = TILE_SIZE,
 ): { x: number; y: number; w: number; h: number } {
-  const slotW = tileW / COARSE_FACTOR
-  const slotH = tileH / COARSE_FACTOR
-  const col = tileX - Math.floor(tileX / COARSE_FACTOR) * COARSE_FACTOR
-  const row = tileY - Math.floor(tileY / COARSE_FACTOR) * COARSE_FACTOR
+  const slotW = tileW / factor
+  const slotH = tileH / factor
+  const col = tileX - Math.floor(tileX / factor) * factor
+  const row = tileY - Math.floor(tileY / factor) * factor
   return { x: col * slotW, y: row * slotH, w: slotW, h: slotH }
 }
 
-/** World-space rect a coarse tile occupies — COARSE_FACTOR fine tiles across
- *  in each direction. */
+/** World-space rect one of level `factor`'s tiles occupies — `factor` fine
+ *  tiles across in each direction. */
 export function coarseTileWorldRect(
-  tileX: number, tileY: number, tileW = TILE_SIZE, tileH = TILE_SIZE,
+  tileX: number, tileY: number, factor: number, tileW = TILE_SIZE, tileH = TILE_SIZE,
 ): WorldRect {
-  return tileWorldRect(tileX, tileY, tileW * COARSE_FACTOR, tileH * COARSE_FACTOR)
+  return tileWorldRect(tileX, tileY, tileW * factor, tileH * factor)
 }
 
 /** Every tile-key that overlaps a world-space rect (e.g. a dab's bounding
