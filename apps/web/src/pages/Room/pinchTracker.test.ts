@@ -1,79 +1,194 @@
 import { describe, it, expect } from 'vitest'
 
-import { PinchTracker, PINCH_ZOOM_EPSILON, PINCH_ANGLE_EPSILON } from './pinchTracker'
+import { PinchTracker, PINCH_DISTANCE_FLOOR_PX } from './pinchTracker'
 
 const DEG = Math.PI / 180
 
-/** A gesture frame: `from` is the viewport before this frame, and the tracker is
- *  told where it is being moved to. Mirrors how useViewport calls it. */
-function frame(t: PinchTracker, fromZoom: number, fromAngle: number, toZoom: number, toAngle: number): boolean {
-  return t.move({ zoom: fromZoom, angle: fromAngle }, toZoom, toAngle)
+/** Two fingers `separation` apart, centred on `cx`/`cy`, the pair turned by
+ *  `angle`. Mirrors how a real pair sits on the glass. */
+function pair(cx: number, cy: number, separation: number, angle = 0): [FingerPoint, FingerPoint] {
+  const hx = Math.cos(angle) * separation / 2
+  const hy = Math.sin(angle) * separation / 2
+  return [{ x: cx - hx, y: cy - hy }, { x: cx + hx, y: cy + hy }]
+}
+
+interface FingerPoint { x: number; y: number }
+
+/** Walks the fingers from `from` apart to `to` apart over `frames` events, both
+ *  moving together as they do on real hardware. Returns the frame it announced
+ *  on, or null. A single giant jump is not used for this: the tracker measures
+ *  its noise floor from the gesture's own step size, so one 60 px leap is a step
+ *  as much as it is a signal — it takes a second event to tell them apart, which
+ *  is a distinction a real gesture makes for free by arriving in many events. */
+function spreadTo(t: PinchTracker, from: number, to: number, frames = 8, angle = 0): number | null {
+  let announced: number | null = null
+  for (let i = 0; i <= frames; i++) {
+    const separation = from + (to - from) * (i / frames)
+    if (t.move(...pair(600, 400, separation, angle)) && announced === null) announced = i
+  }
+  return announced
+}
+
+/** Same, for a pure rotation at fixed separation. */
+function turnTo(t: PinchTracker, angle: number, frames = 8, separation = 240): number | null {
+  let announced: number | null = null
+  for (let i = 0; i <= frames; i++) {
+    if (t.move(...pair(600, 400, separation, angle * (i / frames))) && announced === null) announced = i
+  }
+  return announced
+}
+
+/** Replays a two-finger gesture the way useViewport sees it: one `move` call per
+ *  `pointermove`, i.e. one finger updated at a time while the other holds its
+ *  last reported position. `steps` returns both fingers' true positions at frame
+ *  `i`; the interleaving is applied here. Returns the frame index the tracker
+ *  announced on, or null.
+ */
+function replayInterleaved(
+  t: PinchTracker,
+  frames: number,
+  at: (i: number) => [FingerPoint, FingerPoint],
+): number | null {
+  let announced: number | null = null
+  let [a, b] = at(0)
+  for (let i = 1; i <= frames; i++) {
+    const [na, nb] = at(i)
+    // Finger A's event arrives first: A is fresh, B is one step stale.
+    a = na
+    if (t.move(a, b) && announced === null) announced = i
+    // Then B's.
+    b = nb
+    if (t.move(a, b) && announced === null) announced = i
+  }
+  return announced
 }
 
 describe('PinchTracker', () => {
-  it('stays quiet for a two-finger pan that changes neither zoom nor angle', () => {
+  it('stays quiet while two fingers hold still', () => {
     const t = new PinchTracker()
-    // Two fingers dragging in parallel: the same branch runs, scale is 1 and
-    // dAngle is 0, so nothing here is a pinch.
-    for (let i = 0; i < 60; i++) expect(frame(t, 1, 0, 1, 0)).toBe(false)
+    const [a, b] = pair(600, 400, 240)
+    for (let i = 0; i < 60; i++) expect(t.move(a, b)).toBe(false)
     expect(t.isActive).toBe(false)
     expect(t.end()).toBe(false)
   })
 
-  it('stays quiet for sub-threshold wobble held over many frames', () => {
+  it('stays quiet through a slow two-finger pan', () => {
     const t = new PinchTracker()
-    // Jitter that never accumulates: alternating either side of the start,
-    // which is what two fingers on a real digitizer produce while panning.
-    for (let i = 0; i < 60; i++) {
-      const wobble = i % 2 === 0 ? 1.002 : 0.998
-      expect(frame(t, 1, 0, wobble, (i % 2 === 0 ? 0.2 : -0.2) * DEG)).toBe(false)
-    }
+    // 2 px per event — the interleaving artefact is small, but so is the margin
+    // a fixed threshold would have had.
+    expect(replayInterleaved(t, 60, i => pair(400 + i * 2, 300 + i * 1.5, 240))).toBeNull()
     expect(t.isActive).toBe(false)
   })
 
-  it('announces a zoom exactly once, on the frame it crosses the threshold', () => {
+  it('stays quiet through a fast two-finger pan', () => {
     const t = new PinchTracker()
-    expect(frame(t, 1, 0, 1.005, 0)).toBe(false)
-    expect(frame(t, 1.005, 0, 1.02, 0)).toBe(true)
-    expect(t.isActive).toBe(true)
-    // Every later frame of the same gesture is silent — the caller has already
-    // been told, and a per-frame `true` would be a per-frame re-render.
-    expect(frame(t, 1.02, 0, 1.5, 0)).toBe(false)
-    expect(frame(t, 1.5, 0, 3, 0)).toBe(false)
+    // 14 px per event at 240 px separation: the artefact alone is ~6%, which is
+    // what defeated a fixed relative threshold and is the case QA caught.
+    expect(replayInterleaved(t, 40, i => pair(300 + i * 14, 250 + i * 9, 240))).toBeNull()
+    expect(t.isActive).toBe(false)
   })
 
-  it('announces a rotation with no zoom change at all', () => {
+  it('stays quiet through a fast pan with the fingers close together', () => {
     const t = new PinchTracker()
-    expect(frame(t, 1, 0, 1, 0.5 * DEG)).toBe(false)
-    expect(frame(t, 1, 0.5 * DEG, 1, 2 * DEG)).toBe(true)
+    // The worst case for anything relative: a 12 px step at only 70 px apart is
+    // a 17% swing in separation and ~10° of apparent rotation per event.
+    expect(replayInterleaved(t, 40, i => pair(300 + i * 12, 300 + i * 12, 70))).toBeNull()
+    expect(t.isActive).toBe(false)
+  })
+
+  it('stays quiet through an accelerating pan, where one step outgrows the last', () => {
+    const t = new PinchTracker()
+    // maxStep is measured from the gesture so far, so a step larger than any
+    // seen yet is the one moment the measured floor lags reality —
+    // PINCH_STEP_MARGIN is the headroom that covers it.
+    expect(replayInterleaved(t, 20, i => pair(300 + i * i * 0.8, 300, 200))).toBeNull()
+    expect(t.isActive).toBe(false)
+  })
+
+  it('announces a pinch even while the hand also pans', () => {
+    const t = new PinchTracker()
+    // The realistic gesture: fingers spreading *and* the midpoint drifting.
+    const frame = replayInterleaved(t, 30, i => pair(400 + i * 6, 300 + i * 4, 200 + i * 8))
+    expect(frame).not.toBeNull()
+    expect(frame!).toBeLessThan(8)
+    expect(t.isActive).toBe(true)
+  })
+
+  it('announces a rotation even while the hand also pans', () => {
+    const t = new PinchTracker()
+    const frame = replayInterleaved(t, 30, i => pair(400 + i * 6, 300 + i * 4, 240, i * 2 * DEG))
+    expect(frame).not.toBeNull()
+    expect(frame!).toBeLessThan(10)
+  })
+
+  it('announces exactly once, then stays silent for the rest of the gesture', () => {
+    const t = new PinchTracker()
+    expect(spreadTo(t, 240, 300)).not.toBeNull()
+    expect(t.isActive).toBe(true)
+    // Every later frame is silent — the caller has been told, and a per-frame
+    // `true` would be a per-frame re-render.
+    expect(t.move(...pair(600, 400, 400))).toBe(false)
+    expect(t.move(...pair(600, 400, 900))).toBe(false)
+  })
+
+  it('announces fingers closing as readily as spreading', () => {
+    const t = new PinchTracker()
+    expect(spreadTo(t, 240, 190)).not.toBeNull()
+    expect(t.isActive).toBe(true)
+  })
+
+  it('recognizes rotation in either direction', () => {
+    for (const sign of [1, -1]) {
+      const t = new PinchTracker()
+      expect(turnTo(t, sign * 15 * DEG)).not.toBeNull()
+      expect(t.isActive).toBe(true)
+    }
   })
 
   it('accumulates a slow pinch instead of measuring frame to frame', () => {
     const t = new PinchTracker()
-    // 20 frames of 0.2% each: no single frame is anywhere near the 1%
-    // threshold, but the gesture as a whole passes it. This is the case a
-    // previous-frame comparison would never catch.
-    let zoom = 1
+    // Fingers spreading 0.6 px per event — no single frame is anywhere near the
+    // floor, but the gesture as a whole crosses it. The case a previous-frame
+    // comparison would never catch.
     let fired = false
-    for (let i = 0; i < 20; i++) {
-      const next = zoom * 1.002
-      if (frame(t, zoom, 0, next, 0)) fired = true
-      zoom = next
+    for (let i = 0; i < 40; i++) {
+      if (t.move(...pair(600, 400, 240 + i * 0.6))) fired = true
     }
     expect(fired).toBe(true)
   })
 
+  it('ignores tremor below the absolute floor', () => {
+    const t = new PinchTracker()
+    t.move(...pair(600, 400, 240))
+    // Jitter of a couple of pixels, in both directions, forever.
+    for (let i = 0; i < 60; i++) {
+      const jitter = (i % 2 === 0 ? 1 : -1) * (PINCH_DISTANCE_FLOOR_PX / 3)
+      expect(t.move(...pair(600, 400, 240 + jitter))).toBe(false)
+    }
+  })
+
+  it('reads rotation across the ±π seam as the short way round', () => {
+    const t = new PinchTracker()
+    // A near-horizontal pair has an atan2 angle close to π, and turning it a
+    // degree flips the sign. Without shortest-path handling that reads as nearly
+    // a full turn, i.e. instantly significant.
+    expect(t.move(...pair(600, 400, 240, Math.PI - 0.4 * DEG))).toBe(false)
+    expect(t.move(...pair(600, 400, 240, -(Math.PI - 0.4 * DEG)))).toBe(false)
+    // A real turn from there still registers.
+    expect(t.move(...pair(600, 400, 240, -(Math.PI - 6 * DEG)))).toBe(true)
+  })
+
   it('measures a second pinch in the same sequence from its own start', () => {
     const t = new PinchTracker()
-    expect(frame(t, 1, 0, 2, 0)).toBe(true)
+    expect(spreadTo(t, 240, 480)).not.toBeNull()
     expect(t.end()).toBe(true)
 
-    // A fresh gesture beginning at 2x must not be compared against 1x — it is
-    // already 100% away from there, which would report significance before the
-    // fingers had moved at all.
-    expect(frame(t, 2, 0, 2, 0)).toBe(false)
+    // A fresh gesture beginning 480 apart must not be compared against 240 — it
+    // is 240 px away from there, which would report significance before the
+    // fingers had moved at all. The measured step floor resets with it.
+    expect(t.move(...pair(600, 400, 480))).toBe(false)
     expect(t.isActive).toBe(false)
-    expect(frame(t, 2, 0, 2.1, 0)).toBe(true)
+    expect(spreadTo(t, 480, 520)).not.toBeNull()
   })
 
   it('reports an end only when a gesture was announced', () => {
@@ -82,53 +197,36 @@ describe('PinchTracker', () => {
     // silent rather than hiding a readout that was never shown.
     expect(t.end()).toBe(false)
 
-    expect(frame(t, 1, 0, 1.5, 0)).toBe(true)
+    expect(spreadTo(t, 240, 300)).not.toBeNull()
     expect(t.end()).toBe(true)
     // Idempotent: useViewport calls this from both the pointerup path and the
     // visibilitychange/blur reset, and both can run for the same gesture.
     expect(t.end()).toBe(false)
   })
 
-  it('goes quiet once a pinch is clamped against the zoom limit', () => {
+  it('survives two fingers reported at the same point', () => {
     const t = new PinchTracker()
-    // useViewport passes the clamped target. At the 20x ceiling the fingers
-    // keep moving but zoom does not, so a gesture that has not yet been
-    // announced must not be announced by movement that had no effect.
-    expect(frame(t, 20, 0, 20, 0)).toBe(false)
-    expect(frame(t, 20, 0, 20, 0)).toBe(false)
-    expect(t.isActive).toBe(false)
+    const same = { x: 600, y: 400 }
+    expect(t.move(same, same)).toBe(false)
+    // No origin was taken from the degenerate frame, so the first real one sets
+    // it — rather than every later frame dividing by a zero separation.
+    expect(t.move(...pair(600, 400, 240))).toBe(false)
+    expect(spreadTo(t, 240, 240 + PINCH_DISTANCE_FLOOR_PX * 4)).not.toBeNull()
   })
 
-  it('treats zoom multiplicatively, so the threshold means the same at both extremes', () => {
-    // A fixed absolute epsilon would be unreachable near the 0.04 floor and
-    // instantaneous near the 20 ceiling. Same relative step, same verdict.
-    const low = new PinchTracker()
-    expect(frame(low, 0.04, 0, 0.04 * (1 + PINCH_ZOOM_EPSILON * 2), 0)).toBe(true)
+  it('scales its rotation threshold with how far apart the fingers are', () => {
+    // The same lagging step swings a narrow pair much further than a wide one,
+    // so the rotation floor has to account for separation. Both pans stay quiet.
+    const narrow = new PinchTracker()
+    expect(replayInterleaved(narrow, 30, i => pair(300 + i * 10, 300, 60))).toBeNull()
 
-    const high = new PinchTracker()
-    expect(frame(high, 20, 0, 20 * (1 + PINCH_ZOOM_EPSILON * 2), 0)).toBe(true)
+    const wide = new PinchTracker()
+    expect(replayInterleaved(wide, 30, i => pair(300 + i * 10, 300, 600))).toBeNull()
 
-    const lowQuiet = new PinchTracker()
-    expect(frame(lowQuiet, 0.04, 0, 0.04 * (1 + PINCH_ZOOM_EPSILON / 2), 0)).toBe(false)
-
-    const highQuiet = new PinchTracker()
-    expect(frame(highQuiet, 20, 0, 20 * (1 + PINCH_ZOOM_EPSILON / 2), 0)).toBe(false)
-  })
-
-  it('recognizes rotation in either direction', () => {
-    const ccw = new PinchTracker()
-    expect(frame(ccw, 1, 0, 1, -(PINCH_ANGLE_EPSILON * 2))).toBe(true)
-
-    const cw = new PinchTracker()
-    expect(frame(cw, 1, 0, 1, PINCH_ANGLE_EPSILON * 2)).toBe(true)
-  })
-
-  it('measures rotation from the gesture start even past a full turn', () => {
-    const t = new PinchTracker()
-    // vp.angle accumulates unbounded (the header normalizes only for display),
-    // so a gesture beginning at 370° must compare against 370°, not 10°.
-    const start = 370 * DEG
-    expect(frame(t, 1, start, 1, start + 0.2 * DEG)).toBe(false)
-    expect(frame(t, 1, start + 0.2 * DEG, 1, start + 2 * DEG)).toBe(true)
+    // And a deliberate turn registers at either separation.
+    for (const separation of [60, 600]) {
+      const t = new PinchTracker()
+      expect(turnTo(t, 15 * DEG, 8, separation)).not.toBeNull()
+    }
   })
 })

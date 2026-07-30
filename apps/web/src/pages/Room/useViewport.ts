@@ -294,10 +294,13 @@ export function useViewport(
             // needs to be dropped for infinite rooms.
             updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: newAngle })
 
-            // (#362) Fed every frame, announces at most once per gesture. `v`
-            // is still this frame's *previous* viewport — updateVp replaced
-            // `vpState.current` with a new object rather than mutating it.
-            if (pinch.move(v, newZoom, newAngle)) onPinchPhase?.(true)
+            // (#362) Fed both fingers, announces at most once per gesture —
+            // see PinchTracker on why it reads the fingers rather than the zoom
+            // and angle computed just above. Ordered by pointer id, not by
+            // which one this event belongs to: the pair's angle flips by π if
+            // the two arguments swap, and `curr`/`other` alternate every event.
+            const [pa, pb] = e.pointerId < otherId ? [curr, other] : [other, curr]
+            if (pinch.move(pa, pb)) onPinchPhase?.(true)
           }
         } else if (dragRef.current) {
           const d = dragRef.current
