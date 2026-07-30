@@ -335,11 +335,12 @@ export function Room() {
   const predictEnabled = getFeatureFlag('predictPointer')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // #93: fullscreen toggle for the whole editor root — removes tablet
-  // browser chrome (address bar/nav), which eats real estate especially in
-  // landscape. iOS Safari doesn't support Fullscreen API for arbitrary
-  // elements, hence the fullscreenEnabled gate below (hide rather than show
-  // a button that would throw).
+  // #93: fullscreen toggle for the whole page — removes tablet browser chrome
+  // (address bar/nav), which eats real estate especially in landscape. iOS
+  // Safari doesn't support the Fullscreen API for arbitrary elements, hence the
+  // fullscreenEnabled gate below (hide rather than show a button that would
+  // throw). What goes fullscreen is `document.documentElement`, not `editorRef`
+  // — see toggleFullscreen for why that distinction is load-bearing (#357).
   const editorRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const fullscreenSupported = typeof document !== 'undefined' && document.fullscreenEnabled
@@ -1942,16 +1943,29 @@ export function Room() {
     if (engineRef.current?.redo()) syncFromLog()
   }, [syncFromLog, roomContentReady, editingBlocked, t, confirm])
 
+  // (#357) The document root goes fullscreen, not the editor element.
+  //
+  // A fullscreen element is rendered in the browser's *top layer*, above every
+  // z-index in the page, and nothing outside it is painted at all. Everything
+  // this app portals into `<body>` — the layer row's "⋮" menu, every Modal and
+  // ConfirmDialog, the notice stack, the tool pickers — is a sibling of the
+  // editor rather than a descendant, so with the editor fullscreened all of it
+  // silently stopped existing on screen: the menu opened, held state, passed
+  // `checkVisibility()`, and was neither visible nor clickable. On a tablet,
+  // where fullscreen is the normal way to work, that was half the interface.
+  // Fullscreening `documentElement` keeps every portal inside the fullscreen
+  // element, including ones added later, and changes nothing about layout —
+  // the editor already fills the page.
   const toggleFullscreen = useCallback(() => {
     if (document.fullscreenElement) document.exitFullscreen()
-    else editorRef.current?.requestFullscreen()
+    else document.documentElement.requestFullscreen()
   }, [])
 
   // Fullscreen can also be exited by the browser/OS itself (Esc, system
   // gesture) without going through toggleFullscreen — listen rather than
   // trust the button's own click to keep the icon in sync.
   useEffect(() => {
-    const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement === editorRef.current)
+    const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement !== null)
     document.addEventListener('fullscreenchange', onFullscreenChange)
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
   }, [])
