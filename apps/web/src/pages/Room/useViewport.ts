@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useLayoutEffect, useEffect } from 'react
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
-import { ZOOM_MAX, deviceNativeZoom, minZoom, rotateViewportAround } from './cameraMath'
+import { deviceNativeZoom, rotateViewportAround } from './cameraMath'
 import { PinchTracker } from './pinchTracker'
 import { diagLog } from '../../lib/diagLog'
 import { useRoomStore } from '../../stores/roomStore'
@@ -196,13 +196,13 @@ export function useViewport(
       const d  = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaY
       const f  = Math.pow(0.999, d)
       const v  = vpState.current
-      const newZoom = clamp(v.zoom * f, minZoom(infinite), ZOOM_MAX)
+      const newZoom = clamp(v.zoom * f, 0.04, 20)
       const s = newZoom / v.zoom
       updateVp({ ...v, cx: mx + (v.cx - mx) * s, cy: my + (v.cy - my) * s, zoom: newZoom })
     }
     el.addEventListener('wheel', handler, { passive: false })
     return () => el.removeEventListener('wheel', handler)
-  }, [canvas, updateVp, vpEl, infinite])
+  }, [canvas, updateVp, vpEl])
 
   // Touch pinch/pan/rotate + middle-click pan
   useEffect(() => {
@@ -283,7 +283,7 @@ export function useViewport(
 
             ptrs.set(e.pointerId, curr)
             const v = vpState.current
-            const newZoom = clamp(v.zoom * scale, minZoom(infinite), ZOOM_MAX)
+            const newZoom = clamp(v.zoom * scale, 0.04, 20)
             const newCx   = prevMid.x + (v.cx - prevMid.x) * scale + (currMid.x - prevMid.x)
             const newCy   = prevMid.y + (v.cy - prevMid.y) * scale + (currMid.y - prevMid.y)
             const newAngle = v.angle + dAngle

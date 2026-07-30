@@ -52,7 +52,7 @@ import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { resolveDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
-import { ZOOM_MAX, clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
+import { clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom } from './cameraMath'
 import { describeJoinError } from './joinError'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { isLocalIslandSafe } from './optimism'
@@ -922,15 +922,10 @@ export function Room() {
   // Drag up/down on the zoom label to adjust zoom without a two-finger pinch
   // (#97); a plain click still resets to 100%, mirroring angleLabel's
   // click-to-reset-rotation below.
-  // Clamped to the same limits as the wheel/pinch gestures (see minZoom) —
-  // this control writes vp.zoom directly, so a floor of its own would let a
-  // drag reach a zoom no gesture can, which for an infinite room is the
-  // per-frame tile cost #363 exists to bound.
-  const zoomFloor = minZoom(!!config?.infinite)
   const { onPointerDown: onZoomDragDown } = useDragToAdjust(
     vp.zoom,
-    z => setVp(v => ({ ...v, zoom: clamp(z, zoomFloor, ZOOM_MAX) })),
-    { min: zoomFloor, max: ZOOM_MAX, sensitivity: 0.01 },
+    z => setVp(v => ({ ...v, zoom: clamp(z, 0.04, 20) })),
+    { min: 0.04, max: 20, sensitivity: 0.01 },
   )
 
   // (#329) Rotation by the same drag gesture, on the angle readout — this

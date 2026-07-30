@@ -189,18 +189,3 @@ Every issue must have exactly one `kind:*` and one `area:*`.
 4. Close issues only when the fix/feature is merged and verified.
 5. Do not put full implementation plans in issue bodies — keep them short; long plans live in ADRs or design docs linked from the issue.
 6. Check the issue against the release track (#314) before starting — see "Release track" above.
-
-### Naming issues in conversation
-
-Never refer to an issue by bare number when writing to Ilya. Always give the number
-a short handle: `#314 (релиз-трек)`, `#308 (Undo вешает поток)`, `#154 (dpr в
-бесконечном холсте)`. A few words are enough — it only has to be recognizable, not
-the real title.
-
-Ilya does not remember issues by number, and a bare `#N` forces a trip to the
-tracker to read a sentence. Applies to chat replies, plans and summaries — anywhere
-he is the reader. Issue bodies and commit messages, which sit next to the tracker
-already, can use bare numbers; a handle there is welcome but not required.
-
-This holds for the *first* mention in a given message. Repeating the same issue
-three lines later can drop back to the bare number.

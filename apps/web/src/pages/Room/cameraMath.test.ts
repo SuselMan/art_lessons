@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround, minZoom, deviceNativeZoom } from './cameraMath'
+import { worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround } from './cameraMath'
 import type { Viewport } from './useViewport'
 
 describe('worldToScreen / screenToWorld', () => {
@@ -136,42 +136,5 @@ describe('rotateViewportAround (#319)', () => {
     expect(back.cx).toBeCloseTo(vp.cx)
     expect(back.cy).toBeCloseTo(vp.cy)
     expect(back.angle).toBeCloseTo(vp.angle)
-  })
-})
-
-describe('minZoom (#363)', () => {
-  // These tests run under vitest's `node` environment, which has no window —
-  // deviceNativeZoom (which the infinite branch scales by) reads
-  // window.devicePixelRatio live, so each case installs its own.
-  function withDpr<T>(dpr: number, fn: () => T): T {
-    const had = 'window' in globalThis
-    const previous = (globalThis as { window?: unknown }).window
-    ;(globalThis as { window?: unknown }).window = { devicePixelRatio: dpr }
-    try { return fn() } finally {
-      if (had) (globalThis as { window?: unknown }).window = previous
-      else delete (globalThis as { window?: unknown }).window
-    }
-  }
-
-  it('lets an infinite room zoom out to exactly the 10% its readout shows', () => {
-    // The header shows vp.zoom / deviceNativeZoom() as a percentage, so the
-    // floor has to be expressed against that same base — the whole point of
-    // scaling it rather than hardcoding a vp.zoom value.
-    withDpr(1, () => expect(minZoom(true)).toBeCloseTo(0.1))
-    // DPR below 1 (browser zoomed out) is where a bare 0.1 would silently
-    // mean a different percentage — and a different tile count, which is the
-    // thing actually being bounded.
-    withDpr(0.5, () => expect(minZoom(true)).toBeCloseTo(0.1 * deviceNativeZoom()))
-  })
-
-  it('is unchanged for bounded rooms, whatever the DPR', () => {
-    // A bounded room composites one fixed page however small it is drawn, so
-    // it never had the cost that motivated the infinite floor.
-    withDpr(1, () => expect(minZoom(false)).toBe(0.04))
-    withDpr(3, () => expect(minZoom(false)).toBe(0.04))
-  })
-
-  it('never lets an infinite room out further than a bounded one', () => {
-    withDpr(1, () => expect(minZoom(true)).toBeGreaterThan(minZoom(false)))
   })
 })

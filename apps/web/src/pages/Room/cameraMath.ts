@@ -78,43 +78,6 @@ export function deviceNativeZoom(): number {
   return 1 / Math.min(window.devicePixelRatio || 1, MAX_BACKING_STORE_DPR)
 }
 
-/** Upper zoom limit, shared by every gesture and control that can change
- *  zoom (wheel, pinch, the header's drag-to-adjust readout). Same for both
- *  room modes — magnifying costs nothing extra, it's zooming *out* that
- *  multiplies work (see minZoom). */
-export const ZOOM_MAX = 20
-
-// (#363) How far an infinite room may zoom out, as a fraction of its own
-// "100%" (deviceNativeZoom, see above) — i.e. what the header readout shows,
-// not a raw `vp.zoom`. Deliberately 10x tighter than a bounded room's limit,
-// because the two modes pay completely different costs for the same number:
-// a bounded room composites one fixed page no matter how small it's drawn,
-// while an infinite room composites one draw call per visible 1024x1024 tile,
-// so its per-frame cost grows with 1/zoom². At the old 0.04 a 1920x1080
-// viewport spans ~3100 tiles; at 0.1 it spans ~576. Neither is cheap — this
-// is a ceiling on the damage, not a fix (that's the LOD work #363 defers) —
-// but it's the difference between "slow" and "allocates gigabytes".
-const INFINITE_MIN_ZOOM_FRACTION = 0.1
-
-// A bounded room's own floor, unchanged since before #363: its cost doesn't
-// scale with zoom-out, so the only thing this guards is the viewport turning
-// into an unusable speck.
-const BOUNDED_MIN_ZOOM = 0.04
-
-/** Lower zoom limit for `vp.zoom` in this room's mode — the counterpart to
- *  ZOOM_MAX, and the one every zoom control must clamp to so they can't
- *  disagree about how far out is too far.
- *
- *  Returned in `vp.zoom`'s own units (CSS px per world unit), which is why
- *  the infinite branch scales by deviceNativeZoom() rather than returning a
- *  bare fraction: an infinite room's "100%" is deviceNativeZoom(), not 1
- *  (see its doc comment), so a fixed `vp.zoom` floor would mean a different
- *  on-screen percentage — and a different tile count, which is the thing
- *  actually being limited — on a device whose DPR is below 1. */
-export function minZoom(infinite: boolean): number {
-  return infinite ? INFINITE_MIN_ZOOM_FRACTION * deviceNativeZoom() : BOUNDED_MIN_ZOOM
-}
-
 export function worldToScreen(worldX: number, worldY: number, vp: Viewport): { x: number; y: number } {
   const cos = Math.cos(vp.angle)
   const sin = Math.sin(vp.angle)

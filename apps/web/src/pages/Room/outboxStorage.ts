@@ -56,6 +56,19 @@ function openDb(): Promise<IDBDatabase> {
       // version exists to fix.
       if (event.oldVersion > 0 && event.oldVersion < 2) store.clear()
     }
+    // (#358) An upgrade waits for every other tab still holding the old
+    // version open, and without this the wait is silent and unbounded: the
+    // promise simply never settles, so `getDb` never returns and this tab's
+    // queue loses durability for the rest of its life with nothing said.
+    // Found on the tablet, where it is not a corner case — two rooms in two
+    // tabs is how the app gets used, and a background tab on Android can sit
+    // on an old build for hours before Chrome reloads it. Rejecting instead
+    // means the failure is reported, and `getDb` drops the cached promise so
+    // the next operation tries again (see #296's reasoning there); the older
+    // tab meanwhile keeps working on the version it opened.
+    req.onblocked = () => {
+      reject(new Error(`outbox: upgrade to v${DB_VERSION} is blocked by another tab holding an older version open`))
+    }
     req.onsuccess = () => resolve(req.result)
     req.onerror = () => reject(req.error as unknown)
   })
@@ -76,7 +89,22 @@ export function createIndexedDbOutboxStorage(): OutboxStorage {
   const getDb = async (): Promise<IDBDatabase> => {
     dbPromise ??= openDb()
     try {
-      return await dbPromise
+      const db = await dbPromise
+      // (#358) The other half of the blocked-upgrade problem: never be the tab
+      // that blocks the next migration. `versionchange` fires when another tab
+      // wants a higher version, and holding this connection open is exactly
+      // what stalls it — so close it and forget it. The next operation reopens
+      // at whatever version now exists, which is why this clears the cached
+      // promise as well as closing: a closed connection kept in the cache
+      // would fail every transaction from here on.
+      //
+      // This cannot repair a tab that is already running an older build (it
+      // has no such handler), so it is a fix for the *next* migration rather
+      // than for the one that went wrong. There is no way to make it retroactive
+      // from here, and that is the point worth remembering about IndexedDB
+      // migrations: the code that has to cooperate is the code already shipped.
+      db.onversionchange = () => { db.close(); dbPromise = null }
+      return db
     } catch (err) {
       dbPromise = null
       throw err
