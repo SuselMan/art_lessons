@@ -337,6 +337,36 @@ export function getPaperBytes(type: PaperType): Promise<Uint8Array> {
   return cacheEvictingRejection(byteCache, type, () => loadPaperBytesImpl(type))
 }
 
+/** (#365) Builds a mip chain for the paper texture currently bound to
+ *  TEXTURE_2D, reporting whether it worked. Callers must leave the min filter
+ *  at LINEAR (setPaperTextureParams does) and only switch to a mip filter
+ *  where this returned true — a texture asking for levels it lacks is
+ *  incomplete and samples as opaque black.
+ *
+ *  The paper texture is baked offline and uploaded once, so unlike a tile
+ *  this chain can never go stale: generated here, at load, and never again.
+ *
+ *  Verified through getError rather than by checking the format up front,
+ *  which is unusual in this codebase and deliberate. WebGL1's paper texture
+ *  is LUMINANCE_ALPHA, and whether generateMipmap accepts that is exactly the
+ *  kind of thing implementations disagree on: GLES 2.0 rejects only
+ *  compressed and non-power-of-two level-0 arrays, while the stricter GLES
+ *  3.0 rule (color-renderable AND texture-filterable, which LUMINANCE_ALPHA
+ *  is not) is what some drivers actually enforce. Guessing which applies on a
+ *  given device would be wrong somewhere; asking costs one synchronous
+ *  getError, once per paper load, on a path that already awaits a network
+ *  fetch. A device that refuses simply keeps today's unfiltered sampling
+ *  rather than rendering a black sheet.
+ *
+ *  Clears any error already pending first, so this reports on its own call
+ *  rather than inheriting one from unrelated earlier GL work. */
+export function generatePaperMipmaps(gl: WebGLRenderingContext, tex: WebGLTexture): boolean {
+  gl.bindTexture(gl.TEXTURE_2D, tex)
+  while (gl.getError() !== gl.NO_ERROR) { /* drain */ }
+  gl.generateMipmap(gl.TEXTURE_2D)
+  return gl.getError() === gl.NO_ERROR
+}
+
 function setPaperTextureParams(gl: WebGLRenderingContext): void {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)

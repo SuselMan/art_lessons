@@ -390,6 +390,19 @@ export function paperTextureSize(engine: PencilEngine): { width: number; height:
   return eng.gl.getTextureSize(eng._paperTex)
 }
 
+/** (#365) The paper texture's mip state: how many chains have been built for
+ *  it, and whether it is currently asking to sample from one. The second is
+ *  the determinism guard — outside a PAPER_COMPOSE_FRAG draw it must always
+ *  be false, since the paint path shares this texture and graphite deposit
+ *  must not depend on implementation-defined mip selection. */
+export function paperMipState(engine: PencilEngine): { generations: number; askingForMips: boolean } {
+  const eng = internals(engine)
+  return {
+    generations: eng.gl.getMipmapGenerations(eng._paperTex),
+    askingForMips: eng.gl.getMinFilter(eng._paperTex) === eng.gl.LINEAR_MIPMAP_LINEAR,
+  }
+}
+
 /** The paper texture's wrap mode — REPEAT for both bounded and infinite
  *  rooms (see _initPaper/paperLoader.ts). */
 export function paperTextureWrap(engine: PencilEngine): { wrapS: number; wrapT: number } | null {

@@ -4,7 +4,7 @@ import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDG
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
-  createPlaceholderPaperTexture, getPaperBytes, uploadPaperTexture,
+  createPlaceholderPaperTexture, generatePaperMipmaps, getPaperBytes, uploadPaperTexture,
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import {
@@ -1384,6 +1384,12 @@ export class PencilEngine implements PencilEngineAPI {
   // conflating the two would risk this auto-clearing a lock the user
   // explicitly asked for.
   private _paperTexLoaded = false
+  // (#365) Whether _paperTex currently carries a mip chain, i.e. whether the
+  // infinite-room display pass may switch to a mip filter for it. Re-decided
+  // every time _paperTex is replaced (initial placeholder, real bake, context
+  // restore) and never assumed — see generatePaperMipmaps for why a driver
+  // can legitimately refuse.
+  private _paperMipsReady = false
 
   // Infinite (tiled) canvas mode (#133 Phase 1) — see PencilEngineOptions.infinite.
   private readonly _infinite: boolean
@@ -1540,6 +1546,7 @@ export class PencilEngine implements PencilEngineAPI {
     // now and the real bake finishing loading still has something valid to
     // sample — see paperLoader.ts's createPlaceholderPaperTexture.
     this._paperTex = createPlaceholderPaperTexture(this.gl)
+    this._paperMipsReady = generatePaperMipmaps(this.gl, this._paperTex)
     this._startPaperLoad(this._opts.paper)
     this._pointer = new PointerInput(canvas)
     this._dabs    = new DabSystem()
@@ -2884,6 +2891,7 @@ export class PencilEngine implements PencilEngineAPI {
     // caches by PaperType, not by gl context, so this never re-fetches over
     // the network — see getPaperBytes).
     this._paperTex = createPlaceholderPaperTexture(this.gl)
+    this._paperMipsReady = generatePaperMipmaps(this.gl, this._paperTex)
     this._paperTexLoaded = false
     this._startPaperLoad(this._opts.paper)
     this._layers.clear() // handles are already dead; not worth destroy()ing
@@ -3272,8 +3280,10 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._destroyed) return
     const gl = this.gl
     const newTex = uploadPaperTexture(gl, bytes)
+    const mipsReady = generatePaperMipmaps(gl, newTex)
     const old = this._paperTex
     this._paperTex = newTex
+    this._paperMipsReady = mipsReady
     this._paperTexLoaded = true
     gl.deleteTexture(old)
     this._display()
@@ -5594,6 +5604,49 @@ export class PencilEngine implements PencilEngineAPI {
     )
   }
 
+  /** (#365) Binds the paper texture to TEXTURE1 for a PAPER_COMPOSE_FRAG
+   *  draw, switching it to a mip filter for the duration.
+   *
+   *  The baked grain is ~13 texels per world unit (PAPER_BAKE_RESOLUTION over
+   *  PAPER_WORLD_SIZE), and this shader takes one tap per output pixel at
+   *  that pixel's world position — so it reads a single texel out of a
+   *  ~13-wide footprint even at 1 world unit = 1 pixel, and out of a
+   *  hundreds-wide one when the camera is zoomed out. That is the grain
+   *  crawl that makes an infinite room read worse than a bounded one at the
+   *  same on-screen size.
+   *
+   *  Switched per draw rather than set once at load because this texture is
+   *  shared with the paint path (DAB_FRAG), where mip levels must never be
+   *  used: level selection is implementation-defined, graphite deposit
+   *  depends on the grain, and that deposit is baked into content every
+   *  participant sees. See .claude/rules.md, "Cross-device pixel
+   *  determinism". Callers must pair this with _releasePaperFromCompose.
+   *
+   *  Applied to the export path as well as the live one, both of which go
+   *  through this shader: filtering only the screen would leave an exported
+   *  image visibly grainier than the room it was exported from.
+   *
+   *  Bounded rooms never reach either path — they display through
+   *  DISPLAY_FRAG (see _display) and are scaled by the browser's compositor,
+   *  so their paper is untouched by all of this. */
+  private _bindPaperForCompose(): void {
+    const { gl } = this
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    if (this._paperMipsReady) gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+  }
+
+  /** Restores the plain LINEAR filter the paint path requires — see
+   *  _bindPaperForCompose. Must run after the draw that used it, before any
+   *  dab can sample this texture again. */
+  private _releasePaperFromCompose(): void {
+    const { gl } = this
+    if (!this._paperMipsReady) return
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+  }
+
   /** (#301) The entire infinite-room display pass: rotates _assemblyFBO
    *  (raw, unblended accumulation — see its own field comment) down onto
    *  the real screen and blends paper into it in the same draw, sampling
@@ -5618,8 +5671,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._assemblyFBO.texture)
     gl.uniform1i(u.u_accumulation, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    this._bindPaperForCompose()
     gl.uniform1i(u.u_paperMap, 1)
 
     gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
@@ -5643,6 +5695,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    this._releasePaperFromCompose()
   }
 
   /** Low-level transform-blit draw call — renders `sourceTex` (sized
@@ -6253,8 +6306,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, sourceTex)
     gl.uniform1i(u.u_accumulation, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+    this._bindPaperForCompose()
     gl.uniform1i(u.u_paperMap, 1)
 
     gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
@@ -6274,6 +6326,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.enableVertexAttribArray(posLoc)
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    this._releasePaperFromCompose()
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
