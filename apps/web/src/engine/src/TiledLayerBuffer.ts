@@ -118,7 +118,12 @@ export type TileRebuilder = () => TileRebuildSession
  *  just `resolveForPaint`'s writes — this is what keeps whatever tiles are
  *  actually on screen (or otherwise in active use) safely away from the
  *  LRU end regardless of how many *other* tiles a big room has touched, so
- *  ordinary panning within budget never thrashes. `allResident` in
+ *  ordinary panning within budget never thrashes. (#363) The budget is a
+ *  soft target, not a hard cap: a single resolve call's own tiles are never
+ *  evicted, so a view wider than the budget — an infinite room at low zoom —
+ *  deliberately stays over it while it's on screen rather than destroying
+ *  pixels the caller is mid-way through drawing. See evictIfOverBudget.
+ *  `allResident` in
  *  particular must recover *every* evicted tile before returning (never
  *  just the ones asked about) — callers (checkpoint, merge, transform
  *  bake/preview) rely on it as "this layer's entire content," and if it
@@ -234,14 +239,52 @@ export class TiledLayerBuffer implements ILayerBuffer {
     this.tiles.set(key, tile)
   }
 
-  private evictIfOverBudget(): void {
+  /** Trims resident tiles back to budget, least-recently-used first, never
+   *  touching a key in `inUse`.
+   *
+   *  (#363) That exemption is the whole point, not a refinement. This used to
+   *  trim unconditionally, on the assumption its callers spelled out and
+   *  relied on: that a single resolve call could never itself ask for more
+   *  tiles than the budget holds, so anything it had just touch()ed was
+   *  freshly MRU and therefore safe. An infinite room's *view* breaks that —
+   *  tiles in view grow with 1/zoom², and past roughly zoom 0.5 on a normal
+   *  screen the visible set alone outnumbers maxResidentTiles. The trim then
+   *  destroyed the GL textures of tiles resolveVisible had already placed in
+   *  the array it was about to return, and _drawCompositeItem went on to bind
+   *  them: in GLES2 a deleted texture name samples as opaque black, which
+   *  under the composite's own (ONE, ONE_MINUS_SRC_ALPHA) blend paints a
+   *  solid black square over whatever was beneath it. Worse, each frame then
+   *  re-recovered what the previous frame had evicted — and recovery is a
+   *  full Operation Log replay of the layer (see TileRebuilder), so a static
+   *  wide view replayed the whole layer once per composited frame.
+   *
+   *  Exempting the in-use set fixes both at once: the frame draws every tile
+   *  it resolved, and the resident set stops oscillating, since consecutive
+   *  frames of a still camera protect the same keys. The cost is that a view
+   *  wider than the budget deliberately *stays* over budget for as long as
+   *  it's on screen — resident tiles become max(budget, tiles in view). That
+   *  is the honest price of compositing full-resolution tiles at low zoom,
+   *  and bounding it for real needs a reduced-resolution level to draw
+   *  instead (the LOD work #363 defers); a budget that "wins" by destroying
+   *  pixels the caller is mid-way through drawing was never actually
+   *  respecting it, just corrupting the frame. The moment the camera moves
+   *  on, the next resolve protects a different set and these trim normally. */
+  private evictIfOverBudget(inUse?: ReadonlySet<string>): void {
     if (!this.rebuildTile || this.evictionSuspendDepth > 0) return
-    while (this.tiles.size > this.maxResidentTiles) {
-      const oldestKey = this.tiles.keys().next().value
-      if (oldestKey === undefined) break
-      this.tiles.get(oldestKey)!.destroy()
-      this.tiles.delete(oldestKey)
-      this.evicted.add(oldestKey)
+    let overBudget = this.tiles.size - this.maxResidentTiles
+    if (overBudget <= 0) return
+    // Iterates a snapshot rather than the live Map: unlike the old loop this
+    // can skip a key (leaving it in place) instead of always deleting the
+    // first one, so re-reading keys().next() would just return the same
+    // protected key forever. Snapshot order is Map insertion order, which
+    // touch() maintains as LRU order — so this still evicts oldest-first.
+    for (const key of [...this.tiles.keys()]) {
+      if (overBudget <= 0) break
+      if (inUse?.has(key)) continue
+      this.tiles.get(key)!.destroy()
+      this.tiles.delete(key)
+      this.evicted.add(key)
+      overBudget--
     }
   }
 
@@ -308,44 +351,42 @@ export class TiledLayerBuffer implements ILayerBuffer {
 
   resolveForPaint(worldRect: WorldRect): PaintTarget[] {
     const coords = tilesOverlappingRect(worldRect, this.tileW, this.tileH)
-    const missing = coords
-      .map(({ tileX, tileY }) => tileKey(tileX, tileY))
-      .filter(key => !this.tiles.has(key) && this.evicted.has(key))
-    this.recoverTiles(missing)
-    const targets = coords.map(({ tileX, tileY }) => {
+    const keys = coords.map(({ tileX, tileY }) => tileKey(tileX, tileY))
+    this.recoverTiles(keys.filter(key => !this.tiles.has(key) && this.evicted.has(key)))
+    const targets = coords.map(({ tileX, tileY }, i) => {
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
       const buffer = this.getOrCreateTile(tileX, tileY)
-      return { buffer, originX: rect.minX, originY: rect.minY, contentRect: this.contentRects.get(tileKey(tileX, tileY)) ?? null }
+      return { buffer, originX: rect.minX, originY: rect.minY, contentRect: this.contentRects.get(keys[i]) ?? null }
     })
-    // Trimmed once, after every target this call needs is already resolved
-    // and (via getOrCreateTile's touch()) freshly MRU — so a trim here can
-    // only ever evict some *other*, less recently used tile, never one this
-    // call is about to hand back (unless `coords` alone outnumbers the
-    // budget, an extreme edge case no realistic paint/bake rect approaches).
-    this.evictIfOverBudget()
+    // Trimmed once, after every target this call needs is already resolved,
+    // and passed this call's own keys so the trim can never destroy one of
+    // them — see evictIfOverBudget's own doc comment. A bake's transformed
+    // content bounds can span a lot of tiles, so this isn't only the display
+    // path's concern.
+    this.evictIfOverBudget(new Set(keys))
     return targets
   }
 
   resolveVisible(worldRect: WorldRect): PaintTarget[] {
     const coords = tilesOverlappingRect(worldRect, this.tileW, this.tileH)
-    const missing = coords
-      .map(({ tileX, tileY }) => tileKey(tileX, tileY))
-      .filter(key => !this.tiles.has(key) && this.evicted.has(key))
-    this.recoverTiles(missing)
+    const keys = coords.map(({ tileX, tileY }) => tileKey(tileX, tileY))
+    this.recoverTiles(keys.filter(key => !this.tiles.has(key) && this.evicted.has(key)))
 
     const targets: PaintTarget[] = []
+    const inUse = new Set<string>()
     for (const { tileX, tileY } of coords) {
       const key = tileKey(tileX, tileY)
       const tile = this.tiles.get(key)
       if (!tile) continue // never touched at all — nothing to show, same as before #144
       this.touch(key, tile)
+      inUse.add(key)
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
       targets.push({ buffer: tile, originX: rect.minX, originY: rect.minY, contentRect: this.contentRects.get(key) ?? null })
     }
-    // See resolveForPaint's own comment — same reasoning, trimmed once at
-    // the end so this call's own targets (just touched, now MRU) are never
-    // the ones a trim would pick.
-    this.evictIfOverBudget()
+    // See resolveForPaint's own comment. `inUse` is built from the tiles
+    // actually returned, not from `keys`: a coord with no tile at all
+    // contributes nothing to protect, and this is the hot display path.
+    this.evictIfOverBudget(inUse)
     return targets
   }
 
