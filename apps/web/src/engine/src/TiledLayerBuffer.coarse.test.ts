@@ -74,11 +74,10 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     paintFineTile(buf, 0)
     expect(folds).toHaveLength(0)
 
-    // One fold per level: which level the camera will ask for is not known
-    // when the write happens, so a level left out would be stale the moment
-    // the camera settled on it.
+    // (#367) One fold, not one per level: only the level actually being
+    // drawn catches up. The others stay owed until something asks for them.
     buf.resolveCoarse(wholeWorld, FACTOR)
-    expect(folds).toHaveLength(COARSE_FACTORS.length)
+    expect(folds).toHaveLength(1)
   })
 
   it('folds only once for a tile that has not changed since', () => {
@@ -86,7 +85,7 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
     paintFineTile(buf, 0)
     for (let frame = 0; frame < 5; frame++) buf.resolveCoarse(wholeWorld, FACTOR)
-    expect(folds).toHaveLength(COARSE_FACTORS.length)
+    expect(folds).toHaveLength(1)
   })
 
   it('folds again after the tile is painted again', () => {
@@ -96,7 +95,7 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     buf.resolveCoarse(wholeWorld, FACTOR)
     paintFineTile(buf, 0)
     buf.resolveCoarse(wholeWorld, FACTOR)
-    expect(folds).toHaveLength(COARSE_FACTORS.length * 2)
+    expect(folds).toHaveLength(2)
   })
 
   it('folds a tile before eviction can destroy it', () => {
@@ -109,9 +108,10 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     for (let i = 0; i < cap + 4; i++) paintFineTile(buf, i)
 
     expect(buf.evictedTileCount).toBeGreaterThan(0)
-    // Every tile painted so far was folded — none was destroyed still owing
-    // its content to the coarse level.
-    expect(folds.length).toBeGreaterThanOrEqual(cap)
+    // (#367) Only the tiles actually evicted were folded — the ones still
+    // resident keep owing until a level is drawn. What must not happen is a
+    // tile being destroyed while it still owes.
+    expect(folds.length).toBeGreaterThanOrEqual(buf.evictedTileCount)
   })
 
   it('places each fine tile in its own slot, including negative coordinates', () => {
@@ -123,13 +123,10 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     buf.resolveForPaint({ minX: -TILE_W, minY: 0, maxX: -TILE_W + 1, maxY: 1 })
     buf.resolveCoarse(wholeWorld, FACTOR)
 
-    // One entry per level, in COARSE_FACTORS order. Tile -1 must land in the
-    // *last* column of the level tile to its left at every factor — the case
-    // truncating division would fold onto tile 0 instead.
-    expect(folds).toEqual(COARSE_FACTORS.map(factor => {
-      const slot = TILE_W / factor
-      return { x: (factor - 1) * slot, y: 0, w: slot, h: slot }
-    }))
+    // Tile -1 must land in the *last* column of the level tile to its left —
+    // the case truncating division would fold onto tile 0 instead.
+    const slot = TILE_W / FACTOR
+    expect(folds).toEqual([{ x: (FACTOR - 1) * slot, y: 0, w: slot, h: slot }])
   })
 
   it('separates content either side of the coarse boundary', () => {
@@ -140,6 +137,45 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
 
     const targets = buf.resolveCoarse(wholeWorld, FACTOR)!
     expect(targets.map(t => t.originX).sort((a, b) => a - b)).toEqual([-COARSE_WORLD, 0])
+  })
+
+  it('folds nothing at all while no level is being drawn (#367)', () => {
+    // The regression this issue is about: painting used to fold into every
+    // level on every write, which put a mip-chain rebuild and three quad
+    // draws per touched tile into every frame of every stroke — at any zoom,
+    // including the 100% where no level is read.
+    const { downsample, folds } = recordingDownsampler()
+    const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
+    for (let frame = 0; frame < 20; frame++) paintFineTile(buf, frame % 3)
+    expect(folds).toHaveLength(0)
+  })
+
+  it('catches a level up only when that level is asked for (#367)', () => {
+    const { downsample, folds } = recordingDownsampler()
+    const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
+    paintFineTile(buf, 0)
+
+    buf.resolveCoarse(wholeWorld, COARSE_FACTORS[0])
+    expect(folds).toHaveLength(1)
+
+    // A different level still owes the same tile, and pays when reached —
+    // which is what keeps the levels correct despite the lazy fold.
+    buf.resolveCoarse(wholeWorld, COARSE_FACTORS[1])
+    expect(folds).toHaveLength(2)
+  })
+
+  it('settles a tile with every level before evicting it, not just the drawn one (#367)', () => {
+    // Deferring is only safe while the tile is still around to fold. Once its
+    // texture is destroyed the debt can never be paid, so eviction is the one
+    // place that cannot be lazy.
+    const { downsample, folds } = recordingDownsampler()
+    const cap = 8
+    const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, rebuilder(), TILE_BYTES * cap, downsample)
+    for (let i = 0; i < cap + 4; i++) paintFineTile(buf, i)
+
+    expect(buf.evictedTileCount).toBeGreaterThan(0)
+    // Each evicted tile paid every level on its way out.
+    expect(folds.length).toBeGreaterThanOrEqual(buf.evictedTileCount * COARSE_FACTORS.length)
   })
 
   it('drops the coarse level on clear(), so a wiped layer cannot keep showing content', () => {

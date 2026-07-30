@@ -179,12 +179,19 @@ export class TiledLayerBuffer implements ILayerBuffer {
   // fine tiles of real painted content, two orders of magnitude past anything
   // a lesson produces. Worth revisiting only if that stops being true.
   private readonly coarse = new Map<CoarseFactor, Map<string, AccumulationBuffer>>()
-  // Fine tile keys whose content has changed since it was last folded into
-  // the coarse level. Populated by resolveForPaint — the single gate every
-  // write path in the engine passes through to get a target — rather than by
-  // the individual writers, so a new write path cannot forget to mark itself
-  // and silently leave the coarse level showing stale pixels at low zoom.
-  private readonly pendingDownsample = new Set<string>()
+  // (#367) Fine tile keys owing content to each level, tracked per level
+  // rather than once for all of them. Populated by resolveForPaint — the
+  // single gate every write path in the engine passes through to get a target
+  // — rather than by the individual writers, so a new write path cannot
+  // forget to mark itself and silently leave a level showing stale pixels.
+  //
+  // Split per level because only one level is ever on screen at a time, and
+  // #365 folded into all three on every write. That put a generateMipmap over
+  // a 1024x1024 texture plus three quad draws per touched tile into every
+  // frame of every stroke — at any zoom, including 100%, where no level is
+  // read at all. A level now catches up when something first asks for it,
+  // which for the two nobody is looking at is not during a stroke.
+  private readonly pendingDownsample = new Map<CoarseFactor, Set<string>>()
   private readonly downsampleTile: TileDownsampler | undefined
   private readonly maxResidentTiles: number
   // Counter, not boolean, so nested suspend/resume (defensive — nothing in
@@ -277,34 +284,68 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  after that call's own trim — so this never folds a tile whose paint has
    *  not happened yet and then clears the mark, which would leave the coarse
    *  level one operation behind forever. */
-  private flushDownsamples(): void {
+  private levelFor(factor: CoarseFactor): Map<string, AccumulationBuffer> {
+    let level = this.coarse.get(factor)
+    if (!level) { level = new Map(); this.coarse.set(factor, level) }
+    return level
+  }
+
+  /** Folds one fine tile into one level's tile, creating the latter if this
+   *  is the first content to land in it. */
+  private foldInto(factor: CoarseFactor, key: string, tile: AccumulationBuffer): void {
     const downsample = this.downsampleTile
-    if (!downsample || !this.pendingDownsample.size) return
-    for (const key of this.pendingDownsample) {
+    if (!downsample) return
+    const { tileX, tileY } = parseTileKey(key)
+    const coarseCoord = fineToCoarseTile(tileX, tileY, factor)
+    const coarseKey = tileKey(coarseCoord.tileX, coarseCoord.tileY)
+    const level = this.levelFor(factor)
+    let dest = level.get(coarseKey)
+    if (!dest) {
+      dest = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
+      dest.clear()
+      level.set(coarseKey, dest)
+    }
+    const slot = fineTileSlot(tileX, tileY, factor, this.tileW, this.tileH)
+    downsample(tile, dest, slot.x, slot.y, slot.w, slot.h)
+  }
+
+  /** (#367) Brings one level up to date. Called when that level is about to
+   *  be drawn from, and nowhere else — the levels nobody is looking at stay
+   *  behind until the camera reaches them, which is what keeps the fold out
+   *  of the drawing path at zooms where no level is read at all.
+   *
+   *  Catching up a level after a long spell away can fold many tiles at once,
+   *  which is a one-off cost at the moment the camera crosses into it rather
+   *  than a per-frame one. It is also bounded: a key can only be pending
+   *  while its tile is resident, since eviction settles a tile's debt to
+   *  every level before destroying it (see evictIfOverBudget). */
+  private flushLevel(factor: CoarseFactor): void {
+    const pending = this.pendingDownsample.get(factor)
+    if (!this.downsampleTile || !pending?.size) return
+    for (const key of pending) {
       const tile = this.tiles.get(key)
       if (!tile) continue // cannot normally happen — see the ordering note above
-      const { tileX, tileY } = parseTileKey(key)
-      // Into every level, not just one: which level the camera will ask for
-      // is not known here, and a level that skipped this fold would be stale
-      // the moment the camera settled on it. Each fold is one quad draw into
-      // a slot, so three of them per written tile is nothing next to the
-      // paint that produced the tile in the first place.
-      for (const factor of COARSE_FACTORS) {
-        const coarseCoord = fineToCoarseTile(tileX, tileY, factor)
-        const coarseKey = tileKey(coarseCoord.tileX, coarseCoord.tileY)
-        let level = this.coarse.get(factor)
-        if (!level) { level = new Map(); this.coarse.set(factor, level) }
-        let dest = level.get(coarseKey)
-        if (!dest) {
-          dest = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
-          dest.clear()
-          level.set(coarseKey, dest)
-        }
-        const slot = fineTileSlot(tileX, tileY, factor, this.tileW, this.tileH)
-        downsample(tile, dest, slot.x, slot.y, slot.w, slot.h)
-      }
+      this.foldInto(factor, key, tile)
     }
-    this.pendingDownsample.clear()
+    pending.clear()
+  }
+
+  /** (#367) Settles one fine tile's debt to *every* level, then forgets it.
+   *  The one moment folding cannot be deferred: after the tile's texture is
+   *  destroyed its content is no longer available to fold, and the levels
+   *  would silently keep showing what was there before its last stroke.
+   *
+   *  Only ever runs for a tile actually being evicted, not for everything
+   *  pending — eviction is rare, and paying for the whole backlog at each one
+   *  was #365's own version of the same mistake this issue is about. */
+  private foldBeforeEviction(key: string, tile: AccumulationBuffer): void {
+    if (!this.downsampleTile) return
+    for (const factor of COARSE_FACTORS) {
+      const pending = this.pendingDownsample.get(factor)
+      if (!pending?.has(key)) continue
+      this.foldInto(factor, key, tile)
+      pending.delete(key)
+    }
   }
 
   /** (#365) Marks fine tiles as needing to be folded into the coarse level.
@@ -316,7 +357,11 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  this errs toward the former. */
   private markForDownsample(keys: Iterable<string>): void {
     if (!this.downsampleTile) return
-    for (const key of keys) this.pendingDownsample.add(key)
+    for (const factor of COARSE_FACTORS) {
+      let pending = this.pendingDownsample.get(factor)
+      if (!pending) { pending = new Set(); this.pendingDownsample.set(factor, pending) }
+      for (const key of keys) pending.add(key)
+    }
   }
 
   /** (#365) The pyramid's counterpart to resolveVisible: whichever tiles of
@@ -333,7 +378,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  remove. */
   resolveCoarse(worldRect: WorldRect, factor: CoarseFactor): PaintTarget[] | null {
     if (!this.downsampleTile) return null
-    this.flushDownsamples()
+    this.flushLevel(factor)
     const level = this.coarse.get(factor)
     if (!level) return []
     const targets: PaintTarget[] = []
@@ -372,7 +417,6 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  tile count — see suspendEviction's own doc comment. */
   resumeEviction(): void {
     this.evictionSuspendDepth = Math.max(0, this.evictionSuspendDepth - 1)
-    this.flushDownsamples()
     if (this.evictionSuspendDepth === 0) this.evictIfOverBudget()
   }
 
@@ -413,10 +457,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  on, the next resolve protects a different set and these trim normally. */
   private evictIfOverBudget(inUse?: ReadonlySet<string>): void {
     if (!this.rebuildTile || this.evictionSuspendDepth > 0) return
-    // (#365) Before anything is destroyed: a tile still owing its content to
-    // the coarse level must contribute it while it is still here, or the
-    // low-zoom view keeps showing what was there before the last stroke.
-    this.flushDownsamples()
+
     let overBudget = this.tiles.size - this.maxResidentTiles
     if (overBudget <= 0) return
     // Iterates a snapshot rather than the live Map: unlike the old loop this
@@ -427,7 +468,10 @@ export class TiledLayerBuffer implements ILayerBuffer {
     for (const key of [...this.tiles.keys()]) {
       if (overBudget <= 0) break
       if (inUse?.has(key)) continue
-      this.tiles.get(key)!.destroy()
+      const victim = this.tiles.get(key)!
+      // (#367) Its last chance to reach the levels — see foldBeforeEviction.
+      this.foldBeforeEviction(key, victim)
+      victim.destroy()
       this.tiles.delete(key)
       this.evicted.add(key)
       overBudget--
@@ -511,8 +555,9 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // path's concern.
     this.evictIfOverBudget(new Set(keys))
     // (#365) Marked last, after the trim: the caller has not written yet, so
-    // folding these now would bank pre-paint content and clear the mark. See
-    // flushDownsamples' ordering note.
+    // folding these now would bank pre-paint content and clear the mark. The
+    // trim ahead of this only ever folds tiles it is about to destroy, none
+    // of which this call is handing back, so the two cannot collide.
     this.markForDownsample(keys)
     return targets
   }
@@ -551,7 +596,6 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  paint/composite) — a temporary, bounded-in-practice bulge right after
    *  an infrequent bulk operation, never a permanent regression. */
   allResident(): PaintTarget[] {
-    this.flushDownsamples()
     this.recoverTiles([...this.evicted])
     // Snapshot entries before touching: touch() deletes-and-reinserts the
     // very key a live Map iterator is mid-way through, which would revisit
