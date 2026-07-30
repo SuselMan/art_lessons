@@ -191,6 +191,7 @@ export const en = {
   // ── "move to..." dialog ────────────────────────────────────────────────
   'moveTo.destinationLabel': 'Destination folder path',
   'moveTo.moveHere': 'Move here',
+  'moveTo.alreadyHere': 'Already in this folder',
   'moveTo.noSubfolders': 'No subfolders here.',
 
   // ── join gate ──────────────────────────────────────────────────────────

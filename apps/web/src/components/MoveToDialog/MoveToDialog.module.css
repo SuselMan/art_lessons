@@ -39,8 +39,17 @@
   color: var(--color-text-bright);
 }
 
+/* Sits below the list (#360): the list is the thing being navigated, the
+   button is what ends the dialog — the old order put the confirm between the
+   breadcrumbs and the folders it applies to. */
+.footer {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-top: 1px solid var(--color-border);
+}
+
 .moveHereButton {
-  margin: 8px 16px;
   min-height: var(--touch-target-sm);
   padding: 0 14px;
   font-size: 13px;
@@ -48,18 +57,25 @@
   color: var(--color-bg);
   background: var(--color-text-bright);
   border-radius: var(--radius-sm);
-  align-self: flex-start;
 }
 
 .moveHereButton:hover {
   opacity: 0.9;
 }
 
+/* Shown in the button's place at the level the item is already filed under —
+   the destination is a no-op there, and an empty footer would read as a
+   missing button. */
+.alreadyHere {
+  font-size: 13px;
+  color: var(--color-text-dim);
+}
+
 .folderList {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 0 8px 8px;
+  padding: 8px;
   /* min-height:0 so this actually shrinks and scrolls inside the modal's flex
      column instead of pushing the box past its max-height. */
   min-height: 0;
@@ -69,9 +85,9 @@
 .folderRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-height: var(--touch-target);
-  padding: 0 8px;
+  padding: 0 10px;
   font-size: 13px;
   font-weight: 600;
   color: var(--color-text-bright);
@@ -82,9 +98,33 @@
   background: var(--color-surface-2);
 }
 
-.folderRow span {
+/* min-width:0 + ellipsis so a long folder name shortens instead of shoving
+   the chevron off the row. */
+.folderName {
   flex: 1;
+  min-width: 0;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Without this the icons render at the font's own 24px default next to 13px
+   text — a giant folder glyph and a giant chevron with the name marooned
+   between them, which is what made this row look broken (#360). Same
+   :global() trap as MyLessons.module.css's .folderIconArea (#211): CSS
+   Modules would hash the icon-font class and match nothing. */
+.folderRow :global(.material-symbols-outlined) {
+  flex: none;
+  font-size: 20px;
+  color: var(--color-text-dim);
+}
+
+/* The trailing chevron is a hint that this row navigates, not a control of
+   its own — smaller and quieter than the folder icon leading the row. */
+.folderRow :global(.material-symbols-outlined):last-child {
+  font-size: 18px;
+  opacity: 0.7;
 }
 
 .loading,

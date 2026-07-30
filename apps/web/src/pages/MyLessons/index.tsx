@@ -120,6 +120,12 @@ function formatDate(iso: string, locale: string): string {
 // interactions is ever active across the whole page at a time.
 type ItemRef = { kind: 'room' | 'folder'; id: string }
 
+// (#360) The move dialog also needs to know where the item sits *now*, so it
+// can stop offering "move here" into the folder it's already in. Carried on
+// the ref rather than derived at render time: in search results a room can
+// live anywhere, not necessarily in the folder currently open.
+type MoveTarget = ItemRef & { parentFolderId: string | null }
+
 interface RoomCardProps {
   t: TFunction
   locale: string
@@ -428,7 +434,7 @@ export function MyLessons() {
   const [newFolderName, setNewFolderName] = useState('')
   const [renamingItem, setRenamingItem] = useState<ItemRef | null>(null)
   const [renameText, setRenameText] = useState('')
-  const [moveTarget, setMoveTarget] = useState<ItemRef | null>(null)
+  const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null)
   // Breadcrumb path from root to the currently open folder — root itself
   // isn't a real RoomFolder (no id), so an empty path means "at root".
   const [path, setPath] = useState<{ id: string; name: string }[]>([])
@@ -700,7 +706,7 @@ export function MyLessons() {
         onRenameSubmit={submitRename}
         onRenameCancel={() => setRenamingItem(null)}
         onRenameClick={() => startRename({ kind: 'room', id: room.id }, room.name)}
-        onMoveClick={() => setMoveTarget({ kind: 'room', id: room.id })}
+        onMoveClick={() => setMoveTarget({ kind: 'room', id: room.id, parentFolderId: room.folderId ?? null })}
         onForkClick={() => forkMutation.mutate({ id: room.id, name: t('lessons.forkedName', { name: room.name }) })}
         onToggleClosedClick={() => closedMutation.mutate({ id: room.id, closed: room.closedAt === undefined })}
         onDeleteOrLeaveClick={() => setConfirmingId(room.id)}
@@ -845,7 +851,7 @@ export function MyLessons() {
                     onRenameSubmit={submitRename}
                     onRenameCancel={() => setRenamingItem(null)}
                     onRenameClick={() => startRename({ kind: 'folder', id: folder.id }, folder.name)}
-                    onMoveClick={() => setMoveTarget({ kind: 'folder', id: folder.id })}
+                    onMoveClick={() => setMoveTarget({ kind: 'folder', id: folder.id, parentFolderId: folder.parentFolderId })}
                     onDeleteClick={() => deleteFolderMutation.mutate(folder.id)}
                   />
                 ))}
@@ -863,6 +869,8 @@ export function MyLessons() {
       {moveTarget && (
         <MoveToDialog
           title={t(moveTarget.kind === 'room' ? 'lessons.moveRoomTitle' : 'lessons.moveFolderTitle')}
+          currentParentId={moveTarget.parentFolderId}
+          excludeFolderId={moveTarget.kind === 'folder' ? moveTarget.id : undefined}
           onCancel={() => setMoveTarget(null)}
           onSelect={handleMoveSelect}
         />
