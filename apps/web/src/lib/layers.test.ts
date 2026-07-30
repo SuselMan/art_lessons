@@ -11,7 +11,7 @@ import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import {
   applyContentOp, replayLayerState, overlayLocalFields, sanitizeSelection,
   removeItems, parentOf, computeCompositeOrder, computeMergeOrder, getVisibleOrder,
-  collectDescendants, isLayerLocked,
+  collectDescendants, isLayerLocked, isEffectivelyVisible,
 } from './layers'
 
 function layer(id: string, overrides: Partial<RasterLayer> = {}): RasterLayer {
@@ -320,5 +320,34 @@ describe('isLayerLocked', () => {
 
   it('treats a missing item as unlocked rather than throwing', () => {
     expect(isLayerLocked(undefined)).toBe(false)
+  })
+})
+
+// (#359) The gate on starting a stroke has to agree with the compositor about
+// what "hidden" means, or a stroke lands somewhere nobody can see it — the
+// author included — while still reaching the log and every participant.
+describe('isEffectivelyVisible', () => {
+  it('follows the item\'s own flag', () => {
+    const state = stateOf({ a: layer('a'), b: layer('b', { visible: false }) }, ['a', 'b'])
+    expect(isEffectivelyVisible(state, 'a')).toBe(true)
+    expect(isEffectivelyVisible(state, 'b')).toBe(false)
+  })
+
+  // The case the item's own flag can't answer: the layer says visible, and it
+  // still paints nothing, because computeCompositeOrder skips a hidden folder
+  // without ever looking at its children.
+  it('hides a visible layer inside a hidden folder', () => {
+    const state = stateOf({ f: folder('f', ['a'], { visible: false }), a: layer('a') }, ['f'])
+    expect(isEffectivelyVisible(state, 'a')).toBe(false)
+    expect(computeCompositeOrder(state).map(o => o.id)).toEqual([]) // same verdict, other side
+  })
+
+  it('keeps a layer visible inside a visible folder', () => {
+    const state = stateOf({ f: folder('f', ['a']), a: layer('a') }, ['f'])
+    expect(isEffectivelyVisible(state, 'a')).toBe(true)
+  })
+
+  it('reports a missing item as not visible rather than throwing', () => {
+    expect(isEffectivelyVisible(stateOf({}, []), 'gone')).toBe(false)
   })
 })

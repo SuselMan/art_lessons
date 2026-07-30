@@ -24,7 +24,7 @@ import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialo
 import { isModalOpen } from '../../components/Modal/modalSlot'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
-import { computeCompositeOrder, isLayerLocked } from '../../lib/layers'
+import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
 import { hexToRgb } from '../../lib/color'
 import { getFeatureFlag, getPencilSoundSetting, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
@@ -1718,7 +1718,17 @@ export function Room() {
     // locked in LayerPanel; it's purely "don't start a new stroke right
     // now," same effect a real per-layer lock has, just for a different
     // reason.
-    engine.setLocked(isLayerLocked(layerState.items[layerState.activeId]) || transformActive)
+    //
+    // (#359) A hidden layer refuses paint through the same gate, for a third
+    // reason: it isn't in the composite, so a stroke drawn on it is invisible
+    // to everyone — including its author — while still travelling to every
+    // participant and into the log. Silently, with no warning, exactly like
+    // the lock: the eye in the layer panel already says why nothing happens.
+    engine.setLocked(
+      isLayerLocked(layerState.items[layerState.activeId])
+      || !isEffectivelyVisible(layerState, layerState.activeId)
+      || transformActive,
+    )
     engine.setCompositeOrder(computeCompositeOrder(layerState))
   }, [layerState, transformActive])
 

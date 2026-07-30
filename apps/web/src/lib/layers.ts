@@ -28,6 +28,26 @@ export function parentOf(state: LayerState, id: string): string | null {
   return null
 }
 
+/**
+ * Whether this item reaches the screen at all: its own `visible` flag *and*
+ * its folder's, since hiding a folder hides everything in it — the same rule
+ * computeCompositeOrder applies when it skips a hidden folder without ever
+ * looking at the children.
+ *
+ * Exists because "hidden" has to mean the same thing to paint as it does to
+ * the compositor (#359). It didn't: the only gate on starting a stroke was
+ * isLayerLocked, so a hidden layer took strokes normally — into its texture,
+ * into the operation log, and out to every participant — while the compositor
+ * left it out for everyone, author included. Work that is nowhere visible and
+ * everywhere recorded is worse than either refusing it or showing it.
+ */
+export function isEffectivelyVisible(state: LayerState, id: string): boolean {
+  const item = state.items[id]
+  if (!item?.visible) return false
+  const parentId = parentOf(state, id)
+  return parentId === null || !!state.items[parentId]?.visible
+}
+
 /** Returns all visible item ids in render order (root items + children of open folders). */
 export function getVisibleOrder(state: LayerState): string[] {
   const out: string[] = []
