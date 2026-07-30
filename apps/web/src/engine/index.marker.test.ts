@@ -19,6 +19,7 @@
 // dispatch, u_inkMode wiring), the per-dab patch-copy-then-draw bookkeeping
 // doesn't throw and actually paints something, the same v1 tile-boundary
 // limitation smudge already has, and pure-function-of-dabs determinism.
+import { strokeDabs } from '@grafetto/shared'
 import { describe, expect, it } from 'vitest'
 
 import type { StrokeOperation } from '@grafetto/shared'
@@ -224,8 +225,8 @@ describe('marker tool (#250, ADR 004)', () => {
     engine.setTool('marker')
     simulateStroke(engine, path, { pressure: 0.6, speed: 1 })
     const stroke = lastStroke(engine)
-    expect(stroke.dabs.length).toBeGreaterThan(0)
-    for (const d of stroke.dabs) {
+    expect(strokeDabs(stroke).length).toBeGreaterThan(0)
+    for (const d of strokeDabs(stroke)) {
       // preset.opacity(MARKER_PRESET, 0.45) * userOpacity(1) *
       // linerSpeedFlow(1.0 at speed 1, its own reference point) *
       // linerTiltFlow(0, no tilt) = 0.45 — comfortably nonzero regardless

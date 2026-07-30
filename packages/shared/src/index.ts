@@ -330,7 +330,19 @@ export type StrokeOperation = OperationBase & {
   // their own, exactly as pencil's hardness grades already do).
   preset: string
   color: [number, number, number] // baked at record time, so replay/undo never repaints with today's live color
-  dabs: Dab[]
+  // (#366) Exactly one of these two carries the stroke's dabs — read them
+  // through `strokeDabs(op)` rather than either field directly.
+  //
+  // `dabsPacked` is what every newly recorded stroke uses (see packDabs for
+  // why: a dab is ~250 bytes as JSON and ~53 packed, and the count scales
+  // with a stroke's *world* length, so low zoom makes single strokes
+  // megabytes). `dabs` is the original plain form, kept because the
+  // Operation Log is permanent — every stroke recorded before this existed
+  // is still in Postgres and in every room's history, and must keep
+  // replaying. Neither field is going away; this is a format that gained a
+  // second encoding, not one that migrated.
+  dabs?: Dab[]
+  dabsPacked?: string
   // Smudge only (#14): this user's own carried-graphite reservoir level
   // (0..1) immediately before/after this op's own dabs, baked at record
   // time for the same reason `color` is — replay/a remote client applying
@@ -742,4 +754,22 @@ export const DEFAULT_HOTKEYS: Record<HotkeyAction, string> = {
   layerPrev:    '[',
   sizeIncrease: 'shift+]',
   sizeDecrease: 'shift+[',
+}
+
+// (#366) Stroke dab encoding — see dabCodec.ts.
+export { DAB_PACK_VERSION, packDabs, unpackDabs } from './dabCodec.js'
+import { unpackDabs as unpackDabsImpl } from './dabCodec.js'
+
+/** The dabs of a stroke operation, whichever way it happens to carry them.
+ *  Every consumer must go through this rather than reading `dabs` or
+ *  `dabsPacked` — an operation from before #366 has only the former and one
+ *  recorded since has only the latter, and both replay forever.
+ *
+ *  Decodes on each call rather than caching: replay paints an operation's
+ *  dabs once and moves on, and the one caller that reads the same operation
+ *  repeatedly (a peer's live-stroke reveal, which walks the array as time
+ *  passes) holds its own reference to the result. */
+export function strokeDabs(op: StrokeOperation): Dab[] {
+  if (op.dabs) return op.dabs
+  return op.dabsPacked ? unpackDabsImpl(op.dabsPacked) : []
 }

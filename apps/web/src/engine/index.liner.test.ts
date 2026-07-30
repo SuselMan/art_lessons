@@ -5,6 +5,7 @@
 // floor, _bakeDabOpacity's liner branch, and the end-of-stroke taper — the
 // same way index.ruler.test.ts verifies live snapping rather than just
 // testing snapToRuler() in isolation.
+import { strokeDabs } from '@grafetto/shared'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { StrokeOperation } from '@grafetto/shared'
@@ -43,9 +44,9 @@ describe('liner tool (#241, ADR 003)', () => {
 
     engine.setTool('liner')
     simulateStroke(engine, PATH_A, { pressure: 0 })
-    const linerLow = lastStroke(engine).dabs[0].size
+    const linerLow = strokeDabs(lastStroke(engine))[0].size
     simulateStroke(engine, PATH_B, { pressure: 1 })
-    const linerHigh = lastStroke(engine).dabs[0].size
+    const linerHigh = strokeDabs(lastStroke(engine))[0].size
 
     expect(linerLow).toBeGreaterThan(0)
     // ADR 003 §1: width = baseWidth * lerp(0.94, 1.08, pressureCurve) -> ratio ~1.15.
@@ -53,9 +54,9 @@ describe('liner tool (#241, ADR 003)', () => {
 
     engine.setTool('pencil')
     simulateStroke(engine, PATH_A.map(p => ({ x: p.x, y: p.y + 60 })), { pressure: 0 })
-    const pencilLow = lastStroke(engine).dabs[0].size
+    const pencilLow = strokeDabs(lastStroke(engine))[0].size
     simulateStroke(engine, PATH_B.map(p => ({ x: p.x, y: p.y + 60 })), { pressure: 1 })
-    const pencilHigh = lastStroke(engine).dabs[0].size
+    const pencilHigh = strokeDabs(lastStroke(engine))[0].size
 
     // Pencil's own pre-existing curve (0.3 + 0.7*pressure) swings well over
     // 3x — confirms the liner profile is actually a different curve, not
@@ -69,8 +70,8 @@ describe('liner tool (#241, ADR 003)', () => {
     simulateStroke(engine, PATH_A, { pressure: 0, speed: 1 })
 
     const stroke = lastStroke(engine)
-    expect(stroke.dabs.length).toBeGreaterThan(0)
-    for (const d of stroke.dabs) {
+    expect(strokeDabs(stroke).length).toBeGreaterThan(0)
+    for (const d of strokeDabs(stroke)) {
       // #245: the deposit-pressure floor (ADR §6) now lives entirely in
       // DAB_FRAG's liner branch, computed from the real per-fragment
       // pressure — MockGL never runs that GLSL (see mockGL.ts's own
@@ -90,13 +91,13 @@ describe('liner tool (#241, ADR 003)', () => {
     engine.setTool('liner')
 
     simulateStroke(engine, PATH_A, { pressure: 1, speed: 3 })
-    const fast = lastStroke(engine).dabs
+    const fast = strokeDabs(lastStroke(engine))
     expect(fast.at(-1)!.size).toBeLessThan(fast[0].size)
     // ADR: "сужение на 5-15%" — bounded, not a taper to a sliver.
     expect(fast.at(-1)!.size / fast[0].size).toBeGreaterThan(0.8)
 
     simulateStroke(engine, PATH_B, { pressure: 1, speed: 0.2 })
-    const slow = lastStroke(engine).dabs
+    const slow = strokeDabs(lastStroke(engine))
     expect(slow.at(-1)!.size).toBeCloseTo(slow[0].size, 5)
   })
 
@@ -147,8 +148,8 @@ describe('liner tool (#241, ADR 003)', () => {
         const stroke = lastStroke(engine)
         // 1 real dab from _onStart + several from the dwell timer (every
         // ~70ms past the ~150ms grace period, over 1000ms).
-        expect(stroke.dabs.length).toBeGreaterThan(3)
-        for (const d of stroke.dabs) {
+        expect(strokeDabs(stroke).length).toBeGreaterThan(3)
+        for (const d of strokeDabs(stroke)) {
           expect(d.x).toBeCloseTo(50)
           expect(d.y).toBeCloseTo(50)
         }
@@ -161,7 +162,7 @@ describe('liner tool (#241, ADR 003)', () => {
         // — dabs[1] is the first one past minDwellMs (least elapsed time),
         // dabs.at(-1) the last (most elapsed) — to isolate dwellFlow's own
         // ramp from the separate speed-based mechanism.
-        expect(stroke.dabs.at(-1)!.opacity).toBeGreaterThan(stroke.dabs[1].opacity)
+        expect(strokeDabs(stroke).at(-1)!.opacity).toBeGreaterThan(strokeDabs(stroke)[1].opacity)
       } finally {
         vi.useRealTimers()
       }
@@ -177,7 +178,7 @@ describe('liner tool (#241, ADR 003)', () => {
         simulateStrokeEnd(engine, 50, 50, { pressure: 1 })
 
         // Only the initial _onStart dab — no dwell timer exists for pencil.
-        expect(lastStroke(engine).dabs.length).toBe(1)
+        expect(strokeDabs(lastStroke(engine)).length).toBe(1)
       } finally {
         vi.useRealTimers()
       }
@@ -191,12 +192,12 @@ describe('liner tool (#241, ADR 003)', () => {
         simulateStrokeStart(engine, 50, 50, { pressure: 1 })
         await vi.advanceTimersByTimeAsync(300)
         simulateStrokeEnd(engine, 50, 50, { pressure: 1 })
-        const countAtEnd = lastStroke(engine).dabs.length
+        const countAtEnd = strokeDabs(lastStroke(engine)).length
 
         // Advancing further after the stroke ended must not append more
         // dabs to the already-recorded (and now closed) operation.
         await vi.advanceTimersByTimeAsync(2000)
-        expect(lastStroke(engine).dabs.length).toBe(countAtEnd)
+        expect(strokeDabs(lastStroke(engine)).length).toBe(countAtEnd)
       } finally {
         vi.useRealTimers()
       }
