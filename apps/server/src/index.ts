@@ -83,9 +83,26 @@ app.addHook('preHandler', identityHook)
 // deploy/nginx.conf, is the same class of ceiling on the incoming side).
 const MAX_HTTP_BUFFER_SIZE_BYTES = 20 * 1024 * 1024
 
+// (#366) WebSocket payload compression. socket.io v4 ships this *off* by
+// default (v2 had it on; it was dropped for being a poor trade on the small,
+// chatty messages most apps send), and this app is the opposite case: a single
+// stroke on an infinite canvas at low zoom is megabytes of JSON floats,
+// because dab count scales with the stroke's world length and the brush is
+// sized in world units. Floats-as-text is exactly what deflate is good at.
+//
+// `threshold` keeps it off the traffic the default actually suits — cursor
+// positions, presence, join/leave — where framing and CPU would cost more
+// than they save. 1 KB is comfortably above those and far below a stroke
+// chunk (STROKE_DAB_CHUNK_LIMIT is ~200 KB of dabs).
+//
+// Explicitly *not* relied on as the fix: it shrinks the wire and nothing
+// else. The same operations still sit uncompressed in room history in RAM
+// (#207) and in Postgres, which is what the binary dab packing in this same
+// issue addresses.
 const io = new Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>(app.server, {
   cors: { origin: true, credentials: true },
   maxHttpBufferSize: MAX_HTTP_BUFFER_SIZE_BYTES,
+  perMessageDeflate: { threshold: 1024 },
 })
 
 // Room state (#32), operation relay + log (#34/#35), room_state snapshot
