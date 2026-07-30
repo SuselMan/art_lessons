@@ -185,6 +185,7 @@ export const ru: Dictionary = {
   'room.zoom': 'Масштаб — тяните вверх/вниз, щелчок возвращает к 100%',
   'room.rotation': 'Поворот — тяните вверх/вниз, чтобы вращать холст, щелчок — на четверть оборота  ({hotkey} — сброс)',
   'room.fitCanvas': 'Вписать холст',
+  'room.viewportReset': 'Сбросить вид',
   'room.undo': 'Отменить',
   'room.undoTitle': 'Отменить  {hotkey}',
   'room.redo': 'Вернуть',

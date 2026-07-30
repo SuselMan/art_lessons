@@ -37,6 +37,8 @@ import { forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib
 import { useAuth } from '../../lib/authState'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './useViewport'
+import { useViewportToast } from './useViewportToast'
+import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
@@ -878,8 +880,36 @@ export function Room() {
   const toolActiveRef = useRef(false)
   toolActiveRef.current = eyedropperActive
 
+  // (#362) Declared before useViewport because it feeds it: the pinch/rotate
+  // edges the toast lives by are only observable from inside that hook's own
+  // gesture handlers.
+  const { toastVisible: viewportToastVisible, onPinchPhase, hide: hideViewportToast } = useViewportToast()
+
   const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, angleDeg, canvasTransform } =
-    useViewport(config, toolActiveRef, config?.infinite ?? false)
+    useViewport(config, toolActiveRef, config?.infinite ?? false, onPinchPhase)
+
+  // Infinite rooms measure "100%" against the device-native 1-world-unit-per-
+  // physical-pixel scale rather than against `vp.zoom` directly — see
+  // deviceNativeZoom's doc comment. Both the header readout and #362's toast
+  // display and reset through these, so the two cannot drift into disagreeing
+  // about what 100% means.
+  const zoomBase = config?.infinite ? deviceNativeZoom() : 1
+  const zoomPercent = Math.round(vp.zoom / zoomBase * 100)
+  const resetZoom = useCallback(() => {
+    setVp(v => ({ ...v, zoom: zoomBase }))
+  }, [setVp, zoomBase])
+  // Both values at once, for the toast's single button — and only those two.
+  // `fitCanvas` would also re-centre, which in minimal UI means the drawing
+  // jumping out from under the fingers that just finished a gesture on it.
+  const resetZoomAndRotation = useCallback(() => {
+    setVp(v => ({ ...v, zoom: zoomBase, angle: 0 }))
+  }, [setVp, zoomBase])
+
+  // (#362) The readout belongs to a gesture made *in* minimal UI, so crossing
+  // that boundary drops it either way: entering, so a pinch made moments before
+  // the tap doesn't surface a readout as though the tap had caused it; leaving,
+  // so the pending dismissal doesn't survive to fire against a later gesture.
+  useEffect(() => { hideViewportToast() }, [uiHidden, hideViewportToast])
 
   // Hand tool (#319) — the drag itself lives in useViewport; Room owns the
   // ways in and out of the mode, and what the mode looks like.
@@ -3148,14 +3178,18 @@ export function Room() {
               means the drawing's actual 1:1 resolution on every screen —
               see deviceNativeZoom's doc comment. Bounded rooms keep vp.zoom
               as-is (their canvas backing is the fixed document size, so
-              vp.zoom already is the document scale). */}
+              vp.zoom already is the document scale). Both the number and the
+              reset come from `zoomPercent`/`resetZoom` above, shared with
+              #362's toast — this readout used to compute the same expression
+              twice inline, and a third copy in the toast is how the four
+              notice banners ended up needing #343. */}
           <button
             className={styles.zoomLabel}
             onPointerDown={onZoomDragDown}
-            onClick={() => setVp(v => ({ ...v, zoom: config?.infinite ? deviceNativeZoom() : 1 }))}
+            onClick={resetZoom}
             title={t('room.zoom')}
           >
-            {Math.round(vp.zoom / (config?.infinite ? deviceNativeZoom() : 1) * 100)}%
+            {zoomPercent}%
           </button>
           <button className={styles.headerIconBtn} title={t('room.fitCanvas')} aria-label={t('room.fitCanvas')} onClick={fitCanvas}>
             <Icon name="fit_screen" />
@@ -3525,6 +3559,20 @@ export function Room() {
                 onDismiss={() => setLostWork(null)}
               />
             )}
+            {/* (#362) Last in the column on purpose: a frozen or closed room is
+                the more important thing on screen and keeps the top slot, and
+                being siblings is what stops the two from overlapping — the same
+                reason the banners above are a column rather than three absolute
+                boxes. Only in minimal UI: with the chrome up, the header's own
+                readouts are the ones to read, and a second copy of them
+                floating over the canvas would be noise. */}
+            {uiHidden && viewportToastVisible && (
+              <ViewportToast
+                zoomPercent={zoomPercent}
+                angleDeg={angleDeg}
+                onReset={resetZoomAndRotation}
+              />
+            )}
           </div>
           {/* (#201) Bottom-anchored, so it can coexist with the event
               banners above for as long as a bad connection lasts. Hidden
@@ -3880,6 +3928,7 @@ export function Room() {
                   <div>max move: {tapDebug.maxDistPx.toFixed(1)}px (threshold {TAP_MOVE_THRESHOLD_PX}px)</div>
                   <div>concurrent touches: {tapDebug.concurrentTouches}</div>
                   <div>was tap: {String(tapDebug.wasTap)}</div>
+                  <div>on control: {String(tapDebug.onControl)}</div>
                 </>
               ) : (
                 <div>tap the canvas to see tap stats</div>

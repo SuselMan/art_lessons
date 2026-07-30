@@ -225,6 +225,10 @@ export const en = {
   'room.zoom': 'Zoom — drag up/down to adjust, click to reset to 100%',
   'room.rotation': 'Rotation — drag up/down to turn the canvas, click for a quarter turn  ({hotkey} to reset)',
   'room.fitCanvas': 'Fit canvas',
+  // (#362) The button on minimal UI's zoom/rotation strip. Says "view" rather
+  // than naming both values: it sits next to them, and "Reset zoom and
+  // rotation" would be wider than the two numbers it follows.
+  'room.viewportReset': 'Reset view',
   'room.undo': 'Undo',
   'room.undoTitle': 'Undo  {hotkey}',
   'room.redo': 'Redo',

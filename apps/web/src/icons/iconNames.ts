@@ -62,6 +62,7 @@ export const MATERIAL_ICON_NAMES = [
   'move_down',
   'palette',
   'pan_tool',
+  'pinch',
   'redo',
   'rotate_90_degrees_cw',
   'save',

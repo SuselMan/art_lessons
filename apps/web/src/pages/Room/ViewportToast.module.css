@@ -1,0 +1,26 @@
+/* (#362) The two numbers inside the strip. Everything else about the strip —
+   surface, border, shadow, the pointer-events rule — belongs to Notice. */
+.values {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* Both values update every animation frame of a pinch, and the strip is
+   centred by its column (`.noticesTop` uses `align-items: center`), so any
+   change in text width moves the whole strip sideways under the fingers.
+   `tabular-nums` fixes the width of a digit; the `min-width` fixes the number
+   of them, sized for the widest either readout can reach — "2000%" at the 20x
+   zoom clamp, "359°" at the top of the normalized angle range. Without both,
+   crossing 99% → 100% visibly nudges the strip. */
+.value {
+  min-width: 5ch;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.separator {
+  color: var(--color-text-dim);
+}

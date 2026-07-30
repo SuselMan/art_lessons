@@ -3,6 +3,7 @@ import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
 import { deviceNativeZoom, rotateViewportAround } from './cameraMath'
+import { PinchTracker } from './pinchTracker'
 import { diagLog } from '../../lib/diagLog'
 import { useRoomStore } from '../../stores/roomStore'
 import { isHandActive } from '../../stores/slices/viewportSlice'
@@ -60,6 +61,15 @@ export interface UseViewportResult {
   canvasTransform: string
 }
 
+/** Reports the *edges* of a two-finger pinch/rotate gesture — `true` on the
+ *  first frame two fingers start changing zoom/angle, `false` when the gesture
+ *  ends (a finger lifts, or the pointer stream is reset as untrustworthy).
+ *  Transitions only, never per frame: the one consumer (#362's viewport toast)
+ *  reads the live values out of the store anyway, so all it needs from here is
+ *  "a gesture is/isn't happening", and a per-frame callback would hand it a
+ *  60-per-second reason to re-render on top of that. */
+export type PinchPhaseListener = (active: boolean) => void
+
 /** `toolActive`: true while a one-shot canvas tool (currently just the
  *  eyedropper — see Room's `toolActiveRef`; ruler placement is pen-only and
  *  never sets this, see handleRulerPlaceDown) wants the *first* touch that
@@ -78,6 +88,7 @@ export interface UseViewportResult {
  *  the tool, second finger pans" instead of one blocking the other. */
 export function useViewport(
   canvas: CanvasSize | null, toolActive: RefObject<boolean>, infinite = false,
+  onPinchPhase?: PinchPhaseListener,
 ): UseViewportResult {
   // (#22) Backed by the store now — internal architecture (rAF-throttled
   // updates, vpState ref for hot gesture math, direct DOM transform writes
@@ -104,6 +115,16 @@ export function useViewport(
   const touchPtrs = useRef(new Map<number, { x: number; y: number }>())
   const dragRef = useRef<PointerDrag | null>(null)
   const reservedTouchId = useRef<number | null>(null)
+  // Recognizes when the two-finger branch below is actually pinching/rotating
+  // rather than panning, so `onPinchPhase` fires once per gesture edge instead
+  // of once per move event — see PinchTracker for why that distinction can't be
+  // read off the pointer count. Stateful across events, hence a ref; built
+  // lazily rather than as `useRef(new PinchTracker())`, whose argument is
+  // evaluated on every render and thrown away, and Room re-renders every frame
+  // of every gesture (see updateVp's comment above).
+  const pinchRef = useRef<PinchTracker | null>(null)
+  pinchRef.current ??= new PinchTracker()
+  const pinch = pinchRef.current
 
   // rAF-flush bookkeeping for updateVp below.
   const rafScheduled = useRef(false)
@@ -265,12 +286,18 @@ export function useViewport(
             const newZoom = clamp(v.zoom * scale, 0.04, 20)
             const newCx   = prevMid.x + (v.cx - prevMid.x) * scale + (currMid.x - prevMid.x)
             const newCy   = prevMid.y + (v.cy - prevMid.y) * scale + (currMid.y - prevMid.y)
+            const newAngle = v.angle + dAngle
             // Infinite canvas (#134): the tile compositor now applies camera
             // angle too (via the assembly-buffer + final rotate blit in
             // _finishInfiniteComposite), matching setInfiniteCamera's pointer
             // mapping — so the rotation component of this gesture no longer
             // needs to be dropped for infinite rooms.
-            updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: v.angle + dAngle })
+            updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: newAngle })
+
+            // (#362) Fed every frame, announces at most once per gesture. `v`
+            // is still this frame's *previous* viewport — updateVp replaced
+            // `vpState.current` with a new object rather than mutating it.
+            if (pinch.move(v, newZoom, newAngle)) onPinchPhase?.(true)
           }
         } else if (dragRef.current) {
           const d = dragRef.current
@@ -299,12 +326,21 @@ export function useViewport(
         }
       }
 
+      const endPinch = () => {
+        if (pinch.end()) onPinchPhase?.(false)
+      }
+
       const onUp = (e: PointerEvent) => {
         if (e.pointerType === 'touch') {
           diagLog('vp: up/cancel', { id: e.pointerId, type: e.type, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current })
           if (reservedTouchId.current === e.pointerId) { reservedTouchId.current = null; return }
           touchPtrs.current.delete(e.pointerId)
           try { el.releasePointerCapture(e.pointerId) } catch { /* context loss */ }
+          // (#362) Below two fingers there is no pinch left to be in, whether
+          // one was announced or not — the origin resets either way, so a
+          // second pinch inside the same touch sequence measures itself afresh
+          // rather than against where the first one started.
+          if (touchPtrs.current.size < 2) endPinch()
         } else {
           dragRef.current = null
         }
@@ -328,6 +364,11 @@ export function useViewport(
         touchPtrs.current.clear()
         reservedTouchId.current = null
         dragRef.current = null
+        // (#362) Same reasoning as the rest of this reset: the fingers that
+        // were pinching may never deliver an up, and a pinch left "active"
+        // forever would leave the toast pinned on screen with its dismiss
+        // timer never started.
+        endPinch()
       }
       document.addEventListener('visibilitychange', resetTouchState)
       window.addEventListener('blur', resetTouchState)
@@ -349,7 +390,7 @@ export function useViewport(
 
     diagLog('vp: attaching gesture listeners on', vpEl.className || vpEl.tagName)
     return attach(vpEl)
-  }, [canvas, toolActive, updateVp, infinite, vpEl])
+  }, [canvas, toolActive, updateVp, infinite, vpEl, onPinchPhase, pinch])
 
   // "Fit canvas" for infinite mode has no fixed extent to fit against — see
   // the initial-fit effect's same reasoning — so this resets to origin
