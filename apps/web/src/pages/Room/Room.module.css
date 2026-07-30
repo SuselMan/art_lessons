@@ -410,13 +410,22 @@
 
    `pointer-events: none` on the column, re-enabled per strip by Notice's own
    `.interactive` — the area a banner does not occupy must stay free for
-   pan/zoom, and an empty column must not become a click target. */
+   pan/zoom, and an empty column must not become a click target.
+
+   (#364) Both columns are siblings of `.viewport`, not children — see the JSX
+   for why moving them out was the fix rather than a bigger number here. This
+   z-index is above `.header`'s 3 (and the panels' 2) because it now competes
+   with them in the same stacking context, which is the whole point: a strip
+   that reports the room is frozen, or that unsent work is waiting, has to be
+   readable and clickable over chrome that is merely decoration by comparison.
+   Nothing here goes above `--z-modal`/`--z-notice`: a dialog and a pushed
+   notice are page-level and deliberately outrank the room's own strips. */
 .noticesTop,
 .noticesBottom {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 4;
+  z-index: 5;
   display: flex;
   flex-direction: column;
   align-items: center;

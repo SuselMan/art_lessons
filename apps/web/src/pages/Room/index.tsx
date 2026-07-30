@@ -3529,62 +3529,76 @@ export function Room() {
           {rulerActive && !rulerPlaced && (
             <div className={styles.rulerPlaceOverlay} onPointerDown={handleRulerPlaceDown} />
           )}
-          {/* (#343) Derived notices — each one visible exactly while its own
-              condition holds, so the condition is the whole lifetime and
-              there is nothing to dismiss or time out. Stacked as siblings in
-              a flex column instead of each guessing at the others' height. */}
-          <div className={styles.noticesTop}>
-            {/* (#254/#259) Only ever shown to a blocked non-owner — the owner
-                triggering their own room-wide freeze isn't blocked by it (see
-                isBlockedByFreeze), so this never shows for them. */}
-            {isBlockedByFreeze && !roomClosed && <FrozenBanner roomFrozen={roomFrozen} />}
-            {/* (#222) Wins over the freeze banner when both apply: a closed
-                lesson is the more complete explanation, and unlike freeze it
-                offers the way forward (reopen, or take a copy). */}
-            {roomClosed && (
-              <ClosedBanner
-                isOwner={isOwner}
-                busy={closedBusy}
-                onReopen={reopenRoom}
-                onTakeCopy={takeRoomCopy}
-              />
-            )}
-            {/* (#289 §17) Independent of the freeze banner above — both can
-                be up at once, which the column now handles on its own. */}
-            {lostWork && (
-              <LostWorkBanner
-                layerNames={lostWork.layerNames}
-                recovered={lostWork.restoredLayerIds.length > 0}
-                onUndo={undoLostWorkRecovery}
-                onDismiss={() => setLostWork(null)}
-              />
-            )}
-            {/* (#362) Last in the column on purpose: a frozen or closed room is
-                the more important thing on screen and keeps the top slot, and
-                being siblings is what stops the two from overlapping — the same
-                reason the banners above are a column rather than three absolute
-                boxes. Only in minimal UI: with the chrome up, the header's own
-                readouts are the ones to read, and a second copy of them
-                floating over the canvas would be noise. */}
-            {uiHidden && viewportToastVisible && (
-              <ViewportToast
-                zoomPercent={zoomPercent}
-                angleDeg={angleDeg}
-                onReset={resetZoomAndRotation}
-              />
-            )}
-          </div>
-          {/* (#201) Bottom-anchored, so it can coexist with the event
-              banners above for as long as a bad connection lasts. Hidden
-              entirely while connected with an empty queue. */}
-          <div className={styles.noticesBottom}>
-            <ConnectionBanner
-              connected={connected}
-              everConnected={everConnected}
-              pending={outboxState.pending}
-              stalled={outboxState.stalled}
+        </div>
+
+        {/* (#343) Derived notices — each one visible exactly while its own
+            condition holds, so the condition is the whole lifetime and
+            there is nothing to dismiss or time out. Stacked as siblings in
+            a flex column instead of each guessing at the others' height.
+
+            (#364) Siblings of `.viewport`, not children of it. `.viewport` is
+            a positioned element with a z-index, i.e. a stacking context, so a
+            column inside it could not paint above the header or the side panel
+            no matter what z-index it was given — and hit-testing follows
+            painting, which is why a wide strip's dismiss button (its rightmost
+            control) was unclickable under `.layerPanelWrap` on a tablet, where
+            the column's `max-width` reaches that far. Raising the z-index
+            *inside* the viewport was not the fix, and neither was dropping
+            `.viewport`'s own: `.eyedropperOverlay`/`.rulerPlaceOverlay` are
+            full-viewport `pointer-events: auto` layers at z-index 4 in there,
+            and lifting them into the shared context would have them swallow
+            taps meant for the chrome. */}
+        <div className={styles.noticesTop}>
+          {/* (#254/#259) Only ever shown to a blocked non-owner — the owner
+              triggering their own room-wide freeze isn't blocked by it (see
+              isBlockedByFreeze), so this never shows for them. */}
+          {isBlockedByFreeze && !roomClosed && <FrozenBanner roomFrozen={roomFrozen} />}
+          {/* (#222) Wins over the freeze banner when both apply: a closed
+              lesson is the more complete explanation, and unlike freeze it
+              offers the way forward (reopen, or take a copy). */}
+          {roomClosed && (
+            <ClosedBanner
+              isOwner={isOwner}
+              busy={closedBusy}
+              onReopen={reopenRoom}
+              onTakeCopy={takeRoomCopy}
             />
-          </div>
+          )}
+          {/* (#289 §17) Independent of the freeze banner above — both can
+              be up at once, which the column now handles on its own. */}
+          {lostWork && (
+            <LostWorkBanner
+              layerNames={lostWork.layerNames}
+              recovered={lostWork.restoredLayerIds.length > 0}
+              onUndo={undoLostWorkRecovery}
+              onDismiss={() => setLostWork(null)}
+            />
+          )}
+          {/* (#362) Last in the column on purpose: a frozen or closed room is
+              the more important thing on screen and keeps the top slot, and
+              being siblings is what stops the two from overlapping — the same
+              reason the banners above are a column rather than three absolute
+              boxes. Only in minimal UI: with the chrome up, the header's own
+              readouts are the ones to read, and a second copy of them
+              floating over the canvas would be noise. */}
+          {uiHidden && viewportToastVisible && (
+            <ViewportToast
+              zoomPercent={zoomPercent}
+              angleDeg={angleDeg}
+              onReset={resetZoomAndRotation}
+            />
+          )}
+        </div>
+        {/* (#201) Bottom-anchored, so it can coexist with the event
+            banners above for as long as a bad connection lasts. Hidden
+            entirely while connected with an empty queue. */}
+        <div className={styles.noticesBottom}>
+          <ConnectionBanner
+            connected={connected}
+            everConnected={everConnected}
+            pending={outboxState.pending}
+            stalled={outboxState.stalled}
+          />
         </div>
 
         {/* ── Side panel (layers, color, …) ── */}
