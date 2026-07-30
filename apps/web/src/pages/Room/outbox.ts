@@ -22,6 +22,12 @@ const MAX_ATTEMPTS = 12
 
 export interface OutboxDeps {
   storage: OutboxStorage
+  // (#358) The room this queue belongs to. One Outbox serves exactly one
+  // room: it stamps every entry with this id and only ever loads entries
+  // carrying it. Without that, the durable half of the queue was shared by
+  // every room in the browser profile, and `hydrate`/`resendAll` pulled all of
+  // it into whichever room happened to be open — see OutboxEntry.roomId.
+  roomId: string
   // Resolves with the server's verdict, or rejects/never settles on a
   // network failure/timeout — the caller (Room/index.tsx) wraps
   // socket.emit('operation', ...) with its own timeout, since a bare
@@ -62,6 +68,9 @@ export interface OutboxDeps {
  *  is never retried (see SendResult's own doc comment in packages/shared),
  *  only a timeout/network failure is.
  *
+ *  One instance serves one room, in memory and in storage alike (#358) — see
+ *  OutboxDeps.roomId.
+ *
  *  Deliberately does not try to prevent an overlapping retry from double-
  *  sending the same operation — the server already dedups by
  *  `Operation.id` (see rooms.ts's findDuplicateOperation), so a harmless
@@ -69,6 +78,7 @@ export interface OutboxDeps {
  *  of needing its own client-side guard. */
 export class Outbox {
   private readonly storage: OutboxStorage
+  private readonly roomId: string
   private readonly send: (op: Operation) => Promise<SendResult>
   private readonly onSettled?: (op: Operation, result: SendResult) => void
   private readonly canSend?: () => boolean
@@ -101,6 +111,7 @@ export class Outbox {
 
   constructor(deps: OutboxDeps) {
     this.storage = deps.storage
+    this.roomId = deps.roomId
     this.send = deps.send
     this.onSettled = deps.onSettled
     this.canSend = deps.canSend
@@ -118,7 +129,7 @@ export class Outbox {
   /** Queues `op` and makes the first send attempt immediately. Persisting it
    *  is best-effort and never gates the send (#296). */
   async enqueue(op: Operation): Promise<void> {
-    const entry: OutboxEntry = { op, attempts: 0, nextRetryAt: this.now() }
+    const entry: OutboxEntry = { op, roomId: this.roomId, attempts: 0, nextRetryAt: this.now() }
     this.pending.set(op.id, entry)
     this.onPendingChange?.(this.pending.size, this.stalled.size)
     await this.persist(entry)
@@ -141,7 +152,10 @@ export class Outbox {
 
   private async loadPersisted(): Promise<void> {
     try {
-      for (const entry of await this.storage.getAll()) {
+      // Scoped to this room (#358). Everything queued for a *different* room
+      // stays exactly where it is — durable, unsent, and waiting for that room
+      // to be opened again, which is the only place it can legally go.
+      for (const entry of await this.storage.getAll(this.roomId)) {
         if (!this.pending.has(entry.op.id)) this.pending.set(entry.op.id, entry)
       }
     } catch (err) {

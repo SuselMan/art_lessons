@@ -4,6 +4,10 @@ import type { SendResult, StrokeOperation } from '@grafetto/shared'
 import { Outbox } from './outbox'
 import { createInMemoryOutboxStorage } from './outboxStorage'
 
+// (#358) The room every Outbox in this file belongs to. Named rather than
+// inlined so the cross-room test below reads as a contrast, not a typo.
+const ROOM = 'room-a'
+
 function op(id: string): StrokeOperation {
   return {
     id, type: 'stroke', userId: 'user-a', timestamp: 0,
@@ -34,6 +38,7 @@ describe('Outbox', () => {
     const storage = createInMemoryOutboxStorage()
     const onSettled = vi.fn()
     const outbox = new Outbox({
+      roomId: ROOM,
       storage, onSettled,
       send: async () => ({ ok: true, seq: 42 }) satisfies SendResult,
     })
@@ -50,6 +55,7 @@ describe('Outbox', () => {
     const onSettled = vi.fn()
     const { scheduled, schedule } = captureSchedule()
     const outbox = new Outbox({
+      roomId: ROOM,
       storage, onSettled, schedule,
       send: async () => ({ ok: false, reason: 'target_gone' }) satisfies SendResult,
     })
@@ -66,7 +72,7 @@ describe('Outbox', () => {
     const storage = createInMemoryOutboxStorage()
     const onSettled = vi.fn()
     const { scheduled, schedule } = captureSchedule()
-    const outbox = new Outbox({ storage, onSettled, schedule, send: async () => { throw new Error('timed out') } })
+    const outbox = new Outbox({ roomId: ROOM, storage, onSettled, schedule, send: async () => { throw new Error('timed out') } })
 
     await outbox.enqueue(op('a'))
     await flushMicrotasks()
@@ -82,7 +88,7 @@ describe('Outbox', () => {
   it('doubles the backoff delay on each consecutive failure, up to the cap', async () => {
     const storage = createInMemoryOutboxStorage()
     const { scheduled, schedule } = captureSchedule()
-    const outbox = new Outbox({ storage, schedule, send: async () => { throw new Error('down') } })
+    const outbox = new Outbox({ roomId: ROOM, storage, schedule, send: async () => { throw new Error('down') } })
 
     await outbox.enqueue(op('a'))
     await flushMicrotasks()
@@ -100,7 +106,7 @@ describe('Outbox', () => {
   it('caps backoff at 30s and never exceeds it on further failures', async () => {
     const storage = createInMemoryOutboxStorage()
     const { scheduled, schedule } = captureSchedule()
-    const outbox = new Outbox({ storage, schedule, send: async () => { throw new Error('down') } })
+    const outbox = new Outbox({ roomId: ROOM, storage, schedule, send: async () => { throw new Error('down') } })
 
     await outbox.enqueue(op('a'))
     await flushMicrotasks()
@@ -118,6 +124,7 @@ describe('Outbox', () => {
     const { scheduled, schedule } = captureSchedule()
     let shouldFail = true
     const outbox = new Outbox({
+      roomId: ROOM,
       storage, onSettled, schedule,
       send: async () => {
         if (shouldFail) throw new Error('down')
@@ -139,10 +146,11 @@ describe('Outbox', () => {
 
   it('resendAll re-attempts every entry already in storage (e.g. restored after reload)', async () => {
     const storage = createInMemoryOutboxStorage()
-    await storage.put({ op: op('a'), attempts: 2, nextRetryAt: 0 })
-    await storage.put({ op: op('b'), attempts: 0, nextRetryAt: 0 })
+    await storage.put({ op: op('a'), roomId: ROOM, attempts: 2, nextRetryAt: 0 })
+    await storage.put({ op: op('b'), roomId: ROOM, attempts: 0, nextRetryAt: 0 })
     const sent: string[] = []
     const outbox = new Outbox({
+      roomId: ROOM,
       storage,
       send: async o => { sent.push(o.id); return { ok: true, seq: 1 } satisfies SendResult },
     })
@@ -159,6 +167,7 @@ describe('Outbox', () => {
     let calls = 0
     let resolveSend: (r: SendResult) => void = () => {}
     const outbox = new Outbox({
+      roomId: ROOM,
       storage,
       send: async () => { calls++; return new Promise<SendResult>(resolve => { resolveSend = resolve }) },
     })
@@ -171,6 +180,65 @@ describe('Outbox', () => {
     resolveSend({ ok: true, seq: 1 })
     await flushMicrotasks()
     expect(await storage.getAll()).toEqual([])
+  })
+})
+
+// (#358) The queue is durable and shared by every room in one browser profile,
+// so "whose work is this" has to be part of the record. It wasn't: opening any
+// next room drained the previous room's unconfirmed strokes into it, and the
+// server recorded them there — it stamps an operation with whatever room the
+// sending socket has joined, and the payload carries no room of its own.
+// Reported from a tablet on 2026-07-30: strokes drawn in an infinite room
+// started appearing in a different, ordinary room after switching to it.
+describe('Outbox room scoping', () => {
+  it('never sends another room\'s persisted work, and leaves it queued', async () => {
+    const storage = createInMemoryOutboxStorage()
+    await storage.put({ op: op('mine'),      roomId: ROOM,     attempts: 0, nextRetryAt: 0 })
+    await storage.put({ op: op('elsewhere'), roomId: 'room-b', attempts: 0, nextRetryAt: 0 })
+    const sent: string[] = []
+    const outbox = new Outbox({
+      roomId: ROOM, storage,
+      send: async o => { sent.push(o.id); return { ok: true, seq: 1 } satisfies SendResult },
+    })
+
+    await outbox.hydrate()
+    await outbox.resendAll()
+    await flushMicrotasks()
+
+    expect(sent).toEqual(['mine'])
+    // Not merely unsent — still there, waiting for its own room to be opened
+    // again. Discarding it would trade one silent loss for another.
+    expect(await storage.getAll()).toEqual([
+      expect.objectContaining({ roomId: 'room-b', op: expect.objectContaining({ id: 'elsewhere' }) }),
+    ])
+  })
+
+  it('counts only this room\'s work as pending', async () => {
+    const storage = createInMemoryOutboxStorage()
+    await storage.put({ op: op('elsewhere'), roomId: 'room-b', attempts: 0, nextRetryAt: 0 })
+    const outbox = new Outbox({
+      roomId: ROOM, storage, canSend: () => false,
+      send: async () => ({ ok: true, seq: 1 }) satisfies SendResult,
+    })
+
+    await outbox.hydrate()
+
+    // The offline screen and ConnectionBanner report this number as "your
+    // unsaved work" (#201/#313) — another room's backlog inflating it would be
+    // a lie in the one place the app is trusted to be exact.
+    expect(outbox.pendingCount).toBe(0)
+  })
+
+  it('stamps its own room on everything it enqueues', async () => {
+    const storage = createInMemoryOutboxStorage()
+    const outbox = new Outbox({
+      roomId: ROOM, storage, canSend: () => false, // parked, so the entry stays put
+      send: async () => ({ ok: true, seq: 1 }) satisfies SendResult,
+    })
+
+    await outbox.enqueue(op('a'))
+
+    expect(await storage.getAll()).toEqual([expect.objectContaining({ roomId: ROOM })])
   })
 })
 
@@ -204,7 +272,7 @@ describe('Outbox with broken storage', () => {
   it('still sends when the operation cannot be persisted', async () => {
     const send = vi.fn(async () => ({ ok: true, seq: 1 }) satisfies SendResult)
     const onSettled = vi.fn()
-    const outbox = new Outbox({ storage: brokenStorage({ put: true }), send, onSettled })
+    const outbox = new Outbox({ roomId: ROOM, storage: brokenStorage({ put: true }), send, onSettled })
 
     await outbox.enqueue(op('a'))
     await flushMicrotasks()
@@ -216,6 +284,7 @@ describe('Outbox with broken storage', () => {
   it('still reports the result when the settled entry cannot be cleared', async () => {
     const onSettled = vi.fn()
     const outbox = new Outbox({
+      roomId: ROOM,
       storage: brokenStorage({ delete: true }),
       send: async () => ({ ok: true, seq: 7 }) satisfies SendResult,
       onSettled,
@@ -235,7 +304,7 @@ describe('Outbox with broken storage', () => {
       return { ok: true, seq: 3 } satisfies SendResult
     })
     const onSettled = vi.fn()
-    const outbox = new Outbox({ storage: brokenStorage({ getAll: true, put: true }), send, onSettled, schedule })
+    const outbox = new Outbox({ roomId: ROOM, storage: brokenStorage({ getAll: true, put: true }), send, onSettled, schedule })
 
     await outbox.enqueue(op('a'))
     await flushMicrotasks()
@@ -252,6 +321,7 @@ describe('Outbox with broken storage', () => {
   it('delivers every operation with storage completely unavailable', async () => {
     const sent: string[] = []
     const outbox = new Outbox({
+      roomId: ROOM,
       storage: brokenStorage({ getAll: true, put: true, delete: true }),
       send: async o => { sent.push(o.id); return { ok: true, seq: sent.length } satisfies SendResult },
     })
@@ -266,9 +336,10 @@ describe('Outbox with broken storage', () => {
 
   it('recovers a previous page load\'s operations from storage on resendAll', async () => {
     const storage = createInMemoryOutboxStorage()
-    await storage.put({ op: op('from-last-session'), attempts: 2, nextRetryAt: 0 })
+    await storage.put({ op: op('from-last-session'), roomId: ROOM, attempts: 2, nextRetryAt: 0 })
     const sent: string[] = []
     const outbox = new Outbox({
+      roomId: ROOM,
       storage,
       send: async o => { sent.push(o.id); return { ok: true, seq: 1 } satisfies SendResult },
     })
@@ -291,6 +362,7 @@ describe('Outbox send gating and concurrency', () => {
   it('sends nothing at all while canSend is false', async () => {
     const send = vi.fn(async () => ({ ok: true, seq: 1 }) satisfies SendResult)
     const outbox = new Outbox({
+      roomId: ROOM,
       storage: createInMemoryOutboxStorage(), send, canSend: () => false,
     })
 
@@ -305,6 +377,7 @@ describe('Outbox send gating and concurrency', () => {
     let joined = false
     const sent: string[] = []
     const outbox = new Outbox({
+      roomId: ROOM,
       storage: createInMemoryOutboxStorage(),
       send: async o => { sent.push(o.id); return { ok: true, seq: 1 } satisfies SendResult },
       canSend: () => joined,
@@ -327,6 +400,7 @@ describe('Outbox send gating and concurrency', () => {
     let peak = 0
     const release: Array<() => void> = []
     const outbox = new Outbox({
+      roomId: ROOM,
       storage: createInMemoryOutboxStorage(),
       send: async () => {
         inFlight++
@@ -351,6 +425,7 @@ describe('Outbox send gating and concurrency', () => {
     const onSettled = vi.fn()
     let joined = false
     const outbox = new Outbox({
+      roomId: ROOM,
       storage: createInMemoryOutboxStorage(),
       send: async () => (joined
         ? { ok: true, seq: 5 } satisfies SendResult
@@ -376,6 +451,7 @@ describe('Outbox send gating and concurrency', () => {
     const storage = createInMemoryOutboxStorage()
     const onStalled = vi.fn()
     const outbox = new Outbox({
+      roomId: ROOM,
       storage, schedule, onStalled,
       send: async () => { throw new Error('timeout') },
     })
@@ -399,6 +475,7 @@ describe('Outbox send gating and concurrency', () => {
     let failing = true
     const sent: string[] = []
     const outbox = new Outbox({
+      roomId: ROOM,
       storage: createInMemoryOutboxStorage(), schedule,
       send: async o => {
         if (failing) throw new Error('timeout')
@@ -428,6 +505,7 @@ describe('Outbox send gating and concurrency', () => {
     it('reports the queue growing and shrinking', async () => {
       const changes: Array<[number, number]> = []
       const outbox = new Outbox({
+        roomId: ROOM,
         storage: createInMemoryOutboxStorage(),
         onPendingChange: (pending, stalled) => changes.push([pending, stalled]),
         send: async () => ({ ok: true, seq: 1 }) satisfies SendResult,
@@ -444,6 +522,7 @@ describe('Outbox send gating and concurrency', () => {
     it('keeps counting an operation that could not be sent', async () => {
       const { schedule } = captureSchedule()
       const outbox = new Outbox({
+        roomId: ROOM,
         storage: createInMemoryOutboxStorage(),
         schedule,
         send: async () => { throw new Error('offline') },
@@ -459,6 +538,7 @@ describe('Outbox send gating and concurrency', () => {
       const { scheduled, schedule } = captureSchedule()
       const changes: Array<[number, number]> = []
       const outbox = new Outbox({
+        roomId: ROOM,
         storage: createInMemoryOutboxStorage(),
         schedule,
         onPendingChange: (pending, stalled) => changes.push([pending, stalled]),
@@ -485,10 +565,10 @@ describe('Outbox send gating and concurrency', () => {
   describe('hydrate', () => {
     it('surfaces a queue left by an earlier page load without sending anything', async () => {
       const storage = createInMemoryOutboxStorage()
-      await storage.put({ op: op('from-last-session'), attempts: 0, nextRetryAt: 0 })
+      await storage.put({ op: op('from-last-session'), roomId: ROOM, attempts: 0, nextRetryAt: 0 })
 
       const send = vi.fn()
-      const outbox = new Outbox({ storage, send, canSend: () => false })
+      const outbox = new Outbox({ roomId: ROOM, storage, send, canSend: () => false })
       await outbox.hydrate()
 
       expect(outbox.pendingCount).toBe(1)
@@ -497,11 +577,12 @@ describe('Outbox send gating and concurrency', () => {
 
     it('reports the recovered count through onPendingChange', async () => {
       const storage = createInMemoryOutboxStorage()
-      await storage.put({ op: op('a'), attempts: 0, nextRetryAt: 0 })
-      await storage.put({ op: op('b'), attempts: 0, nextRetryAt: 0 })
+      await storage.put({ op: op('a'), roomId: ROOM, attempts: 0, nextRetryAt: 0 })
+      await storage.put({ op: op('b'), roomId: ROOM, attempts: 0, nextRetryAt: 0 })
       const onPendingChange = vi.fn()
 
       const outbox = new Outbox({
+        roomId: ROOM,
         storage, onPendingChange, canSend: () => false,
         send: async () => ({ ok: true, seq: 1 }) satisfies SendResult,
       })
@@ -513,6 +594,7 @@ describe('Outbox send gating and concurrency', () => {
     it('does not double-count an operation already queued in this session', async () => {
       const storage = createInMemoryOutboxStorage()
       const outbox = new Outbox({
+        roomId: ROOM,
         storage, canSend: () => false,
         send: async () => ({ ok: true, seq: 1 }) satisfies SendResult,
       })

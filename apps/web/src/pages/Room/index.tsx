@@ -793,6 +793,11 @@ export function Room() {
   // callback used to do inline.
   const outbox = useMemo(() => new Outbox({
     storage: createIndexedDbOutboxStorage(),
+    // (#358) Binds this queue to this room, in storage as well as in memory.
+    // `id` is in the dep list below for the same reason: a queue holding one
+    // room's unconfirmed strokes must not survive into another room — that is
+    // exactly how they used to get sent there.
+    roomId: id ?? '',
     send: op => sendOperationWithTimeout(socketRef.current, op),
     // (#298) Nothing may go out before create_room/join_room has completed:
     // the server has no room to record against and answers `not_joined`, so
@@ -841,7 +846,7 @@ export function Room() {
       if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
       checkSnapshotBoundary()
     },
-  }), [checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery])
+  }), [id, checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery])
   // Tracks whether create_room/join_room has ever succeeded on this socket
   // connection's lineage, so a later auto-reconnect (socket.io's default
   // behavior on a dropped connection) rejoins rather than re-creating the
