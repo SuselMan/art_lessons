@@ -50,6 +50,7 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'lock': '\u{e88d}',
   'lock_open': '\u{e898}',
   'lock_person': '\u{f8f3}',
+  'logout': '\u{e9ba}',
   'menu': '\u{e5d2}',
   'more_vert': '\u{e5d4}',
   'move_down': '\u{eb61}',

@@ -56,6 +56,7 @@ export const MATERIAL_ICON_NAMES = [
   'lock',
   'lock_open',
   'lock_person',
+  'logout',
   'menu',
   'more_vert',
   'move_down',

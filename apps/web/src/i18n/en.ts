@@ -235,6 +235,9 @@ export const en = {
   // (#329) The header's "≡" — export/save/settings, everything reached for
   // between strokes rather than during one.
   'room.menu': 'Menu',
+  // Same exit as the wordmark, spelled out — the logo is only recognisable as
+  // a way out once you've tried it.
+  'room.leave': 'Leave project',
   'room.confirmUndo': 'Undo will remove a layer that has content from other participants. Continue?',
   'room.confirmRedo': 'Redo will remove a layer that has content from other participants. Continue?',
   'room.offlineSharedAction': 'No connection to the project — this action affects shared layers and becomes available again once you reconnect.',

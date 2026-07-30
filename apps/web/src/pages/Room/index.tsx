@@ -3178,6 +3178,9 @@ export function Room() {
               { label: t('room.export'), icon: 'download', onClick: handleExport, title: t('room.exportTitle') },
               { label: t('room.saveSession'), icon: 'save', onClick: handleSaveSession, title: t('room.saveSessionTitle') },
               { label: t('room.settings'), icon: 'settings', onClick: () => setSettingsOpen(true) },
+              // The same exit as the wordmark, confirmation dialog included —
+              // the logo only reads as "leave" once you already know it does.
+              { label: t('room.leave'), icon: 'logout', onClick: () => void leaveRoom() },
             ]}
           />
         </div>
