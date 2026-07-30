@@ -221,3 +221,78 @@ describe('TiledLayerBuffer eviction (#144)', () => {
     expect(buf.resolveVisible({ minX: 0, minY: 0, maxX: 1, maxY: 1 })).toHaveLength(0)
   })
 })
+
+// (#363) A view wider than the byte budget — what an infinite room's camera
+// produces at low zoom, where tiles in view grow with 1/zoom². The budget
+// used to trim these away mid-call, destroying GL textures the same call was
+// handing back; see evictIfOverBudget's own doc comment for the black-square
+// and replay-storm symptoms that produced.
+describe('TiledLayerBuffer: a view wider than the budget (#363)', () => {
+  const CAP = 8
+  const WIDE = 20 // tiles across — comfortably past CAP
+
+  function paintedBuffer(content = new Map<string, Uint8Array>()) {
+    const { rebuildTile, callCount } = makeFakeRebuilder(content)
+    const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, rebuildTile, TILE_BYTES * CAP)
+    for (let i = 0; i < WIDE; i++) paintTile(buf, i)
+    return { buf, callCount }
+  }
+
+  const wideView = { minX: 0, minY: 0, maxX: WIDE * TILE_W, maxY: TILE_H }
+
+  it('never hands back a tile it has already destroyed', () => {
+    const { buf } = paintedBuffer()
+    const targets = buf.resolveVisible(wideView)
+    expect(targets).toHaveLength(WIDE)
+    // The invariant that actually matters: every returned target is still a
+    // resident tile. Before #363 this was 8 — the other 12 targets pointed
+    // at AccumulationBuffers whose destroy() had already run, which the
+    // composite then bound and drew as opaque black squares.
+    expect(buf.tileCount).toBe(WIDE)
+    expect(buf.evictedTileCount).toBe(0)
+  })
+
+  it('keeps the content of a tile the budget alone would have evicted', () => {
+    const content = new Map<string, Uint8Array>()
+    const { buf } = paintedBuffer(content)
+    // Tile 0 is the least recently used, so it is the first thing the old
+    // unconditional trim reached for.
+    buf.resolveForPaint({ minX: 0, minY: 0, maxX: 1, maxY: 1 })[0].buffer.restorePixels(tag(42))
+    const first = buf.resolveVisible(wideView)[0]
+    expect(first.originX).toBe(0)
+    expect(first.buffer.readPixels()).toEqual(tag(42))
+  })
+
+  it('stops re-replaying the whole layer once per composited frame', () => {
+    const { buf, callCount } = paintedBuffer()
+    buf.resolveVisible(wideView) // settle
+    callCount.value = 0
+    for (let frame = 0; frame < 10; frame++) buf.resolveVisible(wideView)
+    // A still camera over a wide view is the common case while drawing.
+    // Before #363 each frame evicted what the last one recovered, and every
+    // recovery is a full Operation Log replay — this was 10.
+    expect(callCount.value).toBe(0)
+  })
+
+  it('trims back to budget as soon as the view no longer needs those tiles', () => {
+    const { buf } = paintedBuffer()
+    buf.resolveVisible(wideView)
+    expect(buf.tileCount).toBe(WIDE)
+    // Camera moves on: nothing protects the wide view's tiles any more, so
+    // the over-budget bulge is temporary, not a permanent leak. The two
+    // tiles this narrow view does need stay.
+    buf.resolveVisible({ minX: 0, minY: 0, maxX: 2 * TILE_W, maxY: TILE_H })
+    expect(buf.tileCount).toBe(CAP)
+    expect(buf.evictedTileCount).toBe(WIDE - CAP)
+  })
+
+  it('protects a paint rect spanning more tiles than the budget too', () => {
+    // Not only the display path: a layer_transform bake resolves the whole
+    // transformed content bounds for paint in one call.
+    const { buf } = paintedBuffer()
+    const targets = buf.resolveForPaint(wideView)
+    expect(targets).toHaveLength(WIDE)
+    expect(buf.tileCount).toBe(WIDE)
+    expect(buf.evictedTileCount).toBe(0)
+  })
+})
