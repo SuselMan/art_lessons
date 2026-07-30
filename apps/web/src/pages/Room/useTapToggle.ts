@@ -10,11 +10,34 @@ import { TapTracker } from './tapTracker'
 // "the digitizer reports enough jitter on a stationary touch to look like a
 // drag" from "something else disqualified it" (multi-touch, or the up simply
 // never reached TapTracker as pointerType 'touch' at all).
+/** Controls that float *inside* `.viewport` and must not double as "a tap on
+ *  the canvas" (#362). The listeners here sit on `.viewport` itself, which is
+ *  an ancestor of the room's two notice columns, so without this a single tap
+ *  on a banner's button both pressed the button and toggled the chrome — true
+ *  already for ClosedBanner's "Reopen" and LostWorkBanner's dismiss, and
+ *  unavoidable for the zoom/rotation strip's reset, which exists only while the
+ *  chrome is hidden and would therefore always bring it straight back.
+ *
+ *  Matched by role rather than by a marker attribute on each strip: "the tap
+ *  landed on something meant to be pressed" is the actual rule, and a marker
+ *  would have to be remembered by every future control added inside the
+ *  viewport. Note this cannot be done with `stopPropagation` from React
+ *  handlers — these are raw native listeners on an ancestor, so they fire
+ *  during native bubbling before React dispatches anything (the same ordering
+ *  that useViewport's `toolActive` check exists to work around). */
+const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, [role="button"]'
+
 export interface TapDebugInfo {
   pointerType: string
   maxDistPx: number
   concurrentTouches: number
   wasTap: boolean
+  /** The touch began on a button or other control floating inside the viewport,
+   *  so it was not treated as a tap on the canvas however stationary it was.
+   *  Reported separately from `wasTap` for the same reason the fields above
+   *  are: without it, "was tap: true, nothing happened" reads as the bug this
+   *  panel exists to diagnose. */
+  onControl: boolean
 }
 
 /** Detects a short, stationary single-finger touch tap on `ref`'s element —
@@ -68,11 +91,21 @@ export function useTapToggle(
     // framework-free and its tested down/move/up/cancel contract untouched.
     const starts = new Map<number, { x: number; y: number }>()
     const maxDist = new Map<number, number>()
+    // Pointers whose *down* landed on a control (see INTERACTIVE_SELECTOR).
+    // Recorded at down rather than tested again at up because pointer capture
+    // can retarget the up elsewhere entirely; and the pointer is still fed to
+    // TapTracker as normal, so its idea of how many fingers are down stays
+    // true — only the resulting `onTap` is withheld.
+    const onControl = new Set<number>()
     let concurrent = 0
 
     const onDown = (e: PointerEvent) => {
       diagLog('tap: down', { id: e.pointerId, type: e.pointerType, activeBefore: [...starts.keys()] })
       if (e.pointerType === 'touch') {
+        if (e.target instanceof Element && e.target.closest(INTERACTIVE_SELECTOR)) {
+          onControl.add(e.pointerId)
+          diagLog('tap: down landed on a control, will not toggle', { id: e.pointerId })
+        }
         tracker.down(e.pointerId, e.clientX, e.clientY)
         starts.set(e.pointerId, { x: e.clientX, y: e.clientY })
         maxDist.set(e.pointerId, 0)
@@ -92,17 +125,19 @@ export function useTapToggle(
     const onUp = (e: PointerEvent) => {
       if (e.pointerType === 'touch') {
         const wasTap = tracker.up(e.pointerId)
-        diagLog('tap: up', { id: e.pointerId, wasTap, maxDistPx: maxDist.get(e.pointerId) ?? 0, concurrent, staleIdsBefore: [...starts.keys()] })
+        const startedOnControl = onControl.delete(e.pointerId)
+        diagLog('tap: up', { id: e.pointerId, wasTap, startedOnControl, maxDistPx: maxDist.get(e.pointerId) ?? 0, concurrent, staleIdsBefore: [...starts.keys()] })
         onDebug?.({
           pointerType: e.pointerType,
           maxDistPx: maxDist.get(e.pointerId) ?? 0,
           concurrentTouches: concurrent,
           wasTap,
+          onControl: startedOnControl,
         })
         starts.delete(e.pointerId)
         maxDist.delete(e.pointerId)
         concurrent = Math.max(0, concurrent - 1)
-        if (wasTap) onTap()
+        if (wasTap && !startedOnControl) onTap()
       } else {
         diagLog('tap: up ignored, pointerType is', e.pointerType)
       }
@@ -113,6 +148,7 @@ export function useTapToggle(
         tracker.cancel(e.pointerId)
         starts.delete(e.pointerId)
         maxDist.delete(e.pointerId)
+        onControl.delete(e.pointerId)
         concurrent = Math.max(0, concurrent - 1)
       }
     }
@@ -130,6 +166,7 @@ export function useTapToggle(
       tracker.reset()
       starts.clear()
       maxDist.clear()
+      onControl.clear()
       concurrent = 0
     }
     document.addEventListener('visibilitychange', resetAll)
