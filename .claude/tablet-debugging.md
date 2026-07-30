@@ -49,8 +49,20 @@ adb connect 192.168.1.123:43887         # connect port
 adb devices -l
 ```
 
-`adb mdns services` found nothing on this machine (no Bonjour), so the
-connect port has to come from the screen — it cannot be discovered.
+`adb mdns services` **does** work on this machine as of 2026-07-30 — it lists
+both ports, so only the *pairing* pair (address + code) has to be read off the
+screen and the connect port can be discovered:
+
+```bash
+adb mdns services
+# adb-R52RB0JXVSY-9uOPiI  _adb-tls-pairing._tcp  192.168.1.123:42781
+# adb-R52RB0JXVSY-9uOPiI  _adb-tls-connect._tcp  192.168.1.123:37273
+```
+
+`adb pair` also connected the device by itself that day — `adb devices -l`
+showed it immediately after pairing, with no `adb connect` at all. Ask for the
+connect port only if both of those come up empty (it was needed in #298, when
+mDNS found nothing).
 
 Once both USB and Wi-Fi transports exist, `adb` refuses bare commands with
 `more than one device/emulator`. Pass `-s 192.168.1.123:43887` explicitly.
@@ -113,4 +125,32 @@ tab — if unrelated apps are dying too, stop looking at V8 heap numbers.
 - **Check the loaded bundle hash against production** (`performance
   .getEntriesByType('resource')` vs `curl` of prod `index.html`). A stale
   bundle silently invalidates every measurement; this cost one full
-  wrong conclusion (see #294).
+  wrong conclusion (see #294) — and then a second one on 2026-07-30, which is
+  why this is now the *first* step of a tablet run rather than a caveat:
+
+  - A backgrounded tab keeps running the build it loaded, for hours. Chrome on
+    Android reloads it when it comes back to the foreground — **including when
+    `Page.bringToFront` is what brings it there**, so the act of attaching can
+    silently swap the code under test. Read the hashes before touching
+    anything, and note that `index-*.js` alone is not enough: route chunks
+    (`Room-*.js`, `Room-*.css`) carry the editor and change on their own.
+  - Two fixes (#357, #358) both looked broken on a stale tab and both worked on
+    the reloaded one, an hour apart. "The fix didn't work" from a tablet means
+    "check what the tablet is running" first.
+  - A stale tab is not only a wrong answer, it can be the bug: one holding
+    IndexedDB at the old version blocks the new build's upgrade in every other
+    tab (#358 — the outbox lost durability there while the old tab drained the
+    store unscoped into its own room).
+
+- **A frozen tab does not answer `Runtime.evaluate`.** Android freezes
+  background renderers, and the call simply never returns — indistinguishable
+  from a hung page. Send `Page.bringToFront` first (mind the reload above), or
+  have Ilya put the tab on screen.
+
+- **Instrument in the page, then ask for the tap.** Ilya's finger is the only
+  input that reproduces touch faithfully, and a round trip costs a message —
+  so install a `MutationObserver`/listener probe that records rects, computed
+  styles, `elementFromPoint` hits and follow-up state into a global array, ask
+  for the gesture, then read the array. One exchange instead of one per
+  question, and it captures menus and toasts that are gone by the time you
+  look.
