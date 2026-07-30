@@ -1046,4 +1046,39 @@ describe('DabSystem curvature-adaptive spacing (#330)', () => {
     dabs.curvatureTolerancePx = 0.15
     expect(dabs.forkForPreview().curvatureTolerancePx).toBe(0.15)
   })
+
+  // Regression: a variable spacing means `_remainder` can be carried over from a
+  // segment whose spacing was much coarser than the next one's. Unclamped,
+  // `spacing - _remainder` went negative and the first dab of that segment was
+  // placed at t < 0 — where hermitePos extrapolates the cubic backwards out of
+  // the segment, planting a dab behind its own start and off the path. Visible
+  // as a spur off the end of a marker stroke (a fast straight run into a
+  // decelerating hook is exactly this shape), which the ribbon then connects up.
+  it('never places a dab behind the segment it belongs to when spacing shrinks', () => {
+    const dabs = new DabSystem({ shaping: wideNib })
+    dabs.curvatureTolerancePx = 0.15
+    // A long straight run at a coarse spacing, then a tight hook that cuts the
+    // curvature limit down to the 1px floor.
+    const path: Array<[number, number]> = [
+      [0, 0], [40, 0], [80, 0], [120, 0], [160, 0], [200, 0],
+      [203, 1], [204, 3], [203, 5], [201, 6], [199, 5],
+    ]
+    const out = [...dabs.startStroke(path[0][0], path[0][1], 1, 0, 0, 120)]
+    for (let i = 1; i < path.length; i++) out.push(...dabs.continueStroke(path[i][0], path[i][1], 1, 0, 0, 120))
+    out.push(...dabs.endStroke(120))
+
+    // The path only ever advances in +x until the hook, and never leaves
+    // -1 <= y <= 7. A backwards extrapolation lands outside both.
+    for (const d of out) {
+      expect(d.y).toBeGreaterThan(-1)
+      expect(d.y).toBeLessThan(7)
+    }
+    // No dab may sit behind the x the stroke had already reached, until the
+    // hook itself turns back (which it only does past y = 3).
+    let maxX = -Infinity
+    for (const d of out) {
+      if (d.y < 3) expect(d.x).toBeGreaterThanOrEqual(maxX - 1e-6)
+      maxX = Math.max(maxX, d.x)
+    }
+  })
 })

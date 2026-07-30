@@ -408,7 +408,27 @@ export class DabSystem {
       this._curvatureSpacingLimit(p1, p2, m1, m2, totalLen, baseSize),
     ))
     const dabs: Dab[] = []
-    let arcPos = spacing - this._remainder
+    // Clamped at 0, and that clamp is load-bearing for any tool whose spacing
+    // is not constant across a stroke — today the marker, via
+    // _curvatureSpacingLimit.
+    //
+    // `_remainder` is arc length already travelled past the last emitted dab,
+    // and it is bounded by whatever `spacing` was on the segment that produced
+    // it — not by this segment's. A fast straight run sets a coarse spacing
+    // (0.22 * 120px brush = 26.4px) and can leave almost all of it in the
+    // remainder; the very next segment's curvature limit can then legitimately
+    // cut spacing to the 1px floor. Unclamped, `spacing - _remainder` is
+    // strongly negative there, and a negative arcPos means a negative `t` —
+    // where hermitePos no longer interpolates but *extrapolates the cubic
+    // backwards out of the segment*, planting dabs behind p1 and off the path
+    // entirely. Measured on a straight run into a decelerating hook: a spur of
+    // dabs reaching 15px back from the segment start and 2.6px off the curve,
+    // which the marker's ribbon then connects up as a visible spike at the end
+    // of the stroke (the reported "random extra point").
+    //
+    // Clamping to 0 says the right thing instead: the dab is overdue, so place
+    // it at the segment start and carry on from there.
+    let arcPos = Math.max(0, spacing - this._remainder)
     let si = 0
 
     while (arcPos <= totalLen + 1e-6) {
