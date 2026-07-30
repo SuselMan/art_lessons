@@ -34,7 +34,7 @@ describe('AccumulationBuffer mipmaps (#365)', () => {
     expect(asksForMips(mock, buf)).toBe(false)
     expect(mock.getMipmapGenerations(buf.texture)).toBe(0)
 
-    buf.refreshMipmaps()
+    buf.setMipSampling(buf.ensureMipmaps())
     expect(mock.getMipmapGenerations(buf.texture)).toBe(1)
     expect(asksForMips(mock, buf)).toBe(true)
   })
@@ -46,7 +46,7 @@ describe('AccumulationBuffer mipmaps (#365)', () => {
     // what the mip levels were bought to save.
     const { gl, mock } = ctx()
     const buf = new AccumulationBuffer(gl, 16, 16)
-    for (let frame = 0; frame < 5; frame++) buf.refreshMipmaps()
+    for (let frame = 0; frame < 5; frame++) buf.setMipSampling(buf.ensureMipmaps())
     expect(mock.getMipmapGenerations(buf.texture)).toBe(1)
   })
 
@@ -56,7 +56,7 @@ describe('AccumulationBuffer mipmaps (#365)', () => {
     // buffer is arbitrary. Asking anyway is the black-texture trap.
     const { gl, mock } = ctx()
     const buf = new AccumulationBuffer(gl, 1240, 1754)
-    buf.refreshMipmaps()
+    buf.setMipSampling(buf.ensureMipmaps())
     expect(mock.getMipmapGenerations(buf.texture)).toBe(0)
     expect(asksForMips(mock, buf)).toBe(false)
   })
@@ -64,7 +64,7 @@ describe('AccumulationBuffer mipmaps (#365)', () => {
   it('is capable only when BOTH dimensions are powers of two', () => {
     const { gl, mock } = ctx()
     const oneSided = new AccumulationBuffer(gl, 1024, 1000)
-    oneSided.refreshMipmaps()
+    oneSided.setMipSampling(oneSided.ensureMipmaps())
     expect(mock.getMipmapGenerations(oneSided.texture)).toBe(0)
   })
 
@@ -87,7 +87,7 @@ describe('AccumulationBuffer mipmaps (#365)', () => {
     it(`stops asking for mips after ${name} changes level 0`, () => {
       const { gl, mock } = ctx()
       const buf = new AccumulationBuffer(gl, 16, 16)
-      buf.refreshMipmaps()
+      buf.setMipSampling(buf.ensureMipmaps())
       expect(asksForMips(mock, buf)).toBe(true)
 
       write(buf, gl)
@@ -95,7 +95,7 @@ describe('AccumulationBuffer mipmaps (#365)', () => {
 
       // ...and the next composite regenerates rather than silently sampling
       // the stale chain it just dropped.
-      buf.refreshMipmaps()
+      buf.setMipSampling(buf.ensureMipmaps())
       expect(mock.getMipmapGenerations(buf.texture)).toBe(2)
       expect(asksForMips(mock, buf)).toBe(true)
     })

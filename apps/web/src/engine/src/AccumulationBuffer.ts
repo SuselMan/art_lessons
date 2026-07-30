@@ -83,6 +83,9 @@ export class AccumulationBuffer {
   // has generated it yet, and the constructor leaves the plain LINEAR min
   // filter in place, so the texture is complete from the moment it exists.
   private _mipsValid = false
+  // Whether the min filter is currently asking for mip levels. Tracked so
+  // setMipSampling can skip redundant GL state changes on the per-draw path.
+  private _mipSampling = false
 
   /** Call before *any* write to level 0. Drops back to the plain LINEAR min
    *  filter rather than merely noting staleness: leaving a mip filter in
@@ -93,31 +96,61 @@ export class AccumulationBuffer {
   private _invalidateMips(): void {
     if (!this._mipCapable || !this._mipsValid) return
     const { gl } = this
+    this._mipsValid = false
+    // Drops back to plain LINEAR rather than merely noting staleness: a
+    // filter left pointing at a chain that no longer matches level 0 keeps
+    // sampling pixels that are not there any more, which at the zooms this
+    // exists for reads as content lagging a frame behind the stroke drawing
+    // it.
+    if (!this._mipSampling) return
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    this._mipsValid = false
+    this._mipSampling = false
   }
 
-  /** (#365) Brings the mip chain back in sync with level 0 and switches the
-   *  min filter to trilinear, so a later minifying sample reads a level sized
-   *  near its own footprint instead of point-sampling one texel out of
-   *  hundreds. Idempotent and cheap when nothing has changed since the last
-   *  call — which is the common case, since a composite re-samples the same
-   *  tiles every frame while only the tile under the pointer is being
-   *  written.
+  /** (#365) Brings the mip chain in sync with level 0 if it is not already,
+   *  and reports whether a chain now exists. Does *not* change how the
+   *  texture is sampled — see setMipSampling for that.
    *
-   *  Deliberately the caller's job to invoke right before sampling, not
-   *  something the write path does eagerly: a stroke writes a tile many times
-   *  per frame and the result is only ever *looked at* once, at composite
-   *  time, so regenerating on write would pay for the chain repeatedly and
-   *  throw all but the last away. */
-  refreshMipmaps(): void {
-    if (!this._mipCapable || this._mipsValid) return
+   *  The two are separate because the chain is needed by more than one caller
+   *  at more than one moment: the composite wants it when it is shrinking
+   *  tiles, and the coarse-level fold (#365's draw-call half) wants it on
+   *  every write regardless of zoom, since shrinking 1024 texels into 128
+   *  unfiltered would build the coarse level out of exactly the aliasing it
+   *  exists to remove. If generating also switched the filter, that fold
+   *  would leave every tile sampling trilinearly at 1:1 — where the result is
+   *  meant to be a plain, untouched texel copy.
+   *
+   *  Idempotent and cheap when nothing has been written since the last call,
+   *  which is the common case: a still camera re-composites the same tiles
+   *  every frame. */
+  ensureMipmaps(): boolean {
+    if (!this._mipCapable) return false
+    if (this._mipsValid) return true
     const { gl } = this
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
     gl.generateMipmap(gl.TEXTURE_2D)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
     this._mipsValid = true
+    return true
+  }
+
+  /** (#365) Chooses trilinear or plain LINEAR minification for the next draw
+   *  that samples this buffer. Turning it on without a valid chain is refused
+   *  rather than obeyed: a texture whose filter asks for levels it lacks is
+   *  incomplete and samples as opaque black. Callers that want mip sampling
+   *  must therefore go through ensureMipmaps() first and respect its answer.
+   *
+   *  Set per draw rather than once, because the same tile is sampled by
+   *  passes that want different answers — the coarse fold always minifies,
+   *  the on-screen composite only sometimes. */
+  setMipSampling(on: boolean): void {
+    if (!this._mipCapable) return
+    const wanted = on && this._mipsValid
+    if (wanted === this._mipSampling) return
+    const { gl } = this
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, wanted ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR)
+    this._mipSampling = wanted
   }
 
   beginDraw(): void {

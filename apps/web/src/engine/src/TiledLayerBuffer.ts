@@ -1,6 +1,6 @@
 import { AccumulationBuffer } from './AccumulationBuffer'
 import type { ILayerBuffer, PaintTarget } from './ILayerBuffer'
-import { TILE_SIZE, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToTile, type WorldRect } from './tileMath'
+import { COARSE_FACTOR, TILE_SIZE, coarseTileWorldRect, fineTileSlot, fineToCoarseTile, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToTile, type WorldRect } from './tileMath'
 
 /** (#155 Tier 2) Scans a tile's exact RGBA8 pixel content for its real
  *  alpha!=0 bounding box, tile-local pixel space, half-open like WorldRect
@@ -84,6 +84,17 @@ export interface TileRebuildSession {
  *  and checkpoint/replay machinery, which live in engine/index.ts). */
 export type TileRebuilder = () => TileRebuildSession
 
+/** (#365) Draws one fine tile's whole texture, shrunk, into a `w x h` slot at
+ *  (`x`, `y`) — top-down pixel coordinates — of the coarse tile's buffer,
+ *  replacing whatever was there rather than blending over it. Supplied by the
+ *  engine for the same reason TileRebuilder is: TiledLayerBuffer owns *when*
+ *  the coarse level is out of date, but has no shader programs of its own and
+ *  no business gaining any. */
+export type TileDownsampler = (
+  source: AccumulationBuffer, dest: AccumulationBuffer,
+  x: number, y: number, w: number, h: number,
+) => void
+
 /** Tile-backed ILayerBuffer (Phase 1, #133; #142 generalized to bounded
  *  rooms too; #144 added byte-budget eviction) — a sparse
  *  Map<tileKey, AccumulationBuffer> of currently GPU-resident tiles, one
@@ -155,6 +166,25 @@ export class TiledLayerBuffer implements ILayerBuffer {
   // See PaintTarget.contentRect's own doc comment for the full reasoning.
   private readonly contentRects = new Map<string, WorldRect | null>()
   private readonly rebuildTile: TileRebuilder | undefined
+  // (#365) The coarse level: one buffer per COARSE_FACTOR x COARSE_FACTOR
+  // block of fine tiles, same texture size, so 1/COARSE_FACTOR the
+  // resolution. Only ever populated for an instance that was given a
+  // downsampleTile (real layers in an infinite room); everything else keeps
+  // exactly the pre-#365 behaviour of having no coarse level at all.
+  //
+  // Not budgeted, unlike `tiles`. A coarse tile covers COARSE_FACTOR² = 64
+  // fine tiles' worth of world area for one tile's worth of memory, so
+  // reaching even the fine level's own 32-tile cap here would take 2048 fine
+  // tiles of real painted content — two orders of magnitude past anything a
+  // lesson produces. Worth revisiting only if that stops being true.
+  private readonly coarse = new Map<string, AccumulationBuffer>()
+  // Fine tile keys whose content has changed since it was last folded into
+  // the coarse level. Populated by resolveForPaint — the single gate every
+  // write path in the engine passes through to get a target — rather than by
+  // the individual writers, so a new write path cannot forget to mark itself
+  // and silently leave the coarse level showing stale pixels at low zoom.
+  private readonly pendingDownsample = new Set<string>()
+  private readonly downsampleTile: TileDownsampler | undefined
   private readonly maxResidentTiles: number
   // Counter, not boolean, so nested suspend/resume (defensive — nothing in
   // this codebase currently nests them) can't resume prematurely. See
@@ -176,11 +206,20 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // constructor, rather than checked against a module-level constant on
     // every call).
     budgetBytes: number = TILE_BUDGET_BYTES,
+    // (#365) Last on purpose: budgetBytes above is passed positionally by the
+    // eviction tests, so a new parameter ahead of it would silently arrive as
+    // the budget. Omitted for bounded rooms and for scratch/temp instances —
+    // a bounded room never minifies its buffers (the browser's compositor
+    // scales its canvas element instead) and a scratch instance is read once
+    // and thrown away, so neither has a coarse level to keep. Without one,
+    // every coarse path below short-circuits.
+    downsampleTile?: TileDownsampler,
   ) {
     this.gl = gl
     this.tileW = tileW
     this.tileH = tileH
     this.rebuildTile = rebuildTile
+    this.downsampleTile = downsampleTile
     this.maxResidentTiles = rebuildTile
       ? Math.max(MIN_RESIDENT_TILES, Math.floor(budgetBytes / (tileW * tileH * 4)))
       : Infinity
@@ -203,6 +242,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
     this.tiles.clear()
     this.evicted.clear()
     this.contentRects.clear()
+    this.dropCoarse()
   }
 
   destroy(): void {
@@ -210,6 +250,92 @@ export class TiledLayerBuffer implements ILayerBuffer {
     this.tiles.clear()
     this.evicted.clear()
     this.contentRects.clear()
+    this.dropCoarse()
+  }
+
+  /** (#365) Throws the coarse level away wholesale. Correct for both clear()
+   *  and destroy(): the coarse level is derived, never a source of truth, so
+   *  losing it costs nothing a later paint won't rebuild — and keeping it
+   *  across a clear() would be actively wrong, leaving a low-zoom view
+   *  showing content the layer no longer has. */
+  private dropCoarse(): void {
+    for (const tile of this.coarse.values()) tile.destroy()
+    this.coarse.clear()
+    this.pendingDownsample.clear()
+  }
+
+  /** (#365) Folds every fine tile written since the last fold into its coarse
+   *  tile, then forgets the marks.
+   *
+   *  Ordering is the whole correctness argument here, so it is worth stating:
+   *  a key in `pendingDownsample` is guaranteed still resident when this runs,
+   *  because the only thing that evicts is evictIfOverBudget and that calls
+   *  this first. Conversely, keys are marked at the *end* of resolveForPaint,
+   *  after that call's own trim — so this never folds a tile whose paint has
+   *  not happened yet and then clears the mark, which would leave the coarse
+   *  level one operation behind forever. */
+  private flushDownsamples(): void {
+    const downsample = this.downsampleTile
+    if (!downsample || !this.pendingDownsample.size) return
+    for (const key of this.pendingDownsample) {
+      const tile = this.tiles.get(key)
+      if (!tile) continue // cannot normally happen — see the ordering note above
+      const { tileX, tileY } = parseTileKey(key)
+      const coarseCoord = fineToCoarseTile(tileX, tileY)
+      const coarseKey = tileKey(coarseCoord.tileX, coarseCoord.tileY)
+      let dest = this.coarse.get(coarseKey)
+      if (!dest) {
+        dest = new AccumulationBuffer(this.gl, this.tileW, this.tileH)
+        dest.clear()
+        this.coarse.set(coarseKey, dest)
+      }
+      const slot = fineTileSlot(tileX, tileY, this.tileW, this.tileH)
+      downsample(tile, dest, slot.x, slot.y, slot.w, slot.h)
+    }
+    this.pendingDownsample.clear()
+  }
+
+  /** (#365) Marks fine tiles as needing to be folded into the coarse level.
+   *  Called from the two places that hand a caller a buffer it may write to
+   *  — resolveForPaint (every paint, bake, merge and restore in the engine
+   *  goes through it) and allResident (bakes and merges also clear tiles they
+   *  got from there). Over-marking only costs one quad draw per tile at the
+   *  next fold; under-marking silently shows stale content at low zoom, so
+   *  this errs toward the former. */
+  private markForDownsample(keys: Iterable<string>): void {
+    if (!this.downsampleTile) return
+    for (const key of keys) this.pendingDownsample.add(key)
+  }
+
+  /** (#365) The coarse level's counterpart to resolveVisible: whichever
+   *  coarse tiles overlap `worldRect` and actually hold content. Null — not
+   *  an empty array — when this instance has no coarse level at all (bounded
+   *  rooms, scratch buffers), so the caller can tell "nothing to draw here"
+   *  apart from "ask me for fine tiles instead".
+   *
+   *  Never creates a coarse tile and never touches the fine level's residency
+   *  or budget, which is the point: at the zooms this exists for, resolving
+   *  the equivalent fine tiles is exactly the work being avoided. */
+  resolveCoarse(worldRect: WorldRect): PaintTarget[] | null {
+    if (!this.downsampleTile) return null
+    this.flushDownsamples()
+    const coarseW = this.tileW * COARSE_FACTOR
+    const coarseH = this.tileH * COARSE_FACTOR
+    const targets: PaintTarget[] = []
+    for (const { tileX, tileY } of tilesOverlappingRect(worldRect, coarseW, coarseH)) {
+      const buffer = this.coarse.get(tileKey(tileX, tileY))
+      if (!buffer) continue
+      const rect = coarseTileWorldRect(tileX, tileY, this.tileW, this.tileH)
+      targets.push({ buffer, originX: rect.minX, originY: rect.minY, contentRect: null })
+    }
+    return targets
+  }
+
+  /** (#365) World-space size one coarse tile spans — what the composite needs
+   *  to place a resolveCoarse target, since unlike a fine tile its buffer
+   *  dimensions and its world extent are no longer the same number. */
+  get coarseWorldSize(): { w: number; h: number } {
+    return { w: this.tileW * COARSE_FACTOR, h: this.tileH * COARSE_FACTOR }
   }
 
   /** Suspends eviction until a matching resumeEviction() — used by
@@ -231,6 +357,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  tile count — see suspendEviction's own doc comment. */
   resumeEviction(): void {
     this.evictionSuspendDepth = Math.max(0, this.evictionSuspendDepth - 1)
+    this.flushDownsamples()
     if (this.evictionSuspendDepth === 0) this.evictIfOverBudget()
   }
 
@@ -271,6 +398,10 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  on, the next resolve protects a different set and these trim normally. */
   private evictIfOverBudget(inUse?: ReadonlySet<string>): void {
     if (!this.rebuildTile || this.evictionSuspendDepth > 0) return
+    // (#365) Before anything is destroyed: a tile still owing its content to
+    // the coarse level must contribute it while it is still here, or the
+    // low-zoom view keeps showing what was there before the last stroke.
+    this.flushDownsamples()
     let overBudget = this.tiles.size - this.maxResidentTiles
     if (overBudget <= 0) return
     // Iterates a snapshot rather than the live Map: unlike the old loop this
@@ -364,6 +495,10 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // content bounds can span a lot of tiles, so this isn't only the display
     // path's concern.
     this.evictIfOverBudget(new Set(keys))
+    // (#365) Marked last, after the trim: the caller has not written yet, so
+    // folding these now would bank pre-paint content and clear the mark. See
+    // flushDownsamples' ordering note.
+    this.markForDownsample(keys)
     return targets
   }
 
@@ -401,6 +536,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
    *  paint/composite) — a temporary, bounded-in-practice bulge right after
    *  an infrequent bulk operation, never a permanent regression. */
   allResident(): PaintTarget[] {
+    this.flushDownsamples()
     this.recoverTiles([...this.evicted])
     // Snapshot entries before touching: touch() deletes-and-reinserts the
     // very key a live Map iterator is mid-way through, which would revisit
@@ -415,6 +551,9 @@ export class TiledLayerBuffer implements ILayerBuffer {
       const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
       targets.push({ buffer: tile, originX: rect.minX, originY: rect.minY, contentRect: this.contentRects.get(key) ?? null })
     }
+    // (#365) Bakes and merges clear tiles they took from here, so treat every
+    // one as possibly-written — see markForDownsample.
+    this.markForDownsample(entries.map(([key]) => key))
     return targets
   }
 

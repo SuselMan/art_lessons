@@ -20,6 +20,23 @@
 // canvas rather than to this constant.
 export const TILE_SIZE = 1024
 
+// (#365) How many fine tiles a coarse tile covers along each axis. A coarse
+// tile is stored in a texture the same size as a fine one (TILE_SIZE square),
+// so it holds the same world area as COARSE_FACTOR² fine tiles at 1/
+// COARSE_FACTOR of their resolution — 8192 world units across, at 1 texel per
+// 8, for the values here.
+//
+// This is the draw-call fix rather than the quality fix (mip levels are
+// that): the composite issues one draw per visible tile, and tiles in view
+// grow with 1/zoom², so at zoom 0.1 a 1920x1080 viewport spans ~576 fine
+// tiles but only ~9 coarse ones. 8 is chosen against the room's own zoom
+// floor (0.1, see cameraMath's minZoom): the coarse level takes over at or
+// below 1/8, and at the furthest the camera can go a coarse tile still draws
+// to ~819 screen px from a 1024-texel texture — minified 1.25x, never
+// magnified. A larger factor would start magnifying (visibly soft) before the
+// floor; a smaller one would leave more draw calls on the table.
+export const COARSE_FACTOR = 8
+
 export interface TileCoord {
   tileX: number
   tileY: number
@@ -66,6 +83,40 @@ export function parseTileKey(key: string): TileCoord {
 export function tileWorldRect(tileX: number, tileY: number, tileW = TILE_SIZE, tileH = TILE_SIZE): WorldRect {
   const minX = tileX * tileW, minY = tileY * tileH
   return { minX, minY, maxX: minX + tileW, maxY: minY + tileH }
+}
+
+/** (#365) The coarse tile a fine tile belongs to. Floor division, so it is
+ *  correct for negative coordinates too — an infinite room's tile grid runs
+ *  in both directions from world origin, and `Math.trunc` would fold tiles
+ *  -7..-1 and 0..7 onto the same coarse tile. */
+export function fineToCoarseTile(tileX: number, tileY: number): TileCoord {
+  return { tileX: Math.floor(tileX / COARSE_FACTOR), tileY: Math.floor(tileY / COARSE_FACTOR) }
+}
+
+/** Where a fine tile's downsampled content sits inside its coarse tile's
+ *  texture, in coarse-texture pixels, top-down (the convention every buffer
+ *  pixel value in this engine uses). Always a `size` x `size` square with
+ *  size = tileW / COARSE_FACTOR.
+ *
+ *  Uses the same floor-based modulo as fineToCoarseTile for the same reason:
+ *  JS `%` keeps the sign of the dividend, so tile -1 would land at offset -1
+ *  rather than at the last slot of the coarse tile to its left. */
+export function fineTileSlot(
+  tileX: number, tileY: number, tileW = TILE_SIZE, tileH = TILE_SIZE,
+): { x: number; y: number; w: number; h: number } {
+  const slotW = tileW / COARSE_FACTOR
+  const slotH = tileH / COARSE_FACTOR
+  const col = tileX - Math.floor(tileX / COARSE_FACTOR) * COARSE_FACTOR
+  const row = tileY - Math.floor(tileY / COARSE_FACTOR) * COARSE_FACTOR
+  return { x: col * slotW, y: row * slotH, w: slotW, h: slotH }
+}
+
+/** World-space rect a coarse tile occupies — COARSE_FACTOR fine tiles across
+ *  in each direction. */
+export function coarseTileWorldRect(
+  tileX: number, tileY: number, tileW = TILE_SIZE, tileH = TILE_SIZE,
+): WorldRect {
+  return tileWorldRect(tileX, tileY, tileW * COARSE_FACTOR, tileH * COARSE_FACTOR)
 }
 
 /** Every tile-key that overlaps a world-space rect (e.g. a dab's bounding

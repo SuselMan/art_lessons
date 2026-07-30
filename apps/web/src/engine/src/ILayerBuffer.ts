@@ -61,6 +61,19 @@ export interface ILayerBuffer {
    *  where an untouched region simply contributes nothing. */
   resolveVisible(worldRect: WorldRect): PaintTarget[]
 
+  /** (#365) Coarse-level counterpart to resolveVisible — whichever
+   *  reduced-resolution tiles overlap worldRect and hold content, for
+   *  compositing a view zoomed out far enough that drawing the fine tiles
+   *  one by one is the bottleneck. Null when this buffer keeps no coarse
+   *  level at all (bounded rooms, scratch instances), which the caller must
+   *  read as "use the fine tiles" rather than "there is nothing here".
+   *  Each target's buffer spans coarseWorldSize in world units, not its own
+   *  pixel dimensions — that is the whole point of it. */
+  resolveCoarse(worldRect: WorldRect): PaintTarget[] | null
+
+  /** (#365) World-space extent of one coarse tile — see resolveCoarse. */
+  readonly coarseWorldSize: { w: number; h: number }
+
   /** Every currently resident tile, with no rect filtering — "everything
    *  this layer actually holds right now." Used where there's no natural
    *  bounding rect to filter by (merge, content-bounds scan, transform

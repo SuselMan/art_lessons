@@ -38,7 +38,7 @@ import {
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
-import { TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
+import { COARSE_FACTOR, TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
 import { paperCoarsenessOf } from '@grafetto/shared'
 import type { PaperCoarseness } from '@grafetto/shared'
@@ -2748,7 +2748,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  (TiledLayerBuffer's maxResidentTiles is Infinity without one). */
   private _makeLayerBuffer(layerId?: string): ILayerBuffer {
     const { w, h } = this._tileSize()
-    return new TiledLayerBuffer(this.gl, w, h, layerId !== undefined ? this._makeTileRebuilder(layerId) : undefined)
+    // (#365) The coarse level is for infinite rooms only, and only for real
+    // layers: a bounded room never minifies its buffers (the browser scales
+    // its canvas element instead), and a scratch instance is read once and
+    // discarded, so neither has anything to gain from one.
+    const downsample = this._infinite && layerId !== undefined
+      ? (src: AccumulationBuffer, dst: AccumulationBuffer, x: number, y: number, w2: number, h2: number) =>
+        this._downsampleTileInto(src, dst, x, y, w2, h2)
+      : undefined
+    return new TiledLayerBuffer(
+      this.gl, w, h,
+      layerId !== undefined ? this._makeTileRebuilder(layerId) : undefined,
+      undefined, downsample,
+    )
   }
 
   /** #144: the rebuild-on-demand hook a real layer's TiledLayerBuffer calls
@@ -5178,7 +5190,7 @@ export class PencilEngine implements PencilEngineAPI {
     const preview = this._transformPreview.get(id)
     if (preview) {
       for (const { originX, originY, buffer } of preview) {
-        if (minifying) buffer.refreshMipmaps()
+        buffer.setMipSampling(minifying && buffer.ensureMipmaps())
         this._drawTileComposite(
           buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
         )
@@ -5187,8 +5199,31 @@ export class PencilEngine implements PencilEngineAPI {
     }
     const buf = this._layers.get(id)
     if (!buf) return
+
+    // (#365) Far enough out that a fine tile would occupy at most as many
+    // screen pixels as a coarse tile's slot holds texels — from here down,
+    // drawing the fine grid costs COARSE_FACTOR² draw calls per coarse tile
+    // and buys nothing anyone can see. At the room's zoom floor this is the
+    // difference between ~576 draws per layer per frame and ~9.
+    //
+    // Strictly below, not at or below, so the changeover happens where a
+    // coarse tile is still being minified rather than exactly at 1:1 — the
+    // fine level is authoritative and stays in use for as long as it is
+    // worth anything.
+    const coarse = this._compositeScale < 1 / COARSE_FACTOR ? buf.resolveCoarse(viewRect) : null
+    if (coarse) {
+      const { w: coarseW, h: coarseH } = buf.coarseWorldSize
+      for (const { buffer, originX, originY } of coarse) {
+        buffer.setMipSampling(buffer.ensureMipmaps())
+        this._drawTileComposite(
+          buffer.texture, originX, originY, coarseW, coarseH, opacity, targetFbo, targetW, targetH,
+        )
+      }
+      return
+    }
+
     for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
-      if (minifying) buffer.refreshMipmaps()
+      buffer.setMipSampling(minifying && buffer.ensureMipmaps())
       this._drawTileComposite(
         buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
       )
@@ -5430,6 +5465,55 @@ export class PencilEngine implements PencilEngineAPI {
   private _worldToScreenEdgeY(worldY: number): number {
     const { wy } = this._infiniteCamera
     return Math.round((worldY - wy) * this._compositeScale + this._compositeCenterY)
+  }
+
+  /** (#365) Draws one fine tile, shrunk, into its slot of a coarse tile —
+   *  the TileDownsampler TiledLayerBuffer is handed so it can keep its coarse
+   *  level current without owning a shader.
+   *
+   *  Positions the slot with gl.viewport for the same reason
+   *  _drawTileComposite does (see its comment on the ANGLE/D3D dropout), and
+   *  refreshes the source's mip chain first so shrinking 1024 texels into 128
+   *  reads filtered levels rather than one texel in sixty-four — without that
+   *  the coarse level would be built out of exactly the aliasing it exists to
+   *  avoid.
+   *
+   *  Replaces rather than blends: a slot is one fine tile's whole content,
+   *  including its transparency, so blending "over" would keep whatever that
+   *  tile used to hold before it was erased. */
+  private _downsampleTileInto(
+    source: AccumulationBuffer, dest: AccumulationBuffer,
+    x: number, y: number, w: number, h: number,
+  ): void {
+    const { gl } = this
+    // Always minifying by COARSE_FACTOR here, so this wants filtered levels
+    // regardless of what the camera is doing.
+    source.setMipSampling(source.ensureMipmaps())
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, dest.fbo)
+    // gl.viewport's y is bottom-up; slot coordinates are top-down like every
+    // other buffer-pixel value in this file.
+    gl.viewport(x, dest.height - (y + h), w, h)
+    gl.disable(gl.BLEND)
+
+    gl.useProgram(this._compositeProg)
+    const u = this._compositeUni
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    const posLoc = this._compositePosLoc
+    gl.enableVertexAttribArray(posLoc)
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, source.texture)
+    gl.uniform1i(u.u_layer, 0)
+    gl.uniform1f(u.u_opacity, 1)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    // Left on a plain filter: the fold runs on every write, at every zoom,
+    // so leaving mip sampling on here would quietly make the 1:1 on-screen
+    // composite trilinear too — where it is meant to be an exact texel copy.
+    source.setMipSampling(false)
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
   private _drawTileComposite(
