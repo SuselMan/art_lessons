@@ -48,7 +48,8 @@ function search(app: FastifyInstance, q?: string) {
 
 const dbRoom = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: 'room-1', name: 'Still Life Study', paper: 'coarse', infinite: false,
-  canvasWidth: 800, canvasHeight: 600, passwordHash: null, ownerId: 'user-1',
+  canvasWidth: 800, canvasHeight: 600, passwordHash: null,
+  accessMode: 'anyone_with_link' as const, ownerId: 'user-1',
   createdAt: new Date('2026-01-01'), thumbnail: null, owner: { name: 'Ilya' },
   ...overrides,
 })
@@ -149,7 +150,8 @@ describe('PATCH /api/rooms/:id/closed', () => {
 describe('PATCH /api/rooms/:id (rename)', () => {
   const dbRoom = (overrides: Partial<Record<string, unknown>> = {}) => ({
     id: 'room-1', name: 'New name', paper: 'coarse', infinite: false,
-    canvasWidth: 800, canvasHeight: 600, passwordHash: null, ownerId: 'user-1',
+    canvasWidth: 800, canvasHeight: 600, passwordHash: null,
+  accessMode: 'anyone_with_link' as const, ownerId: 'user-1',
     createdAt: new Date('2026-01-01'), thumbnail: null, owner: { name: 'Ilya' },
     ...overrides,
   })

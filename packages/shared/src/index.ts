@@ -147,6 +147,17 @@ export type CanvasSize = {
   label: string // 'A4' | 'A3' | 'A2' | 'Square' | '16:9' | 'Custom'
 }
 
+// (#224, release track #314 §6) Who is allowed into a room at all.
+//
+// `anyone_with_link` is what every room did before this existed and stays the
+// default: the id in the URL is the credential. `invite_only` admits the
+// owner, anyone on the room's email allow-list, and anyone the owner has
+// approved from the waiting queue; everyone else can ask, and waits.
+//
+// Orthogonal to `hasPassword` — see the accessMode comment in schema.prisma
+// for why the two are separate toggles rather than one setting.
+export type RoomAccessMode = 'anyone_with_link' | 'invite_only'
+
 export type Room = {
   id: string
   name: string
@@ -168,6 +179,13 @@ export type Room = {
   canvasWidth?: number
   canvasHeight?: number
   hasPassword: boolean
+  // (#224) Required rather than optional, unlike the other fields added to
+  // this type after the fact: the column is NOT NULL with a default, so every
+  // room — including every one that predates the column — has a real value,
+  // and an optional field would invite `?? 'anyone_with_link'` fallbacks at
+  // each call site, i.e. a second place where the default lives and can drift
+  // from the schema's.
+  accessMode: RoomAccessMode
   ownerId: string
   // Owner's display name, joined in server-side (User.name is nullable —
   // guest/anonymous accounts, see schema.prisma's User comment — so this is

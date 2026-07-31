@@ -56,7 +56,8 @@ describe('GET /api/rooms', () => {
         folderId: 'folder-1',
         room: {
           id: 'room-1', name: 'Room 1', paper: 'medium', infinite: false,
-          canvasWidth: 100, canvasHeight: 100, passwordHash: null, ownerId: 'user-1',
+          canvasWidth: 100, canvasHeight: 100, passwordHash: null,
+          accessMode: 'anyone_with_link' as const, ownerId: 'user-1',
           createdAt: new Date(), thumbnail: null, owner: { name: 'Alice' },
         },
       },

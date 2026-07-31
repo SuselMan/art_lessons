@@ -183,6 +183,17 @@ describe('createRoom', () => {
     expect(guarded.room.hasPassword).toBe(true)
   })
 
+  it('starts every room open, and says so in the room it hands back (#224)', () => {
+    const roomId = freshRoomId()
+    const { room } = createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher', sock('owner-1'))
+
+    // A password is not an access mode — the two gates are independent, so a
+    // password-protected room is still `anyone_with_link` until its owner
+    // says otherwise (#226/#232).
+    expect(room.accessMode).toBe('anyone_with_link')
+    expect(getRoomSnapshot(roomId)?.room.accessMode).toBe('anyone_with_link')
+  })
+
   it("ownerId does not shift when other participants join afterward", () => {
     const roomId = freshRoomId()
     const { room } = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))

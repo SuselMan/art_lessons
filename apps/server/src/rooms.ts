@@ -236,7 +236,7 @@ function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
       id: room.id, name: room.name, paper: room.paper, paperColor: room.paperColor ?? null,
       infinite: room.infinite,
       canvasWidth: room.canvasWidth ?? null, canvasHeight: room.canvasHeight ?? null,
-      passwordHash, ownerId: room.ownerId,
+      passwordHash, accessMode: room.accessMode, ownerId: room.ownerId,
     },
   }))
 }
@@ -615,6 +615,11 @@ export function createRoom(
   const room: Room = {
     ...roomData,
     hasPassword: !!password,
+    // (#224) Every room starts open; picking a mode at creation time is #232's
+    // job (CreateRoom UI) and changing it later is #226's. Written through
+    // explicitly rather than left to the column default so the in-memory
+    // record and the row can never disagree about a room's own mode.
+    accessMode: 'anyone_with_link',
     ownerId,
     createdAt: new Date().toISOString(),
   }

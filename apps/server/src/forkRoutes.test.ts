@@ -36,6 +36,7 @@ const SOURCE = {
   id: 'lesson-1', name: 'Still life', paper: 'coarse', paperColor: '#f5f0e6',
   infinite: false, canvasWidth: 1240, canvasHeight: 1754,
   passwordHash: 'hashed', closedAt: new Date(), parentRoomId: null,
+  accessMode: 'invite_only' as const,
   ownerId: 'teacher', createdAt: new Date(),
 }
 
@@ -86,7 +87,10 @@ beforeEach(() => {
   mockPrisma.roomLayerState.findUnique.mockResolvedValue(null)
   mockPrisma.operation.findMany.mockResolvedValue([])
   mockPrisma.room.findUniqueOrThrow.mockImplementation(({ where }: { where: { id: string } }) =>
-    Promise.resolve({ ...SOURCE, id: where.id, ownerId: 'student', parentRoomId: SOURCE.id, passwordHash: null }))
+    Promise.resolve({
+      ...SOURCE, id: where.id, ownerId: 'student', parentRoomId: SOURCE.id,
+      passwordHash: null, accessMode: 'anyone_with_link' as const,
+    }))
 })
 
 describe('POST /api/rooms/:id/fork (#317)', () => {
@@ -133,6 +137,17 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     // draw on, which is the one thing a fork exists to give them.
     expect(room.passwordHash).toBeUndefined()
     expect(room.closedAt).toBeUndefined()
+  })
+
+  it('does not inherit the source room\'s access mode (#224)', async () => {
+    // SOURCE is `invite_only`. Its invites are not copied — they were decided
+    // for the lesson, not for a student's copy of it — so a fork that
+    // inherited the mode would be a room with an empty allow-list: homework
+    // the teacher would have to queue up to look at. Left unset, the column
+    // default (`anyone_with_link`) applies.
+    await fork(buildApp('student'))
+
+    expect(createdRoom().accessMode).toBeUndefined()
   })
 
   it('re-stamps inherited operations so nobody can undo them', async () => {

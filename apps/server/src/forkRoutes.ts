@@ -20,8 +20,15 @@ import { flushRoomWrites, isCoveredBySnapshot } from './rooms.js'
  *
  *  What deliberately does NOT come across: the password (the fork belongs to
  *  whoever made it, and inheriting a lesson's password would lock them out of
- *  their own work), `closedAt` (a fork exists to be drawn in), and the
- *  thumbnail (it will be re-baked from the fork's own content).
+ *  their own work), `closedAt` (a fork exists to be drawn in), the thumbnail
+ *  (it will be re-baked from the fork's own content), and — same reasoning as
+ *  the password — `accessMode` and the access rows behind it (#224). The
+ *  invites, join requests and blocks belong to the lesson they were decided
+ *  for, not to a student's copy of it; and since they don't travel, an
+ *  inherited `invite_only` would mean a room with an empty allow-list, i.e.
+ *  homework the teacher would have to queue up to see. The fork takes the
+ *  column default (`anyone_with_link`), and its owner can close it down
+ *  themselves.
  */
 
 /** Copying the log means new primary keys, and three operation types point at

@@ -29,6 +29,11 @@ model User {
   ownedRooms        Room[]
   participatedRooms RoomParticipant[]
   roomFolders       RoomFolder[]
+  // (#224) Access control back-relations — see the three models at the bottom
+  // of this file.
+  roomInvitesSent   RoomInvite[]
+  roomJoinRequests  RoomJoinRequest[]
+  roomBlocks        RoomBlock[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 }
@@ -82,6 +87,24 @@ model Room {
   canvasWidth  Int?
   canvasHeight Int?
   passwordHash String?
+  // (#224) Who may enter at all. Deliberately independent of `passwordHash`,
+  // which stays its own toggle applicable in either mode: the password is a
+  // shared secret about the *link*, this is about *people*. A lesson can be
+  // invite-only without a password (the allow-list is the gate) or open with
+  // one (the secret is the gate) — collapsing them into one setting would
+  // make "invite these three students, no password to type on a tablet"
+  // unexpressible.
+  //
+  // Enum rather than a String column (unlike `paper`/`verification`) because
+  // this one decides who gets in: a value Postgres cannot hold is a value no
+  // join check has to have an opinion about, and there is no fail-open branch
+  // to get wrong. Its members are spelled exactly as the wire values in
+  // packages/shared's `RoomAccessMode`, so the row travels to the client
+  // through `toWireRoom` with no mapping table and no cast.
+  //
+  // `@default` backfills every existing room as `anyone_with_link` — today's
+  // actual behaviour, so the migration changes no room's accessibility.
+  accessMode   RoomAccessMode    @default(anyone_with_link)
   closedAt     DateTime?
   // (#317) Fork lineage. `SetNull` rather than the `Cascade` every other
   // relation here uses, and deliberately so: deleting the lesson a student
@@ -96,6 +119,9 @@ model Room {
   owner        User              @relation(fields: [ownerId], references: [id])
   operations   Operation[]
   participants RoomParticipant[]
+  invites      RoomInvite[]
+  joinRequests RoomJoinRequest[]
+  blocks       RoomBlock[]
   snapshots    RoomLayerSnapshot[]
   layerState   RoomLayerState?
   palette      RoomPalette?
@@ -259,8 +285,108 @@ model RoomThumbnail {
   updatedAt DateTime @updatedAt
 }
 
+// (#224, §6 of the release track #314) The allow-list an `invite_only` room
+// admits people by. Keyed by **email, not userId**, and that is the point: the
+// person a teacher invites usually has no account here yet, and every browser
+// already carries a `User` row of its own (see the identity-cookie comment on
+// User), so a userId allow-list could only ever list people who had already
+// been here. The email is resolved to whoever presents it at join time —
+// meaning an invite sent today still admits the student who signs in for the
+// first time tomorrow, without the invite needing to be re-issued.
+//
+// It also means an invite grants nothing to a guest who never signs in: with
+// `email` null on their User row there is nothing to match. That is the
+// intended trade — an allow-list that anonymous browsers could satisfy would
+// not be one.
+//
+// `email` is stored lowercased/trimmed by the API layer before it ever gets
+// here, same rule as LoginCode.email, so an invite typed with capitals still
+// matches the address as stored on User.
+model RoomInvite {
+  id              String   @id @default(uuid())
+  roomId          String
+  room            Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  email           String
+  invitedByUserId String
+  // No `onDelete` (Prisma's default Restrict), matching Room.owner rather than
+  // the Cascade the room-scoped relations use: cascading here would let a
+  // deleted account silently retract access it had granted to other people.
+  invitedBy       User     @relation(fields: [invitedByUserId], references: [id])
+  createdAt       DateTime @default(now())
+
+  // Re-inviting an address already on the list is a no-op, not a second row —
+  // and the check "is this address invited to this room" is this index.
+  @@unique([roomId, email])
+}
+
+// (#224) Someone who wants into an `invite_only` room and isn't on its
+// allow-list. The owner sees these as a queue and approves or denies.
+//
+// One row per (room, user), not one per request: a denial that spawned a fresh
+// row every time would let anyone holding the link grow this table without
+// limit, and the owner's queue with it. A repeat ask therefore flips the same
+// row back to `pending` (see #226's endpoints), which also keeps "this person
+// was already denied once" visible instead of laundering it into a new
+// request.
+//
+// `name` is what the asker typed on the join screen, snapshotted here rather
+// than read from User.name: a guest's row often has no name at all, and the
+// owner needs something to recognize them by while deciding.
+model RoomJoinRequest {
+  id          String                @id @default(uuid())
+  roomId      String
+  room        Room                  @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  status      RoomJoinRequestStatus @default(pending)
+  requestedAt DateTime              @default(now())
+  resolvedAt  DateTime?
+
+  @@unique([roomId, userId])
+  // The owner-facing read is always "pending requests for this room".
+  @@index([roomId, status])
+}
+
+// (#224) A revoked participant — the "kick" that sticks. Checked on every
+// `join_room` independently of `accessMode`, because the mode a room is in
+// says nothing about the one person it was decided must not be in it.
+//
+// Keyed by userId, which bounds what it can promise: a blocked *guest* who
+// clears site data arrives as a new `User` and is no longer recognizably the
+// same person. Accepted for the first release rather than papered over —
+// blocking is meaningful against signed-in accounts, and a room that needs a
+// hard door has `invite_only` and/or a password for that. Anything stronger
+// (IP, device fingerprint) would be both weaker than it looks and a privacy
+// cost we don't want; recorded here so the limitation isn't rediscovered as a
+// bug later.
+model RoomBlock {
+  id        String   @id @default(uuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  // Every read is "is this user blocked from this room", and blocking twice
+  // is the same block.
+  @@unique([roomId, userId])
+}
+
 enum UserRole {
   FREE
   PRO
   ADMIN
+}
+
+// (#224) Members spelled as the wire values on purpose — see Room.accessMode.
+enum RoomAccessMode {
+  anyone_with_link
+  invite_only
+}
+
+enum RoomJoinRequestStatus {
+  pending
+  approved
+  denied
 }
