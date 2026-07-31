@@ -51,6 +51,16 @@ interface RoomRecord {
   // No longer doubles as "everything below this is covered" — see
   // `coveredSeqByLayer`, which is the only thing that now answers that.
   layerStateSeq: number | null
+  // (#372) Every id the stored layerState still lists. Absence, for an
+  // operation the stored structure already accounts for, means the layer is
+  // *gone* — consumed by a merge, or deleted — and so needs neither pixels nor
+  // replay. Without this a merge whose result was later consumed looked
+  // permanently uncovered (a layer that stopped existing can never get a
+  // snapshot), so it kept being sent while the merge that consumed it was
+  // withheld: the client rebuilt the dead layer and nothing took it away
+  // again. Seen live on 2026-07-31 in room ksEMJOMy — an empty layer at the
+  // top that refused to be deleted, the server rightly holding it destroyed.
+  layerStateIds: Set<string> | null
   // (#371) `coveredSeq` per layer: the newest seq a RoomLayerSnapshot exists
   // for. A layer absent here has no stored pixels at all and is covered by
   // nothing — its whole history has to be replayed.
@@ -305,8 +315,9 @@ function pruneOperationsBeforeSnapshot(_roomId: string): void {
  *  `pruneOperationsBeforeSnapshot`'s comment before deleting anything. */
 export function deletableOperations(
   coveredSeqByLayer: ReadonlyMap<string, number>, operations: readonly Operation[],
+  layerStateSeq: number | null = null, layerStateIds: ReadonlySet<string> | null = null,
 ): Operation[] {
-  return operations.filter(op => isCoveredBySnapshot(coveredSeqByLayer, op))
+  return operations.filter(op => isCoveredBySnapshot(coveredSeqByLayer, op, layerStateSeq, layerStateIds))
 }
 
 /** (#292) Operation types that must stay resident for a room's whole life,
@@ -345,6 +356,23 @@ export const RESIDENT_OP_TYPES: readonly string[] = [
   'operation_undo', 'operation_redo', 'operation_revoke',
 ]
 
+/** The ids a stored layerState still lists — see RoomRecord.layerStateIds.
+ *  `null` when the stored value can't be read as a layerState at all.
+ *
+ *  Null rather than an empty set, and the distinction is the whole safety
+ *  margin: an empty set says "every layer is gone", which withholds every
+ *  operation in the room. This reads JSON a client wrote, so it has to assume
+ *  it may one day read something else — and the only acceptable failure is the
+ *  one that replays too much, never the one that replays too little. Same
+ *  reasoning as #311's "an id the server never heard of is not treated as
+ *  destroyed". */
+function layerStateIdsOf(state: unknown): Set<string> | null {
+  if (typeof state !== 'object' || state === null) return null
+  const items = (state as { items?: unknown }).items
+  if (typeof items !== 'object' || items === null) return null
+  return new Set(Object.keys(items))
+}
+
 /** (#372) The operations a layer's stored pixels can stand in for.
  *
  *  Deliberately only the *pure* pixel operations — ones that target a single
@@ -360,16 +388,57 @@ export const RESIDENT_OP_TYPES: readonly string[] = [
  *  (#374). */
 const COVERABLE_OP_TYPES = ['stroke', 'image_import', 'layer_clear']
 
-/** Whether `op` is already accounted for by stored pixels, and so does not
- *  have to be replayed (#372).
+/** Whether `op` is already accounted for by stored state, and so does not have
+ *  to be replayed (#372).
+ *
+ *  Two kinds of stored state, because there are two kinds of thing an
+ *  operation can leave behind:
+ *
+ *   - **pixels**, covered per layer by `coveredSeqByLayer`;
+ *   - **structure** — which layers exist, their order, names, opacity,
+ *     visibility — covered by the room's stored layerState at `layerStateSeq`.
+ *
+ *  The structural half was missing when this was first written, and it cost a
+ *  live bug the same day (2026-07-31, room ksEMJOMy). Structural operations
+ *  were declared uncoverable and therefore sent at any age, so a client that
+ *  restored layerState at seq 3200 was then handed the `layer_merge` from seq
+ *  314 and folded it in on top — re-inserting a layer the restored state
+ *  already had. Ilya saw one layer listed twice, then three times, gaining a
+ *  row per reload. Before this epic a single room-wide floor happened to
+ *  withhold those; removing it for pixels left structure with no floor at all.
+ *
+ *  A `layer_merge` or `layer_transform` needs *both*: they carry structure (or
+ *  several layers at once) and pixels, so either half still outstanding means
+ *  the operation has to be replayed. That is the asymmetry worth keeping in
+ *  view — "covered" is a claim about everything an operation did, not about
+ *  its type.
  *
  *  This is the one rule three callers share — what stays in RAM, what a
  *  joining client is sent, and what a fork copies (forkRoutes.ts) — precisely
  *  because letting them drift is the shape of the bug the epic exists to
  *  fix. */
-export function isCoveredBySnapshot(coveredSeqByLayer: ReadonlyMap<string, number>, op: Operation): boolean {
-  if (!COVERABLE_OP_TYPES.includes(op.type) || !('layerId' in op)) return false
-  return (op.seq ?? 0) <= (coveredSeqByLayer.get(op.layerId) ?? 0)
+export function isCoveredBySnapshot(
+  coveredSeqByLayer: ReadonlyMap<string, number>, op: Operation,
+  layerStateSeq: number | null = null, layerStateIds: ReadonlySet<string> | null = null,
+): boolean {
+  const seq = op.seq ?? 0
+  const structureCovered = layerStateSeq !== null && seq <= layerStateSeq
+  // A layer the stored structure no longer lists is gone, and a gone layer
+  // needs no pixels: nothing displays it. Only meaningful for an operation the
+  // structure already accounts for — above that seq, "not listed" means
+  // "created since", which is the opposite conclusion.
+  const pixelsCovered = (layerId: string): boolean =>
+    seq <= (coveredSeqByLayer.get(layerId) ?? 0)
+    || (structureCovered && layerStateIds !== null && !layerStateIds.has(layerId))
+
+  if (COVERABLE_OP_TYPES.includes(op.type) && 'layerId' in op) return pixelsCovered(op.layerId)
+  if (op.type === 'layer_merge') return structureCovered && pixelsCovered(op.layerId)
+  if (op.type === 'layer_transform') return structureCovered && op.transforms.every(t => pixelsCovered(t.layerId))
+  // Everything else leaves structure and nothing else behind: layer_add,
+  // folder_add, layer_delete, layer_move, layer_rename, layer_opacity,
+  // layer_visibility, layer_owner_lock — and the meta operations, whose whole
+  // effect is on entries the stored layerState already reflects.
+  return structureCovered
 }
 
 /** (#292) The subset of a room's log that has to live in RAM: everything no
@@ -407,7 +476,8 @@ async function loadResidentOperations(
  *  the heap. Same window rule as `loadResidentOperations`. */
 function trimResidentOperations(record: RoomRecord): void {
   if (record.coveredSeqByLayer.size === 0) return
-  record.operations = record.operations.filter(op => !isCoveredBySnapshot(record.coveredSeqByLayer, op))
+  record.operations = record.operations.filter(
+    op => !isCoveredBySnapshot(record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds))
   record.operationsById = new Map(record.operations.map(op => [op.id, op]))
 }
 
@@ -434,7 +504,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   if (!dbRoom) return false
 
   const [storedLayerState, coveredSeqByLayer] = await Promise.all([
-    prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true } }),
+    prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),
     loadCoveredSeqByLayer(roomId),
   ])
   // Sequenced after coverage rather than alongside it: which operations are
@@ -485,6 +555,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     participants: new Map(),
     nextSeq,
     layerStateSeq: storedLayerState?.seq ?? null,
+    layerStateIds: layerStateIdsOf(storedLayerState?.state),
     coveredSeqByLayer,
     palette,
     roomFrozen: false,
@@ -553,7 +624,7 @@ export function createRoom(
   const palette = [...DEFAULT_PALETTE_COLORS]
   rooms.set(room.id, {
     room, passwordHash, operations: [], participants, nextSeq: 1, palette,
-    layerStateSeq: null, coveredSeqByLayer: new Map(),
+    layerStateSeq: null, layerStateIds: null, coveredSeqByLayer: new Map(),
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
     aliveIds: new Set(IMPLICIT_LAYER_IDS), deletedIds: new Set(), operationsById: new Map(),
     structuralLog: [],
@@ -1109,7 +1180,8 @@ export function getRoomSnapshot(
   // positively reach it, so a layer nobody snapshotted keeps every operation.
   const floor = lastKnownSeq ?? 0
   const tailOperations = record.operations.filter(op =>
-    (op.seq ?? 0) > floor && !isCoveredBySnapshot(record.coveredSeqByLayer, op))
+    (op.seq ?? 0) > floor
+    && !isCoveredBySnapshot(record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds))
   return {
     room: record.room,
     // The structure's own seq — what a history backfill anchors on. Null
@@ -1316,6 +1388,7 @@ export async function saveSnapshot(
       update: { seq, state: layerState as object },
     })
     record.layerStateSeq = seq
+    record.layerStateIds = layerStateIdsOf(layerState)
   }
 
   if (created.length > 0) {

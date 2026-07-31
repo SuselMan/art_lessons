@@ -99,7 +99,12 @@ export function registerForkRoutes(app: FastifyInstance): void {
       where: { roomId: sourceId },
       orderBy: { seq: 'asc' },
     })
-    const rows = allRows.filter(row => !isCoveredBySnapshot(coveredSeqByLayer, row.data as Operation))
+    // null when there is no readable structure — see rooms.ts's layerStateIdsOf
+    // for why that must not be confused with "every layer is gone".
+    const storedItems = (layerState?.state as { items?: Record<string, unknown> } | undefined)?.items
+    const layerStateIds = storedItems ? new Set(Object.keys(storedItems)) : null
+    const rows = allRows.filter(row =>
+      !isCoveredBySnapshot(coveredSeqByLayer, row.data as Operation, layerState?.seq ?? null, layerStateIds))
 
     const forkId = randomUUID().slice(0, 12)
     const seedUserId = forkSeedUserId(forkId)

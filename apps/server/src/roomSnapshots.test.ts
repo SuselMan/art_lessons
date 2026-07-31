@@ -337,45 +337,145 @@ describe('getRoomSnapshot — coverage is per layer', () => {
   })
 })
 
-// (#372) Operations that paint *and* do something else are never withheld:
-// the client needs their other half, so it skips their pixel effect itself
-// against the coverage it restored. Withholding them here would take away structure
-// (layer_merge) or another layer's share of the same operation
-// (layer_transform).
-describe('getRoomSnapshot — operations that are not coverable', () => {
-  it('sends a layer_merge even when its own layer is covered past it', async () => {
-    const roomId = makeRoom()
-    recordOperation(roomId, {
-      id: 'm', type: 'layer_merge', userId: 'owner-1', timestamp: 0, layerId: 'layer-1',
-      name: 'Merged', sources: [{ id: 'layer-2', opacity: 1 }], parentId: null, index: 0,
-    })
-    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
-    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
+// (#372) An operation is withheld only when stored state accounts for
+// *everything* it did. Pixels are covered per layer; structure is covered by
+// the room's stored layerState at its own seq. The structural half was missing
+// at first and cost a live bug the same day — a restored room replayed an
+// ancient layer_merge over a layerState that already held its result, and the
+// layer appeared once more in the panel per reload.
+describe('getRoomSnapshot — structure has its own coverage', () => {
+  async function coverAll(roomId: string, seq: number, ...layerIds: string[]) {
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
+    await saveSnapshot(roomId, seq, { rootOrder: [] }, layers(...layerIds))
+  }
 
-    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['m'])
-  })
-
-  it('sends a layer_transform even when every layer it names is covered', async () => {
-    const roomId = makeRoom()
-    recordOperation(roomId, {
-      id: 't', type: 'layer_transform', userId: 'owner-1', timestamp: 0,
-      transforms: [{ layerId: 'layer-1', matrix: [1, 0, 0, 1, 0, 0] }],
-    })
-    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
-    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
-
-    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['t'])
-  })
-
-  it('sends structural operations at any age', async () => {
+  it('withholds a structural operation the stored layerState already reflects', async () => {
     const roomId = makeRoom()
     recordOperation(roomId, {
       id: 'add', type: 'layer_add', userId: 'owner-1', timestamp: 0, layerId: 'layer-1', name: 'Layer',
     })
-    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
-    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
+    await coverAll(roomId, SNAPSHOT_SEQ_INTERVAL, 'layer-1')
+
+    expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
+  })
+
+  it('sends a structural operation newer than the stored layerState', async () => {
+    const roomId = makeRoom()
+    await coverAll(roomId, SNAPSHOT_SEQ_INTERVAL, 'layer-1')
+    for (let i = 0; i < SNAPSHOT_SEQ_INTERVAL + 1; i++) recordOperation(roomId, stroke(`fill-${i}`))
+    recordOperation(roomId, {
+      id: 'add-late', type: 'layer_add', userId: 'owner-1', timestamp: 0, layerId: 'layer-2', name: 'Layer',
+    })
+
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toContain('add-late')
+  })
+
+  it('sends every structural operation when nothing has been stored at all', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, {
+      id: 'add', type: 'layer_add', userId: 'owner-1', timestamp: 0, layerId: 'layer-1', name: 'Layer',
+    })
 
     expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['add'])
+  })
+
+  // A merge leaves both structure and pixels behind, so one half being covered
+  // is not enough — withholding it would hand the client a layer with no
+  // content and no way to rebuild it.
+  it('still sends a layer_merge whose result layer has no stored pixels', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, {
+      id: 'm', type: 'layer_merge', userId: 'owner-1', timestamp: 0, layerId: 'merged',
+      name: 'Merged', sources: [{ id: 'layer-1', opacity: 1 }], parentId: null, index: 0,
+    })
+    await coverAll(roomId, SNAPSHOT_SEQ_INTERVAL, 'layer-1') // 'merged' deliberately uncovered
+
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['m'])
+  })
+
+  // The case that got away and reached production the same afternoon: a merge
+  // whose *result* was itself consumed by a later merge. That layer can never
+  // get a snapshot — it stopped existing — so judging it by pixel coverage
+  // alone kept this operation forever uncoverable, while the merge that
+  // consumed it was withheld. The client rebuilt the dead layer and nothing
+  // took it away again: an empty row at the top of the panel that the server
+  // refused to delete, since it rightly held the layer destroyed.
+  it('withholds a merge whose result the stored structure no longer lists', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, {
+      id: 'inner', type: 'layer_merge', userId: 'owner-1', timestamp: 0, layerId: 'consumed',
+      name: 'Inner', sources: [{ id: 'layer-1', opacity: 1 }], parentId: null, index: 0,
+    })
+    recordOperation(roomId, {
+      id: 'outer', type: 'layer_merge', userId: 'owner-1', timestamp: 0, layerId: 'final',
+      name: 'Outer', sources: [{ id: 'consumed', opacity: 1 }], parentId: null, index: 0,
+    })
+    // The stored structure knows only the surviving layer — 'consumed' is gone.
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { items: { final: {} } }, layers('final'))
+
+    expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
+  })
+
+  it('withholds a stroke made on a layer the stored structure no longer lists', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, { ...stroke('gone'), layerId: 'consumed' })
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { items: { final: {} } }, layers('final'))
+
+    expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
+  })
+
+  // An unreadable structure must mean "nothing is known to be gone", never
+  // "everything is" — the latter withholds the entire room.
+  it('replays everything when the stored structure cannot be read', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, { ...stroke('keep'), layerId: 'whatever' })
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, 'not a layer state', layers('final'))
+
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['keep'])
+  })
+
+  it('withholds a layer_merge once both its structure and its pixels are stored', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, {
+      id: 'm', type: 'layer_merge', userId: 'owner-1', timestamp: 0, layerId: 'merged',
+      name: 'Merged', sources: [{ id: 'layer-1', opacity: 1 }], parentId: null, index: 0,
+    })
+    await coverAll(roomId, SNAPSHOT_SEQ_INTERVAL, 'layer-1', 'merged')
+
+    expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
+  })
+
+  // Same reasoning per named layer: one uncovered entry keeps the whole
+  // operation, since it cannot be sent for some layers and not others.
+  it('still sends a layer_transform when any layer it names is uncovered', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, {
+      id: 't', type: 'layer_transform', userId: 'owner-1', timestamp: 0,
+      transforms: [
+        { layerId: 'layer-1', matrix: [1, 0, 0, 1, 0, 0] },
+        { layerId: 'layer-2', matrix: [1, 0, 0, 1, 0, 0] },
+      ],
+    })
+    await coverAll(roomId, SNAPSHOT_SEQ_INTERVAL, 'layer-1')
+
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['t'])
+  })
+
+  it('withholds a layer_transform once every layer it names is stored', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, {
+      id: 't', type: 'layer_transform', userId: 'owner-1', timestamp: 0,
+      transforms: [
+        { layerId: 'layer-1', matrix: [1, 0, 0, 1, 0, 0] },
+        { layerId: 'layer-2', matrix: [1, 0, 0, 1, 0, 0] },
+      ],
+    })
+    await coverAll(roomId, SNAPSHOT_SEQ_INTERVAL, 'layer-1', 'layer-2')
+
+    expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
   })
 })
 
