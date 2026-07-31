@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { decodeLayerTiles, decodeRoomSnapshot, encodeLayerTiles, encodeRoomSnapshot, type SnapshotTile } from './snapshotCodec'
+import { compressLayerTiles, decodeLayerTiles, decompressLayerTiles, encodeLayerTiles, type SnapshotTile } from './snapshotCodec'
 
 function makeTile(overrides: Partial<SnapshotTile> = {}): SnapshotTile {
   const width = overrides.width ?? 2
@@ -46,49 +46,32 @@ describe('encodeLayerTiles / decodeLayerTiles', () => {
   })
 })
 
-describe('encodeRoomSnapshot / decodeRoomSnapshot', () => {
-  it('round-trips a single layer', async () => {
-    const layers = new Map([['layer-1', encodeLayerTiles([makeTile()])]])
-    const compressed = await encodeRoomSnapshot(layers)
-    const decoded = await decodeRoomSnapshot(compressed)
+// (#371) The room-level bundle is gone: a snapshot is one layer's pixels, and
+// the row it lives in already carries the layer id and seq the framing used to.
+describe('compressLayerTiles / decompressLayerTiles', () => {
+  it('round-trips a layer through gzip', async () => {
+    const tile = makeTile({ originX: -512, originY: 256, width: 3, height: 2 })
+    const raw = encodeLayerTiles([tile])
 
-    expect([...decoded.keys()]).toEqual(['layer-1'])
-    expect(decoded.get('layer-1')).toHaveLength(1)
+    const { tiles } = decodeLayerTiles(await decompressLayerTiles(await compressLayerTiles(raw)), 0)
+
+    expect(tiles).toHaveLength(1)
+    expect(tiles[0].originX).toBe(-512)
+    expect([...tiles[0].pixels]).toEqual([...tile.pixels])
   })
 
-  it('round-trips several layers, preserving per-layer tile content', async () => {
-    const tileA = makeTile({ originX: 0, pixels: Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) })
-    const tileB = makeTile({ originX: 1024, pixels: Uint8Array.from([255, 254, 253, 252, 251, 250, 249, 248, 247, 246, 245, 244, 243, 242, 241, 240]) })
-    const layers = new Map([
-      ['background', encodeLayerTiles([tileA])],
-      ['layer-abc', encodeLayerTiles([tileB])],
-    ])
+  it('round-trips several tiles of one layer', async () => {
+    const a = makeTile({ originX: 0, pixels: Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) })
+    const b = makeTile({ originX: 1024, pixels: Uint8Array.from([255, 254, 253, 252, 251, 250, 249, 248, 247, 246, 245, 244, 243, 242, 241, 240]) })
 
-    const decoded = await decodeRoomSnapshot(await encodeRoomSnapshot(layers))
+    const { tiles } = decodeLayerTiles(await decompressLayerTiles(await compressLayerTiles(encodeLayerTiles([a, b]))), 0)
 
-    expect([...decoded.get('background')![0].pixels]).toEqual([...tileA.pixels])
-    expect([...decoded.get('layer-abc')![0].pixels]).toEqual([...tileB.pixels])
+    expect([...tiles[0].pixels]).toEqual([...a.pixels])
+    expect([...tiles[1].pixels]).toEqual([...b.pixels])
   })
 
-  it('round-trips a layer id with non-ASCII characters', async () => {
-    const layers = new Map([['слой-1', encodeLayerTiles([makeTile()])]])
-    const decoded = await decodeRoomSnapshot(await encodeRoomSnapshot(layers))
-    expect([...decoded.keys()]).toEqual(['слой-1'])
-  })
-
-  it('rejects an unrecognized version byte', async () => {
-    const compressed = await encodeRoomSnapshot(new Map([['layer-1', encodeLayerTiles([makeTile()])]]))
-    // Flip the version byte (first byte of the *decompressed* payload) by
-    // round-tripping through decode's own decompression, corrupting it, and
-    // re-compressing — simpler than hand-building a gzip stream.
-    const raw = new Uint8Array(await new Response(
-      new Response(new Blob([new Uint8Array(compressed)])).body!.pipeThrough(new DecompressionStream('gzip')),
-    ).arrayBuffer())
-    raw[0] = 99
-    const recompressed = new Uint8Array(await new Response(
-      new Response(new Blob([raw])).body!.pipeThrough(new CompressionStream('gzip')),
-    ).arrayBuffer())
-
-    await expect(decodeRoomSnapshot(recompressed)).rejects.toThrow(/unsupported version/)
+  it('round-trips a layer with no tiles', async () => {
+    const { tiles } = decodeLayerTiles(await decompressLayerTiles(await compressLayerTiles(encodeLayerTiles([]))), 0)
+    expect(tiles).toEqual([])
   })
 })

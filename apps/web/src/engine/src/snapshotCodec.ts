@@ -61,61 +61,27 @@ export function decodeLayerTiles(buf: Uint8Array, offset: number): { tiles: Snap
   return { tiles, nextOffset: offset }
 }
 
-const ROOM_SNAPSHOT_VERSION = 1
-
-/** Whole-room bundle (#149 epic design: a snapshot is atomic across every
- *  layer + LayerState as of one seq, not independent per-layer blobs — see
- *  the epic's own design notes on why LayerState has to travel with it).
- *  Layout: version:u8, layerCount:u32, then per layer layerIdLen:u16,
- *  layerId (utf8), <encodeLayerTiles output>. Compressed once, as a whole,
- *  via the native CompressionStream — this is the exact byte sequence that
- *  goes over HTTP as `data` in POST /api/rooms/:id/snapshots. */
-export async function encodeRoomSnapshot(layers: Map<string, Uint8Array>): Promise<Uint8Array> {
-  const encoder = new TextEncoder()
-  const entries = [...layers.entries()].map(([layerId, tiles]) => ({ idBytes: encoder.encode(layerId), tiles }))
-
-  let size = 1 + 4
-  for (const e of entries) size += 2 + e.idBytes.byteLength + e.tiles.byteLength
-  const buf = new Uint8Array(size)
-  const view = new DataView(buf.buffer)
-  let offset = 0
-  buf[offset] = ROOM_SNAPSHOT_VERSION; offset += 1
-  view.setUint32(offset, entries.length, true); offset += 4
-  for (const e of entries) {
-    view.setUint16(offset, e.idBytes.byteLength, true); offset += 2
-    buf.set(e.idBytes, offset); offset += e.idBytes.byteLength
-    buf.set(e.tiles, offset); offset += e.tiles.byteLength
-  }
-
-  const compressed = new Response(new Blob([buf])).body!.pipeThrough(new CompressionStream('gzip'))
+/** Gzips one layer's `encodeLayerTiles` output — the exact byte sequence that
+ *  goes over HTTP as a layer's `data` in POST /api/rooms/:id/snapshots (#371).
+ *
+ *  There is no room-level bundle any more. There used to be, because a
+ *  snapshot was atomic across every layer at one seq; per-layer coverage
+ *  removed the shared moment that made bundling mean anything, and with it the
+ *  version byte and the layerId framing — a row already knows which layer and
+ *  which seq it is. */
+export async function compressLayerTiles(raw: Uint8Array): Promise<Uint8Array> {
+  // Copied into a fresh, plain-ArrayBuffer-backed Uint8Array — a caller's
+  // Uint8Array can be typed over the wider ArrayBufferLike, which Blob's
+  // constructor rejects.
+  const compressed = new Response(new Blob([new Uint8Array(raw)]))
+    .body!.pipeThrough(new CompressionStream('gzip'))
   return new Uint8Array(await new Response(compressed).arrayBuffer())
 }
 
-/** Inverse of encodeRoomSnapshot. Throws on an unrecognized version rather
- *  than guessing at a layout it doesn't know — a future format bump should
- *  fail loudly here, not silently misparse. */
-export async function decodeRoomSnapshot(compressed: Uint8Array): Promise<Map<string, SnapshotTile[]>> {
-  // Copied into a fresh, plain-ArrayBuffer-backed Uint8Array — `compressed`
-  // as received from a caller (e.g. base64-decoded fetch response) can be
-  // typed over the wider ArrayBufferLike, which Blob's constructor rejects.
+/** Inverse of compressLayerTiles: gunzips to the raw `encodeLayerTiles` bytes,
+ *  which `decodeLayerTiles(buf, 0)` then reads. */
+export async function decompressLayerTiles(compressed: Uint8Array): Promise<Uint8Array> {
   const decompressed = new Response(new Blob([new Uint8Array(compressed)]))
     .body!.pipeThrough(new DecompressionStream('gzip'))
-  const buf = new Uint8Array(await new Response(decompressed).arrayBuffer())
-
-  let offset = 0
-  const version = buf[offset]; offset += 1
-  if (version !== ROOM_SNAPSHOT_VERSION) throw new Error(`decodeRoomSnapshot: unsupported version ${version}`)
-
-  const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
-  const layerCount = view.getUint32(offset, true); offset += 4
-  const decoder = new TextDecoder()
-  const result = new Map<string, SnapshotTile[]>()
-  for (let i = 0; i < layerCount; i++) {
-    const idLen = view.getUint16(offset, true); offset += 2
-    const layerId = decoder.decode(buf.subarray(offset, offset + idLen)); offset += idLen
-    const { tiles, nextOffset } = decodeLayerTiles(buf, offset)
-    offset = nextOffset
-    result.set(layerId, tiles)
-  }
-  return result
+  return new Uint8Array(await new Response(decompressed).arrayBuffer())
 }

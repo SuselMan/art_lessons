@@ -1,5 +1,5 @@
 import type { LayerState, Operation } from '@grafetto/shared'
-import { decodeRoomSnapshot, type SnapshotTile } from '../../engine/src/snapshotCodec'
+import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../../engine/src/snapshotCodec'
 
 function base64ToBytes(base64: string): Uint8Array {
   const binary = atob(base64)
@@ -8,23 +8,44 @@ function base64ToBytes(base64: string): Uint8Array {
   return bytes
 }
 
+/** One layer's restored pixels, and the room seq they reach (#374). The seq
+ *  is per layer because coverage is: layers are baked independently, so two
+ *  of them are routinely caught up to different points. */
+export interface RestoredLayer {
+  tiles: SnapshotTile[]
+  coveredSeq: number
+}
+
 export interface RestoredSnapshot {
   seq: number
   layerState: LayerState
-  tiles: Map<string, SnapshotTile[]>
+  layers: Map<string, RestoredLayer>
 }
 
-/** Fetches and decodes the room's latest stored snapshot (#168/#169) — null
- *  if the room has never crossed a checkpoint yet (204, same case
+/** Fetches and decodes the room's stored snapshots (#168/#169, per layer
+ *  since #374) — null if nobody has ever baked this room (204, same case
  *  `latestSnapshotSeq === null` covers in room_state) or the request fails
  *  outright (network error, room deleted mid-fetch — caller falls back to
- *  full replay via tailOperations either way, same as before this epic). */
+ *  full replay via tailOperations either way, same as before this epic).
+ *
+ *  A layer named in `layerState` with no entry in `layers` is ordinary, not an
+ *  error: nothing was ever stored for it, so it arrives entirely as operations.
+ *  Reading that absence as "the layer is empty" is exactly what lost drawing in
+ *  #369, and it is why the server sends the operations to go with it. */
 export async function fetchLatestSnapshot(roomId: string): Promise<RestoredSnapshot | null> {
   const res = await fetch(`/api/rooms/${roomId}/snapshots/latest`, { credentials: 'include' })
   if (res.status === 204 || !res.ok) return null
-  const body = await res.json() as { seq: number; layerState: LayerState; data: string }
-  const tiles = await decodeRoomSnapshot(base64ToBytes(body.data))
-  return { seq: body.seq, layerState: body.layerState, tiles }
+  const body = await res.json() as {
+    seq: number
+    layerState: LayerState
+    layers: Array<{ layerId: string; seq: number; data: string }>
+  }
+  const layers = new Map<string, RestoredLayer>()
+  for (const layer of body.layers) {
+    const raw = await decompressLayerTiles(base64ToBytes(layer.data))
+    layers.set(layer.layerId, { tiles: decodeLayerTiles(raw, 0).tiles, coveredSeq: layer.seq })
+  }
+  return { seq: body.seq, layerState: body.layerState, layers }
 }
 
 /** Largest page `fetchHistoryPage` will ever ask for. Only an upper bound —

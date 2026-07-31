@@ -332,7 +332,16 @@ export interface PencilEngineAPI {
   // historical dab. Same tile-restore primitive local checkpoint restore
   // already uses (resolveForPaint + AccumulationBuffer.restorePixels +
   // ILayerBuffer.restoreTileContent).
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[]): void
+  // (#374) `coveredSeq` is the room seq those tiles were baked at. Operations
+  // at or below it that paint this layer are already in the pixels, so the
+  // engine must not paint them again — see `appendOperation`'s layer_merge and
+  // layer_transform branches, the only ones that can still arrive covered
+  // (the server withholds pure pixel operations it can account for, but a
+  // merge also carries structure and a transform can name several layers, so
+  // those two always come through — see rooms.ts's isCoveredBySnapshot).
+  // Omit it and nothing is treated as covered, which is what every caller
+  // outside the snapshot-restore path wants.
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void
   // (#169) Merges a batch of pre-snapshot historical operations into the
   // log for undo/redo/history purposes, WITHOUT painting anything — their
   // pixel effect is already baked into whatever restoreLayerFromSnapshot
@@ -1397,6 +1406,9 @@ export class PencilEngine implements PencilEngineAPI {
   // Layer management
   private _layers: Map<string, ILayerBuffer>
   private _baseLayerIds: Set<string> // pre-log layers (background, initial layer)
+  // (#374) layerId -> the room seq this layer's restored pixels reach. Written
+  // only by restoreLayerFromSnapshot, read only by _isCoveredByRestore.
+  private readonly _snapshotCoverage = new Map<string, number>()
   private _compositeOrder: CompositeItem[]
   private _activeId: string | null
   private _locked: boolean
@@ -1713,6 +1725,13 @@ export class PencilEngine implements PencilEngineAPI {
         break
       case 'layer_clear': {
         const clearBuf = this._layers.get(op.layerId)
+        // (#374) See the stroke branch: already in the restored pixels, so
+        // re-applying it would wipe content the snapshot took *after* this
+        // clear happened.
+        if (clearBuf && this._isCoveredByRestore(op.layerId, op.seq)) {
+          this._log.revoke(op.id)
+          break
+        }
         if (clearBuf) {
           clearBuf.clear()
           // #122: a remote layer_clear (or this client's own, via clear())
@@ -1735,10 +1754,28 @@ export class PencilEngine implements PencilEngineAPI {
         break
       }
       case 'layer_merge':
-        this._execMergeLive(op)
+        // (#374) A merge that a restored snapshot already accounts for still
+        // has to happen structurally — the result layer exists, its sources
+        // do not — but must not composite anything: the result's pixels came
+        // back from the snapshot, and `_execMergeLive` would replace that
+        // buffer with a freshly composited one, discarding them.
+        if (this._isCoveredByRestore(op.layerId, op.seq)) this._execMergeStructuralOnly(op)
+        else this._execMergeLive(op)
         break
       case 'stroke': {
         const buf = this._layers.get(op.layerId)
+        // (#374) Already in the restored pixels. The server withholds these,
+        // so arriving at all means the two disagreed — a snapshot landing
+        // between this client's room_state and its snapshot fetch is enough.
+        // Revoked rather than merely not painted: an operation left `done` in
+        // the log would be replayed on top of the pinned snapshot checkpoint
+        // the next time this layer rebuilds, which is the same double-paint
+        // one step later. Same treatment, and same reasoning, as a pixel op
+        // whose target no longer exists.
+        if (buf && this._isCoveredByRestore(op.layerId, op.seq)) {
+          this._log.revoke(op.id)
+          break
+        }
         if (buf) {
           // Smudge only (#14): this op's own author's reservoir must match
           // whatever it was on the client that originally recorded it, not
@@ -1765,6 +1802,11 @@ export class PencilEngine implements PencilEngineAPI {
       }
       case 'image_import': {
         const buf = this._layers.get(op.layerId)
+        // (#374) See the stroke branch.
+        if (buf && this._isCoveredByRestore(op.layerId, op.seq)) {
+          this._log.revoke(op.id)
+          break
+        }
         if (buf) {
           this._paintImage(buf, op).then(() => this._maybeCheckpoint(op.layerId))
             .catch(err => console.error('failed to paint imported image', err))
@@ -1784,6 +1826,14 @@ export class PencilEngine implements PencilEngineAPI {
         for (const t of op.transforms) {
           const buf = this._layers.get(t.layerId)
           if (!buf) continue
+          // (#374) Per entry, because coverage is per layer: one transform can
+          // name a layer restored past it and another that wasn't, and baking
+          // the matrix again into the first would move content that already
+          // moved. Counts as applied either way — the operation did take
+          // effect on this layer, just earlier, and revoking it here would
+          // make a later undo unable to take it back off the layers it
+          // genuinely still applies to.
+          if (this._isCoveredByRestore(t.layerId, op.seq)) { appliedAny = true; continue }
           this._bakeTransform(buf, t.matrix)
           this._maybeCheckpoint(t.layerId)
           // #122: layer_transform is pixel-only — it never changes
@@ -2855,6 +2905,24 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
+  /** (#374) The structural half of a merge, for one whose pixel result a
+   *  restored snapshot already holds.
+   *
+   *  Deliberately keeps the existing target buffer rather than making a new
+   *  one: that buffer is what `restoreLayerFromSnapshot` filled, and it is the
+   *  merge's result, arrived by a shorter route. Sources still have to go —
+   *  a merge consumes them, and leaving them alive would show every merged
+   *  layer twice, once inside the result and once beside it.
+   *
+   *  No checkpoint is taken: the restore already pinned one holding exactly
+   *  these pixels. */
+  private _execMergeStructuralOnly(op: LayerMergeOperation): void {
+    this._invalidateSplitCache()
+    if (!this._layers.has(op.layerId)) this._createBuffer(op.layerId)
+    for (const s of op.sources) this._destroyBuffer(s.id)
+    this._displayIfNotSuspended()
+  }
+
   /** Live merge fast path: sources' buffers already hold replay state, so
    *  composite them directly instead of rebuilding. The immediate checkpoint
    *  spares the recursive source rebuild on any later undo above this layer. */
@@ -3076,7 +3144,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  real historical ops eventually get backfilled in front of it: their
    *  presence shifts the current `ops` prefix, and the id-based prefix
    *  match in `_bestCheckpoint` stops matching this checkpoint on its own. */
-  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[]): void {
+  restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
     const buf = this._layers.get(layerId)
     if (!buf) return
     for (const t of tiles) {
@@ -3084,7 +3152,21 @@ export class PencilEngine implements PencilEngineAPI {
       for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
       buf.restoreTileContent(rect, t.pixels)
     }
+    if (coveredSeq !== undefined) this._snapshotCoverage.set(layerId, coveredSeq)
     this._pinSnapshotCheckpoint(layerId, tiles)
+  }
+
+  /** (#374) Whether this layer's restored pixels already account for an
+   *  operation at `seq`.
+   *
+   *  Compared against the *room* seq the operation arrived with, not the log's
+   *  own numbering — `OperationLog.append` renumbers entries to their array
+   *  index, so only the copy the caller still holds carries the server's. Every
+   *  caller therefore has to ask this before appending, which is why the checks
+   *  sit in `appendOperation` rather than deeper down. */
+  private _isCoveredByRestore(layerId: string, seq: number | undefined): boolean {
+    const covered = this._snapshotCoverage.get(layerId)
+    return covered !== undefined && seq !== undefined && seq <= covered
   }
 
   /** See restoreLayerFromSnapshot's own doc comment for why this exists.

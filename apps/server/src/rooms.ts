@@ -356,8 +356,8 @@ export const RESIDENT_OP_TYPES: readonly string[] = [
  *  sources) and a transform can name several layers at once, so withholding
  *  either would take away something the client still needs. They are always
  *  sent, and the client skips re-applying their pixel half to a layer it has
- *  already restored past them — that is what `layerCoverage` on the wire is
- *  for. */
+ *  already restored past them, judged against the coverage it really has
+ *  (#374). */
 const COVERABLE_OP_TYPES = ['stroke', 'image_import', 'layer_clear']
 
 /** Whether `op` is already accounted for by stored pixels, and so does not
@@ -1088,7 +1088,7 @@ export function getRoomSnapshot(
   roomId: string,
   lastKnownSeq?: number,
 ): {
-  room: Room; latestSnapshotSeq: number | null; layerCoverage: Record<string, number>
+  room: Room; latestSnapshotSeq: number | null
   tailOperations: Operation[]; participants: Participant[]
   palette: string[]; frozen: boolean
 } | undefined {
@@ -1116,7 +1116,6 @@ export function getRoomSnapshot(
     // means nobody has stored a snapshot for this room and the tail above is
     // its entire history.
     latestSnapshotSeq: record.layerStateSeq,
-    layerCoverage: Object.fromEntries(record.coveredSeqByLayer),
     tailOperations,
     participants: [...record.participants.values()],
     palette: record.palette, frozen: record.roomFrozen,

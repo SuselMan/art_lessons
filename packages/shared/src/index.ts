@@ -618,24 +618,23 @@ export type ServerToClientEvents = {
   // (GET /api/rooms/:id/snapshots/latest); the seq is the structure's own,
   // and is what a history backfill anchors on.
   //
-  // (#372) What `tailOperations` leaves out is decided per layer, via
-  // `layerCoverage`, not by one room-wide seq. A room-wide floor is what lost
-  // drawing in #369: a layer missing from a snapshot had no pixels *and* was
-  // refused the operations that would have rebuilt it.
+  // (#372) What `tailOperations` leaves out is decided per layer, against each
+  // layer's own stored coverage, not by one room-wide seq. A room-wide floor
+  // is what lost drawing in #369: a layer missing from a snapshot had no
+  // pixels *and* was refused the operations that would have rebuilt it.
+  //
+  // Only *pure* pixel operations are ever omitted (stroke/image_import/
+  // layer_clear on a layer covered at or past their seq) — the heavy ones,
+  // where all the saving is. Operations carrying pixels *and* something else
+  // — `layer_merge` (also structure) and `layer_transform` (several layers at
+  // once) — always arrive, because the client needs their other half, and it
+  // skips their pixel effect itself against the coverage it actually restored
+  // (#374). That coverage travels with the snapshots themselves, per layer, so
+  // nothing about it needs saying here: deciding it from what this client
+  // really has is what makes a snapshot landing mid-join harmless rather than
+  // a double-paint.
   room_state: (state: {
     room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
-    // (#372) layerId -> the seq that layer's stored pixels reach. A layer
-    // absent here is covered by nothing and arrives entirely as operations.
-    //
-    // Two things read it. `tailOperations` already omits the *pure* pixel
-    // operations it accounts for (stroke/image_import/layer_clear on a layer
-    // covered at or past their seq) — those are the heavy ones, and omitting
-    // them is the point. Operations that carry pixels *and* something else —
-    // `layer_merge` (also structure) and `layer_transform` (several layers at
-    // once) — are always sent, because the client needs their other half; the
-    // client uses this map to skip re-applying their pixel effect to a layer
-    // it has already restored past them.
-    layerCoverage: Record<string, number>
     palette: string[]
     // (#254/#255 epic) Room-wide freeze, live in-memory only (never
     // persisted — see rooms.ts's RoomRecord.roomFrozen) — included in the

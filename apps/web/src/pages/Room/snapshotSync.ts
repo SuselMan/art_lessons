@@ -1,7 +1,7 @@
 import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
-import { encodeRoomSnapshot } from '../../engine/src/snapshotCodec'
+import { compressLayerTiles } from '../../engine/src/snapshotCodec'
 import { downscaleForThumbnail } from '../../lib/thumbnail'
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -10,16 +10,24 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
+/** (#371/#374) One gzipped `encodeLayerTiles` payload per layer, keyed by
+ *  layerId — the server stores each as its own row, at its own coverage. There
+ *  is no room-level bundle: sending the layers separately is what lets a layer
+ *  be left out without that absence reading as "this layer is empty", which is
+ *  the loss #369 was. */
 async function uploadSnapshot(
   roomId: string, seq: number, layerState: LayerState, layers: Map<string, Uint8Array>,
 ): Promise<void> {
-  const data = await encodeRoomSnapshot(layers)
+  const encoded: Record<string, string> = {}
+  for (const [layerId, raw] of layers) {
+    encoded[layerId] = bytesToBase64(await compressLayerTiles(raw))
+  }
   try {
     await fetch(`/api/rooms/${roomId}/snapshots`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ seq, layerState, data: bytesToBase64(data) }),
+      body: JSON.stringify({ seq, layerState, layers: encoded }),
     })
   } catch {
     // Best-effort (#149 epic): another client independently crossing the

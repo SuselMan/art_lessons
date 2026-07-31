@@ -1252,9 +1252,18 @@ export function Room() {
   // whose own history-replay path always invalidates unconditionally) —
   // exactly the "part of the drawing disappeared after reload, drawing
   // something and hitting undo brought it back" report (#121).
+  //
+  // (#374) Each layer carries its own `coveredSeq`, handed to the engine so it
+  // can tell which of the operations arriving next are already in these
+  // pixels. A layer in `layerState` with no entry here simply has nothing
+  // stored — it stays empty and is rebuilt from the operations the server
+  // sends precisely because it is uncovered. Treating that as an empty layer
+  // instead is what lost drawing in #369.
   const restoreFromSnapshot = useCallback(async (engine: PencilEngineAPI, snapshot: RestoredSnapshot) => {
     initLayersFromLayerState(engine, snapshot.layerState)
-    for (const [layerId, tiles] of snapshot.tiles) engine.restoreLayerFromSnapshot(layerId, tiles)
+    for (const [layerId, layer] of snapshot.layers) {
+      engine.restoreLayerFromSnapshot(layerId, layer.tiles, layer.coveredSeq)
+    }
     engine.setActiveLayer(snapshot.layerState.activeId)
     engine.setCompositeOrder(computeCompositeOrder(snapshot.layerState))
     restoredLayerStateRef.current = snapshot.layerState

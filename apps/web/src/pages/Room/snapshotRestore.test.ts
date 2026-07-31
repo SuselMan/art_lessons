@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LayerState, Operation } from '@grafetto/shared'
 
-import { encodeLayerTiles, encodeRoomSnapshot } from '../../engine/src/snapshotCodec'
+import { compressLayerTiles, encodeLayerTiles } from '../../engine/src/snapshotCodec'
 import { fetchHistoryPage, fetchLatestSnapshot, HISTORY_PAGE_LIMIT, walkHistoryBackward } from './snapshotRestore'
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -30,17 +30,66 @@ describe('fetchLatestSnapshot', () => {
       rootOrder: ['background'], activeId: 'background', selectedIds: [],
     }
     const tile = { originX: 0, originY: 0, width: 2, height: 2, pixels: Uint8Array.from({ length: 16 }, (_, i) => i) }
-    const data = await encodeRoomSnapshot(new Map([['background', encodeLayerTiles([tile])]]))
+    const data = await compressLayerTiles(encodeLayerTiles([tile]))
     global.fetch = vi.fn().mockResolvedValue({
       status: 200, ok: true,
-      json: async () => ({ seq: 300, layerState, data: bytesToBase64(data) }),
+      json: async () => ({
+        seq: 300, layerState,
+        layers: [{ layerId: 'background', seq: 300, data: bytesToBase64(data) }],
+      }),
     })
 
     const result = await fetchLatestSnapshot('room-1')
     expect(result?.seq).toBe(300)
     expect(result?.layerState).toEqual(layerState)
-    expect(result?.tiles.get('background')?.[0].width).toBe(2)
-    expect([...result!.tiles.get('background')![0].pixels]).toEqual([...tile.pixels])
+    expect(result?.layers.get('background')?.tiles[0].width).toBe(2)
+    expect([...result!.layers.get('background')!.tiles[0].pixels]).toEqual([...tile.pixels])
+  })
+
+  // (#374) Coverage is per layer, so each entry carries its own seq — two
+  // layers are routinely caught up to different points, and the engine needs
+  // each one's to know which arriving operations are already in its pixels.
+  it('keeps each layer own coverage seq rather than the room one', async () => {
+    const layerState: LayerState = {
+      items: {
+        'layer-1': { kind: 'layer', id: 'layer-1', name: 'One', opacity: 1, visible: true },
+        'layer-2': { kind: 'layer', id: 'layer-2', name: 'Two', opacity: 1, visible: true },
+      },
+      rootOrder: ['layer-1', 'layer-2'], activeId: 'layer-1', selectedIds: [],
+    }
+    const tile = { originX: 0, originY: 0, width: 1, height: 1, pixels: Uint8Array.from({ length: 4 }, (_, i) => i) }
+    const data = bytesToBase64(await compressLayerTiles(encodeLayerTiles([tile])))
+    global.fetch = vi.fn().mockResolvedValue({
+      status: 200, ok: true,
+      json: async () => ({
+        seq: 300, layerState,
+        layers: [
+          { layerId: 'layer-1', seq: 300, data },
+          { layerId: 'layer-2', seq: 100, data },
+        ],
+      }),
+    })
+
+    const result = await fetchLatestSnapshot('room-1')
+    expect(result?.layers.get('layer-1')?.coveredSeq).toBe(300)
+    expect(result?.layers.get('layer-2')?.coveredSeq).toBe(100)
+  })
+
+  // A layer the room has but nobody ever baked is ordinary: it arrives as
+  // operations instead. Reading the absence as an empty layer is #369.
+  it('reports a layer with no stored pixels as simply absent', async () => {
+    const layerState: LayerState = {
+      items: { 'layer-1': { kind: 'layer', id: 'layer-1', name: 'One', opacity: 1, visible: true } },
+      rootOrder: ['layer-1'], activeId: 'layer-1', selectedIds: [],
+    }
+    global.fetch = vi.fn().mockResolvedValue({
+      status: 200, ok: true,
+      json: async () => ({ seq: 300, layerState, layers: [] }),
+    })
+
+    const result = await fetchLatestSnapshot('room-1')
+    expect(result?.layers.size).toBe(0)
+    expect(result?.layerState.items['layer-1']).toBeDefined()
   })
 
   it('requests the correctly-shaped URL', async () => {

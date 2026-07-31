@@ -324,24 +324,22 @@ describe('getRoomSnapshot — coverage is per layer', () => {
     expect(getRoomSnapshot(roomId, 1)?.tailOperations.map(o => o.id)).toEqual(['b'])
   })
 
-  it('reports the coverage the client needs to restore against', async () => {
+  it('points the client at the stored structure to restore from', async () => {
     const roomId = makeRoom()
     await coverLayer(roomId, 'layer-1', SNAPSHOT_SEQ_INTERVAL)
 
-    expect(getRoomSnapshot(roomId)?.layerCoverage).toEqual({ 'layer-1': SNAPSHOT_SEQ_INTERVAL })
     expect(getRoomSnapshot(roomId)?.latestSnapshotSeq).toBe(SNAPSHOT_SEQ_INTERVAL)
   })
 
-  it('reports no snapshot and empty coverage for a room nobody has baked', () => {
+  it('reports no snapshot for a room nobody has baked', () => {
     const roomId = makeRoom()
     expect(getRoomSnapshot(roomId)?.latestSnapshotSeq).toBeNull()
-    expect(getRoomSnapshot(roomId)?.layerCoverage).toEqual({})
   })
 })
 
 // (#372) Operations that paint *and* do something else are never withheld:
 // the client needs their other half, so it skips their pixel effect itself
-// using `layerCoverage`. Withholding them here would take away structure
+// against the coverage it restored. Withholding them here would take away structure
 // (layer_merge) or another layer's share of the same operation
 // (layer_transform).
 describe('getRoomSnapshot — operations that are not coverable', () => {

@@ -80,8 +80,12 @@ describe('createSnapshotUploader', () => {
     expect(init.method).toBe('POST')
     const body = JSON.parse(init.body)
     expect(body.seq).toBe(SNAPSHOT_SEQ_INTERVAL)
-    expect(typeof body.data).toBe('string')
     expect(body.layerState).toEqual(layerState())
+    // (#371) One entry per layer rather than a single room bundle: the server
+    // stores each as its own row at its own coverage, which is what lets a
+    // layer be left out without that reading as "this layer is empty".
+    expect(Object.keys(body.layers).sort()).toEqual(['background', 'layer-1'])
+    expect(typeof body.layers['layer-1']).toBe('string')
   })
 
   it('never uploads the same boundary twice', async () => {
