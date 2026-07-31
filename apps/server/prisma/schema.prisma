@@ -139,6 +139,20 @@ model RoomParticipant {
   user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   firstJoinedAt DateTime    @default(now())
   lastActiveAt  DateTime    @updatedAt
+  // (#226) What this person called themselves the last time they joined *this
+  // room*. Not derivable from `User.name`, which is null for all but a handful
+  // of rows: the display name is typed on the join screen and until now lived
+  // only in the live in-memory Participant, so it died with the session. The
+  // access panel lists everyone who has ever been in the room, including
+  // whoever is offline right now, and "remove that one" is not a decision
+  // anybody can make against a column of blank names and uuids.
+  //
+  // Per room rather than promoted to `User`, because that is the fact we
+  // actually have: someone can be "Аня" in their teacher's lesson and
+  // "Guest-4821" in a room they opened once from a shared link, and neither is
+  // more true than the other. Null only for rows written before this column
+  // existed.
+  name          String?
   // (#211 epic) This room's folder placement for *this* user — folders are
   // per-user organization, not a property of Room, and RoomParticipant is
   // already one row per (room, user) for both owner and guest (see

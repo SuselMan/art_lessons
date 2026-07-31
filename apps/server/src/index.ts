@@ -19,6 +19,7 @@ import { registerRateLimit } from './rateLimit.js'
 import { registerAuthRoutes } from './authRoutes.js'
 import { isEmailConfigured } from './email.js'
 import { registerRoomRoutes } from './roomRoutes.js'
+import { registerRoomAccessRoutes } from './roomAccessRoutes.js'
 import { registerRoomFolderRoutes } from './roomFolderRoutes.js'
 import { registerForkRoutes } from './forkRoutes.js'
 import { registerSnapshotRoutes } from './snapshotRoutes.js'
@@ -116,6 +117,7 @@ registerRoomHandlers(io, app.log)
 registerHealthRoutes(app)
 registerAuthRoutes(app)
 registerRoomRoutes(app, (roomId, closedAt) => io.to(roomId).emit('room_closed_changed', { closedAt }))
+registerRoomAccessRoutes(app)
 registerRoomFolderRoutes(app)
 registerForkRoutes(app)
 registerSnapshotRoutes(app)

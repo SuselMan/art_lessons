@@ -241,11 +241,14 @@ function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
   }))
 }
 
-function persistParticipant(roomId: string, userId: string): void {
+/** (#226) `name` is refreshed on every join, not just written once: it is what
+ *  this person calls themselves *now*, and the access panel showing a name
+ *  they abandoned three lessons ago would be worse than showing none. */
+function persistParticipant(roomId: string, userId: string, name: string): void {
   enqueueWrite(roomId, () => prisma.roomParticipant.upsert({
     where: { roomId_userId: { roomId, userId } },
-    create: { roomId, userId },
-    update: { lastActiveAt: new Date() },
+    create: { roomId, userId, name },
+    update: { lastActiveAt: new Date(), name },
   }))
 }
 
@@ -636,7 +639,7 @@ export function createRoom(
   })
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
-  persistParticipant(room.id, ownerId)
+  persistParticipant(room.id, ownerId, ownerName)
   persistPalette(room.id, palette)
   return { room, participant }
 }
@@ -696,7 +699,7 @@ export function joinRoom(
   const participant: Participant = { userId, name, role, color, frozen }
   record.participants.set(userId, participant)
   currentSocketForParticipant.set(participantKey(roomId, userId), socketId)
-  persistParticipant(roomId, userId)
+  persistParticipant(roomId, userId, name)
   return { ok: true, participant }
 }
 
@@ -866,6 +869,32 @@ export function setRoomAccessMode(roomId: string, accessMode: RoomAccessMode): b
   const record = rooms.get(roomId)
   if (!record) return false
   record.room = { ...record.room, accessMode }
+  return true
+}
+
+/** (#226) Hashes a room password. Here rather than in the route that sets one
+ *  because this module owns every other dealing with the hash — the cost
+ *  factor in particular, which has to match what `checkRoomPassword` was built
+ *  against. */
+export function hashRoomPassword(password: string): string {
+  return bcrypt.hashSync(password, BCRYPT_ROUNDS)
+}
+
+/** Mirrors a password change into the live in-memory record (#226), so the
+ *  join gate stops accepting the old one immediately instead of at the room's
+ *  next cold load. Same caller-persists division as `setRoomClosed` /
+ *  `setRoomAccessMode`; `null` removes the password entirely.
+ *
+ *  Both halves of the record move together on purpose: `passwordHash` is what
+ *  the gate compares against, and `room.hasPassword` is what every client is
+ *  told — a room that silently kept saying `hasPassword: true` after its
+ *  password was removed would have every joiner send one that is no longer
+ *  checked, which reads as "the password stopped working". */
+export function setRoomPassword(roomId: string, passwordHash: string | null): boolean {
+  const record = rooms.get(roomId)
+  if (!record) return false
+  record.passwordHash = passwordHash ?? undefined
+  record.room = { ...record.room, hasPassword: passwordHash !== null }
   return true
 }
 

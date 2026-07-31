@@ -227,6 +227,55 @@ export type Room = {
   parentRoomId?: string
 }
 
+// (#226) Everything the access panel (#228) shows about one room, fetched in
+// one request so the component has no partially-populated state to render.
+// Owner-only, both because it is the owner's own control surface and because
+// of what it lists: an allow-list of addresses, and who asked to get in.
+
+/** One entry of an `invite_only` room's allow-list. The address is stored
+ *  lowercased/trimmed (see roomAccess.ts) — this is the normalized form, which
+ *  is also the one to send back to `DELETE /invites/:email`. */
+export type RoomInvite = {
+  email: string
+  invitedAt: string
+}
+
+/** Someone waiting for the owner to let them in. `email` is included — unlike
+ *  on `RoomAccessParticipant` below — because this person is actively asking
+ *  the owner for a decision, and the address they are asking with is the
+ *  minimum needed to make it a real one rather than a coin flip on a display
+ *  name. Only reachable by someone signed in (a guest gets `login_required`),
+ *  so it is never null in practice; typed nullable because `User.email` is. */
+export type RoomJoinRequest = {
+  id: string
+  userId: string
+  name: string
+  email: string | null
+  requestedAt: string
+}
+
+/** Someone who has ever been in the room (`RoomParticipant`), with whether
+ *  they are currently blocked from coming back.
+ *
+ *  Deliberately carries no email. These people didn't ask the owner for
+ *  anything — they were let in, or came through a link — and the owner's use
+ *  for this list is "who is in my lesson, and remove that one", which a name
+ *  serves. Handing every room owner the addresses of everyone who ever opened
+ *  their link is a disclosure with no matching need. */
+export type RoomAccessParticipant = {
+  userId: string
+  name: string | null
+  blocked: boolean
+}
+
+export type RoomAccessInfo = {
+  accessMode: RoomAccessMode
+  hasPassword: boolean
+  invites: RoomInvite[]
+  pendingRequests: RoomJoinRequest[]
+  participants: RoomAccessParticipant[]
+}
+
 // (#317) Author stamped on the operations a fork inherits from its source.
 //
 // Undo is personal — the engine's OperationLog only ever offers a user their
