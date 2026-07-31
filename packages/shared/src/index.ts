@@ -611,15 +611,31 @@ export type RejectReason =
   | 'not_joined'
 
 export type ServerToClientEvents = {
-  // `latestSnapshotSeq` is null until the room has ever crossed
-  // SNAPSHOT_SEQ_INTERVAL (short rooms) — `tailOperations` is then simply
-  // the room's entire history, same shape/behavior as before the #149 epic.
-  // Once non-null, `tailOperations` is only what's after
-  // max(latestSnapshotSeq, the caller's own lastKnownSeq) — the caller is
-  // expected to fetch the snapshot itself (GET /api/rooms/:id/snapshots/latest)
-  // separately when it doesn't already have local state at least that fresh.
+  // `latestSnapshotSeq` is null until anyone has stored a snapshot for this
+  // room (short rooms) — `tailOperations` is then simply the room's entire
+  // history, same shape/behavior as before the #149 epic. Once non-null the
+  // caller is expected to fetch the stored snapshots itself
+  // (GET /api/rooms/:id/snapshots/latest); the seq is the structure's own,
+  // and is what a history backfill anchors on.
+  //
+  // (#372) What `tailOperations` leaves out is decided per layer, via
+  // `layerCoverage`, not by one room-wide seq. A room-wide floor is what lost
+  // drawing in #369: a layer missing from a snapshot had no pixels *and* was
+  // refused the operations that would have rebuilt it.
   room_state: (state: {
     room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+    // (#372) layerId -> the seq that layer's stored pixels reach. A layer
+    // absent here is covered by nothing and arrives entirely as operations.
+    //
+    // Two things read it. `tailOperations` already omits the *pure* pixel
+    // operations it accounts for (stroke/image_import/layer_clear on a layer
+    // covered at or past their seq) — those are the heavy ones, and omitting
+    // them is the point. Operations that carry pixels *and* something else —
+    // `layer_merge` (also structure) and `layer_transform` (several layers at
+    // once) — are always sent, because the client needs their other half; the
+    // client uses this map to skip re-applying their pixel effect to a layer
+    // it has already restored past them.
+    layerCoverage: Record<string, number>
     palette: string[]
     // (#254/#255 epic) Room-wide freeze, live in-memory only (never
     // persisted — see rooms.ts's RoomRecord.roomFrozen) — included in the

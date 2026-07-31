@@ -280,9 +280,33 @@ function persistOperation(roomId: string, op: Operation): void {
  *  release, when the storage cost actually starts mattering (#207 tracks the
  *  hot/cold tiering that should carry it then). Kept as a function rather
  *  than deleted so re-enabling it is a one-line change once verification
- *  gates it properly. */
+ *  gates it properly.
+ *
+ *  (#372) The rule it will re-enable *with* is now written down and tested
+ *  rather than left to be reinvented: an operation may be deleted only when
+ *  `isCoveredBySnapshot` says stored pixels account for it — per layer, never
+ *  by a room-wide seq. See `deletableOperations` below, which is that rule and
+ *  which this would call. Two conditions have to hold before it may run at
+ *  all, and neither is this function's to check alone: the covering snapshot
+ *  must be `verified` (#289 §13), and every layer in the room's stored
+ *  structure must have coverage — a layer nobody ever snapshotted has no
+ *  pixels standing in for anything, and deleting its operations is exactly
+ *  #369 made permanent. */
 function pruneOperationsBeforeSnapshot(_roomId: string): void {
   // Intentionally a no-op — see the doc comment above.
+}
+
+/** The operations stored pixels account for, i.e. the ones deletion may
+ *  eventually consider (#372). Pure function, exported for tests and for
+ *  whatever re-enables pruning: the point is that "what a snapshot covers"
+ *  has exactly one definition in this file.
+ *
+ *  Callers must still satisfy the two conditions in
+ *  `pruneOperationsBeforeSnapshot`'s comment before deleting anything. */
+export function deletableOperations(
+  coveredSeqByLayer: ReadonlyMap<string, number>, operations: readonly Operation[],
+): Operation[] {
+  return operations.filter(op => isCoveredBySnapshot(coveredSeqByLayer, op))
 }
 
 /** (#292) Operation types that must stay resident for a room's whole life,
@@ -321,27 +345,58 @@ export const RESIDENT_OP_TYPES: readonly string[] = [
   'operation_undo', 'operation_redo', 'operation_revoke',
 ]
 
-/** (#292) The subset of a room's log that has to live in RAM.
+/** (#372) The operations a layer's stored pixels can stand in for.
  *
- *  Everything a snapshot doesn't cover — that's the part that has to be
- *  replayed on top of one — plus the structural operations above, at any age.
- *  Everything else stays in Postgres and is served page-by-page by
- *  `getOperationsBefore` when a client actually backfills undo history.
+ *  Deliberately only the *pure* pixel operations — ones that target a single
+ *  layer and do nothing but paint it. Those are also the heavy ones (dab
+ *  arrays, inline base64 images), so this is where all the saving is.
  *
- *  (#371) Temporarily loads every room in full, and deliberately so. Coverage
- *  is now per layer (`coveredSeqByLayer`), but nothing consumes it yet: until
- *  #372 teaches `getRoomStateFor` to filter per layer and #374 teaches the
- *  client to restore per-layer snapshots, a joining client's only source of
- *  old content is the tail this set feeds. Bounding it against coverage
- *  nobody can act on would hand that client a tail with holes — which is
- *  #369, reintroduced from the other end.
+ *  `layer_merge` and `layer_transform` paint too and are excluded on purpose.
+ *  A merge is also a structural fact (it creates a layer and consumes its
+ *  sources) and a transform can name several layers at once, so withholding
+ *  either would take away something the client still needs. They are always
+ *  sent, and the client skips re-applying their pixel half to a layer it has
+ *  already restored past them — that is what `layerCoverage` on the wire is
+ *  for. */
+const COVERABLE_OP_TYPES = ['stroke', 'image_import', 'layer_clear']
+
+/** Whether `op` is already accounted for by stored pixels, and so does not
+ *  have to be replayed (#372).
  *
- *  So this is a real, known memory regression for the span of two issues. It
- *  is why the epic says not to deploy #371 on its own. */
-async function loadResidentOperations(roomId: string): Promise<Operation[]> {
-  const rows = await prisma.operation.findMany({
-    where: { roomId }, orderBy: { seq: 'asc' }, select: { data: true },
-  })
+ *  This is the one rule three callers share — what stays in RAM, what a
+ *  joining client is sent, and what a fork copies (forkRoutes.ts) — precisely
+ *  because letting them drift is the shape of the bug the epic exists to
+ *  fix. */
+export function isCoveredBySnapshot(coveredSeqByLayer: ReadonlyMap<string, number>, op: Operation): boolean {
+  if (!COVERABLE_OP_TYPES.includes(op.type) || !('layerId' in op)) return false
+  return (op.seq ?? 0) <= (coveredSeqByLayer.get(op.layerId) ?? 0)
+}
+
+/** (#292) The subset of a room's log that has to live in RAM: everything no
+ *  layer's stored pixels account for. Everything else stays in Postgres and is
+ *  served page-by-page by `getOperationsBefore` when a client actually
+ *  backfills undo history.
+ *
+ *  (#372) Bounded per layer rather than by one room-wide seq, and the
+ *  exclusion is pushed into the query rather than applied to its result. That
+ *  matters more than it looks: `data` is the whole stroke payload, so filtering
+ *  in JS would still drag every covered dab array out of Postgres and through
+ *  this process's heap before discarding it — the exact cost this window
+ *  exists to avoid. `type`/`layerId`/`seq` are already their own indexed
+ *  columns (see the Operation model) precisely so questions like this need not
+ *  parse the JSON.
+ *
+ *  Reads as: exclude rows that are BOTH a coverable type AND one of the
+ *  (layer, at-or-below-its-coverage) pairs. A room with no coverage yet has
+ *  nothing to exclude and loads in full. */
+async function loadResidentOperations(
+  roomId: string, coveredSeqByLayer: ReadonlyMap<string, number>,
+): Promise<Operation[]> {
+  const covered = [...coveredSeqByLayer].map(([layerId, seq]) => ({ layerId, seq: { lte: seq } }))
+  const where = covered.length === 0
+    ? { roomId }
+    : { roomId, NOT: { type: { in: COVERABLE_OP_TYPES }, OR: covered } }
+  const rows = await prisma.operation.findMany({ where, orderBy: { seq: 'asc' }, select: { data: true } })
   return rows.map(row => row.data as Operation)
 }
 
@@ -349,12 +404,11 @@ async function loadResidentOperations(roomId: string): Promise<Operation[]> {
  *  session stays as bounded as a cold load is. Without this the resident set
  *  only ever grows between restarts — the snapshot mechanism would bound
  *  rejoins while the process itself kept every stroke of a marathon room in
- *  the heap.
- *
- *  (#371) A no-op for now, for exactly the reason `loadResidentOperations`
- *  above spells out: same window rule, same reason it can't be applied yet. */
-function trimResidentOperations(_record: RoomRecord): void {
-  // Intentionally empty — see loadResidentOperations.
+ *  the heap. Same window rule as `loadResidentOperations`. */
+function trimResidentOperations(record: RoomRecord): void {
+  if (record.coveredSeqByLayer.size === 0) return
+  record.operations = record.operations.filter(op => !isCoveredBySnapshot(record.coveredSeqByLayer, op))
+  record.operationsById = new Map(record.operations.map(op => [op.id, op]))
 }
 
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
@@ -379,11 +433,13 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   })
   if (!dbRoom) return false
 
-  const [storedLayerState, coveredSeqByLayer, operations] = await Promise.all([
+  const [storedLayerState, coveredSeqByLayer] = await Promise.all([
     prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true } }),
     loadCoveredSeqByLayer(roomId),
-    loadResidentOperations(roomId),
   ])
+  // Sequenced after coverage rather than alongside it: which operations are
+  // resident is decided by that map (#372).
+  const operations = await loadResidentOperations(roomId, coveredSeqByLayer)
 
   // (#292) Read from Postgres rather than from `operations`: the resident
   // set is now a *window*, so its own highest seq is not necessarily the
@@ -1032,30 +1088,36 @@ export function getRoomSnapshot(
   roomId: string,
   lastKnownSeq?: number,
 ): {
-  room: Room; latestSnapshotSeq: number | null; tailOperations: Operation[]; participants: Participant[]
+  room: Room; latestSnapshotSeq: number | null; layerCoverage: Record<string, number>
+  tailOperations: Operation[]; participants: Participant[]
   palette: string[]; frozen: boolean
 } | undefined {
   const record = rooms.get(roomId)
   if (!record) return undefined
-  // (#371) The floor is `lastKnownSeq` alone. It used to also take
-  // `latestSnapshotSeq`, i.e. "a snapshot exists at N, so nobody needs the
-  // operations below N" — one room-wide claim standing in for every layer,
-  // and #369's actual mechanism of data loss: a layer missing from that
-  // snapshot had no pixels *and* was refused its own history.
+  // (#372) Two independent reasons to leave an operation out, and they answer
+  // different questions.
   //
-  // Coverage is per layer now (`coveredSeqByLayer`), and #372 makes this
-  // filter by it. Until then the honest answer is the whole tail: withholding
-  // operations requires a positive claim that something else covers them, and
-  // there is currently nothing on the client able to make use of one.
+  // `lastKnownSeq` is the caller's own watermark: a reconnecting client says
+  // what it already has, and everything at or below that is redundant for it
+  // whatever the room's snapshots say.
+  //
+  // Coverage is per layer. This used to be one room-wide `latestSnapshotSeq`
+  // — "a snapshot exists at N, so nobody needs anything below N" — which is
+  // #369's actual mechanism of data loss: a layer missing from that snapshot
+  // had no pixels *and* was refused the history that would have rebuilt it.
+  // Now a stroke is withheld only when *its own* layer's stored pixels
+  // positively reach it, so a layer nobody snapshotted keeps every operation.
   const floor = lastKnownSeq ?? 0
-  const tailOperations = floor > 0 ? record.operations.filter(op => (op.seq ?? 0) > floor) : [...record.operations]
+  const tailOperations = record.operations.filter(op =>
+    (op.seq ?? 0) > floor && !isCoveredBySnapshot(record.coveredSeqByLayer, op))
   return {
-    // Deliberately null until #374 can restore from per-layer snapshots. The
-    // field means "there is a whole-room snapshot you can restore from", and
-    // since #371 there is no such thing — advertising one would have a client
-    // restore pixels and then replay the very operations that produced them,
-    // painting everything twice.
-    room: record.room, latestSnapshotSeq: null, tailOperations,
+    room: record.room,
+    // The structure's own seq — what a history backfill anchors on. Null
+    // means nobody has stored a snapshot for this room and the tail above is
+    // its entire history.
+    latestSnapshotSeq: record.layerStateSeq,
+    layerCoverage: Object.fromEntries(record.coveredSeqByLayer),
+    tailOperations,
     participants: [...record.participants.values()],
     palette: record.palette, frozen: record.roomFrozen,
   }

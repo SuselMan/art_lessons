@@ -23,7 +23,12 @@ const mockPrisma = vi.hoisted(() => {
   return client
 })
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
-vi.mock('./rooms.js', () => ({
+// Only `flushRoomWrites` is stubbed. `isCoveredBySnapshot` comes through for
+// real on purpose (#372): a fork copies the operations stored pixels don't
+// account for, and the whole point of that rule living in one function is that
+// nothing gets to hold a second opinion about it — least of all its own test.
+vi.mock('./rooms.js', async importActual => ({
+  ...(await importActual<typeof import('./rooms.js')>()),
   flushRoomWrites: vi.fn(() => Promise.resolve()),
 }))
 

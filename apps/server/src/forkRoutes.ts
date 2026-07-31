@@ -5,7 +5,7 @@ import type { Prisma } from '@prisma/client'
 import { forkSeedUserId, type Operation } from '@grafetto/shared'
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
-import { flushRoomWrites } from './rooms.js'
+import { flushRoomWrites, isCoveredBySnapshot } from './rooms.js'
 
 /** Forking a room (#317) — the mechanism the homework model runs on (release
  *  track #314 §4: a lesson is closed for editing, and each student works in
@@ -79,21 +79,27 @@ export function registerForkRoutes(app: FastifyInstance): void {
     const newestPerLayer = new Map<string, (typeof layerSnapshots)[number]>()
     for (const row of layerSnapshots) if (!newestPerLayer.has(row.layerId)) newestPerLayer.set(row.layerId, row)
 
-    // (#371) Every operation comes across, and for now that is the whole log.
-    // Coverage is per layer, so "what a fork can safely skip" is per layer
-    // too — a question #372 answers. Copying everything is the one choice
-    // that cannot silently drop content in the meantime, which is exactly
-    // what #369 did by trusting a single room-wide snapshot seq.
+    // (#372) A fork is seeded with the snapshot rows copied below plus the
+    // operations those pixels don't already account for — the same rule the
+    // live server serves a joining client by, deliberately the same function
+    // rather than a second reading of it.
     //
-    // Whatever narrowing #372 restores here must keep `RESIDENT_OP_TYPES` at
-    // any age: `aliveIds`/`deletedIds`/`lockedLayerIds` are rebuilt by folding
-    // the log, so a fork missing the `layer_add` of an older layer would
-    // render that layer fine and then refuse to ever delete it
+    // Per layer, never by a room-wide seq. A layer nobody snapshotted keeps
+    // every one of its operations, which is what a fork of a room whose
+    // structure outran its bakes depends on — the case #369 got wrong.
+    // Structural operations (`RESIDENT_OP_TYPES`) are never coverable and so
+    // always come across: `aliveIds`/`deletedIds`/`lockedLayerIds` are rebuilt
+    // by folding the log, and a fork missing the `layer_add` of an older layer
+    // would render that layer fine and then refuse to ever delete it
     // (`target_gone`, the shape of #291's bug).
-    const rows = await prisma.operation.findMany({
+    const coveredSeqByLayer = new Map(
+      [...newestPerLayer.values()].map(row => [row.layerId, row.seq] as const),
+    )
+    const allRows = await prisma.operation.findMany({
       where: { roomId: sourceId },
       orderBy: { seq: 'asc' },
     })
+    const rows = allRows.filter(row => !isCoveredBySnapshot(coveredSeqByLayer, row.data as Operation))
 
     const forkId = randomUUID().slice(0, 12)
     const seedUserId = forkSeedUserId(forkId)

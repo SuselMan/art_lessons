@@ -7,8 +7,8 @@ import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { StrokeOperation } from '@grafetto/shared'
 
 import {
-  _flushPendingWrites, createRoom, getCoveredSeq, getLatestSnapshot, getOperationsBefore, getRoomSnapshot, joinRoom,
-  leaveRoom, recordOperation, saveSnapshot,
+  _flushPendingWrites, createRoom, deletableOperations, getCoveredSeq, getLatestSnapshot, getOperationsBefore,
+  getRoomSnapshot, joinRoom, leaveRoom, recordOperation, saveSnapshot,
 } from './rooms.js'
 
 // rooms.test.ts deliberately runs with no real Postgres — every DB call it
@@ -271,17 +271,49 @@ describe('getLatestSnapshot', () => {
   })
 })
 
-// (#371) The room-wide floor is gone from the join path. It used to withhold
+// (#372) The room-wide floor is gone from the join path. It used to withhold
 // every operation at or below `latestSnapshotSeq`, which is how a layer missing
-// from a bundle lost its content: no pixels, and no history either.
-describe('getRoomSnapshot — no room-wide snapshot floor', () => {
-  it('hands a fresh joiner the whole tail even once snapshots exist', async () => {
+// from a bundle lost its content: no pixels, and no history either. What an
+// operation is measured against now is its own layer's coverage.
+describe('getRoomSnapshot — coverage is per layer', () => {
+  async function coverLayer(roomId: string, layerId: string, seq: number) {
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, seq, {}, layers(layerId))
+  }
+
+  it('withholds a stroke its own layer stored pixels reach', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, stroke('a')) // seq 1, layer-1
+    await coverLayer(roomId, 'layer-1', SNAPSHOT_SEQ_INTERVAL)
+
+    expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
+  })
+
+  // The #369 case, pinned: one layer being snapshotted must never speak for
+  // another. `layer-2` has no stored pixels, so it keeps all of its history.
+  it('keeps every operation of a layer nobody snapshotted', async () => {
     const roomId = makeRoom()
     recordOperation(roomId, stroke('a'))
-    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
-    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
+    recordOperation(roomId, { ...stroke('b'), layerId: 'layer-2' })
+    await coverLayer(roomId, 'layer-1', SNAPSHOT_SEQ_INTERVAL)
 
-    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['a'])
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['b'])
+  })
+
+  it('keeps a stroke made after its layer coverage', async () => {
+    const roomId = makeRoom()
+    await coverLayer(roomId, 'layer-1', SNAPSHOT_SEQ_INTERVAL)
+    recordOperation(roomId, stroke('later')) // seq 1, but coverage is 100
+
+    // Coverage is compared against the operation's own seq, and this room has
+    // only ever numbered one operation — the guard is the comparison, not the
+    // order things happened to be called in.
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual([])
+
+    for (let i = 0; i < SNAPSHOT_SEQ_INTERVAL; i++) recordOperation(roomId, stroke(`fill-${i}`))
+    const tail = getRoomSnapshot(roomId)?.tailOperations ?? []
+    expect(tail.every(op => (op.seq ?? 0) > SNAPSHOT_SEQ_INTERVAL)).toBe(true)
+    expect(tail.length).toBeGreaterThan(0)
   })
 
   it('still trims to what a reconnecting client says it already has', async () => {
@@ -292,14 +324,60 @@ describe('getRoomSnapshot — no room-wide snapshot floor', () => {
     expect(getRoomSnapshot(roomId, 1)?.tailOperations.map(o => o.id)).toEqual(['b'])
   })
 
-  // Advertising one would have a client restore pixels and then replay the very
-  // operations that produced them. Restored per-layer by #374.
-  it('advertises no whole-room snapshot to restore from', async () => {
+  it('reports the coverage the client needs to restore against', async () => {
     const roomId = makeRoom()
+    await coverLayer(roomId, 'layer-1', SNAPSHOT_SEQ_INTERVAL)
+
+    expect(getRoomSnapshot(roomId)?.layerCoverage).toEqual({ 'layer-1': SNAPSHOT_SEQ_INTERVAL })
+    expect(getRoomSnapshot(roomId)?.latestSnapshotSeq).toBe(SNAPSHOT_SEQ_INTERVAL)
+  })
+
+  it('reports no snapshot and empty coverage for a room nobody has baked', () => {
+    const roomId = makeRoom()
+    expect(getRoomSnapshot(roomId)?.latestSnapshotSeq).toBeNull()
+    expect(getRoomSnapshot(roomId)?.layerCoverage).toEqual({})
+  })
+})
+
+// (#372) Operations that paint *and* do something else are never withheld:
+// the client needs their other half, so it skips their pixel effect itself
+// using `layerCoverage`. Withholding them here would take away structure
+// (layer_merge) or another layer's share of the same operation
+// (layer_transform).
+describe('getRoomSnapshot — operations that are not coverable', () => {
+  it('sends a layer_merge even when its own layer is covered past it', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, {
+      id: 'm', type: 'layer_merge', userId: 'owner-1', timestamp: 0, layerId: 'layer-1',
+      name: 'Merged', sources: [{ id: 'layer-2', opacity: 1 }], parentId: null, index: 0,
+    })
     mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
     await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
 
-    expect(getRoomSnapshot(roomId)?.latestSnapshotSeq).toBeNull()
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['m'])
+  })
+
+  it('sends a layer_transform even when every layer it names is covered', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, {
+      id: 't', type: 'layer_transform', userId: 'owner-1', timestamp: 0,
+      transforms: [{ layerId: 'layer-1', matrix: [1, 0, 0, 1, 0, 0] }],
+    })
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
+
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['t'])
+  })
+
+  it('sends structural operations at any age', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, {
+      id: 'add', type: 'layer_add', userId: 'owner-1', timestamp: 0, layerId: 'layer-1', name: 'Layer',
+    })
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
+
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['add'])
   })
 })
 
@@ -393,6 +471,54 @@ describe('getOperationsBefore', () => {
   it('answers for a room that was never loaded into memory', async () => {
     mockPrisma.operation.findMany.mockResolvedValueOnce([{ data: { id: 'a', seq: 1 } }])
     expect((await getOperationsBefore('never-loaded', 100, 500)).map(o => o.id)).toEqual(['a'])
+  })
+})
+
+// (#372) Deletion of raw operations is still disabled (#289 §5 — a snapshot
+// may not license destroying its own evidence until independently verified),
+// but the rule it will be re-enabled *with* is pinned here rather than left to
+// be reinvented. Getting this wrong is not a bug that shows up as a glitch: it
+// is #369 made permanent.
+describe('deletableOperations', () => {
+  const covered = new Map([['layer-1', 200]])
+
+  it('offers up a stroke its own layer stored pixels reach', () => {
+    const ops = [{ ...stroke('a'), seq: 100 }]
+    expect(deletableOperations(covered, ops).map(o => o.id)).toEqual(['a'])
+  })
+
+  it('spares a stroke made after that coverage', () => {
+    const ops = [{ ...stroke('a'), seq: 300 }]
+    expect(deletableOperations(covered, ops)).toEqual([])
+  })
+
+  // The whole point. A layer with no stored pixels has nothing standing in for
+  // its history, however much of the room around it has been snapshotted.
+  it('spares every operation of a layer nobody snapshotted', () => {
+    const ops = [{ ...stroke('a'), seq: 1, layerId: 'layer-2' }]
+    expect(deletableOperations(covered, ops)).toEqual([])
+  })
+
+  it('spares structural operations at any age', () => {
+    const ops = [{
+      id: 'add', type: 'layer_add' as const, userId: 'owner-1', timestamp: 0, seq: 1,
+      layerId: 'layer-1', name: 'Layer',
+    }]
+    expect(deletableOperations(covered, ops)).toEqual([])
+  })
+
+  it('spares operations that paint and do something else as well', () => {
+    const ops = [
+      {
+        id: 'm', type: 'layer_merge' as const, userId: 'owner-1', timestamp: 0, seq: 1,
+        layerId: 'layer-1', name: 'Merged', sources: [{ id: 'layer-2', opacity: 1 }], parentId: null, index: 0,
+      },
+      {
+        id: 't', type: 'layer_transform' as const, userId: 'owner-1', timestamp: 0, seq: 2,
+        transforms: [{ layerId: 'layer-1', matrix: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number] }],
+      },
+    ]
+    expect(deletableOperations(covered, ops)).toEqual([])
   })
 })
 
