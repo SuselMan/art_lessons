@@ -158,6 +158,17 @@ export type CanvasSize = {
 // for why the two are separate toggles rather than one setting.
 export type RoomAccessMode = 'anyone_with_link' | 'invite_only'
 
+export const ROOM_ACCESS_MODES: readonly RoomAccessMode[] = ['anyone_with_link', 'invite_only']
+
+/** (#232) The wire type is a compile-time promise, and a socket payload is
+ *  not compiled by us — this is what stands between a hand-crafted
+ *  `accessMode: "public"` and a Postgres enum that cannot hold it. Without
+ *  it that write fails, and since room creation is persisted fire-and-forget
+ *  (rooms.ts), the room would exist in memory with no row behind it. */
+export function isRoomAccessMode(value: unknown): value is RoomAccessMode {
+  return typeof value === 'string' && (ROOM_ACCESS_MODES as readonly string[]).includes(value)
+}
+
 export type Room = {
   id: string
   name: string
@@ -836,6 +847,19 @@ export type ClientToServerEvents = {
     data: {
       room: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
       password?: string
+      // (#232) Who may enter, decided at creation rather than only afterwards
+      // through the access panel. Omitted means `anyone_with_link`, which is
+      // what every room did before this existed.
+      //
+      // Carried here, on the creation itself, and not applied afterwards over
+      // REST: a room that exists open for the moment it takes a second
+      // request to land is a room whose link is briefly worth more than its
+      // owner intended. The *invites* do go over REST after this (see
+      // Room/index.tsx) — they need the normalization and dedup that
+      // roomAccessRoutes.ts already owns, and their failure mode is the safe
+      // one: an invite-only room with an empty list admits nobody but the
+      // owner, rather than admitting everybody.
+      accessMode?: RoomAccessMode
       // (#328) The creator's own display name, same field `join_room` has
       // always carried. Before this the server labelled every room owner
       // "Teacher" because this payload had nowhere to put a name — which then

@@ -5,7 +5,7 @@ import clsx from 'clsx'
 import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
-  LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, SendResult,
+  LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, RoomAccessMode, SendResult,
   ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
@@ -33,7 +33,7 @@ import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { getHotkeyBindings, matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
-import { forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
+import { addRoomInvite, forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './useViewport'
@@ -103,6 +103,11 @@ const PLACEHOLDER_INFINITE_CANVAS_SIZE = 8192
 interface CreatorNavState {
   room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
   password?: string
+  // (#232) Picked on the create form. The mode rides along on `create_room`
+  // itself so the room is never briefly open; the invites are sent afterwards
+  // over REST, which is where address normalization and dedup live.
+  accessMode?: RoomAccessMode
+  invites?: string[]
   // (#211 epic, #215) Set when CreateRoom was opened via "New room" while a
   // folder was open on MyLessons — files the freshly created room into it
   // right after create_room succeeds (see the ack handler below).
@@ -2537,6 +2542,9 @@ export function Room() {
             'create_room',
             {
               room: creatorDraft.room, password: creatorDraft.password,
+              // (#232) On the creation itself, so the room is never open for
+              // the length of a second request — see the shared contract.
+              accessMode: creatorDraft.accessMode,
               name: myDisplayNameRef.current,
               lastKnownSeq: latestKnownSeqRef.current || undefined,
             },
@@ -2551,6 +2559,24 @@ export function Room() {
                 if (creatorDraft.folderId) {
                   moveRoomToFolder(id, creatorDraft.folderId).catch(err =>
                     console.error('failed to file newly created room into its folder', err))
+                }
+                // (#232) The allow-list the creator typed on the create form.
+                // Sent one at a time through the same endpoint the access
+                // panel uses, so normalization, dedup and validation happen in
+                // exactly one place. Failing loudly matters here: the room is
+                // already `invite_only`, so an invite that didn't land is a
+                // student who will be stuck asking to be let in.
+                const invites = creatorDraft.invites ?? []
+                if (invites.length > 0) {
+                  void Promise.allSettled(invites.map(email => addRoomInvite(id, email)))
+                    .then(results => {
+                      const failed = results.filter(r => r.status === 'rejected').length
+                      if (failed > 0) {
+                        notifyError(tRef.current('room.invitesFailed', { count: failed }), {
+                          key: 'invites-failed', durationMs: null,
+                        })
+                      }
+                    })
                 }
               }
               // Practically unreachable (would need a nanoid(8) id collision —

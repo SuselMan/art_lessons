@@ -188,10 +188,23 @@ describe('createRoom', () => {
     const { room } = createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher', sock('owner-1'))
 
     // A password is not an access mode — the two gates are independent, so a
-    // password-protected room is still `anyone_with_link` until its owner
-    // says otherwise (#226/#232).
+    // password-protected room is still `anyone_with_link` unless the creator
+    // said otherwise (#226/#232).
     expect(room.accessMode).toBe('anyone_with_link')
     expect(getRoomSnapshot(roomId)?.room.accessMode).toBe('anyone_with_link')
+  })
+
+  it('honours a mode chosen at creation, live from the first join (#232)', () => {
+    const roomId = freshRoomId()
+    const { room } = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'), 'invite_only')
+
+    // The mode travels on `create_room` itself rather than being applied by a
+    // second request afterwards: a room that is open for the length of one
+    // round trip is a room whose link is briefly worth more than its owner
+    // meant it to be. `getRoomGate` is what the join gate reads, so this is
+    // the assertion that the very next joiner is judged by the new mode.
+    expect(room.accessMode).toBe('invite_only')
+    expect(getRoomGate(roomId)?.accessMode).toBe('invite_only')
   })
 
   it("ownerId does not shift when other participants join afterward", () => {

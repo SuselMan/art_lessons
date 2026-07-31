@@ -109,8 +109,12 @@ export const en = {
   'create.width': 'Width',
   'create.height': 'Height',
   'create.access': 'Access',
-  'create.passwordProtected': 'Password protected',
-  'create.openAccess': 'Open — anyone with the link can join',
+  // (#232) A password is its own gate, applying in either access mode — see
+  // the accessMode comment in schema.prisma for why the two are separate.
+  'create.requirePassword': 'Also ask for a password',
+  'create.invitesPlaceholder': 'One email address per line',
+  'create.invitesHint':
+    'Invitations work once the person signs in with that address. You can add or remove people later under Access.',
   'create.roomPassword': 'Project password',
   'create.submit': 'Create project',
   // (#351) The room is created locally and instantly; what this waits on is
@@ -118,6 +122,7 @@ export const en = {
   // is waiting for, which "Creating…" would not.
   'create.submitting': 'Opening…',
   'create.error.customSize': 'Custom size must be between 100 and 4096 pixels',
+  'create.error.invalidInvite': "“{email}” doesn't look like an email address",
 
   // ── paper picker vocabulary ────────────────────────────────────────────
   // Two axes (how much tooth × what the fibre looks like) plus `flat`, the
@@ -339,6 +344,10 @@ export const en = {
   // and a notice that faded after four seconds would leave them working into
   // a room that no longer accepts it.
   'room.kicked': 'The host has removed your access to this project. Nothing you draw from now on will be saved.',
+  // (#232) Said out loud rather than logged: the project is already
+  // invite-only, so an invite that didn't land is a student who will be stuck
+  // asking to be let in. Fixable in the access panel.
+  'room.invitesFailed': "{count} invitation(s) couldn't be sent. Add them again under Access.",
   'room.reopen': 'Reopen',
   'room.takeCopy': 'Take a copy',
   'room.error.rename': 'Could not rename the project',

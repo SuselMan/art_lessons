@@ -602,6 +602,10 @@ export function createRoom(
   ownerId: string,
   ownerName: string,
   socketId: string,
+  // (#232) Defaulted here rather than at the call site so the socket handler
+  // stays a pass-through: a client that says nothing about access gets the
+  // open room it has always got.
+  accessMode: RoomAccessMode = 'anyone_with_link',
 ): { room: Room; participant: Participant } {
   const existing = rooms.get(roomData.id)
   if (existing && existing.room.ownerId === ownerId) {
@@ -618,11 +622,10 @@ export function createRoom(
   const room: Room = {
     ...roomData,
     hasPassword: !!password,
-    // (#224) Every room starts open; picking a mode at creation time is #232's
-    // job (CreateRoom UI) and changing it later is #226's. Written through
-    // explicitly rather than left to the column default so the in-memory
-    // record and the row can never disagree about a room's own mode.
-    accessMode: 'anyone_with_link',
+    // (#224/#232) Written through explicitly rather than left to the column
+    // default, so the in-memory record and the row can never disagree about a
+    // room's own mode — including when the creator picked one (#232).
+    accessMode,
     ownerId,
     createdAt: new Date().toISOString(),
   }

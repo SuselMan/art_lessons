@@ -4,7 +4,7 @@ import clsx from 'clsx'
 import { nanoid } from 'nanoid'
 import {
   DEFAULT_PAPER_COLORS, PAPER_COARSENESS,
-  type PaperCoarseness, type PaperType,
+  type PaperCoarseness, type PaperType, type RoomAccessMode,
 } from '@grafetto/shared'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { preloadRoomPage } from '../../lib/roomChunk'
@@ -12,6 +12,7 @@ import { useDismissOnOutside } from '../../lib/useDismissOnOutside'
 import { useT, type TFunction, type TranslationKey } from '../../i18n'
 import { PaperPreview } from '../../components/PaperPreview'
 import { AppHeader } from '../../components/AppHeader'
+import { OptionGroup } from '../../components/OptionGroup'
 import { ColorPicker } from '../../components/ColorPicker'
 import { Icon } from '../../components/Icon'
 import styles from './CreateRoom.module.css'
@@ -23,6 +24,13 @@ import styles from './CreateRoom.module.css'
 interface CreateRoomNavState {
   folderId?: string
 }
+
+// (#232) Deliberately the same loose shape the server checks (see
+// roomAccessRoutes.ts): this is not a claim about deliverability, it is a
+// guard against a typo becoming a row nobody can ever match against. The
+// server remains the authority — this copy exists so the answer arrives
+// while the field is still on screen.
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 type SizePreset = 'a4' | 'a3' | 'a2' | 'square' | '16:9' | 'custom' | 'infinite'
 
@@ -152,6 +160,14 @@ export function CreateRoom() {
   const [orientation, setOrientation] = useState<Orientation>('portrait')
   const [customW,     setCustomW]     = useState('1920')
   const [customH,     setCustomH]     = useState('1080')
+  // (#232) Who may enter, decided here rather than only after the fact in the
+  // access panel — inviting three students is part of setting a lesson up,
+  // not a follow-up chore.
+  const [accessMode,  setAccessMode]  = useState<RoomAccessMode>('anyone_with_link')
+  // One address per line: the shape people already paste out of a class list,
+  // and the only editor that needs no add/remove buttons to manage a handful
+  // of them. Parsed once, on submit.
+  const [inviteText,  setInviteText]  = useState('')
   const [usePassword, setUsePassword] = useState(false)
   const [password,    setPassword]    = useState('')
   const [error,       setError]       = useState<string | null>(null)
@@ -201,11 +217,30 @@ export function CreateRoom() {
     // only this tab/browser — a joiner opening the same room link on another
     // device has no creator state and goes through the join gate instead.
     const pw = usePassword && password ? password : undefined
+    // Blank lines and stray spaces are what a pasted list is made of. The
+    // server normalizes and validates each address anyway (#226) — this only
+    // decides what is worth sending.
+    const invites = accessMode === 'invite_only'
+      ? inviteText.split('\n').map(line => line.trim()).filter(Boolean)
+      : []
+    // Checked here as well as on the server, and not because the server can't
+    // be trusted — because it answers too late to be useful: the invites are
+    // sent after the room exists and this page is gone, so a typo would
+    // surface as a notice inside the editor, next to no field to fix it in.
+    const badLine = invites.find(email => !EMAIL_SHAPE.test(email))
+    if (badLine) {
+      setError(t('create.error.invalidInvite', { email: badLine }))
+      return
+    }
+    const access = { accessMode, invites }
 
     if (sizePreset === 'infinite') {
       setEntering(true)
       navigate(`/room/${id}`, {
-        state: { room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true }, password: pw, folderId },
+        state: {
+          room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true },
+          password: pw, folderId, ...access,
+        },
       })
       return
     }
@@ -233,6 +268,7 @@ export function CreateRoom() {
         room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: false, canvasWidth: width, canvasHeight: height },
         password: pw,
         folderId,
+        ...access,
       },
     })
   }
@@ -393,16 +429,50 @@ export function CreateRoom() {
           )}
         </div>
 
-        {/* Password */}
+        {/* Access (#232) — who may enter, and separately whether a password is
+            asked. Two controls rather than one three-way choice, because the
+            two are independent: an invite-only lesson can also carry a
+            password, and an open one usually is the one that needs it. */}
         <div className={styles.section}>
           <div className={styles.label}>{t('create.access')}</div>
+          <OptionGroup
+            variant="list"
+            selection="radio"
+            ariaLabel={t('create.access')}
+            active={accessMode}
+            onSelect={setAccessMode}
+            options={[
+              { id: 'anyone_with_link', label: t('access.mode.anyoneWithLink') },
+              { id: 'invite_only', label: t('access.mode.inviteOnly') },
+            ]}
+          />
+          {accessMode === 'invite_only' && (
+            <>
+              <textarea
+                className={styles.invites}
+                rows={4}
+                placeholder={t('create.invitesPlaceholder')}
+                value={inviteText}
+                onChange={e => setInviteText(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              {/* Says the two things that are not obvious: the list can wait,
+                  and an invite reaches a person only once they sign in with
+                  that address (roomAccess.ts's allow-list is keyed by it). */}
+              <div className={styles.hint}>{t('create.invitesHint')}</div>
+            </>
+          )}
           <label className={styles.toggleRow}>
             <div className={clsx(styles.toggle, usePassword && styles.toggleOn)}>
               <div className={clsx(styles.toggleThumb, usePassword && styles.toggleThumbOn)} />
             </div>
-            <span className={styles.toggleLabel}>
-              {t(usePassword ? 'create.passwordProtected' : 'create.openAccess')}
-            </span>
+            {/* (#232) One label, not two: the toggle used to double as the
+                access setting, so it read "Open — anyone with the link" when
+                off. That sentence now belongs to the mode above, and saying
+                it twice — once as a mode, once as the off-state of a password
+                switch — would make them look like the same choice. */}
+            <span className={styles.toggleLabel}>{t('create.requirePassword')}</span>
             <input
               type="checkbox"
               checked={usePassword}

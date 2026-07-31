@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import type { RoomAccessInfo, RoomAccessMode } from '@grafetto/shared'
+import { isRoomAccessMode } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
 import { hashRoomPassword, setRoomAccessMode, setRoomPassword } from './rooms.js'
@@ -35,7 +36,6 @@ export type RoomAccessNotifier = {
   kicked: (roomId: string, userId: string) => void
 }
 
-const ACCESS_MODES: readonly RoomAccessMode[] = ['anyone_with_link', 'invite_only']
 
 // Deliberately loose. This is not a validator for whether mail will arrive —
 // nothing but sending can answer that — it exists to reject a typo'd or empty
@@ -137,7 +137,7 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
       const wantsPassword = password !== undefined
       if (!wantsMode && !wantsPassword) return reply.code(400).send({ error: 'nothing_to_update' })
 
-      if (wantsMode && !ACCESS_MODES.includes(accessMode as RoomAccessMode)) {
+      if (wantsMode && !isRoomAccessMode(accessMode)) {
         return reply.code(400).send({ error: 'invalid_access_mode' })
       }
       if (wantsPassword && password !== null && (typeof password !== 'string' || password.length === 0)) {

@@ -68,6 +68,25 @@
   border-color: #aa5555 !important;
 }
 
+/* (#232) The invite list — same field treatment as .input, but a textarea:
+   one address per line is the shape a class list is already in, and it needs
+   no add/remove chrome for the handful a lesson has. */
+.invites {
+  composes: input;
+  min-height: 96px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+/* Sits under a control to say what it does not say itself. Quieter than
+   .label above it, which names the section rather than explaining it. */
+.hint {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-dim);
+}
+
 /* paper color popover */
 .paperSectionHeader {
   display: flex;

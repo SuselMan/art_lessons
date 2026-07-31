@@ -1,6 +1,7 @@
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
+import { isRoomAccessMode } from '@grafetto/shared'
 
 import {
   addPaletteColor, createRoom, ensureRoomLoaded, findDuplicateOperation, getOperationRejectReason, getParticipant,
@@ -96,7 +97,7 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
     // first"). (#328) The payload now carries the creator's own display name,
     // same as `join_room` — it used to not, and the owner was labelled
     // "Teacher" here as a result.
-    socket.on('create_room', async ({ room, password, name, lastKnownSeq }, ack) => {
+    socket.on('create_room', async ({ room, password, name, accessMode, lastKnownSeq }, ack) => {
       const userId = socket.data.userId!
       // Same reload-safety as join_room below: the creator's own tab can
       // legitimately emit create_room again for a room that already exists
@@ -110,7 +111,16 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // Same defensive trim/fallback `join_room` gets from the gate's own
       // validation — a socket is not a form, and an empty label would leave a
       // nameless row in every participants list in the room.
-      createRoom(room, password, userId, name?.trim() || FALLBACK_PARTICIPANT_NAME, socket.id)
+      // (#232) Checked rather than trusted: the wire type is a compile-time
+      // promise about a payload we don't compile. A bogus mode would reach a
+      // Postgres enum that cannot hold it, and since the room row is written
+      // fire-and-forget (rooms.ts), the room would end up live in memory with
+      // nothing behind it. Anything unrecognised — including absent — is the
+      // open room this has always created.
+      createRoom(
+        room, password, userId, name?.trim() || FALLBACK_PARTICIPANT_NAME, socket.id,
+        isRoomAccessMode(accessMode) ? accessMode : 'anyone_with_link',
+      )
       socket.data.roomId = room.id
 
       // Same ordering guarantee as join_room below (#36): join the Socket.IO
