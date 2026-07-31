@@ -11,7 +11,7 @@ import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import {
   applyContentOp, replayLayerState, overlayLocalFields, sanitizeSelection,
   removeItems, parentOf, computeCompositeOrder, computeMergeOrder, getVisibleOrder,
-  collectDescendants, isLayerLocked, isEffectivelyVisible,
+  collectDescendants, isLayerLocked, isEffectivelyVisible, placementAbove, rootPlacementAbove,
 } from './layers'
 
 function layer(id: string, overrides: Partial<RasterLayer> = {}): RasterLayer {
@@ -29,6 +29,9 @@ function stateOf(items: Record<string, LayerItem>, rootOrder: string[], extra: P
 const baseOp = { id: 'op', userId: 'u1', timestamp: 0 }
 
 describe('applyContentOp', () => {
+  // No placement fields at all: how every layer_add in the log looked before
+  // #378, and they have to keep replaying to the top or already-recorded
+  // rooms would come back with a different layer order than they were drawn in.
   it('layer_add inserts at the top of rootOrder and is a no-op if the id already exists', () => {
     const state = stateOf({ [BACKGROUND_LAYER_ID]: layer(BACKGROUND_LAYER_ID) }, [BACKGROUND_LAYER_ID])
     const op: LayerAddOperation = { ...baseOp, type: 'layer_add', layerId: 'l1', name: 'Layer 1' }
@@ -40,12 +43,48 @@ describe('applyContentOp', () => {
     expect(applyContentOp(next, op)).toBe(next) // duplicate add is a no-op (same reference)
   })
 
+  it('layer_add honors an index, landing above the row that held it', () => {
+    const state = stateOf(
+      { a: layer('a'), b: layer('b'), [BACKGROUND_LAYER_ID]: layer(BACKGROUND_LAYER_ID) },
+      ['a', 'b', BACKGROUND_LAYER_ID],
+    )
+    const op: LayerAddOperation = { ...baseOp, type: 'layer_add', layerId: 'n', name: 'N', parentId: null, index: 1 }
+    expect(applyContentOp(state, op).rootOrder).toEqual(['a', 'n', 'b', BACKGROUND_LAYER_ID])
+  })
+
+  it('layer_add with a parentId lands inside that folder', () => {
+    const state = stateOf({ f1: folder('f1', ['a', 'b']), a: layer('a'), b: layer('b') }, ['f1'])
+    const op: LayerAddOperation = { ...baseOp, type: 'layer_add', layerId: 'n', name: 'N', parentId: 'f1', index: 1 }
+
+    const next = applyContentOp(state, op)
+    expect(next.rootOrder).toEqual(['f1'])
+    expect((next.items.f1 as LayerFolder).children).toEqual(['a', 'n', 'b'])
+  })
+
+  // The background's index is the one placement that cannot be taken
+  // literally: it owns the bottom slot, so "above the active layer" with the
+  // background selected has to resolve above it, never below.
+  it('layer_add anchored on the background still lands above it', () => {
+    const state = stateOf(
+      { a: layer('a'), [BACKGROUND_LAYER_ID]: layer(BACKGROUND_LAYER_ID) },
+      ['a', BACKGROUND_LAYER_ID],
+    )
+    const op: LayerAddOperation = { ...baseOp, type: 'layer_add', layerId: 'n', name: 'N', parentId: null, index: 1 }
+    expect(applyContentOp(state, op).rootOrder).toEqual(['a', 'n', BACKGROUND_LAYER_ID])
+  })
+
   it('folder_add creates an empty folder at the top', () => {
     const state = stateOf({}, [])
     const op: FolderAddOperation = { ...baseOp, type: 'folder_add', layerId: 'f1', name: 'Folder 1' }
     const next = applyContentOp(state, op)
     expect(next.items.f1).toMatchObject({ kind: 'folder', children: [] })
     expect(next.rootOrder).toEqual(['f1'])
+  })
+
+  it('folder_add honors an index', () => {
+    const state = stateOf({ a: layer('a'), b: layer('b') }, ['a', 'b'])
+    const op: FolderAddOperation = { ...baseOp, type: 'folder_add', layerId: 'f1', name: 'F', index: 1 }
+    expect(applyContentOp(state, op).rootOrder).toEqual(['a', 'f1', 'b'])
   })
 
   it('layer_delete removes the layer from items, rootOrder, and any containing folder', () => {
@@ -255,6 +294,48 @@ describe('parentOf / getVisibleOrder', () => {
   it('getVisibleOrder does not expand a collapsed folder', () => {
     const collapsed = stateOf({ ...state.items, f1: folder('f1', ['a', 'b'], { collapsed: true }) }, ['f1', 'c'])
     expect(getVisibleOrder(collapsed)).toEqual(['f1', 'c'])
+  })
+})
+
+describe('placementAbove / rootPlacementAbove (#378)', () => {
+  //  f1 ─ a
+  //     └ b
+  //  c
+  //  background
+  const state = stateOf(
+    {
+      f1: folder('f1', ['a', 'b']), a: layer('a'), b: layer('b'), c: layer('c'),
+      [BACKGROUND_LAYER_ID]: layer(BACKGROUND_LAYER_ID),
+    },
+    ['f1', 'c', BACKGROUND_LAYER_ID],
+  )
+
+  it('places a new layer at the active row\'s own index, which is the slot above it', () => {
+    expect(placementAbove(state, 'c')).toEqual({ parentId: null, index: 1 })
+    expect(placementAbove(state, 'f1')).toEqual({ parentId: null, index: 0 })
+  })
+
+  it('keeps a new layer inside the folder the active one lives in', () => {
+    expect(placementAbove(state, 'a')).toEqual({ parentId: 'f1', index: 0 })
+    expect(placementAbove(state, 'b')).toEqual({ parentId: 'f1', index: 1 })
+  })
+
+  it('falls back to the top for an id that is not in the tree', () => {
+    expect(placementAbove(state, 'ghost')).toEqual({ parentId: null, index: 0 })
+    expect(rootPlacementAbove(state, 'ghost')).toBe(0)
+  })
+
+  // A folder cannot be a folder's child, so the anchor climbs to the folder
+  // holding the active layer rather than dropping the new folder inside it.
+  it('anchors a new folder on the active row\'s root ancestor', () => {
+    expect(rootPlacementAbove(state, 'a')).toBe(0)
+    expect(rootPlacementAbove(state, 'c')).toBe(1)
+  })
+
+  // Every placement above is a bare index; the background's is only safe
+  // because applyContentOp clamps it — asserted separately on layer_add.
+  it('reports the background\'s own index when it is active', () => {
+    expect(placementAbove(state, BACKGROUND_LAYER_ID)).toEqual({ parentId: null, index: 2 })
   })
 })
 

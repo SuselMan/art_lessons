@@ -373,11 +373,23 @@ export type StrokeOperation = OperationBase & {
   strokeId?: string
 }
 
-/** Inserts a new raster layer at the top of rootOrder. */
+/** Inserts a new raster layer directly above whichever layer its author had
+ *  selected (#378) — the same `(parentId, index)` delta `layer_move` uses, and
+ *  for the same reason it is carried in the operation rather than derived:
+ *  `activeId` is per-user view state that never enters the log, so replay on
+ *  anyone else's client has nothing to work out a position from. Resolving it
+ *  at emission is also what makes concurrent adds behave, exactly like
+ *  `layer_delete` resolving folder children up front.
+ *
+ *  Both fields optional, and absent means "top of rootOrder": that is where
+ *  every layer went before this existed, so operations already in the log
+ *  replay unchanged. */
 export type LayerAddOperation = OperationBase & {
   type: 'layer_add'
   layerId: string
   name: string
+  parentId?: string | null // folder id, or null/absent for root
+  index?: number           // position within the target container, top→bottom
 }
 
 /** Imports a reference image onto a layer (#88) — always targets a layer
@@ -403,11 +415,15 @@ export type ImageImportOperation = OperationBase & {
   y?: number
 }
 
-/** Inserts a new empty folder at the top of rootOrder. */
+/** Inserts a new empty folder above the active item's own row (#378), by the
+ *  same rule and for the same reasons as `LayerAddOperation` above. No
+ *  `parentId` counterpart: folders are one level only, so a folder's position
+ *  is always an index into `rootOrder`. Absent `index` means the top. */
 export type FolderAddOperation = OperationBase & {
   type: 'folder_add'
   layerId: string
   name: string
+  index?: number
 }
 
 export type LayerDeleteOperation = OperationBase & {

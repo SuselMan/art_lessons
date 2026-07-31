@@ -26,7 +26,10 @@ import { useConfirmDialog } from '../ConfirmDialog/useConfirmDialog'
 import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
 import { patchItem } from './utils'
-import { isFolder, isLayerLocked, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder } from '../../lib/layers'
+import {
+  isFolder, isLayerLocked, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
+  placementAbove, rootPlacementAbove,
+} from '../../lib/layers'
 import { readImageFile } from '../../lib/image'
 import styles from './LayerPanel.module.css'
 
@@ -215,19 +218,43 @@ export const LayerPanel = memo(function LayerPanel({
 
   // ── add / delete ─────────────────────────────────────────────────────────────
 
+  /** Mints a layer directly above the active row and selects it (#378) —
+   *  shared by the two buttons that create one, the `+` and a reference
+   *  import, so they can't drift into placing layers by different rules.
+   *
+   *  The extra job is opening the folder when the new layer landed in one:
+   *  `placementAbove` follows the active row inside a folder, and a *collapsed*
+   *  folder would then swallow the layer whole — the panel's answer to the
+   *  click would be no visible change at all, which reads as a broken button.
+   *  That costs no operation: `collapsed` is per-user view state and never
+   *  enters the log (see overlayLocalFields).
+   */
+  const addLayerAbove = useCallback((newId: string, name: string) => {
+    const placement = placementAbove(layerState, activeId)
+    onOp({ type: 'layer_add', layerId: newId, name, ...placement })
+    onChange(p => {
+      const parent = placement.parentId === null ? undefined : p.items[placement.parentId]
+      const revealed = parent && isFolder(parent) && parent.collapsed
+        ? patchItem(parent.id, { collapsed: false })(p)
+        : p
+      return { ...revealed, activeId: newId, selectedIds: [] }
+    })
+  }, [activeId, layerState, onChange, onOp])
+
   const handleAddLayer = useCallback(() => {
-    const newId = nanoid(8)
     const count = Object.values(layerState.items).filter(i => i.kind === 'layer').length
     // Names created here are shared content, not local chrome: they ride the
     // operation log to every participant, so a layer created by a Russian UI
     // reads as "Слой 3" for everyone, exactly like a room name does.
-    onOp({ type: 'layer_add', layerId: newId, name: t('layers.defaultLayerName', { n: count + 1 }) })
-    onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
-  }, [layerState.items, onChange, onOp, t])
+    addLayerAbove(nanoid(8), t('layers.defaultLayerName', { n: count + 1 }))
+  }, [addLayerAbove, layerState.items, t])
 
   const handleAddFolder = useCallback(() => {
-    onOp({ type: 'folder_add', layerId: nanoid(8), name: t('layers.defaultFolderName') })
-  }, [onOp, t])
+    onOp({
+      type: 'folder_add', layerId: nanoid(8), name: t('layers.defaultFolderName'),
+      index: rootPlacementAbove(layerState, activeId),
+    })
+  }, [activeId, layerState, onOp, t])
 
   // Reference image import (#88) — always its own new layer (never onto an
   // existing one), so image_import can assume a blank target with nothing
@@ -249,9 +276,8 @@ export const LayerPanel = memo(function LayerPanel({
     try {
       const { dataUrl, width, height } = await readImageFile(file)
       const newId = nanoid(8)
-      onOp({ type: 'layer_add', layerId: newId, name: file.name.replace(/\.[^./]+$/, '') || t('layers.referenceName') })
+      addLayerAbove(newId, file.name.replace(/\.[^./]+$/, '') || t('layers.referenceName'))
       onOp({ type: 'image_import', layerId: newId, image: dataUrl, width, height })
-      onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
     } catch (err) {
       setImportError(err instanceof Error ? err.message : t('layers.importFailed'))
     } finally {
@@ -261,7 +287,7 @@ export const LayerPanel = memo(function LayerPanel({
       // there's no upside to doing it before the read is done, either.
       input.value = ''
     }
-  }, [onChange, onOp, t])
+  }, [addLayerAbove, onOp, t])
 
   const handleDelete = useCallback(async (ids?: string[]) => {
     const targets = (ids ?? (selectedIds.length > 0 ? selectedIds : [activeId]))

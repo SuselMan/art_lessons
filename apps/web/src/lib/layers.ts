@@ -28,6 +28,37 @@ export function parentOf(state: LayerState, id: string): string | null {
   return null
 }
 
+/** Where a newly created layer goes: immediately above `id`, the row its
+ *  author has selected, and inside the same folder if that row is in one.
+ *
+ *  Resolved here, at emission, because the answer depends on `activeId` —
+ *  per-user view state that never enters the operation log, so no other
+ *  client could reach the same conclusion by replaying (see
+ *  `LayerAddOperation`). Callers put the result straight into the operation.
+ *
+ *  Falls back to the top for an id that isn't in the tree, which is also what
+ *  an operation carrying no placement at all replays to — a layer with nowhere
+ *  in particular to go goes where every layer used to.
+ */
+export function placementAbove(state: LayerState, id: string): { parentId: string | null; index: number } {
+  const parentId = parentOf(state, id)
+  if (parentId !== null) {
+    const parent = state.items[parentId]
+    if (isFolder(parent)) return { parentId, index: parent.children.indexOf(id) }
+  }
+  const index = state.rootOrder.indexOf(id)
+  return { parentId: null, index: index >= 0 ? index : 0 }
+}
+
+/** `placementAbove` for a new folder, which has only a root index to give: a
+ *  folder is never a folder's child. Anchored on the active row's *root*
+ *  ancestor, so creating a folder while a layer inside another folder is
+ *  selected puts the new one above that whole folder rather than at the top. */
+export function rootPlacementAbove(state: LayerState, id: string): number {
+  const index = state.rootOrder.indexOf(parentOf(state, id) ?? id)
+  return index >= 0 ? index : 0
+}
+
 /**
  * Whether this item reaches the screen at all: its own `visible` flag *and*
  * its folder's, since hiding a folder hides everything in it — the same rule
@@ -187,12 +218,19 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     case 'layer_add': {
       if (state.items[op.layerId]) return state
       const layer: RasterLayer = { kind: 'layer', id: op.layerId, name: op.name, opacity: 1, visible: true, locked: false }
-      return { ...state, items: { ...state.items, [op.layerId]: layer }, rootOrder: [op.layerId, ...state.rootOrder] }
+      // Through insertAt rather than a plain prepend so a placement lands in
+      // the same container-and-clamp rules layer_move already answers to —
+      // including the one that matters most here, the background's reserved
+      // bottom slot: "above the active layer" with the background active has
+      // to mean above it, not below.
+      return insertAt(state, { ...state.items, [op.layerId]: layer }, state.rootOrder,
+        op.layerId, op.parentId ?? null, op.index ?? 0)
     }
     case 'folder_add': {
       if (state.items[op.layerId]) return state
       const folder: LayerFolder = { kind: 'folder', id: op.layerId, name: op.name, opacity: 1, visible: true, locked: false, collapsed: false, children: [] }
-      return { ...state, items: { ...state.items, [op.layerId]: folder }, rootOrder: [op.layerId, ...state.rootOrder] }
+      return insertAt(state, { ...state.items, [op.layerId]: folder }, state.rootOrder,
+        op.layerId, null, op.index ?? 0)
     }
     case 'layer_delete': {
       const ids = new Set(op.layerIds)
