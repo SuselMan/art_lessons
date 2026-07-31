@@ -7,6 +7,7 @@ import {
   getRoomSnapshot, joinRoom, leaveRoom, recordOperation, releaseRoomIfUnused, removePaletteColor, setLayerOwnerLocked,
   setParticipantFrozen, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
+import { checkJoinAccess } from './roomAccess.js'
 import { resolveSocketIdentity } from './identity.js'
 
 /** Per-connection state. `userId` is resolved once, in the `io.use()`
@@ -83,12 +84,28 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // no-op, synchronously fast, when the room's already live.
       await ensureRoomLoaded(roomId)
 
-      const result = joinRoom(roomId, userId, name?.trim() || FALLBACK_PARTICIPANT_NAME, password, socket.id)
-      if (!result.ok) {
+      const displayName = name?.trim() || FALLBACK_PARTICIPANT_NAME
+
+      // (#225) Access is decided here and only here — blocks, password,
+      // access mode, waiting queue. `joinRoom` below does the seating and
+      // trusts this completely, so nothing may seat a participant without
+      // having come through it first. The `await` sits before `socket.join`
+      // and the snapshot emit, leaving #36's ordering guarantee (those two
+      // happen with no yield between them) exactly as it was.
+      const access = await checkJoinAccess(roomId, userId, displayName, password)
+      if (!access.ok) {
         // (#292) The load above just pulled this room into memory, and a
         // rejected join means nobody is in it — without this it would sit
         // there, fully populated, until the process restarted. No-op if
         // anyone else is actually present.
+        releaseRoomIfUnused(roomId)
+        log.info({ socketId: socket.id, roomId, userId, error: access.error }, 'join_room refused')
+        ack(access)
+        return
+      }
+
+      const result = joinRoom(roomId, userId, displayName, socket.id)
+      if (!result.ok) {
         releaseRoomIfUnused(roomId)
         log.info({ socketId: socket.id, roomId, error: result.error }, 'join_room rejected')
         ack(result)

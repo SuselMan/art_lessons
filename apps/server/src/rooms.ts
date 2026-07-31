@@ -3,7 +3,7 @@ import { createGunzip } from 'node:zlib'
 import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import type { Operation, Participant, RejectReason, Room } from '@grafetto/shared'
+import type { Operation, Participant, RejectReason, Room, RoomAccessMode } from '@grafetto/shared'
 import { DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
@@ -186,7 +186,7 @@ function participantKey(roomId: string, userId: string): string {
 
 export type JoinRoomOutcome =
   | { ok: true; participant: Participant }
-  | { ok: false; error: 'not_found' | 'wrong_password' }
+  | { ok: false; error: 'not_found' }
 
 // Chains every Postgres write for a room onto whatever was already queued
 // for it, so they land in order (in particular: persistRoomCreate always
@@ -641,21 +641,47 @@ export function createRoom(
   return { room, participant }
 }
 
-/** Joins an existing room. Fails with `not_found` if no room has been
- *  registered under this id yet and `ensureRoomLoaded` couldn't find it in
- *  Postgres either, or `wrong_password` if it requires one and it doesn't
- *  match. Assigns `owner` when `userId` is the room's persisted owner
- *  (reconnecting after a drop, or just reopening the link days later — see
- *  `createRoom`'s doc comment, this is the *only* path a returning owner
- *  goes through) and `member` otherwise. */
+/** (#225) The two facts the join gate needs about a live room that aren't on
+ *  the wire `Room` type or in Postgres in a form it can use: who owns it and
+ *  which mode it's in. Returns undefined for a room not currently resident,
+ *  which the gate reads as `not_found` — callers run `ensureRoomLoaded` first,
+ *  so a room absent here is a room absent from Postgres too. */
+export function getRoomGate(roomId: string): { ownerId: string; accessMode: RoomAccessMode } | undefined {
+  const record = rooms.get(roomId)
+  if (!record) return undefined
+  return { ownerId: record.room.ownerId, accessMode: record.room.accessMode }
+}
+
+/** (#225) True when the room has no password, or when this one matches it.
+ *  Lives here rather than in `roomAccess.ts` so the hash itself never leaves
+ *  this module — the gate gets an answer, not a credential to compare. */
+export function checkRoomPassword(roomId: string, password: string | undefined): boolean {
+  const record = rooms.get(roomId)
+  if (!record?.passwordHash) return true
+  return !!password && bcrypt.compareSync(password, record.passwordHash)
+}
+
+/** Seats a participant in an existing room. Fails with `not_found` if no room
+ *  has been registered under this id yet and `ensureRoomLoaded` couldn't find
+ *  it in Postgres either. Assigns `owner` when `userId` is the room's
+ *  persisted owner (reconnecting after a drop, or just reopening the link days
+ *  later — see `createRoom`'s doc comment, this is the *only* path a returning
+ *  owner goes through) and `member` otherwise.
+ *
+ *  (#225) This decides *nothing* about whether the join is allowed — the
+ *  password check that used to live here moved out with the rest of it into
+ *  `roomAccess.ts`'s `checkJoinAccess`, which is now the single choke point
+ *  for that question (blocks, password, access mode, waiting queue), the way
+ *  `getOperationRejectReason` is for operations. Two places deciding access
+ *  is how one of them ends up admitting someone the other would refuse; in
+ *  particular this function must not re-check the password, since an owner is
+ *  admitted to their own room without one. Callers reaching this without
+ *  passing the gate first are letting anyone in. */
 export function joinRoom(
-  roomId: string, userId: string, name: string, password: string | undefined, socketId: string,
+  roomId: string, userId: string, name: string, socketId: string,
 ): JoinRoomOutcome {
   const record = rooms.get(roomId)
   if (!record) return { ok: false, error: 'not_found' }
-  if (record.passwordHash && !(password && bcrypt.compareSync(password, record.passwordHash))) {
-    return { ok: false, error: 'wrong_password' }
-  }
 
   const role = userId === record.room.ownerId ? 'owner' : 'member'
   const color = CURSOR_COLORS[record.participants.size % CURSOR_COLORS.length]
@@ -827,6 +853,19 @@ export function setRoomClosed(roomId: string, closedAt: string | null): boolean 
   const record = rooms.get(roomId)
   if (!record) return false
   record.room = { ...record.room, closedAt: closedAt ?? undefined }
+  return true
+}
+
+/** Mirrors a `Room.accessMode` change into the live in-memory record (#225),
+ *  so the very next join is judged against it rather than against whatever
+ *  the room was loaded with. Exactly the same division of labour as
+ *  `setRoomClosed` above — persisting belongs to the caller, which will be
+ *  #226's `PATCH` endpoint; returning `false` for a non-resident room is not a
+ *  failure, since its next cold load reads the stored mode anyway. */
+export function setRoomAccessMode(roomId: string, accessMode: RoomAccessMode): boolean {
+  const record = rooms.get(roomId)
+  if (!record) return false
+  record.room = { ...record.room, accessMode }
   return true
 }
 

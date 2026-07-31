@@ -519,7 +519,7 @@ describe('leaveRoom no longer prunes operations (#289 — pending snapshot verif
 
   it('does not prune while another participant is still in the room', async () => {
     const roomId = makeRoom()
-    joinRoom(roomId, 'student-1', 'Student', undefined, `sock-${roomId}-student`)
+    joinRoom(roomId, 'student-1', 'Student', `sock-${roomId}-student`)
     mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
     await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
 

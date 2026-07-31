@@ -23,6 +23,20 @@ describe('describeJoinError', () => {
     expect(message).not.toBe(describeJoinError('not_found', en))
   })
 
+  it('has something to say for every reason the server can send (#225)', () => {
+    // The three access-control outcomes arrived with the join gate, and the
+    // failure mode this guards against is silent: the switch has no default,
+    // so an unmapped reason returns undefined and the gate shows a blank
+    // refusal. Distinctness matters as much as non-emptiness — "you were
+    // removed", "sign in" and "waiting for the host" are three different
+    // things to do next.
+    const reasons = ['not_found', 'wrong_password', 'access_revoked', 'login_required', 'pending_approval'] as const
+    const messages = reasons.map(reason => describeJoinError(reason, en))
+
+    for (const message of messages) expect(message).toBeTruthy()
+    expect(new Set(messages).size).toBe(reasons.length)
+  })
+
   it('resolves in every locale, not only the one it was written in', () => {
     expect(describeJoinError('not_found', ru)).not.toBe('')
     expect(describeJoinError('not_found', ru)).not.toBe(describeJoinError('not_found', en))

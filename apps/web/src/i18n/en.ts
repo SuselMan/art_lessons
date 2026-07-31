@@ -206,6 +206,9 @@ export const en = {
   'join.error.nameRequired': 'Name is required',
   'join.error.notFound': "This project doesn't exist. Check the link, or ask the host to create it.",
   'join.error.wrongPassword': 'Wrong password — try again.',
+  'join.error.accessRevoked': 'The host has removed your access to this project.',
+  'join.error.loginRequired': 'This project is invite-only. Sign in with the address you were invited by.',
+  'join.error.pendingApproval': 'Your request to join has been sent to the host. This page will let you in once they approve it.',
 
   // ── project: header & canvas actions ───────────────────────────────────
   'room.home': 'Grafetto — leave this project',

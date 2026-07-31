@@ -585,9 +585,34 @@ export type OperationDraft = Operation extends infer O
  *  ephemeral Socket.IO connection id for everything identity-shaped (stamping
  *  outgoing operations, engine.setUserId), since that id is otherwise the
  *  only stable one across reconnects. */
+/** (#225) Every way a join can fail to seat someone. Three of these are not
+ *  really failures of the request but states of the *person* asking, which is
+ *  why they are worth distinguishing in the wire contract rather than
+ *  collapsing into one refusal — the join screen renders a different thing for
+ *  each (#231):
+ *
+ *  - `access_revoked` — the owner blocked this user from this room. Terminal:
+ *    nothing the client can do changes it.
+ *  - `login_required` — an `invite_only` room's allow-list is keyed by email,
+ *    and this browser is an anonymous guest with none. Signing in is the one
+ *    move that can change the answer.
+ *  - `pending_approval` — the request has been recorded and is waiting for the
+ *    owner. The only one of these that resolves on its own, by someone else's
+ *    action.
+ *
+ *  Deliberately no `access_denied`: a denied request reopens as pending on the
+ *  next attempt (see roomAccess.ts), so "denied" is never a state the joiner
+ *  sits in and never a thing the client has to render. */
+export type JoinDenial =
+  | 'not_found'
+  | 'wrong_password'
+  | 'access_revoked'
+  | 'login_required'
+  | 'pending_approval'
+
 export type JoinResult =
   | { ok: true; userId: string }
-  | { ok: false; error: 'not_found' | 'wrong_password' }
+  | { ok: false; error: JoinDenial }
 
 /** Broadcast alongside the peer cursor position (#37). `drawing` tells peers
  *  to freeze the cursor dot at its last position instead of following the

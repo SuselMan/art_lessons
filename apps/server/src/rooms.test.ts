@@ -7,8 +7,8 @@ import type {
 import { INITIAL_LAYER_ID } from '@grafetto/shared'
 
 import {
-  _flushPendingWrites, createRoom, findDuplicateOperation, getOperationRejectReason,
-  getParticipant, getRoomSnapshot, isLayerOwnerLocked, isOperationAllowed, isRoomClosed, isRoomFrozen, joinRoom,
+  _flushPendingWrites, checkRoomPassword, createRoom, findDuplicateOperation, getOperationRejectReason,
+  getParticipant, getRoomGate, getRoomSnapshot, isLayerOwnerLocked, isOperationAllowed, isRoomClosed, isRoomFrozen, joinRoom,
   leaveRoom, recordOperation, releaseRoomIfUnused, RESIDENT_OP_TYPES, setLayerOwnerLocked, setParticipantFrozen,
   setRoomClosed, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
@@ -197,8 +197,8 @@ describe('createRoom', () => {
   it("ownerId does not shift when other participants join afterward", () => {
     const roomId = freshRoomId()
     const { room } = createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
-    joinRoom(roomId, 'student-2', 'Bob', undefined, sock('student-2'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+    joinRoom(roomId, 'student-2', 'Bob', sock('student-2'))
 
     expect(getRoomSnapshot(roomId)?.room.ownerId).toBe('owner-1')
     expect(room.ownerId).toBe('owner-1')
@@ -207,31 +207,53 @@ describe('createRoom', () => {
 
 describe('joinRoom', () => {
   it('fails with not_found when the room was never created', () => {
-    const result = joinRoom(freshRoomId(), 'u1', 'Alice', undefined, sock('u1'))
+    const result = joinRoom(freshRoomId(), 'u1', 'Alice', sock('u1'))
     expect(result).toEqual({ ok: false, error: 'not_found' })
   })
 
-  it('fails with wrong_password when the room requires one and it does not match', () => {
-    const roomId = freshRoomId()
-    createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher', sock('owner-1'))
+  // (#225) The password check moved out of joinRoom into roomAccess.ts's
+  // checkJoinAccess along with the rest of the access decision — see
+  // roomAccess.test.ts for what it does now, and joinRoom's doc comment for
+  // why seating deliberately re-decides nothing. What's left here is the
+  // password *comparison*, which stays in this module because the hash does.
+  it('checkRoomPassword answers for the room without handing out the hash', () => {
+    const open = freshRoomId()
+    const guarded = freshRoomId()
+    createRoom(roomDraft(open), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    createRoom(roomDraft(guarded), 'secret', 'owner-2', 'Teacher', sock('owner-2'))
 
-    expect(joinRoom(roomId, 'u1', 'Alice', 'nope', sock('u1'))).toEqual({ ok: false, error: 'wrong_password' })
-    expect(joinRoom(roomId, 'u1', 'Alice', undefined, sock('u1'))).toEqual({ ok: false, error: 'wrong_password' })
+    // No password on the room: nothing to get wrong, including sending one.
+    expect(checkRoomPassword(open, undefined)).toBe(true)
+    expect(checkRoomPassword(open, 'anything')).toBe(true)
+
+    expect(checkRoomPassword(guarded, 'secret')).toBe(true)
+    expect(checkRoomPassword(guarded, 'nope')).toBe(false)
+    expect(checkRoomPassword(guarded, undefined)).toBe(false)
   })
 
-  it('succeeds when the password matches', () => {
+  it('getRoomGate reports the owner and mode, and nothing for an unloaded room', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(getRoomGate(roomId)).toEqual({ ownerId: 'owner-1', accessMode: 'anyone_with_link' })
+    // The gate reads this as not_found — callers run ensureRoomLoaded first,
+    // so a room missing here is missing from Postgres too.
+    expect(getRoomGate('never-loaded')).toBeUndefined()
+  })
+
+  it('seats a member without asking for a password — the gate already decided', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), 'secret', 'owner-1', 'Teacher', sock('owner-1'))
 
-    const result = joinRoom(roomId, 'u1', 'Alice', 'secret', sock('u1'))
+    const result = joinRoom(roomId, 'u1', 'Alice', sock('u1'))
     expect(result).toEqual({ ok: true, participant: expect.objectContaining({ userId: 'u1', role: 'member' }) })
   })
 
   it('never assigns owner to a non-owner, regardless of join order', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    const first = joinRoom(roomId, 'u1', 'Alice', undefined, sock('u1'))
-    const second = joinRoom(roomId, 'u2', 'Bob', undefined, sock('u2'))
+    const first = joinRoom(roomId, 'u1', 'Alice', sock('u1'))
+    const second = joinRoom(roomId, 'u2', 'Bob', sock('u2'))
 
     expect(first.ok && first.participant.role).toBe('member')
     expect(second.ok && second.participant.role).toBe('member')
@@ -244,7 +266,7 @@ describe('joinRoom', () => {
     // stable, this always fell through to `member`.
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-2'))
+    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', sock('owner-1', '-2'))
 
     expect(rejoin.ok && rejoin.participant.role).toBe('owner')
   })
@@ -252,7 +274,7 @@ describe('joinRoom', () => {
   it('assigns distinct cursor colors by join order, cycling if needed', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    const joiners = Array.from({ length: 8 }, (_, i) => joinRoom(roomId, `u${i}`, `User ${i}`, undefined, sock(`u${i}`)))
+    const joiners = Array.from({ length: 8 }, (_, i) => joinRoom(roomId, `u${i}`, `User ${i}`, sock(`u${i}`)))
     const colors = joiners.map(r => r.ok && r.participant.color)
     // Owner took the first color at creation; 8 members plus the owner cycle
     // through the 8-color palette, so the 8th joiner (index 7) should repeat
@@ -265,7 +287,7 @@ describe('getRoomSnapshot', () => {
   it('reflects room metadata and current participants, as defensive copies', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'u1', 'Alice', undefined, sock('u1'))
+    joinRoom(roomId, 'u1', 'Alice', sock('u1'))
 
     const snapshot = getRoomSnapshot(roomId)
     expect(snapshot?.room.id).toBe(roomId)
@@ -329,7 +351,7 @@ describe('leaveRoom', () => {
     expect(getRoomSnapshot(roomId)).toBeUndefined()
 
     // Room is gone entirely — a plain join_room can no longer find it.
-    expect(joinRoom(roomId, 'u1', 'Alice', undefined, sock('u1'))).toEqual({ ok: false, error: 'not_found' })
+    expect(joinRoom(roomId, 'u1', 'Alice', sock('u1'))).toEqual({ ok: false, error: 'not_found' })
   })
 
   it('a reconnect during the deferred-eviction window keeps the room (and its operations) live, not reloaded', async () => {
@@ -342,7 +364,7 @@ describe('leaveRoom', () => {
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     recordOperation(roomId, stroke({ id: 'a' }))
     leaveRoom(roomId, 'owner-1', sock('owner-1')) // eviction deferred, not immediate — no await yet
-    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-2'))
+    const rejoin = joinRoom(roomId, 'owner-1', 'Teacher', sock('owner-1', '-2'))
 
     expect(rejoin).toEqual({ ok: true, participant: expect.objectContaining({ role: 'owner' }) })
     expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['a'])
@@ -365,7 +387,7 @@ describe('leaveRoom', () => {
       createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1', '-old'))
       // Page refresh: a new socket joins for the same room+userId before the
       // old tab's connection has actually dropped.
-      joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-new'))
+      joinRoom(roomId, 'owner-1', 'Teacher', sock('owner-1', '-new'))
 
       // The OLD socket's disconnect arrives late.
       const actuallyLeft = leaveRoom(roomId, 'owner-1', sock('owner-1', '-old'))
@@ -382,7 +404,7 @@ describe('leaveRoom', () => {
     it("the newer socket's own eventual disconnect still removes the participant normally", () => {
       const roomId = freshRoomId()
       createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1', '-old'))
-      joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-new'))
+      joinRoom(roomId, 'owner-1', 'Teacher', sock('owner-1', '-new'))
       leaveRoom(roomId, 'owner-1', sock('owner-1', '-old')) // stale, ignored
 
       const actuallyLeft = leaveRoom(roomId, 'owner-1', sock('owner-1', '-new'))
@@ -394,8 +416,8 @@ describe('leaveRoom', () => {
     it('a stale disconnect for one participant does not affect a different, still-present participant', () => {
       const roomId = freshRoomId()
       createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-      joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1', '-old'))
-      joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1', '-new'))
+      joinRoom(roomId, 'student-1', 'Alice', sock('student-1', '-old'))
+      joinRoom(roomId, 'student-1', 'Alice', sock('student-1', '-new'))
 
       leaveRoom(roomId, 'student-1', sock('student-1', '-old')) // stale
 
@@ -465,7 +487,7 @@ describe('setParticipantFrozen', () => {
   it('freezes a member and is reflected on their Participant record', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
 
     const updated = setParticipantFrozen(roomId, 'student-1', true)
     expect(updated?.frozen).toBe(true)
@@ -475,7 +497,7 @@ describe('setParticipantFrozen', () => {
   it('unfreezes a previously frozen member', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     setParticipantFrozen(roomId, 'student-1', true)
 
     const updated = setParticipantFrozen(roomId, 'student-1', false)
@@ -494,8 +516,8 @@ describe('setParticipantFrozen', () => {
   it('leaves other participants unaffected', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
-    joinRoom(roomId, 'student-2', 'Bob', undefined, sock('student-2'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+    joinRoom(roomId, 'student-2', 'Bob', sock('student-2'))
 
     setParticipantFrozen(roomId, 'student-1', true)
 
@@ -515,13 +537,13 @@ describe('setParticipantFrozen', () => {
   it('survives a disconnect/reconnect (join_room) — the whole point of keying it by userId, not the live Participant record', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1', '-old'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1', '-old'))
     setParticipantFrozen(roomId, 'student-1', true)
 
     // Reconnect: a brand-new socket, brand-new join_room call — a naive
     // "frozen lives on the Participant object" design would silently reset
     // this to false right here.
-    const rejoin = joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1', '-new'))
+    const rejoin = joinRoom(roomId, 'student-1', 'Alice', sock('student-1', '-new'))
 
     expect(rejoin.ok && rejoin.participant.frozen).toBe(true)
     expect(getParticipant(roomId, 'student-1')?.frozen).toBe(true)
@@ -563,7 +585,7 @@ describe('isOperationAllowed', () => {
   it('allows a plain operation from an unfrozen, unlocked member', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
 
     expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe(true)
   })
@@ -580,7 +602,7 @@ describe('isOperationAllowed', () => {
   it('rejects operation_revoke from a non-owner', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
 
     const revoke: Operation = { id: 'r1', type: 'operation_revoke', userId: 'student-1', timestamp: 0, targetOpId: 'x' }
     expect(isOperationAllowed(roomId, 'student-1', revoke)).toBe(false)
@@ -597,7 +619,7 @@ describe('isOperationAllowed', () => {
   it('rejects layer_owner_lock from a non-owner', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
 
     expect(isOperationAllowed(roomId, 'student-1', layerOwnerLock({ userId: 'student-1' }))).toBe(false)
   })
@@ -612,7 +634,7 @@ describe('isOperationAllowed', () => {
   it('rejects every operation type from a non-owner while the room is frozen', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     setRoomFrozen(roomId, true)
 
     expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe(false)
@@ -630,7 +652,7 @@ describe('isOperationAllowed', () => {
   it('rejects a frozen participant\'s own operations', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     setParticipantFrozen(roomId, 'student-1', true)
 
     expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe(false)
@@ -639,8 +661,8 @@ describe('isOperationAllowed', () => {
   it('does not affect an unfrozen participant when another one is frozen', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
-    joinRoom(roomId, 'student-2', 'Bob', undefined, sock('student-2'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+    joinRoom(roomId, 'student-2', 'Bob', sock('student-2'))
     setParticipantFrozen(roomId, 'student-1', true)
 
     expect(isOperationAllowed(roomId, 'student-2', stroke({ userId: 'student-2' }))).toBe(true)
@@ -649,7 +671,7 @@ describe('isOperationAllowed', () => {
   it('rejects only operations targeting the locked layer, not other layers', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     setLayerOwnerLocked(roomId, 'layer-locked', true)
 
     expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'layer-locked' }))).toBe(false)
@@ -659,7 +681,7 @@ describe('isOperationAllowed', () => {
   it('an owner-locked layer does not block operations that carry no layerId', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     setLayerOwnerLocked(roomId, 'layer-1', true)
 
     const undo: Operation = { id: 'u1', type: 'operation_undo', userId: 'student-1', timestamp: 0, targetOpId: 'x' }
@@ -679,7 +701,7 @@ describe('getOperationRejectReason', () => {
   it('returns null for an allowed operation', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
 
     expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBeNull()
   })
@@ -687,7 +709,7 @@ describe('getOperationRejectReason', () => {
   it('reports room_frozen for a non-owner while the room is frozen', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     setRoomFrozen(roomId, true)
 
     expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe('room_frozen')
@@ -696,7 +718,7 @@ describe('getOperationRejectReason', () => {
   it('reports participant_frozen for a frozen participant\'s own operation', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     setParticipantFrozen(roomId, 'student-1', true)
 
     expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe('participant_frozen')
@@ -705,7 +727,7 @@ describe('getOperationRejectReason', () => {
   it('reports layer_owner_locked for an operation targeting a locked layer', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     setLayerOwnerLocked(roomId, 'layer-locked', true)
 
     expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'layer-locked' })))
@@ -715,7 +737,7 @@ describe('getOperationRejectReason', () => {
   it('reports not_owner for operation_revoke/layer_owner_lock from a non-owner', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
 
     const revoke: Operation = { id: 'r1', type: 'operation_revoke', userId: 'student-1', timestamp: 0, targetOpId: 'x' }
     expect(getOperationRejectReason(roomId, 'student-1', revoke)).toBe('not_owner')
@@ -731,7 +753,7 @@ describe('closed for editing', () => {
   it('reports room_closed for a participant while the room is closed', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     setRoomClosed(roomId, '2026-07-29T10:00:00.000Z')
 
     expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1' }))).toBe('room_closed')
@@ -768,7 +790,7 @@ describe('closed for editing', () => {
   it('lets operations through again once reopened', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
 
     setRoomClosed(roomId, '2026-07-29T10:00:00.000Z')
     expect(isRoomClosed(roomId)).toBe(true)
@@ -909,7 +931,7 @@ describe('getOperationRejectReason — target_gone', () => {
   it('does not gate content operations on a layer it simply never heard of', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
 
     expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'never-added' })))
       .toBeNull()
@@ -932,7 +954,7 @@ describe('getOperationRejectReason — target_gone', () => {
   it('rejects a stroke on a layer that was deleted while its author was away', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
-    joinRoom(roomId, 'student-1', 'Alice', undefined, sock('student-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
     updateAliveIds(roomId, layerAdd({ layerId: 'layer-x' }))
     updateAliveIds(roomId, layerDelete({ layerIds: ['layer-x'] }))
 
@@ -1213,7 +1235,7 @@ describe('releaseRoomIfUnused', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
     leaveRoom(roomId, 'owner-1', sock('owner-1'))
-    joinRoom(roomId, 'owner-1', 'Teacher', undefined, sock('owner-1', '-2'))
+    joinRoom(roomId, 'owner-1', 'Teacher', sock('owner-1', '-2'))
 
     releaseRoomIfUnused(roomId)
     await _flushPendingWrites(roomId)
