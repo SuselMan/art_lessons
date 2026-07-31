@@ -96,6 +96,11 @@ interface RoomRecord {
   // never heard of. Content-bearing operations (`stroke`/`image_import`/
   // `layer_clear`) are gated on *this*, not on `aliveIds`.
   //
+  // (#368) Not monotonic, despite what this used to assume: undoing the
+  // `layer_delete` that put an id here takes it back out. Both mirrors are
+  // derived from `structuralLog`, never edited in place by an arriving
+  // operation — see `refreshLayerIdMirrors`.
+  //
   // The distinction is the whole point. Gating strokes has an incomparably
   // larger blast radius than gating deletes: any hole in `aliveIds` would
   // start rejecting ordinary drawing, i.e. break the product outright, and
@@ -114,6 +119,23 @@ interface RoomRecord {
   // racing an ack that was merely slow, not lost) must be recognized as the
   // same operation rather than recorded a second time.
   operationsById: Map<string, Operation>
+  // (#368) Every layer-structural operation this room has recorded, with the
+  // done/undone/gone state the client's own OperationLog would give it. The
+  // single source `aliveIds`/`deletedIds` are derived from.
+  //
+  // It exists because those two mirrors used to be edited in place by each
+  // arriving operation, which had no way to express "that delete was taken
+  // back": `updateAliveIds` knew `layer_delete` and not `operation_undo`, so
+  // undoing a delete revived the layer on every client and nowhere on the
+  // server. From then on the layer was in a trap — strokes into it rejected
+  // as `target_gone`, deleting it rejected as "already deleted by another
+  // participant" — and no later operation could get it out. Seen in
+  // production on 2026-07-30, room TYOwS7TR.
+  //
+  // Deriving instead of patching is what makes that unrepresentable: undo,
+  // redo and revoke move an entry between states, and the mirrors are simply
+  // recomputed from whatever is currently `done`.
+  structuralLog: StructuralEntry[]
 }
 
 const rooms = new Map<string, RoomRecord>()
@@ -261,17 +283,29 @@ function pruneOperationsBeforeSnapshot(_roomId: string, _latestSnapshotSeq: numb
  *  dead layer, the pre-#311 behavior) rather than breaking drawing, but it's
  *  still a mirror this list exists to protect.
  *
+ *  (#368) `operation_undo`/`_redo`/`_revoke` are here for the same reason one
+ *  step removed: they don't create or destroy an id themselves, they decide
+ *  whether the operation that did still counts. Dropping an undo below the
+ *  window would resurrect the `layer_delete` it took back, so a room that had
+ *  a deleted layer restored would come back from a restart with it deleted
+ *  again — and every client that still shows it then diverges from the server
+ *  about whether it may be drawn on.
+ *
  *  All of them are a few hundred bytes each. The heavy types — `stroke` and
  *  `image_import`, which carry dab arrays and inline base64 image data — are
  *  deliberately absent: their pixels are exactly what a snapshot already
- *  contains, so below the snapshot they are pure weight. */
-const STRUCTURAL_OP_TYPES = ['layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_owner_lock']
-
-/** The same list, for anything outside this module that has to reproduce the
+ *  contains, so below the snapshot they are pure weight. An undo *of* a
+ *  stroke is kept even though the stroke itself isn't; it is a few hundred
+ *  bytes, and telling the two apart would mean resolving every target before
+ *  the query that fetches them.
+ *
+ *  Exported for anything outside this module that has to reproduce the
  *  resident window rather than guess at it — currently forkRoutes.ts (#317),
- *  which copies exactly what a cold load would consider resident. Exported as
- *  a readonly view so the definition above stays the only one. */
-export const RESIDENT_OP_TYPES: readonly string[] = STRUCTURAL_OP_TYPES
+ *  which copies exactly what a cold load would consider resident. */
+export const RESIDENT_OP_TYPES: readonly string[] = [
+  'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_owner_lock',
+  'operation_undo', 'operation_redo', 'operation_revoke',
+]
 
 /** (#292) The subset of a room's log that has to live in RAM.
  *
@@ -287,7 +321,7 @@ export const RESIDENT_OP_TYPES: readonly string[] = STRUCTURAL_OP_TYPES
 async function loadResidentOperations(roomId: string, latestSnapshotSeq: number | null): Promise<Operation[]> {
   const where = latestSnapshotSeq === null
     ? { roomId }
-    : { roomId, OR: [{ seq: { gt: latestSnapshotSeq } }, { type: { in: STRUCTURAL_OP_TYPES } }] }
+    : { roomId, OR: [{ seq: { gt: latestSnapshotSeq } }, { type: { in: [...RESIDENT_OP_TYPES] } }] }
   const rows = await prisma.operation.findMany({ where, orderBy: { seq: 'asc' }, select: { data: true } })
   return rows.map(row => row.data as Operation)
 }
@@ -301,7 +335,7 @@ function trimResidentOperations(record: RoomRecord): void {
   const floor = record.latestSnapshotSeq
   if (floor === null) return
   record.operations = record.operations.filter(
-    op => (op.seq ?? 0) > floor || STRUCTURAL_OP_TYPES.includes(op.type),
+    op => (op.seq ?? 0) > floor || RESIDENT_OP_TYPES.includes(op.type),
   )
   record.operationsById = new Map(record.operations.map(op => [op.id, op]))
 }
@@ -361,22 +395,14 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     else lockedLayerIds.delete(op.layerId)
   }
 
-  // (#289 epic) Rebuild the aliveIds mirror the same way — see its own doc
-  // comment on RoomRecord. (#311) `deletedIds` folds from the same pass:
-  // it only ever grows, since a destroyed id is never reissued (they're
-  // nanoids, unique per creation).
-  const aliveIds = new Set<string>(IMPLICIT_LAYER_IDS)
-  const deletedIds = new Set<string>()
-  for (const op of operations) {
-    if (op.type === 'layer_add' || op.type === 'folder_add') aliveIds.add(op.layerId)
-    else if (op.type === 'layer_delete') {
-      for (const id of op.layerIds) { aliveIds.delete(id); deletedIds.add(id) }
-    }
-    else if (op.type === 'layer_merge') {
-      aliveIds.add(op.layerId)
-      for (const s of op.sources) { aliveIds.delete(s.id); deletedIds.add(s.id) }
-    }
-  }
+  // (#289 epic) Rebuild the aliveIds/deletedIds mirrors the same way — see
+  // their doc comments on RoomRecord. (#368) Via the structural log, so a
+  // cold-loaded room resolves undone deletes exactly as a live one does;
+  // folding the raw types straight into the two Sets is what silently ignored
+  // undo before.
+  const structuralLog = buildStructuralLog(operations)
+  await resolveUndoneEntries(roomId, structuralLog)
+  const { aliveIds, deletedIds } = deriveLayerIds(structuralLog)
 
   rooms.set(roomId, {
     room: toWireRoom(dbRoom),
@@ -392,6 +418,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     aliveIds,
     deletedIds,
     operationsById: new Map(operations.map(op => [op.id, op])),
+    structuralLog,
   })
   return true
 }
@@ -453,6 +480,7 @@ export function createRoom(
     room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette,
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
     aliveIds: new Set(IMPLICIT_LAYER_IDS), deletedIds: new Set(), operationsById: new Map(),
+    structuralLog: [],
   })
   currentSocketForParticipant.set(participantKey(room.id, ownerId), socketId)
   persistRoomCreate(room, passwordHash)
@@ -772,27 +800,180 @@ function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
   }
 }
 
-/** Keeps `RoomRecord.aliveIds` in sync the instant an operation is accepted
- *  (#289 epic) — called by socketHandlers.ts right before `recordOperation`,
- *  same ordering/reasoning as the existing `setLayerOwnerLocked` call for
- *  `layer_owner_lock` just above it. A no-op for any operation type that
- *  doesn't create or destroy a layer/folder id. */
+/** The operations that create or destroy a layer/folder id — the only ones
+ *  `aliveIds`/`deletedIds` are derived from (#368). */
+type StructuralOperation = Extract<Operation, { type: 'layer_add' | 'folder_add' | 'layer_delete' | 'layer_merge' }>
+
+function isStructuralOperation(op: Operation): op is StructuralOperation {
+  return op.type === 'layer_add' || op.type === 'folder_add'
+    || op.type === 'layer_delete' || op.type === 'layer_merge'
+}
+
+/** Mirrors the client's own three-state log (see OperationLog.ts's header):
+ *  `done` applied, `undone` reverted by its author and eligible for redo,
+ *  `gone` unreachable — the author acted after undoing, or a teacher revoked
+ *  it, and it can never come back. */
+interface StructuralEntry {
+  op: StructuralOperation
+  state: 'done' | 'undone' | 'gone'
+}
+
+/** Advances the structural log by one recorded operation, returning whether
+ *  anything's *done*-ness changed (i.e. whether the derived mirrors need
+ *  recomputing).
+ *
+ *  Deliberately a transcription of `OperationLog`'s state machine rather than
+ *  an independent reading of what undo "should" mean — the whole failure this
+ *  fixes was two folds of the same log drifting apart, so the rules that
+ *  matter here are whatever the client actually does, including the ones that
+ *  look like details:
+ *
+ *   - undo/redo only ever move an entry authored by the same user, and only
+ *     from the one state they're defined on. A redo of an entry that has since
+ *     gone `gone` does nothing, exactly as `applyRedo` does nothing.
+ *   - any non-meta operation makes its author's `undone` entries `gone`: a
+ *     linear log can't branch, so acting after an undo puts that branch out of
+ *     reach for good. Skipping this would let a late redo revive a layer every
+ *     client has already written off.
+ *
+ *  Two client-side rules have no counterpart here because they can't touch a
+ *  structural entry: gesture expansion by `strokeId` (strokes only) and
+ *  opacity coalescing (`layer_opacity` only). */
+function advanceStructuralLog(entries: StructuralEntry[], op: Operation): boolean {
+  switch (op.type) {
+    case 'operation_undo': {
+      const target = entries.find(e => e.op.id === op.targetOpId && e.state === 'done' && e.op.userId === op.userId)
+      if (!target) return false
+      target.state = 'undone'
+      return true
+    }
+    case 'operation_redo': {
+      const target = entries.find(e => e.op.id === op.targetOpId && e.state === 'undone' && e.op.userId === op.userId)
+      if (!target) return false
+      target.state = 'done'
+      return true
+    }
+    case 'operation_revoke': {
+      const target = entries.find(e => e.op.id === op.targetOpId && e.state !== 'gone')
+      if (!target) return false
+      const wasDone = target.state === 'done'
+      target.state = 'gone'
+      return wasDone
+    }
+    default: {
+      for (const entry of entries) {
+        if (entry.state === 'undone' && entry.op.userId === op.userId) entry.state = 'gone'
+      }
+      if (!isStructuralOperation(op)) return false
+      entries.push({ op, state: 'done' })
+      return true
+    }
+  }
+}
+
+/** Recomputes `aliveIds`/`deletedIds` from whatever is currently `done`.
+ *
+ *  Rebuilt wholesale rather than patched: an id can be destroyed by either a
+ *  `layer_delete` or a `layer_merge` consuming it as a source, so "this delete
+ *  was undone" does not by itself mean the id is alive again. Folding the
+ *  surviving entries answers that without having to reason about it.
+ *
+ *  Mutates the existing Sets instead of replacing them — `getOperationRejectReason`
+ *  and the tests both read them straight off the record. */
+function refreshLayerIdMirrors(record: RoomRecord): void {
+  const { aliveIds, deletedIds } = deriveLayerIds(record.structuralLog)
+  record.aliveIds.clear()
+  for (const id of aliveIds) record.aliveIds.add(id)
+  record.deletedIds.clear()
+  for (const id of deletedIds) record.deletedIds.add(id)
+}
+
+function deriveLayerIds(entries: readonly StructuralEntry[]): { aliveIds: Set<string>; deletedIds: Set<string> } {
+  const aliveIds = new Set<string>(IMPLICIT_LAYER_IDS)
+  const deletedIds = new Set<string>()
+  for (const entry of entries) {
+    if (entry.state !== 'done') continue
+    switch (entry.op.type) {
+      case 'layer_add':
+      case 'folder_add':
+        aliveIds.add(entry.op.layerId)
+        break
+      case 'layer_delete':
+        for (const id of entry.op.layerIds) { aliveIds.delete(id); deletedIds.add(id) }
+        break
+      case 'layer_merge':
+        aliveIds.add(entry.op.layerId)
+        for (const s of entry.op.sources) { aliveIds.delete(s.id); deletedIds.add(s.id) }
+        break
+    }
+  }
+  return { aliveIds, deletedIds }
+}
+
+/** The client's own META_OP_TYPES (OperationLog.ts) — the operations that only
+ *  ever move another entry between states, and so never count as their
+ *  author "acting" for the undone → gone rule. */
+const META_OP_TYPES = ['operation_undo', 'operation_redo', 'operation_revoke']
+
+/** Builds a room's structural log from its resident operation log — the cold
+ *  load's counterpart to `updateAliveIds` below, and the reason
+ *  `operation_undo`/`_redo`/`_revoke` have to stay resident at any age (see
+ *  RESIDENT_OP_TYPES). */
+function buildStructuralLog(operations: readonly Operation[]): StructuralEntry[] {
+  const entries: StructuralEntry[] = []
+  for (const op of operations) advanceStructuralLog(entries, op)
+  return entries
+}
+
+/** Finishes a cold load's fold by asking Postgres the one question the
+ *  resident log can't answer.
+ *
+ *  `advanceStructuralLog`'s undone → gone rule fires on its author's next
+ *  ordinary operation — and ordinary operations are exactly what the resident
+ *  window drops below a snapshot (a stroke, an opacity change). So a fold over
+ *  the resident log alone can leave an entry `undone` that every client long
+ *  since wrote off as `gone`, and then honour a redo of it that no client
+ *  would have sent. That revives a layer here and nowhere else, which is
+ *  #368's own failure with the roles swapped.
+ *
+ *  Guessing instead of asking would be wrong in either direction: assume
+ *  `gone` and a legitimate redo after a reconnect gets refused (the room can
+ *  be evicted while a client sits there with its undo stack intact); assume
+ *  `undone` and the divergence above stands. One grouped query settles it, and
+ *  only runs for a room that cold-loads with an undone structural entry at all
+ *  — i.e. almost never. */
+async function resolveUndoneEntries(roomId: string, entries: StructuralEntry[]): Promise<void> {
+  const undone = entries.filter(e => e.state === 'undone')
+  if (undone.length === 0) return
+
+  const authors = [...new Set(undone.map(e => e.op.userId))]
+  const latest = await prisma.operation.groupBy({
+    by: ['userId'],
+    where: { roomId, userId: { in: authors }, type: { notIn: META_OP_TYPES } },
+    _max: { seq: true },
+  })
+  const latestByAuthor = new Map(latest.map(row => [row.userId, row._max.seq ?? 0]))
+
+  for (const entry of undone) {
+    if ((latestByAuthor.get(entry.op.userId) ?? 0) > (entry.op.seq ?? 0)) entry.state = 'gone'
+  }
+}
+
+/** Keeps `RoomRecord.aliveIds`/`deletedIds` in sync the instant an operation
+ *  is accepted (#289 epic) — called by socketHandlers.ts right before
+ *  `recordOperation`, same ordering/reasoning as the existing
+ *  `setLayerOwnerLocked` call for `layer_owner_lock` just above it.
+ *
+ *  Every operation is offered to the structural log, not just the ones that
+ *  create or destroy an id (#368): an `operation_undo` names its target rather
+ *  than its subject, so there is no way to tell from the type alone whether it
+ *  bears on a layer. Recomputing is gated on the log saying something actually
+ *  moved, which for a room mid-stroke is almost never. */
 export function updateAliveIds(roomId: string, op: Operation): void {
   const record = rooms.get(roomId)
   if (!record) return
-  switch (op.type) {
-    case 'layer_add':
-    case 'folder_add':
-      record.aliveIds.add(op.layerId)
-      break
-    case 'layer_delete':
-      for (const id of op.layerIds) { record.aliveIds.delete(id); record.deletedIds.add(id) }
-      break
-    case 'layer_merge':
-      record.aliveIds.add(op.layerId)
-      for (const s of op.sources) { record.aliveIds.delete(s.id); record.deletedIds.add(s.id) }
-      break
-  }
+  if (!advanceStructuralLog(record.structuralLog, op)) return
+  refreshLayerIdMirrors(record)
 }
 
 /** Boolean convenience wrapper kept for existing callers/tests that only

@@ -9,8 +9,8 @@ import { INITIAL_LAYER_ID } from '@grafetto/shared'
 import {
   _flushPendingWrites, createRoom, findDuplicateOperation, getOperationRejectReason,
   getParticipant, getRoomSnapshot, isLayerOwnerLocked, isOperationAllowed, isRoomClosed, isRoomFrozen, joinRoom,
-  leaveRoom, recordOperation, releaseRoomIfUnused, setLayerOwnerLocked, setParticipantFrozen, setRoomClosed,
-  setRoomFrozen, updateAliveIds,
+  leaveRoom, recordOperation, releaseRoomIfUnused, RESIDENT_OP_TYPES, setLayerOwnerLocked, setParticipantFrozen,
+  setRoomClosed, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 
 // Each test uses its own roomId — `rooms` is module-level shared state with no
@@ -1003,6 +1003,160 @@ describe('updateAliveIds', () => {
 
   it('is a no-op for an unknown room', () => {
     expect(() => updateAliveIds('never-created', layerAdd())).not.toThrow()
+  })
+})
+
+// (#368) The mirrors used to be patched in place by each arriving operation,
+// which cannot express "that delete was taken back": updateAliveIds knew
+// layer_delete and not operation_undo, so undoing a delete revived the layer
+// on every client and nowhere here. The layer was then in a trap no later
+// operation could open — strokes into it rejected as target_gone, deleting it
+// rejected as target_gone, which the UI words as "another participant already
+// deleted this layer". Seen in production 2026-07-30 (room TYOwS7TR): the
+// author, alone in the room, could neither draw on the restored layer nor get
+// rid of it.
+describe('updateAliveIds — undo, redo and revoke', () => {
+  function undo(targetOpId: string, userId = 'user-a'): Operation {
+    return { id: `u-${targetOpId}`, type: 'operation_undo', userId, timestamp: 0, targetOpId }
+  }
+  function redo(targetOpId: string, userId = 'user-a'): Operation {
+    return { id: `r-${targetOpId}`, type: 'operation_redo', userId, timestamp: 0, targetOpId }
+  }
+  function revoke(targetOpId: string, userId = 'owner-1'): Operation {
+    return { id: `v-${targetOpId}`, type: 'operation_revoke', userId, timestamp: 0, targetOpId }
+  }
+
+  function roomWithDeletedLayer(): string {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ id: 'add-x', layerId: 'layer-x' }))
+    updateAliveIds(roomId, layerDelete({ id: 'del-x', layerIds: ['layer-x'] }))
+    return roomId
+  }
+
+  it('undoing a layer_delete makes the layer deletable again', () => {
+    const roomId = roomWithDeletedLayer()
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBe('target_gone')
+
+    updateAliveIds(roomId, undo('del-x'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBeNull()
+  })
+
+  // The half that actually loses drawing: content ops are gated on deletedIds
+  // (#311), so a layer stuck there silently refuses every stroke made on it.
+  it('undoing a layer_delete lets content operations reach the layer again', () => {
+    const roomId = roomWithDeletedLayer()
+    expect(getOperationRejectReason(roomId, 'owner-1', stroke({ userId: 'owner-1', layerId: 'layer-x' })))
+      .toBe('target_gone')
+
+    updateAliveIds(roomId, undo('del-x'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', stroke({ userId: 'owner-1', layerId: 'layer-x' })))
+      .toBeNull()
+  })
+
+  it('redoing the delete destroys the layer again', () => {
+    const roomId = roomWithDeletedLayer()
+    updateAliveIds(roomId, undo('del-x'))
+    updateAliveIds(roomId, redo('del-x'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBe('target_gone')
+    expect(getOperationRejectReason(roomId, 'owner-1', stroke({ userId: 'owner-1', layerId: 'layer-x' })))
+      .toBe('target_gone')
+  })
+
+  // Matches OperationLog.applyUndo's own author guard — a client can never
+  // undo an operation it didn't write, so neither may this mirror.
+  it('ignores an undo from someone who did not author the delete', () => {
+    const roomId = roomWithDeletedLayer()
+    updateAliveIds(roomId, undo('del-x', 'someone-else'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBe('target_gone')
+  })
+
+  // A linear log cannot branch: acting after an undo puts the undone branch
+  // permanently out of reach, so the redo that follows must do nothing. Skip
+  // this rule and a late redo revives a layer every client has written off.
+  it('a new action by the author makes the undone delete unreachable, so a later redo does nothing', () => {
+    const roomId = roomWithDeletedLayer()
+    updateAliveIds(roomId, undo('del-x'))
+    updateAliveIds(roomId, stroke({ id: 'later', userId: 'user-a', layerId: 'layer-x' }))
+    updateAliveIds(roomId, redo('del-x'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBeNull()
+  })
+
+  it('undoing a layer_add takes the layer back out', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ id: 'add-y', layerId: 'layer-y' }))
+    updateAliveIds(roomId, undo('add-y'))
+
+    // Never created as far as the room is concerned — not positively
+    // destroyed, so content still falls through (#311) while a delete can't.
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-y'] }))).toBe('target_gone')
+    expect(getOperationRejectReason(roomId, 'owner-1', stroke({ userId: 'owner-1', layerId: 'layer-y' })))
+      .toBeNull()
+  })
+
+  it('undoing a layer_merge revives its sources and drops the merged result', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ id: 'add-a', layerId: 'layer-a' }))
+    updateAliveIds(roomId, layerAdd({ id: 'add-b', layerId: 'layer-b' }))
+    updateAliveIds(roomId, layerMerge({
+      id: 'merge-1', layerId: 'layer-merged',
+      sources: [{ id: 'layer-a', opacity: 1 }, { id: 'layer-b', opacity: 1 }],
+    }))
+    updateAliveIds(roomId, undo('merge-1'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-a'] }))).toBeNull()
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-b'] }))).toBeNull()
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-merged'] })))
+      .toBe('target_gone')
+  })
+
+  it('revoking a layer_delete revives the layer, and no redo can undo that', () => {
+    const roomId = roomWithDeletedLayer()
+    updateAliveIds(roomId, revoke('del-x'))
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBeNull()
+
+    updateAliveIds(roomId, redo('del-x'))
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBeNull()
+  })
+
+  it('leaves the mirrors alone when the undo names an operation it never saw', () => {
+    const roomId = roomWithDeletedLayer()
+    updateAliveIds(roomId, undo('never-recorded'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-x'] }))).toBe('target_gone')
+  })
+})
+
+// (#368) The mirrors are rebuilt by folding the resident log on a cold load,
+// so an operation that decides whether a structural op still counts has to
+// survive at any age just as the structural op itself does. Without this a
+// room whose deleted layer was restored comes back from a restart with it
+// deleted again — and diverges from every client that still shows it.
+describe('RESIDENT_OP_TYPES', () => {
+  it('keeps the operations that decide whether a structural one still counts', () => {
+    expect(RESIDENT_OP_TYPES).toEqual(expect.arrayContaining([
+      'operation_undo', 'operation_redo', 'operation_revoke',
+    ]))
+  })
+
+  it('still keeps the structural operations themselves', () => {
+    expect(RESIDENT_OP_TYPES).toEqual(expect.arrayContaining([
+      'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_owner_lock',
+    ]))
+  })
+
+  // The heavy types are the whole point of having a window at all — their
+  // pixels are exactly what a snapshot already holds.
+  it('does not keep stroke or image_import', () => {
+    expect(RESIDENT_OP_TYPES).not.toContain('stroke')
+    expect(RESIDENT_OP_TYPES).not.toContain('image_import')
   })
 })
 
