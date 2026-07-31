@@ -69,7 +69,11 @@ export function bareIssueRefs(text) {
     // parentheses right after the number is the whole check: anything looser
     // (a nearby noun, a dash) matches ordinary sentences too and would make
     // this silent.
-    if (!/^\s*\(/.test(after)) bare.push(number)
+    //
+    // Markdown emphasis is allowed to sit in between — `**#230** (секция…)`
+    // is the same sentence with the number bolded, and flagging it was this
+    // hook's second false positive in two messages.
+    if (!/^[*_~\s]*\(/.test(after)) bare.push(number)
   }
   return bare
 }
