@@ -38,12 +38,15 @@ describe('connectionNotice', () => {
       .toEqual({ key: 'room.connection.offlineWithPending', n: 2 })
   })
 
-  it('stays up through the post-reconnect drain', () => {
-    expect(connectionNotice(state({ pending: 5 })))
-      .toEqual({ key: 'room.connection.syncing', n: 5 })
+  it('says nothing about a queue that is simply draining', () => {
+    // (#376) This used to be "Saving 5 strokes…", and it appeared and left
+    // again on every stroke. The header's SyncIndicator reports it now — a
+    // steady indicator for a steady fact — and the banner is left for the
+    // states that are actually a problem.
+    expect(connectionNotice(state({ pending: 5 }))).toBeNull()
   })
 
-  it('distinguishes work that has given up retrying from work still in flight', () => {
+  it('still reports work that has given up retrying', () => {
     expect(connectionNotice(state({ pending: 5, stalled: 2 })))
       .toEqual({ key: 'room.connection.stalled', n: 2 })
   })

@@ -48,6 +48,7 @@ import { FrozenBanner } from './FrozenBanner'
 import { ClosedBanner } from './ClosedBanner'
 import { LostWorkBanner } from './LostWorkBanner'
 import { ConnectionBanner } from './ConnectionBanner'
+import { SyncIndicator } from './SyncIndicator'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { resolveDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
@@ -3170,6 +3171,11 @@ export function Room() {
         ) : (
           <span className={styles.roomName}>{config.name}</span>
         )}
+        {/* (#376) Beside the name, because what it reports is the state of
+            the thing the name refers to. Took over from the connection
+            banner's "Saving N strokes…", which flashed on and off with every
+            stroke. */}
+        <SyncIndicator connected={connected} pending={outboxState.pending} />
 
         {/* (#329) Four sections, divider-separated, in the order they're
             reached for: rotation | zoom + fit | undo/redo | fullscreen | ≡.

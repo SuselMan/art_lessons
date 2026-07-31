@@ -143,11 +143,43 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text);
-  flex: 1;
+  /* Shrinks but doesn't grow: .syncStatus beside it takes the slack now, so
+     the two read as one group at the left instead of the status drifting off
+     to meet the right-hand cluster. A long name still ellipses, which needs
+     min-width:0 once this is no longer flex:1. */
+  flex: 0 1 auto;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* (#376) Save state, beside the name it is the save state *of*. Replaced a
+   toast that flashed on every stroke — see SyncIndicator.tsx. */
+.syncStatus {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 0 auto;
+  margin-left: 12px;
+  font-size: 11px;
+  color: var(--color-text-dim);
+  white-space: nowrap;
+}
+
+.syncDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  flex-shrink: 0;
+  /* Both properties transition, so the ordinary saved → syncing → saved round
+     trip is a fade rather than a blink. */
+  transition: background var(--duration-normal), color var(--duration-normal);
+}
+
+.syncStatusBusy { color: var(--color-warning); }
+.syncStatusBusy .syncDot { background: var(--color-warning); }
 
 /* Owner-only: the label is a button that swaps itself for .roomNameInput.
    Padding/border-radius match the input's so nothing shifts on the swap, and

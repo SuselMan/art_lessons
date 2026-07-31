@@ -310,10 +310,11 @@ export const en = {
     one: 'No connection. {n} stroke is saved on this device and will be sent once you reconnect.',
     other: 'No connection. {n} strokes are saved on this device and will be sent once you reconnect.',
   },
-  'room.connection.syncing': {
-    one: 'Saving {n} stroke…',
-    other: 'Saving {n} strokes…',
-  },
+  // (#376) The header's permanent save indicator, which took over the case
+  // the connection banner used to cover with "Saving N strokes…" — see
+  // SyncIndicator.tsx for why that stopped being a message and became a state.
+  'room.sync.saved': 'Saved',
+  'room.sync.syncing': 'Syncing…',
   'room.connection.stalled': {
     one: '{n} stroke could not be sent yet — it is kept on this device and will be retried.',
     other: '{n} strokes could not be sent yet — they are kept on this device and will be retried.',
