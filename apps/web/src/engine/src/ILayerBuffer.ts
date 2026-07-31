@@ -1,5 +1,5 @@
 import type { AccumulationBuffer } from './AccumulationBuffer'
-import type { WorldRect } from './tileMath'
+import type { CoarseFactor, WorldRect } from './tileMath'
 
 // Infinite canvas (Phase 1, #133/#122/#121) — the buffer-storage abstraction
 // PencilEngine paints/reads/clears through instead of touching an
@@ -69,10 +69,10 @@ export interface ILayerBuffer {
    *  read as "use the fine tiles" rather than "there is nothing here".
    *  Each target's buffer spans coarseWorldSize in world units, not its own
    *  pixel dimensions — that is the whole point of it. */
-  resolveCoarse(worldRect: WorldRect): PaintTarget[] | null
+  resolveCoarse(worldRect: WorldRect, factor: CoarseFactor): PaintTarget[] | null
 
-  /** (#365) World-space extent of one coarse tile — see resolveCoarse. */
-  readonly coarseWorldSize: { w: number; h: number }
+  /** (#365) World-space extent of one tile of `factor` — see resolveCoarse. */
+  coarseWorldSize(factor: CoarseFactor): { w: number; h: number }
 
   /** Every currently resident tile, with no rect filtering — "everything
    *  this layer actually holds right now." Used where there's no natural

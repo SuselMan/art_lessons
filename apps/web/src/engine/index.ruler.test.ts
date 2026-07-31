@@ -7,6 +7,7 @@
 // (see rulerSnap.test.ts for that). Also verifies the ruler itself never
 // shows up in the operation log, per #89's own "not part of the drawing"
 // scope note (same status as the grid overlay).
+import { strokeDabs } from '@grafetto/shared'
 import { describe, expect, it } from 'vitest'
 
 import type { StrokeOperation } from '@grafetto/shared'
@@ -47,8 +48,8 @@ describe('ruler tool (#89): live-stroke snapping', () => {
     expect(ops.map(op => op.type)).toEqual(['layer_add', 'stroke'])
     const stroke = ops[1] as StrokeOperation
     expect(stroke.type).toBe('stroke')
-    expect(stroke.dabs.length).toBeGreaterThan(0)
-    for (const d of stroke.dabs) {
+    expect(strokeDabs(stroke).length).toBeGreaterThan(0)
+    for (const d of strokeDabs(stroke)) {
       expect(d.y).toBeCloseTo(20, 5)
     }
   })
@@ -63,11 +64,11 @@ describe('ruler tool (#89): live-stroke snapping', () => {
     simulateStroke(engine, WOBBLY_FAR_FROM_RULER)
 
     const stroke = engine.getOperations()[1] as StrokeOperation
-    for (const d of stroke.dabs) {
+    for (const d of strokeDabs(stroke)) {
       expect(d.y).not.toBeCloseTo(20, 0)
     }
     // The original wobble survives — it wasn't flattened onto any line.
-    const ys = stroke.dabs.map(d => d.y)
+    const ys = strokeDabs(stroke).map(d => d.y)
     expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(1)
   })
 
@@ -82,7 +83,7 @@ describe('ruler tool (#89): live-stroke snapping', () => {
     simulateStroke(engine, WOBBLY_NEAR_RULER)
 
     const stroke = engine.getOperations()[1] as StrokeOperation
-    const ys = stroke.dabs.map(d => d.y)
+    const ys = strokeDabs(stroke).map(d => d.y)
     // Original wobble preserved, not flattened onto y=20.
     expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThan(1)
   })
@@ -103,8 +104,8 @@ describe('ruler tool (#89): live-stroke snapping', () => {
     ])
 
     const stroke = engine.getOperations()[1] as StrokeOperation
-    expect(stroke.dabs.length).toBeGreaterThan(0)
-    for (const d of stroke.dabs) {
+    expect(strokeDabs(stroke).length).toBeGreaterThan(0)
+    for (const d of strokeDabs(stroke)) {
       expect(d.x).toBeCloseTo(d.y, 4)
     }
   })

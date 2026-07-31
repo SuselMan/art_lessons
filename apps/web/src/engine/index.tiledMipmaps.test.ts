@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { MockGL } from './testing/mockGL'
 import { createTestEngine, fillStroke, layerTileTextures, makeLayerAdd, readCompositePixels } from './testing/engineTestUtils'
-import { COARSE_FACTOR } from './src/tileMath'
+import { COARSE_FACTORS } from './src/tileMath'
 
 function paintedInfiniteEngine() {
   const { engine, canvas } = createTestEngine({ userId: 'user-a', infinite: true }, { width: 64, height: 64 })
@@ -44,8 +44,10 @@ describe('infinite canvas: tile mip chains (#365)', () => {
   })
 
   it('builds them once the camera is zoomed out far enough to shrink tiles', () => {
+    // Above every pyramid level's threshold, so the fine tiles are still what
+    // gets drawn — this is about the mip chain on them, not about the levels.
     const { engine, mock } = paintedInfiniteEngine()
-    engine.setInfiniteCamera(0, 0, 0.25, 0)
+    engine.setInfiniteCamera(0, 0, 0.7, 0)
     readCompositePixels(engine)
 
     const { generations, askingForMips } = mipState(engine, mock)
@@ -58,7 +60,7 @@ describe('infinite canvas: tile mip chains (#365)', () => {
     // per frame would hand back exactly the cost the levels were bought to
     // save.
     const { engine, mock } = paintedInfiniteEngine()
-    engine.setInfiniteCamera(0, 0, 0.25, 0)
+    engine.setInfiniteCamera(0, 0, 0.7, 0)
     readCompositePixels(engine)
     readCompositePixels(engine)
     readCompositePixels(engine)
@@ -70,7 +72,7 @@ describe('infinite canvas: tile mip chains (#365)', () => {
     // The regression this guards: painting while zoomed out must not leave a
     // tile sampling the levels it had before the stroke landed.
     const { engine, mock } = paintedInfiniteEngine()
-    engine.setInfiniteCamera(0, 0, 0.25, 0)
+    engine.setInfiniteCamera(0, 0, 0.7, 0)
     readCompositePixels(engine)
     expect(mipState(engine, mock).generations.every(n => n === 1)).toBe(true)
 
@@ -106,11 +108,13 @@ describe('infinite canvas: tile mip chains (#365)', () => {
   })
 })
 
-// (#365) The draw-call half: below 1/COARSE_FACTOR the composite stops
+// (#365) The draw-call half: once the camera is far enough out the composite stops
 // drawing fine tiles one by one and draws the reduced-resolution level
 // instead. MockGL cannot measure frame time, so what these pin is that the
 // switch happens and that content survives it — a coarse level that quietly
 // rendered nothing would look exactly like a correctly empty canvas.
+const COARSEST = COARSE_FACTORS[COARSE_FACTORS.length - 1]
+
 describe('infinite canvas: coarse tile level (#365)', () => {
   it('still shows painted content once the camera crosses into the coarse level', () => {
     // Content deliberately much larger than the strokes the other tests use.
@@ -121,7 +125,7 @@ describe('infinite canvas: coarse tile level (#365)', () => {
     // this test about the composite choosing and drawing the coarse level.
     const { engine } = paintedInfiniteEngine()
     engine.appendOperation(fillStroke('user-a', 'L', 0, 0, 400))
-    engine.setInfiniteCamera(0, 0, 1 / COARSE_FACTOR / 2, 0)
+    engine.setInfiniteCamera(0, 0, 1 / COARSEST / 2, 0)
 
     const pixels = readCompositePixels(engine)
     expect(pixels[(32 * 64 + 32) * 4 + 3]).toBeGreaterThan(0)
@@ -132,7 +136,7 @@ describe('infinite canvas: coarse tile level (#365)', () => {
     // bought for speed, so the changeover must not creep upward into zooms
     // where the fine tiles are still worth drawing.
     const { engine, mock } = paintedInfiniteEngine()
-    engine.setInfiniteCamera(0, 0, 1 / COARSE_FACTOR + 0.01, 0)
+    engine.setInfiniteCamera(0, 0, 1 / COARSE_FACTORS[0] + 0.01, 0)
     readCompositePixels(engine)
 
     // Fine tiles were sampled, so they carry chains and were asked to use
@@ -144,7 +148,7 @@ describe('infinite canvas: coarse tile level (#365)', () => {
     // The fold runs off writes, not off the camera, so a stroke drawn at low
     // zoom has to reach the coarse level for the frame that shows it.
     const { engine } = paintedInfiniteEngine()
-    engine.setInfiniteCamera(3000, 3000, 1 / COARSE_FACTOR / 2, 0)
+    engine.setInfiniteCamera(3000, 3000, 1 / COARSEST / 2, 0)
     const before = readCompositePixels(engine)
     engine.appendOperation(fillStroke('user-a', 'L', 3000, 3000, 400))
     const after = readCompositePixels(engine)

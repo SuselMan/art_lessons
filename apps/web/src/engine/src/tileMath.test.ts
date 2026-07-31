@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  TILE_SIZE, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToLocal, worldToTile,
-} from './tileMath'
+import { TILE_SIZE, coarseFactorFor, parseTileKey, tileKey, tileWorldRect, tilesOverlappingRect, worldToLocal, worldToTile } from './tileMath'
 
 describe('worldToTile', () => {
   it('maps the origin tile', () => {
@@ -87,5 +85,56 @@ describe('tilesOverlappingRect', () => {
     expect(keys).toEqual([
       tileKey(-1, -1), tileKey(-1, 0), tileKey(0, -1), tileKey(0, 0),
     ].sort())
+  })
+})
+
+// (#365) Which pyramid level a frame draws from. This is the whole fix for
+// the freeze at one specific zoom: with a single level, the band just above
+// its threshold fell back to hundreds of fine tiles that had been evicted
+// while the coarse level was on screen, and recovering them cost an Operation
+// Log replay plus a readback and re-upload each.
+describe('coarseFactorFor', () => {
+  it('leaves the fine tiles in charge until the coarsest level would still be magnified', () => {
+    expect(coarseFactorFor(1)).toBeNull()
+    expect(coarseFactorFor(0.9)).toBeNull()
+    // Exactly at 1/2 the first level is a pixel-for-pixel match, so it takes
+    // over rather than being magnified into place.
+    expect(coarseFactorFor(0.5)).toBe(2)
+    expect(coarseFactorFor(0.51)).toBeNull()
+  })
+
+  it('steps down through the levels as the camera pulls back', () => {
+    expect(coarseFactorFor(0.3)).toBe(2)
+    expect(coarseFactorFor(0.25)).toBe(4)
+    expect(coarseFactorFor(0.126)).toBe(4)
+    expect(coarseFactorFor(0.125)).toBe(8)
+    expect(coarseFactorFor(0.1)).toBe(8)
+  })
+
+  it('never picks a level that has to be magnified', () => {
+    // Magnifying a level means drawing it larger than its own texels, i.e.
+    // visibly soft — the fine tiles would have been the right answer there.
+    for (let scale = 0.1; scale <= 1.0001; scale += 0.005) {
+      const factor = coarseFactorFor(scale)
+      if (factor !== null) expect(factor * scale).toBeLessThanOrEqual(1 + 1e-9)
+    }
+  })
+
+  it('always has a level within a factor of two of 1:1, across the whole reachable zoom range', () => {
+    // The property the pyramid exists for. If some zoom had no level closer
+    // than 2x, that is exactly where the visible tile count would spike and
+    // the freeze would come back. 0.1 is the room's own zoom floor
+    // (cameraMath's minZoom).
+    for (let scale = 0.1; scale <= 0.5; scale += 0.002) {
+      const factor = coarseFactorFor(scale)
+      expect(factor).not.toBeNull()
+      expect(factor! * scale).toBeGreaterThan(0.5 - 1e-9)
+    }
+  })
+
+  it('refuses a nonsensical scale rather than picking something arbitrary', () => {
+    expect(coarseFactorFor(0)).toBeNull()
+    expect(coarseFactorFor(-1)).toBeNull()
+    expect(coarseFactorFor(NaN)).toBeNull()
   })
 })

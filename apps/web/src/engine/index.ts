@@ -38,9 +38,9 @@ import {
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
-import { COARSE_FACTOR, TILE_SIZE, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
+import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
-import { paperCoarsenessOf } from '@grafetto/shared'
+import { packDabs, paperCoarsenessOf, strokeDabs } from '@grafetto/shared'
 import type { PaperCoarseness } from '@grafetto/shared'
 
 export type { HapticGrainStats }
@@ -544,7 +544,11 @@ interface PeerPreviewState {
   // strokes by the same author queued back-to-back, and each should play at
   // whatever rate was requested when *it* was queued, not retroactively
   // affect one already animating — see previewOperation's own doc comment.
-  queue: Array<{ op: StrokeOperation; rate: number }>
+  // (#366) `dabs` is decoded from the operation once, when it joins the
+  // queue — this is walked on every timer tick as the reveal plays out, and
+  // unpacking the whole array per tick would turn a cheap read into real work
+  // proportional to the stroke's length.
+  queue: Array<{ op: StrokeOperation; rate: number; dabs: Dab[] }>
   buf: AccumulationBuffer
   // (#138) World point this buffer's own pixel (0,0) represents — see
   // PencilEngine._cameraCenteredOrigin's doc comment for why this has to be
@@ -1801,7 +1805,7 @@ export class PencilEngine implements PencilEngineAPI {
           // right now (leftover from an unrelated earlier op, or nothing at
           // all) — see StrokeOperation.smudgeLoadAtStart's own comment.
           if (op.tool === 'smudge') this._smudgeSeedReservoir(op.userId, op.smudgeLoadAtStart ?? 0)
-          this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
+          this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
           this._markLayerDirty(op.layerId)
           this._maybeCheckpoint(op.layerId)
           // #122: this branch is only reached for strokes this engine
@@ -2462,7 +2466,7 @@ export class PencilEngine implements PencilEngineAPI {
       state.buf.clear()
       this._peerPreviews.set(op.userId, state)
     }
-    state.queue.push({ op, rate })
+    state.queue.push({ op, rate, dabs: strokeDabs(op) })
     if (state.timer === null) this._startPeerPreviewHead(op.userId)
   }
 
@@ -2523,12 +2527,12 @@ export class PencilEngine implements PencilEngineAPI {
     if (!state) return
     const head = state.queue[0]
     if (!head) return
-    const { op, rate } = head
+    const { op, rate, dabs } = head
 
     const elapsed = (performance.now() - state.startTime) * rate
     const due: Dab[] = []
-    while (state.dabIdx < op.dabs.length && op.dabs[state.dabIdx].t <= elapsed) {
-      due.push(op.dabs[state.dabIdx])
+    while (state.dabIdx < dabs.length && dabs[state.dabIdx].t <= elapsed) {
+      due.push(dabs[state.dabIdx])
       state.dabIdx++
     }
     if (due.length) {
@@ -2538,7 +2542,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._display()
     }
 
-    if (state.dabIdx >= op.dabs.length) {
+    if (state.dabIdx >= dabs.length) {
       this._onPreviewApplied?.(op)
       state.queue.shift()
       state.buf.clear()
@@ -2766,7 +2770,7 @@ export class PencilEngine implements PencilEngineAPI {
         // keeps replay/undo/redo deterministic regardless of processing
         // order or what ran before this op.
         if (op.tool === 'smudge') this._smudgeSeedReservoir(op.userId, op.smudgeLoadAtStart ?? 0)
-        this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
+        this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
         break
       case 'layer_clear':
         buf.clear()
@@ -3789,7 +3793,7 @@ export class PencilEngine implements PencilEngineAPI {
       const op: Operation = {
         id: nanoid(10), type: 'stroke', userId: this._userId,
         layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-        dabs: this._strokeDabs, timestamp: Date.now(),
+        dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
         ...(this._strokeId ? { strokeId: this._strokeId } : {}),
         ...this._smudgeOpLoadFields(),
       }
@@ -4035,7 +4039,7 @@ export class PencilEngine implements PencilEngineAPI {
     const op: Operation = {
       id: nanoid(10), type: 'stroke', userId: this._userId,
       layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-      dabs: this._strokeDabs, timestamp: Date.now(),
+      dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
       ...(this._strokeId ? { strokeId: this._strokeId } : {}),
       ...this._smudgeOpLoadFields(),
     }
@@ -5343,19 +5347,18 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(id)
     if (!buf) return
 
-    // (#365) Far enough out that a fine tile would occupy at most as many
-    // screen pixels as a coarse tile's slot holds texels — from here down,
-    // drawing the fine grid costs COARSE_FACTOR² draw calls per coarse tile
-    // and buys nothing anyone can see. At the room's zoom floor this is the
-    // difference between ~576 draws per layer per frame and ~9.
-    //
-    // Strictly below, not at or below, so the changeover happens where a
-    // coarse tile is still being minified rather than exactly at 1:1 — the
-    // fine level is authoritative and stays in use for as long as it is
-    // worth anything.
-    const coarse = this._compositeScale < 1 / COARSE_FACTOR ? buf.resolveCoarse(viewRect) : null
-    if (coarse) {
-      const { w: coarseW, h: coarseH } = buf.coarseWorldSize
+    // (#365) Which pyramid level this frame should draw, or null for the fine
+    // tiles — see coarseFactorFor. The level is never more than a factor of
+    // two off 1:1, so the visible tile count stays flat (~9-16 per layer)
+    // across the whole zoom range instead of spiking just above a single
+    // level's threshold, which is what made one specific zoom freeze: the
+    // fine tiles it fell back to had been evicted while the coarse level was
+    // on screen, and recovering hundreds of them at once costs an Operation
+    // Log replay plus a readback and re-upload each.
+    const factor = coarseFactorFor(this._compositeScale)
+    const coarse = factor === null ? null : buf.resolveCoarse(viewRect, factor)
+    if (coarse && factor !== null) {
+      const { w: coarseW, h: coarseH } = buf.coarseWorldSize(factor)
       for (const { buffer, originX, originY } of coarse) {
         buffer.setMipSampling(buffer.ensureMipmaps())
         this._drawTileComposite(

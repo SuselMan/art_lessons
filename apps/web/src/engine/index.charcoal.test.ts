@@ -14,6 +14,7 @@
 // tests cover: the right code path is selected, the per-type presets reach the
 // shader, the geometry profile really is a different curve from graphite's, and
 // replay is deterministic.
+import { strokeDabs } from '@grafetto/shared'
 import { describe, expect, it } from 'vitest'
 
 
@@ -126,12 +127,12 @@ describe('charcoal tool (#304, ADR 005)', () => {
     engine.setTool('charcoal')
     engine.setPencil('compressed')
     simulateStroke(engine, PATH_A, { pressure: 1, speed: 1 })
-    const charcoalOpacity = lastStroke(engine).dabs[0].opacity
+    const charcoalOpacity = strokeDabs(lastStroke(engine))[0].opacity
 
     engine.setTool('pencil')
     engine.setPencil('2B')
     simulateStroke(engine, PATH_B, { pressure: 1, speed: 1 })
-    const graphiteOpacity = lastStroke(engine).dabs[0].opacity
+    const graphiteOpacity = strokeDabs(lastStroke(engine))[0].opacity
 
     expect(charcoalOpacity).toBeGreaterThan(graphiteOpacity)
   })
@@ -143,9 +144,9 @@ describe('charcoal tool (#304, ADR 005)', () => {
 
     engine.setTool('charcoal')
     simulateStroke(engine, PATH_A, { pressure: 0 })
-    const charcoalLow = lastStroke(engine).dabs[0].size
+    const charcoalLow = strokeDabs(lastStroke(engine))[0].size
     simulateStroke(engine, PATH_B, { pressure: 1 })
-    const charcoalHigh = lastStroke(engine).dabs[0].size
+    const charcoalHigh = strokeDabs(lastStroke(engine))[0].size
 
     expect(charcoalLow).toBeGreaterThan(0)
     // 0.45 -> 1.05, a ~2.3x swing.
@@ -153,9 +154,9 @@ describe('charcoal tool (#304, ADR 005)', () => {
 
     engine.setTool('pencil')
     simulateStroke(engine, PATH_A.map(p => ({ ...p, y: p.y + 120 })), { pressure: 0 })
-    const pencilLow = lastStroke(engine).dabs[0].size
+    const pencilLow = strokeDabs(lastStroke(engine))[0].size
     simulateStroke(engine, PATH_B.map(p => ({ ...p, y: p.y + 60 })), { pressure: 1 })
-    const pencilHigh = lastStroke(engine).dabs[0].size
+    const pencilHigh = strokeDabs(lastStroke(engine))[0].size
 
     // Graphite's own curve swings over 3x — confirms these are genuinely
     // different curves, not two samples that happen to land close together.
@@ -171,11 +172,11 @@ describe('charcoal tool (#304, ADR 005)', () => {
 
     engine.setTool('charcoal')
     simulateStroke(engine, PATH_A, midTilt)
-    const charcoalAspect = lastStroke(engine).dabs[0].aspectRatio
+    const charcoalAspect = strokeDabs(lastStroke(engine))[0].aspectRatio
 
     engine.setTool('pencil')
     simulateStroke(engine, PATH_B, midTilt)
-    const pencilAspect = lastStroke(engine).dabs[0].aspectRatio
+    const pencilAspect = strokeDabs(lastStroke(engine))[0].aspectRatio
 
     expect(charcoalAspect).toBeGreaterThan(pencilAspect)
     expect(charcoalAspect).toBeGreaterThan(1)
@@ -192,7 +193,7 @@ describe('charcoal tool (#304, ADR 005)', () => {
       const engine = await setupLayer()
       engine.setTool('charcoal')
       simulateStroke(engine, path, tilt)
-      return lastStroke(engine).dabs.at(-1)!
+      return strokeDabs(lastStroke(engine)).at(-1)!
     }
 
     it('walks round -> edge -> broad as the stylus is laid over', async () => {
@@ -225,14 +226,14 @@ describe('charcoal tool (#304, ADR 005)', () => {
       const engine = await setupLayer()
       engine.setTool('pencil')
       simulateStroke(engine, PATH_A, edgeGrip)
-      const a = lastStroke(engine).dabs.map(d => [d.size, d.aspectRatio, d.tiltX, d.tiltY])
+      const a = strokeDabs(lastStroke(engine)).map(d => [d.size, d.aspectRatio, d.tiltX, d.tiltY])
 
       const engine2 = await setupLayer()
       engine2.setTool('pencil')
       simulateStroke(engine2, PATH_A, edgeGrip)
-      expect(engine2 && lastStroke(engine2).dabs.map(d => [d.size, d.aspectRatio, d.tiltX, d.tiltY])).toEqual(a)
+      expect(engine2 && strokeDabs(lastStroke(engine2)).map(d => [d.size, d.aspectRatio, d.tiltX, d.tiltY])).toEqual(a)
       // Unfiltered: a pencil dab's stored tilt is exactly what came in.
-      expect(lastStroke(engine2).dabs.every(d => d.tiltX === edgeGrip.tiltX && d.tiltY === edgeGrip.tiltY)).toBe(true)
+      expect(strokeDabs(lastStroke(engine2)).every(d => d.tiltX === edgeGrip.tiltX && d.tiltY === edgeGrip.tiltY)).toBe(true)
     })
   })
 
@@ -250,7 +251,7 @@ describe('charcoal tool (#304, ADR 005)', () => {
       }
       simulateStrokeEnd(engine, 135, 20, { pressure: 0.7, tiltX: 70, tiltY: 0 })
 
-      const tilts = lastStroke(engine).dabs.map(d => d.tiltX)
+      const tilts = strokeDabs(lastStroke(engine)).map(d => d.tiltX)
       expect(tilts[0]).toBeCloseTo(0, 5)
       // It has to actually be moving toward the new tilt...
       expect(tilts.at(-1)!).toBeGreaterThan(tilts[0])

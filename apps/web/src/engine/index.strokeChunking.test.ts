@@ -13,6 +13,7 @@
 // user (the pointer is still down, the mark is still one continuous
 // visual stroke), just split into more than one Operation/undo step under
 // the hood once it gets this long.
+import { strokeDabs } from '@grafetto/shared'
 import { describe, expect, it } from 'vitest'
 
 import { createTestEngine, makeLayerAdd, paperReady, readLayerPixels, simulateStroke } from './testing/engineTestUtils'
@@ -44,13 +45,13 @@ describe('#(perf) very long strokes are chunked into multiple StrokeOperations',
     for (const op of strokeOps) {
       expect(op.type).toBe('stroke')
       if (op.type !== 'stroke') continue
-      expect(op.dabs.length).toBeLessThanOrEqual(800)
-      totalDabs += op.dabs.length
+      expect(strokeDabs(op).length).toBeLessThanOrEqual(800)
+      totalDabs += strokeDabs(op).length
     }
     // Only the very last chunk is allowed to be short (whatever's left over
     // when the stroke ends) — every other chunk hit the limit exactly.
     for (const op of strokeOps.slice(0, -1)) {
-      if (op.type === 'stroke') expect(op.dabs.length).toBe(800)
+      if (op.type === 'stroke') expect(strokeDabs(op).length).toBe(800)
     }
     expect(totalDabs).toBeGreaterThan(800)
   })
@@ -88,7 +89,7 @@ describe('#(perf) very long strokes are chunked into multiple StrokeOperations',
 
     const strokeOps = chunked.engine.getOperations().filter(op => op.type === 'stroke')
     expect(strokeOps.length).toBeGreaterThan(1) // sanity: this path did chunk
-    const allDabs = strokeOps.flatMap(op => (op.type === 'stroke' ? op.dabs : []))
+    const allDabs = strokeOps.flatMap(op => (op.type === 'stroke' ? strokeDabs(op) : []))
 
     const single = createTestEngine({ userId: 'user-a', size: 4 }, { width: 1200, height: 50 })
     single.engine.appendOperation(makeLayerAdd('user-a', 'L'))
