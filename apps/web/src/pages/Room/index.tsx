@@ -446,6 +446,11 @@ export function Room() {
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(
     () => loadPanelPosition(localStorage, id ?? ''),
   )
+  // Whether that panel's palette flyout is fanned out. Lives here rather than
+  // inside FloatingToolPanel because ChiselAngleDial — a sibling orbiting the
+  // same panel at nearly the same radius — has to stand down while it is
+  // open; see that component's own doc comment.
+  const [paletteFlyoutOpen, setPaletteFlyoutOpen] = useState(false)
   // Desktop keyboard shortcuts (#174) — same load-once-up-front pattern as
   // toolSettings/panelPosition above, but global (per-browser, not per-
   // room): a rebound key is a habit of whoever's typing, not a property of
@@ -3767,6 +3772,8 @@ export function Room() {
           hidden={!uiHidden}
           undoHotkeyLabel={formatHotkeyLabel(hotkeys.undo)}
           redoHotkeyLabel={formatHotkeyLabel(hotkeys.redo)}
+          flyoutOpen={paletteFlyoutOpen}
+          onFlyoutOpenChange={setPaletteFlyoutOpen}
         />
 
         {/* #277/#278: marker chisel-nib angle dial — orbits FloatingToolPanel
@@ -3782,6 +3789,7 @@ export function Room() {
           panelPosition={panelPosition}
           containerRef={editorRef}
           uiHidden={uiHidden}
+          paletteOpen={paletteFlyoutOpen}
         />
 
         {/* #185: visible while the initial content restore (snapshot fetch

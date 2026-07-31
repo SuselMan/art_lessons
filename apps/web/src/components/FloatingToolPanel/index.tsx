@@ -77,6 +77,12 @@ interface Props {
    *  same escape hatch as before this fan existed, for anything beyond the
    *  capped flyout (the rest of the palette, the full HSV picker, etc). */
   onOpenColorPicker: () => void
+  /** Whether the palette flyout is fanned out. Controlled from Room rather
+   *  than kept local because the flyout's rings share the exact annulus
+   *  around this panel that ChiselAngleDial's ring lives in — Room hides
+   *  that dial while this is true, so the two can never overlap. */
+  flyoutOpen: boolean
+  onFlyoutOpenChange: (open: boolean) => void
   roomId: string
   position: PanelPosition | null
   onPositionChange: (position: PanelPosition) => void
@@ -121,10 +127,9 @@ interface Props {
 export function FloatingToolPanel({
   tool, primaryTool, onSetTool, onUndo, onRedo, primaryColor, palette, onSelectColor, onOpenColorPicker,
   roomId, position, onPositionChange, containerRef, hidden,
-  undoHotkeyLabel, redoHotkeyLabel,
+  undoHotkeyLabel, redoHotkeyLabel, flyoutOpen, onFlyoutOpenChange,
 }: Props) {
   const t = useT()
-  const [flyoutOpen, setFlyoutOpen] = useState(false)
   // Mount-then-transition: items first render collapsed onto the panel's
   // center (see the `animateIn` className below), then this flips true one
   // frame later so the CSS `transition: transform` on each item's own
@@ -134,7 +139,7 @@ export function FloatingToolPanel({
   // single one) because a single rAF can still land in the same paint as
   // the initial commit in some browsers, skipping the transition entirely.
   const [animateIn, setAnimateIn] = useState(false)
-  const toggleFlyout = useCallback(() => setFlyoutOpen(o => !o), [])
+  const toggleFlyout = useCallback(() => onFlyoutOpenChange(!flyoutOpen), [flyoutOpen, onFlyoutOpenChange])
 
   useEffect(() => {
     if (!flyoutOpen) { setAnimateIn(false); return }
@@ -175,10 +180,10 @@ export function FloatingToolPanel({
     // comment on why onChange never fires for a plain tap) invalidates
     // whatever sector the flyout fanned out into, so close it rather than
     // leave it pointing at empty space relative to the panel's new spot.
-    setFlyoutOpen(false)
+    onFlyoutOpenChange(false)
     onPositionChange(pos)
     savePanelPosition(localStorage, roomId, pos)
-  }, [onPositionChange, roomId])
+  }, [onFlyoutOpenChange, onPositionChange, roomId])
 
   const { onPointerDown } = useDraggablePosition(measureCurrentPosition(), { onChange: handleChange, clamp })
 
@@ -224,7 +229,7 @@ export function FloatingToolPanel({
           only ever be open while the rest of the chrome is already hidden
           (see this component's own doc comment on the `hidden` prop). */}
       {flyoutOpen && (
-        <div className={styles.flyoutBackdrop} onPointerDown={() => setFlyoutOpen(false)} />
+        <div className={styles.flyoutBackdrop} onPointerDown={() => onFlyoutOpenChange(false)} />
       )}
       <div
         id={PANEL_DOM_ID}
@@ -282,7 +287,7 @@ export function FloatingToolPanel({
                   style={{ background: item.color, transform }}
                   title={item.color}
                   aria-label={t('palette.selectColor', { color: item.color })}
-                  onClick={() => { onSelectColor(hexToRgb(item.color!)); setFlyoutOpen(false) }}
+                  onClick={() => { onSelectColor(hexToRgb(item.color!)); onFlyoutOpenChange(false) }}
                 />
               ) : (
                 <button
@@ -291,7 +296,7 @@ export function FloatingToolPanel({
                   style={{ transform }}
                   title={t('palette.openPicker')}
                   aria-label={t('palette.openPicker')}
-                  onClick={() => { onOpenColorPicker(); setFlyoutOpen(false) }}
+                  onClick={() => { onOpenColorPicker(); onFlyoutOpenChange(false) }}
                 >
                   <Icon name="palette" />
                 </button>
