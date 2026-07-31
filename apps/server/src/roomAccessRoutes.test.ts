@@ -29,10 +29,14 @@ vi.mock('./rooms.js', () => mockRooms)
 const OWNER = 'teacher'
 const ROOM = { id: 'room-1', ownerId: OWNER, accessMode: 'anyone_with_link' as const, passwordHash: null }
 
+// (#227) The live half is injected, so these tests keep running without a
+// socket harness and can still assert that the right person is told.
+const notify = { joinRequestResolved: vi.fn(), kicked: vi.fn() }
+
 function buildApp(userId = OWNER): FastifyInstance {
   const app = Fastify()
   app.addHook('preHandler', async (request) => { request.userId = userId })
-  registerRoomAccessRoutes(app)
+  registerRoomAccessRoutes(app, notify)
   return app
 }
 
@@ -50,6 +54,7 @@ beforeEach(() => {
     for (const fn of Object.values(model)) (fn as ReturnType<typeof vi.fn>).mockReset()
   }
   for (const fn of Object.values(mockRooms)) (fn as ReturnType<typeof vi.fn>).mockClear()
+  for (const fn of Object.values(notify)) fn.mockClear()
 
   mockPrisma.room.findUnique.mockResolvedValue(ROOM)
   mockPrisma.room.update.mockResolvedValue(ROOM)
@@ -224,7 +229,7 @@ describe('invites', () => {
 
   it('inviting someone already in the queue resolves their request too', async () => {
     mockPrisma.roomInvite.upsert.mockResolvedValue({ email: 'bob@example.com', createdAt: new Date() })
-    mockPrisma.roomJoinRequest.findFirst.mockResolvedValue({ id: 'req-1' })
+    mockPrisma.roomJoinRequest.findFirst.mockResolvedValue({ id: 'req-1', userId: 'bob' })
 
     await post(buildApp(), '/api/rooms/room-1/invites', { email: 'bob@example.com' })
 
@@ -234,6 +239,10 @@ describe('invites', () => {
       where: { id: 'req-1' },
       data: expect.objectContaining({ status: 'approved' }),
     }))
+    // (#227) An implicit approval is still an approval, so the person waiting
+    // on the join screen is let in by it rather than left watching a queue
+    // they have already silently left.
+    expect(notify.joinRequestResolved).toHaveBeenCalledWith('room-1', 'bob', true)
   })
 
   it('removes an address from the list, and is fine with one that was already gone', async () => {
@@ -249,26 +258,35 @@ describe('invites', () => {
 })
 
 describe('the queue', () => {
-  it('approves and denies through the same write', async () => {
-    mockPrisma.roomJoinRequest.updateMany.mockResolvedValue({ count: 1 })
+  beforeEach(() => {
+    mockPrisma.roomJoinRequest.findFirst.mockResolvedValue({ id: 'req-1', userId: 'bob' })
+  })
 
+  it('approves and denies through the same write, and tells the asker either way', async () => {
     expect((await post(buildApp(), '/api/rooms/room-1/join-requests/req-1/approve')).json())
       .toEqual({ ok: true, status: 'approved' })
+    expect(notify.joinRequestResolved).toHaveBeenCalledWith('room-1', 'bob', true)
+
     expect((await post(buildApp(), '/api/rooms/room-1/join-requests/req-1/deny')).json())
       .toEqual({ ok: true, status: 'denied' })
+    // Denial is announced too: someone waiting on the join screen deserves an
+    // answer, not a spinner that never resolves.
+    expect(notify.joinRequestResolved).toHaveBeenCalledWith('room-1', 'bob', false)
   })
 
   it('cannot resolve a request belonging to another room', async () => {
-    mockPrisma.roomJoinRequest.updateMany.mockResolvedValue({ count: 0 })
+    mockPrisma.roomJoinRequest.findFirst.mockResolvedValue(null)
 
     const res = await post(buildApp(), '/api/rooms/room-1/join-requests/req-elsewhere/approve')
 
     expect(res.statusCode).toBe(404)
     // The scoping is in the where clause, not in a check that could be
     // forgotten: a request id from another room simply matches nothing here.
-    expect(mockPrisma.roomJoinRequest.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockPrisma.roomJoinRequest.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'req-elsewhere', roomId: 'room-1' },
     }))
+    expect(mockPrisma.roomJoinRequest.update).not.toHaveBeenCalled()
+    expect(notify.joinRequestResolved).not.toHaveBeenCalled()
   })
 })
 
@@ -291,6 +309,10 @@ describe('kick and unkick', () => {
     expect(mockPrisma.roomInvite.deleteMany).toHaveBeenCalledWith({
       where: { roomId: 'room-1', email: 'student@example.com' },
     })
+    // (#227) And out of the room they are sitting in, if they are — a block
+    // that only takes effect on their next reconnect is, mid-lesson, a block
+    // that never takes effect.
+    expect(notify.kicked).toHaveBeenCalledWith('room-1', 'student')
   })
 
   it('skips the invite cleanup for a guest who has no address', async () => {
@@ -311,6 +333,7 @@ describe('kick and unkick', () => {
     expect(res.statusCode).toBe(400)
     expect(res.json()).toEqual({ error: 'cannot_kick_owner' })
     expect(mockPrisma.$transaction).not.toHaveBeenCalled()
+    expect(notify.kicked).not.toHaveBeenCalled()
   })
 
   it('400s without a userId, 404s on someone who does not exist', async () => {

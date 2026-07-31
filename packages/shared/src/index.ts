@@ -799,6 +799,33 @@ export type ServerToClientEvents = {
   // ISO timestamp while closed, null once reopened — the same shape the
   // wire `Room.closedAt` carries.
   room_closed_changed: (data: { closedAt: string | null }) => void
+  // (#227) The three live halves of access control. Everything durable about
+  // it is REST (#226) and every decision is re-made from Postgres on the next
+  // join (#225) — these exist so nobody has to reload a page to find out
+  // something already happened to them.
+  //
+  // Unlike every event above, these are addressed to a *person*, not to a
+  // room: the owner may be looking at their lesson list rather than sitting in
+  // the room, and someone waiting for approval was refused entry and is in no
+  // socket.io room at all. Each socket therefore also joins a channel of its
+  // own userId (see socketHandlers.ts's userChannel), and these are emitted
+  // there — which also means every tab that person has open hears it.
+
+  // Sent to the room's owner when someone asks to be let in. Carries the
+  // request itself so the panel can render the new row without refetching;
+  // `roomId` because an owner with several lessons open needs to know which.
+  join_request_created: (data: { roomId: string; request: RoomJoinRequest }) => void
+  // Sent to the asker once the owner decides — including when the decision was
+  // made implicitly, by inviting the address they were queued under. On
+  // `approved` the client finishes the join it was refused (it re-emits
+  // `join_room`); the server holds nothing open in the meantime, so a client
+  // that missed this event while offline simply gets in on its next attempt.
+  join_request_resolved: (data: { roomId: string; approved: boolean }) => void
+  // Sent to someone being removed from a room they are currently in, right
+  // before the server takes them out of it. Not a disconnect: their connection
+  // stays up so the client can navigate away (and keep working elsewhere)
+  // rather than reconnect into a room it is no longer in.
+  kicked: (data: { roomId: string }) => void
 }
 
 export type ClientToServerEvents = {

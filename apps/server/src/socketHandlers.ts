@@ -4,8 +4,8 @@ import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@gra
 
 import {
   addPaletteColor, createRoom, ensureRoomLoaded, findDuplicateOperation, getOperationRejectReason, getParticipant,
-  getRoomSnapshot, joinRoom, leaveRoom, recordOperation, releaseRoomIfUnused, removePaletteColor, setLayerOwnerLocked,
-  setParticipantFrozen, setRoomFrozen, updateAliveIds,
+  getRoomGate, getRoomSnapshot, joinRoom, leaveRoom, recordOperation, releaseRoomIfUnused, removePaletteColor,
+  setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 import { checkJoinAccess } from './roomAccess.js'
 import { resolveSocketIdentity } from './identity.js'
@@ -28,6 +28,49 @@ const FALLBACK_PARTICIPANT_NAME = 'Guest'
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>
 
+/** (#227) The socket.io room every connection joins for its own user id, so
+ *  access-control events can be addressed to a *person* rather than to a room
+ *  — the owner may be on the lesson list, and someone waiting for approval was
+ *  refused and is in no room at all. Prefixed so it can never collide with a
+ *  real room id (those are nanoids/uuids, never containing a colon).
+ *
+ *  One channel, every tab: someone with the lesson open on a tablet and the
+ *  list open on a laptop is one person, and both should learn they were let
+ *  in. */
+export function userChannel(userId: string): string {
+  return `user:${userId}`
+}
+
+/** (#227) Removes someone from a room they are currently sitting in, as the
+ *  live half of `POST /api/rooms/:id/kick` (#226). The durable half — the
+ *  `RoomBlock` row — is what actually keeps them out; this is what makes it
+ *  happen now rather than at their next reconnect.
+ *
+ *  Deliberately `leave`, not `disconnect`: the block is scoped to one room,
+ *  and their connection is also how they see their lesson list, sign in, or
+ *  open something else. Dropping the whole socket would also have them
+ *  reconnect automatically and re-attempt the room they were just removed
+ *  from, which is a reconnect loop rather than a removal.
+ *
+ *  A no-op for someone who isn't connected, or is connected but somewhere
+ *  else. */
+export async function removeUserFromRoom(io: AppServer, roomId: string, userId: string): Promise<void> {
+  for (const socket of await io.in(userChannel(userId)).fetchSockets()) {
+    if (socket.data.roomId !== roomId) continue
+
+    // Told before being moved, so the client can react to a room it is still
+    // nominally in rather than to having silently stopped receiving anything.
+    socket.emit('kicked', { roomId })
+    void socket.leave(roomId)
+    socket.data.roomId = undefined
+
+    // Same bookkeeping a disconnect does — without it the room keeps a
+    // participant nobody can remove, and never reaches the empty state that
+    // lets it be evicted.
+    if (leaveRoom(roomId, userId, socket.id)) io.to(roomId).emit('peer_left', userId)
+  }
+}
+
 export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): void {
   // Runs once per connection, before 'connection' fires, so every handler
   // below can assume socket.data.userId is already set. Reads the same
@@ -42,6 +85,11 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
 
   io.on('connection', (socket) => {
     log.info({ socketId: socket.id, userId: socket.data.userId }, 'socket connected')
+
+    // (#227) Before any handler runs: this connection is reachable by who it
+    // belongs to, not only by which room it later joins. Everything
+    // access-control has to tell one person travels this way.
+    socket.join(userChannel(socket.data.userId!))
 
     // Registers a brand-new room and seats the caller as its `owner` (#39
     // fix: ownership is now fixed at creation time, not "whoever joins
@@ -94,13 +142,24 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // happen with no yield between them) exactly as it was.
       const access = await checkJoinAccess(roomId, userId, displayName, password)
       if (!access.ok) {
+        // (#227) Someone just joined the queue — tell the owner, wherever they
+        // are, before releasing the room. Emitted to their own channel rather
+        // than into the room: an owner deciding who gets into a lesson is
+        // usually looking at the lesson, not drawing in it.
+        const ownerId = getRoomGate(roomId)?.ownerId
+        if (access.queued && ownerId) {
+          io.to(userChannel(ownerId)).emit('join_request_created', { roomId, request: access.queued })
+        }
         // (#292) The load above just pulled this room into memory, and a
         // rejected join means nobody is in it — without this it would sit
         // there, fully populated, until the process restarted. No-op if
         // anyone else is actually present.
         releaseRoomIfUnused(roomId)
         log.info({ socketId: socket.id, roomId, userId, error: access.error }, 'join_room refused')
-        ack(access)
+        // Only the reason travels back, never `queued`: it is the server's own
+        // bookkeeping, and the asker learns their fate through
+        // `join_request_resolved`, not through the refusal.
+        ack({ ok: false, error: access.error })
         return
       }
 

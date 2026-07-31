@@ -21,6 +21,20 @@ import { hashRoomPassword, setRoomAccessMode, setRoomPassword } from './rooms.js
  *  either way.
  */
 
+/** (#227) The live half, injected rather than reached for — this file knows
+ *  nothing about socket.io, and keeping it that way is what lets
+ *  roomAccessRoutes.test.ts run without a socket harness. Same arrangement as
+ *  roomRoutes.ts's `RoomClosedNotifier`; index.ts supplies the real one.
+ *
+ *  Both are best-effort by design. Every decision they announce is already
+ *  durable by the time they fire, and the join gate re-reads it from Postgres
+ *  on the next attempt — so a notification that reaches nobody (owner offline,
+ *  asker's tab closed) costs a moment of staleness, never access. */
+export type RoomAccessNotifier = {
+  joinRequestResolved: (roomId: string, userId: string, approved: boolean) => void
+  kicked: (roomId: string, userId: string) => void
+}
+
 const ACCESS_MODES: readonly RoomAccessMode[] = ['anyone_with_link', 'invite_only']
 
 // Deliberately loose. This is not a validator for whether mail will arrive —
@@ -59,7 +73,7 @@ async function requireOwnedRoom(
   return { id: room.id, accessMode: room.accessMode, passwordHash: room.passwordHash }
 }
 
-export function registerRoomAccessRoutes(app: FastifyInstance): void {
+export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAccessNotifier): void {
   // Everything the access panel needs to render itself, in one request.
   app.get<{ Params: { id: string } }>('/api/rooms/:id/access', async (request, reply) => {
     const room = await requireOwnedRoom(request, reply)
@@ -173,13 +187,17 @@ export function registerRoomAccessRoutes(app: FastifyInstance): void {
       // on the same person for the same reason.
       const queued = await prisma.roomJoinRequest.findFirst({
         where: { roomId: room.id, status: 'pending', user: { email } },
-        select: { id: true },
+        select: { id: true, userId: true },
       })
       if (queued) {
         await prisma.roomJoinRequest.update({
           where: { id: queued.id },
           data: { status: 'approved', resolvedAt: new Date() },
         })
+        // (#227) An implicit approval is still an approval — the person
+        // waiting on the join screen should be let in by it, not left staring
+        // at a queue they have silently already left.
+        notify?.joinRequestResolved(room.id, queued.userId, true)
       }
 
       return reply.code(201).send({ email: invite.email, invitedAt: invite.createdAt.toISOString() })
@@ -215,11 +233,21 @@ export function registerRoomAccessRoutes(app: FastifyInstance): void {
         const room = await requireOwnedRoom(request, reply)
         if (!room) return reply
 
-        const resolved = await prisma.roomJoinRequest.updateMany({
+        // Read first, scoped to this room, because the answer has to reach a
+        // person: `updateMany` alone would resolve the row without ever saying
+        // whose it was. The scoping stays in the where clause either way — a
+        // request id from another room matches nothing here.
+        const target = await prisma.roomJoinRequest.findFirst({
           where: { id: request.params.requestId, roomId: room.id },
+          select: { id: true, userId: true },
+        })
+        if (!target) return reply.code(404).send({ error: 'not_found' })
+
+        await prisma.roomJoinRequest.update({
+          where: { id: target.id },
           data: { status, resolvedAt: new Date() },
         })
-        if (resolved.count === 0) return reply.code(404).send({ error: 'not_found' })
+        notify?.joinRequestResolved(room.id, target.userId, status === 'approved')
 
         return { ok: true, status }
       },
@@ -263,9 +291,10 @@ export function registerRoomAccessRoutes(app: FastifyInstance): void {
         prisma.roomJoinRequest.deleteMany({ where: { roomId: room.id, userId } }),
       ])
 
-      // Disconnecting them if they are in the room right now is #227's half —
-      // until then a kick takes effect on their next join attempt, which for a
-      // tablet is the next time its connection blips.
+      // (#227) And out of the room they are sitting in, if they are. The block
+      // above is what keeps them out; this is what makes it happen now instead
+      // of at their next reconnect — which, mid-lesson, could be never.
+      notify?.kicked(room.id, userId)
       return { ok: true }
     },
   )

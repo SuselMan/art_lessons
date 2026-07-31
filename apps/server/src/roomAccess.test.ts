@@ -46,7 +46,9 @@ beforeEach(async () => {
   mockPrisma.roomBlock.findUnique.mockResolvedValue(null)
   mockPrisma.roomInvite.findUnique.mockResolvedValue(null)
   mockPrisma.roomJoinRequest.findUnique.mockResolvedValue(null)
-  mockPrisma.roomJoinRequest.upsert.mockResolvedValue({})
+  // (#227) The row is handed back to the caller now, not just written — the
+  // socket handler pushes it to the owner live.
+  mockPrisma.roomJoinRequest.upsert.mockResolvedValue({ id: 'req-1', requestedAt: new Date('2026-07-31T10:00:00Z') })
   mockPrisma.roomParticipant.findUnique.mockResolvedValue(null)
   mockPrisma.user.findUnique.mockResolvedValue({ email: 'student@example.com' })
 })
@@ -141,8 +143,16 @@ describe('checkJoinAccess — invite_only (#225)', () => {
   it('queues everyone else and records what they call themselves', async () => {
     const roomId = makeRoom({ inviteOnly: true })
 
-    expect(await checkJoinAccess(roomId, 'student', 'Alice', undefined))
-      .toEqual({ ok: false, error: 'pending_approval' })
+    // (#227) The written row comes back with the refusal, so the caller can
+    // hand it to the owner without reading it again.
+    expect(await checkJoinAccess(roomId, 'student', 'Alice', undefined)).toEqual({
+      ok: false,
+      error: 'pending_approval',
+      queued: {
+        id: 'req-1', userId: 'student', name: 'Alice',
+        email: 'student@example.com', requestedAt: '2026-07-31T10:00:00.000Z',
+      },
+    })
     expect(mockPrisma.roomJoinRequest.upsert).toHaveBeenCalledWith({
       where: { roomId_userId: { roomId, userId: 'student' } },
       create: { roomId, userId: 'student', name: 'Alice', status: 'pending' },
@@ -165,7 +175,7 @@ describe('checkJoinAccess — invite_only (#225)', () => {
     // owner's queue; re-asking stays possible and stays visible, and the
     // answer to someone who won't take no is a block.
     expect(await checkJoinAccess(roomId, 'student', 'Alice', undefined))
-      .toEqual({ ok: false, error: 'pending_approval' })
+      .toMatchObject({ ok: false, error: 'pending_approval' })
     expect(mockPrisma.roomJoinRequest.upsert).toHaveBeenCalledWith(expect.objectContaining({
       update: { name: 'Alice', status: 'pending', resolvedAt: null },
     }))

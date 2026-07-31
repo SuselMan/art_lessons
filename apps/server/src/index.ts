@@ -12,7 +12,7 @@ import cors from '@fastify/cors'
 import { Server, type DefaultEventsMap } from 'socket.io'
 
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
-import { registerRoomHandlers, type SocketData } from './socketHandlers.js'
+import { registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData } from './socketHandlers.js'
 import { identityHook } from './identity.js'
 import { registerHealthRoutes } from './healthRoutes.js'
 import { registerRateLimit } from './rateLimit.js'
@@ -117,7 +117,18 @@ registerRoomHandlers(io, app.log)
 registerHealthRoutes(app)
 registerAuthRoutes(app)
 registerRoomRoutes(app, (roomId, closedAt) => io.to(roomId).emit('room_closed_changed', { closedAt }))
-registerRoomAccessRoutes(app)
+// (#227) The access endpoints move durable state; these two callbacks are how
+// the people affected find out without reloading. Fire-and-forget on purpose
+// — see RoomAccessNotifier's doc comment for why a missed notification is
+// never a missed decision.
+registerRoomAccessRoutes(app, {
+  joinRequestResolved: (roomId, userId, approved) =>
+    io.to(userChannel(userId)).emit('join_request_resolved', { roomId, approved }),
+  kicked: (roomId, userId) => {
+    void removeUserFromRoom(io, roomId, userId).catch(err =>
+      app.log.error({ err, roomId, userId }, 'failed to remove kicked user from room'))
+  },
+})
 registerRoomFolderRoutes(app)
 registerForkRoutes(app)
 registerSnapshotRoutes(app)

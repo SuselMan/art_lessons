@@ -1,4 +1,4 @@
-import type { JoinDenial } from '@grafetto/shared'
+import type { JoinDenial, RoomJoinRequest } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
 import { checkRoomPassword, getRoomGate } from './rooms.js'
@@ -19,10 +19,16 @@ import { checkRoomPassword, getRoomGate } from './rooms.js'
  */
 
 /** Denials are ordered, and the order is the security-relevant part — see
- *  `checkJoinAccess`. */
+ *  `checkJoinAccess`.
+ *
+ *  (#227) `queued` rides along on the one denial that creates something: the
+ *  request row this call just wrote, so the caller can hand it to the owner
+ *  live without reading it back. Returned rather than emitted from here —
+ *  this module knows nothing about socket.io, and the handler that called it
+ *  does. */
 export type JoinAccessResult =
   | { ok: true }
-  | { ok: false; error: JoinDenial }
+  | { ok: false; error: JoinDenial; queued?: RoomJoinRequest }
 
 /** Decides whether `userId` may join `roomId`, and — in the one case where
  *  the answer is "ask the owner" — records the request as a side effect.
@@ -125,12 +131,20 @@ async function admitToInviteOnlyRoom(
   //
   // `name` is refreshed on every ask so the queue shows what this person calls
   // themselves now, not whatever they typed the first time.
-  await prisma.roomJoinRequest.upsert({
+  const row = await prisma.roomJoinRequest.upsert({
     where: { roomId_userId: { roomId, userId } },
     create: { roomId, userId, name, status: 'pending' },
     update: { name, status: 'pending', resolvedAt: null },
   })
-  // The owner learning about it live is #227's job (join_request_created).
-  // Until that lands the queue is real but only visible on a reload.
-  return { ok: false, error: 'pending_approval' }
+  // (#227) Handed back so the caller can push it to the owner if they are
+  // connected. If they aren't, nothing is lost: the row is the queue, and the
+  // panel reads it on open.
+  return {
+    ok: false,
+    error: 'pending_approval',
+    queued: {
+      id: row.id, userId, name, email,
+      requestedAt: row.requestedAt.toISOString(),
+    },
+  }
 }
