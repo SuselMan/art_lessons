@@ -2041,9 +2041,10 @@ export function Room() {
   // get tapped constantly, so an accidental one is easy.
   const leavePendingRef = useRef(false)
   const leaveRoom = useCallback(async () => {
-    // A second back press (or a tap while the dialog is already up) would
-    // otherwise pre-empt the first dialog, which resolves it as `false` — a
-    // cancel the user never asked for.
+    // A second tap while the dialog is already up would otherwise pre-empt the
+    // first dialog, which resolves it as `false` — a cancel the user never
+    // asked for. (Back can no longer be one of those callers — see the guard
+    // effect below — but the header wordmark and the menu item still can.)
     if (leavePendingRef.current) return
     leavePendingRef.current = true
     try {
@@ -2076,30 +2077,29 @@ export function Room() {
     editorRef.current?.toggleAttribute('data-stroke-active', state.strokeActive)
   }), [])
 
-  // Guards against Chrome's edge-swipe-back gesture kicking the user out of
-  // the room mid-drag (see backNavigationGuard's own comment) — armed only
-  // while this room is actually mounted, so back navigation elsewhere in the
-  // app (/create, /my-lessons) is unaffected.
+  // (#377) Back does nothing while the editor is on screen — Chrome's
+  // edge-swipe-back gesture fires by accident often enough while drawing that
+  // even asking about it is an interruption. The whole mechanism (reverting
+  // the URL, and keeping a spare history entry so there is something to
+  // revert) lives in backNavigationGuard; see its comment. Armed only while
+  // this room is actually mounted, so back navigation elsewhere in the app
+  // (/create, /my-lessons) is unaffected, and leaving stays available through
+  // the header wordmark and the room menu's "Leave".
   //
   // `config` is what says the editor itself is on screen rather than the join
   // gate. Nothing at the gate can trigger the accidental edge-swipe this guard
   // exists for (the draggable controls are all in the editor), and there is no
   // room to be kept in yet — trapping back there would only strand someone who
-  // opened a link they've decided not to follow.
+  // opened a link they've decided not to follow. Depended on as a boolean, not
+  // as the room object: the object's identity changes on every rename and
+  // room_state, and re-running this effect is not free now that arming pushes
+  // a history entry.
+  const editorOnScreen = !!config
   useEffect(() => {
-    if (!config) return
-    setBackNavigationGuard(location.pathname + location.search + location.hash, () => {
-      // The URL is already reverted by the time this runs; what's left is
-      // deciding whether the gesture meant anything. Mid-stroke it did not —
-      // that's the accidental edge-strip trigger this guard exists for, and
-      // popping "leave this room?" over a stroke in progress would turn a
-      // silent non-event into an interruption. Otherwise it's a real back
-      // press, and it gets the same question the header's wordmark asks.
-      if (strokeActiveRef.current) return
-      void leaveRoom()
-    })
+    if (!editorOnScreen) return
+    setBackNavigationGuard(location.pathname + location.search + location.hash)
     return () => setBackNavigationGuard(null)
-  }, [config, location.pathname, location.search, location.hash, leaveRoom])
+  }, [editorOnScreen, location.pathname, location.search, location.hash])
 
   // Eyedropper (#82): consumes the next pointerdown on .eyedropperOverlay
   // (armed only while eyedropperActive) instead of letting it reach the
