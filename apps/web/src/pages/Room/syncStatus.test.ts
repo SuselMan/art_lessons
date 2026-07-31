@@ -11,10 +11,16 @@ describe('syncStatus', () => {
     expect(syncStatus({ connected: true, pending: 1 })).toBe('syncing')
   })
 
-  it('is not saved while the socket is down, even with an empty queue', () => {
+  it('is offline while the socket is down, even with an empty queue', () => {
     // The queue being empty *now* says nothing about the next stroke, and a
     // green "Saved" beside a dead socket is the one lie this indicator must
     // never tell. ConnectionBanner is what explains the reason.
-    expect(syncStatus({ connected: false, pending: 0 })).toBe('syncing')
+    expect(syncStatus({ connected: false, pending: 0 })).toBe('offline')
+  })
+
+  it('reports the connection rather than the queue when both are bad', () => {
+    // "Syncing…" would be the more optimistic of the two and also the false
+    // one: nothing is going anywhere until the socket is back.
+    expect(syncStatus({ connected: false, pending: 4 })).toBe('offline')
   })
 })

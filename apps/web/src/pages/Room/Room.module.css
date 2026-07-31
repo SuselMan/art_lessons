@@ -181,6 +181,9 @@
 .syncStatusBusy { color: var(--color-warning); }
 .syncStatusBusy .syncDot { background: var(--color-warning); }
 
+.syncStatusOffline { color: var(--color-error); }
+.syncStatusOffline .syncDot { background: var(--color-error); }
+
 /* Owner-only: the label is a button that swaps itself for .roomNameInput.
    Padding/border-radius match the input's so nothing shifts on the swap, and
    the hover surface is the only thing announcing it's clickable — a pencil

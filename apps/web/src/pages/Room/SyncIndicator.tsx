@@ -1,8 +1,16 @@
 import clsx from 'clsx'
 
-import { useT } from '../../i18n'
-import { useSyncStatus, type SyncStatusInput } from './syncStatus'
+import { useT, type TranslationKey } from '../../i18n'
+import { useSyncStatus, type SyncStatus, type SyncStatusInput } from './syncStatus'
 import styles from './Room.module.css'
+
+/** One row per state, so adding a fourth is one entry rather than three
+ *  conditionals that can disagree about which state they are in. */
+const PRESENTATION: Record<SyncStatus, { label: TranslationKey; className?: string }> = {
+  saved: { label: 'room.sync.saved' },
+  syncing: { label: 'room.sync.syncing', className: styles.syncStatusBusy },
+  offline: { label: 'room.sync.offline', className: styles.syncStatusOffline },
+}
 
 /** (#376) "Is what I drew on the server?", answered permanently next to the
  *  project's name instead of by a toast that appeared and left again on every
@@ -16,18 +24,16 @@ import styles from './Room.module.css'
  *  exactly the indicator that matters when the connection really does go bad.
  *
  *  The dot carries the state and the word says it; neither is alone, because
- *  colour alone fails anyone who can't distinguish these two. */
+ *  green/amber/red alone fails anyone who can't tell those three apart. */
 export function SyncIndicator(props: SyncStatusInput): React.JSX.Element {
   const t = useT()
   const status = useSyncStatus(props)
+  const { label, className } = PRESENTATION[status]
 
   return (
-    <span
-      className={clsx(styles.syncStatus, status === 'syncing' && styles.syncStatusBusy)}
-      role="status"
-    >
+    <span className={clsx(styles.syncStatus, className)} role="status">
       <span className={styles.syncDot} aria-hidden="true" />
-      {t(status === 'syncing' ? 'room.sync.syncing' : 'room.sync.saved')}
+      {t(label)}
     </span>
   )
 }

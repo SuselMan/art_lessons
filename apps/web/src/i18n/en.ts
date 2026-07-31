@@ -315,6 +315,10 @@ export const en = {
   // SyncIndicator.tsx for why that stopped being a message and became a state.
   'room.sync.saved': 'Saved',
   'room.sync.syncing': 'Syncing…',
+  // Says only that nothing can be sent right now. The reassurance that it is
+  // kept and will go out later is ConnectionBanner's line, and repeating it
+  // here in two words would be a promise too short to be believed.
+  'room.sync.offline': 'No connection',
   'room.connection.stalled': {
     one: '{n} stroke could not be sent yet — it is kept on this device and will be retried.',
     other: '{n} strokes could not be sent yet — they are kept on this device and will be retried.',
