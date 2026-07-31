@@ -23,6 +23,8 @@ import { Icon } from '../../components/Icon'
 import { CardMenu } from '../../components/CardMenu'
 import { TextInput } from '../../components/TextInput'
 import { MoveToDialog } from '../../components/MoveToDialog'
+import { Modal } from '../../components/Modal'
+import { RoomAccessControl } from '../../components/RoomAccessControl'
 import { EmptyState, ErrorState } from '../../components/ListState'
 import styles from './MyLessons.module.css'
 import type { IconName } from '../../icons/iconNames'
@@ -142,6 +144,7 @@ interface RoomCardProps {
   onRenameClick: () => void
   onMoveClick: () => void
   onForkClick: () => void
+  onAccessClick: () => void
   onToggleClosedClick: () => void
   onDeleteOrLeaveClick: () => void
   onConfirmClick: () => void
@@ -150,8 +153,8 @@ interface RoomCardProps {
 
 function RoomCard({
   t, locale, view, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
-  onRenameCancel, busy, onRenameClick, onMoveClick, onForkClick, onToggleClosedClick, onDeleteOrLeaveClick,
-  onConfirmClick, onCancelConfirmClick,
+  onRenameCancel, busy, onRenameClick, onMoveClick, onForkClick, onAccessClick, onToggleClosedClick,
+  onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
 }: RoomCardProps) {
   // (#222) Closed for editing — homework that has been handed out, or a
   // template kept from drifting. Owner-only to toggle; visible to everyone,
@@ -182,8 +185,17 @@ function RoomCard({
             // Only the owner can toggle it, and the server enforces that
             // independently (#222) — hiding the item for everyone else keeps
             // the menu honest rather than offering an action that 403s.
+            // (#229) Access is reachable from the list, not only from inside
+            // the room: inviting a student, or revoking a link that spread
+            // further than intended, is something a teacher does *between*
+            // lessons. Owner-only for the same reason as the toggle below —
+            // the endpoints 403 anyone else, and a menu that offers actions
+            // which fail is a menu that lies.
             ...(isOwnRoom
-              ? [{ label: t(closed ? 'lessons.reopen' : 'lessons.close'), onClick: onToggleClosedClick, disabled: busy }]
+              ? [
+                { label: t('access.title'), onClick: onAccessClick },
+                { label: t(closed ? 'lessons.reopen' : 'lessons.close'), onClick: onToggleClosedClick, disabled: busy },
+              ]
               : []),
             {
               label: t(isOwnRoom ? 'common.delete' : 'lessons.leaveRoom'),
@@ -435,6 +447,9 @@ export function MyLessons() {
   const [renamingItem, setRenamingItem] = useState<ItemRef | null>(null)
   const [renameText, setRenameText] = useState('')
   const [moveTarget, setMoveTarget] = useState<MoveTarget | null>(null)
+  // (#229) The room whose access panel is open, with its name for the modal
+  // title — the panel itself only needs the id.
+  const [accessRoom, setAccessRoom] = useState<{ id: string; name: string } | null>(null)
   // Breadcrumb path from root to the currently open folder — root itself
   // isn't a real RoomFolder (no id), so an empty path means "at root".
   const [path, setPath] = useState<{ id: string; name: string }[]>([])
@@ -708,6 +723,7 @@ export function MyLessons() {
         onRenameClick={() => startRename({ kind: 'room', id: room.id }, room.name)}
         onMoveClick={() => setMoveTarget({ kind: 'room', id: room.id, parentFolderId: room.folderId ?? null })}
         onForkClick={() => forkMutation.mutate({ id: room.id, name: t('lessons.forkedName', { name: room.name }) })}
+        onAccessClick={() => setAccessRoom({ id: room.id, name: room.name })}
         onToggleClosedClick={() => closedMutation.mutate({ id: room.id, closed: room.closedAt === undefined })}
         onDeleteOrLeaveClick={() => setConfirmingId(room.id)}
         onConfirmClick={() => {
@@ -864,6 +880,16 @@ export function MyLessons() {
             {draggingLabel && <div className={styles.dragOverlay}>{draggingLabel}</div>}
           </DragOverlay>
         </DndContext>
+      )}
+
+      {accessRoom && (
+        <Modal
+          title={`${t('access.title')} — ${accessRoom.name}`}
+          size="md"
+          onClose={() => setAccessRoom(null)}
+        >
+          <RoomAccessControl roomId={accessRoom.id} />
+        </Modal>
       )}
 
       {moveTarget && (

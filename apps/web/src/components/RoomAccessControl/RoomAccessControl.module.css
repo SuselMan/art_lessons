@@ -1,0 +1,199 @@
+/* (#228) The panel body only — its hosts supply the box: a Modal from the
+   lesson list's ⋮ (#229), a settings section inside the room (#230). Nothing
+   here sets a width or a background for that reason. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 16px;
+  /* min-height:0 so the panel shrinks and scrolls inside a Modal's flex
+     column instead of pushing the box past its max-height (same trap as
+     MoveToDialog's .folderList). */
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+/* Pending count next to its heading — a number the owner is meant to act on,
+   so it reads as a badge rather than as part of the label. */
+.count {
+  min-width: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  color: var(--color-bg);
+  background: var(--color-warning);
+  border-radius: 9px;
+}
+
+.hint,
+.empty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-dim);
+}
+
+.loading {
+  padding: 24px 16px;
+  font-size: 13px;
+  color: var(--color-text-dim);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The input in a row carries the row: the button beside it stays its own
+   width so it doesn't shrink to its label at narrow widths. */
+.row > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowLabel {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch-target-sm);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.listRow:hover {
+  background: var(--color-surface-2);
+}
+
+/* min-width:0 + ellipsis: an email or a display name is arbitrary length, and
+   it must shorten rather than push the row's buttons off the edge. */
+.person {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13px;
+  color: var(--color-text-bright);
+  overflow: hidden;
+}
+
+.personName,
+.personSub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.personSub {
+  font-size: 11px;
+  color: var(--color-text-dim);
+}
+
+.textButton,
+.textButtonQuiet,
+.textButtonDanger {
+  flex: none;
+  min-height: var(--touch-target-sm);
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+
+.textButton {
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+}
+
+.textButton:not(:disabled):hover {
+  background: var(--color-surface-hover);
+}
+
+/* Deny sits next to approve, and the pair must not read as one decision with
+   two equal buttons — the quiet one is the one that changes nothing lasting. */
+.textButtonQuiet {
+  color: var(--color-text-dim);
+}
+
+.textButtonQuiet:not(:disabled):hover {
+  color: var(--color-text-bright);
+  background: var(--color-surface-2);
+}
+
+.textButtonDanger {
+  color: var(--color-error);
+}
+
+.textButtonDanger:not(:disabled):hover {
+  background: var(--color-surface-2);
+}
+
+.textButton:disabled,
+.textButtonQuiet:disabled,
+.textButtonDanger:disabled {
+  opacity: 0.45;
+}
+
+.iconButton {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-target-sm);
+  height: var(--touch-target-sm);
+  color: var(--color-text-dim);
+  border-radius: var(--radius-sm);
+}
+
+.iconButton:not(:disabled):hover {
+  color: var(--color-text-bright);
+  background: var(--color-surface-hover);
+}
+
+/* Same :global() escape as MoveToDialog: CSS Modules would hash the icon
+   font's own class name and match nothing. Without this the glyphs render at
+   the font's 24px default beside 13px text. */
+.panel :global(.material-symbols-outlined) {
+  flex: none;
+  font-size: 18px;
+}

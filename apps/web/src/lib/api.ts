@@ -1,4 +1,4 @@
-import type { Room, RoomFolder } from '@grafetto/shared'
+import type { Room, RoomAccessInfo, RoomAccessMode, RoomFolder, RoomInvite } from '@grafetto/shared'
 
 // Same-origin: the Vite dev server proxies /api to apps/server (see
 // vite.config.ts) — needed because the dev server runs https (for
@@ -144,6 +144,68 @@ export function forkRoom(id: string, name?: string): Promise<{ room: Room }> {
     method: 'POST',
     body: JSON.stringify({ name }),
   })
+}
+
+// ── Access control (#224–#227 server side, #228 the UI) ───────────────────
+//
+// All owner-only; the server answers 403 to anyone else (roomAccessRoutes.ts),
+// so the UI hides these controls from non-owners as courtesy, not as the
+// enforcement.
+
+/** Everything the access panel renders, in one request — mode, password
+ *  state, allow-list, waiting queue, and everyone who has ever been in the
+ *  room. */
+export function getRoomAccess(roomId: string): Promise<RoomAccessInfo> {
+  return apiFetch<RoomAccessInfo>(`/api/rooms/${roomId}/access`)
+}
+
+/** Changes the mode, the password, or both — the two are independent, and
+ *  omitting one leaves it alone. `password: null` removes it; the server
+ *  rejects an empty string rather than reading it as removal. */
+export function setRoomAccess(
+  roomId: string, changes: { accessMode?: RoomAccessMode; password?: string | null },
+): Promise<{ accessMode: RoomAccessMode; hasPassword: boolean }> {
+  return apiFetch(`/api/rooms/${roomId}/access`, { method: 'PATCH', body: JSON.stringify(changes) })
+}
+
+/** Adds an address to the allow-list. Normalized server-side, so what comes
+ *  back is what to render — not what was typed. */
+export function addRoomInvite(roomId: string, email: string): Promise<RoomInvite> {
+  return apiFetch<RoomInvite>(`/api/rooms/${roomId}/invites`, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+}
+
+export function removeRoomInvite(roomId: string, email: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>(`/api/rooms/${roomId}/invites/${encodeURIComponent(email)}`, { method: 'DELETE' })
+}
+
+/** Answers someone waiting in the queue. The person hears it live over the
+ *  socket if they still have the join screen open (`join_request_resolved`,
+ *  #227) — this call's own response only confirms the write. */
+export function resolveJoinRequest(
+  roomId: string, requestId: string, approved: boolean,
+): Promise<{ ok: true; status: string }> {
+  const action = approved ? 'approve' : 'deny'
+  return apiFetch(`/api/rooms/${roomId}/join-requests/${requestId}/${action}`, { method: 'POST' })
+}
+
+/** Removes someone from the room for good: writes the block the join gate
+ *  checks first, drops their invite and any approval, and — if they are in
+ *  the room at this moment — takes them out of it (#227). */
+export function kickFromRoom(roomId: string, userId: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>(`/api/rooms/${roomId}/kick`, {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  })
+}
+
+/** Undoes a kick. Gives back the right to enter for someone who had been in
+ *  the room before, and the right to ask again for someone who never got past
+ *  the queue — see roomAccessRoutes.ts for why those differ. */
+export function unblockFromRoom(roomId: string, userId: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>(`/api/rooms/${roomId}/blocks/${userId}`, { method: 'DELETE' })
 }
 
 // (#211 epic, #215) Folder-scoped browsing — only the direct children of one

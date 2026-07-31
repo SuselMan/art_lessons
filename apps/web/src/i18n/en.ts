@@ -162,6 +162,53 @@ export const en = {
   'lessons.reopen': 'Reopen for editing',
   'lessons.closedBadge': 'Closed',
   'lessons.leaveRoom': 'Leave project',
+
+  // (#228, release track §6) Access control — who may enter one project. The
+  // same strings serve the panel wherever it is mounted: the lesson list's ⋮
+  // (#229) and the project's own settings (#230).
+  'access.title': 'Access',
+  'access.modeHeading': 'Who can join',
+  'access.mode.anyoneWithLink': 'Anyone with the link',
+  'access.mode.anyoneWithLinkHint': 'The link is the key — anyone who has it can open this project.',
+  'access.mode.inviteOnly': 'Only people you invite',
+  'access.mode.inviteOnlyHint':
+    'Only invited addresses get in. Anyone else can ask, and waits for you to let them in.',
+  'access.passwordHeading': 'Password',
+  // Said explicitly because it is the one setting people expect to replace
+  // the mode rather than sit beside it.
+  'access.passwordSet': 'A password is set — asked in either mode.',
+  'access.passwordPlaceholder': 'Set a password (optional)',
+  'access.passwordSave': 'Set',
+  'access.passwordRemove': 'Remove',
+  'access.invitesHeading': 'Invited',
+  'access.invitesEmpty': 'Nobody is invited yet.',
+  'access.invitesInactiveHint':
+    'The project is open to anyone with the link, so this list changes nothing until you switch above.',
+  'access.invitePlaceholder': 'Email address',
+  'access.inviteAdd': 'Invite',
+  'access.inviteRemove': 'Remove from the list',
+  'access.requestsHeading': 'Waiting',
+  'access.requestsEmpty': 'Nobody is waiting.',
+  'access.approve': 'Let in',
+  'access.deny': 'Not now',
+  'access.participantsHeading': 'Been in this project',
+  'access.participantsEmpty': 'Nobody has opened this project yet.',
+  'access.unnamedParticipant': 'Unnamed',
+  'access.you': 'You',
+  'access.revoke': 'Revoke access',
+  // The second click of the in-row confirmation — deliberately says what
+  // happens rather than "yes", since it sits where the first button was.
+  'access.revokeConfirm': 'Remove from the project',
+  'access.revoked': 'Access revoked',
+  'access.restore': 'Restore access',
+  'access.error.load': 'Could not load the access settings',
+  'access.error.mode': 'Could not change who can join',
+  'access.error.password': 'Could not change the password',
+  'access.error.invite': 'Could not send the invite',
+  'access.error.inviteInvalid': "That doesn't look like an email address",
+  'access.error.uninvite': 'Could not remove the invite',
+  'access.error.request': 'Could not answer the request',
+  'access.error.block': 'Could not change access for that person',
   'lessons.ownerYou': 'You',
   'lessons.ownerUnknown': 'Unknown owner',
   'lessons.confirmDelete': 'Delete permanently for everyone?',
