@@ -5,7 +5,7 @@ import type { TranslationKey } from '../../i18n/en'
 // exports the React hooks, which pull in the settings store's localStorage
 // read — this test needs only the pure lookup.
 import { translate } from '../../i18n/translate'
-import { describeJoinError } from './joinError'
+import { describeJoinError, joinGateStateFor } from './joinError'
 
 // (#208) The mapping is reason-code → translation key → text now, so it's
 // exercised through a real locale rather than against hardcoded English.
@@ -40,5 +40,20 @@ describe('describeJoinError', () => {
   it('resolves in every locale, not only the one it was written in', () => {
     expect(describeJoinError('not_found', ru)).not.toBe('')
     expect(describeJoinError('not_found', ru)).not.toBe(describeJoinError('not_found', en))
+  })
+})
+
+describe('joinGateStateFor (#231)', () => {
+  it('turns the three access-control answers into their own screens', () => {
+    expect(joinGateStateFor('login_required')).toBe('login')
+    expect(joinGateStateFor('pending_approval')).toBe('pending')
+    expect(joinGateStateFor('access_revoked')).toBe('revoked')
+  })
+
+  it('leaves the two the form can still fix on the form', () => {
+    // Re-typing is the fix for one and a better link for the other — both
+    // belong next to the field, not on a screen that replaces it.
+    expect(joinGateStateFor('wrong_password')).toBeNull()
+    expect(joinGateStateFor('not_found')).toBeNull()
   })
 })

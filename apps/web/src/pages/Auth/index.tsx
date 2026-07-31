@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import clsx from 'clsx'
 import { ApiError, requestLoginCode, verifyLoginCode } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
@@ -40,8 +40,25 @@ function describeError(err: unknown, step: Step, t: TFunction): string {
   return t(step === 'email' ? 'auth.error.requestFailed' : 'auth.error.verifyFailed')
 }
 
+/** (#231) Where to land after signing in. Defaults to the lesson list, which
+ *  is where signing in unprompted should end up; `?next=` overrides it for the
+ *  one flow that sends people here mid-task — an invite-only room telling a
+ *  guest they need an account (JoinGate). Landing them in an empty lesson
+ *  list would have cost them the room link they arrived with.
+ *
+ *  Only same-origin paths are honoured, and `//host` is rejected along with
+ *  everything else that isn't a single leading slash: a `next` that could name
+ *  another origin turns this into an open redirect, and this page is exactly
+ *  the kind (post-sign-in) that phishing looks for. */
+function safeNextPath(next: string | null): string | null {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null
+  return next
+}
+
 export function Auth() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const returnPath = () => safeNextPath(searchParams.get('next')) ?? '/my-lessons'
   const { refetch } = useAuth()
   const t = useT()
   const locale = useLocale()
@@ -110,7 +127,7 @@ export function Auth() {
     try {
       await verifyLoginCode(email.trim(), trimmed)
       await refetch()
-      navigate('/my-lessons')
+      navigate(returnPath())
     } catch (err) {
       setError(describeError(err, 'code', t))
       // A refused code is re-typed, not edited: leaving it in place means the

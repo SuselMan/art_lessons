@@ -10,6 +10,26 @@ import type { TFunction } from '../../i18n'
 
 export type JoinFailureReason = Extract<JoinResult, { ok: false }>['error']
 
+/** (#231) Which of the server's refusals replace the join form with a screen
+ *  of their own, and which stay as an error under the field that can still
+ *  fix them. The split is not cosmetic: nothing typed into the form changes
+ *  "you were blocked" or "the owner hasn't answered yet", so leaving the form
+ *  up invites re-submitting it forever.
+ *
+ *  Kept here, next to the message mapping, so both readings of a reason live
+ *  in one place — and testable without mounting the page. */
+export function joinGateStateFor(reason: JoinFailureReason): 'login' | 'pending' | 'revoked' | null {
+  switch (reason) {
+    case 'login_required': return 'login'
+    case 'pending_approval': return 'pending'
+    case 'access_revoked': return 'revoked'
+    // A wrong password is re-typed; a room that isn't there is a bad link.
+    // Both belong next to the form.
+    case 'wrong_password':
+    case 'not_found': return null
+  }
+}
+
 export function describeJoinError(reason: JoinFailureReason, t: TFunction): string {
   switch (reason) {
     case 'not_found':

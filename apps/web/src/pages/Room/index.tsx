@@ -54,7 +54,7 @@ import { resolveDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
 import { ZOOM_MAX, clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
-import { describeJoinError } from './joinError'
+import { describeJoinError, joinGateStateFor } from './joinError'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { isLocalIslandSafe } from './optimism'
 import {
@@ -69,7 +69,7 @@ import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
-import { JoinGate } from './JoinGate'
+import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
   getToolColor, isColorCapableTool, toolSizeRange, type ColorCapableTool,
@@ -79,6 +79,7 @@ import { ChiselAngleDial } from './ChiselAngleDial'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { fetchLatestSnapshot, walkHistoryBackward, type RestoredSnapshot } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
+import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import type { PrimaryDrawingTool } from '../../stores/slices/toolSlice'
@@ -873,6 +874,12 @@ export function Room() {
   const [joinPassword,   setJoinPassword]   = useState('')
   const [joinError,      setJoinError]      = useState<string | null>(null)
   const [joinSubmitting, setJoinSubmitting] = useState(false)
+  // (#231) Which screen the gate is showing. Three of the server's refusals
+  // are states of the person rather than problems with the form — there is
+  // nothing to re-type when the answer is "you were blocked" or "the owner
+  // hasn't answered yet" — so they replace the form instead of appearing as
+  // an error under it. See JoinGateState.
+  const [joinState,      setJoinState]      = useState<JoinGateState>('form')
 
   const activeCfg = toolSettings[tool]
 
@@ -2929,6 +2936,36 @@ export function Room() {
       dispatchParticipants({ type: 'participant_frozen_changed', userId, frozen })
     }
 
+    // (#227/#231) The owner answered someone waiting on the join screen. On
+    // approval the gate finishes the join it was refused — the person is
+    // already sitting in front of the screen, and making them press a button
+    // to accept being let in would be asking them to confirm the thing they
+    // asked for. A denial just changes what the screen says; the server lets
+    // them ask again, and the screen offers exactly that.
+    //
+    // Ignored once we're in: the room is already open, and a stale resolution
+    // arriving after a reconnect must not restart the join.
+    const handleJoinRequestResolved = ({ approved }: { roomId: string; approved: boolean }) => {
+      if (hasJoinedRef.current) return
+      if (approved) retryJoinRef.current()
+      else setJoinState('denied')
+    }
+
+    // (#227) Removed from this room while sitting in it. The server has
+    // already taken this socket out of the room, so nothing sent from here
+    // will be accepted from now on — say so, rather than letting the next
+    // stroke fail as an unexplained sync error.
+    //
+    // Deliberately does not close the editor or navigate: what should happen
+    // to the canvas someone is looking at when they lose access to it — and
+    // to whatever they had not finished sending — is its own decision, not
+    // one to make silently inside an event handler. The notice is the part
+    // that is unambiguous.
+    const handleKicked = () => {
+      hasJoinedRef.current = false
+      notifyError(tRef.current('room.kicked'), { key: 'kicked', durationMs: null })
+    }
+
     socket.on('connect',                    handleConnect)
     socket.on('room_state',                 handleRoomState)
     socket.on('operation_confirmed',        handleOperationConfirmed)
@@ -2938,6 +2975,8 @@ export function Room() {
     socket.on('room_frozen_changed',        handleRoomFrozenChanged)
     socket.on('room_closed_changed',        handleRoomClosedChanged)
     socket.on('participant_frozen_changed', handleParticipantFrozenChanged)
+    socket.on('join_request_resolved',      handleJoinRequestResolved)
+    socket.on('kicked',                     handleKicked)
     socket.on('disconnect',                 handleDisconnect)
 
     return () => {
@@ -2955,22 +2994,26 @@ export function Room() {
   // entered name + optional password. Kept separate from the socket-wiring
   // effect above so it can run any time after the socket exists, in response
   // to a user action rather than a connection lifecycle event.
-  const handleJoinSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = joinName.trim()
-    if (!trimmed) { setJoinError(t('join.error.nameRequired')); return }
+  const attemptJoin = useCallback((name: string, password: string | undefined) => {
     if (!id) return
 
     setJoinError(null)
     setJoinSubmitting(true)
-    const password = joinPassword || undefined
-    lastJoinAttemptRef.current = { name: trimmed, password }
+    lastJoinAttemptRef.current = { name, password }
     socketRef.current?.emit(
       'join_room',
-      { roomId: id, name: trimmed, password, lastKnownSeq: latestKnownSeqRef.current || undefined },
+      { roomId: id, name, password, lastKnownSeq: latestKnownSeqRef.current || undefined },
       result => {
         setJoinSubmitting(false)
-        if (!result.ok) { setJoinError(describeJoinError(result.error, t)); return }
+        if (!result.ok) {
+          // (#231) Some refusals are screens, not errors under the form —
+          // see joinGateStateFor for which and why.
+          const state = joinGateStateFor(result.error)
+          if (state) { setJoinState(state); return }
+          setJoinState('form')
+          setJoinError(describeJoinError(result.error, t))
+          return
+        }
         hasJoinedRef.current = true
         applyIdentity(result.userId)
         // (#298) Only now may the outbox drain — see its canSend gate.
@@ -2979,7 +3022,39 @@ export function Room() {
         // unmounts the gate in favor of the editor.
       },
     )
-  }, [id, joinName, joinPassword, applyIdentity, outbox, t])
+  }, [id, applyIdentity, outbox, t])
+
+  // Submits the join gate's form. The name is validated here rather than in
+  // `attemptJoin`, which is also called with credentials already known good
+  // (a retry after approval — see joinRequestResolvedRef).
+  const handleJoinSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = joinName.trim()
+    if (!trimmed) { setJoinError(t('join.error.nameRequired')); return }
+    attemptJoin(trimmed, joinPassword || undefined)
+  }, [joinName, joinPassword, attemptJoin, t])
+
+  /** (#231) Asks again with whatever was entered last — from the "ask again"
+   *  button after a denial, from "try again" once signed in elsewhere, and
+   *  automatically when the owner approves. */
+  const retryJoin = useCallback(() => {
+    const last = lastJoinAttemptRef.current
+    const name = last?.name ?? joinName.trim()
+    if (!name) { setJoinState('form'); return }
+    attemptJoin(name, last?.password)
+  }, [joinName, attemptJoin])
+
+  // Read by the socket effect's `join_request_resolved` listener, which is
+  // registered once per connection and must not re-subscribe every time this
+  // callback's identity changes (its effect rebuilds the whole socket).
+  const retryJoinRef = useRef(retryJoin)
+  retryJoinRef.current = retryJoin
+
+  // Same reason as `retryJoinRef`: `t` changes identity when the reader
+  // switches language, and listing it as a dependency of the socket effect
+  // would tear the connection down and rebuild it on a language switch.
+  const tRef = useRef(t)
+  tRef.current = t
 
   // ── keyboard shortcuts (#174: bindings come from the `hotkeys` registry
   // loaded above, not hardcoded here — see lib/hotkeys.ts) ─────────────────
@@ -3113,6 +3188,7 @@ export function Room() {
     return (
       <JoinGate
         roomName={null}
+        state={joinState}
         name={joinName}
         onNameChange={setJoinName}
         password={joinPassword}
@@ -3120,6 +3196,10 @@ export function Room() {
         error={joinError}
         submitting={joinSubmitting}
         onSubmit={handleJoinSubmit}
+        onRetry={retryJoin}
+        // Back to this room after signing in — the link they arrived with is
+        // the only thing they have, and the lesson list would not contain it.
+        returnTo={`/room/${id ?? ''}`}
       />
     )
   }

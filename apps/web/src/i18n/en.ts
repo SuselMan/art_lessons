@@ -250,6 +250,13 @@ export const en = {
   'join.passwordPlaceholder': 'Leave blank if none',
   'join.submit': 'Join project',
   'join.submitting': 'Joining…',
+  // (#231) The screens that replace the form when the answer is about the
+  // person rather than about what they typed.
+  'join.signIn': 'Sign in',
+  'join.tryAgain': "I've signed in — try again",
+  'join.waiting': 'Waiting for an answer…',
+  'join.denied': 'The host has not let you in this time. You can ask again.',
+  'join.askAgain': 'Ask again',
   'join.error.nameRequired': 'Name is required',
   'join.error.notFound': "This project doesn't exist. Check the link, or ask the host to create it.",
   'join.error.wrongPassword': 'Wrong password — try again.',
@@ -327,6 +334,11 @@ export const en = {
   // everyone else wants a copy of their own to work in.
   'room.closedOwner': 'This project is closed for editing — including for you.',
   'room.closedMember': 'This project is closed for editing.',
+  // (#227/#231) Removed from the project while in it. Stays up until
+  // dismissed: the next thing this person tries to draw will not be saved,
+  // and a notice that faded after four seconds would leave them working into
+  // a room that no longer accepts it.
+  'room.kicked': 'The host has removed your access to this project. Nothing you draw from now on will be saved.',
   'room.reopen': 'Reopen',
   'room.takeCopy': 'Take a copy',
   'room.error.rename': 'Could not rename the project',
