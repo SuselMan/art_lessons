@@ -802,9 +802,25 @@
   background: var(--color-bg, #0d0d10);
 }
 
+/* (#379) A link, matching Auth's wordmark rule for rule — same hover and
+   focus affordances, because a mark that navigates is only discoverable if
+   it reacts, and the mark's own brand colors are fixed (see components/Logo)
+   so the feedback has to be opacity. Height stays 28px rather than adopting
+   --app-logo-h: this page sizes its wordmark smaller on purpose. */
 .gateLogo {
+  display: flex;
+  align-items: center;
   height: 28px;
   margin-bottom: 40px;
+  border-radius: var(--radius-sm);
+  transition: opacity var(--duration-fast);
+}
+
+.gateLogo:hover { opacity: 0.75; }
+
+.gateLogo:focus-visible {
+  outline: 2px solid var(--color-accent-hover);
+  outline-offset: 4px;
 }
 
 .gateCard {

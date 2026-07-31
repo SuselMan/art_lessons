@@ -1,4 +1,6 @@
 import clsx from 'clsx'
+import { Link } from 'react-router-dom'
+
 import { useT } from '../../i18n'
 import { Logo } from '../../components/Logo'
 import styles from './Room.module.css'
@@ -25,7 +27,11 @@ export function JoinGate({
   const t = useT()
   return (
     <div className={styles.gatePage}>
-      <div className={styles.gateLogo}><Logo /></div>
+      {/* (#379) Leads home, like the wordmark on every other page. It was the
+          one copy that didn't, and this is the screen where it matters most:
+          a student arriving on a room link has this page and nothing else,
+          so the wordmark is their only visible way into the app. */}
+      <Link className={styles.gateLogo} to="/" aria-label="Grafetto"><Logo /></Link>
 
       <form className={styles.gateCard} onSubmit={onSubmit} noValidate>
         <h1 className={styles.gateHeading}>
