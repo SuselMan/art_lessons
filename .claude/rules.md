@@ -204,3 +204,13 @@ already, can use bare numbers; a handle there is welcome but not required.
 
 This holds for the *first* mention in a given message. Repeating the same issue
 three lines later can drop back to the bare number.
+
+Checked mechanically since 2026-07-31: `.claude/hooks/issue-handles.mjs` reads
+the reply that just went out and, if a first mention has no `(handle)` after
+it, leaves a note that reaches the assistant on its next turn. A warning, not
+a block — the message goes out as written and the habit is corrected from
+there. Code, inline backticks and URLs are excluded, so
+`issues/314#issuecomment-…` and a commit message quoted in a fence don't
+trigger it. The hook exists because the rule above was in this file, was read,
+and was still broken repeatedly across one long session: the failure mode is
+drift, which more prose does not fix.
