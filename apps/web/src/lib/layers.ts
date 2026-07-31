@@ -115,23 +115,47 @@ function clampIndex(index: number, length: number): number {
 
 /** Inserts an id into a container, honoring the reserved bottom slot of the
  *  background layer when targeting the root. */
+/** Places `id` at `index`, and nowhere else.
+ *
+ *  An id must appear exactly once across `rootOrder` and every folder's
+ *  `children` — it is a position, not a count. This used to splice blindly,
+ *  which held only as long as no operation was ever folded in twice. On
+ *  2026-07-31 that stopped being true (see rooms.ts's isCoveredBySnapshot):
+ *  a restored room replayed a years-old `layer_merge` on top of a layerState
+ *  that already contained its result, and the layer appeared twice in the
+ *  panel — then three times, gaining a row per reload, since the corrupted
+ *  order was itself uploaded and restored from.
+ *
+ *  Stripping first makes a repeated fold idempotent instead of cumulative.
+ *  The real fix was to stop replaying those operations at all, but this is the
+ *  invariant that should have made it a no-op rather than visible corruption,
+ *  and it still covers the case that fix cannot: a snapshot landing between a
+ *  client's room_state and its own snapshot fetch, leaving it restoring
+ *  structure one boundary newer than the server filtered against. */
 function insertAt(state: LayerState, items: LayerState['items'], rootOrder: string[],
   id: string, parentId: string | null, index: number): LayerState {
+  const strip = (ids: string[]): string[] => ids.filter(existing => existing !== id)
+  const cleanedItems = Object.fromEntries(Object.entries(items).map(([key, item]) =>
+    isFolder(item) && item.children.includes(id)
+      ? [key, { ...item, children: strip(item.children) }]
+      : [key, item]))
+  const cleanedRoot = strip(rootOrder)
+
   if (parentId) {
-    const folder = items[parentId]
+    const folder = cleanedItems[parentId]
     if (folder && isFolder(folder)) {
       const children = [...folder.children]
       children.splice(clampIndex(index, children.length), 0, id)
-      return { ...state, items: { ...items, [parentId]: { ...folder, children } }, rootOrder }
+      return { ...state, items: { ...cleanedItems, [parentId]: { ...folder, children } }, rootOrder: cleanedRoot }
     }
     // target folder vanished from history — fall back to root top
-    return { ...state, items, rootOrder: [id, ...rootOrder] }
+    return { ...state, items: cleanedItems, rootOrder: [id, ...cleanedRoot] }
   }
-  const order = [...rootOrder]
+  const order = [...cleanedRoot]
   const bg = order.indexOf(BACKGROUND_LAYER_ID)
   const at = clampIndex(index, order.length)
   order.splice(bg >= 0 ? Math.min(at, bg) : at, 0, id)
-  return { ...state, items, rootOrder: order }
+  return { ...state, items: cleanedItems, rootOrder: order }
 }
 
 function applyMove(state: LayerState, op: LayerMoveOperation): LayerState {

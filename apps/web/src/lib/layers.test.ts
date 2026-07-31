@@ -351,3 +351,84 @@ describe('isEffectivelyVisible', () => {
     expect(isEffectivelyVisible(stateOf({}, []), 'gone')).toBe(false)
   })
 })
+
+// An id is a position in the order, not a count: it must appear exactly once
+// across rootOrder and every folder's children. Nothing enforced that until
+// 2026-07-31, when a restored room replayed a `layer_merge` whose result the
+// stored layerState already held, and the layer showed up twice in the panel —
+// then three times, gaining a row per reload, because the corrupted order was
+// itself uploaded and restored from. Visibility and opacity applied to every
+// copy at once, since all of them were the same layer.
+describe('an id never appears twice in the order', () => {
+  const occurrences = (state: LayerState, id: string): number =>
+    state.rootOrder.filter(x => x === id).length
+    + Object.values(state.items).reduce(
+      (n, item) => n + (item.kind === 'folder' ? item.children.filter(x => x === id).length : 0), 0)
+
+  const merge = (overrides: Partial<LayerMergeOperation> = {}): LayerMergeOperation => ({
+    ...baseOp, type: 'layer_merge', layerId: 'merged', name: 'Merged',
+    sources: [{ id: 'a', opacity: 1 }], parentId: null, index: 0, ...overrides,
+  })
+
+  it('re-applying a merge whose result is already present does not add a second row', () => {
+    const base = stateOf(
+      { merged: layer('merged'), b: layer('b'), background: layer(BACKGROUND_LAYER_ID) },
+      ['b', 'merged', BACKGROUND_LAYER_ID],
+    )
+
+    const once = applyContentOp(base, merge())
+    const twice = applyContentOp(once, merge())
+
+    expect(occurrences(once, 'merged')).toBe(1)
+    expect(occurrences(twice, 'merged')).toBe(1)
+  })
+
+  // The shape actually seen in production: the same operation folded in on
+  // every reload, each one leaving another row behind.
+  it('stays at one however many times the operation is replayed', () => {
+    let state = stateOf(
+      { merged: layer('merged'), background: layer(BACKGROUND_LAYER_ID) },
+      ['merged', BACKGROUND_LAYER_ID],
+    )
+    for (let i = 0; i < 5; i++) state = applyContentOp(state, merge())
+
+    expect(occurrences(state, 'merged')).toBe(1)
+    expect(state.rootOrder.filter(id => id === 'merged')).toHaveLength(1)
+  })
+
+  // layer_add carries its own guard (`if (state.items[id]) return state`), which
+  // is why only merges ever duplicated. Pinned so the two paths cannot drift.
+  it('re-applying a layer_add does not add a second row either', () => {
+    const base = stateOf({ a: layer('a'), background: layer(BACKGROUND_LAYER_ID) }, ['a', BACKGROUND_LAYER_ID])
+    const op: LayerAddOperation = { ...baseOp, type: 'layer_add', layerId: 'a', name: 'A' }
+
+    expect(occurrences(applyContentOp(base, op), 'a')).toBe(1)
+  })
+
+  // The result of a merge can already be sitting inside a folder — someone
+  // moved it there after the merge, and now the merge is being folded in
+  // again. It has to come out of the folder rather than exist in both places.
+  it('does not leave a copy behind in a folder the result had been moved into', () => {
+    const base = stateOf(
+      { f: folder('f', ['merged']), merged: layer('merged'), background: layer(BACKGROUND_LAYER_ID) },
+      ['f', BACKGROUND_LAYER_ID],
+    )
+
+    const next = applyContentOp(base, merge())
+
+    expect(occurrences(next, 'merged')).toBe(1)
+    expect(next.rootOrder).toContain('merged')
+    expect((next.items.f as LayerFolder).children).not.toContain('merged')
+  })
+
+  it('keeps the merge landing where the operation asked for it', () => {
+    const base = stateOf(
+      { x: layer('x'), y: layer('y'), background: layer(BACKGROUND_LAYER_ID) },
+      ['x', 'y', BACKGROUND_LAYER_ID],
+    )
+
+    const next = applyContentOp(base, merge({ index: 1, sources: [{ id: 'x', opacity: 1 }] }))
+
+    expect(next.rootOrder).toEqual(['y', 'merged', BACKGROUND_LAYER_ID])
+  })
+})
