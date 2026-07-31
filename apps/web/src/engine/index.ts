@@ -325,6 +325,11 @@ export interface PencilEngineAPI {
   // caller's job (Room's snapshot orchestration), not the engine's — the
   // engine only knows about one layer at a time.
   bakeNetworkSnapshot(layerId: string): Uint8Array | null
+  // (#373) Whether this layer holds pixels the server does not have — what
+  // lets a bake carry only the layers that changed instead of re-reading every
+  // layer in the room. False for a layer nobody has ever painted, so an
+  // untouched `background` never costs a readback.
+  isLayerDirty(layerId: string): boolean
   // (#169) Restores a layer's pixel content wholesale from a downloaded
   // network snapshot — the layer must already exist (via initLayer) with an
   // empty buffer; this is the fast-join counterpart to a live stroke replay,
@@ -1409,6 +1414,18 @@ export class PencilEngine implements PencilEngineAPI {
   // (#374) layerId -> the room seq this layer's restored pixels reach. Written
   // only by restoreLayerFromSnapshot, read only by _isCoveredByRestore.
   private readonly _snapshotCoverage = new Map<string, number>()
+  // (#373) Monotonic per-layer "the pixels changed" counter, and the value it
+  // held when this layer's current pixels last became known to the server.
+  // Equal means there is nothing new to send.
+  //
+  // A counter rather than a comparison of the log: undo changes pixels without
+  // adding an operation, and "undid one, drew one" leaves every count in the
+  // log exactly where it was. Bumped by `_markLayerDirty` from every path that
+  // can change a layer's pixels — `index.snapshotDirty.test.ts` exists to hold
+  // that list complete, since a path that forgets to bump produces a snapshot
+  // that is silently stale rather than one that is obviously missing.
+  private readonly _layerRevision = new Map<string, number>()
+  private readonly _bakedRevision = new Map<string, number>()
   private _compositeOrder: CompositeItem[]
   private _activeId: string | null
   private _locked: boolean
@@ -1734,6 +1751,7 @@ export class PencilEngine implements PencilEngineAPI {
         }
         if (clearBuf) {
           clearBuf.clear()
+          this._markLayerDirty(op.layerId)
           // #122: a remote layer_clear (or this client's own, via clear())
           // can target any layer, not necessarily this client's active one —
           // only invalidate when it lands on a layer the cache actually
@@ -1784,6 +1802,7 @@ export class PencilEngine implements PencilEngineAPI {
           // all) — see StrokeOperation.smudgeLoadAtStart's own comment.
           if (op.tool === 'smudge') this._smudgeSeedReservoir(op.userId, op.smudgeLoadAtStart ?? 0)
           this._paintDabs(buf, op.dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
+          this._markLayerDirty(op.layerId)
           this._maybeCheckpoint(op.layerId)
           // #122: this branch is only reached for strokes this engine
           // instance didn't itself just paint (remote peer strokes, or
@@ -1808,6 +1827,7 @@ export class PencilEngine implements PencilEngineAPI {
           break
         }
         if (buf) {
+          this._markLayerDirty(op.layerId)
           this._paintImage(buf, op).then(() => this._maybeCheckpoint(op.layerId))
             .catch(err => console.error('failed to paint imported image', err))
         } else {
@@ -1835,6 +1855,7 @@ export class PencilEngine implements PencilEngineAPI {
           // genuinely still applies to.
           if (this._isCoveredByRestore(t.layerId, op.seq)) { appliedAny = true; continue }
           this._bakeTransform(buf, t.matrix)
+          this._markLayerDirty(t.layerId)
           this._maybeCheckpoint(t.layerId)
           // #122: layer_transform is pixel-only — it never changes
           // LayerState/_compositeOrder, so (unlike stroke/clear/merge) Room
@@ -2682,6 +2703,10 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(layerId)
     if (!buf) return
     this._replayInto(buf, layerId, this._log.layerPixelOps(layerId))
+    // (#373) The single choke point for undo/redo/revoke reaching pixels —
+    // the case a comparison of log counts cannot see, since undoing one
+    // operation and drawing another leaves every count where it was.
+    this._markLayerDirty(layerId)
     // #122: single choke point for all three callers (undo/redo/revoke of a
     // stroke/layer_clear/layer_transform, and _syncBuffersToLog's own replay
     // of a freshly-recreated layer) — whichever layer this rebuild just
@@ -2938,6 +2963,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (buf) this._compositeLayerInto(buf, target, s.opacity)
     }
     this._layers.set(op.layerId, target)
+    this._markLayerDirty(op.layerId)
     for (const s of op.sources) this._destroyBuffer(s.id)
     this._takeCheckpoint(op.layerId)
     this._displayIfNotSuspended()
@@ -3079,12 +3105,22 @@ export class PencilEngine implements PencilEngineAPI {
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
     const buf = this._layers.get(layerId)
     if (!buf) return null
-    const ops = this._log.layerPixelOps(layerId)
-    if (!ops.length) return null
+    // (#373) Content is judged from the buffer, never from the log. It used to
+    // bail on `layerPixelOps(layerId).length === 0`, reading "no operations of
+    // mine mention this layer" as "this layer is empty" — but the log is a
+    // bounded window (HISTORY_BACKFILL_DEPTH), so a layer whose strokes had
+    // scrolled out of it, or that was restored from a snapshot rather than
+    // painted, looked empty while holding a full drawing. It was then left out
+    // of the snapshot entirely, and the next client to restore that snapshot
+    // saw a blank layer. That is #369, and this line is where it started.
     const tiles = buf.allResident().map(({ buffer, originX, originY }) => ({
       originX, originY, width: buffer.width, height: buffer.height, pixels: buffer.readPixels(),
     }))
     if (!tiles.length) return null
+    // (#373) Whatever the caller does with these bytes, this layer's current
+    // pixels have now left the engine — anything that changes them after this
+    // point is what makes it dirty again.
+    this._bakedRevision.set(layerId, this._layerRevision.get(layerId) ?? 0)
     return encodeLayerTiles(tiles)
   }
 
@@ -3153,7 +3189,31 @@ export class PencilEngine implements PencilEngineAPI {
       buf.restoreTileContent(rect, t.pixels)
     }
     if (coveredSeq !== undefined) this._snapshotCoverage.set(layerId, coveredSeq)
+    // (#373) These pixels *are* what the server already stores, so the layer
+    // is marked changed (it is — the buffer was empty a moment ago) and
+    // immediately marked as known to the server. Otherwise every joining
+    // client would re-bake and re-upload the whole room it just downloaded.
+    this._markLayerDirty(layerId)
+    this._bakedRevision.set(layerId, this._layerRevision.get(layerId)!)
     this._pinSnapshotCheckpoint(layerId, tiles)
+  }
+
+  /** (#373) Records that this layer's pixels changed. Cheap enough to call
+   *  from anywhere that might have changed them, and that is how it should be
+   *  called — the cost of an unnecessary bump is one redundant bake, the cost
+   *  of a missing one is a stored snapshot that quietly no longer matches the
+   *  layer it claims to be. */
+  private _markLayerDirty(layerId: string): void {
+    this._layerRevision.set(layerId, (this._layerRevision.get(layerId) ?? 0) + 1)
+  }
+
+  /** (#373) Whether this layer holds pixels the server does not have.
+   *
+   *  A layer nobody has ever painted is not dirty, which is why a room's
+   *  untouched `background` never costs a bake. */
+  isLayerDirty(layerId: string): boolean {
+    const revision = this._layerRevision.get(layerId) ?? 0
+    return revision !== 0 && revision !== this._bakedRevision.get(layerId)
   }
 
   /** (#374) Whether this layer's restored pixels already account for an
@@ -3863,6 +3923,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (!dabs.length || !this._strokeLayerId) return
     const buf = this._layers.get(this._strokeLayerId)
     if (!buf) return
+    this._markLayerDirty(this._strokeLayerId)
 
     this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
     for (const dab of dabs) dab.t = elapsedMs

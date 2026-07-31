@@ -103,13 +103,26 @@ export function createSnapshotUploader(roomId: string) {
       // label — and a later client restoring it would then double-paint
       // whatever tailOperations re-applies on top. Only the CPU-only
       // compression + upload past this point is safe to let run async.
+      // (#373) Only the layers whose pixels actually changed. This used to
+      // read every layer of the room, which is a full GPU readback each —
+      // 34.8 MB per layer on an A4 canvas, synchronously, every
+      // SNAPSHOT_SEQ_INTERVAL operations. That is work proportional to how
+      // much the room *contains* rather than to how much just happened, and it
+      // is what made a hundred-layer room impossible rather than merely slow.
+      //
+      // Leaving a layer out is not a loss of anything: its stored coverage
+      // simply does not advance, so the server keeps serving its operations
+      // (rooms.ts's isCoveredBySnapshot). That property is what makes this
+      // optimisation safe to make at all, and it is the whole point of #370.
       const layers = new Map<string, Uint8Array>()
       for (const item of Object.values(layerState.items)) {
-        if (item.kind !== 'layer') continue
+        if (item.kind !== 'layer' || !engine.isLayerDirty(item.id)) continue
         const baked = engine.bakeNetworkSnapshot(item.id)
         if (baked) layers.set(item.id, baked)
       }
-      if (layers.size > 0) void uploadSnapshot(roomId, boundarySeq, layerState, layers)
+      // The structure is uploaded even when no layer changed — a rename or a
+      // reorder is a real change with no pixels behind it.
+      void uploadSnapshot(roomId, boundarySeq, layerState, layers)
 
       // #210: independent of the layer-snapshot path above (fires even if
       // layers.size was 0 — a blank room still gets a thumbnail attempt,

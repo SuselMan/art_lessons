@@ -28,12 +28,17 @@ function layerState(overrides: Partial<LayerState> = {}): LayerState {
   }
 }
 
+/** (#373) `dirty` defaults to "every layer named in bakeResults" — the layers
+ *  this fake has content for are exactly the ones a real engine would have
+ *  painted. Pass it explicitly to exercise the dirty gate itself. */
 function fakeEngine(
   bakeResults: Record<string, Uint8Array | null>,
   exportPNGResult: Blob | null = null,
+  dirty: string[] = Object.keys(bakeResults),
 ): { engine: PencilEngineAPI; bakeCalls: string[] } {
   const bakeCalls: string[] = []
   const engine = {
+    isLayerDirty: (layerId: string) => dirty.includes(layerId),
     bakeNetworkSnapshot: (layerId: string) => {
       bakeCalls.push(layerId)
       return bakeResults[layerId] ?? null
@@ -41,6 +46,12 @@ function fakeEngine(
     exportPNG: async () => exportPNGResult,
   } as unknown as PencilEngineAPI
   return { engine, bakeCalls }
+}
+
+type FetchCall = [string, RequestInit & { body: string }]
+
+function fetchCallsTo(path: string): FetchCall[] {
+  return (global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) => url === path) as FetchCall[]
 }
 
 const originalFetch = global.fetch
@@ -103,14 +114,38 @@ describe('createSnapshotUploader', () => {
     expect(global.fetch).toHaveBeenCalledTimes(1)
   })
 
-  it('skips the upload entirely when no layer has any pixel content yet', async () => {
+  // (#373) A boundary with no changed layer still carries the structure — a
+  // rename or a reorder is a real change with no pixels behind it — but it
+  // reads nothing back off the GPU to do so.
+  it('uploads structure alone when no layer changed, without baking any', async () => {
     const uploader = createSnapshotUploader('room-1')
-    const { engine } = fakeEngine({}) // every bakeNetworkSnapshot call returns null
+    const { engine, bakeCalls } = fakeEngine({ background: new Uint8Array([1]) }, null, [])
 
     uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
-    await new Promise(resolve => setTimeout(resolve, 0))
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
 
-    expect(global.fetch).not.toHaveBeenCalled()
+    expect(bakeCalls).toEqual([])
+    const body = JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body)
+    expect(body.layers).toEqual({})
+    expect(body.layerState).toEqual(layerState())
+  })
+
+  it('bakes only the layers whose pixels changed', async () => {
+    const uploader = createSnapshotUploader('room-1')
+    const { engine, bakeCalls } = fakeEngine(
+      { background: new Uint8Array([9]), 'layer-1': new Uint8Array([1, 2]) },
+      null,
+      ['layer-1'],
+    )
+
+    uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+
+    // The untouched layer is never read back — that readback is the whole cost
+    // this exists to avoid.
+    expect(bakeCalls).toEqual(['layer-1'])
+    const body = JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body)
+    expect(Object.keys(body.layers)).toEqual(['layer-1'])
   })
 
   it('swallows a failed upload rather than throwing', async () => {
@@ -139,10 +174,6 @@ describe('createSnapshotUploader', () => {
   })
 
   describe('thumbnail (#210)', () => {
-    function fetchCallsTo(path: string): unknown[][] {
-      return (global.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(([url]) => url === path)
-    }
-
     it('also uploads a downscaled thumbnail on the same boundary crossing', async () => {
       const fullExport = new Blob(['full-composite'])
       const thumbnail = new Blob(['downscaled'])
@@ -154,7 +185,7 @@ describe('createSnapshotUploader', () => {
       await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/thumbnail')).toHaveLength(1))
 
       expect(downscaleForThumbnail).toHaveBeenCalledWith(fullExport)
-      const [, init] = fetchCallsTo('/api/rooms/room-1/thumbnail')[0] as [string, RequestInit & { body: string }]
+      const [, init] = fetchCallsTo('/api/rooms/room-1/thumbnail')[0]
       expect(init.method).toBe('POST')
       expect(init.credentials).toBe('include')
       const body = JSON.parse(init.body)
@@ -176,7 +207,10 @@ describe('createSnapshotUploader', () => {
       uploader.onSeqObserved(SNAPSHOT_SEQ_INTERVAL - 1, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
       await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/thumbnail')).toHaveLength(1))
 
-      expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0)
+      // (#373) The snapshot upload still goes out, carrying structure and no
+      // layers — the two are independent, which is the point of this test.
+      const body = JSON.parse(fetchCallsTo('/api/rooms/room-1/snapshots')[0][1].body)
+      expect(body.layers).toEqual({})
     })
 
     it('skips the thumbnail upload (without throwing) when exportPNG resolves null', async () => {
