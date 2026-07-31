@@ -36,14 +36,22 @@ function readStdin() {
 }
 
 /** Everything a bare `#123` can hide inside without being a reference to
- *  issue 123: fenced and inline code, and URLs — `issues/314#issuecomment-…`
- *  is a link, not a mention, and flagging it would train the reader to
- *  ignore this hook. */
+ *  issue 123: fenced and inline code, URLs — `issues/314#issuecomment-…` is a
+ *  link, not a mention — and quoted spans.
+ *
+ *  Quotes earned their place immediately: this hook's own announcement was
+ *  flagged, because explaining it meant quoting «остаётся #230, упирается в
+ *  #321» as the example of what it catches. A rule about how to address the
+ *  reader does not govern text being shown *to* the reader as a specimen, and
+ *  every false positive spends the credibility that makes the true ones
+ *  worth reading. */
 function stripNonProse(text) {
   return text
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/`[^`\n]*`/g, ' ')
     .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/«[^»\n]*»/g, ' ')
+    .replace(/“[^”\n]*”/g, ' ')
 }
 
 /** Issue numbers whose *first* mention has no handle after it. The rule only
