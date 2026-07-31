@@ -7,8 +7,8 @@ import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { StrokeOperation } from '@grafetto/shared'
 
 import {
-  _flushPendingWrites, createRoom, getLatestSnapshot, getOperationsBefore, getRoomSnapshot, joinRoom, leaveRoom,
-  recordOperation, saveSnapshot,
+  _flushPendingWrites, createRoom, getCoveredSeq, getLatestSnapshot, getOperationsBefore, getRoomSnapshot, joinRoom,
+  leaveRoom, recordOperation, saveSnapshot,
 } from './rooms.js'
 
 // rooms.test.ts deliberately runs with no real Postgres — every DB call it
@@ -23,12 +23,17 @@ import {
 // below, which need to assert *whether* deleteMany fired — a fire-and-forget
 // call rooms.test.ts's plain style has no way to observe.
 const mockPrisma = vi.hoisted(() => ({
-  roomSnapshot: {
+  roomLayerSnapshot: {
     create: vi.fn(),
+    createMany: vi.fn(),
     findUnique: vi.fn(),
-    findFirst: vi.fn(),
     findMany: vi.fn(),
     deleteMany: vi.fn(),
+    groupBy: vi.fn(),
+  },
+  roomLayerState: {
+    findUnique: vi.fn(),
+    upsert: vi.fn(),
   },
   operation: {
     deleteMany: vi.fn(),
@@ -61,16 +66,22 @@ function stroke(id: string): StrokeOperation {
 
 const gzippedPayload = gzipSync(Buffer.from('fake tile pixels'))
 
+/** (#371) The upload shape: layerId -> one gzipped encodeLayerTiles payload. */
+function layers(...layerIds: string[]): Map<string, Uint8Array> {
+  return new Map(layerIds.map(layerId => [layerId, gzippedPayload]))
+}
+
 beforeEach(() => {
-  mockPrisma.roomSnapshot.create.mockReset()
-  mockPrisma.roomSnapshot.findUnique.mockReset()
-  mockPrisma.roomSnapshot.findFirst.mockReset()
+  mockPrisma.roomLayerSnapshot.create.mockReset()
+  mockPrisma.roomLayerSnapshot.findUnique.mockReset()
+  // (#292) saveSnapshot fires deleteSupersededSnapshots — default these to
+  // "this layer has one snapshot, nothing to prune" so the tests about saving
+  // stay unaffected by retention.
+  mockPrisma.roomLayerSnapshot.findMany.mockReset().mockResolvedValue([])
+  mockPrisma.roomLayerSnapshot.deleteMany.mockReset().mockResolvedValue({ count: 0 })
+  mockPrisma.roomLayerState.findUnique.mockReset().mockResolvedValue(null)
+  mockPrisma.roomLayerState.upsert.mockReset().mockResolvedValue({})
   mockPrisma.operation.deleteMany.mockReset().mockResolvedValue({ count: 0 })
-  // (#292) saveSnapshot now fires deleteSupersededSnapshots — default these
-  // to "room has one snapshot, nothing to prune" so the tests above, which
-  // are about saving rather than retention, stay unaffected by it.
-  mockPrisma.roomSnapshot.findMany.mockReset().mockResolvedValue([])
-  mockPrisma.roomSnapshot.deleteMany.mockReset().mockResolvedValue({ count: 0 })
 })
 
 afterEach(() => {
@@ -80,49 +91,94 @@ afterEach(() => {
 describe('saveSnapshot', () => {
   it('rejects a seq that is not a multiple of SNAPSHOT_SEQ_INTERVAL', async () => {
     const roomId = makeRoom()
-    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL + 1, {}, gzippedPayload)
+    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL + 1, {}, layers('layer-1'))
     expect(result).toEqual({ ok: false, error: 'not_a_checkpoint_seq' })
-    expect(mockPrisma.roomSnapshot.create).not.toHaveBeenCalled()
+    expect(mockPrisma.roomLayerSnapshot.create).not.toHaveBeenCalled()
   })
 
   it('rejects an unknown room without touching Postgres', async () => {
-    const result = await saveSnapshot('never-created', SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)
+    const result = await saveSnapshot('never-created', SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
     expect(result).toEqual({ ok: false, error: 'unknown_room' })
-    expect(mockPrisma.roomSnapshot.create).not.toHaveBeenCalled()
+    expect(mockPrisma.roomLayerSnapshot.create).not.toHaveBeenCalled()
   })
 
-  it('stores a first upload and bumps the room latestSnapshotSeq', async () => {
+  it('stores a first upload and advances that layer coveredSeq', async () => {
     const roomId = makeRoom()
-    mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
 
-    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { rootOrder: [] }, gzippedPayload)
+    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { rootOrder: [] }, layers('layer-1'))
 
-    expect(result).toEqual({ ok: true, created: true })
-    expect(getRoomSnapshot(roomId)?.latestSnapshotSeq).toBe(SNAPSHOT_SEQ_INTERVAL)
-    expect(mockPrisma.roomSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ roomId, seq: SNAPSHOT_SEQ_INTERVAL }),
+    expect(result).toEqual({ ok: true, created: ['layer-1'], duplicated: [], mismatched: [] })
+    expect(getCoveredSeq(roomId, 'layer-1')).toBe(SNAPSHOT_SEQ_INTERVAL)
+    expect(mockPrisma.roomLayerSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ roomId, layerId: 'layer-1', seq: SNAPSHOT_SEQ_INTERVAL }),
     }))
   })
 
-  it('silently dedups a duplicate upload when SNAPSHOT_VERIFY_DETERMINISM is off', async () => {
+  // The point of the epic: a bake carries the layers that changed, and a layer
+  // left out keeps whatever coverage it already had rather than being read as
+  // empty (#369).
+  it('leaves an unmentioned layer uncovered instead of inferring anything', async () => {
     const roomId = makeRoom()
-    mockPrisma.roomSnapshot.create.mockRejectedValueOnce({ code: 'P2002' })
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
 
-    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
 
-    expect(result).toEqual({ ok: true, created: false, hashMismatch: false })
-    expect(mockPrisma.roomSnapshot.findUnique).not.toHaveBeenCalled()
+    expect(getCoveredSeq(roomId, 'layer-1')).toBe(SNAPSHOT_SEQ_INTERVAL)
+    expect(getCoveredSeq(roomId, 'layer-2')).toBeUndefined()
+  })
+
+  it('stores several layers in one upload, each as its own row', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
+
+    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1', 'layer-2'))
+
+    expect(result.ok && result.created).toEqual(['layer-1', 'layer-2'])
+    expect(mockPrisma.roomLayerSnapshot.create).toHaveBeenCalledTimes(2)
+  })
+
+  it('accepts an upload carrying no layers at all — structure alone still lands', async () => {
+    const roomId = makeRoom()
+
+    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { rootOrder: ['a'] }, new Map())
+
+    expect(result).toEqual({ ok: true, created: [], duplicated: [], mismatched: [] })
+    expect(mockPrisma.roomLayerSnapshot.create).not.toHaveBeenCalled()
+    expect(mockPrisma.roomLayerState.upsert).toHaveBeenCalled()
+  })
+
+  it('silently dedups a duplicate layer when SNAPSHOT_VERIFY_DETERMINISM is off', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomLayerSnapshot.create.mockRejectedValueOnce({ code: 'P2002' })
+
+    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
+
+    expect(result).toEqual({ ok: true, created: [], duplicated: ['layer-1'], mismatched: [] })
+    expect(mockPrisma.roomLayerSnapshot.findUnique).not.toHaveBeenCalled()
+  })
+
+  // A duplicate proves the row exists at this seq just as well as a fresh
+  // insert does — a room that re-entered memory with rows already stored would
+  // otherwise under-claim its own coverage.
+  it('advances coveredSeq on a duplicate too, not only on a fresh insert', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomLayerSnapshot.create.mockRejectedValueOnce({ code: 'P2002' })
+
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
+
+    expect(getCoveredSeq(roomId, 'layer-1')).toBe(SNAPSHOT_SEQ_INTERVAL)
   })
 
   it('flags a hash mismatch on a duplicate when SNAPSHOT_VERIFY_DETERMINISM is on', async () => {
     process.env.SNAPSHOT_VERIFY_DETERMINISM = 'true'
     const roomId = makeRoom()
-    mockPrisma.roomSnapshot.create.mockRejectedValueOnce({ code: 'P2002' })
-    mockPrisma.roomSnapshot.findUnique.mockResolvedValueOnce({ hash: 'a-completely-different-hash' })
+    mockPrisma.roomLayerSnapshot.create.mockRejectedValueOnce({ code: 'P2002' })
+    mockPrisma.roomLayerSnapshot.findUnique.mockResolvedValueOnce({ hash: 'a-completely-different-hash' })
 
-    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)
+    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
 
-    expect(result).toEqual({ ok: true, created: false, hashMismatch: true })
+    expect(result).toEqual({ ok: true, created: [], duplicated: ['layer-1'], mismatched: ['layer-1'] })
   })
 
   it('does not flag a mismatch when the duplicate really is byte-identical', async () => {
@@ -131,32 +187,119 @@ describe('saveSnapshot', () => {
     // Same payload both times -> saveSnapshot computes the same sha256 the
     // "already stored" row is stubbed to have.
     const matchingHash = createHash('sha256').update(gunzipSync(gzippedPayload)).digest('hex')
-    mockPrisma.roomSnapshot.create.mockRejectedValueOnce({ code: 'P2002' })
-    mockPrisma.roomSnapshot.findUnique.mockResolvedValueOnce({ hash: matchingHash })
+    mockPrisma.roomLayerSnapshot.create.mockRejectedValueOnce({ code: 'P2002' })
+    mockPrisma.roomLayerSnapshot.findUnique.mockResolvedValueOnce({ hash: matchingHash })
 
-    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)
+    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
 
-    expect(result).toEqual({ ok: true, created: false, hashMismatch: false })
+    expect(result).toEqual({ ok: true, created: [], duplicated: ['layer-1'], mismatched: [] })
   })
 
   it('re-throws a non-duplicate error instead of swallowing it', async () => {
     const roomId = makeRoom()
-    mockPrisma.roomSnapshot.create.mockRejectedValueOnce(new Error('connection reset'))
+    mockPrisma.roomLayerSnapshot.create.mockRejectedValueOnce(new Error('connection reset'))
 
-    await expect(saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)).rejects.toThrow('connection reset')
+    await expect(saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1')))
+      .rejects.toThrow('connection reset')
+  })
+})
+
+// (#371) layerState is one row per room, last write wins — it no longer has to
+// travel atomically with pixels, since every operation that changes it is
+// structural and structural operations are resident for a room's whole life.
+describe('saveSnapshot — stored layerState', () => {
+  it('upserts the structure at the seq it was baked for', async () => {
+    const roomId = makeRoom()
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { rootOrder: ['a'] }, new Map())
+
+    expect(mockPrisma.roomLayerState.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      where: { roomId },
+      create: { roomId, seq: SNAPSHOT_SEQ_INTERVAL, state: { rootOrder: ['a'] } },
+      update: { seq: SNAPSHOT_SEQ_INTERVAL, state: { rootOrder: ['a'] } },
+    }))
+  })
+
+  // Uploads from several clients race by nature, and an older one landing last
+  // must not walk the room's structure backward.
+  it('ignores an out-of-order arrival older than what is already stored', async () => {
+    const roomId = makeRoom()
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL * 2, { rootOrder: ['new'] }, new Map())
+    mockPrisma.roomLayerState.upsert.mockClear()
+
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { rootOrder: ['old'] }, new Map())
+
+    expect(mockPrisma.roomLayerState.upsert).not.toHaveBeenCalled()
   })
 })
 
 describe('getLatestSnapshot', () => {
-  it('returns null when the room has no snapshot yet', async () => {
-    mockPrisma.roomSnapshot.findFirst.mockResolvedValueOnce(null)
+  it('returns null when the room has no stored structure yet', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce(null)
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([])
     expect(await getLatestSnapshot(makeRoom())).toBeNull()
   })
 
-  it('passes through the stored row', async () => {
-    const row = { seq: SNAPSHOT_SEQ_INTERVAL, layerState: { rootOrder: ['a'] }, data: gzippedPayload }
-    mockPrisma.roomSnapshot.findFirst.mockResolvedValueOnce(row)
-    expect(await getLatestSnapshot(makeRoom())).toEqual(row)
+  it('returns the stored structure with each layer newest row', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce({ seq: 200, state: { rootOrder: ['a'] } })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([
+      { layerId: 'layer-1', seq: 200, data: gzippedPayload },
+      { layerId: 'layer-1', seq: 100, data: gzippedPayload },
+      { layerId: 'layer-2', seq: 100, data: gzippedPayload },
+    ])
+
+    const snapshot = await getLatestSnapshot(makeRoom())
+
+    expect(snapshot?.seq).toBe(200)
+    expect(snapshot?.layerState).toEqual({ rootOrder: ['a'] })
+    expect(snapshot?.layers).toEqual([
+      { layerId: 'layer-1', seq: 200, data: gzippedPayload },
+      { layerId: 'layer-2', seq: 100, data: gzippedPayload },
+    ])
+  })
+
+  // A layer in the structure with no stored pixels is ordinary — it is rebuilt
+  // from its operations alone. Treating that absence as "the layer is empty" is
+  // precisely what lost content in #369.
+  it('reports a structure whose layers have no stored pixels at all', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce({ seq: 100, state: { rootOrder: ['a'] } })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([])
+
+    const snapshot = await getLatestSnapshot(makeRoom())
+
+    expect(snapshot?.seq).toBe(100)
+    expect(snapshot?.layers).toEqual([])
+  })
+})
+
+// (#371) The room-wide floor is gone from the join path. It used to withhold
+// every operation at or below `latestSnapshotSeq`, which is how a layer missing
+// from a bundle lost its content: no pixels, and no history either.
+describe('getRoomSnapshot — no room-wide snapshot floor', () => {
+  it('hands a fresh joiner the whole tail even once snapshots exist', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, stroke('a'))
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
+
+    expect(getRoomSnapshot(roomId)?.tailOperations.map(o => o.id)).toEqual(['a'])
+  })
+
+  it('still trims to what a reconnecting client says it already has', async () => {
+    const roomId = makeRoom()
+    recordOperation(roomId, stroke('a'))
+    recordOperation(roomId, stroke('b'))
+
+    expect(getRoomSnapshot(roomId, 1)?.tailOperations.map(o => o.id)).toEqual(['b'])
+  })
+
+  // Advertising one would have a client restore pixels and then replay the very
+  // operations that produced them. Restored per-layer by #374.
+  it('advertises no whole-room snapshot to restore from', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
+
+    expect(getRoomSnapshot(roomId)?.latestSnapshotSeq).toBeNull()
   })
 })
 
@@ -167,15 +310,15 @@ describe('getLatestSnapshot', () => {
 // snapshot baked from an already-corrupt client passes that test perfectly,
 // and pruning then destroys the only evidence that could rebuild the room.
 // Deletion now requires independent corroboration (see the engine's
-// bakeLayerByFullReplay oracle and RoomSnapshot.verification), which isn't
-// wired end-to-end yet — so nothing is deleted at all for now. See
+// bakeLayerByFullReplay oracle and RoomLayerSnapshot.verification), which
+// isn't wired end-to-end yet — so nothing is deleted at all for now. See
 // pruneOperationsBeforeSnapshot's own doc comment in rooms.ts.
 describe('leaveRoom no longer prunes operations (#289 — pending snapshot verification)', () => {
   it('keeps operations even once a covering snapshot exists and the room goes idle', async () => {
     const roomId = makeRoom()
     recordOperation(roomId, stroke('a'))
-    mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
-    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
 
     leaveRoom(roomId, 'owner-1', `sock-${roomId}`)
     // Two flushes, as before: deferred eviction chains onto a *new* per-room
@@ -201,8 +344,8 @@ describe('leaveRoom no longer prunes operations (#289 — pending snapshot verif
   it('does not prune while another participant is still in the room', async () => {
     const roomId = makeRoom()
     joinRoom(roomId, 'student-1', 'Student', undefined, `sock-${roomId}-student`)
-    mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
-    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload)
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1'))
 
     // The owner leaves, but the student is still connected — not idle yet.
     leaveRoom(roomId, 'owner-1', `sock-${roomId}`)
@@ -213,9 +356,8 @@ describe('leaveRoom no longer prunes operations (#289 — pending snapshot verif
 })
 
 // (#292) Moved here from rooms.test.ts when this stopped reading
-// `record.operations`. The resident set is now a window around the latest
-// snapshot; this endpoint serves exactly the operations that window
-// excludes, so it has to query Postgres.
+// `record.operations`. The resident set is a window; this endpoint serves
+// exactly the operations that window excludes, so it has to query Postgres.
 describe('getOperationsBefore', () => {
   beforeEach(() => { mockPrisma.operation.findMany.mockReset() })
 
@@ -256,59 +398,74 @@ describe('getOperationsBefore', () => {
 
 // (#292) Nothing ever deleted a superseded snapshot: prod held 93 rows /
 // 117 MB on 2026-07-26, 65 of them older than their room's newest and read
-// by nothing.
+// by nothing. (#371) Counted per layer — two room-wide rows would be two
+// *layers*, discarding every other layer's only copy.
 describe('snapshot retention', () => {
   beforeEach(() => {
-    mockPrisma.roomSnapshot.findMany.mockReset()
-    mockPrisma.roomSnapshot.deleteMany.mockReset()
-    mockPrisma.roomSnapshot.deleteMany.mockResolvedValue({ count: 0 })
+    mockPrisma.roomLayerSnapshot.findMany.mockReset()
+    mockPrisma.roomLayerSnapshot.deleteMany.mockReset().mockResolvedValue({ count: 0 })
   })
 
-  async function saveAt(roomId: string, seq: number) {
-    mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
-    await saveSnapshot(roomId, seq, {}, gzippedPayload)
+  async function saveAt(roomId: string, seq: number, layerIds = ['layer-1']) {
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
+    await saveSnapshot(roomId, seq, {}, layers(...layerIds))
     // deleteSupersededSnapshots is fire-and-forget from saveSnapshot.
     await new Promise(resolve => setImmediate(resolve))
   }
 
-  it('deletes everything below the second-newest snapshot', async () => {
+  it('deletes everything below this layer second-newest snapshot', async () => {
     const roomId = makeRoom()
-    mockPrisma.roomSnapshot.findMany.mockResolvedValueOnce([
-      { seq: 300 }, { seq: 200 },
-    ])
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([{ seq: 300 }, { seq: 200 }])
     await saveAt(roomId, 300)
 
-    expect(mockPrisma.roomSnapshot.deleteMany).toHaveBeenCalledWith({
-      where: { roomId, seq: { lt: 200 } },
+    expect(mockPrisma.roomLayerSnapshot.deleteMany).toHaveBeenCalledWith({
+      where: { roomId, layerId: 'layer-1', seq: { lt: 200 } },
     })
   })
 
-  it('keeps both when a room only has two — nothing is superseded yet', async () => {
+  it('keeps both when a layer only has two — nothing is superseded yet', async () => {
     const roomId = makeRoom()
-    mockPrisma.roomSnapshot.findMany.mockResolvedValueOnce([{ seq: 200 }, { seq: 100 }])
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([{ seq: 200 }, { seq: 100 }])
     await saveAt(roomId, 200)
 
     // Still issues the delete, but bounded below the older of the two, so it
     // matches nothing — simpler than special-casing, and the query is indexed.
-    expect(mockPrisma.roomSnapshot.deleteMany).toHaveBeenCalledWith({
-      where: { roomId, seq: { lt: 100 } },
+    expect(mockPrisma.roomLayerSnapshot.deleteMany).toHaveBeenCalledWith({
+      where: { roomId, layerId: 'layer-1', seq: { lt: 100 } },
     })
   })
 
-  it('deletes nothing at all when the room has fewer than two snapshots', async () => {
+  it('deletes nothing at all when the layer has fewer than two snapshots', async () => {
     const roomId = makeRoom()
-    mockPrisma.roomSnapshot.findMany.mockResolvedValueOnce([{ seq: 100 }])
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([{ seq: 100 }])
     await saveAt(roomId, 100)
 
-    expect(mockPrisma.roomSnapshot.deleteMany).not.toHaveBeenCalled()
+    expect(mockPrisma.roomLayerSnapshot.deleteMany).not.toHaveBeenCalled()
+  })
+
+  // The bug a room-wide count would have: pruning is scoped to the layer that
+  // was just written, never to "the room's newest two rows".
+  it('prunes each uploaded layer against its own history', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomLayerSnapshot.findMany
+      .mockResolvedValueOnce([{ seq: 300 }, { seq: 200 }])
+      .mockResolvedValueOnce([{ seq: 300 }, { seq: 100 }])
+    await saveAt(roomId, 300, ['layer-1', 'layer-2'])
+
+    expect(mockPrisma.roomLayerSnapshot.deleteMany).toHaveBeenCalledWith({
+      where: { roomId, layerId: 'layer-1', seq: { lt: 200 } },
+    })
+    expect(mockPrisma.roomLayerSnapshot.deleteMany).toHaveBeenCalledWith({
+      where: { roomId, layerId: 'layer-2', seq: { lt: 100 } },
+    })
   })
 
   it('never fails the upload when pruning throws', async () => {
     const roomId = makeRoom()
-    mockPrisma.roomSnapshot.findMany.mockRejectedValueOnce(new Error('db down'))
-    mockPrisma.roomSnapshot.create.mockResolvedValueOnce({})
+    mockPrisma.roomLayerSnapshot.findMany.mockRejectedValueOnce(new Error('db down'))
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValueOnce({})
 
-    await expect(saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, gzippedPayload))
-      .resolves.toEqual({ ok: true, created: true })
+    await expect(saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, {}, layers('layer-1')))
+      .resolves.toEqual({ ok: true, created: ['layer-1'], duplicated: [], mismatched: [] })
   })
 })

@@ -96,7 +96,8 @@ model Room {
   owner        User              @relation(fields: [ownerId], references: [id])
   operations   Operation[]
   participants RoomParticipant[]
-  snapshots    RoomSnapshot[]
+  snapshots    RoomLayerSnapshot[]
+  layerState   RoomLayerState?
   palette      RoomPalette?
   thumbnail    RoomThumbnail?
   createdAt    DateTime          @default(now())
@@ -164,26 +165,35 @@ model Operation {
   @@unique([roomId, seq])
 }
 
-// Client-baked full-room snapshot (#149 epic): `layerState` is the reducer
-// state derived from the log's structural operations as of `seq` (which
-// layers exist, order/name/opacity/visibility — pixel content alone isn't
-// enough to reconstruct a room, see the epic's own design notes), `data` is
-// gzip-compressed raw tile pixels for every layer (see
-// apps/web/src/engine/index.ts's bakeNetworkSnapshot). `hash` is sha256 of
-// the *decompressed* `data` — used both to dedup (a second upload for a seq
-// this room already has is just discarded) and, when
-// SNAPSHOT_VERIFY_DETERMINISM is on, to detect a same-seq upload whose
+// Client-baked snapshot of ONE layer's pixels as of `seq` (#149 epic, made
+// per-layer by #370). `data` is the gzip-compressed output of the engine's
+// `encodeLayerTiles` — raw RGBA tiles, no image codec anywhere in the path.
+//
+// One row per layer rather than one bundle per room, and that is the whole
+// point (#369). A bundle forced every bake to re-read every layer, which is
+// O(layers) of synchronous GPU readback every SNAPSHOT_SEQ_INTERVAL
+// operations; worse, a layer the baking client couldn't produce was simply
+// left out, and since operations were withheld from clients by a single
+// room-wide `latestSnapshotSeq`, a layer missing from the bundle lost its
+// content outright. Per-layer rows make the seq a property of the layer:
+// `coveredSeq(layer)` is the newest row for it, and everything after that
+// stays replayable from the operation log. Not sending a layer then costs
+// nothing but a missed optimisation.
+//
+// `hash` is sha256 of the *decompressed* `data` — used both to dedup (a
+// second upload for a (layer, seq) this room already has is discarded) and,
+// when SNAPSHOT_VERIFY_DETERMINISM is on, to detect a same-seq upload whose
 // pixels don't match what's already stored (a cross-device determinism
 // violation — see rooms.ts's saveSnapshot).
-model RoomSnapshot {
-  id         String   @id @default(uuid())
-  roomId     String
-  room       Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  seq        Int
-  layerState Json
-  data       Bytes
-  hash       String
-  createdAt  DateTime @default(now())
+model RoomLayerSnapshot {
+  id      String @id @default(uuid())
+  roomId  String
+  room    Room   @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  layerId String
+  seq     Int
+  data    Bytes
+  hash    String
+  createdAt DateTime @default(now())
   // (#289 epic, reliable history spec v0.2 §13) Whether this snapshot has
   // been independently corroborated. `unverified` on arrival; `verified`
   // once a second, independently-produced bake of the same seq matched this
@@ -193,14 +203,38 @@ model RoomSnapshot {
   // against anything else. `disputed` is deliberately terminal and never
   // auto-resolved: nothing here can tell which of two disagreeing bakes is
   // the correct one, so both stay and the raw operations stay too.
-  verification String  @default("unverified")
+  verification String @default("unverified")
 
-  @@unique([roomId, seq])
+  @@unique([roomId, layerId, seq])
+  // Every read is "the newest row for this layer" (coveredSeq) or "the newest
+  // row for each layer of this room" (restore) — both are this index.
+  @@index([roomId, layerId, seq])
+}
+
+// The structural half of a snapshot (#370): which layers exist, their order,
+// names, opacity and visibility, as of `seq`.
+//
+// It used to travel inside each snapshot bundle, because a room-wide seq made
+// "pixels and structure as of the same moment" a single fact. With per-layer
+// coverage there is no room-wide moment left to attach it to, so it becomes
+// what it always was underneath: one current value per room, last write wins.
+//
+// Kept as a convenience rather than a source of truth. Every operation that
+// changes it is structural, and structural operations are resident for a
+// room's whole life (see rooms.ts's RESIDENT_OP_TYPES), so a client can
+// always rederive this by folding the log — this only saves it the walk.
+model RoomLayerState {
+  id        String   @id @default(uuid())
+  roomId    String   @unique
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  seq       Int
+  state     Json
+  updatedAt DateTime @updatedAt
 }
 
 // One row per room (#190 epic) — kept separate from `Room` rather than a
 // JSON column on it, since `Room` is otherwise write-once after creation
-// (like Operation/RoomSnapshot, everything that actually mutates during a
+// (like Operation/RoomLayerSnapshot, everything that actually mutates during a
 // session lives in its own table); see packages/shared's DEFAULT_PALETTE_COLORS
 // doc comment for why this isn't part of the Operation log instead.
 model RoomPalette {
@@ -214,7 +248,7 @@ model RoomPalette {
 // One row per room (#209), same "kept separate from `Room`" reasoning as
 // RoomPalette above — a downscaled composite PNG the client periodically
 // POSTs (see thumbnailRoutes.ts) purely so "Мои уроки" room cards (#116) can
-// show a preview. Not to be confused with RoomSnapshot (#149 epic): those are
+// show a preview. Not to be confused with RoomLayerSnapshot (#149 epic): those are
 // opaque per-layer tile blobs for fast rejoin, this is a single flat image
 // meant to be displayed directly.
 model RoomThumbnail {

@@ -5,7 +5,7 @@ import type { Prisma } from '@prisma/client'
 import { forkSeedUserId, type Operation } from '@grafetto/shared'
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
-import { flushRoomWrites, RESIDENT_OP_TYPES } from './rooms.js'
+import { flushRoomWrites } from './rooms.js'
 
 /** Forking a room (#317) — the mechanism the homework model runs on (release
  *  track #314 §4: a lesson is closed for editing, and each student works in
@@ -69,20 +69,29 @@ export function registerForkRoutes(app: FastifyInstance): void {
     // lose exactly the work that was freshest.
     await flushRoomWrites(sourceId)
 
-    const snapshot = await prisma.roomSnapshot.findFirst({
-      where: { roomId: sourceId }, orderBy: { seq: 'desc' },
-    })
+    const [layerSnapshots, layerState] = await Promise.all([
+      prisma.roomLayerSnapshot.findMany({ where: { roomId: sourceId }, orderBy: { seq: 'desc' } }),
+      prisma.roomLayerState.findUnique({ where: { roomId: sourceId } }),
+    ])
+    // Newest row per layer — retention keeps up to two (see rooms.ts's
+    // SNAPSHOT_RETENTION_PER_LAYER), and a fork only needs each layer's
+    // current pixels.
+    const newestPerLayer = new Map<string, (typeof layerSnapshots)[number]>()
+    for (const row of layerSnapshots) if (!newestPerLayer.has(row.layerId)) newestPerLayer.set(row.layerId, row)
 
-    // The same window rooms.ts calls "resident": everything the snapshot
-    // doesn't cover, plus structural operations at any age. The structural
-    // half is not optional — `aliveIds`/`deletedIds`/`lockedLayerIds` are
-    // rebuilt by folding over the log, so a fork missing the `layer_add` of a
-    // layer older than its snapshot would render that layer fine and then
-    // refuse to ever delete it (`target_gone`, the shape of #291's bug).
+    // (#371) Every operation comes across, and for now that is the whole log.
+    // Coverage is per layer, so "what a fork can safely skip" is per layer
+    // too — a question #372 answers. Copying everything is the one choice
+    // that cannot silently drop content in the meantime, which is exactly
+    // what #369 did by trusting a single room-wide snapshot seq.
+    //
+    // Whatever narrowing #372 restores here must keep `RESIDENT_OP_TYPES` at
+    // any age: `aliveIds`/`deletedIds`/`lockedLayerIds` are rebuilt by folding
+    // the log, so a fork missing the `layer_add` of an older layer would
+    // render that layer fine and then refuse to ever delete it
+    // (`target_gone`, the shape of #291's bug).
     const rows = await prisma.operation.findMany({
-      where: snapshot === null
-        ? { roomId: sourceId }
-        : { roomId: sourceId, OR: [{ seq: { gt: snapshot.seq } }, { type: { in: [...RESIDENT_OP_TYPES] } }] },
+      where: { roomId: sourceId },
       orderBy: { seq: 'asc' },
     })
 
@@ -134,20 +143,25 @@ export function registerForkRoutes(app: FastifyInstance): void {
       })
       await tx.roomParticipant.create({ data: { roomId: forkId, userId } })
       if (palette) await tx.roomPalette.create({ data: { roomId: forkId, colors: palette.colors } })
-      if (snapshot) {
-        await tx.roomSnapshot.create({
-          data: {
+      if (layerState) {
+        await tx.roomLayerState.create({
+          data: { roomId: forkId, seq: layerState.seq, state: layerState.state as Prisma.InputJsonValue },
+        })
+      }
+      if (newestPerLayer.size > 0) {
+        await tx.roomLayerSnapshot.createMany({
+          data: [...newestPerLayer.values()].map(row => ({
             roomId: forkId,
-            seq: snapshot.seq,
-            layerState: snapshot.layerState as Prisma.InputJsonValue,
-            data: snapshot.data,
-            hash: snapshot.hash,
+            layerId: row.layerId,
+            seq: row.seq,
+            data: row.data,
+            hash: row.hash,
             // Not inherited. Verification means "two clients independently
             // baked this and agreed"; nobody has baked anything in this room
             // yet, and the flag is what licenses deleting the operations a
             // snapshot claims to cover (see pruneOperationsBeforeSnapshot).
             verification: 'unverified',
-          },
+          })),
         })
       }
       if (operationRows.length > 0) await tx.operation.createMany({ data: operationRows })

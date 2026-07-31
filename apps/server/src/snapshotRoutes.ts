@@ -17,31 +17,43 @@ const SNAPSHOT_UPLOAD_BODY_LIMIT_BYTES = 20 * 1024 * 1024
  *  protected room's content by guessing its id, bypassing the socket-level
  *  password check entirely. */
 export function registerSnapshotRoutes(app: FastifyInstance): void {
-  app.post<{ Params: { roomId: string }; Body: { seq: number; layerState: unknown; data: string } }>(
+  app.post<{
+    Params: { roomId: string }
+    Body: { seq: number; layerState: unknown; layers: Record<string, string> }
+  }>(
     '/api/rooms/:roomId/snapshots',
     { bodyLimit: SNAPSHOT_UPLOAD_BODY_LIMIT_BYTES },
     async (request, reply) => {
       const { roomId } = request.params
       if (!getParticipant(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
 
-      const { seq, layerState, data } = request.body
-      if (typeof seq !== 'number' || typeof data !== 'string') {
+      const { seq, layerState, layers } = request.body
+      // (#371) `layers` maps layerId to one base64 gzipped `encodeLayerTiles`
+      // payload. A client sends only the layers it re-baked, so a small — even
+      // empty — object is normal traffic, not a truncated upload.
+      if (typeof seq !== 'number' || typeof layers !== 'object' || layers === null) {
+        return reply.code(400).send({ error: 'bad_request' })
+      }
+      if (Object.values(layers).some(data => typeof data !== 'string')) {
         return reply.code(400).send({ error: 'bad_request' })
       }
 
-      const result = await saveSnapshot(roomId, seq, layerState, Buffer.from(data, 'base64'))
+      const decoded = new Map(
+        Object.entries(layers).map(([layerId, data]) => [layerId, Buffer.from(data, 'base64')]),
+      )
+      const result = await saveSnapshot(roomId, seq, layerState, decoded)
       if (!result.ok) return reply.code(result.error === 'unknown_room' ? 404 : 400).send(result)
-      if (!result.created && result.hashMismatch) {
-        // #149: a second client independently baked the same checkpoint
-        // (same seq) and got different pixels — a live cross-device
+      if (result.mismatched.length > 0) {
+        // #149: a second client independently baked the same layer at the same
+        // checkpoint and got different pixels — a live cross-device
         // determinism violation, the exact class of bug this project's
         // paper-grain work spent a week chasing down manually.
         request.log.warn(
-          { roomId, seq },
+          { roomId, seq, layerIds: result.mismatched },
           '#149: snapshot hash mismatch on duplicate upload — possible cross-device determinism violation',
         )
       }
-      return { ok: true }
+      return { ok: true, stored: result.created.length, duplicate: result.duplicated.length }
     },
   )
 
@@ -51,7 +63,18 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
 
     const snapshot = await getLatestSnapshot(roomId)
     if (!snapshot) return reply.code(204).send()
-    return { seq: snapshot.seq, layerState: snapshot.layerState, data: Buffer.from(snapshot.data).toString('base64') }
+    return {
+      seq: snapshot.seq,
+      layerState: snapshot.layerState,
+      // Each entry carries its own seq: layers are covered independently, so
+      // the client has to know how far each one is caught up before deciding
+      // which operations still have to be replayed onto it (#371).
+      layers: snapshot.layers.map(layer => ({
+        layerId: layer.layerId,
+        seq: layer.seq,
+        data: Buffer.from(layer.data).toString('base64'),
+      })),
+    }
   })
 
   app.get<{ Params: { roomId: string }; Querystring: { beforeSeq: string; limit?: string } }>(

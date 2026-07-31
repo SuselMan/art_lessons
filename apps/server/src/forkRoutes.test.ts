@@ -14,7 +14,8 @@ const mockPrisma = vi.hoisted(() => {
     room: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn() },
     roomParticipant: { findUnique: vi.fn(), create: vi.fn() },
     roomPalette: { findUnique: vi.fn(), create: vi.fn() },
-    roomSnapshot: { findFirst: vi.fn(), create: vi.fn() },
+    roomLayerSnapshot: { findMany: vi.fn(), createMany: vi.fn() },
+    roomLayerState: { findUnique: vi.fn(), create: vi.fn() },
     operation: { findMany: vi.fn(), createMany: vi.fn() },
     $transaction: vi.fn(),
   }
@@ -24,7 +25,6 @@ const mockPrisma = vi.hoisted(() => {
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 vi.mock('./rooms.js', () => ({
   flushRoomWrites: vi.fn(() => Promise.resolve()),
-  RESIDENT_OP_TYPES: ['layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_owner_lock'],
 }))
 
 const SOURCE = {
@@ -64,7 +64,11 @@ function createdOps(): Array<{ id: string; seq: number; type: string; userId: st
 }
 
 beforeEach(() => {
-  for (const model of [mockPrisma.room, mockPrisma.roomParticipant, mockPrisma.roomPalette, mockPrisma.roomSnapshot, mockPrisma.operation]) {
+  const models = [
+    mockPrisma.room, mockPrisma.roomParticipant, mockPrisma.roomPalette,
+    mockPrisma.roomLayerSnapshot, mockPrisma.roomLayerState, mockPrisma.operation,
+  ]
+  for (const model of models) {
     for (const fn of Object.values(model)) (fn as ReturnType<typeof vi.fn>).mockReset()
   }
   // Cleared, not reset — `$transaction` carries the implementation that runs
@@ -73,7 +77,8 @@ beforeEach(() => {
   mockPrisma.room.findUnique.mockResolvedValue(SOURCE)
   mockPrisma.roomParticipant.findUnique.mockResolvedValue({ roomId: SOURCE.id, userId: 'student' })
   mockPrisma.roomPalette.findUnique.mockResolvedValue(null)
-  mockPrisma.roomSnapshot.findFirst.mockResolvedValue(null)
+  mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([])
+  mockPrisma.roomLayerState.findUnique.mockResolvedValue(null)
   mockPrisma.operation.findMany.mockResolvedValue([])
   mockPrisma.room.findUniqueOrThrow.mockImplementation(({ where }: { where: { id: string } }) =>
     Promise.resolve({ ...SOURCE, id: where.id, ownerId: 'student', parentRoomId: SOURCE.id, passwordHash: null }))
@@ -153,29 +158,52 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     expect(op.data.id).not.toBe('op-a')
   })
 
-  it('keeps seq numbers, so the seeded snapshot still lines up with the tail', async () => {
-    mockPrisma.roomSnapshot.findFirst.mockResolvedValue({
-      id: 's1', roomId: SOURCE.id, seq: 40, layerState: { layers: {} }, data: Buffer.from('x'), hash: 'h', verification: 'verified',
-    })
+  it('keeps seq numbers, so the seeded snapshots still line up with the tail', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: { layers: {} } })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([
+      { id: 's1', roomId: SOURCE.id, layerId: 'layer-1', seq: 40, data: Buffer.from('x'), hash: 'h', verification: 'verified' },
+    ])
     mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-a', seq: 41 }), opRow({ id: 'op-b', seq: 42 })])
 
     await fork(buildApp('student'))
 
     expect(createdOps().map(o => o.seq)).toEqual([41, 42])
-    expect(mockPrisma.roomSnapshot.create.mock.calls[0][0].data).toMatchObject({ seq: 40, hash: 'h' })
+    expect(mockPrisma.roomLayerSnapshot.createMany.mock.calls[0][0].data)
+      .toMatchObject([{ layerId: 'layer-1', seq: 40, hash: 'h' }])
+    expect(mockPrisma.roomLayerState.create.mock.calls[0][0].data).toMatchObject({ seq: 40 })
   })
 
-  it('does not inherit the verification of the snapshot it copies', async () => {
-    mockPrisma.roomSnapshot.findFirst.mockResolvedValue({
-      id: 's1', roomId: SOURCE.id, seq: 40, layerState: {}, data: Buffer.from('x'), hash: 'h', verification: 'verified',
-    })
+  // (#371) Retention keeps up to two rows per layer; a fork only needs each
+  // layer's current pixels, so an older row for a layer already seen is
+  // dropped rather than copied alongside its successor.
+  it('copies only the newest row per layer', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 200, state: {} })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([
+      { id: 's1', roomId: SOURCE.id, layerId: 'layer-1', seq: 200, data: Buffer.from('new'), hash: 'h2', verification: 'unverified' },
+      { id: 's2', roomId: SOURCE.id, layerId: 'layer-1', seq: 100, data: Buffer.from('old'), hash: 'h1', verification: 'unverified' },
+      { id: 's3', roomId: SOURCE.id, layerId: 'layer-2', seq: 100, data: Buffer.from('two'), hash: 'h3', verification: 'unverified' },
+    ])
+
+    await fork(buildApp('student'))
+
+    expect(mockPrisma.roomLayerSnapshot.createMany.mock.calls[0][0].data).toMatchObject([
+      { layerId: 'layer-1', seq: 200 },
+      { layerId: 'layer-2', seq: 100 },
+    ])
+  })
+
+  it('does not inherit the verification of the snapshots it copies', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: {} })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([
+      { id: 's1', roomId: SOURCE.id, layerId: 'layer-1', seq: 40, data: Buffer.from('x'), hash: 'h', verification: 'verified' },
+    ])
 
     await fork(buildApp('student'))
 
     // Verified means "two clients independently baked this and agreed", and
     // it is what licenses deleting the operations a snapshot covers. Nobody
     // has baked anything in this room yet.
-    expect(mockPrisma.roomSnapshot.create.mock.calls[0][0].data.verification).toBe('unverified')
+    expect(mockPrisma.roomLayerSnapshot.createMany.mock.calls[0][0].data[0].verification).toBe('unverified')
   })
 
   it('repoints an inherited undo at the copy of its target', async () => {
@@ -196,35 +224,30 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
   })
 
   it('drops an inherited undo whose target stayed behind', async () => {
-    const undo = { id: 'op-u', type: 'operation_undo', userId: 'teacher', seq: 41, targetOpId: 'below-the-snapshot' } as unknown as Operation
-    mockPrisma.roomSnapshot.findFirst.mockResolvedValue({
-      id: 's1', roomId: SOURCE.id, seq: 40, layerState: {}, data: Buffer.from('x'), hash: 'h', verification: 'unverified',
-    })
+    const undo = { id: 'op-u', type: 'operation_undo', userId: 'teacher', seq: 41, targetOpId: 'never-copied' } as unknown as Operation
     mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-u', seq: 41, type: 'operation_undo', data: undo })])
 
     await fork(buildApp('student'))
 
-    // The snapshot already contains the result of that undo having happened,
-    // so the record has nothing left to do and no target to do it to.
+    // Left unmapped it would point into the source room's log — an id that
+    // exists, in someone else's room, which is worse than dangling.
     expect(createdOps()).toHaveLength(0)
   })
 
-  it('asks for structural operations of any age, not just the tail', async () => {
-    mockPrisma.roomSnapshot.findFirst.mockResolvedValue({
-      id: 's1', roomId: SOURCE.id, seq: 40, layerState: {}, data: Buffer.from('x'), hash: 'h', verification: 'unverified',
-    })
+  // (#371) Coverage is per layer now, so "what a fork can safely skip" is a
+  // per-layer question — one #372 answers. Until it does, copying everything
+  // is the only choice that cannot silently drop content, which is exactly
+  // what trusting a single room-wide snapshot seq did in #369.
+  it('copies the whole log regardless of what the source has snapshotted', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: {} })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([
+      { id: 's1', roomId: SOURCE.id, layerId: 'layer-1', seq: 40, data: Buffer.from('x'), hash: 'h', verification: 'unverified' },
+    ])
 
     await fork(buildApp('student'))
 
-    // A fork missing the `layer_add` of a layer older than its snapshot would
-    // draw that layer perfectly and then refuse to ever delete it
-    // (`target_gone` — the shape of #291's bug), because the server rebuilds
-    // aliveIds by folding over the log.
     const where = mockPrisma.operation.findMany.mock.calls[0][0].where
-    expect(where.OR).toEqual([
-      { seq: { gt: 40 } },
-      { type: { in: ['layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_owner_lock'] } },
-    ])
+    expect(where).toEqual({ roomId: SOURCE.id })
   })
 
   it('copies the whole log when the source has no snapshot yet', async () => {

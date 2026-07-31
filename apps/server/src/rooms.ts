@@ -42,12 +42,26 @@ interface RoomRecord {
   operations: Operation[]
   participants: Map<string, Participant> // keyed by userId — live presence only, not join history
   nextSeq: number
-  // (#149 epic) Highest seq any client has successfully uploaded a
-  // RoomSnapshot for — null if none exists yet. Cached here rather than
-  // queried fresh on every getRoomSnapshot call, same reasoning as `nextSeq`:
-  // this file's synchronous API assumes live room state is always resident
-  // in memory once `ensureRoomLoaded` has run once.
-  latestSnapshotSeq: number | null
+  // (#149 epic, #371) The seq of this room's stored RoomLayerState — null
+  // until anyone has uploaded one. Cached here rather than queried fresh on
+  // every getRoomSnapshot call, same reasoning as `nextSeq`: this file's
+  // synchronous API assumes live room state is always resident in memory once
+  // `ensureRoomLoaded` has run once.
+  //
+  // No longer doubles as "everything below this is covered" — see
+  // `coveredSeqByLayer`, which is the only thing that now answers that.
+  layerStateSeq: number | null
+  // (#371) `coveredSeq` per layer: the newest seq a RoomLayerSnapshot exists
+  // for. A layer absent here has no stored pixels at all and is covered by
+  // nothing — its whole history has to be replayed.
+  //
+  // This replaces the single room-wide floor that #369 lost content to. There
+  // is deliberately no room-wide summary of it (no min, no max): every honest
+  // question about coverage is per layer, and every attempt to collapse it
+  // into one number is how a layer nobody snapshotted ends up treated as
+  // covered. #372 makes `getRoomStateFor` read it per layer; until then every
+  // joiner simply replays the full log.
+  coveredSeqByLayer: Map<string, number>
   // (#190 epic) Hex colors, cached here and pushed live same as
   // `participants` — small, needed on every room_state, unlike RoomSnapshot's
   // pixel blobs which stay Postgres-only (see getLatestSnapshot below).
@@ -267,7 +281,7 @@ function persistOperation(roomId: string, op: Operation): void {
  *  hot/cold tiering that should carry it then). Kept as a function rather
  *  than deleted so re-enabling it is a one-line change once verification
  *  gates it properly. */
-function pruneOperationsBeforeSnapshot(_roomId: string, _latestSnapshotSeq: number | null): void {
+function pruneOperationsBeforeSnapshot(_roomId: string): void {
   // Intentionally a no-op — see the doc comment above.
 }
 
@@ -309,35 +323,38 @@ export const RESIDENT_OP_TYPES: readonly string[] = [
 
 /** (#292) The subset of a room's log that has to live in RAM.
  *
- *  Everything strictly after the latest snapshot (that's the part no
- *  snapshot covers, so it must be replayed on top of one), plus the
- *  structural operations above, at any age. Everything else stays in
- *  Postgres and is served page-by-page by `getOperationsBefore` when a
- *  client actually backfills undo history.
+ *  Everything a snapshot doesn't cover — that's the part that has to be
+ *  replayed on top of one — plus the structural operations above, at any age.
+ *  Everything else stays in Postgres and is served page-by-page by
+ *  `getOperationsBefore` when a client actually backfills undo history.
  *
- *  A room with no snapshot yet loads in full: there is nothing to bound
- *  against, and `getRoomSnapshot` would otherwise hand a joining client a
- *  tail with holes in it. */
-async function loadResidentOperations(roomId: string, latestSnapshotSeq: number | null): Promise<Operation[]> {
-  const where = latestSnapshotSeq === null
-    ? { roomId }
-    : { roomId, OR: [{ seq: { gt: latestSnapshotSeq } }, { type: { in: [...RESIDENT_OP_TYPES] } }] }
-  const rows = await prisma.operation.findMany({ where, orderBy: { seq: 'asc' }, select: { data: true } })
+ *  (#371) Temporarily loads every room in full, and deliberately so. Coverage
+ *  is now per layer (`coveredSeqByLayer`), but nothing consumes it yet: until
+ *  #372 teaches `getRoomStateFor` to filter per layer and #374 teaches the
+ *  client to restore per-layer snapshots, a joining client's only source of
+ *  old content is the tail this set feeds. Bounding it against coverage
+ *  nobody can act on would hand that client a tail with holes — which is
+ *  #369, reintroduced from the other end.
+ *
+ *  So this is a real, known memory regression for the span of two issues. It
+ *  is why the epic says not to deploy #371 on its own. */
+async function loadResidentOperations(roomId: string): Promise<Operation[]> {
+  const rows = await prisma.operation.findMany({
+    where: { roomId }, orderBy: { seq: 'asc' }, select: { data: true },
+  })
   return rows.map(row => row.data as Operation)
 }
 
-/** (#292) Drops what a freshly-stored snapshot has just made redundant, so a
- *  long live session stays as bounded as a cold load is. Without this the
- *  resident set only ever grows between restarts — the snapshot mechanism
- *  would bound rejoins while the process itself kept every stroke of a
- *  marathon room in the heap. Same window rule as loadResidentOperations. */
-function trimResidentOperations(record: RoomRecord): void {
-  const floor = record.latestSnapshotSeq
-  if (floor === null) return
-  record.operations = record.operations.filter(
-    op => (op.seq ?? 0) > floor || RESIDENT_OP_TYPES.includes(op.type),
-  )
-  record.operationsById = new Map(record.operations.map(op => [op.id, op]))
+/** (#292) Drops what stored snapshots have made redundant, so a long live
+ *  session stays as bounded as a cold load is. Without this the resident set
+ *  only ever grows between restarts — the snapshot mechanism would bound
+ *  rejoins while the process itself kept every stroke of a marathon room in
+ *  the heap.
+ *
+ *  (#371) A no-op for now, for exactly the reason `loadResidentOperations`
+ *  above spells out: same window rule, same reason it can't be applied yet. */
+function trimResidentOperations(_record: RoomRecord): void {
+  // Intentionally empty — see loadResidentOperations.
 }
 
 /** Repopulates the in-memory Map for `roomId` from Postgres if it isn't
@@ -362,10 +379,11 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   })
   if (!dbRoom) return false
 
-  const latestSnapshot = await prisma.roomSnapshot.findFirst({
-    where: { roomId }, orderBy: { seq: 'desc' }, select: { seq: true },
-  })
-  const operations = await loadResidentOperations(roomId, latestSnapshot?.seq ?? null)
+  const [storedLayerState, coveredSeqByLayer, operations] = await Promise.all([
+    prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true } }),
+    loadCoveredSeqByLayer(roomId),
+    loadResidentOperations(roomId),
+  ])
 
   // (#292) Read from Postgres rather than from `operations`: the resident
   // set is now a *window*, so its own highest seq is not necessarily the
@@ -410,7 +428,8 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     operations,
     participants: new Map(),
     nextSeq,
-    latestSnapshotSeq: latestSnapshot?.seq ?? null,
+    layerStateSeq: storedLayerState?.seq ?? null,
+    coveredSeqByLayer,
     palette,
     roomFrozen: false,
     frozenUserIds: new Set(),
@@ -477,7 +496,8 @@ export function createRoom(
   const participants = new Map<string, Participant>([[ownerId, participant]])
   const palette = [...DEFAULT_PALETTE_COLORS]
   rooms.set(room.id, {
-    room, passwordHash, operations: [], participants, nextSeq: 1, latestSnapshotSeq: null, palette,
+    room, passwordHash, operations: [], participants, nextSeq: 1, palette,
+    layerStateSeq: null, coveredSeqByLayer: new Map(),
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
     aliveIds: new Set(IMPLICIT_LAYER_IDS), deletedIds: new Set(), operationsById: new Map(),
     structuralLog: [],
@@ -562,7 +582,7 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
   const removed = record.participants.delete(userId)
   if (record.participants.size !== 0) return removed
 
-  evictWhenIdle(roomId, record.latestSnapshotSeq)
+  evictWhenIdle(roomId)
   return removed
 }
 
@@ -571,16 +591,16 @@ export function leaveRoom(roomId: string, userId: string, socketId: string): boo
  *  re-checking participants afterward — a reconnect landing during the wait
  *  repopulates the Map, and that room must not then be deleted out from
  *  under it. */
-function evictWhenIdle(roomId: string, latestSnapshotSeq: number | null): void {
+function evictWhenIdle(roomId: string): void {
   const pending = pendingWrite.get(roomId)
   if (!pending) {
-    pruneOperationsBeforeSnapshot(roomId, latestSnapshotSeq)
+    pruneOperationsBeforeSnapshot(roomId)
     rooms.delete(roomId)
     return
   }
   pending.finally(() => {
     if (rooms.get(roomId)?.participants.size === 0) {
-      pruneOperationsBeforeSnapshot(roomId, latestSnapshotSeq)
+      pruneOperationsBeforeSnapshot(roomId)
       rooms.delete(roomId)
     }
   })
@@ -602,7 +622,7 @@ function evictWhenIdle(roomId: string, latestSnapshotSeq: number | null): void {
 export function releaseRoomIfUnused(roomId: string): void {
   const record = rooms.get(roomId)
   if (!record || record.participants.size !== 0) return
-  evictWhenIdle(roomId, record.latestSnapshotSeq)
+  evictWhenIdle(roomId)
 }
 
 /** Test-only seam: resolves once `roomId`'s in-flight Postgres writes (if
@@ -1017,11 +1037,26 @@ export function getRoomSnapshot(
 } | undefined {
   const record = rooms.get(roomId)
   if (!record) return undefined
-  const latestSnapshotSeq = record.latestSnapshotSeq
-  const floor = Math.max(lastKnownSeq ?? 0, latestSnapshotSeq ?? 0)
+  // (#371) The floor is `lastKnownSeq` alone. It used to also take
+  // `latestSnapshotSeq`, i.e. "a snapshot exists at N, so nobody needs the
+  // operations below N" — one room-wide claim standing in for every layer,
+  // and #369's actual mechanism of data loss: a layer missing from that
+  // snapshot had no pixels *and* was refused its own history.
+  //
+  // Coverage is per layer now (`coveredSeqByLayer`), and #372 makes this
+  // filter by it. Until then the honest answer is the whole tail: withholding
+  // operations requires a positive claim that something else covers them, and
+  // there is currently nothing on the client able to make use of one.
+  const floor = lastKnownSeq ?? 0
   const tailOperations = floor > 0 ? record.operations.filter(op => (op.seq ?? 0) > floor) : [...record.operations]
   return {
-    room: record.room, latestSnapshotSeq, tailOperations, participants: [...record.participants.values()],
+    // Deliberately null until #374 can restore from per-layer snapshots. The
+    // field means "there is a whole-room snapshot you can restore from", and
+    // since #371 there is no such thing — advertising one would have a client
+    // restore pixels and then replay the very operations that produced them,
+    // painting everything twice.
+    room: record.room, latestSnapshotSeq: null, tailOperations,
+    participants: [...record.participants.values()],
     palette: record.palette, frozen: record.roomFrozen,
   }
 }
@@ -1090,108 +1125,195 @@ async function hashOfDecompressed(gzipped: Uint8Array): Promise<string> {
   return sha.digest('hex')
 }
 
-/** (#292) How many snapshots a room keeps. Nothing has ever deleted a
- *  superseded one, so they accumulated indefinitely: on 2026-07-26 prod held
- *  93 rows totalling 117 MB, of which 65 rows / 83 MB were older than each
- *  room's newest and read by nothing at all — `getLatestSnapshot` only ever
- *  takes `orderBy: seq desc` first.
+/** (#292, per layer since #371) How many snapshots a room keeps *of each
+ *  layer*. Nothing had ever deleted a superseded one, so they accumulated
+ *  indefinitely: on 2026-07-26 prod held 93 rows totalling 117 MB, of which
+ *  65 rows / 83 MB were older than each room's newest and read by nothing.
  *
  *  Two rather than one: the previous snapshot is the only fallback if the
  *  newest turns out to be baked from a corrupt client view (#287), and two
  *  is exactly the depth the agreed undo rule already works in (spec v0.2
  *  §7). This does not touch the raw operations — those are the actual
- *  evidence #289's verification needs, and they stay untouched. */
-const SNAPSHOT_RETENTION = 2
+ *  evidence #289's verification needs, and they stay untouched.
+ *
+ *  Counted per layer rather than per room, which is what keeps the rule
+ *  meaningful now that a bake only carries the layers that changed: two
+ *  room-wide rows would be two *layers*, discarding every other layer's only
+ *  copy the moment a third one was uploaded. */
+const SNAPSHOT_RETENTION_PER_LAYER = 2
 
-/** Deletes every snapshot older than this room's newest `SNAPSHOT_RETENTION`.
- *  Fire-and-forget, and deliberately swallows its own errors: failing to
- *  reclaim space must never fail the upload that triggered it. */
-async function deleteSupersededSnapshots(roomId: string): Promise<void> {
+/** Deletes each layer's snapshots older than its newest
+ *  `SNAPSHOT_RETENTION_PER_LAYER`. Fire-and-forget, and deliberately swallows
+ *  its own errors: failing to reclaim space must never fail the upload that
+ *  triggered it. */
+async function deleteSupersededSnapshots(roomId: string, layerIds: readonly string[]): Promise<void> {
   try {
-    const keep = await prisma.roomSnapshot.findMany({
-      where: { roomId }, orderBy: { seq: 'desc' }, take: SNAPSHOT_RETENTION, select: { seq: true },
-    })
-    if (keep.length < SNAPSHOT_RETENTION) return
-    const oldestKept = keep[keep.length - 1].seq
-    await prisma.roomSnapshot.deleteMany({ where: { roomId, seq: { lt: oldestKept } } })
+    for (const layerId of layerIds) {
+      const keep = await prisma.roomLayerSnapshot.findMany({
+        where: { roomId, layerId },
+        orderBy: { seq: 'desc' }, take: SNAPSHOT_RETENTION_PER_LAYER, select: { seq: true },
+      })
+      if (keep.length < SNAPSHOT_RETENTION_PER_LAYER) continue
+      const oldestKept = keep[keep.length - 1].seq
+      await prisma.roomLayerSnapshot.deleteMany({ where: { roomId, layerId, seq: { lt: oldestKept } } })
+    }
   } catch (err) {
     console.error(`failed to prune superseded snapshots for room ${roomId}`, err)
   }
 }
 
+/** Every layer this room has stored pixels for, mapped to the newest seq they
+ *  were stored at — the `coveredSeq` that decides which operations a layer
+ *  still needs replayed (#371). */
+async function loadCoveredSeqByLayer(roomId: string): Promise<Map<string, number>> {
+  const rows = await prisma.roomLayerSnapshot.groupBy({
+    by: ['layerId'], where: { roomId }, _max: { seq: true },
+  })
+  return new Map(rows.map(row => [row.layerId, row._max.seq ?? 0]))
+}
+
 export type SaveSnapshotResult =
-  | { ok: true; created: true }
-  | { ok: true; created: false; hashMismatch: boolean }
+  | { ok: true; created: string[]; duplicated: string[]; mismatched: string[] }
   | { ok: false; error: 'unknown_room' | 'not_a_checkpoint_seq' }
 
-/** Stores a client-baked full-room snapshot (#149 epic). `gzippedData` is
- *  exactly what the client compressed with CompressionStream('gzip') — see
- *  engine's bakeNetworkSnapshot — decompressed here once to compute `hash`
- *  (sha256 of the *decompressed* bytes, so gzip's own non-determinism, if
- *  any, can never masquerade as a pixel/determinism bug).
+/** Stores a client-baked snapshot (#149 epic, per layer since #371).
  *
- *  Dedup is unconditional: `(roomId, seq)` is unique, so a second upload for
- *  a seq this room already has is always just discarded (first arrival
- *  wins — several clients independently crossing the same checkpoint and
- *  uploading concurrently is the expected, normal case, not a race to
- *  avoid). Only the *comparison* against the already-stored hash (and its
- *  resulting warning log on a mismatch) is gated behind
- *  SNAPSHOT_VERIFY_DETERMINISM, since it's pure overhead when nobody's
- *  watching for it. */
+ *  `layers` maps layerId to exactly what the client compressed with
+ *  CompressionStream('gzip') — see the engine's bakeNetworkSnapshot — each
+ *  decompressed here once to compute its `hash` (sha256 of the *decompressed*
+ *  bytes, so gzip's own non-determinism, if any, can never masquerade as a
+ *  pixel/determinism bug).
+ *
+ *  A partial upload is legitimate, and that is the point of the whole epic: a
+ *  client sends the layers it actually re-baked, and a layer left out simply
+ *  keeps whatever coverage it already had. Nothing is inferred from absence.
+ *
+ *  Dedup is unconditional and per layer: `(roomId, layerId, seq)` is unique,
+ *  so a second upload of a layer at a seq this room already has is discarded
+ *  (first arrival wins — several clients independently crossing the same
+ *  checkpoint and uploading concurrently is the expected, normal case, not a
+ *  race to avoid). Only the *comparison* against the already-stored hash is
+ *  gated behind SNAPSHOT_VERIFY_DETERMINISM, since it's pure overhead when
+ *  nobody's watching for it.
+ *
+ *  `layerState` is stored once per room, last write wins — see the
+ *  RoomLayerState model comment for why it no longer has to travel atomically
+ *  with the pixels. An out-of-order arrival (an older seq landing after a
+ *  newer one) is ignored rather than allowed to walk the structure backward. */
 export async function saveSnapshot(
-  roomId: string, seq: number, layerState: unknown, gzippedData: Uint8Array,
+  roomId: string, seq: number, layerState: unknown, layers: ReadonlyMap<string, Uint8Array>,
 ): Promise<SaveSnapshotResult> {
   const record = rooms.get(roomId)
   if (!record) return { ok: false, error: 'unknown_room' }
   if (seq <= 0 || seq % SNAPSHOT_SEQ_INTERVAL !== 0) return { ok: false, error: 'not_a_checkpoint_seq' }
 
-  const hash = await hashOfDecompressed(gzippedData)
+  const created: string[] = []
+  const duplicated: string[] = []
+  const mismatched: string[] = []
 
-  try {
-    await prisma.roomSnapshot.create({
-      // Copied into a fresh, plain-ArrayBuffer-backed Uint8Array — Prisma's
-      // generated Bytes-field type is narrower than the Uint8Array this
-      // function accepts (which could technically be SharedArrayBuffer-
-      // backed), so a straight pass-through doesn't typecheck.
-      data: { roomId, seq, layerState: layerState as object, data: new Uint8Array(gzippedData), hash },
-    })
-    record.latestSnapshotSeq = Math.max(record.latestSnapshotSeq ?? 0, seq)
-    // (#292) This snapshot now covers everything up to `seq`, so the strokes
-    // it covers no longer need to be resident — see trimResidentOperations.
-    trimResidentOperations(record)
-    void deleteSupersededSnapshots(roomId)
-    return { ok: true, created: true }
-  } catch (err) {
-    // P2002: unique constraint violation on (roomId, seq) — a snapshot for
-    // this checkpoint already exists. Not an error: this is the expected
-    // outcome whenever more than one client bakes the same checkpoint.
-    const isDuplicate = typeof err === 'object' && err !== null && 'code' in err && err.code === 'P2002'
-    if (!isDuplicate) throw err
-
-    if (!verifyDeterminismEnabled()) return { ok: true, created: false, hashMismatch: false }
-
-    const existing = await prisma.roomSnapshot.findUnique({
-      where: { roomId_seq: { roomId, seq } }, select: { hash: true },
-    })
-    const hashMismatch = existing !== null && existing.hash !== hash
-    return { ok: true, created: false, hashMismatch }
+  // Coverage follows the row existing, not this call being the one that wrote
+  // it: a duplicate proves the layer is stored at this seq just as well as a
+  // fresh insert does. Skipping it would leave a room that re-entered memory
+  // while rows already existed under-claiming its own coverage.
+  const noteCovered = (layerId: string): void => {
+    if (seq > (record.coveredSeqByLayer.get(layerId) ?? 0)) record.coveredSeqByLayer.set(layerId, seq)
   }
+
+  for (const [layerId, gzippedData] of layers) {
+    const hash = await hashOfDecompressed(gzippedData)
+    try {
+      await prisma.roomLayerSnapshot.create({
+        // Copied into a fresh, plain-ArrayBuffer-backed Uint8Array — Prisma's
+        // generated Bytes-field type is narrower than the Uint8Array this
+        // function accepts (which could technically be SharedArrayBuffer-
+        // backed), so a straight pass-through doesn't typecheck.
+        data: { roomId, layerId, seq, data: new Uint8Array(gzippedData), hash },
+      })
+      created.push(layerId)
+      noteCovered(layerId)
+    } catch (err) {
+      // P2002: unique constraint violation on (roomId, layerId, seq) — this
+      // layer is already stored at this checkpoint. Not an error: it is the
+      // expected outcome whenever more than one client bakes the same one.
+      const isDuplicate = typeof err === 'object' && err !== null && 'code' in err && err.code === 'P2002'
+      if (!isDuplicate) throw err
+      duplicated.push(layerId)
+      noteCovered(layerId)
+
+      if (!verifyDeterminismEnabled()) continue
+      const existing = await prisma.roomLayerSnapshot.findUnique({
+        where: { roomId_layerId_seq: { roomId, layerId, seq } }, select: { hash: true },
+      })
+      if (existing !== null && existing.hash !== hash) mismatched.push(layerId)
+    }
+  }
+
+  if (layerState !== undefined && seq > (record.layerStateSeq ?? 0)) {
+    await prisma.roomLayerState.upsert({
+      where: { roomId },
+      create: { roomId, seq, state: layerState as object },
+      update: { seq, state: layerState as object },
+    })
+    record.layerStateSeq = seq
+  }
+
+  if (created.length > 0) {
+    // (#292) These layers no longer need their covered operations resident —
+    // see trimResidentOperations, currently a no-op pending #372.
+    trimResidentOperations(record)
+    void deleteSupersededSnapshots(roomId, created)
+  }
+  return { ok: true, created, duplicated, mismatched }
 }
 
-/** The room's most recently stored snapshot, or `null` if it has none yet
- *  (short room — same case `latestSnapshotSeq === null` covers in
- *  `getRoomSnapshot`). Read from Postgres directly rather than the in-memory
- *  Map: unlike operations, snapshot pixel/layerState payloads are never
- *  cached in `RoomRecord` (#149 epic design — kept out of the hot,
- *  always-resident path since they're only needed at join time). */
+/** How far this layer's stored pixels reach — the seq of its newest
+ *  RoomLayerSnapshot, or `undefined` if nothing has ever been stored for it
+ *  and its whole history still has to be replayed (#371).
+ *
+ *  A plain read of `coveredSeqByLayer`, which #372 makes `getRoomStateFor`
+ *  consult per layer when deciding which operations a joining client still
+ *  needs. Until then this is how the coverage the storage layer maintains can
+ *  be observed at all. */
+export function getCoveredSeq(roomId: string, layerId: string): number | undefined {
+  return rooms.get(roomId)?.coveredSeqByLayer.get(layerId)
+}
+
+export interface StoredLayerSnapshot {
+  layerId: string
+  seq: number
+  data: Uint8Array
+}
+
+/** Every layer's newest stored snapshot, plus the room's stored layerState —
+ *  what a joining client needs to reconstruct the canvas before replaying the
+ *  operations no layer's coverage accounts for (#371).
+ *
+ *  `layers` is empty for a room nobody has baked yet, and may cover only some
+ *  of the layers in `layerState`: a layer with no row here has no stored
+ *  pixels and is rebuilt from its operations alone. That case is ordinary, not
+ *  an error — it is exactly what #369 got wrong by treating a missing layer as
+ *  an empty one.
+ *
+ *  Read from Postgres directly rather than the in-memory Map: unlike
+ *  operations, snapshot pixel payloads are never cached in `RoomRecord`
+ *  (#149 epic design — kept out of the hot, always-resident path since
+ *  they're only needed at join time). */
 export async function getLatestSnapshot(
   roomId: string,
-): Promise<{ seq: number; layerState: unknown; data: Uint8Array } | null> {
-  const row = await prisma.roomSnapshot.findFirst({
-    where: { roomId }, orderBy: { seq: 'desc' },
-    select: { seq: true, layerState: true, data: true },
-  })
-  return row
+): Promise<{ seq: number; layerState: unknown; layers: StoredLayerSnapshot[] } | null> {
+  const [stored, rows] = await Promise.all([
+    prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),
+    // Newest first, so the first row seen for a layer is the one to keep —
+    // retention leaves up to SNAPSHOT_RETENTION_PER_LAYER rows per layer.
+    prisma.roomLayerSnapshot.findMany({
+      where: { roomId }, orderBy: { seq: 'desc' }, select: { layerId: true, seq: true, data: true },
+    }),
+  ])
+  if (!stored) return null
+
+  const newestByLayer = new Map<string, StoredLayerSnapshot>()
+  for (const row of rows) if (!newestByLayer.has(row.layerId)) newestByLayer.set(row.layerId, row)
+  return { seq: stored.seq, layerState: stored.state, layers: [...newestByLayer.values()] }
 }
 
 /** Paginated backfill (#169): the page of up to `limit` operations
