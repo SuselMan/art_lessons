@@ -97,12 +97,31 @@ export const workboxConfig: WorkboxConfig = {
         cacheableResponse: { statuses: [200] },
       },
     },
-    {
-      // Never let Workbox near the API or the socket handshake. Both are
-      // per-request and identity-bearing: a cached /api/me would hand one
-      // person's session to the next visitor on a shared tablet.
-      urlPattern: ({ url }) => url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/'),
-      handler: 'NetworkOnly',
-    },
+    // (#383) There is deliberately no rule for /api/ or /socket.io/ here.
+    //
+    // There used to be one — `handler: 'NetworkOnly'`, under a comment saying
+    // "never let Workbox near the API or the socket handshake". It did keep
+    // them out of every cache, which is the requirement and still holds below,
+    // but it got there by the opposite means: a runtimeCaching entry is a
+    // *registered route*, so Workbox took the request, ran it through its own
+    // fetch, and on any network failure threw WorkboxError('no-response')
+    // into a promise nobody awaits. On a flaky connection that fills the
+    // console with `Uncaught (in promise) no-response` — one per failed poll,
+    // and socket.io polls on every reconnect — burying real errors and
+    // spending Sentry quota on a client-side network blip. Observed on prod
+    // 03.08: 17 such rejections, none of whose requests ever reached nginx.
+    //
+    // Matching no route is what "never let Workbox near it" actually spells:
+    // the Router then never calls respondWith, the request goes straight to
+    // the network as if no worker existed, and a failure stays an ordinary
+    // ERR_FAILED that socket.io's own reconnect logic already handles. It is
+    // also strictly safer for the caching requirement — a route that exists
+    // can be given the wrong handler later; one that doesn't cannot.
+    //
+    // The socket's long-polling transport is the concrete reason this is not
+    // merely cosmetic: a poll holds a request open for up to 25 s, and the
+    // browser is free to evict and respawn the worker underneath it.
+    // workboxConfig.test.ts asserts the absence, since absence is exactly the
+    // kind of thing a later edit restores without noticing.
   ],
 }
