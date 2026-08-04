@@ -147,6 +147,34 @@ tab — if unrelated apps are dying too, stop looking at V8 heap numbers.
   from a hung page. Send `Page.bringToFront` first (mind the reload above), or
   have Ilya put the tab on screen.
 
+- **The app is installed as a PWA there, and that changes two things.** The
+  foreground activity is `SameTaskWebApkActivity`, not a Chrome tab, and
+  `/json/list` shows it like any other page — but there is no tab strip and no
+  URL bar, so anything that would normally be "just navigate" has to happen
+  inside the app.
+
+  Driving a hard navigation from the page (`location.assign`) raises Chrome's
+  native `beforeunload` dialog — "Закрыть сайт? Изменения могут не
+  сохраниться." — and a native dialog blocks every subsequent CDP command.
+  That reads *exactly* like a frozen renderer: `Runtime.evaluate` never
+  returns, `Page.bringToFront` does not help, and `dumpsys power` says the
+  device is awake. `Page.handleJavaScriptDialog` cannot clear it either if
+  `Page.enable` came after the dialog opened. `adb exec-out screencap -p`
+  answers in one shot what ten minutes of protocol poking will not — take the
+  screenshot first when the tablet stops answering, then dismiss with
+  `adb shell input tap`.
+
+  For leaving a room, click the wordmark button
+  (`aria-label="Grafetto — leave this project"`) and then the modal's "Leave".
+  That is the real unmount path anyway — a hard navigation would not run
+  React's cleanup, so the exit-time work under test (#382's thumbnail bake)
+  never fires.
+
+- **Emulate offline per page, never on the device.** `Network.emulateNetworkConditions`
+  with `offline: true` cuts only that page's network, so the adb-over-wifi
+  transport this whole setup depends on survives. Turning wifi off on the
+  tablet would take the debugger with it.
+
 - **Instrument in the page, then ask for the tap.** Ilya's finger is the only
   input that reproduces touch faithfully, and a round trip costs a message —
   so install a `MutationObserver`/listener probe that records rects, computed
