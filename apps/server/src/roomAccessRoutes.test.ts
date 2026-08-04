@@ -242,7 +242,11 @@ describe('invites', () => {
     // (#227) An implicit approval is still an approval, so the person waiting
     // on the join screen is let in by it rather than left watching a queue
     // they have already silently left.
-    expect(notify.joinRequestResolved).toHaveBeenCalledWith('room-1', 'bob', true)
+    // (#387) And the owner hears it too — inviting an address does not read as
+    // "answering the queue", so the row has to leave their panel by itself.
+    expect(notify.joinRequestResolved).toHaveBeenCalledWith({
+      roomId: 'room-1', requestId: 'req-1', askerId: 'bob', ownerId: OWNER, approved: true,
+    })
   })
 
   it('removes an address from the list, and is fine with one that was already gone', async () => {
@@ -262,16 +266,32 @@ describe('the queue', () => {
     mockPrisma.roomJoinRequest.findFirst.mockResolvedValue({ id: 'req-1', userId: 'bob' })
   })
 
-  it('approves and denies through the same write, and tells the asker either way', async () => {
+  it('approves and denies through the same write, and names both sides either way', async () => {
     expect((await post(buildApp(), '/api/rooms/room-1/join-requests/req-1/approve')).json())
       .toEqual({ ok: true, status: 'approved' })
-    expect(notify.joinRequestResolved).toHaveBeenCalledWith('room-1', 'bob', true)
+    expect(notify.joinRequestResolved).toHaveBeenCalledWith({
+      roomId: 'room-1', requestId: 'req-1', askerId: 'bob', ownerId: OWNER, approved: true,
+    })
 
     expect((await post(buildApp(), '/api/rooms/room-1/join-requests/req-1/deny')).json())
       .toEqual({ ok: true, status: 'denied' })
     // Denial is announced too: someone waiting on the join screen deserves an
     // answer, not a spinner that never resolves.
-    expect(notify.joinRequestResolved).toHaveBeenCalledWith('room-1', 'bob', false)
+    expect(notify.joinRequestResolved).toHaveBeenCalledWith({
+      roomId: 'room-1', requestId: 'req-1', askerId: 'bob', ownerId: OWNER, approved: false,
+    })
+  })
+
+  // (#387) The two ids are the reason this event stopped being positional:
+  // `askerId` decides whose join screen resolves, `ownerId` whose queue loses
+  // a row, and a swap would silently do both to the wrong person.
+  it('never reports the owner as the one who asked', async () => {
+    await post(buildApp(), '/api/rooms/room-1/join-requests/req-1/approve')
+
+    const [event] = notify.joinRequestResolved.mock.calls[0]
+    expect(event.askerId).toBe('bob')
+    expect(event.ownerId).toBe(OWNER)
+    expect(event.askerId).not.toBe(event.ownerId)
   })
 
   it('cannot resolve a request belonging to another room', async () => {

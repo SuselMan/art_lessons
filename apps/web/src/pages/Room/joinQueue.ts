@@ -116,15 +116,32 @@ export function applyJoinRequestCreated(
   void queryClient.invalidateQueries({ queryKey })
 }
 
-/** (#380/#227) Re-read the queue after a resolution this client did not make.
+/** (#387) A request was answered — drop that row from the cached queue.
  *
- *  Today this is reachable only in theory: `join_request_resolved` is
- *  addressed to the *asker* (roomAccessRoutes.ts notifies `queued.userId`),
- *  so an owner sitting in the room never hears their own decisions — those
- *  come back through the mutation that made them. It is wired anyway because
- *  it is the only correct reaction available: the payload says whether a
- *  request was approved but not which one, so there is nothing to patch, only
- *  something to re-read. */
-export function refreshJoinQueue(queryClient: QueryClient, roomId: string): void {
-  void queryClient.invalidateQueries({ queryKey: roomAccessQueryKey(roomId) })
+ *  Reached when the decision was made somewhere this tab cannot see: the
+ *  lesson list in another tab, a second device, an invite that implicitly
+ *  approved someone already queued. The owner's own click in this room does
+ *  not need it — `useJoinQueue`'s mutation has already removed the row — but
+ *  arriving twice is harmless, because removing an id that is no longer there
+ *  returns the same array.
+ *
+ *  Exact rather than a refetch: #380 shipped with an invalidate here because
+ *  the payload named no request, and re-reading the whole queue to learn that
+ *  one row left is both a round trip and a window in which the panel shows a
+ *  person who is already inside. `requestId` closed that.
+ *
+ *  The invalidate survives for one case only — no cache entry to patch, which
+ *  means the first fetch is still in flight and would otherwise land holding
+ *  the row this event just retired. */
+export function applyJoinRequestResolved(
+  queryClient: QueryClient, roomId: string, requestId: string,
+): void {
+  const queryKey = roomAccessQueryKey(roomId)
+  let patched = false
+  queryClient.setQueryData<RoomAccessInfo>(queryKey, old => {
+    if (!old) return old
+    patched = true
+    return { ...old, pendingRequests: old.pendingRequests.filter(r => r.id !== requestId) }
+  })
+  if (!patched) void queryClient.invalidateQueries({ queryKey })
 }

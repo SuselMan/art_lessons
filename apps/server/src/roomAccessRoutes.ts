@@ -32,7 +32,18 @@ import { hashRoomPassword, setRoomAccessMode, setRoomPassword } from './rooms.js
  *  on the next attempt — so a notification that reaches nobody (owner offline,
  *  asker's tab closed) costs a moment of staleness, never access. */
 export type RoomAccessNotifier = {
-  joinRequestResolved: (roomId: string, userId: string, approved: boolean) => void
+  /** (#387) An object rather than a positional list because this now names two
+   *  different people — the one who asked and the one who answered — and
+   *  `(roomId, a, b, ...)` is exactly the shape where those get swapped one
+   *  day without the compiler noticing. `ownerId` is always the caller: every
+   *  route here is owner-only (`requireOwnedRoom`). */
+  joinRequestResolved: (event: {
+    roomId: string
+    requestId: string
+    askerId: string
+    ownerId: string
+    approved: boolean
+  }) => void
   kicked: (roomId: string, userId: string) => void
 }
 
@@ -196,8 +207,16 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
         })
         // (#227) An implicit approval is still an approval — the person
         // waiting on the join screen should be let in by it, not left staring
-        // at a queue they have silently already left.
-        notify?.joinRequestResolved(room.id, queued.userId, true)
+        // at a queue they have silently already left. (#387) And the owner is
+        // told for the same reason in reverse: inviting an address is not
+        // obviously "answering the queue", so the row has to go by itself.
+        notify?.joinRequestResolved({
+          roomId: room.id,
+          requestId: queued.id,
+          askerId: queued.userId,
+          ownerId: request.userId,
+          approved: true,
+        })
       }
 
       return reply.code(201).send({ email: invite.email, invitedAt: invite.createdAt.toISOString() })
@@ -247,7 +266,13 @@ export function registerRoomAccessRoutes(app: FastifyInstance, notify?: RoomAcce
           where: { id: target.id },
           data: { status, resolvedAt: new Date() },
         })
-        notify?.joinRequestResolved(room.id, target.userId, status === 'approved')
+        notify?.joinRequestResolved({
+          roomId: room.id,
+          requestId: target.id,
+          askerId: target.userId,
+          ownerId: request.userId,
+          approved: status === 'approved',
+        })
 
         return { ok: true, status }
       },
