@@ -90,7 +90,6 @@ export function createSnapshotUploader(roomId: string) {
       if (toBoundary <= fromBoundary) return
       const boundarySeq = toBoundary * SNAPSHOT_SEQ_INTERVAL
       if (boundarySeq === 0 || attempted.has(boundarySeq)) return
-      attempted.add(boundarySeq)
 
       // Baked synchronously, right here — deliberately NOT deferred to idle
       // time the way the engine's own local undo checkpointing is (see
@@ -114,6 +113,37 @@ export function createSnapshotUploader(roomId: string) {
       // simply does not advance, so the server keeps serving its operations
       // (rooms.ts's isCoveredBySnapshot). That property is what makes this
       // optimisation safe to make at all, and it is the whole point of #370.
+      // (#386) The caller hands us two derivations of the same log — the
+      // engine's buffers and this LayerState — and they have to agree. When
+      // they did not, what got stored was the *empty room's* structure at seq
+      // 2000 of a six-layer lesson, because Room read the store back before
+      // its own deferred derivation had run. The next join restored from that
+      // and showed two empty layers, with the server withholding the
+      // operations it believed were covered.
+      //
+      // Fixed at the source (Room now derives synchronously before reading),
+      // but checked here too, because this is the one place that can see both
+      // halves — and because what a bad pair costs is a room that reads as
+      // wiped, discovered by a teacher rather than by a test.
+      const known = new Set(Object.keys(layerState.items))
+      const missing = engine.liveLayerIds().filter(id => !known.has(id))
+      if (missing.length > 0) {
+        // Not an exception: this runs inside a bare event path where throwing
+        // would take the join down with it, and the correct behaviour is
+        // simply not to persist. The room stays snapshot-less — slow to open,
+        // which is what it already was — instead of persisting a lie.
+        console.error(
+          `[snapshot] refusing to upload: layer state omits live layers ${missing.join(', ')}`,
+        )
+        return
+      }
+
+      // Marked only once the pair has been accepted. Ahead of the check it
+      // would burn this boundary on the rejected attempt, so the next caller —
+      // possibly the one holding a correct LayerState — would find it already
+      // "attempted" and skip, leaving the room snapshot-less for good.
+      attempted.add(boundarySeq)
+
       const layers = new Map<string, Uint8Array>()
       for (const item of Object.values(layerState.items)) {
         if (item.kind !== 'layer' || !engine.isLayerDirty(item.id)) continue
