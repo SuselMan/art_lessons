@@ -170,6 +170,17 @@ tab — if unrelated apps are dying too, stop looking at V8 heap numbers.
   React's cleanup, so the exit-time work under test (#382's thumbnail bake)
   never fires.
 
+- **A finger does not draw — synthesize a pen.** `PointerInput.ts` drops
+  `pointerType === 'touch'` outright (touch pans/zooms the viewport at a level
+  above the engine), so `Input.dispatchTouchEvent` produces gestures, not
+  strokes. Eighty of them recorded zero operations and left the page parked
+  3912 px off screen, which reads as "the canvas is blank" until you check the
+  wrap's transform. Use `Input.dispatchMouseEvent` with `pointerType: 'pen'`
+  and a `force`; ~90 ms between strokes, or consecutive ones merge into one
+  gesture. Verify against Postgres (`select count(*) from "Operation" where
+  "roomId"=…`) rather than against the screen — that is the difference between
+  "it drew" and "it looked like it drew".
+
 - **Emulate offline per page, never on the device.** `Network.emulateNetworkConditions`
   with `offline: true` cuts only that page's network, so the adb-over-wifi
   transport this whole setup depends on survives. Turning wifi off on the
