@@ -122,8 +122,12 @@ registerRoomRoutes(app, (roomId, closedAt) => io.to(roomId).emit('room_closed_ch
 // — see RoomAccessNotifier's doc comment for why a missed notification is
 // never a missed decision.
 registerRoomAccessRoutes(app, {
-  joinRequestResolved: (roomId, userId, approved) =>
-    io.to(userChannel(userId)).emit('join_request_resolved', { roomId, approved }),
+  // (#387) Both sides of the decision, one emit: chaining `.to()` unions the
+  // two channels and socket.io delivers once per socket, so an owner who
+  // somehow shares a channel with the asker still gets a single event.
+  joinRequestResolved: ({ roomId, requestId, askerId, ownerId, approved }) =>
+    io.to(userChannel(askerId)).to(userChannel(ownerId))
+      .emit('join_request_resolved', { roomId, requestId, approved }),
   kicked: (roomId, userId) => {
     void removeUserFromRoom(io, roomId, userId).catch(err =>
       app.log.error({ err, roomId, userId }, 'failed to remove kicked user from room'))

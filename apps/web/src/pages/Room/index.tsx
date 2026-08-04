@@ -72,7 +72,7 @@ import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
-import { applyJoinRequestCreated, refreshJoinQueue, useJoinQueue } from './joinQueue'
+import { applyJoinRequestCreated, applyJoinRequestResolved, useJoinQueue } from './joinQueue'
 import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
@@ -3096,14 +3096,16 @@ export function Room() {
     //
     // Never restarts the join once we're in: the room is already open, and a
     // stale resolution arriving after a reconnect must not re-enter it.
-    const handleJoinRequestResolved = ({ roomId, approved }: { roomId: string; approved: boolean }) => {
-      // (#380) Already inside: this is not about us being let in — it's a
-      // resolution for some room this person is queued for, or a stale one
-      // arriving after a reconnect. Neither may restart the join; if it is
-      // *this* room, re-read the queue, since the payload says a request was
-      // answered but not which.
+    const handleJoinRequestResolved = (
+      { roomId, requestId, approved }: { roomId: string; requestId: string; approved: boolean },
+    ) => {
+      // Already inside: this is not about us being let in — it is either the
+      // owner hearing a decision made elsewhere (#387: a second tab, the
+      // lesson list, an invite that approved someone already queued), or a
+      // stale resolution arriving after a reconnect. Neither may restart the
+      // join; the owner's queue just loses that one row.
       if (hasJoinedRef.current) {
-        if (roomId === id) refreshJoinQueue(queryClient, roomId)
+        if (roomId === id) applyJoinRequestResolved(queryClient, roomId, requestId)
         return
       }
       if (approved) retryJoinRef.current()

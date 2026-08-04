@@ -826,12 +826,20 @@ export type ServerToClientEvents = {
   // request itself so the panel can render the new row without refetching;
   // `roomId` because an owner with several lessons open needs to know which.
   join_request_created: (data: { roomId: string; request: RoomJoinRequest }) => void
-  // Sent to the asker once the owner decides — including when the decision was
-  // made implicitly, by inviting the address they were queued under. On
-  // `approved` the client finishes the join it was refused (it re-emits
-  // `join_room`); the server holds nothing open in the meantime, so a client
-  // that missed this event while offline simply gets in on its next attempt.
-  join_request_resolved: (data: { roomId: string; approved: boolean }) => void
+  // Sent when a request is decided — including when the decision was made
+  // implicitly, by inviting the address they were queued under. On `approved`
+  // the client finishes the join it was refused (it re-emits `join_room`); the
+  // server holds nothing open in the meantime, so a client that missed this
+  // event while offline simply gets in on its next attempt.
+  //
+  // (#387) Two audiences, one payload: the asker, whose join screen resolves
+  // itself, and the *owner*, whose waiting queue (#380) has to lose the row.
+  // The owner needs it because the decision is not always theirs to observe
+  // locally — answering from the lesson list, or from a second device, leaves
+  // the room's queue showing someone who is already in. `requestId` is what
+  // makes that removal exact: without it the receiver knows a request was
+  // answered but not which, and can only re-read the whole queue.
+  join_request_resolved: (data: { roomId: string; requestId: string; approved: boolean }) => void
   // Sent to someone being removed from a room they are currently in, right
   // before the server takes them out of it. Not a disconnect: their connection
   // stays up so the client can navigate away (and keep working elsewhere)

@@ -3,7 +3,7 @@ import { QueryClient } from '@tanstack/react-query'
 import type { RoomAccessInfo, RoomJoinRequest } from '@grafetto/shared'
 
 import { roomAccessQueryKey } from '../../lib/queryClient'
-import { applyJoinRequestCreated } from './joinQueue'
+import { applyJoinRequestCreated, applyJoinRequestResolved } from './joinQueue'
 
 function request(id: string, name = 'Ann'): RoomJoinRequest {
   return { id, userId: `u-${id}`, name, email: null, requestedAt: '2026-08-04T10:00:00.000Z' }
@@ -52,5 +52,38 @@ describe('applyJoinRequestCreated', () => {
 
     expect(read(client, 'room-2')).toBeUndefined()
     expect(read(client, 'room-1')?.pendingRequests).toEqual([])
+  })
+})
+
+describe('applyJoinRequestResolved', () => {
+  it('drops exactly the answered row and leaves the rest waiting', () => {
+    const client = new QueryClient()
+    client.setQueryData(roomAccessQueryKey('room-1'), access([request('a'), request('b'), request('c')]))
+
+    applyJoinRequestResolved(client, 'room-1', 'b')
+
+    expect(read(client, 'room-1')?.pendingRequests.map(r => r.id)).toEqual(['a', 'c'])
+  })
+
+  // The owner who clicked already removed the row through the mutation, and
+  // the event then arrives saying the same thing. Answering in one tab must
+  // not disturb the queue in another.
+  it('is a no-op for a row that has already gone', () => {
+    const client = new QueryClient()
+    client.setQueryData(roomAccessQueryKey('room-1'), access([request('a')]))
+
+    applyJoinRequestResolved(client, 'room-1', 'gone')
+
+    expect(read(client, 'room-1')?.pendingRequests.map(r => r.id)).toEqual(['a'])
+  })
+
+  // Same reasoning as the created path: the event is addressed to a person,
+  // and a project this tab holds no access state for gets no invented entry.
+  it('creates nothing for a project this client has no access state for', () => {
+    const client = new QueryClient()
+
+    applyJoinRequestResolved(client, 'room-2', 'a')
+
+    expect(read(client, 'room-2')).toBeUndefined()
   })
 })
