@@ -345,6 +345,12 @@ export const en = {
   // and a notice that faded after four seconds would leave them working into
   // a room that no longer accepts it.
   'room.kicked': 'The host has removed your access to this project. Nothing you draw from now on will be saved.',
+  // (#385) Shown when the join-time replay could not apply every operation —
+  // the canvas shows less than the project actually contains. Says "on this
+  // device" because that is the honest scope: the project itself is intact on
+  // the server, and this client deliberately will not write its own partial
+  // canvas back over it.
+  'room.replayIncomplete': 'Some of this project could not be drawn on this device, so what you see is incomplete. Nothing has been lost — reopening the project usually fixes it. Until then, this device will not save previews or restore points for it.',
   // (#232) Said out loud rather than logged: the project is already
   // invite-only, so an invite that didn't land is a student who will be stuck
   // asking to be let in. Fixable in the access panel.

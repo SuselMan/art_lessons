@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { io, type Socket } from 'socket.io-client'
+import * as Sentry from '@sentry/react'
 import clsx from 'clsx'
 import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
@@ -775,9 +776,27 @@ export function Room() {
   // checkSnapshotBoundary below, the single place that reads both.
   const pendingCommitSeqsRef = useRef<Set<number>>(new Set())
   const committedWatermarkRef = useRef(0)
+  /** (#385) Set when the join-time replay did not finish — an operation threw
+   *  and the canvas therefore shows less than the log says the room contains.
+   *
+   *  The editor deliberately stays usable in that case (see the `finally`
+   *  around the replay for why unblocking is the lesser harm), but what must
+   *  *not* happen is this client writing its incomplete canvas back as the
+   *  room's own state. A snapshot is authoritative — the next joiner restores
+   *  from it and the server then withholds the operations it covers — so
+   *  baking one here would turn "this session rendered the room wrong" into
+   *  "the room is now actually missing that content", permanently, for
+   *  everyone. The thumbnail is the same mistake in miniature: a blank preview
+   *  on the lesson list, republished from a client that never managed to draw
+   *  the lesson.
+   *
+   *  Never cleared for the life of this mount: nothing that happens after a
+   *  half-applied replay can make the buffer whole again short of a reload,
+   *  which is a fresh mount and a fresh attempt anyway. */
+  const replayIncompleteRef = useRef(false)
   const checkSnapshotBoundary = useCallback(() => {
     const engine = engineRef.current
-    if (!engine || !snapshotUploader) return
+    if (!engine || !snapshotUploader || replayIncompleteRef.current) return
     const pending = pendingCommitSeqsRef.current
     const watermark = pending.size ? Math.min(...pending) - 1 : latestKnownSeqRef.current
     if (watermark <= committedWatermarkRef.current) return
@@ -1489,7 +1508,34 @@ export function Room() {
             if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
           }
 
-          for (const op of pending.tailOperations) applyRemoteOp(op)
+          // (#385) Per-operation, not around the whole loop. One operation
+          // that throws used to abandon every operation after it — and in the
+          // real case that produced this guard (a GL allocation failing part
+          // way through a 2001-operation room) the ones after it were the
+          // overwhelming majority. Applying the rest is strictly better: the
+          // canvas ends up missing whatever those particular operations drew
+          // rather than missing the entire lesson.
+          //
+          // The room is still marked incomplete either way — see
+          // replayIncompleteRef for what that stops this client from doing.
+          let failed = 0
+          for (const op of pending.tailOperations) {
+            try {
+              applyRemoteOp(op)
+            } catch (err) {
+              // Only the first is reported. A failure here is normally a dead
+              // GL context, in which case every subsequent operation fails the
+              // same way, and a thousand identical events tell Sentry nothing
+              // the first one didn't while costing the quota of everything else
+              // that day.
+              if (failed === 0) Sentry.captureException(err)
+              failed++
+            }
+          }
+          if (failed > 0) {
+            replayIncompleteRef.current = true
+            notifyError(tRef.current('room.replayIncomplete'), { key: 'replay-incomplete', durationMs: null })
+          }
           engine.resumeDisplay()
           syncFromLog()
           dispatchParticipants({ type: 'room_state', participants: pending.participants })
@@ -1555,7 +1601,10 @@ export function Room() {
       // closure's local, not engineRef.current — already nulled above) stays
       // alive until the export settles; destroy() only runs after, so
       // exportPNG never reads from a torn-down GL context.
-      if (id) {
+      // (#385) Not from a canvas we know is incomplete — republishing a blank
+      // preview over a real lesson's is the same mistake as baking a snapshot
+      // from it, just cheaper to undo. See replayIncompleteRef.
+      if (id && !replayIncompleteRef.current) {
         void uploadThumbnail(id, engine).finally(() => engine.destroy())
       } else {
         engine.destroy()
