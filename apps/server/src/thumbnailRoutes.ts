@@ -5,16 +5,22 @@ import { getParticipant } from './rooms.js'
 
 /** GET is fetched from "Мои уроки" (`RoomCard`'s `<img>`), precisely when the
  *  caller is *not* live-connected to the room — `getParticipant` (the
- *  in-memory live-socket registry POST correctly uses below, since uploads
- *  only ever happen from inside an open room) would 403 almost every real
- *  request here, exactly the failure mode QA caught: the thumbnail loaded
- *  fine immediately after leaving the room but started 403ing once the
- *  in-memory participant entry aged out. Access must instead be checked
- *  against the same *persisted* signal `/api/rooms/mine` itself already uses
- *  to decide whether this room even belongs in the caller's list — owner, or
- *  a `RoomParticipant` row (only ever created in `joinRoom` after the
- *  password check passes, so this preserves the same "no guessing a
- *  password-protected room's id" property the live check was added for). */
+ *  in-memory live-socket registry) would 403 almost every real request here,
+ *  exactly the failure mode QA caught: the thumbnail loaded fine immediately
+ *  after leaving the room but started 403ing once the in-memory participant
+ *  entry aged out. Access must instead be checked against the same *persisted*
+ *  signal `/api/rooms/mine` itself already uses to decide whether this room
+ *  even belongs in the caller's list — owner, or a `RoomParticipant` row (only
+ *  ever created in `joinRoom` after the password check passes, so this
+ *  preserves the same "no guessing a password-protected room's id" property
+ *  the live check was added for).
+ *
+ *  Deliberately does *not* consult `RoomBlock`, unlike `hasPersistedUploadAccess`
+ *  below: `/api/rooms/mine` doesn't either, so a blocked ex-participant still
+ *  has the room on their list, and 403ing its preview would render that card
+ *  as a broken image rather than as anything meaningful. Reading a thumbnail
+ *  of a room one used to be in is the same exposure as the card itself; being
+ *  able to *overwrite* it is not. */
 async function hasPersistedRoomAccess(roomId: string, userId: string): Promise<boolean> {
   const room = await prisma.room.findUnique({
     where: { id: roomId },
@@ -22,6 +28,42 @@ async function hasPersistedRoomAccess(roomId: string, userId: string): Promise<b
   })
   if (!room) return false
   return room.ownerId === userId || room.participants.length > 0
+}
+
+/** (#382) POST's persisted fallback, for the one upload that provably cannot
+ *  hold a live socket: the final bake on room exit.
+ *
+ *  Room/index.tsx fires `uploadThumbnail` from its unmount cleanup, and the
+ *  socket effect's own cleanup calls `socket.disconnect()` in the same
+ *  teardown. The upload has to export the canvas, downscale it and base64 it
+ *  before it can even open the request — measured at ~870 ms on prod — so the
+ *  disconnect wins the race, `leaveRoom` has already dropped the in-memory
+ *  entry, and the POST 403s. That is roughly one room exit in six (14 of 83
+ *  over 26.07–01.08), each one silently losing the preview that this exact
+ *  call site exists to guarantee. Waiting for the upload before disconnecting
+ *  was the alternative, and it is worse: a React cleanup is synchronous, so
+ *  it means holding a socket open past unmount on a path that also has to
+ *  survive the tab simply being closed.
+ *
+ *  Stricter than `hasPersistedRoomAccess` by exactly one row — a block is the
+ *  durable half of a kick (see socketHandlers.ts's `removeUserFromRoom`), and
+ *  a `RoomParticipant` row outlives one, so without this check the person the
+ *  owner just removed would keep write access to what the room looks like on
+ *  everyone's lesson list. */
+async function hasPersistedUploadAccess(roomId: string, userId: string): Promise<boolean> {
+  const [room, blocked] = await Promise.all([
+    prisma.room.findUnique({
+      where: { id: roomId },
+      select: { ownerId: true, participants: { where: { userId }, select: { userId: true } } },
+    }),
+    prisma.roomBlock.findUnique({ where: { roomId_userId: { roomId, userId } }, select: { id: true } }),
+  ])
+  if (!room) return false
+  // The owner is exempt from their own block list for the same reason
+  // roomAccess.ts's join gate exempts them: a room whose owner can be locked
+  // out of it is a room that can be stolen.
+  if (room.ownerId === userId) return true
+  return !blocked && room.participants.length > 0
 }
 
 // Base64 JSON, matching snapshotRoutes.ts's POST /snapshots — kept
@@ -68,10 +110,11 @@ function sniffPng(buffer: Buffer): { ok: true; width: number; height: number } |
  *  PNG per room, shown as a preview on "Мои уроки" room cards (#116). Not to
  *  be confused with the #149 epic's RoomSnapshot — that's opaque per-layer
  *  tile blobs for fast rejoin; this is a single flat image meant to be
- *  displayed directly. POST reuses the same live-participant guard as
- *  snapshotRoutes.ts (uploads only ever happen from inside an open room);
- *  GET uses a persisted-access check instead — see hasPersistedRoomAccess's
- *  own doc comment for why. Both exist for the same underlying reason:
+ *  displayed directly. Neither verb can use snapshotRoutes.ts's plain
+ *  live-participant guard: GET is fetched from outside the room entirely, and
+ *  POST has one call site (#382) that fires as the room is closing — see
+ *  hasPersistedRoomAccess and hasPersistedUploadAccess for what each takes
+ *  instead. Both exist for the same underlying reason:
  *  without a guard, a plain HTTP client could read or overwrite a
  *  password-protected room's thumbnail by guessing its id, bypassing the
  *  socket-level password check entirely. */
@@ -81,7 +124,15 @@ export function registerThumbnailRoutes(app: FastifyInstance): void {
     { bodyLimit: THUMBNAIL_UPLOAD_BODY_LIMIT_BYTES },
     async (request, reply) => {
       const { roomId } = request.params
-      if (!getParticipant(roomId, request.userId)) return reply.code(403).send({ error: 'forbidden' })
+      // Live registry first: it is synchronous, it covers every upload made
+      // from inside an open room, and it is the only branch that answers
+      // correctly in the window where a join's own `persistParticipant` write
+      // is still queued (rooms.ts's `enqueueWrite` — it is fire-and-forget, so
+      // a live participant can briefly have no row yet). The persisted check
+      // is the exit path's fallback; see hasPersistedUploadAccess.
+      if (!getParticipant(roomId, request.userId) && !(await hasPersistedUploadAccess(roomId, request.userId))) {
+        return reply.code(403).send({ error: 'forbidden' })
+      }
 
       const { data } = request.body
       if (typeof data !== 'string') return reply.code(400).send({ error: 'bad_request' })
