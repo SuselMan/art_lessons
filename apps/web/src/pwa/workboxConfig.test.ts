@@ -35,6 +35,20 @@ function matches(pattern: string, path: string): boolean {
 const anyPatternTakes = (path: string) => workboxConfig.globPatterns!.some((p) => matches(p, path))
 const anyIgnoreDrops = (path: string) => workboxConfig.globIgnores!.some((p) => matches(p, path))
 
+/** The runtimeCaching entry Workbox's router would hand `href` to, or
+ *  undefined if none claims it — an unrouted request never reaches the worker
+ *  at all. Handles both shapes a urlPattern may take; ours are all callbacks,
+ *  but a regex added later must not silently read as "no match". */
+function routeMatching(href: string) {
+  const url = new URL(href)
+  return workboxConfig.runtimeCaching!.find((rule) => {
+    const pattern = rule.urlPattern
+    if (typeof pattern === 'function') return Boolean((pattern as (o: { url: URL }) => unknown)({ url }))
+    if (pattern instanceof RegExp) return pattern.test(href)
+    return url.pathname === pattern
+  })
+}
+
 describe('service worker precache', () => {
   it('would actually catch the regression it is guarding against', () => {
     // Without this the suite could pass on a broken matcher that answers
@@ -86,15 +100,25 @@ describe('service worker precache', () => {
     expect(PAPER_TEXTURE_MAX_ENTRIES).toBeLessThanOrEqual(3)
   })
 
-  it('never serves the API or the socket handshake from cache', () => {
-    const api = workboxConfig.runtimeCaching!.find((r) => r.handler === 'NetworkOnly')
-    expect(api, 'no NetworkOnly rule at all').toBeDefined()
-    // A cached /api/me would hand one person's session to the next visitor on
-    // a shared tablet, which is the failure this rule exists to prevent.
-    const asRoute = api!.urlPattern as (opts: { url: URL }) => boolean
-    expect(asRoute({ url: new URL('https://x/api/me') })).toBe(true)
-    expect(asRoute({ url: new URL('https://x/socket.io/?EIO=4') })).toBe(true)
-    expect(asRoute({ url: new URL('https://x/paper/manifest.json') })).toBe(false)
+  it('routes nothing at the API or the socket handshake', () => {
+    // (#383) Two requirements in one assertion, and the stronger one is the
+    // reason it reads as "no route" rather than "a NetworkOnly route".
+    //
+    // The original: a cached /api/me would hand one person's session to the
+    // next visitor on a shared tablet. Not matching satisfies that outright —
+    // an unrouted request is never even offered to a cache, and unlike a rule
+    // with a handler, it cannot be given a caching one by a later edit.
+    //
+    // The one that replaced it: a matched route means Workbox proxies the
+    // request through its own fetch and turns every network failure into an
+    // unhandled WorkboxError. See the module comment for what that did to the
+    // console on a flaky connection.
+    expect(routeMatching('https://x/api/me'), '/api/me is routed').toBeUndefined()
+    expect(routeMatching('https://x/socket.io/?EIO=4'), 'socket.io is routed').toBeUndefined()
+    // The matcher has to be able to say "yes", or the two above pass on a
+    // helper that answers "no" to everything — the same self-check the glob
+    // assertions above make.
+    expect(routeMatching('https://x/paper/manifest.json')).toBeDefined()
   })
 
   it('never serves the paper manifest CacheFirst', () => {
