@@ -14,6 +14,7 @@ import { setSentryDeviceType, setSentryUser } from './lib/sentry'
 // module's own comment for why registration order matters here.
 import './lib/backNavigationGuard'
 import { registerServiceWorker } from './lib/registerServiceWorker'
+import { syncDebugToolsFromUrl } from './lib/debugTools'
 import { syncDeviceTypeAttribute, syncDocumentLanguage, useSettingsStore } from './stores/settingsStore'
 import { App } from './App'
 
@@ -25,6 +26,11 @@ syncDocumentLanguage()
 // before the first paint so nothing renders one layout and then swaps.
 syncDeviceTypeAttribute()
 setSentryDeviceType(useSettingsStore.getState().deviceType)
+
+// (#321) `?debug=1` / `?debug=0` toggles the settings panel's developer tab
+// for this browser. Read before the tree mounts so the first render of the
+// panel already agrees with the address bar.
+syncDebugToolsFromUrl(window.location.search)
 
 // (#186) A stale chunk reference — this tab was left open across a deploy,
 // and lazy-loaded route chunks (App.tsx's lazy() calls) are content-hashed,

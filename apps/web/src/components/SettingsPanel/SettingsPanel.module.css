@@ -45,6 +45,46 @@
   line-height: 1.4;
 }
 
+/* (#321) Section label inside a tab — "Sound", "Interface". Quiet on
+   purpose: it groups rows, it isn't a title competing with the modal's own. */
+.sectionHeading {
+  margin: 8px 8px 0;
+  color: var(--color-text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sectionHeading:first-child { margin-top: 0; }
+
+.sliderRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+}
+
+.sliderHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sliderValue {
+  color: var(--color-text-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.choiceRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+}
+
 .hotkeyRow {
   display: flex;
   align-items: center;
@@ -104,13 +144,22 @@
   font-size: 11px;
 }
 
+/* Sticky inside the scrolling tab body (#321): the bar belongs to the Debug
+   tab alone now, not to the panel, so it can't be a sibling of the scroll
+   area the way it was — but it still has to stay reachable however long the
+   flag list gets, which is what #310 gave it in the first place. */
 .saveBar {
+  position: sticky;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 8px 16px 12px;
   border-top: 1px solid var(--color-border);
+  /* Same surface the modal box itself is painted with, so rows scrolling
+     under the bar disappear behind it rather than showing through. */
+  background: var(--color-surface-raised);
 }
 
 .saveBtn {

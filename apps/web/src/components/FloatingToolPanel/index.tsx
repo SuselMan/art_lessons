@@ -113,17 +113,18 @@ interface Props {
  *  panelPosition.ts) so it doesn't reset to a default corner on every visit
  *  once someone's moved it somewhere that suits their hand/device.
  *
- *  Visibility is the *inverse* of #99's tap-to-hide minimal-UI mode,
- *  opposite to every other piece of chrome (header/toolbar/side-panel):
- *  those fade away when minimal-UI is active; this panel only shows up
- *  then. It's the replacement minimal toolkit for that mode, not another
- *  thing minimal-UI hides — while the full chrome is showing, its own
- *  header Undo/Redo and toolbar pencil/eraser already cover the same
- *  actions, so this stays out of the way. A real consequence: with the
- *  experimental tapToHideUI flag off, uiHidden can never become true, so
- *  this panel never shows at all for that user — accepted for now (v1,
- *  same "further detail TBD" scope the issue itself calls out), not an
- *  oversight. */
+ *  When it is visible is the caller's decision, not this component's — it
+ *  takes `hidden` and nothing else. Through #99 that decision was fixed: the
+ *  panel was the *inverse* of minimal UI, appearing only once the header/
+ *  toolbar/side-panel had faded away, because it was the replacement toolkit
+ *  for that mode rather than another thing the mode hides. A real consequence
+ *  was that anyone with minimal UI off never saw this panel at all.
+ *
+ *  (#321) That is now a setting — always / only in minimal UI / never (see
+ *  lib/uiPreferences and Room's own use of it). "Always" means it can sit on
+ *  top of the full chrome, duplicating the header's Undo/Redo and the
+ *  toolbar's pencil/eraser: deliberate, since the point of the cluster is
+ *  that it is wherever the hand already is. */
 export function FloatingToolPanel({
   tool, primaryTool, onSetTool, onUndo, onRedo, primaryColor, palette, onSelectColor, onOpenColorPicker,
   roomId, position, onPositionChange, containerRef, hidden,

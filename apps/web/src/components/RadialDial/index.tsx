@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import clsx from 'clsx'
 
-import { getFeatureFlag } from '../../lib/featureFlags'
 import { InterfaceClick } from '../../lib/InterfaceClick'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { diagLog } from '../../lib/diagLog'
 import { angleToCompassDegrees, roundToStep, wholeUnitsCrossed, wrapDegrees, wrapValue, type Point } from '../../lib/angles'
 import styles from './RadialDial.module.css'
@@ -91,7 +91,12 @@ export function RadialDial({
     const rawValue = compassToValue(compass) // already within [min, min+range) — compass is 0..360
     const next = wrapValue(min + roundToStep(rawValue - min, step), min, range)
 
-    if (getFeatureFlag('interfaceSound')) {
+    // (#321) Read at call time, not as a subscription: this runs inside a
+    // pointermove handler that must not re-create itself when a setting
+    // changes, and the value that matters is the one at the moment of the
+    // click.
+    const { soundEnabled, soundVolume } = useSettingsStore.getState()
+    if (soundEnabled) {
       const prevCompass = valueToCompass(prevValue)
       const nextCompass = valueToCompass(next)
       const crossed = wholeUnitsCrossed(prevCompass, nextCompass, wholeUnit * (360 / range))
@@ -105,7 +110,7 @@ export function RadialDial({
       // how many pointermove events arrive.
       if (Math.abs(crossed) > 0) {
         if (!clickRef.current) clickRef.current = new InterfaceClick()
-        clickRef.current.play()
+        clickRef.current.play(soundVolume)
       }
     }
     return next

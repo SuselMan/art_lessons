@@ -28,9 +28,8 @@ const DEFAULT_TUNING: PencilSoundTuning = { ...PENCIL_SOUND_TUNING }
 //     behavior already sounds right for both pencil and liner), mutated
 //     directly here, then `retuneGlobals()` re-applies the two fields that
 //     don't have an existing per-block call site (shelf center frequencies).
-// Only meaningful for variant3 (the only recipe with tap/brightnessScale/
-// qScale/etc.) — gated on that in Room/index.tsx alongside the
-// pencilSoundTuning feature flag, same pattern as hapticGrain/tapToHideUI.
+// Nothing to tune while the sound is off — gated on that in Room/index.tsx
+// alongside the pencilSoundTuning feature flag, same pattern as hapticGrain.
 // `tool` (#253): PencilSound now holds a different GrainVariant per active
 // tool (see TOOL_SOUND_CONFIGS) — this panel always edits whichever one is
 // currently live, so its local `grain`/`tap` state is reseeded every time

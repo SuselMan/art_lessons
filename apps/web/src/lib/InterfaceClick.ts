@@ -51,8 +51,12 @@ export class InterfaceClick {
   /** No-ops (silently) if called again within MIN_INTERVAL_MS of the last
    *  actual play — the caller doesn't need to know or care; it can call
    *  this as often as it likes (e.g. once per pointermove) and the rate
-   *  limiting happens here, in one place, for every future caller too. */
-  play(): void {
+   *  limiting happens here, in one place, for every future caller too.
+   *
+   *  `volume` (#321) is the user's own setting, 0..1, multiplied into this
+   *  click's fixed gain — the same one that scales the drawing sound, since
+   *  there is one sound setting for the whole app, not one per source. */
+  play(volume = 1): void {
     const now = performance.now()
     if (now - this.lastPlayTime < MIN_INTERVAL_MS) return
     this.lastPlayTime = now
@@ -61,7 +65,7 @@ export class InterfaceClick {
     const source = ctx.createBufferSource()
     source.buffer = buffer
     const gain = ctx.createGain()
-    gain.gain.value = CLICK_GAIN
+    gain.gain.value = CLICK_GAIN * Math.min(1, Math.max(0, volume))
     source.connect(gain).connect(ctx.destination)
     source.start()
   }

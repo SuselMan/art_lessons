@@ -8,6 +8,11 @@ import {
   type ColorPickerMode,
 } from '../components/ColorPicker/pickerModes'
 import { detectDeviceType, isDeviceType, type DeviceType } from '../lib/deviceType'
+import { getHotkeyBindings, setHotkeyBindings, type HotkeyBinding } from '../lib/hotkeys'
+import {
+  DEFAULT_FLOATING_PANEL_MODE, DEFAULT_SOUND_VOLUME, clampSoundVolume,
+  isFloatingPanelMode, type FloatingPanelMode,
+} from '../lib/uiPreferences'
 import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/locale'
 
 // App-wide user preferences (#208) — settings that belong to the person, not
@@ -27,6 +32,11 @@ const LESSONS_VIEW_STORAGE_KEY = 'al_lessons_view'
 const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
 const COLOR_PICKER_MODE_STORAGE_KEY = 'al_color_picker_mode'
 const LAST_PAPER_TYPE_STORAGE_KEY = 'al_last_paper_type'
+const SOUND_ENABLED_STORAGE_KEY = 'al_sound_enabled'
+const SOUND_VOLUME_STORAGE_KEY = 'al_sound_volume'
+const MINIMAL_UI_STORAGE_KEY = 'al_minimal_ui'
+const FLOATING_PANEL_STORAGE_KEY = 'al_floating_panel'
+const LOCK_BRUSH_ANGLE_STORAGE_KEY = 'al_lock_brush_angle'
 
 function readStoredLocale(): Locale | null {
   const raw = localStorage.getItem(LOCALE_STORAGE_KEY)
@@ -114,6 +124,37 @@ function initialLastPaperType(): PaperType {
   return raw !== null && isPaperType(raw) ? raw : DEFAULT_LAST_PAPER
 }
 
+function readStoredBoolean(key: string, fallback: boolean): boolean {
+  if (typeof window === 'undefined') return fallback
+  const raw = localStorage.getItem(key)
+  return raw === 'true' ? true : raw === 'false' ? false : fallback
+}
+
+/** (#321) Sound and interface preferences, moved here out of the developer
+ *  feature-flag list they grew up in: they belong to the person, apply while
+ *  the app is running, and have nothing to do with the room being drawn in.
+ *
+ *  All of them are read through a store subscription rather than at mount, so
+ *  changing one takes effect immediately — the flag list they came from needed
+ *  a page reload for every change, which is exactly what made it a developer
+ *  instrument rather than a setting.
+ *
+ *  Nothing migrates the old `featureFlag:*` / `pencilSoundVariant` keys into
+ *  these. That was a deliberate call (#321): the product has no live users
+ *  yet, so a migration would be code written for three of our own devices and
+ *  then never removed. */
+function initialSoundVolume(): number {
+  if (typeof window === 'undefined') return DEFAULT_SOUND_VOLUME
+  const raw = Number(localStorage.getItem(SOUND_VOLUME_STORAGE_KEY))
+  return Number.isFinite(raw) ? clampSoundVolume(raw) : DEFAULT_SOUND_VOLUME
+}
+
+function initialFloatingPanel(): FloatingPanelMode {
+  if (typeof window === 'undefined') return DEFAULT_FLOATING_PANEL_MODE
+  const raw = localStorage.getItem(FLOATING_PANEL_STORAGE_KEY)
+  return isFloatingPanelMode(raw) ? raw : DEFAULT_FLOATING_PANEL_MODE
+}
+
 export interface SettingsStore {
   locale: Locale
   setLocale: (locale: Locale) => void
@@ -125,6 +166,28 @@ export interface SettingsStore {
   setDeviceType: (deviceType: DeviceType) => void
   colorPickerMode: ColorPickerMode
   setColorPickerMode: (mode: ColorPickerMode) => void
+  /** One switch for every sound the app makes — graphite on paper and the
+   *  interface's own clicks alike (#321). They were two independent settings
+   *  and nobody wants one of them. */
+  soundEnabled: boolean
+  setSoundEnabled: (enabled: boolean) => void
+  /** 0..1, multiplied into every sound source's output gain. */
+  soundVolume: number
+  setSoundVolume: (volume: number) => void
+  minimalUi: boolean
+  setMinimalUi: (enabled: boolean) => void
+  floatingPanel: FloatingPanelMode
+  setFloatingPanel: (mode: FloatingPanelMode) => void
+  /** (#278) Whether the marker's chisel angle is a canvas-space value that
+   *  rotates with the canvas, or stays visually fixed on screen. */
+  lockBrushAngleToCanvas: boolean
+  setLockBrushAngleToCanvas: (enabled: boolean) => void
+  /** (#174) Keyboard bindings by action id. The registry, the codec and the
+   *  conflict rules stay in `lib/hotkeys`; this is only where the current
+   *  values live, so that rebinding one reaches the editor's own keydown
+   *  handler without the page reload the settings panel used to need. */
+  hotkeys: Record<string, HotkeyBinding>
+  setHotkeys: (bindings: Record<string, HotkeyBinding>) => void
 }
 
 export const useSettingsStore = create<SettingsStore>()(set => ({
@@ -154,6 +217,40 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
   setColorPickerMode: mode => {
     localStorage.setItem(COLOR_PICKER_MODE_STORAGE_KEY, mode)
     set({ colorPickerMode: mode })
+  },
+  soundEnabled: readStoredBoolean(SOUND_ENABLED_STORAGE_KEY, false),
+  setSoundEnabled: enabled => {
+    localStorage.setItem(SOUND_ENABLED_STORAGE_KEY, String(enabled))
+    set({ soundEnabled: enabled })
+  },
+  soundVolume: initialSoundVolume(),
+  setSoundVolume: volume => {
+    const clamped = clampSoundVolume(volume)
+    localStorage.setItem(SOUND_VOLUME_STORAGE_KEY, String(clamped))
+    set({ soundVolume: clamped })
+  },
+  minimalUi: readStoredBoolean(MINIMAL_UI_STORAGE_KEY, false),
+  setMinimalUi: enabled => {
+    localStorage.setItem(MINIMAL_UI_STORAGE_KEY, String(enabled))
+    set({ minimalUi: enabled })
+  },
+  floatingPanel: initialFloatingPanel(),
+  setFloatingPanel: mode => {
+    localStorage.setItem(FLOATING_PANEL_STORAGE_KEY, mode)
+    set({ floatingPanel: mode })
+  },
+  lockBrushAngleToCanvas: readStoredBoolean(LOCK_BRUSH_ANGLE_STORAGE_KEY, false),
+  setLockBrushAngleToCanvas: enabled => {
+    localStorage.setItem(LOCK_BRUSH_ANGLE_STORAGE_KEY, String(enabled))
+    set({ lockBrushAngleToCanvas: enabled })
+  },
+  // Own storage key and codec (`lib/hotkeys`), unlike the plain values above:
+  // bindings are validated per action against the registry on read, so a
+  // renamed or dropped action can't leave a dead entry behind.
+  hotkeys: typeof window === 'undefined' ? {} : getHotkeyBindings(localStorage),
+  setHotkeys: bindings => {
+    setHotkeyBindings(localStorage, bindings)
+    set({ hotkeys: bindings })
   },
 }))
 

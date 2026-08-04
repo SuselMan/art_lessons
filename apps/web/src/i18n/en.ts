@@ -278,6 +278,7 @@ export const en = {
   // (#216) The header name doubles as its own rename field for the owner.
   'room.rename': 'Rename this project',
   'room.settings': 'Settings',
+  'room.minimalUi': 'Minimal UI',
   'room.fullscreen': 'Fullscreen',
   'room.exitFullscreen': 'Exit fullscreen',
   'room.freeze': "Freeze project — pause everyone's drawing",
@@ -518,15 +519,32 @@ export const en = {
   'layers.mergedName': 'Merged',
   'layers.referenceName': 'Reference',
 
-  // ── editor settings panel (#174 hotkeys tab + panel chrome) ────────────
+  // ── editor settings panel (#174 hotkeys tab, #321 general/access tabs) ──
   'editorSettings.title': 'Settings',
   'editorSettings.tab.general': 'General',
+  'editorSettings.tab.access': 'Access',
   'editorSettings.tab.hotkeys': 'Hotkeys',
+  'editorSettings.tab.debug': 'Debug',
   'editorSettings.unsaved': 'Unsaved changes — reloads the page.',
   'editorSettings.applyAfterSave': 'Changes apply after Save.',
   'editorSettings.pressKey': 'Press a key…',
   'editorSettings.hotkeyConflict': 'Already used by "{action}"',
   'editorSettings.resetHotkeys': 'Reset hotkeys to defaults',
+
+  'editorSettings.soundSection': 'Sound',
+  'editorSettings.soundEnabled': 'Sound',
+  'editorSettings.soundEnabledHint': 'Graphite on paper while you draw, and the interface\'s own clicks.',
+  'editorSettings.soundVolume': 'Volume',
+  'editorSettings.interfaceSection': 'Interface',
+  'editorSettings.minimalUi': 'Minimal UI',
+  'editorSettings.minimalUiHint': 'A short tap on the canvas hides the panels so only the drawing is left; tap again to bring them back. A stylus stroke never triggers it.',
+  'editorSettings.floatingPanel': 'Floating panel',
+  'editorSettings.floatingPanelHint': 'A movable cluster with undo/redo, the current tool and the eraser.',
+  'editorSettings.floatingPanel.always': 'Always',
+  'editorSettings.floatingPanel.minimal': 'In minimal UI',
+  'editorSettings.floatingPanel.never': 'Never',
+  'editorSettings.lockBrushAngle': 'Lock brush angle to the canvas',
+  'editorSettings.lockBrushAngleHint': 'On: the marker\'s nib angle turns with the canvas as you rotate it. Off: it stays visually fixed on screen.',
 
   'hotkey.undo': 'Undo',
   'hotkey.redo': 'Redo',

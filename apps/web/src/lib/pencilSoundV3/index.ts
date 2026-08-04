@@ -17,7 +17,6 @@
 
 import type { PaperType } from '@grafetto/shared'
 
-import type { PencilSoundAPI } from '../PencilSound'
 import { Variant3Synth, type V3Message } from './Variant3Synth'
 
 const TILT_MAX_DEG = 70 // same convention as PencilSound.ts
@@ -52,7 +51,13 @@ function getWorkletUrl(): string {
   return workletUrl
 }
 
-export class PencilSoundV3 implements PencilSoundAPI {
+// (#321) No longer declared as `implements PencilSoundAPI`. Nothing has
+// routed to this class since round 13 retired it (see
+// PENCIL_SOUND_TUNING_LOG.md); it stays on disk as the reference for the
+// per-sample synthesis PencilSound.ts adapted, and a dead class should not be
+// the reason the live interface can't grow a method — `setVolume` (#321) was
+// the first one that showed this.
+export class PencilSoundV3 {
   private ctx: AudioContext | null = null
   private node: AudioWorkletNode | null = null
   // Messages sent before addModule() resolves (it's async; the first

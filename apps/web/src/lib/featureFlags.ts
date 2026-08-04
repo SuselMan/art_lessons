@@ -1,3 +1,10 @@
+// Developer switches, and only those (#321). Anything here is English, needs
+// a page reload to take effect, and lives behind the settings panel's Debug
+// tab. Three former entries — minimal UI, interface sound and the marker's
+// canvas-locked angle — were settings people actually set, and moved to
+// `stores/settingsStore` where they apply immediately; the rule that decides
+// which list something belongs in is whether a teacher would ever open it on
+// purpose.
 
 export interface FeatureFlagDef {
   key: string
@@ -22,12 +29,6 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     envVar: 'VITE_PREDICT_POINTER',
   },
   {
-    key: 'tapToHideUI',
-    label: 'Minimal UI: tap to hide (experimental)',
-    description: 'A short single-finger tap on the canvas hides the toolbar/header/layer panel; tap again to bring them back (#99). Stylus strokes never trigger it.',
-    envVar: 'VITE_TAP_TO_HIDE_UI',
-  },
-  {
     key: 'hapticGrain',
     label: 'Haptic paper grain (experimental)',
     description: 'Vibrates in a fixed hash-grid pattern over the paper as the stroke crosses it, to try simulating paper texture by touch. Android Chrome only (no Vibration API on iOS); for-fun prototype, not tuned.',
@@ -36,18 +37,8 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
   {
     key: 'pencilSoundTuning',
     label: 'Pencil sound tuning panel (dev only)',
-    description: 'Collapsible live-tuning panel for every PencilSound/PENCIL_SOUND_VARIANT_3 knob (#153 round 13), plus a "copy config" button to hand tuned values back. Only shown while pencilSoundSetting is variant3.',
+    description: 'Collapsible live-tuning panel for every PencilSound/PENCIL_SOUND_VARIANT_3 knob (#153 round 13), plus a "copy config" button to hand tuned values back. Only shown while sound is on (General tab).',
     envVar: 'VITE_PENCIL_SOUND_TUNING',
-  },
-  {
-    key: 'lockBrushAngleToCanvas',
-    label: 'Зафиксировать угол кисти относительно холста',
-    description: 'Включено: настроенный угол кисти (маркер, #278) — величина в системе координат холста, поворачивается вместе с ним при повороте локальной камеры. Выключено: угол живёт независимо от холста — визуально не меняется на экране при повороте камеры.',
-  },
-  {
-    key: 'interfaceSound',
-    label: 'Звук интерфейса',
-    description: 'Щелчок на каждый градус при настройке угла кисти через радиальный дайл (#277/#280) — обратная связь как у точного инструмента. Не влияет на "Pencil sound" (звук графита о бумагу) — это отдельная настройка.',
   },
 ]
 
@@ -69,22 +60,10 @@ export function setFeatureFlag(key: string, value: boolean): void {
   localStorage.setItem(STORAGE_PREFIX + key, String(value))
 }
 
-// Pencil sound has distinct variants rather than one on/off toggle — a multi-way choice doesn't
-// fit FeatureFlagDef's boolean shape, so it gets its own small pair of functions instead of
-// forcing the generic flag list to support enum values for this one case. All three are
-// node-graph recipes in lib/PencilSound.ts (#153, round 13 — variant3 was an AudioWorklet synth
-// before that, see PENCIL_SOUND_TUNING_LOG.md).
-export type PencilSoundSetting = 'off' | 'variant1' | 'variant2' | 'variant3'
-const PENCIL_SOUND_STORAGE_KEY = 'pencilSoundVariant'
-
-export function getPencilSoundSetting(): PencilSoundSetting {
-  const raw = localStorage.getItem(PENCIL_SOUND_STORAGE_KEY)
-  return raw === 'variant1' || raw === 'variant2' || raw === 'variant3' ? raw : 'off'
-}
-
-export function setPencilSoundSetting(value: PencilSoundSetting): void {
-  localStorage.setItem(PENCIL_SOUND_STORAGE_KEY, value)
-}
+// Sound used to live here as a four-way variant picker (off / variant 1 / 2 /
+// 3). It is a plain on/off setting with a volume now (`settingsStore`), and
+// the two legacy variants it chose between are gone (#321) — see
+// PencilSound.ts.
 
 // Dev-only mark-grain variant comparison (see DAB_FRAG's computeGrain) — a
 // live shader mode (u_grainMode) rather than a texture swap, so it applies to

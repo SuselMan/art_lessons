@@ -336,26 +336,14 @@ export interface GrainVariant {
   distanceGrainMix?: number
 }
 
-// The original, untuned sound this app shipped with — floor-dominated, barely-modulated broadband
-// hiss. Turned out to be a better base to build on than any of the more aggressively-grained
-// alternatives tried along the way (see the tuning log) — both variants below start here.
-const BASE: GrainVariant = { floor: 0.12, depth: 1.4, curvePower: 1.0, minHz: 8, maxHz: 220, useNormGain: false }
-
-// A louder, more distinctly-grained recipe used only as variant 2's secondary layer (see below) —
-// not selectable on its own.
-const SECONDARY_LAYER_RECIPE: GrainVariant = { floor: 0.05, depth: 2.1, curvePower: 1.8, minHz: 5, maxHz: 140, useNormGain: true }
-
-// BASE plus a small amount of rare, quiet grain: useNormGain flips on (needed for curvePower to
-// have any real effect — see its docstring) but depth stays small and curvePower high, so the added
-// grain only pokes above BASE's floor rarely and briefly instead of constantly modulating it.
-export const PENCIL_SOUND_VARIANT_1: GrainVariant = { ...BASE, depth: 0.02, curvePower: 4.0, useNormGain: true }
-
-// BASE layered with a second, independent, more distinctly-grained noise source running quietly
-// underneath it (SECONDARY_LAYER_RECIPE at 1/6 volume) — see buildLayer()'s docstring for why two
-// separate noise sources, not just a more complex envelope on one, is what makes this read as two
-// textures at once.
-export const PENCIL_SOUND_VARIANT_2: GrainVariant = { ...BASE, secondary: { variant: SECONDARY_LAYER_RECIPE, gain: 1 / 6 } }
-
+// (#321) Variants 1 and 2 — the untuned A/B baselines this sound started
+// from, selectable from the old developer settings panel — are gone. Sound is
+// one on/off setting now, and there was nothing left to A/B against: they had
+// no per-tool split (see TOOL_SOUND_CONFIGS below), no tuning history past
+// round 13, and were never candidates to ship. Their recipes are in the git
+// history and in PENCIL_SOUND_TUNING_LOG.md, which is where the reasoning
+// about them lives anyway.
+//
 // Round 13 (#153, take 6): Variant 1's exact recipe plus a light,
 // pressure-scaled touchdown tap and speed-scaled texture presence — the two
 // things Ilya asked for after the from-scratch AudioWorklet rewrite
@@ -462,7 +450,10 @@ export const PENCIL_SOUND_VARIANT_2: GrainVariant = { ...BASE, secondary: { vari
 // stay as a record of how take 21's values were reached, even where round
 // 14 has since moved past them.
 export const PENCIL_SOUND_VARIANT_3: GrainVariant = {
-  ...PENCIL_SOUND_VARIANT_1,
+  // Was `...PENCIL_SOUND_VARIANT_1` until that recipe was deleted (#321).
+  // Every field it inherited is overridden right below except this one, so
+  // this line is the whole of what the spread actually contributed.
+  useNormGain: true,
   // Round 14: floor 0.12→0.26, depth 0.02→0 (grain modulator fully off —
   // texture is carried entirely by curvePower/minHz/maxHz below now, not by
   // AM depth on top of a floor), curvePower 2.0→6 (sharper, more discrete
@@ -563,9 +554,7 @@ function cloneGrain(g: GrainVariant): GrainVariant {
 // "сделай им тоже как у карандаша"), so tuning pencil via the debug panel
 // moves all three at once. liner gets its own independent recipe
 // (LINER_SOUND_VARIANT_3) so pencil and liner can diverge without touching
-// each other. Only meaningful while PencilSoundSetting is 'variant3' (see
-// featureFlags.ts) — 'variant1'/'variant2' are untuned legacy A/B baselines
-// with no per-tool split, same as before this change.
+// each other.
 //
 // LINER_SOUND_VARIANT_3 started (at the #253 split) as a straight clone of
 // whatever PENCIL_SOUND_VARIANT_3 was at that moment — deliberately no
@@ -889,6 +878,8 @@ interface AudioGraph {
   // Downstream of masterGain — lets the touchdown tap bypass it (masterGain
   // is speed-driven, ~0 exactly at the touchdown moment).
   outputSum: GainNode
+  // The user's volume setting (#321), applied after everything else.
+  volumeGain: GainNode
   // Touchdown tap (see GrainVariant.tap) — null when this.grain.tap is
   // undefined. tapBuffer is the pre-baked click waveform (built once, see
   // createClickBuffer()); triggerTap() plays a fresh one-shot source from
@@ -911,6 +902,7 @@ interface AudioGraph {
 // Room/index.tsx codes against, independent of the implementation.
 export interface PencilSoundAPI {
   setHardness(hardness: number): void
+  setVolume(volume: number): void
   start(pressure: number, speed: number, tiltX?: number, tiltY?: number): void
   update(pressure: number, speed: number, tiltX?: number, tiltY?: number): void
   stop(): void
@@ -921,6 +913,10 @@ export class PencilSound implements PencilSoundAPI {
   private graph: AudioGraph | null = null
   private paperFactor: number
   private hardness = 0.38 // HB — overwritten by setHardness before the first real stroke
+  // (#321) 0..1, the user's own volume. Held here as well as on the node
+  // because the graph is built lazily on the first stroke: a volume set
+  // before then has nowhere to be written yet.
+  private volume = 1
   private grain: GrainVariant
   private idleTimer: number | null = null
   private lastSampleAt = 0
@@ -943,6 +939,19 @@ export class PencilSound implements PencilSoundAPI {
     const now = this.graph.ctx.currentTime
     this.graph.hardnessShelf.gain.setTargetAtTime(hardnessShelfDb(hardness), now, PENCIL_SOUND_TUNING.rampSlow)
     this.graph.lowShelf.gain.setTargetAtTime(lowShelfDb(hardness), now, PENCIL_SOUND_TUNING.rampSlow)
+  }
+
+  /** (#321) The user's volume, 0..1. Ramped rather than assigned: this is
+   *  called while a stroke may be sounding (the slider is live, with no Save
+   *  step), and a step change in a gain node's value is an audible click. */
+  setVolume(volume: number): void {
+    this.volume = Math.min(1, Math.max(0, volume))
+    if (!this.graph) return
+    this.graph.volumeGain.gain.setTargetAtTime(
+      this.volume,
+      this.graph.ctx.currentTime,
+      PENCIL_SOUND_TUNING.rampFast,
+    )
   }
 
   /** Live-tunes the active recipe (debug/tuning panel only). Most
@@ -1370,7 +1379,14 @@ export class PencilSound implements PencilSoundAPI {
     // `lift`/`transient` bypassed `gain` in the AudioWorklet take on this.
     const outputSum = ctx.createGain()
     outputSum.gain.value = 1
-    outputSum.connect(ctx.destination)
+    // (#321) The user's volume, and the last thing before the speakers on
+    // purpose: everything upstream — masterGain's speed curve, the tap's
+    // deliberate bypass of it, each layer's own recipe gain — is part of how
+    // the sound is *shaped*, and none of it should have to know that someone
+    // moved a slider.
+    const volumeGain = ctx.createGain()
+    volumeGain.gain.value = this.volume
+    outputSum.connect(volumeGain).connect(ctx.destination)
 
     layerSum
       .connect(tiltLowpass).connect(lowShelf).connect(hardnessShelf)
@@ -1387,7 +1403,7 @@ export class PencilSound implements PencilSoundAPI {
       PENCIL_SOUND_TUNING.hissHighHz,
     )
 
-    this.graph = { ctx, layers, layerSum, tiltLowpass, lowShelf, hardnessShelf, masterGain, outputSum, tapBuffer, distanceGrainBuffer }
+    this.graph = { ctx, layers, layerSum, tiltLowpass, lowShelf, hardnessShelf, masterGain, outputSum, volumeGain, tapBuffer, distanceGrainBuffer }
     return this.graph
   }
 }

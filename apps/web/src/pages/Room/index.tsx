@@ -26,13 +26,14 @@ import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
 import { hexToRgb } from '../../lib/color'
-import { getFeatureFlag, getPencilSoundSetting, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
-import { PencilSound, PENCIL_SOUND_VARIANT_1, PENCIL_SOUND_VARIANT_2, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
+import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
+import { floatingPanelVisible, minimalUiActive } from '../../lib/uiPreferences'
+import { PencilSound, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
-import { getHotkeyBindings, matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
+import { matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
 import { addRoomInvite, forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -354,12 +355,18 @@ export function Room() {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const fullscreenSupported = typeof document !== 'undefined' && document.fullscreenEnabled
 
-  // Minimal-UI experiment (#99): a short single-finger tap on the canvas
-  // hides the header/toolbar/layer panel via a CSS class (never unmounted —
-  // no lost focus/state), tap again to bring them back. Same feature-flag
-  // pattern as debugEnabled/predictEnabled; off by default until there's
-  // real-usage feedback on whether to keep it.
-  const tapToHideEnabled = getFeatureFlag('tapToHideUI')
+  // Minimal UI (#99): a short single-finger tap on the canvas hides the
+  // header/toolbar/layer panel via a CSS class (never unmounted — no lost
+  // focus/state), tap again to bring them back.
+  //
+  // (#321) A real setting now rather than a feature flag, and touch-only:
+  // `minimalUiActive` folds in the device check, because a PC has neither the
+  // tap that turns this on nor anything that would turn it back off (#384).
+  const minimalUiSetting = useSettingsStore(s => s.minimalUi)
+  const deviceType = useSettingsStore(s => s.deviceType)
+  const tapToHideEnabled = minimalUiActive(minimalUiSetting, deviceType)
+  // (#157/#321) Where the floating tool cluster is allowed to appear.
+  const floatingPanelMode = useSettingsStore(s => s.floatingPanel)
   useEffect(() => { diagLog('tapToHideEnabled is', tapToHideEnabled) }, [tapToHideEnabled])
   const [uiHidden, setUiHidden] = useState(false)
   // Read via a ref (not the setUiHidden updater's own `h` param) purely so
@@ -381,6 +388,14 @@ export function Room() {
     diagLog('toggleUI: uiHidden', uiHiddenRef.current, '->', !uiHiddenRef.current)
     setUiHidden(h => !h)
   }, [])
+  // (#321) Turning the setting off while the chrome is hidden has to give it
+  // back: the tap that would restore it is the very thing being switched off,
+  // so without this the room stays stripped with no way out short of a
+  // reload — and the settings panel that was just used is itself part of the
+  // hidden chrome.
+  useEffect(() => {
+    if (!tapToHideEnabled) setUiHidden(false)
+  }, [tapToHideEnabled])
 
   // #94's "a resting hand mid-stroke corrupts settings" guard used to be a
   // `useState` here, on the theory that two flips per stroke are too cheap to
@@ -393,20 +408,25 @@ export function Room() {
 
   // Diagnostic for "works on Samsung, not on a Surface" (see chat) — see
   // TapDebugInfo's docstring for what each field means.
+  //
+  // (#321) Gated on the debug flag as well as on the mode. It used to hang
+  // off the mode alone, which was safe while the mode was itself a developer
+  // feature flag — now that a teacher can turn minimal UI on, that would have
+  // put an English stats overlay in the corner of their lesson.
   const [tapDebug, setTapDebug] = useState<TapDebugInfo | null>(null)
+  const tapDebugEnabled = debugEnabled && tapToHideEnabled
 
-  // Pencil sound: Off / Variant 1 / Variant 2, set via the gear-icon settings
-  // panel (see SettingsPanel) — persisted per-browser in localStorage, same
-  // as the boolean feature flags above. See PencilSound.ts and
-  // PENCIL_SOUND_TUNING_LOG.md for what each variant is and how they were
-  // chosen.
-  const pencilSoundSetting = getPencilSoundSetting()
+  // (#321) One sound setting for the whole app — the graphite-on-paper
+  // recipes here and the interface's own clicks (RadialDial) read the same
+  // pair of values. Store subscriptions, not a read at mount: the volume
+  // slider is meant to be dragged while a sound is playing.
+  const soundEnabled = useSettingsStore(s => s.soundEnabled)
+  const soundVolume = useSettingsStore(s => s.soundVolume)
 
   // Live-tuning debug panel for every PencilSound knob (#153 round 13, see
-  // PencilSoundTuningPanel.tsx) — only meaningful for variant3 (the only
-  // recipe with tap/brightnessScale/qScale/etc.), same feature-flag pattern
-  // as debugEnabled/hapticGrain above.
-  const pencilSoundTuningEnabled = getFeatureFlag('pencilSoundTuning') && pencilSoundSetting === 'variant3'
+  // PencilSoundTuningPanel.tsx) — nothing to tune while the sound is off,
+  // same feature-flag pattern as debugEnabled/hapticGrain above.
+  const pencilSoundTuningEnabled = getFeatureFlag('pencilSoundTuning') && soundEnabled
 
   // Haptic paper-grain experiment: same feature-flag pattern as the ones
   // above. Off by default — for-fun prototype, Android Chrome only.
@@ -457,12 +477,12 @@ export function Room() {
   // same panel at nearly the same radius — has to stand down while it is
   // open; see that component's own doc comment.
   const [paletteFlyoutOpen, setPaletteFlyoutOpen] = useState(false)
-  // Desktop keyboard shortcuts (#174) — same load-once-up-front pattern as
-  // toolSettings/panelPosition above, but global (per-browser, not per-
-  // room): a rebound key is a habit of whoever's typing, not a property of
-  // this drawing. SettingsPanel reloads the page on save (same as every
-  // other setting there), so re-reading on every render isn't needed.
-  const [hotkeys] = useState(() => getHotkeyBindings(localStorage))
+  // Desktop keyboard shortcuts (#174) — global (per-browser, not per-room): a
+  // rebound key is a habit of whoever's typing, not a property of this
+  // drawing. A store subscription rather than a load-once-at-mount read
+  // (#321): the settings panel applies a rebind immediately now, so this has
+  // to see it without the page reload that used to carry it.
+  const hotkeys = useSettingsStore(s => s.hotkeys)
   const gradeHotkeyLabels = ['gradeH', 'gradeHB', 'grade2B', 'grade4B', 'grade6B']
     .map(id => formatHotkeyLabel(hotkeys[id])).join('/')
   // Eyedropper (#82) is a one-shot mode, not a recorded ToolType — it never
@@ -967,7 +987,7 @@ export function Room() {
   // handling on the same `.viewport` element — see useTapToggle's docstring
   // for why the two never conflict, and why it takes the element (`vpEl`)
   // rather than the ref.
-  useTapToggle(vpEl, toggleUI, tapToHideEnabled, tapToHideEnabled ? setTapDebug : undefined)
+  useTapToggle(vpEl, toggleUI, tapToHideEnabled, tapDebugEnabled ? setTapDebug : undefined)
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
@@ -1387,19 +1407,11 @@ export function Room() {
     // Pencil sound: lazy AudioContext built on the engine's own 'strokeStart'
     // below (a real pointerdown gesture, satisfying the autoplay-unlock
     // requirement) — see PencilSound's docstring.
-    if (pencilSoundSetting !== 'off') {
-      // #253: variant1/2 are untuned legacy A/B baselines shared by every tool (no per-tool
-      // split); variant3 is the live, tunable recipe — TOOL_SOUND_CONFIGS[tool] there, kept in
-      // sync with the active tool by the setActiveGrain() effect below.
-      const grain = pencilSoundSetting === 'variant1' ? PENCIL_SOUND_VARIANT_1
-        : pencilSoundSetting === 'variant2' ? PENCIL_SOUND_VARIANT_2
-        : TOOL_SOUND_CONFIGS[initialToolRef.current.tool]
-      if (grain) {
-        const sound = new PencilSound(config.paper, grain)
-        sound.setHardness(PENCIL_PRESETS[initialToolRef.current.pencil].hardness)
-        pencilSoundRef.current = sound
-      }
-    }
+    // (#321) The sound instance is no longer built here: it is a setting that
+    // can be switched on and off mid-lesson, and tearing down a WebGL context
+    // to change that would be absurd. See the sound-lifecycle effect below —
+    // the handlers wired up next reach it through the ref at event time, so
+    // neither effect has to run before the other.
 
     // Local "drawing" activity (#38): strokeStart/strokeEnd bound the local
     // stroke exactly; 'pointer' (fired on every move while the stroke's
@@ -1537,8 +1549,6 @@ export function Room() {
 
     return () => {
       engineRef.current = null
-      pencilSoundRef.current?.destroy()
-      pencilSoundRef.current = null
       // (#211 epic follow-up) Best-effort final thumbnail bake on room exit —
       // see uploadThumbnail's doc comment in snapshotSync.ts for why this
       // needs to exist alongside the seq-boundary trigger. `engine` (this
@@ -1552,7 +1562,7 @@ export function Room() {
       }
     }
   }, [
-    id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled, pencilSoundSetting,
+    id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory,
     grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
     awaitPaper,
@@ -1577,6 +1587,35 @@ export function Room() {
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
   }, [pencilGrade])
+  // (#321) Sound is a live setting, so its whole lifetime hangs off this one
+  // effect rather than off the engine's: turning it on builds the graph,
+  // turning it off tears it down (an AudioContext left open holds a real
+  // audio device). Deliberately not keeping a silent instance around while
+  // off — the graph is lazy anyway (PencilSound.ensureGraph runs on the first
+  // stroke), so there is nothing to preserve, and "off" should mean nothing
+  // is holding the speaker.
+  //
+  // Tool and grade are read at build time rather than being dependencies:
+  // both have their own effects that push changes into the existing instance
+  // (setActiveGrain/setHardness below), and rebuilding the graph on every
+  // tool switch would drop the AudioContext mid-lesson.
+  useEffect(() => {
+    if (!soundEnabled || !config) return
+    const { tool: currentTool, toolSettings: currentSettings } = useRoomStore.getState()
+    const grain = TOOL_SOUND_CONFIGS[currentTool]
+    if (!grain) return
+    const sound = new PencilSound(config.paper, grain)
+    sound.setHardness(PENCIL_PRESETS[currentSettings.pencil.grade as PencilGradeName].hardness)
+    sound.setVolume(useSettingsStore.getState().soundVolume)
+    pencilSoundRef.current = sound
+    return () => {
+      sound.destroy()
+      if (pencilSoundRef.current === sound) pencilSoundRef.current = null
+    }
+  }, [soundEnabled, config])
+  useEffect(() => {
+    pencilSoundRef.current?.setVolume(soundVolume)
+  }, [soundVolume])
   // #278/#279: marker chisel angle → engine.setMarkerAngle, always resolved
   // to canvas-space radians before it ever reaches the engine (same
   // "engine only ever sees canvas-space" boundary PointerInput.setTransform
@@ -1592,7 +1631,7 @@ export function Room() {
   // copy) so this tracks a live rotate gesture without lag.
   const markerAngleDeg = toolSettings.marker.angle as number
   const markerFollowStroke = toolSettings.marker.followStrokeDirection as boolean
-  const lockAngleToCanvas = getFeatureFlag('lockBrushAngleToCanvas')
+  const lockAngleToCanvas = useSettingsStore(s => s.lockBrushAngleToCanvas)
   // Also fed to BrushCursor's hover preview below (previewDabShape), so the
   // preview shows the exact same canvas-space angle a real stroke would
   // record — BrushCursor's own doc comment: its angle is rendered as a
@@ -1635,13 +1674,11 @@ export function Room() {
   }, [tool, pencilGrade, linerSize, markerNib, markerSize, charcoalType])
   useEffect(() => { engineRef.current?.setTool(tool) },     [tool])
   useEffect(() => {
-    // #253: variant1/2 have no per-tool split (see the sound-construction effect above) — only
-    // variant3's TOOL_SOUND_CONFIGS entries actually differ per tool, so swapping is a no-op for
-    // the other settings.
-    if (pencilSoundSetting !== 'variant3') return
+    // #253: each tool has its own recipe; swapping it keeps the one graph and
+    // only changes what drives it (see PencilSound.setActiveGrain).
     const grain = TOOL_SOUND_CONFIGS[tool]
     if (grain) pencilSoundRef.current?.setActiveGrain(grain)
-  }, [tool, pencilSoundSetting])
+  }, [tool])
   // Liner's own 'size' field is a fixed-label enum (ADR 003), not a plain px
   // number like every other tool's (marker included, since it dropped its
   // own ladder for a plain px slider) — see linerSizeToPx's own comment for
@@ -3365,6 +3402,28 @@ export function Room() {
             <Icon name="redo" />
           </button>
 
+          {/* (#321) A second way into minimal UI, next to the tap that is
+              otherwise its only entrance — a tap on the canvas is easy to
+              discover by accident and hard to discover on purpose. Only shown
+              while the setting is on: it hides the chrome, so it cannot be
+              the thing that brings it back (that is still the tap), and
+              offering it to someone who hasn't asked for the mode would be a
+              button that makes the interface vanish with no visible way to
+              return. */}
+          {tapToHideEnabled && (
+            <>
+              <div className={styles.headerDivider} />
+              <button
+                className={styles.headerIconBtn}
+                onClick={toggleUI}
+                title={t('room.minimalUi')}
+                aria-label={t('room.minimalUi')}
+              >
+                <Icon name="visibility_off" />
+              </button>
+            </>
+          )}
+
           {fullscreenSupported && (
             <>
               <div className={styles.headerDivider} />
@@ -3400,7 +3459,11 @@ export function Room() {
         </div>
       </header>
 
-      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {/* (#230) roomId/isOwner are what the Access tab needs; the panel shows
+          it only when both are present. */}
+      {settingsOpen && (
+        <SettingsPanel onClose={() => setSettingsOpen(false)} roomId={id} isOwner={isOwner} />
+      )}
 
       <div className={styles.body}>
 
@@ -3849,10 +3912,10 @@ export function Room() {
 
         {/* Draggable floating tool cluster (#157) — independent of the
             header/left-toolbar above, both of which stay as they are.
-            hidden is inverted (`!uiHidden`, not `uiHidden`) — see
-            FloatingToolPanel's own doc comment: this panel is the minimal
-            #99 replacement toolkit, so it only shows up once the rest of
-            the chrome has hidden, not the other way round. */}
+            (#321) When it shows is a setting now (Always / in minimal UI /
+            Never) rather than "only while minimal UI has hidden the chrome",
+            which is what it meant when it was that mode's replacement
+            toolkit and nothing else — see lib/uiPreferences. */}
         <FloatingToolPanel
           // FloatingToolPanel (#157) is a fixed 4-slot compass layout with
           // one shared drawing-tool slot (pencil/liner/marker — see
@@ -3875,7 +3938,7 @@ export function Room() {
           position={panelPosition}
           onPositionChange={setPanelPosition}
           containerRef={editorRef}
-          hidden={!uiHidden}
+          hidden={!floatingPanelVisible(floatingPanelMode, deviceType, uiHidden)}
           undoHotkeyLabel={formatHotkeyLabel(hotkeys.undo)}
           redoHotkeyLabel={formatHotkeyLabel(hotkeys.redo)}
           flyoutOpen={paletteFlyoutOpen}
@@ -3919,11 +3982,11 @@ export function Room() {
 
       {/* Debug overlays share one positioning stack (.debugStack) so having
           more than one flag on at once (debugOverlay/hapticGrain/
-          tapToHideUI) doesn't render them fully on top of each other at the
+          tap stats) doesn't render them fully on top of each other at the
           same fixed corner — see chat, this is exactly what happened while
           chasing #154's latency regression with hapticGrain still on from
           earlier testing. */}
-      {(debugEnabled || hapticGrainEnabled || tapToHideEnabled || pencilSoundTuningEnabled) && (
+      {(debugEnabled || hapticGrainEnabled || tapDebugEnabled || pencilSoundTuningEnabled) && (
         <div className={styles.debugStack}>
           {/* On-device log capture (see lib/diagLog.ts) — for field reports
               from a device with no attached inspector (Android tablets,
@@ -4088,7 +4151,7 @@ export function Room() {
               concurrentTouches > 1 means a second touch (real or a stray
               palm contact) was down at the same time, disqualifying it as a
               single-finger tap. */}
-          {tapToHideEnabled && (
+          {tapDebugEnabled && (
             <div className={styles.debugOverlay}>
               {tapDebug ? (
                 <>
