@@ -330,6 +330,18 @@ export interface PencilEngineAPI {
   // layer in the room. False for a layer nobody has ever painted, so an
   // untouched `background` never costs a readback.
   isLayerDirty(layerId: string): boolean
+  // (#386) Every layer this engine currently holds a pixel buffer for.
+  //
+  // Exists for exactly one caller — the snapshot uploader, which is handed a
+  // LayerState by Room and has no other way to notice that it was handed a
+  // stale one. Both are derivations of the same log (see appendOperation's own
+  // doc comment on the structural/pixel split), so a live buffer whose id is
+  // absent from that LayerState means one of the two is out of date, and
+  // uploading the pair would store a structure that contradicts the pixels.
+  // Deliberately narrow rather than a general layer listing: LayerState is
+  // where layers live, and this must not become a second source of truth for
+  // what a room contains.
+  liveLayerIds(): string[]
   // (#169) Restores a layer's pixel content wholesale from a downloaded
   // network snapshot — the layer must already exist (via initLayer) with an
   // empty buffer; this is the fast-join counterpart to a live stroke replay,
@@ -3377,6 +3389,11 @@ export class PencilEngine implements PencilEngineAPI {
   isLayerDirty(layerId: string): boolean {
     const revision = this._layerRevision.get(layerId) ?? 0
     return revision !== 0 && revision !== this._bakedRevision.get(layerId)
+  }
+
+  /** See the PencilEngineAPI doc comment. */
+  liveLayerIds(): string[] {
+    return [...this._layers.keys()]
   }
 
   /** (#374) Whether this layer's restored pixels already account for an

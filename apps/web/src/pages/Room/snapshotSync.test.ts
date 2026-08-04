@@ -35,9 +35,14 @@ function fakeEngine(
   bakeResults: Record<string, Uint8Array | null>,
   exportPNGResult: Blob | null = null,
   dirty: string[] = Object.keys(bakeResults),
+  // (#386) What the engine holds buffers for. Defaults to the layers this
+  // fake has content for, which is what a real engine's buffer map looks like
+  // for the same room — pass it explicitly to exercise the consistency check.
+  liveLayerIds: string[] = Object.keys(bakeResults),
 ): { engine: PencilEngineAPI; bakeCalls: string[] } {
   const bakeCalls: string[] = []
   const engine = {
+    liveLayerIds: () => liveLayerIds,
     isLayerDirty: (layerId: string) => dirty.includes(layerId),
     bakeNetworkSnapshot: (layerId: string) => {
       bakeCalls.push(layerId)
@@ -252,5 +257,60 @@ describe('createSnapshotUploader', () => {
       await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
       await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/thumbnail')).toHaveLength(1))
     })
+  })
+})
+
+describe('#386 a snapshot is never stored against a layer state that contradicts it', () => {
+  // What this guards is not a hypothetical. Room derived LayerState on a
+  // microtask and read the store back in the same task, so the bootstrap
+  // uploaded the *empty room's* structure — {layer-1, background} — as the
+  // authoritative one for a six-layer lesson at seq 2000. The next join
+  // restored from it and showed two empty layers, with the server withholding
+  // the operations it believed that snapshot covered. Every operation was
+  // still in Postgres; the room simply read as wiped.
+
+  it('refuses to upload when the engine holds a layer the state does not mention', async () => {
+    const uploader = createSnapshotUploader('room-1')
+    // The exact shape of the real failure: the state is a fresh room's, the
+    // engine has already replayed six layers into existence.
+    const { engine } = fakeEngine(
+      { 'merged-a': new Uint8Array([1]), 'merged-b': new Uint8Array([2]) },
+      null, ['merged-a', 'merged-b'], ['merged-a', 'merged-b', 'background'],
+    )
+
+    uploader.onSeqObserved(0, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0)
+    // The thumbnail rides the same call and must not go either: a preview
+    // baked against a structure this wrong is the same lie, cheaper to undo.
+    expect(fetchCallsTo('/api/rooms/room-1/thumbnail')).toHaveLength(0)
+  })
+
+  it('lets a later, correct attempt at the same boundary through', async () => {
+    // The rejection must not burn the boundary. Marking it attempted before
+    // the check would leave the room snapshot-less for good — the one outcome
+    // worse than a slow join, since nothing else ever bakes this seq.
+    const uploader = createSnapshotUploader('room-1')
+    const stale = fakeEngine({ 'layer-1': new Uint8Array([1]) }, null, ['layer-1'], ['layer-1', 'ghost'])
+    uploader.onSeqObserved(0, SNAPSHOT_SEQ_INTERVAL, stale.engine, layerState())
+    expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(0)
+
+    const good = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+    uploader.onSeqObserved(0, SNAPSHOT_SEQ_INTERVAL, good.engine, layerState())
+
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
+  })
+
+  it('still accepts a state that names more layers than the engine holds', async () => {
+    // Only one direction is a contradiction. A layer named in the structure
+    // with no buffer yet is ordinary — a freshly added layer nobody has
+    // painted — and must not block the room from ever baking.
+    const uploader = createSnapshotUploader('room-1')
+    const { engine } = fakeEngine({ 'layer-1': new Uint8Array([1]) })
+
+    uploader.onSeqObserved(0, SNAPSHOT_SEQ_INTERVAL, engine, layerState())
+
+    await vi.waitFor(() => expect(fetchCallsTo('/api/rooms/room-1/snapshots')).toHaveLength(1))
   })
 })

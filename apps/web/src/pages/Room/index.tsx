@@ -1056,18 +1056,45 @@ export function Room() {
   // reflects). Sticky for the rest of the session once set — never reset
   // back to null, even after backfill completes.
   const restoredLayerStateRef = useRef<LayerState | null>(null)
+  const deriveLayerStateFromLog = useCallback(() => {
+    const base = restoredLayerStateRef.current
+    const ops = base
+      ? (engineRef.current?.getOperationsSinceRestore() ?? [])
+      : (engineRef.current?.getOperations() ?? [])
+    useRoomStore.getState().syncLayerStateFromLog(base ?? makeInitialLayerState(), ops)
+  }, [])
   const syncFromLog = useCallback(() => {
     if (syncFromLogScheduledRef.current) return
     syncFromLogScheduledRef.current = true
     queueMicrotask(() => {
       syncFromLogScheduledRef.current = false
-      const base = restoredLayerStateRef.current
-      const ops = base
-        ? (engineRef.current?.getOperationsSinceRestore() ?? [])
-        : (engineRef.current?.getOperations() ?? [])
-      useRoomStore.getState().syncLayerStateFromLog(base ?? makeInitialLayerState(), ops)
+      deriveLayerStateFromLog()
     })
-  }, [])
+  }, [deriveLayerStateFromLog])
+  /** (#386) The same derivation, run now instead of on the next microtask.
+   *
+   *  Deferring is right for the ordinary case: operations arrive in bursts and
+   *  one derivation per burst beats one per operation. It is wrong for any
+   *  caller that goes on to *read* the store in the same task, because the
+   *  microtask has not run yet and the store still holds whatever was there
+   *  before — for a fresh join, `makeInitialLayerState()`.
+   *
+   *  That is not hypothetical. The snapshot bootstrap below used to call
+   *  `syncFromLog()` and then read `useRoomStore.getState().layerState`
+   *  synchronously a few lines later, so it uploaded the *empty room's*
+   *  structure as the room's authoritative one. On a real 2001-operation
+   *  lesson that stored `{layer-1, background}` at seq 2000 over a room with
+   *  six layers and a folder, and the next join restored from it: two empty
+   *  layers, with the server then withholding the operations it believed that
+   *  snapshot covered. The pixels were never in danger — every operation was
+   *  still in Postgres — but the room read as wiped.
+   *
+   *  Leaves any already-queued microtask alone rather than trying to cancel
+   *  it: this derivation is a pure function of the log, so running it twice
+   *  costs a little work and changes nothing. */
+  const syncFromLogNow = useCallback(() => {
+    deriveLayerStateFromLog()
+  }, [deriveLayerStateFromLog])
 
   // (#312) Mints one replacement layer per dead target and replays the
   // rejected operations onto it, in their original draw order.
@@ -1537,7 +1564,9 @@ export function Room() {
             notifyError(tRef.current('room.replayIncomplete'), { key: 'replay-incomplete', durationMs: null })
           }
           engine.resumeDisplay()
-          syncFromLog()
+          // (#386) Now, not on the next microtask: the bootstrap below reads
+          // the store back in this same task. See syncFromLogNow.
+          syncFromLogNow()
           dispatchParticipants({ type: 'room_state', participants: pending.participants })
           useRoomStore.getState().setPalette(pending.palette)
           useRoomStore.getState().setRoomFrozen(pending.frozen)
@@ -1611,7 +1640,7 @@ export function Room() {
       }
     }
   }, [
-    id, config, markActive, applyRemoteOp, syncFromLog, debugEnabled, predictEnabled,
+    id, config, markActive, applyRemoteOp, syncFromLog, syncFromLogNow, debugEnabled, predictEnabled,
     hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory,
     grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
     awaitPaper,
@@ -2858,7 +2887,9 @@ export function Room() {
           applyRemoteOp(op)
         }
         engine?.resumeDisplay()
-        syncFromLog()
+        // (#386) Same reason as the mount-engine effect's own catch-up: the
+        // bootstrap below reads the store back in this same task.
+        syncFromLogNow()
         dispatchParticipants({ type: 'room_state', participants: roomParticipants })
         useRoomStore.getState().setPalette(palette)
         useRoomStore.getState().setRoomFrozen(frozen)
@@ -3099,6 +3130,7 @@ export function Room() {
   }, [
     id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary,
     restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, snapshotUploader, noteLayerSeq,
+    syncFromLogNow,
     outbox, awaitPaper,
   ])
 
