@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import type { RoomAccessInfo, RoomJoinRequest } from '@grafetto/shared'
 
-import { getRoomAccess, resolveJoinRequest } from '../../lib/api'
+import { ApiError, getRoomAccess, resolveJoinRequest } from '../../lib/api'
 import { roomAccessQueryKey } from '../../lib/queryClient'
 import { useT } from '../../i18n'
 import { notifyError } from '../../stores/noticeStore'
@@ -52,23 +52,30 @@ export function useJoinQueue(roomId: string | undefined, isOwner: boolean): Join
     queryKey,
     queryFn: () => getRoomAccess(roomId!),
     enabled: !!roomId && isOwner,
+    // A refusal is an answer, not a failure to get one — retrying a 403 three
+    // times gets three 403s. Everything else (a dropped connection mid-lesson,
+    // which is the common case here) keeps the default retries.
+    retry: (failureCount, error) =>
+      !(error instanceof ApiError && error.status >= 400 && error.status < 500) && failureCount < 3,
   })
 
   const mutation = useMutation({
     mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
       resolveJoinRequest(roomId!, id, approved),
-    // Drop the answered row immediately — the owner has decided, and a row
-    // that lingers for a round trip invites a second press. The invalidate
-    // behind it is what reconciles everything else the answer moved (an
-    // approval also adds a participant), and what corrects this guess if the
-    // server disagreed.
-    onSettled: (_result, _err, { id }) => {
+    // Drop the answered row the moment the server confirms, rather than
+    // waiting for the refetch below to say so — a row that lingers after a
+    // decision invites a second press. On failure it stays exactly where it
+    // was, which is the honest state: the person is still waiting.
+    onSuccess: (_result, { id }) => {
       queryClient.setQueryData<RoomAccessInfo>(queryKey, old => (
         old ? { ...old, pendingRequests: old.pendingRequests.filter(r => r.id !== id) } : old
       ))
-      void queryClient.invalidateQueries({ queryKey })
     },
     onError: () => notifyError(t('access.error.request'), { key: 'access-request' }),
+    // Either way the server is the one that knows the whole result — an
+    // approval also adds a participant, and a failure may have half-applied.
+    // Same reasoning as RoomAccessControl's `reload`.
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
   })
 
   // `mutate` keeps its identity across renders (react-query guarantees it),
