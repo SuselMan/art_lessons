@@ -3094,8 +3094,8 @@ export function Room() {
     // asked for. A denial just changes what the screen says; the server lets
     // them ask again, and the screen offers exactly that.
     //
-    // Ignored once we're in: the room is already open, and a stale resolution
-    // arriving after a reconnect must not restart the join.
+    // Never restarts the join once we're in: the room is already open, and a
+    // stale resolution arriving after a reconnect must not re-enter it.
     const handleJoinRequestResolved = ({ roomId, approved }: { roomId: string; approved: boolean }) => {
       // (#380) Already inside: this is not about us being let in — it's a
       // resolution for some room this person is queued for, or a stale one

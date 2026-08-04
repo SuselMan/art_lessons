@@ -132,12 +132,16 @@
    actually waiting, so it costs nothing the rest of the time. `flex-shrink: 0`
    with its own scroll cap rather than sharing the list's `flex: 1`: a queue of
    four must not push the people already in the room out of view, and a queue of
-   twenty must not push them off the bottom either. */
+   twenty must not push them off the bottom either.
+   The cap is in px, not a percentage: SidePanel's content column has no
+   definite height of its own, and a percentage max-height against an
+   indefinite one resolves to `none` — i.e. to no cap at all. ~3 rows, then it
+   scrolls inside itself. */
 .queue {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  max-height: 45%;
+  max-height: 264px;
   padding: 4px 5px 8px;
   border-bottom: 1px solid var(--color-border);
 }
