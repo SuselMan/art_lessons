@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { io, type Socket } from 'socket.io-client'
 import * as Sentry from '@sentry/react'
 import clsx from 'clsx'
 import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
-  LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, RoomAccessMode, SendResult,
-  ClientToServerEvents, ServerToClientEvents,
+  LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, RoomAccessMode, RoomJoinRequest,
+  SendResult, ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
@@ -71,6 +72,7 @@ import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
 import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
+import { applyJoinRequestCreated, refreshJoinQueue, useJoinQueue } from './joinQueue'
 import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
@@ -227,6 +229,8 @@ export function Room() {
   const navigate = useNavigate()
   const location = useLocation()
   const t        = useT()
+  // (#380) Only for the access cache the join queue lives in — see joinQueue.ts.
+  const queryClient = useQueryClient()
   // (#310) In-app replacements for the window.confirm/window.alert this
   // editor used to reach for. `alert` is renamed on the way in so a reader
   // can't mistake it for the global it replaces.
@@ -610,6 +614,10 @@ export function Room() {
   const myUserId = useRoomStore(s => s.userId)
   const myParticipant = participants.find(p => p.userId === myUserId)
   const isOwner = myParticipant?.role === 'owner'
+  // (#380) Who is knocking. Owner-only (the hook fetches nothing otherwise),
+  // read here rather than inside ParticipantsPanel because the SidePanel tab's
+  // badge needs the same count while that panel is collapsed.
+  const joinQueue = useJoinQueue(id, isOwner)
   // (#328) What this user is called in the room — their account name if they
   // have one, otherwise the per-device guest name (see resolveDisplayName).
   // `me` is prefetched before the app tree mounts (main.tsx), so this is
@@ -3086,12 +3094,30 @@ export function Room() {
     // asked for. A denial just changes what the screen says; the server lets
     // them ask again, and the screen offers exactly that.
     //
-    // Ignored once we're in: the room is already open, and a stale resolution
-    // arriving after a reconnect must not restart the join.
-    const handleJoinRequestResolved = ({ approved }: { roomId: string; approved: boolean }) => {
-      if (hasJoinedRef.current) return
+    // Never restarts the join once we're in: the room is already open, and a
+    // stale resolution arriving after a reconnect must not re-enter it.
+    const handleJoinRequestResolved = ({ roomId, approved }: { roomId: string; approved: boolean }) => {
+      // (#380) Already inside: this is not about us being let in — it's a
+      // resolution for some room this person is queued for, or a stale one
+      // arriving after a reconnect. Neither may restart the join; if it is
+      // *this* room, re-read the queue, since the payload says a request was
+      // answered but not which.
+      if (hasJoinedRef.current) {
+        if (roomId === id) refreshJoinQueue(queryClient, roomId)
+        return
+      }
       if (approved) retryJoinRef.current()
       else setJoinState('denied')
+    }
+
+    // (#380/#227) Someone is asking to be let in. Addressed to the owner
+    // personally, so this only ever fires for them — and it is what makes the
+    // waiting section (and the participants tab's badge) appear mid-lesson
+    // without anyone having gone looking for it.
+    const handleJoinRequestCreated = (
+      { roomId, request }: { roomId: string; request: RoomJoinRequest },
+    ) => {
+      applyJoinRequestCreated(queryClient, roomId, request)
     }
 
     // (#227) Removed from this room while sitting in it. The server has
@@ -3118,6 +3144,7 @@ export function Room() {
     socket.on('room_frozen_changed',        handleRoomFrozenChanged)
     socket.on('room_closed_changed',        handleRoomClosedChanged)
     socket.on('participant_frozen_changed', handleParticipantFrozenChanged)
+    socket.on('join_request_created',       handleJoinRequestCreated)
     socket.on('join_request_resolved',      handleJoinRequestResolved)
     socket.on('kicked',                     handleKicked)
     socket.on('disconnect',                 handleDisconnect)
@@ -3132,6 +3159,10 @@ export function Room() {
     restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, snapshotUploader, noteLayerSeq,
     syncFromLogNow,
     outbox, awaitPaper,
+    // Stable for the app's lifetime (one QueryClient, created outside React —
+    // see lib/queryClient.ts), so listing it here can never tear the socket
+    // down and rebuild it.
+    queryClient,
   ])
 
   // Submits the join gate (joiner path only): connects/join_room's with the
@@ -3945,6 +3976,12 @@ export function Room() {
                 // freeze in this tab's own header, which is where it moved to
                 // from the top bar.
                 id: 'participants', icon: 'group', title: t('room.panel.participants'),
+                // (#380) The one thing in this panel that needs an answer
+                // *now*. Without it on the strip, the waiting section below
+                // only reaches an owner who was already looking at this tab —
+                // which, mid-lesson, is nobody.
+                badge: joinQueue.requests.length,
+                badgeLabel: t('room.joinQueue.badge', { n: joinQueue.requests.length }),
                 headerActions: (
                   <ParticipantsRoomActions
                     isOwner={isOwner}
@@ -3959,6 +3996,9 @@ export function Room() {
                     myUserId={myUserId}
                     isOwner={isOwner}
                     onToggleFreeze={toggleParticipantFrozen}
+                    joinRequests={joinQueue.requests}
+                    resolvingRequestId={joinQueue.resolvingId}
+                    onResolveJoinRequest={joinQueue.resolve}
                   />
                 ),
               },

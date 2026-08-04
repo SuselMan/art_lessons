@@ -127,6 +127,129 @@
   color: var(--color-text-dim);
 }
 
+/* ── (#380) Waiting to join ───────────────────────────────────────────────── */
+/* Sits above the participants list and is only ever rendered when somebody is
+   actually waiting, so it costs nothing the rest of the time. `flex-shrink: 0`
+   with its own scroll cap rather than sharing the list's `flex: 1`: a queue of
+   four must not push the people already in the room out of view, and a queue of
+   twenty must not push them off the bottom either.
+   The cap is in px, not a percentage: SidePanel's content column has no
+   definite height of its own, and a percentage max-height against an
+   indefinite one resolves to `none` — i.e. to no cap at all. ~3 rows, then it
+   scrolls inside itself. */
+.queue {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 264px;
+  padding: 4px 5px 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* Reads as a heading, not as a row: same 10px uppercase language as the
+   SidePanel's own title, so the section is legible as a band above the list
+   rather than as the first participant. */
+.queueHeading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 5px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--color-accent);
+}
+
+.queueCount {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-accent) 26%, transparent);
+  color: var(--color-text-bright);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.queueList {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 4px;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.queueRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 5px 8px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.queueIdentity {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.queueEmail {
+  font-size: 10px;
+  color: var(--color-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.queueActions {
+  display: flex;
+  gap: 6px;
+}
+
+/* 40px tall and each half the row: this gets tapped on a tablet, mid-lesson,
+   by someone who is holding a stylus in the other hand. */
+.queueActions button {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+.queueActions button:disabled { opacity: 0.5; cursor: default; }
+.queueActions button :global(.material-symbols-outlined) { font-size: 16px; }
+
+.approveBtn {
+  background: var(--color-accent);
+  color: #fff;
+}
+.approveBtn:not(:disabled):hover { background: var(--color-accent-hover); }
+
+/* Quiet, not dangerous: a denial is "not now" — the server lets them ask
+   again — so it must not look like the irreversible one. */
+.denyBtn {
+  background: var(--color-surface-2);
+  color: var(--color-text-dim);
+}
+.denyBtn:not(:disabled):hover { background: var(--color-surface-hover); color: var(--color-text); }
+
 /* ── Room-wide actions in the panel header ────────────────────────────────── */
 /* Sized to match SidePanel's own collapse button so the header row stays even. */
 .headerBtn {

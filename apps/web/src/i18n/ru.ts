@@ -276,6 +276,13 @@ export const ru: Dictionary = {
   'room.participants.unfreeze': 'Разморозить рисование',
   'room.participants.ban': 'Заблокировать',
   'room.participants.banUnavailable': 'Управление доступом к проекту ещё не реализовано',
+  'room.joinQueue.heading': 'Ожидают входа',
+  'room.joinQueue.badge': {
+    one: '{n} человек ожидает входа',
+    few: '{n} человека ожидают входа',
+    many: '{n} человек ожидают входа',
+    other: '{n} человека ожидают входа',
+  },
   'room.frozenEveryone': 'Владелец проекта приостановил рисование для всех.',
   'room.frozenYou': 'Владелец проекта приостановил ваше рисование.',
   'room.closedOwner': 'Проект закрыт для редактирования — в том числе для вас.',

@@ -22,6 +22,7 @@
 }
 
 .stripTab {
+  position: relative;
   width: 36px;
   height: 36px;
   display: flex;
@@ -41,6 +42,41 @@
 .stripTabActive {
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+/* (#380) Attention badge on a collapsed tab. Warning-colored rather than
+   accent: accent is what "this tab is open" already means on this same button
+   (.stripTabActive above), and the one thing this must never read as is a
+   selection state. The ring is the strip's own background punched out around
+   it, so the badge stays legible where it overlaps the icon. */
+.stripBadge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--color-warning);
+  box-shadow: 0 0 0 2px var(--color-surface);
+  color: #111;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+  animation: side-panel-badge-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes side-panel-badge-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stripBadge { animation: none; }
 }
 
 /* Expandable content panel */

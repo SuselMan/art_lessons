@@ -334,6 +334,15 @@ export const en = {
   'room.participants.unfreeze': 'Unfreeze drawing',
   'room.participants.ban': 'Block',
   'room.participants.banUnavailable': 'Project access control is not built yet',
+  // (#380) The waiting queue, surfaced in the participants tab so the owner
+  // finds out mid-lesson. The row's own buttons reuse `access.approve` /
+  // `access.deny` on purpose — same decision, same two words, wherever it is
+  // made from.
+  'room.joinQueue.heading': 'Waiting to join',
+  'room.joinQueue.badge': {
+    one: '{n} person is waiting to join',
+    other: '{n} people are waiting to join',
+  },
   'room.frozenEveryone': 'The project owner has paused drawing for everyone.',
   'room.frozenYou': 'The project owner has paused your drawing.',
   // (#222) Two readers, two different next steps — the owner wants back in,

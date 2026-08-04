@@ -6,6 +6,7 @@ import {
   addRoomInvite, ApiError, fetchMe, getRoomAccess, kickFromRoom, removeRoomInvite, resolveJoinRequest,
   setRoomAccess, unblockFromRoom,
 } from '../../lib/api'
+import { roomAccessQueryKey } from '../../lib/queryClient'
 import { useT } from '../../i18n'
 import { notifyError } from '../../stores/noticeStore'
 import { Icon } from '../Icon'
@@ -45,7 +46,9 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
   // way, in the row.
   const [confirmingRevoke, setConfirmingRevoke] = useState<string | null>(null)
 
-  const queryKey = ['room', roomId, 'access']
+  // (#380) Shared with the room's own waiting-queue section, which reads the
+  // same server state — see roomAccessQueryKey.
+  const queryKey = roomAccessQueryKey(roomId)
   const { data: access, isPending, isError, refetch } = useQuery({
     queryKey,
     queryFn: () => getRoomAccess(roomId),
