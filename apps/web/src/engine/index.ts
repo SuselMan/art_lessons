@@ -896,12 +896,78 @@ const MARKER_INK_EDGE_FALLOFF = 0.9
  *  _paintMarkerDabs' own doc comment for the one-shot-replay case (which
  *  just creates and destroys its own throwaway instance within one call,
  *  needing no cross-call lifecycle at all). */
-class MarkerStrokeScratch {
-  private _tiles = new Map<AccumulationBuffer, { original: AccumulationBuffer; coverage: AccumulationBuffer; inkLoad: AccumulationBuffer }>()
+/** (#385) Free list for MarkerStrokeScratch's buffers, so a gesture ending and
+ *  the next one starting reuses GL objects instead of deleting three and
+ *  allocating three more.
+ *
+ *  Not a micro-optimisation — it is what makes a long room openable at all. The
+ *  scratch is three buffers *the size of the tile it mirrors*, and a bounded
+ *  room's "tile" is the whole canvas: on A2 that is 3 × 34.8 MB per marker
+ *  gesture. Replaying a real 2001-operation room churned 166 such textures
+ *  through the driver in one batch, and the 167th allocation failed with
+ *  `Framebuffer incomplete` — not from volume (live texture memory peaked at
+ *  281 MB, and 2.1 GB allocates fine from cold) but from the churn itself:
+ *  deleted textures stay charged to the context until the GPU service side
+ *  processes them, which it does not do in the middle of one synchronous
+ *  replay. Forcing a gl.finish() after every marker stroke also made the room
+ *  open, which is what identified churn rather than size as the cause; pooling
+ *  removes the churn instead of waiting on it.
+ *
+ *  Every other scratch in this engine is already pooled for its own reasons
+ *  (_previewBufPool, _tipBufPool, _transformScratchPool, _smudgeScratchPool) —
+ *  the marker's was the one that was not.
+ *
+ *  Capped per size rather than unbounded: an infinite room's gesture can span
+ *  several tiles at once, and holding every tile a session ever touched would
+ *  trade this bug for a memory one. Over the cap, release really does delete.
+ *  Six is two tiles' worth, which covers a bounded room (always exactly one
+ *  tile) with room to spare. */
+const MARKER_SCRATCH_POOL_PER_SIZE = 6
+
+class MarkerScratchPool {
+  private _free = new Map<string, AccumulationBuffer[]>()
   private readonly gl: WebGLRenderingContext
 
   constructor(gl: WebGLRenderingContext) {
     this.gl = gl
+  }
+
+  acquire(width: number, height: number): AccumulationBuffer {
+    const list = this._free.get(`${width}x${height}`)
+    const reused = list?.pop()
+    // 'nearest' matches what MarkerStrokeScratch has always asked for — see
+    // its getOrCreate comment. The pool must never hand back a buffer built
+    // with a different filter, which is why it is keyed by size alone and
+    // used by this one caller.
+    return reused ?? new AccumulationBuffer(this.gl, width, height, 'nearest')
+  }
+
+  release(buf: AccumulationBuffer): void {
+    const key = `${buf.width}x${buf.height}`
+    const list = this._free.get(key)
+    if (!list) { this._free.set(key, [buf]); return }
+    if (list.length >= MARKER_SCRATCH_POOL_PER_SIZE) { buf.destroy(); return }
+    list.push(buf)
+  }
+
+  destroy(): void {
+    for (const list of this._free.values()) for (const b of list) b.destroy()
+    this._free.clear()
+  }
+
+  /** Context loss took every GL object with it — drop the handles without
+   *  calling destroy() on them, same as every other pool in this file does. */
+  forget(): void {
+    this._free.clear()
+  }
+}
+
+class MarkerStrokeScratch {
+  private _tiles = new Map<AccumulationBuffer, { original: AccumulationBuffer; coverage: AccumulationBuffer; inkLoad: AccumulationBuffer }>()
+  private readonly pool: MarkerScratchPool
+
+  constructor(pool: MarkerScratchPool) {
+    this.pool = pool
   }
 
   /** Keyed by the tile's own AccumulationBuffer identity — stable across
@@ -925,11 +991,15 @@ class MarkerStrokeScratch {
   getOrCreate(tile: AccumulationBuffer): { original: AccumulationBuffer; coverage: AccumulationBuffer; inkLoad: AccumulationBuffer } {
     let entry = this._tiles.get(tile)
     if (!entry) {
-      const original = new AccumulationBuffer(this.gl, tile.width, tile.height, 'nearest')
+      // (#385) From the pool, and every one of the three is fully written
+      // before it is read — copyTo overwrites `original` outright, the other
+      // two are cleared — so a reused buffer carries nothing of whatever
+      // gesture had it last.
+      const original = this.pool.acquire(tile.width, tile.height)
       tile.copyTo(original)
-      const coverage = new AccumulationBuffer(this.gl, tile.width, tile.height, 'nearest')
+      const coverage = this.pool.acquire(tile.width, tile.height)
       coverage.clear()
-      const inkLoad = new AccumulationBuffer(this.gl, tile.width, tile.height, 'nearest')
+      const inkLoad = this.pool.acquire(tile.width, tile.height)
       inkLoad.clear()
       entry = { original, coverage, inkLoad }
       this._tiles.set(tile, entry)
@@ -937,10 +1007,19 @@ class MarkerStrokeScratch {
     return entry
   }
 
+  /** Ends this gesture's use of its buffers. Named as it always was, and it
+   *  still means "this scratch is finished with" — what changed (#385) is that
+   *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
     for (const { original, coverage, inkLoad } of this._tiles.values()) {
-      original.destroy(); coverage.destroy(); inkLoad.destroy()
+      this.pool.release(original); this.pool.release(coverage); this.pool.release(inkLoad)
     }
+    this._tiles.clear()
+  }
+
+  /** Context loss: the GL objects are already dead, so neither release nor
+   *  destroy is meaningful — just let go of them. */
+  forget(): void {
     this._tiles.clear()
   }
 }
@@ -1060,6 +1139,11 @@ export class PencilEngine implements PencilEngineAPI {
   // down its own throwaway instance within that single call instead (see
   // _paintMarkerDabs' own doc comment).
   private _markerStrokeScratch: MarkerStrokeScratch | null = null
+  /** (#385) Shared free list behind every MarkerStrokeScratch this engine
+   *  builds — see MarkerScratchPool's own doc comment for why the marker path
+   *  cannot allocate per gesture. Assigned in the constructor, right after
+   *  `gl`. */
+  private _markerScratchPool: MarkerScratchPool
   // The gesture this stroke belongs to (StrokeOperation.strokeId) — one id
   // from pen-down to pen-up, stamped on every chunk _flushStrokeChunk emits
   // along the way as well as on the final op.
@@ -1224,6 +1308,9 @@ export class PencilEngine implements PencilEngineAPI {
 
   // (#147) See suspendDisplay/resumeDisplay's own doc comments.
   private _displaySuspendDepth = 0
+  /** (#381) Layers whose rebuild was deferred by the current suspendDisplay
+   *  batch — see _rebuildLayerOrDefer. Empty whenever the depth is 0. */
+  private _pendingRebuilds = new Set<string>()
 
   // Below/above split-composite cache (#122) — _runComposite normally
   // re-blits every visible layer/folder-child from _compositeOrder into
@@ -1543,6 +1630,7 @@ export class PencilEngine implements PencilEngineAPI {
     })
     if (!gl) throw new Error('WebGL not supported')
     this.gl = gl
+    this._markerScratchPool = new MarkerScratchPool(gl)
 
     this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
     this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
@@ -1668,7 +1756,12 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. */
   resumeDisplay(): void {
     this._displaySuspendDepth = Math.max(0, this._displaySuspendDepth - 1)
-    if (this._displaySuspendDepth === 0) this._display()
+    if (this._displaySuspendDepth !== 0) return
+    // (#381) Before the composite, not after: _display() reads the layer
+    // buffers, and until these run they still hold whatever the batch's undos
+    // left half-applied. See _rebuildLayerOrDefer.
+    this._flushPendingRebuilds()
+    this._display()
   }
 
   /** See PencilEngineAPI's doc comment. */
@@ -2618,11 +2711,15 @@ export class PencilEngine implements PencilEngineAPI {
     this._transformScratchPool = []
     for (const b of this._smudgeScratchPool) b.destroy()
     this._smudgeScratchPool = []
+    // (#385) These two hand their buffers back to the pool rather than to the
+    // driver, so the pool has to be drained *after* them — draining first
+    // would leave exactly the buffers they are still holding behind.
     this._markerStrokeScratch?.destroy()
     this._markerStrokeScratch = null
     this._strokeId = null
     this._replayMarkerChunk?.scratch.destroy()
     this._replayMarkerChunk = null
+    this._markerScratchPool.destroy()
     for (const { bufs } of this._smudgeReservoirs.values()) { bufs[0].destroy(); bufs[1].destroy() }
     this._smudgeReservoirs.clear()
     this._smudgeTransferScratch?.destroy()
@@ -2638,6 +2735,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._transformPreview.clear()
     this._checkpoints = []
     this._checkpointBytes = 0
+    // (#381) Nothing left to rebuild into — the buffers are gone.
+    this._pendingRebuilds.clear()
   }
 
   // ─── History / replay ────────────────────────────────────────────────────────
@@ -2647,21 +2746,64 @@ export class PencilEngine implements PencilEngineAPI {
     switch (op.type) {
       case 'stroke':
       case 'layer_clear':
-        this._rebuildLayer(op.layerId)
+        this._rebuildLayerOrDefer(op.layerId)
         break
       case 'layer_add':
       case 'layer_delete':
       case 'layer_merge':
+        // Deliberately *not* deferred, unlike the pixel cases above: this one
+        // creates and destroys buffers, and appendOperation silently skips any
+        // op whose target layer has no buffer (see its own doc comment). Defer
+        // it and the very next stroke in the batch can land on a layer that
+        // does not exist yet and be dropped for good. It is also the cheap
+        // case — 31 of these in a 2001-operation room measured 1 ms in total.
         this._syncBuffersToLog()
         break
       case 'layer_transform':
-        for (const t of op.transforms) this._rebuildLayer(t.layerId)
+        for (const t of op.transforms) this._rebuildLayerOrDefer(t.layerId)
         break
       default:
         // structure-only; the UI re-derives LayerState and pushes composite order
         break
     }
     this._displayIfNotSuspended()
+  }
+
+  /** (#381) A layer rebuild is a full replay of that layer's done pixel ops
+   *  from its best checkpoint. One at a time, interactively, that is the
+   *  intended cost. Inside a suspendDisplay batch it is the wrong cost
+   *  entirely: every `operation_undo` in a replayed history triggers one, each
+   *  replaying more of the history than the last, and every one of them is
+   *  thrown away by the next.
+   *
+   *  Measured on a real room (729 operations, 146 889 dabs, A3): 72 undos cost
+   *  2541 ms of the join's 3418 ms — 74% of the whole replay, against 875 ms
+   *  for painting all 146 889 dabs once. The last few undos cost over 330 ms
+   *  each on their own.
+   *
+   *  So inside a batch the rebuild is recorded and run once per layer at
+   *  resumeDisplay instead. Correctness comes from what a rebuild *is*: it
+   *  replays the layer's done ops from scratch, so its result depends only on
+   *  the log's final done/undone state, never on how many times it ran on the
+   *  way there. The intermediate buffer contents are wrong until the flush —
+   *  which is exactly what suspendDisplay already promises about the composite,
+   *  and why _takeCheckpoint refuses to run against a layer with a rebuild
+   *  still pending. */
+  private _rebuildLayerOrDefer(layerId: string): void {
+    if (this._displaySuspendDepth === 0) { this._rebuildLayer(layerId); return }
+    this._pendingRebuilds.add(layerId)
+  }
+
+  /** Runs the rebuilds `_rebuildLayerOrDefer` recorded during a batch. Called
+   *  from resumeDisplay *before* its own _display(), so the composite it paints
+   *  is of settled buffers. */
+  private _flushPendingRebuilds(): void {
+    if (this._pendingRebuilds.size === 0) return
+    const pending = [...this._pendingRebuilds]
+    // Cleared first: _rebuildLayer runs with the depth already back at 0, and
+    // nothing it calls should be able to re-enter this set and rebuild twice.
+    this._pendingRebuilds.clear()
+    for (const layerId of pending) this._rebuildLayer(layerId)
   }
 
   /** A buffer should exist iff the layer is alive in the done history: created
@@ -3011,8 +3153,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._tipBufPool = null
     this._transformScratchPool = [] // (#155) pooled GL objects are dead too, not worth destroy()ing
     this._smudgeScratchPool = [] // same reasoning, see #14
-    this._markerStrokeScratch = null // same reasoning — pooled GL objects are dead too
+    this._markerStrokeScratch?.forget() // same reasoning — pooled GL objects are dead too
+    this._markerStrokeScratch = null
+    this._replayMarkerChunk?.scratch.forget()
     this._replayMarkerChunk = null
+    // (#385) Dropped, not released: releasing would put dead handles back in
+    // the pool for the next gesture to paint through.
+    this._markerScratchPool.forget()
     this._smudgeReservoirs.clear() // same reasoning — pooled GL objects are dead too
     this._smudgeTransferScratch = null
     for (const { timer } of this._peerPreviews.values()) {
@@ -3020,6 +3167,10 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._peerPreviews.clear()
     this._transformPreview.clear() // handles dead too; a mid-drag gizmo just loses its live preview
+    // (#381) _syncBuffersToLog below replays every live layer from the log
+    // outright, which is strictly more than any deferred rebuild was going to
+    // do — keeping them queued would just repeat that work at the next resume.
+    this._pendingRebuilds.clear()
     this._syncBuffersToLog()
     this._display()
   }
@@ -3065,6 +3216,14 @@ export class PencilEngine implements PencilEngineAPI {
     // rather than corrupt; _handleContextRestored rebuilds from the log
     // directly instead, which never depended on this checkpoint existing.
     if (this._contextLost) return
+    // (#381) This method's own contract is that the buffer equals replay state
+    // of the layer's done pixel ops. A layer with a deferred rebuild pending
+    // does not — that is the whole point of deferring — so checkpointing it
+    // here would bake a half-applied buffer under a complete op list, and an
+    // undo restoring that checkpoint later would show content that never
+    // existed. Skipping costs nothing: _maybeCheckpoint fires again on the
+    // next boundary, past the flush.
+    if (this._pendingRebuilds.has(layerId)) return
     const buf = this._layers.get(layerId)
     if (!buf) return
     const ops = this._log.layerPixelOps(layerId)
@@ -3526,7 +3685,7 @@ export class PencilEngine implements PencilEngineAPI {
     // see MarkerStrokeScratch's own doc comment. Harmless to always create,
     // even for a non-marker stroke: nothing allocates any GL resource until
     // a marker dab's own getOrCreate() first touches a tile.
-    this._markerStrokeScratch = new MarkerStrokeScratch(this.gl)
+    this._markerStrokeScratch = new MarkerStrokeScratch(this._markerScratchPool)
     this._strokeId = nanoid(10)
     // #251: this._strokePreset isn't assigned until the next line — pass the
     // raw incoming preset (this._opts.pencilType) directly so a marker
@@ -4905,7 +5064,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (target instanceof AccumulationBuffer) return
     const preset = this._resolvePreset('marker', presetName)
     const chunk = markerScratch ? null : this._replayChunkScratch(target, strokeId, dabs)
-    const scratch = markerScratch ?? chunk?.scratch ?? new MarkerStrokeScratch(this.gl)
+    const scratch = markerScratch ?? chunk?.scratch ?? new MarkerStrokeScratch(this._markerScratchPool)
     // `prevDab` is threaded the same way smudge threads its own
     // (_paintSmudgeDabs): the dab immediately before dabs[0] may come from a
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
@@ -4932,7 +5091,7 @@ export class PencilEngine implements PencilEngineAPI {
       return { scratch: cached.scratch, prevDab }
     }
     cached?.scratch.destroy()
-    const scratch = new MarkerStrokeScratch(this.gl)
+    const scratch = new MarkerStrokeScratch(this._markerScratchPool)
     this._replayMarkerChunk = { strokeId, target, scratch, lastDab: dabs[dabs.length - 1] }
     return { scratch }
   }
