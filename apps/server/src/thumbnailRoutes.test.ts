@@ -16,15 +16,23 @@ const mockPrisma = vi.hoisted(() => ({
   room: {
     findUnique: vi.fn(),
   },
+  roomBlock: {
+    findUnique: vi.fn(),
+  },
 }))
 vi.mock('./prisma.js', () => ({ prisma: mockPrisma }))
 
-/** GET's access check (hasPersistedRoomAccess) shapes its query result as
- *  `{ ownerId, participants: [...] }` — see thumbnailRoutes.ts. */
-function mockRoomAccess(app: { ownerId: string; participantIds: string[] } | null) {
+/** Both persisted access checks shape their room query as
+ *  `{ ownerId, participants: [...] }` — see thumbnailRoutes.ts. `blocked` is
+ *  read only by POST's `hasPersistedUploadAccess`; GET never asks. */
+function mockRoomAccess(
+  app: { ownerId: string; participantIds: string[] } | null,
+  { blocked = false }: { blocked?: boolean } = {},
+) {
   mockPrisma.room.findUnique.mockResolvedValueOnce(
     app && { ownerId: app.ownerId, participants: app.participantIds.map(userId => ({ userId })) },
   )
+  mockPrisma.roomBlock.findUnique.mockResolvedValueOnce(blocked ? { id: 'block-1' } : null)
 }
 
 const mockGetParticipant = vi.hoisted(() => vi.fn())
@@ -67,6 +75,7 @@ beforeEach(() => {
   mockPrisma.roomThumbnail.upsert.mockReset()
   mockPrisma.roomThumbnail.findUnique.mockReset()
   mockPrisma.room.findUnique.mockReset()
+  mockPrisma.roomBlock.findUnique.mockReset()
   mockGetParticipant.mockReset()
 })
 
@@ -87,10 +96,68 @@ describe('POST /api/rooms/:roomId/thumbnail', () => {
     expect(mockPrisma.roomThumbnail.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ where: { roomId: 'room-1' } }),
     )
+    // The live registry answers on its own — an upload from inside an open
+    // room must not cost two extra queries per SNAPSHOT_SEQ_INTERVAL boundary.
+    expect(mockPrisma.room.findUnique).not.toHaveBeenCalled()
   })
 
-  it('rejects a non-participant with 403 without touching Postgres', async () => {
+  // (#382) The exit-path upload. Room/index.tsx bakes the final thumbnail from
+  // its unmount cleanup while the socket effect's cleanup disconnects, so the
+  // POST lands after leaveRoom dropped the in-memory entry — one exit in six
+  // on prod. This is the case that used to 403.
+  it('accepts an upload from a participant whose socket has already gone', async () => {
     mockGetParticipant.mockReturnValue(undefined)
+    mockRoomAccess({ ownerId: 'someone-else', participantIds: ['user-1'] })
+    mockPrisma.roomThumbnail.upsert.mockResolvedValueOnce({})
+    const app = buildApp()
+
+    const res = await postThumbnail(app, 'room-1', pngHeader(200, 100))
+
+    expect(res.statusCode).toBe(200)
+    expect(mockPrisma.roomThumbnail.upsert).toHaveBeenCalled()
+  })
+
+  it('rejects a blocked ex-participant even though their RoomParticipant row survives', async () => {
+    // A block is the durable half of a kick; the participant row outlives it.
+    // Without the block check the person the owner just removed would keep
+    // write access to the room's preview on everyone's lesson list.
+    mockGetParticipant.mockReturnValue(undefined)
+    mockRoomAccess({ ownerId: 'someone-else', participantIds: ['user-1'] }, { blocked: true })
+    const app = buildApp()
+
+    const res = await postThumbnail(app, 'room-1', pngHeader(200, 100))
+
+    expect(res.statusCode).toBe(403)
+    expect(mockPrisma.roomThumbnail.upsert).not.toHaveBeenCalled()
+  })
+
+  it('accepts the owner even with a block row against them', async () => {
+    // Same exemption roomAccess.ts's join gate makes: a room whose owner can
+    // be locked out of it is a room that can be stolen.
+    mockGetParticipant.mockReturnValue(undefined)
+    mockRoomAccess({ ownerId: 'user-1', participantIds: [] }, { blocked: true })
+    mockPrisma.roomThumbnail.upsert.mockResolvedValueOnce({})
+    const app = buildApp()
+
+    const res = await postThumbnail(app, 'room-1', pngHeader(200, 100))
+
+    expect(res.statusCode).toBe(200)
+  })
+
+  it('rejects someone who is neither live-connected nor a persisted participant', async () => {
+    mockGetParticipant.mockReturnValue(undefined)
+    mockRoomAccess({ ownerId: 'someone-else', participantIds: [] })
+    const app = buildApp()
+
+    const res = await postThumbnail(app, 'room-1', pngHeader(200, 100))
+
+    expect(res.statusCode).toBe(403)
+    expect(mockPrisma.roomThumbnail.upsert).not.toHaveBeenCalled()
+  })
+
+  it('rejects an upload to an unknown room with 403', async () => {
+    mockGetParticipant.mockReturnValue(undefined)
+    mockRoomAccess(null)
     const app = buildApp()
 
     const res = await postThumbnail(app, 'room-1', pngHeader(200, 100))
