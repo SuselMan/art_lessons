@@ -46,8 +46,9 @@ export class PointerInput {
   private _lastY: number
   private _transform: ((clientX: number, clientY: number) => { x: number; y: number }) | null
 
-  // (#187 diagnostic instrumentation, temporary — remove once root-caused)
-  // Which pointer actually started/owns the in-progress stroke. Move events
+  // (#187) Which pointer actually started/owns the in-progress stroke.
+  // Kept, not temporary — see the note above _handleDown.
+  // Move events
   // never checked this against the incoming event's own pointerId before —
   // the working theory is that a second input source (mouse hover, a
   // secondary touch) sending its own pointermove while a stylus stroke is
@@ -151,11 +152,28 @@ export class PointerInput {
     return this._toPointerData(e, x, y, speed)
   }
 
+  /** (#187) These four probes stay. They were written as temporary
+   *  instrumentation for a mid-stroke break that only ever showed up on
+   *  Ilya's tablet, and the issue closed 04.08 without a root cause: a
+   *  four-minute session on the Tab S7+ aimed squarely at the reported
+   *  gestures produced no break and fired none of them — including through
+   *  stretches where pen and palm-touch pointers were interleaved, which is
+   *  the exact condition the mismatched-pointer theory was about.
+   *
+   *  "No cause found" is the reason to keep them, not to remove them. A
+   *  symptom seen on one person's hardware and not since will come back, if
+   *  it comes back, in the middle of a lesson — and each probe names a
+   *  different cause (second input source, dropped samples, coordinate
+   *  transform, OS-level cancel), so whichever one fires is the diagnosis.
+   *  Re-adding them afterwards means waiting for a second reproduction.
+   *
+   *  They cost a diagLog per pointerdown/up — once per stroke, never per
+   *  move; the move-path probes only speak when something is actually
+   *  wrong. */
   private _handleDown(e: PointerEvent): void {
     if (e.button !== 0) return
     if (e.pointerType === 'touch') return // touch → pan/zoom/rotate at viewport level
-    // (#187 diagnostic instrumentation, temporary — remove once root-caused;
-    // filter devtools console for "[PointerInput]") — a pointerdown while a
+    // (#187) A pointerdown while a
     // stroke is already active would mean two input sources are down at
     // once, which _handleMove's mismatch check below can't itself explain
     // (it only fires on *moves* from an unexpected pointer).
@@ -176,7 +194,7 @@ export class PointerInput {
 
   private _handleMove(e: PointerEvent): void {
     if (!this._active) return
-    // (#187 diagnostic instrumentation, temporary) — the working theory: a
+    // (#187) The working theory was: a
     // second input source (mouse hover, a secondary touch) sends its own
     // pointermove while a stylus stroke is active, and — since nothing
     // before this ever checked pointerId — gets silently misattributed to
@@ -223,7 +241,7 @@ export class PointerInput {
 
   private _handleUp(e: PointerEvent): void {
     if (!this._active) return
-    // (#187 diagnostic instrumentation, temporary) — distinguishes a normal
+    // (#187) Distinguishes a normal
     // pointerup from a pointercancel (both routed here) — e.g. a tablet OS
     // canceling the stylus's pointer mid-stroke (palm rejection, focus
     // switch) would end the stroke abruptly too, a distinct cause from the
