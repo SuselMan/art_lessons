@@ -1,32 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
 import { clamp } from 'lodash-es'
 import clsx from 'clsx'
+import { advancePosition, distanceOutside, roundToStep } from './precisionSlider'
+import { linearScale, type SliderScale } from './sliderScale'
 import styles from './PrecisionSlider.module.css'
-
-// Dragging the full track length only covers 1/sensitivityFactor() of the
-// range — the rest requires dragging further than the visible track,
-// trading travel distance for precision (same idea as Photoshop/Blender
-// numeric drag fields). The factor itself scales with the finger's
-// instantaneous speed (#105): a slow,
-// deliberate drag stays at PRECISE_FACTOR (the old fixed behavior); a fast
-// flick relaxes toward FAST_FACTOR (≈1:1 — the track covers the full range)
-// so the thumb doesn't visibly lag behind the finger, trading precision for
-// responsiveness exactly when the user isn't trying to be precise anyway.
-const PRECISE_FACTOR = 3
-const FAST_FACTOR = 1
-// Smoothed speed (px/ms) at/above which sensitivity is fully relaxed to
-// FAST_FACTOR. ~1200px/s — comfortably above a deliberate slow drag, well
-// below a fast flick.
-const SPEED_FAST_PX_MS = 1.2
-// EMA smoothing for the per-move speed sample — a single pointermove's
-// instantaneous px/dt is noisy (coalesced-event timing jitter), so sensitivity
-// reacts to a smoothed trend instead of snapping per-event (see handleMove).
-const SPEED_SMOOTHING = 0.35
-
-function sensitivityFactor(speedPxMs: number): number {
-  const t = clamp(speedPxMs / SPEED_FAST_PX_MS, 0, 1)
-  return PRECISE_FACTOR + t * (FAST_FACTOR - PRECISE_FACTOR)
-}
 
 interface PrecisionSliderProps {
   value: number
@@ -37,12 +14,15 @@ interface PrecisionSliderProps {
    *  quick-access column. 'horizontal': drag right increases — matches the
    *  wider "Tool settings" panel rows. */
   orientation?: 'vertical' | 'horizontal'
+  /** (#390) How value maps onto track position; linear unless the field says
+   *  otherwise (px sizes are exponential — see sliderScale.ts). The component
+   *  never inspects which one it got. */
+  scale?: SliderScale
   /** Track length in px along its sliding axis (height for vertical, width
    *  for horizontal) — sets the element's CSS size. Optional: omit to let
    *  CSS/flex layout size it (e.g. a panel row filling available width).
-   *  The drag sensitivity math always measures the actual rendered size at
-   *  drag start, so this is a styling hint only, never a correctness
-   *  requirement. */
+   *  The drag math always measures the actual rendered size at drag start,
+   *  so this is a styling hint only, never a correctness requirement. */
   trackSize?: number
   onChange: (value: number) => void
   /** Formats the value shown in the touch-drag bubble; defaults to String(value). */
@@ -52,32 +32,33 @@ interface PrecisionSliderProps {
 }
 
 export function PrecisionSlider({
-  value, min, max, step = 1, orientation = 'vertical', trackSize, onChange, formatValue, title, className,
+  value, min, max, step = 1, orientation = 'vertical', scale = linearScale,
+  trackSize, onChange, formatValue, title, className,
 }: PrecisionSliderProps) {
-  // `value`/`last`/`lastT` drive the incremental (per-move-delta) accumulation
-  // that lets sensitivity vary mid-drag (#105) — unlike a pure function of
-  // total displacement from drag start, this has to carry state forward move
-  // by move. `value` is the unrounded running total (roundToStep only applied
-  // when calling onChange/showBubble) so per-step rounding never accumulates
-  // drift. `speed` is the EMA-smoothed px/ms driving sensitivityFactor().
-  // `length` is the track's actual rendered extent (height or width,
-  // depending on orientation), measured once at drag start.
-  const dragRef = useRef<{ last: number; lastT: number; value: number; speed: number; length: number } | null>(null)
+  // `position` is the unrounded normalized (0..1) running total the drag
+  // accumulates into — see advancePosition for why the drag has to carry
+  // state forward move by move instead of being a pure function of total
+  // displacement. `last` is the previous pointer coordinate along the track.
+  // `length` and the `across*` bounds are the track's actual rendered
+  // geometry, measured once at drag start (the element cannot move mid-drag,
+  // and the pointer is captured to it).
+  const dragRef = useRef<{
+    last: number; position: number; length: number; acrossLo: number; acrossHi: number
+  } | null>(null)
   const [bubble, setBubble] = useState<{ x: number; y: number; text: string } | null>(null)
-
-  const roundToStep = useCallback((v: number) => Math.round(v / step) * step, [step])
 
   const showBubble = useCallback((clientX: number, clientY: number, v: number) => {
     setBubble({ x: clientX, y: clientY, text: formatValue ? formatValue(v) : String(v) })
   }, [formatValue])
 
-  // No tap-to-position jump (deliberately removed — see #105 follow-up):
-  // a bare touch-down with no real movement must never change the value, so
-  // a stray palm/hand brush against the toolbar while drawing (reported on
-  // real hardware — left-handed drawing puts the drawing hand right next to
-  // it) can't do anything. The drag baseline is the slider's *current* value,
-  // not the tapped position — only real movement (handleMove below) ever
-  // changes anything.
+  // No tap-to-position jump (deliberately removed — see #105 follow-up, and
+  // reaffirmed as a hard constraint on #390's new mechanic): a bare touch-down
+  // with no real movement must never change the value, so a stray palm/hand
+  // brush against the toolbar while drawing (reported on real hardware —
+  // left-handed drawing puts the drawing hand right next to it) can't do
+  // anything. The drag baseline is the slider's *current* value, not the
+  // tapped position — only real movement (handleMove below) ever changes
+  // anything.
   const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return
     const el = e.currentTarget
@@ -85,35 +66,40 @@ export function PrecisionSlider({
     // class PointerInput.ts/useViewport.ts's own setPointerCapture calls
     // already guard against) — an unguarded throw here used to abort this
     // whole handler before dragRef/the listeners below were ever set up,
-    // silently breaking every drag on whatever device threw.
+    // silently breaking every drag on whatever device threw. Capture also
+    // carries the perpendicular half of the new gesture: the pointer is meant
+    // to leave the element entirely and must keep reporting once it does.
     try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
 
     const rect = el.getBoundingClientRect()
-    const length = orientation === 'vertical' ? rect.height : rect.width
-    const startPos = orientation === 'vertical' ? e.clientY : e.clientX
-    dragRef.current = { last: startPos, lastT: performance.now(), value, speed: 0, length }
-    if (e.pointerType === 'touch') showBubble(e.clientX, e.clientY, roundToStep(value))
+    const vertical = orientation === 'vertical'
+    dragRef.current = {
+      last: vertical ? e.clientY : e.clientX,
+      position: clamp(scale.toPosition(value, min, max), 0, 1),
+      length: vertical ? rect.height : rect.width,
+      acrossLo: vertical ? rect.left : rect.top,
+      acrossHi: vertical ? rect.right : rect.bottom,
+    }
+    if (e.pointerType === 'touch') showBubble(e.clientX, e.clientY, roundToStep(value, step, min, max))
 
     const handleMove = (ev: PointerEvent) => {
       const drag = dragRef.current
       if (!drag) return
-      const now = performance.now()
-      const dt = Math.max(1, now - drag.lastT) // guard div-by-zero on same-ms coalesced events
-      const pos = orientation === 'vertical' ? ev.clientY : ev.clientX
+      const along = vertical ? ev.clientY : ev.clientX
+      const across = vertical ? ev.clientX : ev.clientY
       // Vertical: drag up (smaller clientY) increases value. Horizontal:
       // drag right (larger clientX) increases value.
-      const delta = orientation === 'vertical' ? drag.last - pos : pos - drag.last
-      const instantSpeed = Math.abs(delta) / dt
-      const speed = drag.speed + (instantSpeed - drag.speed) * SPEED_SMOOTHING
-      const factor = sensitivityFactor(speed)
+      const delta = vertical ? drag.last - along : along - drag.last
+      const offset = distanceOutside(across, drag.acrossLo, drag.acrossHi)
 
-      const rawValue = clamp(drag.value + delta * (max - min) / (drag.length * factor), min, max)
-      drag.last = pos
-      drag.lastT = now
-      drag.value = rawValue
-      drag.speed = speed
+      drag.position = advancePosition(drag.position, delta, offset, drag.length)
+      drag.last = along
 
-      const next = roundToStep(rawValue)
+      // The bubble reports the value and nothing else — deliberately no "×4"
+      // precision readout (#390, decided). Precision is felt through the
+      // thumb, and a second number in a bubble already floating over the
+      // drawing costs more attention than it returns.
+      const next = roundToStep(scale.fromPosition(drag.position, min, max), step, min, max)
       onChange(next)
       if (ev.pointerType === 'touch') showBubble(ev.clientX, ev.clientY, next)
     }
@@ -128,8 +114,12 @@ export function PrecisionSlider({
     el.addEventListener('pointermove', handleMove)
     el.addEventListener('pointerup', handleUp)
     el.addEventListener('pointercancel', handleUp)
-  }, [value, onChange, min, max, orientation, roundToStep, showBubble])
+  }, [value, onChange, min, max, step, orientation, scale, showBubble])
 
+  // Keyboard stays additive in the field's own units on every scale: an arrow
+  // key is a numeric increment ("one more px"), not a fixed slice of track
+  // travel, and making it scale-aware would leave Arrow-Up's effect depending
+  // on where the value already sits.
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     const big = e.key === 'PageUp' || e.key === 'PageDown'
     const incKey = orientation === 'vertical' ? 'ArrowUp' : 'ArrowRight'
@@ -140,7 +130,7 @@ export function PrecisionSlider({
     else if (e.key === 'End')  { onChange(max); e.preventDefault() }
   }, [value, min, max, step, onChange, orientation])
 
-  const proportion = clamp((value - min) / (max - min || 1), 0, 1)
+  const proportion = clamp(scale.toPosition(value, min, max), 0, 1)
   const orientationClass = orientation === 'horizontal' ? styles.trackHorizontal : styles.trackVertical
   const sizeStyle = trackSize == null ? undefined : (orientation === 'vertical' ? { height: trackSize } : { width: trackSize })
 
