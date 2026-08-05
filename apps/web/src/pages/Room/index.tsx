@@ -2676,19 +2676,31 @@ export function Room() {
     // placeholder-canvas-space pointer position.
     const rect = el.getBoundingClientRect()
 
-    // (#399) The gesture is computed in the session's *local* space — the one
-    // `bounds` is stated in, before any of the session's own gestures. The
-    // pointer is pulled back through the inverse of what the session has
-    // accumulated so far, the gesture matrix is built against the untouched
-    // axis-aligned bounds exactly as it always was, and the session matrix is
-    // then re-applied on top. That is what makes scaling a rotated frame pull
-    // along the frame's own axes instead of the canvas's, and it keeps this
-    // whole block identical to the per-drag version it replaces.
+    // (#399) Which side of the accumulated matrix a gesture composes on is not
+    // a style choice — it decides whether the frame stays a rectangle.
+    //
+    // Scaling has to go *inside* (session ∘ gesture): the handles pull along
+    // the frame's own axes, so the squash is stated in the frame's local
+    // space, before whatever rotation the session already holds.
+    //
+    // Rotation has to go *outside* (gesture ∘ session): turning the frame is a
+    // rigid move of whatever shape it currently is. Composed inside, a
+    // rotation lands *under* an existing non-uniform scale — squash-then-turn
+    // becomes turn-then-squash, which is a shear, and the corners stop being
+    // 90°. That is the bug Ilya hit by squashing one axis and then rotating.
+    // Keeping rotation outside holds the session in the form
+    // rotation ∘ scale, which is angle-preserving on a rectangle no matter how
+    // the two are interleaved.
+    //
+    // Translation is the one that genuinely doesn't care: for a drag of `d`
+    // canvas px, session ∘ translate(A⁻¹d) and translate(d) ∘ session are the
+    // same matrix. It stays inside with the scales.
     const sessionBase = session.matrix
     const toLocalSpace = invertMatrix(sessionBase)
     if (!toLocalSpace) return
+    const toCanvasPoint = (clientX: number, clientY: number) => clientToRoomPoint(clientX, clientY, rect, vp, config)
     const toPoint = (clientX: number, clientY: number) => {
-      const p = clientToRoomPoint(clientX, clientY, rect, vp, config)
+      const p = toCanvasPoint(clientX, clientY)
       return applyMatrix(toLocalSpace, p.x, p.y)
     }
 
@@ -2697,15 +2709,23 @@ export function Room() {
     const isRotate = handle.startsWith('rotate')
     const pivot = handle === 'body' || isRotate ? center : TRANSFORM_PIVOT[handle as keyof typeof TRANSFORM_PIVOT](bounds)
     const start = toPoint(e.clientX, e.clientY)
-    const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
+    // Rotation works entirely in canvas space, so its centre and start angle
+    // are the local ones pushed back out through the session matrix.
+    const centerCanvas = applyMatrix(sessionBase, center.x, center.y)
+    const startCanvas = toCanvasPoint(e.clientX, e.clientY)
+    const startAngle = Math.atan2(startCanvas.y - centerCanvas.y, startCanvas.x - centerCanvas.x)
     const startDist  = Math.max(Math.hypot(start.x - pivot.x, start.y - pivot.y), 1e-6)
     const startDistX = Math.max(Math.abs(start.x - pivot.x), 1e-6)
     const startDistY = Math.max(Math.abs(start.y - pivot.y), 1e-6)
 
     const computeMatrix = (clientX: number, clientY: number): AffineMatrix => {
+      if (isRotate) {
+        const w = toCanvasPoint(clientX, clientY)
+        const angle = Math.atan2(w.y - centerCanvas.y, w.x - centerCanvas.x) - startAngle
+        return rotateAboutMatrix(angle, centerCanvas.x, centerCanvas.y)
+      }
       const p = toPoint(clientX, clientY)
       if (handle === 'body') return translateMatrix(p.x - start.x, p.y - start.y)
-      if (isRotate) return rotateAboutMatrix(Math.atan2(p.y - center.y, p.x - center.x) - startAngle, center.x, center.y)
       if (handle === 't' || handle === 'b') {
         const scaleY = clamp(Math.abs(p.y - pivot.y) / startDistY, 0.05, 20)
         return scaleAxisMatrix(1, scaleY, pivot.x, pivot.y)
@@ -2735,8 +2755,11 @@ export function Room() {
     let rafId: number | null = null
     let latestMatrix: AffineMatrix | null = null
     // What the canvas and the gizmo should show: everything the session had
-    // already accumulated, with this gesture on top.
-    const accumulated = (gesture: AffineMatrix) => composeMatrix(sessionBase, gesture)
+    // already accumulated, with this gesture composed on the side its own
+    // meaning demands (see computeMatrix's comment above).
+    const accumulated = (gesture: AffineMatrix) => isRotate
+      ? composeMatrix(gesture, sessionBase)
+      : composeMatrix(sessionBase, gesture)
     const showPreview = (matrix: AffineMatrix) => {
       setTransformSessionMatrix(matrix)
       engineRef.current?.previewLayerTransform(session.targetIds.map(layerId => ({ layerId, matrix })))

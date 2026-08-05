@@ -41,6 +41,64 @@ describe('composeMatrix', () => {
   })
 })
 
+// The invariant a move/scale/rotate gizmo owes the user: the frame is always a
+// rectangle. It holds only if scaling composes *inside* the accumulated matrix
+// (the handles pull along the frame's own axes) and rotation composes
+// *outside* (turning the frame is rigid). Get that backwards and a squash
+// followed by a turn becomes a shear — Room's handleTransformHandleDown picks
+// the side per gesture for exactly this reason.
+describe('session composition keeps the frame rectangular', () => {
+  const BOUNDS = { x: 100, y: 200, width: 400, height: 300 }
+  const corners = (m: AffineMatrix) => [
+    applyMatrix(m, BOUNDS.x, BOUNDS.y),
+    applyMatrix(m, BOUNDS.x + BOUNDS.width, BOUNDS.y),
+    applyMatrix(m, BOUNDS.x + BOUNDS.width, BOUNDS.y + BOUNDS.height),
+    applyMatrix(m, BOUNDS.x, BOUNDS.y + BOUNDS.height),
+  ]
+  /** Largest deviation from a right angle at any corner, in radians. */
+  const worstCornerError = (m: AffineMatrix) => {
+    const c = corners(m)
+    let worst = 0
+    for (let i = 0; i < 4; i++) {
+      const prev = c[(i + 3) % 4], here = c[i], next = c[(i + 1) % 4]
+      const ax = prev.x - here.x, ay = prev.y - here.y
+      const bx = next.x - here.x, by = next.y - here.y
+      const cosine = (ax * bx + ay * by) / (Math.hypot(ax, ay) * Math.hypot(bx, by))
+      worst = Math.max(worst, Math.abs(Math.acos(Math.min(1, Math.max(-1, cosine))) - Math.PI / 2))
+    }
+    return worst
+  }
+  // How Room accumulates a gesture: scales fold in, rotations wrap around.
+  const scaleGesture = (m: AffineMatrix, sx: number, sy: number) =>
+    composeMatrix(m, scaleAxisMatrix(sx, sy, BOUNDS.x, BOUNDS.y))
+  const rotateGesture = (m: AffineMatrix, rad: number) => {
+    const c = applyMatrix(m, BOUNDS.x + BOUNDS.width / 2, BOUNDS.y + BOUNDS.height / 2)
+    return composeMatrix(rotateAboutMatrix(rad, c.x, c.y), m)
+  }
+
+  it('stays rectangular through squash then rotate — the reported case', () => {
+    const squashed = scaleGesture(IDENTITY_MATRIX, 0.35, 1)
+    expect(worstCornerError(rotateGesture(squashed, 0.6))).toBeLessThan(1e-9)
+  })
+
+  it('stays rectangular through squash, rotate, squash, rotate', () => {
+    let m = scaleGesture(IDENTITY_MATRIX, 0.35, 1)
+    m = rotateGesture(m, 0.6)
+    m = scaleGesture(m, 1, 2.4)
+    m = rotateGesture(m, -1.9)
+    expect(worstCornerError(m)).toBeLessThan(1e-9)
+  })
+
+  // Guards the actual mistake rather than just asserting the fix: folding a
+  // rotation *inside* an existing non-uniform scale shears the frame, and by a
+  // wide margin — 15 degrees off square for this one.
+  it('shears if a rotation is composed inside a non-uniform scale', () => {
+    const squashed = scaleGesture(IDENTITY_MATRIX, 0.35, 1)
+    const wrong = composeMatrix(squashed, rotateAboutMatrix(0.6, BOUNDS.x, BOUNDS.y))
+    expect(worstCornerError(wrong)).toBeGreaterThan(0.25)
+  })
+})
+
 describe('invertMatrix', () => {
   it('round-trips a point through a rotation, scale and translation', () => {
     const m = composeMatrix(

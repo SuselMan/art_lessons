@@ -1,3 +1,4 @@
+import { applyMatrix, IDENTITY_MATRIX } from './transformMath'
 import styles from './Room.module.css'
 
 export type TransformHandleKind =
@@ -84,6 +85,17 @@ export function TransformGizmo({ bounds, center, matrix, onHandleDown, onCenterD
   const rh = ROTATE_ZONE_SIZE / 2
   const sh = SCALE_HANDLE_SIZE / 2
 
+  // (#399) Only the outline rides the matrix. The handles are placed by
+  // mapping their anchor point through it and then drawn square, outside the
+  // transformed group — inside it they inherited the whole thing, so a
+  // session that squashed one axis squashed the grab squares along with the
+  // content, and a rotation turned them on their corners. Their size is the
+  // hit target; it has no business tracking the content's shape. (The
+  // *camera* still scales them, since this whole svg hangs off the viewport
+  // transform — that half is #394.)
+  const at = (p: Point) => applyMatrix(matrix ?? IDENTITY_MATRIX, p.x, p.y)
+  const centerAt = at(center)
+
   return (
     <svg className={styles.transformSvg}>
       <g transform={groupTransform}>
@@ -92,41 +104,44 @@ export function TransformGizmo({ bounds, center, matrix, onHandleDown, onCenterD
           className={styles.transformBody}
           onPointerDown={e => onHandleDown('body', e)}
         />
+      </g>
 
-        {CORNERS.map(({ kind, rotateKind, cursor }) => {
-          const p = cornerPos[kind]
-          return (
-            <g key={kind}>
-              <rect
-                x={p.x - rh} y={p.y - rh} width={ROTATE_ZONE_SIZE} height={ROTATE_ZONE_SIZE}
-                className={styles.transformRotateZone}
-                onPointerDown={e => onHandleDown(rotateKind, e)}
-              />
-              <rect
-                x={p.x - sh} y={p.y - sh} width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
-                className={styles.transformHandle} style={{ cursor }}
-                onPointerDown={e => onHandleDown(kind, e)}
-              />
-            </g>
-          )
-        })}
+      {CORNERS.map(({ kind, rotateKind, cursor }) => {
+        const p = at(cornerPos[kind])
+        return (
+          <g key={kind}>
+            <rect
+              x={p.x - rh} y={p.y - rh} width={ROTATE_ZONE_SIZE} height={ROTATE_ZONE_SIZE}
+              className={styles.transformRotateZone}
+              onPointerDown={e => onHandleDown(rotateKind, e)}
+            />
+            <rect
+              x={p.x - sh} y={p.y - sh} width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
+              className={styles.transformHandle} style={{ cursor }}
+              onPointerDown={e => onHandleDown(kind, e)}
+            />
+          </g>
+        )
+      })}
 
-        {edges.map(({ kind, pos, cursor }) => (
+      {edges.map(({ kind, pos, cursor }) => {
+        const p = at(pos)
+        return (
           <rect
             key={kind}
-            x={pos.x - sh} y={pos.y - sh} width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
+            x={p.x - sh} y={p.y - sh} width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
             className={styles.transformHandle} style={{ cursor }}
             onPointerDown={e => onHandleDown(kind, e)}
           />
-        ))}
+        )
+      })}
 
-        <circle
-          cx={center.x} cy={center.y} r={CENTER_HANDLE_RADIUS}
-          className={styles.transformCenterHandle} style={{ cursor: 'move' }}
-          onPointerDown={onCenterDown}
-          onDoubleClick={onCenterDoubleClick}
-        />
-      </g>
+      <circle
+        cx={centerAt.x} cy={centerAt.y} r={CENTER_HANDLE_RADIUS}
+        className={styles.transformCenterHandle} style={{ cursor: 'move' }}
+        onPointerDown={onCenterDown}
+        onDoubleClick={onCenterDoubleClick}
+      />
     </svg>
   )
 }
