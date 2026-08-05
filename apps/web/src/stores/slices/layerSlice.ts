@@ -52,16 +52,27 @@ export interface LayerSlice {
   // NEVER persisted: a ruler is for quickly comparing distances mid-
   // drawing, not a saved setting (Ilya, same "gizmo-like, transient"
   // bucket as transform preview) — transformBounds is derived fresh from
-  // engine.getContentBounds() on every transform-mode entry and would go
-  // stale the moment a peer/undo changes the layer; transformLiveMatrix is
-  // an uncommitted in-progress-gesture preview that must never survive a
-  // reload as a "phantom" transform. All four reset to null on mount.
+  // engine.getContentBounds() at the start of each transform *session* and
+  // would go stale the moment a peer/undo changes the layer;
+  // transformSessionMatrix is an uncommitted preview that must never survive
+  // a reload as a "phantom" transform. All four reset to null on mount.
   rulerLine: { a: RulerPoint; b: RulerPoint } | null
   setRulerLine: (line: { a: RulerPoint; b: RulerPoint } | null) => void
+  /** Content bounds the open transform session started from, in canvas space.
+   *  Deliberately *not* recomputed per gesture (#399): the session's own
+   *  matrix carries every gesture since, so re-deriving an axis-aligned box
+   *  from pixels mid-session is what used to throw away the frame's rotation. */
   transformBounds: TransformBounds | null
   setTransformBounds: (bounds: TransformBounds | null) => void
-  transformLiveMatrix: AffineMatrix | null
-  setTransformLiveMatrix: (matrix: AffineMatrix | null) => void
+  /** Every gesture of the open transform session, composed — null when no
+   *  session is open. Rendered straight as the gizmo's `<g transform>` and fed
+   *  to previewLayerTransform, which is what keeps the frame glued to the
+   *  content instead of snapping back to an upright box on release (#399). */
+  transformSessionMatrix: AffineMatrix | null
+  setTransformSessionMatrix: (matrix: AffineMatrix | null) => void
+  /** Custom rotation pivot, in the session's *local* (pre-matrix) space, so it
+   *  rides along with the content the way Photoshop's reference point does
+   *  rather than needing to be re-placed after every gesture. */
   transformCenterOverride: { x: number; y: number } | null
   setTransformCenterOverride: (center: { x: number; y: number } | null) => void
 }
@@ -79,8 +90,8 @@ export const createLayerSlice: StateCreator<LayerSlice> = set => ({
   setRulerLine: line => set({ rulerLine: line }),
   transformBounds: null,
   setTransformBounds: bounds => set({ transformBounds: bounds }),
-  transformLiveMatrix: null,
-  setTransformLiveMatrix: matrix => set({ transformLiveMatrix: matrix }),
+  transformSessionMatrix: null,
+  setTransformSessionMatrix: matrix => set({ transformSessionMatrix: matrix }),
   transformCenterOverride: null,
   setTransformCenterOverride: center => set({ transformCenterOverride: center }),
 })

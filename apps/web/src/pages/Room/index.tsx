@@ -70,7 +70,11 @@ import { BrushCursor } from './BrushCursor'
 import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
-import { translateMatrix, scaleAxisMatrix, rotateAboutMatrix, type AffineMatrix } from './transformMath'
+import {
+  translateMatrix, scaleAxisMatrix, rotateAboutMatrix,
+  composeMatrix, invertMatrix, applyMatrix, isIdentityMatrix, IDENTITY_MATRIX,
+  type AffineMatrix,
+} from './transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
 import { applyJoinRequestCreated, applyJoinRequestResolved, useJoinQueue } from './joinQueue'
 import { JoinGate, type JoinGateState } from './JoinGate'
@@ -560,13 +564,32 @@ export function Room() {
   // somewhere stale.
   const transformCenterOverride = useRoomStore(s => s.transformCenterOverride)
   const setTransformCenterOverride = useRoomStore(s => s.setTransformCenterOverride)
-  // Matrix for the *current* drag frame, fed to TransformGizmo so its handles
-  // visually ride along with the content instead of staying glued to the
-  // pre-drag bounds (see TransformGizmo's docstring) — null between drags.
-  const transformLiveMatrix = useRoomStore(s => s.transformLiveMatrix)
-  const setTransformLiveMatrix = useRoomStore(s => s.setTransformLiveMatrix)
-  // (#395) A committed transform whose operation hasn't reached the layer
-  // yet, and the teardown that's waiting on it.
+  // (#399) Every gesture of the open transform session, composed — fed to
+  // TransformGizmo so its handles ride along with the content, and to the
+  // engine's preview so the canvas shows the same thing. Null between
+  // sessions. This used to be per-*drag* and was nulled on release, which is
+  // what made the frame snap back to an upright box the moment you let go of
+  // a rotation: the bounds behind it are axis-aligned, so re-deriving them
+  // from pixels threw the rotation away (a 30° turn grew the box 32%x42%).
+  const transformSessionMatrix = useRoomStore(s => s.transformSessionMatrix)
+  const setTransformSessionMatrix = useRoomStore(s => s.setTransformSessionMatrix)
+  // The session itself. Authoritative (the store copy exists to drive
+  // rendering), and a ref rather than state so the drag handlers don't have to
+  // list a value that changes on every animation frame among their deps.
+  // `matrix` accumulates gestures; `targetIds` is frozen for the session so a
+  // selection change ends it rather than silently re-aiming it mid-flight.
+  const transformSessionRef = useRef<{ matrix: AffineMatrix; targetIds: string[] } | null>(null)
+  // (#399) Throws the open session's uncommitted gestures away and re-opens an
+  // empty one on whatever the layer holds now. Assigned further down, where
+  // the pieces it needs exist; declared here because undo/redo — defined well
+  // above those — is what calls it. Undo during a session used to be a real
+  // action (every gesture was its own committed op); with a session it would
+  // otherwise take back some *earlier* operation while the preview carried on
+  // showing gestures the layer never received, i.e. appear to do nothing.
+  // Discarding them is what "undo what I was just doing" means here.
+  const resetTransformSessionRef = useRef<() => void>(() => {})
+  // (#395/#399) A committed transform session whose operation hasn't reached
+  // the layer yet, and the teardown that's waiting on it.
   //
   // Only the optimistic dispatch path paints a layer_transform locally, and
   // it covers just this client's own not-yet-confirmed layers (see
@@ -2179,7 +2202,13 @@ export function Room() {
       confirmLabel: t('room.undo'),
       danger: true,
     })) return
-    if (engineRef.current?.undo()) syncFromLog()
+    // Reset *after* the undo, not before: re-opening the session re-derives
+    // the gizmo bounds from the layer, and doing that first would read the
+    // pixels the undo is about to change. Both happen in this one task, so
+    // nothing is painted in between.
+    const undone = engineRef.current?.undo()
+    resetTransformSessionRef.current()
+    if (undone) syncFromLog()
   }, [syncFromLog, roomContentReady, editingBlocked, t, confirm])
 
   const handleRedo = useCallback(async () => {
@@ -2191,7 +2220,10 @@ export function Room() {
       confirmLabel: t('room.redo'),
       danger: true,
     })) return
-    if (engineRef.current?.redo()) syncFromLog()
+    // Same ordering as handleUndo above.
+    const redone = engineRef.current?.redo()
+    resetTransformSessionRef.current()
+    if (redone) syncFromLog()
   }, [syncFromLog, roomContentReady, editingBlocked, t, confirm])
 
   // (#357) The document root goes fullscreen, not the editor element.
@@ -2379,6 +2411,14 @@ export function Room() {
     (layerState.selectedIds.length > 0 ? layerState.selectedIds : [layerState.activeId])
       .filter((layerId): layerId is string => !!layerId && layerId !== BACKGROUND_LAYER_ID && layerState.items[layerId]?.kind === 'layer')
   ), [layerState])
+  // (#399) `transformTargetIds` is a fresh array on every layerState change —
+  // i.e. on any peer's stroke — so the session effect keys on this string
+  // instead; restarting a session mid-drag because someone else drew would
+  // commit half a gesture. The ref is what lets startTransformSession freeze
+  // the ids without listing an every-render value among its deps.
+  const transformTargetKey = transformTargetIds.join(',')
+  const transformTargetIdsRef = useRef(transformTargetIds)
+  transformTargetIdsRef.current = transformTargetIds
 
   // Recomputes transformBounds from the current target(s)' actual painted
   // content (engine.getContentBounds), unioned across a multi-select — and
@@ -2408,23 +2448,97 @@ export function Room() {
   const refreshTransformBoundsRef = useRef(refreshTransformBounds)
   refreshTransformBoundsRef.current = refreshTransformBounds
 
-  useEffect(() => {
-    if (!transformActive) {
-      // (#395) A commit can still be in flight when the tool is switched off.
-      // Abandon it along with the preview it was holding — the operation
-      // itself is unaffected and still lands, but nothing should keep
-      // substituting scratch tiles for a layer once there's no gizmo to
-      // explain them.
-      if (pendingTransformCommitRef.current) {
-        pendingTransformCommitRef.current = null
-        setTransformLiveMatrix(null)
-        engineRef.current?.clearLayerTransformPreview()
-      }
-      setTransformBounds(null); setTransformCenterOverride(null)
+  // (#399) Opens a session on the current target(s): fresh bounds from the
+  // pixels, identity matrix, no custom pivot. Everything from here until the
+  // matching commit is preview only — nothing touches the real layer buffer.
+  const startTransformSession = useCallback(() => {
+    refreshTransformBoundsRef.current()
+    transformSessionRef.current = { matrix: IDENTITY_MATRIX, targetIds: transformTargetIdsRef.current }
+    setTransformSessionMatrix(IDENTITY_MATRIX)
+  }, [setTransformSessionMatrix])
+
+  // (#399) Ends the session by baking everything it accumulated as *one*
+  // layer_transform. One op per session rather than per gesture is the point:
+  // rotate, then nudge, then scale used to cost three resamples of the layer's
+  // pixels, and a drawing app cannot spend those.
+  //
+  // Only ever called as the session effect tears down — the tool going off,
+  // the selection changing, the page unmounting — so it never re-opens
+  // anything itself: when a session should follow (a new selection) the
+  // effect's own body opens it.
+  const commitTransformSession = useCallback(() => {
+    const session = transformSessionRef.current
+    transformSessionRef.current = null
+    const dropPreview = () => {
+      // Guarded because this can run a round trip late, by which time a
+      // session for a *new* selection may already be open — this teardown
+      // belongs to the old one and must not blank its matrix.
+      if (!transformSessionRef.current) setTransformSessionMatrix(null)
+      engineRef.current?.clearLayerTransformPreview()
+    }
+    // Nothing accumulated (opened and left alone, or every gesture cancelled
+    // itself out): committing an identity matrix would put a real entry on
+    // the undo stack for nothing, and the bounds are still the ones the
+    // session started from, so there is nothing to refresh either.
+    if (!session || isIdentityMatrix(session.matrix)) {
+      dropPreview()
       return
     }
-    refreshTransformBounds()
-  }, [transformActive, refreshTransformBounds, setTransformBounds, setTransformCenterOverride, setTransformLiveMatrix])
+    const finish = () => {
+      dropPreview()
+    }
+    const dispatched = dispatchOp({
+      type: 'layer_transform',
+      transforms: session.targetIds.map(layerId => ({ layerId, matrix: session.matrix })),
+    })
+    // (#395) The preview is deliberately *not* dropped before the commit.
+    // clearLayerTransformPreview() repaints synchronously, so dropping it
+    // first paints a frame with the preview gone and the transform not yet
+    // baked — the layer back where the session started. On the
+    // confirmation-gated dispatch path that state then persists for a whole
+    // server round trip. The engine's own API says as much: clear the preview
+    // "once a real layer_transform op has been appended (commit) or the drag
+    // is abandoned (cancel)" — appended, not merely sent. While the preview
+    // stands in for the layer the two are pixel-identical by construction (see
+    // previewLayerTransform's lockstep note against _bakeTransform), so
+    // holding it across the commit shows no seam.
+    //
+    // Refused outright (room not ready, editing blocked, offline — see
+    // dispatchOp) or already painted by the optimistic path: either way
+    // nothing is in flight, so finish right here.
+    if (!dispatched || dispatched.applied) { finish(); return }
+    pendingTransformCommitRef.current = { opId: dispatched.op.id, finish }
+  }, [dispatchOp, setTransformSessionMatrix])
+
+  const commitTransformSessionRef = useRef(commitTransformSession)
+  commitTransformSessionRef.current = commitTransformSession
+  // See resetTransformSessionRef's declaration for why undo/redo needs this.
+  resetTransformSessionRef.current = () => {
+    if (!transformSessionRef.current) return
+    transformSessionRef.current = null
+    setTransformSessionMatrix(null)
+    engineRef.current?.clearLayerTransformPreview()
+    startTransformSession()
+  }
+
+  // (#399) One session per (tool on, target selection). Ending the effect —
+  // the tool going off, the selection changing, the page unmounting — commits
+  // what the session accumulated, which is what makes "just switch tool/layer"
+  // a working commit gesture without any new UI (see the issue on why there is
+  // no Enter to press on a tablet).
+  //
+  // Keyed on the joined ids rather than the array: transformTargetIds is
+  // rebuilt on every layerState change (any peer's stroke does that), and
+  // restarting the session there would commit mid-drag.
+  useEffect(() => {
+    if (!transformActive) return
+    startTransformSession()
+    return () => {
+      commitTransformSessionRef.current()
+      setTransformBounds(null)
+      setTransformCenterOverride(null)
+    }
+  }, [transformActive, transformTargetKey, startTransformSession, setTransformBounds, setTransformCenterOverride])
 
   // Ruler tool (#89): initial placement drag — down/move/up tracked
   // manually via setPointerCapture + direct DOM listeners, the same pattern
@@ -2537,48 +2651,81 @@ export function Room() {
 
   // Layer transform tool (#120): mirrors handleRulerPlaceDown's drag-capture
   // pattern exactly, but per-handle (body/corner/rotate) rather than a
-  // single A→B drag, and it actually mutates content — every frame previews
-  // via the engine (never touching the real buffer, see
-  // previewLayerTransform's docstring), and pointerup either commits a real
-  // layer_transform op or, for a negligible drag, just clears the preview.
+  // single A→B drag. Since #399 a gesture no longer commits anything — it
+  // folds into the open session's matrix and stays a preview until the
+  // session ends.
   const handleTransformHandleDown = useCallback((handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => {
     if (e.pointerType === 'touch') return
-    // (#395) The previous commit is still in flight, so the gizmo is showing
-    // a preview of something the layer doesn't carry yet and transformBounds
-    // still describes where the content was before it. A second drag started
-    // here would compute its matrix against those stale bounds and stack on
-    // top of a transform that may yet be refused. The wait is one round trip.
+    // (#395) The previous session's commit is still in flight, so the layer
+    // doesn't carry it yet and transformBounds still describes where the
+    // content was before it. A gesture started here would build on a
+    // transform that may yet be refused. The wait is one round trip.
     if (pendingTransformCommitRef.current) return
+    const session = transformSessionRef.current
     const el = vpRef.current
-    if (!el || !config || !transformBounds || transformTargetIds.length === 0) return
+    if (!session || !el || !config || !transformBounds) return
     e.stopPropagation()
     const overlay = e.currentTarget
     const penPointerId = e.pointerId
     try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
 
-    const rect = el.getBoundingClientRect()
     // #143: world-space for infinite rooms (clientToRoomPoint) — matches
     // transformBounds/pivot/center (engine.getContentBounds, real world
     // coordinates for infinite rooms) so drag deltas/pivots are computed in
     // one consistent space instead of mixing world-space bounds with a
     // placeholder-canvas-space pointer position.
-    const toPoint = (clientX: number, clientY: number) => clientToRoomPoint(clientX, clientY, rect, vp, config)
+    const rect = el.getBoundingClientRect()
 
-    const targetIds = transformTargetIds // frozen for the duration of this drag
+    // (#399) Which side of the accumulated matrix a gesture composes on is not
+    // a style choice — it decides whether the frame stays a rectangle.
+    //
+    // Scaling has to go *inside* (session ∘ gesture): the handles pull along
+    // the frame's own axes, so the squash is stated in the frame's local
+    // space, before whatever rotation the session already holds.
+    //
+    // Rotation has to go *outside* (gesture ∘ session): turning the frame is a
+    // rigid move of whatever shape it currently is. Composed inside, a
+    // rotation lands *under* an existing non-uniform scale — squash-then-turn
+    // becomes turn-then-squash, which is a shear, and the corners stop being
+    // 90°. That is the bug Ilya hit by squashing one axis and then rotating.
+    // Keeping rotation outside holds the session in the form
+    // rotation ∘ scale, which is angle-preserving on a rectangle no matter how
+    // the two are interleaved.
+    //
+    // Translation is the one that genuinely doesn't care: for a drag of `d`
+    // canvas px, session ∘ translate(A⁻¹d) and translate(d) ∘ session are the
+    // same matrix. It stays inside with the scales.
+    const sessionBase = session.matrix
+    const toLocalSpace = invertMatrix(sessionBase)
+    if (!toLocalSpace) return
+    const toCanvasPoint = (clientX: number, clientY: number) => clientToRoomPoint(clientX, clientY, rect, vp, config)
+    const toPoint = (clientX: number, clientY: number) => {
+      const p = toCanvasPoint(clientX, clientY)
+      return applyMatrix(toLocalSpace, p.x, p.y)
+    }
+
     const bounds = transformBounds
     const center = transformCenterOverride ?? { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
     const isRotate = handle.startsWith('rotate')
     const pivot = handle === 'body' || isRotate ? center : TRANSFORM_PIVOT[handle as keyof typeof TRANSFORM_PIVOT](bounds)
     const start = toPoint(e.clientX, e.clientY)
-    const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
+    // Rotation works entirely in canvas space, so its centre and start angle
+    // are the local ones pushed back out through the session matrix.
+    const centerCanvas = applyMatrix(sessionBase, center.x, center.y)
+    const startCanvas = toCanvasPoint(e.clientX, e.clientY)
+    const startAngle = Math.atan2(startCanvas.y - centerCanvas.y, startCanvas.x - centerCanvas.x)
     const startDist  = Math.max(Math.hypot(start.x - pivot.x, start.y - pivot.y), 1e-6)
     const startDistX = Math.max(Math.abs(start.x - pivot.x), 1e-6)
     const startDistY = Math.max(Math.abs(start.y - pivot.y), 1e-6)
 
     const computeMatrix = (clientX: number, clientY: number): AffineMatrix => {
+      if (isRotate) {
+        const w = toCanvasPoint(clientX, clientY)
+        const angle = Math.atan2(w.y - centerCanvas.y, w.x - centerCanvas.x) - startAngle
+        return rotateAboutMatrix(angle, centerCanvas.x, centerCanvas.y)
+      }
       const p = toPoint(clientX, clientY)
       if (handle === 'body') return translateMatrix(p.x - start.x, p.y - start.y)
-      if (isRotate) return rotateAboutMatrix(Math.atan2(p.y - center.y, p.x - center.x) - startAngle, center.x, center.y)
       if (handle === 't' || handle === 'b') {
         const scaleY = clamp(Math.abs(p.y - pivot.y) / startDistY, 0.05, 20)
         return scaleAxisMatrix(1, scaleY, pivot.x, pivot.y)
@@ -2607,11 +2754,20 @@ export function Room() {
     // correctness changes, this only throttles how often it's recomputed.
     let rafId: number | null = null
     let latestMatrix: AffineMatrix | null = null
+    // What the canvas and the gizmo should show: everything the session had
+    // already accumulated, with this gesture composed on the side its own
+    // meaning demands (see computeMatrix's comment above).
+    const accumulated = (gesture: AffineMatrix) => isRotate
+      ? composeMatrix(gesture, sessionBase)
+      : composeMatrix(sessionBase, gesture)
+    const showPreview = (matrix: AffineMatrix) => {
+      setTransformSessionMatrix(matrix)
+      engineRef.current?.previewLayerTransform(session.targetIds.map(layerId => ({ layerId, matrix })))
+    }
     const flushPreview = () => {
       rafId = null
       if (!latestMatrix) return
-      setTransformLiveMatrix(latestMatrix)
-      engineRef.current?.previewLayerTransform(targetIds.map(layerId => ({ layerId, matrix: latestMatrix! })))
+      showPreview(accumulated(latestMatrix))
     }
 
     const onMove = (ev: PointerEvent) => {
@@ -2624,50 +2780,33 @@ export function Room() {
       overlay.removeEventListener('pointermove', onMove)
       overlay.removeEventListener('pointerup', onUp)
       if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
-      const matrix = computeMatrix(ev.clientX, ev.clientY)
-      const dropPreview = () => {
-        setTransformLiveMatrix(null)
-        engineRef.current?.clearLayerTransformPreview()
+      // (#399) Release commits nothing. The gesture folds into the session's
+      // matrix and the preview stays exactly as it is — which is the whole
+      // point: the frame keeps the orientation the gesture just gave it
+      // instead of being re-derived from an axis-aligned box of pixels.
+      const gesture = computeMatrix(ev.clientX, ev.clientY)
+      // A click, or pen jitter below the threshold: roll the session's display
+      // back to where it was rather than folding in a no-op that would drift
+      // the accumulated matrix by a fraction of a pixel per tap.
+      if (isNegligibleTransform(handle, gesture)) {
+        if (isIdentityMatrix(sessionBase)) {
+          setTransformSessionMatrix(sessionBase)
+          engineRef.current?.clearLayerTransformPreview()
+        } else {
+          showPreview(sessionBase)
+        }
+        return
       }
-      // Nothing was committed, so there is nothing to wait for and no bounds
-      // change to pick up — same early exit as before.
-      if (isNegligibleTransform(handle, matrix)) { dropPreview(); return }
-
-      // (#395) The preview is deliberately *not* dropped before the commit.
-      // clearLayerTransformPreview() repaints synchronously, so dropping it
-      // first painted a frame with the preview gone and the transform not yet
-      // baked — the layer back at its pre-drag position. On the
-      // confirmation-gated path that state then persisted for a whole server
-      // round trip. The engine's own API says as much: clear the preview
-      // "once a real layer_transform op has been appended (commit) or the
-      // drag is abandoned (cancel)" — appended, not merely sent. While the
-      // preview stands in for the layer the two are pixel-identical by
-      // construction (see previewLayerTransform's lockstep note against
-      // _bakeTransform), so holding it across the commit shows no seam.
-      const finish = () => {
-        dropPreview()
-        // (#155) Deferring this past the next paint (tried both requestAnimationFrame
-        // and requestIdleCallback) measurably cut the reported pointerup INP, but left
-        // the gizmo outline showing stale (pre-drag) bounds for a real, user-visible
-        // stretch whenever the deferred callback took a while to fire — confusingly
-        // "not on the content" right after a commit, occasionally bad enough that a
-        // second drag started against the wrong (stale) bounds. Correctness of what's
-        // on screen matters more than shaving this one call off the interaction, so
-        // it stays inline; _bakeTransform's own cost (scratch pooling, dropTile,
-        // suspendEviction) is where #155's INP work continues instead.
-        refreshTransformBoundsRef.current()
-      }
-
-      const dispatched = dispatchOp({ type: 'layer_transform', transforms: targetIds.map(layerId => ({ layerId, matrix })) })
-      // Refused outright (room not ready, editing blocked, offline — see
-      // dispatchOp) or already painted by the optimistic path: either way
-      // nothing is in flight, so finish right here exactly as before.
-      if (!dispatched || dispatched.applied) { finish(); return }
-      pendingTransformCommitRef.current = { opId: dispatched.op.id, finish }
+      const next = accumulated(gesture)
+      // The session may have been closed under us mid-gesture (tool switched
+      // off, selection changed) — in that case its commit already went out
+      // with the matrix as of then, and this gesture has nowhere to land.
+      if (transformSessionRef.current) transformSessionRef.current.matrix = next
+      showPreview(next)
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, transformBounds, transformTargetIds, transformCenterOverride, dispatchOp, setTransformLiveMatrix])
+  }, [vpRef, vp, config, transformBounds, transformCenterOverride, setTransformSessionMatrix])
 
   // Adobe Animate-style draggable rotation pivot — a separate gesture from
   // the scale/rotate/translate handles above: it only ever updates
@@ -2689,7 +2828,19 @@ export function Room() {
     // coordinates for infinite rooms) so drag deltas/pivots are computed in
     // one consistent space instead of mixing world-space bounds with a
     // placeholder-canvas-space pointer position.
-    const toPoint = (clientX: number, clientY: number) => clientToRoomPoint(clientX, clientY, rect, vp, config)
+    //
+    // (#399) Stored in the session's local space, like transformBounds and
+    // unlike the raw pointer: the handle is rendered inside the gizmo's own
+    // `<g transform>`, so a canvas-space point would be pushed through the
+    // session matrix a second time and slide away from the finger. Local
+    // space also means the pivot rides along with the content through later
+    // gestures instead of staying pinned to a canvas coordinate.
+    const toLocalSpace = invertMatrix(transformSessionRef.current?.matrix ?? IDENTITY_MATRIX)
+    if (!toLocalSpace) return
+    const toPoint = (clientX: number, clientY: number) => {
+      const p = clientToRoomPoint(clientX, clientY, rect, vp, config)
+      return applyMatrix(toLocalSpace, p.x, p.y)
+    }
 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
@@ -3883,7 +4034,7 @@ export function Room() {
                   x: transformBounds.x + transformBounds.width / 2,
                   y: transformBounds.y + transformBounds.height / 2,
                 }}
-                matrix={transformLiveMatrix ?? undefined}
+                matrix={transformSessionMatrix ?? undefined}
                 onHandleDown={handleTransformHandleDown}
                 onCenterDown={handleTransformCenterDown}
                 onCenterDoubleClick={handleTransformCenterReset}
@@ -3941,7 +4092,7 @@ export function Room() {
                     x: transformBounds.x + transformBounds.width / 2,
                     y: transformBounds.y + transformBounds.height / 2,
                   }}
-                  matrix={transformLiveMatrix ?? undefined}
+                  matrix={transformSessionMatrix ?? undefined}
                   onHandleDown={handleTransformHandleDown}
                   onCenterDown={handleTransformCenterDown}
                   onCenterDoubleClick={handleTransformCenterReset}
