@@ -54,6 +54,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
             <PrecisionSlider
               value={numValue}
               min={valueType.min} max={valueType.max} step={valueType.step}
+              scale={valueType.scale}
               trackSize={RANGE_TRACK_HEIGHT}
               onChange={v => onChange(v)}
               formatValue={valueType.format}
@@ -86,6 +87,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
           orientation="horizontal"
           value={numValue}
           min={valueType.min} max={valueType.max} step={valueType.step}
+          scale={valueType.scale}
           onChange={v => onChange(v)}
           formatValue={valueType.format}
           title={label}

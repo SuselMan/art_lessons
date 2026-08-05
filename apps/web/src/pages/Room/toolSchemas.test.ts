@@ -5,8 +5,9 @@ import {
   LINER_SIZE_LABELS, linerSizeToPx, stepLinerSize,
   TOOL_SCHEMAS, COLOR_CAPABLE_TOOLS, isColorCapableTool, getToolColor,
   MAX_TOOL_SIZE_PX, toolSizeRange, degreesMinutesParse, formatDegreesMinutes,
-  type UiToolId,
+  type UiToolId, type SettingValueType,
 } from './toolSchemas'
+import { expScale } from '../../components/PrecisionSlider/sliderScale'
 import type { KeyValueStorage } from '../../lib/roomStorage'
 
 function memoryStorage(): KeyValueStorage {
@@ -217,5 +218,41 @@ describe('degreesMinutesParse (#335)', () => {
   it('returns null when there is no number to read', () => {
     expect(degreesMinutesParse('')).toBeNull()
     expect(degreesMinutesParse('°′')).toBeNull()
+  })
+})
+
+describe('slider scales (#390)', () => {
+  const numberFields = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
+    Object.entries(TOOL_SCHEMAS[toolId])
+      .filter(([, d]) => d.valueType.kind === 'numberRange')
+      .map(([key, d]) => ({ toolId, key, valueType: d.valueType as Extract<SettingValueType, { kind: 'numberRange' }> })),
+  )
+
+  // expScale takes a logarithm of min, so a field that picks it with min <= 0
+  // silently falls back to linear rather than failing — which would be a
+  // scale quietly not applying, the kind of thing nothing else notices.
+  it('only puts an exponential scale on a range a logarithm can take', () => {
+    for (const { toolId, key, valueType } of numberFields) {
+      if (valueType.scale !== expScale) continue
+      expect(valueType.min, `${toolId}.${key} is exponential but starts at ${valueType.min}`).toBeGreaterThan(0)
+      expect(valueType.max).toBeGreaterThan(valueType.min)
+    }
+  })
+
+  // Which fields are exponential is a deliberate list, not a property of the
+  // numbers: every continuous px size, and nothing else. Opacity's min is 0
+  // (no logarithm) and percentages/degrees are linear by meaning.
+  it('makes exactly the continuous px size fields exponential', () => {
+    const exponential = numberFields.filter(f => f.valueType.scale === expScale).map(f => `${f.toolId}.${f.key}`)
+    expect(exponential.sort()).toEqual([
+      'charcoal.size', 'colorPencil.size', 'eraser.size', 'marker.size', 'pencil.size', 'smudge.size',
+    ])
+  })
+
+  it('leaves every other numeric field on the default linear scale', () => {
+    for (const { toolId, key, valueType } of numberFields) {
+      if (key === 'size') continue
+      expect(valueType.scale, `${toolId}.${key} should be linear`).toBeUndefined()
+    }
   })
 })

@@ -3,6 +3,7 @@ import {
   type PencilGradeName, type LinerSizeMm, type CharcoalType,
 } from '../../engine'
 import { parseNumberInput } from '../../components/NumberField/numberField'
+import { expScale, type SliderScale } from '../../components/PrecisionSlider/sliderScale'
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import type { TranslationKey } from '../../i18n'
@@ -33,6 +34,13 @@ export type SettingValueType =
        *  read, while percent rescales it and degrees+minutes has two
        *  components. */
       parse?: (text: string) => number | null
+      /** (#390) How the slider spreads this range over its track. Omit for
+       *  linear — the default, and correct for anything linear by meaning
+       *  (percent, degrees). Only px sizes set it, to `expScale`; see
+       *  sliderScale.ts. Data on the descriptor rather than a branch inside
+       *  PrecisionSlider, so a new field picks a scale without the component
+       *  learning about it. */
+      scale?: SliderScale
     }
   | { kind: 'boolean' }
   | { kind: 'color' }
@@ -141,9 +149,14 @@ const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: n
     quickAccess: true,
     default: 'HB' satisfies PencilGradeName,
   },
+  // (#390) `expScale` here and on every other continuous px size: with 1..400
+  // spread linearly, the 1..20px range people actually draw lines with lived
+  // in the first 5% of the track, and the remaining 95% picked between sizes
+  // that differ by less than they look. Equal ratio per pixel puts 1..20 in
+  // the first half. Opacity and angle stay linear — see sliderScale.ts.
   size: {
     nameKey: 'tool.field.size',
-    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
+    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
     uiControls: ['slider', 'input'],
     quickAccess: true,
     default: defaultSize,
@@ -248,7 +261,7 @@ const charcoalSchema = (): ToolSchema => ({
   // px-slider tool's.
   size: {
     nameKey: 'tool.field.size',
-    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
+    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
     uiControls: ['slider', 'input'],
     quickAccess: true,
     default: 18,
@@ -319,7 +332,7 @@ const markerSchema = (): ToolSchema => ({
   // as the one for "заливку крупных форм".
   size: {
     nameKey: 'tool.field.size',
-    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
+    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
     uiControls: ['slider', 'input'],
     quickAccess: true,
     default: 50,
@@ -387,7 +400,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   eraser: {
     size: {
       nameKey: 'tool.field.size',
-      valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
+      valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
       uiControls: ['slider', 'input'],
       quickAccess: true,
       default: 24,
@@ -412,7 +425,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   smudge: {
     size: {
       nameKey: 'tool.field.size',
-      valueType: { kind: 'numberRange', min: 4, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat },
+      valueType: { kind: 'numberRange', min: 4, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
       uiControls: ['slider', 'input'],
       quickAccess: true,
       default: 32,
