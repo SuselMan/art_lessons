@@ -2448,25 +2448,47 @@ export function Room() {
   const refreshTransformBoundsRef = useRef(refreshTransformBounds)
   refreshTransformBoundsRef.current = refreshTransformBounds
 
+  // (#401) An open session lives only in this tab until something ends it, and
+  // a page teardown is not something React tells us about — no effect cleanup
+  // runs on reload or tab close, so a session that had gestures in it simply
+  // vanished. Measured: gesture, reload, zero new layer_transform rows.
+  //
+  // The fix is not to try harder at teardown time but to stop having much to
+  // lose: the session commits itself once the hand stops moving. A burst of
+  // gestures still bakes once (which is the whole point of #399's session),
+  // and the exposure window is bounded by this timeout rather than by how long
+  // someone leaves the tool open.
+  const TRANSFORM_AUTO_COMMIT_MS = 2000
+  const transformAutoCommitRef = useRef<number | null>(null)
+  const cancelTransformAutoCommit = useCallback(() => {
+    if (transformAutoCommitRef.current !== null) {
+      clearTimeout(transformAutoCommitRef.current)
+      transformAutoCommitRef.current = null
+    }
+  }, [])
+
   // (#399) Opens a session on the current target(s): fresh bounds from the
   // pixels, identity matrix, no custom pivot. Everything from here until the
   // matching commit is preview only — nothing touches the real layer buffer.
   const startTransformSession = useCallback(() => {
+    cancelTransformAutoCommit()
     refreshTransformBoundsRef.current()
     transformSessionRef.current = { matrix: IDENTITY_MATRIX, targetIds: transformTargetIdsRef.current }
     setTransformSessionMatrix(IDENTITY_MATRIX)
-  }, [setTransformSessionMatrix])
+  }, [setTransformSessionMatrix, cancelTransformAutoCommit])
 
   // (#399) Ends the session by baking everything it accumulated as *one*
   // layer_transform. One op per session rather than per gesture is the point:
   // rotate, then nudge, then scale used to cost three resamples of the layer's
   // pixels, and a drawing app cannot spend those.
   //
-  // Only ever called as the session effect tears down — the tool going off,
-  // the selection changing, the page unmounting — so it never re-opens
-  // anything itself: when a session should follow (a new selection) the
-  // effect's own body opens it.
-  const commitTransformSession = useCallback(() => {
+  // `reopen` is for the idle auto-commit (#401), which ends the session while
+  // the tool is still very much in use — the gizmo has to come back, on the
+  // freshly baked content with a clean identity matrix. The other callers
+  // (effect teardown, page teardown) pass false: either nothing should follow,
+  // or the effect's own body opens the next session itself.
+  const commitTransformSession = useCallback((reopen: boolean) => {
+    cancelTransformAutoCommit()
     const session = transformSessionRef.current
     transformSessionRef.current = null
     const dropPreview = () => {
@@ -2482,10 +2504,15 @@ export function Room() {
     // session started from, so there is nothing to refresh either.
     if (!session || isIdentityMatrix(session.matrix)) {
       dropPreview()
+      if (session && reopen) startTransformSession()
       return
     }
     const finish = () => {
       dropPreview()
+      // Reopening only after the bake has landed, not at dispatch time: the
+      // new session's bounds come from the layer's pixels, and until the
+      // operation is applied those are still the pre-session ones.
+      if (reopen) startTransformSession()
     }
     const dispatched = dispatchOp({
       type: 'layer_transform',
@@ -2508,7 +2535,7 @@ export function Room() {
     // nothing is in flight, so finish right here.
     if (!dispatched || dispatched.applied) { finish(); return }
     pendingTransformCommitRef.current = { opId: dispatched.op.id, finish }
-  }, [dispatchOp, setTransformSessionMatrix])
+  }, [dispatchOp, setTransformSessionMatrix, startTransformSession, cancelTransformAutoCommit])
 
   const commitTransformSessionRef = useRef(commitTransformSession)
   commitTransformSessionRef.current = commitTransformSession
@@ -2520,6 +2547,15 @@ export function Room() {
     engineRef.current?.clearLayerTransformPreview()
     startTransformSession()
   }
+  // (#401) Restarted after every gesture, so the countdown measures time since
+  // the hand stopped rather than time since the session opened.
+  const scheduleTransformAutoCommit = useCallback(() => {
+    cancelTransformAutoCommit()
+    transformAutoCommitRef.current = window.setTimeout(() => {
+      transformAutoCommitRef.current = null
+      commitTransformSessionRef.current(true)
+    }, TRANSFORM_AUTO_COMMIT_MS)
+  }, [cancelTransformAutoCommit])
 
   // (#399) One session per (tool on, target selection). Ending the effect —
   // the tool going off, the selection changing, the page unmounting — commits
@@ -2534,11 +2570,32 @@ export function Room() {
     if (!transformActive) return
     startTransformSession()
     return () => {
-      commitTransformSessionRef.current()
+      commitTransformSessionRef.current(false)
       setTransformBounds(null)
       setTransformCenterOverride(null)
     }
   }, [transformActive, transformTargetKey, startTransformSession, setTransformBounds, setTransformCenterOverride])
+
+  // (#401) Best-effort save for the one exit React never reports: the page
+  // going away. `pagehide` covers reload, tab close and bfcache;
+  // `visibilitychange` catches the mobile cases where the tab is frozen
+  // without pagehide ever firing. Both only have anything to do if the idle
+  // auto-commit above hasn't already fired, i.e. within two seconds of the
+  // last gesture — which is the point. It stays best-effort on purpose: the
+  // operation goes through the Outbox, whose IndexedDB write is async, and a
+  // teardown gives no guarantee it completes. The bounded window is the real
+  // protection, this is the belt on top of it.
+  useEffect(() => {
+    if (!transformActive) return
+    const save = () => commitTransformSessionRef.current(false)
+    const onVisibility = () => { if (document.visibilityState === 'hidden') save() }
+    window.addEventListener('pagehide', save)
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', save)
+      document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }, [transformActive])
 
   // Ruler tool (#89): initial placement drag — down/move/up tracked
   // manually via setPointerCapture + direct DOM listeners, the same pattern
@@ -2664,6 +2721,10 @@ export function Room() {
     const session = transformSessionRef.current
     const el = vpRef.current
     if (!session || !el || !config || !transformBounds) return
+    // (#401) The countdown from the previous gesture must not fire in the
+    // middle of this one — that would bake and close the session under a live
+    // drag, and the gesture would land nowhere. It is restarted on release.
+    cancelTransformAutoCommit()
     e.stopPropagation()
     const overlay = e.currentTarget
     const penPointerId = e.pointerId
@@ -2780,10 +2841,11 @@ export function Room() {
       overlay.removeEventListener('pointermove', onMove)
       overlay.removeEventListener('pointerup', onUp)
       if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
-      // (#399) Release commits nothing. The gesture folds into the session's
-      // matrix and the preview stays exactly as it is — which is the whole
-      // point: the frame keeps the orientation the gesture just gave it
-      // instead of being re-derived from an axis-aligned box of pixels.
+      // (#399) Release commits nothing *yet*. The gesture folds into the
+      // session's matrix and the preview stays exactly as it is — which is the
+      // whole point: the frame keeps the orientation the gesture just gave it
+      // instead of being re-derived from an axis-aligned box of pixels. The
+      // bake follows on its own once the hand stops moving (#401).
       const gesture = computeMatrix(ev.clientX, ev.clientY)
       // A click, or pen jitter below the threshold: roll the session's display
       // back to where it was rather than folding in a no-op that would drift
@@ -2801,12 +2863,15 @@ export function Room() {
       // The session may have been closed under us mid-gesture (tool switched
       // off, selection changed) — in that case its commit already went out
       // with the matrix as of then, and this gesture has nowhere to land.
-      if (transformSessionRef.current) transformSessionRef.current.matrix = next
+      if (transformSessionRef.current) {
+        transformSessionRef.current.matrix = next
+        scheduleTransformAutoCommit()
+      }
       showPreview(next)
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, transformBounds, transformCenterOverride, setTransformSessionMatrix])
+  }, [vpRef, vp, config, transformBounds, transformCenterOverride, setTransformSessionMatrix, scheduleTransformAutoCommit, cancelTransformAutoCommit])
 
   // Adobe Animate-style draggable rotation pivot — a separate gesture from
   // the scale/rotate/translate handles above: it only ever updates
@@ -2842,6 +2907,12 @@ export function Room() {
       return applyMatrix(toLocalSpace, p.x, p.y)
     }
 
+    // (#401) Placing the pivot changes no pixels, but an auto-commit landing
+    // mid-placement would reset the override out from under the finger — a
+    // session start clears it. Held off until the pointer is up, then handed
+    // back its remaining time only if there is in fact something to commit.
+    cancelTransformAutoCommit()
+
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
       setTransformCenterOverride(toPoint(ev.clientX, ev.clientY))
@@ -2850,10 +2921,12 @@ export function Room() {
       if (ev.pointerId !== penPointerId) return
       overlay.removeEventListener('pointermove', onMove)
       overlay.removeEventListener('pointerup', onUp)
+      const session = transformSessionRef.current
+      if (session && !isIdentityMatrix(session.matrix)) scheduleTransformAutoCommit()
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, setTransformCenterOverride])
+  }, [vpRef, vp, config, setTransformCenterOverride, cancelTransformAutoCommit, scheduleTransformAutoCommit])
 
   const handleTransformCenterReset = useCallback(
     () => setTransformCenterOverride(null),
