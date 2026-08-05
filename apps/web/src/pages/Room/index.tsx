@@ -205,6 +205,15 @@ function isNegligibleTransform(handle: TransformHandleKind, m: AffineMatrix): bo
   return Math.abs(m[0] - 1) < 0.001 // corners: uniform, m[0] === m[3] === scale
 }
 
+/** What dispatchOp did with an operation (#395). `applied: true` means the
+ *  engine already carries it (the optimistic local-island path); `false`
+ *  means it is queued in the Outbox and only becomes real when the server
+ *  confirms it. A null return means it was refused outright and nothing will
+ *  ever land. Only the transform gizmo reads this — it has to keep its
+ *  preview on screen until the operation is genuinely applied; every other
+ *  call site ignores the result. */
+interface DispatchedOp { op: Operation; applied: boolean }
+
 // (#289 epic, reliable history spec v0.2 §9) A bare socket.io ack has no
 // timeout of its own — a dropped packet (either leg) would otherwise leave
 // the Outbox waiting forever instead of ever retrying. `socket` is read at
@@ -556,6 +565,26 @@ export function Room() {
   // pre-drag bounds (see TransformGizmo's docstring) — null between drags.
   const transformLiveMatrix = useRoomStore(s => s.transformLiveMatrix)
   const setTransformLiveMatrix = useRoomStore(s => s.setTransformLiveMatrix)
+  // (#395) A committed transform whose operation hasn't reached the layer
+  // yet, and the teardown that's waiting on it.
+  //
+  // Only the optimistic dispatch path paints a layer_transform locally, and
+  // it covers just this client's own not-yet-confirmed layers (see
+  // isLocalIslandSafe). For every other layer — i.e. any real drawing — the
+  // op is sent and only lands when operation_confirmed comes back, a full
+  // server round trip later. Dropping the gizmo preview at pointerup
+  // therefore left the content sitting at its pre-drag position for that
+  // whole trip, which is exactly what "слой прыгает на исходную позицию"
+  // was. The preview is now held until the transform is genuinely resolved:
+  // applied (applyRemoteOp), refused by the server (Outbox onSettled), or
+  // given up on by the queue (onStalled) — whichever happens first.
+  const pendingTransformCommitRef = useRef<{ opId: string; finish: () => void } | null>(null)
+  const resolveTransformCommit = useCallback((opId: string) => {
+    const pending = pendingTransformCommitRef.current
+    if (!pending || pending.opId !== opId) return
+    pendingTransformCommitRef.current = null
+    pending.finish()
+  }, [])
   // (#21) Backed by the store now — layerState is still a *derived cache*
   // of the engine's operation log (ADR 002), never independently mutable
   // content state; see syncFromLog below and roomStore's layerSlice.
@@ -870,6 +899,12 @@ export function Room() {
     canSend: () => hasJoinedRef.current,
     onStalled: op => {
       console.error('operation stopped retrying after repeated failures', op.type, op.id)
+      // (#395) Stop holding a transform preview for an operation that has
+      // stopped trying to arrive. Showing the layer where it actually is
+      // beats showing where it was meant to go with nothing indicating that
+      // it never got there — the entry stays queued either way, so a later
+      // resendAll can still land it.
+      resolveTransformCommit(op.id)
     },
     // (#201) The counter the ConnectionBanner reports. Passing a plain
     // setState is safe from any callsite: React batches, and the Outbox
@@ -878,6 +913,10 @@ export function Room() {
     onSettled: (op, result) => {
       if (!result.ok) {
         console.error('operation rejected by server', op.type, op.id, result.reason)
+        // (#395) It will never be applied, so nothing is coming to replace
+        // the held gizmo preview — drop it and put the bounds back on what
+        // the layer really contains.
+        resolveTransformCommit(op.id)
         // Never became real — drop it back out of the local island so a
         // later delete/merge targeting it isn't wrongly treated as safe.
         if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
@@ -908,7 +947,7 @@ export function Room() {
       if (op.type === 'layer_add' || op.type === 'folder_add') pendingIdsRef.current.delete(op.layerId)
       checkSnapshotBoundary()
     },
-  }), [id, checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery])
+  }), [id, checkSnapshotBoundary, noteLayerSeq, scheduleLostWorkRecovery, resolveTransformCommit])
   // Tracks whether create_room/join_room has ever succeeded on this socket
   // connection's lineage, so a later auto-reconnect (socket.io's default
   // behavior on a dropped connection) rejoins rather than re-creating the
@@ -1286,7 +1325,13 @@ export function Room() {
     appliedOpIdsRef.current.add(op.id)
     engineRef.current?.appendOperation(op, 'remote')
     if (op.type === 'stroke') markActive(op.userId)
-  }, [markActive])
+    // (#395) The layer now genuinely carries this transform, so the gizmo
+    // preview that has been standing in for it since pointerup can go. This
+    // is the only place that can know it: on the confirmation-gated dispatch
+    // path the author's own layer_transform comes back through here like any
+    // peer's (see dispatchOp's outbox branch and #289 §7/§11).
+    resolveTransformCommit(op.id)
+  }, [markActive, resolveTransformCommit])
 
   // (#169) Re-checks every deferred meta-op (see deferredOpsQueueRef's own
   // doc comment) after a backfill page lands — anything whose target has
@@ -2056,14 +2101,14 @@ export function Room() {
   // closed for editing (#222), so without this the sender could still see
   // their own stroke/undo/redo apply locally before silently failing to ever
   // reach anyone else — "drawing into the void" (see its own doc comment).
-  const dispatchOp = useCallback((draft: OperationDraft) => {
-    if (!roomContentReady || editingBlocked) return
+  const dispatchOp = useCallback((draft: OperationDraft): DispatchedOp | null => {
+    if (!roomContentReady || editingBlocked) return null
     const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
 
     if (isLocalIslandSafe(op, pendingIdsRef.current)) {
       engineRef.current?.appendOperation(op) // source defaults to 'local' → broadcast via onLocalOperation
       syncFromLog()
-      return
+      return { op, applied: true }
     }
 
     // (#289 §17) The same operation offline: it can only be resolved by the
@@ -2076,7 +2121,7 @@ export function Room() {
       // Fire-and-forget (#310): nothing here waits on the dismissal, the
       // operation is refused either way.
       void showAlert({ message: t('room.offlineSharedAction') })
-      return
+      return null
     }
 
     // (#289 §2/§4) References at least one id this client didn't itself
@@ -2090,6 +2135,7 @@ export function Room() {
     // so a dropped packet is retried rather than silently swallowed — its
     // `onSettled` handles the verdict either way.
     void outbox.enqueue(op)
+    return { op, applied: false }
   }, [syncFromLog, roomContentReady, editingBlocked, outbox, connected, t, showAlert])
 
   // (#312) The banner's "undo" — drops the replacement layers again, for
@@ -2353,11 +2399,32 @@ export function Room() {
     setTransformBounds(bounds ?? (config ? { x: 0, y: 0, width: config.width, height: config.height } : null))
     setTransformCenterOverride(null)
   }, [transformTargetIds, config, setTransformBounds, setTransformCenterOverride])
+  // (#395) A held commit's teardown can run a server round trip after the
+  // drag that created it, and the selection may have moved on in between —
+  // its captured closure would then write bounds for layers the gizmo no
+  // longer targets, and nothing would correct that until the next selection
+  // change. Read through a ref so the teardown always refreshes against
+  // whatever the gizmo targets *now*.
+  const refreshTransformBoundsRef = useRef(refreshTransformBounds)
+  refreshTransformBoundsRef.current = refreshTransformBounds
 
   useEffect(() => {
-    if (!transformActive) { setTransformBounds(null); setTransformCenterOverride(null); return }
+    if (!transformActive) {
+      // (#395) A commit can still be in flight when the tool is switched off.
+      // Abandon it along with the preview it was holding — the operation
+      // itself is unaffected and still lands, but nothing should keep
+      // substituting scratch tiles for a layer once there's no gizmo to
+      // explain them.
+      if (pendingTransformCommitRef.current) {
+        pendingTransformCommitRef.current = null
+        setTransformLiveMatrix(null)
+        engineRef.current?.clearLayerTransformPreview()
+      }
+      setTransformBounds(null); setTransformCenterOverride(null)
+      return
+    }
     refreshTransformBounds()
-  }, [transformActive, refreshTransformBounds, setTransformBounds, setTransformCenterOverride])
+  }, [transformActive, refreshTransformBounds, setTransformBounds, setTransformCenterOverride, setTransformLiveMatrix])
 
   // Ruler tool (#89): initial placement drag — down/move/up tracked
   // manually via setPointerCapture + direct DOM listeners, the same pattern
@@ -2476,6 +2543,12 @@ export function Room() {
   // layer_transform op or, for a negligible drag, just clears the preview.
   const handleTransformHandleDown = useCallback((handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => {
     if (e.pointerType === 'touch') return
+    // (#395) The previous commit is still in flight, so the gizmo is showing
+    // a preview of something the layer doesn't carry yet and transformBounds
+    // still describes where the content was before it. A second drag started
+    // here would compute its matrix against those stale bounds and stack on
+    // top of a transform that may yet be refused. The wait is one round trip.
+    if (pendingTransformCommitRef.current) return
     const el = vpRef.current
     if (!el || !config || !transformBounds || transformTargetIds.length === 0) return
     e.stopPropagation()
@@ -2552,24 +2625,49 @@ export function Room() {
       overlay.removeEventListener('pointerup', onUp)
       if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
       const matrix = computeMatrix(ev.clientX, ev.clientY)
-      setTransformLiveMatrix(null)
-      engineRef.current?.clearLayerTransformPreview()
-      if (isNegligibleTransform(handle, matrix)) return
-      dispatchOp({ type: 'layer_transform', transforms: targetIds.map(layerId => ({ layerId, matrix })) })
-      // (#155) Deferring this past the next paint (tried both requestAnimationFrame
-      // and requestIdleCallback) measurably cut the reported pointerup INP, but left
-      // the gizmo outline showing stale (pre-drag) bounds for a real, user-visible
-      // stretch whenever the deferred callback took a while to fire — confusingly
-      // "not on the content" right after a commit, occasionally bad enough that a
-      // second drag started against the wrong (stale) bounds. Correctness of what's
-      // on screen matters more than shaving this one call off the interaction, so
-      // it stays inline; _bakeTransform's own cost (scratch pooling, dropTile,
-      // suspendEviction) is where #155's INP work continues instead.
-      refreshTransformBounds()
+      const dropPreview = () => {
+        setTransformLiveMatrix(null)
+        engineRef.current?.clearLayerTransformPreview()
+      }
+      // Nothing was committed, so there is nothing to wait for and no bounds
+      // change to pick up — same early exit as before.
+      if (isNegligibleTransform(handle, matrix)) { dropPreview(); return }
+
+      // (#395) The preview is deliberately *not* dropped before the commit.
+      // clearLayerTransformPreview() repaints synchronously, so dropping it
+      // first painted a frame with the preview gone and the transform not yet
+      // baked — the layer back at its pre-drag position. On the
+      // confirmation-gated path that state then persisted for a whole server
+      // round trip. The engine's own API says as much: clear the preview
+      // "once a real layer_transform op has been appended (commit) or the
+      // drag is abandoned (cancel)" — appended, not merely sent. While the
+      // preview stands in for the layer the two are pixel-identical by
+      // construction (see previewLayerTransform's lockstep note against
+      // _bakeTransform), so holding it across the commit shows no seam.
+      const finish = () => {
+        dropPreview()
+        // (#155) Deferring this past the next paint (tried both requestAnimationFrame
+        // and requestIdleCallback) measurably cut the reported pointerup INP, but left
+        // the gizmo outline showing stale (pre-drag) bounds for a real, user-visible
+        // stretch whenever the deferred callback took a while to fire — confusingly
+        // "not on the content" right after a commit, occasionally bad enough that a
+        // second drag started against the wrong (stale) bounds. Correctness of what's
+        // on screen matters more than shaving this one call off the interaction, so
+        // it stays inline; _bakeTransform's own cost (scratch pooling, dropTile,
+        // suspendEviction) is where #155's INP work continues instead.
+        refreshTransformBoundsRef.current()
+      }
+
+      const dispatched = dispatchOp({ type: 'layer_transform', transforms: targetIds.map(layerId => ({ layerId, matrix })) })
+      // Refused outright (room not ready, editing blocked, offline — see
+      // dispatchOp) or already painted by the optimistic path: either way
+      // nothing is in flight, so finish right here exactly as before.
+      if (!dispatched || dispatched.applied) { finish(); return }
+      pendingTransformCommitRef.current = { opId: dispatched.op.id, finish }
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, transformBounds, transformTargetIds, transformCenterOverride, dispatchOp, refreshTransformBounds, setTransformLiveMatrix])
+  }, [vpRef, vp, config, transformBounds, transformTargetIds, transformCenterOverride, dispatchOp, setTransformLiveMatrix])
 
   // Adobe Animate-style draggable rotation pivot — a separate gesture from
   // the scale/rotate/translate handles above: it only ever updates
