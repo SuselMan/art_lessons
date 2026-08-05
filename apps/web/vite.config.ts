@@ -54,17 +54,23 @@ const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN
 // needs a check that runs without a build. The three settings kept here are
 // the ones about registration rather than caching.
 const pwa = VitePWA({
-  // Not `autoUpdate`, which is skipWaiting + reload. This app must not reload
-  // itself: a room can hold operations that have not reached the server yet,
+  // Not `autoUpdate`, which is skipWaiting + an unconditional reload. This app
+  // must not reload itself *out of a room*: operations can be in flight there,
   // and #313 treats losing them as serious enough for a beforeunload prompt.
-  // A background refresh would walk straight through that guard. The new
-  // version waits and the user is offered it — see lib/registerServiceWorker.
+  //
+  // `prompt` does not mean the user is always asked — since #400 they usually
+  // are not. It means the decision is ours rather than the plugin's, and it is
+  // made per situation in lib/registerServiceWorker.ts + pwa/updatePolicy.ts:
+  // applied silently where nothing is at risk, offered only to an installed
+  // app that is holding a room, never offered in a browser tab.
   registerType: 'prompt',
   // The manifest already exists as a static file (#47) and is linked from
   // index.html; generating one here would produce a second, competing one.
   manifest: false,
-  // Registration is ours (lib/registerServiceWorker.ts), because the update
-  // offer has to go through the app's own notification strip (#343).
+  // Registration is ours (lib/registerServiceWorker.ts): the update offer has
+  // to go through the app's own notification strip (#343), and the periodic
+  // re-check added by #400 has nowhere else to live — the plugin's own
+  // registration only ever checks once, at boot.
   injectRegister: null,
   workbox: workboxConfig,
   // The dev loop stays exactly as it was: no service worker under `npm run
@@ -74,6 +80,15 @@ const pwa = VitePWA({
   // localhost counts as a trustworthy origin and workers are allowed.
   devOptions: { enabled: false },
 })
+
+/** Shared by the dev server and `preview`: both have to reach the same local
+ *  backend, and a copy would be one more thing to keep in step. */
+function apiProxy() {
+  return {
+    '/api': `http://localhost:${SERVER_PORT}`,
+    '/socket.io': { target: `http://localhost:${SERVER_PORT}`, ws: true },
+  }
+}
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -108,10 +123,13 @@ export default defineConfig(({ mode }) => {
       // mkcert plugin patches in its own cert/key onto this at config-resolve
       // time, so there's nothing to supply here beyond "on".
       https: useHttps ? {} : undefined,
-      proxy: {
-        '/api': `http://localhost:${SERVER_PORT}`,
-        '/socket.io': { target: `http://localhost:${SERVER_PORT}`, ws: true },
-      },
+      proxy: apiProxy(),
     },
+    // (#400) The same proxy for `npm run preview`, which does *not* inherit
+    // `server.proxy`. The PWA block above tells the next reader to test the
+    // service worker against a real build here — and until this existed that
+    // instruction only worked for the parts of the app that never call the
+    // API, which is not the part anyone needs a real build to test.
+    preview: { proxy: apiProxy() },
   }
 })

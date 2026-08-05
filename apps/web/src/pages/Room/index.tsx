@@ -34,6 +34,7 @@ import { PencilSound, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
+import { holdReload } from '../../lib/reloadSafety'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
 import { addRoomInvite, forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
@@ -1317,8 +1318,18 @@ export function Room() {
   //
   // Same `config` gate as the back guard below: at the join gate there is no
   // session and nothing unsent, so a prompt would be pure friction.
+  //
+  // (#400) The same gate now also states the fact out loud, via holdReload():
+  // "a reload right now would cost something". The service worker updater
+  // reads it to decide whether a new build may be applied without asking, and
+  // it has to be the *same* condition — a second one derived from the route
+  // would be a copy free to drift from this one. Note that the hold is the
+  // half that actually protects a room from an automatic reload: a
+  // programmatic reload carries no user activation, and browsers do not raise
+  // the beforeunload dialog for those at all.
   useEffect(() => {
     if (!config) return
+    const releaseHold = holdReload()
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       // Browsers ignore custom text here and show their own wording; the
       // preventDefault is what actually triggers the prompt.
@@ -1326,7 +1337,10 @@ export function Room() {
       e.returnValue = ''
     }
     window.addEventListener('beforeunload', onBeforeUnload)
-    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      releaseHold()
+    }
   }, [config])
 
   // Any pending batch dies with the room — a timer firing after unmount would
