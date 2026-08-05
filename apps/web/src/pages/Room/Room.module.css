@@ -772,6 +772,19 @@
   touch-action: none;
 }
 
+/* (#394) The grab area for a scale handle, invisible and larger than the
+   square drawn over it. How big a handle is drawn is a question about how
+   much of the drawing it covers; how big it is to hit is a question about
+   the pointer. Those were the same number only because nothing had split
+   them, and at 25% zoom that number rendered as 3 screen px. Sits under
+   .transformHandle, which carries pointer-events: none so the two never
+   argue about which one a press belongs to. */
+.transformHandleHit {
+  fill: transparent;
+  pointer-events: fill;
+  touch-action: none;
+}
+
 /* Invisible ring around each corner handle — the leftover area once
    .transformHandle (rendered after, so it wins hit-testing in the overlap)
    covers the middle is what reads as "just outside the corner" for a
@@ -791,6 +804,14 @@
   fill: var(--color-surface);
   stroke: var(--color-accent);
   stroke-width: 1.5;
+  pointer-events: fill;
+  touch-action: none;
+}
+
+/* (#394) Same split as .transformHandleHit, for the rotation pivot — the
+   smallest thing on the gizmo and so the one that was hardest to catch. */
+.transformCenterHit {
+  fill: transparent;
   pointer-events: fill;
   touch-action: none;
 }

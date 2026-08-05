@@ -4035,6 +4035,8 @@ export function Room() {
                   y: transformBounds.y + transformBounds.height / 2,
                 }}
                 matrix={transformSessionMatrix ?? undefined}
+                zoom={vp.zoom}
+                angleRad={vp.angle}
                 onHandleDown={handleTransformHandleDown}
                 onCenterDown={handleTransformCenterDown}
                 onCenterDoubleClick={handleTransformCenterReset}
@@ -4093,6 +4095,8 @@ export function Room() {
                     y: transformBounds.y + transformBounds.height / 2,
                   }}
                   matrix={transformSessionMatrix ?? undefined}
+                  zoom={vp.zoom}
+                  angleRad={vp.angle}
                   onHandleDown={handleTransformHandleDown}
                   onCenterDown={handleTransformCenterDown}
                   onCenterDoubleClick={handleTransformCenterReset}

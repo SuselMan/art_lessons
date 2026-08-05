@@ -17,21 +17,42 @@ interface TransformGizmoProps {
   // whole gizmo rides along with it via a single SVG `matrix()` transform,
   // so handles stay attached to the content instead of the pre-drag bounds.
   matrix?: [number, number, number, number, number, number]
+  /** (#394) Camera zoom and rotation. This svg hangs off the ancestor that
+   *  carries the viewport transform, so without counter-transforming, every
+   *  size below would be in *canvas* units and the handles would shrink as
+   *  you zoom out — 3 screen px at 25%, which is not a hit target. */
+  zoom: number
+  angleRad: number
   onHandleDown: (handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => void
   onCenterDown: (e: React.PointerEvent<SVGElement>) => void
   onCenterDoubleClick: () => void
 }
 
+// (#394) All in *screen* px — see `place()` for the transform that makes that
+// true at any zoom.
+//
+// The grab square is bigger than the drawn one on purpose: the drawn size is
+// how much of the drawing it is allowed to cover, the grab size is how hard it
+// is to hit, and they were the same number only because nothing had separated
+// them. The rotate ring is the whole hit target for rotation, so it stays
+// generous — same "just outside the corner turns it" affordance as Adobe
+// Animate's Free Transform corners.
+//
+// Sized for a pen or a mouse rather than the 40-48px this codebase asks of
+// touch targets, because touch never reaches this gizmo at all: both
+// handleTransformHandleDown and handleTransformCenterDown return on
+// `pointerType === 'touch'`, leaving the finger to pan the viewport (#120's
+// deliberate pen-only rule, same as the drawing tools).
 const SCALE_HANDLE_SIZE = 12
-// Bigger than the scale handle and centered on the same corner — the ring
-// left over once the scale handle (rendered after, so it wins hit-testing)
-// covers the middle is what gives the "just outside the corner = rotate"
-// affordance, same idea as Adobe Animate's Free Transform corners. Sized
-// generously (relative to the 12px scale handle) since this ring is the
-// entire hit target for rotation — too thin and it's nearly impossible to
-// land a drag in it, especially with a finger rather than a mouse pointer.
-const ROTATE_ZONE_SIZE = 48
+const SCALE_HIT_SIZE = 32
+const ROTATE_ZONE_SIZE = 80
 const CENTER_HANDLE_RADIUS = 6
+const CENTER_HIT_RADIUS = 16
+// No hit target may eat more than this share of the frame's shorter side. On a
+// small selection four 32px corner zones plus four edge ones would otherwise
+// cover it completely, and only whichever rendered last would ever be
+// grabbable — a worse failure than a handle being small.
+const HIT_BUDGET_FRACTION = 0.4
 
 const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHandleKind; cursor: string }> = [
   { kind: 'tl', rotateKind: 'rotate-tl', cursor: 'nwse-resize' },
@@ -64,7 +85,9 @@ const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHan
  *  PeerCursors' own docstring for the full reasoning). Either way this
  *  component itself is unchanged: `bounds`/`center`/`matrix` are just
  *  numbers in whatever space the transformed ancestor expects. */
-export function TransformGizmo({ bounds, center, matrix, onHandleDown, onCenterDown, onCenterDoubleClick }: TransformGizmoProps) {
+export function TransformGizmo({
+  bounds, center, matrix, zoom, angleRad, onHandleDown, onCenterDown, onCenterDoubleClick,
+}: TransformGizmoProps) {
   const { x, y, width, height } = bounds
   const right = x + width
   const bottom = y + height
@@ -82,19 +105,52 @@ export function TransformGizmo({ bounds, center, matrix, onHandleDown, onCenterD
     { kind: 'r', pos: { x: right, y: midY }, cursor: 'ew-resize' },
   ]
 
-  const rh = ROTATE_ZONE_SIZE / 2
-  const sh = SCALE_HANDLE_SIZE / 2
-
   // (#399) Only the outline rides the matrix. The handles are placed by
   // mapping their anchor point through it and then drawn square, outside the
   // transformed group — inside it they inherited the whole thing, so a
   // session that squashed one axis squashed the grab squares along with the
   // content, and a rotation turned them on their corners. Their size is the
-  // hit target; it has no business tracking the content's shape. (The
-  // *camera* still scales them, since this whole svg hangs off the viewport
-  // transform — that half is #394.)
+  // hit target; it has no business tracking the content's shape.
   const at = (p: Point) => applyMatrix(matrix ?? IDENTITY_MATRIX, p.x, p.y)
   const centerAt = at(center)
+  const tl = at(cornerPos.tl)
+
+  // (#394) Undoes the camera for one handle: everything drawn inside is in
+  // screen px, centred on the origin, whatever the zoom and however the canvas
+  // is turned. Same counter-transform PeerCursors applies to its dots and for
+  // the same reason — the difference being that a cursor that shrinks is
+  // merely hard to read, while a handle that shrinks is impossible to grab.
+  const place = (p: Point) =>
+    `translate(${p.x} ${p.y}) rotate(${-angleRad * 180 / Math.PI}) scale(${1 / (zoom || 1)})`
+
+  // On-screen size of the frame, used only to keep the hit targets from
+  // swallowing a small selection whole (see HIT_BUDGET_FRACTION).
+  const tr = at(cornerPos.tr), bl = at(cornerPos.bl)
+  const frameShorterSide = Math.min(
+    Math.hypot(tr.x - tl.x, tr.y - tl.y),
+    Math.hypot(bl.x - tl.x, bl.y - tl.y),
+  ) * zoom
+  const hitBudget = Math.max(SCALE_HANDLE_SIZE, frameShorterSide * HIT_BUDGET_FRACTION)
+  const scaleHit = Math.min(SCALE_HIT_SIZE, hitBudget)
+  const rotateHit = Math.min(ROTATE_ZONE_SIZE, Math.max(scaleHit, frameShorterSide))
+  const centerHit = Math.min(CENTER_HIT_RADIUS, Math.max(CENTER_HANDLE_RADIUS, hitBudget / 2))
+
+  /** A drawn square with a bigger invisible one under it, both centred on the
+   *  origin — the caller positions them with `place()`. */
+  const handle = (kind: TransformHandleKind, cursor: string) => (
+    <>
+      <rect
+        x={-scaleHit / 2} y={-scaleHit / 2} width={scaleHit} height={scaleHit}
+        className={styles.transformHandleHit} style={{ cursor }}
+        onPointerDown={e => onHandleDown(kind, e)}
+      />
+      <rect
+        x={-SCALE_HANDLE_SIZE / 2} y={-SCALE_HANDLE_SIZE / 2}
+        width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
+        className={styles.transformHandle} style={{ cursor, pointerEvents: 'none' }}
+      />
+    </>
+  )
 
   return (
     <svg className={styles.transformSvg}>
@@ -106,42 +162,33 @@ export function TransformGizmo({ bounds, center, matrix, onHandleDown, onCenterD
         />
       </g>
 
-      {CORNERS.map(({ kind, rotateKind, cursor }) => {
-        const p = at(cornerPos[kind])
-        return (
-          <g key={kind}>
-            <rect
-              x={p.x - rh} y={p.y - rh} width={ROTATE_ZONE_SIZE} height={ROTATE_ZONE_SIZE}
-              className={styles.transformRotateZone}
-              onPointerDown={e => onHandleDown(rotateKind, e)}
-            />
-            <rect
-              x={p.x - sh} y={p.y - sh} width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
-              className={styles.transformHandle} style={{ cursor }}
-              onPointerDown={e => onHandleDown(kind, e)}
-            />
-          </g>
-        )
-      })}
-
-      {edges.map(({ kind, pos, cursor }) => {
-        const p = at(pos)
-        return (
+      {CORNERS.map(({ kind, rotateKind, cursor }) => (
+        <g key={kind} transform={place(at(cornerPos[kind]))}>
           <rect
-            key={kind}
-            x={p.x - sh} y={p.y - sh} width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
-            className={styles.transformHandle} style={{ cursor }}
-            onPointerDown={e => onHandleDown(kind, e)}
+            x={-rotateHit / 2} y={-rotateHit / 2} width={rotateHit} height={rotateHit}
+            className={styles.transformRotateZone}
+            onPointerDown={e => onHandleDown(rotateKind, e)}
           />
-        )
-      })}
+          {handle(kind, cursor)}
+        </g>
+      ))}
 
-      <circle
-        cx={centerAt.x} cy={centerAt.y} r={CENTER_HANDLE_RADIUS}
-        className={styles.transformCenterHandle} style={{ cursor: 'move' }}
-        onPointerDown={onCenterDown}
-        onDoubleClick={onCenterDoubleClick}
-      />
+      {edges.map(({ kind, pos, cursor }) => (
+        <g key={kind} transform={place(at(pos))}>{handle(kind, cursor)}</g>
+      ))}
+
+      <g transform={place(centerAt)}>
+        <circle
+          r={centerHit}
+          className={styles.transformCenterHit} style={{ cursor: 'move' }}
+          onPointerDown={onCenterDown}
+          onDoubleClick={onCenterDoubleClick}
+        />
+        <circle
+          r={CENTER_HANDLE_RADIUS}
+          className={styles.transformCenterHandle} style={{ cursor: 'move', pointerEvents: 'none' }}
+        />
+      </g>
     </svg>
   )
 }
