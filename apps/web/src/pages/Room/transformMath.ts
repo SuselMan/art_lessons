@@ -34,3 +34,64 @@ export function rotateAboutMatrix(angleRad: number, centerX: number, centerY: nu
     centerY - centerX * sin - centerY * cos,
   ]
 }
+
+// ── Session composition (#399) ────────────────────────────────────────────────
+// A transform *session* accumulates gestures instead of committing one
+// layer_transform per drag (see #399 for why: the frame stopped following the
+// content on release, the custom pivot reset every drag, and each drag paid
+// its own resample of the layer's pixels). The three helpers below are what
+// that accumulation needs and what the per-drag model never did.
+
+/** `outer ∘ inner` — the matrix that applies `inner` first, then `outer`.
+ *  Same convention as SVG's own `matrix()` and DOMMatrix.multiply, which is
+ *  what lets the accumulated session matrix be handed straight to
+ *  TransformGizmo's `<g transform>` and to previewLayerTransform alike. */
+export function composeMatrix(outer: AffineMatrix, inner: AffineMatrix): AffineMatrix {
+  const [a, b, c, d, e, f] = outer
+  const [A, B, C, D, E, F] = inner
+  return [
+    a * A + c * B,
+    b * A + d * B,
+    a * C + c * D,
+    b * C + d * D,
+    a * E + c * F + e,
+    b * E + d * F + f,
+  ]
+}
+
+/** Inverse of an affine matrix, or null if it isn't invertible (a degenerate
+ *  scale collapsed an axis). Callers treat null as "skip this gesture" rather
+ *  than throwing: the scale handles clamp well away from zero, so a singular
+ *  matrix here means something else is already wrong and dropping one
+ *  pointermove is the mildest possible response. */
+export function invertMatrix(m: AffineMatrix): AffineMatrix | null {
+  const [a, b, c, d, e, f] = m
+  const det = a * d - b * c
+  if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return null
+  return [
+    d / det,
+    -b / det,
+    -c / det,
+    a / det,
+    (c * f - d * e) / det,
+    (b * e - a * f) / det,
+  ]
+}
+
+/** Maps a point through an affine matrix. */
+export function applyMatrix(m: AffineMatrix, x: number, y: number): { x: number; y: number } {
+  return { x: m[0] * x + m[2] * y + m[4], y: m[1] * x + m[3] * y + m[5] }
+}
+
+/** Whether a session ever actually moved anything. Committing an identity
+ *  layer_transform would put a real entry on the undo stack for nothing —
+ *  the same reason isNegligibleTransform exists for a single drag, applied to
+ *  the accumulated result instead. The linear part is compared against a
+ *  tighter epsilon than the translation because a rotation of 0.001 rad still
+ *  visibly smears a large layer, while a 0.001 px shift cannot. */
+export function isIdentityMatrix(m: AffineMatrix): boolean {
+  const [a, b, c, d, e, f] = m
+  return Math.abs(a - 1) < 1e-4 && Math.abs(b) < 1e-4
+    && Math.abs(c) < 1e-4 && Math.abs(d - 1) < 1e-4
+    && Math.abs(e) < 0.5 && Math.abs(f) < 0.5
+}

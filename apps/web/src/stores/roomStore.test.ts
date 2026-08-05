@@ -35,7 +35,7 @@ describe('roomStore initial shape', () => {
     const state = useRoomStore.getState()
     expect(state.rulerLine).toBeNull()
     expect(state.transformBounds).toBeNull()
-    expect(state.transformLiveMatrix).toBeNull()
+    expect(state.transformSessionMatrix).toBeNull()
     expect(state.transformCenterOverride).toBeNull()
   })
 
