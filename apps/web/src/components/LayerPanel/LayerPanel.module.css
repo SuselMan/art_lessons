@@ -28,11 +28,11 @@
   user-select: none;
 }
 
+/* (#390) Layout only — the track's own look (fill, thumb, focus ring, the
+   cursor) belongs to PrecisionSlider now, not to this panel. */
 .opacityBarSlider {
   flex: 1;
   min-width: 0;
-  accent-color: var(--color-accent);
-  cursor: pointer;
 }
 
 .opacityBarValue {

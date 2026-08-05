@@ -22,6 +22,7 @@ import type { LayerState, OperationDraft } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
+import { PrecisionSlider } from '../PrecisionSlider'
 import { useConfirmDialog } from '../ConfirmDialog/useConfirmDialog'
 import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
@@ -531,10 +532,21 @@ export const LayerPanel = memo(function LayerPanel({
       {activeItem && (
         <div className={styles.opacityBar}>
           <span className={styles.opacityBarLabel}>{t('layers.opacity')}</span>
-          <input type="range" min={0} max={100}
-            value={Math.round(activeItem.opacity * 100)}
-            onChange={e => handleOpacity(activeId, Number(e.target.value) / 100)}
-            className={styles.opacityBarSlider} />
+          {/* (#390) The last production control that was still a raw
+              <input type="range">. It now drags like every other slider in
+              the app, including the sideways pull for precision — which this
+              field wants more than most, since 100 steps of opacity share a
+              panel-width track. The dev-only range inputs (room debug
+              overlay, sound tuning) stay as they are on purpose. */}
+          <PrecisionSlider
+            className={styles.opacityBarSlider}
+            orientation="horizontal"
+            value={activeItem.opacity}
+            min={0} max={1} step={0.01}
+            onChange={v => handleOpacity(activeId, v)}
+            formatValue={v => `${Math.round(v * 100)}%`}
+            title={t('layers.opacity')}
+          />
           <span className={styles.opacityBarValue}>{Math.round(activeItem.opacity * 100)}%</span>
         </div>
       )}
