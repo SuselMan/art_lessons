@@ -48,9 +48,14 @@ syncDebugToolsFromUrl(window.location.search)
 // a deploy keeps loading routes out of its own cache instead of asking a
 // server that no longer has them — but not impossible: a chunk requested for
 // the first time after the precache was evicted under storage pressure still
-// misses. The two also cannot both fire: the SW's own update path is an offer
-// the user clicks (registerServiceWorker.ts), never a spontaneous reload, so
-// the only thing that reloads on its own is still this handler.
+// misses.
+//
+// (#400) Since the worker started applying updates by itself, this is no
+// longer the only thing here that can reload the page — but the two still
+// cannot chase each other. Each fires at most once with nothing to hand back:
+// this one is one-shot per session, and applying an update leaves no pending
+// update to find. The worst case is two reloads in a row, which is also the
+// case where they were both right.
 window.addEventListener('vite:preloadError', () => {
   const key = 'al_chunk_reload_once'
   if (sessionStorage.getItem(key)) return
