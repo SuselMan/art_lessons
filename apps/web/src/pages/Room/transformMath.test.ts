@@ -463,3 +463,53 @@ describe('isIdentityMatrix', () => {
     expect(isIdentityMatrix(m)).toBe(false)
   })
 })
+
+// ── which side a gesture composes on (#407) ─────────────────────────────────
+//
+// Room decides this per gesture kind; these pin the property that decision
+// exists to protect, because it is invisible until a session goes projective
+// and then it is a shipped bug (Distort + move re-foreshortened the layer).
+describe('composition side for a rigid move', () => {
+  const bounds = { x: 0, y: 0, width: 400, height: 300 }
+
+  /** A real projective session: one Distort drag pulling `tr` out and up. */
+  const distortedSession = () =>
+    solveQuadMatrix(bounds, distortQuad(bounds, 'tr', { x: 620, y: -90 })!)!
+
+  const corners = (m: TransformMatrix) => frameCorners(bounds).map(c => applyMatrix(m, c.x, c.y))
+  const sides = (m: TransformMatrix) => {
+    const p = corners(m)
+    return p.map((a, i) => { const b = p[(i + 1) % 4]; return +Math.hypot(b.x - a.x, b.y - a.y).toFixed(6) })
+  }
+
+  it('moves every corner by the drag and reshapes nothing, composed outside', () => {
+    const session = distortedSession()
+    const moved = composeMatrix(translateMatrix(150, 40), session)
+    expect(sides(moved)).toEqual(sides(session))
+    corners(session).forEach((p, i) => {
+      expect(corners(moved)[i].x).toBeCloseTo(p.x + 150, 6)
+      expect(corners(moved)[i].y).toBeCloseTo(p.y + 40, 6)
+    })
+  })
+
+  it('would reshape the layer if composed inside instead', () => {
+    // Not a wish — the arithmetic that produced the bug, kept so the reason
+    // the rule exists cannot quietly stop being true.
+    const session = distortedSession()
+    const inv = invertMatrix(session)!
+    const a = applyMatrix(inv, 200, 200), b = applyMatrix(inv, 350, 240)
+    const inside = composeMatrix(session, translateMatrix(b.x - a.x, b.y - a.y))
+    expect(sides(inside)).not.toEqual(sides(session))
+  })
+
+  it('is indistinguishable from the old inside composition while the session is affine', () => {
+    // The guarantee that moving translation outside changed nothing that
+    // already worked: with an affine session the two agree exactly.
+    const session = composeMatrix(rotateAboutMatrix(0.6, 120, 90), scaleAxisMatrix(1.7, 0.8, 40, 60))
+    const inv = invertMatrix(session)!
+    const a = applyMatrix(inv, 200, 200), b = applyMatrix(inv, 350, 240)
+    const outside = composeMatrix(translateMatrix(150, 40), session)
+    const inside = composeMatrix(session, translateMatrix(b.x - a.x, b.y - a.y))
+    outside.forEach((v, i) => expect(v).toBeCloseTo(inside[i], 6))
+  })
+})
