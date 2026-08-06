@@ -9,6 +9,7 @@ import {
 } from './toolSchemas'
 import { TRANSFORM_MODES } from './transformMath'
 import { expScale } from '../../components/PrecisionSlider/sliderScale'
+import { DRAWING_TOOLS, NON_DRAWING_TOOLS } from '../../stores/slices/toolSlice'
 import type { KeyValueStorage } from '../../lib/roomStorage'
 
 function memoryStorage(): KeyValueStorage {
@@ -99,6 +100,36 @@ describe('toolSizeRange (#336)', () => {
     expect(toolSizeRange('liner')).toBeNull() // fixed mm ladder (ADR 003)
     expect(toolSizeRange('ruler')).toBeNull() // no settings at all
     expect(toolSizeRange('eyedropper')).toBeNull()
+  })
+})
+
+// (#405) Everything selectable draws its settings panel straight from
+// TOOL_SCHEMAS (Room's `settingsToolId` is now just the selected tool), so the
+// schema has to hold up its end for the four tools that used to be modes.
+describe('the selectable tools all have a panel to show (#405)', () => {
+  it('gives every selectable tool a schema entry', () => {
+    for (const toolId of [...DRAWING_TOOLS, ...NON_DRAWING_TOOLS]) {
+      expect(TOOL_SCHEMAS[toolId], toolId).toBeTruthy()
+    }
+  })
+
+  // The ruler and the grid have nothing but these toggles, so an empty quick
+  // column beside a selected one would read as a tool that failed to load.
+  it('puts the ruler and grid controls, which are all they have, in the quick column', () => {
+    for (const toolId of ['ruler', 'grid'] as const) {
+      const quick = Object.entries(TOOL_SCHEMAS[toolId]).filter(([, d]) => d.quickAccess)
+      expect(quick.length, toolId).toBe(Object.keys(TOOL_SCHEMAS[toolId]).length)
+      expect(quick.length).toBeGreaterThan(0)
+    }
+  })
+
+  // `show` is a master switch (a hidden ruler neither snaps nor moves), and
+  // both default to the behaviour that existed before they were settings:
+  // snapping was unconditional, and the grid started off.
+  it('defaults the ruler to shown and snapping, and the grid to hidden', () => {
+    const defaults = defaultToolSettings()
+    expect(defaults.ruler).toEqual({ show: true, snap: true })
+    expect(defaults.grid).toEqual({ show: false })
   })
 })
 
