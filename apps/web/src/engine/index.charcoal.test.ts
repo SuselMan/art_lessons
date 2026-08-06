@@ -183,7 +183,10 @@ describe('charcoal tool (#304, ADR 005)', () => {
   })
 
   // #305 — the three regimes, end to end through the real pointer pipeline.
-  // tiltX/tiltY here are degrees off vertical; tiltMag = hypot of the two.
+  // tiltX/tiltY here are PointerEvent's two projected tilt angles in degrees;
+  // the ladder is driven by the true angle from vertical derived from them
+  // (tiltMath.ts), which equals tiltX exactly whenever tiltY is 0 — as it is
+  // for all three grips below, so these stay readable as plain lean angles.
   describe('tilt ladder (#305)', () => {
     const upright = { pressure: 0.7, tiltX: 0, tiltY: 0 }
     const edgeGrip = { pressure: 0.7, tiltX: 40, tiltY: 0 }

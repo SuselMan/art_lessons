@@ -879,8 +879,10 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
   it('DabSystem._makeDab produces bit-for-bit the pre-#249 angle for pencil/liner shaping via the public API', () => {
     for (const shaping of [PENCIL_DAB_SHAPING, LINER_DAB_SHAPING]) {
       const dab = new DabSystem({ shaping })
-      // tiltX=30, tiltY=40 -> tiltMag=50 (> 15) -> tilt direction wins,
-      // path angle (whatever it is for a stroke's first dab) is ignored.
+      // tiltX=30, tiltY=40 -> a true lean of ~45.5deg (> 15) -> tilt direction
+      // wins, path angle (whatever it is for a stroke's first dab) is ignored.
+      // The azimuth atan2 reads is unaffected by #388's magnitude fix: it comes
+      // from the two components directly, not from their combined magnitude.
       const [highTilt] = dab.startStroke(0, 0, 0.5, 30, 40, baseSize)
       expect(highTilt.angle).toBeCloseTo(Math.atan2(40, 30))
     }

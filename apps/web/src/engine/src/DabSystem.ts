@@ -11,6 +11,7 @@ import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'
+import { tiltMagnitudeDeg, tiltNormFrom } from './tiltMath'
 
 interface ControlPoint {
   x: number
@@ -486,7 +487,7 @@ export class DabSystem {
     // elongated one, which is what makes a small turn move the far edge a long
     // way. Taken from the active shaping profile so it follows whatever the tool
     // actually is, at this segment's own tilt.
-    const tiltNorm = Math.hypot(p1.tiltX, p1.tiltY) / 90
+    const tiltNorm = tiltNormFrom(p1.tiltX, p1.tiltY)
     const reach = baseSize * 0.5 * this._shaping.size(p1.pressure, tiltNorm) * Math.max(this._shaping.aspect(tiltNorm), 1)
     const nibLimit = reach > 1e-6 ? Math.sqrt((8 * tol) / reach) / curvature : Infinity
 
@@ -503,7 +504,12 @@ export class DabSystem {
     // which way the stick is lying. A no-op for every profile that declares no
     // smoothing.
     const { tiltX, tiltY } = this._filterTilt(rawTiltX, rawTiltY)
-    const tiltMag    = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
+    // #388: the true angle from vertical, not hypot(tiltX, tiltY) — see
+    // tiltMath.ts. Filtered first, then converted: the low-pass is a smoothing
+    // of the stylus's *pose*, so it belongs on the two reported components
+    // (which is also what Dab.tiltX/Y store and what the shader reads for grain
+    // direction), not on the single derived magnitude.
+    const tiltMag    = tiltMagnitudeDeg(tiltX, tiltY)
     const tiltNorm   = tiltMag / 90
     const size       = baseSize * this._shaping.size(pressure, tiltNorm)
     const aspectRatio = this._shaping.aspect(tiltNorm)

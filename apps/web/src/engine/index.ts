@@ -17,6 +17,11 @@ import {
 } from './src/charcoalFeel'
 import { DabSystem } from './src/DabSystem'
 import { shapingForTool } from './src/dabShaping'
+import {
+  PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
+  type PencilTiltConfig,
+} from './src/pencilTilt'
+import { tiltMagnitudeDeg } from './src/tiltMath'
 import type { MarkerAngleConfig } from './src/markerPresets'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
@@ -54,6 +59,7 @@ export {
   type CharcoalType, type CharcoalPreset,
 }
 export { CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig }
+export { PENCIL_TILT, PENCIL_TILT_SLIDERS, type PencilTiltConfig }
 
 /** Pure dab-shape query for UI overlays (brush cursor) — mirrors
  *  DabSystem._makeDab's own geometry formula (tiltMag/tiltNorm ->
@@ -71,7 +77,7 @@ export function previewDabShape(
   markerAngle?: MarkerAngleConfig,
 ): { size: number; aspectRatio: number; angle: number } {
   const shaping = shapingForTool(tool, presetName, markerAngle)
-  const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
+  const tiltMag = tiltMagnitudeDeg(tiltX, tiltY)
   const tiltNorm = tiltMag / 90
   return {
     size: baseSize * shaping.size(pressure, tiltNorm),
@@ -280,6 +286,10 @@ export interface PencilEngineAPI {
   // marks stable while a slider moves.
   setCharcoalFeel(patch: Partial<CharcoalFeelConfig>): void
   getCharcoalFeel(): CharcoalFeelConfig
+  // (#389) The same dev-only live tuning for graphite's tilt curve, and the
+  // same "next stroke, not retroactively" semantics — see setCharcoalFeel.
+  setPencilTilt(patch: Partial<PencilTiltConfig>): void
+  getPencilTilt(): PencilTiltConfig
   setCompositeOrder(items: CompositeItem[]): void
   appendOperation(op: Operation, source?: OperationSource): void
   // (#398) Decodes the reference image of every `image_import` among `ops`
@@ -1768,6 +1778,14 @@ export class PencilEngine implements PencilEngineAPI {
 
   getCharcoalFeel(): CharcoalFeelConfig {
     return { ...CHARCOAL_FEEL }
+  }
+
+  setPencilTilt(patch: Partial<PencilTiltConfig>): void {
+    Object.assign(PENCIL_TILT, patch)
+  }
+
+  getPencilTilt(): PencilTiltConfig {
+    return { ...PENCIL_TILT }
   }
 
   setCompositeOrder(items: CompositeItem[]): void {
@@ -4097,7 +4115,7 @@ export class PencilEngine implements PencilEngineAPI {
       // own comment on why it isn't re-derived here. Speed and tilt are the
       // only two factors this branch adds on top of the flat preset opacity.
       else if (tool === 'liner') {
-        const tiltDeg = Math.sqrt(dab.tiltX * dab.tiltX + dab.tiltY * dab.tiltY)
+        const tiltDeg = tiltMagnitudeDeg(dab.tiltX, dab.tiltY)
         dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg)
       }
       // Marker (#250, ADR 004 §2; explicit pressureFactor added in "Ревизия
@@ -4112,7 +4130,7 @@ export class PencilEngine implements PencilEngineAPI {
       // dab at a time, with no notion of "distance since the previous
       // one" — see _markerSegmentLength).
       else if (tool === 'marker') {
-        const tiltDeg = Math.sqrt(dab.tiltX * dab.tiltX + dab.tiltY * dab.tiltY)
+        const tiltDeg = tiltMagnitudeDeg(dab.tiltX, dab.tiltY)
         dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg) * markerPressureFlow(dab.pressure)
       }
       // Charcoal (#304 §3, plus #305's broad-side lightening): shares pencil's
@@ -4129,7 +4147,18 @@ export class PencilEngine implements PencilEngineAPI {
         const broadness = charcoalBroadness(dab.aspectRatio)
         dab.opacity = preset.opacity * opacity * speedFactor * charcoalBroadDensity(broadness)
       }
-      else dab.opacity = preset.opacity * opacity * speedFactor
+      // Graphite (#389). The tilt term is the counterpart of charcoal's
+      // broad-side lightening just above, and arrives here the same way: from
+      // the dab's own baked aspectRatio, not by re-running the curve on tilt,
+      // so a slider moved between record time and here can't make the deposit
+      // disagree with the geometry it's shading (see pencilTiltness). Reduces
+      // to exactly the old expression when PENCIL_TILT.lightening is 0.
+      //
+      // Eraser and smudge share the tilt *geometry* but not this: their
+      // branches above never had a preset opacity to scale, and "erases less
+      // when tilted" is a change to how erasing works rather than a
+      // consequence of spreading graphite over more paper.
+      else dab.opacity = preset.opacity * opacity * speedFactor * pencilTiltDensity(pencilTiltness(dab.aspectRatio))
     }
   }
 
@@ -4209,7 +4238,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._strokeTool, this._strokePreset,
       { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
     )
-    const tiltMag = Math.hypot(this._lastPointerTiltX, this._lastPointerTiltY)
+    const tiltMag = tiltMagnitudeDeg(this._lastPointerTiltX, this._lastPointerTiltY)
     const tiltNorm = tiltMag / 90
     const dab: Dab = {
       x: this._lastPointerX, y: this._lastPointerY,
@@ -4229,8 +4258,7 @@ export class PencilEngine implements PencilEngineAPI {
       opacity: 1, t: performance.now() - this._strokeStartTimestamp,
     }
     const preset = this._resolvePreset(this._strokeTool, this._strokePreset)
-    const tiltDeg = Math.hypot(this._lastPointerTiltX, this._lastPointerTiltY)
-    dab.opacity = preset.opacity * this._opts.opacity * linerTiltFlow(tiltDeg) * dwellFlow(elapsed, cfg)
+    dab.opacity = preset.opacity * this._opts.opacity * linerTiltFlow(tiltMag) * dwellFlow(elapsed, cfg)
 
     this._paintDabs(
       buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
