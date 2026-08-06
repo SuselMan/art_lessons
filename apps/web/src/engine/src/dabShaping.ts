@@ -64,36 +64,6 @@ export function tiltOrPathAngle(tiltMag: number, tiltX: number, tiltY: number, p
   return tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
 }
 
-// #305 follow-up (Ilya, from actually drawing with it): charcoal's elongation
-// runs *across* the tilt direction, not along it — rotate tiltOrPathAngle's
-// result a quarter turn.
-//
-// This is the physically right answer for the regime that matters most. A
-// tilted flat-ended cylinder touches the paper along an arc of its rim, and
-// that arc runs perpendicular to the tilt — it's the "edge" of the stick, the
-// thing you turn the charcoal onto precisely when you want a thin line.
-//
-// It was originally built along-tilt to keep the ladder continuous: the
-// literal broad-side contact (a cylinder lying on its flank) runs *along* the
-// tilt, so honouring both geometries exactly would swing the dab 90° somewhere
-// mid-ladder. Perpendicular everywhere resolves that instead of trading it
-// off — the broad regime was never literal geometry anyway (a stylus can't be
-// laid flat on a tablet; 62° stands in for regripping the stick), so it's free
-// to follow the edge regime's orientation. The result is both continuous *and*
-// correct where the physics is real, plus it reads naturally in the hand: lean
-// along the stroke for a broad band, lean across it for a thin edge line.
-//
-// Applied to the whole result, including the low-tilt pathAngle fallback.
-// That branch only runs below tiltOrPathAngle's own 15° cutoff, where the dab
-// is still very nearly round (#403's curve leaves aspect near 1.4 of 8 there at
-// the shipped numbers, and the plateau ladder before it held exactly 1), so the
-// rotation is all but invisible — but applying it there anyway keeps the
-// fallback consistent with the tilt branch rather than flipping across the
-// cutoff.
-export function perpendicularToTiltAngle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number): number {
-  return tiltOrPathAngle(tiltMag, tiltX, tiltY, pathAngle) + Math.PI / 2
-}
-
 // Graphite (#240's carried-over original formulas, replaced in #389). The
 // pressure→width part is untouched — 0.3..1.0 of base size is graphite's
 // several-fold swing and nothing about tilt argues with it — but it is now
@@ -151,8 +121,8 @@ export const LINER_DAB_SHAPING: DabShapingProfile = {
 // before #241 ever introduced the hook.
 
 // Charcoal (#304 §2, reshaped into a ladder in #305, and from a ladder into a
-// smooth curve in #403): a blunt stick, not a
-// sharpened cone, worked on its end / edge / broad side depending on tilt.
+// smooth curve in #403): a blunt stick, not a sharpened cone, worked on its
+// end / edge / broad side depending on tilt.
 //  - size: higher floor than graphite's 0.3 (even a light touch from a blunt
 //    stick leaves a broad mark) and a smaller swing (there's no point to
 //    sharpen, so pressure can't concentrate the contact the way it does for a
@@ -162,9 +132,15 @@ export const LINER_DAB_SHAPING: DabShapingProfile = {
 //    `1 + tiltNorm² * 7` curve. That curve only reached its maximum at 90°,
 //    which a stylus on a tablet physically cannot do — the broad side was
 //    unreachable in practice, which is the whole reason for the rewrite.
-//  - angle: perpendicularToTiltAngle — the one tool that doesn't use the shared
-//    tilt-or-path default, because a stick's contact runs *across* the way it
-//    leans (see that function's own comment).
+//  - angle: the shared tiltOrPathAngle, same as every other tool. #305's
+//    follow-up had charcoal alone elongate *across* the lean — physically the
+//    better reading of a cylinder's rim, since the arc it stands on runs
+//    perpendicular to the tilt — but #404 gave that up for predictability
+//    (Ilya, 06.08): two tools that otherwise behave alike pointed their
+//    ellipses in opposite directions, and nothing but cylinder geometry
+//    explained why. Elongating along the lean has no 90° flip of its own
+//    (the direction is single-valued across the whole range), so dropping
+//    the quarter turn costs none of the continuity it was also buying.
 const CHARCOAL_WIDTH_FLOOR = 0.45
 const CHARCOAL_WIDTH_SWING = 0.6
 
@@ -172,7 +148,7 @@ export const CHARCOAL_DAB_SHAPING: DabShapingProfile = {
   size: (pressure, tiltNorm) =>
     (CHARCOAL_WIDTH_FLOOR + CHARCOAL_WIDTH_SWING * clamp01(pressure)) * charcoalWidthFactor(tiltNorm * 90),
   aspect: tiltNorm => charcoalAspect(tiltNorm * 90),
-  angle:  perpendicularToTiltAngle,
+  angle:  tiltOrPathAngle,
   // A getter, not a captured value: CHARCOAL_FEEL is mutated in place by the
   // debug overlay's sliders, and a plain property would freeze whatever
   // smoothing happened to be set at module-eval time.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { CHARCOAL_DAB_SHAPING, tiltOrPathAngle } from './dabShaping'
+import { tiltMagnitudeDeg } from './tiltMath'
 import {
   CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS,
   charcoalAspect, charcoalBroadDensity, charcoalBroadness, charcoalPressureResponse,
@@ -164,25 +165,23 @@ describe('charcoal tilt response (#305, #403)', () => {
     })
   })
 
-  // Ilya, from drawing with it: the mark must run *across* the pen's lean, not
-  // along it — that arc of the stick's rim is what you turn it onto to draw a
-  // thin line. Also the property that removes the ladder's 90° flip, since the
-  // broad regime now follows the same orientation.
-  describe('elongation runs across the tilt', () => {
+  // #404 (Ilya): the mark runs *along* the pen's lean, the same way every other
+  // tool's does. #305 had charcoal alone run across it — see charcoalFeel.ts's
+  // header for why that was the better physics and still lost.
+  describe('elongation runs along the tilt, like every other tool', () => {
     const cases = [
       { tiltX: 50, tiltY: 0 },
       { tiltX: 0, tiltY: 50 },
       { tiltX: 35, tiltY: -35 },
     ]
 
-    it.each(cases)('is a quarter turn off the tilt azimuth ($tiltX, $tiltY)', ({ tiltX, tiltY }) => {
-      const tiltMag = Math.hypot(tiltX, tiltY)
-      const along = tiltOrPathAngle(tiltMag, tiltX, tiltY, 0)
-      const across = CHARCOAL_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, 0)
+    it.each(cases)('matches the shared tilt-or-path angle exactly ($tiltX, $tiltY)', ({ tiltX, tiltY }) => {
+      const tiltMag = tiltMagnitudeDeg(tiltX, tiltY)
+      const shared = tiltOrPathAngle(tiltMag, tiltX, tiltY, 0)
+      const charcoal = CHARCOAL_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, 0)
       // Compared as a direction, not a raw number: an axis is the same axis
       // whether it reads as +90° or -90°.
-      const delta = Math.abs(Math.sin(across - along))
-      expect(delta).toBeCloseTo(1)
+      expect(Math.abs(Math.sin(charcoal - shared))).toBeCloseTo(0)
     })
 
     it('keeps the same orientation at every lean, so nothing flips', () => {

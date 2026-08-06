@@ -36,13 +36,20 @@ import { tiltCurveInverse, tiltCurveLerp, tiltCurveT } from './tiltCurve'
 // The resolution: a real stick isn't *tilted* into the broad position, it's
 // *regripped* — held in the palm and dragged sideways. Stylus tilt here stands
 // in for a change of grip, not for rotating a rigid body. So this maps intent,
-// and every elongated regime runs *perpendicular* to the tilt (see
-// dabShaping.ts's perpendicularToTiltAngle): that's exactly right for the edge
-// — the rim arc you turn the stick onto to draw thin — and, since the broad
-// regime is a stand-in rather than literal geometry, following the same
-// orientation there removes the 90° flip entirely instead of trading against
-// it. In the hand: lean along the stroke for a broad band, lean across it for
-// a thin edge line.
+// not the rigid body, which is what lets one orientation serve the whole range
+// instead of flipping mid-way.
+//
+// Which orientation, then, is a usability question rather than a geometric one,
+// and it has been answered both ways. #305 picked *perpendicular* to the lean,
+// which is literally right for the regime that matters most — the rim arc is
+// the edge you turn the stick onto to draw thin. #404 replaced it with the
+// shared tiltOrPathAngle, i.e. *along* the lean, for one reason: every other
+// tool in the app elongates along the lean, and a charcoal stick that did the
+// opposite was a rule with exactly one exception and no explanation short of
+// cylinder geometry. In the hand this inverts the gesture — lean across the
+// stroke for a broad band, along it for a thin line — and the tests pin the
+// property that actually matters either way, that the orientation never flips
+// partway through the range.
 
 /** Live-tunable because the right thresholds depend on how a specific hand
  *  holds a specific stylus — not something to settle by reasoning (ADR 005).
