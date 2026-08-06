@@ -17,12 +17,37 @@ export function translateMatrix(dx: number, dy: number): AffineMatrix {
 
 /** Independent X/Y scale about a fixed pivot (the opposite corner/edge from
  *  whichever handle is being dragged) — p' = pivot + scale*(p - pivot) per
- *  axis. Corner handles currently always call this with scaleX === scaleY
- *  (uniform-only for now — no Shift-to-constrain on tablets, see #120's
- *  follow-up issue on tablet-friendly modifier alternatives); edge handles
- *  use it with one axis fixed at 1 for single-axis stretch. */
+ *  axis. Corner handles call this with scaleX === scaleY while the tool's
+ *  "keep proportions" toggle is on and with two independently measured
+ *  factors when it is off (#391 — that toggle is the tablet-friendly
+ *  replacement for Shift-to-constrain, #132); edge handles use it with one
+ *  axis fixed at 1 for single-axis stretch, or with both axes equal when
+ *  proportions are locked. */
 export function scaleAxisMatrix(scaleX: number, scaleY: number, pivotX: number, pivotY: number): AffineMatrix {
   return [scaleX, 0, 0, scaleY, pivotX * (1 - scaleX), pivotY * (1 - scaleY)]
+}
+
+/** (#391) Shear about a fixed line per axis — what Rotate & Skew's edge
+ *  handles produce. `shearX` slides points along X in proportion to their
+ *  distance from the horizontal line y = fixedY, and `shearY` does the same
+ *  along Y about the vertical line x = fixedX:
+ *
+ *      x' = x + shearX * (y - fixedY)
+ *      y' = y + shearY * (x - fixedX)
+ *
+ *  The fixed line is the edge *opposite* the handle, the same anchor a scale
+ *  drag uses (TRANSFORM_PIVOT in Room), so the far edge stays put and the
+ *  grabbed one slides — which is what makes the gesture read as pushing the
+ *  shape over rather than moving it.
+ *
+ *  Two axes in one signature to mirror scaleAxisMatrix, though an edge handle
+ *  only ever drives one of them (dragging the top edge sideways is shearX with
+ *  shearY = 0). Worth knowing if that ever changes: the determinant is
+ *  1 - shearX*shearY, so a single-axis shear preserves area exactly and is
+ *  always invertible, while shearing both axes hard enough would collapse the
+ *  layer — a scale's own degenerate case has a clamp for the same reason. */
+export function skewAxisMatrix(shearX: number, shearY: number, fixedX: number, fixedY: number): AffineMatrix {
+  return [1, shearY, shearX, 1, -shearX * fixedY, -shearY * fixedX]
 }
 
 /** Rotation about a fixed center — p' = R*(p - center) + center. */
@@ -94,4 +119,71 @@ export function isIdentityMatrix(m: AffineMatrix): boolean {
   return Math.abs(a - 1) < 1e-4 && Math.abs(b) < 1e-4
     && Math.abs(c) < 1e-4 && Math.abs(d - 1) < 1e-4
     && Math.abs(e) < 0.5 && Math.abs(f) < 0.5
+}
+
+// ── What a handle means (#391) ───────────────────────────────────────────────
+
+/** Which gizmo handle a drag started on. Defined here rather than on the
+ *  gizmo component because it is what the gesture math dispatches on — the
+ *  component only reports which handle was grabbed, it has no opinion on what
+ *  grabbing it does. */
+export type TransformHandleKind =
+  | 'body'
+  | 'tl' | 'tr' | 'bl' | 'br'
+  | 't' | 'b' | 'l' | 'r'
+  | 'rotate-tl' | 'rotate-tr' | 'rotate-bl' | 'rotate-br'
+
+/** Transform tool modes (#391), stored as the tool's own `mode` setting (see
+ *  toolSchemas). A mode reinterprets the four *edge* handles and nothing else:
+ *  corners scale and the rotate rings turn in both, exactly as Adobe's own
+ *  Rotate & Skew does — so the gizmo grows no new handles, and a mode switch
+ *  never moves anything on screen.
+ *
+ *  There is deliberately no third entry for Distort (#392): a distort is a
+ *  homography, not an affine map, so it cannot be an AffineMatrix or ride the
+ *  existing layer_transform operation at all. It needs its own protocol, not
+ *  a third option here. */
+export const TRANSFORM_MODES = ['free', 'rotateSkew'] as const
+export type TransformMode = (typeof TRANSFORM_MODES)[number]
+
+/** What a drag actually does, once handle and mode are both known — the one
+ *  place those two combine. Both the matrix a pointermove builds and the
+ *  "was that just a click?" test below read this instead of re-deriving the
+ *  meaning of an edge handle per mode. Note 'scale' covers every scale the
+ *  handles can produce (uniform, single-axis, or two independent axes); what
+ *  distinguishes those is which factors the caller measures, not what the
+ *  gesture *is*. */
+export type TransformGestureKind = 'move' | 'rotate' | 'scale' | 'skewX' | 'skewY'
+
+export function transformGestureKind(handle: TransformHandleKind, mode: TransformMode): TransformGestureKind {
+  if (handle === 'body') return 'move'
+  if (handle.startsWith('rotate')) return 'rotate'
+  if (mode === 'rotateSkew') {
+    // The edge slides *along itself*: the top/bottom edges are horizontal, so
+    // dragging one shears X; the left/right ones shear Y.
+    if (handle === 't' || handle === 'b') return 'skewX'
+    if (handle === 'l' || handle === 'r') return 'skewY'
+  }
+  return 'scale'
+}
+
+/** Whether a single drag ended essentially where it started (a click, or
+ *  barely-moved pen jitter) and so should be dropped rather than folded into
+ *  the session — the per-gesture counterpart of isIdentityMatrix's same
+ *  question about the accumulated result.
+ *
+ *  Which part of the matrix answers it depends on what the gesture was, which
+ *  is why this takes the kind rather than the handle: a shear leaves both
+ *  scale terms at exactly 1, so the scale test — the one an edge handle used
+ *  to get unconditionally — would have silently swallowed every skew ever
+ *  made. */
+export function isNegligibleTransform(kind: TransformGestureKind, m: AffineMatrix): boolean {
+  if (kind === 'move') return Math.hypot(m[4], m[5]) < 0.5
+  if (kind === 'rotate') return Math.abs(Math.atan2(m[1], m[0])) < 0.001
+  if (kind === 'skewX') return Math.abs(m[2]) < 0.001
+  if (kind === 'skewY') return Math.abs(m[1]) < 0.001
+  // Both terms have to be still: a Free-transform corner drag scales the two
+  // axes independently, so a purely vertical one leaves scaleX at 1 while
+  // genuinely resizing the layer.
+  return Math.abs(m[0] - 1) < 0.001 && Math.abs(m[3] - 1) < 0.001
 }
