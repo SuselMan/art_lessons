@@ -1069,6 +1069,11 @@ export function Room() {
   // the-gizmo effect below.
   const handActiveRef = useRef(handActive)
   handActiveRef.current = handActive
+  // (#407) Read by the tap-past-the-gizmo listener, which is registered once
+  // per transform session and must not be torn down and rebuilt every time the
+  // drawing tool underneath it changes — same reason handActiveRef exists.
+  const drawingToolRef = useRef(drawingTool)
+  drawingToolRef.current = drawingTool
 
   // (#393) What the pointer looks like right now — the whole decision, made
   // once, in one module, from the tool plus every mode laid on top of it.
@@ -2576,11 +2581,11 @@ export function Room() {
   // pixels, and a drawing app cannot spend those.
   //
   // `reopen` is for the callers that apply the session while the tool stays in
-  // hand (#405): Enter, and a click on the canvas past the gizmo. The gizmo has
-  // to come back for those, on the freshly baked content with a clean identity
-  // matrix. The other callers (effect teardown, page teardown) pass false:
-  // either nothing should follow, or the effect's own body opens the next
-  // session itself.
+  // hand — Enter, and only Enter. The gizmo has to come back for it, on the
+  // freshly baked content with a clean identity matrix. Everyone else passes
+  // false: the tap past the gizmo puts the tool down straight after (#407), and
+  // for the teardown callers either nothing should follow or the effect's own
+  // body opens the next session itself.
   const commitTransformSession = useCallback((reopen: boolean) => {
     const session = transformSessionRef.current
     transformSessionRef.current = null
@@ -2716,9 +2721,12 @@ export function Room() {
     return holdReload()
   }, [transformActive])
 
-  // (#405) A click or tap on the canvas past the gizmo applies the session and
-  // opens a fresh one on the result — the "I'm done with this one" gesture
-  // that costs no keyboard, which matters because the tablet has none.
+  // (#405/#407) A click or tap on the canvas past the gizmo applies the session
+  // and puts the transform tool down, handing the canvas back to the drawing
+  // tool — the "I'm done here" gesture that costs no keyboard, which matters
+  // because the tablet has none. It used to apply and immediately re-arm on the
+  // result; the gizmo staying put after the gesture that meant *done* read as
+  // the tap not having worked.
   //
   // A *click*, deliberately, not a press: a drag that starts outside the frame
   // is a pan (or a rotate begun just outside a corner and dragged away), and
@@ -2752,7 +2760,16 @@ export function Room() {
     const onUp = (e: PointerEvent) => {
       if (!candidate || e.pointerId !== candidate.id) return
       candidate = null
-      commitTransformSessionRef.current(true)
+      // Bake once and do *not* re-arm — the tool is going down on the next
+      // line, so a fresh session would be opened only to be torn straight
+      // back down.
+      commitTransformSessionRef.current(false)
+      // (#407) Same hand-back the eyedropper does after a pick, and for the
+      // same reason: the gesture was the whole of the tool's job. Only the tap
+      // does this — Enter and Esc leave the tool selected, so there is still a
+      // way to finish one transform and start another without a trip to the
+      // toolbar.
+      setTool(drawingToolRef.current)
     }
     // A cancelled pointer (the browser taking the gesture over for a scroll or
     // a system gesture) is not a click, and must not be treated as one.
@@ -2768,7 +2785,7 @@ export function Room() {
       vpEl.removeEventListener('pointerup', onUp)
       vpEl.removeEventListener('pointercancel', onCancel)
     }
-  }, [transformActive, vpEl])
+  }, [transformActive, vpEl, setTool])
 
   // Viewport rect for the ruler's own pointer math — see handleRulerHover for
   // why it is cached rather than read per move.
@@ -2959,9 +2976,22 @@ export function Room() {
     // rotation ∘ scale, which is angle-preserving on a rectangle no matter how
     // the two are interleaved.
     //
-    // Translation is the one that genuinely doesn't care: for a drag of `d`
-    // canvas px, session ∘ translate(A⁻¹d) and translate(d) ∘ session are the
-    // same matrix. It stays inside with the scales.
+    // Translation *does* care, and used to be filed here as the one that
+    // doesn't (#407). The claim was that for a drag of `d` canvas px,
+    // session ∘ translate(A⁻¹d) and translate(d) ∘ session are the same
+    // matrix — true, but only while the session has a linear part `A` to
+    // invert, i.e. while it is affine. Once Distort (#392) put a projective
+    // row in it, composing a move inside means sliding the source rectangle
+    // *through* the perspective field before it is applied, so the layer comes
+    // out re-foreshortened: measured on a distorted frame, a plain 150x40 drag
+    // took the sides from 626.5/447.8/400/300 to 688.6/484.8/428.4/294.7 —
+    // every one of them changed, and one got shorter. Dragging a picture
+    // across the page is not supposed to reshape it.
+    //
+    // So translation goes outside, with rotation, for the same reason rotation
+    // is there: it is a rigid move of whatever shape the session currently
+    // holds. For an affine session this is exactly the old behaviour (the
+    // identity above still holds), so nothing that worked before changes.
     const sessionBase = session.matrix
     const toLocalSpace = invertMatrix(sessionBase)
     if (!toLocalSpace) return
@@ -3007,7 +3037,15 @@ export function Room() {
         return rotateAboutMatrix(angle, centerCanvas.x, centerCanvas.y)
       }
       const p = toPoint(clientX, clientY)
-      if (gestureKind === 'move') return translateMatrix(p.x - start.x, p.y - start.y)
+      // (#407) In *canvas* px, unlike every gesture below it: a move composes
+      // outside the session, so it has to be stated in the space the session's
+      // output already lives in. Reading the local-space delta here instead
+      // would re-introduce the same mixing the outside composition exists to
+      // avoid, just from the other end.
+      if (gestureKind === 'move') {
+        const pc = toCanvasPoint(clientX, clientY)
+        return translateMatrix(pc.x - startCanvas.x, pc.y - startCanvas.y)
+      }
       // Distort (#392): the grabbed corner goes exactly where the pointer is
       // and the other three hold still, so the gesture *is* the four-point
       // correspondence the solver takes. No clamp on how far it can be
@@ -3094,9 +3132,13 @@ export function Room() {
     // some nearest legal quad, and the honest behaviour is that the corner
     // simply stops following the pointer once it has gone somewhere there is
     // no picture for.
+    // (#407) Rotation and translation are the two rigid moves — they act on
+    // the shape the session already produced, so they compose outside. Every
+    // other gesture is stated in the frame's own axes and composes inside.
+    const composesOutside = isRotate || gestureKind === 'move'
     const accumulated = (gesture: TransformMatrix | null): TransformMatrix | null => {
       if (!gesture) return null
-      const next = isRotate ? composeMatrix(gesture, sessionBase) : composeMatrix(sessionBase, gesture)
+      const next = composesOutside ? composeMatrix(gesture, sessionBase) : composeMatrix(sessionBase, gesture)
       return isFrameInFront(next, bounds) ? next : null
     }
     const showPreview = (matrix: TransformMatrix) => {
