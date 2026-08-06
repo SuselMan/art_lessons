@@ -79,7 +79,7 @@ const CORNERS: Array<{ kind: CornerKind; rotateKind: TransformHandleKind }> = [
  *
  *  Purely presentational: drag capture, viewport math, and the actual
  *  engine preview/commit calls all live in Room/index.tsx, same division
- *  of responsibility as RulerOverlay/handleRulerPlaceDown. `matrix` is the
+ *  of responsibility as RulerOverlay/handleRulerDown. `matrix` is the
  *  one exception carried in from there — without it the handles stayed at
  *  the pre-drag bounds while only the WebGL preview underneath moved,
  *  which read as broken (the thing you're dragging visually detaches from
@@ -175,7 +175,15 @@ export function TransformGizmo({
   }
 
   return (
-    <svg className={styles.transformSvg}>
+    // (#405) `data-transform-gizmo` is how Room's "a click past the gizmo
+    // applies the session" listener tells a press on the frame (a gesture)
+    // from a press on the canvas beyond it (the end of the session). An
+    // attribute rather than a class name because CSS Modules hashes the
+    // latter, and a `closest()` against a hashed name would be a string this
+    // component and that listener each had to guess at. Note that it covers
+    // the rotate zones too — they extend well outside the outline, which is
+    // exactly the "past the rotate zone" the rule is worded around.
+    <svg className={styles.transformSvg} data-transform-gizmo>
       <polygon
         points={outline.map(p => `${p.x},${p.y}`).join(' ')}
         className={styles.transformBody}

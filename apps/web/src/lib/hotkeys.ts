@@ -48,6 +48,21 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   { id: 'toggleCharcoal', labelKey: 'hotkey.toggleCharcoal', default: { code: 'KeyC', mod: false, shift: false } },
   { id: 'toggleLiner', labelKey: 'hotkey.toggleLiner', default: { code: 'KeyL', mod: false, shift: false } },
   { id: 'toggleMarker', labelKey: 'hotkey.toggleMarker', default: { code: 'KeyM', mod: false, shift: false } },
+  // (#405) The four tools that used to be modes laid over a drawing tool are
+  // ordinary members of the selection now, so they belong in this registry
+  // like every other tool rather than in a branch of their own — that is what
+  // makes them rebindable, and what puts them in the hotkeys tab next to the
+  // pencil. They toggle the same way the eraser does: pressing the key again
+  // hands the canvas back to the drawing tool that was in hand.
+  //
+  // Esc and Enter are deliberately NOT here, for the same reason hold-to-pan
+  // isn't (see toggleHand below): they are the platform's own cancel and
+  // confirm, every layer of the UI already answers to them, and a rebind UI
+  // able to move them could leave an open transform session with no way out.
+  { id: 'toggleEyedropper', labelKey: 'hotkey.toggleEyedropper', default: { code: 'KeyI', mod: false, shift: false } },
+  { id: 'toggleRuler', labelKey: 'hotkey.toggleRuler', default: { code: 'KeyU', mod: false, shift: false } },
+  { id: 'toggleTransform', labelKey: 'hotkey.toggleTransform', default: { code: 'KeyT', mod: false, shift: false } },
+  { id: 'toggleGrid', labelKey: 'hotkey.toggleGrid', default: { code: 'KeyG', mod: false, shift: false } },
   { id: 'resetRotation', labelKey: 'hotkey.resetRotation', default: { code: 'KeyR', mod: false, shift: false } },
   // Only the *toggle* is an action and therefore rebindable. Hold-to-pan
   // (Space) isn't in this registry at all: it has no keyup half here, and a

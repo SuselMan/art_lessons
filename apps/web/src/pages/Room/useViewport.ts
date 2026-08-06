@@ -71,8 +71,9 @@ export interface UseViewportResult {
 export type PinchPhaseListener = (active: boolean) => void
 
 /** `toolActive`: true while a one-shot canvas tool (currently just the
- *  eyedropper — see Room's `toolActiveRef`; ruler placement is pen-only and
- *  never sets this, see handleRulerPlaceDown) wants the *first* touch that
+ *  eyedropper — see Room's `toolActiveRef`; the ruler shares the same catcher
+ *  but is pen-only and never sets this, see handleRulerDown) wants the *first*
+ *  touch that
  *  lands on the canvas for itself, not panning. Checked directly in the
  *  native `onDown` handler
  *  below rather than relying on `e.stopPropagation()` from the tool's own

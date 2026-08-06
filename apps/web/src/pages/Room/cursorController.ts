@@ -2,33 +2,43 @@ import { useMemo } from 'react'
 import type { ToolType } from '@grafetto/shared'
 
 import { useRoomStore } from '../../stores/roomStore'
-import type { OverlayMode } from '../../stores/slices/overlaySlice'
+import type { DrawingTool, EditorTool } from '../../stores/slices/toolSlice'
 import { transformGestureKind, type TransformHandleKind, type TransformMode } from './transformMath'
-import type { RulerHandleKind } from './RulerOverlay'
+import type { RulerGesture } from './rulerGesture'
 
 // ── what the pointer looks like, decided in exactly one place (#393) ────────
 //
 // The bug that produced this module: BrushCursor hid its dab-footprint
 // preview on the single condition "the current tool isn't a dab tool", and
-// transform is not a tool — it is an overlay mode laid on top of whichever
-// drawing tool is selected. The pencil stayed "current" for the whole
+// transform was not a tool — it was an overlay mode laid on top of whichever
+// drawing tool was selected. The pencil stayed "current" for the whole
 // transform session, so its preview ring kept drawing on top of the gizmo.
-// The same hole was open for every other mode that suspends painting.
+// The same hole was open for every other mode that suspended painting.
 //
 // Three independent places used to decide this: the DAB_TOOLS set inside
 // BrushCursor, per-element `cursor` values in TransformGizmo's CSS/JSX, and
 // the hand tool's own `cursor: grab` rule. A fourth mode broke it again every
 // time. Everything below is that decision, and nothing else in the app is
 // allowed to make it: `Room.module.css` no longer names a cursor for the
-// viewport, its two pointer-catcher overlays, or either gizmo's handles.
+// viewport, its pointer-catcher overlay, or either gizmo's handles.
+//
+// (#405) The mode axis is gone — transform, the ruler, the eyedropper and the
+// grid are members of the one selected tool now (EditorTool, toolSlice.ts).
+// That does *not* make this module redundant, which was the tempting reading:
+// the hand still overrides everything, `drawingTool` still has to answer "what
+// footprint would be painted" while `tool` names something that paints
+// nothing, and the ruler catcher still hands out a cursor per gesture. What it
+// does is let the decision be one exhaustive switch over the selection instead
+// of a mode union crossed with a tool.
 
 /** Which tools paint dabs, i.e. have a footprint worth previewing under the
  *  pointer at all. A record rather than a Set on purpose: adding a member to
  *  `ToolType` in `@grafetto/shared` without deciding whether it gets a
  *  preview is then a typecheck error here rather than a silently missing (or
- *  silently wrong) cursor. Today every ToolType is a dab tool — the union is
- *  the drawing tools and nothing else — which is precisely why the tool axis
- *  alone could never answer "should the preview be visible". */
+ *  silently wrong) cursor. Every ToolType is a dab tool — the union is the
+ *  drawing tools and nothing else — which is precisely why the preview cannot
+ *  be answered from `drawingTool` alone: it is `tool` that decides whether
+ *  that drawing tool is the one in hand right now. */
 const PAINTS_DABS = {
   pencil: true,
   eraser: true,
@@ -40,16 +50,17 @@ const PAINTS_DABS = {
 
 /** CSS `cursor` for the viewport surface. Inherited (the `cursor` property is
  *  inherited) by everything inside it that doesn't override it — the canvas,
- *  the eyedropper/ruler pointer catchers — so this one value covers the whole
+ *  the ruler/eyedropper pointer catcher — so this one value covers the whole
  *  drawing surface, and only the gizmo handles below opt out of it. */
 export type ViewportCursor =
-  /** A tool is armed and a press on the canvas would paint (or pick, or place
-   *  a ruler): the precise-aim cursor. */
+  /** A tool is armed and a press on the canvas would do something aimed at a
+   *  specific point: paint, pick a colour, lay a ruler line. */
   | 'crosshair'
   /** A press moves the view instead of the content. */
   | 'grab'
-  /** Nothing of ours: the gizmo's own per-handle cursors are the whole story,
-   *  and a crosshair over content that cannot be painted right now is a lie. */
+  /** Nothing of ours: either the gizmo's own per-handle cursors are the whole
+   *  story, or the selected tool has no canvas gesture at all — and a
+   *  crosshair over content that cannot be touched right now is a lie. */
   | 'default'
 
 export interface CursorDecision {
@@ -59,16 +70,16 @@ export interface CursorDecision {
 }
 
 export interface CursorState {
-  /** The selected drawing tool. Never says anything about the modes below —
-   *  it stays exactly what it was while a mode is on. */
-  tool: ToolType
+  /** The one selected tool. */
+  tool: EditorTool
+  /** The drawing tool the engine is configured with — `tool` itself while a
+   *  drawing tool is selected, otherwise the last one that was (see
+   *  toolSlice). Only ever consulted when `tool` is that same drawing tool;
+   *  it is taken separately so this function never has to narrow the union
+   *  itself. */
+  drawingTool: DrawingTool
   /** Hand tool or Space held (`isHandActive`). */
   handActive: boolean
-  overlayMode: OverlayMode
-  /** Only meaningful while `overlayMode === 'ruler'`. */
-  rulerPlaced: boolean
-  /** Accepted and deliberately ignored — see below. */
-  gridActive: boolean
 }
 
 /** The single answer to "what is the cursor right now".
@@ -77,37 +88,40 @@ export interface CursorState {
  *
  *  1. **Hand.** Space beats everything, including an open transform session:
  *     panning is a viewport gesture that never touches content, so it is
- *     always available and always looks the same.
- *  2. **Transform.** Nothing of ours: the gizmo hands out a system cursor per
- *     handle (resize arrows, the rotate glyph, move), and painting is locked
- *     for the duration anyway (`engine.setLocked`), so a crosshair would
- *     promise a stroke that cannot happen.
- *  3. **Eyedropper.** Aim precisely, but there is no dab to preview — the
- *     next press picks a colour instead of painting one.
- *  4. **Ruler, still being placed.** Same: the placement drag lays out a
- *     guide, it does not paint. Once placed the ruler is a persistent guide
- *     that strokes snap against, so drawing — and its preview — resume.
- *  5. **Nothing on.** The tool decides, and every current tool paints dabs.
+ *     always available, always looks the same, and (#405) never ends a
+ *     session — which is exactly why the hand is not a member of `EditorTool`.
+ *  2. **The selected tool**, exhaustively:
+ *     - *transform* — nothing of ours: the gizmo hands out a system cursor per
+ *       handle (resize arrows, the rotate glyph, move), and painting is locked
+ *       for the duration anyway (`engine.setLocked`), so a crosshair would
+ *       promise a stroke that cannot happen.
+ *     - *eyedropper* — aim precisely, but there is no dab to preview: the next
+ *       press picks a colour instead of painting one.
+ *     - *ruler* — aim precisely: a press lays a new straight edge, or grabs
+ *       the existing one. Which of the two is a per-point answer the catcher
+ *       asks `RULER_GESTURE_CURSOR` below for; this is the surface it sits on.
+ *     - *grid* — `default`. The grid has no canvas gesture yet (#406), so
+ *       every cursor that suggests one would be describing something that
+ *       cannot happen.
+ *     - a drawing tool — the crosshair, and the footprint preview.
  *
- *  `gridActive` is in `CursorState` and is intentionally never read: the grid
- *  is the one overlay that changes nothing about the pointer (it intercepts
- *  no events and blocks no painting). It is listed so that "does the grid
- *  affect the cursor?" is answered here, by a test, instead of being an open
- *  question every time someone adds a mode. */
+ *  The grid is the one tool whose *visibility* changes nothing here: it is a
+ *  setting (`toolSettings.grid.show`) rather than state this function sees,
+ *  and a visible grid intercepts no pointer events under any tool. Selecting
+ *  it does change the cursor, which is new in #405 and is the point: a
+ *  selected tool that cannot paint must not show a crosshair. */
 export function resolveCursor(state: CursorState): CursorDecision {
   if (state.handActive) return { dabPreview: false, viewportCursor: 'grab' }
 
-  switch (state.overlayMode) {
+  switch (state.tool) {
     case 'transform':
+    case 'grid':
       return { dabPreview: false, viewportCursor: 'default' }
     case 'eyedropper':
-      return { dabPreview: false, viewportCursor: 'crosshair' }
     case 'ruler':
-      return state.rulerPlaced
-        ? { dabPreview: PAINTS_DABS[state.tool], viewportCursor: 'crosshair' }
-        : { dabPreview: false, viewportCursor: 'crosshair' }
-    case 'none':
-      return { dabPreview: PAINTS_DABS[state.tool], viewportCursor: 'crosshair' }
+      return { dabPreview: false, viewportCursor: 'crosshair' }
+    default:
+      return { dabPreview: PAINTS_DABS[state.drawingTool], viewportCursor: 'crosshair' }
   }
 }
 
@@ -117,26 +131,24 @@ export function resolveCursor(state: CursorState): CursorDecision {
  *  identity while nothing relevant changes. */
 export function useCursor(): CursorDecision {
   const tool = useRoomStore(s => s.tool)
+  const drawingTool = useRoomStore(s => s.drawingTool)
   const handTool = useRoomStore(s => s.handTool)
   const handHeld = useRoomStore(s => s.handHeld)
-  const overlayMode = useRoomStore(s => s.overlayMode)
-  const rulerPlaced = useRoomStore(s => s.rulerPlaced)
-  const gridActive = useRoomStore(s => s.gridActive)
 
   return useMemo(
-    () => resolveCursor({ tool, handActive: handTool || handHeld, overlayMode, rulerPlaced, gridActive }),
-    [tool, handTool, handHeld, overlayMode, rulerPlaced, gridActive],
+    () => resolveCursor({ tool, drawingTool, handActive: handTool || handHeld }),
+    [tool, drawingTool, handTool, handHeld],
   )
 }
 
-// ── gizmo handles ──────────────────────────────────────────────────────────
+// ── direct manipulation: gizmo handles and the ruler ────────────────────────
 //
-// Direct-manipulation handles are the one thing the mode-level decision above
-// cannot express: which of them the pointer is over is a DOM fact, not app
-// state. They still belong here rather than in each component's CSS, because
-// "the transform gizmo is what supplies the cursor during a transform" is
-// half of decision (2) above and the two halves must not be able to drift.
-// Each component applies these inline; the CSS classes carry no `cursor`.
+// What the pointer is over is a DOM/geometry fact rather than app state, which
+// is the one thing the tool-level decision above cannot express. It still
+// belongs here rather than in each component's CSS, because "the transform
+// gizmo is what supplies the cursor during a transform" is half of decision
+// (2) above and the two halves must not be able to drift. Each call site
+// applies these inline; the CSS classes carry no `cursor`.
 
 /** No native CSS keyword rotates, so the corner rotate zones use an inline
  *  SVG glyph. It stays in `Room.module.css` (as `--cursor-rotate` on
@@ -190,8 +202,16 @@ export function transformHandleCursor(handle: TransformHandleKind, mode: Transfo
  *  down handler rather than travelling through `onHandleDown`). */
 export const TRANSFORM_PIVOT_CURSOR = 'move'
 
-export const RULER_HANDLE_CURSOR: Record<RulerHandleKind, string> = {
-  body: 'move',
+/** (#405) What a press on the ruler catcher would do, said as a cursor. The
+ *  ruler's line and endpoints are no longer separate event targets with
+ *  cursors of their own — one full-viewport catcher decides per point what a
+ *  press means (see `rulerGestureAt`), so the cursor has to be decided from
+ *  that same answer or the two would disagree about which gesture is on
+ *  offer. `new` keeps the viewport's own crosshair: laying a fresh straight
+ *  edge is an aimed gesture like painting, not a grab. */
+export const RULER_GESTURE_CURSOR: Record<RulerGesture, string> = {
   a: 'grab',
   b: 'grab',
+  body: 'move',
+  new: 'crosshair',
 }

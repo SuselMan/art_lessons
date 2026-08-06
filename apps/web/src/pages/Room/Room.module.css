@@ -369,6 +369,23 @@
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   color: var(--color-accent);
 }
+
+/* (#405) The hand, held. Deliberately *not* .toolIconBtnActive: the hand is
+   not a member of the one-selected-tool set (see EditorTool in toolSlice) —
+   it is a viewport mode held over whatever tool is in hand, and it leaves a
+   transform session running underneath. Wearing the same filled accent as a
+   selected tool would put two buttons in the "selected" state at once, which
+   is the exact appearance this change exists to remove. An outline reads as
+   "held, on top of" rather than "in hand". */
+.toolIconBtnHeld {
+  background: none;
+  color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+.toolIconBtnHeld:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+}
 .toolIconBtn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
@@ -404,30 +421,25 @@
 .colorCustomInput::-webkit-color-swatch { border: none; border-radius: 50%; }
 .colorCustomInput::-moz-color-swatch { border: none; border-radius: 50%; }
 
-/* Full-viewport catcher shown only while the eyedropper is armed — sits
-   above the canvas (higher z-index than .viewport) purely to intercept the
-   next pointerdown before PencilEngine's own PointerInput (attached
+/* Full-viewport catcher for the tools whose gesture is a press on the canvas
+   rather than on a widget: the eyedropper's pick and the ruler's lay/drag
+   (#405). Sits above the canvas (higher z-index than .viewport) purely to
+   intercept the pointerdown before PencilEngine's own PointerInput (attached
    directly to the canvas element) can turn it into a stroke. Simpler and
    more robust than trying to stopPropagation a native listener against
    React's synthetic one.
 
-   (#393) No `cursor` of its own: `cursor` is an inherited property, so this
-   catcher takes whatever .viewport's cursor class says, which is the single
-   decision made in cursorController.ts. */
-.eyedropperOverlay {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  touch-action: none;
-}
+   One class where there were two (.eyedropperOverlay and .rulerPlaceOverlay):
+   they were identical rules, and the ruler's is no longer "the placement drag
+   only" — it stays for as long as the ruler is the selected tool, since laying
+   a new line and grabbing the existing one are now the same surface.
 
-/* Same catcher purpose as .eyedropperOverlay, but only for the ruler tool's
-   (#89) initial placement drag — removed from the DOM entirely (not just
-   inert) once a ruler exists (see Room's render), because after that the
-   ruler's own SVG handles (RulerOverlay) are the drag surface and the rest
-   of the canvas must stay free for normal drawing to snap against it.
-   Inherits its cursor from .viewport, same as .eyedropperOverlay (#393). */
-.rulerPlaceOverlay {
+   (#393) No `cursor` of its own: `cursor` is an inherited property, so this
+   catcher takes whatever .viewport's cursor class says — which is the single
+   decision made in cursorController.ts. The ruler is the one case that writes
+   a cursor here directly, per pointer position, and it too reads it from that
+   module (RULER_GESTURE_CURSOR). */
+.canvasCatcher {
   position: absolute;
   inset: 0;
   z-index: 4;
@@ -638,11 +650,13 @@
 /* ── Ruler tool (#89) — also renders the distance label that used to
    belong to the deleted Measure tool (#195: the two were redundant, see
    #170) ──
-   Unlike grid above but like the transform gizmo, this overlay's own
-   shapes (once placed) ARE the interactive surface — the svg root
-   stays pointer-events:none so it never blocks the canvas outside the
-   ruler's own line/handles, and each shape opts back in individually
-   (matching .transformSvg/.transformBody/.transformHandle's pattern). */
+   (#405) Unlike the transform gizmo, and unlike this overlay itself until
+   #405, nothing in here is interactive: the ruler's drag surface is a single
+   catcher in Room (.canvasCatcher), armed only while the ruler is the
+   selected tool, which hit-tests each press against the line rather than
+   relying on the shapes below being the event targets. So the whole layer
+   stays pointer-events:none — including while the line is on screen under
+   another tool, where a draggable ruler is precisely what #405 removed. */
 .rulerLayer {
   position: absolute;
   top: 0;
@@ -668,24 +682,11 @@
   pointer-events: none;
 }
 
-/* Wide, invisible hit area under the (visually thin) line above, for the
-   "drag the whole ruler" gesture — see RulerOverlay's doc comment.
-
-   (#393) Its cursor — like every other cursor in the editor — is applied
-   inline from cursorController.ts's RULER_HANDLE_CURSOR, not named here. */
-.rulerHitLine {
-  stroke: transparent;
-  stroke-width: 20;
-  pointer-events: stroke;
-  touch-action: none;
-}
-
 .rulerEndpoint {
   fill: var(--color-accent);
   stroke: var(--color-surface);
   stroke-width: 1.5;
-  pointer-events: fill;
-  touch-action: none;
+  pointer-events: none;
 }
 
 /* ── Construction grid (#89) ── */

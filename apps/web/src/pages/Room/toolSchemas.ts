@@ -20,6 +20,11 @@ import type { IconName } from '../../icons/iconNames'
 // ships it's a separate toolbar entry with its own remembered settings, but
 // still emits `tool: 'pencil'` at the Operation/protocol level. Mapping one
 // to the other happens only at the moment of emitting a stroke, not here.
+//
+// (#405) This is also the widest of the two lists the store's `EditorTool`
+// (toolSlice.ts) is built from: everything selectable is a UiToolId, so the
+// selected tool always has a schema to show, but not every UiToolId is
+// selectable (colorPencil has a schema and no toolbar slot yet — #188).
 export type UiToolId =
   | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker'
   | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
@@ -533,10 +538,60 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       visibleWhen: v => v.mode !== 'distort',
     },
   },
-  // Honest empty schemas — these tools have no settings yet, not stubs
-  // waiting to be filled with guessed-at fields.
-  ruler: {},
-  grid: {},
+  // Ruler (#89, #405). Both fields are quick-access: they are the only
+  // controls this tool has, so an empty quick column beside a selected ruler
+  // would read as a tool that forgot to load.
+  ruler: {
+    // (#405) The master switch, not a convenience. A hidden ruler is fully
+    // inert — it does not snap and cannot be dragged (see Room's ruler engine
+    // sync and its pointer catcher) — because the alternative is an invisible
+    // line quietly bending strokes with nothing on screen to explain it, which
+    // is a trap rather than a feature. Hiding never clears the line, so the
+    // same straight edge comes back when it is switched on again.
+    show: {
+      nameKey: 'tool.field.showRuler',
+      valueType: { kind: 'boolean' },
+      uiControls: ['toggle'],
+      quickAccess: true,
+      default: true,
+    },
+    // Snapping used to be unconditional: any placed ruler bent every stroke
+    // that came near it (engine.setRuler → rulerSnap.ts). That makes the ruler
+    // unusable as a plain measuring/reference line, which is half of what a
+    // straight edge on a drawing is for — so it is a setting now, defaulting
+    // to on because guiding strokes is still the primary use.
+    snap: {
+      nameKey: 'tool.field.rulerSnap',
+      valueType: { kind: 'boolean' },
+      uiControls: ['toggle'],
+      quickAccess: true,
+      default: true,
+    },
+  },
+  // Construction grid (#89, #405). The toolbar button selects the grid *tool*
+  // now rather than toggling the overlay; visibility is this setting, which is
+  // what lets the grid stay on screen under every other tool — the thing a
+  // construction grid is for.
+  //
+  // One field is the whole schema on purpose: the grid has no gesture of its
+  // own yet, so "selected" currently means nothing more than "its settings are
+  // the ones on screen, and nothing paints". That is a deliberate interim
+  // state, not an oversight — moving and rotating the grid by gesture is #406,
+  // and that is what will give the selection something to do.
+  grid: {
+    // On by default (#405). The grid has no gesture of its own yet (#406), so
+    // with this off, picking up the grid tool did nothing observable at all —
+    // the one tool whose first press appeared broken. Reaching for it is
+    // already the request to see it; the toggle is for putting it away without
+    // giving up the tool, which is the rarer half.
+    show: {
+      nameKey: 'tool.field.showGrid',
+      valueType: { kind: 'boolean' },
+      uiControls: ['toggle'],
+      quickAccess: true,
+      default: true,
+    },
+  },
 }
 
 export type ToolSettingsValue = Record<string, SettingDescriptor['default']>

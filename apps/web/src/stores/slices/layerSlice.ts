@@ -46,7 +46,7 @@ export interface LayerSlice {
   setLayerStateLocal: (updater: LayerState | ((prev: LayerState) => LayerState)) => void
   syncLayerStateFromLog: (base: LayerState, ops: Operation[]) => void
 
-  // Ruler placement + layer-transform-preview geometry — moved into the
+  // Ruler geometry + layer-transform-preview geometry — moved into the
   // store for consistency (#170 follow-up design), but deliberately
   // NEVER persisted: a ruler is for quickly comparing distances mid-
   // drawing, not a saved setting (Ilya, same "gizmo-like, transient"
@@ -55,6 +55,12 @@ export interface LayerSlice {
   // would go stale the moment a peer/undo changes the layer;
   // transformSessionMatrix is an uncommitted preview that must never survive
   // a reload as a "phantom" transform. All four reset to null on mount.
+  //
+  // (#405) The line now outlives the ruler tool being selected: switching to
+  // the pencil leaves it on screen to draw against (and to snap to, if
+  // snapping is on), it just stops being draggable. Only hiding it — the
+  // ruler tool's own `show` setting — takes it out of play, and that hides
+  // rather than clears, so the same line comes back.
   rulerLine: { a: RulerPoint; b: RulerPoint } | null
   setRulerLine: (line: { a: RulerPoint; b: RulerPoint } | null) => void
   /** Content bounds the open transform session started from, in canvas space.

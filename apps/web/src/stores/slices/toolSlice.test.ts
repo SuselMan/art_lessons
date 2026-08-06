@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 
 import { useRoomStore, resetRoomStore } from '../roomStore'
+import { DRAWING_TOOLS, NON_DRAWING_TOOLS, isDrawingTool } from './toolSlice'
 
 // #245 follow-up: lastDrawingTool lets a "return to drawing" toggle
 // (eraser/smudge off, FloatingToolPanel's top button) go back to whichever
@@ -65,5 +66,60 @@ describe('lastDrawingTool (#245 follow-up)', () => {
     const { lastDrawingTool, setTool } = useRoomStore.getState()
     setTool(t => (t === 'eraser' ? lastDrawingTool : 'eraser'))
     expect(useRoomStore.getState().tool).toBe('marker')
+  })
+})
+
+// (#405) One tool is selected at a time, and the four that paint nothing are
+// members of that one selection rather than modes laid over a drawing tool.
+// `drawingTool` is what makes that possible without the engine, the brush
+// cursor and the sound losing track of what they are configured with.
+describe('one selected tool (#405)', () => {
+  beforeEach(() => { resetRoomStore() })
+
+  it('separates the two lists cleanly — nothing is in both, nothing in neither', () => {
+    for (const tool of DRAWING_TOOLS) expect(isDrawingTool(tool)).toBe(true)
+    for (const tool of NON_DRAWING_TOOLS) expect(isDrawingTool(tool)).toBe(false)
+  })
+
+  it('holds a non-drawing tool as the selection like any other', () => {
+    useRoomStore.getState().setTool('ruler')
+    expect(useRoomStore.getState().tool).toBe('ruler')
+  })
+
+  it('remembers the drawing tool underneath, so the engine keeps a real tool', () => {
+    useRoomStore.getState().setTool('charcoal')
+    useRoomStore.getState().setTool('transform')
+    expect(useRoomStore.getState().tool).toBe('transform')
+    expect(useRoomStore.getState().drawingTool).toBe('charcoal')
+  })
+
+  // What the eyedropper goes back to after taking a colour. Deliberately not
+  // lastDrawingTool: if the eraser was in hand, the eraser is what returns.
+  it('remembers the eraser as the drawing tool, unlike lastDrawingTool', () => {
+    useRoomStore.getState().setTool('liner')
+    useRoomStore.getState().setTool('eraser')
+    useRoomStore.getState().setTool('eyedropper')
+
+    const { drawingTool, lastDrawingTool } = useRoomStore.getState()
+    expect(drawingTool).toBe('eraser')
+    expect(lastDrawingTool).toBe('liner')
+  })
+
+  // The real "press the same button again" pattern (Room's selectTool).
+  it('hands the canvas back to the drawing tool when the same tool is picked twice', () => {
+    useRoomStore.getState().setTool('marker')
+    useRoomStore.getState().setTool('ruler')
+
+    const { drawingTool, setTool } = useRoomStore.getState()
+    setTool(prev => (prev === 'ruler' ? drawingTool : 'ruler'))
+    expect(useRoomStore.getState().tool).toBe('marker')
+  })
+
+  it('leaves lastDrawingTool alone while a non-drawing tool is selected', () => {
+    useRoomStore.getState().setTool('marker')
+    for (const tool of NON_DRAWING_TOOLS) {
+      useRoomStore.getState().setTool(tool)
+      expect(useRoomStore.getState().lastDrawingTool).toBe('marker')
+    }
   })
 })
