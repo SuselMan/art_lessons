@@ -1171,7 +1171,7 @@ export const IMAGE_BLIT_FRAG = `
   }
 `;
 
-// Bakes an affine transform (#120) into a layer buffer — used both for a
+// Bakes a transform (#120) into a layer buffer — used both for a
 // committed layer_transform op and its live gizmo-drag preview. Samples
 // backward (destination pixel -> source pixel via u_matrixInv, the inverse
 // of the requested transform) rather than forward, which is what lets
@@ -1202,6 +1202,23 @@ export const IMAGE_BLIT_FRAG = `
 // each need their own buffer's own dimensions to normalize against.  Every
 // other caller (gizmo preview, tile-aware transform bake) happens to pass
 // matching sizes, which reduces to exactly the old single-u_bufferSize math.
+//
+// (#392) The homogeneous divide by srcPx.z is what makes Distort work, and it
+// costs nothing when there is no Distort: an affine matrix has bottom row
+// [0 0 1], so z is identically 1 and the divide is a no-op. One shader serves
+// both, with no branch and no second program — the reason the protocol widens
+// six numbers to nine at the read boundary instead of keeping two kinds of
+// transform (see LayerTransformMatrix in packages/shared).
+//
+// The z <= 0 discard is not defensive tidiness. A homography's denominator is
+// zero along a line and negative past it, where the projection turns points
+// back through the origin: without this, a hard Distort would paint a mirrored
+// ghost of the layer across the far half of the buffer, sampled from UVs that
+// happen to land in [0,1]. Discarding matches what the out-of-range UV test
+// below already does for content that simply isn't there — nothing is drawn.
+// Room refuses to build such a matrix in the first place (isFrameInFront), so
+// in practice this catches the tile margins around a legal gesture rather than
+// the gesture itself.
 export const TRANSFORM_BLIT_FRAG = `
   precision highp float;
   uniform sampler2D u_source;
@@ -1212,7 +1229,12 @@ export const TRANSFORM_BLIT_FRAG = `
   void main() {
     vec2 dstPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_dstSize;
     vec3 srcPx = u_matrixInv * vec3(dstPx, 1.0);
-    vec2 srcUV = vec2(srcPx.x / u_srcSize.x, 1.0 - srcPx.y / u_srcSize.y);
+    if (srcPx.z <= 0.0) {
+      gl_FragColor = vec4(0.0);
+      return;
+    }
+    vec2 srcXY = srcPx.xy / srcPx.z;
+    vec2 srcUV = vec2(srcXY.x / u_srcSize.x, 1.0 - srcXY.y / u_srcSize.y);
     if (srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
       gl_FragColor = vec4(0.0);
       return;

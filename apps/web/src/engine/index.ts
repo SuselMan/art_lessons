@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation } from '@grafetto/shared'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation, LayerTransformMatrix } from '@grafetto/shared'
 import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_COMPUTE_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperConstants'
@@ -32,19 +32,19 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX, type NibShape } from './src/markerRibbon'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
-  applyAffine, composeAffine, invertAffine, scaleRotateMatrix, toMat3, translationMatrix,
-  IDENTITY_MATRIX, type AffineMatrix,
-} from './src/affine'
+  applyMatrix, composeMatrix, invertMatrix, scaleRotateMatrix, toMat3, translationMatrix,
+  IDENTITY_MATRIX, type Matrix3,
+} from './src/matrix'
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
-import { packDabs, paperCoarsenessOf, strokeDabs } from '@grafetto/shared'
+import { packDabs, paperCoarsenessOf, strokeDabs, toHomography } from '@grafetto/shared'
 import type { PaperCoarseness } from '@grafetto/shared'
 
 export type { HapticGrainStats }
-export type { AffineMatrix }
+export type { Matrix3 }
 export type { RulerLine }
 
 export { PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, type PencilGradeName, type PencilPreset }
@@ -484,7 +484,12 @@ export interface PencilEngineAPI {
   // drag frame; call clearLayerTransformPreview() once a real
   // `layer_transform` op has been appended (commit) or the drag is
   // abandoned (cancel).
-  previewLayerTransform(transforms: Array<{ layerId: string; matrix: AffineMatrix }>): void
+  //
+  // (#392) Takes the wire union — six numbers for an affine gesture, nine for
+  // a Distort — exactly as it would arrive on a layer_transform op, so a
+  // caller never has to decide which form to hand over. Widened once inside;
+  // everything past that point is 3x3.
+  previewLayerTransform(transforms: Array<{ layerId: string; matrix: LayerTransformMatrix }>): void
   clearLayerTransformPreview(): void
   // Live remote-stroke reveal (#37 follow-up v2): call when a peer's finished
   // StrokeOperation arrives. Plays its dabs back into a dedicated per-peer
@@ -2431,8 +2436,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  reuses (just gl.clear()s) any buffer whose tile is still needed this
    *  frame — only genuinely new/vacated tiles allocate or free anything,
    *  which is the rare case, not the every-frame one. */
-  previewLayerTransform(transforms: Array<{ layerId: string; matrix: AffineMatrix }>): void {
-    for (const { layerId, matrix } of transforms) {
+  previewLayerTransform(transforms: Array<{ layerId: string; matrix: LayerTransformMatrix }>): void {
+    for (const { layerId, matrix: wireMatrix } of transforms) {
+      // (#392) The one widening, at the boundary — see LayerTransformMatrix's
+      // docstring in packages/shared for why no consumer branches on length.
+      const matrix = toHomography(wireMatrix)
       const source = this._layers.get(layerId)
       if (!source) continue
       const sourceTiles = source.allResident()
@@ -2467,7 +2475,7 @@ export class PencilEngine implements PencilEngineAPI {
           [contentRect.minX, contentRect.maxY], [contentRect.maxX, contentRect.maxY],
         ]
         for (const [x, y] of corners) {
-          const [tx, ty] = applyAffine(matrix, x, y)
+          const [tx, ty] = applyMatrix(matrix, x, y)
           minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
           minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
           sMinX = Math.min(sMinX, tx); sMaxX = Math.max(sMaxX, tx)
@@ -2498,7 +2506,7 @@ export class PencilEngine implements PencilEngineAPI {
         tilesOverlappingRect({ minX, minY, maxX, maxY }, tw, th)
           .map(({ tileX, tileY }) => tileWorldRect(tileX, tileY, tw, th))
 
-      const matrixInv = invertAffine(matrix)
+      const matrixInv = invertMatrix(matrix)
       const tiles: PreviewTile[] = []
       const reused = new Set<string>()
       for (const rect of destRects) {
@@ -2525,7 +2533,7 @@ export class PencilEngine implements PencilEngineAPI {
           // origin) — exactly _bakeTransform's own composition; see there.
           const toWorld = translationMatrix(rect.minX, rect.minY)
           const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
-          const mc = composeAffine(toSrcLocal, composeAffine(matrixInv, toWorld))
+          const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
           this._runTransformBlit(
             srcTile.buffer.texture, mc, dw, dh, srcTile.buffer.width, srcTile.buffer.height, scratch.fbo,
           )
@@ -5973,13 +5981,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  — which is the point, since doing both here means one resample instead
    *  of two. At or below zoom 1 the residual is exactly 1 and this reduces
    *  to the pure rotation it has always been. */
-  private _infiniteRotateMatrixInv(): AffineMatrix {
+  private _infiniteRotateMatrixInv(): Matrix3 {
     const { canvas } = this
     const { angle } = this._infiniteCamera
     const { padX, padY } = this._assemblyPad()
-    return composeAffine(
+    return composeMatrix(
       translationMatrix(canvas.width / 2 + padX, canvas.height / 2 + padY),
-      composeAffine(
+      composeMatrix(
         scaleRotateMatrix(1 / this._residualScale(), -angle),
         translationMatrix(-canvas.width / 2, -canvas.height / 2),
       ),
@@ -6001,12 +6009,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  (#301) What lets PAPER_COMPOSE_FRAG sample paper at a screen pixel's
    *  true world position *after* the rotation instead of before it — see
    *  that shader's own comment for why doing it after is the whole point. */
-  private _screenToWorldMatrix(): AffineMatrix {
+  private _screenToWorldMatrix(): Matrix3 {
     const { canvas } = this
     const { wx, wy, zoom, angle } = this._infiniteCamera
-    return composeAffine(
+    return composeMatrix(
       translationMatrix(wx, wy),
-      composeAffine(scaleRotateMatrix(1 / zoom, -angle), translationMatrix(-canvas.width / 2, -canvas.height / 2)),
+      composeMatrix(scaleRotateMatrix(1 / zoom, -angle), translationMatrix(-canvas.width / 2, -canvas.height / 2)),
     )
   }
 
@@ -6129,7 +6137,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  drawing step is _composePaperToScreen, which writes the screen through
    *  its own program rather than this one. */
   private _runTransformBlit(
-    sourceTex: WebGLTexture, matrixInv: AffineMatrix,
+    sourceTex: WebGLTexture, matrixInv: Matrix3,
     dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer | null,
   ): void {
     const { gl } = this
@@ -6189,7 +6197,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  a repeated-drag session crossed the eviction budget. Bounding this for
    *  real needs resolveForPaint (or _bakeTransform's own bounds math) to
    *  work from real content, not full-tile extent — left as a follow-up. */
-  private _bakeTransform(layerBuf: ILayerBuffer, matrix: AffineMatrix): void {
+  private _bakeTransform(layerBuf: ILayerBuffer, wireMatrix: LayerTransformMatrix): void {
+    // (#392) Widened here, once, for the same reason previewLayerTransform
+    // does it: the two must stay pixel-identical, and a bake that read the
+    // six-number form differently from the preview would show one thing during
+    // the drag and another after it.
+    const matrix = toHomography(wireMatrix)
     const sourceTiles = layerBuf.allResident()
     if (!sourceTiles.length) return
 
@@ -6212,7 +6225,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  private _bakeTransformUnsuspended(layerBuf: ILayerBuffer, matrix: AffineMatrix, sourceTiles: PaintTarget[]): void {
+  private _bakeTransformUnsuspended(layerBuf: ILayerBuffer, matrix: Matrix3, sourceTiles: PaintTarget[]): void {
     // (#155 Tier 2) Every source tile's buffer is unconditionally cleared at
     // the end of this method (see below) regardless of whether it ends up
     // rewritten as a destination — reset tracked content up front so it
@@ -6246,7 +6259,7 @@ export class PencilEngine implements PencilEngineAPI {
         [contentRect.minX, contentRect.maxY], [contentRect.maxX, contentRect.maxY],
       ]
       for (const [x, y] of corners) {
-        const [tx, ty] = applyAffine(matrix, x, y)
+        const [tx, ty] = applyMatrix(matrix, x, y)
         minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
         minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
         sMinX = Math.min(sMinX, tx); sMaxX = Math.max(sMaxX, tx)
@@ -6262,7 +6275,7 @@ export class PencilEngine implements PencilEngineAPI {
     }
 
     const destTargets = layerBuf.resolveForPaint({ minX, minY, maxX, maxY })
-    const matrixInv = invertAffine(matrix)
+    const matrixInv = invertMatrix(matrix)
     const scratches: Array<{ target: PaintTarget; scratch: AccumulationBuffer }> = []
     for (const destTarget of destTargets) {
       const destMinX = destTarget.originX, destMinY = destTarget.originY
@@ -6304,7 +6317,7 @@ export class PencilEngine implements PencilEngineAPI {
         // exactly matrixInv, unchanged from before this was generalized.
         const toWorld = translationMatrix(destTarget.originX, destTarget.originY)
         const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
-        const mc = composeAffine(toSrcLocal, composeAffine(matrixInv, toWorld))
+        const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
         this._runTransformBlit(
           srcTile.buffer.texture, mc,
           destTarget.buffer.width, destTarget.buffer.height,

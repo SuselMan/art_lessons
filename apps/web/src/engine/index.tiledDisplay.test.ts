@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { compositeCenterFor, compositeScaleFor, createTestEngine, fillStroke, makeLayerAdd, readCompositePixels, rotateMatrixInvFor, screenToWorldFor } from './testing/engineTestUtils'
-import { applyAffine } from './src/affine'
+import { applyMatrix } from './src/matrix'
 import { TILE_SIZE } from './src/tileMath'
 
 // Reads one texel's alpha out of a readCompositePixels() Uint8Array
@@ -233,21 +233,21 @@ describe('infinite canvas: camera-relative on-screen composite (#133)', () => {
     expect(scale).toBe(1)
 
     for (const [sx, sy] of [[0, 0], [32, 32], [63, 17], [7, 61]]) {
-      const [worldX, worldY] = applyAffine(toWorld, sx, sy)
+      const [worldX, worldY] = applyMatrix(toWorld, sx, sy)
       // The composite's own forward placement of that world point — the
       // unrounded form of _worldToScreenEdgeX/Y (which rounds only to keep
       // adjacent tile edges sharing a pixel; see its own doc comment).
       const expectedAssemblyX = (worldX - camera.wx) * scale + center.x
       const expectedAssemblyY = (worldY - camera.wy) * scale + center.y
 
-      const [assemblyX, assemblyY] = applyAffine(toAssembly, sx, sy)
+      const [assemblyX, assemblyY] = applyMatrix(toAssembly, sx, sy)
       expect(assemblyX).toBeCloseTo(expectedAssemblyX, 6)
       expect(assemblyY).toBeCloseTo(expectedAssemblyY, 6)
     }
 
     // Sanity anchor on the same mapping: the canvas center is, by
     // definition, the camera's own world point — whatever the rotation.
-    const [centerWorldX, centerWorldY] = applyAffine(toWorld, canvas.width / 2, canvas.height / 2)
+    const [centerWorldX, centerWorldY] = applyMatrix(toWorld, canvas.width / 2, canvas.height / 2)
     expect(centerWorldX).toBeCloseTo(camera.wx, 6)
     expect(centerWorldY).toBeCloseTo(camera.wy, 6)
   })
