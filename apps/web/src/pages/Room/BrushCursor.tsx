@@ -8,12 +8,6 @@ import { clientToRoomPoint } from './cameraMath'
 import type { ViewportTransform, CanvasSize } from './pointerTransform'
 import styles from './Room.module.css'
 
-// Dab-based tools only — the tools whose stroke is actually made of sized,
-// oriented dabs (see engine's DabSystem). Every other current tool (grid/
-// ruler/transform/eyedropper etc. aren't drawing tools at all, and fill-style
-// tools don't exist yet) has no dab shape to preview.
-const DAB_TOOLS: ReadonlySet<ToolType> = new Set(['pencil', 'eraser', 'smudge', 'liner', 'marker', 'charcoal'])
-
 // Never let the outline collapse to nothing at a 1px brush (or, for a chisel
 // nib, on its short axis — that one is a fifth of the picked size).
 const MIN_CURSOR_EXTENT_PX = 2
@@ -48,6 +42,14 @@ interface BrushCursorProps {
  *  `mix-blend-mode: difference` instead; it flickered on every stroke on
  *  Android because the blend has to re-read a WebGL backdrop that is actively
  *  repainting — see the CSS rule's own comment for the measurement.
+ *
+ *  Whether it shows at all is not this component's call (#393): Room mounts
+ *  it exactly while `useCursor()` says `dabPreview`, so once it is on screen
+ *  it simply follows the pointer. It used to gate itself on a `DAB_TOOLS`
+ *  set, which could only ever see the *tool* — and an overlay mode (a
+ *  transform session, the eyedropper, a ruler being placed) leaves the tool
+ *  exactly where it was, which is how this ring ended up drawn on top of the
+ *  transform gizmo. See cursorController.ts.
  *
  *  #336: it used to be a circle of `size` *plus* a separate line of
  *  `size * aspectRatio` laid across it, which for a 5:1 chisel drew a mark
@@ -96,10 +98,6 @@ export function BrushCursor({
   stateRef.current = { tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke }
 
   useEffect(() => {
-    if (!DAB_TOOLS.has(tool) && circleRef.current) circleRef.current.style.display = 'none'
-  }, [tool])
-
-  useEffect(() => {
     const el = vpRef.current
     if (!el) return
 
@@ -134,7 +132,6 @@ export function BrushCursor({
         tool: curTool, presetName: curPreset, baseSize: curBaseSize, vp: curVp, config: curConfig,
         markerAngleRadians: curMarkerAngle, markerFollowStroke: curMarkerFollow,
       } = stateRef.current
-      if (!DAB_TOOLS.has(curTool)) { hide(); return }
 
       const rect = rectCache ??= el.getBoundingClientRect()
       const { x, y } = clientToRoomPoint(clientX, clientY, rect, curVp, curConfig)

@@ -39,6 +39,13 @@ describe('roomStore initial shape', () => {
     expect(state.transformCenterOverride).toBeNull()
   })
 
+  it('starts with no overlay mode armed and no grid (#393)', () => {
+    const state = useRoomStore.getState()
+    expect(state.overlayMode).toBe('none')
+    expect(state.rulerPlaced).toBe(false)
+    expect(state.gridActive).toBe(false)
+  })
+
   it('never exposes anything engine-shaped', () => {
     const keys = Object.keys(useRoomStore.getState())
     expect(keys.some(k => /engine/i.test(k))).toBe(false)
