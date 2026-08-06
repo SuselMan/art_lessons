@@ -70,18 +70,19 @@ import { PeerCursors } from './PeerCursors'
 import { BrushCursor } from './BrushCursor'
 import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
-import { TransformGizmo, type TransformHandleKind, type TransformBounds } from './TransformGizmo'
+import { TransformGizmo, type TransformBounds } from './TransformGizmo'
 import {
-  translateMatrix, scaleAxisMatrix, rotateAboutMatrix,
+  translateMatrix, scaleAxisMatrix, skewAxisMatrix, rotateAboutMatrix,
   composeMatrix, invertMatrix, applyMatrix, isIdentityMatrix, IDENTITY_MATRIX,
-  type AffineMatrix,
+  transformGestureKind, isNegligibleTransform,
+  type AffineMatrix, type TransformHandleKind, type TransformMode,
 } from './transformMath'
 import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
 import { applyJoinRequestCreated, applyJoinRequestResolved, useJoinQueue } from './joinQueue'
 import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
-  getToolColor, isColorCapableTool, toolSizeRange, type ColorCapableTool,
+  getToolColor, isColorCapableTool, toolSizeRange, type ColorCapableTool, type UiToolId,
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { ChiselAngleDial } from './ChiselAngleDial'
@@ -199,16 +200,12 @@ function unionTransformBounds(a: TransformBounds, b: TransformBounds): Transform
   return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y }
 }
 
-// A drag that ends essentially where it started (a click, or a barely-moved
-// touch/pen jitter) shouldn't commit a no-op layer_transform — an identity
-// matrix would still be a real undo-stack entry for nothing.
-function isNegligibleTransform(handle: TransformHandleKind, m: AffineMatrix): boolean {
-  if (handle === 'body') return Math.hypot(m[4], m[5]) < 0.5
-  if (handle.startsWith('rotate')) return Math.abs(Math.atan2(m[1], m[0])) < 0.001
-  if (handle === 't' || handle === 'b') return Math.abs(m[3] - 1) < 0.001 // scaleY = d
-  if (handle === 'l' || handle === 'r') return Math.abs(m[0] - 1) < 0.001 // scaleX = a
-  return Math.abs(m[0] - 1) < 0.001 // corners: uniform, m[0] === m[3] === scale
-}
+// (#391) How far a shear may be pushed in one gesture. Unlike a scale this
+// has no singularity to protect against (a single-axis shear's determinant is
+// exactly 1 whatever the amount), so the clamp is purely about what a slip of
+// the pen near the anchor edge can do: the shear is a ratio whose denominator
+// is the distance to that edge, and 20 already lays the layer almost flat.
+const MAX_TRANSFORM_SHEAR = 20
 
 /** What dispatchOp did with an operation (#395). `applied: true` means the
  *  engine already carries it (the optimistic local-island path); `false`
@@ -2720,6 +2717,29 @@ export function Room() {
     overlay.addEventListener('pointerup', onUp)
   }, [vpRef, vp, config, rulerLine, setRulerLine])
 
+  // (#391) The transform tool's own two settings, from the same TOOL_SCHEMAS
+  // store every other tool's settings live in (see settingsToolId below for
+  // how they reach the UI). Both are `transient` there — a transform mode
+  // remembered from half an hour ago is a gizmo whose edge handles no longer
+  // do what the last person to touch them expects.
+  const transformMode = toolSettings.transform.mode as TransformMode
+  const transformKeepProportions = toolSettings.transform.keepProportions as boolean
+
+  // (#391) Whose settings the quick-access column and the "Tool settings" tab
+  // are showing. Transform isn't a `tool` — it's a mode layered over whichever
+  // drawing tool is selected (transformActive) — but while it is on the
+  // engine refuses paint outright (setLocked, #155 — see the layer-state sync
+  // effect above), so the pencil's size and grade are settings for something
+  // that cannot happen while the gizmo's are the live ones. Turning it off
+  // hands both surfaces straight back to the drawing tool, with its own
+  // settings exactly where they were.
+  //
+  // Only transform gets this: the eyedropper and the ruler are overlays with
+  // the same shape, but the eyedropper's single schema field is not wired to
+  // anything yet, and surfacing a control that visibly does nothing would be
+  // worse than leaving it where it has been all along.
+  const settingsToolId: UiToolId = transformActive ? 'transform' : tool
+
   // Layer transform tool (#120): mirrors handleRulerPlaceDown's drag-capture
   // pattern exactly, but per-handle (body/corner/rotate) rather than a
   // single A→B drag. Since #399 a gesture no longer commits anything — it
@@ -2781,7 +2801,10 @@ export function Room() {
 
     const bounds = transformBounds
     const center = transformCenterOverride ?? { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
-    const isRotate = handle.startsWith('rotate')
+    // (#391) What this handle means under the current mode — the corners and
+    // the rotate rings are the same in both, only the edges change hands.
+    const gestureKind = transformGestureKind(handle, transformMode)
+    const isRotate = gestureKind === 'rotate'
     const pivot = handle === 'body' || isRotate ? center : TRANSFORM_PIVOT[handle as keyof typeof TRANSFORM_PIVOT](bounds)
     const start = toPoint(e.clientX, e.clientY)
     // Rotation works entirely in canvas space, so its centre and start angle
@@ -2792,6 +2815,20 @@ export function Room() {
     const startDist  = Math.max(Math.hypot(start.x - pivot.x, start.y - pivot.y), 1e-6)
     const startDistX = Math.max(Math.abs(start.x - pivot.x), 1e-6)
     const startDistY = Math.max(Math.abs(start.y - pivot.y), 1e-6)
+    // Signed, unlike the two above: a shear is "how far the grabbed edge slid,
+    // per unit of distance from the anchor edge", and which side of the anchor
+    // the edge sits on decides the sign of the resulting matrix (see
+    // skewAxisMatrix). Guarded away from zero the same way — an edge dragged
+    // while the frame is degenerate would otherwise divide by nothing.
+    const startOffsetX = Math.sign(start.x - pivot.x || 1) * startDistX
+    const startOffsetY = Math.sign(start.y - pivot.y || 1) * startDistY
+    // (#391) With proportions locked, an edge handle scales *both* axes: the
+    // dragged axis about its own anchor edge as always, and the other about
+    // the frame's middle, so the layer widens evenly instead of drifting to
+    // one side. Unused when the lock is off, where the second axis is fixed
+    // at 1 and its pivot has no effect on the matrix at all.
+    const midX = bounds.x + bounds.width / 2
+    const midY = bounds.y + bounds.height / 2
 
     const computeMatrix = (clientX: number, clientY: number): AffineMatrix => {
       if (isRotate) {
@@ -2800,19 +2837,48 @@ export function Room() {
         return rotateAboutMatrix(angle, centerCanvas.x, centerCanvas.y)
       }
       const p = toPoint(clientX, clientY)
-      if (handle === 'body') return translateMatrix(p.x - start.x, p.y - start.y)
+      if (gestureKind === 'move') return translateMatrix(p.x - start.x, p.y - start.y)
+      // Rotate & Skew's edge handles (#391): the edge slides along itself and
+      // the opposite edge stays pinned, so only the travel *along* the edge is
+      // read — pushing the top edge up or down does nothing, exactly as in
+      // Adobe's own skew. Proportions have no meaning for a shear, so the
+      // keep-proportions toggle is deliberately not consulted here; it still
+      // governs this mode's corner handles below.
+      if (gestureKind === 'skewX') {
+        const shear = clamp((p.x - start.x) / startOffsetY, -MAX_TRANSFORM_SHEAR, MAX_TRANSFORM_SHEAR)
+        return skewAxisMatrix(shear, 0, pivot.x, pivot.y)
+      }
+      if (gestureKind === 'skewY') {
+        const shear = clamp((p.y - start.y) / startOffsetX, -MAX_TRANSFORM_SHEAR, MAX_TRANSFORM_SHEAR)
+        return skewAxisMatrix(0, shear, pivot.x, pivot.y)
+      }
       if (handle === 't' || handle === 'b') {
         const scaleY = clamp(Math.abs(p.y - pivot.y) / startDistY, 0.05, 20)
-        return scaleAxisMatrix(1, scaleY, pivot.x, pivot.y)
+        return transformKeepProportions
+          ? scaleAxisMatrix(scaleY, scaleY, midX, pivot.y)
+          : scaleAxisMatrix(1, scaleY, pivot.x, pivot.y)
       }
       if (handle === 'l' || handle === 'r') {
         const scaleX = clamp(Math.abs(p.x - pivot.x) / startDistX, 0.05, 20)
-        return scaleAxisMatrix(scaleX, 1, pivot.x, pivot.y)
+        return transformKeepProportions
+          ? scaleAxisMatrix(scaleX, scaleX, pivot.x, midY)
+          : scaleAxisMatrix(scaleX, 1, pivot.x, pivot.y)
       }
-      // Corner handles: uniform-only for now — no Shift-to-constrain on
-      // tablets, see the follow-up issue on tablet-friendly modifiers (#120).
-      const scale = clamp(Math.hypot(p.x - pivot.x, p.y - pivot.y) / startDist, 0.05, 20)
-      return scaleAxisMatrix(scale, scale, pivot.x, pivot.y)
+      // Corner handles. With proportions locked (the default, and what they
+      // always did before #391) the two axes share one factor taken from the
+      // pointer's distance to the anchor corner; unlocked, each axis is
+      // measured on its own — Free transform's whole point, and the reason
+      // #132 asked for a toggle rather than a Shift key nobody can press on a
+      // tablet.
+      if (transformKeepProportions) {
+        const scale = clamp(Math.hypot(p.x - pivot.x, p.y - pivot.y) / startDist, 0.05, 20)
+        return scaleAxisMatrix(scale, scale, pivot.x, pivot.y)
+      }
+      return scaleAxisMatrix(
+        clamp(Math.abs(p.x - pivot.x) / startDistX, 0.05, 20),
+        clamp(Math.abs(p.y - pivot.y) / startDistY, 0.05, 20),
+        pivot.x, pivot.y,
+      )
     }
 
     // Coalesce to one previewLayerTransform call per animation frame rather
@@ -2864,7 +2930,7 @@ export function Room() {
       // A click, or pen jitter below the threshold: roll the session's display
       // back to where it was rather than folding in a no-op that would drift
       // the accumulated matrix by a fraction of a pixel per tap.
-      if (isNegligibleTransform(handle, gesture)) {
+      if (isNegligibleTransform(gestureKind, gesture)) {
         if (isIdentityMatrix(sessionBase)) {
           setTransformSessionMatrix(sessionBase)
           engineRef.current?.clearLayerTransformPreview()
@@ -2885,7 +2951,10 @@ export function Room() {
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, transformBounds, transformCenterOverride, setTransformSessionMatrix, scheduleTransformAutoCommit, cancelTransformAutoCommit])
+  }, [
+    vpRef, vp, config, transformBounds, transformCenterOverride, transformMode, transformKeepProportions,
+    setTransformSessionMatrix, scheduleTransformAutoCommit, cancelTransformAutoCommit,
+  ])
 
   // Adobe Animate-style draggable rotation pivot — a separate gesture from
   // the scale/rotate/translate handles above: it only ever updates
@@ -4029,15 +4098,15 @@ export function Room() {
             size+opacity only) — a fixed button column plus a separately
             reflowing settings column reads far more stable. */}
         <aside className={clsx(styles.quickSettingsBar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
-          {Object.entries(TOOL_SCHEMAS[tool])
+          {Object.entries(TOOL_SCHEMAS[settingsToolId])
             .filter(([, descriptor]) => descriptor.quickAccess)
-            .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[tool]))
+            .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
             .map(([key, descriptor]) => (
               <SettingField
                 key={key}
                 descriptor={descriptor}
-                value={toolSettings[tool][key]}
-                onChange={v => setToolSetting(tool, key, v)}
+                value={toolSettings[settingsToolId][key]}
+                onChange={v => setToolSetting(settingsToolId, key, v)}
                 layout="toolbar"
                 onExpand={key === 'color' ? () => setActivePanel('color') : undefined}
               />
@@ -4124,6 +4193,7 @@ export function Room() {
                 matrix={transformSessionMatrix ?? undefined}
                 zoom={vp.zoom}
                 angleRad={vp.angle}
+                mode={transformMode}
                 onHandleDown={handleTransformHandleDown}
                 onCenterDown={handleTransformCenterDown}
                 onCenterDoubleClick={handleTransformCenterReset}
@@ -4184,6 +4254,7 @@ export function Room() {
                   matrix={transformSessionMatrix ?? undefined}
                   zoom={vp.zoom}
                   angleRad={vp.angle}
+                  mode={transformMode}
                   onHandleDown={handleTransformHandleDown}
                   onCenterDown={handleTransformCenterDown}
                   onCenterDoubleClick={handleTransformCenterReset}
@@ -4350,18 +4421,18 @@ export function Room() {
                 // quick-access row uses (#196) — this tab just renders every
                 // field, not only the quickAccess-flagged ones.
                 id: 'toolSettings', icon: 'tune', title: t('room.panel.toolSettings'),
-                content: Object.keys(TOOL_SCHEMAS[tool]).length === 0 ? (
+                content: Object.keys(TOOL_SCHEMAS[settingsToolId]).length === 0 ? (
                   <p className={styles.noToolSettings}>{t('room.noToolSettings')}</p>
                 ) : (
                   <div className={styles.toolSettingsPanel}>
-                    {Object.entries(TOOL_SCHEMAS[tool])
-                      .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[tool]))
+                    {Object.entries(TOOL_SCHEMAS[settingsToolId])
+                      .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
                       .map(([key, descriptor]) => (
                       <SettingField
                         key={key}
                         descriptor={descriptor}
-                        value={toolSettings[tool][key]}
-                        onChange={v => setToolSetting(tool, key, v)}
+                        value={toolSettings[settingsToolId][key]}
+                        onChange={v => setToolSetting(settingsToolId, key, v)}
                         layout="panel"
                         onExpand={key === 'color' ? () => setActivePanel('color') : undefined}
                       />

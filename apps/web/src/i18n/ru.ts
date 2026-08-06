@@ -365,7 +365,7 @@ export const ru: Dictionary = {
   'tool.handTitle': 'Рука — тащите, чтобы двигать холст, с Shift — вращать. Пробел делает то же, не выходя из инструмента  {hotkey}',
   'tool.eyedropper': 'Пипетка — взять цвет с холста',
   'tool.ruler': 'Линейка — потяните за грань; штрихи карандаша рядом с ней прилипают к линии и показывают расстояние',
-  'tool.transform': 'Трансформация — двигать/масштабировать/вращать активный слой или выделение',
+  'tool.transform': 'Трансформация — двигать/масштабировать/вращать/скашивать активный слой или выделение',
   'tool.grid': 'Построительная сетка',
 
   // ── настройки инструментов ─────────────────────────────────────────────
@@ -379,11 +379,15 @@ export const ru: Dictionary = {
   'tool.field.followStroke': 'Следовать направлению штриха',
   'tool.field.strength': 'Сила',
   'tool.field.addToPalette': 'Добавлять в палитру при выборе',
+  'tool.field.mode': 'Режим',
+  'tool.field.keepProportions': 'Сохранять пропорции',
   'tool.charcoalType.vine': 'Виноградный',
   'tool.charcoalType.willow': 'Ивовый',
   'tool.charcoalType.compressed': 'Прессованный',
   'tool.nib.bullet': 'Круглый',
   'tool.nib.chisel': 'Скошенный',
+  'tool.transformMode.free': 'Свободная',
+  'tool.transformMode.rotateSkew': 'Поворот и скос',
 
   // ── палитра ────────────────────────────────────────────────────────────
   'palette.open': 'Палитра',

@@ -1,11 +1,5 @@
-import { applyMatrix, IDENTITY_MATRIX } from './transformMath'
+import { applyMatrix, IDENTITY_MATRIX, type TransformHandleKind, type TransformMode } from './transformMath'
 import styles from './Room.module.css'
-
-export type TransformHandleKind =
-  | 'body'
-  | 'tl' | 'tr' | 'bl' | 'br'
-  | 't' | 'b' | 'l' | 'r'
-  | 'rotate-tl' | 'rotate-tr' | 'rotate-bl' | 'rotate-br'
 
 export interface TransformBounds { x: number; y: number; width: number; height: number }
 interface Point { x: number; y: number }
@@ -23,6 +17,12 @@ interface TransformGizmoProps {
    *  you zoom out — 3 screen px at 25%, which is not a hit target. */
   zoom: number
   angleRad: number
+  /** (#391) Only the edge handles' cursors read this — the mode changes what
+   *  dragging one *does* (stretch vs. skew), and with it which direction the
+   *  drag runs, so a resize arrow pointing across the gesture would be a lie.
+   *  Nothing else about the gizmo differs between modes: same handles, same
+   *  hit areas, same places. */
+  mode: TransformMode
   onHandleDown: (handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => void
   onCenterDown: (e: React.PointerEvent<SVGElement>) => void
   onCenterDoubleClick: () => void
@@ -86,7 +86,7 @@ const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHan
  *  component itself is unchanged: `bounds`/`center`/`matrix` are just
  *  numbers in whatever space the transformed ancestor expects. */
 export function TransformGizmo({
-  bounds, center, matrix, zoom, angleRad, onHandleDown, onCenterDown, onCenterDoubleClick,
+  bounds, center, matrix, zoom, angleRad, mode, onHandleDown, onCenterDown, onCenterDoubleClick,
 }: TransformGizmoProps) {
   const { x, y, width, height } = bounds
   const right = x + width
@@ -98,11 +98,17 @@ export function TransformGizmo({
   const cornerPos: Record<'tl' | 'tr' | 'bl' | 'br', Point> = {
     tl: { x, y }, tr: { x: right, y }, bl: { x, y: bottom }, br: { x: right, y: bottom },
   }
+  // (#391) In Rotate & Skew an edge slides *along itself* rather than being
+  // pushed in or out, so the arrows turn 90° with it. Deliberately the plain
+  // resize cursors rather than something skew-specific: no standard CSS cursor
+  // means "shear", and inventing a custom bitmap for it would be a worse
+  // affordance than an arrow that at least points the right way.
+  const skewing = mode === 'rotateSkew'
   const edges: Array<{ kind: 't' | 'b' | 'l' | 'r'; pos: Point; cursor: string }> = [
-    { kind: 't', pos: { x: midX, y }, cursor: 'ns-resize' },
-    { kind: 'b', pos: { x: midX, y: bottom }, cursor: 'ns-resize' },
-    { kind: 'l', pos: { x, y: midY }, cursor: 'ew-resize' },
-    { kind: 'r', pos: { x: right, y: midY }, cursor: 'ew-resize' },
+    { kind: 't', pos: { x: midX, y }, cursor: skewing ? 'ew-resize' : 'ns-resize' },
+    { kind: 'b', pos: { x: midX, y: bottom }, cursor: skewing ? 'ew-resize' : 'ns-resize' },
+    { kind: 'l', pos: { x, y: midY }, cursor: skewing ? 'ns-resize' : 'ew-resize' },
+    { kind: 'r', pos: { x: right, y: midY }, cursor: skewing ? 'ns-resize' : 'ew-resize' },
   ]
 
   // (#399) Only the outline rides the matrix. The handles are placed by

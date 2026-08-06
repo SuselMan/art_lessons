@@ -7,6 +7,7 @@ import {
   MAX_TOOL_SIZE_PX, toolSizeRange, degreesMinutesParse, formatDegreesMinutes,
   type UiToolId, type SettingValueType,
 } from './toolSchemas'
+import { TRANSFORM_MODES } from './transformMath'
 import { expScale } from '../../components/PrecisionSlider/sliderScale'
 import type { KeyValueStorage } from '../../lib/roomStorage'
 
@@ -167,23 +168,29 @@ describe('liner size helpers (#243, ADR 003)', () => {
   })
 })
 
-describe('tool-type pickers (#335)', () => {
+describe('option pickers (#335, #391)', () => {
   const selectFields = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
     Object.entries(TOOL_SCHEMAS[toolId])
       .filter(([, d]) => d.uiControls[0] === 'select')
       .map(([key, d]) => ({ toolId, key, descriptor: d })),
   )
 
-  it('covers exactly the three tool-type fields the issue names', () => {
+  it('covers exactly the fields that are picked from a list of choices', () => {
     expect(selectFields.map(f => `${f.toolId}.${f.key}`).sort()).toEqual(
-      ['charcoal.type', 'colorPencil.grade', 'marker.nib', 'pencil.grade'],
+      // Tool *types* — what the tool draws (#335) …
+      ['charcoal.type', 'colorPencil.grade', 'marker.nib', 'pencil.grade',
+        // … and the transform tool's working mode (#391), which is a mode
+        // rather than a material but is chosen the same way.
+        'transform.mode'],
     )
   })
 
   // The picker's whole point is showing what an option draws, so a missing
   // asset is a blank row rather than a visible fallback — worth a test, since
   // the images are picked up from disk by filename (toolTypeImages.ts) and
-  // nothing else would notice a renamed or forgotten file.
+  // nothing else would notice a renamed or forgotten file. It matters just as
+  // much for the mode picker, whose quick-panel button has room for the
+  // preview and nothing else.
   it('gives every option of every select field an image or an icon', () => {
     for (const { toolId, key, descriptor } of selectFields) {
       const { valueType } = descriptor
@@ -194,6 +201,57 @@ describe('tool-type pickers (#335)', () => {
         expect(visual, `${toolId}.${key} option "${option}" has no image or icon`).toBeTruthy()
       }
     }
+  })
+
+  // Grades and mm widths are notation and stay untranslated on purpose; a
+  // word is a word in some language, and the schema has to say which key
+  // holds it (see SettingField's optionLabel).
+  it('translates every option whose value is a word rather than notation', () => {
+    for (const option of TRANSFORM_MODES) {
+      expect(TOOL_SCHEMAS.transform.mode.optionLabelKeys?.[option], option).toBeTruthy()
+    }
+  })
+})
+
+describe('transient settings (#391)', () => {
+  // A deliberate list, like the exponential-scale one above: opting a field
+  // out of persistence is a product decision per field, so it should be
+  // impossible to add one without this test noticing.
+  it('exempts exactly the transform tool\'s mode and proportions lock', () => {
+    const transient = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
+      Object.entries(TOOL_SCHEMAS[toolId]).filter(([, d]) => d.transient).map(([key]) => `${toolId}.${key}`))
+    expect(transient.sort()).toEqual(['transform.keepProportions', 'transform.mode'])
+  })
+
+  it('starts a transient field at its default however the room was left', () => {
+    const storage = memoryStorage()
+    const settings = defaultToolSettings()
+    settings.transform = { mode: 'rotateSkew', keepProportions: false }
+    settings.pencil = { ...settings.pencil, size: 40 }
+    saveToolSettings(storage, 'room1', settings)
+
+    const loaded = loadToolSettings(storage, 'room1')
+    expect(loaded.transform).toEqual(defaultToolSettings().transform)
+    expect(loaded.pencil.size).toBe(40) // …while its neighbours are still remembered
+  })
+
+  it('never writes a transient field to storage at all', () => {
+    const storage = memoryStorage()
+    const settings = defaultToolSettings()
+    settings.transform = { mode: 'rotateSkew', keepProportions: false }
+    saveToolSettings(storage, 'room1', settings)
+    expect(storage.getItem('al_room_settings:room1')).not.toContain('rotateSkew')
+  })
+
+  // The other half of the same guarantee: a value left behind by a build that
+  // predates the flag (or by a field that stops being transient later) must
+  // not come back to life on load.
+  it('ignores a transient value already sitting in storage', () => {
+    const storage = memoryStorage()
+    storage.setItem('al_room_settings:room1', JSON.stringify({
+      v: 1, data: { toolSettings: { transform: { mode: 'rotateSkew' } } },
+    }))
+    expect(loadToolSettings(storage, 'room1').transform.mode).toBe('free')
   })
 })
 
