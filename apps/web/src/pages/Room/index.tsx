@@ -2822,14 +2822,6 @@ export function Room() {
     // while the frame is degenerate would otherwise divide by nothing.
     const startOffsetX = Math.sign(start.x - pivot.x || 1) * startDistX
     const startOffsetY = Math.sign(start.y - pivot.y || 1) * startDistY
-    // (#391) With proportions locked, an edge handle scales *both* axes: the
-    // dragged axis about its own anchor edge as always, and the other about
-    // the frame's middle, so the layer widens evenly instead of drifting to
-    // one side. Unused when the lock is off, where the second axis is fixed
-    // at 1 and its pivot has no effect on the matrix at all.
-    const midX = bounds.x + bounds.width / 2
-    const midY = bounds.y + bounds.height / 2
-
     const computeMatrix = (clientX: number, clientY: number): AffineMatrix => {
       if (isRotate) {
         const w = toCanvasPoint(clientX, clientY)
@@ -2852,24 +2844,28 @@ export function Room() {
         const shear = clamp((p.y - start.y) / startOffsetX, -MAX_TRANSFORM_SHEAR, MAX_TRANSFORM_SHEAR)
         return skewAxisMatrix(0, shear, pivot.x, pivot.y)
       }
+      // Edge handles in Free transform: always exactly one axis, about the
+      // opposite edge. The proportions toggle deliberately does not reach them
+      // (#391) — an edge that keeps the aspect ratio is an edge that cannot
+      // stretch, and stretching one axis is the only thing an edge handle has
+      // ever been for. Briefly they scaled both axes while the lock was on,
+      // which, since the lock is on by default, meant single-axis stretch was
+      // unreachable out of the box: a regression of the default dressed up as
+      // a feature. The toggle now governs the corners and nothing else.
       if (handle === 't' || handle === 'b') {
         const scaleY = clamp(Math.abs(p.y - pivot.y) / startDistY, 0.05, 20)
-        return transformKeepProportions
-          ? scaleAxisMatrix(scaleY, scaleY, midX, pivot.y)
-          : scaleAxisMatrix(1, scaleY, pivot.x, pivot.y)
+        return scaleAxisMatrix(1, scaleY, pivot.x, pivot.y)
       }
       if (handle === 'l' || handle === 'r') {
         const scaleX = clamp(Math.abs(p.x - pivot.x) / startDistX, 0.05, 20)
-        return transformKeepProportions
-          ? scaleAxisMatrix(scaleX, scaleX, pivot.x, midY)
-          : scaleAxisMatrix(scaleX, 1, pivot.x, pivot.y)
+        return scaleAxisMatrix(scaleX, 1, pivot.x, pivot.y)
       }
-      // Corner handles. With proportions locked (the default, and what they
-      // always did before #391) the two axes share one factor taken from the
-      // pointer's distance to the anchor corner; unlocked, each axis is
-      // measured on its own — Free transform's whole point, and the reason
-      // #132 asked for a toggle rather than a Shift key nobody can press on a
-      // tablet.
+      // Corner handles — the only place the proportions toggle is read. Locked
+      // (the default, and what they always did before #391) the two axes share
+      // one factor taken from the pointer's distance to the anchor corner;
+      // unlocked, each axis is measured on its own — Free transform's whole
+      // point, and the reason #132 asked for a toggle rather than a Shift key
+      // nobody can press on a tablet.
       if (transformKeepProportions) {
         const scale = clamp(Math.hypot(p.x - pivot.x, p.y - pivot.y) / startDist, 0.05, 20)
         return scaleAxisMatrix(scale, scale, pivot.x, pivot.y)

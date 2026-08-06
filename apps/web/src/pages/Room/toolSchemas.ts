@@ -501,16 +501,18 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       default: 'free' satisfies TransformMode,
     },
     // #132: the tablet-friendly answer to Shift-to-constrain, which a pen and
-    // a finger have no way to press. On (the default, i.e. what the corner
-    // handles did before they could do anything else) it keeps the layer's
-    // aspect ratio whichever handle is dragged — corners scale by one factor,
-    // and an edge widens the other axis to match instead of stretching. Off,
-    // every handle scales its own axes freely.
+    // a finger have no way to press. It governs the four *corner* handles and
+    // nothing else: on (the default, i.e. what a corner did before it could do
+    // anything else) both axes share one factor, off they are measured
+    // independently.
     //
-    // It says nothing about Rotate & Skew's edge handles: a shear isn't a
-    // scale, so there are no proportions for it to keep. The toggle still
-    // applies to that mode's *corners*, which scale exactly as they do in Free
-    // transform.
+    // Edge handles are outside its reach in every mode, and that is a decision
+    // rather than an omission. In Free transform an edge always stretches its
+    // one axis — an edge that preserved the aspect ratio would have nothing
+    // left to do, and since this toggle defaults to on, letting it reach the
+    // edges made plain single-axis stretch unreachable without first turning
+    // something off. In Rotate & Skew an edge shears, and a shear has no
+    // proportions to keep in the first place.
     keepProportions: {
       nameKey: 'tool.field.keepProportions',
       valueType: { kind: 'boolean' },

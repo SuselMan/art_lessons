@@ -20,9 +20,9 @@ export function translateMatrix(dx: number, dy: number): AffineMatrix {
  *  axis. Corner handles call this with scaleX === scaleY while the tool's
  *  "keep proportions" toggle is on and with two independently measured
  *  factors when it is off (#391 — that toggle is the tablet-friendly
- *  replacement for Shift-to-constrain, #132); edge handles use it with one
- *  axis fixed at 1 for single-axis stretch, or with both axes equal when
- *  proportions are locked. */
+ *  replacement for Shift-to-constrain, #132); edge handles always call it
+ *  with one axis fixed at 1, whatever that toggle says, because single-axis
+ *  stretch is the entire job of an edge handle. */
 export function scaleAxisMatrix(scaleX: number, scaleY: number, pivotX: number, pivotY: number): AffineMatrix {
   return [scaleX, 0, 0, scaleY, pivotX * (1 - scaleX), pivotY * (1 - scaleY)]
 }
