@@ -406,15 +406,16 @@ const markerSchema = (): ToolSchema => ({
   },
 })
 
-/** (#391) One glyph per transform mode, from the icons this app actually
- *  ships (icons/iconNames.ts). 'transform' is the tool's own toolbar icon,
- *  which is exactly right for the mode that *is* the plain transform;
- *  'rotate_90_degrees_cw' names the half of Rotate & Skew that has a glyph at
- *  all. Nothing in the subsetted font depicts a shear, and widening the font
- *  for a picture nobody would read as "skew" is not worth a bake. */
+/** (#391/#392) One glyph per transform mode. All three are hand-drawn custom
+ *  icons (assets/icons/*.svg, listed in icons/iconNames.ts) rather than
+ *  Material Symbols: a mode is a *gesture on a frame*, and the shipped subset
+ *  has nothing that reads as "shear this rectangle" or "drag that corner
+ *  alone" — the nearest Material names were a generic transform glyph and a
+ *  rotate arrow, which said the same thing for two different modes. */
 const TRANSFORM_MODE_ICONS = {
-  free: 'transform',
-  rotateSkew: 'rotate_90_degrees_cw',
+  free: 'free-transform',
+  rotateSkew: 'skew-and-rotate',
+  distort: 'distort',
 } as const satisfies Record<TransformMode, IconName>
 
 export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
@@ -478,7 +479,8 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       default: false,
     },
   },
-  // Layer transform (#120), its two modes and the proportions lock (#391).
+  // Layer transform (#120), its three modes (#391, #392) and the proportions
+  // lock (#391).
   // Both fields are `transient` — see that flag's own comment for why a
   // remembered transform mode is a trap rather than a convenience.
   transform: {
@@ -488,6 +490,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       optionLabelKeys: {
         free: 'tool.transformMode.free',
         rotateSkew: 'tool.transformMode.rotateSkew',
+        distort: 'tool.transformMode.distort',
       },
       // Icons, not sample strokes: a mode isn't a material, so there is
       // nothing to photograph — and the quick-panel button is preview-only,
@@ -520,6 +523,14 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       quickAccess: true,
       transient: true,
       default: true,
+      // Hidden in Distort (#392) rather than shown and inert: there the four
+      // corners each go wherever they are dragged, so there is no second axis
+      // for a ratio to be kept against, and the edges never consulted this
+      // toggle in any mode. A control that provably cannot change anything is
+      // worse than no control — it invites the user to try it and conclude the
+      // tool is broken. Same mechanism the marker's chisel-only angle uses
+      // (#278).
+      visibleWhen: v => v.mode !== 'distort',
     },
   },
   // Honest empty schemas — these tools have no settings yet, not stubs

@@ -1,27 +1,27 @@
-import { applyMatrix, IDENTITY_MATRIX, type TransformHandleKind, type TransformMode } from './transformMath'
+import {
+  applyMatrix, frameCorners, IDENTITY_MATRIX,
+  type Point, type TransformBounds, type TransformHandleKind, type TransformMatrix, type TransformMode,
+} from './transformMath'
 import styles from './Room.module.css'
-
-export interface TransformBounds { x: number; y: number; width: number; height: number }
-interface Point { x: number; y: number }
 
 interface TransformGizmoProps {
   bounds: TransformBounds
   center: Point
-  // Live matrix during a drag (see Room's handleTransformHandleDown) — the
-  // whole gizmo rides along with it via a single SVG `matrix()` transform,
-  // so handles stay attached to the content instead of the pre-drag bounds.
-  matrix?: [number, number, number, number, number, number]
+  // Live matrix during a drag (see Room's handleTransformHandleDown) — every
+  // point the gizmo draws is mapped through it, so the handles stay attached
+  // to the content instead of the pre-drag bounds.
+  matrix?: TransformMatrix
   /** (#394) Camera zoom and rotation. This svg hangs off the ancestor that
    *  carries the viewport transform, so without counter-transforming, every
    *  size below would be in *canvas* units and the handles would shrink as
    *  you zoom out — 3 screen px at 25%, which is not a hit target. */
   zoom: number
   angleRad: number
-  /** (#391) Only the edge handles' cursors read this — the mode changes what
-   *  dragging one *does* (stretch vs. skew), and with it which direction the
-   *  drag runs, so a resize arrow pointing across the gesture would be a lie.
-   *  Nothing else about the gizmo differs between modes: same handles, same
-   *  hit areas, same places. */
+  /** (#391/#392) Only the handles' cursors read this — a mode changes what
+   *  dragging a handle *does*, and with it which direction the drag runs, so
+   *  a resize arrow pointing across the gesture would be a lie. Nothing else
+   *  about the gizmo differs between modes: same handles, same hit areas,
+   *  same places. */
   mode: TransformMode
   onHandleDown: (handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => void
   onCenterDown: (e: React.PointerEvent<SVGElement>) => void
@@ -54,15 +54,19 @@ const CENTER_HIT_RADIUS = 16
 // grabbable — a worse failure than a handle being small.
 const HIT_BUDGET_FRACTION = 0.4
 
-const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHandleKind; cursor: string }> = [
+type CornerKind = 'tl' | 'tr' | 'br' | 'bl'
+
+// Same order as frameCorners — round the rectangle, not left-to-right — so the
+// outline polygon can be drawn straight from the mapped points.
+const CORNERS: Array<{ kind: CornerKind; rotateKind: TransformHandleKind; cursor: string }> = [
   { kind: 'tl', rotateKind: 'rotate-tl', cursor: 'nwse-resize' },
   { kind: 'tr', rotateKind: 'rotate-tr', cursor: 'nesw-resize' },
-  { kind: 'bl', rotateKind: 'rotate-bl', cursor: 'nesw-resize' },
   { kind: 'br', rotateKind: 'rotate-br', cursor: 'nwse-resize' },
+  { kind: 'bl', rotateKind: 'rotate-bl', cursor: 'nesw-resize' },
 ]
 
-/** Layer transform tool (#120): move/scale/rotate gizmo hugging the
- *  target layer(s)' actual painted content (`bounds` — see
+/** Layer transform tool (#120): move/scale/rotate/skew/distort gizmo hugging
+ *  the target layer(s)' actual painted content (`bounds` — see
  *  engine.getContentBounds, canvas-pixel space for bounded rooms, genuine
  *  world space for infinite rooms — #143), not the whole canvas; single-
  *  and multi-layer selections both just union their content bounds in
@@ -74,9 +78,17 @@ const CORNERS: Array<{ kind: 'tl' | 'tr' | 'bl' | 'br'; rotateKind: TransformHan
  *  one exception carried in from there — without it the handles stayed at
  *  the pre-drag bounds while only the WebGL preview underneath moved,
  *  which read as broken (the thing you're dragging visually detaches from
- *  what you're dragging). SVG's own `matrix(a,b,c,d,e,f)` transform
- *  function uses the exact same convention as LayerTransformOperation's
- *  matrix, so the whole gizmo can ride along with one <g transform>.
+ *  what you're dragging).
+ *
+ *  (#392) Every point is mapped through that matrix here, in JS, and the
+ *  outline is a polygon through the four mapped corners. It used to be a
+ *  `<rect>` inside a single `<g transform="matrix(a,b,c,d,e,f)">`, which was
+ *  neat while every transform was affine and is simply not expressible once
+ *  Distort is in play: SVG's transform list has no projective entry, so a
+ *  homography has nowhere to go. Done for all three modes rather than
+ *  branching on whether the current matrix happens to be affine — one drawing
+ *  path that is always right beats two that agree most of the time, and the
+ *  handles were already being placed this way (see `at`) since #399.
  *
  *  Placement: a sibling of `<canvas>` inside `canvasWrap` for bounded
  *  rooms (its own CSS transform does the pan/zoom/rotate), or inside
@@ -93,10 +105,9 @@ export function TransformGizmo({
   const bottom = y + height
   const midX = x + width / 2
   const midY = y + height / 2
-  const groupTransform = matrix ? `matrix(${matrix.join(',')})` : undefined
 
-  const cornerPos: Record<'tl' | 'tr' | 'bl' | 'br', Point> = {
-    tl: { x, y }, tr: { x: right, y }, bl: { x, y: bottom }, br: { x: right, y: bottom },
+  const cornerPos: Record<CornerKind, Point> = {
+    tl: { x, y }, tr: { x: right, y }, br: { x: right, y: bottom }, bl: { x, y: bottom },
   }
   // (#391) In Rotate & Skew an edge slides *along itself* rather than being
   // pushed in or out, so the arrows turn 90° with it. Deliberately the plain
@@ -110,28 +121,34 @@ export function TransformGizmo({
     { kind: 'l', pos: { x, y: midY }, cursor: skewing ? 'ns-resize' : 'ew-resize' },
     { kind: 'r', pos: { x: right, y: midY }, cursor: skewing ? 'ns-resize' : 'ew-resize' },
   ]
+  // (#392) A Distort corner goes wherever it is dragged, in any direction, so
+  // a two-headed diagonal resize arrow would be describing the wrong gesture.
+  const cornerCursor = (fallback: string) => mode === 'distort' ? 'move' : fallback
 
-  // (#399) Only the outline rides the matrix. The handles are placed by
-  // mapping their anchor point through it and then drawn square, outside the
-  // transformed group — inside it they inherited the whole thing, so a
-  // session that squashed one axis squashed the grab squares along with the
-  // content, and a rotation turned them on their corners. Their size is the
-  // hit target; it has no business tracking the content's shape.
+  // (#399) Only the outline follows the content's shape. The handles are
+  // placed by mapping their anchor point through the matrix and then drawn
+  // square: their size is the hit target, and it has no business tracking the
+  // content's shape — riding the matrix squashed the grab squares along with a
+  // squashed axis and turned them on their corners under a rotation.
   const at = (p: Point) => applyMatrix(matrix ?? IDENTITY_MATRIX, p.x, p.y)
   const centerAt = at(center)
-  const tl = at(cornerPos.tl)
+  const outline = frameCorners(bounds).map(at)
+  const [tl, tr, , bl] = outline
 
   // (#394) Undoes the camera for one handle: everything drawn inside is in
   // screen px, centred on the origin, whatever the zoom and however the canvas
   // is turned. Same counter-transform PeerCursors applies to its dots and for
-  // the same reason — the difference being that a cursor that shrinks is
-  // merely hard to read, while a handle that shrinks is impossible to grab.
+  // the same reason — a cursor that shrinks is merely hard to read, while a
+  // handle that shrinks is impossible to grab.
   const place = (p: Point) =>
     `translate(${p.x} ${p.y}) rotate(${-angleRad * 180 / Math.PI}) scale(${1 / (zoom || 1)})`
 
   // On-screen size of the frame, used only to keep the hit targets from
-  // swallowing a small selection whole (see HIT_BUDGET_FRACTION).
-  const tr = at(cornerPos.tr), bl = at(cornerPos.bl)
+  // swallowing a small selection whole (see HIT_BUDGET_FRACTION). The two
+  // sides measured are the ones meeting at the top-left corner; under a
+  // Distort the opposite sides can be a different length, but this is a budget
+  // for how big a grab square may get, not a measurement anything is drawn
+  // from.
   const frameShorterSide = Math.min(
     Math.hypot(tr.x - tl.x, tr.y - tl.y),
     Math.hypot(bl.x - tl.x, bl.y - tl.y),
@@ -160,13 +177,11 @@ export function TransformGizmo({
 
   return (
     <svg className={styles.transformSvg}>
-      <g transform={groupTransform}>
-        <rect
-          x={x} y={y} width={width} height={height}
-          className={styles.transformBody}
-          onPointerDown={e => onHandleDown('body', e)}
-        />
-      </g>
+      <polygon
+        points={outline.map(p => `${p.x},${p.y}`).join(' ')}
+        className={styles.transformBody}
+        onPointerDown={e => onHandleDown('body', e)}
+      />
 
       {CORNERS.map(({ kind, rotateKind, cursor }) => (
         <g key={kind} transform={place(at(cornerPos[kind]))}>
@@ -175,7 +190,7 @@ export function TransformGizmo({
             className={styles.transformRotateZone}
             onPointerDown={e => onHandleDown(rotateKind, e)}
           />
-          {handle(kind, cursor)}
+          {handle(kind, cornerCursor(cursor))}
         </g>
       ))}
 

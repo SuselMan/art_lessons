@@ -477,6 +477,7 @@ export const en = {
   'tool.nib.chisel': 'Chisel',
   'tool.transformMode.free': 'Free transform',
   'tool.transformMode.rotateSkew': 'Rotate & Skew',
+  'tool.transformMode.distort': 'Distort',
 
   // ── color palette ──────────────────────────────────────────────────────
   'palette.open': 'Palette',

@@ -5,8 +5,7 @@ import { translate } from '../../i18n/translate'
 import { replayLayerState, overlayLocalFields } from '../../lib/layers'
 import { useSettingsStore } from '../settingsStore'
 import type { RulerPoint } from '../../pages/Room/RulerOverlay'
-import type { TransformBounds } from '../../pages/Room/TransformGizmo'
-import type { AffineMatrix } from '../../pages/Room/transformMath'
+import type { TransformBounds, TransformMatrix } from '../../pages/Room/transformMath'
 
 // (#208) The two baseline layers are the only ones whose names never travel
 // through the operation log — they're the implicit state every replay starts
@@ -68,8 +67,8 @@ export interface LayerSlice {
    *  session is open. Rendered straight as the gizmo's `<g transform>` and fed
    *  to previewLayerTransform, which is what keeps the frame glued to the
    *  content instead of snapping back to an upright box on release (#399). */
-  transformSessionMatrix: AffineMatrix | null
-  setTransformSessionMatrix: (matrix: AffineMatrix | null) => void
+  transformSessionMatrix: TransformMatrix | null
+  setTransformSessionMatrix: (matrix: TransformMatrix | null) => void
   /** Custom rotation pivot, in the session's *local* (pre-matrix) space, so it
    *  rides along with the content the way Photoshop's reference point does
    *  rather than needing to be re-placed after every gesture. */

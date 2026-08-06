@@ -388,6 +388,7 @@ export const ru: Dictionary = {
   'tool.nib.chisel': 'Скошенный',
   'tool.transformMode.free': 'Свободная',
   'tool.transformMode.rotateSkew': 'Поворот и скос',
+  'tool.transformMode.distort': 'Искажение',
 
   // ── палитра ────────────────────────────────────────────────────────────
   'palette.open': 'Палитра',
