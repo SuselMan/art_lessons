@@ -5,6 +5,7 @@ import { createViewportSlice, type ViewportSlice } from './slices/viewportSlice'
 import { createToolSlice, type ToolSlice } from './slices/toolSlice'
 import { createRoomInfoSlice, type RoomInfoSlice } from './slices/roomSlice'
 import { createStrokeSlice, type StrokeSlice } from './slices/strokeSlice'
+import { createOverlaySlice, type OverlaySlice } from './slices/overlaySlice'
 
 // The engine ref never enters this file (or any slice under ./slices) —
 // enforced by convention, not by TS; see epic #2 and its #25 audit task.
@@ -18,7 +19,7 @@ import { createStrokeSlice, type StrokeSlice } from './slices/strokeSlice'
 // (useRoomStore()) — LayerPanel and ColorPicker both rely on prop-
 // reference stability (memo()/a lastEmitted ref) that a naive whole-store
 // subscription would break. #25 audits this once everything is wired.
-export interface RoomStore extends LayerSlice, ViewportSlice, ToolSlice, RoomInfoSlice, StrokeSlice {}
+export interface RoomStore extends LayerSlice, ViewportSlice, ToolSlice, RoomInfoSlice, StrokeSlice, OverlaySlice {}
 
 export const useRoomStore = create<RoomStore>()((...a) => ({
   ...createLayerSlice(...a),
@@ -26,6 +27,7 @@ export const useRoomStore = create<RoomStore>()((...a) => ({
   ...createToolSlice(...a),
   ...createRoomInfoSlice(...a),
   ...createStrokeSlice(...a),
+  ...createOverlaySlice(...a),
 }))
 
 const initialRoomStoreState = useRoomStore.getState()
