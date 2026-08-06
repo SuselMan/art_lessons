@@ -4,42 +4,37 @@ import { CHARCOAL_DAB_SHAPING, tiltOrPathAngle } from './dabShaping'
 import {
   CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS,
   charcoalAspect, charcoalBroadDensity, charcoalBroadness, charcoalPressureResponse,
-  charcoalTiltWeights, charcoalWidthFactor,
+  charcoalTiltT, charcoalWidthFactor,
 } from './charcoalFeel'
 
-// #305 / ADR 005 "Форма от наклона". The threshold *values* are explicitly
-// uncalibrated and live behind dev sliders, so nothing here pins a specific
-// degree count. What these protect is the ladder's shape — the properties a
-// retune (or a slider dragged to an odd place) must not break.
+// #305 / ADR 005 "Форма от наклона", reshaped from a plateau ladder into a
+// smooth curve in #403. The parameter *values* are explicitly uncalibrated and
+// live behind dev sliders, so nothing here pins a specific degree count. What
+// these protect is the response's shape — the properties a retune (or a slider
+// dragged to an odd place) must not break.
 
 const cfg = CHARCOAL_FEEL
 
-describe('charcoal tilt ladder (#305)', () => {
-  it('stays perfectly round below the first threshold', () => {
-    for (const deg of [0, 5, 10, cfg.roundMaxDeg]) {
-      expect(charcoalAspect(deg)).toBeCloseTo(1)
-      expect(charcoalWidthFactor(deg)).toBeCloseTo(1)
-    }
+describe('charcoal tilt response (#305, #403)', () => {
+  it('stays round when the stick is stood on its end', () => {
+    expect(charcoalAspect(0)).toBeCloseTo(1)
+    expect(charcoalWidthFactor(0)).toBeCloseTo(1)
   })
 
-  it('reaches the edge plateau and holds it across an ordinary writing grip', () => {
-    // The plateau must actually be flat, not a slope that happens to pass
-    // through the right values — that flatness is what makes the regime read as
-    // a distinct state to the hand instead of a continuously morphing shape.
-    const atEdge = charcoalAspect(cfg.edgeFullDeg)
-    expect(atEdge).toBeCloseTo(cfg.edgeAspect, 3)
-    for (const deg of [cfg.edgeFullDeg, 40, 45, cfg.broadStartDeg]) {
-      expect(charcoalAspect(deg)).toBeCloseTo(cfg.edgeAspect, 3)
-    }
+  it('reaches its full response at a tilt a stylus can actually make', () => {
+    expect(charcoalAspect(cfg.fullDeg)).toBeCloseTo(cfg.aspectMax, 3)
+    expect(charcoalWidthFactor(cfg.fullDeg)).toBeCloseTo(cfg.widthMax, 3)
+    // The reason #305 replaced #304's original curve, and the reason this one
+    // is normalized against fullDeg rather than 90: that curve only maxed out
+    // at 90°, which no hand can do with a stylus on a tablet.
+    expect(cfg.fullDeg).toBeLessThan(75)
   })
 
-  it('reaches the broad plateau at a tilt a stylus can actually make', () => {
-    expect(charcoalAspect(cfg.broadFullDeg)).toBeCloseTo(cfg.broadAspect, 3)
-    // The whole reason this ladder replaced #304's single curve: that one only
-    // maxed out at 90°, which no hand can do with a stylus on a tablet.
-    expect(cfg.broadFullDeg).toBeLessThan(75)
-    // ...but not so easy that an ordinary grip lands in it by accident.
-    expect(cfg.broadStartDeg).toBeGreaterThan(40)
+  it('saturates past full tilt instead of running away', () => {
+    for (const deg of [cfg.fullDeg, cfg.fullDeg + 15, 90]) {
+      expect(charcoalAspect(deg)).toBeCloseTo(cfg.aspectMax, 3)
+      expect(charcoalWidthFactor(deg)).toBeCloseTo(cfg.widthMax, 3)
+    }
   })
 
   it('never decreases as tilt grows', () => {
@@ -55,29 +50,44 @@ describe('charcoal tilt ladder (#305)', () => {
   })
 
   it('is continuous — no step big enough to read as a shape flip', () => {
-    // A discrete three-mode implementation would jump here; a ladder must not.
     let prev = charcoalAspect(0)
     for (let deg = 0.5; deg <= 90; deg += 0.5) {
       const a = charcoalAspect(deg)
-      expect(Math.abs(a - prev)).toBeLessThan(cfg.broadAspect / 8)
+      expect(Math.abs(a - prev)).toBeLessThan(cfg.aspectMax / 8)
       prev = a
     }
   })
 
-  it('narrows the short axis for both elongated regimes', () => {
-    // The edge of a stick is thinner than its end face, and laid over, a
-    // cylinder contacts along a line — the mark's width comes from sweeping the
-    // long axis, not from the short one growing.
-    expect(charcoalWidthFactor(cfg.edgeFullDeg)).toBeLessThan(1)
-    expect(charcoalWidthFactor(cfg.broadFullDeg)).toBeLessThan(1)
+  it('has no plateau — every extra degree of lean changes the shape', () => {
+    // This is the #403 change itself, and the property the ladder deliberately
+    // did not have. Inside a flat region the tool stops answering the stylus,
+    // and a hand cannot tell that from having stopped moving.
+    for (let deg = 1; deg < cfg.fullDeg; deg += 1) {
+      expect(charcoalAspect(deg)).toBeGreaterThan(charcoalAspect(deg - 1))
+      expect(charcoalWidthFactor(deg)).toBeLessThan(charcoalWidthFactor(deg - 1))
+    }
+  })
+
+  it('narrows the short axis as the stick goes over', () => {
+    // Laid over, a cylinder contacts along a line — the mark's width comes from
+    // sweeping the long axis, not from the short one growing.
+    expect(cfg.widthMax).toBeLessThan(1)
+    expect(charcoalWidthFactor(cfg.fullDeg)).toBeLessThan(1)
+    expect(charcoalWidthFactor(cfg.fullDeg / 2)).toBeLessThan(1)
   })
 
   it('maps a baked aspect back to the same broadness the shader derives', () => {
     expect(charcoalBroadness(1)).toBeCloseTo(0)
-    expect(charcoalBroadness(cfg.broadAspect)).toBeCloseTo(1)
+    expect(charcoalBroadness(cfg.aspectMax)).toBeCloseTo(1)
     // Clamped, so a dab recorded while a slider sat higher can't overshoot.
-    expect(charcoalBroadness(cfg.broadAspect * 3)).toBeCloseTo(1)
+    expect(charcoalBroadness(cfg.aspectMax * 3)).toBeCloseTo(1)
     expect(charcoalBroadness(0.2)).toBeCloseTo(0)
+  })
+
+  it('broadness is the exact inverse of the aspect curve, which is what keeps deposit and geometry in step', () => {
+    for (const deg of [0, 9, 21, 38, 50, cfg.fullDeg, 88]) {
+      expect(charcoalBroadness(charcoalAspect(deg))).toBeCloseTo(charcoalTiltT(deg), 9)
+    }
   })
 
   it('deposits lighter the further onto the broad side it goes', () => {
@@ -88,15 +98,16 @@ describe('charcoal tilt ladder (#305)', () => {
   })
 
   it('degenerates safely when sliders are dragged into a collapsed range', () => {
-    // The sliders let thresholds cross over each other; that must produce a
-    // hard step rather than a divide-by-zero or a NaN reaching the geometry.
-    const collapsed = { ...cfg, roundMaxDeg: 40, edgeFullDeg: 40, broadStartDeg: 40, broadFullDeg: 40 }
-    for (const deg of [0, 39.9, 40, 40.1, 90]) {
+    // A slider at an extreme must produce a hard step rather than a
+    // divide-by-zero or a NaN reaching the geometry.
+    const collapsed = { ...cfg, fullDeg: 0 }
+    for (const deg of [0, 39.9, 40, 90]) {
       const a = charcoalAspect(deg, collapsed)
       expect(Number.isFinite(a)).toBe(true)
       expect(a).toBeGreaterThanOrEqual(1)
     }
-    expect(charcoalBroadness(5, { ...cfg, broadAspect: 1 })).toBe(0)
+    expect(charcoalBroadness(5, { ...cfg, aspectMax: 1 })).toBe(0)
+    expect(Number.isFinite(charcoalAspect(30, { ...cfg, curve: 0 }))).toBe(true)
   })
 
   it('exposes every tunable field as a slider, with the default inside its range', () => {
@@ -174,14 +185,14 @@ describe('charcoal tilt ladder (#305)', () => {
       expect(delta).toBeCloseTo(1)
     })
 
-    it('keeps the same orientation in both elongated regimes, so nothing flips', () => {
-      const edgeDeg = cfg.edgeFullDeg
-      const broadDeg = cfg.broadFullDeg
-      const edge = CHARCOAL_DAB_SHAPING.angle(edgeDeg, edgeDeg, 0, 0)
-      const broad = CHARCOAL_DAB_SHAPING.angle(broadDeg, broadDeg, 0, 0)
-      // Same tilt direction (+x) at both ends of the ladder must give the same
-      // dab axis — a 90° difference here is exactly the flip this avoids.
-      expect(Math.abs(Math.sin(broad - edge))).toBeCloseTo(0)
+    it('keeps the same orientation at every lean, so nothing flips', () => {
+      const mild = cfg.fullDeg / 2
+      const full = cfg.fullDeg
+      const a = CHARCOAL_DAB_SHAPING.angle(mild, mild, 0, 0)
+      const b = CHARCOAL_DAB_SHAPING.angle(full, full, 0, 0)
+      // Same tilt direction (+x) at both ends of the response must give the
+      // same dab axis — a 90° difference here is exactly the flip this avoids.
+      expect(Math.abs(Math.sin(b - a))).toBeCloseTo(0)
     })
   })
 
@@ -221,13 +232,11 @@ describe('charcoal tilt ladder (#305)', () => {
     })
   })
 
-  it('weights stay within 0..1 across the whole tilt range', () => {
+  it('stays within 0..1 across the whole tilt range, including nonsense input', () => {
     for (let deg = -10; deg <= 120; deg += 3) {
-      const { edge, broad } = charcoalTiltWeights(deg)
-      for (const w of [edge, broad]) {
-        expect(w).toBeGreaterThanOrEqual(0)
-        expect(w).toBeLessThanOrEqual(1)
-      }
+      const t = charcoalTiltT(deg)
+      expect(t).toBeGreaterThanOrEqual(0)
+      expect(t).toBeLessThanOrEqual(1)
     }
   })
 })

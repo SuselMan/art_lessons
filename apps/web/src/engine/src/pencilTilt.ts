@@ -1,4 +1,4 @@
-import { clamp } from 'lodash-es'
+import { tiltCurveInverse, tiltCurveLerp, tiltCurveT } from './tiltCurve'
 
 // Graphite's tilt→shape response (#389). Replaces the two-line model
 // dabShaping.ts carried since the engine's first commit:
@@ -28,15 +28,11 @@ import { clamp } from 'lodash-es'
 // into a plateau can't tell whether the tool stopped responding or they
 // stopped moving. Charcoal is expected to follow the same way later.
 //
-// The curve itself:
-//
-//   t      = clamp(θ / fullDeg, 0, 1) ^ curve
-//   aspect = 1 + t · (aspectMax - 1)
-//   width  = 1 + t · (widthMax  - 1)
-//
-// θ is the *true* angle from vertical (tiltMath.ts), not the old hypot
-// approximation — these numbers are calibrated against the corrected formula
-// and mean nothing against the old one.
+// The curve itself lives in tiltCurve.ts and is shared with charcoal (#403);
+// this file is only graphite's numbers for it. θ is the *true* angle from
+// vertical (tiltMath.ts), not the old hypot approximation — these numbers are
+// calibrated against the corrected formula and mean nothing against the old
+// one.
 
 /** Live-tunable for the same reason CharcoalFeelConfig is (ADR 005): where a
  *  particular hand actually holds a particular stylus is not something to
@@ -109,18 +105,17 @@ export const PENCIL_TILT_SLIDERS: readonly {
  *  interpolation driven by this one number, which is also what makes the
  *  inverse (pencilTiltness) exact. */
 export function pencilTiltT(tiltDeg: number, cfg: PencilTiltConfig = PENCIL_TILT): number {
-  if (cfg.fullDeg <= 0) return 1
-  return Math.pow(clamp(tiltDeg / cfg.fullDeg, 0, 1), cfg.curve)
+  return tiltCurveT(tiltDeg, cfg.fullDeg, cfg.curve)
 }
 
 /** Dab elongation along the tilt azimuth: 1 (round) -> aspectMax. */
 export function pencilTiltAspect(tiltDeg: number, cfg: PencilTiltConfig = PENCIL_TILT): number {
-  return 1 + (cfg.aspectMax - 1) * pencilTiltT(tiltDeg, cfg)
+  return tiltCurveLerp(pencilTiltT(tiltDeg, cfg), cfg.aspectMax)
 }
 
 /** Short-axis multiplier: 1 (the point) -> widthMax (the side of the cone). */
 export function pencilTiltWidthFactor(tiltDeg: number, cfg: PencilTiltConfig = PENCIL_TILT): number {
-  return 1 + (cfg.widthMax - 1) * pencilTiltT(tiltDeg, cfg)
+  return tiltCurveLerp(pencilTiltT(tiltDeg, cfg), cfg.widthMax)
 }
 
 /** How far along the response a *recorded* dab sits, recovered from its own
@@ -133,8 +128,7 @@ export function pencilTiltWidthFactor(tiltDeg: number, cfg: PencilTiltConfig = P
  *  consistent with the dab actually being drawn. Re-running the curve against a
  *  since-moved slider would silently disagree with the geometry. */
 export function pencilTiltness(aspectRatio: number, cfg: PencilTiltConfig = PENCIL_TILT): number {
-  if (cfg.aspectMax <= 1) return 0
-  return clamp((aspectRatio - 1) / (cfg.aspectMax - 1), 0, 1)
+  return tiltCurveInverse(aspectRatio, cfg.aspectMax)
 }
 
 /** Deposit multiplier for a dab at this tiltness — see `lightening`. */

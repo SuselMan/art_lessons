@@ -1,9 +1,29 @@
 import { clamp } from 'lodash-es'
 
+import { tiltCurveInverse, tiltCurveLerp, tiltCurveT } from './tiltCurve'
+
 // Charcoal's tilt→shape response (#305, ADR 005 "Форма от наклона"). Charcoal
 // is used as a stick, not a sharpened point: upright it works on its end,
 // tilted it works on the edge, laid over it works on the broad side. That's
 // three recognizable behaviours, and this file owns the mapping.
+//
+// #403 turned that mapping from a plateau ladder into the same smooth curve
+// graphite uses (tiltCurve.ts). The ladder gave each of the three behaviours
+// its own flat region — an edge plateau deliberately straddling the ordinary
+// 40-55° writing grip, so "edge" was the default working mode rather than
+// something to hunt for. That reads well on paper and badly in the hand
+// (Ilya, 06.08): inside a plateau the tool stops answering the stylus, and
+// there is no way to tell that from having stopped moving. A monotone curve
+// always answers.
+//
+// What that costs, stated plainly because it is the thing to check on a
+// device: elongation and narrowing are now driven by the same `t`, so the
+// stick's thin edge arrives gradually instead of being fully present across a
+// whole band of grips. At 40° the short axis lands near 0.79 where the ladder
+// pinned it at 0.55. `curve` below 1 is the knob that buys most of that back —
+// it opens the response fast off vertical and then eases, which is what the
+// early plateau did — and if the two really need independent onsets, the next
+// step is a second exponent for width rather than a return to plateaus.
 //
 // Why not model the rigid cylinder literally: a flat-ended cylinder tilted off
 // vertical touches the paper at ONE rim point, and the contact patch there is
@@ -34,40 +54,30 @@ import { clamp } from 'lodash-es'
  *  one) keep the geometry they were recorded with. That's the property that
  *  makes a live tuning knob safe here at all. */
 export interface CharcoalFeelConfig {
-  /** Below this tilt (degrees from vertical) the dab stays perfectly round —
-   *  the stick's end face flat on the paper. */
-  roundMaxDeg: number
-  /** At/above this, the "edge" plateau is fully reached. Between roundMaxDeg
-   *  and here is the first ramp. */
-  edgeFullDeg: number
-  /** Where the second ramp starts leaving the edge plateau. The span
-   *  edgeFullDeg..here is the plateau itself — deliberately wide enough to
-   *  cover an ordinary writing grip (~40-55°), so the edge is the *default*
-   *  working mode rather than something to hunt for. */
-  broadStartDeg: number
-  /** At/above this, the "broad side" plateau is fully reached. Must stay
-   *  comfortably under 90°: a stylus cannot be laid flat on a tablet, which is
-   *  the whole reason this ladder exists instead of the old curve that only
-   *  maxed out at 90°. */
-  broadFullDeg: number
-  /** Dab elongation (along the tilt azimuth) on the edge plateau. */
-  edgeAspect: number
-  /** Dab elongation on the broad plateau. */
-  broadAspect: number
-  /** Short-axis multiplier on the edge plateau — a stick's edge really is
-   *  narrower than its end face, so this is below 1. Without it, "edge" would
-   *  just be a longer version of the round dab rather than a thinner one. */
-  edgeWidth: number
-  /** Short-axis multiplier on the broad plateau. Also below 1: laid over, a
-   *  cylinder contacts along a *line*; the mark's width comes from the long
-   *  axis being swept sideways, not from the short axis growing. */
-  broadWidth: number
-  /** How much lighter the broad plateau deposits than the round one — the same
-   *  pressure spread over a much larger contact patch. 0 = no reduction. */
+  /** Tilt (degrees from vertical) at which the response is fully open — the
+   *  stick worked flat on its broad side. Must stay comfortably under 90: a
+   *  stylus cannot be laid flat on a tablet, and normalizing against 90 is
+   *  exactly the mistake #305 was written to fix. */
+  fullDeg: number
+  /** Exponent on the normalized tilt — see tiltCurve.ts. Below 1 opens the
+   *  response up quickly off vertical and then eases, which is the closest a
+   *  single curve gets to the edge plateau this replaced; above 1 holds the
+   *  round end face longer and arrives at the broad side late. */
+  curve: number
+  /** Dab elongation (along the tilt azimuth) at full tilt. */
+  aspectMax: number
+  /** Short-axis multiplier at full tilt. Below 1, and that is the point: laid
+   *  over, a cylinder contacts along a *line*, so the mark's width comes from
+   *  the long axis being swept sideways, not from the short axis growing.
+   *  Without it, leaning the stick would just draw a longer version of the
+   *  round dab rather than a thinner one. */
+  widthMax: number
+  /** How much lighter a fully tilted dab deposits than an upright one — the
+   *  same pressure spread over a much larger contact patch. 0 = no reduction. */
   broadLightening: number
-  /** How much extra mark-grain the broad plateau shows, on top of the material's
-   *  own `crumble`. Less pressure per unit area means the stick rides the
-   *  paper's tooth instead of being pressed into it. 0 = no boost. */
+  /** How much extra mark-grain a fully tilted dab shows, on top of the
+   *  material's own `crumble`. Less pressure per unit area means the stick
+   *  rides the paper's tooth instead of being pressed into it. 0 = no boost. */
   broadGrainBoost: number
   /** Per-sample weight of the tilt low-pass (0..1): higher follows the stylus
    *  faster, lower is steadier. Stylus tilt is markedly noisier than position,
@@ -106,18 +116,18 @@ export interface CharcoalFeelConfig {
 }
 
 // First-pass values, NOT calibrated on a real device — same status as every
-// other constant in this tool. The thresholds specifically assume a normal
-// writing grip sits around 40-55° from vertical, which is why the edge plateau
-// straddles that range and broad needs a deliberate extra lean.
+// other constant in this tool. fullDeg is carried over from the ladder's own
+// broadFullDeg (the one number that meant the same thing before and after),
+// and aspectMax/widthMax from its broad plateau. `curve` starts at 2, matching
+// graphite, so the two materials genuinely differ in numbers rather than in
+// feel-by-accident; the old edge plateau sat around aspect 3.5 for a 30-50°
+// grip, where this lands near 2.6-5.6, so that band is the first thing to
+// re-feel.
 export const CHARCOAL_FEEL: CharcoalFeelConfig = {
-  roundMaxDeg: 20,
-  edgeFullDeg: 30,
-  broadStartDeg: 50,
-  broadFullDeg: 62,
-  edgeAspect: 3.5,
-  broadAspect: 8,
-  edgeWidth: 0.55,
-  broadWidth: 0.5,
+  fullDeg: 62,
+  curve: 2,
+  aspectMax: 8,
+  widthMax: 0.5,
   broadLightening: 0.45,
   broadGrainBoost: 0.9,
   smoothing: 0.15,
@@ -143,14 +153,10 @@ export function charcoalPressureResponse(pressure: number, cfg: CharcoalFeelConf
 export const CHARCOAL_FEEL_SLIDERS: readonly {
   key: keyof CharcoalFeelConfig; label: string; min: number; max: number; step: number
 }[] = [
-  { key: 'roundMaxDeg',     label: 'round max°',  min: 0,   max: 60, step: 1 },
-  { key: 'edgeFullDeg',     label: 'edge full°',  min: 0,   max: 70, step: 1 },
-  { key: 'broadStartDeg',   label: 'broad from°', min: 10,  max: 85, step: 1 },
-  { key: 'broadFullDeg',    label: 'broad full°', min: 15,  max: 90, step: 1 },
-  { key: 'edgeAspect',      label: 'edge aspect', min: 1,   max: 12, step: 0.1 },
-  { key: 'broadAspect',     label: 'broad aspect', min: 1,  max: 20, step: 0.1 },
-  { key: 'edgeWidth',       label: 'edge width',  min: 0.1, max: 1.5, step: 0.01 },
-  { key: 'broadWidth',      label: 'broad width', min: 0.1, max: 1.5, step: 0.01 },
+  { key: 'fullDeg',         label: 'full tilt°',  min: 20,  max: 90, step: 1 },
+  { key: 'curve',           label: 'curve pow',   min: 0.3, max: 4,  step: 0.05 },
+  { key: 'aspectMax',       label: 'max aspect',  min: 1,   max: 20, step: 0.1 },
+  { key: 'widthMax',        label: 'max width',   min: 0.1, max: 1.5, step: 0.01 },
   { key: 'broadLightening', label: 'broad light', min: 0,   max: 0.9, step: 0.01 },
   { key: 'broadGrainBoost', label: 'broad grain', min: 0,   max: 3,  step: 0.05 },
   { key: 'smoothing',       label: 'tilt smooth', min: 0.02, max: 1, step: 0.01 },
@@ -161,56 +167,40 @@ export const CHARCOAL_FEEL_SLIDERS: readonly {
   { key: 'grainDepth',      label: 'grain depth', min: 0,   max: 6, step: 0.1 },
 ]
 
-function smoothstep(edge0: number, edge1: number, x: number): number {
-  if (edge1 <= edge0) return x < edge0 ? 0 : 1
-  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1)
-  return t * t * (3 - 2 * t)
+/** Position along the response, 0 (end face flat on the paper) to 1 (broad
+ *  side), with the curve exponent applied. Replaces #305's pair of smoothstep
+ *  plateau weights — see this file's header for why the plateaus went. */
+export function charcoalTiltT(tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL): number {
+  return tiltCurveT(tiltDeg, cfg.fullDeg, cfg.curve)
 }
 
-/** Position along the ladder for a given tilt magnitude (degrees from
- *  vertical), as two independent 0..1 weights:
- *   - `edge`  ramps 0->1 across roundMaxDeg..edgeFullDeg and stays 1
- *   - `broad` ramps 0->1 across broadStartDeg..broadFullDeg
- *
- *  Kept as weights rather than a discrete mode enum on purpose. Quantizing
- *  into three modes is what forces hysteresis — and hysteresis makes the shape
- *  depend on which side you approached a threshold from, so the same tilt can
- *  produce two different dabs. Smooth weights need no history at all: the
- *  ramps themselves *are* the "few degrees wide transition zone", applied to
- *  the value instead of to a mode switch. */
-export function charcoalTiltWeights(tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL): { edge: number; broad: number } {
-  return {
-    edge: smoothstep(cfg.roundMaxDeg, cfg.edgeFullDeg, tiltDeg),
-    broad: smoothstep(cfg.broadStartDeg, cfg.broadFullDeg, tiltDeg),
-  }
-}
-
-/** Dab elongation along the tilt azimuth: 1 (round) -> edgeAspect -> broadAspect. */
+/** Dab elongation along the tilt azimuth: 1 (round) -> aspectMax. */
 export function charcoalAspect(tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL): number {
-  const { edge, broad } = charcoalTiltWeights(tiltDeg, cfg)
-  const toEdge = 1 + (cfg.edgeAspect - 1) * edge
-  return toEdge + (cfg.broadAspect - toEdge) * broad
+  return tiltCurveLerp(charcoalTiltT(tiltDeg, cfg), cfg.aspectMax)
 }
 
-/** Short-axis multiplier: 1 (the full end face) -> edgeWidth -> broadWidth. */
+/** Short-axis multiplier: 1 (the full end face) -> widthMax (the line contact
+ *  of the stick laid over). */
 export function charcoalWidthFactor(tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL): number {
-  const { edge, broad } = charcoalTiltWeights(tiltDeg, cfg)
-  const toEdge = 1 + (cfg.edgeWidth - 1) * edge
-  return toEdge + (cfg.broadWidth - toEdge) * broad
+  return tiltCurveLerp(charcoalTiltT(tiltDeg, cfg), cfg.widthMax)
 }
 
 /** How far along the round->broad axis a *recorded* dab sits, derived from its
  *  own baked `aspectRatio` rather than re-deriving it from tilt.
  *
  *  That indirection is deliberate: aspectRatio is baked at record time from the
- *  *filtered* tilt and the thresholds as they were then, so reading it back is
- *  the only way a later consumer (opacity baking, the shader) stays consistent
- *  with the dab it's actually drawing — re-running the ladder against a since-
- *  moved slider, or against unfiltered tilt, would silently disagree. DAB_FRAG
- *  computes the identical value from v_aspectRatio and u_charcoalBroadAspect. */
+ *  *filtered* tilt and the config as it stood then, so reading it back is the
+ *  only way a later consumer (opacity baking, the shader) stays consistent with
+ *  the dab it's actually drawing — re-running the curve against a since-moved
+ *  slider, or against unfiltered tilt, would silently disagree. DAB_FRAG
+ *  computes the identical value from v_aspectRatio and u_charcoalBroadAspect.
+ *
+ *  #403 left this untouched on purpose: it was already the exact inverse of the
+ *  aspect mapping, and the ladder's own top plateau (broadAspect) has simply
+ *  become the curve's top (aspectMax), so the identity still holds and the
+ *  shader's copy of it needed no GLSL change at all. */
 export function charcoalBroadness(aspectRatio: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL): number {
-  if (cfg.broadAspect <= 1) return 0
-  return clamp((aspectRatio - 1) / (cfg.broadAspect - 1), 0, 1)
+  return tiltCurveInverse(aspectRatio, cfg.aspectMax)
 }
 
 /** Deposit multiplier for a dab at this broadness — the broad side spreads the

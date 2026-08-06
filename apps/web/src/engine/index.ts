@@ -277,7 +277,7 @@ export interface PencilEngineAPI {
   // term can ever push paperCatch, regardless of pressure. Applied on the
   // very next paint call, same as setPaperFillThreshold.
   setPaperFillCap(cap: number): void
-  // Dev-only live tuning of charcoal's tilt ladder (#305, ADR 005) — the
+  // Dev-only live tuning of charcoal's tilt curve (#305, ADR 005; #403) — the
   // thresholds depend on how a particular hand holds a particular stylus, so
   // they're calibrated by dragging sliders on the tablet rather than agreed as
   // numbers up front. Mutates the shared CHARCOAL_FEEL in place, so it takes
@@ -4153,7 +4153,7 @@ export class PencilEngine implements PencilEngineAPI {
       // far larger contact patch, so it must deposit lighter; without this, the
       // broad regime just paints a much bigger *and* equally dark mark, which
       // reads as a fat marker rather than a stick on its side. Derived from the
-      // dab's own baked aspectRatio rather than re-running the ladder on tilt,
+      // dab's own baked aspectRatio rather than re-running the curve on tilt,
       // so it can't disagree with the geometry actually being drawn (see
       // charcoalBroadness' own comment).
       else if (tool === 'charcoal') {
@@ -4686,7 +4686,7 @@ export class PencilEngine implements PencilEngineAPI {
     // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
     // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
     // tiltSmoothing is a getter.
-    gl.uniform1f(u.u_charcoalBroadAspect, charcoal ? CHARCOAL_FEEL.broadAspect : 0)
+    gl.uniform1f(u.u_charcoalBroadAspect, charcoal ? CHARCOAL_FEEL.aspectMax : 0)
     gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
     gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
     gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)
@@ -4767,7 +4767,7 @@ export class PencilEngine implements PencilEngineAPI {
     // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
     // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
     // tiltSmoothing is a getter.
-    gl.uniform1f(u.u_charcoalBroadAspect, charcoal ? CHARCOAL_FEEL.broadAspect : 0)
+    gl.uniform1f(u.u_charcoalBroadAspect, charcoal ? CHARCOAL_FEEL.aspectMax : 0)
     gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
     gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
     gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)

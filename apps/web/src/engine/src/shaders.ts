@@ -269,12 +269,13 @@ export const DAB_FRAG = `
   uniform float u_charcoalTooth;
   uniform float u_charcoalCrumble;
   uniform float u_charcoalDust;
-  // #305: the tilt ladder's own top aspect (CHARCOAL_FEEL.broadAspect) and how
+  // #305: the tilt curve's own top aspect (CHARCOAL_FEEL.aspectMax, the ladder's
+  // broadAspect before #403 flattened the plateaus into one curve) and how
   // much extra grain the broad side shows. Together with v_aspectRatio — which
   // every dab already carries — these let this branch recover "how far onto its
   // broad side is the stick right now" without a new per-dab attribute, and
-  // without duplicating the ladder's thresholds in GLSL where a live slider
-  // change could no longer reach them.
+  // without duplicating the response's own parameters in GLSL where a live
+  // slider change could no longer reach them.
   uniform float u_charcoalBroadAspect;
   uniform float u_charcoalBroadGrain;
   // Charcoal's own pressure response (CHARCOAL_FEEL.pressureFloor/Gamma) —
@@ -586,8 +587,10 @@ export const DAB_FRAG = `
       // #305: how far onto its broad side the stick is, recovered from this
       // dab's own baked aspect. Matches charcoalBroadness() in charcoalFeel.ts
       // exactly — the JS side derives it the same way, from the same baked
-      // value, so opacity baking and this branch can't disagree about which
-      // regime a given dab is in.
+      // value, so opacity baking and this branch can't disagree about how far
+      // along the response a given dab sits. Unchanged by #403: it was already
+      // the inverse of the aspect mapping, and flattening the ladder into a
+      // curve kept that inverse identical.
       float broadness = u_charcoalBroadAspect > 1.0
         ? clamp((v_aspectRatio - 1.0) / (u_charcoalBroadAspect - 1.0), 0.0, 1.0)
         : 0.0;
