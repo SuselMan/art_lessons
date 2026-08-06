@@ -10,7 +10,7 @@ import { nanoid } from 'nanoid'
 import type { Dab, ImageImportOperation, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@grafetto/shared'
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
-import type { AffineMatrix } from '../src/affine'
+import type { Matrix3 } from '../src/matrix'
 import type { AccumulationBuffer } from '../src/AccumulationBuffer'
 import type { ILayerBuffer } from '../src/ILayerBuffer'
 import { __setPaperLoaderForTesting } from '../src/paperLoader'
@@ -114,8 +114,8 @@ interface EngineInternals {
   _compositeCenterY: number
   _compositeScale: number
   // #301 white-box access — see screenToWorldFor/rotateMatrixInvFor below.
-  _screenToWorldMatrix: () => AffineMatrix
-  _infiniteRotateMatrixInv: () => AffineMatrix
+  _screenToWorldMatrix: () => Matrix3
+  _infiniteRotateMatrixInv: () => Matrix3
   // Live gizmo-drag preview (#120/#139) — see engine/index.ts's own
   // PreviewTile. Structurally identical, redeclared here rather than
   // exported from index.ts since there's no product reason a real caller
@@ -355,7 +355,7 @@ export function compositeCenterFor(engine: PencilEngine): { x: number; y: number
  *  therefore that grain and strokes land on the same world position — is to
  *  compare the matrices themselves against where the composite actually put
  *  content. See index.tiledDisplay.test.ts's paper-alignment test. */
-export function screenToWorldFor(engine: PencilEngine): AffineMatrix {
+export function screenToWorldFor(engine: PencilEngine): Matrix3 {
   return internals(engine)._screenToWorldMatrix()
 }
 
@@ -366,7 +366,7 @@ export function compositeScaleFor(engine: PencilEngine): number {
   return internals(engine)._compositeScale
 }
 
-export function rotateMatrixInvFor(engine: PencilEngine): AffineMatrix {
+export function rotateMatrixInvFor(engine: PencilEngine): Matrix3 {
   return internals(engine)._infiniteRotateMatrixInv()
 }
 

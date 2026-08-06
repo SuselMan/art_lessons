@@ -454,7 +454,7 @@ export const en = {
   'tool.handTitle': 'Hand — drag to move the canvas, hold Shift to rotate it. Hold Space for the same without leaving your tool  {hotkey}',
   'tool.eyedropper': 'Eyedropper — pick a color from the canvas',
   'tool.ruler': 'Ruler — drag a straight edge; pencil strokes drawn near it snap to its line and show the distance',
-  'tool.transform': 'Transform — move/scale/rotate the active layer or current selection',
+  'tool.transform': 'Transform — move/scale/rotate/skew the active layer or current selection',
   'tool.grid': 'Toggle construction grid',
 
   // ── tool settings (TOOL_SCHEMAS field labels and enum options) ─────────
@@ -468,11 +468,16 @@ export const en = {
   'tool.field.followStroke': 'Follow stroke direction',
   'tool.field.strength': 'Strength',
   'tool.field.addToPalette': 'Add to palette on pick',
+  'tool.field.mode': 'Mode',
+  'tool.field.keepProportions': 'Keep proportions',
   'tool.charcoalType.vine': 'Vine',
   'tool.charcoalType.willow': 'Willow',
   'tool.charcoalType.compressed': 'Compressed',
   'tool.nib.bullet': 'Bullet',
   'tool.nib.chisel': 'Chisel',
+  'tool.transformMode.free': 'Free transform',
+  'tool.transformMode.rotateSkew': 'Rotate & Skew',
+  'tool.transformMode.distort': 'Distort',
 
   // ── color palette ──────────────────────────────────────────────────────
   'palette.open': 'Palette',

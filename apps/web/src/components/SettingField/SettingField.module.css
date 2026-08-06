@@ -17,15 +17,47 @@
 /* Fits the toolbar column (56px wide) whatever the value is: a px number, a
    grade, or a word as long as "Прессованный" — which overflowed into the
    canvas before this. The full text stays available in the control's own
-   tooltip. */
+   tooltip.
+
+   Two lines before the ellipsis (#391): a value that is really two words
+   ("Free transform", "Rotate & Skew" — the transform tool's own modes) fits
+   this column perfectly well once it is allowed to break, and clipping it to
+   "Free tran…" hid exactly the half that distinguishes one mode from the
+   next. A single long word ("Прессованный") still ellipsises — there is no
+   break opportunity in it to take. */
 .toolbarValue {
   max-width: 52px;
   font-size: 9px;
   font-family: var(--font-mono);
   color: var(--color-text-dim);
-  line-height: 1;
+  line-height: 1.15;
   text-align: center;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A field *name* rather than its current value — what a boolean's quick-access
+   block puts under its checkbox (#391). Every other toolbar block spells out
+   what the control currently is ("2B", "28px"), which a checkbox already shows
+   by being ticked or not; the line under it has to say what the tick is
+   *about* instead, or the control is an unlabelled square.
+
+   Proportional rather than .toolbarValue's mono face, and that is not
+   cosmetic: mono is ~20% wider per character, and "proportions" does not fit
+   62px of column in it at any size still worth reading. A name is prose; only
+   a value is a number worth aligning. */
+.toolbarLabel {
+  max-width: 56px;
+  font-size: 9px;
+  color: var(--color-text-dim);
+  line-height: 1.15;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
 }

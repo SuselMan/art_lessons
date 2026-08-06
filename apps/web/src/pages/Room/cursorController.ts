@@ -3,7 +3,7 @@ import type { ToolType } from '@grafetto/shared'
 
 import { useRoomStore } from '../../stores/roomStore'
 import type { OverlayMode } from '../../stores/slices/overlaySlice'
-import type { TransformHandleKind } from './TransformGizmo'
+import { transformGestureKind, type TransformHandleKind, type TransformMode } from './transformMath'
 import type { RulerHandleKind } from './RulerOverlay'
 
 // ── what the pointer looks like, decided in exactly one place (#393) ────────
@@ -144,8 +144,10 @@ export function useCursor(): CursorDecision {
  *  decision — this is the decision, referring to it. */
 const ROTATE_CURSOR = 'var(--cursor-rotate)'
 
-export const TRANSFORM_HANDLE_CURSOR: Record<TransformHandleKind, string> = {
-  body: 'move',
+/** What a handle's arrows point along when it scales — the only part of the
+ *  answer that depends on *which* handle rather than on what the handle
+ *  currently does. */
+const SCALE_CURSOR: Record<Exclude<TransformHandleKind, 'body' | `rotate-${string}`>, string> = {
   tl: 'nwse-resize',
   br: 'nwse-resize',
   tr: 'nesw-resize',
@@ -154,10 +156,34 @@ export const TRANSFORM_HANDLE_CURSOR: Record<TransformHandleKind, string> = {
   b: 'ns-resize',
   l: 'ew-resize',
   r: 'ew-resize',
-  'rotate-tl': ROTATE_CURSOR,
-  'rotate-tr': ROTATE_CURSOR,
-  'rotate-bl': ROTATE_CURSOR,
-  'rotate-br': ROTATE_CURSOR,
+}
+
+/** (#391/#392) A handle's cursor, given the transform mode — a function now
+ *  rather than the flat record this was, because a mode changes what dragging
+ *  a handle *does* and the arrow has to describe the gesture, not the handle's
+ *  position on the frame. An edge that shears slides along itself, so its
+ *  arrows turn 90°; a Distort corner goes wherever it is dragged, so a
+ *  two-headed diagonal would be describing a gesture that isn't happening.
+ *
+ *  Deliberately derived from `transformGestureKind` — the same function Room
+ *  asks what a drag means — rather than re-deciding it here from `mode`. That
+ *  is #393's own rule applied one level down: the cursor is a *statement about
+ *  the gesture*, so it must not be able to disagree with the gesture. Adding a
+ *  fourth mode changes one switch, and this follows.
+ *
+ *  The plain resize keywords are kept for shear on purpose: no standard CSS
+ *  cursor means "skew", and a custom bitmap for it would be a worse affordance
+ *  than an arrow that at least points the right way. */
+export function transformHandleCursor(handle: TransformHandleKind, mode: TransformMode): string {
+  const kind = transformGestureKind(handle, mode)
+  if (kind === 'move' || kind === 'distort') return 'move'
+  if (kind === 'rotate') return ROTATE_CURSOR
+  // A sheared edge slides along its own length: the horizontal edges move
+  // sideways, the vertical ones up and down — the opposite axis from the one
+  // the same handle stretches along.
+  if (kind === 'skewX') return 'ew-resize'
+  if (kind === 'skewY') return 'ns-resize'
+  return SCALE_CURSOR[handle as keyof typeof SCALE_CURSOR]
 }
 
 /** The rotation pivot, which is not a `TransformHandleKind` (it has its own

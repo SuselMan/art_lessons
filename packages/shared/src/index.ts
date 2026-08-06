@@ -568,18 +568,71 @@ export type LayerMergeOperation = OperationBase & {
   index: number
 }
 
-/** Transforms (translate/scale/rotate) one or more layers' pixel content in
- *  place — one operation regardless of how many layers a gizmo moved
- *  together, so undo/redo flips them all atomically (a partial transform
- *  applied to some selected layers but not others would be a worse bug than
- *  a slightly bigger log entry — see #120 discussion). Background is never
- *  a legal target, same as other structural ops. */
+/** 2x3 affine [a, b, c, d, tx, ty]: x' = a*x + c*y + tx, y' = b*x + d*y + ty.
+ *  The only encoding a layer_transform had before #392. */
+export type AffineMatrixTuple = [number, number, number, number, number, number]
+
+/** 3x3 projective (homography), column-major to match the affine tuple's own
+ *  column-major reading and gl.uniformMatrix3fv's required layout:
+ *  [a, b, g, c, d, h, tx, ty, i] means
+ *      x' = (a*x + c*y + tx) / (g*x + h*y + i)
+ *      y' = (b*x + d*y + ty) / (g*x + h*y + i)
+ *  An affine map is the case g = h = 0, i = 1 — which is exactly what
+ *  toHomography() produces from the six-number form. */
+export type HomographyMatrixTuple = [
+  number, number, number,
+  number, number, number,
+  number, number, number,
+]
+
+/** What travels on the wire (#392). Six numbers is not legacy-and-deprecated
+ *  — it stays the encoding every affine gizmo drag emits, because writing
+ *  three constants into every log entry for the common case is pure waste.
+ *  Nine numbers appears only when a Distort actually needs it.
+ *
+ *  Consumers never branch on the length: they call toHomography() once at
+ *  the read boundary and work in 3x3 from there. That is what keeps a
+ *  projective transform from becoming a second code path through undo,
+ *  snapshots and the bake — mathematically an affine map *is* a homography,
+ *  and the shader already multiplies by a mat3 either way. It is also why
+ *  every operation log recorded before #392 (kept on purpose as a dataset,
+ *  #375) stays readable forever with no migration. */
+export type LayerTransformMatrix = AffineMatrixTuple | HomographyMatrixTuple
+
+/** Widens the wire form to the 3x3 every consumer actually works in. */
+export function toHomography(matrix: LayerTransformMatrix): HomographyMatrixTuple {
+  if (matrix.length === 9) return matrix
+  const [a, b, c, d, tx, ty] = matrix
+  return [a, b, 0, c, d, 0, tx, ty, 1]
+}
+
+/** True when a homography has no projective part, i.e. it round-trips to the
+ *  compact six-number form without loss. Emitters use it to keep affine drags
+ *  on the affine encoding even while composing in 3x3; the epsilon is
+ *  absolute because g and h are in units of 1/px, where anything at 1e-12 is
+ *  accumulated float noise and not a perspective anyone drew. */
+export function isAffineHomography(m: HomographyMatrixTuple): boolean {
+  return Math.abs(m[2]) < 1e-12 && Math.abs(m[5]) < 1e-12 && Math.abs(m[8] - 1) < 1e-12
+}
+
+/** Narrows back to the compact form when there is no projective part to lose,
+ *  so an ordinary move/scale/rotate still writes six numbers. Returns the
+ *  nine-number form unchanged when it genuinely carries perspective. */
+export function toWireMatrix(m: HomographyMatrixTuple): LayerTransformMatrix {
+  return isAffineHomography(m) ? [m[0], m[1], m[3], m[4], m[6], m[7]] : m
+}
+
+/** Transforms (translate/scale/rotate/skew/distort) one or more layers' pixel
+ *  content in place — one operation regardless of how many layers a gizmo
+ *  moved together, so undo/redo flips them all atomically (a partial
+ *  transform applied to some selected layers but not others would be a worse
+ *  bug than a slightly bigger log entry — see #120 discussion). Background is
+ *  never a legal target, same as other structural ops. */
 export type LayerTransformOperation = OperationBase & {
   type: 'layer_transform'
   transforms: Array<{
     layerId: string
-    // 2x3 affine [a, b, c, d, tx, ty]: x' = a*x + c*y + tx, y' = b*x + d*y + ty
-    matrix: [number, number, number, number, number, number]
+    matrix: LayerTransformMatrix
   }>
 }
 

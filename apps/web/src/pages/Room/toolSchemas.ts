@@ -6,6 +6,7 @@ import { parseNumberInput } from '../../components/NumberField/numberField'
 import { expScale, type SliderScale } from '../../components/PrecisionSlider/sliderScale'
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
+import { TRANSFORM_MODES, type TransformMode } from './transformMath'
 import type { TranslationKey } from '../../i18n'
 import type { IconName } from '../../icons/iconNames'
 
@@ -78,6 +79,26 @@ export interface SettingDescriptor {
   uiControls: readonly SettingUiControl[]
   /** Also rendered inline in the left toolbar, not just the settings tab. */
   quickAccess?: boolean
+  /** (#391) Opts this one field out of per-room persistence: it is never
+   *  written to localStorage and always starts a room at its `default`,
+   *  while every other field of the same tool keeps being remembered.
+   *
+   *  Persisting a setting is the right default — it's how a tool stays *your*
+   *  tool between visits. It is wrong for a field that describes a temporary
+   *  mode of working rather than a preference, where the remembered value is
+   *  something the user set once, half an hour ago, for one specific edit: the
+   *  transform tool's own `mode` (a room re-entered in Rotate & Skew reads as
+   *  a broken gizmo, since the same edge handles now shear instead of
+   *  stretching) and its `keepProportions`, which is reset with it so the tool
+   *  has exactly one known starting state rather than two independent ones to
+   *  reason about.
+   *
+   *  Deliberately a property of the descriptor, not a list of exempt keys kept
+   *  somewhere else: the reason a field is transient belongs next to the
+   *  field, and a new one opts out by saying so here — nothing to remember to
+   *  update in loadToolSettings/saveToolSettings, which both simply honour the
+   *  flag. */
+  transient?: true
   default: number | boolean | [number, number, number] | string
   /** #278: gates rendering on this tool's *other* current field values (e.g.
    *  marker's chisel-only `angle`/`followStrokeDirection` — bullet is round,
@@ -385,6 +406,18 @@ const markerSchema = (): ToolSchema => ({
   },
 })
 
+/** (#391/#392) One glyph per transform mode. All three are hand-drawn custom
+ *  icons (assets/icons/*.svg, listed in icons/iconNames.ts) rather than
+ *  Material Symbols: a mode is a *gesture on a frame*, and the shipped subset
+ *  has nothing that reads as "shear this rectangle" or "drag that corner
+ *  alone" — the nearest Material names were a generic transform glyph and a
+ *  rotate arrow, which said the same thing for two different modes. */
+const TRANSFORM_MODE_ICONS = {
+  free: 'free-transform',
+  rotateSkew: 'skew-and-rotate',
+  distort: 'distort',
+} as const satisfies Record<TransformMode, IconName>
+
 export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // Color is a fully editable per-tool field here, same as before this
   // schema existed — today only 'pencil' has a toolbar slot wired up (#188,
@@ -446,10 +479,63 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       default: false,
     },
   },
+  // Layer transform (#120), its three modes (#391, #392) and the proportions
+  // lock (#391).
+  // Both fields are `transient` — see that flag's own comment for why a
+  // remembered transform mode is a trap rather than a convenience.
+  transform: {
+    mode: {
+      nameKey: 'tool.field.mode',
+      valueType: { kind: 'enumOptions', options: TRANSFORM_MODES },
+      optionLabelKeys: {
+        free: 'tool.transformMode.free',
+        rotateSkew: 'tool.transformMode.rotateSkew',
+        distort: 'tool.transformMode.distort',
+      },
+      // Icons, not sample strokes: a mode isn't a material, so there is
+      // nothing to photograph — and the quick-panel button is preview-only,
+      // so without one it would be an empty square. The popup and the panel
+      // row spell the name out next to the glyph, which is where the meaning
+      // actually lives.
+      optionIcons: TRANSFORM_MODE_ICONS,
+      uiControls: ['select'],
+      quickAccess: true,
+      transient: true,
+      default: 'free' satisfies TransformMode,
+    },
+    // #132: the tablet-friendly answer to Shift-to-constrain, which a pen and
+    // a finger have no way to press. It governs the four *corner* handles and
+    // nothing else: on (the default, i.e. what a corner did before it could do
+    // anything else) both axes share one factor, off they are measured
+    // independently.
+    //
+    // Edge handles are outside its reach in every mode, and that is a decision
+    // rather than an omission. In Free transform an edge always stretches its
+    // one axis — an edge that preserved the aspect ratio would have nothing
+    // left to do, and since this toggle defaults to on, letting it reach the
+    // edges made plain single-axis stretch unreachable without first turning
+    // something off. In Rotate & Skew an edge shears, and a shear has no
+    // proportions to keep in the first place.
+    keepProportions: {
+      nameKey: 'tool.field.keepProportions',
+      valueType: { kind: 'boolean' },
+      uiControls: ['toggle'],
+      quickAccess: true,
+      transient: true,
+      default: true,
+      // Hidden in Distort (#392) rather than shown and inert: there the four
+      // corners each go wherever they are dragged, so there is no second axis
+      // for a ratio to be kept against, and the edges never consulted this
+      // toggle in any mode. A control that provably cannot change anything is
+      // worse than no control — it invites the user to try it and conclude the
+      // tool is broken. Same mechanism the marker's chisel-only angle uses
+      // (#278).
+      visibleWhen: v => v.mode !== 'distort',
+    },
+  },
   // Honest empty schemas — these tools have no settings yet, not stubs
   // waiting to be filled with guessed-at fields.
   ruler: {},
-  transform: {},
   grid: {},
 }
 
@@ -547,14 +633,17 @@ interface StoredToolSettings {
 
 /** Loads this room's last-used tool settings, validated field-by-field
  *  against TOOL_SCHEMAS and falling back to defaults for anything missing/
- *  invalid/added-since-last-visit — never a blind trust of stored JSON. */
+ *  invalid/added-since-last-visit — never a blind trust of stored JSON.
+ *  A `transient` field (#391) ignores whatever is stored and starts at its
+ *  default, so a value written by an older build (or by a field that only
+ *  became transient later) can't come back either. */
 export function loadToolSettings(storage: KeyValueStorage, roomId: string): ToolSettingsMap {
   const stored = readRoomSettings<StoredToolSettings>(storage, roomId)?.toolSettings
   const map = {} as ToolSettingsMap
   for (const toolId of Object.keys(TOOL_SCHEMAS) as UiToolId[]) {
     const values: ToolSettingsValue = {}
     for (const [key, descriptor] of Object.entries(TOOL_SCHEMAS[toolId])) {
-      const storedValue = stored?.[toolId]?.[key]
+      const storedValue = descriptor.transient ? undefined : stored?.[toolId]?.[key]
       values[key] = storedValue === undefined ? descriptor.default : coerceSettingValue(descriptor, storedValue)
     }
     map[toolId] = values
@@ -562,6 +651,18 @@ export function loadToolSettings(storage: KeyValueStorage, roomId: string): Tool
   return map
 }
 
+/** Writes every field back except the `transient` ones (#391) — those are
+ *  dropped here as well as ignored on load, so nothing stale is left sitting
+ *  in localStorage waiting for the flag to be removed. */
 export function saveToolSettings(storage: KeyValueStorage, roomId: string, settings: ToolSettingsMap): void {
-  writeRoomSettings(storage, roomId, { toolSettings: settings })
+  const persisted = {} as ToolSettingsMap
+  for (const toolId of Object.keys(TOOL_SCHEMAS) as UiToolId[]) {
+    const values: ToolSettingsValue = {}
+    for (const [key, descriptor] of Object.entries(TOOL_SCHEMAS[toolId])) {
+      if (descriptor.transient) continue
+      values[key] = settings[toolId][key]
+    }
+    persisted[toolId] = values
+  }
+  writeRoomSettings(storage, roomId, { toolSettings: persisted })
 }
