@@ -579,12 +579,17 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // state, not an oversight — moving and rotating the grid by gesture is #406,
   // and that is what will give the selection something to do.
   grid: {
+    // On by default (#405). The grid has no gesture of its own yet (#406), so
+    // with this off, picking up the grid tool did nothing observable at all —
+    // the one tool whose first press appeared broken. Reaching for it is
+    // already the request to see it; the toggle is for putting it away without
+    // giving up the tool, which is the rarer half.
     show: {
       nameKey: 'tool.field.showGrid',
       valueType: { kind: 'boolean' },
       uiControls: ['toggle'],
       quickAccess: true,
-      default: false,
+      default: true,
     },
   },
 }

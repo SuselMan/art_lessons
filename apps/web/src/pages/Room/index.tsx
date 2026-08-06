@@ -2480,12 +2480,24 @@ export function Room() {
     engineRef.current?.setRuler(rulerShow && rulerSnap ? rulerLine : null)
   }, [rulerLine, rulerShow, rulerSnap])
 
-  // (#405) Selecting a tool that is already selected hands the canvas back to
-  // the drawing tool — the same "press E twice to get back to the pencil"
-  // affordance the eraser has always had, extended to the four tools that used
-  // to be modes. Shared by the toolbar buttons and the hotkeys so the two
-  // cannot disagree about what a second press does.
+  // (#405) Selecting a tool selects it. Pressing a toolbar button never hands
+  // the canvas back to something else, however many times it is pressed: a
+  // button that reads as "this tool is in hand" and answers a second press by
+  // putting a *different* tool in hand contradicts the one thing this whole
+  // change is for. It also could not be consistent — the toggle-back target
+  // used to be `lastDrawingTool` for the eraser and smudge but a hardcoded
+  // pencil for charcoal, liner and marker, so the same gesture landed
+  // somewhere different depending on which button you pressed.
   const selectTool = useCallback((next: EditorTool) => {
+    setTool(next)
+  }, [setTool])
+
+  // The toggle survives, but only on the *keys*. "Press E, do a correction,
+  // press E again" is a real one-handed affordance that a key can offer and a
+  // button cannot: the finger is already there, and there is no visual state
+  // claiming otherwise. Both halves route through here so a second press
+  // always lands on the tool you were drawing with, whichever key it was.
+  const toggleTool = useCallback((next: EditorTool) => {
     setTool(prev => (prev === next ? drawingTool : next))
   }, [setTool, drawingTool])
 
@@ -3861,25 +3873,25 @@ export function Room() {
       const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
       if (is('undo')) { void handleUndo(); e.preventDefault(); return }
       if (is('redo')) { void handleRedo(); e.preventDefault(); return }
-      if (is('toggleEraser')) { setTool(t => t === 'eraser' ? lastDrawingTool : 'eraser'); return }
-      if (is('toggleSmudge')) { setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge'); return }
-      if (is('toggleCharcoal')) { setTool(t => t === 'charcoal' ? 'pencil' : 'charcoal'); return }
-      if (is('toggleLiner')) { setTool(t => t === 'liner' ? 'pencil' : 'liner'); return }
-      if (is('toggleMarker')) { setTool(t => t === 'marker' ? 'pencil' : 'marker'); return }
+      if (is('toggleEraser')) { toggleTool('eraser'); return }
+      if (is('toggleSmudge')) { toggleTool('smudge'); return }
+      if (is('toggleCharcoal')) { toggleTool('charcoal'); return }
+      if (is('toggleLiner')) { toggleTool('liner'); return }
+      if (is('toggleMarker')) { toggleTool('marker'); return }
       // (#405) The four that used to be modes, selected through the same
       // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
-      if (is('toggleEyedropper')) { selectTool('eyedropper'); return }
-      if (is('toggleRuler')) { selectTool('ruler'); return }
+      if (is('toggleEyedropper')) { toggleTool('eyedropper'); return }
+      if (is('toggleRuler')) { toggleTool('ruler'); return }
       // Selectable only with something to transform (the toolbar button is
       // `disabled` on the same condition), but always *de*selectable: making
       // the active layer the background empties the selection, and a key that
       // refused to let go there would leave the canvas locked with no gizmo on
       // it and no obvious way out.
       if (is('toggleTransform')) {
-        if (transformActive || transformTargetIds.length > 0) selectTool('transform')
+        if (transformActive || transformTargetIds.length > 0) toggleTool('transform')
         return
       }
-      if (is('toggleGrid')) { selectTool('grid'); return }
+      if (is('toggleGrid')) { toggleTool('grid'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
       if (is('toggleHand')) { setHandTool(h => !h); return }
       // Both size hotkeys clamp to the tool's own schema range (toolSizeRange)
@@ -3916,7 +3928,7 @@ export function Room() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [
-    drawingTool, setTool, selectTool, lastDrawingTool, transformActive, transformTargetIds.length,
+    drawingTool, setTool, toggleTool, transformActive, transformTargetIds.length,
     setToolSetting, setVp, setHandTool, handleUndo, handleRedo, hotkeys,
   ])
 
@@ -4219,19 +4231,19 @@ export function Room() {
             className={clsx(styles.toolIconBtn, tool === 'pencil' && styles.toolIconBtnActive)}
             title={t('tool.pencilTitle', { hotkeys: gradeHotkeyLabels })}
             aria-label={t('tool.pencil')}
-            onClick={() => setTool('pencil')}
+            onClick={() => selectTool('pencil')}
           ><Icon name="edit" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'eraser' && styles.toolIconBtnActive)}
             title={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
             aria-label={t('tool.eraserTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEraser) })}
-            onClick={() => setTool(t => t === 'eraser' ? lastDrawingTool : 'eraser')}
+            onClick={() => selectTool('eraser')}
           ><Icon name="ink_eraser" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'smudge' && styles.toolIconBtnActive)}
             title={t('tool.smudgeTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSmudge) })}
             aria-label={t('tool.smudge')}
-            onClick={() => setTool(t => t === 'smudge' ? lastDrawingTool : 'smudge')}
+            onClick={() => selectTool('smudge')}
           ><Icon name="smudge" /></button>
           {/* Charcoal (#304, ADR 005) — its own material, not a soft black
               pencil: three types (vine/willow/compressed) selected through
@@ -4241,13 +4253,13 @@ export function Room() {
             className={clsx(styles.toolIconBtn, tool === 'charcoal' && styles.toolIconBtnActive)}
             title={t('tool.charcoalTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleCharcoal) })}
             aria-label={t('tool.charcoal')}
-            onClick={() => setTool(t => t === 'charcoal' ? 'pencil' : 'charcoal')}
+            onClick={() => selectTool('charcoal')}
           ><Icon name="charcoal" /></button>
           <button
             className={clsx(styles.toolIconBtn, tool === 'liner' && styles.toolIconBtnActive)}
             title={t('tool.linerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleLiner) })}
             aria-label={t('tool.liner')}
-            onClick={() => setTool(t => t === 'liner' ? 'pencil' : 'liner')}
+            onClick={() => selectTool('liner')}
           ><Icon name="stylus" /></button>
           {/* Marker (#252, ADR 004) — UI/toolbar plumbing only; the actual
               bullet/chisel dab shaping and multiply compositing are separate
@@ -4259,7 +4271,7 @@ export function Room() {
             className={clsx(styles.toolIconBtn, tool === 'marker' && styles.toolIconBtnActive)}
             title={t('tool.markerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleMarker) })}
             aria-label={t('tool.marker')}
-            onClick={() => setTool(t => t === 'marker' ? 'pencil' : 'marker')}
+            onClick={() => selectTool('marker')}
           ><Icon name="ink_highlighter" /></button>
 
           <div className={styles.toolDivider} />
@@ -4270,7 +4282,7 @@ export function Room() {
               other non-painting modes, not among the drawing tools, because
               it is one (ADR 007 §5). */}
           <button
-            className={clsx(styles.toolIconBtn, handTool && styles.toolIconBtnActive)}
+            className={clsx(styles.toolIconBtn, handTool && styles.toolIconBtnHeld)}
             title={t('tool.handTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleHand) })}
             aria-label={t('tool.hand')}
             aria-pressed={handTool}

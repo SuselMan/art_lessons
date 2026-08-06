@@ -123,13 +123,16 @@ describe('the selectable tools all have a panel to show (#405)', () => {
     }
   })
 
-  // `show` is a master switch (a hidden ruler neither snaps nor moves), and
-  // both default to the behaviour that existed before they were settings:
-  // snapping was unconditional, and the grid started off.
-  it('defaults the ruler to shown and snapping, and the grid to hidden', () => {
+  // `show` is a master switch (a hidden ruler neither snaps nor moves). The
+  // ruler's two defaults preserve the behaviour that existed before they were
+  // settings — snapping was unconditional. The grid's does not: it used to
+  // start off because its toolbar button *was* the switch, and now that the
+  // button selects a tool instead, off would mean the first press of it does
+  // nothing observable at all (the grid has no gesture of its own until #406).
+  it('defaults the ruler to shown and snapping, and the grid to shown', () => {
     const defaults = defaultToolSettings()
     expect(defaults.ruler).toEqual({ show: true, snap: true })
-    expect(defaults.grid).toEqual({ show: false })
+    expect(defaults.grid).toEqual({ show: true })
   })
 })
 
