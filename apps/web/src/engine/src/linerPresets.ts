@@ -77,7 +77,8 @@ export function linerSpeedFlow(speed: number): number {
 /** ADR 003 §7: tilt affects flow only in the extreme range — almost no
  *  effect below 55°, a mild reduction 55-70°, a bit more past 70° (never
  *  agressive at ordinary writing angles). `tiltDeg` is tiltMag in degrees
- *  (see DabSystem's own tiltMag = hypot(tiltX, tiltY)), not the normalized
+ *  (see tiltMath.ts's tiltMagnitudeDeg — the true angle from vertical since
+ *  #388, previously a hypot of the two reported tilts), not the normalized
  *  tiltNorm DabShapingProfile.aspect uses. */
 export function linerTiltFlow(tiltDeg: number): number {
   if (tiltDeg < 55) return 1

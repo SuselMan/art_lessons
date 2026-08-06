@@ -3,6 +3,7 @@ import { clamp } from 'lodash-es'
 
 import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
+import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
 
 // Per-tool pressure→size and tilt→aspect response curves for DabSystem's
 // dab geometry (#240). Previously hardcoded directly in DabSystem._makeDab
@@ -19,7 +20,10 @@ export interface DabShapingProfile {
    *  it (a one-parameter implementation still satisfies this signature), so
    *  their geometry is unchanged. */
   size(pressure: number, tiltNorm: number): number
-  /** Aspect ratio (1 = circular), given tiltNorm = tiltMag/90 (unclamped). */
+  /** Aspect ratio (1 = circular), given tiltNorm = tiltMag/90. Since #388
+   *  tiltMag is the true angle from vertical (tiltMath.ts), which is in
+   *  [0, 90) by construction — so tiltNorm is in [0, 1) and this no longer
+   *  needs the "unclamped, may exceed 1" caveat it used to carry. */
   aspect(tiltNorm: number): number
   /** Per-sample weight for DabSystem's tilt low-pass, or omitted for no
    *  filtering at all (every tool but charcoal — see #305 and DabSystem's own
@@ -86,13 +90,31 @@ export function perpendicularToTiltAngle(tiltMag: number, tiltX: number, tiltY: 
   return tiltOrPathAngle(tiltMag, tiltX, tiltY, pathAngle) + Math.PI / 2
 }
 
-// Exact formulas DabSystem._makeDab used before this refactor — kept as the
-// default profile so pencil/eraser/smudge (which never had their own
-// per-tool geometry, only opacity) render bit-for-bit the same as before.
+// Graphite (#240's carried-over original formulas, replaced in #389). The
+// pressure→width part is untouched — 0.3..1.0 of base size is graphite's
+// several-fold swing and nothing about tilt argues with it — but it is now
+// scaled by the tilt curve's own width factor, and `aspect` comes from that
+// same curve instead of the old `1 + tiltNorm³·6`. See pencilTilt.ts for why
+// the exponent was the lesser of that formula's two problems.
+//
+// Still the default profile, so eraser and smudge ride it too (Ilya, 06.08:
+// the same response for everything that runs on a graphite-shaped tip). They
+// keep their own opacity branches in _bakeDabOpacity — only geometry is
+// shared.
+//
+// The ×90 undoes DabShapingProfile's own tiltNorm normalization, because the
+// curve is defined against real degrees. Same shape as CHARCOAL_DAB_SHAPING's
+// call into charcoalAspect right below; the profile interface keeps its 0..1
+// argument rather than both files converting, since liner/marker genuinely
+// want the normalized form.
 export const PENCIL_DAB_SHAPING: DabShapingProfile = {
-  size:   pressure => 0.3 + 0.7 * pressure,
-  aspect: tiltNorm  => 1 + tiltNorm * tiltNorm * tiltNorm * 6.0,
+  size:   (pressure, tiltNorm) => (0.3 + 0.7 * pressure) * pencilTiltWidthFactor(tiltNorm * 90),
+  aspect: tiltNorm => pencilTiltAspect(tiltNorm * 90),
   angle:  tiltOrPathAngle,
+  // A getter for the same reason charcoal's is: the debug overlay mutates
+  // PENCIL_TILT in place, and a captured value would freeze whatever smoothing
+  // happened to be set when this module was first evaluated.
+  get tiltSmoothing() { return PENCIL_TILT.smoothing },
 }
 
 // ADR 003 §1-2, §6: width/deposit swing only ±7-15% with pressure — never

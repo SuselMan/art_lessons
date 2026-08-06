@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, type CharcoalFeelConfig, type PencilTiltConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -368,6 +368,9 @@ export function Room() {
   // values rather than a second hardcoded copy here — CHARCOAL_FEEL is the one
   // source of truth, and these sliders only ever push deltas back into it.
   const [charcoalFeel, setCharcoalFeelState] = useState<CharcoalFeelConfig>(() => ({ ...CHARCOAL_FEEL }))
+  // #389: graphite's tilt curve, seeded and pushed the same way charcoal's
+  // ladder above is.
+  const [pencilTilt, setPencilTiltState] = useState<PencilTiltConfig>(() => ({ ...PENCIL_TILT }))
 
   // Optional pointer-prediction experiment (#92) — same feature-flag pattern
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
@@ -4596,6 +4599,36 @@ export function Room() {
                         style={{ width: 90 }}
                       />
                       <span>{charcoalFeel[s.key].toFixed(s.step < 1 ? 2 : 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* #389: graphite's tilt curve. Shown for every tool that rides
+                  PENCIL_DAB_SHAPING — eraser and smudge share the geometry, so
+                  the knobs are live for them too even though the lightening
+                  one only reaches graphite's own deposit. Same "next stroke"
+                  semantics as charcoal's block above. */}
+              {(tool === 'pencil' || tool === 'eraser' || tool === 'smudge') && (
+                <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
+                  <div style={{ opacity: 0.7 }}>pencil tilt (next stroke)</div>
+                  {PENCIL_TILT_SLIDERS.map(s => (
+                    <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                      <span style={{ width: 78 }}>{s.label}</span>
+                      <input
+                        type="range"
+                        min={s.min}
+                        max={s.max}
+                        step={s.step}
+                        value={pencilTilt[s.key]}
+                        onChange={e => {
+                          const v = Number(e.target.value)
+                          setPencilTiltState(prev => ({ ...prev, [s.key]: v }))
+                          engineRef.current?.setPencilTilt({ [s.key]: v })
+                        }}
+                        style={{ width: 90 }}
+                      />
+                      <span>{pencilTilt[s.key].toFixed(s.step < 1 ? 2 : 0)}</span>
                     </div>
                   ))}
                 </div>
