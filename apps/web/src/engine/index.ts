@@ -2484,10 +2484,15 @@ export class PencilEngine implements PencilEngineAPI {
         srcRects.push({ minX: sMinX, minY: sMinY, maxX: sMaxX, maxY: sMaxY })
       }
 
-      if (maxX <= minX || maxY <= minY) {
+      if (maxX <= minX || maxY <= minY || !Number.isFinite(minX + minY + maxX + maxY)) {
         // Degenerate (zero-scale transform, or every source tile empty) —
         // content collapses to nothing, same as _bakeTransform's own
-        // degenerate-transform branch.
+        // degenerate-transform branch. The finiteness half is (#392): a
+        // homography sends the vanishing line to infinity, so a corner landing
+        // on it makes these bounds Infinity/NaN, and an infinite rect handed
+        // to tilesOverlappingRect below is not a wrong picture but a hang.
+        // Room never builds such a matrix (isFrameInFront), so this only
+        // guards a replayed op from somewhere else.
         for (const t of oldByOrigin.values()) t.buffer.destroy()
         this._transformPreview.delete(layerId)
         continue
@@ -6267,9 +6272,10 @@ export class PencilEngine implements PencilEngineAPI {
       }
       srcRects.push({ minX: sMinX, minY: sMinY, maxX: sMaxX, maxY: sMaxY })
     }
-    if (maxX <= minX || maxY <= minY) {
+    if (maxX <= minX || maxY <= minY || !Number.isFinite(minX + minY + maxX + maxY)) {
       // Degenerate (zero-scale transform, or every source tile empty) —
-      // content collapses to nothing.
+      // content collapses to nothing. See previewLayerTransform's identical
+      // check for why non-finite bounds are refused here too (#392).
       for (const s of sourceTiles) s.buffer.clear()
       return
     }
