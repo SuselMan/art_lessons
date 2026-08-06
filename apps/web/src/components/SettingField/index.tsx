@@ -167,15 +167,26 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
   if (valueType.kind === 'boolean') {
     const boolValue = value as boolean
     if (layout === 'toolbar') {
+      // (#391) Same block shape every other quick-access field uses: control on
+      // top, a line of text under it. A checkbox is the one control whose own
+      // glyph says nothing about what it toggles — it was rendering here as a
+      // bare tick with no clue that it meant "keep proportions", and a `title`
+      // only pays out to whoever hovers long enough to find out, which on the
+      // tablet this column is designed for is nobody. Written on the boolean
+      // branch rather than for one field: any tool that grows a quick-access
+      // toggle gets a labelled one.
       return (
-        <button
-          className={styles.toolbarToggle}
-          aria-pressed={boolValue}
-          title={label}
-          onClick={() => onChange(!boolValue)}
-        >
-          <Icon name={boolValue ? 'check_box' : 'check_box_outline_blank'} />
-        </button>
+        <div className={styles.toolbarBlock} title={label}>
+          <button
+            className={styles.toolbarToggle}
+            aria-pressed={boolValue}
+            aria-label={label}
+            onClick={() => onChange(!boolValue)}
+          >
+            <Icon name={boolValue ? 'check_box' : 'check_box_outline_blank'} />
+          </button>
+          <span className={styles.toolbarLabel}>{label}</span>
+        </div>
       )
     }
     return (
