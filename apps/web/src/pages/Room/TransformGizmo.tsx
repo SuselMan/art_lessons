@@ -1,3 +1,4 @@
+import { transformHandleCursor, TRANSFORM_PIVOT_CURSOR } from './cursorController'
 import {
   applyMatrix, frameCorners, IDENTITY_MATRIX,
   type Point, type TransformBounds, type TransformHandleKind, type TransformMatrix, type TransformMode,
@@ -58,11 +59,15 @@ type CornerKind = 'tl' | 'tr' | 'br' | 'bl'
 
 // Same order as frameCorners — round the rectangle, not left-to-right — so the
 // outline polygon can be drawn straight from the mapped points.
-const CORNERS: Array<{ kind: CornerKind; rotateKind: TransformHandleKind; cursor: string }> = [
-  { kind: 'tl', rotateKind: 'rotate-tl', cursor: 'nwse-resize' },
-  { kind: 'tr', rotateKind: 'rotate-tr', cursor: 'nesw-resize' },
-  { kind: 'br', rotateKind: 'rotate-br', cursor: 'nwse-resize' },
-  { kind: 'bl', rotateKind: 'rotate-bl', cursor: 'nesw-resize' },
+//
+// (#393) Which cursor each of these hands the pointer is not decided here —
+// see transformHandleCursor in cursorController.ts, the one place that answers
+// that for the whole editor.
+const CORNERS: Array<{ kind: CornerKind; rotateKind: TransformHandleKind }> = [
+  { kind: 'tl', rotateKind: 'rotate-tl' },
+  { kind: 'tr', rotateKind: 'rotate-tr' },
+  { kind: 'br', rotateKind: 'rotate-br' },
+  { kind: 'bl', rotateKind: 'rotate-bl' },
 ]
 
 /** Layer transform tool (#120): move/scale/rotate/skew/distort gizmo hugging
@@ -109,21 +114,12 @@ export function TransformGizmo({
   const cornerPos: Record<CornerKind, Point> = {
     tl: { x, y }, tr: { x: right, y }, br: { x: right, y: bottom }, bl: { x, y: bottom },
   }
-  // (#391) In Rotate & Skew an edge slides *along itself* rather than being
-  // pushed in or out, so the arrows turn 90° with it. Deliberately the plain
-  // resize cursors rather than something skew-specific: no standard CSS cursor
-  // means "shear", and inventing a custom bitmap for it would be a worse
-  // affordance than an arrow that at least points the right way.
-  const skewing = mode === 'rotateSkew'
-  const edges: Array<{ kind: 't' | 'b' | 'l' | 'r'; pos: Point; cursor: string }> = [
-    { kind: 't', pos: { x: midX, y }, cursor: skewing ? 'ew-resize' : 'ns-resize' },
-    { kind: 'b', pos: { x: midX, y: bottom }, cursor: skewing ? 'ew-resize' : 'ns-resize' },
-    { kind: 'l', pos: { x, y: midY }, cursor: skewing ? 'ns-resize' : 'ew-resize' },
-    { kind: 'r', pos: { x: right, y: midY }, cursor: skewing ? 'ns-resize' : 'ew-resize' },
+  const edges: Array<{ kind: 't' | 'b' | 'l' | 'r'; pos: Point }> = [
+    { kind: 't', pos: { x: midX, y } },
+    { kind: 'b', pos: { x: midX, y: bottom } },
+    { kind: 'l', pos: { x, y: midY } },
+    { kind: 'r', pos: { x: right, y: midY } },
   ]
-  // (#392) A Distort corner goes wherever it is dragged, in any direction, so
-  // a two-headed diagonal resize arrow would be describing the wrong gesture.
-  const cornerCursor = (fallback: string) => mode === 'distort' ? 'move' : fallback
 
   // (#399) Only the outline follows the content's shape. The handles are
   // placed by mapping their anchor point through the matrix and then drawn
@@ -160,54 +156,60 @@ export function TransformGizmo({
 
   /** A drawn square with a bigger invisible one under it, both centred on the
    *  origin — the caller positions them with `place()`. */
-  const handle = (kind: TransformHandleKind, cursor: string) => (
-    <>
-      <rect
-        x={-scaleHit / 2} y={-scaleHit / 2} width={scaleHit} height={scaleHit}
-        className={styles.transformHandleHit} style={{ cursor }}
-        onPointerDown={e => onHandleDown(kind, e)}
-      />
-      <rect
-        x={-SCALE_HANDLE_SIZE / 2} y={-SCALE_HANDLE_SIZE / 2}
-        width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
-        className={styles.transformHandle} style={{ cursor, pointerEvents: 'none' }}
-      />
-    </>
-  )
+  const handle = (kind: TransformHandleKind) => {
+    const cursor = transformHandleCursor(kind, mode)
+    return (
+      <>
+        <rect
+          x={-scaleHit / 2} y={-scaleHit / 2} width={scaleHit} height={scaleHit}
+          className={styles.transformHandleHit} style={{ cursor }}
+          onPointerDown={e => onHandleDown(kind, e)}
+        />
+        <rect
+          x={-SCALE_HANDLE_SIZE / 2} y={-SCALE_HANDLE_SIZE / 2}
+          width={SCALE_HANDLE_SIZE} height={SCALE_HANDLE_SIZE}
+          className={styles.transformHandle} style={{ cursor, pointerEvents: 'none' }}
+        />
+      </>
+    )
+  }
 
   return (
     <svg className={styles.transformSvg}>
       <polygon
         points={outline.map(p => `${p.x},${p.y}`).join(' ')}
         className={styles.transformBody}
+        style={{ cursor: transformHandleCursor('body', mode) }}
         onPointerDown={e => onHandleDown('body', e)}
       />
 
-      {CORNERS.map(({ kind, rotateKind, cursor }) => (
+      {CORNERS.map(({ kind, rotateKind }) => (
         <g key={kind} transform={place(at(cornerPos[kind]))}>
           <rect
             x={-rotateHit / 2} y={-rotateHit / 2} width={rotateHit} height={rotateHit}
             className={styles.transformRotateZone}
+            style={{ cursor: transformHandleCursor(rotateKind, mode) }}
             onPointerDown={e => onHandleDown(rotateKind, e)}
           />
-          {handle(kind, cornerCursor(cursor))}
+          {handle(kind)}
         </g>
       ))}
 
-      {edges.map(({ kind, pos, cursor }) => (
-        <g key={kind} transform={place(at(pos))}>{handle(kind, cursor)}</g>
+      {edges.map(({ kind, pos }) => (
+        <g key={kind} transform={place(at(pos))}>{handle(kind)}</g>
       ))}
 
       <g transform={place(centerAt)}>
         <circle
           r={centerHit}
-          className={styles.transformCenterHit} style={{ cursor: 'move' }}
+          className={styles.transformCenterHit} style={{ cursor: TRANSFORM_PIVOT_CURSOR }}
           onPointerDown={onCenterDown}
           onDoubleClick={onCenterDoubleClick}
         />
         <circle
           r={CENTER_HANDLE_RADIUS}
-          className={styles.transformCenterHandle} style={{ cursor: 'move', pointerEvents: 'none' }}
+          className={styles.transformCenterHandle}
+          style={{ cursor: TRANSFORM_PIVOT_CURSOR, pointerEvents: 'none' }}
         />
       </g>
     </svg>

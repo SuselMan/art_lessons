@@ -37,7 +37,7 @@
 export type UniformValue = number | number[]
 
 interface MockProgram {
-  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'smudge' | 'smudgeCompute' | 'other'
+  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'imageBlit' | 'smudge' | 'smudgeCompute' | 'other'
   uniforms: Map<string, UniformValue>
 }
 
@@ -209,6 +209,7 @@ export class MockGL {
     if (source.includes('u_accumulation')) return 'display'
     if (source.includes('u_warp')) return 'papergen'
     if (source.includes('u_matrixInv')) return 'transform'
+    if (source.includes('u_imageRect')) return 'imageBlit'
     return 'other'
   }
 
@@ -229,6 +230,7 @@ export class MockGL {
   uniform1i(loc: MockLocation, v: number): void { loc.program.uniforms.set(loc.name, v) }
   uniform2f(loc: MockLocation, a: number, b: number): void { loc.program.uniforms.set(loc.name, [a, b]) }
   uniform3fv(loc: MockLocation, v: number[] | Float32Array): void { loc.program.uniforms.set(loc.name, Array.from(v)) }
+  uniform4f(loc: MockLocation, a: number, b: number, c: number, d: number): void { loc.program.uniforms.set(loc.name, [a, b, c, d]) }
   uniformMatrix3fv(loc: MockLocation, _transpose: boolean, v: number[] | Float32Array): void {
     loc.program.uniforms.set(loc.name, Array.from(v))
   }
@@ -328,13 +330,29 @@ export class MockGL {
   // upload) don't hit a missing-method error under vitest's mocked gl.
   pixelStorei(_pname: number, _param: number): void { /* no-op */ }
 
+  // Two overloads, exactly as real WebGL1 has them. The 6-argument form takes
+  // a DOM source (an HTMLImageElement — reference-image import, #88/#398)
+  // instead of a size plus a pixel array; it arrives here as
+  // (target, level, internalFormat, format, type, source), so `format` lands
+  // in `width`'s slot and the source in `_border`'s. Told apart by the 7th
+  // argument being absent, which is the only difference real GL uses too.
+  // A DOM source has no readable pixels outside a browser, so it uploads as
+  // uniformly opaque (1.0) — enough for the image-blit rasterizer below to
+  // make the *placement* of an imported image observable, which is what the
+  // tests here are about; its content is not.
   texImage2D(
     _target: number, _level: number, _internalFormat: number,
-    width: number, height: number, _border: number,
-    format: number, _type: number, pixels: ArrayBufferView | null,
+    width: number, height: number, _border: number | { width: number; height: number },
+    format?: number, _type?: number, pixels?: ArrayBufferView | null,
   ): void {
     const tex = this._boundTextureTarget
     if (!tex) return
+    if (format === undefined) {
+      const source = _border as { width: number; height: number }
+      const data = new Float32Array(source.width * source.height).fill(1)
+      this._textureData.set(tex, { width: source.width, height: source.height, data })
+      return
+    }
     const data = new Float32Array(width * height)
     if (pixels && (pixels as Uint8Array).length > 0) {
       const src = pixels as Uint8Array
@@ -553,6 +571,7 @@ export class MockGL {
       case 'dab': this._recordDabDraw(prog.uniforms); this._rasterDab(info, prog.uniforms); break
       case 'composite': this._rasterComposite(info, prog.uniforms); break
       case 'transform': this._rasterTransform(info, prog.uniforms); break
+      case 'imageBlit': this._rasterImageBlit(info, prog.uniforms); break
       case 'smudge': this._rasterSmudge(info, prog.uniforms); break
       case 'smudgeCompute': this._rasterSmudgeCompute(info, prog.uniforms); break
       // 'display' / 'papergen': visual-only passes never read back via
@@ -928,6 +947,43 @@ export class MockGL {
           const sy = Math.min(Math.floor(srcY), srcInfo.height - 1)
           srcAlpha = srcInfo.data[sy * srcInfo.width + sx] ?? 0
         }
+        data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
+      }
+    }
+  }
+
+  // Mirrors IMAGE_BLIT_FRAG (#88): every destination texel inside
+  // u_imageRect takes the image's sample, everything outside stays
+  // untouched. What this makes observable is *where* an imported image
+  // landed relative to the operations replayed around it (#398) — the
+  // uploaded source is uniformly opaque (see texImage2D's DOM-source
+  // overload), so the rect is the whole of it.
+  //
+  // v_uv comes from DISPLAY_VERT's fullscreen quad, so its y runs bottom-up
+  // like GL's own framebuffer, while this mock's rows (like every dab center
+  // the engine hands it) are top-down — hence the flip when turning a row
+  // index back into the shader's bufferPx.
+  private _rasterImageBlit(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const { width, height, data } = info
+    const unit = (uniforms.get('u_image') as number) ?? 0
+    const [bw, bh] = (uniforms.get('u_bufferSize') as number[]) ?? [width, height]
+    const [rx, ry, rw, rh] = (uniforms.get('u_imageRect') as number[]) ?? [0, 0, 0, 0]
+    const srcTex = this._textureUnits[unit] ?? null
+    const srcInfo = srcTex ? this._textureData.get(srcTex) : undefined
+    const sf = this._blendSrcFactor()
+    if (!srcInfo || rw <= 0 || rh <= 0) return
+
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        const bufX = ((px + 0.5) / width) * bw
+        const bufY = (1 - (py + 0.5) / height) * bh
+        const u = (bufX - rx) / rw
+        const v = (bufY - ry) / rh
+        if (u < 0 || u > 1 || v < 0 || v > 1) continue
+        const sx = Math.min(Math.floor(u * srcInfo.width), srcInfo.width - 1)
+        const sy = Math.min(Math.floor(v * srcInfo.height), srcInfo.height - 1)
+        const srcAlpha = clamp(srcInfo.data[sy * srcInfo.width + sx] ?? 0, 0, 1)
+        const idx = py * width + px
         data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
       }
     }

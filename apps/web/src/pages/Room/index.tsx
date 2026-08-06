@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL, toWireMatrix } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, type CharcoalFeelConfig, type PencilTiltConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -68,6 +68,7 @@ import { Outbox } from './outbox'
 import { createIndexedDbOutboxStorage } from './outboxStorage'
 import { PeerCursors } from './PeerCursors'
 import { BrushCursor } from './BrushCursor'
+import { useCursor, type ViewportCursor } from './cursorController'
 import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
@@ -93,6 +94,7 @@ import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import type { PrimaryDrawingTool } from '../../stores/slices/toolSlice'
+import type { OverlayMode } from '../../stores/slices/overlaySlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
 import styles from './Room.module.css'
 
@@ -105,6 +107,15 @@ import styles from './Room.module.css'
 // working unmodified rather than needing every call site touched twice.
 // Large enough that "infinite" still feels roomy for this interim state.
 const PLACEHOLDER_INFINITE_CANVAS_SIZE = 8192
+
+// (#393) The one place a ViewportCursor becomes a class name. The decision
+// itself is cursorController's; this is only the CSS-Modules lookup, kept
+// exhaustive by the Record so a new cursor value cannot ship without one.
+const VIEWPORT_CURSOR_CLASS: Record<ViewportCursor, string> = {
+  crosshair: styles.viewportCursorCrosshair,
+  grab: styles.viewportCursorGrab,
+  default: styles.viewportCursorDefault,
+}
 
 /** Navigation state CreateRoom hands off to a freshly created room (see
  *  CreateRoom/index.tsx) — its presence is how this component tells "I am
@@ -354,6 +365,9 @@ export function Room() {
   // values rather than a second hardcoded copy here — CHARCOAL_FEEL is the one
   // source of truth, and these sliders only ever push deltas back into it.
   const [charcoalFeel, setCharcoalFeelState] = useState<CharcoalFeelConfig>(() => ({ ...CHARCOAL_FEEL }))
+  // #389: graphite's tilt curve, seeded and pushed the same way charcoal's
+  // ladder above is.
+  const [pencilTilt, setPencilTiltState] = useState<PencilTiltConfig>(() => ({ ...PENCIL_TILT }))
 
   // Optional pointer-prediction experiment (#92) — same feature-flag pattern
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
@@ -501,21 +515,27 @@ export function Room() {
   const hotkeys = useSettingsStore(s => s.hotkeys)
   const gradeHotkeyLabels = ['gradeH', 'gradeHB', 'grade2B', 'grade4B', 'grade6B']
     .map(id => formatHotkeyLabel(hotkeys[id])).join('/')
-  // Eyedropper (#82) is a one-shot mode, not a recorded ToolType — it never
-  // paints or produces an Operation, so it lives entirely as local UI state
-  // rather than going through engine.setTool(). See .eyedropperOverlay in
-  // Room.module.css for how it intercepts the next canvas pointerdown.
-  const [eyedropperActive, setEyedropperActive] = useState(false)
-  // Ruler tool (#89) — a draggable straight-edge guide that a pencil stroke
-  // snaps to while it's placed (see engine.setRuler / engine/src/
-  // rulerSnap.ts for the actual snapping math, which runs inside the
-  // pointer pipeline, not here). Local UI state, same non-Operation status
-  // as eyedropper above (it never paints or produces an Operation either).
-  // Unlike a one-shot A→B drag, `rulerLine` is a *persistent* guide once
-  // placed — it survives across strokes so a student can draw several
-  // guided lines along the same edge — and is only cleared when the tool
-  // is toggled off, or another one-shot tool takes over the pointer catcher.
-  const [rulerActive, setRulerActive] = useState(false)
+  // (#393) The one-at-a-time overlay modes, in the store as a single union —
+  // eyedropper (#82), ruler (#89), transform (#120). None of them is a
+  // recorded ToolType: the first two never paint or produce an Operation at
+  // all, and transform produces one of its own kind (layer_transform) via the
+  // engine's live preview + dispatchOp rather than through engine.setTool().
+  // All three lie *on top of* whichever drawing tool is selected, leaving it
+  // exactly where it was — which is why "what should the cursor be" cannot be
+  // answered from `tool` (see cursorController.ts, and useCursor below).
+  //
+  // A union rather than three booleans because they take over the same
+  // canvas-pointer catcher slot and genuinely exclude each other; that used to
+  // be upheld by each toggle remembering to switch the other two off.
+  //
+  // Unlike a one-shot A→B drag, the ruler's `rulerLine` is a *persistent*
+  // guide once placed — it survives across strokes so a student can draw
+  // several guided lines along the same edge — and is only cleared when the
+  // mode ends (see the effect below).
+  const overlayMode = useRoomStore(s => s.overlayMode)
+  const setOverlayMode = useRoomStore(s => s.setOverlayMode)
+  const eyedropperActive = overlayMode === 'eyedropper'
+  const rulerActive = overlayMode === 'ruler'
   // (#23) Backed by the store now, alongside the transform-preview fields
   // below — moved for architectural consistency, but deliberately NEVER
   // persisted (see layerSlice.ts's own comment: a ruler is for quickly
@@ -533,17 +553,18 @@ export function Room() {
   // overlay's own listeners never got attached to their eventual real
   // target) silently went nowhere. rulerPlaced only flips true in
   // handleRulerPlaceDown's onUp, so the catcher div survives the entire
-  // placement drag.
-  const [rulerPlaced, setRulerPlaced] = useState(false)
-  // Construction grid (#89) — unlike eyedropper/ruler above, a passive
-  // toggle rather than a one-shot tool: it never intercepts pointer events,
-  // so it doesn't need its own overlay div, just a conditional render.
-  const [gridActive, setGridActive] = useState(false)
-  // Layer transform tool (#120) — same one-shot-mode shape as eyedropper/
-  // ruler above, but unlike them it *does* produce an Operation
-  // (layer_transform) on commit, via the engine's live preview + dispatchOp,
-  // not engine.setTool().
-  const [transformActive, setTransformActive] = useState(false)
+  // placement drag. (#393) In the store with the mode it belongs to — the
+  // cursor controller needs it: a ruler being placed suspends drawing, a
+  // placed one is just a guide strokes snap against.
+  const rulerPlaced = useRoomStore(s => s.rulerPlaced)
+  const setRulerPlaced = useRoomStore(s => s.setRulerPlaced)
+  // Construction grid (#89) — unlike the modes above, a passive toggle rather
+  // than a one-shot tool: it never intercepts pointer events, so it doesn't
+  // need its own overlay div (just a conditional render), coexists with any
+  // overlayMode, and is the one overlay that leaves the cursor alone.
+  const gridActive = useRoomStore(s => s.gridActive)
+  const setGridActive = useRoomStore(s => s.setGridActive)
+  const transformActive = overlayMode === 'transform'
   // Content bounding box (engine.getContentBounds, unioned across the
   // current target(s)) — recomputed on activation/selection change and
   // after every commit (see refreshTransformBounds below), not per drag
@@ -1043,6 +1064,12 @@ export function Room() {
   const setHandHeld = useRoomStore(s => s.setHandHeld)
   const handHeld = useRoomStore(s => s.handHeld)
   const handActive = handTool || handHeld
+
+  // (#393) What the pointer looks like right now — the whole decision, made
+  // once, in one module, from the tool plus every mode laid on top of it.
+  // Nothing else in this file (or in BrushCursor/TransformGizmo/RulerOverlay,
+  // or in Room.module.css) decides any part of it.
+  const cursor = useCursor()
 
   // Drag up/down on the zoom label to adjust zoom without a two-finger pinch
   // (#97); a plain click still resets to 100%, mirroring angleLabel's
@@ -1621,6 +1648,12 @@ export function Room() {
             const snapshot = await fetchLatestSnapshot(id)
             if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
           }
+
+          // (#398) Reference images decoded before the loop, not inside it —
+          // see PencilEngineAPI.preloadImages. Without this, the operations
+          // recorded *after* an import replay against a layer whose image
+          // has not landed yet.
+          await engine.preloadImages(pending.tailOperations)
 
           // (#385) Per-operation, not around the whole loop. One operation
           // that throws used to abandon every operation after it — and in the
@@ -2365,53 +2398,37 @@ export function Room() {
       setToolSetting(colorTool, 'color', picked)
       setActivePanel('color')
     }
-    setEyedropperActive(false)
-  }, [vpRef, vp, config, setToolSetting, colorTool])
+    setOverlayMode('none')
+  }, [vpRef, vp, config, setToolSetting, colorTool, setOverlayMode])
 
-  // Shared by every other tool's toggle below, so activating any of them
-  // also clears the ruler — see toggleRuler's own doc comment for why
-  // turning the ruler off always clears rulerLine + the engine's guide
-  // together rather than leaving them out of sync.
-  const deactivateRuler = useCallback(() => {
-    setRulerActive(false)
+  // Ruler tool (#89): leaving the mode — by toggling it off or by any other
+  // mode taking over — is what clears the guide, both the visible line and
+  // the engine's snapping copy, always together. While the mode is on,
+  // rulerLine is meant to persist across strokes (see its declaration above),
+  // so this deliberately never fires there.
+  //
+  // (#393) An effect on the mode rather than a deactivateRuler() every toggle
+  // had to remember to call: "there is no ruler unless the mode is ruler" is
+  // an invariant, and three hand-written call sites are how an invariant
+  // becomes a bug.
+  useEffect(() => {
+    if (overlayMode === 'ruler') return
     setRulerLine(null)
     setRulerPlaced(false)
     engineRef.current?.setRuler(null)
-  }, [setRulerLine])
+  }, [overlayMode, setRulerLine, setRulerPlaced])
 
-  // Eyedropper, ruler, and transform mode all take over the same
-  // canvas-pointer catcher slot (or, for transform, the gizmo's own handles;
-  // for ruler, its own SVG handles once placed) — only one should ever be
-  // armed at a time, so each toggle turns the others off.
-  const toggleEyedropper = useCallback(() => {
-    setTransformActive(false)
-    deactivateRuler()
-    setEyedropperActive(a => !a)
-  }, [deactivateRuler])
-
-  const toggleTransform = useCallback(() => {
-    setEyedropperActive(false)
-    deactivateRuler()
-    setTransformActive(a => !a)
-  }, [deactivateRuler])
-
-  // Ruler tool (#89): turning it OFF (not on) is when rulerLine/the engine
-  // guide get cleared — while it's on, rulerLine is meant to persist across
-  // strokes (see its declaration above), so clearing it on every toggle
-  // would defeat that.
-  const toggleRuler = useCallback(() => {
-    setEyedropperActive(false)
-    setTransformActive(false)
-    setRulerActive(a => {
-      const next = !a
-      if (!next) {
-        setRulerLine(null)
-        setRulerPlaced(false)
-        engineRef.current?.setRuler(null)
-      }
-      return next
-    })
-  }, [setRulerLine])
+  // Eyedropper, ruler, and transform all take over the same canvas-pointer
+  // catcher slot (or, for transform, the gizmo's own handles; for ruler, its
+  // own SVG handles once placed), so only one is ever armed — which the
+  // OverlayMode union states outright instead of each toggle switching the
+  // other two off by hand.
+  const toggleOverlayMode = useCallback((mode: OverlayMode) => {
+    setOverlayMode(prev => (prev === mode ? 'none' : mode))
+  }, [setOverlayMode])
+  const toggleEyedropper = useCallback(() => toggleOverlayMode('eyedropper'), [toggleOverlayMode])
+  const toggleTransform = useCallback(() => toggleOverlayMode('transform'), [toggleOverlayMode])
+  const toggleRuler = useCallback(() => toggleOverlayMode('ruler'), [toggleOverlayMode])
 
   // Active layer, or the current multi-select from LayerPanel — background
   // is never a legal transform target, same as merge/delete (#120).
@@ -2663,7 +2680,7 @@ export function Room() {
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, setRulerLine])
+  }, [vpRef, vp, config, setRulerLine, setRulerPlaced])
 
   // Ruler tool (#89): once placed, repositioning — grabbing an endpoint
   // rotates/resizes it, grabbing the body translates both endpoints
@@ -3324,6 +3341,10 @@ export function Room() {
           const snapshot = await fetchLatestSnapshot(id)
           if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
         }
+
+        // (#398) Same as the mount effect's own catch-up — see
+        // PencilEngineAPI.preloadImages.
+        if (engine) await engine.preloadImages(tailOperations)
 
         for (const op of tailOperations) {
           if (pendingPreviewOpIdsRef.current.has(op.id)) {
@@ -4150,7 +4171,7 @@ export function Room() {
         {/* (#319) The grab cursor lives on .viewport rather than the canvas
             because the canvas is inert while the hand is on — a cursor set on
             an element that isn't hit-testable never shows. */}
-        <div ref={setVpNode} className={clsx(styles.viewport, handActive && styles.viewportHand)}>
+        <div ref={setVpNode} className={clsx(styles.viewport, VIEWPORT_CURSOR_CLASS[cursor.viewportCursor])}>
           <div
             ref={canvasWrapRef}
             className={styles.canvasWrap}
@@ -4197,10 +4218,12 @@ export function Room() {
                 angle={vp.angle}
               />
             )}
-            {/* (#319) No brush ring while the hand is on: nothing is going to
-                be painted, and a ring that follows a grab cursor reads as if
-                it still would. */}
-            {!config.infinite && !handActive && (
+            {/* (#393) Mounted exactly while the cursor controller says a dab
+                preview belongs on screen — with the hand on, during a
+                transform session, while the eyedropper is armed or a ruler is
+                being placed, nothing is going to be painted, and a ring that
+                keeps following the pointer reads as if it still would. */}
+            {!config.infinite && cursor.dabPreview && (
               <BrushCursor
                 vpRef={vpRef}
                 tool={tool}
@@ -4257,16 +4280,18 @@ export function Room() {
                 zoom={vp.zoom}
                 angle={vp.angle}
               />
-              <BrushCursor
-                vpRef={vpRef}
-                tool={tool}
-                presetName={cursorPresetName}
-                baseSize={sizePx}
-                vp={vp}
-                config={config}
-                markerAngleRadians={markerCanvasAngleRadians}
-                markerFollowStroke={markerFollowStroke}
-              />
+              {cursor.dabPreview && (
+                <BrushCursor
+                  vpRef={vpRef}
+                  tool={tool}
+                  presetName={cursorPresetName}
+                  baseSize={sizePx}
+                  vp={vp}
+                  config={config}
+                  markerAngleRadians={markerCanvasAngleRadians}
+                  markerFollowStroke={markerFollowStroke}
+                />
+              )}
               {gridActive && (
                 <InfiniteGridOverlay
                   vp={vp}
@@ -4678,6 +4703,36 @@ export function Room() {
                         style={{ width: 90 }}
                       />
                       <span>{charcoalFeel[s.key].toFixed(s.step < 1 ? 2 : 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* #389: graphite's tilt curve. Shown for every tool that rides
+                  PENCIL_DAB_SHAPING — eraser and smudge share the geometry, so
+                  the knobs are live for them too even though the lightening
+                  one only reaches graphite's own deposit. Same "next stroke"
+                  semantics as charcoal's block above. */}
+              {(tool === 'pencil' || tool === 'eraser' || tool === 'smudge') && (
+                <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
+                  <div style={{ opacity: 0.7 }}>pencil tilt (next stroke)</div>
+                  {PENCIL_TILT_SLIDERS.map(s => (
+                    <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                      <span style={{ width: 78 }}>{s.label}</span>
+                      <input
+                        type="range"
+                        min={s.min}
+                        max={s.max}
+                        step={s.step}
+                        value={pencilTilt[s.key]}
+                        onChange={e => {
+                          const v = Number(e.target.value)
+                          setPencilTiltState(prev => ({ ...prev, [s.key]: v }))
+                          engineRef.current?.setPencilTilt({ [s.key]: v })
+                        }}
+                        style={{ width: 90 }}
+                      />
+                      <span>{pencilTilt[s.key].toFixed(s.step < 1 ? 2 : 0)}</span>
                     </div>
                   ))}
                 </div>

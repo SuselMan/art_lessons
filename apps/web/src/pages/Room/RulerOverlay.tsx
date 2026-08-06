@@ -1,3 +1,4 @@
+import { RULER_HANDLE_CURSOR } from './cursorController'
 import styles from './Room.module.css'
 
 export interface RulerPoint {
@@ -63,18 +64,18 @@ export function RulerOverlay({ a, b, onHandleDown, zoom, angle }: RulerOverlayPr
       <svg className={styles.rulerSvg}>
         <line
           x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-          className={styles.rulerHitLine}
+          className={styles.rulerHitLine} style={{ cursor: RULER_HANDLE_CURSOR.body }}
           onPointerDown={e => onHandleDown('body', e)}
         />
         <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} className={styles.rulerLine} />
         <circle
           cx={a.x} cy={a.y} r={ENDPOINT_RADIUS}
-          className={styles.rulerEndpoint}
+          className={styles.rulerEndpoint} style={{ cursor: RULER_HANDLE_CURSOR.a }}
           onPointerDown={e => onHandleDown('a', e)}
         />
         <circle
           cx={b.x} cy={b.y} r={ENDPOINT_RADIUS}
-          className={styles.rulerEndpoint}
+          className={styles.rulerEndpoint} style={{ cursor: RULER_HANDLE_CURSOR.b }}
           onPointerDown={e => onHandleDown('b', e)}
         />
       </svg>

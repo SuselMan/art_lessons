@@ -7,7 +7,7 @@
 // `appendOperation` in engine/index.ts: it is deliberately origin-agnostic).
 
 import { nanoid } from 'nanoid'
-import type { Dab, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@grafetto/shared'
+import type { Dab, ImageImportOperation, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@grafetto/shared'
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { Matrix3 } from '../src/matrix'
@@ -661,4 +661,59 @@ export function makeLayerTransform(
   overrides: Partial<LayerTransformOperation> = {},
 ): LayerTransformOperation {
   return { id: nanoid(10), type: 'layer_transform', userId, timestamp: nextTimestamp(), transforms, ...overrides }
+}
+
+// ─── Reference-image import (#88/#398) ─────────────────────────────────────
+
+/** Default natural size for makeImageImport below — square, so a fixed-canvas
+ *  room's fit-center placement covers a square test canvas exactly. */
+const TEST_IMAGE_SIZE = 8
+
+export function makeImageImport(
+  userId: string, layerId: string, overrides: Partial<ImageImportOperation> = {},
+): ImageImportOperation {
+  return {
+    id: nanoid(10), type: 'image_import', userId, timestamp: nextTimestamp(),
+    layerId, image: `test-image:${nanoid(6)}`, width: TEST_IMAGE_SIZE, height: TEST_IMAGE_SIZE,
+    ...overrides,
+  }
+}
+
+/** (#398) Stands in for the browser's `Image` in vitest's 'node' environment,
+ *  which has none — the engine decodes an imported reference image through it
+ *  (see _loadImage), so without this the import path cannot run in a test at
+ *  all. Deliberately per-test rather than process-wide like the rAF/paper
+ *  stubs above: what a test of the *import* path usually needs to control is
+ *  exactly this — whether a decode succeeds, and when.
+ *
+ *  Resolution is always asynchronous (a microtask), matching the real thing
+ *  and, more to the point, matching what makes #398 possible: nothing an
+ *  `image_import` needs can be ready within the synchronous span of the
+ *  `appendOperation` that applies it, unless something decoded it earlier.
+ *
+ *  Returns the restore function; call it in a `finally`/`afterEach` so the
+ *  stub doesn't leak into later files. */
+export function installFakeImageDecoder(
+  { fail = false, size = TEST_IMAGE_SIZE }: { fail?: boolean; size?: number } = {},
+): () => void {
+  const holder = globalThis as { Image?: unknown }
+  const previous = holder.Image
+  holder.Image = class FakeImage {
+    width = size
+    height = size
+    naturalWidth = size
+    naturalHeight = size
+    onload: (() => void) | null = null
+    onerror: (() => void) | null = null
+    set src(_value: string) {
+      queueMicrotask(() => { if (fail) this.onerror?.(); else this.onload?.() })
+    }
+  }
+  return () => { holder.Image = previous }
+}
+
+/** Straight alpha of one pixel of a readLayerPixels/readTilePixels readback,
+ *  by (x, y) within a `width`-wide buffer. */
+export function alphaAt(pixels: Uint8Array, x: number, y: number, width: number): number {
+  return pixels[(y * width + x) * 4 + 3]
 }
