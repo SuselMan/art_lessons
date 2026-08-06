@@ -282,6 +282,27 @@ export interface PencilEngineAPI {
   getCharcoalFeel(): CharcoalFeelConfig
   setCompositeOrder(items: CompositeItem[]): void
   appendOperation(op: Operation, source?: OperationSource): void
+  // (#398) Decodes the reference image of every `image_import` among `ops`
+  // into the engine's image cache, so that applying those operations
+  // afterwards paints them *synchronously*, in log order, like every other
+  // pixel operation.
+  //
+  // Decoding an image is the one step in applying an operation that cannot
+  // happen inline, and `appendOperation` has no asynchronous boundary to hang
+  // it on. Without this, a replay walks straight past an `image_import` and
+  // applies everything after it to a still-empty layer — a `layer_transform`
+  // bakes nothing and the image then lands, undisplaced, at its original
+  // position (the reported #398 symptom: a moved reference photo jumps back on
+  // rejoin), a stroke meant to sit on top of the photo ends up under it, and a
+  // `layer_clear` clears a layer the image is about to appear on.
+  //
+  // A caller replaying a batch of operations (initial room join, reconnect —
+  // the same batch suspendDisplay/paperReady below are about) awaits this
+  // first. Failures are swallowed: one undecodable image must not abandon the
+  // replay, and the operation itself then behaves exactly as it did before
+  // (painted late, or not at all, and logged). Already-cached images cost
+  // nothing, so calling it repeatedly across pages is fine.
+  preloadImages(ops: Operation[]): Promise<void>
   // (#147) Suspends the _display() (full composite + paper-blend) call that
   // several appendOperation branches (stroke/layer_clear/layer_delete/
   // layer_transform/layer_merge, and undo/redo/revoke's own history-change
@@ -1937,8 +1958,16 @@ export class PencilEngine implements PencilEngineAPI {
         }
         if (buf) {
           this._markLayerDirty(op.layerId)
-          this._paintImage(buf, op).then(() => this._maybeCheckpoint(op.layerId))
-            .catch(err => console.error('failed to paint imported image', err))
+          // (#398) The image is already decoded on every replay path (see
+          // preloadImages) — paint it here and now, so the operations after
+          // it in this same loop see the pixels they were recorded against.
+          if (this._paintDecodedImage(buf, op)) {
+            this._maybeCheckpoint(op.layerId)
+          } else {
+            this._paintImage(buf, op)
+              .then(() => { this._settleLateImage(op); this._maybeCheckpoint(op.layerId) })
+              .catch(err => console.error('failed to paint imported image', err))
+          }
         } else {
           this._log.revoke(op.id)
         }
@@ -2933,7 +2962,15 @@ export class PencilEngine implements PencilEngineAPI {
         this._replayMergeInto(buf, op)
         break
       case 'image_import':
-        this._paintImage(buf, op).catch(err => console.error('failed to paint imported image', err))
+        // (#398) Same as appendOperation's own branch, minus the late-arrival
+        // repair: this one can be replaying into a throwaway scratch buffer
+        // (see _replayMergeInto), which has no layer to rebuild. Every replay
+        // that matters here reaches this with the image already decoded —
+        // preloadImages on the join/reconnect paths, and the cache entry the
+        // first paint left behind for undo/redo's later rebuilds.
+        if (!this._paintDecodedImage(buf, op)) {
+          this._paintImage(buf, op).catch(err => console.error('failed to paint imported image', err))
+        }
         break
       case 'layer_transform': {
         // The one PixelOperation that can belong to several layers'
@@ -3449,6 +3486,11 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._log.prependHistorical(scratch.entries)
     this._historicalEntryCount += scratch.entries.length
+    // (#398) Nothing is painted here — but an undo/redo later rebuilds a
+    // layer from exactly these operations, and that rebuild is synchronous.
+    // Decoding in the background now is what lets it find the image ready;
+    // deliberately not awaited, since backfill itself never blocks anything.
+    void this.preloadImages(ops)
   }
 
   /** See the PencilEngineAPI doc comment. */
@@ -4257,24 +4299,69 @@ export class PencilEngine implements PencilEngineAPI {
     })
   }
 
+  /** See the PencilEngineAPI doc comment. */
+  async preloadImages(ops: Operation[]): Promise<void> {
+    const sources = new Set<string>()
+    for (const op of ops) if (op.type === 'image_import') sources.add(op.image)
+    if (sources.size === 0) return
+    await Promise.all([...sources].map(src => this._loadImage(src).catch(
+      // Deliberately not rethrown: this is a preparation step for a replay,
+      // and an image that cannot be decoded is not a reason to abandon
+      // everything else the room drew. The operation itself falls through to
+      // the async path and fails there exactly as it did before.
+      err => { console.error('failed to decode imported image', err) },
+    )))
+  }
+
+  /** (#398) Paints `op` immediately if its image is already decoded, leaving
+   *  the pixels in `buf` by the time this returns — which is what lets a
+   *  replay apply the operations that follow it against the content they
+   *  were recorded against. False means nothing was painted and the caller
+   *  must fall back to the async path. */
+  private _paintDecodedImage(buf: ILayerBuffer, op: ImageImportOperation): boolean {
+    const img = this._imageCache.get(op.image)
+    if (!img) return false
+    this._blitImage(buf, op, img)
+    this._displayIfNotSuspended()
+    return true
+  }
+
+  /** (#398) An image that had to be decoded *after* its operation was
+   *  applied has just landed. Anything that painted this layer in the
+   *  meantime is now wrongly underneath it — a peer's stroke arriving right
+   *  behind the import, or the import's own undo. The image is in
+   *  `_imageCache` now, so rebuilding replays the whole layer synchronously
+   *  and in log order, putting everything back where the log says it goes.
+   *
+   *  Skipped in the ordinary case — an import that is still the newest pixel
+   *  operation on its layer (a local import, a peer's with nothing behind
+   *  it) is already correct, and must not pay for a rebuild. */
+  private _settleLateImage(op: ImageImportOperation): void {
+    const ops = this._log.layerPixelOps(op.layerId)
+    if (ops.length > 0 && ops[ops.length - 1].id === op.id) return
+    this._rebuildLayer(op.layerId)
+    this._displayIfNotSuspended()
+  }
+
   /** Paints a reference image into `buf`, fit-centered ("contain") so the
    *  whole image stays visible, letterboxed if its aspect ratio doesn't
-   *  match the canvas's. Async (image decode) — unlike every other pixel
-   *  op, this doesn't land synchronously within appendOperation/
-   *  _applyPixelOp; both callers fire it and move on. In practice this is
-   *  fine: `image_import` only ever targets a layer created moments earlier
-   *  by its own `layer_add` (see the shared type's doc comment), so nothing
-   *  else is normally racing to paint the same layer while this decodes.
-   *  The one real gap: replaying a room whose reference layer already has
-   *  strokes on top of it — those strokes are synchronous and can finish
-   *  painting before this image lands, and AccumulationBuffer's "over"
-   *  blend always draws on top regardless of seq order, so the image could
-   *  render over strokes meant to be on top of it. Not worth solving until
-   *  it's an actual reported problem — the fix (only this file's replay
-   *  loop, `_replayInto`) would mean threading async through undo/redo's
-   *  buffer-rebuild path too. */
+   *  match the canvas's. The decode is the only asynchronous step, and it is
+   *  the reason `preloadImages` exists: with the image already in
+   *  `_imageCache`, callers reach `_blitImage` below directly and this
+   *  operation lands synchronously like every other pixel op. This wrapper
+   *  is what remains for the cases where it cannot — a genuinely new import
+   *  (local, or a peer's arriving live), where nothing had a chance to
+   *  decode it in advance. */
   private async _paintImage(layerBuf: ILayerBuffer, op: ImageImportOperation): Promise<void> {
     const img = await this._loadImage(op.image)
+    this._blitImage(layerBuf, op, img)
+    // Unconditional, unlike _paintDecodedImage's: whatever suspendDisplay
+    // span was open when this operation was applied is long closed by the
+    // time a decode resolves, so there is nothing left to repaint later.
+    this._display()
+  }
+
+  private _blitImage(layerBuf: ILayerBuffer, op: ImageImportOperation, img: HTMLImageElement): void {
     const { gl, canvas } = this
 
     const texture = gl.createTexture()!
@@ -4328,7 +4415,6 @@ export class PencilEngine implements PencilEngineAPI {
     // path and _applyPixelOp's replay path) — an image_import can target
     // any layer, so only invalidate when it isn't the active one.
     if (op.layerId !== this._activeId) this._invalidateSplitCache()
-    this._display()
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────────────

@@ -1625,6 +1625,12 @@ export function Room() {
             if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
           }
 
+          // (#398) Reference images decoded before the loop, not inside it —
+          // see PencilEngineAPI.preloadImages. Without this, the operations
+          // recorded *after* an import replay against a layer whose image
+          // has not landed yet.
+          await engine.preloadImages(pending.tailOperations)
+
           // (#385) Per-operation, not around the whole loop. One operation
           // that throws used to abandon every operation after it — and in the
           // real case that produced this guard (a GL allocation failing part
@@ -3222,6 +3228,10 @@ export function Room() {
           const snapshot = await fetchLatestSnapshot(id)
           if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
         }
+
+        // (#398) Same as the mount effect's own catch-up — see
+        // PencilEngineAPI.preloadImages.
+        if (engine) await engine.preloadImages(tailOperations)
 
         for (const op of tailOperations) {
           if (pendingPreviewOpIdsRef.current.has(op.id)) {
