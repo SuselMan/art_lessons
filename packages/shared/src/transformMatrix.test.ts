@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   toHomography, toWireMatrix, isAffineHomography,
   type AffineMatrixTuple, type HomographyMatrixTuple,
-} from './index'
+} from './index.js'
 
 /** (#392) The wire form of a layer_transform is six numbers or nine, and the
  *  whole point of that union is that nothing downstream has to care which one
