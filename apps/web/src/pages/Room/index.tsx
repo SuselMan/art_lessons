@@ -3870,7 +3870,15 @@ export function Room() {
       // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
       if (is('toggleEyedropper')) { selectTool('eyedropper'); return }
       if (is('toggleRuler')) { selectTool('ruler'); return }
-      if (is('toggleTransform')) { if (transformTargetIds.length > 0) selectTool('transform'); return }
+      // Selectable only with something to transform (the toolbar button is
+      // `disabled` on the same condition), but always *de*selectable: making
+      // the active layer the background empties the selection, and a key that
+      // refused to let go there would leave the canvas locked with no gizmo on
+      // it and no obvious way out.
+      if (is('toggleTransform')) {
+        if (transformActive || transformTargetIds.length > 0) selectTool('transform')
+        return
+      }
       if (is('toggleGrid')) { selectTool('grid'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
       if (is('toggleHand')) { setHandTool(h => !h); return }
@@ -3908,7 +3916,7 @@ export function Room() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [
-    drawingTool, setTool, selectTool, lastDrawingTool, transformTargetIds.length,
+    drawingTool, setTool, selectTool, lastDrawingTool, transformActive, transformTargetIds.length,
     setToolSetting, setVp, setHandTool, handleUndo, handleRedo, hotkeys,
   ])
 
@@ -4298,7 +4306,10 @@ export function Room() {
             title={t('tool.transformTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleTransform) })}
             aria-label={t('tool.transform')}
             aria-pressed={transformActive}
-            disabled={transformTargetIds.length === 0}
+            // (#405) Stays clickable while it is the selected tool even with
+            // nothing to transform — see the hotkey's own note: disabling the
+            // only way out of a tool is how you get stuck in it.
+            disabled={!transformActive && transformTargetIds.length === 0}
             onClick={() => selectTool('transform')}
           ><Icon name="free-transform" /></button>
 
