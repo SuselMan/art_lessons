@@ -1019,10 +1019,10 @@ export function Room() {
   // Read directly inside useViewport's native pointerdown listener — see
   // that hook's doc comment for why a ref (checked synchronously, before
   // React ever re-renders) is required here instead of just having the
-  // eyedropper overlay call e.stopPropagation() itself. Ruler placement is
-  // pen-only (see handleRulerPlaceDown) so it never needs to reserve a touch
-  // here — a finger always pans/zooms while placing a ruler, exactly like it
-  // does while drawing with the pencil.
+  // catcher call e.stopPropagation() itself. The ruler shares that catcher but
+  // is pen-only (see handleRulerDown), so it never reserves a touch here — a
+  // finger always pans/zooms while the ruler is in hand, exactly like it does
+  // while drawing with the pencil.
   const toolActiveRef = useRef(false)
   toolActiveRef.current = eyedropperActive
 
@@ -2416,6 +2416,11 @@ export function Room() {
   // the PLACEHOLDER_INFINITE_CANVAS_SIZE placeholder config, a pre-existing
   // inaccuracy #143 explicitly left alone.
   const handleEyedropperPick = useCallback((e: React.PointerEvent) => {
+    // (#405) The hand outranks the tool underneath it — the same precedence
+    // resolveCursor states (rule 1) and the gizmo handles follow. With it up, a
+    // press on the canvas moves the view; picking a colour instead would both
+    // pan and switch tools out from under the drag.
+    if (handActive) return
     e.preventDefault()
     const el = vpRef.current
     if (!el || !config) return
@@ -2452,7 +2457,7 @@ export function Room() {
       setTool(drawingTool)
       setActivePanel('color')
     }
-  }, [vpRef, vp, config, setToolSetting, pickedColorTool, setTool, drawingTool, toolSettings.eyedropper, addPaletteColor])
+  }, [vpRef, vp, config, handActive, setToolSetting, pickedColorTool, setTool, drawingTool, toolSettings.eyedropper, addPaletteColor])
 
   // Ruler tool (#89, #405): the engine only ever knows about the ruler as a
   // *snapping* guide, so this is where "is there a line to snap to right now"
@@ -2753,6 +2758,10 @@ export function Room() {
     }
   }, [transformActive, vpEl])
 
+  // Viewport rect for the ruler's own pointer math — see handleRulerHover for
+  // why it is cached rather than read per move.
+  const rulerRectRef = useRef<DOMRect | null>(null)
+
   // Ruler tool (#89, #405): one gesture handler for the whole tool.
   //
   // Down/move/up tracked manually via setPointerCapture + direct DOM
@@ -2781,6 +2790,12 @@ export function Room() {
   // any more than it can snap — see the engine sync above.
   const handleRulerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return
+    // Same precedence as everywhere else (#405): while the hand is up, a drag
+    // moves the view. useViewport's own listener is on `.viewport`, an ancestor
+    // of this catcher, and native listeners on an ancestor run *before* React
+    // dispatches here — so without this the same drag would pan and lay a
+    // ruler line at once.
+    if (handActive) return
     const el = vpRef.current
     if (!el || !config) return
     e.stopPropagation()
@@ -2788,7 +2803,7 @@ export function Room() {
     const penPointerId = e.pointerId
     try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
 
-    const rect = el.getBoundingClientRect()
+    const rect = rulerRectRef.current = el.getBoundingClientRect()
     // #143: world-space for infinite rooms (clientToRoomPoint) — matches
     // what engine.setRuler's snapping (rulerSnap.ts) compares against real
     // stroke dabs there (genuine world coordinates, see setInfiniteCamera's
@@ -2835,7 +2850,7 @@ export function Room() {
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, rulerLine, setRulerLine])
+  }, [vpRef, vp, config, handActive, rulerLine, setRulerLine])
 
   // (#405) The catcher's own cursor, per pointer position — the one cursor in
   // the editor that cannot come from a CSS class, because which gesture is on
@@ -2846,7 +2861,13 @@ export function Room() {
   const handleRulerHover = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const el = vpRef.current
     if (!el || !config) return
-    const rect = el.getBoundingClientRect()
+    // Cached rect, same forced-reflow reasoning as the cursor broadcast's own
+    // (see its comment): getBoundingClientRect is a synchronous layout read and
+    // this runs on every pointermove over the canvas. Re-read on entry and on
+    // every press, which is every moment it could matter; a window resize while
+    // the pointer sits still leaves the *cursor* a frame stale and nothing else,
+    // since the press that follows reads the rect afresh.
+    const rect = rulerRectRef.current ??= el.getBoundingClientRect()
     const gesture = rulerGestureAt(
       clientToRoomPoint(e.clientX, e.clientY, rect, vp, config), rulerLine,
       RULER_ENDPOINT_GRAB_PX / vp.zoom, RULER_BODY_GRAB_PX / vp.zoom,
@@ -2876,7 +2897,7 @@ export function Room() {
   // fallback: there is always a schema to show.
   const settingsToolId: UiToolId = tool
 
-  // Layer transform tool (#120): mirrors handleRulerPlaceDown's drag-capture
+  // Layer transform tool (#120): mirrors handleRulerDown's drag-capture
   // pattern exactly, but per-handle (body/corner/rotate) rather than a
   // single A→B drag. Since #399 a gesture no longer commits anything — it
   // folds into the open session's matrix and stays a preview until the
@@ -4497,6 +4518,7 @@ export function Room() {
               className={styles.canvasCatcher}
               onPointerDown={handleRulerDown}
               onPointerMove={handleRulerHover}
+              onPointerEnter={() => { rulerRectRef.current = null }}
             />
           )}
         </div>
