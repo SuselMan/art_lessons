@@ -24,10 +24,11 @@ import { SettingsPanel } from '../../components/SettingsPanel'
 import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { isModalOpen } from '../../components/Modal/modalSlot'
+import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
-import { hexToRgb } from '../../lib/color'
+import { hexToRgb, rgbToHex } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { floatingPanelVisible, minimalUiActive } from '../../lib/uiPreferences'
 import { PencilSound, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
@@ -68,8 +69,10 @@ import { Outbox } from './outbox'
 import { createIndexedDbOutboxStorage } from './outboxStorage'
 import { PeerCursors } from './PeerCursors'
 import { BrushCursor } from './BrushCursor'
-import { useCursor, type ViewportCursor } from './cursorController'
-import { RulerOverlay, type RulerHandleKind, type RulerPoint } from './RulerOverlay'
+import { useCursor, RULER_GESTURE_CURSOR, type ViewportCursor } from './cursorController'
+import { RulerOverlay, type RulerPoint } from './RulerOverlay'
+import { rulerGestureAt, RULER_BODY_GRAB_PX, RULER_ENDPOINT_GRAB_PX } from './rulerGesture'
+import { editorOwnsKey, isTypingTarget } from './editorKeys'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
 import {
@@ -93,8 +96,7 @@ import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
-import type { PrimaryDrawingTool } from '../../stores/slices/toolSlice'
-import type { OverlayMode } from '../../stores/slices/overlaySlice'
+import { isDrawingTool, type EditorTool, type PrimaryDrawingTool } from '../../stores/slices/toolSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
 import styles from './Room.module.css'
 
@@ -474,8 +476,16 @@ export function Room() {
   // useState(() => creatorDraft?.room ? toRoomConfig(...) : null) had.
   useState(() => { if (creatorDraft?.room) useRoomStore.setState({ room: toRoomConfig(creatorDraft.room) }) })
   const config = useRoomStore(s => s.room)
+  // (#405) The one selected tool — a drawing tool, or one of the four that
+  // paint nothing (eyedropper, ruler, transform, grid). Exactly one at a time:
+  // there is no second "mode" axis over it any more.
   const tool = useRoomStore(s => s.tool)
   const setTool = useRoomStore(s => s.setTool)
+  // (#405) The drawing tool the engine, the brush cursor and the sound are
+  // configured from — `tool` itself while a drawing tool is selected, the last
+  // one selected otherwise, so picking up the ruler never leaves the engine
+  // holding a tool that isn't one. Also where the eyedropper goes back to.
+  const drawingTool = useRoomStore(s => s.drawingTool)
   // Last of pencil/liner actually selected — what a "return to drawing"
   // toggle (eraser/smudge off) should go back to, instead of assuming
   // pencil (kept in sync by the store's own setTool, see toolSlice.ts).
@@ -515,56 +525,39 @@ export function Room() {
   const hotkeys = useSettingsStore(s => s.hotkeys)
   const gradeHotkeyLabels = ['gradeH', 'gradeHB', 'grade2B', 'grade4B', 'grade6B']
     .map(id => formatHotkeyLabel(hotkeys[id])).join('/')
-  // (#393) The one-at-a-time overlay modes, in the store as a single union —
-  // eyedropper (#82), ruler (#89), transform (#120). None of them is a
-  // recorded ToolType: the first two never paint or produce an Operation at
-  // all, and transform produces one of its own kind (layer_transform) via the
-  // engine's live preview + dispatchOp rather than through engine.setTool().
-  // All three lie *on top of* whichever drawing tool is selected, leaving it
-  // exactly where it was — which is why "what should the cursor be" cannot be
-  // answered from `tool` (see cursorController.ts, and useCursor below).
-  //
-  // A union rather than three booleans because they take over the same
-  // canvas-pointer catcher slot and genuinely exclude each other; that used to
-  // be upheld by each toggle remembering to switch the other two off.
-  //
-  // Unlike a one-shot A→B drag, the ruler's `rulerLine` is a *persistent*
-  // guide once placed — it survives across strokes so a student can draw
-  // several guided lines along the same edge — and is only cleared when the
-  // mode ends (see the effect below).
-  const overlayMode = useRoomStore(s => s.overlayMode)
-  const setOverlayMode = useRoomStore(s => s.setOverlayMode)
-  const eyedropperActive = overlayMode === 'eyedropper'
-  const rulerActive = overlayMode === 'ruler'
+  // (#405) The four non-painting tools, as plain "is this the selection?"
+  // reads. They used to be an `OverlayMode` union in a slice of their own —
+  // modes laid *on top of* whichever drawing tool was selected (#393) — which
+  // is why two things could be "current" at once and why the cursor could
+  // never be answered from `tool`. None of them may become a recorded
+  // ToolType: three paint nothing at all, and transform produces an operation
+  // of its own kind (layer_transform) via the engine's live preview +
+  // dispatchOp rather than through engine.setTool(); see toolSlice.
+  const eyedropperActive = tool === 'eyedropper'
+  const rulerActive     = tool === 'ruler'
+  const transformActive = tool === 'transform'
   // (#23) Backed by the store now, alongside the transform-preview fields
   // below — moved for architectural consistency, but deliberately NEVER
   // persisted (see layerSlice.ts's own comment: a ruler is for quickly
   // comparing distances mid-drawing, not a saved setting).
+  //
+  // (#405) The line outlives the ruler being selected: switch to the pencil
+  // and it stays on screen to draw against, it just stops being draggable.
+  // Nothing clears it — `show` below hides it instead, so the same straight
+  // edge comes back rather than having to be laid again.
   const rulerLine = useRoomStore(s => s.rulerLine)
   const setRulerLine = useRoomStore(s => s.setRulerLine)
-  // True once the initial placement drag has actually finished (pointerup).
-  // Deliberately NOT the same thing as "rulerLine !== null": rulerLine is
-  // set to a (degenerate, a===b) value on the very first pointerdown of the
-  // placement drag, before the user has dragged anywhere — gating
-  // .rulerPlaceOverlay's presence on rulerLine directly was tried first and
-  // was a real bug: React would unmount that catcher div the instant
-  // rulerLine got its first (degenerate) value, i.e. mid-gesture, so the
-  // rest of the drag's pointermove/pointerup (which the now-detached
-  // overlay's own listeners never got attached to their eventual real
-  // target) silently went nowhere. rulerPlaced only flips true in
-  // handleRulerPlaceDown's onUp, so the catcher div survives the entire
-  // placement drag. (#393) In the store with the mode it belongs to — the
-  // cursor controller needs it: a ruler being placed suspends drawing, a
-  // placed one is just a guide strokes snap against.
-  const rulerPlaced = useRoomStore(s => s.rulerPlaced)
-  const setRulerPlaced = useRoomStore(s => s.setRulerPlaced)
-  // Construction grid (#89) — unlike the modes above, a passive toggle rather
-  // than a one-shot tool: it never intercepts pointer events, so it doesn't
-  // need its own overlay div (just a conditional render), coexists with any
-  // overlayMode, and is the one overlay that leaves the cursor alone.
-  const gridActive = useRoomStore(s => s.gridActive)
-  const setGridActive = useRoomStore(s => s.setGridActive)
-  const transformActive = overlayMode === 'transform'
+  // (#405) The ruler's two settings, from the same TOOL_SCHEMAS store every
+  // other tool's live in. `show` is the master switch, not a convenience: a
+  // hidden ruler neither snaps nor moves (see the engine sync and the catcher
+  // below), because an invisible line quietly bending strokes is a trap.
+  const rulerShow = toolSettings.ruler.show as boolean
+  const rulerSnap = toolSettings.ruler.snap as boolean
+  // Construction grid (#89, #405) — visibility is a setting on the grid tool
+  // now rather than a store flag toggled by the toolbar button, which is what
+  // lets it stay on screen under every other tool while its button selects it
+  // like any other. It still intercepts no pointer events and blocks nothing.
+  const gridVisible = toolSettings.grid.show as boolean
   // Content bounding box (engine.getContentBounds, unioned across the
   // current target(s)) — recomputed on activation/selection change and
   // after every commit (see refreshTransformBounds below), not per drag
@@ -601,11 +594,15 @@ export function Room() {
   // (#399) Throws the open session's uncommitted gestures away and re-opens an
   // empty one on whatever the layer holds now. Assigned further down, where
   // the pieces it needs exist; declared here because undo/redo — defined well
-  // above those — is what calls it. Undo during a session used to be a real
-  // action (every gesture was its own committed op); with a session it would
-  // otherwise take back some *earlier* operation while the preview carried on
-  // showing gestures the layer never received, i.e. appear to do nothing.
-  // Discarding them is what "undo what I was just doing" means here.
+  // above those — is what calls it.
+  //
+  // Two callers, two readings of the same operation:
+  //  - *after* a real undo/redo, to re-derive the gizmo's bounds from pixels
+  //    the log just changed underneath it;
+  //  - as the cancel itself (#405): Esc, and Ctrl+Z while a session carries
+  //    gestures, both mean "throw away what I was just doing". Nothing was
+  //    committed, so there is no undo entry to leave behind — discarding *is*
+  //    the whole of the undo.
   const resetTransformSessionRef = useRef<() => void>(() => {})
   // (#395/#399) A committed transform session whose operation hasn't reached
   // the layer yet, and the teardown that's waiting on it.
@@ -1014,7 +1011,10 @@ export function Room() {
   // an error under it. See JoinGateState.
   const [joinState,      setJoinState]      = useState<JoinGateState>('form')
 
-  const activeCfg = toolSettings[tool]
+  // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
+  // engine is configured with, and while the ruler or the gizmo is selected
+  // `tool` names something that has no such fields at all.
+  const activeCfg = toolSettings[drawingTool]
 
   // Read directly inside useViewport's native pointerdown listener — see
   // that hook's doc comment for why a ref (checked synchronously, before
@@ -1064,6 +1064,11 @@ export function Room() {
   const setHandHeld = useRoomStore(s => s.setHandHeld)
   const handHeld = useRoomStore(s => s.handHeld)
   const handActive = handTool || handHeld
+  // (#405) Read inside a native pointerdown listener that must not be torn
+  // down and rebuilt every time Space goes up and down — see the click-past-
+  // the-gizmo effect below.
+  const handActiveRef = useRef(handActive)
+  handActiveRef.current = handActive
 
   // (#393) What the pointer looks like right now — the whole decision, made
   // once, in one module, from the tool plus every mode laid on top of it.
@@ -1778,9 +1783,9 @@ export function Room() {
   // actually reads it (shapingForTool -> shapingForMarkerPreset), but
   // BrushCursor takes the same shape every tool's real stroke would, not a
   // marker-only special case.
-  const cursorPresetName = tool === 'marker' ? `${markerNib}:${markerSize}`
-    : tool === 'liner' ? linerSize
-    : tool === 'charcoal' ? charcoalType
+  const cursorPresetName = drawingTool === 'marker' ? `${markerNib}:${markerSize}`
+    : drawingTool === 'liner' ? linerSize
+    : drawingTool === 'charcoal' ? charcoalType
     : pencilGrade
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
@@ -1799,7 +1804,7 @@ export function Room() {
   // tool switch would drop the AudioContext mid-lesson.
   useEffect(() => {
     if (!soundEnabled || !config) return
-    const { tool: currentTool, toolSettings: currentSettings } = useRoomStore.getState()
+    const { drawingTool: currentTool, toolSettings: currentSettings } = useRoomStore.getState()
     const grain = TOOL_SOUND_CONFIGS[currentTool]
     if (!grain) return
     const sound = new PencilSound(config.paper, grain)
@@ -1864,26 +1869,34 @@ export function Room() {
     // resolves, since all three types share one dab geometry (ADR 005 §2).
     const markerPreset = `${markerNib}:${markerSize}`
     engineRef.current?.setPencil(
-      tool === 'liner' ? linerSize
-        : tool === 'marker' ? markerPreset
-        : tool === 'charcoal' ? charcoalType
+      drawingTool === 'liner' ? linerSize
+        : drawingTool === 'marker' ? markerPreset
+        : drawingTool === 'charcoal' ? charcoalType
         : pencilGrade,
     )
-  }, [tool, pencilGrade, linerSize, markerNib, markerSize, charcoalType])
-  useEffect(() => { engineRef.current?.setTool(tool) },     [tool])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalType])
+  // (#405) Every line in this block reads `drawingTool` rather than the
+  // selection: `setTool` takes a `ToolType`, and the four non-painting tools
+  // are deliberately not one (toolSlice). Leaving the engine configured with
+  // the last real drawing tool is also what makes switching back to it
+  // instant — nothing to re-push, since nothing was ever unset. What actually
+  // stops paint while the ruler or the gizmo is selected is `engine.setLocked`
+  // (see the layer-state sync effect), one gate rather than a second copy of
+  // "which tools can draw" living in here.
+  useEffect(() => { engineRef.current?.setTool(drawingTool) }, [drawingTool])
   useEffect(() => {
     // #253: each tool has its own recipe; swapping it keeps the one graph and
     // only changes what drives it (see PencilSound.setActiveGrain).
-    const grain = TOOL_SOUND_CONFIGS[tool]
+    const grain = TOOL_SOUND_CONFIGS[drawingTool]
     if (grain) pencilSoundRef.current?.setActiveGrain(grain)
-  }, [tool])
+  }, [drawingTool])
   // Liner's own 'size' field is a fixed-label enum (ADR 003), not a plain px
   // number like every other tool's (marker included, since it dropped its
   // own ladder for a plain px slider) — see linerSizeToPx's own comment for
   // why the mm→px mapping lives in the UI layer. Hoisted out of the
   // engine-sync effect below (not effect-local) so BrushCursor can read the
   // same physical-px value for its hover preview without recomputing it.
-  const sizePx = tool === 'liner' ? linerSizeToPx(activeCfg.size as string)
+  const sizePx = drawingTool === 'liner' ? linerSizeToPx(activeCfg.size as string)
     : (activeCfg.size as number)
   useEffect(() => {
     engineRef.current?.setSize(sizePx)
@@ -1898,6 +1911,15 @@ export function Room() {
   // actually depend on — not re-listing pencil/liner/marker by hand here.
   const colorTool: ColorCapableTool = lastDrawingTool
   const colorToolColor = getToolColor(toolSettings, colorTool)
+  // (#405) Where a picked colour lands: the tool the eyedropper hands the
+  // canvas back to, if that tool owns a colour at all. The issue asks for the
+  // colour to be written "into the tool you returned to" — for the eraser or
+  // smudge there is no such field, so it falls through to `colorTool`, the
+  // same slot the picker and the palette are already editing, rather than
+  // being silently dropped. Deliberately the same expression `activeColor`
+  // below feeds the engine, so the swatch that lights up is the colour the
+  // next stroke will actually use.
+  const pickedColorTool: ColorCapableTool = isColorCapableTool(drawingTool) ? drawingTool : colorTool
   // Which shape the picker takes is a per-person preference, so it comes from
   // settingsStore, not the room store — the latter is wiped on every Room
   // mount (#337).
@@ -1907,7 +1929,7 @@ export function Room() {
   // field of their own — the engine keeps one current color regardless of
   // which tool is active, so it should already hold what the next drawing
   // stroke will use.
-  const activeColor = getToolColor(toolSettings, isColorCapableTool(tool) ? tool : colorTool)
+  const activeColor = getToolColor(toolSettings, pickedColorTool)
   useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor])
   // FloatingToolPanel (#157) is a fixed 4-slot compass layout with room for
   // only one drawing-tool button (see its own doc comment — "the 4 most-
@@ -2025,17 +2047,23 @@ export function Room() {
     const engine = engineRef.current
     if (!engine) return
     engine.setActiveLayer(layerState.activeId)
-    // transformActive (#155): the transform gizmo is a separate overlay on
-    // top of the canvas, not something that intercepts/consumes the
-    // canvas's own native pointer events — without this, dragging a gizmo
-    // handle *also* drew a real stroke underneath at the same time (every
-    // pointermove reached both the gizmo's drag handler and PointerInput's
-    // canvas listener), which is what those stray lines during a drag were.
-    // setLocked only gates PencilEngine._onStart (see engine/index.ts) —
-    // it doesn't touch layerState itself, so this never shows the layer as
-    // locked in LayerPanel; it's purely "don't start a new stroke right
-    // now," same effect a real per-layer lock has, just for a different
-    // reason.
+    // A non-drawing tool (#155, generalized in #405): the gizmo and the ruler
+    // catcher are separate overlays on top of the canvas, not something that
+    // intercepts/consumes the canvas's own native pointer events — without
+    // this, dragging a gizmo handle *also* drew a real stroke underneath at
+    // the same time (every pointermove reached both the gizmo's drag handler
+    // and PointerInput's canvas listener), which is what those stray lines
+    // during a drag were. setLocked only gates PencilEngine._onStart (see
+    // engine/index.ts) — it doesn't touch layerState itself, so this never
+    // shows the layer as locked in LayerPanel; it's purely "don't start a new
+    // stroke right now," same effect a real per-layer lock has, just for a
+    // different reason.
+    //
+    // (#405) One condition covers all four non-painting tools rather than
+    // naming transform alone. That is the whole of "selecting the ruler means
+    // you cannot draw": the engine still holds a fully configured drawing tool
+    // (see the tool sync above), it is simply not allowed to start a stroke,
+    // and switching back needs nothing pushed to undo it.
     //
     // (#359) A hidden layer refuses paint through the same gate, for a third
     // reason: it isn't in the composite, so a stroke drawn on it is invisible
@@ -2045,10 +2073,10 @@ export function Room() {
     engine.setLocked(
       isLayerLocked(layerState.items[layerState.activeId])
       || !isEffectivelyVisible(layerState, layerState.activeId)
-      || transformActive,
+      || !isDrawingTool(tool),
     )
     engine.setCompositeOrder(computeCompositeOrder(layerState))
-  }, [layerState, transformActive])
+  }, [layerState, tool])
 
   // ── sync viewport → engine ────────────────────────────────────────────────────
   useEffect(() => {
@@ -2239,6 +2267,17 @@ export function Room() {
   // when they actually run, so a confirmed undo still acts on current state.
   const handleUndo = useCallback(async () => {
     if (!roomContentReady || editingBlocked) return
+    // (#405) An open session with gestures in it is what "undo" means right
+    // now, and it is undone by throwing it away — nothing was committed, so
+    // there is no entry on the stack to take back and nothing to confirm.
+    // Reaching past it into the log would take back some *earlier* operation
+    // while the preview carried on showing gestures the layer never received,
+    // i.e. appear to do nothing at all. Same answer as Esc, deliberately:
+    // both mean "not that", and a session is the innermost thing open.
+    if (transformSessionRef.current && !isIdentityMatrix(transformSessionRef.current.matrix)) {
+      resetTransformSessionRef.current()
+      return
+    }
     const peek = engineRef.current?.peekUndo()
     if (peek?.hasOtherContent && !await confirm({
       title: t('room.undo'),
@@ -2363,7 +2402,7 @@ export function Room() {
     return () => setBackNavigationGuard(null)
   }, [editorOnScreen, location.pathname, location.search, location.hash])
 
-  // Eyedropper (#82): consumes the next pointerdown on .eyedropperOverlay
+  // Eyedropper (#82): consumes the next pointerdown on the canvas catcher
   // (armed only while eyedropperActive) instead of letting it reach the
   // canvas as a stroke. Deliberately NOT switched to clientToRoomPoint/
   // world-space for infinite rooms like the #143 overlays below —
@@ -2391,44 +2430,59 @@ export function Room() {
         )
     const picked = engineRef.current?.pickColor(x, y)
     if (picked) {
-      // Writes the *active* color tool's own slot, not a hardcoded 'pencil'
-      // — picking a color while the liner or marker was selected used to
-      // silently repaint the pencil's swatch instead, so the picked color
-      // never showed up in the stroke that followed.
-      setToolSetting(colorTool, 'color', picked)
+      // Writes the slot of the tool the canvas is being handed back to, not a
+      // hardcoded 'pencil' — picking a color while the liner or marker was
+      // selected used to silently repaint the pencil's swatch instead, so the
+      // picked color never showed up in the stroke that followed. See
+      // pickedColorTool for the eraser/smudge case, which owns no color.
+      setToolSetting(pickedColorTool, 'color', picked)
+      // (#405) The eyedropper's one schema field, wired at last. It has been
+      // in TOOL_SCHEMAS since #196 with nothing behind it, which was tolerable
+      // only because the eyedropper was a mode and its settings never reached
+      // a panel — now that it is a tool, selecting it puts this toggle on
+      // screen, and a control that provably does nothing is worse than no
+      // control (the same rule keepProportions is hidden under in Distort).
+      if (toolSettings.eyedropper.addToPalette) addPaletteColor(rgbToHex(picked))
+      // (#405) The eyedropper is the one tool with a one-shot gesture: taking
+      // a colour is the whole of it, so it hands the canvas straight back to
+      // the drawing tool that was in hand rather than staying armed and making
+      // the next stroke a second pick. `drawingTool` and not `lastDrawingTool`
+      // deliberately — if the eraser was what you were using, the eraser is
+      // what you get back.
+      setTool(drawingTool)
       setActivePanel('color')
     }
-    setOverlayMode('none')
-  }, [vpRef, vp, config, setToolSetting, colorTool, setOverlayMode])
+  }, [vpRef, vp, config, setToolSetting, pickedColorTool, setTool, drawingTool, toolSettings.eyedropper, addPaletteColor])
 
-  // Ruler tool (#89): leaving the mode — by toggling it off or by any other
-  // mode taking over — is what clears the guide, both the visible line and
-  // the engine's snapping copy, always together. While the mode is on,
-  // rulerLine is meant to persist across strokes (see its declaration above),
-  // so this deliberately never fires there.
+  // Ruler tool (#89, #405): the engine only ever knows about the ruler as a
+  // *snapping* guide, so this is where "is there a line to snap to right now"
+  // is answered, once, for every way the answer can change.
   //
-  // (#393) An effect on the mode rather than a deactivateRuler() every toggle
-  // had to remember to call: "there is no ruler unless the mode is ruler" is
-  // an invariant, and three hand-written call sites are how an invariant
-  // becomes a bug.
+  // Hidden means genuinely inert, not merely invisible: `show` is off, the
+  // engine is handed null, and nothing bends. That is the whole reason the
+  // toggle is a master switch — an invisible line quietly straightening
+  // strokes, with nothing on screen to explain it, is a trap rather than a
+  // feature. Snapping off keeps the line on screen and draggable, and simply
+  // stops it pulling on strokes: a straight edge to measure and align against
+  // is half of what a ruler on a drawing is for.
+  //
+  // Deliberately an effect on the state rather than an engine call inside each
+  // drag handler (which is what this replaced): "the engine's ruler is exactly
+  // the shown, snapping line" is an invariant, and hand-written call sites are
+  // how an invariant becomes a bug. Note that the line itself is never cleared
+  // — switching tools leaves it on screen to draw against (see rulerLine).
   useEffect(() => {
-    if (overlayMode === 'ruler') return
-    setRulerLine(null)
-    setRulerPlaced(false)
-    engineRef.current?.setRuler(null)
-  }, [overlayMode, setRulerLine, setRulerPlaced])
+    engineRef.current?.setRuler(rulerShow && rulerSnap ? rulerLine : null)
+  }, [rulerLine, rulerShow, rulerSnap])
 
-  // Eyedropper, ruler, and transform all take over the same canvas-pointer
-  // catcher slot (or, for transform, the gizmo's own handles; for ruler, its
-  // own SVG handles once placed), so only one is ever armed — which the
-  // OverlayMode union states outright instead of each toggle switching the
-  // other two off by hand.
-  const toggleOverlayMode = useCallback((mode: OverlayMode) => {
-    setOverlayMode(prev => (prev === mode ? 'none' : mode))
-  }, [setOverlayMode])
-  const toggleEyedropper = useCallback(() => toggleOverlayMode('eyedropper'), [toggleOverlayMode])
-  const toggleTransform = useCallback(() => toggleOverlayMode('transform'), [toggleOverlayMode])
-  const toggleRuler = useCallback(() => toggleOverlayMode('ruler'), [toggleOverlayMode])
+  // (#405) Selecting a tool that is already selected hands the canvas back to
+  // the drawing tool — the same "press E twice to get back to the pencil"
+  // affordance the eraser has always had, extended to the four tools that used
+  // to be modes. Shared by the toolbar buttons and the hotkeys so the two
+  // cannot disagree about what a second press does.
+  const selectTool = useCallback((next: EditorTool) => {
+    setTool(prev => (prev === next ? drawingTool : next))
+  }, [setTool, drawingTool])
 
   // Active layer, or the current multi-select from LayerPanel — background
   // is never a legal transform target, same as merge/delete (#120).
@@ -2476,47 +2530,41 @@ export function Room() {
   const refreshTransformBoundsRef = useRef(refreshTransformBounds)
   refreshTransformBoundsRef.current = refreshTransformBounds
 
-  // (#401) An open session lives only in this tab until something ends it, and
-  // a page teardown is not something React tells us about — no effect cleanup
-  // runs on reload or tab close, so a session that had gestures in it simply
-  // vanished. Measured: gesture, reload, zero new layer_transform rows.
+  // (#405) There is no idle auto-commit any more. #401 added one — a two-second
+  // countdown from the last gesture that baked the session and re-opened it —
+  // because an open session lives only in this tab and a page teardown is not
+  // something React reports, so a reload lost it. What it actually produced was
+  // the complaint this issue starts from: the gizmo resetting itself a couple
+  // of seconds after you stopped touching it, mid-edit, because baking re-derives
+  // the frame as the content's axis-aligned box and throws the rotation away.
   //
-  // The fix is not to try harder at teardown time but to stop having much to
-  // lose: the session commits itself once the hand stops moving. A burst of
-  // gestures still bakes once (which is the whole point of #399's session),
-  // and the exposure window is bounded by this timeout rather than by how long
-  // someone leaves the tool open.
-  const TRANSFORM_AUTO_COMMIT_MS = 2000
-  const transformAutoCommitRef = useRef<number | null>(null)
-  const cancelTransformAutoCommit = useCallback(() => {
-    if (transformAutoCommitRef.current !== null) {
-      clearTimeout(transformAutoCommitRef.current)
-      transformAutoCommitRef.current = null
-    }
-  }, [])
+  // A session now syncs when it *ends*, and nothing else ends it. What replaces
+  // the lost protection is stated where each piece lives: the page-teardown
+  // commit below (kept, still best-effort), and the reload hold next to it,
+  // which puts an open session behind the same close-the-tab warning a non-empty
+  // outbox already sits behind (#313).
 
   // (#399) Opens a session on the current target(s): fresh bounds from the
   // pixels, identity matrix, no custom pivot. Everything from here until the
   // matching commit is preview only — nothing touches the real layer buffer.
   const startTransformSession = useCallback(() => {
-    cancelTransformAutoCommit()
     refreshTransformBoundsRef.current()
     transformSessionRef.current = { matrix: IDENTITY_MATRIX, targetIds: transformTargetIdsRef.current }
     setTransformSessionMatrix(IDENTITY_MATRIX)
-  }, [setTransformSessionMatrix, cancelTransformAutoCommit])
+  }, [setTransformSessionMatrix])
 
   // (#399) Ends the session by baking everything it accumulated as *one*
   // layer_transform. One op per session rather than per gesture is the point:
   // rotate, then nudge, then scale used to cost three resamples of the layer's
   // pixels, and a drawing app cannot spend those.
   //
-  // `reopen` is for the idle auto-commit (#401), which ends the session while
-  // the tool is still very much in use — the gizmo has to come back, on the
-  // freshly baked content with a clean identity matrix. The other callers
-  // (effect teardown, page teardown) pass false: either nothing should follow,
-  // or the effect's own body opens the next session itself.
+  // `reopen` is for the callers that apply the session while the tool stays in
+  // hand (#405): Enter, and a click on the canvas past the gizmo. The gizmo has
+  // to come back for those, on the freshly baked content with a clean identity
+  // matrix. The other callers (effect teardown, page teardown) pass false:
+  // either nothing should follow, or the effect's own body opens the next
+  // session itself.
   const commitTransformSession = useCallback((reopen: boolean) => {
-    cancelTransformAutoCommit()
     const session = transformSessionRef.current
     transformSessionRef.current = null
     const dropPreview = () => {
@@ -2567,11 +2615,12 @@ export function Room() {
     // nothing is in flight, so finish right here.
     if (!dispatched || dispatched.applied) { finish(); return }
     pendingTransformCommitRef.current = { opId: dispatched.op.id, finish }
-  }, [dispatchOp, setTransformSessionMatrix, startTransformSession, cancelTransformAutoCommit])
+  }, [dispatchOp, setTransformSessionMatrix, startTransformSession])
 
   const commitTransformSessionRef = useRef(commitTransformSession)
   commitTransformSessionRef.current = commitTransformSession
-  // See resetTransformSessionRef's declaration for why undo/redo needs this.
+  // See resetTransformSessionRef's declaration for its two callers — the
+  // re-derive after a real undo/redo, and Esc/Ctrl+Z as the cancel itself.
   resetTransformSessionRef.current = () => {
     if (!transformSessionRef.current) return
     transformSessionRef.current = null
@@ -2579,21 +2628,19 @@ export function Room() {
     engineRef.current?.clearLayerTransformPreview()
     startTransformSession()
   }
-  // (#401) Restarted after every gesture, so the countdown measures time since
-  // the hand stopped rather than time since the session opened.
-  const scheduleTransformAutoCommit = useCallback(() => {
-    cancelTransformAutoCommit()
-    transformAutoCommitRef.current = window.setTimeout(() => {
-      transformAutoCommitRef.current = null
-      commitTransformSessionRef.current(true)
-    }, TRANSFORM_AUTO_COMMIT_MS)
-  }, [cancelTransformAutoCommit])
 
-  // (#399) One session per (tool on, target selection). Ending the effect —
-  // the tool going off, the selection changing, the page unmounting — commits
-  // what the session accumulated, which is what makes "just switch tool/layer"
-  // a working commit gesture without any new UI (see the issue on why there is
-  // no Enter to press on a tablet).
+  // (#399) One session per (tool selected, target selection). Ending the
+  // effect commits what the session accumulated, which covers three of the
+  // four ways a session ends without any of them needing code of its own:
+  // selecting another tool, changing the active layer or the selection, and
+  // the room unmounting. (#405) The first of those is the model change: with
+  // one exclusive selection, "switch tool" is no longer a mode being lifted
+  // off a pencil — it is this effect's dependency changing.
+  //
+  // The hand is deliberately not among them. It lives in viewportSlice, not in
+  // `tool`, so picking it up (or holding Space) does not re-run this effect and
+  // the session stays open — panning touches no content, and seeing where you
+  // are dragging a layer *to* is most of why you would reach for it mid-drag.
   //
   // Keyed on the joined ids rather than the array: transformTargetIds is
   // rebuilt on every layerState change (any peer's stroke does that), and
@@ -2611,12 +2658,14 @@ export function Room() {
   // (#401) Best-effort save for the one exit React never reports: the page
   // going away. `pagehide` covers reload, tab close and bfcache;
   // `visibilitychange` catches the mobile cases where the tab is frozen
-  // without pagehide ever firing. Both only have anything to do if the idle
-  // auto-commit above hasn't already fired, i.e. within two seconds of the
-  // last gesture — which is the point. It stays best-effort on purpose: the
-  // operation goes through the Outbox, whose IndexedDB write is async, and a
-  // teardown gives no guarantee it completes. The bounded window is the real
-  // protection, this is the belt on top of it.
+  // without pagehide ever firing.
+  //
+  // It stays best-effort on purpose: the operation goes through the Outbox,
+  // whose IndexedDB write is async, and a teardown gives no guarantee it
+  // completes. (#405) It used to be the belt on top of the idle auto-commit's
+  // two-second exposure window; with that gone this is one of the two things
+  // standing between an open session and a closed tab, and the other one —
+  // the warning below — is the half that can actually stop the tab closing.
   useEffect(() => {
     if (!transformActive) return
     const save = () => commitTransformSessionRef.current(false)
@@ -2629,72 +2678,111 @@ export function Room() {
     }
   }, [transformActive])
 
-  // Ruler tool (#89): initial placement drag — down/move/up tracked
-  // manually via setPointerCapture + direct DOM listeners, the same pattern
-  // ColorPicker's onSvDown/onHueDown use for their own drag handling.
-  // Pen-only, same as the pencil itself ignores touch (see PointerInput.ts) —
-  // a finger on .rulerPlaceOverlay falls straight through to useViewport's
-  // own panning untouched, instead of trying to arbitrate whose gesture a
-  // given touch belongs to. Only runs pre-placement (while !rulerPlaced; see
-  // .rulerPlaceOverlay's render
-  // below, and rulerPlaced's own doc comment for why this catcher div's
-  // presence is gated on that flag rather than on rulerLine itself).
-  // rulerPlaced only flips true in onUp below, so this div — and its
-  // pointermove/pointerup listeners — survive the entire drag. After
-  // placement, dragging the ruler is handled per-handle by
-  // handleRulerHandleDown instead (RulerOverlay's own endpoints/body), so
-  // the rest of the canvas stays free for an actual pencil stroke to snap
-  // against it.
-  const handleRulerPlaceDown = useCallback((e: React.PointerEvent) => {
+  // (#405) An open transform session is unsent work, so it goes behind the
+  // same guard unsent work already has: `holdReload()`, which is what arms the
+  // room's beforeunload prompt and what tells the service-worker updater a new
+  // build may not be applied silently right now (#313/#400 — see
+  // lib/reloadSafety, and the beforeunload effect near the top of this file).
+  //
+  // #401 considered this and decided against it, explicitly on the grounds
+  // that the idle auto-commit would have saved the session anyway. Removing
+  // the auto-commit removes that reasoning, so the hold goes on.
+  //
+  // Deliberately its own hold rather than leaning on the room-wide one that
+  // covers the whole editor today: the two are held for different reasons, and
+  // if the room-wide hold is ever narrowed to "only while something is
+  // actually unsent" — which is what its own comment says it is a broad
+  // stand-in for — a session would silently stop being protected. Nested holds
+  // are free (reloadSafety counts them for exactly this).
+  useEffect(() => {
+    if (!transformActive) return
+    return holdReload()
+  }, [transformActive])
+
+  // (#405) A click or tap on the canvas past the gizmo applies the session and
+  // opens a fresh one on the result — the "I'm done with this one" gesture
+  // that costs no keyboard, which matters because the tablet has none.
+  //
+  // A *click*, deliberately, not a press: a drag that starts outside the frame
+  // is a pan (or a rotate begun just outside a corner and dragged away), and
+  // ending someone's edit because they moved the view would be worse than the
+  // auto-commit this replaces. TAP_MOVE_THRESHOLD_PX is the same threshold the
+  // minimal-UI tap uses, so "what counts as a tap" has one answer in this room.
+  //
+  // "Past the gizmo" includes past the rotate zones, which reach ~40 screen px
+  // beyond each corner — they are part of the gizmo's own hit area (see
+  // data-transform-gizmo), so a press there rotates and never lands here.
+  //
+  // Native listeners on the viewport rather than React props on it: the gizmo,
+  // the ruler catcher and the canvas are all inside, each with their own
+  // handlers, and this has to see presses that none of them claimed without
+  // being written into every one of them.
+  useEffect(() => {
+    if (!transformActive || !vpEl) return
+    let candidate: { id: number; x: number; y: number } | null = null
+
+    const onDown = (e: PointerEvent) => {
+      // The hand owns every drag while it is up, including this one — the same
+      // precedence the gizmo handles and the cursor already follow.
+      candidate = handActiveRef.current || (e.target as Element | null)?.closest('[data-transform-gizmo]')
+        ? null
+        : { id: e.pointerId, x: e.clientX, y: e.clientY }
+    }
+    const onMove = (e: PointerEvent) => {
+      if (!candidate || e.pointerId !== candidate.id) return
+      if (Math.hypot(e.clientX - candidate.x, e.clientY - candidate.y) > TAP_MOVE_THRESHOLD_PX) candidate = null
+    }
+    const onUp = (e: PointerEvent) => {
+      if (!candidate || e.pointerId !== candidate.id) return
+      candidate = null
+      commitTransformSessionRef.current(true)
+    }
+    // A cancelled pointer (the browser taking the gesture over for a scroll or
+    // a system gesture) is not a click, and must not be treated as one.
+    const onCancel = () => { candidate = null }
+
+    vpEl.addEventListener('pointerdown', onDown)
+    vpEl.addEventListener('pointermove', onMove)
+    vpEl.addEventListener('pointerup', onUp)
+    vpEl.addEventListener('pointercancel', onCancel)
+    return () => {
+      vpEl.removeEventListener('pointerdown', onDown)
+      vpEl.removeEventListener('pointermove', onMove)
+      vpEl.removeEventListener('pointerup', onUp)
+      vpEl.removeEventListener('pointercancel', onCancel)
+    }
+  }, [transformActive, vpEl])
+
+  // Ruler tool (#89, #405): one gesture handler for the whole tool.
+  //
+  // Down/move/up tracked manually via setPointerCapture + direct DOM
+  // listeners, the same pattern ColorPicker's onSvDown/onHueDown use for their
+  // own drag handling. Pen-only, same as the pencil itself ignores touch (see
+  // PointerInput.ts) — a finger on the catcher falls straight through to
+  // useViewport's own panning untouched, instead of trying to arbitrate whose
+  // gesture a given touch belongs to.
+  //
+  // What a press means is decided by hit-testing it against the line
+  // (rulerGestureAt): on an endpoint it swings that end, on the body it slides
+  // the whole ruler, anywhere else it lays a brand-new one over whatever was
+  // there. That is what reconciles the tool's two rules — "dragging always
+  // makes a new line" and "an existing line can only be moved while the ruler
+  // is selected" — and it is why this replaced a two-surface arrangement (a
+  // catcher div for the first placement, then RulerOverlay's own SVG shapes
+  // forever after) that could express neither: the catcher was gone by the
+  // time a second line was wanted, and the SVG handles stayed draggable under
+  // every other tool.
+  //
+  // The tolerances are screen px, divided by the zoom here so a ruler is no
+  // harder to grab zoomed out than zoomed in (#394's rule for the gizmo's own
+  // handles).
+  //
+  // Only mounted while `rulerShow` is on, so a hidden ruler cannot be grabbed
+  // any more than it can snap — see the engine sync above.
+  const handleRulerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return
     const el = vpRef.current
     if (!el || !config) return
-    e.stopPropagation()
-    const overlay = e.currentTarget as HTMLElement
-    const penPointerId = e.pointerId
-    try { overlay.setPointerCapture(penPointerId) } catch { /* context loss */ }
-
-    const rect = el.getBoundingClientRect()
-    // #143: world-space for infinite rooms (clientToRoomPoint) — matches
-    // what engine.setRuler's snapping (rulerSnap.ts) compares against real
-    // stroke dabs there (genuine world coordinates, see setInfiniteCamera's
-    // pointer transform), and what RulerOverlay's a/b props now expect for
-    // infinite rooms (see the render section below).
-    const toPoint = (clientX: number, clientY: number): RulerPoint => clientToRoomPoint(clientX, clientY, rect, vp, config)
-
-    const start = toPoint(e.clientX, e.clientY)
-    setRulerLine({ a: start, b: start })
-    engineRef.current?.setRuler({ a: start, b: start })
-
-    const onMove = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      const line = { a: start, b: toPoint(ev.clientX, ev.clientY) }
-      setRulerLine(line)
-      engineRef.current?.setRuler(line)
-    }
-    const onUp = (ev: PointerEvent) => {
-      if (ev.pointerId !== penPointerId) return
-      overlay.removeEventListener('pointermove', onMove)
-      overlay.removeEventListener('pointerup', onUp)
-      setRulerPlaced(true)
-    }
-    overlay.addEventListener('pointermove', onMove)
-    overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, setRulerLine, setRulerPlaced])
-
-  // Ruler tool (#89): once placed, repositioning — grabbing an endpoint
-  // rotates/resizes it, grabbing the body translates both endpoints
-  // together (see RulerOverlay's .rulerHitLine). Same drag-capture pattern
-  // as handleTransformHandleDown, minus the scale/rotate-matrix math — a
-  // ruler is just two points, not a bounded rect. Every move updates both
-  // the visible line (rulerLine) and the engine's live snapping guide
-  // together, so what's drawn while dragging is exactly what a
-  // concurrently-drawn stroke would snap to (in practice the two gestures
-  // can't overlap anyway — both are pen-only and a pen has one tip).
-  const handleRulerHandleDown = useCallback((kind: RulerHandleKind, e: React.PointerEvent<SVGElement>) => {
-    if (e.pointerType === 'touch') return
-    const el = vpRef.current
-    if (!el || !config || !rulerLine) return
     e.stopPropagation()
     const overlay = e.currentTarget
     const penPointerId = e.pointerId
@@ -2704,17 +2792,24 @@ export function Room() {
     // #143: world-space for infinite rooms (clientToRoomPoint) — matches
     // what engine.setRuler's snapping (rulerSnap.ts) compares against real
     // stroke dabs there (genuine world coordinates, see setInfiniteCamera's
-    // pointer transform), and what RulerOverlay's a/b props now expect for
+    // pointer transform), and what RulerOverlay's a/b props expect for
     // infinite rooms (see the render section below).
     const toPoint = (clientX: number, clientY: number): RulerPoint => clientToRoomPoint(clientX, clientY, rect, vp, config)
 
-    const startLine = rulerLine // frozen for the duration of this drag
     const startPoint = toPoint(e.clientX, e.clientY)
+    const startLine = rulerLine // frozen for the duration of this drag
+    const gesture = rulerGestureAt(
+      startPoint, startLine,
+      RULER_ENDPOINT_GRAB_PX / vp.zoom, RULER_BODY_GRAB_PX / vp.zoom,
+    )
 
     const computeLine = (clientX: number, clientY: number): { a: RulerPoint; b: RulerPoint } => {
       const p = toPoint(clientX, clientY)
-      if (kind === 'a') return { a: p, b: startLine.b }
-      if (kind === 'b') return { a: startLine.a, b: p }
+      // A new line is anchored where the press landed and follows the pointer
+      // with its far end — the same A→B drag the tool has always opened with.
+      if (gesture === 'new' || !startLine) return { a: startPoint, b: p }
+      if (gesture === 'a') return { a: p, b: startLine.b }
+      if (gesture === 'b') return { a: startLine.a, b: p }
       const dx = p.x - startPoint.x
       const dy = p.y - startPoint.y
       return {
@@ -2723,11 +2818,15 @@ export function Room() {
       }
     }
 
+    // Committed on the press, not on the first move: a tap that lays a
+    // zero-length line and a drag that lays a real one are the same gesture at
+    // this point, and rulerSnap.ts already refuses a degenerate line rather
+    // than dividing by zero (MIN_RULER_LENGTH_SQ).
+    setRulerLine(computeLine(e.clientX, e.clientY))
+
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
-      const line = computeLine(ev.clientX, ev.clientY)
-      setRulerLine(line)
-      engineRef.current?.setRuler(line)
+      setRulerLine(computeLine(ev.clientX, ev.clientY))
     }
     const onUp = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
@@ -2738,6 +2837,23 @@ export function Room() {
     overlay.addEventListener('pointerup', onUp)
   }, [vpRef, vp, config, rulerLine, setRulerLine])
 
+  // (#405) The catcher's own cursor, per pointer position — the one cursor in
+  // the editor that cannot come from a CSS class, because which gesture is on
+  // offer depends on where the pointer is relative to the line rather than on
+  // any state. Written straight to the element rather than through React state
+  // so a hover costs no render; the *decision* is still cursorController's
+  // (RULER_GESTURE_CURSOR), which is the rule #393 exists to keep.
+  const handleRulerHover = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const el = vpRef.current
+    if (!el || !config) return
+    const rect = el.getBoundingClientRect()
+    const gesture = rulerGestureAt(
+      clientToRoomPoint(e.clientX, e.clientY, rect, vp, config), rulerLine,
+      RULER_ENDPOINT_GRAB_PX / vp.zoom, RULER_BODY_GRAB_PX / vp.zoom,
+    )
+    e.currentTarget.style.cursor = RULER_GESTURE_CURSOR[gesture]
+  }, [vpRef, vp, config, rulerLine])
+
   // (#391) The transform tool's own two settings, from the same TOOL_SCHEMAS
   // store every other tool's settings live in (see settingsToolId below for
   // how they reach the UI). Both are `transient` there — a transform mode
@@ -2746,20 +2862,19 @@ export function Room() {
   const transformMode = toolSettings.transform.mode as TransformMode
   const transformKeepProportions = toolSettings.transform.keepProportions as boolean
 
-  // (#391) Whose settings the quick-access column and the "Tool settings" tab
-  // are showing. Transform isn't a `tool` — it's a mode layered over whichever
-  // drawing tool is selected (transformActive) — but while it is on the
-  // engine refuses paint outright (setLocked, #155 — see the layer-state sync
-  // effect above), so the pencil's size and grade are settings for something
-  // that cannot happen while the gizmo's are the live ones. Turning it off
-  // hands both surfaces straight back to the drawing tool, with its own
-  // settings exactly where they were.
+  // (#391/#405) Whose settings the quick-access column and the "Tool settings"
+  // tab are showing: the selected tool, full stop. This used to be
+  // `transformActive ? 'transform' : tool` — a special case, because transform
+  // was a mode rather than a tool and only that one mode had settings worth
+  // surfacing. With one exclusive selection there is no special case left to
+  // write: the ruler's show/snap and the grid's visibility are its settings
+  // exactly the way the pencil's grade is, and selecting a drawing tool again
+  // hands both surfaces back with its own settings where they were.
   //
-  // Only transform gets this: the eyedropper and the ruler are overlays with
-  // the same shape, but the eyedropper's single schema field is not wired to
-  // anything yet, and surfacing a control that visibly does nothing would be
-  // worse than leaving it where it has been all along.
-  const settingsToolId: UiToolId = transformActive ? 'transform' : tool
+  // Every `EditorTool` is a `UiToolId` by construction (toolSlice's two lists
+  // are `satisfies readonly UiToolId[]`), so this needs no widening or
+  // fallback: there is always a schema to show.
+  const settingsToolId: UiToolId = tool
 
   // Layer transform tool (#120): mirrors handleRulerPlaceDown's drag-capture
   // pattern exactly, but per-handle (body/corner/rotate) rather than a
@@ -2768,6 +2883,13 @@ export function Room() {
   // session ends.
   const handleTransformHandleDown = useCallback((handle: TransformHandleKind, e: React.PointerEvent<SVGElement>) => {
     if (e.pointerType === 'touch') return
+    // (#405) The hand outranks the gizmo, the same way it outranks every tool
+    // in the cursor decision (resolveCursor's rule 1) and for the same reason:
+    // while it is up, a drag anywhere moves the view. Without this the handles
+    // would still swallow a mouse drag that started on one, so panning to see
+    // where a layer is going — the whole reason to reach for the hand mid-
+    // transform — would fail exactly over the thing being dragged.
+    if (handActive) return
     // (#395) The previous session's commit is still in flight, so the layer
     // doesn't carry it yet and transformBounds still describes where the
     // content was before it. A gesture started here would build on a
@@ -2776,10 +2898,6 @@ export function Room() {
     const session = transformSessionRef.current
     const el = vpRef.current
     if (!session || !el || !config || !transformBounds) return
-    // (#401) The countdown from the previous gesture must not fire in the
-    // middle of this one — that would bake and close the session under a live
-    // drag, and the gesture would land nowhere. It is restarted on release.
-    cancelTransformAutoCommit()
     e.stopPropagation()
     const overlay = e.currentTarget
     const penPointerId = e.pointerId
@@ -2969,11 +3087,14 @@ export function Room() {
       overlay.removeEventListener('pointermove', onMove)
       overlay.removeEventListener('pointerup', onUp)
       if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null }
-      // (#399) Release commits nothing *yet*. The gesture folds into the
-      // session's matrix and the preview stays exactly as it is — which is the
-      // whole point: the frame keeps the orientation the gesture just gave it
-      // instead of being re-derived from an axis-aligned box of pixels. The
-      // bake follows on its own once the hand stops moving (#401).
+      // (#399) Release commits nothing. The gesture folds into the session's
+      // matrix and the preview stays exactly as it is — which is the whole
+      // point: the frame keeps the orientation the gesture just gave it
+      // instead of being re-derived from an axis-aligned box of pixels.
+      // (#405) And it keeps it until the session actually ends — Enter, Esc, a
+      // click past the gizmo, another tool, another layer. Nothing bakes it on
+      // a timer any more; that timer is what made the frame appear to reset
+      // itself a couple of seconds after every gesture.
       const gesture = computeMatrix(ev.clientX, ev.clientY)
       // A click, or pen jitter below the threshold — and, since #392, a
       // release on a pointer position that has no usable matrix at all: roll
@@ -2993,17 +3114,14 @@ export function Room() {
       // The session may have been closed under us mid-gesture (tool switched
       // off, selection changed) — in that case its commit already went out
       // with the matrix as of then, and this gesture has nowhere to land.
-      if (transformSessionRef.current) {
-        transformSessionRef.current.matrix = next
-        scheduleTransformAutoCommit()
-      }
+      if (transformSessionRef.current) transformSessionRef.current.matrix = next
       showPreview(next)
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
   }, [
-    vpRef, vp, config, transformBounds, transformCenterOverride, transformMode, transformKeepProportions,
-    setTransformSessionMatrix, scheduleTransformAutoCommit, cancelTransformAutoCommit,
+    vpRef, vp, config, handActive, transformBounds, transformCenterOverride, transformMode,
+    transformKeepProportions, setTransformSessionMatrix,
   ])
 
   // Adobe Animate-style draggable rotation pivot — a separate gesture from
@@ -3013,6 +3131,8 @@ export function Room() {
   // bounds' own center (see TransformGizmo's onCenterDoubleClick).
   const handleTransformCenterDown = useCallback((e: React.PointerEvent<SVGElement>) => {
     if (e.pointerType === 'touch') return
+    // Same reason as the handles above (#405): the hand owns every drag.
+    if (handActive) return
     const el = vpRef.current
     if (!el || !config) return
     e.stopPropagation()
@@ -3040,12 +3160,6 @@ export function Room() {
       return applyMatrix(toLocalSpace, p.x, p.y)
     }
 
-    // (#401) Placing the pivot changes no pixels, but an auto-commit landing
-    // mid-placement would reset the override out from under the finger — a
-    // session start clears it. Held off until the pointer is up, then handed
-    // back its remaining time only if there is in fact something to commit.
-    cancelTransformAutoCommit()
-
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
       setTransformCenterOverride(toPoint(ev.clientX, ev.clientY))
@@ -3054,12 +3168,10 @@ export function Room() {
       if (ev.pointerId !== penPointerId) return
       overlay.removeEventListener('pointermove', onMove)
       overlay.removeEventListener('pointerup', onUp)
-      const session = transformSessionRef.current
-      if (session && !isIdentityMatrix(session.matrix)) scheduleTransformAutoCommit()
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
-  }, [vpRef, vp, config, setTransformCenterOverride, cancelTransformAutoCommit, scheduleTransformAutoCommit])
+  }, [vpRef, vp, config, handActive, setTransformCenterOverride])
 
   const handleTransformCenterReset = useCallback(
     () => setTransformCenterOverride(null),
@@ -3701,12 +3813,30 @@ export function Room() {
       gradeH: 'H', gradeHB: 'HB', grade2B: '2B', grade4B: '4B', grade6B: '6B',
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLElement && e.target.tagName === 'INPUT') return
-      // (#310) A modal owns the keyboard while it is up. This listener is on
-      // `window` in the bubble phase, so a key pressed inside a dialog reaches
-      // it too — without this, typing in a dialog would still be switching
-      // tools behind it.
-      if (isModalOpen()) return
+      // (#310/#405) Who owns this keypress — see editorKeys.ts for the whole
+      // precedence and why each layer outranks the canvas. This listener is on
+      // `window` in the bubble phase, so a key pressed inside a dialog or a
+      // dropdown reaches it too; without the check, typing in a dialog would
+      // still be switching tools behind it.
+      if (!editorOwnsKey({
+        defaultPrevented: e.defaultPrevented,
+        modalOpen: isModalOpen(),
+        typing: isTypingTarget(e.target),
+        popoverOpen: isDismissLayerOpen(),
+      })) return
+      // (#405) Enter and Esc end an open transform session — apply and cancel.
+      // Handled here rather than in the registry above because they are not
+      // rebindable (see lib/hotkeys.ts on why), and checked before the bindings
+      // so a rebind can never shadow the only two keys that close a session.
+      //
+      // Cancel throws the accumulated matrix away whole. Nothing was committed
+      // while the session was open, so this leaves no trace on the undo stack
+      // either — there is nothing to take back, which is the same reason
+      // Ctrl+Z behaves as Esc here (see handleUndo).
+      if (transformSessionRef.current) {
+        if (e.key === 'Enter') { commitTransformSessionRef.current(true); e.preventDefault(); return }
+        if (e.key === 'Escape') { resetTransformSessionRef.current(); e.preventDefault(); return }
+      }
       const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
       if (is('undo')) { void handleUndo(); e.preventDefault(); return }
       if (is('redo')) { void handleRedo(); e.preventDefault(); return }
@@ -3715,26 +3845,36 @@ export function Room() {
       if (is('toggleCharcoal')) { setTool(t => t === 'charcoal' ? 'pencil' : 'charcoal'); return }
       if (is('toggleLiner')) { setTool(t => t === 'liner' ? 'pencil' : 'liner'); return }
       if (is('toggleMarker')) { setTool(t => t === 'marker' ? 'pencil' : 'marker'); return }
+      // (#405) The four that used to be modes, selected through the same
+      // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
+      if (is('toggleEyedropper')) { selectTool('eyedropper'); return }
+      if (is('toggleRuler')) { selectTool('ruler'); return }
+      if (is('toggleTransform')) { if (transformTargetIds.length > 0) selectTool('transform'); return }
+      if (is('toggleGrid')) { selectTool('grid'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
       if (is('toggleHand')) { setHandTool(h => !h); return }
       // Both size hotkeys clamp to the tool's own schema range (toolSizeRange)
       // rather than to literals — see its comment for why (#336).
+      // (#405) `drawingTool`, not the selection: with the ruler in hand there
+      // is no size to step, and silently resizing the pencil behind it would
+      // be a key that appears to do nothing. Sizing the tool you will go back
+      // to is the useful reading of the same press.
       if (is('decreaseSize')) {
         // Liner's own 'size' field is a fixed-label enum (ADR 003), not the
         // plain px number every other tool's 'size' field holds (marker
         // included) — step through the ladder instead of subtracting 1.
-        if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, -1))
+        if (drawingTool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, -1))
         else {
-          const range = toolSizeRange(tool)
-          if (range) setToolSetting(tool, 'size', prev => Math.max(range.min, (prev as number) - 1))
+          const range = toolSizeRange(drawingTool)
+          if (range) setToolSetting(drawingTool, 'size', prev => Math.max(range.min, (prev as number) - 1))
         }
         return
       }
       if (is('increaseSize')) {
-        if (tool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, 1))
+        if (drawingTool === 'liner') setToolSetting('liner', 'size', prev => stepLinerSize(prev as string, 1))
         else {
-          const range = toolSizeRange(tool)
-          if (range) setToolSetting(tool, 'size', prev => Math.min(range.max, (prev as number) + 1))
+          const range = toolSizeRange(drawingTool)
+          if (range) setToolSetting(drawingTool, 'size', prev => Math.min(range.max, (prev as number) + 1))
         }
         return
       }
@@ -3746,7 +3886,10 @@ export function Room() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [tool, setTool, lastDrawingTool, setToolSetting, setVp, setHandTool, handleUndo, handleRedo, hotkeys])
+  }, [
+    drawingTool, setTool, selectTool, lastDrawingTool, transformTargetIds.length,
+    setToolSetting, setVp, setHandTool, handleUndo, handleRedo, hotkeys,
+  ])
 
   // ── Space = hold to pan (#319, ADR 007 §4) ────────────────────────────────
   // Separate from the registry-driven effect above because this is a hold,
@@ -3754,12 +3897,9 @@ export function Room() {
   // (see lib/hotkeys.ts). Same guards as the shortcuts above — a Space typed
   // into a room name or a dialog is a space, not a gesture.
   useEffect(() => {
-    const isTyping = (target: EventTarget | null) =>
-      target instanceof HTMLElement && (target.tagName === 'INPUT' || target.isContentEditable)
-
     const onDown = (e: KeyboardEvent) => {
       if (e.code !== 'Space' || e.repeat) return
-      if (isTyping(e.target) || isModalOpen()) return
+      if (isTypingTarget(e.target) || isModalOpen()) return
       // Otherwise the page scrolls under the canvas on every hold.
       e.preventDefault()
       setHandHeld(true)
@@ -4108,37 +4248,52 @@ export function Room() {
             onClick={() => setHandTool(h => !h)}
           ><Icon name="pan_tool" /></button>
 
-          {/* Eyedropper (#82) picks a color from the canvas and opens the
-              ColorPicker tab of the unified right-side SidePanel (see
-              .layerPanelWrap below) to refine it; the actual palette (saved
-              custom colors) is a separate, later task. */}
+          {/* (#405) The four tools below the divider select like every button
+              above it — one tool is in hand at a time, and pressing the same
+              one again hands the canvas back to the drawing tool. They used to
+              be mode toggles laid over whichever pencil was current, which is
+              what let a transform session and a pencil both be "selected".
+
+              Eyedropper (#82) picks a color from the canvas, writes it into
+              the tool it hands back to, and opens the ColorPicker tab of the
+              unified right-side SidePanel (see .layerPanelWrap below) to
+              refine it. */}
           <button
             className={clsx(styles.toolIconBtn, eyedropperActive && styles.toolIconBtnActive)}
-            title={t('tool.eyedropper')}
+            title={t('tool.eyedropperTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleEyedropper) })}
             aria-label={t('tool.eyedropper')}
-            onClick={toggleEyedropper}
+            aria-pressed={eyedropperActive}
+            onClick={() => selectTool('eyedropper')}
           ><Icon name="colorize" /></button>
           <button
             className={clsx(styles.toolIconBtn, rulerActive && styles.toolIconBtnActive)}
-            title={t('tool.ruler')}
+            title={t('tool.rulerTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleRuler) })}
             aria-label={t('tool.ruler')}
-            onClick={toggleRuler}
+            aria-pressed={rulerActive}
+            onClick={() => selectTool('ruler')}
           ><Icon name="square_foot" /></button>
           <button
             className={clsx(styles.toolIconBtn, transformActive && styles.toolIconBtnActive)}
-            title={t('tool.transform')}
+            title={t('tool.transformTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleTransform) })}
             aria-label={t('tool.transform')}
+            aria-pressed={transformActive}
             disabled={transformTargetIds.length === 0}
-            onClick={toggleTransform}
+            onClick={() => selectTool('transform')}
           ><Icon name="free-transform" /></button>
 
           <div className={styles.toolDivider} />
 
+          {/* (#405) Selects the grid tool; whether the grid is *drawn* is its
+              own `show` setting in the column to the right, which is what lets
+              it stay up under every other tool. Selecting it currently does
+              nothing but put those settings on screen — the grid has no canvas
+              gesture of its own until #406 gives it move and rotate. */}
           <button
-            className={clsx(styles.toolIconBtn, gridActive && styles.toolIconBtnActive)}
-            title={t('tool.grid')}
+            className={clsx(styles.toolIconBtn, tool === 'grid' && styles.toolIconBtnActive)}
+            title={t('tool.gridTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleGrid) })}
             aria-label={t('tool.grid')}
-            onClick={() => setGridActive(a => !a)}
+            aria-pressed={tool === 'grid'}
+            onClick={() => selectTool('grid')}
           ><Icon name="grid_on" /></button>
 
         </aside>
@@ -4219,14 +4374,16 @@ export function Room() {
               />
             )}
             {/* (#393) Mounted exactly while the cursor controller says a dab
-                preview belongs on screen — with the hand on, during a
-                transform session, while the eyedropper is armed or a ruler is
-                being placed, nothing is going to be painted, and a ring that
-                keeps following the pointer reads as if it still would. */}
+                preview belongs on screen — with the hand on, or with any of
+                the four non-painting tools selected, nothing is going to be
+                painted, and a ring that keeps following the pointer reads as
+                if it still would. (#405) `drawingTool` is what it draws: the
+                controller has already established that this is the tool in
+                hand, and `tool` is not narrowed to a ToolType. */}
             {!config.infinite && cursor.dabPreview && (
               <BrushCursor
                 vpRef={vpRef}
-                tool={tool}
+                tool={drawingTool}
                 presetName={cursorPresetName}
                 baseSize={sizePx}
                 vp={vp}
@@ -4235,9 +4392,14 @@ export function Room() {
                 markerFollowStroke={markerFollowStroke}
               />
             )}
-            {!config.infinite && gridActive && <GridOverlay width={config.width} height={config.height} />}
-            {!config.infinite && rulerActive && rulerLine && (
-              <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} zoom={vp.zoom} angle={vp.angle} />
+            {!config.infinite && gridVisible && <GridOverlay width={config.width} height={config.height} />}
+            {/* (#405) On screen whenever it is shown, whatever tool is in
+                hand — a straight edge you can draw against is the point of
+                one. It carries no pointer handlers at all now; dragging it is
+                the catcher's job, and the catcher only exists while the ruler
+                is the selected tool. */}
+            {!config.infinite && rulerShow && rulerLine && (
+              <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} />
             )}
             {!config.infinite && transformActive && transformBounds && (
               <TransformGizmo
@@ -4283,7 +4445,7 @@ export function Room() {
               {cursor.dabPreview && (
                 <BrushCursor
                   vpRef={vpRef}
-                  tool={tool}
+                  tool={drawingTool}
                   presetName={cursorPresetName}
                   baseSize={sizePx}
                   vp={vp}
@@ -4292,15 +4454,15 @@ export function Room() {
                   markerFollowStroke={markerFollowStroke}
                 />
               )}
-              {gridActive && (
+              {gridVisible && (
                 <InfiniteGridOverlay
                   vp={vp}
                   viewportWidth={vpRef.current?.clientWidth ?? 0}
                   viewportHeight={vpRef.current?.clientHeight ?? 0}
                 />
               )}
-              {rulerActive && rulerLine && (
-                <RulerOverlay a={rulerLine.a} b={rulerLine.b} onHandleDown={handleRulerHandleDown} zoom={vp.zoom} angle={vp.angle} />
+              {rulerShow && rulerLine && (
+                <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} />
               )}
               {transformActive && transformBounds && (
                 <TransformGizmo
@@ -4320,11 +4482,22 @@ export function Room() {
               )}
             </div>
           )}
+          {/* (#405) One catcher for the two tools whose gesture is a press on
+              the canvas itself. The ruler's is armed for as long as the tool is
+              selected and the line is shown — laying a new line and grabbing
+              the existing one are the same surface now, told apart per press by
+              rulerGestureAt — where it used to disappear the moment a line
+              existed. A hidden ruler gets no catcher at all: hidden means
+              inert, the same rule that keeps it from snapping. */}
           {eyedropperActive && (
-            <div className={styles.eyedropperOverlay} onPointerDown={handleEyedropperPick} />
+            <div className={styles.canvasCatcher} onPointerDown={handleEyedropperPick} />
           )}
-          {rulerActive && !rulerPlaced && (
-            <div className={styles.rulerPlaceOverlay} onPointerDown={handleRulerPlaceDown} />
+          {rulerActive && rulerShow && (
+            <div
+              className={styles.canvasCatcher}
+              onPointerDown={handleRulerDown}
+              onPointerMove={handleRulerHover}
+            />
           )}
         </div>
 
@@ -4341,8 +4514,8 @@ export function Room() {
             control) was unclickable under `.layerPanelWrap` on a tablet, where
             the column's `max-width` reaches that far. Raising the z-index
             *inside* the viewport was not the fix, and neither was dropping
-            `.viewport`'s own: `.eyedropperOverlay`/`.rulerPlaceOverlay` are
-            full-viewport `pointer-events: auto` layers at z-index 4 in there,
+            `.viewport`'s own: `.canvasCatcher` is a
+            full-viewport `pointer-events: auto` layer at z-index 4 in there,
             and lifting them into the shared context would have them swallow
             taps meant for the chrome. */}
         <div className={styles.noticesTop}>
@@ -4789,7 +4962,7 @@ export function Room() {
             </div>
           )}
 
-          {pencilSoundTuningEnabled && <PencilSoundTuningPanel pencilSoundRef={pencilSoundRef} tool={tool} />}
+          {pencilSoundTuningEnabled && <PencilSoundTuningPanel pencilSoundRef={pencilSoundRef} tool={drawingTool} />}
         </div>
       )}
     </div>

@@ -175,7 +175,15 @@ export function TransformGizmo({
   }
 
   return (
-    <svg className={styles.transformSvg}>
+    // (#405) `data-transform-gizmo` is how Room's "a click past the gizmo
+    // applies the session" listener tells a press on the frame (a gesture)
+    // from a press on the canvas beyond it (the end of the session). An
+    // attribute rather than a class name because CSS Modules hashes the
+    // latter, and a `closest()` against a hashed name would be a string this
+    // component and that listener each had to guess at. Note that it covers
+    // the rotate zones too — they extend well outside the outline, which is
+    // exactly the "past the rotate zone" the rule is worded around.
+    <svg className={styles.transformSvg} data-transform-gizmo>
       <polygon
         points={outline.map(p => `${p.x},${p.y}`).join(' ')}
         className={styles.transformBody}

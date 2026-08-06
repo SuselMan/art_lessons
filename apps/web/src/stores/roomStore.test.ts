@@ -22,6 +22,7 @@ describe('roomStore initial shape', () => {
   it('starts on pencil with schema-default tool settings', () => {
     const state = useRoomStore.getState()
     expect(state.tool).toBe('pencil')
+    expect(state.drawingTool).toBe('pencil')
     expect(state.toolSettings).toEqual(defaultToolSettings())
   })
 
@@ -39,11 +40,23 @@ describe('roomStore initial shape', () => {
     expect(state.transformCenterOverride).toBeNull()
   })
 
-  it('starts with no overlay mode armed and no grid (#393)', () => {
-    const state = useRoomStore.getState()
-    expect(state.overlayMode).toBe('none')
-    expect(state.rulerPlaced).toBe(false)
-    expect(state.gridActive).toBe(false)
+  // (#405) There is no overlay slice to have a starting shape any more: the
+  // modes it held are members of `tool` (asserted above), the ruler's
+  // placement flag is gone with the gesture that needed it, and the grid's
+  // visibility is an ordinary tool setting. Asserting their absence is what
+  // keeps a "harmless" second axis from quietly growing back.
+  it('keeps no mode state beside the selected tool (#405)', () => {
+    const keys = Object.keys(useRoomStore.getState())
+    expect(keys).not.toContain('overlayMode')
+    expect(keys).not.toContain('rulerPlaced')
+    expect(keys).not.toContain('gridActive')
+  })
+
+  it('starts with the grid hidden and the ruler set to show and snap', () => {
+    const { toolSettings } = useRoomStore.getState()
+    expect(toolSettings.grid.show).toBe(false)
+    expect(toolSettings.ruler.show).toBe(true)
+    expect(toolSettings.ruler.snap).toBe(true)
   })
 
   it('never exposes anything engine-shaped', () => {
