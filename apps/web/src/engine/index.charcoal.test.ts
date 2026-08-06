@@ -184,10 +184,10 @@ describe('charcoal tool (#304, ADR 005)', () => {
 
   // #305 — the three regimes, end to end through the real pointer pipeline.
   // tiltX/tiltY here are PointerEvent's two projected tilt angles in degrees;
-  // the ladder is driven by the true angle from vertical derived from them
+  // the response is driven by the true angle from vertical derived from them
   // (tiltMath.ts), which equals tiltX exactly whenever tiltY is 0 — as it is
   // for all three grips below, so these stay readable as plain lean angles.
-  describe('tilt ladder (#305)', () => {
+  describe('tilt response (#305, curve since #403)', () => {
     const upright = { pressure: 0.7, tiltX: 0, tiltY: 0 }
     const edgeGrip = { pressure: 0.7, tiltX: 40, tiltY: 0 }
     const laidOver = { pressure: 0.7, tiltX: 70, tiltY: 0 }
@@ -199,7 +199,7 @@ describe('charcoal tool (#304, ADR 005)', () => {
       return strokeDabs(lastStroke(engine)).at(-1)!
     }
 
-    it('walks round -> edge -> broad as the stylus is laid over', async () => {
+    it('goes round -> edge -> broad as the stylus is laid over', async () => {
       const round = await aspectFor(upright)
       const edge = await aspectFor(edgeGrip)
       const broad = await aspectFor(laidOver)
@@ -207,13 +207,13 @@ describe('charcoal tool (#304, ADR 005)', () => {
       expect(round.aspectRatio).toBeCloseTo(1, 2)
       expect(edge.aspectRatio).toBeGreaterThan(round.aspectRatio)
       expect(broad.aspectRatio).toBeGreaterThan(edge.aspectRatio)
-      expect(broad.aspectRatio).toBeCloseTo(CHARCOAL_FEEL.broadAspect, 1)
+      expect(broad.aspectRatio).toBeCloseTo(CHARCOAL_FEEL.aspectMax, 1)
     })
 
     it('makes the edge narrower than the end face, not merely longer', async () => {
       const round = await aspectFor(upright)
       const edge = await aspectFor(edgeGrip)
-      // Same pressure, so any size difference is the ladder's width factor.
+      // Same pressure, so any size difference is the response's width factor.
       expect(edge.size).toBeLessThan(round.size)
     })
 

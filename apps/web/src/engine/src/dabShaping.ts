@@ -16,9 +16,10 @@ import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTi
 export interface DabShapingProfile {
   /** Multiplier on baseSize, given 0..1 smoothed pressure and tiltNorm =
    *  tiltMag/90. #305 widened this with the tilt argument so charcoal's edge
-   *  regime can be *narrower* than its end face; every other profile ignores
-   *  it (a one-parameter implementation still satisfies this signature), so
-   *  their geometry is unchanged. */
+   *  regime could be *narrower* than its end face, and #389 put it to the
+   *  opposite use for graphite (a leaned lead draws *wider*). Liner and both
+   *  marker nibs still ignore it — a one-parameter implementation satisfies
+   *  this signature, so their geometry is unchanged. */
   size(pressure: number, tiltNorm: number): number
   /** Aspect ratio (1 = circular), given tiltNorm = tiltMag/90. Since #388
    *  tiltMag is the true angle from vertical (tiltMath.ts), which is in
@@ -26,10 +27,12 @@ export interface DabShapingProfile {
    *  needs the "unclamped, may exceed 1" caveat it used to carry. */
   aspect(tiltNorm: number): number
   /** Per-sample weight for DabSystem's tilt low-pass, or omitted for no
-   *  filtering at all (every tool but charcoal — see #305 and DabSystem's own
-   *  _filterTilt). Opt-in rather than on-by-default specifically so this
-   *  changes nothing for pencil/eraser/smudge/liner/marker: their dabs stay
-   *  bit-for-bit what they were. */
+   *  filtering at all (see #305 and DabSystem's own _filterTilt). Set by
+   *  charcoal and, since #389, by graphite — the two profiles whose shape
+   *  actually tracks tilt, and therefore the two where the reported angle's
+   *  noise is visible in the mark. Still opt-in rather than on-by-default:
+   *  liner and both marker nibs barely respond to tilt, so filtering it would
+   *  cost them a little work to change nothing. */
   tiltSmoothing?: number
   /**
    * Per-dab angle (radians). Given the raw tilt magnitude/components and the
@@ -81,11 +84,12 @@ export function tiltOrPathAngle(tiltMag: number, tiltX: number, tiltY: number, p
 // along the stroke for a broad band, lean across it for a thin edge line.
 //
 // Applied to the whole result, including the low-tilt pathAngle fallback.
-// That branch only runs while the dab is still round (charcoal's ladder holds
-// aspect at 1 below roundMaxDeg), so the rotation is invisible there — but if
-// a dev slider drags roundMaxDeg below tiltOrPathAngle's own 15° cutoff,
-// staying perpendicular keeps it consistent with the tilt branch instead of
-// flipping.
+// That branch only runs below tiltOrPathAngle's own 15° cutoff, where the dab
+// is still very nearly round (#403's curve leaves aspect near 1.4 of 8 there at
+// the shipped numbers, and the plateau ladder before it held exactly 1), so the
+// rotation is all but invisible — but applying it there anyway keeps the
+// fallback consistent with the tilt branch rather than flipping across the
+// cutoff.
 export function perpendicularToTiltAngle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number): number {
   return tiltOrPathAngle(tiltMag, tiltX, tiltY, pathAngle) + Math.PI / 2
 }
@@ -146,14 +150,15 @@ export const LINER_DAB_SHAPING: DabShapingProfile = {
 // pressure, so Dab.pressure stays the true value for every tool, same as
 // before #241 ever introduced the hook.
 
-// Charcoal (#304 §2, reshaped into a ladder in #305): a blunt stick, not a
+// Charcoal (#304 §2, reshaped into a ladder in #305, and from a ladder into a
+// smooth curve in #403): a blunt stick, not a
 // sharpened cone, worked on its end / edge / broad side depending on tilt.
 //  - size: higher floor than graphite's 0.3 (even a light touch from a blunt
 //    stick leaves a broad mark) and a smaller swing (there's no point to
 //    sharpen, so pressure can't concentrate the contact the way it does for a
-//    pencil) — then scaled by the tilt ladder's own width factor, so the edge
+//    pencil) — then scaled by the tilt curve's own width factor, so the edge
 //    regime is genuinely thinner than the end face.
-//  - aspect: the ladder from charcoalFeel.ts, replacing #304's single
+//  - aspect: the curve from charcoalFeel.ts, replacing #304's single
 //    `1 + tiltNorm² * 7` curve. That curve only reached its maximum at 90°,
 //    which a stylus on a tablet physically cannot do — the broad side was
 //    unreachable in practice, which is the whole reason for the rewrite.
