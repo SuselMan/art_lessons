@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolveCursor, TRANSFORM_HANDLE_CURSOR, RULER_HANDLE_CURSOR, type CursorState } from './cursorController'
+import { resolveCursor, transformHandleCursor, RULER_HANDLE_CURSOR, type CursorState } from './cursorController'
+import { TRANSFORM_MODES, type TransformHandleKind } from './transformMath'
 
 // #393: the whole point of the module is that these answers live in one
 // place, so this file is the readable statement of what they are.
@@ -76,18 +77,48 @@ describe('resolveCursor', () => {
   })
 })
 
+const ALL_HANDLES: TransformHandleKind[] = [
+  'body', 'tl', 'tr', 'br', 'bl', 't', 'b', 'l', 'r',
+  'rotate-tl', 'rotate-tr', 'rotate-bl', 'rotate-br',
+]
+
 describe('gizmo handle cursors', () => {
   it('gives opposite corners the same resize axis and both rotate zones the same glyph', () => {
-    expect(TRANSFORM_HANDLE_CURSOR.tl).toBe(TRANSFORM_HANDLE_CURSOR.br)
-    expect(TRANSFORM_HANDLE_CURSOR.tr).toBe(TRANSFORM_HANDLE_CURSOR.bl)
-    expect(TRANSFORM_HANDLE_CURSOR.t).toBe(TRANSFORM_HANDLE_CURSOR.b)
-    expect(TRANSFORM_HANDLE_CURSOR.l).toBe(TRANSFORM_HANDLE_CURSOR.r)
-    expect(TRANSFORM_HANDLE_CURSOR['rotate-tl']).toBe(TRANSFORM_HANDLE_CURSOR['rotate-br'])
+    const c = (h: TransformHandleKind) => transformHandleCursor(h, 'free')
+    expect(c('tl')).toBe(c('br'))
+    expect(c('tr')).toBe(c('bl'))
+    expect(c('t')).toBe(c('b'))
+    expect(c('l')).toBe(c('r'))
+    expect(c('rotate-tl')).toBe(c('rotate-br'))
   })
 
-  it('names a cursor for every handle either gizmo can hand the pointer', () => {
-    for (const cursor of [...Object.values(TRANSFORM_HANDLE_CURSOR), ...Object.values(RULER_HANDLE_CURSOR)]) {
-      expect(cursor).toBeTruthy()
+  it('names a cursor for every handle either gizmo can hand the pointer, in every mode', () => {
+    // (#391/#392) The mode axis is why this is a function and not a record —
+    // the old version could only be exhaustive over handles.
+    for (const mode of TRANSFORM_MODES) {
+      for (const handle of ALL_HANDLES) expect(transformHandleCursor(handle, mode)).toBeTruthy()
+    }
+    for (const cursor of Object.values(RULER_HANDLE_CURSOR)) expect(cursor).toBeTruthy()
+  })
+
+  it('turns a sheared edge\'s arrows across the axis that same edge stretches along', () => {
+    // The whole reason the cursor follows the gesture rather than the handle:
+    // in Rotate & Skew the top edge slides sideways instead of up and down.
+    expect(transformHandleCursor('t', 'free')).toBe('ns-resize')
+    expect(transformHandleCursor('t', 'rotateSkew')).toBe('ew-resize')
+    expect(transformHandleCursor('l', 'free')).toBe('ew-resize')
+    expect(transformHandleCursor('l', 'rotateSkew')).toBe('ns-resize')
+  })
+
+  it('drops the diagonal arrow on a Distort corner, which is not resizing anything', () => {
+    expect(transformHandleCursor('tl', 'distort')).toBe('move')
+    // Its edges are still Free transform's, so they keep saying so.
+    expect(transformHandleCursor('t', 'distort')).toBe('ns-resize')
+  })
+
+  it('leaves the rotate zones alone in every mode', () => {
+    for (const mode of TRANSFORM_MODES) {
+      expect(transformHandleCursor('rotate-tl', mode)).toBe(transformHandleCursor('rotate-tl', 'free'))
     }
   })
 })

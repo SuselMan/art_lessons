@@ -93,7 +93,7 @@ export type MaterialIconName = (typeof MATERIAL_ICON_NAMES)[number]
 //
 // A name may appear in both lists: a custom SVG deliberately overrides the
 // Material symbol of the same name at every call site at once.
-export const CUSTOM_ICON_NAMES = ['bullet-tip', 'charcoal', 'chisel-tip', 'smudge'] as const
+export const CUSTOM_ICON_NAMES = ['bullet-tip', 'charcoal', 'chisel-tip', 'distort', 'free-transform', 'skew-and-rotate', 'smudge'] as const
 
 export type CustomIconName = (typeof CUSTOM_ICON_NAMES)[number]
 
