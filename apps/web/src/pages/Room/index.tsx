@@ -45,6 +45,7 @@ import { useViewport } from './useViewport'
 import { useViewportToast } from './useViewportToast'
 import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
+import { ClickTracker } from './clickTracker'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
@@ -1111,7 +1112,17 @@ export function Room() {
   // handling on the same `.viewport` element — see useTapToggle's docstring
   // for why the two never conflict, and why it takes the element (`vpEl`)
   // rather than the ref.
-  useTapToggle(vpEl, toggleUI, tapToHideEnabled, tapDebugEnabled ? setTapDebug : undefined)
+  //
+  // (#408) Off entirely while the gizmo is up: a tap on the canvas then belongs
+  // to the transform tool, which reads it as "I'm done here" (see the
+  // click-past-the-gizmo effect below). Both listeners sit on `.viewport` and
+  // neither can see what the other made of the same touch, so leaving both
+  // armed meant one finger dismissing the gizmo *and* stripping the chrome in
+  // the same instant — two answers to a gesture that asked one question.
+  // Suppressing it here rather than inside the hook keeps the rule where the
+  // conflict is, and costs nothing: the tap puts the transform tool down, so
+  // by the next tap this is armed again and hides the chrome as it always did.
+  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !transformActive, tapDebugEnabled ? setTapDebug : undefined)
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
@@ -2743,8 +2754,9 @@ export function Room() {
   // A *click*, deliberately, not a press: a drag that starts outside the frame
   // is a pan (or a rotate begun just outside a corner and dragged away), and
   // ending someone's edit because they moved the view would be worse than the
-  // auto-commit this replaces. TAP_MOVE_THRESHOLD_PX is the same threshold the
-  // minimal-UI tap uses, so "what counts as a tap" has one answer in this room.
+  // auto-commit this replaces. (#408) The budget for how far it may wander is
+  // its own, though — CLICK_MOVE_THRESHOLD_PX, not the minimal-UI tap's 4 px;
+  // see that constant for why sharing one number was wrong rather than tidy.
   //
   // "Past the gizmo" includes past the rotate zones, which reach ~40 screen px
   // beyond each corner — they are part of the gizmo's own hit area (see
@@ -2756,22 +2768,25 @@ export function Room() {
   // being written into every one of them.
   useEffect(() => {
     if (!transformActive || !vpEl) return
-    let candidate: { id: number; x: number; y: number } | null = null
+    // (#408) Per-pointer bookkeeping, not one slot for whichever pressed last —
+    // see ClickTracker for what a tablet's second pointer used to do to the
+    // pen's click, and why this recognizer is a sibling of TapTracker rather
+    // than a mode of it.
+    const clicks = new ClickTracker()
 
     const onDown = (e: PointerEvent) => {
       // The hand owns every drag while it is up, including this one — the same
       // precedence the gizmo handles and the cursor already follow.
-      candidate = handActiveRef.current || (e.target as Element | null)?.closest('[data-transform-gizmo]')
-        ? null
-        : { id: e.pointerId, x: e.clientX, y: e.clientY }
+      if (handActiveRef.current) return
+      // (#408) Primary button only. The middle one pans (see useViewport), and
+      // a pan that happens to travel nowhere is still not "I'm done here".
+      if (e.button !== 0) return
+      if ((e.target as Element | null)?.closest('[data-transform-gizmo]')) return
+      clicks.down(e.pointerId, e.clientX, e.clientY)
     }
-    const onMove = (e: PointerEvent) => {
-      if (!candidate || e.pointerId !== candidate.id) return
-      if (Math.hypot(e.clientX - candidate.x, e.clientY - candidate.y) > TAP_MOVE_THRESHOLD_PX) candidate = null
-    }
+    const onMove = (e: PointerEvent) => { clicks.move(e.pointerId, e.clientX, e.clientY) }
     const onUp = (e: PointerEvent) => {
-      if (!candidate || e.pointerId !== candidate.id) return
-      candidate = null
+      if (!clicks.up(e.pointerId)) return
       // Bake once and do *not* re-arm — the tool is going down on the next
       // line, so a fresh session would be opened only to be torn straight
       // back down.
@@ -2785,7 +2800,7 @@ export function Room() {
     }
     // A cancelled pointer (the browser taking the gesture over for a scroll or
     // a system gesture) is not a click, and must not be treated as one.
-    const onCancel = () => { candidate = null }
+    const onCancel = (e: PointerEvent) => { clicks.cancel(e.pointerId) }
 
     vpEl.addEventListener('pointerdown', onDown)
     vpEl.addEventListener('pointermove', onMove)
