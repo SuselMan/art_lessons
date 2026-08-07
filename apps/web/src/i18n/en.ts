@@ -477,6 +477,14 @@ export const en = {
   'tool.field.showRuler': 'Show ruler',
   'tool.field.rulerSnap': 'Snap strokes to the ruler',
   'tool.field.showGrid': 'Show grid',
+  'tool.field.tiltResponse': 'Tilt response',
+  // The three curve shapes (#409). Named for how the tool answers the stylus,
+  // not for their history — "the one from before" means nothing to anyone who
+  // wasn't here, and the graph beside each name is what actually distinguishes
+  // them.
+  'tool.tiltResponse.restrained': 'Restrained',
+  'tool.tiltResponse.smooth': 'Smooth',
+  'tool.tiltResponse.linear': 'Linear',
   'tool.charcoalType.vine': 'Vine',
   'tool.charcoalType.willow': 'Willow',
   'tool.charcoalType.compressed': 'Compressed',

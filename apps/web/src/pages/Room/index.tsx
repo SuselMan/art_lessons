@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL, toWireMatrix } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, type CharcoalFeelConfig, type PencilTiltConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -1852,6 +1852,18 @@ export function Room() {
   useEffect(() => {
     engineRef.current?.setMarkerAngle(markerCanvasAngleRadians, markerFollowStroke)
   }, [markerCanvasAngleRadians, markerFollowStroke])
+  // #409: the tilt-response setting of whichever tool is in hand. The engine
+  // holds one active response rather than a table (see setTiltResponse), so the
+  // lookup is here — and it goes through `isTiltResponse` rather than a cast:
+  // the value is a schema-validated string on the way out of localStorage, but
+  // the schemas are what decides which tools even have the field, and a tool
+  // without one (liner, marker) must land on the default instead of pushing
+  // `undefined` into the engine.
+  const tiltResponse = useMemo(() => {
+    const stored = toolSettings[drawingTool]?.tiltResponse
+    return typeof stored === 'string' && isTiltResponse(stored) ? stored : DEFAULT_TILT_RESPONSE
+  }, [toolSettings, drawingTool])
+  useEffect(() => { engineRef.current?.setTiltResponse(tiltResponse) }, [tiltResponse])
   useEffect(() => {
     // engine.setPencil's argument is a generic preset-name string
     // (StrokeOperation.preset) — pencil's own grade normally, but the
@@ -4476,6 +4488,7 @@ export function Room() {
                 config={config}
                 markerAngleRadians={markerCanvasAngleRadians}
                 markerFollowStroke={markerFollowStroke}
+                tiltResponse={tiltResponse}
               />
             )}
             {!config.infinite && gridVisible && <GridOverlay width={config.width} height={config.height} />}
@@ -4538,6 +4551,7 @@ export function Room() {
                   config={config}
                   markerAngleRadians={markerCanvasAngleRadians}
                   markerFollowStroke={markerFollowStroke}
+                  tiltResponse={tiltResponse}
                 />
               )}
               {gridVisible && (

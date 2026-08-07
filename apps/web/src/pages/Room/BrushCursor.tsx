@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import type { ToolType } from '@grafetto/shared'
 
-import { previewDabShape } from '../../engine'
+import { previewDabShape, type TiltResponse } from '../../engine'
 import { diagLog } from '../../lib/diagLog'
 import { clientToRoomPoint } from './cameraMath'
 import type { ViewportTransform, CanvasSize } from './pointerTransform'
@@ -31,6 +31,10 @@ interface BrushCursorProps {
    *  reads either of these two. */
   markerAngleRadians?: number
   markerFollowStroke?: boolean
+  /** #409: the active tool's tilt-response setting, the same value Room feeds
+   *  engine.setTiltResponse — the outline is the only place the choice can be
+   *  seen before a mark exists, so it has to be drawn under it too. */
+  tiltResponse?: TiltResponse
 }
 
 /** A brush-footprint preview that follows the pointer: an outline of the dab
@@ -84,6 +88,7 @@ interface BrushCursorProps {
  *  instead of showing continuously the way mouse/pen hover does. */
 export function BrushCursor({
   vpRef, tool, presetName, baseSize, vp, config, markerAngleRadians = 0, markerFollowStroke = false,
+  tiltResponse,
 }: BrushCursorProps) {
   const circleRef = useRef<HTMLDivElement>(null)
   const touchActiveRef = useRef(false)
@@ -94,8 +99,12 @@ export function BrushCursor({
   // the native listener down and rebuilding it on every one of those would
   // also throw away the cached bounding-rect below. Same reasoning as
   // Room's own #37 cursor-broadcast effect.
-  const stateRef = useRef({ tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke })
-  stateRef.current = { tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke }
+  const stateRef = useRef({
+    tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke, tiltResponse,
+  })
+  stateRef.current = {
+    tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke, tiltResponse,
+  }
 
   useEffect(() => {
     const el = vpRef.current
@@ -131,6 +140,7 @@ export function BrushCursor({
       const {
         tool: curTool, presetName: curPreset, baseSize: curBaseSize, vp: curVp, config: curConfig,
         markerAngleRadians: curMarkerAngle, markerFollowStroke: curMarkerFollow,
+        tiltResponse: curTiltResponse,
       } = stateRef.current
 
       const rect = rectCache ??= el.getBoundingClientRect()
@@ -138,6 +148,7 @@ export function BrushCursor({
       const { size, aspectRatio, angle } = previewDabShape(
         curTool, curPreset, curBaseSize, pressure, tiltX, tiltY, 0,
         { angle: curMarkerAngle, followStrokeDirection: curMarkerFollow },
+        curTiltResponse,
       )
       // DAB_VERT scales the quad's local X axis by aspectRatio before rotating
       // by `angle` (shaders.ts), so the painted footprint's long axis is

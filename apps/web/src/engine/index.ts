@@ -22,6 +22,9 @@ import {
   type PencilTiltConfig,
 } from './src/pencilTilt'
 import { tiltMagnitudeDeg } from './src/tiltMath'
+import {
+  DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
+} from './src/tiltCurve'
 import type { MarkerAngleConfig } from './src/markerPresets'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
@@ -60,6 +63,12 @@ export {
 }
 export { CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig }
 export { PENCIL_TILT, PENCIL_TILT_SLIDERS, type PencilTiltConfig }
+// #409: the UI needs the option list and its default to build the setting, the
+// guard to validate a stored value, and the curve itself to draw each option's
+// own graph in the picker. Deliberately the raw function rather than a
+// ready-made SVG path: what a response *is* belongs to the engine, how it is
+// drawn belongs to the UI.
+export { TILT_RESPONSES, DEFAULT_TILT_RESPONSE, isTiltResponse, tiltResponseT, type TiltResponse }
 
 /** Pure dab-shape query for UI overlays (brush cursor) — mirrors
  *  DabSystem._makeDab's own geometry formula (tiltMag/tiltNorm ->
@@ -75,8 +84,13 @@ export function previewDabShape(
   tool: ToolType, presetName: string | undefined,
   baseSize: number, pressure: number, tiltX: number, tiltY: number, pathAngle = 0,
   markerAngle?: MarkerAngleConfig,
+  // #409: the same response the engine has been given, so the hover outline
+  // keeps matching the mark — the cursor is how the setting is *seen* before
+  // anything is drawn with it, so a preview left on the default would quietly
+  // lie about the tool the moment the setting moved off it.
+  tiltResponse?: TiltResponse,
 ): { size: number; aspectRatio: number; angle: number } {
-  const shaping = shapingForTool(tool, presetName, markerAngle)
+  const shaping = shapingForTool(tool, presetName, markerAngle, tiltResponse)
   const tiltMag = tiltMagnitudeDeg(tiltX, tiltY)
   const tiltNorm = tiltMag / 90
   return {
@@ -470,6 +484,20 @@ export interface PencilEngineAPI {
   // true: angleRadians is an offset added to the stroke's own path-tangent
   // angle. Has no effect on the bullet nib (round, angle-independent).
   setMarkerAngle(angleRadians: number, followStrokeDirection: boolean): void
+  /** #409: which of the three tilt→shape ramp shapes the next stroke uses —
+   *  a user setting, per tool, resolved by the caller before it gets here
+   *  (the engine holds one active response, not a table keyed by tool, for
+   *  the same reason setPencil takes one preset string rather than every
+   *  tool's). Affects only the tools whose dab shape reads the tilt curve at
+   *  all: pencil, eraser, smudge and charcoal — see shapingForTool.
+   *
+   *  Nothing about it reaches the wire. Dab geometry is baked at record time
+   *  and serialized per dab (size/aspectRatio, dabCodec.ts), so a peer
+   *  replays the shape this user actually drew without ever learning which
+   *  response produced it — and a stroke drawn under one response keeps its
+   *  geometry when the setting later changes, same as every other tool
+   *  option. */
+  setTiltResponse(response: TiltResponse): void
   /** Ruler tool (#89): sets (or clears, with null) the straight-edge guide
    *  that live pointer input snaps to before it ever reaches DabSystem —
    *  see rulerSnap.ts's snapToRuler and the private _snapPoint/_onStart/
@@ -1610,6 +1638,15 @@ export class PencilEngine implements PencilEngineAPI {
   private _markerAngleRadians = Math.PI / 4 // ADR 004 §1 "~45°" default, matches markerPresets.ts's own fallback
   private _markerFollowStroke = false
 
+  // #409: the active tool's tilt→shape ramp shape, a user setting. Read at the
+  // same two shapingForTool call sites _markerAngleRadians is, and for the same
+  // reason: a profile swap partway through an in-progress stroke isn't
+  // supported (DabSystem.setShaping), so a live change lands on the next
+  // stroke. One value rather than one per tool — the caller pushes whichever
+  // tool's setting is currently selected, exactly as it does for the preset
+  // string.
+  private _tiltResponse: TiltResponse = DEFAULT_TILT_RESPONSE
+
   // Dwell (#245, ADR 003 §3/§9 revised): while the active tool has a
   // DwellConfig (currently only liner) and the pointer sits within
   // stillThresholdPx of _dwellAnchorX/Y, _dwellTimer periodically paints an
@@ -2192,6 +2229,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._markerAngleRadians = angleRadians
     this._markerFollowStroke = followStrokeDirection
   }
+
+  /** See PencilEngineAPI's doc comment. Next stroke only, same as the marker
+   *  angle above. */
+  setTiltResponse(response: TiltResponse): void { this._tiltResponse = response }
 
   /** See PencilEngineAPI's doc comment. */
   setRuler(line: RulerLine | null): void { this._ruler = line }
@@ -3785,6 +3826,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabs.setShaping(shapingForTool(
       this._strokeTool, this._opts.pencilType,
       { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
+      this._tiltResponse,
     ))
     // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are
     // straight chords between samples); every other tool keeps its plain
@@ -4250,6 +4292,7 @@ export class PencilEngine implements PencilEngineAPI {
     const shaping = shapingForTool(
       this._strokeTool, this._strokePreset,
       { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
+      this._tiltResponse,
     )
     const tiltMag = tiltMagnitudeDeg(this._lastPointerTiltX, this._lastPointerTiltY)
     const tiltNorm = tiltMag / 90
