@@ -13,4 +13,10 @@ export interface PickerOption {
   /** Icon name for `<Icon>`, for options a photo of a stroke doesn't suit —
    *  the marker's two nibs, which differ in tip shape, not in tone. */
   icon?: IconName
+  /** (#409) A line graph, for an option that *is* a curve — the tilt response.
+   *  Normalized 0..1 samples, evenly spaced left to right, 0 at the bottom.
+   *  Deliberately plain numbers rather than anything tilt-shaped: this
+   *  component family draws the line and knows nothing about what the axes
+   *  mean (see tiltResponseCurves.ts, which owns that). */
+  curve?: readonly number[]
 }

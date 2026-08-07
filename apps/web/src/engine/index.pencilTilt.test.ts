@@ -10,6 +10,7 @@ import type { StrokeOperation, ToolType } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
 import { PENCIL_TILT } from './src/pencilTilt'
+import { TILT_RESPONSES, type TiltResponse } from './src/tiltCurve'
 import { createTestEngine, makeLayerAdd, paperReady, simulateStroke } from './testing/engineTestUtils'
 
 async function setupLayer() {
@@ -34,9 +35,12 @@ const PATH_B = [10, 35, 60, 85, 110, 135].map(x => ({ x, y: 60 }))
 /** Last dab of a stroke drawn at this grip — last, not first, so the tilt
  *  low-pass (#389 gave graphite one) has settled onto the held tilt instead of
  *  still being seeded from the stroke's opening sample. */
-async function lastDabAt(tool: ToolType, tiltX: number, tiltY: number, path = PATH_A) {
+async function lastDabAt(
+  tool: ToolType, tiltX: number, tiltY: number, path = PATH_A, tiltResponse?: TiltResponse,
+) {
   const engine = await setupLayer()
   engine.setTool(tool)
+  if (tiltResponse) engine.setTiltResponse(tiltResponse)
   simulateStroke(engine, path, { pressure: 0.7, tiltX, tiltY })
   return strokeDabs(lastStroke(engine)).at(-1)!
 }
@@ -91,6 +95,77 @@ describe('graphite tilt response (#389)', () => {
     const upright = await lastDabAt('eraser', 0, 0)
     const leaned = await lastDabAt('eraser', PENCIL_TILT.fullDeg, 0, PATH_B)
     expect(leaned.opacity).toBeCloseTo(upright.opacity, 5)
+  })
+})
+
+describe('the tilt response is a setting, end to end (#409)', () => {
+  const WORKING_GRIP = 40
+
+  it('bakes a different shape into the recorded dab for each response', async () => {
+    // The whole feature, at the only level that proves it: setTiltResponse ->
+    // shapingForTool -> the aspectRatio that ends up inside the Operation.
+    const shapes = await Promise.all(TILT_RESPONSES.map((response, i) =>
+      lastDabAt('pencil', WORKING_GRIP, 0, i % 2 ? PATH_B : PATH_A, response)))
+    const [restrained, smooth, linear] = shapes.map(d => d.aspectRatio)
+    expect(restrained).toBeLessThan(smooth)
+    expect(smooth).toBeLessThan(linear)
+  })
+
+  it('restrained brings back what the pencil drew before #389 replaced it', async () => {
+    // The complaint that opened the issue: at an ordinary working grip the old
+    // curve stayed close to round. It should still, or the setting does not
+    // give Ilya back the pencil he asked for.
+    const d = await lastDabAt('pencil', WORKING_GRIP, 0, PATH_A, 'restrained')
+    const t = Math.pow(WORKING_GRIP / 90, 3)
+    expect(d.aspectRatio).toBeCloseTo(1 + t * (PENCIL_TILT.aspectMax - 1), 1)
+  })
+
+  it('arrives at the material\'s own ceiling under every response, and never past it', async () => {
+    // Only the ramp is chosen here; where it arrives stays the material's. A
+    // response that quietly capped the pencil short of aspectMax would be a
+    // different tool, not a different feel.
+    //
+    // Checked at the very end of the range rather than at fullDeg, because
+    // 'restrained' reaches its ceiling only at 90° by construction — that late
+    // arrival is the thing it *is*, pinned exactly in tiltCurve.test.ts. The
+    // band here is what survives the tilt low-pass still catching up on the
+    // last dab of the stroke.
+    for (const response of TILT_RESPONSES) {
+      const d = await lastDabAt('pencil', 90, 0, PATH_B, response)
+      expect(d.aspectRatio).toBeLessThanOrEqual(PENCIL_TILT.aspectMax + 1e-6)
+      expect(d.aspectRatio).toBeGreaterThan(PENCIL_TILT.aspectMax * 0.95)
+    }
+  })
+
+  it('follows the pencil onto the eraser and the smudge tool', async () => {
+    // They share graphite's geometry (PENCIL_DAB_SHAPING), so they must share
+    // the response too — otherwise the eraser would answer tilt on a curve the
+    // user never picked for it.
+    for (const tool of ['eraser', 'smudge'] as const) {
+      const restrained = await lastDabAt(tool, WORKING_GRIP, 0, PATH_A, 'restrained')
+      const linear = await lastDabAt(tool, WORKING_GRIP, 0, PATH_B, 'linear')
+      expect(restrained.aspectRatio).toBeLessThan(linear.aspectRatio)
+    }
+  })
+
+  it('leaves the liner alone, whose shape never read the tilt curve', async () => {
+    const restrained = await lastDabAt('liner', WORKING_GRIP, 0, PATH_A, 'restrained')
+    const linear = await lastDabAt('liner', WORKING_GRIP, 0, PATH_B, 'linear')
+    expect(restrained.aspectRatio).toBeCloseTo(linear.aspectRatio, 9)
+  })
+
+  it('changes nothing about an already-recorded stroke', async () => {
+    // Geometry is baked at record time and serialized per dab, which is what
+    // keeps this setting off the wire entirely — a peer replays the shape that
+    // was drawn, and so does this user's own undo.
+    const engine = await setupLayer()
+    engine.setTool('pencil')
+    engine.setTiltResponse('linear')
+    simulateStroke(engine, PATH_A, { pressure: 0.7, tiltX: WORKING_GRIP, tiltY: 0 })
+    const drawn = strokeDabs(lastStroke(engine)).at(-1)!.aspectRatio
+
+    engine.setTiltResponse('restrained')
+    expect(strokeDabs(lastStroke(engine)).at(-1)!.aspectRatio).toBe(drawn)
   })
 })
 

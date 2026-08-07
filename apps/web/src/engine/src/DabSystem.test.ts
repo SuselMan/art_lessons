@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { DabSystem } from './DabSystem'
 import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
 import { MARKER_BULLET_DAB_SHAPING } from './markerPresets'
+import { DEFAULT_TILT_RESPONSE, TILT_RESPONSES } from './tiltCurve'
 
 // Geometry-focused tests for the #91 centripetal Catmull-Rom fix.
 //
@@ -962,6 +963,47 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
       expect(shapingForTool('eraser', presetName)).toBe(PENCIL_DAB_SHAPING)
       expect(shapingForTool('smudge', presetName)).toBe(PENCIL_DAB_SHAPING)
       expect(shapingForTool('liner', presetName)).toBe(LINER_DAB_SHAPING)
+    }
+  })
+
+  // #409: the response reaches the dab through this same dispatch.
+  it('hands out one stable profile per response, and the shipped one by default', () => {
+    // Stable identity, not just equal shape: these are looked up on every
+    // stroke start and every hover frame, so a fresh closure per call would be
+    // garbage on the pointer path.
+    for (const tool of ['pencil', 'eraser', 'smudge', 'charcoal'] as const) {
+      for (const response of TILT_RESPONSES) {
+        expect(shapingForTool(tool, undefined, undefined, response))
+          .toBe(shapingForTool(tool, undefined, undefined, response))
+      }
+      expect(shapingForTool(tool, undefined, undefined, DEFAULT_TILT_RESPONSE))
+        .toBe(shapingForTool(tool))
+    }
+    expect(shapingForTool('pencil')).toBe(PENCIL_DAB_SHAPING)
+  })
+
+  it('gives each response a genuinely different aspect curve, per material', () => {
+    const midGrip = 40 / 90 // the profile's own tiltNorm units
+    for (const tool of ['pencil', 'charcoal'] as const) {
+      const aspects = TILT_RESPONSES.map(r => shapingForTool(tool, undefined, undefined, r).aspect(midGrip))
+      expect(new Set(aspects).size).toBe(TILT_RESPONSES.length)
+    }
+  })
+
+  it('ignores the response for the tools whose shape never reads tilt', () => {
+    // Liner and both marker nibs: offering them the setting would be a control
+    // that does nothing, so the schema doesn't — and the dispatch agrees.
+    for (const response of TILT_RESPONSES) {
+      expect(shapingForTool('liner', undefined, undefined, response)).toBe(LINER_DAB_SHAPING)
+      // Marker is compared by what it draws rather than by identity: its
+      // profile is built per call from the nib and the angle config (see
+      // shapingForMarkerPreset), so there is no shared object to point at.
+      const chisel = shapingForTool('marker', 'chisel:0.5', undefined, response)
+      const reference = shapingForTool('marker', 'chisel:0.5')
+      for (const tiltNorm of [0, 0.4, 1]) {
+        expect(chisel.aspect(tiltNorm)).toBeCloseTo(reference.aspect(tiltNorm), 12)
+        expect(chisel.size(0.6, tiltNorm)).toBeCloseTo(reference.size(0.6, tiltNorm), 12)
+      }
     }
   })
 })

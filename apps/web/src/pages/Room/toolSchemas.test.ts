@@ -215,7 +215,13 @@ describe('option pickers (#335, #391)', () => {
       ['charcoal.type', 'colorPencil.grade', 'marker.nib', 'pencil.grade',
         // … and the transform tool's working mode (#391), which is a mode
         // rather than a material but is chosen the same way.
-        'transform.mode'],
+        'transform.mode',
+        // … and the tilt response (#409), on exactly the five tools whose dab
+        // geometry reads the tilt curve. Spelled out rather than derived, so
+        // adding the field to a sixth tool — a liner, say, whose shape ignores
+        // tilt entirely — has to be a deliberate edit here.
+        'charcoal.tiltResponse', 'colorPencil.tiltResponse', 'eraser.tiltResponse',
+        'pencil.tiltResponse', 'smudge.tiltResponse'].sort(),
     )
   })
 
@@ -225,14 +231,21 @@ describe('option pickers (#335, #391)', () => {
   // nothing else would notice a renamed or forgotten file. It matters just as
   // much for the mode picker, whose quick-panel button has room for the
   // preview and nothing else.
-  it('gives every option of every select field an image or an icon', () => {
+  it('gives every option of every select field an image, an icon or a curve', () => {
     for (const { toolId, key, descriptor } of selectFields) {
       const { valueType } = descriptor
       expect(valueType.kind).toBe('enumOptions')
       if (valueType.kind !== 'enumOptions') continue
       for (const option of valueType.options) {
+        // #409 added the third kind: a response is a function, so its preview
+        // is its own curve rather than a picture of a mark. Two samples is the
+        // least that draws a line at all (curveGraphPoints returns '' below
+        // that) — an option carrying one point would render an empty box, the
+        // exact failure this test exists to catch.
+        const curve = descriptor.optionCurves?.[option]
         const visual = descriptor.optionImages?.[option] ?? descriptor.optionIcons?.[option]
-        expect(visual, `${toolId}.${key} option "${option}" has no image or icon`).toBeTruthy()
+          ?? (curve && curve.length >= 2 ? 'curve' : undefined)
+        expect(visual, `${toolId}.${key} option "${option}" has no image, icon or curve`).toBeTruthy()
       }
     }
   })

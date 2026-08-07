@@ -111,6 +111,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
         label: optionLabel(option),
         image: descriptor.optionImages?.[option],
         icon: descriptor.optionIcons?.[option],
+        curve: descriptor.optionCurves?.[option],
       }))
       return layout === 'toolbar' ? (
         // Same block shape as the toolbar's other fields: the control, with

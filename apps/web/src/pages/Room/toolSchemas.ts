@@ -1,11 +1,13 @@
 import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
-  type PencilGradeName, type LinerSizeMm, type CharcoalType,
+  TILT_RESPONSES, DEFAULT_TILT_RESPONSE,
+  type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse,
 } from '../../engine'
 import { parseNumberInput } from '../../components/NumberField/numberField'
 import { expScale, type SliderScale } from '../../components/PrecisionSlider/sliderScale'
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
+import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
 import { TRANSFORM_MODES, type TransformMode } from './transformMath'
 import type { TranslationKey } from '../../i18n'
 import type { IconName } from '../../icons/iconNames'
@@ -80,6 +82,18 @@ export interface SettingDescriptor {
    *  with `optionImages` in practice; a descriptor carrying both would render
    *  the icon. */
   optionIcons?: Readonly<Record<string, IconName>>
+  /** (#409) A small line graph per `enumOptions` value: normalized 0..1
+   *  samples, evenly spaced along the x axis, drawn in the same preview slot a
+   *  sample stroke or an icon would take.
+   *
+   *  The third kind of preview because the tilt response is the third kind of
+   *  option. A grade is a tone (photograph it), a nib is a shape (draw its
+   *  glyph), and a response is a *function* — what it picks is how fast the dab
+   *  answers the stylus as the pen goes over, and the only faithful picture of
+   *  that is its curve. Naming the three alone would be the worst of both: they
+   *  differ in a way no adjective pins down, which is exactly the complaint
+   *  that produced this setting. */
+  optionCurves?: Readonly<Record<string, readonly number[]>>
   /** Which control(s) this field can render as; first is the default. */
   uiControls: readonly SettingUiControl[]
   /** Also rendered inline in the left toolbar, not just the settings tab. */
@@ -163,6 +177,31 @@ export function formatDegreesMinutes(v: number): string {
   return `${deg}°${String(min).padStart(2, '0')}′`
 }
 
+// #409: the tilt→shape response, offered by every tool whose dab geometry
+// actually reads the tilt curve — pencil and color pencil, eraser and smudge
+// (which ride graphite's own profile, see dabShaping.ts), and charcoal.
+// Deliberately *not* liner or marker: neither consults the curve at all, so the
+// control would be inert, and an inert control reads as a broken tool (the same
+// call #278 made for the bullet nib's angle).
+//
+// Not `quickAccess` (Ilya, 07.08): unlike grade or size, this is set once when
+// the tool is first made to feel right and then left alone for months. The
+// quick column is for what changes during a drawing.
+const TILT_RESPONSE_LABEL_KEYS = {
+  restrained: 'tool.tiltResponse.restrained',
+  smooth: 'tool.tiltResponse.smooth',
+  linear: 'tool.tiltResponse.linear',
+} as const satisfies Record<TiltResponse, TranslationKey>
+
+const tiltResponseField = (curves: Readonly<Record<TiltResponse, readonly number[]>>): SettingDescriptor => ({
+  nameKey: 'tool.field.tiltResponse',
+  valueType: { kind: 'enumOptions', options: TILT_RESPONSES },
+  optionLabelKeys: TILT_RESPONSE_LABEL_KEYS,
+  optionCurves: curves,
+  uiControls: ['select'],
+  default: DEFAULT_TILT_RESPONSE satisfies TiltResponse,
+})
+
 const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: number): ToolSchema => ({
   // (#335) A picker showing each grade's own sample stroke, not a slider over
   // notation: "6H vs 2B" is a question about how dark and how soft the mark
@@ -201,6 +240,7 @@ const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: n
     quickAccess: true,
     default: defaultColor,
   },
+  tiltResponse: tiltResponseField(GRAPHITE_TILT_CURVES),
 })
 
 // Liner (#243, ADR 003): fixed calibrated width steps are the primary
@@ -312,6 +352,9 @@ const charcoalSchema = (): ToolSchema => ({
     quickAccess: true,
     default: [0.09, 0.08, 0.08],
   },
+  // Charcoal's own curves, not graphite's: same three shapes, plotted against
+  // this material's fullDeg/aspectMax (charcoalFeel.ts).
+  tiltResponse: tiltResponseField(CHARCOAL_TILT_CURVES),
 })
 
 // Marker (#252, ADR 004 §7/MVP-scope): UI/toolbar plumbing only — the actual
@@ -450,6 +493,12 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       quickAccess: true,
       default: 1,
     },
+    // The eraser has its own opacity but not its own geometry — it rides
+    // PENCIL_DAB_SHAPING, so its tilt response is graphite's and gets the same
+    // three shapes. Offering it here rather than silently inheriting whatever
+    // the pencil is set to: they are separate tools with separate settings
+    // everywhere else, and a hidden coupling would be the surprise.
+    tiltResponse: tiltResponseField(GRAPHITE_TILT_CURVES),
   },
   // Растушёвка/smudge (#14): redistributes graphite already on the layer,
   // so there's no color field (unlike pencil/colorPencil) — 'opacity' is
@@ -475,6 +524,8 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       quickAccess: true,
       default: 0.6,
     },
+    // Same graphite geometry as the eraser above, for the same reason.
+    tiltResponse: tiltResponseField(GRAPHITE_TILT_CURVES),
   },
   eyedropper: {
     addToPalette: {

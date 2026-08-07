@@ -1,4 +1,6 @@
-import { tiltCurveInverse, tiltCurveLerp, tiltCurveT } from './tiltCurve'
+import {
+  DEFAULT_TILT_RESPONSE, tiltCurveInverse, tiltCurveLerp, tiltResponseT, type TiltResponse,
+} from './tiltCurve'
 
 // Graphite's tilt→shape response (#389). Replaces the two-line model
 // dabShaping.ts carried since the engine's first commit:
@@ -103,19 +105,30 @@ export const PENCIL_TILT_SLIDERS: readonly {
 /** Position along the response, 0 (upright) to 1 (at or past fullDeg), with
  *  the curve exponent already applied. Everything else here is a linear
  *  interpolation driven by this one number, which is also what makes the
- *  inverse (pencilTiltness) exact. */
-export function pencilTiltT(tiltDeg: number, cfg: PencilTiltConfig = PENCIL_TILT): number {
-  return tiltCurveT(tiltDeg, cfg.fullDeg, cfg.curve)
+ *  inverse (pencilTiltness) exact.
+ *
+ *  `response` (#409) picks which of the three ramp shapes the exponent and the
+ *  full-tilt angle come from — the user's own choice, made per tool in the
+ *  settings panel. It is a trailing parameter with a default so every existing
+ *  caller keeps meaning "the shipped shape". */
+export function pencilTiltT(
+  tiltDeg: number, cfg: PencilTiltConfig = PENCIL_TILT, response: TiltResponse = DEFAULT_TILT_RESPONSE,
+): number {
+  return tiltResponseT(tiltDeg, response, cfg.fullDeg, cfg.curve)
 }
 
 /** Dab elongation along the tilt azimuth: 1 (round) -> aspectMax. */
-export function pencilTiltAspect(tiltDeg: number, cfg: PencilTiltConfig = PENCIL_TILT): number {
-  return tiltCurveLerp(pencilTiltT(tiltDeg, cfg), cfg.aspectMax)
+export function pencilTiltAspect(
+  tiltDeg: number, cfg: PencilTiltConfig = PENCIL_TILT, response: TiltResponse = DEFAULT_TILT_RESPONSE,
+): number {
+  return tiltCurveLerp(pencilTiltT(tiltDeg, cfg, response), cfg.aspectMax)
 }
 
 /** Short-axis multiplier: 1 (the point) -> widthMax (the side of the cone). */
-export function pencilTiltWidthFactor(tiltDeg: number, cfg: PencilTiltConfig = PENCIL_TILT): number {
-  return tiltCurveLerp(pencilTiltT(tiltDeg, cfg), cfg.widthMax)
+export function pencilTiltWidthFactor(
+  tiltDeg: number, cfg: PencilTiltConfig = PENCIL_TILT, response: TiltResponse = DEFAULT_TILT_RESPONSE,
+): number {
+  return tiltCurveLerp(pencilTiltT(tiltDeg, cfg, response), cfg.widthMax)
 }
 
 /** How far along the response a *recorded* dab sits, recovered from its own
@@ -126,7 +139,13 @@ export function pencilTiltWidthFactor(tiltDeg: number, cfg: PencilTiltConfig = P
  *  baked from the filtered tilt against the config as it stood at record time,
  *  so reading it back is the only way a later consumer (opacity baking) stays
  *  consistent with the dab actually being drawn. Re-running the curve against a
- *  since-moved slider would silently disagree with the geometry. */
+ *  since-moved slider would silently disagree with the geometry.
+ *
+ *  Takes no `response` (#409) and needs none: a response only moves fullDeg and
+ *  the exponent, both of which live entirely inside `t`, while this inverts the
+ *  aspectMax lerp *around* it. That is also why the setting cost nothing
+ *  downstream — opacity baking and DAB_FRAG recover the same tiltness from a
+ *  dab drawn under any of the three shapes. */
 export function pencilTiltness(aspectRatio: number, cfg: PencilTiltConfig = PENCIL_TILT): number {
   return tiltCurveInverse(aspectRatio, cfg.aspectMax)
 }

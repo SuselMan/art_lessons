@@ -52,6 +52,35 @@
 .previewIcon :global(.material-symbols-outlined) { font-size: 24px; }
 .previewIconDot :global(.material-symbols-outlined) { font-size: 26px; }
 
+/* (#409) A curve preview is a drawing in the UI's own ink, not a photograph of
+   paper — so, like the icons above, it gets no paper tint. It keeps the border:
+   a line graph needs the box for its axes to mean anything, which is the one
+   thing an icon doesn't need. */
+.previewGraph,
+.previewGraphDot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+.previewGraph { width: 88px; height: 34px; border-radius: var(--radius-sm); }
+.previewGraphDot { width: 30px; height: 30px; border-radius: 50%; }
+
+.graphLine {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.graphAxis {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
 /* ── Panel trigger (a select-shaped row) ──────────────────────────────────── */
 .select {
   display: flex;

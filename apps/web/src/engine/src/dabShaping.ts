@@ -4,6 +4,7 @@ import { clamp } from 'lodash-es'
 import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
 import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
+import { DEFAULT_TILT_RESPONSE, type TiltResponse } from './tiltCurve'
 
 // Per-tool pressure→size and tilt→aspect response curves for DabSystem's
 // dab geometry (#240). Previously hardcoded directly in DabSystem._makeDab
@@ -81,15 +82,33 @@ export function tiltOrPathAngle(tiltMag: number, tiltX: number, tiltY: number, p
 // call into charcoalAspect right below; the profile interface keeps its 0..1
 // argument rather than both files converting, since liner/marker genuinely
 // want the normalized form.
-export const PENCIL_DAB_SHAPING: DabShapingProfile = {
-  size:   (pressure, tiltNorm) => (0.3 + 0.7 * pressure) * pencilTiltWidthFactor(tiltNorm * 90),
-  aspect: tiltNorm => pencilTiltAspect(tiltNorm * 90),
-  angle:  tiltOrPathAngle,
-  // A getter for the same reason charcoal's is: the debug overlay mutates
-  // PENCIL_TILT in place, and a captured value would freeze whatever smoothing
-  // happened to be set when this module was first evaluated.
-  get tiltSmoothing() { return PENCIL_TILT.smoothing },
+function pencilShapingFor(response: TiltResponse): DabShapingProfile {
+  return {
+    size:   (pressure, tiltNorm) => (0.3 + 0.7 * pressure) * pencilTiltWidthFactor(tiltNorm * 90, PENCIL_TILT, response),
+    aspect: tiltNorm => pencilTiltAspect(tiltNorm * 90, PENCIL_TILT, response),
+    angle:  tiltOrPathAngle,
+    // A getter for the same reason charcoal's is: the debug overlay mutates
+    // PENCIL_TILT in place, and a captured value would freeze whatever smoothing
+    // happened to be set when this module was first evaluated.
+    get tiltSmoothing() { return PENCIL_TILT.smoothing },
+  }
 }
+
+// #409: one profile per response shape, built once at module load rather than
+// per stroke. Three tiny objects, and in exchange shapingForTool stays a lookup
+// that allocates nothing — it is called on every _onStart and on every hover
+// frame of the brush cursor, and a fresh closure per call would put garbage on
+// exactly the path #309 spent its effort clearing.
+const PENCIL_SHAPING_BY_RESPONSE: Record<TiltResponse, DabShapingProfile> = {
+  restrained: pencilShapingFor('restrained'),
+  smooth:     pencilShapingFor('smooth'),
+  linear:     pencilShapingFor('linear'),
+}
+
+/** The shipped shape, and still the thing DabSystem defaults to when nobody
+ *  sets a profile at all — a caller that never heard of #409 gets exactly the
+ *  pre-#409 pencil. */
+export const PENCIL_DAB_SHAPING: DabShapingProfile = PENCIL_SHAPING_BY_RESPONSE[DEFAULT_TILT_RESPONSE]
 
 // ADR 003 §1-2, §6: width/deposit swing only ±7-15% with pressure — never
 // the pencil's several-fold size change, and never tapering to zero at the
@@ -144,16 +163,27 @@ export const LINER_DAB_SHAPING: DabShapingProfile = {
 const CHARCOAL_WIDTH_FLOOR = 0.45
 const CHARCOAL_WIDTH_SWING = 0.6
 
-export const CHARCOAL_DAB_SHAPING: DabShapingProfile = {
-  size: (pressure, tiltNorm) =>
-    (CHARCOAL_WIDTH_FLOOR + CHARCOAL_WIDTH_SWING * clamp01(pressure)) * charcoalWidthFactor(tiltNorm * 90),
-  aspect: tiltNorm => charcoalAspect(tiltNorm * 90),
-  angle:  tiltOrPathAngle,
-  // A getter, not a captured value: CHARCOAL_FEEL is mutated in place by the
-  // debug overlay's sliders, and a plain property would freeze whatever
-  // smoothing happened to be set at module-eval time.
-  get tiltSmoothing() { return CHARCOAL_FEEL.smoothing },
+function charcoalShapingFor(response: TiltResponse): DabShapingProfile {
+  return {
+    size: (pressure, tiltNorm) =>
+      (CHARCOAL_WIDTH_FLOOR + CHARCOAL_WIDTH_SWING * clamp01(pressure))
+        * charcoalWidthFactor(tiltNorm * 90, CHARCOAL_FEEL, response),
+    aspect: tiltNorm => charcoalAspect(tiltNorm * 90, CHARCOAL_FEEL, response),
+    angle:  tiltOrPathAngle,
+    // A getter, not a captured value: CHARCOAL_FEEL is mutated in place by the
+    // debug overlay's sliders, and a plain property would freeze whatever
+    // smoothing happened to be set at module-eval time.
+    get tiltSmoothing() { return CHARCOAL_FEEL.smoothing },
+  }
 }
+
+const CHARCOAL_SHAPING_BY_RESPONSE: Record<TiltResponse, DabShapingProfile> = {
+  restrained: charcoalShapingFor('restrained'),
+  smooth:     charcoalShapingFor('smooth'),
+  linear:     charcoalShapingFor('linear'),
+}
+
+export const CHARCOAL_DAB_SHAPING: DabShapingProfile = CHARCOAL_SHAPING_BY_RESPONSE[DEFAULT_TILT_RESPONSE]
 
 // #249: fixed-angle mode — ignores tilt and path direction entirely, always
 // returning the same angle. This is the hook a chisel-nib marker profile
@@ -192,12 +222,23 @@ export function offsetAngleShaping(angleRadians: number): DabShapingProfile['ang
 // fixedAngleShaping one way, shapingForMarkerPreset the other) without a
 // real circular-const problem — see markerPresets.ts's own comment on why
 // only functions/types cross that boundary, never a top-level const.
-export function shapingForTool(tool: ToolType, presetName?: string, markerAngle?: MarkerAngleConfig): DabShapingProfile {
+//
+// #409: `tiltResponse` is the user's chosen ramp shape for the *active tool*,
+// resolved by the caller (Room reads it from that tool's own settings) — the
+// engine never looks up which tool owns which response. Liner and marker ignore
+// it exactly as they ignore the tilt curve itself: neither reads tiltCurve.ts
+// at all (liner's aspect is a flat `1 + 0.15·tiltNorm`, a chisel's is fixed),
+// so offering the setting for them would be a control that provably does
+// nothing — the same reason marker's angle is hidden for the bullet nib (#278).
+export function shapingForTool(
+  tool: ToolType, presetName?: string, markerAngle?: MarkerAngleConfig,
+  tiltResponse: TiltResponse = DEFAULT_TILT_RESPONSE,
+): DabShapingProfile {
   if (tool === 'liner') return LINER_DAB_SHAPING
   if (tool === 'marker') return shapingForMarkerPreset(presetName, markerAngle)
   // #304: charcoal's geometry is the same for all three types (vine/willow/
   // compressed differ in how the material *deposits*, not in the shape of the
   // stick's contact patch) — so it ignores presetName, same as liner does.
-  if (tool === 'charcoal') return CHARCOAL_DAB_SHAPING
-  return PENCIL_DAB_SHAPING
+  if (tool === 'charcoal') return CHARCOAL_SHAPING_BY_RESPONSE[tiltResponse]
+  return PENCIL_SHAPING_BY_RESPONSE[tiltResponse]
 }

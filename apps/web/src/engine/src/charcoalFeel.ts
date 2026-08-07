@@ -1,6 +1,8 @@
 import { clamp } from 'lodash-es'
 
-import { tiltCurveInverse, tiltCurveLerp, tiltCurveT } from './tiltCurve'
+import {
+  DEFAULT_TILT_RESPONSE, tiltCurveInverse, tiltCurveLerp, tiltResponseT, type TiltResponse,
+} from './tiltCurve'
 
 // Charcoal's tilt→shape response (#305, ADR 005 "Форма от наклона"). Charcoal
 // is used as a stick, not a sharpened point: upright it works on its end,
@@ -176,20 +178,31 @@ export const CHARCOAL_FEEL_SLIDERS: readonly {
 
 /** Position along the response, 0 (end face flat on the paper) to 1 (broad
  *  side), with the curve exponent applied. Replaces #305's pair of smoothstep
- *  plateau weights — see this file's header for why the plateaus went. */
-export function charcoalTiltT(tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL): number {
-  return tiltCurveT(tiltDeg, cfg.fullDeg, cfg.curve)
+ *  plateau weights — see this file's header for why the plateaus went.
+ *
+ *  `response` (#409) is the user's pick among the three ramp shapes, the same
+ *  three graphite offers — charcoal keeps its own aspectMax/widthMax, so the
+ *  stick still opens up far wider than a lead does, it just gets there along
+ *  the ramp the hand asked for. The ladder is not one of the three. */
+export function charcoalTiltT(
+  tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL, response: TiltResponse = DEFAULT_TILT_RESPONSE,
+): number {
+  return tiltResponseT(tiltDeg, response, cfg.fullDeg, cfg.curve)
 }
 
 /** Dab elongation along the tilt azimuth: 1 (round) -> aspectMax. */
-export function charcoalAspect(tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL): number {
-  return tiltCurveLerp(charcoalTiltT(tiltDeg, cfg), cfg.aspectMax)
+export function charcoalAspect(
+  tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL, response: TiltResponse = DEFAULT_TILT_RESPONSE,
+): number {
+  return tiltCurveLerp(charcoalTiltT(tiltDeg, cfg, response), cfg.aspectMax)
 }
 
 /** Short-axis multiplier: 1 (the full end face) -> widthMax (the line contact
  *  of the stick laid over). */
-export function charcoalWidthFactor(tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL): number {
-  return tiltCurveLerp(charcoalTiltT(tiltDeg, cfg), cfg.widthMax)
+export function charcoalWidthFactor(
+  tiltDeg: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL, response: TiltResponse = DEFAULT_TILT_RESPONSE,
+): number {
+  return tiltCurveLerp(charcoalTiltT(tiltDeg, cfg, response), cfg.widthMax)
 }
 
 /** How far along the round->broad axis a *recorded* dab sits, derived from its
@@ -205,7 +218,10 @@ export function charcoalWidthFactor(tiltDeg: number, cfg: CharcoalFeelConfig = C
  *  #403 left this untouched on purpose: it was already the exact inverse of the
  *  aspect mapping, and the ladder's own top plateau (broadAspect) has simply
  *  become the curve's top (aspectMax), so the identity still holds and the
- *  shader's copy of it needed no GLSL change at all. */
+ *  shader's copy of it needed no GLSL change at all. #409 left it untouched for
+ *  the same reason one step further out: a response shape lives inside `t`, and
+ *  this inverts the lerp around `t`, so it recovers the right broadness from a
+ *  dab recorded under any of the three — no GLSL change there either. */
 export function charcoalBroadness(aspectRatio: number, cfg: CharcoalFeelConfig = CHARCOAL_FEEL): number {
   return tiltCurveInverse(aspectRatio, cfg.aspectMax)
 }
