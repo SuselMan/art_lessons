@@ -169,3 +169,113 @@ describe('buildDropZoneMap', () => {
     expect(zones.b).toBe('f2')
   })
 })
+
+// ── #410: nested folders ─────────────────────────────────────────────────────
+
+describe('nested folders (#410)', () => {
+  //  f1 ─ f2 ─ deep
+  //     └ mid
+  //  top
+  const nested = () => stateOf(
+    {
+      f1: folder('f1', ['f2', 'mid']), f2: folder('f2', ['deep']),
+      deep: layer('deep'), mid: layer('mid'), top: layer('top'),
+    },
+    ['f1', 'top'],
+  )
+
+  it('buildFlatList nests sentinel pairs and steps depth per level', () => {
+    expect(buildFlatList(nested())).toEqual([
+      { id: 'f1', kind: 'folder', depth: 0 },
+      { id: 'f2', kind: 'folder', depth: 1 },
+      { id: 'deep', kind: 'layer', depth: 2 },
+      { id: `${S_BOT}f2`, kind: 'sentinel', depth: 1 },
+      { id: 'mid', kind: 'layer', depth: 1 },
+      { id: `${S_BOT}f1`, kind: 'sentinel', depth: 0 },
+      { id: 'top', kind: 'layer', depth: 0 },
+    ])
+  })
+
+  it('round-trips a nested tree through flatten → reconstruct unchanged', () => {
+    const state = nested()
+    const ids = buildFlatList(state).map(e => e.id)
+    const { rootOrder, items } = reconstructHierarchy(ids, state.items)
+    expect(rootOrder).toEqual(['f1', 'top'])
+    expect(items.f1).toMatchObject({ children: ['f2', 'mid'] })
+    expect(items.f2).toMatchObject({ children: ['deep'] })
+  })
+
+  // The position between an inner folder's sentinel and its parent's is the one
+  // the single-cursor version could not express: it read every sentinel as
+  // "back to root", so anything landing here fell out of f1 entirely.
+  it('places an item dropped between the inner and outer sentinels in the outer folder', () => {
+    const state = nested()
+    const ids = [
+      'f1', 'f2', 'deep', `${S_BOT}f2`, 'mid', 'top', `${S_BOT}f1`,
+    ]
+    const { rootOrder, items } = reconstructHierarchy(ids, state.items)
+    expect(rootOrder).toEqual(['f1'])
+    expect(items.f1).toMatchObject({ children: ['f2', 'mid', 'top'] })
+    expect(items.f2).toMatchObject({ children: ['deep'] })
+  })
+
+  it('lifts an item out of both folders when it lands past the outer sentinel', () => {
+    const state = nested()
+    const ids = ['f1', 'f2', `${S_BOT}f2`, 'mid', `${S_BOT}f1`, 'deep', 'top']
+    const { rootOrder, items } = reconstructHierarchy(ids, state.items)
+    expect(rootOrder).toEqual(['f1', 'deep', 'top'])
+    expect(items.f2).toMatchObject({ children: [] })
+  })
+
+  it('keeps a collapsed nested folder\'s subtree intact through a reorder', () => {
+    const state = nested()
+    state.items.f2 = folder('f2', ['deep'], { collapsed: true })
+    // f2 is collapsed, so 'deep' never appears in the list at all.
+    const ids = buildFlatList(state).map(e => e.id)
+    expect(ids).not.toContain('deep')
+    const { items } = reconstructHierarchy(ids, state.items)
+    expect(items.f2).toMatchObject({ children: ['deep'] })
+  })
+
+  // A folder whose own header is hidden inside a collapsed parent is never
+  // rewritten at all — the guarantee the merge step leans on.
+  it('leaves a folder buried in a collapsed parent completely untouched', () => {
+    const state = nested()
+    state.items.f1 = folder('f1', ['f2', 'mid'], { collapsed: true })
+    const ids = buildFlatList(state).map(e => e.id)
+    const { items } = reconstructHierarchy(ids, state.items)
+    expect(items.f2).toBe(state.items.f2)
+    expect(items.f1).toMatchObject({ children: ['f2', 'mid'] })
+  })
+
+  it('places each id exactly once even if the list repeats it', () => {
+    const state = nested()
+    const { rootOrder, items } = reconstructHierarchy(
+      ['f1', 'mid', `${S_BOT}f1`, 'mid', 'top'], state.items,
+    )
+    expect(rootOrder).toEqual(['f1', 'top'])
+    expect(items.f1).toMatchObject({ children: ['mid'] })
+  })
+
+  // A sentinel closes its own folder by id, so a truncated or scrambled list
+  // degrades to a shallower tree instead of mis-parenting everything after it.
+  it('closes the named folder when an inner sentinel is missing', () => {
+    const state = nested()
+    const { rootOrder, items } = reconstructHierarchy(
+      ['f1', 'f2', 'deep', `${S_BOT}f1`, 'top'], state.items,
+    )
+    expect(rootOrder).toEqual(['f1', 'top'])
+    expect(items.f2).toMatchObject({ children: ['deep'] })
+  })
+
+  it('maps a nested folder header to the folder that encloses it, not to root', () => {
+    const zones = buildDropZoneMap(buildFlatList(nested()))
+    expect(zones.f1).toBeNull()
+    expect(zones.f2).toBe('f1')     // header of the inner folder
+    expect(zones.deep).toBe('f2')
+    expect(zones.mid).toBe('f1')    // after the inner sentinel, still inside f1
+    expect(zones[`${S_BOT}f2`]).toBe('f2')
+    expect(zones[`${S_BOT}f1`]).toBe('f1')
+    expect(zones.top).toBeNull()
+  })
+})

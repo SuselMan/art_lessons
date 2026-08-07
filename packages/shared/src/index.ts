@@ -494,13 +494,20 @@ export type ImageImportOperation = OperationBase & {
 }
 
 /** Inserts a new empty folder above the active item's own row (#378), by the
- *  same rule and for the same reasons as `LayerAddOperation` above. No
- *  `parentId` counterpart: folders are one level only, so a folder's position
- *  is always an index into `rootOrder`. Absent `index` means the top. */
+ *  same rule and for the same reasons as `LayerAddOperation` above.
+ *
+ *  (#410) `parentId` is the counterpart this used to lack on purpose, back
+ *  when folders were one level deep and a folder's position could only ever be
+ *  an index into `rootOrder`. Folders nest now, so a folder is placed by the
+ *  same (container, index) pair as anything else. Absent or null means root —
+ *  which is where every folder went before nesting existed, so `folder_add`
+ *  operations already in the log replay exactly as they did. Absent `index`
+ *  means the top. */
 export type FolderAddOperation = OperationBase & {
   type: 'folder_add'
   layerId: string
   name: string
+  parentId?: string | null // folder id, or null/absent for root
   index?: number
 }
 
@@ -510,7 +517,12 @@ export type LayerDeleteOperation = OperationBase & {
 }
 
 /** Delta move: relocate one item to (parentId, index). A full-order list would
- *  let one user's later reorder silently swallow another's undo (ADR 002 §2). */
+ *  let one user's later reorder silently swallow another's undo (ADR 002 §2).
+ *
+ *  (#410) `parentId` may now name a folder even when the moving item is itself
+ *  a folder. The one structural refusal left is a loop — a folder moved into
+ *  its own descendant — and it is enforced in `applyMove`, i.e. on replay,
+ *  not only where the gesture is made. */
 export type LayerMoveOperation = OperationBase & {
   type: 'layer_move'
   layerId: string

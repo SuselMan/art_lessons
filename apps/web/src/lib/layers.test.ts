@@ -11,7 +11,7 @@ import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import {
   applyContentOp, replayLayerState, overlayLocalFields, sanitizeSelection,
   removeItems, parentOf, computeCompositeOrder, computeMergeOrder, getVisibleOrder,
-  collectDescendants, isLayerLocked, isEffectivelyVisible, placementAbove, rootPlacementAbove,
+  collectDescendants, isLayerLocked, isEffectivelyVisible, placementAbove, ancestorsOf,
 } from './layers'
 
 function layer(id: string, overrides: Partial<RasterLayer> = {}): RasterLayer {
@@ -126,16 +126,58 @@ describe('applyContentOp', () => {
     expect(next.rootOrder).toEqual(['a', BACKGROUND_LAYER_ID])
   })
 
-  it('layer_move rejects moving the background layer, or nesting a folder inside a folder', () => {
+  it('layer_move rejects moving the background layer', () => {
     const state = stateOf(
       { [BACKGROUND_LAYER_ID]: layer(BACKGROUND_LAYER_ID), f1: folder('f1', []), f2: folder('f2', []) },
       [BACKGROUND_LAYER_ID, 'f1', 'f2'],
     )
     const moveBg: LayerMoveOperation = { ...baseOp, type: 'layer_move', layerId: BACKGROUND_LAYER_ID, parentId: null, index: 0 }
     expect(applyContentOp(state, moveBg)).toBe(state)
+  })
 
-    const nestFolder: LayerMoveOperation = { ...baseOp, type: 'layer_move', layerId: 'f2', parentId: 'f1', index: 0 }
-    expect(applyContentOp(state, nestFolder)).toBe(state)
+  // (#410) The rule this replaced was "a folder can never become a folder's
+  // child", which used to be asserted right here alongside the background.
+  it('layer_move nests a folder inside another folder', () => {
+    const state = stateOf(
+      { f1: folder('f1', []), f2: folder('f2', []) },
+      ['f1', 'f2'],
+    )
+    const nest: LayerMoveOperation = { ...baseOp, type: 'layer_move', layerId: 'f2', parentId: 'f1', index: 0 }
+    const next = applyContentOp(state, nest)
+    expect(next.rootOrder).toEqual(['f1'])
+    expect(next.items.f1).toMatchObject({ children: ['f2'] })
+  })
+
+  // The guard that replaced it, and the reason it lives in replay rather than
+  // in the drag handler: a loop is not a wrong answer, it is a walk that never
+  // terminates — and every client folds every operation.
+  it('layer_move refuses to move a folder into its own descendant', () => {
+    //  f1 ─ f2 ─ f3
+    const state = stateOf(
+      { f1: folder('f1', ['f2']), f2: folder('f2', ['f3']), f3: folder('f3', []) },
+      ['f1'],
+    )
+    const intoChild: LayerMoveOperation = { ...baseOp, type: 'layer_move', layerId: 'f1', parentId: 'f2', index: 0 }
+    expect(applyContentOp(state, intoChild)).toBe(state)
+
+    const intoGrandchild: LayerMoveOperation = { ...baseOp, type: 'layer_move', layerId: 'f1', parentId: 'f3', index: 0 }
+    expect(applyContentOp(state, intoGrandchild)).toBe(state)
+
+    const intoItself: LayerMoveOperation = { ...baseOp, type: 'layer_move', layerId: 'f1', parentId: 'f1', index: 0 }
+    expect(applyContentOp(state, intoItself)).toBe(state)
+  })
+
+  // The inverse direction stays legal: moving a folder *out* of the one that
+  // holds it is not a loop, and refusing it would strand nested folders.
+  it('layer_move lifts a nested folder back out to root', () => {
+    const state = stateOf(
+      { f1: folder('f1', ['f2']), f2: folder('f2', []) },
+      ['f1'],
+    )
+    const lift: LayerMoveOperation = { ...baseOp, type: 'layer_move', layerId: 'f2', parentId: null, index: 0 }
+    const next = applyContentOp(state, lift)
+    expect(next.rootOrder).toEqual(['f2', 'f1'])
+    expect(next.items.f1).toMatchObject({ children: [] })
   })
 
   it('layer_move falls back to root top if the target folder vanished from history', () => {
@@ -297,7 +339,7 @@ describe('parentOf / getVisibleOrder', () => {
   })
 })
 
-describe('placementAbove / rootPlacementAbove (#378)', () => {
+describe('placementAbove (#378)', () => {
   //  f1 ─ a
   //     └ b
   //  c
@@ -322,14 +364,16 @@ describe('placementAbove / rootPlacementAbove (#378)', () => {
 
   it('falls back to the top for an id that is not in the tree', () => {
     expect(placementAbove(state, 'ghost')).toEqual({ parentId: null, index: 0 })
-    expect(rootPlacementAbove(state, 'ghost')).toBe(0)
   })
 
-  // A folder cannot be a folder's child, so the anchor climbs to the folder
-  // holding the active layer rather than dropping the new folder inside it.
-  it('anchors a new folder on the active row\'s root ancestor', () => {
-    expect(rootPlacementAbove(state, 'a')).toBe(0)
-    expect(rootPlacementAbove(state, 'c')).toBe(1)
+  // (#410) `rootPlacementAbove` used to live here: a second placement helper
+  // that existed only because a folder could not be a folder's child, so a new
+  // folder's position had to climb to the active row's *root* ancestor and
+  // collapse to a bare rootOrder index. Nesting removes the exception, and with
+  // it the helper — a new folder is now placed by the same rule as a new layer,
+  // which is what this asserts.
+  it('places a new folder inside the folder the active row lives in', () => {
+    expect(placementAbove(state, 'a')).toEqual({ parentId: 'f1', index: 0 })
   })
 
   // Every placement above is a bare index; the background's is only safe
@@ -511,5 +555,139 @@ describe('an id never appears twice in the order', () => {
     const next = applyContentOp(base, merge({ index: 1, sources: [{ id: 'x', opacity: 1 }] }))
 
     expect(next.rootOrder).toEqual(['y', 'merged', BACKGROUND_LAYER_ID])
+  })
+})
+
+// ── #410: nested folders ─────────────────────────────────────────────────────
+
+describe('nested folders (#410)', () => {
+  //  f1 ─ f2 ─ deep
+  //     └ mid
+  //  top
+  const nested = () => stateOf(
+    {
+      f1: folder('f1', ['f2', 'mid']), f2: folder('f2', ['deep']),
+      deep: layer('deep'), mid: layer('mid'), top: layer('top'),
+    },
+    ['f1', 'top'],
+  )
+
+  describe('ancestorsOf', () => {
+    it('walks folders nearest first, up to the root', () => {
+      expect(ancestorsOf(nested(), 'deep')).toEqual(['f2', 'f1'])
+      expect(ancestorsOf(nested(), 'mid')).toEqual(['f1'])
+      expect(ancestorsOf(nested(), 'top')).toEqual([])
+    })
+
+    // A cycle cannot be authored — applyMove refuses it — but it can arrive
+    // whole, in a stored snapshot nobody validates on the way in. Terminating
+    // is the entire requirement here: the alternative is a frozen tab for every
+    // participant at once, and no way to reach the state that froze it.
+    it('terminates on a state that already contains a loop', () => {
+      const looped = stateOf({ a: folder('a', ['b']), b: folder('b', ['a']) }, [])
+      expect(ancestorsOf(looped, 'a')).toEqual(['b'])
+    })
+  })
+
+  describe('isEffectivelyVisible', () => {
+    it('is false when any ancestor is hidden, not just the immediate parent', () => {
+      const state = nested()
+      state.items.f1 = folder('f1', ['f2', 'mid'], { visible: false })
+      // 'deep' sits two levels down and its own parent f2 is visible — the
+      // one-level check this replaced called that visible.
+      expect(isEffectivelyVisible(state, 'deep')).toBe(false)
+      expect(isEffectivelyVisible(state, 'top')).toBe(true)
+    })
+
+    it('is true when the whole chain of ancestors is visible', () => {
+      expect(isEffectivelyVisible(nested(), 'deep')).toBe(true)
+    })
+  })
+
+  describe('composite order', () => {
+    it('multiplies every enclosing folder\'s opacity into the layer\'s own', () => {
+      const state = stateOf(
+        {
+          f1: folder('f1', ['f2'], { opacity: 0.5 }),
+          f2: folder('f2', ['deep'], { opacity: 0.5 }),
+          deep: layer('deep', { opacity: 0.5 }),
+        },
+        ['f1'],
+      )
+      expect(computeCompositeOrder(state)).toEqual([{ id: 'deep', opacity: 0.125 }])
+    })
+
+    it('skips a hidden nested folder whole, without descending into it', () => {
+      const state = nested()
+      state.items.f2 = folder('f2', ['deep'], { visible: false })
+      expect(computeCompositeOrder(state).map(e => e.id)).toEqual(['top', 'mid'])
+    })
+
+    it('keeps bottom-to-top order across levels', () => {
+      expect(computeCompositeOrder(nested()).map(e => e.id)).toEqual(['top', 'mid', 'deep'])
+    })
+
+    // Merge deliberately includes hidden sources — their pixels are about to be
+    // destroyed — and that has to keep holding through a nested chain.
+    it('computeMergeOrder still folds hidden nested layers in', () => {
+      const state = nested()
+      state.items.f2 = folder('f2', ['deep'], { visible: false })
+      expect(computeMergeOrder(state, ['deep', 'mid']).map(e => e.id)).toEqual(['mid', 'deep'])
+    })
+  })
+
+  describe('getVisibleOrder / collectDescendants', () => {
+    it('getVisibleOrder expands nested open folders to full depth', () => {
+      expect(getVisibleOrder(nested())).toEqual(['f1', 'f2', 'deep', 'mid', 'top'])
+    })
+
+    it('getVisibleOrder stops at a collapsed folder, hiding its whole subtree', () => {
+      const state = nested()
+      state.items.f2 = folder('f2', ['deep'], { collapsed: true })
+      expect(getVisibleOrder(state)).toEqual(['f1', 'f2', 'mid', 'top'])
+    })
+
+    it('collectDescendants reaches through nested folders', () => {
+      expect(collectDescendants(nested(), 'f1')).toEqual(['f1', 'f2', 'deep', 'mid'])
+    })
+
+    it('collectDescendants terminates on a looped state', () => {
+      const looped = stateOf({ a: folder('a', ['b']), b: folder('b', ['a']) }, [])
+      expect(collectDescendants(looped, 'a')).toEqual(['a', 'b'])
+    })
+  })
+
+  describe('folder_add', () => {
+    it('places a new folder inside the named parent', () => {
+      const state = stateOf({ f1: folder('f1', []) }, ['f1'])
+      const op: FolderAddOperation = {
+        ...baseOp, type: 'folder_add', layerId: 'f2', name: 'Nested', parentId: 'f1', index: 0,
+      }
+      const next = applyContentOp(state, op)
+      expect(next.rootOrder).toEqual(['f1'])
+      expect(next.items.f1).toMatchObject({ children: ['f2'] })
+    })
+
+    // Every folder_add already recorded in a live room's log looks like this.
+    it('lands at root when parentId is absent', () => {
+      const state = stateOf({ a: layer('a') }, ['a'])
+      const op: FolderAddOperation = { ...baseOp, type: 'folder_add', layerId: 'f1', name: 'F', index: 1 }
+      expect(applyContentOp(state, op).rootOrder).toEqual(['a', 'f1'])
+    })
+  })
+
+  it('layer_merge lands the result inside the nested folder it came from', () => {
+    const state = stateOf(
+      { f1: folder('f1', ['f2']), f2: folder('f2', ['x', 'y']), x: layer('x'), y: layer('y') },
+      ['f1'],
+    )
+    const op: LayerMergeOperation = {
+      ...baseOp, type: 'layer_merge', layerId: 'merged', name: 'Merged',
+      sources: [{ id: 'y', opacity: 1 }, { id: 'x', opacity: 1 }],
+      parentId: 'f2', index: 0,
+    }
+    const next = applyContentOp(state, op)
+    expect(next.items.f2).toMatchObject({ children: ['merged'] })
+    expect(next.rootOrder).toEqual(['f1'])
   })
 })

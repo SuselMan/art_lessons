@@ -29,7 +29,7 @@ import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './
 import { patchItem } from './utils'
 import {
   isFolder, isLayerLocked, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
-  placementAbove, rootPlacementAbove,
+  placementAbove,
 } from '../../lib/layers'
 import { readImageFile } from '../../lib/image'
 import styles from './LayerPanel.module.css'
@@ -219,28 +219,40 @@ export const LayerPanel = memo(function LayerPanel({
 
   // ── add / delete ─────────────────────────────────────────────────────────────
 
-  /** Mints a layer directly above the active row and selects it (#378) —
-   *  shared by the two buttons that create one, the `+` and a reference
-   *  import, so they can't drift into placing layers by different rules.
+  /** Where a newly minted row goes — directly above the active one (#378) —
+   *  plus the one side effect that placement implies.
    *
-   *  The extra job is opening the folder when the new layer landed in one:
+   *  That side effect is opening the folder when the new row landed in one:
    *  `placementAbove` follows the active row inside a folder, and a *collapsed*
-   *  folder would then swallow the layer whole — the panel's answer to the
+   *  folder would then swallow the row whole — the panel's answer to the
    *  click would be no visible change at all, which reads as a broken button.
-   *  That costs no operation: `collapsed` is per-user view state and never
+   *  It costs no operation: `collapsed` is per-user view state and never
    *  enters the log (see overlayLocalFields).
+   *
+   *  (#410) Shared by every button that creates a row, folders included. A new
+   *  folder used to be placed by a second helper, `rootPlacementAbove`, which
+   *  existed only because a folder could not be a folder's child and so had to
+   *  climb to the active row's root ancestor. That exception is gone, and one
+   *  rule now answers for all three buttons.
    */
-  const addLayerAbove = useCallback((newId: string, name: string) => {
+  const placeAbove = useCallback((): { parentId: string | null; index: number } => {
     const placement = placementAbove(layerState, activeId)
-    onOp({ type: 'layer_add', layerId: newId, name, ...placement })
     onChange(p => {
       const parent = placement.parentId === null ? undefined : p.items[placement.parentId]
-      const revealed = parent && isFolder(parent) && parent.collapsed
+      return parent && isFolder(parent) && parent.collapsed
         ? patchItem(parent.id, { collapsed: false })(p)
         : p
-      return { ...revealed, activeId: newId, selectedIds: [] }
     })
-  }, [activeId, layerState, onChange, onOp])
+    return placement
+  }, [activeId, layerState, onChange])
+
+  /** Mints a layer above the active row and selects it — shared by the two
+   *  buttons that create one, the `+` and a reference import, so they can't
+   *  drift into placing layers by different rules. */
+  const addLayerAbove = useCallback((newId: string, name: string) => {
+    onOp({ type: 'layer_add', layerId: newId, name, ...placeAbove() })
+    onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
+  }, [placeAbove, onChange, onOp])
 
   const handleAddLayer = useCallback(() => {
     const count = Object.values(layerState.items).filter(i => i.kind === 'layer').length
@@ -250,12 +262,15 @@ export const LayerPanel = memo(function LayerPanel({
     addLayerAbove(nanoid(8), t('layers.defaultLayerName', { n: count + 1 }))
   }, [addLayerAbove, layerState.items, t])
 
+  // Unlike a new layer, a new folder deliberately does not become the active
+  // row: `activeId` is where strokes land, and a folder holds no pixels of its
+  // own (the same reason its row menu disables Clear — see #329).
   const handleAddFolder = useCallback(() => {
     onOp({
       type: 'folder_add', layerId: nanoid(8), name: t('layers.defaultFolderName'),
-      index: rootPlacementAbove(layerState, activeId),
+      ...placeAbove(),
     })
-  }, [activeId, layerState, onOp, t])
+  }, [placeAbove, onOp, t])
 
   // Reference image import (#88) — always its own new layer (never onto an
   // existing one), so image_import can assume a blank target with nothing
@@ -400,16 +415,24 @@ export const LayerPanel = memo(function LayerPanel({
   }, [handlePointerUp])
 
   // Build the contiguous block of ids that moves together with `id`. For a
-  // folder this is the header, its visible children, and its bottom sentinel;
+  // folder this is everything from its header to its own sentinel inclusive;
   // for anything else it's just the id itself.
+  //
+  // (#410) Read as a slice of the flat list rather than assembled from the
+  // folder's children, which is what it used to do and what would have needed
+  // recursion once folders nest — nested headers and their sentinels are in
+  // there too, and reassembling them in the right order is exactly the work
+  // buildFlatList already did. Taking the slice also makes a drop inside the
+  // dragged folder's own subtree structurally impossible rather than merely
+  // rejected: the whole block leaves `remainingIds`, so none of its rows are
+  // available as a target while it is in the air.
   const blockFor = useCallback((id: string): string[] => {
     const item = items[id]
     if (!item || !isFolder(item)) return [id]
-    return [
-      id,
-      ...(item.collapsed ? [] : item.children.filter(cid => flatIds.includes(cid))),
-      `${S_BOT}${id}`,
-    ]
+    const start = flatIds.indexOf(id)
+    const end = flatIds.indexOf(`${S_BOT}${id}`)
+    if (start < 0 || end < start) return [id]
+    return flatIds.slice(start, end + 1)
   }, [items, flatIds])
 
   // Where would `activeId`'s block land if dropped on `overId` right now?
@@ -444,7 +467,9 @@ export const LayerPanel = memo(function LayerPanel({
 
     const overItem = items[overId]
     if (overItem && isFolder(overItem)) {
-      if (isFolder(items[activeIdD])) { setDragOverFolderId(null); return }
+      // (#410) A folder hovering a folder used to bail out here without a
+      // highlight, because it could never enter one. It can now, and the
+      // highlight is the only signal that it will.
       const result = computeInsertIndex(activeIdD, overId)
       // Entering means the block ends up right after the header, i.e. at the
       // header's own (post-removal) index + 1.
@@ -487,17 +512,13 @@ export const LayerPanel = memo(function LayerPanel({
 
     const { rootOrder: nextOrder, items: nextItems } = reconstructHierarchy(workingIds, items)
 
-    // Folders are one level deep — a folder can never end up as another
-    // folder's child. This catches every path that could nest one (landing
-    // on the header, on a child row, or on the sentinel of another folder),
-    // instead of only blocking the header case up front like before (which
-    // also wrongly blocked placing a folder right next to another folder).
-    if (isFolder(activeItemDnD)) {
-      const nested = Object.values(nextItems).some(
-        it => isFolder(it) && it.id !== activeIdDnD && it.children.includes(activeIdDnD),
-      )
-      if (nested) return
-    }
+    // (#410) A guard used to sit here refusing any result in which the dragged
+    // folder had become another folder's child. Nesting is the point now, and
+    // the one case it still needs to refuse — a folder landing inside its own
+    // subtree — cannot be expressed by this gesture at all: `blockFor` lifts
+    // that whole subtree out of `remainingIds`, so there is no row belonging to
+    // it left on screen to aim at. `applyMove` refuses it anyway, for the
+    // operations this panel did not author.
 
     // Reduce the reconstructed hierarchy to a delta: where did the dragged
     // item land? A delta op keeps concurrent reorders composable — a full

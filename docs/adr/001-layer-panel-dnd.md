@@ -4,6 +4,13 @@
 
 Accepted — implemented in the current `LayerPanel` refactor.
 
+**Amended by #410 (nested folders).** The flat-list-plus-block-move design below
+is unchanged and is what made the amendment cheap; the one-level restriction it
+records is not. See "Amendment: nested folders (#410)" at the end — read it
+alongside the sections it supersedes rather than instead of them, because the
+reasons the restriction existed are the reasons the new invariants are shaped
+the way they are.
+
 ## Context
 
 The layer panel is a core UI surface of the app. Layers live in a flat map (`LayerState.items`) plus two order arrays:
@@ -11,7 +18,8 @@ The layer panel is a core UI surface of the app. Layers live in a flat map (`Lay
 - `rootOrder` — top-to-bottom order of root-level layers and folders.
 - `folder.children` — top-to-bottom order inside a folder.
 
-Folders are one level deep only; nested folders are intentionally not supported.
+Folders were one level deep only; nested folders were intentionally not
+supported. Superseded by #410 — see the amendment at the end.
 
 ### Original approach: flat list with sentinels
 
@@ -98,7 +106,7 @@ The flat-list approach is simpler, relies on a single well-supported dnd-kit pat
 
 - **DOM is flat, not nested.** All rows are siblings; nesting is expressed only through `marginLeft` and the data model. This is required for dnd-kit to handle cross-folder moves.
 - **No sentinel drop zones.** Users must drop near an actual row or folder header. This is more predictable than invisible 10 px zones that collision detection often missed.
-- **One-level folders only.** The design intentionally does not support nested folders, which keeps rendering, composite order, and future collaboration simpler.
+- ~~**One-level folders only.** The design intentionally does not support nested folders, which keeps rendering, composite order, and future collaboration simpler.~~ Lifted by #410; the amendment below explains what that simplicity was actually worth.
 
 ## Files involved
 
@@ -116,3 +124,78 @@ onPointerDown={e => { listeners?.onPointerDown?.(e); onPointerDown?.(item.id) }}
 ```
 
 Overwriting `listeners.onPointerDown` entirely breaks mouse dragging.
+
+## Amendment: nested folders (#410)
+
+Folders nest to any depth. This supersedes "No nested folders" and the matching
+trade-off above; everything else in this ADR stands, and the flat-list design is
+precisely why the change was small.
+
+### What the restriction turned out to cost
+
+The original reasoning — that one level "keeps rendering, composite order, and
+future collaboration simpler" — held for collaboration and did not hold for
+rendering. `computeCompositeOrder` returns a flat list of raster layers with each
+enclosing folder's opacity already multiplied into the layer's own. A folder is
+not a group in the compositing sense: there is no framebuffer per folder and no
+group blend step. Nesting therefore adds one more factor to a product, not a
+render pass. The expensive part of nested folders in other editors does not exist
+in this architecture.
+
+What it did cost was legibility: the one-level assumption was not stated in one
+place and enforced there, it was spread across seven functions that simply
+weren't recursive. Reading any one of them told you nothing.
+
+### The invariant that replaced it
+
+A folder may not become its own descendant. It is enforced in `applyMove` — that
+is, on **replay** — and not merely in the drag handler. This distinction is the
+whole point: every client folds every operation, so a loop that slipped past a UI
+gate would arrive at all of them at once and send the tree walks into unbounded
+recursion. A wrong parent is a bug; a loop is a frozen tab for the whole room,
+and the tab you would need to fix it is the frozen one.
+
+Two further defences back it up, because a `LayerState` does not only arrive as
+operations — it also arrives whole, from a stored snapshot that no present client
+authored or validated:
+
+- Every walk over the tree (`ancestorsOf`, `collectDescendants`, `orderedLayers`,
+  `buildFlatList`) carries a `seen` set and terminates on a malformed state
+  rather than hanging.
+- `reconstructHierarchy` places every id exactly once, which makes its output
+  structurally acyclic regardless of what it is fed.
+
+### What changed in the flat list
+
+The sentinel scheme was already right; it only needed a stack. `buildFlatList`
+emits a nested sentinel pair per folder, and `reconstructHierarchy` /
+`buildDropZoneMap` read them back with a stack of open folders instead of a
+single "am I inside a folder" cursor. A sentinel closes the folder **named by its
+own id**, not whichever folder happens to be innermost, so a scrambled list
+degrades to a shallower tree instead of mis-parenting everything after it.
+
+One behaviour genuinely changed rather than generalised: a folder header used to
+map to `null` in the drop-zone map, which was indistinguishable from "the thing
+enclosing it" back when every folder sat at root. Nested, the two part ways — the
+header of an inner folder must map to the outer folder.
+
+`blockFor` no longer assembles the moving block from a folder's children; it
+takes the slice of the flat list from the folder's header to its own sentinel.
+That is both the recursion-free way to include nested headers and sentinels in
+the right order, and what makes dropping a folder inside its own subtree
+structurally impossible: the entire subtree leaves `remainingIds` while it is in
+the air, so none of its rows are on screen to aim at.
+
+### Consequences
+
+- `rootPlacementAbove` is gone. It existed only because a new folder's position
+  had to climb to the active row's root ancestor and collapse to a bare
+  `rootOrder` index. New layers and new folders are now placed by one rule,
+  `placementAbove`.
+- `folder_add` carries an optional `parentId`. Absent means root, which is where
+  every already-recorded `folder_add` went, so live rooms replay unchanged.
+- Indentation is capped at depth 3 (`LayerRow`). Depth itself is uncapped — the
+  row simply stops stepping right, because it already carries eight controls and
+  a tablet panel has no width left to give.
+- A folder still never becomes the active row. `activeId` is where strokes land,
+  and a folder holds no pixels of its own.

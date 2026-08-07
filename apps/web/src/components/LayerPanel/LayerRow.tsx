@@ -80,7 +80,12 @@ function LayerRowImpl({
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
-        marginLeft: 3 + depth * 14,
+        // (#410) Depth is unbounded now; the indent is not. The row already
+        // carries eight controls, and past the fourth level a tablet panel has
+        // no width left for the name. Deeper rows stop stepping right rather
+        // than squeezing the name to nothing — the chain of folder headers
+        // above them still shows where they sit.
+        marginLeft: 3 + Math.min(depth, 3) * 14,
       }}
       className={clsx(
         styles.rowMain,
