@@ -115,33 +115,45 @@
   flex-shrink: 0;
 }
 
-/* One-time touch-only hint for long-tap multi-select discoverability (#129) */
-.touchHint {
+/* (#411) Selection-mode bar. A second toolbar row rather than more buttons in
+   the first one: the actions here only exist while the mode does, and the row
+   above is already full. It replaced the one-time touch hint (#129), which was
+   only ever needed because entering multi-select had no visible affordance at
+   all — the toolbar's own toggle is that affordance now. */
+.selectionBar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  font-size: 11px;
-  color: var(--color-text-dim);
+  gap: 6px;
+  padding: 0 10px 8px;
   flex-shrink: 0;
 }
-.touchHint :global(.material-symbols-outlined) { font-size: 14px; flex-shrink: 0; }
-.touchHint span { flex: 1; }
 
-.touchHintDismiss {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
+.selectionCount {
+  flex: 1;
+  font-size: 11px;
+  color: var(--color-text-dim);
+}
+
+.selectionBtn {
+  padding: 5px 10px;
+  min-height: 28px;
   border-radius: var(--radius-sm);
+  font-size: 11px;
   cursor: pointer;
   color: var(--color-text-dim);
   transition: color var(--duration-fast), background var(--duration-fast);
 }
-.touchHintDismiss:hover { color: var(--color-text); background: var(--color-surface-hover); }
-.touchHintDismiss :global(.material-symbols-outlined) { font-size: 13px; }
+.selectionBtn:hover { color: var(--color-text); background: var(--color-surface-hover); }
+
+.selectionBtnPrimary { color: var(--color-accent); }
+.selectionBtnPrimary:hover {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+/* Ticked checkbox on a row — the accent, matching .rowSelected's outline, so
+   the tick and the row's own highlight read as one state rather than two. */
+.rowCheckboxOn { color: var(--color-accent); }
 
 /* ── Scrollable layer list ────────────────────────────────────────────────── */
 .list {
@@ -194,11 +206,13 @@
   gap: 3px;
   border-radius: var(--radius-md);
   margin: 0 5px;
-  cursor: grab;
-  touch-action: none; /* required for dnd-kit touch dragging — without this the browser intercepts touch for scroll */
+  /* (#411) `cursor: grab` and `touch-action: none` used to live here, because
+     the whole row was the drag handle. Both moved to `.grip` along with the
+     dnd-kit listeners. Handing `touch-action` back to the browser is what
+     makes the list scrollable with a finger again — previously a touch
+     starting on any row was swallowed whole. */
   transition: background var(--duration-fast);
 }
-.rowMain:active { cursor: grabbing; }
 .rowMain:hover { background: var(--color-surface-hover); }
 
 /* Active layer: accent background + left border to make selection obvious */
@@ -233,7 +247,7 @@
   touch-action: none;
 }
 .rowMain:hover .grip { opacity: 0.6; }
-.rowMain:active .grip { cursor: grabbing; }
+.grip:active { cursor: grabbing; }
 .grip :global(.material-symbols-outlined) { font-size: 15px; }
 
 .gripSpacer { width: 18px; flex-shrink: 0; }

@@ -21,6 +21,7 @@ export const ru: Dictionary = {
   'common.moreActions': 'Ещё действия',
   'common.continue': 'Продолжить',
   'common.ok': 'ОК',
+  'common.done': 'Готово',
 
   // ── диалоги (#310) ─────────────────────────────────────────────────────
   'dialog.confirmLabel': 'Подтверждение',
@@ -438,8 +439,13 @@ export const ru: Dictionary = {
   'layers.deleteLayer': 'Удалить слой',
   'layers.clearLayer': 'Очистить слой',
   'layers.confirmClear': 'Стереть всё, что нарисовано на слое «{name}»? Работа других участников на этом слое тоже пропадёт. Действие можно отменить.',
-  'layers.touchHint': 'Подсказка: нажмите и удерживайте слой, чтобы выбрать несколько',
-  'layers.dismissHint': 'Скрыть',
+  'layers.selectMultiple': 'Выбрать несколько слоёв',
+  'layers.selectAll': 'Выбрать все',
+  'layers.deselectAll': 'Снять все',
+  'layers.selectedCount': 'Выбрано: {n}',
+  'layers.selectRow': 'Отметить слой',
+  'layers.deselectRow': 'Снять отметку',
+  'layers.dragHandle': 'Перетащить',
   'layers.confirmDelete': 'Удалить выбранные слои? Всё нарисованное на них — включая работу других участников — будет потеряно.',
   'layers.importFailed': 'Не удалось импортировать изображение',
   'layers.hide': 'Скрыть',

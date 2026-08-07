@@ -39,6 +39,7 @@ export const en = {
   'common.moreActions': 'More actions',
   'common.continue': 'Continue',
   'common.ok': 'OK',
+  'common.done': 'Done',
 
   // ── dialogs (#310) ─────────────────────────────────────────────────────
   // Accessible names for a confirm/notice opened without a visible title —
@@ -533,8 +534,13 @@ export const en = {
   // did — it clears one layer, and now says which.
   'layers.clearLayer': 'Clear layer',
   'layers.confirmClear': 'Erase everything painted on "{name}"? Other participants\' work on this layer goes too. This can be undone.',
-  'layers.touchHint': 'Tip: press and hold a layer to select multiple',
-  'layers.dismissHint': 'Dismiss',
+  'layers.selectMultiple': 'Select multiple layers',
+  'layers.selectAll': 'Select all',
+  'layers.deselectAll': 'Deselect all',
+  'layers.selectedCount': '{n} selected',
+  'layers.selectRow': 'Select this layer',
+  'layers.deselectRow': 'Deselect this layer',
+  'layers.dragHandle': 'Drag to reorder',
   'layers.confirmDelete': 'Delete the selected layer(s)? Any painted content on them — including content from other participants — will be lost.',
   'layers.importFailed': 'Could not import image',
   'layers.hide': 'Hide',

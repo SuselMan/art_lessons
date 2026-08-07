@@ -38,8 +38,20 @@ export interface LayerRowProps {
   onMergeDown?: (id: string) => void
   onClear?: (id: string) => void
   onDelete?: (id: string) => void
+  // (#411) Long-press-to-enter-selection-mode. `onPointerMove` cancels it:
+  // once the drag moved to the grip, `.rowMain` no longer sets
+  // `touch-action: none`, so a finger on a row scrolls the list — and a slow
+  // scroll would otherwise cross 500 ms and drop the user into selection mode
+  // they never asked for.
   onPointerDown?: (id: string) => void
   onPointerUp?: () => void
+  onPointerMove?: (e: React.PointerEvent) => void
+  /** Selection mode swaps the row's affordances: a checkbox appears, and the
+   *  per-row menu and opacity readout give up their space to it — the row was
+   *  already at its horizontal limit with eight controls (see the CSS note on
+   *  `.rowMain`). */
+  selectionMode?: boolean
+  onToggleSelected?: (id: string) => void
 }
 
 function LayerRowImpl({
@@ -47,7 +59,8 @@ function LayerRowImpl({
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
   onToggleCollapse, onMergeDown, onClear, onDelete,
-  onPointerDown, onPointerUp,
+  onPointerDown, onPointerUp, onPointerMove,
+  selectionMode = false, onToggleSelected,
 }: LayerRowProps) {
   const t = useT()
   const nameRef = useRef<HTMLInputElement>(null)
@@ -94,15 +107,50 @@ function LayerRowImpl({
         isBackground && styles.rowBackground,
         isDragOverFolder && styles.rowDragTarget,
       )}
-      {...attributes}
-      {...listeners}
       onClick={e => onActivate(item.id, e)}
-      onPointerDown={e => { listeners?.onPointerDown?.(e); onPointerDown?.(item.id) }}
+      onPointerDown={() => onPointerDown?.(item.id)}
       onPointerUp={onPointerUp}
+      onPointerMove={onPointerMove}
     >
+      {/* (#411) A checkbox in selection mode. Deliberately *additive* rather
+          than replacing the grip: dragging a whole selection is the point of
+          #413, so the handle has to survive the mode that builds the
+          selection. */}
+      {selectionMode && (isBackground
+        ? <span className={styles.rowIconSpacer} />
+        : (
+          <button
+            className={clsx(styles.rowIconBtn, isSelected && styles.rowCheckboxOn)}
+            onClick={e => { e.stopPropagation(); onToggleSelected?.(item.id) }}
+            title={t(isSelected ? 'layers.deselectRow' : 'layers.selectRow')}
+            aria-label={t(isSelected ? 'layers.deselectRow' : 'layers.selectRow')}
+            aria-pressed={isSelected}
+          >
+            <Icon name={isSelected ? 'check_box' : 'check_box_outline_blank'} />
+          </button>
+        )
+      )}
+
+      {/* (#411) The drag handle is the grip alone now, not the whole row.
+          `listeners` used to sit on the row container, which made "hold a row"
+          mean both "start dragging" and "start the long-press timer" — two
+          gestures competing for one input, with dnd-kit's touch delay winning
+          at 200 ms and cancelling the timer before it could ever fire. It also
+          costs nothing to hand the row back to the browser: with `touch-action`
+          moved to the grip, a finger on a row scrolls the list again. */}
       {isBackground
         ? <span className={styles.gripSpacer} />
-        : <span className={styles.grip}><Icon name="drag_indicator" /></span>
+        : (
+          <span
+            className={styles.grip}
+            title={t('layers.dragHandle')}
+            aria-label={t('layers.dragHandle')}
+            {...attributes}
+            {...listeners}
+          >
+            <Icon name="drag_indicator" />
+          </span>
+        )
       }
 
       <button
@@ -198,11 +246,13 @@ function LayerRowImpl({
           a second control for something the panel's own opacity bar already
           does; the click now falls through to the row, activating the layer so
           that one shared slider targets it. */}
-      <span className={styles.opacityDisplay} title={t('layers.opacity')}>
-        {Math.round(item.opacity * 100)}%
-      </span>
+      {!selectionMode && (
+        <span className={styles.opacityDisplay} title={t('layers.opacity')}>
+          {Math.round(item.opacity * 100)}%
+        </span>
+      )}
 
-      {!isBackground && (
+      {!isBackground && !selectionMode && (
         <Menu
           triggerClassName={styles.rowIconBtn}
           triggerLabel={t('layers.more')}

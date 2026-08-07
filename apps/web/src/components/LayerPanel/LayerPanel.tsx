@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, useRef } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
@@ -26,6 +26,9 @@ import { PrecisionSlider } from '../PrecisionSlider'
 import { useConfirmDialog } from '../ConfirmDialog/useConfirmDialog'
 import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
+import {
+  toggleSelection, toggleSelectAll, isAllSelected, shouldExitOnEmpty, beyondTolerance,
+} from './selection'
 import { patchItem } from './utils'
 import {
   isFolder, isLayerLocked, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
@@ -52,20 +55,13 @@ export interface LayerPanelProps {
   hasLayerContent: (layerId: string) => boolean
 }
 
-// Long-tap-to-multi-select (#129) has no discoverable affordance for touch
-// users — the only documentation is a `title`, which never shows on touch
-// (no hover). Same one-time-persisted-hint shape as displayName.ts's
-// `al_`-prefixed localStorage convention: shown once, the first time this
-// browser touches the panel at all, then never again.
-const TOUCH_HINT_STORAGE_KEY = 'al_seen_layer_multiselect_hint'
-
-function hasSeenTouchHint(): boolean {
-  return localStorage.getItem(TOUCH_HINT_STORAGE_KEY) === 'true'
-}
-
-function markTouchHintSeen(): void {
-  localStorage.setItem(TOUCH_HINT_STORAGE_KEY, 'true')
-}
+// (#411) How long a still finger has to rest on a row to open selection mode,
+// and how far it may drift while doing so. The tolerance matters more than it
+// looks: the row is scrollable again now that dragging moved to the grip, so
+// without it a slow scroll would cross the threshold and drop the user into a
+// mode they never asked for.
+const LONG_PRESS_MS = 500
+const LONG_PRESS_TOLERANCE_PX = 8
 
 // Wrapped in memo (#127): Room re-renders far more often than layerState/
 // onChange/onOp actually change (e.g. every pointermove while panning, #126)
@@ -98,23 +94,14 @@ export const LayerPanel = memo(function LayerPanel({
 
   const { confirm } = useConfirmDialog()
 
-  const longPressRef = useRef<{ id: string; timer: number } | null>(null)
+  const longPressRef = useRef<{ id: string; timer: number; x: number; y: number } | null>(null)
 
-  const [showTouchHint, setShowTouchHint] = useState(false)
-
-  // Fires on the very first touch anywhere in the panel (not just on a row —
-  // taps on the toolbar count too), so the tip surfaces before the student
-  // necessarily discovers long-press on their own. pointerType check mirrors
-  // the convention used in useTapToggle/useViewport/PointerInput elsewhere
-  // in this app rather than a device-capability check.
-  const handlePanelPointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.pointerType === 'touch' && !hasSeenTouchHint()) {
-      setShowTouchHint(true)
-      markTouchHintSeen()
-    }
-  }, [])
-
-  const handleDismissTouchHint = useCallback(() => setShowTouchHint(false), [])
+  // (#411) Selection mode. Panel-local rather than store state, same as
+  // `dragId` and `editingId` above: it is a property of this panel's current
+  // interaction, not of the room. What it produces — `selectedIds` — does live
+  // in the store, and deliberately outlives the mode, because selecting layers
+  // and *then* reaching for the transform tool is the whole point.
+  const [selectionMode, setSelectionMode] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -162,7 +149,63 @@ export const LayerPanel = memo(function LayerPanel({
 
   // ── selection ────────────────────────────────────────────────────────────────
 
+  /** Adds or removes one row, leaving `activeId` alone (#411).
+   *
+   *  Leaving it alone is the deliberate part. `activeId` is where strokes
+   *  land; if ticking checkboxes moved it, closing the mode would hand the
+   *  brush to whichever row happened to be ticked last. The cost is that the
+   *  panel shows two different marks at once — one active row, N selected ones
+   *  — and they have to stay visually distinct.
+   *
+   *  Emptying the selection closes the mode. Entering it from the toolbar with
+   *  nothing selected does not, or the button could never be used. */
+  const toggleSelected = useCallback((id: string) => {
+    onChange(p => {
+      const next = toggleSelection(p.selectedIds, id)
+      if (shouldExitOnEmpty(p.selectedIds, next)) setSelectionMode(false)
+      return { ...p, selectedIds: next }
+    })
+  }, [onChange])
+
+  /** Every row the panel is currently showing, background excluded — "all"
+   *  means what is on screen, so a collapsed folder counts as one tick rather
+   *  than silently dragging in contents the user cannot see. Nothing is lost
+   *  by that: operations resolve a folder's descendants themselves (see
+   *  handleDelete's collectDescendants). */
+  const selectableIds = useMemo(() => getVisibleOrder(layerState), [layerState])
+  const allSelected = isAllSelected(selectableIds, selectedIds)
+
+  /** Deliberately does *not* close the mode when it empties the selection,
+   *  unlike unticking the last row by hand (see toggleSelected). Unticking the
+   *  last row reads as "done with this"; pressing "Deselect all" reads as
+   *  "start over", and throwing the user out of the mode they are mid-way
+   *  through using would be the opposite of what they asked for. */
+  const handleSelectAll = useCallback(() => {
+    onChange(p => ({ ...p, selectedIds: toggleSelectAll(getVisibleOrder(p), p.selectedIds) }))
+  }, [onChange])
+
+  const handleExitSelection = useCallback(() => setSelectionMode(false), [])
+
+  const handleEnterSelection = useCallback(() => setSelectionMode(m => !m), [])
+
+  // Escape leaves the mode. Kept off the room's global hotkey map on purpose:
+  // that one is about the canvas, and this is only meaningful while the panel
+  // is in a state the canvas knows nothing about.
+  useEffect(() => {
+    if (!selectionMode) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectionMode(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectionMode])
+
   const handleActivate = useCallback((id: string, e: React.MouseEvent) => {
+    // In selection mode a plain tap ticks the row — no modifier to discover,
+    // which is the entire reason this mode exists.
+    if (selectionMode) {
+      toggleSelected(id)
+      return
+    }
+
     if (id === BACKGROUND_LAYER_ID) {
       onChange(p => ({ ...p, activeId: id, selectedIds: [] }))
       return
@@ -191,24 +234,32 @@ export const LayerPanel = memo(function LayerPanel({
 
       return { ...p, activeId: id, selectedIds: [] }
     })
-  }, [onChange])
+  }, [onChange, selectionMode, toggleSelected])
 
+  /** Long press opens selection mode with this row already ticked (#411).
+   *
+   *  It used to toggle the row's selection directly, and could not work: on
+   *  touch, dnd-kit's `TouchSensor` claimed the same held finger at 200 ms and
+   *  `onDragStart` cancelled this timer; with a mouse the timer did fire, and
+   *  then the `click` that followed the release ran `handleActivate` with no
+   *  modifier, which cleared `selectedIds` again. Moving the drag onto the grip
+   *  settles the first half; opening a *mode* rather than toggling one row
+   *  settles the second, since a tap in the mode ticks rather than clears. */
   const handlePointerDown = useCallback((id: string) => {
     if (id === BACKGROUND_LAYER_ID) return // background never joins multi-select
+    if (selectionMode) return              // already there; a tap is enough
     if (longPressRef.current) window.clearTimeout(longPressRef.current.timer)
     longPressRef.current = {
-      id,
+      id, x: 0, y: 0,
       timer: window.setTimeout(() => {
+        setSelectionMode(true)
         onChange(p => ({
           ...p,
-          activeId: id,
-          selectedIds: p.selectedIds.includes(id)
-            ? p.selectedIds.filter(x => x !== id)
-            : [...p.selectedIds, id],
+          selectedIds: p.selectedIds.includes(id) ? p.selectedIds : [...p.selectedIds, id],
         }))
-      }, 500),
+      }, LONG_PRESS_MS),
     }
-  }, [onChange])
+  }, [onChange, selectionMode])
 
   const handlePointerUp = useCallback(() => {
     if (longPressRef.current) {
@@ -216,6 +267,20 @@ export const LayerPanel = memo(function LayerPanel({
       longPressRef.current = null
     }
   }, [])
+
+  // A finger that travels is scrolling the list, not resting on a row.
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    const pending = longPressRef.current
+    if (!pending) return
+    if (pending.x === 0 && pending.y === 0) {
+      pending.x = e.clientX
+      pending.y = e.clientY
+      return
+    }
+    if (beyondTolerance(pending, { x: e.clientX, y: e.clientY }, LONG_PRESS_TOLERANCE_PX)) {
+      handlePointerUp()
+    }
+  }, [handlePointerUp])
 
   // ── add / delete ─────────────────────────────────────────────────────────────
 
@@ -549,7 +614,7 @@ export const LayerPanel = memo(function LayerPanel({
   // ── render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.body} onPointerDown={handlePanelPointerDown} onPointerUp={handlePointerUp}>
+    <div className={styles.body} onPointerUp={handlePointerUp}>
       {activeItem && (
         <div className={styles.opacityBar}>
           <span className={styles.opacityBarLabel}>{t('layers.opacity')}</span>
@@ -590,6 +655,17 @@ export const LayerPanel = memo(function LayerPanel({
           onChange={handleImportImageChange}
         />
         <span className={styles.toolbarSpacer} />
+        {/* (#411) The discoverable half of entering selection mode. Long-press
+            is the accelerator; a gesture with no visible affordance was what
+            forced the one-time hint this replaces. */}
+        <button
+          className={clsx(styles.toolbarBtn, selectionMode && styles.toolbarBtnLocked)}
+          onClick={handleEnterSelection}
+          title={t('layers.selectMultiple')}
+          aria-label={t('layers.selectMultiple')}
+          aria-pressed={selectionMode}>
+          <Icon name="check_box" />
+        </button>
         <button
           className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
           onClick={() => handleToggleLock(activeId)}
@@ -626,16 +702,18 @@ export const LayerPanel = memo(function LayerPanel({
         </button>
       </div>
 
-      {showTouchHint && (
-        <div className={styles.touchHint}>
-          <Icon name="info" />
-          <span>{t('layers.touchHint')}</span>
+      {selectionMode && (
+        <div className={styles.selectionBar}>
+          <span className={styles.selectionCount}>
+            {t('layers.selectedCount', { n: selectedIds.length })}
+          </span>
+          <button className={styles.selectionBtn} onClick={handleSelectAll}>
+            {t(allSelected ? 'layers.deselectAll' : 'layers.selectAll')}
+          </button>
           <button
-            className={styles.touchHintDismiss}
-            onClick={handleDismissTouchHint}
-            title={t('layers.dismissHint')}
-          >
-            <Icon name="close" />
+            className={clsx(styles.selectionBtn, styles.selectionBtnPrimary)}
+            onClick={handleExitSelection}>
+            {t('common.done')}
           </button>
         </div>
       )}
@@ -682,6 +760,9 @@ export const LayerPanel = memo(function LayerPanel({
                   onDelete={handleMenuDelete}
                   onPointerDown={handlePointerDown}
                   onPointerUp={handlePointerUp}
+                  onPointerMove={handlePointerMove}
+                  selectionMode={selectionMode}
+                  onToggleSelected={toggleSelected}
                 />
               )
             })}
