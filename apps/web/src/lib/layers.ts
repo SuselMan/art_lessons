@@ -1,5 +1,5 @@
 import type { LayerFolder, LayerItem, LayerState, Operation, RasterLayer, LayerMoveOperation } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, operationLayerIds } from '@grafetto/shared'
 
 export function isFolder(item: LayerItem): item is LayerFolder {
   return item.kind === 'folder'
@@ -225,6 +225,26 @@ function insertAt(state: LayerState, items: LayerState['items'], rootOrder: stri
   return { ...state, items: cleanedItems, rootOrder: order }
 }
 
+/** Applies one edit to several items at once, returning the *same* state
+ *  object when nothing matched — replay runs on every operation of every join,
+ *  and callers upstream (overlayLocalFields, React memoization) compare by
+ *  reference. */
+function patchItems(
+  state: LayerState,
+  ids: readonly string[],
+  edit: (item: LayerItem) => LayerItem,
+): LayerState {
+  const items = { ...state.items }
+  let changed = false
+  for (const id of ids) {
+    const item = items[id]
+    if (!item) continue
+    items[id] = edit(item)
+    changed = true
+  }
+  return changed ? { ...state, items } : state
+}
+
 function applyMove(state: LayerState, op: LayerMoveOperation): LayerState {
   const moving = state.items[op.layerId]
   if (!moving || op.layerId === BACKGROUND_LAYER_ID) return state
@@ -286,16 +306,13 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     }
     case 'layer_move':
       return applyMove(state, op)
-    case 'layer_opacity': {
-      const item = state.items[op.layerId]
-      if (!item) return state
-      return { ...state, items: { ...state.items, [op.layerId]: { ...item, opacity: op.opacity } } }
-    }
-    case 'layer_visibility': {
-      const item = state.items[op.layerId]
-      if (!item) return state
-      return { ...state, items: { ...state.items, [op.layerId]: { ...item, visible: op.visible } } }
-    }
+    // (#412) Both now carry a list. `operationLayerIds` reads the singular
+    // `layerId` form too, which is what every pre-#412 room's log holds and
+    // replays on every join.
+    case 'layer_opacity':
+      return patchItems(state, operationLayerIds(op), item => ({ ...item, opacity: op.opacity }))
+    case 'layer_visibility':
+      return patchItems(state, operationLayerIds(op), item => ({ ...item, visible: op.visible }))
     case 'layer_owner_lock': {
       const item = state.items[op.layerId]
       if (!item) return state

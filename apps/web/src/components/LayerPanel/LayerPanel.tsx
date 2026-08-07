@@ -110,9 +110,29 @@ export const LayerPanel = memo(function LayerPanel({
 
   // ── item mutations ───────────────────────────────────────────────────────────
 
-  const handleOpacity = useCallback((id: string, v: number) =>
-    onOp({ type: 'layer_opacity', layerId: id, opacity: v })
-  , [onOp])
+  /** (#412) What a panel-level action applies to: the selection when there is
+   *  one, otherwise the active row. The same rule `handleDelete` has followed
+   *  since multi-select existed — stated once here so the mass actions cannot
+   *  drift from it. The background is never a target.
+   *
+   *  Note this holds whether or not selection mode is *open*: the selection
+   *  outlives the mode on purpose (#411), and it would be strange for a
+   *  selection the panel still visibly highlights to stop being what actions
+   *  act on. */
+  const actionTargets = useCallback((state: LayerState): string[] => (
+    (state.selectedIds.length > 0 ? state.selectedIds : [state.activeId])
+      .filter(id => id && id !== BACKGROUND_LAYER_ID && state.items[id])
+  ), [])
+
+  const targets = useMemo(() => actionTargets(layerState), [actionTargets, layerState])
+
+  const handleOpacity = useCallback((id: string, v: number) => {
+    // One operation for the whole selection, not one per layer: N operations
+    // would take N undos to reverse and would reach other participants as a
+    // visible sequence rather than a single change.
+    const ids = targets.length > 0 ? targets : [id]
+    onOp({ type: 'layer_opacity', layerIds: ids, opacity: v })
+  }, [targets, onOp])
 
   // The background's lock isn't the user's to flip (see isLayerLocked) — its
   // own row renders the button disabled, and this ignores it either way.
@@ -120,6 +140,29 @@ export const LayerPanel = memo(function LayerPanel({
     if (id === BACKGROUND_LAYER_ID) return
     onChange(patchItem(id, prev => ({ locked: !prev.locked })))
   }, [onChange])
+
+  /** Mixed selections resolve one way: the control reports "are they all on?"
+   *  and setting it makes them all the opposite. Anything else (per-item
+   *  flipping) leaves a mixed set mixed, which is the one outcome nobody
+   *  presses a mass toggle hoping for. */
+  const handleToggleVisibleMass = useCallback(() => {
+    if (targets.length === 0) return
+    const allVisible = targets.every(id => layerState.items[id]?.visible)
+    onOp({ type: 'layer_visibility', layerIds: targets, visible: !allVisible })
+  }, [targets, layerState, onOp])
+
+  /** The local lock is per-user view state, never an operation (see
+   *  overlayLocalFields) — so unlike the others this mass action is a plain
+   *  local patch and costs the log nothing. */
+  const handleToggleLockMass = useCallback(() => {
+    if (targets.length === 0) return
+    const allLocked = targets.every(id => layerState.items[id]?.locked)
+    onChange(p => {
+      let next = p
+      for (const id of targets) next = patchItem(id, { locked: !allLocked })(next)
+      return next
+    })
+  }, [targets, layerState, onChange])
 
   // (#254/#260) Unlike handleToggleLock above (a purely local view-state
   // patch), this goes through the operation log — ownerLocked must be
@@ -134,9 +177,11 @@ export const LayerPanel = memo(function LayerPanel({
     if (item) onOp({ type: 'layer_owner_lock', layerId: id, locked: !item.ownerLocked })
   }, [items, onOp])
 
+  // The row's own eye stays per-row even with a selection open: it names its
+  // target by sitting on it, and the mass version has its own button.
   const handleToggleVisible = useCallback((id: string) => {
     const item = items[id]
-    if (item) onOp({ type: 'layer_visibility', layerId: id, visible: !item.visible })
+    if (item) onOp({ type: 'layer_visibility', layerIds: [id], visible: !item.visible })
   }, [items, onOp])
 
   const handleToggleCollapse = useCallback((id: string) =>
@@ -602,6 +647,17 @@ export const LayerPanel = memo(function LayerPanel({
 
   // ── toolbar state ────────────────────────────────────────────────────────────
 
+  // Mixed-state readouts for the two mass toggles — "are they all on?", the
+  // question their click answers by setting everything to the opposite.
+  const allTargetsVisible = targets.length > 0 && targets.every(id => items[id]?.visible)
+  const allTargetsLocked  = targets.length > 0 && targets.every(id => items[id]?.locked)
+
+  /** (#412) The slider reads from whatever it writes to. With a selection open
+   *  that is the first selected layer, not the active one — the active row can
+   *  sit outside the selection entirely, and a readout that stayed put while
+   *  the drag visibly changed other layers would look broken. */
+  const opacityItem = items[targets[0]] ?? activeItem
+
   const canMergeSelected = selectedIds.filter(id => id !== BACKGROUND_LAYER_ID && items[id]?.kind === 'layer').length >= 2
   const canMergeDown     = !canMergeSelected
     && activeItem?.kind === 'layer'
@@ -615,7 +671,7 @@ export const LayerPanel = memo(function LayerPanel({
 
   return (
     <div className={styles.body} onPointerUp={handlePointerUp}>
-      {activeItem && (
+      {opacityItem && (
         <div className={styles.opacityBar}>
           <span className={styles.opacityBarLabel}>{t('layers.opacity')}</span>
           {/* (#390) The last production control that was still a raw
@@ -627,13 +683,13 @@ export const LayerPanel = memo(function LayerPanel({
           <PrecisionSlider
             className={styles.opacityBarSlider}
             orientation="horizontal"
-            value={activeItem.opacity}
+            value={opacityItem.opacity}
             min={0} max={1} step={0.01}
             onChange={v => handleOpacity(activeId, v)}
             formatValue={v => `${Math.round(v * 100)}%`}
             title={t('layers.opacity')}
           />
-          <span className={styles.opacityBarValue}>{Math.round(activeItem.opacity * 100)}%</span>
+          <span className={styles.opacityBarValue}>{Math.round(opacityItem.opacity * 100)}%</span>
         </div>
       )}
 
@@ -707,6 +763,25 @@ export const LayerPanel = memo(function LayerPanel({
           <span className={styles.selectionCount}>
             {t('layers.selectedCount', { n: selectedIds.length })}
           </span>
+          {/* (#412) Mass visibility and lock. They live here rather than in the
+              toolbar above because they only mean anything while a selection
+              exists, and that row is already full. */}
+          <button
+            className={styles.toolbarBtn}
+            onClick={handleToggleVisibleMass}
+            disabled={targets.length === 0}
+            title={t(allTargetsVisible ? 'layers.hide' : 'layers.show')}
+            aria-label={t(allTargetsVisible ? 'layers.hide' : 'layers.show')}>
+            <Icon name={allTargetsVisible ? 'visibility' : 'visibility_off'} />
+          </button>
+          <button
+            className={clsx(styles.toolbarBtn, allTargetsLocked && styles.toolbarBtnLocked)}
+            onClick={handleToggleLockMass}
+            disabled={targets.length === 0}
+            title={t(allTargetsLocked ? 'layers.unlock' : 'layers.lock')}
+            aria-label={t(allTargetsLocked ? 'layers.unlock' : 'layers.lock')}>
+            <Icon name={allTargetsLocked ? 'lock' : 'lock_open'} />
+          </button>
           <button className={styles.selectionBtn} onClick={handleSelectAll}>
             {t(allSelected ? 'layers.deselectAll' : 'layers.selectAll')}
           </button>

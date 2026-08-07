@@ -33,6 +33,26 @@ export interface LayerState {
 
 export const BACKGROUND_LAYER_ID = 'background'
 
+/**
+ * The layers an operation applies to, in one shape whichever form it was
+ * recorded in (#412).
+ *
+ * `layer_opacity` and `layer_visibility` used to name a single `layerId` and
+ * now carry a `layerIds` list. Both forms are permanently valid to *read*:
+ * the singular one is written into the operation logs of every room created
+ * before #412, and those logs are replayed verbatim on every join. Only the
+ * plural form is ever written from here on.
+ *
+ * Every reader goes through this. A `op.layerId` left somewhere would work
+ * perfectly against old rooms and silently ignore every mass change made in
+ * new ones — the kind of failure that shows up as "sometimes it doesn't
+ * apply" months later.
+ */
+export function operationLayerIds(op: { layerId?: string; layerIds?: string[] }): string[] {
+  if (op.layerIds) return op.layerIds
+  return op.layerId === undefined ? [] : [op.layerId]
+}
+
 // The two layers every room starts with. Neither is ever produced by a
 // `layer_add` operation — they are baked into the client's initial
 // LayerState (see makeInitialLayerState) and therefore exist from seq 0 with
@@ -530,15 +550,30 @@ export type LayerMoveOperation = OperationBase & {
   index: number           // position within the target container, top→bottom
 }
 
+/** (#412) Applies one opacity to any number of layers at once.
+ *
+ *  Plural rather than N separate operations for the reason `layer_transform`
+ *  and `layer_delete` are already plural: one operation is one undo. N
+ *  operations would make Ctrl+Z take a mass change apart layer by layer, and
+ *  would let every other participant in the room watch it happen in pieces.
+ *
+ *  `layerId` is the pre-#412 single-target form. It is still in the recorded
+ *  logs of every live room, so it stays readable forever; new operations only
+ *  ever write `layerIds`. Read both through `operationLayerIds` rather than
+ *  touching either field directly. */
 export type LayerOpacityOperation = OperationBase & {
   type: 'layer_opacity'
-  layerId: string
+  layerId?: string
+  layerIds?: string[]
   opacity: number       // 0–1
 }
 
+/** (#412) Same plural shape and the same reasoning as `LayerOpacityOperation`
+ *  above — including the legacy `layerId`, which recorded logs still carry. */
 export type LayerVisibilityOperation = OperationBase & {
   type: 'layer_visibility'
-  layerId: string
+  layerId?: string
+  layerIds?: string[]
   visible: boolean
 }
 

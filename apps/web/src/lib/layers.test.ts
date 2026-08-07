@@ -558,6 +558,75 @@ describe('an id never appears twice in the order', () => {
   })
 })
 
+// ── #412: mass operations ────────────────────────────────────────────────────
+
+describe('plural layer_opacity / layer_visibility (#412)', () => {
+  const three = () => stateOf(
+    { a: layer('a'), b: layer('b'), c: layer('c') },
+    ['a', 'b', 'c'],
+  )
+
+  it('applies one opacity to every named layer', () => {
+    const op: LayerOpacityOperation = {
+      ...baseOp, type: 'layer_opacity', layerIds: ['a', 'c'], opacity: 0.25,
+    }
+    const next = applyContentOp(three(), op)
+    expect(next.items.a.opacity).toBe(0.25)
+    expect(next.items.c.opacity).toBe(0.25)
+    expect(next.items.b.opacity).toBe(1)
+  })
+
+  it('applies one visibility to every named layer', () => {
+    const op: LayerVisibilityOperation = {
+      ...baseOp, type: 'layer_visibility', layerIds: ['a', 'b'], visible: false,
+    }
+    const next = applyContentOp(three(), op)
+    expect(next.items.a.visible).toBe(false)
+    expect(next.items.b.visible).toBe(false)
+    expect(next.items.c.visible).toBe(true)
+  })
+
+  // Every room created before #412 has these in its log in the singular form,
+  // and replays them on every single join. They must never stop working.
+  it('still replays the pre-#412 singular form', () => {
+    const opacity: LayerOpacityOperation = {
+      ...baseOp, type: 'layer_opacity', layerId: 'b', opacity: 0.5,
+    }
+    const visibility: LayerVisibilityOperation = {
+      ...baseOp, type: 'layer_visibility', layerId: 'c', visible: false,
+    }
+    const next = replayLayerState(three(), [opacity, visibility])
+    expect(next.items.b.opacity).toBe(0.5)
+    expect(next.items.c.visible).toBe(false)
+    expect(next.items.a).toMatchObject({ opacity: 1, visible: true })
+  })
+
+  it('skips ids that no longer exist and keeps the rest', () => {
+    const op: LayerOpacityOperation = {
+      ...baseOp, type: 'layer_opacity', layerIds: ['a', 'ghost'], opacity: 0.1,
+    }
+    const next = applyContentOp(three(), op)
+    expect(next.items.a.opacity).toBe(0.1)
+    expect(next.items.ghost).toBeUndefined()
+  })
+
+  // Replay runs over every operation of every join, and callers upstream
+  // compare by reference — a new object per no-op op would defeat that.
+  it('returns the same state object when nothing matched', () => {
+    const state = three()
+    const op: LayerOpacityOperation = {
+      ...baseOp, type: 'layer_opacity', layerIds: ['ghost'], opacity: 0.1,
+    }
+    expect(applyContentOp(state, op)).toBe(state)
+  })
+
+  it('an operation naming nothing at all is a no-op', () => {
+    const state = three()
+    const op: LayerVisibilityOperation = { ...baseOp, type: 'layer_visibility', visible: false }
+    expect(applyContentOp(state, op)).toBe(state)
+  })
+})
+
 // ── #410: nested folders ─────────────────────────────────────────────────────
 
 describe('nested folders (#410)', () => {
