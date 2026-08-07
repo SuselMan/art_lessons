@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { Operation, Participant, RejectReason, Room, RoomAccessMode } from '@grafetto/shared'
-import { DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
+import { DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL, operationLayerIds } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
@@ -391,6 +391,17 @@ function layerStateIdsOf(state: unknown): Set<string> | null {
  *  (#374). */
 const COVERABLE_OP_TYPES = ['stroke', 'image_import', 'layer_clear']
 
+/** (#412) `'layerId' in op` used to be enough to narrow to a single-target
+ *  operation. It stopped being: `layer_opacity`/`layer_visibility` still
+ *  declare a `layerId`, now optional, so the test admits them and the field
+ *  can be `undefined`. Narrowing by type instead says what was always meant —
+ *  the three operations that carry pixels — and keeps the one list of them. */
+type CoverableOperation = Extract<Operation, { type: 'stroke' | 'image_import' | 'layer_clear' }>
+
+function isCoverableOp(op: Operation): op is CoverableOperation {
+  return COVERABLE_OP_TYPES.includes(op.type)
+}
+
 /** Whether `op` is already accounted for by stored state, and so does not have
  *  to be replayed (#372).
  *
@@ -434,7 +445,7 @@ export function isCoveredBySnapshot(
     seq <= (coveredSeqByLayer.get(layerId) ?? 0)
     || (structureCovered && layerStateIds !== null && !layerStateIds.has(layerId))
 
-  if (COVERABLE_OP_TYPES.includes(op.type) && 'layerId' in op) return pixelsCovered(op.layerId)
+  if (isCoverableOp(op)) return pixelsCovered(op.layerId)
   if (op.type === 'layer_merge') return structureCovered && pixelsCovered(op.layerId)
   if (op.type === 'layer_transform') return structureCovered && op.transforms.every(t => pixelsCovered(t.layerId))
   // Everything else leaves structure and nothing else behind: layer_add,
@@ -981,8 +992,32 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
 
   if (record.roomFrozen) return 'room_frozen'
   if (record.frozenUserIds.has(userId)) return 'participant_frozen'
-  if ('layerId' in op && record.lockedLayerIds.has(op.layerId)) return 'layer_owner_locked'
+  if (ownerLockedTargets(record, op)) return 'layer_owner_locked'
   return null
+}
+
+/** Whether a non-owner's operation touches a layer the owner reserved.
+ *
+ *  (#412) `layer_opacity` and `layer_visibility` carry a *list* of targets
+ *  now, and the plain `'layerId' in op` test below would simply stop seeing
+ *  them — turning the mass form into a way around the owner's lock while the
+ *  single form stayed correctly refused. A silent privilege escalation is the
+ *  worst shape this could have taken, so the two pluralised types are named
+ *  explicitly rather than inferred from whether some field happens to exist.
+ *
+ *  `layer_move` joined them in #413 for the same reason — it carries a group
+ *  now — and it was gated before, so leaving it out would have *removed* a
+ *  check rather than failed to add one.
+ *
+ *  Deliberately unchanged for everything else, including `layer_delete` and
+ *  `layer_transform`, which have never been gated here (neither carries a
+ *  `layerId`). Whether that is right is a separate question from this one and
+ *  does not get answered by accident in a refactor. */
+function ownerLockedTargets(record: RoomRecord, op: Operation): boolean {
+  if (op.type === 'layer_opacity' || op.type === 'layer_visibility' || op.type === 'layer_move') {
+    return operationLayerIds(op).some(id => record.lockedLayerIds.has(id))
+  }
+  return 'layerId' in op && record.lockedLayerIds.has(op.layerId)
 }
 
 /** True if `op` targets an id that can no longer receive it — see

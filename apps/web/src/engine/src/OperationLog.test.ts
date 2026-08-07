@@ -60,6 +60,35 @@ describe('OperationLog', () => {
     expect(log.entries).toHaveLength(2)
   })
 
+  // (#412) One slide over a multi-layer selection is still one undo.
+  it('coalesces a burst over the same set of layers', () => {
+    const log = new OperationLog()
+    log.append(opacity({ id: 'a', layerId: undefined, layerIds: ['l1', 'l2'], opacity: 0.2 }))
+    log.append(opacity({ id: 'b', layerId: undefined, layerIds: ['l1', 'l2'], opacity: 0.4 }))
+
+    expect(log.entries).toHaveLength(1)
+    expect(log.doneOperations()[0]).toMatchObject({ id: 'b', opacity: 0.4 })
+  })
+
+  it('does not coalesce bursts over different sets of layers', () => {
+    const log = new OperationLog()
+    log.append(opacity({ id: 'a', layerId: undefined, layerIds: ['l1', 'l2'] }))
+    log.append(opacity({ id: 'b', layerId: undefined, layerIds: ['l1'] }))
+    expect(log.entries).toHaveLength(2)
+  })
+
+  // The singular form is what pre-#412 logs hold; it must still collapse, and
+  // must not be confused with a one-element plural naming a different layer.
+  it('coalesces the legacy singular form and keeps it distinct from other targets', () => {
+    const log = new OperationLog()
+    log.append(opacity({ id: 'a', layerId: 'l1', opacity: 0.2 }))
+    log.append(opacity({ id: 'b', layerId: 'l1', opacity: 0.3 }))
+    expect(log.entries).toHaveLength(1)
+
+    log.append(opacity({ id: 'c', layerId: undefined, layerIds: ['l2'] }))
+    expect(log.entries).toHaveLength(2)
+  })
+
   it('undo marks the user\'s latest done op as undone and returns it', () => {
     const log = new OperationLog()
     log.append(stroke({ id: 'a', userId: 'user-a' }))

@@ -62,7 +62,7 @@ grafetto/
 ## Key Architectural Decisions
 
 - **Operation Log**: every drawing action is serializable from day one (`packages/shared/src/index.ts` defines `Operation`).
-- **Layers**: flat map + separate order arrays; folders are one-level only. Background id is reserved and immovable.
+- **Layers**: flat map + separate order arrays; folders nest to any depth (#410 — was one level until then, see `docs/adr/001-layer-panel-dnd.md`). The one structural rule is that a folder may not become its own descendant, and it is enforced in `applyMove`, i.e. on replay, not only in the drag handler: every client folds every operation, so a loop would hang the whole room at once rather than just look wrong. Background id is reserved and immovable.
 - **Rendering**: client-side only; server retransmits operations, never renders.
 - **Viewport**: local per-user `{cx, cy, zoom, angle}`. Pointer coordinates are transformed analytically in `PointerInput.setTransform()`.
 - **WebGL1**: keep shaders WebGL1-compatible; no WebGL2-only features.

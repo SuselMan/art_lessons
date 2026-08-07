@@ -1,5 +1,5 @@
 import type { LayerFolder, LayerItem, LayerState, Operation, RasterLayer, LayerMoveOperation } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, operationLayerIds } from '@grafetto/shared'
 
 export function isFolder(item: LayerItem): item is LayerFolder {
   return item.kind === 'folder'
@@ -28,6 +28,32 @@ export function parentOf(state: LayerState, id: string): string | null {
   return null
 }
 
+/**
+ * The item's folders, nearest first, up to the root.
+ *
+ * (#410) Every walk over this tree carries a `seen` set, this one included,
+ * and that is deliberate rather than defensive habit. Once folders nest, a
+ * cycle becomes *expressible* — and a cycle is not a wrong answer, it is an
+ * unbounded loop that hangs the tab. `applyMove` refuses to create one, so
+ * anything a client authors is acyclic by construction; but LayerState also
+ * arrives whole, from a stored snapshot (`snapshotRestore`), authored by
+ * nobody present and validated by no one on the way in. A single bad snapshot
+ * would otherwise hang every participant in the room at the same moment, with
+ * no way back in — the tab that would let you fix it is the tab that's frozen.
+ * The guard costs a Set per walk and buys immunity from that whole class.
+ */
+export function ancestorsOf(state: LayerState, id: string): string[] {
+  const out: string[] = []
+  const seen = new Set<string>([id])
+  let current = parentOf(state, id)
+  while (current !== null && !seen.has(current)) {
+    out.push(current)
+    seen.add(current)
+    current = parentOf(state, current)
+  }
+  return out
+}
+
 /** Where a newly created layer goes: immediately above `id`, the row its
  *  author has selected, and inside the same folder if that row is in one.
  *
@@ -50,20 +76,12 @@ export function placementAbove(state: LayerState, id: string): { parentId: strin
   return { parentId: null, index: index >= 0 ? index : 0 }
 }
 
-/** `placementAbove` for a new folder, which has only a root index to give: a
- *  folder is never a folder's child. Anchored on the active row's *root*
- *  ancestor, so creating a folder while a layer inside another folder is
- *  selected puts the new one above that whole folder rather than at the top. */
-export function rootPlacementAbove(state: LayerState, id: string): number {
-  const index = state.rootOrder.indexOf(parentOf(state, id) ?? id)
-  return index >= 0 ? index : 0
-}
-
 /**
  * Whether this item reaches the screen at all: its own `visible` flag *and*
- * its folder's, since hiding a folder hides everything in it — the same rule
- * computeCompositeOrder applies when it skips a hidden folder without ever
- * looking at the children.
+ * every ancestor folder's, since hiding a folder hides everything in it — the
+ * same rule computeCompositeOrder applies when it skips a hidden folder
+ * without ever looking at the children. (#410: every ancestor, not just the
+ * immediate parent — a layer two folders deep is hidden by either of them.)
  *
  * Exists because "hidden" has to mean the same thing to paint as it does to
  * the compositor (#359). It didn't: the only gate on starting a stroke was
@@ -75,54 +93,90 @@ export function rootPlacementAbove(state: LayerState, id: string): number {
 export function isEffectivelyVisible(state: LayerState, id: string): boolean {
   const item = state.items[id]
   if (!item?.visible) return false
-  const parentId = parentOf(state, id)
-  return parentId === null || !!state.items[parentId]?.visible
+  return ancestorsOf(state, id).every(pid => !!state.items[pid]?.visible)
 }
 
-/** Returns all visible item ids in render order (root items + children of open folders). */
+/** Every id the panel currently shows, top→bottom: root items plus the
+ *  contents of open folders, to any depth. The background is left out — it is
+ *  never a selection target (see isLayerLocked's note). */
 export function getVisibleOrder(state: LayerState): string[] {
   const out: string[] = []
-  for (const id of state.rootOrder) {
-    if (id === BACKGROUND_LAYER_ID) continue
-    out.push(id)
-    const item = state.items[id]
-    if (isFolder(item) && !item.collapsed) {
-      out.push(...item.children)
+  const seen = new Set<string>()
+  const walk = (ids: string[]): void => {
+    for (const id of ids) {
+      if (id === BACKGROUND_LAYER_ID || seen.has(id)) continue
+      seen.add(id)
+      const item = state.items[id]
+      if (!item) continue
+      out.push(id)
+      if (isFolder(item) && !item.collapsed) walk(item.children)
     }
   }
+  walk(state.rootOrder)
   return out
 }
 
-/** Collects an id plus all descendants (children of folders). Only one level deep
- *  because nested folders are forbidden, but recurse defensively. */
+/**
+ * The members of a selection that actually have to be moved (#413): anything
+ * whose ancestor is also selected is dropped, because it rides along inside
+ * that folder.
+ *
+ * Without this, "select a folder and one of its layers, drag both" would move
+ * the layer twice — once inside the folder and once on its own, the second
+ * lifting it back out of the folder it just travelled in. It is also what makes
+ * the awkward cases of a group drag stop being special: a partial selection
+ * inside a folder, a folder plus loose layers, an out-of-order pick. Order is
+ * preserved from the input, which callers give in the panel's own top→bottom
+ * order.
+ */
+export function normalizeMoveSet(state: LayerState, ids: readonly string[]): string[] {
+  const set = new Set(ids)
+  return ids.filter(id => !ancestorsOf(state, id).some(a => set.has(a)))
+}
+
+/** Collects an id plus every descendant beneath it, to any depth. */
 export function collectDescendants(state: LayerState, id: string): string[] {
-  const out: string[] = [id]
-  const item = state.items[id]
-  if (item && isFolder(item)) {
-    for (const cid of item.children) {
-      out.push(...collectDescendants(state, cid))
-    }
+  const out: string[] = []
+  const seen = new Set<string>()
+  const walk = (currentId: string): void => {
+    if (seen.has(currentId)) return
+    seen.add(currentId)
+    out.push(currentId)
+    const item = state.items[currentId]
+    if (item && isFolder(item)) for (const cid of item.children) walk(cid)
   }
+  walk(id)
   return out
 }
 
 /** Walks the hierarchy bottom→top and returns raster layers with effective
- *  (folder × layer) opacity. `includeHidden` keeps invisible items in the list. */
+ *  opacity — every enclosing folder's multiplied into the layer's own, to any
+ *  depth (#410). A hidden folder is skipped whole, without looking at what is
+ *  inside it, which is the same rule isEffectivelyVisible answers with.
+ *  `includeHidden` keeps invisible items in the list.
+ *
+ *  Worth being explicit about what this multiplication is and isn't: a folder's
+ *  opacity is folded into each of its layers individually, so a folder is not
+ *  a *group* in the compositing sense — two overlapping strokes inside a folder
+ *  at 50% do not look like one group drawn at 50%. That was already true of one
+ *  level of folders; nesting just multiplies one more factor into the same
+ *  chain and costs nothing extra. Real group compositing would mean a
+ *  framebuffer per folder, and nothing here assumes it. */
 function orderedLayers(state: LayerState, includeHidden: boolean): { id: string; opacity: number }[] {
   const result: { id: string; opacity: number }[] = []
-  for (const id of [...state.rootOrder].reverse()) {
-    const item = state.items[id]
-    if (!item || !(includeHidden || item.visible)) continue
-    if (isFolder(item)) {
-      for (const cid of [...item.children].reverse()) {
-        const child = state.items[cid]
-        if (child && (includeHidden || child.visible))
-          result.push({ id: cid, opacity: item.opacity * child.opacity })
-      }
-    } else {
-      result.push({ id, opacity: item.opacity })
+  const seen = new Set<string>()
+  const walk = (ids: string[], inherited: number): void => {
+    for (const id of [...ids].reverse()) {
+      if (seen.has(id)) continue
+      seen.add(id)
+      const item = state.items[id]
+      if (!item || !(includeHidden || item.visible)) continue
+      const opacity = inherited * item.opacity
+      if (isFolder(item)) walk(item.children, opacity)
+      else result.push({ id, opacity })
     }
   }
+  walk(state.rootOrder, 1)
   return result
 }
 
@@ -189,23 +243,90 @@ function insertAt(state: LayerState, items: LayerState['items'], rootOrder: stri
   return { ...state, items: cleanedItems, rootOrder: order }
 }
 
-function applyMove(state: LayerState, op: LayerMoveOperation): LayerState {
-  const moving = state.items[op.layerId]
-  if (!moving || op.layerId === BACKGROUND_LAYER_ID) return state
-  if (op.parentId) {
-    const target = state.items[op.parentId]
-    // folders are one level deep; a folder can never become a folder's child
-    if (!target || !isFolder(target) || isFolder(moving) || op.parentId === op.layerId) return state
+/** Applies one edit to several items at once, returning the *same* state
+ *  object when nothing matched — replay runs on every operation of every join,
+ *  and callers upstream (overlayLocalFields, React memoization) compare by
+ *  reference. */
+function patchItems(
+  state: LayerState,
+  ids: readonly string[],
+  edit: (item: LayerItem) => LayerItem,
+): LayerState {
+  const items = { ...state.items }
+  let changed = false
+  for (const id of ids) {
+    const item = items[id]
+    if (!item) continue
+    items[id] = edit(item)
+    changed = true
   }
+  return changed ? { ...state, items } : state
+}
 
-  const rootOrder = state.rootOrder.filter(id => id !== op.layerId)
+/** Detaches ids from wherever they sit — `rootOrder` and every folder's
+ *  `children` — without placing them anywhere. Their own subtrees are
+ *  untouched: a folder's contents live in `items`, not in the list it was
+ *  removed from, so a detached folder arrives at its destination whole. */
+function detachAll(state: LayerState, ids: readonly string[]): LayerState {
+  const gone = new Set(ids)
   const items: LayerState['items'] = {}
   for (const [id, item] of Object.entries(state.items)) {
-    items[id] = isFolder(item) && item.children.includes(op.layerId)
-      ? { ...item, children: item.children.filter(c => c !== op.layerId) }
+    items[id] = isFolder(item) && item.children.some(c => gone.has(c))
+      ? { ...item, children: item.children.filter(c => !gone.has(c)) }
       : item
   }
-  return insertAt(state, items, rootOrder, op.layerId, op.parentId, op.index)
+  return { ...state, items, rootOrder: state.rootOrder.filter(id => !gone.has(id)) }
+}
+
+/**
+ * Relocates one item or a whole group to `(parentId, index)` — a group landing
+ * as one contiguous run, in the order given (#413).
+ *
+ * The refusals are all-or-nothing on purpose. A group move that silently
+ * dropped its illegal members would be worse than one that does nothing: the
+ * user would see part of the selection move with no way to tell which rule
+ * bit, and every other client folds the same partial result.
+ */
+function applyMove(state: LayerState, op: LayerMoveOperation): LayerState {
+  const ids = operationLayerIds(op).filter(id => id !== BACKGROUND_LAYER_ID && state.items[id])
+  if (ids.length === 0) return state
+
+  // An id whose ancestor is also moving would be relocated twice — once
+  // implicitly, riding inside its folder, and once explicitly, which lifts it
+  // back out again. Normalising here rather than trusting the sender keeps
+  // replay correct for any operation, however it was authored.
+  const moving = new Set(ids)
+  const roots = normalizeMoveSet(state, ids)
+
+  if (op.parentId !== null) {
+    const target = state.items[op.parentId]
+    if (!target || !isFolder(target)) return state
+    if (moving.has(op.parentId)) return state
+    // (#410) Folders nest now, so "a folder can never become a folder's child"
+    // is gone and exactly one structural refusal replaces it: a folder may not
+    // move into its own descendant. Enforced *here*, in replay, and not only in
+    // the panel's drag handler — every client folds every operation, so a loop
+    // that slipped past a UI gate would arrive at all of them and send the
+    // walks below into unbounded recursion simultaneously. The UI gate stops
+    // the gesture; this stops the state.
+    const targetAncestors = ancestorsOf(state, op.parentId)
+    for (const id of roots) {
+      const item = state.items[id]
+      if (item && isFolder(item) && targetAncestors.includes(id)) return state
+    }
+  }
+
+  // Detach everything *first*, then place. Doing both per item would let each
+  // removal shift the indices of the movers still to come, and a scattered
+  // selection would arrive interleaved with the rows it travelled past instead
+  // of contiguous — which is the one thing this operation promises.
+  let next = detachAll(state, roots)
+  roots.forEach((id, i) => {
+    // `insertAt` clamps, so an index past the end appends; the run stays
+    // together either way.
+    next = insertAt(next, next.items, next.rootOrder, id, op.parentId, op.index + i)
+  })
+  return next
 }
 
 /** Applies one operation's structural effect. Pixel-only operations (stroke,
@@ -229,8 +350,11 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     case 'folder_add': {
       if (state.items[op.layerId]) return state
       const folder: LayerFolder = { kind: 'folder', id: op.layerId, name: op.name, opacity: 1, visible: true, locked: false, collapsed: false, children: [] }
+      // (#410) Placed by the same (container, index) pair as a layer now that
+      // folders nest. A folder_add already in the log carries no parentId and
+      // lands at root, exactly where it landed when it was recorded.
       return insertAt(state, { ...state.items, [op.layerId]: folder }, state.rootOrder,
-        op.layerId, null, op.index ?? 0)
+        op.layerId, op.parentId ?? null, op.index ?? 0)
     }
     case 'layer_delete': {
       const ids = new Set(op.layerIds)
@@ -240,16 +364,13 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     }
     case 'layer_move':
       return applyMove(state, op)
-    case 'layer_opacity': {
-      const item = state.items[op.layerId]
-      if (!item) return state
-      return { ...state, items: { ...state.items, [op.layerId]: { ...item, opacity: op.opacity } } }
-    }
-    case 'layer_visibility': {
-      const item = state.items[op.layerId]
-      if (!item) return state
-      return { ...state, items: { ...state.items, [op.layerId]: { ...item, visible: op.visible } } }
-    }
+    // (#412) Both now carry a list. `operationLayerIds` reads the singular
+    // `layerId` form too, which is what every pre-#412 room's log holds and
+    // replays on every join.
+    case 'layer_opacity':
+      return patchItems(state, operationLayerIds(op), item => ({ ...item, opacity: op.opacity }))
+    case 'layer_visibility':
+      return patchItems(state, operationLayerIds(op), item => ({ ...item, visible: op.visible }))
     case 'layer_owner_lock': {
       const item = state.items[op.layerId]
       if (!item) return state

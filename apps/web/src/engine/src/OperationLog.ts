@@ -8,6 +8,7 @@
 //            revoked it); can never return to `done`
 
 import type { Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, ImageImportOperation, LayerTransformOperation } from '@grafetto/shared'
+import { operationLayerIds } from '@grafetto/shared'
 
 export type OperationState = 'done' | 'undone' | 'gone'
 
@@ -36,10 +37,20 @@ function pixelOpTargetsLayer(op: PixelOperation, layerId: string): boolean {
 }
 
 /** Continuous opacity-slider input arrives as a burst of operations; collapse
- *  the burst into one log entry so a single Ctrl+Z reverts the whole slide. */
+ *  the burst into one log entry so a single Ctrl+Z reverts the whole slide.
+ *
+ *  (#412) The slider can now drive several layers at once, so "same target"
+ *  is a set comparison rather than one id. Order is not normalised on purpose:
+ *  a single slide always emits the same list in the same order (it comes from
+ *  one unchanged selection), and two *different* selections that happen to
+ *  hold the same layers are still two different gestures a user would expect
+ *  to undo separately. */
 function coalesces(prev: Operation, next: Operation): boolean {
-  return prev.type === 'layer_opacity' && next.type === 'layer_opacity'
-    && prev.layerId === next.layerId && prev.userId === next.userId
+  if (prev.type !== 'layer_opacity' || next.type !== 'layer_opacity') return false
+  if (prev.userId !== next.userId) return false
+  const a = operationLayerIds(prev)
+  const b = operationLayerIds(next)
+  return a.length === b.length && a.every((id, i) => id === b[i])
 }
 
 /** Meta-operations that only ever move *another* entry between states —

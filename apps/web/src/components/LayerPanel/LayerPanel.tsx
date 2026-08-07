@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useState, useRef } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
@@ -26,10 +26,13 @@ import { PrecisionSlider } from '../PrecisionSlider'
 import { useConfirmDialog } from '../ConfirmDialog/useConfirmDialog'
 import { LayerRow } from './LayerRow'
 import { buildFlatList, buildDropZoneMap, reconstructHierarchy, S_BOT } from './flatList'
+import {
+  toggleSelection, toggleSelectAll, isAllSelected, shouldExitOnEmpty, beyondTolerance,
+} from './selection'
 import { patchItem } from './utils'
 import {
   isFolder, isLayerLocked, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
-  placementAbove, rootPlacementAbove,
+  placementAbove, normalizeMoveSet,
 } from '../../lib/layers'
 import { readImageFile } from '../../lib/image'
 import styles from './LayerPanel.module.css'
@@ -52,20 +55,13 @@ export interface LayerPanelProps {
   hasLayerContent: (layerId: string) => boolean
 }
 
-// Long-tap-to-multi-select (#129) has no discoverable affordance for touch
-// users — the only documentation is a `title`, which never shows on touch
-// (no hover). Same one-time-persisted-hint shape as displayName.ts's
-// `al_`-prefixed localStorage convention: shown once, the first time this
-// browser touches the panel at all, then never again.
-const TOUCH_HINT_STORAGE_KEY = 'al_seen_layer_multiselect_hint'
-
-function hasSeenTouchHint(): boolean {
-  return localStorage.getItem(TOUCH_HINT_STORAGE_KEY) === 'true'
-}
-
-function markTouchHintSeen(): void {
-  localStorage.setItem(TOUCH_HINT_STORAGE_KEY, 'true')
-}
+// (#411) How long a still finger has to rest on a row to open selection mode,
+// and how far it may drift while doing so. The tolerance matters more than it
+// looks: the row is scrollable again now that dragging moved to the grip, so
+// without it a slow scroll would cross the threshold and drop the user into a
+// mode they never asked for.
+const LONG_PRESS_MS = 500
+const LONG_PRESS_TOLERANCE_PX = 8
 
 // Wrapped in memo (#127): Room re-renders far more often than layerState/
 // onChange/onOp actually change (e.g. every pointermove while panning, #126)
@@ -98,23 +94,14 @@ export const LayerPanel = memo(function LayerPanel({
 
   const { confirm } = useConfirmDialog()
 
-  const longPressRef = useRef<{ id: string; timer: number } | null>(null)
+  const longPressRef = useRef<{ id: string; timer: number; x: number; y: number } | null>(null)
 
-  const [showTouchHint, setShowTouchHint] = useState(false)
-
-  // Fires on the very first touch anywhere in the panel (not just on a row —
-  // taps on the toolbar count too), so the tip surfaces before the student
-  // necessarily discovers long-press on their own. pointerType check mirrors
-  // the convention used in useTapToggle/useViewport/PointerInput elsewhere
-  // in this app rather than a device-capability check.
-  const handlePanelPointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.pointerType === 'touch' && !hasSeenTouchHint()) {
-      setShowTouchHint(true)
-      markTouchHintSeen()
-    }
-  }, [])
-
-  const handleDismissTouchHint = useCallback(() => setShowTouchHint(false), [])
+  // (#411) Selection mode. Panel-local rather than store state, same as
+  // `dragId` and `editingId` above: it is a property of this panel's current
+  // interaction, not of the room. What it produces — `selectedIds` — does live
+  // in the store, and deliberately outlives the mode, because selecting layers
+  // and *then* reaching for the transform tool is the whole point.
+  const [selectionMode, setSelectionMode] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -123,9 +110,29 @@ export const LayerPanel = memo(function LayerPanel({
 
   // ── item mutations ───────────────────────────────────────────────────────────
 
-  const handleOpacity = useCallback((id: string, v: number) =>
-    onOp({ type: 'layer_opacity', layerId: id, opacity: v })
-  , [onOp])
+  /** (#412) What a panel-level action applies to: the selection when there is
+   *  one, otherwise the active row. The same rule `handleDelete` has followed
+   *  since multi-select existed — stated once here so the mass actions cannot
+   *  drift from it. The background is never a target.
+   *
+   *  Note this holds whether or not selection mode is *open*: the selection
+   *  outlives the mode on purpose (#411), and it would be strange for a
+   *  selection the panel still visibly highlights to stop being what actions
+   *  act on. */
+  const actionTargets = useCallback((state: LayerState): string[] => (
+    (state.selectedIds.length > 0 ? state.selectedIds : [state.activeId])
+      .filter(id => id && id !== BACKGROUND_LAYER_ID && state.items[id])
+  ), [])
+
+  const targets = useMemo(() => actionTargets(layerState), [actionTargets, layerState])
+
+  const handleOpacity = useCallback((id: string, v: number) => {
+    // One operation for the whole selection, not one per layer: N operations
+    // would take N undos to reverse and would reach other participants as a
+    // visible sequence rather than a single change.
+    const ids = targets.length > 0 ? targets : [id]
+    onOp({ type: 'layer_opacity', layerIds: ids, opacity: v })
+  }, [targets, onOp])
 
   // The background's lock isn't the user's to flip (see isLayerLocked) — its
   // own row renders the button disabled, and this ignores it either way.
@@ -133,6 +140,29 @@ export const LayerPanel = memo(function LayerPanel({
     if (id === BACKGROUND_LAYER_ID) return
     onChange(patchItem(id, prev => ({ locked: !prev.locked })))
   }, [onChange])
+
+  /** Mixed selections resolve one way: the control reports "are they all on?"
+   *  and setting it makes them all the opposite. Anything else (per-item
+   *  flipping) leaves a mixed set mixed, which is the one outcome nobody
+   *  presses a mass toggle hoping for. */
+  const handleToggleVisibleMass = useCallback(() => {
+    if (targets.length === 0) return
+    const allVisible = targets.every(id => layerState.items[id]?.visible)
+    onOp({ type: 'layer_visibility', layerIds: targets, visible: !allVisible })
+  }, [targets, layerState, onOp])
+
+  /** The local lock is per-user view state, never an operation (see
+   *  overlayLocalFields) — so unlike the others this mass action is a plain
+   *  local patch and costs the log nothing. */
+  const handleToggleLockMass = useCallback(() => {
+    if (targets.length === 0) return
+    const allLocked = targets.every(id => layerState.items[id]?.locked)
+    onChange(p => {
+      let next = p
+      for (const id of targets) next = patchItem(id, { locked: !allLocked })(next)
+      return next
+    })
+  }, [targets, layerState, onChange])
 
   // (#254/#260) Unlike handleToggleLock above (a purely local view-state
   // patch), this goes through the operation log — ownerLocked must be
@@ -147,9 +177,11 @@ export const LayerPanel = memo(function LayerPanel({
     if (item) onOp({ type: 'layer_owner_lock', layerId: id, locked: !item.ownerLocked })
   }, [items, onOp])
 
+  // The row's own eye stays per-row even with a selection open: it names its
+  // target by sitting on it, and the mass version has its own button.
   const handleToggleVisible = useCallback((id: string) => {
     const item = items[id]
-    if (item) onOp({ type: 'layer_visibility', layerId: id, visible: !item.visible })
+    if (item) onOp({ type: 'layer_visibility', layerIds: [id], visible: !item.visible })
   }, [items, onOp])
 
   const handleToggleCollapse = useCallback((id: string) =>
@@ -162,7 +194,63 @@ export const LayerPanel = memo(function LayerPanel({
 
   // ── selection ────────────────────────────────────────────────────────────────
 
+  /** Adds or removes one row, leaving `activeId` alone (#411).
+   *
+   *  Leaving it alone is the deliberate part. `activeId` is where strokes
+   *  land; if ticking checkboxes moved it, closing the mode would hand the
+   *  brush to whichever row happened to be ticked last. The cost is that the
+   *  panel shows two different marks at once — one active row, N selected ones
+   *  — and they have to stay visually distinct.
+   *
+   *  Emptying the selection closes the mode. Entering it from the toolbar with
+   *  nothing selected does not, or the button could never be used. */
+  const toggleSelected = useCallback((id: string) => {
+    onChange(p => {
+      const next = toggleSelection(p.selectedIds, id)
+      if (shouldExitOnEmpty(p.selectedIds, next)) setSelectionMode(false)
+      return { ...p, selectedIds: next }
+    })
+  }, [onChange])
+
+  /** Every row the panel is currently showing, background excluded — "all"
+   *  means what is on screen, so a collapsed folder counts as one tick rather
+   *  than silently dragging in contents the user cannot see. Nothing is lost
+   *  by that: operations resolve a folder's descendants themselves (see
+   *  handleDelete's collectDescendants). */
+  const selectableIds = useMemo(() => getVisibleOrder(layerState), [layerState])
+  const allSelected = isAllSelected(selectableIds, selectedIds)
+
+  /** Deliberately does *not* close the mode when it empties the selection,
+   *  unlike unticking the last row by hand (see toggleSelected). Unticking the
+   *  last row reads as "done with this"; pressing "Deselect all" reads as
+   *  "start over", and throwing the user out of the mode they are mid-way
+   *  through using would be the opposite of what they asked for. */
+  const handleSelectAll = useCallback(() => {
+    onChange(p => ({ ...p, selectedIds: toggleSelectAll(getVisibleOrder(p), p.selectedIds) }))
+  }, [onChange])
+
+  const handleExitSelection = useCallback(() => setSelectionMode(false), [])
+
+  const handleEnterSelection = useCallback(() => setSelectionMode(m => !m), [])
+
+  // Escape leaves the mode. Kept off the room's global hotkey map on purpose:
+  // that one is about the canvas, and this is only meaningful while the panel
+  // is in a state the canvas knows nothing about.
+  useEffect(() => {
+    if (!selectionMode) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSelectionMode(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [selectionMode])
+
   const handleActivate = useCallback((id: string, e: React.MouseEvent) => {
+    // In selection mode a plain tap ticks the row — no modifier to discover,
+    // which is the entire reason this mode exists.
+    if (selectionMode) {
+      toggleSelected(id)
+      return
+    }
+
     if (id === BACKGROUND_LAYER_ID) {
       onChange(p => ({ ...p, activeId: id, selectedIds: [] }))
       return
@@ -191,24 +279,32 @@ export const LayerPanel = memo(function LayerPanel({
 
       return { ...p, activeId: id, selectedIds: [] }
     })
-  }, [onChange])
+  }, [onChange, selectionMode, toggleSelected])
 
+  /** Long press opens selection mode with this row already ticked (#411).
+   *
+   *  It used to toggle the row's selection directly, and could not work: on
+   *  touch, dnd-kit's `TouchSensor` claimed the same held finger at 200 ms and
+   *  `onDragStart` cancelled this timer; with a mouse the timer did fire, and
+   *  then the `click` that followed the release ran `handleActivate` with no
+   *  modifier, which cleared `selectedIds` again. Moving the drag onto the grip
+   *  settles the first half; opening a *mode* rather than toggling one row
+   *  settles the second, since a tap in the mode ticks rather than clears. */
   const handlePointerDown = useCallback((id: string) => {
     if (id === BACKGROUND_LAYER_ID) return // background never joins multi-select
+    if (selectionMode) return              // already there; a tap is enough
     if (longPressRef.current) window.clearTimeout(longPressRef.current.timer)
     longPressRef.current = {
-      id,
+      id, x: 0, y: 0,
       timer: window.setTimeout(() => {
+        setSelectionMode(true)
         onChange(p => ({
           ...p,
-          activeId: id,
-          selectedIds: p.selectedIds.includes(id)
-            ? p.selectedIds.filter(x => x !== id)
-            : [...p.selectedIds, id],
+          selectedIds: p.selectedIds.includes(id) ? p.selectedIds : [...p.selectedIds, id],
         }))
-      }, 500),
+      }, LONG_PRESS_MS),
     }
-  }, [onChange])
+  }, [onChange, selectionMode])
 
   const handlePointerUp = useCallback(() => {
     if (longPressRef.current) {
@@ -217,30 +313,56 @@ export const LayerPanel = memo(function LayerPanel({
     }
   }, [])
 
+  // A finger that travels is scrolling the list, not resting on a row.
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    const pending = longPressRef.current
+    if (!pending) return
+    if (pending.x === 0 && pending.y === 0) {
+      pending.x = e.clientX
+      pending.y = e.clientY
+      return
+    }
+    if (beyondTolerance(pending, { x: e.clientX, y: e.clientY }, LONG_PRESS_TOLERANCE_PX)) {
+      handlePointerUp()
+    }
+  }, [handlePointerUp])
+
   // ── add / delete ─────────────────────────────────────────────────────────────
 
-  /** Mints a layer directly above the active row and selects it (#378) —
-   *  shared by the two buttons that create one, the `+` and a reference
-   *  import, so they can't drift into placing layers by different rules.
+  /** Where a newly minted row goes — directly above the active one (#378) —
+   *  plus the one side effect that placement implies.
    *
-   *  The extra job is opening the folder when the new layer landed in one:
+   *  That side effect is opening the folder when the new row landed in one:
    *  `placementAbove` follows the active row inside a folder, and a *collapsed*
-   *  folder would then swallow the layer whole — the panel's answer to the
+   *  folder would then swallow the row whole — the panel's answer to the
    *  click would be no visible change at all, which reads as a broken button.
-   *  That costs no operation: `collapsed` is per-user view state and never
+   *  It costs no operation: `collapsed` is per-user view state and never
    *  enters the log (see overlayLocalFields).
+   *
+   *  (#410) Shared by every button that creates a row, folders included. A new
+   *  folder used to be placed by a second helper, `rootPlacementAbove`, which
+   *  existed only because a folder could not be a folder's child and so had to
+   *  climb to the active row's root ancestor. That exception is gone, and one
+   *  rule now answers for all three buttons.
    */
-  const addLayerAbove = useCallback((newId: string, name: string) => {
+  const placeAbove = useCallback((): { parentId: string | null; index: number } => {
     const placement = placementAbove(layerState, activeId)
-    onOp({ type: 'layer_add', layerId: newId, name, ...placement })
     onChange(p => {
       const parent = placement.parentId === null ? undefined : p.items[placement.parentId]
-      const revealed = parent && isFolder(parent) && parent.collapsed
+      return parent && isFolder(parent) && parent.collapsed
         ? patchItem(parent.id, { collapsed: false })(p)
         : p
-      return { ...revealed, activeId: newId, selectedIds: [] }
     })
-  }, [activeId, layerState, onChange, onOp])
+    return placement
+  }, [activeId, layerState, onChange])
+
+  /** Mints a layer above the active row and selects it — shared by the two
+   *  buttons that create one, the `+` and a reference import, so they can't
+   *  drift into placing layers by different rules. */
+  const addLayerAbove = useCallback((newId: string, name: string) => {
+    onOp({ type: 'layer_add', layerId: newId, name, ...placeAbove() })
+    onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
+  }, [placeAbove, onChange, onOp])
 
   const handleAddLayer = useCallback(() => {
     const count = Object.values(layerState.items).filter(i => i.kind === 'layer').length
@@ -250,12 +372,15 @@ export const LayerPanel = memo(function LayerPanel({
     addLayerAbove(nanoid(8), t('layers.defaultLayerName', { n: count + 1 }))
   }, [addLayerAbove, layerState.items, t])
 
+  // Unlike a new layer, a new folder deliberately does not become the active
+  // row: `activeId` is where strokes land, and a folder holds no pixels of its
+  // own (the same reason its row menu disables Clear — see #329).
   const handleAddFolder = useCallback(() => {
     onOp({
       type: 'folder_add', layerId: nanoid(8), name: t('layers.defaultFolderName'),
-      index: rootPlacementAbove(layerState, activeId),
+      ...placeAbove(),
     })
-  }, [activeId, layerState, onOp, t])
+  }, [placeAbove, onOp, t])
 
   // Reference image import (#88) — always its own new layer (never onto an
   // existing one), so image_import can assume a blank target with nothing
@@ -400,17 +525,53 @@ export const LayerPanel = memo(function LayerPanel({
   }, [handlePointerUp])
 
   // Build the contiguous block of ids that moves together with `id`. For a
-  // folder this is the header, its visible children, and its bottom sentinel;
+  // folder this is everything from its header to its own sentinel inclusive;
   // for anything else it's just the id itself.
+  //
+  // (#410) Read as a slice of the flat list rather than assembled from the
+  // folder's children, which is what it used to do and what would have needed
+  // recursion once folders nest — nested headers and their sentinels are in
+  // there too, and reassembling them in the right order is exactly the work
+  // buildFlatList already did. Taking the slice also makes a drop inside the
+  // dragged folder's own subtree structurally impossible rather than merely
+  // rejected: the whole block leaves `remainingIds`, so none of its rows are
+  // available as a target while it is in the air.
   const blockFor = useCallback((id: string): string[] => {
     const item = items[id]
     if (!item || !isFolder(item)) return [id]
-    return [
-      id,
-      ...(item.collapsed ? [] : item.children.filter(cid => flatIds.includes(cid))),
-      `${S_BOT}${id}`,
-    ]
+    const start = flatIds.indexOf(id)
+    const end = flatIds.indexOf(`${S_BOT}${id}`)
+    if (start < 0 || end < start) return [id]
+    return flatIds.slice(start, end + 1)
   }, [items, flatIds])
+
+  /** (#413) What a drag starting on `id` actually carries.
+   *
+   *  Grabbing a row that is part of the selection takes the whole selection;
+   *  grabbing one outside it takes only that row and leaves the selection
+   *  alone. The alternative — always dragging the selection — makes an
+   *  unrelated row impossible to nudge without first clearing a selection the
+   *  user may still want.
+   *
+   *  Normalised (a folder swallows its selected descendants) and re-ordered
+   *  into the panel's own top→bottom order, which is the order the group will
+   *  land in. A selection is built by tapping, so its natural order is the
+   *  order things were tapped in — meaningless as a layer order, and jarring
+   *  if a drop reshuffled the rows to match it. */
+  const movingIdsFor = useCallback((id: string): string[] => {
+    if (!selectedIds.includes(id)) return [id]
+    const normalized = new Set(normalizeMoveSet(layerState, selectedIds))
+    const ordered = flatIds.filter(fid => normalized.has(fid))
+    return ordered.length > 0 ? ordered : [id]
+  }, [selectedIds, layerState, flatIds])
+
+  /** Every row travelling with the current drag (#413) — dnd-kit only knows
+   *  about the one under the pointer, so the rest have to be dimmed by hand or
+   *  a group drag looks like a single-row drag with four rows left behind. */
+  const draggingIds = useMemo(
+    () => new Set(dragId ? movingIdsFor(dragId).flatMap(blockFor) : []),
+    [dragId, movingIdsFor, blockFor],
+  )
 
   // Where would `activeId`'s block land if dropped on `overId` right now?
   // Mirrors dnd-kit's own arrayMove: overId's position is read from the
@@ -419,13 +580,22 @@ export const LayerPanel = memo(function LayerPanel({
   // makes the folder header resolve correctly on its own — hovering it while
   // moving down means "enter as first child", moving up means "stay above,
   // outside" — without needing any pixel/rect math.
-  const computeInsertIndex = useCallback((activeId: string, overId: string) => {
+  const computeInsertIndex = useCallback((grabbedId: string, overId: string) => {
     const allIds = flatIds
-    const activeBlock = blockFor(activeId)
+    // (#413) The block is every moving item's own block, concatenated in flat
+    // order — one row for a plain drag, several for a group. Everything below
+    // already worked on an arbitrary *set* (`remainingIds` is a filter, not a
+    // slice), so a non-contiguous selection needs nothing special here.
+    const movingIds = movingIdsFor(grabbedId)
+    const activeBlock = movingIds.flatMap(blockFor)
     const activeSet = new Set(activeBlock)
     if (activeSet.has(overId)) return null
 
-    const blockStart = allIds.indexOf(activeBlock[0])
+    // Direction is read from the row under the finger, not from the first
+    // member of the block: with a scattered selection the topmost member can
+    // be far from where the gesture actually is, and "am I moving up or down"
+    // is a question about the gesture.
+    const blockStart = allIds.indexOf(grabbedId)
     const overIndexOriginal = allIds.indexOf(overId)
     if (overIndexOriginal < 0) return null
 
@@ -434,8 +604,8 @@ export const LayerPanel = memo(function LayerPanel({
     if (overIndexRemaining < 0) return null
 
     const insertIndex = overIndexOriginal > blockStart ? overIndexRemaining + 1 : overIndexRemaining
-    return { activeBlock, remainingIds, insertIndex }
-  }, [flatIds, blockFor])
+    return { movingIds, activeBlock, remainingIds, insertIndex }
+  }, [flatIds, blockFor, movingIdsFor])
 
   const onDragOver = useCallback((e: DragOverEvent) => {
     const overId    = e.over?.id ? String(e.over.id) : null
@@ -444,7 +614,9 @@ export const LayerPanel = memo(function LayerPanel({
 
     const overItem = items[overId]
     if (overItem && isFolder(overItem)) {
-      if (isFolder(items[activeIdD])) { setDragOverFolderId(null); return }
+      // (#410) A folder hovering a folder used to bail out here without a
+      // highlight, because it could never enter one. It can now, and the
+      // highlight is the only signal that it will.
       const result = computeInsertIndex(activeIdD, overId)
       // Entering means the block ends up right after the header, i.e. at the
       // header's own (post-removal) index + 1.
@@ -472,7 +644,7 @@ export const LayerPanel = memo(function LayerPanel({
 
     const result = computeInsertIndex(activeIdDnD, overId)
     if (!result) return
-    const { activeBlock, remainingIds } = result
+    const { movingIds, activeBlock, remainingIds } = result
     let insertIndex = result.insertIndex
 
     // Prevent dropping below background.
@@ -487,34 +659,48 @@ export const LayerPanel = memo(function LayerPanel({
 
     const { rootOrder: nextOrder, items: nextItems } = reconstructHierarchy(workingIds, items)
 
-    // Folders are one level deep — a folder can never end up as another
-    // folder's child. This catches every path that could nest one (landing
-    // on the header, on a child row, or on the sentinel of another folder),
-    // instead of only blocking the header case up front like before (which
-    // also wrongly blocked placing a folder right next to another folder).
-    if (isFolder(activeItemDnD)) {
-      const nested = Object.values(nextItems).some(
-        it => isFolder(it) && it.id !== activeIdDnD && it.children.includes(activeIdDnD),
-      )
-      if (nested) return
-    }
+    // (#410) A guard used to sit here refusing any result in which the dragged
+    // folder had become another folder's child. Nesting is the point now, and
+    // the one case it still needs to refuse — a folder landing inside its own
+    // subtree — cannot be expressed by this gesture at all: `blockFor` lifts
+    // that whole subtree out of `remainingIds`, so there is no row belonging to
+    // it left on screen to aim at. `applyMove` refuses it anyway, for the
+    // operations this panel did not author.
 
-    // Reduce the reconstructed hierarchy to a delta: where did the dragged
-    // item land? A delta op keeps concurrent reorders composable — a full
-    // order list would let a later reorder swallow another user's undo.
+    // Reduce the reconstructed hierarchy to a delta: where did the group land?
+    // A delta op keeps concurrent reorders composable — a full order list would
+    // let a later reorder swallow another user's undo.
+    //
+    // (#413) Read off the *first* moving item and taken as the position of the
+    // whole run. That holds because the run was spliced into `workingIds`
+    // contiguously just above, so its members come back as adjacent siblings of
+    // one container — which is also exactly what `applyMove` reconstructs from
+    // a single `(parentId, index)`.
+    const anchor = movingIds[0]
     let parentId: string | null = null
-    let index = nextOrder.indexOf(activeIdDnD)
+    let index = nextOrder.indexOf(anchor)
     for (const it of Object.values(nextItems)) {
-      if (isFolder(it) && it.children.includes(activeIdDnD)) {
+      if (isFolder(it) && it.children.includes(anchor)) {
         parentId = it.id
-        index = it.children.indexOf(activeIdDnD)
+        index = it.children.indexOf(anchor)
         break
       }
     }
-    onOp({ type: 'layer_move', layerId: activeIdDnD, parentId, index })
+    onOp({ type: 'layer_move', layerIds: movingIds, parentId, index })
   }, [items, onOp, computeInsertIndex])
 
   // ── toolbar state ────────────────────────────────────────────────────────────
+
+  // Mixed-state readouts for the two mass toggles — "are they all on?", the
+  // question their click answers by setting everything to the opposite.
+  const allTargetsVisible = targets.length > 0 && targets.every(id => items[id]?.visible)
+  const allTargetsLocked  = targets.length > 0 && targets.every(id => items[id]?.locked)
+
+  /** (#412) The slider reads from whatever it writes to. With a selection open
+   *  that is the first selected layer, not the active one — the active row can
+   *  sit outside the selection entirely, and a readout that stayed put while
+   *  the drag visibly changed other layers would look broken. */
+  const opacityItem = items[targets[0]] ?? activeItem
 
   const canMergeSelected = selectedIds.filter(id => id !== BACKGROUND_LAYER_ID && items[id]?.kind === 'layer').length >= 2
   const canMergeDown     = !canMergeSelected
@@ -528,8 +714,8 @@ export const LayerPanel = memo(function LayerPanel({
   // ── render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.body} onPointerDown={handlePanelPointerDown} onPointerUp={handlePointerUp}>
-      {activeItem && (
+    <div className={styles.body} onPointerUp={handlePointerUp}>
+      {opacityItem && (
         <div className={styles.opacityBar}>
           <span className={styles.opacityBarLabel}>{t('layers.opacity')}</span>
           {/* (#390) The last production control that was still a raw
@@ -541,13 +727,13 @@ export const LayerPanel = memo(function LayerPanel({
           <PrecisionSlider
             className={styles.opacityBarSlider}
             orientation="horizontal"
-            value={activeItem.opacity}
+            value={opacityItem.opacity}
             min={0} max={1} step={0.01}
             onChange={v => handleOpacity(activeId, v)}
             formatValue={v => `${Math.round(v * 100)}%`}
             title={t('layers.opacity')}
           />
-          <span className={styles.opacityBarValue}>{Math.round(activeItem.opacity * 100)}%</span>
+          <span className={styles.opacityBarValue}>{Math.round(opacityItem.opacity * 100)}%</span>
         </div>
       )}
 
@@ -569,6 +755,17 @@ export const LayerPanel = memo(function LayerPanel({
           onChange={handleImportImageChange}
         />
         <span className={styles.toolbarSpacer} />
+        {/* (#411) The discoverable half of entering selection mode. Long-press
+            is the accelerator; a gesture with no visible affordance was what
+            forced the one-time hint this replaces. */}
+        <button
+          className={clsx(styles.toolbarBtn, selectionMode && styles.toolbarBtnLocked)}
+          onClick={handleEnterSelection}
+          title={t('layers.selectMultiple')}
+          aria-label={t('layers.selectMultiple')}
+          aria-pressed={selectionMode}>
+          <Icon name="check_box" />
+        </button>
         <button
           className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
           onClick={() => handleToggleLock(activeId)}
@@ -605,16 +802,37 @@ export const LayerPanel = memo(function LayerPanel({
         </button>
       </div>
 
-      {showTouchHint && (
-        <div className={styles.touchHint}>
-          <Icon name="info" />
-          <span>{t('layers.touchHint')}</span>
+      {selectionMode && (
+        <div className={styles.selectionBar}>
+          <span className={styles.selectionCount}>
+            {t('layers.selectedCount', { n: selectedIds.length })}
+          </span>
+          {/* (#412) Mass visibility and lock. They live here rather than in the
+              toolbar above because they only mean anything while a selection
+              exists, and that row is already full. */}
           <button
-            className={styles.touchHintDismiss}
-            onClick={handleDismissTouchHint}
-            title={t('layers.dismissHint')}
-          >
-            <Icon name="close" />
+            className={styles.toolbarBtn}
+            onClick={handleToggleVisibleMass}
+            disabled={targets.length === 0}
+            title={t(allTargetsVisible ? 'layers.hide' : 'layers.show')}
+            aria-label={t(allTargetsVisible ? 'layers.hide' : 'layers.show')}>
+            <Icon name={allTargetsVisible ? 'visibility' : 'visibility_off'} />
+          </button>
+          <button
+            className={clsx(styles.toolbarBtn, allTargetsLocked && styles.toolbarBtnLocked)}
+            onClick={handleToggleLockMass}
+            disabled={targets.length === 0}
+            title={t(allTargetsLocked ? 'layers.unlock' : 'layers.lock')}
+            aria-label={t(allTargetsLocked ? 'layers.unlock' : 'layers.lock')}>
+            <Icon name={allTargetsLocked ? 'lock' : 'lock_open'} />
+          </button>
+          <button className={styles.selectionBtn} onClick={handleSelectAll}>
+            {t(allSelected ? 'layers.deselectAll' : 'layers.selectAll')}
+          </button>
+          <button
+            className={clsx(styles.selectionBtn, styles.selectionBtnPrimary)}
+            onClick={handleExitSelection}>
+            {t('common.done')}
           </button>
         </div>
       )}
@@ -646,6 +864,7 @@ export const LayerPanel = memo(function LayerPanel({
                   isActive={activeId === entry.id}
                   isSelected={selectedIds.includes(entry.id)}
                   isDragOverFolder={dragOverFolderId === entry.id}
+                  isTravelling={draggingIds.has(entry.id)}
                   isOwner={isOwner}
                   onActivate={handleActivate}
                   onToggleVisible={handleToggleVisible}
@@ -661,6 +880,9 @@ export const LayerPanel = memo(function LayerPanel({
                   onDelete={handleMenuDelete}
                   onPointerDown={handlePointerDown}
                   onPointerUp={handlePointerUp}
+                  onPointerMove={handlePointerMove}
+                  selectionMode={selectionMode}
+                  onToggleSelected={toggleSelected}
                 />
               )
             })}
@@ -668,7 +890,16 @@ export const LayerPanel = memo(function LayerPanel({
 
           <DragOverlay>
             {dragId && items[dragId]
-              ? <div className={styles.dragOverlay}>{items[dragId].name}</div>
+              ? (
+                <div className={styles.dragOverlay}>
+                  {/* (#413) A group says how big it is rather than naming one
+                      of its members — with the rows dimmed underneath, a single
+                      name would read as "only this one is moving". */}
+                  {movingIdsFor(dragId).length > 1
+                    ? t('layers.selectedCount', { n: movingIdsFor(dragId).length })
+                    : items[dragId].name}
+                </div>
+              )
               : null}
           </DragOverlay>
         </DndContext>

@@ -33,6 +33,26 @@ export interface LayerState {
 
 export const BACKGROUND_LAYER_ID = 'background'
 
+/**
+ * The layers an operation applies to, in one shape whichever form it was
+ * recorded in (#412).
+ *
+ * `layer_opacity` and `layer_visibility` used to name a single `layerId` and
+ * now carry a `layerIds` list. Both forms are permanently valid to *read*:
+ * the singular one is written into the operation logs of every room created
+ * before #412, and those logs are replayed verbatim on every join. Only the
+ * plural form is ever written from here on.
+ *
+ * Every reader goes through this. A `op.layerId` left somewhere would work
+ * perfectly against old rooms and silently ignore every mass change made in
+ * new ones — the kind of failure that shows up as "sometimes it doesn't
+ * apply" months later.
+ */
+export function operationLayerIds(op: { layerId?: string; layerIds?: string[] }): string[] {
+  if (op.layerIds) return op.layerIds
+  return op.layerId === undefined ? [] : [op.layerId]
+}
+
 // The two layers every room starts with. Neither is ever produced by a
 // `layer_add` operation — they are baked into the client's initial
 // LayerState (see makeInitialLayerState) and therefore exist from seq 0 with
@@ -494,13 +514,20 @@ export type ImageImportOperation = OperationBase & {
 }
 
 /** Inserts a new empty folder above the active item's own row (#378), by the
- *  same rule and for the same reasons as `LayerAddOperation` above. No
- *  `parentId` counterpart: folders are one level only, so a folder's position
- *  is always an index into `rootOrder`. Absent `index` means the top. */
+ *  same rule and for the same reasons as `LayerAddOperation` above.
+ *
+ *  (#410) `parentId` is the counterpart this used to lack on purpose, back
+ *  when folders were one level deep and a folder's position could only ever be
+ *  an index into `rootOrder`. Folders nest now, so a folder is placed by the
+ *  same (container, index) pair as anything else. Absent or null means root —
+ *  which is where every folder went before nesting existed, so `folder_add`
+ *  operations already in the log replay exactly as they did. Absent `index`
+ *  means the top. */
 export type FolderAddOperation = OperationBase & {
   type: 'folder_add'
   layerId: string
   name: string
+  parentId?: string | null // folder id, or null/absent for root
   index?: number
 }
 
@@ -510,23 +537,54 @@ export type LayerDeleteOperation = OperationBase & {
 }
 
 /** Delta move: relocate one item to (parentId, index). A full-order list would
- *  let one user's later reorder silently swallow another's undo (ADR 002 §2). */
+ *  let one user's later reorder silently swallow another's undo (ADR 002 §2).
+ *
+ *  (#410) `parentId` may now name a folder even when the moving item is itself
+ *  a folder. The one structural refusal left is a loop — a folder moved into
+ *  its own descendant — and it is enforced in `applyMove`, i.e. on replay,
+ *  not only where the gesture is made. */
 export type LayerMoveOperation = OperationBase & {
   type: 'layer_move'
-  layerId: string
+  /** Pre-#413 single-target form, still in recorded logs. Read both through
+   *  `operationLayerIds`. */
+  layerId?: string
+  /** (#413) The items to relocate, inserted as one contiguous run in this
+   *  order. One operation rather than one per item: a group move is one undo,
+   *  and other participants see one change instead of watching a selection
+   *  disassemble and reassemble itself.
+   *
+   *  A single `(parentId, index)` is enough for any legal group only because
+   *  folders nest (#410) — before that, a set mixing folders and layers had no
+   *  single container that could hold all of it. */
+  layerIds?: string[]
   parentId: string | null // folder id, or null for root
   index: number           // position within the target container, top→bottom
 }
 
+/** (#412) Applies one opacity to any number of layers at once.
+ *
+ *  Plural rather than N separate operations for the reason `layer_transform`
+ *  and `layer_delete` are already plural: one operation is one undo. N
+ *  operations would make Ctrl+Z take a mass change apart layer by layer, and
+ *  would let every other participant in the room watch it happen in pieces.
+ *
+ *  `layerId` is the pre-#412 single-target form. It is still in the recorded
+ *  logs of every live room, so it stays readable forever; new operations only
+ *  ever write `layerIds`. Read both through `operationLayerIds` rather than
+ *  touching either field directly. */
 export type LayerOpacityOperation = OperationBase & {
   type: 'layer_opacity'
-  layerId: string
+  layerId?: string
+  layerIds?: string[]
   opacity: number       // 0–1
 }
 
+/** (#412) Same plural shape and the same reasoning as `LayerOpacityOperation`
+ *  above — including the legacy `layerId`, which recorded logs still carry. */
 export type LayerVisibilityOperation = OperationBase & {
   type: 'layer_visibility'
-  layerId: string
+  layerId?: string
+  layerIds?: string[]
   visible: boolean
 }
 

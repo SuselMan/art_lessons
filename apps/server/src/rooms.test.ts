@@ -691,6 +691,47 @@ describe('isOperationAllowed', () => {
     expect(isOperationAllowed(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'layer-open' }))).toBe(true)
   })
 
+  // (#412) The mass forms of layer_opacity/layer_visibility carry a list, and
+  // the `'layerId' in op` test that guards everything else simply does not see
+  // it. Left unhandled, "hide these five layers" would have been a way for any
+  // participant to act on a layer the owner reserved — a privilege escalation
+  // reachable from a normal button, not a crafted payload.
+  it('refuses a mass visibility change that includes an owner-locked layer', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+    setLayerOwnerLocked(roomId, 'layer-locked', true)
+
+    const mass = layerVisibility({ userId: 'student-1', layerId: undefined, layerIds: ['layer-open', 'layer-locked'] })
+    expect(isOperationAllowed(roomId, 'student-1', mass)).toBe(false)
+
+    const clean = layerVisibility({ userId: 'student-1', layerId: undefined, layerIds: ['layer-open', 'layer-other'] })
+    expect(isOperationAllowed(roomId, 'student-1', clean)).toBe(true)
+  })
+
+  it('refuses a mass opacity change that includes an owner-locked layer', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+    setLayerOwnerLocked(roomId, 'layer-locked', true)
+
+    const mass: Operation = {
+      id: 'o1', type: 'layer_opacity', userId: 'student-1', timestamp: 0,
+      layerIds: ['layer-open', 'layer-locked'], opacity: 0.5,
+    }
+    expect(isOperationAllowed(roomId, 'student-1', mass)).toBe(false)
+  })
+
+  // The owner is short-circuited above the lock check, as before.
+  it('lets the owner make a mass change over their own locked layer', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    setLayerOwnerLocked(roomId, 'layer-locked', true)
+
+    const mass = layerVisibility({ userId: 'owner-1', layerId: undefined, layerIds: ['layer-locked'] })
+    expect(isOperationAllowed(roomId, 'owner-1', mass)).toBe(true)
+  })
+
   it('an owner-locked layer does not block operations that carry no layerId', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
