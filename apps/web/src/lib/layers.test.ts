@@ -627,6 +627,98 @@ describe('plural layer_opacity / layer_visibility (#412)', () => {
   })
 })
 
+// ── #413: group move ─────────────────────────────────────────────────────────
+
+describe('group layer_move (#413)', () => {
+  const move = (over: Partial<LayerMoveOperation>): LayerMoveOperation => ({
+    ...baseOp, type: 'layer_move', parentId: null, index: 0, ...over,
+  })
+
+  it('lands a scattered selection as one contiguous run, in the order given', () => {
+    const state = stateOf(
+      { a: layer('a'), b: layer('b'), c: layer('c'), d: layer('d') },
+      ['a', 'b', 'c', 'd'],
+    )
+    // a and c are not neighbours; after the move they are.
+    const next = applyContentOp(state, move({ layerIds: ['a', 'c'], parentId: null, index: 2 }))
+    expect(next.rootOrder).toEqual(['b', 'd', 'a', 'c'])
+  })
+
+  it('moves a mixed set of folders and layers into a folder', () => {
+    const state = stateOf(
+      { box: folder('box', []), f1: folder('f1', ['x']), x: layer('x'), y: layer('y') },
+      ['box', 'f1', 'y'],
+    )
+    const next = applyContentOp(state, move({ layerIds: ['f1', 'y'], parentId: 'box', index: 0 }))
+    expect(next.rootOrder).toEqual(['box'])
+    expect(next.items.box).toMatchObject({ children: ['f1', 'y'] })
+    // f1 kept its own contents through the move.
+    expect(next.items.f1).toMatchObject({ children: ['x'] })
+  })
+
+  // Ilya's "and worse, individual items out of a folder" case.
+  it('lifts part of a folder out and leaves the rest behind', () => {
+    const state = stateOf(
+      { f1: folder('f1', ['x', 'y', 'z']), x: layer('x'), y: layer('y'), z: layer('z') },
+      ['f1'],
+    )
+    const next = applyContentOp(state, move({ layerIds: ['x', 'z'], parentId: null, index: 0 }))
+    expect(next.rootOrder).toEqual(['x', 'z', 'f1'])
+    expect(next.items.f1).toMatchObject({ children: ['y'] })
+  })
+
+  // The normalisation rule: a folder swallows its selected descendants, so the
+  // child rides along inside it instead of being lifted out on its own.
+  it('ignores a selected child whose folder is also selected', () => {
+    const state = stateOf(
+      { f1: folder('f1', ['x']), x: layer('x'), y: layer('y') },
+      ['y', 'f1'],
+    )
+    const next = applyContentOp(state, move({ layerIds: ['f1', 'x'], parentId: null, index: 0 }))
+    expect(next.rootOrder).toEqual(['f1', 'y'])
+    expect(next.items.f1).toMatchObject({ children: ['x'] })
+  })
+
+  it('refuses the whole move when any member would land inside itself', () => {
+    const state = stateOf(
+      { f1: folder('f1', ['inner']), inner: folder('inner', []), loose: layer('loose') },
+      ['f1', 'loose'],
+    )
+    // Refusing wholesale rather than moving `loose` and skipping `f1`: a
+    // partial result is the one outcome the user cannot make sense of.
+    expect(applyContentOp(state, move({ layerIds: ['f1', 'loose'], parentId: 'inner', index: 0 }))).toBe(state)
+  })
+
+  it('refuses a move into a folder that is itself moving', () => {
+    const state = stateOf(
+      { f1: folder('f1', []), a: layer('a') },
+      ['f1', 'a'],
+    )
+    expect(applyContentOp(state, move({ layerIds: ['f1', 'a'], parentId: 'f1', index: 0 }))).toBe(state)
+  })
+
+  it('drops the background from a group rather than refusing the move', () => {
+    const state = stateOf(
+      { [BACKGROUND_LAYER_ID]: layer(BACKGROUND_LAYER_ID), a: layer('a'), b: layer('b') },
+      ['a', 'b', BACKGROUND_LAYER_ID],
+    )
+    const next = applyContentOp(state, move({ layerIds: ['b', BACKGROUND_LAYER_ID], parentId: null, index: 0 }))
+    expect(next.rootOrder).toEqual(['b', 'a', BACKGROUND_LAYER_ID])
+  })
+
+  // Every layer_move in a pre-#413 log is singular.
+  it('still replays the pre-#413 singular form', () => {
+    const state = stateOf({ a: layer('a'), b: layer('b') }, ['a', 'b'])
+    const next = applyContentOp(state, move({ layerId: 'a', parentId: null, index: 1 }))
+    expect(next.rootOrder).toEqual(['b', 'a'])
+  })
+
+  it('is a no-op when nothing it names still exists', () => {
+    const state = stateOf({ a: layer('a') }, ['a'])
+    expect(applyContentOp(state, move({ layerIds: ['ghost'], parentId: null, index: 0 }))).toBe(state)
+  })
+})
+
 // ── #410: nested folders ─────────────────────────────────────────────────────
 
 describe('nested folders (#410)', () => {

@@ -1005,12 +1005,16 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
  *  worst shape this could have taken, so the two pluralised types are named
  *  explicitly rather than inferred from whether some field happens to exist.
  *
+ *  `layer_move` joined them in #413 for the same reason — it carries a group
+ *  now — and it was gated before, so leaving it out would have *removed* a
+ *  check rather than failed to add one.
+ *
  *  Deliberately unchanged for everything else, including `layer_delete` and
  *  `layer_transform`, which have never been gated here (neither carries a
  *  `layerId`). Whether that is right is a separate question from this one and
  *  does not get answered by accident in a refactor. */
 function ownerLockedTargets(record: RoomRecord, op: Operation): boolean {
-  if (op.type === 'layer_opacity' || op.type === 'layer_visibility') {
+  if (op.type === 'layer_opacity' || op.type === 'layer_visibility' || op.type === 'layer_move') {
     return operationLayerIds(op).some(id => record.lockedLayerIds.has(id))
   }
   return 'layerId' in op && record.lockedLayerIds.has(op.layerId)

@@ -32,7 +32,7 @@ import {
 import { patchItem } from './utils'
 import {
   isFolder, isLayerLocked, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
-  placementAbove,
+  placementAbove, normalizeMoveSet,
 } from '../../lib/layers'
 import { readImageFile } from '../../lib/image'
 import styles from './LayerPanel.module.css'
@@ -545,6 +545,34 @@ export const LayerPanel = memo(function LayerPanel({
     return flatIds.slice(start, end + 1)
   }, [items, flatIds])
 
+  /** (#413) What a drag starting on `id` actually carries.
+   *
+   *  Grabbing a row that is part of the selection takes the whole selection;
+   *  grabbing one outside it takes only that row and leaves the selection
+   *  alone. The alternative — always dragging the selection — makes an
+   *  unrelated row impossible to nudge without first clearing a selection the
+   *  user may still want.
+   *
+   *  Normalised (a folder swallows its selected descendants) and re-ordered
+   *  into the panel's own top→bottom order, which is the order the group will
+   *  land in. A selection is built by tapping, so its natural order is the
+   *  order things were tapped in — meaningless as a layer order, and jarring
+   *  if a drop reshuffled the rows to match it. */
+  const movingIdsFor = useCallback((id: string): string[] => {
+    if (!selectedIds.includes(id)) return [id]
+    const normalized = new Set(normalizeMoveSet(layerState, selectedIds))
+    const ordered = flatIds.filter(fid => normalized.has(fid))
+    return ordered.length > 0 ? ordered : [id]
+  }, [selectedIds, layerState, flatIds])
+
+  /** Every row travelling with the current drag (#413) — dnd-kit only knows
+   *  about the one under the pointer, so the rest have to be dimmed by hand or
+   *  a group drag looks like a single-row drag with four rows left behind. */
+  const draggingIds = useMemo(
+    () => new Set(dragId ? movingIdsFor(dragId).flatMap(blockFor) : []),
+    [dragId, movingIdsFor, blockFor],
+  )
+
   // Where would `activeId`'s block land if dropped on `overId` right now?
   // Mirrors dnd-kit's own arrayMove: overId's position is read from the
   // ORIGINAL (pre-removal) list, so dragging down past a target lands after
@@ -552,13 +580,22 @@ export const LayerPanel = memo(function LayerPanel({
   // makes the folder header resolve correctly on its own — hovering it while
   // moving down means "enter as first child", moving up means "stay above,
   // outside" — without needing any pixel/rect math.
-  const computeInsertIndex = useCallback((activeId: string, overId: string) => {
+  const computeInsertIndex = useCallback((grabbedId: string, overId: string) => {
     const allIds = flatIds
-    const activeBlock = blockFor(activeId)
+    // (#413) The block is every moving item's own block, concatenated in flat
+    // order — one row for a plain drag, several for a group. Everything below
+    // already worked on an arbitrary *set* (`remainingIds` is a filter, not a
+    // slice), so a non-contiguous selection needs nothing special here.
+    const movingIds = movingIdsFor(grabbedId)
+    const activeBlock = movingIds.flatMap(blockFor)
     const activeSet = new Set(activeBlock)
     if (activeSet.has(overId)) return null
 
-    const blockStart = allIds.indexOf(activeBlock[0])
+    // Direction is read from the row under the finger, not from the first
+    // member of the block: with a scattered selection the topmost member can
+    // be far from where the gesture actually is, and "am I moving up or down"
+    // is a question about the gesture.
+    const blockStart = allIds.indexOf(grabbedId)
     const overIndexOriginal = allIds.indexOf(overId)
     if (overIndexOriginal < 0) return null
 
@@ -567,8 +604,8 @@ export const LayerPanel = memo(function LayerPanel({
     if (overIndexRemaining < 0) return null
 
     const insertIndex = overIndexOriginal > blockStart ? overIndexRemaining + 1 : overIndexRemaining
-    return { activeBlock, remainingIds, insertIndex }
-  }, [flatIds, blockFor])
+    return { movingIds, activeBlock, remainingIds, insertIndex }
+  }, [flatIds, blockFor, movingIdsFor])
 
   const onDragOver = useCallback((e: DragOverEvent) => {
     const overId    = e.over?.id ? String(e.over.id) : null
@@ -607,7 +644,7 @@ export const LayerPanel = memo(function LayerPanel({
 
     const result = computeInsertIndex(activeIdDnD, overId)
     if (!result) return
-    const { activeBlock, remainingIds } = result
+    const { movingIds, activeBlock, remainingIds } = result
     let insertIndex = result.insertIndex
 
     // Prevent dropping below background.
@@ -630,19 +667,26 @@ export const LayerPanel = memo(function LayerPanel({
     // it left on screen to aim at. `applyMove` refuses it anyway, for the
     // operations this panel did not author.
 
-    // Reduce the reconstructed hierarchy to a delta: where did the dragged
-    // item land? A delta op keeps concurrent reorders composable — a full
-    // order list would let a later reorder swallow another user's undo.
+    // Reduce the reconstructed hierarchy to a delta: where did the group land?
+    // A delta op keeps concurrent reorders composable — a full order list would
+    // let a later reorder swallow another user's undo.
+    //
+    // (#413) Read off the *first* moving item and taken as the position of the
+    // whole run. That holds because the run was spliced into `workingIds`
+    // contiguously just above, so its members come back as adjacent siblings of
+    // one container — which is also exactly what `applyMove` reconstructs from
+    // a single `(parentId, index)`.
+    const anchor = movingIds[0]
     let parentId: string | null = null
-    let index = nextOrder.indexOf(activeIdDnD)
+    let index = nextOrder.indexOf(anchor)
     for (const it of Object.values(nextItems)) {
-      if (isFolder(it) && it.children.includes(activeIdDnD)) {
+      if (isFolder(it) && it.children.includes(anchor)) {
         parentId = it.id
-        index = it.children.indexOf(activeIdDnD)
+        index = it.children.indexOf(anchor)
         break
       }
     }
-    onOp({ type: 'layer_move', layerId: activeIdDnD, parentId, index })
+    onOp({ type: 'layer_move', layerIds: movingIds, parentId, index })
   }, [items, onOp, computeInsertIndex])
 
   // ── toolbar state ────────────────────────────────────────────────────────────
@@ -820,6 +864,7 @@ export const LayerPanel = memo(function LayerPanel({
                   isActive={activeId === entry.id}
                   isSelected={selectedIds.includes(entry.id)}
                   isDragOverFolder={dragOverFolderId === entry.id}
+                  isTravelling={draggingIds.has(entry.id)}
                   isOwner={isOwner}
                   onActivate={handleActivate}
                   onToggleVisible={handleToggleVisible}
@@ -845,7 +890,16 @@ export const LayerPanel = memo(function LayerPanel({
 
           <DragOverlay>
             {dragId && items[dragId]
-              ? <div className={styles.dragOverlay}>{items[dragId].name}</div>
+              ? (
+                <div className={styles.dragOverlay}>
+                  {/* (#413) A group says how big it is rather than naming one
+                      of its members — with the rows dimmed underneath, a single
+                      name would read as "only this one is moving". */}
+                  {movingIdsFor(dragId).length > 1
+                    ? t('layers.selectedCount', { n: movingIdsFor(dragId).length })
+                    : items[dragId].name}
+                </div>
+              )
               : null}
           </DragOverlay>
         </DndContext>

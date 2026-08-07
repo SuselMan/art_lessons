@@ -545,7 +545,18 @@ export type LayerDeleteOperation = OperationBase & {
  *  not only where the gesture is made. */
 export type LayerMoveOperation = OperationBase & {
   type: 'layer_move'
-  layerId: string
+  /** Pre-#413 single-target form, still in recorded logs. Read both through
+   *  `operationLayerIds`. */
+  layerId?: string
+  /** (#413) The items to relocate, inserted as one contiguous run in this
+   *  order. One operation rather than one per item: a group move is one undo,
+   *  and other participants see one change instead of watching a selection
+   *  disassemble and reassemble itself.
+   *
+   *  A single `(parentId, index)` is enough for any legal group only because
+   *  folders nest (#410) — before that, a set mixing folders and layers had no
+   *  single container that could hold all of it. */
+  layerIds?: string[]
   parentId: string | null // folder id, or null for root
   index: number           // position within the target container, top→bottom
 }

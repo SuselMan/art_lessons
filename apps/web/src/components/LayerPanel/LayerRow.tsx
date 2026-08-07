@@ -16,6 +16,9 @@ export interface LayerRowProps {
   isActive: boolean
   isSelected: boolean
   isDragOverFolder?: boolean
+  /** (#413) This row is part of the group currently being dragged. dnd-kit's
+   *  own `isDragging` only ever describes the one row under the pointer. */
+  isTravelling?: boolean
   // (#254/#260) Whether the *current viewer* is this room's owner — gates
   // whether the owner-lock badge below is an interactive toggle or a
   // read-only indicator. Not the same thing as `item.ownerLocked` (the
@@ -55,7 +58,7 @@ export interface LayerRowProps {
 }
 
 function LayerRowImpl({
-  item, depth, isActive, isSelected, isDragOverFolder, isOwner,
+  item, depth, isActive, isSelected, isDragOverFolder, isTravelling = false, isOwner,
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
   onToggleCollapse, onMergeDown, onClear, onDelete,
@@ -92,7 +95,7 @@ function LayerRowImpl({
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.4 : 1,
+        opacity: isDragging || isTravelling ? 0.4 : 1,
         // (#410) Depth is unbounded now; the indent is not. The row already
         // carries eight controls, and past the fourth level a tablet panel has
         // no width left for the name. Deeper rows stop stepping right rather

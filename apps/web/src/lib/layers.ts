@@ -116,6 +116,24 @@ export function getVisibleOrder(state: LayerState): string[] {
   return out
 }
 
+/**
+ * The members of a selection that actually have to be moved (#413): anything
+ * whose ancestor is also selected is dropped, because it rides along inside
+ * that folder.
+ *
+ * Without this, "select a folder and one of its layers, drag both" would move
+ * the layer twice — once inside the folder and once on its own, the second
+ * lifting it back out of the folder it just travelled in. It is also what makes
+ * the awkward cases of a group drag stop being special: a partial selection
+ * inside a folder, a folder plus loose layers, an out-of-order pick. Order is
+ * preserved from the input, which callers give in the panel's own top→bottom
+ * order.
+ */
+export function normalizeMoveSet(state: LayerState, ids: readonly string[]): string[] {
+  const set = new Set(ids)
+  return ids.filter(id => !ancestorsOf(state, id).some(a => set.has(a)))
+}
+
 /** Collects an id plus every descendant beneath it, to any depth. */
 export function collectDescendants(state: LayerState, id: string): string[] {
   const out: string[] = []
@@ -245,12 +263,45 @@ function patchItems(
   return changed ? { ...state, items } : state
 }
 
+/** Detaches ids from wherever they sit — `rootOrder` and every folder's
+ *  `children` — without placing them anywhere. Their own subtrees are
+ *  untouched: a folder's contents live in `items`, not in the list it was
+ *  removed from, so a detached folder arrives at its destination whole. */
+function detachAll(state: LayerState, ids: readonly string[]): LayerState {
+  const gone = new Set(ids)
+  const items: LayerState['items'] = {}
+  for (const [id, item] of Object.entries(state.items)) {
+    items[id] = isFolder(item) && item.children.some(c => gone.has(c))
+      ? { ...item, children: item.children.filter(c => !gone.has(c)) }
+      : item
+  }
+  return { ...state, items, rootOrder: state.rootOrder.filter(id => !gone.has(id)) }
+}
+
+/**
+ * Relocates one item or a whole group to `(parentId, index)` — a group landing
+ * as one contiguous run, in the order given (#413).
+ *
+ * The refusals are all-or-nothing on purpose. A group move that silently
+ * dropped its illegal members would be worse than one that does nothing: the
+ * user would see part of the selection move with no way to tell which rule
+ * bit, and every other client folds the same partial result.
+ */
 function applyMove(state: LayerState, op: LayerMoveOperation): LayerState {
-  const moving = state.items[op.layerId]
-  if (!moving || op.layerId === BACKGROUND_LAYER_ID) return state
-  if (op.parentId) {
+  const ids = operationLayerIds(op).filter(id => id !== BACKGROUND_LAYER_ID && state.items[id])
+  if (ids.length === 0) return state
+
+  // An id whose ancestor is also moving would be relocated twice — once
+  // implicitly, riding inside its folder, and once explicitly, which lifts it
+  // back out again. Normalising here rather than trusting the sender keeps
+  // replay correct for any operation, however it was authored.
+  const moving = new Set(ids)
+  const roots = normalizeMoveSet(state, ids)
+
+  if (op.parentId !== null) {
     const target = state.items[op.parentId]
-    if (!target || !isFolder(target) || op.parentId === op.layerId) return state
+    if (!target || !isFolder(target)) return state
+    if (moving.has(op.parentId)) return state
     // (#410) Folders nest now, so "a folder can never become a folder's child"
     // is gone and exactly one structural refusal replaces it: a folder may not
     // move into its own descendant. Enforced *here*, in replay, and not only in
@@ -258,17 +309,24 @@ function applyMove(state: LayerState, op: LayerMoveOperation): LayerState {
     // that slipped past a UI gate would arrive at all of them and send the
     // walks below into unbounded recursion simultaneously. The UI gate stops
     // the gesture; this stops the state.
-    if (isFolder(moving) && ancestorsOf(state, op.parentId).includes(op.layerId)) return state
+    const targetAncestors = ancestorsOf(state, op.parentId)
+    for (const id of roots) {
+      const item = state.items[id]
+      if (item && isFolder(item) && targetAncestors.includes(id)) return state
+    }
   }
 
-  const rootOrder = state.rootOrder.filter(id => id !== op.layerId)
-  const items: LayerState['items'] = {}
-  for (const [id, item] of Object.entries(state.items)) {
-    items[id] = isFolder(item) && item.children.includes(op.layerId)
-      ? { ...item, children: item.children.filter(c => c !== op.layerId) }
-      : item
-  }
-  return insertAt(state, items, rootOrder, op.layerId, op.parentId, op.index)
+  // Detach everything *first*, then place. Doing both per item would let each
+  // removal shift the indices of the movers still to come, and a scattered
+  // selection would arrive interleaved with the rows it travelled past instead
+  // of contiguous — which is the one thing this operation promises.
+  let next = detachAll(state, roots)
+  roots.forEach((id, i) => {
+    // `insertAt` clamps, so an index past the end appends; the run stays
+    // together either way.
+    next = insertAt(next, next.items, next.rootOrder, id, op.parentId, op.index + i)
+  })
+  return next
 }
 
 /** Applies one operation's structural effect. Pixel-only operations (stroke,
