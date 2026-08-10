@@ -1,4 +1,40 @@
+/* Two palettes (#426).
+ *
+ * `:root` carries the dark one, unprefixed, because dark is the default and
+ * every rule in the app resolves against it when no theme has been chosen.
+ * The light one is an override block keyed on `[data-theme='light']`, set on
+ * <html> by `syncThemeAttribute()` — the same mechanism `data-device` already
+ * uses, for the same reason: a component that only differs in colour should
+ * not have to subscribe to a store to find out which one it is in.
+ *
+ * ── Why light is not dark inverted ──────────────────────────────────────────
+ * The light palette exists because a teacher from the audience we are
+ * building for could not read the interface on the dark one. Inverting these
+ * values would have reproduced that exactly: the dark palette is deliberately
+ * quiet and close-toned (text #cccccc rather than white, borders two or three
+ * steps off their surface), which works when everything glows on near-black
+ * and fails the moment legibility is the thing being asked for.
+ *
+ * So the light values are picked against a measured floor rather than mirrored:
+ *   - every text/surface pair clears WCAG AA (4.5:1), body text clears AAA
+ *   - --color-border clears 3:1 against every surface it can be drawn on
+ * These are checked, not asserted: `npm test` runs contrast.test.ts, which
+ * parses this file and fails on a pair that drops below its floor. If a value
+ * here is edited, that test is what says whether the edit was safe.
+ *
+ * The dark palette is *not* held to those floors, and it is worth being exact
+ * about how far it is from them rather than implying it nearly passes:
+ * --color-border sits at 1.3:1 on --color-surface and --color-text-dim at
+ * ~3:1 on --color-bg. Both are deliberate — the dark theme separates by tone
+ * rather than by edge, and raising either would flatten the hierarchy it is
+ * built on and change the default look for everyone, which is not what #426
+ * asked for. The test pins those two at their current values instead, so they
+ * can't quietly get worse; the accessible path is the light theme.
+ */
+
 :root {
+  color-scheme: dark;
+
   /* Colors */
   --color-bg:        #1a1a1e;
   --color-surface:   #111113;
@@ -18,9 +54,34 @@
   --color-border-soft: #202027;
   --color-accent:    #5555aa;
   --color-accent-hover: #6666bb;
+  /* (#426) The pressed state of an accent-filled button. Was #4444aa written
+     out in four places (Auth, CreateRoom, Room's join gate); it is one state
+     with one colour, and in the light theme it has to move in the opposite
+     direction from --color-accent-hover — darker rather than lighter — which
+     a literal repeated per call site cannot do. */
+  --color-accent-active: #4444aa;
+  /* A quieter accent for borders on selected/focused cards, where the fill
+     strength would shout. */
+  --color-accent-border: #4a4a99;
   --color-text:      #cccccc;
   --color-text-dim:  #666666;
   --color-text-bright: #eeeeee;
+  /* (#426) One step below --color-text-dim, for the layer panel's quietest
+     glyphs — the drag grip, the unlocked padlock, the layer-type mark, the
+     read-only opacity readout.
+     It exists because those four were written as `color: var(--color-text-dim)`
+     plus `opacity: 0.35…0.55`, and opacity is blind to the theme: dimming a
+     light grey *towards* a near-black background lands somewhere readable,
+     dimming a dark grey towards white erases it. Measured in the light theme
+     before this token existed, those glyphs came out at 1.7–2.5:1. Saying
+     "quieter" as a colour instead of as a multiplier lets each theme answer
+     the question in its own direction. */
+  --color-text-faint: #45454d;
+  /* (#426) Text and icons sitting *on* an accent or danger fill. White in both
+     themes — both fills are dark enough to carry it — but named, because
+     `color: #fff` next to a themed background is the one literal that silently
+     becomes a bug when someone later lightens the fill. */
+  --color-on-accent: #ffffff;
 
   /* Status colors (#343). Before these, every notification strip and form
      error carried its own hex, and "the same" meaning had drifted into
@@ -33,6 +94,55 @@
   --color-error:     #cc6666;
   --color-warning:   #e0a952;
   --color-success:   #68a06d;
+
+  /* (#426) The *filled* destructive button — a heavier weight of --color-error,
+     which is tuned for text and strokes and is too light to sit under white
+     letters. Same drift the #343 note describes, caught one layer down: the
+     confirm dialog's destructive button was #a33a3a/#b94545 and My Lessons'
+     was #aa5555/#bb6666, two pairs meaning "delete". One pair now. */
+  --color-error-fill: #a33a3a;
+  --color-error-fill-hover: #b94545;
+
+  /* (#426) The editor's backdrop — the surface the sheet of paper floats on,
+     with its dot grid. Not a chrome surface and deliberately not derived from
+     one: its job is to be the thing the paper is legible *against*, so in the
+     light theme it stays a mid grey rather than going white. White-on-white
+     would cost the sheet its edge, which is the one thing this surface exists
+     to give. */
+  --color-viewport-bg:  #0d0d10;
+  --color-viewport-dot: #1e1e24;
+
+  /* (#426) Paper, wherever a bit of it appears inside the chrome: the stroke
+     swatches in the tool picker, the placeholder for a lesson with no
+     thumbnail yet. Identical in both themes on purpose — these stand in for
+     photographs of paper, and paper does not change colour when the app does.
+     The warm off-white rather than #fff is the original reasoning from
+     OptionPicker: pure white reads as a lit box rather than a sheet. */
+  --color-paper-tint: #efece6;
+
+  /* (#426) Shadows, which were ~35 literal rgba(0,0,0,…) values spread across
+     a dozen components. They cannot stay literal across themes: an 0.35-alpha
+     black under a panel reads as depth on near-black and as a smudge on white,
+     so the light theme both lightens and tightens them. Four steps, by how far
+     the thing is meant to be off the page. */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-xl: 0 12px 40px rgba(0, 0, 0, 0.45);
+  /* The dimming layer behind a modal. */
+  --color-scrim: rgba(0, 0, 0, 0.55);
+  /* The sheet of paper lifting off the viewport backdrop — its own token
+     rather than one of the four steps above, because it is the only shadow in
+     the app cast by something that is *not* chrome, and it carries a hairline
+     as well as a shadow. The hairline has to change sides between themes: a
+     white 6%-alpha edge is what separates near-white paper from a near-black
+     backdrop, and it disappears completely once the backdrop is mid grey, so
+     the light theme draws a dark hairline instead.
+     Not to be confused with the shadows over the canvas that stay literal —
+     see the note in Room.module.css on why those don't get tokens. */
+  --shadow-paper:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 8px 48px rgba(0, 0, 0, 0.7);
 
   /* Touch targets */
   --touch-target:    48px;
@@ -70,4 +180,86 @@
   /* Font */
   --font-sans: system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ── Light ────────────────────────────────────────────────────────────────
+ * Only the values that differ. Everything structural — sizes, radii, timings,
+ * stacking — is one set of numbers shared by both themes; a theme that moved
+ * those would be a second design, not a second palette.
+ *
+ * The elevation order flips, and not symmetrically. In the dark palette the
+ * docked chrome is the *darkest* thing on screen (--color-surface #111113,
+ * below even --color-bg) and elements rise by getting lighter. Here the chrome
+ * is a light neutral that stays a step off white, --color-surface-raised takes
+ * white for the things that genuinely float (menus, dialogs, cards), and
+ * "deeper" surfaces — inputs, slider grooves — go *down* into grey instead.
+ * Copying the dark ordering literally would have put the panels at the top of
+ * the stack and left dialogs nowhere to go above them.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-bg:        #e4e4e7;
+  --color-surface:   #f6f6f7;
+  --color-surface-raised: #ffffff;
+  --color-surface-2: #e9e9ec;
+  --color-surface-hover: #dfdfe6;
+
+  /* Both borders are a good deal darker than a light theme usually reaches
+     for (#e0e0e0 and friends). That is the point of this theme: at 3:1 against
+     the surface behind it, a panel edge or a control outline is a thing you
+     can see rather than infer. --color-border-soft is the exception and is
+     allowed to be quiet — it only ever separates two parts of one panel, so
+     nothing depends on finding it. */
+  --color-border:    #7c7c87;
+  --color-border-soft: #c3c3cc;
+
+  /* Darker than the dark theme's #5555aa, not lighter. The accent is a fill
+     under white text far more often than it is a tint, and the same purple
+     that reads as bright on near-black leaves that text at ~4:1 on white. */
+  --color-accent:    #4a4a9e;
+  --color-accent-hover: #3c3c85;
+  --color-accent-active: #32326f;
+  --color-accent-border: #4a4a9e;
+
+  /* Near-black rather than black for body text: pure #000 on near-white is
+     what makes long-form reading buzz. --color-text-bright, whose role is
+     "one step more emphatic than --color-text", is the one that goes to
+     black — the name reads backwards in this theme, and renaming it would
+     touch every call site in the app for no gain. */
+  --color-text:      #17171c;
+  --color-text-bright: #000000;
+  /* The dark theme's dim grey sits at ~3:1, below AA. Here it clears 7:1 —
+     dimmed text in this theme means "secondary", never "hard to read". */
+  --color-text-dim:  #55555f;
+  /* Barely a step below --color-text-dim, and that is the honest answer
+     rather than a missed opportunity: below this there is no room left above
+     the legibility floor. The dark theme can afford four rungs of grey
+     because the bottom two sit under 3:1; a theme that exists to be readable
+     gets a shallower hierarchy, and pays for it in tone rather than in
+     contrast. */
+  --color-text-faint: #62626d;
+
+  --color-error:     #b03636;
+  --color-warning:   #8a5a00;
+  --color-success:   #27683a;
+
+  --color-error-fill: #a33030;
+  --color-error-fill-hover: #8c2626;
+
+  /* Mid grey, and it stays mid grey. See the token's own note above: this is
+     the value the paper has to be legible against. The dots keep the same
+     job — enough texture to make panning visible, not enough to read as
+     content. */
+  --color-viewport-bg:  #c2c2c7;
+  --color-viewport-dot: #a9a9b0;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.13);
+  --shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 12px 32px rgba(0, 0, 0, 0.18);
+  --color-scrim: rgba(0, 0, 0, 0.35);
+  --shadow-paper:
+    0 0 0 1px rgba(0, 0, 0, 0.13),
+    0 6px 28px rgba(0, 0, 0, 0.26);
 }
