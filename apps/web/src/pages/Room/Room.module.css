@@ -550,12 +550,26 @@
   cursor: default;
 }
 
+/* (#423) No `will-change: transform` here, and that absence is load-bearing.
+   Promoting this wrapper into its own compositor layer breaks compositing of
+   everything painted above it on the Tab S7+: a layer overlapping it never
+   reaches the screen, and when that layer goes away again the area is not
+   marked damaged, so a stale frame stays up. The chrome's own
+   `transition: opacity` (minimal UI, #99) creates exactly such a layer for the
+   length of the fade — which is why the toolbar and side panels would come
+   back in the DOM at opacity 1 and stay invisible until a pan happened to
+   damage the region. Forcing the panels to be composited instead made it
+   strictly worse: the header disappeared too.
+   Measured on the device before removing it — 130 panned frames, median
+   16.7 ms and zero frames over 20 ms both with the property and without — so
+   it was buying no smoothness here to weigh against that. The WebGL canvas
+   inside still gets its own layer the way an accelerated canvas always does;
+   what's gone is the promotion of the wrapper around it. */
 .canvasWrap {
   position: absolute;
   top: 0;
   left: 0;
   transform-origin: 0 0;
-  will-change: transform;
 }
 
 .canvas {
@@ -612,8 +626,9 @@
    Contrast ring, NOT mix-blend-mode:difference. The blend version (a solid
    white disc inverting whatever was underneath) flickered visibly on every
    stroke on Android: blending has to read its backdrop each frame, and the
-   backdrop here is an accelerated WebGL canvas inside a promoted layer
-   (.canvasWrap's will-change:transform) that repaints while drawing.
+   backdrop here is an accelerated WebGL canvas that repaints while drawing —
+   which back then also sat inside a layer promoted by .canvasWrap's
+   will-change:transform, since removed for a different compositing bug (#423).
    Measured on Ilya's Tab S7+ over CDP — the DOM never hid the cursor once
    across 40 strokes, so nothing in BrushCursor's own logic was at fault;
    dropping the blend mode fixed it outright. A light stroke fenced by dark
