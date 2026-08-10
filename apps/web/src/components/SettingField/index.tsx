@@ -1,7 +1,7 @@
 import { PrecisionSlider } from '../PrecisionSlider'
 import { NumberField } from '../NumberField'
 import { OptionButton, OptionSelect, type PickerOption } from '../OptionPicker'
-import { Icon } from '../Icon'
+import { Switch } from '../Switch'
 import { rgbToHex } from '../../lib/color'
 import { useT } from '../../i18n'
 import type { SettingDescriptor } from '../../pages/Room/toolSchemas'
@@ -166,39 +166,20 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
   }
 
   if (valueType.kind === 'boolean') {
-    const boolValue = value as boolean
-    if (layout === 'toolbar') {
-      // (#391) Same block shape every other quick-access field uses: control on
-      // top, a line of text under it. A checkbox is the one control whose own
-      // glyph says nothing about what it toggles — it was rendering here as a
-      // bare tick with no clue that it meant "keep proportions", and a `title`
-      // only pays out to whoever hovers long enough to find out, which on the
-      // tablet this column is designed for is nobody. Written on the boolean
-      // branch rather than for one field: any tool that grows a quick-access
-      // toggle gets a labelled one.
-      return (
-        <div className={styles.toolbarBlock} title={label}>
-          <button
-            className={styles.toolbarToggle}
-            aria-pressed={boolValue}
-            aria-label={label}
-            onClick={() => onChange(!boolValue)}
-          >
-            <Icon name={boolValue ? 'check_box' : 'check_box_outline_blank'} />
-          </button>
-          <span className={styles.toolbarLabel}>{label}</span>
-        </div>
-      )
-    }
+    // (#391) The quick column keeps the shape every other field there uses —
+    // control on top, a line of text under it — because a toggle's own glyph
+    // says nothing about what it toggles, and a `title` only pays out to
+    // whoever hovers long enough to find out, which on the tablet this column
+    // is designed for is nobody. Both that block and the panel's row are the
+    // Switch itself now (#326), label included: it is one control in two
+    // orientations rather than two hand-built layouts around a checkbox.
     return (
-      <label className={styles.panelToggleRow}>
-        <span className={styles.panelLabel}>{label}</span>
-        <input
-          type="checkbox"
-          checked={boolValue}
-          onChange={e => onChange(e.target.checked)}
-        />
-      </label>
+      <Switch
+        checked={value as boolean}
+        onChange={onChange}
+        label={label}
+        orientation={layout === 'toolbar' ? 'vertical' : 'horizontal'}
+      />
     )
   }
 
