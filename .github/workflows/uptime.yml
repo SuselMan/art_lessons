@@ -93,7 +93,7 @@ jobs:
       # «прод лежит» значило бы либо будить по несрочному поводу тем же
       # письмом, либо, что хуже, привыкнуть к красному и пропустить настоящее
       # падение.
-      - name: Check server memory pressure
+      - name: Check server memory and disk pressure
         if: always()
         env:
           ORIGIN: ${{ steps.origin.outputs.origin }}
@@ -120,47 +120,110 @@ jobs:
             echo "no health JSON — covered by the health probe above"
             exit 0
           fi
-          pressure=$(printf '%s' "$body" | sed -n 's/.*"pressure":"\([a-z]*\)".*/\1/p')
-          if [ -z "$pressure" ]; then
+          # `jq`, а не `sed`: он есть на ubuntu-latest из коробки, и разбор поля
+          # по имени пути здесь не роскошь, а необходимость. Прежний шаблон
+          # `.*"pressure":"..."` жадный, то есть брал **последнее** совпадение
+          # в теле — и в тот день, когда рядом с `memory.pressure` появилось
+          # `disk.pressure` (#415), проверка памяти начала бы молча читать
+          # давление диска. Тревога, которая срабатывает не на то, хуже
+          # отсутствующей: она выглядит работающей.
+          #
+          # Наличие jq проверяется отдельной строкой, а не подразумевается: без
+          # него `get` вернул бы пустое на каждое поле, и шаг сообщил бы «поле
+          # пропало, алерт ослеп» — про сервер, с которым всё в порядке. Ошибка
+          # инструмента, замаскированная под ошибку наблюдаемого, — худший вид
+          # ложной тревоги: чинить по ней будут не то. (Поймано при разработке
+          # ровно так: локально jq нет, и проверка «прошла» по этой причине.)
+          command -v jq > /dev/null || {
+            echo "🚨 jq is not on this runner — the pressure alert cannot parse anything"
+            echo "🚨 **\`jq\` is missing on the runner** — this alert cannot parse /api/health." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          }
+          get() { printf '%s' "$body" | jq -r "$1 // empty" 2>/dev/null || true; }
+          mem=$(get '.memory.pressure')
+          disk=$(get '.disk.pressure')
+          if [ -z "$mem" ] || [ -z "$disk" ]; then
             # Наш сервер ответил, но поля нет — это не «всё хорошо», а «мы
             # больше не умеем это читать»: переименование поля выключило бы
             # алерт бесшумно, и именно так получается молчащий мониторинг.
-            echo "🚨 /api/health returned no memory.pressure field — the memory alert is blind"
+            echo "🚨 /api/health is missing pressure fields — the alert is blind (memory='$mem' disk='$disk')"
             echo "body: $body"
-            echo "🚨 **/api/health returned no \`memory.pressure\` field** — the memory alert is blind." >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            echo "$body" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "🚨 **/api/health is missing a \`pressure\` field** — the alert is blind."
+              echo ""
+              echo "Read: memory \`${mem:-<none>}\`, disk \`${disk:-<none>}\`"
+              echo '```'
+              echo "$body"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
-          rooms=$(printf '%s' "$body" | sed -n 's/.*"rooms":{\([^}]*\)}.*/\1/p')
-          heap=$(printf '%s' "$body" | sed -n 's/.*"heapUsedMb":\([0-9]*\).*/\1/p')
-          limit=$(printf '%s' "$body" | sed -n 's/.*"heapLimitMb":\([0-9]*\).*/\1/p')
-          if [ "$pressure" = "ok" ]; then
-            echo "✅ memory ok — heap ${heap}/${limit} MB, rooms {$rooms}"
-            echo "✅ memory \`ok\` — heap \`${heap}/${limit}\` MB, rooms \`{$rooms}\`" >> "$GITHUB_STEP_SUMMARY"
+          rooms=$(get '.rooms | "resident \(.resident), idle \(.idle), ops \(.operations)"')
+          heap="$(get '.memory.heapUsedMb')/$(get '.memory.heapLimitMb') MB"
+          space="$(get '.disk.freeGb') GB free of $(get '.disk.totalGb') ($(get '.disk.usedPct')% used)"
+
+          if [ "$mem" = "ok" ] && [ "$disk" = "ok" ]; then
+            echo "✅ memory ok — heap $heap, $rooms"
+            echo "✅ disk ok — $space"
+            {
+              echo "✅ memory \`ok\` — heap \`$heap\`, \`$rooms\`"
+              echo ""
+              echo "✅ disk \`ok\` — \`$space\`"
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+
           # И в лог тоже, не только в summary: разбирая упавший прогон,
           # первым делом открывают лог шага, и пустой лог при exit 1 — это
           # лишний круг (стоил одного при выкатке самого этого шага).
-          echo "🚨 memory pressure: $pressure — heap ${heap}/${limit} MB, rooms {$rooms}"
-          {
-            echo "🚨 **Server memory pressure: \`$pressure\`** — heap \`${heap}/${limit}\` MB"
-            echo ""
-            echo "Resident rooms: \`{$rooms}\`"
-            echo ""
-            if [ "$pressure" = "critical" ]; then
-              echo "At \`critical\` the server already **refuses to load new rooms** (\`server_busy\`)."
-              echo "Lessons already in progress are unaffected — the gate only guards cold loads."
-            else
-              echo "Not an outage: everything works. This is the margin, before it stops being one."
-            fi
-            echo ""
-            echo "Резидентная комната стоит ~11.2 КБ кучи на операцию (замер #415)."
-            echo "Высокий \`idle\` при низком \`resident\` — течь, а не нагрузка."
-            echo "Runbook: \`deploy/README.md\`; замер — \`apps/server/src/scripts/measureRoomMemory.ts\`."
-          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$mem" != "ok" ]; then
+            echo "🚨 memory pressure: $mem — heap $heap, $rooms"
+            {
+              echo "🚨 **Server memory pressure: \`$mem\`** — heap \`$heap\`"
+              echo ""
+              echo "Resident rooms: \`$rooms\`"
+              echo ""
+              if [ "$mem" = "critical" ]; then
+                echo "At \`critical\` the server already **refuses to load new rooms** (\`server_busy\`)."
+                echo "Lessons already in progress are unaffected — the gate only guards cold loads."
+              else
+                echo "Not an outage: everything works. This is the margin, before it stops being one."
+              fi
+              echo ""
+              echo "Резидентная комната стоит ~11.2 КБ кучи на операцию (замер #415)."
+              echo "Высокий \`idle\` при низком \`resident\` — течь, а не нагрузка."
+              echo "Runbook: \`deploy/README.md\`; замер — \`apps/server/src/scripts/measureRoomMemory.ts\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Диск — отдельный текст, а не та же тревога другим числом: лечится
+          # он другим и не лечится сервером вовсе. Гейта на диск нет намеренно
+          # (отказ в комнате не освобождает ни байта), поэтому здесь письмо —
+          # единственный механизм, и запас до стены должен измеряться неделями.
+          if [ "$disk" != "ok" ]; then
+            echo "🚨 disk pressure: $disk — $space"
+            {
+              echo "🚨 **Disk pressure: \`$disk\`** — $space"
+              echo ""
+              if [ "$disk" = "unknown" ]; then
+                echo "The server could not read the filesystem at all — the disk alert is blind."
+                echo "Not «there is room»: we do not know. See \`apps/server/src/disk.ts\`."
+              elif [ "$disk" = "critical" ]; then
+                echo "Postgres с некуда писать — это не деградация, а остановка: операции"
+                echo "перестают сохраняться, и урок, который человек считает нарисованным,"
+                echo "исчезнет при перезаходе. Действовать сейчас, а не завтра."
+              else
+                echo "Не авария: всё работает. Это запас, пока он ещё запас."
+              fi
+              echo ""
+              echo "Что занимает место, в порядке убывания вероятности:"
+              echo "1. образы docker — деплой оставляет три последних (#275), но проверить стоит:"
+              echo "   \`docker system df\`;"
+              echo "2. база — она растёт от самого рисования, ~6 МБ в день на активно рисующего,"
+              echo "   и это место не возвращается никогда (#207 — перенос холодной истории);"
+              echo "3. локальные бэкапы в \`/var/backups/art-lessons\` — ротация 14 дней (#315)."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
           exit 1
 
       # Certbot renews at 30 days remaining via its own systemd timer, entirely

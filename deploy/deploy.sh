@@ -158,7 +158,6 @@ sudo install -m 644 -o root -g root deploy/backup.cron /etc/cron.d/art-lessons-b
 # страховка помимо счётчика.
 KEEP_SERVER_IMAGES="${KEEP_SERVER_IMAGES:-3}"
 echo "==> Pruning old server images (keeping the newest $KEEP_SERVER_IMAGES)"
-disk_before=$(df --output=avail / | tail -1)
 # CreatedAt идёт первым полем, чтобы сортировка по строке была сортировкой по
 # дате; `awk '!seen'` схлопывает случай, когда на один образ смотрят два тега.
 stale=$(docker images "${SERVER_IMAGE%%:*}" --format '{{.CreatedAt}}\t{{.ID}}' \
@@ -171,7 +170,13 @@ fi
 # И висячие слои следом — то, ради чего исходная команда и звалась. Теперь ей
 # есть что убирать: удаление образов выше как раз их и производит.
 docker image prune -f > /dev/null
-disk_after=$(df --output=avail / | tail -1)
-echo "    server images now: $(docker images "${SERVER_IMAGE%%:*}" -q | sort -u | wc -l), freed: $(( (disk_after - disk_before) / 1024 )) MB, free: $(df -h --output=avail / | tail -1 | tr -d ' ')"
+# Печатается состояние, а не «сколько освободили». Дельта тут была и врала:
+# первый настоящий прогон 10.08 снёс 105 образов и напечатал «freed: 0 MB»
+# рядом с выросшим на 12 ГБ свободным местом. Docker отдаёт место
+# асинхронно — `docker rmi` возвращается, когда снята ссылка, а слои чистит
+# драйвер хранилища следом, — поэтому разность, снятая по обе стороны от
+# удаления, измеряет не результат, а то, успел ли он произойти. Состояние же
+# верно всегда, когда бы его ни снять.
+echo "    server images now: $(docker images "${SERVER_IMAGE%%:*}" -q | sort -u | wc -l), disk free: $(df -h --output=avail / | tail -1 | tr -d ' ')"
 
 echo "==> Deploy complete"

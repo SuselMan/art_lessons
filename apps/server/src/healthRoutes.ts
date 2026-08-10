@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
+import { type DiskPressure, type DiskSnapshot, diskPressureOf, readDisk } from './disk.js'
 import { type MemoryPressure, type MemorySnapshot, pressureOf, readMemory } from './memory.js'
 import { prisma } from './prisma.js'
 import { getResidentRoomStats } from './rooms.js'
@@ -33,6 +34,10 @@ type HealthBody = {
   uptimeSeconds: number
   memory: MemorySnapshot & { pressure: MemoryPressure }
   rooms: { resident: number; idle: number; operations: number }
+  // `disk` может приехать без цифр, с одним `pressure: 'unknown'` — см.
+  // readDisk. Выдумать в этом случае «свободно много» было бы худшим из
+  // возможных ответов от мониторинга.
+  disk: Partial<DiskSnapshot> & { pressure: DiskPressure }
 }
 
 async function probeDatabase(): Promise<number | null> {
@@ -77,11 +82,13 @@ export function registerHealthRoutes(app: FastifyInstance): void {
     const memory = { ...snapshot, pressure: pressureOf(snapshot) }
     const residents = getResidentRoomStats()
     const rooms = { resident: residents.total, idle: residents.idle, operations: residents.operations }
+    const diskSnapshot = await readDisk()
+    const disk = { ...(diskSnapshot ?? {}), pressure: diskPressureOf(diskSnapshot) }
     if (dbLatencyMs === null) {
       reply.code(503)
-      return { ok: false, db: 'down', uptimeSeconds, memory, rooms }
+      return { ok: false, db: 'down', uptimeSeconds, memory, rooms, disk }
     }
-    return { ok: true, db: 'up', dbLatencyMs, uptimeSeconds, memory, rooms }
+    return { ok: true, db: 'up', dbLatencyMs, uptimeSeconds, memory, rooms, disk }
   }
 
   app.get('/health', { config: { skipIdentity: true } }, handler)

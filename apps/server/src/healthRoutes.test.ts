@@ -102,6 +102,27 @@ describe('GET /api/health', () => {
       idle: expect.any(Number),
       operations: expect.any(Number),
     })
+    expect(body.disk).toMatchObject({
+      totalGb: expect.any(Number),
+      freeGb: expect.any(Number),
+      usedPct: expect.any(Number),
+      pressure: expect.stringMatching(/^(ok|warn|critical|unknown)$/),
+    })
+  })
+
+  it('keeps memory and disk pressure as separate fields (#415)', async () => {
+    // Проба разбирает их по пути (`.memory.pressure` / `.disk.pressure`), а не
+    // поиском подстроки — потому что жадный поиск «последнего pressure в теле»
+    // читал бы диск вместо памяти. Тест держит именно то, на что проба
+    // опирается: два независимых поля, каждое на своём месте.
+    mockPrisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }])
+    const app = buildApp()
+
+    const body = (await app.inject({ method: 'GET', url: '/api/health' })).json()
+
+    expect(body.memory.pressure).toBeDefined()
+    expect(body.disk.pressure).toBeDefined()
+    expect(Object.keys(body)).toEqual(expect.arrayContaining(['memory', 'disk']))
   })
 
   it('still reports memory when the database is down', async () => {
