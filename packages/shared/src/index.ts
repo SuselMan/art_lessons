@@ -873,8 +873,8 @@ export type ServerToClientEvents = {
   // room (short rooms) — `tailOperations` is then simply the room's entire
   // history, same shape/behavior as before the #149 epic. Once non-null the
   // caller is expected to fetch the stored snapshots itself
-  // (GET /api/rooms/:id/snapshots/latest); the seq is the structure's own,
-  // and is what a history backfill anchors on.
+  // (GET /api/rooms/:id/snapshots/index, then one blob per layer — #427); the
+  // seq is the structure's own, and is what a history backfill anchors on.
   //
   // (#372) What `tailOperations` leaves out is decided per layer, against each
   // layer's own stored coverage, not by one room-wide seq. A room-wide floor

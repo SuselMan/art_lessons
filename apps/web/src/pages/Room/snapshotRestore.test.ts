@@ -4,14 +4,32 @@ import type { LayerState, Operation } from '@grafetto/shared'
 import { compressLayerTiles, encodeLayerTiles } from '../../engine/src/snapshotCodec'
 import { fetchHistoryPage, fetchLatestSnapshot, HISTORY_PAGE_LIMIT, walkHistoryBackward } from './snapshotRestore'
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-  return btoa(binary)
-}
-
 const originalFetch = global.fetch
 afterEach(() => { global.fetch = originalFetch })
+
+/** (#427) A restore is now an index request plus one blob request per layer,
+ *  so the mock has to route by URL rather than answer everything the same. */
+function mockRestoreFetch(
+  index: unknown,
+  blobs: Record<string, Uint8Array> = {},
+): ReturnType<typeof vi.fn> {
+  const mockFetch = vi.fn(async (url: string) => {
+    if (url.endsWith('/snapshots/index')) return { status: 200, ok: true, json: async () => index }
+    const key = url.slice(url.indexOf('/snapshots/') + '/snapshots/'.length)
+    const bytes = blobs[key]
+    if (!bytes) return { status: 404, ok: false }
+    // A real Response hands back a fresh ArrayBuffer; matching that keeps the
+    // test honest about the Uint8Array wrapping in the code under test.
+    return { status: 200, ok: true, arrayBuffer: async () => bytes.slice().buffer }
+  })
+  global.fetch = mockFetch as unknown as typeof fetch
+  return mockFetch
+}
+
+const ONE_LAYER_STATE: LayerState = {
+  items: { background: { kind: 'layer', id: 'background', name: 'Background', opacity: 1, visible: true } },
+  rootOrder: ['background'], activeId: 'background', selectedIds: [],
+}
 
 describe('fetchLatestSnapshot', () => {
   it('returns null on a 204 (room has no snapshot yet)', async () => {
@@ -24,24 +42,22 @@ describe('fetchLatestSnapshot', () => {
     expect(await fetchLatestSnapshot('room-1')).toBeNull()
   })
 
+  it('returns null rather than throwing when the network is down', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+    expect(await fetchLatestSnapshot('room-1')).toBeNull()
+  })
+
   it('decodes a real snapshot response into layerState + per-layer tiles', async () => {
-    const layerState: LayerState = {
-      items: { background: { kind: 'layer', id: 'background', name: 'Background', opacity: 1, visible: true } },
-      rootOrder: ['background'], activeId: 'background', selectedIds: [],
-    }
     const tile = { originX: 0, originY: 0, width: 2, height: 2, pixels: Uint8Array.from({ length: 16 }, (_, i) => i) }
     const data = await compressLayerTiles(encodeLayerTiles([tile]))
-    global.fetch = vi.fn().mockResolvedValue({
-      status: 200, ok: true,
-      json: async () => ({
-        seq: 300, layerState,
-        layers: [{ layerId: 'background', seq: 300, data: bytesToBase64(data) }],
-      }),
-    })
+    mockRestoreFetch(
+      { seq: 300, layerState: ONE_LAYER_STATE, layers: [{ layerId: 'background', seq: 300, hash: 'h' }] },
+      { 'background/300': data },
+    )
 
     const result = await fetchLatestSnapshot('room-1')
     expect(result?.seq).toBe(300)
-    expect(result?.layerState).toEqual(layerState)
+    expect(result?.layerState).toEqual(ONE_LAYER_STATE)
     expect(result?.layers.get('background')?.tiles[0].width).toBe(2)
     expect([...result!.layers.get('background')!.tiles[0].pixels]).toEqual([...tile.pixels])
   })
@@ -58,17 +74,14 @@ describe('fetchLatestSnapshot', () => {
       rootOrder: ['layer-1', 'layer-2'], activeId: 'layer-1', selectedIds: [],
     }
     const tile = { originX: 0, originY: 0, width: 1, height: 1, pixels: Uint8Array.from({ length: 4 }, (_, i) => i) }
-    const data = bytesToBase64(await compressLayerTiles(encodeLayerTiles([tile])))
-    global.fetch = vi.fn().mockResolvedValue({
-      status: 200, ok: true,
-      json: async () => ({
+    const data = await compressLayerTiles(encodeLayerTiles([tile]))
+    mockRestoreFetch(
+      {
         seq: 300, layerState,
-        layers: [
-          { layerId: 'layer-1', seq: 300, data },
-          { layerId: 'layer-2', seq: 100, data },
-        ],
-      }),
-    })
+        layers: [{ layerId: 'layer-1', seq: 300, hash: 'a' }, { layerId: 'layer-2', seq: 100, hash: 'b' }],
+      },
+      { 'layer-1/300': data, 'layer-2/100': data },
+    )
 
     const result = await fetchLatestSnapshot('room-1')
     expect(result?.layers.get('layer-1')?.coveredSeq).toBe(300)
@@ -82,21 +95,47 @@ describe('fetchLatestSnapshot', () => {
       items: { 'layer-1': { kind: 'layer', id: 'layer-1', name: 'One', opacity: 1, visible: true } },
       rootOrder: ['layer-1'], activeId: 'layer-1', selectedIds: [],
     }
-    global.fetch = vi.fn().mockResolvedValue({
-      status: 200, ok: true,
-      json: async () => ({ seq: 300, layerState, layers: [] }),
-    })
+    mockRestoreFetch({ seq: 300, layerState, layers: [] })
 
     const result = await fetchLatestSnapshot('room-1')
     expect(result?.layers.size).toBe(0)
     expect(result?.layerState.items['layer-1']).toBeDefined()
   })
 
-  it('requests the correctly-shaped URL', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({ status: 204, ok: false })
-    global.fetch = mockFetch
+  // (#427) A layer the *index* named is one the server counted as covered, so
+  // it withheld that layer's operations. Handing back the rest of the room
+  // with that layer quietly missing would lose drawing exactly the way #369
+  // did; failing the whole restore falls back to a replay that still has it.
+  it('returns null when a layer the index named cannot be fetched', async () => {
+    const tile = { originX: 0, originY: 0, width: 1, height: 1, pixels: new Uint8Array(4) }
+    const data = await compressLayerTiles(encodeLayerTiles([tile]))
+    mockRestoreFetch(
+      {
+        seq: 300, layerState: ONE_LAYER_STATE,
+        layers: [{ layerId: 'background', seq: 300, hash: 'a' }, { layerId: 'gone', seq: 300, hash: 'b' }],
+      },
+      { 'background/300': data },
+    )
+
+    expect(await fetchLatestSnapshot('room-1')).toBeNull()
+  })
+
+  it('requests the index, then one immutable blob URL per layer', async () => {
+    const tile = { originX: 0, originY: 0, width: 1, height: 1, pixels: new Uint8Array(4) }
+    const data = await compressLayerTiles(encodeLayerTiles([tile]))
+    const mockFetch = mockRestoreFetch(
+      { seq: 300, layerState: ONE_LAYER_STATE, layers: [{ layerId: 'background', seq: 200, hash: 'h' }] },
+      { 'background/200': data },
+    )
+
     await fetchLatestSnapshot('my-room')
-    expect(mockFetch).toHaveBeenCalledWith('/api/rooms/my-room/snapshots/latest', { credentials: 'include' })
+
+    expect(mockFetch.mock.calls.map(([url]) => url)).toEqual([
+      '/api/rooms/my-room/snapshots/index',
+      // Addressed by seq, not by "latest" — that is what makes it cacheable.
+      '/api/rooms/my-room/snapshots/background/200',
+    ])
+    for (const [, init] of mockFetch.mock.calls) expect(init).toEqual({ credentials: 'include' })
   })
 })
 
