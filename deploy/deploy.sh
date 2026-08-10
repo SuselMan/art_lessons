@@ -39,6 +39,45 @@ cd "$APP_DIR"
 # So: update first, then run. See the workflow's "Deploy over SSH" step and
 # README's manual-redeploy snippet, which both do it in that order.
 
+# (#425) Kernel TCP settings before anything else — cheap, idempotent, and the
+# reason it lives here rather than in README's one-time-setup list is that a
+# hand-applied sysctl is invisible: it survives until the box is rebuilt and
+# then vanishes with no failing check anywhere. Syncing it on every deploy is
+# what makes "prod runs BBR" a fact of this repo instead of a fact about one
+# machine's filesystem. See deploy/sysctl-bbr.conf for the measurements.
+#
+# Absolute /sbin paths throughout: the deploy user's PATH is
+# /usr/local/bin:/usr/bin:/bin:/usr/games, so tc/sysctl/modprobe are not on it
+# (`ip` is, at /usr/bin/ip — hence the inconsistency below). Under `sudo` they
+# would resolve via secure_path, but the read-only checks here don't use sudo.
+#
+# Non-fatal on purpose, against `set -e` at the top of this file: a kernel
+# without tcp_bbr is a slow prod, not a broken one, and it must not be the
+# thing that blocks shipping a fix.
+echo "==> Syncing kernel TCP settings (BBR + fq)"
+if sudo /sbin/modprobe tcp_bbr 2>/dev/null; then
+  # The module ships with the kernel but is not autoloaded — until it is,
+  # `bbr` is absent from tcp_available_congestion_control and the sysctl
+  # below is rejected.
+  echo tcp_bbr | sudo tee /etc/modules-load.d/bbr.conf >/dev/null
+  sudo cp deploy/sysctl-bbr.conf /etc/sysctl.d/99-bbr.conf
+  sudo /sbin/sysctl --system >/dev/null
+  # `default_qdisc` only governs qdiscs created after it is set, so an
+  # already-up interface has to be converted explicitly. Derived from the
+  # default route rather than hardcoded to ens3, so a rebuilt box with
+  # different interface naming still gets it. `replace` is idempotent; the
+  # guard only keeps the deploy log honest about whether anything changed.
+  BBR_IFACE="$(ip route show default | awk '{print $5; exit}')"
+  if [ -n "$BBR_IFACE" ] && ! /sbin/tc qdisc show dev "$BBR_IFACE" | head -1 | grep -q '^qdisc fq '; then
+    sudo /sbin/tc qdisc replace dev "$BBR_IFACE" root fq
+    echo "    $BBR_IFACE qdisc -> fq"
+  fi
+  echo "    congestion control: $(/sbin/sysctl -n net.ipv4.tcp_congestion_control)"
+else
+  echo "    WARNING: tcp_bbr unavailable on this kernel, leaving congestion" \
+       "control at $(/sbin/sysctl -n net.ipv4.tcp_congestion_control)"
+fi
+
 # (#322) nginx first, webroot second — the reverse of the obvious order, and
 # load-bearing since the paper bake became content-hashed.
 #

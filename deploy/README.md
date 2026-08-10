@@ -84,6 +84,41 @@ not canonical.
   `docker login` once, credentials persist in `~deploy/.docker/config.json`)
   before `deploy.sh`'s pull step will work again.
 
+## Kernel TCP tuning — BBR (#425)
+
+Prod runs BBR congestion control with the `fq` qdisc. `deploy/sysctl-bbr.conf`
+is the tracked config; `deploy.sh` installs it as `/etc/sysctl.d/99-bbr.conf`
+on every deploy, loads the `tcp_bbr` module (it ships with the kernel but is
+not autoloaded, and until it is, `bbr` is not in
+`tcp_available_congestion_control` and the sysctl is rejected), and puts the
+default-route interface on `fq`.
+
+That last step is separate on purpose: `net.core.default_qdisc` only governs
+qdiscs created *after* it is set, so an interface that is already up keeps
+whatever it had — the sysctl alone leaves prod on `fq_codel` and looks applied.
+
+**Why.** The path from this VPS to at least some clients drops 5-6% of
+packets. cubic reads every loss as congestion, so it settled at `cwnd:3` and
+capped a single TCP stream at ~46 KB/s regardless of available bandwidth.
+Measured on prod with `ss -tin` against a live HTTPS connection:
+`bytes_sent:9127364 bytes_retrans:556661 cwnd:3 ssthresh:2 rtt:107ms`.
+Server-wide retransmits were 0.46%, so it was one route being bad, not the box
+— which idled at load 0.07 with Fastify answering in 5-185ms throughout.
+
+Effect, same file and same client before and after: **46 KB/s → 880 KB/s**.
+Opening a room went from not finishing inside 75s to 11s.
+
+To check it is actually on:
+
+```bash
+sysctl -n net.ipv4.tcp_congestion_control   # bbr
+tc qdisc show dev "$(ip route show default | awk '{print $5; exit}')" | head -1
+```
+
+This does not make the room load cheap, it only stops the wire from being the
+bottleneck — #425 still tracks the ~13MB of layer snapshots and op log that a
+room join transfers, uncached, on every entry.
+
 ## GitHub Actions secrets (repo settings → Secrets and variables → Actions)
 
 - `DEPLOY_HOST` — `80.209.232.109`
@@ -209,6 +244,9 @@ domain a blocker for logging in, not just for branding.
    which rewrote the script underneath the running bash and made any change
    to it take effect one deploy late — see the comment at the top of
    `deploy.sh`. The script:
+   - installs `deploy/sysctl-bbr.conf` as `/etc/sysctl.d/99-bbr.conf` and
+     puts the default-route interface on the `fq` qdisc (#425 — see the
+     kernel-tuning section below)
    - rsyncs `~deploy/web-dist-incoming/` into nginx's webroot
    - `docker compose -f docker-compose.prod.yml pull` + `up -d` (pulls the
      already-built image, recreates the container only if the resolved
