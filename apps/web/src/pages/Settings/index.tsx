@@ -3,6 +3,7 @@ import { OptionGroup } from '../../components/OptionGroup'
 import { LOCALES, LOCALE_NAMES, useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
 import { DEVICE_TYPES, type DeviceType } from '../../lib/deviceType'
+import { THEMES, type Theme } from '../../lib/theme'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './Settings.module.css'
 
@@ -11,10 +12,16 @@ const DEVICE_TYPE_LABELS: Record<DeviceType, TranslationKey> = {
   desktop: 'settingsPage.deviceDesktop',
 }
 
+const THEME_LABELS: Record<Theme, TranslationKey> = {
+  dark: 'settingsPage.themeDark',
+  light: 'settingsPage.themeLight',
+}
+
 /** App-wide settings (#208) — the person's own preferences, as opposed to
  *  the editor's `components/SettingsPanel` (feature flags, hotkeys, and
- *  other things scoped to one drawing session). Language is the only entry
- *  today; theme and similar belong here as they arrive.
+ *  other things scoped to one drawing session). Language, interface scheme
+ *  and palette live here; anything else that belongs to the person rather
+ *  than to a drawing joins them.
  *
  *  Applies immediately with no Save step and no reload: every string comes
  *  from `useT()`, which is a store subscription, so switching language
@@ -25,6 +32,8 @@ export function Settings() {
   const setLocale = useSettingsStore(s => s.setLocale)
   const deviceType = useSettingsStore(s => s.deviceType)
   const setDeviceType = useSettingsStore(s => s.setDeviceType)
+  const theme = useSettingsStore(s => s.theme)
+  const setTheme = useSettingsStore(s => s.setTheme)
 
   return (
     <div className={styles.page}>
@@ -46,6 +55,25 @@ export function Settings() {
             ariaLabel={t('settingsPage.language')}
           />
           <p className={styles.hint}>{t('settingsPage.languageHint')}</p>
+        </section>
+
+        <section className={styles.section}>
+          <div className={styles.label}>{t('settingsPage.theme')}</div>
+          {/* (#426) Two options and no "Auto", for the reason the device type
+              gives just below: the detected value is already what shows as
+              selected before anyone has chosen, so a third entry that behaves
+              like one of the other two would only be a way to lose the choice
+              later. The hint says plainly that the light one is the higher
+              contrast of the two — this setting exists for people who need
+              that, and they should not have to try both to find out. */}
+          <OptionGroup
+            variant="list"
+            options={THEMES.map(option => ({ id: option, label: t(THEME_LABELS[option]) }))}
+            active={theme}
+            onSelect={setTheme}
+            ariaLabel={t('settingsPage.theme')}
+          />
+          <p className={styles.hint}>{t('settingsPage.themeHint')}</p>
         </section>
 
         <section className={styles.section}>

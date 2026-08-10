@@ -13,6 +13,7 @@ import {
   DEFAULT_FLOATING_PANEL_MODE, DEFAULT_SOUND_VOLUME, clampSoundVolume,
   isFloatingPanelMode, type FloatingPanelMode,
 } from '../lib/uiPreferences'
+import { detectTheme, isTheme, type Theme } from '../lib/theme'
 import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/locale'
 
 // App-wide user preferences (#208) — settings that belong to the person, not
@@ -37,6 +38,7 @@ const SOUND_VOLUME_STORAGE_KEY = 'al_sound_volume'
 const MINIMAL_UI_STORAGE_KEY = 'al_minimal_ui'
 const FLOATING_PANEL_STORAGE_KEY = 'al_floating_panel'
 const LOCK_BRUSH_ANGLE_STORAGE_KEY = 'al_lock_brush_angle'
+const THEME_STORAGE_KEY = 'al_theme'
 
 function readStoredLocale(): Locale | null {
   const raw = localStorage.getItem(LOCALE_STORAGE_KEY)
@@ -90,6 +92,20 @@ function initialDeviceType(): DeviceType {
 function initialLocale(): Locale {
   if (typeof window === 'undefined') return DEFAULT_LOCALE
   return readStoredLocale() ?? detectLocale(navigator.languages ?? [navigator.language])
+}
+
+/** Which palette to start in (#426). Same rule as the language and the device
+ *  type: the OS preference decides the *first* visit, a stored choice decides
+ *  every one after it.
+ *
+ *  Per browser rather than per account, for the reason the device type gives
+ *  in full: the same teacher runs a lesson from a tablet in a lit room and
+ *  reviews the work from a PC in the evening, and which palette is readable is
+ *  a property of the screen in front of you, not of the person. */
+function initialTheme(): Theme {
+  if (typeof window === 'undefined') return 'dark'
+  const raw = localStorage.getItem(THEME_STORAGE_KEY)
+  return isTheme(raw) ? raw : detectTheme()
 }
 
 /** Which shape the color picker takes (#337). A habit built over years in
@@ -164,6 +180,10 @@ export interface SettingsStore {
   setLessonsView: (view: LessonsView) => void
   deviceType: DeviceType
   setDeviceType: (deviceType: DeviceType) => void
+  /** (#426) Which palette the interface is painted in. See `lib/theme.ts` for
+   *  why this is an accessibility setting rather than a cosmetic one. */
+  theme: Theme
+  setTheme: (theme: Theme) => void
   colorPickerMode: ColorPickerMode
   setColorPickerMode: (mode: ColorPickerMode) => void
   /** One switch for every sound the app makes — graphite on paper and the
@@ -213,6 +233,12 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
     document.documentElement.dataset.device = deviceType
     set({ deviceType })
   },
+  theme: initialTheme(),
+  setTheme: theme => {
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
+    applyTheme(theme)
+    set({ theme })
+  },
   colorPickerMode: initialColorPickerMode(),
   setColorPickerMode: mode => {
     localStorage.setItem(COLOR_PICKER_MODE_STORAGE_KEY, mode)
@@ -260,6 +286,35 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
  *  writes. */
 export function syncDocumentLanguage(): void {
   document.documentElement.lang = useSettingsStore.getState().locale
+}
+
+/** (#426) Writes the palette onto `<html data-theme>`, which is what every
+ *  stylesheet actually branches on, and brings the browser's own UI along
+ *  with it.
+ *
+ *  The `theme-color` meta matters more here than it looks: on an installed PWA
+ *  it colours the status bar and the task-switcher card, so leaving it at
+ *  index.html's static dark value would frame a light app in a dark bar — on
+ *  a tablet, which is the device this app is used on. It is read back out of
+ *  the stylesheet rather than repeated as a literal, so the bar cannot drift
+ *  away from `--color-bg` the next time the palette is tuned.
+ *
+ *  Reading it back can legitimately come up empty (a stylesheet not yet
+ *  applied when this runs on first load), and the fallback for that is to
+ *  leave the meta alone: index.html already carries the dark default, which is
+ *  the right answer whenever the question can't be asked. */
+function applyTheme(theme: Theme): void {
+  document.documentElement.dataset.theme = theme
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--color-bg').trim()
+  if (bg === '') return
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bg)
+}
+
+/** Puts the starting palette on `<html>` before the first paint, so nothing
+ *  renders in one theme and then swaps. Same shape as the two syncs around it:
+ *  called once from main.tsx, kept current afterwards by `setTheme`. */
+export function syncThemeAttribute(): void {
+  applyTheme(useSettingsStore.getState().theme)
 }
 
 /** Publishes the chosen control scheme as `<html data-device>` so stylesheets

@@ -15,7 +15,12 @@ import { setSentryDeviceType, setSentryUser } from './lib/sentry'
 import './lib/backNavigationGuard'
 import { registerServiceWorker } from './lib/registerServiceWorker'
 import { syncDebugToolsFromUrl } from './lib/debugTools'
-import { syncDeviceTypeAttribute, syncDocumentLanguage, useSettingsStore } from './stores/settingsStore'
+import {
+  syncDeviceTypeAttribute,
+  syncDocumentLanguage,
+  syncThemeAttribute,
+  useSettingsStore,
+} from './stores/settingsStore'
 import { App } from './App'
 
 // (#208) index.html can only carry a static `lang`; the real one is the
@@ -26,6 +31,11 @@ syncDocumentLanguage()
 // before the first paint so nothing renders one layout and then swaps.
 syncDeviceTypeAttribute()
 setSentryDeviceType(useSettingsStore.getState().deviceType)
+
+// (#426) And the palette, for the same before-the-first-paint reason — an app
+// that flashes dark and then turns light is worse for the person this theme
+// was added for than one that was simply dark.
+syncThemeAttribute()
 
 // (#321) `?debug=1` / `?debug=0` toggles the settings panel's developer tab
 // for this browser. Read before the tree mounts so the first render of the

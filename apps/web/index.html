@@ -11,6 +11,12 @@
          scripts/bakeAppIcons.ts for why "any" and "maskable" have to be
          two different files rather than one. -->
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- (#426) The dark palette's --color-bg, and only the starting value:
+         `applyTheme()` in stores/settingsStore.ts rewrites this tag's content
+         whenever the palette changes, reading the colour back out of the
+         stylesheet. Dark is the literal here because it is the default and
+         because it is the right answer for the brief moment before the app's
+         own script has run. -->
     <meta name="theme-color" content="#1a1a1e" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <!-- PNG fallback for engines that don't take an SVG favicon (Safari). -->
