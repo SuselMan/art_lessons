@@ -5,11 +5,14 @@
 # (deploy user, Docker, nginx, certbot, /opt/art-lessons/.env, ghcr.io login
 # if the server image package isn't public).
 #
-# #199: no build happens here anymore — the VPS (1 vCPU, 1GB RAM, no swap)
-# was getting OOM-killed running `npm ci` + the apps/web Vite build *and* a
-# Docker build for apps/server, all at once, on top of the already-live
-# containers (confirmed via dmesg: `Out of memory: Killed process ... (npm
-# ci)`). The workflow's own `build` job now does all of that on a real
+# #199: no build happens here anymore — the VPS was getting OOM-killed running
+# `npm ci` + the apps/web Vite build *and* a Docker build for apps/server, all
+# at once, on top of the already-live containers (confirmed via dmesg: `Out of
+# memory: Killed process ... (npm ci)`). The box at the time was 1 vCPU / 1 GB
+# / no swap; on 2026-08-10 it is 2 vCPU / 3.9 GB / 2 GB swap (#415), so the
+# original reason no longer binds — but the build stays in CI regardless,
+# because a deploy has no business holding the sources. The workflow's own
+# `build` job now does all of that on a real
 # runner and hands this script two already-finished things: SERVER_IMAGE
 # (an env var, the pushed ghcr.io tag) and ~/web-dist-incoming/ (rsynced in
 # by the workflow's `deploy` job, right before this script runs).
