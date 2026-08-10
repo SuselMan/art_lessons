@@ -773,13 +773,24 @@ export type OperationDraft = Operation extends infer O
  *
  *  Deliberately no `access_denied`: a denied request reopens as pending on the
  *  next attempt (see roomAccess.ts), so "denied" is never a state the joiner
- *  sits in and never a thing the client has to render. */
+ *  sits in and never a thing the client has to render.
+ *
+ *  (#415, трек #314 §1) `server_busy` — единственная из причин, которая не про
+ *  спрашивающего и не про комнату, а про коробку: сервер у потолка кучи, и
+ *  холодная загрузка ещё одной комнаты — та самая аллокация, после которой
+ *  падает процесс и с ним все идущие уроки разом. Отказать одному входящему
+ *  дешевле, и он единственный, кому в этот момент ещё можно помочь.
+ *
+ *  Проходит только по холодному пути: комната, уже резидентная (то есть
+ *  идущий урок), этим гейтом не проверяется вовсе — участник такой комнаты
+ *  ничего к куче не добавляет. */
 export type JoinDenial =
   | 'not_found'
   | 'wrong_password'
   | 'access_revoked'
   | 'login_required'
   | 'pending_approval'
+  | 'server_busy'
 
 export type JoinResult =
   | { ok: true; userId: string }

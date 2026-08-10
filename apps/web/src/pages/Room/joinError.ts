@@ -27,6 +27,11 @@ export function joinGateStateFor(reason: JoinFailureReason): 'login' | 'pending'
     // Both belong next to the form.
     case 'wrong_password':
     case 'not_found': return null
+    // (#415) `server_busy` тоже остаётся у формы, и по той же причине, по
+    // которой там живёт пароль: единственное осмысленное действие —
+    // попробовать снова, а форма и есть кнопка «снова». Отдельный экран
+    // отнял бы её ради сообщения, которое и так помещается в строку.
+    case 'server_busy': return null
   }
 }
 
@@ -50,5 +55,10 @@ export function describeJoinError(reason: JoinFailureReason, t: TFunction): stri
       return t('join.error.loginRequired')
     case 'pending_approval':
       return t('join.error.pendingApproval')
+    // (#415) Единственная причина, которая не про читателя и не про его
+    // комнату — сервер у потолка памяти. Формулировка это и говорит: он
+    // ничего не сделал не так, и через минуту всё получится.
+    case 'server_busy':
+      return t('join.error.serverBusy')
   }
 }

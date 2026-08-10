@@ -7,8 +7,9 @@ import type {
 import { INITIAL_LAYER_ID } from '@grafetto/shared'
 
 import {
-  _flushPendingWrites, checkRoomPassword, createRoom, findDuplicateOperation, getOperationRejectReason,
-  getParticipant, getRoomGate, getRoomSnapshot, isLayerOwnerLocked, isOperationAllowed, isRoomClosed, isRoomFrozen, joinRoom,
+  _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, findDuplicateOperation,
+  getOperationRejectReason, getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot, isLayerOwnerLocked,
+  isOperationAllowed, isRoomClosed, isRoomFrozen, isRoomResident, joinRoom,
   leaveRoom, recordOperation, releaseRoomIfUnused, RESIDENT_OP_TYPES, setLayerOwnerLocked, setParticipantFrozen,
   setRoomClosed, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
@@ -1294,5 +1295,90 @@ describe('releaseRoomIfUnused', () => {
     releaseRoomIfUnused(roomId)
     await _flushPendingWrites(roomId)
     expect(getRoomSnapshot(roomId)).toBeDefined()
+  })
+})
+
+// (#415, трек #314 §1) `rooms` — общая для всего файла, поэтому здесь всё
+// меряется дельтами: абсолютные числа зависели бы от порядка тестов.
+describe('resident room accounting', () => {
+  it('counts a live room, its operations, and reports it as resident', async () => {
+    const before = getResidentRoomStats()
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    recordOperation(roomId, stroke({ id: 'op-count-1' }))
+    recordOperation(roomId, stroke({ id: 'op-count-2' }))
+
+    const after = getResidentRoomStats()
+    expect(after.total - before.total).toBe(1)
+    expect(after.operations - before.operations).toBe(2)
+    expect(isRoomResident(roomId)).toBe(true)
+    await _flushPendingWrites(roomId)
+  })
+
+  it('counts a room nobody is in as idle', async () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    const occupied = getResidentRoomStats()
+
+    // Тот самый след, ради которого `idle` считается отдельно: участник ушёл,
+    // вытеснение отложено за незавершённой записью, комната ещё в куче.
+    leaveRoom(roomId, 'owner-1', sock('owner-1'))
+    const empty = getResidentRoomStats()
+
+    expect(empty.idle - occupied.idle).toBe(1)
+    expect(empty.total).toBe(occupied.total)
+    await _flushPendingWrites(roomId)
+  })
+
+  it('never touches a room someone is still in', async () => {
+    const busyId = freshRoomId()
+    createRoom(roomDraft(busyId), undefined, 'owner-2', 'Teacher', sock('owner-2'))
+    await _flushPendingWrites(busyId)
+
+    evictIdleRooms()
+
+    // Единственное безусловное обещание гейта: идущий урок не платит за то,
+    // что коробке тесно из-за чужой нагрузки.
+    expect(isRoomResident(busyId)).toBe(true)
+    expect(getParticipant(busyId, 'owner-2')).toBeDefined()
+  })
+
+  it('reports nothing released when the only empty room still has a write in flight', async () => {
+    const roomId = freshRoomId()
+    // `evictWhenIdle` откладывает удаление до конца записи, значит место
+    // прямо сейчас не освободилось и засчитывать его нельзя: гейт по этому
+    // числу решает пускать или отказывать, и «может быть, потом» — это отказ.
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    leaveRoom(roomId, 'owner-1', sock('owner-1'))
+
+    expect(evictIdleRooms()).toBe(0)
+    expect(isRoomResident(roomId)).toBe(true)
+
+    await _flushPendingWrites(roomId)
+    expect(isRoomResident(roomId)).toBe(false)
+  })
+
+  it('finds nothing to reclaim on a healthy server, because eviction is already eager', async () => {
+    // Записанный здесь факт важнее самого утверждения: комната уходит из
+    // памяти в `leaveRoom`, как только уходит последний участник, поэтому
+    // резидентных пустых комнат в норме не бывает вообще. Значит, вытеснение
+    // в гейте — это подметание за течами (комната, удалённая через
+    // `DELETE /api/rooms/:id` из-под живого участника; проигранная гонка
+    // отложенного вытеснения), а не механизм, на который можно рассчитывать:
+    // под давлением гейт почти всегда будет именно отказывать, а не
+    // освобождать. Если этот тест однажды упадёт — значит, течь нашлась, и
+    // чинить надо её, а не тест.
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    await _flushPendingWrites(roomId)
+    leaveRoom(roomId, 'owner-1', sock('owner-1'))
+
+    expect(isRoomResident(roomId)).toBe(false)
+    expect(getResidentRoomStats().idle).toBe(0)
+    expect(evictIdleRooms()).toBe(0)
+  })
+
+  it('reports a never-loaded room as not resident', () => {
+    expect(isRoomResident('never-loaded')).toBe(false)
   })
 })

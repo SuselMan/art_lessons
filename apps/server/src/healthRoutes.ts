@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
+import { type MemoryPressure, type MemorySnapshot, pressureOf, readMemory } from './memory.js'
 import { prisma } from './prisma.js'
+import { getResidentRoomStats } from './rooms.js'
 
 /** A health check that only proves "the Node process accepted a TCP
  *  connection" is worse than none — it goes green while Postgres is gone and
@@ -14,11 +16,23 @@ import { prisma } from './prisma.js'
  *  no-op catch, without which a late rejection becomes an unhandled one. */
 const DB_PROBE_TIMEOUT_MS = 3_000
 
+/** (#415, трек #314 §1) Память и резидентность едут здесь, а не на отдельном
+ *  `/metrics`, по той же причине, по которой #178 не завёл внешний сервис:
+ *  канал уже есть и уже опрашивается раз в десять минут. Отдельный эндпоинт
+ *  добавил бы вторую вещь, которую надо не забыть опрашивать.
+ *
+ *  Числа отдаются наружу без аутентификации — как и `uptimeSeconds` до них.
+ *  Это осознанно: доля кучи и число резидентных комнат не говорят ни о том,
+ *  кто в этих комнатах, ни что в них нарисовано, а закрытая проба состояния
+ *  требует секрета в GitHub Actions ради данных, которые и так следуют из
+ *  времени ответа. */
 type HealthBody = {
   ok: boolean
   db: 'up' | 'down'
   dbLatencyMs?: number
   uptimeSeconds: number
+  memory: MemorySnapshot & { pressure: MemoryPressure }
+  rooms: { resident: number; idle: number; operations: number }
 }
 
 async function probeDatabase(): Promise<number | null> {
@@ -56,11 +70,18 @@ export function registerHealthRoutes(app: FastifyInstance): void {
   const handler = async (_request: FastifyRequest, reply: FastifyReply): Promise<HealthBody> => {
     const dbLatencyMs = await probeDatabase()
     const uptimeSeconds = Math.round(process.uptime())
+    // Снимается до ветвления, чтобы отчёт о памяти приезжал и с мёртвой базой:
+    // 503 по Postgres — ровно тот момент, когда полезно видеть, не идёт ли
+    // рядом второе, независимое бедствие.
+    const snapshot = readMemory()
+    const memory = { ...snapshot, pressure: pressureOf(snapshot) }
+    const residents = getResidentRoomStats()
+    const rooms = { resident: residents.total, idle: residents.idle, operations: residents.operations }
     if (dbLatencyMs === null) {
       reply.code(503)
-      return { ok: false, db: 'down', uptimeSeconds }
+      return { ok: false, db: 'down', uptimeSeconds, memory, rooms }
     }
-    return { ok: true, db: 'up', dbLatencyMs, uptimeSeconds }
+    return { ok: true, db: 'up', dbLatencyMs, uptimeSeconds, memory, rooms }
   }
 
   app.get('/health', { config: { skipIdentity: true } }, handler)

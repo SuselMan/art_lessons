@@ -80,6 +80,43 @@ describe('GET /api/health', () => {
     expect(response.json()).toMatchObject({ ok: true, db: 'up' })
   })
 
+  it('reports process memory and resident rooms (#415)', async () => {
+    mockPrisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }])
+    const app = buildApp()
+
+    const body = (await app.inject({ method: 'GET', url: '/api/health' })).json()
+
+    // Это контракт с уптайм-пробой (#178): она читает ровно эти поля, чтобы
+    // упасть письмом до того, как память кончится. Переименование любого из
+    // них ломает алерт молча — проба увидит `undefined` и посчитает,
+    // что всё в порядке.
+    expect(body.memory).toMatchObject({
+      rssMb: expect.any(Number),
+      heapUsedMb: expect.any(Number),
+      heapLimitMb: expect.any(Number),
+      heapUsedPct: expect.any(Number),
+      pressure: expect.stringMatching(/^(ok|warn|critical)$/),
+    })
+    expect(body.rooms).toMatchObject({
+      resident: expect.any(Number),
+      idle: expect.any(Number),
+      operations: expect.any(Number),
+    })
+  })
+
+  it('still reports memory when the database is down', async () => {
+    // 503 по Postgres — ровно тот момент, когда полезно видеть, не идёт ли
+    // рядом второе, независимое бедствие. Отчёт о памяти не должен исчезать
+    // вместе с базой.
+    mockPrisma.$queryRaw.mockRejectedValue(new Error('connection refused'))
+    const app = buildApp()
+
+    const response = await app.inject({ method: 'GET', url: '/api/health' })
+
+    expect(response.statusCode).toBe(503)
+    expect(response.json().memory.heapLimitMb).toBeGreaterThan(0)
+  })
+
   it('mints no guest User, unlike every other route', async () => {
     // The probe runs every ten minutes forever and never carries a cookie, so
     // without the `skipIdentity` opt-out identityHook would write a throwaway

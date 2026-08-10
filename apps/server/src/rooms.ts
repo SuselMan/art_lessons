@@ -800,6 +800,61 @@ export function releaseRoomIfUnused(roomId: string): void {
   evictWhenIdle(roomId)
 }
 
+/** (#415, трек #314 §1) Сколько эта карта сейчас держит. До этого числа
+ *  наружу не выходило вообще: `rooms` — приватная константа модуля, и
+ *  `rooms.size` не читал ни один файл в проекте, то есть «сколько комнат
+ *  держит коробка» нельзя было ни спросить у живого прода, ни отследить во
+ *  времени.
+ *
+ *  `idle` считается отдельно от `total` не для симметрии: резидентная комната
+ *  без участников — это либо гонка отложенного вытеснения (`evictWhenIdle`
+ *  ждёт записи, а перепроверка после ожидания видит уже не тот состав), либо
+ *  комната, удалённая через `DELETE /api/rooms/:id` из-под живого участника.
+ *  Обе — течи, и ненулевой `idle` на спокойном сервере есть их единственный
+ *  внешний признак.
+ *
+ *  Байты сознательно не оцениваются. Честно их знает только куча (см.
+ *  memory.ts), а посчитать вес `operations` можно лишь сериализацией — то
+ *  есть построив в памяти копию ровно того, что мы боимся не уместить. */
+export function getResidentRoomStats(): { total: number; idle: number; operations: number } {
+  let idle = 0
+  let operations = 0
+  for (const record of rooms.values()) {
+    operations += record.operations.length
+    if (record.participants.size === 0) idle += 1
+  }
+  return { total: rooms.size, idle, operations }
+}
+
+/** (#415) Отпускает все резидентные комнаты, в которых никого нет, и
+ *  возвращает число тех, что ушли **сразу**.
+ *
+ *  Считаются именно синхронно ушедшие, а не те, кому вытеснение предложили:
+ *  `evictWhenIdle` для комнаты с незавершённой записью откладывает решение до
+ *  её конца, и вызывающая сторона (гейт на джойне) должна отличать «место
+ *  освободилось» от «может быть, освободится потом». Иначе первый же отказ
+ *  превратится в «я что-то сделал» при неизменной куче.
+ *
+ *  Удаление текущего ключа во время обхода Map безопасно по спецификации —
+ *  итератор переживает удаление уже выданного элемента. */
+export function evictIdleRooms(): number {
+  let released = 0
+  for (const [roomId, record] of rooms) {
+    if (record.participants.size !== 0) continue
+    evictWhenIdle(roomId)
+    if (!rooms.has(roomId)) released += 1
+  }
+  return released
+}
+
+/** (#415) Резидентна ли комната прямо сейчас — то есть обойдётся ли
+ *  ближайший `ensureRoomLoaded` без аллокации. Гейт на джойне спрашивает
+ *  именно это: отказывать участнику идущего урока из-за общей нехватки
+ *  памяти бессмысленно, его комната уже в куче и ничего не добавит. */
+export function isRoomResident(roomId: string): boolean {
+  return rooms.has(roomId)
+}
+
 /** Test-only seam: resolves once `roomId`'s in-flight Postgres writes (if
  *  any) have settled, so tests can assert `leaveRoom`'s deferred-eviction
  *  behavior without a real database — enqueueWrite's rejections are caught

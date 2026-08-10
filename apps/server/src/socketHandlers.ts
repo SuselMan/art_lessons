@@ -4,12 +4,13 @@ import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@gra
 import { isRoomAccessMode } from '@grafetto/shared'
 
 import {
-  addPaletteColor, createRoom, ensureRoomLoaded, findDuplicateOperation, getOperationRejectReason, getParticipant,
-  getRoomGate, getRoomSnapshot, joinRoom, leaveRoom, recordOperation, releaseRoomIfUnused, removePaletteColor,
-  setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, updateAliveIds,
+  addPaletteColor, createRoom, ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getOperationRejectReason,
+  getParticipant, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, recordOperation,
+  releaseRoomIfUnused, removePaletteColor, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 import { checkJoinAccess } from './roomAccess.js'
 import { resolveSocketIdentity } from './identity.js'
+import { pressureOf, readMemory } from './memory.js'
 
 /** Per-connection state. `userId` is resolved once, in the `io.use()`
  *  middleware below, from the same identity cookie (#41) that HTTP routes
@@ -28,6 +29,41 @@ export interface SocketData {
 const FALLBACK_PARTICIPANT_NAME = 'Guest'
 
 type AppServer = Server<ClientToServerEvents, ServerToClientEvents, DefaultEventsMap, SocketData>
+
+/** (#415, трек #314 §1) Пускать ли ещё одну холодную загрузку комнаты в кучу.
+ *
+ *  Возвращает `true` во всех случаях кроме одного: куча выше
+ *  `MEMORY_ADMIT_PCT`, комната не резидентна, и освободить оказалось нечего.
+ *  Тогда — отказ, и это дешевле любой альтернативы: `ensureRoomLoaded` для
+ *  комнаты без снапшотного покрытия тянет её историю целиком, то есть ровно та
+ *  аллокация, на которой процесс падает вместе со всеми идущими уроками.
+ *
+ *  Три решения, каждое из которых легко принять неправильно:
+ *
+ *  **Резидентная комната не проверяется.** Урок уже идёт, его страницы уже в
+ *  куче, и вернувшийся после обрыва планшет не добавляет к ней ничего. Гейт
+ *  здесь означал бы выгонять с урока за чужую нагрузку.
+ *
+ *  **Сначала вытеснение, отказ — только если оно ничего не дало.** Резидентная
+ *  комната без участников не нужна никому по определению, и отдать её раньше,
+ *  чем отказать живому человеку, — единственный правильный порядок.
+ *
+ *  **После удачного вытеснения пускаем, не перечитывая кучу.** Перечитали бы —
+ *  отказали бы всё равно: `used_heap_size` падает не в момент, когда ссылки
+ *  отпущены, а когда до них дойдёт сборщик, и «освободил и всё равно отказал»
+ *  было бы поведением, которое не чинится ничем. */
+function admitRoomLoad(roomId: string, log: FastifyBaseLogger): boolean {
+  if (isRoomResident(roomId)) return true
+  const before = readMemory()
+  if (pressureOf(before) !== 'critical') return true
+
+  const released = evictIdleRooms()
+  log.warn({ roomId, released, heapUsedPct: before.heapUsedPct, heapUsedMb: before.heapUsedMb },
+    released > 0
+      ? 'memory critical on cold room load — released idle rooms'
+      : 'memory critical on cold room load — nothing to release')
+  return released > 0
+}
 
 /** (#227) The socket.io room every connection joins for its own user id, so
  *  access-control events can be addressed to a *person* rather than to a room
@@ -105,6 +141,17 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       // comment on rooms.ts), so this needs the same cold-load-from-Postgres
       // chance to recognize that before createRoom decides whether it's
       // actually new.
+      //
+      // (#415) И тот же гейт по памяти, что у `join_room`: путь именно этот —
+      // холодная загрузка существующей комнаты, — так что «создание» здесь
+      // способно стоить ровно столько же, сколько вход. Новую комнату гейт
+      // тоже может отвести, и это правильнее, чем завести урок в процессе,
+      // который до его середины не доживёт.
+      if (!admitRoomLoad(room.id, log)) {
+        log.warn({ socketId: socket.id, roomId: room.id, userId }, 'create_room refused — server busy')
+        ack({ ok: false, error: 'server_busy' })
+        return
+      }
       await ensureRoomLoaded(room.id)
       // No one else is in the room yet, so there's no peer_joined broadcast
       // to make — unlike join_room below, the returned participant is unused.
@@ -136,6 +183,15 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
 
     socket.on('join_room', async ({ roomId, name, password, lastKnownSeq }, ack) => {
       const userId = socket.data.userId!
+      // (#415) Единственная проверка, стоящая *перед* загрузкой, а не после:
+      // всё остальное решает, можно ли этому человеку в эту комнату, а это —
+      // выдержит ли коробка саму загрузку. Порядок обязателен, гейт после
+      // `ensureRoomLoaded` уже оплатил бы аллокацию, от которой защищает.
+      if (!admitRoomLoad(roomId, log)) {
+        log.warn({ socketId: socket.id, roomId, userId }, 'join_room refused — server busy')
+        ack({ ok: false, error: 'server_busy' })
+        return
+      }
       // Repopulates the in-memory room from Postgres (#74) if this is the
       // first time this process has touched it this session — a cold server
       // start, or the room went idle and was evicted (see leaveRoom). A
