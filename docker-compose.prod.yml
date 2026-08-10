@@ -10,9 +10,12 @@
 # Secrets (POSTGRES_PASSWORD, JWT_SECRET) come from a .env file living only
 # on the VPS (see deploy/README.md) — never committed here.
 #
-# server's image (#199) is built in CI, not here — the VPS (1 vCPU, 1GB RAM,
-# no swap) was getting OOM-killed running that build itself on top of the
-# already-live containers. SERVER_IMAGE is set by deploy.sh (from the
+# server's image (#199) is built in CI, not here — the VPS was getting
+# OOM-killed running that build itself on top of the already-live containers.
+# (Коробка с тех пор выросла: на 2026-08-10 это 2 vCPU / 3.9 ГБ / 2 ГБ свопа,
+# а не 1 vCPU / 1 ГБ / без свопа, как здесь было написано с #199. Сборка всё
+# равно остаётся в CI — она там не из-за нехватки памяти, а потому что деплою
+# нечего делать с исходниками.) SERVER_IMAGE is set by deploy.sh (from the
 # workflow's own build job output — see deploy/README.md); `docker compose
 # pull` fetches it, `up -d` recreates the container whenever the resolved
 # image reference actually changed.
@@ -67,6 +70,22 @@ services:
       # point (see deploy/nginx.conf), same reasoning as any reverse-proxied
       # backend never being directly internet-reachable on its own port.
       - "127.0.0.1:4000:4000"
+    # (#415, трек #314 §1) Потолок памяти контейнера. До него `memory.max`
+    # был буквально `max`: жертву при исчерпании выбирал kernel OOM killer, а
+    # он выбирает по размеру — то есть с равным успехом мог убить Postgres,
+    # превратив «сервер съел память» в «база упала посреди урока». С лимитом
+    # умирает только тот контейнер, который память и съел, и `restart:
+    # unless-stopped` поднимает его сам.
+    #
+    # 2 ГБ из 3.9 ГБ коробки: Postgres держит ~470 МБ и растёт с данными, ещё
+    # ~200 МБ уходит на систему и docker. Остаток сознательно оставлен
+    # страничному кэшу — он и есть скорость Postgres, и стоит больше, чем
+    # запас по числу комнат, которого и так хватает с избытком (замер ниже).
+    mem_limit: 2g
+    # Своп контейнеру запрещён (лимит свопа = лимиту памяти): 2 ГБ свопа на
+    # хосте спасали процесс от OOM ценой того, что живой урок уезжал на диск
+    # — с точки зрения учителя это неотличимо от зависания, только дольше.
+    memswap_limit: 2g
 
 volumes:
   postgres_data:

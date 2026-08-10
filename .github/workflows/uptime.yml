@@ -78,6 +78,71 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           exit 1
 
+      # (#415, трек #314 §1) Память. Пункт трека требует не только знать
+      # потолок, но и узнать о подходе к нему раньше, чем в него упрётся живой
+      # урок — а сервер до этого не сообщал о себе ничего, кроме аптайма.
+      #
+      # Порог считает сам сервер (`memory.pressure` в /api/health, см.
+      # memory.ts): `warn` на 70% кучи, `critical` на 85%, и на 85% он уже
+      # отказывает в холодной загрузке новых комнат. Решение живёт там, а не
+      # здесь, чтобы отказ и письмо не разъехались на пару процентов — и чтобы
+      # порог менялся переменной окружения на VPS, а не коммитом в CI.
+      #
+      # Отдельный шаг, а не условие внутри пробы выше: сервер с занятой
+      # памятью **здоров** — он отвечает, рисует и сохраняет. Смешать это с
+      # «прод лежит» значило бы либо будить по несрочному поводу тем же
+      # письмом, либо, что хуже, привыкнуть к красному и пропустить настоящее
+      # падение.
+      - name: Check server memory pressure
+        if: always()
+        env:
+          ORIGIN: ${{ steps.origin.outputs.origin }}
+        run: |
+          set -uo pipefail
+          body=$(curl -sS --max-time 10 "$ORIGIN/api/health" || echo '')
+          if [ -z "$body" ]; then
+            # Недостижимый сервер — это работа пробы выше, она уже отчиталась.
+            # Второе письмо об одном падении учит игнорировать оба.
+            echo "no response — covered by the health probe above"
+            exit 0
+          fi
+          pressure=$(printf '%s' "$body" | sed -n 's/.*"pressure":"\([a-z]*\)".*/\1/p')
+          if [ -z "$pressure" ]; then
+            # Пустое поле — это не «всё хорошо», а «мы больше не умеем это
+            # читать»: переименованное поле выключило бы алерт бесшумно, и
+            # именно так молчащий мониторинг и получается.
+            echo "🚨 **/api/health returned no \`memory.pressure\` field** — the memory alert is blind." >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "${body:-<empty body>}" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          rooms=$(printf '%s' "$body" | sed -n 's/.*"rooms":{\([^}]*\)}.*/\1/p')
+          heap=$(printf '%s' "$body" | sed -n 's/.*"heapUsedMb":\([0-9]*\).*/\1/p')
+          limit=$(printf '%s' "$body" | sed -n 's/.*"heapLimitMb":\([0-9]*\).*/\1/p')
+          if [ "$pressure" = "ok" ]; then
+            echo "✅ memory ok — heap ${heap}/${limit} MB, rooms {$rooms}"
+            echo "✅ memory \`ok\` — heap \`${heap}/${limit}\` MB, rooms \`{$rooms}\`" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "🚨 **Server memory pressure: \`$pressure\`** — heap \`${heap}/${limit}\` MB"
+            echo ""
+            echo "Resident rooms: \`{$rooms}\`"
+            echo ""
+            if [ "$pressure" = "critical" ]; then
+              echo "At \`critical\` the server already **refuses to load new rooms** (\`server_busy\`)."
+              echo "Lessons already in progress are unaffected — the gate only guards cold loads."
+            else
+              echo "Not an outage: everything works. This is the margin, before it stops being one."
+            fi
+            echo ""
+            echo "Резидентная комната стоит ~11.2 КБ кучи на операцию (замер #415)."
+            echo "Высокий \`idle\` при низком \`resident\` — течь, а не нагрузка."
+            echo "Runbook: \`deploy/README.md\`; замер — \`apps/server/src/scripts/measureRoomMemory.ts\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
+
       # Certbot renews at 30 days remaining via its own systemd timer, entirely
       # unattended — which means a broken renewal is silent until the morning
       # every browser refuses to open the app. Under 14 days left is that
