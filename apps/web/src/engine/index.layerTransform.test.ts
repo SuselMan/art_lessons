@@ -113,3 +113,79 @@ describe('getContentBounds: content bounding box for the transform gizmo (#120)'
     expect(after).toEqual({ ...before, x: before!.x + 8 })
   })
 })
+
+// (#421) The gizmo's frame is exactly getContentBounds, and the tracker
+// behind it only ever grows: a bake marks each destination tile with the
+// axis-aligned box of its source's *rotated* content rect, so every rotation
+// inflates it and the next one inflates the inflated one. What the user sees
+// is a selection that hugs the drawing the first time and grabs more and more
+// empty paper on every re-entry. tightenContentBounds is the correction pass.
+//
+// Content is a disc centered in the canvas on purpose: its true bounding box
+// is rotation-invariant, so "tight" is a number this test can state outright
+// rather than derive per angle. Centered also keeps it symmetric about the
+// tile's own middle, which is what lets these assertions ignore the mock's
+// top-down readPixels rows (real GL hands them back bottom-up — see
+// scanLocalContentRect's own note on the flip).
+describe('tightenContentBounds: keeps the transform frame on the content (#421)', () => {
+  const SIZE = 64, CX = 32, CY = 32
+  // CSS/SVG matrix(a,b,c,d,e,f) — x' = ax + cy + e, y' = bx + dy + f, same
+  // convention the translate tests above use.
+  const rotateAbout = (deg: number, cx: number, cy: number): [number, number, number, number, number, number] => {
+    const t = (deg * Math.PI) / 180, cos = Math.cos(t), sin = Math.sin(t)
+    return [cos, sin, -sin, cos, cx - cx * cos + cy * sin, cy - cx * sin - cy * cos]
+  }
+  const spin = (engine: ReturnType<typeof createTestEngine>['engine'], turns: number, tighten: boolean): void => {
+    for (let i = 0; i < turns; i++) {
+      engine.appendOperation(makeLayerTransform('user-a', [{ layerId: 'L', matrix: rotateAbout(45, CX, CY) }]))
+      if (tighten) engine.tightenContentBounds('L')
+    }
+  }
+  const paintDisc = (): ReturnType<typeof createTestEngine>['engine'] => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: SIZE, height: SIZE })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.appendOperation(fillStroke('user-a', 'L', CX, CY, 6))
+    return engine
+  }
+
+  it('a rotation inflates the tracked box, and tightening puts it back on the pixels', () => {
+    const engine = paintDisc()
+    engine.tightenContentBounds('L')
+    const tight = engine.getContentBounds('L')!
+
+    spin(engine, 1, false)
+    const inflated = engine.getContentBounds('L')!
+    // Not an incidental difference: 45° on an axis-aligned box is the worst
+    // case, ~1.41x per side. Asserting the inflation exists at all is what
+    // makes the tightened numbers below mean something.
+    expect(inflated.width).toBeGreaterThan(tight.width * 1.2)
+
+    engine.tightenContentBounds('L')
+    const retightened = engine.getContentBounds('L')!
+    // A disc's own box doesn't change under rotation; the couple of pixels of
+    // slack are the resample's edge, not the tracker's.
+    expect(Math.abs(retightened.width - tight.width)).toBeLessThanOrEqual(2)
+    expect(Math.abs(retightened.height - tight.height)).toBeLessThanOrEqual(2)
+  })
+
+  it('stops the frame compounding across repeated rotations', () => {
+    const tightened = paintDisc()
+    tightened.tightenContentBounds('L')
+    const start = tightened.getContentBounds('L')!
+    spin(tightened, 4, true)
+
+    const drifting = paintDisc()
+    spin(drifting, 4, false)
+
+    // Four rotations is a modest session — rotate, look, rotate again. Left
+    // to the tracker alone the frame ends up half again as wide as the
+    // drawing (this is the reported bug); tightened, it stays put.
+    expect(drifting.getContentBounds('L')!.width).toBeGreaterThan(start.width * 1.5)
+    expect(Math.abs(tightened.getContentBounds('L')!.width - start.width)).toBeLessThanOrEqual(3)
+  })
+
+  it('is a no-op for a layer that does not exist', () => {
+    const engine = paintDisc()
+    expect(() => engine.tightenContentBounds('nope')).not.toThrow()
+  })
+})

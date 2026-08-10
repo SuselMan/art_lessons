@@ -111,6 +111,30 @@ export interface ILayerBuffer {
    *  tile exists at rect's origin. */
   restoreTileContent(rect: WorldRect, pixels: Uint8Array): void
 
+  /** (#421) Re-derives every resident tile's tracked contentRect from its
+   *  real pixels — the one call in this interface that can *shrink* tracked
+   *  content, the deliberate opposite of markContentPainted's monotonic
+   *  expansion. Tiles tracked as empty are skipped (nothing to tighten), and
+   *  evicted tiles are left alone rather than replayed back into residency:
+   *  this is a correction pass over what's already in memory, never a reason
+   *  to rebuild a layer.
+   *
+   *  It exists because the tracker's conservatism compounds under repeated
+   *  transforms: a bake marks each destination tile with the *axis-aligned
+   *  box of its source's rotated content rect* (see _bakeTransform), so a
+   *  45° rotation inflates the tracked box by up to ~1.41x per side, and the
+   *  next rotation starts from the inflated one. Nothing else ever shrinks
+   *  it, so the transform gizmo's frame — which is exactly this union, via
+   *  getContentBounds — drifts further off the real drawing every time.
+   *
+   *  This is a real readPixels + CPU scan per non-empty resident tile, i.e.
+   *  precisely the cost #155 Tier 2 removed from getContentBounds. That
+   *  removal stands: the point was to stop paying it *per query, during a
+   *  drag*. Call this only at moments a user is starting or finishing a
+   *  transform, never per frame and never from operation replay (a peer's
+   *  transform would then stall this client's pipeline). */
+  tightenContentRects(): void
+
   /** (#155 Tier 2) Union of every tile's tracked contentRect (resident or
    *  evicted — eviction never forgets tracked content, same as it never
    *  forgets the pixels themselves, see TiledLayerBuffer's own docstring),

@@ -2551,13 +2551,23 @@ export function Room() {
   // content (engine.getContentBounds), unioned across a multi-select — and
   // clears any custom rotation-center override (see its declaration above
   // for why). Called on activation/selection change and again after every
-  // commit, never per drag frame (each call is a real readPixels + CPU scan
-  // per target — see getContentBounds' docstring on cost).
+  // commit, never per drag frame: the tighten below is a real readPixels +
+  // CPU scan per target (see ILayerBuffer.tightenContentRects on cost), and
+  // those are exactly the two moments it may be paid.
+  //
+  // (#421) Tightened first, every time, rather than trusting the engine's
+  // incremental tracker: it only ever grows, and a transform bake feeds it
+  // the axis-aligned box of the *rotated* content, so without this the frame
+  // came back visibly wider than the drawing after a rotation and wider
+  // again after the next one. Doing it here also stops the compounding at
+  // its source — the following bake reads the same tracked rects for its own
+  // source bounds, so it starts from the tight ones.
   const refreshTransformBounds = useCallback(() => {
     const engine = engineRef.current
     if (!engine || transformTargetIds.length === 0) { setTransformBounds(null); setTransformCenterOverride(null); return }
     let bounds: TransformBounds | null = null
     for (const layerId of transformTargetIds) {
+      engine.tightenContentBounds(layerId)
       const b = engine.getContentBounds(layerId)
       bounds = b ? (bounds ? unionTransformBounds(bounds, b) : b) : bounds
     }

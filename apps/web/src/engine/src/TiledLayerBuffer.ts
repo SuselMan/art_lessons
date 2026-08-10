@@ -35,6 +35,19 @@ function scanLocalContentRect(
   return { minX, minY, maxX: maxX + 1, maxY: maxY + 1 }
 }
 
+/** Maps a scanLocalContentRect result (tile-local, or null for a fully
+ *  transparent tile) into the world-space rect the tracker stores — the one
+ *  bit of arithmetic every caller of that scan needs, kept in one place
+ *  because all three of them (recovery, checkpoint restore, tightening) get
+ *  it from the same tile-aligned world rect. */
+function worldContentRect(
+  tileRect: WorldRect, local: { minX: number; minY: number; maxX: number; maxY: number } | null,
+): WorldRect | null {
+  return local
+    ? { minX: tileRect.minX + local.minX, minY: tileRect.minY + local.minY, maxX: tileRect.minX + local.maxX, maxY: tileRect.minY + local.maxY }
+    : null
+}
+
 // #144: byte budget for one TiledLayerBuffer instance's *resident* tiles —
 // same spirit and same order of magnitude as engine/index.ts's own
 // CHECKPOINT_BUDGET_BYTES, but expressed as a tile *count* derived from this
@@ -506,10 +519,7 @@ export class TiledLayerBuffer implements ILayerBuffer {
       // reads the result back for free instead of re-scanning.
       if (pixels) {
         tile.restorePixels(pixels)
-        const local = scanLocalContentRect(pixels, this.tileW, this.tileH)
-        this.contentRects.set(key, local
-          ? { minX: rect.minX + local.minX, minY: rect.minY + local.minY, maxX: rect.minX + local.maxX, maxY: rect.minY + local.maxY }
-          : null)
+        this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(pixels, this.tileW, this.tileH)))
       } else {
         this.contentRects.set(key, null)
       }
@@ -659,10 +669,23 @@ export class TiledLayerBuffer implements ILayerBuffer {
     const { tileX, tileY } = worldToTile(rect.minX, rect.minY, this.tileW, this.tileH)
     const key = tileKey(tileX, tileY)
     if (!this.tiles.has(key)) return
-    const local = scanLocalContentRect(pixels, this.tileW, this.tileH)
-    this.contentRects.set(key, local
-      ? { minX: rect.minX + local.minX, minY: rect.minY + local.minY, maxX: rect.minX + local.maxX, maxY: rect.minY + local.maxY }
-      : null)
+    this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(pixels, this.tileW, this.tileH)))
+  }
+
+  /** See ILayerBuffer's own doc comment. */
+  tightenContentRects(): void {
+    for (const [key, tile] of this.tiles) {
+      // A tile tracked as empty has nothing to tighten, and this is the
+      // common case for the layer this exists for: a repeatedly-dragged
+      // layer's resident set is mostly tiles an earlier bake vacated (see
+      // _bakeTransform's own docstring on why they stay resident), so
+      // skipping them is what keeps the readback count near the number of
+      // tiles that actually hold paint rather than near the resident count.
+      if (!this.contentRects.get(key)) continue
+      const { tileX, tileY } = parseTileKey(key)
+      const rect = tileWorldRect(tileX, tileY, this.tileW, this.tileH)
+      this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(tile.readPixels(), this.tileW, this.tileH)))
+    }
   }
 
   /** See ILayerBuffer's own doc comment. */
