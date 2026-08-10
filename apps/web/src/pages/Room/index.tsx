@@ -2619,13 +2619,22 @@ export function Room() {
       if (!transformSessionRef.current) setTransformSessionMatrix(null)
       engineRef.current?.clearLayerTransformPreview()
     }
+    // (#395) A teardown that owns no session owns no preview either, so it
+    // must not drop one. The tap past the gizmo commits and *then* puts the
+    // tool down, which re-runs this from the session effect's cleanup with
+    // the session already nulled — and clearing the preview there paints
+    // exactly the frame the commit below goes out of its way to avoid: the
+    // layer back where the drag started, held until the server's
+    // confirmation lands. Whoever is waiting on that op (see
+    // pendingTransformCommitRef) owns the preview now and will drop it.
+    if (!session) return
     // Nothing accumulated (opened and left alone, or every gesture cancelled
     // itself out): committing an identity matrix would put a real entry on
     // the undo stack for nothing, and the bounds are still the ones the
     // session started from, so there is nothing to refresh either.
-    if (!session || isIdentityMatrix(session.matrix)) {
+    if (isIdentityMatrix(session.matrix)) {
       dropPreview()
-      if (session && reopen) startTransformSession()
+      if (reopen) startTransformSession()
       return
     }
     const finish = () => {
