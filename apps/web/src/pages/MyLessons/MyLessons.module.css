@@ -63,8 +63,7 @@
 }
 
 .crumbSep {
-  color: var(--color-text-dim);
-  opacity: 0.6;
+  color: var(--color-text-faint);
   margin: 0 2px;
 }
 
@@ -269,7 +268,10 @@
   /* (#211 feedback) Bumped from 0.55 — too translucent gave inconsistent
      contrast for the trigger icon depending on what thumbnail/content sits
      underneath; a more opaque chip plus the trigger's own bright-at-rest
-     color (CardMenu.module.css) keeps it visibly a "button" regardless. */
+     color (CardMenu.module.css) keeps it visibly a "button" regardless.
+     (#426) Stays literal across themes for that same reason: what it needs
+     contrast against is the thumbnail — a drawing on near-white paper — not
+     the card behind it, and thumbnails don't change with the palette. */
   background: rgba(17, 17, 19, 0.72);
   backdrop-filter: blur(2px);
 }
@@ -314,8 +316,8 @@
   width: calc(100% + 32px);
   margin: -16px -16px 0;
   aspect-ratio: 4 / 3;
-  background: #f3f3f3;
-  color: #b0b0b0;
+  background: var(--color-paper-tint);
+  color: var(--color-text-dim);
 }
 
 /* :global() — without it, CSS Modules hashes "material-symbols-outlined"
@@ -385,7 +387,7 @@
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+  box-shadow: var(--shadow-lg);
   pointer-events: none;
   /* (#331) The overlay appears the instant a long press promotes to a drag,
      while the finger is still sitting still — a quick lift is what says "it
@@ -572,7 +574,7 @@
   gap: 8px;
   padding: 8px 12px;
   border-top: 1px solid var(--color-border);
-  background: rgba(170, 85, 85, 0.08);
+  background: color-mix(in srgb, var(--color-error) 8%, transparent);
 }
 
 .confirmText {
@@ -586,13 +588,13 @@
   padding: 0 12px;
   font-size: 12px;
   font-weight: 700;
-  color: #fff;
-  background: #aa5555;
+  color: var(--color-on-accent);
+  background: var(--color-error-fill);
   border-radius: var(--radius-sm);
 }
 
 .confirmButton:hover {
-  background: #bb6666;
+  background: var(--color-error-fill-hover);
 }
 
 .cancelButton {

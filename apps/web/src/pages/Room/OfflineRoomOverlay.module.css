@@ -52,8 +52,7 @@
 }
 
 .retry {
-  color: var(--color-text-dim);
+  color: var(--color-text-faint);
   font-family: var(--font-sans);
   font-size: 13px;
-  opacity: 0.8;
 }

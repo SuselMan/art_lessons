@@ -515,8 +515,8 @@
   inset: 0;
   z-index: 1;
   overflow: hidden;
-  background: #0d0d10;
-  background-image: radial-gradient(circle, #1e1e24 1px, transparent 1px);
+  background: var(--color-viewport-bg);
+  background-image: radial-gradient(circle, var(--color-viewport-dot) 1px, transparent 1px);
   background-size: 24px 24px;
   touch-action: none;
 }
@@ -574,12 +574,18 @@
 
 .canvas {
   display: block;
-  box-shadow:
-    0 0 0 1px rgba(255,255,255,0.06),
-    0 8px 48px rgba(0,0,0,0.7);
+  box-shadow: var(--shadow-paper);
 }
 
-/* ── Peer cursors (#37) ── */
+/* ── Peer cursors (#37) ──
+   (#426) Everything from here down that sits *on the canvas* — cursor dots and
+   their labels, the brush outline, the ruler's readout, the debug overlay —
+   keeps its literal rgba() rather than taking a --shadow-* token, and that is
+   the rule rather than an oversight. Those shadows and rings exist to hold a
+   marker legible against a sheet of paper, and the paper is near-white in both
+   themes: the canvas is the one surface in this app the palette does not
+   touch. Theming them would make them wrong in the light theme, not right.
+   The tokens are for shadows cast by chrome onto chrome. */
 .cursorLayer {
   position: absolute;
   top: 0;
@@ -867,7 +873,7 @@
   flex-direction: column;
   align-items: center;
   padding: 48px 16px 72px;
-  background: var(--color-bg, #0d0d10);
+  background: var(--color-bg);
 }
 
 /* (#379) A link, matching Auth's wordmark rule for rule — same hover and
@@ -963,7 +969,7 @@
   width: 100%;
   padding: 14px;
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   font-size: 15px;
   font-weight: 600;
   border-radius: var(--radius-md);
@@ -978,7 +984,7 @@
 }
 
 .gateSubmit:active:not(:disabled) {
-  background: #4444aa;
+  background: var(--color-accent-active);
   transform: scale(0.99);
 }
 

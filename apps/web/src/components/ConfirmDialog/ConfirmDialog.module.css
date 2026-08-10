@@ -51,10 +51,10 @@
    the autofocused button (see the component) — Enter on a dialog that just
    appeared must not delete anything. */
 .danger {
-  color: #ffffff;
-  background: #a33a3a;
+  color: var(--color-on-accent);
+  background: var(--color-error-fill);
 }
 
 .danger:hover {
-  background: #b94545;
+  background: var(--color-error-fill-hover);
 }

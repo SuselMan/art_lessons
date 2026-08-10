@@ -16,7 +16,7 @@
   font-family: var(--font-sans);
   font-size: 13px;
   max-width: min(520px, calc(100vw - 32px));
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
   /* Informational by default: these float over the canvas, and one that ate
      pointer events would break panning through the area it covers.
      `.interactive` opts back in when there is something to click. */

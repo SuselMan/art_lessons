@@ -8,7 +8,7 @@
   border-radius: 50%;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-md);
   touch-action: none;
   cursor: grab;
   z-index: 5;
@@ -121,7 +121,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-md);
   cursor: pointer;
   /* Mount-then-transition (see index.tsx's `animateIn`): only `transform`
      changes after mount, so only it needs to transition — a plain CSS

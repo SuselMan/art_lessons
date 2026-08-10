@@ -80,8 +80,8 @@
    the identical root cause, just less noticeable at these smaller sizes). */
 .toolbarBtn :global(.material-symbols-outlined) { font-size: 17px; }
 
-.toolbarBtnDanger { color: var(--color-error, #e05252); }
-.toolbarBtnDanger:hover { background: color-mix(in srgb, var(--color-error, #e05252) 12%, transparent); }
+.toolbarBtnDanger { color: var(--color-error); }
+.toolbarBtnDanger:hover { background: color-mix(in srgb, var(--color-error) 12%, transparent); }
 
 /* Lock button in toolbar — accent color when locked */
 .toolbarBtnLocked {
@@ -111,7 +111,7 @@
 .importError {
   padding: 8px 14px;
   font-size: 11px;
-  color: var(--color-error, #e05252);
+  color: var(--color-error);
   flex-shrink: 0;
 }
 
@@ -221,8 +221,7 @@
 .grip {
   display: flex;
   align-items: center;
-  color: var(--color-text-dim);
-  opacity: 0.35;
+  color: var(--color-text-faint);
   flex-shrink: 0;
   cursor: grab;
   /* Matches the row. A stricter value here would carve a 15px dead stripe out
@@ -230,7 +229,7 @@
      the whole row drags. */
   touch-action: pan-y pinch-zoom;
 }
-.rowMain:hover .grip { opacity: 0.6; }
+.rowMain:hover .grip { color: var(--color-text-dim); }
 .grip :global(.material-symbols-outlined) { font-size: 15px; }
 
 .gripSpacer { width: 18px; flex-shrink: 0; }
@@ -257,10 +256,10 @@
 
 /* Lock icon: dim (unlocked state) */
 .rowIconBtnDim {
-  opacity: 0.4;
+  color: var(--color-text-faint);
 }
 .rowIconBtnDim:hover {
-  opacity: 1;
+  color: var(--color-text);
 }
 
 /* Lock icon: locked state — accent color, always visible */
@@ -314,8 +313,7 @@
   align-items: center;
   width: 18px;
   flex-shrink: 0;
-  color: var(--color-text-dim);
-  opacity: 0.55;
+  color: var(--color-text-faint);
 }
 .typeIcon :global(.material-symbols-outlined) { font-size: 13px; }
 
@@ -351,8 +349,7 @@
 .opacityDisplay {
   font-size: 10px;
   font-family: var(--font-mono);
-  color: var(--color-text-dim);
-  opacity: 0.5;
+  color: var(--color-text-faint);
   flex-shrink: 0;
   width: 26px;
   text-align: right;

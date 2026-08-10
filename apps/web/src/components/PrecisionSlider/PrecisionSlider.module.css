@@ -47,7 +47,7 @@
   position: absolute;
   border-radius: var(--radius-sm);
   background: var(--color-text-bright);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
 
@@ -76,7 +76,7 @@
   font-weight: 700;
   padding: 6px 12px;
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
   pointer-events: none;
   z-index: 300;
   white-space: nowrap;

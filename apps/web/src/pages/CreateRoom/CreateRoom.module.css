@@ -65,7 +65,7 @@
 }
 
 .inputError {
-  border-color: #aa5555 !important;
+  border-color: var(--color-error) !important;
 }
 
 /* (#232) The invite list — same field treatment as .input, but a textarea:
@@ -125,7 +125,7 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-lg);
 }
 
 .colorReset {
@@ -368,7 +368,7 @@
   border-radius: 50%;
   background: white;
   transition: left var(--duration-normal);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  box-shadow: var(--shadow-sm);
 }
 
 .toggleThumbOn {
@@ -406,7 +406,7 @@
 }
 
 .submit:active {
-  background: #4444aa;
+  background: var(--color-accent-active);
   transform: scale(0.99);
 }
 
@@ -422,9 +422,9 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: rgba(85, 85, 170, 0.2);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
   color: var(--color-accent);
-  border: 1px solid rgba(85, 85, 170, 0.35);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
   border-radius: 4px;
   padding: 2px 5px;
   line-height: 1.4;

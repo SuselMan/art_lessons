@@ -22,7 +22,7 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-lg);
 }
 
 .item,
@@ -60,9 +60,9 @@
 }
 
 .dangerItem {
-  color: #cc6666;
+  color: var(--color-error);
 }
 
 .dangerItem:hover:not(:disabled) {
-  background: rgba(170, 85, 85, 0.1);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
 }
