@@ -515,6 +515,11 @@ export interface PencilEngineAPI {
   // Bounding box of a layer's actual painted content, canvas-pixel space —
   // see the implementation's docstring for cost/call-frequency notes (#120).
   getContentBounds(layerId: string): { x: number; y: number; width: number; height: number } | null
+  // (#421) Re-derives this layer's tracked content bounds from its real
+  // pixels, so the next getContentBounds hugs the drawing instead of the
+  // conservative box repeated transform bakes inflate — see ILayerBuffer's
+  // tightenContentRects for what it costs and when it may be called.
+  tightenContentBounds(layerId: string): void
   // (#263) O(1) read-only check: does this layer currently have any done
   // pixel operations (stroke/clear/merge/image_import/layer_transform),
   // from any author? Thin wrapper over OperationLog.pixelOpDoneCount, the
@@ -2206,13 +2211,30 @@ export class PencilEngine implements PencilEngineAPI {
    *  ILayerBuffer tracks each tile's real content bbox incrementally as it's
    *  painted/baked (see TiledLayerBuffer's contentRects), so this is a cheap
    *  union over however many tiles this layer has ever held content on, no
-   *  GPU readback at all. */
+   *  GPU readback at all.
+   *
+   *  (#421) That tracker only ever grows, and a transform bake feeds it the
+   *  axis-aligned box of rotated content, so this drifts wider across
+   *  repeated rotations until something re-derives it from pixels — see
+   *  tightenContentBounds, which the transform gizmo calls before reading
+   *  this. */
   getContentBounds(layerId: string): { x: number; y: number; width: number; height: number } | null {
     const layerBuf = this._layers.get(layerId)
     if (!layerBuf) return null
     const rect = layerBuf.getContentBoundsWorld()
     if (!rect) return null
     return { x: rect.minX, y: rect.minY, width: rect.maxX - rect.minX, height: rect.maxY - rect.minY }
+  }
+
+  /** (#421) See ILayerBuffer.tightenContentRects — this is the public door
+   *  to it, and the transform gizmo is its only caller. Deliberately not
+   *  folded into getContentBounds (which every export/fit-to-content path
+   *  also calls, per frame in some of them) nor into _bakeTransform (which
+   *  runs on every peer's transform during replay): both would put a
+   *  synchronous GPU readback somewhere it must not be. A missing layer is a
+   *  no-op, same as getContentBounds returning null for one. */
+  tightenContentBounds(layerId: string): void {
+    this._layers.get(layerId)?.tightenContentRects()
   }
 
   /** See PencilEngineAPI's own doc comment. */
