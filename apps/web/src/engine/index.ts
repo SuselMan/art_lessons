@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation, LayerTransformMatrix } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_COMPUTE_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -732,32 +732,15 @@ const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
 // already buys. See _flushStrokeChunk's own comment for the mechanism.
 const STROKE_DAB_CHUNK_LIMIT = 800
 
-// Smudge (#14) tuning constants — picked by eye, not yet exposed as
-// settings (the tool's user-facing knobs are just size/pressure/opacity,
-// reusing the existing dab fields — see toolSchemas.ts's smudge entry and
+// Smudge (#14) tuning constants — picked by eye, not exposed as settings
+// (the tool's user-facing knobs are just size/pressure/strength, reusing the
+// existing dab fields — see toolSchemas.ts's smudge entry and
 // _bakeDabOpacity's own smudge branch). See _paintOneSmudgeDab for how each
-// is used.
+// is used, and SMUDGE_TRANSFER_FRAG's own file comment in shaders.ts for the
+// algorithm they tune: as of #416 the stump carries a raster imprint of what
+// it picked up, and every dab is a per-pixel lerp of the canvas toward that
+// imprint.
 //
-// Reworked (#14 round 2) around a small graphite reservoir the tool itself
-// carries (this._smudgeToolLoad) that exchanges with the paper at two
-// separate contact points per dab, instead of copying a patch of pixels
-// straight from one spot to another. That earlier patch-copy version had
-// two reported problems no amount of tuning could fix, because they were
-// baked into its shape: (1) a source patch, once sampled, was gone —
-// nothing ever wrote a reduced value back to it, so a small mark could be
-// smudged into full transparency by repeatedly working it against
-// untouched neighboring paper (not how a real blending stump behaves — it
-// can soften and spread a mark, never fully evacuate one), and (2) each
-// dab pulled the destination toward its own separately-sampled patch via
-// mix(), which doesn't accumulate across densely-overlapping dabs the way
-// normal alpha "over" compositing does (what makes overlapping pencil dabs
-// read as one continuous line) — so a slow stroke showed as a visible
-// chain of separately-mixed circles.
-//
-// How far behind a dab (in dab radii) its pickup contact is sampled from —
-// higher drags graphite further per dab; lower keeps the smear tighter/
-// closer to a soft local blur.
-const SMUDGE_OFFSET_FACTOR = 0.8
 // Dab radius relative to Dab.size — matches pencil's own sizeMultiplier
 // scale (see PENCIL_PRESETS) rather than a from-scratch tuning.
 const SMUDGE_SIZE_MULTIPLIER = 1.0
@@ -766,90 +749,30 @@ const SMUDGE_SIZE_MULTIPLIER = 1.0
 const SMUDGE_HARDNESS = 0.5
 // Scratch-patch size rounding, in px — a smudge stroke normally keeps a
 // constant brush size, so rounding to a coarse grid here means every dab
-// after the first reuses the same pooled buffer instead of reallocating.
+// after the first reuses the same pooled buffers (the copied patch and,
+// since #416, the carried imprint, which is sized to match it) instead of
+// reallocating.
 const SMUDGE_PATCH_GRANULARITY = 8
 // Hard ceiling on the scratch patch's own side length, regardless of how
 // large a brush size requests — bounds a single dab's worst-case GPU
 // texture allocation.
 const SMUDGE_MAX_PATCH_SIZE = 512
-// Three contact points per dab (round 3, on real-artist feedback): a real
-// fingertip/stump doesn't just skim one point behind the dab and stamp one
-// point ahead of it — the whole contact area participates at once, with the
-// trailing edge mostly picking up, the leading edge mostly laying down, and
-// the center doing both plus pressing graphite into the paper's own low
-// spots ("embedding" — see u_embed in SMUDGE_TRANSFER_FRAG). All three use
-// the exact same _smudgeContact exchange formula (paper-vs-reservoir
-// difference, both directions), just at different offsets along the dab's
-// direction of travel and with different rates — see _paintOneSmudgeDab.
-//
-// Fraction of the difference between the paper's own graphite level (at a
-// contact) and the tool's current reservoir that changes hands on a single
-// dab, before the pressure/paperCatch/shape weighting SMUDGE_TRANSFER_FRAG
-// applies per-fragment. Symmetric per contact: the same rate governs
-// paper->tool pickup and tool->paper deposit there (see _smudgeContact) —
-// which direction wins is just the sign of that contact's own difference.
-const SMUDGE_REAR_RATE = 0.6
-// Center contact: gentler than rear (it's not the primary transport, more
-// "working the material in place"), plus the only one of the three with
-// u_embed on — see that uniform's own comment.
-const SMUDGE_CENTER_RATE = 0.35
-// Front contact: forward of the dab (see SMUDGE_FRONT_OFFSET_FACTOR) —
-// mostly ends up depositing in practice (fresh/lighter territory ahead
-// means the reservoir is usually darker than what's there), without being
-// hard-coded deposit-only the way this contact used to be.
-const SMUDGE_FRONT_RATE = 0.4
-// How far ahead of the dab (in dab radii) the front contact sits — smaller
-// than SMUDGE_OFFSET_FACTOR's rear offset (0.8): the leading edge of a real
-// fingertip anticipates less than the trailing edge trails.
-const SMUDGE_FRONT_OFFSET_FACTOR = 0.5
-// Hard per-dab cap on how much this._smudgeToolLoad can change from either
-// exchange (pickup or deposit) — without this, a dead-center dab against a
-// fully loaded/fully empty difference could transfer near-100% in one hop,
-// the same "one hop nearly replaces everything" failure mode the old
-// MAX_TRANSFER constant guarded against.
-//
-// Also, separately, what bounds how hard the first few dabs of a *genuinely
-// fresh* reservoir (a user's very first-ever smudge touch, or a legacy
-// stroke recorded before smudgeLoadAtStart existed) can bite: round 1 found
-// that working a blending stump back and forth *within* one already-solid,
-// heavily-pressed area still visibly lightened it, because pickup at a
-// contact is a plain proportional reduction with no equivalent to deposit's
-// natural ceiling (an "over" blend onto already-near-opaque content is
-// close to a no-op, but erasing from it is not) — a fresh reservoir's own
-// ramp-up phase eroded a real, visible amount before it caught up, even
-// though the eventual redeposit mostly couldn't show up against content
-// that dark already.
-//
-// That first fix lowered this from 0.3 to 0.08, which also turned out to
-// quietly cap how strong smudging could ever feel: rate*pressure*opacity
-// (up to ~0.6 at full Strength) almost always exceeded 0.08 once there was
-// any real paper-vs-reservoir difference to work with, so this constant —
-// not the Strength slider — was the actual ceiling on every dab regardless
-// of setting (reported: "even at 100% it feels weak"). Round 3's other
-// fixes (three contacts sharing one exchange formula, headroom-aware
-// deposit accounting, a per-user reservoir that persists across strokes
-// instead of ramping up from empty every time) already address the
-// original round-1 bug through different, sturdier mechanisms than a tiny
-// cap ever did, so this can afford to be far less conservative now — the
-// "fresh reservoir bites too hard" case is also just much rarer post-
-// persistence (a user's very first touch, not every single stroke).
-const SMUDGE_MAX_STEP = 0.75
-// paperCatch floor below which SMUDGE_TRANSFER_FRAG's pickup branch
-// contributes ~zero, regardless of pressure/rate or how many separate
-// strokes have already worked the spot — see that shader's own comment for
-// why a plain per-dab rate penalty (paperCatch as a multiplier) still let a
-// mark be smudged into full invisibility given enough repeated strokes, and
-// why a real per-pixel ceiling was needed instead.
-//
-// Lowered from 0.4 (reported smudging still felt weak even at max Strength
-// and a raised SMUDGE_MAX_STEP): 0.4 meant a sizeable share of the paper's
-// own texture — everywhere its paperCatch sits below that — never gave up
-// any graphite at all, on top of every other rate limit. The floor's own
-// job (a spot's paper grain can leave *some* of it permanently unreachable
-// — see SMUDGE_PICKUP_FLOOR's file-level comment above) is still intact at
-// a lower value, just covering a narrower share of the paper's own texture
-// (its deepest valleys, not its whole lower half).
-const SMUDGE_PICKUP_FLOOR = 0.25
+// How much of the carried imprint one dab refreshes from the canvas under
+// it, per brush radius travelled (see `travel` in _paintOneSmudgeDab — both
+// rates are scaled that way so what a stroke leaves behind depends on how
+// far it went, not on how many samples the tablet happened to report along
+// the way, the same report-rate independence #303 established for graphite
+// deposition). This is also what bounds how far graphite is dragged: the
+// imprint's own content decays by (1 - rate) per dab, so a lower value
+// smears further and a higher one keeps the blend local.
+const SMUDGE_PICKUP_RATE = 0.5
+// The lerp weight one dab applies at its own center, per brush radius
+// travelled, before the pressure / Strength-slider / shape / paper-catch
+// weighting SMUDGE_TRANSFER_FRAG applies per fragment. Above 1 because
+// every one of those terms is a fraction in practice (default Strength is
+// 0.6, pen pressure rarely sits at full) — at the shipped defaults this
+// lands near 0.35 at a dab's own center.
+const SMUDGE_DEPOSIT_RATE = 2.0
 
 // Marker (#250, ADR 004; split per-nib in "Ревизия v1.5" — #268): a real
 // marker has no hardness *scale* the way graphite's grades do (same
@@ -1242,56 +1165,42 @@ export class PencilEngine implements PencilEngineAPI {
     | { strokeId: string; target: ILayerBuffer; scratch: MarkerStrokeScratch; lastDab: Dab }
     | null = null
 
-  // Smudge's own carried-graphite reservoir (#14 round 4), keyed by userId —
-  // "the tool belongs to whoever's holding it": two users smudging at the
-  // same time in the same room must never share one reservoir (an earlier,
-  // single-scalar version of this field could get clobbered mid-stroke by a
-  // remote peer's own smudge operation arriving through the same paint path
-  // — see _smudgeContact's own comment). Missing entry == an empty/never-
-  // touched reservoir, same as a fresh 0. No entry is ever deleted — a
-  // user's reservoir persists across separate strokes/gestures now (see
-  // _onStart no longer resetting it), which is the whole point: a real
-  // fingertip/stump doesn't get wiped clean just because you lifted it for
-  // a second between passes. What each *recorded* StrokeOperation captures
-  // (see StrokeOperation.smudgeLoadAtStart/End in packages/shared) is what
-  // makes this still deterministic under replay/remote application despite
-  // persisting: every op says exactly what the reservoir was before/after
-  // it ran, so applying it always reproduces the same result regardless of
-  // whatever this map happened to hold a moment before (see _applyPixelOp's
-  // and appendOperation's own stroke cases, which seed this map from the
-  // op's own smudgeLoadAtStart before painting).
+  // Smudge's own carried imprint (#14; a raster texture per user since
+  // #416 — see SMUDGE_TRANSFER_FRAG's own file comment for what replaced the
+  // single carried scalar and why), keyed by userId — "the tool belongs to
+  // whoever's holding it": two users smudging at the same time in the same
+  // room must never share one imprint (an earlier, single-scalar version of
+  // this field could get clobbered mid-stroke by a remote peer's own smudge
+  // operation arriving through the same paint path).
   //
-  // Round 4: lives entirely on the GPU now, not as a JS number/color pair —
-  // a 1x1 AccumulationBuffer pair per user (rgb=carried color, a=load),
-  // ping-ponged (WebGL1 forbids reading and writing the same texture in one
-  // draw call, same reasoning every other scratch-then-copy two-phase
-  // commit in this file already follows). Reported after round 3 shipped:
-  // rooms with a lot of smudging in their history took noticeably longer to
-  // (re)join — every exchange used to read the patch average back to the
-  // CPU via gl.readPixels, a genuine GPU/CPU sync stall invisible spread
-  // across interactive drawing (one dab per pointer move) but very much not
-  // replaying a history tail dab-by-dab in a tight loop on join (#149's
-  // snapshot+tail-replay design). An earlier fix cut 3 reads/dab to 2 (by
-  // interpolating the center contact); this redesign cuts it to *zero*
-  // per-dab reads — the whole exchange (SMUDGE_COMPUTE_FRAG) and paint
-  // (SMUDGE_TRANSFER_FRAG) now run without the CPU ever seeing the
-  // reservoir's numeric value, except once per stroke/chunk (not per dab)
-  // to bake StrokeOperation.smudgeLoadAtStart/End — see _smudgeCaptureLoad. */
-  private _smudgeReservoirs = new Map<string, { bufs: [AccumulationBuffer, AccumulationBuffer]; current: 0 | 1 }>()
-  // Single reusable 1x1 scratch for SMUDGE_COMPUTE_FRAG's own u_outputMode=1
-  // output (this contact's pickup/deposit amounts) — never needs pooling by
-  // size the way _smudgeScratchPool does (always exactly 1x1), and only one
-  // contact's compute is ever in flight at a time (dabs, and each dab's
-  // three contacts, are processed strictly sequentially).
-  private _smudgeTransferScratch: AccumulationBuffer | null = null
-  // This stroke/chunk's own "reservoir level before its first dab" — see
-  // StrokeOperation.smudgeLoadAtStart's own comment. Captured at _onStart
-  // (true stroke start) and refreshed at the top of the *next* chunk right
-  // after _flushStrokeChunk records the previous one, so a stroke long
-  // enough to span multiple recorded chunks still gives each chunk its own
-  // correct starting value instead of every chunk after the first claiming
-  // the whole gesture's original starting point.
-  private _smudgeChunkLoadAtStart = 0
+  // `buf` is the imprint itself: premultiplied RGBA covering the dab's own
+  // patch square, always the same side length as the patch this stroke
+  // copies (so it is pooled through _acquireSmudgeScratchBuf alongside the
+  // patches themselves, and a stroke that changes brush size resamples it
+  // through SMUDGE_PICKUP_FRAG's own normalized uv rather than needing a
+  // separate resize path). Null means "not primed yet" — the next dab
+  // copies the canvas under it wholesale instead of blending toward it, so
+  // a stroke never starts by laying a faded ghost of nothing over the
+  // canvas.
+  //
+  // `strokeId` is which gesture that imprint belongs to. A stump does not
+  // carry an imprint between gestures the way the old scalar carried a
+  // level: an imprint is *positional*, so re-using one across a pen-up
+  // would stamp a ghost of the previous stroke's content wherever the next
+  // one happens to start. Resetting at every gesture is also what makes a
+  // recorded operation self-sufficient again — replay reproduces a smudge
+  // stroke from its own dabs alone, with no cross-operation state to carry,
+  // which is why StrokeOperation.smudgeLoadAtStart/End stopped being
+  // written (see that field's own comment in packages/shared).
+  private _smudgeImprints = new Map<string, { buf: AccumulationBuffer | null; strokeId: string | null }>()
+  // The dab a replayed chunk should treat as its predecessor, per user: a
+  // gesture long enough to be split across several operations (see
+  // _flushStrokeChunk) must not restart its imprint at every chunk
+  // boundary, and the later chunks arrive with no prevDab of their own.
+  // Keyed by user (unlike marker's single _replayMarkerChunk slot) because
+  // smudge state is per-user by construction — two peers' chunked strokes
+  // interleaving in the log would otherwise each reset the other.
+  private _smudgeReplayChunks = new Map<string, { strokeId: string; lastDab: Dab }>()
 
   // Haptic grain experiment (see HapticGrain.ts) — null unless opted in.
   private _haptic: HapticGrain | null
@@ -1327,10 +1236,10 @@ export class PencilEngine implements PencilEngineAPI {
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
   // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
   private _smudgeProg!: WebGLProgram
-  // The GPU-resident exchange compute pass (#14 round 4) — paired with
-  // DISPLAY_VERT (a plain full-screen quad; its own 1x1 target doesn't need
-  // dab-quad geometry) rather than DAB_VERT.
-  private _smudgeComputeProg!: WebGLProgram
+  // The imprint-refresh pass (#416) — paired with DISPLAY_VERT (a plain
+  // full-screen quad over the imprint texture; it needs no dab-quad
+  // geometry, only the patch's own normalized square) rather than DAB_VERT.
+  private _smudgePickupProg!: WebGLProgram
   // Marker ribbon (#330 stage 2) — the bands between consecutive nib stamps
   // (markerRibbon.ts). Its own tiny program: unlike every other dab draw, the
   // vertices arrive already positioned by the CPU and carry a per-vertex
@@ -1349,7 +1258,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _blitUni!: Record<string, WebGLUniformLocation | null>
   private _transformUni!: Record<string, WebGLUniformLocation | null>
   private _smudgeUni!: Record<string, WebGLUniformLocation | null>
-  private _smudgeComputeUni!: Record<string, WebGLUniformLocation | null>
+  private _smudgePickupUni!: Record<string, WebGLUniformLocation | null>
   private _dabPosLoc!: number
   private _dispPosLoc!: number
   private _dispTransparentPosLoc!: number
@@ -1361,7 +1270,7 @@ export class PencilEngine implements PencilEngineAPI {
   // separately linked program, so 'a_position' can land at a different
   // location number in it and _dabPosLoc must not be reused here.
   private _smudgePosLoc!: number
-  private _smudgeComputePosLoc!: number
+  private _smudgePickupPosLoc!: number
   private _quadBuf!: WebGLBuffer
   private _screenBuf!: WebGLBuffer
   private _compositeFBO!: AccumulationBuffer
@@ -1985,12 +1894,12 @@ export class PencilEngine implements PencilEngineAPI {
           break
         }
         if (buf) {
-          // Smudge only (#14): this op's own author's reservoir must match
-          // whatever it was on the client that originally recorded it, not
-          // whatever this._smudgeReservoirs happens to hold for that userId
-          // right now (leftover from an unrelated earlier op, or nothing at
-          // all) — see StrokeOperation.smudgeLoadAtStart's own comment.
-          if (op.tool === 'smudge') this._smudgeSeedReservoir(op.userId, op.smudgeLoadAtStart ?? 0)
+          // Smudge (#416) needs no seeding here anymore: an operation is
+          // self-sufficient again, because the imprint the tool carries is
+          // reset at every gesture boundary and rebuilt from this op's own
+          // dabs (see _smudgeResumeGesture, and
+          // StrokeOperation.smudgeLoadAtStart's own comment for what the
+          // scalar it replaced had to carry across operations).
           this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
           this._markLayerDirty(op.layerId)
           this._maybeCheckpoint(op.layerId)
@@ -2833,10 +2742,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._replayMarkerChunk?.scratch.destroy()
     this._replayMarkerChunk = null
     this._markerScratchPool.destroy()
-    for (const { bufs } of this._smudgeReservoirs.values()) { bufs[0].destroy(); bufs[1].destroy() }
-    this._smudgeReservoirs.clear()
-    this._smudgeTransferScratch?.destroy()
-    this._smudgeTransferScratch = null
+    // A live imprint's buffer was spliced *out* of the scratch pool drained
+    // above and is held only here, so it needs destroying on its own.
+    for (const imprint of this._smudgeImprints.values()) imprint.buf?.destroy()
+    this._smudgeImprints.clear()
+    this._smudgeReplayChunks.clear()
     for (const { buf, timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
       buf.destroy()
@@ -3020,11 +2930,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _applyPixelOp(buf: ILayerBuffer, layerId: string, op: PixelOperation): void {
     switch (op.type) {
       case 'stroke':
-        // Smudge only (#14): see appendOperation's own stroke case for why
-        // this seed (not whatever's currently in _smudgeReservoirs) is what
-        // keeps replay/undo/redo deterministic regardless of processing
-        // order or what ran before this op.
-        if (op.tool === 'smudge') this._smudgeSeedReservoir(op.userId, op.smudgeLoadAtStart ?? 0)
+        // Smudge (#416): nothing to seed — see appendOperation's own stroke
+        // case for why replay/undo/redo is deterministic from the op's own
+        // dabs alone now.
         this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
         break
       case 'layer_clear':
@@ -3281,8 +3189,8 @@ export class PencilEngine implements PencilEngineAPI {
     // (#385) Dropped, not released: releasing would put dead handles back in
     // the pool for the next gesture to paint through.
     this._markerScratchPool.forget()
-    this._smudgeReservoirs.clear() // same reasoning — pooled GL objects are dead too
-    this._smudgeTransferScratch = null
+    this._smudgeImprints.clear() // same reasoning — pooled GL objects are dead too
+    this._smudgeReplayChunks.clear()
     for (const { timer } of this._peerPreviews.values()) {
       if (timer !== null) clearTimeout(timer)
     }
@@ -3625,7 +3533,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
-    this._smudgeComputeProg   = createProgram(gl, DISPLAY_VERT, SMUDGE_COMPUTE_FRAG)
+    this._smudgePickupProg    = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
@@ -3671,11 +3579,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudgeUni = getUniforms(gl, this._smudgeProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
       'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_transferTex', 'u_reservoirTex', 'u_mode', 'u_pickupFloor',
-      'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap', 'u_embed',
+      'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode',
+      'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
     ])
-    this._smudgeComputeUni = getUniforms(gl, this._smudgeComputeProg, [
-      'u_patch', 'u_oldReservoir', 'u_rate', 'u_pressure', 'u_opacity', 'u_maxStep', 'u_outputMode',
+    this._smudgePickupUni = getUniforms(gl, this._smudgePickupProg, [
+      'u_patch', 'u_carried', 'u_rate',
     ])
 
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
@@ -3686,7 +3594,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
     this._smudgePosLoc         = gl.getAttribLocation(this._smudgeProg, 'a_position')
-    this._smudgeComputePosLoc  = gl.getAttribLocation(this._smudgeComputeProg, 'a_position')
+    this._smudgePickupPosLoc   = gl.getAttribLocation(this._smudgePickupProg, 'a_position')
 
     this._instPosLoc     = gl.getAttribLocation(this._dabProgInstanced, 'a_position')
     this._instALoc       = gl.getAttribLocation(this._dabProgInstanced, 'a_instA')
@@ -3835,12 +3743,9 @@ export class PencilEngine implements PencilEngineAPI {
       this._strokeTool === 'marker' ? MARKER_CURVATURE_TOLERANCE_PX : null
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
-    // Smudge's reservoir now persists across separate strokes (see
-    // _smudgeReservoirs' own field comment) — no reset here. Just capture
-    // this stroke's own starting level (for StrokeOperation.smudgeLoadAtStart,
-    // baked in by _onEnd/_flushStrokeChunk) — harmless to do unconditionally
-    // even for a non-smudge stroke, since nothing reads it outside those two.
-    this._smudgeChunkLoadAtStart = this._smudgeCaptureLoad(this._userId)
+    // Smudge's carried imprint resets at every gesture, but not from here:
+    // _paintSmudgeDabs does it off this stroke's own id, so the local and the
+    // replayed path go through exactly one rule (see _smudgeResumeGesture).
     this._strokeDabs    = []
     this._strokeStartTimestamp = e.timeStamp
     if (this._debug) {
@@ -4086,8 +3991,7 @@ export class PencilEngine implements PencilEngineAPI {
         layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
         ...(this._strokeId ? { strokeId: this._strokeId } : {}),
-        ...this._smudgeOpLoadFields(),
-      }
+        }
       this._log.append(op)
       this._maybeCheckpoint(layerId)
       this._onLocalOperation?.(op)
@@ -4343,31 +4247,11 @@ export class PencilEngine implements PencilEngineAPI {
       layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
       dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
       ...(this._strokeId ? { strokeId: this._strokeId } : {}),
-      ...this._smudgeOpLoadFields(),
     }
     this._log.append(op)
     this._maybeCheckpoint(layerId)
     this._onLocalOperation?.(op)
     this._strokeDabs = []
-    // This chunk's own start/end reservoir levels are now baked into `op`
-    // above — refresh the marker for whatever chunk comes next in this same
-    // still-in-progress gesture (see _smudgeChunkLoadAtStart's own comment).
-    this._smudgeChunkLoadAtStart = this._smudgeCaptureLoad(this._userId)
-  }
-
-  /** StrokeOperation.smudgeLoadAtStart/End for the op _onEnd/_flushStrokeChunk
-   *  are about to build — {} (no fields at all) for every tool but smudge,
-   *  so a non-smudge op's shape is unaffected. See those fields' own
-   *  comment in packages/shared/src/index.ts. The _smudgeCaptureLoad() call
-   *  below is the one gl.readPixels this whole redesign didn't eliminate —
-   *  see that method's own comment for why once per recorded op (not per
-   *  dab) is fine. */
-  private _smudgeOpLoadFields(): { smudgeLoadAtStart?: number; smudgeLoadAtEnd?: number } {
-    if (this._strokeTool !== 'smudge') return {}
-    return {
-      smudgeLoadAtStart: this._smudgeChunkLoadAtStart,
-      smudgeLoadAtEnd: this._smudgeCaptureLoad(this._userId),
-    }
   }
 
   // ─── Reference image import (#88) ──────────────────────────────────────────────
@@ -4582,8 +4466,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  fixed origin (0,0) covering that one buffer, same as before this
    *  method was generalized for tiling.
    *
-   *  `userId` (smudge only, #14): whose own carried-graphite reservoir
-   *  (this._smudgeReservoirs) these dabs exchange with — every caller already
+   *  `userId` (smudge only, #14): whose own carried imprint
+   *  (this._smudgeImprints) these dabs exchange with — every caller already
    *  knows this (their own this._userId for a live/preview stroke, the
    *  StrokeOperation's own userId for a remote/replayed one); unused by
    *  every other tool.
@@ -4602,14 +4486,21 @@ export class PencilEngine implements PencilEngineAPI {
    *  caller (one-shot full-array replay/undo/redo/checkpoint/peer-op
    *  application), which gets a correct, throwaway per-call instance
    *  instead (see _paintMarkerDabs' own doc comment). Unused by every tool
-   *  but marker. */
+   *  but marker.
+   *
+   *  `strokeId` (marker and smudge): which gesture these dabs belong to.
+   *  Marker uses it to rejoin a chunked stroke's scratch (_replayChunkScratch);
+   *  smudge, to decide whether the carried imprint continues or resets
+   *  (_smudgeResumeGesture). Both are no-ops without it — a stroke recorded
+   *  before strokeId existed replays as several independent operations, with
+   *  a seam at each boundary. */
   private _paintDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number], userId: string, prevDab?: Dab, markerScratch?: MarkerStrokeScratch,
     strokeId?: string,
   ): void {
     if (!dabs.length) return
-    if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab); return }
+    if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
     // round trip (see _paintMarkerDabs' own doc comment) — self-contained
@@ -4878,19 +4769,17 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** See _paintOneSmudgeDab's own doc comment for the algorithm and
-   *  _paintDabs' doc comment for `prevDab`. Never batched (unlike pencil/
-   *  eraser's _paintDabsInstanced): each dab's own pickup contact has to
-   *  sample whatever the *previous* dab (in this same call, or — courtesy
-   *  of `prevDab` — the previous _paintDabs call in this stroke) already
-   *  left there, and this._smudgeReservoirs' own per-user texture is a
-   *  single running (ping-ponged) value threaded dab-to-dab — so dab N+1
-   *  can't be submitted until dab N's own GPU passes have actually been
-   *  issued in order. A real cost pencil/eraser don't pay (their own dabs
+   *  _paintDabs' doc comment for `prevDab`/`strokeId`. Never batched (unlike
+   *  pencil/eraser's _paintDabsInstanced): every dab both reads the canvas
+   *  under it and writes to it, through an imprint threaded dab-to-dab, so
+   *  dab N+1's own passes can't be submitted until dab N's have actually
+   *  been issued in order. A real cost pencil/eraser don't pay (their dabs
    *  are independent, safely batched), but smudge strokes are a deliberate,
    *  comparatively low-frequency gesture (blending a shaded area), not fast
    *  scribbling — not the same hot path #123 batched. */
   private _paintSmudgeDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], userId: string, prevDab: Dab | undefined,
+    strokeId: string | undefined,
   ): void {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) are a single un-tiled buffer, freshly cleared before
@@ -4900,57 +4789,92 @@ export class PencilEngine implements PencilEngineAPI {
     // always paint straight into the real layer regardless (see
     // _paintDabs' own doc comment on this parameter).
     if (target instanceof AccumulationBuffer) return
-    let prev = prevDab
+    // An explicit prevDab means the caller *is* the continuation (the live
+    // stroke's own next incremental batch), and nothing needs resolving.
+    let prev = prevDab ?? this._smudgeResumeGesture(userId, strokeId, dabs)
     for (const dab of dabs) {
+      // No predecessor: this is the gesture's first dab, so there is no
+      // travel to smear along yet — it only primes the imprint with what
+      // sits under it (see _smudgeApplyDab's `priming` branch), which is
+      // also why a one-dab smudge stroke leaves the canvas untouched.
       if (prev) this._paintOneSmudgeDab(target, prev, dab, userId)
+      else this._smudgeApplyDab(target, dab, 0, userId)
       prev = dab
     }
   }
 
-  /** One smudge dab: three separate exchange contacts with
-   *  this._smudgeToolLoad, the tool's own small carried-graphite reservoir
-   *  (see that field's own comment) — not a direct patch-copy the way this
-   *  used to work, and not just a rear/front pair either (see
-   *  SMUDGE_REAR_RATE's own comment for why a third, center contact was
-   *  added). All three trade the *difference* between the paper's own
-   *  graphite level there and the reservoir's current level, in whichever
-   *  direction it points — paper darker than the tool: pickup (erase-style,
-   *  weighted by SMUDGE_TRANSFER_FRAG's paperCatch pickup floor — see that
-   *  shader's own comment for why a spot's own paper grain can leave it
-   *  partly unreachable no matter how many passes); tool darker than the
-   *  paper: deposit instead (normal alpha-over, not the old mix() — this is
-   *  what makes densely-overlapping dabs blend into a continuous stroke
-   *  instead of a chain of circles).
+  /** Resolves what the first dab of this call should treat as its
+   *  predecessor, and resets the imprint when this call starts a *new*
+   *  gesture (see _smudgeImprints' own field comment for why an imprint
+   *  never crosses a pen-up).
    *
-   *   - rear (behind `dab`, opposite its direction of travel from `prev`):
-   *     the primary transport contact, usually pickup-dominant since it's
-   *     revisiting where the tool just came from. Reads the paper for real
-   *     (_smudgeReadContact).
-   *   - front (ahead of `dab`, same direction): usually deposit-dominant,
-   *     since the territory ahead is typically lighter than the reservoir.
-   *     Also reads the paper for real.
-   *   - center (`dab`'s own position): gentler exchange, plus "embedding"
-   *     — pressing graphite into the paper's own low spots under pressure,
-   *     the same fill mechanic pencil dabs already get (see u_embed). Does
-   *     *not* read the paper on its own — center sits directly between rear
-   *     and front along the stroke's own direction of travel, close enough
-   *     that a distance-weighted blend of their two already-fetched
-   *     averages (_lerpSmudgeAvg) is a good stand-in for a third real read.
-   *     Reported after this design first shipped: rooms with a lot of
-   *     smudging in their history took noticeably longer to (re)join —
-   *     gl.readPixels is a real GPU/CPU sync stall, invisible spread across
-   *     interactive drawing but very much not when replaying a history tail
-   *     dab-by-dab in a tight loop on join (see #149's snapshot+tail-replay
-   *     design). Three real reads per dab meant three stalls per dab;
-   *     cutting one of three (rear/front stay exact, since they're what the
-   *     "reads real paper, not an approximation" guarantee most needs to
-   *     hold) measured as the difference between a room settling in ~3.85s
-   *     vs ~1.06s at ~900 smudge dabs of history — center falling back to
-   *     interpolation only when both neighbors have a real reading to blend
-   *     (see below) keeps that same real-vs-approximated tradeoff, just
-   *     with one fewer stall paid for it.
+   *  The continuation case is a gesture long enough to have been recorded
+   *  as several operations (_flushStrokeChunk): live, they were one
+   *  unbroken run of dabs through one imprint, and replay has to rejoin
+   *  them or every chunk boundary would restart the smear from scratch —
+   *  visible as a seam. Both halves of the check matter: the imprint must
+   *  still belong to this gesture *and* a previous chunk of it must have
+   *  gone through here, so an operation arriving on its own (a peer's
+   *  stroke, a replay that begins mid-gesture because the earlier chunk is
+   *  already inside a restored snapshot) correctly starts clean instead of
+   *  smearing from wherever this user's tool last happened to be. */
+  private _smudgeResumeGesture(userId: string, strokeId: string | undefined, dabs: Dab[]): Dab | undefined {
+    const imprint = this._smudgeImprintFor(userId)
+    const chunk = strokeId ? this._smudgeReplayChunks.get(userId) : undefined
+    const continuing = !!strokeId && chunk?.strokeId === strokeId && imprint.strokeId === strokeId
+    if (!continuing) {
+      if (imprint.buf) this._releaseSmudgeScratchBuf(imprint.buf)
+      imprint.buf = null
+    }
+    imprint.strokeId = strokeId ?? null
+    if (strokeId) this._smudgeReplayChunks.set(userId, { strokeId, lastDab: dabs[dabs.length - 1] })
+    else this._smudgeReplayChunks.delete(userId)
+    return continuing ? chunk?.lastDab : undefined
+  }
+
+  /** One smudge dab (#416): the canvas under it is blended toward the
+   *  imprint the stump carries, and the imprint is blended toward the
+   *  canvas — both per pixel, both in the same dab. See
+   *  SMUDGE_TRANSFER_FRAG's own file comment in shaders.ts for the full
+   *  algorithm and for what this replaced (a single carried scalar, which
+   *  forced every dab to be *either* a pickup or a deposit across its whole
+   *  footprint and left a scrubbed-clean halo around every line it worked).
    *
-   *  v1 scope: skips a contact entirely (rather than clipping or attempting
+   *  There are no separate rear/center/front contacts anymore. The imprint
+   *  is anchored to the dab's own position in normalized patch space, so it
+   *  travels with the brush by construction and the offset between
+   *  consecutive dabs is itself the smear — the thing three hand-offset
+   *  contacts were approximating.
+   *
+   *  `travel` (distance since the previous dab, in brush radii) scales both
+   *  rates so a stroke's result follows how far it went rather than how
+   *  many samples arrived along the way — see SMUDGE_PICKUP_RATE. It also
+   *  makes standing still a true no-op rather than something that slowly
+   *  eats the drawing. */
+  private _paintOneSmudgeDab(target: ILayerBuffer, prev: Dab, dab: Dab, userId: string): void {
+    const radius = dab.size * 0.5 * SMUDGE_SIZE_MULTIPLIER
+    if (radius < 0.5) return
+
+    const len = Math.hypot(dab.x - prev.x, dab.y - prev.y)
+    if (len < 1e-3) return // stationary/duplicate sample — nothing moved, so nothing smears
+    this._smudgeApplyDab(target, dab, clampNum(len / radius, 0, 1), userId)
+  }
+
+  /** The two GPU phases of one smudge dab, against `userId`'s own imprint:
+   *  copy the canvas patch under the dab, refresh the imprint from it
+   *  (SMUDGE_PICKUP_FRAG), then lay the imprint back down as a per-pixel
+   *  lerp (two SMUDGE_TRANSFER_FRAG draws — see that shader's own comment
+   *  for why the pair is exactly `dst*(1-a) + carried*a` and why both must
+   *  keep computing `a` identically).
+   *
+   *  `travel` of 0 means there is no imprint to lay down yet: the dab only
+   *  primes it (rate 1 — take the canvas wholesale rather than blending
+   *  toward it from nothing, which would otherwise lay a faded ghost of the
+   *  canvas over itself on the gesture's first dab) and paints nothing.
+   *  Same branch covers an imprint that never got primed because an earlier
+   *  dab bailed out below.
+   *
+   *  v1 scope: skips the dab entirely (rather than clipping or attempting
    *  cross-tile compositing) whenever its patch doesn't fit fully inside a
    *  single resident/creatable tile — an infinite room's tile grid means a
    *  smudge stroke crossing a tile boundary currently just has a gap there.
@@ -4958,207 +4882,117 @@ export class PencilEngine implements PencilEngineAPI {
    *  TILE_SIZE, so this only bites right at a boundary) — full cross-tile
    *  sampling would need the same multi-source-tile treatment
    *  _bakeTransform already has, not yet ported here. */
-  private _paintOneSmudgeDab(target: ILayerBuffer, prev: Dab, dab: Dab, userId: string): void {
+  private _smudgeApplyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string): void {
     const radius = dab.size * 0.5 * SMUDGE_SIZE_MULTIPLIER
     if (radius < 0.5) return
-
-    const dx = dab.x - prev.x
-    const dy = dab.y - prev.y
-    const len = Math.hypot(dx, dy)
-    if (len < 1e-3) return // no direction to smear from (a stationary/duplicate sample)
-    const dirX = dx / len
-    const dirY = dy / len
-    const rearOffset = radius * SMUDGE_OFFSET_FACTOR
-    const frontOffset = radius * SMUDGE_FRONT_OFFSET_FACTOR
-
-    this._smudgeContact(target, dab.x - dirX * rearOffset, dab.y - dirY * rearOffset, radius, SMUDGE_REAR_RATE, dab, userId, false)
-    this._smudgeContact(target, dab.x, dab.y, radius, SMUDGE_CENTER_RATE, dab, userId, true)
-    this._smudgeContact(target, dab.x + dirX * frontOffset, dab.y + dirY * frontOffset, radius, SMUDGE_FRONT_RATE, dab, userId, false)
-  }
-
-  /** One exchange contact for smudge, entirely GPU-resident (#14 round 4 —
-   *  see this._smudgeReservoirs' own field comment for why): copies the
-   *  patch behind this contact (as before), then runs SMUDGE_COMPUTE_FRAG
-   *  twice against `userId`'s own current reservoir texture — once to
-   *  produce the *new* reservoir (ping-ponged into the other of the pair),
-   *  once to produce this contact's own pickup/deposit amounts (a small
-   *  scratch texture) — and finally always issues both a pickup-mode and a
-   *  deposit-mode SMUDGE_TRANSFER_FRAG draw, each sampling its own amount
-   *  out of that scratch texture rather than being told a JS-computed
-   *  number. Exactly one of the two draws ever has a nonzero amount (the
-   *  compute shader's pickupAmount/depositAmount are the max(x,0)/
-   *  max(-x,0) split of one signed difference, same as the old JS branch's
-   *  `if (raw > 0) {...} else {...}` did) — the "wrong" direction's draw is
-   *  a harmless no-op, the price of never knowing on the CPU which
-   *  direction it turned out to be (that's the whole point: nothing here
-   *  ever needs the exchange's numeric result back on the CPU). `rate` is
-   *  this contact's own share of the difference per dab. `embed` enables
-   *  the deposit draw's fill mechanic (see SMUDGE_TRANSFER_FRAG's own
-   *  u_embed comment) — center contact only.
-   *
-   *  v1 scope: skips a contact entirely (rather than clipping or attempting
-   *  cross-tile compositing) whenever its patch doesn't fit fully inside a
-   *  single resident/creatable tile — an infinite room's tile grid means a
-   *  smudge stroke crossing a tile boundary currently just has a gap there
-   *  (unchanged from earlier rounds). */
-  private _smudgeContact(
-    target: ILayerBuffer, cx: number, cy: number, radius: number, rate: number, dab: Dab, userId: string, embed: boolean,
-  ): void {
     const patchWorld = Math.ceil(radius * 2)
     const patchSize = Math.min(SMUDGE_MAX_PATCH_SIZE, Math.ceil(patchWorld / SMUDGE_PATCH_GRANULARITY) * SMUDGE_PATCH_GRANULARITY)
     if (patchSize < 1) return
     const half = patchSize / 2
 
-    const targets = target.resolveForPaint({ minX: cx - half, minY: cy - half, maxX: cx + half, maxY: cy + half })
+    const targets = target.resolveForPaint({ minX: dab.x - half, minY: dab.y - half, maxX: dab.x + half, maxY: dab.y + half })
     if (targets.length !== 1) return // spans more than one tile (or none) — see this method's own doc comment
     const tile = targets[0]
-    const localX = Math.round(cx - half - tile.originX)
-    const localY = Math.round(cy - half - tile.originY)
+    const localX = Math.round(dab.x - half - tile.originX)
+    const localY = Math.round(dab.y - half - tile.originY)
     if (localX < 0 || localY < 0
       || localX + patchSize > tile.buffer.width || localY + patchSize > tile.buffer.height) return
 
     // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
     // (bottom-up) — same flip every other app-space/GL boundary in this
     // file applies (DAB_VERT's clip.y flip, pickColor) — see
-    // copyRegionTo's own doc comment.
+    // copyRegionTo's own doc comment. The *rounded* rect below is also what
+    // the transfer draws map back from (u_patchOrigin), so the imprint and
+    // the canvas stay aligned to the texel rather than to the dab's own
+    // fractional center.
     const patch = this._acquireSmudgeScratchBuf(patchSize)
     const glY = tile.buffer.height - localY - patchSize
     tile.buffer.copyRegionTo(patch, localX, glY, patchSize, patchSize)
 
-    const reservoir = this._smudgeGetReservoir(userId)
-    const oldBuf = reservoir.bufs[reservoir.current]
-    const newIdx: 0 | 1 = reservoir.current === 0 ? 1 : 0
-    const newBuf = reservoir.bufs[newIdx]
-    const transferBuf = this._smudgeGetTransferScratch()
-
-    // Both compute passes read the *same* old reservoir (oldBuf) — order
-    // between them doesn't matter, since neither is fed by the other's
-    // output.
-    this._smudgeRunCompute(patch, oldBuf, newBuf, rate, dab, 0)
-    this._smudgeRunCompute(patch, oldBuf, transferBuf, rate, dab, 1)
-    reservoir.current = newIdx
+    const imprint = this._smudgeImprintFor(userId)
+    const priming = imprint.buf === null
+    const rate = priming ? 1 : clampNum(SMUDGE_PICKUP_RATE * travel, 0, 1)
+    // Ping-pong rather than in-place: WebGL1 forbids reading and writing the
+    // same texture in one draw, the same two-phase commit every other
+    // scratch-then-copy in this file already follows. Priming has no
+    // previous imprint to read, so it reads the patch on both inputs —
+    // mix(patch, patch, 1) is the patch either way.
+    const next = this._acquireSmudgeScratchBuf(patchSize)
+    this._smudgeRunPickup(patch, imprint.buf ?? patch, next, rate)
     this._releaseSmudgeScratchBuf(patch)
+    if (imprint.buf) this._releaseSmudgeScratchBuf(imprint.buf)
+    imprint.buf = next
+    if (priming) return
 
-    this._drawSmudgeTransferDab(tile, cx, cy, radius, transferBuf, newBuf, 'pickup', dab.pressure, false)
-    this._drawSmudgeTransferDab(tile, cx, cy, radius, transferBuf, newBuf, 'deposit', dab.pressure, embed)
+    // dab.opacity is the UI's "Strength" slider for this tool (see
+    // _bakeDabOpacity's own smudge branch); pressure and travel are the two
+    // physical terms on top of it.
+    const strength = SMUDGE_DEPOSIT_RATE * travel * dab.pressure * dab.opacity
+    if (strength <= 0) return
+    this._drawSmudgeTransferDab(tile, dab, radius, next, localX, glY, patchSize, 'clear', strength)
+    this._drawSmudgeTransferDab(tile, dab, radius, next, localX, glY, patchSize, 'lay', strength)
 
-    target.markContentPainted({ minX: cx - radius, minY: cy - radius, maxX: cx + radius, maxY: cy + radius })
+    target.markContentPainted({ minX: dab.x - radius, minY: dab.y - radius, maxX: dab.x + radius, maxY: dab.y + radius })
   }
 
-  /** `userId`'s own reservoir texture pair, creating it (cleared to (0,0,0,0)
-   *  — an empty reservoir, same default the old JS Map's `?? 0`/`?? graphite
-   *  Color` fallbacks gave) on first use. Never removed once created — see
-   *  this._smudgeReservoirs' own field comment for why that's fine (tiny,
-   *  1x1 GPU textures, mirrors _peerPreviews' own no-explicit-cleanup
-   *  precedent). */
-  private _smudgeGetReservoir(userId: string): { bufs: [AccumulationBuffer, AccumulationBuffer]; current: 0 | 1 } {
-    let r = this._smudgeReservoirs.get(userId)
-    if (!r) {
-      const a = new AccumulationBuffer(this.gl, 1, 1, 'nearest')
-      const b = new AccumulationBuffer(this.gl, 1, 1, 'nearest')
-      a.clear()
-      b.clear()
-      r = { bufs: [a, b], current: 0 }
-      this._smudgeReservoirs.set(userId, r)
+  /** `userId`'s own imprint slot, created empty (never primed) on first use.
+   *  Never removed once created — the entry itself is two fields and a
+   *  possibly-null buffer handle, and the buffer goes back to the shared
+   *  pool at every gesture boundary (see _smudgeResumeGesture), so a room
+   *  full of people who each smudged once holds nothing but map entries. */
+  private _smudgeImprintFor(userId: string): { buf: AccumulationBuffer | null; strokeId: string | null } {
+    let entry = this._smudgeImprints.get(userId)
+    if (!entry) {
+      entry = { buf: null, strokeId: null }
+      this._smudgeImprints.set(userId, entry)
     }
-    return r
+    return entry
   }
 
-  private _smudgeGetTransferScratch(): AccumulationBuffer {
-    if (!this._smudgeTransferScratch) this._smudgeTransferScratch = new AccumulationBuffer(this.gl, 1, 1, 'nearest')
-    return this._smudgeTransferScratch
-  }
-
-  /** Directly writes `load` (and the current graphite color, since a
-   *  recorded StrokeOperation only ever bakes the load number — see
-   *  StrokeOperation.smudgeLoadAtStart's own comment) into `userId`'s
-   *  *current* reservoir texture via AccumulationBuffer.restorePixels — a
-   *  plain CPU->GPU texture upload, not a readback, so this costs nothing
-   *  like gl.readPixels does. Used to seed the reservoir from a recorded/
-   *  incoming op's own smudgeLoadAtStart before applying its dabs (see
-   *  appendOperation's and _applyPixelOp's own stroke cases) — the
-   *  deterministic-replay counterpart to _smudgeCaptureLoad. */
-  private _smudgeSeedReservoir(userId: string, load: number): void {
-    const reservoir = this._smudgeGetReservoir(userId)
-    const color = this._opts.graphiteColor
-    const pixels = new Uint8Array([
-      Math.round(clampNum(color[0], 0, 1) * 255),
-      Math.round(clampNum(color[1], 0, 1) * 255),
-      Math.round(clampNum(color[2], 0, 1) * 255),
-      Math.round(clampNum(load, 0, 1) * 255),
-    ])
-    reservoir.bufs[reservoir.current].restorePixels(pixels)
-  }
-
-  /** Reads `userId`'s current reservoir load back to the CPU — the one
-   *  gl.readPixels this redesign didn't eliminate, and deliberately so: it
-   *  only ever runs once per recorded StrokeOperation (at _onEnd/
-   *  _flushStrokeChunk, to bake smudgeLoadAtStart/End — see those methods'
-   *  own comments), never per dab, so it's nowhere near the replay-tail hot
-   *  path that motivated moving everything else off the CPU. Returns 0 for
-   *  a user with no reservoir yet (never smudged this session), same
-   *  default _smudgeGetReservoir itself starts from. */
-  private _smudgeCaptureLoad(userId: string): number {
-    const r = this._smudgeReservoirs.get(userId)
-    if (!r) return 0
-    return r.bufs[r.current].readPixels()[3] / 255
-  }
-
-  /** One SMUDGE_COMPUTE_FRAG draw call, rendering into `target` (always a
-   *  1x1 buffer). `outputMode` 0 writes the new reservoir (rgb=color,
-   *  a=load) into `target`; 1 writes this contact's own pickup/deposit
-   *  amounts (r/g) into `target` instead — see that shader's own file
-   *  comment. GL blending must stay disabled: this is a straight compute
-   *  write, not something accumulating over prior content the way a real
-   *  paint dab does. */
-  private _smudgeRunCompute(
-    patch: AccumulationBuffer, oldReservoir: AccumulationBuffer, target: AccumulationBuffer,
-    rate: number, dab: Dab, outputMode: 0 | 1,
+  /** One SMUDGE_PICKUP_FRAG draw: writes `mix(carried, patch, rate)` into
+   *  `target`, per texel. GL blending must stay disabled — this replaces
+   *  the imprint outright rather than accumulating onto whatever the pooled
+   *  buffer happened to hold before. */
+  private _smudgeRunPickup(
+    patch: AccumulationBuffer, carried: AccumulationBuffer, target: AccumulationBuffer, rate: number,
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo)
     gl.viewport(0, 0, target.width, target.height)
     gl.disable(gl.BLEND)
-    gl.useProgram(this._smudgeComputeProg)
-    const u = this._smudgeComputeUni
+    gl.useProgram(this._smudgePickupProg)
+    const u = this._smudgePickupUni
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, patch.texture)
     gl.uniform1i(u.u_patch, 0)
     gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, oldReservoir.texture)
-    gl.uniform1i(u.u_oldReservoir, 1)
+    gl.bindTexture(gl.TEXTURE_2D, carried.texture)
+    gl.uniform1i(u.u_carried, 1)
     gl.uniform1f(u.u_rate, rate)
-    // dab.opacity is the UI's "Strength" slider (see _bakeDabOpacity's own
-    // smudge branch) — applies to both directions equally, same as pressure.
-    gl.uniform1f(u.u_pressure, dab.pressure)
-    gl.uniform1f(u.u_opacity, dab.opacity)
-    gl.uniform1f(u.u_maxStep, SMUDGE_MAX_STEP)
-    gl.uniform1f(u.u_outputMode, outputMode)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
-    gl.enableVertexAttribArray(this._smudgeComputePosLoc)
-    gl.vertexAttribPointer(this._smudgeComputePosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(this._smudgePickupPosLoc)
+    gl.vertexAttribPointer(this._smudgePickupPosLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** One SMUDGE_TRANSFER_FRAG draw call — either a `pickup` (erase-style,
-   *  beginErase()'s (ZERO, ONE_MINUS_SRC_ALPHA) blend) or a `deposit`
-   *  (over-style, beginDraw()'s (ONE, ONE_MINUS_SRC_ALPHA) blend, colored
-   *  from `reservoirTex`) at world position (cx, cy) — see _smudgeContact
-   *  for the call site. `transferTex`/`reservoirTex` are 1x1 textures
-   *  (SMUDGE_COMPUTE_FRAG's own two outputs), sampled by the shader itself
-   *  rather than passed as JS-computed uniforms — see SMUDGE_TRANSFER_FRAG's
-   *  own file comment for why. */
+  /** One half of a smudge dab's lerp — `clear` is `dst *= (1-a)` under
+   *  beginErase()'s (ZERO, ONE_MINUS_SRC_ALPHA), `lay` is `dst += carried*a`
+   *  under beginAdditiveDraw()'s (ONE, ONE). Issued as a pair, with
+   *  identical uniforms apart from u_mode, so the two together are exactly
+   *  `dst' = dst*(1-a) + carried*a` (see SMUDGE_TRANSFER_FRAG's own file
+   *  comment). `patchX`/`patchGlY`/`patchSize` are the copied patch's own
+   *  rect in this tile's GL pixel space, which is how a fragment finds
+   *  itself in the imprint. */
   private _drawSmudgeTransferDab(
-    tile: PaintTarget, cx: number, cy: number, radius: number,
-    transferTex: AccumulationBuffer, reservoirTex: AccumulationBuffer, mode: 'pickup' | 'deposit',
-    pressure: number, embed: boolean,
+    tile: PaintTarget, dab: Dab, radius: number, carried: AccumulationBuffer,
+    patchX: number, patchGlY: number, patchSize: number, mode: 'clear' | 'lay', strength: number,
   ): void {
     const { gl } = this
     const { buffer } = tile
-    if (mode === 'deposit') buffer.beginDraw()
+    if (mode === 'lay') buffer.beginAdditiveDraw()
     else buffer.beginErase()
 
     gl.useProgram(this._smudgeProg)
@@ -5174,24 +5008,22 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperHeightMap, 0)
     gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, transferTex.texture)
-    gl.uniform1i(u.u_transferTex, 1)
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, reservoirTex.texture)
-    gl.uniform1i(u.u_reservoirTex, 2)
+    gl.bindTexture(gl.TEXTURE_2D, carried.texture)
+    gl.uniform1i(u.u_carried, 1)
+    gl.uniform2f(u.u_patchOrigin, patchX, patchGlY)
+    gl.uniform1f(u.u_patchSize, patchSize)
     gl.uniform1f(u.u_hardness, SMUDGE_HARDNESS)
-    gl.uniform1f(u.u_mode, mode === 'deposit' ? 1.0 : 0.0)
-    gl.uniform1f(u.u_pickupFloor, SMUDGE_PICKUP_FLOOR)
-    gl.uniform1f(u.u_pressure, pressure)
+    gl.uniform1f(u.u_mode, mode === 'lay' ? 1.0 : 0.0)
+    gl.uniform1f(u.u_strength, strength)
+    gl.uniform1f(u.u_pressure, dab.pressure)
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    gl.uniform1f(u.u_embed, embed ? 1.0 : 0.0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     gl.enableVertexAttribArray(this._smudgePosLoc)
     gl.vertexAttribPointer(this._smudgePosLoc, 2, gl.FLOAT, false, 0, 0)
 
-    gl.uniform2f(u.u_dabCenter, cx - tile.originX, cy - tile.originY)
+    gl.uniform2f(u.u_dabCenter, dab.x - tile.originX, dab.y - tile.originY)
     gl.uniform1f(u.u_dabRadius, radius)
     gl.uniform1f(u.u_angle, 0)
     gl.uniform1f(u.u_aspectRatio, 1)
@@ -5200,11 +5032,15 @@ export class PencilEngine implements PencilEngineAPI {
     buffer.endDraw()
   }
 
+  /** Smudge's own size-keyed free list (patches *and* imprints — both are
+   *  square, patch-sized and LINEAR-filtered, and a stroke cycles two or
+   *  three of them per dab). Kept separate from _transformScratchPool so
+   *  neither caller can be handed a buffer set up for the other's sampling. */
   private _acquireSmudgeScratchBuf(size: number): AccumulationBuffer {
     const pool = this._smudgeScratchPool
     const idx = pool.findIndex(b => b.width === size && b.height === size)
     if (idx !== -1) return pool.splice(idx, 1)[0]
-    return new AccumulationBuffer(this.gl, size, size, 'nearest')
+    return new AccumulationBuffer(this.gl, size, size, 'linear')
   }
 
   private _releaseSmudgeScratchBuf(buf: AccumulationBuffer): void {

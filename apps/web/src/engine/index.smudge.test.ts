@@ -1,21 +1,22 @@
 // Engine-level tests for the smudge tool (#14) — see SMUDGE_TRANSFER_FRAG's
-// own doc comment in shaders.ts, and _paintOneSmudgeDab's/_smudgeContact's in
-// index.ts, for the algorithm this exercises: each dab exchanges graphite
-// with a per-user reservoir (engine's this._smudgeUserLoad, keyed by userId)
-// at three contacts along its own footprint (rear/center/front) — pick up
-// (or top up) behind the dab, work the material in place at the dab's own
-// center (plus press some into the paper under pressure), then lay more of
-// the reservoir down ahead — rather than copying a patch of pixels directly
-// from one spot to another. The reservoir now also persists across separate
-// strokes by the same user (see StrokeOperation.smudgeLoadAtStart/End in
-// packages/shared), instead of resetting to empty at every stroke start.
-// Most of these tests predate all of that and were kept passing unchanged
-// through each redesign: the properties they check (nothing on the very
-// first dab, no-op on an empty layer, no spontaneous color, determinism,
-// fading over a long drag, no growth beyond where the tool actually reached)
-// are still exactly what a believable blending-stump tool should guarantee,
-// regardless of which algorithm underneath provides them.
+// own doc comment in shaders.ts, and _paintOneSmudgeDab's/_smudgeApplyDab's
+// in index.ts, for the algorithm this exercises: the stump carries a raster
+// *imprint* of what it has picked up, anchored to the dab's own position, and
+// every dab blends the imprint toward the canvas under it and the canvas
+// toward the imprint — both per pixel, both within the same dab (#416).
+//
+// Most of these tests predate that redesign (and the two before it) and were
+// kept passing unchanged through each one: the properties they check —
+// nothing on the very first dab, no-op on an empty layer, no spontaneous
+// color, determinism, fading over a long drag, no growth beyond where the
+// tool actually reached — are still exactly what a believable blending-stump
+// tool should guarantee, regardless of which algorithm underneath provides
+// them. Where a test's own reasoning was tied to the carried scalar those
+// rounds used, the comment says so and restates the property in the terms of
+// the imprint that replaced it.
 import { describe, expect, it } from 'vitest'
+
+import type { Dab } from '@grafetto/shared'
 
 import {
   createTestEngine, dab, fillStroke, makeLayerAdd, makeStroke,
@@ -63,23 +64,24 @@ describe('smudge tool (#14)', () => {
     const targetX = 40, targetY = 32
     expect(alphaAt(readLayerPixels(engine, 'L')!, 64, targetX, targetY)).toBe(0)
 
-    // Drag rightward, through the disc and beyond it — each dab picks up
-    // from ~8px behind (SMUDGE_OFFSET_FACTOR * radius) and redeposits at
-    // its own position, so consecutive dabs spaced similarly keep the
-    // chain unbroken.
+    // Drag rightward, through the disc and beyond it. The imprint is
+    // re-anchored to each dab's own position, so content picked up at one
+    // dab is laid down one step further along at the next — the smear is
+    // the offset between consecutive dabs, which is why an unbroken chain
+    // of them carries graphite well past where the disc ends.
     const smudgeDabs = [16, 24, 32, 40, 48].map(x => dab(x, 32, { size: 20, pressure: 1, opacity: 1 }))
     engine.appendOperation(makeStroke('user-a', 'L', smudgeDabs, { tool: 'smudge' }))
 
     expect(alphaAt(readLayerPixels(engine, 'L')!, 64, targetX, targetY)).toBeGreaterThan(0)
   })
 
-  // The property the old patch-copy algorithm never had: dragging away from
-  // a mark actually reduces the mark itself, because the tool's reservoir
-  // (this._smudgeToolLoad) picks up real graphite at the source contact and
-  // writes a reduced value back there (see _paintOneSmudgeDab) — it doesn't
-  // just re-sample the same untouched pixels on every dab. Without this, a
-  // small mark could be duplicated outward indefinitely without ever itself
-  // fading, which is what made "smudge the whole line away" possible.
+  // The property the very first, patch-copy version of this tool never had:
+  // dragging away from a mark actually reduces the mark itself. Under the
+  // imprint model it falls straight out of the lerp — a pixel is pulled
+  // toward what the stump carries, and near a mark's trailing edge that is
+  // the lighter paper the stump just came off. Without it, a small mark could
+  // be duplicated outward indefinitely without ever itself fading, which is
+  // what made "smudge the whole line away" possible.
   it('actually depletes the source it picks up from, rather than duplicating it', () => {
     const engine = setupLayer()
     engine.appendOperation(fillStroke('user-a', 'L', 30, 30, 10))
@@ -134,12 +136,11 @@ describe('smudge tool (#14)', () => {
   // reducing wherever it was picked up from — an inexhaustible source, so a
   // long enough drag (or repeatedly working the same small area) could paint
   // arbitrarily much of the canvas fully opaque ("one thin line, smudged
-  // enough, fills the whole page black"). The current reservoir-exchange
-  // algorithm (see this file's own header comment) is conservative for a
-  // different, more physical reason than that first fix's mix()-based cap
-  // was: this._smudgeToolLoad can only ever carry a bounded amount, and
-  // every exchange with the paper is a real transfer in *both* directions
-  // (see _paintOneSmudgeDab) — but the observable guarantee these tests
+  // enough, fills the whole page black"). The imprint model (see this file's
+  // own header comment) is conservative structurally: a dab is a lerp between
+  // what is already on the canvas and what the stump carries, so no pixel can
+  // ever end up darker than the darker of the two, and the imprint itself is
+  // only ever refreshed from the canvas. The observable guarantee these tests
   // check is the same one that mattered from the start: dragging can move
   // graphite around, never manufacture more of it than existed somewhere on
   // the canvas.
@@ -177,36 +178,31 @@ describe('smudge tool (#14)', () => {
   })
 
   // Regression coverage for a bug found *after* the reservoir-exchange
-  // redesign above shipped: reported as "a real pencil's dark areas barely
-  // lighten under a real blending stump, but this tool can smudge a mark
-  // into invisibility" — and, worse, that this happened even during one
-  // long continuous drag that never left a single solid, already-dark area
-  // (not just repeated separate strokes). Root cause was in the deposit
-  // side of _paintOneSmudgeDab: this._smudgeToolLoad used to drain by
-  // however much a dab *requested* to deposit, regardless of whether the
-  // destination had any headroom left to actually receive it — an "over"
-  // blend onto near-opaque content barely raises its alpha at all, so that
-  // deposit was mostly wasted, yet the reservoir accounting spent itself as
-  // if it had landed. That forced the pickup side to keep pulling more from
-  // the source to "refill" a reservoir that was never really being spent —
-  // real, visible erosion at the source, indefinitely, for as long as the
-  // stroke continued, even standing still over one uniform area. Fixed by
-  // scaling the reservoir's drain by actual measured headroom at the
-  // destination (see that method's own comment).
+  // redesign shipped: reported as "a real pencil's dark areas barely lighten
+  // under a real blending stump, but this tool can smudge a mark into
+  // invisibility" — and, worse, that this happened even during one long
+  // continuous drag that never left a single solid, already-dark area (not
+  // just repeated separate strokes). Root cause was the carried scalar's own
+  // bookkeeping: it drained by however much a dab *requested* to deposit
+  // regardless of whether the destination had headroom to receive it, so the
+  // pickup side kept pulling more from the source to refill a reservoir that
+  // was never really being spent. #416 removed the whole mechanism rather
+  // than the bug: working inside one uniform area, the imprint converges to
+  // exactly what is under it and the lerp becomes the identity, so there is
+  // nothing left to drift.
   it('working entirely within one solid, already-dark area barely lightens it, even across one long continuous drag', () => {
     const engine = setupLayer(120, 120)
     // Big solid disc, radius 40 — smudge below oscillates in a narrow band
     // deep inside it (at least ~25px of clearance to the disc's own edge in
-    // every direction), so the pickup patch (brush radius 8, half-extent 8)
-    // never itself samples any real paper outside the disc — otherwise a
-    // patch average blending in genuine blank paper near the disc's own
-    // edge would look like "lightening" that has nothing to do with the
-    // reservoir exchange this test means to isolate.
+    // every direction), so the patch under the brush never itself samples any
+    // real paper outside the disc — otherwise genuine blank paper reaching
+    // the imprint near the disc's own edge would look like "lightening" that
+    // has nothing to do with the transfer this test means to isolate.
     engine.appendOperation(fillStroke('user-a', 'L', 60, 60, 40))
     const before = alphaAt(readLayerPixels(engine, 'L')!, 120, 60, 60)
     expect(before).toBeGreaterThan(200)
 
-    // One single stroke (one makeStroke call — the dab chain _paintOneSmudgeDab
+    // One single stroke (one makeStroke call — the dab chain _paintSmudgeDabs
     // threads via `prev` is unbroken throughout), oscillating within x∈[45,75].
     const xs: number[] = []
     for (let pass = 0; pass < 12; pass++) {
@@ -217,67 +213,130 @@ describe('smudge tool (#14)', () => {
     engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'smudge' }))
 
     const after = alphaAt(readLayerPixels(engine, 'L')!, 120, 60, 60)
-    // Some softening at the very start of the stroke (the reservoir's own
-    // ramp-up, see SMUDGE_MAX_STEP's comment) is expected and fine — the
-    // bug was continuous, unbounded lightening for as long as the stroke
-    // kept going. Measured ~255->209 (82%) with the headroom-aware deposit
-    // fix in place, vs ~255->126 (49%) without it (same geometry) — 65% is
-    // a safety margin under the real number, not the target itself.
+    // The bug was continuous, unbounded lightening for as long as the stroke
+    // kept going. 65% was the safety margin under the scalar-reservoir fix's
+    // own measured ~82%; the imprint model leaves this pixel untouched
+    // (255 -> 255), so the old threshold is now a very loose floor rather
+    // than a close call — kept at its original value deliberately, as the
+    // statement of what must never regress.
     expect(after).toBeGreaterThan(before * 0.65)
   })
 
-  // Regression coverage for #14 round 3: the reservoir now persists across
-  // separate strokes by the same user (see StrokeOperation.smudgeLoadAtStart)
-  // instead of resetting to empty every time, and it's keyed per-user so two
-  // people smudging at once in the same room can't corrupt each other's tool.
-  describe('reservoir persistence and per-user isolation (#14 round 3)', () => {
-    it('a recorded smudgeLoadAtStart seeds the reservoir instead of starting empty', () => {
+  // Regression coverage for #416, the bug that motivated the imprint model:
+  // stroking a blending stump back and forth *across* a pencil line left a
+  // clean white band about a brush radius wide on either side of it, with the
+  // smudged graphite only starting beyond that band ("the graphite doesn't
+  // transfer immediately"). The cause was structural — one carried scalar per
+  // user meant a dab compared the *average* under it against that scalar and
+  // put its whole footprint into pickup or deposit — so near a line every dab
+  // was in pickup, scrubbing the paper beside it clean of whatever the
+  // previous pass deposited there. Under the lerp, the pixel next to the line
+  // receives from the imprint in the very same dab that takes from the line.
+  it('depositing beside a line it works across, not only a brush radius away from it (#416)', () => {
+    const engine = setupLayer(140, 60)
+    // A thin vertical line at x=60, spanning the full height of the band the
+    // smudge stroke below works over.
+    const lineDabs: Dab[] = []
+    for (let y = 10; y <= 50; y += 2) lineDabs.push(dab(60, y, { size: 5, pressure: 1, opacity: 1 }))
+    engine.appendOperation(makeStroke('user-a', 'L', lineDabs))
+    expect(alphaAt(readLayerPixels(engine, 'L')!, 140, 66, 30)).toBe(0)
+
+    // One stroke, straight across the line and back several times — the exact
+    // gesture from the report, at 90° to the line.
+    const xs: number[] = []
+    for (let pass = 0; pass < 6; pass++) {
+      const sweep = [40, 46, 52, 58, 64, 70, 76, 82]
+      for (const x of pass % 2 === 0 ? sweep : [...sweep].reverse()) xs.push(x)
+    }
+    const smudgeDabs = xs.map(x => dab(x, 30, { size: 20, pressure: 1, opacity: 1 }))
+    engine.appendOperation(makeStroke('user-a', 'L', smudgeDabs, { tool: 'smudge' }))
+
+    const px = readLayerPixels(engine, 'L')!
+    const near = alphaAt(px, 140, 66, 30) // 6px out — inside the old halo band
+    const far = alphaAt(px, 140, 76, 30)  // 16px out — past a brush radius
+    // The halo was `near === 0` while `far > 0`. Both halves matter: graphite
+    // has to reach the line's immediate neighbourhood *and* fall off with
+    // distance from it, rather than skipping the near band entirely.
+    expect(near).toBeGreaterThan(0)
+    expect(near).toBeGreaterThan(far)
+  })
+
+  // #416 replaced a reservoir that persisted across strokes with an imprint
+  // that resets at every gesture. That is not a regression of the property
+  // round 3 added (a stump does stay dirty) but a consequence of what the
+  // stump now carries: an imprint is *positional*, so reusing one across a
+  // pen-up would stamp a ghost of the previous stroke's content wherever the
+  // next one happens to begin. It also makes a recorded operation
+  // self-sufficient again — which is why StrokeOperation.smudgeLoadAtStart/End
+  // stopped being written.
+  describe('gesture boundaries and per-user isolation', () => {
+    it('starts every gesture with an empty imprint, so a fresh stroke over blank paper deposits nothing', () => {
       const engine = setupLayer()
-      const targetX = 40, targetY = 32
-      expect(alphaAt(readLayerPixels(engine, 'L')!, 64, targetX, targetY)).toBe(0)
+      // Stroke one loads the stump up from a solid disc on the left.
+      engine.appendOperation(fillStroke('user-a', 'L', 16, 32, 10))
+      const loading = [16, 22, 28].map(x => dab(x, 32, { size: 16, pressure: 1, opacity: 1 }))
+      engine.appendOperation(makeStroke('user-a', 'L', loading, { tool: 'smudge', strokeId: 'g1' }))
 
-      // No disc to pick up from at all here — a fresh (0-start) reservoir
-      // would have nothing to deposit. A pre-loaded one (as if this user's
-      // tool was already carrying graphite from earlier, unrelated work)
-      // should deposit right away on its very first dab.
-      const dabs = [dab(36, 32, { size: 16, pressure: 1, opacity: 1 }), dab(targetX, 32, { size: 16, pressure: 1, opacity: 1 })]
-      engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'smudge', smudgeLoadAtStart: 0.9 }))
+      // Stroke two is a separate gesture, far away, over paper that has never
+      // had anything on it.
+      const before = readLayerPixels(engine, 'L')
+      const elsewhere = [45, 51, 57].map(x => dab(x, 10, { size: 16, pressure: 1, opacity: 1 }))
+      engine.appendOperation(makeStroke('user-a', 'L', elsewhere, { tool: 'smudge', strokeId: 'g2' }))
 
-      expect(alphaAt(readLayerPixels(engine, 'L')!, 64, targetX, targetY)).toBeGreaterThan(0)
+      expectPixelsEqual(before, readLayerPixels(engine, 'L'))
     })
 
-    it('two different users smudging do not corrupt each other\'s reservoir', () => {
+    it('rejoins the chunks of one gesture: two operations sharing a strokeId paint what one unbroken stroke would', () => {
+      const chunked = setupLayer()
+      const whole = setupLayer()
+      const disc = fillStroke('user-a', 'L', 16, 32, 10)
+      chunked.appendOperation(disc)
+      whole.appendOperation(disc)
+
+      // The same dab sequence, once split across two operations of one
+      // gesture (what _flushStrokeChunk emits for a long stroke) and once as
+      // a single operation. A gesture whose imprint restarted at the chunk
+      // boundary would leave a visible seam here.
+      const dabs = [16, 22, 28, 34, 40, 46].map(x => dab(x, 32, { size: 16, pressure: 1, opacity: 1 }))
+      chunked.appendOperation(makeStroke('user-a', 'L', dabs.slice(0, 3), { tool: 'smudge', strokeId: 'g1' }))
+      chunked.appendOperation(makeStroke('user-a', 'L', dabs.slice(3), { tool: 'smudge', strokeId: 'g1' }))
+      whole.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'smudge', strokeId: 'g1' }))
+
+      expectPixelsEqual(readLayerPixels(chunked, 'L'), readLayerPixels(whole, 'L'))
+    })
+
+    it('two different users smudging do not corrupt each other\'s imprint', () => {
       const engine = setupLayer(120, 60)
       engine.appendOperation(fillStroke('user-a', 'L', 20, 30, 15))
       engine.appendOperation(fillStroke('user-b', 'L', 100, 30, 15))
 
       const dabsA1 = [dab(20, 30, { size: 16, pressure: 1, opacity: 1 }), dab(30, 30, { size: 16, pressure: 1, opacity: 1 })]
-      engine.appendOperation(makeStroke('user-a', 'L', dabsA1, { tool: 'smudge' }))
+      engine.appendOperation(makeStroke('user-a', 'L', dabsA1, { tool: 'smudge', strokeId: 'a1' }))
       const afterA1 = readLayerPixels(engine, 'L')!
 
       // User B smudges their own, unrelated disc in between — must not
       // observably change anything about user A's own area, and must not
-      // itself behave as if it inherited user A's in-progress reservoir.
+      // itself behave as if it inherited user A's in-progress imprint.
       const dabsB = [dab(100, 30, { size: 16, pressure: 1, opacity: 1 }), dab(90, 30, { size: 16, pressure: 1, opacity: 1 })]
-      engine.appendOperation(makeStroke('user-b', 'L', dabsB, { tool: 'smudge' }))
+      engine.appendOperation(makeStroke('user-b', 'L', dabsB, { tool: 'smudge', strokeId: 'b1' }))
       const afterB = readLayerPixels(engine, 'L')!
       // User A's side of the canvas (x < 60) is untouched by user B's stroke.
       for (let x = 0; x < 60; x += 5) {
         expect(afterB[(30 * 120 + x) * 4 + 3]).toBe(afterA1[(30 * 120 + x) * 4 + 3])
       }
 
-      // User A continues their own stroke as a separate op (same user,
-      // fresh op) — comparing against a from-scratch engine that runs
-      // user A's *combined* dab sequence as one uninterrupted stroke (never
-      // touched by user B at all) checks that B's interleaved stroke left
-      // A's own reservoir exactly where A's own dabs left it, unaffected.
+      // User A's own gesture continues across the interleaved stroke (same
+      // strokeId, so this is a later chunk of it, not a new gesture) —
+      // comparing against a from-scratch engine that runs A's chunks with
+      // nothing in between checks that B's stroke left A's imprint exactly
+      // where A's own dabs left it.
       const dabsA2 = [dab(30, 30, { size: 16, pressure: 1, opacity: 1 }), dab(40, 30, { size: 16, pressure: 1, opacity: 1 })]
-      engine.appendOperation(makeStroke('user-a', 'L', dabsA2, { tool: 'smudge' }))
+      engine.appendOperation(makeStroke('user-a', 'L', dabsA2, { tool: 'smudge', strokeId: 'a1' }))
 
       const reference = setupLayer(120, 60)
       reference.appendOperation(fillStroke('user-a', 'L', 20, 30, 15))
-      reference.appendOperation(makeStroke('user-a', 'L', dabsA1, { tool: 'smudge' }))
-      reference.appendOperation(makeStroke('user-a', 'L', dabsA2, { tool: 'smudge' }))
+      reference.appendOperation(makeStroke('user-a', 'L', dabsA1, { tool: 'smudge', strokeId: 'a1' }))
+      reference.appendOperation(makeStroke('user-a', 'L', dabsA2, { tool: 'smudge', strokeId: 'a1' }))
 
       // Only compare user A's own side — the reference engine never painted
       // user B's disc at all.

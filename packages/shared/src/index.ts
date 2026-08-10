@@ -441,15 +441,20 @@ export type StrokeOperation = OperationBase & {
   // second encoding, not one that migrated.
   dabs?: Dab[]
   dabsPacked?: string
-  // Smudge only (#14): this user's own carried-graphite reservoir level
-  // (0..1) immediately before/after this op's own dabs, baked at record
-  // time for the same reason `color` is — replay/a remote client applying
-  // this op must reproduce the exact same pickup/deposit amounts the
-  // originating client's engine computed, and that depends on reservoir
-  // state that lives *outside* any single dab (see engine/index.ts's
-  // _smudgeUserLoad). Absent for every other tool, and for legacy strokes
-  // recorded before this field existed (treated as 0 — an empty reservoir,
-  // the same default a brand-new user's tool would have).
+  // Smudge only (#14), legacy since #416 — neither written nor read by the
+  // engine anymore, kept because the Operation Log is permanent and rooms in
+  // production hold strokes carrying them.
+  //
+  // They recorded this user's own carried-graphite level (0..1) immediately
+  // before/after the op's dabs. That was needed while the smudge tool
+  // carried a single scalar that persisted across strokes: replay had to
+  // reproduce pickup/deposit amounts that depended on state living *outside*
+  // any single dab, so each op had to state it. #416 replaced the scalar
+  // with a raster imprint that resets at every gesture (see
+  // engine/index.ts's _smudgeImprints) — a smudge operation reproduces from
+  // its own dabs alone again, and there is nothing left for these to carry.
+  // A stroke recorded with them simply replays under the new model, ignoring
+  // them.
   smudgeLoadAtStart?: number
   smudgeLoadAtEnd?: number
   /** Which gesture this operation belongs to. A stroke longer than
