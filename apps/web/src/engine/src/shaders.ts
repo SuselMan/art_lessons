@@ -941,103 +941,68 @@ export const DAB_FRAG = `
   }
 `;
 
-// Растушёвка/smudge (#14, reworked three times — see engine/index.ts's
-// SMUDGE_REAR_RATE comment for the "three contacts" round, and
-// _smudgeUserLoad's own comment for this round: the reservoir exchange
-// moved fully onto the GPU). Each dab has three contact points (rear/
-// center/front — see _paintOneSmudgeDab), and each contact runs the exact
-// same two-shader pipeline, entirely GPU-resident:
+// Растушёвка/smudge (#14, reworked four times; #416 is this round — the
+// carried reservoir became a *raster imprint* instead of one scalar).
 //
-//   1. SMUDGE_COMPUTE_FRAG (below) reads the patch of paper just copied
-//      behind this contact plus this user's own current 1x1 reservoir
-//      texture (this._smudgeUserReservoir — RGB=carried color, A=carried
-//      amount), and computes the exchange — how much moves, which
-//      direction, the reservoir's new state — writing the result to
-//      *another* 1x1 texture (u_outputMode picks which of two results:
-//      the new reservoir, or this contact's own pickup/deposit amounts).
-//      This used to be a JS function (_smudgeApplyExchange) fed by a real
-//      gl.readPixels() of the patch average — moved onto the GPU because
-//      that readPixels was a genuine GPU/CPU sync stall, invisible spread
-//      across interactive drawing (one dab per pointer move) but very much
-//      not when replaying a room's history dab-by-dab in a tight loop on
-//      join (#149's snapshot+tail-replay design) — reported as rooms with
-//      a lot of smudging taking noticeably longer to load. An earlier fix
-//      cut this to 2 real reads out of 3 contacts (interpolating center);
-//      this one cuts it to *zero* per dab (see this._smudgeUserReservoir's
-//      own comment for the one remaining read, once per stroke/chunk, not
-//      per dab).
-//   2. SMUDGE_TRANSFER_FRAG (below) is the actual paint step — same as
-//      before, except its "how much" (u_amount) and "what color"
-//      (u_color) now come from sampling step 1's own output textures
-//      instead of JS-computed uniforms, so nothing here ever needs the
-//      exchange's own numeric result back on the CPU at all.
+// Every earlier round carried one number per user (how much graphite the
+// stump holds) plus one color, and decided per dab — from the *average* of
+// the patch under it — whether that whole dab picked up or laid down. That
+// shape is what #416 reported as a white halo: a dab straddling a dark line
+// always averages darker than the reservoir, so the entire disc went into
+// pickup (erase) mode, including the blank paper beside the line where the
+// previous pass had just deposited. Deposit only switched on once the line
+// had left the patch entirely — a full brush radius away — so a band that
+// wide around every line was permanently scrubbed clean while graphite piled
+// up beyond it. A single scalar cannot pick up on one side of a dab and lay
+// down on the other, which is exactly what smearing across an edge is.
 //
-// SMUDGE_COMPUTE_FRAG averages u_patch with a fixed 8x8 grid of taps
-// (GLSL ES 1.0/WebGL1 has no compute shaders or mipmap-of-arbitrary-size
-// shortcut for this) rather than the JS-side average's ~256-sample stride
-// — a coarser approximation, in exchange for never leaving the GPU. Both
-// were always approximations of "how much graphite is roughly here", not
-// an exact reading; 64 taps is a reasonable trade for a single-fragment
-// (1x1 target) shader.
-export const SMUDGE_COMPUTE_FRAG = `
+// So the reservoir is now a texture the size of the copied patch, holding
+// premultiplied RGBA — the imprint the stump carries, in the dab's own
+// normalized square (uv (0,0)..(1,1) spans the patch). Per dab, in order:
+//
+//   1. The patch of canvas under the dab is copied out (unchanged from
+//      earlier rounds — same copyRegionTo, same single-tile restriction).
+//   2. SMUDGE_PICKUP_FRAG (below) refreshes the imprint toward that patch:
+//      `carried' = mix(carried, patch, rate)`, per texel. Because both are
+//      addressed in the dab's own normalized square and the imprint is
+//      re-anchored to wherever the dab now is, the imprint travels with the
+//      brush on its own — the offset between consecutive dabs *is* the
+//      smear, with no explicit "pick up behind / lay down ahead" contacts
+//      to tune (round 3 needed three of those; this needs none).
+//   3. SMUDGE_TRANSFER_FRAG (below) lays it down as a per-pixel lerp,
+//      `dst' = dst*(1-a) + carried*a`, split across the two draws the
+//      engine already issued: an erase-blend pass writing alpha `a`
+//      (dst *= 1-a) and an additive pass writing `carried*a`. Both passes
+//      run this same shader with the same uniforms and compute `a` with
+//      the same expression — that identity is what makes the pair an exact
+//      lerp rather than two loosely-related transfers, so it must survive
+//      any future edit to how `a` is weighted.
+//
+// What the lerp buys beyond killing the halo: a pixel next to a line
+// receives `a*carried` in the very same dab that takes from the line, so
+// there is no "graphite arrives later" lag at all; and holding the brush
+// still is self-limiting rather than destructive, since the imprint
+// converges to whatever sits under it and the lerp degenerates to identity
+// (round 3 needed a headroom correction bolted onto the reservoir drain to
+// approximate that).
+//
+// Both passes still weight `a` by the paper's own catch, so grain survives
+// being smudged over — the property SMUDGE_PICKUP_FLOOR used to defend with
+// a separate pickup-only floor.
+export const SMUDGE_PICKUP_FRAG = `
   precision highp float;
 
-  uniform sampler2D u_patch;         // the copied paper patch behind this contact (premultiplied)
-  uniform sampler2D u_oldReservoir;  // this user's current reservoir, 1x1 (rgb=color, a=load)
-  uniform float u_rate;              // this contact's own share of the difference per dab (SMUDGE_*_RATE)
-  uniform float u_pressure;
-  uniform float u_opacity;           // dab.opacity — the UI's "Strength" slider, see _bakeDabOpacity's smudge branch
-  uniform float u_maxStep;           // SMUDGE_MAX_STEP
-  uniform float u_outputMode;        // 0 = new reservoir (rgb=color,a=load), 1 = this contact's own transfer amounts (r=pickup,g=deposit)
+  uniform sampler2D u_patch;    // canvas patch under this dab (premultiplied)
+  uniform sampler2D u_carried;  // the imprint as of the previous dab, same normalized square
+  uniform float u_rate;         // 0..1 — how much of the imprint this dab refreshes (1 = prime it outright)
+
+  varying vec2 v_uv;
 
   void main() {
-    vec4 sum = vec4(0.0);
-    const int GRID = 8;
-    for (int iy = 0; iy < GRID; iy++) {
-      for (int ix = 0; ix < GRID; ix++) {
-        vec2 uv = (vec2(float(ix), float(iy)) + 0.5) / float(GRID);
-        sum += texture2D(u_patch, uv);
-      }
-    }
-    vec4 avgPremult = sum / float(GRID * GRID);
-    float avgA = avgPremult.a;
-    // Premultiplied -> base color (see SMUDGE_TRANSFER_FRAG's own u_color
-    // comment) — meaningless below the threshold, same as the old JS
-    // _readPatchAverage, and equally harmless: only read when avgA > 0.02.
-    vec3 avgColor = avgA > 0.02 ? clamp(avgPremult.rgb / avgA, 0.0, 1.0) : vec3(0.0);
-
-    vec4 old = texture2D(u_oldReservoir, vec2(0.5));
-    float oldLoad = old.a;
-    vec3 oldColor = old.rgb;
-
-    // Same formula _smudgeApplyExchange used to compute in JS — positive
-    // raw = pickup (paper darker than reservoir), negative = deposit.
-    float difference = avgA - oldLoad;
-    float raw = clamp(difference * u_rate * u_pressure * u_opacity, -u_maxStep, u_maxStep);
-    float pickupAmount = max(raw, 0.0);
-    float depositAmount = max(-raw, 0.0);
-    // Headroom-aware drain — see this shader's own file comment history:
-    // an "over" blend's own alpha increase is requested*(1-destAlpha), so
-    // the reservoir should only drain by what actually sticks, not what
-    // was merely requested (depositing onto an already-saturated contact
-    // must barely touch the reservoir, or pickup elsewhere keeps "refilling"
-    // one that was never really spent).
-    float headroom = clamp(1.0 - avgA, 0.0, 1.0);
-    float actualStick = depositAmount * headroom;
-
-    if (u_outputMode > 0.5) {
-      gl_FragColor = vec4(pickupAmount, depositAmount, 0.0, 1.0);
-    } else {
-      // pickupAmount and actualStick are mutually exclusive (raw's sign
-      // picks exactly one to be nonzero), so combining them in one clamp
-      // reproduces both the old pickup and deposit branches correctly.
-      float newLoad = clamp(oldLoad + pickupAmount - actualStick, 0.0, 1.0);
-      // Only adopt the paper's own color while actually picking *up* real
-      // content — a pure deposit (or a contact with nothing to report)
-      // keeps whatever the reservoir already carried.
-      vec3 newColor = (pickupAmount > 0.001 && avgA > 0.02) ? avgColor : oldColor;
-      gl_FragColor = vec4(newColor, newLoad);
-    }
+    // Straight per-texel refresh, blending disabled by the caller: this
+    // writes the imprint's new value outright, it does not accumulate onto
+    // the previous one (the previous one is an input here, u_carried).
+    gl_FragColor = mix(texture2D(u_carried, v_uv), texture2D(u_patch, v_uv), u_rate);
   }
 `;
 
@@ -1049,22 +1014,26 @@ export const SMUDGE_TRANSFER_FRAG = `
   uniform vec2 u_paperOrigin;
   uniform vec2 u_paperTexSize;
   uniform float u_hardness;
-  // This contact's own computed amounts (SMUDGE_COMPUTE_FRAG's own
-  // u_outputMode=1 output, 1x1) — r=pickup, g=deposit, picked by u_mode.
-  // Replaces a JS-computed u_amount uniform (see this file's own header
-  // comment for why: nothing here needs the exchange's numeric result
-  // back on the CPU anymore).
-  uniform sampler2D u_transferTex;
-  // This user's own *new* reservoir (SMUDGE_COMPUTE_FRAG's own
-  // u_outputMode=0 output, 1x1) — rgb=carried color, read only when
-  // u_mode==1 (deposit). Replaces a JS-array u_color uniform.
-  uniform sampler2D u_reservoirTex;
-  uniform float u_mode;   // 0 = pickup (erase-style), 1 = deposit (over-style) — see file comment above
-  // Pickup-only floor on paperCatch — see this file's own comment above.
-  uniform float u_pickupFloor;
-  // Embedding (center contact's own deposit only) — see this file's own
-  // u_embed comment above.
-  uniform float u_embed;
+  // The imprint this dab lays down (SMUDGE_PICKUP_FRAG's own output),
+  // addressed in the patch's own normalized square — see u_patchOrigin.
+  uniform sampler2D u_carried;
+  // The copied patch's lower-left corner and side length, in this tile's
+  // own GL pixel space, so a fragment can map itself back into the imprint
+  // exactly. Derived from the same rounded rect copyRegionTo was handed
+  // rather than from the dab's own center: half a pixel of disagreement
+  // between the two would blur the canvas on every dab even when the brush
+  // is standing still, because the lerp would be mixing a shifted copy of
+  // the same content into itself.
+  uniform vec2 u_patchOrigin;
+  uniform float u_patchSize;
+  // 0 = the lerp's own "dst *= (1-a)" half, under beginErase()'s
+  // (ZERO, ONE_MINUS_SRC_ALPHA); 1 = its "+ carried*a" half, under
+  // beginAdditiveDraw()'s (ONE, ONE). See this file's header comment.
+  uniform float u_mode;
+  // This dab's own share of the transfer, before the per-pixel weighting
+  // below: SMUDGE_DEPOSIT_RATE * pressure * strength * travel (see
+  // _paintOneSmudgeDab).
+  uniform float u_strength;
   uniform float u_pressure;
   uniform float u_paperFillThreshold;
   uniform float u_paperFillCap;
@@ -1088,37 +1057,27 @@ export const SMUDGE_TRANSFER_FRAG = `
     // same paper texel regardless of which tile either lands in.
     vec2 paperUV = (gl_FragCoord.xy + u_paperOrigin) / u_paperTexSize * u_paperScale;
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
-    vec2 transfer = texture2D(u_transferTex, vec2(0.5)).rg;
+    // Mirrors DAB_FRAG's own fill/effectiveCatch math exactly (the same
+    // live-tunable setPaperFillThreshold/Cap knobs govern both): under
+    // pressure the stump reaches into the paper's low spots instead of only
+    // working its high ones. Left alone, paperCatch is what keeps grain
+    // from being blended flat.
+    float fill = smoothstep(u_paperFillThreshold, 1.0, u_pressure) * u_paperFillCap;
+    float effectiveCatch = mix(paperCatch, 1.0, fill);
+
+    // The single per-pixel blend weight both passes share. Any change here
+    // is a change to *both* halves of the lerp at once, which is the point
+    // — see this file's header comment.
+    float a = clamp(u_strength * shape * effectiveCatch, 0.0, 1.0);
 
     if (u_mode > 0.5) {
-      // Embedding (center contact only, u_embed==1 — see this file's own
-      // comment above): swap plain paperCatch for the same effectiveCatch
-      // DAB_FRAG's own pencil branch computes — pressing graphite into the
-      // paper's own low spots, not just leaving it on the surface. Mirrors
-      // DAB_FRAG's fill/effectiveCatch math exactly (mix(paperCatch, 1.0,
-      // fill), fill = smoothstep(threshold,1,pressure)*cap) so the same
-      // live-tunable pencil knobs (setPaperFillThreshold/Cap) govern both.
-      float depositCatch = paperCatch;
-      if (u_embed > 0.5) {
-        float fill = smoothstep(u_paperFillThreshold, 1.0, u_pressure) * u_paperFillCap;
-        depositCatch = mix(paperCatch, 1.0, fill);
-      }
-      float amount = clamp(transfer.g * shape * depositCatch, 0.0, 1.0);
-      vec3 color = texture2D(u_reservoirTex, vec2(0.5)).rgb;
-      // Deposit: premultiplied "over" output, matches DAB_FRAG's own pencil
-      // branch exactly (gl_FragColor = vec4(color*deposit, deposit)) so
-      // dense overlapping smudge dabs blend the same way overlapping pencil
-      // dabs already do.
-      gl_FragColor = vec4(color * amount, amount);
+      vec2 puv = (gl_FragCoord.xy - u_patchOrigin) / u_patchSize;
+      // Premultiplied throughout, so scaling the whole vec4 by "a" is the
+      // correct "a fraction of this much paint" — same convention DAB_FRAG
+      // outputs in.
+      gl_FragColor = texture2D(u_carried, puv) * a;
     } else {
-      // Pickup: erase-style output, matches DAB_FRAG's own eraser branch —
-      // only the alpha channel is read under the (ZERO, ONE_MINUS_SRC_ALPHA)
-      // blend beginErase() sets up. pickupWeight (not plain paperCatch) is
-      // what turns this into a real per-pixel ceiling — see this file's own
-      // comment above u_pickupFloor.
-      float pickupWeight = smoothstep(u_pickupFloor, u_pickupFloor + 0.3, paperCatch);
-      float amount = clamp(transfer.r * shape * pickupWeight, 0.0, 1.0);
-      gl_FragColor = vec4(0.0, 0.0, 0.0, amount);
+      gl_FragColor = vec4(0.0, 0.0, 0.0, a);
     }
   }
 `;
