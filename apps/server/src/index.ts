@@ -14,6 +14,7 @@ import { Server, type DefaultEventsMap } from 'socket.io'
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 import { registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData } from './socketHandlers.js'
 import { identityHook } from './identity.js'
+import { startEventLoopMonitor } from './eventLoop.js'
 import { registerHealthRoutes } from './healthRoutes.js'
 import { registerRateLimit } from './rateLimit.js'
 import { registerAuthRoutes } from './authRoutes.js'
@@ -114,6 +115,10 @@ registerRoomHandlers(io, app.log)
 // The HTTP routes come after `io` exists, not because Fastify needs it to,
 // but because one of them does: closing a room for editing (#222) is a REST
 // call whose effect has to reach the people already inside that room.
+// (#324) Прибор для третьей стены. Заводится здесь, а не лениво при первом
+// запросе к /api/health: окно должно начать считаться с началом нагрузки, а не
+// с момента, когда кто-то впервые пришёл спросить.
+startEventLoopMonitor()
 registerHealthRoutes(app)
 registerAuthRoutes(app)
 registerRoomRoutes(app, (roomId, closedAt) => io.to(roomId).emit('room_closed_changed', { closedAt }))

@@ -122,7 +122,20 @@ describe('GET /api/health', () => {
 
     expect(body.memory.pressure).toBeDefined()
     expect(body.disk.pressure).toBeDefined()
-    expect(Object.keys(body)).toEqual(expect.arrayContaining(['memory', 'disk']))
+    expect(body.eventLoop.pressure).toBeDefined()
+    expect(Object.keys(body)).toEqual(expect.arrayContaining(['memory', 'disk', 'eventLoop']))
+  })
+
+  it('reports the event loop even before its first window has closed (#324)', async () => {
+    // Монитор в тестах не запущен, значит окон нет. Проба обязана получить
+    // `unknown`, а не отсутствующее поле: отсутствующее она считает поломкой
+    // контракта и шлёт письмо — за каждую выкатку, первую минуту после неё.
+    mockPrisma.$queryRaw.mockResolvedValue([{ '?column?': 1 }])
+    const app = buildApp()
+
+    const body = (await app.inject({ method: 'GET', url: '/api/health' })).json()
+
+    expect(body.eventLoop.pressure).toBe('unknown')
   })
 
   it('still reports memory when the database is down', async () => {

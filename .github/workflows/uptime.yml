@@ -142,16 +142,17 @@ jobs:
           get() { printf '%s' "$body" | jq -r "$1 // empty" 2>/dev/null || true; }
           mem=$(get '.memory.pressure')
           disk=$(get '.disk.pressure')
-          if [ -z "$mem" ] || [ -z "$disk" ]; then
+          loop=$(get '.eventLoop.pressure')
+          if [ -z "$mem" ] || [ -z "$disk" ] || [ -z "$loop" ]; then
             # Наш сервер ответил, но поля нет — это не «всё хорошо», а «мы
             # больше не умеем это читать»: переименование поля выключило бы
             # алерт бесшумно, и именно так получается молчащий мониторинг.
-            echo "🚨 /api/health is missing pressure fields — the alert is blind (memory='$mem' disk='$disk')"
+            echo "🚨 /api/health is missing pressure fields — the alert is blind (memory='$mem' disk='$disk' eventLoop='$loop')"
             echo "body: $body"
             {
               echo "🚨 **/api/health is missing a \`pressure\` field** — the alert is blind."
               echo ""
-              echo "Read: memory \`${mem:-<none>}\`, disk \`${disk:-<none>}\`"
+              echo "Read: memory \`${mem:-<none>}\`, disk \`${disk:-<none>}\`, eventLoop \`${loop:-<none>}\`"
               echo '```'
               echo "$body"
               echo '```'
@@ -161,14 +162,21 @@ jobs:
           rooms=$(get '.rooms | "resident \(.resident), idle \(.idle), ops \(.operations)"')
           heap="$(get '.memory.heapUsedMb')/$(get '.memory.heapLimitMb') MB"
           space="$(get '.disk.freeGb') GB free of $(get '.disk.totalGb') ($(get '.disk.usedPct')% used)"
+          busy="utilization $(get '.eventLoop.utilization'), lag p99 $(get '.eventLoop.p99Ms') ms"
 
-          if [ "$mem" = "ok" ] && [ "$disk" = "ok" ]; then
+          # `unknown` у цикла — не беда: первое окно после рестарта ещё не
+          # закрылось, а рестарт виден по uptimeSeconds. Тревожить письмом за
+          # каждую выкатку — быстрый способ научиться не читать эти письма.
+          if [ "$mem" = "ok" ] && [ "$disk" = "ok" ] && { [ "$loop" = "ok" ] || [ "$loop" = "unknown" ]; }; then
             echo "✅ memory ok — heap $heap, $rooms"
             echo "✅ disk ok — $space"
+            echo "✅ event loop $loop — $busy"
             {
               echo "✅ memory \`ok\` — heap \`$heap\`, \`$rooms\`"
               echo ""
               echo "✅ disk \`ok\` — \`$space\`"
+              echo ""
+              echo "✅ event loop \`$loop\` — \`$busy\`"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
@@ -222,6 +230,32 @@ jobs:
               echo "2. база — она растёт от самого рисования, ~6 МБ в день на активно рисующего,"
               echo "   и это место не возвращается никогда (#207 — перенос холодной истории);"
               echo "3. локальные бэкапы в \`/var/backups/art-lessons\` — ротация 14 дней (#315)."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          # Третья стена — процессор. Отдельный текст, потому что лечится она
+          # не так, как две первые: память и диск про «сколько всего», а эта
+          # про «сколько одновременно рисуют», и запаса по времени у неё нет.
+          if [ "$loop" != "ok" ] && [ "$loop" != "unknown" ]; then
+            echo "🚨 event loop pressure: $loop — $busy"
+            {
+              echo "🚨 **Event loop pressure: \`$loop\`** — $busy"
+              echo ""
+              if [ "$loop" = "critical" ]; then
+                echo "Цикл событий насыщен: сервер обрабатывает штрихи медленнее, чем они приходят."
+                echo "Это **не** плавная деградация. Нагрузочный прогон 10.08 (#324): переход от"
+                echo "«подтверждение штриха 48 мс» к «8.9 с, потеря ретрансляций» занимает считаные"
+                echo "проценты загрузки, потому что насыщается очередь, а не замедляется работа."
+                echo "Действовать сейчас: у этой стены нет запаса по времени, в отличие от диска."
+              else
+                echo "Запас, пока он ещё запас. Дальше по кривой каждая следующая рисующая комната"
+                echo "дороже предыдущей."
+              fi
+              echo ""
+              echo "Смотреть на \`rooms.resident\` рядом: нагрузку создают не открытые комнаты,"
+              echo "а те, в которых сейчас рисуют. Замер и пороги — \`apps/server/src/eventLoop.ts\`,"
+              echo "прогон повторяется через \`apps/server/src/scripts/loadTest.ts\`."
+              echo "Лечение — вертикальное (ядра), горизонтальное упирается в #113 (Redis) и #207."
             } >> "$GITHUB_STEP_SUMMARY"
           fi
           exit 1

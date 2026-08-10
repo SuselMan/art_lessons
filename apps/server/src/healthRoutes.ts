@@ -1,6 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 import { type DiskPressure, type DiskSnapshot, diskPressureOf, readDisk } from './disk.js'
+import {
+  type EventLoopPressure, type EventLoopSnapshot, eventLoopPressureOf, readEventLoop,
+} from './eventLoop.js'
 import { type MemoryPressure, type MemorySnapshot, pressureOf, readMemory } from './memory.js'
 import { prisma } from './prisma.js'
 import { getResidentRoomStats } from './rooms.js'
@@ -38,6 +41,9 @@ type HealthBody = {
   // readDisk. Выдумать в этом случае «свободно много» было бы худшим из
   // возможных ответов от мониторинга.
   disk: Partial<DiskSnapshot> & { pressure: DiskPressure }
+  // (#324) Третья стена. Как и `disk`, может приехать с одним `pressure:
+  // 'unknown'` — первое окно ещё не закрылось.
+  eventLoop: Partial<EventLoopSnapshot> & { pressure: EventLoopPressure }
 }
 
 async function probeDatabase(): Promise<number | null> {
@@ -84,11 +90,13 @@ export function registerHealthRoutes(app: FastifyInstance): void {
     const rooms = { resident: residents.total, idle: residents.idle, operations: residents.operations }
     const diskSnapshot = await readDisk()
     const disk = { ...(diskSnapshot ?? {}), pressure: diskPressureOf(diskSnapshot) }
+    const loopSnapshot = readEventLoop()
+    const eventLoop = { ...(loopSnapshot ?? {}), pressure: eventLoopPressureOf(loopSnapshot) }
     if (dbLatencyMs === null) {
       reply.code(503)
-      return { ok: false, db: 'down', uptimeSeconds, memory, rooms, disk }
+      return { ok: false, db: 'down', uptimeSeconds, memory, rooms, disk, eventLoop }
     }
-    return { ok: true, db: 'up', dbLatencyMs, uptimeSeconds, memory, rooms, disk }
+    return { ok: true, db: 'up', dbLatencyMs, uptimeSeconds, memory, rooms, disk, eventLoop }
   }
 
   app.get('/health', { config: { skipIdentity: true } }, handler)
