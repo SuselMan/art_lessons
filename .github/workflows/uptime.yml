@@ -99,21 +99,37 @@ jobs:
           ORIGIN: ${{ steps.origin.outputs.origin }}
         run: |
           set -uo pipefail
-          body=$(curl -sS --max-time 10 "$ORIGIN/api/health" || echo '')
+          # Три попытки, как у пробы выше, и ровно по её причине: деплой
+          # перезапускает контейнер, и запрос, попавший в это окно, получает от
+          # nginx страницу 502. Тело при этом **непустое** — то есть проверка
+          # «пусто ли» его не ловит, и первый же прогон после выкатки этого
+          # шага дал ложную тревогу (run 31388259190, 10.08).
+          body=''
+          for attempt in 1 2 3; do
+            body=$(curl -sS --max-time 10 "$ORIGIN/api/health" || echo '')
+            # Признак, что ответил наш сервер, а не прокси перед ним: поле,
+            # которое есть в обеих ветках health-хендлера, и в 200, и в 503.
+            case "$body" in *'"db":'*) break ;; esac
+            body=''
+            if [ "$attempt" -lt 3 ]; then sleep 20; fi
+          done
           if [ -z "$body" ]; then
-            # Недостижимый сервер — это работа пробы выше, она уже отчиталась.
-            # Второе письмо об одном падении учит игнорировать оба.
-            echo "no response — covered by the health probe above"
+            # Сервер не ответил сам — это работа пробы выше, она уже
+            # отчиталась (и, в отличие от нас, умеет отличать выкатку от
+            # падения). Второе письмо об одном падении учит игнорировать оба.
+            echo "no health JSON — covered by the health probe above"
             exit 0
           fi
           pressure=$(printf '%s' "$body" | sed -n 's/.*"pressure":"\([a-z]*\)".*/\1/p')
           if [ -z "$pressure" ]; then
-            # Пустое поле — это не «всё хорошо», а «мы больше не умеем это
-            # читать»: переименованное поле выключило бы алерт бесшумно, и
-            # именно так молчащий мониторинг и получается.
+            # Наш сервер ответил, но поля нет — это не «всё хорошо», а «мы
+            # больше не умеем это читать»: переименование поля выключило бы
+            # алерт бесшумно, и именно так получается молчащий мониторинг.
+            echo "🚨 /api/health returned no memory.pressure field — the memory alert is blind"
+            echo "body: $body"
             echo "🚨 **/api/health returned no \`memory.pressure\` field** — the memory alert is blind." >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
-            echo "${body:-<empty body>}" >> "$GITHUB_STEP_SUMMARY"
+            echo "$body" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
@@ -125,6 +141,10 @@ jobs:
             echo "✅ memory \`ok\` — heap \`${heap}/${limit}\` MB, rooms \`{$rooms}\`" >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
+          # И в лог тоже, не только в summary: разбирая упавший прогон,
+          # первым делом открывают лог шага, и пустой лог при exit 1 — это
+          # лишний круг (стоил одного при выкатке самого этого шага).
+          echo "🚨 memory pressure: $pressure — heap ${heap}/${limit} MB, rooms {$rooms}"
           {
             echo "🚨 **Server memory pressure: \`$pressure\`** — heap \`${heap}/${limit}\` MB"
             echo ""
