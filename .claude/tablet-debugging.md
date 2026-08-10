@@ -67,6 +67,31 @@ mDNS found nothing).
 Once both USB and Wi-Fi transports exist, `adb` refuses bare commands with
 `more than one device/emulator`. Pass `-s 192.168.1.123:43887` explicitly.
 
+### If pairing fails and the tablet looks offline (2026-08-10, #423)
+
+`adb pair` failing with `protocol fault (couldn't read status message)` and
+`adb connect` timing out do **not** mean the ports or the code are wrong. The
+tablet does not answer unsolicited traffic while it sits idle: it never replies
+to ARP, so there is no route to it at all, and every adb command dies before it
+starts. What that looks like, all at once:
+
+- `ping 192.168.1.123` → `Destination host unreachable` (from *your own* IP —
+  that is a failed ARP, not a firewall),
+- no entry for it in `arp -a`,
+- `adb mdns services` still lists the device, because multicast it *sends*
+  arrives fine. This is the misleading part: mDNS seeing it reads as "it is on
+  the network, so adb is at fault".
+
+The fix is to make the tablet talk first — anything at all: **open a page from
+the dev machine in the tablet's browser** (`https://<LAN-IP>:5173`). The ARP
+entry appears, ping starts answering, and `adb pair` then works on the first
+try. Keep that tab open; the entry goes stale again if the tablet goes quiet.
+
+Worth ruling out the ordinary cause first, though: sweep the subnet
+(`seq 1 254 | xargs -P 64 -I{} ping -n 1 -w 300 192.168.1.{}` then read
+`arp -a`). If every other host answers and only the tablet doesn't, it's the
+idle-device case above; if nothing answers, it really is network isolation.
+
 ## Chrome DevTools Protocol
 
 ```bash
@@ -86,6 +111,24 @@ Note the Chrome extension MCP tools drive the *desktop* browser only. The
 tablet needs this CDP path.
 
 ## What to measure, and what each answers
+
+**"Is it not drawn, or drawn but not shown?" — ask this first for anything
+visual.** Take Chrome's own render of the page (`Page.captureScreenshot` over
+CDP) and the actual display (`adb exec-out screencap -p`) within a second of
+each other, and compare. They answer different questions and the pair splits
+the search space in one step:
+
+- both wrong → the app's own problem: state, layout, CSS, React;
+- renderer right, screen wrong → everything up to rasterisation is fine and the
+  fault is in compositing/presentation. Stop reading application code.
+
+That second case is real, not theoretical: it is exactly what #423 turned out
+to be, and the DOM looked perfect throughout — `visibility: visible`,
+`opacity: 1`, sane rects — which is precisely the state in which one keeps
+re-reading the component for hours. One screenshot pair ended it. When it lands
+there, the next probe is a forced full-surface invalidation
+(`documentElement.style.opacity = '0.999'` for two frames, then back): if the
+missing content appears without anything else changing, it was stale tiles.
 
 ```bash
 # Is the whole device starving, or just this process?
