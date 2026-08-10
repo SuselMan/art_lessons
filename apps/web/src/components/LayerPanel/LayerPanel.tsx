@@ -96,6 +96,33 @@ export const LayerPanel = memo(function LayerPanel({
 
   const longPressRef = useRef<{ id: string; timer: number; x: number; y: number } | null>(null)
 
+  /** Set when a long press fires, cleared by `handleSuppressedClick`. */
+  const suppressClickRef = useRef(false)
+
+  /**
+   * Swallows the `click` that lifting the finger produces at the end of a long
+   * press (#411 follow-up).
+   *
+   * Not merely redundant — actively destructive, and not only on the row it
+   * started from. Opening the mode inserts the selection bar above the list,
+   * so everything below shifts down by its height while the finger is still
+   * on the glass; the click is then hit-tested against the *new* layout and
+   * lands on whatever slid under it. Emulating a tablet, a long press on the
+   * top row released onto the freshly-drawn "Select all" button and selected
+   * every layer in the panel.
+   *
+   * Hence the capture phase on the panel as a whole rather than a check inside
+   * the row handler: the click cannot be relied on to arrive anywhere in
+   * particular, so the only safe thing to know about it is that it belongs to
+   * a gesture already fully answered.
+   */
+  const handleSuppressedClick = useCallback((e: React.MouseEvent) => {
+    if (!suppressClickRef.current) return
+    suppressClickRef.current = false
+    e.stopPropagation()
+    e.preventDefault()
+  }, [])
+
   // (#411) Selection mode. Panel-local rather than store state, same as
   // `dragId` and `editingId` above: it is a property of this panel's current
   // interaction, not of the room. What it produces — `selectedIds` — does live
@@ -103,9 +130,26 @@ export const LayerPanel = memo(function LayerPanel({
   // and *then* reaching for the transform tool is the whole point.
   const [selectionMode, setSelectionMode] = useState(false)
 
+  // (#411 follow-up) Touch activation is by *distance*, not by delay, and that
+  // is what lets the whole row be draggable and long-press-to-select exist at
+  // the same time.
+  //
+  // With `delay: 200` — the previous setting — a finger resting on a row was
+  // already a drag before the 500ms long-press could fire, so the two gestures
+  // could not coexist and the drag was moved onto the grip to separate them.
+  // Separating them by *what the finger does* instead of by which pixel it
+  // landed on is the better cut: a finger that moves is dragging, a finger that
+  // stays put is selecting. Neither can steal the other's gesture, because
+  // movement is exactly what tells them apart — the same threshold cancels the
+  // long-press timer (see handlePointerMove) and starts the drag.
+  //
+  // The cost is that a touch starting on a row no longer scrolls the list,
+  // since the row has to keep `touch-action: none` for the drag to survive.
+  // That was true before #411 as well; it is a wart worth fixing separately,
+  // not by giving up dragging the row.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { distance: LONG_PRESS_TOLERANCE_PX } }),
   )
 
   // ── item mutations ───────────────────────────────────────────────────────────
@@ -287,16 +331,22 @@ export const LayerPanel = memo(function LayerPanel({
    *  touch, dnd-kit's `TouchSensor` claimed the same held finger at 200 ms and
    *  `onDragStart` cancelled this timer; with a mouse the timer did fire, and
    *  then the `click` that followed the release ran `handleActivate` with no
-   *  modifier, which cleared `selectedIds` again. Moving the drag onto the grip
-   *  settles the first half; opening a *mode* rather than toggling one row
-   *  settles the second, since a tap in the mode ticks rather than clears. */
+   *  modifier, which cleared `selectedIds` again. Distance-based touch
+   *  activation settles the first half — a still finger is no longer a drag;
+   *  `suppressClickRef` settles the second, by dropping the click the release
+   *  itself produces. */
   const handlePointerDown = useCallback((id: string) => {
+    // Any fresh press starts a new story: a flag left standing by a long press
+    // whose click never arrived (the pointer moved, the row unmounted) must not
+    // swallow the next real tap.
+    suppressClickRef.current = false
     if (id === BACKGROUND_LAYER_ID) return // background never joins multi-select
     if (selectionMode) return              // already there; a tap is enough
     if (longPressRef.current) window.clearTimeout(longPressRef.current.timer)
     longPressRef.current = {
       id, x: 0, y: 0,
       timer: window.setTimeout(() => {
+        suppressClickRef.current = true
         setSelectionMode(true)
         onChange(p => ({
           ...p,
@@ -714,7 +764,7 @@ export const LayerPanel = memo(function LayerPanel({
   // ── render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.body} onPointerUp={handlePointerUp}>
+    <div className={styles.body} onPointerUp={handlePointerUp} onClickCapture={handleSuppressedClick}>
       {opacityItem && (
         <div className={styles.opacityBar}>
           <span className={styles.opacityBarLabel}>{t('layers.opacity')}</span>

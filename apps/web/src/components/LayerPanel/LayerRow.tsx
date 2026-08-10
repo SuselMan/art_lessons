@@ -110,8 +110,10 @@ function LayerRowImpl({
         isBackground && styles.rowBackground,
         isDragOverFolder && styles.rowDragTarget,
       )}
+      {...attributes}
+      {...listeners}
       onClick={e => onActivate(item.id, e)}
-      onPointerDown={() => onPointerDown?.(item.id)}
+      onPointerDown={e => { listeners?.onPointerDown?.(e); onPointerDown?.(item.id) }}
       onPointerUp={onPointerUp}
       onPointerMove={onPointerMove}
     >
@@ -134,23 +136,18 @@ function LayerRowImpl({
         )
       )}
 
-      {/* (#411) The drag handle is the grip alone now, not the whole row.
-          `listeners` used to sit on the row container, which made "hold a row"
-          mean both "start dragging" and "start the long-press timer" — two
-          gestures competing for one input, with dnd-kit's touch delay winning
-          at 200 ms and cancelling the timer before it could ever fire. It also
-          costs nothing to hand the row back to the browser: with `touch-action`
-          moved to the grip, a finger on a row scrolls the list again. */}
+      {/* The whole row is the drag handle; this only says so.
+          #411 briefly moved dnd-kit's listeners here, to stop the touch drag
+          and the long-press from fighting over one held finger. That separated
+          them by *where* the finger lands, which cost the row-wide drag people
+          actually use — and a 15px icon is not something you can aim a finger
+          at anyway. They are separated by *what the finger does* now (see the
+          sensors in LayerPanel: distance, not delay), so the grip goes back to
+          being a hint. */}
       {isBackground
         ? <span className={styles.gripSpacer} />
         : (
-          <span
-            className={styles.grip}
-            title={t('layers.dragHandle')}
-            aria-label={t('layers.dragHandle')}
-            {...attributes}
-            {...listeners}
-          >
+          <span className={styles.grip} title={t('layers.dragHandle')}>
             <Icon name="drag_indicator" />
           </span>
         )

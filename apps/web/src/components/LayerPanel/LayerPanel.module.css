@@ -206,13 +206,16 @@
   gap: 3px;
   border-radius: var(--radius-md);
   margin: 0 5px;
-  /* (#411) `cursor: grab` and `touch-action: none` used to live here, because
-     the whole row was the drag handle. Both moved to `.grip` along with the
-     dnd-kit listeners. Handing `touch-action` back to the browser is what
-     makes the list scrollable with a finger again — previously a touch
-     starting on any row was swallowed whole. */
+  cursor: grab;
+  /* Required for dnd-kit touch dragging: without it the browser claims the
+     gesture for scrolling and cancels the drag mid-way. The cost is real and
+     known — a touch starting on a row cannot scroll the list — but the row
+     being draggable at all is worth more, and #411's attempt to buy the scroll
+     back by moving the drag onto the grip cost the row-wide drag instead. */
+  touch-action: none;
   transition: background var(--duration-fast);
 }
+.rowMain:active { cursor: grabbing; }
 .rowMain:hover { background: var(--color-surface-hover); }
 
 /* Active layer: accent background + left border to make selection obvious */
@@ -236,7 +239,9 @@
 /* Background row: no drag cursor */
 .rowBackground { cursor: default; }
 
-/* Drag hint icon — always visible, no pointer events */
+/* Drag hint icon — the row is what drags, this only advertises it. Kept
+   deliberately narrow: it is not an aim target, so spending the row's scarce
+   horizontal budget on it would only shorten the layer name. */
 .grip {
   display: flex;
   align-items: center;
@@ -247,7 +252,6 @@
   touch-action: none;
 }
 .rowMain:hover .grip { opacity: 0.6; }
-.grip:active { cursor: grabbing; }
 .grip :global(.material-symbols-outlined) { font-size: 15px; }
 
 .gripSpacer { width: 18px; flex-shrink: 0; }

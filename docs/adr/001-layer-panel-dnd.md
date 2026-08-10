@@ -125,6 +125,37 @@ onPointerDown={e => { listeners?.onPointerDown?.(e); onPointerDown?.(item.id) }}
 
 Overwriting `listeners.onPointerDown` entirely breaks mouse dragging.
 
+### Touch activation is by distance, not delay (#411)
+
+The two gestures on a row — drag, and long-press to open selection mode — both
+begin with a finger resting on it, so something has to tell them apart.
+
+`TouchSensor`'s `delay` cannot: at `delay: 200` a resting finger was already a
+drag 300 ms before the long press could fire, so long-press-to-select never
+worked on touch at all. The first attempt separated them by *place*, moving
+dnd-kit's listeners onto the grip. That worked and was wrong: it made a 15px
+icon the only way to reorder a row, which is unusable with a finger and was
+reported as "drag and drop is broken on the tablet".
+
+They are separated by *what the finger does* instead — `activationConstraint:
+{ distance }`. A finger that moves is dragging; a finger that stays put is
+selecting; the same threshold that starts the drag cancels the long-press
+timer, so neither can steal the other's gesture. The whole row is the handle
+again.
+
+Two consequences worth knowing:
+
+- `.rowMain` keeps `touch-action: none`, so a touch starting on a row cannot
+  scroll the list. That was true before this too. It is a real wart, and the
+  fix for it is not to give up dragging the row.
+- Lifting the finger at the end of a long press fires a `click`, and that click
+  must be swallowed — see `handleSuppressedClick`. Opening the mode inserts the
+  selection bar, everything below shifts down while the finger is still on the
+  glass, and the click lands on whatever moved under it. On an emulated tablet
+  a long press on the top row released onto the newly-drawn "Select all" button
+  and selected every layer. Hence suppression in the capture phase for the
+  panel as a whole, rather than a check in the row's own handler.
+
 ## Amendment: nested folders (#410)
 
 Folders nest to any depth. This supersedes "No nested folders" and the matching
