@@ -74,7 +74,7 @@ interface RoomRecord {
   coveredSeqByLayer: Map<string, number>
   // (#190 epic) Hex colors, cached here and pushed live same as
   // `participants` — small, needed on every room_state, unlike RoomSnapshot's
-  // pixel blobs which stay Postgres-only (see getLatestSnapshot below).
+  // pixel blobs which stay Postgres-only (see getLayerSnapshot below).
   palette: string[]
   // (#254/#256 epic) Room-wide freeze — an owner-triggered runtime control,
   // never persisted to Postgres (same ephemeral status as `participants`
@@ -1578,15 +1578,18 @@ export function getCoveredSeq(roomId: string, layerId: string): number | undefin
   return rooms.get(roomId)?.coveredSeqByLayer.get(layerId)
 }
 
-export interface StoredLayerSnapshot {
+export interface SnapshotIndexEntry {
   layerId: string
   seq: number
-  data: Uint8Array
+  /** sha256 of the layer's *decompressed* pixels — see hashOfDecompressed.
+   *  Doubles as the blob's ETag: it is already exactly a content hash of
+   *  immutable content, so there is nothing to compute per request. */
+  hash: string
 }
 
-/** Every layer's newest stored snapshot, plus the room's stored layerState —
- *  what a joining client needs to reconstruct the canvas before replaying the
- *  operations no layer's coverage accounts for (#371).
+/** Which layers have stored pixels and at what seq, plus the room's stored
+ *  layerState — everything a joining client needs to *plan* its restore,
+ *  without a single pixel attached (#427).
  *
  *  `layers` is empty for a room nobody has baked yet, and may cover only some
  *  of the layers in `layerState`: a layer with no row here has no stored
@@ -1594,26 +1597,55 @@ export interface StoredLayerSnapshot {
  *  an error — it is exactly what #369 got wrong by treating a missing layer as
  *  an empty one.
  *
+ *  This used to be `getLatestSnapshot`, which selected `data` for *every*
+ *  retained row of the room and then dropped all but the newest per layer in
+ *  JS. With SNAPSHOT_RETENTION_PER_LAYER rows per layer at several MB each,
+ *  a join read ~10MB out of Postgres to serve ~9.7MB, and held the surplus in
+ *  server memory for the length of the request. Splitting the metadata from
+ *  the pixels means the index costs kilobytes and each blob is fetched by
+ *  primary key, exactly once, only if the client doesn't already have it.
+ *
  *  Read from Postgres directly rather than the in-memory Map: unlike
  *  operations, snapshot pixel payloads are never cached in `RoomRecord`
  *  (#149 epic design — kept out of the hot, always-resident path since
  *  they're only needed at join time). */
-export async function getLatestSnapshot(
+export async function getSnapshotIndex(
   roomId: string,
-): Promise<{ seq: number; layerState: unknown; layers: StoredLayerSnapshot[] } | null> {
+): Promise<{ seq: number; layerState: unknown; layers: SnapshotIndexEntry[] } | null> {
   const [stored, rows] = await Promise.all([
     prisma.roomLayerState.findUnique({ where: { roomId }, select: { seq: true, state: true } }),
     // Newest first, so the first row seen for a layer is the one to keep —
     // retention leaves up to SNAPSHOT_RETENTION_PER_LAYER rows per layer.
     prisma.roomLayerSnapshot.findMany({
-      where: { roomId }, orderBy: { seq: 'desc' }, select: { layerId: true, seq: true, data: true },
+      where: { roomId }, orderBy: { seq: 'desc' }, select: { layerId: true, seq: true, hash: true },
     }),
   ])
   if (!stored) return null
 
-  const newestByLayer = new Map<string, StoredLayerSnapshot>()
+  const newestByLayer = new Map<string, SnapshotIndexEntry>()
   for (const row of rows) if (!newestByLayer.has(row.layerId)) newestByLayer.set(row.layerId, row)
   return { seq: stored.seq, layerState: stored.state, layers: [...newestByLayer.values()] }
+}
+
+/** One layer's stored snapshot: the gzipped `encodeLayerTiles` payload exactly
+ *  as the baking client uploaded it, plus its hash (#427).
+ *
+ *  Addressed by the full `(roomId, layerId, seq)` unique key rather than "the
+ *  newest for this layer" on purpose — that is what makes the response
+ *  immutable, and immutability is what lets it be cached forever by URL. A
+ *  "give me the newest" route could never say that about itself.
+ *
+ *  Null for a triple that was never stored, or was stored and has since aged
+ *  out of SNAPSHOT_RETENTION_PER_LAYER between a client reading the index and
+ *  fetching from it — an ordinary race, not an error: the client falls back to
+ *  replaying that layer's operations, same as for a layer never baked at all. */
+export async function getLayerSnapshot(
+  roomId: string, layerId: string, seq: number,
+): Promise<{ data: Uint8Array; hash: string } | null> {
+  return await prisma.roomLayerSnapshot.findUnique({
+    where: { roomId_layerId_seq: { roomId, layerId, seq } },
+    select: { data: true, hash: true },
+  })
 }
 
 /** Paginated backfill (#169): the page of up to `limit` operations

@@ -1,13 +1,6 @@
 import type { LayerState, Operation } from '@grafetto/shared'
 import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../../engine/src/snapshotCodec'
 
-function base64ToBytes(base64: string): Uint8Array {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-  return bytes
-}
-
 /** One layer's restored pixels, and the room seq they reach (#374). The seq
  *  is per layer because coverage is: layers are baked independently, so two
  *  of them are routinely caught up to different points. */
@@ -22,6 +15,13 @@ export interface RestoredSnapshot {
   layers: Map<string, RestoredLayer>
 }
 
+/** What `/snapshots/index` answers: the plan for a restore, no pixels. */
+interface SnapshotIndex {
+  seq: number
+  layerState: LayerState
+  layers: Array<{ layerId: string; seq: number; hash: string }>
+}
+
 /** Fetches and decodes the room's stored snapshots (#168/#169, per layer
  *  since #374) — null if nobody has ever baked this room (204, same case
  *  `latestSnapshotSeq === null` covers in room_state) or the request fails
@@ -31,21 +31,46 @@ export interface RestoredSnapshot {
  *  A layer named in `layerState` with no entry in `layers` is ordinary, not an
  *  error: nothing was ever stored for it, so it arrives entirely as operations.
  *  Reading that absence as "the layer is empty" is exactly what lost drawing in
- *  #369, and it is why the server sends the operations to go with it. */
+ *  #369, and it is why the server sends the operations to go with it.
+ *
+ *  (#427) Two round trips rather than one, and the pixels arrive per layer:
+ *  the index is small and always fresh, each blob is immutable and cached by
+ *  URL, so re-entering a room whose seq hasn't moved costs kilobytes instead
+ *  of ~10MB. The blobs are also fetched concurrently, which is why the first
+ *  layer can land while the rest are still in flight.
+ *
+ *  Any blob failing takes the whole restore down to null, rather than
+ *  returning the layers that did arrive. That looks over-strict next to the
+ *  "a missing layer is ordinary" rule above, and it is deliberate: that rule
+ *  holds only because the *server* knows a layer is uncovered and sends its
+ *  operations to compensate. A layer the server counted as covered, whose
+ *  blob this client then failed to fetch, has no such compensation — its
+ *  history was never sent. Keeping it out of the map would silently drop
+ *  drawing, the exact shape of #369. Failing whole is what the single-request
+ *  version did on any error, so this is the same contract, not a new one. */
 export async function fetchLatestSnapshot(roomId: string): Promise<RestoredSnapshot | null> {
-  const res = await fetch(`/api/rooms/${roomId}/snapshots/latest`, { credentials: 'include' })
-  if (res.status === 204 || !res.ok) return null
-  const body = await res.json() as {
-    seq: number
-    layerState: LayerState
-    layers: Array<{ layerId: string; seq: number; data: string }>
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/snapshots/index`, { credentials: 'include' })
+    if (res.status === 204 || !res.ok) return null
+    const body = await res.json() as SnapshotIndex
+
+    const restored = await Promise.all(body.layers.map(async layer => {
+      // Deliberately not `cache: 'reload'` or a cache-busting query: the
+      // browser cache hitting here is the entire point of the change.
+      const blob = await fetch(`/api/rooms/${roomId}/snapshots/${layer.layerId}/${layer.seq}`, {
+        credentials: 'include',
+      })
+      if (!blob.ok) throw new Error(`snapshot blob ${layer.layerId}@${layer.seq}: ${blob.status}`)
+      // Still gzip on arrival — the server sends the stored bytes without
+      // Content-Encoding precisely so they stay compressed until here.
+      const raw = await decompressLayerTiles(new Uint8Array(await blob.arrayBuffer()))
+      return [layer.layerId, { tiles: decodeLayerTiles(raw, 0).tiles, coveredSeq: layer.seq }] as const
+    }))
+
+    return { seq: body.seq, layerState: body.layerState, layers: new Map(restored) }
+  } catch {
+    return null
   }
-  const layers = new Map<string, RestoredLayer>()
-  for (const layer of body.layers) {
-    const raw = await decompressLayerTiles(base64ToBytes(layer.data))
-    layers.set(layer.layerId, { tiles: decodeLayerTiles(raw, 0).tiles, coveredSeq: layer.seq })
-  }
-  return { seq: body.seq, layerState: body.layerState, layers }
 }
 
 /** Largest page `fetchHistoryPage` will ever ask for. Only an upper bound —

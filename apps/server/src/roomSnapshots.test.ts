@@ -7,14 +7,14 @@ import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { StrokeOperation } from '@grafetto/shared'
 
 import {
-  _flushPendingWrites, createRoom, deletableOperations, getCoveredSeq, getLatestSnapshot, getOperationsBefore,
-  getRoomSnapshot, joinRoom, leaveRoom, recordOperation, saveSnapshot,
+  _flushPendingWrites, createRoom, deletableOperations, getCoveredSeq, getLayerSnapshot, getOperationsBefore,
+  getRoomSnapshot, getSnapshotIndex, joinRoom, leaveRoom, recordOperation, saveSnapshot,
 } from './rooms.js'
 
 // rooms.test.ts deliberately runs with no real Postgres — every DB call it
 // touches (createRoom/recordOperation/etc.) is fire-and-forget, so a
 // rejected connection is silently swallowed (see its own doc comment).
-// saveSnapshot/getLatestSnapshot are different: they *await* Postgres
+// saveSnapshot/getSnapshotIndex are different: they *await* Postgres
 // directly (the snapshot payload is never cached in RoomRecord — see
 // rooms.ts's own doc comments), so exercising them without a real DB (CI has
 // none — see .github/workflows/ci.yml) needs prisma mocked. Scoped to this
@@ -232,29 +232,43 @@ describe('saveSnapshot — stored layerState', () => {
   })
 })
 
-describe('getLatestSnapshot', () => {
+describe('getSnapshotIndex', () => {
   it('returns null when the room has no stored structure yet', async () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce(null)
     mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([])
-    expect(await getLatestSnapshot(makeRoom())).toBeNull()
+    expect(await getSnapshotIndex(makeRoom())).toBeNull()
   })
 
   it('returns the stored structure with each layer newest row', async () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce({ seq: 200, state: { rootOrder: ['a'] } })
     mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([
-      { layerId: 'layer-1', seq: 200, data: gzippedPayload },
-      { layerId: 'layer-1', seq: 100, data: gzippedPayload },
-      { layerId: 'layer-2', seq: 100, data: gzippedPayload },
+      { layerId: 'layer-1', seq: 200, hash: 'hash-1-200' },
+      { layerId: 'layer-1', seq: 100, hash: 'hash-1-100' },
+      { layerId: 'layer-2', seq: 100, hash: 'hash-2-100' },
     ])
 
-    const snapshot = await getLatestSnapshot(makeRoom())
+    const index = await getSnapshotIndex(makeRoom())
 
-    expect(snapshot?.seq).toBe(200)
-    expect(snapshot?.layerState).toEqual({ rootOrder: ['a'] })
-    expect(snapshot?.layers).toEqual([
-      { layerId: 'layer-1', seq: 200, data: gzippedPayload },
-      { layerId: 'layer-2', seq: 100, data: gzippedPayload },
+    expect(index?.seq).toBe(200)
+    expect(index?.layerState).toEqual({ rootOrder: ['a'] })
+    expect(index?.layers).toEqual([
+      { layerId: 'layer-1', seq: 200, hash: 'hash-1-200' },
+      { layerId: 'layer-2', seq: 100, hash: 'hash-2-100' },
     ])
+  })
+
+  // (#427) The whole point of splitting the index off the blobs: a join used
+  // to read every retained row's `data` — several MB each — out of Postgres
+  // and drop all but the newest per layer in JS.
+  it('never selects the pixel payload', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce({ seq: 100, state: {} })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([])
+
+    await getSnapshotIndex(makeRoom())
+
+    const select = mockPrisma.roomLayerSnapshot.findMany.mock.calls[0][0].select
+    expect(select).not.toHaveProperty('data')
+    expect(select).toHaveProperty('hash')
   })
 
   // A layer in the structure with no stored pixels is ordinary — it is rebuilt
@@ -264,10 +278,31 @@ describe('getLatestSnapshot', () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce({ seq: 100, state: { rootOrder: ['a'] } })
     mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([])
 
-    const snapshot = await getLatestSnapshot(makeRoom())
+    const index = await getSnapshotIndex(makeRoom())
 
-    expect(snapshot?.seq).toBe(100)
-    expect(snapshot?.layers).toEqual([])
+    expect(index?.seq).toBe(100)
+    expect(index?.layers).toEqual([])
+  })
+})
+
+describe('getLayerSnapshot', () => {
+  it('addresses one row by its full (room, layer, seq) key', async () => {
+    mockPrisma.roomLayerSnapshot.findUnique.mockResolvedValueOnce({ data: gzippedPayload, hash: 'h' })
+
+    const row = await getLayerSnapshot('room-1', 'layer-1', 200)
+
+    expect(row).toEqual({ data: gzippedPayload, hash: 'h' })
+    expect(mockPrisma.roomLayerSnapshot.findUnique).toHaveBeenCalledWith({
+      where: { roomId_layerId_seq: { roomId: 'room-1', layerId: 'layer-1', seq: 200 } },
+      select: { data: true, hash: true },
+    })
+  })
+
+  // Aged out of retention between the client reading the index and fetching
+  // from it — an ordinary race, answered with a 404 the client falls back from.
+  it('returns null for a triple that is not stored', async () => {
+    mockPrisma.roomLayerSnapshot.findUnique.mockResolvedValueOnce(null)
+    expect(await getLayerSnapshot('room-1', 'layer-1', 200)).toBeNull()
   })
 })
 
