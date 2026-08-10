@@ -106,7 +106,8 @@
   width: var(--switch-thumb);
   height: var(--switch-thumb);
   border-radius: 50%;
-  background: var(--color-text-dim);
+  background: var(--color-knob-off);
+  border: 1px solid var(--color-knob-border);
   transition: transform var(--duration-normal), background var(--duration-fast);
 }
 
@@ -125,7 +126,7 @@
 }
 
 .on .thumb {
-  background: var(--color-text-bright);
+  background: var(--color-knob);
 }
 
 .on {
@@ -150,14 +151,17 @@
   .switch:hover .track {
     border-color: var(--color-accent-hover);
   }
+  /* The off knob brightens to the on knob's colour under a pointer. In the
+     light theme both are already white, so the hover feedback there is the
+     track's border going accent (just above) rather than the knob. */
   .switch:hover .thumb {
-    background: var(--color-text);
+    background: var(--color-knob);
   }
   .switch.on:hover .track {
     background: var(--color-accent-hover);
   }
   .switch.on:hover .thumb {
-    background: var(--color-text-bright);
+    background: var(--color-knob);
   }
 }
 

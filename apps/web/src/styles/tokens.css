@@ -77,6 +77,23 @@
      "quieter" as a colour instead of as a multiplier lets each theme answer
      the question in its own direction. */
   --color-text-faint: #45454d;
+  /* (#426) The moving part of a control — a slider's thumb, a switch's knob.
+     Its own token because it is a physical object, not a piece of text, and
+     borrowing --color-text-bright for it (which is what these rules used to
+     do) inverts it exactly wrong: "the most emphatic text colour" is near-white
+     on a dark theme and near-black on a light one, so the knob turned into a
+     black pebble sitting on a pale track.
+     A knob is white and stays white. What changes per theme is whether it
+     needs an outline to be found: on the dark theme it is the brightest thing
+     on any track it can sit on and needs none, on the light theme it is white
+     on near-white and the outline is the entire reason it reads as a knob.
+     --color-knob-off is the same object with the switch turned off, kept as a
+     separate value only so the dark theme's grey-knob/bright-knob distinction
+     survives untouched. */
+  --color-knob: #eeeeee;
+  --color-knob-off: #666666;
+  --color-knob-border: transparent;
+
   /* (#426) Text and icons sitting *on* an accent or danger fill. White in both
      themes — both fills are dark enough to carry it — but named, because
      `color: #fff` next to a themed background is the one literal that silently
@@ -239,6 +256,14 @@
      gets a shallower hierarchy, and pays for it in tone rather than in
      contrast. */
   --color-text-faint: #62626d;
+
+  /* White in both states, and outlined — a knob that changed colour as it
+     travelled would read as two different objects. The outline is what
+     separates it from the track underneath, which here is light in both
+     states (grey when off, accent when on). */
+  --color-knob: #ffffff;
+  --color-knob-off: #ffffff;
+  --color-knob-border: var(--color-border);
 
   --color-error:     #b03636;
   --color-warning:   #8a5a00;

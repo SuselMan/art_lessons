@@ -46,7 +46,8 @@
 .thumb {
   position: absolute;
   border-radius: var(--radius-sm);
-  background: var(--color-text-bright);
+  background: var(--color-knob);
+  border: 1px solid var(--color-knob-border);
   box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
