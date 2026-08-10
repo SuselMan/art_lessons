@@ -507,8 +507,14 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // engine/index.ts), just interpreted as "how much of what's picked up
   // gets redeposited" rather than "how much new graphite". Default size is
   // bigger than a pencil's own (a blending stump covers more area than a
-  // pencil point); default strength held below 1 so a light stroke reads
-  // as a gradual blend rather than an instant full-opacity smear.
+  // pencil point).
+  //
+  // Default strength is 10% (was 60%, #416): with the raster imprint the
+  // slider scales a per-pixel lerp between the canvas and what the stump
+  // carries, so it now governs how much of a mark one pass actually lifts
+  // — and at 60% a single pass took off far more graphite than a real
+  // blending stump does (Ilya, on the deployed build). The knob still
+  // reaches its old range; this is where a stroke starts.
   smudge: {
     size: {
       nameKey: 'tool.field.size',
@@ -522,7 +528,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider'],
       quickAccess: true,
-      default: 0.6,
+      default: 0.1,
     },
     // Same graphite geometry as the eraser above, for the same reason.
     tiltResponse: tiltResponseField(GRAPHITE_TILT_CURVES),
