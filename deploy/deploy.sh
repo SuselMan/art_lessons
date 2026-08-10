@@ -136,7 +136,42 @@ sudo install -d -o "$(id -un)" -g "$(id -gn)" -m 755 /var/backups/art-lessons
 # spectacularly quiet way to have no backups at all.
 sudo install -m 644 -o root -g root deploy/backup.cron /etc/cron.d/art-lessons-backup
 
-echo "==> Pruning unused Docker images (keeps disk from growing every deploy)"
-docker image prune -f
+# (#275) Уборка старых образов сервера. Здесь раньше стоял `docker image prune
+# -f` с комментарием «keeps disk from growing every deploy», и он не делал
+# ничего: без `-a` эта команда убирает только «висячие» образы — те, что
+# потеряли тег. Каждый наш образ помечен хешем коммита и тег сохраняет
+# навсегда, поэтому под неё не попадал ни один. Обнаружено 10.08 замером
+# диска: 108 образов сервера при одном используемом.
+#
+# Взять `prune -a` вместо этого нельзя: он снёс бы и предыдущий образ, то есть
+# ровно то, чем откатываются, когда свежая выкатка оказалась плохой. Поэтому
+# считаем по-другому — оставить N последних по дате, остальные удалить.
+#
+# Три, а не один: текущий, предыдущий (откат в одно действие) и ещё один на
+# случай, если плох окажется и предыдущий. Дальше в глубину откат всё равно
+# идёт через `docker pull` из ghcr.io, где образы остаются независимо от того,
+# что лежит на коробке.
+#
+# Ни одна ошибка здесь не должна валить деплой: приложение к этому моменту уже
+# поднято и работает, а неубранный образ — это занятое место, а не авария.
+# Удалить образ, на котором работает контейнер, docker откажется сам — это
+# страховка помимо счётчика.
+KEEP_SERVER_IMAGES="${KEEP_SERVER_IMAGES:-3}"
+echo "==> Pruning old server images (keeping the newest $KEEP_SERVER_IMAGES)"
+disk_before=$(df --output=avail / | tail -1)
+# CreatedAt идёт первым полем, чтобы сортировка по строке была сортировкой по
+# дате; `awk '!seen'` схлопывает случай, когда на один образ смотрят два тега.
+stale=$(docker images "${SERVER_IMAGE%%:*}" --format '{{.CreatedAt}}\t{{.ID}}' \
+  | sort -r | cut -f2 | awk '!seen[$0]++' | tail -n +$((KEEP_SERVER_IMAGES + 1)) || true)
+if [ -n "$stale" ]; then
+  echo "$stale" | while read -r image_id; do
+    docker rmi "$image_id" > /dev/null 2>&1 || echo "    still referenced, kept: $image_id"
+  done
+fi
+# И висячие слои следом — то, ради чего исходная команда и звалась. Теперь ей
+# есть что убирать: удаление образов выше как раз их и производит.
+docker image prune -f > /dev/null
+disk_after=$(df --output=avail / | tail -1)
+echo "    server images now: $(docker images "${SERVER_IMAGE%%:*}" -q | sort -u | wc -l), freed: $(( (disk_after - disk_before) / 1024 )) MB, free: $(df -h --output=avail / | tail -1 | tr -d ' ')"
 
 echo "==> Deploy complete"
