@@ -275,8 +275,6 @@ export const LayerPanel = memo(function LayerPanel({
 
   const handleExitSelection = useCallback(() => setSelectionMode(false), [])
 
-  const handleEnterSelection = useCallback(() => setSelectionMode(m => !m), [])
-
   // Escape leaves the mode. Kept off the room's global hotkey map on purpose:
   // that one is about the canvas, and this is only meaningful while the panel
   // is in a state the canvas knows nothing about.
@@ -787,105 +785,124 @@ export const LayerPanel = memo(function LayerPanel({
         </div>
       )}
 
+      {/* One toolbar, two sets of actions (#411 follow-up).
+          Selection mode used to add a *second* row here, and that was the
+          mistake: it appears while the finger is still on the row that
+          summoned it, so the whole list slides down by its height under the
+          touch. Swapping the contents of the one row keeps its height fixed and
+          nothing moves. Also why entering the mode no longer has a button — the
+          long press is the way in, and a control that only exists to open a
+          mode was itself part of the crowding. */}
       <div className={styles.listToolbar}>
-        <button className={styles.toolbarBtn} onClick={handleAddLayer} title={t('layers.addLayer')} aria-label={t('layers.addLayer')}>
-          <Icon name="add" />
-        </button>
-        <button className={styles.toolbarBtn} onClick={handleAddFolder} title={t('layers.addFolder')} aria-label={t('layers.addFolder')}>
-          <Icon name="create_new_folder" />
-        </button>
-        <button className={styles.toolbarBtn} onClick={handleImportImageClick} title={t('layers.importImage')} aria-label={t('layers.importImage')}>
-          <Icon name="add_photo_alternate" />
-        </button>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept="image/*"
-          className={styles.hiddenFileInput}
-          onChange={handleImportImageChange}
-        />
-        <span className={styles.toolbarSpacer} />
-        {/* (#411) The discoverable half of entering selection mode. Long-press
-            is the accelerator; a gesture with no visible affordance was what
-            forced the one-time hint this replaces. */}
-        <button
-          className={clsx(styles.toolbarBtn, selectionMode && styles.toolbarBtnLocked)}
-          onClick={handleEnterSelection}
-          title={t('layers.selectMultiple')}
-          aria-label={t('layers.selectMultiple')}
-          aria-pressed={selectionMode}>
-          <Icon name="check_box" />
-        </button>
-        <button
-          className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
-          onClick={() => handleToggleLock(activeId)}
-          disabled={activeId === BACKGROUND_LAYER_ID}
-          title={t(isActiveLocked ? 'layers.unlockLayer' : 'layers.lockLayer')}
-          aria-label={t(isActiveLocked ? 'layers.unlockLayer' : 'layers.lockLayer')}>
-          <Icon name={isActiveLocked ? 'lock' : 'lock_open'} />
-        </button>
-        {isOwner && (
-          <button
-            className={clsx(styles.toolbarBtn, isActiveOwnerLocked && styles.toolbarBtnOwnerLocked)}
-            onClick={() => handleToggleOwnerLock(activeId)}
-            disabled={activeId === BACKGROUND_LAYER_ID}
-            title={t(isActiveOwnerLocked ? 'layers.ownerUnlock' : 'layers.ownerLock')}
-            aria-label={t(isActiveOwnerLocked ? 'layers.ownerUnlockShort' : 'layers.ownerLockShort')}>
-            <Icon name="lock_person" />
-          </button>
+        {selectionMode ? (
+          <>
+            <button
+              className={styles.toolbarBtn}
+              onClick={handleSelectAll}
+              title={t(allSelected ? 'layers.deselectAll' : 'layers.selectAll')}
+              aria-label={t(allSelected ? 'layers.deselectAll' : 'layers.selectAll')}>
+              <Icon name={allSelected ? 'deselect' : 'select_all'} />
+            </button>
+            <button
+              className={styles.toolbarBtn}
+              onClick={handleToggleVisibleMass}
+              disabled={targets.length === 0}
+              title={t(allTargetsVisible ? 'layers.hide' : 'layers.show')}
+              aria-label={t(allTargetsVisible ? 'layers.hide' : 'layers.show')}>
+              <Icon name={allTargetsVisible ? 'visibility' : 'visibility_off'} />
+            </button>
+            {/* Lock, merge and delete keep the places they occupy outside the
+                mode — the same buttons, aimed at the selection instead of the
+                active row. */}
+            <span className={styles.toolbarSpacer} />
+            <button
+              className={clsx(styles.toolbarBtn, allTargetsLocked && styles.toolbarBtnLocked)}
+              onClick={handleToggleLockMass}
+              disabled={targets.length === 0}
+              title={t(allTargetsLocked ? 'layers.unlock' : 'layers.lock')}
+              aria-label={t(allTargetsLocked ? 'layers.unlock' : 'layers.lock')}>
+              <Icon name={allTargetsLocked ? 'lock' : 'lock_open'} />
+            </button>
+            <button
+              className={styles.toolbarBtn}
+              disabled={!canMergeSelected}
+              onClick={handleMergeSelected}
+              title={t('layers.mergeSelected')}
+              aria-label={t('layers.mergeSelected')}>
+              <Icon name="move_down" />
+            </button>
+            <button
+              className={clsx(styles.toolbarBtn, styles.toolbarBtnDanger)}
+              onClick={() => void handleDelete()}
+              disabled={!canDelete}
+              title={t('layers.deleteSelected')}
+              aria-label={t('layers.deleteSelected')}>
+              <Icon name="delete" />
+            </button>
+            <button
+              className={clsx(styles.toolbarBtn, styles.toolbarBtnDone)}
+              onClick={handleExitSelection}
+              title={t('common.done')}
+              aria-label={t('common.done')}>
+              <Icon name="check" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button className={styles.toolbarBtn} onClick={handleAddLayer} title={t('layers.addLayer')} aria-label={t('layers.addLayer')}>
+              <Icon name="add" />
+            </button>
+            <button className={styles.toolbarBtn} onClick={handleAddFolder} title={t('layers.addFolder')} aria-label={t('layers.addFolder')}>
+              <Icon name="create_new_folder" />
+            </button>
+            <button className={styles.toolbarBtn} onClick={handleImportImageClick} title={t('layers.importImage')} aria-label={t('layers.importImage')}>
+              <Icon name="add_photo_alternate" />
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="image/*"
+              className={styles.hiddenFileInput}
+              onChange={handleImportImageChange}
+            />
+            <span className={styles.toolbarSpacer} />
+            <button
+              className={clsx(styles.toolbarBtn, isActiveLocked && styles.toolbarBtnLocked)}
+              onClick={() => handleToggleLock(activeId)}
+              disabled={activeId === BACKGROUND_LAYER_ID}
+              title={t(isActiveLocked ? 'layers.unlockLayer' : 'layers.lockLayer')}
+              aria-label={t(isActiveLocked ? 'layers.unlockLayer' : 'layers.lockLayer')}>
+              <Icon name={isActiveLocked ? 'lock' : 'lock_open'} />
+            </button>
+            {isOwner && (
+              <button
+                className={clsx(styles.toolbarBtn, isActiveOwnerLocked && styles.toolbarBtnOwnerLocked)}
+                onClick={() => handleToggleOwnerLock(activeId)}
+                disabled={activeId === BACKGROUND_LAYER_ID}
+                title={t(isActiveOwnerLocked ? 'layers.ownerUnlock' : 'layers.ownerLock')}
+                aria-label={t(isActiveOwnerLocked ? 'layers.ownerUnlockShort' : 'layers.ownerLockShort')}>
+                <Icon name="lock_person" />
+              </button>
+            )}
+            <button
+              className={styles.toolbarBtn}
+              disabled={!canMerge}
+              onClick={() => canMergeSelected ? handleMergeSelected() : handleMergeDown()}
+              title={t(canMergeSelected ? 'layers.mergeSelected' : 'layers.mergeDown')}
+              aria-label={t(canMergeSelected ? 'layers.mergeSelected' : 'layers.mergeDown')}>
+              <Icon name="move_down" />
+            </button>
+            <button
+              className={clsx(styles.toolbarBtn, styles.toolbarBtnDanger)}
+              onClick={() => void handleDelete()}
+              disabled={!canDelete}
+              title={t(selectedIds.length > 0 ? 'layers.deleteSelected' : 'layers.deleteLayer')}
+              aria-label={t(selectedIds.length > 0 ? 'layers.deleteSelected' : 'layers.deleteLayer')}>
+              <Icon name="delete" />
+            </button>
+          </>
         )}
-        <button
-          className={styles.toolbarBtn}
-          disabled={!canMerge}
-          onClick={() => canMergeSelected ? handleMergeSelected() : handleMergeDown()}
-          title={t(canMergeSelected ? 'layers.mergeSelected' : 'layers.mergeDown')}
-          aria-label={t(canMergeSelected ? 'layers.mergeSelected' : 'layers.mergeDown')}>
-          <Icon name="move_down" />
-        </button>
-        <button
-          className={clsx(styles.toolbarBtn, styles.toolbarBtnDanger)}
-          onClick={() => void handleDelete()}
-          disabled={!canDelete}
-          title={t(selectedIds.length > 0 ? 'layers.deleteSelected' : 'layers.deleteLayer')}
-          aria-label={t(selectedIds.length > 0 ? 'layers.deleteSelected' : 'layers.deleteLayer')}>
-          <Icon name="delete" />
-        </button>
       </div>
-
-      {selectionMode && (
-        <div className={styles.selectionBar}>
-          <span className={styles.selectionCount}>
-            {t('layers.selectedCount', { n: selectedIds.length })}
-          </span>
-          {/* (#412) Mass visibility and lock. They live here rather than in the
-              toolbar above because they only mean anything while a selection
-              exists, and that row is already full. */}
-          <button
-            className={styles.toolbarBtn}
-            onClick={handleToggleVisibleMass}
-            disabled={targets.length === 0}
-            title={t(allTargetsVisible ? 'layers.hide' : 'layers.show')}
-            aria-label={t(allTargetsVisible ? 'layers.hide' : 'layers.show')}>
-            <Icon name={allTargetsVisible ? 'visibility' : 'visibility_off'} />
-          </button>
-          <button
-            className={clsx(styles.toolbarBtn, allTargetsLocked && styles.toolbarBtnLocked)}
-            onClick={handleToggleLockMass}
-            disabled={targets.length === 0}
-            title={t(allTargetsLocked ? 'layers.unlock' : 'layers.lock')}
-            aria-label={t(allTargetsLocked ? 'layers.unlock' : 'layers.lock')}>
-            <Icon name={allTargetsLocked ? 'lock' : 'lock_open'} />
-          </button>
-          <button className={styles.selectionBtn} onClick={handleSelectAll}>
-            {t(allSelected ? 'layers.deselectAll' : 'layers.selectAll')}
-          </button>
-          <button
-            className={clsx(styles.selectionBtn, styles.selectionBtnPrimary)}
-            onClick={handleExitSelection}>
-            {t('common.done')}
-          </button>
-        </div>
-      )}
 
       {importError && <div className={styles.importError}>{importError}</div>}
 

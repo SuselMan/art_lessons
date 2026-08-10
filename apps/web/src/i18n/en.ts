@@ -534,7 +534,6 @@ export const en = {
   // did — it clears one layer, and now says which.
   'layers.clearLayer': 'Clear layer',
   'layers.confirmClear': 'Erase everything painted on "{name}"? Other participants\' work on this layer goes too. This can be undone.',
-  'layers.selectMultiple': 'Select multiple layers',
   'layers.selectAll': 'Select all',
   'layers.deselectAll': 'Deselect all',
   'layers.selectedCount': '{n} selected',
