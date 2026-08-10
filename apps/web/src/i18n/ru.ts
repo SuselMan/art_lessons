@@ -440,7 +440,6 @@ export const ru: Dictionary = {
   'layers.deleteLayer': 'Удалить слой',
   'layers.clearLayer': 'Очистить слой',
   'layers.confirmClear': 'Стереть всё, что нарисовано на слое «{name}»? Работа других участников на этом слое тоже пропадёт. Действие можно отменить.',
-  'layers.selectMultiple': 'Выбрать несколько слоёв',
   'layers.selectAll': 'Выбрать все',
   'layers.deselectAll': 'Снять все',
   'layers.selectedCount': 'Выбрано: {n}',
