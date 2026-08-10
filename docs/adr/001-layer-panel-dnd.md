@@ -125,7 +125,57 @@ onPointerDown={e => { listeners?.onPointerDown?.(e); onPointerDown?.(item.id) }}
 
 Overwriting `listeners.onPointerDown` entirely breaks mouse dragging.
 
-### Touch activation is by distance, not delay (#411)
+### Three gestures on one finger (#411, final)
+
+A finger on a row has to be able to do three different things: scroll the list,
+reorder the row, open selection mode. Two of them are a vertical drag, so
+something has to tell them apart, and there are only two candidates — *where*
+the finger lands, or *how long* it waits. The section below records the
+distance-based attempt; this one supersedes it.
+
+**By time.** The touch sensor activates on a delay, and the release decides what
+the gesture was:
+
+| gesture | outcome |
+|---|---|
+| swipe | the browser scrolls; the delay never elapses |
+| hold, then move | reorder |
+| hold, then lift in place | selection mode, that row ticked |
+
+**The sensor split is what makes it work, not the CSS.** `MouseSensor` +
+`TouchSensor`, never `PointerSensor` — exactly the change #331 had to make on
+MyLessons, for the identical reason. Pointer events cover mouse and finger
+alike, so one PointerSensor was racing the delayed TouchSensor and winning it
+after 5px, which on a list is a scroll. This was measured, not assumed: before
+the split, a quick swipe over a row reordered layers instead of scrolling, and
+`touch-action` alone could not fix it either way round — `none` killed the
+scroll, `pan-y` killed the drag.
+
+With the sensors split, `.rowMain` can carry `touch-action: pan-y pinch-zoom`
+and dnd-kit calls `preventDefault` itself once a long press has promoted the
+gesture to a drag.
+
+Three details that are not obvious and were each found by measurement:
+
+- **"Did it move?" is our own observation, not the event's.**
+  `DragEndEvent.delta` is derived from the ending event's coordinates, and a
+  `touchend` carries no touch point — it reported zero travel for drags that
+  had plainly travelled, which sent real reorders down the selection-mode path.
+  `dragMovedRef` is set from `onDragMove` instead.
+- **The long-press timer is mouse-only.** A scrolling finger never delivers the
+  `pointermove` that would cancel it: the browser fires `pointercancel` when it
+  takes the pan and then goes quiet, so the timer outlived the swipe and fired
+  into it. A finger's route into selection mode is the drag-end path.
+- **The click suppression has to be cleared by the next press, anywhere in the
+  panel.** On touch the release after a long press does not reliably produce a
+  click, so a flag armed for a click that never came ate the *next* tap — a
+  dead first press on the toolbar right after entering selection mode.
+
+Nothing may *look* picked up until the drag actually moves (`dragMoved` gates
+both the overlay and the dimming), or every long press would show a row lifting
+and dropping back before the checkboxes appear.
+
+### Touch activation is by distance, not delay (#411, superseded)
 
 The two gestures on a row — drag, and long-press to open selection mode — both
 begin with a finger resting on it, so something has to tell them apart.

@@ -179,12 +179,16 @@
   border-radius: var(--radius-md);
   margin: 0 5px;
   cursor: grab;
-  /* Required for dnd-kit touch dragging: without it the browser claims the
-     gesture for scrolling and cancels the drag mid-way. The cost is real and
-     known — a touch starting on a row cannot scroll the list — but the row
-     being draggable at all is worth more, and #411's attempt to buy the scroll
-     back by moving the drag onto the grip cost the row-wide drag instead. */
-  touch-action: none;
+  /* Was `none`, which forbade the browser from scrolling over a row at all —
+     and rows are the whole list, so it could not be flicked through on a
+     tablet. Same fix and same reasoning as #331 on MyLessons: what was really
+     eating the gesture was a PointerSensor racing the delayed TouchSensor (see
+     the sensor setup), not the browser. With that split, panning and pinch-zoom
+     go back to the browser and dnd-kit calls preventDefault itself once a long
+     press has promoted the gesture to a drag.
+     Horizontal panning stays ours — nothing here scrolls sideways, and leaving
+     it to the browser would let a diagonal drag turn into a swipe. */
+  touch-action: pan-y pinch-zoom;
   transition: background var(--duration-fast);
 }
 .rowMain:active { cursor: grabbing; }
@@ -221,7 +225,10 @@
   opacity: 0.35;
   flex-shrink: 0;
   cursor: grab;
-  touch-action: none;
+  /* Matches the row. A stricter value here would carve a 15px dead stripe out
+     of the scrollable area for no gain — the grip is not a separate handle,
+     the whole row drags. */
+  touch-action: pan-y pinch-zoom;
 }
 .rowMain:hover .grip { opacity: 0.6; }
 .grip :global(.material-symbols-outlined) { font-size: 15px; }

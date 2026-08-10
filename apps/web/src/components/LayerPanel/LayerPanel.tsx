@@ -9,11 +9,12 @@ import {
   DragOverlay,
   useSensor,
   useSensors,
-  PointerSensor,
+  MouseSensor,
   TouchSensor,
   type CollisionDetection,
   type DragStartEvent,
   type DragOverEvent,
+  type DragMoveEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -63,6 +64,12 @@ export interface LayerPanelProps {
 const LONG_PRESS_MS = 500
 const LONG_PRESS_TOLERANCE_PX = 8
 
+/** How long a finger must rest on a row before it may drag it. Shorter than
+ *  `LONG_PRESS_MS` on purpose: on touch the drag arms first and the release
+ *  decides what the gesture was, so this is the point where "still holding"
+ *  becomes committed, not where anything is decided. */
+const TOUCH_DRAG_DELAY_MS = 400
+
 // Wrapped in memo (#127): Room re-renders far more often than layerState/
 // onChange/onOp actually change (e.g. every pointermove while panning, #126)
 // — without this, the whole DndContext + N LayerRow tree below re-renders
@@ -86,6 +93,17 @@ export const LayerPanel = memo(function LayerPanel({
   const dropZone = useMemo(() => buildDropZoneMap(flatList), [flatList])
 
   const [dragId, setDragId]                     = useState<string | null>(null)
+  /** Whether the armed drag has actually gone anywhere yet. On touch the drag
+   *  arms while the finger is still resting, and the release may turn out to
+   *  have meant "select" — so nothing may *look* picked up until it moves, or
+   *  every long press would show a row lifting and dropping back. */
+  const [dragMoved, setDragMoved]               = useState(false)
+  /** The same fact as `dragMoved`, readable synchronously. `onDragEnd` has to
+   *  know whether the gesture went anywhere, and it cannot ask the state
+   *  (stale inside the callback) nor the event: `DragEndEvent.delta` is derived
+   *  from the ending event's coordinates, and a `touchend` carries no touch
+   *  point — it reported zero travel for drags that plainly had travelled. */
+  const dragMovedRef                            = useRef(false)
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null)
   // (#310) Which row's name is being edited in place. Lifted out of LayerRow
   // so the row menu's Rename can start the same inline edit a double-click
@@ -123,6 +141,18 @@ export const LayerPanel = memo(function LayerPanel({
     e.preventDefault()
   }, [])
 
+  /** Clears the suppression on any fresh press anywhere in the panel.
+   *
+   *  The flag means "throw away the click belonging to the gesture that just
+   *  ended", and a new press is proof that gesture is over. Without this it
+   *  could outlive its own gesture: on touch the release after a long press
+   *  does not always produce a click at all, and the flag then ate the *next*
+   *  tap instead — reproduced as a dead first press on the toolbar right after
+   *  entering selection mode with a finger. */
+  const handlePanelPointerDownCapture = useCallback(() => {
+    suppressClickRef.current = false
+  }, [])
+
   // (#411) Selection mode. Panel-local rather than store state, same as
   // `dragId` and `editingId` above: it is a property of this panel's current
   // interaction, not of the room. What it produces — `selectedIds` — does live
@@ -130,26 +160,38 @@ export const LayerPanel = memo(function LayerPanel({
   // and *then* reaching for the transform tool is the whole point.
   const [selectionMode, setSelectionMode] = useState(false)
 
-  // (#411 follow-up) Touch activation is by *distance*, not by delay, and that
-  // is what lets the whole row be draggable and long-press-to-select exist at
-  // the same time.
+  // Three gestures share one finger on one row: scroll the list, reorder the
+  // row, open selection mode. Two of them are a vertical drag, so something has
+  // to separate them, and there are only two candidates — *where* the finger
+  // lands, or *how long* it waits.
   //
-  // With `delay: 200` — the previous setting — a finger resting on a row was
-  // already a drag before the 500ms long-press could fire, so the two gestures
-  // could not coexist and the drag was moved onto the grip to separate them.
-  // Separating them by *what the finger does* instead of by which pixel it
-  // landed on is the better cut: a finger that moves is dragging, a finger that
-  // stays put is selecting. Neither can steal the other's gesture, because
-  // movement is exactly what tells them apart — the same threshold cancels the
-  // long-press timer (see handlePointerMove) and starts the drag.
+  // Both have been tried. By place put the drag on the grip and made
+  // reordering unreachable with a finger (#411's regression). So: by time.
   //
-  // The cost is that a touch starting on a row no longer scrolls the list,
-  // since the row has to keep `touch-action: none` for the drag to survive.
-  // That was true before #411 as well; it is a wart worth fixing separately,
-  // not by giving up dragging the row.
+  //   swipe                    → the browser scrolls; the delay never elapses
+  //   hold, then move          → reorder
+  //   hold, then lift in place → selection mode (see onDragEnd)
+  //
+  // `delay` rather than `distance` is what buys the first line: the row can
+  // hand vertical panning back to the browser (`touch-action: pan-y`) because
+  // dnd-kit only claims the gesture once the finger has proved it is staying.
+  // Under `distance` the row had to keep `touch-action: none` and the list
+  // could not be scrolled from a row at all.
+  //
+  // `MouseSensor`, deliberately not `PointerSensor` — the same split #331 had
+  // to make on MyLessons, and for the identical reason. Pointer events cover
+  // mouse and finger alike, so one PointerSensor was racing the delayed
+  // TouchSensor on every tablet gesture and winning it after 5px, which on a
+  // list is a scroll, not a drag. Measured here before the split: a quick
+  // swipe reordered rows instead of scrolling. Split by event family and the
+  // two can never contend.
+  //
+  // The mouse then keeps its own rule: a still hold never arms a drag there,
+  // so for a mouse it is the long-press timer below that opens selection mode,
+  // and for a finger it is the drag-end path.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor,   { activationConstraint: { distance: LONG_PRESS_TOLERANCE_PX } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: TOUCH_DRAG_DELAY_MS, tolerance: 5 } }),
   )
 
   // ── item mutations ───────────────────────────────────────────────────────────
@@ -323,36 +365,48 @@ export const LayerPanel = memo(function LayerPanel({
     })
   }, [onChange, selectionMode, toggleSelected])
 
-  /** Long press opens selection mode with this row already ticked (#411).
+  /** Opens selection mode with `id` ticked — the single outcome both entry
+   *  paths produce, so a mouse and a finger cannot drift apart.
    *
-   *  It used to toggle the row's selection directly, and could not work: on
-   *  touch, dnd-kit's `TouchSensor` claimed the same held finger at 200 ms and
-   *  `onDragStart` cancelled this timer; with a mouse the timer did fire, and
-   *  then the `click` that followed the release ran `handleActivate` with no
-   *  modifier, which cleared `selectedIds` again. Distance-based touch
-   *  activation settles the first half — a still finger is no longer a drag;
-   *  `suppressClickRef` settles the second, by dropping the click the release
-   *  itself produces. */
-  const handlePointerDown = useCallback((id: string) => {
+   *  Suppressing the click is part of it, not an afterthought: whichever path
+   *  got here, the finger or button is still down, and its release fires a
+   *  `click` that would immediately untick the row this just ticked. */
+  const openSelectionAt = useCallback((id: string) => {
+    if (id === BACKGROUND_LAYER_ID) return // background never joins multi-select
+    suppressClickRef.current = true
+    setSelectionMode(true)
+    onChange(p => ({
+      ...p,
+      selectedIds: p.selectedIds.includes(id) ? p.selectedIds : [...p.selectedIds, id],
+    }))
+  }, [onChange])
+
+  /** The mouse's route into selection mode: hold still, and since a still mouse
+   *  never arms a drag (PointerSensor wants 5px of travel), nothing competes
+   *  for the gesture and a plain timer is enough.
+   *
+   *  A finger does not come through here — its hold arms the drag first, and
+   *  `onDragEnd` decides. The timer is still started on touch and simply loses
+   *  the race to `onDragStart`, which cancels it. */
+  const handlePointerDown = useCallback((id: string, e: React.PointerEvent) => {
     // Any fresh press starts a new story: a flag left standing by a long press
     // whose click never arrived (the pointer moved, the row unmounted) must not
     // swallow the next real tap.
     suppressClickRef.current = false
-    if (id === BACKGROUND_LAYER_ID) return // background never joins multi-select
+    // Mouse only. A finger's route into selection mode is the drag-end path,
+    // and running this timer for it as well is not merely redundant — a
+    // scrolling finger never delivers the `pointermove` that would cancel it,
+    // because the browser fires `pointercancel` the moment it takes the pan
+    // and then goes quiet. The timer would survive the swipe and fire into it.
+    if (e.pointerType !== 'mouse') return
+    if (id === BACKGROUND_LAYER_ID) return
     if (selectionMode) return              // already there; a tap is enough
     if (longPressRef.current) window.clearTimeout(longPressRef.current.timer)
     longPressRef.current = {
       id, x: 0, y: 0,
-      timer: window.setTimeout(() => {
-        suppressClickRef.current = true
-        setSelectionMode(true)
-        onChange(p => ({
-          ...p,
-          selectedIds: p.selectedIds.includes(id) ? p.selectedIds : [...p.selectedIds, id],
-        }))
-      }, LONG_PRESS_MS),
+      timer: window.setTimeout(() => openSelectionAt(id), LONG_PRESS_MS),
     }
-  }, [onChange, selectionMode])
+  }, [openSelectionAt, selectionMode])
 
   const handlePointerUp = useCallback(() => {
     if (longPressRef.current) {
@@ -569,8 +623,16 @@ export const LayerPanel = memo(function LayerPanel({
   const onDragStart = useCallback((e: DragStartEvent) => {
     handlePointerUp() // a started drag is not a long-press — cancel the pending select
     setDragId(String(e.active.id))
+    dragMovedRef.current = false
+    setDragMoved(false)
     setDragOverFolderId(null)
   }, [handlePointerUp])
+
+  const onDragMove = useCallback((e: DragMoveEvent) => {
+    if (Math.hypot(e.delta.x, e.delta.y) <= LONG_PRESS_TOLERANCE_PX) return
+    dragMovedRef.current = true
+    setDragMoved(true)
+  }, [])
 
   // Build the contiguous block of ids that moves together with `id`. For a
   // folder this is everything from its header to its own sentinel inclusive;
@@ -617,8 +679,8 @@ export const LayerPanel = memo(function LayerPanel({
    *  about the one under the pointer, so the rest have to be dimmed by hand or
    *  a group drag looks like a single-row drag with four rows left behind. */
   const draggingIds = useMemo(
-    () => new Set(dragId ? movingIdsFor(dragId).flatMap(blockFor) : []),
-    [dragId, movingIdsFor, blockFor],
+    () => new Set(dragId && dragMoved ? movingIdsFor(dragId).flatMap(blockFor) : []),
+    [dragId, dragMoved, movingIdsFor, blockFor],
   )
 
   // Where would `activeId`'s block land if dropped on `overId` right now?
@@ -677,8 +739,21 @@ export const LayerPanel = memo(function LayerPanel({
 
   const onDragEnd = useCallback((e: DragEndEvent) => {
     setDragId(null)
+    const travelled = dragMovedRef.current
+    dragMovedRef.current = false
+    setDragMoved(false)
     setDragOverFolderId(null)
     const { active, over } = e
+
+    // A hold that armed the drag and then let go without going anywhere was
+    // never a reorder — it is the long press. On touch this is the only place
+    // it can be recognised, because arming the drag is what cancelled the timer
+    // that would otherwise have caught it.
+    if (!travelled) {
+      openSelectionAt(String(active.id))
+      return
+    }
+
     if (!over || active.id === over.id) return
 
     const activeIdDnD = String(active.id)
@@ -735,7 +810,7 @@ export const LayerPanel = memo(function LayerPanel({
       }
     }
     onOp({ type: 'layer_move', layerIds: movingIds, parentId, index })
-  }, [items, onOp, computeInsertIndex])
+  }, [items, onOp, computeInsertIndex, openSelectionAt])
 
   // ── toolbar state ────────────────────────────────────────────────────────────
 
@@ -762,7 +837,12 @@ export const LayerPanel = memo(function LayerPanel({
   // ── render ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className={styles.body} onPointerUp={handlePointerUp} onClickCapture={handleSuppressedClick}>
+    <div
+      className={styles.body}
+      onPointerUp={handlePointerUp}
+      onPointerDownCapture={handlePanelPointerDownCapture}
+      onClickCapture={handleSuppressedClick}
+    >
       {opacityItem && (
         <div className={styles.opacityBar}>
           <span className={styles.opacityBarLabel}>{t('layers.opacity')}</span>
@@ -913,6 +993,7 @@ export const LayerPanel = memo(function LayerPanel({
           sensors={sensors}
           collisionDetection={collisionDetection}
           onDragStart={onDragStart}
+          onDragMove={onDragMove}
           onDragOver={onDragOver}
           onDragEnd={onDragEnd}
         >
@@ -956,7 +1037,7 @@ export const LayerPanel = memo(function LayerPanel({
           </SortableContext>
 
           <DragOverlay>
-            {dragId && items[dragId]
+            {dragId && dragMoved && items[dragId]
               ? (
                 <div className={styles.dragOverlay}>
                   {/* (#413) A group says how big it is rather than naming one

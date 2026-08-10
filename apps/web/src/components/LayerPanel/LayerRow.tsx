@@ -46,7 +46,7 @@ export interface LayerRowProps {
   // `touch-action: none`, so a finger on a row scrolls the list — and a slow
   // scroll would otherwise cross 500 ms and drop the user into selection mode
   // they never asked for.
-  onPointerDown?: (id: string) => void
+  onPointerDown?: (id: string, e: React.PointerEvent) => void
   onPointerUp?: () => void
   onPointerMove?: (e: React.PointerEvent) => void
   /** Selection mode swaps the row's affordances: a checkbox appears, and the
@@ -80,7 +80,6 @@ function LayerRowImpl({
     setNodeRef,
     transform,
     transition,
-    isDragging,
   } = useSortable({ id: item.id, disabled: isBackground })
 
   const commit = () => {
@@ -95,7 +94,12 @@ function LayerRowImpl({
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging || isTravelling ? 0.4 : 1,
+        // Only `isTravelling` — the panel's own answer, which already includes
+        // the grabbed row and, crucially, stays false until the drag actually
+        // moves. dnd-kit's `isDragging` goes true the moment the touch delay
+        // elapses, which on a long press is before anyone has decided whether
+        // this is a drag at all.
+        opacity: isTravelling ? 0.4 : 1,
         // (#410) Depth is unbounded now; the indent is not. The row already
         // carries eight controls, and past the fourth level a tablet panel has
         // no width left for the name. Deeper rows stop stepping right rather
@@ -113,8 +117,11 @@ function LayerRowImpl({
       {...attributes}
       {...listeners}
       onClick={e => onActivate(item.id, e)}
-      onPointerDown={e => { listeners?.onPointerDown?.(e); onPointerDown?.(item.id) }}
+      onPointerDown={e => { listeners?.onPointerDown?.(e); onPointerDown?.(item.id, e) }}
       onPointerUp={onPointerUp}
+      // The browser fires this when it takes the gesture for a pan; without it
+      // a pending long press would outlive a scroll that has already begun.
+      onPointerCancel={onPointerUp}
       onPointerMove={onPointerMove}
     >
       {/* (#411) A checkbox in selection mode. Deliberately *additive* rather
