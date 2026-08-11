@@ -8,9 +8,9 @@ import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, RoomAccessMode, RoomJoinRequest,
-  SendResult, ClientToServerEvents, ServerToClientEvents,
+  SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData,
 } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, normalizePaperType, SNAPSHOT_SEQ_INTERVAL, toWireMatrix } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
@@ -221,6 +221,12 @@ function unionTransformBounds(a: TransformBounds, b: TransformBounds): Transform
 // is the distance to that edge, and 20 already lays the layer almost flat.
 const MAX_TRANSFORM_SHEAR = 20
 
+// (#429) How many recently-streamed gesture ids to remember — see
+// streamedStrokeIdsRef. Generous on purpose: the cost of one forgotten id is a
+// stroke briefly drawn twice on screen, the cost of a large set is a few
+// hundred bytes, and only one of those is visible to a teacher.
+const STREAMED_STROKE_MEMORY = 256
+
 /** What dispatchOp did with an operation (#395). `applied: true` means the
  *  engine already carries it (the optimistic local-island path); `false`
  *  means it is queued in the Outbox and only becomes real when the server
@@ -299,6 +305,11 @@ export function Room() {
   // ready to draw." A joiner already started blocked the same way, via the
   // mount-engine effect's own replay / handleRoomState's reconnect branch.
   const [roomContentReady, setRoomContentReady] = useState(false)
+  // (#429) Mirrored for the socket effect's live-stroke handler, which is
+  // wired once per connection and must see the current value rather than
+  // whatever it was when the listener was attached.
+  const roomContentReadyRef = useRef(roomContentReady)
+  roomContentReadyRef.current = roomContentReady
   useEffect(() => {
     diagLog('roomContentReady changed to', roomContentReady)
   }, [roomContentReady])
@@ -716,6 +727,13 @@ export function Room() {
   const roomClosed = useRoomStore(s => s.room?.closedAt !== undefined)
   // Everything that would write to the room goes through this one condition.
   const editingBlocked = isBlockedByFreeze || roomClosed
+  // (#429) Mirrored into a ref because the engine's own callbacks are wired
+  // once, when the engine is constructed, and would otherwise close over
+  // whatever this was at mount — a freeze arriving mid-lesson would never
+  // reach them. Every other reader of `editingBlocked` is inside a hook with
+  // it in the dependency list and needs no such mirror.
+  const editingBlockedRef = useRef(editingBlocked)
+  editingBlockedRef.current = editingBlocked
   // (#152) Cursor *positions* used to live here (setPeerCursors on every
   // incoming peer_cursor packet — up to ~30Hz per peer, summed across
   // however many peers are moving a pointer at once, all landing on this
@@ -808,6 +826,19 @@ export function Room() {
   // targeting one of these can drop it from the reveal instead of trying
   // (and silently failing) to undo an op the log was never given.
   const pendingPreviewOpIdsRef = useRef<Set<string>>(new Set())
+  // (#429) Gestures this client watched arrive live, so their operations are
+  // applied straight rather than animated a second time (see
+  // handleOperationConfirmed's stroke branch).
+  //
+  // Trimmed rather than cleared on any particular event: a gesture's
+  // operations follow its packets within moments, but there is no single
+  // moment at which an id is provably finished with — a long gesture emits an
+  // operation at every STROKE_DAB_CHUNK_LIMIT boundary, so "the operation
+  // arrived" does not mean "no more will". Keeping the most recent
+  // STREAMED_STROKE_MEMORY ids covers any plausible in-flight window while
+  // bounding what would otherwise grow for the whole lesson. Insertion order
+  // is Set's own iteration order, so the oldest is simply the first.
+  const streamedStrokeIdsRef = useRef<Set<string>>(new Set())
   // A joiner's first room_state can arrive before the engine exists — we need
   // that very event to learn `config` in the first place, and the engine only
   // mounts once `config` is set (see the mount-engine effect below). Its
@@ -1571,6 +1602,28 @@ export function Room() {
         applyRemoteOp(op)
         syncFromLog()
         checkSnapshotBoundary()
+      },
+      // (#429) Sending half of the live stroke channel. A bare emit, not the
+      // Outbox: these are not operations and there is nothing to persist,
+      // retry or reconcile — the gesture's real record goes through
+      // onLocalOperation above, and a packet that misses its moment is worth
+      // nothing later. `editingBlocked` is checked for the same reason
+      // dispatchOp checks it: with the room frozen or closed the operation
+      // will be refused, and streaming ink that is going to be refused is
+      // exactly the "drawing into the void" this codebase already decided
+      // against — the server rejects these too, but not sending beats
+      // sending and being dropped.
+      onLiveStrokeDabs: packet => {
+        if (editingBlockedRef.current) return
+        socketRef.current?.emit('stroke_live', {
+          strokeId: packet.strokeId, layerId: packet.layerId, tool: packet.tool,
+          preset: packet.preset, color: packet.color, packetSeq: packet.packetSeq,
+          dabsPacked: packDabs(packet.dabs),
+        })
+      },
+      onLiveStrokeEnd: strokeId => {
+        if (editingBlockedRef.current) return
+        socketRef.current?.emit('stroke_live_end', { strokeId })
       },
       debug: debugEnabled,
       onStrokeDebugStats: debugEnabled ? stats => {
@@ -3436,6 +3489,13 @@ export function Room() {
     // connection was interrupted at some point without this client noticing.
     const requestFullResync = () => {
       lastConfirmedSeqRef.current = 0 // the stream restarts from this room_state
+      // (#429) Everything about the live channel describes what this client
+      // painted from a stream it is about to stop trusting: the layers get
+      // rebuilt from the log, so any pre-painted ink is gone and any claim
+      // against it would make the replayed operations skip dabs that are no
+      // longer there. Both sides of the bookkeeping reset together.
+      engineRef.current?.resetPeerLiveStrokes()
+      streamedStrokeIdsRef.current.clear()
       const credentials = lastJoinAttemptRef.current
         ?? { name: myDisplayNameRef.current, password: creatorDraft?.password }
       socket.emit(
@@ -3674,6 +3734,19 @@ export function Room() {
           checkSnapshotBoundary()
           return
         }
+        // (#429) Already on the layer, streamed live while the author drew it
+        // — the engine's own claim skipped the dabs it had pre-painted when
+        // applyRemoteOp ran below. Animating it as well would redraw the mark
+        // on top of itself in a preview buffer. This is the same "correct
+        // content now, no animation" branch the catch-up path above takes, and
+        // for a stronger reason: here the content is not merely correct, it is
+        // already visible, and has been since the author drew it.
+        if (op.strokeId && streamedStrokeIdsRef.current.has(op.strokeId)) {
+          applyRemoteOp(op)
+          syncFromLog()
+          checkSnapshotBoundary()
+          return
+        }
         catchingUpRef.current = false
         pendingPreviewOpIdsRef.current.add(op.id)
         // Arrived, not yet committed (#149) — held out of the snapshot
@@ -3726,8 +3799,52 @@ export function Room() {
       dispatchParticipants({ type: 'peer_joined', participant })
     }
 
+    // (#429) A peer's stroke, arriving while their pen is still down. Handed
+    // straight to the engine, which paints it into the real layer — see
+    // appendPeerLiveDabs for why that rather than a preview buffer.
+    //
+    // The strokeId is remembered so handleOperationConfirmed knows not to
+    // hand this gesture's operation to previewOperation when it lands: that
+    // path animates a stroke into a buffer composited on top, and the ink is
+    // already on the layer, so it would show the mark twice — once solid,
+    // once being redrawn over it.
+    const handlePeerStrokeLive = (data: StrokeLiveData & { userId: string }) => {
+      // Same gate the canvas itself is under until the initial restore
+      // finishes (see roomContentReady's own doc comment): painting into a
+      // layer whose buffer restoreLayerFromSnapshot is about to overwrite
+      // wholesale loses the ink and, worse here, leaves a claim behind saying
+      // it was painted — so the operation would skip repainting it too.
+      if (!roomContentReadyRef.current) return
+      engineRef.current?.appendPeerLiveDabs(data.userId, {
+        strokeId: data.strokeId, layerId: data.layerId, tool: data.tool,
+        preset: data.preset, color: data.color, packetSeq: data.packetSeq,
+        dabs: unpackDabs(data.dabsPacked),
+      })
+      const seen = streamedStrokeIdsRef.current
+      seen.add(data.strokeId)
+      while (seen.size > STREAMED_STROKE_MEMORY) seen.delete(seen.values().next().value as string)
+      markActive(data.userId)
+    }
+
+    const handlePeerStrokeLiveEnd = ({ userId: authorId }: { userId: string; strokeId: string }) => {
+      // A non-zero return means ink was painted here that no operation ever
+      // claimed — the author dropped off between their last packet and their
+      // pen-up, so the log does not know about a mark that is on the canvas.
+      // Rebuild the layer from the log rather than leaving content behind that
+      // no undo, snapshot or reload would reproduce.
+      const orphaned = engineRef.current?.endPeerLiveStroke(authorId) ?? 0
+      if (orphaned) {
+        console.warn(`[sync] ${orphaned} live dabs from ${authorId} were never recorded — rebuilding layer`)
+        requestFullResync()
+      }
+    }
+
     const handlePeerLeft = (leftUserId: string) => {
       dispatchParticipants({ type: 'peer_left', userId: leftUserId })
+      // (#429) Same reasoning as handlePeerStrokeLiveEnd — leaving mid-gesture
+      // is the likeliest way to strand live ink, since no pen-up ever happens.
+      const orphaned = engineRef.current?.endPeerLiveStroke(leftUserId) ?? 0
+      if (orphaned) requestFullResync()
       // (#152) Cursor-position cleanup for this peer now lives inside
       // PeerCursors' own 'peer_left' subscription — nothing to do here.
       delete lastActiveAtRef.current[leftUserId]
@@ -3834,6 +3951,8 @@ export function Room() {
     socket.on('operation_confirmed',        handleOperationConfirmed)
     socket.on('peer_joined',                handlePeerJoined)
     socket.on('peer_left',                  handlePeerLeft)
+    socket.on('peer_stroke_live',           handlePeerStrokeLive)
+    socket.on('peer_stroke_live_end',       handlePeerStrokeLiveEnd)
     socket.on('palette_updated',            handlePaletteUpdated)
     socket.on('room_frozen_changed',        handleRoomFrozenChanged)
     socket.on('room_closed_changed',        handleRoomClosedChanged)
@@ -3852,6 +3971,10 @@ export function Room() {
     id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary,
     restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, snapshotUploader, noteLayerSeq,
     syncFromLogNow,
+    // (#429) Used by the live-stroke handler. useCallback with no dependencies
+    // (see its definition), so it is stable for this component's lifetime and
+    // can never tear the socket down and rebuild it.
+    markActive,
     outbox, awaitPaper,
     // Stable for the app's lifetime (one QueryClient, created outside React —
     // see lib/queryClient.ts), so listing it here can never tear the socket

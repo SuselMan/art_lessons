@@ -149,6 +149,22 @@ export interface PencilEngineOptions {
   // ('remote') and re-sync derived state at that point, not on arrival, so
   // the log/layer-thumbnail state matches what's actually visible on screen.
   onPreviewApplied?: (op: StrokeOperation) => void
+  // (#429) Fires while the pen is still down, carrying the dabs painted since
+  // the last time it fired — the sending half of the live stroke channel. The
+  // caller puts these on the wire; peers hand them straight to
+  // appendPeerLiveDabs. Never fires for a stroke this engine is replaying or
+  // receiving, only for one being drawn here and now.
+  //
+  // These are the *same* dab objects the gesture's StrokeOperation will carry:
+  // the engine bakes a dab once, at paint time, and both paths read that one
+  // result. It is what makes the handoff from streamed ink to committed ink
+  // exact rather than approximate — the property the abandoned #37 attempt
+  // lacked, and the reason this is worth doing at all.
+  onLiveStrokeDabs?: (packet: PeerLivePacket) => void
+  // (#429) The pen came up on a locally-drawn stroke. Peers use it to close
+  // their bookkeeping for the gesture without waiting for the operation, which
+  // arrives later and, for a frozen or rejected author, may never arrive.
+  onLiveStrokeEnd?: (strokeId: string) => void
   // When true, tracks per-stroke input/render timing (real pointermove/
   // coalesced-event count and gaps, WebGL paint duration) and reports it via
   // onStrokeDebugStats after each stroke. Off by default — the timing calls
@@ -604,6 +620,10 @@ export interface PencilEngineAPI {
   // gesture ended without ever being recorded, and the layer needs repairing
   // from the log rather than being left with ink nothing owns.
   endPeerLiveStroke(peerId: string): number
+  // (#429) Forgets every peer's live bookkeeping at once — for a full resync,
+  // where the layers are rebuilt from the log and any pre-painted ink ceases
+  // to exist along with the claims against it.
+  resetPeerLiveStrokes(): void
   on(event: EngineEventName, fn: EngineHandler): this
   // Exports the canvas exactly as displayed (paper texture baked in) by
   // default. Pass `transparent: true` for a second variant with no paper —
@@ -805,6 +825,23 @@ const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
 // raising them separately (see apps/server/src/index.ts's maxHttpBufferSize)
 // already buys. See _flushStrokeChunk's own comment for the mechanism.
 const STROKE_DAB_CHUNK_LIMIT = 800
+
+// (#429) How long dabs may sit in the live queue before going out as a packet.
+//
+// The trade is direct and both ends of it are real. Lower means less of the
+// latency budget spent buffering, but more packets, and #424 established that
+// a drawing room's ceiling is the server's CPU and that the walk from "48 ms"
+// to "seconds" spans only a few percent of load — so packet count is not free.
+// Higher means fewer, fatter packets and a peer who is always a little further
+// behind the pen.
+//
+// 60 ms is a starting point, not a measured optimum: at a normal drawing speed
+// it carries a handful of dabs, and it is comfortably under the 200 ms
+// pen-to-peer-ink budget §11 of the release track asks for while leaving most
+// of that budget to the network. #432 is the issue that will replace this
+// guess with a number — it builds the instrument that can tell whether this
+// wants to be 40 or 120.
+const LIVE_STROKE_EMIT_INTERVAL_MS = 60
 
 // Smudge (#14) tuning constants — picked by eye, not exposed as settings
 // (the tool's user-facing knobs are just size/pressure/strength, reusing the
@@ -1114,6 +1151,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
   private _onPreviewApplied?: (op: StrokeOperation) => void
+  // (#429) Sending half of the live stroke channel. Dabs painted since the
+  // last packet went out, plus when that was and how many packets this gesture
+  // has sent — all three reset at pen-down.
+  private _onLiveStrokeDabs?: (packet: PeerLivePacket) => void
+  private _onLiveStrokeEnd?: (strokeId: string) => void
+  private _liveDabQueue: Dab[] = []
+  private _liveLastEmitAt = 0
+  private _livePacketSeq = 0
 
   // Debug instrumentation (#91 device investigation) — all no-ops unless
   // _debug is true, so this costs nothing in normal use.
@@ -1721,6 +1766,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._userId = options.userId ?? 'local'
     this._onLocalOperation = options.onLocalOperation
     this._onPreviewApplied = options.onPreviewApplied
+    this._onLiveStrokeDabs = options.onLiveStrokeDabs
+    this._onLiveStrokeEnd = options.onLiveStrokeEnd
     this._debug = options.debug ?? false
     this._onStrokeDebugStats = options.onStrokeDebugStats
     this._predictPointer = options.predictPointer ?? false
@@ -2792,6 +2839,11 @@ export class PencilEngine implements PencilEngineAPI {
     // Once nothing is outstanding the entry has no further job.
     if (outstanding === 0) this._peerLiveStrokes.delete(peerId)
     return outstanding
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  resetPeerLiveStrokes(): void {
+    this._peerLiveStrokes.clear()
   }
 
   /** (#429) How many of an arriving stroke operation's dabs are already on the
@@ -3922,6 +3974,13 @@ export class PencilEngine implements PencilEngineAPI {
     // a marker dab's own getOrCreate() first touches a tile.
     this._markerStrokeScratch = new MarkerStrokeScratch(this._markerScratchPool)
     this._strokeId = nanoid(10)
+    // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
+    // makes the first packet of a gesture go out with the first dabs painted
+    // rather than one interval later, so a peer sees the stroke begin as
+    // early as the channel allows. Only the packets after it are paced.
+    this._liveDabQueue = []
+    this._liveLastEmitAt = 0
+    this._livePacketSeq = 0
     // #251: this._strokePreset isn't assigned until the next line — pass the
     // raw incoming preset (this._opts.pencilType) directly so a marker
     // stroke's bullet/chisel dispatch (shapingForTool -> markerPresets.ts's
@@ -4192,6 +4251,14 @@ export class PencilEngine implements PencilEngineAPI {
       this._maybeCheckpoint(layerId)
       this._onLocalOperation?.(op)
     }
+    // (#429) Deliberately no final flush of the live queue: whatever is still
+    // sitting in it is carried by the operation dispatched just above, which
+    // reaches peers through the ordered stream at the same time. Sending it
+    // twice would buy nothing and cost a packet at the busiest moment of the
+    // gesture. Peers paint the streamed prefix, the operation paints the tail
+    // — see _claimLivePaintedDabs.
+    if (this._strokeId) this._onLiveStrokeEnd?.(this._strokeId)
+    this._liveDabQueue = []
     // Only now: the operation built just above still needed it, and _onEnd
     // tears the marker scratch down well before reaching here.
     this._strokeId = null
@@ -4345,6 +4412,9 @@ export class PencilEngine implements PencilEngineAPI {
       this._strokeDabs.at(-1), this._markerStrokeScratch ?? undefined,
     )
     this._strokeDabs.push(...dabs)
+    // (#429) Same dab objects, queued for the live channel — see
+    // onLiveStrokeDabs on why both paths must read the one baked result.
+    if (this._onLiveStrokeDabs) { this._liveDabQueue.push(...dabs); this._emitLiveDabsIfDue() }
     // #122: this is the hot path the split cache exists to keep off — a
     // stroke normally targets _strokeLayerId, captured as _activeId at
     // _onStart, and stays there for the stroke's whole duration, so this is
@@ -4421,6 +4491,11 @@ export class PencilEngine implements PencilEngineAPI {
       this._strokeDabs.at(-1), this._markerStrokeScratch ?? undefined,
     )
     this._strokeDabs.push(dab)
+    // (#429) A dwell dab is a real dab of this gesture — it goes into the
+    // operation, so it has to go down the live channel too, or a peer's
+    // pre-painted prefix would drift out of step with the operation's own
+    // dab count and the claim would skip the wrong ones.
+    if (this._onLiveStrokeDabs) { this._liveDabQueue.push(dab); this._emitLiveDabsIfDue() }
     if (this._strokeLayerId !== this._activeId) this._invalidateSplitCache()
     if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT) this._flushStrokeChunk()
     this._scheduleDisplay()
@@ -4435,6 +4510,31 @@ export class PencilEngine implements PencilEngineAPI {
    *  returns). See STROKE_DAB_CHUNK_LIMIT's own comment for why this
    *  exists. Guarded by `_strokeDabs.length` the same way _onEnd's own
    *  dispatch is — never called with nothing to flush. */
+  /** (#429) Sends the dabs queued since the last packet, if enough time has
+   *  passed. Called from every path that paints a dab of a local stroke, so
+   *  the queue drains on drawing activity rather than on a timer — a stroke
+   *  that is not moving has nothing to send, and one that stops for good ends
+   *  via _onEnd, so no interval needs to exist for this.
+   *
+   *  Sends nothing when there is no handler wired (every non-room use of the
+   *  engine: tests, the lesson-replay player, the paper-bake harness), which
+   *  is also why none of them pay for the queue. */
+  private _emitLiveDabsIfDue(): void {
+    if (!this._onLiveStrokeDabs || !this._strokeId || !this._strokeLayerId) return
+    if (!this._liveDabQueue.length) return
+    const now = performance.now()
+    if (now - this._liveLastEmitAt < LIVE_STROKE_EMIT_INTERVAL_MS) return
+    this._liveLastEmitAt = now
+    this._onLiveStrokeDabs({
+      strokeId: this._strokeId, layerId: this._strokeLayerId,
+      tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
+      packetSeq: this._livePacketSeq++, dabs: this._liveDabQueue,
+    })
+    // A fresh array rather than length = 0: the packet above holds this one,
+    // and the caller is free to keep it (Room packs it asynchronously).
+    this._liveDabQueue = []
+  }
+
   private _flushStrokeChunk(): void {
     const layerId = this._strokeLayerId
     if (!layerId || !this._strokeDabs.length) return

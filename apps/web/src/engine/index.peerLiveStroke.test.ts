@@ -13,7 +13,7 @@
 // foot of index.strokeStreaming.test.ts for why MockGL cannot answer pixel
 // questions about that tool.
 import type { Dab, ToolType } from '@grafetto/shared'
-import { strokeDabs } from '@grafetto/shared'
+import { packDabs, strokeDabs, unpackDabs } from '@grafetto/shared'
 import { describe, expect, it } from 'vitest'
 
 import type { PeerLivePacket } from './index'
@@ -186,6 +186,80 @@ describe('#429 a streamed peer stroke lands on exactly the pixels its operation 
 
     expectPixelsEqual(readLayerPixels(other, 'L'), expected)
     reference.destroy(); other.destroy()
+  })
+
+  it('end to end: what the author streams, replayed into a peer, matches the operation', async () => {
+    // The two halves built separately above, joined. An author draws through
+    // the real pointer pipeline; every packet its live channel emits is fed to
+    // a peer, then the operation the same gesture recorded is delivered. The
+    // peer must end up exactly where a peer who only ever got the operation
+    // does — no darker prefix, no missing tail.
+    //
+    // performance.now is stubbed because the emit is time-paced: a simulated
+    // stroke runs to completion in well under one interval, so unstubbed this
+    // would send a single packet and prove nothing about sequencing.
+    const realNow = performance.now.bind(performance)
+    let clock = 0
+    performance.now = () => clock
+    try {
+      const packets: PeerLivePacket[] = []
+      const ends: string[] = []
+      const { engine: author } = createTestEngine({
+        userId: PEER, size: 20,
+        onLiveStrokeDabs: p => packets.push({ ...p, dabs: [...p.dabs] }),
+        onLiveStrokeEnd: id => ends.push(id),
+      }, CANVAS)
+      author.appendOperation(makeLayerAdd(PEER, 'L'))
+      author.setActiveLayer('L')
+      await paperReady(author)
+      author.appendOperation(fillStroke(PEER, 'L', 64, 32, 40))
+      const before = author.getOperations().length
+
+      const { simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd } =
+        await import('./testing/engineTestUtils')
+      simulateStrokeStart(author, 14, 32)
+      for (let i = 1; i <= 20; i++) {
+        clock += 25 // ~2.5 moves per emit interval
+        simulateStrokeMove(author, 14 + i * 5, 32)
+      }
+      simulateStrokeEnd(author, 114, 32)
+
+      const ops = author.getOperations().slice(before)
+      const dabs = ops.flatMap(op => (op.type === 'stroke' ? strokeDabs(op) : []))
+
+      expect(packets.length).toBeGreaterThan(1)
+      expect(packets.map(p => p.packetSeq)).toEqual(packets.map((_, i) => i))
+      expect(new Set(packets.map(p => p.strokeId)).size).toBe(1)
+      expect(ends).toEqual([packets[0].strokeId])
+
+      // Through the codec, exactly as Room puts them on the wire — which is
+      // also what makes the comparison below exact rather than approximate:
+      // an operation's dabs are float32 (see packDabs), so a peer fed the raw
+      // float64 objects would differ from one fed the wire by a fraction of a
+      // pixel and every assertion here would need a tolerance that hides real
+      // mistakes along with the harmless rounding.
+      const onWire = packets.map(p => ({ ...p, dabs: unpackDabs(packDabs(p.dabs)) }))
+
+      // Streamed dabs are a prefix of the recorded ones, position for
+      // position: the same baked objects, neither re-derived nor duplicated.
+      const streamed = onWire.flatMap(p => p.dabs)
+      expect(streamed.length).toBeLessThanOrEqual(dabs.length)
+      expect(streamed.map(d => d.x)).toEqual(dabs.slice(0, streamed.length).map(d => d.x))
+
+      const reference = await receiver('pencil')
+      for (const op of ops) if (op.type === 'stroke') reference.appendOperation(op, 'remote')
+      const expected = readLayerPixels(reference, 'L')
+
+      const peer = await receiver('pencil')
+      for (const p of onWire) peer.appendPeerLiveDabs(PEER, { ...p, layerId: "L" })
+      peer.endPeerLiveStroke(PEER)
+      for (const op of ops) if (op.type === 'stroke') peer.appendOperation(op, 'remote')
+
+      expectPixelsEqual(readLayerPixels(peer, 'L'), expected)
+      author.destroy(); reference.destroy(); peer.destroy()
+    } finally {
+      performance.now = realNow
+    }
   })
 
   it('reports ink no operation ever claimed when a peer vanishes mid-gesture', async () => {
