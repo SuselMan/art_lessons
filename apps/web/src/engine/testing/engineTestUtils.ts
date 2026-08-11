@@ -479,6 +479,24 @@ export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7): { blen
  *  from-scratch replay instead of the checkpoint fast path. Used to exercise
  *  the recursive `_replayMergeInto` path for a merge-of-a-merge, which a live
  *  merge's own immediate checkpoint would otherwise always short-circuit. */
+/** (#429) The live-stroke bookkeeping, one entry per in-flight gesture. White-box
+ *  for the same reason the rest of this file is: the invariant that matters —
+ *  a finished gesture's entry survives until its operations have claimed it,
+ *  even after the *next* gesture has started streaming — is not observable
+ *  from painted pixels, because repainting an already-saturated stroke can
+ *  look identical while being wrong. */
+export function peerLiveGestures(engine: PencilEngine): Array<{
+  peerId: string; strokeId: string; paintedTotal: number; committedOffset: number; ended: boolean
+}> {
+  const map = (engine as unknown as { _peerLiveStrokes: Map<string, {
+    peerId: string; strokeId: string; paintedTotal: number; committedOffset: number; ended: boolean
+  }> })._peerLiveStrokes
+  return [...map.values()].map(v => ({
+    peerId: v.peerId, strokeId: v.strokeId, paintedTotal: v.paintedTotal,
+    committedOffset: v.committedOffset, ended: v.ended,
+  }))
+}
+
 export function clearCheckpoints(engine: PencilEngine): void {
   internals(engine)._checkpoints.length = 0
 }

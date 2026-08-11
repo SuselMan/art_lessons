@@ -3832,7 +3832,7 @@ export function Room() {
       markActive(data.userId)
     }
 
-    const handlePeerStrokeLiveEnd = ({ userId: authorId }: { userId: string; strokeId: string }) => {
+    const handlePeerStrokeLiveEnd = ({ userId: authorId, strokeId }: { userId: string; strokeId: string }) => {
       // Only marks the gesture ended. Dabs still unaccounted for at this point
       // are the normal case, not a fault: the operation recording the end of
       // the gesture is dispatched at pen-up and arrives a moment after this
@@ -3840,7 +3840,7 @@ export function Room() {
       // handler did) forced a resync that wiped the live bookkeeping, so the
       // operation then repainted the streamed tail on top of itself — a
       // visibly darker last stretch of every long stroke.
-      engineRef.current?.endPeerLiveStroke(authorId)
+      engineRef.current?.endPeerLiveStroke(authorId, strokeId)
     }
 
     const handlePeerLeft = (leftUserId: string) => {

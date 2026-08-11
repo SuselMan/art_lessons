@@ -18,7 +18,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { PeerLivePacket } from './index'
 import {
-  createTestEngine, expectPixelsEqual, fillStroke, makeLayerAdd, makeStroke, paperReady,
+  createTestEngine, expectPixelsEqual, fillStroke, makeLayerAdd, makeStroke, paperReady, peerLiveGestures,
   readLayerPixels, simulateStroke,
 } from './testing/engineTestUtils'
 
@@ -167,6 +167,66 @@ describe('#429 a streamed peer stroke lands on exactly the pixels its operation 
 
     expectPixelsEqual(readLayerPixels(interleaved, 'L'), expected)
     reference.destroy(); interleaved.destroy()
+  })
+
+  it('a new gesture starting before the previous one is recorded does not evict its claim', async () => {
+    // Caught tablet-to-desktop, and it is the ordinary case rather than an edge
+    // one: a gesture's final operation goes through the Outbox, which persists
+    // to IndexedDB before sending, while live packets are a bare emit. Draw two
+    // strokes in quick succession — most real drawing — and the second one's
+    // first packet arrives before the first one's operation.
+    //
+    // Keyed by peer, that packet dropped the bookkeeping the in-flight
+    // operation was about to claim against, so the operation repainted the
+    // whole of stroke one on top of itself. Every tool measured clean in
+    // isolation and twenty-seven brisk strokes did not; the difference was the
+    // pace, not the tool.
+    const first = await recordGestureDabs('pencil')
+    const second = await recordGestureDabs('pencil')
+    const packetsOf = (dabs: Dab[], strokeId: string) => {
+      const out: PeerLivePacket[] = []
+      for (let i = 0; i < dabs.length; i += 4) {
+        out.push({
+          strokeId, layerId: 'L', tool: 'pencil', preset: 'HB',
+          color: [0.14, 0.14, 0.17], packetSeq: out.length, dabs: dabs.slice(i, i + 4),
+        })
+      }
+      return out
+    }
+    const commitAs = (engine: Awaited<ReturnType<typeof receiver>>, dabs: Dab[], strokeId: string) =>
+      engine.appendOperation(makeStroke(PEER, 'L', dabs, { tool: 'pencil', strokeId, userId: PEER }), 'remote')
+
+    // Asserted on the bookkeeping rather than on pixels, deliberately. A
+    // repainted stroke is not always a *visible* difference — pencil dabs
+    // saturate, so painting a solid stroke twice can look identical while
+    // being wrong — and a pixel assertion that cannot fail is worse than none.
+    // What must hold is that g1's entry is still there, with its counters
+    // intact, after g2 has started streaming.
+    const raced = await receiver('pencil')
+    for (const p of packetsOf(first, 'g1')) raced.appendPeerLiveDabs(PEER, p)
+    raced.endPeerLiveStroke(PEER, 'g1')
+
+    const g1Painted = peerLiveGestures(raced).find(g => g.strokeId === 'g1')?.paintedTotal
+    expect(g1Painted).toBe(first.length)
+
+    // The pen is already down again before g1's operation has landed.
+    for (const p of packetsOf(second, 'g2')) raced.appendPeerLiveDabs(PEER, p)
+
+    const afterG2 = peerLiveGestures(raced)
+    const g1 = afterG2.find(g => g.strokeId === 'g1')
+    expect(g1, 'g1 bookkeeping must survive g2 starting — its operation has not arrived yet').toBeDefined()
+    expect(g1?.paintedTotal).toBe(first.length)
+    expect(g1?.ended).toBe(true)
+    expect(afterG2.find(g => g.strokeId === 'g2')?.paintedTotal).toBe(second.length)
+
+    // g1's operation now lands and must find its claim: nothing left to paint.
+    commitAs(raced, first, 'g1')
+    expect(peerLiveGestures(raced).find(g => g.strokeId === 'g1')).toBeUndefined() // settled, disposed
+    raced.endPeerLiveStroke(PEER, 'g2')
+    commitAs(raced, second, 'g2')
+    expect(peerLiveGestures(raced)).toHaveLength(0)
+
+    raced.destroy()
   })
 
   it('a lost packet stops live painting but the operation still completes the stroke', async () => {
