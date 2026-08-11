@@ -801,17 +801,25 @@ export type JoinResult =
   | { ok: true; userId: string }
   | { ok: false; error: JoinDenial }
 
-/** Broadcast alongside the peer cursor position (#37). `drawing` tells peers
- *  to freeze the cursor dot at its last position instead of following the
- *  pointer — the actual stroke shape is unknown until the finished
- *  StrokeOperation arrives (see #37 follow-up v2: peers replay its `dabs`
- *  with original pacing rather than approximating the stroke live from
- *  partial samples, which used to visibly redraw/snap once the real
- *  Operation landed). */
+/** Peer cursor position (#37). Sent only while the sender is *not* drawing.
+ *
+ *  (#431) This used to carry a `drawing` flag, and peers froze the cursor dot
+ *  wherever it last was for as long as it was true. That was the only sane
+ *  choice at the time: the stroke's shape was unknown until the finished
+ *  StrokeOperation arrived, so a cursor that kept following the pointer would
+ *  have run seconds ahead of its own ink. Freezing was less wrong than lying.
+ *
+ *  With the stroke streaming live (#429) the flag has nothing left to do, so
+ *  it is gone rather than left as a field nobody reads. While the pen is down
+ *  a peer's cursor position comes from the last dab it actually painted — the
+ *  same packets that draw the ink — which is what makes the dot and the line
+ *  it is drawing incapable of disagreeing: they are the same data. And since
+ *  the dab stream already carries the position, sending cursor packets during
+ *  a stroke would be spending ~30 packets a second to say it again, less
+ *  accurately. */
 export type CursorMoveData = {
   x: number
   y: number
-  drawing: boolean // true while a stroke is actively in progress
 }
 
 /** (#429) One packet of an in-progress stroke, streamed to the room while the

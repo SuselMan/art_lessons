@@ -2241,6 +2241,12 @@ export function Room() {
     observer.observe(el)
     const handleMove = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return
+      // (#431) Silent while the pen is down: the live stroke channel (#429) is
+      // already reporting this exact position, dab by dab, to draw the ink
+      // with. A cursor packet here would be a second, coarser answer to a
+      // question already answered — and the two could disagree, which is the
+      // whole failure this change exists to remove.
+      if (strokeActiveRef.current) return
       const now = Date.now()
       if (!shouldEmitCursor(lastCursorSentRef.current, now)) return
       lastCursorSentRef.current = now
@@ -2252,7 +2258,7 @@ export function Room() {
       // world point the cursor is over, not wherever it happened to be
       // relative to an arbitrary placeholder canvas size.
       const { x, y } = clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config)
-      socketRef.current?.emit('cursor_move', { x, y, drawing: strokeActiveRef.current })
+      socketRef.current?.emit('cursor_move', { x, y })
     }
     el.addEventListener('pointermove', handleMove)
     return () => {
