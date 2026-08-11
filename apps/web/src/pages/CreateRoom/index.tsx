@@ -238,6 +238,10 @@ export function CreateRoom() {
     }
     const access = { accessMode, invites }
 
+    // (#436) Unreachable while the infinite card is disabled below, and kept
+    // deliberately: the mode still exists end to end, only its entrance is
+    // shut. Deleting this would make re-opening it a rebuild instead of a
+    // one-line revert.
     if (sizePreset === 'infinite') {
       setEntering(true)
       navigate(`/room/${id}`, {
@@ -389,10 +393,18 @@ export function CreateRoom() {
               </div>
               )
             })}
+            {/* (#436) The infinite canvas isn't part of the first release, so
+                the only way into the mode is closed here — the card stays on
+                screen, unselectable, as an announcement rather than a hole in
+                the grid. Everything downstream of it (the `infinite` preset,
+                the engine's tiled mode, rooms already created that way) is
+                untouched: re-opening it is deleting this block's disabled
+                state, not rebuilding a feature. */}
             <div
               key="infinite"
-              className={clsx(styles.sizeCard, sizePreset === 'infinite' && styles.selected)}
-              onClick={() => setSizePreset('infinite')}
+              className={clsx(styles.sizeCard, styles.sizeCardDisabled)}
+              aria-disabled="true"
+              title={t('create.size.comingSoon')}
             >
               <div className={styles.sizeIconWrap}>
                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -403,7 +415,7 @@ export function CreateRoom() {
                 </svg>
               </div>
               <div className={styles.sizeName}>{t('create.size.infinite')}</div>
-              <div className={styles.sizeDims}>{t('create.size.noFixedSize')}</div>
+              <div className={styles.comingSoon}>{t('create.size.comingSoon')}</div>
             </div>
           </div>
 
