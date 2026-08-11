@@ -814,6 +814,47 @@ export type CursorMoveData = {
   drawing: boolean // true while a stroke is actively in progress
 }
 
+/** (#429) One packet of an in-progress stroke, streamed to the room while the
+ *  pen is still down.
+ *
+ *  This is deliberately **not** an Operation and never enters the log: it is
+ *  not assigned a `seq`, not persisted, not acknowledged, and not replayed on
+ *  join. The gesture's authoritative record is still the StrokeOperation(s)
+ *  emitted at pen-up (and at every STROKE_DAB_CHUNK_LIMIT boundary along the
+ *  way) through the ordinary `operation` path. This carries the same dabs
+ *  early, so peers can watch the mark appear instead of waiting out the whole
+ *  gesture and then watching it replay at its recorded pace — see #428 for the
+ *  latency arithmetic that motivated it.
+ *
+ *  Because the dabs here are the *same* dabs the eventual operation carries —
+ *  the engine bakes them once, at paint time — the handoff from streamed ink to
+ *  committed ink is exact. That is the difference from the abandoned #37
+ *  attempt, which approximated the stroke from cursor positions and visibly
+ *  snapped when the real operation landed.
+ *
+ *  `packetSeq` counts packets within one gesture from 0, so a receiver can tell
+ *  "I have every packet so far" from "I missed one". Within a single socket
+ *  connection a gap is impossible (TCP does not reorder or drop inside one
+ *  connection), so a gap means the connection broke — the same conclusion, and
+ *  the same full-resync response, that a gap in `operation_confirmed` already
+ *  triggers. It is not a reason to reorder or wait.
+ *
+ *  Sent reliably, not `volatile`: a receiver paints these dabs straight into
+ *  the real layer, so a silently dropped packet would leave a permanently wrong
+ *  layer rather than a momentary glitch. Backpressure is handled where it
+ *  belongs — the sender coalesces dabs into one packet per interval instead of
+ *  emitting per frame. */
+export type StrokeLiveData = {
+  strokeId: string
+  layerId: string
+  tool: ToolType
+  preset: string
+  color: [number, number, number]
+  packetSeq: number
+  /** Same packing as StrokeOperation.dabsPacked — see packDabs/unpackDabs. */
+  dabsPacked: string
+}
+
 // (#149 epic) Every SNAPSHOT_SEQ_INTERVAL operations (by the room's global,
 // server-assigned seq — see Operation.seq), any client that's caught up to
 // that point independently bakes and uploads a full-room pixel+layerState
@@ -911,6 +952,12 @@ export type ServerToClientEvents = {
   // level (not just inside `operation`, where it's optional until stamped)
   // so logging/replay/gap-detection never has to reach into the union.
   operation_confirmed: (msg: { seq: number; operation: Operation }) => void
+  // (#429) A peer's in-progress stroke, relayed as it is drawn — see
+  // StrokeLiveData. Sent via `socket.to`, not `io.to`: unlike
+  // operation_confirmed, the author gains nothing from receiving their own
+  // (their own ink is already on their own layer, painted at pen time).
+  peer_stroke_live: (data: StrokeLiveData & { userId: string }) => void
+  peer_stroke_live_end: (data: { userId: string; strokeId: string }) => void
   peer_cursor: (data: CursorMoveData & { userId: string }) => void
   peer_joined: (participant: Participant) => void
   peer_left: (userId: string) => void
@@ -1021,6 +1068,16 @@ export type ClientToServerEvents = {
   // confirmed buffer; that's `operation_confirmed` alone, which now reaches
   // the author too (reliable history spec v0.2, §7/§9).
   operation: (op: Operation, ack?: (result: SendResult) => void) => void
+  // (#429) One packet of the stroke currently under the pen — see
+  // StrokeLiveData. No ack: this is not a record, and there is nothing the
+  // sender would do differently on a failure. The gesture's real operation
+  // follows through `operation` above.
+  stroke_live: (data: StrokeLiveData) => void
+  // (#429) The pen came up (or the gesture was abandoned). Lets peers close
+  // their bookkeeping for this gesture immediately, rather than inferring the
+  // end from the committed operation — which can arrive later, and which a
+  // frozen/rejected author may never send at all.
+  stroke_live_end: (data: { strokeId: string }) => void
   cursor_move: (data: CursorMoveData) => void
   // Appends one hex color to the room's palette (see DEFAULT_PALETTE_COLORS'
   // doc comment above). Server dedups and broadcasts the result via

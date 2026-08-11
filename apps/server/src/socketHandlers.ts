@@ -358,6 +358,45 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
       }
     })
 
+    // (#429) Live stroke relay. Deliberately the thinnest handler in this
+    // file: no log append, no seq, no dedup, no persistence, no ack — a
+    // packet is forwarded to the rest of the room and forgotten. The
+    // gesture's authoritative record still arrives through `operation`
+    // above; this only gets the same dabs to peers early enough to watch.
+    //
+    // Cheapness is the point, not an aesthetic. #424 measured that a drawing
+    // room's ceiling is CPU, and that the walk from "48 ms" to "seconds" is
+    // a few percent of load — so a channel that multiplies packet *count*
+    // must divide per-packet *work*. Recording these as operations instead
+    // (the "just lower STROKE_DAB_CHUNK_LIMIT" alternative) would have
+    // multiplied the expensive half by the same factor.
+    //
+    // What it does *not* skip is the permission gate. A packet is run through
+    // the same getOperationRejectReason every operation goes through, on a
+    // stand-in stroke op built from the packet's own fields — rather than
+    // re-checking freeze/closed/owner-lock by hand here, which is how two
+    // copies of one rule drift apart. Without it a frozen or locked-out
+    // author's ink would still appear live on every peer's canvas and only
+    // disappear once their operation came back rejected — the "drawing into
+    // the void" failure of #254, with the void now visible to the whole room.
+    // The stand-in carries no dabs: nothing in that gate reads them.
+    socket.on('stroke_live', data => {
+      const { roomId, userId } = socket.data
+      if (!roomId || !userId) return
+      const standIn: Operation = {
+        id: data.strokeId, type: 'stroke', userId, timestamp: 0,
+        layerId: data.layerId, tool: data.tool, preset: data.preset, color: data.color, dabs: [],
+      }
+      if (getOperationRejectReason(roomId, userId, standIn)) return
+      socket.to(roomId).emit('peer_stroke_live', { ...data, userId })
+    })
+
+    socket.on('stroke_live_end', ({ strokeId }) => {
+      const { roomId, userId } = socket.data
+      if (!roomId || !userId) return
+      socket.to(roomId).emit('peer_stroke_live_end', { userId, strokeId })
+    })
+
     // (#254/#256 epic) Room-wide freeze — owner-only, same role-check shape
     // as operation_revoke had before isOperationAllowed absorbed it above
     // (this event is its own socket message, not an Operation, so it needs

@@ -579,6 +579,31 @@ export interface PencilEngineAPI {
   // appendOperation each immediately instead of losing the peer's last
   // stroke(s) because they left mid-reveal.
   flushPeerPreview(peerId: string): StrokeOperation[]
+  // (#429) Paints one packet of a peer's still-in-progress stroke straight
+  // into the real layer, exactly as a local stroke paints itself while the
+  // pen is down — not into a preview buffer composited on top.
+  //
+  // That distinction is the whole design. Marker multiplies the layer's own
+  // content frozen at pen-down, and smudge reads and redistributes it;
+  // neither is expressible in a detached transparent buffer, which is why
+  // previewOperation's reveal path cannot double as the live path. Painting
+  // into the layer also means the gesture's stateful machinery — the marker's
+  // per-gesture scratch, the smudge imprint, the previous dab across a packet
+  // seam — is reached through `strokeId` exactly the way a chunked replay
+  // already reaches it, with no second implementation of any of it.
+  //
+  // The pixels this leaves are provisional in bookkeeping only: the
+  // StrokeOperation(s) that follow are still the record, and appendOperation
+  // recognises the dabs already painted here rather than painting them twice
+  // (see _peerLiveStrokes).
+  appendPeerLiveDabs(peerId: string, packet: PeerLivePacket): void
+  // (#429) The peer's pen came up, they left, or their stream broke. Ends the
+  // bookkeeping for that gesture; the ink stays, because the operations that
+  // own it are already on their way. Returns how many of this gesture's dabs
+  // were painted live but not yet claimed by an operation — non-zero means a
+  // gesture ended without ever being recorded, and the layer needs repairing
+  // from the log rather than being left with ink nothing owns.
+  endPeerLiveStroke(peerId: string): number
   on(event: EngineEventName, fn: EngineHandler): this
   // Exports the canvas exactly as displayed (paper texture baked in) by
   // default. Pass `transparent: true` for a second variant with no paper —
@@ -595,7 +620,51 @@ export interface PencilEngineAPI {
   destroy(): void
 }
 
+/** (#429) One packet of a peer's in-progress stroke, as
+ *  PencilEngineAPI.appendPeerLiveDabs takes it. Mirrors the wire's
+ *  StrokeLiveData with the dabs already decoded — the engine deals in Dab[]
+ *  everywhere else, and keeping the unpacking at the socket seam means a test
+ *  can drive this without going through the codec. */
+export interface PeerLivePacket {
+  strokeId: string
+  layerId: string
+  tool: ToolType
+  preset: string
+  color: [number, number, number]
+  packetSeq: number
+  dabs: Dab[]
+}
+
 // ─── Internal types ────────────────────────────────────────────────────────────
+
+/** (#429) What one peer's live stroke has put on the layer so far, and how
+ *  much of it the arriving operations have claimed.
+ *
+ *  The two counters are the whole mechanism. `paintedCount` is dabs already on
+ *  the layer courtesy of live packets; `committedCount` is dabs accounted for
+ *  by StrokeOperations of this same gesture. When an operation lands,
+ *  everything below `paintedCount - committedCount` is already on screen and
+ *  must not be painted again (graphite accumulates — a second pass is visibly
+ *  darker, not idempotent), while anything above it still needs painting. That
+ *  covers the ordinary case (operation fully pre-painted, paint nothing) and
+ *  the late-joiner/partial cases (paint the tail) with one subtraction.
+ *
+ *  `desynced` latches on a packet-sequence gap. Inside one socket connection a
+ *  gap cannot happen, so it means the connection broke — at which point this
+ *  client no longer knows what it has painted, stops painting live for the rest
+ *  of the gesture, and lets the operations paint in full. `ended` records that
+ *  the author's pen came up, so the session can be disposed once the last
+ *  operation has claimed what it owns rather than at pen-up, when the
+ *  operations are still in flight. */
+interface PeerLiveStroke {
+  strokeId: string
+  layerId: string
+  paintedCount: number
+  committedCount: number
+  nextPacketSeq: number
+  desynced: boolean
+  ended: boolean
+}
 
 interface EngineOpts {
   paper: PaperType
@@ -1227,6 +1296,11 @@ export class PencilEngine implements PencilEngineAPI {
   // caller to actually commit — once every dab has played. See
   // previewOperation/dropPendingPreview/flushPeerPreview below.
   private _peerPreviews = new Map<string, PeerPreviewState>()
+  // (#429) One entry per peer with a stroke currently under their pen — see
+  // PeerLiveStroke. At most one per peer by construction: a person draws one
+  // stroke at a time, and a packet carrying a new strokeId retires the old
+  // entry.
+  private _peerLiveStrokes = new Map<string, PeerLiveStroke>()
 
   // WebGL programs and uniforms — assigned in _initGL()
   private _dabProg!: WebGLProgram
@@ -1905,7 +1979,19 @@ export class PencilEngine implements PencilEngineAPI {
           // dabs (see _smudgeResumeGesture, and
           // StrokeOperation.smudgeLoadAtStart's own comment for what the
           // scalar it replaced had to carry across operations).
-          this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
+          //
+          // (#429) …except for the part of this operation this client already
+          // painted from the author's live stream, which is skipped here. Not
+          // an optimisation: dab painting accumulates, so painting the same
+          // dabs a second time makes the mark visibly darker than the author's
+          // own. This is the peer-side counterpart of the author never
+          // repainting their own operation when it loops back confirmed.
+          const allDabs = strokeDabs(op)
+          const skip = this._claimLivePaintedDabs(op, allDabs.length)
+          const dabs = skip ? allDabs.slice(skip) : allDabs
+          if (dabs.length) {
+            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
+          }
           this._markLayerDirty(op.layerId)
           this._maybeCheckpoint(op.layerId)
           // #122: this branch is only reached for strokes this engine
@@ -2643,6 +2729,92 @@ export class PencilEngine implements PencilEngineAPI {
     return state.queue.map(item => item.op)
   }
 
+  /** See PencilEngineAPI's doc comment. */
+  appendPeerLiveDabs(peerId: string, packet: PeerLivePacket): void {
+    let live = this._peerLiveStrokes.get(peerId)
+    // A packet for a different gesture retires the previous one outright.
+    // Nothing is lost by dropping it: its pixels are on the layer and its
+    // operations are already on their way through the ordered stream — this
+    // only stops the counters from being carried into an unrelated gesture.
+    if (live && live.strokeId !== packet.strokeId) {
+      this._peerLiveStrokes.delete(peerId)
+      live = undefined
+    }
+    if (!live) {
+      // Mid-gesture arrival (this client joined, or resynced, while someone
+      // was already drawing) starts desynced on purpose: the dabs before this
+      // packet were never painted here, so the counters would claim ink that
+      // is not on the layer and the operations would then skip painting it.
+      // Better to let this gesture arrive the old way, whole, and stream the
+      // next one.
+      live = {
+        strokeId: packet.strokeId, layerId: packet.layerId,
+        paintedCount: 0, committedCount: 0, nextPacketSeq: 0,
+        desynced: packet.packetSeq !== 0, ended: false,
+      }
+      this._peerLiveStrokes.set(peerId, live)
+    }
+    if (live.desynced) return
+    if (packet.packetSeq !== live.nextPacketSeq) { live.desynced = true; return }
+    live.nextPacketSeq++
+
+    const buf = this._layers.get(packet.layerId)
+    // No such layer here yet (their layer_add hasn't been applied, or it was
+    // deleted): drop the packet and stop trusting the stream for this gesture
+    // rather than silently losing dabs the counters would still claim.
+    if (!buf) { live.desynced = true; return }
+    if (!packet.dabs.length) return
+
+    // `strokeId` is what makes marker and smudge continuous across packets —
+    // the same argument a chunked replay passes, reaching the same
+    // _replayChunkScratch / _smudgeResumeGesture bookkeeping. `prevDab` is
+    // deliberately left undefined for the same reason it is on the replay
+    // path: both tools recover it from their own gesture state, and passing a
+    // second, independently-tracked copy is how the two get to disagree.
+    this._paintDabs(
+      buf, packet.dabs, packet.tool, packet.preset, packet.color, peerId,
+      undefined, undefined, packet.strokeId,
+    )
+    live.paintedCount += packet.dabs.length
+    this._markLayerDirty(packet.layerId)
+    if (packet.layerId !== this._activeId) this._invalidateSplitCache()
+    this._displayIfNotSuspended()
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  endPeerLiveStroke(peerId: string): number {
+    const live = this._peerLiveStrokes.get(peerId)
+    if (!live) return 0
+    live.ended = true
+    const outstanding = Math.max(0, live.paintedCount - live.committedCount)
+    // Kept, not deleted, while operations are still owed: they arrive after
+    // pen-up and still have to be able to recognise what was pre-painted.
+    // Once nothing is outstanding the entry has no further job.
+    if (outstanding === 0) this._peerLiveStrokes.delete(peerId)
+    return outstanding
+  }
+
+  /** (#429) How many of an arriving stroke operation's dabs are already on the
+   *  layer because this client painted them live, and advances that gesture's
+   *  claim by the operation's own length. Returns 0 whenever the live path
+   *  isn't involved, which is every stroke in a room where nobody is streaming
+   *  — including this client's own, since it never streams to itself. */
+  private _claimLivePaintedDabs(op: StrokeOperation, dabCount: number): number {
+    if (!op.strokeId) return 0
+    const live = this._peerLiveStrokes.get(op.userId)
+    // Deliberately still claims for a desynced gesture. `desynced` stops
+    // *further* live painting, and painting stops at the first missing packet
+    // rather than skipping it, so `paintedCount` always describes a contiguous
+    // prefix of the gesture — exactly the quantity this returns. Ignoring the
+    // claim here because the stream later broke would repaint that prefix on
+    // top of itself and leave the first part of the mark darker than the rest.
+    if (!live || live.strokeId !== op.strokeId) return 0
+    const alreadyPainted = Math.min(Math.max(0, live.paintedCount - live.committedCount), dabCount)
+    live.committedCount += dabCount
+    if (live.ended && live.committedCount >= live.paintedCount) this._peerLiveStrokes.delete(op.userId)
+    return alreadyPainted
+  }
+
   // Starts (or restarts, for the next queued op) animating peerId's queue
   // head from its first dab.
   private _startPeerPreviewHead(peerId: string): void {
@@ -2774,6 +2946,7 @@ export class PencilEngine implements PencilEngineAPI {
       buf.destroy()
     }
     this._peerPreviews.clear()
+    this._peerLiveStrokes.clear()
     for (const tiles of this._transformPreview.values()) {
       for (const { buffer } of tiles) buffer.destroy()
     }
@@ -3217,6 +3390,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (timer !== null) clearTimeout(timer)
     }
     this._peerPreviews.clear()
+    this._peerLiveStrokes.clear()
     this._transformPreview.clear() // handles dead too; a mid-drag gizmo just loses its live preview
     // (#381) _syncBuffersToLog below replays every live layer from the log
     // outright, which is strictly more than any deferred rebuild was going to
