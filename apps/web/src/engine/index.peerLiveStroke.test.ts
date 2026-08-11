@@ -135,6 +135,40 @@ describe('#429 a streamed peer stroke lands on exactly the pixels its operation 
     reference.destroy(); streamed.destroy()
   })
 
+  it('an operation that overtakes the live stream mid-gesture is not painted twice', async () => {
+    // The interleaving a desktop-to-desktop pass caught and this suite had not
+    // modelled: a long gesture emits an operation at every
+    // STROKE_DAB_CHUNK_LIMIT boundary, so one lands *while the pen is still
+    // down*, carrying a round 800 dabs when the stream has delivered, say, 791.
+    // That operation paints the 9-dab tail — and the next live packet then
+    // covers dabs the operation has already drawn.
+    //
+    // Both directions therefore have to consult the same watermark. Before that
+    // fix this test painted the overlap twice, which on a real canvas is a
+    // visibly darker stretch in the middle of the stroke.
+    const dabs = await recordGestureDabs('pencil')
+    const overtake = 11 // operation reaches here while the stream is at 8
+
+    const reference = await receiver('pencil')
+    commit(reference, 'pencil', dabs.slice(0, overtake))
+    commit(reference, 'pencil', dabs.slice(overtake))
+    const expected = readLayerPixels(reference, 'L')
+
+    const interleaved = await receiver('pencil')
+    const packets = packetsFor('pencil', dabs) // 4 dabs each
+    interleaved.appendPeerLiveDabs(PEER, packets[0]) // dabs 0..4
+    interleaved.appendPeerLiveDabs(PEER, packets[1]) // dabs 4..8
+    // …operation overtakes, carrying 0..11 — of which 0..8 are already drawn.
+    commit(interleaved, 'pencil', dabs.slice(0, overtake))
+    // …and the stream carries on, re-covering 8..11 before moving past it.
+    for (const p of packets.slice(2)) interleaved.appendPeerLiveDabs(PEER, p)
+    interleaved.endPeerLiveStroke(PEER)
+    commit(interleaved, 'pencil', dabs.slice(overtake))
+
+    expectPixelsEqual(readLayerPixels(interleaved, 'L'), expected)
+    reference.destroy(); interleaved.destroy()
+  })
+
   it('a lost packet stops live painting but the operation still completes the stroke', async () => {
     // Live painting stops at the first gap rather than skipping over it, so
     // what was painted is always a contiguous prefix — which is exactly what

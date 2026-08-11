@@ -3833,24 +3833,28 @@ export function Room() {
     }
 
     const handlePeerStrokeLiveEnd = ({ userId: authorId }: { userId: string; strokeId: string }) => {
-      // A non-zero return means ink was painted here that no operation ever
-      // claimed — the author dropped off between their last packet and their
-      // pen-up, so the log does not know about a mark that is on the canvas.
-      // Rebuild the layer from the log rather than leaving content behind that
-      // no undo, snapshot or reload would reproduce.
-      const orphaned = engineRef.current?.endPeerLiveStroke(authorId) ?? 0
-      if (orphaned) {
-        console.warn(`[sync] ${orphaned} live dabs from ${authorId} were never recorded — rebuilding layer`)
-        requestFullResync()
-      }
+      // Only marks the gesture ended. Dabs still unaccounted for at this point
+      // are the normal case, not a fault: the operation recording the end of
+      // the gesture is dispatched at pen-up and arrives a moment after this
+      // does. Treating that as orphaned ink (which an earlier version of this
+      // handler did) forced a resync that wiped the live bookkeeping, so the
+      // operation then repainted the streamed tail on top of itself — a
+      // visibly darker last stretch of every long stroke.
+      engineRef.current?.endPeerLiveStroke(authorId)
     }
 
     const handlePeerLeft = (leftUserId: string) => {
       dispatchParticipants({ type: 'peer_left', userId: leftUserId })
-      // (#429) Same reasoning as handlePeerStrokeLiveEnd — leaving mid-gesture
-      // is the likeliest way to strand live ink, since no pen-up ever happens.
+      // (#429) A peer leaving mid-gesture is the one case where unaccounted
+      // live ink really can be orphaned: if they dropped before their
+      // operation reached the server, nothing in the log describes a mark that
+      // is nonetheless on this canvas. Unlike pen-up, no operation is owed
+      // here, so a non-zero remainder means repair rather than "wait a moment".
       const orphaned = engineRef.current?.endPeerLiveStroke(leftUserId) ?? 0
-      if (orphaned) requestFullResync()
+      if (orphaned) {
+        console.warn(`[sync] ${leftUserId} left with ${orphaned} unrecorded live dabs — resyncing`)
+        requestFullResync()
+      }
       // (#152) Cursor-position cleanup for this peer now lives inside
       // PeerCursors' own 'peer_left' subscription — nothing to do here.
       delete lastActiveAtRef.current[leftUserId]
