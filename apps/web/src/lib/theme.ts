@@ -6,11 +6,13 @@
  *  the reason `light` is not simply `dark` inverted: see the contrast note in
  *  styles/tokens.css.
  *
- *  Dark stays the default. The canvas is a sheet of near-white paper, and a
- *  neutral dark surround is what lets you judge the drawing's tone against
- *  nothing in particular — that is why drawing editors ship dark by default,
- *  and it is still true. Light is a choice for the people who need it, not a
- *  replacement for the people who don't. */
+ *  Dark is the *designed* default, in the sense that the canvas is a sheet of
+ *  near-white paper and a neutral dark surround is what lets you judge the
+ *  drawing's tone against nothing in particular — which is why drawing editors
+ *  ship dark. It is not, however, what a first-time visitor necessarily gets:
+ *  the starting palette follows the operating system, so most people whose
+ *  system is light land on light. See `detectTheme()` for why that is the
+ *  behaviour we want rather than an accident. */
 export type Theme = 'dark' | 'light'
 
 export const THEMES: readonly Theme[] = ['dark', 'light']
@@ -26,9 +28,23 @@ export function isTheme(value: unknown): value is Theme {
  *  choice is stored, flipping the OS to light mode never overrides it — a
  *  person who deliberately picked dark inside a light-themed OS meant it.
  *
- *  `prefers-color-scheme` defaults to `light` in browsers that don't report
- *  one, which would be the wrong default for this app, so this asks the dark
- *  question specifically and treats "no answer" as dark. */
+ *  There is no third answer to fall back on, and an earlier version of this
+ *  comment claimed otherwise: it said the query was phrased to treat "no
+ *  preference" as dark. It isn't, and it can't be. The `no-preference` value
+ *  was dropped from the spec in 2020, so every browser reports either `light`
+ *  or `dark`, and `light` is what it reports when the person has never set
+ *  anything. The rule this line actually implements is therefore: dark only
+ *  when the system explicitly asks for dark, light in every other case.
+ *
+ *  Kept that way deliberately (Ilya, 11.08) rather than forced to dark. The
+ *  person this theme was added for — a teacher who could not read the dark
+ *  palette — is exactly the person whose system is already set to light, and
+ *  following it hands them the readable theme on the first load without their
+ *  having to find a setting on a palette they cannot see. Starting everyone in
+ *  dark would put that discovery step in front of the one user the theme
+ *  exists for. Note the consequence when reading the two branches: "light" here
+ *  covers both a deliberate light system and an untouched one, because nothing
+ *  in the platform distinguishes them. */
 export function detectTheme(): Theme {
   if (typeof window === 'undefined') return 'dark'
   return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'

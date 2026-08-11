@@ -12,6 +12,7 @@
     "lint:fix": "oxlint --fix",
     "preview": "vite preview",
     "prebuild": "tsx scripts/bakePaperTextures.ts --if-missing",
+    "postbuild": "tsx scripts/precompressDist.ts",
     "bake:icons": "tsx scripts/bakeAppIcons.ts",
     "bake:paper": "tsx scripts/bakePaperTextures.ts",
     "bake:icon-font": "tsx scripts/bakeIconFont.ts"

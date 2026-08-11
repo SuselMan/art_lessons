@@ -54,7 +54,7 @@
   max-width: 60vw;
   height: 4px;
   border-radius: 2px;
-  background: var(--color-border);
+  background: var(--color-border-strong);
   overflow: hidden;
 }
 

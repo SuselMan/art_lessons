@@ -265,6 +265,30 @@ function LayerRowImpl({
           triggerLabel={t('layers.more')}
           trigger={<Icon name="more_vert" />}
           actions={[
+            // (#434) The same three toggles the row's own icons carry, as a
+            // second route to them. Deliberately not a replacement: the icons
+            // show *state* at a glance across the whole list, which a menu
+            // cannot do, and the menu says in words what an icon only implies —
+            // "lock" and "lock for others" are two padlocks apart in the row.
+            // They lead the list because they are the ones reached most often.
+            {
+              label: t(item.visible ? 'layers.hide' : 'layers.show'),
+              icon: item.visible ? 'visibility_off' : 'visibility',
+              onClick: () => onToggleVisible(item.id),
+            },
+            {
+              label: t(isLocked ? 'layers.unlock' : 'layers.lock'),
+              icon: isLocked ? 'lock_open' : 'lock',
+              onClick: () => onToggleLock(item.id),
+            },
+            // Owner-only, and absent rather than disabled for everyone else:
+            // a non-owner has nothing to flip here, and the row's amber badge
+            // already tells them the layer is locked when it is.
+            ...(isOwner ? [{
+              label: t(isOwnerLocked ? 'layers.ownerUnlockShort' : 'layers.ownerLockShort'),
+              icon: 'lock_person' as const,
+              onClick: () => onToggleOwnerLock?.(item.id),
+            }] : []),
             { label: t('common.rename'),     icon: 'edit',            onClick: () => onStartEditing?.(item.id) },
             { label: t('layers.mergeDown'),  icon: 'vertical_align_bottom', onClick: () => onMergeDown?.(item.id), disabled: isFolderItem },
             // (#329) A folder holds no pixels of its own — clearing one would

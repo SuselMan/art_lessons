@@ -108,7 +108,7 @@ export const en = {
   'create.size.square': 'Square',
   'create.size.custom': 'Custom',
   'create.size.infinite': 'Infinite',
-  'create.size.noFixedSize': 'No fixed size',
+  'create.size.comingSoon': 'Coming soon',
   'create.rotateToLandscape': 'Rotate to landscape',
   'create.rotateToPortrait': 'Rotate to portrait',
   'create.width': 'Width',

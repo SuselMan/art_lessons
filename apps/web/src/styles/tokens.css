@@ -17,7 +17,13 @@
  *
  * So the light values are picked against a measured floor rather than mirrored:
  *   - every text/surface pair clears WCAG AA (4.5:1), body text clears AAA
- *   - --color-border clears 3:1 against every surface it can be drawn on
+ *   - --color-border-strong clears 3:1 on the fills a control rests on
+ * Note which token carries that second floor. It used to be --color-border,
+ * applied to every edge in the app, and the theme shipped that way and read as
+ * loud: WCAG 1.4.11 is about the boundary of a thing you *operate*, and holding
+ * panel edges, card outlines and dividers to a control's floor made the borders
+ * compete with the content they were bounding. The floors below are a minimum
+ * for the things that need them, never a target for everything.
  * These are checked, not asserted: `npm test` runs contrast.test.ts, which
  * parses this file and fails on a pair that drops below its floor. If a value
  * here is edited, that test is what says whether the edit was safe.
@@ -47,6 +53,15 @@
      surface level. */
   --color-surface-hover: #26262d;
   --color-border:    #2a2a30;
+  /* (#426) The edge of something you operate — a text field, a switch's track,
+     a slider's groove, a selectable row. Split off from --color-border after
+     the light theme shipped with one loud grey doing both jobs and read as
+     noisy: WCAG's 3:1 applies to *control boundaries and their states*, not to
+     every edge on the screen, and holding panel edges and card outlines to a
+     control's floor is what made the interface shout.
+     Identical to --color-border here, so the dark theme is unchanged by the
+     split; the two only diverge in the light palette. */
+  --color-border-strong: #2a2a30;
   /* (#326) For dividers that only exist to say "different thing below" inside
      one panel — the strong --color-border stays for real edges between
      surfaces (panel vs. canvas). Most inner dividers were removed outright in
@@ -216,20 +231,30 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --color-bg:        #e4e4e7;
+  --color-bg:        #ececec;
   --color-surface:   #f6f6f7;
   --color-surface-raised: #ffffff;
   --color-surface-2: #e9e9ec;
   --color-surface-hover: #dfdfe6;
 
-  /* Both borders are a good deal darker than a light theme usually reaches
-     for (#e0e0e0 and friends). That is the point of this theme: at 3:1 against
-     the surface behind it, a panel edge or a control outline is a thing you
-     can see rather than infer. --color-border-soft is the exception and is
-     allowed to be quiet — it only ever separates two parts of one panel, so
-     nothing depends on finding it. */
-  --color-border:    #7c7c87;
-  --color-border-soft: #c3c3cc;
+  /* Quiet on purpose, and this is a correction: the first cut of this theme
+     put every edge at 3:1, which is a control's floor, and the result read as
+     loud — the borders competed for attention with the content they were only
+     supposed to be bounding. Structure separates by *fill* here (white cards
+     on a grey page, panels a step off the background); the edge is a hairline
+     confirming a boundary the eye has already found, not the thing announcing
+     it. Pitched so that a structural edge in this theme is about as quiet, in
+     ratio terms, as the dark theme's own already is — neither theme's
+     decoration should be the loudest thing in the room. */
+  --color-border:    #d5d5dd;
+  --color-border-soft: #e2e2e8;
+
+  /* The one that keeps the floor, because it is the one WCAG is about: a
+     field, a track, a groove, a selectable row. Still softer than the 4.1:1
+     this theme first shipped with — it sits just over 3:1 on the fills a
+     control actually rests on (surface, raised, surface-2), which is enough to
+     find an edge and not enough to shout. */
+  --color-border-strong: #82828d;
 
   /* Darker than the dark theme's #5555aa, not lighter. The accent is a fill
      under white text far more often than it is a tint, and the same purple
@@ -263,7 +288,7 @@
      states (grey when off, accent when on). */
   --color-knob: #ffffff;
   --color-knob-off: #ffffff;
-  --color-knob-border: var(--color-border);
+  --color-knob-border: var(--color-border-strong);
 
   --color-error:     #b03636;
   --color-warning:   #8a5a00;

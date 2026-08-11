@@ -48,8 +48,7 @@ import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from '.
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
-import { packDabs, paperCoarsenessOf, strokeDabs, toHomography } from '@grafetto/shared'
-import type { PaperCoarseness } from '@grafetto/shared'
+import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
 
 export type { HapticGrainStats }
 export type { Matrix3 }
@@ -819,17 +818,22 @@ interface Checkpoint {
 // (hex there, since CreateRoom's color picker needs a hex/RGB string; RGB
 // float triple here, since that's what the shader uniform wants) — update
 // both together if these defaults ever change.
-// (#300) Keyed by coarseness, matching DEFAULT_PAPER_COLORS in shared —
-// the tint tracks how coarse the stock is, not its fibre character.
-const PAPER_COLORS_BY_COARSENESS: Record<PaperCoarseness, [number, number, number]> = {
-  coarse: [0.96, 0.94, 0.90],
-  medium: [0.97, 0.97, 0.96],
-  fine:   [0.99, 0.99, 0.98],
-}
-
+// (#426) Derived from shared's hex rather than kept as a second hand-written
+// table, which is what this was. The comment above it said "update both
+// together if these defaults ever change" — and by the time anyone read that,
+// they already disagreed: 0.90 against 230/255 = 0.902, and the same rounding
+// on the other five channels. Nothing failed, because nothing compared them;
+// the shader just rendered a slightly different paper than the colour picker
+// previewed. One source of truth removes the class of bug rather than fixing
+// this instance of it.
+//
+// Safe under the cross-device determinism rule (.claude/rules.md): this is a
+// constant converted by exact integer arithmetic on every client, not a value
+// computed per-device on the GPU.
 function paperColorOf(type: PaperType): [number, number, number] {
-  const coarseness = paperCoarsenessOf(type)
-  return coarseness ? PAPER_COLORS_BY_COARSENESS[coarseness] : PAPER_COLORS_BY_COARSENESS.fine
+  const hex = defaultPaperColor(type)
+  const n = parseInt(hex.slice(1), 16)
+  return [((n >> 16) & 0xff) / 255, ((n >> 8) & 0xff) / 255, (n & 0xff) / 255]
 }
 
 // Paper-grain texture: baked once, offline (see ../scripts/bakePaperTextures.ts

@@ -134,10 +134,20 @@ export function paperCoarsenessOf(type: string): PaperCoarseness | null {
 // tracks how coarse the stock is (coarser paper reads warmer and slightly
 // darker), which has nothing to do with its fibre character. These are the
 // same three values the old rough/smooth/bristol carried.
+// (#426) Lifted towards white and roughly halved in warmth. The old values
+// were picked while the app only had a dark theme, and against near-black they
+// read as neutral stock; with a light interface around them the same warmth
+// reads as yellow, which is simultaneous contrast doing what it does — the
+// paper never changed, its surround did. Since the light theme is now a first
+// class option, the tint is set so the stock reads as paper in both surrounds
+// rather than as neutral in one and yellow in the other.
+// The ramp itself is unchanged in shape and has to stay that way: coarser
+// stock is warmer *and* slightly darker than finer stock. Moving one of these
+// three without the others inverts that ordering.
 const DEFAULT_PAPER_COLOR_BY_COARSENESS: Record<PaperCoarseness, string> = {
-  coarse: '#f5f0e6',
-  medium: '#f7f7f5',
-  fine:   '#fcfcfa',
+  coarse: '#faf8f4',
+  medium: '#fcfbf9',
+  fine:   '#fdfdfc',
 }
 
 export function defaultPaperColor(type: PaperType): string {

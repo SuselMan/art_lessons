@@ -132,7 +132,7 @@ function initialColorPickerMode(): ColorPickerMode {
  *  Seeded with CreateRoom's own default so a browser that has never opened a
  *  room still guesses the same paper a new room would be created with, rather
  *  than downloading nothing and paying full price on the first join. */
-const DEFAULT_LAST_PAPER: PaperType = 'coarse'
+const DEFAULT_LAST_PAPER: PaperType = 'fine'
 
 function initialLastPaperType(): PaperType {
   if (typeof window === 'undefined') return DEFAULT_LAST_PAPER

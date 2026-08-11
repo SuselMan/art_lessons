@@ -103,9 +103,33 @@ describe('light theme contrast (#426)', () => {
     expect(contrast(light, '--color-text-faint', surface)).toBeGreaterThanOrEqual(AA)
   })
 
-  it.each(SURFACES)('borders clear the non-text floor on %s', surface => {
-    expect(contrast(light, '--color-border', surface)).toBeGreaterThanOrEqual(NON_TEXT)
+  // WCAG 1.4.11 is about *controls* — the boundary of a thing you operate and
+  // has to be findable. It is not about every edge on the screen, and the
+  // first cut of this theme applied it to all of them: panel edges, card
+  // outlines and dividers all sat at a control's floor, and the result read as
+  // loud enough to distract from the content the borders were bounding.
+  //
+  // So the floor moved to the token that carries the meaning, and the surfaces
+  // are the fills a control actually rests on. --color-bg is not among them:
+  // controls sit inside panels and cards, not directly on the page.
+  const CONTROL_SURFACES = ['--color-surface', '--color-surface-raised', '--color-surface-2']
+
+  it.each(CONTROL_SURFACES)('control borders clear the non-text floor on %s', surface => {
+    expect(contrast(light, '--color-border-strong', surface)).toBeGreaterThanOrEqual(NON_TEXT)
   })
+
+  // The other half of the same correction, and the reason it is a test rather
+  // than a comment: nothing else would stop a future pass from "fixing" the
+  // structural border by making it accessible again, which is exactly the
+  // change that was just reverted. A decorative edge in this theme should be
+  // about as quiet as the dark theme's own already is (~1.3:1) — it confirms a
+  // boundary the fill has already drawn, it doesn't announce one.
+  it.each(['--color-surface', '--color-surface-raised'])(
+    'structural borders stay quiet on %s',
+    surface => {
+      expect(contrast(light, '--color-border', surface)).toBeLessThanOrEqual(1.6)
+    },
+  )
 
   it.each(['--color-error', '--color-warning', '--color-success'])(
     '%s clears AA as text on the surfaces it is used on',

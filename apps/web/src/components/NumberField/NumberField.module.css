@@ -16,7 +16,7 @@
   /* Always visible, not hover-only: the border is the only thing that says
      "you can type in here" — without it the value reads as a plain readout,
      which is exactly what it used to be. */
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: transparent;
   /* The whole pill is a vertical drag handle, so neither the browser's own

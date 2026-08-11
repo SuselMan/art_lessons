@@ -84,7 +84,7 @@ export const ru: Dictionary = {
   'create.size.square': 'Квадрат',
   'create.size.custom': 'Свой',
   'create.size.infinite': 'Бесконечный',
-  'create.size.noFixedSize': 'Без фиксированного размера',
+  'create.size.comingSoon': 'Скоро',
   'create.rotateToLandscape': 'Повернуть горизонтально',
   'create.rotateToPortrait': 'Повернуть вертикально',
   'create.width': 'Ширина',
