@@ -766,15 +766,17 @@ export const DAB_FRAG = `
       // Un-premultiply what was already on the layer under this dab
       // *before* this stroke touched it, so the multiply below works
       // against a real color, not one pre-scaled by whatever alpha
-      // happened to be there. An alpha near zero has no real color to
-      // recover (and would blow up dividing by it) — a flat vec3(1.0)
-      // (pure white, *not* this room's actual paper tone — ADR 004
-      // "Ревизия v1.5" §1, requested by Ilya: a fully built-up marker mark
-      // should read back as exactly the picked swatch color) stands in
-      // instead of trying to extrapolate a color from near-nothing. 1/255
-      // is the smallest alpha an 8-bit-backed accumulation buffer can even
-      // represent as nonzero, so anything at or below that is
-      // indistinguishable from untouched.
+      // happened to be there. This recovers the *pigment's own* color at
+      // full strength — how much of the pixel that pigment actually covers
+      // lives in dst.a, and is applied separately in the composite below
+      // (#439: it used to be dropped, which is what made a barely-visible
+      // pencil stroke read as solid graphite the moment a marker crossed
+      // it). An alpha near zero has no real color to recover (and would
+      // blow up dividing by it), so a flat vec3(1.0) stands in; it is
+      // multiplied by that same near-zero dst.a below, so the value itself
+      // never reaches the output. 1/255 is the smallest alpha an
+      // 8-bit-backed accumulation buffer can even represent as nonzero, so
+      // anything at or below that is indistinguishable from untouched.
       vec3 effectiveBase = dst.a > 0.004 ? clamp(dst.rgb / dst.a, 0.0, 1.0) : vec3(1.0);
       // Coverage still governs the stroke's silhouette/alpha only (fast-
       // saturating — see u_strokeCoverage's own comment).
@@ -792,7 +794,7 @@ export const DAB_FRAG = `
       // *discrete* layers, not a soft asymptote that a single continuous
       // stroke can keep inching up forever): the first pass over a spot
       // should read back as *exactly*
-      // the picked color (effectiveBase=1 case: 1.0*color=color); a second
+      // the picked color (bare-paper case: film=color at layer1); a second
       // pass over the same spot should read as one further Beer-Lambert
       // layer of the identical translucent film (color*color — physically
       // exact for two stacked layers of one dye); a third and every later
@@ -824,22 +826,50 @@ export const DAB_FRAG = `
       float layer2 = smoothstep(0.0, MARKER_LAYER2_INK, max(inkLoad - MARKER_LAYER1_INK, 0.0));
       // Beer-Lambert-style multiply for a translucent marker film (ADR 004
       // "Контекст" — physically correct for overlapping translucent dye,
-      // unlike graphite/ink's saturating "over" coverage below) — applied
-      // twice, sequentially, once per capped stage.
-      vec3 afterLayer1 = mix(effectiveBase, effectiveBase * u_color, layer1);
-      vec3 result = mix(afterLayer1, afterLayer1 * u_color, layer2);
+      // unlike graphite/ink's saturating "over" coverage below) — two
+      // sequential stages, one per capped layer. Both stages are pure
+      // multiplies, so the whole film collapses to a single transmittance
+      // factor that can be applied to any base: mix(1,C,l) applied twice is
+      // just base * F1 * F2. Written that way because the composite below
+      // needs the same film over *two* different bases.
+      vec3 film = mix(vec3(1.0), u_color, layer1) * mix(vec3(1.0), u_color, layer2);
       // Alpha bookkeeping: blend the *original* dst.a toward 1.0 by
       // *coverage* (silhouette, not darkness) — mirrors how graphite/
       // liner's own deposit already approaches full coverage under
       // repeated overlapping passes rather than stacking past it, and
       // keeps alpha independent of how dark the color mix above ends up.
+      // This is exactly the Porter-Duff union a_s + a_d - a_s*a_d with the
+      // stroke's coverage as a_s, which is why the colour term below is the
+      // matching separable-blend formula and not something ad hoc.
       float newAlpha = mix(dst.a, 1.0, coverage);
-      // Premultiplied output, matching every other accumulation-buffer
-      // writer in this shader — composites correctly via the same (ONE,
-      // ONE_MINUS_SRC_ALPHA) "over" write-back every other dab uses (the
-      // multiply itself already happened just above — this write-back
-      // blend is unchanged from a plain "over").
-      gl_FragColor = vec4(result * newAlpha, newAlpha);
+      // #439: the standard separable-blend composite (the PDF/CSS
+      // mix-blend-mode formula), weighted by how much of the pixel the
+      // destination pigment actually covers. Three parts, and *all three*
+      // matter — the old code kept only the middle one and then forced its
+      // weight to 1, which is what conflated "faint" with "pale-coloured":
+      //   1. where the film lands on bare paper (1-dst.a) it reads as the
+      //      picked swatch colour, exactly as ADR 004 "Ревизия v1.5" §1
+      //      requires (paper assumed white — same standing approximation as
+      //      effectiveBase's fallback above, and same reason: this layer
+      //      cannot see what is composited beneath it);
+      //   2. where it lands on existing pigment (dst.a) it multiplies that
+      //      pigment, which is the Beer-Lambert behaviour marker exists for;
+      //   3. what the stroke's own silhouette does not cover (1-coverage)
+      //      passes through untouched.
+      // Each term already carries its own alpha weight, so the sum is
+      // premultiplied by construction — no divide, and componentwise it
+      // cannot exceed newAlpha. With coverage=0 it reproduces dst exactly,
+      // which is what makes the discard above a true no-op skip.
+      vec3 premultResult =
+          coverage * (1.0 - dst.a) * film
+        + coverage * dst.a * (effectiveBase * film)
+        + (1.0 - coverage) * dst.a * effectiveBase;
+      // Premultiplied output. Unlike every other writer in this shader this
+      // pass is drawn with blending *off* (AccumulationBuffer.
+      // beginReplaceDraw) — it recomputes the finished pixel rather than
+      // contributing an increment, so what is written here is the result,
+      // not something still to be composited.
+      gl_FragColor = vec4(premultResult, newAlpha);
       return;
     }
 
