@@ -26,9 +26,49 @@ export interface HotkeyBinding {
    *  Ctrl+Z became literal "Ctrl+Я"). See MDN's KeyboardEvent.code table
    *  for the full physical-key list. */
   code: string
-  /** Ctrl on Windows/Linux, Cmd on Mac — treated as one modifier. */
+  /** Ctrl on Windows/Linux, Cmd on Mac — one modifier with two spellings,
+   *  resolved per platform by `platformMod` rather than by accepting either
+   *  everywhere (which made Win+Z undo on Windows — the Windows key reports
+   *  as `metaKey`, and Win+Z is the OS's own snap-layouts shortcut). */
   mod: boolean
   shift: boolean
+}
+
+// Alt is deliberately not part of the vocabulary above, and every match below
+// requires it to be *up*. Two reasons, and the second is the load-bearing one:
+// no default needs it, and on Windows/Linux AltGr reports as Ctrl+Alt — so
+// without this, AltGr+Z (a plain character on Polish, Croatian, Turkish and a
+// dozen other layouts) was indistinguishable from Ctrl+Z and silently undid
+// the last stroke while someone typed. On macOS the same key is Option, which
+// composes characters rather than modifying commands.
+
+/** macOS (including iPadOS, which reports as a Mac and takes Cmd from an
+ *  attached keyboard). Read once — the platform cannot change mid-session —
+ *  and injectable as the last argument of everything below, so the tests can
+ *  exercise both platforms without touching globals. */
+export function isMacPlatform(): boolean {
+  if (typeof navigator === 'undefined') return false
+  // navigator.userAgentData is Chromium-only and not in TS's DOM lib; read it
+  // structurally rather than casting (project rule), falling back to the
+  // deprecated-but-universal navigator.platform.
+  const uaData: unknown = Reflect.get(navigator, 'userAgentData')
+  const platform = uaData !== null && typeof uaData === 'object' && 'platform' in uaData
+    && typeof uaData.platform === 'string'
+    ? uaData.platform
+    : navigator.platform
+  return /mac|iphone|ipad|ipod/i.test(platform ?? '')
+}
+
+const IS_MAC = isMacPlatform()
+
+/** Whether this event holds down the platform's command modifier, and whether
+ *  it holds the *other* platform's — which must be up. Ctrl+Z on a Mac is not
+ *  undo (it's the shell's suspend), and Win+E on Windows belongs to Explorer,
+ *  not to our eraser. */
+function modifierState(e: KeyboardEvent, mac: boolean): { mod: boolean; foreign: boolean } {
+  return mac
+    ? { mod: e.metaKey, foreign: e.ctrlKey }
+    : { mod: e.ctrlKey, foreign: e.metaKey }
 }
 
 export interface HotkeyActionDef {
@@ -73,11 +113,30 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   { id: 'increaseSize', labelKey: 'hotkey.increaseSize', default: { code: 'BracketRight', mod: false, shift: false } },
   { id: 'rotateCCW', labelKey: 'hotkey.rotateCCW', default: { code: 'BracketLeft', mod: false, shift: true } },
   { id: 'rotateCW', labelKey: 'hotkey.rotateCW', default: { code: 'BracketRight', mod: false, shift: true } },
-  { id: 'gradeH', labelKey: 'hotkey.gradeH', default: { code: 'Digit1', mod: false, shift: false } },
-  { id: 'gradeHB', labelKey: 'hotkey.gradeHB', default: { code: 'Digit2', mod: false, shift: false } },
-  { id: 'grade2B', labelKey: 'hotkey.grade2B', default: { code: 'Digit3', mod: false, shift: false } },
-  { id: 'grade4B', labelKey: 'hotkey.grade4B', default: { code: 'Digit4', mod: false, shift: false } },
-  { id: 'grade6B', labelKey: 'hotkey.grade6B', default: { code: 'Digit5', mod: false, shift: false } },
+  // Grade steps along the full 6H..6B ladder, one notch per press — replacing
+  // five digit keys that jumped to five hand-picked grades (1..5 → H, HB, 2B,
+  // 4B, 6B). Nine of the fourteen grades had no key at all, and which five did
+  // was a judgement call baked into the keyboard; stepping needs two keys, is
+  // the same gesture as ['/']' on size, and reaches every grade.
+  //
+  // ','/'.' rather than something mnemonic: '['/']' are taken by size, and
+  // these two sit right next to them with the same left=less/right=more
+  // reading — the same pair Photoshop and Krita step brushes with.
+  { id: 'gradeHarder', labelKey: 'hotkey.gradeHarder', default: { code: 'Comma', mod: false, shift: false } },
+  { id: 'gradeSofter', labelKey: 'hotkey.gradeSofter', default: { code: 'Period', mod: false, shift: false } },
+  // Zoom, taken off the browser (#440). The two step keys are bound to the
+  // browser's own zoom combo on purpose: the point is that Ctrl/Cmd +/- moves
+  // *our* camera instead of scaling the page. See browserZoomIntent for the
+  // other spellings of the same press, which are suppressed whatever these
+  // are rebound to.
+  //
+  // Reset is a bare '0', not Ctrl+0: Ctrl+0 is the only way back from a
+  // browser zoom that already drifted (from a menu, or a Ctrl+wheel on
+  // another page), we cannot reset that from script, and taking the key would
+  // leave someone stuck at 150% with no way out.
+  { id: 'zoomIn', labelKey: 'hotkey.zoomIn', default: { code: 'Equal', mod: true, shift: false } },
+  { id: 'zoomOut', labelKey: 'hotkey.zoomOut', default: { code: 'Minus', mod: true, shift: false } },
+  { id: 'zoomReset', labelKey: 'hotkey.zoomReset', default: { code: 'Digit0', mod: false, shift: false } },
 ]
 
 // roomStorage.ts's key format is `al_room_settings:<roomId>` — reusing it
@@ -130,18 +189,74 @@ const MODIFIER_CODES = new Set([
 /** True if `e` matches `binding` — compares the physical key (`code`)
  *  exactly and modifiers exactly, so the result is the same regardless of
  *  which input language/layout is currently active. */
-export function matchesHotkey(e: KeyboardEvent, binding: HotkeyBinding): boolean {
+export function matchesHotkey(e: KeyboardEvent, binding: HotkeyBinding, mac = IS_MAC): boolean {
+  const { mod, foreign } = modifierState(e, mac)
   return e.code === binding.code
-    && (e.ctrlKey || e.metaKey) === binding.mod
+    && mod === binding.mod
+    && !foreign
+    && !e.altKey
     && e.shiftKey === binding.shift
 }
 
-/** Captures a binding from a live keydown event, for the rebind UI. A bare
- *  modifier keypress (Ctrl/Shift/Meta/Alt alone, before the real key lands)
- *  never resolves to a binding — the caller should keep listening. */
-export function captureHotkeyBinding(e: KeyboardEvent): HotkeyBinding | null {
+/** Captures a binding from a live keydown event, for the rebind UI. Returns
+ *  null for a press that cannot become a binding, and the caller should keep
+ *  listening: a bare modifier (Ctrl/Shift/Meta/Alt alone, before the real key
+ *  lands), the foreign platform modifier, or anything with Alt held — Alt is
+ *  outside the vocabulary (see the note above HotkeyBinding), so accepting it
+ *  here would record a combo `matchesHotkey` can never fire on. */
+export function captureHotkeyBinding(e: KeyboardEvent, mac = IS_MAC): HotkeyBinding | null {
   if (MODIFIER_CODES.has(e.code)) return null
-  return { code: e.code, mod: e.ctrlKey || e.metaKey, shift: e.shiftKey }
+  if (e.altKey) return null
+  const { mod, foreign } = modifierState(e, mac)
+  if (foreign) return null
+  return { code: e.code, mod, shift: e.shiftKey }
+}
+
+// Combos the browser or the OS keeps for itself: the keypress either never
+// reaches the page at all, or reaches it already committed to closing the tab.
+// A rebind onto one of these is not a shortcut that merely collides with
+// something — it is a shortcut that silently does nothing, which is why the UI
+// refuses it rather than saving it (#440).
+//
+// Kept to the ones that are non-negotiable across Chrome/Firefox/Safari rather
+// than every combo any browser has ever claimed: over-refusing costs real
+// keys, and the ones left out (Ctrl+S, Ctrl+P, Ctrl+F…) are genuinely
+// preventable and therefore genuinely bindable.
+const RESERVED_MOD_CODES = new Set(['KeyW', 'KeyN', 'KeyT', 'KeyQ', 'Tab'])
+
+/** Whether the browser/OS owns this combo outright, so binding it would
+ *  produce a key that appears broken. Only ever true with `mod` held — a bare
+ *  'W' is ours like any other letter. */
+export function isReservedCombo(binding: HotkeyBinding): boolean {
+  return binding.mod && RESERVED_MOD_CODES.has(binding.code)
+}
+
+// The browser's own zoom, in every spelling it answers to (#440).
+//
+// Matching here is looser than anywhere else in this file, and deliberately
+// so: `code` is the right key for our own shortcuts (a physical position,
+// stable across layouts — see HotkeyBinding), but the browser binds *its*
+// zoom to the produced character. On a German layout '+' is the key at
+// `BracketRight`; on French AZERTY '-' is at `Digit6`. Matching only `Equal`/
+// `Minus` there would leave the page zooming out from under the canvas on
+// exactly the layouts that need this most. So: physical positions for the
+// US/Cyrillic case, characters for everyone else, and both numpad keys.
+const ZOOM_IN_CODES  = new Set(['Equal', 'NumpadAdd'])
+const ZOOM_OUT_CODES = new Set(['Minus', 'NumpadSubtract'])
+const ZOOM_IN_KEYS   = new Set(['+', '='])
+const ZOOM_OUT_KEYS  = new Set(['-', '_'])
+
+/** Which way the browser would zoom on this keypress, or null if it wouldn't.
+ *
+ *  Ctrl/Cmd+0 is deliberately absent: it is the only way back from a browser
+ *  zoom that has already drifted, and script cannot reset one — see the
+ *  zoomReset entry in HOTKEY_ACTIONS. */
+export function browserZoomIntent(e: KeyboardEvent, mac = IS_MAC): 'in' | 'out' | null {
+  const { mod, foreign } = modifierState(e, mac)
+  if (!mod || foreign || e.altKey) return null
+  if (ZOOM_IN_CODES.has(e.code)  || ZOOM_IN_KEYS.has(e.key))  return 'in'
+  if (ZOOM_OUT_CODES.has(e.code) || ZOOM_OUT_KEYS.has(e.key)) return 'out'
+  return null
 }
 
 // Display label for a physical key `code`, independent of the active input
@@ -152,6 +267,10 @@ export function captureHotkeyBinding(e: KeyboardEvent): HotkeyBinding | null {
 const CODE_LABELS: Record<string, string> = {
   BracketLeft: '[',
   BracketRight: ']',
+  Comma: ',',
+  Period: '.',
+  Equal: '=',
+  Minus: '-',
 }
 
 function codeLabel(code: string): string {
@@ -161,16 +280,20 @@ function codeLabel(code: string): string {
   return code
 }
 
-/** Human-readable label, e.g. "Ctrl+Shift+Z", "E", "Shift+[". Always shows
- *  "Ctrl" (never "⌘") even on Mac, matching this project's pre-existing
- *  tooltip convention — both Ctrl and Cmd are accepted at match time
- *  regardless of what the label says. */
-export function formatHotkeyLabel(binding: HotkeyBinding): string {
+/** Human-readable label, e.g. "Ctrl+Shift+Z", "E", "Shift+[" — and "⌘⇧Z" on
+ *  a Mac, where the symbols and the no-separator spelling are the platform
+ *  convention rather than a decoration.
+ *
+ *  This used to print "Ctrl" everywhere on the grounds that the matcher
+ *  accepted both. It no longer does — `mod` resolves to exactly one physical
+ *  key per platform (see modifierState) — so a Mac label reading "Ctrl+Z"
+ *  named a combo that genuinely does nothing there. */
+export function formatHotkeyLabel(binding: HotkeyBinding, mac = IS_MAC): string {
   const parts: string[] = []
-  if (binding.mod) parts.push('Ctrl')
-  if (binding.shift) parts.push('Shift')
+  if (binding.mod) parts.push(mac ? '⌘' : 'Ctrl')
+  if (binding.shift) parts.push(mac ? '⇧' : 'Shift')
   parts.push(codeLabel(binding.code))
-  return parts.join('+')
+  return parts.join(mac ? '' : '+')
 }
 
 /** The other action already bound to `binding`, if any — used by the rebind

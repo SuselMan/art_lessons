@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useT } from '../../i18n'
 import {
   HOTKEY_ACTIONS, captureHotkeyBinding, findHotkeyConflict, formatHotkeyLabel,
+  isReservedCombo,
 } from '../../lib/hotkeys'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './SettingsPanel.module.css'
@@ -30,7 +31,16 @@ export function HotkeysTab() {
       e.stopPropagation()
       if (e.key === 'Escape') { setRecordingActionId(null); setHotkeyError(null); return }
       const captured = captureHotkeyBinding(e)
-      if (!captured) return // bare modifier (Ctrl/Shift/Meta/Alt alone) — keep listening
+      // Not a binding yet (bare modifier), or not one at all (Alt held, the
+      // other platform's modifier) — keep listening either way.
+      if (!captured) return
+      // (#440) Refused rather than saved: the browser/OS never lets this one
+      // through, so accepting it would hand back a shortcut that does nothing
+      // and no way to tell why.
+      if (isReservedCombo(captured)) {
+        setHotkeyError(t('editorSettings.hotkeyReserved', { hotkey: formatHotkeyLabel(captured) }))
+        return
+      }
       const conflict = findHotkeyConflict(recordingActionId, captured, hotkeys)
       if (conflict) { setHotkeyError(t('editorSettings.hotkeyConflict', { action: t(conflict.labelKey) })); return }
       setHotkeys({ ...hotkeys, [recordingActionId]: captured })

@@ -37,7 +37,7 @@ import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { holdReload } from '../../lib/reloadSafety'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
-import { matchesHotkey, formatHotkeyLabel } from '../../lib/hotkeys'
+import { matchesHotkey, formatHotkeyLabel, browserZoomIntent } from '../../lib/hotkeys'
 import { addRoomInvite, forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { useSettingsStore } from '../../stores/settingsStore'
@@ -59,7 +59,7 @@ import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { resolveDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
-import { ZOOM_MAX, clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
+import { ZOOM_MAX, ZOOM_KEY_STEP, clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
 import { describeJoinError, joinGateStateFor } from './joinError'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { isLocalIslandSafe } from './optimism'
@@ -86,8 +86,8 @@ import { ParticipantsPanel, ParticipantsRoomActions } from './ParticipantsPanel'
 import { applyJoinRequestCreated, applyJoinRequestResolved, useJoinQueue } from './joinQueue'
 import { JoinGate, type JoinGateState } from './JoinGate'
 import {
-  TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize,
-  getToolColor, isColorCapableTool, toolSizeRange, type ColorCapableTool, type UiToolId,
+  TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
+  getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { ChiselAngleDial } from './ChiselAngleDial'
@@ -535,7 +535,7 @@ export function Room() {
   // (#321): the settings panel applies a rebind immediately now, so this has
   // to see it without the page reload that used to carry it.
   const hotkeys = useSettingsStore(s => s.hotkeys)
-  const gradeHotkeyLabels = ['gradeH', 'gradeHB', 'grade2B', 'grade4B', 'grade6B']
+  const gradeHotkeyLabels = ['gradeHarder', 'gradeSofter']
     .map(id => formatHotkeyLabel(hotkeys[id])).join('/')
   // (#405) The four non-painting tools, as plain "is this the selection?"
   // reads. They used to be an `OverlayMode` union in a slice of their own —
@@ -1063,7 +1063,7 @@ export function Room() {
   // gesture handlers.
   const { toastVisible: viewportToastVisible, onPinchPhase, hide: hideViewportToast } = useViewportToast()
 
-  const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, angleDeg, canvasTransform } =
+  const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, zoomBy, angleDeg, canvasTransform } =
     useViewport(config, toolActiveRef, config?.infinite ?? false, onPinchPhase)
 
   // Infinite rooms measure "100%" against the device-native 1-world-unit-per-
@@ -4061,11 +4061,6 @@ export function Room() {
   // ── keyboard shortcuts (#174: bindings come from the `hotkeys` registry
   // loaded above, not hardcoded here — see lib/hotkeys.ts) ─────────────────
   useEffect(() => {
-    // A representative spread across the full 6H-6B range, not all 14 grades —
-    // the grade slider below gives full-range access; these are just quick picks.
-    const gradeActions: Record<string, PencilGradeName> = {
-      gradeH: 'H', gradeHB: 'HB', grade2B: '2B', grade4B: '4B', grade6B: '6B',
-    }
     const onKey = (e: KeyboardEvent) => {
       // (#310/#405) Who owns this keypress — see editorKeys.ts for the whole
       // precedence and why each layer outranks the canvas. This listener is on
@@ -4094,6 +4089,26 @@ export function Room() {
       const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
       if (is('undo')) { void handleUndo(); e.preventDefault(); return }
       if (is('redo')) { void handleRedo(); e.preventDefault(); return }
+      // (#440) Zoom is settled here, ahead of every other action, because two
+      // things have to happen on the same press: our camera moves, and the
+      // browser's own page zoom does not. Missing the preventDefault doesn't
+      // merely lose a shortcut — it scales the whole editor, canvas and UI
+      // together, which is the one thing a drawing app must not do by accident.
+      if (is('zoomIn'))  { e.preventDefault(); zoomBy(ZOOM_KEY_STEP); return }
+      if (is('zoomOut')) { e.preventDefault(); zoomBy(1 / ZOOM_KEY_STEP); return }
+      if (is('zoomReset')) { resetZoom(); return }
+      // The same press spelled any of the other ways the browser accepts it —
+      // Shift+'=', the numpad, or the '+'/'-' keys of a non-US layout, which
+      // sit at physical positions our `code`-based bindings never name (see
+      // browserZoomIntent). Not rebindable and not in the registry on purpose:
+      // unbinding these would not free the keys, it would hand them back to
+      // the browser, which is exactly what this is here to stop.
+      const zoomIntent = browserZoomIntent(e)
+      if (zoomIntent) {
+        e.preventDefault()
+        zoomBy(zoomIntent === 'in' ? ZOOM_KEY_STEP : 1 / ZOOM_KEY_STEP)
+        return
+      }
       if (is('toggleEraser')) { toggleTool('eraser'); return }
       if (is('toggleSmudge')) { toggleTool('smudge'); return }
       if (is('toggleCharcoal')) { toggleTool('charcoal'); return }
@@ -4142,15 +4157,28 @@ export function Room() {
       }
       if (is('rotateCCW')) { setVp(v => ({ ...v, angle: v.angle - Math.PI / 12 })); return }
       if (is('rotateCW')) { setVp(v => ({ ...v, angle: v.angle + Math.PI / 12 })); return }
-      for (const [actionId, grade] of Object.entries(gradeActions)) {
-        if (is(actionId)) { setToolSetting('pencil', 'grade', grade); setTool('pencil'); return }
+      // (#440) One notch along the 6H..6B ladder, replacing the five keys that
+      // jumped to five hand-picked grades. `drawingTool` and no `setTool`, for
+      // the same reason the size keys above use it: with the ruler or the
+      // eraser in hand this prepares the pencil you are about to go back to
+      // rather than yanking it out mid-gesture. Silently does nothing for a
+      // tool with no hardness at all (charcoal picks a stick, not a grade —
+      // see toolGradeOptions), which is the honest answer to "harder" there.
+      if (is('gradeHarder') || is('gradeSofter')) {
+        const grades = toolGradeOptions(drawingTool)
+        if (grades) {
+          const direction = is('gradeSofter') ? 1 : -1
+          setToolSetting(drawingTool, 'grade', prev => stepEnumOption(grades, String(prev), direction))
+        }
+        return
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [
-    drawingTool, setTool, toggleTool, transformActive, transformTargetIds.length,
+    drawingTool, toggleTool, transformActive, transformTargetIds.length,
     setToolSetting, setVp, setHandTool, handleUndo, handleRedo, hotkeys,
+    zoomBy, resetZoom,
   ])
 
   // ── Space = hold to pan (#319, ADR 007 §4) ────────────────────────────────
@@ -4445,9 +4473,9 @@ export function Room() {
         {/* ── Left toolbar — tool selection only, fixed height per row ── */}
         <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
 
-          {/* Quick picks: the gradeHotkeyLabels keys jump the pencil grade to
-              H / HB / 2B / 4B / 6B; [ / ] resize whichever tool is active
-              (handled by the quick-settings panel to the right, not here). */}
+          {/* The gradeHotkeyLabels keys step the pencil's hardness along the
+              6H..6B ladder; [ / ] resize whichever tool is active (handled by
+              the quick-settings panel to the right, not here). */}
           <button
             className={clsx(styles.toolIconBtn, tool === 'pencil' && styles.toolIconBtnActive)}
             title={t('tool.pencilTitle', { hotkeys: gradeHotkeyLabels })}

@@ -356,7 +356,7 @@ export const ru: Dictionary = {
 
   // ── инструменты ────────────────────────────────────────────────────────
   'tool.pencil': 'Карандаш',
-  'tool.pencilTitle': 'Карандаш  ({hotkeys} — быстрый выбор твёрдости)',
+  'tool.pencilTitle': 'Карандаш  ({hotkeys} — твёрже / мягче)',
   'tool.eraser': 'Ластик',
   'tool.eraserTitle': 'Ластик  {hotkey}',
   'tool.smudge': 'Растушёвка',
@@ -476,6 +476,7 @@ export const ru: Dictionary = {
   'editorSettings.applyAfterSave': 'Изменения применятся после сохранения.',
   'editorSettings.pressKey': 'Нажмите клавишу…',
   'editorSettings.hotkeyConflict': 'Уже занято действием «{action}»',
+  'editorSettings.hotkeyReserved': '{hotkey} занято браузером — до приложения не дойдёт',
   'editorSettings.resetHotkeys': 'Сбросить горячие клавиши',
 
   'editorSettings.soundSection': 'Звук',
@@ -510,9 +511,9 @@ export const ru: Dictionary = {
   'hotkey.increaseSize': 'Увеличить размер кисти',
   'hotkey.rotateCCW': 'Повернуть вид на −15°',
   'hotkey.rotateCW': 'Повернуть вид на +15°',
-  'hotkey.gradeH': 'Твёрдость карандаша: H (быстрый выбор)',
-  'hotkey.gradeHB': 'Твёрдость карандаша: HB (быстрый выбор)',
-  'hotkey.grade2B': 'Твёрдость карандаша: 2B (быстрый выбор)',
-  'hotkey.grade4B': 'Твёрдость карандаша: 4B (быстрый выбор)',
-  'hotkey.grade6B': 'Твёрдость карандаша: 6B (быстрый выбор)',
+  'hotkey.gradeHarder': 'Карандаш твёрже (в сторону 6H)',
+  'hotkey.gradeSofter': 'Карандаш мягче (в сторону 6B)',
+  'hotkey.zoomIn': 'Приблизить',
+  'hotkey.zoomOut': 'Отдалить',
+  'hotkey.zoomReset': 'Масштаб 100%',
 }

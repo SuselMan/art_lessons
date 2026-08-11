@@ -445,7 +445,7 @@ export const en = {
 
   // ── tools ──────────────────────────────────────────────────────────────
   'tool.pencil': 'Pencil',
-  'tool.pencilTitle': 'Pencil  ({hotkeys} for quick grade picks)',
+  'tool.pencilTitle': 'Pencil  ({hotkeys} for harder / softer grade)',
   'tool.eraser': 'Eraser',
   'tool.eraserTitle': 'Eraser  {hotkey}',
   'tool.smudge': 'Smudge',
@@ -574,6 +574,7 @@ export const en = {
   'editorSettings.applyAfterSave': 'Changes apply after Save.',
   'editorSettings.pressKey': 'Press a key…',
   'editorSettings.hotkeyConflict': 'Already used by "{action}"',
+  'editorSettings.hotkeyReserved': '{hotkey} belongs to the browser — it would never reach the app',
   'editorSettings.resetHotkeys': 'Reset hotkeys to defaults',
 
   'editorSettings.soundSection': 'Sound',
@@ -608,11 +609,11 @@ export const en = {
   'hotkey.increaseSize': 'Increase brush size',
   'hotkey.rotateCCW': 'Rotate view −15°',
   'hotkey.rotateCW': 'Rotate view +15°',
-  'hotkey.gradeH': 'Pencil grade: H (quick pick)',
-  'hotkey.gradeHB': 'Pencil grade: HB (quick pick)',
-  'hotkey.grade2B': 'Pencil grade: 2B (quick pick)',
-  'hotkey.grade4B': 'Pencil grade: 4B (quick pick)',
-  'hotkey.grade6B': 'Pencil grade: 6B (quick pick)',
+  'hotkey.gradeHarder': 'Harder pencil grade (towards 6H)',
+  'hotkey.gradeSofter': 'Softer pencil grade (towards 6B)',
+  'hotkey.zoomIn': 'Zoom in',
+  'hotkey.zoomOut': 'Zoom out',
+  'hotkey.zoomReset': 'Zoom to 100%',
 } satisfies Record<string, Message>
 
 export type TranslationKey = keyof typeof en

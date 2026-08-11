@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest'
 
 import {
   loadToolSettings, saveToolSettings, defaultToolSettings,
-  LINER_SIZE_LABELS, linerSizeToPx, stepLinerSize,
+  LINER_SIZE_LABELS, linerSizeToPx, stepLinerSize, stepEnumOption,
   TOOL_SCHEMAS, COLOR_CAPABLE_TOOLS, isColorCapableTool, getToolColor,
-  MAX_TOOL_SIZE_PX, toolSizeRange, degreesMinutesParse, formatDegreesMinutes,
+  MAX_TOOL_SIZE_PX, toolSizeRange, toolGradeOptions, degreesMinutesParse, formatDegreesMinutes,
   type UiToolId, type SettingValueType,
 } from './toolSchemas'
+import { PENCIL_GRADES } from '../../engine'
 import { TRANSFORM_MODES } from './transformMath'
 import { expScale } from '../../components/PrecisionSlider/sliderScale'
 import { DRAWING_TOOLS, NON_DRAWING_TOOLS } from '../../stores/slices/toolSlice'
@@ -199,6 +200,36 @@ describe('liner size helpers (#243, ADR 003)', () => {
     it('starts from the bottom of the ladder for an unrecognized current value', () => {
       expect(stepLinerSize('nonsense', 1)).toBe(LINER_SIZE_LABELS[1])
     })
+  })
+})
+
+// (#440) The harder/softer grade hotkeys walk this list, having replaced five
+// keys that jumped to five of the fourteen grades.
+describe('toolGradeOptions', () => {
+  it('reports the full hardness ladder for the tools that have one', () => {
+    for (const toolId of ['pencil', 'colorPencil'] as const) {
+      expect(toolGradeOptions(toolId)).toEqual([...PENCIL_GRADES])
+    }
+  })
+
+  it('runs hardest to softest, so -1 is harder', () => {
+    expect(PENCIL_GRADES[0]).toBe('6H')
+    expect(PENCIL_GRADES.at(-1)).toBe('6B')
+  })
+
+  it('returns null where "one notch harder" has nothing to mean', () => {
+    expect(toolGradeOptions('charcoal')).toBeNull() // picks a stick, not a grade
+    expect(toolGradeOptions('liner')).toBeNull()
+    expect(toolGradeOptions('eraser')).toBeNull()
+    expect(toolGradeOptions('ruler')).toBeNull()
+  })
+
+  it('steps the real ladder end to end without wrapping', () => {
+    const grades = toolGradeOptions('pencil')!
+    expect(stepEnumOption(grades, 'HB', -1)).toBe('F')
+    expect(stepEnumOption(grades, 'HB', 1)).toBe('B')
+    expect(stepEnumOption(grades, '6H', -1)).toBe('6H')
+    expect(stepEnumOption(grades, '6B', 1)).toBe('6B')
   })
 })
 

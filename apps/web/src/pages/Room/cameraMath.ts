@@ -84,6 +84,14 @@ export function deviceNativeZoom(): number {
  *  multiplies work (see minZoom). */
 export const ZOOM_MAX = 20
 
+/** (#440) Multiplier per press of the keyboard zoom keys. The wheel and the
+ *  pinch are continuous and read their step off the gesture itself; a keypress
+ *  has no magnitude, so it needs one chosen. 1.25 is what browsers themselves
+ *  step their own zoom ladder by (100 → 125 → 150), which is what these keys
+ *  used to do before we took them over — the same press should not suddenly
+ *  move a noticeably different amount. */
+export const ZOOM_KEY_STEP = 1.25
+
 // (#363) How far an infinite room may zoom out, as a fraction of its own
 // "100%" (deviceNativeZoom, see above) — i.e. what the header readout shows,
 // not a raw `vp.zoom`. Deliberately 10x tighter than a bounded room's limit,

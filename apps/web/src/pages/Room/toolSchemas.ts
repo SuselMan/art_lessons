@@ -265,14 +265,24 @@ export function linerSizeToPx(label: string): number {
   return LINER_SIZE_PX[label] ?? LINER_SIZE_PX[String(LINER_SIZES_MM[0])]
 }
 
+/** Steps one notch along an `enumOptions` ladder, for the hotkeys that walk a
+ *  fixed list rather than a continuous range — the liner's widths and the
+ *  pencil's grades (#440). Clamps at either end rather than wrapping: both
+ *  ladders run soft→hard / thin→thick, and rolling 6B back round to 6H on one
+ *  extra press is a jump, not a step. An unrecognized current value (stale
+ *  storage, a since-renamed option) starts from the first entry rather than
+ *  throwing. */
+export function stepEnumOption(options: readonly string[], current: string, direction: 1 | -1): string {
+  const idx = options.indexOf(current)
+  const nextIdx = Math.min(options.length - 1, Math.max(0, (idx === -1 ? 0 : idx) + direction))
+  return options[nextIdx]
+}
+
 /** Steps the liner's size one notch up/down its fixed ladder (ADR 003) —
  *  used by the '['/']' size hotkeys, which otherwise assume a continuous
- *  numeric 'size' field (see Room/index.tsx's keydown handler). Clamps at
- *  either end rather than wrapping. */
+ *  numeric 'size' field (see Room/index.tsx's keydown handler). */
 export function stepLinerSize(current: string, direction: 1 | -1): string {
-  const idx = LINER_SIZE_LABELS.indexOf(current)
-  const nextIdx = Math.min(LINER_SIZE_LABELS.length - 1, Math.max(0, (idx === -1 ? 0 : idx) + direction))
-  return LINER_SIZE_LABELS[nextIdx]
+  return stepEnumOption(LINER_SIZE_LABELS, current, direction)
 }
 
 const linerSchema = (): ToolSchema => ({
@@ -664,6 +674,21 @@ export type ToolSettingsMap = Record<UiToolId, ToolSettingsValue>
 export function toolSizeRange(toolId: UiToolId): { min: number; max: number } | null {
   const valueType = TOOL_SCHEMAS[toolId].size?.valueType
   return valueType?.kind === 'numberRange' ? { min: valueType.min, max: valueType.max } : null
+}
+
+/** The hardness ladder of a tool that has one — pencil and color pencil, both
+ *  built from `pencilLikeSchema` — or null for every other tool. Read off the
+ *  schema for the same reason `toolSizeRange` is (#440): the grade hotkeys
+ *  step this list, and a hardcoded copy of PENCIL_GRADES here would be a
+ *  second place to update when the ladder or its owners change.
+ *
+ *  Charcoal is deliberately not included even though it also picks a
+ *  material: its field is `type` (vine/willow/compressed), a set of three
+ *  different sticks rather than a run from hard to soft, so "one notch
+ *  harder" has nothing to mean there. */
+export function toolGradeOptions(toolId: UiToolId): readonly string[] | null {
+  const valueType = TOOL_SCHEMAS[toolId].grade?.valueType
+  return valueType?.kind === 'enumOptions' ? valueType.options : null
 }
 
 // ── "has a color" as its own tool capability ────────────────────────────────

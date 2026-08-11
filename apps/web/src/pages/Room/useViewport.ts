@@ -57,6 +57,10 @@ export interface UseViewportResult {
    *  than solely through the `canvasTransform` style string. */
   canvasWrapRef: RefObject<HTMLDivElement | null>
   fitCanvas: () => void
+  /** (#440) Multiply the zoom by `factor`, keeping the middle of the viewport
+   *  still — the keyboard zoom keys' single write path. See its definition for
+   *  why the anchor is the screen centre rather than the canvas's. */
+  zoomBy: (factor: number) => void
   angleDeg: number
   canvasTransform: string
 }
@@ -433,11 +437,32 @@ export function useViewport(
     useRoomStore.getState().setViewport(next)
   }, [])
 
+  // (#440) One keyboard zoom step, anchored at the middle of the viewport.
+  //
+  // Same algebra as the wheel handler above, with a different anchor and for
+  // the same reason: zooming has to leave *something* still, and the wheel has
+  // a cursor to keep under the finger while a keypress does not. The screen
+  // centre is what the person is looking at, so that is what stays put —
+  // whereas changing `zoom` alone (which is what the zoom% readout does, since
+  // a drag there is a readout being scrubbed rather than a view being aimed)
+  // pivots around wherever the canvas centre happens to have been panned to,
+  // and sends the drawing sliding off-screen from a few presses.
+  const zoomBy = useCallback((factor: number) => {
+    const el = vpRef.current
+    if (!el) return
+    const ax = el.clientWidth / 2
+    const ay = el.clientHeight / 2
+    const v = vpState.current
+    const newZoom = clamp(v.zoom * factor, minZoom(infinite), ZOOM_MAX)
+    const s = newZoom / v.zoom
+    setVpTracked({ ...v, cx: ax + (v.cx - ax) * s, cy: ay + (v.cy - ay) * s, zoom: newZoom })
+  }, [infinite, setVpTracked])
+
   // Normalized into 0–359 (#329): the readout is a control now — dragged and
   // clicked — so it has to stay readable whatever `vp.angle` accumulated to,
   // rather than growing into "-412°" after a few two-finger rotations.
   const angleDeg        = ((Math.round(vp.angle * 180 / Math.PI) % 360) + 360) % 360
   const canvasTransform = transformFor(vp, canvas)
 
-  return { vp, setVp: setVpTracked, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, angleDeg, canvasTransform }
+  return { vp, setVp: setVpTracked, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, zoomBy, angleDeg, canvasTransform }
 }
