@@ -68,7 +68,7 @@ const kib = (n: number) => `${Math.round(n / 1024)} KiB`
  *  nginx can serve it `immutable`. gzip's output is a function of the zlib
  *  build as well as the input, so hashing the compressed stream would churn
  *  every filename on a Node upgrade that changed nothing about the grain,
- *  forcing every returning user to re-download 22 MB for no reason. Hashing
+ *  forcing every returning user to re-download 12 MB for no reason. Hashing
  *  the payload also makes the hash the honest answer to "is this the same
  *  paper?", which is the question the cache is really asking.
  *
@@ -94,11 +94,23 @@ function contentHash(payload: Uint8Array): string {
  *
  *  An alias for the reader's benefit, not a second declaration: this is
  *  literally the manifest's entry type, and CLAUDE.md's "avoid redefining
- *  shared types" is pointed at exactly this. Two identical four-field
+ *  shared types" is pointed at exactly this. Two identical
  *  interfaces tied together only by structural assignment at one call site
  *  would let a field added to one and not the other typecheck everywhere that
  *  matters, right up until something read the missing field at runtime. */
 export type PaperAssetNames = PaperAssetEntry
+
+/** The 0..1 height grid as the 8-bit plane that actually ships.
+ *
+ *  Exported because the bake has to verify the rebuilt catch channel against
+ *  the full-precision one, and the *only* height a client will ever see is
+ *  this quantized one — verifying against anything else would measure a
+ *  reconstruction nobody performs. One definition, used by both. */
+export function quantizeHeight(height: Float64Array): Uint8Array {
+  const bytes = new Uint8Array(height.length)
+  for (let i = 0; i < height.length; i++) bytes[i] = Math.round(height[i] * 255)
+  return bytes
+}
 
 /** Writes `<type>.<hash>.paper` + `<type>.<hash>.preview` for one paper, and
  *  returns the names it chose — the caller cannot reconstruct them, which is
@@ -106,26 +118,24 @@ export type PaperAssetNames = PaperAssetEntry
  *  return values (see bakePaperTextures.ts).
  *
  *  The two files get **independent** hashes: the preview is a downsample of
- *  `height` alone and carries no catch channel, so it is a different payload
- *  and a shared hash would be a lie about one of them.
+ *  `height` at a different resolution, so it is a different payload and a
+ *  shared hash would be a lie about one of them.
  *
- *  `height` and `catch` are both 0..1 grids of `res * res`; `height` is the
- *  already-display-curved value (the `.r` channel, blank-paper tint) and
- *  `catchGrid` the already-amplified graphite response (`.a`, stroke) — see
- *  paperNoise.ts's paperCatchValue on why the amplification happens here and
- *  never on the GPU. */
+ *  `height` is the 0..1, already-display-curved grid of `res * res` — the
+ *  `.r` channel, blank-paper tint. (#441) The `.a` channel, the amplified
+ *  graphite response, is *not* written: it is rebuilt from these same bytes on
+ *  load through `catchLut`, which halves the download. paperCatch.ts holds
+ *  both the reconstruction and the argument for it; what stays true here is
+ *  that the amplification never touches a GPU. */
 export function writePaperAsset(
-  outDir: string, type: string, height: Float64Array, catchGrid: Float64Array, res: number,
+  outDir: string, type: string, height: Float64Array, catchLut: number[], res: number,
 ): PaperAssetNames {
-  // Interleaved LUMINANCE_ALPHA: [height0, catch0, height1, catch1, ...] —
-  // matches gl.texImage2D(..., gl.LUMINANCE_ALPHA, ...)'s expected layout
-  // (see paperLoader.ts's uploadPaperTexture) and what texture2D(...).r / .a
-  // read back in DISPLAY_FRAG/PAPER_BLEND_FRAG (height) and DAB_FRAG (catch).
-  const bytes = new Uint8Array(res * res * 2)
-  for (let i = 0; i < res * res; i++) {
-    bytes[i * 2] = Math.round(height[i] * 255)
-    bytes[i * 2 + 1] = Math.round(catchGrid[i] * 255)
-  }
+  // A bare height plane, one byte per texel. paperCatch.ts's buildPaperCatch
+  // interleaves it back into the LUMINANCE_ALPHA layout
+  // gl.texImage2D(..., gl.LUMINANCE_ALPHA, ...) wants (see paperLoader.ts's
+  // uploadPaperTexture) and that texture2D(...).r / .a read back in
+  // DISPLAY_FRAG/PAPER_BLEND_FRAG (height) and DAB_FRAG (catch).
+  const bytes = quantizeHeight(height)
 
   // Extension is deliberately NOT `.gz` (or any other extension a static file
   // server might special-case): some servers (Vite's own dev server included
@@ -156,5 +166,6 @@ export function writePaperAsset(
     textureBytes: compressed.byteLength,
     preview: previewName,
     previewBytes: preview.byteLength,
+    catchLut,
   }
 }

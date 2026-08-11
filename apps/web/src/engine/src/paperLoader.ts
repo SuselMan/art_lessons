@@ -1,18 +1,21 @@
 import type { PaperGrainType, PaperType } from '@grafetto/shared'
 
+import { buildPaperCatch } from './paperCatch'
 import { PAPER_MANIFEST_FILENAME, parsePaperManifest, type PaperManifest } from './paperManifest'
 
 
 // Loads the offline-baked paper-grain textures (see
-// ../../../scripts/bakePaperTextures.ts) as raw interleaved LUMINANCE_ALPHA
-// bytes (R=height, A=precomputed graphite-catch — see
-// ../../../scripts/bakePaperTextures.ts) and uploads them straight into a WebGL texture via
-// texImage2D(TypedArray) — deliberately never through an <img>/
-// createImageBitmap decode step, since that browser-owned image pipeline
-// can apply its own color-space conversion inconsistently across platforms
-// (the suspected, never-fixed cause of #165's cross-device drift). A
-// raw-byte fetch + gunzip has no image codec in the loop at all, so
-// there's nothing left to diverge.
+// ../../../scripts/bakePaperTextures.ts) as a raw 8-bit height plane, rebuilds
+// the graphite-catch channel from it (#441 — see paperCatch.ts) into the
+// interleaved LUMINANCE_ALPHA layout (R=height, A=catch), and uploads that
+// straight into a WebGL texture via texImage2D(TypedArray) — deliberately
+// never through an <img>/createImageBitmap decode step, since that
+// browser-owned image pipeline can apply its own color-space conversion
+// inconsistently across platforms (the suspected, never-fixed cause of #165's
+// cross-device drift). A raw-byte fetch + gunzip has no image codec in the
+// loop at all, so there's nothing left to diverge — and rebuilding the second
+// channel in JS doubles keeps it that way, rather than handing the
+// amplification to a shader.
 
 // (#322) Filenames are content-hashed, so they cannot be built from the type
 // alone any more — the manifest written by the bake is what maps one to the
@@ -96,7 +99,7 @@ function invalidatePaperManifest(): void {
 // Distinguished from every other fetch failure because it is the one with a
 // known cure: a name the manifest gave us that the server does not have can
 // only mean the manifest is stale, and re-reading it fixes that. A connection
-// blip, by contrast, must not spend a second request on the same 7.4 MB.
+// blip, by contrast, must not spend a second request on the same 4 MB.
 class PaperAssetGoneError extends Error {}
 
 interface FetchOptions {
@@ -115,10 +118,14 @@ async function fetchBytesFromUrl(url: string, opts: FetchOptions = {}): Promise<
   // The counter goes *before* the decompressor, not after. Content-Length —
   // and the manifest's recorded `*Bytes` — describe the gzip stream on the
   // wire, which is what a download is actually spending time on; counting the
-  // inflated side would report 8 MB against a 7.4 MB total and race ahead of
-  // the network. This is only measurable at all because #342 stopped nginx
-  // re-compressing these: a response compressed on the fly is chunked and
-  // carries no length to count against.
+  // inflated side would report 4.19 MB against a 3.99 MB total and race ahead
+  // of the network. Only 5% now that the payload is a bare height plane
+  // (#441), where it used to be 8 MB against 7.4 MB — but a progress bar that
+  // reaches its own total early and then waits is the same wrong bar at any
+  // margin, and the gzip figure is the one with a Content-Length behind it.
+  // This is only measurable at all because #342 stopped nginx re-compressing
+  // these: a response compressed on the fly is chunked and carries no length
+  // to count against.
   //
   // Both sides pinned to `Uint8Array<ArrayBuffer>` — the element type
   // `res.body` actually carries. Leaving the generics off makes the counter's
@@ -159,7 +166,7 @@ const progressListeners = new Set<(p: PaperLoadProgress) => void>()
 /** Subscribe to texture-download progress; returns an unsubscribe.
  *
  *  Previews are deliberately not reported. They are ~60 KB against the
- *  texture's 7.4 MB, so a bar for them would flash to 100% and mean nothing,
+ *  texture's 4 MB, so a bar for them would flash to 100% and mean nothing,
  *  and the picker fetches several of them at once — which would make a single
  *  global "loaded/total" a lie about all of them. */
 export function subscribePaperLoadProgress(cb: (p: PaperLoadProgress) => void): () => void {
@@ -176,7 +183,7 @@ function emitProgress(p: PaperLoadProgress): void {
  *  deploy landing under an open tab — see invalidatePaperManifest). Retries
  *  exactly once: if the freshly-fetched manifest still names something absent,
  *  the server is genuinely inconsistent and looping would only turn that into
- *  a request storm against a 7.4 MB asset. */
+ *  a request storm against a 4 MB asset. */
 async function fetchPaperAsset(
   type: PaperGrainType, kind: 'texture' | 'preview', signal?: AbortSignal,
 ): Promise<Uint8Array> {
@@ -237,7 +244,7 @@ function cacheEvictingRejection<K>(
 type PaperBytesLoader = (type: PaperType, signal?: AbortSignal) => Promise<Uint8Array>
 
 // (#300) `flat` has no asset and never will — a texture with no grain is
-// two constant bytes, so it's synthesised here rather than costing a ~7 MB
+// two constant bytes, so it's synthesised here rather than costing a ~4 MB
 // download. Height 255 is the paper's own colour untouched (see
 // DISPLAY_FRAG's paperTone) and catch 128 is the neutral mid the dab shader
 // reads when there's no tooth to bias deposit either way. Sized 2x2 rather
@@ -250,9 +257,17 @@ async function fetchPaperBytes(type: PaperType, signal?: AbortSignal): Promise<U
   // Before the manifest, not after: `flat` has no asset, so a manifest
   // failure must not be able to break a room that was never going to fetch
   // anything. It also keeps the flat path synchronous-in-spirit — one
-  // already-resolved promise, no network at all.
+  // already-resolved promise, no network at all. (Its two constant bytes are
+  // already interleaved, so it skips the rebuild below as well — there is no
+  // grain to take a slope of.)
   if (type === 'flat') return FLAT_PAPER_BYTES
-  return fetchPaperAsset(type, 'texture', signal)
+  const height = await fetchPaperAsset(type, 'texture', signal)
+  // (#441) Read *after* the fetch, deliberately. fetchPaperAsset re-reads the
+  // manifest when a deploy has landed under an open tab, so asking for it
+  // first could pair a freshly-downloaded height plane with the table from
+  // the manifest that named the file which had already 404'd.
+  const { catchLut } = (await getPaperManifest()).assets[type]
+  return buildPaperCatch(height, catchLut)
 }
 
 /** Decoded preview bytes — one byte per pixel, PAPER_PREVIEW_RESOLUTION
@@ -295,8 +310,8 @@ const byteCache = new Map<PaperType, Promise<Uint8Array>>()
 //
 // byteCache already makes a correct guess free — a room asking for the type
 // being prefetched just awaits the same promise. A wrong guess is the
-// dangerous case: without cancellation the room's real 7.4 MB download would
-// share the connection with 7.4 MB nobody asked for, and the room would open
+// dangerous case: without cancellation the room's real 4 MB download would
+// share the connection with 4 MB nobody asked for, and the room would open
 // *slower* than with no prefetch at all.
 let speculative: { type: PaperGrainType; abort: AbortController } | null = null
 
@@ -394,7 +409,7 @@ export function uploadPaperTexture(gl: WebGLRenderingContext, bytes: Uint8Array)
   gl.bindTexture(gl.TEXTURE_2D, tex)
   gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
   // (#300) Derived from the payload rather than assumed to be
-  // PAPER_BAKE_RESOLUTION: `flat` ships a 2x2 constant instead of a ~7 MB
+  // PAPER_BAKE_RESOLUTION: `flat` ships a 2x2 constant instead of a ~4 MB
   // baked tile (see FLAT_PAPER_BYTES), and passing the wrong dimensions for
   // the byte count is a GL error, not a stretch.
   const res = Math.sqrt(bytes.length / 2)

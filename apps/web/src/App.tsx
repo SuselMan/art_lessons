@@ -29,7 +29,7 @@ function RouteFallback() {
 /** (#345) Starts pulling the paper texture the moment the app boots, rather
  *  than when a room finally asks for it.
  *
- *  It is ~7.4 MB and it blocks the room's loading screen (Room awaits
+ *  It is ~4 MB and it blocks the room's loading screen (Room awaits
  *  engine.paperReady() before it even fetches the snapshot), so on the common
  *  path — land on the lesson list, read it, pick a room — the download can be
  *  finished or nearly finished before the room is opened at all. The bytes are

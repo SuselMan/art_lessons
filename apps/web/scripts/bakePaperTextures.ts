@@ -1,9 +1,16 @@
 // Offline bake of every shipped paper. Each one is a window onto a
 // photographed sheet (../../../assets/paper-sources/, see its README),
-// resampled to one 2048² tile and written as a gzip-compressed
-// LUMINANCE_ALPHA byte grid to public/paper/ — R = height, for the
-// blank-paper tint; A = the already-amplified graphite-catch response, for
-// the stroke itself.
+// resampled to one 2048² tile and written as a gzip-compressed 8-bit height
+// plane to public/paper/ — the blank-paper tint, and the `.r` the shaders
+// read.
+//
+// (#441) The second channel, the amplified graphite-catch response the dab
+// shader reads as `.a`, is deliberately *not* written. It is a two-tap finite
+// difference of what the height plane already carries, so it is rebuilt on
+// load from a small per-paper table this bake emits into the manifest — see
+// paperCatch.ts, which owns that format and the measurements behind it. That
+// halves what a client downloads, from ~7.4 MB to ~4 MB, without touching the
+// resolution or introducing an image codec.
 //
 // Two properties this pipeline exists to hold:
 //
@@ -16,7 +23,9 @@
 //    close values by ~30x, and running that through a fragment shader's
 //    "highp" (a request, not a guarantee — many mobile GPUs quietly fall back
 //    to mediump) made the same stroke land differently on a desktop and a
-//    tablet. Computed here in plain JS doubles, DAB_FRAG just reads it back.
+//    tablet. It is still plain JS doubles either side of the wire — here when
+//    verifying, on the client when rebuilding — and DAB_FRAG still just reads
+//    it back.
 //
 // (#333) The grain used to be procedural — a seamless-noise fBm, nine types
 // across a coarseness × character grid. It was provably identical everywhere
@@ -36,12 +45,13 @@ import sharp from 'sharp'
 
 import { PAPER_GRAIN_TYPES, type PaperGrainType } from '@grafetto/shared'
 
+import { buildPaperCatch, buildPaperCatchLut } from '../src/engine/src/paperCatch.js'
 import { PAPER_BAKE_RESOLUTION } from '../src/engine/src/paperConstants.js'
 import {
   PAPER_MANIFEST_FILENAME, PAPER_MANIFEST_VERSION, parsePaperManifest,
   type PaperAssetEntry, type PaperManifest,
 } from '../src/engine/src/paperManifest.js'
-import { writePaperAsset } from './paperAssetIO.js'
+import { quantizeHeight, writePaperAsset } from './paperAssetIO.js'
 
 const RES = PAPER_BAKE_RESOLUTION
 const here = dirname(fileURLToPath(import.meta.url))
@@ -240,6 +250,24 @@ function catchAt(field: Float64Array, x: number, y: number, gain: number): numbe
   return clamp01(Math.max(0, dot * 3.0 + 0.5))
 }
 
+/** (#441) How far the rebuilt catch channel may sit from the full-precision
+ *  one it replaces, in 8-bit levels RMS, before the bake refuses to ship.
+ *
+ *  The three papers measure 1.30 (fine), 1.70 (medium) and 2.40 (coarse) —
+ *  coarse worst because its `catchGain` is the largest, so it amplifies the
+ *  height plane's own 8-bit quantization hardest. 4.0 leaves room for a
+ *  re-tune without becoming a rubber stamp: it is still well inside the
+ *  1/255 -> 1% deposit range where the difference is invisible, and it is
+ *  under half the gap to the point where the approximation would start
+ *  showing as flattened tooth.
+ *
+ *  This is an assert rather than a log because the failure it guards is
+ *  silent by nature. A source sheet or a gamma solve that made height a worse
+ *  predictor would not produce a broken texture — it would produce a subtly
+ *  *different* paper, shipped, with nothing anywhere to say the reconstruction
+ *  had stopped being faithful. */
+const MAX_CATCH_RMSE = 4.0
+
 mkdirSync(outDir, { recursive: true })
 
 const manifestPath = join(outDir, PAPER_MANIFEST_FILENAME)
@@ -341,11 +369,35 @@ for (const type of PAPER_GRAIN_TYPES) {
   }
 
   console.log(`${type}: window ${window} (${(RES / window).toFixed(2)}x resample), display gamma ${gamma.toFixed(3)}`)
-  assets[type] = writePaperAsset(outDir, type, height, catchGrid, RES)
+
+  // (#441) The catch channel is no longer written; it is rebuilt on load from
+  // the height plane and this table. Everything above still computes the
+  // full-precision `catchGrid` — not wastefully, but because it is the only
+  // thing the reconstruction can be checked against, and an unchecked
+  // approximation here would degrade every stroke in the app silently.
+  const catchLut = buildPaperCatchLut(gamma, catchGain)
+  const rebuilt = buildPaperCatch(quantizeHeight(height), catchLut)
+  let sse = 0, worst = 0
+  for (let i = 0; i < RES * RES; i++) {
+    const diff = Math.round(catchGrid[i] * 255) - rebuilt[i * 2 + 1]
+    sse += diff * diff
+    if (Math.abs(diff) > worst) worst = Math.abs(diff)
+  }
+  const rmse = Math.sqrt(sse / (RES * RES))
+  console.log(`${type}: catch rebuilt from height — RMSE ${rmse.toFixed(2)}/255, worst texel off by ${worst}`)
+  if (rmse > MAX_CATCH_RMSE) {
+    throw new Error(
+      `${type}: rebuilding the catch channel from the height plane is off by ${rmse.toFixed(2)}/255 RMS, over the ${MAX_CATCH_RMSE} ceiling. `
+      + 'The height plane has stopped being a good enough predictor of the paper\'s tooth — see paperCatch.ts. '
+      + 'Either the source sheet or the display-gamma solve changed; do not raise the ceiling without looking at a canvas.',
+    )
+  }
+
+  assets[type] = writePaperAsset(outDir, type, height, catchLut, RES)
 }
 
 // (#322) Hashed names never overwrite their predecessor, so without this the
-// directory grows by ~22 MB on every re-tune — and since Vite copies
+// directory grows by ~12 MB on every re-tune — and since Vite copies
 // `public/` into `dist/` verbatim, a local `npm run build` would ship every
 // bake ever made from this working tree. Pruning by extension and by
 // not-in-the-fresh-set rather than emptying the directory: something else may
@@ -378,7 +430,15 @@ for (const name of readdirSync(outDir)) {
 // truncated-but-valid JSON at worst — rename() is the one filesystem
 // operation that has no such intermediate state.
 const manifest: PaperManifest = { version: PAPER_MANIFEST_VERSION, assets }
-writeFileSync(tmpPath, `${JSON.stringify(manifest, null, 2)}\n`)
+// (#441) The catch tables are collapsed onto one line each. Pretty-printed
+// they are 256 numbers on 256 lines apiece, which turns a document someone
+// might actually read into 770 lines of digits and triples the size of the
+// one fetch that gates every other paper request. The character class cannot
+// match a quote or a brace, so it has no way to run past the array it is in.
+const json = JSON.stringify(manifest, null, 2)
+  .replace(/("catchLut": \[)([\s\d,-]*?)(\])/g, (_, open: string, body: string, close: string) =>
+    open + body.trim().split(/\s*,\s*/).join(',') + close)
+writeFileSync(tmpPath, `${json}\n`)
 renameSync(tmpPath, manifestPath)
 
 console.log(`\n${PAPER_GRAIN_TYPES.length} papers baked into ${outDir}, indexed by ${PAPER_MANIFEST_FILENAME}`)

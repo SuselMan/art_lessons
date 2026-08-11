@@ -1,10 +1,12 @@
 import { PAPER_GRAIN_TYPES, type PaperGrainType } from '@grafetto/shared'
 
+import { PAPER_CATCH_LUT_SIZE } from './paperCatch'
+
 // (#322) The name index for the baked paper assets.
 //
 // The bake's filenames are content-hashed (`coarse.3f2a91c7.paper`) so that
 // nginx can serve them `immutable` — a URL that can never change meaning is
-// the only kind that is safe to cache for a year, and the ~7.4 MB texture is
+// the only kind that is safe to cache for a year, and the ~4 MB texture is
 // the single biggest thing a returning user was re-downloading daily. But a
 // hashed name is by definition not derivable at runtime, so something has to
 // map PaperGrainType -> filename. This file defines that something.
@@ -13,7 +15,7 @@ import { PAPER_GRAIN_TYPES, type PaperGrainType } from '@grafetto/shared'
 // bundled — the alternative that would have cost one fewer round trip:
 //
 //  - `apps/web/public/paper/` is gitignored (the bake is a prebuild step; its
-//    22 MB of output is deliberately not in git history — see .gitignore).
+//    12 MB of output is deliberately not in git history — see .gitignore).
 //    A committed TS module would therefore be a *claim* about a bake nobody
 //    can verify from the repo, and the bake is only reproducible for a fixed
 //    sharp/libvips build. Any drift means a 404, and a 404 here means no
@@ -35,7 +37,13 @@ export const PAPER_MANIFEST_FILENAME = 'manifest.json'
  *  any other version is rejected outright rather than read optimistically:
  *  the failure mode of guessing wrong is a blank-paper canvas that looks like
  *  a rendering bug, days away from the deploy that caused it. */
-export const PAPER_MANIFEST_VERSION = 1
+//
+// (#441) 2: `.paper` is a bare height plane rather than an interleaved
+// LUMINANCE_ALPHA grid, and `catchLut` appeared to rebuild the missing
+// channel. Bumping is load-bearing here rather than tidy — a v1 payload read
+// as v2 is half the expected resolution and every texel's tooth is garbage,
+// which renders as paper that looks *plausible* and draws wrong.
+export const PAPER_MANIFEST_VERSION = 2
 
 /** One paper's two files. `*Bytes` are the on-the-wire (gzip stream) sizes,
  *  not the decompressed payload — see paperAssetIO.ts's PaperAssetNames. */
@@ -44,6 +52,17 @@ export interface PaperAssetEntry {
   textureBytes: number
   preview: string
   previewBytes: number
+  /** (#441) The 256-entry fixed-point table that turns this paper's height
+   *  bytes back into its graphite-catch channel — see paperCatch.ts, which
+   *  owns both the format and the reason the channel is not shipped.
+   *
+   *  In the manifest rather than in the `.paper` payload on purpose. The table
+   *  is a function of the paper's display gamma and `catchGain` only, so
+   *  re-tuning the gain leaves the height plane — and therefore its content
+   *  hash and its `immutable` URL — untouched, and a client picks the new
+   *  tooth up from the one document that is always re-read. Folded into the
+   *  payload it would instead invalidate 3.8 MB per client to change 2 KB. */
+  catchLut: number[]
 }
 
 export interface PaperManifest {
@@ -68,12 +87,23 @@ export interface PaperManifest {
  *  time, with a message, rather than as a 404 three calls later. */
 const ASSET_NAME = /^[a-z]+\.[0-9a-f]{8}\.(paper|preview)$/
 
+/** (#441) Checked element by element rather than by length alone, because
+ *  every one of these is read 4.2M times into arithmetic that has no way to
+ *  notice a bad value: a `null` would turn a texel's tooth into NaN, which
+ *  fails every comparison in buildPaperCatch and writes 0 — a silently
+ *  toothless paper rather than an error. */
+function isCatchLut(v: unknown): v is number[] {
+  if (!Array.isArray(v) || v.length !== PAPER_CATCH_LUT_SIZE) return false
+  return v.every(n => typeof n === 'number' && Number.isFinite(n))
+}
+
 function isEntry(v: unknown): v is PaperAssetEntry {
   if (typeof v !== 'object' || v === null) return false
   const e = v as Record<string, unknown>
   return typeof e.texture === 'string' && ASSET_NAME.test(e.texture)
     && typeof e.preview === 'string' && ASSET_NAME.test(e.preview)
     && typeof e.textureBytes === 'number' && typeof e.previewBytes === 'number'
+    && isCatchLut(e.catchLut)
 }
 
 /** Validates parsed JSON into a PaperManifest, or throws saying exactly what

@@ -120,7 +120,7 @@ function initialColorPickerMode(): ColorPickerMode {
 }
 
 /** (#345) The paper the last room this browser opened was drawn on — read at
- *  launch to decide which ~7.4 MB texture to start downloading before anyone
+ *  launch to decide which ~4 MB texture to start downloading before anyone
  *  has opened anything (see prefetchPaper).
  *
  *  A preference in the weak sense: nobody sets it and nobody sees it. It lives

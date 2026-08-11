@@ -29,6 +29,7 @@ import { describe, expect, it } from 'vitest'
 
 import { PAPER_GRAIN_TYPES } from '@grafetto/shared'
 
+import { buildPaperCatch } from './paperCatch'
 import { PAPER_BAKE_RESOLUTION } from './paperConstants'
 import { PAPER_MANIFEST_FILENAME, parsePaperManifest, type PaperManifest } from './paperManifest'
 
@@ -81,10 +82,37 @@ describe.skipIf(!baked)('baked paper assets', () => {
     // it — hence the guard, same reason it was here before hashing.
     const bytes = baked ? gunzipSync(readFileSync(join(paperDir, manifest!.assets[type].texture))) : new Uint8Array()
 
-    it(`${type}: is an interleaved LUMINANCE_ALPHA grid of exactly PAPER_BAKE_RESOLUTION²`, () => {
-      // uploadPaperTexture derives the texture's dimensions from this length;
-      // a wrong count is a GL error at runtime, not a stretched image.
-      expect(bytes.length).toBe(RES * RES * 2)
+    it(`${type}: is a bare height plane of exactly PAPER_BAKE_RESOLUTION²`, () => {
+      // (#441) One byte per texel, not two — the catch channel is rebuilt on
+      // load rather than shipped (see paperCatch.ts). buildPaperCatch and
+      // uploadPaperTexture both derive the texture's dimensions from a length,
+      // so a wrong count is a GL error at runtime, not a stretched image.
+      expect(bytes.length).toBe(RES * RES)
+    })
+
+    it(`${type}: rebuilds into a catch channel with real tooth`, () => {
+      // (#441) The one thing that can go wrong quietly. A catchLut of zeros —
+      // or of anything too flat — still parses, still interleaves, still
+      // uploads, and still renders paper that *looks* right, because the tint
+      // comes from the height channel. What it loses is the graphite response,
+      // i.e. every stroke in the app goes evenly grey. Nothing else in the
+      // suite would notice.
+      //
+      // The three shipped papers measure 97.9 to 101.8 levels of standard
+      // deviation. 40 is far below any of them and far above what a degenerate
+      // table could produce, so this catches the failure without becoming a
+      // tuning tripwire.
+      const interleaved = buildPaperCatch(bytes, manifest!.assets[type].catchLut)
+      expect(interleaved.length).toBe(RES * RES * 2)
+
+      let sum = 0, sumSq = 0
+      for (let i = 0; i < RES * RES; i++) {
+        const c = interleaved[i * 2 + 1]
+        sum += c
+        sumSq += c * c
+      }
+      const mean = sum / (RES * RES)
+      expect(Math.sqrt(sumSq / (RES * RES) - mean * mean)).toBeGreaterThan(40)
     })
 
     it(`${type}: is named after its own content`, () => {
@@ -110,7 +138,7 @@ describe.skipIf(!baked)('baked paper assets', () => {
       const rows = new Float64Array(RES)
       for (let y = 0; y < RES; y++) {
         for (let x = 0; x < RES; x++) {
-          const h = bytes[(y * RES + x) * 2]
+          const h = bytes[y * RES + x]
           cols[x] += h / RES
           rows[y] += h / RES
         }

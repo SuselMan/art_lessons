@@ -34,7 +34,7 @@ const MIB = 1024 * 1024
  *
  *  (#345) `paper` turns the one honestly-measurable part of the wait into a
  *  real bar. Room loading has two phases and only the first has a denominator:
- *  the paper texture is a single ~7.4 MB file whose exact size is known from
+ *  the paper texture is a single ~4 MB file whose exact size is known from
  *  the manifest before the request goes out, while the snapshot + operation-log
  *  replay that follows has no size known up front and no meaningful unit to
  *  count. Rather than invent a fake unified percentage, this shows the real

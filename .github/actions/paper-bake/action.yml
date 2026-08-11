@@ -45,7 +45,13 @@ runs:
       uses: actions/cache@v4
       with:
         path: apps/web/public/paper
-        key: paper-${{ hashFiles('apps/web/scripts/bakePaperTextures.ts', 'apps/web/scripts/paperAssetIO.ts', 'apps/web/src/engine/src/paperConstants.ts', 'apps/web/src/engine/src/paperManifest.ts', 'assets/paper-sources/**', 'packages/shared/src/index.ts', 'package-lock.json') }}
+        # (#441) paperCatch.ts is in the key for a reason the others are not:
+        # it decides the manifest's `catchLut`, which is a function of gamma
+        # and gain only. Change the table's construction and the *height
+        # planes* come out byte-identical — so without this the cache hits,
+        # the old manifest is restored with it, and every client rebuilds the
+        # paper's tooth from the table this bake was meant to replace.
+        key: paper-${{ hashFiles('apps/web/scripts/bakePaperTextures.ts', 'apps/web/scripts/paperAssetIO.ts', 'apps/web/src/engine/src/paperCatch.ts', 'apps/web/src/engine/src/paperConstants.ts', 'apps/web/src/engine/src/paperManifest.ts', 'assets/paper-sources/**', 'packages/shared/src/index.ts', 'package-lock.json') }}
 
     # No-op on a cache hit (bakeIsComplete verifies the manifest parses, names
     # every grain type, and that every file it names is present at the recorded

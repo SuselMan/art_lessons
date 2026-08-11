@@ -112,7 +112,7 @@ sudo mkdir -p /var/www/art-lessons
 # served and still naming it. And within a directory rsync works in sorted
 # order, so `manifest.json` is written before `medium.*` ('ma' < 'me'): the new
 # manifest names files that do not exist yet. Either window is a 404 on a
-# 7.4 MB asset, which the client cannot distinguish from "this room has no
+# 4 MB asset, which the client cannot distinguish from "this room has no
 # paper". Before hashing, every name was fixed and rsync replaced each file
 # atomically, so a client always got *a* valid texture — old or new, never
 # nothing.
@@ -120,7 +120,7 @@ sudo mkdir -p /var/www/art-lessons
 # --delay-updates stages the whole update and renames it into place at the end;
 # --delete-after holds the removals until after that. The two together shrink
 # the disagreement window to the final rename pass instead of the length of a
-# ~22 MB copy on a 1-vCPU box.
+# ~12 MB copy on a 1-vCPU box.
 sudo rsync -a --delete-after --delay-updates ~/web-dist-incoming/ /var/www/art-lessons/dist/
 
 echo "==> Pulling pre-built server image and starting containers"

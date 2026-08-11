@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { buildPaperCatchLut } from './paperCatch'
 import {
   __resetPaperLoaderForTesting, getPaperBytes, prefetchPaper,
   subscribePaperLoadProgress, type PaperLoadProgress,
@@ -10,12 +11,18 @@ import {
 // here — the byte counter, the abort, the manifest re-read — lives between
 // getPaperBytes and the network and is skipped entirely by that seam.
 
+// (#441) A real table rather than filler: parsePaperManifest rejects anything
+// that isn't 256 finite numbers, and buildPaperCatch reads every entry, so a
+// stub would fail these tests for reasons that have nothing to do with what
+// they check. The gamma/gain are `medium`'s.
+const CATCH_LUT = buildPaperCatchLut(0.955, 1.5)
+
 const MANIFEST = {
-  version: 1,
+  version: 2,
   assets: {
-    coarse: { texture: 'coarse.aaaaaaaa.paper', textureBytes: 0, preview: 'coarse.bbbbbbbb.preview', previewBytes: 0 },
-    medium: { texture: 'medium.cccccccc.paper', textureBytes: 0, preview: 'medium.dddddddd.preview', previewBytes: 0 },
-    fine:   { texture: 'fine.eeeeeeee.paper',   textureBytes: 0, preview: 'fine.ffffffff.preview',   previewBytes: 0 },
+    coarse: { texture: 'coarse.aaaaaaaa.paper', textureBytes: 0, preview: 'coarse.bbbbbbbb.preview', previewBytes: 0, catchLut: CATCH_LUT },
+    medium: { texture: 'medium.cccccccc.paper', textureBytes: 0, preview: 'medium.dddddddd.preview', previewBytes: 0, catchLut: CATCH_LUT },
+    fine:   { texture: 'fine.eeeeeeee.paper',   textureBytes: 0, preview: 'fine.ffffffff.preview',   previewBytes: 0, catchLut: CATCH_LUT },
   },
 }
 
@@ -24,11 +31,17 @@ async function gzip(bytes: Uint8Array<ArrayBuffer>): Promise<Uint8Array<ArrayBuf
   return new Uint8Array(await new Response(stream).arrayBuffer())
 }
 
-/** A texture payload of `n` interleaved LUMINANCE_ALPHA pairs, gzipped, with a
- *  manifest whose recorded byte count matches the compressed stream — the
- *  number a progress bar counts against. */
-async function bakeFixture(n = 512): Promise<{ manifest: typeof MANIFEST; gzipped: Uint8Array<ArrayBuffer> }> {
-  const raw = Uint8Array.from({ length: n * 2 }, (_, i) => i % 251)
+/** (#441) A texture payload of `res`² height bytes, gzipped, with a manifest
+ *  whose recorded byte count matches the compressed stream — the number a
+ *  progress bar counts against.
+ *
+ *  Square because buildPaperCatch derives the grid's resolution from the
+ *  payload's length, exactly as uploadPaperTexture does, and rejects anything
+ *  that isn't a square. */
+const FIXTURE_RES = 32
+
+async function bakeFixture(res = FIXTURE_RES): Promise<{ manifest: typeof MANIFEST; gzipped: Uint8Array<ArrayBuffer> }> {
+  const raw = Uint8Array.from({ length: res * res }, (_, i) => i % 251)
   const gzipped: Uint8Array<ArrayBuffer> = await gzip(raw)
   const manifest = structuredClone(MANIFEST)
   manifest.assets.coarse.textureBytes = gzipped.byteLength
@@ -113,7 +126,8 @@ describe('background prefetch', () => {
     prefetchPaper('coarse')
     const bytes = await getPaperBytes('coarse')
 
-    expect(bytes.byteLength).toBe(1024)
+    // Twice the downloaded plane: the catch channel is rebuilt, not fetched.
+    expect(bytes.byteLength).toBe(FIXTURE_RES * FIXTURE_RES * 2)
     // One manifest + exactly one texture: the room awaited the promise the
     // prefetch had already started instead of opening a second connection.
     expect(fetchMock.mock.calls.filter(c => String(c[0]).endsWith('.paper'))).toHaveLength(1)
@@ -126,7 +140,7 @@ describe('background prefetch', () => {
       const href = String(url)
       if (!href.endsWith('.paper')) return jsonResponse(manifest)
       signals.set(href, init?.signal ?? undefined)
-      // Never settles unless aborted — stands in for a 7.4 MB download still
+      // Never settles unless aborted — stands in for a 4 MB download still
       // in flight when the room disagrees about which paper it wanted.
       if (href.includes('coarse')) {
         return new Promise<Partial<Response>>((_, reject) => {

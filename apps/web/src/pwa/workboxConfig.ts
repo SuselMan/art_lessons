@@ -5,7 +5,7 @@
 // guards against is silent. Widening `globPatterns` to `**/*` — the default
 // most PWA setups ship with — would pull the paper bake into the precache,
 // and everything would still work perfectly on a developer's wifi. The bill
-// arrives as 22 MB on a first visit over mobile data, and on iOS as a storage
+// arrives as 12 MB on a first visit over mobile data, and on iOS as a storage
 // quota rejection that takes the whole precache down with it. The CI test job
 // runs before the build job and never sees `dist/`, so a check against the
 // generated sw.js would have skipped in exactly the place it was needed.
@@ -20,13 +20,13 @@ export const PAPER_MANIFEST_CACHE = 'paper-manifest'
 
 /** How many baked textures the runtime cache keeps. A room uses exactly one
  *  (its own PaperType), and three is how many exist — so the ceiling is
- *  "every paper the user has actually opened", ~7.4 MB in the common case
- *  and ~22 MB only for someone who has opened all three. */
+ *  "every paper the user has actually opened", ~4 MB in the common case
+ *  and ~12 MB only for someone who has opened all three. */
 export const PAPER_TEXTURE_MAX_ENTRIES = 3
 
 export const workboxConfig: WorkboxConfig = {
   // Enumerated, not inherited. `.paper` is deliberately absent from these
-  // extensions: those are the 7.4 MB textures, handled at runtime below.
+  // extensions: those are the 4 MB textures, handled at runtime below.
   //
   // `webmanifest` is here on purpose — an installed app launched offline still
   // has its manifest fetched, and a miss there is what makes the launcher fall

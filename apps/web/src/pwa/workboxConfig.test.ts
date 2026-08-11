@@ -3,7 +3,7 @@
 //
 // Every assertion here exists because the failure it describes is invisible
 // locally: the build succeeds, the app works, the service worker registers,
-// and the damage only shows up as a 22 MB first visit on someone else's
+// and the damage only shows up as a 12 MB first visit on someone else's
 // mobile data — or, on iOS, as a quota rejection that fails the whole
 // precache install and leaves the app with no offline support at all.
 //
@@ -62,7 +62,7 @@ describe('service worker precache', () => {
   })
 
   it('never takes a baked paper texture', () => {
-    // ~7.4 MB each, three of them. This is the whole reason the precache is
+    // ~4 MB each, three of them. This is the whole reason the precache is
     // enumerated instead of inherited.
     const texture = 'paper/coarse.d93ef331.paper'
     expect(anyPatternTakes(texture) && !anyIgnoreDrops(texture)).toBe(false)

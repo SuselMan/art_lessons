@@ -151,7 +151,7 @@ export function CreateRoom() {
   const [roomName,    setRoomName]    = useState('')
   // (#426) `fine` rather than `coarse`. Keep this in step with
   // DEFAULT_LAST_PAPER in stores/settingsStore.ts — that constant exists only
-  // to guess, before anything is open, which ~7.4 MB texture to start
+  // to guess, before anything is open, which ~4 MB texture to start
   // downloading, and it guesses by assuming it knows this value.
   const [paper,       setPaper]       = useState<PaperType>('fine')
   // null = "follow the selected texture's own default" (DEFAULT_PAPER_COLORS

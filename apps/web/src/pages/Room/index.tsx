@@ -1551,7 +1551,7 @@ export function Room() {
   }, [drainDeferredQueue])
 
   // (#345) Remember this room's paper so the *next* launch can start
-  // downloading the right ~7.4 MB texture before anything is opened (see
+  // downloading the right ~4 MB texture before anything is opened (see
   // App's usePaperPrefetch). Recorded on every room, not just the first: the
   // useful guess is the paper the person actually works on, and a teacher who
   // always uses one grain should never pay for the texture twice.
@@ -3604,7 +3604,7 @@ export function Room() {
           // freshly created room dismissed its own preloader mid-download —
           // visibly, since #345 put a real progress bar on it — and opened
           // onto a canvas with no paper on it that quietly ignored the
-          // pencil until the remaining ~7 MB landed.
+          // pencil until the remaining ~4 MB landed.
           if (!(await awaitPaper(engineRef.current))) return
           setRoomContentReady(true)
           return
