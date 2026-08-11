@@ -48,6 +48,13 @@
 import { readFileSync } from 'node:fs'
 
 import { io, type Socket } from 'socket.io-client'
+import { packDabs, strokeDabs, type StrokeOperation } from '@grafetto/shared'
+
+// (#429) Same pacing constant the engine emits on — see
+// LIVE_STROKE_EMIT_INTERVAL_MS in apps/web/src/engine/index.ts. Duplicated
+// rather than imported because it is an engine tuning value, not a contract;
+// if the two drift, this run measures a channel nobody ships.
+const LIVE_EMIT_INTERVAL_MS = 60
 
 type Options = {
   rooms: number
@@ -55,6 +62,7 @@ type Options = {
   seconds: number
   origin: string
   samplesPath: string
+  live: boolean
 }
 
 function parseArgs(argv: string[]): Options {
@@ -75,7 +83,41 @@ function parseArgs(argv: string[]): Options {
     seconds: num('seconds', 60),
     origin: str('origin', 'http://localhost:4102'),
     samplesPath: str('samples', ''),
+    live: str('live', '1') !== '0',
   }
+}
+
+/** (#429) Splits one stroke's dabs into the packets its author would have
+ *  streamed while drawing it, using the dabs' own recorded `t` — so the packet
+ *  count and sizes come from how the stroke was actually drawn rather than from
+ *  a guess. Mirrors the engine's LIVE_STROKE_EMIT_INTERVAL_MS pacing.
+ *
+ *  Precomputed once per sample at startup, never per stroke: this is the load
+ *  generator's own work, and doing it inside the drawing loop would put the
+ *  generator's CPU into the measurement it is trying to take. */
+function liveWirePackets(op: Record<string, unknown>, intervalMs: number): Array<{ atMs: number; payload: Record<string, unknown> }> {
+  const dabs = strokeDabs(op as unknown as StrokeOperation)
+  if (!dabs.length) return []
+  const out: Array<{ atMs: number; payload: Record<string, unknown> }> = []
+  let bucketStart = dabs[0]!.t
+  let bucket: typeof dabs = []
+  const flush = (): void => {
+    if (!bucket.length) return
+    out.push({
+      atMs: bucketStart,
+      payload: {
+        strokeId: op.strokeId, layerId: op.layerId, tool: op.tool, preset: op.preset,
+        color: op.color, packetSeq: out.length, dabsPacked: packDabs(bucket),
+      },
+    })
+    bucket = []
+  }
+  for (const d of dabs) {
+    if (d.t - bucketStart >= intervalMs) { flush(); bucketStart = d.t }
+    bucket.push(d)
+  }
+  flush()
+  return out
 }
 
 /** Детерминированный генератор: прогон должен воспроизводиться, иначе
@@ -124,6 +166,13 @@ async function main(): Promise<void> {
 
   const ackLatencies: number[] = []
   const relayLatencies: number[] = []
+  // (#429) Live packets are unacked by design, so the only latency they have is
+  // relay: drawer emit -> student receives. That is the number the whole
+  // feature exists to make small, and it is measured separately from the
+  // operation relay because the two travel different paths through the server.
+  const liveRelayLatencies: number[] = []
+  const liveSentAt = new Map<string, number>()
+  let liveSent = 0
   let rejected = 0
   let sent = 0
   const sockets: Socket[] = []
@@ -131,6 +180,14 @@ async function main(): Promise<void> {
   // приход к ученику. Чистится по мере получения, иначе за минуту прогона
   // карта сама станет утечкой, которую мы же и меряем.
   const sentAt = new Map<string, number>()
+
+  // Packet plans, computed once per distinct sample rather than per stroke.
+  const livePlanCache = new Map<Record<string, unknown>, ReturnType<typeof liveWirePackets>>()
+  const livePacketsFor = (sample: Record<string, unknown>): ReturnType<typeof liveWirePackets> => {
+    let plan = livePlanCache.get(sample)
+    if (!plan) { plan = liveWirePackets(sample, LIVE_EMIT_INTERVAL_MS); livePlanCache.set(sample, plan) }
+    return plan
+  }
 
   console.log(`connecting ${options.rooms} rooms × (1 drawer + ${options.students} students) to ${options.origin}`)
 
@@ -161,6 +218,13 @@ async function main(): Promise<void> {
       // скрипта читал `id` с верхнего уровня, получал undefined и рапортовал
       // ноль ретрансляций при живом трафике. Замер, который молча меряет
       // половину пути, хуже отсутствующего — он выглядит результатом.
+      student.on('peer_stroke_live', (msg: { strokeId?: string; packetSeq?: number }) => {
+        const key = `${msg?.strokeId}:${msg?.packetSeq}`
+        const at = liveSentAt.get(key)
+        if (at === undefined) return
+        liveRelayLatencies.push(performance.now() - at)
+        liveSentAt.delete(key)
+      })
       student.on('operation_confirmed', (msg: { operation?: { id?: string } }) => {
         const id = msg?.operation?.id
         if (id === undefined) return
@@ -196,6 +260,22 @@ async function main(): Promise<void> {
       const at = performance.now()
       sentAt.set(id, at)
       sent += 1
+      // (#429) The live channel, if this run is measuring it. Packets go out on
+      // the stroke's own recorded pacing and the operation follows at pen-up,
+      // which is the order the real client produces and therefore the only one
+      // whose cost is worth knowing.
+      if (options.live) {
+        const packets = livePacketsFor(sample)
+        for (const { atMs, payload } of packets) {
+          timers.push(setTimeout(() => {
+            liveSent += 1
+            liveSentAt.set(`${id}:${payload.packetSeq as number}`, performance.now())
+            drawer.emit('stroke_live', { ...payload, strokeId: id })
+          }, atMs))
+        }
+        const endAt = packets.length ? packets[packets.length - 1]!.atMs : 0
+        timers.push(setTimeout(() => drawer.emit('stroke_live_end', { strokeId: id }), endAt))
+      }
       drawer.emit('operation', op, (result: { ok: boolean }) => {
         ackLatencies.push(performance.now() - at)
         if (!result?.ok) rejected += 1
@@ -221,16 +301,21 @@ async function main(): Promise<void> {
 
   const ack = summarize(ackLatencies)
   const relay = summarize(relayLatencies)
+  const liveRelay = summarize(liveRelayLatencies)
   const health = await (await fetch(`${options.origin}/api/health`)).json() as Record<string, unknown>
 
   console.log(JSON.stringify({
     rooms: options.rooms,
     students: options.students,
     seconds: options.seconds,
+    live: options.live,
     sent,
+    liveSent,
     rejected,
     ack,
     relay,
+    liveRelay,
+    liveRelayDelivered: liveSent === 0 ? 0 : Math.round((liveRelay.count / (liveSent * options.students)) * 1000) / 10,
     // Доля дошедших ретрансляций: если она меньше единицы, сервер не «медленно
     // отвечает», а теряет — и это другой класс отказа, который средние
     // задержки скрыли бы.
