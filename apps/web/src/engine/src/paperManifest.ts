@@ -1,6 +1,11 @@
 import { PAPER_GRAIN_TYPES, type PaperGrainType } from '@grafetto/shared'
 
-import { PAPER_CATCH_LUT_SIZE } from './paperCatch'
+// Extension is mandatory here and nowhere else in this directory: the bake
+// imports this module, so it is compiled under the node16 project's
+// resolution as well as the app's bundler one, and node16 rejects an
+// extensionless relative import. `npm run typecheck` only builds the app
+// project and passes without it — `tsc -b`, which the build runs, does not.
+import { PAPER_CATCH_LUT_SIZE } from './paperCatch.js'
 
 // (#322) The name index for the baked paper assets.
 //
