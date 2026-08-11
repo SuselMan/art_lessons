@@ -149,14 +149,18 @@ export function CreateRoom() {
   const location = useLocation()
   const { folderId } = (location.state as CreateRoomNavState | undefined) ?? {}
   const [roomName,    setRoomName]    = useState('')
-  const [paper,       setPaper]       = useState<PaperType>('coarse')
+  // (#426) `fine` rather than `coarse`. Keep this in step with
+  // DEFAULT_LAST_PAPER in stores/settingsStore.ts — that constant exists only
+  // to guess, before anything is open, which ~7.4 MB texture to start
+  // downloading, and it guesses by assuming it knows this value.
+  const [paper,       setPaper]       = useState<PaperType>('fine')
   // null = "follow the selected texture's own default" (DEFAULT_PAPER_COLORS
   // below); becomes a concrete RGB the moment the creator touches the picker,
   // and from then on stays fixed regardless of which texture card is picked.
   const [paperColor,  setPaperColor]  = useState<[number, number, number] | null>(null)
   const [colorPickerOpen, setColorPickerOpen] = useState(false)
   const colorPickerRef = useRef<HTMLDivElement>(null)
-  const [sizePreset,  setSizePreset]  = useState<SizePreset>('a4')
+  const [sizePreset,  setSizePreset]  = useState<SizePreset>('a3')
   const [orientation, setOrientation] = useState<Orientation>('portrait')
   const [customW,     setCustomW]     = useState('1920')
   const [customH,     setCustomH]     = useState('1080')
