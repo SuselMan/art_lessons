@@ -13,7 +13,7 @@
      own near-black chrome loses its outline entirely — the paper tint alone
      isn't enough to bound it. The border is what makes it read as a swatch
      rather than a hole. */
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
 }
 
 /* Landscape sample for a list row. `auto 100%` fits the stroke's *height* and
@@ -89,7 +89,7 @@
   width: 100%;
   min-height: var(--touch-target-sm);
   padding: 4px 6px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: var(--color-surface-2);
   color: var(--color-text);
