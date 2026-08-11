@@ -231,7 +231,7 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --color-bg:        #e4e4e7;
+  --color-bg:        #ececec;
   --color-surface:   #f6f6f7;
   --color-surface-raised: #ffffff;
   --color-surface-2: #e9e9ec;
