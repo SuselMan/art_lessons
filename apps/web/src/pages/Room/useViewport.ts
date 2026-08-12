@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useLayoutEffect, useEffect } from 'react
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
-import { ZOOM_MAX, deviceNativeZoom, minZoom, rotateViewportAround } from './cameraMath'
+import { ZOOM_MAX, deviceNativeZoom, minZoom, pinchViewport, rotateViewportAround } from './cameraMath'
 import { PinchTracker } from './pinchTracker'
 import { diagLog } from '../../lib/diagLog'
 import { useRoomStore } from '../../stores/roomStore'
@@ -287,17 +287,18 @@ export function useViewport(
                          - Math.atan2(other.y - prev.y, other.x - prev.x)
 
             ptrs.set(e.pointerId, curr)
-            const v = vpState.current
-            const newZoom = clamp(v.zoom * scale, minZoom(infinite), ZOOM_MAX)
-            const newCx   = prevMid.x + (v.cx - prevMid.x) * scale + (currMid.x - prevMid.x)
-            const newCy   = prevMid.y + (v.cy - prevMid.y) * scale + (currMid.y - prevMid.y)
-            const newAngle = v.angle + dAngle
+            // Pan, zoom and rotation as one transform about the midpoint
+            // between the fingers — see pinchViewport, which owns that algebra
+            // (and why the rotation needs anchoring as much as the zoom does).
+            //
             // Infinite canvas (#134): the tile compositor now applies camera
             // angle too (via the assembly-buffer + final rotate blit in
             // _finishInfiniteComposite), matching setInfiniteCamera's pointer
             // mapping — so the rotation component of this gesture no longer
             // needs to be dropped for infinite rooms.
-            updateVp({ cx: newCx, cy: newCy, zoom: newZoom, angle: newAngle })
+            updateVp(pinchViewport(
+              vpState.current, prevMid, currMid, scale, dAngle, minZoom(infinite),
+            ))
 
             // (#362) Fed both fingers, announces at most once per gesture —
             // see PinchTracker on why it reads the fingers rather than the zoom

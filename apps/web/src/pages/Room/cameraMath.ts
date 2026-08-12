@@ -1,3 +1,5 @@
+import { clamp } from 'lodash-es'
+
 import type { Viewport } from './useViewport'
 import { clientToCanvas, type CanvasSize } from './pointerTransform'
 
@@ -228,4 +230,50 @@ export function rotateViewportAround(
     cx: anchorX + rx * cos - ry * sin,
     cy: anchorY + rx * sin + ry * cos,
   }
+}
+
+/** One frame of a two-finger pan/zoom/rotate, as one transform about the
+ *  fingers (#442). `scale` and `dAngle` are what the finger pair did between
+ *  `prevMid` and `currMid` (see useViewport's touch branch, which measures
+ *  them); all four are in viewport-container coordinates, the space `cx`/`cy`
+ *  live in.
+ *
+ *  The whole gesture has to pivot on the midpoint between the fingers, and
+ *  every component needs saying so separately, because `Viewport` is not
+ *  expressed about that point: `zoom` and `angle` both act about `(cx, cy)` —
+ *  the canvas centre's screen position in bounded rooms, the camera origin in
+ *  infinite ones. The zoom part was always anchored here; the rotation part
+ *  used to be a bare `angle + dAngle`, which pivots about that centre instead.
+ *  Harmless while the whole drawing is in view — the centre is then a few
+ *  hundred px from the fingers — but at working zoom it sits far off-screen,
+ *  and the same twist threw the drawing sideways by (distance to centre) x the
+ *  angle rather than turning it between the fingers. Which is exactly what
+ *  `rotateViewportAround` already existed to prevent on the shift-drag path.
+ *
+ *  Order matters and is the order the fingers act in: scale about where the
+ *  midpoint *was*, translate the midpoint to where it now *is*, then turn about
+ *  it there. */
+export function pinchViewport(
+  vp: Viewport,
+  prevMid: { x: number; y: number },
+  currMid: { x: number; y: number },
+  scale: number,
+  dAngle: number,
+  zoomFloor: number,
+): Viewport {
+  const zoom = clamp(vp.zoom * scale, zoomFloor, ZOOM_MAX)
+  // The zoom the viewport actually took, not the one the fingers asked for: at
+  // either limit `scale` keeps growing while `zoom` stops, and the requested
+  // factor would then keep sliding the view sideways under fingers that are
+  // visibly no longer changing the size of anything.
+  const applied = zoom / vp.zoom
+  return rotateViewportAround(
+    {
+      zoom,
+      angle: vp.angle,
+      cx: prevMid.x + (vp.cx - prevMid.x) * applied + (currMid.x - prevMid.x),
+      cy: prevMid.y + (vp.cy - prevMid.y) * applied + (currMid.y - prevMid.y),
+    },
+    currMid.x, currMid.y, dAngle,
+  )
 }

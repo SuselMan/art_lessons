@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround, minZoom, deviceNativeZoom } from './cameraMath'
+import { worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround, pinchViewport, minZoom, deviceNativeZoom, ZOOM_MAX } from './cameraMath'
 import type { Viewport } from './useViewport'
 
 describe('worldToScreen / screenToWorld', () => {
@@ -136,6 +136,85 @@ describe('rotateViewportAround (#319)', () => {
     expect(back.cx).toBeCloseTo(vp.cx)
     expect(back.cy).toBeCloseTo(vp.cy)
     expect(back.angle).toBeCloseTo(vp.angle)
+  })
+})
+
+describe('pinchViewport (#442)', () => {
+  const FLOOR = 0.04
+
+  it('holds the point under the fingers still through a pure twist', () => {
+    // The bug this function was extracted for: rotation used to be a bare
+    // `angle + dAngle`, which pivots about (cx, cy) — the canvas centre — not
+    // about the fingers. (cx, cy) here is far off-screen, as it is at any
+    // working zoom, which is why the fault only showed up zoomed in.
+    const vp: Viewport = { cx: -4200, cy: 3100, zoom: 12, angle: 0.4 }
+    const mid = { x: 500, y: 300 }
+    const held = screenToWorld(mid.x, mid.y, vp)
+
+    const after = pinchViewport(vp, mid, mid, 1, 0.35, FLOOR)
+    const where = worldToScreen(held.x, held.y, after)
+
+    expect(where.x).toBeCloseTo(mid.x)
+    expect(where.y).toBeCloseTo(mid.y)
+    expect(after.angle).toBeCloseTo(vp.angle + 0.35)
+  })
+
+  it('holds it still through a twist, a pinch and a drag at once', () => {
+    // A real gesture is never one of the three, so the anchoring has to
+    // survive all of them composed — and the composition order is the thing
+    // that is easy to get subtly wrong.
+    const vp: Viewport = { cx: -1800, cy: 900, zoom: 8, angle: -0.7 }
+    const prevMid = { x: 420, y: 260 }
+    const currMid = { x: 505, y: 190 }
+    const held = screenToWorld(prevMid.x, prevMid.y, vp)
+
+    const after = pinchViewport(vp, prevMid, currMid, 1.15, -0.22, FLOOR)
+    const where = worldToScreen(held.x, held.y, after)
+
+    // The pixel grabbed at the old midpoint follows the fingers to the new one.
+    expect(where.x).toBeCloseTo(currMid.x)
+    expect(where.y).toBeCloseTo(currMid.y)
+    expect(after.zoom).toBeCloseTo(vp.zoom * 1.15)
+  })
+
+  it('is the same wherever the fingers are, at the same zoom', () => {
+    // What "the axis is between the fingers" means operationally: two people
+    // twisting the same view by the same angle at different spots must each
+    // see it turn about their own fingers, not about a shared far-off pivot.
+    const vp: Viewport = { cx: -900, cy: -400, zoom: 6, angle: 0 }
+    for (const mid of [{ x: 80, y: 60 }, { x: 900, y: 700 }]) {
+      const held = screenToWorld(mid.x, mid.y, vp)
+      const where = worldToScreen(held.x, held.y, pinchViewport(vp, mid, mid, 1, 0.5, FLOOR))
+      expect(where.x).toBeCloseTo(mid.x)
+      expect(where.y).toBeCloseTo(mid.y)
+    }
+  })
+
+  it('stops translating once the zoom hits its limit', () => {
+    // The centre used to move by the requested factor even when the zoom was
+    // clamped, so pinching further at the stop kept dragging the view while
+    // nothing visibly changed size.
+    const vp: Viewport = { cx: 200, cy: 150, zoom: ZOOM_MAX, angle: 0 }
+    const mid = { x: 640, y: 400 }
+    const after = pinchViewport(vp, mid, mid, 1.4, 0, FLOOR)
+    expect(after.zoom).toBe(ZOOM_MAX)
+    expect(after.cx).toBeCloseTo(vp.cx)
+    expect(after.cy).toBeCloseTo(vp.cy)
+  })
+
+  it('is a no-op when the fingers hold still', () => {
+    const vp: Viewport = { cx: 300, cy: -120, zoom: 3.3, angle: 1.2 }
+    const mid = { x: 77, y: 512 }
+    const after = pinchViewport(vp, mid, mid, 1, 0, FLOOR)
+    expect(after.cx).toBeCloseTo(vp.cx)
+    expect(after.cy).toBeCloseTo(vp.cy)
+    expect(after.zoom).toBeCloseTo(vp.zoom)
+    expect(after.angle).toBeCloseTo(vp.angle)
+  })
+
+  it('respects the zoom floor', () => {
+    const vp: Viewport = { cx: 0, cy: 0, zoom: 0.05, angle: 0 }
+    expect(pinchViewport(vp, { x: 0, y: 0 }, { x: 0, y: 0 }, 0.1, 0, FLOOR).zoom).toBe(FLOOR)
   })
 })
 
