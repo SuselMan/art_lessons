@@ -25,11 +25,12 @@ import type { RulerGesture } from './rulerGesture'
 // (#405) The mode axis is gone — transform, the ruler, the eyedropper and the
 // grid are members of the one selected tool now (EditorTool, toolSlice.ts).
 // That does *not* make this module redundant, which was the tempting reading:
-// the hand still overrides everything, `drawingTool` still has to answer "what
-// footprint would be painted" while `tool` names something that paints
+// held Space still overrides everything, `drawingTool` still has to answer
+// "what footprint would be painted" while `tool` names something that paints
 // nothing, and the ruler catcher still hands out a cursor per gesture. What it
 // does is let the decision be one exhaustive switch over the selection instead
-// of a mode union crossed with a tool.
+// of a mode union crossed with a tool — and (#443) the hand is now a case in
+// that switch rather than the one tool that had to be answered above it.
 
 /** Which tools paint dabs, i.e. have a footprint worth previewing under the
  *  pointer at all. A record rather than a Set on purpose: adding a member to
@@ -78,18 +79,22 @@ export interface CursorState {
    *  it is taken separately so this function never has to narrow the union
    *  itself. */
   drawingTool: DrawingTool
-  /** Hand tool or Space held (`isHandActive`). */
-  handActive: boolean
+  /** Space physically down (viewportSlice). Separate from `tool` because it
+   *  lies *over* the selection rather than replacing it — the hand selected
+   *  and Space held produce the same cursor by different routes, and only one
+   *  of the two ends when a key comes up. */
+  handHeld: boolean
 }
 
 /** The single answer to "what is the cursor right now".
  *
  *  Precedence, highest first:
  *
- *  1. **Hand.** Space beats everything, including an open transform session:
- *     panning is a viewport gesture that never touches content, so it is
- *     always available, always looks the same, and (#405) never ends a
- *     session — which is exactly why the hand is not a member of `EditorTool`.
+ *  1. **Held Space.** It beats everything, including an open transform
+ *     session: a hold is laid over whatever is selected without replacing it,
+ *     and it ends nothing — release it and the previous tool's own cursor is
+ *     back. (#443) The *selected* hand no longer needs its own rule above the
+ *     switch; it is a case inside it, like every other tool.
  *  2. **The selected tool**, exhaustively:
  *     - *transform* — nothing of ours: the gizmo hands out a system cursor per
  *       handle (resize arrows, the rotate glyph, move), and painting is locked
@@ -97,6 +102,7 @@ export interface CursorState {
  *       promise a stroke that cannot happen.
  *     - *eyedropper* — aim precisely, but there is no dab to preview: the next
  *       press picks a colour instead of painting one.
+ *     - *hand* — `grab`, and no footprint: the next press moves the view.
  *     - *ruler* — aim precisely: a press lays a new straight edge, or grabs
  *       the existing one. Which of the two is a per-point answer the catcher
  *       asks `RULER_GESTURE_CURSOR` below for; this is the surface it sits on.
@@ -111,9 +117,11 @@ export interface CursorState {
  *  it does change the cursor, which is new in #405 and is the point: a
  *  selected tool that cannot paint must not show a crosshair. */
 export function resolveCursor(state: CursorState): CursorDecision {
-  if (state.handActive) return { dabPreview: false, viewportCursor: 'grab' }
+  if (state.handHeld) return { dabPreview: false, viewportCursor: 'grab' }
 
   switch (state.tool) {
+    case 'hand':
+      return { dabPreview: false, viewportCursor: 'grab' }
     case 'transform':
     case 'grid':
       return { dabPreview: false, viewportCursor: 'default' }
@@ -132,12 +140,11 @@ export function resolveCursor(state: CursorState): CursorDecision {
 export function useCursor(): CursorDecision {
   const tool = useRoomStore(s => s.tool)
   const drawingTool = useRoomStore(s => s.drawingTool)
-  const handTool = useRoomStore(s => s.handTool)
   const handHeld = useRoomStore(s => s.handHeld)
 
   return useMemo(
-    () => resolveCursor({ tool, drawingTool, handActive: handTool || handHeld }),
-    [tool, drawingTool, handTool, handHeld],
+    () => resolveCursor({ tool, drawingTool, handHeld }),
+    [tool, drawingTool, handHeld],
   )
 }
 

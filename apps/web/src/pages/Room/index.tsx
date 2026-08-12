@@ -98,6 +98,7 @@ import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import { isDrawingTool, type EditorTool, type PrimaryDrawingTool } from '../../stores/slices/toolSlice'
+import { isHandActive } from '../../stores/slices/viewportSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
 import styles from './Room.module.css'
 
@@ -1089,13 +1090,14 @@ export function Room() {
   // so the pending dismissal doesn't survive to fire against a later gesture.
   useEffect(() => { hideViewportToast() }, [uiHidden, hideViewportToast])
 
-  // Hand tool (#319) — the drag itself lives in useViewport; Room owns the
-  // ways in and out of the mode, and what the mode looks like.
-  const handTool = useRoomStore(s => s.handTool)
-  const setHandTool = useRoomStore(s => s.setHandTool)
+  // Hand (#319, #443) — the drag itself lives in useViewport; Room owns the
+  // ways in and out and what it looks like. Two routes, one meaning: the hand
+  // *selected* (an ordinary member of `tool` since #443) and Space *held* over
+  // whatever else is selected. Everything downstream wants the union, which is
+  // what `isHandActive` names.
   const setHandHeld = useRoomStore(s => s.setHandHeld)
   const handHeld = useRoomStore(s => s.handHeld)
-  const handActive = handTool || handHeld
+  const handActive = isHandActive({ tool, handHeld })
   // (#405) Read inside a native pointerdown listener that must not be torn
   // down and rebuilt every time Space goes up and down — see the click-past-
   // the-gizmo effect below.
@@ -2760,10 +2762,16 @@ export function Room() {
   // one exclusive selection, "switch tool" is no longer a mode being lifted
   // off a pencil — it is this effect's dependency changing.
   //
-  // The hand is deliberately not among them. It lives in viewportSlice, not in
-  // `tool`, so picking it up (or holding Space) does not re-run this effect and
-  // the session stays open — panning touches no content, and seeing where you
-  // are dragging a layer *to* is most of why you would reach for it mid-drag.
+  // (#443) The hand is among them now: it is a member of `tool`, so selecting
+  // it re-runs this effect and applies the session, exactly like every other
+  // tool. #405 exempted it so the view could be moved mid-drag without losing
+  // the edit — but the two routes that actually serve that (the middle button
+  // and held Space on a PC, one or two fingers on a tablet) never went through
+  // `tool` and still don't, so what the exception really covered was a pen on a
+  // PC, at the price of a toolbar button that behaved like no other.
+  //
+  // Held Space is untouched: `handHeld` is not `tool`, so it still pans over an
+  // open session without ending it.
   //
   // Keyed on the joined ids rather than the array: transformTargetIds is
   // rebuilt on every layerState change (any peer's stroke does that), and
@@ -2853,8 +2861,10 @@ export function Room() {
     const clicks = new ClickTracker()
 
     const onDown = (e: PointerEvent) => {
-      // The hand owns every drag while it is up, including this one — the same
-      // precedence the gizmo handles and the cursor already follow.
+      // Held Space owns every drag while it is down, including this one — the
+      // same precedence the gizmo handles and the cursor already follow. (This
+      // effect only runs while `tool === 'transform'`, so since #443 that is
+      // the whole of what `handActiveRef` can mean here.)
       if (handActiveRef.current) return
       // (#408) Primary button only. The middle one pans (see useViewport), and
       // a pan that happens to travel nowhere is still not "I'm done here".
@@ -3043,7 +3053,9 @@ export function Room() {
     // while it is up, a drag anywhere moves the view. Without this the handles
     // would still swallow a mouse drag that started on one, so panning to see
     // where a layer is going — the whole reason to reach for the hand mid-
-    // transform — would fail exactly over the thing being dragged.
+    // transform — would fail exactly over the thing being dragged. (#443: with
+    // the hand a tool, only held Space can reach here, and it is exactly the
+    // route that still needs this.)
     if (handActive) return
     // (#395) The previous session's commit is still in flight, so the layer
     // doesn't carry it yet and transformBounds still describes where the
@@ -4129,7 +4141,11 @@ export function Room() {
       }
       if (is('toggleGrid')) { toggleTool('grid'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
-      if (is('toggleHand')) { setHandTool(h => !h); return }
+      // (#443) The same toggle-off-to-your-drawing-tool rule as every other
+      // tool key, replacing a boolean of its own. `H` used to flip a modifier;
+      // now pressing it twice puts back what you were drawing with, which is
+      // what the other eight keys here already do.
+      if (is('toggleHand')) { toggleTool('hand'); return }
       // Both size hotkeys clamp to the tool's own schema range (toolSizeRange)
       // rather than to literals — see its comment for why (#336).
       // (#405) `drawingTool`, not the selection: with the ruler in hand there
@@ -4177,7 +4193,7 @@ export function Room() {
     return () => window.removeEventListener('keydown', onKey)
   }, [
     drawingTool, toggleTool, transformActive, transformTargetIds.length,
-    setToolSetting, setVp, setHandTool, handleUndo, handleRedo, hotkeys,
+    setToolSetting, setVp, handleUndo, handleRedo, hotkeys,
     zoomBy, resetZoom,
   ])
 
@@ -4527,15 +4543,19 @@ export function Room() {
 
           {/* Hand (#319, ADR 007) — the only way to move the canvas with
               nothing in hand but a stylus: a pen has no middle button, and
-              Space needs a free second hand. Sits above the divider with the
-              other non-painting modes, not among the drawing tools, because
-              it is one (ADR 007 §5). */}
+              Space needs a free second hand.
+              (#443) Selected like every other button here, with the same fill.
+              It used to be a modifier with an outline of its own, lit *beside*
+              whichever tool was selected — the one button on the panel that
+              needed a paragraph to explain, and the reason it looked wrong is
+              that two things were on at once, which is precisely what #405
+              set out to remove everywhere else. */}
           <button
-            className={clsx(styles.toolIconBtn, handTool && styles.toolIconBtnHeld)}
+            className={clsx(styles.toolIconBtn, tool === 'hand' && styles.toolIconBtnActive)}
             title={t('tool.handTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleHand) })}
             aria-label={t('tool.hand')}
-            aria-pressed={handTool}
-            onClick={() => setHandTool(h => !h)}
+            aria-pressed={tool === 'hand'}
+            onClick={() => selectTool('hand')}
           ><Icon name="pan_tool" /></button>
 
           {/* (#405) The four tools below the divider select like every button

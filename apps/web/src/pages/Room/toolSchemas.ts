@@ -29,7 +29,7 @@ import type { IconName } from '../../icons/iconNames'
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
 export type UiToolId =
   | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker'
-  | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid'
+  | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid' | 'hand'
 
 export type SettingValueType =
   | {
@@ -659,6 +659,17 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       default: true,
     },
   },
+  // Hand (#443). The only empty schema in the registry, and it stays empty:
+  // panning has nothing to configure. It is here because everything selectable
+  // must be a UiToolId (Room's `settingsToolId` is the selection, unwidened),
+  // not because the hand is waiting for fields.
+  //
+  // The visible consequence is that the quick-settings column empties while
+  // the hand is in hand, and the tool-settings tab shows `room.noToolSettings`.
+  // That is the honest answer rather than a gap: before #443 the hand was a
+  // modifier laid over a drawing tool, so the column kept showing *that* tool's
+  // fields — settings for something the next press would not touch.
+  hand: {},
 }
 
 export type ToolSettingsValue = Record<string, SettingDescriptor['default']>

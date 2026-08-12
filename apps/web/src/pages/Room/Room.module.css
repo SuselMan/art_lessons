@@ -370,22 +370,12 @@
   color: var(--color-accent);
 }
 
-/* (#405) The hand, held. Deliberately *not* .toolIconBtnActive: the hand is
-   not a member of the one-selected-tool set (see EditorTool in toolSlice) —
-   it is a viewport mode held over whatever tool is in hand, and it leaves a
-   transform session running underneath. Wearing the same filled accent as a
-   selected tool would put two buttons in the "selected" state at once, which
-   is the exact appearance this change exists to remove. An outline reads as
-   "held, on top of" rather than "in hand". */
-.toolIconBtnHeld {
-  background: none;
-  color: var(--color-accent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent);
-}
-.toolIconBtnHeld:hover {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  color: var(--color-accent);
-}
+/* (#443) .toolIconBtnHeld — the outlined "held over the selected tool" state —
+   is gone with the only thing that wore it. The hand was the one member of
+   this toolbar that lit beside a selected tool rather than instead of it, and
+   the outline was an attempt to explain that in a single button's worth of
+   pixels; it did not, which is what #443 came from. Every button here is now
+   the same one-of-N selection with one appearance. */
 .toolIconBtn:disabled {
   opacity: 0.35;
   cursor: not-allowed;

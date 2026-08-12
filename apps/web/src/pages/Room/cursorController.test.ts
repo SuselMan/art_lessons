@@ -10,7 +10,7 @@ import { DRAWING_TOOLS, NON_DRAWING_TOOLS } from '../../stores/slices/toolSlice'
 const base: CursorState = {
   tool: 'pencil',
   drawingTool: 'pencil',
-  handActive: false,
+  handHeld: false,
 }
 const at = (over: Partial<CursorState>) => resolveCursor({ ...base, ...over })
 
@@ -52,15 +52,19 @@ describe('resolveCursor', () => {
     expect(at({ tool: 'grid' })).toEqual({ dabPreview: false, viewportCursor: 'default' })
   })
 
-  it('grabs the view with the hand, and drops the ring that would promise paint', () => {
-    expect(at({ handActive: true })).toEqual({ dabPreview: false, viewportCursor: 'grab' })
+  // (#443) The selected hand answers from inside the switch, like every other
+  // tool — it is not a rule above it any more.
+  it('grabs the view with the hand selected, and drops the ring that would promise paint', () => {
+    expect(at({ tool: 'hand' })).toEqual({ dabPreview: false, viewportCursor: 'grab' })
+    expect(at({ tool: 'hand', drawingTool: 'marker' })).toEqual({ dabPreview: false, viewportCursor: 'grab' })
   })
 
-  // The hand is not a member of the selection for exactly this reason: it lies
-  // over whatever is in hand, ends nothing, and always looks the same.
-  it('lets the hand win over every tool — panning never touches content', () => {
+  // Held Space *is* still a rule above the switch, for the reason that survived
+  // #443: it lies over whatever is selected, ends nothing, and always looks the
+  // same — including over an open transform session.
+  it('lets held Space win over every tool — panning never touches content', () => {
     for (const tool of [...DRAWING_TOOLS, ...NON_DRAWING_TOOLS]) {
-      expect(at({ handActive: true, tool })).toEqual({ dabPreview: false, viewportCursor: 'grab' })
+      expect(at({ handHeld: true, tool })).toEqual({ dabPreview: false, viewportCursor: 'grab' })
     }
   })
 
@@ -71,8 +75,8 @@ describe('resolveCursor', () => {
   it('answers every combination — no state leaves the cursor undecided', () => {
     for (const tool of [...DRAWING_TOOLS, ...NON_DRAWING_TOOLS]) {
       for (const drawingTool of DRAWING_TOOLS) {
-        for (const handActive of [false, true]) {
-          const decision = at({ tool, drawingTool, handActive })
+        for (const handHeld of [false, true]) {
+          const decision = at({ tool, drawingTool, handHeld })
           expect(typeof decision.dabPreview).toBe('boolean')
           expect(['crosshair', 'grab', 'default']).toContain(decision.viewportCursor)
         }

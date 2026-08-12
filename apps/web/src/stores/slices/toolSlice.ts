@@ -28,22 +28,31 @@ export type DrawingTool = (typeof DRAWING_TOOLS)[number]
 
 /** The rest of the selection: tools that never paint. None of them may become
  *  a `ToolType` — that type travels inside `StrokeOperation` into the
- *  operation log, and a tool that emits no stroke (eyedropper, ruler, grid) or
- *  emits an operation of its own kind (transform → `layer_transform`) has no
- *  business in a serialized contract. Same reasoning that keeps the hand out
- *  of both lists; see below. */
+ *  operation log, and a tool that emits no stroke (eyedropper, ruler, grid,
+ *  hand) or emits an operation of its own kind (transform → `layer_transform`)
+ *  has no business in a serialized contract.
+ *
+ *  (#443) The hand joined this list. ADR 007 §5 put it in `viewportSlice`
+ *  instead, on the grounds that it is not a `ToolType` — but `EditorTool` and
+ *  `ToolType` came apart in #405, and every other member here is already a
+ *  selectable tool that never becomes one. Keeping the hand outside the
+ *  selection bought nothing at the contract level (it is still absent from
+ *  `ToolType`) and cost the one thing the toolbar is for: with a modifier
+ *  lit next to a selected tool, two buttons were on at once and no rule
+ *  explained which. */
 export const NON_DRAWING_TOOLS = [
-  'eyedropper', 'ruler', 'transform', 'grid',
+  'eyedropper', 'ruler', 'transform', 'grid', 'hand',
 ] as const satisfies readonly UiToolId[]
 
 export type NonDrawingTool = (typeof NON_DRAWING_TOOLS)[number]
 
-/** What "the selected tool" means. Deliberately *not* including the hand: it
- *  is a viewport mode, not a member of this exclusive set, and lives in
- *  viewportSlice with the viewport it moves (see its own comment there).
- *  Selecting a tool ends a transform session; picking up the hand must not,
- *  because panning does not touch content — being able to see where you are
- *  dragging a layer to is the whole reason to reach for it mid-transform. */
+/** What "the selected tool" means — exactly one member of it is in hand, and
+ *  selecting any of them ends an open transform session, the hand included
+ *  (#443). Panning mid-transform is still available, through the two routes
+ *  that never went through the selection in the first place: the middle button
+ *  and held Space on a PC, one or two fingers on a tablet (the gizmo ignores
+ *  touch outright). What #405 protected with an exception was therefore only
+ *  the pen-on-a-PC case, and the exception was visible on every screen. */
 export type EditorTool = DrawingTool | NonDrawingTool
 
 export function isDrawingTool(tool: EditorTool): tool is DrawingTool {

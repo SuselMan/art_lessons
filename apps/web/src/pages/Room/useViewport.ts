@@ -241,12 +241,16 @@ export function useViewport(
         }
 
         // Mouse/pen. Two ways in (#319, ADR 007 §4): the middle button, which
-        // a pen doesn't have at all, and the left button while the hand tool
-        // is on, which is the only route available to someone holding nothing
-        // but a stylus. Read from the store at event time rather than closed
-        // over: this effect must not re-attach its listeners every time the
-        // hand tool toggles, and a stale closure here would mean the mode
-        // silently stops working after the first toggle.
+        // a pen doesn't have at all, and the left button while the hand is
+        // active — selected or Space held — which is the only route available
+        // to someone holding nothing but a stylus. Read from the store at event
+        // time rather than closed over: this effect must not re-attach its
+        // listeners every time the tool changes, and a stale closure here would
+        // mean panning silently stops working after the first switch.
+        //
+        // The middle button deliberately answers regardless of the selection,
+        // and that is what lets the view move during an open transform session
+        // now that picking up the hand ends one (#443).
         const handActive = isHandActive(useRoomStore.getState())
         if (e.button !== 1 && !(handActive && e.button === 0)) return
 

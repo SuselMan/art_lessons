@@ -123,3 +123,44 @@ describe('one selected tool (#405)', () => {
     }
   })
 })
+
+// (#443) The hand joined that selection. It had been the one exception —
+// a boolean in viewportSlice, lit *beside* the selected tool — and the
+// exception is what made the toolbar unreadable: two buttons on at once, with
+// no rule on screen saying which one the next press would use.
+describe('the hand is an ordinary member of the selection (#443)', () => {
+  beforeEach(() => { resetRoomStore() })
+
+  it('is a non-drawing tool, so it can never reach the operation log', () => {
+    // The half of ADR 007 §5 that #443 did *not* change: the hand paints
+    // nothing, so it must stay out of `ToolType` — which is exactly what
+    // NON_DRAWING_TOOLS membership guarantees (see its doc comment).
+    expect(NON_DRAWING_TOOLS).toContain('hand')
+    expect(isDrawingTool('hand')).toBe(false)
+  })
+
+  it('replaces the selected tool rather than sitting on top of it', () => {
+    useRoomStore.getState().setTool('charcoal')
+    useRoomStore.getState().setTool('hand')
+    expect(useRoomStore.getState().tool).toBe('hand')
+  })
+
+  it('is put down by selecting anything else', () => {
+    useRoomStore.getState().setTool('hand')
+    useRoomStore.getState().setTool('ruler')
+    expect(useRoomStore.getState().tool).toBe('ruler')
+  })
+
+  // Same guarantee every other non-drawing tool gets: the engine, the brush
+  // cursor and the sound keep a real tool configured while the hand is up, and
+  // `H` pressed twice lands back on it.
+  it('keeps the drawing tool underneath, and H twice returns to it', () => {
+    useRoomStore.getState().setTool('marker')
+    useRoomStore.getState().setTool('hand')
+    expect(useRoomStore.getState().drawingTool).toBe('marker')
+
+    const { drawingTool, setTool } = useRoomStore.getState()
+    setTool(prev => (prev === 'hand' ? drawingTool : 'hand'))
+    expect(useRoomStore.getState().tool).toBe('marker')
+  })
+})

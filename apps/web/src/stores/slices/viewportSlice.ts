@@ -1,6 +1,7 @@
 import type { StateCreator } from 'zustand'
 
 import type { Viewport } from '../../pages/Room/useViewport'
+import type { ToolSlice } from './toolSlice'
 
 export interface ViewportSlice {
   // useViewport.ts keeps its entire internal architecture (rAF-throttled
@@ -10,39 +11,35 @@ export interface ViewportSlice {
   viewport: Viewport
   setViewport: (updater: Viewport | ((prev: Viewport) => Viewport)) => void
 
-  // Hand tool (#319, ADR 007 §5) — a viewport mode, deliberately *not* a
-  // member of `DrawingTool`/`ToolType`: ToolType travels inside
-  // StrokeOperation into the operation log, and a tool that paints nothing
-  // has no business in a serialized contract. It lives here, next to the
-  // viewport it moves, for the same reason.
+  // Hold-to-pan (#319, ADR 007 §4): Space physically down. Stays here, next to
+  // the viewport it moves, while the deliberately *chosen* hand went to
+  // `tool` in toolSlice (#443) — the two are not one flag split in half, they
+  // have different lifetimes and both can be true at once. A hold ends when
+  // the key comes up and must put back whatever was in hand before it; a
+  // selection persists until something else is selected. Folding the hold into
+  // `tool` would lose the thing to go back to, so releasing Space would drop
+  // the person into a tool they never picked.
   //
-  // Two flags rather than one because they have different lifetimes and both
-  // can be true at once: `handTool` is the deliberate choice (toolbar button
-  // or its hotkey) and persists until switched off, `handHeld` is Space being
-  // physically down and ends when it comes up — the standard hold-to-pan of
-  // every graphics editor. Collapsing them into one boolean loses the state
-  // to return to: releasing Space while the hand tool is genuinely selected
-  // would drop the person out of a tool they chose.
-  handTool: boolean
-  setHandTool: (updater: boolean | ((prev: boolean) => boolean)) => void
+  // It is also why Space is not in the hotkey registry (see lib/hotkeys.ts):
+  // the registry has no keyup half, and a rebindable hold is a mode with no
+  // guaranteed way out.
   handHeld: boolean
   setHandHeld: (held: boolean) => void
 }
 
 /** True when a drag on the canvas moves the view instead of painting —
- *  whichever of the two routes into the mode got it there. */
-export function isHandActive(state: Pick<ViewportSlice, 'handTool' | 'handHeld'>): boolean {
-  return state.handTool || state.handHeld
+ *  whichever of the two routes got it there: the hand selected, or Space held
+ *  over whatever else is. Takes the two fields from the two slices they live
+ *  in rather than reading the store itself, so it stays callable on a plain
+ *  snapshot (which is how `useViewport`'s native listeners use it). */
+export function isHandActive(state: Pick<ToolSlice, 'tool'> & Pick<ViewportSlice, 'handHeld'>): boolean {
+  return state.tool === 'hand' || state.handHeld
 }
 
 export const createViewportSlice: StateCreator<ViewportSlice> = set => ({
   viewport: { cx: 0, cy: 0, zoom: 1, angle: 0 },
   setViewport: updater => set(state => ({
     viewport: typeof updater === 'function' ? updater(state.viewport) : updater,
-  })),
-  handTool: false,
-  setHandTool: updater => set(state => ({
-    handTool: typeof updater === 'function' ? updater(state.handTool) : updater,
   })),
   handHeld: false,
   setHandHeld: held => set({ handHeld: held }),

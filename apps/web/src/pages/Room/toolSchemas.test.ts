@@ -135,6 +135,15 @@ describe('the selectable tools all have a panel to show (#405)', () => {
     expect(defaults.ruler).toEqual({ show: true, snap: true })
     expect(defaults.grid).toEqual({ show: true })
   })
+
+  // (#443) The hand is the one selectable tool with nothing to configure, and
+  // that is a decision rather than a to-do: panning has no settings. Asserted
+  // so that a field arriving here is a deliberate edit — the quick column and
+  // the settings tab both key off emptiness (`room.noToolSettings`), so one
+  // stray descriptor changes what the panel does, not just what it shows.
+  it('gives the hand no settings at all, on purpose', () => {
+    expect(TOOL_SCHEMAS.hand).toEqual({})
+  })
 })
 
 describe('color-capable tools', () => {
