@@ -346,5 +346,51 @@ describe('smudge tool (#14)', () => {
         expect(withB[(30 * 120 + x) * 4 + 3]).toBe(withoutB[(30 * 120 + x) * 4 + 3])
       }
     })
+
+    // The imprint refresh (SMUDGE_PICKUP_FRAG) runs DISPLAY_VERT, whose quad
+    // is the fullscreen -1..1 one — not DAB_VERT's -0.5..0.5 dab quad, which
+    // this pass was binding by mistake. The pass then covered only the
+    // imprint's middle quarter, so its outer ring kept whatever stale patch
+    // the pooled scratch buffer last held and the transfer laid that
+    // straight back onto the canvas: a wide smudge stroke stamped square
+    // blocks of foreign content, one per dab, glaringly at large brush
+    // sizes (a small brush hides them inside its own footprint).
+    //
+    // Smudging *inside* a uniformly filled area is the sharpest way to see
+    // it: the imprint converges to exactly what is already there, so the
+    // lerp is the identity and a correct stroke changes nothing. Anything
+    // that does change is content the stump didn't pick up here.
+    it('a wide stroke inside a solid area leaves it solid — no stale square stamped out of the imprint', () => {
+      const engine = setupLayer(128, 128)
+      // A *flat* saturated field, not one fill dab: a single dab's own soft
+      // edge is a wide gradient, and smudging a gradient legitimately moves
+      // it. Overlapping dabs saturate the middle to a plateau, where the
+      // only thing that can change a pixel is content from somewhere else.
+      for (let cy = 20; cy <= 108; cy += 8) {
+        for (let cx = 20; cx <= 108; cx += 8) {
+          engine.appendOperation(fillStroke('user-a', 'L', cx, cy, 14))
+        }
+      }
+      const before = readLayerPixels(engine, 'L')!
+
+      // The region under test: the dabs' own footprint, checked to be flat
+      // before the stroke so the assertion after it means what it says.
+      const REGION = { x0: 34, x1: 94, y0: 50, y1: 78 }
+      for (let y = REGION.y0; y <= REGION.y1; y++) {
+        for (let x = REGION.x0; x <= REGION.x1; x++) {
+          expect(alphaAt(before, 128, x, y)).toBeGreaterThan(250)
+        }
+      }
+
+      const dabs = [48, 56, 64, 72, 80].map(x => dab(x, 64, { size: 40, pressure: 1, opacity: 1 }))
+      engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'smudge', strokeId: 'g1' }))
+
+      const after = readLayerPixels(engine, 'L')!
+      for (let y = REGION.y0; y <= REGION.y1; y++) {
+        for (let x = REGION.x0; x <= REGION.x1; x++) {
+          expect(alphaAt(after, 128, x, y)).toBeGreaterThan(250)
+        }
+      }
+    })
   })
 })

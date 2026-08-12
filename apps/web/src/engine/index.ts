@@ -5346,7 +5346,15 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1i(u.u_carried, 1)
     gl.uniform1f(u.u_rate, rate)
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
+    // _screenBuf, not _quadBuf: this pass runs DISPLAY_VERT, whose "quad"
+    // convention is the -1..1 fullscreen one, while _quadBuf is DAB_VERT's
+    // own -0.5..0.5 dab quad. Handing DAB_VERT's buffer to DISPLAY_VERT
+    // covered only the imprint's middle quarter (and sampled the patch's
+    // middle half, magnified), so the imprint's outer ring kept whatever
+    // stale patch the pooled buffer last held and got laid straight back
+    // onto the canvas — the square blocks a wide smudge stroke used to
+    // stamp out (see index.smudge.test.ts's own square-block test).
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     gl.enableVertexAttribArray(this._smudgePickupPosLoc)
     gl.vertexAttribPointer(this._smudgePickupPosLoc, 2, gl.FLOAT, false, 0, 0)
     gl.drawArrays(gl.TRIANGLES, 0, 6)

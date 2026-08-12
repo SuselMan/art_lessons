@@ -814,6 +814,7 @@ export class MockGL {
   // exactly this way on a real GPU.
   private _rasterSmudgePickup(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
     const { width, height, data } = info
+    const extent = this._boundQuadExtent()
     const rate = (uniforms.get('u_rate') as number) ?? 0
     const patchUnit = (uniforms.get('u_patch') as number) ?? 0
     const carriedUnit = (uniforms.get('u_carried') as number) ?? 1
@@ -824,14 +825,42 @@ export class MockGL {
     if (!patch) return // nothing bound — see _rasterSmudge's identical guard reasoning
 
     for (let ty = 0; ty < height; ty++) {
+      const clipY = 2 * ((ty + 0.5) / height) - 1
+      if (Math.abs(clipY) > extent) continue
       for (let tx = 0; tx < width; tx++) {
-        const u = (tx + 0.5) / width
-        const v = (ty + 0.5) / height
+        const clipX = 2 * ((tx + 0.5) / width) - 1
+        if (Math.abs(clipX) > extent) continue
+        // DISPLAY_VERT's own v_uv = a_position * 0.5 + 0.5, and its
+        // a_position *is* the clip coordinate — so for the fullscreen quad
+        // this is exactly (tx + 0.5) / width, as it was before the quad
+        // extent was honoured at all.
+        const u = clipX * 0.5 + 0.5
+        const v = clipY * 0.5 + 0.5
         const p = sampleUnit(patch, u, v)
         const c = sampleUnit(carried, u, v)
         data[ty * width + tx] = c + (p - c) * rate
       }
     }
+  }
+
+  /** Half-width of the quad currently bound as a_position, in clip units: 1
+   *  for createFullscreenQuad's -1..1, 0.5 for createQuadBuffer's -0.5..0.5
+   *  dab quad.
+   *
+   *  Every DISPLAY_VERT-based pass writes its target through a quad it
+   *  assumes covers the whole framebuffer, so a pass handed the *dab* quad
+   *  by mistake silently writes only the middle quarter of it and samples
+   *  its source over the middle half — which is precisely how a wide smudge
+   *  stroke came to stamp square blocks (the imprint's outer ring kept
+   *  whatever stale patch the pooled buffer last held, and got laid straight
+   *  back onto the canvas). Rasterizing the *intent* rather than the
+   *  geometry made that invisible here, so the coverage is modelled. */
+  private _boundQuadExtent(): number {
+    const data = this._boundArrayBuffer ? this._bufferData.get(this._boundArrayBuffer) : undefined
+    if (!data || data.length === 0) return 1
+    let max = 0
+    for (const v of data) max = Math.max(max, Math.abs(v))
+    return max
   }
 
   private _rasterComposite(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
