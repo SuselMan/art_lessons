@@ -126,14 +126,16 @@ describe('the selectable tools all have a panel to show (#405)', () => {
 
   // `show` is a master switch (a hidden ruler neither snaps nor moves). The
   // ruler's two defaults preserve the behaviour that existed before they were
-  // settings — snapping was unconditional. The grid's does not: it used to
-  // start off because its toolbar button *was* the switch, and now that the
-  // button selects a tool instead, off would mean the first press of it does
-  // nothing observable at all (the grid has no gesture of its own until #406).
-  it('defaults the ruler to shown and snapping, and the grid to shown', () => {
+  // settings — snapping was unconditional. The grid's `show` governs the
+  // overlay under every tool, not only its own, so it starts off: a room that
+  // never asks for a construction grid should not open with one drawn across
+  // the paper. (#405 had it on so the grid tool's first press did something
+  // visible; that is now just the quick toggle lighting up, until #406 gives
+  // the tool a gesture of its own.)
+  it('defaults the ruler to shown and snapping, and the grid to hidden', () => {
     const defaults = defaultToolSettings()
     expect(defaults.ruler).toEqual({ show: true, snap: true })
-    expect(defaults.grid).toEqual({ show: true })
+    expect(defaults.grid).toEqual({ show: false })
   })
 
   // (#443) The hand is the one selectable tool with nothing to configure, and

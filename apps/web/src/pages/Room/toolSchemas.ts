@@ -646,17 +646,19 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // state, not an oversight — moving and rotating the grid by gesture is #406,
   // and that is what will give the selection something to do.
   grid: {
-    // On by default (#405). The grid has no gesture of its own yet (#406), so
-    // with this off, picking up the grid tool did nothing observable at all —
-    // the one tool whose first press appeared broken. Reaching for it is
-    // already the request to see it; the toggle is for putting it away without
-    // giving up the tool, which is the rarer half.
+    // Off by default. It was on in #405 so that picking up the grid tool did
+    // something observable — the grid has no gesture of its own until #406, so
+    // an off default made its first press look broken. But this setting is the
+    // overlay's visibility under *every* tool, not just its own, so an on
+    // default meant a construction grid across the paper from the first stroke
+    // of every room, for every drawing that never asked for one. A tool whose
+    // first press only lights the quick toggle is the smaller cost.
     show: {
       nameKey: 'tool.field.showGrid',
       valueType: { kind: 'boolean' },
       uiControls: ['toggle'],
       quickAccess: true,
-      default: true,
+      default: false,
     },
   },
   // Hand (#443). The only empty schema in the registry, and it stays empty:

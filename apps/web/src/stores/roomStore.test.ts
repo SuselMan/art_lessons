@@ -52,9 +52,9 @@ describe('roomStore initial shape', () => {
     expect(keys).not.toContain('gridActive')
   })
 
-  it('starts with the grid and the ruler set to show, and the ruler snapping', () => {
+  it('starts with the ruler set to show and snapping, and the grid hidden', () => {
     const { toolSettings } = useRoomStore.getState()
-    expect(toolSettings.grid.show).toBe(true)
+    expect(toolSettings.grid.show).toBe(false)
     expect(toolSettings.ruler.show).toBe(true)
     expect(toolSettings.ruler.snap).toBe(true)
   })
