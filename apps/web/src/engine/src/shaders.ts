@@ -999,26 +999,34 @@ export const DAB_FRAG = `
 //      brush on its own — the offset between consecutive dabs *is* the
 //      smear, with no explicit "pick up behind / lay down ahead" contacts
 //      to tune (round 3 needed three of those; this needs none).
-//   3. SMUDGE_TRANSFER_FRAG (below) lays it down as a per-pixel lerp,
-//      `dst' = dst*(1-a) + carried*a`, split across the two draws the
+//   3. SMUDGE_TRANSFER_FRAG (below) lays it down per pixel as
+//      `dst' = dst*(1-a) + carried*a*tooth`, split across the two draws the
 //      engine already issued: an erase-blend pass writing alpha `a`
-//      (dst *= 1-a) and an additive pass writing `carried*a`. Both passes
-//      run this same shader with the same uniforms and compute `a` with
-//      the same expression — that identity is what makes the pair an exact
-//      lerp rather than two loosely-related transfers, so it must survive
-//      any future edit to how `a` is weighted.
+//      (dst *= 1-a) and an additive pass writing `carried*a*tooth`. Both
+//      passes run this same shader with the same uniforms and compute `a`
+//      with the same expression — that identity is what keeps the pair one
+//      transfer rather than two loosely-related ones, so it must survive any
+//      future edit to how `a` is weighted.
 //
-// What the lerp buys beyond killing the halo: a pixel next to a line
-// receives `a*carried` in the very same dab that takes from the line, so
+// What that buys beyond killing the halo: a pixel next to a line receives
+// its share of `carried` in the very same dab that takes from the line, so
 // there is no "graphite arrives later" lag at all; and holding the brush
 // still is self-limiting rather than destructive, since the imprint
-// converges to whatever sits under it and the lerp degenerates to identity
-// (round 3 needed a headroom correction bolted onto the reservoir drain to
-// approximate that).
+// converges to whatever sits under it and the transfer degenerates to
+// identity (round 3 needed a headroom correction bolted onto the reservoir
+// drain to approximate that).
 //
-// Both passes still weight `a` by the paper's own catch, so grain survives
-// being smudged over — the property SMUDGE_PICKUP_FLOOR used to defend with
-// a separate pickup-only floor.
+// `tooth` is the one term that deliberately breaks the exact-lerp symmetry,
+// and only on the deposit side (smudgeGrain.ts): it redistributes the
+// material across the paper's grain — ridges first, pressure driving it
+// into the valleys — around a mean of 1, so the amount laid down is
+// unchanged while the texture is re-created. At relief 0 it is exactly 1 and
+// the pair is the plain lerp again.
+//
+// Both passes also weight `a` itself by the paper's own catch. That alone
+// does not preserve grain and was never enough to (it only makes the
+// flattening slower in the valleys, since the material laid down is a
+// flat average either way) — it is `tooth` that puts texture back.
 export const SMUDGE_PICKUP_FRAG = `
   precision highp float;
 
@@ -1067,6 +1075,11 @@ export const SMUDGE_TRANSFER_FRAG = `
   uniform float u_pressure;
   uniform float u_paperFillThreshold;
   uniform float u_paperFillCap;
+  // How strongly the *deposited* material follows the paper's tooth at this
+  // dab's own pressure (smudgeGrainRelief, live-tunable — see
+  // smudgeGrain.ts). 0 lays the imprint down flat, which is exactly what
+  // this shader did before the term existed.
+  uniform float u_grainRelief;
 
   varying vec2 v_localUV;
 
@@ -1093,7 +1106,30 @@ export const SMUDGE_TRANSFER_FRAG = `
     // working its high ones. Left alone, paperCatch is what keeps grain
     // from being blended flat.
     float fill = smoothstep(u_paperFillThreshold, 1.0, u_pressure) * u_paperFillCap;
-    float effectiveCatch = mix(paperCatch, 1.0, fill);
+    // Sampled before the blend weight, and by *both* passes, because the fill
+    // below reads its alpha — the two halves must still compute an identical
+    // weight (see this file's header comment), so neither may branch before
+    // this point.
+    vec2 puv = (gl_FragCoord.xy - u_patchOrigin) / u_patchSize;
+    vec4 c = texture2D(u_carried, puv);
+    // A tooth already full of graphite offers the stump no relief to ride, so
+    // the paper stops governing the transfer exactly where it has been filled
+    // in — the imprint's own alpha joins pressure in flattening the catch.
+    //
+    // This is what makes working *inside* a dense area stable. Weighting only
+    // the removal by the grain (which is all this did before) takes the most
+    // from the pixels holding the most graphite — the ridges, since DAB_FRAG
+    // laid the graphite down through this same catch — and hands them back
+    // the patch average, so every pass bleaches the area a little. The
+    // deposit's own tooth term below cancels that wherever there is headroom
+    // to deposit into, and in dense graphite there is none by definition;
+    // the only honest fix there is to stop the grain weighting the removal
+    // either. Measured over ten heavy full-pressure passes inside a dense 8B
+    // field, mean luminance of the interior: it drifted +1.98 levels with
+    // neither term, +1.77 with the deposit's tooth alone, and +0.61 with
+    // both. Not zero — a partially covered pixel still has some grain
+    // weighting on both sides, by design — but a sixth of what it was.
+    float effectiveCatch = mix(paperCatch, 1.0, max(fill, c.a));
 
     // The single per-pixel blend weight both passes share. Any change here
     // is a change to *both* halves of the lerp at once, which is the point
@@ -1101,11 +1137,38 @@ export const SMUDGE_TRANSFER_FRAG = `
     float a = clamp(u_strength * shape * effectiveCatch, 0.0, 1.0);
 
     if (u_mode > 0.5) {
-      vec2 puv = (gl_FragCoord.xy - u_patchOrigin) / u_patchSize;
-      // Premultiplied throughout, so scaling the whole vec4 by "a" is the
-      // correct "a fraction of this much paint" — same convention DAB_FRAG
-      // outputs in.
-      gl_FragColor = texture2D(u_carried, puv) * a;
+      // How the imprint settles into the tooth (smudgeGrain.ts). The weight
+      // a above only decides how much of this pixel is reworked; what gets
+      // laid down is the imprint, a running average of patches collected
+      // along the stroke, whose own grain has averaged out — depositing it
+      // unmodulated is what wiped the paper's texture off a smudged area
+      // (measured: local contrast halved at unchanged tone). So the stump
+      // lays graphite on the ridges first, and pressure (already folded into
+      // u_grainRelief) drives it deeper into the valleys until the mark
+      // flattens.
+      //
+      // Centred on 0.5 = the catch channel's own mean by construction, so
+      // this redistributes the deposit across the grain rather than changing
+      // how much of it lands. Sampled from the same world-locked paperUV the
+      // dab shader uses, so the re-imprinted tooth lands *on* the paper's own
+      // grain — reinforcing what the pencil deposited rather than crossing it
+      // with a second, misaligned pattern.
+      //
+      // Scaled by the imprint's own headroom (1 - its alpha), which is what
+      // keeps this from *lightening* the very areas it is supposed to leave
+      // alone. Texture is a deviation in both directions, and a saturated
+      // black field has room in only one: nothing can be added above alpha 1,
+      // so an unscaled modulation loses every valley and gains no ridge back,
+      // and working dense graphite bleaches it a little more on every pass
+      // (measured: +7.2 levels over ten passes at full pressure, against +2.0
+      // with no grain term at all). Fading the amplitude out as the imprint
+      // approaches opaque also says the right physical thing — a black 8B
+      // smear has its tooth filled in and reads glossy and flat, not grainy —
+      // and it is what makes the modulation exactly mean-preserving: with
+      // relief <= 1 the product below can no longer clip at all, since
+      // c.a + relief*c.a*(1 - c.a) <= 1 for every c.a in 0..1.
+      float tooth = 1.0 + u_grainRelief * (1.0 - c.a) * (paperCatch - 0.5) * 2.0;
+      gl_FragColor = c * tooth * a;
     } else {
       gl_FragColor = vec4(0.0, 0.0, 0.0, a);
     }

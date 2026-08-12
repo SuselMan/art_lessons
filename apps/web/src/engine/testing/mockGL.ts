@@ -756,6 +756,14 @@ export class MockGL {
   // this file), so every dab behaves as if paperCatch were a flat 1.0 and
   // `a` reduces to strength*shape. Nothing in this test suite asserts on the
   // grain the real shader preserves through a smudge.
+  //
+  // For the same reason the deposit's own tooth term (u_grainRelief, see
+  // smudgeGrain.ts) is left out entirely rather than evaluated at that flat
+  // 1.0: the term is a *deviation from the catch channel's mean*, so its
+  // neutral value is the one at catch 0.5, not the one at catch 1.0 — which
+  // is exactly `tooth == 1`, i.e. omitting it. Evaluating it against the
+  // mock's flat catch instead would silently scale every smudge deposit here
+  // by 1 + relief, which is not what any GPU does anywhere.
   private _rasterSmudge(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
     const { width, height, data } = info
     const [cx, cy] = (uniforms.get('u_dabCenter') as number[]) ?? [0, 0]

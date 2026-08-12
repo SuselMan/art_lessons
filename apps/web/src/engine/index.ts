@@ -21,6 +21,7 @@ import {
   PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
   type PencilTiltConfig,
 } from './src/pencilTilt'
+import { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, smudgeGrainRelief, type SmudgeGrainConfig } from './src/smudgeGrain'
 import { tiltMagnitudeDeg } from './src/tiltMath'
 import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
@@ -62,6 +63,7 @@ export {
 }
 export { CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig }
 export { PENCIL_TILT, PENCIL_TILT_SLIDERS, type PencilTiltConfig }
+export { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, type SmudgeGrainConfig }
 // #409: the UI needs the option list and its default to build the setting, the
 // guard to validate a stored value, and the curve itself to draw each option's
 // own graph in the picker. Deliberately the raw function rather than a
@@ -319,6 +321,14 @@ export interface PencilEngineAPI {
   // same "next stroke, not retroactively" semantics — see setCharcoalFeel.
   setPencilTilt(patch: Partial<PencilTiltConfig>): void
   getPencilTilt(): PencilTiltConfig
+  // The same dev-only live tuning for how the smudge tool's imprint settles
+  // into the paper's tooth (smudgeGrain.ts). Unlike the two above, this one
+  // *is* read at paint time rather than baked into the Dab, so it takes
+  // effect on the next dab and a replay of an old stroke re-renders under
+  // whatever the knobs say now — fine for a dev knob, and the reason it has
+  // to be settled before any of it ships as a constant.
+  setSmudgeGrain(patch: Partial<SmudgeGrainConfig>): void
+  getSmudgeGrain(): SmudgeGrainConfig
   setCompositeOrder(items: CompositeItem[]): void
   appendOperation(op: Operation, source?: OperationSource): void
   // (#398) Decodes the reference image of every `image_import` among `ops`
@@ -1911,6 +1921,14 @@ export class PencilEngine implements PencilEngineAPI {
 
   getPencilTilt(): PencilTiltConfig {
     return { ...PENCIL_TILT }
+  }
+
+  setSmudgeGrain(patch: Partial<SmudgeGrainConfig>): void {
+    Object.assign(SMUDGE_GRAIN, patch)
+  }
+
+  getSmudgeGrain(): SmudgeGrainConfig {
+    return { ...SMUDGE_GRAIN }
   }
 
   setCompositeOrder(items: CompositeItem[]): void {
@@ -3907,7 +3925,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudgeUni = getUniforms(gl, this._smudgeProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
       'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
-      'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode',
+      'u_hardness', 'u_carried', 'u_patchOrigin', 'u_patchSize', 'u_mode', 'u_grainRelief',
       'u_strength', 'u_pressure', 'u_paperFillThreshold', 'u_paperFillCap',
     ])
     this._smudgePickupUni = getUniforms(gl, this._smudgePickupProg, [
@@ -5362,12 +5380,13 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** One half of a smudge dab's lerp — `clear` is `dst *= (1-a)` under
-   *  beginErase()'s (ZERO, ONE_MINUS_SRC_ALPHA), `lay` is `dst += carried*a`
-   *  under beginAdditiveDraw()'s (ONE, ONE). Issued as a pair, with
-   *  identical uniforms apart from u_mode, so the two together are exactly
-   *  `dst' = dst*(1-a) + carried*a` (see SMUDGE_TRANSFER_FRAG's own file
-   *  comment). `patchX`/`patchGlY`/`patchSize` are the copied patch's own
+  /** One half of a smudge dab's transfer — `clear` is `dst *= (1-a)` under
+   *  beginErase()'s (ZERO, ONE_MINUS_SRC_ALPHA), `lay` is
+   *  `dst += carried*a*tooth` under beginAdditiveDraw()'s (ONE, ONE). Issued
+   *  as a pair, with identical uniforms apart from u_mode, so the two
+   *  together are exactly `dst' = dst*(1-a) + carried*a*tooth` — a plain
+   *  lerp wherever the deposit's own grain term is neutral (see
+   *  SMUDGE_TRANSFER_FRAG's own file comment and smudgeGrain.ts). `patchX`/`patchGlY`/`patchSize` are the copied patch's own
    *  rect in this tile's GL pixel space, which is how a fragment finds
    *  itself in the imprint. */
   private _drawSmudgeTransferDab(
@@ -5402,6 +5421,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_pressure, dab.pressure)
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
+    // Both halves of the lerp read the same value, like every other uniform
+    // here — see this method's own doc comment on why they must agree.
+    gl.uniform1f(u.u_grainRelief, smudgeGrainRelief(dab.pressure))
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     gl.enableVertexAttribArray(this._smudgePosLoc)

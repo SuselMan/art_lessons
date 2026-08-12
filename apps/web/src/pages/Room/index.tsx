@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -383,6 +383,9 @@ export function Room() {
   // #389: graphite's tilt curve, seeded and pushed the same way charcoal's
   // ladder above is.
   const [pencilTilt, setPencilTiltState] = useState<PencilTiltConfig>(() => ({ ...PENCIL_TILT }))
+  // Smudge's own grain knobs (smudgeGrain.ts). Unlike the two above these are
+  // read at paint time, so they land on the next *dab*, not the next stroke.
+  const [smudgeGrain, setSmudgeGrainState] = useState<SmudgeGrainConfig>(() => ({ ...SMUDGE_GRAIN }))
 
   // Optional pointer-prediction experiment (#92) — same feature-flag pattern
   // as debugEnabled above. Off by default; lets Ilya A/B it on real hardware
@@ -5192,6 +5195,37 @@ export function Room() {
                         style={{ width: 90 }}
                       />
                       <span>{charcoalFeel[s.key].toFixed(s.step < 1 ? 2 : 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* How the smudge imprint settles into the paper's tooth
+                  (smudgeGrain.ts). Smudge only — the term exists nowhere
+                  else. `bite` at 0 is exactly the flat deposit this had
+                  before, which is what makes the pair an A/B rather than a
+                  one-way change; takes effect on the next dab, so it can be
+                  slid mid-drawing and compared on the same page. */}
+              {tool === 'smudge' && (
+                <div style={{ marginTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', paddingTop: 6 }}>
+                  <div style={{ opacity: 0.7 }}>smudge grain (next dab)</div>
+                  {SMUDGE_GRAIN_SLIDERS.map(s => (
+                    <div key={s.key} style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, pointerEvents: 'auto' }}>
+                      <span style={{ width: 78 }}>{s.label}</span>
+                      <input
+                        type="range"
+                        min={s.min}
+                        max={s.max}
+                        step={s.step}
+                        value={smudgeGrain[s.key]}
+                        onChange={e => {
+                          const v = Number(e.target.value)
+                          setSmudgeGrainState(prev => ({ ...prev, [s.key]: v }))
+                          engineRef.current?.setSmudgeGrain({ [s.key]: v })
+                        }}
+                        style={{ width: 90 }}
+                      />
+                      <span>{smudgeGrain[s.key].toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
