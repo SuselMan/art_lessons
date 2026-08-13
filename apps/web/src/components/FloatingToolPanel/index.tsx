@@ -130,8 +130,11 @@ interface Props {
  *  panel stand in for the left toolbar rather than merely shortcut it: before
  *  it, swapping pencil for marker (or reaching the smudge at all) meant
  *  bringing the full chrome back, which is exactly what minimal UI was entered
- *  to be rid of. Tapping a slot still just selects what it already shows; only
- *  a press that goes the distance is taken away from the tap (useLongPress). */
+ *  to be rid of. Tapping a slot still just selects what it already shows —
+ *  except while that slot's own fan is out, when the tap tucks it back
+ *  instead; only a press that goes the distance is taken away from the tap
+ *  (useLongPress). See tapSlot for why the button that opened a fan is also
+ *  the one that closes it. */
 export function FloatingToolPanel({
   tool, primaryTool, secondaryTool, onSetTool, onUndo, onRedo, primaryColor, palette, onSelectColor,
   onOpenColorPicker, roomId, position, onPositionChange, containerRef, hidden,
@@ -155,6 +158,23 @@ export function FloatingToolPanel({
   const openSecondaryFlyout = useCallback(() => onFlyoutChange('secondary'), [onFlyoutChange])
   const { onPointerDown: onPrimaryHold } = useLongPress({ onLongPress: openPrimaryFlyout })
   const { onPointerDown: onSecondaryHold } = useLongPress({ onLongPress: openSecondaryFlyout })
+
+  // A tap on a tool slot. Selecting what the slot shows is only its second
+  // job: while the slot's own fan is out, the tap tucks it back instead — the
+  // same button opened it (by being held), so the same button is where a hand
+  // reaches to undo that, and re-selecting the tool already showing on the
+  // slot is a no-op that would leave the fan hanging. The fan is not a menu
+  // that has to be chosen from: backing out of it is a real intention, and
+  // the alternative was aiming at the backdrop instead.
+  //
+  // A tap on the *other* slot is an ordinary selection, and closes the fan on
+  // the way — a fan left fanned out around a panel whose selection just moved
+  // is pointing at a decision that has already been made.
+  const tapSlot = useCallback((slot: PanelFlyout, slotTool: FloatingPanelTool) => {
+    if (flyout === slot) { onFlyoutChange(null); return }
+    if (flyout) onFlyoutChange(null)
+    onSetTool(slotTool)
+  }, [flyout, onFlyoutChange, onSetTool])
 
   // Reset to collapsed on *every* change of which fan is out, not just on
   // closing: swapping one fan straight for the other (holding the tool slot
@@ -302,7 +322,7 @@ export function FloatingToolPanel({
             nothing on screen can advertise by itself. */}
         <button
           className={clsx(styles.btn, styles.btnTop, tool === primaryTool && styles.btnActive)}
-          onClick={() => onSetTool(primaryTool)}
+          onClick={() => tapSlot('primary', primaryTool)}
           onPointerDown={onPrimaryHold}
           title={t('palette.toolHold', { tool: t(TOOL_DISPLAY[primaryTool].labelKey) })}
           aria-label={t(TOOL_DISPLAY[primaryTool].labelKey)}
@@ -317,7 +337,7 @@ export function FloatingToolPanel({
         </button>
         <button
           className={clsx(styles.btn, styles.btnBottom, tool === secondaryTool && styles.btnActive)}
-          onClick={() => onSetTool(secondaryTool)}
+          onClick={() => tapSlot('secondary', secondaryTool)}
           onPointerDown={onSecondaryHold}
           title={t('palette.toolHold', { tool: t(TOOL_DISPLAY[secondaryTool].labelKey) })}
           aria-label={t(TOOL_DISPLAY[secondaryTool].labelKey)}
