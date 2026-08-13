@@ -37,7 +37,8 @@
 export type UniformValue = number | number[]
 
 interface MockProgram {
-  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'imageBlit' | 'smudge' | 'smudgePickup' | 'other'
+  fragTag: 'dab' | 'composite' | 'display' | 'papergen' | 'transform' | 'imageBlit' | 'smudge' | 'smudgePickup'
+    | 'areaTransform' | 'areaMask' | 'other'
   uniforms: Map<string, UniformValue>
 }
 
@@ -93,7 +94,10 @@ const ENUM = {
   TEXTURE_WRAP_S: 13, TEXTURE_WRAP_T: 14, CLAMP_TO_EDGE: 15,
   FRAMEBUFFER: 16, COLOR_ATTACHMENT0: 17, FRAMEBUFFER_COMPLETE: 18,
   COLOR_BUFFER_BIT: 19, TRIANGLES: 20, FLOAT: 21,
-  BLEND: 22, ONE: 23, ONE_MINUS_SRC_ALPHA: 24, ZERO: 25,
+  BLEND: 22, ONE: 23, ONE_MINUS_SRC_ALPHA: 24, ZERO: 25, SRC_ALPHA: 28,
+  // (#446) The selection mask's own upload format — one byte per texel,
+  // which this mock's single-scalar-per-texel model happens to match exactly.
+  ALPHA: 30,
   TEXTURE0: 100, TEXTURE1: 101,
   UNPACK_ALIGNMENT: 102,
   // #141: infinite-canvas paper texture wrap mode — REPEAT vs CLAMP_TO_EDGE
@@ -136,6 +140,8 @@ export class MockGL {
   readonly ONE = ENUM.ONE
   readonly ONE_MINUS_SRC_ALPHA = ENUM.ONE_MINUS_SRC_ALPHA
   readonly ZERO = ENUM.ZERO
+  readonly SRC_ALPHA = ENUM.SRC_ALPHA
+  readonly ALPHA = ENUM.ALPHA
   readonly TEXTURE0 = ENUM.TEXTURE0
   readonly TEXTURE1 = ENUM.TEXTURE1
   readonly REPEAT = ENUM.REPEAT
@@ -210,6 +216,13 @@ export class MockGL {
     if (source.includes('u_layer')) return 'composite'
     if (source.includes('u_accumulation')) return 'display'
     if (source.includes('u_warp')) return 'papergen'
+    // (#446) Both selection shaders must be caught *before* 'transform':
+    // AREA_TRANSFORM_FRAG declares u_matrixInv too, and tagging it as the
+    // plain transform would silently rasterize it with no mask at all — an
+    // engine test would then watch a whole layer move and call it a passing
+    // selection test.
+    if (source.includes('u_srcOrigin')) return 'areaTransform'
+    if (source.includes('u_dstOrigin')) return 'areaMask'
     if (source.includes('u_matrixInv')) return 'transform'
     if (source.includes('u_imageRect')) return 'imageBlit'
     return 'other'
@@ -370,7 +383,9 @@ export class MockGL {
       // (AccumulationBuffer's checkpoint/undo pixel restore): 4 bytes per
       // texel, alpha carries the value — see the module docstring's
       // "R===G===B===A" invariant.
-      if (format === ENUM.LUMINANCE) {
+      // ALPHA (#446, the selection mask): 1 byte per texel carrying coverage
+      // directly — same single-byte layout as LUMINANCE, different meaning.
+      if (format === ENUM.LUMINANCE || format === ENUM.ALPHA) {
         for (let i = 0; i < width * height; i++) data[i] = src[i] / 255
       } else if (format === ENUM.LUMINANCE_ALPHA) {
         for (let i = 0; i < width * height; i++) data[i] = src[i * 2] / 255
@@ -576,6 +591,8 @@ export class MockGL {
       case 'dab': this._recordDabDraw(prog.uniforms); this._rasterDab(info, prog.uniforms); break
       case 'composite': this._rasterComposite(info, prog.uniforms); break
       case 'transform': this._rasterTransform(info, prog.uniforms); break
+      case 'areaTransform': this._rasterAreaTransform(info, prog.uniforms); break
+      case 'areaMask': this._rasterAreaMask(info, prog.uniforms); break
       case 'imageBlit': this._rasterImageBlit(info, prog.uniforms); break
       case 'smudge': this._rasterSmudge(info, prog.uniforms); break
       case 'smudgePickup': this._rasterSmudgePickup(info, prog.uniforms); break
@@ -633,7 +650,11 @@ export class MockGL {
    *  relies on. */
   private _blendDstWeight(srcAlpha: number): number {
     if (!this._blendEnabled) return 0
-    return this._blendDst === ENUM.ONE ? 1 : 1 - srcAlpha
+    if (this._blendDst === ENUM.ONE) return 1
+    // (#446) `dst *= src.a` — AccumulationBuffer.beginKeepDraw, the "keep only
+    // what the mask covers" half of the selection mask pass.
+    if (this._blendDst === ENUM.SRC_ALPHA) return srcAlpha
+    return 1 - srcAlpha
   }
 
   // #123: replays the same per-instance dab in submission order (0..N-1),
@@ -935,6 +956,87 @@ export class MockGL {
   // transparent (out-of-source-range) sample from one pass must leave an
   // earlier pass's already-valid pixel alone, exactly like the composite/
   // dab rasterizers below already do via _blendSrcFactor().
+  /** (#446) AREA_TRANSFORM_FRAG: _rasterTransform with the source's coverage
+   *  multiplied by the selection mask, sampled at the *source* position (in
+   *  world coordinates, hence u_srcOrigin) rather than the destination one.
+   *  Getting that wrong is the difference between a shape that moves and a
+   *  shape that deforms as it moves, so it is worth having observable here.
+   *
+   *  Nearest-texel mask sampling, unlike the real shader's LINEAR: the mock
+   *  is single-scalar-per-texel throughout and this keeps the arithmetic
+   *  exact, which matters more for an assertion than a soft edge does. */
+  private _rasterAreaTransform(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const { width, height, data } = info
+    const srcUnit = (uniforms.get('u_source') as number) ?? 0
+    const maskUnit = (uniforms.get('u_mask') as number) ?? 1
+    const [bw, bh] = (uniforms.get('u_srcSize') as number[]) ?? [width, height]
+    const [srcOriginX, srcOriginY] = (uniforms.get('u_srcOrigin') as number[]) ?? [0, 0]
+    const maskRect = (uniforms.get('u_maskRect') as number[]) ?? [0, 0, 1, 1]
+    const m = (uniforms.get('u_matrixInv') as number[]) ?? [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    const srcInfo = this._textureInfoAtUnit(srcUnit)
+    const maskInfo = this._textureInfoAtUnit(maskUnit)
+    const sf = this._blendSrcFactor()
+
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        const idx = py * width + px
+        const dstX = px + 0.5, dstY = py + 0.5
+        const srcX = dstX * m[0] + dstY * m[3] + m[6]
+        const srcY = dstX * m[1] + dstY * m[4] + m[7]
+        if (!srcInfo || srcX < 0 || srcX >= bw || srcY < 0 || srcY >= bh) continue
+        const cov = this._sampleMask(maskInfo, maskRect, srcX + srcOriginX, srcY + srcOriginY)
+        if (cov <= 0) continue
+        const sx = Math.min(Math.floor(srcX), srcInfo.width - 1)
+        const sy = Math.min(Math.floor(srcY), srcInfo.height - 1)
+        const srcAlpha = (srcInfo.data[sy * srcInfo.width + sx] ?? 0) * cov
+        data[idx] = srcAlpha * sf + data[idx] * this._blendDstWeight(srcAlpha)
+      }
+    }
+  }
+
+  /** (#446) AREA_MASK_FRAG: writes the mask's coverage as the source alpha
+   *  over the whole target, leaving the blend function to decide what that
+   *  means — erase inside (ZERO, ONE_MINUS_SRC_ALPHA) or keep only inside
+   *  (ZERO, SRC_ALPHA). Outside the mask rect the coverage is zero, which
+   *  under 'erase' leaves the target untouched and under 'keep' clears it,
+   *  exactly as the real shader does. */
+  private _rasterAreaMask(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
+    const { width, height, data } = info
+    const maskUnit = (uniforms.get('u_mask') as number) ?? 0
+    const [dstOriginX, dstOriginY] = (uniforms.get('u_dstOrigin') as number[]) ?? [0, 0]
+    const maskRect = (uniforms.get('u_maskRect') as number[]) ?? [0, 0, 1, 1]
+    const maskInfo = this._textureInfoAtUnit(maskUnit)
+    const sf = this._blendSrcFactor()
+
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        const idx = py * width + px
+        const cov = this._sampleMask(maskInfo, maskRect, px + 0.5 + dstOriginX, py + 0.5 + dstOriginY)
+        data[idx] = cov * sf + data[idx] * this._blendDstWeight(cov)
+      }
+    }
+  }
+
+  private _textureInfoAtUnit(unit: number): TextureInfo | undefined {
+    const tex = this._textureUnits[unit] ?? null
+    return tex ? this._textureData.get(tex) : undefined
+  }
+
+  /** Coverage at a world position, or 0 outside the mask's own rect. */
+  private _sampleMask(
+    maskInfo: TextureInfo | undefined, maskRect: number[], worldX: number, worldY: number,
+  ): number {
+    if (!maskInfo) return 0
+    const [ox, oy, rw, rh] = maskRect
+    if (rw <= 0 || rh <= 0) return 0
+    const u = (worldX - ox) / rw
+    const v = (worldY - oy) / rh
+    if (u < 0 || u > 1 || v < 0 || v > 1) return 0
+    const mx = Math.min(maskInfo.width - 1, Math.floor(u * maskInfo.width))
+    const my = Math.min(maskInfo.height - 1, Math.floor(v * maskInfo.height))
+    return maskInfo.data[my * maskInfo.width + mx] ?? 0
+  }
+
   private _rasterTransform(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
     const { width, height, data } = info
     const unit = (uniforms.get('u_source') as number) ?? 0

@@ -389,14 +389,21 @@ function layerStateIdsOf(state: unknown): Set<string> | null {
  *  sent, and the client skips re-applying their pixel half to a layer it has
  *  already restored past them, judged against the coverage it really has
  *  (#374). */
-const COVERABLE_OP_TYPES = ['stroke', 'image_import', 'layer_clear']
+//
+//  (#446) The three selection operations join them: each targets one layer and
+//  does nothing but paint it, which is the whole test above. `area_paste`
+//  carries an inline raster, so it is heavy in exactly the way this list
+//  exists for.
+const COVERABLE_OP_TYPES = ['stroke', 'image_import', 'layer_clear', 'area_transform', 'area_clear', 'area_paste']
 
 /** (#412) `'layerId' in op` used to be enough to narrow to a single-target
  *  operation. It stopped being: `layer_opacity`/`layer_visibility` still
  *  declare a `layerId`, now optional, so the test admits them and the field
  *  can be `undefined`. Narrowing by type instead says what was always meant —
  *  the three operations that carry pixels — and keeps the one list of them. */
-type CoverableOperation = Extract<Operation, { type: 'stroke' | 'image_import' | 'layer_clear' }>
+type CoverableOperation = Extract<Operation, {
+  type: 'stroke' | 'image_import' | 'layer_clear' | 'area_transform' | 'area_clear' | 'area_paste'
+}>
 
 function isCoverableOp(op: Operation): op is CoverableOperation {
   return COVERABLE_OP_TYPES.includes(op.type)
@@ -1108,7 +1115,14 @@ function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
     case 'layer_transform': return op.transforms.some(t => !record.aliveIds.has(t.layerId))
     case 'stroke':
     case 'image_import':
-    case 'layer_clear': return record.deletedIds.has(op.layerId)
+    case 'layer_clear':
+    // (#446) Class 2 as well: a selection operation carries content (pixels
+    // moved, erased or pasted) and degrades gracefully client-side, so it is
+    // gated on a positively-destroyed target only, never on "not positively
+    // alive".
+    case 'area_transform':
+    case 'area_clear':
+    case 'area_paste': return record.deletedIds.has(op.layerId)
     default: return false
   }
 }

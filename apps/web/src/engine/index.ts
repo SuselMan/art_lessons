@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation, LayerTransformMatrix } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG } from './src/shaders'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation } from '@grafetto/shared'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -45,6 +45,7 @@ import {
   IDENTITY_MATRIX, type Matrix3,
 } from './src/matrix'
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
+import { buildSelectionMask } from './src/selectionMask'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
@@ -580,6 +581,24 @@ export interface PencilEngineAPI {
   // everything past that point is 3x3.
   previewLayerTransform(transforms: Array<{ layerId: string; matrix: LayerTransformMatrix }>): void
   clearLayerTransformPreview(): void
+  // (#446) The selection-scoped twin of previewLayerTransform: previews an
+  // `area_transform` — the masked region lifted out of the layer, leaving a
+  // hole, and stamped down through `matrix`. Same lifecycle as the whole-layer
+  // preview, and cleared by the same clearLayerTransformPreview(), because a
+  // drag is either one or the other and never both.
+  //
+  // Unlike the whole-layer preview, this one only shadows the tiles it
+  // actually touches — the rest of the layer keeps drawing from its real
+  // buffer (see _drawCompositeItem). A whole-layer preview can replace the
+  // layer wholesale because every pixel of it moved; here most of the layer
+  // is standing still.
+  previewAreaTransform(layerId: string, selection: SelectionShape, matrix: LayerTransformMatrix): void
+  // (#446) The selected pixels of one layer as a PNG data URL plus the world
+  // rect they came from — what "copy" puts on the clipboard and what a later
+  // `area_paste` carries. Everything outside the selection is transparent, so
+  // pasting a lasso'd shape does not drop a rectangle of background around it.
+  // Null when the selection has no inside or the layer is empty there.
+  readAreaImage(layerId: string, selection: SelectionShape): Promise<AreaImage | null>
   // Live remote-stroke reveal (#37 follow-up v2): call when a peer's finished
   // StrokeOperation arrives. Plays its dabs back into a dedicated per-peer
   // preview buffer (composited on top in _display(), never written into any
@@ -647,6 +666,54 @@ export interface PencilEngineAPI {
   // _exportInfinitePNG's own doc comment for the full reasoning.
   exportPNG(transparent?: boolean): Promise<Blob | null>
   destroy(): void
+}
+
+/** (#446) A copied selection: the pixels, and where on the canvas they were.
+ *  Shaped to drop straight into an `area_paste` operation — paste in place is
+ *  the default (ADR 008), so the rect travels with the raster rather than
+ *  being recomputed from wherever the camera happens to be. */
+export interface AreaImage {
+  image: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** (#446) A selection's coverage mask on the GPU, with the world rect it
+ *  spans — everything the two mask shaders need to place it. */
+interface MaskTexture {
+  tex: WebGLTexture
+  rect: WorldRect
+}
+
+/** Straight-alpha copy of premultiplied RGBA8 bytes. Layer buffers store
+ *  colour premultiplied by coverage; PNG (and `<img>` decoding on the way back
+ *  in) is straight alpha. Skipping this on the way out darkens every partly
+ *  transparent pixel, which for a copied selection is precisely its
+ *  antialiased rim — a dark outline that appears on paste and nowhere else. */
+function unpremultiply(pixels: Uint8Array): Uint8Array {
+  const out = new Uint8Array(pixels.length)
+  for (let i = 0; i < pixels.length; i += 4) {
+    const a = pixels[i + 3]
+    out[i + 3] = a
+    if (a === 0) continue
+    // Rounded, and clamped because a premultiplied buffer can hold rgb
+    // marginally above its own alpha after repeated blending.
+    out[i] = Math.min(255, Math.round(pixels[i] * 255 / a))
+    out[i + 1] = Math.min(255, Math.round(pixels[i + 1] * 255 / a))
+    out[i + 2] = Math.min(255, Math.round(pixels[i + 2] * 255 / a))
+  }
+  return out
+}
+
+function blobToDataUrl(blob: Blob): Promise<string | null> {
+  return new Promise(resolve => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null)
+    reader.onerror = () => resolve(null)
+    reader.readAsDataURL(blob)
+  })
 }
 
 /** (#429) One packet of a peer's in-progress stroke, as
@@ -1415,6 +1482,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _compositeProg!: WebGLProgram
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
+  // Selection (#446) — the masked transform blit and the one-shader-two-blend-
+  // modes mask pass (see AREA_TRANSFORM_FRAG/AREA_MASK_FRAG). Separate
+  // programs rather than branches inside the existing transform blit: the
+  // whole-layer path runs on every gizmo drag frame of every transform there
+  // has ever been, and a mask sampler it never uses has no business in it.
+  private _areaTransformProg!: WebGLProgram
+  private _areaMaskProg!: WebGLProgram
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
   // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
   private _smudgeProg!: WebGLProgram
@@ -1439,6 +1513,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _compositeUni!: Record<string, WebGLUniformLocation | null>
   private _blitUni!: Record<string, WebGLUniformLocation | null>
   private _transformUni!: Record<string, WebGLUniformLocation | null>
+  private _areaTransformUni!: Record<string, WebGLUniformLocation | null>
+  private _areaMaskUni!: Record<string, WebGLUniformLocation | null>
   private _smudgeUni!: Record<string, WebGLUniformLocation | null>
   private _smudgePickupUni!: Record<string, WebGLUniformLocation | null>
   private _dabPosLoc!: number
@@ -1447,6 +1523,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _compositePosLoc!: number
   private _blitPosLoc!: number
   private _transformPosLoc!: number
+  private _areaTransformPosLoc!: number
+  private _areaMaskPosLoc!: number
   // Attribute locations are per-*program*, not per-shader-source — even
   // though _smudgeProg shares DAB_VERT's exact source with _dabProg, it's a
   // separately linked program, so 'a_position' can land at a different
@@ -1625,6 +1703,16 @@ export class PencilEngine implements PencilEngineAPI {
   // each positioned like a real PaintTarget — see PreviewTile and
   // previewLayerTransform/clearLayerTransformPreview.
   private _transformPreview = new Map<string, PreviewTile[]>()
+  // (#446) Which of those previews are *selection* previews. The distinction
+  // matters exactly once, in _drawCompositeItem: a whole-layer preview is the
+  // entire layer and replaces it, while a selection preview covers only the
+  // tiles the selection passes through and the rest of the layer must keep
+  // drawing from its real buffer. A Set rather than a field on PreviewTile
+  // because it is a property of the gesture, not of any one tile.
+  private _areaPreviewLayers = new Set<string>()
+  // (#446) The one uploaded selection mask, cached by the identity of the
+  // selection it was built from — see _acquireMask.
+  private _maskCache: { selection: SelectionShape; mask: MaskTexture } | null = null
 
   // Reference-image import (#88) — keyed by the op's own data URL, so
   // replaying the same room twice (e.g. undo/redo rebuilding a layer) never
@@ -2144,6 +2232,42 @@ export class PencilEngine implements PencilEngineAPI {
         } else {
           this._log.revoke(op.id)
         }
+        break
+      }
+      // (#446) The three selection operations. Each targets exactly one layer
+      // and paints nothing else, so they follow stroke/image_import's shape
+      // exactly: covered by a restore means already in the restored pixels
+      // (skip), no live target means it can never take effect again (revoke).
+      case 'area_transform':
+      case 'area_clear': {
+        const buf = this._layers.get(op.layerId)
+        if (!buf) { this._log.revoke(op.id); break }
+        if (this._isCoveredByRestore(op.layerId, op.seq)) { this._log.revoke(op.id); break }
+        if (op.type === 'area_transform') this._bakeAreaTransform(buf, op.selection, op.matrix)
+        else this._clearArea(buf, op.selection)
+        this._markLayerDirty(op.layerId)
+        this._maybeCheckpoint(op.layerId)
+        if (op.layerId !== this._activeId) this._invalidateSplitCache()
+        this._displayIfNotSuspended()
+        break
+      }
+      case 'area_paste': {
+        const buf = this._layers.get(op.layerId)
+        if (!buf) { this._log.revoke(op.id); break }
+        if (this._isCoveredByRestore(op.layerId, op.seq)) { this._log.revoke(op.id); break }
+        this._markLayerDirty(op.layerId)
+        const record = this._asImportRecord(op)
+        // Same decoded/late split as image_import above — see #398. A local
+        // paste is always already decoded (the clipboard raster came from this
+        // very engine); a peer's arrives cold and takes the async path.
+        if (this._paintDecodedImage(buf, record)) {
+          this._maybeCheckpoint(op.layerId)
+        } else {
+          this._paintImage(buf, record)
+            .then(() => { this._settleLateImage(record); this._maybeCheckpoint(op.layerId) })
+            .catch(err => console.error('failed to paint pasted image', err))
+        }
+        if (op.layerId !== this._activeId) this._invalidateSplitCache()
         break
       }
       case 'layer_transform': {
@@ -2782,6 +2906,7 @@ export class PencilEngine implements PencilEngineAPI {
       for (const { buffer } of tiles) buffer.destroy()
     }
     this._transformPreview.clear()
+    this._areaPreviewLayers.clear()
     this._display()
   }
 
@@ -3101,6 +3226,7 @@ export class PencilEngine implements PencilEngineAPI {
       for (const { buffer } of tiles) buffer.destroy()
     }
     this._transformPreview.clear()
+    this._areaPreviewLayers.clear()
     this._checkpoints = []
     this._checkpointBytes = 0
     // (#381) Nothing left to rebuild into — the buffers are gone.
@@ -3114,6 +3240,13 @@ export class PencilEngine implements PencilEngineAPI {
     switch (op.type) {
       case 'stroke':
       case 'layer_clear':
+      // (#446) Single-layer pixel operations, same as the two above: undoing
+      // or redoing one means replaying its layer's history without (or with)
+      // it. Nothing here can be derived from the operation's own effect —
+      // erasing a region cannot be inverted in place, only replayed away.
+      case 'area_transform':
+      case 'area_clear':
+      case 'area_paste':
         this._rebuildLayerOrDefer(op.layerId)
         break
       case 'layer_add':
@@ -3304,6 +3437,25 @@ export class PencilEngine implements PencilEngineAPI {
         // rebuilt right now.
         const entry = op.transforms.find(t => t.layerId === layerId)
         if (entry) this._bakeTransform(buf, entry.matrix)
+        break
+      }
+      // (#446) `buf` is this operation's own layer by construction here (the
+      // caller filters the log per layer), so unlike layer_transform there is
+      // no entry to pick out.
+      case 'area_transform':
+        this._bakeAreaTransform(buf, op.selection, op.matrix)
+        break
+      case 'area_clear':
+        this._clearArea(buf, op.selection)
+        break
+      case 'area_paste': {
+        const record = this._asImportRecord(op)
+        // Same as image_import's own branch: a rebuild reaches this with the
+        // raster already decoded in almost every case, and falls back to the
+        // async path rather than dropping the paste when it doesn't.
+        if (!this._paintDecodedImage(buf, record)) {
+          this._paintImage(buf, record).catch(err => console.error('failed to paint pasted image', err))
+        }
         break
       }
     }
@@ -3542,6 +3694,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._peerPreviews.clear()
     this._peerLiveStrokes.clear()
     this._transformPreview.clear() // handles dead too; a mid-drag gizmo just loses its live preview
+    this._areaPreviewLayers.clear()
+    // (#446) The mask texture died with the context. Dropping the cache entry
+    // rather than deleting the texture is the point: deleting a name from a
+    // lost context is meaningless, and *keeping* the entry would hand the
+    // first selection gesture after the restore a texture that no longer
+    // exists.
+    this._maskCache = null
     // (#381) _syncBuffersToLog below replays every live layer from the log
     // outright, which is strictly more than any deferred rebuild was going to
     // do — keeping them queued would just repeat that work at the next resume.
@@ -3877,6 +4036,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
+    this._areaTransformProg   = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
+    this._areaMaskProg        = createProgram(gl, DISPLAY_VERT, AREA_MASK_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
     this._smudgePickupProg    = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
@@ -3918,6 +4079,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
+    this._areaTransformUni = getUniforms(gl, this._areaTransformProg, [
+      'u_source', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
+    ])
+    this._areaMaskUni = getUniforms(gl, this._areaMaskProg, ['u_mask', 'u_dstSize', 'u_dstOrigin', 'u_maskRect'])
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
@@ -3938,6 +4103,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
+    this._areaTransformPosLoc  = gl.getAttribLocation(this._areaTransformProg, 'a_position')
+    this._areaMaskPosLoc       = gl.getAttribLocation(this._areaMaskProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
     this._smudgePosLoc         = gl.getAttribLocation(this._smudgeProg, 'a_position')
     this._smudgePickupPosLoc   = gl.getAttribLocation(this._smudgePickupProg, 'a_position')
@@ -4664,7 +4831,11 @@ export class PencilEngine implements PencilEngineAPI {
   /** See the PencilEngineAPI doc comment. */
   async preloadImages(ops: Operation[]): Promise<void> {
     const sources = new Set<string>()
-    for (const op of ops) if (op.type === 'image_import') sources.add(op.image)
+    // (#446) `area_paste` carries a raster for the same reason image_import
+    // does, so it must be decoded ahead of a replay for the same reason too —
+    // an operation painted after its own async decode lands on top of
+    // whatever was drawn in the meantime.
+    for (const op of ops) if (op.type === 'image_import' || op.type === 'area_paste') sources.add(op.image)
     if (sources.size === 0) return
     await Promise.all([...sources].map(src => this._loadImage(src).catch(
       // Deliberately not rethrown: this is a preparation step for a replay,
@@ -5923,6 +6094,11 @@ export class PencilEngine implements PencilEngineAPI {
     const minifying = this._compositeScale < 1
 
     const preview = this._transformPreview.get(id)
+    // (#446) A selection preview shadows only the tiles it holds — the rest of
+    // the layer is standing still and must still be drawn. A whole-layer
+    // preview keeps the original behaviour of replacing the layer outright:
+    // every pixel of it moved, so there is nothing left to draw underneath.
+    const areaPreview = preview ? this._areaPreviewLayers.has(id) : false
     if (preview) {
       for (const { originX, originY, buffer } of preview) {
         buffer.setMipSampling(minifying && buffer.ensureMipmaps())
@@ -5930,10 +6106,27 @@ export class PencilEngine implements PencilEngineAPI {
           buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
         )
       }
-      return
+      if (!areaPreview) return
     }
     const buf = this._layers.get(id)
     if (!buf) return
+
+    if (areaPreview) {
+      // Deliberately the fine tiles, never resolveCoarse: the coarse pyramid
+      // has no idea a preview is shadowing anything, so a zoomed-out frame
+      // would draw the pre-drag content of the very tiles being previewed,
+      // right on top of the preview. A drag is transient; one frame at fine
+      // resolution is the cheaper mistake.
+      const shadowed = new Set((preview ?? []).map(t => `${t.originX},${t.originY}`))
+      for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
+        if (shadowed.has(`${originX},${originY}`)) continue
+        buffer.setMipSampling(minifying && buffer.ensureMipmaps())
+        this._drawTileComposite(
+          buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+        )
+      }
+      return
+    }
 
     // (#365) Which pyramid level this frame should draw, or null for the fine
     // tiles — see coarseFactorFor. The level is never more than a factor of
@@ -6755,6 +6948,413 @@ export class PencilEngine implements PencilEngineAPI {
       scratch.copyTo(target.buffer)
       this._releaseScratchBuf(scratch)
     }
+  }
+
+  // ─── Selection (#446) ────────────────────────────────────────────────────────
+
+  /** Uploads a selection's coverage mask (selectionMask.ts) as an ALPHA
+   *  texture, with a one-entry cache keyed by the *identity* of the selection
+   *  object.
+   *
+   *  The cache is what makes a gizmo drag affordable: previewAreaTransform
+   *  runs on every pointer move, the selection does not change during a drag,
+   *  and rasterizing a canvas-sized lasso is milliseconds of CPU that would
+   *  otherwise be spent per frame. Room holds the selection in the store, so
+   *  every frame of one drag really does pass the same object; a replayed
+   *  operation brings its own, which correctly misses and is released as soon
+   *  as the next caller arrives.
+   *
+   *  Null when the selection has no inside (a tap, a zero-width drag) — every
+   *  caller treats that as "nothing to do" rather than as an error, which is
+   *  also what makes a stray tap with the selection tool harmless. */
+  private _acquireMask(selection: SelectionShape): MaskTexture | null {
+    if (this._maskCache && this._maskCache.selection === selection) return this._maskCache.mask
+    this._releaseMask()
+    const built = buildSelectionMask(selection)
+    if (!built) return null
+
+    const { gl } = this
+    const tex = gl.createTexture()!
+    gl.bindTexture(gl.TEXTURE_2D, tex)
+    // Rows are single-byte and the width is whatever the selection happened to
+    // be, so the default 4-byte row alignment would shear every mask whose
+    // width isn't a multiple of four — a diagonal tear that looks like a
+    // rasterizer bug and isn't one.
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    gl.texImage2D(
+      gl.TEXTURE_2D, 0, gl.ALPHA, built.width, built.height, 0, gl.ALPHA, gl.UNSIGNED_BYTE, built.data,
+    )
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+
+    const mask: MaskTexture = { tex, rect: built.rect }
+    this._maskCache = { selection, mask }
+    return mask
+  }
+
+  private _releaseMask(): void {
+    if (!this._maskCache) return
+    this.gl.deleteTexture(this._maskCache.mask.tex)
+    this._maskCache = null
+  }
+
+  /** One AREA_MASK_FRAG pass over a whole buffer — see that shader's comment
+   *  for why the two modes are one program: 'erase' punches the selection out
+   *  (`dst *= 1 - coverage`), 'keep' throws away everything outside it
+   *  (`dst *= coverage`). `originX/originY` is the target's world origin, so
+   *  the caller never has to translate the mask. */
+  private _runAreaMaskPass(
+    target: AccumulationBuffer, originX: number, originY: number, mask: MaskTexture, mode: 'erase' | 'keep',
+  ): void {
+    const { gl } = this
+    if (mode === 'erase') target.beginErase()
+    else target.beginKeepDraw()
+    gl.useProgram(this._areaMaskProg)
+    const u = this._areaMaskUni
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, mask.tex)
+    gl.uniform1i(u.u_mask, 0)
+    gl.uniform2f(u.u_dstSize, target.width, target.height)
+    gl.uniform2f(u.u_dstOrigin, originX, originY)
+    gl.uniform4f(
+      u.u_maskRect, mask.rect.minX, mask.rect.minY,
+      mask.rect.maxX - mask.rect.minX, mask.rect.maxY - mask.rect.minY,
+    )
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._areaMaskPosLoc)
+    gl.vertexAttribPointer(this._areaMaskPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    gl.disable(gl.BLEND)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** The masked twin of _runTransformBlit: draws one source tile's *selected*
+   *  pixels through `matrixInv` into `targetFbo`, composited over whatever is
+   *  already there ("over", not replace — a destination tile can receive
+   *  content from several source tiles, and it already holds the part of the
+   *  layer that isn't moving). */
+  private _runAreaTransformBlit(
+    sourceTex: WebGLTexture, srcOriginX: number, srcOriginY: number, matrixInv: Matrix3, mask: MaskTexture,
+    dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer,
+  ): void {
+    const { gl } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
+    gl.viewport(0, 0, dstW, dstH)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    gl.useProgram(this._areaTransformProg)
+    const u = this._areaTransformUni
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._areaTransformPosLoc)
+    gl.vertexAttribPointer(this._areaTransformPosLoc, 2, gl.FLOAT, false, 0, 0)
+
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
+    gl.uniform1i(u.u_source, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, mask.tex)
+    gl.uniform1i(u.u_mask, 1)
+    gl.activeTexture(gl.TEXTURE0)
+
+    gl.uniform2f(u.u_dstSize, dstW, dstH)
+    gl.uniform2f(u.u_srcSize, srcW, srcH)
+    gl.uniform2f(u.u_srcOrigin, srcOriginX, srcOriginY)
+    gl.uniform4f(
+      u.u_maskRect, mask.rect.minX, mask.rect.minY,
+      mask.rect.maxX - mask.rect.minX, mask.rect.maxY - mask.rect.minY,
+    )
+    gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(matrixInv))
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    gl.disable(gl.BLEND)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
+  /** The whole of an `area_transform`, rendered into scratch tiles — shared
+   *  verbatim by the live drag preview and the committed bake, which is the
+   *  point: what you see while dragging and what lands when you let go are
+   *  the same pixels because they are the same code, not two implementations
+   *  kept in step by hand (the failure #392 called out for the whole-layer
+   *  path).
+   *
+   *  Each scratch is one tile of the layer's own grid, holding that tile as it
+   *  will look afterwards: its current content, minus the selection (the hole
+   *  the lift leaves), plus whatever part of the lifted region lands in it.
+   *  Tiles that neither region touches are not built at all — the caller draws
+   *  them from the real layer.
+   *
+   *  Every read happens before any write: the scratches are computed from the
+   *  untouched layer, and only the bake copies them back afterwards. Same
+   *  two-phase shape as _bakeTransformUnsuspended, and for the same WebGL1
+   *  reason — a texture cannot be read and written in one draw. */
+  private _composeAreaTiles(
+    layerBuf: ILayerBuffer, mask: MaskTexture, matrix: Matrix3,
+    tileRects: WorldRect[], acquire: (w: number, h: number) => AccumulationBuffer,
+  ): Array<{ rect: WorldRect; scratch: AccumulationBuffer }> {
+    const src = mask.rect
+    const corners: Array<[number, number]> = [
+      [src.minX, src.minY], [src.maxX, src.minY], [src.minX, src.maxY], [src.maxX, src.maxY],
+    ]
+    let dstMinX = Infinity, dstMinY = Infinity, dstMaxX = -Infinity, dstMaxY = -Infinity
+    for (const [x, y] of corners) {
+      const [tx, ty] = applyMatrix(matrix, x, y)
+      dstMinX = Math.min(dstMinX, tx); dstMaxX = Math.max(dstMaxX, tx)
+      dstMinY = Math.min(dstMinY, ty); dstMaxY = Math.max(dstMaxY, ty)
+    }
+    // A degenerate or projectively-inverted matrix collapses the selection to
+    // nothing — the lift still happens (the hole is real), only nothing lands.
+    // Same reasoning as _bakeTransform's own degenerate branch, including the
+    // finiteness half (#392: a homography can send a corner to infinity, and
+    // an infinite rect is a hang, not a wrong picture).
+    const lands = Number.isFinite(dstMinX + dstMinY + dstMaxX + dstMaxY) && dstMaxX > dstMinX && dstMaxY > dstMinY
+    const dst = { minX: dstMinX, minY: dstMinY, maxX: dstMaxX, maxY: dstMaxY }
+
+    // Read-only: the source tiles the selection actually covers. Never
+    // resolveForPaint — lifting reads, and a read must not create tiles.
+    const sourceTiles = layerBuf.resolveVisible(src)
+    const matrixInv = invertMatrix(matrix)
+    const out: Array<{ rect: WorldRect; scratch: AccumulationBuffer }> = []
+
+    for (const rect of tileRects) {
+      const overlapsSrc = !(src.maxX <= rect.minX || src.minX >= rect.maxX || src.maxY <= rect.minY || src.minY >= rect.maxY)
+      const overlapsDst = lands
+        && !(dst.maxX <= rect.minX || dst.minX >= rect.maxX || dst.maxY <= rect.minY || dst.minY >= rect.maxY)
+      if (!overlapsSrc && !overlapsDst) continue
+
+      const w = rect.maxX - rect.minX
+      const h = rect.maxY - rect.minY
+      const scratch = acquire(w, h)
+      const existing = this._tileBufferAt(layerBuf, rect)
+      if (existing) existing.copyTo(scratch)
+      else scratch.clear()
+
+      if (overlapsSrc) this._runAreaMaskPass(scratch, rect.minX, rect.minY, mask, 'erase')
+      if (overlapsDst) {
+        for (const srcTile of sourceTiles) {
+          const toWorld = translationMatrix(rect.minX, rect.minY)
+          const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
+          const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
+          this._runAreaTransformBlit(
+            srcTile.buffer.texture, srcTile.originX, srcTile.originY, mc, mask,
+            w, h, srcTile.buffer.width, srcTile.buffer.height, scratch.fbo,
+          )
+        }
+      }
+      out.push({ rect, scratch })
+    }
+    return out
+  }
+
+  /** The resident buffer whose world origin is this tile rect's, or null.
+   *  resolveVisible is already "never create", so this is only picking the one
+   *  exact tile out of what it returns. */
+  private _tileBufferAt(layerBuf: ILayerBuffer, rect: WorldRect): AccumulationBuffer | null {
+    for (const t of layerBuf.resolveVisible(rect)) {
+      if (t.originX === rect.minX && t.originY === rect.minY) return t.buffer
+    }
+    return null
+  }
+
+  /** Every tile of this room's grid that the selection, or where it is going,
+   *  touches. */
+  private _areaTileRects(mask: MaskTexture, matrix: Matrix3): WorldRect[] {
+    const { w: tw, h: th } = this._tileSize()
+    const r = mask.rect
+    const corners: Array<[number, number]> = [
+      [r.minX, r.minY], [r.maxX, r.minY], [r.minX, r.maxY], [r.maxX, r.maxY],
+    ]
+    let minX = r.minX, minY = r.minY, maxX = r.maxX, maxY = r.maxY
+    for (const [x, y] of corners) {
+      const [tx, ty] = applyMatrix(matrix, x, y)
+      if (Number.isFinite(tx) && Number.isFinite(ty)) {
+        minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
+        minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
+      }
+    }
+    return tilesOverlappingRect({ minX, minY, maxX, maxY }, tw, th)
+      .map(({ tileX, tileY }) => tileWorldRect(tileX, tileY, tw, th))
+  }
+
+  /** Bakes an `area_transform` into a layer for real. Mirrors _bakeTransform's
+   *  eviction suspension for the same reason: resolveForPaint below can create
+   *  several tiles at once and push this layer over its resident budget
+   *  mid-bake, and an eviction firing then could destroy a tile the blit loop
+   *  is still reading from — a silent GPU error, not a thrown one. */
+  private _bakeAreaTransform(layerBuf: ILayerBuffer, selection: SelectionShape, wireMatrix: LayerTransformMatrix): void {
+    const mask = this._acquireMask(selection)
+    if (!mask) return
+    const matrix = toHomography(wireMatrix)
+    const tiled = layerBuf instanceof TiledLayerBuffer ? layerBuf : null
+    tiled?.suspendEviction()
+    try {
+      const rects = this._areaTileRects(mask, matrix)
+      // resolveForPaint per rect rather than once over the union: the union of
+      // "where it was" and "where it went" can cover tiles neither region
+      // actually reaches (a long diagonal drag), and creating those would leak
+      // permanently empty tiles into the layer.
+      for (const rect of rects) layerBuf.resolveForPaint(rect)
+      const composed = this._composeAreaTiles(
+        layerBuf, mask, matrix, rects, (w, h) => this._acquireScratchBuf(w, h),
+      )
+      for (const { rect, scratch } of composed) {
+        const target = this._tileBufferAt(layerBuf, rect)
+        if (target) {
+          scratch.copyTo(target)
+          // Conservative, like every other tracker update here: the moved
+          // content's own AABB clipped to this tile. The hole the lift leaves
+          // is deliberately not subtracted — markContentPainted only ever
+          // grows, and tightenContentRects (#421) is what corrects it, on the
+          // transform gizmo's own schedule.
+          layerBuf.markContentPainted(rect)
+        }
+        this._releaseScratchBuf(scratch)
+      }
+    } finally {
+      tiled?.resumeEviction()
+    }
+  }
+
+  /** `area_clear`: erases the selection from a layer, touching only the tiles
+   *  it covers. No scratch and no two-phase dance — nothing is read from the
+   *  layer here, every pixel is multiplied in place. */
+  private _clearArea(layerBuf: ILayerBuffer, selection: SelectionShape): void {
+    const mask = this._acquireMask(selection)
+    if (!mask) return
+    for (const target of layerBuf.resolveVisible(mask.rect)) {
+      this._runAreaMaskPass(target.buffer, target.originX, target.originY, mask, 'erase')
+    }
+  }
+
+  /** An `area_paste` in `image_import` clothing. Paste and import differ in
+   *  where the pixels come from and what they are allowed to land on — not in
+   *  how a straight-alpha raster becomes premultiplied layer content, nor in
+   *  what has to happen when its decode finishes after the operations behind
+   *  it were already applied. So the whole decoded/undecoded/late-arrival
+   *  dance (#398: _paintDecodedImage, _paintImage, _settleLateImage) is
+   *  reused as-is rather than reimplemented for a second raster operation.
+   *
+   *  Placement rides the `x`/`y` fields image_import added for infinite rooms:
+   *  present means "natural size at this world position", which is exactly
+   *  what paste-in-place means. */
+  private _asImportRecord(op: AreaPasteOperation): ImageImportOperation {
+    return {
+      id: op.id, userId: op.userId, timestamp: op.timestamp, seq: op.seq,
+      type: 'image_import', layerId: op.layerId, image: op.image,
+      x: op.x, y: op.y, width: op.width, height: op.height,
+    }
+  }
+
+  /** See PencilEngineAPI's doc comment. Same lifecycle as
+   *  previewLayerTransform — call per drag frame, then
+   *  clearLayerTransformPreview once the operation is appended or the drag is
+   *  abandoned.
+   *
+   *  The tile buffers here are plain AccumulationBuffers keyed by origin and
+   *  reused between frames, exactly as the whole-layer preview does it and for
+   *  the same measured reason: allocating a tile-sized texture + FBO per
+   *  pointer move is what made dragging stutter on a Surface (#142
+   *  follow-up). */
+  previewAreaTransform(layerId: string, selection: SelectionShape, matrix: LayerTransformMatrix): void {
+    const layerBuf = this._layers.get(layerId)
+    const mask = layerBuf ? this._acquireMask(selection) : null
+    const oldByOrigin = new Map(
+      (this._transformPreview.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
+    )
+    if (!layerBuf || !mask) {
+      for (const t of oldByOrigin.values()) t.buffer.destroy()
+      this._transformPreview.delete(layerId)
+      this._areaPreviewLayers.delete(layerId)
+      this._display()
+      return
+    }
+
+    const reused = new Set<string>()
+    const composed = this._composeAreaTiles(
+      layerBuf, mask, toHomography(matrix), this._areaTileRects(mask, toHomography(matrix)),
+      (w, h) => {
+        // Keyed on size alone would be wrong if a room could change its tile
+        // grid mid-session; it cannot (see _tileSize), so the origin key below
+        // is enough and this only has to hand back *a* buffer of the right
+        // size. The origin match happens in the loop that consumes this.
+        void w; void h
+        return new AccumulationBuffer(this.gl, w, h)
+      },
+    )
+
+    // The acquire callback above cannot see which origin it is being called
+    // for, so reuse is settled here: a tile that existed last frame keeps its
+    // buffer and the freshly allocated one is thrown away. Wasteful only on
+    // the frames where nothing changed — and those are precisely the frames
+    // where the *content* changed, which is why the buffer has to be redrawn
+    // anyway.
+    const tiles: PreviewTile[] = []
+    for (const { rect, scratch } of composed) {
+      const key = `${rect.minX},${rect.minY}`
+      const old = oldByOrigin.get(key)
+      if (old) {
+        scratch.copyTo(old.buffer)
+        scratch.destroy()
+        reused.add(key)
+        tiles.push(old)
+      } else {
+        tiles.push({ originX: rect.minX, originY: rect.minY, buffer: scratch })
+      }
+    }
+    for (const [key, t] of oldByOrigin) {
+      if (!reused.has(key)) t.buffer.destroy()
+    }
+
+    this._transformPreview.set(layerId, tiles)
+    // The flag that makes _drawCompositeItem draw the rest of this layer from
+    // its real tiles instead of treating the preview as the whole layer.
+    this._areaPreviewLayers.add(layerId)
+    this._display()
+  }
+
+  /** See PencilEngineAPI's doc comment.
+   *
+   *  Flattens the selection's bounding box out of the layer's tiles into one
+   *  patch, cuts it down to the selection's own shape (AREA_MASK_FRAG in
+   *  'keep' mode), un-premultiplies on the way out and encodes a PNG. The
+   *  un-premultiply is not optional: layer buffers store premultiplied colour
+   *  and PNG is straight alpha, so skipping it would darken every partly
+   *  transparent pixel — i.e. exactly the antialiased rim of every lasso. */
+  async readAreaImage(layerId: string, selection: SelectionShape): Promise<AreaImage | null> {
+    const layerBuf = this._layers.get(layerId)
+    if (!layerBuf) return null
+    const mask = this._acquireMask(selection)
+    if (!mask) return null
+
+    const { gl } = this
+    const { minX, minY, maxX, maxY } = mask.rect
+    const w = maxX - minX, h = maxY - minY
+    if (w <= 0 || h <= 0) return null
+
+    const patch = new AccumulationBuffer(gl, w, h)
+    patch.clear()
+    // Straight world-aligned copies rather than _drawTileComposite, which
+    // reads the live camera (and would need _buildContentComposite's whole
+    // save/override/restore dance to be told to ignore it). A pure
+    // translation through the transform blit is the same pixels with none of
+    // that: patch-local (0,0) is world (minX, minY) by construction.
+    for (const { buffer, originX, originY } of layerBuf.resolveVisible(mask.rect)) {
+      this._runTransformBlit(
+        buffer.texture, translationMatrix(minX - originX, minY - originY),
+        w, h, buffer.width, buffer.height, patch.fbo,
+      )
+    }
+    this._runAreaMaskPass(patch, minX, minY, mask, 'keep')
+
+    const pixels = patch.readPixels()
+    patch.destroy()
+    const blob = await this._pixelsToPngBlob(unpremultiply(pixels), w, h)
+    if (!blob) return null
+    const image = await blobToDataUrl(blob)
+    return image ? { image, x: minX, y: minY, width: w, height: h } : null
   }
 
   /** Rebuilds `_compositeFBO` from every live layer plus whatever preview

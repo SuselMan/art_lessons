@@ -1298,6 +1298,91 @@ export const TRANSFORM_BLIT_FRAG = `
   }
 `;
 
+// (#446) The masked twin of TRANSFORM_BLIT_FRAG — the transform half of an
+// `area_transform`. Identical backward sampling (destination pixel -> source
+// pixel through u_matrixInv), with the source's coverage multiplied by the
+// selection mask *evaluated at the source pixel*, which is where the user
+// drew the lasso. Sampling the mask at the destination instead would drag the
+// hole around with the piece and mask the moved content against its new
+// position — the shape would deform as you drag.
+//
+// The mask lookup needs world coordinates, and u_matrixInv lands in *source
+// tile* coordinates, so u_srcOrigin (that tile's world origin) bridges the
+// two. u_maskRect is the mask's own world rect (origin, size); uv is
+// normalized against it, so a mask rasterized at reduced resolution for a
+// huge selection (see MASK_MAX_DIM) needs no change here.
+//
+// Mask uv has no y-flip, unlike srcUV: selectionMask.ts writes rows top-down
+// and texImage2D maps data row 0 to t=0, so app-space y and mask t already
+// run the same way. Reaching for the flip "for symmetry" mirrors every
+// selection about its own middle, which for a lasso is subtle enough to look
+// like a rasterizer bug.
+export const AREA_TRANSFORM_FRAG = `
+  precision highp float;
+  uniform sampler2D u_source;
+  uniform sampler2D u_mask;
+  uniform vec2 u_dstSize;
+  uniform vec2 u_srcSize;
+  uniform vec2 u_srcOrigin;  // source tile's world-space (0,0) texel
+  uniform vec4 u_maskRect;   // world-space originX, originY, width, height
+  uniform mat3 u_matrixInv;  // destination buffer-px -> source buffer-px, app-space top-down
+  varying vec2 v_uv;
+  void main() {
+    vec2 dstPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_dstSize;
+    vec3 srcPx = u_matrixInv * vec3(dstPx, 1.0);
+    if (srcPx.z <= 0.0) {
+      gl_FragColor = vec4(0.0);
+      return;
+    }
+    vec2 srcXY = srcPx.xy / srcPx.z;
+    vec2 srcUV = vec2(srcXY.x / u_srcSize.x, 1.0 - srcXY.y / u_srcSize.y);
+    if (srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
+      gl_FragColor = vec4(0.0);
+      return;
+    }
+    vec2 maskUV = (srcXY + u_srcOrigin - u_maskRect.xy) / u_maskRect.zw;
+    if (maskUV.x < 0.0 || maskUV.x > 1.0 || maskUV.y < 0.0 || maskUV.y > 1.0) {
+      gl_FragColor = vec4(0.0);
+      return;
+    }
+    gl_FragColor = texture2D(u_source, srcUV) * texture2D(u_mask, maskUV).a;
+  }
+`;
+
+// (#446) Writes nothing but the selection's own coverage into alpha, over a
+// tile-sized quad. What it *does* is decided by the blend function the caller
+// sets, which is the entire reason one shader serves both halves:
+//
+//   ZERO, ONE_MINUS_SRC_ALPHA  ->  dst *= (1 - coverage)   erase inside
+//   ZERO, SRC_ALPHA            ->  dst *= coverage         keep only inside
+//
+// The first is `area_clear` (and the hole an `area_transform` leaves behind);
+// the second is how a copy is cut out of a flattened patch before it becomes
+// a PNG. Both multiply a premultiplied buffer by a scalar, which is exactly
+// right for premultiplied color — rgb and a scale together, so no
+// intermediate un-premultiply is needed anywhere in this path.
+//
+// u_dstOrigin is the target buffer's world origin, so the same quad works for
+// a real tile, a scratch tile or a copy patch without the caller translating
+// the mask.
+export const AREA_MASK_FRAG = `
+  precision highp float;
+  uniform sampler2D u_mask;
+  uniform vec2 u_dstSize;
+  uniform vec2 u_dstOrigin;
+  uniform vec4 u_maskRect;
+  varying vec2 v_uv;
+  void main() {
+    vec2 worldPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_dstSize + u_dstOrigin;
+    vec2 maskUV = (worldPx - u_maskRect.xy) / u_maskRect.zw;
+    if (maskUV.x < 0.0 || maskUV.x > 1.0 || maskUV.y < 0.0 || maskUV.y > 1.0) {
+      gl_FragColor = vec4(0.0);
+      return;
+    }
+    gl_FragColor = vec4(0.0, 0.0, 0.0, texture2D(u_mask, maskUV).a);
+  }
+`;
+
 // Transparent-background export variant (#15): unlike DISPLAY_FRAG, this
 // never blends toward the paper — it just un-premultiplies the composite
 // FBO's stored color (see DISPLAY_FRAG's comment: "composite FBO stores

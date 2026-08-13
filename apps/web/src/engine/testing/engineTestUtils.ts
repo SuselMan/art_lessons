@@ -7,7 +7,10 @@
 // `appendOperation` in engine/index.ts: it is deliberately origin-agnostic).
 
 import { nanoid } from 'nanoid'
-import type { Dab, ImageImportOperation, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@grafetto/shared'
+import type {
+  AreaClearOperation, AreaPasteOperation, AreaTransformOperation, Dab, ImageImportOperation, LayerAddOperation,
+  LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, SelectionShape, StrokeOperation,
+} from '@grafetto/shared'
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { Matrix3 } from '../src/matrix'
@@ -679,6 +682,36 @@ export function makeLayerTransform(
   overrides: Partial<LayerTransformOperation> = {},
 ): LayerTransformOperation {
   return { id: nanoid(10), type: 'layer_transform', userId, timestamp: nextTimestamp(), transforms, ...overrides }
+}
+
+// ─── Selection (#446) ──────────────────────────────────────────────────────
+
+export function makeAreaTransform(
+  userId: string, layerId: string, selection: SelectionShape,
+  matrix: AreaTransformOperation['matrix'], overrides: Partial<AreaTransformOperation> = {},
+): AreaTransformOperation {
+  return {
+    id: nanoid(10), type: 'area_transform', userId, timestamp: nextTimestamp(),
+    layerId, selection, matrix, ...overrides,
+  }
+}
+
+export function makeAreaClear(
+  userId: string, layerId: string, selection: SelectionShape, overrides: Partial<AreaClearOperation> = {},
+): AreaClearOperation {
+  return {
+    id: nanoid(10), type: 'area_clear', userId, timestamp: nextTimestamp(), layerId, selection, ...overrides,
+  }
+}
+
+export function makeAreaPaste(
+  userId: string, layerId: string, rect: { x: number; y: number; width: number; height: number },
+  overrides: Partial<AreaPasteOperation> = {},
+): AreaPasteOperation {
+  return {
+    id: nanoid(10), type: 'area_paste', userId, timestamp: nextTimestamp(),
+    layerId, image: `test-image:${nanoid(6)}`, ...rect, ...overrides,
+  }
 }
 
 // ─── Reference-image import (#88/#398) ─────────────────────────────────────

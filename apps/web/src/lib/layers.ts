@@ -392,6 +392,11 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     case 'layer_clear':
     case 'image_import':
     case 'layer_transform':
+    // (#446) Pixel-only, like the four above — a selection never creates,
+    // deletes, renames or reorders anything.
+    case 'area_transform':
+    case 'area_clear':
+    case 'area_paste':
     case 'operation_revoke':
     case 'operation_undo':
     case 'operation_redo':

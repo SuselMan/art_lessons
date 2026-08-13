@@ -171,6 +171,23 @@ export class AccumulationBuffer {
     gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA)
   }
 
+  /** (#446) `result = dst * src.a` — the mirror of beginErase: what the
+   *  incoming alpha covers survives, everything else is cleared. Used with a
+   *  selection mask to cut a copied region out of a flattened patch, so a
+   *  lasso'd shape pastes as that shape and not as its bounding rectangle.
+   *
+   *  Multiplying a premultiplied buffer by a scalar is exactly right for
+   *  premultiplied colour — rgb and a scale together — so nothing on this path
+   *  ever has to un-premultiply and re-premultiply around the mask. */
+  beginKeepDraw(): void {
+    this._invalidateMips()
+    const { gl, width, height } = this
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
+    gl.viewport(0, 0, width, height)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ZERO, gl.SRC_ALPHA)
+  }
+
   /** Marker's own inkLoad accumulation (ADR 004 "Ревизия v1.5"): a pure sum,
    *  `result = src + dst`, no alpha-weighted saturation at all — unlike
    *  beginDraw()'s (ONE, ONE_MINUS_SRC_ALPHA) "over" (which is exactly what

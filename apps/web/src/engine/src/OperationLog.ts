@@ -7,7 +7,10 @@
 //   gone   — unreachable history branch (author acted after undo, or a teacher
 //            revoked it); can never return to `done`
 
-import type { Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, ImageImportOperation, LayerTransformOperation } from '@grafetto/shared'
+import type {
+  Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, ImageImportOperation,
+  LayerTransformOperation, AreaTransformOperation, AreaClearOperation, AreaPasteOperation,
+} from '@grafetto/shared'
 import { operationLayerIds } from '@grafetto/shared'
 
 export type OperationState = 'done' | 'undone' | 'gone'
@@ -18,11 +21,16 @@ export interface LogEntry {
 }
 
 /** Operations that change a layer's pixel buffer (as opposed to structure). */
-export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation | ImageImportOperation | LayerTransformOperation
+export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation | ImageImportOperation
+  | LayerTransformOperation | AreaTransformOperation | AreaClearOperation | AreaPasteOperation
 
 export function isPixelOperation(op: Operation): op is PixelOperation {
   return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge'
     || op.type === 'image_import' || op.type === 'layer_transform'
+    // (#446) The selection operations paint one layer and change nothing
+    // else, which is what "pixel operation" means here — they belong in
+    // checkpoint counting, per-layer replay and undo exactly like a stroke.
+    || op.type === 'area_transform' || op.type === 'area_clear' || op.type === 'area_paste'
 }
 
 /** Every PixelOperation but layer_transform targets exactly one layer via its
