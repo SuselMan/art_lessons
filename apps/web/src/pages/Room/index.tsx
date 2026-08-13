@@ -26,6 +26,7 @@ import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialo
 import { isModalOpen } from '../../components/Modal/modalSlot'
 import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
+import { isFloatingPanelTool } from '../../components/FloatingToolPanel/tools'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
@@ -2027,13 +2028,22 @@ export function Room() {
   // stroke will use.
   const activeColor = getToolColor(toolSettings, pickedColorTool)
   useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor])
-  // FloatingToolPanel (#157) is a fixed 4-slot compass layout with room for
-  // only one drawing-tool button (see its own doc comment — "the 4 most-
-  // reached-for actions") — marker now shares that one slot with pencil/
-  // liner (whichever was actually last selected), the same way liner joined
-  // it in #245's own follow-up. Only smudge stays outside it — no
-  // dedicated "return to smudge" affordance exists anywhere today.
+  // FloatingToolPanel (#157) is a fixed 4-slot compass layout with two tool
+  // buttons, each standing for a whole set rather than one tool: the top slot
+  // shows whichever drawing tool was last selected (marker joined pencil/liner
+  // there in #245's follow-up, charcoal in #304), the bottom one whichever of
+  // eraser/smudge/eyedropper was. Holding either fans out the rest of its set,
+  // which is how the smudge and the eyedropper became reachable from the panel
+  // at all — before that they had no "return to" affordance anywhere but the
+  // left toolbar, so minimal UI could not offer them.
   const floatingPrimaryTool: PrimaryDrawingTool = lastDrawingTool
+  const floatingSecondaryTool = useRoomStore(s => s.lastSecondaryTool)
+  // Which slot lights up. Deliberately null for the tools neither slot can
+  // hold (ruler, transform, grid, hand): the panel used to fold every one of
+  // them into "not the eraser" and light the drawing slot, so the pencil
+  // button claimed to be current while the ruler was in hand — two lit tools
+  // across the two toolbars, which is exactly what #405 set out to end.
+  const floatingSlotTool = isFloatingPanelTool(tool) ? tool : null
   // (#190 epic) Room palette — see roomSlice's own doc comment for why this
   // is a plain setter, not a reducer. Add/remove requests round-trip through
   // the server (dedup lives there, see rooms.ts's addPaletteColor) rather
@@ -5015,16 +5025,11 @@ export function Room() {
             which is what it meant when it was that mode's replacement
             toolkit and nothing else — see lib/uiPreferences. */}
         <FloatingToolPanel
-          // FloatingToolPanel (#157) is a fixed 4-slot compass layout with
-          // one shared drawing-tool slot (pencil/liner/marker — see
-          // floatingPrimaryTool's own doc comment above); smudge/ruler/
-          // transform/grid/eyedropper stay outside it, same as before.
-          // Folds into "not eraser" here purely so its own top-button/eraser
-          // highlight stays correct while smudge is active elsewhere (the
-          // left toolbar); tapping either of *this* panel's two buttons
-          // still switches away from smudge normally via onSetTool.
-          tool={tool === 'eraser' ? 'eraser' : floatingPrimaryTool}
+          // See floatingSlotTool above for why this is narrowed rather than
+          // folded: ruler/transform/grid/hand light neither slot.
+          tool={floatingSlotTool}
           primaryTool={floatingPrimaryTool}
+          secondaryTool={floatingSecondaryTool}
           onSetTool={setTool}
           onUndo={handleUndo}
           onRedo={handleRedo}

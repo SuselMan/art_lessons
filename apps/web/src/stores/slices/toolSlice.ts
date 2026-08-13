@@ -88,6 +88,26 @@ function isPrimaryDrawingTool(tool: EditorTool): tool is PrimaryDrawingTool {
   return (PRIMARY_DRAWING_TOOLS as readonly EditorTool[]).includes(tool)
 }
 
+/** The tools that work on marks already on the layer instead of laying new
+ *  ones: rubbing them out, smearing them, sampling their colour. What unites
+ *  them is not what they do — one erases, one moves pigment, one only reads —
+ *  but what they need: on an empty layer all three have nothing to act on.
+ *
+ *  They share FloatingToolPanel's second slot exactly the way
+ *  PrimaryDrawingTool shares its first, which is the only reason the set is
+ *  named at all. Note that it crosses the DrawingTool/NonDrawingTool line
+ *  (the eyedropper paints nothing and never becomes a `ToolType`) — that
+ *  split answers "does this emit a stroke into the operation log", a
+ *  different question from "what is this tool for", and there is no reason
+ *  the two should partition the same way. */
+export type SecondaryTool = 'eraser' | 'smudge' | 'eyedropper'
+
+const SECONDARY_TOOLS: readonly SecondaryTool[] = ['eraser', 'smudge', 'eyedropper']
+
+function isSecondaryTool(tool: EditorTool): tool is SecondaryTool {
+  return (SECONDARY_TOOLS as readonly EditorTool[]).includes(tool)
+}
+
 export interface ToolSlice {
   /** The one tool in hand. Everything else about "which tool is on" is
    *  derived from this — there is no second axis to disagree with it. */
@@ -115,6 +135,16 @@ export interface ToolSlice {
   // before, instead of assuming pencil (a real gap once liner became a
   // second real drawing tool - #245 follow-up).
   lastDrawingTool: PrimaryDrawingTool
+  // Most recent SecondaryTool `tool` held, the mirror image of the field
+  // above and kept in sync the same way. FloatingToolPanel's second slot
+  // shows and returns to it, so that slot remembers "I was erasing" or "I was
+  // smudging" rather than always meaning the eraser.
+  //
+  // Maintained here rather than in the panel because the panel is not the only
+  // thing that selects these tools: the left toolbar and the hotkeys do too,
+  // and a slot that only remembered the choices made through itself would go
+  // stale the moment the same choice was made a foot to the left.
+  lastSecondaryTool: SecondaryTool
   // TOOL_SCHEMAS-shaped settings for every registered tool (#170/#196) —
   // seeded with schema defaults here; Room re-seeds this from
   // loadToolSettings(localStorage, roomId) once at mount via
@@ -133,12 +163,14 @@ export const createToolSlice: StateCreator<ToolSlice> = set => ({
   tool: 'pencil',
   drawingTool: 'pencil',
   lastDrawingTool: 'pencil',
+  lastSecondaryTool: 'eraser',
   setTool: updater => set(state => {
     const next = typeof updater === 'function' ? updater(state.tool) : updater
     return {
       tool: next,
       drawingTool: isDrawingTool(next) ? next : state.drawingTool,
       lastDrawingTool: isPrimaryDrawingTool(next) ? next : state.lastDrawingTool,
+      lastSecondaryTool: isSecondaryTool(next) ? next : state.lastSecondaryTool,
     }
   }),
   toolSettings: defaultToolSettings(),
