@@ -111,59 +111,192 @@ function visualDistance(
   return dr > dg ? (dr > db ? dr : db) : (dg > db ? dg : db)
 }
 
-/** Separable box dilation (`isMax`) or erosion of an 8-bit field, radius `r`,
- *  in place via one scratch buffer. A square structuring element rather than a
- *  disc: at r <= 3 the two differ by at most a corner pixel, and separability
- *  is what keeps this O(w*h) instead of O(w*h*r²) on a canvas-sized domain.
- *
- *  Both halves are one function so the erosion and the dilation a closing is
- *  made of stay provably symmetric. `isMax` is a loop-invariant branch rather
- *  than a `pick` callback, and that is not a micro-optimisation: passing
- *  Math.min/Math.max in made the call site megamorphic, and at six full passes
- *  over an A4-at-300dpi domain it was tens of millions of indirect calls.
- *
- *  The vertical half is written row-major — for each output row, fold in the
- *  2r+1 source rows one whole row at a time — rather than the obvious
- *  column-major nest. Same arithmetic, but the obvious form strides by `width`
- *  through an 8-megapixel array and misses cache on essentially every read.
- *  Measured here on a 2480x3508 domain (A4 at 300dpi) with gapClose 1 and
- *  expand 1: the scan went from 2167 ms to 922 ms, all of it from this pass.
- *  What is left is still mostly morphology — 626 ms of that 922 — because it
- *  runs over the whole domain whether the fill covers three pixels or all of
- *  it. Making the work proportional to the *ink* instead (a dilation of the
- *  blocked set is sparse; the blocked set is a few percent of a drawing) is
- *  the next real win, and it is a rewrite rather than a tightening. */
-function morphPass(
-  field: Uint8Array, width: number, height: number, r: number, isMax: boolean,
-): void {
-  if (r <= 0) return
-  const tmp = new Uint8Array(field.length)
+/** Per-row inclusive x range of a sparse set: `hi[y] < lo[y]` means row `y`
+ *  holds nothing. Every morphological step below is driven by one of these
+ *  rather than by the domain, which is the whole point — see `openingOfSoft`. */
+export interface RowSpans {
+  lo: Int32Array
+  hi: Int32Array
+}
+
+/** The "no content" marker for `lo`. INT32_MAX rather than
+ *  Number.MAX_SAFE_INTEGER, which does not survive the store: an Int32Array
+ *  keeps the low 32 bits of 2^53-1, i.e. -1, and an empty row then reads back
+ *  as the perfectly plausible range -1..-1 — one pixel wide, addressing the
+ *  end of the row above. */
+const NO_SPAN = 0x7fffffff
+
+function emptySpans(height: number): RowSpans {
+  return { lo: new Int32Array(height).fill(NO_SPAN), hi: new Int32Array(height).fill(-1) }
+}
+
+function includeInSpans(spans: RowSpans, y: number, x: number): void {
+  if (x < spans.lo[y]) spans.lo[y] = x
+  if (x > spans.hi[y]) spans.hi[y] = x
+}
+
+/** Where the blocked pixels are — everything the fill might stop at. Computed
+ *  for free inside `computeFill`'s classification pass; exported so a test can
+ *  build one the same way. */
+export function blockedRowSpans(soft: Uint8Array, width: number, height: number): RowSpans {
+  const spans = emptySpans(height)
   for (let y = 0; y < height; y++) {
     const row = y * width
-    for (let x = 0; x < width; x++) {
-      const lo = x - r < 0 ? 0 : x - r
-      const hi = x + r >= width ? width - 1 : x + r
-      let v = field[row + lo]
-      for (let k = lo + 1; k <= hi; k++) {
-        const c = field[row + k]
-        if (isMax ? c > v : c < v) v = c
-      }
-      tmp[row + x] = v
-    }
+    for (let x = 0; x < width; x++) if (soft[row + x] !== 255) includeInSpans(spans, y, x)
   }
+  return spans
+}
+
+/** Per-row extent of a binary mask. Production builds these as it fills (see
+ *  `scanlineFill`); exported so a test can build one after the fact. */
+export function maskRowSpans(mask: Uint8Array, width: number, height: number): RowSpans {
+  const spans = emptySpans(height)
   for (let y = 0; y < height; y++) {
-    const out = y * width
-    const lo = y - r < 0 ? 0 : y - r
-    const hi = y + r >= height ? height - 1 : y + r
-    field.set(tmp.subarray(lo * width, lo * width + width), out)
-    for (let k = lo + 1; k <= hi; k++) {
-      const src = k * width
-      for (let x = 0; x < width; x++) {
-        const c = tmp[src + x]
-        if (isMax ? c > field[out + x] : c < field[out + x]) field[out + x] = c
+    const row = y * width
+    for (let x = 0; x < width; x++) if (mask[row + x] !== 0) includeInSpans(spans, y, x)
+  }
+  return spans
+}
+
+/** Grows each row's range by `r` in both axes — the reach of a radius-`r`
+ *  structuring element applied to `spans`. */
+function grownSpans(spans: RowSpans, width: number, height: number, r: number): RowSpans {
+  const out = emptySpans(height)
+  for (let y = 0; y < height; y++) {
+    if (spans.hi[y] < spans.lo[y]) continue
+    const lo = Math.max(0, spans.lo[y] - r)
+    const hi = Math.min(width - 1, spans.hi[y] + r)
+    for (let k = Math.max(0, y - r); k <= Math.min(height - 1, y + r); k++) {
+      includeInSpans(out, k, lo)
+      includeInSpans(out, k, hi)
+    }
+  }
+  return out
+}
+
+/** The morphological opening of `soft` by a radius-`r` square — i.e. the gap
+ *  closing, since closing the blocked set and opening the open one are the
+ *  same operation seen from the two sides (complementing swaps dilation and
+ *  erosion).
+ *
+ *  Written against the *blocked* side on purpose, and that is where the speed
+ *  is. `soft` is 255 across almost all of a drawing — paper — so the field this
+ *  works on is empty almost everywhere, and the cost of both halves scales with
+ *  how much ink there is rather than with how big the canvas is. A dense
+ *  separable pass, however carefully written, pays for every pixel of an A4
+ *  sheet to discover that nearly all of them are blank: measured at 417 ms for one
+ *  closing on a 2480x3508 domain, against 64 ms here for the identical result.
+ *
+ *  Two properties make the sparse form exact rather than an approximation:
+ *
+ *   - a *dilation* of the blocked set can only be non-zero within `r` of a
+ *     blocked pixel, so stamping each blocked pixel's window covers it;
+ *   - an *erosion* takes the minimum over a window, and a window containing
+ *     any zero yields zero — so the erosion is zero wherever the dilation was,
+ *     and only its support has to be visited at all.
+ *
+ *  Equivalence to the obvious dense implementation is not argued from those
+ *  two sentences alone: `floodFill.test.ts` keeps a plain separable version and
+ *  checks the two agree pixel for pixel on random fields. */
+export function openingOfSoft(
+  soft: Uint8Array, width: number, height: number, r: number, blocked: RowSpans,
+): Uint8Array {
+  const open = new Uint8Array(soft.length).fill(255)
+  if (r <= 0) { open.set(soft); return open }
+
+  // Dilate the blocked set by stamping each blocked pixel's window. Rows are
+  // walked through `blocked`, so a domain with a drawing in one corner never
+  // touches the rest.
+  const dilated = new Uint8Array(soft.length)
+  for (let y = 0; y < height; y++) {
+    if (blocked.hi[y] < blocked.lo[y]) continue
+    for (let x = blocked.lo[y]; x <= blocked.hi[y]; x++) {
+      const v = 255 - soft[y * width + x]
+      if (v === 0) continue
+      const y0 = y - r < 0 ? 0 : y - r
+      const y1 = y + r >= height ? height - 1 : y + r
+      const x0 = x - r < 0 ? 0 : x - r
+      const x1 = x + r >= width ? width - 1 : x + r
+      for (let ny = y0; ny <= y1; ny++) {
+        const row = ny * width
+        for (let nx = x0; nx <= x1; nx++) if (dilated[row + nx] < v) dilated[row + nx] = v
       }
     }
   }
+
+  // Erode it, visiting only where the dilation put something.
+  const support = grownSpans(blocked, width, height, r)
+  for (let y = 0; y < height; y++) {
+    if (support.hi[y] < support.lo[y]) continue
+    const row = y * width
+    for (let x = support.lo[y]; x <= support.hi[y]; x++) {
+      if (dilated[row + x] === 0) continue
+      const y0 = y - r < 0 ? 0 : y - r
+      const y1 = y + r >= height ? height - 1 : y + r
+      const x0 = x - r < 0 ? 0 : x - r
+      const x1 = x + r >= width ? width - 1 : x + r
+      let m = 255
+      for (let ny = y0; ny <= y1 && m > 0; ny++) {
+        const nrow = ny * width
+        for (let nx = x0; nx <= x1; nx++) {
+          const c = dilated[nrow + nx]
+          if (c < m) { m = c; if (m === 0) break }
+        }
+      }
+      if (m !== 0) open[row + x] = 255 - m
+    }
+  }
+  return open
+}
+
+/** Dilates a binary mask by `r`, in place, and grows `region` to match.
+ *
+ *  Deliberately *not* the sparse treatment `openingOfSoft` gets, because a
+ *  filled region is the opposite kind of set from a blocked one: mostly solid.
+ *  Stamping around every member, or hunting for its boundary pixel by pixel,
+ *  costs more per pixel than simply sweeping — measured, on a fill covering an
+ *  A4 sheet: a per-pixel 8-neighbour boundary hunt took 422 ms, where this sweep
+ *  takes 112 ms and the dense separable pass it replaced took 209. Sparseness
+ *  is a property of the data, not a technique that is always better.
+ *
+ *  So: separable, binary, and branch-light. The horizontal half is a pair of
+ *  run-distance sweeps ("how far back was the last set pixel") rather than a
+ *  window scan, so it reads each pixel twice regardless of `r`; the vertical
+ *  half ORs whole rows together. Both are bounded by `region` grown by `r`,
+ *  which is what keeps a small fill on a large canvas cheap. */
+export function expandFilled(
+  filled: Uint8Array, width: number, height: number, r: number, region: RowSpans,
+): void {
+  const grown = grownSpans(region, width, height, r)
+  const src = filled.slice()
+  for (let y = 0; y < height; y++) {
+    if (grown.hi[y] < grown.lo[y]) continue
+    const row = y * width
+    const x0 = grown.lo[y], x1 = grown.hi[y]
+    let last = -width
+    for (let x = x0; x <= x1; x++) {
+      if (src[row + x] !== 0) last = x
+      filled[row + x] = x - last <= r ? 1 : 0
+    }
+    last = width * 2
+    for (let x = x1; x >= x0; x--) {
+      if (src[row + x] !== 0) last = x
+      if (last - x <= r) filled[row + x] = 1
+    }
+  }
+  const horizontal = filled.slice()
+  for (let y = 0; y < height; y++) {
+    if (grown.hi[y] < grown.lo[y]) continue
+    const row = y * width
+    const x0 = grown.lo[y], x1 = grown.hi[y]
+    for (let k = Math.max(0, y - r); k <= Math.min(height - 1, y + r); k++) {
+      if (k === y) continue
+      const krow = k * width
+      for (let x = x0; x <= x1; x++) if (horizontal[krow + x] !== 0) filled[row + x] = 1
+    }
+  }
+  region.lo.set(grown.lo)
+  region.hi.set(grown.hi)
 }
 
 /** Scanline flood fill over `open` (non-zero = the fill may pass), 4-connected,
@@ -175,6 +308,7 @@ function morphPass(
 function scanlineFill(
   open: Uint8Array, filled: Uint8Array,
   width: number, height: number, seedX: number, seedY: number,
+  region: RowSpans,
 ): boolean {
   let touchedEdge = false
   // Each entry is one horizontal span still to be grown from: [x1, x2, y].
@@ -194,6 +328,11 @@ function scanlineFill(
     right--
     if (left > right) continue
     for (let x = left; x <= right; x++) filled[row + x] = 1
+    // Spans are what the fill produces anyway, so its own extent is recorded
+    // here for nothing — and it is what keeps the two steps after this one off
+    // the rest of the domain.
+    includeInSpans(region, y, left)
+    includeInSpans(region, y, right)
     if (left === 0 || right === width - 1 || y === 0 || y === height - 1) touchedEdge = true
     for (const ny of [y - 1, y + 1]) {
       if (ny < 0 || ny >= height) continue
@@ -246,12 +385,19 @@ export function computeFill(source: FillSource, params: FillParams): FillResult 
   // tolerance 0 still fills a flat region rather than the single seed pixel.
   const hi = Math.max(1, tolerance * 255)
   const lo = hi * SOFT_LOW
+  //
+  // Where the blocked pixels are is recorded as it goes: this pass has to look
+  // at every pixel anyway, and every step after it can then be driven by the
+  // ink instead of by the domain (see `openingOfSoft`).
   const soft = new Uint8Array(width * height)
-  for (let p = 0, i = 0; p < soft.length; p++, i += 4) {
-    const d = visualDistance(pixels, i, seedR, seedG, seedB, bgR, bgG, bgB)
-    if (d <= lo) soft[p] = 255
-    else if (d >= hi) soft[p] = 0
-    else soft[p] = Math.round(255 * (hi - d) / (hi - lo))
+  const blocked = emptySpans(height)
+  for (let y = 0, p = 0, i = 0; y < height; y++) {
+    for (let x = 0; x < width; x++, p++, i += 4) {
+      const d = visualDistance(pixels, i, seedR, seedG, seedB, bgR, bgG, bgB)
+      if (d <= lo) { soft[p] = 255; continue }
+      soft[p] = d >= hi ? 0 : Math.round(255 * (hi - d) / (hi - lo))
+      includeInSpans(blocked, y, x)
+    }
   }
 
   // Step 2. Closing the blocked set is the same operation as *opening* the
@@ -274,28 +420,23 @@ export function computeFill(source: FillSource, params: FillParams): FillResult 
   // tool that silently does nothing when you tap a thin gap between two lines,
   // and no slider explains that.
   const seedP = seedY * width + seedX
-  let open = soft
+  let open: Uint8Array = soft
   for (let r = Math.round(gapClose); r > 0; r--) {
-    const candidate = soft.slice()
-    morphPass(candidate, width, height, r, false)
-    morphPass(candidate, width, height, r, true)
+    const candidate = openingOfSoft(soft, width, height, r, blocked)
     if (candidate[seedP] !== 0) { open = candidate; break }
   }
   if (open[seedP] === 0) return empty
 
   // Step 3.
   const filled = new Uint8Array(width * height)
-  const clipped = scanlineFill(open, filled, width, height, seedX, seedY)
+  const region = emptySpans(height)
+  const clipped = scanlineFill(open, filled, width, height, seedX, seedY, region)
 
   // Step 4. Dilating the binary mask, not the coverage: expand exists to slide
   // the paint under an opaque line, and under a line "how much paint" is not a
   // question anyone can see the answer to.
   const ex = Math.round(expand)
-  if (ex > 0) {
-    for (let p = 0; p < filled.length; p++) filled[p] = filled[p] !== 0 ? 255 : 0
-    morphPass(filled, width, height, ex, true)
-    for (let p = 0; p < filled.length; p++) filled[p] = filled[p] !== 0 ? 1 : 0
-  }
+  if (ex > 0) expandFilled(filled, width, height, ex, region)
 
   // Step 5. A pixel the expansion reached is solid even where its own
   // membership was partial — that is the point of it. Everything else carries
@@ -303,8 +444,9 @@ export function computeFill(source: FillSource, params: FillParams): FillResult 
   const coverage = new Uint8Array(width * height)
   let minX = width, minY = height, maxX = -1, maxY = -1
   for (let y = 0; y < height; y++) {
+    if (region.hi[y] < region.lo[y]) continue
     const row = y * width
-    for (let x = 0; x < width; x++) {
+    for (let x = region.lo[y]; x <= region.hi[y]; x++) {
       const p = row + x
       if (filled[p] === 0) continue
       const c = ex > 0 ? 255 : soft[p]
