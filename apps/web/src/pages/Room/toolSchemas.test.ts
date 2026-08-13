@@ -258,8 +258,9 @@ describe('option pickers (#335, #391)', () => {
       // Tool *types* — what the tool draws (#335) …
       ['charcoal.type', 'colorPencil.grade', 'marker.nib', 'pencil.grade',
         // … and the transform tool's working mode (#391), which is a mode
-        // rather than a material but is chosen the same way.
-        'transform.mode',
+        // rather than a material but is chosen the same way, and the selection
+        // tool's way of drawing a region (#446), which is the same again.
+        'transform.mode', 'selection.shape',
         // … and the tilt response (#409), on exactly the five tools whose dab
         // geometry reads the tilt curve. Spelled out rather than derived, so
         // adding the field to a sixth tool — a liner, say, whose shape ignores

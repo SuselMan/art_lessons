@@ -9,6 +9,7 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../..
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
 import { TRANSFORM_MODES, type TransformMode } from './transformMath'
+import { SELECTION_SHAPES, type SelectionShapeKind } from './selectionGesture'
 import type { TranslationKey } from '../../i18n'
 import type { IconName } from '../../icons/iconNames'
 
@@ -29,7 +30,7 @@ import type { IconName } from '../../icons/iconNames'
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
 export type UiToolId =
   | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker'
-  | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'grid' | 'hand'
+  | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'selection' | 'grid' | 'hand'
 
 export type SettingValueType =
   | {
@@ -549,6 +550,37 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       valueType: { kind: 'boolean' },
       uiControls: ['toggle'],
       default: false,
+    },
+  },
+  // Selection (#446, ADR 008). One tool with three ways to draw a region
+  // rather than three toolbar buttons: they differ only in how the points are
+  // collected, they produce the same polygon, and the toolbar is already the
+  // most crowded column on a tablet.
+  //
+  // Not `transient`, unlike the transform tool's mode next door: which lasso
+  // someone reaches for is a working habit rather than a temporary mode of one
+  // edit, so it is worth remembering between rooms — and unlike a stale
+  // transform mode, a remembered lasso cannot make the tool read as broken.
+  selection: {
+    shape: {
+      nameKey: 'tool.field.selectionShape',
+      valueType: { kind: 'enumOptions', options: SELECTION_SHAPES },
+      optionLabelKeys: {
+        rectangle: 'tool.selectionShape.rectangle',
+        polygon: 'tool.selectionShape.polygon',
+        freehand: 'tool.selectionShape.freehand',
+      },
+      // Icons for the same reason the transform modes have them: a way of
+      // drawing is a gesture, not a material, so there is nothing to
+      // photograph — and the quick-panel button is preview-only.
+      optionIcons: {
+        rectangle: 'select_all',
+        polygon: 'polyline',
+        freehand: 'gesture',
+      },
+      uiControls: ['select'],
+      quickAccess: true,
+      default: 'rectangle' satisfies SelectionShapeKind,
     },
   },
   // Layer transform (#120), its three modes (#391, #392) and the proportions

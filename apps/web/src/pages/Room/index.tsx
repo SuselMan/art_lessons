@@ -76,6 +76,11 @@ import { rulerGestureAt, RULER_BODY_GRAB_PX, RULER_ENDPOINT_GRAB_PX } from './ru
 import { editorOwnsKey, isTypingTarget } from './editorKeys'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
+import { SelectionOverlay } from './SelectionOverlay'
+import {
+  appendFreehandPoint, closesPolygon, rectangleFromDrag, selectionBoundsRect, selectionFromPoints,
+  transformSelection, POLYGON_CLOSE_RADIUS, type SelectionShapeKind,
+} from './selectionGesture'
 import {
   translateMatrix, scaleAxisMatrix, skewAxisMatrix, rotateAboutMatrix,
   composeMatrix, invertMatrix, applyMatrix, isIdentityMatrix, IDENTITY_MATRIX,
@@ -100,6 +105,7 @@ import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import { isDrawingTool, type EditorTool, type PrimaryDrawingTool } from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
+import type { ActiveSelection } from '../../stores/slices/selectionSlice'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
@@ -553,6 +559,12 @@ export function Room() {
   const eyedropperActive = tool === 'eyedropper'
   const rulerActive     = tool === 'ruler'
   const transformActive = tool === 'transform'
+  // (#446) The selection tool. Unlike the four above it leaves something
+  // behind that outlives having it in hand: the selection itself, which the
+  // transform tool then operates through and which cut/copy/paste act on. So
+  // "is it selected" and "is there a selection" are two different questions
+  // here, and both get asked below.
+  const selectionActive = tool === 'selection'
   // (#23) Backed by the store now, alongside the transform-preview fields
   // below — moved for architectural consistency, but deliberately NEVER
   // persisted (see layerSlice.ts's own comment: a ruler is for quickly
@@ -616,7 +628,25 @@ export function Room() {
   // list a value that changes on every animation frame among their deps.
   // `matrix` accumulates gestures; `targetIds` is frozen for the session so a
   // selection change ends it rather than silently re-aiming it mid-flight.
-  const transformSessionRef = useRef<{ matrix: TransformMatrix; targetIds: string[] } | null>(null)
+  const transformSessionRef = useRef<{
+    matrix: TransformMatrix
+    targetIds: string[]
+    // (#446) The selection this session is scoped to, frozen at the same
+    // moment `targetIds` is and for the same reason. Null means the ordinary
+    // whole-layer transform; non-null makes every part of the session — the
+    // frame, the preview, the operation it commits — apply to the region
+    // instead.
+    selection: ActiveSelection | null
+  } | null>(null)
+  // (#446) The selection and the clipboard (selectionSlice.ts). Both are local
+  // to this participant: a selection is what someone is about to do, and only
+  // what they did travels.
+  const selection = useRoomStore(s => s.selection)
+  const setSelection = useRoomStore(s => s.setSelection)
+  const pendingSelection = useRoomStore(s => s.pendingSelection)
+  const setPendingSelection = useRoomStore(s => s.setPendingSelection)
+  const clipboard = useRoomStore(s => s.clipboard)
+  const setClipboard = useRoomStore(s => s.setClipboard)
   // (#399) Throws the open session's uncommitted gestures away and re-opens an
   // empty one on whatever the layer holds now. Assigned further down, where
   // the pieces it needs exist; declared here because undo/redo — defined well
@@ -2616,6 +2646,20 @@ export function Room() {
   // instead; restarting a session mid-drag because someone else drew would
   // commit half a gesture. The ref is what lets startTransformSession freeze
   // the ids without listing an every-render value among its deps.
+  // (#446) The selection, but only when it genuinely applies to what the
+  // gizmo is holding: one target layer, and the same layer the selection was
+  // drawn on. A multi-layer selection in the layer panel falls back to the
+  // whole-layer transform rather than silently applying a region to layers it
+  // was never drawn against — `area_transform` is single-layer by contract
+  // (ADR 008), and picking one of several layers to honour would be a guess.
+  const areaSelection = selection
+    && transformTargetIds.length === 1
+    && transformTargetIds[0] === selection.layerId
+    ? selection
+    : null
+  const areaSelectionRef = useRef(areaSelection)
+  areaSelectionRef.current = areaSelection
+
   const transformTargetKey = transformTargetIds.join(',')
   const transformTargetIdsRef = useRef(transformTargetIds)
   transformTargetIdsRef.current = transformTargetIds
@@ -2638,6 +2682,16 @@ export function Room() {
   const refreshTransformBounds = useCallback(() => {
     const engine = engineRef.current
     if (!engine || transformTargetIds.length === 0) { setTransformBounds(null); setTransformCenterOverride(null); return }
+    // (#446) With a selection, the frame is the selection's own box — not the
+    // layer's painted content. Nothing is tightened or read back either: the
+    // outline is exactly the region the user drew, whether or not there is ink
+    // inside it, and a frame that snapped to the ink would contradict the
+    // outline still on screen next to it.
+    const area = areaSelectionRef.current
+    if (area) {
+      const rect = selectionBoundsRect(area.shape)
+      if (rect) { setTransformBounds(rect); setTransformCenterOverride(null); return }
+    }
     let bounds: TransformBounds | null = null
     for (const layerId of transformTargetIds) {
       engine.tightenContentBounds(layerId)
@@ -2677,7 +2731,11 @@ export function Room() {
   // matching commit is preview only — nothing touches the real layer buffer.
   const startTransformSession = useCallback(() => {
     refreshTransformBoundsRef.current()
-    transformSessionRef.current = { matrix: IDENTITY_MATRIX, targetIds: transformTargetIdsRef.current }
+    transformSessionRef.current = {
+      matrix: IDENTITY_MATRIX,
+      targetIds: transformTargetIdsRef.current,
+      selection: areaSelectionRef.current,
+    }
     setTransformSessionMatrix(IDENTITY_MATRIX)
   }, [setTransformSessionMatrix])
 
@@ -2727,14 +2785,31 @@ export function Room() {
       // operation is applied those are still the pre-session ones.
       if (reopen) startTransformSession()
     }
-    const dispatched = dispatchOp({
-      type: 'layer_transform',
-      // (#392) Narrowed back on the way out: a move/scale/rotate/skew session
-      // still writes six numbers, and only a session that genuinely carries a
-      // Distort writes nine — see toWireMatrix's own docstring for why the
-      // compact form is the rule rather than a legacy leftover.
-      transforms: session.targetIds.map(layerId => ({ layerId, matrix: toWireMatrix(session.matrix) })),
-    })
+    // (#446) A session scoped to a selection commits the region, not the
+    // layer — and moves the selection with it, so the outline ends up around
+    // the pixels it just carried instead of around the hole they left. A
+    // transform that sends the outline through the vanishing line drops it
+    // (transformSelection returns null): the pixels still moved, there is
+    // simply no region left to grab them by.
+    const dispatched = session.selection
+      ? dispatchOp({
+        type: 'area_transform',
+        layerId: session.selection.layerId,
+        selection: session.selection.shape,
+        matrix: toWireMatrix(session.matrix),
+      })
+      : dispatchOp({
+        type: 'layer_transform',
+        // (#392) Narrowed back on the way out: a move/scale/rotate/skew session
+        // still writes six numbers, and only a session that genuinely carries a
+        // Distort writes nine — see toWireMatrix's own docstring for why the
+        // compact form is the rule rather than a legacy leftover.
+        transforms: session.targetIds.map(layerId => ({ layerId, matrix: toWireMatrix(session.matrix) })),
+      })
+    if (session.selection && dispatched) {
+      const moved = transformSelection(session.selection.shape, session.matrix)
+      setSelection(moved ? { layerId: session.selection.layerId, shape: moved } : null)
+    }
     // (#395) The preview is deliberately *not* dropped before the commit.
     // clearLayerTransformPreview() repaints synchronously, so dropping it
     // first paints a frame with the preview gone and the transform not yet
@@ -2752,7 +2827,7 @@ export function Room() {
     // nothing is in flight, so finish right here.
     if (!dispatched || dispatched.applied) { finish(); return }
     pendingTransformCommitRef.current = { opId: dispatched.op.id, finish }
-  }, [dispatchOp, setTransformSessionMatrix, startTransformSession])
+  }, [dispatchOp, setTransformSessionMatrix, startTransformSession, setSelection])
 
   const commitTransformSessionRef = useRef(commitTransformSession)
   commitTransformSessionRef.current = commitTransformSession
@@ -2796,7 +2871,15 @@ export function Room() {
       setTransformBounds(null)
       setTransformCenterOverride(null)
     }
-  }, [transformActive, transformTargetKey, startTransformSession, setTransformBounds, setTransformCenterOverride])
+    // (#446) `areaSelection` is in the dependency list by object identity — it
+    // is the store's own selection object or null, so it changes exactly when
+    // the selection does. A selection that changes under an open session (a
+    // paste, an Esc) has to end that session and open one framing the new
+    // region, the same way changing the target layer does.
+  }, [
+    transformActive, transformTargetKey, areaSelection, startTransformSession,
+    setTransformBounds, setTransformCenterOverride,
+  ])
 
   // (#401) Best-effort save for the one exit React never reports: the page
   // going away. `pagehide` covers reload, tab close and bfcache;
@@ -3033,6 +3116,174 @@ export function Room() {
     )
     e.currentTarget.style.cursor = RULER_GESTURE_CURSOR[gesture]
   }, [vpRef, vp, config, rulerLine])
+
+  // ── Selection gestures (#446) ──────────────────────────────────────────
+  //
+  // One catcher, three gestures, told apart by the tool's own `shape` setting
+  // — the same "the tool decides what a press means" shape handleRulerDown
+  // has. Pen and mouse only, like every other canvas gesture in this editor
+  // (see handleRulerDown's own touch guard): on a tablet a finger moves the
+  // view, and a lasso that fought the pan would make both unusable.
+  const selectionShapeKind = toolSettings.selection.shape as SelectionShapeKind
+  // Where the pointer is, for the point-by-point lasso's rubber band. State
+  // rather than a ref because the overlay draws it; only written while a
+  // polygon is actually open, so it costs nothing the rest of the time.
+  const [selectionCursor, setSelectionCursor] = useState<{ x: number; y: number } | null>(null)
+  const selectionRectRef = useRef<DOMRect | null>(null)
+
+  // The layer a new selection belongs to: the active one, refusing the
+  // background (never a legal target for anything that paints, same rule as
+  // transform/merge/delete). Null means there is nothing to select on, and
+  // every gesture below simply does not start.
+  const selectionLayerId = layerState.activeId
+    && layerState.activeId !== BACKGROUND_LAYER_ID
+    && layerState.items[layerState.activeId]?.kind === 'layer'
+    ? layerState.activeId
+    : null
+
+  const finishSelection = useCallback((points: number[]) => {
+    setPendingSelection(null)
+    setSelectionCursor(null)
+    const shape = selectionFromPoints(points)
+    // A shape with no inside clears the selection rather than leaving an
+    // invisible sliver behind — see selectionFromPoints on why a tap and a
+    // twitch must both land here.
+    setSelection(shape && selectionLayerId ? { layerId: selectionLayerId, shape } : null)
+  }, [selectionLayerId, setPendingSelection, setSelection])
+
+  const handleSelectionDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch') return
+    // Same precedence as the ruler's: while the hand is up (or Space is held),
+    // a drag on the canvas moves the view.
+    if (handActive) return
+    const el = vpRef.current
+    if (!el || !config || !selectionLayerId) return
+    e.stopPropagation()
+    const rect = selectionRectRef.current = el.getBoundingClientRect()
+    const vpNow = useRoomStore.getState().viewport
+    const toPoint = (clientX: number, clientY: number) => clientToRoomPoint(clientX, clientY, rect, vpNow, config)
+    const start = toPoint(e.clientX, e.clientY)
+
+    // The point-by-point lasso is the one gesture that is not a drag: each
+    // press places a vertex, and the selection closes when a press lands back
+    // on the first one (or on Enter — see the key handler).
+    if (selectionShapeKind === 'polygon') {
+      const open = useRoomStore.getState().pendingSelection
+      if (open && open.length >= 2) {
+        if (closesPolygon(open, start.x, start.y, POLYGON_CLOSE_RADIUS / vpNow.zoom)) {
+          finishSelection(open)
+          return
+        }
+        setPendingSelection([...open, start.x, start.y])
+        return
+      }
+      setPendingSelection([start.x, start.y])
+      return
+    }
+
+    const overlay = e.currentTarget
+    const pointerId = e.pointerId
+    try { overlay.setPointerCapture(pointerId) } catch { /* context loss */ }
+    let points: number[] = [start.x, start.y]
+    setPendingSelection(selectionShapeKind === 'rectangle'
+      ? rectangleFromDrag(start.x, start.y, start.x, start.y).points
+      : points)
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      const p = toPoint(ev.clientX, ev.clientY)
+      if (selectionShapeKind === 'rectangle') {
+        points = rectangleFromDrag(start.x, start.y, p.x, p.y).points
+        setPendingSelection(points)
+        return
+      }
+      const next = appendFreehandPoint(points, p.x, p.y)
+      if (next === points) return
+      points = next
+      setPendingSelection(points)
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+      finishSelection(points)
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
+  }, [vpRef, config, handActive, selectionLayerId, selectionShapeKind, setPendingSelection, finishSelection])
+
+  // Rubber band for the open point-by-point lasso — the only gesture with
+  // something to show between presses.
+  const handleSelectionHover = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (selectionShapeKind !== 'polygon') return
+    if (!useRoomStore.getState().pendingSelection) return
+    const el = vpRef.current
+    if (!el || !config) return
+    const rect = selectionRectRef.current ??= el.getBoundingClientRect()
+    setSelectionCursor(clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config))
+  }, [vpRef, config, selectionShapeKind])
+
+  // ── What can be done with a selection (#446) ───────────────────────────
+  //
+  // Copy is the only one that is not an operation: it reads pixels into this
+  // participant's own clipboard and changes nothing anyone else can see. The
+  // other three go through dispatchOp, so they queue, retry and undo exactly
+  // like a stroke.
+
+  const copySelection = useCallback(async (): Promise<boolean> => {
+    const engine = engineRef.current
+    const current = useRoomStore.getState().selection
+    if (!engine || !current) return false
+    const copied = await engine.readAreaImage(current.layerId, current.shape)
+    if (!copied) return false
+    setClipboard(copied)
+    return true
+  }, [setClipboard])
+
+  const deleteSelectionContents = useCallback(() => {
+    const current = useRoomStore.getState().selection
+    if (!current) return
+    dispatchOp({ type: 'area_clear', layerId: current.layerId, selection: current.shape })
+  }, [dispatchOp])
+
+  const cutSelection = useCallback(async () => {
+    // Erases only if the pixels were genuinely captured: a cut that emptied
+    // the region and then failed to fill the clipboard would destroy work with
+    // nothing left to paste back.
+    if (await copySelection()) deleteSelectionContents()
+  }, [copySelection, deleteSelectionContents])
+
+  const pasteClipboard = useCallback(() => {
+    const state = useRoomStore.getState()
+    const entry = state.clipboard
+    // Onto the *active* layer, not the layer the pixels came from — pasting
+    // onto another layer is the case this whole feature was asked for.
+    const targetId = state.layerState.activeId
+    if (!entry || !targetId || targetId === BACKGROUND_LAYER_ID) return
+    dispatchOp({
+      type: 'area_paste',
+      layerId: targetId,
+      image: entry.image,
+      x: entry.x, y: entry.y, width: entry.width, height: entry.height,
+    })
+    // The pasted pixels land where they were taken from, so the region they
+    // occupy is known — select it, on the layer they landed on, so the next
+    // thing the user does (move it, cut it again) has something to act on
+    // without redrawing the same outline by hand.
+    setSelection({
+      layerId: targetId,
+      shape: rectangleFromDrag(entry.x, entry.y, entry.x + entry.width, entry.y + entry.height),
+    })
+  }, [dispatchOp, setSelection])
+
+  // A selection belongs to the layer it was drawn on (see ActiveSelection): when
+  // the active layer changes it is dropped rather than silently retargeted onto
+  // a drawing it was never traced against. The clipboard is deliberately
+  // untouched by this — cut here, switch layer, paste there is the whole point.
+  useEffect(() => {
+    if (!selection) return
+    if (selection.layerId !== layerState.activeId) setSelection(null)
+  }, [selection, layerState.activeId, setSelection])
 
   // (#391) The transform tool's own two settings, from the same TOOL_SCHEMAS
   // store every other tool's settings live in (see settingsToolId below for
@@ -3275,6 +3526,14 @@ export function Room() {
     }
     const showPreview = (matrix: TransformMatrix) => {
       setTransformSessionMatrix(matrix)
+      // (#446) The masked preview when the session is scoped to a selection —
+      // same lifecycle, same clearLayerTransformPreview, and (by construction,
+      // see the engine's _composeAreaTiles) the same pixels the commit will
+      // bake.
+      if (session.selection) {
+        engineRef.current?.previewAreaTransform(session.selection.layerId, session.selection.shape, matrix)
+        return
+      }
       engineRef.current?.previewLayerTransform(session.targetIds.map(layerId => ({ layerId, matrix })))
     }
     const flushPreview = () => {
@@ -4113,6 +4372,57 @@ export function Room() {
         if (e.key === 'Enter') { commitTransformSessionRef.current(true); e.preventDefault(); return }
         if (e.key === 'Escape') { resetTransformSessionRef.current(); e.preventDefault(); return }
       }
+      // (#446) The selection's own three unbindable keys, in the same place
+      // and for the same reason as the two above: Enter and Esc are the
+      // platform's confirm and cancel, and a rebind able to move them could
+      // leave a half-drawn lasso with no way to finish or abandon it.
+      //
+      // Ordered before the clipboard keys below because an open lasso is a
+      // gesture in progress, and a gesture in progress owns Enter and Esc
+      // outright.
+      const openLasso = useRoomStore.getState().pendingSelection
+      if (openLasso) {
+        if (e.key === 'Enter') { finishSelection(openLasso); e.preventDefault(); return }
+        if (e.key === 'Escape') {
+          setPendingSelection(null)
+          setSelectionCursor(null)
+          e.preventDefault()
+          return
+        }
+      }
+      if (e.key === 'Escape' && useRoomStore.getState().selection) {
+        setSelection(null)
+        e.preventDefault()
+        return
+      }
+      // Cut/copy/paste and Delete. Not in the hotkey registry either: these
+      // are the platform's own clipboard keys, the same ones every text field
+      // in this app already answers to, and rebinding Ctrl+C to something else
+      // is not a thing a drawing app should offer.
+      //
+      // The clipboard keys act only when there is something for them to act on
+      // — no selection, no interception — so a page-level copy of, say, a room
+      // link is never swallowed by the canvas.
+      const modKey = e.ctrlKey || e.metaKey
+      if (modKey && !e.shiftKey && !e.altKey) {
+        const key = e.key.toLowerCase()
+        if ((key === 'c' || key === 'x') && useRoomStore.getState().selection) {
+          e.preventDefault()
+          if (key === 'c') void copySelection()
+          else void cutSelection()
+          return
+        }
+        if (key === 'v' && useRoomStore.getState().clipboard) {
+          e.preventDefault()
+          pasteClipboard()
+          return
+        }
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && useRoomStore.getState().selection) {
+        e.preventDefault()
+        deleteSelectionContents()
+        return
+      }
       const is = (actionId: string) => matchesHotkey(e, hotkeys[actionId])
       if (is('undo')) { void handleUndo(); e.preventDefault(); return }
       if (is('redo')) { void handleRedo(); e.preventDefault(); return }
@@ -4154,6 +4464,10 @@ export function Room() {
         if (transformActive || transformTargetIds.length > 0) toggleTool('transform')
         return
       }
+      // (#446) Selectable with nothing selected — unlike transform, the whole
+      // point of this tool is to *make* a selection, so there is no
+      // precondition to check.
+      if (is('toggleSelection')) { toggleTool('selection'); return }
       if (is('toggleGrid')) { toggleTool('grid'); return }
       if (is('resetRotation')) { setVp(v => ({ ...v, angle: 0 })); return }
       // (#443) The same toggle-off-to-your-drawing-tool rule as every other
@@ -4210,6 +4524,8 @@ export function Room() {
     drawingTool, toggleTool, transformActive, transformTargetIds.length,
     setToolSetting, setVp, handleUndo, handleRedo, hotkeys,
     zoomBy, resetZoom,
+    finishSelection, setPendingSelection, setSelection, copySelection, cutSelection,
+    pasteClipboard, deleteSelectionContents,
   ])
 
   // ── Space = hold to pan (#319, ADR 007 §4) ────────────────────────────────
@@ -4608,6 +4924,17 @@ export function Room() {
             disabled={!transformActive && transformTargetIds.length === 0}
             onClick={() => selectTool('transform')}
           ><Icon name="free-transform" /></button>
+          {/* (#446) Next to transform because that is what it is for: mark a
+              region, then move it with the gizmo. Never disabled — with
+              nothing selectable the gestures simply do not start, and a
+              disabled tool button is a dead end rather than an explanation. */}
+          <button
+            className={clsx(styles.toolIconBtn, selectionActive && styles.toolIconBtnActive)}
+            title={t('tool.selectionTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleSelection) })}
+            aria-label={t('tool.selection')}
+            aria-pressed={selectionActive}
+            onClick={() => selectTool('selection')}
+          ><Icon name="highlight_alt" /></button>
 
           <div className={styles.toolDivider} />
 
@@ -4648,6 +4975,57 @@ export function Room() {
                 onExpand={key === 'color' ? () => setActivePanel('color') : undefined}
               />
             ))}
+          {/* (#446) What can be done with a selection, as buttons rather than
+              only as Ctrl+C/X/V. A tablet is a first-class target here and has
+              no modifier keys at all: without these, cut/copy/paste — the half
+              of this feature Ilya actually asked for — would exist only for
+              people with a keyboard.
+
+              In the quick column rather than floating over the canvas: it is
+              already the place the selected tool's own controls appear, it
+              never covers the drawing, and it needs no placement logic of its
+              own. Each button is disabled exactly when its action would do
+              nothing, so the row also answers "is anything selected" and "is
+              there anything to paste" without a word of text. */}
+          {selectionActive && (
+            <div className={styles.selectionActions}>
+              <button
+                className={styles.toolIconBtn}
+                title={t('selection.copy')}
+                aria-label={t('selection.copy')}
+                disabled={!selection}
+                onClick={() => { void copySelection() }}
+              ><Icon name="content_copy" /></button>
+              <button
+                className={styles.toolIconBtn}
+                title={t('selection.cut')}
+                aria-label={t('selection.cut')}
+                disabled={!selection}
+                onClick={() => { void cutSelection() }}
+              ><Icon name="content_cut" /></button>
+              <button
+                className={styles.toolIconBtn}
+                title={t('selection.paste')}
+                aria-label={t('selection.paste')}
+                disabled={!clipboard}
+                onClick={pasteClipboard}
+              ><Icon name="content_paste" /></button>
+              <button
+                className={styles.toolIconBtn}
+                title={t('selection.delete')}
+                aria-label={t('selection.delete')}
+                disabled={!selection}
+                onClick={deleteSelectionContents}
+              ><Icon name="delete" /></button>
+              <button
+                className={styles.toolIconBtn}
+                title={t('selection.clear')}
+                aria-label={t('selection.clear')}
+                disabled={!selection}
+                onClick={() => setSelection(null)}
+              ><Icon name="deselect" /></button>
+            </div>
+          )}
         </aside>
 
         {/* ── Viewport ── */}
@@ -4747,6 +5125,16 @@ export function Room() {
                 onCenterDoubleClick={handleTransformCenterReset}
               />
             )}
+            {/* (#446) Drawn under every tool, not only the selection tool: a
+                selection persists until it is replaced or cleared, and the
+                transform tool needs to show what it is about to move. It takes
+                no pointer events in either case — see SelectionOverlay. */}
+            <SelectionOverlay
+              selection={selection?.shape ?? null}
+              pending={pendingSelection}
+              cursor={selectionCursor}
+              zoom={vp.zoom}
+            />
           </div>
           {/* Infinite rooms (#143): the same five overlays, camera-aware —
               there's no canvasWrap CSS transform here for them to ride
@@ -4811,6 +5199,12 @@ export function Room() {
                   onCenterDoubleClick={handleTransformCenterReset}
                 />
               )}
+              <SelectionOverlay
+                selection={selection?.shape ?? null}
+                pending={pendingSelection}
+                cursor={selectionCursor}
+                zoom={vp.zoom}
+              />
             </div>
           )}
           {/* (#405) One catcher for the two tools whose gesture is a press on
@@ -4830,6 +5224,17 @@ export function Room() {
               onPointerDown={handleRulerDown}
               onPointerMove={handleRulerHover}
               onPointerEnter={() => { rulerRectRef.current = null }}
+            />
+          )}
+          {/* (#446) Same pattern: mounted only while the selection tool is in
+              hand, so a selection left on screen under the pencil is an
+              outline and nothing more. */}
+          {selectionActive && (
+            <div
+              className={styles.canvasCatcher}
+              onPointerDown={handleSelectionDown}
+              onPointerMove={handleSelectionHover}
+              onPointerEnter={() => { selectionRectRef.current = null }}
             />
           )}
         </div>

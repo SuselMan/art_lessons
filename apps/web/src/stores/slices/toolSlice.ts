@@ -41,7 +41,7 @@ export type DrawingTool = (typeof DRAWING_TOOLS)[number]
  *  lit next to a selected tool, two buttons were on at once and no rule
  *  explained which. */
 export const NON_DRAWING_TOOLS = [
-  'eyedropper', 'ruler', 'transform', 'grid', 'hand',
+  'eyedropper', 'ruler', 'transform', 'selection', 'grid', 'hand',
 ] as const satisfies readonly UiToolId[]
 
 export type NonDrawingTool = (typeof NON_DRAWING_TOOLS)[number]

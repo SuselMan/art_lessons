@@ -102,6 +102,9 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   { id: 'toggleEyedropper', labelKey: 'hotkey.toggleEyedropper', default: { code: 'KeyI', mod: false, shift: false } },
   { id: 'toggleRuler', labelKey: 'hotkey.toggleRuler', default: { code: 'KeyU', mod: false, shift: false } },
   { id: 'toggleTransform', labelKey: 'hotkey.toggleTransform', default: { code: 'KeyT', mod: false, shift: false } },
+  // (#446) 'A' for area — 'M' (the marquee key everywhere else) is the marker
+  // here, and the marker is a tool someone reaches for far more often.
+  { id: 'toggleSelection', labelKey: 'hotkey.toggleSelection', default: { code: 'KeyA', mod: false, shift: false } },
   { id: 'toggleGrid', labelKey: 'hotkey.toggleGrid', default: { code: 'KeyG', mod: false, shift: false } },
   { id: 'resetRotation', labelKey: 'hotkey.resetRotation', default: { code: 'KeyR', mod: false, shift: false } },
   // Only the *toggle* is an action and therefore rebindable. Hold-to-pan
