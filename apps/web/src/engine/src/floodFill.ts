@@ -111,37 +111,57 @@ function visualDistance(
   return dr > dg ? (dr > db ? dr : db) : (dg > db ? dg : db)
 }
 
-/** Separable box dilation/erosion of an 8-bit field, radius `r`, in place via
- *  one scratch buffer. A square structuring element rather than a disc: at
- *  r <= 3 the two differ by at most a corner pixel, and separability is what
- *  keeps this O(w*h) instead of O(w*h*r²) on a canvas-sized domain.
+/** Separable box dilation (`isMax`) or erosion of an 8-bit field, radius `r`,
+ *  in place via one scratch buffer. A square structuring element rather than a
+ *  disc: at r <= 3 the two differ by at most a corner pixel, and separability
+ *  is what keeps this O(w*h) instead of O(w*h*r²) on a canvas-sized domain.
  *
- *  `pick` is Math.max for a dilation and Math.min for an erosion — the pair is
- *  what a morphological closing is made of, and writing them as one function
- *  keeps the two halves provably symmetric. */
+ *  Both halves are one function so the erosion and the dilation a closing is
+ *  made of stay provably symmetric. `isMax` is a loop-invariant branch rather
+ *  than a `pick` callback, and that is not a micro-optimisation: passing
+ *  Math.min/Math.max in made the call site megamorphic, and at six full passes
+ *  over an A4-at-300dpi domain it was tens of millions of indirect calls.
+ *
+ *  The vertical half is written row-major — for each output row, fold in the
+ *  2r+1 source rows one whole row at a time — rather than the obvious
+ *  column-major nest. Same arithmetic, but the obvious form strides by `width`
+ *  through an 8-megapixel array and misses cache on essentially every read.
+ *  Measured here on a 2480x3508 domain (A4 at 300dpi) with gapClose 1 and
+ *  expand 1: the scan went from 2167 ms to 922 ms, all of it from this pass.
+ *  What is left is still mostly morphology — 626 ms of that 922 — because it
+ *  runs over the whole domain whether the fill covers three pixels or all of
+ *  it. Making the work proportional to the *ink* instead (a dilation of the
+ *  blocked set is sparse; the blocked set is a few percent of a drawing) is
+ *  the next real win, and it is a rewrite rather than a tightening. */
 function morphPass(
-  field: Uint8Array, width: number, height: number, r: number,
-  pick: (a: number, b: number) => number,
+  field: Uint8Array, width: number, height: number, r: number, isMax: boolean,
 ): void {
   if (r <= 0) return
   const tmp = new Uint8Array(field.length)
   for (let y = 0; y < height; y++) {
     const row = y * width
     for (let x = 0; x < width; x++) {
-      let v = field[row + x]
       const lo = x - r < 0 ? 0 : x - r
       const hi = x + r >= width ? width - 1 : x + r
-      for (let k = lo; k <= hi; k++) v = pick(v, field[row + k])
+      let v = field[row + lo]
+      for (let k = lo + 1; k <= hi; k++) {
+        const c = field[row + k]
+        if (isMax ? c > v : c < v) v = c
+      }
       tmp[row + x] = v
     }
   }
-  for (let x = 0; x < width; x++) {
-    for (let y = 0; y < height; y++) {
-      let v = tmp[y * width + x]
-      const lo = y - r < 0 ? 0 : y - r
-      const hi = y + r >= height ? height - 1 : y + r
-      for (let k = lo; k <= hi; k++) v = pick(v, tmp[k * width + x])
-      field[y * width + x] = v
+  for (let y = 0; y < height; y++) {
+    const out = y * width
+    const lo = y - r < 0 ? 0 : y - r
+    const hi = y + r >= height ? height - 1 : y + r
+    field.set(tmp.subarray(lo * width, lo * width + width), out)
+    for (let k = lo + 1; k <= hi; k++) {
+      const src = k * width
+      for (let x = 0; x < width; x++) {
+        const c = tmp[src + x]
+        if (isMax ? c > field[out + x] : c < field[out + x]) field[out + x] = c
+      }
     }
   }
 }
@@ -257,8 +277,8 @@ export function computeFill(source: FillSource, params: FillParams): FillResult 
   let open = soft
   for (let r = Math.round(gapClose); r > 0; r--) {
     const candidate = soft.slice()
-    morphPass(candidate, width, height, r, Math.min)
-    morphPass(candidate, width, height, r, Math.max)
+    morphPass(candidate, width, height, r, false)
+    morphPass(candidate, width, height, r, true)
     if (candidate[seedP] !== 0) { open = candidate; break }
   }
   if (open[seedP] === 0) return empty
@@ -273,7 +293,7 @@ export function computeFill(source: FillSource, params: FillParams): FillResult 
   const ex = Math.round(expand)
   if (ex > 0) {
     for (let p = 0; p < filled.length; p++) filled[p] = filled[p] !== 0 ? 255 : 0
-    morphPass(filled, width, height, ex, Math.max)
+    morphPass(filled, width, height, ex, true)
     for (let p = 0; p < filled.length; p++) filled[p] = filled[p] !== 0 ? 1 : 0
   }
 
