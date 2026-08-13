@@ -9,7 +9,8 @@
 import { nanoid } from 'nanoid'
 import type {
   AreaClearOperation, AreaPasteOperation, AreaTransformOperation, Dab, ImageImportOperation, LayerAddOperation,
-  LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, SelectionShape, StrokeOperation,
+  LayerDeleteOperation, LayerDuplicateOperation, LayerMergeOperation, LayerTransformOperation, SelectionShape,
+  StrokeOperation,
 } from '@grafetto/shared'
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
@@ -666,6 +667,18 @@ export function makeLayerMerge(
   return {
     id: nanoid(10), type: 'layer_merge', userId, timestamp: nextTimestamp(),
     layerId, name: 'Merged', sources, parentId: null, index: 0,
+    ...overrides,
+  }
+}
+
+export function makeLayerDuplicate(
+  userId: string, layerId: string, sourceId: string,
+  overrides: Partial<LayerDuplicateOperation> = {},
+): LayerDuplicateOperation {
+  return {
+    id: nanoid(10), type: 'layer_duplicate', userId, timestamp: nextTimestamp(),
+    layerId, sourceId, name: 'Copy', sourceOpacity: 1, sourceVisible: true,
+    parentId: null, index: 0,
     ...overrides,
   }
 }

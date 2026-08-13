@@ -3,15 +3,18 @@ import clsx from 'clsx'
 
 import { useDraggablePosition } from '../../lib/useDraggablePosition'
 import { useLongPress } from '../../lib/useLongPress'
-import { useT, type TranslationKey } from '../../i18n'
+import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import {
   clampPanelPosition, savePanelPosition, PANEL_SIZE, PANEL_DOM_ID, type PanelPosition,
 } from '../../pages/Room/panelPosition'
 import { layoutFlyoutItems, type RayLayoutConfig } from './colorFlyout'
+import {
+  FLOATING_PRIMARY_TOOLS, FLOATING_SECONDARY_TOOLS, TOOL_DISPLAY,
+  type FloatingPanelTool, type FloatingPrimaryTool, type FloatingSecondaryTool,
+} from './tools'
 import styles from './FloatingToolPanel.module.css'
-import type { IconName } from '../../icons/iconNames'
 
 // Palette flyout (#190 follow-up) tuning constants — kept as plain numbers
 // here, not a settings-panel toggle, so they're quick to hand-tune while
@@ -23,36 +26,12 @@ import type { IconName } from '../../icons/iconNames'
 const COLOR_FLYOUT_MAX = 32
 const FLYOUT_SWATCH_SIZE = 40
 const FLYOUT_GAP = 8
-/** The material-laying tools that can occupy this panel's single drawing-tool
- *  slot, in the order the tool flyout fans them out. Structurally the same set
- *  as toolSlice.ts's PrimaryDrawingTool, but written out here rather than
- *  imported: nothing under components/ imports from stores/, and this panel is
- *  a presentational component that shouldn't be the first to.
- *
- *  The type below is derived from this list rather than declared beside it, so
- *  adding a tool — charcoal was #304 — is one edit here plus whatever the
- *  compiler then demands (PRIMARY_TOOL_DISPLAY is a total Record over it, so
- *  a tool with no icon or label is a typecheck error, not a blank button). */
-const FLOATING_PRIMARY_TOOLS = ['pencil', 'charcoal', 'liner', 'marker'] as const
-
-type FloatingPrimaryTool = (typeof FLOATING_PRIMARY_TOOLS)[number]
-
-/** Which of the panel's two mutually-exclusive fans is out, if either. One
- *  value rather than a boolean per fan because they share the same annulus
- *  around the panel: two of them open at once would overlap swatch for
- *  swatch, and "close the other one first" is a rule that only has to hold if
- *  the state lets it be broken. */
-export type PanelFlyout = 'palette' | 'tools'
-
-// Icon + label for the top slot's primaryTool — same icon each tool's own
-// left-toolbar button already uses (Room/index.tsx), so the floating panel
-// and the toolbar never disagree about what a tool "looks like".
-const PRIMARY_TOOL_DISPLAY: Record<FloatingPrimaryTool, { icon: IconName; labelKey: TranslationKey }> = {
-  pencil: { icon: 'edit', labelKey: 'tool.pencil' },
-  charcoal: { icon: 'charcoal', labelKey: 'tool.charcoal' },
-  liner: { icon: 'stylus', labelKey: 'tool.liner' },
-  marker: { icon: 'ink_highlighter', labelKey: 'tool.marker' },
-}
+/** Which of the panel's three mutually-exclusive fans is out, if any: the
+ *  palette under the color dot, and one per tool slot. One value rather than a
+ *  boolean each because they all share the same annulus around the panel — two
+ *  open at once would overlap item for item, and "close the others first" is a
+ *  rule that only has to hold if the state lets it be broken. */
+export type PanelFlyout = 'palette' | 'primary' | 'secondary'
 
 const FLYOUT_LAYOUT: RayLayoutConfig = {
   // Ring 1 sits just outside the *whole panel's* own edge (radius
@@ -67,17 +46,21 @@ const FLYOUT_LAYOUT: RayLayoutConfig = {
 }
 
 interface Props {
-  /** Current actual tool, for the eraser button's own active-highlight — a
-   *  FloatingPrimaryTool here means "not erasing", not literally which one of
-   *  them is active (see primaryTool for that). */
-  tool: FloatingPrimaryTool | 'eraser'
+  /** The tool actually in hand, or null while it is something neither slot can
+   *  show (ruler, transform, grid, hand — all of which live in the full
+   *  chrome). Drives which slot is lit, and nothing else: what each slot
+   *  *displays* comes from the two fields below, which outlive the selection. */
+  tool: FloatingPanelTool | null
   /** Last FloatingPrimaryTool actually selected (toolSlice.ts's
    *  lastDrawingTool, #252 follow-up: marker joined this slot the same way
    *  liner did, and charcoal in #304) — drives the top button's icon/label and
    *  what it switches back to, so it reflects whichever was really active
    *  rather than assuming pencil. */
   primaryTool: FloatingPrimaryTool
-  onSetTool: (tool: FloatingPrimaryTool | 'eraser') => void
+  /** The same thing for the bottom slot (toolSlice.ts's lastSecondaryTool):
+   *  the eraser, the smudge or the eyedropper, whichever was last in hand. */
+  secondaryTool: FloatingSecondaryTool
+  onSetTool: (tool: FloatingPanelTool) => void
   onUndo: () => void
   onRedo: () => void
   /** Current color of whichever tool primaryTool names, shown as the
@@ -140,17 +123,21 @@ interface Props {
  *  toolbar's pencil/eraser: deliberate, since the point of the cluster is
  *  that it is wherever the hand already is.
  *
- *  The drawing-tool slot is one slot but not one tool: holding it fans out
- *  the rest of FLOATING_PRIMARY_TOOLS to switch between them, the same
- *  gesture-and-fan the color dot already had for the palette. That is what
- *  lets this panel stand in for the left toolbar rather than merely shortcut
- *  it — before it, swapping pencil for marker meant bringing the full chrome
- *  back, which is exactly what minimal UI was entered to be rid of. Tapping
- *  the slot still just selects what it already shows; only a press that goes
- *  the distance is taken away from the tap (see useLongPress). */
+ *  Each tool slot is one slot but not one tool: holding it fans out the rest
+ *  of its set to switch between them — the drawing tools from the top, the
+ *  eraser/smudge/eyedropper from the bottom — using the same gesture and the
+ *  same fan the color dot already had for the palette. That is what lets this
+ *  panel stand in for the left toolbar rather than merely shortcut it: before
+ *  it, swapping pencil for marker (or reaching the smudge at all) meant
+ *  bringing the full chrome back, which is exactly what minimal UI was entered
+ *  to be rid of. Tapping a slot still just selects what it already shows —
+ *  except while that slot's own fan is out, when the tap tucks it back
+ *  instead; only a press that goes the distance is taken away from the tap
+ *  (useLongPress). See tapSlot for why the button that opened a fan is also
+ *  the one that closes it. */
 export function FloatingToolPanel({
-  tool, primaryTool, onSetTool, onUndo, onRedo, primaryColor, palette, onSelectColor, onOpenColorPicker,
-  roomId, position, onPositionChange, containerRef, hidden,
+  tool, primaryTool, secondaryTool, onSetTool, onUndo, onRedo, primaryColor, palette, onSelectColor,
+  onOpenColorPicker, roomId, position, onPositionChange, containerRef, hidden,
   undoHotkeyLabel, redoHotkeyLabel, flyout, onFlyoutChange,
 }: Props) {
   const t = useT()
@@ -167,8 +154,27 @@ export function FloatingToolPanel({
     () => onFlyoutChange(flyout === 'palette' ? null : 'palette'),
     [flyout, onFlyoutChange],
   )
-  const openToolFlyout = useCallback(() => onFlyoutChange('tools'), [onFlyoutChange])
-  const { onPointerDown: onPrimaryToolHold } = useLongPress({ onLongPress: openToolFlyout })
+  const openPrimaryFlyout = useCallback(() => onFlyoutChange('primary'), [onFlyoutChange])
+  const openSecondaryFlyout = useCallback(() => onFlyoutChange('secondary'), [onFlyoutChange])
+  const { onPointerDown: onPrimaryHold } = useLongPress({ onLongPress: openPrimaryFlyout })
+  const { onPointerDown: onSecondaryHold } = useLongPress({ onLongPress: openSecondaryFlyout })
+
+  // A tap on a tool slot. Selecting what the slot shows is only its second
+  // job: while the slot's own fan is out, the tap tucks it back instead — the
+  // same button opened it (by being held), so the same button is where a hand
+  // reaches to undo that, and re-selecting the tool already showing on the
+  // slot is a no-op that would leave the fan hanging. The fan is not a menu
+  // that has to be chosen from: backing out of it is a real intention, and
+  // the alternative was aiming at the backdrop instead.
+  //
+  // A tap on the *other* slot is an ordinary selection, and closes the fan on
+  // the way — a fan left fanned out around a panel whose selection just moved
+  // is pointing at a decision that has already been made.
+  const tapSlot = useCallback((slot: PanelFlyout, slotTool: FloatingPanelTool) => {
+    if (flyout === slot) { onFlyoutChange(null); return }
+    if (flyout) onFlyoutChange(null)
+    onSetTool(slotTool)
+  }, [flyout, onFlyoutChange, onSetTool])
 
   // Reset to collapsed on *every* change of which fan is out, not just on
   // closing: swapping one fan straight for the other (holding the tool slot
@@ -257,10 +263,13 @@ export function FloatingToolPanel({
     }))
   }, [flyout, palette, layoutAroundPanel])
 
+  // One list either way — which slot was held only decides which set of tools
+  // rides the rays, so the fan itself is written once (see the JSX below).
   const toolItems = useMemo(() => {
-    if (flyout !== 'tools') return []
-    return layoutAroundPanel(FLOATING_PRIMARY_TOOLS.length)
-      .map((pos, i) => ({ ...pos, tool: FLOATING_PRIMARY_TOOLS[i] }))
+    if (flyout !== 'primary' && flyout !== 'secondary') return []
+    const tools: readonly FloatingPanelTool[] =
+      flyout === 'primary' ? FLOATING_PRIMARY_TOOLS : FLOATING_SECONDARY_TOOLS
+    return layoutAroundPanel(tools.length).map((pos, i) => ({ ...pos, tool: tools[i] }))
   }, [flyout, layoutAroundPanel])
 
   // Collapsed onto the panel's own center until animateIn flips true one frame
@@ -308,17 +317,17 @@ export function FloatingToolPanel({
           title={t('palette.open')}
           aria-label={t(flyout === 'palette' ? 'palette.closeLabel' : 'palette.openLabel')}
         />
-        {/* Tap selects what it shows, hold fans out the rest — the title says
-            so, since a hold is the one gesture nothing on screen can advertise
-            by itself. */}
+        {/* Both tool slots: tap selects what the slot shows, hold fans out the
+            rest of its set. The title says so, since a hold is the one gesture
+            nothing on screen can advertise by itself. */}
         <button
           className={clsx(styles.btn, styles.btnTop, tool === primaryTool && styles.btnActive)}
-          onClick={() => onSetTool(primaryTool)}
-          onPointerDown={onPrimaryToolHold}
-          title={t('palette.toolHold', { tool: t(PRIMARY_TOOL_DISPLAY[primaryTool].labelKey) })}
-          aria-label={t(PRIMARY_TOOL_DISPLAY[primaryTool].labelKey)}
+          onClick={() => tapSlot('primary', primaryTool)}
+          onPointerDown={onPrimaryHold}
+          title={t('palette.toolHold', { tool: t(TOOL_DISPLAY[primaryTool].labelKey) })}
+          aria-label={t(TOOL_DISPLAY[primaryTool].labelKey)}
         >
-          <Icon name={PRIMARY_TOOL_DISPLAY[primaryTool].icon} />
+          <Icon name={TOOL_DISPLAY[primaryTool].icon} />
         </button>
         <button className={clsx(styles.btn, styles.btnRight)} onClick={onRedo} title={t('room.redoTitle', { hotkey: redoHotkeyLabel })} aria-label={t('room.redo')}>
           <Icon name="redo" />
@@ -327,10 +336,13 @@ export function FloatingToolPanel({
           <Icon name="undo" />
         </button>
         <button
-          className={clsx(styles.btn, styles.btnBottom, tool === 'eraser' && styles.btnActive)}
-          onClick={() => onSetTool('eraser')} title={t('tool.eraser')} aria-label={t('tool.eraser')}
+          className={clsx(styles.btn, styles.btnBottom, tool === secondaryTool && styles.btnActive)}
+          onClick={() => tapSlot('secondary', secondaryTool)}
+          onPointerDown={onSecondaryHold}
+          title={t('palette.toolHold', { tool: t(TOOL_DISPLAY[secondaryTool].labelKey) })}
+          aria-label={t(TOOL_DISPLAY[secondaryTool].labelKey)}
         >
-          <Icon name="ink_eraser" />
+          <Icon name={TOOL_DISPLAY[secondaryTool].icon} />
         </button>
 
         {flyout === 'palette' && (
@@ -361,23 +373,24 @@ export function FloatingToolPanel({
           </div>
         )}
 
-        {/* The same fan, carrying tools instead of colors. Every tool is shown,
-            the current one included and marked: a chooser that hides what is
-            already in hand makes the user work out which of the remaining
-            three they are holding. */}
-        {flyout === 'tools' && (
+        {/* The same fan, carrying tools instead of colors — one block for both
+            slots, since only the contents of toolItems differ. Every tool in
+            the set is shown, the one in hand included and marked: a chooser
+            that hides what is already held makes the user work out which of
+            the rest they are holding. */}
+        {toolItems.length > 0 && (
           <div className={styles.flyout}>
             {toolItems.map(item => (
               <button
                 key={item.tool}
                 className={clsx(styles.flyoutToolBtn, item.tool === tool && styles.flyoutToolBtnActive)}
                 style={{ transform: itemTransform(item) }}
-                title={t(PRIMARY_TOOL_DISPLAY[item.tool].labelKey)}
-                aria-label={t(PRIMARY_TOOL_DISPLAY[item.tool].labelKey)}
+                title={t(TOOL_DISPLAY[item.tool].labelKey)}
+                aria-label={t(TOOL_DISPLAY[item.tool].labelKey)}
                 aria-pressed={item.tool === tool}
                 onClick={() => { onSetTool(item.tool); onFlyoutChange(null) }}
               >
-                <Icon name={PRIMARY_TOOL_DISPLAY[item.tool].icon} />
+                <Icon name={TOOL_DISPLAY[item.tool].icon} />
               </button>
             ))}
           </div>

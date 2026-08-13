@@ -69,6 +69,58 @@ describe('lastDrawingTool (#245 follow-up)', () => {
   })
 })
 
+// The mirror image of the block above, for the floating panel's second slot:
+// it shows and returns to whichever of eraser/smudge/eyedropper was last in
+// hand, so "hold the slot, pick the smudge" makes the slot mean the smudge
+// from then on. Kept in the store rather than in the panel because the left
+// toolbar and the hotkeys select these tools too, and a slot that only
+// remembered its own choices would go stale the moment the same choice was
+// made a foot to the left.
+describe('lastSecondaryTool', () => {
+  beforeEach(() => { resetRoomStore() })
+
+  it('starts on the eraser — the slot means what it always meant until moved', () => {
+    expect(useRoomStore.getState().lastSecondaryTool).toBe('eraser')
+  })
+
+  it('follows setTool across all three of its members', () => {
+    for (const tool of ['smudge', 'eyedropper', 'eraser'] as const) {
+      useRoomStore.getState().setTool(tool)
+      expect(useRoomStore.getState().lastSecondaryTool).toBe(tool)
+    }
+  })
+
+  it('is left alone by the drawing tools, so the slot survives a stroke', () => {
+    useRoomStore.getState().setTool('smudge')
+    for (const tool of ['pencil', 'charcoal', 'liner', 'marker'] as const) {
+      useRoomStore.getState().setTool(tool)
+      expect(useRoomStore.getState().lastSecondaryTool).toBe('smudge')
+    }
+  })
+
+  // The eyedropper hands the canvas back to `drawingTool` the moment it has
+  // taken a colour (#405), so the selection moves on by itself — the slot has
+  // to go on showing the eyedropper anyway, or sampling twice in a row would
+  // mean going back to the full chrome for the second one.
+  it('still names the eyedropper after it has returned the canvas', () => {
+    useRoomStore.getState().setTool('liner')
+    useRoomStore.getState().setTool('eyedropper')
+
+    const { drawingTool, setTool } = useRoomStore.getState()
+    setTool(drawingTool)
+    expect(useRoomStore.getState().tool).toBe('liner')
+    expect(useRoomStore.getState().lastSecondaryTool).toBe('eyedropper')
+  })
+
+  it('is left alone while a tool from neither slot is selected', () => {
+    useRoomStore.getState().setTool('eyedropper')
+    for (const tool of ['ruler', 'transform', 'grid', 'hand'] as const) {
+      useRoomStore.getState().setTool(tool)
+      expect(useRoomStore.getState().lastSecondaryTool).toBe('eyedropper')
+    }
+  })
+})
+
 // (#405) One tool is selected at a time, and the four that paint nothing are
 // members of that one selection rather than modes laid over a drawing tool.
 // `drawingTool` is what makes that possible without the engine, the brush

@@ -50,6 +50,29 @@ export function minimalUiActive(minimalUi: boolean, deviceType: DeviceType): boo
   return minimalUi && minimalUiAvailable(deviceType)
 }
 
+/** How many taps on the canvas it takes to toggle minimal UI (#189).
+ *
+ *  `double` is the default and `single` is the old behaviour, kept as a
+ *  choice rather than removed: a single tap is the cheaper gesture and some
+ *  people never trip it, but it is also what the drawing hand produces by
+ *  accident — a resting knuckle that happens to lift without sliding is a
+ *  tap by every measure this app can take, and it made the whole chrome
+ *  disappear mid-stroke. */
+export type MinimalUiTapMode = 'single' | 'double'
+
+export const MINIMAL_UI_TAP_MODES: readonly MinimalUiTapMode[] = ['single', 'double']
+
+export const DEFAULT_MINIMAL_UI_TAP_MODE: MinimalUiTapMode = 'double'
+
+export function isMinimalUiTapMode(value: unknown): value is MinimalUiTapMode {
+  return value === 'single' || value === 'double'
+}
+
+/** The tap count the recognizer has to see before it toggles anything. */
+export function minimalUiTapsRequired(mode: MinimalUiTapMode): number {
+  return mode === 'double' ? 2 : 1
+}
+
 /** The options the floating-panel control offers on this device — `minimal`
  *  is dropped where minimal UI doesn't exist, since picking it there would
  *  mean "never" under a name that doesn't say so. */

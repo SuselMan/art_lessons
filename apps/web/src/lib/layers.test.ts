@@ -4,7 +4,7 @@ import type {
   LayerFolder, LayerItem, LayerState, RasterLayer,
   LayerAddOperation, FolderAddOperation, LayerDeleteOperation,
   LayerMoveOperation, LayerOpacityOperation, LayerVisibilityOperation,
-  LayerRenameOperation, LayerMergeOperation,
+  LayerRenameOperation, LayerMergeOperation, LayerDuplicateOperation,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 
@@ -236,6 +236,77 @@ describe('applyContentOp', () => {
     const next = applyContentOp(state, op)
     expect(next.rootOrder).toEqual(['f1']) // stays inside the folder, not ejected to root
     expect((next.items.f1 as LayerFolder).children).toEqual(['a', 'merged', 'd', 'e'])
+  })
+
+  // (#449) The structural half of a duplicate. The pixel half is the engine's
+  // (index.layerDuplicate.test.ts); what has to hold here is that the copy is a
+  // real, independent row carrying the source's *appearance* and none of its
+  // claims.
+  it('layer_duplicate inserts the copy without consuming the source', () => {
+    const state = stateOf({ a: layer('a'), b: layer('b') }, ['a', 'b'])
+    const op: LayerDuplicateOperation = {
+      ...baseOp, type: 'layer_duplicate', layerId: 'a-copy', sourceId: 'a', name: 'a copy',
+      sourceOpacity: 1, sourceVisible: true, parentId: null, index: 0,
+    }
+    const next = applyContentOp(state, op)
+    expect(next.items.a).toBeDefined()
+    expect(next.rootOrder).toEqual(['a-copy', 'a', 'b'])
+    expect(next.items['a-copy']).toMatchObject({ kind: 'layer', name: 'a copy' })
+  })
+
+  it('layer_duplicate takes opacity/visibility from the operation, never from live state', () => {
+    // The source's live values deliberately disagree with the operation's:
+    // replay must fold the same log into the same state on every client, and a
+    // client whose source has since changed (or never existed) would otherwise
+    // produce a different copy from everyone else's.
+    const state = stateOf({ a: layer('a', { opacity: 0.2, visible: true }) }, ['a'])
+    const op: LayerDuplicateOperation = {
+      ...baseOp, type: 'layer_duplicate', layerId: 'a-copy', sourceId: 'a', name: 'a copy',
+      sourceOpacity: 0.5, sourceVisible: false, parentId: null, index: 0,
+    }
+    const copy = applyContentOp(state, op).items['a-copy'] as RasterLayer
+    expect(copy.opacity).toBe(0.5)
+    expect(copy.visible).toBe(false)
+  })
+
+  it('layer_duplicate does not copy lock or owner-lock — a copy nobody may paint on is a puzzle, not a safeguard', () => {
+    const state = stateOf({ a: layer('a', { locked: true, ownerLocked: true }) }, ['a'])
+    const op: LayerDuplicateOperation = {
+      ...baseOp, type: 'layer_duplicate', layerId: 'a-copy', sourceId: 'a', name: 'a copy',
+      sourceOpacity: 1, sourceVisible: true, parentId: null, index: 0,
+    }
+    const copy = applyContentOp(state, op).items['a-copy'] as RasterLayer
+    expect(copy.locked).toBe(false)
+    expect(copy.ownerLocked).toBeUndefined()
+  })
+
+  it('layer_duplicate lands inside the source\'s own folder, at the source\'s slot', () => {
+    const state = stateOf(
+      { f1: folder('f1', ['a', 'b', 'c']), a: layer('a'), b: layer('b'), c: layer('c') },
+      ['f1'],
+    )
+    // Driven exactly the way LayerPanel's handleDuplicate does: parentId = the
+    // folder, index = the source's own index, which puts the copy above it.
+    const op: LayerDuplicateOperation = {
+      ...baseOp, type: 'layer_duplicate', layerId: 'b-copy', sourceId: 'b', name: 'b copy',
+      sourceOpacity: 1, sourceVisible: true, parentId: 'f1', index: 1,
+    }
+    const next = applyContentOp(state, op)
+    expect(next.rootOrder).toEqual(['f1'])
+    expect((next.items.f1 as LayerFolder).children).toEqual(['a', 'b-copy', 'b', 'c'])
+  })
+
+  it('layer_duplicate folded twice is idempotent, not cumulative', () => {
+    // Same guarantee insertAt's own doc comment exists for: a snapshot landing
+    // mid-join can replay an operation whose result the restored state already
+    // holds, and the layer must not appear twice for it.
+    const state = stateOf({ a: layer('a') }, ['a'])
+    const op: LayerDuplicateOperation = {
+      ...baseOp, type: 'layer_duplicate', layerId: 'a-copy', sourceId: 'a', name: 'a copy',
+      sourceOpacity: 1, sourceVisible: true, parentId: null, index: 0,
+    }
+    const once = applyContentOp(state, op)
+    expect(applyContentOp(once, op)).toBe(once)
   })
 
   it('stroke, layer_clear, and the meta-ops (revoke/undo/redo) are structural no-ops', () => {

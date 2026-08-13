@@ -355,7 +355,7 @@ export function deletableOperations(
  *  resident window rather than guess at it — currently forkRoutes.ts (#317),
  *  which copies exactly what a cold load would consider resident. */
 export const RESIDENT_OP_TYPES: readonly string[] = [
-  'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_owner_lock',
+  'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_duplicate', 'layer_owner_lock',
   'operation_undo', 'operation_redo', 'operation_revoke',
 ]
 
@@ -382,18 +382,18 @@ function layerStateIdsOf(state: unknown): Set<string> | null {
  *  layer and do nothing but paint it. Those are also the heavy ones (dab
  *  arrays, inline base64 images), so this is where all the saving is.
  *
- *  `layer_merge` and `layer_transform` paint too and are excluded on purpose.
- *  A merge is also a structural fact (it creates a layer and consumes its
- *  sources) and a transform can name several layers at once, so withholding
- *  either would take away something the client still needs. They are always
- *  sent, and the client skips re-applying their pixel half to a layer it has
- *  already restored past them, judged against the coverage it really has
- *  (#374). */
-//
-//  (#446) The three selection operations join them: each targets one layer and
-//  does nothing but paint it, which is the whole test above. `area_paste`
-//  carries an inline raster, so it is heavy in exactly the way this list
-//  exists for.
+ *  `layer_merge`, `layer_duplicate` and `layer_transform` paint too and are
+ *  excluded on purpose. A merge is also a structural fact (it creates a layer
+ *  and consumes its sources), a duplicate likewise (it creates one), and a
+ *  transform can name several layers at once, so withholding any of them would
+ *  take away something the client still needs. They are always sent, and the
+ *  client skips re-applying their pixel half to a layer it has already restored
+ *  past them, judged against the coverage it really has (#374).
+ *
+ *  (#446) The three selection operations *do* join the coverable list: each
+ *  targets one layer and does nothing but paint it, which is the whole test
+ *  above. `area_paste` carries an inline raster, so it is heavy in exactly the
+ *  way this list exists for. */
 const COVERABLE_OP_TYPES = ['stroke', 'image_import', 'layer_clear', 'area_transform', 'area_clear', 'area_paste']
 
 /** (#412) `'layerId' in op` used to be enough to narrow to a single-target
@@ -428,7 +428,7 @@ function isCoverableOp(op: Operation): op is CoverableOperation {
  *  row per reload. Before this epic a single room-wide floor happened to
  *  withhold those; removing it for pixels left structure with no floor at all.
  *
- *  A `layer_merge` or `layer_transform` needs *both*: they carry structure (or
+ *  A `layer_merge`, `layer_duplicate` or `layer_transform` needs *both*: they carry structure (or
  *  several layers at once) and pixels, so either half still outstanding means
  *  the operation has to be replayed. That is the asymmetry worth keeping in
  *  view — "covered" is a claim about everything an operation did, not about
@@ -454,6 +454,10 @@ export function isCoveredBySnapshot(
 
   if (isCoverableOp(op)) return pixelsCovered(op.layerId)
   if (op.type === 'layer_merge') return structureCovered && pixelsCovered(op.layerId)
+  // (#449) Judged on the *copy*, never on the source: the source is unchanged
+  // by having been copied, and its own coverage says nothing about whether the
+  // copy's pixels made it into a snapshot.
+  if (op.type === 'layer_duplicate') return structureCovered && pixelsCovered(op.layerId)
   if (op.type === 'layer_transform') return structureCovered && op.transforms.every(t => pixelsCovered(t.layerId))
   // Everything else leaves structure and nothing else behind: layer_add,
   // folder_add, layer_delete, layer_move, layer_rename, layer_opacity,
@@ -1088,7 +1092,7 @@ function ownerLockedTargets(record: RoomRecord, op: Operation): boolean {
  *  Two classes, deliberately gated against different sets:
  *
  *  1. *Destructive* operations on someone else's reference
- *     (`layer_delete`/`layer_merge`/`layer_transform`) are gated on
+ *     (`layer_delete`/`layer_merge`/`layer_duplicate`/`layer_transform`) are gated on
  *     `aliveIds`: a target that isn't positively alive must not be acted
  *     on, whatever the reason (#289 §8).
  *  2. *Content-bearing* operations (`stroke`/`image_import`/`layer_clear`)
@@ -1112,6 +1116,12 @@ function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
   switch (op.type) {
     case 'layer_delete': return op.layerIds.some(id => !record.aliveIds.has(id))
     case 'layer_merge': return op.sources.some(s => !record.aliveIds.has(s.id))
+    // (#449) Class 1, with `sourceId` in the role a merge's sources play: it is
+    // someone else's reference, and reading a layer that is no longer there
+    // would silently produce an empty copy on every client rather than an
+    // error the author can see. The copy's own `layerId` is new by
+    // construction and is not checked — nothing has created it yet.
+    case 'layer_duplicate': return !record.aliveIds.has(op.sourceId)
     case 'layer_transform': return op.transforms.some(t => !record.aliveIds.has(t.layerId))
     case 'stroke':
     case 'image_import':
@@ -1129,11 +1139,12 @@ function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
 
 /** The operations that create or destroy a layer/folder id — the only ones
  *  `aliveIds`/`deletedIds` are derived from (#368). */
-type StructuralOperation = Extract<Operation, { type: 'layer_add' | 'folder_add' | 'layer_delete' | 'layer_merge' }>
+type StructuralOperation = Extract<Operation, { type: 'layer_add' | 'folder_add' | 'layer_delete' | 'layer_merge' | 'layer_duplicate' }>
 
 function isStructuralOperation(op: Operation): op is StructuralOperation {
   return op.type === 'layer_add' || op.type === 'folder_add'
     || op.type === 'layer_delete' || op.type === 'layer_merge'
+    || op.type === 'layer_duplicate'
 }
 
 /** Mirrors the client's own three-state log (see OperationLog.ts's header):
@@ -1231,6 +1242,11 @@ function deriveLayerIds(entries: readonly StructuralEntry[]): { aliveIds: Set<st
       case 'layer_merge':
         aliveIds.add(entry.op.layerId)
         for (const s of entry.op.sources) { aliveIds.delete(s.id); deletedIds.add(s.id) }
+        break
+      // (#449) Creates one id and destroys none — the source survives being
+      // copied. That is the whole difference from the merge above.
+      case 'layer_duplicate':
+        aliveIds.add(entry.op.layerId)
         break
     }
   }

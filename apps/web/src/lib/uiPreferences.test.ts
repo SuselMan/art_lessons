@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  clampSoundVolume, floatingPanelChoices, floatingPanelSelection, floatingPanelVisible,
-  isFloatingPanelMode, minimalUiActive, minimalUiAvailable,
+  DEFAULT_MINIMAL_UI_TAP_MODE, clampSoundVolume, floatingPanelChoices, floatingPanelSelection,
+  floatingPanelVisible, isFloatingPanelMode, isMinimalUiTapMode, minimalUiActive,
+  minimalUiAvailable, minimalUiTapsRequired,
 } from './uiPreferences'
 
 describe('minimal UI availability', () => {
@@ -18,6 +19,21 @@ describe('minimal UI availability', () => {
     expect(minimalUiActive(true, 'tablet')).toBe(true)
     expect(minimalUiActive(true, 'desktop')).toBe(false)
     expect(minimalUiActive(false, 'tablet')).toBe(false)
+  })
+})
+
+describe('minimal UI tap mode (#189)', () => {
+  it('takes two taps by default', () => {
+    expect(DEFAULT_MINIMAL_UI_TAP_MODE).toBe('double')
+    expect(minimalUiTapsRequired(DEFAULT_MINIMAL_UI_TAP_MODE)).toBe(2)
+    expect(minimalUiTapsRequired('single')).toBe(1)
+  })
+
+  it('accepts only the two known modes', () => {
+    expect(isMinimalUiTapMode('single')).toBe(true)
+    expect(isMinimalUiTapMode('double')).toBe(true)
+    expect(isMinimalUiTapMode('triple')).toBe(false)
+    expect(isMinimalUiTapMode(null)).toBe(false)
   })
 })
 

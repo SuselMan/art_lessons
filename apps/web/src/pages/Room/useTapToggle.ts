@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 
 import { diagLog } from '../../lib/diagLog'
+import { minimalUiTapsRequired, type MinimalUiTapMode } from '../../lib/uiPreferences'
+import { TapSequence, type TapSequenceResult } from './tapSequence'
 import { TapTracker } from './tapTracker'
 
 // Diagnostic for "tap doesn't hide UI" reports that vary by device (see
@@ -38,6 +40,12 @@ export interface TapDebugInfo {
    *  are: without it, "was tap: true, nothing happened" reads as the bug this
    *  panel exists to diagnose. */
   onControl: boolean
+  /** How far into the tap run this tap got, and how far it had to get (#189).
+   *  `1/2` on a screen where nothing happened is the healthy answer in
+   *  double-tap mode, not a failure — without these two numbers it reads
+   *  exactly like the "was tap: true, nothing happened" bug above. */
+  tapsSoFar: number
+  tapsRequired: number
 }
 
 /** Detects a short, stationary single-finger touch tap on `ref`'s element —
@@ -45,8 +53,15 @@ export interface TapDebugInfo {
  *  `onTap`. Touch-only by design (#99, mirrors #96's `pointerType ===
  *  'touch'` check): pen/mouse never trigger it, so drawing with a stylus can
  *  never accidentally hide the interface. Recognition logic itself lives in
- *  TapTracker (framework/DOM-free, unit-tested there) — this hook is just
- *  the real-PointerEvent wiring around it.
+ *  TapTracker and TapSequence (framework/DOM-free, unit-tested there) — this
+ *  hook is just the real-PointerEvent wiring around them.
+ *
+ *  `tapMode` decides how many of those taps in a row it takes to fire (#189):
+ *  `double` by default, because the pen-free hand resting on the tablet
+ *  produces single taps by accident often enough that the mode kept switching
+ *  itself off mid-lesson. The second tap adds no latency to the first — a
+ *  single tap simply does nothing, rather than waiting to find out whether a
+ *  second one is coming.
  *
  *  Takes the element itself (useViewport's `vpEl` — state, not a ref) rather
  *  than a RefObject, so this effect runs exactly when `.viewport` mounts and
@@ -62,6 +77,7 @@ export function useTapToggle(
   el: HTMLElement | null,
   onTap: () => void,
   enabled: boolean,
+  tapMode: MinimalUiTapMode,
   onDebug?: (info: TapDebugInfo) => void,
 ): void {
   useEffect(() => {
@@ -85,7 +101,12 @@ export function useTapToggle(
 
     diagLog('useTapToggle: attached listeners on', el.className || el.tagName)
 
+    const tapsRequired = minimalUiTapsRequired(tapMode)
     const tracker = new TapTracker()
+    // Rebuilt from scratch whenever the effect re-runs (`tapMode` is a dep),
+    // so switching the setting mid-session can never leave half a gesture
+    // counted under the old rule.
+    const sequence = new TapSequence(tapsRequired)
     // Diagnostic-only bookkeeping, parallel to TapTracker's own internal
     // state rather than reaching into it — keeps TapTracker itself
     // framework-free and its tested down/move/up/cancel contract untouched.
@@ -110,6 +131,12 @@ export function useTapToggle(
         starts.set(e.pointerId, { x: e.clientX, y: e.clientY })
         maxDist.set(e.pointerId, 0)
         concurrent++
+      } else {
+        // A pen (or mouse) coming down between the two taps means the person
+        // went back to drawing, not that they are still mid-gesture — #189's
+        // "a stroke starting cancels the pending tap", which matters most in
+        // exactly the situation double-tap exists for.
+        sequence.reset()
       }
     }
     const onMove = (e: PointerEvent) => {
@@ -126,18 +153,26 @@ export function useTapToggle(
       if (e.pointerType === 'touch') {
         const wasTap = tracker.up(e.pointerId)
         const startedOnControl = onControl.delete(e.pointerId)
-        diagLog('tap: up', { id: e.pointerId, wasTap, startedOnControl, maxDistPx: maxDist.get(e.pointerId) ?? 0, concurrent, staleIdsBefore: [...starts.keys()] })
+        // A tap that landed on a control counts as "something else happened"
+        // for the run, same as a drag: the two halves of a double tap are
+        // both meant for the canvas.
+        let run: TapSequenceResult = { count: 0, completed: false }
+        if (wasTap && !startedOnControl) run = sequence.tap(e.clientX, e.clientY, e.timeStamp)
+        else sequence.reset()
+        diagLog('tap: up', { id: e.pointerId, wasTap, startedOnControl, tapsSoFar: run.count, tapsRequired, maxDistPx: maxDist.get(e.pointerId) ?? 0, concurrent, staleIdsBefore: [...starts.keys()] })
         onDebug?.({
           pointerType: e.pointerType,
           maxDistPx: maxDist.get(e.pointerId) ?? 0,
           concurrentTouches: concurrent,
           wasTap,
           onControl: startedOnControl,
+          tapsSoFar: run.count,
+          tapsRequired,
         })
         starts.delete(e.pointerId)
         maxDist.delete(e.pointerId)
         concurrent = Math.max(0, concurrent - 1)
-        if (wasTap && !startedOnControl) onTap()
+        if (run.completed) onTap()
       } else {
         diagLog('tap: up ignored, pointerType is', e.pointerType)
       }
@@ -146,6 +181,7 @@ export function useTapToggle(
       diagLog('tap: cancel', { id: e.pointerId, type: e.pointerType })
       if (e.pointerType === 'touch') {
         tracker.cancel(e.pointerId)
+        sequence.reset()
         starts.delete(e.pointerId)
         maxDist.delete(e.pointerId)
         onControl.delete(e.pointerId)
@@ -164,6 +200,7 @@ export function useTapToggle(
     const resetAll = () => {
       diagLog('tap: resetAll fired', { reason: document.hidden ? 'visibilitychange(hidden)' : 'blur/visibilitychange(visible)', hadStale: [...starts.keys()] })
       tracker.reset()
+      sequence.reset()
       starts.clear()
       maxDist.clear()
       onControl.clear()
@@ -185,5 +222,5 @@ export function useTapToggle(
       document.removeEventListener('visibilitychange', resetAll)
       window.removeEventListener('blur', resetAll)
     }
-  }, [el, onTap, enabled, onDebug])
+  }, [el, onTap, enabled, tapMode, onDebug])
 }

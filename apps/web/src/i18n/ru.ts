@@ -452,6 +452,7 @@ export const ru: Dictionary = {
   'layers.lockedByOwner': 'Закрыт владельцем проекта',
   'layers.mergeSelected': 'Объединить выбранные',
   'layers.mergeDown': 'Объединить с нижним',
+  'layers.duplicate': 'Дублировать',
   'layers.deleteSelected': 'Удалить выбранные',
   'layers.deleteLayer': 'Удалить слой',
   'layers.clearLayer': 'Очистить слой',
@@ -476,6 +477,7 @@ export const ru: Dictionary = {
   'layers.defaultLayerName': 'Слой {n}',
   'layers.defaultFolderName': 'Папка',
   'layers.mergedName': 'Объединённый',
+  'layers.copyName': '{name} копия',
   'layers.referenceName': 'Референс',
 
   // ── настройки редактора ────────────────────────────────────────────────
@@ -497,7 +499,11 @@ export const ru: Dictionary = {
   'editorSettings.soundVolume': 'Громкость',
   'editorSettings.interfaceSection': 'Интерфейс',
   'editorSettings.minimalUi': 'Минимальный интерфейс',
-  'editorSettings.minimalUiHint': 'Короткий тап по холсту убирает панели — остаётся только рисунок; тап ещё раз возвращает их. Штрих пером режим не переключает.',
+  'editorSettings.minimalUiHint': 'Тап по холсту убирает панели — остаётся только рисунок; тап ещё раз возвращает их. Штрих пером режим не переключает.',
+  'editorSettings.minimalUiTap': 'Чем убирать панели',
+  'editorSettings.minimalUiTapHint': 'Двойной тап почти невозможно задеть случайно рукой, лежащей на планшете.',
+  'editorSettings.minimalUiTap.single': 'Одиночный тап',
+  'editorSettings.minimalUiTap.double': 'Двойной тап',
   'editorSettings.floatingPanel': 'Плавающая панель',
   'editorSettings.floatingPanelHint': 'Подвижная кнопочная группа: отмена/повтор, текущий инструмент и ластик.',
   'editorSettings.floatingPanel.always': 'Всегда',

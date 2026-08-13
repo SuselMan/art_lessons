@@ -8,8 +8,9 @@
 //            revoked it); can never return to `done`
 
 import type {
-  Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, ImageImportOperation,
-  LayerTransformOperation, AreaTransformOperation, AreaClearOperation, AreaPasteOperation,
+  Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, LayerDuplicateOperation,
+  ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
+  AreaPasteOperation,
 } from '@grafetto/shared'
 import { operationLayerIds } from '@grafetto/shared'
 
@@ -21,12 +22,13 @@ export interface LogEntry {
 }
 
 /** Operations that change a layer's pixel buffer (as opposed to structure). */
-export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation | ImageImportOperation
-  | LayerTransformOperation | AreaTransformOperation | AreaClearOperation | AreaPasteOperation
+export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation
+  | LayerDuplicateOperation | ImageImportOperation | LayerTransformOperation
+  | AreaTransformOperation | AreaClearOperation | AreaPasteOperation
 
 export function isPixelOperation(op: Operation): op is PixelOperation {
   return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge'
-    || op.type === 'image_import' || op.type === 'layer_transform'
+    || op.type === 'layer_duplicate' || op.type === 'image_import' || op.type === 'layer_transform'
     // (#446) The selection operations paint one layer and change nothing
     // else, which is what "pixel operation" means here — they belong in
     // checkpoint counting, per-layer replay and undo exactly like a stroke.
@@ -37,7 +39,14 @@ export function isPixelOperation(op: Operation): op is PixelOperation {
  *  own `layerId`. layer_transform (#120) is the one exception — a single
  *  operation can bake a matrix into several layers at once (see its
  *  docstring in packages/shared), so membership has to check its
- *  `transforms` array instead of a single field. */
+ *  `transforms` array instead of a single field.
+ *
+ *  (#449) `layer_duplicate` names two layers but belongs to exactly one
+ *  history: the copy's, via `layerId`. Its `sourceId` is read, not written —
+ *  the source is not changed by being copied. Counting it under `sourceId` as
+ *  well would put it in `layerPixelOps(sourceId)`, so any later rebuild of the
+ *  source would replay the duplicate into the source's own buffer and paint the
+ *  layer onto itself. */
 function pixelOpTargetsLayer(op: PixelOperation, layerId: string): boolean {
   return op.type === 'layer_transform'
     ? op.transforms.some(t => t.layerId === layerId)

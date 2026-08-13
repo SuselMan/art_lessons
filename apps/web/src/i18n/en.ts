@@ -545,6 +545,7 @@ export const en = {
   'layers.lockedByOwner': 'Locked by the project owner',
   'layers.mergeSelected': 'Merge selected',
   'layers.mergeDown': 'Merge down',
+  'layers.duplicate': 'Duplicate',
   'layers.deleteSelected': 'Delete selected',
   'layers.deleteLayer': 'Delete layer',
   // (#329) Was "Clear canvas" in the room header, which is not what it ever
@@ -574,6 +575,9 @@ export const en = {
   'layers.defaultLayerName': 'Layer {n}',
   'layers.defaultFolderName': 'Folder',
   'layers.mergedName': 'Merged',
+  // (#449) Only the duplicated row itself is renamed this way — its children
+  // keep their own names, see buildDuplicateOps.
+  'layers.copyName': '{name} copy',
   'layers.referenceName': 'Reference',
 
   // ── editor settings panel (#174 hotkeys tab, #321 general/access tabs) ──
@@ -595,7 +599,11 @@ export const en = {
   'editorSettings.soundVolume': 'Volume',
   'editorSettings.interfaceSection': 'Interface',
   'editorSettings.minimalUi': 'Minimal UI',
-  'editorSettings.minimalUiHint': 'A short tap on the canvas hides the panels so only the drawing is left; tap again to bring them back. A stylus stroke never triggers it.',
+  'editorSettings.minimalUiHint': 'A tap on the canvas hides the panels so only the drawing is left; tap again to bring them back. A stylus stroke never triggers it.',
+  'editorSettings.minimalUiTap': 'Tap to hide',
+  'editorSettings.minimalUiTapHint': 'A double tap is much harder to trigger by accident with the hand resting on the tablet.',
+  'editorSettings.minimalUiTap.single': 'Single tap',
+  'editorSettings.minimalUiTap.double': 'Double tap',
   'editorSettings.floatingPanel': 'Floating panel',
   'editorSettings.floatingPanelHint': 'A movable cluster with undo/redo, the current tool and the eraser.',
   'editorSettings.floatingPanel.always': 'Always',

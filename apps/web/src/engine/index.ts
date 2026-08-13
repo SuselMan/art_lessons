@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation } from '@grafetto/shared'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation } from '@grafetto/shared'
 import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperConstants'
@@ -283,8 +283,9 @@ export type OperationSource = 'local' | 'remote'
 
 // (#263) See PencilEngineAPI.peekUndo/peekRedo's own doc comments.
 export interface StructuralUndoRedoPeek {
-  // One of the layer ids the pending undo/redo would affect. layer_add and
-  // layer_merge each target exactly one; layer_delete's layerIds may list
+  // One of the layer ids the pending undo/redo would affect. layer_add,
+  // layer_merge and layer_duplicate each target exactly one; layer_delete's
+  // layerIds may list
   // several — the first is reported here, but hasOtherContent already
   // reflects the whole set, not just this one id.
   layerId: string
@@ -422,11 +423,12 @@ export interface PencilEngineAPI {
   // ILayerBuffer.restoreTileContent).
   // (#374) `coveredSeq` is the room seq those tiles were baked at. Operations
   // at or below it that paint this layer are already in the pixels, so the
-  // engine must not paint them again — see `appendOperation`'s layer_merge and
-  // layer_transform branches, the only ones that can still arrive covered
-  // (the server withholds pure pixel operations it can account for, but a
-  // merge also carries structure and a transform can name several layers, so
-  // those two always come through — see rooms.ts's isCoveredBySnapshot).
+  // engine must not paint them again — see `appendOperation`'s layer_merge,
+  // layer_duplicate and layer_transform branches, the only ones that can still
+  // arrive covered (the server withholds pure pixel operations it can account
+  // for, but a merge or a duplicate also carries structure and a transform can
+  // name several layers, so those always come through — see rooms.ts's
+  // isCoveredBySnapshot).
   // Omit it and nothing is treated as covered, which is what every caller
   // outside the snapshot-restore path wants.
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void
@@ -479,9 +481,10 @@ export interface PencilEngineAPI {
   // (#263) Read-only peek at what undo()/redo() would act on *without*
   // applying it — null unless the target is a structural op that would
   // actually *remove* content from any author, not just the one about to
-  // undo/redo: peekUndo only flags layer_add/layer_merge (undoing
-  // layer_delete just restores a layer, never destructive); peekRedo only
-  // flags layer_delete and layer_merge (redoing layer_add just re-creates).
+  // undo/redo: peekUndo only flags layer_add/layer_merge/layer_duplicate
+  // (undoing layer_delete just restores a layer, never destructive); peekRedo
+  // only flags layer_delete and layer_merge (redoing layer_add or
+  // layer_duplicate just re-creates).
   // See _peekStructuralTarget's own doc comment for the full reasoning —
   // getting a direction backwards here would warn "this removes content" on
   // a call that's actually restoring it. Callers (Room's handleUndo/
@@ -1597,7 +1600,7 @@ export class PencilEngine implements PencilEngineAPI {
   // themselves changing (setCompositeOrder/setActiveLayer), or any pixel
   // mutation landing on a layer other than the current active one (remote
   // stroke/layer_clear/image_import, layer_transform bake — #120 — merge,
-  // structural undo/redo replay, context restore). Grep this file for
+  // duplicate, structural undo/redo replay, context restore). Grep this file for
   // `_invalidateSplitCache(` for the exhaustive list of call sites; each is
   // commented with why it must invalidate. Deliberately conservative: when
   // in doubt a call site invalidates rather than trying to prove it's safe
@@ -2181,6 +2184,15 @@ export class PencilEngine implements PencilEngineAPI {
         if (this._isCoveredByRestore(op.layerId, op.seq)) this._execMergeStructuralOnly(op)
         else this._execMergeLive(op)
         break
+      case 'layer_duplicate':
+        // (#449) Same two-way split as layer_merge above and for the same
+        // reason: the copy's pixels can already have come back from a restored
+        // snapshot, and re-copying the source over them would be wrong twice —
+        // it discards whatever was painted on the copy after the duplicate, and
+        // the source itself has moved on since.
+        if (this._isCoveredByRestore(op.layerId, op.seq)) this._execDuplicateStructuralOnly(op)
+        else this._execDuplicateLive(op)
+        break
       case 'stroke': {
         const buf = this._layers.get(op.layerId)
         // (#374) Already in the restored pixels. The server withholds these,
@@ -2395,8 +2407,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  StructuralUndoRedoPeek callers actually need — null for anything that
    *  isn't actually about to *remove* content.
    *
-   *  Direction matters here, not just op type: undoing layer_add/layer_merge
-   *  removes the layer they created, but undoing layer_delete only ever
+   *  Direction matters here, not just op type: undoing layer_add/layer_merge/
+   *  layer_duplicate removes the layer they created, but undoing layer_delete
+   *  only ever
    *  *restores* one — never destructive, regardless of what's on it.
    *  Symmetrically for redo: redoing layer_delete removes the layer(s)
    *  again, but redoing layer_add only ever re-creates. layer_merge redo is
@@ -2405,7 +2418,13 @@ export class PencilEngine implements PencilEngineAPI {
    *  content actually at risk is whatever's been repainted onto a source
    *  layer while the merge sat undone. Getting this backwards would show a
    *  "this will remove content" warning on a redo that's actually
-   *  *restoring* the very content #263 exists to protect. */
+   *  *restoring* the very content #263 exists to protect.
+   *
+   *  (#449) layer_duplicate sits with layer_add on both sides, not with
+   *  layer_merge: undoing one removes the copy (which anyone may have painted
+   *  on since), redoing one only ever re-creates it. Its `sourceId` never
+   *  appears here in either direction — the source is not touched by the
+   *  duplicate existing, so neither direction puts it at risk. */
   private _peekStructuralTarget(target: Operation | null, direction: 'undo' | 'redo'): StructuralUndoRedoPeek | null {
     if (!target) return null
     let layerIds: string[]
@@ -2413,6 +2432,7 @@ export class PencilEngine implements PencilEngineAPI {
       switch (target.type) {
         case 'layer_add':
         case 'layer_merge':
+        case 'layer_duplicate':
           layerIds = [target.layerId]
           break
         default:
@@ -3274,6 +3294,7 @@ export class PencilEngine implements PencilEngineAPI {
       case 'layer_add':
       case 'layer_delete':
       case 'layer_merge':
+      case 'layer_duplicate':
         // Deliberately *not* deferred, unlike the pixel cases above: this one
         // creates and destroys buffers, and appendOperation silently skips any
         // op whose target layer has no buffer (see its own doc comment). Defer
@@ -3330,12 +3351,12 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** A buffer should exist iff the layer is alive in the done history: created
-   *  (base init or a done layer_add/layer_merge) and not destroyed (listed in a
-   *  done layer_delete or consumed as a done merge source). Ids are never
-   *  reused, so no ordering analysis is needed. */
+   *  (base init or a done layer_add/layer_merge/layer_duplicate) and not
+   *  destroyed (listed in a done layer_delete or consumed as a done merge
+   *  source). Ids are never reused, so no ordering analysis is needed. */
   private _syncBuffersToLog(): void {
     // #122: called for undo/redo/revoke of layer_add/layer_delete/
-    // layer_merge and from context restore — both can create/destroy an
+    // layer_merge/layer_duplicate and from context restore — both can create/destroy an
     // arbitrary set of layers relative to what the cache last saw.
     // Unconditional: cheap, and simpler than working out in advance whether
     // any of the (possibly several) affected ids matter to the cache.
@@ -3350,6 +3371,10 @@ export class PencilEngine implements PencilEngineAPI {
         case 'layer_merge':
           created.add(op.layerId)
           for (const s of op.sources) destroyed.add(s.id)
+          break
+        // (#449) Creates, destroys nothing — `sourceId` is read, not consumed.
+        case 'layer_duplicate':
+          created.add(op.layerId)
           break
         case 'layer_delete':
           for (const id of op.layerIds) destroyed.add(id)
@@ -3440,6 +3465,9 @@ export class PencilEngine implements PencilEngineAPI {
         break
       case 'layer_merge':
         this._replayMergeInto(buf, op)
+        break
+      case 'layer_duplicate':
+        this._replayDuplicateInto(buf, op)
         break
       case 'image_import':
         // (#398) Same as appendOperation's own branch, minus the late-arrival
@@ -3625,6 +3653,24 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
+  /** (#449) Replays a duplicate: rebuilds the source as it was just before the
+   *  duplicate (done ops with lower seq) into a temp buffer and copies it in.
+   *  Recursive when the source is itself a merge or duplicate result.
+   *
+   *  Composited at 1, not at the source's opacity: the copy carries that
+   *  opacity as its own layer property (see applyContentOp's layer_duplicate
+   *  case), so applying it to the pixels as well would show it twice — a copy
+   *  of a 50% layer would land at 25%. This is the one place a duplicate
+   *  deliberately differs from a merge, which has no layer of its own left to
+   *  hold the source opacities and must bake them. */
+  private _replayDuplicateInto(buf: ILayerBuffer, op: LayerDuplicateOperation): void {
+    buf.clear()
+    const temp = this._makeLayerBuffer()
+    this._replayInto(temp, op.sourceId, this._log.layerPixelOps(op.sourceId, op.seq))
+    this._compositeLayerInto(temp, buf, 1)
+    temp.destroy()
+  }
+
   /** (#374) The structural half of a merge, for one whose pixel result a
    *  restored snapshot already holds.
    *
@@ -3660,6 +3706,47 @@ export class PencilEngine implements PencilEngineAPI {
     this._layers.set(op.layerId, target)
     this._markLayerDirty(op.layerId)
     for (const s of op.sources) this._destroyBuffer(s.id)
+    this._takeCheckpoint(op.layerId)
+    this._displayIfNotSuspended()
+  }
+
+  /** (#449) The structural half of a duplicate whose pixel result a restored
+   *  snapshot already holds — the copy is a layer in its own right by then,
+   *  restored like any other, so there is nothing left to copy into it.
+   *
+   *  Shorter than its merge counterpart because a duplicate consumes nothing:
+   *  no sources to destroy, and the source layer is meant to still be there. */
+  private _execDuplicateStructuralOnly(op: LayerDuplicateOperation): void {
+    this._invalidateSplitCache()
+    if (!this._layers.has(op.layerId)) this._createBuffer(op.layerId)
+    this._displayIfNotSuspended()
+  }
+
+  /** Live duplicate fast path, the counterpart of _execMergeLive: the source's
+   *  buffer already holds replay state, so copy it directly instead of
+   *  rebuilding its whole history into a scratch buffer.
+   *
+   *  A missing source buffer produces an empty copy rather than a refusal.
+   *  Operations apply in true seq order, and the server rejects a duplicate
+   *  naming a dead id (rooms.ts's getOperationRejectReason), so the only way to
+   *  reach that is a source this client has not built yet — the same condition
+   *  every other pixel branch here treats as "skip, the log is the truth" (see
+   *  appendOperation's own doc comment).
+   *
+   *  The immediate checkpoint matters more here than it does for a merge: a
+   *  duplicate's replay is a full from-scratch rebuild of *another* layer's
+   *  entire history into a temp buffer, which the checkpoint spares every
+   *  later undo above this one. */
+  private _execDuplicateLive(op: LayerDuplicateOperation): void {
+    this._invalidateSplitCache()
+    const target = this._makeLayerBuffer(op.layerId)
+    target.clear()
+    const source = this._layers.get(op.sourceId)
+    // Opacity 1 — see _replayDuplicateInto for why the source's own opacity
+    // must not be baked into the pixels here.
+    if (source) this._compositeLayerInto(source, target, 1)
+    this._layers.set(op.layerId, target)
+    this._markLayerDirty(op.layerId)
     this._takeCheckpoint(op.layerId)
     this._displayIfNotSuspended()
   }

@@ -1,14 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type {
-  LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerOwnerLockOperation, LayerTransformOperation,
+  LayerAddOperation, LayerDeleteOperation, LayerDuplicateOperation, LayerMergeOperation,
+  LayerOwnerLockOperation, LayerTransformOperation,
   LayerVisibilityOperation, Operation, StrokeOperation,
 } from '@grafetto/shared'
 import { INITIAL_LAYER_ID } from '@grafetto/shared'
 
 import {
   _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, findDuplicateOperation,
-  getOperationRejectReason, getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot, isLayerOwnerLocked,
+  getOperationRejectReason, getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot,
+  isCoveredBySnapshot, isLayerOwnerLocked,
   isOperationAllowed, isRoomClosed, isRoomFrozen, isRoomResident, joinRoom,
   leaveRoom, recordOperation, releaseRoomIfUnused, RESIDENT_OP_TYPES, setLayerOwnerLocked, setParticipantFrozen,
   setRoomClosed, setRoomFrozen, updateAliveIds,
@@ -110,6 +112,23 @@ function layerMerge(overrides: Partial<LayerMergeOperation> = {}): LayerMergeOpe
     layerId: overrides.layerId ?? 'layer-merged',
     name: overrides.name ?? 'Merged',
     sources: overrides.sources ?? [{ id: 'layer-1', opacity: 1 }, { id: 'layer-2', opacity: 1 }],
+    parentId: overrides.parentId ?? null,
+    index: overrides.index ?? 0,
+    ...overrides,
+  }
+}
+
+function layerDuplicate(overrides: Partial<LayerDuplicateOperation> = {}): LayerDuplicateOperation {
+  return {
+    id: overrides.id ?? 'op-dup-1',
+    type: 'layer_duplicate',
+    userId: overrides.userId ?? 'user-a',
+    timestamp: overrides.timestamp ?? 0,
+    layerId: overrides.layerId ?? 'layer-copy',
+    sourceId: overrides.sourceId ?? 'layer-1',
+    name: overrides.name ?? 'Layer copy',
+    sourceOpacity: overrides.sourceOpacity ?? 1,
+    sourceVisible: overrides.sourceVisible ?? true,
     parentId: overrides.parentId ?? null,
     index: overrides.index ?? 0,
     ...overrides,
@@ -961,6 +980,52 @@ describe('getOperationRejectReason — target_gone', () => {
     expect(getOperationRejectReason(roomId, 'owner-1', merge)).toBeNull()
   })
 
+  // (#449) A duplicate is gated on its *source* — the reference it reads — and
+  // never on its own new `layerId`, which by construction nothing has created
+  // yet. Gating on the latter would reject every duplicate ever sent.
+  it('allows layer_duplicate while its source is alive, and registers the copy as alive too', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-a' }))
+
+    const dup = layerDuplicate({ layerId: 'layer-a-copy', sourceId: 'layer-a' })
+    expect(getOperationRejectReason(roomId, 'owner-1', dup)).toBeNull()
+
+    updateAliveIds(roomId, dup)
+    // The copy is now a first-class layer: destructive operations may name it.
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-a-copy'] }))).toBeNull()
+    // …and the source survived being copied, unlike a merge source.
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDelete({ layerIds: ['layer-a'] }))).toBeNull()
+  })
+
+  it('rejects layer_duplicate whose source was already deleted', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-a' }))
+    updateAliveIds(roomId, layerDelete({ layerIds: ['layer-a'] })) // raced in first
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDuplicate({ sourceId: 'layer-a' })))
+      .toBe('target_gone')
+  })
+
+  it('rejects layer_duplicate whose source was consumed by a merge', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-a' }))
+    updateAliveIds(roomId, layerAdd({ layerId: 'layer-b' }))
+    updateAliveIds(roomId, layerMerge({ sources: [{ id: 'layer-a', opacity: 1 }, { id: 'layer-b', opacity: 1 }] }))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDuplicate({ sourceId: 'layer-a' })))
+      .toBe('target_gone')
+  })
+
+  it('allows duplicating the baked-in initial layer, which no layer_add ever created', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+
+    expect(getOperationRejectReason(roomId, 'owner-1', layerDuplicate({ sourceId: INITIAL_LAYER_ID }))).toBeNull()
+  })
+
   it('rejects layer_transform targeting an id that does not exist', () => {
     const roomId = freshRoomId()
     createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
@@ -1236,7 +1301,7 @@ describe('RESIDENT_OP_TYPES', () => {
 
   it('still keeps the structural operations themselves', () => {
     expect(RESIDENT_OP_TYPES).toEqual(expect.arrayContaining([
-      'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_owner_lock',
+      'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_duplicate', 'layer_owner_lock',
     ]))
   })
 
@@ -1245,6 +1310,45 @@ describe('RESIDENT_OP_TYPES', () => {
   it('does not keep stroke or image_import', () => {
     expect(RESIDENT_OP_TYPES).not.toContain('stroke')
     expect(RESIDENT_OP_TYPES).not.toContain('image_import')
+  })
+})
+
+// (#449) layer_duplicate joins layer_merge in the "carries structure *and*
+// pixels" class, so both halves have to be accounted for before it may be
+// withheld from a joining client. This is the rule the 2026-07-31 live bug was
+// about (see isCoveredBySnapshot's own doc comment): withholding on one half
+// alone is how a layer ended up listed twice, then three times.
+describe('isCoveredBySnapshot — layer_duplicate', () => {
+  const dup = (seq: number): Operation => layerDuplicate({ layerId: 'copy', sourceId: 'src', seq })
+
+  it('is covered only when both the structure and the copy\'s own pixels are', () => {
+    const covered = new Map([['copy', 100]])
+    expect(isCoveredBySnapshot(covered, dup(50), 100, new Set(['copy', 'src']))).toBe(true)
+  })
+
+  it('is not covered when the stored structure predates it', () => {
+    const covered = new Map([['copy', 100]])
+    expect(isCoveredBySnapshot(covered, dup(50), 10, new Set(['copy', 'src']))).toBe(false)
+  })
+
+  it('is not covered when the copy\'s pixels are not', () => {
+    const covered = new Map([['copy', 10]])
+    expect(isCoveredBySnapshot(covered, dup(50), 100, new Set(['copy', 'src']))).toBe(false)
+  })
+
+  it('judges the copy, not the source — the source\'s coverage says nothing about it', () => {
+    // Everything the *source* could offer is covered; the copy's pixels are
+    // not. Reading the wrong id here would withhold the operation and leave
+    // the joining client with a layer that has no pixels and no way to get
+    // them — #369's failure, one type later.
+    const covered = new Map([['src', 1000]])
+    expect(isCoveredBySnapshot(covered, dup(50), 100, new Set(['copy', 'src']))).toBe(false)
+  })
+
+  it('is covered once the stored structure no longer lists the copy at all', () => {
+    // Deleted since: nothing displays it, so it needs no pixels. Same shortcut
+    // every other pixel-bearing operation gets.
+    expect(isCoveredBySnapshot(new Map(), dup(50), 100, new Set(['src']))).toBe(true)
   })
 })
 

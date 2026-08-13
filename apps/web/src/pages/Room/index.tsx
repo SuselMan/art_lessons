@@ -26,6 +26,7 @@ import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialo
 import { isModalOpen } from '../../components/Modal/modalSlot'
 import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
+import { isFloatingPanelTool } from '../../components/FloatingToolPanel/tools'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
@@ -413,12 +414,17 @@ export function Room() {
   // header/toolbar/layer panel via a CSS class (never unmounted — no lost
   // focus/state), tap again to bring them back.
   //
+  // (#189) Two taps by default rather than one — see MinimalUiTapMode. The
+  // count is a setting because the cheaper gesture is genuinely nicer for
+  // anyone whose hand never trips it.
+  //
   // (#321) A real setting now rather than a feature flag, and touch-only:
   // `minimalUiActive` folds in the device check, because a PC has neither the
   // tap that turns this on nor anything that would turn it back off (#384).
   const minimalUiSetting = useSettingsStore(s => s.minimalUi)
   const deviceType = useSettingsStore(s => s.deviceType)
   const tapToHideEnabled = minimalUiActive(minimalUiSetting, deviceType)
+  const minimalUiTapMode = useSettingsStore(s => s.minimalUiTapMode)
   // (#157/#321) Where the floating tool cluster is allowed to appear.
   const floatingPanelMode = useSettingsStore(s => s.floatingPanel)
   useEffect(() => { diagLog('tapToHideEnabled is', tapToHideEnabled) }, [tapToHideEnabled])
@@ -591,6 +597,20 @@ export function Room() {
   // visible neither snaps (the engine sync below) nor can be grabbed (the
   // catcher), because an invisible line bending strokes is a trap.
   const rulerVisible = rulerActive || rulerLock
+  // (#448) Is a ruler gesture running right now? Only the distance bubble
+  // reads it: a measurement is worth showing while it is being taken and
+  // nothing but clutter over the drawing afterwards. Local state rather than
+  // the store because it is born and dies inside handleRulerDown's own drag —
+  // nothing outside this component can observe it, and the store deliberately
+  // holds no per-gesture scratch (see rulerLine's comment above for what does
+  // belong there). Set twice per drag, not per move, so it costs no renders on
+  // top of the ones setRulerLine already causes.
+  const [rulerDragging, setRulerDragging] = useState(false)
+  // Gated on the selection as well, so a flag stranded by a drag whose catcher
+  // was unmounted under it (the tool switched by hotkey mid-gesture, with the
+  // pen still down) cannot leave the bubble standing over a locked ruler: a
+  // gesture can only run while the ruler is in hand in the first place.
+  const rulerMeasuring = rulerDragging && rulerActive
   // Construction grid (#89, #405) — visibility is a setting on the grid tool
   // now rather than a store flag toggled by the toolbar button, which is what
   // lets it stay on screen under every other tool while its button selects it
@@ -859,8 +879,8 @@ export function Room() {
   // (#289 epic — reliable history spec v0.2 §2/§4) layerId/folderId this
   // client itself created but the server hasn't confirmed yet — the
   // "local island" isLocalIslandSafe checks a layer_delete/layer_merge/
-  // layer_transform's targets against. Added the instant a layer_add/
-  // folder_add is dispatched (see onLocalOperation below), removed once
+  // layer_duplicate/layer_transform's targets against. Added the instant a
+  // layer_add/folder_add is dispatched (see onLocalOperation below), removed once
   // its SendResult settles either way — confirmed means it's now something
   // a peer could plausibly reference too; rejected means it never became
   // real in the first place.
@@ -1218,7 +1238,7 @@ export function Room() {
   // Suppressing it here rather than inside the hook keeps the rule where the
   // conflict is, and costs nothing: the tap puts the transform tool down, so
   // by the next tap this is armed again and hides the chrome as it always did.
-  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !transformActive, tapDebugEnabled ? setTapDebug : undefined)
+  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !transformActive, minimalUiTapMode, tapDebugEnabled ? setTapDebug : undefined)
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
@@ -2077,13 +2097,22 @@ export function Room() {
   // stroke will use.
   const activeColor = getToolColor(toolSettings, pickedColorTool)
   useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor])
-  // FloatingToolPanel (#157) is a fixed 4-slot compass layout with room for
-  // only one drawing-tool button (see its own doc comment — "the 4 most-
-  // reached-for actions") — marker now shares that one slot with pencil/
-  // liner (whichever was actually last selected), the same way liner joined
-  // it in #245's own follow-up. Only smudge stays outside it — no
-  // dedicated "return to smudge" affordance exists anywhere today.
+  // FloatingToolPanel (#157) is a fixed 4-slot compass layout with two tool
+  // buttons, each standing for a whole set rather than one tool: the top slot
+  // shows whichever drawing tool was last selected (marker joined pencil/liner
+  // there in #245's follow-up, charcoal in #304), the bottom one whichever of
+  // eraser/smudge/eyedropper was. Holding either fans out the rest of its set,
+  // which is how the smudge and the eyedropper became reachable from the panel
+  // at all — before that they had no "return to" affordance anywhere but the
+  // left toolbar, so minimal UI could not offer them.
   const floatingPrimaryTool: PrimaryDrawingTool = lastDrawingTool
+  const floatingSecondaryTool = useRoomStore(s => s.lastSecondaryTool)
+  // Which slot lights up. Deliberately null for the tools neither slot can
+  // hold (ruler, transform, grid, hand): the panel used to fold every one of
+  // them into "not the eraser" and light the drawing slot, so the pencil
+  // button claimed to be current while the ruler was in hand — two lit tools
+  // across the two toolbars, which is exactly what #405 set out to end.
+  const floatingSlotTool = isFloatingPanelTool(tool) ? tool : null
   // (#190 epic) Room palette — see roomSlice's own doc comment for why this
   // is a plain setter, not a reducer. Add/remove requests round-trip through
   // the server (dedup lives there, see rooms.ts's addPaletteColor) rather
@@ -3142,18 +3171,25 @@ export function Room() {
     // this point, and rulerSnap.ts already refuses a degenerate line rather
     // than dividing by zero (MIN_RULER_LENGTH_SQ).
     setRulerLine(computeLine(e.clientX, e.clientY))
+    setRulerDragging(true)
 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
       setRulerLine(computeLine(ev.clientX, ev.clientY))
     }
-    const onUp = (ev: PointerEvent) => {
+    // (#448) `end`, not `up`: a pointercancel (the browser taking the gesture
+    // over) never sends pointerup, and a distance bubble left standing after
+    // one would be exactly the permanent label this issue removed.
+    const onEnd = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
+      setRulerDragging(false)
       overlay.removeEventListener('pointermove', onMove)
-      overlay.removeEventListener('pointerup', onUp)
+      overlay.removeEventListener('pointerup', onEnd)
+      overlay.removeEventListener('pointercancel', onEnd)
     }
     overlay.addEventListener('pointermove', onMove)
-    overlay.addEventListener('pointerup', onUp)
+    overlay.addEventListener('pointerup', onEnd)
+    overlay.addEventListener('pointercancel', onEnd)
   }, [vpRef, vp, config, handActive, rulerLine, setRulerLine])
 
   // (#405) The catcher's own cursor, per pointer position — the one cursor in
@@ -5195,7 +5231,7 @@ export function Room() {
                 the catcher's job, and the catcher only exists while the ruler
                 is the selected tool. */}
             {!config.infinite && rulerVisible && rulerLine && (
-              <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} />
+              <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
             )}
             {!config.infinite && transformActive && transformBounds && (
               <TransformGizmo
@@ -5271,7 +5307,7 @@ export function Room() {
                 />
               )}
               {rulerVisible && rulerLine && (
-                <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} />
+                <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
               )}
               {transformActive && transformBounds && (
                 <TransformGizmo
@@ -5513,16 +5549,11 @@ export function Room() {
             which is what it meant when it was that mode's replacement
             toolkit and nothing else — see lib/uiPreferences. */}
         <FloatingToolPanel
-          // FloatingToolPanel (#157) is a fixed 4-slot compass layout with
-          // one shared drawing-tool slot (pencil/liner/marker — see
-          // floatingPrimaryTool's own doc comment above); smudge/ruler/
-          // transform/grid/eyedropper stay outside it, same as before.
-          // Folds into "not eraser" here purely so its own top-button/eraser
-          // highlight stays correct while smudge is active elsewhere (the
-          // left toolbar); tapping either of *this* panel's two buttons
-          // still switches away from smudge normally via onSetTool.
-          tool={tool === 'eraser' ? 'eraser' : floatingPrimaryTool}
+          // See floatingSlotTool above for why this is narrowed rather than
+          // folded: ruler/transform/grid/hand light neither slot.
+          tool={floatingSlotTool}
           primaryTool={floatingPrimaryTool}
+          secondaryTool={floatingSecondaryTool}
           onSetTool={setTool}
           onUndo={handleUndo}
           onRedo={handleRedo}
@@ -5817,6 +5848,7 @@ export function Room() {
                   <div>concurrent touches: {tapDebug.concurrentTouches}</div>
                   <div>was tap: {String(tapDebug.wasTap)}</div>
                   <div>on control: {String(tapDebug.onControl)}</div>
+                  <div>taps: {tapDebug.tapsSoFar}/{tapDebug.tapsRequired}</div>
                 </>
               ) : (
                 <div>tap the canvas to see tap stats</div>
