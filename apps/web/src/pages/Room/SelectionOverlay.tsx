@@ -6,9 +6,18 @@ import styles from './Room.module.css'
 interface SelectionOverlayProps {
   /** The committed selection, or null when nothing is selected. */
   selection: SelectionShape | null
-  /** The lasso currently being drawn, in the same layer coordinates — an open
-   *  path, drawn while the gesture runs. */
+  /** The selection currently being drawn, in the same layer coordinates. */
   pending: number[] | null
+  /** Whether that in-progress shape is already closed — true while a
+   *  rectangle is being dragged, false for either lasso.
+   *
+   *  A lasso genuinely is an open path until it closes, and drawing the
+   *  closing edge before the user has committed to it would show a region that
+   *  is not yet the region. A rectangle is the opposite: it is a complete
+   *  shape at every moment of the drag, and leaving it open drew three sides
+   *  of a box (reported 13.08). One flag rather than "count the points":
+   *  a four-point lasso is also four points. */
+  pendingClosed?: boolean
   /** Where the pointer is right now, for the point-by-point lasso's rubber
    *  band between the last placed vertex and the cursor. Null for every other
    *  gesture and between gestures. */
@@ -48,7 +57,9 @@ interface SelectionOverlayProps {
  *  dark one — rather than one dashed line: a single colour disappears against
  *  either white paper or dark graphite depending on where the boundary falls,
  *  and a selection you cannot see is worse than no indicator at all. */
-export function SelectionOverlay({ selection, pending, cursor, zoom, matrix }: SelectionOverlayProps) {
+export function SelectionOverlay({
+  selection, pending, pendingClosed, cursor, zoom, matrix,
+}: SelectionOverlayProps) {
   const scale = 1 / (zoom || 1)
   // A matrix that folds the outline through the vanishing line maps to null;
   // the outline then simply stays where it was for that frame, which is what
@@ -72,12 +83,17 @@ export function SelectionOverlay({ selection, pending, cursor, zoom, matrix }: S
           />
         </>
       )}
-      {inProgress && (
+      {inProgress && (pendingClosed ? (
+        <polygon
+          points={inProgress} className={styles.selectionPending}
+          strokeWidth={1.5 * scale} strokeDasharray={`${5 * scale} ${3 * scale}`}
+        />
+      ) : (
         <polyline
           points={inProgress} className={styles.selectionPending}
           strokeWidth={1.5 * scale} strokeDasharray={`${5 * scale} ${3 * scale}`}
         />
-      )}
+      ))}
       {/* The rubber band: from the last placed vertex to the pointer, so a
           point-by-point lasso shows the segment it is about to commit. */}
       {cursor && lastX !== null && lastY !== null && (

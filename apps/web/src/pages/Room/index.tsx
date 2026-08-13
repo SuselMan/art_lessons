@@ -3028,6 +3028,14 @@ export function Room() {
       // line, so a fresh session would be opened only to be torn straight
       // back down.
       commitTransformSessionRef.current(false)
+      // (#446) …and the selection goes with it. This gesture already means
+      // "I am done here" — it applies the edit and puts the tool down — so
+      // leaving the outline lit would be the one part of it that did not
+      // finish, and the frame would then follow whichever tool came next
+      // around the canvas with nothing acting on it (Ilya, 13.08). Clicking
+      // past the outline with the selection tool in hand clears it for the
+      // same reason; this makes the two gestures mean the same thing.
+      setSelection(null)
       // (#407) Same hand-back the eyedropper does after a pick, and for the
       // same reason: the gesture was the whole of the tool's job. Only the tap
       // does this — Enter and Esc leave the tool selected, so there is still a
@@ -3049,7 +3057,7 @@ export function Room() {
       vpEl.removeEventListener('pointerup', onUp)
       vpEl.removeEventListener('pointercancel', onCancel)
     }
-  }, [transformActive, vpEl, setTool])
+  }, [transformActive, vpEl, setTool, setSelection])
 
   // Viewport rect for the ruler's own pointer math — see handleRulerHover for
   // why it is cached rather than read per move.
@@ -5212,6 +5220,7 @@ export function Room() {
             <SelectionOverlay
               selection={selection}
               pending={pendingSelection}
+              pendingClosed={selectionShapeKind === 'rectangle'}
               cursor={selectionCursor}
               zoom={vp.zoom}
               matrix={areaSelection ? transformSessionMatrix : null}
@@ -5283,6 +5292,7 @@ export function Room() {
               <SelectionOverlay
                 selection={selection}
                 pending={pendingSelection}
+                pendingClosed={selectionShapeKind === 'rectangle'}
                 cursor={selectionCursor}
                 zoom={vp.zoom}
                 matrix={areaSelection ? transformSessionMatrix : null}
