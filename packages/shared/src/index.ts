@@ -709,6 +709,109 @@ export type LayerTransformOperation = OperationBase & {
   }>
 }
 
+/** (#446) A closed polygon in the same space layer pixels live in — canvas
+ *  pixels for a bounded room, world units for an infinite one, exactly what
+ *  `Dab.x/y` and `LayerTransformOperation.matrix` already use. Flat
+ *  `[x0, y0, x1, y1, ...]` rather than `Array<{x, y}>` because a freehand
+ *  lasso records a point per pointer sample and this rides in the permanent
+ *  operation log: the flat form is ~2.5x smaller as JSON and needs no
+ *  decoding on the replay path.
+ *
+ *  One polygon, not a list of them: a v1 selection is a single region, and
+ *  add/subtract (which is what would need several sub-paths, with a fill rule
+ *  to go with them) is deliberately out of scope. The three ways to draw one
+ *  — rectangle, point-by-point lasso, freehand lasso — differ only in how the
+ *  UI collects the points, and a rectangle is simply its four corners; none
+ *  of them reaches the wire as its own kind, which is why nothing downstream
+ *  branches on how a selection was made.
+ *
+ *  The closing edge is implicit (last point back to first) and self-
+ *  intersection is legal — the rasterizer fills by nonzero winding, so a
+ *  lasso that crosses itself has a defined result rather than a rejected one.
+ *
+ *  Note the space: these are *layer* coordinates, never screen ones. The
+ *  viewport is per-user local state (CLAUDE.md), so a selection recorded in
+ *  screen pixels would land somewhere else on every other participant's
+ *  canvas. */
+export type SelectionShape = {
+  points: number[]
+}
+
+/** (#446) The three operations a selection can produce. All three are pure,
+ *  single-layer pixel operations — they paint one layer and leave structure
+ *  untouched — which is what lets them join `stroke`/`image_import`/
+ *  `layer_clear` as snapshot-*coverable* on the server (rooms.ts's
+ *  COVERABLE_OP_TYPES), unlike `layer_transform`, which names several layers
+ *  at once and therefore can never be withheld from a joining client.
+ *
+ *  Single-layer is a decision, not an omission. `layer_transform` moves whole
+ *  layers and a gizmo can hold several of them at once; a *selection* is a
+ *  region drawn on the drawing in front of you, and the drawing in front of
+ *  you is the active layer. Multi-layer would need the plural-with-atomic-
+ *  undo shape `layer_transform` has (see its docstring) and buys a case
+ *  nobody asked for; if it is ever wanted, it arrives the way #412/#413 added
+ *  plurals elsewhere — additively, without invalidating a single operation
+ *  already in the log.
+ *
+ *  Moves the pixels inside `selection` — and only those — through `matrix`,
+ *  in place on one layer. The region is lifted (the source pixels are erased
+ *  from the layer) and stamped down transformed, i.e. a move leaves a hole,
+ *  which is what "move this piece of my drawing" means everywhere else. To
+ *  keep a copy, the UI copies first and pastes; that is `area_paste`, not a
+ *  flag here. */
+export type AreaTransformOperation = OperationBase & {
+  type: 'area_transform'
+  layerId: string
+  selection: SelectionShape
+  matrix: LayerTransformMatrix
+}
+
+/** (#446) Erases everything inside `selection` on one layer — what both
+ *  "delete" and the erase half of "cut" emit. `layer_clear` with a mask, and
+ *  deliberately a separate type rather than an optional field on it: a
+ *  `layer_clear` carrying an ignored `selection` would still wipe the whole
+ *  layer on any client built before this existed, and the operation log is
+ *  permanent. */
+export type AreaClearOperation = OperationBase & {
+  type: 'area_clear'
+  layerId: string
+  selection: SelectionShape
+}
+
+/** (#446) Stamps a raster onto an existing layer at a given world rect —
+ *  what "paste" emits, including a paste onto a layer other than the one the
+ *  pixels were copied from.
+ *
+ *  Carries the pixels rather than a reference to where they came from
+ *  (source layer + mask + the seq it was copied at), which would be smaller
+ *  and is the wrong shape: replay would resolve that reference against the
+ *  source layer *as it stands at the paste's own position in the log*, so
+ *  painting over the original after copying — or undoing the stroke it came
+ *  from — would retroactively change what had already been pasted. Clipboard
+ *  contents are a snapshot at copy time on every other tool that has one, and
+ *  a snapshot is what a raster in the operation is.
+ *
+ *  Distinct from `image_import`, which is imposed on a freshly created layer
+ *  and fit-centers within the canvas (see its docstring) — the invariant that
+ *  it never lands on content that already exists is worth keeping, so paste
+ *  gets its own type instead of widening it.
+ *
+ *  `image` is a PNG data URL with straight (un-premultiplied) alpha, the same
+ *  encoding `image_import` uses and the same one `_blitImage` premultiplies
+ *  on the way into a layer buffer. `x`/`y` are the world-space top-left
+ *  corner; `width`/`height` the rect it covers, always the raster's own
+ *  natural size (paste never scales — transforming what was pasted is a
+ *  separate gesture, and a separate operation). */
+export type AreaPasteOperation = OperationBase & {
+  type: 'area_paste'
+  layerId: string
+  image: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 /** Teacher-only: marks the target operation `gone` for everyone. Not an undo —
  *  it bypasses the author's history and cannot be redone (ADR 002 §6). */
 export type OperationRevokeOperation = OperationBase & {
@@ -751,6 +854,9 @@ export type Operation =
   | LayerClearOperation
   | LayerMergeOperation
   | LayerTransformOperation
+  | AreaTransformOperation
+  | AreaClearOperation
+  | AreaPasteOperation
   | OperationRevokeOperation
   | OperationUndoOperation
   | OperationRedoOperation
