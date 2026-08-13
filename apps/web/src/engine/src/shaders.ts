@@ -19,6 +19,27 @@ import { PAPER_WORLD_SIZE } from './paperConstants'
 // exact constant at every fragment; WebGL1/GLSL ES 1.0 has no `flat`
 // qualifier, so this is the standard, correct way to carry a per-primitive
 // constant into the fragment shader.
+// #452 (ADR 003 §4): how much bigger than its nominal radius a dab's quad has
+// to be drawn so the ink absorbed into the paper *past* the mark's edge has
+// somewhere to land. Shared verbatim by both vertex shaders — the two are
+// deliberately identical geometry (see DAB_VERT_INSTANCED's own comment), and
+// a hand-copied second version of this is exactly the kind of drift that
+// makes the batched and fallback paths render differently on the one device
+// that lacks ANGLE_instanced_arrays.
+//
+// The cap is applied here rather than on the CPU because it needs the dab's
+// own radius, which the batched path only ever hands over as a per-instance
+// attribute — capping against a batch-wide radius instead would over-spread
+// every dab in a stroke that varies its width. See linerWickPx() in
+// linerPresets.ts for the same rule stated CPU-side (it drives the dirty-rect
+// padding, and the two must agree or the halo gets clipped at a tile edge).
+const WICK_EXPAND_GLSL = `
+  float wickExpand(float radius, float wickPx, float wickCap) {
+    float wick = min(wickPx, radius * wickCap);
+    return 1.0 + wick / max(radius, 1e-4);
+  }
+`;
+
 export const DAB_VERT = `
   attribute vec2 a_position;
 
@@ -31,6 +52,11 @@ export const DAB_VERT = `
   uniform float u_tiltX;
   uniform float u_tiltY;
   uniform float u_opacity;
+  // #452 — see LINER_WICK's own block comment in linerPresets.ts and
+  // wickExpand() below. Zero for every tool but the liner, which makes
+  // wickExpand() return exactly 1.0 and this whole path a no-op.
+  uniform float u_wickPx;
+  uniform float u_wickCap;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -42,9 +68,21 @@ export const DAB_VERT = `
   // can express a distance in *pixels* rather than in normalized dab space.
   // Only the marker's nib-coverage branch reads it.
   varying float v_radius;
+  // #452: this dab's wick band, as a fraction of its own radius — so the
+  // fragment stage knows where the mark's edge (dist == 1.0) ends and where
+  // the absorbed band around it runs out (dist == 1.0 + v_wick). Zero for
+  // every tool but the liner.
+  varying float v_wick;
 
+${WICK_EXPAND_GLSL}
   void main() {
-    v_localUV = a_position * 2.0;
+    float expand = wickExpand(u_dabRadius, u_wickPx, u_wickCap);
+    // Scaled by the same expand the geometry below is, so dist == 1.0 keeps
+    // meaning "exactly the dab's nominal radius" no matter how far the quad
+    // was grown past it — every existing branch of DAB_FRAG reads dist against
+    // that meaning.
+    v_localUV = a_position * 2.0 * expand;
+    v_wick = expand - 1.0;
     v_pressure = u_pressure;
     v_tiltX = u_tiltX;
     v_tiltY = u_tiltY;
@@ -63,7 +101,7 @@ export const DAB_VERT = `
       scaled.x * s + scaled.y * c
     );
 
-    vec2 screenPos = rotated * u_dabRadius * 2.0 + u_dabCenter;
+    vec2 screenPos = rotated * u_dabRadius * 2.0 * expand + u_dabCenter;
     vec2 clip = (screenPos / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
 
@@ -91,6 +129,8 @@ export const DAB_VERT_INSTANCED = `
   attribute float a_opacity;
 
   uniform vec2 u_resolution;
+  uniform float u_wickPx; // #452 — see DAB_VERT's own comment
+  uniform float u_wickCap;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -99,15 +139,20 @@ export const DAB_VERT_INSTANCED = `
   varying float v_opacity;
   varying float v_aspectRatio;
   varying float v_radius; // #330 — see DAB_VERT's own comment
+  varying float v_wick;   // #452 — see DAB_VERT's own comment
 
+${WICK_EXPAND_GLSL}
   void main() {
     vec2 dabCenter    = a_instA.xy;
     float dabRadius   = a_instA.z;
     float angle       = a_instA.w;
     float aspectRatio = a_instB.x;
 
+    float expand = wickExpand(dabRadius, u_wickPx, u_wickCap);
+
     v_radius = dabRadius;
-    v_localUV = a_position * 2.0;
+    v_localUV = a_position * 2.0 * expand;
+    v_wick = expand - 1.0;
     v_pressure = a_instB.y;
     v_tiltX = a_instB.z;
     v_tiltY = a_instB.w;
@@ -125,7 +170,7 @@ export const DAB_VERT_INSTANCED = `
       scaled.x * s + scaled.y * c
     );
 
-    vec2 screenPos = rotated * dabRadius * 2.0 + dabCenter;
+    vec2 screenPos = rotated * dabRadius * 2.0 * expand + dabCenter;
     vec2 clip = (screenPos / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
 
@@ -355,6 +400,11 @@ export const DAB_FRAG = `
   varying float v_opacity;
   varying float v_aspectRatio;
   varying float v_radius;
+  // #452: width of this dab's absorbed band, as a fraction of its own radius
+  // (0 for every tool but the liner — see DAB_VERT's own comment). The mark's
+  // edge is still at dist == 1.0; the band runs from there out to
+  // dist == 1.0 + v_wick.
+  varying float v_wick;
 
   // #330: signed distance from this fragment to the marker nib's own boundary,
   // in canvas pixels — negative inside, positive outside. The one place the
@@ -536,7 +586,13 @@ export const DAB_FRAG = `
     }
 
     float dist = length(v_localUV);
-    if (dist > 1.0) discard;
+    // #452: v_wick is 0 for every tool but the liner, so this is the exact
+    // "dist > 1.0" cutoff it has always been everywhere else. Only the liner
+    // grows its quad past the mark's own edge, and only its branch below reads
+    // anything out of the band that opens up: shape is exactly 0 out there
+    // (smoothstep clamps to 1 at dist >= 1.0), so graphite/charcoal/eraser
+    // deposit nothing there even if some future draw did widen their quads.
+    if (dist > 1.0 + v_wick) discard;
 
     float innerEdge = u_hardness * 0.85;
     float shape = 1.0 - smoothstep(innerEdge, 1.0, dist);
@@ -918,8 +974,39 @@ export const DAB_FRAG = `
       // per-viewer-nondeterministic input here, and no fiber-direction bias
       // in v1 (ADR's own 'Потом' follow-up list - deliberately isotropic,
       // this is a first pass, not final tuning).
+      //
+      // #452 continues that same profile *past* the mark's own edge, where the
+      // ink actually goes: inside (dist <= 1.0) this is unchanged, and outside
+      // it decays across the band the vertex stage opened up (v_wick wide, see
+      // DAB_VERT). One amplitude for both halves on purpose - the two meet at
+      // dist == 1.0 with (1.0 - shape) == 1.0 and decay == 1.0, so there is no
+      // step at the mark's edge to read as a drawn outline.
+      //
+      // The decay is steep (LINER_WICK_FALLOFF) because this term accumulates:
+      // dabs are laid down a fraction of a radius apart and blended saturating
+      // "over", so a pixel just outside the edge is written by a dozen dabs in
+      // one pass and reaches near-full ink no matter how small each single
+      // contribution was. A gentle profile would therefore not read as a soft
+      // spread at all - it would just be a wider line with a hard edge one
+      // band further out (which is the whole trap this approach had to be
+      // tuned around; the alternative was giving the liner its own stroke-
+      // coverage buffer, as the marker needed in #330). Steep decay puts the
+      // saturating part in the first fraction of the band and leaves the rest
+      // a real gradient - which is also how ink behaves on paper.
+      //
+      // Normalized to hit exactly 0.0 at the band's outer rim rather than
+      // being cut off at exp(-K): the quad ends there, and a term with any
+      // amplitude left at that boundary draws a hard circle around every
+      // single dab (see the charcoal branch's own dust-ring comment, which
+      // gets away with the shape only because its amplitude is tiny).
+      const float LINER_WICK_FALLOFF = 4.0;
+      const float LINER_WICK_AMP = 0.4;
+      float bandT = clamp((dist - 1.0) / max(v_wick, 1e-4), 0.0, 1.0);
+      float decay = (exp(-LINER_WICK_FALLOFF * bandT) - exp(-LINER_WICK_FALLOFF))
+                  / (1.0 - exp(-LINER_WICK_FALLOFF));
+      float wickProfile = dist <= 1.0 ? (1.0 - shape) : decay;
       float paperAbsorbency = 1.0 - paperCatch;
-      float wick = (1.0 - shape) * paperAbsorbency * v_opacity * 0.4;
+      float wick = wickProfile * paperAbsorbency * v_opacity * LINER_WICK_AMP;
       float deposit = clamp(core + wick, 0.0, 1.0);
       gl_FragColor = vec4(u_color * deposit, deposit);
       return;

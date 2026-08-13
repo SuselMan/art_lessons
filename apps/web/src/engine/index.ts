@@ -35,7 +35,9 @@ import {
 } from './src/pencilPresets'
 import {
   LINER_PRESET, LINER_SIZES_MM, linerSpeedFlow, linerTiltFlow, applyLinerEndTaper,
-  dwellConfigForTool, dwellFlow, type DwellConfig, type LinerSizeMm,
+  dwellConfigForTool, dwellFlow, linerWickPx,
+  LINER_WICK_PX, LINER_WICK_RADIUS_CAP,
+  type DwellConfig, type LinerSizeMm,
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX, type NibShape } from './src/markerRibbon'
@@ -4158,6 +4160,13 @@ export class PencilEngine implements PencilEngineAPI {
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_pressure', 'u_tiltX', 'u_tiltY', 'u_hardness', 'u_opacity',
       'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
+      // Liner only (#452, ADR 003 §4) — how far past its own radius a dab's
+      // quad is grown so the absorbed band has somewhere to land, and the cap
+      // on that. Set to 0 by every other draw through this program (marker's
+      // two passes included), not just left unset: a program's uniforms
+      // persist across draws, so a liner stroke would otherwise leak its band
+      // into whatever drew next.
+      'u_wickPx', 'u_wickCap',
       // Charcoal only (#304, ADR 005) — per-preset, so needed by both this
       // program and the instanced one below (unlike marker's three samplers,
       // which never draw through the batched path).
@@ -4178,6 +4187,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
+      'u_wickPx', 'u_wickCap', // #452 — see _dabUni's own comment
       'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
       'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
       'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
@@ -5125,10 +5135,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  put a dab's *center* past the visible canvas element's own edge,
    *  same as a real sheet of paper — ink can bleed to the very edge, not
    *  past it. */
-  private _dabsWorldBounds(dabs: Dab[], erasing: boolean, preset: PencilPreset): WorldRect {
+  private _dabsWorldBounds(dabs: Dab[], erasing: boolean, preset: PencilPreset, wicking = false): WorldRect {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const d of dabs) {
-      const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset)
+      const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset, wicking)
       minX = Math.min(minX, d.x - hx); maxX = Math.max(maxX, d.x + hx)
       minY = Math.min(minY, d.y - hy); maxY = Math.max(maxY, d.y + hy)
     }
@@ -5164,15 +5174,26 @@ export class PencilEngine implements PencilEngineAPI {
    *  side never accumulated into `coverage`/`inkLoad` either, resumed at a
    *  different darkness on the far side once a later dab's center crossed
    *  over). */
-  private _dabWorldHalfExtents(d: Dab, erasing: boolean, preset: PencilPreset): { hx: number; hy: number } {
+  private _dabWorldHalfExtents(
+    d: Dab, erasing: boolean, preset: PencilPreset, wicking = false,
+  ): { hx: number; hy: number } {
     const baseR = d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)
+    // #452: the liner's absorbed band lives *outside* baseR, so it has to be
+    // padded in here too — this box picks which tiles a batch resolves and
+    // which rect gets marked dirty, and a band left out of it is a halo
+    // sheared off at a tile boundary (exactly the failure #330 hit with the
+    // chisel nib, described in this method's own doc comment above). Same
+    // absolute-with-a-cap rule the vertex shader applies per dab
+    // (WICK_EXPAND_GLSL); linerWickPx is the single statement of it, so the
+    // two can't drift apart. 0 for every other tool.
+    const r = baseR + (wicking ? linerWickPx(baseR) : 0)
     // Rotated-rect AABB, not a `baseR * aspectRatio` circle: a 5:1 chisel dab
     // is long *along the nib only*, and inflating the short axis to match
     // would resolve (and so lazily create — 4MB each) whole tiles the dab
     // never actually reaches.
-    const halfLong = baseR * Math.max(1, d.aspectRatio)
+    const halfLong = r * Math.max(1, d.aspectRatio)
     const c = Math.abs(Math.cos(d.angle)), s = Math.abs(Math.sin(d.angle))
-    return { hx: halfLong * c + baseR * s, hy: halfLong * s + baseR * c }
+    return { hx: halfLong * c + r * s, hy: halfLong * s + r * c }
   }
 
   /** `target` is usually a real layer's `ILayerBuffer`, but a few callers
@@ -5241,7 +5262,13 @@ export class PencilEngine implements PencilEngineAPI {
     // (never read outside DAB_FRAG's u_inkMode>4.5 branch).
     const charcoal: CharcoalPreset | null = tool === 'charcoal' ? charcoalPresetFor(presetName) : null
     const preset  = this._resolvePreset(tool, presetName)
-    const worldBounds = this._dabsWorldBounds(dabs, erasing, preset)
+    // #452 (ADR 003 §4): only the liner's dabs are grown past their own radius
+    // to hold the band of ink absorbed into the paper around the mark. Derived
+    // from `tool` alone rather than passed in by the caller, deliberately —
+    // see linerPresets.ts's note under linerWickPx on what happened to the
+    // version of this that carried a live per-draw multiplier.
+    const wicking = tool === 'liner'
+    const worldBounds = this._dabsWorldBounds(dabs, erasing, preset, wicking)
     const targets: PaintTarget[] = target instanceof AccumulationBuffer
       ? [{ buffer: target, originX: 0, originY: 0, contentRect: null }]
       : target.resolveForPaint(worldBounds)
@@ -5263,7 +5290,7 @@ export class PencilEngine implements PencilEngineAPI {
       // every bounded room, and most infinite strokes) to avoid the filter
       // allocation on the hot path where it can only ever keep everything.
       const tileDabs = targets.length === 1 ? dabs : dabs.filter(d => {
-        const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset)
+        const { hx, hy } = this._dabWorldHalfExtents(d, erasing, preset, wicking)
         return d.x + hx > originX && d.x - hx < originX + buffer.width &&
                d.y + hy > originY && d.y - hy < originY + buffer.height
       })
@@ -5277,9 +5304,9 @@ export class PencilEngine implements PencilEngineAPI {
       // _paintDabsInstanced's docstring for why this preserves the exact
       // sequential per-dab blend order the fallback loop below relies on.
       if (this._instancedArraysExt) {
-        this._paintDabsInstanced(tileDabs, erasing, inkMode, charcoal, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsInstanced(tileDabs, erasing, inkMode, charcoal, preset, color, buffer.width, buffer.height, originX, originY, wicking)
       } else {
-        this._paintDabsUniform(tileDabs, erasing, inkMode, charcoal, preset, color, buffer.width, buffer.height, originX, originY)
+        this._paintDabsUniform(tileDabs, erasing, inkMode, charcoal, preset, color, buffer.width, buffer.height, originX, originY, wicking)
       }
 
       buffer.endDraw()
@@ -5302,7 +5329,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintDabsUniform(
     dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
     preset: PencilPreset, color: [number, number, number],
-    resW: number, resH: number, originX: number, originY: number,
+    resW: number, resH: number, originX: number, originY: number, wicking: boolean,
   ): void {
     const { gl } = this
     gl.useProgram(this._dabProg)
@@ -5332,6 +5359,13 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
     gl.uniform1f(u.u_inkMode, inkMode)
+    // #452: the shader applies the cap itself, per dab, because only it knows
+    // each dab's own radius on the batched path — these two carry the rule,
+    // linerWickPx() states the same one CPU-side for the dirty rect, and they
+    // must not drift. Both 0 for a non-liner draw, which makes the shader's
+    // wickExpand() return exactly 1.0 and this whole path a no-op.
+    gl.uniform1f(u.u_wickPx,  wicking ? LINER_WICK_PX : 0)
+    gl.uniform1f(u.u_wickCap, wicking ? LINER_WICK_RADIUS_CAP : 0)
     gl.uniform1f(u.u_charcoalTooth,   charcoal?.tooth   ?? 0)
     gl.uniform1f(u.u_charcoalCrumble, charcoal?.crumble ?? 0)
     gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
@@ -5388,7 +5422,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintDabsInstanced(
     dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
     preset: PencilPreset, color: [number, number, number],
-    resW: number, resH: number, originX: number, originY: number,
+    resW: number, resH: number, originX: number, originY: number, wicking: boolean,
   ): void {
     const { gl } = this
     const ext = this._instancedArraysExt
@@ -5413,6 +5447,13 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
     gl.uniform1f(u.u_inkMode, inkMode)
+    // #452: the shader applies the cap itself, per dab, because only it knows
+    // each dab's own radius on the batched path — these two carry the rule,
+    // linerWickPx() states the same one CPU-side for the dirty rect, and they
+    // must not drift. Both 0 for a non-liner draw, which makes the shader's
+    // wickExpand() return exactly 1.0 and this whole path a no-op.
+    gl.uniform1f(u.u_wickPx,  wicking ? LINER_WICK_PX : 0)
+    gl.uniform1f(u.u_wickCap, wicking ? LINER_WICK_RADIUS_CAP : 0)
     gl.uniform1f(u.u_charcoalTooth,   charcoal?.tooth   ?? 0)
     gl.uniform1f(u.u_charcoalCrumble, charcoal?.crumble ?? 0)
     gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
@@ -6009,6 +6050,11 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_eraseMode, 0.0)
     gl.uniform1i(u.u_grainMode, 0)
     gl.uniform1f(u.u_inkMode, inkMode)
+    // #452: cleared, not merely unset — a liner stroke drawn a moment ago left
+    // its own band on this same program (_dabProg is shared), and the marker's
+    // nib geometry is sized off the quad it gets handed.
+    gl.uniform1f(u.u_wickPx, 0)
+    gl.uniform1f(u.u_wickCap, 0)
     gl.uniform1f(u.u_aaPx, MARKER_EDGE_AA_PX)
     gl.uniform1f(u.u_nibShape, nibShape === 'roundedBox' ? 1 : 0)
     gl.uniform1f(u.u_nibCorner, radius * cornerFraction)
@@ -6160,6 +6206,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
     gl.uniform1f(u.u_inkMode, 2.0)
+    // #452 — see _drawMarkerNibPass's own comment on why this is cleared here.
+    gl.uniform1f(u.u_wickPx, 0)
+    gl.uniform1f(u.u_wickCap, 0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     gl.enableVertexAttribArray(this._dabPosLoc)

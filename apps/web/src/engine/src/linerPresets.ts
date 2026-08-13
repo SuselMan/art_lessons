@@ -181,3 +181,77 @@ export function dwellConfigForTool(tool: ToolType): DwellConfig | null {
   if (tool === 'marker') return MARKER_DWELL
   return null
 }
+
+// ─── Wicking / ink spread (#452, ADR 003 §4) ────────────────────────────────
+// Ink doesn't stop at the nib's own footprint: it keeps travelling into the
+// paper's fibres for a short distance past the edge of the contact patch.
+// Until #452 the liner's `wick` term (DAB_FRAG's u_inkMode branch) lived
+// entirely *inside* the dab's geometric radius — a soft edge, not a spread.
+// This section owns how far outside that radius the dab's quad is grown; the
+// falloff across that band is a shader-side concern (DAB_FRAG's own
+// LINER_WICK_FALLOFF).
+//
+// Two properties, both agreed with Ilya before the code (2026-08-13 chat):
+//
+//  - **Absolute, not proportional.** Capillary reach is a property of the
+//    ink/paper pair, not of the nib: a 0.1 mm and a 0.8 mm pen bleed the same
+//    distance into the same sheet. So this is a flat px figure, not a
+//    fraction of the dab's radius.
+//  - **Capped against the dab's own radius** anyway, because at these sizes
+//    the honest absolute figure would swallow the thin end of the range
+//    whole: LINER_SIZE_PX (toolSchemas.ts) puts 0.1 mm at a 2 px *diameter*,
+//    so an uncapped band would leave the thinnest pen more halo than line and
+//    throw away exactly the crispness it's chosen for.
+//
+// Canvas px, deliberately NOT converted through the engine's own CSS-px →
+// canvas-px step (_toPhysicalSize). That conversion is per-device (it reads
+// this canvas's own DPR ratio), and every participant re-derives a room's
+// pixels by replaying the same op log on their own GPU — routing a
+// per-viewer factor into what the shared canvas renders is the one thing
+// .claude/rules.md's cross-device-determinism section forbids. Against a
+// baked dab.size plus a flat constant, one operation renders identically for
+// everyone.
+//
+// First-pass, not yet calibrated against a real device (same caveat as
+// PENCIL_PRESETS' own interpolation comment) — verify by eye at both ends of
+// LINER_SIZES_MM, on a smooth and a rough paper, and retune.
+
+/** How far past the dab's own radius ink reaches, in canvas px. */
+export const LINER_WICK_PX = 1.2
+/** Ceiling on that band as a fraction of the dab's own radius — see this
+ *  section's own comment on why the absolute figure needs one at all. */
+export const LINER_WICK_RADIUS_CAP = 0.5
+/** The band width for one dab, in canvas px: the absolute reach above, capped
+ *  against this dab's own radius. A pure function of values already baked
+ *  into the dab — see below on why that matters more than it looks. */
+export function linerWickPx(dabRadiusPx: number): number {
+  return Math.min(LINER_WICK_PX, Math.max(dabRadiusPx, 0) * LINER_WICK_RADIUS_CAP)
+}
+
+// Why dwell does NOT widen this band geometrically, though a resting tip
+// obviously does blot outward on real paper.
+//
+// The first cut of #452 passed a per-draw width multiplier down from
+// _paintDwellDab (dwellFlow's own exponential ramp, so the blot's width and
+// darkness grew together). It renders correctly — and only for the person
+// drawing. That multiplier is live timer state: it exists while the stylus
+// rests and is gone by the time the stroke becomes a StrokeOperation. Every
+// other route to the same pixels — a peer replaying the op, this same user
+// after undo/redo, a snapshot rebuild — has only the baked dabs, so the blot
+// would quietly shrink the moment anything replayed it, and would never have
+// been the same width on anyone else's screen in the first place. That is
+// exactly the class of divergence .claude/rules.md's cross-device section is
+// about, arrived at from the other end (live state rather than per-device
+// float math), and no unit test would have shown it.
+//
+// Making it survive would mean baking the width into the dab, i.e. a new
+// per-dab field on a payload #366 exists to shrink — a poor trade for one
+// tool's resting case.
+//
+// The visible blot doesn't actually need it: `wick` in DAB_FRAG scales with
+// v_opacity, and dwellFlow already pushes a resting dab's opacity up toward
+// LINER_SPEED_FLOW_MAX. Since the band's profile is a steep exponential, more
+// opacity saturates it further out — the *visible* edge of the pool moves
+// outward even though the geometric band did not. It's the same mechanism as
+// the moving stroke's, driven by a value that is genuinely baked into the
+// operation, so everyone sees the same blot.
