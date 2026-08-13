@@ -509,6 +509,7 @@ export const en = {
   'palette.add': 'Add to palette',
   'palette.remove': 'Remove from palette',
   'palette.dragPanel': 'Drag to move',
+  'palette.toolHold': '{tool} — hold to switch tool',
   'palette.mode': 'Picker shape',
   'palette.mode.bar': 'Hue strip',
   'palette.mode.ring': 'Hue ring',

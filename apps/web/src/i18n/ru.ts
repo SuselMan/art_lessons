@@ -416,6 +416,7 @@ export const ru: Dictionary = {
   'palette.add': 'Добавить в палитру',
   'palette.remove': 'Убрать из палитры',
   'palette.dragPanel': 'Потяните, чтобы переместить',
+  'palette.toolHold': '{tool} — удерживайте, чтобы сменить инструмент',
   'palette.mode': 'Вид палитры',
   'palette.mode.bar': 'Полоса оттенка',
   'palette.mode.ring': 'Кольцо оттенка',

@@ -25,7 +25,7 @@ import { SettingField } from '../../components/SettingField'
 import { useConfirmDialog } from '../../components/ConfirmDialog/useConfirmDialog'
 import { isModalOpen } from '../../components/Modal/modalSlot'
 import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
-import { FloatingToolPanel } from '../../components/FloatingToolPanel'
+import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
@@ -528,11 +528,12 @@ export function Room() {
   const [panelPosition, setPanelPosition] = useState<PanelPosition | null>(
     () => loadPanelPosition(localStorage, id ?? ''),
   )
-  // Whether that panel's palette flyout is fanned out. Lives here rather than
-  // inside FloatingToolPanel because ChiselAngleDial — a sibling orbiting the
-  // same panel at nearly the same radius — has to stand down while it is
+  // Which of that panel's two fans — the palette, or the drawing tools its top
+  // slot can hold — is out, if either. Lives here rather than inside
+  // FloatingToolPanel because ChiselAngleDial, a sibling orbiting the same
+  // panel at nearly the same radius, has to stand down while one of them is
   // open; see that component's own doc comment.
-  const [paletteFlyoutOpen, setPaletteFlyoutOpen] = useState(false)
+  const [panelFlyout, setPanelFlyout] = useState<PanelFlyout | null>(null)
   // Desktop keyboard shortcuts (#174) — global (per-browser, not per-room): a
   // rebound key is a habit of whoever's typing, not a property of this
   // drawing. A store subscription rather than a load-once-at-mount read
@@ -5038,8 +5039,8 @@ export function Room() {
           hidden={!floatingPanelVisible(floatingPanelMode, deviceType, uiHidden)}
           undoHotkeyLabel={formatHotkeyLabel(hotkeys.undo)}
           redoHotkeyLabel={formatHotkeyLabel(hotkeys.redo)}
-          flyoutOpen={paletteFlyoutOpen}
-          onFlyoutOpenChange={setPaletteFlyoutOpen}
+          flyout={panelFlyout}
+          onFlyoutChange={setPanelFlyout}
         />
 
         {/* #277/#278: marker chisel-nib angle dial — orbits FloatingToolPanel
@@ -5055,7 +5056,7 @@ export function Room() {
           panelPosition={panelPosition}
           containerRef={editorRef}
           uiHidden={uiHidden}
-          paletteOpen={paletteFlyoutOpen}
+          flyoutOpen={panelFlyout !== null}
         />
 
         {/* #185: visible while the initial content restore (snapshot fetch

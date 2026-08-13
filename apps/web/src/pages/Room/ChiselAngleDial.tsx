@@ -15,11 +15,11 @@ interface ChiselAngleDialProps {
   // per-stroke — one re-render per tap on the canvas is not what #309 was
   // about.
   uiHidden: boolean
-  // Whether FloatingToolPanel's palette flyout is currently fanned out. Its
-  // ring 1 (radius PANEL_SIZE/2 + 8 + 20) lands inside this dial's own hit
-  // ring (out to PANEL_SIZE/2 + 56), so the two cannot both be live at once —
-  // see the visibility rules below.
-  paletteOpen: boolean
+  // Whether either of FloatingToolPanel's fans — palette or drawing tools — is
+  // currently out. Their shared ring 1 (radius PANEL_SIZE/2 + 8 + 20) lands
+  // inside this dial's own hit ring (out to PANEL_SIZE/2 + 56), so the dial
+  // and a fan cannot both be live at once — see the visibility rules below.
+  flyoutOpen: boolean
 }
 
 /** The marker chisel-nib angle dial (#277/#278), orbiting FloatingToolPanel.
@@ -45,13 +45,13 @@ interface ChiselAngleDialProps {
  *  opacity-0 when hidden, see FloatingToolPanel.module.css), so its DOM
  *  element is always there to measure against once those hold.
  *
- *  One rule added since: not while the palette flyout is open either. Both
- *  orbit the same panel at almost the same radius, so with the flyout fanned
- *  out the dial's ring ran straight through the swatches — visually tangled,
- *  and its hit ring stole the drags meant for the colors. The palette is the
- *  thing the user just asked for, so the dial yields to it and comes back
- *  when the flyout closes. */
-export function ChiselAngleDial({ panelPosition, containerRef, uiHidden, paletteOpen }: ChiselAngleDialProps) {
+ *  One rule added since: not while either of the panel's fans is open — the
+ *  palette, or the drawing-tool chooser held out of its top slot. All three
+ *  orbit the same panel at almost the same radius, so with a fan out the
+ *  dial's ring ran straight through its items — visually tangled, and its hit
+ *  ring stole the taps meant for them. A fan is the thing the user just asked
+ *  for, so the dial yields to it and comes back when the fan closes. */
+export function ChiselAngleDial({ panelPosition, containerRef, uiHidden, flyoutOpen }: ChiselAngleDialProps) {
   const t = useT()
   const tool = useRoomStore(s => s.tool)
   const toolSettings = useRoomStore(s => s.toolSettings)
@@ -59,7 +59,7 @@ export function ChiselAngleDial({ panelPosition, containerRef, uiHidden, palette
   const strokeActive = useRoomStore(s => s.strokeActive)
 
   const markerNib = toolSettings.marker.nib as string
-  if (!uiHidden || strokeActive || paletteOpen || tool !== 'marker' || markerNib !== 'chisel') return null
+  if (!uiHidden || strokeActive || flyoutOpen || tool !== 'marker' || markerNib !== 'chisel') return null
 
   const center = measureFloatingPanelCenter(panelPosition, containerRef)
   if (!center) return null

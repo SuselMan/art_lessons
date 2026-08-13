@@ -113,8 +113,13 @@
   height: 0;
 }
 
+/* Both fans' items — palette swatches and, from the same rays, the drawing
+   tools the top slot can hold. Deliberately identical in size and motion:
+   they are the same affordance reached by two gestures on two parts of the
+   panel, and only their contents differ. */
 .flyoutSwatch,
-.flyoutPickerBtn {
+.flyoutPickerBtn,
+.flyoutToolBtn {
   position: absolute;
   top: 0;
   left: 0;
@@ -129,11 +134,23 @@
   transition: transform 180ms ease-out;
 }
 
-.flyoutPickerBtn {
+.flyoutPickerBtn,
+.flyoutToolBtn {
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--color-border-strong);
   background: var(--color-surface-2);
   color: var(--color-text);
+}
+
+/* The tool already in hand. Mixed *into* the surface rather than laid over it
+   with a transparent accent (which is what .btnActive can afford, sitting on
+   the panel's own opaque disc) — these fan out over bare canvas, and a
+   see-through highlight would take its color from whatever was drawn under
+   it. */
+.flyoutToolBtnActive {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface-2));
+  color: var(--color-accent);
 }

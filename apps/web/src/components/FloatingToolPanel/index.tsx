@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import clsx from 'clsx'
 
 import { useDraggablePosition } from '../../lib/useDraggablePosition'
+import { useLongPress } from '../../lib/useLongPress'
 import { useT, type TranslationKey } from '../../i18n'
 import { Icon } from '../Icon'
 import { hexToRgb, rgbToHex } from '../../lib/color'
@@ -23,12 +24,25 @@ const COLOR_FLYOUT_MAX = 32
 const FLYOUT_SWATCH_SIZE = 40
 const FLYOUT_GAP = 8
 /** The material-laying tools that can occupy this panel's single drawing-tool
- *  slot. Structurally the same set as toolSlice.ts's PrimaryDrawingTool, but
- *  written out here rather than imported: nothing under components/ imports
- *  from stores/, and this panel is a presentational component that shouldn't
- *  be the first to. Declared once as an alias (it appears in four places
- *  below) so adding a tool — charcoal was #304 — is one edit, not four. */
-type FloatingPrimaryTool = 'pencil' | 'charcoal' | 'liner' | 'marker'
+ *  slot, in the order the tool flyout fans them out. Structurally the same set
+ *  as toolSlice.ts's PrimaryDrawingTool, but written out here rather than
+ *  imported: nothing under components/ imports from stores/, and this panel is
+ *  a presentational component that shouldn't be the first to.
+ *
+ *  The type below is derived from this list rather than declared beside it, so
+ *  adding a tool — charcoal was #304 — is one edit here plus whatever the
+ *  compiler then demands (PRIMARY_TOOL_DISPLAY is a total Record over it, so
+ *  a tool with no icon or label is a typecheck error, not a blank button). */
+const FLOATING_PRIMARY_TOOLS = ['pencil', 'charcoal', 'liner', 'marker'] as const
+
+type FloatingPrimaryTool = (typeof FLOATING_PRIMARY_TOOLS)[number]
+
+/** Which of the panel's two mutually-exclusive fans is out, if either. One
+ *  value rather than a boolean per fan because they share the same annulus
+ *  around the panel: two of them open at once would overlap swatch for
+ *  swatch, and "close the other one first" is a rule that only has to hold if
+ *  the state lets it be broken. */
+export type PanelFlyout = 'palette' | 'tools'
 
 // Icon + label for the top slot's primaryTool — same icon each tool's own
 // left-toolbar button already uses (Room/index.tsx), so the floating panel
@@ -77,12 +91,12 @@ interface Props {
    *  same escape hatch as before this fan existed, for anything beyond the
    *  capped flyout (the rest of the palette, the full HSV picker, etc). */
   onOpenColorPicker: () => void
-  /** Whether the palette flyout is fanned out. Controlled from Room rather
-   *  than kept local because the flyout's rings share the exact annulus
-   *  around this panel that ChiselAngleDial's ring lives in — Room hides
-   *  that dial while this is true, so the two can never overlap. */
-  flyoutOpen: boolean
-  onFlyoutOpenChange: (open: boolean) => void
+  /** Which fan is out, if any. Controlled from Room rather than kept local
+   *  because the fans' rings share the exact annulus around this panel that
+   *  ChiselAngleDial's ring lives in — Room hides that dial while this is
+   *  non-null, so the two can never overlap. */
+  flyout: PanelFlyout | null
+  onFlyoutChange: (flyout: PanelFlyout | null) => void
   roomId: string
   position: PanelPosition | null
   onPositionChange: (position: PanelPosition) => void
@@ -124,11 +138,20 @@ interface Props {
  *  lib/uiPreferences and Room's own use of it). "Always" means it can sit on
  *  top of the full chrome, duplicating the header's Undo/Redo and the
  *  toolbar's pencil/eraser: deliberate, since the point of the cluster is
- *  that it is wherever the hand already is. */
+ *  that it is wherever the hand already is.
+ *
+ *  The drawing-tool slot is one slot but not one tool: holding it fans out
+ *  the rest of FLOATING_PRIMARY_TOOLS to switch between them, the same
+ *  gesture-and-fan the color dot already had for the palette. That is what
+ *  lets this panel stand in for the left toolbar rather than merely shortcut
+ *  it — before it, swapping pencil for marker meant bringing the full chrome
+ *  back, which is exactly what minimal UI was entered to be rid of. Tapping
+ *  the slot still just selects what it already shows; only a press that goes
+ *  the distance is taken away from the tap (see useLongPress). */
 export function FloatingToolPanel({
   tool, primaryTool, onSetTool, onUndo, onRedo, primaryColor, palette, onSelectColor, onOpenColorPicker,
   roomId, position, onPositionChange, containerRef, hidden,
-  undoHotkeyLabel, redoHotkeyLabel, flyoutOpen, onFlyoutOpenChange,
+  undoHotkeyLabel, redoHotkeyLabel, flyout, onFlyoutChange,
 }: Props) {
   const t = useT()
   // Mount-then-transition: items first render collapsed onto the panel's
@@ -140,14 +163,26 @@ export function FloatingToolPanel({
   // single one) because a single rAF can still land in the same paint as
   // the initial commit in some browsers, skipping the transition entirely.
   const [animateIn, setAnimateIn] = useState(false)
-  const toggleFlyout = useCallback(() => onFlyoutOpenChange(!flyoutOpen), [flyoutOpen, onFlyoutOpenChange])
+  const togglePalette = useCallback(
+    () => onFlyoutChange(flyout === 'palette' ? null : 'palette'),
+    [flyout, onFlyoutChange],
+  )
+  const openToolFlyout = useCallback(() => onFlyoutChange('tools'), [onFlyoutChange])
+  const { onPointerDown: onPrimaryToolHold } = useLongPress({ onLongPress: openToolFlyout })
 
+  // Reset to collapsed on *every* change of which fan is out, not just on
+  // closing: swapping one fan straight for the other (holding the tool slot
+  // while the palette is still open — the backdrop sits below the panel, so
+  // its buttons stay live) would otherwise inherit the previous fan's
+  // already-true animateIn and have the new items appear at full radius with
+  // no motion at all.
   useEffect(() => {
-    if (!flyoutOpen) { setAnimateIn(false); return }
+    setAnimateIn(false)
+    if (!flyout) return
     let raf2 = 0
     const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => setAnimateIn(true)) })
     return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2) }
-  }, [flyoutOpen])
+  }, [flyout])
 
   const clamp = useCallback((pos: PanelPosition): PanelPosition => {
     const container = containerRef.current
@@ -181,38 +216,60 @@ export function FloatingToolPanel({
     // comment on why onChange never fires for a plain tap) invalidates
     // whatever sector the flyout fanned out into, so close it rather than
     // leave it pointing at empty space relative to the panel's new spot.
-    onFlyoutOpenChange(false)
+    onFlyoutChange(null)
     onPositionChange(pos)
     savePanelPosition(localStorage, roomId, pos)
-  }, [onFlyoutOpenChange, onPositionChange, roomId])
+  }, [onFlyoutChange, onPositionChange, roomId])
 
   const { onPointerDown } = useDraggablePosition(measureCurrentPosition(), { onChange: handleChange, clamp })
 
-  // Recomputed fresh each time the flyout opens (not continuously) — the
-  // ray layout only matters at the moment it fans out; the panel's own
-  // position effectively freezes for as long as the flyout stays open,
-  // since handleChange above closes it the instant a real drag starts.
-  const flyoutItems = useMemo(() => {
-    if (!flyoutOpen) return []
+  // Where `count` items land when fanned out around this panel, wherever it
+  // currently sits in its container. Shared by both fans so the tools come out
+  // along the exact same rays the colors do — one geometry, and in particular
+  // one answer to "which directions are blocked by the nearest screen edge".
+  const layoutAroundPanel = useCallback((count: number) => {
     const container = containerRef.current
     const containerSize = container
       ? { width: container.clientWidth, height: container.clientHeight }
       : { width: Infinity, height: Infinity }
     const panelCenterPos = measureCurrentPosition()
     const panelCenter = { x: panelCenterPos.x + PANEL_SIZE / 2, y: panelCenterPos.y + PANEL_SIZE / 2 }
+    return layoutFlyoutItems(count, panelCenter, containerSize, FLYOUT_LAYOUT)
+  }, [containerRef, measureCurrentPosition])
+
+  // Both recomputed fresh each time their fan opens (not continuously) — the
+  // ray layout only matters at the moment it fans out; the panel's own
+  // position effectively freezes for as long as a fan stays open, since
+  // handleChange above closes it the instant a real drag starts.
+  //
+  // measureCurrentPosition changing (i.e. `position` changing) while a fan is
+  // still open never actually happens in practice — handleChange flips
+  // `flyout` to null in the same call that changes position — but it's cheap
+  // to recompute regardless (each guard below bails immediately once the fan
+  // is closed), so it's simplest to just list it as a dependency rather than
+  // fight the linter over an invariant.
+  const paletteItems = useMemo(() => {
+    if (flyout !== 'palette') return []
     const colors = palette.slice(0, COLOR_FLYOUT_MAX)
-    const positions = layoutFlyoutItems(colors.length + 1, panelCenter, containerSize, FLYOUT_LAYOUT)
-    return positions.map((pos, i) => ({
+    return layoutAroundPanel(colors.length + 1).map((pos, i) => ({
       ...pos,
       color: i === 0 ? null : colors[i - 1], // null marks the leading "open picker" slot
     }))
-    // measureCurrentPosition changing (i.e. `position` changing) while
-    // flyoutOpen is still true never actually happens in practice —
-    // handleChange above flips flyoutOpen to false in the same call that
-    // changes position — but it's cheap to recompute regardless (the guard
-    // above bails immediately once flyoutOpen is false), so it's simplest to
-    // just list it here rather than fight the linter over an invariant.
-  }, [flyoutOpen, palette, containerRef, measureCurrentPosition])
+  }, [flyout, palette, layoutAroundPanel])
+
+  const toolItems = useMemo(() => {
+    if (flyout !== 'tools') return []
+    return layoutAroundPanel(FLOATING_PRIMARY_TOOLS.length)
+      .map((pos, i) => ({ ...pos, tool: FLOATING_PRIMARY_TOOLS[i] }))
+  }, [flyout, layoutAroundPanel])
+
+  // Collapsed onto the panel's own center until animateIn flips true one frame
+  // later (see the effect above) — that's the "flies out from under the panel"
+  // motion, done as a CSS transition rather than JS-driven.
+  const itemTransform = useCallback((item: { x: number; y: number }) => {
+    const offset = animateIn ? item : { x: 0, y: 0 }
+    return `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`
+  }, [animateIn])
 
   return (
     <>
@@ -229,8 +286,8 @@ export function FloatingToolPanel({
           items stay reachable, above everything else since the flyout can
           only ever be open while the rest of the chrome is already hidden
           (see this component's own doc comment on the `hidden` prop). */}
-      {flyoutOpen && (
-        <div className={styles.flyoutBackdrop} onPointerDown={() => onFlyoutOpenChange(false)} />
+      {flyout && (
+        <div className={styles.flyoutBackdrop} onPointerDown={() => onFlyoutChange(null)} />
       )}
       <div
         id={PANEL_DOM_ID}
@@ -247,14 +304,18 @@ export function FloatingToolPanel({
         <button
           className={styles.colorDot}
           style={{ background: rgbToHex(primaryColor) }}
-          onClick={toggleFlyout}
+          onClick={togglePalette}
           title={t('palette.open')}
-          aria-label={t(flyoutOpen ? 'palette.closeLabel' : 'palette.openLabel')}
+          aria-label={t(flyout === 'palette' ? 'palette.closeLabel' : 'palette.openLabel')}
         />
+        {/* Tap selects what it shows, hold fans out the rest — the title says
+            so, since a hold is the one gesture nothing on screen can advertise
+            by itself. */}
         <button
           className={clsx(styles.btn, styles.btnTop, tool === primaryTool && styles.btnActive)}
           onClick={() => onSetTool(primaryTool)}
-          title={t(PRIMARY_TOOL_DISPLAY[primaryTool].labelKey)}
+          onPointerDown={onPrimaryToolHold}
+          title={t('palette.toolHold', { tool: t(PRIMARY_TOOL_DISPLAY[primaryTool].labelKey) })}
           aria-label={t(PRIMARY_TOOL_DISPLAY[primaryTool].labelKey)}
         >
           <Icon name={PRIMARY_TOOL_DISPLAY[primaryTool].icon} />
@@ -272,37 +333,53 @@ export function FloatingToolPanel({
           <Icon name="ink_eraser" />
         </button>
 
-        {flyoutOpen && (
+        {flyout === 'palette' && (
           <div className={styles.flyout}>
-            {flyoutItems.map(item => {
-              // Collapsed onto the panel's own center until animateIn flips
-              // true one frame later (see the effect above) — that's the
-              // "flies out from under the dot" motion, done as a CSS
-              // transition rather than JS-driven.
-              const offset = animateIn ? item : { x: 0, y: 0 }
-              const transform = `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`
-              return item.color ? (
+            {paletteItems.map(item => (
+              item.color ? (
                 <button
                   key={item.color}
                   className={styles.flyoutSwatch}
-                  style={{ background: item.color, transform }}
+                  style={{ background: item.color, transform: itemTransform(item) }}
                   title={item.color}
                   aria-label={t('palette.selectColor', { color: item.color })}
-                  onClick={() => { onSelectColor(hexToRgb(item.color!)); onFlyoutOpenChange(false) }}
+                  onClick={() => { onSelectColor(hexToRgb(item.color!)); onFlyoutChange(null) }}
                 />
               ) : (
                 <button
                   key="open-picker"
                   className={styles.flyoutPickerBtn}
-                  style={{ transform }}
+                  style={{ transform: itemTransform(item) }}
                   title={t('palette.openPicker')}
                   aria-label={t('palette.openPicker')}
-                  onClick={() => { onOpenColorPicker(); onFlyoutOpenChange(false) }}
+                  onClick={() => { onOpenColorPicker(); onFlyoutChange(null) }}
                 >
                   <Icon name="palette" />
                 </button>
               )
-            })}
+            ))}
+          </div>
+        )}
+
+        {/* The same fan, carrying tools instead of colors. Every tool is shown,
+            the current one included and marked: a chooser that hides what is
+            already in hand makes the user work out which of the remaining
+            three they are holding. */}
+        {flyout === 'tools' && (
+          <div className={styles.flyout}>
+            {toolItems.map(item => (
+              <button
+                key={item.tool}
+                className={clsx(styles.flyoutToolBtn, item.tool === tool && styles.flyoutToolBtnActive)}
+                style={{ transform: itemTransform(item) }}
+                title={t(PRIMARY_TOOL_DISPLAY[item.tool].labelKey)}
+                aria-label={t(PRIMARY_TOOL_DISPLAY[item.tool].labelKey)}
+                aria-pressed={item.tool === tool}
+                onClick={() => { onSetTool(item.tool); onFlyoutChange(null) }}
+              >
+                <Icon name={PRIMARY_TOOL_DISPLAY[item.tool].icon} />
+              </button>
+            ))}
           </div>
         )}
       </div>
