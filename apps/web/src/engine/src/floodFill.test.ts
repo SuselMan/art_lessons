@@ -50,8 +50,6 @@ describe('computeFill', () => {
     // Outside the box and on the wall itself: untouched.
     expect(at(r, 8, 0, 0)).toBe(0)
     expect(at(r, 8, 1, 1)).toBe(0)
-    // A closed region never reaches the domain edge, so nothing to warn about.
-    expect(r.clipped).toBe(false)
   })
 
   // One picture, two runs: a box whose right wall is one pixel short of
@@ -67,16 +65,17 @@ describe('computeFill', () => {
     '.........',
   ]
 
-  it('reports clipped when the outline has a hole, instead of quietly filling everything', () => {
+  it('runs out through a hole in the outline and fills the domain', () => {
+    // Not a warning case, by decision (Ilya, 13.08): an unclosed outline fills
+    // to the edge and the way back is undo. Pinned so the *behaviour* is a
+    // choice on record rather than something nobody looked at — the corner of
+    // the domain really is paint.
     const r = computeFill(source(leakyBox), params({ seedX: 4, seedY: 3 }))
-    expect(r.clipped).toBe(true)
-    // It really did leak: the corner of the domain is paint now.
     expect(at(r, 9, 0, 0)).toBe(255)
   })
 
   it('closes a one-pixel gap so the same outline holds', () => {
     const r = computeFill(source(leakyBox), params({ seedX: 4, seedY: 3, gapClose: 1 }))
-    expect(r.clipped).toBe(false)
     expect(at(r, 9, 0, 0)).toBe(0)
     expect(at(r, 9, 4, 3)).toBe(255)
     // And the seal did not cost the region its own corner.
@@ -112,7 +111,6 @@ describe('computeFill', () => {
     ]
     const r = computeFill(source(rows), params({ seedX: 4, seedY: 1, gapClose: 3 }))
     expect(r.bounds).toEqual({ minX: 1, minY: 1, maxX: 7, maxY: 3 })
-    expect(r.clipped).toBe(false)
   })
 
   it('takes the soft edge from the ink, so a feathered line gets partial coverage', () => {
@@ -144,6 +142,23 @@ describe('computeFill', () => {
     // opaque wall itself.
     expect(at(r, 7, 1, 1)).toBe(255)
     expect(at(r, 7, 0, 1)).toBe(255)
+  })
+
+  it('stops at a line drawn with light pressure at the default tolerance', () => {
+    // The bug Ilya hit on a real sketch (13.08): a liner outline held, the same
+    // shape in pencil did not. A pencil at light pressure lays graphite around
+    // a tenth of full coverage, which sits ~25/255 from blank paper — under the
+    // 15% this used to default to, so the fill walked through the line.
+    //
+    // Both runs below are the same picture. 5% is the schema default
+    // (TOOL_SCHEMAS.fill.tolerance) and the numbers here are why it is that and
+    // not higher.
+    const rows = ['....1....']
+    const faint = computeFill(source(rows), params({ seedX: 0, seedY: 0, tolerance: 0.05 }))
+    expect(at(faint, 9, 4, 0)).toBe(0)     // the line blocks…
+    expect(at(faint, 9, 8, 0)).toBe(0)     // …so nothing past it is filled
+    const loose = computeFill(source(rows), params({ seedX: 0, seedY: 0, tolerance: 0.15 }))
+    expect(at(loose, 9, 8, 0)).toBe(255)   // at the old default it leaked
   })
 
   it('fills the mark itself when the seed is on ink', () => {
@@ -214,7 +229,6 @@ describe('computeFill', () => {
     }
     const r = computeFill(src, params({ seedX: 200, seedY: 200 }))
     expect(r.bounds).toEqual({ minX: 0, minY: 0, maxX: width, maxY: height })
-    expect(r.clipped).toBe(true)
   })
 })
 

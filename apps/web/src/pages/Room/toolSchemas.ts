@@ -753,12 +753,25 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       quickAccess: true,
       default: true,
     },
+    // 5%, and low on purpose (Ilya, 13.08, after filling a real sketch). The
+    // number says how far from the tapped pixel still counts as the same area,
+    // so a *high* tolerance is what leaks: a pencil line drawn at light
+    // pressure lays graphite at maybe a tenth of full coverage, which sits
+    // about 27/255 away from blank paper — inside the 15% this used to
+    // default to, and the fill ran straight through the line. Liner ink is
+    // opaque and never showed it.
+    //
+    // Almost nothing argues for a high default in the other direction, either.
+    // Blank paper is *exactly* uniform in a layer buffer (the grain lives in
+    // the display pass, not in the pixels), so there is no noise for a tight
+    // threshold to trip over — tolerance only really earns its range when
+    // filling over colour that is already down.
     tolerance: {
       nameKey: 'tool.field.tolerance',
       valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider', 'input'],
       quickAccess: true,
-      default: 0.15,
+      default: 0.05,
     },
     // A graphite line is laid through the paper's grain and is full of holes
     // (see DAB_FRAG's paper modulation), so an outline that looks closed

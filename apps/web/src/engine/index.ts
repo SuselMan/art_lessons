@@ -741,17 +741,8 @@ export interface AreaFillRequest {
 }
 
 /** (#453) A computed fill: the raster and where it goes, shaped to drop
- *  straight into an `AreaFillOperation`.
- *
- *  `clipped` is the one field that is not part of the operation. It says the
- *  region was open — the fill ran into the edge of its domain instead of into
- *  the drawing — and exists so the UI can say so. A bucket that silently
- *  covers the page when an outline has a hole in it is the single most
- *  annoying thing a bucket does, and here it would also be a full-canvas
- *  raster in a permanent log. */
-export interface AreaFillRaster extends AreaImage {
-  clipped: boolean
-}
+ *  straight into an `AreaFillOperation`. */
+export type AreaFillRaster = AreaImage
 
 /** (#453) How far past the outermost mark an infinite room's fill domain
  *  reaches. Enough that paint can spread around a drawing rather than stopping
@@ -7715,8 +7706,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  cap is a real limit on what a single fill can cover, and it is deliberate
    *  rather than defensive: the alternative on a drawing spanning tens of
    *  thousands of world units is a readback and a scan nobody's tablet
-   *  finishes. Reaching it is reported like reaching any other edge — see
-   *  `clipped`. */
+   *  finishes. A fill poured into an outline that is not closed stops at the
+   *  cap rather than at the drawing, and that is the intended behaviour: it
+   *  fills, and the way back is undo. */
   private _fillDomain(items: CompositeItem[], seedX: number, seedY: number): WorldRect {
     const half = FILL_MAX_DIM / 2
     const cap: WorldRect = {
@@ -7853,7 +7845,6 @@ export class PencilEngine implements PencilEngineAPI {
       y: rect.minY + (h - result.bounds.maxY),
       width: cropped.width,
       height: cropped.height,
-      clipped: result.clipped,
     }
   }
 

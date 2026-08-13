@@ -18,7 +18,6 @@ import { SidePanel } from '../../components/SidePanel'
 import { ColorPicker } from '../../components/ColorPicker'
 import { PaletteBar } from '../../components/PaletteBar'
 import { Icon } from '../../components/Icon'
-import { Notice } from '../../components/Notice'
 import { Logo } from '../../components/Logo'
 import { Menu } from '../../components/Menu'
 import { SettingsPanel } from '../../components/SettingsPanel'
@@ -2081,7 +2080,15 @@ export function Room() {
   // reasoning as lastDrawingTool itself (see toolSlice.ts). Typed as
   // ColorCapableTool (toolSchemas.ts), the capability these consumers
   // actually depend on — not re-listing pencil/liner/marker by hand here.
-  const colorTool: ColorCapableTool = lastDrawingTool
+  //
+  // (#453) The fill broke the "always a drawing tool" assumption: it owns a
+  // colour and is not a DrawingTool, so falling through to `lastDrawingTool`
+  // pointed every colour control at the pencil while the bucket was in hand —
+  // the picker moved a swatch and the next fill came out the old colour. The
+  // question this answers is "whose colour am I editing", so it asks the
+  // capability (isColorCapableTool) of the tool actually selected, and only
+  // falls back for the tools that own no colour at all.
+  const colorTool: ColorCapableTool = isColorCapableTool(tool) ? tool : lastDrawingTool
   const colorToolColor = getToolColor(toolSettings, colorTool)
   // (#405) Where a picked colour lands: the tool the eyedropper hands the
   // canvas back to, if that tool owns a colour at all. The issue asks for the
@@ -3364,14 +3371,13 @@ export function Room() {
   // and has to refuse a second tap while it is.
   const [fillBusy, setFillBusy] = useState(false)
   const fillBusyRef = useRef(false)
-  // Set when the last fill ran to the edge of its domain instead of into the
-  // drawing, i.e. the outline it was poured into has a hole. Cleared by the
-  // next fill, by undoing, and by the dismiss button — the notice is about one
-  // specific fill, and it stops being true the moment that fill is not the
-  // last thing that happened.
-  const [fillLeaked, setFillLeaked] = useState(false)
 
   const handleFillTap = useCallback(async (e: React.PointerEvent<HTMLDivElement>) => {
+    // Pen (and mouse) only, same as the selection tool. On a tablet a finger is
+    // how the canvas is panned and zoomed, so a touch that reaches here is
+    // almost always the start of a two-finger gesture — and unlike a stray
+    // stroke, a stray fill repaints a whole region.
+    if (e.pointerType === 'touch') return
     // Same precedence as every other canvas tool: the hand outranks what is
     // under it, and a press with it up pans instead.
     if (handActive) return
@@ -3397,7 +3403,6 @@ export function Room() {
 
     fillBusyRef.current = true
     setFillBusy(true)
-    setFillLeaked(false)
     try {
       // Yields one frame before the blocking work so the busy state is on
       // screen while it runs, rather than painting after it is over.
@@ -3431,10 +3436,6 @@ export function Room() {
         expand: values.expand as number,
         source,
       })
-      // Reported after the operation, not instead of it: the fill really did
-      // happen and really is undoable, and pretending otherwise would leave a
-      // covered canvas with no explanation of what covered it.
-      if (filled.clipped) setFillLeaked(true)
     } catch (err) {
       console.error('fill failed', err)
     } finally {
@@ -5521,19 +5522,6 @@ export function Room() {
           )}
           {/* (#289 §17) Independent of the freeze banner above — both can
               be up at once, which the column now handles on its own. */}
-          {/* (#453) The fill ran to the edge of its domain instead of into the
-              drawing — the outline has a hole in it. Said out loud because the
-              alternative is a canvas that silently went one colour and an
-              operation in a permanent log that nobody meant to make. */}
-          {fillLeaked && (
-            <Notice
-              variant="warning"
-              icon="format_color_fill"
-              role="status"
-              message={t('room.fillLeaked')}
-              onDismiss={() => setFillLeaked(false)}
-            />
-          )}
           {lostWork && (
             <LostWorkBanner
               layerNames={lostWork.layerNames}

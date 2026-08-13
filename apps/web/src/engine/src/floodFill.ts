@@ -21,10 +21,9 @@
  *  inside it (A4 at 300dpi is 2480x3508); an infinite room's content bounds
  *  are not bounded by anything, and neither the GPU's max texture size nor a
  *  main-thread scan of the result would survive being handed one. Past this
- *  the domain is a box of this size centred on the seed — a fill that reaches
- *  its edge reports `clipped`, exactly as one that reaches the canvas edge
- *  does, so the cap surfaces as the same "this leaked" message rather than as
- *  a silently different result. */
+ *  the domain is a box of this size centred on the seed, so a fill poured into
+ *  an unclosed outline stops there instead of running for as long as memory
+ *  holds out. */
 export const FILL_MAX_DIM = 4096
 
 export interface FillSource {
@@ -62,11 +61,6 @@ export interface FillResult {
   /** Tight bounds of non-zero coverage, source-local, max-exclusive. Null when
    *  nothing was filled at all. */
   bounds: { minX: number; minY: number; maxX: number; maxY: number } | null
-  /** The fill reached the edge of the domain — i.e. the region was not closed
-   *  (or the seed was outside anything closed). The caller is expected to say
-   *  so out loud: a fill that quietly covers the whole canvas is an operation
-   *  in a permanent log that nobody asked for. */
-  clipped: boolean
 }
 
 /** Where the soft edge sits, as a fraction of `tolerance`. A pixel closer than
@@ -302,15 +296,12 @@ export function expandFilled(
 /** Scanline flood fill over `open` (non-zero = the fill may pass), 4-connected,
  *  writing 1 into `filled`. Iterative with an explicit stack of spans: a
  *  recursive or per-pixel-stack fill blows the JS stack (or the heap) on a
- *  canvas-sized region, which is exactly the size this is for.
- *
- *  Returns whether any filled pixel sat on the domain border. */
+ *  canvas-sized region, which is exactly the size this is for. */
 function scanlineFill(
   open: Uint8Array, filled: Uint8Array,
   width: number, height: number, seedX: number, seedY: number,
   region: RowSpans,
-): boolean {
-  let touchedEdge = false
+): void {
   // Each entry is one horizontal span still to be grown from: [x1, x2, y].
   const stack: number[] = [seedX, seedX, seedY]
   while (stack.length > 0) {
@@ -333,7 +324,6 @@ function scanlineFill(
     // the rest of the domain.
     includeInSpans(region, y, left)
     includeInSpans(region, y, right)
-    if (left === 0 || right === width - 1 || y === 0 || y === height - 1) touchedEdge = true
     for (const ny of [y - 1, y + 1]) {
       if (ny < 0 || ny >= height) continue
       const nrow = ny * width
@@ -347,7 +337,6 @@ function scanlineFill(
       }
     }
   }
-  return touchedEdge
 }
 
 /** Finds the connected region around the seed and returns its coverage.
@@ -369,7 +358,7 @@ function scanlineFill(
 export function computeFill(source: FillSource, params: FillParams): FillResult {
   const { pixels, width, height, background } = source
   const { seedX, seedY, tolerance, gapClose, expand } = params
-  const empty: FillResult = { coverage: new Uint8Array(0), bounds: null, clipped: false }
+  const empty: FillResult = { coverage: new Uint8Array(0), bounds: null }
   if (width <= 0 || height <= 0) return empty
   if (seedX < 0 || seedY < 0 || seedX >= width || seedY >= height) return empty
 
@@ -430,7 +419,7 @@ export function computeFill(source: FillSource, params: FillParams): FillResult 
   // Step 3.
   const filled = new Uint8Array(width * height)
   const region = emptySpans(height)
-  const clipped = scanlineFill(open, filled, width, height, seedX, seedY, region)
+  scanlineFill(open, filled, width, height, seedX, seedY, region)
 
   // Step 4. Dilating the binary mask, not the coverage: expand exists to slide
   // the paint under an opaque line, and under a line "how much paint" is not a
@@ -458,12 +447,8 @@ export function computeFill(source: FillSource, params: FillParams): FillResult 
       if (y > maxY) maxY = y
     }
   }
-  if (maxX < 0) return { coverage, bounds: null, clipped }
-  return {
-    coverage,
-    bounds: { minX, minY, maxX: maxX + 1, maxY: maxY + 1 },
-    clipped,
-  }
+  if (maxX < 0) return { coverage, bounds: null }
+  return { coverage, bounds: { minX, minY, maxX: maxX + 1, maxY: maxY + 1 } }
 }
 
 /** Turns coverage into the straight-alpha RGBA bytes an `area_fill` raster is

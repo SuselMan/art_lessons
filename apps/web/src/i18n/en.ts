@@ -315,10 +315,6 @@ export const en = {
   'room.confirmUndo': 'Undo will remove a layer that has content from other participants. Continue?',
   'room.confirmRedo': 'Redo will remove a layer that has content from other participants. Continue?',
   'room.offlineSharedAction': 'No connection to the project — this action affects shared layers and becomes available again once you reconnect.',
-  // (#453) Deliberately says what to do about it, not just what happened: the
-  // fill did go through and is undoable, and the two settings named here are
-  // the two that decide whether it happens again.
-  'room.fillLeaked': 'The fill spread to the edge — the outline is probably not closed. Undo it, then raise “Close gaps” or lower “Tolerance”.',
 
   // ── project: side panel ────────────────────────────────────────────────
   'room.panel.layers': 'Layers',
