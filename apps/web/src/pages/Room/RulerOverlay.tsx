@@ -33,11 +33,11 @@ const ENDPOINT_RADIUS = 7
  *  drag surface for repositioning (fat invisible hit shapes reporting which
  *  handle was grabbed), which made the ruler draggable under any tool and left
  *  no way to lay a second line over an existing one. Both gestures moved to a
- *  single catcher in Room, present only while the ruler is the selected tool
- *  and the line is shown, which asks `rulerGestureAt` per press what it means.
- *  So this draws the line, its endpoints and the distance label, and nothing
- *  here takes a pointer event — including when it is on screen under another
- *  tool, where a draggable ruler would be exactly the thing #405 removed.
+ *  single catcher in Room, present only while the ruler is the selected tool,
+ *  which asks `rulerGestureAt` per press what it means. So this draws the
+ *  line, its endpoints and the distance label, and nothing here takes a
+ *  pointer event — including when a locked ruler (#445) is on screen under
+ *  another tool, where a draggable one would be exactly what #405 removed.
  *
  *  Same placement convention as PeerCursors/GridOverlay, for both
  *  bounded rooms (a sibling of `<canvas>` inside `canvasWrap`, which

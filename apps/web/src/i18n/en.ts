@@ -480,7 +480,7 @@ export const en = {
   'tool.field.addToPalette': 'Add to palette on pick',
   'tool.field.mode': 'Mode',
   'tool.field.keepProportions': 'Keep proportions',
-  'tool.field.showRuler': 'Show ruler',
+  'tool.field.lockRuler': 'Lock ruler on canvas',
   'tool.field.rulerSnap': 'Snap strokes to the ruler',
   'tool.field.showGrid': 'Show grid',
   'tool.field.tiltResponse': 'Tilt response',

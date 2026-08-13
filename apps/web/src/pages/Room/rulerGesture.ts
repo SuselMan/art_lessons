@@ -63,8 +63,9 @@ function distanceToSegmentSq(p: RulerPoint, a: RulerPoint, b: RulerPoint): numbe
  *
  *  Endpoints win over the body where the two overlap: an endpoint is the more
  *  specific target, and the body is reachable everywhere else along the line.
- *  A null line (nothing laid yet, or hidden — a hidden ruler is inert, so the
- *  caller passes null for it) is always `new`. */
+ *  A null line — nothing laid yet — is always `new`. It cannot mean "laid but
+ *  off screen" any more (#445): the caller's catcher exists only while the
+ *  ruler tool is selected, which is also when the ruler is guaranteed visible. */
 export function rulerGestureAt(
   p: RulerPoint,
   line: RulerLineGeometry | null,

@@ -58,9 +58,8 @@ describe('rulerGestureAt', () => {
     expect(at(-500, 100)).toBe('new')
   })
 
-  // A hidden ruler is inert: Room passes null for it rather than adding a
-  // second condition here, and null is unambiguously "there is nothing to
-  // take hold of".
+  // Null is unambiguously "there is nothing to take hold of" — the state
+  // before the first line is laid.
   it('treats a missing line as nothing to grab', () => {
     expect(at(100, 100, null)).toBe('new')
   })

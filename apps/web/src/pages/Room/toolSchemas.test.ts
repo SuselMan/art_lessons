@@ -124,17 +124,19 @@ describe('the selectable tools all have a panel to show (#405)', () => {
     }
   })
 
-  // `show` is a master switch (a hidden ruler neither snaps nor moves). The
-  // ruler's two defaults preserve the behaviour that existed before they were
-  // settings — snapping was unconditional. The grid's `show` governs the
-  // overlay under every tool, not only its own, so it starts off: a room that
-  // never asks for a construction grid should not open with one drawn across
-  // the paper. (#405 had it on so the grid tool's first press did something
-  // visible; that is now just the quick toggle lighting up, until #406 gives
-  // the tool a gesture of its own.)
-  it('defaults the ruler to shown and snapping, and the grid to hidden', () => {
+  // (#445) `lock` is off by default, which is the whole behaviour change: the
+  // ruler is a straight edge laid on the paper while it is in hand and taken
+  // off again with the next tool, rather than a line left lying across the
+  // drawing until someone reselects the ruler to switch it off. Snapping stays
+  // on — guiding strokes is still what a locked ruler is for. The grid's
+  // `show` governs the overlay under every tool, not only its own, so it
+  // starts off too: a room that never asks for a construction grid should not
+  // open with one drawn across the paper. (#405 had it on so the grid tool's
+  // first press did something visible; that is now just the quick toggle
+  // lighting up, until #406 gives the tool a gesture of its own.)
+  it('defaults the ruler to unlocked and snapping, and the grid to hidden', () => {
     const defaults = defaultToolSettings()
-    expect(defaults.ruler).toEqual({ show: true, snap: true })
+    expect(defaults.ruler).toEqual({ lock: false, snap: true })
     expect(defaults.grid).toEqual({ show: false })
   })
 

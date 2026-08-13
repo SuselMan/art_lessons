@@ -52,10 +52,11 @@ describe('roomStore initial shape', () => {
     expect(keys).not.toContain('gridActive')
   })
 
-  it('starts with the ruler set to show and snapping, and the grid hidden', () => {
+  it('starts with the ruler unlocked and snapping, and the grid hidden', () => {
     const { toolSettings } = useRoomStore.getState()
     expect(toolSettings.grid.show).toBe(false)
-    expect(toolSettings.ruler.show).toBe(true)
+    // (#445) Unlocked, i.e. visible only while the ruler tool is in hand.
+    expect(toolSettings.ruler.lock).toBe(false)
     expect(toolSettings.ruler.snap).toBe(true)
   })
 

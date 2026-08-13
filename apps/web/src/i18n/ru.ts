@@ -391,7 +391,7 @@ export const ru: Dictionary = {
   'tool.field.addToPalette': 'Добавлять в палитру при выборе',
   'tool.field.mode': 'Режим',
   'tool.field.keepProportions': 'Сохранять пропорции',
-  'tool.field.showRuler': 'Показывать линейку',
+  'tool.field.lockRuler': 'Закрепить линейку на холсте',
   'tool.field.rulerSnap': 'Прилипание штрихов к линейке',
   'tool.field.showGrid': 'Показывать сетку',
   'tool.field.tiltResponse': 'Отклик на наклон',

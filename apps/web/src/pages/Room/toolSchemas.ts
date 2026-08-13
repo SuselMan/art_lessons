@@ -609,18 +609,29 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // controls this tool has, so an empty quick column beside a selected ruler
   // would read as a tool that forgot to load.
   ruler: {
-    // (#405) The master switch, not a convenience. A hidden ruler is fully
-    // inert — it does not snap and cannot be dragged (see Room's ruler engine
-    // sync and its pointer catcher) — because the alternative is an invisible
-    // line quietly bending strokes with nothing on screen to explain it, which
-    // is a trap rather than a feature. Hiding never clears the line, so the
-    // same straight edge comes back when it is switched on again.
-    show: {
-      nameKey: 'tool.field.showRuler',
+    // (#445) Not "show" any more. Visibility is answered by the selection
+    // first — the ruler is on screen while the ruler tool is in hand — and
+    // this field only decides whether it *stays* there once another tool is
+    // picked up. The old `show: true` made the common case the awkward one:
+    // measure a distance, go back to the pencil, and the line is still lying
+    // across the drawing, still bending strokes, and the only way to remove it
+    // is to reselect the ruler in order to switch it off.
+    //
+    // Off by default, so the ruler behaves like a straight edge laid on the
+    // paper and taken off again; locking it is the deliberate act, for when the
+    // line is there to be drawn along. Unlocking never clears the line — the
+    // same straight edge is back the moment the ruler is selected again.
+    //
+    // Whatever is invisible is also inert: it does not snap and cannot be
+    // dragged (see Room's ruler engine sync and its pointer catcher), because
+    // a line quietly bending strokes with nothing on screen to explain it is a
+    // trap rather than a feature.
+    lock: {
+      nameKey: 'tool.field.lockRuler',
       valueType: { kind: 'boolean' },
       uiControls: ['toggle'],
       quickAccess: true,
-      default: true,
+      default: false,
     },
     // Snapping used to be unconditional: any placed ruler bent every stroke
     // that came near it (engine.setRuler → rulerSnap.ts). That makes the ruler

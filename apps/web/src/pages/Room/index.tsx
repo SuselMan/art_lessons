@@ -557,18 +557,27 @@ export function Room() {
   // persisted (see layerSlice.ts's own comment: a ruler is for quickly
   // comparing distances mid-drawing, not a saved setting).
   //
-  // (#405) The line outlives the ruler being selected: switch to the pencil
-  // and it stays on screen to draw against, it just stops being draggable.
-  // Nothing clears it — `show` below hides it instead, so the same straight
-  // edge comes back rather than having to be laid again.
+  // (#405) The line outlives the ruler being selected: nothing ever clears it,
+  // so the same straight edge is back the moment the ruler is picked up again
+  // rather than having to be laid a second time. Whether it is *on screen*
+  // meanwhile is `rulerVisible` below.
   const rulerLine = useRoomStore(s => s.rulerLine)
   const setRulerLine = useRoomStore(s => s.setRulerLine)
   // (#405) The ruler's two settings, from the same TOOL_SCHEMAS store every
-  // other tool's live in. `show` is the master switch, not a convenience: a
-  // hidden ruler neither snaps nor moves (see the engine sync and the catcher
-  // below), because an invisible line quietly bending strokes is a trap.
-  const rulerShow = toolSettings.ruler.show as boolean
+  // other tool's live in.
+  const rulerLock = toolSettings.ruler.lock as boolean
   const rulerSnap = toolSettings.ruler.snap as boolean
+  // (#445) Visibility is the selection first, the setting second: the ruler is
+  // on screen while it is in hand, and `lock` only decides whether it stays
+  // there under every other tool. Unlocked (the default) it behaves like a
+  // straight edge laid on the paper to measure with and taken off again —
+  // which is what the toggle used to get backwards, leaving the line lying
+  // across the drawing until the user went back to the ruler to switch it off.
+  //
+  // This one boolean is the master switch the old `show` was: what is not
+  // visible neither snaps (the engine sync below) nor can be grabbed (the
+  // catcher), because an invisible line bending strokes is a trap.
+  const rulerVisible = rulerActive || rulerLock
   // Construction grid (#89, #405) — visibility is a setting on the grid tool
   // now rather than a store flag toggled by the toolbar button, which is what
   // lets it stay on screen under every other tool while its button selects it
@@ -2555,22 +2564,21 @@ export function Room() {
   // *snapping* guide, so this is where "is there a line to snap to right now"
   // is answered, once, for every way the answer can change.
   //
-  // Hidden means genuinely inert, not merely invisible: `show` is off, the
-  // engine is handed null, and nothing bends. That is the whole reason the
-  // toggle is a master switch — an invisible line quietly straightening
-  // strokes, with nothing on screen to explain it, is a trap rather than a
-  // feature. Snapping off keeps the line on screen and draggable, and simply
-  // stops it pulling on strokes: a straight edge to measure and align against
-  // is half of what a ruler on a drawing is for.
+  // Off screen means genuinely inert, not merely invisible: the engine is
+  // handed null and nothing bends. (#445) That is what makes an unlocked ruler
+  // safe to leave lying in the store — pick up the pencil and the line is gone
+  // from both the canvas and the snapping, so measuring costs nothing to undo.
+  // Snapping off keeps the line on screen and draggable, and simply stops it
+  // pulling on strokes: a straight edge to measure and align against is half
+  // of what a ruler on a drawing is for.
   //
   // Deliberately an effect on the state rather than an engine call inside each
   // drag handler (which is what this replaced): "the engine's ruler is exactly
-  // the shown, snapping line" is an invariant, and hand-written call sites are
-  // how an invariant becomes a bug. Note that the line itself is never cleared
-  // — switching tools leaves it on screen to draw against (see rulerLine).
+  // the visible, snapping line" is an invariant, and hand-written call sites
+  // are how an invariant becomes a bug.
   useEffect(() => {
-    engineRef.current?.setRuler(rulerShow && rulerSnap ? rulerLine : null)
-  }, [rulerLine, rulerShow, rulerSnap])
+    engineRef.current?.setRuler(rulerVisible && rulerSnap ? rulerLine : null)
+  }, [rulerLine, rulerVisible, rulerSnap])
 
   // (#405) Selecting a tool selects it. Pressing a toolbar button never hands
   // the canvas back to something else, however many times it is pressed: a
@@ -2933,8 +2941,11 @@ export function Room() {
   // harder to grab zoomed out than zoomed in (#394's rule for the gizmo's own
   // handles).
   //
-  // Only mounted while `rulerShow` is on, so a hidden ruler cannot be grabbed
-  // any more than it can snap — see the engine sync above.
+  // Only mounted while the ruler is the selected tool — which (#445) is also
+  // exactly when it is guaranteed to be on screen. A locked ruler stays
+  // visible under the pencil but is not draggable there, and an unlocked one
+  // is not on screen at all: nothing off screen can be grabbed any more than
+  // it can snap, see the engine sync above.
   const handleRulerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch') return
     // Same precedence as everywhere else (#405): while the hand is up, a drag
@@ -4710,12 +4721,13 @@ export function Room() {
               />
             )}
             {!config.infinite && gridVisible && <GridOverlay width={config.width} height={config.height} />}
-            {/* (#405) On screen whenever it is shown, whatever tool is in
-                hand — a straight edge you can draw against is the point of
-                one. It carries no pointer handlers at all now; dragging it is
+            {/* (#405, #445) On screen while the ruler is in hand, and under
+                every other tool too once it is locked — a straight edge you
+                can draw against is the point of one, but only while you asked
+                for it. It carries no pointer handlers at all; dragging it is
                 the catcher's job, and the catcher only exists while the ruler
                 is the selected tool. */}
-            {!config.infinite && rulerShow && rulerLine && (
+            {!config.infinite && rulerVisible && rulerLine && (
               <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} />
             )}
             {!config.infinite && transformActive && transformBounds && (
@@ -4779,7 +4791,7 @@ export function Room() {
                   viewportHeight={vpRef.current?.clientHeight ?? 0}
                 />
               )}
-              {rulerShow && rulerLine && (
+              {rulerVisible && rulerLine && (
                 <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} />
               )}
               {transformActive && transformBounds && (
@@ -4802,15 +4814,16 @@ export function Room() {
           )}
           {/* (#405) One catcher for the two tools whose gesture is a press on
               the canvas itself. The ruler's is armed for as long as the tool is
-              selected and the line is shown — laying a new line and grabbing
-              the existing one are the same surface now, told apart per press by
-              rulerGestureAt — where it used to disappear the moment a line
-              existed. A hidden ruler gets no catcher at all: hidden means
-              inert, the same rule that keeps it from snapping. */}
+              selected — laying a new line and grabbing the existing one are the
+              same surface now, told apart per press by rulerGestureAt — where
+              it used to disappear the moment a line existed. (#445) That is
+              also exactly when the ruler is on screen, so nothing invisible is
+              ever grabbable: off screen means inert, the same rule that keeps
+              it from snapping. */}
           {eyedropperActive && (
             <div className={styles.canvasCatcher} onPointerDown={handleEyedropperPick} />
           )}
-          {rulerActive && rulerShow && (
+          {rulerActive && (
             <div
               className={styles.canvasCatcher}
               onPointerDown={handleRulerDown}
