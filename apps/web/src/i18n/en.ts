@@ -468,6 +468,7 @@ export const en = {
   'tool.transformTitle': 'Transform — move/scale/rotate/skew the active layer or current selection. Enter applies, Esc cancels  {hotkey}',
   'tool.selection': 'Select',
   'tool.selectionTitle': 'Select — mark a region, then move it with Transform, or cut/copy/paste it. Esc clears it  {hotkey}',
+  'tool.fill': 'Fill',
   'tool.grid': 'Grid',
   'tool.gridTitle': 'Construction grid  {hotkey}',
 
@@ -488,6 +489,14 @@ export const en = {
   'tool.field.rulerSnap': 'Snap strokes to the ruler',
   'tool.field.showGrid': 'Show grid',
   'tool.field.selectionShape': 'Shape',
+  // Fill (#453). "Bleed under line" rather than "expand": what the number does
+  // is push paint under the ink so no pale seam is left, and naming the effect
+  // is the only way a slider that moves an invisible edge by one pixel means
+  // anything on sight.
+  'tool.field.fillSource': 'Boundaries from all visible layers',
+  'tool.field.tolerance': 'Tolerance',
+  'tool.field.gapClose': 'Close gaps',
+  'tool.field.fillExpand': 'Bleed under line',
   'tool.field.tiltResponse': 'Tilt response',
   'tool.field.pressureResponse': 'Pressure response',
   // The three curve shapes (#409). Named for how the tool answers the stylus,

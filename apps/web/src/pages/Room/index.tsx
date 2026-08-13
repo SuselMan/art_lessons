@@ -8,7 +8,7 @@ import { clamp } from 'lodash-es'
 import { nanoid } from 'nanoid'
 import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, RoomAccessMode, RoomJoinRequest,
-  SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape,
+  SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
@@ -571,6 +571,11 @@ export function Room() {
   // "is it selected" and "is there a selection" are two different questions
   // here, and both get asked below.
   const selectionActive = tool === 'selection'
+  // (#453) One-shot like the eyedropper — a tap is the whole gesture — but
+  // unlike it the tool stays in hand afterwards: filling one region of a
+  // drawing almost always means filling the next one too, whereas picking a
+  // colour is something you do once on the way back to drawing.
+  const fillActive = tool === 'fill'
   // (#23) Backed by the store now, alongside the transform-preview fields
   // below — moved for architectural consistency, but deliberately NEVER
   // persisted (see layerSlice.ts's own comment: a ruler is for quickly
@@ -2082,7 +2087,15 @@ export function Room() {
   // reasoning as lastDrawingTool itself (see toolSlice.ts). Typed as
   // ColorCapableTool (toolSchemas.ts), the capability these consumers
   // actually depend on — not re-listing pencil/liner/marker by hand here.
-  const colorTool: ColorCapableTool = lastDrawingTool
+  //
+  // (#453) The fill broke the "always a drawing tool" assumption: it owns a
+  // colour and is not a DrawingTool, so falling through to `lastDrawingTool`
+  // pointed every colour control at the pencil while the bucket was in hand —
+  // the picker moved a swatch and the next fill came out the old colour. The
+  // question this answers is "whose colour am I editing", so it asks the
+  // capability (isColorCapableTool) of the tool actually selected, and only
+  // falls back for the tools that own no colour at all.
+  const colorTool: ColorCapableTool = isColorCapableTool(tool) ? tool : lastDrawingTool
   const colorToolColor = getToolColor(toolSettings, colorTool)
   // (#405) Where a picked colour lands: the tool the eyedropper hands the
   // canvas back to, if that tool owns a colour at all. The issue asks for the
@@ -3236,12 +3249,16 @@ export function Room() {
   const [selectionCursor, setSelectionCursor] = useState<{ x: number; y: number } | null>(null)
   const selectionRectRef = useRef<DOMRect | null>(null)
 
-  // Which layer a selection *action* would touch: the active one, refusing the
+  // Which layer a pixel *action* would touch: the active one, refusing the
   // background (never a legal target for anything that paints, same rule as
   // transform/merge/delete). Null disables the actions — not the outline: a
   // region can be marked with the background active, it simply has nothing to
   // act on until a real layer is.
-  const selectionTargetId = layerState.activeId
+  //
+  // (#453) Shared with the fill tool, which lands on exactly the same layer by
+  // exactly the same rule — it was named for the selection only because that
+  // was the first thing to need it.
+  const paintTargetId = layerState.activeId
     && layerState.activeId !== BACKGROUND_LAYER_ID
     && layerState.items[layerState.activeId]?.kind === 'layer'
     ? layerState.activeId
@@ -3351,13 +3368,93 @@ export function Room() {
   // Which layer the actions below act on, read when they run rather than
   // captured: the selection outlives any one layer, so "copy this region" means
   // "from whatever is active right now".
-  const selectionTargetIdRef = useRef(selectionTargetId)
-  selectionTargetIdRef.current = selectionTargetId
+  const paintTargetIdRef = useRef(paintTargetId)
+  paintTargetIdRef.current = paintTargetId
+
+  // (#453) The fill's one gesture: a tap works out the region and emits an
+  // `area_fill`. Two pieces of state around it, both for the same reason —
+  // the work happens on the main thread and is not instant (a readback of the
+  // fill's domain plus a scan of it), so the tool has to say it is thinking
+  // and has to refuse a second tap while it is.
+  const [fillBusy, setFillBusy] = useState(false)
+  const fillBusyRef = useRef(false)
+
+  const handleFillTap = useCallback(async (e: React.PointerEvent<HTMLDivElement>) => {
+    // Pen (and mouse) only, same as the selection tool. On a tablet a finger is
+    // how the canvas is panned and zoomed, so a touch that reaches here is
+    // almost always the start of a two-finger gesture — and unlike a stray
+    // stroke, a stray fill repaints a whole region.
+    if (e.pointerType === 'touch') return
+    // Same precedence as every other canvas tool: the hand outranks what is
+    // under it, and a press with it up pans instead.
+    if (handActive) return
+    e.preventDefault()
+    e.stopPropagation()
+    const engine = engineRef.current
+    const el = vpRef.current
+    const layerId = paintTargetIdRef.current
+    if (!engine || !el || !config || !layerId || fillBusyRef.current) return
+
+    const rect = el.getBoundingClientRect()
+    // Layer space, not screen space — #143's rule for everything that reaches
+    // an operation: the viewport is this user's own, so a seed recorded in
+    // screen pixels would be somewhere else on every other participant's
+    // canvas (and, here, somewhere else in this user's own layer one zoom
+    // later).
+    const seed = clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config)
+    const values = useRoomStore.getState().toolSettings.fill
+    const color = getToolColor(useRoomStore.getState().toolSettings, 'fill')
+    // The one place the on-screen toggle becomes the operation's named mode —
+    // see the schema's own comment for why the two are shaped differently.
+    const source: FillSourceMode = values.allLayers ? 'visible' : 'layer'
+
+    fillBusyRef.current = true
+    setFillBusy(true)
+    try {
+      // Yields one frame before the blocking work so the busy state is on
+      // screen while it runs, rather than painting after it is over.
+      await new Promise(resolve => requestAnimationFrame(resolve))
+      const filled = await engine.computeAreaFill({
+        layerId,
+        seedX: seed.x,
+        seedY: seed.y,
+        color,
+        tolerance: values.tolerance as number,
+        gapClose: values.gapClose as number,
+        expand: values.expand as number,
+        source,
+      })
+      // Null means the tap produced no region at all (an empty result, not a
+      // failure) — nothing to record and nothing to say.
+      if (!filled) return
+      dispatchOp({
+        type: 'area_fill',
+        layerId,
+        image: filled.image,
+        x: filled.x,
+        y: filled.y,
+        width: filled.width,
+        height: filled.height,
+        seedX: seed.x,
+        seedY: seed.y,
+        color,
+        tolerance: values.tolerance as number,
+        gapClose: values.gapClose as number,
+        expand: values.expand as number,
+        source,
+      })
+    } catch (err) {
+      console.error('fill failed', err)
+    } finally {
+      fillBusyRef.current = false
+      setFillBusy(false)
+    }
+  }, [vpRef, config, dispatchOp, handActive])
 
   const copySelection = useCallback(async (): Promise<boolean> => {
     const engine = engineRef.current
     const current = useRoomStore.getState().selection
-    const layerId = selectionTargetIdRef.current
+    const layerId = paintTargetIdRef.current
     if (!engine || !current || !layerId) return false
     const copied = await engine.readAreaImage(layerId, current)
     if (!copied) return false
@@ -3367,7 +3464,7 @@ export function Room() {
 
   const deleteSelectionContents = useCallback(() => {
     const current = useRoomStore.getState().selection
-    const layerId = selectionTargetIdRef.current
+    const layerId = paintTargetIdRef.current
     if (!current || !layerId) return
     dispatchOp({ type: 'area_clear', layerId, selection: current })
   }, [dispatchOp])
@@ -5078,6 +5175,17 @@ export function Room() {
             aria-pressed={selectionActive}
             onClick={() => selectTool('selection')}
           ><Icon name="highlight_alt" /></button>
+          {/* (#453) Next to the selection rather than among the brushes: it
+              addresses a region and stamps pixels into it, which is what the
+              two tools beside it do. It is not a brush and does not emit a
+              stroke (see NON_DRAWING_TOOLS). */}
+          <button
+            className={clsx(styles.toolIconBtn, fillActive && styles.toolIconBtnActive)}
+            title={t('tool.fill')}
+            aria-label={t('tool.fill')}
+            aria-pressed={fillActive}
+            onClick={() => selectTool('fill')}
+          ><Icon name="format_color_fill" /></button>
 
           <div className={styles.toolDivider} />
 
@@ -5136,14 +5244,14 @@ export function Room() {
                 className={styles.toolIconBtn}
                 title={t('selection.copy')}
                 aria-label={t('selection.copy')}
-                disabled={!selection || !selectionTargetId}
+                disabled={!selection || !paintTargetId}
                 onClick={() => { void copySelection() }}
               ><Icon name="content_copy" /></button>
               <button
                 className={styles.toolIconBtn}
                 title={t('selection.cut')}
                 aria-label={t('selection.cut')}
-                disabled={!selection || !selectionTargetId}
+                disabled={!selection || !paintTargetId}
                 onClick={() => { void cutSelection() }}
               ><Icon name="content_cut" /></button>
               <button
@@ -5157,7 +5265,7 @@ export function Room() {
                 className={styles.toolIconBtn}
                 title={t('selection.delete')}
                 aria-label={t('selection.delete')}
-                disabled={!selection || !selectionTargetId}
+                disabled={!selection || !paintTargetId}
                 onClick={deleteSelectionContents}
               ><Icon name="delete" /></button>
               <button
@@ -5364,6 +5472,17 @@ export function Room() {
               it from snapping. */}
           {eyedropperActive && (
             <div className={styles.canvasCatcher} onPointerDown={handleEyedropperPick} />
+          )}
+          {/* (#453) A tap, like the eyedropper's. `pointerEvents: none` while a
+              fill is running is what refuses the second tap, and it refuses it
+              at the surface rather than inside the handler so the cursor says
+              so too. */}
+          {fillActive && (
+            <div
+              className={styles.canvasCatcher}
+              style={fillBusy ? { cursor: 'progress' } : undefined}
+              onPointerDown={handleFillTap}
+            />
           )}
           {rulerActive && (
             <div

@@ -40,8 +40,13 @@ export type DrawingTool = (typeof DRAWING_TOOLS)[number]
  *  `ToolType`) and cost the one thing the toolbar is for: with a modifier
  *  lit next to a selected tool, two buttons were on at once and no rule
  *  explained which. */
+// (#453) The fill belongs here rather than with the drawing tools, and the
+// line it falls on is the one this list is defined by: it emits an operation
+// of its own kind (`area_fill`, a raster) instead of a `StrokeOperation`, so
+// it is not a `ToolType` and never reaches that serialized contract. That it
+// lays down colour like a brush does is beside the point — so does paste.
 export const NON_DRAWING_TOOLS = [
-  'eyedropper', 'ruler', 'transform', 'selection', 'grid', 'hand',
+  'eyedropper', 'ruler', 'transform', 'selection', 'grid', 'hand', 'fill',
 ] as const satisfies readonly UiToolId[]
 
 export type NonDrawingTool = (typeof NON_DRAWING_TOOLS)[number]

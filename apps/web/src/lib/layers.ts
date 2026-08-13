@@ -418,6 +418,7 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     case 'area_transform':
     case 'area_clear':
     case 'area_paste':
+    case 'area_fill':
     case 'operation_revoke':
     case 'operation_undo':
     case 'operation_redo':

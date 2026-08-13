@@ -868,6 +868,72 @@ export type AreaPasteOperation = OperationBase & {
   matrix?: LayerTransformMatrix
 }
 
+/** (#453) Which pixels the fill reads its boundaries from. `visible` is the
+ *  composite of every visible layer — the lineart-above/colour-below case that
+ *  is most of what a bucket is for — and `layer` is the target layer alone.
+ *  Paint lands in the target layer either way; this only chooses what counts
+ *  as a wall.
+ *
+ *  Ordered as the settings UI shows them, `visible` first because it is the
+ *  default. */
+export const FILL_SOURCES = ['visible', 'layer'] as const
+
+export type FillSourceMode = (typeof FILL_SOURCES)[number]
+
+/** (#453) What the fill tool records: the region it worked out, as pixels.
+ *
+ *  Same raster-in-a-world-rect shape as `area_paste` above, and painted by the
+ *  same code — a fill *is* a stamp of a raster onto a layer. `image` is a PNG
+ *  data URL with straight alpha whose RGB is the fill colour flat across the
+ *  whole rect and whose alpha is the coverage mask; `x`/`y`/`width`/`height`
+ *  place it, always at the raster's natural size (a fill is never resampled —
+ *  it is computed at the pixels it lands on).
+ *
+ *  **Why the result and not the recipe.** The obvious encoding is the one the
+ *  user performed: seed point, tolerance, gap closing, and let every client
+ *  flood-fill its own copy of the layer. That fails the cross-device
+ *  determinism rule in `.claude/rules.md`, and fails it worse than most things
+ *  do. A flood fill is a *threshold* over pixels that came off the GPU, and a
+ *  threshold amplifies: two devices whose graphite agrees to a
+ *  least-significant bit disagree about which side of `tolerance` one pixel of
+ *  a pencil line sits on, and one pixel is the whole difference between a
+ *  filled shape and a filled canvas. It would also put a full-domain readback
+ *  and scan on the main thread of every participant replaying a room.
+ *
+ *  The freedom that buys is worth stating: because only the author ever runs
+ *  the algorithm, the algorithm is not part of the contract. Tolerance, gap
+ *  closing and the antialiased rim can be rewritten, or replaced with a
+ *  perceptual metric, without versioning this operation or touching a single
+ *  one already in the log. Compare `area_transform`, which ships a polygon
+ *  every participant rasterizes and is therefore pinned to the byte.
+ *
+ *  **Why not `area_paste`.** Mechanically it would fit — and that is the
+ *  point at which it stops being a good idea. The log is permanent and kept on
+ *  purpose as a dataset (#375); a fill recorded as a paste is a fill nobody
+ *  can ever find again. The parameters below carry it: nothing on the replay
+ *  path reads them, they exist so the record says what happened.
+ *
+ *  A pure single-layer pixel operation like the three `area_*` ops next door,
+ *  so a layer snapshot can stand in for it (`COVERABLE_OP_TYPES`). */
+export type AreaFillOperation = OperationBase & {
+  type: 'area_fill'
+  layerId: string
+  image: string
+  x: number
+  y: number
+  width: number
+  height: number
+  /** Where the user tapped, in the same layer space as `Dab.x/y`. Replay
+   *  ignores it, as it does every field below — see the docstring. */
+  seedX: number
+  seedY: number
+  color: [number, number, number]
+  tolerance: number
+  gapClose: number
+  expand: number
+  source: FillSourceMode
+}
+
 /** Teacher-only: marks the target operation `gone` for everyone. Not an undo —
  *  it bypasses the author's history and cannot be redone (ADR 002 §6). */
 export type OperationRevokeOperation = OperationBase & {
@@ -914,6 +980,7 @@ export type Operation =
   | AreaTransformOperation
   | AreaClearOperation
   | AreaPasteOperation
+  | AreaFillOperation
   | OperationRevokeOperation
   | OperationUndoOperation
   | OperationRedoOperation

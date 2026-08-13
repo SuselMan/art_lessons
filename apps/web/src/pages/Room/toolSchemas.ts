@@ -31,7 +31,7 @@ import type { IconName } from '../../icons/iconNames'
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
 export type UiToolId =
   | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen'
-  | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'selection' | 'grid' | 'hand'
+  | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'selection' | 'grid' | 'hand' | 'fill'
 
 export type SettingValueType =
   | {
@@ -780,6 +780,80 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // modifier laid over a drawing tool, so the column kept showing *that* tool's
   // fields — settings for something the next press would not touch.
   hand: {},
+  // Fill (#453, ADR 010). Four knobs, and each exists because a bucket on a
+  // *drawn* boundary — as opposed to a vector or a hard-edged digital one —
+  // fails in a specific way without it.
+  fill: {
+    color: {
+      nameKey: 'tool.field.color',
+      valueType: { kind: 'color' },
+      uiControls: ['swatch'],
+      quickAccess: true,
+      default: [0.85, 0.85, 0.85],
+    },
+    // Which pixels the boundary is read from. Quick-access and deliberately
+    // first among the non-colour fields: it is the one setting that changes
+    // what the same tap *means*, and the lineart-above/colour-below workflow
+    // it exists for is the main reason to reach for a bucket at all.
+    //
+    // A toggle here and a *named mode* on the wire (`FillSourceMode`), which
+    // is a deliberate mismatch rather than an oversight. On screen this is one
+    // binary capability — the same shape as the grid's `show` — and a two-item
+    // picker would need two glyphs standing for "all visible layers" and "this
+    // layer only", which no icon says without a caption. In the operation log,
+    // which is permanent and read as a dataset (#375), a boolean named after
+    // today's two choices is the thing that ages badly: "sample everything
+    // including hidden layers" or "sample the layer below" are ordinary paint-
+    // app modes, and each would arrive as a second boolean contradicting the
+    // first. Mapped in one place, where the operation is built.
+    allLayers: {
+      nameKey: 'tool.field.fillSource',
+      valueType: { kind: 'boolean' },
+      uiControls: ['toggle'],
+      quickAccess: true,
+      default: true,
+    },
+    // 5%, and low on purpose (Ilya, 13.08, after filling a real sketch). The
+    // number says how far from the tapped pixel still counts as the same area,
+    // so a *high* tolerance is what leaks: a pencil line drawn at light
+    // pressure lays graphite at maybe a tenth of full coverage, which sits
+    // about 27/255 away from blank paper — inside the 15% this used to
+    // default to, and the fill ran straight through the line. Liner ink is
+    // opaque and never showed it.
+    //
+    // Almost nothing argues for a high default in the other direction, either.
+    // Blank paper is *exactly* uniform in a layer buffer (the grain lives in
+    // the display pass, not in the pixels), so there is no noise for a tight
+    // threshold to trip over — tolerance only really earns its range when
+    // filling over colour that is already down.
+    tolerance: {
+      nameKey: 'tool.field.tolerance',
+      valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
+      uiControls: ['slider', 'input'],
+      quickAccess: true,
+      default: 0.05,
+    },
+    // A graphite line is laid through the paper's grain and is full of holes
+    // (see DAB_FRAG's paper modulation), so an outline that looks closed
+    // usually is not. Without this the fill escapes through a 1px hole and
+    // covers the page — which is why it defaults to on rather than to zero.
+    gapClose: {
+      nameKey: 'tool.field.gapClose',
+      valueType: { kind: 'numberRange', min: 0, max: 3, step: 1, format: pxFormat },
+      uiControls: ['slider', 'input'],
+      default: 1,
+    },
+    // Slides the paint under the line it stopped at. Without it every filled
+    // shape wears a pale outline where the antialiased edge of the ink and the
+    // antialiased edge of the fill fail to meet — the single most visible
+    // difference between a bucket that looks finished and one that does not.
+    expand: {
+      nameKey: 'tool.field.fillExpand',
+      valueType: { kind: 'numberRange', min: 0, max: 3, step: 1, format: pxFormat },
+      uiControls: ['slider', 'input'],
+      default: 1,
+    },
+  },
 }
 
 export type ToolSettingsValue = Record<string, SettingDescriptor['default']>
@@ -827,7 +901,9 @@ export function toolGradeOptions(toolId: UiToolId): readonly string[] | null {
 // so it carries a real union type; `toolSchemas.test.ts` asserts it matches
 // exactly the set of schemas that actually declare a `color` field, so the
 // two can't silently drift when a tool is added.
-export const COLOR_CAPABLE_TOOLS = ['pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'brushPen'] as const satisfies readonly UiToolId[]
+export const COLOR_CAPABLE_TOOLS = [
+  'pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'brushPen', 'fill',
+] as const satisfies readonly UiToolId[]
 
 export type ColorCapableTool = (typeof COLOR_CAPABLE_TOOLS)[number]
 
