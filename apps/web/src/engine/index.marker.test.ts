@@ -1,6 +1,6 @@
 // Engine-level tests for the marker tool (#250, ADR 004 section 3; rasterizer
 // rewritten in #330). The marker draws its stroke as one connected swept figure
-// — nib stamps at each sample plus the ribbon between them (_paintMarkerRibbon
+// — nib stamps at each sample plus the ribbon between them (_paintRibbonStroke
 // in index.ts, markerRibbon.ts for the geometry) — then composites it through
 // DAB_FRAG's u_inkMode>1.5 branch, which multiplies against whatever was
 // already there (or a flat paper-white constant over untouched content)
@@ -62,7 +62,7 @@ describe('marker tool (#250, ADR 004)', () => {
   // u_inkMode>1.5 — verifies the engine actually sets it for marker's own
   // draw. Unlike liner (index.liner.test.ts's identical-in-spirit test),
   // marker's own draw always goes through the non-batched _dabProg (see
-  // _paintMarkerDabs' own doc comment on why it can't batch), so this reads
+  // _paintRibbonDabs' own doc comment on why it can't batch), so this reads
   // through lastMarkerDabUniform (the non-instanced program) rather than
   // lastPaperDabUniform (which prefers the instanced program pencil/liner
   // actually use, and would just observe a stale leftover value here).
@@ -238,7 +238,7 @@ describe('marker tool (#250, ADR 004)', () => {
 })
 
 // A gesture longer than STROKE_DAB_CHUNK_LIMIT is recorded as several
-// operations. Live they all paint through one MarkerStrokeScratch, so the
+// operations. Live they all paint through one RibbonStrokeScratch, so the
 // content the marker multiplies is frozen once, at pen-down. Replay used to
 // give each operation its own, freezing the content *including what the
 // previous chunk had just painted* — so the second chunk multiplied over the

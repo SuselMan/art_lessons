@@ -1,6 +1,7 @@
 import type { ToolType } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
+import { shapingForBrushPenPreset } from './brushPenPresets'
 import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
 import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
@@ -35,6 +36,18 @@ export interface DabShapingProfile {
    *  liner and both marker nibs barely respond to tilt, so filtering it would
    *  cost them a little work to change nothing. */
   tiltSmoothing?: number
+  /** The same idea one signal over (#454): per-sample weight for DabSystem's
+   *  *pressure* low-pass, omitted for no filtering. Set only by the brush pen,
+   *  the first tool whose width tracks pressure closely enough for the
+   *  device's own noise to show in the mark — every other tool's pressure
+   *  response is either mild (liner, marker) or already smoothed by being
+   *  spread over a large soft dab (graphite, charcoal).
+   *
+   *  Deliberately a separate knob from tiltSmoothing rather than one shared
+   *  "input smoothing": they filter different signals for different reasons,
+   *  and ADR 009 §3 requires pressure smoothing to be independent of the
+   *  smoothing applied to coordinates (which is the spline's job, not this). */
+  pressureSmoothing?: number
   /**
    * Per-dab angle (radians). Given the raw tilt magnitude/components and the
    * spline's path-tangent angle at this dab, so a profile can derive angle
@@ -236,6 +249,13 @@ export function shapingForTool(
 ): DabShapingProfile {
   if (tool === 'liner') return LINER_DAB_SHAPING
   if (tool === 'marker') return shapingForMarkerPreset(presetName, markerAngle)
+  // #454: like marker, the brush pen dispatches on presetName — but it carries
+  // the pressure response there rather than a nib, since the tool has no nib
+  // list and no size ladder to spend that slot on (brushPenPresets.ts's own
+  // comment on why the setting rides this existing channel). It ignores
+  // tiltResponse for the same reason liner and marker do: its shape barely
+  // tracks tilt, so the setting would provably do nothing.
+  if (tool === 'brushPen') return shapingForBrushPenPreset(presetName)
   // #304: charcoal's geometry is the same for all three types (vine/willow/
   // compressed differ in how the material *deposits*, not in the shape of the
   // stick's contact patch) — so it ignores presetName, same as liner does.

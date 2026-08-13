@@ -341,7 +341,7 @@ export const DAB_FRAG = `
   // rather than as a faint dither — see the grainMul term below.
   uniform float u_charcoalGrainDepth;
   // Marker only, redesigned in a follow-up to #250 (see engine/index.ts's
-  // MarkerStrokeScratch for the full story of *why*): this tile's own
+  // RibbonStrokeScratch for the full story of *why*): this tile's own
   // content exactly as it was before this stroke started touching it,
   // frozen once and never updated again for the rest of the stroke —
   // reading it here instead of the tile's *current* (already partly
@@ -356,7 +356,7 @@ export const DAB_FRAG = `
   uniform sampler2D u_original;
   // This stroke's own accumulated coverage at each pixel so far — a plain
   // saturating "over" splat (u_inkMode>2.5 branch below), painted by
-  // engine/index.ts's _drawMarkerCoverageDab *before* this draw call, using
+  // engine/index.ts's _drawRibbonCompositeDab *before* this draw call, using
   // the exact same dab quad this draw call itself uses. Reading the
   // *accumulated* value here (rather than recomputing this one dab's own
   // shape*opacity) is what makes densely-overlapping dabs converge to one
@@ -366,7 +366,7 @@ export const DAB_FRAG = `
   // ADR 004 "Ревизия v1.5": how much ink this stroke has actually deposited
   // at each pixel, distance-normalized (engine/index.ts computes each dab's
   // own contribution as dab.opacity * segmentLength, not a flat per-dab
-  // amount — see _paintMarkerRibbon) and accumulated *additively*
+  // amount — see _paintRibbonStroke) and accumulated *additively*
   // (AccumulationBuffer.beginAdditiveDraw — no per-accumulation ceiling,
   // unlike u_strokeCoverage's saturating splat). Separating this from
   // u_strokeCoverage is what lets scribbling back and forth over an
@@ -376,7 +376,7 @@ export const DAB_FRAG = `
   // goes — see the composite branch below).
   uniform sampler2D u_inkLoad;
   // Every _dabProg draw already sets this (see engine/index.ts's own
-  // _drawMarkerCompositeDab/_drawMarkerCoverageDab and every other caller)
+  // _drawRibbonCompositeDab/_drawRibbonCompositeDab and every other caller)
   // — declared here too so this fragment shader can read it back for the
   // u_original/u_strokeCoverage/u_inkLoad gl_FragCoord mapping above.
   uniform vec2 u_resolution;
@@ -392,6 +392,10 @@ export const DAB_FRAG = `
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
+  // #454 (ADR 009 §8) — how strongly paper grain eats into the brush pen's
+  // *rim*. Read only by the u_inkMode=8 composite branch; 0 everywhere else,
+  // which makes that branch's own term vanish identically.
+  uniform float u_paperEdge;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -575,7 +579,11 @@ export const DAB_FRAG = `
     // as mechanically flat. The superseded per-dab splat instead tapered all
     // the way to zero across a soft profile — which is what made a light marker
     // touch look like an airbrush rather than a marker pressed less hard.
-    if (u_inkMode > 6.5) {
+    // Bounded above, not an open ">" like it used to be: #454 added mode 8
+    // (the brush pen's composite), and this check would otherwise swallow it
+    // and deposit ink where a finished pixel was meant to be written. Same
+    // band form the coverage branch right above already uses.
+    if (u_inkMode > 6.5 && u_inkMode < 7.5) {
       float dPx = markerNibDistPx();
       float cov = clamp(-dPx / u_aaPx, 0.0, 1.0);
       if (cov <= 0.0) discard;
@@ -805,6 +813,62 @@ export const DAB_FRAG = `
     // reason the rasterizer was rewritten is that the mark's edge was too soft,
     // and softness is exactly what this adds back.
 
+    // Brush pen composite (#454, ADR 009 §9): plain source-over of a covering
+    // ink, checked before the marker's own branch below since 8.0 would
+    // satisfy that one's "> 1.5" too (same mutually-exclusive-formulas
+    // reasoning that branch gives for sitting ahead of the liner's).
+    //
+    // Structurally this is the marker's pipeline — accumulate the stroke's
+    // silhouette in a scratch buffer, then recompute the finished pixel from
+    // the frozen pre-stroke content on every batch — and it is here for the
+    // same reason: "over" applied twice with the same alpha darkens (0.97 ->
+    // 0.999), so a pixel a stroke revisits must be recomputed, not added to.
+    // That is also exactly what makes a second pass over an already-saturated
+    // line leave it alone, which ADR 009 §9 requires.
+    //
+    // What it is *not* is the marker's ink model: no inkLoad texture, no
+    // Beer-Lambert film, no per-pixel dye quantity. Ink covers rather than
+    // transmits, so the silhouette says everything the composite needs, and the
+    // ribbon profile switches that whole pass off for this tool.
+    if (u_inkMode > 7.5) {
+      vec2 tileUV = gl_FragCoord.xy / u_resolution;
+      float coverage = texture2D(u_strokeCoverage, tileUV).a;
+      // Nothing of this stroke here — leave whatever is on the layer exactly
+      // as it is, which is what makes drawing the composite over a whole
+      // bounding rect (rather than per dab) free.
+      if (coverage <= 0.0) discard;
+
+      // ADR 009 §8. Paper acts on the rim only: edgeness is identically 0
+      // wherever the mark is solid, so no value of u_paperEdge can put grain
+      // or holes *inside* the stroke — that would read as a dry brush, which
+      // is the one thing this tool must not look like. At the rim, absorbent
+      // paper (low paperCatch, i.e. a pit between fibres) takes a bite out of
+      // the coverage, so the boundary picks up the fibre-scale irregularity
+      // real ink has and a vector-like edge doesn't.
+      //
+      // paperCatch is a single sample of a value baked offline in double
+      // precision (see its own comment above), and this adds only multiply/mix
+      // on top — no new hash, no finite difference. That is what keeps the mark
+      // identical on every participant's GPU (.claude/rules.md).
+      float edgeness = 1.0 - coverage;
+      float paperMod = 1.0 - u_paperEdge * edgeness * (1.0 - paperCatch);
+
+      // v_opacity, not a per-dab quantity smuggled through coverage: every dab
+      // of a brush-pen stroke carries the same opacity (engine's own
+      // _bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
+      // §9), so one uniform value describes the whole batch exactly. A tool
+      // whose opacity varied per dab could not be composited from a coverage
+      // buffer this way at all.
+      float alpha = clamp(coverage * v_opacity * paperMod, 0.0, 1.0);
+      vec4 dst = texture2D(u_original, tileUV);
+      // Textbook premultiplied "over". dst is already premultiplied, so there
+      // is nothing to recover first — unlike the marker's branch, which has to
+      // un-premultiply because it multiplies against the pigment's own colour.
+      gl_FragColor = vec4(alpha * u_color + (1.0 - alpha) * dst.rgb,
+                          alpha + (1.0 - alpha) * dst.a);
+      return;
+    }
+
     // Marker composite (#250, ADR 004 §3, redesigned in "Ревизия v1.5" —
     // see u_original/u_strokeCoverage/u_inkLoad's own comments above):
     // multiply-with-coverage compositing, not a single-pass "over" the way
@@ -815,7 +879,7 @@ export const DAB_FRAG = `
     if (u_inkMode > 1.5) {
       // u_original/u_strokeCoverage/u_inkLoad are always exactly the same
       // size and pixel-aligned with the tile this draws into (see
-      // MarkerStrokeScratch's own doc comment) — a plain 0..1 UV, no
+      // RibbonStrokeScratch's own doc comment) — a plain 0..1 UV, no
       // patch-relative origin/size math needed.
       vec2 tileUV = gl_FragCoord.xy / u_resolution;
       vec4 dst = texture2D(u_original, tileUV);
@@ -866,7 +930,7 @@ export const DAB_FRAG = `
       // retune, same status every other first-pass constant here carries.
       //
       // SCOPE, decided 2026-07-28 (Ilya): this ceiling is **per stroke**, not
-      // global. Each stroke gets its own MarkerStrokeScratch, so u_original is
+      // global. Each stroke gets its own RibbonStrokeScratch, so u_original is
       // whatever the previous stroke already darkened and inkLoad restarts at
       // zero — lift the stylus, go over the same spot again, and the multiply
       // applies afresh (color^2 after one stroke, color^4 after two). Making it

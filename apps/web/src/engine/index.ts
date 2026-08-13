@@ -40,7 +40,11 @@ import {
   type DwellConfig, type LinerSizeMm,
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
-import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX, type NibShape } from './src/markerRibbon'
+import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
+import { isRibbonTool, ribbonProfileFor, type RibbonProfile } from './src/ribbonProfile'
+import {
+  BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper,
+} from './src/brushPenPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
   applyMatrix, composeMatrix, invertMatrix, scaleRotateMatrix, toMat3, translationMatrix,
@@ -1061,60 +1065,10 @@ const SMUDGE_DEPOSIT_RATE = 2.0
 const MARKER_BULLET_PRESET: PencilPreset = { opacity: 0.45, hardness: 0.78, sizeMultiplier: 1.0 }
 const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, sizeMultiplier: 1.0 }
 
-// #330 stage 2: width of the marker's edge ramp, in canvas pixels — the one
-// number that decides how crisp the tool reads, and deliberately an absolute
-// one. The profile it replaces spent a fixed *fraction* of the dab on its
-// falloff (36-40% of the mark's half-width at every size), so a 120px brush
-// came out with a ~44px gradient; a real felt/alcohol tip has an edge whose
-// width is a property of the tip, not of how wide the tip is.
-//
-// Canvas pixels, not screen pixels: dabs are baked into the layer's own
-// world-space buffer and the viewport transform is applied later at display
-// time, so a screen-space width would make the same Operation Log render
-// differently at different zoom — see .claude/rules.md on cross-device
-// determinism for why that class of dependency is not acceptable here.
-//
-// 1.0 is the natural starting point (one pixel of ramp is what a hard edge
-// costs to antialias at all); this is an uncalibrated first pass like every
-// other marker constant, and the paper-driven bleed that used to hide inside
-// the old falloff is deliberately not folded back in yet — stage 3.
-const MARKER_EDGE_AA_PX = 1.0
-
-// #330 stage 3: how far the ribbon's straight chords may deviate from the curve
-// they approximate before sampling gets denser (DabSystem.curvatureTolerancePx).
-//
-// 0.15px, not the half pixel this started at. The first value was picked
-// against the path's own sagitta alone and left visible rounded scalloping on
-// turns with a wide nib: the dominant error is the nib's *reach* amplifying the
-// turn (see DabSystem.curvatureTolerancePx), and against a 1px edge ramp a
-// periodic 0.5px wobble is roughly half the boundary pixel's alpha — plainly
-// visible now that nothing blurs it. A fraction of the ramp width is the right
-// scale for this; sample count only grows with sqrt(1/tol), so tightening it
-// this far costs ~1.8x the samples on the curves where it binds at all, and
-// nothing on straight strokes.
-const MARKER_CURVATURE_TOLERANCE_PX = 0.15
-
-// #330 stage 3, ADR 004 §1 revisited: the chisel nib is a rounded rectangle,
-// not an ellipse. A flat felt tip really does have parallel sides and a short
-// rounded end; an ellipse tapers all the way along its length, which reads as a
-// calligraphy pen and never produces the flat broad band a chisel marker is
-// bought for. Only reachable now that the ribbon makes the union exact for any
-// convex nib — as a *stamp* shape a rounded box was measurably worse than the
-// ellipse (26.3px of scalloping against 21.0px at the same spacing), because a
-// flat side translates as a whole.
-//
-// Corner radius as a fraction of the nib's short half-axis; the expert's
-// suggested range was 0.20-0.35 and this sits in the middle. Uncalibrated first
-// pass like every other marker constant.
-const MARKER_CHISEL_CORNER_FRACTION = 0.28
-
-// #330 stage 3: how much less ink the nib lays down right at its rim than at
-// its centre. Deliberately shallow — a marker's mark is close to uniform across
-// the tip, and the old soft profile (which tapered all the way to zero) is what
-// made a light touch read as an airbrush instead of a marker. The silhouette's
-// crispness now comes from geometry, so this term no longer has to double as an
-// edge; it only keeps the mark from looking mechanically flat.
-const MARKER_INK_EDGE_FALLOFF = 0.9
+// The marker's own ribbon constants (edge ramp, curvature tolerance, chisel
+// corner radius, rim ink falloff) moved to src/ribbonProfile.ts in #454: they
+// describe how the ribbon rasterizer draws one tool, and there are two such
+// tools now. See that file.
 
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
@@ -1138,7 +1092,7 @@ const MARKER_INK_EDGE_FALLOFF = 0.9
  *    actually *deposited* so far — accumulated *additively*
  *    (AccumulationBuffer.beginAdditiveDraw, no per-splat ceiling), by
  *    `dab.opacity * segmentLength` per dab (distance-normalized — see
- *    _paintMarkerRibbon), not a flat per-dab amount. Deliberately separate
+ *    _paintRibbonStroke), not a flat per-dab amount. Deliberately separate
  *    from `coverage`: conflating the two into one saturating value (v1's
  *    own design) meant a spot that had already reached full coverage
  *    stopped darkening on further overlapping passes within the same
@@ -1155,10 +1109,10 @@ const MARKER_INK_EDGE_FALLOFF = 0.9
  *  Lives for exactly one stroke, never reused across strokes (unlike
  *  smudge's own per-user reservoir, a real carried physical resource) —
  *  see engine._onStart/_onEnd for the live-drawing lifecycle, and
- *  _paintMarkerDabs' own doc comment for the one-shot-replay case (which
+ *  _paintRibbonDabs' own doc comment for the one-shot-replay case (which
  *  just creates and destroys its own throwaway instance within one call,
  *  needing no cross-call lifecycle at all). */
-/** (#385) Free list for MarkerStrokeScratch's buffers, so a gesture ending and
+/** (#385) Free list for RibbonStrokeScratch's buffers, so a gesture ending and
  *  the next one starting reuses GL objects instead of deleting three and
  *  allocating three more.
  *
@@ -1186,7 +1140,7 @@ const MARKER_INK_EDGE_FALLOFF = 0.9
  *  tile) with room to spare. */
 const MARKER_SCRATCH_POOL_PER_SIZE = 6
 
-class MarkerScratchPool {
+class RibbonScratchPool {
   private _free = new Map<string, AccumulationBuffer[]>()
   private readonly gl: WebGLRenderingContext
 
@@ -1197,7 +1151,7 @@ class MarkerScratchPool {
   acquire(width: number, height: number): AccumulationBuffer {
     const list = this._free.get(`${width}x${height}`)
     const reused = list?.pop()
-    // 'nearest' matches what MarkerStrokeScratch has always asked for — see
+    // 'nearest' matches what RibbonStrokeScratch has always asked for — see
     // its getOrCreate comment. The pool must never hand back a buffer built
     // with a different filter, which is why it is keyed by size alone and
     // used by this one caller.
@@ -1224,12 +1178,26 @@ class MarkerScratchPool {
   }
 }
 
-class MarkerStrokeScratch {
-  private _tiles = new Map<AccumulationBuffer, { original: AccumulationBuffer; coverage: AccumulationBuffer; inkLoad: AccumulationBuffer }>()
-  private readonly pool: MarkerScratchPool
+/** One tile's worth of a ribbon stroke's scratch state. `inkLoad` is null for a
+ *  tool whose composite doesn't read one — see RibbonStrokeScratch's ctor. */
+interface RibbonTileScratch {
+  original: AccumulationBuffer
+  coverage: AccumulationBuffer
+  inkLoad: AccumulationBuffer | null
+}
 
-  constructor(pool: MarkerScratchPool) {
+class RibbonStrokeScratch {
+  private _tiles = new Map<AccumulationBuffer, RibbonTileScratch>()
+  private readonly pool: RibbonScratchPool
+  private readonly needsInk: boolean
+
+  /** `needsInk` false skips the third buffer entirely (#454): a covering,
+   *  source-over ink has no per-pixel pigment quantity for the composite to
+   *  read, so allocating and clearing one per tile would be a buffer and two
+   *  draw calls spent on a value nothing samples. See RibbonProfile.ink. */
+  constructor(pool: RibbonScratchPool, needsInk = true) {
     this.pool = pool
+    this.needsInk = needsInk
   }
 
   /** Keyed by the tile's own AccumulationBuffer identity — stable across
@@ -1250,19 +1218,22 @@ class MarkerStrokeScratch {
    *  "original") base rather than a crash or a wrong result. Not worth
    *  guarding against for v1: a single marker gesture spans very few tiles,
    *  nowhere near what it'd take to force an eviction on its own. */
-  getOrCreate(tile: AccumulationBuffer): { original: AccumulationBuffer; coverage: AccumulationBuffer; inkLoad: AccumulationBuffer } {
+  getOrCreate(tile: AccumulationBuffer): RibbonTileScratch {
     let entry = this._tiles.get(tile)
     if (!entry) {
-      // (#385) From the pool, and every one of the three is fully written
-      // before it is read — copyTo overwrites `original` outright, the other
-      // two are cleared — so a reused buffer carries nothing of whatever
-      // gesture had it last.
+      // (#385) From the pool, and every one of them is fully written before it
+      // is read — copyTo overwrites `original` outright, the others are
+      // cleared — so a reused buffer carries nothing of whatever gesture had
+      // it last.
       const original = this.pool.acquire(tile.width, tile.height)
       tile.copyTo(original)
       const coverage = this.pool.acquire(tile.width, tile.height)
       coverage.clear()
-      const inkLoad = this.pool.acquire(tile.width, tile.height)
-      inkLoad.clear()
+      let inkLoad: AccumulationBuffer | null = null
+      if (this.needsInk) {
+        inkLoad = this.pool.acquire(tile.width, tile.height)
+        inkLoad.clear()
+      }
       entry = { original, coverage, inkLoad }
       this._tiles.set(tile, entry)
     }
@@ -1274,7 +1245,8 @@ class MarkerStrokeScratch {
    *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
     for (const { original, coverage, inkLoad } of this._tiles.values()) {
-      this.pool.release(original); this.pool.release(coverage); this.pool.release(inkLoad)
+      this.pool.release(original); this.pool.release(coverage)
+      if (inkLoad) this.pool.release(inkLoad)
     }
     this._tiles.clear()
   }
@@ -1401,24 +1373,24 @@ export class PencilEngine implements PencilEngineAPI {
   private _smudgeScratchPool: AccumulationBuffer[] = []
 
   // Marker's own per-stroke, per-tile scratch (original content + this
-  // stroke's accumulated coverage — see MarkerStrokeScratch's own doc
+  // stroke's accumulated coverage — see RibbonStrokeScratch's own doc
   // comment). Non-null exactly while a *local* marker stroke is in
   // progress: created in _onStart, destroyed and nulled in _onEnd. A
-  // one-shot full-array _paintMarkerDabs call (replay/undo/redo/checkpoint/
+  // one-shot full-array _paintRibbonDabs call (replay/undo/redo/checkpoint/
   // most peer ops) never touches this field at all — it creates and tears
   // down its own throwaway instance within that single call instead (see
-  // _paintMarkerDabs' own doc comment).
-  private _markerStrokeScratch: MarkerStrokeScratch | null = null
-  /** (#385) Shared free list behind every MarkerStrokeScratch this engine
-   *  builds — see MarkerScratchPool's own doc comment for why the marker path
+  // _paintRibbonDabs' own doc comment).
+  private _ribbonStrokeScratch: RibbonStrokeScratch | null = null
+  /** (#385) Shared free list behind every RibbonStrokeScratch this engine
+   *  builds — see RibbonScratchPool's own doc comment for why the marker path
    *  cannot allocate per gesture. Assigned in the constructor, right after
    *  `gl`. */
-  private _markerScratchPool: MarkerScratchPool
+  private _ribbonScratchPool: RibbonScratchPool
   // The gesture this stroke belongs to (StrokeOperation.strokeId) — one id
   // from pen-down to pen-up, stamped on every chunk _flushStrokeChunk emits
   // along the way as well as on the final op.
   private _strokeId: string | null = null
-  /** Replay-side counterpart of _markerStrokeScratch: keeps one gesture's
+  /** Replay-side counterpart of _ribbonStrokeScratch: keeps one gesture's
    *  scratch alive across the several operations it was chunked into.
    *
    *  Live, every chunk of a gesture paints through the same scratch, so the
@@ -1432,8 +1404,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  One slot, not a map: a gesture's chunks are consecutive in the log and
    *  arrive in order, so anything else interleaving simply starts a new slot —
    *  which is the old behaviour, a seam, rather than a wrong result. */
-  private _replayMarkerChunk:
-    | { strokeId: string; target: ILayerBuffer; scratch: MarkerStrokeScratch; lastDab: Dab }
+  private _replayRibbonChunk:
+    | { strokeId: string; target: ILayerBuffer; scratch: RibbonStrokeScratch; lastDab: Dab }
     | null = null
 
   // Smudge's own carried imprint (#14; a raster texture per user since
@@ -1468,7 +1440,7 @@ export class PencilEngine implements PencilEngineAPI {
   // gesture long enough to be split across several operations (see
   // _flushStrokeChunk) must not restart its imprint at every chunk
   // boundary, and the later chunks arrive with no prevDab of their own.
-  // Keyed by user (unlike marker's single _replayMarkerChunk slot) because
+  // Keyed by user (unlike marker's single _replayRibbonChunk slot) because
   // smudge state is per-user by construction — two peers' chunked strokes
   // interleaving in the log would otherwise each reset the other.
   private _smudgeReplayChunks = new Map<string, { strokeId: string; lastDab: Dab }>()
@@ -1830,6 +1802,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokePreset: string
   private _strokeColor: [number, number, number]
   private _strokeDabs: Dab[]
+  /** Arc length (world px) travelled by this stroke so far — brush pen only,
+   *  for the head taper (#454). Reset in _onStart, advanced in
+   *  _paintStrokeDabs; meaningless for every other tool, which never reads
+   *  it. */
+  private _strokeArcLen = 0
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   // #278: marker chisel nib's live angle setting — canvas-space radians
@@ -1921,7 +1898,7 @@ export class PencilEngine implements PencilEngineAPI {
     })
     if (!gl) throw new Error('WebGL not supported')
     this.gl = gl
-    this._markerScratchPool = new MarkerScratchPool(gl)
+    this._ribbonScratchPool = new RibbonScratchPool(gl)
 
     this.canvas.addEventListener('webglcontextlost', this._handleContextLost)
     this.canvas.addEventListener('webglcontextrestored', this._handleContextRestored)
@@ -3249,12 +3226,12 @@ export class PencilEngine implements PencilEngineAPI {
     // (#385) These two hand their buffers back to the pool rather than to the
     // driver, so the pool has to be drained *after* them — draining first
     // would leave exactly the buffers they are still holding behind.
-    this._markerStrokeScratch?.destroy()
-    this._markerStrokeScratch = null
+    this._ribbonStrokeScratch?.destroy()
+    this._ribbonStrokeScratch = null
     this._strokeId = null
-    this._replayMarkerChunk?.scratch.destroy()
-    this._replayMarkerChunk = null
-    this._markerScratchPool.destroy()
+    this._replayRibbonChunk?.scratch.destroy()
+    this._replayRibbonChunk = null
+    this._ribbonScratchPool.destroy()
     // A live imprint's buffer was spliced *out* of the scratch pool drained
     // above and is held only here, so it needs destroying on its own.
     for (const imprint of this._smudgeImprints.values()) imprint.buf?.destroy()
@@ -3791,13 +3768,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._tipBufPool = null
     this._transformScratchPool = [] // (#155) pooled GL objects are dead too, not worth destroy()ing
     this._smudgeScratchPool = [] // same reasoning, see #14
-    this._markerStrokeScratch?.forget() // same reasoning — pooled GL objects are dead too
-    this._markerStrokeScratch = null
-    this._replayMarkerChunk?.scratch.forget()
-    this._replayMarkerChunk = null
+    this._ribbonStrokeScratch?.forget() // same reasoning — pooled GL objects are dead too
+    this._ribbonStrokeScratch = null
+    this._replayRibbonChunk?.scratch.forget()
+    this._replayRibbonChunk = null
     // (#385) Dropped, not released: releasing would put dead handles back in
     // the pool for the next gesture to paint through.
-    this._markerScratchPool.forget()
+    this._ribbonScratchPool.forget()
     this._smudgeImprints.clear() // same reasoning — pooled GL objects are dead too
     this._smudgeReplayChunks.clear()
     for (const { timer } of this._peerPreviews.values()) {
@@ -4173,15 +4150,16 @@ export class PencilEngine implements PencilEngineAPI {
       'u_charcoalTooth', 'u_charcoalCrumble', 'u_charcoalDust',
       'u_charcoalBroadAspect', 'u_charcoalBroadGrain',
       'u_charcoalPressFloor', 'u_charcoalPressGamma', 'u_charcoalSkipFloor', 'u_charcoalGateRelief', 'u_charcoalGrainDepth',
-      // Marker only (#250, follow-up) — only ever set by
-      // the marker's own draws, which always use this non-instanced program;
-      // not added to _dabInstUni below since nothing ever draws marker
-      // through it.
+      // Ribbon tools only (#250, follow-up; #454 widened this from "marker" to
+      // "marker and brush pen") — only ever set by their own draws, which
+      // always use this non-instanced program; not added to _dabInstUni below
+      // since nothing ever draws a ribbon stroke through it.
       'u_original', 'u_strokeCoverage', 'u_inkLoad',
-      // #330 stage 2/3 — the marker nib's own geometry: edge ramp width in canvas
+      // #330 stage 2/3 — the ribbon nib's own geometry: edge ramp width in canvas
       // px, which outline the nib is, its corner radius, and how much the ink
-      // eases off at the rim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge',
+      // eases off at the rim. #454: plus how far paper grain bites into the
+      // brush pen's rim.
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperEdge',
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
@@ -4354,10 +4332,12 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
     // Fresh per stroke (never carried over, unlike smudge's reservoir) —
-    // see MarkerStrokeScratch's own doc comment. Harmless to always create,
+    // see RibbonStrokeScratch's own doc comment. Harmless to always create,
     // even for a non-marker stroke: nothing allocates any GL resource until
     // a marker dab's own getOrCreate() first touches a tile.
-    this._markerStrokeScratch = new MarkerStrokeScratch(this._markerScratchPool)
+    this._ribbonStrokeScratch = new RibbonStrokeScratch(
+      this._ribbonScratchPool, ribbonProfileFor(this._strokeTool, this._opts.pencilType).ink,
+    )
     this._strokeId = nanoid(10)
     // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
     // makes the first packet of a gesture go out with the first dabs painted
@@ -4379,14 +4359,20 @@ export class PencilEngine implements PencilEngineAPI {
     // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are
     // straight chords between samples); every other tool keeps its plain
     // size-proportional spacing untouched. See DabSystem.curvatureTolerancePx.
-    this._dabs.curvatureTolerancePx =
-      this._strokeTool === 'marker' ? MARKER_CURVATURE_TOLERANCE_PX : null
+    this._dabs.curvatureTolerancePx = isRibbonTool(this._strokeTool)
+      ? ribbonProfileFor(this._strokeTool, this._opts.pencilType).curvatureTolerancePx
+      : null
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     // Smudge's carried imprint resets at every gesture, but not from here:
     // _paintSmudgeDabs does it off this stroke's own id, so the local and the
     // replayed path go through exactly one rule (see _smudgeResumeGesture).
     this._strokeDabs    = []
+    // #454: the brush pen's head taper ramps over arc length travelled since
+    // the stroke began (ADR 009 §4 — the one quantity that is known live and
+    // needs nothing from the future), so it needs its own running total across
+    // this gesture's batches.
+    this._strokeArcLen  = 0
     this._strokeStartTimestamp = e.timeStamp
     if (this._debug) {
       const now = performance.now()
@@ -4583,12 +4569,16 @@ export class PencilEngine implements PencilEngineAPI {
     const t0 = this._debug ? performance.now() : 0
     const dabs = this._dabs.endStroke(this._physicalSize)
     if (this._strokeTool === 'liner') applyLinerEndTaper(dabs, e.speed)
+    // #454: the same post-process one tool over, and far deeper — a liner
+    // narrows by at most 15%, a brush pen by up to 75%, which is what turns a
+    // quick flick into a point instead of a cut-off tube (ADR 009 §4).
+    if (this._strokeTool === 'brushPen') applyBrushPenEndTaper(dabs, e.speed)
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
     // Torn down after this stroke's very last dabs are painted above — a
-    // fresh MarkerStrokeScratch gets created for the *next* stroke in
+    // fresh RibbonStrokeScratch gets created for the *next* stroke in
     // _onStart, never carried over (see its own doc comment).
-    this._markerStrokeScratch?.destroy()
-    this._markerStrokeScratch = null
+    this._ribbonStrokeScratch?.destroy()
+    this._ribbonStrokeScratch = null
     // Discard the speculative preview entirely once the real stroke has
     // ended — the final _display() below must show only real content.
     // (#155) Only drops the *active* reference now, not the underlying GL
@@ -4673,6 +4663,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _resolvePreset(tool: ToolType, presetName: string): PencilPreset {
     if (tool === 'liner') return LINER_PRESET
     if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
+    // #454, ADR 009 §9: near-opaque covering ink. One flat preset for the tool
+    // — its presetName slot carries the pressure response, not a nib or a
+    // grade, so there is nothing here to branch on (brushPenPresets.ts).
+    if (tool === 'brushPen') return BRUSH_PEN_PRESET
     if (tool === 'charcoal') return charcoalPresetFor(presetName)
     return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
   }
@@ -4731,7 +4725,7 @@ export class PencilEngine implements PencilEngineAPI {
       // it as its own term rather than folding it silently into "flow"):
       // same speed/tilt shape as liner (shared inkSpeed above), plus a mild
       // markerPressureFlow term liner doesn't have. `dab.opacity` here is
-      // *not yet* the final ink deposit — _paintMarkerRibbon multiplies it
+      // *not yet* the final ink deposit — _paintRibbonStroke multiplies it
       // by this dab's own segmentLength at paint time (distance-
       // normalization can't happen here: this function only ever sees one
       // dab at a time, with no notion of "distance since the previous
@@ -4740,6 +4734,23 @@ export class PencilEngine implements PencilEngineAPI {
         const tiltDeg = tiltMagnitudeDeg(dab.tiltX, dab.tiltY)
         dab.opacity = preset.opacity * opacity * inkSpeed * linerTiltFlow(tiltDeg) * markerPressureFlow(dab.pressure)
       }
+      // Brush pen (#454, ADR 009 §5/§9): flat. Not "not tuned yet" — flat on
+      // purpose, and in two directions.
+      //
+      // No pressure term, because a tool where pressure moves width *and*
+      // alpha together reads as an airbrush rather than a pen; ADR 009 §9
+      // makes width the only thing pressure drives. No speed or tilt term
+      // either: the liner's inkSpeed models ink leaving a capillary tip at a
+      // rate per unit *time*, which is a fineliner's physics, not a flexing
+      // brush nib's — what speed does to this tool is sharpen the tail
+      // (applyBrushPenEndTaper), and that is the whole of it in v1.
+      //
+      // The flatness is also load-bearing downstream, not merely tidy: every
+      // dab of the stroke carrying the same opacity is exactly what lets the
+      // source-over composite reconstruct the finished pixel from a coverage
+      // buffer and one scalar (DAB_FRAG's u_inkMode=8 branch). A per-dab
+      // opacity could not be expressed there at all.
+      else if (tool === 'brushPen') dab.opacity = preset.opacity * opacity
       // Charcoal (#304 §3, plus #305's broad-side lightening): shares pencil's
       // speed curve deliberately — "slower stroke -> denser deposit" is equally
       // true of both materials — and adds one term graphite has no analogue
@@ -4784,6 +4795,15 @@ export class PencilEngine implements PencilEngineAPI {
     this._markLayerDirty(this._strokeLayerId)
 
     this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
+    // #454, ADR 009 §4. Before painting *and* before _strokeDabs.push below,
+    // so the narrowing is baked into the dab every other route to these pixels
+    // reads — the recorded StrokeOperation, the packet a peer replays, an
+    // undo/redo, a snapshot rebuild. A taper applied at draw time would exist
+    // only on the screen of whoever drew it, which is the exact failure #452
+    // documents under linerWickPx.
+    if (this._strokeTool === 'brushPen') {
+      this._strokeArcLen = applyBrushPenHeadTaper(dabs, this._strokeDabs.at(-1), this._strokeArcLen)
+    }
     for (const dab of dabs) dab.t = elapsedMs
     // Smudge only (#14): the dab immediately before this call's own batch,
     // read *before* pushing this call's dabs onto _strokeDabs below — a
@@ -4794,7 +4814,7 @@ export class PencilEngine implements PencilEngineAPI {
     // internal batching instead of restarting at each call.
     this._paintDabs(
       buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1), this._markerStrokeScratch ?? undefined,
+      this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
     )
     this._strokeDabs.push(...dabs)
     // (#429) Same dab objects, queued for the live channel — see
@@ -4873,7 +4893,7 @@ export class PencilEngine implements PencilEngineAPI {
 
     this._paintDabs(
       buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
-      this._strokeDabs.at(-1), this._markerStrokeScratch ?? undefined,
+      this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
     )
     this._strokeDabs.push(dab)
     // (#429) A dwell dab is a real dab of this gesture — it goes into the
@@ -5153,7 +5173,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  everything that dab can possibly rasterize) — the same per-dab quantity
    *  `_dabsWorldBounds` unions across a whole batch, factored out so
    *  `_paintDabs`'s per-tile filter (see its own comment) and marker's own
-   *  per-batch tile resolution (_paintMarkerRibbon) can apply it to one dab at
+   *  per-batch tile resolution (_paintRibbonStroke) can apply it to one dab at
    *  a time without duplicating the math.
    *
    *  Derived straight from DAB_VERT/DAB_VERT_INSTANCED's own geometry, which
@@ -5217,14 +5237,14 @@ export class PencilEngine implements PencilEngineAPI {
    *  eraser don't (every other tool's dabs are independent of each other;
    *  smudge's aren't).
    *
-   *  `markerScratch` (marker only, follow-up to #250): the *live, local*
-   *  stroke's own MarkerStrokeScratch (this._markerStrokeScratch), so
+   *  `ribbonScratch` (marker only, follow-up to #250): the *live, local*
+   *  stroke's own RibbonStrokeScratch (this._ribbonStrokeScratch), so
    *  incremental calls across one in-progress stroke (_paintStrokeDabs,
    *  the dwell tick) keep multiplying against the *same* frozen original
    *  content and the *same* running coverage — omitted by every other
    *  caller (one-shot full-array replay/undo/redo/checkpoint/peer-op
    *  application), which gets a correct, throwaway per-call instance
-   *  instead (see _paintMarkerDabs' own doc comment). Unused by every tool
+   *  instead (see _paintRibbonDabs' own doc comment). Unused by every tool
    *  but marker.
    *
    *  `strokeId` (marker and smudge): which gesture these dabs belong to.
@@ -5235,20 +5255,23 @@ export class PencilEngine implements PencilEngineAPI {
    *  a seam at each boundary. */
   private _paintDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
-    color: [number, number, number], userId: string, prevDab?: Dab, markerScratch?: MarkerStrokeScratch,
+    color: [number, number, number], userId: string, prevDab?: Dab, ribbonScratch?: RibbonStrokeScratch,
     strokeId?: string,
   ): void {
     if (!dabs.length) return
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return }
     // Marker (#250, ADR 004 §3; distance-normalized deposit added in
     // "Ревизия v1.5"): each dab needs its own coverage/inkLoad/composite
-    // round trip (see _paintMarkerDabs' own doc comment) — self-contained
-    // per stroke via markerScratch, no reservoir the way smudge needs, but
+    // round trip (see _paintRibbonDabs' own doc comment) — self-contained
+    // per stroke via ribbonScratch, no reservoir the way smudge needs, but
     // *does* need prevDab now (§1.5's inkLoad deposit is
     // `dab.opacity * segmentLength`, and segmentLength needs the previous
     // dab's own position) — unlike the smudge branch above, userId is still
     // unused (no per-user state).
-    if (tool === 'marker') { this._paintMarkerDabs(target, dabs, presetName, color, markerScratch, prevDab, strokeId); return }
+    // #454: two tools now, dispatched by isRibbonTool rather than by name —
+    // the brush pen needs the identical stroke-scoped coverage/composite
+    // structure and differs only in its RibbonProfile.
+    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId); return }
     const erasing = tool === 'eraser'
     // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
     // table). Resolved once here as a number rather than one boolean flag per
@@ -5819,13 +5842,13 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   // ─── Marker (#250, ADR 004 §3; compositing redesigned in a follow-up —
-  // see MarkerStrokeScratch's own doc comment) ────────────────────────────
+  // see RibbonStrokeScratch's own doc comment) ────────────────────────────
 
   /** Marker: each dab is a two-pass draw against this stroke's own
-   *  MarkerStrokeScratch — a coverage pass (this dab's own contribution,
+   *  RibbonStrokeScratch — a coverage pass (this dab's own contribution,
    *  saturating into the stroke's running total) followed by a composite
    *  draw (multiplies the tile's *original*, pre-stroke content by that
-   *  running total) — see MarkerStrokeScratch's own doc comment for why
+   *  running total) — see RibbonStrokeScratch's own doc comment for why
    *  this replaced the original single-pass patch-copy-then-multiply
    *  design. Still not batchable the way pencil/eraser's independent dabs
    *  are (see _paintSmudgeDabs' own doc comment for the identical
@@ -5834,7 +5857,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  calls' worth of overhead per dab is an accepted cost, not a
    *  regression).
    *
-   *  `markerScratch` omitted means this call is the *entire* stroke's dabs
+   *  `ribbonScratch` omitted means this call is the *entire* stroke's dabs
    *  in one shot (replay/undo/redo/checkpoint bake/most peer-op
    *  application) — a throwaway instance scoped to just this call is
    *  exactly correct there (every dab of the stroke is handled within this
@@ -5843,56 +5866,58 @@ export class PencilEngine implements PencilEngineAPI {
    *  this is one incremental slice of an in-progress *local* stroke
    *  (_paintStrokeDabs, the dwell tick) — the caller (engine._onStart/
    *  _onEnd) owns that instance's lifetime across every slice. */
-  private _paintMarkerDabs(
-    target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], presetName: string, color: [number, number, number],
-    markerScratch?: MarkerStrokeScratch, prevDab?: Dab, strokeId?: string,
+  private _paintRibbonDabs(
+    target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
+    color: [number, number, number],
+    ribbonScratch?: RibbonStrokeScratch, prevDab?: Dab, strokeId?: string,
   ): void {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
-    // does — see _paintMarkerRibbon below, which needs it to find the
+    // does — see _paintRibbonStroke below, which needs it to find the
     // tile), so there's nothing this path can paint into there anyway —
     // same early-return _paintSmudgeDabs' own doc comment documents for
     // the identical structural reason. The real dabs always paint straight
     // into the real layer regardless (see _paintDabs' own doc comment on
     // `target`).
     if (target instanceof AccumulationBuffer) return
-    const preset = this._resolvePreset('marker', presetName)
-    const chunk = markerScratch ? null : this._replayChunkScratch(target, strokeId, dabs)
-    const scratch = markerScratch ?? chunk?.scratch ?? new MarkerStrokeScratch(this._markerScratchPool)
+    const preset = this._resolvePreset(tool, presetName)
+    const profile = ribbonProfileFor(tool, presetName)
+    const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, dabs, profile)
+    const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
     // `prevDab` is threaded the same way smudge threads its own
     // (_paintSmudgeDabs): the dab immediately before dabs[0] may come from a
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
-    // markerScratch/prevDab), and the ribbon needs it both to bridge the two
+    // ribbonScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
-    this._paintMarkerRibbon(target, dabs, preset, color, scratch, prevDab ?? chunk?.prevDab, presetName)
+    this._paintRibbonStroke(target, dabs, preset, profile, color, scratch, prevDab ?? chunk?.prevDab)
     // The cached one belongs to the gesture, not to this call — it is released
     // when a different gesture arrives, or with the engine.
-    if (!markerScratch && !chunk) scratch.destroy()
+    if (!ribbonScratch && !chunk) scratch.destroy()
   }
 
   /** The scratch this replayed operation should paint through, given the
-   *  gesture it belongs to — see _replayMarkerChunk. Returns null for an
+   *  gesture it belongs to — see _replayRibbonChunk. Returns null for an
    *  operation with no gesture id (a stroke recorded before strokeId existed),
    *  which then falls back to a throwaway scratch, exactly as before. */
   private _replayChunkScratch(
-    target: ILayerBuffer, strokeId: string | undefined, dabs: Dab[],
-  ): { scratch: MarkerStrokeScratch; prevDab?: Dab } | null {
+    target: ILayerBuffer, strokeId: string | undefined, dabs: Dab[], profile: RibbonProfile,
+  ): { scratch: RibbonStrokeScratch; prevDab?: Dab } | null {
     if (!strokeId || !dabs.length) return null
-    const cached = this._replayMarkerChunk
+    const cached = this._replayRibbonChunk
     if (cached && cached.strokeId === strokeId && cached.target === target) {
       const prevDab = cached.lastDab
       cached.lastDab = dabs[dabs.length - 1]
       return { scratch: cached.scratch, prevDab }
     }
     cached?.scratch.destroy()
-    const scratch = new MarkerStrokeScratch(this._markerScratchPool)
-    this._replayMarkerChunk = { strokeId, target, scratch, lastDab: dabs[dabs.length - 1] }
+    const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
+    this._replayRibbonChunk = { strokeId, target, scratch, lastDab: dabs[dabs.length - 1] }
     return { scratch }
   }
 
   /** #330 — the marker's rasterizer: the stroke as one connected swept figure.
    *
-   *  Three fields (coverage / inkLoad / composite, see MarkerStrokeScratch):
+   *  Three fields (coverage / inkLoad / composite, see RibbonStrokeScratch):
    *
    *  - **coverage** is plain geometry, not an accumulation of soft profiles: a
    *    nib stamp at every sample (DAB_FRAG's u_inkMode=6, an analytic in-pixel
@@ -5922,21 +5947,32 @@ export class PencilEngine implements PencilEngineAPI {
    *  vice versa) resolves to solid either way. The two only ever meet at a
    *  tangent point, where both are ramping, and the difference between max and
    *  over there is a fraction of one pixel. */
-  private _paintMarkerRibbon(
-    target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, color: [number, number, number],
-    scratch: MarkerStrokeScratch, prevDab: Dab | undefined, presetName: string,
+  private _paintRibbonStroke(
+    target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, profile: RibbonProfile,
+    color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,
   ): void {
-    const drawable = dabs.filter(d => d.size * 0.5 * preset.sizeMultiplier >= 0.5)
+    // Two different treatments of a dab too thin to resolve, and which one a
+    // tool gets is the whole of RibbonProfile.minHalfWidthPx (#454). The
+    // marker drops it: a sub-half-pixel marker dab is degenerate. The brush
+    // pen widens it to the floor instead, because for a tool whose width
+    // floor is 0.15 of a size the user may set to 3px, "drop it" means
+    // deleting the thin end of every stroke — the first thing ADR 009 asks
+    // the tool to be able to draw.
+    //
+    // Copies rather than mutating: these Dab objects are the ones recorded on
+    // the StrokeOperation and streamed to peers, and a draw-time clamp must
+    // not rewrite what the operation says. Being a pure function of dab.size,
+    // it lands identically on every replay anyway.
+    const floorPx = profile.minHalfWidthPx
+    const drawable = floorPx === null
+      ? dabs.filter(d => d.size * 0.5 * preset.sizeMultiplier >= 0.5)
+      : dabs.map(d => {
+        const half = d.size * 0.5 * preset.sizeMultiplier
+        return half >= floorPx ? d : { ...d, size: (floorPx * 2) / preset.sizeMultiplier }
+      })
     if (!drawable.length) return
 
-    // #330 stage 3: the chisel is a rounded rectangle, the bullet an ellipse —
-    // see MARKER_CHISEL_CORNER_FRACTION. Resolved once per call and threaded
-    // through both the CPU-side band builder and the shader, which must agree
-    // on the outline or the bands would connect a different shape than the
-    // stamps they sit between.
-    const chisel = markerNibFromPreset(presetName) === 'chisel'
-    const nibShape: NibShape = chisel ? 'roundedBox' : 'ellipse'
-    const cornerFraction = chisel ? MARKER_CHISEL_CORNER_FRACTION : 0
+    const { nibShape, cornerFraction } = profile
 
     // One bounds box for the whole batch: the tiles to paint, and the rect the
     // single composite pass covers. Padded per dab by the same half-extents the
@@ -5951,13 +5987,13 @@ export class PencilEngine implements PencilEngineAPI {
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
 
-    const bands = buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, MARKER_EDGE_AA_PX)
+    const bands = buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx)
 
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
 
-      for (const dab of drawable) this._drawMarkerNibPass(coverage, tile, dab, preset, nibShape, cornerFraction, 6, 0)
-      if (bands.length) this._drawMarkerBands(coverage, tile, bands, 'coverage')
+      for (const dab of drawable) this._drawRibbonNibPass(coverage, tile, dab, preset, profile, 6, 0)
+      if (bands.length) this._drawRibbonBands(coverage, tile, bands, 'coverage', profile.aaPx)
 
       // Ink follows the *same* figure as the silhouette. Depositing it only at
       // the sample stamps is what produced the rounded white notches on turns:
@@ -5965,18 +6001,30 @@ export class PencilEngine implements PencilEngineAPI {
       // ink load of zero the composite multiplies by nothing and the paper
       // shows straight through. Both halves carry half a dose each (see
       // buildRibbonBands) so their overlap sums to the calibrated amount.
-      let prev = prevDab
-      for (const dab of drawable) {
-        const radius = dab.size * 0.5 * preset.sizeMultiplier
-        const deposit = dab.opacity * this._markerSegmentLength(dab, prev, radius) * 0.5
-        inkLoad.beginAdditiveDraw()
-        this._drawMarkerNibPass(inkLoad, tile, dab, preset, nibShape, cornerFraction, 7, deposit, false)
-        inkLoad.endDraw()
-        prev = dab
+      //
+      // Skipped entirely for a covering ink, which has no such quantity — see
+      // RibbonProfile.ink.
+      if (inkLoad) {
+        let prev = prevDab
+        for (const dab of drawable) {
+          const radius = dab.size * 0.5 * preset.sizeMultiplier
+          const deposit = dab.opacity * this._markerSegmentLength(dab, prev, radius) * 0.5
+          inkLoad.beginAdditiveDraw()
+          this._drawRibbonNibPass(inkLoad, tile, dab, preset, profile, 7, deposit, false)
+          inkLoad.endDraw()
+          prev = dab
+        }
+        if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx)
       }
-      if (bands.length) this._drawMarkerBands(inkLoad, tile, bands, 'ink')
 
-      this._drawMarkerCompositeRect(tile, bounds, preset, original, coverage, inkLoad, color)
+      // `drawable[0].opacity` rather than a per-dab value: only a tool whose
+      // dabs all share one opacity can be composited from a coverage buffer at
+      // all, which for the brush pen is guaranteed by _bakeDabOpacity (ADR 009
+      // §9 — pressure drives width, never alpha). The marker's branch ignores
+      // this argument entirely and reads its own inkLoad texture instead.
+      this._drawRibbonCompositeRect(
+        tile, bounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
+      )
     }
 
     target.markContentPainted(bounds)
@@ -6031,9 +6079,9 @@ export class PencilEngine implements PencilEngineAPI {
    *
    *  `ownTarget` false leaves framebuffer/blend setup to the caller, which the
    *  ink pass needs (it accumulates additively, not "over"). */
-  private _drawMarkerNibPass(
+  private _drawRibbonNibPass(
     dest: AccumulationBuffer, tile: PaintTarget, dab: Dab, preset: PencilPreset,
-    nibShape: NibShape, cornerFraction: number, inkMode: 6 | 7, opacity: number, ownTarget = true,
+    profile: RibbonProfile, inkMode: 6 | 7, opacity: number, ownTarget = true,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -6055,10 +6103,10 @@ export class PencilEngine implements PencilEngineAPI {
     // nib geometry is sized off the quad it gets handed.
     gl.uniform1f(u.u_wickPx, 0)
     gl.uniform1f(u.u_wickCap, 0)
-    gl.uniform1f(u.u_aaPx, MARKER_EDGE_AA_PX)
-    gl.uniform1f(u.u_nibShape, nibShape === 'roundedBox' ? 1 : 0)
-    gl.uniform1f(u.u_nibCorner, radius * cornerFraction)
-    gl.uniform1f(u.u_inkEdge, MARKER_INK_EDGE_FALLOFF)
+    gl.uniform1f(u.u_aaPx, profile.aaPx)
+    gl.uniform1f(u.u_nibShape, profile.nibShape === 'roundedBox' ? 1 : 0)
+    gl.uniform1f(u.u_nibCorner, radius * profile.cornerFraction)
+    gl.uniform1f(u.u_inkEdge, profile.inkEdgeFalloff)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     gl.enableVertexAttribArray(this._dabPosLoc)
@@ -6080,7 +6128,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  this tile's own pixel space here — the only per-tile work, which is why
    *  the geometry itself is built once for the whole batch rather than per
    *  tile. */
-  private _drawMarkerBands(dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink'): void {
+  private _drawRibbonBands(
+    dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink', aaPx: number,
+  ): void {
     const { gl } = this
     const local = new Float32Array(bands.length)
     for (let i = 0; i < bands.length; i += RIBBON_FLOATS_PER_VERTEX) {
@@ -6093,7 +6143,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
     gl.useProgram(this._ribbonProg)
     gl.uniform2f(this._ribbonUni.u_resolution, dest.width, dest.height)
-    gl.uniform1f(this._ribbonUni.u_aaPx, MARKER_EDGE_AA_PX)
+    gl.uniform1f(this._ribbonUni.u_aaPx, aaPx)
     gl.uniform1f(this._ribbonUni.u_mode, mode === 'ink' ? 1 : 0)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
@@ -6118,7 +6168,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** #330 stage 2, composite pass: the same DAB_FRAG u_inkMode=2 branch the
    *  every other tool's dabs feed, but drawn once over the whole batch's dirty
-   *  rect instead of once per dab — see _paintMarkerRibbon's own doc comment for why a
+   *  rect instead of once per dab — see _paintRibbonStroke's own doc comment for why a
    *  per-dab quad no longer covers what the coverage pass wrote.
    *
    *  The rect is covered by a circumscribing dab quad (aspect 1, angle 0,
@@ -6126,18 +6176,20 @@ export class PencilEngine implements PencilEngineAPI {
    *  discards outside `dist > 1`, and a circle through the rect's corners
    *  contains every pixel of it. The extra fragments cost nothing — the branch
    *  discards any pixel this stroke hasn't covered anyway. */
-  private _drawMarkerCompositeRect(
-    tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }, preset: PencilPreset,
-    original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer, color: [number, number, number],
+  private _drawRibbonCompositeRect(
+    tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
+    preset: PencilPreset, profile: RibbonProfile,
+    original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
+    color: [number, number, number], opacity: number,
   ): void {
     const cx = (bounds.minX + bounds.maxX) * 0.5
     const cy = (bounds.minY + bounds.maxY) * 0.5
     const radius = 0.5 * Math.hypot(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY)
     const rectDab: Dab = {
       x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
-      size: radius * 2, aspectRatio: 1, angle: 0, opacity: 1, t: 0,
+      size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
     }
-    this._drawMarkerCompositeDab(tile, rectDab, radius, preset, original, coverage, inkLoad, color)
+    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -6146,9 +6198,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  origin/size uniforms needed, since all three are already 1:1-aligned
    *  with the tile this draws into) instead of a small per-dab copied
    *  patch. */
-  private _drawMarkerCompositeDab(
-    tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset,
-    original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer, color: [number, number, number],
+  private _drawRibbonCompositeDab(
+    tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset, profile: RibbonProfile,
+    original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
+    color: [number, number, number],
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -6175,7 +6228,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.uniform1i(u.u_paperHeightMap, 0)
     // The actual multiply-compositing inputs (ADR 004 §3, redesigned in
-    // "Ревизия v1.5" — see MarkerStrokeScratch's own doc comment): this
+    // "Ревизия v1.5" — see RibbonStrokeScratch's own doc comment): this
     // tile's frozen pre-stroke content, this stroke's own running coverage
     // (silhouette/alpha) and running inkLoad (darkness) — both just updated
     // by the two splat passes above, same quad, moments ago. No paper-color
@@ -6191,8 +6244,14 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, coverage.texture)
     gl.uniform1i(u.u_strokeCoverage, 2)
+    // Bound even when this tool has no ink load: WebGL validates every active
+    // sampler in a linked program, not only the branch that runs, and an
+    // unbound one fails the draw outright (see _drawRibbonNibPass's own note
+    // on the 1282 that cost an afternoon). The paper texture stands in — the
+    // source-over branch never samples it, and it is guaranteed not to be the
+    // render target, which would be a feedback loop.
     gl.activeTexture(gl.TEXTURE3)
-    gl.bindTexture(gl.TEXTURE_2D, inkLoad.texture)
+    gl.bindTexture(gl.TEXTURE_2D, inkLoad ? inkLoad.texture : this._paperTex)
     gl.uniform1i(u.u_inkLoad, 3)
     gl.uniform1f(u.u_hardness, preset.hardness)
     gl.uniform1f(u.u_eraseMode, 0.0)
@@ -6205,8 +6264,13 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1i(u.u_grainMode, 0)
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
-    gl.uniform1f(u.u_inkMode, 2.0)
-    // #452 — see _drawMarkerNibPass's own comment on why this is cleared here.
+    gl.uniform1f(u.u_inkMode, profile.compositeInkMode)
+    // #454: how hard paper grain bites the brush pen's rim, read only by the
+    // u_inkMode=8 branch — and set on every composite draw, not just that
+    // tool's, for the same reason u_wickPx is cleared below: uniforms persist
+    // across draws on a shared program.
+    gl.uniform1f(u.u_paperEdge, profile.paperEdge)
+    // #452 — see _drawRibbonNibPass's own comment on why this is cleared here.
     gl.uniform1f(u.u_wickPx, 0)
     gl.uniform1f(u.u_wickCap, 0)
 

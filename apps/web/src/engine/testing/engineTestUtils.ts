@@ -139,7 +139,7 @@ interface EngineInternals {
   // #245 white-box access — see inProgressStrokeDabs below.
   _strokeDabs: Dab[]
   // Marker chunk stitching white-box access — see markerReplayChunk below.
-  _replayMarkerChunk: { strokeId: string; scratch: object; lastDab: Dab } | null
+  _replayRibbonChunk: { strokeId: string; scratch: object; lastDab: Dab } | null
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -445,9 +445,9 @@ export function lastPaperDabUniform(engine: PencilEngine, name: string): Uniform
 
 /** Like lastPaperDabUniform, but reads only the non-batched per-dab program
  *  (_dabUni) — needed for marker (#250), whose own paint path
- *  (_paintMarkerRibbon) always draws through _dabProg
+ *  (_paintRibbonStroke) always draws through _dabProg
  *  directly and never _paintDabsInstanced/_dabProgInstanced (see
- *  _paintMarkerDabs' own doc comment on why marker dabs can't batch).
+ *  _paintRibbonDabs' own doc comment on why marker dabs can't batch).
  *  lastPaperDabUniform's own "prefer the instanced location" order would
  *  silently read whatever some *other*, unrelated tool's instanced draw
  *  last left in that uniform (both programs compile the same shared
@@ -465,12 +465,12 @@ export function lastMarkerDabUniform(engine: PencilEngine, name: string): Unifor
  *  composite=2), and lastMarkerDabUniform can only ever see whichever ran
  *  last. See MockGL's own lastDabDraw. */
 /** The gesture the replay path is currently stitching marker chunks for, if
- *  any (engine's _replayMarkerChunk). Exposed because the thing worth pinning
+ *  any (engine's _replayRibbonChunk). Exposed because the thing worth pinning
  *  is identity — that two operations of one gesture share a single scratch, so
  *  the second doesn't multiply over the first one's output — and identity is
  *  precisely what a pixel assertion can't see through MockGL. */
 export function markerReplayChunk(engine: PencilEngine): { strokeId: string; scratch: object; lastDab: Dab } | null {
-  return internals(engine)._replayMarkerChunk
+  return internals(engine)._replayRibbonChunk
 }
 
 export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7): { blendEnabled: boolean; opacity: number; count: number } | undefined {

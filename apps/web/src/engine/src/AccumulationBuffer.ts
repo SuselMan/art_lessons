@@ -213,7 +213,7 @@ export class AccumulationBuffer {
    *  Marker's composite (DAB_FRAG's u_inkMode>1.5 branch) is the one exception:
    *  it is a complete recomputation of the final pixel from this stroke's
    *  frozen `original` plus its accumulated `coverage`/`inkLoad` (see
-   *  MarkerStrokeScratch), so the value it produces is already the answer, not
+   *  RibbonStrokeScratch), so the value it produces is already the answer, not
    *  a contribution toward one.
    *
    *  Running that through beginDraw()'s "over" instead compounded alpha once
@@ -230,7 +230,7 @@ export class AccumulationBuffer {
    *  and is left alone (still holding its last correct value) when they don't.
    *  Accepted consequence: within a marker stroke's own footprint, anything a
    *  *peer* painted into the same tile mid-stroke is overwritten rather than
-   *  preserved — same class of accepted v1 gap as MarkerStrokeScratch's own
+   *  preserved — same class of accepted v1 gap as RibbonStrokeScratch's own
    *  mid-stroke tile-eviction note. */
   beginReplaceDraw(): void {
     this._invalidateMips()
