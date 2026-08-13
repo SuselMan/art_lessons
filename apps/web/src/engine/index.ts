@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation } from '@grafetto/shared'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode } from '@grafetto/shared'
 import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_FRAG, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_WORLD_SIZE } from './src/paperConstants'
@@ -46,6 +46,7 @@ import {
 } from './src/matrix'
 import { snapToRuler, type RulerLine } from './src/rulerSnap'
 import { buildSelectionMask } from './src/selectionMask'
+import { computeFill, coverageToRgba, FILL_MAX_DIM } from './src/floodFill'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
@@ -624,6 +625,20 @@ export interface PencilEngineAPI {
   // pasting a lasso'd shape does not drop a rectangle of background around it.
   // Null when the selection has no inside or the layer is empty there.
   readAreaImage(layerId: string, selection: SelectionShape): Promise<AreaImage | null>
+  // (#453) Works out what one tap of the fill tool covers, and returns it as a
+  // raster ready to become an `AreaFillOperation` — nothing is painted and no
+  // operation is emitted here.
+  //
+  // The whole of the algorithm lives on this side of the wire on purpose: the
+  // region is derived from pixels that came off *this* GPU, which is not a
+  // thing another participant can reproduce (see AreaFillOperation's own
+  // docstring). What travels is the answer.
+  //
+  // Cost is real and paid on the main thread: a readback of the fill's domain
+  // plus a scan of it, i.e. tens of milliseconds on a small canvas and a
+  // noticeable pause on a large one. Callers are expected to put something on
+  // screen before awaiting it.
+  computeAreaFill(request: AreaFillRequest): Promise<AreaFillRaster | null>
   // Live remote-stroke reveal (#37 follow-up v2): call when a peer's finished
   // StrokeOperation arrives. Plays its dabs back into a dedicated per-peer
   // preview buffer (composited on top in _display(), never written into any
@@ -704,6 +719,45 @@ export interface AreaImage {
   width: number
   height: number
 }
+
+/** (#453) What the caller asks a fill for. Coordinates are layer space (canvas
+ *  pixels for a bounded room, world units for an infinite one), the same space
+ *  `Dab.x/y` and `SelectionShape.points` already use; `color` is 0–1 per
+ *  channel like every other tool colour. */
+export interface AreaFillRequest {
+  layerId: string
+  seedX: number
+  seedY: number
+  color: [number, number, number]
+  /** 0–1. How far from the tapped pixel still counts as the same area. */
+  tolerance: number
+  /** 0–3 px of gap closing — see floodFill.ts. */
+  gapClose: number
+  /** 0–3 px the paint creeps under the line it stopped at. */
+  expand: number
+  /** Read boundaries from the target layer alone, or from the composite of
+   *  every visible layer (paint still lands only in the target). */
+  source: FillSourceMode
+}
+
+/** (#453) A computed fill: the raster and where it goes, shaped to drop
+ *  straight into an `AreaFillOperation`.
+ *
+ *  `clipped` is the one field that is not part of the operation. It says the
+ *  region was open — the fill ran into the edge of its domain instead of into
+ *  the drawing — and exists so the UI can say so. A bucket that silently
+ *  covers the page when an outline has a hole in it is the single most
+ *  annoying thing a bucket does, and here it would also be a full-canvas
+ *  raster in a permanent log. */
+export interface AreaFillRaster extends AreaImage {
+  clipped: boolean
+}
+
+/** (#453) How far past the outermost mark an infinite room's fill domain
+ *  reaches. Enough that paint can spread around a drawing rather than stopping
+ *  on its bounding box, small enough that it does not meaningfully grow the
+ *  readback. */
+const INFINITE_FILL_MARGIN = 256
 
 /** (#446) A selection's coverage mask on the GPU, with the world rect it
  *  spans — everything the two mask shaders need to place it. */
@@ -2285,19 +2339,26 @@ export class PencilEngine implements PencilEngineAPI {
         this._displayIfNotSuspended()
         break
       }
-      case 'area_paste': {
+      // (#453) A fill is a paste of a raster it computed itself: same
+      // straight-alpha PNG, same world rect, same decode-and-blit. Its own
+      // parameters (seed, tolerance, gap closing) are recorded but never read
+      // here — replaying them would mean re-deriving the region from this
+      // device's pixels, which is the one thing the raster exists to avoid.
+      case 'area_paste':
+      case 'area_fill': {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
         if (this._isCoveredByRestore(op.layerId, op.seq)) { this._log.revoke(op.id); break }
         this._markLayerDirty(op.layerId)
         const record = this._asImportRecord(op)
+        const matrix = op.type === 'area_paste' ? op.matrix : undefined
         // Same decoded/late split as image_import above — see #398. A local
         // paste is always already decoded (the clipboard raster came from this
         // very engine); a peer's arrives cold and takes the async path.
-        if (this._paintDecodedImage(buf, record, op.matrix)) {
+        if (this._paintDecodedImage(buf, record, matrix)) {
           this._maybeCheckpoint(op.layerId)
         } else {
-          this._paintImage(buf, record, op.matrix)
+          this._paintImage(buf, record, matrix)
             .then(() => { this._settleLateImage(record); this._maybeCheckpoint(op.layerId) })
             .catch(err => console.error('failed to paint pasted image', err))
         }
@@ -3289,6 +3350,7 @@ export class PencilEngine implements PencilEngineAPI {
       case 'area_transform':
       case 'area_clear':
       case 'area_paste':
+      case 'area_fill':
         this._rebuildLayerOrDefer(op.layerId)
         break
       case 'layer_add':
@@ -3498,13 +3560,15 @@ export class PencilEngine implements PencilEngineAPI {
       case 'area_clear':
         this._clearArea(buf, op.selection)
         break
-      case 'area_paste': {
+      case 'area_paste':
+      case 'area_fill': {
         const record = this._asImportRecord(op)
+        const matrix = op.type === 'area_paste' ? op.matrix : undefined
         // Same as image_import's own branch: a rebuild reaches this with the
         // raster already decoded in almost every case, and falls back to the
         // async path rather than dropping the paste when it doesn't.
-        if (!this._paintDecodedImage(buf, record, op.matrix)) {
-          this._paintImage(buf, record, op.matrix)
+        if (!this._paintDecodedImage(buf, record, matrix)) {
+          this._paintImage(buf, record, matrix)
             .catch(err => console.error('failed to paint pasted image', err))
         }
         break
@@ -4954,7 +5018,9 @@ export class PencilEngine implements PencilEngineAPI {
     // does, so it must be decoded ahead of a replay for the same reason too —
     // an operation painted after its own async decode lands on top of
     // whatever was drawn in the meantime.
-    for (const op of ops) if (op.type === 'image_import' || op.type === 'area_paste') sources.add(op.image)
+    for (const op of ops) {
+      if (op.type === 'image_import' || op.type === 'area_paste' || op.type === 'area_fill') sources.add(op.image)
+    }
     if (sources.size === 0) return
     await Promise.all([...sources].map(src => this._loadImage(src).catch(
       // Deliberately not rethrown: this is a preparation step for a replay,
@@ -7516,7 +7582,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  Placement rides the `x`/`y` fields image_import added for infinite rooms:
    *  present means "natural size at this world position", which is exactly
    *  what paste-in-place means. */
-  private _asImportRecord(op: AreaPasteOperation): ImageImportOperation {
+  private _asImportRecord(op: AreaPasteOperation | AreaFillOperation): ImageImportOperation {
     return {
       id: op.id, userId: op.userId, timestamp: op.timestamp, seq: op.seq,
       type: 'image_import', layerId: op.layerId, image: op.image,
@@ -7631,6 +7697,164 @@ export class PencilEngine implements PencilEngineAPI {
     if (!blob) return null
     const image = await blobToDataUrl(blob)
     return image ? { image, x: minX, y: minY, width: w, height: h } : null
+  }
+
+  /** (#453) The rect a fill is allowed to spread over.
+   *
+   *  A flood fill needs an edge to stop at, and on this canvas that is not a
+   *  given: layer storage is a sparse map of tiles that come into existence
+   *  when something is painted on them, so "outward from an untouched pixel"
+   *  has no end. A room with a canvas has the obvious answer and uses it — the
+   *  canvas, exactly as a bucket behaves in every editor with a page. An
+   *  infinite room (#436 took those off the create screen, but rooms made
+   *  before it are still in production) has no page, so the drawing itself
+   *  stands in for one: the content bounds of whatever the fill is reading,
+   *  with a margin so paint can spread a little past the outermost mark.
+   *
+   *  Capped to a `FILL_MAX_DIM` box centred on the seed in both cases. That
+   *  cap is a real limit on what a single fill can cover, and it is deliberate
+   *  rather than defensive: the alternative on a drawing spanning tens of
+   *  thousands of world units is a readback and a scan nobody's tablet
+   *  finishes. Reaching it is reported like reaching any other edge — see
+   *  `clipped`. */
+  private _fillDomain(items: CompositeItem[], seedX: number, seedY: number): WorldRect {
+    const half = FILL_MAX_DIM / 2
+    const cap: WorldRect = {
+      minX: Math.floor(seedX - half), minY: Math.floor(seedY - half),
+      maxX: Math.ceil(seedX + half), maxY: Math.ceil(seedY + half),
+    }
+    let rect: WorldRect
+    if (!this._infinite) {
+      rect = { minX: 0, minY: 0, maxX: this.canvas.width, maxY: this.canvas.height }
+    } else {
+      // Union of what the source layers actually hold. Tracked per tile and
+      // never read back from the GPU (see ILayerBuffer.getContentBoundsWorld),
+      // so this costs nothing even on a long room.
+      let union: WorldRect | null = null
+      for (const { id } of items) {
+        const bounds = this._layers.get(id)?.getContentBoundsWorld()
+        if (!bounds) continue
+        union = union === null ? bounds : {
+          minX: Math.min(union.minX, bounds.minX), minY: Math.min(union.minY, bounds.minY),
+          maxX: Math.max(union.maxX, bounds.maxX), maxY: Math.max(union.maxY, bounds.maxY),
+        }
+      }
+      // A tap outside the drawing (or on a blank canvas) still has to fill
+      // *something*, so the seed's own neighbourhood joins the domain rather
+      // than the fill silently doing nothing.
+      const margin = INFINITE_FILL_MARGIN
+      rect = union === null ? cap : {
+        minX: Math.min(union.minX - margin, seedX - margin), minY: Math.min(union.minY - margin, seedY - margin),
+        maxX: Math.max(union.maxX + margin, seedX + margin), maxY: Math.max(union.maxY + margin, seedY + margin),
+      }
+    }
+    return {
+      minX: Math.max(Math.floor(rect.minX), cap.minX), minY: Math.max(Math.floor(rect.minY), cap.minY),
+      maxX: Math.min(Math.ceil(rect.maxX), cap.maxX), maxY: Math.min(Math.ceil(rect.maxY), cap.maxY),
+    }
+  }
+
+  /** (#453) Flattens `items` (bottom→top, each at its own effective opacity)
+   *  over `rect` into one premultiplied RGBA8 buffer — the pixels a fill reads
+   *  its boundaries from.
+   *
+   *  World-aligned blits rather than the real composite path, for the reason
+   *  readAreaImage gives: `_runComposite` is written against the live camera,
+   *  and a fill's domain has nothing to do with where the camera is looking.
+   *  It also must not include the paper pass — paper is composited at display
+   *  time and is not in any layer, and sampling it back in would hand the fill
+   *  the grain as if it were drawing, which is exactly how a naive bucket
+   *  shatters a region into islands.
+   *
+   *  Rows come back in GL order (bottom-up); see computeAreaFill for where
+   *  that is undone. */
+  private _readFillSource(rect: WorldRect, items: CompositeItem[]): Uint8Array | null {
+    const { gl } = this
+    const w = rect.maxX - rect.minX
+    const h = rect.maxY - rect.minY
+    if (w <= 0 || h <= 0) return null
+
+    const patch = new AccumulationBuffer(gl, w, h)
+    patch.clear()
+    const single = items.length === 1 && items[0].opacity >= 1
+    const layerPatch = single ? null : new AccumulationBuffer(gl, w, h)
+    for (const { id, opacity } of items) {
+      const layerBuf = this._layers.get(id)
+      if (!layerBuf || opacity <= 0) continue
+      // One layer at full opacity is the common case (filling against the
+      // active layer alone) and needs no intermediate at all.
+      const dest = layerPatch ?? patch
+      if (layerPatch) layerPatch.clear()
+      for (const { buffer, originX, originY } of layerBuf.resolveVisible(rect)) {
+        this._runTransformBlit(
+          buffer.texture, translationMatrix(rect.minX - originX, rect.minY - originY),
+          w, h, buffer.width, buffer.height, dest.fbo,
+        )
+      }
+      if (layerPatch) this._compositeTextures([{ texture: layerPatch.texture, opacity }], patch.fbo, w, h)
+    }
+    const pixels = patch.readPixels()
+    patch.destroy()
+    layerPatch?.destroy()
+    return pixels
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  async computeAreaFill(request: AreaFillRequest): Promise<AreaFillRaster | null> {
+    const { layerId, seedX, seedY, color, tolerance, gapClose, expand, source } = request
+    if (!this._layers.has(layerId)) return null
+    // 'visible' reads the composite of every visible layer — lineart on top,
+    // colour going into the layer underneath, which is the whole reason the
+    // mode exists (ADR 009). 'layer' reads only the target.
+    const items = source === 'visible'
+      ? this._compositeOrder.filter(it => this._layers.has(it.id))
+      : [{ id: layerId, opacity: 1 }]
+    if (items.length === 0) return null
+
+    const rect = this._fillDomain(items, seedX, seedY)
+    const w = rect.maxX - rect.minX
+    const h = rect.maxY - rect.minY
+    if (w <= 0 || h <= 0) return null
+    const pixels = this._readFillSource(rect, items)
+    if (!pixels) return null
+
+    // readPixels hands back rows bottom-up, and flipping a domain-sized buffer
+    // to fix that would be a pointless copy of up to 64 MB: the fill itself is
+    // orientation-blind, so it runs in GL rows and only the two y coordinates
+    // that leave this method are converted back. `_pixelsToPngBlob` flips on
+    // the way out, so the cropped raster is already in the order it wants.
+    const seedCol = Math.floor(seedX) - rect.minX
+    const seedRow = (h - 1) - (Math.floor(seedY) - rect.minY)
+    const paper = this._opts.paperColor ?? paperColorOf(this._opts.paper)
+    const result = computeFill(
+      {
+        pixels, width: w, height: h,
+        background: [
+          Math.round(paper[0] * 255), Math.round(paper[1] * 255), Math.round(paper[2] * 255),
+        ],
+      },
+      { seedX: seedCol, seedY: seedRow, tolerance, gapClose, expand },
+    )
+    if (!result.bounds) return null
+
+    const rgb: [number, number, number] = [
+      Math.round(color[0] * 255), Math.round(color[1] * 255), Math.round(color[2] * 255),
+    ]
+    const cropped = coverageToRgba(result.coverage, w, result.bounds, rgb)
+    const blob = await this._pixelsToPngBlob(cropped.pixels, cropped.width, cropped.height)
+    if (!blob) return null
+    const image = await blobToDataUrl(blob)
+    if (!image) return null
+    return {
+      image,
+      x: rect.minX + result.bounds.minX,
+      // GL rows counted from the bottom of the domain, world y counted from
+      // its top: the crop's *last* row is the one nearest the top edge.
+      y: rect.minY + (h - result.bounds.maxY),
+      width: cropped.width,
+      height: cropped.height,
+      clipped: result.clipped,
+    }
   }
 
   /** Rebuilds `_compositeFBO` from every live layer plus whatever preview

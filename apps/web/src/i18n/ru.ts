@@ -260,6 +260,7 @@ export const ru: Dictionary = {
   'room.confirmUndo': 'Отмена удалит слой, на котором есть работа других участников. Продолжить?',
   'room.confirmRedo': 'Возврат удалит слой, на котором есть работа других участников. Продолжить?',
   'room.offlineSharedAction': 'Нет связи с проектом — это действие затрагивает общие слои и станет доступно после переподключения.',
+  'room.fillLeaked': 'Заливка растеклась до края — скорее всего контур не замкнут. Отмените её и увеличьте «Замыкать разрывы» или уменьшите «Порог».',
 
   // ── проект: боковая панель ─────────────────────────────────────────────
   'room.panel.layers': 'Слои',
@@ -377,6 +378,7 @@ export const ru: Dictionary = {
   'tool.transformTitle': 'Трансформация — двигать/масштабировать/вращать/скашивать активный слой или выделение. Enter применяет, Esc отменяет  {hotkey}',
   'tool.selection': 'Выделение',
   'tool.selectionTitle': 'Выделение — отметить область, чтобы подвинуть её трансформацией или вырезать/скопировать/вставить. Esc снимает  {hotkey}',
+  'tool.fill': 'Заливка',
   'tool.grid': 'Сетка',
   'tool.gridTitle': 'Построительная сетка  {hotkey}',
 
@@ -396,6 +398,10 @@ export const ru: Dictionary = {
   'tool.field.lockRuler': 'Закрепить линейку на холсте',
   'tool.field.rulerSnap': 'Прилипание штрихов к линейке',
   'tool.field.selectionShape': 'Форма',
+  'tool.field.fillSource': 'Границы по всем видимым слоям',
+  'tool.field.tolerance': 'Порог',
+  'tool.field.gapClose': 'Замыкать разрывы',
+  'tool.field.fillExpand': 'Заводить под контур',
   'tool.field.showGrid': 'Показывать сетку',
   'tool.field.tiltResponse': 'Отклик на наклон',
   'tool.tiltResponse.restrained': 'Сдержанный',

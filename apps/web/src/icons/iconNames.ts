@@ -42,6 +42,7 @@ export const MATERIAL_ICON_NAMES = [
   'error',
   'expand_more',
   'fit_screen',
+  'format_color_fill',
   'folder',
   'folder_open',
   'fullscreen',

@@ -8,7 +8,7 @@
 
 import { nanoid } from 'nanoid'
 import type {
-  AreaClearOperation, AreaPasteOperation, AreaTransformOperation, Dab, ImageImportOperation, LayerAddOperation,
+  AreaClearOperation, AreaFillOperation, AreaPasteOperation, AreaTransformOperation, Dab, ImageImportOperation, LayerAddOperation,
   LayerDeleteOperation, LayerDuplicateOperation, LayerMergeOperation, LayerTransformOperation, SelectionShape,
   StrokeOperation,
 } from '@grafetto/shared'
@@ -724,6 +724,23 @@ export function makeAreaPaste(
   return {
     id: nanoid(10), type: 'area_paste', userId, timestamp: nextTimestamp(),
     layerId, image: `test-image:${nanoid(6)}`, ...rect, ...overrides,
+  }
+}
+
+// ─── Fill (#453) ───────────────────────────────────────────────────────────
+
+export function makeAreaFill(
+  userId: string, layerId: string, rect: { x: number; y: number; width: number; height: number },
+  overrides: Partial<AreaFillOperation> = {},
+): AreaFillOperation {
+  return {
+    id: nanoid(10), type: 'area_fill', userId, timestamp: nextTimestamp(),
+    layerId, image: `test-image:${nanoid(6)}`, ...rect,
+    // The recorded parameters, which replay never reads — present so a test
+    // operation is a real one rather than a shape that only happens to work.
+    seedX: rect.x + Math.floor(rect.width / 2), seedY: rect.y + Math.floor(rect.height / 2),
+    color: [0.2, 0.4, 0.9], tolerance: 0.15, gapClose: 1, expand: 1, source: 'visible',
+    ...overrides,
   }
 }
 

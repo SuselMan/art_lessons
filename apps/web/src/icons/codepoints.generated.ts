@@ -36,6 +36,7 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'error': '\u{e000}',
   'expand_more': '\u{e5cf}',
   'fit_screen': '\u{ea10}',
+  'format_color_fill': '\u{e23a}',
   'folder': '\u{e2c7}',
   'folder_open': '\u{e2c8}',
   'fullscreen': '\u{e5d0}',

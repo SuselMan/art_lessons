@@ -393,8 +393,13 @@ function layerStateIdsOf(state: unknown): Set<string> | null {
  *  (#446) The three selection operations *do* join the coverable list: each
  *  targets one layer and does nothing but paint it, which is the whole test
  *  above. `area_paste` carries an inline raster, so it is heavy in exactly the
- *  way this list exists for. */
-const COVERABLE_OP_TYPES = ['stroke', 'image_import', 'layer_clear', 'area_transform', 'area_clear', 'area_paste']
+ *  way this list exists for.
+ *
+ *  (#453) `area_fill` for both reasons at once: one layer, nothing but paint,
+ *  and an inline raster the size of whatever was filled. */
+const COVERABLE_OP_TYPES = [
+  'stroke', 'image_import', 'layer_clear', 'area_transform', 'area_clear', 'area_paste', 'area_fill',
+]
 
 /** (#412) `'layerId' in op` used to be enough to narrow to a single-target
  *  operation. It stopped being: `layer_opacity`/`layer_visibility` still
@@ -402,7 +407,7 @@ const COVERABLE_OP_TYPES = ['stroke', 'image_import', 'layer_clear', 'area_trans
  *  can be `undefined`. Narrowing by type instead says what was always meant —
  *  the three operations that carry pixels — and keeps the one list of them. */
 type CoverableOperation = Extract<Operation, {
-  type: 'stroke' | 'image_import' | 'layer_clear' | 'area_transform' | 'area_clear' | 'area_paste'
+  type: 'stroke' | 'image_import' | 'layer_clear' | 'area_transform' | 'area_clear' | 'area_paste' | 'area_fill'
 }>
 
 function isCoverableOp(op: Operation): op is CoverableOperation {

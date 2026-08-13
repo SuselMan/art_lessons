@@ -10,7 +10,7 @@
 import type {
   Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, LayerDuplicateOperation,
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
-  AreaPasteOperation,
+  AreaPasteOperation, AreaFillOperation,
 } from '@grafetto/shared'
 import { operationLayerIds } from '@grafetto/shared'
 
@@ -24,7 +24,7 @@ export interface LogEntry {
 /** Operations that change a layer's pixel buffer (as opposed to structure). */
 export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation
   | LayerDuplicateOperation | ImageImportOperation | LayerTransformOperation
-  | AreaTransformOperation | AreaClearOperation | AreaPasteOperation
+  | AreaTransformOperation | AreaClearOperation | AreaPasteOperation | AreaFillOperation
 
 export function isPixelOperation(op: Operation): op is PixelOperation {
   return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge'
@@ -33,6 +33,8 @@ export function isPixelOperation(op: Operation): op is PixelOperation {
     // else, which is what "pixel operation" means here — they belong in
     // checkpoint counting, per-layer replay and undo exactly like a stroke.
     || op.type === 'area_transform' || op.type === 'area_clear' || op.type === 'area_paste'
+    // (#453) The fill, for the same reason: one layer, pixels and nothing else.
+    || op.type === 'area_fill'
 }
 
 /** Every PixelOperation but layer_transform targets exactly one layer via its
