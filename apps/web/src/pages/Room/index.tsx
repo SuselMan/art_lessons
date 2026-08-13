@@ -580,6 +580,20 @@ export function Room() {
   // visible neither snaps (the engine sync below) nor can be grabbed (the
   // catcher), because an invisible line bending strokes is a trap.
   const rulerVisible = rulerActive || rulerLock
+  // (#448) Is a ruler gesture running right now? Only the distance bubble
+  // reads it: a measurement is worth showing while it is being taken and
+  // nothing but clutter over the drawing afterwards. Local state rather than
+  // the store because it is born and dies inside handleRulerDown's own drag —
+  // nothing outside this component can observe it, and the store deliberately
+  // holds no per-gesture scratch (see rulerLine's comment above for what does
+  // belong there). Set twice per drag, not per move, so it costs no renders on
+  // top of the ones setRulerLine already causes.
+  const [rulerDragging, setRulerDragging] = useState(false)
+  // Gated on the selection as well, so a flag stranded by a drag whose catcher
+  // was unmounted under it (the tool switched by hotkey mid-gesture, with the
+  // pen still down) cannot leave the bubble standing over a locked ruler: a
+  // gesture can only run while the ruler is in hand in the first place.
+  const rulerMeasuring = rulerDragging && rulerActive
   // Construction grid (#89, #405) — visibility is a setting on the grid tool
   // now rather than a store flag toggled by the toolbar button, which is what
   // lets it stay on screen under every other tool while its button selects it
@@ -3007,18 +3021,25 @@ export function Room() {
     // this point, and rulerSnap.ts already refuses a degenerate line rather
     // than dividing by zero (MIN_RULER_LENGTH_SQ).
     setRulerLine(computeLine(e.clientX, e.clientY))
+    setRulerDragging(true)
 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
       setRulerLine(computeLine(ev.clientX, ev.clientY))
     }
-    const onUp = (ev: PointerEvent) => {
+    // (#448) `end`, not `up`: a pointercancel (the browser taking the gesture
+    // over) never sends pointerup, and a distance bubble left standing after
+    // one would be exactly the permanent label this issue removed.
+    const onEnd = (ev: PointerEvent) => {
       if (ev.pointerId !== penPointerId) return
+      setRulerDragging(false)
       overlay.removeEventListener('pointermove', onMove)
-      overlay.removeEventListener('pointerup', onUp)
+      overlay.removeEventListener('pointerup', onEnd)
+      overlay.removeEventListener('pointercancel', onEnd)
     }
     overlay.addEventListener('pointermove', onMove)
-    overlay.addEventListener('pointerup', onUp)
+    overlay.addEventListener('pointerup', onEnd)
+    overlay.addEventListener('pointercancel', onEnd)
   }, [vpRef, vp, config, handActive, rulerLine, setRulerLine])
 
   // (#405) The catcher's own cursor, per pointer position — the one cursor in
@@ -4739,7 +4760,7 @@ export function Room() {
                 the catcher's job, and the catcher only exists while the ruler
                 is the selected tool. */}
             {!config.infinite && rulerVisible && rulerLine && (
-              <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} />
+              <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
             )}
             {!config.infinite && transformActive && transformBounds && (
               <TransformGizmo
@@ -4803,7 +4824,7 @@ export function Room() {
                 />
               )}
               {rulerVisible && rulerLine && (
-                <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} />
+                <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
               )}
               {transformActive && transformBounds && (
                 <TransformGizmo

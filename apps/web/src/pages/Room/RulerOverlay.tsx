@@ -20,6 +20,12 @@ interface RulerOverlayProps {
    *  the two tools were redundant with each other — see #170). */
   zoom: number
   angle: number
+  /** (#448) Whether the distance bubble is on screen. True only while a ruler
+   *  gesture is actually running — laying a new line, sliding the whole one,
+   *  or swinging an end. A measurement is read *while measuring*: left up
+   *  permanently it is a number floating over the drawing for as long as the
+   *  ruler is there, which since #445 can be under every other tool. */
+  showDistance: boolean
 }
 
 const ENDPOINT_RADIUS = 7
@@ -47,7 +53,7 @@ const ENDPOINT_RADIUS = 7
  *  reasoning) — either way, drawing at raw (a, b) coordinates inside that
  *  transformed ancestor automatically tracks pan/zoom/rotation with no
  *  inverse-transform math here. */
-export function RulerOverlay({ a, b, zoom, angle }: RulerOverlayProps) {
+export function RulerOverlay({ a, b, zoom, angle, showDistance }: RulerOverlayProps) {
   const distance = Math.hypot(b.x - a.x, b.y - a.y)
   const midX = (a.x + b.x) / 2
   const midY = (a.y + b.y) / 2
@@ -60,12 +66,14 @@ export function RulerOverlay({ a, b, zoom, angle }: RulerOverlayProps) {
         <circle cx={a.x} cy={a.y} r={ENDPOINT_RADIUS} className={styles.rulerEndpoint} />
         <circle cx={b.x} cy={b.y} r={ENDPOINT_RADIUS} className={styles.rulerEndpoint} />
       </svg>
-      <div
-        className={styles.rulerDistanceLabel}
-        style={{ transform: `translate(${midX}px, ${midY}px) scale(${counterScale}) rotate(${-angle}rad) translate(-50%, -150%)` }}
-      >
-        {Math.round(distance)} px
-      </div>
+      {showDistance && (
+        <div
+          className={styles.rulerDistanceLabel}
+          style={{ transform: `translate(${midX}px, ${midY}px) scale(${counterScale}) rotate(${-angle}rad) translate(-50%, -150%)` }}
+        >
+          {Math.round(distance)} px
+        </div>
+      )}
     </div>
   )
 }
