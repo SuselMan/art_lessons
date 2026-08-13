@@ -636,6 +636,69 @@ export const DAB_FRAG = `
     // blank-paper tint), .a is this precomputed catch value.
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
 
+    // Brush pen composite (#454, ADR 009 §9): plain source-over of a covering
+    // ink, and it must stay **first** of the deposit branches below.
+    //
+    // These are independent "> threshold" checks, not an else-if chain, so a
+    // branch only ever sees the modes above its own threshold — which means a
+    // new mode has to be inserted by *value*, not wherever it reads nicely.
+    // Getting that wrong is not a subtle miss: 8.0 satisfies charcoal's own
+    // "> 4.5" just as it satisfies the marker's "> 1.5", so this branch first
+    // sat below charcoal's and every brush-pen composite was drawn as a
+    // charcoal dab over the whole batch's bounding quad — a round blob per
+    // pointer event, which is what the tool looked like until this moved.
+    //
+    // Structurally this is the marker's pipeline — accumulate the stroke's
+    // silhouette in a scratch buffer, then recompute the finished pixel from
+    // the frozen pre-stroke content on every batch — and it is here for the
+    // same reason: "over" applied twice with the same alpha darkens (0.97 ->
+    // 0.999), so a pixel a stroke revisits must be recomputed, not added to.
+    // That is also exactly what makes a second pass over an already-saturated
+    // line leave it alone, which ADR 009 §9 requires.
+    //
+    // What it is *not* is the marker's ink model: no inkLoad texture, no
+    // Beer-Lambert film, no per-pixel dye quantity. Ink covers rather than
+    // transmits, so the silhouette says everything the composite needs, and the
+    // ribbon profile switches that whole pass off for this tool.
+    if (u_inkMode > 7.5) {
+      vec2 tileUV = gl_FragCoord.xy / u_resolution;
+      float coverage = texture2D(u_strokeCoverage, tileUV).a;
+      // Nothing of this stroke here — leave whatever is on the layer exactly
+      // as it is, which is what makes drawing the composite over a whole
+      // bounding rect (rather than per dab) free.
+      if (coverage <= 0.0) discard;
+
+      // ADR 009 §8. Paper acts on the rim only: edgeness is identically 0
+      // wherever the mark is solid, so no value of u_paperEdge can put grain
+      // or holes *inside* the stroke — that would read as a dry brush, which
+      // is the one thing this tool must not look like. At the rim, absorbent
+      // paper (low paperCatch, i.e. a pit between fibres) takes a bite out of
+      // the coverage, so the boundary picks up the fibre-scale irregularity
+      // real ink has and a vector-like edge doesn't.
+      //
+      // paperCatch is a single sample of a value baked offline in double
+      // precision (see its own comment above), and this adds only multiply/mix
+      // on top — no new hash, no finite difference. That is what keeps the mark
+      // identical on every participant's GPU (.claude/rules.md).
+      float edgeness = 1.0 - coverage;
+      float paperMod = 1.0 - u_paperEdge * edgeness * (1.0 - paperCatch);
+
+      // v_opacity, not a per-dab quantity smuggled through coverage: every dab
+      // of a brush-pen stroke carries the same opacity (engine's own
+      // _bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
+      // §9), so one uniform value describes the whole batch exactly. A tool
+      // whose opacity varied per dab could not be composited from a coverage
+      // buffer this way at all.
+      float alpha = clamp(coverage * v_opacity * paperMod, 0.0, 1.0);
+      vec4 dst = texture2D(u_original, tileUV);
+      // Textbook premultiplied "over". dst is already premultiplied, so there
+      // is nothing to recover first — unlike the marker's branch, which has to
+      // un-premultiply because it multiplies against the pigment's own colour.
+      gl_FragColor = vec4(alpha * u_color + (1.0 - alpha) * dst.rgb,
+                          alpha + (1.0 - alpha) * dst.a);
+      return;
+    }
+
     // Charcoal (#304, ADR 005 §4-7). Graphite's own accumulating "over"
     // deposit — identical premultiplied output, so charcoal composites with
     // graphite/ink/marker exactly as graphite already does, with no special
@@ -812,62 +875,6 @@ export const DAB_FRAG = `
     // paper, 0.8-2.0px on coarse. Deliberately not reinstated blind: the whole
     // reason the rasterizer was rewritten is that the mark's edge was too soft,
     // and softness is exactly what this adds back.
-
-    // Brush pen composite (#454, ADR 009 §9): plain source-over of a covering
-    // ink, checked before the marker's own branch below since 8.0 would
-    // satisfy that one's "> 1.5" too (same mutually-exclusive-formulas
-    // reasoning that branch gives for sitting ahead of the liner's).
-    //
-    // Structurally this is the marker's pipeline — accumulate the stroke's
-    // silhouette in a scratch buffer, then recompute the finished pixel from
-    // the frozen pre-stroke content on every batch — and it is here for the
-    // same reason: "over" applied twice with the same alpha darkens (0.97 ->
-    // 0.999), so a pixel a stroke revisits must be recomputed, not added to.
-    // That is also exactly what makes a second pass over an already-saturated
-    // line leave it alone, which ADR 009 §9 requires.
-    //
-    // What it is *not* is the marker's ink model: no inkLoad texture, no
-    // Beer-Lambert film, no per-pixel dye quantity. Ink covers rather than
-    // transmits, so the silhouette says everything the composite needs, and the
-    // ribbon profile switches that whole pass off for this tool.
-    if (u_inkMode > 7.5) {
-      vec2 tileUV = gl_FragCoord.xy / u_resolution;
-      float coverage = texture2D(u_strokeCoverage, tileUV).a;
-      // Nothing of this stroke here — leave whatever is on the layer exactly
-      // as it is, which is what makes drawing the composite over a whole
-      // bounding rect (rather than per dab) free.
-      if (coverage <= 0.0) discard;
-
-      // ADR 009 §8. Paper acts on the rim only: edgeness is identically 0
-      // wherever the mark is solid, so no value of u_paperEdge can put grain
-      // or holes *inside* the stroke — that would read as a dry brush, which
-      // is the one thing this tool must not look like. At the rim, absorbent
-      // paper (low paperCatch, i.e. a pit between fibres) takes a bite out of
-      // the coverage, so the boundary picks up the fibre-scale irregularity
-      // real ink has and a vector-like edge doesn't.
-      //
-      // paperCatch is a single sample of a value baked offline in double
-      // precision (see its own comment above), and this adds only multiply/mix
-      // on top — no new hash, no finite difference. That is what keeps the mark
-      // identical on every participant's GPU (.claude/rules.md).
-      float edgeness = 1.0 - coverage;
-      float paperMod = 1.0 - u_paperEdge * edgeness * (1.0 - paperCatch);
-
-      // v_opacity, not a per-dab quantity smuggled through coverage: every dab
-      // of a brush-pen stroke carries the same opacity (engine's own
-      // _bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
-      // §9), so one uniform value describes the whole batch exactly. A tool
-      // whose opacity varied per dab could not be composited from a coverage
-      // buffer this way at all.
-      float alpha = clamp(coverage * v_opacity * paperMod, 0.0, 1.0);
-      vec4 dst = texture2D(u_original, tileUV);
-      // Textbook premultiplied "over". dst is already premultiplied, so there
-      // is nothing to recover first — unlike the marker's branch, which has to
-      // un-premultiply because it multiplies against the pigment's own colour.
-      gl_FragColor = vec4(alpha * u_color + (1.0 - alpha) * dst.rgb,
-                          alpha + (1.0 - alpha) * dst.a);
-      return;
-    }
 
     // Marker composite (#250, ADR 004 §3, redesigned in "Ревизия v1.5" —
     // see u_original/u_strokeCoverage/u_inkLoad's own comments above):
