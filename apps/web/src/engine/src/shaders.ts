@@ -982,24 +982,26 @@ export const DAB_FRAG = `
       // dist == 1.0 with (1.0 - shape) == 1.0 and decay == 1.0, so there is no
       // step at the mark's edge to read as a drawn outline.
       //
-      // The decay is steep (LINER_WICK_FALLOFF) because this term accumulates:
-      // dabs are laid down a fraction of a radius apart and blended saturating
-      // "over", so a pixel just outside the edge is written by a dozen dabs in
-      // one pass and reaches near-full ink no matter how small each single
-      // contribution was. A gentle profile would therefore not read as a soft
-      // spread at all - it would just be a wider line with a hard edge one
-      // band further out (which is the whole trap this approach had to be
-      // tuned around; the alternative was giving the liner its own stroke-
-      // coverage buffer, as the marker needed in #330). Steep decay puts the
-      // saturating part in the first fraction of the band and leaves the rest
-      // a real gradient - which is also how ink behaves on paper.
+      // The decay is exponential (LINER_WICK_FALLOFF), not linear, because
+      // this term accumulates: dabs are laid down a fraction of a radius apart
+      // and blended saturating "over", so a pixel just outside the edge is
+      // written by a dozen dabs in one pass and reaches near-full ink no
+      // matter how small each single contribution was. A flat-ish profile
+      // would therefore not read as a soft spread at all - it would just be a
+      // wider line with a hard edge one band further out (the whole trap this
+      // approach had to be tuned around; the alternative was giving the liner
+      // its own stroke-coverage buffer, as the marker needed in #330). An
+      // exponential puts the saturating part in the first fraction of the band
+      // and leaves the rest a real gradient - which is also how ink behaves on
+      // paper. Measured at this value: 0.85 core / 0.40 / 0.15 / 0.013 across
+      // successive rows outward (see LINER_WICK_PX's own note).
       //
       // Normalized to hit exactly 0.0 at the band's outer rim rather than
       // being cut off at exp(-K): the quad ends there, and a term with any
       // amplitude left at that boundary draws a hard circle around every
       // single dab (see the charcoal branch's own dust-ring comment, which
       // gets away with the shape only because its amplitude is tiny).
-      const float LINER_WICK_FALLOFF = 4.0;
+      const float LINER_WICK_FALLOFF = 2.5;
       const float LINER_WICK_AMP = 0.4;
       float bandT = clamp((dist - 1.0) / max(v_wick, 1e-4), 0.0, 1.0);
       float decay = (exp(-LINER_WICK_FALLOFF * bandT) - exp(-LINER_WICK_FALLOFF))

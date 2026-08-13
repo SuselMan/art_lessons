@@ -156,12 +156,15 @@ describe('liner tool (#241, ADR 003)', () => {
     const engine = await setupLayer()
     engine.appendOperation(makeLayerAdd('user-a', 'L2'))
 
-    // 9px diameter — LINER_SIZE_PX's own 0.8mm step, the widest of the ladder,
-    // so the band sits at its absolute value rather than against the cap.
+    // 9px diameter — LINER_SIZE_PX's own 0.8mm step, the widest of the ladder.
     const dabs = [40, 80, 120].map(x => dab(x, 80, { size: 9 }))
     const radius = 4.5
     const band = linerWickPx(radius)
-    expect(band).toBe(LINER_WICK_PX) // guards the "widest step clears the cap" premise above
+    // Even the widest pen of the ladder still sits under the cap at these
+    // sizes — worth pinning, since it means the whole shipped ladder is
+    // cap-bound and LINER_WICK_PX only starts to bite on a free/advanced size.
+    expect(band).toBe(radius * LINER_WICK_RADIUS_CAP)
+    expect(band).toBeLessThan(LINER_WICK_PX)
 
     engine.appendOperation(makeStroke('user-a', 'L1', dabs, { tool: 'liner', preset: '0.8' }))
     const inked = engine.getContentBounds('L1')!

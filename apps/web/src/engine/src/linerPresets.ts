@@ -216,8 +216,17 @@ export function dwellConfigForTool(tool: ToolType): DwellConfig | null {
 // PENCIL_PRESETS' own interpolation comment) — verify by eye at both ends of
 // LINER_SIZES_MM, on a smooth and a rough paper, and retune.
 
-/** How far past the dab's own radius ink reaches, in canvas px. */
-export const LINER_WICK_PX = 1.2
+/** How far past the dab's own radius ink reaches, in canvas px.
+ *
+ *  Tuned against a measured cross-section rather than by eye (browser QA,
+ *  2026-08-13: one horizontal stroke, coverage sampled per canvas row,
+ *  compared against the same stroke on the pre-#452 build). The first pass at
+ *  1.2 px was real but invisible — it moved the outermost row from 0.0%
+ *  coverage to 0.6% and the edge row from 13% to 30%, i.e. the line's own edge
+ *  got slightly denser and nothing appeared outside it. At 2.5 px the same
+ *  stroke reads 0.85 core / 0.40 / 0.15 / 0.013 across successive rows outward
+ *  — an actual gradient about two pixels deep, with the core untouched. */
+export const LINER_WICK_PX = 2.5
 /** Ceiling on that band as a fraction of the dab's own radius — see this
  *  section's own comment on why the absolute figure needs one at all. */
 export const LINER_WICK_RADIUS_CAP = 0.5
