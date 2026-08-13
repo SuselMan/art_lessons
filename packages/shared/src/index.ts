@@ -799,9 +799,25 @@ export type AreaClearOperation = OperationBase & {
  *  `image` is a PNG data URL with straight (un-premultiplied) alpha, the same
  *  encoding `image_import` uses and the same one `_blitImage` premultiplies
  *  on the way into a layer buffer. `x`/`y` are the world-space top-left
- *  corner; `width`/`height` the rect it covers, always the raster's own
- *  natural size (paste never scales — transforming what was pasted is a
- *  separate gesture, and a separate operation). */
+ *  corner and `width`/`height` the rect it covers — always the raster's own
+ *  natural size.
+ *
+ *  `matrix` is where it was moved to before it was let go. A pasted piece
+ *  floats above the layer until it is dropped (ADR 008, "Плавающее
+ *  выделение"), and whatever placing happened in between arrives here: one
+ *  operation for the whole paste-place-drop gesture, rather than a paste
+ *  followed by a transform of the region it landed in.
+ *
+ *  That second form would be wrong as well as clumsy. A transform lifts
+ *  *everything* inside its mask, and by then that includes whatever was
+ *  already under the pasted piece — which is exactly the bug the floating
+ *  model exists to remove (Ilya, 13.08: "двигаться начинает и тот что
+ *  вставился и тот что я изначально выделил").
+ *
+ *  Absent means identity — what a paste dropped where it landed writes.
+ *  Applied about the world origin like `layer_transform`'s own matrix; the
+ *  rect is not a second coordinate system, it is where the raster sits before
+ *  the matrix acts. */
 export type AreaPasteOperation = OperationBase & {
   type: 'area_paste'
   layerId: string
@@ -810,6 +826,7 @@ export type AreaPasteOperation = OperationBase & {
   y: number
   width: number
   height: number
+  matrix?: LayerTransformMatrix
 }
 
 /** Teacher-only: marks the target operation `gone` for everyone. Not an undo —

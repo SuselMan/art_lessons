@@ -593,6 +593,28 @@ export interface PencilEngineAPI {
   // layer wholesale because every pixel of it moved; here most of the layer
   // is standing still.
   previewAreaTransform(layerId: string, selection: SelectionShape, matrix: LayerTransformMatrix): void
+  // (#446) The paste half of a floating selection: shows `image` sitting above
+  // `layerId` at `rect`, moved by `matrix`, without writing a single pixel
+  // into the layer. What makes a pasted piece a *float* — the layer keeps its
+  // own content until the piece is dropped, so dragging moves the pasted
+  // pixels alone and never the drawing that happens to be under them.
+  //
+  // Same lifecycle and the same clearLayerTransformPreview as the two previews
+  // above; the drop is an `area_paste` carrying that same matrix.
+  //
+  // The raster must already be decoded (preloadImages) — a float is dragged at
+  // pointer rate and cannot wait on an image decode per frame. Silently draws
+  // nothing until it is, which for a locally-copied selection never happens.
+  previewAreaPaste(
+    layerId: string, image: string,
+    rect: { x: number; y: number; width: number; height: number },
+    matrix: LayerTransformMatrix,
+  ): void
+  // (#446) Decodes one raster into the same cache preloadImages fills, so the
+  // float above can draw it on the very first frame. preloadImages takes whole
+  // operations, and a floating paste has no operation yet — that is the point
+  // of it.
+  preloadImage(src: string): Promise<void>
   // (#446) The selected pixels of one layer as a PNG data URL plus the world
   // rect they came from — what "copy" puts on the clipboard and what a later
   // `area_paste` carries. Everything outside the selection is transparent, so
@@ -2260,10 +2282,10 @@ export class PencilEngine implements PencilEngineAPI {
         // Same decoded/late split as image_import above — see #398. A local
         // paste is always already decoded (the clipboard raster came from this
         // very engine); a peer's arrives cold and takes the async path.
-        if (this._paintDecodedImage(buf, record)) {
+        if (this._paintDecodedImage(buf, record, op.matrix)) {
           this._maybeCheckpoint(op.layerId)
         } else {
-          this._paintImage(buf, record)
+          this._paintImage(buf, record, op.matrix)
             .then(() => { this._settleLateImage(record); this._maybeCheckpoint(op.layerId) })
             .catch(err => console.error('failed to paint pasted image', err))
         }
@@ -3453,8 +3475,9 @@ export class PencilEngine implements PencilEngineAPI {
         // Same as image_import's own branch: a rebuild reaches this with the
         // raster already decoded in almost every case, and falls back to the
         // async path rather than dropping the paste when it doesn't.
-        if (!this._paintDecodedImage(buf, record)) {
-          this._paintImage(buf, record).catch(err => console.error('failed to paint pasted image', err))
+        if (!this._paintDecodedImage(buf, record, op.matrix)) {
+          this._paintImage(buf, record, op.matrix)
+            .catch(err => console.error('failed to paint pasted image', err))
         }
         break
       }
@@ -4829,6 +4852,15 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** See the PencilEngineAPI doc comment. */
+  async preloadImage(src: string): Promise<void> {
+    await this._loadImage(src).catch(
+      // Same reasoning as preloadImages': a raster that will not decode is not
+      // a reason to throw at the caller, it is a float that draws nothing.
+      err => { console.error('failed to decode pasted image', err) },
+    )
+  }
+
+  /** See the PencilEngineAPI doc comment. */
   async preloadImages(ops: Operation[]): Promise<void> {
     const sources = new Set<string>()
     // (#446) `area_paste` carries a raster for the same reason image_import
@@ -4851,10 +4883,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  replay apply the operations that follow it against the content they
    *  were recorded against. False means nothing was painted and the caller
    *  must fall back to the async path. */
-  private _paintDecodedImage(buf: ILayerBuffer, op: ImageImportOperation): boolean {
+  private _paintDecodedImage(
+    buf: ILayerBuffer, op: ImageImportOperation, matrix?: LayerTransformMatrix,
+  ): boolean {
     const img = this._imageCache.get(op.image)
     if (!img) return false
-    this._blitImage(buf, op, img)
+    this._blitImage(buf, op, img, matrix)
     this._displayIfNotSuspended()
     return true
   }
@@ -4885,16 +4919,25 @@ export class PencilEngine implements PencilEngineAPI {
    *  is what remains for the cases where it cannot — a genuinely new import
    *  (local, or a peer's arriving live), where nothing had a chance to
    *  decode it in advance. */
-  private async _paintImage(layerBuf: ILayerBuffer, op: ImageImportOperation): Promise<void> {
+  private async _paintImage(
+    layerBuf: ILayerBuffer, op: ImageImportOperation, matrix?: LayerTransformMatrix,
+  ): Promise<void> {
     const img = await this._loadImage(op.image)
-    this._blitImage(layerBuf, op, img)
+    this._blitImage(layerBuf, op, img, matrix)
     // Unconditional, unlike _paintDecodedImage's: whatever suspendDisplay
     // span was open when this operation was applied is long closed by the
     // time a decode resolves, so there is nothing left to repaint later.
     this._display()
   }
 
-  private _blitImage(layerBuf: ILayerBuffer, op: ImageImportOperation, img: HTMLImageElement): void {
+  private _blitImage(
+    layerBuf: ILayerBuffer, op: ImageImportOperation, img: HTMLImageElement,
+    // (#446) Where the raster was moved to before it was dropped — see
+    // AreaPasteOperation.matrix. Absent (every image_import, and a paste
+    // dropped where it landed) takes the plain axis-aligned path below,
+    // byte-for-byte as before.
+    wireMatrix?: LayerTransformMatrix,
+  ): void {
     const { gl, canvas } = this
 
     const texture = gl.createTexture()!
@@ -4921,6 +4964,29 @@ export class PencilEngine implements PencilEngineAPI {
       drawH = op.height * scale
       drawX = (canvas.width - drawW) / 2
       drawY = (canvas.height - drawH) / 2
+    }
+
+    if (wireMatrix) {
+      const matrix = toHomography(wireMatrix)
+      const rect = { x: drawX, y: drawY, width: drawW, height: drawH }
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+      for (const [cx, cy] of [
+        [drawX, drawY], [drawX + drawW, drawY], [drawX, drawY + drawH], [drawX + drawW, drawY + drawH],
+      ] as Array<[number, number]>) {
+        const [tx, ty] = applyMatrix(matrix, cx, cy)
+        minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
+        minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
+      }
+      if (Number.isFinite(minX + minY + maxX + maxY) && maxX > minX && maxY > minY) {
+        const moved: WorldRect = { minX, minY, maxX, maxY }
+        for (const { buffer, originX, originY } of layerBuf.resolveForPaint(moved)) {
+          this._drawImageThroughMatrix(buffer, originX, originY, img, rect, matrix)
+        }
+        layerBuf.markContentPainted(moved)
+      }
+      gl.deleteTexture(texture)
+      if (op.layerId !== this._activeId) this._invalidateSplitCache()
+      return
     }
 
     const worldRect: WorldRect = { minX: drawX, minY: drawY, maxX: drawX + drawW, maxY: drawY + drawH }
@@ -7227,6 +7293,129 @@ export class PencilEngine implements PencilEngineAPI {
     for (const target of layerBuf.resolveVisible(mask.rect)) {
       this._runAreaMaskPass(target.buffer, target.originX, target.originY, mask, 'erase')
     }
+  }
+
+  /** Draws a decoded raster into `target` — whose world origin is
+   *  (originX, originY) — placed at `rect` and then moved by `matrix`.
+   *
+   *  Two passes rather than one, and the intermediate buffer is the reason:
+   *  the image arrives with straight alpha and everything downstream works in
+   *  premultiplied, so it goes through IMAGE_BLIT_FRAG (which premultiplies)
+   *  into a scratch the size of its own rect, and only then through the
+   *  ordinary transform blit, which resamples premultiplied content correctly.
+   *  Sampling the raw image through the transform blit directly would blend
+   *  straight-alpha texels at every filtered edge — a dark rim around
+   *  everything pasted, which is precisely what un-premultiplied filtering
+   *  looks like. */
+  private _drawImageThroughMatrix(
+    target: AccumulationBuffer, originX: number, originY: number,
+    img: HTMLImageElement, rect: { x: number; y: number; width: number; height: number },
+    matrix: Matrix3,
+  ): void {
+    const { gl } = this
+    const w = Math.max(1, Math.round(rect.width))
+    const h = Math.max(1, Math.round(rect.height))
+    const scratch = this._acquireScratchBuf(w, h)
+    scratch.clear()
+
+    const texture = gl.createTexture()!
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img)
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+
+    scratch.beginDraw()
+    gl.useProgram(this._blitProg)
+    const u = this._blitUni
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.uniform1i(u.u_image, 0)
+    gl.uniform2f(u.u_bufferSize, w, h)
+    gl.uniform4f(u.u_imageRect, 0, 0, w, h)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._blitPosLoc)
+    gl.vertexAttribPointer(this._blitPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    scratch.endDraw()
+    gl.deleteTexture(texture)
+
+    // target-local -> world -> pre-matrix world -> scratch-local (the rect's
+    // own origin). Same composition the masked transform builds, with the
+    // raster's rect standing in for a source tile.
+    const toWorld = translationMatrix(originX, originY)
+    const toRectLocal = translationMatrix(-rect.x, -rect.y)
+    const mc = composeMatrix(toRectLocal, composeMatrix(invertMatrix(matrix), toWorld))
+    this._runTransformBlit(scratch.texture, mc, target.width, target.height, w, h, target.fbo)
+    this._releaseScratchBuf(scratch)
+  }
+
+  /** See PencilEngineAPI's doc comment. */
+  previewAreaPaste(
+    layerId: string, image: string,
+    rect: { x: number; y: number; width: number; height: number },
+    wireMatrix: LayerTransformMatrix,
+  ): void {
+    const layerBuf = this._layers.get(layerId)
+    const img = this._imageCache.get(image)
+    const oldByOrigin = new Map(
+      (this._transformPreview.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
+    )
+    if (!layerBuf || !img) {
+      for (const t of oldByOrigin.values()) t.buffer.destroy()
+      this._transformPreview.delete(layerId)
+      this._areaPreviewLayers.delete(layerId)
+      this._display()
+      return
+    }
+
+    const matrix = toHomography(wireMatrix)
+    // Which tiles the piece covers *now* — its rect through the matrix. The
+    // layer's own content is untouched by a paste, so unlike the lift there is
+    // no second region (the hole) to account for.
+    const { w: tw, h: th } = this._tileSize()
+    const corners: Array<[number, number]> = [
+      [rect.x, rect.y], [rect.x + rect.width, rect.y],
+      [rect.x, rect.y + rect.height], [rect.x + rect.width, rect.y + rect.height],
+    ]
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const [x, y] of corners) {
+      const [tx, ty] = applyMatrix(matrix, x, y)
+      minX = Math.min(minX, tx); maxX = Math.max(maxX, tx)
+      minY = Math.min(minY, ty); maxY = Math.max(maxY, ty)
+    }
+    if (!(maxX > minX) || !(maxY > minY) || !Number.isFinite(minX + minY + maxX + maxY)) {
+      for (const t of oldByOrigin.values()) t.buffer.destroy()
+      this._transformPreview.delete(layerId)
+      this._areaPreviewLayers.delete(layerId)
+      this._display()
+      return
+    }
+
+    const tiles: PreviewTile[] = []
+    const reused = new Set<string>()
+    for (const { tileX, tileY } of tilesOverlappingRect({ minX, minY, maxX, maxY }, tw, th)) {
+      const tileRect = tileWorldRect(tileX, tileY, tw, th)
+      const key = `${tileRect.minX},${tileRect.minY}`
+      const old = oldByOrigin.get(key)
+      const scratch = old ? old.buffer : new AccumulationBuffer(this.gl, tw, th)
+      if (old) reused.add(key)
+      const existing = this._tileBufferAt(layerBuf, tileRect)
+      if (existing) existing.copyTo(scratch)
+      else scratch.clear()
+      this._drawImageThroughMatrix(scratch, tileRect.minX, tileRect.minY, img, rect, matrix)
+      tiles.push(old ?? { originX: tileRect.minX, originY: tileRect.minY, buffer: scratch })
+    }
+    for (const [key, t] of oldByOrigin) {
+      if (!reused.has(key)) t.buffer.destroy()
+    }
+
+    this._transformPreview.set(layerId, tiles)
+    this._areaPreviewLayers.add(layerId)
+    this._display()
   }
 
   /** An `area_paste` in `image_import` clothing. Paste and import differ in

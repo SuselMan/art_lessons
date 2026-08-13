@@ -197,6 +197,33 @@ describe('area_paste', () => {
   })
 })
 
+describe('area_paste with a matrix (a float that was moved before it was dropped)', () => {
+  it('lands where the matrix put it, not where the raster was copied from', () => {
+    // A floating paste is dragged before it is let go, and the whole gesture
+    // arrives as one operation: the rect says where the pixels came from, the
+    // matrix says where they ended up. Two operations instead (paste, then
+    // transform the region) would lift whatever was already under the pasted
+    // piece along with it — the bug the float exists to remove.
+    const restore = installFakeImageDecoder({ size: 8 })
+    try {
+      const { engine } = createTestEngine({ userId: 'user-a' }, CANVAS)
+      engine.appendOperation(makeLayerAdd('user-a', 'L'))
+      const op = makeAreaPaste('user-a', 'L', { x: 4, y: 4, width: 8, height: 8 }, {
+        matrix: [1, 0, 0, 1, 20, 24],
+      })
+      return engine.preloadImages([op]).then(() => {
+        engine.appendOperation(op)
+        const pixels = readLayerPixels(engine, 'L')!
+
+        // Where the matrix put it…
+        expect(alphaAt(pixels, 26, 30)).toBeGreaterThan(200)
+        // …and not where the raster's own rect is.
+        expect(alphaAt(pixels, 6, 6)).toBe(0)
+      })
+    } finally { restore() }
+  })
+})
+
 describe('a selection operation on a layer that is gone', () => {
   it('is revoked rather than silently kept in the log', () => {
     const { engine } = createTestEngine({ userId: 'user-a' }, CANVAS)

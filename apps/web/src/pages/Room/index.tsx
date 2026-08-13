@@ -105,6 +105,7 @@ import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import { isDrawingTool, type EditorTool, type PrimaryDrawingTool } from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
+import type { ClipboardEntry } from '../../stores/slices/selectionSlice'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
@@ -637,7 +638,26 @@ export function Room() {
     // instead. The layer it applies to is `targetIds[0]`: the selection itself
     // names no layer (see selectionSlice), the session's target does.
     selection: SelectionShape | null
+    // (#446) Set when this session is holding *pasted* pixels rather than a
+    // region of the layer — a floating paste. The two differ in three places
+    // and nowhere else: what the preview draws (a raster above the layer, not
+    // the layer with a hole in it), what the commit writes (`area_paste`
+    // carrying the accumulated matrix, not `area_transform`), and whether an
+    // empty session is worth writing at all (a paste that was never dragged is
+    // still a paste; a transform that never moved is nothing).
+    //
+    // Nothing of it reaches the layer until the session ends, which is the
+    // whole point: dragging moves the pasted piece alone, never the drawing
+    // underneath it (Ilya, 13.08).
+    paste: ClipboardEntry | null
   } | null>(null)
+  // (#446) Handed to the next session the effect opens — the one moment a
+  // session is created with pixels of its own rather than from a layer. Room
+  // sets it, selects the transform tool, and the ordinary session-opening path
+  // picks it up, so a floating paste needs no second lifecycle beside the one
+  // that already handles Enter, Esc, tool changes, layer changes and the page
+  // going away.
+  const pendingPasteRef = useRef<ClipboardEntry | null>(null)
   // (#446) The selection and the clipboard (selectionSlice.ts). Both are local
   // to this participant: a selection is what someone is about to do, and only
   // what they did travels.
@@ -2729,12 +2749,25 @@ export function Room() {
   // matching commit is preview only — nothing touches the real layer buffer.
   const startTransformSession = useCallback(() => {
     refreshTransformBoundsRef.current()
+    const paste = pendingPasteRef.current
+    pendingPasteRef.current = null
     transformSessionRef.current = {
       matrix: IDENTITY_MATRIX,
       targetIds: transformTargetIdsRef.current,
       selection: areaSelectionRef.current,
+      paste,
     }
     setTransformSessionMatrix(IDENTITY_MATRIX)
+    // A float has to be on screen before it is dragged — it is not in the
+    // layer, so without this first frame the pasted piece would simply not
+    // exist until the pointer moved.
+    if (paste && transformTargetIdsRef.current.length === 1) {
+      engineRef.current?.previewAreaPaste(
+        transformTargetIdsRef.current[0], paste.image,
+        { x: paste.x, y: paste.y, width: paste.width, height: paste.height },
+        IDENTITY_MATRIX,
+      )
+    }
   }, [setTransformSessionMatrix])
 
   // (#399) Ends the session by baking everything it accumulated as *one*
@@ -2771,7 +2804,11 @@ export function Room() {
     // itself out): committing an identity matrix would put a real entry on
     // the undo stack for nothing, and the bounds are still the ones the
     // session started from, so there is nothing to refresh either.
-    if (isIdentityMatrix(session.matrix)) {
+    //
+    // (#446) Except for a floating paste, whose pixels are not in any layer
+    // yet: dropping it exactly where it landed is still the whole of the
+    // paste, and skipping it here would lose it.
+    if (isIdentityMatrix(session.matrix) && !session.paste) {
       dropPreview()
       if (reopen) startTransformSession()
       return
@@ -2789,7 +2826,18 @@ export function Room() {
     // transform that sends the outline through the vanishing line drops it
     // (transformSelection returns null): the pixels still moved, there is
     // simply no region left to grab them by.
-    const dispatched = session.selection && session.targetIds.length === 1
+    const dispatched = session.paste && session.targetIds.length === 1
+      ? dispatchOp({
+        type: 'area_paste',
+        layerId: session.targetIds[0],
+        image: session.paste.image,
+        x: session.paste.x, y: session.paste.y,
+        width: session.paste.width, height: session.paste.height,
+        // Omitted when it is identity — a paste dropped where it landed says
+        // so by carrying no matrix at all (see AreaPasteOperation).
+        matrix: isIdentityMatrix(session.matrix) ? undefined : toWireMatrix(session.matrix),
+      })
+      : session.selection && session.targetIds.length === 1
       ? dispatchOp({
         type: 'area_transform',
         layerId: session.targetIds[0],
@@ -2831,10 +2879,19 @@ export function Room() {
   // See resetTransformSessionRef's declaration for its two callers — the
   // re-derive after a real undo/redo, and Esc/Ctrl+Z as the cancel itself.
   resetTransformSessionRef.current = () => {
-    if (!transformSessionRef.current) return
+    const session = transformSessionRef.current
+    if (!session) return
     transformSessionRef.current = null
     setTransformSessionMatrix(null)
     engineRef.current?.clearLayerTransformPreview()
+    // (#446) Cancelling a floating paste throws the pixels away rather than
+    // putting them back where they landed: nothing was ever written to a
+    // layer, so there is nothing to undo and nothing to keep. The clipboard
+    // still holds them, so Esc costs a second Ctrl+V and never the copy.
+    if (session.paste) {
+      setSelection(null)
+      return
+    }
     startTransformSession()
   }
 
@@ -3271,6 +3328,16 @@ export function Room() {
     if (await copySelection()) deleteSelectionContents()
   }, [copySelection, deleteSelectionContents])
 
+  // (#446) Paste puts the pixels *above* the active layer, not into it, and
+  // hands them to the transform tool to place — a floating selection. Nothing
+  // is written until the float is dropped (see commitTransformSession), which
+  // is what makes "paste, then move it" move the pasted piece alone instead of
+  // it plus whatever it landed on.
+  //
+  // Selecting the transform tool is part of the paste, not a convenience: the
+  // float is held by the transform session, and the gizmo is how a person
+  // places it. Same thing every editor does when it drops you into Move after
+  // a paste.
   const pasteClipboard = useCallback(() => {
     const state = useRoomStore.getState()
     const entry = state.clipboard
@@ -3278,18 +3345,15 @@ export function Room() {
     // onto another layer is the case this whole feature was asked for.
     const targetId = state.layerState.activeId
     if (!entry || !targetId || targetId === BACKGROUND_LAYER_ID) return
-    dispatchOp({
-      type: 'area_paste',
-      layerId: targetId,
-      image: entry.image,
-      x: entry.x, y: entry.y, width: entry.width, height: entry.height,
+    void engineRef.current?.preloadImage(entry.image).then(() => {
+      pendingPasteRef.current = entry
+      // The float occupies exactly the rect it was copied from, so the region
+      // is known — selecting it is what gives the gizmo its frame, and what
+      // the next cut/copy would act on once the float is down.
+      setSelection(rectangleFromDrag(entry.x, entry.y, entry.x + entry.width, entry.y + entry.height))
+      setTool('transform')
     })
-    // The pasted pixels land where they were taken from, so the region they
-    // occupy is known — select it, so the next thing the user does (move it,
-    // cut it again) has something to act on without redrawing the same outline
-    // by hand.
-    setSelection(rectangleFromDrag(entry.x, entry.y, entry.x + entry.width, entry.y + entry.height))
-  }, [dispatchOp, setSelection])
+  }, [setSelection, setTool])
 
   // (#391) The transform tool's own two settings, from the same TOOL_SCHEMAS
   // store every other tool's settings live in (see settingsToolId below for
@@ -3536,6 +3600,16 @@ export function Room() {
       // same lifecycle, same clearLayerTransformPreview, and (by construction,
       // see the engine's _composeAreaTiles) the same pixels the commit will
       // bake.
+      // (#446) A floating paste draws its own raster above the layer; a lift
+      // draws the layer with the region taken out of it and put back moved.
+      if (session.paste && session.targetIds.length === 1) {
+        engineRef.current?.previewAreaPaste(
+          session.targetIds[0], session.paste.image,
+          { x: session.paste.x, y: session.paste.y, width: session.paste.width, height: session.paste.height },
+          matrix,
+        )
+        return
+      }
       if (session.selection && session.targetIds.length === 1) {
         engineRef.current?.previewAreaTransform(session.targetIds[0], session.selection, matrix)
         return
