@@ -1,13 +1,14 @@
 import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
-  TILT_RESPONSES, DEFAULT_TILT_RESPONSE,
-  type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse,
+  TILT_RESPONSES, DEFAULT_TILT_RESPONSE, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE,
+  type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
 } from '../../engine'
 import { parseNumberInput } from '../../components/NumberField/numberField'
 import { expScale, type SliderScale } from '../../components/PrecisionSlider/sliderScale'
 import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../../lib/roomStorage'
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
+import { PRESSURE_RESPONSE_CURVES } from './pressureResponseCurves'
 import { TRANSFORM_MODES, type TransformMode } from './transformMath'
 import { SELECTION_SHAPES, type SelectionShapeKind } from './selectionGesture'
 import type { TranslationKey } from '../../i18n'
@@ -29,7 +30,7 @@ import type { IconName } from '../../icons/iconNames'
 // selected tool always has a schema to show, but not every UiToolId is
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
 export type UiToolId =
-  | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker'
+  | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen'
   | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'selection' | 'grid' | 'hand' | 'fill'
 
 export type SettingValueType =
@@ -313,6 +314,64 @@ const linerSchema = (): ToolSchema => ({
   },
 })
 
+// Brush pen (#454, ADR 009 §11). Deliberately the smallest schema of any
+// drawing tool: size, colour, opacity, and one named pressure feel.
+//
+// Not a size ladder like the liner's. That ladder is justified by real
+// capillary pens being sold in calibrated steps (ADR 003); a brush nib has no
+// such calibration — its width is a property of the nib and the hand, so a
+// continuous slider is the honest control.
+const brushPenSchema = (): ToolSchema => ({
+  size: {
+    nameKey: 'tool.field.size',
+    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
+    uiControls: ['slider', 'input'],
+    quickAccess: true,
+    // The width at full pressure. A light touch runs at 0.15 of it (ADR 009
+    // §2), so 12 spans roughly 2-12px — the range line art and lettering
+    // actually live in.
+    default: 12,
+  },
+  // ADR 009 §11: the *only* setting beyond size and colour, and it is offered
+  // as three named feels rather than a curve editor — how fast a nib should
+  // open up under a given hand is a preference, not a fact to be discovered.
+  // Same reasoning, and the same shape of control, as the tilt response #409
+  // added for graphite and charcoal.
+  //
+  // Not in quick access: it is picked once to suit a hand and then left alone,
+  // unlike size and colour.
+  pressureResponse: {
+    nameKey: 'tool.field.pressureResponse',
+    valueType: { kind: 'enumOptions', options: PRESSURE_RESPONSES },
+    optionLabelKeys: {
+      soft: 'tool.pressureResponse.soft',
+      normal: 'tool.pressureResponse.normal',
+      firm: 'tool.pressureResponse.firm',
+    },
+    optionCurves: PRESSURE_RESPONSE_CURVES,
+    uiControls: ['select'],
+    quickAccess: false,
+    default: DEFAULT_PRESSURE_RESPONSE satisfies PressureResponse,
+  },
+  opacity: {
+    nameKey: 'tool.field.opacity',
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 1,
+  },
+  // Black ink is the identity, but arbitrary colour is allowed — same call the
+  // liner made, and for the same reason (coloured ink is a real thing, and
+  // locking it would buy nothing).
+  color: {
+    nameKey: 'tool.field.color',
+    valueType: { kind: 'color' },
+    uiControls: ['swatch'],
+    quickAccess: true,
+    default: [0, 0, 0],
+  },
+})
+
 // Charcoal (#304, ADR 005 §1): the three real charcoal types ride the same
 // enumOptions control PENCIL_GRADES already uses — one toolbar slot with a
 // type selector, deliberately not three separate tools (see the ADR for why
@@ -489,6 +548,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   charcoal: charcoalSchema(),
   liner: linerSchema(),
   marker: markerSchema(),
+  brushPen: brushPenSchema(),
   eraser: {
     size: {
       nameKey: 'tool.field.size',
@@ -720,7 +780,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // modifier laid over a drawing tool, so the column kept showing *that* tool's
   // fields — settings for something the next press would not touch.
   hand: {},
-  // Fill (#453, ADR 009). Four knobs, and each exists because a bucket on a
+  // Fill (#453, ADR 010). Four knobs, and each exists because a bucket on a
   // *drawn* boundary — as opposed to a vector or a hard-edged digital one —
   // fails in a specific way without it.
   fill: {
@@ -841,7 +901,9 @@ export function toolGradeOptions(toolId: UiToolId): readonly string[] | null {
 // so it carries a real union type; `toolSchemas.test.ts` asserts it matches
 // exactly the set of schemas that actually declare a `color` field, so the
 // two can't silently drift when a tool is added.
-export const COLOR_CAPABLE_TOOLS = ['pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'fill'] as const satisfies readonly UiToolId[]
+export const COLOR_CAPABLE_TOOLS = [
+  'pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'brushPen', 'fill',
+] as const satisfies readonly UiToolId[]
 
 export type ColorCapableTool = (typeof COLOR_CAPABLE_TOOLS)[number]
 

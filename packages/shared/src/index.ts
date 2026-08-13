@@ -400,7 +400,7 @@ export const DEFAULT_PALETTE_COLORS: string[] = [
 // The room's append-only operation log is the source of truth; layer pixel
 // buffers and LayerState are derived by replaying it (ADR 002).
 
-export type ToolType = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker' | 'charcoal'
+export type ToolType = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker' | 'charcoal' | 'brushPen'
 
 export type Dab = {
   x: number

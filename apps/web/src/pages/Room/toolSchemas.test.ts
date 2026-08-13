@@ -266,7 +266,11 @@ describe('option pickers (#335, #391)', () => {
         // adding the field to a sixth tool — a liner, say, whose shape ignores
         // tilt entirely — has to be a deliberate edit here.
         'charcoal.tiltResponse', 'colorPencil.tiltResponse', 'eraser.tiltResponse',
-        'pencil.tiltResponse', 'smudge.tiltResponse'].sort(),
+        'pencil.tiltResponse', 'smudge.tiltResponse',
+        // … and the pressure response (#454), on the one tool whose width
+        // actually follows pressure. Same rule as the line above: a second
+        // tool getting this field is a deliberate edit here.
+        'brushPen.pressureResponse'].sort(),
     )
   })
 
@@ -395,7 +399,8 @@ describe('slider scales (#390)', () => {
   it('makes exactly the continuous px size fields exponential', () => {
     const exponential = numberFields.filter(f => f.valueType.scale === expScale).map(f => `${f.toolId}.${f.key}`)
     expect(exponential.sort()).toEqual([
-      'charcoal.size', 'colorPencil.size', 'eraser.size', 'marker.size', 'pencil.size', 'smudge.size',
+      'brushPen.size', 'charcoal.size', 'colorPencil.size', 'eraser.size', 'marker.size', 'pencil.size',
+      'smudge.size',
     ])
   })
 

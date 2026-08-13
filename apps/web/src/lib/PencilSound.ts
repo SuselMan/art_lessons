@@ -598,6 +598,12 @@ export const TOOL_SOUND_CONFIGS: Record<ToolType, GrainVariant | null> = {
   // along with it.
   charcoal: PENCIL_SOUND_VARIANT_3,
   liner: LINER_SOUND_VARIANT_3,
+  // Brush pen (#454) borrows the liner's recipe — Ilya's call, 13.08: both are
+  // ink on paper, and per-tool sound design is its own piece of work rather
+  // than part of a new tool's first version. Same deliberate reuse charcoal
+  // makes of pencil's, with the same caveat: tuning the liner in the debug
+  // panel moves this along with it.
+  brushPen: LINER_SOUND_VARIANT_3,
   // No sound design yet (docs/adr/004-marker-tool.md's "Потом" list) — null
   // is the documented "this tool makes no drawing sound" case above, not a
   // placeholder oversight.
@@ -613,6 +619,7 @@ export const TOOL_SOUND_DEFAULTS: Record<ToolType, GrainVariant | null> = {
   smudge: cloneGrain(PENCIL_SOUND_VARIANT_3),
   charcoal: cloneGrain(PENCIL_SOUND_VARIANT_3),
   liner: cloneGrain(LINER_SOUND_VARIANT_3),
+  brushPen: cloneGrain(LINER_SOUND_VARIANT_3),
   marker: null,
 }
 

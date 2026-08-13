@@ -9,7 +9,7 @@
 // file exists:
 //
 //   * marker composites by multiplying the layer's content frozen once per
-//     gesture (MarkerStrokeScratch). Give each batch its own scratch and the
+//     gesture (RibbonStrokeScratch). Give each batch its own scratch and the
 //     second batch multiplies over the first batch's own output — a nib-shaped
 //     dark band at every seam, which is exactly what a long marker line looked
 //     like after an undo before StrokeOperation.strokeId existed.
@@ -18,7 +18,7 @@
 //     across the seam rather than restarting there.
 //
 // Both already have their cross-operation carriers, built for chunked long
-// strokes: PencilEngine._replayMarkerChunk and ._smudgeReplayChunks, both keyed
+// strokes: PencilEngine._replayRibbonChunk and ._smudgeReplayChunks, both keyed
 // by StrokeOperation.strokeId. This file checks they still hold at streaming
 // granularity — batches of a handful of dabs, not 800 — which is the property
 // #429 builds on, so a regression surfaces as a failing test rather than as a

@@ -88,6 +88,9 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   { id: 'toggleCharcoal', labelKey: 'hotkey.toggleCharcoal', default: { code: 'KeyC', mod: false, shift: false } },
   { id: 'toggleLiner', labelKey: 'hotkey.toggleLiner', default: { code: 'KeyL', mod: false, shift: false } },
   { id: 'toggleMarker', labelKey: 'hotkey.toggleMarker', default: { code: 'KeyM', mod: false, shift: false } },
+  // B for brush — the letter the tool is named after, and free (see the list
+  // above: A/C/E/G/H/I/L/M/R/S/T/U/Z were taken, B was not).
+  { id: 'toggleBrushPen', labelKey: 'hotkey.toggleBrushPen', default: { code: 'KeyB', mod: false, shift: false } },
   // (#405) The four tools that used to be modes laid over a drawing tool are
   // ordinary members of the selection now, so they belong in this registry
   // like every other tool rather than in a branch of their own — that is what

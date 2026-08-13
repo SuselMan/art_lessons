@@ -19,6 +19,27 @@ import { PAPER_WORLD_SIZE } from './paperConstants'
 // exact constant at every fragment; WebGL1/GLSL ES 1.0 has no `flat`
 // qualifier, so this is the standard, correct way to carry a per-primitive
 // constant into the fragment shader.
+// #452 (ADR 003 §4): how much bigger than its nominal radius a dab's quad has
+// to be drawn so the ink absorbed into the paper *past* the mark's edge has
+// somewhere to land. Shared verbatim by both vertex shaders — the two are
+// deliberately identical geometry (see DAB_VERT_INSTANCED's own comment), and
+// a hand-copied second version of this is exactly the kind of drift that
+// makes the batched and fallback paths render differently on the one device
+// that lacks ANGLE_instanced_arrays.
+//
+// The cap is applied here rather than on the CPU because it needs the dab's
+// own radius, which the batched path only ever hands over as a per-instance
+// attribute — capping against a batch-wide radius instead would over-spread
+// every dab in a stroke that varies its width. See linerWickPx() in
+// linerPresets.ts for the same rule stated CPU-side (it drives the dirty-rect
+// padding, and the two must agree or the halo gets clipped at a tile edge).
+const WICK_EXPAND_GLSL = `
+  float wickExpand(float radius, float wickPx, float wickCap) {
+    float wick = min(wickPx, radius * wickCap);
+    return 1.0 + wick / max(radius, 1e-4);
+  }
+`;
+
 export const DAB_VERT = `
   attribute vec2 a_position;
 
@@ -31,6 +52,11 @@ export const DAB_VERT = `
   uniform float u_tiltX;
   uniform float u_tiltY;
   uniform float u_opacity;
+  // #452 — see LINER_WICK's own block comment in linerPresets.ts and
+  // wickExpand() below. Zero for every tool but the liner, which makes
+  // wickExpand() return exactly 1.0 and this whole path a no-op.
+  uniform float u_wickPx;
+  uniform float u_wickCap;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -42,9 +68,21 @@ export const DAB_VERT = `
   // can express a distance in *pixels* rather than in normalized dab space.
   // Only the marker's nib-coverage branch reads it.
   varying float v_radius;
+  // #452: this dab's wick band, as a fraction of its own radius — so the
+  // fragment stage knows where the mark's edge (dist == 1.0) ends and where
+  // the absorbed band around it runs out (dist == 1.0 + v_wick). Zero for
+  // every tool but the liner.
+  varying float v_wick;
 
+${WICK_EXPAND_GLSL}
   void main() {
-    v_localUV = a_position * 2.0;
+    float expand = wickExpand(u_dabRadius, u_wickPx, u_wickCap);
+    // Scaled by the same expand the geometry below is, so dist == 1.0 keeps
+    // meaning "exactly the dab's nominal radius" no matter how far the quad
+    // was grown past it — every existing branch of DAB_FRAG reads dist against
+    // that meaning.
+    v_localUV = a_position * 2.0 * expand;
+    v_wick = expand - 1.0;
     v_pressure = u_pressure;
     v_tiltX = u_tiltX;
     v_tiltY = u_tiltY;
@@ -63,7 +101,7 @@ export const DAB_VERT = `
       scaled.x * s + scaled.y * c
     );
 
-    vec2 screenPos = rotated * u_dabRadius * 2.0 + u_dabCenter;
+    vec2 screenPos = rotated * u_dabRadius * 2.0 * expand + u_dabCenter;
     vec2 clip = (screenPos / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
 
@@ -91,6 +129,8 @@ export const DAB_VERT_INSTANCED = `
   attribute float a_opacity;
 
   uniform vec2 u_resolution;
+  uniform float u_wickPx; // #452 — see DAB_VERT's own comment
+  uniform float u_wickCap;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -99,15 +139,20 @@ export const DAB_VERT_INSTANCED = `
   varying float v_opacity;
   varying float v_aspectRatio;
   varying float v_radius; // #330 — see DAB_VERT's own comment
+  varying float v_wick;   // #452 — see DAB_VERT's own comment
 
+${WICK_EXPAND_GLSL}
   void main() {
     vec2 dabCenter    = a_instA.xy;
     float dabRadius   = a_instA.z;
     float angle       = a_instA.w;
     float aspectRatio = a_instB.x;
 
+    float expand = wickExpand(dabRadius, u_wickPx, u_wickCap);
+
     v_radius = dabRadius;
-    v_localUV = a_position * 2.0;
+    v_localUV = a_position * 2.0 * expand;
+    v_wick = expand - 1.0;
     v_pressure = a_instB.y;
     v_tiltX = a_instB.z;
     v_tiltY = a_instB.w;
@@ -125,7 +170,7 @@ export const DAB_VERT_INSTANCED = `
       scaled.x * s + scaled.y * c
     );
 
-    vec2 screenPos = rotated * dabRadius * 2.0 + dabCenter;
+    vec2 screenPos = rotated * dabRadius * 2.0 * expand + dabCenter;
     vec2 clip = (screenPos / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
 
@@ -296,7 +341,7 @@ export const DAB_FRAG = `
   // rather than as a faint dither — see the grainMul term below.
   uniform float u_charcoalGrainDepth;
   // Marker only, redesigned in a follow-up to #250 (see engine/index.ts's
-  // MarkerStrokeScratch for the full story of *why*): this tile's own
+  // RibbonStrokeScratch for the full story of *why*): this tile's own
   // content exactly as it was before this stroke started touching it,
   // frozen once and never updated again for the rest of the stroke —
   // reading it here instead of the tile's *current* (already partly
@@ -311,7 +356,7 @@ export const DAB_FRAG = `
   uniform sampler2D u_original;
   // This stroke's own accumulated coverage at each pixel so far — a plain
   // saturating "over" splat (u_inkMode>2.5 branch below), painted by
-  // engine/index.ts's _drawMarkerCoverageDab *before* this draw call, using
+  // engine/index.ts's _drawRibbonCompositeDab *before* this draw call, using
   // the exact same dab quad this draw call itself uses. Reading the
   // *accumulated* value here (rather than recomputing this one dab's own
   // shape*opacity) is what makes densely-overlapping dabs converge to one
@@ -321,7 +366,7 @@ export const DAB_FRAG = `
   // ADR 004 "Ревизия v1.5": how much ink this stroke has actually deposited
   // at each pixel, distance-normalized (engine/index.ts computes each dab's
   // own contribution as dab.opacity * segmentLength, not a flat per-dab
-  // amount — see _paintMarkerRibbon) and accumulated *additively*
+  // amount — see _paintRibbonStroke) and accumulated *additively*
   // (AccumulationBuffer.beginAdditiveDraw — no per-accumulation ceiling,
   // unlike u_strokeCoverage's saturating splat). Separating this from
   // u_strokeCoverage is what lets scribbling back and forth over an
@@ -331,7 +376,7 @@ export const DAB_FRAG = `
   // goes — see the composite branch below).
   uniform sampler2D u_inkLoad;
   // Every _dabProg draw already sets this (see engine/index.ts's own
-  // _drawMarkerCompositeDab/_drawMarkerCoverageDab and every other caller)
+  // _drawRibbonCompositeDab/_drawRibbonCompositeDab and every other caller)
   // — declared here too so this fragment shader can read it back for the
   // u_original/u_strokeCoverage/u_inkLoad gl_FragCoord mapping above.
   uniform vec2 u_resolution;
@@ -347,6 +392,10 @@ export const DAB_FRAG = `
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
+  // #454 (ADR 009 §8) — how strongly paper grain eats into the brush pen's
+  // *rim*. Read only by the u_inkMode=8 composite branch; 0 everywhere else,
+  // which makes that branch's own term vanish identically.
+  uniform float u_paperEdge;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -355,6 +404,11 @@ export const DAB_FRAG = `
   varying float v_opacity;
   varying float v_aspectRatio;
   varying float v_radius;
+  // #452: width of this dab's absorbed band, as a fraction of its own radius
+  // (0 for every tool but the liner — see DAB_VERT's own comment). The mark's
+  // edge is still at dist == 1.0; the band runs from there out to
+  // dist == 1.0 + v_wick.
+  varying float v_wick;
 
   // #330: signed distance from this fragment to the marker nib's own boundary,
   // in canvas pixels — negative inside, positive outside. The one place the
@@ -525,7 +579,11 @@ export const DAB_FRAG = `
     // as mechanically flat. The superseded per-dab splat instead tapered all
     // the way to zero across a soft profile — which is what made a light marker
     // touch look like an airbrush rather than a marker pressed less hard.
-    if (u_inkMode > 6.5) {
+    // Bounded above, not an open ">" like it used to be: #454 added mode 8
+    // (the brush pen's composite), and this check would otherwise swallow it
+    // and deposit ink where a finished pixel was meant to be written. Same
+    // band form the coverage branch right above already uses.
+    if (u_inkMode > 6.5 && u_inkMode < 7.5) {
       float dPx = markerNibDistPx();
       float cov = clamp(-dPx / u_aaPx, 0.0, 1.0);
       if (cov <= 0.0) discard;
@@ -536,7 +594,13 @@ export const DAB_FRAG = `
     }
 
     float dist = length(v_localUV);
-    if (dist > 1.0) discard;
+    // #452: v_wick is 0 for every tool but the liner, so this is the exact
+    // "dist > 1.0" cutoff it has always been everywhere else. Only the liner
+    // grows its quad past the mark's own edge, and only its branch below reads
+    // anything out of the band that opens up: shape is exactly 0 out there
+    // (smoothstep clamps to 1 at dist >= 1.0), so graphite/charcoal/eraser
+    // deposit nothing there even if some future draw did widen their quads.
+    if (dist > 1.0 + v_wick) discard;
 
     float innerEdge = u_hardness * 0.85;
     float shape = 1.0 - smoothstep(innerEdge, 1.0, dist);
@@ -571,6 +635,69 @@ export const DAB_FRAG = `
     // raw height (still used by DISPLAY_FRAG/PAPER_BLEND_FRAG for the
     // blank-paper tint), .a is this precomputed catch value.
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
+
+    // Brush pen composite (#454, ADR 009 §9): plain source-over of a covering
+    // ink, and it must stay **first** of the deposit branches below.
+    //
+    // These are independent "> threshold" checks, not an else-if chain, so a
+    // branch only ever sees the modes above its own threshold — which means a
+    // new mode has to be inserted by *value*, not wherever it reads nicely.
+    // Getting that wrong is not a subtle miss: 8.0 satisfies charcoal's own
+    // "> 4.5" just as it satisfies the marker's "> 1.5", so this branch first
+    // sat below charcoal's and every brush-pen composite was drawn as a
+    // charcoal dab over the whole batch's bounding quad — a round blob per
+    // pointer event, which is what the tool looked like until this moved.
+    //
+    // Structurally this is the marker's pipeline — accumulate the stroke's
+    // silhouette in a scratch buffer, then recompute the finished pixel from
+    // the frozen pre-stroke content on every batch — and it is here for the
+    // same reason: "over" applied twice with the same alpha darkens (0.97 ->
+    // 0.999), so a pixel a stroke revisits must be recomputed, not added to.
+    // That is also exactly what makes a second pass over an already-saturated
+    // line leave it alone, which ADR 009 §9 requires.
+    //
+    // What it is *not* is the marker's ink model: no inkLoad texture, no
+    // Beer-Lambert film, no per-pixel dye quantity. Ink covers rather than
+    // transmits, so the silhouette says everything the composite needs, and the
+    // ribbon profile switches that whole pass off for this tool.
+    if (u_inkMode > 7.5) {
+      vec2 tileUV = gl_FragCoord.xy / u_resolution;
+      float coverage = texture2D(u_strokeCoverage, tileUV).a;
+      // Nothing of this stroke here — leave whatever is on the layer exactly
+      // as it is, which is what makes drawing the composite over a whole
+      // bounding rect (rather than per dab) free.
+      if (coverage <= 0.0) discard;
+
+      // ADR 009 §8. Paper acts on the rim only: edgeness is identically 0
+      // wherever the mark is solid, so no value of u_paperEdge can put grain
+      // or holes *inside* the stroke — that would read as a dry brush, which
+      // is the one thing this tool must not look like. At the rim, absorbent
+      // paper (low paperCatch, i.e. a pit between fibres) takes a bite out of
+      // the coverage, so the boundary picks up the fibre-scale irregularity
+      // real ink has and a vector-like edge doesn't.
+      //
+      // paperCatch is a single sample of a value baked offline in double
+      // precision (see its own comment above), and this adds only multiply/mix
+      // on top — no new hash, no finite difference. That is what keeps the mark
+      // identical on every participant's GPU (.claude/rules.md).
+      float edgeness = 1.0 - coverage;
+      float paperMod = 1.0 - u_paperEdge * edgeness * (1.0 - paperCatch);
+
+      // v_opacity, not a per-dab quantity smuggled through coverage: every dab
+      // of a brush-pen stroke carries the same opacity (engine's own
+      // _bakeDabOpacity branch — pressure drives width, never alpha, ADR 009
+      // §9), so one uniform value describes the whole batch exactly. A tool
+      // whose opacity varied per dab could not be composited from a coverage
+      // buffer this way at all.
+      float alpha = clamp(coverage * v_opacity * paperMod, 0.0, 1.0);
+      vec4 dst = texture2D(u_original, tileUV);
+      // Textbook premultiplied "over". dst is already premultiplied, so there
+      // is nothing to recover first — unlike the marker's branch, which has to
+      // un-premultiply because it multiplies against the pigment's own colour.
+      gl_FragColor = vec4(alpha * u_color + (1.0 - alpha) * dst.rgb,
+                          alpha + (1.0 - alpha) * dst.a);
+      return;
+    }
 
     // Charcoal (#304, ADR 005 §4-7). Graphite's own accumulating "over"
     // deposit — identical premultiplied output, so charcoal composites with
@@ -759,7 +886,7 @@ export const DAB_FRAG = `
     if (u_inkMode > 1.5) {
       // u_original/u_strokeCoverage/u_inkLoad are always exactly the same
       // size and pixel-aligned with the tile this draws into (see
-      // MarkerStrokeScratch's own doc comment) — a plain 0..1 UV, no
+      // RibbonStrokeScratch's own doc comment) — a plain 0..1 UV, no
       // patch-relative origin/size math needed.
       vec2 tileUV = gl_FragCoord.xy / u_resolution;
       vec4 dst = texture2D(u_original, tileUV);
@@ -810,7 +937,7 @@ export const DAB_FRAG = `
       // retune, same status every other first-pass constant here carries.
       //
       // SCOPE, decided 2026-07-28 (Ilya): this ceiling is **per stroke**, not
-      // global. Each stroke gets its own MarkerStrokeScratch, so u_original is
+      // global. Each stroke gets its own RibbonStrokeScratch, so u_original is
       // whatever the previous stroke already darkened and inkLoad restarts at
       // zero — lift the stylus, go over the same spot again, and the multiply
       // applies afresh (color^2 after one stroke, color^4 after two). Making it
@@ -918,8 +1045,41 @@ export const DAB_FRAG = `
       // per-viewer-nondeterministic input here, and no fiber-direction bias
       // in v1 (ADR's own 'Потом' follow-up list - deliberately isotropic,
       // this is a first pass, not final tuning).
+      //
+      // #452 continues that same profile *past* the mark's own edge, where the
+      // ink actually goes: inside (dist <= 1.0) this is unchanged, and outside
+      // it decays across the band the vertex stage opened up (v_wick wide, see
+      // DAB_VERT). One amplitude for both halves on purpose - the two meet at
+      // dist == 1.0 with (1.0 - shape) == 1.0 and decay == 1.0, so there is no
+      // step at the mark's edge to read as a drawn outline.
+      //
+      // The decay is exponential (LINER_WICK_FALLOFF), not linear, because
+      // this term accumulates: dabs are laid down a fraction of a radius apart
+      // and blended saturating "over", so a pixel just outside the edge is
+      // written by a dozen dabs in one pass and reaches near-full ink no
+      // matter how small each single contribution was. A flat-ish profile
+      // would therefore not read as a soft spread at all - it would just be a
+      // wider line with a hard edge one band further out (the whole trap this
+      // approach had to be tuned around; the alternative was giving the liner
+      // its own stroke-coverage buffer, as the marker needed in #330). An
+      // exponential puts the saturating part in the first fraction of the band
+      // and leaves the rest a real gradient - which is also how ink behaves on
+      // paper. Measured at this value: 0.85 core / 0.40 / 0.15 / 0.013 across
+      // successive rows outward (see LINER_WICK_PX's own note).
+      //
+      // Normalized to hit exactly 0.0 at the band's outer rim rather than
+      // being cut off at exp(-K): the quad ends there, and a term with any
+      // amplitude left at that boundary draws a hard circle around every
+      // single dab (see the charcoal branch's own dust-ring comment, which
+      // gets away with the shape only because its amplitude is tiny).
+      const float LINER_WICK_FALLOFF = 2.5;
+      const float LINER_WICK_AMP = 0.4;
+      float bandT = clamp((dist - 1.0) / max(v_wick, 1e-4), 0.0, 1.0);
+      float decay = (exp(-LINER_WICK_FALLOFF * bandT) - exp(-LINER_WICK_FALLOFF))
+                  / (1.0 - exp(-LINER_WICK_FALLOFF));
+      float wickProfile = dist <= 1.0 ? (1.0 - shape) : decay;
       float paperAbsorbency = 1.0 - paperCatch;
-      float wick = (1.0 - shape) * paperAbsorbency * v_opacity * 0.4;
+      float wick = wickProfile * paperAbsorbency * v_opacity * LINER_WICK_AMP;
       float deposit = clamp(core + wick, 0.0, 1.0);
       gl_FragColor = vec4(u_color * deposit, deposit);
       return;

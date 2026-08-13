@@ -11,8 +11,9 @@ import { describe, expect, it, vi } from 'vitest'
 import type { StrokeOperation } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
+import { linerWickPx, LINER_WICK_PX, LINER_WICK_RADIUS_CAP } from './src/linerPresets'
 import {
-  createTestEngine, makeLayerAdd, lastPaperDabUniform, paperReady, simulateStroke,
+  createTestEngine, dab, makeLayerAdd, makeStroke, lastPaperDabUniform, paperReady, simulateStroke,
   simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd, inProgressStrokeDabs,
 } from './testing/engineTestUtils'
 
@@ -124,6 +125,57 @@ describe('liner tool (#241, ADR 003)', () => {
     engine.setTool('pencil')
     simulateStroke(engine, PATH_B, { pressure: 0.6 })
     expect(lastPaperDabUniform(engine, 'u_inkMode')).toBe(0)
+  })
+
+  // #452: the absorbed band lives outside the dab's own radius, which both
+  // vertex shaders grow the quad for. Same MockGL caveat as the u_inkMode test
+  // above — this proves the wiring, not the rendering.
+  it('sets the wick band uniforms for a liner stroke and clears them for a pencil stroke', async () => {
+    const engine = await setupLayer()
+
+    engine.setTool('liner')
+    simulateStroke(engine, PATH_A, { pressure: 0.6 })
+    expect(lastPaperDabUniform(engine, 'u_wickPx')).toBe(LINER_WICK_PX)
+    expect(lastPaperDabUniform(engine, 'u_wickCap')).toBe(LINER_WICK_RADIUS_CAP)
+
+    // Cleared, not merely left alone: both programs' uniforms persist between
+    // draws, so a stale band would grow every graphite dab drawn after any
+    // liner stroke.
+    engine.setTool('pencil')
+    simulateStroke(engine, PATH_B, { pressure: 0.6 })
+    expect(lastPaperDabUniform(engine, 'u_wickPx')).toBe(0)
+    expect(lastPaperDabUniform(engine, 'u_wickCap')).toBe(0)
+  })
+
+  // #452: the band has to be inside the rect the batch resolves tiles against
+  // and marks dirty, or it gets sheared off at a tile boundary — the same
+  // failure #330 hit with the chisel nib. Asserted on replayed dabs of a known
+  // size (rather than a live stroke's, whose sizes come out of the shaping
+  // curve) so the expected padding is exact.
+  it('pads a liner stroke\'s content bounds by the wick band, and a pencil stroke\'s not at all', async () => {
+    const engine = await setupLayer()
+    engine.appendOperation(makeLayerAdd('user-a', 'L2'))
+
+    // 9px diameter — LINER_SIZE_PX's own 0.8mm step, the widest of the ladder.
+    const dabs = [40, 80, 120].map(x => dab(x, 80, { size: 9 }))
+    const radius = 4.5
+    const band = linerWickPx(radius)
+    // Even the widest pen of the ladder still sits under the cap at these
+    // sizes — worth pinning, since it means the whole shipped ladder is
+    // cap-bound and LINER_WICK_PX only starts to bite on a free/advanced size.
+    expect(band).toBe(radius * LINER_WICK_RADIUS_CAP)
+    expect(band).toBeLessThan(LINER_WICK_PX)
+
+    engine.appendOperation(makeStroke('user-a', 'L1', dabs, { tool: 'liner', preset: '0.8' }))
+    const inked = engine.getContentBounds('L1')!
+    expect(inked.x).toBe(Math.floor(40 - radius - band))
+    expect(inked.x + inked.width).toBe(Math.ceil(120 + radius + band))
+
+    // The same dabs as graphite reach exactly their own radius and no further
+    // — proof the padding is the liner's band and not something every tool got.
+    engine.appendOperation(makeStroke('user-a', 'L2', dabs, { tool: 'pencil', preset: 'HB' }))
+    const graphite = engine.getContentBounds('L2')!
+    expect(graphite.width).toBeLessThan(inked.width)
   })
 
   // #245: a stylus resting in place should keep depositing ink there — real

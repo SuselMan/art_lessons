@@ -10,7 +10,7 @@
 // is the difference between a filled shape and a filled canvas.
 //
 // That is why the result of this travels in the operation as a raster (ADR
-// 009) instead of the parameters that produced it. And that in turn is why
+// 010) instead of the parameters that produced it. And that in turn is why
 // nothing in this file has to be deterministic across devices: only the author
 // ever runs it. Tolerance, gap closing and the coverage ramp can all be
 // rewritten later without versioning a single already-recorded operation —

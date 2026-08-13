@@ -172,6 +172,10 @@ export class DabSystem {
   private _tiltFilterX: number | null = null
   private _tiltFilterY: number | null = null
 
+  // Low-passed pressure (#454), same lifecycle as the tilt filter above and
+  // null for every profile that doesn't ask for it. See _filterPressure.
+  private _pressureFilter: number | null = null
+
   constructor({ spacingFactor = 0.22, shaping = PENCIL_DAB_SHAPING }: { spacingFactor?: number; shaping?: DabShapingProfile } = {}) {
     this.spacingFactor = spacingFactor
     this._buf = []
@@ -200,6 +204,34 @@ export class DabSystem {
     // several dabs, which reads as the stroke's head being the wrong shape.
     this._tiltFilterX = null
     this._tiltFilterY = null
+    // Cleared for the same reason, and it matters more here: seeding at 0
+    // would start every brush-pen stroke at zero pressure and let it climb to
+    // the real value over the first samples, which is a taper nobody asked for
+    // sitting on top of the one §4 of ADR 009 does ask for.
+    this._pressureFilter = null
+  }
+
+  /**
+   * One-pole low-pass over reported pressure (#454, ADR 009 §3). Stylus
+   * pressure is noisy, and the brush pen is the first tool whose width tracks
+   * it closely enough for that noise to be visible as a rippling outline.
+   *
+   * Applied where a sample is *admitted*, not where a dab is made, and that
+   * placement is load-bearing: continueStroke's deadband lets a sample that
+   * hasn't travelled half a pixel overwrite the last control point's pressure
+   * without becoming a point of its own. Filtering later would leave exactly
+   * the slow, careful movement — where the deadband fires most — running on
+   * raw values.
+   *
+   * Returns pressure untouched when the active profile declares no smoothing,
+   * which is every tool but the brush pen.
+   */
+  private _filterPressure(pressure: number): number {
+    const k = this._shaping.pressureSmoothing
+    if (k === undefined) return pressure
+    if (this._pressureFilter === null) this._pressureFilter = pressure
+    else this._pressureFilter += (pressure - this._pressureFilter) * k
+    return this._pressureFilter
   }
 
   /**
@@ -256,6 +288,10 @@ export class DabSystem {
     // the real dabs that land a moment later.
     fork._tiltFilterX = this._tiltFilterX
     fork._tiltFilterY = this._tiltFilterY
+    // #454: and the pressure filter, for the identical reason — a preview that
+    // re-seeded from the predicted sample would render the tip at a different
+    // width than the real dabs landing a moment later.
+    fork._pressureFilter = this._pressureFilter
     // fork already got its own fresh scratch Float64Arrays from its own
     // constructor call above — do not share this instance's arrays with it.
     return fork
@@ -264,13 +300,21 @@ export class DabSystem {
   // Returns first dab; subsequent segment rendering is deferred by 1 event.
   startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number): Dab[] {
     this._reset()
-    this._buf = [{ x, y, pressure, tiltX, tiltY }]
-    return [this._makeDab(x, y, pressure, tiltX, tiltY, baseSize, 0)]
+    // Seeds the filter (a no-op for every profile without one) — the first
+    // sample of a stroke is taken at face value, exactly as the tilt filter
+    // seeds itself from its own first sample.
+    const p = this._filterPressure(pressure)
+    this._buf = [{ x, y, pressure: p, tiltX, tiltY }]
+    return [this._makeDab(x, y, p, tiltX, tiltY, baseSize, 0)]
   }
 
   // Returns dabs for the segment one step behind the current point.
   // Segment [n-3]→[n-2] is rendered once [n-1] (=P3) is known.
   continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number): Dab[] {
+    // #454: every admitted sample's pressure passes the low-pass first,
+    // including the one that only refreshes the last control point below —
+    // see _filterPressure on why that case is the whole reason this sits here.
+    pressure = this._filterPressure(pressure)
     // Deadband (see MIN_CONTROL_POINT_DISTANCE): a sample that hasn't cleared
     // half a pixel since the last control point collapses *into* that point
     // rather than becoming one of its own. Its pressure/tilt still count —

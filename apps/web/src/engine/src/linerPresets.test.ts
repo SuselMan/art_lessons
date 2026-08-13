@@ -5,6 +5,7 @@ import type { Dab } from '@grafetto/shared'
 import {
   LINER_PRESET, LINER_SIZES_MM, LINER_DWELL, applyLinerEndTaper,
   linerSpeedFlow, linerTiltFlow, dwellFlow, dwellConfigForTool,
+  linerWickPx, LINER_WICK_PX, LINER_WICK_RADIUS_CAP,
 } from './linerPresets'
 
 describe('LINER_SIZES_MM', () => {
@@ -113,5 +114,33 @@ describe('applyLinerEndTaper', () => {
 
   it('does nothing on an empty array', () => {
     expect(() => applyLinerEndTaper([], 10)).not.toThrow()
+  })
+})
+
+describe('linerWickPx (#452, ADR 003 §4)', () => {
+  it('is the same absolute distance for a wide nib as for a wider one — not a fraction of the line', () => {
+    // The whole point of the "absolute" rule: capillary reach belongs to the
+    // ink/paper pair, so once a nib is wide enough to clear the cap, drawing
+    // it wider must not spread the ink any further.
+    expect(linerWickPx(20)).toBe(LINER_WICK_PX)
+    expect(linerWickPx(200)).toBe(LINER_WICK_PX)
+  })
+
+  it('caps against the dab radius so the thinnest pen keeps more line than halo', () => {
+    // LINER_SIZE_PX (toolSchemas.ts) puts 0.1mm at a 2px diameter, i.e. r=1 —
+    // uncapped, the band would be wider than the mark itself.
+    expect(linerWickPx(1)).toBe(LINER_WICK_RADIUS_CAP)
+    expect(linerWickPx(1)).toBeLessThan(LINER_WICK_PX)
+  })
+
+  it('never returns a negative band for a degenerate radius', () => {
+    expect(linerWickPx(0)).toBe(0)
+    expect(linerWickPx(-5)).toBe(0)
+  })
+
+  it('rises monotonically with radius up to the cap, then flattens', () => {
+    const widths = [0.5, 1, 2, 3, 4, 8, 16].map(linerWickPx)
+    for (let i = 1; i < widths.length; i++) expect(widths[i]).toBeGreaterThanOrEqual(widths[i - 1])
+    expect(widths.at(-1)).toBe(LINER_WICK_PX)
   })
 })
