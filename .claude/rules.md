@@ -143,6 +143,23 @@ Before a frontend/backend agent branch goes to Ilya for review, the manager (or 
 4. If a bug turns up, fix it on the agent branch before handing off — don't hand Ilya a broken build to discover.
 5. Report to Ilya what was tested and how (steps + result), not just "looks good."
 
+### Cleaning up after browser work
+
+The claude-in-chrome extension puts every tab it opens into a per-conversation tab group, and
+nothing removes that group on its own — leftover groups pile up in Ilya's browser and he has to
+clear them by hand. So: **any turn that opened browser tabs closes them before it reports back.**
+
+- Finish browser work with `tabs_context_mcp`, then `tabs_close_mcp` on every tab id it lists.
+  Closing the group's last tab makes Chrome drop the group itself — that's the whole point, so
+  close *all* of them, not just the ones that look disposable.
+- Do this even when the same session may need the browser again later: reopening a tab costs one
+  call, an abandoned group costs Ilya manual cleanup.
+- A Room tab can hang `tabs_close_mcp` past its 30 s ceiling while it bakes a final thumbnail
+  (see `project_room_tab_wont_close` in memory). Navigate that tab to `about:blank` first, then
+  close it — the bake never starts and the close returns immediately.
+- If a tab genuinely refuses to close, say so explicitly in the reply ("осталась вкладка X, не
+  закрывается") instead of leaving it silently.
+
 ## Task & Issue Workflow
 
 We track work in GitHub Issues. `tasks/*.md` was removed; historical task details live in migrated issues.
