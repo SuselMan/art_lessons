@@ -46,6 +46,13 @@ describe('resolveCursor', () => {
     expect(at({ tool: 'ruler' })).toEqual({ dabPreview: false, viewportCursor: 'crosshair' })
   })
 
+  // (#446) Without a case of its own the selection tool would fall through to
+  // the drawing-tool branch and carry the brush footprint around — a circle
+  // promising a stroke that a press there cannot make.
+  it('aims but shows no footprint while the selection tool is selected', () => {
+    expect(at({ tool: 'selection' })).toEqual({ dabPreview: false, viewportCursor: 'crosshair' })
+  })
+
   // (#405) The grid is the one selected tool with no canvas gesture at all
   // until #406 — so it promises nothing, not even a crosshair.
   it('offers nothing on the canvas while the grid tool is selected', () => {

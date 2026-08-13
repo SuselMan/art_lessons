@@ -106,6 +106,8 @@ export interface CursorState {
  *     - *ruler* — aim precisely: a press lays a new straight edge, or grabs
  *       the existing one. Which of the two is a per-point answer the catcher
  *       asks `RULER_GESTURE_CURSOR` below for; this is the surface it sits on.
+ *     - *selection* (#446) — aim precisely, no footprint: a press draws the
+ *       outline of a region, it does not lay ink.
  *     - *grid* — `default`. The grid has no canvas gesture yet (#406), so
  *       every cursor that suggests one would be describing something that
  *       cannot happen.
@@ -127,6 +129,10 @@ export function resolveCursor(state: CursorState): CursorDecision {
       return { dabPreview: false, viewportCursor: 'default' }
     case 'eyedropper':
     case 'ruler':
+    // (#446) *selection* — aim precisely: a press starts (or extends) an
+    // outline. No footprint, for the same reason the eyedropper has none —
+    // the brush circle would promise a stroke that this press cannot make.
+    case 'selection':
       return { dabPreview: false, viewportCursor: 'crosshair' }
     default:
       return { dabPreview: PAINTS_DABS[state.drawingTool], viewportCursor: 'crosshair' }
