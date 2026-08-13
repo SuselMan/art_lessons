@@ -80,10 +80,38 @@ export function selectionFromPoints(points: number[]): SelectionShape | null {
   return { points }
 }
 
-/** Ends a point-by-point lasso at whatever it has so far. Same null rule as
- *  above, so ending a two-tap lasso simply deselects. */
-export function closePolygonSelection(points: number[]): SelectionShape | null {
-  return selectionFromPoints(points)
+/** Ends a point-by-point lasso on a double-click.
+ *
+ *  Drops exactly one trailing vertex, because the two presses of that
+ *  double-click placed two: the first is the final corner the user meant, the
+ *  second is the "and close it" half of the gesture. Keeping it would leave a
+ *  zero-width spur on every lasso ended this way — invisible in the outline,
+ *  permanent in the operation log.
+ *
+ *  Exactly one, not "every coincident trailing point": how far apart two
+ *  presses of one double-click land is a device question (a pen on a tablet
+ *  wobbles more than a mouse), and a distance threshold here would need a zoom
+ *  to compare against. Counting the presses needs neither. */
+export function closeAfterDoubleClick(points: number[]): SelectionShape | null {
+  return selectionFromPoints(points.length >= 8 ? points.slice(0, -2) : points)
+}
+
+/** Maps a flat point list through a 3x3, dividing by w. Null when any point
+ *  lands on or past the vanishing line, where there is no picture to draw and
+ *  no region to act on — see transformSelection, which is this plus the
+ *  "is it still a region" test. */
+export function mapSelectionPoints(points: number[], matrix: readonly number[]): number[] | null {
+  const out: number[] = []
+  for (let i = 0; i + 1 < points.length; i += 2) {
+    const x = points[i], y = points[i + 1]
+    const w = matrix[2] * x + matrix[5] * y + matrix[8]
+    if (!(w > 0) || !Number.isFinite(w)) return null
+    const nx = (matrix[0] * x + matrix[3] * y + matrix[6]) / w
+    const ny = (matrix[1] * x + matrix[4] * y + matrix[7]) / w
+    if (!Number.isFinite(nx) || !Number.isFinite(ny)) return null
+    out.push(nx, ny)
+  }
+  return out
 }
 
 /** The selection after `matrix` has been applied to it — how a selection
@@ -100,17 +128,8 @@ export function closePolygonSelection(points: number[]): SelectionShape | null {
 export function transformSelection(
   selection: SelectionShape, matrix: readonly number[],
 ): SelectionShape | null {
-  const out: number[] = []
-  for (let i = 0; i + 1 < selection.points.length; i += 2) {
-    const x = selection.points[i], y = selection.points[i + 1]
-    const w = matrix[2] * x + matrix[5] * y + matrix[8]
-    if (!(w > 0) || !Number.isFinite(w)) return null
-    const nx = (matrix[0] * x + matrix[3] * y + matrix[6]) / w
-    const ny = (matrix[1] * x + matrix[4] * y + matrix[7]) / w
-    if (!Number.isFinite(nx) || !Number.isFinite(ny)) return null
-    out.push(nx, ny)
-  }
-  return selectionFromPoints(out)
+  const moved = mapSelectionPoints(selection.points, matrix)
+  return moved ? selectionFromPoints(moved) : null
 }
 
 /** Axis-aligned bounds of a selection, in layer coordinates — what the

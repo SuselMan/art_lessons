@@ -78,8 +78,8 @@ import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
 import { SelectionOverlay } from './SelectionOverlay'
 import {
-  appendFreehandPoint, closesPolygon, rectangleFromDrag, selectionBoundsRect, selectionFromPoints,
-  transformSelection, POLYGON_CLOSE_RADIUS, type SelectionShapeKind,
+  appendFreehandPoint, closeAfterDoubleClick, closesPolygon, rectangleFromDrag, selectionBoundsRect,
+  selectionFromPoints, transformSelection, POLYGON_CLOSE_RADIUS, type SelectionShapeKind,
 } from './selectionGesture'
 import {
   translateMatrix, scaleAxisMatrix, skewAxisMatrix, rotateAboutMatrix,
@@ -3212,6 +3212,20 @@ export function Room() {
     overlay.addEventListener('pointerup', onUp)
   }, [vpRef, config, handActive, selectionLayerId, selectionShapeKind, setPendingSelection, finishSelection])
 
+  // The other way to end a point-by-point lasso, and the one people reach for
+  // first: a double-click anywhere, rather than having to hit the first vertex
+  // again. Clicking that vertex still works (closesPolygon above), and so does
+  // Enter — three ways out of the same gesture, because a lasso you cannot
+  // finish is a tool that has taken the canvas hostage.
+  const handleSelectionDoubleClick = useCallback(() => {
+    const open = useRoomStore.getState().pendingSelection
+    if (!open) return
+    setPendingSelection(null)
+    setSelectionCursor(null)
+    const shape = closeAfterDoubleClick(open)
+    setSelection(shape && selectionLayerId ? { layerId: selectionLayerId, shape } : null)
+  }, [selectionLayerId, setPendingSelection, setSelection])
+
   // Rubber band for the open point-by-point lasso — the only gesture with
   // something to show between presses.
   const handleSelectionHover = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -5134,6 +5148,7 @@ export function Room() {
               pending={pendingSelection}
               cursor={selectionCursor}
               zoom={vp.zoom}
+              matrix={areaSelection ? transformSessionMatrix : null}
             />
           </div>
           {/* Infinite rooms (#143): the same five overlays, camera-aware —
@@ -5204,6 +5219,7 @@ export function Room() {
                 pending={pendingSelection}
                 cursor={selectionCursor}
                 zoom={vp.zoom}
+                matrix={areaSelection ? transformSessionMatrix : null}
               />
             </div>
           )}
@@ -5234,6 +5250,7 @@ export function Room() {
               className={styles.canvasCatcher}
               onPointerDown={handleSelectionDown}
               onPointerMove={handleSelectionHover}
+              onDoubleClick={handleSelectionDoubleClick}
               onPointerEnter={() => { selectionRectRef.current = null }}
             />
           )}

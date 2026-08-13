@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  appendFreehandPoint, closesPolygon, rectangleFromDrag, selectionBoundsRect, selectionFromPoints,
-  transformSelection,
+  appendFreehandPoint, closeAfterDoubleClick, closesPolygon, mapSelectionPoints, rectangleFromDrag,
+  selectionBoundsRect, selectionFromPoints, transformSelection,
 } from './selectionGesture'
 
 describe('appendFreehandPoint', () => {
@@ -39,6 +39,34 @@ describe('closesPolygon', () => {
     // visibly elsewhere.
     expect(closesPolygon([100, 100, 140, 105, 130, 60], 108, 100, 14)).toBe(true)
     expect(closesPolygon([100, 100, 140, 105, 130, 60], 108, 100, 3.5)).toBe(false)
+  })
+})
+
+describe('closeAfterDoubleClick', () => {
+  it('drops the vertex the second press of the double-click placed', () => {
+    // Four presses: three corners, then a double-click whose first press put
+    // the fourth corner down and whose second press means "close it".
+    expect(closeAfterDoubleClick([0, 0, 40, 0, 40, 40, 0, 40, 0, 40]))
+      .toEqual({ points: [0, 0, 40, 0, 40, 40, 0, 40] })
+  })
+
+  it('keeps a bare triangle whole — there is no spare vertex to drop', () => {
+    expect(closeAfterDoubleClick([0, 0, 30, 0, 15, 25]))
+      .toEqual({ points: [0, 0, 30, 0, 15, 25] })
+  })
+
+  it('deselects rather than closing something with no inside', () => {
+    expect(closeAfterDoubleClick([10, 10, 20, 10, 20, 10, 20, 10])).toBeNull()
+  })
+})
+
+describe('mapSelectionPoints', () => {
+  it('is what draws the outline on top of the live transform preview', () => {
+    expect(mapSelectionPoints([0, 0, 10, 0], [2, 0, 0, 0, 2, 0, 5, 5, 1])).toEqual([5, 5, 25, 5])
+  })
+
+  it('refuses a matrix that folds a point through the vanishing line', () => {
+    expect(mapSelectionPoints([0, 0, 100, 0], [1, 0, -0.02, 0, 1, 0, 0, 0, 1])).toBeNull()
   })
 })
 

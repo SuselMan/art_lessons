@@ -1,5 +1,6 @@
 import type { SelectionShape } from '@grafetto/shared'
 
+import { mapSelectionPoints } from './selectionGesture'
 import styles from './Room.module.css'
 
 interface SelectionOverlayProps {
@@ -17,6 +18,17 @@ interface SelectionOverlayProps {
    *  400% — the same counter-transform TransformGizmo and PeerCursors apply,
    *  for the same reason. */
   zoom: number
+  /** The open transform session's live matrix, when that session is moving
+   *  *this* selection (Room decides; null otherwise).
+   *
+   *  Every point of the outline is mapped through it, exactly as
+   *  TransformGizmo maps its own handles — and for the same reason: the region
+   *  being dragged and the frame around it are one thing, and an outline left
+   *  behind at the old place while the pixels move reads as the selection
+   *  having been lost. On release the committed selection carries the same
+   *  matrix (transformSelection), so the outline never jumps between the last
+   *  preview frame and the baked result. */
+  matrix?: readonly number[] | null
 }
 
 /** (#446) Draws the selection: its outline, and the lasso in progress.
@@ -36,9 +48,13 @@ interface SelectionOverlayProps {
  *  dark one — rather than one dashed line: a single colour disappears against
  *  either white paper or dark graphite depending on where the boundary falls,
  *  and a selection you cannot see is worse than no indicator at all. */
-export function SelectionOverlay({ selection, pending, cursor, zoom }: SelectionOverlayProps) {
+export function SelectionOverlay({ selection, pending, cursor, zoom, matrix }: SelectionOverlayProps) {
   const scale = 1 / (zoom || 1)
-  const committed = selection ? toPolygonPoints(selection.points) : null
+  // A matrix that folds the outline through the vanishing line maps to null;
+  // the outline then simply stays where it was for that frame, which is what
+  // the canvas underneath does too (the engine refuses the same matrix).
+  const shown = selection && matrix ? mapSelectionPoints(selection.points, matrix) : selection?.points
+  const committed = shown ? toPolygonPoints(shown) : null
   const inProgress = pending && pending.length >= 4 ? toPolygonPoints(pending) : null
   const lastX = pending && pending.length >= 2 ? pending[pending.length - 2] : null
   const lastY = pending && pending.length >= 2 ? pending[pending.length - 1] : null
