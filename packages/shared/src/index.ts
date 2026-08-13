@@ -641,6 +641,45 @@ export type LayerMergeOperation = OperationBase & {
   index: number
 }
 
+/** (#449) Copies one layer — pixels and all — into a brand-new layer, leaving
+ *  the source untouched.
+ *
+ *  Deliberately its own operation rather than `layer_add` + something: the copy
+ *  carries the source's pixels, and nothing already in the log can express
+ *  "these pixels, again, over there". Re-recording them as an `image_import`
+ *  would mean rasterizing to a data URL at emission — lossy on an infinite
+ *  canvas, which has no single raster to flatten to, and enormous on the wire
+ *  for something the receiving client can reproduce from state it already has.
+ *
+ *  Shaped like `LayerMergeOperation` above and handled alongside it everywhere,
+ *  because it is the same *kind* of thing: an operation carrying pixels **and**
+ *  structure at once. That combination is what decides its treatment on the
+ *  snapshot path — it is never withheld from a joining client the way a pure
+ *  pixel op is (the client needs its structural half), so the client skips the
+ *  pixel half itself against the coverage it restored. See `isCoveredBySnapshot`
+ *  in the server's rooms.ts and `_isCoveredByRestore` in the engine.
+ *
+ *  `sourceOpacity` is captured at emission for the same reason a merge captures
+ *  its sources': replay must not depend on an opacity the source picked up
+ *  afterwards. Unlike a merge it is *not* applied to the pixels — it becomes
+ *  the copy's own `opacity`, so the duplicate looks exactly like what was
+ *  duplicated rather than baking transparency into ink.
+ *
+ *  Duplicating a folder is not this operation: it is a `folder_add` plus one of
+ *  these per descendant layer, emitted together (see LayerPanel's
+ *  `buildDuplicateOps`). A folder holds no pixels of its own, so there is
+ *  nothing here for it to copy. */
+export type LayerDuplicateOperation = OperationBase & {
+  type: 'layer_duplicate'
+  layerId: string        // id of the new copy
+  sourceId: string       // layer being copied; stays alive
+  name: string
+  sourceOpacity: number  // 0–1, the source's own opacity at emission time
+  sourceVisible: boolean
+  parentId: string | null // where the copy lands
+  index: number
+}
+
 /** 2x3 affine [a, b, c, d, tx, ty]: x' = a*x + c*y + tx, y' = b*x + d*y + ty.
  *  The only encoding a layer_transform had before #392. */
 export type AffineMatrixTuple = [number, number, number, number, number, number]
@@ -750,6 +789,7 @@ export type Operation =
   | LayerOwnerLockOperation
   | LayerClearOperation
   | LayerMergeOperation
+  | LayerDuplicateOperation
   | LayerTransformOperation
   | OperationRevokeOperation
   | OperationUndoOperation

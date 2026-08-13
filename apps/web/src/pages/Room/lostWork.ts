@@ -78,6 +78,7 @@ export function resolveDeletedLayerName(
     if (op.type === 'layer_rename' && op.layerId === layerId) return op.name
     if (op.type === 'layer_add' && op.layerId === layerId) return op.name
     if (op.type === 'layer_merge' && op.layerId === layerId) return op.name
+    if (op.type === 'layer_duplicate' && op.layerId === layerId) return op.name
   }
 
   const restoredItem = restored?.items[layerId]

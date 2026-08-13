@@ -7,7 +7,7 @@
 // `appendOperation` in engine/index.ts: it is deliberately origin-agnostic).
 
 import { nanoid } from 'nanoid'
-import type { Dab, ImageImportOperation, LayerAddOperation, LayerDeleteOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@grafetto/shared'
+import type { Dab, ImageImportOperation, LayerAddOperation, LayerDeleteOperation, LayerDuplicateOperation, LayerMergeOperation, LayerTransformOperation, StrokeOperation } from '@grafetto/shared'
 
 import { PencilEngine, type PencilEngineOptions } from '../index'
 import type { Matrix3 } from '../src/matrix'
@@ -663,6 +663,18 @@ export function makeLayerMerge(
   return {
     id: nanoid(10), type: 'layer_merge', userId, timestamp: nextTimestamp(),
     layerId, name: 'Merged', sources, parentId: null, index: 0,
+    ...overrides,
+  }
+}
+
+export function makeLayerDuplicate(
+  userId: string, layerId: string, sourceId: string,
+  overrides: Partial<LayerDuplicateOperation> = {},
+): LayerDuplicateOperation {
+  return {
+    id: nanoid(10), type: 'layer_duplicate', userId, timestamp: nextTimestamp(),
+    layerId, sourceId, name: 'Copy', sourceOpacity: 1, sourceVisible: true,
+    parentId: null, index: 0,
     ...overrides,
   }
 }

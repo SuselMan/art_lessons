@@ -441,6 +441,7 @@ export const ru: Dictionary = {
   'layers.lockedByOwner': 'Закрыт владельцем проекта',
   'layers.mergeSelected': 'Объединить выбранные',
   'layers.mergeDown': 'Объединить с нижним',
+  'layers.duplicate': 'Дублировать',
   'layers.deleteSelected': 'Удалить выбранные',
   'layers.deleteLayer': 'Удалить слой',
   'layers.clearLayer': 'Очистить слой',
@@ -465,6 +466,7 @@ export const ru: Dictionary = {
   'layers.defaultLayerName': 'Слой {n}',
   'layers.defaultFolderName': 'Папка',
   'layers.mergedName': 'Объединённый',
+  'layers.copyName': '{name} копия',
   'layers.referenceName': 'Референс',
 
   // ── настройки редактора ────────────────────────────────────────────────

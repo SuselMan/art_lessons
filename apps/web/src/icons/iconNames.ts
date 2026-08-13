@@ -29,6 +29,7 @@ export const MATERIAL_ICON_NAMES = [
   'cloud_off',
   'cloud_sync',
   'colorize',
+  'content_copy',
   'create_new_folder',
   'delete',
   'delete_forever',

@@ -39,6 +39,10 @@ export interface LayerRowProps {
   // (#328) The row's "⋮" is the shared `Menu` now, so the panel hands down the
   // actions themselves instead of an open-at-this-anchor callback.
   onMergeDown?: (id: string) => void
+  // (#449) Enabled for a folder too, unlike Merge down and Clear: those two are
+  // about pixels a folder does not have, while duplicating one copies its shape
+  // and everything inside it.
+  onDuplicate?: (id: string) => void
   onClear?: (id: string) => void
   onDelete?: (id: string) => void
   // (#411) Long-press-to-enter-selection-mode. `onPointerMove` cancels it:
@@ -61,7 +65,7 @@ function LayerRowImpl({
   item, depth, isActive, isSelected, isDragOverFolder, isTravelling = false, isOwner,
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
-  onToggleCollapse, onMergeDown, onClear, onDelete,
+  onToggleCollapse, onMergeDown, onDuplicate, onClear, onDelete,
   onPointerDown, onPointerUp, onPointerMove,
   selectionMode = false, onToggleSelected,
 }: LayerRowProps) {
@@ -290,6 +294,11 @@ function LayerRowImpl({
               onClick: () => onToggleOwnerLock?.(item.id),
             }] : []),
             { label: t('common.rename'),     icon: 'edit',            onClick: () => onStartEditing?.(item.id) },
+            // (#449) Above Merge down, not below: duplicating is the safe,
+            // reversible half of this menu and the one reached most often of
+            // the two, while everything from Merge down onward destroys or
+            // consumes something.
+            { label: t('layers.duplicate'),  icon: 'content_copy',    onClick: () => onDuplicate?.(item.id) },
             { label: t('layers.mergeDown'),  icon: 'vertical_align_bottom', onClick: () => onMergeDown?.(item.id), disabled: isFolderItem },
             // (#329) A folder holds no pixels of its own — clearing one would
             // have to mean clearing its children, which is a different action

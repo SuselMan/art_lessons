@@ -534,6 +534,7 @@ export const en = {
   'layers.lockedByOwner': 'Locked by the project owner',
   'layers.mergeSelected': 'Merge selected',
   'layers.mergeDown': 'Merge down',
+  'layers.duplicate': 'Duplicate',
   'layers.deleteSelected': 'Delete selected',
   'layers.deleteLayer': 'Delete layer',
   // (#329) Was "Clear canvas" in the room header, which is not what it ever
@@ -563,6 +564,9 @@ export const en = {
   'layers.defaultLayerName': 'Layer {n}',
   'layers.defaultFolderName': 'Folder',
   'layers.mergedName': 'Merged',
+  // (#449) Only the duplicated row itself is renamed this way — its children
+  // keep their own names, see buildDuplicateOps.
+  'layers.copyName': '{name} copy',
   'layers.referenceName': 'Reference',
 
   // ── editor settings panel (#174 hotkeys tab, #321 general/access tabs) ──

@@ -824,8 +824,8 @@ export function Room() {
   // (#289 epic — reliable history spec v0.2 §2/§4) layerId/folderId this
   // client itself created but the server hasn't confirmed yet — the
   // "local island" isLocalIslandSafe checks a layer_delete/layer_merge/
-  // layer_transform's targets against. Added the instant a layer_add/
-  // folder_add is dispatched (see onLocalOperation below), removed once
+  // layer_duplicate/layer_transform's targets against. Added the instant a
+  // layer_add/folder_add is dispatched (see onLocalOperation below), removed once
   // its SendResult settles either way — confirmed means it's now something
   // a peer could plausibly reference too; rejected means it never became
   // real in the first place.

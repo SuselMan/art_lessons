@@ -23,6 +23,7 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'cloud_off': '\u{e2c1}',
   'cloud_sync': '\u{eb5a}',
   'colorize': '\u{e3b8}',
+  'content_copy': '\u{e14d}',
   'create_new_folder': '\u{e2cc}',
   'delete': '\u{e872}',
   'delete_forever': '\u{e92b}',

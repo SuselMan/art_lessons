@@ -388,6 +388,27 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
       const merged: RasterLayer = { kind: 'layer', id: op.layerId, name: op.name, opacity: 1, visible: true, locked: false }
       return insertAt(state, { ...items, [op.layerId]: merged }, rootOrder, op.layerId, op.parentId, op.index)
     }
+    case 'layer_duplicate': {
+      if (state.items[op.layerId]) return state
+      // Opacity and visibility come from the operation, not from
+      // `state.items[op.sourceId]`: the source may have changed either since,
+      // or may not exist on this client at all (a duplicate is legal on a layer
+      // whose own add this client is still catching up to). Reading them live
+      // would make the same log produce different states on different clients,
+      // which is the one thing replay may never do.
+      //
+      // `locked` is deliberately *not* copied. It is a claim on who may paint,
+      // not an appearance — and a fresh copy nobody can draw on is a puzzle,
+      // not a safeguard. Owner-lock likewise: `ownerLocked` is the room owner
+      // reserving a specific layer, and the reservation does not extend to
+      // whatever anyone copies out of it.
+      const copy: RasterLayer = {
+        kind: 'layer', id: op.layerId, name: op.name,
+        opacity: op.sourceOpacity, visible: op.sourceVisible, locked: false,
+      }
+      return insertAt(state, { ...state.items, [op.layerId]: copy }, state.rootOrder,
+        op.layerId, op.parentId, op.index)
+    }
     case 'stroke':
     case 'layer_clear':
     case 'image_import':

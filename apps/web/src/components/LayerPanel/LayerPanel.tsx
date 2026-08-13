@@ -31,6 +31,7 @@ import {
   toggleSelection, toggleSelectAll, isAllSelected, shouldExitOnEmpty, beyondTolerance,
 } from './selection'
 import { patchItem } from './utils'
+import { buildDuplicateOps } from './duplicate'
 import {
   isFolder, isLayerLocked, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
   placementAbove, normalizeMoveSet,
@@ -543,6 +544,37 @@ export const LayerPanel = memo(function LayerPanel({
     onChange(p => ({ ...p, selectedIds: [] }))
   }, [activeId, selectedIds, layerState, onChange, onOp, hasLayerContent, t, confirm])
 
+  // ── duplicate (#449) ─────────────────────────────────────────────────────────
+
+  /** Duplicates one row, placing the copy directly above the original — in the
+   *  original's own container, so duplicating something inside a folder keeps
+   *  it there rather than ejecting the copy to root (the same rule
+   *  handleMergeDown follows for a merge result).
+   *
+   *  Inserting *at* the original's index is what puts the copy above it: the
+   *  original shifts down one. The copy becomes active, since making a copy to
+   *  work on it is the entire point of making one. */
+  const handleDuplicate = useCallback((id?: string) => {
+    const sourceId = id ?? activeId
+    const source = sourceId ? items[sourceId] : null
+    if (!source || sourceId === BACKGROUND_LAYER_ID) return
+
+    const containerId = parentOf(layerState, sourceId)
+    const container = containerId ? items[containerId] : null
+    const siblings = container && isFolder(container) ? container.children : rootOrder
+    const idx = siblings.indexOf(sourceId)
+    if (idx < 0) return
+
+    // Shared content, like every other name minted here: it rides the log to
+    // every participant, so a copy made from a Russian UI reads the same for
+    // everyone (see handleAddLayer's own note).
+    const { ops, newId } = buildDuplicateOps(
+      items, sourceId, containerId, idx, t('layers.copyName', { name: source.name }),
+    )
+    for (const op of ops) onOp(op)
+    onChange(p => ({ ...p, activeId: newId, selectedIds: [] }))
+  }, [activeId, items, layerState, rootOrder, onOp, onChange, t])
+
   // ── merge ────────────────────────────────────────────────────────────────────
 
   const emitMerge = useCallback((ids: string[], name: string, parentId: string | null, index: number) => {
@@ -1024,6 +1056,7 @@ export const LayerPanel = memo(function LayerPanel({
                   onStopEditing={handleStopEditing}
                   onToggleCollapse={handleToggleCollapse}
                   onMergeDown={handleMergeDown}
+                  onDuplicate={handleDuplicate}
                   onClear={handleClear}
                   onDelete={handleMenuDelete}
                   onPointerDown={handlePointerDown}
