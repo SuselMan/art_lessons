@@ -1931,6 +1931,11 @@ export function Room() {
   const markerNib = toolSettings.marker.nib as string
   const markerSize = toolSettings.marker.size as number
   const charcoalType = toolSettings.charcoal.type as string
+  // #454: the brush pen's preset slot carries its pressure response, since the
+  // tool has no nib list or size ladder to spend that slot on — see
+  // brushPenPresets.ts's brushPenResponseFromPreset on why the setting rides
+  // the existing per-stroke string rather than a new Operation field.
+  const brushPenResponse = toolSettings.brushPen.pressureResponse as string
   // Same preset string engine.setPencil below records (`${nib}:${size}` for
   // marker, the size label for liner, the charcoal type for charcoal, the
   // grade name otherwise) — only marker's own dispatch (bullet/chisel)
@@ -1940,6 +1945,7 @@ export function Room() {
   const cursorPresetName = drawingTool === 'marker' ? `${markerNib}:${markerSize}`
     : drawingTool === 'liner' ? linerSize
     : drawingTool === 'charcoal' ? charcoalType
+    : drawingTool === 'brushPen' ? brushPenResponse
     : pencilGrade
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
@@ -2038,9 +2044,10 @@ export function Room() {
       drawingTool === 'liner' ? linerSize
         : drawingTool === 'marker' ? markerPreset
         : drawingTool === 'charcoal' ? charcoalType
+        : drawingTool === 'brushPen' ? brushPenResponse
         : pencilGrade,
     )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalType])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalType, brushPenResponse])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with
@@ -4575,6 +4582,7 @@ export function Room() {
       if (is('toggleCharcoal')) { toggleTool('charcoal'); return }
       if (is('toggleLiner')) { toggleTool('liner'); return }
       if (is('toggleMarker')) { toggleTool('marker'); return }
+      if (is('toggleBrushPen')) { toggleTool('brushPen'); return }
       // (#405) The four that used to be modes, selected through the same
       // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
       if (is('toggleEyedropper')) { toggleTool('eyedropper'); return }
@@ -4993,6 +5001,17 @@ export function Room() {
             aria-label={t('tool.marker')}
             onClick={() => selectTool('marker')}
           ><Icon name="ink_highlighter" /></button>
+          {/* Brush pen (#454, ADR 009) — a flexible ink nib whose width follows
+              pressure. Sits next to the liner deliberately: the two are the
+              opposite halves of the same material (liner for a controlled,
+              constant line; this for an expressive one), which is the pairing
+              a user picking between them is actually making. */}
+          <button
+            className={clsx(styles.toolIconBtn, tool === 'brushPen' && styles.toolIconBtnActive)}
+            title={t('tool.brushPenTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleBrushPen) })}
+            aria-label={t('tool.brushPen')}
+            onClick={() => selectTool('brushPen')}
+          ><Icon name="brush" /></button>
 
           <div className={styles.toolDivider} />
 

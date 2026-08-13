@@ -18,7 +18,7 @@ import type { IconName } from '../../icons/iconNames'
  *  adding a tool — charcoal was #304 — is one edit here plus whatever the
  *  compiler then demands (TOOL_DISPLAY is a total Record over it, so a tool
  *  with no icon or label is a typecheck error, not a blank button). */
-export const FLOATING_PRIMARY_TOOLS = ['pencil', 'charcoal', 'liner', 'marker'] as const
+export const FLOATING_PRIMARY_TOOLS = ['pencil', 'charcoal', 'liner', 'marker', 'brushPen'] as const
 
 export type FloatingPrimaryTool = (typeof FLOATING_PRIMARY_TOOLS)[number]
 
@@ -58,6 +58,7 @@ export const TOOL_DISPLAY: Record<FloatingPanelTool, ToolFace> = {
   charcoal: { icon: 'charcoal', labelKey: 'tool.charcoal' },
   liner: { icon: 'stylus', labelKey: 'tool.liner' },
   marker: { icon: 'ink_highlighter', labelKey: 'tool.marker' },
+  brushPen: { icon: 'brush', labelKey: 'tool.brushPen' },
   eraser: { icon: 'ink_eraser', labelKey: 'tool.eraser' },
   smudge: { icon: 'smudge', labelKey: 'tool.smudge' },
   eyedropper: { icon: 'colorize', labelKey: 'tool.eyedropper' },

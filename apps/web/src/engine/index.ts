@@ -44,6 +44,8 @@ import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { isRibbonTool, ribbonProfileFor, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper,
+  PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
+  type PressureResponse,
 } from './src/brushPenPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
@@ -77,6 +79,10 @@ export { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, type SmudgeGrainConfig }
 // ready-made SVG path: what a response *is* belongs to the engine, how it is
 // drawn belongs to the UI.
 export { TILT_RESPONSES, DEFAULT_TILT_RESPONSE, isTiltResponse, tiltResponseT, type TiltResponse }
+// #454 — the brush pen's own response setting, the pressure counterpart of
+// the tilt one right above. Re-exported for toolSchemas.ts, which owns the
+// UI side of it.
+export { PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth, type PressureResponse }
 
 /** Pure dab-shape query for UI overlays (brush cursor) — mirrors
  *  DabSystem._makeDab's own geometry formula (tiltMag/tiltNorm ->

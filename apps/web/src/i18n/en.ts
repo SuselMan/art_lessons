@@ -456,6 +456,8 @@ export const en = {
   'tool.linerTitle': 'Liner — ink pen, near-constant line width  {hotkey}',
   'tool.marker': 'Marker',
   'tool.markerTitle': 'Marker — two-nib (bullet/chisel) marker rendering  {hotkey}',
+  'tool.brushPen': 'Brush pen',
+  'tool.brushPenTitle': 'Brush pen — flexible ink nib; line width follows your pressure  {hotkey}',
   'tool.hand': 'Hand',
   'tool.handTitle': 'Hand — drag to move the canvas, hold Shift to rotate it. Hold Space for the same without leaving your tool  {hotkey}',
   'tool.eyedropper': 'Eyedropper',
@@ -487,6 +489,7 @@ export const en = {
   'tool.field.showGrid': 'Show grid',
   'tool.field.selectionShape': 'Shape',
   'tool.field.tiltResponse': 'Tilt response',
+  'tool.field.pressureResponse': 'Pressure response',
   // The three curve shapes (#409). Named for how the tool answers the stylus,
   // not for their history — "the one from before" means nothing to anyone who
   // wasn't here, and the graph beside each name is what actually distinguishes
@@ -494,6 +497,11 @@ export const en = {
   'tool.tiltResponse.restrained': 'Restrained',
   'tool.tiltResponse.smooth': 'Smooth',
   'tool.tiltResponse.linear': 'Linear',
+  // How firm the brush pen's nib feels (#454) — named for the nib, not for
+  // the curve, for the same reason the tilt responses above are.
+  'tool.pressureResponse.soft': 'Soft',
+  'tool.pressureResponse.normal': 'Normal',
+  'tool.pressureResponse.firm': 'Firm',
   'tool.charcoalType.vine': 'Vine',
   'tool.charcoalType.willow': 'Willow',
   'tool.charcoalType.compressed': 'Compressed',
@@ -619,6 +627,7 @@ export const en = {
   'hotkey.toggleCharcoal': 'Toggle charcoal / pencil',
   'hotkey.toggleLiner': 'Toggle liner / pencil',
   'hotkey.toggleMarker': 'Toggle marker / pencil',
+  'hotkey.toggleBrushPen': 'Toggle brush pen / pencil',
   'hotkey.toggleEyedropper': 'Toggle eyedropper',
   'hotkey.toggleRuler': 'Toggle ruler',
   'hotkey.toggleTransform': 'Toggle transform',
