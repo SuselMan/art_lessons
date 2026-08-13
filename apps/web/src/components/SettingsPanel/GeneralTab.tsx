@@ -3,7 +3,8 @@ import type { TranslationKey } from '../../i18n'
 import { OptionGroup } from '../OptionGroup'
 import { PrecisionSlider } from '../PrecisionSlider'
 import {
-  floatingPanelChoices, floatingPanelSelection, minimalUiAvailable, type FloatingPanelMode,
+  MINIMAL_UI_TAP_MODES, floatingPanelChoices, floatingPanelSelection, minimalUiAvailable,
+  type FloatingPanelMode, type MinimalUiTapMode,
 } from '../../lib/uiPreferences'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './SettingsPanel.module.css'
@@ -12,6 +13,11 @@ const FLOATING_PANEL_LABELS: Record<FloatingPanelMode, TranslationKey> = {
   always: 'editorSettings.floatingPanel.always',
   minimal: 'editorSettings.floatingPanel.minimal',
   never: 'editorSettings.floatingPanel.never',
+}
+
+const MINIMAL_UI_TAP_LABELS: Record<MinimalUiTapMode, TranslationKey> = {
+  single: 'editorSettings.minimalUiTap.single',
+  double: 'editorSettings.minimalUiTap.double',
 }
 
 interface ToggleRowProps {
@@ -52,6 +58,8 @@ export function GeneralTab() {
   const setSoundVolume = useSettingsStore(s => s.setSoundVolume)
   const minimalUi = useSettingsStore(s => s.minimalUi)
   const setMinimalUi = useSettingsStore(s => s.setMinimalUi)
+  const minimalUiTapMode = useSettingsStore(s => s.minimalUiTapMode)
+  const setMinimalUiTapMode = useSettingsStore(s => s.setMinimalUiTapMode)
   const floatingPanel = useSettingsStore(s => s.floatingPanel)
   const setFloatingPanel = useSettingsStore(s => s.setFloatingPanel)
   const lockBrushAngle = useSettingsStore(s => s.lockBrushAngleToCanvas)
@@ -98,12 +106,33 @@ export function GeneralTab() {
           into the mode there and no way back out of it (see
           `minimalUiAvailable`, and #384 for what a desktop answer might be). */}
       {minimalUiAvailable(deviceType) && (
-        <ToggleRow
-          label={t('editorSettings.minimalUi')}
-          hint={t('editorSettings.minimalUiHint')}
-          checked={minimalUi}
-          onChange={setMinimalUi}
-        />
+        <>
+          <ToggleRow
+            label={t('editorSettings.minimalUi')}
+            hint={t('editorSettings.minimalUiHint')}
+            checked={minimalUi}
+            onChange={setMinimalUi}
+          />
+
+          {/* Same rule as the volume slider above: only while there is a mode
+              for it to describe. */}
+          {minimalUi && (
+            <div className={styles.choiceRow}>
+              <div className={styles.flagLabel}>{t('editorSettings.minimalUiTap')}</div>
+              <div className={styles.flagDescription}>{t('editorSettings.minimalUiTapHint')}</div>
+              <OptionGroup
+                variant="list"
+                options={MINIMAL_UI_TAP_MODES.map(mode => ({
+                  id: mode,
+                  label: t(MINIMAL_UI_TAP_LABELS[mode]),
+                }))}
+                active={minimalUiTapMode}
+                onSelect={setMinimalUiTapMode}
+                ariaLabel={t('editorSettings.minimalUiTap')}
+              />
+            </div>
+          )}
+        </>
       )}
 
       <div className={styles.choiceRow}>

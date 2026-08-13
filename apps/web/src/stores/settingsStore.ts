@@ -10,8 +10,8 @@ import {
 import { detectDeviceType, isDeviceType, type DeviceType } from '../lib/deviceType'
 import { getHotkeyBindings, setHotkeyBindings, type HotkeyBinding } from '../lib/hotkeys'
 import {
-  DEFAULT_FLOATING_PANEL_MODE, DEFAULT_SOUND_VOLUME, clampSoundVolume,
-  isFloatingPanelMode, type FloatingPanelMode,
+  DEFAULT_FLOATING_PANEL_MODE, DEFAULT_MINIMAL_UI_TAP_MODE, DEFAULT_SOUND_VOLUME, clampSoundVolume,
+  isFloatingPanelMode, isMinimalUiTapMode, type FloatingPanelMode, type MinimalUiTapMode,
 } from '../lib/uiPreferences'
 import { detectTheme, isTheme, type Theme } from '../lib/theme'
 import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/locale'
@@ -36,6 +36,7 @@ const LAST_PAPER_TYPE_STORAGE_KEY = 'al_last_paper_type'
 const SOUND_ENABLED_STORAGE_KEY = 'al_sound_enabled'
 const SOUND_VOLUME_STORAGE_KEY = 'al_sound_volume'
 const MINIMAL_UI_STORAGE_KEY = 'al_minimal_ui'
+const MINIMAL_UI_TAP_STORAGE_KEY = 'al_minimal_ui_tap'
 const FLOATING_PANEL_STORAGE_KEY = 'al_floating_panel'
 const LOCK_BRUSH_ANGLE_STORAGE_KEY = 'al_lock_brush_angle'
 const THEME_STORAGE_KEY = 'al_theme'
@@ -171,6 +172,12 @@ function initialFloatingPanel(): FloatingPanelMode {
   return isFloatingPanelMode(raw) ? raw : DEFAULT_FLOATING_PANEL_MODE
 }
 
+function initialMinimalUiTapMode(): MinimalUiTapMode {
+  if (typeof window === 'undefined') return DEFAULT_MINIMAL_UI_TAP_MODE
+  const raw = localStorage.getItem(MINIMAL_UI_TAP_STORAGE_KEY)
+  return isMinimalUiTapMode(raw) ? raw : DEFAULT_MINIMAL_UI_TAP_MODE
+}
+
 export interface SettingsStore {
   locale: Locale
   setLocale: (locale: Locale) => void
@@ -196,6 +203,10 @@ export interface SettingsStore {
   setSoundVolume: (volume: number) => void
   minimalUi: boolean
   setMinimalUi: (enabled: boolean) => void
+  /** (#189) Whether one tap on the canvas toggles minimal UI or it takes two.
+   *  Two by default — see MinimalUiTapMode for what a single tap costs. */
+  minimalUiTapMode: MinimalUiTapMode
+  setMinimalUiTapMode: (mode: MinimalUiTapMode) => void
   floatingPanel: FloatingPanelMode
   setFloatingPanel: (mode: FloatingPanelMode) => void
   /** (#278) Whether the marker's chisel angle is a canvas-space value that
@@ -259,6 +270,11 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
   setMinimalUi: enabled => {
     localStorage.setItem(MINIMAL_UI_STORAGE_KEY, String(enabled))
     set({ minimalUi: enabled })
+  },
+  minimalUiTapMode: initialMinimalUiTapMode(),
+  setMinimalUiTapMode: mode => {
+    localStorage.setItem(MINIMAL_UI_TAP_STORAGE_KEY, mode)
+    set({ minimalUiTapMode: mode })
   },
   floatingPanel: initialFloatingPanel(),
   setFloatingPanel: mode => {

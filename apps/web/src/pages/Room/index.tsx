@@ -408,12 +408,17 @@ export function Room() {
   // header/toolbar/layer panel via a CSS class (never unmounted — no lost
   // focus/state), tap again to bring them back.
   //
+  // (#189) Two taps by default rather than one — see MinimalUiTapMode. The
+  // count is a setting because the cheaper gesture is genuinely nicer for
+  // anyone whose hand never trips it.
+  //
   // (#321) A real setting now rather than a feature flag, and touch-only:
   // `minimalUiActive` folds in the device check, because a PC has neither the
   // tap that turns this on nor anything that would turn it back off (#384).
   const minimalUiSetting = useSettingsStore(s => s.minimalUi)
   const deviceType = useSettingsStore(s => s.deviceType)
   const tapToHideEnabled = minimalUiActive(minimalUiSetting, deviceType)
+  const minimalUiTapMode = useSettingsStore(s => s.minimalUiTapMode)
   // (#157/#321) Where the floating tool cluster is allowed to appear.
   const floatingPanelMode = useSettingsStore(s => s.floatingPanel)
   useEffect(() => { diagLog('tapToHideEnabled is', tapToHideEnabled) }, [tapToHideEnabled])
@@ -1183,7 +1188,7 @@ export function Room() {
   // Suppressing it here rather than inside the hook keeps the rule where the
   // conflict is, and costs nothing: the tap puts the transform tool down, so
   // by the next tap this is armed again and hides the chrome as it always did.
-  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !transformActive, tapDebugEnabled ? setTapDebug : undefined)
+  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !transformActive, minimalUiTapMode, tapDebugEnabled ? setTapDebug : undefined)
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
@@ -5345,6 +5350,7 @@ export function Room() {
                   <div>concurrent touches: {tapDebug.concurrentTouches}</div>
                   <div>was tap: {String(tapDebug.wasTap)}</div>
                   <div>on control: {String(tapDebug.onControl)}</div>
+                  <div>taps: {tapDebug.tapsSoFar}/{tapDebug.tapsRequired}</div>
                 </>
               ) : (
                 <div>tap the canvas to see tap stats</div>
