@@ -1137,7 +1137,11 @@ function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
     // alive".
     case 'area_transform':
     case 'area_clear':
-    case 'area_paste': return record.deletedIds.has(op.layerId)
+    case 'area_paste':
+    // (#453) The fill is Class 2 for the same reason: it carries its pixels,
+    // so a client that has not caught up simply paints them late rather than
+    // resolving a reference that has gone.
+    case 'area_fill': return record.deletedIds.has(op.layerId)
     default: return false
   }
 }
