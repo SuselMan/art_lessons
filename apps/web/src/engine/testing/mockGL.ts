@@ -1074,10 +1074,12 @@ export class MockGL {
   // uploaded source is uniformly opaque (see texImage2D's DOM-source
   // overload), so the rect is the whole of it.
   //
-  // v_uv comes from DISPLAY_VERT's fullscreen quad, so its y runs bottom-up
-  // like GL's own framebuffer, while this mock's rows (like every dab center
-  // the engine hands it) are top-down — hence the flip when turning a row
-  // index back into the shader's bufferPx.
+  // (#446) Both this mock's rows and the shader's own bufferPx are app-space
+  // top-down now, so there is no flip left to do here. There used to be one,
+  // faithfully mirroring a shader that read `v_uv` (bottom-up) as though it
+  // were top-down — which is the bug paste surfaced. A mock that reproduces
+  // the bug it exists to catch is worse than no mock, so the two moved
+  // together.
   private _rasterImageBlit(info: TextureInfo, uniforms: Map<string, UniformValue>): void {
     const { width, height, data } = info
     const unit = (uniforms.get('u_image') as number) ?? 0
@@ -1091,12 +1093,16 @@ export class MockGL {
     for (let py = 0; py < height; py++) {
       for (let px = 0; px < width; px++) {
         const bufX = ((px + 0.5) / width) * bw
-        const bufY = (1 - (py + 0.5) / height) * bh
+        const bufY = ((py + 0.5) / height) * bh
         const u = (bufX - rx) / rw
         const v = (bufY - ry) / rh
         if (u < 0 || u > 1 || v < 0 || v > 1) continue
         const sx = Math.min(Math.floor(u * srcInfo.width), srcInfo.width - 1)
-        const sy = Math.min(Math.floor(v * srcInfo.height), srcInfo.height - 1)
+        // Sampled from the far end, as the real shader does (the texture went
+        // up with UNPACK_FLIP_Y_WEBGL). Unobservable through this mock's
+        // uniformly opaque DOM-image stand-in, and kept anyway so the next
+        // person to give it real per-texel content does not rediscover it.
+        const sy = Math.min(Math.floor((1 - v) * srcInfo.height), srcInfo.height - 1)
         const srcAlpha = clamp(srcInfo.data[sy * srcInfo.width + sx] ?? 0, 0, 1)
         const idx = py * width + px
         data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)

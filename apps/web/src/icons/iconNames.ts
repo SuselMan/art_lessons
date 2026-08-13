@@ -46,7 +46,6 @@ export const MATERIAL_ICON_NAMES = [
   'folder_open',
   'fullscreen',
   'fullscreen_exit',
-  'gesture',
   'gradient',
   'grid_on',
   'grid_view',
@@ -67,7 +66,6 @@ export const MATERIAL_ICON_NAMES = [
   'more_vert',
   'move_down',
   'palette',
-  'polyline',
   'pan_tool',
   'pinch',
   'redo',
@@ -101,7 +99,10 @@ export type MaterialIconName = (typeof MATERIAL_ICON_NAMES)[number]
 //
 // A name may appear in both lists: a custom SVG deliberately overrides the
 // Material symbol of the same name at every call site at once.
-export const CUSTOM_ICON_NAMES = ['bullet-tip', 'charcoal', 'chisel-tip', 'distort', 'free-transform', 'skew-and-rotate', 'smudge'] as const
+export const CUSTOM_ICON_NAMES = [
+  'bullet-tip', 'charcoal', 'chisel-tip', 'distort', 'free-transform', 'freehand-lasso',
+  'point-lasso', 'rectangle-lasso', 'skew-and-rotate', 'smudge',
+] as const
 
 export type CustomIconName = (typeof CUSTOM_ICON_NAMES)[number]
 

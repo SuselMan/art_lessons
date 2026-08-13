@@ -570,13 +570,18 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
         polygon: 'tool.selectionShape.polygon',
         freehand: 'tool.selectionShape.freehand',
       },
-      // Icons for the same reason the transform modes have them: a way of
-      // drawing is a gesture, not a material, so there is nothing to
-      // photograph — and the quick-panel button is preview-only.
+      // Hand-drawn glyphs (Ilya, 13.08), the same way the transform modes
+      // have them: a way of drawing is a gesture, not a material, so there is
+      // nothing to photograph — and the quick-panel button is preview-only.
+      // Custom rather than Material because the nearest symbols there were a
+      // generic dashed square, a polyline diagram and a scribble, which share
+      // no visual language with each other; these three are one family, and
+      // each says what the gesture *is*: a marquee, a chain of vertices, a
+      // loop drawn by hand.
       optionIcons: {
-        rectangle: 'select_all',
-        polygon: 'polyline',
-        freehand: 'gesture',
+        rectangle: 'rectangle-lasso',
+        polygon: 'point-lasso',
+        freehand: 'freehand-lasso',
       },
       uiControls: ['select'],
       quickAccess: true,

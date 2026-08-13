@@ -12,8 +12,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  alphaAt as alphaAtIn, createTestEngine, fillStroke, makeAreaClear, makeAreaTransform, makeLayerAdd,
-  readLayerPixels,
+  alphaAt as alphaAtIn, createTestEngine, fillStroke, installFakeImageDecoder, makeAreaClear,
+  makeAreaPaste, makeAreaTransform, makeLayerAdd, readLayerPixels,
 } from './testing/engineTestUtils'
 import { rectangleSelection } from './src/selectionMask'
 
@@ -161,6 +161,39 @@ describe('area_transform', () => {
 
     expect(alphaAt(after, 12, 12)).toBe(0)
     expect(alphaAt(after, 30, 30)).toBeGreaterThan(200)
+  })
+})
+
+describe('area_paste', () => {
+  it('lands where the operation says, not mirrored about the canvas', () => {
+    // The bug this exists for (#446): IMAGE_BLIT_FRAG read GL's bottom-up
+    // `v_uv` as though it were app-space top-down. A fit-centered import is
+    // symmetric, so nothing noticed for as long as that was the only caller;
+    // paste places a raster at an arbitrary rect and came out flipped about
+    // the canvas's horizontal centre-line — right in x, wrong in y, which is
+    // exactly how it was reported.
+    const restore = installFakeImageDecoder({ size: 8 })
+    try {
+      const { engine } = createTestEngine({ userId: 'user-a' }, CANVAS)
+      engine.appendOperation(makeLayerAdd('user-a', 'L'))
+      const op = makeAreaPaste('user-a', 'L', { x: 6, y: 4, width: 10, height: 8 })
+      // Decoded up front, so the paste paints synchronously (see #398).
+      return engine.preloadImages([op]).then(() => {
+        engine.appendOperation(op)
+        const pixels = readLayerPixels(engine, 'L')!
+
+        // Inside the rect the stand-in raster is fully opaque…
+        expect(alphaAt(pixels, 8, 6)).toBeGreaterThan(200)
+        expect(alphaAt(pixels, 15, 11)).toBeGreaterThan(200)
+        // …just outside it, nothing.
+        expect(alphaAt(pixels, 8, 3)).toBe(0)
+        expect(alphaAt(pixels, 8, 12)).toBe(0)
+        expect(alphaAt(pixels, 5, 6)).toBe(0)
+        expect(alphaAt(pixels, 16, 6)).toBe(0)
+        // The mirrored position the old blit would have used (y = 40 - 4 - 8).
+        expect(alphaAt(pixels, 8, 30)).toBe(0)
+      })
+    } finally { restore() }
   })
 })
 

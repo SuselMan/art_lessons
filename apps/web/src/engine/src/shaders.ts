@@ -1200,28 +1200,47 @@ export const LAYER_COMPOSITE_FRAG = `
   }
 `;
 
-// Blits a reference image (#88) into a layer's accumulation buffer, fit-
-// centered ("contain") within it — u_imageRect is precomputed in JS (buffer-
-// pixel offset/size of the fitted image), so this only has to test whether
-// the current buffer pixel falls inside that rect and sample accordingly.
-// Uses DISPLAY_VERT (same fullscreen-quad convention as composite/display).
-// Outputs premultiplied color, matching every other accumulation-buffer
-// writer (DAB_FRAG) so it composites correctly via the same ONE,
-// ONE_MINUS_SRC_ALPHA blend AccumulationBuffer.beginDraw() sets up.
+// Blits a raster into a layer's accumulation buffer at a given rect —
+// a reference image (#88), fit-centered or placed at a world position, and
+// since #446 a pasted selection too. u_imageRect is precomputed in JS (buffer-
+// pixel offset/size), so this only has to test whether the current buffer
+// pixel falls inside that rect and sample accordingly. Uses DISPLAY_VERT (same
+// fullscreen-quad convention as composite/display). Outputs premultiplied
+// color, matching every other accumulation-buffer writer (DAB_FRAG) so it
+// composites correctly via the same ONE, ONE_MINUS_SRC_ALPHA blend
+// AccumulationBuffer.beginDraw() sets up.
+//
+// (#446) Both y axes are handled explicitly here now, and neither was before.
+//
+// `v_uv` runs bottom-up (GL's window convention) while u_imageRect — like
+// every other buffer-pixel value in this engine — is app-space top-down, so
+// the position has to be flipped exactly the way TRANSFORM_BLIT_FRAG flips it
+// (read its comment: this is the same gap, and that comment already predicted
+// this one, "which is why IMAGE_BLIT_FRAG's centered image-import blit never
+// surfaced it"). A fit-centered rect is symmetric about the buffer's middle,
+// so the flip changed nothing for it; the first caller to place a raster
+// anywhere else — paste — got it mirrored about the canvas's horizontal
+// centre-line, landing correctly in x and nowhere near right in y.
+//
+// The sampling flip is the second half: the texture is uploaded with
+// UNPACK_FLIP_Y_WEBGL, so the image's first (top) row sits at t=1, and a
+// top-down v has to be turned around to reach it. The two flips are separate
+// facts about two different spaces, and cancelling them against each other
+// would only work back in the symmetric case this is fixing.
 export const IMAGE_BLIT_FRAG = `
   precision highp float;
   uniform sampler2D u_image;
   uniform vec2 u_bufferSize;
-  uniform vec4 u_imageRect; // offsetX, offsetY, width, height — buffer-pixel space
+  uniform vec4 u_imageRect; // offsetX, offsetY, width, height — buffer-pixel space, app-space top-down
   varying vec2 v_uv;
   void main() {
-    vec2 bufferPx = v_uv * u_bufferSize;
+    vec2 bufferPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_bufferSize;
     vec2 imgUV = (bufferPx - u_imageRect.xy) / u_imageRect.zw;
     if (imgUV.x < 0.0 || imgUV.x > 1.0 || imgUV.y < 0.0 || imgUV.y > 1.0) {
       gl_FragColor = vec4(0.0);
       return;
     }
-    vec4 texColor = texture2D(u_image, imgUV);
+    vec4 texColor = texture2D(u_image, vec2(imgUV.x, 1.0 - imgUV.y));
     gl_FragColor = vec4(texColor.rgb * texColor.a, texColor.a);
   }
 `;
