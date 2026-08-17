@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
+import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
@@ -159,6 +160,48 @@ describe('text on filled controls (#426)', () => {
 
   it.each(FILLS)('light: --color-on-accent clears AA on %s', fill => {
     expect(contrast(light, '--color-on-accent', fill)).toBeGreaterThanOrEqual(AA)
+  })
+})
+
+describe('components actually reach for --color-on-accent', () => {
+  /** Closes the gap this file's own header admits to: proving the token is
+   *  readable on the fill says nothing about whether the buttons use it. They
+   *  did not. Six rules painted a solid accent fill and then named some other
+   *  colour on top — ConfirmDialog's primary button and the ruler's
+   *  measurement label took --color-text-bright, which is #000 in the light
+   *  theme against a fill that does not flip (2.8:1); the settings Save button
+   *  took --color-bg, the same mistake mirrored into the dark theme (3.3:1);
+   *  three more wrote a literal #fff, which is right today and unowned
+   *  tomorrow, exactly as tokens.css warns where it declares the token.
+   *
+   *  Scoped to *solid* fills that also declare a colour. A color-mix() tint is
+   *  a different question — the text there sits on a blend with the surface
+   *  behind it, and themed text is usually correct on one. A rule with no
+   *  colour of its own is left alone too: those are tracks, thumbs, progress
+   *  bars and hover states that only repaint the background. */
+  const SRC = fileURLToPath(new URL('..', import.meta.url))
+  const SOLID_FILL =
+    /background(?:-color)?\s*:\s*var\(--color-(?:accent|accent-hover|accent-active|error-fill|error-fill-hover)\)/
+
+  function cssFiles(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap(e =>
+      e.isDirectory() ? cssFiles(join(dir, e.name)) : e.name.endsWith('.css') ? [join(dir, e.name)] : [],
+    )
+  }
+
+  const offenders: string[] = []
+  for (const file of cssFiles(SRC)) {
+    const css = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const [, rawSelector, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (!SOLID_FILL.test(body)) continue
+      const declared = /(?:^|;)\s*color\s*:\s*([^;]+)/.exec(body)?.[1].trim()
+      if (declared === undefined || declared === 'var(--color-on-accent)') continue
+      offenders.push(`${relative(SRC, file).replace(/\\/g, '/')} — ${rawSelector.trim().replace(/\s+/g, ' ')} → ${declared}`)
+    }
+  }
+
+  it('no rule paints a solid accent fill and then names its own text colour', () => {
+    expect(offenders).toEqual([])
   })
 })
 

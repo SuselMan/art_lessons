@@ -167,7 +167,10 @@
   padding: 6px 14px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-bg);
+  /* The same bug as ConfirmDialog's .confirm, mirrored: --color-bg is the page
+     ground, so it is near-black on the *dark* theme, where this violet fill
+     left it at 3.3:1. White in both themes is what a filled button wants. */
+  color: var(--color-on-accent);
   background: var(--color-accent);
   border: none;
   border-radius: var(--radius-sm);

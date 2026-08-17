@@ -155,6 +155,20 @@
      UA button styling reset (padding/font/alignment) on top of the card look. */
   display: block;
   width: 100%;
+  /* (#465) Not cosmetic — without it Safari blows this row out of the card.
+     `1fr` is `minmax(auto, 1fr)`, and that `auto` minimum is the item's
+     min-content width, which here is decided by the <canvas> in
+     .paperPreviewWrap. A canvas with no width/height *attributes* has a
+     default intrinsic size of 300x150 (PaperPreview only sets them later, in
+     an effect, from the box it has already been given), and WebKit lets that
+     intrinsic width set the minimum even though the canvas is width:100%.
+     Four tracks that each refuse to go below 300px do not fit a 508px card,
+     so the cards render at roughly 2.5x their intended width and spill out.
+     min-width: 0 is the documented way to opt out of that automatic minimum,
+     not a workaround — the track then sizes from the container, which is what
+     `1fr` was asking for. The size row above has no replaced element in it,
+     which is why the same grid pattern there was never affected. */
+  min-width: 0;
   padding: 0;
   text-align: left;
   font-family: inherit;
@@ -421,7 +435,7 @@
   width: 100%;
   padding: 14px;
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
   font-size: 15px;
   font-weight: 600;
   border-radius: var(--radius-md);

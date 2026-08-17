@@ -38,8 +38,14 @@
   background: var(--color-surface-2);
 }
 
+/* --color-on-accent, not --color-text-bright, and its neighbour .danger below
+   already had this right. "The most emphatic text colour" inverts per theme —
+   near-white on the dark theme, #000 on the light one — while this fill does
+   not, so the light theme was drawing black on violet at 2.8:1. The token that
+   means "text sitting *on* an accent fill" is white in both themes and lands
+   at 7.6:1 here. */
 .confirm {
-  color: var(--color-text-bright);
+  color: var(--color-on-accent);
   background: var(--color-accent);
 }
 

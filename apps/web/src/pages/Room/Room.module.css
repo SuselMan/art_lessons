@@ -96,16 +96,16 @@
    the weight looked like a CSS decision when it is a build-time one; it lives
    in scripts/bakeIconFont.ts. */
 :global(.material-symbols-outlined) {
-  /* 20 -> 22px. The editor-wide default, which is what every icon *button* in
-     this page takes - the 44px tool buttons in the rail, the header's own row.
+  /* 20 → 22px. The editor-wide default, which is what every icon *button* in
+     this page takes — the 44px tool buttons in the rail, the header's own row.
      It was sized against the old 1.00u stroke, where a bigger glyph mostly
      meant a longer thin line; at 1.50u the mark has enough body to carry the
      extra size, and 44px of button around a 20px glyph was reading as more
      padding than icon.
-     Deliberately only the default: the denser rules that opt out of it (the
-     layer panel's 13-17px rows, the side panel's own tabs, .rotationLockBtn,
-     .angleLabel) are sized to their own rows, not to a button, and are left
-     alone. */
+     Deliberately only the default: the sixteen rules that opt out of it (the
+     layer panel's 13–17px rows, the side panel's own tabs, the participants
+     list, .rotationLockBtn, .angleLabel) are sized to their own rows, not to a
+     button, and are left alone. */
   font-size: 22px;
   line-height: 1;
   user-select: none;
@@ -850,7 +850,10 @@
   font-size: 11px;
   font-weight: 600;
   font-family: var(--font-mono);
-  color: var(--color-text-bright);
+  /* Same fix as ConfirmDialog's .confirm: --color-text-bright flips to #000 in
+     the light theme and this fill does not, which put the measurement on the
+     ruler at 2.8:1 — on the one label whose whole job is being read. */
+  color: var(--color-on-accent);
   background: var(--color-accent);
   white-space: nowrap;
   box-shadow: 0 1px 4px rgba(0,0,0,0.4);

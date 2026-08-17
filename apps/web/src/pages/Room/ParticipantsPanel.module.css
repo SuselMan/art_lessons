@@ -238,7 +238,7 @@
 
 .approveBtn {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 .approveBtn:not(:disabled):hover { background: var(--color-accent-hover); }
 
