@@ -11,6 +11,17 @@
      44px there were 6px of air above and below them, which is what made the
      whole top edge read as "packed". */
   --header-h: 52px;
+  /* One column of the left rail. The rail is two of them side by side —
+     .toolbar and .quickSettingsBar — so --rail-w is where the editor chrome
+     ends and the canvas begins. No +1px for .quickSettingsBar's border-right:
+     box-sizing is border-box globally, so that line is the *last* pixel
+     inside the 62px, not an extra one after it (measured in the browser —
+     the bar's box ends at 124, and the border paints 123→124).
+     Was a literal 62px in three places, with a comment on one of them asking
+     the next reader to keep them in step by hand; it is one measurement, and
+     the header now measures against it too — see .headerLogoBtn. */
+  --rail-col-w: 62px;
+  --rail-w: calc(var(--rail-col-w) * 2);
   width: 100%;
   height: 100%;
   position: relative;
@@ -106,15 +117,32 @@
   transition: opacity var(--duration-normal) ease;
 }
 
-/* The editor's own, smaller wordmark — the header is 44px tall and shared with
-   a dense row of 32px icon buttons, so it can't take AppHeader's --app-logo-h.
+/* The editor's own, smaller wordmark — the header is 52px tall and shared with
+   a dense row of icon buttons, so it can't take AppHeader's --app-logo-h.
    Not a <Link>: leaving asks first (see leaveRoom in index.tsx), and a real
    link would let a middle-click or ⌘-click bypass the question. */
 .headerLogoBtn {
   display: flex;
   align-items: center;
-  height: 22px;
-  padding: 0 6px;
+  justify-content: center;
+  /* The wordmark's box is measured, not chosen: .headerDivider after it is
+     meant to be the same vertical line as the left rail's edge, continuing it
+     up through the header. Hugging the wordmark's own width put the divider
+     at x=112 against the rail's 123 — two lines 11px apart, which reads as
+     sloppy without being nameable, and which would drift again the moment
+     either the mark or the rail changed. So the box is derived instead:
+     everything between the header's left edge and the divider's is fixed
+     chrome — 16px header padding + 12px flex gap + 8px divider margin — and
+     the -1px is the rail's border-right, the pixel the divider lands *on*
+     rather than after. Comes out at 87px today.
+     Height follows the width rather than leading it: the wordmark is ~2.91:1,
+     so a 77px content box wants ~26px (it was 22px, i.e. ~11px narrow —
+     exactly the shortfall above). Padding 6 → 5px for the last 2px of that.
+     Still well under AppHeader's --app-logo-h — this header is denser — and
+     now exactly half the 52px it sits in. */
+  width: calc(var(--rail-w) - 1px - 36px);
+  height: 26px;
+  padding: 0 5px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
   opacity: 0.8;
@@ -333,8 +361,8 @@
   z-index: 2;
   /* (#326) 56 → 62, padding 10 → 14, gap 4 → 6. The buttons inside are 44px
      touch targets; at 56px wide with 4px gaps they were a contiguous column
-     of chips with no air between them. */
-  width: 62px;
+     of chips with no air between them. Now --rail-col-w on .editor. */
+  width: var(--rail-col-w);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -353,12 +381,13 @@
 .quickSettingsBar {
   position: absolute;
   top: var(--header-h);
-  /* Must track .toolbar's width above — this bar is anchored to its right
-     edge, not laid out next to it. */
-  left: 62px;
+  /* Anchored to .toolbar's right edge rather than laid out next to it — which
+     is why both read the same token instead of repeating a literal that the
+     two had to be kept in step by hand. */
+  left: var(--rail-col-w);
   bottom: 0;
   z-index: 2;
-  width: 62px;
+  width: var(--rail-col-w);
   display: flex;
   flex-direction: column;
   align-items: center;
