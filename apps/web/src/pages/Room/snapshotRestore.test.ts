@@ -1,8 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LayerState, Operation } from '@grafetto/shared'
 
-import { compressLayerTiles, encodeLayerTiles } from '../../engine/src/snapshotCodec'
-import { fetchHistoryPage, fetchLatestSnapshot, HISTORY_PAGE_LIMIT, walkHistoryBackward } from './snapshotRestore'
+import { compressLayerTiles, encodeLayerTiles, type SnapshotTile } from '../../engine/src/snapshotCodec'
+import { fetchHistoryPage, HISTORY_PAGE_LIMIT, restoreLatestSnapshot, walkHistoryBackward } from './snapshotRestore'
+
+// (#467) Counts inflations so a test can prove they are interleaved with the
+// engine handover rather than all done up front. That ordering *is* the fix —
+// room F4uw21Ob inflates to 431 MiB across ten layers, and holding them at
+// once is what killed the tab on iPadOS — so it needs an assertion that fails
+// when someone innocently restores the `Promise.all`.
+const { decompressions } = vi.hoisted(() => ({ decompressions: { count: 0 } }))
+vi.mock('../../engine/src/snapshotCodec', async importActual => {
+  const actual = await importActual<typeof import('../../engine/src/snapshotCodec')>()
+  return {
+    ...actual,
+    decompressLayerTiles: async (bytes: Uint8Array) => {
+      decompressions.count++
+      return actual.decompressLayerTiles(bytes)
+    },
+  }
+})
 
 const originalFetch = global.fetch
 afterEach(() => { global.fetch = originalFetch })
@@ -31,20 +48,42 @@ const ONE_LAYER_STATE: LayerState = {
   rootOrder: ['background'], activeId: 'background', selectedIds: [],
 }
 
-describe('fetchLatestSnapshot', () => {
+/** Records everything a restore hands over, plus how many inflations had
+ *  happened by the time each layer arrived — which is what the memory
+ *  invariant is stated in terms of. */
+function recordingSink() {
+  const applied: Array<{ layerId: string; tiles: SnapshotTile[]; coveredSeq: number; decompressionsSoFar: number }> = []
+  const begun: LayerState[] = []
+  return {
+    applied,
+    begun,
+    sink: {
+      beginLayers: (layerState: LayerState) => { begun.push(layerState) },
+      applyLayer: (layerId: string, tiles: SnapshotTile[], coveredSeq: number) => {
+        applied.push({ layerId, tiles, coveredSeq, decompressionsSoFar: decompressions.count })
+      },
+    },
+  }
+}
+
+describe('restoreLatestSnapshot', () => {
+  beforeEach(() => { decompressions.count = 0 })
+
   it('returns null on a 204 (room has no snapshot yet)', async () => {
     global.fetch = vi.fn().mockResolvedValue({ status: 204, ok: false })
-    expect(await fetchLatestSnapshot('room-1')).toBeNull()
+    const { sink, begun } = recordingSink()
+    expect(await restoreLatestSnapshot('room-1', sink)).toBeNull()
+    expect(begun).toEqual([])
   })
 
   it('returns null when the request fails', async () => {
     global.fetch = vi.fn().mockResolvedValue({ status: 500, ok: false })
-    expect(await fetchLatestSnapshot('room-1')).toBeNull()
+    expect(await restoreLatestSnapshot('room-1', recordingSink().sink)).toBeNull()
   })
 
   it('returns null rather than throwing when the network is down', async () => {
     global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
-    expect(await fetchLatestSnapshot('room-1')).toBeNull()
+    expect(await restoreLatestSnapshot('room-1', recordingSink().sink)).toBeNull()
   })
 
   it('decodes a real snapshot response into layerState + per-layer tiles', async () => {
@@ -54,12 +93,71 @@ describe('fetchLatestSnapshot', () => {
       { seq: 300, layerState: ONE_LAYER_STATE, layers: [{ layerId: 'background', seq: 300, hash: 'h' }] },
       { 'background/300': data },
     )
+    const { sink, applied, begun } = recordingSink()
 
-    const result = await fetchLatestSnapshot('room-1')
-    expect(result?.seq).toBe(300)
-    expect(result?.layerState).toEqual(ONE_LAYER_STATE)
-    expect(result?.layers.get('background')?.tiles[0].width).toBe(2)
-    expect([...result!.layers.get('background')!.tiles[0].pixels]).toEqual([...tile.pixels])
+    const head = await restoreLatestSnapshot('room-1', sink)
+
+    expect(head?.seq).toBe(300)
+    expect(head?.layerState).toEqual(ONE_LAYER_STATE)
+    expect(begun).toEqual([ONE_LAYER_STATE])
+    expect(applied[0].layerId).toBe('background')
+    expect(applied[0].tiles[0].width).toBe(2)
+    expect([...applied[0].tiles[0].pixels]).toEqual([...tile.pixels])
+  })
+
+  // (#467) The whole reason this function hands layers over one at a time.
+  // Each layer must be inflated only when its turn comes, so no two inflated
+  // buffers are alive together — with a bounded room that is 33 MiB per layer
+  // whether or not anything is drawn on it.
+  it('inflates each layer only when its turn to be applied comes', async () => {
+    const layerState: LayerState = {
+      items: {
+        'layer-1': { kind: 'layer', id: 'layer-1', name: 'One', opacity: 1, visible: true },
+        'layer-2': { kind: 'layer', id: 'layer-2', name: 'Two', opacity: 1, visible: true },
+        'layer-3': { kind: 'layer', id: 'layer-3', name: 'Three', opacity: 1, visible: true },
+      },
+      rootOrder: ['layer-1', 'layer-2', 'layer-3'], activeId: 'layer-1', selectedIds: [],
+    }
+    const tile = { originX: 0, originY: 0, width: 1, height: 1, pixels: new Uint8Array(4) }
+    const data = await compressLayerTiles(encodeLayerTiles([tile]))
+    mockRestoreFetch(
+      {
+        seq: 300, layerState,
+        layers: [
+          { layerId: 'layer-1', seq: 300, hash: 'a' },
+          { layerId: 'layer-2', seq: 300, hash: 'b' },
+          { layerId: 'layer-3', seq: 300, hash: 'c' },
+        ],
+      },
+      { 'layer-1/300': data, 'layer-2/300': data, 'layer-3/300': data },
+    )
+    const { sink, applied } = recordingSink()
+
+    await restoreLatestSnapshot('room-1', sink)
+
+    // Exactly one inflation per handover, and never one in advance: layer i is
+    // applied with i+1 inflations done. A `Promise.all` that inflated up front
+    // would show 3 at the very first call.
+    expect(applied.map(a => a.decompressionsSoFar)).toEqual([1, 2, 3])
+    expect(applied.map(a => a.layerId)).toEqual(['layer-1', 'layer-2', 'layer-3'])
+  })
+
+  // The layers have to exist before pixels can go into them, and nothing may
+  // be created until every blob is safely in hand — otherwise a restore that
+  // fails half way leaves the engine holding part of a room.
+  it('creates the layers once, after every blob has arrived', async () => {
+    const tile = { originX: 0, originY: 0, width: 1, height: 1, pixels: new Uint8Array(4) }
+    const data = await compressLayerTiles(encodeLayerTiles([tile]))
+    mockRestoreFetch(
+      { seq: 300, layerState: ONE_LAYER_STATE, layers: [{ layerId: 'background', seq: 300, hash: 'h' }] },
+      { 'background/300': data },
+    )
+    const { sink, begun } = recordingSink()
+
+    await restoreLatestSnapshot('room-1', sink)
+
+    expect(begun.length).toBe(1)
+    expect(decompressions.count).toBe(1)
   })
 
   // (#374) Coverage is per layer, so each entry carries its own seq — two
@@ -83,9 +181,10 @@ describe('fetchLatestSnapshot', () => {
       { 'layer-1/300': data, 'layer-2/100': data },
     )
 
-    const result = await fetchLatestSnapshot('room-1')
-    expect(result?.layers.get('layer-1')?.coveredSeq).toBe(300)
-    expect(result?.layers.get('layer-2')?.coveredSeq).toBe(100)
+    const { sink, applied } = recordingSink()
+    await restoreLatestSnapshot('room-1', sink)
+
+    expect(applied.map(a => [a.layerId, a.coveredSeq])).toEqual([['layer-1', 300], ['layer-2', 100]])
   })
 
   // A layer the room has but nobody ever baked is ordinary: it arrives as
@@ -97,9 +196,11 @@ describe('fetchLatestSnapshot', () => {
     }
     mockRestoreFetch({ seq: 300, layerState, layers: [] })
 
-    const result = await fetchLatestSnapshot('room-1')
-    expect(result?.layers.size).toBe(0)
-    expect(result?.layerState.items['layer-1']).toBeDefined()
+    const { sink, applied } = recordingSink()
+    const head = await restoreLatestSnapshot('room-1', sink)
+
+    expect(applied).toEqual([])
+    expect(head?.layerState.items['layer-1']).toBeDefined()
   })
 
   // (#427) A layer the *index* named is one the server counted as covered, so
@@ -117,7 +218,14 @@ describe('fetchLatestSnapshot', () => {
       { 'background/300': data },
     )
 
-    expect(await fetchLatestSnapshot('room-1')).toBeNull()
+    const { sink, applied, begun } = recordingSink()
+
+    expect(await restoreLatestSnapshot('room-1', sink)).toBeNull()
+    // (#467) Stronger than it was before the streaming rewrite, and it has to
+    // be: with pixels applied as they decode, "returns null" alone would no
+    // longer mean the engine was left untouched. Nothing may reach it at all.
+    expect(begun).toEqual([])
+    expect(applied).toEqual([])
   })
 
   it('requests the index, then one immutable blob URL per layer', async () => {
@@ -128,7 +236,7 @@ describe('fetchLatestSnapshot', () => {
       { 'background/200': data },
     )
 
-    await fetchLatestSnapshot('my-room')
+    await restoreLatestSnapshot('my-room', recordingSink().sink)
 
     expect(mockFetch.mock.calls.map(([url]) => url)).toEqual([
       '/api/rooms/my-room/snapshots/index',

@@ -1,19 +1,33 @@
 import type { LayerState, Operation } from '@grafetto/shared'
 import { decodeLayerTiles, decompressLayerTiles, type SnapshotTile } from '../../engine/src/snapshotCodec'
 
-/** One layer's restored pixels, and the room seq they reach (#374). The seq
- *  is per layer because coverage is: layers are baked independently, so two
- *  of them are routinely caught up to different points. */
-export interface RestoredLayer {
-  tiles: SnapshotTile[]
-  coveredSeq: number
-}
-
-export interface RestoredSnapshot {
+/** What a restore reports back once every layer has been handed over: the room
+ *  seq it reached and the layer tree it was baked against. The pixels are not
+ *  in here on purpose — see restoreLatestSnapshot. */
+export interface RestoredSnapshotHead {
   seq: number
   layerState: LayerState
-  layers: Map<string, RestoredLayer>
 }
+
+/** Where a restore puts what it decodes.
+ *
+ *  A sink rather than a return value because the whole point is that no two
+ *  layers' pixels exist at once (#467). Both methods are synchronous, and that
+ *  is load-bearing: an async sink could let a caller keep a layer alive past
+ *  the iteration that decoded it, which is the leak this shape exists to make
+ *  unexpressible. */
+export interface SnapshotRestoreSink {
+  /** Called once, after every blob has arrived and before any pixels are
+   *  applied, so the layers exist to receive them. */
+  beginLayers: (layerState: LayerState) => void
+  /** Called once per covered layer, in index order. The tiles are views into a
+   *  buffer released as soon as this returns — a caller that needs them later
+   *  has to copy. */
+  applyLayer: (layerId: string, tiles: SnapshotTile[], coveredSeq: number) => void
+}
+
+/** Stand-in for a blob already consumed, so the slot holds no bytes. */
+const EMPTY = new Uint8Array(0)
 
 /** What `/snapshots/index` answers: the plan for a restore, no pixels. */
 interface SnapshotIndex {
@@ -40,21 +54,49 @@ interface SnapshotIndex {
  *  layer can land while the rest are still in flight.
  *
  *  Any blob failing takes the whole restore down to null, rather than
- *  returning the layers that did arrive. That looks over-strict next to the
+ *  applying the layers that did arrive. That looks over-strict next to the
  *  "a missing layer is ordinary" rule above, and it is deliberate: that rule
  *  holds only because the *server* knows a layer is uncovered and sends its
  *  operations to compensate. A layer the server counted as covered, whose
  *  blob this client then failed to fetch, has no such compensation — its
- *  history was never sent. Keeping it out of the map would silently drop
- *  drawing, the exact shape of #369. Failing whole is what the single-request
- *  version did on any error, so this is the same contract, not a new one. */
-export async function fetchLatestSnapshot(roomId: string): Promise<RestoredSnapshot | null> {
+ *  history was never sent. Leaving it out would silently drop drawing, the
+ *  exact shape of #369. Failing whole is what the single-request version did
+ *  on any error, so this is the same contract, not a new one.
+ *
+ *  (#467) The pixels are handed to `sink` one layer at a time rather than
+ *  returned as a Map of all of them, and that split is the entire point of
+ *  this function's shape.
+ *
+ *  Measured on production room F4uw21Ob: ten layers, 9.3 MB gzipped on the
+ *  wire — and **452 391 928 bytes inflated**. A bounded room stores one tile
+ *  per sheet, so every layer costs 2480x3508x4 = 33.2 MiB whether or not
+ *  anything is drawn on it (nine of those ten were all but empty, and each
+ *  still cost the full 33 MiB). Building the whole Map first meant holding all
+ *  431 MiB at once, on top of the GL textures already being filled from it.
+ *  iPadOS killed the tab and reloaded it, over and over, with nothing in
+ *  Sentry — a jetsam kill runs no JS, so there was no event to send.
+ *
+ *  Hence two phases. Every blob is fetched **concurrently** and kept
+ *  compressed (9.3 MB, nothing to worry about), which is what preserves both
+ *  the latency win and the all-or-nothing contract above, since a fetch is
+ *  the realistic way this fails. Only then is each one inflated, decoded,
+ *  handed over and dropped — so the inflated peak is one layer, not the sum.
+ *
+ *  The narrowed window this leaves is worth stating plainly: a blob that
+ *  arrives intact and then fails to *inflate* now does so after earlier
+ *  layers have already been applied, where before nothing was. That is a
+ *  corrupt payload of already-transferred bytes rather than a network fault,
+ *  and buying strictness back would mean inflating everything twice — the one
+ *  cost this whole change exists to avoid. */
+export async function restoreLatestSnapshot(
+  roomId: string, sink: SnapshotRestoreSink,
+): Promise<RestoredSnapshotHead | null> {
   try {
     const res = await fetch(`/api/rooms/${roomId}/snapshots/index`, { credentials: 'include' })
     if (res.status === 204 || !res.ok) return null
     const body = await res.json() as SnapshotIndex
 
-    const restored = await Promise.all(body.layers.map(async layer => {
+    const blobs = await Promise.all(body.layers.map(async layer => {
       // Deliberately not `cache: 'reload'` or a cache-busting query: the
       // browser cache hitting here is the entire point of the change.
       const blob = await fetch(`/api/rooms/${roomId}/snapshots/${layer.layerId}/${layer.seq}`, {
@@ -63,11 +105,31 @@ export async function fetchLatestSnapshot(roomId: string): Promise<RestoredSnaps
       if (!blob.ok) throw new Error(`snapshot blob ${layer.layerId}@${layer.seq}: ${blob.status}`)
       // Still gzip on arrival — the server sends the stored bytes without
       // Content-Encoding precisely so they stay compressed until here.
-      const raw = await decompressLayerTiles(new Uint8Array(await blob.arrayBuffer()))
-      return [layer.layerId, { tiles: decodeLayerTiles(raw, 0).tiles, coveredSeq: layer.seq }] as const
+      return new Uint8Array(await blob.arrayBuffer())
     }))
 
-    return { seq: body.seq, layerState: body.layerState, layers: new Map(restored) }
+    // Nothing has touched the engine yet, and everything that can fail on the
+    // network already has — so this is the last moment where "restore nothing"
+    // is still available, and where the layers must be created before pixels
+    // can be put into them.
+    sink.beginLayers(body.layerState)
+
+    for (let i = 0; i < body.layers.length; i++) {
+      const layer = body.layers[i]
+      // Read out and released in the same step: `blobs` must not go on holding
+      // the compressed copy while the inflated one exists beside it.
+      const compressed = blobs[i]
+      blobs[i] = EMPTY
+      const raw = await decompressLayerTiles(compressed)
+      // `decodeLayerTiles` hands back subarray *views* into `raw`, so `raw`
+      // stays alive exactly as long as the tiles do. restoreLayerFromSnapshot
+      // copies what it needs into GL, which is what makes dropping the whole
+      // thing at the end of this iteration a real release rather than a
+      // hopeful one.
+      sink.applyLayer(layer.layerId, decodeLayerTiles(raw, 0).tiles, layer.seq)
+    }
+
+    return { seq: body.seq, layerState: body.layerState }
   } catch {
     return null
   }

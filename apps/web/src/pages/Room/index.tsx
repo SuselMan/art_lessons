@@ -103,7 +103,7 @@ import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { ChiselAngleDial } from './ChiselAngleDial'
 import { createSnapshotGate } from './snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
-import { fetchLatestSnapshot, walkHistoryBackward, type RestoredSnapshot } from './snapshotRestore'
+import { restoreLatestSnapshot, walkHistoryBackward } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
@@ -307,7 +307,7 @@ export function Room() {
   // Blocks pointer input on the canvas (see its style prop below) while a
   // join/reconnect's initial content restore is still in flight — a real
   // bug, not defensive: with #169's snapshot fast-join, that restore
-  // includes an awaited network fetch (fetchLatestSnapshot), which — unlike
+  // includes an awaited network fetch (restoreLatestSnapshot), which — unlike
   // the old always-synchronous full-log replay loop — actually yields to
   // the event loop for a real, human-noticeable stretch (seconds). A stroke
   // drawn in that window paints onto a layer whose buffer
@@ -1676,14 +1676,26 @@ export function Room() {
   // stored — it stays empty and is rebuilt from the operations the server
   // sends precisely because it is uncovered. Treating that as an empty layer
   // instead is what lost drawing in #369.
-  const restoreFromSnapshot = useCallback(async (engine: PencilEngineAPI, snapshot: RestoredSnapshot) => {
-    initLayersFromLayerState(engine, snapshot.layerState)
-    for (const [layerId, layer] of snapshot.layers) {
-      engine.restoreLayerFromSnapshot(layerId, layer.tiles, layer.coveredSeq)
-    }
-    engine.setActiveLayer(snapshot.layerState.activeId)
-    engine.setCompositeOrder(computeCompositeOrder(snapshot.layerState))
-    restoredLayerStateRef.current = snapshot.layerState
+  /** Restores this room from its stored snapshot, reporting whether there was
+   *  one to restore. Returns false for "nothing baked yet" and for a failed
+   *  fetch alike — the caller falls back to replaying operations either way.
+   *
+   *  (#467) The layers arrive one at a time through a sink instead of as a map
+   *  handed over whole, and the engine call inside `applyLayer` is what makes
+   *  that worth doing: it copies each layer's pixels into GL and keeps no
+   *  reference, so the decoded buffer dies with the iteration that made it.
+   *  Room F4uw21Ob measured 431 MiB of inflated pixels across ten layers —
+   *  held at once, that killed the tab on iPadOS. */
+  const restoreFromSnapshot = useCallback(async (engine: PencilEngineAPI, roomId: string) => {
+    const head = await restoreLatestSnapshot(roomId, {
+      beginLayers: layerState => initLayersFromLayerState(engine, layerState),
+      applyLayer: (layerId, tiles, coveredSeq) => engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq),
+    })
+    if (!head) return false
+    engine.setActiveLayer(head.layerState.activeId)
+    engine.setCompositeOrder(computeCompositeOrder(head.layerState))
+    restoredLayerStateRef.current = head.layerState
+    return true
   }, [initLayersFromLayerState])
 
   // (#169) Walks the room's history backward from `fromSeq` (the restored
@@ -1911,8 +1923,7 @@ export function Room() {
           // handleRoomState's reconnect branch needs one.
           let restoredFromSnapshot = false
           if (id && pending.latestSnapshotSeq !== null) {
-            const snapshot = await fetchLatestSnapshot(id)
-            if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
+            restoredFromSnapshot = await restoreFromSnapshot(engine, id)
           }
 
           // (#398) Reference images decoded before the loop, not inside it —
@@ -1978,7 +1989,7 @@ export function Room() {
             snapshotUploader.onSeqObserved(0, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
           }
         } finally {
-          // Runs even if fetchLatestSnapshot/restore/replay throws — a failed
+          // Runs even if restoreLatestSnapshot/restore/replay throws — a failed
           // restore must still unblock drawing rather than leave the canvas
           // permanently inert (see roomContentReady's own doc comment for what
           // this guards against). Deliberately no longer covers the paper
@@ -4267,8 +4278,7 @@ export function Room() {
         // state.
         let restoredFromSnapshot = false
         if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
-          const snapshot = await fetchLatestSnapshot(id)
-          if (snapshot) { await restoreFromSnapshot(engine, snapshot); restoredFromSnapshot = true }
+          restoredFromSnapshot = await restoreFromSnapshot(engine, id)
         }
 
         // (#398) Same as the mount effect's own catch-up — see
