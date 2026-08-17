@@ -1717,22 +1717,47 @@ export function Room() {
     })
   }, [drainDeferredQueue])
 
+  // (#461) The three room fields the engine is actually built from, pulled out
+  // as scalars so that they — and nothing else about the room — are what can
+  // cost a WebGL context. The mount effect below used to depend on `config`
+  // itself, and `room` is patched in place by a growing list of actions that
+  // each write a *new* object (setRoomName, setRoomClosedAt,
+  // setRoomAccessMode): to that effect a new object reads as "the room
+  // changed", so it tore the engine down and built a fresh one — empty, because
+  // nothing re-restores content on a remount (the first room_state consumed
+  // pendingSnapshotRef long ago), taking the operation log and all of undo with
+  // it. Renaming from the header (#216) wiped the canvas outright; closing the
+  // room mid-lesson (#222) and switching access mode (#460) stood on the same
+  // mine. handleRoomState already dodges it by hand — setRoomInfo only on the
+  // first room_state, see firstRoomStateReceivedRef — and this removes the mine
+  // rather than adding a third dodge. Paper, paper color and infinite-ness are
+  // the ones that genuinely cannot change without a rebuild, and nothing in the
+  // app changes them mid-session: they are picked once, on the create form.
+  //
+  // `undefined` here means only "no room known yet" (`config` is null until the
+  // join lands), which is why the effects below can gate on the paper alone
+  // instead of on `config` — referencing the object at all is what would put it
+  // back in their dependency lists.
+  const enginePaper = config?.paper
+  const enginePaperColor = config?.paperColor
+  const engineInfinite = config?.infinite ?? false
+
   // (#345) Remember this room's paper so the *next* launch can start
   // downloading the right ~4 MB texture before anything is opened (see
   // App's usePaperPrefetch). Recorded on every room, not just the first: the
   // useful guess is the paper the person actually works on, and a teacher who
   // always uses one grain should never pay for the texture twice.
   useEffect(() => {
-    if (config) useSettingsStore.getState().setLastPaperType(config.paper)
-  }, [config])
+    if (enginePaper) useSettingsStore.getState().setLastPaperType(enginePaper)
+  }, [enginePaper])
 
   // ── mount engine ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!config || !canvasRef.current) return
+    if (enginePaper === undefined || !canvasRef.current) return
     const engine = new PencilEngine(canvasRef.current, {
-      infinite: config.infinite,
-      paper: config.paper,
-      paperColor: config.paperColor ? hexToRgb(config.paperColor) : undefined,
+      infinite: engineInfinite,
+      paper: enginePaper,
+      paperColor: enginePaperColor ? hexToRgb(enginePaperColor) : undefined,
       pencilType: initialToolRef.current.pencil,
       size: initialToolRef.current.size,
       opacity: initialToolRef.current.opacity,
@@ -2005,7 +2030,8 @@ export function Room() {
       }
     }
   }, [
-    id, config, markActive, applyRemoteOp, syncFromLog, syncFromLogNow, debugEnabled, predictEnabled,
+    id, enginePaper, enginePaperColor, engineInfinite,
+    markActive, applyRemoteOp, syncFromLog, syncFromLogNow, debugEnabled, predictEnabled,
     hapticGrainEnabled, checkSnapshotBoundary, markJoinRestoreDone, restoreFromSnapshot, backfillHistory,
     grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
     awaitPaper,
@@ -2048,12 +2074,16 @@ export function Room() {
   // both have their own effects that push changes into the existing instance
   // (setActiveGrain/setHardness below), and rebuilding the graph on every
   // tool switch would drop the AudioContext mid-lesson.
+  //
+  // (#461) Keyed on the paper rather than on `config`, for the same reason the
+  // mount-engine effect above is: a rename is not a reason to drop an
+  // AudioContext mid-lesson either.
   useEffect(() => {
-    if (!soundEnabled || !config) return
+    if (!soundEnabled || enginePaper === undefined) return
     const { drawingTool: currentTool, toolSettings: currentSettings } = useRoomStore.getState()
     const grain = TOOL_SOUND_CONFIGS[currentTool]
     if (!grain) return
-    const sound = new PencilSound(config.paper, grain)
+    const sound = new PencilSound(enginePaper, grain)
     sound.setHardness(PENCIL_PRESETS[currentSettings.pencil.grade as PencilGradeName].hardness)
     sound.setVolume(useSettingsStore.getState().soundVolume)
     pencilSoundRef.current = sound
@@ -2061,7 +2091,7 @@ export function Room() {
       sound.destroy()
       if (pencilSoundRef.current === sound) pencilSoundRef.current = null
     }
-  }, [soundEnabled, config])
+  }, [soundEnabled, enginePaper])
   useEffect(() => {
     pencilSoundRef.current?.setVolume(soundVolume)
   }, [soundVolume])
@@ -4126,22 +4156,23 @@ export function Room() {
 
       if (!firstRoomStateReceivedRef.current) {
         firstRoomStateReceivedRef.current = true
-        // Only a joiner needs this — `config` is one of the mount-engine
-        // effect's own deps (so it can wait for "not yet known" -> "known"),
-        // and setRoomInfo always writes a *new* object even when every
-        // field is identical (toRoomConfig has no memoization), which reads
-        // to that effect as "config changed" and makes it tear down and
-        // recreate the engine. A creator's config is already known
+        // Only a joiner needs this: a creator's config is already known
         // synchronously from navigation state (see creatorDraft/toRoomConfig
         // above) with the exact same fields toRoomConfig(room) would produce
         // here (both are Pick<Room, 'id'|'name'|'paper'|'infinite'|
-        // 'canvasWidth'|'canvasHeight'> from the same data) — calling this
-        // again for the creator is redundant, and specifically harmful right
-        // here: it silently destroyed whatever this handler had just
-        // restored into the engine below (the tail replay would finish, then
-        // React's next effect pass would blow the engine away and rebuild it
-        // empty) — invisible before the tailOperations/latestSnapshotSeq fix
-        // just above, since there used to be nothing to lose in this branch.
+        // 'canvasWidth'|'canvasHeight'> from the same data), so writing it a
+        // second time says nothing new.
+        //
+        // It used to be worse than redundant. `config` itself was a dependency
+        // of the mount-engine effect, and setRoomInfo always writes a *new*
+        // object even when every field is identical (toRoomConfig has no
+        // memoization) — which that effect read as "the room changed" and
+        // answered by destroying whatever this handler had just restored into
+        // the engine, rebuilding it empty. That is why this line is gated
+        // rather than unconditional. The gate is no longer what protects the
+        // canvas: the effect now depends on the three fields it actually builds
+        // from, not on the object (#461, which fixed the same wipe reaching the
+        // canvas through setRoomName instead).
         if (!isCreator) useRoomStore.getState().setRoomInfo(toRoomConfig(room))
         if (!engineRef.current) {
           // Real first join: this is how we learn paper/canvas size — the
