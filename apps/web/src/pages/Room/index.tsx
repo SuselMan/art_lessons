@@ -354,6 +354,15 @@ export function Room() {
   const [paperFailed,   setPaperFailed]   = useState(false)
   const [paperRetrying, setPaperRetrying] = useState(false)
 
+  /** (#464) Whether this failure has already been reported to Sentry. Every
+   *  replay site calls awaitPaper, so one broken load rejects at several of
+   *  them and would otherwise send the same event three or four times.
+   *
+   *  Reset by a retry, deliberately: a second failure after the user asked
+   *  again is a different fact from the first — it says the cause is not the
+   *  transient blip the retry button exists for. */
+  const paperReportedRef = useRef(false)
+
   /** Awaits the paper texture at a replay site, reporting a failure instead of
    *  letting it through. Returns whether the caller may proceed — `false`
    *  means it must leave `roomContentReady` alone (i.e. false) so the failure
@@ -370,6 +379,15 @@ export function Room() {
       return true
     } catch (err) {
       console.error('paper texture failed to load — room cannot draw', err)
+      // (#464) Reported, not just logged. This is a room that did not open,
+      // and until an iPad on iPadOS 16.3 was picked up by hand we had no way
+      // of knowing it ever happened: the console is on a device we don't have,
+      // and the catch above is what stopped it reaching Sentry's unhandled
+      // handler. A failure this total has to be something we see first.
+      if (!paperReportedRef.current) {
+        paperReportedRef.current = true
+        Sentry.captureException(err)
+      }
       setPaperFailed(true)
       return false
     }
@@ -1498,6 +1516,7 @@ export function Room() {
     const engine = engineRef.current
     if (!engine) return
     setPaperRetrying(true)
+    paperReportedRef.current = false
     try {
       await engine.retryPaper()
       setPaperFailed(false)
@@ -1507,6 +1526,13 @@ export function Room() {
       // exactly as reasonable as the first was, and there is nothing else to
       // offer that reloading would not do worse.
       console.error('paper texture retry failed', err)
+      // (#464) Reported here rather than left to awaitPaper: a rejected retry
+      // never reaches a replay site, so this branch is the only one that knows
+      // the user asked again and got the same answer.
+      if (!paperReportedRef.current) {
+        paperReportedRef.current = true
+        Sentry.captureException(err)
+      }
     } finally {
       setPaperRetrying(false)
     }

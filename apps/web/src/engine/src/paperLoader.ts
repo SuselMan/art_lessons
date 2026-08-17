@@ -1,5 +1,6 @@
 import type { PaperGrainType, PaperType } from '@grafetto/shared'
 
+import { gunzipStream } from './gzip'
 import { buildPaperCatch } from './paperCatch'
 import { PAPER_MANIFEST_FILENAME, parsePaperManifest, type PaperManifest } from './paperManifest'
 
@@ -140,13 +141,15 @@ async function fetchBytesFromUrl(url: string, opts: FetchOptions = {}): Promise<
     },
   })
 
-  // Annotated as res.body's own type so the DecompressionStream hop below is
-  // the exact expression it was before the counter existed — inferring it
-  // instead narrows the chunk type and stops DecompressionStream matching.
+  // Annotated as res.body's own type so the gunzip hop below is the exact
+  // expression it was before the counter existed — inferring it instead
+  // narrows the chunk type and stops DecompressionStream matching.
+  //
+  // (#464) The gunzip itself moved to gzip.ts, which feature-detects: Safari
+  // only got DecompressionStream in 16.4, and calling it directly is what made
+  // an iPadOS 16.3 tablet fail here with the whole 4 MB already downloaded.
   const counted: typeof res.body = res.body.pipeThrough(counter)
-  const decompressed = counted.pipeThrough(new DecompressionStream('gzip'))
-  const buf = await new Response(decompressed).arrayBuffer()
-  return new Uint8Array(buf)
+  return gunzipStream(counted)
 }
 
 /** How far the current paper texture download has got. `total` comes from the

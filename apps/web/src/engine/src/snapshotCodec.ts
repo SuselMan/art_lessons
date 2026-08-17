@@ -5,9 +5,16 @@
 // createImageBitmap) can apply color-space conversion inconsistently across
 // devices, which is exactly the class of cross-device drift this project
 // spent a week chasing down in the paper-grain work. Pure byte munging, no
-// DOM/GL dependency beyond the standard Compression/DecompressionStream Web
-// APIs, so it's usable from both engine/index.ts (per-layer encode) and the
-// Room page (room-level bundling/upload/restore).
+// DOM/GL dependency beyond gzip, so it's usable from both engine/index.ts
+// (per-layer encode) and the Room page (room-level bundling/upload/restore).
+//
+// (#464) "Native gzip" is now "gzip via gzip.ts", which falls back to a JS
+// inflater where the Compression Streams API is missing — Safari below 16.4.
+// Not a detail this file can skip: a client that cannot gunzip here cannot
+// restore a room from a snapshot at all, and one that cannot gzip stops
+// contributing the snapshots everyone else's fast rejoin depends on.
+
+import { gunzipBytes, gzipBytes } from './gzip'
 
 export interface SnapshotTile {
   originX: number
@@ -70,18 +77,11 @@ export function decodeLayerTiles(buf: Uint8Array, offset: number): { tiles: Snap
  *  version byte and the layerId framing — a row already knows which layer and
  *  which seq it is. */
 export async function compressLayerTiles(raw: Uint8Array): Promise<Uint8Array> {
-  // Copied into a fresh, plain-ArrayBuffer-backed Uint8Array — a caller's
-  // Uint8Array can be typed over the wider ArrayBufferLike, which Blob's
-  // constructor rejects.
-  const compressed = new Response(new Blob([new Uint8Array(raw)]))
-    .body!.pipeThrough(new CompressionStream('gzip'))
-  return new Uint8Array(await new Response(compressed).arrayBuffer())
+  return gzipBytes(raw)
 }
 
 /** Inverse of compressLayerTiles: gunzips to the raw `encodeLayerTiles` bytes,
  *  which `decodeLayerTiles(buf, 0)` then reads. */
 export async function decompressLayerTiles(compressed: Uint8Array): Promise<Uint8Array> {
-  const decompressed = new Response(new Blob([new Uint8Array(compressed)]))
-    .body!.pipeThrough(new DecompressionStream('gzip'))
-  return new Uint8Array(await new Response(decompressed).arrayBuffer())
+  return gunzipBytes(compressed)
 }
