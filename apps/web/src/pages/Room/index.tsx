@@ -1229,6 +1229,14 @@ export function Room() {
     { min: 0, max: 360, sensitivity: ROTATE_DEG_PER_PX, wrap: true },
   )
 
+  // (#458) The lock beside that readout. What it actually *enforces* lives in
+  // useViewport (see holdAngleIfLocked) — a viewport that refuses to change its
+  // angle, whoever asks. Here it only decides what the header offers: a locked
+  // readout stops being a control and goes back to being a number, so the drag
+  // and the quarter-turn click aren't handed a gesture that would do nothing.
+  const rotationLocked = useRoomStore(s => s.rotationLocked)
+  const setRotationLocked = useRoomStore(s => s.setRotationLocked)
+
   // #99: layered independently on top of useViewport's own touch pan/pinch
   // handling on the same `.viewport` element — see useTapToggle's docstring
   // for why the two never conflict, and why it takes the element (`vpEl`)
@@ -4923,19 +4931,48 @@ export function Room() {
               gesture, or a drag) it resets straight to 0 rather than rounding
               up to the next multiple. */}
           <button
-            className={clsx(styles.angleLabel, angleDeg !== 0 && styles.angleLabelActive)}
-            onPointerDown={onAngleDragDown}
-            onClick={() => setVp(v => {
-              const deg = Math.round(v.angle * 180 / Math.PI)
-              const normalizedDeg = ((deg % 360) + 360) % 360
-              const isAtCanonicalAngle = normalizedDeg % 90 === 0
-              const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
-              return { ...v, angle: nextDeg * Math.PI / 180 }
-            })}
-            title={t('room.rotation', { hotkey: formatHotkeyLabel(hotkeys.resetRotation) })}
+            className={clsx(
+              styles.angleLabel,
+              angleDeg !== 0 && styles.angleLabelActive,
+              rotationLocked && styles.angleLabelLocked,
+            )}
+            onPointerDown={rotationLocked ? undefined : onAngleDragDown}
+            // `aria-disabled`, not `disabled`: a disabled button shows no
+            // tooltip in any browser, and the tooltip is the only place the
+            // readout gets to say *why* it stopped responding.
+            aria-disabled={rotationLocked}
+            onClick={() => {
+              if (rotationLocked) return
+              setVp(v => {
+                const deg = Math.round(v.angle * 180 / Math.PI)
+                const normalizedDeg = ((deg % 360) + 360) % 360
+                const isAtCanonicalAngle = normalizedDeg % 90 === 0
+                const nextDeg = isAtCanonicalAngle ? (normalizedDeg + 90) % 360 : 0
+                return { ...v, angle: nextDeg * Math.PI / 180 }
+              })
+            }}
+            title={rotationLocked
+              ? t('room.rotationLockedHint', { angle: String(angleDeg) })
+              : t('room.rotation', { hotkey: formatHotkeyLabel(hotkeys.resetRotation) })}
           >
             <Icon name="screen_rotation_alt" />
             {angleDeg}°
+          </button>
+          {/* (#458) Beside the number it pins, not in the ⋮ menu: on a tablet
+              the canvas gets turned by accident — a two-finger pan almost
+              always carries a little twist with it — so the way to stop that
+              has to be reachable in the moment it happens, which is the same
+              "needed while drawing" test the rest of this panel is held to
+              (#320). It is also where the person is already looking, because
+              the angle they didn't ask for is displayed right there. */}
+          <button
+            className={clsx(styles.rotationLockBtn, rotationLocked && styles.rotationLockBtnOn)}
+            onClick={() => setRotationLocked(!rotationLocked)}
+            aria-pressed={rotationLocked}
+            title={t(rotationLocked ? 'room.rotationUnlock' : 'room.rotationLock')}
+            aria-label={t(rotationLocked ? 'room.rotationUnlock' : 'room.rotationLock')}
+          >
+            <Icon name={rotationLocked ? 'lock' : 'lock_open'} />
           </button>
 
           <div className={styles.headerDivider} />

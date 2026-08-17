@@ -275,6 +275,46 @@
 }
 .angleLabelActive:hover { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
 
+/* (#458) Locked: still the readout of a real angle, no longer a control. Keeps
+   whatever colour the angle itself earns (0° dim, turned = accent) and only
+   drops the affordances — no hover lift, no drag cursor. */
+.angleLabelLocked,
+.angleLabelLocked:hover {
+  cursor: default;
+  background: transparent;
+}
+.angleLabelActive.angleLabelLocked,
+.angleLabelActive.angleLabelLocked:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+/* Sits tight against .angleLabel — the two are one control group, so the gap
+   between them is smaller than the header's own spacing. Sized to the readout
+   (26px), not to .headerIconBtn's 36: it belongs to that number, not to the
+   row of standalone actions further right. Touch target is widened by padding
+   rather than by box height so it doesn't outgrow what it's attached to. */
+.rotationLockBtn {
+  height: 26px;
+  padding: 0 6px;
+  margin-left: -2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-dim);
+  border: 1px solid transparent;
+  flex-shrink: 0;
+  transition: color var(--duration-fast), background var(--duration-fast), border-color var(--duration-fast);
+}
+.rotationLockBtn :global(.material-symbols-outlined) { font-size: 15px; }
+.rotationLockBtn:hover { color: var(--color-text); background: var(--color-surface-2); }
+.rotationLockBtnOn {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+.rotationLockBtnOn:hover { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+
 /* ── Body ── */
 /* Just a positioning root for the canvas + its floating overlays below —
    fills the whole editor edge-to-edge, independently of .header (which

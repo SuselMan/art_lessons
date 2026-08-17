@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useLayoutEffect, useEffect } from 'react
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
-import { ZOOM_MAX, deviceNativeZoom, minZoom, pinchViewport, rotateViewportAround } from './cameraMath'
+import { ZOOM_MAX, deviceNativeZoom, fitZoom, holdAngle, minZoom, pinchViewport, rotateViewportAround } from './cameraMath'
 import { PinchTracker } from './pinchTracker'
 import { diagLog } from '../../lib/diagLog'
 import { useRoomStore } from '../../stores/roomStore'
@@ -37,6 +37,20 @@ interface PointerDrag {
  *  angle. Krita's canvas rotation reads displacement for the same reason.
  *  ~0.3°/px puts a full 180° turn at roughly 600 px of travel. */
 const ROTATE_RADIANS_PER_PX = 0.3 * Math.PI / 180
+
+/** (#458) `holdAngle` against the live lock, applied at the two places every
+ *  viewport write goes through — `updateVp` for gestures, `setVpTracked` for
+ *  Room's one-off controls — so "locked" is an invariant of the viewport
+ *  rather than a rule each of the five things that can turn the canvas has to
+ *  remember.
+ *
+ *  The flag is read from the store at call time, never closed over: both write
+ *  paths are `useCallback`s reached from native listeners that must not be
+ *  re-attached every time the lock flips, and a stale `false` captured in one
+ *  of them would be a lock that stops working after the first toggle. */
+function holdAngleIfLocked(prev: Viewport, next: Viewport): Viewport {
+  return holdAngle(prev, next, useRoomStore.getState().rotationLocked)
+}
 
 export interface UseViewportResult {
   vp: Viewport
@@ -159,7 +173,8 @@ export function useViewport(
   // consumers that legitimately need a re-render (zoom%/angle° labels,
   // PeerCursors, RulerOverlay, TransformGizmo, the viewport→engine sync
   // effect) still update every frame, just not every single raw event.
-  const updateVp = useCallback((v: Viewport) => {
+  const updateVp = useCallback((next: Viewport) => {
+    const v = holdAngleIfLocked(vpState.current, next)
     vpState.current = v
     const wrap = canvasWrapRef.current
     if (wrap) wrap.style.transform = transformFor(v, canvasRef.current)
@@ -184,7 +199,7 @@ export function useViewport(
       ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: deviceNativeZoom(), angle: 0 }
       : {
           cx: el.clientWidth / 2, cy: el.clientHeight / 2, angle: 0,
-          zoom: Math.min(el.clientWidth / canvas.width, el.clientHeight / canvas.height) * 0.88,
+          zoom: fitZoom(el.clientWidth, el.clientHeight, canvas, 0),
         }
     vpState.current = v
     useRoomStore.getState().setViewport(v)
@@ -258,7 +273,15 @@ export function useViewport(
         const v = vpState.current
         const anchor = toVp(e)
         dragRef.current = {
-          mode: e.shiftKey ? 'rotate' : 'pan',
+          // (#458) Under the lock, Shift falls back to a plain pan rather than
+          // to an inert drag. Same reasoning as the pinch above — this mode
+          // moves (cx, cy) as part of turning, so it cannot be left running
+          // with its rotation stripped — but the choice of *which* fallback is
+          // its own: the drag is a view-move either way and Shift only picks
+          // which way it moves, so with rotation unavailable it does what the
+          // same drag without Shift does. A drag that visibly did nothing at
+          // all would read as the canvas having frozen, not as locked.
+          mode: e.shiftKey && !useRoomStore.getState().rotationLocked ? 'rotate' : 'pan',
           sx: e.clientX, sy: e.clientY,
           ax: anchor.x, ay: anchor.y,
           ocx: v.cx, ocy: v.cy, oangle: v.angle,
@@ -287,8 +310,13 @@ export function useViewport(
             const d1     = Math.hypot(other.x - prev.x, other.y - prev.y)
             const d2     = Math.hypot(other.x - curr.x, other.y - curr.y)
             const scale  = d2 / (d1 || 1)
-            const dAngle = Math.atan2(other.y - curr.y, other.x - curr.x)
-                         - Math.atan2(other.y - prev.y, other.x - prev.x)
+            // (#458) Zero, not "turned and then put back": pinchViewport also
+            // carries (cx, cy) around the finger midpoint by this angle, so a
+            // rotation cancelled afterwards would still leave its pan behind
+            // — the locked canvas would slide sideways under a twist.
+            const dAngle = useRoomStore.getState().rotationLocked ? 0
+              : Math.atan2(other.y - curr.y, other.x - curr.x)
+              - Math.atan2(other.y - prev.y, other.x - prev.x)
 
             ptrs.set(e.pointerId, curr)
             // Pan, zoom and rotation as one transform about the midpoint
@@ -414,11 +442,17 @@ export function useViewport(
     const el = vpRef.current
     const c  = canvasRef.current
     if (!el || !c) return
+    // (#458) Fit is the one reset the lock doesn't simply veto: it exists to
+    // put the whole page back on screen, and refusing to do that would make
+    // the lock a way to lose the drawing rather than a way to hold it still.
+    // So it keeps the locked angle and fits the page *as turned* — see
+    // fitZoom, which is why the fit is computed from a bounding box now.
+    const angle = useRoomStore.getState().rotationLocked ? vpState.current.angle : 0
     const v = infinite
-      ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: deviceNativeZoom(), angle: 0 }
+      ? { cx: el.clientWidth / 2, cy: el.clientHeight / 2, zoom: deviceNativeZoom(), angle }
       : {
-          cx: el.clientWidth / 2, cy: el.clientHeight / 2, angle: 0,
-          zoom: Math.min(el.clientWidth / c.width, el.clientHeight / c.height) * 0.88,
+          cx: el.clientWidth / 2, cy: el.clientHeight / 2, angle,
+          zoom: fitZoom(el.clientWidth, el.clientHeight, c, angle),
         }
     vpState.current = v
     useRoomStore.getState().setViewport(v)
@@ -437,7 +471,13 @@ export function useViewport(
   // rAF flushes.
   const setVpTracked = useCallback<Dispatch<SetStateAction<Viewport>>>((action) => {
     const prev = vpState.current
-    const next = typeof action === 'function' ? (action as (v: Viewport) => Viewport)(prev) : action
+    const raw  = typeof action === 'function' ? (action as (v: Viewport) => Viewport)(prev) : action
+    // (#458) Covers every non-gesture way to turn the canvas at once — the
+    // header readout's drag and its quarter-turn click, the reset hotkey, the
+    // minimal-UI toast's "reset view" — none of which need to know the lock
+    // exists. Those controls stop *offering* rotation too (see Room), but that
+    // is presentation; this is what makes it true.
+    const next = holdAngleIfLocked(prev, raw)
     vpState.current = next
     useRoomStore.getState().setViewport(next)
   }, [])

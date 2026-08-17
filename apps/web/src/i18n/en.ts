@@ -293,6 +293,11 @@ export const en = {
   'room.unfreezeShort': 'Unfreeze project',
   'room.zoom': 'Zoom — drag up/down to adjust, click to reset to 100%',
   'room.rotation': 'Rotation — drag up/down to turn the canvas, click for a quarter turn  ({hotkey} to reset)',
+  // (#458) The lock beside the rotation readout, and what that readout says
+  // for itself once it is no longer a control.
+  'room.rotationLock': 'Lock canvas rotation',
+  'room.rotationUnlock': 'Unlock canvas rotation',
+  'room.rotationLockedHint': 'Rotation locked at {angle}°',
   'room.fitCanvas': 'Fit canvas',
   // (#362) The button on minimal UI's zoom/rotation strip. Says "view" rather
   // than naming both values: it sits next to them, and "Reset zoom and

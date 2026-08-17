@@ -25,6 +25,23 @@ export interface ViewportSlice {
   // guaranteed way out.
   handHeld: boolean
   setHandHeld: (held: boolean) => void
+
+  // (#458) Canvas rotation held where it is. Local and per-user, like the rest
+  // of the viewport — nobody else's view turns because this one is pinned.
+  //
+  // Lives beside `viewport` rather than in settingsStore because it is a
+  // property *of this view*, not a preference about the app: the angle it
+  // pins is room-local state that `resetRoomStore()` clears on every Room
+  // mount, and a lock that outlived the angle it was locking would put the
+  // next room's canvas under a lock nobody in that room set.
+  //
+  // Enforced in useViewport's two write paths (`updateVp`, `setVpTracked`), not
+  // by each control refusing to offer rotation: there are five ways to turn the
+  // canvas (two-finger twist, shift-drag, the header readout's drag and its
+  // click, the reset hotkey) and a lock that each of them has to remember to
+  // honour is a lock with a hole in it the next one drills.
+  rotationLocked: boolean
+  setRotationLocked: (locked: boolean) => void
 }
 
 /** True when a drag on the canvas moves the view instead of painting —
@@ -43,4 +60,6 @@ export const createViewportSlice: StateCreator<ViewportSlice> = set => ({
   })),
   handHeld: false,
   setHandHeld: held => set({ handHeld: held }),
+  rotationLocked: false,
+  setRotationLocked: locked => set({ rotationLocked: locked }),
 })

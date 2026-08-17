@@ -125,6 +125,45 @@ export function minZoom(infinite: boolean): number {
   return infinite ? INFINITE_MIN_ZOOM_FRACTION * deviceNativeZoom() : BOUNDED_MIN_ZOOM
 }
 
+/** (#458) The rotation lock, as the pure rule the two viewport write paths in
+ *  useViewport both run every update through: while `locked`, no update may
+ *  change the angle, whoever asked and by whatever route.
+ *
+ *  Everything else in the update survives — a locked canvas still pans and
+ *  zooms; only the one field is pinned. Gestures whose pan is *derived* from
+ *  their rotation (the two-finger twist, the shift-drag) have to drop the
+ *  rotation at the source instead of relying on this, or they'd keep the
+ *  sideways carry of a turn that never happened; see their call sites. This is
+ *  the backstop that makes "locked" true for every other route, including ones
+ *  written later. */
+export function holdAngle(prev: Viewport, next: Viewport, locked: boolean): Viewport {
+  if (!locked || next.angle === prev.angle) return next
+  return { ...next, angle: prev.angle }
+}
+
+/** Breathing room left around the canvas by "fit" — the page never touches the
+ *  viewport edges. */
+const FIT_MARGIN = 0.88
+
+/** The zoom at which a `canvas`-sized page fits inside a `viewW` x `viewH`
+ *  viewport when the view is turned by `angle`.
+ *
+ *  Fits the *rotated* page's axis-aligned bounding box, not the page itself.
+ *  At angle 0 that is the same `min(viewW/w, viewH/h)` this always computed;
+ *  it starts to matter once fit can be asked for at a non-zero angle, which
+ *  the rotation lock (#458) is what introduced — a 30° page needs ~1.37x the
+ *  width and height of an upright one, so fitting the upright numbers pushes
+ *  its corners off-screen and calls it a fit. */
+export function fitZoom(
+  viewW: number, viewH: number, canvas: CanvasSize, angle: number,
+): number {
+  const cos = Math.abs(Math.cos(angle))
+  const sin = Math.abs(Math.sin(angle))
+  const w = canvas.width * cos + canvas.height * sin
+  const h = canvas.width * sin + canvas.height * cos
+  return Math.min(viewW / w, viewH / h) * FIT_MARGIN
+}
+
 export function worldToScreen(worldX: number, worldY: number, vp: Viewport): { x: number; y: number } {
   const cos = Math.cos(vp.angle)
   const sin = Math.sin(vp.angle)

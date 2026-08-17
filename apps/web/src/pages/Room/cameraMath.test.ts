@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround, pinchViewport, minZoom, deviceNativeZoom, ZOOM_MAX } from './cameraMath'
+import { worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround, pinchViewport, minZoom, deviceNativeZoom, holdAngle, fitZoom, ZOOM_MAX } from './cameraMath'
 import type { Viewport } from './useViewport'
 
 describe('worldToScreen / screenToWorld', () => {
@@ -252,5 +252,62 @@ describe('minZoom (#363)', () => {
 
   it('never lets an infinite room out further than a bounded one', () => {
     withDpr(1, () => expect(minZoom(true)).toBeGreaterThan(minZoom(false)))
+  })
+})
+
+describe('holdAngle (#458 rotation lock)', () => {
+  const prev: Viewport = { cx: 100, cy: 200, zoom: 2, angle: 0.5 }
+
+  it('passes the update straight through when unlocked', () => {
+    const next: Viewport = { cx: 10, cy: 20, zoom: 3, angle: 1.2 }
+    expect(holdAngle(prev, next, false)).toBe(next)
+  })
+
+  it('pins the angle while locked, and nothing else', () => {
+    const next: Viewport = { cx: 10, cy: 20, zoom: 3, angle: 1.2 }
+    // Pan and zoom are untouched: the lock holds the canvas still, it does not
+    // freeze the view.
+    expect(holdAngle(prev, next, true)).toEqual({ cx: 10, cy: 20, zoom: 3, angle: 0.5 })
+  })
+
+  it('holds against a reset to 0 as firmly as against a turn', () => {
+    // The header's quarter-turn click, the reset hotkey and minimal UI's
+    // "reset view" all arrive here as an angle write like any other — a lock
+    // that let 0 through would be undone by the button next to it.
+    expect(holdAngle(prev, { ...prev, angle: 0 }, true).angle).toBe(0.5)
+  })
+
+  it('allocates nothing when the update leaves the angle alone', () => {
+    // Every pan and zoom frame of every gesture goes through this — including
+    // the rAF-throttled hot path — so the common case must not copy.
+    const next: Viewport = { ...prev, cx: 111 }
+    expect(holdAngle(prev, next, true)).toBe(next)
+  })
+})
+
+describe('fitZoom', () => {
+  const canvas = { width: 2000, height: 1000 }
+
+  it('fits the tighter of the two axes, with a margin', () => {
+    expect(fitZoom(1000, 1000, canvas, 0)).toBeCloseTo(1000 / 2000 * 0.88)
+    expect(fitZoom(4000, 500, canvas, 0)).toBeCloseTo(500 / 1000 * 0.88)
+  })
+
+  it('keeps a turned page inside the viewport (#458)', () => {
+    // The lock lets "fit" be asked for at a non-zero angle. Fitting the
+    // upright width/height there would push the corners off-screen.
+    const angle = Math.PI / 6
+    const zoom = fitZoom(1200, 900, canvas, angle)
+    const cos = Math.abs(Math.cos(angle))
+    const sin = Math.abs(Math.sin(angle))
+    expect((canvas.width * cos + canvas.height * sin) * zoom).toBeLessThanOrEqual(1200)
+    expect((canvas.width * sin + canvas.height * cos) * zoom).toBeLessThanOrEqual(900)
+  })
+
+  it('is symmetric under a quarter turn', () => {
+    // 90° swaps the page's own axes; 180° is the upright case again.
+    expect(fitZoom(1200, 900, canvas, Math.PI / 2))
+      .toBeCloseTo(fitZoom(1200, 900, { width: 1000, height: 2000 }, 0))
+    expect(fitZoom(1200, 900, canvas, Math.PI)).toBeCloseTo(fitZoom(1200, 900, canvas, 0))
   })
 })
