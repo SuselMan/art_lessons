@@ -162,7 +162,10 @@ describe('GET /api/rooms/:roomId/snapshots/:layerId/:seq', () => {
 })
 
 describe('POST /api/rooms/:roomId/snapshots', () => {
-  function post(body: unknown) {
+  // `object`, not `unknown`: inject's payload parameter is typed, and handing
+  // it an unknown makes TypeScript fall through to the callback overload,
+  // whose return type has no statusCode on it.
+  function post(body: object) {
     return buildApp().inject({ method: 'POST', url: '/api/rooms/room-1/snapshots', payload: body })
   }
 
