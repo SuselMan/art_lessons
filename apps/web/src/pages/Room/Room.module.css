@@ -86,10 +86,27 @@
   transition: opacity var(--duration-normal) ease;
 }
 
-/* ── Material Symbols thin variant ── */
+/* ── Material Symbols, editor sizing ──
+   No `font-variation-settings` here any more, and its absence is the accurate
+   statement: it used to read `'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24` and
+   had done nothing since #322 self-hosted the font. The bake pins all four
+   axes to produce a static instance (that instancing is most of what takes the
+   source from 3.9 MB to 6 KB), so the shipped font has no axes left to vary —
+   fontkit reports an empty `variationAxes` on it. Leaving the line in meant
+   the weight looked like a CSS decision when it is a build-time one; it lives
+   in scripts/bakeIconFont.ts. */
 :global(.material-symbols-outlined) {
-  font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 24;
-  font-size: 20px;
+  /* 20 -> 22px. The editor-wide default, which is what every icon *button* in
+     this page takes - the 44px tool buttons in the rail, the header's own row.
+     It was sized against the old 1.00u stroke, where a bigger glyph mostly
+     meant a longer thin line; at 1.50u the mark has enough body to carry the
+     extra size, and 44px of button around a 20px glyph was reading as more
+     padding than icon.
+     Deliberately only the default: the denser rules that opt out of it (the
+     layer panel's 13-17px rows, the side panel's own tabs, .rotationLockBtn,
+     .angleLabel) are sized to their own rows, not to a button, and are left
+     alone. */
+  font-size: 22px;
   line-height: 1;
   user-select: none;
 }

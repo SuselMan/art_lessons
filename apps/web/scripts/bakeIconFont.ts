@@ -56,8 +56,24 @@ const MAP_OUT = join(HERE, '../src/icons/codepoints.generated.ts')
 // for (`opsz,wght,FILL,GRAD@24,200,0,0`). Pinning matters far more than it
 // looks: it collapses the variable font to a static instance and drops the
 // delta tables, which is most of the difference between a 3.9 MB source and
-// a subset measured in kilobytes. wght 200 is the project's thin variant.
-const AXES = { opsz: 24, wght: 200, FILL: 0, GRAD: 0 }
+// a subset measured in kilobytes.
+//
+// It also means this line, and not any CSS, is where the icons' weight is
+// decided — the shipped font has no axes left for `font-variation-settings`
+// to move. Changing it is a re-bake, and the committed .woff2 changes with it.
+//
+// wght 300 rather than the 200 this started on. The axis is exactly linear —
+// stroke = wght/200 units on the 24-unit grid the icons are drawn on, measured
+// off the `add` glyph's crossbar at each weight — so 200 drew a 1.00u stroke
+// and 300 draws 1.50u.
+//
+// The number is not free-standing: the ten hand-drawn glyphs in
+// src/assets/icons/ carry their own stroke as an SVG attribute, and a toolbar
+// mixing the two families reads as two typefaces the moment they disagree.
+// They were 1.2 against the font's 1.00u — already 20% apart — and they are
+// 1.5 now, to match this. Changing one without the other is the bug this
+// comment exists to prevent.
+const AXES = { opsz: 24, wght: 300, FILL: 0, GRAD: 0 }
 
 /** Reverse of the font's cmap: glyph id -> the codepoint that selects it. */
 function codepointsByGlyph(font: fontkit.Font): Map<number, number> {
