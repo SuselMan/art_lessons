@@ -42,6 +42,9 @@ import { matchesHotkey, formatHotkeyLabel, browserZoomIntent } from '../../lib/h
 import { addRoomInvite, forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
 import { useShareRoom } from '../../lib/useShareRoom'
+import {
+  isFullscreenSupported, subscribeFullscreenChange, toggleFullscreen as toggleFullscreenOn,
+} from '../../lib/fullscreen'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './useViewport'
 import { useViewportToast } from './useViewportToast'
@@ -439,7 +442,11 @@ export function Room() {
   // — see toggleFullscreen for why that distinction is load-bearing (#357).
   const editorRef = useRef<HTMLDivElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const fullscreenSupported = typeof document !== 'undefined' && document.fullscreenEnabled
+  // (#466) Asked through lib/fullscreen rather than read off
+  // `document.fullscreenEnabled` directly: on Safari below 16.4 that property
+  // does not exist, so this was false and the button was never rendered — on
+  // a browser that can do fullscreen perfectly well under the prefixed name.
+  const fullscreenSupported = isFullscreenSupported()
 
   // Minimal UI (#99): a short single-finger tap on the canvas hides the
   // header/toolbar/layer panel via a CSS class (never unmounted — no lost
@@ -2597,19 +2604,15 @@ export function Room() {
   // Fullscreening `documentElement` keeps every portal inside the fullscreen
   // element, including ones added later, and changes nothing about layout —
   // the editor already fills the page.
-  const toggleFullscreen = useCallback(() => {
-    if (document.fullscreenElement) document.exitFullscreen()
-    else document.documentElement.requestFullscreen()
-  }, [])
+  //
+  // (#466) Both calls go through lib/fullscreen, which fills in the
+  // `webkit`-prefixed spelling Safari below 16.4 is limited to.
+  const toggleFullscreen = useCallback(() => { void toggleFullscreenOn() }, [])
 
   // Fullscreen can also be exited by the browser/OS itself (Esc, system
   // gesture) without going through toggleFullscreen — listen rather than
   // trust the button's own click to keep the icon in sync.
-  useEffect(() => {
-    const onFullscreenChange = () => setIsFullscreen(document.fullscreenElement !== null)
-    document.addEventListener('fullscreenchange', onFullscreenChange)
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
-  }, [])
+  useEffect(() => subscribeFullscreenChange(setIsFullscreen), [])
 
   // Every way out of the editor asks first. Leaving a room is not destructive
   // — the drawing is in the room, not in this tab — but it is disorienting
