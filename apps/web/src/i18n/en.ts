@@ -219,6 +219,21 @@ export const en = {
   'access.error.uninvite': 'Could not remove the invite',
   'access.error.request': 'Could not answer the request',
   'access.error.block': 'Could not change access for that person',
+
+  // (#460, release track §4) Handing out the link — the lesson list's ⋮ and
+  // the editor's own menu share these. On a tablet this opens the system share
+  // sheet, everywhere else it copies; the strings only describe the result, so
+  // they read the same either way.
+  'share.action': 'Share',
+  'share.copied': 'Link copied',
+  // Said even though the link went out fine: an invite-only project does not
+  // admit anyone the owner hasn't listed, and finding that out from a student
+  // who couldn't get in is the worst way to learn it.
+  'share.copiedInviteOnly':
+    'Link copied — but only invited people get into this project. Anyone else has to ask and wait.',
+  'share.inviteOnly': 'Only invited people get into this project. Anyone else has to ask and wait.',
+  'share.failed': 'Could not copy the link',
+
   'lessons.ownerYou': 'You',
   'lessons.ownerUnknown': 'Unknown owner',
   'lessons.confirmDelete': 'Delete permanently for everyone?',

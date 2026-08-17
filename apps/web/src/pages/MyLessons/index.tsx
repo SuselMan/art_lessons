@@ -15,6 +15,7 @@ import {
 } from '../../lib/api'
 import { isLoggedIn, useAuth } from '../../lib/authState'
 import { preloadRoomPage } from '../../lib/roomChunk'
+import { useShareRoom } from '../../lib/useShareRoom'
 import { notifyError } from '../../stores/noticeStore'
 import { useSettingsStore, type LessonsView } from '../../stores/settingsStore'
 import { useLocale, useT, type TFunction, type TranslationKey } from '../../i18n'
@@ -141,6 +142,7 @@ interface RoomCardProps {
   onRenameSubmit: () => void
   onRenameCancel: () => void
   busy: boolean
+  onShareClick: () => void
   onRenameClick: () => void
   onMoveClick: () => void
   onForkClick: () => void
@@ -153,8 +155,8 @@ interface RoomCardProps {
 
 function RoomCard({
   t, locale, view, room, isOwnRoom, confirmingAction, renaming, renameText, onRenameTextChange, onRenameSubmit,
-  onRenameCancel, busy, onRenameClick, onMoveClick, onForkClick, onAccessClick, onToggleClosedClick,
-  onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
+  onRenameCancel, busy, onShareClick, onRenameClick, onMoveClick, onForkClick, onAccessClick,
+  onToggleClosedClick, onDeleteOrLeaveClick, onConfirmClick, onCancelConfirmClick,
 }: RoomCardProps) {
   // (#222) Closed for editing — homework that has been handed out, or a
   // template kept from drifting. Owner-only to toggle; visible to everyone,
@@ -179,6 +181,12 @@ function RoomCard({
       <div className={styles.cardMenuOverlay}>
         <CardMenu
           actions={[
+            // First, and offered to everyone rather than only the owner
+            // (#460): handing out a link is what this list is *for* — a
+            // student sends back a fork, a teacher sends out a copy — and who
+            // may enter is decided by the room's access mode and its invite
+            // list, not by who happens to know the URL.
+            { label: t('share.action'), onClick: onShareClick },
             { label: t('common.rename'), onClick: onRenameClick },
             { label: t('common.moveTo'), onClick: onMoveClick },
             { label: t('lessons.fork'), onClick: onForkClick, disabled: busy },
@@ -436,6 +444,7 @@ export function MyLessons() {
   const setView = useSettingsStore(s => s.setLessonsView)
   const { me, loading: authLoading } = useAuth()
   const loggedIn = isLoggedIn(me)
+  const shareRoom = useShareRoom()
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   // (#351) Every card on this page is a door into the Room chunk, so start
   // fetching it now rather than on whichever card gets clicked — see
@@ -720,6 +729,7 @@ export function MyLessons() {
         onRenameTextChange={setRenameText}
         onRenameSubmit={submitRename}
         onRenameCancel={() => setRenamingItem(null)}
+        onShareClick={() => shareRoom(room)}
         onRenameClick={() => startRename({ kind: 'room', id: room.id }, room.name)}
         onMoveClick={() => setMoveTarget({ kind: 'room', id: room.id, parentFolderId: room.folderId ?? null })}
         onForkClick={() => forkMutation.mutate({ id: room.id, name: t('lessons.forkedName', { name: room.name }) })}

@@ -77,6 +77,7 @@ export const MATERIAL_ICON_NAMES = [
   'search_off',
   'select_all',
   'settings',
+  'share',
   'square_foot',
   'stylus',
   'transform',

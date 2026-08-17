@@ -41,6 +41,7 @@ import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
 import { matchesHotkey, formatHotkeyLabel, browserZoomIntent } from '../../lib/hotkeys'
 import { addRoomInvite, forkRoom, moveRoomToFolder, renameRoom, setRoomClosed } from '../../lib/api'
 import { useAuth } from '../../lib/authState'
+import { useShareRoom } from '../../lib/useShareRoom'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { useViewport } from './useViewport'
 import { useViewportToast } from './useViewportToast'
@@ -148,7 +149,7 @@ interface CreatorNavState {
 
 function toRoomConfig(
   room: Pick<RoomEntity, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
-    & Partial<Pick<RoomEntity, 'closedAt'>>,
+    & Partial<Pick<RoomEntity, 'closedAt' | 'accessMode'>>,
 ): RoomInfo {
   return {
     id: room.id, name: room.name,
@@ -164,6 +165,15 @@ function toRoomConfig(
     // room is never born closed. Every other entry point comes from
     // `room_state`, which carries it.
     closedAt: room.closedAt,
+    // (#460) Optional in the Pick for the same reason `closedAt` is: on the
+    // creator's branch nothing has come back from the server yet, and what
+    // they picked on the create form rides in on navigation state instead.
+    // The fallback is the server's own — `create_room` stores
+    // 'anyone_with_link' for anything it doesn't recognise (socketHandlers.ts)
+    // — so this mirrors the row that is about to exist rather than inventing
+    // a second default. Every other entry point comes from `room_state`,
+    // which carries the real one.
+    accessMode: room.accessMode ?? 'anyone_with_link',
   }
 }
 
@@ -268,6 +278,8 @@ export function Room() {
   const navigate = useNavigate()
   const location = useLocation()
   const t        = useT()
+  // (#460) The header menu's "Share" — same helper the lesson list's ⋮ uses.
+  const shareRoom = useShareRoom()
   // (#380) Only for the access cache the join queue lives in — see joinQueue.ts.
   const queryClient = useQueryClient()
   // (#310) In-app replacements for the window.confirm/window.alert this
@@ -502,7 +514,16 @@ export function Room() {
 
   // (#24) Backed by the store now — same one-shot seeding timing the old
   // useState(() => creatorDraft?.room ? toRoomConfig(...) : null) had.
-  useState(() => { if (creatorDraft?.room) useRoomStore.setState({ room: toRoomConfig(creatorDraft.room) }) })
+  useState(() => {
+    if (creatorDraft?.room) {
+      // The mode is a sibling of `room` in the navigation state, not a field
+      // of it (it rides on `create_room` itself, see CreatorNavState) — so it
+      // is folded in here rather than being read off the draft room.
+      useRoomStore.setState({
+        room: toRoomConfig({ ...creatorDraft.room, accessMode: creatorDraft.accessMode }),
+      })
+    }
+  })
   const config = useRoomStore(s => s.room)
   // (#405) The one selected tool — a drawing tool, or one of the four that
   // paint nothing (eyedropper, ruler, transform, grid). Exactly one at a time:
@@ -5064,6 +5085,16 @@ export function Room() {
             triggerLabel={t('room.menu')}
             trigger={<Icon name="menu" />}
             actions={[
+              // (#460) First: inviting someone into the project you already
+              // have open is the one thing here that is about other people.
+              // Disabled until the room itself has arrived — there is no link
+              // to hand out before we know which room this is.
+              {
+                label: t('share.action'),
+                icon: 'share',
+                onClick: () => { if (config) shareRoom(config) },
+                disabled: config === null,
+              },
               { label: t('room.export'), icon: 'download', onClick: handleExport, title: t('room.exportTitle') },
               { label: t('room.saveSession'), icon: 'save', onClick: handleSaveSession, title: t('room.saveSessionTitle') },
               { label: t('room.settings'), icon: 'settings', onClick: () => setSettingsOpen(true) },

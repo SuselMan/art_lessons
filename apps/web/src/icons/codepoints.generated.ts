@@ -71,6 +71,7 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'search_off': '\u{ea76}',
   'select_all': '\u{e162}',
   'settings': '\u{e8b8}',
+  'share': '\u{e80d}',
   'square_foot': '\u{ea49}',
   'stylus': '\u{f604}',
   'transform': '\u{e428}',

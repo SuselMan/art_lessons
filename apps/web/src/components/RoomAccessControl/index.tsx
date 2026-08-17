@@ -9,6 +9,7 @@ import {
 import { roomAccessQueryKey } from '../../lib/queryClient'
 import { useT } from '../../i18n'
 import { notifyError } from '../../stores/noticeStore'
+import { useRoomStore } from '../../stores/roomStore'
 import { Icon } from '../Icon'
 import { ErrorState } from '../ListState'
 import { OptionGroup } from '../OptionGroup'
@@ -75,7 +76,22 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
 
   const modeMutation = useMutation({
     mutationFn: (accessMode: RoomAccessMode) => setRoomAccess(roomId, { accessMode }),
-    onSuccess: reload,
+    onSuccess: result => {
+      // (#460) The editor holds the room's own accessMode in the room store —
+      // the Share item's warning is decided from it — and the server has no
+      // event for a mode change (#225), so the tab that made the change is the
+      // one that has to say so. Guarded on the id because this same panel is
+      // also mounted from the lesson list, where the store holds some other
+      // room, or the last one visited.
+      const store = useRoomStore.getState()
+      if (store.room?.id === roomId) store.setRoomAccessMode(result.accessMode)
+      // The lesson list carries `accessMode` on every room it renders, and
+      // its ⋮ decides the Share warning from it — so a mode changed from that
+      // very menu has to reach the list's own cache too, or the next share
+      // from the same card reports the mode this one just replaced.
+      void queryClient.invalidateQueries({ queryKey: ['rooms'] })
+      return reload()
+    },
     onError: () => fail(t('access.error.mode'), 'access-mode'),
   })
 

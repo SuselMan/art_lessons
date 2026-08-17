@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand'
-import type { Participant } from '@grafetto/shared'
+import type { Participant, RoomAccessMode } from '@grafetto/shared'
 
 import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants'
 import type { PaperType } from '@grafetto/shared'
@@ -29,6 +29,14 @@ export interface RoomInfo {
   // shape it changes during a session (the owner can toggle it from here or
   // from the lesson list), which is what `setRoomClosedAt` below is for.
   closedAt?: string
+  // (#460) Who the room admits — the shared `Room.accessMode`, which
+  // `room_state` has always carried and this shape simply used to drop.
+  // Required for the reason the shared type gives: every room has a real
+  // value, and an optional field would spread `?? 'anyone_with_link'`
+  // fallbacks around as a second place for the default to live. The one entry
+  // point that has to supply it by hand is the creator's own (nothing has
+  // been received yet) — see toRoomConfig in Room/index.tsx.
+  accessMode: RoomAccessMode
 }
 
 export interface RoomInfoSlice {
@@ -66,6 +74,13 @@ export interface RoomInfoSlice {
   // `room_closed_changed` says it moved. A no-op before `room` exists — the
   // event can't arrive before the join that would have delivered the room.
   setRoomClosedAt: (closedAt: string | null) => void
+  // (#460) Same shape and same reasoning as `setRoomClosedAt`: a column of
+  // the room, delivered inside `room` on join, patched here when the owner
+  // moves it from the settings panel's Access tab during the session. There
+  // is no socket event for it (see #225), so this only tracks the change in
+  // the tab that made it — enough for what reads it, which is the warning on
+  // the Share menu item.
+  setRoomAccessMode: (accessMode: RoomAccessMode) => void
 }
 
 export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
@@ -89,5 +104,8 @@ export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
   )),
   setRoomClosedAt: closedAt => set(state => (
     state.room ? { room: { ...state.room, closedAt: closedAt ?? undefined } } : {}
+  )),
+  setRoomAccessMode: accessMode => set(state => (
+    state.room ? { room: { ...state.room, accessMode } } : {}
   )),
 })
