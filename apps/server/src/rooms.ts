@@ -1324,7 +1324,18 @@ async function resolveUndoneEntries(roomId: string, entries: StructuralEntry[]):
 export function updateAliveIds(roomId: string, op: Operation): void {
   const record = rooms.get(roomId)
   if (!record) return
-  if (!advanceStructuralLog(record.structuralLog, op)) return
+  // (#462) Carries the seq `recordOperation` is about to assign. This runs
+  // just before it (see socketHandlers.ts) and so is handed the operation
+  // unstamped, which left every entry added while the room was resident
+  // reading as seq 0 — while the same entries rebuilt on a cold load carried
+  // real seqs. Anything asking this log *when* something happened therefore
+  // got a different answer depending on how the room got into memory, which
+  // is the kind of difference that only shows up in production.
+  //
+  // Safe to predict rather than thread through: single-threaded, no `await`
+  // between here and the `record.nextSeq++` that consumes it.
+  const stamped = op.seq === undefined ? { ...op, seq: record.nextSeq } : op
+  if (!advanceStructuralLog(record.structuralLog, stamped)) return
   refreshLayerIdMirrors(record)
 }
 
@@ -1513,6 +1524,29 @@ async function loadCoveredSeqByLayer(roomId: string): Promise<Map<string, number
 export type SaveSnapshotResult =
   | { ok: true; created: string[]; duplicated: string[]; mismatched: string[] }
   | { ok: false; error: 'unknown_room' | 'not_a_checkpoint_seq' }
+  // (#462) `missing` is the point of the rejection, not a detail of it: it
+  // names the layers the upload would have erased, which is what makes an
+  // occurrence in the logs diagnosable instead of merely countable.
+  | { ok: false; error: 'stale_layer_state'; missing: string[] }
+
+/** (#462) Which layers an uploaded `layerState` is obliged to account for: the
+ *  ids alive as of `seq`, judged from the server's own fold of the structural
+ *  log rather than from anything the uploading client says.
+ *
+ *  Bounded by `seq` and not simply read off `record.aliveIds`, because a layer
+ *  someone else created *after* the boundary being baked is one the uploader
+ *  is right not to list — checking against the live set would reject an honest
+ *  upload every time a bake and a `layer_add` overlapped.
+ *
+ *  The entries' done/undone state is today's, not the state as of `seq`, and
+ *  that asymmetry is deliberate. An entry undone since `seq` drops out here,
+ *  so the uploader listing it is simply not our business — this only ever
+ *  looks for ids it *omits*. The converse (undone at `seq`, redone since)
+ *  could in principle reject an honest upload; the cost of that is one skipped
+ *  snapshot on a best-effort path, against a room that reads as wiped. */
+function requiredLayerIdsAt(record: RoomRecord, seq: number): Set<string> {
+  return deriveLayerIds(record.structuralLog.filter(e => (e.op.seq ?? 0) <= seq)).aliveIds
+}
 
 /** Stores a client-baked snapshot (#149 epic, per layer since #371).
  *
@@ -1544,6 +1578,37 @@ export async function saveSnapshot(
   const record = rooms.get(roomId)
   if (!record) return { ok: false, error: 'unknown_room' }
   if (seq <= 0 || seq % SNAPSHOT_SEQ_INTERVAL !== 0) return { ok: false, error: 'not_a_checkpoint_seq' }
+
+  // (#462) The structure a client sends has to agree with the log the server
+  // already holds. Checked here rather than trusted, because `layerState` is
+  // the one thing an upload can get wrong that erases the room for everyone
+  // else: a layer missing from it reads as deleted to `isCoveredBySnapshot`,
+  // and a deleted layer's operations stop being sent at all.
+  //
+  // On 2026-08-17 (room F4uw21Ob) a client whose join-time restore had not run
+  // yet uploaded `makeInitialLayerState()` — two layers — over a lesson with
+  // four, at seq 22400 of 22445. Every operation below that seq was withheld
+  // from then on and the room read as wiped, with every byte of it still in
+  // Postgres. The client-side race is fixed at its source, but this check is
+  // what makes the whole class unrepresentable rather than that one path: the
+  // server is the only party that can compare a claimed structure against the
+  // log, and it costs one fold of the structural entries per checkpoint.
+  //
+  // Whole upload rejected, pixels included. They were baked by the same client
+  // out of the same buffers, so a structure that disagrees with the log is
+  // reason enough to doubt them — and refusing a snapshot only costs the room
+  // a slower join, which is what it already had.
+  //
+  // An unreadable `layerState` is deliberately *not* rejected here, for the
+  // same reason `layerStateIdsOf` answers `null` instead of an empty set:
+  // something we cannot parse is a claim about nothing, and nothing is what it
+  // is then allowed to withhold. Rejecting it would put this check in the
+  // business of validating a shape, which is not what it is for.
+  const claimed = layerState === undefined ? null : layerStateIdsOf(layerState)
+  if (claimed !== null) {
+    const missing = [...requiredLayerIdsAt(record, seq)].filter(id => !claimed.has(id))
+    if (missing.length > 0) return { ok: false, error: 'stale_layer_state', missing }
+  }
 
   const created: string[] = []
   const duplicated: string[] = []

@@ -4,11 +4,11 @@ import { createHash } from 'node:crypto'
 
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
-import type { StrokeOperation } from '@grafetto/shared'
+import type { Operation, StrokeOperation } from '@grafetto/shared'
 
 import {
   _flushPendingWrites, createRoom, deletableOperations, getCoveredSeq, getLayerSnapshot, getOperationsBefore,
-  getRoomSnapshot, getSnapshotIndex, joinRoom, leaveRoom, recordOperation, saveSnapshot,
+  getRoomSnapshot, getSnapshotIndex, joinRoom, leaveRoom, recordOperation, saveSnapshot, updateAliveIds,
 } from './rooms.js'
 
 // rooms.test.ts deliberately runs with no real Postgres — every DB call it
@@ -62,6 +62,17 @@ function stroke(id: string): StrokeOperation {
     id, type: 'stroke', userId: 'owner-1', timestamp: 0,
     layerId: 'layer-1', tool: 'pencil', preset: 'HB', color: [0.14, 0.14, 0.17], dabs: [],
   }
+}
+
+/** (#462) `recordOperation` alone is the raw writer — it stamps a seq and
+ *  appends, and touches neither `structuralLog` nor the `aliveIds` mirror
+ *  derived from it. socketHandlers.ts always calls `updateAliveIds` first, so
+ *  any test whose subject reads the server's fold of the log (rather than only
+ *  the operations array) has to do the same or it is exercising a room state
+ *  production can never be in. */
+function recordStructural(roomId: string, op: Operation): void {
+  updateAliveIds(roomId, op)
+  recordOperation(roomId, op)
 }
 
 const gzippedPayload = gzipSync(Buffer.from('fake tile pixels'))
@@ -146,6 +157,68 @@ describe('saveSnapshot', () => {
     expect(result).toEqual({ ok: true, created: [], duplicated: [], mismatched: [] })
     expect(mockPrisma.roomLayerSnapshot.create).not.toHaveBeenCalled()
     expect(mockPrisma.roomLayerState.upsert).toHaveBeenCalled()
+  })
+
+  // (#462) The production incident this exists for: a client whose join-time
+  // restore had not run yet uploaded makeInitialLayerState() over a lesson
+  // that had merged 'layer-1' away hours earlier. The server believed it, and
+  // from then on withheld every operation below that seq from every joiner —
+  // the room read as wiped with all of it still in Postgres (room F4uw21Ob).
+  it('refuses a layer state that omits a layer the log says is alive', async () => {
+    const roomId = makeRoom()
+    recordStructural(roomId, {
+      id: 'add', type: 'layer_add', userId: 'owner-1', timestamp: 0, layerId: 'drawn-on',
+      name: 'Work', parentId: null, index: 0,
+    })
+
+    const result = await saveSnapshot(
+      roomId, SNAPSHOT_SEQ_INTERVAL,
+      { items: { 'layer-1': {}, background: {} } }, layers('layer-1'),
+    )
+
+    expect(result).toEqual({ ok: false, error: 'stale_layer_state', missing: ['drawn-on'] })
+    // Nothing at all is written — not the structure, and not the pixels that
+    // came with it, which were baked by the same client out of the same buffers.
+    expect(mockPrisma.roomLayerState.upsert).not.toHaveBeenCalled()
+    expect(mockPrisma.roomLayerSnapshot.create).not.toHaveBeenCalled()
+    expect(getCoveredSeq(roomId, 'layer-1')).toBeUndefined()
+  })
+
+  // The reason the check is bounded by the upload's own seq rather than read
+  // off the live mirror: a bake is compressed and posted, and a peer can add a
+  // layer in that window. The uploader is right not to list it, and an honest
+  // snapshot must not be lost to someone else's timing.
+  it('accepts a layer state omitting a layer created after the baked seq', async () => {
+    const roomId = makeRoom()
+    mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
+    for (let i = 0; i < SNAPSHOT_SEQ_INTERVAL; i++) recordOperation(roomId, stroke(`s${i}`))
+    // Lands at seq SNAPSHOT_SEQ_INTERVAL + 1 — past the boundary being baked.
+    recordStructural(roomId, {
+      id: 'late', type: 'layer_add', userId: 'owner-1', timestamp: 0, layerId: 'too-new',
+      name: 'Peer', parentId: null, index: 0,
+    })
+
+    const result = await saveSnapshot(
+      roomId, SNAPSHOT_SEQ_INTERVAL,
+      { items: { 'layer-1': {}, background: {} } }, layers('layer-1'),
+    )
+
+    expect(result.ok).toBe(true)
+  })
+
+  // Null rather than an empty set, same reasoning as layerStateIdsOf's own:
+  // something unparseable is a claim about nothing, and this check has no
+  // business turning it into a claim about everything.
+  it('lets an unreadable layer state through rather than judging it', async () => {
+    const roomId = makeRoom()
+    recordStructural(roomId, {
+      id: 'add', type: 'layer_add', userId: 'owner-1', timestamp: 0, layerId: 'drawn-on',
+      name: 'Work', parentId: null, index: 0,
+    })
+
+    const result = await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, 'not a layer state', new Map())
+
+    expect(result.ok).toBe(true)
   })
 
   it('silently dedups a duplicate layer when SNAPSHOT_VERIFY_DETERMINISM is off', async () => {
@@ -437,26 +510,41 @@ describe('getRoomSnapshot — structure has its own coverage', () => {
   // refused to delete, since it rightly held the layer destroyed.
   it('withholds a merge whose result the stored structure no longer lists', async () => {
     const roomId = makeRoom()
-    recordOperation(roomId, {
+    recordStructural(roomId, {
       id: 'inner', type: 'layer_merge', userId: 'owner-1', timestamp: 0, layerId: 'consumed',
       name: 'Inner', sources: [{ id: 'layer-1', opacity: 1 }], parentId: null, index: 0,
     })
-    recordOperation(roomId, {
+    recordStructural(roomId, {
       id: 'outer', type: 'layer_merge', userId: 'owner-1', timestamp: 0, layerId: 'final',
       name: 'Outer', sources: [{ id: 'consumed', opacity: 1 }], parentId: null, index: 0,
     })
     // The stored structure knows only the surviving layer — 'consumed' is gone.
+    // 'background' is listed because the log says it is still alive, and #462
+    // makes accounting for every live id the price of storing a structure at
+    // all. It is what a real client sends anyway.
     mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
-    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { items: { final: {} } }, layers('final'))
+    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { items: { final: {}, background: {} } }, layers('final'))
 
     expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
   })
 
   it('withholds a stroke made on a layer the stored structure no longer lists', async () => {
     const roomId = makeRoom()
+    // Killed through the log rather than asserted out of thin air: #462 checks
+    // a stored structure against the server's own fold, so a layer can only be
+    // absent from one if the log says it died.
+    recordStructural(roomId, {
+      id: 'add', type: 'layer_add', userId: 'owner-1', timestamp: 0, layerId: 'consumed',
+      name: 'Doomed', parentId: null, index: 0,
+    })
     recordOperation(roomId, { ...stroke('gone'), layerId: 'consumed' })
+    recordStructural(roomId, {
+      id: 'del', type: 'layer_delete', userId: 'owner-1', timestamp: 0, layerIds: ['consumed'],
+    })
     mockPrisma.roomLayerSnapshot.create.mockResolvedValue({})
-    await saveSnapshot(roomId, SNAPSHOT_SEQ_INTERVAL, { items: { final: {} } }, layers('final'))
+    await saveSnapshot(
+      roomId, SNAPSHOT_SEQ_INTERVAL, { items: { 'layer-1': {}, background: {} } }, layers('layer-1'),
+    )
 
     expect(getRoomSnapshot(roomId)?.tailOperations).toEqual([])
   })

@@ -160,3 +160,59 @@ describe('GET /api/rooms/:roomId/snapshots/:layerId/:seq', () => {
     expect(mockRooms.getLayerSnapshot).not.toHaveBeenCalled()
   })
 })
+
+describe('POST /api/rooms/:roomId/snapshots', () => {
+  function post(body: unknown) {
+    return buildApp().inject({ method: 'POST', url: '/api/rooms/room-1/snapshots', payload: body })
+  }
+
+  it('stores an accepted upload and reports what landed', async () => {
+    mockRooms.saveSnapshot.mockResolvedValue({ ok: true, created: ['layer-1'], duplicated: [], mismatched: [] })
+
+    const res = await post({ seq: 100, layerState: { items: {} }, layers: {} })
+
+    expect(res.statusCode).toBe(200)
+    expect(res.json()).toEqual({ ok: true, stored: 1, duplicate: 0 })
+  })
+
+  // (#462) The rejection has to reach the client as a plain refusal — the
+  // upload is best-effort and nothing retries it — and, more importantly, has
+  // to leave a record naming the layers it would have erased. Without that,
+  // the next occurrence is a counter rather than a diagnosis.
+  it('refuses a stale layer state and names the layers it would have erased', async () => {
+    mockRooms.saveSnapshot.mockResolvedValue({
+      ok: false, error: 'stale_layer_state', missing: ['f1c-CNdM', 'UpIH_MCL'],
+    })
+    const app = buildApp()
+    const warn = vi.spyOn(app.log, 'warn')
+
+    const res = await app.inject({
+      method: 'POST', url: '/api/rooms/room-1/snapshots',
+      payload: { seq: 22400, layerState: { items: { 'layer-1': {} } }, layers: {} },
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(res.json()).toMatchObject({ error: 'stale_layer_state' })
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ roomId: 'room-1', seq: 22400, missing: ['f1c-CNdM', 'UpIH_MCL'] }),
+      expect.stringContaining('#462'),
+    )
+  })
+
+  it('answers 404 rather than 400 for a room the server does not hold', async () => {
+    mockRooms.saveSnapshot.mockResolvedValue({ ok: false, error: 'unknown_room' })
+
+    const res = await post({ seq: 100, layerState: {}, layers: {} })
+
+    expect(res.statusCode).toBe(404)
+  })
+
+  it('refuses a caller who is not a live participant', async () => {
+    mockRooms.getParticipant.mockReturnValue(undefined)
+
+    const res = await post({ seq: 100, layerState: {}, layers: {} })
+
+    expect(res.statusCode).toBe(403)
+    expect(mockRooms.saveSnapshot).not.toHaveBeenCalled()
+  })
+})

@@ -98,6 +98,7 @@ import {
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { ChiselAngleDial } from './ChiselAngleDial'
+import { createSnapshotGate } from './snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { fetchLatestSnapshot, walkHistoryBackward, type RestoredSnapshot } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
@@ -991,9 +992,14 @@ export function Room() {
   // an earlier op that hasn't actually painted yet. pendingCommitSeqsRef
   // holds every stroke seq that has arrived but not yet committed; the
   // watermark can only advance past the smallest still-pending one — see
-  // checkSnapshotBoundary below, the single place that reads both.
+  // snapshotGate.ts, which owns that rule along with the rest of the
+  // may-this-client-bake decision.
   const pendingCommitSeqsRef = useRef<Set<number>>(new Set())
-  const committedWatermarkRef = useRef(0)
+  // (#462) Holds the watermark and the "has this client's catch-up finished"
+  // gate — see snapshotGate.ts for what it refuses and why. Per mount, like
+  // replayIncompleteRef below: a fresh mount is a fresh, empty engine, and so
+  // a client that has to earn the right to speak for the room again.
+  const snapshotGateRef = useRef(createSnapshotGate())
   /** (#385) Set when the join-time replay did not finish — an operation threw
    *  and the canvas therefore shows less than the log says the room contains.
    *
@@ -1014,14 +1020,23 @@ export function Room() {
   const replayIncompleteRef = useRef(false)
   const checkSnapshotBoundary = useCallback(() => {
     const engine = engineRef.current
-    if (!engine || !snapshotUploader || replayIncompleteRef.current) return
-    const pending = pendingCommitSeqsRef.current
-    const watermark = pending.size ? Math.min(...pending) - 1 : latestKnownSeqRef.current
-    if (watermark <= committedWatermarkRef.current) return
-    const previous = committedWatermarkRef.current
-    committedWatermarkRef.current = watermark
-    snapshotUploader.onSeqObserved(previous, watermark, engine, useRoomStore.getState().layerState)
+    if (!engine || !snapshotUploader) return
+    const plan = snapshotGateRef.current.observe({
+      latestKnownSeq: latestKnownSeqRef.current,
+      pendingCommitSeqs: pendingCommitSeqsRef.current,
+      replayIncomplete: replayIncompleteRef.current,
+    })
+    if (!plan) return
+    snapshotUploader.onSeqObserved(plan.previous, plan.watermark, engine, useRoomStore.getState().layerState)
   }, [snapshotUploader])
+  /** (#462) Opens the snapshot path for this client, once its canvas actually
+   *  holds the room — called from every catch-up that ran to completion: the
+   *  mount effect's replay, `handleRoomState`'s restore, and the brand-new-room
+   *  branch that has nothing to restore and is therefore caught up by
+   *  definition. See snapshotGate.ts for what this is guarding. */
+  const markJoinRestoreDone = useCallback(() => {
+    snapshotGateRef.current.restoreCompleted(latestKnownSeqRef.current)
+  }, [])
 
   // (#312) Queues one rejected content operation for recovery and (re)arms
   // the batch timer.
@@ -1880,6 +1895,10 @@ export function Room() {
           // (#386) Now, not on the next microtask: the bootstrap below reads
           // the store back in this same task. See syncFromLogNow.
           syncFromLogNow()
+          // (#462) After syncFromLogNow, never before: the flag's whole claim
+          // is that the store now describes this room, and until that call has
+          // run it still holds makeInitialLayerState().
+          markJoinRestoreDone()
           dispatchParticipants({ type: 'room_state', participants: pending.participants })
           useRoomStore.getState().setPalette(pending.palette)
           useRoomStore.getState().setRoomFrozen(pending.frozen)
@@ -1954,7 +1973,7 @@ export function Room() {
     }
   }, [
     id, config, markActive, applyRemoteOp, syncFromLog, syncFromLogNow, debugEnabled, predictEnabled,
-    hapticGrainEnabled, checkSnapshotBoundary, restoreFromSnapshot, backfillHistory,
+    hapticGrainEnabled, checkSnapshotBoundary, markJoinRestoreDone, restoreFromSnapshot, backfillHistory,
     grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
     awaitPaper,
   ])
@@ -4149,6 +4168,11 @@ export function Room() {
           // onto a canvas with no paper on it that quietly ignored the
           // pencil until the remaining ~4 MB landed.
           if (!(await awaitPaper(engineRef.current))) return
+          // (#462) A room with no history to replay is caught up the moment
+          // that is confirmed — this is the one branch where an empty store is
+          // the room rather than a stand-in for it, so the creator's own first
+          // checkpoint still bakes normally.
+          markJoinRestoreDone()
           setRoomContentReady(true)
           return
         }
@@ -4159,6 +4183,9 @@ export function Room() {
       // loaded by the time a reconnect happens).
       const engine = engineRef.current
       setRoomContentReady(false)
+      // (#462) Re-closed for the length of this catch-up, not just on a first
+      // join — see snapshotGate.ts's restoreStarted.
+      snapshotGateRef.current.restoreStarted()
       // (#346) Outside the try/finally below, for the same reason as the mount
       // effect's own site: a paper failure must leave the room closed and
       // explained, not opened and mute.
@@ -4199,6 +4226,11 @@ export function Room() {
         // (#386) Same reason as the mount-engine effect's own catch-up: the
         // bootstrap below reads the store back in this same task.
         syncFromLogNow()
+        // (#462) Same placement and same reason as the mount effect's — see
+        // markJoinRestoreDone. A reconnect re-opens this window every time:
+        // the tail can be thousands of operations after a long drop, and the
+        // socket handlers stay live for all of it.
+        markJoinRestoreDone()
         dispatchParticipants({ type: 'room_state', participants: roomParticipants })
         useRoomStore.getState().setPalette(palette)
         useRoomStore.getState().setRoomFrozen(frozen)
@@ -4521,7 +4553,7 @@ export function Room() {
       requestFullResyncRef.current = null
     }
   }, [
-    id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary,
+    id, isCreator, creatorDraft, syncFromLog, applyRemoteOp, applyIdentity, checkSnapshotBoundary, markJoinRestoreDone,
     restoreFromSnapshot, backfillHistory, drainDeferredQueue, dispatchParticipants, snapshotUploader, noteLayerSeq,
     syncFromLogNow,
     // (#429) Used by the live-stroke handler. useCallback with no dependencies

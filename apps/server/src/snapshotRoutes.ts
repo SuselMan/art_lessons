@@ -42,7 +42,20 @@ export function registerSnapshotRoutes(app: FastifyInstance): void {
         Object.entries(layers).map(([layerId, data]) => [layerId, Buffer.from(data, 'base64')]),
       )
       const result = await saveSnapshot(roomId, seq, layerState, decoded)
-      if (!result.ok) return reply.code(result.error === 'unknown_room' ? 404 : 400).send(result)
+      if (!result.ok) {
+        // (#462) Logged at warn rather than left to the status code alone:
+        // this rejection means some client tried to publish a structure the
+        // log contradicts, and the only reason it is not an incident is that
+        // the check caught it. If it ever starts firing in normal traffic,
+        // that is a client bug worth seeing without having to reproduce it.
+        if (result.error === 'stale_layer_state') {
+          request.log.warn(
+            { roomId, seq, userId: request.userId, missing: result.missing },
+            '#462: refused snapshot — layer state omits layers the log says are alive',
+          )
+        }
+        return reply.code(result.error === 'unknown_room' ? 404 : 400).send(result)
+      }
       if (result.mismatched.length > 0) {
         // #149: a second client independently baked the same layer at the same
         // checkpoint and got different pixels — a live cross-device
