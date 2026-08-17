@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 
 import { useDraggablePosition } from '../../lib/useDraggablePosition'
@@ -197,6 +197,49 @@ export function FloatingToolPanel({
       : { width: Infinity, height: Infinity }
     return clampPanelPosition(pos, size, PANEL_SIZE)
   }, [containerRef])
+
+  // The same clamp, for the case where the *container* moves instead of the
+  // panel: a device orientation flip resizes the editor root, and this panel
+  // is pinned inside it in absolute px. Until this, the only clamp ran inside
+  // a drag (the callback above, handed to useDraggablePosition), so nothing
+  // ever re-checked a position that was in bounds when it was chosen — a panel
+  // parked near the right edge in landscape simply sat outside the viewport in
+  // portrait, out of reach of the drag that is the only way to bring it back.
+  // Also covers opening a room whose stored position came from a bigger
+  // screen: ResizeObserver delivers a first observation on observe(), so the
+  // check runs once on mount too, which is what loadPanelPosition's "the
+  // caller clamps against the current container size" comment always assumed
+  // and never actually got.
+  //
+  // `position` is read through a ref rather than listed as a dependency:
+  // onChange fires on every pointermove of a drag, and tearing down and
+  // rebuilding an observer each frame — to watch a container size that cannot
+  // change mid-drag — is pure churn.
+  const positionRef = useRef(position)
+  positionRef.current = position
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const observer = new ResizeObserver(() => {
+      const current = positionRef.current
+      // Never dragged: the panel is at its CSS-anchored default corner, which
+      // is laid out against the container and follows it by itself.
+      if (!current) return
+      const { clientWidth, clientHeight } = container
+      // A container measuring zero (hidden, mid-teardown) would clamp the
+      // panel to {0,0} and persist that — a bound we have no reason to trust.
+      if (clientWidth === 0 || clientHeight === 0) return
+      const next = clampPanelPosition(current, { width: clientWidth, height: clientHeight }, PANEL_SIZE)
+      if (next.x === current.x && next.y === current.y) return
+      // Same reasoning as handleChange below: the panel just moved, so any fan
+      // still out is pointing along rays computed for where it used to be.
+      onFlyoutChange(null)
+      onPositionChange(next)
+      savePanelPosition(localStorage, roomId, next)
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [containerRef, onFlyoutChange, onPositionChange, roomId])
 
   // The drag hook needs a concrete starting position on every render, even
   // before the panel has ever been dragged (position === null, rendered at
