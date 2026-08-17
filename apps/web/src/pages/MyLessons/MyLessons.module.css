@@ -274,6 +274,15 @@
      the card behind it, and thumbnails don't change with the palette. */
   background: rgba(17, 17, 19, 0.72);
   backdrop-filter: blur(2px);
+  /* A literal background can only carry literal foregrounds. The trigger used
+     to colour its glyph with --color-text-bright, which means "the most
+     emphatic text colour" and therefore flips to #000 in the light theme —
+     black dots on a chip that deliberately does *not* flip, i.e. an invisible
+     button. Same reason the hover wash is a white alpha rather than
+     --color-surface-2: that token is a near-white fill in the light theme and
+     would have painted a pale square under the (now pale) glyph. */
+  --card-menu-trigger-color: #eeeeee;
+  --card-menu-trigger-hover-bg: rgba(255, 255, 255, 0.16);
 }
 
 .cardLink {
@@ -536,6 +545,10 @@
      for the tile layout would just be a floating dark square. */
   background: none;
   backdrop-filter: none;
+  /* …and with the chip gone the glyph is back on a themed surface, so it goes
+     back to the themed colours the trigger falls back to by default. */
+  --card-menu-trigger-color: var(--color-text-bright);
+  --card-menu-trigger-hover-bg: var(--color-surface-2);
 }
 
 .renameInput {

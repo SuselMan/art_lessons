@@ -12,14 +12,19 @@
      sitting on the semi-transparent dark chip (.cardMenuOverlay) over a
      variable-brightness room thumbnail. Bright at rest, not just on
      hover/focus, since the whole point is being discoverable before you
-     interact with it. */
-  color: var(--color-text-bright);
+     interact with it.
+     The colour comes through a custom property because the trigger renders in
+     two different contexts and the right answer differs: in tile view it sits
+     on .cardMenuOverlay's *literal* dark chip, in list view there is no chip
+     and it sits on the card's own themed surface. The chip sets both
+     properties; the theme tokens are the fallback for everywhere else. */
+  color: var(--card-menu-trigger-color, var(--color-text-bright));
   transition: background var(--duration-fast);
 }
 
 .trigger:hover,
 .trigger[aria-expanded='true'] {
-  background: var(--color-surface-2);
+  background: var(--card-menu-trigger-hover-bg, var(--color-surface-2));
 }
 
 /* :global() — plain "material-symbols-outlined" gets hashed by CSS Modules
