@@ -207,6 +207,40 @@ export interface RibbonProfile {
    *  scratch and therefore a genuinely new layer. Ignored by a branch that
    *  doesn't read inkLoad. */
   saturateInk: number
+  /** #468 v11, ADR 011 §11 — how much of the pigment lying at a place one
+   *  exchange with its neighbourhood may move, and how far.
+   *
+   *  0 switches the whole thing off, including the 52 texture reads it costs,
+   *  which is what every other tool through this program gets.
+   *
+   *  A *rate*, not an amount. What actually moves is this times the pigment
+   *  already there, so the operation redistributes paint instead of adding it —
+   *  and that is the property the term exists for. The painted-on tideline it
+   *  partly replaces multiplies brightness at the rim without taking that
+   *  brightness from the middle, so a wash could grow a dark edge while its
+   *  centre stayed exactly as dark as before. No real one does.
+   *
+   *  Not scaled by the pigment setting, for the reason depositPerRadius spells
+   *  out at length: pigment already enters through how much of it is there to
+   *  be moved, and a second route would make the control quadratic again. What
+   *  does scale it is *which* paint — a staining one binds to the fibre and
+   *  cannot travel, which is a property of the paint, not of how much of it
+   *  went on. */
+  migrate: number
+  /** Reach as a fraction of the stroke's own radius, resolved to px against the
+   *  gesture's first dab and capped — same shape as spreadOfRadius, and for the
+   *  same reason: one number has to describe a 12px brush and a 120px one. */
+  migrateOfRadius: number
+  /** The wetness gate. Below `migrateLo` nothing migrates at all.
+   *
+   *  High and steep on purpose. A merely damp wash dries roughly where it was
+   *  put, because the paint has nowhere to swim to — and the moment the model
+   *  starts moving pigment at ordinary settings, every mark grows a dark rim
+   *  and the tool is back to being a bag of recognisable effects. Edge
+   *  deposition is what *very wet* looks like, so it is only what very wet
+   *  does. */
+  migrateLo: number
+  migrateHi: number
   /** How far the ribbon's straight chords may deviate from the curve they
    *  approximate before sampling gets denser (DabSystem.curvatureTolerancePx). */
   curvatureTolerancePx: number
@@ -350,6 +384,10 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   tideLo: 0,
   tideHi: 0,
   saturateInk: 0,
+  migrate: 0,
+  migrateOfRadius: 0,
+  migrateLo: 0,
+  migrateHi: 0,
 }
 
 const MARKER_CHISEL_RIBBON: RibbonProfile = {
@@ -399,6 +437,10 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   tideLo: 0,
   tideHi: 0,
   saturateInk: 0,
+  migrate: 0,
+  migrateOfRadius: 0,
+  migrateLo: 0,
+  migrateHi: 0,
 }
 
 // ─── Watercolor (#468, ADR 011) ─────────────────────────────────────────────
@@ -435,10 +477,24 @@ const WATERCOLOR_WET_EDGE_RADIUS_PX = 7.0
  *  Meaningful only since v3. Until the deposit was normalized this curve was
  *  fed a value that saturated an 8-bit buffer on the first dab, so it evaluated
  *  to a flat 1 everywhere and the whole term was dead code — which is a good
- *  part of why v1's washes were so mechanically even. Now a full-water pass
- *  lands just above this and a depleted one lands well below, which is what
- *  makes the far end of a long sweep read as drier than its start. */
-const WATERCOLOR_SATURATE_INK = 0.95
+ *  part of why v1's washes were so mechanically even.
+ *
+ *  #468 v11 — raised from 0.95 to 1.35, and the whole of §11 depends on it.
+ *  The deposit buffer is eight-bit and tops out at 1.0, and an ordinary pass
+ *  runs about twice that, so a wash's inside sat *above* the old curve's end:
+ *  density evaluated to exactly 1 and could not go any higher. That is a
+ *  ceiling, and a ceiling makes a rim impossible — pigment arriving somewhere
+ *  already at 1 changes nothing, so no amount of transport could ever have
+ *  shown. At 1.35 the same clamped deposit lands at about 0.83 and there is
+ *  room above it for paint that migrated there to darken.
+ *
+ *  What it does *not* cost is the flat wash. The deposit still clamps, so the
+ *  inside of a wash is still a flat number and still insensitive to how the
+ *  deposit wobbles — the property v9 went to some trouble for. Measured: flat
+ *  wash unevenness unchanged to the second decimal, graded wash unchanged in
+ *  spread and step evenness, with WATERCOLOR_PRESET.opacity raised to keep the
+ *  tone where it was. */
+const WATERCOLOR_SATURATE_INK = 1.35
 
 /** Below this half-width the nib is widened rather than dropped, same as the
  *  brush pen. Higher than its 0.5 because this tool's own width floor is 0.32
@@ -487,6 +543,14 @@ const WATERCOLOR_PAPER_EDGE = 0.55
  *  and ripple at the dab spacing, so the smooth pass should carry most of it. */
 const WATERCOLOR_STAMP_INK_SHARE = 0.82
 
+/** Converts the deposit from "per unit length of travel" to the scale the cone
+ *  profile actually accumulates at, so the numbers in watercolorPigmentEffects
+ *  stay readable. A single pass runs it roughly twice over the deposit buffer's
+ *  own ceiling, which is deliberate: what makes a stroke's inside a flat film
+ *  rather than a domed airbrush stripe is precisely that the accumulation tops
+ *  out across the whole width and slopes only through the margin. Measured — at
+ *  a quarter of this the cross-section came back a smooth dome, which is not
+ *  what a loaded brush leaves. */
 const WATERCOLOR_CONE_DEPOSIT_GAIN = 1.8
 
 const WATERCOLOR_SPREAD_CAP_PX = 26.0
@@ -498,6 +562,41 @@ const WATERCOLOR_SPREAD_MIN_PX = 2.5
 /** Read by engine/index.ts's _paintRibbonStroke, which is where the stroke's
  *  own radius is known. Exported as a record rather than three constants so a
  *  caller cannot pick up two of the three and silently ignore the cap. */
+/** #468 v11 — how far pigment travels in one exchange, as a fraction of the
+ *  brush's own radius, and the px window that fraction is held inside.
+ *
+ *  The reach is what decides how wide the band of settled pigment comes out,
+ *  because a single exchange moves paint exactly this far and no further. Just
+ *  over half a radius puts the band inside the mark's own margin, where the
+ *  film genuinely is thinner, rather than out in the spread fringe where there
+ *  is no water to have carried anything.
+ *
+ *  Capped for the same reason the spread is: a very large brush would otherwise
+ *  redistribute over a distance nobody reads as a rim. Floored so a small one
+ *  still moves paint at all rather than exchanging with itself. */
+const WATERCOLOR_MIGRATE_OF_RADIUS = 0.55
+const WATERCOLOR_MIGRATE_MAX_PX = 20.0
+const WATERCOLOR_MIGRATE_MIN_PX = 3.0
+
+/** The share of the pigment present that one exchange may move.
+ *
+ *  Held below 1 so the operation can never take more paint out of a place than
+ *  is there; the shader clamps as well, but a rate that needs the clamp is a
+ *  rate that has stopped conserving. 0.55 was picked by measurement against the
+ *  four exercises — see ADR 011 §11. */
+const WATERCOLOR_MIGRATE_GAIN = 0.75
+
+/** Where "wet enough for paint to swim" begins and where it is complete. */
+const WATERCOLOR_MIGRATE_LO = 0.78
+const WATERCOLOR_MIGRATE_HI = 1.0
+
+/** Exported for the engine, which resolves the reach against the gesture's own
+ *  first dab exactly as it does the spread's. */
+export const WATERCOLOR_MIGRATION = {
+  maxPx: WATERCOLOR_MIGRATE_MAX_PX,
+  minPx: WATERCOLOR_MIGRATE_MIN_PX,
+}
+
 export const WATERCOLOR_SPREAD = {
   cap: WATERCOLOR_SPREAD_CAP_PX,
   min: WATERCOLOR_SPREAD_MIN_PX,
@@ -578,6 +677,27 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // perimeter, so it leaves *less* of a rim — the reduction is the point, not
     // a fudge factor.
     wetEdge: p.wetEdge * (1 - 0.6 * paint.staining),
+    // ── from the paint: whether it can travel at all (#468 v11) ──
+    //
+    // The same staining figure, and rather harder, because this is the real
+    // mechanism the line above only imitates: a staining paint is one that has
+    // already bound to the fibre by the time the water starts moving, so there
+    // is nothing left loose for the water to carry. Diffusion is how readily it
+    // moves once loose, so it belongs here too.
+    // Zero outright below the gate rather than left to evaluate to nothing.
+    // The shader's gate reads the water *left* at each place, which depletion
+    // only ever lowers, so a stroke whose nominal setting is already under the
+    // threshold cannot migrate anywhere — and a zero here skips sixty texture
+    // reads per fragment instead of spending them on a result known in advance.
+    // Measured at roughly half the composite's cost on a full-width band.
+    migrate: mix.water <= WATERCOLOR_MIGRATE_LO
+      ? 0
+      : WATERCOLOR_MIGRATE_GAIN
+        * (1 - 0.7 * paint.staining)
+        * (0.6 + 0.8 * paint.diffusion),
+    migrateOfRadius: WATERCOLOR_MIGRATE_OF_RADIUS,
+    migrateLo: WATERCOLOR_MIGRATE_LO,
+    migrateHi: WATERCOLOR_MIGRATE_HI,
   }
 }
 

@@ -38,7 +38,7 @@ function clamp01(v: number): number {
  *  a covering ink — a single watercolor pass must leave the paper plainly
  *  visible through it, and reach depth only by being glazed over.
  *
- *  0.64 is the *ceiling* — what a pass lays down when the saturation curve is
+ *  0.77 is the *ceiling* — what a pass lays down when the saturation curve is
  *  fully resolved. Raised from v3's 0.42 in v4: pigment now moves that curve
  *  instead of being pinned at its top, so a mid-pigment pass no longer reaches
  *  the ceiling and the whole tool went pale when the level became a real
@@ -48,11 +48,19 @@ function clamp01(v: number): number {
  *  landing below it. This is the single number to reach for first if it reads
  *  too strong or too weak overall.
  *
+ *  #468 v11 — 0.77, up from 0.64, and it buys nothing on its own. The
+ *  saturation curve was lengthened so that a wash sits below its end rather
+ *  than pinned at it (WATERCOLOR_SATURATE_INK, and §11 for why a rim needs the
+ *  headroom); that alone would have made every wash paler by the same factor.
+ *  This puts the tone back exactly where it was — measured against the graded
+ *  wash, which reads 105.2 to 31.7 against 106.7 to 32.8 before the pair of
+ *  changes.
+ *
  *  `hardness` is inert here for the same reason it is inert for the brush pen:
  *  it drives DAB_FRAG's soft-profile edge, and a ribbon tool's silhouette is
  *  geometry instead. Carried at the brush pen's value rather than an accidental
  *  one. */
-export const WATERCOLOR_PRESET: PencilPreset = { opacity: 0.64, hardness: 0.88, sizeMultiplier: 1.0 }
+export const WATERCOLOR_PRESET: PencilPreset = { opacity: 0.77, hardness: 0.88, sizeMultiplier: 1.0 }
 
 // ─── Pressure → width (ADR 011 §5) ──────────────────────────────────────────
 

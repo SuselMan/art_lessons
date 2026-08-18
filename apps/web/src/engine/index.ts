@@ -41,7 +41,7 @@ import {
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
-import { isRibbonTool, ribbonProfileFor, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
+import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
@@ -1298,7 +1298,7 @@ class RibbonStrokeScratch {
    *  first dab of its first batch, a one-shot replay as the first dab of the
    *  only batch. Anything averaged over a batch would differ between the two. */
   private _composite: {
-    spreadPx: number; inkSmoothPx: number; water: number
+    spreadPx: number; inkSmoothPx: number; water: number; migratePx: number
     /** (#468 v10) Where the noise fields are anchored.
      *
      *  A constant of the gesture, and that is a bug fix rather than tidiness.
@@ -1311,7 +1311,7 @@ class RibbonStrokeScratch {
     fieldSeed: [number, number]
   } | null = null
 
-  compositeScalars(make: () => { spreadPx: number; inkSmoothPx: number; water: number; fieldSeed: [number, number] }): { spreadPx: number; inkSmoothPx: number; water: number; fieldSeed: [number, number] } {
+  compositeScalars(make: () => { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number] }): { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number] } {
     if (!this._composite) this._composite = make()
     return this._composite
   }
@@ -4473,6 +4473,8 @@ export class PencilEngine implements PencilEngineAPI {
       'u_pigmentOpacity',
       // #468 v6 — the dab spacing, the period of the deposit's own ripple.
       'u_inkSmoothPx',
+      // #468 v11 — pigment transport (ADR 011 §11).
+      'u_migrate', 'u_migratePx', 'u_migrateLo', 'u_migrateHi',
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
@@ -6440,13 +6442,23 @@ export class PencilEngine implements PencilEngineAPI {
     const strokeDir = scratch.noteDirection(
       dirFrom ? dirTo.x - dirFrom.x : 0, dirFrom ? dirTo.y - dirFrom.y : 0,
     )
-    const { spreadPx, water: fringeWater, fieldSeed } = scratch.compositeScalars(() => {
+    const { spreadPx, water: fringeWater, migratePx, fieldSeed } = scratch.compositeScalars(() => {
       const firstRadius = Math.max(drawable[0].size * 0.5 * preset.sizeMultiplier, 0.5)
       return {
         spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
           ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius))
           : 0,
         inkSmoothPx: 0, // resolved separately, see noteDabSpacing
+        // (#468 v11) How far one exchange moves pigment. A constant of the
+        // gesture for exactly the reason every other scalar here is one: the
+        // composite recomputes whole rects, so whichever batch wrote a pixel
+        // last would otherwise decide how far its paint had travelled.
+        migratePx: profile.migrate > 0 && profile.migrateOfRadius > 0
+          ? Math.min(
+            WATERCOLOR_MIGRATION.maxPx,
+            Math.max(WATERCOLOR_MIGRATION.minPx, firstRadius * profile.migrateOfRadius),
+          )
+          : 0,
         // The fallback the composite uses outside the mark, where there is no
         // deposit to read a per-pixel level from. The stroke's starting load,
         // not its current one, for the same no-seams reason.
@@ -6500,14 +6512,18 @@ export class PencilEngine implements PencilEngineAPI {
     //   spreadPx    the boundary is decided from a blur of coverage that far away;
     //   wetEdge     the tideline reads the same blur;
     //   dabSpacing  the deposit is read back averaged over one spacing, so a
-    //               pixel's value depends on its neighbours' deposits too.
+    //               pixel's value depends on its neighbours' deposits too;
+    //   migratePx   (#468 v11) pigment is exchanged with a ring that far out,
+    //               so a pixel's tone depends on deposits that far away — and
+    //               unlike the terms above this one is symmetric, since paint
+    //               arriving is as much a change as paint leaving.
     //
     // Getting this wrong does not merely blur something: a live batch then
     // composites from buffers that are still filling, no later batch's rect
     // reaches back to correct it, and the mark ends up different from what a
     // replay of the same operation produces.
     const compositePad = spreadPx > 0
-      ? Math.ceil(maxRadius + spreadPx + profile.wetEdgeRadiusPx + dabSpacing) + 1
+      ? Math.ceil(maxRadius + spreadPx + profile.wetEdgeRadiusPx + dabSpacing + migratePx) + 1
       : 0
     const compositeBounds = compositePad > 0
       ? {
@@ -6623,7 +6639,7 @@ export class PencilEngine implements PencilEngineAPI {
       // this argument entirely and reads its own inkLoad texture instead.
       this._drawRibbonCompositeRect(
         tile, compositeBounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
-        fieldSeed, spreadPx, fringeWater,
+        fieldSeed, spreadPx, fringeWater, migratePx,
         profile.normalizeDeposit ? dabSpacing : 0, strokeDir,
       )
     }
@@ -6646,8 +6662,8 @@ export class PencilEngine implements PencilEngineAPI {
     const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
-    const { spreadPx, water } = scratch.compositeScalars(
-      () => ({ spreadPx: 0, inkSmoothPx: 0, water: 0, fieldSeed: [0, 0] as [number, number] }),
+    const { spreadPx, water, migratePx } = scratch.compositeScalars(
+      () => ({ spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0, fieldSeed: [0, 0] as [number, number] }),
     )
     const spacing = scratch.noteDabSpacing(0)
     const dir = scratch.noteDirection(0, 0)
@@ -6656,7 +6672,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!entry) continue
       this._drawRibbonCompositeRect(
         tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity,
-        fieldSeed, spreadPx, water, spacing, dir,
+        fieldSeed, spreadPx, water, migratePx, spacing, dir,
       )
     }
     target.markContentPainted(bounds)
@@ -6824,8 +6840,8 @@ export class PencilEngine implements PencilEngineAPI {
     preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
     color: [number, number, number], opacity: number,
-    fieldSeed: [number, number], spreadPx: number, water: number, inkSmoothPx: number,
-    strokeDir: [number, number],
+    fieldSeed: [number, number], spreadPx: number, water: number, migratePx: number,
+    inkSmoothPx: number, strokeDir: [number, number],
   ): void {
     const cx = (bounds.minX + bounds.maxX) * 0.5
     const cy = (bounds.minY + bounds.maxY) * 0.5
@@ -6834,7 +6850,7 @@ export class PencilEngine implements PencilEngineAPI {
       x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
       size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
     }
-    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water, inkSmoothPx, strokeDir)
+    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -6847,7 +6863,7 @@ export class PencilEngine implements PencilEngineAPI {
     tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
     color: [number, number, number], fieldSeed: [number, number], spreadPx: number, water: number,
-    inkSmoothPx: number, strokeDir: [number, number],
+    migratePx: number, inkSmoothPx: number, strokeDir: [number, number],
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -6950,6 +6966,15 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_tideHi, profile.tideHi)
     gl.uniform1f(u.u_pigmentOpacity, profile.pigmentOpacity)
     gl.uniform1f(u.u_inkSmoothPx, profile.normalizeDeposit ? inkSmoothPx : 0)
+    // #468 v11 — pigment transport (ADR 011 §11). A zero gain switches the
+    // block off outright rather than scaling its result to nothing, which
+    // matters here in a way it does not for the terms above: this one costs 52
+    // texture reads per fragment, and every marker and brush-pen composite goes
+    // through the same program.
+    gl.uniform1f(u.u_migrate, migratePx > 0 ? profile.migrate : 0)
+    gl.uniform1f(u.u_migratePx, migratePx)
+    gl.uniform1f(u.u_migrateLo, profile.migrateLo)
+    gl.uniform1f(u.u_migrateHi, profile.migrateHi)
     gl.uniform1f(u.u_inkWater, 0)
     // #452 — see _drawRibbonNibPass's own comment on why this is cleared here.
     gl.uniform1f(u.u_wickPx, 0)

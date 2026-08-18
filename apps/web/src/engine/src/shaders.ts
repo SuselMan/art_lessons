@@ -483,6 +483,23 @@ export const DAB_FRAG = `
   // between the composite's two halves below; 0 reproduces the pure multiply
   // v1-v4 always did.
   uniform float u_pigmentOpacity;
+  // #468 v11, ADR 011 §11 — pigment transport. Zero on every other tool's
+  // composite, and zero disables the whole block rather than merely scaling it
+  // to nothing, so nobody pays 52 texture reads for a term that cannot fire.
+  //
+  // u_migrate    how much of the pigment lying at a place one exchange with its
+  //              neighbourhood may move. A rate, not an amount: what actually
+  //              moves is this times the pigment that is already there, which
+  //              is what makes the operation conserve paint rather than invent
+  //              it.
+  // u_migratePx  how far it moves. Resolved from the brush's own radius by the
+  //              engine, exactly as u_spreadPx is.
+  // u_migrateLo  the wetness gate, and it is high and steep on purpose. See the
+  // u_migrateHi  block that reads it.
+  uniform float u_migrate;
+  uniform float u_migratePx;
+  uniform float u_migrateLo;
+  uniform float u_migrateHi;
   // #468 v6 - the stroke's own dab spacing, in canvas px, and the period of a
   // ripple the deposit passes cannot avoid leaving.
   //
@@ -601,11 +618,9 @@ export const DAB_FRAG = `
     return 0.63 * wcNoise(p) + 0.37 * wcNoise(p * 2.7 + vec2(31.4, 17.9));
   }
 
-  /** Mean stroke coverage on a ring of radius rPx around this fragment, eight
-   *  taps. NEAREST-filtered source sampled at fixed offsets, so no bilinear
-   *  interpolation enters the result on any vendor. */
   // (#468 v10) Twelve directions per ring, not eight, and the two rings of one
-  // blur offset by half a step.
+  // blur offset by half a step. NEAREST-filtered source sampled at fixed
+  // offsets, so no bilinear interpolation enters the result on any vendor.
   //
   // Eight showed up as *spikes*. The blur these feed decides where the mark's
   // boundary sits, and with only eight sample directions its iso-contour is an
@@ -618,13 +633,19 @@ export const DAB_FRAG = `
   // and fifteen-degree steps are three literals, and a runtime trig call in a
   // shader whose output must match across GPUs is the thing .claude/rules.md
   // warns about.
+  //
+  // Shader scope, not function scope: three helpers need them now (v11's
+  // transport reads the same twelve directions), and a copy per function is a
+  // copy that can drift.
+  const float C30 = 0.8660254;
+  const float C15 = 0.9659258;
+  const float S15 = 0.2588190;
 
   /** (#468 v6) The deposit texture, averaged over a ring of radius rPx, so one
    *  dab spacing of ripple integrates out whichever way the stroke happened to
    *  be travelling. Returns the deposit in .a and its water-weighted partner in
    *  .r, the pair the composite divides. */
   vec4 wcInkAvg(vec2 uv, vec2 texel, float rPx) {
-    const float C30 = 0.8660254;
     vec4 s = texture2D(u_inkLoad, uv) * 2.0;
     s += texture2D(u_inkLoad, uv + vec2( rPx,        0.0      ) * texel);
     s += texture2D(u_inkLoad, uv + vec2(-rPx,        0.0      ) * texel);
@@ -645,9 +666,6 @@ export const DAB_FRAG = `
    *  0.5 rotates the whole ring by fifteen degrees, which is what lets the two
    *  rings of one blur cover twenty-four directions between them. */
   float wcRingAvg(vec2 uv, vec2 texel, float rPx, float stagger) {
-    const float C30 = 0.8660254;
-    const float C15 = 0.9659258;
-    const float S15 = 0.2588190;
     vec2 bx = stagger > 0.5 ? vec2(C15, S15) : vec2(1.0, 0.0);
     vec2 by = vec2(-bx.y, bx.x);
     float s = 0.0;
@@ -664,6 +682,96 @@ export const DAB_FRAG = `
     s += texture2D(u_strokeCoverage, uv + (bx *  rPx * 0.5 + by * -rPx * C30) * texel).a;
     s += texture2D(u_strokeCoverage, uv + (bx * -rPx * 0.5 + by * -rPx * C30) * texel).a;
     return s * 0.0833333;
+  }
+
+  // #468 v11, ADR 011 §11 — how much of the wetness gate is decided by the
+  // water still in the brush at this exact spot rather than by the mix the
+  // stroke was made with.
+  //
+  // Deliberately the smaller share. Water depletes fast (twenty radii of travel
+  // and a flooded brush is merely damp), so a gate reading the local value
+  // alone would put edge deposition in the first inch of every band and nowhere
+  // else — and since a wash is laid in alternating directions, that lands as a
+  // zigzag across the finished wash rather than as a rim around it. The setting
+  // decides whether this wash is wet enough to move paint at all; the local
+  // value only lets a tail that ran dry pool less than the head did.
+  const float WC_MIGRATE_LOCAL = 0.35;
+  // The deposit at which the standing film stops deepening, as a fraction of
+  // u_saturateInk. Sits at the level the deposit buffer itself tops out at, so
+  // the depth reads as flat right across the inside of a wash and slopes only
+  // through the margin the brush feathered — which is the one place a real film
+  // is genuinely shallower, and the only place pigment has anywhere to run to.
+  const float WC_MIGRATE_FULL = 0.74;
+  // Hard limits on one step, as a multiple of the pigment already present.
+  // A transport step that needs its clamp is a step that has stopped
+  // conserving, so these exist to bound a mistake rather than to shape the
+  // result: at the settings shipped they are never reached.
+  // Where the wash stops, read off the *silhouette* rather than off the
+  // deposit, and both halves of that are measured rather than tidy.
+  //
+  // A mask, not a depth. Water runs downhill, so every destination worth moving
+  // to is shallower than where the pigment started; masking by depth scales the
+  // flow by how shallow the destination is and cancels the term it is meant to
+  // carry. The first attempt did that and moved about two percent of the paint.
+  //
+  // And the silhouette rather than the deposit, because the two end in
+  // different places. The nib stamps are cones, so the deposit fades out over
+  // most of a brush radius *inside* the mark, while the silhouette runs flat to
+  // the edge and stops. Masked by the deposit, pigment kept going after it had
+  // run out of mark: on a broad blob it left the margin and landed where the
+  // coverage was already fading, so the ring it should have built was thrown
+  // away instead - measured as a margin nine tone units lighter with under two
+  // units arriving anywhere.
+  const float WC_MIGRATE_EDGE_LO = 0.02;
+  const float WC_MIGRATE_EDGE_HI = 0.30;
+
+  /** (#468 v11) Everything one place contributes to pigment transport, read in
+   *  one go so that two neighbouring fragments compute identical numbers for
+   *  each other.
+   *
+   *  That identity is the entire reason this takes a position and nothing else
+   *  — no direction argument, and no reuse of the centre's own wider average.
+   *  The exchange between two places is computed twice, once at each end, and
+   *  it conserves pigment only if both ends agree to the bit. An estimator that
+   *  leaned on which way it happened to be looking would create paint on one
+   *  side of every pair and destroy it on the other, which is precisely the
+   *  fault the painted-on tideline has and this revision exists to remove.
+   *
+   *  Four taps in a plus at the deposit's own ripple radius, so that whatever
+   *  is left of the per-dab modulation does not come back as flux noise.
+   *
+   *  .x  how much pigment lies here
+   *  .y  how deep the water standing over it is
+   *  .z  whether there is wet paint here at all - the mask
+   *  .w  how freely this place lets pigment go: the wetness gate */
+  vec4 wcTransportField(vec2 uv, vec2 texel, float s, float full) {
+    vec4 a = texture2D(u_inkLoad, uv + vec2(  s, 0.0) * texel)
+           + texture2D(u_inkLoad, uv + vec2( -s, 0.0) * texel)
+           + texture2D(u_inkLoad, uv + vec2(0.0,   s) * texel)
+           + texture2D(u_inkLoad, uv + vec2(0.0,  -s) * texel);
+    a *= 0.25;
+    float dep = a.a;
+    float wat = dep > 0.004 ? clamp(a.r / dep, 0.0, 1.0) : 0.0;
+    float cov = texture2D(u_strokeCoverage, uv).a;
+    return vec4(
+      dep,
+      wat * min(dep / full, 1.0),
+      smoothstep(WC_MIGRATE_EDGE_LO, WC_MIGRATE_EDGE_HI, cov),
+      smoothstep(u_migrateLo, u_migrateHi, mix(u_water, wat, WC_MIGRATE_LOCAL))
+    );
+  }
+
+  /** One direction's exchange, as (arriving, leaving).
+   *
+   *  Upwind and one-sided: pigment goes from the wetter place to the drier one
+   *  and never the other way, because what carries it is water leaving. Both
+   *  halves are written from the *source* place's own numbers, which is what
+   *  makes the pair cancel exactly when the neighbour computes it. */
+  vec2 wcFlux(vec4 c, vec2 uv, vec2 texel, vec2 dir, float h, float s, float full) {
+    vec4 n = wcTransportField(uv + dir * h * texel, texel, s, full);
+    float leaving  = c.w * c.x * max(c.y - n.y, 0.0) * n.z;
+    float arriving = n.w * n.x * max(n.y - c.y, 0.0) * c.z;
+    return vec2(arriving, leaving);
   }
 
   // Interpolated value noise built on the same portable hash() above — only
@@ -1017,7 +1125,65 @@ export const DAB_FRAG = `
       // saturates once and stops, and depth comes from glazing - lifting the
       // stylus, which starts a new scratch, freezes this result as the new
       // pre-stroke original, and multiplies over it afresh.
-      float density = smoothstep(0.0, u_saturateInk, ink.a);
+      // §11 - pigment transport, and the first thing in this tool that moves
+      // paint rather than deciding how much of it to lay down.
+      //
+      // Everything above is a per-place formula: a pixel's tone is a function
+      // of what the brush did over that pixel and nothing else. That is what an
+      // Operation-Log tool can normally afford, and it is why the tideline below
+      // had to be *painted on* - the model had no pigment that came from
+      // anywhere, so it made a rim out of extra darkness instead, and a wash
+      // could gain an edge without its middle ever going lighter. Real washes
+      // do the opposite. Water evaporates fastest where the film is thinnest,
+      // capillary flow carries pigment there to replace it, and the pigment
+      // stays behind when the water leaves: the centre pays for the edge.
+      //
+      // What makes it affordable is §7. A wash is one object with one set of
+      // buffers and one final recomposite, so a redistribution can be computed
+      // inside it without any state crossing a stroke boundary - and therefore
+      // without touching the rule that a stroke replays as a pure function of
+      // its own Operation.
+      //
+      // It is still not a fluid simulation: no velocity carried between frames,
+      // no pressure solve, no iteration count. One conservative exchange between
+      // each place and a ring around it, evaluated in the composite. Twelve
+      // directions rather than eight for the reason wcRingAvg documents - eight
+      // resolves as an octagon, and an octagon around every wet mark would be
+      // worse than no transport at all.
+      float deposit = ink.a;
+      float migrateGate = 0.0;
+      if (u_migrate > 0.0) {
+        // The standing film, as a field rather than a per-place number: how
+        // much water lies here, flat right across the inside of a wash and
+        // sloping away only through the margin the brush feathered.
+        //
+        // Read off the deposit and not off the silhouette, which is a measured
+        // choice rather than a convenience. The silhouette saturates within a
+        // pixel or two of the boundary, so it carries no shape for a gradient
+        // to be taken of; the deposit fades out over most of a brush radius,
+        // because the nib stamps are cones, and that fade is the margin.
+        float s = max(u_inkSmoothPx * 0.5, 1.0);
+        float R = u_migratePx;
+        float full = max(u_saturateInk * WC_MIGRATE_FULL, 0.0001);
+        vec4 c = wcTransportField(tileUV, texel, s, full);
+        migrateGate = c.w;
+        vec2 f = vec2(0.0);
+        f += wcFlux(c, tileUV, texel, vec2( 1.0,  0.0), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2(-1.0,  0.0), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2( 0.0,  1.0), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2( 0.0, -1.0), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2( C30,  0.5), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2(-C30,  0.5), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2( C30, -0.5), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2(-C30, -0.5), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2( 0.5,  C30), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2(-0.5,  C30), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2( 0.5, -C30), R, s, full);
+        f += wcFlux(c, tileUV, texel, vec2(-0.5, -C30), R, s, full);
+        deposit = max(ink.a + u_migrate * (f.x - f.y) * 0.0833333, 0.0);
+      }
+
+      float density = smoothstep(0.0, u_saturateInk, deposit);
 
       // §3.3 granulation - heavier pigment settles into the paper's pits while
       // the wash is still liquid and dries there. paperCatch is high on a fibre
@@ -1109,7 +1275,13 @@ export const DAB_FRAG = `
         // call: a dry mark never had a pool to retreat, a flood leaves one
         // almost everywhere it stopped.
         float tide = smoothstep(u_tideLo, u_tideHi, wcFbm(wp * 0.025 + vec2(7.0, 61.0)));
-        wet = u_wetEdge * outside * tide;
+        // §11 - and it stands down where transport is doing the work. Two
+        // rims at once is one too many, and the wrong one would be the louder:
+        // this term multiplies brightness, so it darkens an edge without ever
+        // taking that darkness from anywhere. Left in at low water on purpose -
+        // a merely damp wash does still leave a faint line where it stopped,
+        // and transport is gated off down there and has nothing to say.
+        wet = u_wetEdge * outside * tide * (1.0 - 0.35 * migrateGate);
       }
 
       // §3.4 - paper bites the rim only. edgeness is identically 0 wherever the

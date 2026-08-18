@@ -20,6 +20,7 @@ import {
 } from './watercolorPresets'
 import { watercolorPigmentByCode, WATERCOLOR_PIGMENTS, DEFAULT_WATERCOLOR_PIGMENT } from './watercolorPigments'
 import { brushPenWidth } from './brushPenPresets'
+import { ribbonProfileFor } from './ribbonProfile'
 
 function dabAt(x: number, y: number, size = 30): Dab {
   return { x, y, pressure: 0.5, tiltX: 0, tiltY: 0, size, aspectRatio: 1, angle: 0, opacity: 1, t: 0 }
@@ -35,7 +36,12 @@ describe('watercolor preset (#468, ADR 011 §5)', () => {
     // reaches, and pigment now moves the saturation curve underneath it rather
     // than pinning it at the top, so the value a mark actually lands on is well
     // below this number.
-    expect(WATERCOLOR_PRESET.opacity).toBeLessThan(0.75)
+    //
+    // Wider again since v11, which lengthened the saturation curve so a wash
+    // sits below its end instead of pinned at it, and raised this to put the
+    // tone back where it was. The pass a mark lands on is now about 0.83 of
+    // this, so the effective ceiling moved not at all.
+    expect(WATERCOLOR_PRESET.opacity).toBeLessThan(0.85)
     expect(WATERCOLOR_PRESET.opacity).toBeGreaterThan(0.3)
   })
 })
@@ -386,6 +392,58 @@ describe('pigments (#468 v5, ADR 011 §5)', () => {
     for (const p of WATERCOLOR_PIGMENTS) {
       expect(p.code).toMatch(/^P[A-Za-z]+\d+(:\d+)?$/)
       expect(p.name.length).toBeGreaterThan(3)
+    }
+  })
+})
+
+describe('pigment transport (#468 v11, ADR 011 §11)', () => {
+  // What the shader does with these is not testable here — MockGL never
+  // rasterizes DAB_FRAG, and §11's whole result is a redistribution inside the
+  // composite (see this file's own header). What *is* testable is the gate: a
+  // wash that is not very wet must not pay for the term, and must not get it.
+  it('is off for anything short of a very wet mix', () => {
+    for (const water of [0, 0.3, 0.55, 0.7, 0.78]) {
+      const p = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water, pigment: 0.6 }))
+      expect(p.migrate).toBe(0)
+    }
+  })
+
+  it('is on above it, and only there', () => {
+    const damp = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.6, pigment: 0.6 }))
+    const wet = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.95, pigment: 0.6 }))
+    expect(damp.migrate).toBe(0)
+    expect(wet.migrate).toBeGreaterThan(0)
+  })
+
+  // The reach and the gate travel with the profile so a peer replaying the
+  // stroke redistributes the pigment exactly as the author's machine did.
+  it('carries a gate the shader can read, in the same units as the mix', () => {
+    const p = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.95, pigment: 0.6 }))
+    expect(p.migrateLo).toBeGreaterThan(0.5)
+    expect(p.migrateLo).toBeLessThan(p.migrateHi)
+    expect(p.migrateHi).toBeLessThanOrEqual(1)
+    expect(p.migrateOfRadius).toBeGreaterThan(0)
+  })
+
+  // A staining paint has bound to the fibre by the time the water starts
+  // moving, so there is nothing loose left for it to carry. That is the
+  // physical reason the wet edge is weaker for one, and here it is the same
+  // number acting on the mechanism itself rather than on an imitation of it.
+  it('a staining paint travels less than a lifting one', () => {
+    const staining = [...WATERCOLOR_PIGMENTS].sort((a, b) => b.staining - a.staining)[0]
+    const lifting = [...WATERCOLOR_PIGMENTS].sort((a, b) => a.staining - b.staining)[0]
+    const mix = { water: 0.95, pigment: 0.6 }
+    const a = ribbonProfileFor('watercolor', watercolorPresetString('normal', mix, staining.code))
+    const b = ribbonProfileFor('watercolor', watercolorPresetString('normal', mix, lifting.code))
+    expect(a.migrate).toBeLessThan(b.migrate)
+  })
+
+  // Every other tool goes through the same program, and a nonzero gain there
+  // would cost sixty texture reads per fragment for a branch that must not run
+  // at all — see RibbonProfile.migrate.
+  it('no other ribbon tool migrates anything', () => {
+    for (const tool of ['marker', 'brushPen'] as const) {
+      expect(ribbonProfileFor(tool, undefined).migrate).toBe(0)
     }
   })
 })
