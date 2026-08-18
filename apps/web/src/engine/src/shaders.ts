@@ -604,36 +604,66 @@ export const DAB_FRAG = `
   /** Mean stroke coverage on a ring of radius rPx around this fragment, eight
    *  taps. NEAREST-filtered source sampled at fixed offsets, so no bilinear
    *  interpolation enters the result on any vendor. */
-  /** (#468 v6) The deposit texture, averaged over a ring of radius rPx - centre
-   *  plus eight taps, so one dab spacing of ripple integrates out whichever way
-   *  the stroke happened to be travelling. Returns the deposit in .a and its
-   *  water-weighted partner in .r, the pair the composite divides. */
+  // (#468 v10) Twelve directions per ring, not eight, and the two rings of one
+  // blur offset by half a step.
+  //
+  // Eight showed up as *spikes*. The blur these feed decides where the mark's
+  // boundary sits, and with only eight sample directions its iso-contour is an
+  // octagon — so a round mark grew hard radial rays at the eight compass
+  // points, which is exactly how it was reported. Twelve, staggered by fifteen
+  // degrees, puts twenty-four distinct directions into the pair and the octagon
+  // stops resolving.
+  //
+  // Written as constants rather than a loop with trig: cos and sin at thirty-
+  // and fifteen-degree steps are three literals, and a runtime trig call in a
+  // shader whose output must match across GPUs is the thing .claude/rules.md
+  // warns about.
+
+  /** (#468 v6) The deposit texture, averaged over a ring of radius rPx, so one
+   *  dab spacing of ripple integrates out whichever way the stroke happened to
+   *  be travelling. Returns the deposit in .a and its water-weighted partner in
+   *  .r, the pair the composite divides. */
   vec4 wcInkAvg(vec2 uv, vec2 texel, float rPx) {
-    const float D = 0.7071068;
+    const float C30 = 0.8660254;
     vec4 s = texture2D(u_inkLoad, uv) * 2.0;
-    s += texture2D(u_inkLoad, uv + vec2( rPx,      0.0     ) * texel);
-    s += texture2D(u_inkLoad, uv + vec2(-rPx,      0.0     ) * texel);
-    s += texture2D(u_inkLoad, uv + vec2( 0.0,      rPx     ) * texel);
-    s += texture2D(u_inkLoad, uv + vec2( 0.0,     -rPx     ) * texel);
-    s += texture2D(u_inkLoad, uv + vec2( rPx * D,  rPx * D ) * texel);
-    s += texture2D(u_inkLoad, uv + vec2(-rPx * D,  rPx * D ) * texel);
-    s += texture2D(u_inkLoad, uv + vec2( rPx * D, -rPx * D ) * texel);
-    s += texture2D(u_inkLoad, uv + vec2(-rPx * D, -rPx * D ) * texel);
-    return s * 0.1;
+    s += texture2D(u_inkLoad, uv + vec2( rPx,        0.0      ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2(-rPx,        0.0      ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( 0.0,        rPx      ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( 0.0,       -rPx      ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( rPx * C30,  rPx * 0.5) * texel);
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * C30,  rPx * 0.5) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( rPx * C30, -rPx * 0.5) * texel);
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * C30, -rPx * 0.5) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5,  rPx * C30) * texel);
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5,  rPx * C30) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5, -rPx * C30) * texel);
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5, -rPx * C30) * texel);
+    return s * 0.0714286;
   }
 
-  float wcRingAvg(vec2 uv, vec2 texel, float rPx) {
-    const float D = 0.7071068; // cos/sin 45 deg, written out - no trig at runtime
+  /** Mean stroke coverage on a ring of radius rPx, twelve taps. A stagger above
+   *  0.5 rotates the whole ring by fifteen degrees, which is what lets the two
+   *  rings of one blur cover twenty-four directions between them. */
+  float wcRingAvg(vec2 uv, vec2 texel, float rPx, float stagger) {
+    const float C30 = 0.8660254;
+    const float C15 = 0.9659258;
+    const float S15 = 0.2588190;
+    vec2 bx = stagger > 0.5 ? vec2(C15, S15) : vec2(1.0, 0.0);
+    vec2 by = vec2(-bx.y, bx.x);
     float s = 0.0;
-    s += texture2D(u_strokeCoverage, uv + vec2( rPx,      0.0     ) * texel).a;
-    s += texture2D(u_strokeCoverage, uv + vec2(-rPx,      0.0     ) * texel).a;
-    s += texture2D(u_strokeCoverage, uv + vec2( 0.0,      rPx     ) * texel).a;
-    s += texture2D(u_strokeCoverage, uv + vec2( 0.0,     -rPx     ) * texel).a;
-    s += texture2D(u_strokeCoverage, uv + vec2( rPx * D,  rPx * D ) * texel).a;
-    s += texture2D(u_strokeCoverage, uv + vec2(-rPx * D,  rPx * D ) * texel).a;
-    s += texture2D(u_strokeCoverage, uv + vec2( rPx * D, -rPx * D ) * texel).a;
-    s += texture2D(u_strokeCoverage, uv + vec2(-rPx * D, -rPx * D ) * texel).a;
-    return s * 0.125;
+    s += texture2D(u_strokeCoverage, uv + (bx *  rPx) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (bx * -rPx) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (by *  rPx) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (by * -rPx) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (bx *  rPx * C30 + by *  rPx * 0.5) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (bx * -rPx * C30 + by *  rPx * 0.5) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (bx *  rPx * C30 + by * -rPx * 0.5) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (bx * -rPx * C30 + by * -rPx * 0.5) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (bx *  rPx * 0.5 + by *  rPx * C30) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (bx * -rPx * 0.5 + by *  rPx * C30) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (bx *  rPx * 0.5 + by * -rPx * C30) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + (bx * -rPx * 0.5 + by * -rPx * C30) * texel).a;
+    return s * 0.0833333;
   }
 
   // Interpolated value noise built on the same portable hash() above — only
@@ -889,8 +919,8 @@ export const DAB_FRAG = `
         float reach = u_spreadPx * mix(0.25, 1.0, waterHere);
         blurred =
             0.20 * rawCoverage
-          + 0.45 * wcRingAvg(tileUV, texel, reach * 0.55)
-          + 0.35 * wcRingAvg(tileUV, texel, reach);
+          + 0.45 * wcRingAvg(tileUV, texel, reach * 0.55, 1.0)
+          + 0.35 * wcRingAvg(tileUV, texel, reach, 0.0);
         // Wide threshold range on purpose: the boundary's displacement is
         // (range of thr) / (slope of blurred across the edge), so a timid range
         // buys a wobble of a pixel or two that nothing can see. This spends

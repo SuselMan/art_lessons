@@ -1297,9 +1297,21 @@ class RibbonStrokeScratch {
    *  stroke and a replay of it are guaranteed to agree on: live sees it as the
    *  first dab of its first batch, a one-shot replay as the first dab of the
    *  only batch. Anything averaged over a batch would differ between the two. */
-  private _composite: { spreadPx: number; inkSmoothPx: number; water: number } | null = null
+  private _composite: {
+    spreadPx: number; inkSmoothPx: number; water: number
+    /** (#468 v10) Where the noise fields are anchored.
+     *
+     *  A constant of the gesture, and that is a bug fix rather than tidiness.
+     *  It used to be *this batch's* first dab, so the whole texture shifted by
+     *  a few pixels on every pointer event — the mark's grain visibly crawled
+     *  backwards under the pen as it was drawn, and then landed somewhere else
+     *  again at pen-up, because the final pass anchored on the gesture's first
+     *  dab instead. On a long straight stroke the same shifting showed up as a
+     *  row of discs at the batch pitch. */
+    fieldSeed: [number, number]
+  } | null = null
 
-  compositeScalars(make: () => { spreadPx: number; inkSmoothPx: number; water: number }): { spreadPx: number; inkSmoothPx: number; water: number } {
+  compositeScalars(make: () => { spreadPx: number; inkSmoothPx: number; water: number; fieldSeed: [number, number] }): { spreadPx: number; inkSmoothPx: number; water: number; fieldSeed: [number, number] } {
     if (!this._composite) this._composite = make()
     return this._composite
   }
@@ -6415,7 +6427,7 @@ export class PencilEngine implements PencilEngineAPI {
     const strokeDir = scratch.noteDirection(
       dirFrom ? dirTo.x - dirFrom.x : 0, dirFrom ? dirTo.y - dirFrom.y : 0,
     )
-    const { spreadPx, water: fringeWater } = scratch.compositeScalars(() => {
+    const { spreadPx, water: fringeWater, fieldSeed } = scratch.compositeScalars(() => {
       const firstRadius = Math.max(drawable[0].size * 0.5 * preset.sizeMultiplier, 0.5)
       return {
         spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
@@ -6426,6 +6438,7 @@ export class PencilEngine implements PencilEngineAPI {
         // deposit to read a per-pixel level from. The stroke's starting load,
         // not its current one, for the same no-seams reason.
         water: profile.waterLevel,
+        fieldSeed: [drawable[0].x, drawable[0].y],
       }
     })
 
@@ -6593,14 +6606,14 @@ export class PencilEngine implements PencilEngineAPI {
       // this argument entirely and reads its own inkLoad texture instead.
       this._drawRibbonCompositeRect(
         tile, compositeBounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
-        [drawable[0].x, drawable[0].y], spreadPx, fringeWater,
+        fieldSeed, spreadPx, fringeWater,
         profile.normalizeDeposit ? dabSpacing : 0, strokeDir,
       )
     }
 
     scratch.noteFinish({
       target, preset, profile, color, opacity: drawable[0].opacity,
-      bounds: compositeBounds, fieldSeed: [drawable[0].x, drawable[0].y],
+      bounds: compositeBounds, fieldSeed,
     })
 
     target.markContentPainted(compositeBounds)
@@ -6616,7 +6629,9 @@ export class PencilEngine implements PencilEngineAPI {
     const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
-    const { spreadPx, water } = scratch.compositeScalars(() => ({ spreadPx: 0, inkSmoothPx: 0, water: 0 }))
+    const { spreadPx, water } = scratch.compositeScalars(
+      () => ({ spreadPx: 0, inkSmoothPx: 0, water: 0, fieldSeed: [0, 0] as [number, number] }),
+    )
     const spacing = scratch.noteDabSpacing(0)
     const dir = scratch.noteDirection(0, 0)
     for (const tile of targets) {
