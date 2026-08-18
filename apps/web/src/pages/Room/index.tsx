@@ -1213,7 +1213,7 @@ export function Room() {
   // gesture handlers.
   const { toastVisible: viewportToastVisible, onPinchPhase, hide: hideViewportToast } = useViewportToast()
 
-  const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, zoomBy, angleDeg, canvasTransform } =
+  const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, zoomBy, angleDeg } =
     useViewport(config, toolActiveRef, config?.infinite ?? false, onPinchPhase)
 
   // Infinite rooms measure "100%" against the device-native 1-world-unit-per-
@@ -1753,6 +1753,12 @@ export function Room() {
   const enginePaper = config?.paper
   const enginePaperColor = config?.paperColor
   const engineInfinite = config?.infinite ?? false
+  // (#470) Captured alongside the other engine options rather than read off
+  // `config` inside the effect: the effect's deps are these primitives, and
+  // reaching through a possibly-null config there is what the narrowing above
+  // exists to avoid.
+  const enginePageW = config?.width
+  const enginePageH = config?.height
 
   // (#345) Remember this room's paper so the *next* launch can start
   // downloading the right ~4 MB texture before anything is opened (see
@@ -1768,6 +1774,10 @@ export function Room() {
     if (enginePaper === undefined || !canvasRef.current) return
     const engine = new PencilEngine(canvasRef.current, {
       infinite: engineInfinite,
+      // (#470) The sheet, in world units. The canvas is the viewport now, so
+      // the engine can no longer read this off it the way it used to.
+      pageWidth: engineInfinite ? undefined : enginePageW,
+      pageHeight: engineInfinite ? undefined : enginePageH,
       paper: enginePaper,
       paperColor: enginePaperColor ? hexToRgb(enginePaperColor) : undefined,
       pencilType: initialToolRef.current.pencil,
@@ -2398,8 +2408,11 @@ export function Room() {
   // ── sync viewport → engine ────────────────────────────────────────────────────
   useEffect(() => {
     const el = vpRef.current; if (!el) return
-    if (config?.infinite) {
-      // Infinite canvas (#133 Phase 1): (vp.cx, vp.cy) is the gesture
+    {
+      // (#470) Both kinds of room take this path now — a bounded room is
+      // drawn through the same camera, so the CSS transform that used to move
+      // its canvas element is gone and the engine is told where to look
+      // instead. (vp.cx, vp.cy) is the gesture
       // layer's own convention — screen position (relative to the
       // viewport's own top-left, not window-absolute) of whatever world
       // point currently sits under it — same tracked-by-delta state
@@ -2410,30 +2423,45 @@ export function Room() {
       // screenToWorld (#143 factored this out of an inline hand-solved
       // version so the overlay components below could share the exact
       // same conversion instead of re-deriving it).
-      const { x: wx, y: wy } = screenToWorld(el.clientWidth / 2, el.clientHeight / 2, vp)
+      const { x, y } = screenToWorld(el.clientWidth / 2, el.clientHeight / 2, vp)
+      // (#470) Two conventions meet here, and the offset between them is
+      // exactly half a sheet. `vp.cx/cy` is where the *canvas centre* sits on
+      // screen — that is what the CSS transform this replaced meant by it
+      // (`... scale(zoom) translate(-w/2,-h/2)`), and every gesture in
+      // useViewport still produces it. screenToWorld inverts that about
+      // (cx,cy), so what it returns for a bounded room is the offset from the
+      // sheet's centre, not a world point. The rotation drops out: the half
+      // translate happens before scale and rotate, so this correction is a
+      // plain addition at any angle.
+      const wx = enginePageW === undefined ? x : x + enginePageW / 2
+      const wy = enginePageH === undefined ? y : y + enginePageH / 2
       // vp.zoom is CSS px per world unit; the engine renders into a
       // DPR-sized backing store (see the ResizeObserver below), so it wants
       // physical px per world unit — see deviceNativeZoom's doc comment.
       engineRef.current?.setInfiniteCamera(wx, wy, vp.zoom / deviceNativeZoom(), vp.angle)
-      return
     }
-    const rect = el.getBoundingClientRect()
-    engineRef.current?.setViewport(rect.left + vp.cx, rect.top + vp.cy, vp.zoom, vp.angle)
-  }, [vp, vpRef, config?.infinite])
+  }, [vp, vpRef])
 
-  // ── infinite canvas: canvas element tracks the viewport container's own
-  // size (#133 Phase 1) — there's no fixed room size to size it to instead.
-  // A bounded-canvas room's canvas size is fixed for the room's lifetime
-  // and never needs this.
+  // ── the canvas element tracks the viewport container's own size (#133
+  // Phase 1 for infinite rooms, every room since #470: a bounded room's
+  // canvas used to be its sheet, fixed for the room's lifetime, and that is
+  // exactly what made a big sheet unaffordable).
   useEffect(() => {
-    if (!config?.infinite) return
-    const el = vpRef.current
-    const engine = engineRef.current
-    if (!el || !engine) return
-    const observer = new ResizeObserver(entries => {
-      const entry = entries[0]
-      if (!entry) return
-      const { width, height } = entry.contentRect
+    // (#470) `vpEl` (state), not `vpRef.current`: the ref is still empty when
+    // this runs on mount, and the deps below no longer change when the room's
+    // config arrives, so a ref read here would early-return once and never be
+    // retried — leaving the backing store at the element's default 300x150
+    // while CSS stretched it across the viewport.
+    const el = vpEl
+    if (!el) return
+    // Read through the ref inside the callback rather than captured at
+    // attach time: this effect now runs on mount for every room, and the
+    // engine is created by a later effect, so a captured null would leave the
+    // backing store at the element's default 300x150 forever — the canvas
+    // stretched by CSS over a viewport it never actually rendered.
+    const applySize = (width: number, height: number): void => {
+      const engine = engineRef.current
+      if (!engine) return
       // Backing store at physical-device resolution (contentRect is CSS px),
       // so at the device-native zoom the UI calls 100% one tile texel lands
       // on exactly one physical pixel — see deviceNativeZoom's doc comment.
@@ -2442,10 +2470,23 @@ export function Room() {
       if (width > 0 && height > 0) {
         engine.resizeCanvas(Math.round(width / nz), Math.round(height / nz))
       }
+    }
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0]
+      if (!entry) return
+      applySize(entry.contentRect.width, entry.contentRect.height)
     })
     observer.observe(el)
-    return () => observer.disconnect()
-  }, [config?.infinite, vpRef])
+    // And once the engine exists, since the observer's own first callback has
+    // very likely already come and gone by then.
+    const engineArrived = window.setInterval(() => {
+      if (!engineRef.current) return
+      window.clearInterval(engineArrived)
+      const rect = el.getBoundingClientRect()
+      applySize(rect.width, rect.height)
+    }, 50)
+    return () => { observer.disconnect(); window.clearInterval(engineArrived) }
+  }, [vpEl])
 
   // ── local cursor broadcast (#37) ──────────────────────────────────────────────
   // A raw DOM listener rather than the engine's 'pointer' event: that one only
@@ -5457,7 +5498,8 @@ export function Room() {
           <div
             ref={canvasWrapRef}
             className={styles.canvasWrap}
-            style={{ transform: config.infinite ? undefined : canvasTransform }}
+            /* (#470) No CSS transform any more: the camera moves the view
+               inside the engine, for both kinds of room. */
           >
             <canvas
               ref={canvasRef}
@@ -5465,8 +5507,11 @@ export function Room() {
               // to set here — the ResizeObserver effect above drives it via
               // engine.resizeCanvas() to track the viewport container's own
               // size instead, and the CSS size simply fills that container.
-              width={config.infinite ? undefined : config.width}
-              height={config.infinite ? undefined : config.height}
+              // No fixed backing-buffer size to set here — the ResizeObserver
+              // effect above drives it via engine.resizeCanvas() to track the
+              // viewport container's own size, and the CSS size fills it.
+              width={undefined}
+              height={undefined}
               className={styles.canvas}
               // (#169 bug fix) pointerEvents 'none' while the initial
               // content restore is still in flight — see roomContentReady's
@@ -5484,7 +5529,7 @@ export function Room() {
               // paints — no second "is the hand on?" check inside the engine's
               // pointer path, which is where the two would drift apart.
               style={{
-                ...(config.infinite ? { width: '100%', height: '100%' } : { width: config.width, height: config.height }),
+                width: '100%', height: '100%',
                 pointerEvents: (roomContentReady && !editingBlocked && !handActive) ? undefined : 'none',
               }}
             />

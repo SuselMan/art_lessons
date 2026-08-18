@@ -641,16 +641,24 @@
    it was buying no smoothness here to weigh against that. The WebGL canvas
    inside still gets its own layer the way an accelerated canvas always does;
    what's gone is the promotion of the wrapper around it. */
+/* (#470) Fills the viewport rather than shrink-wrapping the canvas. It used
+   to be sized by the canvas element itself, because for a bounded room that
+   element *was* the sheet and this wrapper carried the CSS pan/zoom transform
+   applied to it. The camera does that inside the engine now, so this is just
+   the box the viewport-sized canvas lives in. */
 .canvasWrap {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   transform-origin: 0 0;
 }
 
+/* (#470) No paper shadow here any more. It was the sheet's own drop shadow,
+   which worked while the canvas was the sheet; the canvas is the whole
+   viewport now, so a shadow on it would frame the window rather than the
+   page. The sheet's edge is drawn where the sheet is — see PAPER_COMPOSE_FRAG's
+   u_pageRect. */
 .canvas {
   display: block;
-  box-shadow: var(--shadow-paper);
 }
 
 /* ── Peer cursors (#37) ──

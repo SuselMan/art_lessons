@@ -246,6 +246,7 @@ export class MockGL {
   uniform2f(loc: MockLocation, a: number, b: number): void { loc.program.uniforms.set(loc.name, [a, b]) }
   uniform3fv(loc: MockLocation, v: number[] | Float32Array): void { loc.program.uniforms.set(loc.name, Array.from(v)) }
   uniform4f(loc: MockLocation, a: number, b: number, c: number, d: number): void { loc.program.uniforms.set(loc.name, [a, b, c, d]) }
+  uniform4fv(loc: MockLocation, v: number[] | Float32Array): void { loc.program.uniforms.set(loc.name, Array.from(v)) }
   uniformMatrix3fv(loc: MockLocation, _transpose: boolean, v: number[] | Float32Array): void {
     loc.program.uniforms.set(loc.name, Array.from(v))
   }
