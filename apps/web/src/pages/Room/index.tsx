@@ -2059,6 +2059,8 @@ export function Room() {
   // brushPenPresets.ts's brushPenResponseFromPreset on why the setting rides
   // the existing per-stroke string rather than a new Operation field.
   const brushPenResponse = toolSettings.brushPen.pressureResponse as string
+  // #468 — same slot, same reason (watercolorPresets.ts's watercolorResponseFromPreset).
+  const watercolorResponse = toolSettings.watercolor.pressureResponse as string
   // Same preset string engine.setPencil below records (`${nib}:${size}` for
   // marker, the size label for liner, the charcoal type for charcoal, the
   // grade name otherwise) — only marker's own dispatch (bullet/chisel)
@@ -2069,6 +2071,7 @@ export function Room() {
     : drawingTool === 'liner' ? linerSize
     : drawingTool === 'charcoal' ? charcoalType
     : drawingTool === 'brushPen' ? brushPenResponse
+    : drawingTool === 'watercolor' ? watercolorResponse
     : pencilGrade
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
@@ -2172,9 +2175,10 @@ export function Room() {
         : drawingTool === 'marker' ? markerPreset
         : drawingTool === 'charcoal' ? charcoalType
         : drawingTool === 'brushPen' ? brushPenResponse
+        : drawingTool === 'watercolor' ? watercolorResponse
         : pencilGrade,
     )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalType, brushPenResponse])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalType, brushPenResponse, watercolorResponse])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with
@@ -4811,6 +4815,7 @@ export function Room() {
       if (is('toggleLiner')) { toggleTool('liner'); return }
       if (is('toggleMarker')) { toggleTool('marker'); return }
       if (is('toggleBrushPen')) { toggleTool('brushPen'); return }
+      if (is('toggleWatercolor')) { toggleTool('watercolor'); return }
       // (#405) The four that used to be modes, selected through the same
       // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
       if (is('toggleEyedropper')) { toggleTool('eyedropper'); return }
@@ -5279,6 +5284,16 @@ export function Room() {
             aria-label={t('tool.brushPen')}
             onClick={() => selectTool('brushPen')}
           ><Icon name="brush" /></button>
+          {/* Watercolor (#468, ADR 011) — an experiment, and the only tool in
+              this bar that is not in docs/TOOLSET.md. Last of the drawing
+              tools deliberately: it is the one wet medium here, and grouping
+              it after the dry ones is the order a real desk is laid out in. */}
+          <button
+            className={clsx(styles.toolIconBtn, tool === 'watercolor' && styles.toolIconBtnActive)}
+            title={t('tool.watercolorTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleWatercolor) })}
+            aria-label={t('tool.watercolor')}
+            onClick={() => selectTool('watercolor')}
+          ><Icon name="water_drop" /></button>
 
           <div className={styles.toolDivider} />
 

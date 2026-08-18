@@ -267,10 +267,12 @@ describe('option pickers (#335, #391)', () => {
         // tilt entirely — has to be a deliberate edit here.
         'charcoal.tiltResponse', 'colorPencil.tiltResponse', 'eraser.tiltResponse',
         'pencil.tiltResponse', 'smudge.tiltResponse',
-        // … and the pressure response (#454), on the one tool whose width
-        // actually follows pressure. Same rule as the line above: a second
-        // tool getting this field is a deliberate edit here.
-        'brushPen.pressureResponse'].sort(),
+        // … and the pressure response (#454), on the tools whose width
+        // actually follows pressure. Same rule as the line above: a further
+        // tool getting this field is a deliberate edit here. Watercolor (#468)
+        // is the second, and it is the same physical fact both times — a nib or
+        // a brush whose contact patch opens under the hand.
+        'brushPen.pressureResponse', 'watercolor.pressureResponse'].sort(),
     )
   })
 
@@ -400,7 +402,7 @@ describe('slider scales (#390)', () => {
     const exponential = numberFields.filter(f => f.valueType.scale === expScale).map(f => `${f.toolId}.${f.key}`)
     expect(exponential.sort()).toEqual([
       'brushPen.size', 'charcoal.size', 'colorPencil.size', 'eraser.size', 'marker.size', 'pencil.size',
-      'smudge.size',
+      'smudge.size', 'watercolor.size',
     ])
   })
 

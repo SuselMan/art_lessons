@@ -2,6 +2,7 @@ import type { ToolType } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { shapingForBrushPenPreset } from './brushPenPresets'
+import { shapingForWatercolorPreset } from './watercolorPresets'
 import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
 import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
@@ -256,6 +257,10 @@ export function shapingForTool(
   // tiltResponse for the same reason liner and marker do: its shape barely
   // tracks tilt, so the setting would provably do nothing.
   if (tool === 'brushPen') return shapingForBrushPenPreset(presetName)
+  // #468 — same slot, same dispatch shape: a wet round brush whose contact
+  // patch opens under pressure, with its own higher width floor and heavier
+  // pressure smoothing (watercolorPresets.ts).
+  if (tool === 'watercolor') return shapingForWatercolorPreset(presetName)
   // #304: charcoal's geometry is the same for all three types (vine/willow/
   // compressed differ in how the material *deposits*, not in the shape of the
   // stick's contact patch) — so it ignores presetName, same as liner does.

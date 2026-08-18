@@ -21,7 +21,7 @@ import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingD
 /** The tools that put marks on a layer — the ones whose stroke becomes a
  *  `StrokeOperation`, i.e. exactly `ToolType` from `@grafetto/shared`. */
 export const DRAWING_TOOLS = [
-  'pencil', 'eraser', 'smudge', 'liner', 'marker', 'charcoal', 'brushPen',
+  'pencil', 'eraser', 'smudge', 'liner', 'marker', 'charcoal', 'brushPen', 'watercolor',
 ] as const satisfies readonly UiToolId[]
 
 export type DrawingTool = (typeof DRAWING_TOOLS)[number]
@@ -85,9 +85,9 @@ export function isDrawingTool(tool: EditorTool): tool is DrawingTool {
 // consumer that means "whose color am I editing?" should say ColorCapableTool;
 // this type only means "what do I switch back to when the eraser is toggled
 // off?".
-export type PrimaryDrawingTool = 'pencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen'
+export type PrimaryDrawingTool = 'pencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen' | 'watercolor'
 
-const PRIMARY_DRAWING_TOOLS: readonly PrimaryDrawingTool[] = ['pencil', 'charcoal', 'liner', 'marker', 'brushPen']
+const PRIMARY_DRAWING_TOOLS: readonly PrimaryDrawingTool[] = ['pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor']
 
 function isPrimaryDrawingTool(tool: EditorTool): tool is PrimaryDrawingTool {
   return (PRIMARY_DRAWING_TOOLS as readonly EditorTool[]).includes(tool)

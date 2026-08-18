@@ -400,7 +400,14 @@ export const DEFAULT_PALETTE_COLORS: string[] = [
 // The room's append-only operation log is the source of truth; layer pixel
 // buffers and LayerState are derived by replaying it (ADR 002).
 
-export type ToolType = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker' | 'charcoal' | 'brushPen'
+export type ToolType =
+  | 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker' | 'charcoal' | 'brushPen'
+  // #468, ADR 011 — an experiment, and deliberately not in docs/TOOLSET.md
+  // until it earns a place there. Sits in the union rather than behind a flag
+  // because the Operation Log is permanent: the moment one watercolor stroke
+  // is recorded in a real room, every client must keep replaying it forever,
+  // so the wire type has to know the tool from the first stroke onward.
+  | 'watercolor'
 
 export type Dab = {
   x: number

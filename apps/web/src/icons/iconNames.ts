@@ -67,6 +67,7 @@ export const MATERIAL_ICON_NAMES = [
   'more_vert',
   'move_down',
   'palette',
+  'water_drop',
   'pan_tool',
   'pinch',
   'redo',

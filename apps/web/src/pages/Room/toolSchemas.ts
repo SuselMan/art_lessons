@@ -30,7 +30,7 @@ import type { IconName } from '../../icons/iconNames'
 // selected tool always has a schema to show, but not every UiToolId is
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
 export type UiToolId =
-  | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen'
+  | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen' | 'watercolor'
   | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'selection' | 'grid' | 'hand' | 'fill'
 
 export type SettingValueType =
@@ -372,6 +372,65 @@ const brushPenSchema = (): ToolSchema => ({
   },
 })
 
+// Watercolor (#468, ADR 011 §5). The same three-control shape the brush pen
+// settled on, and for the same reason: the tool's identity is a material, not a
+// parameter set, so anything beyond size, colour and how the brush answers the
+// hand belongs in the model rather than on a slider.
+//
+// Notably absent, and deliberately: wetness, drying time, flow, pigment
+// granularity, edge darkening. Those are the parameters a fluid simulation
+// would expose, and there is no fluid simulation here (ADR 011 §2). Exposing
+// them as sliders over a per-stroke approximation would be a UI that promises
+// physics the engine does not have.
+const watercolorSchema = (): ToolSchema => ({
+  size: {
+    nameKey: 'tool.field.size',
+    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
+    uiControls: ['slider', 'input'],
+    quickAccess: true,
+    // Well above the brush pen's 12: a wash brush is bought broad, and the
+    // tool's whole point is covering area. A light touch runs at 0.32 of this
+    // (WATERCOLOR_WIDTH_FLOOR), so 32 spans roughly 10-32px.
+    default: 32,
+  },
+  // Same three named feels the brush pen offers, riding the same free preset
+  // slot (watercolorPresets.ts's watercolorResponseFromPreset). Not in quick
+  // access: picked once to suit a hand, then left alone.
+  pressureResponse: {
+    nameKey: 'tool.field.pressureResponse',
+    valueType: { kind: 'enumOptions', options: PRESSURE_RESPONSES },
+    optionLabelKeys: {
+      soft: 'tool.pressureResponse.soft',
+      normal: 'tool.pressureResponse.normal',
+      firm: 'tool.pressureResponse.firm',
+    },
+    optionCurves: PRESSURE_RESPONSE_CURVES,
+    uiControls: ['select'],
+    quickAccess: false,
+    default: DEFAULT_PRESSURE_RESPONSE satisfies PressureResponse,
+  },
+  // Multiplies WATERCOLOR_PRESET.opacity (0.42), so 100% here is still a
+  // transparent wash — this slider dilutes the paint further, it does not make
+  // it covering. That ceiling is the material, not a setting.
+  opacity: {
+    nameKey: 'tool.field.opacity',
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 1,
+  },
+  // Unlike the ink tools, black is a poor identity default here — watercolor is
+  // a colour medium first, and a black wash is the one thing watercolourists
+  // are taught to avoid. A mid blue is the honest "this is paint" swatch.
+  color: {
+    nameKey: 'tool.field.color',
+    valueType: { kind: 'color' },
+    uiControls: ['swatch'],
+    quickAccess: true,
+    default: [0.22, 0.35, 0.62],
+  },
+})
+
 // Charcoal (#304, ADR 005 §1): the three real charcoal types ride the same
 // enumOptions control PENCIL_GRADES already uses — one toolbar slot with a
 // type selector, deliberately not three separate tools (see the ADR for why
@@ -549,6 +608,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   liner: linerSchema(),
   marker: markerSchema(),
   brushPen: brushPenSchema(),
+  watercolor: watercolorSchema(),
   eraser: {
     size: {
       nameKey: 'tool.field.size',
@@ -902,7 +962,7 @@ export function toolGradeOptions(toolId: UiToolId): readonly string[] | null {
 // exactly the set of schemas that actually declare a `color` field, so the
 // two can't silently drift when a tool is added.
 export const COLOR_CAPABLE_TOOLS = [
-  'pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'brushPen', 'fill',
+  'pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'fill',
 ] as const satisfies readonly UiToolId[]
 
 export type ColorCapableTool = (typeof COLOR_CAPABLE_TOOLS)[number]

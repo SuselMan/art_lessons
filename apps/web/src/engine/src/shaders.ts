@@ -396,6 +396,21 @@ export const DAB_FRAG = `
   // *rim*. Read only by the u_inkMode=8 composite branch; 0 everywhere else,
   // which makes that branch's own term vanish identically.
   uniform float u_paperEdge;
+  // Watercolor only (#468, ADR 011 §3). All four are read by the u_inkMode=9
+  // branch alone and left at 0 by every other draw through this program, so
+  // each term below vanishes identically rather than merely rounding away.
+  //
+  // u_wetEdge doubles as this tool's settle flag, and that is deliberate rather
+  // than a saved uniform: the wet edge is a property of the *finished* wash
+  // silhouette, so it must not be baked by a batch painted while the stroke is
+  // still growing. The engine passes 0 for every live batch composite and the
+  // profile's real gain only for the one deferred pass that runs over the whole
+  // stroke's bounds at pen-up (see _settleRibbonStroke). A branch reading 0
+  // therefore *is* the "still wet" state, not an approximation of it.
+  uniform float u_wetEdge;
+  uniform float u_wetEdgeRadiusPx;
+  uniform float u_granulation;
+  uniform float u_saturateInk;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -437,6 +452,36 @@ export const DAB_FRAG = `
     float f = dot(v_localUV, v_localUV);
     vec2 gradPx = 2.0 * vec2(v_localUV.x / aAxis, v_localUV.y / bAxis);
     return (f - 1.0) / max(length(gradPx), 1e-6);
+  }
+
+  // #468, ADR 011 §3.1 — how much of a ring of radius rPx around this
+  // fragment lies *outside* the stroke's own silhouette. 0 deep inside the
+  // wash, approaching 1 just past its boundary.
+  //
+  // This is the whole of the wet-edge mechanism, and it is a ring rather than a
+  // gradient on purpose. What the term needs to know is "how close am I to the
+  // edge of this wash", at a scale of several pixels; a finite difference
+  // answers a different question (which way does coverage change *here*) and is
+  // exactly the shape .claude/rules.md forbids amplifying, because texture
+  // filtering precision differences get amplified along with the signal. An
+  // average of eight taps is contractive instead — sampling error shrinks
+  // rather than grows — and u_strokeCoverage is a NEAREST-filtered buffer
+  // sampled at fixed offsets, so no bilinear interpolation enters at all.
+  //
+  // Eight taps, not four: four leaves a visible plus-shaped anisotropy where
+  // the tideline crosses a diagonal edge. Sixteen was not measurably better.
+  float wcRingOutside(vec2 tileUV, vec2 texel, float rPx) {
+    const float D = 0.7071068; // cos/sin 45°, written out — no trig at runtime
+    float s = 0.0;
+    s += texture2D(u_strokeCoverage, tileUV + vec2( rPx,      0.0     ) * texel).a;
+    s += texture2D(u_strokeCoverage, tileUV + vec2(-rPx,      0.0     ) * texel).a;
+    s += texture2D(u_strokeCoverage, tileUV + vec2( 0.0,      rPx     ) * texel).a;
+    s += texture2D(u_strokeCoverage, tileUV + vec2( 0.0,     -rPx     ) * texel).a;
+    s += texture2D(u_strokeCoverage, tileUV + vec2( rPx * D,  rPx * D ) * texel).a;
+    s += texture2D(u_strokeCoverage, tileUV + vec2(-rPx * D,  rPx * D ) * texel).a;
+    s += texture2D(u_strokeCoverage, tileUV + vec2( rPx * D, -rPx * D ) * texel).a;
+    s += texture2D(u_strokeCoverage, tileUV + vec2(-rPx * D, -rPx * D ) * texel).a;
+    return clamp(1.0 - s * 0.125, 0.0, 1.0);
   }
 
   // Per-fragment dither for the 'grain' term below. Deliberately NOT the
@@ -635,6 +680,136 @@ export const DAB_FRAG = `
     // raw height (still used by DISPLAY_FRAG/PAPER_BLEND_FRAG for the
     // blank-paper tint), .a is this precomputed catch value.
     float paperCatch = texture2D(u_paperHeightMap, paperUV).a;
+
+    // Watercolor composite (#468, ADR 011 §3): a transparent glaze.
+    //
+    // Placed **above** the brush pen's own check immediately below, and that
+    // placement is load-bearing for the same reason ADR 009 spells out one
+    // branch down: these are independent "> threshold" if/return checks ordered
+    // highest-value-first, not an else-if chain, so 9.0 satisfies "u_inkMode >
+    // 7.5" just as readily as 8.0 does. Put this after it and every watercolor
+    // stroke silently renders as a brush-pen stroke.
+    //
+    // Structurally this is the marker's pipeline - accumulate the stroke's
+    // silhouette and its pigment quantity in scratch buffers, then recompute
+    // the finished pixel from the frozen pre-stroke content on every batch -
+    // and it is here for the marker's reason too: a translucent film applied
+    // twice is not the same as applied once, so a pixel the stroke revisits
+    // must be recomputed rather than added to.
+    //
+    // What it is NOT is a fluid simulation. Nothing here models water, drying,
+    // or flow between strokes; ADR 011 §2 records why that is a deliberate
+    // architectural refusal rather than a shortcut, and what it would cost to
+    // change. Every quantity below comes from *this* stroke's own dabs plus the
+    // paper, which is what keeps a stroke a pure function of its Operation and
+    // therefore replayable, undoable, and identical on every participant.
+    if (u_inkMode > 8.5) {
+      vec2 tileUV = gl_FragCoord.xy / u_resolution;
+      float coverage = texture2D(u_strokeCoverage, tileUV).a;
+      // Untouched by this stroke - leave the layer exactly as it is. With
+      // coverage 0 everything below reproduces dst identically, so this is a
+      // pure work saving, and it is what makes compositing over a whole
+      // bounding rect rather than per dab affordable. 1/255 is the smallest
+      // alpha an 8-bit-backed buffer can represent as nonzero.
+      if (coverage < 0.004) discard;
+
+      vec4 dst = texture2D(u_original, tileUV);
+      // Recover the pigment's own colour from premultiplied storage before
+      // multiplying against it - same reasoning, same guard value and same
+      // flat vec3(1.0) fallback as the marker's branch below (#439). Paper is
+      // assumed white where nothing has been painted; this layer cannot see
+      // what is composited beneath it.
+      vec3 effectiveBase = dst.a > 0.004 ? clamp(dst.rgb / dst.a, 0.0, 1.0) : vec3(1.0);
+
+      // §3.2 - one wet layer, saturating fast, and no second stage. The marker
+      // has two discrete Beer-Lambert layers because you really can lay a
+      // second film of alcohol dye over a dry first one within a single
+      // stroke. Wet paint does not work that way: brushing back over a wash
+      // that has not dried redistributes the pigment already there. So this
+      // saturates once and stops, and depth comes from glazing - lifting the
+      // stylus, which starts a new scratch, freezes this result as the new
+      // pre-stroke original, and multiplies over it afresh.
+      float inkLoad = texture2D(u_inkLoad, tileUV).a;
+      float density = smoothstep(0.0, u_saturateInk, inkLoad);
+
+      // §3.3 granulation - heavier pigment settles into the paper's pits while
+      // the wash is still liquid and dries there. paperCatch is high on a fibre
+      // crest and low in a pit, so this adds pigment exactly where water pools.
+      // Centred on 1.0 so the term redistributes density rather than inflating
+      // it: a granulating wash is mottled, not darker overall.
+      //
+      // One sample of a value baked offline in double precision (see
+      // paperCatch's own comment above) and a multiply on top. No hash, no
+      // finite difference, nothing this project has been burned by.
+      float gran = 1.0 + u_granulation * (1.0 - 2.0 * paperCatch);
+
+      // §3.1 wet edge - the tideline. As a wash dries, water evaporates fastest
+      // at the perimeter and capillary flow carries pigment there to replace
+      // it; the pigment stays behind when the water leaves. A watercolor wash
+      // is therefore *darker at its boundary than in its middle*, which is the
+      // exact opposite of every other tool in this engine and the single cue
+      // that makes the material recognisable.
+      //
+      // Zero while the stroke is still being drawn - see u_wetEdge's own
+      // comment on why the whole term is deferred to the settle pass rather
+      // than computed from a silhouette that is still growing. That deferral is
+      // also why the mark visibly gains its rim at pen-up, which is not a
+      // glitch: it is the closest this model gets to the paint drying.
+      float wet = 0.0;
+      if (u_wetEdge > 0.0) {
+        float outside = wcRingOutside(tileUV, 1.0 / u_resolution, u_wetEdgeRadiusPx);
+        wet = u_wetEdge * outside;
+      }
+
+      // §3.4 - paper bites the rim only. edgeness is identically 0 wherever the
+      // wash is solid, so no value of u_paperEdge can put holes or grain
+      // *inside* it; at the boundary, absorbent pits take a bite out of the
+      // coverage and the wash picks up the fibre-scale irregularity a real one
+      // has. Same construction as the brush pen's, at a stronger setting: water
+      // creeps along fibres considerably further than ink does.
+      float edgeness = 1.0 - coverage;
+      float paperMod = 1.0 - u_paperEdge * edgeness * (1.0 - paperCatch);
+
+      // How much pigment ends up sitting here, 0..1. v_opacity - the varying,
+      // not the uniform, exactly as the brush pen's branch below reads it:
+      // this pass draws one quad over the batch's bounding rect, so the value
+      // arrives through the same per-dab attribute path every other draw uses.
+      // It carries both the preset's own transparency (WATERCOLOR_PRESET.opacity)
+      // and the user's slider, and every dab of a watercolor stroke shares it
+      // (pressure drives width, never alpha), which is what makes a single
+      // scalar describe the whole batch correctly.
+      float pigment = clamp(coverage * v_opacity * density * gran * paperMod * (1.0 + wet), 0.0, 1.0);
+
+      // The composite. Same three-term separable blend the marker's branch
+      // below uses and for the same reasons (#439), with one deliberate
+      // difference: there, the stroke's *silhouette* drives alpha and a
+      // saturating film drives colour, so a marker mark ends up opaque. Here
+      // the pigment quantity drives **both**, because transparency is the whole
+      // material - a pale wash must let a pencil line on a layer underneath
+      // show through it, not merely tint it.
+      //
+      //   1. on bare paper (1 - dst.a) the wash reads as its own colour at
+      //      pigment strength - dilute where thin, saturated where built up;
+      //   2. over existing pigment (dst.a) it multiplies, which is what makes
+      //      a second glaze over a dry first one darken toward colour^2 exactly
+      //      the way stacked transparent films do;
+      //   3. what this stroke does not cover passes through untouched.
+      //
+      // Each term carries its own alpha weight, so the sum is premultiplied by
+      // construction and componentwise cannot exceed newAlpha. At pigment = 0
+      // it reproduces dst exactly, which is what makes the discard above a true
+      // no-op rather than an approximation.
+      float newAlpha = mix(dst.a, 1.0, pigment);
+      vec3 premultResult =
+          pigment * (1.0 - dst.a) * u_color
+        + pigment * dst.a * (effectiveBase * u_color)
+        + (1.0 - pigment) * dst.a * effectiveBase;
+      // Premultiplied, and written with blending *off*
+      // (AccumulationBuffer.beginReplaceDraw) - this pass recomputes the
+      // finished pixel rather than contributing an increment.
+      gl_FragColor = vec4(premultResult, newAlpha);
+      return;
+    }
 
     // Brush pen composite (#454, ADR 009 §9): plain source-over of a covering
     // ink, and it must stay **first** of the deposit branches below.

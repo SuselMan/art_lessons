@@ -39,8 +39,34 @@ export interface RibbonProfile {
    *  the ink pass. */
   inkEdgeFalloff: number
   /** Which DAB_FRAG branch composites the finished pixel: 2 = the marker's
-   *  multiply-with-darkness, 8 = the brush pen's source-over. */
-  compositeInkMode: 2 | 8
+   *  multiply-with-darkness, 8 = the brush pen's source-over, 9 = watercolor's
+   *  transparent glaze (#468, ADR 011 §3). */
+  compositeInkMode: 2 | 8 | 9
+  /** #468 — how much extra pigment piles up at the wash's own boundary as it
+   *  dries (ADR 011 §3.1). 0 disables the term outright, which is what every
+   *  tool but watercolor sets; the shader multiplies by it, so a zero makes the
+   *  whole ring-sampling block vanish identically rather than merely rounding
+   *  to nothing. */
+  wetEdge: number
+  /** #468 — how far out, in canvas px, the wet-edge term looks for the wash's
+   *  boundary. This is the visual *width* of the dark rim, and it is an
+   *  absolute canvas-px distance for exactly the reason aaPx is (see
+   *  MARKER_EDGE_AA_PX): a real wash's tideline is a property of how far
+   *  pigment creeps before the water front stops, not of how wide the brush
+   *  was. */
+  wetEdgeRadiusPx: number
+  /** #468 — how strongly the paper's own pits catch settling pigment (ADR 011
+   *  §3.3). 0 disables. Reads the same offline-baked paperCatch every other
+   *  branch does, so it adds no new GPU-side derivation. */
+  granulation: number
+  /** #468 — the inkLoad at which one pass reaches its full density and stops
+   *  building (ADR 011 §3.2). Unlike the marker's two discrete Beer-Lambert
+   *  layers, a single wet wash has exactly one: brushing back over paint that
+   *  is still wet moves it around, it does not stack a second film. Depth comes
+   *  from *glazing* — lifting the brush and going again, which starts a new
+   *  scratch and therefore a genuinely new layer. Ignored by a branch that
+   *  doesn't read inkLoad. */
+  saturateInk: number
   /** How far the ribbon's straight chords may deviate from the curve they
    *  approximate before sampling gets denser (DabSystem.curvatureTolerancePx). */
   curvatureTolerancePx: number
@@ -154,6 +180,14 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
   minHalfWidthPx: null,
   paperEdge: 0,
+  // #468 — watercolor's three terms, off. The marker's own branch never reads
+  // them; they are set explicitly rather than left optional so that adding a
+  // fourth ribbon tool has to make a decision about each one instead of
+  // inheriting an accident.
+  wetEdge: 0,
+  wetEdgeRadiusPx: 0,
+  granulation: 0,
+  saturateInk: 0,
 }
 
 const MARKER_CHISEL_RIBBON: RibbonProfile = {
@@ -177,15 +211,127 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
   minHalfWidthPx: BRUSH_PEN_MIN_HALF_WIDTH_PX,
   paperEdge: BRUSH_PEN_PAPER_EDGE,
+  wetEdge: 0,
+  wetEdgeRadiusPx: 0,
+  granulation: 0,
+  saturateInk: 0,
+}
+
+// ─── Watercolor (#468, ADR 011) ─────────────────────────────────────────────
+
+// The third tool to take the ribbon's geometry without its ink model, and the
+// clearest demonstration of why #455 separated the two: a wet round brush and a
+// brush pen sweep an identical figure. Everything that makes one read as water
+// and the other as ink is in the deposit model.
+
+/** Softer than the brush pen's 1.8, which is itself softer than the marker's
+ *  1.0. Water carries pigment a little way into the fibres before the paper
+ *  stops it, and a wash whose boundary resolves in under two pixels reads as a
+ *  vector shape filled with pale colour. This is the *inner* ramp only — the
+ *  visible tideline outside it is the wet-edge term below, which is a different
+ *  mechanism at a different scale.
+ *
+ *  Canvas px, never device px — see MARKER_EDGE_AA_PX for the full argument
+ *  and .claude/rules.md for why a per-DPR factor in shared canvas content is
+ *  the one thing that is not allowed here. */
+const WATERCOLOR_EDGE_AA_PX = 3.0
+
+/** ADR 011 §3.1 — the single most recognisable thing about watercolor, and the
+ *  one term here with no equivalent anywhere else in the engine. As a wash
+ *  dries, water evaporates fastest at its own perimeter and capillary flow
+ *  carries pigment there to replace it; the pigment stays when the water goes.
+ *  The result is a wash that is *darker at its edge than in its middle* — the
+ *  exact opposite of every other tool in this engine, all of which fade out at
+ *  the rim.
+ *
+ *  0.85 is a strong effect on purpose: at half this the tool just looks like a
+ *  pale marker, which is the failure mode this term exists to avoid.
+ *  Uncalibrated first pass. */
+const WATERCOLOR_WET_EDGE = 0.85
+
+/** How wide the tideline is. 7px is a visible rim at a realistic wash size
+ *  without turning into a vignette; it is also comfortably inside what a
+ *  16-tap ring can resolve without aliasing into a dotted outline. */
+const WATERCOLOR_WET_EDGE_RADIUS_PX = 7.0
+
+/** ADR 011 §3.3 — heavy pigments settle into the paper's pits while the wash is
+ *  still wet, and dry there as visible speckle. This is why watercolourists
+ *  choose a paper texture at all, and it is nearly free here: the paper's own
+ *  catch value is already baked offline in double precision and already sampled
+ *  by this shader (see paperCatch's comment in shaders.ts), so the term adds a
+ *  multiply and nothing else — no new hash, no finite difference, nothing that
+ *  the cross-device determinism rule has ever been broken by.
+ *
+ *  Deliberately gentler than charcoal's tooth response: granulation is a
+ *  mottle, not a mark made of grain. */
+const WATERCOLOR_GRANULATION = 0.45
+
+/** ADR 011 §3.2 — inkLoad at which one pass reaches full density.
+ *
+ *  Low, and that is the point. A wet wash reaches its tone almost at once and
+ *  then stops: brushing back and forth over paint that has not dried moves the
+ *  same pigment around rather than adding more. Depth in watercolor comes from
+ *  *glazing* — letting a pass dry and going over it again — which here is
+ *  simply lifting the stylus, because every stroke gets its own scratch and
+ *  therefore multiplies afresh over what the last one left (the same per-stroke
+ *  scope the marker's ceiling has, and here it is not a limitation but the
+ *  correct model of the material). */
+const WATERCOLOR_SATURATE_INK = 0.35
+
+/** Below this half-width the nib is widened rather than dropped, same as the
+ *  brush pen. Higher than its 0.5 because this tool's own width floor is 0.32
+ *  of nominal: a wet brush has no hairline to protect, and a sub-pixel wash is
+ *  not a thing that happens. */
+const WATERCOLOR_MIN_HALF_WIDTH_PX = 0.75
+
+/** Paper bites the rim as it does for the brush pen, and harder — a wash creeps
+ *  along fibres far more than ink does, so its boundary is the most irregular
+ *  of any tool here. Still rim-only by construction (the shader scales the term
+ *  by 1 - coverage), so no value of this can put holes inside a wash. */
+const WATERCOLOR_PAPER_EDGE = 0.55
+
+const WATERCOLOR_RIBBON: RibbonProfile = {
+  nibShape: 'ellipse',
+  cornerFraction: 0,
+  aaPx: WATERCOLOR_EDGE_AA_PX,
+  // Unlike the brush pen, this tool very much does have a per-pixel pigment
+  // quantity — how much paint the brush left at each spot is what the wash's
+  // density is made of, and it must be separate from the silhouette for the
+  // same reason the marker's is (see RibbonProfile.ink).
+  ink: true,
+  // Nearly flat across the nib. The brush's own rim falloff would fight the
+  // wet-edge term, which is trying to make the boundary *darker*; a real loaded
+  // brush lays a fairly even film anyway, and what unevenness a wash has comes
+  // from the paper, not from the ferrule.
+  inkEdgeFalloff: 0.95,
+  compositeInkMode: 9,
+  curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
+  minHalfWidthPx: WATERCOLOR_MIN_HALF_WIDTH_PX,
+  paperEdge: WATERCOLOR_PAPER_EDGE,
+  wetEdge: WATERCOLOR_WET_EDGE,
+  wetEdgeRadiusPx: WATERCOLOR_WET_EDGE_RADIUS_PX,
+  granulation: WATERCOLOR_GRANULATION,
+  saturateInk: WATERCOLOR_SATURATE_INK,
 }
 
 /** Which tools the ribbon rasterizer draws. Every other tool goes through the
  *  ordinary per-dab stamp path, unchanged. */
 export function isRibbonTool(tool: ToolType): boolean {
-  return tool === 'marker' || tool === 'brushPen'
+  return tool === 'marker' || tool === 'brushPen' || tool === 'watercolor'
+}
+
+/** #468 — whether this tool's composite needs the deferred settle pass that
+ *  runs once over the whole stroke's bounds at pen-up (engine's
+ *  _settleRibbonStroke). Keyed off wetEdge rather than off the tool name
+ *  because the settle exists *for* that term: the wet edge is a property of the
+ *  finished silhouette, and no batch painted while the stroke is still growing
+ *  knows where the finished boundary will be. */
+export function ribbonNeedsSettle(profile: RibbonProfile): boolean {
+  return profile.wetEdge > 0
 }
 
 export function ribbonProfileFor(tool: ToolType, presetName: string | undefined): RibbonProfile {
+  if (tool === 'watercolor') return WATERCOLOR_RIBBON
   if (tool === 'brushPen') return BRUSH_PEN_RIBBON
   return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_RIBBON : MARKER_BULLET_RIBBON
 }

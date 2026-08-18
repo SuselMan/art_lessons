@@ -473,7 +473,11 @@ export function markerReplayChunk(engine: PencilEngine): { strokeId: string; scr
   return internals(engine)._replayRibbonChunk
 }
 
-export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7): { blendEnabled: boolean; opacity: number; count: number } | undefined {
+/** (#468) Widened past the marker's own three modes to cover every ribbon
+ *  composite: 8 is the brush pen's, 9 is watercolor's. The helper keeps its
+ *  original name because what it does is unchanged and every marker test
+ *  already calls it by that name. */
+export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7 | 8 | 9): { blendEnabled: boolean; opacity: number; count: number } | undefined {
   return internals(engine).gl.lastDabDraw(inkMode)
 }
 

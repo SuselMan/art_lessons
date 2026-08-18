@@ -48,6 +48,7 @@ const PAINTS_DABS = {
   marker: true,
   charcoal: true,
   brushPen: true,
+  watercolor: true,
 } as const satisfies Record<ToolType, boolean>
 
 /** CSS `cursor` for the viewport surface. Inherited (the `cursor` property is
