@@ -6,7 +6,12 @@ import { tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
 import type { PencilPreset } from './pencilPresets'
 import { DEFAULT_WATERCOLOR_PIGMENT, isWatercolorPigmentCode } from './watercolorPigments'
 
-// #468, ADR 011: watercolor — an experiment, not a tracked release item.
+// #468, ADR 011: watercolor. Started as an experiment outside the release
+// track; since 2026-08-18 it ships in the first release (docs/MANIFESTO.md's
+// own dated note, and docs/TOOLSET.md). What is still open before that release
+// is listed in #314 §9 — chiefly that the composite has never been checked for
+// pixel-identical output across two GPUs, which for a shared canvas is a
+// correctness question and not a polish one.
 //
 // This file and dabShaping.ts import from each other, the same safe circular
 // edge markerPresets.ts and brushPenPresets.ts already document: everything
