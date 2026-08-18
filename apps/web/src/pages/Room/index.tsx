@@ -2354,11 +2354,17 @@ export function Room() {
   const toggleParticipantFrozen = useCallback((userId: string, frozen: boolean) => {
     socketRef.current?.emit('set_participant_frozen', { userId, frozen })
   }, [])
-  // FloatingToolPanel's palette flyout escape hatch: show the full chrome
-  // and land on the Color tab, same destination the eyedropper's pick
-  // handler already uses (see handleEyedropperPick) for "go refine this
-  // further than a quick swatch tap allows."
-  const openColorPickerFromFlyout = useCallback(() => {
+  // "Go refine this further than a quick swatch tap allows": show the full
+  // chrome and land on the Color tab, the same destination the eyedropper's
+  // pick handler uses (see handleEyedropperPick).
+  // Bringing the chrome back is the load-bearing half, not a courtesy —
+  // SidePanel lives inside .layerPanelWrap, which minimal UI fades out, so
+  // switching its tab while the chrome is hidden opens a panel nobody can
+  // see. Both routes here start from something that is on screen *during*
+  // minimal UI: FloatingToolPanel's palette flyout, and — since #471 — the
+  // colour field in the quick-settings column, which no longer hides with
+  // the rest of the chrome.
+  const openColorPicker = useCallback(() => {
     setUiHidden(false)
     setActivePanel('color')
   }, [])
@@ -5425,8 +5431,13 @@ export function Room() {
             buttons visually jump every time the field count changed
             switching tools (pencil: grade+size+opacity+color, eraser:
             size+opacity only) — a fixed button column plus a separately
-            reflowing settings column reads far more stable. */}
-        <aside className={clsx(styles.quickSettingsBar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
+            reflowing settings column reads far more stable.
+
+            (#471) Alone among the chrome, this column survives minimal UI:
+            .quickSettingsBarMinimal moves it into the corner the header and
+            toolbar just vacated instead of .uiHidden fading it out. The
+            reasoning lives on that CSS rule. */}
+        <aside className={clsx(styles.quickSettingsBar, uiHidden && styles.quickSettingsBarMinimal, styles.strokeBlockable)}>
           {Object.entries(TOOL_SCHEMAS[settingsToolId])
             .filter(([, descriptor]) => descriptor.quickAccess)
             .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
@@ -5437,7 +5448,7 @@ export function Room() {
                 value={toolSettings[settingsToolId][key]}
                 onChange={v => setToolSetting(settingsToolId, key, v)}
                 layout="toolbar"
-                onExpand={key === 'color' ? () => setActivePanel('color') : undefined}
+                onExpand={key === 'color' ? openColorPicker : undefined}
               />
             ))}
           {/* (#446) What can be done with a selection, as buttons rather than
@@ -5902,7 +5913,7 @@ export function Room() {
                         value={toolSettings[settingsToolId][key]}
                         onChange={v => setToolSetting(settingsToolId, key, v)}
                         layout="panel"
-                        onExpand={key === 'color' ? () => setActivePanel('color') : undefined}
+                        onExpand={key === 'color' ? openColorPicker : undefined}
                       />
                     ))}
                   </div>
@@ -5930,7 +5941,7 @@ export function Room() {
           primaryColor={colorToolColor}
           palette={palette}
           onSelectColor={v => setToolSetting(colorTool, 'color', v)}
-          onOpenColorPicker={openColorPickerFromFlyout}
+          onOpenColorPicker={openColorPicker}
           roomId={id ?? ''}
           position={panelPosition}
           onPositionChange={setPanelPosition}

@@ -416,7 +416,28 @@
      exists. The line between the two bars is gone — they are one surface. */
   border-right: 1px solid var(--color-border);
   overflow: hidden;
-  transition: opacity var(--duration-normal) ease;
+  transition:
+    opacity var(--duration-normal) ease,
+    top var(--duration-normal) ease,
+    left var(--duration-normal) ease;
+}
+
+/* (#471) The one piece of chrome minimal UI does *not* hide. Everything else
+   in the editor's frame is either navigation or something you set up before
+   drawing; this column is the active tool itself — size, grade, opacity,
+   colour, and what can be done with a selection (#446). Hiding it meant
+   leaving minimal UI and coming back for every size change, which is the one
+   adjustment made mid-drawing more often than any other.
+   It moves rather than just staying put: with .header and .toolbar gone there
+   is nothing to its left or above it, and a column floating 62px in from the
+   edge with a strip of canvas behind it reads as a stray panel, not as the
+   edge of the chrome. Position, not transform — `bottom: 0` anchors the far
+   end, so translating would drag the bottom edge off-screen along with the
+   top; and a compositor layer is exactly what this page must not create more
+   of on a tablet (see .canvasWrap, #423). */
+.quickSettingsBarMinimal {
+  top: 0;
+  left: 0;
 }
 
 .toolSection {
