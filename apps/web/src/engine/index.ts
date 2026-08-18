@@ -3670,7 +3670,7 @@ export class PencilEngine implements PencilEngineAPI {
     // resolveCoarse has run, i.e. flushLevel returned at its guard without
     // folding. Soft is a regression; blank is a bug, so this stays off until
     // that is understood. See #470.
-    const downsample = this._infinite && layerId !== undefined
+    const downsample = layerId !== undefined
       ? (src: AccumulationBuffer, dst: AccumulationBuffer, x: number, y: number, w2: number, h2: number) =>
         this._downsampleTileInto(src, dst, x, y, w2, h2)
       : undefined
@@ -6637,7 +6637,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (coarse && factor !== null) {
       const { w: coarseW, h: coarseH } = buf.coarseWorldSize(factor)
       for (const { buffer, originX, originY } of coarse) {
-        buffer.setMipSampling(buffer.ensureMipmaps())
+        buffer.setMipSampling(false)
         this._drawTileComposite(
           buffer.texture, originX, originY, coarseW, coarseH, opacity, targetFbo, targetW, targetH,
         )
