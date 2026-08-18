@@ -59,6 +59,20 @@ export interface RibbonProfile {
    *  §3.3). 0 disables. Reads the same offline-baked paperCatch every other
    *  branch does, so it adds no new GPU-side derivation. */
   granulation: number
+  /** #468 v2 — how far, in canvas px, the wash may travel past the place the
+   *  brush actually touched (ADR 011 §3.5). 0 disables the whole re-threshold
+   *  block, which is what every other ribbon tool wants: a marker's mark *is*
+   *  its swept nib outline, and so is a pen's.
+   *
+   *  This is the single most important number of v2. With it at 0 the tool is
+   *  a semi-transparent marker no matter what the other terms do, because the
+   *  eye reads the exact correspondence between the brush's path and the
+   *  mark's boundary long before it reads any texture. */
+  spreadPx: number
+  /** #468 v2 — depth of the low-frequency water/pigment field (ADR 011 §3.6).
+   *  0 disables. This is the scale a wash actually varies at; paper grain is a
+   *  tenth of it and cannot stand in for it. */
+  cloud: number
   /** #468 — the inkLoad at which one pass reaches its full density and stops
    *  building (ADR 011 §3.2). Unlike the marker's two discrete Beer-Lambert
    *  layers, a single wet wash has exactly one: brushing back over paint that
@@ -187,6 +201,8 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   wetEdge: 0,
   wetEdgeRadiusPx: 0,
   granulation: 0,
+  spreadPx: 0,
+  cloud: 0,
   saturateInk: 0,
 }
 
@@ -214,6 +230,8 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   wetEdge: 0,
   wetEdgeRadiusPx: 0,
   granulation: 0,
+  spreadPx: 0,
+  cloud: 0,
   saturateInk: 0,
 }
 
@@ -236,18 +254,18 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
  *  the one thing that is not allowed here. */
 const WATERCOLOR_EDGE_AA_PX = 3.0
 
-/** ADR 011 §3.1 — the single most recognisable thing about watercolor, and the
- *  one term here with no equivalent anywhere else in the engine. As a wash
- *  dries, water evaporates fastest at its own perimeter and capillary flow
- *  carries pigment there to replace it; the pigment stays when the water goes.
- *  The result is a wash that is *darker at its edge than in its middle* — the
- *  exact opposite of every other tool in this engine, all of which fade out at
- *  the rim.
+/** ADR 011 §3.1 — as a wash dries, water evaporates fastest at its perimeter
+ *  and capillary flow carries pigment there to replace it; the pigment stays
+ *  when the water goes, leaving a rim darker than the middle.
  *
- *  0.85 is a strong effect on purpose: at half this the tool just looks like a
- *  pale marker, which is the failure mode this term exists to avoid.
- *  Uncalibrated first pass. */
-const WATERCOLOR_WET_EDGE = 0.85
+ *  **Lowered from v1's 0.85, not raised.** v1 bet on this being the tool's
+ *  defining cue and drove it hard, evenly, all the way round the silhouette.
+ *  Against a geometrically perfect outline that reads as a stroke-width
+ *  border, not as dried paint — an outline is exactly what a stronger even rim
+ *  produces. The rim now has to be *partial* to read at all — DAB_FRAG gates
+ *  it by a low-frequency field along the perimeter, so a good part of any given
+ *  boundary gets no rim whatever. This number is only the peak. */
+const WATERCOLOR_WET_EDGE = 0.55
 
 /** How wide the tideline is. 7px is a visible rim at a realistic wash size
  *  without turning into a vignette; it is also comfortably inside what a
@@ -255,16 +273,16 @@ const WATERCOLOR_WET_EDGE = 0.85
 const WATERCOLOR_WET_EDGE_RADIUS_PX = 7.0
 
 /** ADR 011 §3.3 — heavy pigments settle into the paper's pits while the wash is
- *  still wet, and dry there as visible speckle. This is why watercolourists
- *  choose a paper texture at all, and it is nearly free here: the paper's own
- *  catch value is already baked offline in double precision and already sampled
- *  by this shader (see paperCatch's comment in shaders.ts), so the term adds a
- *  multiply and nothing else — no new hash, no finite difference, nothing that
- *  the cross-device determinism rule has ever been broken by.
+ *  still wet, and dry there as visible speckle. Nearly free here: the paper's
+ *  catch value is baked offline in double precision and already sampled by this
+ *  shader, so the term adds a multiply and nothing else.
  *
- *  Deliberately gentler than charcoal's tooth response: granulation is a
- *  mottle, not a mark made of grain. */
-const WATERCOLOR_GRANULATION = 0.45
+ *  **0.15, down from v1's 0.45.** At the old depth the pigment tracked the
+ *  paper's microrelief so literally that a wash read as a textured digital
+ *  brush — the tool's texture was *entirely* paper grain, at a single 1-3px
+ *  scale. Granulation is the finest of three scales now (see WATERCOLOR_CLOUD),
+ *  and the finest scale should never be the dominant one. */
+const WATERCOLOR_GRANULATION = 0.15
 
 /** ADR 011 §3.2 — inkLoad at which one pass reaches full density.
  *
@@ -290,6 +308,60 @@ const WATERCOLOR_MIN_HALF_WIDTH_PX = 0.75
  *  by 1 - coverage), so no value of this can put holes inside a wash. */
 const WATERCOLOR_PAPER_EDGE = 0.55
 
+/** ADR 011 §3.5 — the **cap** on how far the wash may leave the brush's own
+ *  footprint, in canvas px. The engine scales the actual reach with the
+ *  stroke's own radius and clamps it here (see _paintRibbonStroke).
+ *
+ *  This is the correction that matters most in v2. Everything else in this
+ *  profile is texture; this is geometry. A marker's mark *is* the swept outline
+ *  of its tip, and while a wash's boundary coincides exactly with where the
+ *  brush travelled, no amount of mottling stops the eye reading
+ *  "semi-transparent marker" — perfectly parallel sides and a perfectly clean
+ *  turn give it away before any texture is even looked at.
+ *
+ *  Scales with brush size, unlike every other edge width in this engine, and
+ *  the reason is physical rather than convenient: aaPx and the marker's ramp
+ *  describe how a *tip* resolves against paper, which is a property of the tip.
+ *  This describes how far a load of water travels before the paper stops it,
+ *  and a big brush genuinely carries more water than a small one. A flat 7px
+ *  was the first attempt and it was invisible — against a 140px wash that is a
+ *  5% wobble, and the mark stayed exactly as clean as a marker's.
+ *
+ *  The shader spends this budget in *both* directions (see its
+ *  blur-and-rethreshold block): the mark pushes out in some places and pulls in
+ *  in others, which a plain dilation could not do. */
+const WATERCOLOR_SPREAD_CAP_PX = 26.0
+
+/** Reach as a fraction of the stroke's own radius, before the cap. 0.35 puts a
+ *  20px-wide line at about 3.5px of travel and a broad wash at the cap. */
+const WATERCOLOR_SPREAD_OF_RADIUS = 0.35
+
+/** Floor, so even the thinnest line's boundary stops being mathematically
+ *  exact. Below roughly this the blur cannot displace anything at all. */
+const WATERCOLOR_SPREAD_MIN_PX = 2.5
+
+/** Read by engine/index.ts's _paintRibbonStroke, which is where the stroke's
+ *  own radius is known. Exported as a record rather than three constants so a
+ *  caller cannot pick up two of the three and silently ignore the cap. */
+export const WATERCOLOR_SPREAD = {
+  cap: WATERCOLOR_SPREAD_CAP_PX,
+  ofRadius: WATERCOLOR_SPREAD_OF_RADIUS,
+  min: WATERCOLOR_SPREAD_MIN_PX,
+}
+
+/** ADR 011 §3.6 — depth of the coarse water/pigment field.
+ *
+ *  The scale v1 had nothing at all at. A wash is uneven at the scale of
+ *  centimetres — pooled water, an unevenly loaded brush, absorbency varying
+ *  across the sheet — and that unevenness is most of what the eye uses to
+ *  identify the material. v1 had one scale, paper grain at 1-3px, so a wash was
+ *  a flat tone with fine texture on it, which is what a marker on textured
+ *  paper looks like.
+ *
+ *  0.35 means the wash's own tone varies by about a third either way across a
+ *  large mark. That sounds like a lot and reads as normal. */
+const WATERCOLOR_CLOUD = 0.35
+
 const WATERCOLOR_RIBBON: RibbonProfile = {
   nibShape: 'ellipse',
   cornerFraction: 0,
@@ -311,6 +383,8 @@ const WATERCOLOR_RIBBON: RibbonProfile = {
   wetEdge: WATERCOLOR_WET_EDGE,
   wetEdgeRadiusPx: WATERCOLOR_WET_EDGE_RADIUS_PX,
   granulation: WATERCOLOR_GRANULATION,
+  spreadPx: WATERCOLOR_SPREAD_CAP_PX,
+  cloud: WATERCOLOR_CLOUD,
   saturateInk: WATERCOLOR_SATURATE_INK,
 }
 

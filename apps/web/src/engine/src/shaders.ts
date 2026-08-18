@@ -411,6 +411,24 @@ export const DAB_FRAG = `
   uniform float u_wetEdgeRadiusPx;
   uniform float u_granulation;
   uniform float u_saturateInk;
+  // #468 v2 — how far, in canvas px, the wash may travel past the place the
+  // brush actually touched, before the per-place irregularity below is applied
+  // (ADR 011 §3.5). Like u_wetEdge this is nonzero only on the deferred settle
+  // pass, and for the same reason: it rewrites the mark's silhouette, which is
+  // not known until the stroke is finished.
+  uniform float u_spreadPx;
+  // #468 v2 — depth of the low-frequency pigment/water field (ADR 011 §3.6).
+  // Unlike the two above this runs on every batch: it is a per-place value
+  // that owes nothing to the finished silhouette, so deferring it would only
+  // make the wash visibly change tone at pen-up for no gain.
+  uniform float u_cloud;
+  // #468 v2 — per-stroke decorrelation offset for every field in this branch,
+  // derived from the gesture's own first dab (engine's _settleRibbonStroke).
+  // Without it two washes laid over the same patch of canvas would get
+  // identical mottling and their overlap would look stamped rather than
+  // stacked. Derived from the operation's own data, so every participant
+  // computes the same offset — never a random seed.
+  uniform vec2 u_fieldOffset;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -454,36 +472,6 @@ export const DAB_FRAG = `
     return (f - 1.0) / max(length(gradPx), 1e-6);
   }
 
-  // #468, ADR 011 §3.1 — how much of a ring of radius rPx around this
-  // fragment lies *outside* the stroke's own silhouette. 0 deep inside the
-  // wash, approaching 1 just past its boundary.
-  //
-  // This is the whole of the wet-edge mechanism, and it is a ring rather than a
-  // gradient on purpose. What the term needs to know is "how close am I to the
-  // edge of this wash", at a scale of several pixels; a finite difference
-  // answers a different question (which way does coverage change *here*) and is
-  // exactly the shape .claude/rules.md forbids amplifying, because texture
-  // filtering precision differences get amplified along with the signal. An
-  // average of eight taps is contractive instead — sampling error shrinks
-  // rather than grows — and u_strokeCoverage is a NEAREST-filtered buffer
-  // sampled at fixed offsets, so no bilinear interpolation enters at all.
-  //
-  // Eight taps, not four: four leaves a visible plus-shaped anisotropy where
-  // the tideline crosses a diagonal edge. Sixteen was not measurably better.
-  float wcRingOutside(vec2 tileUV, vec2 texel, float rPx) {
-    const float D = 0.7071068; // cos/sin 45°, written out — no trig at runtime
-    float s = 0.0;
-    s += texture2D(u_strokeCoverage, tileUV + vec2( rPx,      0.0     ) * texel).a;
-    s += texture2D(u_strokeCoverage, tileUV + vec2(-rPx,      0.0     ) * texel).a;
-    s += texture2D(u_strokeCoverage, tileUV + vec2( 0.0,      rPx     ) * texel).a;
-    s += texture2D(u_strokeCoverage, tileUV + vec2( 0.0,     -rPx     ) * texel).a;
-    s += texture2D(u_strokeCoverage, tileUV + vec2( rPx * D,  rPx * D ) * texel).a;
-    s += texture2D(u_strokeCoverage, tileUV + vec2(-rPx * D,  rPx * D ) * texel).a;
-    s += texture2D(u_strokeCoverage, tileUV + vec2( rPx * D, -rPx * D ) * texel).a;
-    s += texture2D(u_strokeCoverage, tileUV + vec2(-rPx * D, -rPx * D ) * texel).a;
-    return clamp(1.0 - s * 0.125, 0.0, 1.0);
-  }
-
   // Per-fragment dither for the 'grain' term below. Deliberately NOT the
   // classic sin()-based hash (fract(sin(dot(p, big-constants)) * big-
   // constant)) this used to be: 'precision highp float' is a *request* in a
@@ -501,6 +489,60 @@ export const DAB_FRAG = `
   float hash(vec2 p) {
     p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
     return fract(p.x * p.y * (p.x + p.y));
+  }
+
+  // ── Watercolor fields (#468 v2, ADR 011 §3.5-3.7) ────────────────────────
+  //
+  // Everything below exists to answer one criticism of v1: the wash was a
+  // swept brush footprint filled with an even tone, which is the definition of
+  // a marker. v1 had exactly one spatial scale of its own - paper grain, at
+  // 1-3px - so the eye read "textured digital brush". These helpers add the
+  // two coarser scales a real wash has, and make the mark's own boundary stop
+  // coinciding with the brush's path.
+  //
+  // All of it is built on hash() above, which is the project's portable
+  // fract/floor hash - no sin(), no finite differences, nothing that has ever
+  // diverged between a desktop and a tablet GPU (see paperCatch's comment and
+  // .claude/rules.md). Value noise is an interpolation of four hash samples,
+  // which is contractive: a per-GPU difference in one lattice value is damped,
+  // never amplified.
+
+  /** Value noise, one lattice cell per unit of p. */
+  float wcNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    // Smoothstep interpolant, so the field has no visible lattice creases.
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+  }
+
+  /** Two octaves, roughly 0..1. The second sits at ~2.7x the frequency and a
+   *  deliberately irrational-looking offset, so the two never line up into a
+   *  grid. This is what gives one call both the coarse water clouds and the
+   *  pigment clumping inside them. */
+  float wcFbm(vec2 p) {
+    return 0.63 * wcNoise(p) + 0.37 * wcNoise(p * 2.7 + vec2(31.4, 17.9));
+  }
+
+  /** Mean stroke coverage on a ring of radius rPx around this fragment, eight
+   *  taps. NEAREST-filtered source sampled at fixed offsets, so no bilinear
+   *  interpolation enters the result on any vendor. */
+  float wcRingAvg(vec2 uv, vec2 texel, float rPx) {
+    const float D = 0.7071068; // cos/sin 45 deg, written out - no trig at runtime
+    float s = 0.0;
+    s += texture2D(u_strokeCoverage, uv + vec2( rPx,      0.0     ) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + vec2(-rPx,      0.0     ) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + vec2( 0.0,      rPx     ) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + vec2( 0.0,     -rPx     ) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + vec2( rPx * D,  rPx * D ) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + vec2(-rPx * D,  rPx * D ) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + vec2( rPx * D, -rPx * D ) * texel).a;
+    s += texture2D(u_strokeCoverage, uv + vec2(-rPx * D, -rPx * D ) * texel).a;
+    return s * 0.125;
   }
 
   // Interpolated value noise built on the same portable hash() above — only
@@ -705,12 +747,59 @@ export const DAB_FRAG = `
     // therefore replayable, undoable, and identical on every participant.
     if (u_inkMode > 8.5) {
       vec2 tileUV = gl_FragCoord.xy / u_resolution;
-      float coverage = texture2D(u_strokeCoverage, tileUV).a;
+      vec2 texel = 1.0 / u_resolution;
+      // World-space basis for every field below - same tile-seam reasoning as
+      // paperUV's own u_paperOrigin term (#141), so the mottling does not jump
+      // at a tile boundary on an infinite canvas. Offset per stroke so two
+      // washes over the same patch do not get identical structure.
+      vec2 wp = gl_FragCoord.xy + u_paperOrigin + u_fieldOffset;
+
+      float rawCoverage = texture2D(u_strokeCoverage, tileUV).a;
+
+      // §3.5 - the wash leaves the brush's footprint.
+      //
+      // This is the change v1 most needed. A marker's mark *is* the swept
+      // outline of its tip; a wash is where the water ended up, which is only
+      // loosely where the brush went. Modelled as a blur of the stroke's own
+      // silhouette re-thresholded at a threshold that varies from place to
+      // place: below the threshold the boundary pushes outward, above it the
+      // boundary pulls in, so the mark both spreads *and* becomes irregular
+      // rather than uniformly fattened. A second field varies how sharply the
+      // re-threshold resolves, which is what gives one mark a soft edge on one
+      // side and a crisp one on the other.
+      //
+      // Deliberately not a dilation (a max over a disc): dilation only ever
+      // grows, and a boundary that has grown everywhere by a wobbling amount
+      // still reads as an outline offset. Blur-and-rethreshold can also eat
+      // *into* the mark, which is what a wash starved of water actually does.
+      float coverage = rawCoverage;
+      float blurred = rawCoverage;
+      if (u_spreadPx > 0.0) {
+        blurred =
+            0.20 * rawCoverage
+          + 0.45 * wcRingAvg(tileUV, texel, u_spreadPx * 0.55)
+          + 0.35 * wcRingAvg(tileUV, texel, u_spreadPx);
+        // Wide threshold range on purpose: the boundary's displacement is
+        // (range of thr) / (slope of blurred across the edge), so a timid range
+        // buys a wobble of a pixel or two that nothing can see. This spends
+        // most of the blur radius in both directions.
+        float thr  = mix(0.10, 0.62, wcFbm(wp * 0.030));                    // ~33px cells
+        float soft = mix(0.08, 0.45, wcFbm(wp * 0.017 + vec2(53.0, 11.0))); // ~59px cells
+        coverage = smoothstep(thr, thr + soft, blurred);
+      }
+
       // Untouched by this stroke - leave the layer exactly as it is. With
       // coverage 0 everything below reproduces dst identically, so this is a
       // pure work saving, and it is what makes compositing over a whole
       // bounding rect rather than per dab affordable. 1/255 is the smallest
       // alpha an 8-bit-backed buffer can represent as nonzero.
+      //
+      // Tested against the *spread* coverage, not the raw one: the fringe the
+      // block above just created lies outside the brush's own footprint, and
+      // discarding on rawCoverage would throw away exactly the pixels that
+      // make this tool stop looking like a marker. The settle pass pads its
+      // bounds by u_spreadPx so those pixels are inside the drawn rect at all
+      // (see _settleRibbonStroke).
       if (coverage < 0.004) discard;
 
       vec4 dst = texture2D(u_original, tileUV);
@@ -738,10 +827,23 @@ export const DAB_FRAG = `
       // Centred on 1.0 so the term redistributes density rather than inflating
       // it: a granulating wash is mottled, not darker overall.
       //
-      // One sample of a value baked offline in double precision (see
-      // paperCatch's own comment above) and a multiply on top. No hash, no
-      // finite difference, nothing this project has been burned by.
+      // Deliberately weak now (v2). v1 ran this at three times the depth and
+      // it was the *only* structure a wash had, which made the pigment track
+      // the paper's microrelief so literally that the tool read as a textured
+      // digital brush rather than as paint. Granulation is the finest of three
+      // scales here, not the whole texture.
       float gran = 1.0 + u_granulation * (1.0 - 2.0 * paperCatch);
+
+      // §3.6 - the wash's own coarse structure, the scale v1 had nothing at.
+      //
+      // A real wash is uneven long before the paper's tooth gets involved:
+      // water pools, the brush unloads unevenly, absorbency varies over
+      // centimetres rather than fibres. wcFbm's two octaves put clouds at
+      // roughly 55px and clumping at roughly 20px; with paper grain at 1-3px
+      // that gives the mark the three scales it needs. Centred on 1.0 for the
+      // same reason granulation is - this redistributes tone, it does not
+      // darken the wash.
+      float cloud = 1.0 + u_cloud * (wcFbm(wp * 0.018) - 0.5) * 2.0;
 
       // §3.1 wet edge - the tideline. As a wash dries, water evaporates fastest
       // at the perimeter and capillary flow carries pigment there to replace
@@ -755,10 +857,41 @@ export const DAB_FRAG = `
       // than computed from a silhouette that is still growing. That deferral is
       // also why the mark visibly gains its rim at pen-up, which is not a
       // glitch: it is the closest this model gets to the paint drying.
+      //
+      // v2: **partial**, not a closed ring. v1 applied this evenly around the
+      // whole silhouette, which produced precisely a stroke-width outline -
+      // the more so because the silhouette was itself geometrically perfect.
+      // A real tideline stands where the pool of water happened to retreat
+      // last: strong along part of the boundary, absent along the rest. So the
+      // term is gated by a low-frequency field along the perimeter, and its
+      // base gain is *lower* than v1's rather than higher. Strengthening an
+      // even rim would only have made the outline more emphatic.
+      //
+      // The outside term is measured on the raw brush silhouette rather than on the
+      // spread one above, which places the band up to a few px off the final
+      // boundary. Accepted for now: the gating field breaks the rim into
+      // patches anyway, so exact placement buys little, and re-blurring the
+      // spread result would need a second scratch buffer.
       float wet = 0.0;
       if (u_wetEdge > 0.0) {
-        float outside = wcRingOutside(tileUV, 1.0 / u_resolution, u_wetEdgeRadiusPx);
-        wet = u_wetEdge * outside;
+        // Read off the same blur the spread block above already computed, not
+        // off a ring on the raw silhouette. Two reasons, and the first is a
+        // correctness one: after §3.5 the mark's boundary is no longer where
+        // the brush went, so a band measured against the brush's own outline
+        // would sit somewhere inside the finished wash. blurred falls from 1
+        // to 0 across the *final* edge, so 1 - blurred peaks exactly there.
+        // The second is that it costs no extra taps.
+        //
+        // Raised to a power so the band stays about as wide as
+        // u_wetEdgeRadiusPx asks for even when the blur radius is much larger:
+        // the blur has to be wide to displace the boundary at all, but a rim
+        // that wide would be a vignette rather than a tideline.
+        float tideExp = max(1.0, u_spreadPx / max(u_wetEdgeRadiusPx, 1.0));
+        float outside = pow(max(1.0 - blurred, 0.0), tideExp);
+        // ~40px patches, and the band is wide enough that a good part of any
+        // given perimeter gets no rim whatever - which is the point (§3.7).
+        float tide = smoothstep(0.40, 0.78, wcFbm(wp * 0.025 + vec2(7.0, 61.0)));
+        wet = u_wetEdge * outside * tide;
       }
 
       // §3.4 - paper bites the rim only. edgeness is identically 0 wherever the
@@ -778,7 +911,7 @@ export const DAB_FRAG = `
       // and the user's slider, and every dab of a watercolor stroke shares it
       // (pressure drives width, never alpha), which is what makes a single
       // scalar describe the whole batch correctly.
-      float pigment = clamp(coverage * v_opacity * density * gran * paperMod * (1.0 + wet), 0.0, 1.0);
+      float pigment = clamp(coverage * v_opacity * density * gran * cloud * paperMod * (1.0 + wet), 0.0, 1.0);
 
       // The composite. Same three-term separable blend the marker's branch
       // below uses and for the same reasons (#439), with one deliberate

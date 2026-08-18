@@ -41,7 +41,7 @@ import {
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
-import { isRibbonTool, ribbonNeedsSettle, ribbonProfileFor, type RibbonProfile } from './src/ribbonProfile'
+import { isRibbonTool, ribbonNeedsSettle, ribbonProfileFor, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
@@ -1256,6 +1256,26 @@ interface RibbonSettleContext {
   color: [number, number, number]
   opacity: number
   bounds: { minX: number; minY: number; maxX: number; maxY: number }
+  /** (#468 v2) This gesture's own first dab position, in world px — the seed
+   *  for every noise field the watercolor composite evaluates (ADR 011 §3.6).
+   *
+   *  Derived from the operation's own data rather than drawn from a random
+   *  source, which is the whole point: two participants replaying the same
+   *  stroke must get the same mottling, and a stroke replayed after an undo
+   *  must come back looking identical. Taken from the *first* batch only, so a
+   *  gesture keeps one seed across every batch and chunk it is split into —
+   *  noteSettle preserves it for exactly that reason. */
+  fieldSeed: [number, number]
+  /** (#468 v2) How far this stroke's wash may travel past the brush's own
+   *  footprint, in canvas px — resolved from the stroke's radius against
+   *  WATERCOLOR_SPREAD and capped by the profile (ADR 011 §3.5). 0 for a tool
+   *  with no spread.
+   *
+   *  Resolved once per gesture rather than per batch, and that matters: a
+   *  stroke whose pressure varies would otherwise get a different boundary
+   *  treatment in each batch, and the seams between batches are an artefact of
+   *  pointer-event timing that must never be visible in the mark. */
+  spreadPx: number
 }
 
 class RibbonStrokeScratch {
@@ -4281,6 +4301,8 @@ export class PencilEngine implements PencilEngineAPI {
       // u_wickPx above already documents: uniforms persist across draws on a
       // shared program.
       'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk',
+      // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
+      'u_spreadPx', 'u_cloud', 'u_fieldOffset',
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
@@ -6158,6 +6180,17 @@ export class PencilEngine implements PencilEngineAPI {
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
 
+    // (#468 v2, ADR 011 §3.5) The stroke's typical radius decides how far its
+    // water carries. Mean rather than max: one heavy dab at the end of an
+    // otherwise light stroke should not widen the whole mark's boundary
+    // treatment.
+    let radiusSum = 0
+    for (const d of drawable) radiusSum += d.size * 0.5 * preset.sizeMultiplier
+    const meanRadius = radiusSum / drawable.length
+    const spreadPx = profile.spreadPx > 0
+      ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, meanRadius * WATERCOLOR_SPREAD.ofRadius))
+      : 0
+
     const bands = buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx)
 
     for (const tile of targets) {
@@ -6195,6 +6228,7 @@ export class PencilEngine implements PencilEngineAPI {
       // this argument entirely and reads its own inkLoad texture instead.
       this._drawRibbonCompositeRect(
         tile, bounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity, false,
+        [drawable[0].x, drawable[0].y], spreadPx,
       )
     }
 
@@ -6202,7 +6236,10 @@ export class PencilEngine implements PencilEngineAPI {
     // tool rather than only the ones that settle: the check that matters is
     // ribbonNeedsSettle, and it lives at the one place the pass is actually
     // dispatched, so a future profile turning wetEdge on needs no change here.
-    scratch.noteSettle({ target, preset, profile, color, opacity: drawable[0].opacity, bounds })
+    scratch.noteSettle({
+      target, preset, profile, color, opacity: drawable[0].opacity, bounds,
+      fieldSeed: [drawable[0].x, drawable[0].y], spreadPx,
+    })
 
     target.markContentPainted(bounds)
   }
@@ -6235,7 +6272,18 @@ export class PencilEngine implements PencilEngineAPI {
   private _settleRibbonStroke(scratch: RibbonStrokeScratch): void {
     const ctx = scratch.settleContext
     if (!ctx || !ribbonNeedsSettle(ctx.profile)) return
-    const { target, preset, profile, color, opacity, bounds } = ctx
+    const { target, preset, profile, color, opacity, fieldSeed, spreadPx } = ctx
+    // (#468 v2) Padded by the spread distance: the settle pass is where the
+    // wash leaves the brush's footprint (ADR 011 §3.5), and those pixels lie
+    // *outside* every bound any batch reported. Draw the old rect and the new
+    // fringe is simply clipped away — the tool keeps the marker silhouette it
+    // was built to escape. A pixel of slack on top of the profile's own reach,
+    // since the re-threshold can push the boundary right to it.
+    const pad = spreadPx > 0 ? Math.ceil(spreadPx) + 1 : 0
+    const bounds = {
+      minX: ctx.bounds.minX - pad, minY: ctx.bounds.minY - pad,
+      maxX: ctx.bounds.maxX + pad, maxY: ctx.bounds.maxY + pad,
+    }
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
     for (const tile of targets) {
@@ -6247,6 +6295,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!entry) continue
       this._drawRibbonCompositeRect(
         tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity, true,
+        fieldSeed, spreadPx,
       )
     }
     target.markContentPainted(bounds)
@@ -6403,6 +6452,7 @@ export class PencilEngine implements PencilEngineAPI {
     preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
     color: [number, number, number], opacity: number, settle: boolean,
+    fieldSeed: [number, number], spreadPx: number,
   ): void {
     const cx = (bounds.minX + bounds.maxX) * 0.5
     const cy = (bounds.minY + bounds.maxY) * 0.5
@@ -6411,7 +6461,7 @@ export class PencilEngine implements PencilEngineAPI {
       x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
       size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
     }
-    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, settle)
+    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, settle, fieldSeed, spreadPx)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -6423,7 +6473,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawRibbonCompositeDab(
     tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
-    color: [number, number, number], settle: boolean,
+    color: [number, number, number], settle: boolean, fieldSeed: [number, number], spreadPx: number,
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -6505,6 +6555,15 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_wetEdgeRadiusPx, profile.wetEdgeRadiusPx)
     gl.uniform1f(u.u_granulation, profile.granulation)
     gl.uniform1f(u.u_saturateInk, profile.saturateInk)
+    // #468 v2 — split by *what the term depends on*, not by taste. The spread
+    // rewrites the mark's silhouette and so cannot be evaluated before the
+    // stroke is finished, exactly like the wet edge above it. The cloud field
+    // is a per-place value owing nothing to the silhouette, so it runs on every
+    // batch — deferring it would only make a wash visibly change tone at
+    // pen-up, buying nothing.
+    gl.uniform1f(u.u_spreadPx, settle ? spreadPx : 0)
+    gl.uniform1f(u.u_cloud, profile.cloud)
+    gl.uniform2f(u.u_fieldOffset, fieldSeed[0], fieldSeed[1])
     // #452 — see _drawRibbonNibPass's own comment on why this is cleared here.
     gl.uniform1f(u.u_wickPx, 0)
     gl.uniform1f(u.u_wickCap, 0)
