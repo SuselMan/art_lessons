@@ -696,6 +696,22 @@ export const DAB_FRAG = `
   // decides whether this wash is wet enough to move paint at all; the local
   // value only lets a tail that ran dry pool less than the head did.
   const float WC_MIGRATE_LOCAL = 0.35;
+  // How much harder pigment runs at the very top of the water range.
+  //
+  // A second, much steeper stage on top of the gate, and it exists because the
+  // gate alone cannot express "a little more, but only when it is very wet":
+  // raising the gain raises it everywhere the gate is open, and lifting
+  // u_migrateLo would cut the low end off rather than lift the high one. This
+  // starts at nothing at 0.90 and reaches half again by the top of the slider,
+  // so 0.78..0.88 is left exactly where it was and a flooded brush gets the
+  // extra.
+  //
+  // The high edge sits above 1 on purpose: the slider's own maximum is 1.0, and
+  // an edge at 1.0 would put the whole of this stage's travel inside the last
+  // tenth and reach its full value only at a setting nobody can hold steady.
+  const float WC_MIGRATE_FLOOD = 0.6;
+  const float WC_MIGRATE_FLOOD_LO = 0.90;
+  const float WC_MIGRATE_FLOOD_HI = 1.02;
   // The deposit at which the standing film stops deepening, as a fraction of
   // u_saturateInk. Sits at the level the deposit buffer itself tops out at, so
   // the depth reads as flat right across the inside of a wash and slopes only
@@ -753,11 +769,18 @@ export const DAB_FRAG = `
     float dep = a.a;
     float wat = dep > 0.004 ? clamp(a.r / dep, 0.0, 1.0) : 0.0;
     float cov = texture2D(u_strokeCoverage, uv).a;
+    // How wet this place counts as: mostly the mix the stroke was made with,
+    // nudged by the water actually left in the brush here.
+    float wetness = mix(u_water, wat, WC_MIGRATE_LOCAL);
+    // Can exceed 1 — see WC_MIGRATE_FLOOD. Only the flux reads it that way; the
+    // tideline's own retreat clamps it back (search for min(migrateGate, 1.0)).
+    float gate = smoothstep(u_migrateLo, u_migrateHi, wetness)
+      * (1.0 + WC_MIGRATE_FLOOD * smoothstep(WC_MIGRATE_FLOOD_LO, WC_MIGRATE_FLOOD_HI, wetness));
     return vec4(
       dep,
       wat * min(dep / full, 1.0),
       smoothstep(WC_MIGRATE_EDGE_LO, WC_MIGRATE_EDGE_HI, cov),
-      smoothstep(u_migrateLo, u_migrateHi, mix(u_water, wat, WC_MIGRATE_LOCAL))
+      gate
     );
   }
 
@@ -1281,7 +1304,11 @@ export const DAB_FRAG = `
         // taking that darkness from anywhere. Left in at low water on purpose -
         // a merely damp wash does still leave a faint line where it stopped,
         // and transport is gated off down there and has nothing to say.
-        wet = u_wetEdge * outside * tide * (1.0 - 0.35 * migrateGate);
+        // Clamped: above the flood threshold the gate deliberately runs past
+        // 1 to drive the flux harder, and that must not turn a retreat of a
+        // third into one of a half. How much the painted rim stands down is a
+        // separate question from how hard the paint runs.
+        wet = u_wetEdge * outside * tide * (1.0 - 0.35 * min(migrateGate, 1.0));
       }
 
       // §3.4 - paper bites the rim only. edgeness is identically 0 wherever the
