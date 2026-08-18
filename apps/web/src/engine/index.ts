@@ -58,6 +58,7 @@ import { computeFill, coverageToRgba, FILL_MAX_DIM } from './src/floodFill'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
+import { isFullyTransparent, retileSnapshotTiles } from './src/retileSnapshot'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
 
@@ -3643,9 +3644,39 @@ export class PencilEngine implements PencilEngineAPI {
   /** This room's own tile dimensions — see _makeLayerBuffer's docstring for
    *  the full reasoning. Also used by previewLayerTransform, which resolves
    *  destination tiles the same way _bakeTransform/TiledLayerBuffer itself
-   *  do and must agree with them on tile size. */
+   *  do and must agree with them on tile size.
+   *
+   *  (#469) The same square TILE_SIZE for both kinds of room now. It used to
+   *  hand a bounded room its whole page as a single tile, which was tidy —
+   *  one tile, byte-identical indexing to the pre-#142 single buffer — and
+   *  turned out to be what made big pages impossible on a tablet: one texture
+   *  of canvas.width x canvas.height per layer, allocated whole whether or not
+   *  anything was ever drawn on it. A2 — the largest preset, 2480x3508 — is
+   *  33 MiB a layer, and a custom 4096x4096 is 64 MiB, so an iPad's tab was
+   *  killed by the system before a stroke was drawn. Every readback of such a
+   *  tile (a snapshot bake, tightenContentRects) allocated another one that
+   *  size in JS on top.
+   *
+   *  Tiles a page no longer fills exactly do cost some padding — a 2480x3508
+   *  page covers a 3x4 grid of 1024 tiles, 48 MiB if every one of them is
+   *  painted, against the old 33 MiB. That trade is worth taking twice over:
+   *  a tile is only created when something paints into it, so an untouched
+   *  layer now costs nothing at all instead of a full page, and residency is
+   *  finally bounded by TILE_BUDGET_BYTES rather than being one tile that no
+   *  budget could ever evict.
+   *
+   *  Capped at the page rather than fixed at TILE_SIZE, so a page *smaller*
+   *  than a tile keeps exactly the shape it had before this change: one tile,
+   *  page-sized, no padding. Rounding a 64x64 page up to a 1024 tile would
+   *  turn 16 KiB into 4 MiB and make the small case pay for the large one's
+   *  fix. Only a page bigger than TILE_SIZE on an axis is subdivided along
+   *  it, which is precisely the case that was breaking. */
   private _tileSize(): { w: number; h: number } {
-    return this._infinite ? { w: TILE_SIZE, h: TILE_SIZE } : { w: this.canvas.width, h: this.canvas.height }
+    if (this._infinite) return { w: TILE_SIZE, h: TILE_SIZE }
+    return {
+      w: Math.min(TILE_SIZE, this.canvas.width),
+      h: Math.min(TILE_SIZE, this.canvas.height),
+    }
   }
 
   /** Composites every buffer `source` currently holds into the
@@ -4030,7 +4061,29 @@ export class PencilEngine implements PencilEngineAPI {
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
     const buf = this._layers.get(layerId)
     if (!buf) return
-    for (const t of tiles) {
+    // (#469) A snapshot baked before bounded rooms were subdivided carries one
+    // page-sized tile; this room's buffer now wants TILE_SIZE ones. Re-slicing
+    // is not optional — uploading a 2480-wide array into a 1024-wide texture
+    // is silent corruption, not a near miss. Tiles already on the grid (every
+    // infinite room, and every bake after the change) pass through untouched.
+    const { w: tw, h: th } = this._tileSize()
+    const retiled = retileSnapshotTiles(tiles, tw, th)
+    // Re-slicing a mostly-empty page yields tiles carrying nothing, and each
+    // would cost 4 MiB of texture to say exactly what an absent tile already
+    // says. Only a re-sliced set can contain them — identity means every tile
+    // came off a real bake, which never stores a tile it did not paint — so
+    // the alpha scan stays off the path taken by every current snapshot.
+    const painted = retiled === tiles
+      ? retiled
+      : retiled.filter(t => !isFullyTransparent(t.pixels))
+    // Blank tiles are dropped from the upload only while the layer is
+    // genuinely empty. Restoring onto a live buffer — a reconnect re-restoring
+    // an engine that already holds pixels — is the one case where an
+    // all-transparent tile is *doing* something: clearing what is under it.
+    // Nothing clears the layer ahead of this, so that distinction is ours to
+    // make, and one cheap check makes it without asking per tile.
+    const uploads = buf.allResident().length === 0 ? painted : retiled
+    for (const t of uploads) {
       const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
       for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
       buf.restoreTileContent(rect, t.pixels)
@@ -4042,7 +4095,10 @@ export class PencilEngine implements PencilEngineAPI {
     // client would re-bake and re-upload the whole room it just downloaded.
     this._markLayerDirty(layerId)
     this._bakedRevision.set(layerId, this._layerRevision.get(layerId)!)
-    this._pinSnapshotCheckpoint(layerId, tiles)
+    // The *painted* set, not what arrived: a checkpoint restore clears the
+    // buffer before replaying its tiles (see _rebuildLayerFromLog), so a blank
+    // tile there can only ever cost memory, never carry meaning.
+    this._pinSnapshotCheckpoint(layerId, painted)
   }
 
   /** (#373) Records that this layer's pixels changed. Cheap enough to call

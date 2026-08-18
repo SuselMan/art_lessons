@@ -287,3 +287,88 @@ describe('getOperationsSinceRestore (#169)', () => {
     expect(engine.getOperations().map(op => op.id)).toEqual([page2[0].id, page1[0].id, tailAdd.id])
   })
 })
+
+// (#469) A bounded room's tile used to be its whole page; it is capped at
+// TILE_SIZE now, so every snapshot baked before that change arrives in a shape
+// the buffer no longer uses. This is the end-to-end half of
+// retileSnapshot.test.ts: that file proves the arithmetic, this one proves the
+// engine actually routes a legacy snapshot through it and lands the pixels on
+// the right tiles. Without it, an old room opens as garbage and every unit
+// test still passes.
+describe('restoring a snapshot baked before bounded rooms were subdivided (#469)', () => {
+  /** One page-sized tile whose pixels encode their own world position, the way
+   *  a pre-#469 bake of a 2048x1024 room would have produced. */
+  function legacyPageTile(width: number, height: number) {
+    const pixels = new Uint8Array(width * height * 4)
+    for (let row = 0; row < height; row++) {
+      const worldY = height - 1 - row // the array is GL bottom-up
+      for (let x = 0; x < width; x++) {
+        const i = (row * width + x) * 4
+        pixels[i] = x & 255
+        pixels[i + 1] = worldY & 255
+        pixels[i + 2] = (x >> 8) & 255
+        pixels[i + 3] = 255
+      }
+    }
+    return { originX: 0, originY: 0, width, height, pixels }
+  }
+
+  // Deliberately asserts *shape* — which tiles exist, and how big — and never
+  // pixel values. MockGL does not reproduce texture contents faithfully, so a
+  // value assertion here would be measuring the mock (see the marker tests'
+  // own note). The pixel arithmetic is proved where it can be: on the pure
+  // function, in retileSnapshot.test.ts.
+  it('lands the old page on the grid the buffer now uses', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 2048, height: 1024 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+
+    engine.restoreLayerFromSnapshot('L', [legacyPageTile(2048, 1024)], 300)
+
+    // One 2048-wide page in, two 1024 tiles out. Before the retiling step this
+    // resolved to the same two tiles and uploaded the whole page into each.
+    for (const tileX of [0, 1]) {
+      const got = readTilePixels(engine, 'L', tileX, 0, 1024, 1024)
+      expect(got).not.toBeNull()
+      expect(got!.length).toBe(1024 * 1024 * 4)
+    }
+    expect(readTilePixels(engine, 'L', 2, 0, 1024, 1024)).toBeNull()
+  })
+
+  it('re-bakes the restored page into the new tile shape, byte for byte', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 2048, height: 1024 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.restoreLayerFromSnapshot('L', [legacyPageTile(2048, 1024)], 300)
+
+    const { tiles } = decodeLayerTiles(engine.bakeNetworkSnapshot('L')!, 0)
+
+    expect(tiles.map(t => `${t.originX},${t.originY}`).sort()).toEqual(['0,0', '1024,0'])
+    for (const tile of tiles) {
+      expect(tile.width).toBe(1024)
+      expect(tile.height).toBe(1024)
+      const grid = readTilePixels(engine, 'L', tile.originX / 1024, tile.originY / 1024, 1024, 1024)!
+      expect(grid.length).toBe(tile.pixels.length)
+      // Compared by index rather than by spreading both into plain arrays:
+      // these are 4 MiB each, and two 4-million-element arrays per tile times
+      // out the test on what is really a one-pass comparison.
+      let mismatch = -1
+      for (let i = 0; i < grid.length; i++) {
+        if (grid[i] !== tile.pixels[i]) { mismatch = i; break }
+      }
+      expect(mismatch).toBe(-1)
+    }
+  })
+
+  it('creates no tile at all for a page that was stored empty', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 2048, height: 1024 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+
+    // The case that made an old ten-layer room unopenable on a tablet: nine of
+    // its layers were all but blank and each still cost a full page.
+    engine.restoreLayerFromSnapshot('L', [{
+      originX: 0, originY: 0, width: 2048, height: 1024,
+      pixels: new Uint8Array(2048 * 1024 * 4),
+    }], 300)
+
+    expect(engine.bakeNetworkSnapshot('L')).toBeNull()
+  })
+})
