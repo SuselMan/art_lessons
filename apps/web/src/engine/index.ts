@@ -49,6 +49,7 @@ import {
 } from './src/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, applyWatercolorHeadTaper,
+  watercolorWaterLoad, watercolorWaterStep,
 } from './src/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
@@ -1285,6 +1286,24 @@ class RibbonStrokeScratch {
   /** (#468) Null until this stroke's first batch paints, and null for the whole
    *  life of a stroke whose tool needs no settle pass (ribbonNeedsSettle). */
   private _settle: RibbonSettleContext | null = null
+  /** (#468 v3) How much of the brush's load this gesture has spent so far,
+   *  measured in brush radii of travel (ADR 011 §3.8).
+   *
+   *  Lives on the scratch rather than on the engine because that is the one
+   *  object all three paths already share for the length of exactly one
+   *  gesture: a live stroke's batches, a one-shot replay's single call, and a
+   *  chunked replay's several operations. Put it on the engine and replay would
+   *  either carry it between unrelated strokes or reset it at every chunk
+   *  boundary — and a seam in the depletion is a visible band across the mark. */
+  private _waterUsed = 0
+
+  get waterUsed(): number {
+    return this._waterUsed
+  }
+
+  advanceWater(used: number): void {
+    this._waterUsed = used
+  }
 
   /** `needsInk` false skips the third buffer entirely (#454): a covering,
    *  source-over ink has no per-pixel pigment quantity for the composite to
@@ -1369,6 +1388,7 @@ class RibbonStrokeScratch {
    *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
     this._settle = null
+    this._waterUsed = 0
     for (const { original, coverage, inkLoad } of this._tiles.values()) {
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
@@ -6191,7 +6211,55 @@ export class PencilEngine implements PencilEngineAPI {
       ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, meanRadius * WATERCOLOR_SPREAD.ofRadius))
       : 0
 
-    const bands = buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx)
+    // (#468 v3, ADR 011 §3.8) Every dab's ink deposit, resolved once for the
+    // batch — *before* the tile loop, because the depletion clock must advance
+    // once per batch and not once per tile a batch happens to straddle.
+    //
+    // Two things happen here that did not before, both watercolor-only:
+    //
+    //  - the deposit is divided by the dab's own radius, turning it from a
+    //    quantity per unit *length* into one per unit *area*. Unnormalized it
+    //    scaled with brush size and saturated the 8-bit inkLoad buffer on the
+    //    first dab of any real wash, which pinned the composite's saturation
+    //    curve at 1 and made `density` dead code (see normalizeDeposit);
+    //  - it decays as the brush unloads along the stroke, which is only
+    //    expressible *because* of the normalization above.
+    //
+    // The marker takes neither and must not: its strokes are permanent and its
+    // constants were calibrated against the old scale.
+    const deposits: number[] = []
+    const waterByDab = new Map<Dab, number>()
+    {
+      let prev = prevDab
+      let used = scratch.waterUsed
+      for (const dab of drawable) {
+        const radius = Math.max(dab.size * 0.5 * preset.sizeMultiplier, 0.5)
+        const seg = this._markerSegmentLength(dab, prev, radius)
+        if (profile.waterDepletion) used += watercolorWaterStep(seg, radius)
+        const water = profile.waterDepletion ? watercolorWaterLoad(used) : 1
+        waterByDab.set(dab, water)
+        deposits.push(profile.normalizeDeposit
+          ? profile.depositPerRadius * (seg / radius) * 0.5 * water
+          : dab.opacity * seg * 0.5)
+        prev = dab
+      }
+      scratch.advanceWater(used)
+    }
+
+    // Bands share the stamps' scale, or they would swamp it: the two overlap
+    // almost everywhere and each carries half a dose, so a band still on the
+    // legacy scale would drown whatever the normalized stamps expressed.
+    // Omitting the callback leaves buildRibbonBands' own formula untouched,
+    // which is what the marker and the brush pen get.
+    const inkFor = profile.normalizeDeposit
+      ? (_d0: Dab, d1: Dab, travel: number): number => {
+        const radius = Math.max(d1.size * 0.5 * preset.sizeMultiplier, 0.5)
+        return profile.depositPerRadius * (travel / radius) * 0.5 * (waterByDab.get(d1) ?? 1)
+      }
+      : undefined
+    const bands = buildRibbonBands(
+      drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor,
+    )
 
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
@@ -6209,14 +6277,10 @@ export class PencilEngine implements PencilEngineAPI {
       // Skipped entirely for a covering ink, which has no such quantity — see
       // RibbonProfile.ink.
       if (inkLoad) {
-        let prev = prevDab
-        for (const dab of drawable) {
-          const radius = dab.size * 0.5 * preset.sizeMultiplier
-          const deposit = dab.opacity * this._markerSegmentLength(dab, prev, radius) * 0.5
+        for (let i = 0; i < drawable.length; i++) {
           inkLoad.beginAdditiveDraw()
-          this._drawRibbonNibPass(inkLoad, tile, dab, preset, profile, 7, deposit, false)
+          this._drawRibbonNibPass(inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false)
           inkLoad.endDraw()
-          prev = dab
         }
         if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx)
       }

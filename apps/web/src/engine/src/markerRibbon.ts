@@ -212,6 +212,15 @@ export function buildRibbonBands(
   shape: NibShape = 'ellipse',
   cornerFraction = 0,
   aaPx = 1,
+  /** (#468 v3) Overrides how much ink each segment carries. Omitted keeps the
+   *  distance-normalized formula below exactly as it was, which is what the
+   *  marker must keep forever (its strokes live in production rooms and its
+   *  saturation constants were calibrated against that scale).
+   *
+   *  Watercolor passes one so its bands share the stamps' normalization and
+   *  water depletion — the two overlap almost everywhere, so leaving the bands
+   *  on the old scale would let them swamp whatever the stamps expressed. */
+  inkFor?: (d0: Dab, d1: Dab, travel: number) => number,
 ): Float32Array {
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return new Float32Array(0)
@@ -259,7 +268,7 @@ export function buildRibbonBands(
     // "Ревизия v1.5" §2) — halved because those deposit too and the two overlap
     // almost everywhere. Where they don't (exactly the regions
     // this exists to cover) a half dose still lands, instead of nothing.
-    ink = d1.opacity * travel * 0.5
+    ink = inkFor ? inkFor(d0, d1, travel) : d1.opacity * travel * 0.5
 
     const steps = poseSubdivisions(
       nibGeometry(d0, sizeMultiplier, shape, cornerFraction),

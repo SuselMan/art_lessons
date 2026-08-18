@@ -73,6 +73,49 @@ export interface RibbonProfile {
    *  0 disables. This is the scale a wash actually varies at; paper grain is a
    *  tenth of it and cannot stand in for it. */
   cloud: number
+  /** #468 v3 — whether the ink pass divides each dab's deposit by that dab's
+   *  own radius, making it a quantity *per unit area* instead of per unit
+   *  length (ADR 011 §3.8).
+   *
+   *  False keeps the original formula, and the marker must keep it forever: its
+   *  strokes are in production rooms and its saturation constants were
+   *  calibrated against that scale, so changing it would silently re-render
+   *  every marker mark ever drawn.
+   *
+   *  What it fixes for watercolor: unnormalized, a pixel accumulates roughly
+   *  `opacity x radius` because it is covered by about `2 * radius / spacing`
+   *  dabs each depositing `opacity x spacing`. On a 70px-radius wash that is
+   *  ~29 into an 8-bit buffer that saturates at 1.0 — so the saturation curve
+   *  was pinned at its ceiling everywhere and `density` was the constant 1.
+   *  Normalized, the same pixel lands near `opacity` regardless of how wide the
+   *  brush is or how densely the dabs were spaced, which is the only way the
+   *  curve can express anything at all. */
+  normalizeDeposit: boolean
+  /** #468 v3 — deposit laid per radius of travel, when normalizeDeposit is on.
+   *  0 for a tool on the legacy scale, which reads dab.opacity instead.
+   *
+   *  Deliberately a constant of the *tool* rather than dab.opacity, which is
+   *  what the legacy formula uses. dab.opacity carries the user's own opacity
+   *  slider, and feeding it into inkLoad as well would make that slider act
+   *  twice — once on how much pigment is deposited and again on how strong the
+   *  composite paints it — so halving it would quarter the mark. inkLoad has to
+   *  mean "how much brushwork has happened here", which is a fact about the
+   *  gesture and not about how dilute the paint is.
+   *
+   *  Calibrated against the buffer, not derived on paper: the arithmetic says a
+   *  fully-worked pixel should accumulate about 2x this, but reading the actual
+   *  inkLoad texture back showed roughly half that — 8-bit quantisation eats a
+   *  slice of every one of the ~30 tiny additions a pixel receives, and the
+   *  bands do not overlap the stamps quite as densely as the geometry suggests.
+   *  0.75 measures out at ~0.66 at full water and ~0.26 at the far end of a
+   *  40-radius sweep, which straddles saturateInk exactly as intended. Re-measure
+   *  rather than re-derive if either number moves. */
+  depositPerRadius: number
+  /** #468 v3 — whether the deposit decays as the brush unloads along the stroke
+   *  (ADR 011 §3.8, watercolorPresets.ts's watercolorWaterLoad). False leaves
+   *  every dab depositing the same amount, which is right for a marker or a pen
+   *  fed from a reservoir and wrong for a brush carrying a finite load. */
+  waterDepletion: boolean
   /** #468 — the inkLoad at which one pass reaches its full density and stops
    *  building (ADR 011 §3.2). Unlike the marker's two discrete Beer-Lambert
    *  layers, a single wet wash has exactly one: brushing back over paint that
@@ -203,6 +246,12 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   granulation: 0,
   spreadPx: 0,
   cloud: 0,
+  // #468 v3 — the legacy deposit scale, and permanently so: this tool's strokes
+  // are in production rooms and its saturation constants were calibrated
+  // against it. See RibbonProfile.normalizeDeposit.
+  normalizeDeposit: false,
+  depositPerRadius: 0,
+  waterDepletion: false,
   saturateInk: 0,
 }
 
@@ -232,6 +281,12 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   granulation: 0,
   spreadPx: 0,
   cloud: 0,
+  // #468 v3 — the legacy deposit scale, and permanently so: this tool's strokes
+  // are in production rooms and its saturation constants were calibrated
+  // against it. See RibbonProfile.normalizeDeposit.
+  normalizeDeposit: false,
+  depositPerRadius: 0,
+  waterDepletion: false,
   saturateInk: 0,
 }
 
@@ -284,17 +339,26 @@ const WATERCOLOR_WET_EDGE_RADIUS_PX = 7.0
  *  and the finest scale should never be the dominant one. */
 const WATERCOLOR_GRANULATION = 0.15
 
-/** ADR 011 §3.2 — inkLoad at which one pass reaches full density.
+/** ADR 011 §3.2/§3.8 — inkLoad at which one pass reaches full density.
  *
- *  Low, and that is the point. A wet wash reaches its tone almost at once and
- *  then stops: brushing back and forth over paint that has not dried moves the
- *  same pigment around rather than adding more. Depth in watercolor comes from
- *  *glazing* — letting a pass dry and going over it again — which here is
- *  simply lifting the stylus, because every stroke gets its own scratch and
- *  therefore multiplies afresh over what the last one left (the same per-stroke
- *  scope the marker's ceiling has, and here it is not a limitation but the
- *  correct model of the material). */
-const WATERCOLOR_SATURATE_INK = 0.35
+ *  A wet wash reaches its tone almost at once and then stops: brushing back and
+ *  forth over paint that has not dried moves the same pigment around rather
+ *  than adding more. Depth comes from *glazing* — lifting the stylus, which
+ *  starts a new scratch and multiplies afresh over what the last pass left.
+ *
+ *  Meaningful only since v3. Until the deposit was normalized this curve was
+ *  fed a value that saturated an 8-bit buffer on the first dab, so it evaluated
+ *  to a flat 1 everywhere and the whole term was dead code — which is a good
+ *  part of why v1's washes were so mechanically even. Now a full-water pass
+ *  lands just above this and a depleted one lands well below, which is what
+ *  makes the far end of a long sweep read as drier than its start. */
+const WATERCOLOR_SATURATE_INK = 0.70
+
+/** ADR 011 §3.8 — ink laid per radius of travel. See
+ *  RibbonProfile.depositPerRadius for why this is a tool constant rather than
+ *  the dab's own opacity, and how 0.40 lands a full-water pass just above the
+ *  saturation threshold above. */
+const WATERCOLOR_DEPOSIT_PER_RADIUS = 0.75
 
 /** Below this half-width the nib is widened rather than dropped, same as the
  *  brush pen. Higher than its 0.5 because this tool's own width floor is 0.32
@@ -385,6 +449,9 @@ const WATERCOLOR_RIBBON: RibbonProfile = {
   granulation: WATERCOLOR_GRANULATION,
   spreadPx: WATERCOLOR_SPREAD_CAP_PX,
   cloud: WATERCOLOR_CLOUD,
+  normalizeDeposit: true,
+  depositPerRadius: WATERCOLOR_DEPOSIT_PER_RADIUS,
+  waterDepletion: true,
   saturateInk: WATERCOLOR_SATURATE_INK,
 }
 

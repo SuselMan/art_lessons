@@ -13,7 +13,7 @@ import type { Dab } from '@grafetto/shared'
 import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorHeadTaper, applyWatercolorEndTaper,
-  DEFAULT_WATERCOLOR_RESPONSE,
+  DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
 } from './watercolorPresets'
 import { brushPenWidth } from './brushPenPresets'
 
@@ -154,5 +154,49 @@ describe('watercolor tapers', () => {
   it('is a no-op on an empty batch', () => {
     expect(() => applyWatercolorEndTaper([], 2)).not.toThrow()
     expect(applyWatercolorHeadTaper([], undefined, 7)).toBe(7)
+  })
+})
+
+describe('water load (#468 v3, ADR 011 §3.8)', () => {
+  it('starts full', () => {
+    expect(watercolorWaterLoad(0)).toBeCloseTo(1, 6)
+  })
+
+  it('only ever decreases', () => {
+    let prev = Infinity
+    for (let u = 0; u <= 120; u += 1) {
+      const w = watercolorWaterLoad(u)
+      expect(w).toBeLessThanOrEqual(prev)
+      prev = w
+    }
+  })
+
+  it('bottoms out rather than reaching zero', () => {
+    // A brush dragged a long way is drier, not empty — it keeps laying a thin
+    // broken wash until it is lifted. A zero here would make long strokes
+    // simply stop painting, which is a bug, not dry brush.
+    expect(watercolorWaterLoad(1e4)).toBeGreaterThan(0.35)
+    expect(watercolorWaterLoad(1e4)).toBeLessThan(0.55)
+  })
+
+  it('leaves an ordinary stroke almost undepleted and a long sweep plainly dry', () => {
+    // The two anchors both constants were tuned against by measurement (see
+    // WATER_RUN_RADII and WATER_FLOOR). A short mark keeping only three
+    // quarters of its load reads as a failing brush rather than as watercolor;
+    // a 40-radius sweep that keeps nearly everything defeats the whole term.
+    // Deliberately loose — this pins the *shape*, not today's exact numbers.
+    expect(watercolorWaterLoad(8)).toBeGreaterThan(0.80)
+    expect(watercolorWaterLoad(40)).toBeLessThan(0.65)
+  })
+
+  it('measures travel in brush radii, not pixels', () => {
+    // The point of the whole normalization: a 12px brush and a 120px brush must
+    // deplete over proportionally different distances from the same constants.
+    expect(watercolorWaterStep(10, 20)).toBeCloseTo(watercolorWaterStep(20, 40), 9)
+    expect(watercolorWaterStep(45, 45)).toBeCloseTo(1, 9)
+  })
+
+  it('does not divide by zero for a degenerate radius', () => {
+    expect(Number.isFinite(watercolorWaterStep(5, 0))).toBe(true)
   })
 })

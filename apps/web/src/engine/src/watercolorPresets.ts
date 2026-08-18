@@ -123,6 +123,66 @@ export function shapingForWatercolorPreset(presetName: string | undefined): DabS
   return WATERCOLOR_SHAPING_BY_RESPONSE[watercolorResponseFromPreset(presetName)]
 }
 
+// ─── Water load (#468 v3, ADR 011 §3.8) ─────────────────────────────────────
+//
+// A loaded brush does not lay the same wash from the first centimetre to the
+// last. It unloads: the film thins, the pigment-to-water ratio shifts, and the
+// far end of a long stroke is visibly drier than its beginning. v1 and v2 had
+// no way to express this at all — see ADR 011 §3.8 for why (the deposit that
+// feeds the saturation curve was unnormalized and hit the 8-bit ceiling on the
+// very first dab, so `density` was pinned at 1 everywhere and nothing about
+// how much paint was actually laid could reach the composite).
+//
+// Modelled as plain exponential decay toward a floor, integrated along the
+// stroke in units of the brush's *own radius* rather than in pixels. Radii,
+// not pixels, is the whole point: a big brush carries proportionally more
+// water and lays proportionally more wash before it runs dry, so a 12px liner-
+// sized brush and a 120px wash brush should deplete over very different
+// distances and the same two numbers should describe both.
+
+/** How many brush radii of travel it takes to spend most of the load. 18 is
+ *  deliberately long: an ordinary stroke should barely show depletion at all,
+ *  and only a genuinely long sweep should visibly dry out. Lower this and every
+ *  mark starts fading, which reads as a failing brush rather than as watercolor.
+ *
+ *  Measured rather than guessed. At 18 an 8-radius mark — a short one, 360px
+ *  for a 90px brush — already lost a quarter of its load and visibly faded,
+ *  which is not what a loaded round brush does over that distance. At 26 the
+ *  same mark keeps ~82% and reads flat, while a 40-radius sweep still falls to
+ *  ~47% and dries out plainly. */
+const WATER_RUN_RADII = 26
+
+/** Where depletion bottoms out. Never 0 — a brush dragged a long way is drier,
+ *  not empty; a real one keeps laying a thin wash until it is lifted.
+ *
+ *  Raised from 0.32 after looking at a full test sheet: at that depth every
+ *  mark on the page visibly faded out and depletion drowned the other three
+ *  cues the tool has. Worse, a *small* brush covers far more of its own radii
+ *  over the same screen distance than a large one, so thin strokes emptied
+ *  almost completely — physically defensible, and still the wrong thing to see
+ *  on every line. 0.45 keeps the effect legible on a long sweep without letting
+ *  it dominate the material. */
+const WATER_FLOOR = 0.45
+
+/** Water remaining after `usedRadii` radii of travel, in 0..1.
+ *
+ *  `usedRadii` is a *path integral*: each segment contributes its own length
+ *  divided by the radius the brush had over that segment, so a stroke that
+ *  swells and thins under pressure depletes correctly rather than being
+ *  measured against whatever its final width happened to be. The engine
+ *  accumulates it across batches on the stroke's own scratch, which is what
+ *  makes a live stroke, a one-shot replay and a chunked replay all agree. */
+export function watercolorWaterLoad(usedRadii: number): number {
+  return WATER_FLOOR + (1 - WATER_FLOOR) * Math.exp(-usedRadii / WATER_RUN_RADII)
+}
+
+/** How far one segment advances the depletion clock. Separated from the decay
+ *  above so the engine never has to know the run length, and so both halves are
+ *  testable without a GL context. */
+export function watercolorWaterStep(segmentLengthPx: number, radiusPx: number): number {
+  return segmentLengthPx / Math.max(radiusPx, 0.5)
+}
+
 // ─── Taper (ADR 011 §5) ─────────────────────────────────────────────────────
 // Both ends far shallower than the brush pen's. That tool tapers to 0.35 at the
 // head and up to 0.75 at the tail because a flexible ink nib genuinely does

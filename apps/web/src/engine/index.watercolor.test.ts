@@ -239,3 +239,109 @@ describe('watercolor tool (#468, ADR 011)', () => {
     for (const d of dabs) expect(d.opacity).toBeCloseTo(first, 6)
   })
 })
+
+describe('ink deposit normalization (#468 v3, ADR 011 §3.8)', () => {
+  // The ink pass is dispatched with the deposit riding u_opacity, so the last
+  // such draw's recorded value *is* the last dab's deposit. That is the one
+  // handle MockGL gives onto this, and it is enough: everything being asserted
+  // here is arithmetic the engine does on the CPU before any rasterization.
+
+  function lastInkDeposit(engine: PencilEngine): number {
+    const draw = markerPassDraw(engine, 7)
+    if (!draw) throw new Error('no ink pass was dispatched')
+    return draw.opacity
+  }
+
+  function sweep(n: number, size: number, tool: 'watercolor' | 'marker') {
+    // Same spacing and same width throughout, so the only thing that can differ
+    // between a short and a long sweep is how much water is left.
+    const dabs = []
+    for (let i = 0; i < n; i++) dabs.push(dab(6 + i * 3, 32, { size }))
+    return makeStroke('user-a', 'L', dabs, {
+      tool, preset: tool === 'marker' ? 'bullet:24' : 'normal',
+    })
+  }
+
+  it('runs the brush down over a long stroke and barely over a short one', () => {
+    const short = setupLayer(512, 128)
+    short.appendOperation(sweep(12, 24, 'watercolor'))
+    const shortDeposit = lastInkDeposit(short)
+
+    const long = setupLayer(512, 128)
+    long.appendOperation(sweep(150, 24, 'watercolor'))
+    const longDeposit = lastInkDeposit(long)
+
+    expect(longDeposit).toBeLessThan(shortDeposit)
+    // Same segment length and same radius in both, so the ratio is purely the
+    // water curve — and it has to be a real difference, not a rounding one.
+    expect(longDeposit / shortDeposit).toBeLessThan(0.75)
+  })
+
+  function singleDab(size: number, tool: 'watercolor' | 'marker') {
+    // One dab and no travel, so the segment length is the nominal
+    // fraction-of-its-own-radius _markerSegmentLength hands a lone tap. That
+    // makes (segment / radius) a constant, which is what isolates the
+    // normalization from everything else that varies along a stroke.
+    return makeStroke('user-a', 'L', [dab(40, 32, { size })], {
+      tool, preset: tool === 'marker' ? 'bullet:24' : 'normal',
+    })
+  }
+
+  it('deposits the same amount whatever the brush size', () => {
+    // The whole point of normalizing. Before it, deposit scaled with radius, so
+    // a wide wash saturated the 8-bit inkLoad buffer on its very first dab —
+    // which pinned the composite's saturation curve at 1 and made `density`
+    // dead code everywhere. Now the quantity is per unit *area*: a thin brush
+    // and a broad one lay the same pigment density and differ only in how much
+    // paper they cover.
+    const thin = setupLayer(512, 128)
+    thin.appendOperation(singleDab(10, 'watercolor'))
+    const wide = setupLayer(512, 128)
+    wide.appendOperation(singleDab(120, 'watercolor'))
+    expect(lastInkDeposit(thin)).toBeCloseTo(lastInkDeposit(wide), 6)
+  })
+
+  it('shows what that fixed: the marker still scales with its brush', () => {
+    // The same pair on the legacy formula, kept as the contrast. This is not a
+    // complaint about the marker — its composite was calibrated against exactly
+    // this scale and must keep it — but it is what a 12x size range does to an
+    // unnormalized deposit, and why watercolor could not use one.
+    const thin = setupLayer(512, 128)
+    thin.appendOperation(singleDab(10, 'marker'))
+    const wide = setupLayer(512, 128)
+    wide.appendOperation(singleDab(120, 'marker'))
+    expect(lastInkDeposit(wide) / lastInkDeposit(thin)).toBeCloseTo(12, 0)
+  })
+
+  it('leaves the marker on its original scale', () => {
+    // Load-bearing, not tidiness: marker strokes are in production rooms and
+    // ADR 004's saturation constants were calibrated against the old formula.
+    // Normalizing the marker would silently re-render every marker mark ever
+    // drawn, which the Operation Log makes permanent.
+    const engine = setupLayer(512, 128)
+    const op = sweep(20, 24, 'marker')
+    engine.appendOperation(op)
+    const dabs = op.dabs ?? []
+    const last = dabs[dabs.length - 1]
+    // The legacy formula exactly: opacity x segment length x a half dose.
+    expect(lastInkDeposit(engine)).toBeCloseTo(last.opacity * 3 * 0.5, 6)
+  })
+
+  it('keeps one depletion clock across the chunks of one gesture', () => {
+    // A seam in the depletion is a visible band across the mark, so the clock
+    // lives on the gesture's scratch rather than being restarted per operation.
+    const engine = setupLayer(512, 128)
+    const strokeId = 'g'
+    const first = []
+    for (let i = 0; i < 80; i++) first.push(dab(6 + i * 3, 32, { size: 24 }))
+    engine.appendOperation(makeStroke('user-a', 'L', first, { tool: 'watercolor', strokeId }))
+    const afterFirst = lastInkDeposit(engine)
+
+    const second = []
+    for (let i = 0; i < 80; i++) second.push(dab(6 + (80 + i) * 3, 32, { size: 24 }))
+    engine.appendOperation(makeStroke('user-a', 'L', second, { tool: 'watercolor', strokeId }))
+    // The second chunk continues running the brush down; if the clock had reset
+    // its last dab would deposit exactly what the first chunk's did.
+    expect(lastInkDeposit(engine)).toBeLessThan(afterFirst * 0.95)
+  })
+})
