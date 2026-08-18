@@ -584,7 +584,7 @@ const WATERCOLOR_MIGRATE_MIN_PX = 3.0
  *  is there; the shader clamps as well, but a rate that needs the clamp is a
  *  rate that has stopped conserving. 0.55 was picked by measurement against the
  *  four exercises — see ADR 011 §11. */
-const WATERCOLOR_MIGRATE_GAIN = 0.75
+const WATERCOLOR_MIGRATE_GAIN = 1.0
 
 /** Where "wet enough for paint to swim" begins and where it is complete. */
 const WATERCOLOR_MIGRATE_LO = 0.78

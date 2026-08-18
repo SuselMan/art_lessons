@@ -712,6 +712,20 @@ export const DAB_FRAG = `
   const float WC_MIGRATE_FLOOD = 0.6;
   const float WC_MIGRATE_FLOOD_LO = 0.90;
   const float WC_MIGRATE_FLOOD_HI = 1.02;
+  // How unevenly the pigment is allowed to run, as a fraction either side of 1.
+  //
+  // The reason is not texture for its own sake. Transport that runs evenly all
+  // the way round a mark spreads the same paint over the whole perimeter, and
+  // an even band ten pixels wide reads as "the edge is a bit darker" — which is
+  // a soft-focus effect, not a deposit. The same pigment put down over a third
+  // of that perimeter reads as *sediment*: the eye takes an irregular dark
+  // patch as evidence that water stood there and left something behind, and
+  // takes an even one as a filter.
+  //
+  // So this buys concentration, not noise, and it costs no smoothness in the
+  // middle of the wash: the field it reads is zero-mean, and the term it scales
+  // is itself zero away from the margin.
+  const float WC_MIGRATE_PATCH = 0.75;
   // The deposit at which the standing film stops deepening, as a fraction of
   // u_saturateInk. Sits at the level the deposit buffer itself tops out at, so
   // the depth reads as flat right across the inside of a wash and slopes only
@@ -1173,6 +1187,14 @@ export const DAB_FRAG = `
       // directions rather than eight for the reason wcRingAvg documents - eight
       // resolves as an octagon, and an octagon around every wet mark would be
       // worse than no transport at all.
+      // Where along the perimeter the water happened to retreat last, ~40px
+      // patches. Computed once here and read twice — by transport just below
+      // and by the painted tideline further down — and that sharing is the
+      // point rather than a saving: both terms are trying to describe the same
+      // physical event, so a mark whose sediment sits in one place and whose
+      // tideline sits in another would be describing two different washes.
+      float perimeter = wcFbm(wp * 0.025 + vec2(7.0, 61.0));
+
       float deposit = ink.a;
       float migrateGate = 0.0;
       if (u_migrate > 0.0) {
@@ -1203,7 +1225,18 @@ export const DAB_FRAG = `
         f += wcFlux(c, tileUV, texel, vec2(-0.5,  C30), R, s, full);
         f += wcFlux(c, tileUV, texel, vec2( 0.5, -C30), R, s, full);
         f += wcFlux(c, tileUV, texel, vec2(-0.5, -C30), R, s, full);
-        deposit = max(ink.a + u_migrate * (f.x - f.y) * 0.0833333, 0.0);
+        // The patch factor multiplies the *net*, not each half of the
+        // exchange, and that is a deliberate trade. Inside the exchange it
+        // would keep conservation exact but cost thirteen more noise
+        // evaluations per fragment; out here it costs one, at the price of an
+        // error proportional to how much the field varies between a place
+        // losing pigment and the place receiving it. The band is some six
+        // pixels wide and the field's cells are forty, so the two are near
+        // enough the same value — measured at well under a percent of the
+        // mark's total tone, which is the same order as the loss the saturation
+        // curve accounts for anyway.
+        float patch = mix(1.0 - WC_MIGRATE_PATCH, 1.0 + WC_MIGRATE_PATCH, perimeter);
+        deposit = max(ink.a + u_migrate * patch * (f.x - f.y) * 0.0833333, 0.0);
       }
 
       float density = smoothstep(0.0, u_saturateInk, deposit);
@@ -1297,7 +1330,7 @@ export const DAB_FRAG = `
         // §4.1 — how much of the perimeter carries a rim at all is water's
         // call: a dry mark never had a pool to retreat, a flood leaves one
         // almost everywhere it stopped.
-        float tide = smoothstep(u_tideLo, u_tideHi, wcFbm(wp * 0.025 + vec2(7.0, 61.0)));
+        float tide = smoothstep(u_tideLo, u_tideHi, perimeter);
         // §11 - and it stands down where transport is doing the work. Two
         // rims at once is one too many, and the wrong one would be the louder:
         // this term multiplies brightness, so it darkens an edge without ever
