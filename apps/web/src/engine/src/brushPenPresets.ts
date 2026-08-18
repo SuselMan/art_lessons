@@ -183,18 +183,32 @@ export const BRUSH_PEN_PRESSURE_SMOOTHING_PX = 10
  *  is visible at all — the ends of a stroke, and turns. Uncalibrated. */
 const BRUSH_PEN_ELONGATION = 0.85
 
-/** How far the nib takes to swing round to the direction of travel, as a
- *  multiple of its own current width: a wide nib has further to bend and lags
- *  longer, which is why this is a ratio rather than a distance.
+/** How far the nib takes to bend and swing round to the direction of travel,
+ *  as a multiple of its own current width: a wide nib has further to bend and
+ *  lags longer, which is why this is a ratio rather than a distance.
  *
  *  Too small and the nib is welded to the tangent — the elongation then only
  *  shows at stroke ends and the tool is back to a swept disc in the middle.
- *  Too large and the mark stops following the hand at all. Uncalibrated. */
-const BRUSH_PEN_TIP_LAG_WIDTHS = 0.6
+ *  Too large and the mark stops following the hand at all.
+ *
+ *  1.5 rather than the 0.6 this shipped with first (#472 review, Ilya). Dab
+ *  spacing is 0.22 of the nib's width, so at 0.6 a *single* dab of travel bent
+ *  the nib by 1 - exp(-0.22/0.6) = 31% — a nudge across a third of a pixel of
+ *  the hand's intent already stamped a visible ellipse, and wiggling swung it
+ *  about. The ratio that matters is lag against spacing, and it has to be
+ *  large enough that "moved a little" reads as "bent a little": at 1.5 the
+ *  same single dab bends it 14%, which is inside the round-looking range.
+ *
+ *  It is also the more physical number. Fibres bend over a distance of the
+ *  order of the nib's *length*, and a brush nib is several times longer than
+ *  it is wide — a nib that fully reorients within two-thirds of its own width
+ *  of travel is stiffer than any brush. */
+const BRUSH_PEN_TIP_LAG_WIDTHS = 1.5
 
-/** Floor under that distance so a hairline nib still has inertia: 0.6 x a 3px
- *  pen is 1.8px, which at that pen's own dab spacing would be no lag at all. */
-const BRUSH_PEN_TIP_MIN_LAG_PX = 3
+/** Floor under that distance so a hairline nib still has inertia: even 1.5 x a
+ *  3px pen is 4.5px, which at that pen's own dab spacing is only a couple of
+ *  dabs of lag. */
+const BRUSH_PEN_TIP_MIN_LAG_PX = 6
 
 function brushPenTipBend(response: PressureResponse): TipBendProfile {
   return {

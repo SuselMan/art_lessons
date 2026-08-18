@@ -62,11 +62,13 @@ function arcLengths(dabs: Array<{ x: number; y: number }>): number[] {
 
 describe('brush pen: the nib is not a circle (#472)', () => {
   it('elongates the contact patch under pressure, along the direction of travel', () => {
-    const dabs = brushPenStroke(horizontal(8, 12, 0.9))
-    // The head dab is deliberately excluded — see the round-at-touchdown test.
-    const mid = dabs.slice(2)
-    expect(mid.length).toBeGreaterThan(4)
-    for (const d of mid) {
+    const dabs = brushPenStroke(horizontal(10, 20, 0.9))
+    // Late in the stroke, i.e. once the nib has actually been dragged — the
+    // bend builds up over distance, it is not a property of the pressure
+    // alone. See the ramp tests below.
+    const settled = dabs.slice(-6)
+    expect(settled.length).toBe(6)
+    for (const d of settled) {
       expect(d.aspectRatio).toBeGreaterThan(1.5)
       // Travelling along +x, and by here the nib has long since caught up.
       expect(angleDelta(d.angle, 0)).toBeLessThan(0.05)
@@ -95,6 +97,61 @@ describe('brush pen: the nib is not a circle (#472)', () => {
     expect(head.aspectRatio).toBeCloseTo(1, 6)
   })
 
+  // Reported by Ilya on the first build of #472, stylus on a tablet: "делаю
+  // сильное давление, получаю эллипс — далее чуууть-чуть сдвигаю кисть и
+  // эллипс поворачивается на месте радикально".
+  //
+  // The model bent the nib fully on the first dab that had any direction at
+  // all, so a press-and-nudge stamped a full ellipse and then spun it on the
+  // spot — the nudge's direction being noise, the pen having moved about a
+  // pixel. Both halves of that are wrong about the same thing: the bend is a
+  // consequence of *dragging*, not of pressing.
+  it('does not bend on a nudge, however hard the pen is pressed', () => {
+    // Full pressure on a 40px pen, moved a third of the nib's own width in
+    // total — far enough to emit real spline dabs (spacing is 8.8px there),
+    // nowhere near far enough to count as dragging the nib.
+    const nudge = brushPenStroke([
+      { x: 0, y: 0, p: 1 }, { x: 4, y: 0, p: 1 }, { x: 8, y: 0.6, p: 1 }, { x: 13, y: -0.4, p: 1 },
+    ], 40)
+    expect(nudge.length).toBeGreaterThan(1)
+    for (const d of nudge) expect(d.aspectRatio).toBeLessThan(1.2)
+  })
+
+  it('does not swing the footprint around while it is barely bent', () => {
+    // The same nudge, then a nudge back the other way. Under the first model
+    // the ellipse pointed +x and then flipped to -x, i.e. rotated by half a
+    // turn on the spot. What has to hold is not that the angle is stable —
+    // a round nib's angle is meaningless — but that nothing *visible* turns,
+    // so the assertion is on the footprint, not on the number.
+    const wobble = brushPenStroke([
+      { x: 0, y: 0, p: 1 }, { x: 9, y: 0, p: 1 }, { x: 2, y: 1, p: 1 },
+      { x: 10, y: 0.5, p: 1 }, { x: 3, y: 1.5, p: 1 },
+    ], 40)
+    // 1.22 measured; the bound is the "still reads as a round nib" range
+    // rather than a tight fit, because the constants are uncalibrated.
+    for (const d of wobble) expect(d.aspectRatio).toBeLessThan(1.25)
+  })
+
+  it('builds the bend up over dragging distance, and gives it all back on a reversal', () => {
+    const PEN = 40
+    const straight = brushPenStroke(horizontal(12, 30, 1.0), PEN)
+    // Compared as *bend*, i.e. aspect - 1: aspect itself is 1 + bend, so a
+    // ratio of aspects understates a difference that is really 0.12 against
+    // 0.85.
+    const early = straight[1].aspectRatio - 1
+    const late = straight[straight.length - 3].aspectRatio - 1
+    expect(early).toBeLessThan(late * 0.3)  // still bending
+    expect(late).toBeGreaterThan(0.5)       // and it does get there
+
+    // Dragged out and dragged straight back over itself: at the turn the
+    // fibres straighten out, so the mark passes back through round.
+    const back = brushPenStroke([
+      ...horizontal(8, 30, 1.0),
+      ...[6, 5, 4, 3, 2, 1, 0].map(i => ({ x: i * 30, y: 0, p: 1.0 })),
+    ], PEN)
+    expect(Math.min(...back.map(d => d.aspectRatio))).toBeLessThan(1.15)
+  })
+
   it('elongation grows with pressure and saturates with the same curve as width', () => {
     for (const response of PRESSURE_RESPONSES) {
       const bend = shapingForTool('brushPen', response).tipBend
@@ -108,16 +165,27 @@ describe('brush pen: the nib is not a circle (#472)', () => {
 })
 
 describe('brush pen: the nib trails the hand (#472)', () => {
-  it('lags the tangent through a turn, then catches up', () => {
-    // A quarter arc ending along +y: the tangent at the end is PI/2 exactly.
-    const dabs = brushPenStroke(quarterArc(9, 60), BASE_SIZE)
-    const tail = dabs.slice(-6)
-    const lagAtCorner = angleDelta(tail[0].angle, Math.PI / 2)
-    const lagAtEnd = angleDelta(tail[tail.length - 1].angle, Math.PI / 2)
-    // Mid-turn the nib is still pointing at where the hand was...
-    expect(lagAtCorner).toBeGreaterThan(0.15)
-    // ...and it converges rather than oscillating or sticking.
-    expect(lagAtEnd).toBeLessThan(lagAtCorner * 0.5)
+  it('lags the tangent through a turn, then catches up once the hand goes straight', () => {
+    // A quarter arc ending along +y, then a straight run along +y — the turn
+    // has to *end* somewhere for "catches up" to mean anything, and the arc
+    // alone ends at the moment the nib is furthest behind.
+    const arc = quarterArc(9, 60)
+    const end = arc[arc.length - 1]
+    const dabs = brushPenStroke([...arc, ...[1, 2, 3, 4, 5, 6].map(i => ({ x: end.x, y: end.y + i * 25 }))], BASE_SIZE)
+
+    const lagToFinalHeading = dabs.map(d => angleDelta(d.angle, Math.PI / 2))
+    const arcEndIdx = dabs.findIndex(d => d.y > end.y)
+    // Coming out of the turn the nib is still pointing at where the hand was...
+    expect(lagToFinalHeading[arcEndIdx]).toBeGreaterThan(0.2)
+    // ...and on the straight it converges rather than oscillating or sticking.
+    expect(lagToFinalHeading[lagToFinalHeading.length - 1]).toBeLessThan(0.05)
+    // Monotone convergence over the straight run — no overshoot past the
+    // heading and back, which a filtered *angle* could do and a filtered
+    // vector cannot.
+    const straightLags = lagToFinalHeading.slice(arcEndIdx)
+    for (let i = 1; i < straightLags.length; i++) {
+      expect(straightLags[i]).toBeLessThanOrEqual(straightLags[i - 1] + 1e-9)
+    }
   })
 
   it('lags by distance, not by dab count — the same curve sampled twice as densely bends the same', () => {
