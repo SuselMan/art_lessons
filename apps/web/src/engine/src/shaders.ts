@@ -456,6 +456,10 @@ export const DAB_FRAG = `
   uniform float u_edgeSoftMax;
   uniform float u_tideLo;
   uniform float u_tideHi;
+  // #468 v5 — how covering the *paint* is (watercolorPigments.ts). Chooses
+  // between the composite's two halves below; 0 reproduces the pure multiply
+  // v1-v4 always did.
+  uniform float u_pigmentOpacity;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -903,7 +907,24 @@ export const DAB_FRAG = `
       // the paper's microrelief so literally that the tool read as a textured
       // digital brush rather than as paint. Granulation is the finest of three
       // scales here, not the whole texture.
-      float gran = 1.0 + u_granulation * (1.0 - 2.0 * paperCatch);
+      // §5 - granulation that *clumps* rather than dithers, adapted from
+      // Writing on Water (MIT, see watercolorPigments.ts).
+      //
+      // v1-v4 multiplied straight by the paper's relief, which put a grain of
+      // the paper's own frequency everywhere paint was and read as a textured
+      // brush. Two changes fix the character:
+      //
+      //  - a low-frequency field with a hard split. Below the threshold it is
+      //    halved, above it is amplified, so instead of an even dither the
+      //    field breaks into patches that grain and patches that do not. That
+      //    split is the whole trick, and it is theirs.
+      //  - it only appears where paint is actually dense. A thin passage of a
+      //    granulating paint is smooth; the clumps show up where enough
+      //    pigment collected to have something to clump.
+      float granNoise = wcFbm(wp * 0.11 + vec2(19.0, 71.0)) - 0.5;
+      granNoise = granNoise < 0.05 ? granNoise * 0.5 : granNoise * 1.6;
+      float granHere = u_granulation * (0.2 + 0.8 * density * density);
+      float gran = 1.0 + granHere * (granNoise * 2.0 + (1.0 - 2.0 * paperCatch) * 0.5);
 
       // §3.6 - the wash's own coarse structure, the scale v1 had nothing at.
       //
@@ -987,29 +1008,38 @@ export const DAB_FRAG = `
       // scalar describe the whole batch correctly.
       float pigment = clamp(coverage * v_opacity * density * gran * cloud * paperMod * (1.0 + wet), 0.0, 1.0);
 
-      // The composite. Same three-term separable blend the marker's branch
-      // below uses and for the same reasons (#439), with one deliberate
-      // difference: there, the stroke's *silhouette* drives alpha and a
-      // saturating film drives colour, so a marker mark ends up opaque. Here
-      // the pigment quantity drives **both**, because transparency is the whole
-      // material - a pale wash must let a pencil line on a layer underneath
-      // show through it, not merely tint it.
+      // The composite. Still the three-term separable blend the marker's branch
+      // below uses (#439) - on bare paper, over existing pigment, and what this
+      // stroke does not cover - but the middle term is no longer a plain
+      // multiply.
       //
-      //   1. on bare paper (1 - dst.a) the wash reads as its own colour at
-      //      pigment strength - dilute where thin, saturated where built up;
-      //   2. over existing pigment (dst.a) it multiplies, which is what makes
-      //      a second glaze over a dry first one darken toward colour^2 exactly
-      //      the way stacked transparent films do;
-      //   3. what this stroke does not cover passes through untouched.
+      // §5, adapted from Writing on Water (MIT, (c) 2012 Antonio R. - see
+      // watercolorPigments.ts for the full notice): a paint laid over another
+      // does two things at once, and which dominates is a property of the
+      // paint. A transparent one *transmits*: light goes down through the film,
+      // off what is underneath, and back up, which is a multiply. An opaque one
+      // *scatters*: light comes back off the film itself before it ever reaches
+      // what is underneath, which is an over. Real watercolours are all near
+      // the transparent end, but the difference between 0.02 and 0.20 is
+      // exactly what stops two glazes reading as two flat digital layers - the
+      // criticism v1-v4 kept attracting, and the one thing a pure multiply can
+      // never answer, because a multiply has no way to *hide* anything.
       //
-      // Each term carries its own alpha weight, so the sum is premultiplied by
-      // construction and componentwise cannot exceed newAlpha. At pigment = 0
-      // it reproduces dst exactly, which is what makes the discard above a true
-      // no-op rather than an approximation.
+      // Alpha is unchanged: how much of the pixel this wash covers is still the
+      // pigment quantity, so a pale wash still lets a pencil line on a layer
+      // underneath show through rather than merely tinting it.
+      //
+      // On bare paper the two halves are identical (mix(1, colour, load) is
+      // exactly the transmitted film), which is correct - transparent and
+      // opaque paint of the same colour and load look the same on white - so
+      // only the middle term needs the choice.
       float newAlpha = mix(dst.a, 1.0, pigment);
+      vec3 transmitted = effectiveBase * u_color;
+      vec3 covered = mix(effectiveBase, u_color, pigment);
+      vec3 overPaint = mix(transmitted, covered, u_pigmentOpacity);
       vec3 premultResult =
           pigment * (1.0 - dst.a) * u_color
-        + pigment * dst.a * (effectiveBase * u_color)
+        + pigment * dst.a * overPaint
         + (1.0 - pigment) * dst.a * effectiveBase;
       // Premultiplied, and written with blending *off*
       // (AccumulationBuffer.beginReplaceDraw) - this pass recomputes the

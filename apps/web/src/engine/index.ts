@@ -90,8 +90,14 @@ export { TILT_RESPONSES, DEFAULT_TILT_RESPONSE, isTiltResponse, tiltResponseT, t
 export {
   WATERCOLOR_MIX_PRESETS, WATERCOLOR_MIX_BY_PRESET, WATERCOLOR_MIX_DEFAULT,
   watercolorPresetString, watercolorMixFromPreset, isWatercolorMixPreset,
+  watercolorPigmentFromPreset,
   type WatercolorMix, type WatercolorMixPreset,
 } from './src/watercolorPresets'
+export {
+  WATERCOLOR_PIGMENTS, WATERCOLOR_PIGMENT_CODES, WATERCOLOR_PIGMENT_SWATCHES,
+  DEFAULT_WATERCOLOR_PIGMENT, watercolorPigmentByCode, isWatercolorPigmentCode,
+  type WatercolorPigment,
+} from './src/watercolorPigments'
 export { PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth, type PressureResponse }
 
 /** Pure dab-shape query for UI overlays (brush cursor) — mirrors
@@ -4335,6 +4341,8 @@ export class PencilEngine implements PencilEngineAPI {
       // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
       // the rest are read by the composite.
       'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoftMax', 'u_tideLo', 'u_tideHi',
+      // #468 v5 — how covering the paint is (watercolorPigments.ts).
+      'u_pigmentOpacity',
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode', 'u_inkWater'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
@@ -6711,6 +6719,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_edgeSoftMax, profile.edgeSoftMax)
     gl.uniform1f(u.u_tideLo, profile.tideLo)
     gl.uniform1f(u.u_tideHi, profile.tideHi)
+    gl.uniform1f(u.u_pigmentOpacity, profile.pigmentOpacity)
     gl.uniform1f(u.u_inkWater, 0)
     // #452 — see _drawRibbonNibPass's own comment on why this is cleared here.
     gl.uniform1f(u.u_wickPx, 0)

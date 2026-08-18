@@ -35,11 +35,15 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
   const label = t(descriptor.nameKey)
 
   /** An enum option's display text: its own translation where the schema
-   *  provides one (nib, charcoal type), otherwise the raw value — pencil
-   *  grades and liner widths are notation, the same in every language. */
+   *  provides one (nib, charcoal type), a literal name where the schema
+   *  provides that instead (#468 — pigments are Colour Index products, so
+   *  "French Ultramarine" is a name and not UI copy, exactly like a brand), and
+   *  otherwise the raw value — pencil grades and liner widths are notation, the
+   *  same in every language. */
   const optionLabel = (option: string): string => {
     const key = descriptor.optionLabelKeys?.[option]
-    return key ? t(key) : option
+    if (key) return t(key)
+    return descriptor.optionLabels?.[option] ?? option
   }
 
   if (valueType.kind === 'numberRange') {

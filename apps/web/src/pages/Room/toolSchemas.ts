@@ -2,6 +2,8 @@ import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
   TILT_RESPONSES, DEFAULT_TILT_RESPONSE, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE,
   WATERCOLOR_MIX_PRESETS, WATERCOLOR_MIX_DEFAULT,
+  WATERCOLOR_PIGMENT_CODES, WATERCOLOR_PIGMENT_SWATCHES, DEFAULT_WATERCOLOR_PIGMENT,
+  WATERCOLOR_PIGMENTS,
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
 } from '../../engine'
@@ -76,6 +78,13 @@ export interface SettingDescriptor {
    *  marker nib or a charcoal type is an ordinary noun and gets translated.
    *  An option missing from this map renders as its own raw value. */
   optionLabelKeys?: Readonly<Record<string, TranslationKey>>
+  /** (#468) Literal display names, for options that are *products* rather than
+   *  UI copy. Pigments carry Colour Index names — "Cobalt Blue", "PB28" — which
+   *  are the same in every language and would be actively wrong to translate,
+   *  the same call the codebase already makes for pencil grades and liner
+   *  widths by falling through to the raw value. Prefer optionLabelKeys for
+   *  anything a translator should see. */
+  optionLabels?: Readonly<Record<string, string>>
   /** (#335) Sample-stroke image per `enumOptions` value, for the 'select'
    *  control — what a grade or a charcoal type actually lays down, which is
    *  the entire basis for choosing one and which no amount of labelling
@@ -404,6 +413,26 @@ const watercolorSchema = (): ToolSchema => ({
     uiControls: ['select'],
     quickAccess: true,
     default: 'damp' satisfies WatercolorMixPreset,
+  },
+  // #468 v5, ADR 011 §5 — which paint, as distinct from how much of it.
+  //
+  // A colour picker cannot express this and never could: French Ultramarine and
+  // a phthalo blue can be set to the same RGB and still behave nothing alike —
+  // one granulates heavily and lifts off the paper, the other lays flat and
+  // stains. Picking a tube is also how the choice is actually made at a real
+  // desk; nobody mixes a hex value.
+  //
+  // The swatches are generated from each paint's own colour rather than being
+  // photographed marks like the pencil grades', because what distinguishes one
+  // tube from the next here *is* the colour — see WATERCOLOR_PIGMENT_SWATCHES.
+  pigmentCode: {
+    nameKey: 'tool.field.pigmentCode',
+    valueType: { kind: 'enumOptions', options: WATERCOLOR_PIGMENT_CODES },
+    optionLabels: Object.fromEntries(WATERCOLOR_PIGMENTS.map(p => [p.code, p.name])),
+    optionImages: WATERCOLOR_PIGMENT_SWATCHES,
+    uiControls: ['select'],
+    quickAccess: true,
+    default: DEFAULT_WATERCOLOR_PIGMENT,
   },
   size: {
     nameKey: 'tool.field.size',

@@ -16,8 +16,9 @@ import {
   DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
   watercolorPigmentLoad, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
-  WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling,
+  WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling, watercolorPigmentFromPreset,
 } from './watercolorPresets'
+import { watercolorPigmentByCode, WATERCOLOR_PIGMENTS, DEFAULT_WATERCOLOR_PIGMENT } from './watercolorPigments'
 import { brushPenWidth } from './brushPenPresets'
 
 function dabAt(x: number, y: number, size = 30): Dab {
@@ -323,5 +324,58 @@ describe('pooling at the end of a wet stroke (#468 v4, ADR 011 §4.3)', () => {
 
   it('is a no-op on an empty batch', () => {
     expect(() => applyWatercolorPooling([], 0, 1)).not.toThrow()
+  })
+})
+
+describe('pigments (#468 v5, ADR 011 §5)', () => {
+  it('gives paints genuinely different character, not different colour', () => {
+    // The claim the whole table exists for. Ultramarine is bought *for* its
+    // granulation; a phthalo green of the same strength lays down smooth.
+    const ultramarine = watercolorPigmentByCode('PB29')
+    const phthalo = watercolorPigmentByCode('PG7')
+    expect(ultramarine.granulation).toBeGreaterThan(phthalo.granulation * 3)
+    // And staining runs the other way, which is why it reduces the tideline
+    // rather than adding to it: a paint bound to the fibre cannot migrate.
+    expect(phthalo.staining).toBeGreaterThan(ultramarine.staining)
+  })
+
+  it('keeps every paint at the transparent end', () => {
+    // These are watercolours, not gouache. If one ever creeps up near 1 it will
+    // start covering what is under it outright, and the tool stops being a
+    // glazing medium.
+    for (const p of WATERCOLOR_PIGMENTS) {
+      expect(p.opacity).toBeLessThanOrEqual(0.25)
+      expect(p.opacity).toBeGreaterThan(0)
+    }
+  })
+
+  it('spreads opacity widely enough to be worth a composite branch', () => {
+    // The two-component composite only earns its keep if paints actually differ
+    // here. An order of magnitude between the most and least covering is what
+    // makes one overlap read as a multiply and another as an over.
+    const values = WATERCOLOR_PIGMENTS.map(p => p.opacity)
+    expect(Math.max(...values) / Math.min(...values)).toBeGreaterThan(8)
+  })
+
+  it('rides the preset string and falls back for anything it does not know', () => {
+    const s = watercolorPresetString('normal', WATERCOLOR_MIX_DEFAULT, 'PB28')
+    expect(watercolorPigmentFromPreset(s)).toBe('PB28')
+    // Every watercolor stroke recorded before v5 has no fourth field, and the
+    // Operation Log is permanent — so this path is reached by real strokes.
+    expect(watercolorPigmentFromPreset('normal:55:60')).toBe(DEFAULT_WATERCOLOR_PIGMENT)
+    expect(watercolorPigmentFromPreset('normal')).toBe(DEFAULT_WATERCOLOR_PIGMENT)
+    expect(watercolorPigmentFromPreset('normal:55:60:NOPE')).toBe(DEFAULT_WATERCOLOR_PIGMENT)
+  })
+
+  it('never returns undefined for an unknown code', () => {
+    expect(watercolorPigmentByCode('nonsense').granulation).toBeGreaterThan(0)
+    expect(watercolorPigmentByCode(undefined).code).toBe(DEFAULT_WATERCOLOR_PIGMENT)
+  })
+
+  it('uses real Colour Index codes, which is what makes them stable ids', () => {
+    for (const p of WATERCOLOR_PIGMENTS) {
+      expect(p.code).toMatch(/^P[A-Za-z]+\d+(:\d+)?$/)
+      expect(p.name.length).toBeGreaterThan(3)
+    }
   })
 })

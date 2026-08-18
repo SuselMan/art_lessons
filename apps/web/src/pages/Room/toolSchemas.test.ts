@@ -276,7 +276,12 @@ describe('option pickers (#335, #391)', () => {
         // … and watercolor's named mix (#468 v4), which is a shortcut for its
         // two sliders rather than a material or a mode — the first select here
         // that writes *other* fields instead of standing alone.
-        'watercolor.mix'].sort(),
+        'watercolor.mix',
+        // … and which paint is in the brush (#468 v5). The one select here
+        // whose options are *products* rather than settings, which is why it
+        // carries literal names and generated swatches instead of translation
+        // keys and photographed marks.
+        'watercolor.pigmentCode'].sort(),
     )
   })
 

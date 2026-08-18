@@ -3,7 +3,9 @@ import type { ToolType } from '@grafetto/shared'
 import { markerNibFromPreset } from './markerPresets'
 import {
   watercolorMixFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorPigmentFromPreset,
 } from './watercolorPresets'
+import { watercolorPigmentByCode } from './watercolorPigments'
 import type { NibShape } from './markerRibbon'
 
 // #455, ADR 009 §1: what the ribbon rasterizer draws, separated from what it
@@ -114,6 +116,14 @@ export interface RibbonProfile {
    *  40-radius sweep, which straddles saturateInk exactly as intended. Re-measure
    *  rather than re-derive if either number moves. */
   depositPerRadius: number
+  /** #468 v5 — how covering this paint is, 0..1 (ADR 011 §5). Chooses between
+   *  the two halves of the composite: at 0 the wash transmits whatever is under
+   *  it (a multiply, which is all v1-v4 ever did), at 1 it sits on top of it.
+   *
+   *  Every real watercolour is near the transparent end — the table's widest is
+   *  0.20 — but the difference between 0.02 and 0.20 is exactly what makes two
+   *  glazes read as paint over paint rather than as two flat digital layers. */
+  pigmentOpacity: number
   /** #468 v4 — the stroke's own water level, 0..1, as the user set it (ADR 011
    *  §4). This is the *initial* load; the engine multiplies it by how much is
    *  left at each dab (watercolorWaterLoad). 0 for a tool with no water model.
@@ -297,6 +307,7 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   // reservoir, not a finite load of water with paint in it.
   waterLevel: 0,
   pigmentLevel: 0,
+  pigmentOpacity: 0,
   spreadOfRadius: 0,
   dryContact: 0,
   edgeSoftMax: 0,
@@ -342,6 +353,7 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   // reservoir, not a finite load of water with paint in it.
   waterLevel: 0,
   pigmentLevel: 0,
+  pigmentOpacity: 0,
   spreadOfRadius: 0,
   dryContact: 0,
   edgeSoftMax: 0,
@@ -450,6 +462,10 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
   const mix = watercolorMixFromPreset(presetName)
   const w = watercolorWaterEffects(mix.water)
   const p = watercolorPigmentEffects(mix.pigment)
+  // (#468 v5) The paint itself. `mix.pigment` is *how much* paint; this is
+  // *which* paint, and they multiply: a lot of a smooth phthalo green still
+  // grains far less than a little cobalt.
+  const paint = watercolorPigmentByCode(watercolorPigmentFromPreset(presetName))
   return {
     nibShape: 'ellipse',
     cornerFraction: 0,
@@ -476,16 +492,23 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // ── from water: geometry and behaviour ──
     waterLevel: mix.water,
     pigmentLevel: mix.pigment,
-    spreadOfRadius: w.spreadOfRadius,
+    // The paint's own readiness to travel through wet paper, on top of how
+    // much water there is to carry it. Centred so a mid-diffusion paint leaves
+    // the water setting alone.
+    spreadOfRadius: w.spreadOfRadius * (0.6 + 0.8 * paint.diffusion),
     cloud: w.cloud,
     edgeSoftMax: w.edgeSoftMax,
     tideLo: w.tideLo,
     tideHi: w.tideHi,
     dryContact: w.dryContact,
     // ── from pigment: how much paint ──
-    granulation: p.granulation,
+    granulation: p.granulation * (0.25 + 1.5 * paint.granulation),
+    pigmentOpacity: paint.opacity,
     depositPerRadius: p.depositPerRadius,
-    wetEdge: p.wetEdge,
+    // A staining paint binds to the fibre and cannot migrate to the drying
+    // perimeter, so it leaves *less* of a rim — the reduction is the point, not
+    // a fudge factor.
+    wetEdge: p.wetEdge * (1 - 0.6 * paint.staining),
   }
 }
 

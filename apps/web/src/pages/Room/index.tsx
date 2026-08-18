@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -2080,10 +2080,23 @@ export function Room() {
   const watercolorResponse = toolSettings.watercolor.pressureResponse as string
   const watercolorWater = toolSettings.watercolor.water as number
   const watercolorPigment = toolSettings.watercolor.pigment as number
+  // #468 v5 — which paint, on top of how much of it. Rides the same string as
+  // a fourth field; a stroke recorded before v5 has no code and falls back.
+  const watercolorPaint = toolSettings.watercolor.pigmentCode as string
   const watercolorPreset = watercolorPresetString(
     isPressureResponse(watercolorResponse) ? watercolorResponse : 'normal',
     { water: watercolorWater, pigment: watercolorPigment },
+    isWatercolorPigmentCode(watercolorPaint) ? watercolorPaint : undefined,
   )
+  // #468 v5 — picking a paint sets the tool's colour to that paint's own. The
+  // colour swatch stays editable afterwards: the four behavioural numbers still
+  // apply, which is the honest reading of "cobalt, but I want it warmer" — you
+  // are still painting with cobalt.
+  useEffect(() => {
+    if (!isWatercolorPigmentCode(watercolorPaint)) return
+    setToolSetting('watercolor', 'color', watercolorPigmentByCode(watercolorPaint).color)
+  }, [watercolorPaint, setToolSetting])
+
   // Same preset string engine.setPencil below records (`${nib}:${size}` for
   // marker, the size label for liner, the charcoal type for charcoal, the
   // grade name otherwise) — only marker's own dispatch (bullet/chisel)

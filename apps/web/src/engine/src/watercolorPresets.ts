@@ -4,6 +4,7 @@ import { clamp } from 'lodash-es'
 import { gain, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, type PressureResponse } from './brushPenPresets'
 import { tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
 import type { PencilPreset } from './pencilPresets'
+import { DEFAULT_WATERCOLOR_PIGMENT, isWatercolorPigmentCode } from './watercolorPigments'
 
 // #468, ADR 011: watercolor — an experiment, not a tracked release item.
 //
@@ -327,9 +328,24 @@ export function watercolorWaterStep(segmentLengthPx: number, radiusPx: number): 
 // A string with no mix in it — every watercolor stroke recorded before v4 —
 // parses to the default, so it still replays.
 
-export function watercolorPresetString(response: PressureResponse, mixLevels: WatercolorMix): string {
+export function watercolorPresetString(
+  response: PressureResponse, mixLevels: WatercolorMix, pigmentCode = DEFAULT_WATERCOLOR_PIGMENT,
+): string {
   const pct = (v: number): number => Math.round(clamp01(v) * 100)
-  return `${response}:${pct(mixLevels.water)}:${pct(mixLevels.pigment)}`
+  return `${response}:${pct(mixLevels.water)}:${pct(mixLevels.pigment)}:${pigmentCode}`
+}
+
+/** (#468 v5) Which paint the stroke was made with — the Colour Index code, the
+ *  same one printed on a real tube. Fourth field of the preset string, and
+ *  absent from every stroke recorded before v5, which fall back to the default.
+ *
+ *  A code rather than the four numbers it stands for: the numbers are a
+ *  property of the paint and may be re-tuned, and a stroke should keep meaning
+ *  "this was cobalt" rather than freezing whatever cobalt's granulation figure
+ *  happened to be on the day it was drawn. */
+export function watercolorPigmentFromPreset(presetName: string | undefined): string {
+  const code = presetName?.split(':')[3]
+  return code && isWatercolorPigmentCode(code) ? code : DEFAULT_WATERCOLOR_PIGMENT
 }
 
 export function watercolorMixFromPreset(presetName: string | undefined): WatercolorMix {

@@ -383,6 +383,7 @@ export const ru: Dictionary = {
   'tool.markerTitle': 'Маркер — два наконечника (круглый/скошенный)  {hotkey}',
   'tool.brushPen': 'Перо',
   'tool.brushPenTitle': 'Перо — гибкий наконечник, толщина линии идёт за нажимом  {hotkey}',
+  'tool.field.pigmentCode': 'Краска',
   'tool.field.water': 'Вода',
   'tool.field.pigment': 'Пигмент',
   'tool.field.mix': 'Замес',
