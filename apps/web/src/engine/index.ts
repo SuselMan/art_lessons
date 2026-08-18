@@ -41,7 +41,7 @@ import {
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
-import { isRibbonTool, ribbonNeedsSettle, ribbonProfileFor, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
+import { isRibbonTool, ribbonProfileFor, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
@@ -1252,55 +1252,10 @@ interface RibbonTileScratch {
   inkLoad: AccumulationBuffer | null
 }
 
-/** (#468, ADR 011 §3.1) Everything the deferred settle pass needs to redraw a
- *  finished stroke's composite, recorded as the stroke paints so the settle can
- *  run from the scratch alone.
- *
- *  `bounds` is the union of every batch's bounds, not the last one's — the wet
- *  edge is a property of the whole silhouette, so the settle has to recomposite
- *  every pixel the stroke ever touched, not just the pixels under the brush
- *  when the stylus came up. That union is the entire reason this record exists
- *  rather than the settle simply re-reading the last call's arguments. */
-interface RibbonSettleContext {
-  target: ILayerBuffer
-  preset: PencilPreset
-  profile: RibbonProfile
-  color: [number, number, number]
-  opacity: number
-  bounds: { minX: number; minY: number; maxX: number; maxY: number }
-  /** (#468 v2) This gesture's own first dab position, in world px — the seed
-   *  for every noise field the watercolor composite evaluates (ADR 011 §3.6).
-   *
-   *  Derived from the operation's own data rather than drawn from a random
-   *  source, which is the whole point: two participants replaying the same
-   *  stroke must get the same mottling, and a stroke replayed after an undo
-   *  must come back looking identical. Taken from the *first* batch only, so a
-   *  gesture keeps one seed across every batch and chunk it is split into —
-   *  noteSettle preserves it for exactly that reason. */
-  fieldSeed: [number, number]
-  /** (#468 v2) How far this stroke's wash may travel past the brush's own
-   *  footprint, in canvas px — resolved from the stroke's radius against
-   *  WATERCOLOR_SPREAD and capped by the profile (ADR 011 §3.5). 0 for a tool
-   *  with no spread.
-   *
-   *  Resolved once per gesture rather than per batch, and that matters: a
-   *  stroke whose pressure varies would otherwise get a different boundary
-   *  treatment in each batch, and the seams between batches are an artefact of
-   *  pointer-event timing that must never be visible in the mark. */
-  spreadPx: number
-  /** (#468 v4) Water left at the *end* of the gesture — the value the composite
-   *  falls back to outside the mark, where there is no deposit to read a
-   *  per-pixel level from (ADR 011 §4.1). */
-  water: number
-}
-
 class RibbonStrokeScratch {
   private _tiles = new Map<AccumulationBuffer, RibbonTileScratch>()
   private readonly pool: RibbonScratchPool
   private readonly needsInk: boolean
-  /** (#468) Null until this stroke's first batch paints, and null for the whole
-   *  life of a stroke whose tool needs no settle pass (ribbonNeedsSettle). */
-  private _settle: RibbonSettleContext | null = null
   /** (#468 v3) How much of the brush's load this gesture has spent so far,
    *  measured in brush radii of travel (ADR 011 §3.8).
    *
@@ -1311,6 +1266,25 @@ class RibbonStrokeScratch {
    *  either carry it between unrelated strokes or reset it at every chunk
    *  boundary — and a seam in the depletion is a visible band across the mark. */
   private _waterUsed = 0
+
+  /** (#468 v6) The composite's scalar uniforms, fixed for the whole gesture.
+   *
+   *  They cannot be per batch. The composite is a *recomputation* over a whole
+   *  rect, so whichever batch wrote a pixel last decides its scalars — and with
+   *  per-batch values that showed up immediately as rectangular tone blocks
+   *  along a live stroke, one per pointer event, which is precisely what
+   *  "штрих постоянно странно меняется" was.
+   *
+   *  Derived from the gesture's *first* dab, which is the one thing a live
+   *  stroke and a replay of it are guaranteed to agree on: live sees it as the
+   *  first dab of its first batch, a one-shot replay as the first dab of the
+   *  only batch. Anything averaged over a batch would differ between the two. */
+  private _composite: { spreadPx: number; inkSmoothPx: number; water: number } | null = null
+
+  compositeScalars(make: () => { spreadPx: number; inkSmoothPx: number; water: number }): { spreadPx: number; inkSmoothPx: number; water: number } {
+    if (!this._composite) this._composite = make()
+    return this._composite
+  }
 
   get waterUsed(): number {
     return this._waterUsed
@@ -1347,35 +1321,6 @@ class RibbonStrokeScratch {
    *  "original") base rather than a crash or a wrong result. Not worth
    *  guarding against for v1: a single marker gesture spans very few tiles,
    *  nowhere near what it'd take to force an eviction on its own. */
-  /** (#468) Records what the settle pass will need, unioning this batch's
-   *  bounds into everything the stroke has covered so far. Called once per
-   *  batch by _paintRibbonStroke; every field but `bounds` is constant for a
-   *  gesture, so later calls simply overwrite them with identical values. */
-  noteSettle(ctx: RibbonSettleContext): void {
-    const prev = this._settle
-    if (!prev) { this._settle = ctx; return }
-    prev.bounds = {
-      minX: Math.min(prev.bounds.minX, ctx.bounds.minX),
-      minY: Math.min(prev.bounds.minY, ctx.bounds.minY),
-      maxX: Math.max(prev.bounds.maxX, ctx.bounds.maxX),
-      maxY: Math.max(prev.bounds.maxY, ctx.bounds.maxY),
-    }
-  }
-
-  get settleContext(): RibbonSettleContext | null {
-    return this._settle
-  }
-
-  /** (#468) The scratch this tile already has, or null — deliberately *not*
-   *  getOrCreate. The settle pass resolves tiles from the stroke's whole
-   *  bounds, which on an infinite canvas can include a tile the stroke's own
-   *  dabs never actually reached; creating scratch for one would snapshot it as
-   *  `original` and then recomposite it against an empty coverage buffer, i.e.
-   *  spend three buffers to write a tile back exactly as it was. */
-  peek(tile: AccumulationBuffer): RibbonTileScratch | null {
-    return this._tiles.get(tile) ?? null
-  }
-
   getOrCreate(tile: AccumulationBuffer): RibbonTileScratch {
     let entry = this._tiles.get(tile)
     if (!entry) {
@@ -1402,8 +1347,8 @@ class RibbonStrokeScratch {
    *  still means "this scratch is finished with" — what changed (#385) is that
    *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
-    this._settle = null
     this._waterUsed = 0
+    this._composite = null
     for (const { original, coverage, inkLoad } of this._tiles.values()) {
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
@@ -4343,6 +4288,8 @@ export class PencilEngine implements PencilEngineAPI {
       'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoftMax', 'u_tideLo', 'u_tideHi',
       // #468 v5 — how covering the paint is (watercolorPigments.ts).
       'u_pigmentOpacity',
+      // #468 v6 — the dab spacing, the period of the deposit's own ripple.
+      'u_inkSmoothPx',
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode', 'u_inkWater'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
@@ -4767,12 +4714,6 @@ export class PencilEngine implements PencilEngineAPI {
       applyWatercolorPooling(dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
-    // (#468, ADR 011 §3.1) The wash dries: one final composite over everything
-    // this stroke touched, now that its silhouette is finished and the wet-edge
-    // term has a boundary to find. Must run *before* the teardown below, which
-    // returns the buffers it reads to the pool. A no-op for every tool whose
-    // profile has no wet edge, which is all of them but watercolor.
-    if (this._ribbonStrokeScratch) this._settleRibbonStroke(this._ribbonStrokeScratch)
     // Torn down after this stroke's very last dabs are painted above — a
     // fresh RibbonStrokeScratch gets created for the *next* stroke in
     // _onStart, never carried over (see its own doc comment).
@@ -6119,17 +6060,6 @@ export class PencilEngine implements PencilEngineAPI {
     // ribbonScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
     this._paintRibbonStroke(target, dabs, preset, profile, color, scratch, prevDab ?? chunk?.prevDab)
-    // (#468) Both non-live cases finish the stroke inside this call as far as
-    // they can know: a one-shot replay has painted every dab there is, and a
-    // chunked replay has painted every dab of this operation with no way to
-    // tell whether another chunk follows. So both settle now — the chunked case
-    // simply settles again, over larger bounds, when the next chunk arrives
-    // (see _settleRibbonStroke on why repeating it is a no-op-by-construction).
-    //
-    // A *live* stroke settles in _onEnd instead, where pen-up is actually
-    // known; settling per batch there would recomposite the whole stroke on
-    // every pointer event.
-    if (!ribbonScratch) this._settleRibbonStroke(scratch)
     // The cached one belongs to the gesture, not to this call — it is released
     // when a different gesture arrives, or with the engine.
     if (!ribbonScratch && !chunk) scratch.destroy()
@@ -6231,12 +6161,23 @@ export class PencilEngine implements PencilEngineAPI {
     // water carries. Mean rather than max: one heavy dab at the end of an
     // otherwise light stroke should not widen the whole mark's boundary
     // treatment.
-    let radiusSum = 0
-    for (const d of drawable) radiusSum += d.size * 0.5 * preset.sizeMultiplier
-    const meanRadius = radiusSum / drawable.length
-    const spreadPx = profile.spreadPx > 0 && profile.spreadOfRadius > 0
-      ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, meanRadius * profile.spreadOfRadius))
-      : 0
+    const { spreadPx, inkSmoothPx, water: fringeWater } = scratch.compositeScalars(() => {
+      const firstRadius = Math.max(drawable[0].size * 0.5 * preset.sizeMultiplier, 0.5)
+      return {
+        spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
+          ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius))
+          : 0,
+        // A fraction of the brush radius rather than the measured spacing:
+        // DabSystem spaces dabs proportionally to radius, so this tracks the
+        // ripple's real period while staying identical between a live stroke
+        // and a replay of it — a measured per-batch mean would not.
+        inkSmoothPx: profile.normalizeDeposit ? firstRadius * 0.35 : 0,
+        // The fallback the composite uses outside the mark, where there is no
+        // deposit to read a per-pixel level from. The stroke's starting load,
+        // not its current one, for the same no-seams reason.
+        water: profile.waterLevel,
+      }
+    })
 
     // (#468 v4, ADR 011 §4.4) The composite rect a *live* batch redraws, padded
     // past the dabs it just painted.
@@ -6364,77 +6305,11 @@ export class PencilEngine implements PencilEngineAPI {
       // this argument entirely and reads its own inkLoad texture instead.
       this._drawRibbonCompositeRect(
         tile, compositeBounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
-        [drawable[0].x, drawable[0].y], spreadPx, waterAtEnd,
+        [drawable[0].x, drawable[0].y], spreadPx, fringeWater, inkSmoothPx,
       )
     }
-
-    // (#468) What the deferred settle pass will need. Recorded for every ribbon
-    // tool rather than only the ones that settle: the check that matters is
-    // ribbonNeedsSettle, and it lives at the one place the pass is actually
-    // dispatched, so a future profile turning wetEdge on needs no change here.
-    scratch.noteSettle({
-      target, preset, profile, color, opacity: drawable[0].opacity, bounds,
-      fieldSeed: [drawable[0].x, drawable[0].y], spreadPx, water: waterAtEnd,
-    })
 
     target.markContentPainted(compositeBounds)
-  }
-
-  /** (#468, ADR 011 §3.1) The wet-edge pass: one final composite over
-   *  everything the finished stroke touched, with u_wetEdge switched on.
-   *
-   *  This exists because of a straightforward ordering problem. The wet edge is
-   *  a function of the wash's *finished* boundary, and the live composite runs
-   *  once per batch over that batch's own dirty rect — so a batch painted while
-   *  the stroke is still growing neither knows where the boundary will end up
-   *  nor covers the pixels whose answer changed when the stroke grew past them.
-   *  Recomputing the whole stroke's bounds on every batch would be correct and
-   *  unaffordable (a wash can cover the canvas). Deferring the term to a single
-   *  pass at pen-up is correct, costs one full-bounds recomposite per stroke,
-   *  and has the pleasant property of being what actually happens to paint:
-   *  the rim appears as the wash dries.
-   *
-   *  Safe to run more than once for one gesture, which is what a chunked replay
-   *  does (a stroke past STROKE_DAB_CHUNK_LIMIT arrives as several operations
-   *  sharing a strokeId, and this runs after each). The composite is a pure
-   *  recomputation from the frozen `original` plus the running coverage/inkLoad
-   *  — never an increment on its own previous output — so a later, larger
-   *  settle simply supersedes an earlier one, exactly as the per-batch
-   *  composites already supersede each other.
-   *
-   *  Deliberately does *not* touch the tiles' scratch beyond reading it, and
-   *  does not destroy it: the caller owns that lifetime (see _onEnd and
-   *  _paintRibbonDabs). */
-  private _settleRibbonStroke(scratch: RibbonStrokeScratch): void {
-    const ctx = scratch.settleContext
-    if (!ctx || !ribbonNeedsSettle(ctx.profile)) return
-    const { target, preset, profile, color, opacity, fieldSeed, spreadPx, water } = ctx
-    // (#468 v2) Padded by the spread distance: the settle pass is where the
-    // wash leaves the brush's footprint (ADR 011 §3.5), and those pixels lie
-    // *outside* every bound any batch reported. Draw the old rect and the new
-    // fringe is simply clipped away — the tool keeps the marker silhouette it
-    // was built to escape. A pixel of slack on top of the profile's own reach,
-    // since the re-threshold can push the boundary right to it.
-    const pad = spreadPx > 0 ? Math.ceil(spreadPx + profile.wetEdgeRadiusPx) + 1 : 0
-    const bounds = {
-      minX: ctx.bounds.minX - pad, minY: ctx.bounds.minY - pad,
-      maxX: ctx.bounds.maxX + pad, maxY: ctx.bounds.maxY + pad,
-    }
-    const targets = target.resolveForPaint(bounds)
-    if (!targets.length) return
-    for (const tile of targets) {
-      // peek, not getOrCreate — a tile inside the stroke's bounding box that
-      // the stroke's own dabs never reached has nothing to recomposite, and
-      // snapshotting one here would spend three pooled buffers writing it back
-      // unchanged. See RibbonStrokeScratch.peek.
-      const entry = scratch.peek(tile.buffer)
-      if (!entry) continue
-      this._drawRibbonCompositeRect(
-        tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity,
-        fieldSeed, spreadPx, water,
-      )
-    }
-    target.markContentPainted(bounds)
   }
 
   /** ADR 004 "Ревизия v1.5" §2: how far this dab travelled since the
@@ -6599,7 +6474,7 @@ export class PencilEngine implements PencilEngineAPI {
     preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
     color: [number, number, number], opacity: number,
-    fieldSeed: [number, number], spreadPx: number, water: number,
+    fieldSeed: [number, number], spreadPx: number, water: number, inkSmoothPx: number,
   ): void {
     const cx = (bounds.minX + bounds.maxX) * 0.5
     const cy = (bounds.minY + bounds.maxY) * 0.5
@@ -6608,7 +6483,7 @@ export class PencilEngine implements PencilEngineAPI {
       x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
       size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
     }
-    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water)
+    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water, inkSmoothPx)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -6621,6 +6496,7 @@ export class PencilEngine implements PencilEngineAPI {
     tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
     color: [number, number, number], fieldSeed: [number, number], spreadPx: number, water: number,
+    inkSmoothPx: number,
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -6720,6 +6596,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_tideLo, profile.tideLo)
     gl.uniform1f(u.u_tideHi, profile.tideHi)
     gl.uniform1f(u.u_pigmentOpacity, profile.pigmentOpacity)
+    gl.uniform1f(u.u_inkSmoothPx, profile.normalizeDeposit ? inkSmoothPx : 0)
     gl.uniform1f(u.u_inkWater, 0)
     // #452 — see _drawRibbonNibPass's own comment on why this is cleared here.
     gl.uniform1f(u.u_wickPx, 0)

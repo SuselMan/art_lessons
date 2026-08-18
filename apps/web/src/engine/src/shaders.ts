@@ -460,6 +460,25 @@ export const DAB_FRAG = `
   // between the composite's two halves below; 0 reproduces the pure multiply
   // v1-v4 always did.
   uniform float u_pigmentOpacity;
+  // #468 v6 - the stroke's own dab spacing, in canvas px, and the period of a
+  // ripple the deposit passes cannot avoid leaving.
+  //
+  // Ink is laid twice over the same figure: a stamp at every sample and a band
+  // between consecutive samples, each carrying half a dose so their overlap
+  // sums to one (markerRibbon.ts). But the overlap is not uniform - at a stamp
+  // both passes land, between stamps only the band does - so the accumulated
+  // deposit oscillates with the dab spacing. The marker never saw it: its
+  // unnormalized deposit saturated the 8-bit buffer everywhere. Once v3
+  // normalized the deposit into the responsive part of the saturation curve the
+  // ripple came straight through, as a visible chain of circles along every
+  // stroke - which is exactly how it was reported.
+  //
+  // Read the deposit back averaged over one spacing and the ripple integrates
+  // away, while what the buffer is actually for - how the load varies over the
+  // *length* of a stroke - survives untouched, because that varies over tens of
+  // dabs rather than one. 0 disables, which is what every tool still on the
+  // legacy deposit scale wants.
+  uniform float u_inkSmoothPx;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -562,6 +581,24 @@ export const DAB_FRAG = `
   /** Mean stroke coverage on a ring of radius rPx around this fragment, eight
    *  taps. NEAREST-filtered source sampled at fixed offsets, so no bilinear
    *  interpolation enters the result on any vendor. */
+  /** (#468 v6) The deposit texture, averaged over a ring of radius rPx - centre
+   *  plus eight taps, so one dab spacing of ripple integrates out whichever way
+   *  the stroke happened to be travelling. Returns the deposit in .a and its
+   *  water-weighted partner in .r, the pair the composite divides. */
+  vec4 wcInkAvg(vec2 uv, vec2 texel, float rPx) {
+    const float D = 0.7071068;
+    vec4 s = texture2D(u_inkLoad, uv) * 2.0;
+    s += texture2D(u_inkLoad, uv + vec2( rPx,      0.0     ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2(-rPx,      0.0     ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( 0.0,      rPx     ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( 0.0,     -rPx     ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( rPx * D,  rPx * D ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * D,  rPx * D ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2( rPx * D, -rPx * D ) * texel);
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * D, -rPx * D ) * texel);
+    return s * 0.1;
+  }
+
   float wcRingAvg(vec2 uv, vec2 texel, float rPx) {
     const float D = 0.7071068; // cos/sin 45 deg, written out - no trig at runtime
     float s = 0.0;
@@ -791,7 +828,11 @@ export const DAB_FRAG = `
       vec2 wp = gl_FragCoord.xy + u_paperOrigin + u_fieldOffset;
 
       float rawCoverage = texture2D(u_strokeCoverage, tileUV).a;
-      vec4 ink = texture2D(u_inkLoad, tileUV);
+      // Averaged over one dab spacing rather than sampled raw - see
+      // u_inkSmoothPx for the ripple this removes and why v3 made it visible.
+      vec4 ink = u_inkSmoothPx > 0.0
+        ? wcInkAvg(tileUV, texel, u_inkSmoothPx * 0.5)
+        : texture2D(u_inkLoad, tileUV);
 
       // §4.1 - how wet the brush was *here*, recovered from the deposit's own
       // weighted sum (see u_inkWater). Outside the mark there is no deposit to

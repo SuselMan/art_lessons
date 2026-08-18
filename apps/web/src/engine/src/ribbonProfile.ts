@@ -518,16 +518,6 @@ export function isRibbonTool(tool: ToolType): boolean {
   return tool === 'marker' || tool === 'brushPen' || tool === 'watercolor'
 }
 
-/** #468 — whether this tool's composite needs the deferred settle pass that
- *  runs once over the whole stroke's bounds at pen-up (engine's
- *  _settleRibbonStroke). Keyed off wetEdge rather than off the tool name
- *  because the settle exists *for* that term: the wet edge is a property of the
- *  finished silhouette, and no batch painted while the stroke is still growing
- *  knows where the finished boundary will be. */
-export function ribbonNeedsSettle(profile: RibbonProfile): boolean {
-  return profile.wetEdge > 0
-}
-
 export function ribbonProfileFor(tool: ToolType, presetName: string | undefined): RibbonProfile {
   if (tool === 'watercolor') return watercolorRibbon(presetName)
   if (tool === 'brushPen') return BRUSH_PEN_RIBBON
