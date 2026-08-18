@@ -269,19 +269,27 @@ export function watercolorPigmentEffects(pigment: number): {
 } {
   return {
     // How much paint each radius of travel lays down — the quantity that feeds
-    // the saturation curve, and therefore how quickly the wash reaches its tone.
+    // the saturation curve. **A constant, not pigment's number.**
     //
-    // #468 v9 — widened from 0.30..1.10 so the setting has real authority over
-    // tone. A graded wash is painted by *diluting*, not by pressing more
-    // lightly (pressure drives the brush's width, never its alpha — ADR 011
-    // §5), so this slider is the one that has to carry the exercise, and at the
-    // old range the darkest and palest settings were only about a third apart.
+    // Pigment used to drive this, which put a pale wash low on the saturation
+    // curve — the steep part, where every fluctuation in the deposit turns into
+    // a visible fluctuation in tone. Measured: dropping the deposit to get a
+    // usable graded wash pushed a flat wash's unevenness from 4.8% to 8.4%. The
+    // two exercises want opposite things from this one number, so it stopped
+    // being one number: pigment now reaches the pixel only through `strength`
+    // below.
     //
-    // The top is 1.05 and not higher on purpose: above roughly that the
-    // accumulated deposit clips the 8-bit buffer, the saturation curve pins at
-    // 1, and the upper half of the slider stops doing anything at all — which
-    // measured as a graded wash whose first three bands came out the same tone.
-    depositPerRadius: mix(0.15, 1.05, pigment),
+    // (The v9 edit that was supposed to do this failed to write, and the file
+    // kept the old line for a revision while the commit message said otherwise
+    // — so pigment really was acting twice again, the exact fault v4 removed.
+    // Caught by re-reading the constants out of the source rather than
+    // trusting the changelog.)
+    //
+    // Held high enough that an ordinary pass saturates, so the wash's tone is
+    // *insensitive* to how the deposit wobbles — which is what a flat wash
+    // needs. Depletion still scales it, so a brush running dry still thins;
+    // what it no longer does is decide how strong the paint is.
+    depositPerRadius: 1.05,
     // Heavy pigment granulates; a dilute wash barely does.
     granulation: mix(0.05, 0.26, pigment),
     // How much settles at the drying perimeter. There is nothing to leave

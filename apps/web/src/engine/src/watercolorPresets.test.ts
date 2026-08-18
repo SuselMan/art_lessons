@@ -250,11 +250,17 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
 
     const pale = watercolorPigmentEffects(0.1)
     const deep = watercolorPigmentEffects(0.95)
-    expect(deep.depositPerRadius).toBeGreaterThan(pale.depositPerRadius)
+    // Deposit is deliberately *not* pigment's number since v9: it stays high so
+    // an ordinary pass saturates and a flat wash's tone stops caring how the
+    // deposit wobbles. Pigment reaches the pixel through `strength` alone —
+    // one quantity, one route, which is the rule v4 established and v9 restored
+    // after the deposit had quietly picked the dependency back up.
+    expect(deep.depositPerRadius).toBe(pale.depositPerRadius)
+    expect(deep.strength).toBeGreaterThan(pale.strength * 3)
     expect(deep.granulation).toBeGreaterThan(pale.granulation)
     expect(deep.wetEdge).toBeGreaterThan(pale.wetEdge)
     // Never zero: a stroke the user asked for has to leave something.
-    expect(watercolorPigmentEffects(0).depositPerRadius).toBeGreaterThan(0)
+    expect(watercolorPigmentEffects(0).strength).toBeGreaterThan(0)
   })
 
   it('gives the three named mixes genuinely different characters', () => {
