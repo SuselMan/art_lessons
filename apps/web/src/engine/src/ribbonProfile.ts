@@ -176,6 +176,24 @@ export interface RibbonProfile {
    *  perimeter carrying a rim, a wet one has most of it. */
   tideLo: number
   tideHi: number
+  /** #468 v10 — what share of the ink dose the nib stamps carry; the ribbon
+   *  bands carry the rest. 0 means "the legacy even split", which is what the
+   *  marker keeps.
+   *
+   *  It matters because the two passes are not equally smooth. A stamp deposits
+   *  a cone (see inkEdgeFalloff), so a stamp entering or leaving the set that
+   *  covers a pixel contributes ~0 at the moment it does and the accumulated
+   *  total barely moves. A band deposits flat across its quad, so the same
+   *  entering and leaving is a step — and a pixel is covered by only about four
+   *  of them, which is a visible ripple at exactly the dab spacing. That ripple
+   *  is what a long straight stroke shows as a faint row of discs.
+   *
+   *  Giving the bands the smaller share cuts what they can ripple by. They
+   *  cannot be dropped altogether: their whole reason for existing is that on a
+   *  turn they reach places the stamps miss, and with no ink there the
+   *  composite multiplies by nothing and the outside of the turn comes out
+   *  bare. */
+  stampInkShare: number
   /** #468 v3 — whether the deposit decays as the brush unloads along the stroke
    *  (ADR 011 §3.8, watercolorPresets.ts's watercolorWaterLoad). False leaves
    *  every dab depositing the same amount, which is right for a marker or a pen
@@ -316,6 +334,7 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   // against it. See RibbonProfile.normalizeDeposit.
   normalizeDeposit: false,
   depositPerRadius: 0,
+  stampInkShare: 0,
   waterDepletion: false,
   // #468 v4 — the brush model's own four. Off, and the tools they belong to
   // have no use for them: a marker tip and a pen nib carry ink from a
@@ -364,6 +383,7 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   // against it. See RibbonProfile.normalizeDeposit.
   normalizeDeposit: false,
   depositPerRadius: 0,
+  stampInkShare: 0,
   waterDepletion: false,
   // #468 v4 — the brush model's own four. Off, and the tools they belong to
   // have no use for them: a marker tip and a pen nib carry ink from a
@@ -461,6 +481,12 @@ const WATERCOLOR_PAPER_EDGE = 0.55
  *  this puts it back. Written as its own constant rather than folded into the
  *  deposit figures so that the calibration those carry stays readable, and so
  *  that this is obviously a unit conversion rather than a taste decision. */
+/** (#468 v10) How the ink dose splits between the nib stamps and the bands
+ *  between them. See RibbonProfile.stampInkShare — the short version is that
+ *  the stamps deposit a cone and ripple hardly at all, the bands deposit flat
+ *  and ripple at the dab spacing, so the smooth pass should carry most of it. */
+const WATERCOLOR_STAMP_INK_SHARE = 0.82
+
 const WATERCOLOR_CONE_DEPOSIT_GAIN = 1.8
 
 const WATERCOLOR_SPREAD_CAP_PX = 26.0
@@ -547,6 +573,7 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     granulation: p.granulation * (0.25 + 1.5 * paint.granulation),
     pigmentOpacity: paint.opacity,
     depositPerRadius: p.depositPerRadius * WATERCOLOR_CONE_DEPOSIT_GAIN,
+    stampInkShare: WATERCOLOR_STAMP_INK_SHARE,
     // A staining paint binds to the fibre and cannot migrate to the drying
     // perimeter, so it leaves *less* of a rim — the reduction is the point, not
     // a fudge factor.

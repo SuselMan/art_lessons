@@ -4985,7 +4985,14 @@ export class PencilEngine implements PencilEngineAPI {
         ...(this._washId ? { washId: this._washId } : {}),
         }
       this._log.append(op)
-      this._maybeCheckpoint(layerId)
+      // (#468 v10) Never mid-wash. A checkpoint bakes the layer's pixels, and
+      // replay then starts from those instead of from the operations — but a
+      // wash's strokes share one accumulation whose frozen `original` is the
+      // content from *before* the wash began. Bake halfway through and that
+      // content is gone: the reloaded room rebuilds the rest of the wash over
+      // its own half-finished output, and the picture comes back subtly
+      // different. Washes last a second or two, so this only defers.
+      if (!this._wash) this._maybeCheckpoint(layerId)
       this._onLocalOperation?.(op)
     }
     // (#429) Deliberately no final flush of the live queue: whatever is still
@@ -6322,10 +6329,16 @@ export class PencilEngine implements PencilEngineAPI {
       // `prevDab` bridges the ribbon across a *gesture's* chunks. Across two
       // strokes of one wash there is nothing to bridge — the brush was lifted —
       // so the band builder must not stitch them into one swept figure.
-      const prevDab = washId && cached.washStrokeId !== strokeId ? undefined : cached.lastDab
+      const sameGesture = cached.washStrokeId === strokeId
+      const prevDab = washId && !sameGesture ? undefined : cached.lastDab
       cached.lastDab = dabs[dabs.length - 1]
       cached.washStrokeId = strokeId
-      if (washId && cached.washStrokeId !== undefined) cached.scratch.beginStroke()
+      // Only when a *new* stroke of the wash starts. This read the flag it had
+      // just overwritten, so it fired on every operation — including the chunks
+      // one long gesture is split into, which live never does. The brush was
+      // getting recharged mid-stroke on replay and not while drawing, so a long
+      // enough stroke came back different after a reload.
+      if (washId && !sameGesture) cached.scratch.beginStroke()
       return { scratch: cached.scratch, prevDab }
     }
     cached?.scratch.destroy()
@@ -6543,8 +6556,11 @@ export class PencilEngine implements PencilEngineAPI {
         const pigmentLeft = profile.waterDepletion ? watercolorPigmentLoad(used) : 1
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
+        // The stamps' share of the dose, doubled back up because the legacy
+        // formula's 0.5 assumed an even split with the bands.
+        const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1
         deposits.push(profile.normalizeDeposit
-          ? profile.depositPerRadius * (seg / radius) * 0.5 * pigmentLeft
+          ? profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft
           : dab.opacity * seg * 0.5)
         prev = dab
       }
@@ -6563,7 +6579,8 @@ export class PencilEngine implements PencilEngineAPI {
         // (markerRibbon.ts's FLOATS_PER_VERTEX) precisely so that how the
         // stroke was cut into pointer events cannot change the result.
         return {
-          ink: profile.depositPerRadius * (travel / radius) * 0.5 * (pigmentByDab.get(d1) ?? 1),
+          ink: profile.depositPerRadius * (travel / radius) * 0.5
+            * ((1 - profile.stampInkShare) * 2) * (pigmentByDab.get(d1) ?? 1),
           water: waterByDab.get(d1) ?? 0,
         }
       }
