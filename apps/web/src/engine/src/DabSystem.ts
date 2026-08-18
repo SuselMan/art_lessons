@@ -327,12 +327,17 @@ export class DabSystem {
    */
   private _filterPressure(pressure: number, travelPx: number): number {
     const lengthPx = this._shaping.pressureSmoothingPx
-    if (lengthPx === undefined) return pressure
+    // The per-sample form, kept for watercolor alone — see
+    // DabShapingProfile.pressureSmoothing, including the direction trap.
+    const perSample = this._shaping.pressureSmoothing
+    if (lengthPx === undefined && perSample === undefined) return pressure
     if (this._pressureFilter === null) {
       this._pressureFilter = pressure
       return this._pressureFilter
     }
-    const k = Math.min(1 - Math.exp(-(travelPx + STATIONARY_PX) / lengthPx), MAX_PRESSURE_FILTER_STEP)
+    const k = lengthPx !== undefined
+      ? Math.min(1 - Math.exp(-(travelPx + STATIONARY_PX) / lengthPx), MAX_PRESSURE_FILTER_STEP)
+      : perSample!
     this._pressureFilter += (pressure - this._pressureFilter) * k
     return this._pressureFilter
   }

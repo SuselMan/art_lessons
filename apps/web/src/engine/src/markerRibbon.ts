@@ -30,7 +30,19 @@ import type { Dab } from '@grafetto/shared'
 
 /** Half of a band, split along the ribbon's centre line — see buildRibbonBands
  *  for why the split is load-bearing. */
-const FLOATS_PER_VERTEX = 4 // x, y, edgePx, inkDeposit
+// (#468 v6) Five, not four: x, y, edgePx, inkDeposit, and the same deposit
+// weighted by how wet the brush was over *this segment*.
+//
+// The fifth exists because the water weighting cannot be a uniform. It was one,
+// per batch, and that made the finished mark depend on how the stroke happened
+// to be cut into pointer events: a live stroke weighted each batch's bands by
+// its own water, while a replay — one batch for the whole stroke — weighted
+// every band by the *final*, most depleted value. The two disagreed over 26% of
+// the mark's area, so a stroke visibly changed the moment the room reloaded.
+//
+// 0 for every tool that has no water model, which leaves the channel it feeds
+// unread.
+const FLOATS_PER_VERTEX = 5 // x, y, edgePx, inkDeposit, inkDeposit*water
 
 /** Which shape the nib actually is. Mirrors DAB_FRAG's markerNibDistPx —
  *  the two must agree, or the bands and the stamps they connect would be built
@@ -212,13 +224,23 @@ export function buildRibbonBands(
   shape: NibShape = 'ellipse',
   cornerFraction = 0,
   aaPx = 1,
+  /** (#468 v3) Overrides how much ink each segment carries. Omitted keeps the
+   *  distance-normalized formula below exactly as it was, which is what the
+   *  marker must keep forever (its strokes live in production rooms and its
+   *  saturation constants were calibrated against that scale).
+   *
+   *  Watercolor passes one so its bands share the stamps' normalization and
+   *  water depletion — the two overlap almost everywhere, so leaving the bands
+   *  on the old scale would let them swamp whatever the stamps expressed. */
+  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number },
 ): Float32Array {
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return new Float32Array(0)
 
   const out: number[] = []
   let ink = 0 // deposit carried by whichever segment is currently being emitted
-  const push = (x: number, y: number, edge: number): void => { out.push(x, y, edge, ink) }
+  let inkWater = 0 // the same deposit, weighted by that segment's own water
+  const push = (x: number, y: number, edge: number): void => { out.push(x, y, edge, ink, inkWater) }
   const quad = (
     m0: { x: number; y: number }, e0: number, t0: { x: number; y: number },
     m1: { x: number; y: number }, e1: number, t1: { x: number; y: number },
@@ -259,7 +281,14 @@ export function buildRibbonBands(
     // "Ревизия v1.5" §2) — halved because those deposit too and the two overlap
     // almost everywhere. Where they don't (exactly the regions
     // this exists to cover) a half dose still lands, instead of nothing.
-    ink = d1.opacity * travel * 0.5
+    if (inkFor) {
+      const got = inkFor(d0, d1, travel)
+      ink = got.ink
+      inkWater = ink * got.water
+    } else {
+      ink = d1.opacity * travel * 0.5
+      inkWater = 0
+    }
 
     const steps = poseSubdivisions(
       nibGeometry(d0, sizeMultiplier, shape, cornerFraction),

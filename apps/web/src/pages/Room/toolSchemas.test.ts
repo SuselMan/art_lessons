@@ -267,10 +267,21 @@ describe('option pickers (#335, #391)', () => {
         // tilt entirely — has to be a deliberate edit here.
         'charcoal.tiltResponse', 'colorPencil.tiltResponse', 'eraser.tiltResponse',
         'pencil.tiltResponse', 'smudge.tiltResponse',
-        // … and the pressure response (#454), on the one tool whose width
-        // actually follows pressure. Same rule as the line above: a second
-        // tool getting this field is a deliberate edit here.
-        'brushPen.pressureResponse'].sort(),
+        // … and the pressure response (#454), on the tools whose width
+        // actually follows pressure. Same rule as the line above: a further
+        // tool getting this field is a deliberate edit here. Watercolor (#468)
+        // is the second, and it is the same physical fact both times — a nib or
+        // a brush whose contact patch opens under the hand.
+        'brushPen.pressureResponse', 'watercolor.pressureResponse',
+        // … and watercolor's named mix (#468 v4), which is a shortcut for its
+        // two sliders rather than a material or a mode — the first select here
+        // that writes *other* fields instead of standing alone.
+        'watercolor.mix',
+        // … and which paint is in the brush (#468 v5). The one select here
+        // whose options are *products* rather than settings, which is why it
+        // carries literal names and generated swatches instead of translation
+        // keys and photographed marks.
+        'watercolor.pigmentCode'].sort(),
     )
   })
 
@@ -400,7 +411,7 @@ describe('slider scales (#390)', () => {
     const exponential = numberFields.filter(f => f.valueType.scale === expScale).map(f => `${f.toolId}.${f.key}`)
     expect(exponential.sort()).toEqual([
       'brushPen.size', 'charcoal.size', 'colorPencil.size', 'eraser.size', 'marker.size', 'pencil.size',
-      'smudge.size',
+      'smudge.size', 'watercolor.size',
     ])
   })
 

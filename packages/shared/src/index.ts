@@ -400,7 +400,14 @@ export const DEFAULT_PALETTE_COLORS: string[] = [
 // The room's append-only operation log is the source of truth; layer pixel
 // buffers and LayerState are derived by replaying it (ADR 002).
 
-export type ToolType = 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker' | 'charcoal' | 'brushPen'
+export type ToolType =
+  | 'pencil' | 'eraser' | 'smudge' | 'liner' | 'marker' | 'charcoal' | 'brushPen'
+  // #468, ADR 011 — an experiment, and deliberately not in docs/TOOLSET.md
+  // until it earns a place there. Sits in the union rather than behind a flag
+  // because the Operation Log is permanent: the moment one watercolor stroke
+  // is recorded in a real room, every client must keep replaying it forever,
+  // so the wire type has to know the tool from the first stroke onward.
+  | 'watercolor'
 
 export type Dab = {
   x: number
@@ -484,6 +491,27 @@ export type StrokeOperation = OperationBase & {
    *  Absent on strokes recorded before this existed; they replay as they
    *  always did, each chunk standing alone. */
   strokeId?: string
+  /** (#468 v7) Which *wash* this stroke belongs to — watercolor only.
+   *
+   *  A wash is several strokes laid in quick succession with the same paint on
+   *  the same layer, and the point of grouping them is that they must not
+   *  behave like separate marks laid on top of one another. Real paint does not
+   *  work that way: lay a second band beside a wet first one and the two become
+   *  one pool, the boundary between them disappears, and only the outer
+   *  perimeter of the whole thing gets a tideline. Without this, a flat wash —
+   *  the very first exercise anyone is set — is impossible to paint, because
+   *  every band arrives with its own edge, its own pooling and its own dried
+   *  rim.
+   *
+   *  Decided live and *recorded*, exactly as `strokeId` is, and for the same
+   *  reason: the grouping rule wants wall-clock timing, which replay must never
+   *  have. Writing down the answer keeps replay a pure function of the log
+   *  while letting the decision use whatever the live client knows.
+   *
+   *  Absent on every stroke of every other tool, and on watercolor strokes
+   *  recorded before this existed — those replay exactly as they always did,
+   *  each standing alone. */
+  washId?: string
 }
 
 /** Inserts a new raster layer directly above whichever layer its author had
@@ -1101,6 +1129,22 @@ export type StrokeLiveData = {
   packetSeq: number
   /** Same packing as StrokeOperation.dabsPacked — see packDabs/unpackDabs. */
   dabsPacked: string
+  /** (#468) The wash this gesture belongs to, mirroring StrokeOperation.washId.
+   *
+   *  Only watercolor sets it, and it exists because a wash is the one thing in
+   *  this engine that spans *several* strokes: they share one accumulation, so
+   *  a peer that groups them differently from the author paints a different
+   *  picture. The author decides the grouping (using wall-clock timing a peer
+   *  must never see) and stamps the answer here and on the operation, so every
+   *  receiver reproduces the decision instead of re-taking it.
+   *
+   *  It has to ride the *live* packet and not only the operation. A peer paints
+   *  from this stream while the pen is still down, and by the time the
+   *  operation arrives the stream has usually delivered the whole stroke — so
+   *  the operation paints nothing and the grouping it carries is never read.
+   *  Measured before this field existed: 84.6% of the mark differed between
+   *  author and peer, up to 64/255 per channel. */
+  washId?: string
 }
 
 // (#149 epic) Every SNAPSHOT_SEQ_INTERVAL operations (by the room's global,

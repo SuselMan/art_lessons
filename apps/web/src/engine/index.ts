@@ -41,12 +41,17 @@ import {
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
-import { isRibbonTool, ribbonProfileFor, type RibbonProfile } from './src/ribbonProfile'
+import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper, applyBrushPenSpeedContact,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
 } from './src/brushPenPresets'
+import {
+  WATERCOLOR_PRESET, applyWatercolorEndTaper, applyWatercolorHeadTaper,
+  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
+  watercolorPigmentEffects, watercolorMixFromPreset,
+} from './src/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
   applyMatrix, composeMatrix, invertMatrix, scaleRotateMatrix, toMat3, translationMatrix,
@@ -84,6 +89,17 @@ export { TILT_RESPONSES, DEFAULT_TILT_RESPONSE, isTiltResponse, tiltResponseT, t
 // #454 — the brush pen's own response setting, the pressure counterpart of
 // the tilt one right above. Re-exported for toolSchemas.ts, which owns the
 // UI side of it.
+export {
+  WATERCOLOR_MIX_PRESETS, WATERCOLOR_MIX_BY_PRESET, WATERCOLOR_MIX_DEFAULT,
+  watercolorPresetString, watercolorMixFromPreset, isWatercolorMixPreset,
+  watercolorPigmentFromPreset,
+  type WatercolorMix, type WatercolorMixPreset,
+} from './src/watercolorPresets'
+export {
+  WATERCOLOR_PIGMENTS, WATERCOLOR_PIGMENT_CODES, WATERCOLOR_PIGMENT_SWATCHES,
+  DEFAULT_WATERCOLOR_PIGMENT, watercolorPigmentByCode, isWatercolorPigmentCode,
+  type WatercolorPigment,
+} from './src/watercolorPigments'
 export { PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth, type PressureResponse }
 
 /** Pure dab-shape query for UI overlays (brush cursor) — mirrors
@@ -842,6 +858,9 @@ export interface PeerLivePacket {
   color: [number, number, number]
   packetSeq: number
   dabs: Dab[]
+  /** (#468) The wash this gesture belongs to — see StrokeLiveData.washId for
+   *  why it has to travel on the live stream and not only on the operation. */
+  washId?: string
 }
 
 // ─── Internal types ────────────────────────────────────────────────────────────
@@ -1158,6 +1177,23 @@ const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, siz
 // describe how the ribbon rasterizer draws one tool, and there are two such
 // tools now. See that file.
 
+/** (#468 v7, ADR 011 §7) How long a wash stays open after the brush lifts.
+ *
+ *  Not a drying time — nothing here models drying. It is the window in which a
+ *  second band still counts as *the same wash*, and it exists because that is
+ *  the only way a flat wash can be painted: bands laid inside it merge into one
+ *  pool with one perimeter, bands laid after it glaze over a finished wash.
+ *
+ *  1.2s is generous on purpose. Someone laying a wash works continuously, and
+ *  the cost of joining when they meant to glaze is small (one extra band in the
+ *  pool) while the cost of splitting when they meant to join is exactly the bug
+ *  this exists to fix. Wall-clock, and only ever consulted live — the answer is
+ *  recorded on the operation, so replay never measures anything.
+ *
+ *  Any change of paint, colour, layer or tool ends the wash immediately,
+ *  regardless of this. */
+const WASH_JOIN_MS = 1200
+
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
  *  every dab overlap, since it multiplied whatever the *previous dab of
@@ -1226,6 +1262,13 @@ const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, siz
  *  trade this bug for a memory one. Over the cap, release really does delete.
  *  Six is two tiles' worth, which covers a bounded room (always exactly one
  *  tile) with room to spare. */
+/** (#468) How many ribbon gestures/washes the replay side keeps open at once.
+ *
+ *  Four, because each holds three pooled buffers per tile it touches, and
+ *  because the thing it has to survive is other people painting between two
+ *  strokes of one wash. Past that the oldest goes back to being a seam. */
+const REPLAY_RIBBON_CHUNK_SLOTS = 4
+
 const MARKER_SCRATCH_POOL_PER_SIZE = 6
 
 class RibbonScratchPool {
@@ -1278,6 +1321,151 @@ class RibbonStrokeScratch {
   private _tiles = new Map<AccumulationBuffer, RibbonTileScratch>()
   private readonly pool: RibbonScratchPool
   private readonly needsInk: boolean
+  /** (#468 v3) How much of the brush's load this gesture has spent so far,
+   *  measured in brush radii of travel (ADR 011 §3.8).
+   *
+   *  Lives on the scratch rather than on the engine because that is the one
+   *  object all three paths already share for the length of exactly one
+   *  gesture: a live stroke's batches, a one-shot replay's single call, and a
+   *  chunked replay's several operations. Put it on the engine and replay would
+   *  either carry it between unrelated strokes or reset it at every chunk
+   *  boundary — and a seam in the depletion is a visible band across the mark. */
+  private _waterUsed = 0
+
+  /** (#468 v6) The composite's scalar uniforms, fixed for the whole gesture.
+   *
+   *  They cannot be per batch. The composite is a *recomputation* over a whole
+   *  rect, so whichever batch wrote a pixel last decides its scalars — and with
+   *  per-batch values that showed up immediately as rectangular tone blocks
+   *  along a live stroke, one per pointer event, which is precisely what
+   *  "штрих постоянно странно меняется" was.
+   *
+   *  Derived from the gesture's *first* dab, which is the one thing a live
+   *  stroke and a replay of it are guaranteed to agree on: live sees it as the
+   *  first dab of its first batch, a one-shot replay as the first dab of the
+   *  only batch. Anything averaged over a batch would differ between the two. */
+  private _composite: {
+    spreadPx: number; inkSmoothPx: number; water: number; migratePx: number
+    /** (#468 v10) Where the noise fields are anchored.
+     *
+     *  A constant of the gesture, and that is a bug fix rather than tidiness.
+     *  It used to be *this batch's* first dab, so the whole texture shifted by
+     *  a few pixels on every pointer event — the mark's grain visibly crawled
+     *  backwards under the pen as it was drawn, and then landed somewhere else
+     *  again at pen-up, because the final pass anchored on the gesture's first
+     *  dab instead. On a long straight stroke the same shifting showed up as a
+     *  row of discs at the batch pitch. */
+    fieldSeed: [number, number]
+  } | null = null
+
+  compositeScalars(make: () => { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number] }): { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number] } {
+    if (!this._composite) this._composite = make()
+    return this._composite
+  }
+
+  /** (#468 v6) The gesture's dab spacing, cached the first time two consecutive
+   *  dabs are actually available.
+   *
+   *  Measured rather than derived, because what it has to match is
+   *  DabSystem's `baseSize * spacingFactor` — and `baseSize` is the tool's
+   *  *nominal* size, which no operation records: dabs carry their post-pressure,
+   *  post-taper sizes instead. The distance between the stroke's own first two
+   *  dabs is that spacing, and it is the same pair of dabs whether they arrive
+   *  in one replayed batch or across two live ones (the second case reaches
+   *  them through prevDab), so both paths measure the identical number.
+   *
+   *  Zero until a pair exists — a first batch of exactly one dab covers a few
+   *  px at the stroke's start, and the next batch's padded rect recomposites it
+   *  anyway. */
+  private _dabSpacing = 0
+  /** (#468 v6) Everything the gesture's final recomposite needs, plus the union
+   *  of every batch's bounds.
+   *
+   *  It exists because reasoning about whether the incremental per-batch
+   *  composites are *sufficient* turned out to be a trap: three plausible
+   *  arguments that they were, and a measured 26% of the mark still differing
+   *  between a live stroke and a replay of it. So the last thing a gesture does
+   *  is now exactly what a replay does — one composite over the whole mark with
+   *  the finished buffers — and the two agree by construction rather than by
+   *  argument.
+   *
+   *  This is not the old settle pass. That one *introduced* terms the live
+   *  batches had switched off, and re-read scalars from the first batch, which
+   *  is why the mark jumped at pen-up. Every scalar here is already a constant
+   *  of the gesture, so the final pass recomputes the same values the batches
+   *  did — it only fixes pixels that were composited before all their ink had
+   *  arrived. */
+  private _finish: {
+    target: ILayerBuffer; preset: PencilPreset; profile: RibbonProfile
+    color: [number, number, number]; opacity: number
+    bounds: { minX: number; minY: number; maxX: number; maxY: number }
+    fieldSeed: [number, number]
+  } | null = null
+
+  noteFinish(ctx: NonNullable<RibbonStrokeScratch['_finish']>): void {
+    const prev = this._finish
+    if (!prev) { this._finish = ctx; return }
+    prev.bounds = {
+      minX: Math.min(prev.bounds.minX, ctx.bounds.minX),
+      minY: Math.min(prev.bounds.minY, ctx.bounds.minY),
+      maxX: Math.max(prev.bounds.maxX, ctx.bounds.maxX),
+      maxY: Math.max(prev.bounds.maxY, ctx.bounds.maxY),
+    }
+  }
+
+  get finishContext(): RibbonStrokeScratch['_finish'] {
+    return this._finish
+  }
+
+  /** The scratch this tile already has, or null — deliberately not getOrCreate:
+   *  a tile inside the gesture's bounding box that its dabs never reached has
+   *  nothing to recomposite, and snapshotting one would spend three pooled
+   *  buffers writing it back unchanged. */
+  peek(tile: AccumulationBuffer): RibbonTileScratch | null {
+    return this._tiles.get(tile) ?? null
+  }
+
+  noteDabSpacing(gap: number): number {
+    if (this._dabSpacing === 0 && gap > 0.01) this._dabSpacing = gap
+    return this._dabSpacing
+  }
+
+  /** (#468 v8) The gesture's opening direction, cached the first time a real
+   *  segment exists. Same first-two-dabs rule the spacing follows, and for the
+   *  same reason: it is the one measurement a live stroke and a replay of it
+   *  are guaranteed to agree on. */
+  private _dir: [number, number] = [1, 0]
+  private _dirSet = false
+
+  noteDirection(dx: number, dy: number): [number, number] {
+    if (!this._dirSet) {
+      const len = Math.hypot(dx, dy)
+      if (len > 0.01) { this._dir = [dx / len, dy / len]; this._dirSet = true }
+    }
+    return this._dir
+  }
+
+  get waterUsed(): number {
+    return this._waterUsed
+  }
+
+  advanceWater(used: number): void {
+    this._waterUsed = used
+  }
+
+  /** (#468 v7) A new stroke joins this wash. Only the brush's own load resets —
+   *  lifting the brush and putting it back down means a freshly charged brush,
+   *  but the paint already on the paper is still there and still wet.
+   *
+   *  Everything else deliberately survives: the frozen pre-wash content, the
+   *  accumulated coverage and deposit, the noise field's seed and the composite
+   *  scalars. That is what makes a second band laid beside the first merge with
+   *  it instead of arriving as another mark on top — the two share one
+   *  silhouette, so there is no boundary between them to draw, and only the
+   *  outer perimeter of the whole wash gets a tideline. */
+  beginStroke(): void {
+    this._waterUsed = 0
+  }
 
   /** `needsInk` false skips the third buffer entirely (#454): a covering,
    *  source-over ink has no per-pixel pigment quantity for the composite to
@@ -1332,6 +1520,12 @@ class RibbonStrokeScratch {
    *  still means "this scratch is finished with" — what changed (#385) is that
    *  the buffers go back to the pool instead of to the driver. */
   destroy(): void {
+    this._waterUsed = 0
+    this._composite = null
+    this._dabSpacing = 0
+    this._dirSet = false
+    this._dir = [1, 0]
+    this._finish = null
     for (const { original, coverage, inkLoad } of this._tiles.values()) {
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
@@ -1469,6 +1663,25 @@ export class PencilEngine implements PencilEngineAPI {
   // down its own throwaway instance within that single call instead (see
   // _paintRibbonDabs' own doc comment).
   private _ribbonStrokeScratch: RibbonStrokeScratch | null = null
+  /** (#468 v7) The wash in progress, if any — watercolor only.
+   *
+   *  A wash outlives the stroke that started it: its scratch is kept between
+   *  strokes so the next one accumulates into the same pool, and is only torn
+   *  down when something makes the wash a different wash (a gap long enough to
+   *  count as dry, a different paint, a different layer, a different tool).
+   *
+   *  `endedAt` is wall-clock and that is fine, because it decides the *live*
+   *  grouping only. The answer is written onto the operation as `washId`, and
+   *  replay reads that instead of re-deriving it — the same split `strokeId`
+   *  already uses for chunking. */
+  private _wash: {
+    id: string
+    layerId: string
+    signature: string
+    endedAt: number
+    scratch: RibbonStrokeScratch
+  } | null = null
+  private _washId: string | null = null
   /** (#385) Shared free list behind every RibbonStrokeScratch this engine
    *  builds — see RibbonScratchPool's own doc comment for why the marker path
    *  cannot allocate per gesture. Assigned in the constructor, right after
@@ -1489,12 +1702,30 @@ export class PencilEngine implements PencilEngineAPI {
    *  band across the stroke at every boundary. It also had no previous dab to
    *  hand the ribbon, so no band bridged the two chunks.
    *
-   *  One slot, not a map: a gesture's chunks are consecutive in the log and
-   *  arrive in order, so anything else interleaving simply starts a new slot —
-   *  which is the old behaviour, a seam, rather than a wrong result. */
-  private _replayRibbonChunk:
-    | { strokeId: string; target: ILayerBuffer; scratch: RibbonStrokeScratch; lastDab: Dab }
-    | null = null
+   *  A few slots, not one, and that changed with #468's washes. For a *gesture*
+   *  one slot was right: its chunks are consecutive in the log and arrive in
+   *  order, so anything interleaving started a new slot — the old behaviour, a
+   *  seam, rather than a wrong result. A *wash* spans several strokes with real
+   *  gaps between them, and in a room where two people paint at once the gaps
+   *  routinely contain someone else's stroke. Evicting the wash there is not a
+   *  seam: the rest of the wash then lands as a second glaze over the first,
+   *  which measured as 100% of the mark differing from the author's.
+   *
+   *  Bounded and least-recently-used, because each entry holds three pooled
+   *  buffers per tile it touches. Four covers a handful of people painting at
+   *  once; past that the oldest wash goes back to being a seam, which is the
+   *  behaviour this had for every tool before washes existed. */
+  private _replayRibbonChunks = new Map<string, {
+    /** The grouping key: a wash id where the stroke has one, its gesture id
+     *  otherwise (#468 v7). */
+    strokeId: string
+    /** Which *gesture* the last chunk belonged to, so a wash can tell one of
+     *  its strokes ending from a gesture's chunk boundary. */
+    washStrokeId?: string
+    target: ILayerBuffer
+    scratch: RibbonStrokeScratch
+    lastDab: Dab
+  }>()
 
   // Smudge's own carried imprint (#14; a raster texture per user since
   // #416 — see SMUDGE_TRANSFER_FRAG's own file comment for what replaced the
@@ -1592,6 +1823,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonPosLoc!: number
   private _ribbonEdgeLoc!: number
   private _ribbonInkLoc!: number
+  private _ribbonInkWaterLoc!: number
   private _ribbonBuf!: WebGLBuffer
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
@@ -2082,6 +2314,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setActiveLayer(id: string): void {
+    if (id !== this._activeId) this._clearWash()
     this._activeId = id
     // #122: moves the below/above split point itself.
     this._invalidateSplitCache()
@@ -2304,10 +2537,22 @@ export class PencilEngine implements PencilEngineAPI {
           const skip = this._claimLivePaintedDabs(op, allDabs.length)
           const dabs = skip ? allDabs.slice(skip) : allDabs
           if (dabs.length) {
-            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
+            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId)
           }
           this._markLayerDirty(op.layerId)
-          this._maybeCheckpoint(op.layerId)
+          // (#468) Never mid-wash, the same rule the local path follows one
+          // stroke over. A checkpoint bakes the layer's pixels, and the strokes
+          // of a wash share an accumulation whose frozen base is the canvas as
+          // it was *before* the wash began. Baking half of one and later
+          // restoring to it hands the rest of the wash a base that already
+          // contains its own beginning — the mark then differs from the
+          // author's permanently, rather than until the next reload.
+          //
+          // Deferring costs nothing: the next operation that is not part of a
+          // wash takes the checkpoint instead, and checkpoints are an
+          // optimisation for undo and replay speed, never a correctness
+          // requirement.
+          if (!op.washId) this._maybeCheckpoint(op.layerId)
           // #122: this branch is only reached for strokes this engine
           // instance didn't itself just paint (remote peer strokes, or
           // replay) — a remote author's active layer can easily differ from
@@ -2578,7 +2823,12 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setPencil(type: string): void  { this._opts.pencilType = type }
-  setTool(tool: ToolType): void  { this._opts.tool = tool }
+  setTool(tool: ToolType): void  {
+    // (#468 v7) Reaching for another tool ends the wash: whatever is on the
+    // paper stops being something the next stroke can pool into.
+    if (tool !== this._opts.tool) this._clearWash()
+    this._opts.tool = tool
+  }
   setOpacity(v: number): void    { this._opts.opacity = v }
   setSize(px: number): void      { this._opts.size = px }
 
@@ -2590,6 +2840,16 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. Only the *next* stroke picks this
    *  up (same "never mid-stroke" rule as _markerAngleRadians' own field
    *  comment) — no need to touch the in-progress DabSystem shaping here. */
+  /** (#468 v7) Ends the wash in progress, if any. A wash is "several bands of
+   *  the same paint on the same layer, laid before the last one dried" — so
+   *  anything that changes what is in the brush, or what it is being laid on,
+   *  ends it at once regardless of timing. */
+  private _clearWash(): void {
+    this._wash?.scratch.destroy()
+    this._wash = null
+    this._washId = null
+  }
+
   setMarkerAngle(angleRadians: number, followStrokeDirection: boolean): void {
     this._markerAngleRadians = angleRadians
     this._markerFollowStroke = followStrokeDirection
@@ -3167,7 +3427,7 @@ export class PencilEngine implements PencilEngineAPI {
     // second, independently-tracked copy is how the two get to disagree.
     this._paintDabs(
       buf, dabs, packet.tool, packet.preset, packet.color, peerId,
-      undefined, undefined, packet.strokeId,
+      undefined, undefined, packet.strokeId, packet.washId,
     )
     this._markLayerDirty(packet.layerId)
     if (packet.layerId !== this._activeId) this._invalidateSplitCache()
@@ -3363,9 +3623,10 @@ export class PencilEngine implements PencilEngineAPI {
     // would leave exactly the buffers they are still holding behind.
     this._ribbonStrokeScratch?.destroy()
     this._ribbonStrokeScratch = null
+    this._clearWash()
     this._strokeId = null
-    this._replayRibbonChunk?.scratch.destroy()
-    this._replayRibbonChunk = null
+    for (const c of this._replayRibbonChunks.values()) c.scratch.destroy()
+    this._replayRibbonChunks.clear()
     this._ribbonScratchPool.destroy()
     // A live imprint's buffer was spliced *out* of the scratch pool drained
     // above and is held only here, so it needs destroying on its own.
@@ -3573,7 +3834,7 @@ export class PencilEngine implements PencilEngineAPI {
         // Smudge (#416): nothing to seed — see appendOperation's own stroke
         // case for why replay/undo/redo is deterministic from the op's own
         // dabs alone now.
-        this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
+        this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId)
         break
       case 'layer_clear':
         buf.clear()
@@ -3959,8 +4220,13 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudgeScratchPool = [] // same reasoning, see #14
     this._ribbonStrokeScratch?.forget() // same reasoning — pooled GL objects are dead too
     this._ribbonStrokeScratch = null
-    this._replayRibbonChunk?.scratch.forget()
-    this._replayRibbonChunk = null
+    // Context loss took the wash's buffers too; drop the handles without
+    // touching the driver, same as every other pool here.
+    this._wash?.scratch.forget()
+    this._wash = null
+    this._washId = null
+    for (const c of this._replayRibbonChunks.values()) c.scratch.forget()
+    this._replayRibbonChunks.clear()
     // (#385) Dropped, not released: releasing would put dead handles back in
     // the pool for the next gesture to paint through.
     this._ribbonScratchPool.forget()
@@ -4370,9 +4636,28 @@ export class PencilEngine implements PencilEngineAPI {
       'u_original', 'u_strokeCoverage', 'u_inkLoad',
       // #330 stage 2/3 — the ribbon nib's own geometry: edge ramp width in canvas
       // px, which outline the nib is, its corner radius, and how much the ink
-      // eases off at the rim. #454: plus how far paper grain bites into the
-      // brush pen's rim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperWick',
+      // eases off at the rim. #454: plus how strongly paper grain acts on a
+      // ribbon tool's rim — outward for the brush pen, inward for watercolor,
+      // see RibbonProfile.paperRim.
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim',
+      // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
+      // branch alone, and set to 0 by every other ribbon composite (see
+      // _drawRibbonCompositeDab) rather than left unset, for the reason
+      // u_wickPx above already documents: uniforms persist across draws on a
+      // shared program.
+      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk',
+      // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
+      'u_spreadPx', 'u_cloud', 'u_fieldOffset',
+      // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
+      // the rest are read by the composite.
+      'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoft', 'u_edgeWander', 'u_strokeDir',
+      'u_tideLo', 'u_tideHi',
+      // #468 v5 — how covering the paint is (watercolorPigments.ts).
+      'u_pigmentOpacity',
+      // #468 v6 — the dab spacing, the period of the deposit's own ripple.
+      'u_inkSmoothPx',
+      // #468 v11 — pigment transport (ADR 011 §11).
+      'u_migrate', 'u_migratePx', 'u_migrateLo', 'u_migrateHi',
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
@@ -4425,6 +4710,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonPosLoc  = gl.getAttribLocation(this._ribbonProg, 'a_position')
     this._ribbonEdgeLoc = gl.getAttribLocation(this._ribbonProg, 'a_edge')
     this._ribbonInkLoc  = gl.getAttribLocation(this._ribbonProg, 'a_ink')
+    this._ribbonInkWaterLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWater')
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
@@ -4566,9 +4852,40 @@ export class PencilEngine implements PencilEngineAPI {
     // see RibbonStrokeScratch's own doc comment. Harmless to always create,
     // even for a non-marker stroke: nothing allocates any GL resource until
     // a marker dab's own getOrCreate() first touches a tile.
-    this._ribbonStrokeScratch = new RibbonStrokeScratch(
-      this._ribbonScratchPool, ribbonProfileFor(this._strokeTool, this._opts.pencilType).ink,
-    )
+    const profile = ribbonProfileFor(this._strokeTool, this._opts.pencilType)
+    // (#468 v7, ADR 011 §7) Does this stroke join the wash already on the
+    // paper, or start a new one?
+    //
+    // Joining needs the same paint on the same layer, soon enough that the last
+    // one has not dried. Change any of those and you are painting a second
+    // wash over a first, which is glazing and must behave like it.
+    const washSignature = `${this._opts.pencilType}|${this._opts.graphiteColor.join(',')}`
+    if (profile.normalizeDeposit) {
+      const now = performance.now()
+      const open = this._wash
+      const joins = open !== null
+        && open.layerId === layerId
+        && open.signature === washSignature
+        && now - open.endedAt <= WASH_JOIN_MS
+      if (joins && open) {
+        this._washId = open.id
+        this._ribbonStrokeScratch = open.scratch
+      } else {
+        this._wash?.scratch.destroy()
+        this._washId = nanoid(10)
+        this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
+        this._wash = {
+          id: this._washId, layerId, signature: washSignature,
+          endedAt: now, scratch: this._ribbonStrokeScratch,
+        }
+      }
+      this._ribbonStrokeScratch.beginStroke()
+    } else {
+      this._washId = null
+      this._wash?.scratch.destroy()
+      this._wash = null
+      this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
+    }
     this._strokeId = nanoid(10)
     // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
     // makes the first packet of a gesture go out with the first dabs painted
@@ -4809,11 +5126,27 @@ export class PencilEngine implements PencilEngineAPI {
     // narrows by at most 15%, a brush pen by up to 75%, which is what turns a
     // quick flick into a point instead of a cut-off tube (ADR 009 §4).
     if (this._strokeTool === 'brushPen') applyBrushPenEndTaper(dabs, e.speed)
+    // #468 — structurally identical, shallower numbers: a wet brush leaves a
+    // damp streak, not a calligraphic point.
+    if (this._strokeTool === 'watercolor') {
+      applyWatercolorEndTaper(dabs, e.speed)
+      // #468 v4, ADR 011 §4.3 — a wet brush set down and lifted slowly leaves a
+      // puddle, not the round cap a swept nib gives. After the taper on
+      // purpose: the repeats copy the already-tapered last dab, so the pool
+      // sits at the tip's real width instead of re-widening it.
+      applyWatercolorPooling(dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel)
+    }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
-    // Torn down after this stroke's very last dabs are painted above — a
-    // fresh RibbonStrokeScratch gets created for the *next* stroke in
-    // _onStart, never carried over (see its own doc comment).
-    this._ribbonStrokeScratch?.destroy()
+    if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch)
+    if (this._wash && this._wash.scratch === this._ribbonStrokeScratch) {
+      // (#468 v7) A wash outlives its strokes — the paint is still on the paper
+      // and still wet, so the buffers stay open for the next band to pool into.
+      // Torn down in _onStart when something makes the next stroke a different
+      // wash, and by _clearWash on tool/layer changes and teardown.
+      this._wash.endedAt = performance.now()
+    } else {
+      this._ribbonStrokeScratch?.destroy()
+    }
     this._ribbonStrokeScratch = null
     // Discard the speculative preview entirely once the real stroke has
     // ended — the final _display() below must show only real content.
@@ -4857,9 +5190,17 @@ export class PencilEngine implements PencilEngineAPI {
         layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
         ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+        ...(this._washId ? { washId: this._washId } : {}),
         }
       this._log.append(op)
-      this._maybeCheckpoint(layerId)
+      // (#468 v10) Never mid-wash. A checkpoint bakes the layer's pixels, and
+      // replay then starts from those instead of from the operations — but a
+      // wash's strokes share one accumulation whose frozen `original` is the
+      // content from *before* the wash began. Bake halfway through and that
+      // content is gone: the reloaded room rebuilds the rest of the wash over
+      // its own half-finished output, and the picture comes back subtly
+      // different. Washes last a second or two, so this only defers.
+      if (!this._wash) this._maybeCheckpoint(layerId)
       this._onLocalOperation?.(op)
     }
     // (#429) Deliberately no final flush of the live queue: whatever is still
@@ -4903,6 +5244,11 @@ export class PencilEngine implements PencilEngineAPI {
     // — its presetName slot carries the pressure response, not a nib or a
     // grade, so there is nothing here to branch on (brushPenPresets.ts).
     if (tool === 'brushPen') return BRUSH_PEN_PRESET
+    // #468, ADR 011 §5 — same story as the brush pen one line up: no size
+    // ladder and no hardness grade, so `presetName` carries the pressure
+    // response instead and there is nothing here to branch on
+    // (watercolorPresets.ts).
+    if (tool === 'watercolor') return WATERCOLOR_PRESET
     if (tool === 'charcoal') return charcoalPresetFor(presetName)
     return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
   }
@@ -4987,6 +5333,30 @@ export class PencilEngine implements PencilEngineAPI {
       // buffer and one scalar (DAB_FRAG's u_inkMode=8 branch). A per-dab
       // opacity could not be expressed there at all.
       else if (tool === 'brushPen') dab.opacity = preset.opacity * opacity
+      // Watercolor (#468, ADR 011 §5): flat, for every reason the brush pen's
+      // is flat directly above, plus one of its own.
+      //
+      // The shared reasons: pressure drives the brush's width, not its
+      // transparency, and a flat per-stroke opacity is what lets the composite
+      // reconstruct a finished pixel from a coverage buffer and one scalar
+      // (DAB_FRAG's u_inkMode=9 branch reads u_opacity, not a per-dab value).
+      //
+      // Its own: how dark a wash comes out is already modelled, and modelled
+      // somewhere better — inkLoad accumulates distance-normalized deposit and
+      // the composite saturates it (WATERCOLOR_SATURATE_INK). Adding a speed or
+      // pressure term to alpha *as well* would be two mechanisms competing to
+      // express one physical quantity, which is how the marker's own density
+      // got hard to reason about before "Ревизия v1.5" separated them.
+      // (#468 v9) …times how much paint is in the water. This is pigment's one
+      // and only route to the finished pixel: the deposit is now a constant
+      // (watercolorPigmentEffects), so nothing else scales with it and the
+      // control stays linear. Constant across a stroke, which is what lets the
+      // composite reconstruct a finished pixel from a coverage buffer and one
+      // scalar at all.
+      else if (tool === 'watercolor') {
+        dab.opacity = preset.opacity * opacity
+          * watercolorPigmentEffects(watercolorMixFromPreset(presetName).pigment).strength
+      }
       // Charcoal (#304 §3, plus #305's broad-side lightening): shares pencil's
       // speed curve deliberately — "slower stroke -> denser deposit" is equally
       // true of both materials — and adds one term graphite has no analogue
@@ -5043,6 +5413,14 @@ export class PencilEngine implements PencilEngineAPI {
       // positions, which neither of them touches.
       this._strokeSpeedContact = applyBrushPenSpeedContact(dabs, speed, this._strokeSpeedContact)
       this._strokeArcLen = applyBrushPenHeadTaper(dabs, this._strokeDabs.at(-1), this._strokeArcLen)
+    }
+    // #468 — same placement and the same reason: baked into the dab before it
+    // is recorded, so every route to these pixels (the operation, a peer's
+    // packet, an undo, a snapshot rebuild) sees the identical narrowing.
+    // Shallower than the pen's, because a loaded brush lands rather than
+    // arrives at a point (watercolorPresets.ts's taper section).
+    if (this._strokeTool === 'watercolor') {
+      this._strokeArcLen = applyWatercolorHeadTaper(dabs, this._strokeDabs.at(-1), this._strokeArcLen)
     }
     for (const dab of dabs) dab.t = elapsedMs
     // Smudge only (#14): the dab immediately before this call's own batch,
@@ -5174,6 +5552,9 @@ export class PencilEngine implements PencilEngineAPI {
       strokeId: this._strokeId, layerId: this._strokeLayerId,
       tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
       packetSeq: this._livePacketSeq++, dabs: this._liveDabQueue,
+      // (#468) Decided at pen-down and constant for the gesture, so every
+      // packet carries the same value the operation will.
+      ...(this._washId ? { washId: this._washId } : {}),
     })
     // A fresh array rather than length = 0: the packet above holds this one,
     // and the caller is free to keep it (Room packs it asynchronously).
@@ -5507,7 +5888,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number], userId: string, prevDab?: Dab, ribbonScratch?: RibbonStrokeScratch,
-    strokeId?: string,
+    strokeId?: string, washId?: string,
   ): void {
     if (!dabs.length) return
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return }
@@ -5522,7 +5903,7 @@ export class PencilEngine implements PencilEngineAPI {
     // #454: two tools now, dispatched by isRibbonTool rather than by name —
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
-    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId); return }
+    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId); return }
     const erasing = tool === 'eraser'
     // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
     // table). Resolved once here as a number rather than one boolean flag per
@@ -6120,7 +6501,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintRibbonDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number],
-    ribbonScratch?: RibbonStrokeScratch, prevDab?: Dab, strokeId?: string,
+    ribbonScratch?: RibbonStrokeScratch, prevDab?: Dab, strokeId?: string, washId?: string,
   ): void {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
@@ -6133,7 +6514,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (target instanceof AccumulationBuffer) return
     const preset = this._resolvePreset(tool, presetName)
     const profile = ribbonProfileFor(tool, presetName)
-    const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, dabs, profile)
+    const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, washId, dabs, profile)
     const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
     // `prevDab` is threaded the same way smudge threads its own
     // (_paintSmudgeDabs): the dab immediately before dabs[0] may come from a
@@ -6141,6 +6522,12 @@ export class PencilEngine implements PencilEngineAPI {
     // ribbonScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
     this._paintRibbonStroke(target, dabs, preset, profile, color, scratch, prevDab ?? chunk?.prevDab)
+    // Replay finishes the stroke inside this call as far as it can know: a
+    // one-shot has painted every dab there is, a chunk every dab of its own
+    // operation. Both recomposite now; a chunked gesture simply does it again,
+    // over larger bounds, when the next chunk arrives — the composite is a pure
+    // recomputation, so repeating it is a no-op by construction.
+    if (!ribbonScratch) this._finishRibbonStroke(scratch)
     // The cached one belongs to the gesture, not to this call — it is released
     // when a different gesture arrives, or with the engine.
     if (!ribbonScratch && !chunk) scratch.destroy()
@@ -6151,18 +6538,52 @@ export class PencilEngine implements PencilEngineAPI {
    *  operation with no gesture id (a stroke recorded before strokeId existed),
    *  which then falls back to a throwaway scratch, exactly as before. */
   private _replayChunkScratch(
-    target: ILayerBuffer, strokeId: string | undefined, dabs: Dab[], profile: RibbonProfile,
+    target: ILayerBuffer, strokeId: string | undefined, washId: string | undefined,
+    dabs: Dab[], profile: RibbonProfile,
   ): { scratch: RibbonStrokeScratch; prevDab?: Dab } | null {
-    if (!strokeId || !dabs.length) return null
-    const cached = this._replayRibbonChunk
-    if (cached && cached.strokeId === strokeId && cached.target === target) {
-      const prevDab = cached.lastDab
+    // (#468 v7) A wash groups more strongly than a gesture: several strokes
+    // share one accumulation, so the key is the wash where there is one and the
+    // gesture otherwise. Grouping by the recorded id rather than by anything
+    // measured here is what keeps replay a pure function of the log — the live
+    // client already decided, using wall-clock timing replay must never see.
+    const key = washId ?? strokeId
+    if (!key || !dabs.length) return null
+    const cached = this._replayRibbonChunks.get(key)
+    if (cached && cached.target === target) {
+      // `prevDab` bridges the ribbon across a *gesture's* chunks. Across two
+      // strokes of one wash there is nothing to bridge — the brush was lifted —
+      // so the band builder must not stitch them into one swept figure.
+      const sameGesture = cached.washStrokeId === strokeId
+      const prevDab = washId && !sameGesture ? undefined : cached.lastDab
       cached.lastDab = dabs[dabs.length - 1]
+      cached.washStrokeId = strokeId
+      // Only when a *new* stroke of the wash starts. This read the flag it had
+      // just overwritten, so it fired on every operation — including the chunks
+      // one long gesture is split into, which live never does. The brush was
+      // getting recharged mid-stroke on replay and not while drawing, so a long
+      // enough stroke came back different after a reload.
+      if (washId && !sameGesture) cached.scratch.beginStroke()
+      // Re-inserted so the map's own order is least-recently-used: the eviction
+      // below takes the front, and a wash still being painted into must not be
+      // the one thrown away.
+      this._replayRibbonChunks.delete(key)
+      this._replayRibbonChunks.set(key, cached)
       return { scratch: cached.scratch, prevDab }
     }
+    // A stale entry under the same key but a *different* layer buffer is not a
+    // hit — the scratch mirrors the tiles of one target and nothing else.
     cached?.scratch.destroy()
+    this._replayRibbonChunks.delete(key)
     const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
-    this._replayRibbonChunk = { strokeId, target, scratch, lastDab: dabs[dabs.length - 1] }
+    scratch.beginStroke()
+    this._replayRibbonChunks.set(key, {
+      strokeId: key, washStrokeId: strokeId, target, scratch, lastDab: dabs[dabs.length - 1],
+    })
+    while (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS) {
+      const oldest = this._replayRibbonChunks.keys().next().value as string
+      this._replayRibbonChunks.get(oldest)?.scratch.destroy()
+      this._replayRibbonChunks.delete(oldest)
+    }
     return { scratch }
   }
 
@@ -6238,7 +6659,186 @@ export class PencilEngine implements PencilEngineAPI {
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
 
-    const bands = buildRibbonBands(drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx)
+    // (#468 v2/v4, ADR 011 §3.5) The stroke's typical radius decides how far its
+    // water carries. Mean rather than max: one heavy dab at the end of an
+    // otherwise light stroke should not widen the whole mark's boundary
+    // treatment.
+    // (#468 v6) The deposit's ripple has exactly the dab spacing for a period,
+    // so that is what it must be read back over. The first attempt guessed it
+    // from the first dab's radius and landed at a quarter of the true value —
+    // the ring came out 3.8px wide against a 15.4px period and cancelled
+    // essentially nothing, which is why the circles survived the first fix.
+    const firstGap = drawable.length >= 2
+      ? Math.hypot(drawable[1].x - drawable[0].x, drawable[1].y - drawable[0].y)
+      : (prevDab ? Math.hypot(drawable[0].x - prevDab.x, drawable[0].y - prevDab.y) : 0)
+    const dabSpacing = scratch.noteDabSpacing(firstGap)
+    const dirFrom = drawable.length >= 2 ? drawable[0] : prevDab
+    const dirTo = drawable.length >= 2 ? drawable[1] : drawable[0]
+    const strokeDir = scratch.noteDirection(
+      dirFrom ? dirTo.x - dirFrom.x : 0, dirFrom ? dirTo.y - dirFrom.y : 0,
+    )
+    const { spreadPx, water: fringeWater, migratePx, fieldSeed } = scratch.compositeScalars(() => {
+      const firstRadius = Math.max(drawable[0].size * 0.5 * preset.sizeMultiplier, 0.5)
+      return {
+        spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
+          ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius))
+          : 0,
+        inkSmoothPx: 0, // resolved separately, see noteDabSpacing
+        // (#468 v11) How far one exchange moves pigment. A constant of the
+        // gesture for exactly the reason every other scalar here is one: the
+        // composite recomputes whole rects, so whichever batch wrote a pixel
+        // last would otherwise decide how far its paint had travelled.
+        migratePx: profile.migrate > 0 && profile.migrateOfRadius > 0
+          ? Math.min(
+            WATERCOLOR_MIGRATION.maxPx,
+            Math.max(WATERCOLOR_MIGRATION.minPx, firstRadius * profile.migrateOfRadius),
+          )
+          : 0,
+        // The fallback the composite uses outside the mark, where there is no
+        // deposit to read a per-pixel level from. The stroke's starting load,
+        // not its current one, for the same no-seams reason.
+        water: profile.waterLevel,
+        fieldSeed: [drawable[0].x, drawable[0].y],
+      }
+    })
+
+    // (#468 v4, ADR 011 §4.4) The composite rect a *live* batch redraws, padded
+    // past the dabs it just painted.
+    //
+    // v2 and v3 ran the spread and the tideline only at pen-up, because both
+    // read a neighbourhood the moving brush front has not finished writing. The
+    // cost was a visible jump: the artist drew one shape and watched it become
+    // another the instant the stylus lifted. Correct by the model, and bad —
+    // real paint keeps moving, it does not swap geometry in a single frame.
+    //
+    // The fix is that both terms are *local*: they reach at most spread +
+    // tideline radius from any pixel. So a batch that recomposites its own
+    // dabs plus that much margin fixes up everything the previous batch could
+    // only guess at, and the only region still provisional is the margin around
+    // the live front — which is where the brush is, and which the next batch
+    // corrects. The settle pass at pen-up then has nothing left to do but the
+    // final margin, so the mark barely changes when the pen comes up.
+    //
+    // Costs a larger rect per batch. Bounded by the padding, not by the stroke:
+    // this stays proportional to what the batch painted, unlike recompositing
+    // the whole stroke every event, which is what made deferral necessary in
+    // the first place.
+    // The pad has to cover *everything that can still change this pixel*, and
+    // that is not just how far the composite reaches sideways — it is also how
+    // long the brush keeps depositing into a pixel it has already passed.
+    //
+    // Ink and coverage keep arriving until the nib has travelled a full radius
+    // beyond a spot. Pad by less than that and a live batch composites from an
+    // inkLoad that is still missing the dabs behind the front, and no later
+    // batch's rect ever reaches back to correct it. Replay, which composites
+    // once with the whole stroke in the buffers, has no such gap — so the two
+    // disagreed, and a reload silently redrew the stroke differently. Measured
+    // at 26% of the mark's area before this, 9% of it strongly.
+    //
+    // That is a determinism bug, not a cosmetic one: two people in one room
+    // were looking at different pictures.
+    let maxRadius = 0
+    for (const d of drawable) maxRadius = Math.max(maxRadius, d.size * 0.5 * preset.sizeMultiplier)
+    // Everything that can still change this pixel, **summed** rather than
+    // maxed — each term is a separate hop outward and they compose:
+    //
+    //   maxRadius   the nib keeps depositing into a spot until it has travelled
+    //               its own radius past it;
+    //   spreadPx    the boundary is decided from a blur of coverage that far away;
+    //   wetEdge     the tideline reads the same blur;
+    //   dabSpacing  the deposit is read back averaged over one spacing, so a
+    //               pixel's value depends on its neighbours' deposits too;
+    //   migratePx   (#468 v11) pigment is exchanged with a ring that far out,
+    //               so a pixel's tone depends on deposits that far away — and
+    //               unlike the terms above this one is symmetric, since paint
+    //               arriving is as much a change as paint leaving.
+    //
+    // Getting this wrong does not merely blur something: a live batch then
+    // composites from buffers that are still filling, no later batch's rect
+    // reaches back to correct it, and the mark ends up different from what a
+    // replay of the same operation produces.
+    const compositePad = spreadPx > 0
+      ? Math.ceil(maxRadius + spreadPx + profile.wetEdgeRadiusPx + dabSpacing + migratePx) + 1
+      : 0
+    const compositeBounds = compositePad > 0
+      ? {
+        minX: bounds.minX - compositePad, minY: bounds.minY - compositePad,
+        maxX: bounds.maxX + compositePad, maxY: bounds.maxY + compositePad,
+      }
+      : bounds
+
+    // (#468 v3, ADR 011 §3.8) Every dab's ink deposit, resolved once for the
+    // batch — *before* the tile loop, because the depletion clock must advance
+    // once per batch and not once per tile a batch happens to straddle.
+    //
+    // Two things happen here that did not before, both watercolor-only:
+    //
+    //  - the deposit is divided by the dab's own radius, turning it from a
+    //    quantity per unit *length* into one per unit *area*. Unnormalized it
+    //    scaled with brush size and saturated the 8-bit inkLoad buffer on the
+    //    first dab of any real wash, which pinned the composite's saturation
+    //    curve at 1 and made `density` dead code (see normalizeDeposit);
+    //  - it decays as the brush unloads along the stroke, which is only
+    //    expressible *because* of the normalization above.
+    //
+    // The marker takes neither and must not: its strokes are permanent and its
+    // constants were calibrated against the old scale.
+    // (#468 v4, ADR 011 §4) Water and pigment run down at *different* rates,
+    // and that difference is the whole behaviour: water soaks away fast while
+    // pigment stays on the hairs, so one long stroke walks itself from a wet
+    // saturated start, through an ordinary middle, to a dry but still strongly
+    // coloured end — and finally to a broken dry-brush tail. A single "wetness"
+    // scalar cannot produce that arc at all.
+    const deposits: number[] = []
+    const waterByDab = new Map<Dab, number>()
+    const pigmentByDab = new Map<Dab, number>()
+    {
+      let prev = prevDab
+      let used = scratch.waterUsed
+      for (const dab of drawable) {
+        const radius = Math.max(dab.size * 0.5 * preset.sizeMultiplier, 0.5)
+        const seg = this._markerSegmentLength(dab, prev, radius)
+        if (profile.waterDepletion) used += watercolorWaterStep(seg, radius)
+        // The profile's levels are the *initial* load; the two curves say how
+        // much of each is left after `used` radii of travel. depositPerRadius
+        // already carries the nominal pigment setting, so only the remaining
+        // *fraction* multiplies it here.
+        const water = profile.waterDepletion ? profile.waterLevel * watercolorWaterLoad(used) : 1
+        const pigmentLeft = profile.waterDepletion ? watercolorPigmentLoad(used) : 1
+        waterByDab.set(dab, water)
+        pigmentByDab.set(dab, pigmentLeft)
+        // The stamps' share of the dose, doubled back up because the legacy
+        // formula's 0.5 assumed an even split with the bands.
+        const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1
+        deposits.push(profile.normalizeDeposit
+          ? profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft
+          : dab.opacity * seg * 0.5)
+        prev = dab
+      }
+      scratch.advanceWater(used)
+    }
+
+    // Bands share the stamps' scale, or they would swamp it: the two overlap
+    // almost everywhere and each carries half a dose, so a band still on the
+    // legacy scale would drown whatever the normalized stamps expressed.
+    // Omitting the callback leaves buildRibbonBands' own formula untouched,
+    // which is what the marker and the brush pen get.
+    const inkFor = profile.normalizeDeposit
+      ? (_d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => {
+        const radius = Math.max(d1.size * 0.5 * preset.sizeMultiplier, 0.5)
+        // Per segment, not per batch: the water weighting rides the vertex now
+        // (markerRibbon.ts's FLOATS_PER_VERTEX) precisely so that how the
+        // stroke was cut into pointer events cannot change the result.
+        return {
+          ink: profile.depositPerRadius * (travel / radius) * 0.5
+            * ((1 - profile.stampInkShare) * 2) * (pigmentByDab.get(d1) ?? 1),
+          water: waterByDab.get(d1) ?? 0,
+        }
+      }
+      : undefined
+    const bands = buildRibbonBands(
+      drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor,
+    )
 
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
@@ -6256,14 +6856,13 @@ export class PencilEngine implements PencilEngineAPI {
       // Skipped entirely for a covering ink, which has no such quantity — see
       // RibbonProfile.ink.
       if (inkLoad) {
-        let prev = prevDab
-        for (const dab of drawable) {
-          const radius = dab.size * 0.5 * preset.sizeMultiplier
-          const deposit = dab.opacity * this._markerSegmentLength(dab, prev, radius) * 0.5
+        for (let i = 0; i < drawable.length; i++) {
           inkLoad.beginAdditiveDraw()
-          this._drawRibbonNibPass(inkLoad, tile, dab, preset, profile, 7, deposit, false)
+          this._drawRibbonNibPass(
+            inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false,
+            waterByDab.get(drawable[i]) ?? 0,
+          )
           inkLoad.endDraw()
-          prev = dab
         }
         if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx)
       }
@@ -6274,10 +6873,43 @@ export class PencilEngine implements PencilEngineAPI {
       // §9 — pressure drives width, never alpha). The marker's branch ignores
       // this argument entirely and reads its own inkLoad texture instead.
       this._drawRibbonCompositeRect(
-        tile, bounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
+        tile, compositeBounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
+        fieldSeed, spreadPx, fringeWater, migratePx,
+        profile.normalizeDeposit ? dabSpacing : 0, strokeDir,
       )
     }
 
+    scratch.noteFinish({
+      target, preset, profile, color, opacity: drawable[0].opacity,
+      bounds: compositeBounds, fieldSeed,
+    })
+
+    target.markContentPainted(compositeBounds)
+  }
+
+  /** (#468 v6) One composite over everything the finished gesture touched, with
+   *  the buffers complete — the same thing a replay of this stroke does in a
+   *  single call. See RibbonStrokeScratch's own _finish for why the incremental
+   *  per-batch composites are not enough on their own. */
+  private _finishRibbonStroke(scratch: RibbonStrokeScratch): void {
+    const ctx = scratch.finishContext
+    if (!ctx || !ctx.profile.normalizeDeposit) return
+    const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
+    const targets = target.resolveForPaint(bounds)
+    if (!targets.length) return
+    const { spreadPx, water, migratePx } = scratch.compositeScalars(
+      () => ({ spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0, fieldSeed: [0, 0] as [number, number] }),
+    )
+    const spacing = scratch.noteDabSpacing(0)
+    const dir = scratch.noteDirection(0, 0)
+    for (const tile of targets) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry) continue
+      this._drawRibbonCompositeRect(
+        tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity,
+        fieldSeed, spreadPx, water, migratePx, spacing, dir,
+      )
+    }
     target.markContentPainted(bounds)
   }
 
@@ -6333,6 +6965,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawRibbonNibPass(
     dest: AccumulationBuffer, tile: PaintTarget, dab: Dab, preset: PencilPreset,
     profile: RibbonProfile, inkMode: 6 | 7, opacity: number, ownTarget = true,
+    /** (#468 v4) How wet the brush was for *this* dab, written into the deposit
+     *  texture's colour channels so the composite can recover a per-pixel water
+     *  level (ADR 011 §4.1). 0 for every tool with no water model, which leaves
+     *  those channels at zero and the ratio unread. */
+    inkWater = 0,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -6368,6 +7005,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_angle, dab.angle)
     gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
     gl.uniform1f(u.u_opacity, opacity)
+    // #468 v4 — weights the deposit written into the texture's colour channels.
+    gl.uniform1f(u.u_inkWater, inkWater)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     if (ownTarget) dest.endDraw()
@@ -6389,6 +7028,7 @@ export class PencilEngine implements PencilEngineAPI {
       local[i + 1] = bands[i + 1] - tile.originY
       local[i + 2] = bands[i + 2]
       local[i + 3] = bands[i + 3]
+      local[i + 4] = bands[i + 4]
     }
 
     if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
@@ -6404,6 +7044,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._ribbonPosLoc, 2, gl.FLOAT, false, stride, 0)
     gl.enableVertexAttribArray(this._ribbonEdgeLoc)
     gl.vertexAttribPointer(this._ribbonEdgeLoc, 1, gl.FLOAT, false, stride, 8)
+    gl.enableVertexAttribArray(this._ribbonInkWaterLoc)
+    gl.vertexAttribPointer(this._ribbonInkWaterLoc, 1, gl.FLOAT, false, stride, 16)
     gl.enableVertexAttribArray(this._ribbonInkLoc)
     gl.vertexAttribPointer(this._ribbonInkLoc, 1, gl.FLOAT, false, stride, 12)
 
@@ -6413,6 +7055,7 @@ export class PencilEngine implements PencilEngineAPI {
     // per-vertex stream for whatever attribute index happens to collide with
     // them (these slots are not reserved across programs).
     gl.disableVertexAttribArray(this._ribbonEdgeLoc)
+    gl.disableVertexAttribArray(this._ribbonInkWaterLoc)
     gl.disableVertexAttribArray(this._ribbonInkLoc)
     dest.endDraw()
   }
@@ -6432,6 +7075,8 @@ export class PencilEngine implements PencilEngineAPI {
     preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
     color: [number, number, number], opacity: number,
+    fieldSeed: [number, number], spreadPx: number, water: number, migratePx: number,
+    inkSmoothPx: number, strokeDir: [number, number],
   ): void {
     const cx = (bounds.minX + bounds.maxX) * 0.5
     const cy = (bounds.minY + bounds.maxY) * 0.5
@@ -6440,7 +7085,7 @@ export class PencilEngine implements PencilEngineAPI {
       x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
       size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
     }
-    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color)
+    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -6452,7 +7097,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawRibbonCompositeDab(
     tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
-    color: [number, number, number],
+    color: [number, number, number], fieldSeed: [number, number], spreadPx: number, water: number,
+    migratePx: number, inkSmoothPx: number, strokeDir: [number, number],
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -6516,11 +7162,56 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_paperFillThreshold, this._paperFillThreshold)
     gl.uniform1f(u.u_paperFillCap, this._paperFillCap)
     gl.uniform1f(u.u_inkMode, profile.compositeInkMode)
-    // #454: how hard paper grain bites the brush pen's rim, read only by the
-    // u_inkMode=8 branch — and set on every composite draw, not just that
-    // tool's, for the same reason u_wickPx is cleared below: uniforms persist
-    // across draws on a shared program.
-    gl.uniform1f(u.u_paperWick, profile.paperWick)
+    // #454: how strongly paper grain acts on a ribbon tool's rim — read by the
+    // u_inkMode=8 and =9 branches, in opposite directions (RibbonProfile
+    // .paperRim) — and set on every composite draw, not just those tools', for
+    // the same reason u_wickPx is cleared below: uniforms persist across draws
+    // on a shared program.
+    gl.uniform1f(u.u_paperRim, profile.paperRim)
+    // #468, ADR 011 §3 — watercolor's four, set on every ribbon composite (not
+    // just watercolor's) for the same uniforms-persist reason u_wickPx is
+    // cleared below. Every other profile carries zeros, which makes each term
+    // in the u_inkMode=9 branch vanish identically.
+    //
+    // (#468 v4) No live/settle split any more — every term runs on every
+    // composite, and the settle pass differs only in the rect it covers. See
+    // _paintRibbonStroke's compositeBounds for why that became possible, and
+    // what the split cost perceptually while it lasted.
+    gl.uniform1f(u.u_wetEdge, profile.wetEdge)
+    gl.uniform1f(u.u_wetEdgeRadiusPx, profile.wetEdgeRadiusPx)
+    gl.uniform1f(u.u_granulation, profile.granulation)
+    gl.uniform1f(u.u_saturateInk, profile.saturateInk)
+    // #468 v2 — split by *what the term depends on*, not by taste. The spread
+    // rewrites the mark's silhouette and so cannot be evaluated before the
+    // stroke is finished, exactly like the wet edge above it. The cloud field
+    // is a per-place value owing nothing to the silhouette, so it runs on every
+    // batch — deferring it would only make a wash visibly change tone at
+    // pen-up, buying nothing.
+    gl.uniform1f(u.u_spreadPx, spreadPx)
+    gl.uniform1f(u.u_cloud, profile.cloud)
+    gl.uniform2f(u.u_fieldOffset, fieldSeed[0], fieldSeed[1])
+    // #468 v4 — the brush model (ADR 011 §4). u_water is the fallback the
+    // composite uses outside the mark, where there is no deposit to read a
+    // per-pixel level from.
+    gl.uniform1f(u.u_water, water)
+    gl.uniform1f(u.u_dryContact, profile.dryContact)
+    gl.uniform1f(u.u_edgeSoft, profile.edgeSoft)
+    gl.uniform1f(u.u_edgeWander, profile.edgeWander)
+    gl.uniform2f(u.u_strokeDir, strokeDir[0], strokeDir[1])
+    gl.uniform1f(u.u_tideLo, profile.tideLo)
+    gl.uniform1f(u.u_tideHi, profile.tideHi)
+    gl.uniform1f(u.u_pigmentOpacity, profile.pigmentOpacity)
+    gl.uniform1f(u.u_inkSmoothPx, profile.normalizeDeposit ? inkSmoothPx : 0)
+    // #468 v11 — pigment transport (ADR 011 §11). A zero gain switches the
+    // block off outright rather than scaling its result to nothing, which
+    // matters here in a way it does not for the terms above: this one costs 52
+    // texture reads per fragment, and every marker and brush-pen composite goes
+    // through the same program.
+    gl.uniform1f(u.u_migrate, migratePx > 0 ? profile.migrate : 0)
+    gl.uniform1f(u.u_migratePx, migratePx)
+    gl.uniform1f(u.u_migrateLo, profile.migrateLo)
+    gl.uniform1f(u.u_migrateHi, profile.migrateHi)
+    gl.uniform1f(u.u_inkWater, 0)
     // #452 — see _drawRibbonNibPass's own comment on why this is cleared here.
     gl.uniform1f(u.u_wickPx, 0)
     gl.uniform1f(u.u_wickCap, 0)

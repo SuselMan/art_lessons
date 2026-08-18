@@ -2,6 +2,7 @@ import type { ToolType } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { shapingForBrushPenPreset } from './brushPenPresets'
+import { shapingForWatercolorPreset } from './watercolorPresets'
 import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
 import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
@@ -57,6 +58,23 @@ export interface DabShapingProfile {
    *  — see DabSystem._filterPressure for the conversion and for the one case
    *  (a stationary press) where distance alone cannot carry it. */
   pressureSmoothingPx?: number
+  /** The per-sample form of the same filter, and the one #472 replaced.
+   *  Ignored whenever `pressureSmoothingPx` is set; kept only because
+   *  watercolor (#468) still runs on it and landed in main independently.
+   *
+   *  Two things to know before using it for anything new — prefer the px form:
+   *
+   *   - the weight is spent once per admitted sample, so its cutoff is the
+   *     tablet's report rate (that is the whole reason #472 moved off it);
+   *   - **larger means *less* smoothing**, not more. The filter is
+   *     `y += (u - y) * k`, so k = 1 tracks the input exactly and k → 0 is
+   *     heavy damping. Watercolor's own 0.55 is documented there as smoothing
+   *     "harder than the brush pen's 0.35" and its test asserts `> 0.35` —
+   *     both of which read the direction backwards. Left exactly as it landed
+   *     rather than corrected here: it is a live experiment's calibration, and
+   *     changing what someone else's tool looks like as a side effect of a
+   *     merge is not this branch's business. Flagged on #472 instead. */
+  pressureSmoothing?: number
   /**
    * Per-dab angle (radians). Given the raw tilt magnitude/components and the
    * spline's path-tangent angle at this dab, so a profile can derive angle
@@ -338,6 +356,10 @@ export function shapingForTool(
   // tiltResponse for the same reason liner and marker do: its shape barely
   // tracks tilt, so the setting would provably do nothing.
   if (tool === 'brushPen') return shapingForBrushPenPreset(presetName)
+  // #468 — same slot, same dispatch shape: a wet round brush whose contact
+  // patch opens under pressure, with its own higher width floor and heavier
+  // pressure smoothing (watercolorPresets.ts).
+  if (tool === 'watercolor') return shapingForWatercolorPreset(presetName)
   // #304: charcoal's geometry is the same for all three types (vine/willow/
   // compressed differ in how the material *deposits*, not in the shape of the
   // stick's contact patch) — so it ignores presetName, same as liner does.

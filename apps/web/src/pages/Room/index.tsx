@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -1197,6 +1197,19 @@ export function Room() {
   // engine is configured with, and while the ruler or the gizmo is selected
   // `tool` names something that has no such fields at all.
   const activeCfg = toolSettings[drawingTool]
+  // #468 v4 — the named mix is a *shortcut* for the two sliders, not a fourth
+  // independent setting: choosing one writes water and pigment, and moving
+  // either slider afterwards simply leaves the named value stale rather than
+  // fighting it. Keeping the presets as the only writers of the pair would mean
+  // a user could never depart from them; keeping them independent would mean
+  // two sources of truth for one brush.
+  const watercolorMixName = toolSettings.watercolor.mix as string
+  useEffect(() => {
+    if (!isWatercolorMixPreset(watercolorMixName)) return
+    const next = WATERCOLOR_MIX_BY_PRESET[watercolorMixName]
+    setToolSetting('watercolor', 'water', next.water)
+    setToolSetting('watercolor', 'pigment', next.pigment)
+  }, [watercolorMixName, setToolSetting])
 
   // Read directly inside useViewport's native pointerdown listener — see
   // that hook's doc comment for why a ref (checked synchronously, before
@@ -1833,6 +1846,10 @@ export function Room() {
           strokeId: packet.strokeId, layerId: packet.layerId, tool: packet.tool,
           preset: packet.preset, color: packet.color, packetSeq: packet.packetSeq,
           dabsPacked: packDabs(packet.dabs),
+          // (#468) Watercolor only. Without it a peer groups this gesture by
+          // its stroke id alone and paints a wash the author never made — see
+          // StrokeLiveData.washId.
+          ...(packet.washId ? { washId: packet.washId } : {}),
         })
       },
       onLiveStrokeEnd: strokeId => {
@@ -2069,6 +2086,31 @@ export function Room() {
   // brushPenPresets.ts's brushPenResponseFromPreset on why the setting rides
   // the existing per-stroke string rather than a new Operation field.
   const brushPenResponse = toolSettings.brushPen.pressureResponse as string
+  // #468 v4 — the whole watercolor mix rides the one preset slot as
+  // `response:water:pigment` (watercolorPresetString). Same trick the marker
+  // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink
+  // operation payloads, so a new Operation field is paid for by every operation
+  // in every room forever, while a slot that already exists is free.
+  const watercolorResponse = toolSettings.watercolor.pressureResponse as string
+  const watercolorWater = toolSettings.watercolor.water as number
+  const watercolorPigment = toolSettings.watercolor.pigment as number
+  // #468 v5 — which paint, on top of how much of it. Rides the same string as
+  // a fourth field; a stroke recorded before v5 has no code and falls back.
+  const watercolorPaint = toolSettings.watercolor.pigmentCode as string
+  const watercolorPreset = watercolorPresetString(
+    isPressureResponse(watercolorResponse) ? watercolorResponse : 'normal',
+    { water: watercolorWater, pigment: watercolorPigment },
+    isWatercolorPigmentCode(watercolorPaint) ? watercolorPaint : undefined,
+  )
+  // #468 v5 — picking a paint sets the tool's colour to that paint's own. The
+  // colour swatch stays editable afterwards: the four behavioural numbers still
+  // apply, which is the honest reading of "cobalt, but I want it warmer" — you
+  // are still painting with cobalt.
+  useEffect(() => {
+    if (!isWatercolorPigmentCode(watercolorPaint)) return
+    setToolSetting('watercolor', 'color', watercolorPigmentByCode(watercolorPaint).color)
+  }, [watercolorPaint, setToolSetting])
+
   // Same preset string engine.setPencil below records (`${nib}:${size}` for
   // marker, the size label for liner, the charcoal type for charcoal, the
   // grade name otherwise) — only marker's own dispatch (bullet/chisel)
@@ -2079,6 +2121,7 @@ export function Room() {
     : drawingTool === 'liner' ? linerSize
     : drawingTool === 'charcoal' ? charcoalType
     : drawingTool === 'brushPen' ? brushPenResponse
+    : drawingTool === 'watercolor' ? watercolorPreset
     : pencilGrade
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
@@ -2182,9 +2225,10 @@ export function Room() {
         : drawingTool === 'marker' ? markerPreset
         : drawingTool === 'charcoal' ? charcoalType
         : drawingTool === 'brushPen' ? brushPenResponse
+        : drawingTool === 'watercolor' ? watercolorPreset
         : pencilGrade,
     )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalType, brushPenResponse])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalType, brushPenResponse, watercolorPreset])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with
@@ -2210,7 +2254,10 @@ export function Room() {
     : (activeCfg.size as number)
   useEffect(() => {
     engineRef.current?.setSize(sizePx)
-    engineRef.current?.setOpacity(activeCfg.opacity as number)
+    // (#468 v4) Watercolor has no opacity field: its Pigment slider *is* that
+    // axis, and a second control for it would be two knobs over one quantity.
+    // Falls back to 1 rather than passing undefined through to the engine.
+    engineRef.current?.setOpacity((activeCfg.opacity as number | undefined) ?? 1)
   }, [sizePx, activeCfg])
   // Which tool's own color field the "Color" SidePanel tab, the palette
   // swatches, FloatingToolPanel's color dot and the eyedropper all read and
@@ -4520,6 +4567,7 @@ export function Room() {
         strokeId: data.strokeId, layerId: data.layerId, tool: data.tool,
         preset: data.preset, color: data.color, packetSeq: data.packetSeq,
         dabs: unpackDabs(data.dabsPacked),
+        washId: data.washId,
       })
       const seen = streamedStrokeIdsRef.current
       seen.add(data.strokeId)
@@ -4861,6 +4909,7 @@ export function Room() {
       if (is('toggleLiner')) { toggleTool('liner'); return }
       if (is('toggleMarker')) { toggleTool('marker'); return }
       if (is('toggleBrushPen')) { toggleTool('brushPen'); return }
+      if (is('toggleWatercolor')) { toggleTool('watercolor'); return }
       // (#405) The four that used to be modes, selected through the same
       // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
       if (is('toggleEyedropper')) { toggleTool('eyedropper'); return }
@@ -5329,6 +5378,16 @@ export function Room() {
             aria-label={t('tool.brushPen')}
             onClick={() => selectTool('brushPen')}
           ><Icon name="brush" /></button>
+          {/* Watercolor (#468, ADR 011) — an experiment, and the only tool in
+              this bar that is not in docs/TOOLSET.md. Last of the drawing
+              tools deliberately: it is the one wet medium here, and grouping
+              it after the dry ones is the order a real desk is laid out in. */}
+          <button
+            className={clsx(styles.toolIconBtn, tool === 'watercolor' && styles.toolIconBtnActive)}
+            title={t('tool.watercolorTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleWatercolor) })}
+            aria-label={t('tool.watercolor')}
+            onClick={() => selectTool('watercolor')}
+          ><Icon name="water_drop" /></button>
 
           <div className={styles.toolDivider} />
 

@@ -80,8 +80,14 @@ export const BRUSH_PEN_MIN_PRESSURE = 0.05
 /** Symmetric S-curve, standard `gain` shape: k = 1 is the identity, k > 1
  *  concentrates the response in the middle of the range and flattens both
  *  ends. Exactly invertible and monotone for any k > 0, so a recorded dab's
- *  width never fails to correspond to some pressure. */
-function gain(x: number, k: number): number {
+ *  width never fails to correspond to some pressure.
+ *
+ *  Exported for watercolorPresets.ts (#468), which needs the identical curve
+ *  under a different width floor — a wet round brush and a brush-pen nib both
+ *  open up under pressure with flat ends, they just start from different
+ *  minimum contact patches. A function *declaration*, so this cross-import is
+ *  the same hoisted-at-link-time shape this file's header already permits. */
+export function gain(x: number, k: number): number {
   const t = clamp01(x)
   return t < 0.5
     ? 0.5 * Math.pow(2 * t, k)
