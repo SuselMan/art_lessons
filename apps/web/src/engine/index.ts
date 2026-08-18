@@ -2755,7 +2755,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._compositeFBO = new AccumulationBuffer(gl, width, height)
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
-    this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
+    const asm = this._assemblyExtent()
+    this._assemblyFBO = new AccumulationBuffer(gl, asm.w, asm.h)
     this._splitCacheDirty = true
     // The paper texture itself is NOT recreated here (unlike
     // _belowCache/_assemblyFBO/etc. above, which are genuinely canvas-size-
@@ -2777,6 +2778,22 @@ export class PencilEngine implements PencilEngineAPI {
     const halfDiag = Math.sqrt((canvas.width / 2) ** 2 + (canvas.height / 2) ** 2)
     const extent = Math.ceil(halfDiag * 2)
     return { w: extent, h: extent }
+  }
+
+  /** (#469) Size for _assemblyFBO alone, which — unlike the two split caches
+   *  next to it — a bounded room never reads. Every access to it is behind a
+   *  `_infinite` branch (see _runComposite's buildFbo and the two infinite-only
+   *  display passes), so for a bounded room this allocated a full canvas-sized
+   *  texture that nothing ever sampled: 33 MiB on an A2 page and 64 MiB on a
+   *  4096x4096 one, thrown away on a device that had none to spare.
+   *
+   *  Kept as a real 1x1 buffer rather than made nullable so the twenty-odd
+   *  reads of it stay exactly as they are. The alternative — a `| null` field —
+   *  would put a non-null assertion on every one of those, which is more places
+   *  to be wrong for no gain, since the guards deciding they are unreachable
+   *  are the same ones this reads. */
+  private _assemblyExtent(): { w: number; h: number } {
+    return this._infinite ? this._renderBufferExtent() : { w: 1, h: 1 }
   }
 
   /** How much bigger _assemblyFBO is than the real canvas,
@@ -4347,7 +4364,8 @@ export class PencilEngine implements PencilEngineAPI {
     const { w: ew, h: eh } = this._renderBufferExtent()
     this._belowCache = new AccumulationBuffer(gl, ew, eh)
     this._aboveCache = new AccumulationBuffer(gl, ew, eh)
-    this._assemblyFBO = new AccumulationBuffer(gl, ew, eh)
+    const asm = this._assemblyExtent()
+    this._assemblyFBO = new AccumulationBuffer(gl, asm.w, asm.h)
     this._splitCacheDirty = true
   }
 
