@@ -165,11 +165,24 @@ describe('infinite canvas: camera-relative on-screen composite (#133)', () => {
     }
   })
 
-  it('a bounded (fixed-canvas) engine never touches setInfiniteCamera/resizeCanvas — resizeCanvas is a guarded no-op there', () => {
-    const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
-    engine.resizeCanvas(999, 999)
-    expect(canvas.width).toBe(16)
-    expect(canvas.height).toBe(16)
+  // (#470) This used to assert the opposite — that resizeCanvas was a guarded
+  // no-op for a bounded room — because its canvas *was* its sheet and resizing
+  // it would have resized the drawing. The canvas is the viewport now, so a
+  // bounded room resizes exactly like an infinite one, and the sheet does not
+  // move: that separation is the whole point of the change and is what this
+  // asserts instead.
+  it('a bounded engine resizes its canvas with the viewport, leaving the sheet alone', () => {
+    const { engine, canvas } = createTestEngine(
+      { userId: 'user-a', pageWidth: 40, pageHeight: 24 }, { width: 16, height: 16 },
+    )
+
+    engine.resizeCanvas(64, 48)
+
+    expect(canvas.width).toBe(64)
+    expect(canvas.height).toBe(48)
+    // The sheet is world geometry and owes the viewport nothing.
+    const internals = engine as unknown as { _pageSize: () => { w: number; h: number } }
+    expect(internals._pageSize()).toEqual({ w: 40, h: 24 })
   })
 
   // #134-follow-up: found testing on a real device — an infinite room's

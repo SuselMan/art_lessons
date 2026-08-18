@@ -63,7 +63,54 @@ interface FakeCanvas {
  *  PointerInput — real pointer events are never dispatched in these tests
  *  (structural/pixel ops are appended directly), so the handlers here just
  *  need to exist, not do anything. */
+/** (#470) A `document` with just enough on it for the export path.
+ *
+ *  Export used to reach `document.createElement('canvas')` only for an
+ *  infinite room, and no node test ever took that branch — a bounded room
+ *  exported straight off its own (mock) canvas, because its canvas was the
+ *  sheet at 1:1. Viewport rendering ends that: every room now composes the
+ *  rect it is exporting offscreen and turns the pixels into a PNG through a
+ *  2D canvas, so the harness needs one to exist.
+ *
+ *  Installed once, lazily, and only when the environment genuinely has no
+ *  document — a jsdom-flavoured run, or a real browser, keeps its own. The
+ *  stub's toBlob resolves null exactly like the mock canvas's does: these
+ *  tests assert that export completes, never what the PNG contains, which is
+ *  not something a mock GL context could answer anyway. */
+function ensureExportDocument(): void {
+  if (typeof globalThis.document !== 'undefined') return
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement: () => ({
+        width: 0, height: 0,
+        getContext: () => ({ putImageData: () => {} }),
+        toBlob: (cb: (blob: Blob | null) => void) => cb(null),
+      }),
+    },
+  })
+  if (typeof globalThis.ImageData === 'undefined') {
+    // Only ever constructed, never read back, so the shape is all it needs.
+    Object.defineProperty(globalThis, 'ImageData', {
+      configurable: true,
+      // Plain assignment rather than parameter properties: the project builds
+      // with erasableSyntaxOnly, which forbids the shorthand.
+      value: class {
+        data: Uint8ClampedArray
+        width: number
+        height: number
+        constructor(data: Uint8ClampedArray, width: number, height: number) {
+          this.data = data
+          this.width = width
+          this.height = height
+        }
+      },
+    })
+  }
+}
+
 function createMockCanvas(width: number, height: number): FakeCanvas {
+  ensureExportDocument()
   const gl = new MockGL()
   return {
     width, height, clientWidth: width, clientHeight: height,
@@ -111,7 +158,7 @@ interface EngineInternals {
   // #301 white-box access — see readCompositePixels below.
   _composeToFBO: (needCompositeFBO?: boolean) => void
   // #145 white-box access — see buildExportComposite below.
-  _buildContentComposite: () => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
+  _buildContentComposite: (rect?: { x: number; y: number; width: number; height: number } | null) => { bounds: { x: number; y: number; width: number; height: number }; buffer: AccumulationBuffer } | null
   // #134-follow-up white-box access — see assemblyPad/compositeCenterFor below.
   _assemblyPad: () => { padX: number; padY: number }
   _compositeCenterX: number

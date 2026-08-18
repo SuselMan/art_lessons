@@ -16,7 +16,7 @@
 // can simulate" and "the DOM-only encoding step" — see pickColor's own
 // investigation comment in engine/index.ts for why *that* method needed no
 // change at all, unlike exportPNG.
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { buildExportComposite, createTestEngine, fillStroke, makeLayerAdd } from './testing/engineTestUtils'
 import { TILE_SIZE } from './src/tileMath'
@@ -117,17 +117,29 @@ describe('exportPNG infinite-room content composite (#145)', () => {
     expect(composite.height).toBeLessThan(TILE_SIZE)
   })
 
-  it('a bounded (fixed-canvas) engine never builds an export composite — exportPNG keeps its old canvas-viewport behavior untouched', async () => {
-    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 16, height: 16 })
+  // (#470) The old assertion here was that a bounded room *never* built an
+  // export composite — it exported by grabbing its own canvas, which was exact
+  // only because that canvas was the sheet at 1:1. The canvas is the viewport
+  // now, so exporting it would hand back whatever happened to be on screen, at
+  // whatever zoom, with desk around it. The contract that replaces it: a
+  // bounded export composes the *sheet's* rect, whatever the view is doing.
+  it('a bounded engine exports the sheet rect, not whatever the viewport shows', async () => {
+    const { engine } = createTestEngine(
+      { pageWidth: 40, pageHeight: 24 },
+      // Viewport deliberately smaller than the sheet and a different shape:
+      // an export that followed the canvas would come back 16x16.
+      { width: 16, height: 16 },
+    )
     engine.initLayer('L')
     engine.setActiveLayer('L')
     engine.appendOperation(fillStroke('user-a', 'L', 8, 8, 6))
 
-    // The fake canvas's toBlob always resolves with null (see
-    // engineTestUtils' createMockCanvas) — this just proves the bounded
-    // path is exactly as before: still resolves via canvas.toBlob(), never
-    // touches the new infinite-only machinery.
-    await expect(engine.exportPNG()).resolves.toBeNull()
-    await expect(engine.exportPNG(true)).resolves.toBeNull()
+    const spy = vi.spyOn(
+      engine as unknown as { _buildContentComposite: (r?: unknown) => unknown },
+      '_buildContentComposite',
+    )
+    await engine.exportPNG()
+
+    expect(spy).toHaveBeenCalledWith({ x: 0, y: 0, width: 40, height: 24 })
   })
 })

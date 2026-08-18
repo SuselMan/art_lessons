@@ -148,6 +148,17 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
+  /* (#465) Cards take their own height instead of the row's.
+     A grid stretches its items by default, so one card wrapping its
+     description to a second line ("Barely any tooth", "Почти без зерна" —
+     they differ in length and the column is narrow) made every *other* card
+     as tall as that one. Their contents do not grow with them: the preview
+     is pinned by aspect-ratio and the caption is one line, so the extra
+     height came out as empty space under the picture. Reported on Safari and
+     not on Chrome for the reason such things usually differ — font metrics
+     put the wrap in a different place, so only one of the two browsers has a
+     tall card to stretch the rest to. */
+  align-items: start;
 }
 
 .paperCard {
@@ -155,19 +166,19 @@
      UA button styling reset (padding/font/alignment) on top of the card look. */
   display: block;
   width: 100%;
-  /* (#465) Not cosmetic — without it Safari blows this row out of the card.
-     `1fr` is `minmax(auto, 1fr)`, and that `auto` minimum is the item's
-     min-content width, which here is decided by the <canvas> in
+  /* (#465) Lets a column narrower than the card's own content actually
+     narrow: `1fr` is `minmax(auto, 1fr)`, and that `auto` minimum is the
+     item's min-content width, which here is decided by the <canvas> in
      .paperPreviewWrap. A canvas with no width/height *attributes* has a
      default intrinsic size of 300x150 (PaperPreview only sets them later, in
      an effect, from the box it has already been given), and WebKit lets that
      intrinsic width set the minimum even though the canvas is width:100%.
      Four tracks that each refuse to go below 300px do not fit a 508px card,
      so the cards render at roughly 2.5x their intended width and spill out.
-     min-width: 0 is the documented way to opt out of that automatic minimum,
-     not a workaround — the track then sizes from the container, which is what
-     `1fr` was asking for. The size row above has no replaced element in it,
-     which is why the same grid pattern there was never affected. */
+     min-width: 0 is the documented way to opt out of that automatic minimum.
+     Kept on its own merits, not as the fix for the stretching above: it was
+     added for that and did not cure it, which is what sent the search to
+     align-items. */
   min-width: 0;
   padding: 0;
   text-align: left;

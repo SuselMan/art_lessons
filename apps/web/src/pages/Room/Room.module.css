@@ -416,7 +416,28 @@
      exists. The line between the two bars is gone — they are one surface. */
   border-right: 1px solid var(--color-border);
   overflow: hidden;
-  transition: opacity var(--duration-normal) ease;
+  transition:
+    opacity var(--duration-normal) ease,
+    top var(--duration-normal) ease,
+    left var(--duration-normal) ease;
+}
+
+/* (#471) The one piece of chrome minimal UI does *not* hide. Everything else
+   in the editor's frame is either navigation or something you set up before
+   drawing; this column is the active tool itself — size, grade, opacity,
+   colour, and what can be done with a selection (#446). Hiding it meant
+   leaving minimal UI and coming back for every size change, which is the one
+   adjustment made mid-drawing more often than any other.
+   It moves rather than just staying put: with .header and .toolbar gone there
+   is nothing to its left or above it, and a column floating 62px in from the
+   edge with a strip of canvas behind it reads as a stray panel, not as the
+   edge of the chrome. Position, not transform — `bottom: 0` anchors the far
+   end, so translating would drag the bottom edge off-screen along with the
+   top; and a compositor layer is exactly what this page must not create more
+   of on a tablet (see .canvasWrap, #423). */
+.quickSettingsBarMinimal {
+  top: 0;
+  left: 0;
 }
 
 .toolSection {
@@ -641,16 +662,24 @@
    it was buying no smoothness here to weigh against that. The WebGL canvas
    inside still gets its own layer the way an accelerated canvas always does;
    what's gone is the promotion of the wrapper around it. */
+/* (#470) Fills the viewport rather than shrink-wrapping the canvas. It used
+   to be sized by the canvas element itself, because for a bounded room that
+   element *was* the sheet and this wrapper carried the CSS pan/zoom transform
+   applied to it. The camera does that inside the engine now, so this is just
+   the box the viewport-sized canvas lives in. */
 .canvasWrap {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   transform-origin: 0 0;
 }
 
+/* (#470) No paper shadow here any more. It was the sheet's own drop shadow,
+   which worked while the canvas was the sheet; the canvas is the whole
+   viewport now, so a shadow on it would frame the window rather than the
+   page. The sheet's edge is drawn where the sheet is — see PAPER_COMPOSE_FRAG's
+   u_pageRect. */
 .canvas {
   display: block;
-  box-shadow: var(--shadow-paper);
 }
 
 /* ── Peer cursors (#37) ──

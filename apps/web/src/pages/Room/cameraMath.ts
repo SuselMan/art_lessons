@@ -80,6 +80,56 @@ export function deviceNativeZoom(): number {
   return 1 / Math.min(window.devicePixelRatio || 1, MAX_BACKING_STORE_DPR)
 }
 
+/** Canvas backing-store megapixels a bounded room may use.
+ *
+ *  The number comes from what the render path holds per canvas pixel: the
+ *  canvas and _compositeFBO at 4 bytes each, plus the three padded squares
+ *  (_assemblyFBO and the two split-cache halves) whose side is the canvas's
+ *  diagonal — about six canvas-areas between them. Eight buffers' worth, 32
+ *  bytes a pixel, so 4 MP is roughly 128 MiB: comfortably under the ~256 MiB
+ *  that was killing iPad tabs, and chosen so a tablet viewport (roughly
+ *  1080x810 CSS)
+ *  gets its full 2x DPR, which is the whole point of this. A large desktop
+ *  window on a retina display lands under 2x instead, which costs nothing
+ *  anyone can see at that physical density. */
+const MAX_BACKING_STORE_MEGAPIXELS = 4
+
+/** The backing-store scale a bounded room renders at, as a `deviceNativeZoom`
+ *  style divisor (CSS px per physical px).
+ *
+ *  MAX_BACKING_STORE_DPR exists for infinite rooms, where #154 found that
+ *  sizing the store to an uncapped DPR made drawing unusably laggy on a
+ *  2.75x tablet. That trade never applied to a bounded room, because its
+ *  canvas *was* its sheet: the page rendered at its own full resolution and
+ *  the browser's compositor took it down to the display at real device
+ *  pixels. Viewport rendering (#470) put bounded rooms on the same canvas as
+ *  infinite ones and so, silently, under the same cap — which on a 2x iPad
+ *  meant rendering the whole editor at half the screen's resolution. That is
+ *  what "мутно" was, and no amount of filter tuning was ever going to fix it.
+ *
+ *  The performance argument does not carry over either: a tablet viewport at
+ *  2x is ~3.5 MP a frame, where the same room used to redraw its whole
+ *  4096x4096 sheet — 16.8 MP — every frame. Full density here is several
+ *  times cheaper than what it replaced.
+ *
+ *  What does need a limit is a very large window, which is why this is a
+ *  pixel budget rather than a DPR number: the cost that matters is total
+ *  backing-store pixels, not the ratio that produced them. */
+export function boundedBackingStoreZoom(viewW: number, viewH: number): number {
+  const dpr = window.devicePixelRatio || 1
+  const cssPixels = Math.max(1, viewW * viewH)
+  const affordable = Math.sqrt((MAX_BACKING_STORE_MEGAPIXELS * 1e6) / cssPixels)
+  // Never below 1: a store smaller than the CSS box would be worse than the
+  // cap this replaces, and no device benefits from it.
+  return 1 / Math.max(1, Math.min(dpr, affordable))
+}
+
+/** The backing-store scale for either kind of room — see the two functions
+ *  above for why they differ. */
+export function backingStoreZoom(infinite: boolean, viewW: number, viewH: number): number {
+  return infinite ? deviceNativeZoom() : boundedBackingStoreZoom(viewW, viewH)
+}
+
 /** Upper zoom limit, shared by every gesture and control that can change
  *  zoom (wheel, pinch, the header's drag-to-adjust readout). Same for both
  *  room modes — magnifying costs nothing extra, it's zooming *out* that
@@ -315,4 +365,40 @@ export function pinchViewport(
     },
     currMid.x, currMid.y, dAngle,
   )
+}
+
+/** (#470) How much of the sheet must stay on screen, in CSS px. Small enough
+ *  that you can still work right up against an edge with the rest of the page
+ *  off-view, big enough that there is always something to grab and drag back. */
+export const PAGE_KEEP_ON_SCREEN_PX = 96
+
+/** Holds the sheet within reach of the viewport.
+ *
+ *  New with viewport rendering, and needed because of it: while the canvas
+ *  element *was* the sheet, panning moved a DOM element that the browser kept
+ *  laying out, and the sheet could be pushed away but never truly lost. The
+ *  camera has no such backstop — nothing stops `cx` growing until the page is
+ *  a hundred screens away with no way back but Fit.
+ *
+ *  `vp.cx/cy` is the screen position of the sheet's *centre* (see
+ *  useViewport's transformFor), so the sheet spans cx ± halfW. The half
+ *  extents are the rotated bounding box's, the same shape fitZoom measures, so
+ *  a turned page is held by what it actually covers rather than by its
+ *  unrotated width. */
+export function clampToPage(
+  vp: Viewport, viewW: number, viewH: number, page: CanvasSize,
+): Viewport {
+  const cos = Math.abs(Math.cos(vp.angle))
+  const sin = Math.abs(Math.sin(vp.angle))
+  const halfW = (page.width * cos + page.height * sin) / 2 * vp.zoom
+  const halfH = (page.width * sin + page.height * cos) / 2 * vp.zoom
+  // Never ask for more than the page has: a sheet smaller than the margin
+  // would otherwise be clamped to a range with its ends crossed over.
+  const keepX = Math.min(PAGE_KEEP_ON_SCREEN_PX, halfW)
+  const keepY = Math.min(PAGE_KEEP_ON_SCREEN_PX, halfH)
+  return {
+    ...vp,
+    cx: clamp(vp.cx, keepX - halfW, viewW - keepX + halfW),
+    cy: clamp(vp.cy, keepY - halfH, viewH - keepY + halfH),
+  }
 }

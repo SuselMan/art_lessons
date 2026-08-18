@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround, pinchViewport, minZoom, deviceNativeZoom, holdAngle, fitZoom, ZOOM_MAX } from './cameraMath'
+import { clampToPage, PAGE_KEEP_ON_SCREEN_PX, worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround, pinchViewport, minZoom, deviceNativeZoom, holdAngle, fitZoom, ZOOM_MAX } from './cameraMath'
 import type { Viewport } from './useViewport'
 
 describe('worldToScreen / screenToWorld', () => {
@@ -309,5 +309,61 @@ describe('fitZoom', () => {
     expect(fitZoom(1200, 900, canvas, Math.PI / 2))
       .toBeCloseTo(fitZoom(1200, 900, { width: 1000, height: 2000 }, 0))
     expect(fitZoom(1200, 900, canvas, Math.PI)).toBeCloseTo(fitZoom(1200, 900, canvas, 0))
+  })
+})
+
+// (#470) The sheet became losable when the canvas stopped being it: panning
+// used to move a laid-out DOM element and now it moves a camera, which will
+// travel forever if nothing holds it.
+describe('clampToPage', () => {
+  const page = { width: 1000, height: 800 }
+  const VIEW_W = 600, VIEW_H = 400
+
+  it('leaves a viewport that already shows the sheet untouched', () => {
+    const vp: Viewport = { cx: 300, cy: 200, zoom: 0.4, angle: 0 }
+    expect(clampToPage(vp, VIEW_W, VIEW_H, page)).toEqual(vp)
+  })
+
+  it('stops the sheet being dragged off to the left', () => {
+    // Pushed far past the left edge; the sheet's right edge must come back to
+    // the margin, not to zero — a page flush against the edge with nothing
+    // showing is exactly as lost as one a mile away.
+    const vp: Viewport = { cx: -100000, cy: 200, zoom: 0.4, angle: 0 }
+    const out = clampToPage(vp, VIEW_W, VIEW_H, page)
+    const halfW = page.width / 2 * vp.zoom
+    expect(out.cx + halfW).toBeCloseTo(PAGE_KEEP_ON_SCREEN_PX)
+  })
+
+  it('stops it being dragged off the bottom', () => {
+    const vp: Viewport = { cx: 300, cy: 100000, zoom: 0.4, angle: 0 }
+    const out = clampToPage(vp, VIEW_W, VIEW_H, page)
+    const halfH = page.height / 2 * vp.zoom
+    expect(out.cy - halfH).toBeCloseTo(VIEW_H - PAGE_KEEP_ON_SCREEN_PX)
+  })
+
+  it('holds a turned sheet by what it actually covers', () => {
+    // At 90 degrees the page is 800 wide on screen, not 1000. Clamping by the
+    // unrotated width would let a quarter of it slide away.
+    const vp: Viewport = { cx: -100000, cy: 200, zoom: 1, angle: Math.PI / 2 }
+    const out = clampToPage(vp, VIEW_W, VIEW_H, page)
+    expect(out.cx + page.height / 2).toBeCloseTo(PAGE_KEEP_ON_SCREEN_PX)
+  })
+
+  it('never asks for more margin than a tiny sheet has to give', () => {
+    // A sheet smaller than the margin would otherwise be clamped to a range
+    // whose ends have crossed over, which lodash's clamp resolves by pinning
+    // to the lower bound — the page would jump rather than stop.
+    const tiny = { width: 20, height: 20 }
+    const vp: Viewport = { cx: -100000, cy: -100000, zoom: 1, angle: 0 }
+    const out = clampToPage(vp, VIEW_W, VIEW_H, tiny)
+    expect(out.cx).toBeCloseTo(0)
+    expect(out.cy).toBeCloseTo(0)
+  })
+
+  it('does not fight zooming in past the viewport', () => {
+    // Zoomed right in, the sheet is far bigger than the screen and every part
+    // of it must stay reachable — the clamp's range grows with it.
+    const vp: Viewport = { cx: -4000, cy: -3000, zoom: 10, angle: 0 }
+    expect(clampToPage(vp, VIEW_W, VIEW_H, page)).toEqual(vp)
   })
 })

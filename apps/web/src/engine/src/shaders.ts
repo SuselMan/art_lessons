@@ -2373,40 +2373,6 @@ const paperToneGLSL = (heightExpr: string) => `
 // content between devices — unlike the paper *catch* map, which does feed
 // real dab math.
 
-export const DISPLAY_FRAG = `
-  precision highp float;
-
-  uniform sampler2D u_accumulation;
-  uniform sampler2D u_paperMap;
-  uniform vec3 u_paperColor;
-  uniform vec2 u_paperScale;
-
-  varying vec2 v_uv;
-
-  void main() {
-    // composite FBO stores premultiplied graphite color in .rgb, coverage in .a
-    vec4 acc = texture2D(u_accumulation, v_uv);
-    float graphite = acc.a;
-    vec3 strokeColor = graphite > 0.001 ? acc.rgb / graphite : vec3(0.0);
-
-    vec2 paperUV = v_uv * u_paperScale;
-    float paperHeight = texture2D(u_paperMap, paperUV).r;
-
-    ${paperToneGLSL('paperHeight')}
-
-    // Graphite shows paper texture through it — in valleys paper peeks through even in dark areas.
-    // Blending toward paperTone (rather than scaling strokeColor toward black) is what actually
-    // models "paper peeking through" for any stroke color — a multiplicative darken only looked
-    // right for the old fixed dark-graphite tone; on a light/white color it read as gray blotches.
-    float graphiteTexture = mix(1.0, paperHeight * 0.5 + 0.2, graphite * 0.25);
-    vec3 graphiteTone = mix(paperTone, strokeColor, graphiteTexture);
-
-    // Final composite
-    vec3 color = mix(paperTone, graphiteTone, graphite);
-
-    gl_FragColor = vec4(color, 1.0);
-  }
-`;
 
 // #141: infinite-canvas counterpart to DISPLAY_FRAG's "paper peeking
 // through" blend, kept in sync with it by hand (see DISPLAY_FRAG's own
@@ -2452,6 +2418,14 @@ export const PAPER_COMPOSE_FRAG = `
   uniform mat3 u_matrixInv;      // destination px -> accumulation px, both app-space top-down
   uniform mat3 u_screenToWorld;  // destination px -> world units
   uniform float u_sharpResample; // 1.0 = Catmull-Rom, 0.0 = plain bilinear — see below
+  // (#470) The page, in world units: minX, minY, maxX, maxY. A bounded room is
+  // now drawn through the camera like an infinite one, so for the first time
+  // there are screen pixels *outside* the sheet — the canvas element used to
+  // be the sheet and there was no such place. Everything outside this rect is
+  // the desk the sheet lies on. maxX <= minX means "no page at all" (an
+  // infinite room), and then paper covers the screen exactly as before.
+  uniform vec4 u_pageRect;
+  uniform vec3 u_deskColor;
 
   varying vec2 v_uv;
 
@@ -2546,6 +2520,20 @@ export const PAPER_COMPOSE_FRAG = `
     vec3 graphiteTone = mix(paperTone, strokeColor, graphiteTexture);
     vec3 color = mix(paperTone, graphiteTone, graphite);
 
-    gl_FragColor = vec4(color, 1.0);
+    // Antialiased page edge. A hard test leaves the sheet's border crawling
+    // with jaggies at any camera angle, and the border is a straight line the
+    // eye follows — the one place stair-stepping is impossible to miss.
+    // fwidth() would be the usual tool and is not available in WebGL1 without
+    // an extension, so the ramp is one world unit wide: at zoom 1 that is a
+    // pixel, and at any other zoom it stays a fixed, small fraction of the
+    // sheet rather than growing into a visible smear.
+    float onPage = 1.0;
+    if (u_pageRect.z > u_pageRect.x) {
+      vec2 lo = smoothstep(u_pageRect.xy - 1.0, u_pageRect.xy, worldPos);
+      vec2 hi = 1.0 - smoothstep(u_pageRect.zw, u_pageRect.zw + 1.0, worldPos);
+      onPage = lo.x * lo.y * hi.x * hi.y;
+    }
+
+    gl_FragColor = vec4(mix(u_deskColor, color, onPage), 1.0);
   }
 `;
