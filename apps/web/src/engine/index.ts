@@ -3652,9 +3652,24 @@ export class PencilEngine implements PencilEngineAPI {
   private _makeLayerBuffer(layerId?: string): ILayerBuffer {
     const { w, h } = this._tileSize()
     // (#365) The coarse level is for infinite rooms only, and only for real
-    // layers: a bounded room never minifies its buffers (the browser scales
-    // its canvas element instead), and a scratch instance is read once and
-    // discarded, so neither has anything to gain from one.
+    // layers: a scratch instance is read once and discarded, so it has nothing
+    // to gain from one.
+    //
+    // (#470) The stated reason for the bounded exclusion — "a bounded room
+    // never minifies its buffers, the browser scales its canvas element
+    // instead" — died with viewport rendering: at 27% zoom the engine is now
+    // the one shrinking the sheet, 3.7x, and a mipmapped tap off a 1024 tile
+    // is visibly softer than the full-resolution downscale the compositor used
+    // to do. So a pyramid is exactly what this wants.
+    //
+    // It is still off here because turning it on renders *nothing*: the level
+    // comes back empty and the draw path treats an empty array as "coarse
+    // says there is nothing here" rather than "no coarse level, use the fine
+    // tiles". Measured on a restored bounded layer — 11 fine tiles resident,
+    // 11 pending for factor 2, and `coarse.get(2)` still undefined after
+    // resolveCoarse has run, i.e. flushLevel returned at its guard without
+    // folding. Soft is a regression; blank is a bug, so this stays off until
+    // that is understood. See #470.
     const downsample = this._infinite && layerId !== undefined
       ? (src: AccumulationBuffer, dst: AccumulationBuffer, x: number, y: number, w2: number, h2: number) =>
         this._downsampleTileInto(src, dst, x, y, w2, h2)
