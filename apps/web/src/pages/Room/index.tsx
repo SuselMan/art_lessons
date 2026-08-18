@@ -64,7 +64,7 @@ import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { resolveDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
-import { ZOOM_MAX, ZOOM_KEY_STEP, clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
+import { ZOOM_MAX, ZOOM_KEY_STEP, backingStoreZoom, clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
 import { describeJoinError, joinGateStateFor } from './joinError'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { isLocalIslandSafe } from './optimism'
@@ -2438,7 +2438,10 @@ export function Room() {
       // vp.zoom is CSS px per world unit; the engine renders into a
       // DPR-sized backing store (see the ResizeObserver below), so it wants
       // physical px per world unit — see deviceNativeZoom's doc comment.
-      engineRef.current?.setInfiniteCamera(wx, wy, vp.zoom / deviceNativeZoom(), vp.angle)
+      // (#470) Must be the same scale the ResizeObserver sized the store to,
+      // or the camera and the canvas disagree about how big a world unit is.
+      const nz = backingStoreZoom(config?.infinite ?? false, el.clientWidth, el.clientHeight)
+      engineRef.current?.setInfiniteCamera(wx, wy, vp.zoom / nz, vp.angle)
     }
   }, [vp, vpRef])
 
@@ -2466,7 +2469,7 @@ export function Room() {
       // so at the device-native zoom the UI calls 100% one tile texel lands
       // on exactly one physical pixel — see deviceNativeZoom's doc comment.
       // The element's own CSS size is set separately (width/height: 100%).
-      const nz = deviceNativeZoom()
+      const nz = backingStoreZoom(config?.infinite ?? false, width, height)
       if (width > 0 && height > 0) {
         engine.resizeCanvas(Math.round(width / nz), Math.round(height / nz))
       }
