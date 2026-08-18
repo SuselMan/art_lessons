@@ -1286,6 +1286,27 @@ class RibbonStrokeScratch {
     return this._composite
   }
 
+  /** (#468 v6) The gesture's dab spacing, cached the first time two consecutive
+   *  dabs are actually available.
+   *
+   *  Measured rather than derived, because what it has to match is
+   *  DabSystem's `baseSize * spacingFactor` — and `baseSize` is the tool's
+   *  *nominal* size, which no operation records: dabs carry their post-pressure,
+   *  post-taper sizes instead. The distance between the stroke's own first two
+   *  dabs is that spacing, and it is the same pair of dabs whether they arrive
+   *  in one replayed batch or across two live ones (the second case reaches
+   *  them through prevDab), so both paths measure the identical number.
+   *
+   *  Zero until a pair exists — a first batch of exactly one dab covers a few
+   *  px at the stroke's start, and the next batch's padded rect recomposites it
+   *  anyway. */
+  private _dabSpacing = 0
+
+  noteDabSpacing(gap: number): number {
+    if (this._dabSpacing === 0 && gap > 0.01) this._dabSpacing = gap
+    return this._dabSpacing
+  }
+
   get waterUsed(): number {
     return this._waterUsed
   }
@@ -1349,6 +1370,7 @@ class RibbonStrokeScratch {
   destroy(): void {
     this._waterUsed = 0
     this._composite = null
+    this._dabSpacing = 0
     for (const { original, coverage, inkLoad } of this._tiles.values()) {
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
@@ -6161,17 +6183,22 @@ export class PencilEngine implements PencilEngineAPI {
     // water carries. Mean rather than max: one heavy dab at the end of an
     // otherwise light stroke should not widen the whole mark's boundary
     // treatment.
-    const { spreadPx, inkSmoothPx, water: fringeWater } = scratch.compositeScalars(() => {
+    // (#468 v6) The deposit's ripple has exactly the dab spacing for a period,
+    // so that is what it must be read back over. The first attempt guessed it
+    // from the first dab's radius and landed at a quarter of the true value —
+    // the ring came out 3.8px wide against a 15.4px period and cancelled
+    // essentially nothing, which is why the circles survived the first fix.
+    const firstGap = drawable.length >= 2
+      ? Math.hypot(drawable[1].x - drawable[0].x, drawable[1].y - drawable[0].y)
+      : (prevDab ? Math.hypot(drawable[0].x - prevDab.x, drawable[0].y - prevDab.y) : 0)
+    const dabSpacing = scratch.noteDabSpacing(firstGap)
+    const { spreadPx, water: fringeWater } = scratch.compositeScalars(() => {
       const firstRadius = Math.max(drawable[0].size * 0.5 * preset.sizeMultiplier, 0.5)
       return {
         spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
           ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius))
           : 0,
-        // A fraction of the brush radius rather than the measured spacing:
-        // DabSystem spaces dabs proportionally to radius, so this tracks the
-        // ripple's real period while staying identical between a live stroke
-        // and a replay of it — a measured per-batch mean would not.
-        inkSmoothPx: profile.normalizeDeposit ? firstRadius * 0.35 : 0,
+        inkSmoothPx: 0, // resolved separately, see noteDabSpacing
         // The fallback the composite uses outside the mark, where there is no
         // deposit to read a per-pixel level from. The stroke's starting load,
         // not its current one, for the same no-seams reason.
@@ -6305,7 +6332,8 @@ export class PencilEngine implements PencilEngineAPI {
       // this argument entirely and reads its own inkLoad texture instead.
       this._drawRibbonCompositeRect(
         tile, compositeBounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
-        [drawable[0].x, drawable[0].y], spreadPx, fringeWater, inkSmoothPx,
+        [drawable[0].x, drawable[0].y], spreadPx, fringeWater,
+        profile.normalizeDeposit ? dabSpacing : 0,
       )
     }
 
