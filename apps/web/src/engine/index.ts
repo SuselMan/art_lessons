@@ -1136,6 +1136,23 @@ const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, siz
 // describe how the ribbon rasterizer draws one tool, and there are two such
 // tools now. See that file.
 
+/** (#468 v7, ADR 011 §7) How long a wash stays open after the brush lifts.
+ *
+ *  Not a drying time — nothing here models drying. It is the window in which a
+ *  second band still counts as *the same wash*, and it exists because that is
+ *  the only way a flat wash can be painted: bands laid inside it merge into one
+ *  pool with one perimeter, bands laid after it glaze over a finished wash.
+ *
+ *  1.2s is generous on purpose. Someone laying a wash works continuously, and
+ *  the cost of joining when they meant to glaze is small (one extra band in the
+ *  pool) while the cost of splitting when they meant to join is exactly the bug
+ *  this exists to fix. Wall-clock, and only ever consulted live — the answer is
+ *  recorded on the operation, so replay never measures anything.
+ *
+ *  Any change of paint, colour, layer or tool ends the wash immediately,
+ *  regardless of this. */
+const WASH_JOIN_MS = 1200
+
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
  *  every dab overlap, since it multiplied whatever the *previous dab of
@@ -1361,6 +1378,20 @@ class RibbonStrokeScratch {
     this._waterUsed = used
   }
 
+  /** (#468 v7) A new stroke joins this wash. Only the brush's own load resets —
+   *  lifting the brush and putting it back down means a freshly charged brush,
+   *  but the paint already on the paper is still there and still wet.
+   *
+   *  Everything else deliberately survives: the frozen pre-wash content, the
+   *  accumulated coverage and deposit, the noise field's seed and the composite
+   *  scalars. That is what makes a second band laid beside the first merge with
+   *  it instead of arriving as another mark on top — the two share one
+   *  silhouette, so there is no boundary between them to draw, and only the
+   *  outer perimeter of the whole wash gets a tideline. */
+  beginStroke(): void {
+    this._waterUsed = 0
+  }
+
   /** `needsInk` false skips the third buffer entirely (#454): a covering,
    *  source-over ink has no per-pixel pigment quantity for the composite to
    *  read, so allocating and clearing one per tile would be a buffer and two
@@ -1555,6 +1586,25 @@ export class PencilEngine implements PencilEngineAPI {
   // down its own throwaway instance within that single call instead (see
   // _paintRibbonDabs' own doc comment).
   private _ribbonStrokeScratch: RibbonStrokeScratch | null = null
+  /** (#468 v7) The wash in progress, if any — watercolor only.
+   *
+   *  A wash outlives the stroke that started it: its scratch is kept between
+   *  strokes so the next one accumulates into the same pool, and is only torn
+   *  down when something makes the wash a different wash (a gap long enough to
+   *  count as dry, a different paint, a different layer, a different tool).
+   *
+   *  `endedAt` is wall-clock and that is fine, because it decides the *live*
+   *  grouping only. The answer is written onto the operation as `washId`, and
+   *  replay reads that instead of re-deriving it — the same split `strokeId`
+   *  already uses for chunking. */
+  private _wash: {
+    id: string
+    layerId: string
+    signature: string
+    endedAt: number
+    scratch: RibbonStrokeScratch
+  } | null = null
+  private _washId: string | null = null
   /** (#385) Shared free list behind every RibbonStrokeScratch this engine
    *  builds — see RibbonScratchPool's own doc comment for why the marker path
    *  cannot allocate per gesture. Assigned in the constructor, right after
@@ -1579,7 +1629,17 @@ export class PencilEngine implements PencilEngineAPI {
    *  arrive in order, so anything else interleaving simply starts a new slot —
    *  which is the old behaviour, a seam, rather than a wrong result. */
   private _replayRibbonChunk:
-    | { strokeId: string; target: ILayerBuffer; scratch: RibbonStrokeScratch; lastDab: Dab }
+    | {
+      /** The grouping key: a wash id where the stroke has one, its gesture id
+       *  otherwise (#468 v7). */
+      strokeId: string
+      /** Which *gesture* the last chunk belonged to, so a wash can tell one of
+       *  its strokes ending from a gesture's chunk boundary. */
+      washStrokeId?: string
+      target: ILayerBuffer
+      scratch: RibbonStrokeScratch
+      lastDab: Dab
+    }
     | null = null
 
   // Smudge's own carried imprint (#14; a raster texture per user since
@@ -2157,6 +2217,7 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setActiveLayer(id: string): void {
+    if (id !== this._activeId) this._clearWash()
     this._activeId = id
     // #122: moves the below/above split point itself.
     this._invalidateSplitCache()
@@ -2379,7 +2440,7 @@ export class PencilEngine implements PencilEngineAPI {
           const skip = this._claimLivePaintedDabs(op, allDabs.length)
           const dabs = skip ? allDabs.slice(skip) : allDabs
           if (dabs.length) {
-            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
+            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId)
           }
           this._markLayerDirty(op.layerId)
           this._maybeCheckpoint(op.layerId)
@@ -2653,7 +2714,12 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setPencil(type: string): void  { this._opts.pencilType = type }
-  setTool(tool: ToolType): void  { this._opts.tool = tool }
+  setTool(tool: ToolType): void  {
+    // (#468 v7) Reaching for another tool ends the wash: whatever is on the
+    // paper stops being something the next stroke can pool into.
+    if (tool !== this._opts.tool) this._clearWash()
+    this._opts.tool = tool
+  }
   setOpacity(v: number): void    { this._opts.opacity = v }
   setSize(px: number): void      { this._opts.size = px }
 
@@ -2665,6 +2731,16 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. Only the *next* stroke picks this
    *  up (same "never mid-stroke" rule as _markerAngleRadians' own field
    *  comment) — no need to touch the in-progress DabSystem shaping here. */
+  /** (#468 v7) Ends the wash in progress, if any. A wash is "several bands of
+   *  the same paint on the same layer, laid before the last one dried" — so
+   *  anything that changes what is in the brush, or what it is being laid on,
+   *  ends it at once regardless of timing. */
+  private _clearWash(): void {
+    this._wash?.scratch.destroy()
+    this._wash = null
+    this._washId = null
+  }
+
   setMarkerAngle(angleRadians: number, followStrokeDirection: boolean): void {
     this._markerAngleRadians = angleRadians
     this._markerFollowStroke = followStrokeDirection
@@ -3410,6 +3486,7 @@ export class PencilEngine implements PencilEngineAPI {
     // would leave exactly the buffers they are still holding behind.
     this._ribbonStrokeScratch?.destroy()
     this._ribbonStrokeScratch = null
+    this._clearWash()
     this._strokeId = null
     this._replayRibbonChunk?.scratch.destroy()
     this._replayRibbonChunk = null
@@ -3620,7 +3697,7 @@ export class PencilEngine implements PencilEngineAPI {
         // Smudge (#416): nothing to seed — see appendOperation's own stroke
         // case for why replay/undo/redo is deterministic from the op's own
         // dabs alone now.
-        this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId)
+        this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId)
         break
       case 'layer_clear':
         buf.clear()
@@ -3955,6 +4032,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudgeScratchPool = [] // same reasoning, see #14
     this._ribbonStrokeScratch?.forget() // same reasoning — pooled GL objects are dead too
     this._ribbonStrokeScratch = null
+    // Context loss took the wash's buffers too; drop the handles without
+    // touching the driver, same as every other pool here.
+    this._wash?.scratch.forget()
+    this._wash = null
+    this._washId = null
     this._replayRibbonChunk?.scratch.forget()
     this._replayRibbonChunk = null
     // (#385) Dropped, not released: releasing would put dead handles back in
@@ -4536,9 +4618,40 @@ export class PencilEngine implements PencilEngineAPI {
     // see RibbonStrokeScratch's own doc comment. Harmless to always create,
     // even for a non-marker stroke: nothing allocates any GL resource until
     // a marker dab's own getOrCreate() first touches a tile.
-    this._ribbonStrokeScratch = new RibbonStrokeScratch(
-      this._ribbonScratchPool, ribbonProfileFor(this._strokeTool, this._opts.pencilType).ink,
-    )
+    const profile = ribbonProfileFor(this._strokeTool, this._opts.pencilType)
+    // (#468 v7, ADR 011 §7) Does this stroke join the wash already on the
+    // paper, or start a new one?
+    //
+    // Joining needs the same paint on the same layer, soon enough that the last
+    // one has not dried. Change any of those and you are painting a second
+    // wash over a first, which is glazing and must behave like it.
+    const washSignature = `${this._opts.pencilType}|${this._opts.graphiteColor.join(',')}`
+    if (profile.normalizeDeposit) {
+      const now = performance.now()
+      const open = this._wash
+      const joins = open !== null
+        && open.layerId === layerId
+        && open.signature === washSignature
+        && now - open.endedAt <= WASH_JOIN_MS
+      if (joins && open) {
+        this._washId = open.id
+        this._ribbonStrokeScratch = open.scratch
+      } else {
+        this._wash?.scratch.destroy()
+        this._washId = nanoid(10)
+        this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
+        this._wash = {
+          id: this._washId, layerId, signature: washSignature,
+          endedAt: now, scratch: this._ribbonStrokeScratch,
+        }
+      }
+      this._ribbonStrokeScratch.beginStroke()
+    } else {
+      this._washId = null
+      this._wash?.scratch.destroy()
+      this._wash = null
+      this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
+    }
     this._strokeId = nanoid(10)
     // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
     // makes the first packet of a gesture go out with the first dabs painted
@@ -4786,10 +4899,15 @@ export class PencilEngine implements PencilEngineAPI {
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
     if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch)
-    // Torn down after this stroke's very last dabs are painted above — a
-    // fresh RibbonStrokeScratch gets created for the *next* stroke in
-    // _onStart, never carried over (see its own doc comment).
-    this._ribbonStrokeScratch?.destroy()
+    if (this._wash && this._wash.scratch === this._ribbonStrokeScratch) {
+      // (#468 v7) A wash outlives its strokes — the paint is still on the paper
+      // and still wet, so the buffers stay open for the next band to pool into.
+      // Torn down in _onStart when something makes the next stroke a different
+      // wash, and by _clearWash on tool/layer changes and teardown.
+      this._wash.endedAt = performance.now()
+    } else {
+      this._ribbonStrokeScratch?.destroy()
+    }
     this._ribbonStrokeScratch = null
     // Discard the speculative preview entirely once the real stroke has
     // ended — the final _display() below must show only real content.
@@ -4833,6 +4951,7 @@ export class PencilEngine implements PencilEngineAPI {
         layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
         ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+        ...(this._washId ? { washId: this._washId } : {}),
         }
       this._log.append(op)
       this._maybeCheckpoint(layerId)
@@ -5498,7 +5617,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number], userId: string, prevDab?: Dab, ribbonScratch?: RibbonStrokeScratch,
-    strokeId?: string,
+    strokeId?: string, washId?: string,
   ): void {
     if (!dabs.length) return
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return }
@@ -5513,7 +5632,7 @@ export class PencilEngine implements PencilEngineAPI {
     // #454: two tools now, dispatched by isRibbonTool rather than by name —
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
-    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId); return }
+    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId); return }
     const erasing = tool === 'eraser'
     // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
     // table). Resolved once here as a number rather than one boolean flag per
@@ -6111,7 +6230,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintRibbonDabs(
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number],
-    ribbonScratch?: RibbonStrokeScratch, prevDab?: Dab, strokeId?: string,
+    ribbonScratch?: RibbonStrokeScratch, prevDab?: Dab, strokeId?: string, washId?: string,
   ): void {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
@@ -6124,7 +6243,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (target instanceof AccumulationBuffer) return
     const preset = this._resolvePreset(tool, presetName)
     const profile = ribbonProfileFor(tool, presetName)
-    const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, dabs, profile)
+    const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, washId, dabs, profile)
     const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
     // `prevDab` is threaded the same way smudge threads its own
     // (_paintSmudgeDabs): the dab immediately before dabs[0] may come from a
@@ -6148,18 +6267,33 @@ export class PencilEngine implements PencilEngineAPI {
    *  operation with no gesture id (a stroke recorded before strokeId existed),
    *  which then falls back to a throwaway scratch, exactly as before. */
   private _replayChunkScratch(
-    target: ILayerBuffer, strokeId: string | undefined, dabs: Dab[], profile: RibbonProfile,
+    target: ILayerBuffer, strokeId: string | undefined, washId: string | undefined,
+    dabs: Dab[], profile: RibbonProfile,
   ): { scratch: RibbonStrokeScratch; prevDab?: Dab } | null {
-    if (!strokeId || !dabs.length) return null
+    // (#468 v7) A wash groups more strongly than a gesture: several strokes
+    // share one accumulation, so the key is the wash where there is one and the
+    // gesture otherwise. Grouping by the recorded id rather than by anything
+    // measured here is what keeps replay a pure function of the log — the live
+    // client already decided, using wall-clock timing replay must never see.
+    const key = washId ?? strokeId
+    if (!key || !dabs.length) return null
     const cached = this._replayRibbonChunk
-    if (cached && cached.strokeId === strokeId && cached.target === target) {
-      const prevDab = cached.lastDab
+    if (cached && cached.strokeId === key && cached.target === target) {
+      // `prevDab` bridges the ribbon across a *gesture's* chunks. Across two
+      // strokes of one wash there is nothing to bridge — the brush was lifted —
+      // so the band builder must not stitch them into one swept figure.
+      const prevDab = washId && cached.washStrokeId !== strokeId ? undefined : cached.lastDab
       cached.lastDab = dabs[dabs.length - 1]
+      cached.washStrokeId = strokeId
+      if (washId && cached.washStrokeId !== undefined) cached.scratch.beginStroke()
       return { scratch: cached.scratch, prevDab }
     }
     cached?.scratch.destroy()
     const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
-    this._replayRibbonChunk = { strokeId, target, scratch, lastDab: dabs[dabs.length - 1] }
+    scratch.beginStroke()
+    this._replayRibbonChunk = {
+      strokeId: key, washStrokeId: strokeId, target, scratch, lastDab: dabs[dabs.length - 1],
+    }
     return { scratch }
   }
 

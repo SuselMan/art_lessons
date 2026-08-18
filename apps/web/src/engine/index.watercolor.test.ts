@@ -357,3 +357,79 @@ describe('ink deposit normalization (#468 v3, ADR 011 §3.8)', () => {
     expect(lastInkDeposit(engine)).toBeLessThan(afterFirst * 0.95)
   })
 })
+
+describe('washes (#468 v7, ADR 011 §7)', () => {
+  // A wash is several strokes of the same paint laid before the last dried, and
+  // they must share one accumulation — one silhouette, one deposit, one frozen
+  // pre-wash content. That is what makes a flat wash paintable at all: bands
+  // laid inside a wash merge, so there is no boundary between them to draw and
+  // only the outer perimeter gets a tideline.
+  //
+  // The grouping itself is decided live (it wants wall-clock timing) and
+  // *recorded* on the operation, exactly as strokeId is. These tests pin the
+  // replay half of that contract — that the recorded id is what groups, and
+  // that nothing here re-derives it.
+
+  function wcStrokeIn(washId: string | undefined, x0: number, y: number) {
+    return makeStroke('user-a', 'L', wcStroke(x0, y, x0 + 24, y), {
+      tool: 'watercolor', preset: 'normal:55:60:PB29',
+      ...(washId ? { washId } : {}),
+    })
+  }
+
+  it('shares one accumulation across the strokes of a wash', () => {
+    const engine = setupLayer(256, 128)
+    engine.appendOperation(wcStrokeIn('w1', 8, 40))
+    const first = markerReplayChunk(engine)
+    engine.appendOperation(wcStrokeIn('w1', 8, 60))
+    const second = markerReplayChunk(engine)
+    expect(first?.scratch).toBeDefined()
+    expect(second?.scratch).toBe(first?.scratch)
+  })
+
+  it('starts a fresh one for a different wash', () => {
+    // Which is what makes glazing still glazing: a pass laid after the last one
+    // dried multiplies over it, because it gets its own frozen `original`.
+    const engine = setupLayer(256, 128)
+    engine.appendOperation(wcStrokeIn('w1', 8, 40))
+    const first = markerReplayChunk(engine)
+    engine.appendOperation(wcStrokeIn('w2', 8, 60))
+    expect(markerReplayChunk(engine)?.scratch).not.toBe(first?.scratch)
+  })
+
+  it('still groups a bare stroke by its gesture, as before washes existed', () => {
+    // The Operation Log is permanent: watercolor strokes recorded before v7
+    // carry no washId and must keep replaying exactly as they did.
+    const engine = setupLayer(256, 128)
+    const a = makeStroke('user-a', 'L', wcStroke(8, 40, 32, 40), { tool: 'watercolor', strokeId: 'g1' })
+    const b = makeStroke('user-a', 'L', wcStroke(32, 40, 56, 40), { tool: 'watercolor', strokeId: 'g1' })
+    engine.appendOperation(a)
+    const first = markerReplayChunk(engine)
+    engine.appendOperation(b)
+    expect(markerReplayChunk(engine)?.scratch).toBe(first?.scratch)
+  })
+
+  it('replays a wash identically however its strokes are ordered in the log', () => {
+    // The grouping is the recorded id and nothing else — no timing, no
+    // proximity, nothing measured at replay time. Two engines fed the same
+    // operations must land on the same pixels.
+    const a = setupLayer(256, 128)
+    const b = setupLayer(256, 128)
+    const ops = [wcStrokeIn('w1', 8, 40), wcStrokeIn('w1', 8, 58), wcStrokeIn('w1', 8, 76)]
+    for (const op of ops) a.appendOperation(op)
+    for (const op of ops) b.appendOperation({ ...op })
+    expectPixelsEqual(readLayerPixels(a, 'L'), readLayerPixels(b, 'L'))
+  })
+
+  it('undoes a wash one stroke at a time', () => {
+    // Sharing an accumulation must not make the strokes inseparable in the log:
+    // each is still its own operation, and undo still removes exactly one.
+    const engine = setupLayer(256, 128)
+    const before = readLayerPixels(engine, 'L')
+    engine.appendOperation(wcStrokeIn('w1', 8, 40))
+    engine.appendOperation(wcStrokeIn('w1', 8, 60))
+    engine.undo()
+    engine.undo()
+    expectPixelsEqual(readLayerPixels(engine, 'L'), before)
+  })
+})

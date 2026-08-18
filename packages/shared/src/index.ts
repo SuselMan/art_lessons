@@ -491,6 +491,27 @@ export type StrokeOperation = OperationBase & {
    *  Absent on strokes recorded before this existed; they replay as they
    *  always did, each chunk standing alone. */
   strokeId?: string
+  /** (#468 v7) Which *wash* this stroke belongs to — watercolor only.
+   *
+   *  A wash is several strokes laid in quick succession with the same paint on
+   *  the same layer, and the point of grouping them is that they must not
+   *  behave like separate marks laid on top of one another. Real paint does not
+   *  work that way: lay a second band beside a wet first one and the two become
+   *  one pool, the boundary between them disappears, and only the outer
+   *  perimeter of the whole thing gets a tideline. Without this, a flat wash —
+   *  the very first exercise anyone is set — is impossible to paint, because
+   *  every band arrives with its own edge, its own pooling and its own dried
+   *  rim.
+   *
+   *  Decided live and *recorded*, exactly as `strokeId` is, and for the same
+   *  reason: the grouping rule wants wall-clock timing, which replay must never
+   *  have. Writing down the answer keeps replay a pure function of the log
+   *  while letting the decision use whatever the live client knows.
+   *
+   *  Absent on every stroke of every other tool, and on watercolor strokes
+   *  recorded before this existed — those replay exactly as they always did,
+   *  each standing alone. */
+  washId?: string
 }
 
 /** Inserts a new raster layer directly above whichever layer its author had
