@@ -435,6 +435,15 @@ const WATERCOLOR_PAPER_EDGE = 0.55
  *  The shader spends this budget in *both* directions (see its
  *  blur-and-rethreshold block): the mark pushes out in some places and pulls in
  *  in others, which a plain dilation could not do. */
+/** (#468 v6) A cone-profiled stamp lays exactly a third of what a flat one of
+ *  the same peak lays: the mean of (1 - r/R) over a disc is
+ *  integral of (1-p)*2p dp from 0 to 1 = 1/3. So switching the deposit to a
+ *  cone (see inkEdgeFalloff) drops the whole tool's density threefold unless
+ *  this puts it back. Written as its own constant rather than folded into the
+ *  deposit figures so that the calibration those carry stays readable, and so
+ *  that this is obviously a unit conversion rather than a taste decision. */
+const WATERCOLOR_CONE_DEPOSIT_GAIN = 1.8
+
 const WATERCOLOR_SPREAD_CAP_PX = 26.0
 
 /** Floor, so even the thinnest line's boundary stops being mathematically
@@ -475,11 +484,23 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // density is made of, and it must be separate from the silhouette for the
     // same reason the marker's is (see RibbonProfile.ink).
     ink: true,
-    // Nearly flat across the nib. The brush's own rim falloff would fight the
-    // wet-edge term, which is trying to make the boundary *darker*; a real
-    // loaded brush lays a fairly even film anyway, and what unevenness a wash
-    // has comes from the paper, not from the ferrule.
-    inkEdgeFalloff: 0.95,
+    // (#468 v6) A cone, not a cylinder — full dose at the nib's centre falling
+    // to nothing at its rim. This is what removes the chain of discs, and the
+    // reason is arithmetic rather than aesthetic.
+    //
+    // A pixel is covered by `2*radius / spacing` stamps, which for this brush is
+    // about 4.03 — so as the brush travels, the count alternates between 4 and
+    // 5. With a flat dose per stamp that is a 25% step in the accumulated
+    // deposit, appearing exactly one dab-spacing apart: measured 163 against
+    // 210 in the buffer, and 5/4 = 1.25 against the measured 1.28. That ripple
+    // was invisible while the deposit saturated the 8-bit buffer everywhere and
+    // came straight through once v3 normalized it.
+    //
+    // With a cone the stamp entering or leaving the count contributes ~0 at the
+    // moment it does, so the sum barely moves — the standard partition-of-unity
+    // answer to stamp banding. The marker keeps 0.9 because its deposit is
+    // saturated anyway and its constants were calibrated against it.
+    inkEdgeFalloff: 0.0,
     compositeInkMode: 9,
     curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
     minHalfWidthPx: WATERCOLOR_MIN_HALF_WIDTH_PX,
@@ -504,7 +525,7 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // ── from pigment: how much paint ──
     granulation: p.granulation * (0.25 + 1.5 * paint.granulation),
     pigmentOpacity: paint.opacity,
-    depositPerRadius: p.depositPerRadius,
+    depositPerRadius: p.depositPerRadius * WATERCOLOR_CONE_DEPOSIT_GAIN,
     // A staining paint binds to the fibre and cannot migrate to the drying
     // perimeter, so it leaves *less* of a rim — the reduction is the point, not
     // a fudge factor.

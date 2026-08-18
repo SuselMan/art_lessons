@@ -1301,6 +1301,52 @@ class RibbonStrokeScratch {
    *  px at the stroke's start, and the next batch's padded rect recomposites it
    *  anyway. */
   private _dabSpacing = 0
+  /** (#468 v6) Everything the gesture's final recomposite needs, plus the union
+   *  of every batch's bounds.
+   *
+   *  It exists because reasoning about whether the incremental per-batch
+   *  composites are *sufficient* turned out to be a trap: three plausible
+   *  arguments that they were, and a measured 26% of the mark still differing
+   *  between a live stroke and a replay of it. So the last thing a gesture does
+   *  is now exactly what a replay does — one composite over the whole mark with
+   *  the finished buffers — and the two agree by construction rather than by
+   *  argument.
+   *
+   *  This is not the old settle pass. That one *introduced* terms the live
+   *  batches had switched off, and re-read scalars from the first batch, which
+   *  is why the mark jumped at pen-up. Every scalar here is already a constant
+   *  of the gesture, so the final pass recomputes the same values the batches
+   *  did — it only fixes pixels that were composited before all their ink had
+   *  arrived. */
+  private _finish: {
+    target: ILayerBuffer; preset: PencilPreset; profile: RibbonProfile
+    color: [number, number, number]; opacity: number
+    bounds: { minX: number; minY: number; maxX: number; maxY: number }
+    fieldSeed: [number, number]
+  } | null = null
+
+  noteFinish(ctx: NonNullable<RibbonStrokeScratch['_finish']>): void {
+    const prev = this._finish
+    if (!prev) { this._finish = ctx; return }
+    prev.bounds = {
+      minX: Math.min(prev.bounds.minX, ctx.bounds.minX),
+      minY: Math.min(prev.bounds.minY, ctx.bounds.minY),
+      maxX: Math.max(prev.bounds.maxX, ctx.bounds.maxX),
+      maxY: Math.max(prev.bounds.maxY, ctx.bounds.maxY),
+    }
+  }
+
+  get finishContext(): RibbonStrokeScratch['_finish'] {
+    return this._finish
+  }
+
+  /** The scratch this tile already has, or null — deliberately not getOrCreate:
+   *  a tile inside the gesture's bounding box that its dabs never reached has
+   *  nothing to recomposite, and snapshotting one would spend three pooled
+   *  buffers writing it back unchanged. */
+  peek(tile: AccumulationBuffer): RibbonTileScratch | null {
+    return this._tiles.get(tile) ?? null
+  }
 
   noteDabSpacing(gap: number): number {
     if (this._dabSpacing === 0 && gap > 0.01) this._dabSpacing = gap
@@ -1371,6 +1417,7 @@ class RibbonStrokeScratch {
     this._waterUsed = 0
     this._composite = null
     this._dabSpacing = 0
+    this._finish = null
     for (const { original, coverage, inkLoad } of this._tiles.values()) {
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
@@ -1632,6 +1679,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonPosLoc!: number
   private _ribbonEdgeLoc!: number
   private _ribbonInkLoc!: number
+  private _ribbonInkWaterLoc!: number
   private _ribbonBuf!: WebGLBuffer
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispUni!: Record<string, WebGLUniformLocation | null>
@@ -4313,7 +4361,7 @@ export class PencilEngine implements PencilEngineAPI {
       // #468 v6 — the dab spacing, the period of the deposit's own ripple.
       'u_inkSmoothPx',
     ])
-    this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode', 'u_inkWater'])
+    this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
@@ -4367,6 +4415,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonPosLoc  = gl.getAttribLocation(this._ribbonProg, 'a_position')
     this._ribbonEdgeLoc = gl.getAttribLocation(this._ribbonProg, 'a_edge')
     this._ribbonInkLoc  = gl.getAttribLocation(this._ribbonProg, 'a_ink')
+    this._ribbonInkWaterLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWater')
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
@@ -4736,6 +4785,7 @@ export class PencilEngine implements PencilEngineAPI {
       applyWatercolorPooling(dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
+    if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch)
     // Torn down after this stroke's very last dabs are painted above — a
     // fresh RibbonStrokeScratch gets created for the *next* stroke in
     // _onStart, never carried over (see its own doc comment).
@@ -6082,6 +6132,12 @@ export class PencilEngine implements PencilEngineAPI {
     // ribbonScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
     this._paintRibbonStroke(target, dabs, preset, profile, color, scratch, prevDab ?? chunk?.prevDab)
+    // Replay finishes the stroke inside this call as far as it can know: a
+    // one-shot has painted every dab there is, a chunk every dab of its own
+    // operation. Both recomposite now; a chunked gesture simply does it again,
+    // over larger bounds, when the next chunk arrives — the composite is a pure
+    // recomputation, so repeating it is a no-op by construction.
+    if (!ribbonScratch) this._finishRibbonStroke(scratch)
     // The cached one belongs to the gesture, not to this call — it is released
     // when a different gesture arrives, or with the engine.
     if (!ribbonScratch && !chunk) scratch.destroy()
@@ -6227,7 +6283,39 @@ export class PencilEngine implements PencilEngineAPI {
     // this stays proportional to what the batch painted, unlike recompositing
     // the whole stroke every event, which is what made deferral necessary in
     // the first place.
-    const compositePad = spreadPx > 0 ? Math.ceil(spreadPx + profile.wetEdgeRadiusPx) + 1 : 0
+    // The pad has to cover *everything that can still change this pixel*, and
+    // that is not just how far the composite reaches sideways — it is also how
+    // long the brush keeps depositing into a pixel it has already passed.
+    //
+    // Ink and coverage keep arriving until the nib has travelled a full radius
+    // beyond a spot. Pad by less than that and a live batch composites from an
+    // inkLoad that is still missing the dabs behind the front, and no later
+    // batch's rect ever reaches back to correct it. Replay, which composites
+    // once with the whole stroke in the buffers, has no such gap — so the two
+    // disagreed, and a reload silently redrew the stroke differently. Measured
+    // at 26% of the mark's area before this, 9% of it strongly.
+    //
+    // That is a determinism bug, not a cosmetic one: two people in one room
+    // were looking at different pictures.
+    let maxRadius = 0
+    for (const d of drawable) maxRadius = Math.max(maxRadius, d.size * 0.5 * preset.sizeMultiplier)
+    // Everything that can still change this pixel, **summed** rather than
+    // maxed — each term is a separate hop outward and they compose:
+    //
+    //   maxRadius   the nib keeps depositing into a spot until it has travelled
+    //               its own radius past it;
+    //   spreadPx    the boundary is decided from a blur of coverage that far away;
+    //   wetEdge     the tideline reads the same blur;
+    //   dabSpacing  the deposit is read back averaged over one spacing, so a
+    //               pixel's value depends on its neighbours' deposits too.
+    //
+    // Getting this wrong does not merely blur something: a live batch then
+    // composites from buffers that are still filling, no later batch's rect
+    // reaches back to correct it, and the mark ends up different from what a
+    // replay of the same operation produces.
+    const compositePad = spreadPx > 0
+      ? Math.ceil(maxRadius + spreadPx + profile.wetEdgeRadiusPx + dabSpacing) + 1
+      : 0
     const compositeBounds = compositePad > 0
       ? {
         minX: bounds.minX - compositePad, minY: bounds.minY - compositePad,
@@ -6259,7 +6347,7 @@ export class PencilEngine implements PencilEngineAPI {
     // scalar cannot produce that arc at all.
     const deposits: number[] = []
     const waterByDab = new Map<Dab, number>()
-    let waterAtEnd = 1
+    const pigmentByDab = new Map<Dab, number>()
     {
       let prev = prevDab
       let used = scratch.waterUsed
@@ -6274,7 +6362,7 @@ export class PencilEngine implements PencilEngineAPI {
         const water = profile.waterDepletion ? profile.waterLevel * watercolorWaterLoad(used) : 1
         const pigmentLeft = profile.waterDepletion ? watercolorPigmentLoad(used) : 1
         waterByDab.set(dab, water)
-        waterAtEnd = water
+        pigmentByDab.set(dab, pigmentLeft)
         deposits.push(profile.normalizeDeposit
           ? profile.depositPerRadius * (seg / radius) * 0.5 * pigmentLeft
           : dab.opacity * seg * 0.5)
@@ -6289,9 +6377,15 @@ export class PencilEngine implements PencilEngineAPI {
     // Omitting the callback leaves buildRibbonBands' own formula untouched,
     // which is what the marker and the brush pen get.
     const inkFor = profile.normalizeDeposit
-      ? (_d0: Dab, d1: Dab, travel: number): number => {
+      ? (_d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => {
         const radius = Math.max(d1.size * 0.5 * preset.sizeMultiplier, 0.5)
-        return profile.depositPerRadius * (travel / radius) * 0.5 * (waterByDab.get(d1) ?? 1)
+        // Per segment, not per batch: the water weighting rides the vertex now
+        // (markerRibbon.ts's FLOATS_PER_VERTEX) precisely so that how the
+        // stroke was cut into pointer events cannot change the result.
+        return {
+          ink: profile.depositPerRadius * (travel / radius) * 0.5 * (pigmentByDab.get(d1) ?? 1),
+          water: waterByDab.get(d1) ?? 0,
+        }
       }
       : undefined
     const bands = buildRibbonBands(
@@ -6322,7 +6416,7 @@ export class PencilEngine implements PencilEngineAPI {
           )
           inkLoad.endDraw()
         }
-        if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx, waterAtEnd)
+        if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx)
       }
 
       // `drawable[0].opacity` rather than a per-dab value: only a tool whose
@@ -6337,7 +6431,35 @@ export class PencilEngine implements PencilEngineAPI {
       )
     }
 
+    scratch.noteFinish({
+      target, preset, profile, color, opacity: drawable[0].opacity,
+      bounds: compositeBounds, fieldSeed: [drawable[0].x, drawable[0].y],
+    })
+
     target.markContentPainted(compositeBounds)
+  }
+
+  /** (#468 v6) One composite over everything the finished gesture touched, with
+   *  the buffers complete — the same thing a replay of this stroke does in a
+   *  single call. See RibbonStrokeScratch's own _finish for why the incremental
+   *  per-batch composites are not enough on their own. */
+  private _finishRibbonStroke(scratch: RibbonStrokeScratch): void {
+    const ctx = scratch.finishContext
+    if (!ctx || !ctx.profile.normalizeDeposit) return
+    const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
+    const targets = target.resolveForPaint(bounds)
+    if (!targets.length) return
+    const { spreadPx, water } = scratch.compositeScalars(() => ({ spreadPx: 0, inkSmoothPx: 0, water: 0 }))
+    const spacing = scratch.noteDabSpacing(0)
+    for (const tile of targets) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry) continue
+      this._drawRibbonCompositeRect(
+        tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity,
+        fieldSeed, spreadPx, water, spacing,
+      )
+    }
+    target.markContentPainted(bounds)
   }
 
   /** ADR 004 "Ревизия v1.5" §2: how far this dab travelled since the
@@ -6445,11 +6567,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  this tile's own pixel space here — the only per-tile work, which is why
    *  the geometry itself is built once for the whole batch rather than per
    *  tile. */
-  // (#468 v4) `inkWater` defaults to 0 so the coverage pass and every non-
-  // watercolor tool leave the deposit's colour channels alone.
   private _drawRibbonBands(
     dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink', aaPx: number,
-    inkWater = 0,
   ): void {
     const { gl } = this
     const local = new Float32Array(bands.length)
@@ -6458,6 +6577,7 @@ export class PencilEngine implements PencilEngineAPI {
       local[i + 1] = bands[i + 1] - tile.originY
       local[i + 2] = bands[i + 2]
       local[i + 3] = bands[i + 3]
+      local[i + 4] = bands[i + 4]
     }
 
     if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
@@ -6465,7 +6585,6 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(this._ribbonUni.u_resolution, dest.width, dest.height)
     gl.uniform1f(this._ribbonUni.u_aaPx, aaPx)
     gl.uniform1f(this._ribbonUni.u_mode, mode === 'ink' ? 1 : 0)
-    gl.uniform1f(this._ribbonUni.u_inkWater, inkWater)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
     gl.bufferData(gl.ARRAY_BUFFER, local, gl.STREAM_DRAW)
@@ -6474,6 +6593,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._ribbonPosLoc, 2, gl.FLOAT, false, stride, 0)
     gl.enableVertexAttribArray(this._ribbonEdgeLoc)
     gl.vertexAttribPointer(this._ribbonEdgeLoc, 1, gl.FLOAT, false, stride, 8)
+    gl.enableVertexAttribArray(this._ribbonInkWaterLoc)
+    gl.vertexAttribPointer(this._ribbonInkWaterLoc, 1, gl.FLOAT, false, stride, 16)
     gl.enableVertexAttribArray(this._ribbonInkLoc)
     gl.vertexAttribPointer(this._ribbonInkLoc, 1, gl.FLOAT, false, stride, 12)
 
@@ -6483,6 +6604,7 @@ export class PencilEngine implements PencilEngineAPI {
     // per-vertex stream for whatever attribute index happens to collide with
     // them (these slots are not reserved across programs).
     gl.disableVertexAttribArray(this._ribbonEdgeLoc)
+    gl.disableVertexAttribArray(this._ribbonInkWaterLoc)
     gl.disableVertexAttribArray(this._ribbonInkLoc)
     dest.endDraw()
   }

@@ -196,15 +196,22 @@ export const RIBBON_VERT = `
   // distance-normalized by the CPU (dab.opacity * segmentLength). Ignored by
   // the coverage pass.
   attribute float a_ink;
+  // (#468 v6) The same deposit, weighted by how wet the brush was over *this
+  // segment*. Per vertex and not a uniform — see markerRibbon.ts's
+  // FLOATS_PER_VERTEX for the bug that forced it there. 0 for every tool
+  // without a water model, which leaves the channel it feeds unread.
+  attribute float a_inkWater;
 
   uniform vec2 u_resolution;
 
   varying float v_edge;
   varying float v_ink;
+  varying float v_inkWater;
 
   void main() {
     v_edge = a_edge;
     v_ink = a_ink;
+    v_inkWater = a_inkWater;
     vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
@@ -223,13 +230,10 @@ export const RIBBON_FRAG = `
   // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
   // turn came out bitten by rounded white notches.
   uniform float u_mode;
-  // (#468 v4) How wet the brush was over this batch — see DAB_FRAG's own
-  // u_inkWater. Left at 0 by every tool that has no water model, which makes
-  // the .rgb this writes inert.
-  uniform float u_inkWater;
 
   varying float v_edge;
   varying float v_ink;
+  varying float v_inkWater;
 
   void main() {
     // Inset ramp: coverage reaches 0 exactly *at* the geometric boundary and
@@ -247,7 +251,13 @@ export const RIBBON_FRAG = `
     // whole batch here rather than per band - a batch is a handful of dabs and
     // water barely moves across it, while the stamps carry their own per-dab
     // values and overlap the bands almost everywhere.
-    gl_FragColor = vec4(vec3(amount * u_inkWater), amount);
+    // .a is how much paint landed; .rgb the same amount weighted by how wet the
+    // brush was over *this particular segment*, so the composite can recover a
+    // per-pixel water level. As a uniform this made the finished mark depend on
+    // how the stroke happened to be cut into pointer events — a live stroke and
+    // a replay of it disagreed over a quarter of the mark, and a reload
+    // visibly redrew it.
+    gl_FragColor = vec4(vec3(u_mode > 0.5 ? cov * v_inkWater : amount), amount);
   }
 `;
 
