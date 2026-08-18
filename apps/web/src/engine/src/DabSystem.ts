@@ -118,6 +118,25 @@ const MIN_CONTROL_POINT_DISTANCE = 0.5
 // than once per call.
 const STEPS = 16
 
+// #472, see _filterPressure. Distance credited to a sample that didn't move,
+// so a stationary press still converges; deliberately equal to the deadband
+// (MIN_CONTROL_POINT_DISTANCE), which is the largest travel a collapsed sample
+// can have had — so a held pen filters at most as fast as a barely-moving one.
+const STATIONARY_PX = 0.5
+// Ceiling on that filter's per-sample weight: a dropped frame or a pen
+// re-entering the canvas produces one very long gap, and without this the
+// filter would throw its state away in a single dab and step the width.
+//
+// High on purpose. This is an outlier guard, not a second smoothing knob —
+// set it low enough to bind at ordinary sample spacings and the filter is
+// per-sample again, which is the exact thing the length-based weight exists to
+// stop being. At the shipped 10px length it starts binding past ~23px of
+// travel in one sample, i.e. around 2800 px/s on a 120Hz stylus.
+const MAX_PRESSURE_FILTER_STEP = 0.9
+// #472, see _bendTip: below this the filtered tip vector is too short for its
+// direction to mean anything (a hairpin passes through zero).
+const MIN_TIP_DIR_LEN = 0.05
+
 export class DabSystem {
   spacingFactor: number
   /**
@@ -176,6 +195,20 @@ export class DabSystem {
   // null for every profile that doesn't ask for it. See _filterPressure.
   private _pressureFilter: number | null = null
 
+  // Where the bent nib currently points (#472), as a *vector* rather than an
+  // angle, and null until the stroke has travelled far enough to have a
+  // direction at all. Only a profile with a `tipBend` ever sets it.
+  //
+  // A vector for exactly the reason _filterTilt's own comment gives at length:
+  // there is no ±π wrap to damp, because nothing is averaging angles. It buys
+  // one more thing here that it doesn't there — a hairpin reversal passes
+  // *through zero length* instead of jumping half a turn, which is what a real
+  // fibre bundle does when it is dragged back over itself: it straightens out
+  // and re-bends the other way, and for the moment it is straight the mark is
+  // round. That fell out of the representation rather than needing a case.
+  private _tipDirX: number | null = null
+  private _tipDirY: number | null = null
+
   constructor({ spacingFactor = 0.22, shaping = PENCIL_DAB_SHAPING }: { spacingFactor?: number; shaping?: DabShapingProfile } = {}) {
     this.spacingFactor = spacingFactor
     this._buf = []
@@ -209,6 +242,13 @@ export class DabSystem {
     // the real value over the first samples, which is a taper nobody asked for
     // sitting on top of the one §4 of ADR 009 does ask for.
     this._pressureFilter = null
+    // #472: cleared rather than pointed anywhere. A nib that has just touched
+    // down has not been dragged yet, so it is genuinely unbent — and the first
+    // dab of a stroke has no direction of travel to bend it along (startStroke
+    // passes pathAngle 0, which is +X, not "unknown"). Seeding from that would
+    // stamp every stroke's head as an ellipse pointing right.
+    this._tipDirX = null
+    this._tipDirY = null
   }
 
   /**
@@ -225,13 +265,77 @@ export class DabSystem {
    *
    * Returns pressure untouched when the active profile declares no smoothing,
    * which is every tool but the brush pen.
+   *
+   * #472: the weight is derived from how far the pen has *travelled* since the
+   * previous admitted sample, not spent once per sample. A per-sample one-pole
+   * is a filter whose corner frequency is the tablet's report rate — the same
+   * gesture drawn on a 240 Hz stylus arrived three times less smoothed than on
+   * a 60 Hz one, which made "how firm this pen feels" a property of the device
+   * rather than of the tool. `1 - exp(-d/L)` is the same one-pole re-expressed
+   * against distance, so the smoothing is a fixed number of canvas px either
+   * way.
+   *
+   * Two deliberate deviations from pure distance:
+   *
+   *  - `STATIONARY_PX` is added to the travelled distance, so a pen held still
+   *    and pressed harder still converges. Distance alone would freeze the
+   *    filter exactly there, and continueStroke's deadband (which is the whole
+   *    reason this runs at sample admission — see above) is precisely the path
+   *    where that happens. It is per-sample, i.e. rate-dependent, but nothing
+   *    about a stationary press has a shape for that to distort.
+   *  - the weight is capped, so a single long jump — a dropped frame, a pen
+   *    re-entering the canvas — cannot discard the filter's state wholesale
+   *    and step the width in one dab.
    */
-  private _filterPressure(pressure: number): number {
-    const k = this._shaping.pressureSmoothing
-    if (k === undefined) return pressure
-    if (this._pressureFilter === null) this._pressureFilter = pressure
-    else this._pressureFilter += (pressure - this._pressureFilter) * k
+  private _filterPressure(pressure: number, travelPx: number): number {
+    const lengthPx = this._shaping.pressureSmoothingPx
+    if (lengthPx === undefined) return pressure
+    if (this._pressureFilter === null) {
+      this._pressureFilter = pressure
+      return this._pressureFilter
+    }
+    const k = Math.min(1 - Math.exp(-(travelPx + STATIONARY_PX) / lengthPx), MAX_PRESSURE_FILTER_STEP)
+    this._pressureFilter += (pressure - this._pressureFilter) * k
     return this._pressureFilter
+  }
+
+  /**
+   * #472: advances the bent nib's orientation toward the current direction of
+   * travel and reports where it now points, or null while the stroke has no
+   * direction yet (the very first dab) or the profile declares no bend.
+   *
+   * `ds` is arc length since the previous dab and `nibWidth` the nib's current
+   * width in canvas px — together they set the one-pole weight, so the nib
+   * catches up over a fixed *distance* that scales with how wide it is, rather
+   * than over a fixed number of dabs. Dab spacing is not constant along a
+   * stroke (_curvatureSpacingLimit tightens it on turns, which is exactly
+   * where this is visible), so a per-dab weight would make the tool's
+   * plasticity a function of its own sampling.
+   */
+  private _bendTip(pathAngle: number, ds: number, nibWidth: number): number | null {
+    const bend = this._shaping.tipBend
+    if (bend === undefined) return null
+    const tx = Math.cos(pathAngle), ty = Math.sin(pathAngle)
+    if (this._tipDirX === null || this._tipDirY === null) {
+      // No direction yet: the first dab of a stroke is emitted before any
+      // travel exists (ds is 0 there), and its pathAngle is a placeholder, not
+      // a measurement. Stay unseeded and report "round" rather than inventing
+      // an orientation — the nib is genuinely straight at touchdown.
+      if (ds <= 0) return null
+      this._tipDirX = tx
+      this._tipDirY = ty
+      return pathAngle
+    }
+    const lagPx = Math.max(bend.minLagPx, bend.lagWidths * nibWidth)
+    const k = 1 - Math.exp(-ds / lagPx)
+    this._tipDirX += (tx - this._tipDirX) * k
+    this._tipDirY += (ty - this._tipDirY) * k
+    // A hairpin can drive the filtered vector arbitrarily close to zero, where
+    // its direction is noise. Report "no direction" there instead: the nib is
+    // momentarily straight, which is both what atan2 can't say and what the
+    // fibres are actually doing.
+    if (Math.hypot(this._tipDirX, this._tipDirY) < MIN_TIP_DIR_LEN) return null
+    return Math.atan2(this._tipDirY, this._tipDirX)
   }
 
   /**
@@ -292,6 +396,11 @@ export class DabSystem {
     // re-seeded from the predicted sample would render the tip at a different
     // width than the real dabs landing a moment later.
     fork._pressureFilter = this._pressureFilter
+    // #472: and where the nib is currently bent, for the third time over the
+    // same reason — a preview that started the nib straight would draw the
+    // leading edge as a round stamp under a stroke whose nib is fully trailed.
+    fork._tipDirX = this._tipDirX
+    fork._tipDirY = this._tipDirY
     // fork already got its own fresh scratch Float64Arrays from its own
     // constructor call above — do not share this instance's arrays with it.
     return fork
@@ -303,9 +412,11 @@ export class DabSystem {
     // Seeds the filter (a no-op for every profile without one) — the first
     // sample of a stroke is taken at face value, exactly as the tilt filter
     // seeds itself from its own first sample.
-    const p = this._filterPressure(pressure)
+    const p = this._filterPressure(pressure, 0)
     this._buf = [{ x, y, pressure: p, tiltX, tiltY }]
-    return [this._makeDab(x, y, p, tiltX, tiltY, baseSize, 0)]
+    // ds = 0: nothing has been dragged yet, so a bent-nib profile leaves this
+    // dab round rather than pointing it along the placeholder angle below.
+    return [this._makeDab(x, y, p, tiltX, tiltY, baseSize, 0, 0)]
   }
 
   // Returns dabs for the segment one step behind the current point.
@@ -314,7 +425,11 @@ export class DabSystem {
     // #454: every admitted sample's pressure passes the low-pass first,
     // including the one that only refreshes the last control point below —
     // see _filterPressure on why that case is the whole reason this sits here.
-    pressure = this._filterPressure(pressure)
+    // #472 moved the distance measurement above it, because the filter is now
+    // weighted by that distance rather than spent once per sample.
+    const prev = this._buf[this._buf.length - 1]
+    const travel = prev ? Math.hypot(x - prev.x, y - prev.y) : 0
+    pressure = this._filterPressure(pressure, travel)
     // Deadband (see MIN_CONTROL_POINT_DISTANCE): a sample that hasn't cleared
     // half a pixel since the last control point collapses *into* that point
     // rather than becoming one of its own. Its pressure/tilt still count —
@@ -322,11 +437,10 @@ export class DabSystem {
     // harder without moving is not lost, it just doesn't manufacture
     // geometry. A stationary stylus still produces no dabs from here at all
     // (that's what the engine's dwell tick is for, see _paintDwellDab).
-    const last = this._buf[this._buf.length - 1]
-    if (last && Math.hypot(x - last.x, y - last.y) < MIN_CONTROL_POINT_DISTANCE) {
-      last.pressure = pressure
-      last.tiltX = tiltX
-      last.tiltY = tiltY
+    if (prev && travel < MIN_CONTROL_POINT_DISTANCE) {
+      prev.pressure = pressure
+      prev.tiltX = tiltX
+      prev.tiltY = tiltY
       return []
     }
 
@@ -396,8 +510,17 @@ export class DabSystem {
     if (Math.hypot(dx, dy) < MIN_CONTROL_POINT_DISTANCE) return []
 
     const savedRemainder = this._remainder
+    // #472: the bent nib's orientation is stroke state too, and this method is
+    // defined to leave stroke state alone — advancing it here would bend the
+    // nib along a *guessed* tangent, and the real segment arriving a moment
+    // later would then start from a nib that had already turned toward a
+    // direction the hand never went.
+    const savedTipX = this._tipDirX
+    const savedTipY = this._tipDirY
     const dabs = this._splineDabs(p0, p1, p2, p3, baseSize)
     this._remainder = savedRemainder
+    this._tipDirX = savedTipX
+    this._tipDirY = savedTipY
     return dabs
   }
 
@@ -475,6 +598,13 @@ export class DabSystem {
     // it at the segment start and carry on from there.
     let arcPos = Math.max(0, spacing - this._remainder)
     let si = 0
+    // #472: arc length from the *previous emitted dab* to this one, which for
+    // the first dab of a segment is not `spacing` — it is whatever was left
+    // over from the previous segment plus however far into this one the dab
+    // lands. Only a bent-nib profile reads it, and it must be the real gap:
+    // that is the whole difference between "the nib catches up over 12px" and
+    // "the nib catches up over three dabs, whatever those happen to be".
+    let gap = this._remainder + arcPos
 
     while (arcPos <= totalLen + 1e-6) {
       while (si < STEPS - 1 && sampleLen[si + 1] < arcPos) si++
@@ -492,8 +622,9 @@ export class DabSystem {
       const tiltY    = crScalar(p0.tiltY, p1.tiltY, p2.tiltY, p3.tiltY, t)
       const tan      = hermiteTangent(p1, p2, m1, m2, t)
 
-      dabs.push(this._makeDab(pos.x, pos.y, pressure, tiltX, tiltY, baseSize, Math.atan2(tan.y, tan.x)))
+      dabs.push(this._makeDab(pos.x, pos.y, pressure, tiltX, tiltY, baseSize, Math.atan2(tan.y, tan.x), gap))
       arcPos += spacing
+      gap = spacing
     }
 
     this._remainder = Math.max(0, totalLen - (arcPos - spacing))
@@ -532,13 +663,23 @@ export class DabSystem {
     // way. Taken from the active shaping profile so it follows whatever the tool
     // actually is, at this segment's own tilt.
     const tiltNorm = tiltNormFrom(p1.tiltX, p1.tiltY)
-    const reach = baseSize * 0.5 * this._shaping.size(p1.pressure, tiltNorm) * Math.max(this._shaping.aspect(tiltNorm), 1)
+    // #472: a bent nib's elongation counts toward its reach exactly as the
+    // chisel's fixed aspect does — this is the term that keeps a turn from
+    // scalloping, and leaving the brush pen's own elongation out of it would
+    // sample the one tool whose nib length varies as though it never did.
+    const bend = this._shaping.tipBend
+    const elongation = bend ? bend.elongation(p1.pressure) : 1
+    const reach = baseSize * 0.5 * this._shaping.size(p1.pressure, tiltNorm)
+      * Math.max(this._shaping.aspect(tiltNorm) * elongation, 1)
     const nibLimit = reach > 1e-6 ? Math.sqrt((8 * tol) / reach) / curvature : Infinity
 
     return Math.min(pathLimit, nibLimit)
   }
 
-  private _makeDab(x: number, y: number, pressure: number, rawTiltX: number, rawTiltY: number, baseSize: number, pathAngle: number): Dab {
+  private _makeDab(
+    x: number, y: number, pressure: number, rawTiltX: number, rawTiltY: number,
+    baseSize: number, pathAngle: number, ds: number,
+  ): Dab {
     // #305: the *filtered* tilt is what gets stored on the Dab, not just what
     // feeds the shaping below. Everything downstream that reads Dab.tiltX/Y —
     // the shader's own grain direction (charcoal's default variant is
@@ -556,8 +697,17 @@ export class DabSystem {
     const tiltMag    = tiltMagnitudeDeg(tiltX, tiltY)
     const tiltNorm   = tiltMag / 90
     const size       = baseSize * this._shaping.size(pressure, tiltNorm)
+    // #472: a flexible nib's footprint is the pose's own ovality *times* how
+    // far the nib is splayed and trailed by being dragged, and it points where
+    // the nib points rather than where the stylus leans. tipAngle is null
+    // while the stroke has no direction yet, or at the instant a hairpin
+    // straightens the nib out — both are "round nib, ordinary angle rule",
+    // which is the shape every other tool has all the time.
+    const tipAngle   = this._bendTip(pathAngle, ds, size)
+    const bend       = this._shaping.tipBend
     const aspectRatio = this._shaping.aspect(tiltNorm)
-    const angle      = this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle)
+      * (bend && tipAngle !== null ? bend.elongation(pressure) : 1)
+    const angle      = tipAngle ?? this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle)
     // `pressure` is stored as the real, unmapped value for every tool (see
     // dabShaping.ts's own #245 comment on why a per-tool remap used to live
     // here and was reverted) — DAB_FRAG derives whatever deposit-gate floor

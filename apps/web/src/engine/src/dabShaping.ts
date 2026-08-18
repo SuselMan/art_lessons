@@ -46,16 +46,84 @@ export interface DabShapingProfile {
    *  Deliberately a separate knob from tiltSmoothing rather than one shared
    *  "input smoothing": they filter different signals for different reasons,
    *  and ADR 009 §3 requires pressure smoothing to be independent of the
-   *  smoothing applied to coordinates (which is the spline's job, not this). */
-  pressureSmoothing?: number
+   *  smoothing applied to coordinates (which is the spline's job, not this).
+   *
+   *  #472: the unit is **canvas px of travel**, not a per-sample weight, and
+   *  the rename is the whole point of the change. A per-sample one-pole is a
+   *  filter whose cutoff is the device's report rate: the same hand gesture
+   *  came out three times less smoothed on a 240 Hz stylus than on a 60 Hz
+   *  one, so "how firm the pen feels" silently depended on the tablet. Over
+   *  distance it is the same filter with a cutoff the hand can actually feel
+   *  — see DabSystem._filterPressure for the conversion and for the one case
+   *  (a stationary press) where distance alone cannot carry it. */
+  pressureSmoothingPx?: number
   /**
    * Per-dab angle (radians). Given the raw tilt magnitude/components and the
    * spline's path-tangent angle at this dab, so a profile can derive angle
    * from either — or ignore both entirely and return a fixed angle (#249,
    * for a chisel-style nib whose edge orientation is a property of the tool,
    * not of tilt or stroke direction).
+   *
+   * Overridden entirely when `tipBend` is set — a bent nib's orientation is
+   * stroke state, which a pure function of one sample cannot express. See
+   * TipBendProfile.
    */
   angle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number): number
+  /** #472, ADR 009 §13: a flexible nib that bends under the hand, as opposed
+   *  to a rigid shape whose footprint is fully determined by the current
+   *  sample. Omitted by every tool but the brush pen; see TipBendProfile. */
+  tipBend?: TipBendProfile
+}
+
+/**
+ * #472, ADR 009 §13 — the contact patch of a nib that is being *dragged*.
+ *
+ * Every other tool here derives its footprint from the current sample alone:
+ * pressure and tilt in, size/aspect/angle out, no memory. That is right for a
+ * pencil lead or a felt tip, whose shape is a property of the object. A brush
+ * pen's nib is a bundle of fibres that deforms — it splays under pressure and,
+ * because it is dragged rather than pushed, it also *trails*: its long axis
+ * lags the direction of travel and only catches up over some distance of
+ * dragging.
+ *
+ * Both halves of that are what makes the tool read as physical rather than as
+ * a circle of varying diameter swept along a spline, which is what v1 was
+ * (aspect never left 1.0-1.12, oriented by the stylus's tilt azimuth). Neither
+ * half can live in `aspect()`/`angle()`: one needs pressure, the other needs
+ * state that persists across dabs. So they live here, and DabSystem owns the
+ * state exactly as it already owns the tilt and pressure filters.
+ *
+ * Nothing new reaches the payload: the result is baked into the recorded
+ * `Dab.aspectRatio`/`Dab.angle`, which the ribbon rasterizer already reads per
+ * endpoint (markerRibbon.ts's two nibSupport calls) — so every participant
+ * replays the same bent nib without recomputing anything.
+ */
+export interface TipBendProfile {
+  /**
+   * Contact-patch elongation (long axis / short axis) at this pressure, on top
+   * of whatever `aspect()` returns for the pose. 1 = round.
+   *
+   * Elongation is deliberately *not* a second width control: the long axis
+   * runs along the direction of travel, so on a straight line the swept band's
+   * half-width is still the short axis alone, i.e. still pressure and nothing
+   * else. What it changes is the two places a nib's length is visible — the
+   * ends of a stroke, and turns, where a trailing long axis sweeps wider on
+   * the outside than a circle would.
+   */
+  elongation(pressure: number): number
+  /**
+   * Distance over which the nib's orientation catches up with the direction of
+   * travel, as a multiple of the nib's own current width — a wider nib has
+   * further to bend, so it lags for longer. Converted to a one-pole weight per
+   * dab as `1 - exp(-ds / lag)`, i.e. per unit *arc length*, so the plasticity
+   * of a corner does not depend on how densely the stroke happened to be
+   * sampled there (dab spacing is not constant — _curvatureSpacingLimit
+   * tightens it on exactly the turns where this matters most).
+   */
+  lagWidths: number
+  /** Floor under that distance, canvas px, so a hairline nib still has some
+   *  inertia rather than snapping to every sample's direction. */
+  minLagPx: number
 }
 
 function clamp01(v: number): number {

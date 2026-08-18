@@ -43,7 +43,7 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { isRibbonTool, ribbonProfileFor, type RibbonProfile } from './src/ribbonProfile'
 import {
-  BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper,
+  BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper, applyBrushPenSpeedContact,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
 } from './src/brushPenPresets'
@@ -1892,6 +1892,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  _paintStrokeDabs; meaningless for every other tool, which never reads
    *  it. */
   private _strokeArcLen = 0
+  /** Running speed→contact factor for the brush pen (#472), carried across
+   *  batches so the width eases between them instead of stepping — see
+   *  applyBrushPenSpeedContact. 1 = nib fully in contact; reset in _onStart
+   *  alongside _strokeArcLen, and read by no other tool. */
+  private _strokeSpeedContact = 1
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   // #278: marker chisel nib's live angle setting — canvas-space radians
@@ -4599,6 +4604,11 @@ export class PencilEngine implements PencilEngineAPI {
     // needs nothing from the future), so it needs its own running total across
     // this gesture's batches.
     this._strokeArcLen  = 0
+    // #472: and a nib that starts every stroke fully in contact — the first
+    // batch has no meaningful speed yet (it is one sample old), so seeding the
+    // factor anywhere but 1 would narrow the head of every stroke on top of
+    // the taper that is already there on purpose.
+    this._strokeSpeedContact = 1
     this._strokeStartTimestamp = e.timeStamp
     if (this._debug) {
       const now = performance.now()
@@ -5028,6 +5038,10 @@ export class PencilEngine implements PencilEngineAPI {
     // only on the screen of whoever drew it, which is the exact failure #452
     // documents under linerWickPx.
     if (this._strokeTool === 'brushPen') {
+      // #472. Order against the taper below doesn't matter — both are plain
+      // multipliers on size, and the taper's own ramp is measured from dab
+      // positions, which neither of them touches.
+      this._strokeSpeedContact = applyBrushPenSpeedContact(dabs, speed, this._strokeSpeedContact)
       this._strokeArcLen = applyBrushPenHeadTaper(dabs, this._strokeDabs.at(-1), this._strokeArcLen)
     }
     for (const dab of dabs) dab.t = elapsedMs

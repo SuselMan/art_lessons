@@ -1,7 +1,7 @@
 import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
-import { tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
+import { tiltOrPathAngle, type DabShapingProfile, type TipBendProfile } from './dabShaping'
 import type { PencilPreset } from './pencilPresets'
 
 // This file and dabShaping.ts import from each other, the same safe circular
@@ -60,8 +60,16 @@ export const BRUSH_PEN_PRESET: PencilPreset = { opacity: 0.97, hardness: 0.88, s
 /** Never thinner than this fraction of the nominal size — a nib that vanishes
  *  at light pressure is unusable, and stylus pressure near zero is mostly
  *  noise (see BRUSH_PEN_MIN_PRESSURE, which guards the other end of the same
- *  problem). */
-const BRUSH_PEN_WIDTH_FLOOR = 0.15
+ *  problem).
+ *
+ *  #472: 0.10, down from v1's 0.15. The spec this tool is built to asks for
+ *  8-15%, and the low end is where the hairline lives — the thing the pen is
+ *  bought for. The absolute floor is elsewhere and unchanged
+ *  (RibbonProfile.minHalfWidthPx = 0.5 canvas px), so on a small pen this
+ *  never actually reaches: 0.10 x 3px is 0.3px, and the ribbon widens it back
+ *  to 0.5px rather than dropping it. On a 40px pen it is a real 4px hairline
+ *  against v1's 6px. */
+const BRUSH_PEN_WIDTH_FLOOR = 0.10
 
 /** Floor under the *reported* pressure while the pen is down. Tablets emit
  *  unstable near-zero values in the first samples after contact; without this
@@ -126,7 +134,82 @@ export function brushPenWidth(pressure: number, response: PressureResponse): num
 //
 // Separate from coordinate smoothing by construction, which is the other thing
 // ADR 009 asks for: coordinates are smoothed by the spline, pressure by this.
-export const BRUSH_PEN_PRESSURE_SMOOTHING = 0.35
+//
+// #472: expressed as a *distance*, not as a per-sample weight. v1's 0.35 per
+// admitted sample made the filter's cutoff the tablet's report rate: on a
+// 240 Hz stylus the same gesture arrived roughly three times less smoothed
+// than on a 60 Hz one, i.e. how firm the pen felt was a property of the
+// hardware. 10 canvas px is the distance over which a change in pressure
+// reaches ~63% of its new value; see DabSystem._filterPressure.
+//
+// Picked so the *middle* of the range is unchanged rather than by taste: at a
+// moderate 500 px/s on a 120 Hz stylus, samples land ~4.2px apart, and
+// 1 - exp(-4.2/10) = 0.34 — v1's 0.35, near enough. What changes is everything
+// either side of that: the same gesture on a 240 Hz tablet no longer arrives
+// half-filtered, and slow careful movement (where hairlines get drawn) is
+// smoothed considerably harder than v1 managed. Uncalibrated first pass, same
+// as every other constant in this file.
+export const BRUSH_PEN_PRESSURE_SMOOTHING_PX = 10
+
+// ─── Tip bend (#472, ADR 009 §13) ───────────────────────────────────────────
+// The single reason v1 read as "another digital pressure brush": its contact
+// patch was a *circle*. `aspect` came from tilt alone and never left
+// 1.0-1.12 in practice, oriented by the stylus's tilt azimuth — so what the
+// ribbon swept along the spline was a disc of varying diameter, which is
+// exactly the thing the tool exists not to be.
+//
+// A real brush nib does two things instead, and both of them are about being
+// dragged rather than about being held:
+//
+//  - it **splays**: pushed into the paper it flattens *and* lengthens, so the
+//    footprint becomes an oval rather than a bigger circle;
+//  - it **trails**: the fibres bend backwards, so the oval's long axis lags
+//    the direction of travel and only catches up over some distance.
+//
+// The second one is where the tool's plasticity comes from, and it is why
+// this is not a shape function. On a turn the nib is still pointing where the
+// hand *was*, so its far end sweeps wide on the outside of the corner — the
+// mark records the hand's history, not its instantaneous state. That is the
+// difference between dragging a bent nib and stamping circles, and no amount
+// of noise substitutes for it.
+
+/** Elongation of the footprint at full pressure — long axis / short axis, on
+ *  top of the pose's own mild ovality.
+ *
+ *  Note what this does *not* do: the long axis lies along the direction of
+ *  travel, so a straight line's width is still the short axis, i.e. still
+ *  pressure alone (ADR 009 §9's rule that pressure drives width and nothing
+ *  else drives it stands untouched). It shows at the two places a nib's length
+ *  is visible at all — the ends of a stroke, and turns. Uncalibrated. */
+const BRUSH_PEN_ELONGATION = 0.85
+
+/** How far the nib takes to swing round to the direction of travel, as a
+ *  multiple of its own current width: a wide nib has further to bend and lags
+ *  longer, which is why this is a ratio rather than a distance.
+ *
+ *  Too small and the nib is welded to the tangent — the elongation then only
+ *  shows at stroke ends and the tool is back to a swept disc in the middle.
+ *  Too large and the mark stops following the hand at all. Uncalibrated. */
+const BRUSH_PEN_TIP_LAG_WIDTHS = 0.6
+
+/** Floor under that distance so a hairline nib still has inertia: 0.6 x a 3px
+ *  pen is 1.8px, which at that pen's own dab spacing would be no lag at all. */
+const BRUSH_PEN_TIP_MIN_LAG_PX = 3
+
+function brushPenTipBend(response: PressureResponse): TipBendProfile {
+  return {
+    // The same S-curve as the width, on purpose and with the same `k`. One
+    // deformation is happening — the nib bending — and width and length are
+    // two views of it, so a nib that is described as "firm" should be equally
+    // reluctant to lengthen as it is to widen. Two curves here would let the
+    // footprint's *proportions* change with the setting, which is a property
+    // of the nib rather than of the hand.
+    elongation: pressure =>
+      1 + BRUSH_PEN_ELONGATION * gain(Math.max(pressure, BRUSH_PEN_MIN_PRESSURE), PRESSURE_RESPONSE_K[response]),
+    lagWidths: BRUSH_PEN_TIP_LAG_WIDTHS,
+    minLagPx: BRUSH_PEN_TIP_MIN_LAG_PX,
+  }
+}
 
 // ─── Dab shaping (ADR 009 §2, §6) ───────────────────────────────────────────
 
@@ -145,13 +228,20 @@ function brushPenShapingFor(response: PressureResponse): DabShapingProfile {
     // response would turn this into a marker or a charcoal stick, which are the
     // two tools it most needs to not be.
     aspect: tiltNorm => 1 + 0.25 * tiltNorm,
-    // Nothing tool-specific about the angle — the same tilt-or-path formula
-    // every tool that isn't a chisel uses.
+    // Kept as the fallback for the two moments the nib has no direction of its
+    // own — the first dab of a stroke, and the instant a hairpin straightens
+    // the fibres out — but for every dab in between, `tipBend` below overrides
+    // it outright. Tilt decides how large the contact patch is (§6); which way
+    // a *bent* nib points is a fact about the drag, and a stylus's lean has no
+    // business rotating it (#472).
     angle:  tiltOrPathAngle,
     // #305's low-pass, applied to pressure instead of tilt (DabSystem's own
     // _filterPressure). Opt-in per profile exactly as tiltSmoothing is, so no
     // other tool pays for it.
-    pressureSmoothing: BRUSH_PEN_PRESSURE_SMOOTHING,
+    pressureSmoothingPx: BRUSH_PEN_PRESSURE_SMOOTHING_PX,
+    // #472: the whole of the nib's flexibility, and the reason this tool needs
+    // a profile that other tools' pure shape functions cannot express.
+    tipBend: brushPenTipBend(response),
   }
 }
 
@@ -271,4 +361,52 @@ export function applyBrushPenEndTaper(dabs: Dab[], exitSpeed: number): void {
     const u = dist / tailPx
     dabs[i].size *= 1 - depth * (1 - u)
   }
+}
+
+// ─── Speed → contact (#472, revising ADR 009 §5) ────────────────────────────
+// v1 said "speed does not affect width", and gave a reason that was about cost
+// rather than about the tool: routing speed into DabSystem._makeDab meant a
+// new wire through the geometry of every tool for an effect the spec itself
+// calls slight. That reason is still valid, and this does not do it — the
+// factor is applied where the taper already is (PencilEngine._paintStrokeDabs,
+// which has the batch's measured speed in hand and is the one choke point
+// every live dab passes through before being recorded).
+//
+// What it buys, in the spec's own terms: a fast pen presses less of its nib
+// into the paper, so a quick stroke comes out a little leaner than the same
+// pressure drawn slowly. That is also what makes a run of "identical" strokes
+// differ slightly from each other without a single random number — the
+// difference is the hand's, which is the whole thesis of the tool.
+//
+// Deliberately small. A speed term strong enough to notice on its own would be
+// competing with pressure for control of the width, and the tool is defined by
+// pressure winning that.
+
+const CONTACT_SPEED_SLOW = 0.4   // canvas px/ms and below: nib fully in contact
+const CONTACT_SPEED_FAST = 2.5   // and above: as lean as speed alone makes it
+const CONTACT_AT_SPEED   = 0.9   // width multiplier at CONTACT_SPEED_FAST
+
+/** Per-dab weight for the running speed factor. Speed is measured per pointer
+ *  event, and a batch is often a single dab, so the raw value steps between
+ *  batches; against a ribbon that interpolates width continuously between
+ *  consecutive dabs, an unsmoothed 10% step is a visible notch in the
+ *  silhouette rather than a change in weight. */
+const CONTACT_SPEED_SMOOTHING = 0.25
+
+/**
+ * Scales a batch's dabs by the speed-driven contact factor, in place, and
+ * returns the factor to carry into the next batch.
+ *
+ * `prevFactor` is the value this returned last time (1 at the start of a
+ * stroke): the factor eases toward its target across the batch's dabs rather
+ * than being applied as a step, for the reason CONTACT_SPEED_SMOOTHING gives.
+ */
+export function applyBrushPenSpeedContact(dabs: Dab[], speed: number, prevFactor: number): number {
+  const target = lerp(1, CONTACT_AT_SPEED, (speed - CONTACT_SPEED_SLOW) / (CONTACT_SPEED_FAST - CONTACT_SPEED_SLOW))
+  let factor = prevFactor
+  for (const dab of dabs) {
+    factor += (target - factor) * CONTACT_SPEED_SMOOTHING
+    dab.size *= factor
+  }
+  return factor
 }
