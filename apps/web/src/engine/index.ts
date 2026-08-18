@@ -1370,6 +1370,21 @@ class RibbonStrokeScratch {
     return this._dabSpacing
   }
 
+  /** (#468 v8) The gesture's opening direction, cached the first time a real
+   *  segment exists. Same first-two-dabs rule the spacing follows, and for the
+   *  same reason: it is the one measurement a live stroke and a replay of it
+   *  are guaranteed to agree on. */
+  private _dir: [number, number] = [1, 0]
+  private _dirSet = false
+
+  noteDirection(dx: number, dy: number): [number, number] {
+    if (!this._dirSet) {
+      const len = Math.hypot(dx, dy)
+      if (len > 0.01) { this._dir = [dx / len, dy / len]; this._dirSet = true }
+    }
+    return this._dir
+  }
+
   get waterUsed(): number {
     return this._waterUsed
   }
@@ -1448,6 +1463,8 @@ class RibbonStrokeScratch {
     this._waterUsed = 0
     this._composite = null
     this._dabSpacing = 0
+    this._dirSet = false
+    this._dir = [1, 0]
     this._finish = null
     for (const { original, coverage, inkLoad } of this._tiles.values()) {
       this.pool.release(original); this.pool.release(coverage)
@@ -4437,7 +4454,8 @@ export class PencilEngine implements PencilEngineAPI {
       'u_spreadPx', 'u_cloud', 'u_fieldOffset',
       // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
       // the rest are read by the composite.
-      'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoftMax', 'u_tideLo', 'u_tideHi',
+      'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoft', 'u_edgeWander', 'u_strokeDir',
+      'u_tideLo', 'u_tideHi',
       // #468 v5 — how covering the paint is (watercolorPigments.ts).
       'u_pigmentOpacity',
       // #468 v6 — the dab spacing, the period of the deposit's own ripple.
@@ -6382,6 +6400,11 @@ export class PencilEngine implements PencilEngineAPI {
       ? Math.hypot(drawable[1].x - drawable[0].x, drawable[1].y - drawable[0].y)
       : (prevDab ? Math.hypot(drawable[0].x - prevDab.x, drawable[0].y - prevDab.y) : 0)
     const dabSpacing = scratch.noteDabSpacing(firstGap)
+    const dirFrom = drawable.length >= 2 ? drawable[0] : prevDab
+    const dirTo = drawable.length >= 2 ? drawable[1] : drawable[0]
+    const strokeDir = scratch.noteDirection(
+      dirFrom ? dirTo.x - dirFrom.x : 0, dirFrom ? dirTo.y - dirFrom.y : 0,
+    )
     const { spreadPx, water: fringeWater } = scratch.compositeScalars(() => {
       const firstRadius = Math.max(drawable[0].size * 0.5 * preset.sizeMultiplier, 0.5)
       return {
@@ -6561,7 +6584,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._drawRibbonCompositeRect(
         tile, compositeBounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
         [drawable[0].x, drawable[0].y], spreadPx, fringeWater,
-        profile.normalizeDeposit ? dabSpacing : 0,
+        profile.normalizeDeposit ? dabSpacing : 0, strokeDir,
       )
     }
 
@@ -6585,12 +6608,13 @@ export class PencilEngine implements PencilEngineAPI {
     if (!targets.length) return
     const { spreadPx, water } = scratch.compositeScalars(() => ({ spreadPx: 0, inkSmoothPx: 0, water: 0 }))
     const spacing = scratch.noteDabSpacing(0)
+    const dir = scratch.noteDirection(0, 0)
     for (const tile of targets) {
       const entry = scratch.peek(tile.buffer)
       if (!entry) continue
       this._drawRibbonCompositeRect(
         tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity,
-        fieldSeed, spreadPx, water, spacing,
+        fieldSeed, spreadPx, water, spacing, dir,
       )
     }
     target.markContentPainted(bounds)
@@ -6759,6 +6783,7 @@ export class PencilEngine implements PencilEngineAPI {
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
     color: [number, number, number], opacity: number,
     fieldSeed: [number, number], spreadPx: number, water: number, inkSmoothPx: number,
+    strokeDir: [number, number],
   ): void {
     const cx = (bounds.minX + bounds.maxX) * 0.5
     const cy = (bounds.minY + bounds.maxY) * 0.5
@@ -6767,7 +6792,7 @@ export class PencilEngine implements PencilEngineAPI {
       x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
       size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
     }
-    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water, inkSmoothPx)
+    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water, inkSmoothPx, strokeDir)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -6780,7 +6805,7 @@ export class PencilEngine implements PencilEngineAPI {
     tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
     color: [number, number, number], fieldSeed: [number, number], spreadPx: number, water: number,
-    inkSmoothPx: number,
+    inkSmoothPx: number, strokeDir: [number, number],
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -6876,7 +6901,9 @@ export class PencilEngine implements PencilEngineAPI {
     // per-pixel level from.
     gl.uniform1f(u.u_water, water)
     gl.uniform1f(u.u_dryContact, profile.dryContact)
-    gl.uniform1f(u.u_edgeSoftMax, profile.edgeSoftMax)
+    gl.uniform1f(u.u_edgeSoft, profile.edgeSoft)
+    gl.uniform1f(u.u_edgeWander, profile.edgeWander)
+    gl.uniform2f(u.u_strokeDir, strokeDir[0], strokeDir[1])
     gl.uniform1f(u.u_tideLo, profile.tideLo)
     gl.uniform1f(u.u_tideHi, profile.tideHi)
     gl.uniform1f(u.u_pigmentOpacity, profile.pigmentOpacity)

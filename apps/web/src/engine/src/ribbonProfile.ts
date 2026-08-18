@@ -139,6 +139,17 @@ export interface RibbonProfile {
    *  own footprint, a flood travels visibly further than the hand went. 0 for a
    *  tool with no spread at all. */
   spreadOfRadius: number
+  /** #468 v8 — the direction the stroke set off in, as a unit vector (ADR 011
+   *  §8). Read only by the dry-brush term, which stretches its bristle field
+   *  along it: a nearly dry round brush leaves *longitudinal* streaks, because
+   *  the hairs group and separate along the travel, and a field that knows only
+   *  the paper's relief reads as an aerosol instead.
+   *
+   *  Taken from the gesture's first segment and then fixed, so a live stroke
+   *  and a replay of it agree — the same rule the dab spacing follows. A curve
+   *  therefore keeps its opening direction throughout; a dry drag, which is
+   *  what this term exists for, is near enough straight for that to hold. */
+  strokeDir: [number, number]
   /** #468 v4 — how strongly the paper's own relief breaks the brush's contact
    *  with it (ADR 011 §4.2). 0 = a loaded brush that floods the valleys and
    *  touches everything; 1 = a nearly dry one riding the crests.
@@ -152,10 +163,14 @@ export interface RibbonProfile {
    *  Only the nominal value lives here; the shader modulates it per pixel by
    *  how much water was left when the brush passed (see u_inkLoad's .r channel). */
   dryContact: number
-  /** #468 v4 — upper end of the per-place edge-softness range (ADR 011 §4.1).
-   *  Water decides it: a flood has edges running from nearly lost to fairly
-   *  crisp within one mark, a dry brush has only crisp ones. */
-  edgeSoftMax: number
+  /** #468 v8 — how softly the boundary resolves (ADR 011 §8). Water's number
+   *  outright, not a ceiling for noise to pick under: choosing a hard or a soft
+   *  edge has to be something the hand does, not something a field decides. */
+  edgeSoft: number
+  /** #468 v8 — how far the boundary may wander off the brush's own outline, as
+   *  a fraction of the blur it is thresholded against. Dry paint goes where it
+   *  is put; a flood finds its own shape. */
+  edgeWander: number
   /** #468 v4 — the band the tideline's gating field is thresholded against.
    *  Low/high, and *inverted* with water on purpose: a dry mark has almost no
    *  perimeter carrying a rim, a wet one has most of it. */
@@ -309,8 +324,10 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   pigmentLevel: 0,
   pigmentOpacity: 0,
   spreadOfRadius: 0,
+  strokeDir: [1, 0] as [number, number],
   dryContact: 0,
-  edgeSoftMax: 0,
+  edgeSoft: 0,
+  edgeWander: 0,
   tideLo: 0,
   tideHi: 0,
   saturateInk: 0,
@@ -355,8 +372,10 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   pigmentLevel: 0,
   pigmentOpacity: 0,
   spreadOfRadius: 0,
+  strokeDir: [1, 0] as [number, number],
   dryContact: 0,
-  edgeSoftMax: 0,
+  edgeSoft: 0,
+  edgeWander: 0,
   tideLo: 0,
   tideHi: 0,
   saturateInk: 0,
@@ -518,9 +537,11 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // the water setting alone.
     spreadOfRadius: w.spreadOfRadius * (0.6 + 0.8 * paint.diffusion),
     cloud: w.cloud,
-    edgeSoftMax: w.edgeSoftMax,
+    edgeSoft: w.edgeSoft,
+    edgeWander: w.edgeWander,
     tideLo: w.tideLo,
     tideHi: w.tideHi,
+    strokeDir: [1, 0],
     dryContact: w.dryContact,
     // ── from pigment: how much paint ──
     granulation: p.granulation * (0.25 + 1.5 * paint.granulation),

@@ -235,7 +235,11 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
     const dry = watercolorWaterEffects(0.1)
     const wet = watercolorWaterEffects(0.95)
     expect(wet.spreadOfRadius).toBeGreaterThan(dry.spreadOfRadius * 2)
-    expect(wet.edgeSoftMax).toBeGreaterThan(dry.edgeSoftMax)
+    expect(wet.edgeSoft).toBeGreaterThan(dry.edgeSoft * 2)
+    // §8 — and a dry mark's boundary must stay close to where the brush put it,
+    // which is what makes a hard edge a technique rather than a lottery.
+    expect(dry.edgeWander).toBeLessThan(0.15)
+    expect(wet.edgeWander).toBeGreaterThan(dry.edgeWander * 3)
     expect(wet.cloud).toBeGreaterThan(dry.cloud)
     // Dry brush is *only* reachable at low water, and must switch off entirely
     // once the brush is properly loaded.

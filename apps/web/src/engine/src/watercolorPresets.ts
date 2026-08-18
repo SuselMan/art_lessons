@@ -199,7 +199,8 @@ function mix(a: number, b: number, t: number): number {
  *  legible side by side rather than scattered across a profile literal. */
 export function watercolorWaterEffects(water: number): {
   spreadOfRadius: number
-  edgeSoftMax: number
+  edgeSoft: number
+  edgeWander: number
   cloud: number
   tideLo: number
   tideHi: number
@@ -211,12 +212,29 @@ export function watercolorWaterEffects(water: number): {
     // the contact patch — while a flood travels visibly further than the hand
     // went, which is the single strongest cue that this is not a marker.
     spreadOfRadius: mix(0.10, 0.42, water),
-    // Upper end of the per-place edge-softness range. Wet edges vary from
-    // almost lost to fairly crisp within one mark; dry edges are all crisp,
-    // because there is no liquid to feather them.
-    edgeSoftMax: mix(0.14, 0.45, water),
-    // Coarse pooling. More liquid means more room for it to gather unevenly.
-    cloud: mix(0.16, 0.52, water),
+    // #468 v8, ADR 011 §8 — how softly the boundary resolves. Water's number
+    // outright now, not a ceiling that noise picks a value under.
+    //
+    // That difference is the whole revision. With noise choosing, a mark's edge
+    // came out hard here and lost there for no reason the hand could see or
+    // repeat — so "leave this edge hard, soften that one", an exercise anyone
+    // is set in their first week, was not something the tool could do. Now the
+    // setting decides and noise only wobbles it.
+    edgeSoft: mix(0.05, 0.40, water),
+    // How far the boundary may wander off the brush's own outline, as a
+    // fraction of the blur it is thresholded against. Dry paint goes where it
+    // is put; a flood finds its own shape.
+    //
+    // Also water's number rather than a fixed wide range. v2 through v7 spent
+    // 0.10..0.62 of the blur on noise regardless of the mix, so even a nearly
+    // dry brush produced a boundary that ignored the hand — exactly the
+    // complaint that procedural fields, and not the user, were deciding what
+    // the mark looked like.
+    edgeWander: mix(0.05, 0.42, water),
+    // Coarse pooling. More liquid means more room for it to gather unevenly —
+    // and rather less of it than v4-v7 had, for the same reason: this is the
+    // material's texture, not its main event.
+    cloud: mix(0.08, 0.34, water),
     // The band the tideline's gating field is thresholded against. A dry mark
     // has almost no perimeter with a rim (there was never a pool to retreat);
     // a wet one has a rim over most of it. Narrow band, high threshold = rare.

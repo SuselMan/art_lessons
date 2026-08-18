@@ -463,7 +463,20 @@ export const DAB_FRAG = `
   // How hard the paper's relief breaks the contact at zero water, and the band
   // the tideline's gating field is thresholded against. See RibbonProfile.
   uniform float u_dryContact;
-  uniform float u_edgeSoftMax;
+  // #468 v8, ADR 011 §8 — how softly the boundary resolves, and how far it may
+  // wander off the brush's own outline. Both are water's numbers, and both used
+  // to be picked by noise out of a fixed wide range regardless of the mix.
+  //
+  // That was the single biggest reason the tool read as "very good stylisation"
+  // rather than as a material: the hand set where the brush went, and a field
+  // decided what the mark then looked like. A hard edge and a lost edge are
+  // *techniques*, chosen deliberately and repeated on purpose; noise can wobble
+  // them, it cannot be the thing that picks.
+  uniform float u_edgeSoft;
+  uniform float u_edgeWander;
+  // #468 v8 — the direction the stroke set off in, unit length. Read only by
+  // the dry-brush term. See u_dryContact.
+  uniform vec2 u_strokeDir;
   uniform float u_tideLo;
   uniform float u_tideHi;
   // #468 v5 — how covering the *paint* is (watercolorPigments.ts). Chooses
@@ -882,12 +895,18 @@ export const DAB_FRAG = `
         // (range of thr) / (slope of blurred across the edge), so a timid range
         // buys a wobble of a pixel or two that nothing can see. This spends
         // most of the blur radius in both directions.
-        float thr  = mix(0.10, 0.62, wcFbm(wp * 0.030));                    // ~33px cells
+        // §8 - the boundary sits where the brush put it, and wanders from
+        // there by however much water there is to carry it. 0.5 is the neutral:
+        // thresholding the blur at its half point reproduces the swept outline
+        // exactly, so a dry mark with u_edgeWander near zero goes where the hand
+        // went. Every earlier version spent a fixed 0.10..0.62 here whatever the
+        // mix, which is why even a nearly dry brush drew a shape of its own.
+        float thr = 0.5 + u_edgeWander * (wcFbm(wp * 0.030) - 0.5);
         // §4.1 - how sharply the boundary resolves, and the range is water's
         // to set. A flood has edges running from nearly lost to fairly crisp
         // within one mark; a dry brush has only crisp ones, because there is no
         // liquid to feather them.
-        float soft = mix(0.06, max(u_edgeSoftMax, 0.07), wcFbm(wp * 0.017 + vec2(53.0, 11.0)));
+        float soft = max(u_edgeSoft, 0.03) * mix(0.75, 1.25, wcFbm(wp * 0.017 + vec2(53.0, 11.0)));
         coverage = smoothstep(thr, thr + soft, blurred);
       }
 
@@ -908,10 +927,33 @@ export const DAB_FRAG = `
       // and nothing that cross-device determinism has ever been broken by.
       float dryness = u_dryContact * (1.0 - waterHere);
       if (dryness > 0.0) {
+        // §8 - the brush's own hairs, not just the paper's relief.
+        //
+        // A nearly dry round brush does not present a clean disc to the paper:
+        // its hairs group into bundles and separate, so the mark breaks into
+        // *longitudinal* streaks running along the travel. A term that knows
+        // only the paper's height threshold cannot produce those, and what it
+        // produces instead reads as an aerosol or a pastel — which is exactly
+        // how the dry brush was described.
+        //
+        // Modelled by sampling a field in a frame rotated onto the stroke's own
+        // direction and stretched some fifteen times along it: fine across the
+        // travel, long and smooth along it. That is the shape of a bundle of
+        // hairs, and it costs one rotation and one fbm.
+        vec2 along = u_strokeDir;
+        vec2 across = vec2(-along.y, along.x);
+        vec2 bristleUV = vec2(dot(wp, along) * 0.012, dot(wp, across) * 0.19);
+        float bristle = wcFbm(bristleUV + vec2(3.0, 29.0));
+
+        // Where a bundle sits, the brush reaches further down into the paper;
+        // between bundles it barely touches even a crest. So the bristles
+        // modulate the paper's own catch rather than being laid over the result.
+        float reach = paperCatch * mix(0.55, 1.45, bristle);
         // The threshold climbs with dryness: at 0 it sits below every catch
-        // value and nothing is cut, at 1 only the highest crests survive.
+        // value and nothing is cut, at 1 only the highest crests under a bundle
+        // survive.
         float lift = mix(-0.05, 0.72, dryness);
-        float contact = smoothstep(lift, lift + 0.22, paperCatch);
+        float contact = smoothstep(lift, lift + 0.22, reach);
         coverage *= mix(1.0, contact, dryness);
       }
 
