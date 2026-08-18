@@ -241,6 +241,20 @@ export interface RibbonProfile {
    *  does. */
   migrateLo: number
   migrateHi: number
+  /** #468 v12, ADR 011 §12 — how much liquid one dab delivers, per dab and not
+   *  per unit of travel.
+   *
+   *  That distinction is the whole field. Paint is normalized by distance so a
+   *  stroke lays the same colour however densely it is sampled; liquid is not,
+   *  so a brush held still keeps delivering water while adding almost no
+   *  colour. Without it a spot the brush rested on and a spot it swept past are
+   *  the same pixel, which is measurably what they were: the pooling appended
+   *  at pen-up landed seven real dabs and produced a byte-identical picture,
+   *  because their deposit was already at the buffer's ceiling.
+   *
+   *  0 for every tool without a water model, which leaves the channel it feeds
+   *  at zero and the pool term identically off. */
+  liquidPerDab: number
   /** How far the ribbon's straight chords may deviate from the curve they
    *  approximate before sampling gets denser (DabSystem.curvatureTolerancePx). */
   curvatureTolerancePx: number
@@ -388,6 +402,7 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   migrateOfRadius: 0,
   migrateLo: 0,
   migrateHi: 0,
+  liquidPerDab: 0,
 }
 
 const MARKER_CHISEL_RIBBON: RibbonProfile = {
@@ -441,6 +456,7 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   migrateOfRadius: 0,
   migrateLo: 0,
   migrateHi: 0,
+  liquidPerDab: 0,
 }
 
 // ─── Watercolor (#468, ADR 011) ─────────────────────────────────────────────
@@ -578,6 +594,17 @@ const WATERCOLOR_MIGRATE_OF_RADIUS = 0.55
 const WATERCOLOR_MIGRATE_MAX_PX = 20.0
 const WATERCOLOR_MIGRATE_MIN_PX = 3.0
 
+/** How much liquid one dab delivers, before the brush's own water scales it.
+ *
+ *  Set against what the composite has to be able to tell apart. A pixel is
+ *  covered by about four stamps as the nib passes, so one pass leaves roughly
+ *  four times this; a second pass over the same spot doubles that; and a brush
+ *  set down and lifted slowly adds seven more stamps in one place (ADR 011
+ *  §4.3). At 0.08 that is about 0.2 for a pass, 0.4 for an overlap and 0.75 for
+ *  a puddle, which puts a threshold between the overlap and the puddle without
+ *  either of them running into the 8-bit channel's ceiling. */
+const WATERCOLOR_LIQUID_PER_DAB = 0.08
+
 /** The share of the pigment present that one exchange may move.
  *
  *  Held below 1 so the operation can never take more paint out of a place than
@@ -698,6 +725,7 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     migrateOfRadius: WATERCOLOR_MIGRATE_OF_RADIUS,
     migrateLo: WATERCOLOR_MIGRATE_LO,
     migrateHi: WATERCOLOR_MIGRATE_HI,
+    liquidPerDab: WATERCOLOR_LIQUID_PER_DAB,
   }
 }
 

@@ -338,8 +338,37 @@ describe('pooling at the end of a wet stroke (#468 v4, ADR 011 §4.3)', () => {
     expect(dabs).toHaveLength(3)
   })
 
-  it('is a no-op on an empty batch', () => {
+  it('is a no-op on an empty batch with nothing to anchor to', () => {
     expect(() => applyWatercolorPooling([], 0, 1)).not.toThrow()
+  })
+
+  // #468 v12 — this function was dead in exactly the case it was written for.
+  //
+  // The pen-up flush only yields a dab when the final segment is at least one
+  // dab spacing long. A hand that *slows to a stop* before lifting therefore
+  // hands it an empty batch and used to get no pool at all, while a hand that
+  // flicks off gets a full final segment and did. Exactly backwards — and
+  // invisible until the liquid channel gave a pool something to show, at which
+  // point a flick and a rest measured as two byte-identical pictures with the
+  // same number of recorded dabs.
+  it('anchors on the gesture last dab when the pen-up flush yielded none', () => {
+    const dabs: Dab[] = []
+    applyWatercolorPooling(dabs, 0, 0.95, dabAt(20, 5))
+    expect(dabs.length).toBeGreaterThan(0)
+    expect(dabs[0].x).toBe(20)
+    expect(dabs[0].y).toBe(5)
+  })
+
+  it('prefers the flush own last dab over the seed when it has one', () => {
+    const dabs = tail()
+    applyWatercolorPooling(dabs, 0, 0.95, dabAt(999, 999))
+    expect(dabs[dabs.length - 1].x).toBe(20)
+  })
+
+  it('still leaves none on a quick flick, seed or no seed', () => {
+    const dabs: Dab[] = []
+    applyWatercolorPooling(dabs, 4, 0.95, dabAt(20, 0))
+    expect(dabs).toHaveLength(0)
   })
 })
 
@@ -444,6 +473,27 @@ describe('pigment transport (#468 v11, ADR 011 §11)', () => {
   it('no other ribbon tool migrates anything', () => {
     for (const tool of ['marker', 'brushPen'] as const) {
       expect(ribbonProfileFor(tool, undefined).migrate).toBe(0)
+    }
+  })
+
+  // #468 v12 — liquid is a separate quantity from paint, and the separation is
+  // the point: paint is normalized by travel so a stroke lays the same colour
+  // however densely it is sampled, liquid is counted per dab so a brush that
+  // stops keeps delivering water while adding almost no colour.
+  it('watercolor delivers liquid, and no other tool does', () => {
+    expect(ribbonProfileFor('watercolor', undefined).liquidPerDab).toBeGreaterThan(0)
+    for (const tool of ['marker', 'brushPen'] as const) {
+      expect(ribbonProfileFor(tool, undefined).liquidPerDab).toBe(0)
+    }
+  })
+
+  // Unlike migrate, this one is *not* gated on the water setting: it is a
+  // property of the brush, and how much liquid actually arrives is already
+  // scaled by the water left in it at each dab (see the engine's nib pass).
+  it('carries liquid at every mix, because the water level scales it elsewhere', () => {
+    for (const water of [0.2, 0.55, 0.95]) {
+      const p = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water, pigment: 0.6 }))
+      expect(p.liquidPerDab).toBeGreaterThan(0)
     }
   })
 })

@@ -4475,6 +4475,8 @@ export class PencilEngine implements PencilEngineAPI {
       'u_inkSmoothPx',
       // #468 v11 — pigment transport (ADR 011 §11).
       'u_migrate', 'u_migratePx', 'u_migrateLo', 'u_migrateHi',
+      // #468 v12 — liquid delivered per dab, read by the ink pass (ADR 011 §12).
+      'u_liquid',
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
@@ -4928,7 +4930,13 @@ export class PencilEngine implements PencilEngineAPI {
       // puddle, not the round cap a swept nib gives. After the taper on
       // purpose: the repeats copy the already-tapered last dab, so the pool
       // sits at the tip's real width instead of re-widening it.
-      applyWatercolorPooling(dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel)
+      // The gesture's own last dab stands in when the pen-up flush produced
+      // none of its own — see applyWatercolorPooling's `seed` for why that is
+      // the difference between the pool working and not existing.
+      applyWatercolorPooling(
+        dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel,
+        this._strokeDabs[this._strokeDabs.length - 1],
+      )
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
     if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch)
@@ -6623,9 +6631,13 @@ export class PencilEngine implements PencilEngineAPI {
       if (inkLoad) {
         for (let i = 0; i < drawable.length; i++) {
           inkLoad.beginAdditiveDraw()
+          const dabWater = waterByDab.get(drawable[i]) ?? 0
           this._drawRibbonNibPass(
             inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false,
-            waterByDab.get(drawable[i]) ?? 0,
+            dabWater,
+            // Scaled by the water actually left in the brush: a nib running dry
+            // delivers no liquid however long it is held there.
+            profile.liquidPerDab * dabWater,
           )
           inkLoad.endDraw()
         }
@@ -6735,6 +6747,10 @@ export class PencilEngine implements PencilEngineAPI {
      *  level (ADR 011 §4.1). 0 for every tool with no water model, which leaves
      *  those channels at zero and the ratio unread. */
     inkWater = 0,
+    /** (#468 v12) How much liquid this dab delivers — per dab, not per unit of
+     *  travel, which is what makes a brush that stopped distinguishable from
+     *  one that swept past. 0 for every tool with no water model. */
+    liquid = 0,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -6772,6 +6788,13 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_opacity, opacity)
     // #468 v4 — weights the deposit written into the texture's colour channels.
     gl.uniform1f(u.u_inkWater, inkWater)
+    // #468 v12 — and the green channel, which carries liquid rather than paint.
+    // Set on every nib draw, not just watercolor's, for the reason u_wickPx
+    // above already documents: uniforms persist across draws on a shared
+    // program, and a marker stamp inheriting a watercolor stroke's value would
+    // write a quantity into a channel its own composite never reads — harmless
+    // today and a trap the first time something does read it.
+    gl.uniform1f(u.u_liquid, liquid)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     if (ownTarget) dest.endDraw()

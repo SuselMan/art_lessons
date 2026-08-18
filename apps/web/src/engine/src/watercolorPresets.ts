@@ -454,16 +454,28 @@ const POOL_MAX_DABS = 7
  *  nowhere else — the exact failure ADR 009 §4 documents for tapers.
  *
  *  They land on top of each other, so the ribbon's dwell-creep distance gives
- *  them a real deposit (see _markerSegmentLength) without widening the mark:
- *  more pigment in one place, which is what a puddle is. */
-export function applyWatercolorPooling(dabs: Dab[], exitSpeed: number, water: number): void {
-  if (!dabs.length || water < POOL_WATER_MIN) return
+ *  them a real deposit (see _markerSegmentLength) without widening the mark —
+ *  and, since #468 v12, a real amount of *liquid* (RibbonProfile.liquidPerDab),
+ *  which is the part that actually shows.
+ *
+ *  `seed` is the gesture's own last dab, and it is not an optimisation — it is
+ *  the fix for this whole function having been dead in the case it was written
+ *  for. The pen-up flush only yields a dab when the final segment is at least
+ *  one dab spacing long, so a hand that *slows to a stop* before lifting hands
+ *  this an empty array and gets no pool at all, while a hand that flicks off
+ *  gets a full final segment. Exactly backwards, and invisible until the liquid
+ *  channel gave a pool something to show: measured as two byte-identical
+ *  pictures for a flick and a rest, with the same number of recorded dabs. */
+export function applyWatercolorPooling(
+  dabs: Dab[], exitSpeed: number, water: number, seed?: Dab,
+): void {
+  const anchor = dabs.length ? dabs[dabs.length - 1] : seed
+  if (!anchor || water < POOL_WATER_MIN) return
   const slowness = clamp01(1 - exitSpeed / POOL_SPEED_MAX)
   const wetness = clamp01((water - POOL_WATER_MIN) / (1 - POOL_WATER_MIN))
   const extra = Math.round(POOL_MAX_DABS * slowness * wetness)
   if (extra <= 0) return
-  const last = dabs[dabs.length - 1]
-  for (let i = 0; i < extra; i++) dabs.push({ ...last })
+  for (let i = 0; i < extra; i++) dabs.push({ ...anchor })
 }
 
 // ─── Taper (ADR 011 §5) ─────────────────────────────────────────────────────

@@ -245,6 +245,12 @@ export const RIBBON_FRAG = `
     float cov = clamp(v_edge / u_aaPx, 0.0, 1.0);
     if (cov <= 0.0) discard;
     float amount = u_mode > 0.5 ? cov * v_ink : cov;
+    // (#468 v12) The bands write no liquid at all — see DAB_FRAG's u_liquid.
+    // Liquid is counted per nib stamp, and the stamps blanket the mark four
+    // deep, so a band adding its own would double-count the space between two
+    // of them and, worse, would count it *by area travelled* rather than by
+    // time spent: a fast stroke and a slow one cover the same ground.
+    float liquid = 0.0;
     // (#468 v4) Same two-channel deposit the nib stamps write: .a is how much
     // paint landed, .rgb the same amount weighted by how wet the brush was, so
     // the composite can recover a per-pixel water level. One value for the
@@ -257,7 +263,8 @@ export const RIBBON_FRAG = `
     // how the stroke happened to be cut into pointer events — a live stroke and
     // a replay of it disagreed over a quarter of the mark, and a reload
     // visibly redrew it.
-    gl_FragColor = vec4(vec3(u_mode > 0.5 ? cov * v_inkWater : amount), amount);
+    float wet = u_mode > 0.5 ? cov * v_inkWater : amount;
+    gl_FragColor = vec4(wet, u_mode > 0.5 ? liquid : amount, wet, amount);
   }
 `;
 
@@ -412,6 +419,24 @@ export const DAB_FRAG = `
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
+  // #468 v12, ADR 011 §12 — how much *liquid* this dab delivers, as opposed to
+  // how much paint. Written into the deposit texture's green channel, which
+  // every other tool leaves at zero.
+  //
+  // The two are separate quantities and this is the whole point of the
+  // revision. Paint is measured per unit of travel: the deposit is multiplied
+  // by how far the nib moved since the last dab, so that a stroke lays the same
+  // amount of colour however densely it happens to be sampled. Liquid is
+  // measured **per dab**, with no travel in it at all — so a brush that stops
+  // keeps pumping water into one place while laying almost no extra colour
+  // there, which is exactly what a brush that stops does.
+  //
+  // Before this, a spot the brush rested on was indistinguishable from a spot
+  // it swept past: the pooling that ADR 011 §4.3 appends at pen-up really did
+  // add seven dabs, and they really did land, and the picture came out
+  // *byte-identical* — because the deposit they added was already at the 8-bit
+  // buffer's ceiling. Measured, not deduced.
+  uniform float u_liquid;
   // #454 (ADR 009 §8) — how strongly paper grain eats into the brush pen's
   // *rim*. Read only by the u_inkMode=8 composite branch; 0 everywhere else,
   // which makes that branch's own term vanish identically.
@@ -726,6 +751,17 @@ export const DAB_FRAG = `
   // middle of the wash: the field it reads is zero-mean, and the term it scales
   // is itself zero away from the margin.
   const float WC_MIGRATE_PATCH = 0.75;
+  // #468 v12 — where standing liquid starts counting as a puddle, and how deep
+  // it then stands. Read off the green channel, in the units u_liquid sets.
+  //
+  // The onset has to clear an ordinary overlap. One pass over a spot leaves
+  // about 0.2 there and a second pass another 0.2, so a wash laid band beside
+  // band sits near 0.4 wherever two bands meet — and a threshold under that
+  // would draw a line along every seam, which is precisely the artefact the
+  // flat-wash exercise exists to catch. A brush that stops adds seven stamps
+  // on one spot and reaches about 0.9, so the two are comfortably apart.
+  const float WC_POOL_ONSET = 0.45;
+  const float WC_POOL_DEPTH = 1.2;
   // The deposit at which the standing film stops deepening, as a fraction of
   // u_saturateInk. Sits at the level the deposit buffer itself tops out at, so
   // the depth reads as flat right across the inside of a wash and slopes only
@@ -783,6 +819,10 @@ export const DAB_FRAG = `
     float dep = a.a;
     float wat = dep > 0.004 ? clamp(a.r / dep, 0.0, 1.0) : 0.0;
     float cov = texture2D(u_strokeCoverage, uv).a;
+    // #468 v12 — how much liquid stood here, over and above what a pass leaves.
+    // This is the only thing in the model that knows the brush *stopped*, and
+    // it enters exactly one place: the depth of the standing film, below.
+    float pool = max(a.g - WC_POOL_ONSET, 0.0) * WC_POOL_DEPTH;
     // How wet this place counts as: mostly the mix the stroke was made with,
     // nudged by the water actually left in the brush here.
     float wetness = mix(u_water, wat, WC_MIGRATE_LOCAL);
@@ -792,7 +832,12 @@ export const DAB_FRAG = `
       * (1.0 + WC_MIGRATE_FLOOD * smoothstep(WC_MIGRATE_FLOOD_LO, WC_MIGRATE_FLOOD_HI, wetness));
     return vec4(
       dep,
-      wat * min(dep / full, 1.0),
+      // The film: flat across the inside of a wash, sloping away through the
+      // margin — and standing *proud* of that plateau wherever liquid pooled.
+      // A puddle is a local maximum of depth, so the exchange below drains it
+      // outward all by itself and leaves its pigment in a ring. Nothing here
+      // draws a ring; the ring is what draining a bump looks like.
+      wat * (min(dep / full, 1.0) + pool),
       smoothstep(WC_MIGRATE_EDGE_LO, WC_MIGRATE_EDGE_HI, cov),
       gate
     );
@@ -941,13 +986,18 @@ export const DAB_FRAG = `
       float cov = clamp(-dPx / u_aaPx, 0.0, 1.0);
       if (cov <= 0.0) discard;
       float depth = clamp(-dPx / max(v_radius, 1e-4), 0.0, 1.0);
-      float amount = cov * mix(u_inkEdge, 1.0, depth) * v_opacity;
-      // .a is the deposit; .rgb the same deposit weighted by how wet the brush
-      // was for this dab. Both accumulate additively, so the composite's r/a is
-      // the deposit-weighted mean water over everything that landed here — see
-      // u_inkWater. Zero for every tool that does not set it, which leaves the
-      // ratio undefined and unread.
-      gl_FragColor = vec4(vec3(amount * u_inkWater), amount);
+      float shape = cov * mix(u_inkEdge, 1.0, depth);
+      float amount = shape * v_opacity;
+      // .a is the deposit; .r and .b the same deposit weighted by how wet the
+      // brush was for this dab. All accumulate additively, so the composite's
+      // r/a is the deposit-weighted mean water over everything that landed
+      // here — see u_inkWater. Zero for every tool that does not set it, which
+      // leaves the ratio undefined and unread.
+      //
+      // .g is liquid, and it is deliberately *not* multiplied by v_opacity:
+      // that is where the travel distance rides, and liquid must not carry it.
+      // See u_liquid.
+      gl_FragColor = vec4(amount * u_inkWater, shape * u_liquid, amount * u_inkWater, amount);
       return;
     }
 
