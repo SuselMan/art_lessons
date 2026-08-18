@@ -1129,6 +1129,22 @@ export type StrokeLiveData = {
   packetSeq: number
   /** Same packing as StrokeOperation.dabsPacked — see packDabs/unpackDabs. */
   dabsPacked: string
+  /** (#468) The wash this gesture belongs to, mirroring StrokeOperation.washId.
+   *
+   *  Only watercolor sets it, and it exists because a wash is the one thing in
+   *  this engine that spans *several* strokes: they share one accumulation, so
+   *  a peer that groups them differently from the author paints a different
+   *  picture. The author decides the grouping (using wall-clock timing a peer
+   *  must never see) and stamps the answer here and on the operation, so every
+   *  receiver reproduces the decision instead of re-taking it.
+   *
+   *  It has to ride the *live* packet and not only the operation. A peer paints
+   *  from this stream while the pen is still down, and by the time the
+   *  operation arrives the stream has usually delivered the whole stroke — so
+   *  the operation paints nothing and the grouping it carries is never read.
+   *  Measured before this field existed: 84.6% of the mark differed between
+   *  author and peer, up to 64/255 per channel. */
+  washId?: string
 }
 
 // (#149 epic) Every SNAPSHOT_SEQ_INTERVAL operations (by the room's global,

@@ -1846,6 +1846,10 @@ export function Room() {
           strokeId: packet.strokeId, layerId: packet.layerId, tool: packet.tool,
           preset: packet.preset, color: packet.color, packetSeq: packet.packetSeq,
           dabsPacked: packDabs(packet.dabs),
+          // (#468) Watercolor only. Without it a peer groups this gesture by
+          // its stroke id alone and paints a wash the author never made — see
+          // StrokeLiveData.washId.
+          ...(packet.washId ? { washId: packet.washId } : {}),
         })
       },
       onLiveStrokeEnd: strokeId => {
@@ -4563,6 +4567,7 @@ export function Room() {
         strokeId: data.strokeId, layerId: data.layerId, tool: data.tool,
         preset: data.preset, color: data.color, packetSeq: data.packetSeq,
         dabs: unpackDabs(data.dabsPacked),
+        washId: data.washId,
       })
       const seen = streamedStrokeIdsRef.current
       seen.add(data.strokeId)

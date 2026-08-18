@@ -31,9 +31,11 @@ import type { PencilEngine } from './index'
 import {
   createTestEngine, dab, makeLayerAdd, makeStroke,
   readLayerPixels, expectPixelsEqual,
-  lastMarkerDabUniform, markerPassDraw, markerReplayChunk, paperReady,
+  lastMarkerDabUniform, markerPassDraw, markerReplayChunk, markerReplayChunkCount,
+  markerReplayChunkFor, paperReady,
   simulateStroke, simulateStrokeStart, simulateStrokeMove, simulateStrokeEnd,
 } from './testing/engineTestUtils'
+import type { PeerLivePacket } from './index'
 
 function setupLayer(width = 64, height = 64) {
   const { engine } = createTestEngine({ userId: 'user-a' }, { width, height })
@@ -441,5 +443,134 @@ describe('washes (#468 v7, ADR 011 §7)', () => {
     engine.undo()
     engine.undo()
     expectPixelsEqual(readLayerPixels(engine, 'L'), before)
+  })
+})
+
+
+// A wash spans several operations, which is the one thing in this engine that
+// a stroke's own record does not fully describe. Every path that paints a
+// stroke therefore has to be handed the grouping, and until #468's follow-up
+// only two of the three were: the live stream carried none, so a peer watching
+// someone paint into wet paint grouped by gesture and drew a second glaze
+// instead of one wash. Measured in a browser at 84.6% of the mark differing,
+// up to 64/255 per channel — none of which MockGL can see, hence the shape of
+// these tests: they check that the grouping *reaches* each path, not what the
+// composite then does with it.
+describe('a wash reaches every path that paints (#468)', () => {
+  function wetEngine(onLive?: (p: PeerLivePacket) => void) {
+    const { engine } = createTestEngine(
+      { userId: 'user-a', ...(onLive ? { onLiveStrokeDabs: onLive } : {}) }, { width: 64, height: 64 },
+    )
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil('normal:92:42:PB29')
+    engine.setSize(24)
+    return engine
+  }
+
+  it('stamps the wash on the live packets, not only on the operation', async () => {
+    const packets: PeerLivePacket[] = []
+    const engine = wetEngine(p => packets.push(p))
+    await paperReady(engine)
+    simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+
+    expect(packets.length).toBeGreaterThan(0)
+    const washId = lastStroke(engine).washId
+    expect(washId).toBeTruthy()
+    // Same id on both wires: a peer must be able to reach the author's grouping
+    // from whichever of the two reaches it first.
+    for (const p of packets) expect(p.washId).toBe(washId)
+  })
+
+  it('leaves the packet unstamped for a tool with no washes', async () => {
+    const packets: PeerLivePacket[] = []
+    const engine = wetEngine(p => packets.push(p))
+    engine.setTool('marker')
+    engine.setPencil('bullet:12')
+    await paperReady(engine)
+    simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+
+    expect(packets.length).toBeGreaterThan(0)
+    for (const p of packets) expect(p.washId).toBeUndefined()
+  })
+
+  it('keeps a wash open across someone else stroke landing between its own', () => {
+    const engine = setupLayer()
+    const wash = 'wash-1'
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(16, 32, { size: 24 }), dab(24, 32, { size: 24 })], {
+      tool: 'watercolor', preset: 'normal:92:42:PB29', strokeId: 'g1', washId: wash,
+    }), 'remote')
+    const first = markerReplayChunkFor(engine, wash)
+
+    // Somebody else, on the same layer, between the two strokes of the wash.
+    // With one slot this evicted the wash outright and the rest of it landed as
+    // a separate glaze — 100% of the mark differing from the author's.
+    engine.appendOperation(makeStroke('user-b', 'L', [dab(16, 8, { size: 12 }), dab(24, 8, { size: 12 })], {
+      tool: 'marker', preset: 'bullet:12', strokeId: 'g-other',
+    }), 'remote')
+
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(32, 32, { size: 24 }), dab(40, 32, { size: 24 })], {
+      tool: 'watercolor', preset: 'normal:92:42:PB29', strokeId: 'g2', washId: wash,
+    }), 'remote')
+
+    expect(first?.scratch).toBeTruthy()
+    expect(markerReplayChunkFor(engine, wash)?.scratch).toBe(first?.scratch)
+  })
+
+  it('drops the oldest wash rather than growing without bound', () => {
+    const engine = setupLayer()
+    for (let i = 0; i < 8; i++) {
+      engine.appendOperation(makeStroke('user-a', 'L', [dab(8 + i, 32, { size: 12 }), dab(16 + i, 32, { size: 12 })], {
+        tool: 'watercolor', preset: 'normal:92:42:PB29', strokeId: `g${i}`, washId: `w${i}`,
+      }), 'remote')
+    }
+    // Bounded, and the survivors are the recent ones: an evicted wash goes back
+    // to being a seam, which is what every ribbon tool did before washes.
+    expect(markerReplayChunkCount(engine)).toBeLessThanOrEqual(4)
+    expect(markerReplayChunkFor(engine, 'w7')).toBeTruthy()
+    expect(markerReplayChunkFor(engine, 'w0')).toBeNull()
+  })
+
+  // A checkpoint bakes the layer's pixels. The strokes of a wash share an
+  // accumulation whose frozen base is the canvas as it was *before* the wash
+  // began, so baking half of one and later restoring to it hands the rest of
+  // the wash a base that already contains its own beginning. On the local path
+  // that was fixed when washes landed; the remote path kept taking them.
+  //
+  // What is asserted is the *decision*, not the checkpoint: taking one is
+  // deferred to idle time (see _maybeCheckpoint), so nothing lands within a
+  // synchronous test and counting them would pass whatever the guard did.
+  function countCheckpointCalls(engine: PencilEngine): () => number {
+    const eng = engine as unknown as { _maybeCheckpoint: (id: string) => void }
+    const real = eng._maybeCheckpoint.bind(eng)
+    let n = 0
+    eng._maybeCheckpoint = (id: string) => { n++; real(id) }
+    return () => n
+  }
+
+  function remoteStrokes(engine: PencilEngine, n: number, washId?: string): void {
+    for (let i = 0; i < n; i++) {
+      engine.appendOperation(makeStroke('user-b', 'L', [dab(8, 32, { size: 24 }), dab(16, 32, { size: 24 })], {
+        tool: washId ? 'watercolor' : 'marker',
+        preset: washId ? 'normal:92:42:PB29' : 'bullet:12',
+        strokeId: `g${i}`, ...(washId ? { washId } : {}),
+      }), 'remote')
+    }
+  }
+
+  it('never asks for a checkpoint half way through a remote wash', () => {
+    const engine = setupLayer()
+    const calls = countCheckpointCalls(engine)
+    remoteStrokes(engine, 25, 'wash-1')
+    expect(calls()).toBe(0)
+  })
+
+  it('still asks for one on remote strokes that belong to no wash', () => {
+    const engine = setupLayer()
+    const calls = countCheckpointCalls(engine)
+    remoteStrokes(engine, 25)
+    expect(calls()).toBe(25)
   })
 })

@@ -186,7 +186,7 @@ interface EngineInternals {
   // #245 white-box access — see inProgressStrokeDabs below.
   _strokeDabs: Dab[]
   // Marker chunk stitching white-box access — see markerReplayChunk below.
-  _replayRibbonChunk: { strokeId: string; scratch: object; lastDab: Dab } | null
+  _replayRibbonChunks: Map<string, { strokeId: string; scratch: object; lastDab: Dab }>
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -516,8 +516,27 @@ export function lastMarkerDabUniform(engine: PencilEngine, name: string): Unifor
  *  is identity — that two operations of one gesture share a single scratch, so
  *  the second doesn't multiply over the first one's output — and identity is
  *  precisely what a pixel assertion can't see through MockGL. */
+/** The most recently used replay chunk — which for every test written before
+ *  #468 is simply "the one", because until washes arrived the engine kept a
+ *  single slot. It keeps several now (a wash spans strokes, and other people's
+ *  strokes land between them), so "the current one" means the last one touched. */
 export function markerReplayChunk(engine: PencilEngine): { strokeId: string; scratch: object; lastDab: Dab } | null {
-  return internals(engine)._replayRibbonChunk
+  let last: { strokeId: string; scratch: object; lastDab: Dab } | null = null
+  for (const entry of internals(engine)._replayRibbonChunks.values()) last = entry
+  return last
+}
+
+/** How many gestures/washes the replay side is holding open. */
+export function markerReplayChunkCount(engine: PencilEngine): number {
+  return internals(engine)._replayRibbonChunks.size
+}
+
+/** The chunk held for one grouping key — a wash id, or a gesture id for a
+ *  stroke with no wash. Null when that key has been evicted or never existed. */
+export function markerReplayChunkFor(
+  engine: PencilEngine, key: string,
+): { strokeId: string; scratch: object; lastDab: Dab } | null {
+  return internals(engine)._replayRibbonChunks.get(key) ?? null
 }
 
 /** (#468) Widened past the marker's own three modes to cover every ribbon

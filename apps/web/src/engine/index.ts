@@ -858,6 +858,9 @@ export interface PeerLivePacket {
   color: [number, number, number]
   packetSeq: number
   dabs: Dab[]
+  /** (#468) The wash this gesture belongs to — see StrokeLiveData.washId for
+   *  why it has to travel on the live stream and not only on the operation. */
+  washId?: string
 }
 
 // ─── Internal types ────────────────────────────────────────────────────────────
@@ -1259,6 +1262,13 @@ const WASH_JOIN_MS = 1200
  *  trade this bug for a memory one. Over the cap, release really does delete.
  *  Six is two tiles' worth, which covers a bounded room (always exactly one
  *  tile) with room to spare. */
+/** (#468) How many ribbon gestures/washes the replay side keeps open at once.
+ *
+ *  Four, because each holds three pooled buffers per tile it touches, and
+ *  because the thing it has to survive is other people painting between two
+ *  strokes of one wash. Past that the oldest goes back to being a seam. */
+const REPLAY_RIBBON_CHUNK_SLOTS = 4
+
 const MARKER_SCRATCH_POOL_PER_SIZE = 6
 
 class RibbonScratchPool {
@@ -1692,22 +1702,30 @@ export class PencilEngine implements PencilEngineAPI {
    *  band across the stroke at every boundary. It also had no previous dab to
    *  hand the ribbon, so no band bridged the two chunks.
    *
-   *  One slot, not a map: a gesture's chunks are consecutive in the log and
-   *  arrive in order, so anything else interleaving simply starts a new slot —
-   *  which is the old behaviour, a seam, rather than a wrong result. */
-  private _replayRibbonChunk:
-    | {
-      /** The grouping key: a wash id where the stroke has one, its gesture id
-       *  otherwise (#468 v7). */
-      strokeId: string
-      /** Which *gesture* the last chunk belonged to, so a wash can tell one of
-       *  its strokes ending from a gesture's chunk boundary. */
-      washStrokeId?: string
-      target: ILayerBuffer
-      scratch: RibbonStrokeScratch
-      lastDab: Dab
-    }
-    | null = null
+   *  A few slots, not one, and that changed with #468's washes. For a *gesture*
+   *  one slot was right: its chunks are consecutive in the log and arrive in
+   *  order, so anything interleaving started a new slot — the old behaviour, a
+   *  seam, rather than a wrong result. A *wash* spans several strokes with real
+   *  gaps between them, and in a room where two people paint at once the gaps
+   *  routinely contain someone else's stroke. Evicting the wash there is not a
+   *  seam: the rest of the wash then lands as a second glaze over the first,
+   *  which measured as 100% of the mark differing from the author's.
+   *
+   *  Bounded and least-recently-used, because each entry holds three pooled
+   *  buffers per tile it touches. Four covers a handful of people painting at
+   *  once; past that the oldest wash goes back to being a seam, which is the
+   *  behaviour this had for every tool before washes existed. */
+  private _replayRibbonChunks = new Map<string, {
+    /** The grouping key: a wash id where the stroke has one, its gesture id
+     *  otherwise (#468 v7). */
+    strokeId: string
+    /** Which *gesture* the last chunk belonged to, so a wash can tell one of
+     *  its strokes ending from a gesture's chunk boundary. */
+    washStrokeId?: string
+    target: ILayerBuffer
+    scratch: RibbonStrokeScratch
+    lastDab: Dab
+  }>()
 
   // Smudge's own carried imprint (#14; a raster texture per user since
   // #416 — see SMUDGE_TRANSFER_FRAG's own file comment for what replaced the
@@ -2517,7 +2535,19 @@ export class PencilEngine implements PencilEngineAPI {
             this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId)
           }
           this._markLayerDirty(op.layerId)
-          this._maybeCheckpoint(op.layerId)
+          // (#468) Never mid-wash, the same rule the local path follows one
+          // stroke over. A checkpoint bakes the layer's pixels, and the strokes
+          // of a wash share an accumulation whose frozen base is the canvas as
+          // it was *before* the wash began. Baking half of one and later
+          // restoring to it hands the rest of the wash a base that already
+          // contains its own beginning — the mark then differs from the
+          // author's permanently, rather than until the next reload.
+          //
+          // Deferring costs nothing: the next operation that is not part of a
+          // wash takes the checkpoint instead, and checkpoints are an
+          // optimisation for undo and replay speed, never a correctness
+          // requirement.
+          if (!op.washId) this._maybeCheckpoint(op.layerId)
           // #122: this branch is only reached for strokes this engine
           // instance didn't itself just paint (remote peer strokes, or
           // replay) — a remote author's active layer can easily differ from
@@ -3392,7 +3422,7 @@ export class PencilEngine implements PencilEngineAPI {
     // second, independently-tracked copy is how the two get to disagree.
     this._paintDabs(
       buf, dabs, packet.tool, packet.preset, packet.color, peerId,
-      undefined, undefined, packet.strokeId,
+      undefined, undefined, packet.strokeId, packet.washId,
     )
     this._markLayerDirty(packet.layerId)
     if (packet.layerId !== this._activeId) this._invalidateSplitCache()
@@ -3590,8 +3620,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonStrokeScratch = null
     this._clearWash()
     this._strokeId = null
-    this._replayRibbonChunk?.scratch.destroy()
-    this._replayRibbonChunk = null
+    for (const c of this._replayRibbonChunks.values()) c.scratch.destroy()
+    this._replayRibbonChunks.clear()
     this._ribbonScratchPool.destroy()
     // A live imprint's buffer was spliced *out* of the scratch pool drained
     // above and is held only here, so it needs destroying on its own.
@@ -4190,8 +4220,8 @@ export class PencilEngine implements PencilEngineAPI {
     this._wash?.scratch.forget()
     this._wash = null
     this._washId = null
-    this._replayRibbonChunk?.scratch.forget()
-    this._replayRibbonChunk = null
+    for (const c of this._replayRibbonChunks.values()) c.scratch.forget()
+    this._replayRibbonChunks.clear()
     // (#385) Dropped, not released: releasing would put dead handles back in
     // the pool for the next gesture to paint through.
     this._ribbonScratchPool.forget()
@@ -5507,6 +5537,9 @@ export class PencilEngine implements PencilEngineAPI {
       strokeId: this._strokeId, layerId: this._strokeLayerId,
       tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
       packetSeq: this._livePacketSeq++, dabs: this._liveDabQueue,
+      // (#468) Decided at pen-down and constant for the gesture, so every
+      // packet carries the same value the operation will.
+      ...(this._washId ? { washId: this._washId } : {}),
     })
     // A fresh array rather than length = 0: the packet above holds this one,
     // and the caller is free to keep it (Room packs it asynchronously).
@@ -6500,8 +6533,8 @@ export class PencilEngine implements PencilEngineAPI {
     // client already decided, using wall-clock timing replay must never see.
     const key = washId ?? strokeId
     if (!key || !dabs.length) return null
-    const cached = this._replayRibbonChunk
-    if (cached && cached.strokeId === key && cached.target === target) {
+    const cached = this._replayRibbonChunks.get(key)
+    if (cached && cached.target === target) {
       // `prevDab` bridges the ribbon across a *gesture's* chunks. Across two
       // strokes of one wash there is nothing to bridge — the brush was lifted —
       // so the band builder must not stitch them into one swept figure.
@@ -6515,13 +6548,26 @@ export class PencilEngine implements PencilEngineAPI {
       // getting recharged mid-stroke on replay and not while drawing, so a long
       // enough stroke came back different after a reload.
       if (washId && !sameGesture) cached.scratch.beginStroke()
+      // Re-inserted so the map's own order is least-recently-used: the eviction
+      // below takes the front, and a wash still being painted into must not be
+      // the one thrown away.
+      this._replayRibbonChunks.delete(key)
+      this._replayRibbonChunks.set(key, cached)
       return { scratch: cached.scratch, prevDab }
     }
+    // A stale entry under the same key but a *different* layer buffer is not a
+    // hit — the scratch mirrors the tiles of one target and nothing else.
     cached?.scratch.destroy()
+    this._replayRibbonChunks.delete(key)
     const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
     scratch.beginStroke()
-    this._replayRibbonChunk = {
+    this._replayRibbonChunks.set(key, {
       strokeId: key, washStrokeId: strokeId, target, scratch, lastDab: dabs[dabs.length - 1],
+    })
+    while (this._replayRibbonChunks.size > REPLAY_RIBBON_CHUNK_SLOTS) {
+      const oldest = this._replayRibbonChunks.keys().next().value as string
+      this._replayRibbonChunks.get(oldest)?.scratch.destroy()
+      this._replayRibbonChunks.delete(oldest)
     }
     return { scratch }
   }
