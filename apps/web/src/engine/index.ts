@@ -2623,12 +2623,26 @@ export class PencilEngine implements PencilEngineAPI {
    *      export-side fix, which *does* need one. */
   pickColor(canvasX: number, canvasY: number): [number, number, number] | null {
     const { gl, canvas } = this
-    const x = Math.round(canvasX)
-    const y = Math.round(canvasY)
+    // (#470) The arguments are world units (canvas pixels for a bounded room,
+    // which used to be the same thing as screen pixels and is not any more).
+    // The screen is what holds the composited colour, so the point has to be
+    // taken through the camera first; reading it as a screen pixel picked
+    // whatever happened to be at that spot in the window — the desk, usually.
+    if (!this._infinite) {
+      const { w: pageW, h: pageH } = this._pageSize()
+      if (canvasX < 0 || canvasY < 0 || canvasX >= pageW || canvasY >= pageH) return null
+    }
+    const [sx, sy] = applyMatrix(invertMatrix(this._screenToWorldMatrix()), canvasX, canvasY)
+    const x = Math.round(sx)
+    const y = Math.round(sy)
+    // Off-screen is unreadable rather than wrong: the colour lives in the
+    // framebuffer, and a point the camera is not currently looking at has no
+    // pixel to sample. Callers already handle null (a pick that misses).
     if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null
     const pixel = new Uint8Array(4)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    // WebGL reads bottom-up; canvasX/Y are top-down like the rest of the app.
+    // WebGL reads bottom-up; screen coords here are top-down like the rest of
+    // the app.
     gl.readPixels(x, canvas.height - 1 - y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel)
     return [pixel[0] / 255, pixel[1] / 255, pixel[2] / 255]
   }
@@ -3720,13 +3734,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  page-sized, no padding. Rounding a 64x64 page up to a 1024 tile would
    *  turn 16 KiB into 4 MiB and make the small case pay for the large one's
    *  fix. Only a page bigger than TILE_SIZE on an axis is subdivided along
-   *  it, which is precisely the case that was breaking. */
+   *  it, which is precisely the case that was breaking.
+   *
+   *  (#470) Capped against the *page*, not the canvas — and that distinction
+   *  only came into existence with viewport rendering. While the canvas was
+   *  the sheet the two were the same number; once it became the viewport,
+   *  reading it here sized every tile to whatever the window happened to be
+   *  when the layer was created (300x150, the element's default, if the
+   *  layer was built before the first resize landed). Storage geometry must
+   *  not depend on the size of the window looking at it. */
   private _tileSize(): { w: number; h: number } {
     if (this._infinite) return { w: TILE_SIZE, h: TILE_SIZE }
-    return {
-      w: Math.min(TILE_SIZE, this.canvas.width),
-      h: Math.min(TILE_SIZE, this.canvas.height),
-    }
+    const { w, h } = this._pageSize()
+    return { w: Math.min(TILE_SIZE, w), h: Math.min(TILE_SIZE, h) }
   }
 
   /** Composites every buffer `source` currently holds into the
@@ -5241,7 +5261,7 @@ export class PencilEngine implements PencilEngineAPI {
     // byte-for-byte as before.
     wireMatrix?: LayerTransformMatrix,
   ): void {
-    const { gl, canvas } = this
+    const { gl } = this
 
     const texture = gl.createTexture()!
     gl.bindTexture(gl.TEXTURE_2D, texture)
@@ -5262,11 +5282,14 @@ export class PencilEngine implements PencilEngineAPI {
     if (op.x !== undefined && op.y !== undefined) {
       drawX = op.x; drawY = op.y; drawW = op.width; drawH = op.height
     } else {
-      const scale = Math.min(canvas.width / op.width, canvas.height / op.height)
+      // (#470) Fit-centred within the sheet, which is what this always meant
+      // — it read the canvas only because the canvas was the sheet.
+      const { w: pageW, h: pageH } = this._pageSize()
+      const scale = Math.min(pageW / op.width, pageH / op.height)
       drawW = op.width * scale
       drawH = op.height * scale
-      drawX = (canvas.width - drawW) / 2
-      drawY = (canvas.height - drawH) / 2
+      drawX = (pageW - drawW) / 2
+      drawY = (pageH - drawH) / 2
     }
 
     if (wireMatrix) {
@@ -5349,9 +5372,15 @@ export class PencilEngine implements PencilEngineAPI {
       minY = Math.min(minY, d.y - hy); maxY = Math.max(maxY, d.y + hy)
     }
     if (this._infinite) return { minX, minY, maxX, maxY }
+    // (#470) The *sheet*, not the canvas. These were the same number while the
+    // canvas was the sheet; once it became the viewport this clamped every
+    // stroke to the window's own size, so on a 4096 page nothing below the
+    // window's height painted at all — the dab's rect came back empty and no
+    // tile was ever resolved.
+    const { w: pageW, h: pageH } = this._pageSize()
     return {
       minX: Math.max(minX, 0), minY: Math.max(minY, 0),
-      maxX: Math.min(maxX, this.canvas.width), maxY: Math.min(maxY, this.canvas.height),
+      maxX: Math.min(maxX, pageW), maxY: Math.min(maxY, pageH),
     }
   }
 

@@ -316,3 +316,39 @@ export function pinchViewport(
     currMid.x, currMid.y, dAngle,
   )
 }
+
+/** (#470) How much of the sheet must stay on screen, in CSS px. Small enough
+ *  that you can still work right up against an edge with the rest of the page
+ *  off-view, big enough that there is always something to grab and drag back. */
+export const PAGE_KEEP_ON_SCREEN_PX = 96
+
+/** Holds the sheet within reach of the viewport.
+ *
+ *  New with viewport rendering, and needed because of it: while the canvas
+ *  element *was* the sheet, panning moved a DOM element that the browser kept
+ *  laying out, and the sheet could be pushed away but never truly lost. The
+ *  camera has no such backstop — nothing stops `cx` growing until the page is
+ *  a hundred screens away with no way back but Fit.
+ *
+ *  `vp.cx/cy` is the screen position of the sheet's *centre* (see
+ *  useViewport's transformFor), so the sheet spans cx ± halfW. The half
+ *  extents are the rotated bounding box's, the same shape fitZoom measures, so
+ *  a turned page is held by what it actually covers rather than by its
+ *  unrotated width. */
+export function clampToPage(
+  vp: Viewport, viewW: number, viewH: number, page: CanvasSize,
+): Viewport {
+  const cos = Math.abs(Math.cos(vp.angle))
+  const sin = Math.abs(Math.sin(vp.angle))
+  const halfW = (page.width * cos + page.height * sin) / 2 * vp.zoom
+  const halfH = (page.width * sin + page.height * cos) / 2 * vp.zoom
+  // Never ask for more than the page has: a sheet smaller than the margin
+  // would otherwise be clamped to a range with its ends crossed over.
+  const keepX = Math.min(PAGE_KEEP_ON_SCREEN_PX, halfW)
+  const keepY = Math.min(PAGE_KEEP_ON_SCREEN_PX, halfH)
+  return {
+    ...vp,
+    cx: clamp(vp.cx, keepX - halfW, viewW - keepX + halfW),
+    cy: clamp(vp.cy, keepY - halfH, viewH - keepY + halfH),
+  }
+}

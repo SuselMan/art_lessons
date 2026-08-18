@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useLayoutEffect, useEffect } from 'react
 import type { RefObject, Dispatch, SetStateAction } from 'react'
 import { clamp } from 'lodash-es'
 
-import { ZOOM_MAX, deviceNativeZoom, fitZoom, holdAngle, minZoom, pinchViewport, rotateViewportAround } from './cameraMath'
+import { ZOOM_MAX, deviceNativeZoom, fitZoom, holdAngle, minZoom, pinchViewport, rotateViewportAround, clampToPage } from './cameraMath'
 import { PinchTracker } from './pinchTracker'
 import { diagLog } from '../../lib/diagLog'
 import { useRoomStore } from '../../stores/roomStore'
@@ -174,7 +174,17 @@ export function useViewport(
   // PeerCursors, RulerOverlay, TransformGizmo, the viewport→engine sync
   // effect) still update every frame, just not every single raw event.
   const updateVp = useCallback((next: Viewport) => {
-    const v = holdAngleIfLocked(vpState.current, next)
+    const held = holdAngleIfLocked(vpState.current, next)
+    // (#470) The sheet is held within reach here, on the single write path
+    // every gesture goes through, rather than in each of them. It only became
+    // possible to lose it when the canvas stopped being the sheet: panning
+    // used to move a laid-out DOM element, and now it moves a camera that will
+    // happily travel forever.
+    const el = vpRef.current
+    const page = canvasRef.current
+    const v = (!infinite && el && page)
+      ? clampToPage(held, el.clientWidth, el.clientHeight, page)
+      : held
     vpState.current = v
     const wrap = canvasWrapRef.current
     if (wrap) wrap.style.transform = transformFor(v, canvasRef.current)
@@ -185,7 +195,7 @@ export function useViewport(
         useRoomStore.getState().setViewport(vpState.current)
       })
     }
-  }, [transformFor])
+  }, [transformFor, infinite])
 
   // Initial fit when canvas config loads. Infinite canvas (#133 Phase 1)
   // has no fixed extent to fit — "reset to origin" instead: camera centered

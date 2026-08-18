@@ -1213,7 +1213,7 @@ export function Room() {
   // gesture handlers.
   const { toastVisible: viewportToastVisible, onPinchPhase, hide: hideViewportToast } = useViewportToast()
 
-  const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, zoomBy, angleDeg } =
+  const { vp, setVp, vpRef, setVpNode, vpEl, canvasWrapRef, fitCanvas, zoomBy, angleDeg, canvasTransform } =
     useViewport(config, toolActiveRef, config?.infinite ?? false, onPinchPhase)
 
   // Infinite rooms measure "100%" against the device-native 1-world-unit-per-
@@ -5496,7 +5496,6 @@ export function Room() {
             an element that isn't hit-testable never shows. */}
         <div ref={setVpNode} className={clsx(styles.viewport, VIEWPORT_CURSOR_CLASS[cursor.viewportCursor])}>
           <div
-            ref={canvasWrapRef}
             className={styles.canvasWrap}
             /* (#470) No CSS transform any more: the camera moves the view
                inside the engine, for both kinds of room. */
@@ -5533,10 +5532,24 @@ export function Room() {
                 pointerEvents: (roomContentReady && !editingBlocked && !handActive) ? undefined : 'none',
               }}
             />
-            {/* Bounded rooms: these five assume canvas-pixel-space
-                coordinates with pan/zoom/rotate inherited for free from
-                canvasWrap's own CSS transform (see each one's docstring) —
-                exactly as before #143, completely unchanged. */}
+            {/* (#470) The transform moved here, off the canvas.
+                These overlays work in canvas-pixel space and used to inherit
+                pan/zoom/rotate for free from canvasWrap's own CSS transform.
+                The canvas is not transformed any more — the camera moves the
+                view inside the engine — but the overlays still want exactly
+                that transform, and it is still exactly right for them: the
+                string is unchanged, it simply applies to a layer that holds
+                only overlays now.
+                It also keeps the ref, so useViewport's per-event imperative
+                write (updateVp) still lands on a real element and gestures
+                stay as smooth as they were — writing it to the canvas wrapper
+                would silently put the old CSS pan back on the canvas and
+                double every movement. */}
+            <div
+              ref={canvasWrapRef}
+              className={styles.worldOverlayWrap}
+              style={{ transform: canvasTransform }}
+            >
             {!config.infinite && (
               <PeerCursors
                 socket={socketRef.current}
@@ -5603,6 +5616,7 @@ export function Room() {
               zoom={vp.zoom}
               matrix={areaSelection ? transformSessionMatrix : null}
             />
+            </div>
           </div>
           {/* Infinite rooms (#143): the same five overlays, camera-aware —
               there's no canvasWrap CSS transform here for them to ride
