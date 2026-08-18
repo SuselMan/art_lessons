@@ -227,6 +227,23 @@ export class DabSystem {
   private _tipDirX = 0
   private _tipDirY = 0
 
+  // How far behind the pointer the mark is currently landing, canvas px
+  // (#472, TipBendProfile.trailWidths). Smoothed over arc length rather than
+  // taken straight from the profile, for a reason that is about geometry and
+  // not about looks: this is subtracted from every dab's position, so if it
+  // grew by more than the dab spacing from one dab to the next, consecutive
+  // dabs would come out in reverse order along the path and the ribbon would
+  // build a band backwards. Easing it over the same distance the bend itself
+  // takes bounds the growth by the trail's own depth over that distance, which
+  // is well under the spacing at any sane trail setting.
+  private _trailPx = 0
+
+  // Pointer speed for the batch being converted, canvas px/ms. Latched by the
+  // public entry points rather than threaded through _splineDabs/_makeDab: it
+  // is a property of the whole batch, one measurement per pointer event, and
+  // every profile without a tipBend ignores it entirely.
+  private _speed = 0
+
   constructor({ spacingFactor = 0.22, shaping = PENCIL_DAB_SHAPING }: { spacingFactor?: number; shaping?: DabShapingProfile } = {}) {
     this.spacingFactor = spacingFactor
     this._buf = []
@@ -266,6 +283,10 @@ export class DabSystem {
     // there is no seeding rule to get wrong.
     this._tipDirX = 0
     this._tipDirY = 0
+    // Zeroed with it: a stroke starts with the mark exactly under the pen, and
+    // the lag builds up as the nib bends. Carrying a trail across strokes
+    // would displace the very first dab of the next one.
+    this._trailPx = 0
   }
 
   /**
@@ -338,7 +359,12 @@ export class DabSystem {
     const k = 1 - Math.exp(-ds / lagPx)
     this._tipDirX += (Math.cos(pathAngle) - this._tipDirX) * k
     this._tipDirY += (Math.sin(pathAngle) - this._tipDirY) * k
-    return Math.min(1, Math.hypot(this._tipDirX, this._tipDirY))
+    const bendness = Math.min(1, Math.hypot(this._tipDirX, this._tipDirY))
+    // How far behind the pen the ink should be landing by now, eased in over
+    // the same distance and with the same weight as the bend that causes it.
+    const trail = bend.trailWidths(this._speed) * nibWidth * bendness
+    this._trailPx += (trail - this._trailPx) * k
+    return bendness
   }
 
   /**
@@ -404,14 +430,17 @@ export class DabSystem {
     // leading edge as a round stamp under a stroke whose nib is fully trailed.
     fork._tipDirX = this._tipDirX
     fork._tipDirY = this._tipDirY
+    fork._trailPx = this._trailPx
+    fork._speed = this._speed
     // fork already got its own fresh scratch Float64Arrays from its own
     // constructor call above — do not share this instance's arrays with it.
     return fork
   }
 
   // Returns first dab; subsequent segment rendering is deferred by 1 event.
-  startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number): Dab[] {
+  startStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0): Dab[] {
     this._reset()
+    this._speed = speed
     // Seeds the filter (a no-op for every profile without one) — the first
     // sample of a stroke is taken at face value, exactly as the tilt filter
     // seeds itself from its own first sample.
@@ -424,7 +453,8 @@ export class DabSystem {
 
   // Returns dabs for the segment one step behind the current point.
   // Segment [n-3]→[n-2] is rendered once [n-1] (=P3) is known.
-  continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number): Dab[] {
+  continueStroke(x: number, y: number, pressure: number, tiltX: number, tiltY: number, baseSize: number, speed = 0): Dab[] {
+    this._speed = speed
     // #454: every admitted sample's pressure passes the low-pass first,
     // including the one that only refreshes the last control point below —
     // see _filterPressure on why that case is the whole reason this sits here.
@@ -463,7 +493,8 @@ export class DabSystem {
   }
 
   // Must be called on pointerup to flush the last pending segment.
-  endStroke(baseSize: number): Dab[] {
+  endStroke(baseSize: number, speed = 0): Dab[] {
+    this._speed = speed
     const n = this._buf.length
     if (n < 2) return []
 
@@ -499,7 +530,8 @@ export class DabSystem {
   // behind. Intended to be called after every continueStroke() and its
   // output discarded/repainted (not accumulated) on every subsequent call —
   // see PencilEngine's _tipBuf/_refreshTip.
-  peekTipDabs(baseSize: number): Dab[] {
+  peekTipDabs(baseSize: number, speed = 0): Dab[] {
+    this._speed = speed
     const n = this._buf.length
     if (n < 2) return []
 
@@ -520,10 +552,12 @@ export class DabSystem {
     // direction the hand never went.
     const savedTipX = this._tipDirX
     const savedTipY = this._tipDirY
+    const savedTrail = this._trailPx
     const dabs = this._splineDabs(p0, p1, p2, p3, baseSize)
     this._remainder = savedRemainder
     this._tipDirX = savedTipX
     this._tipDirY = savedTipY
+    this._trailPx = savedTrail
     return dabs
   }
 
@@ -725,9 +759,19 @@ export class DabSystem {
       aspectRatio *= 1 + (bendProfile.elongation(pressure) - 1) * bendness
       // Below the threshold the vector is too short for atan2 to mean
       // anything — and it doesn't need to, because the nib is round there.
-      angle = bendness >= MIN_TIP_DIR_LEN
-        ? Math.atan2(this._tipDirY, this._tipDirX)
-        : this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle)
+      if (bendness >= MIN_TIP_DIR_LEN) {
+        angle = Math.atan2(this._tipDirY, this._tipDirX)
+        // The ink lands where the pen *came from*: a bent nib's contact patch
+        // sits behind the shaft, and the faster it is dragged the further
+        // behind. Along the nib's own smoothed direction rather than the raw
+        // tangent — an offset that swung with every sample's direction would
+        // put a kink in the path at every corner, which is the one thing this
+        // must not do since it is displacing geometry rather than shading it.
+        x -= (this._tipDirX / bendness) * this._trailPx
+        y -= (this._tipDirY / bendness) * this._trailPx
+      } else {
+        angle = this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle)
+      }
     } else {
       angle = this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle)
     }

@@ -124,6 +124,20 @@ export interface TipBendProfile {
   /** Floor under that distance, canvas px, so a hairline nib still has some
    *  inertia rather than snapping to every sample's direction. */
   minLagPx: number
+  /**
+   * How far the mark trails *behind* the pointer at this speed, as a multiple
+   * of the nib's own width — MyPaint's `offset_by_speed` (see ADR 009 §13),
+   * with the sign that says the ink lands where the pen came from rather than
+   * where it is going.
+   *
+   * The returned amount is further scaled by how bent the nib currently is,
+   * which is the part MyPaint has no way to express: a nib pressed straight
+   * down has nothing to trail, and it is the bending backwards that puts the
+   * contact patch behind the shaft in the first place. So a slow, careful line
+   * is displaced by nothing at all, and only a fast dragged one lags — which
+   * is also what keeps this from reading as input latency.
+   */
+  trailWidths(speed: number): number
 }
 
 function clamp01(v: number): number {

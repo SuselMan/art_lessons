@@ -19,17 +19,19 @@ interface Sample { x: number; y: number; p?: number }
 
 const BASE_SIZE = 20
 
-/** Drives a whole stroke through the real public API and returns every dab. */
-function brushPenStroke(points: Sample[], baseSize = BASE_SIZE, response = 'normal'): ReturnType<DabSystem['startStroke']> {
+/** Drives a whole stroke through the real public API and returns every dab.
+ *  `speed` is canvas px/ms, and defaults to 0 — i.e. every test that isn't
+ *  about the speed-driven trail sees no displacement at all. */
+function brushPenStroke(points: Sample[], baseSize = BASE_SIZE, response = 'normal', speed = 0): ReturnType<DabSystem['startStroke']> {
   const sys = new DabSystem()
   sys.setShaping(shapingForTool('brushPen', response))
   const first = points[0]
-  const dabs = [...sys.startStroke(first.x, first.y, first.p ?? 0.9, 0, 0, baseSize)]
+  const dabs = [...sys.startStroke(first.x, first.y, first.p ?? 0.9, 0, 0, baseSize, speed)]
   for (let i = 1; i < points.length; i++) {
     const s = points[i]
-    dabs.push(...sys.continueStroke(s.x, s.y, s.p ?? 0.9, 0, 0, baseSize))
+    dabs.push(...sys.continueStroke(s.x, s.y, s.p ?? 0.9, 0, 0, baseSize, speed))
   }
-  dabs.push(...sys.endStroke(baseSize))
+  dabs.push(...sys.endStroke(baseSize, speed))
   return dabs
 }
 
@@ -347,6 +349,62 @@ describe('brush pen: speed thins the contact slightly (#472)', () => {
     // The second batch continues from where the first left off, so it is
     // already thinner throughout than the first batch ever got.
     expect(second[0].size).toBeLessThan(first[first.length - 1].size)
+  })
+})
+
+describe('brush pen: the mark trails the pen (#472, MyPaint offset_by_speed)', () => {
+  const PEN = 40
+  const path = horizontal(14, 40, 0.9)
+
+  /** Same stroke, same geometry, one drawn slowly and one fast. */
+  const still = () => brushPenStroke(path, PEN, 'normal', 0.2)
+  const fast = () => brushPenStroke(path, PEN, 'normal', 3.0)
+
+  it('lands the mark under the pen at drawing speed and behind it at speed', () => {
+    const slowX = still().map(d => d.x)
+    const fastX = fast().map(d => d.x)
+    expect(fastX.length).toBe(slowX.length)
+    // Nothing at all at the head, where the nib has not bent yet...
+    expect(fastX[0]).toBeCloseTo(slowX[0], 6)
+    // ...and a real displacement once it has, always backwards along travel.
+    const settled = fastX.length - 3
+    expect(slowX[settled] - fastX[settled]).toBeGreaterThan(1)
+    for (let i = 0; i < slowX.length; i++) expect(fastX[i]).toBeLessThanOrEqual(slowX[i] + 1e-9)
+  })
+
+  it('stays inside the nib, not out at arm\'s length', () => {
+    const slowX = still().map(d => d.x)
+    const fastX = fast().map(d => d.x)
+    const worst = Math.max(...slowX.map((x, i) => x - fastX[i]))
+    // A displacement of the order of the nib's own width reads as weight; one
+    // of the order of the stroke reads as broken input.
+    expect(worst).toBeLessThan(PEN * 0.25)
+  })
+
+  it('never hands the ribbon two dabs in reverse order along the path', () => {
+    // The geometric safety property, and the reason the trail is eased in over
+    // the same distance as the bend: it is subtracted from dab positions, so a
+    // trail that deepened faster than the dabs advance would run the path
+    // backwards and the ribbon would build a band inside out.
+    for (const speed of [0.5, 1.5, 3.0, 12.0]) {
+      const xs = brushPenStroke(path, PEN, 'normal', speed).map(d => d.x)
+      for (let i = 1; i < xs.length; i++) expect(xs[i]).toBeGreaterThan(xs[i - 1])
+    }
+  })
+
+  it('does not displace an unbent nib, however fast the pointer claims to be', () => {
+    // Press, nudge, at absurd speed: no bend, so nothing to trail. This is
+    // what keeps careful slow work — and the first moment of every stroke —
+    // free of anything that could read as input lag.
+    const nudge = brushPenStroke([
+      { x: 0, y: 0, p: 1 }, { x: 4, y: 0, p: 1 }, { x: 8, y: 0.6, p: 1 }, { x: 13, y: -0.4, p: 1 },
+    ], PEN, 'normal', 12.0)
+    const same = brushPenStroke([
+      { x: 0, y: 0, p: 1 }, { x: 4, y: 0, p: 1 }, { x: 8, y: 0.6, p: 1 }, { x: 13, y: -0.4, p: 1 },
+    ], PEN, 'normal', 0)
+    for (let i = 0; i < nudge.length; i++) {
+      expect(Math.hypot(nudge[i].x - same[i].x, nudge[i].y - same[i].y)).toBeLessThan(1)
+    }
   })
 })
 

@@ -4664,7 +4664,7 @@ export class PencilEngine implements PencilEngineAPI {
       const cfg = this._dwellCfg
       this._dwellTimer = setInterval(() => this._paintDwellDab(cfg), cfg.intervalMs)
     }
-    const dabs = this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
+    const dabs = this._dabs.startStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed)
     this._paintStrokeDabs(dabs, e.speed, 0)
     this._display()
     this._handlers.strokeStart?.(e)
@@ -4706,7 +4706,7 @@ export class PencilEngine implements PencilEngineAPI {
         this._dwellAnchorX = x; this._dwellAnchorY = y; this._dwellAnchorTimestamp = performance.now()
       }
     }
-    const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize)
+    const dabs = this._dabs.continueStroke(x, y, e.pressure, e.tiltX, e.tiltY, this._physicalSize, e.speed)
     let painted = false
     if (dabs.length) {
       const t0 = this._debug ? performance.now() : 0
@@ -4747,7 +4747,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _refreshTip(speed: number): void {
     if (!this._tipBuf) return
     this._tipBuf.clear()
-    const dabs = this._dabs.peekTipDabs(this._physicalSize)
+    const dabs = this._dabs.peekTipDabs(this._physicalSize, speed)
     if (dabs.length) {
       this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
       // #138: translated into _tipBuf's own local space (see
@@ -4781,7 +4781,7 @@ export class PencilEngine implements PencilEngineAPI {
       // Ruler tool (#89): keep the speculative preview visually consistent
       // with the real path above, which snaps too.
       const { x, y } = this._snapPoint(s.x, s.y)
-      dabs.push(...fork.continueStroke(x, y, s.pressure, s.tiltX, s.tiltY, this._physicalSize))
+      dabs.push(...fork.continueStroke(x, y, s.pressure, s.tiltX, s.tiltY, this._physicalSize, s.speed))
     }
     if (dabs.length) {
       this._bakeDabOpacity(dabs, samples[samples.length - 1].speed, this._strokeTool, this._strokePreset, this._opts.opacity)
@@ -4803,7 +4803,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
     this._dwellCfg = null
     const t0 = this._debug ? performance.now() : 0
-    const dabs = this._dabs.endStroke(this._physicalSize)
+    const dabs = this._dabs.endStroke(this._physicalSize, e.speed)
     if (this._strokeTool === 'liner') applyLinerEndTaper(dabs, e.speed)
     // #454: the same post-process one tool over, and far deeper — a liner
     // narrows by at most 15%, a brush pen by up to 75%, which is what turns a

@@ -210,6 +210,34 @@ const BRUSH_PEN_TIP_LAG_WIDTHS = 1.5
  *  dabs of lag. */
 const BRUSH_PEN_TIP_MIN_LAG_PX = 6
 
+// ─── Trail (#472, MyPaint's offset_by_speed) ────────────────────────────────
+// The mark lands where the pen *came from*, not where it is. A bent nib's
+// contact patch sits behind the shaft, and the harder it is dragged the
+// further behind — which is the whole of why a loaded brush feels like it has
+// mass and a fineliner does not.
+//
+// Borrowed from MyPaint, which has exactly this as `offset_by_speed` (see
+// docs.krita.org's MyPaint engine page — Krita embeds the engine). One thing
+// added that MyPaint cannot express: the offset is scaled by how bent the nib
+// currently is, not by speed alone. A nib pressed straight down has nothing to
+// trail, so slow careful work is displaced by *nothing at all* — which is also
+// what keeps this from reading as input lag. Displacing the mark behind the
+// cursor is exactly the sensation #104 spent its effort removing, so it has to
+// be reachable only by a gesture that would look wrong without it.
+
+/** At/below this pointer speed (canvas px/ms) the mark sits under the pen. */
+const TRAIL_SPEED_SLOW = 0.5
+/** At/above it, the full trail below. */
+const TRAIL_SPEED_FAST = 2.5
+/** Trail at full speed and full bend, as a multiple of the nib's own width.
+ *
+ *  Bounded well under BRUSH_PEN_TIP_LAG_WIDTHS on purpose, and not for taste:
+ *  the trail is eased in over the lag distance, so a trail deeper than that
+ *  distance would grow faster than the dabs advance and hand the ribbon a pair
+ *  of consecutive dabs in reverse order along the path. 0.18 against 1.5 is
+ *  nowhere near it. Uncalibrated. */
+const BRUSH_PEN_TRAIL_WIDTHS = 0.18
+
 function brushPenTipBend(response: PressureResponse): TipBendProfile {
   return {
     // The same S-curve as the width, on purpose and with the same `k`. One
@@ -222,6 +250,8 @@ function brushPenTipBend(response: PressureResponse): TipBendProfile {
       1 + BRUSH_PEN_ELONGATION * gain(Math.max(pressure, BRUSH_PEN_MIN_PRESSURE), PRESSURE_RESPONSE_K[response]),
     lagWidths: BRUSH_PEN_TIP_LAG_WIDTHS,
     minLagPx: BRUSH_PEN_TIP_MIN_LAG_PX,
+    trailWidths: speed =>
+      BRUSH_PEN_TRAIL_WIDTHS * clamp01((speed - TRAIL_SPEED_SLOW) / (TRAIL_SPEED_FAST - TRAIL_SPEED_SLOW)),
   }
 }
 
