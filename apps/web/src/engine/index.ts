@@ -4372,7 +4372,7 @@ export class PencilEngine implements PencilEngineAPI {
       // px, which outline the nib is, its corner radius, and how much the ink
       // eases off at the rim. #454: plus how far paper grain bites into the
       // brush pen's rim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperEdge',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperWick',
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
@@ -6520,7 +6520,7 @@ export class PencilEngine implements PencilEngineAPI {
     // u_inkMode=8 branch — and set on every composite draw, not just that
     // tool's, for the same reason u_wickPx is cleared below: uniforms persist
     // across draws on a shared program.
-    gl.uniform1f(u.u_paperEdge, profile.paperEdge)
+    gl.uniform1f(u.u_paperWick, profile.paperWick)
     // #452 — see _drawRibbonNibPass's own comment on why this is cleared here.
     gl.uniform1f(u.u_wickPx, 0)
     gl.uniform1f(u.u_wickCap, 0)

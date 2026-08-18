@@ -53,10 +53,11 @@ export interface RibbonProfile {
    *  first quality criterion: 0.15 (the width floor) times a 3px pen is 0.45px.
    *  A light touch with a fine pen should leave a hairline, not a gap. */
   minHalfWidthPx: number | null
-  /** How strongly paper grain eats into the mark's *rim*. The core is never
-   *  touched at any value (see DAB_FRAG's brush-pen branch: the term is scaled
-   *  by 1 - coverage, which is identically 0 inside the mark). 0 disables it. */
-  paperEdge: number
+  /** How far ink wicks into absorbent paper at the mark's *rim*, as a fraction
+   *  of the edge ramp's own width. The core is never touched at any value (see
+   *  DAB_FRAG's brush-pen branch: the term is scaled by 1 - coverage, which is
+   *  identically 0 inside the mark). 0 disables it. */
+  paperWick: number
 }
 
 // ─── Marker (#330) ──────────────────────────────────────────────────────────
@@ -141,8 +142,19 @@ const BRUSH_PEN_MIN_HALF_WIDTH_PX = 0.5
 /** ADR 009 §8: paper's influence on the brush pen is far weaker than on
  *  graphite or charcoal, and it acts on the rim only — no holes or grain inside
  *  the stroke, which would read as a dry brush rather than a brush pen.
- *  Uncalibrated first pass. */
-const BRUSH_PEN_PAPER_EDGE = 0.35
+ *
+ *  A fraction of the edge ramp (BRUSH_PEN_EDGE_AA_PX, 1.8 canvas px), so 0.5
+ *  means ink reaches roughly 0.9px further out where the paper is at its most
+ *  absorbent than where it is at its least. That sits inside the 0.3-1.0px of
+ *  visible feathering ADR 009 §7 asks for, and it is the *whole* of the pen's
+ *  spread: there is no second outward band the way the liner has one, because
+ *  the ribbon's own ramp is already in the right units and the ADR is explicit
+ *  that one effect gets one mechanism.
+ *
+ *  Raised from #454's 0.35 along with the sign fix (#472) — at 0.35 running
+ *  the wrong way it was subtracting about half a pixel of ink from exactly the
+ *  places ink should have been reaching. Uncalibrated. */
+const BRUSH_PEN_PAPER_WICK = 0.5
 
 const MARKER_BULLET_RIBBON: RibbonProfile = {
   nibShape: 'ellipse',
@@ -153,7 +165,7 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   compositeInkMode: 2,
   curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
   minHalfWidthPx: null,
-  paperEdge: 0,
+  paperWick: 0,
 }
 
 const MARKER_CHISEL_RIBBON: RibbonProfile = {
@@ -176,7 +188,7 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   // than 5:1 — so this is comfortably conservative here rather than tight.
   curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
   minHalfWidthPx: BRUSH_PEN_MIN_HALF_WIDTH_PX,
-  paperEdge: BRUSH_PEN_PAPER_EDGE,
+  paperWick: BRUSH_PEN_PAPER_WICK,
 }
 
 /** Which tools the ribbon rasterizer draws. Every other tool goes through the

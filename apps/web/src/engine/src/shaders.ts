@@ -392,10 +392,11 @@ export const DAB_FRAG = `
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
-  // #454 (ADR 009 §8) — how strongly paper grain eats into the brush pen's
-  // *rim*. Read only by the u_inkMode=8 composite branch; 0 everywhere else,
-  // which makes that branch's own term vanish identically.
-  uniform float u_paperEdge;
+  // #454 (ADR 009 §8, resigned in #472) — how far ink wicks into the paper at
+  // the brush pen's *rim*, as a fraction of the edge ramp. Read only by the
+  // u_inkMode=8 composite branch; 0 everywhere else, which makes that branch's
+  // own term vanish identically.
+  uniform float u_paperWick;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -669,19 +670,41 @@ export const DAB_FRAG = `
       if (coverage <= 0.0) discard;
 
       // ADR 009 §8. Paper acts on the rim only: edgeness is identically 0
-      // wherever the mark is solid, so no value of u_paperEdge can put grain
+      // wherever the mark is solid, so no value of u_paperWick can put grain
       // or holes *inside* the stroke — that would read as a dry brush, which
-      // is the one thing this tool must not look like. At the rim, absorbent
-      // paper (low paperCatch, i.e. a pit between fibres) takes a bite out of
-      // the coverage, so the boundary picks up the fibre-scale irregularity
-      // real ink has and a vector-like edge doesn't.
+      // is the one thing this tool must not look like.
+      //
+      // At the rim, ink **wicks into** the absorbent paper: a pit between
+      // fibres (low paperCatch) pulls ink further out by capillary action, a
+      // high fibre holds it back, and the boundary picks up the fibre-scale
+      // irregularity real ink has and a vector-like edge doesn't.
+      //
+      // This used to run the other way — pits *removed* coverage — and that
+      // was simply wrong (#472 review). Taking a bite out of the low spots is
+      // the model of a dry tip that failed to reach into them, which is right
+      // for graphite and backwards for a liquid. It also put this tool in
+      // direct contradiction with the liner, whose own wick (#452) reads the
+      // identical paper value as (1.0 - paperCatch) absorbency and spreads ink
+      // into it. Two ink tools cannot disagree about which way paper works.
+      // (No backticks anywhere in this file's GLSL: the whole shader is a JS
+      // template literal, and one of them ends the string.)
+      //
+      // Additive rather than a multiplier, and only in the outward direction:
+      // the ramp is one-sided and runs inward from the geometric boundary, so
+      // raising coverage inside it pushes the *visible* edge outward exactly
+      // where the paper is absorbent, up to but never past where the nib
+      // actually was. That keeps the silhouette an upper bound on the ink and
+      // leaves the ribbon's geometry the only thing that decides where the
+      // mark can reach — no second boundary to disagree with the first, which
+      // is the whole of ADR 009 §7.
       //
       // paperCatch is a single sample of a value baked offline in double
-      // precision (see its own comment above), and this adds only multiply/mix
-      // on top — no new hash, no finite difference. That is what keeps the mark
-      // identical on every participant's GPU (.claude/rules.md).
+      // precision (see its own comment above), and this adds only a multiply
+      // and an add on top — no new hash, no finite difference. That is what
+      // keeps the mark identical on every participant's GPU
+      // (.claude/rules.md).
       float edgeness = 1.0 - coverage;
-      float paperMod = 1.0 - u_paperEdge * edgeness * (1.0 - paperCatch);
+      float wick = u_paperWick * edgeness * (1.0 - paperCatch);
 
       // v_opacity, not a per-dab quantity smuggled through coverage: every dab
       // of a brush-pen stroke carries the same opacity (engine's own
@@ -689,7 +712,7 @@ export const DAB_FRAG = `
       // §9), so one uniform value describes the whole batch exactly. A tool
       // whose opacity varied per dab could not be composited from a coverage
       // buffer this way at all.
-      float alpha = clamp(coverage * v_opacity * paperMod, 0.0, 1.0);
+      float alpha = clamp((coverage + wick) * v_opacity, 0.0, 1.0);
       vec4 dst = texture2D(u_original, tileUV);
       // Textbook premultiplied "over". dst is already premultiplied, so there
       // is nothing to recover first — unlike the marker's branch, which has to
