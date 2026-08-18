@@ -285,8 +285,15 @@ describe('ink deposit normalization (#468 v3, ADR 011 §3.8)', () => {
     // but still strongly coloured tail rather than a stroke that merely fades
     // (ADR 011 §4). A ratio down near the water curve's would mean the split
     // had been undone.
-    expect(longDeposit / shortDeposit).toBeLessThan(0.92)
-    expect(longDeposit / shortDeposit).toBeGreaterThan(0.6)
+    // Deliberately a narrow band, and it got narrower in v9: the paint's floor
+    // was raised so that one long band could not lose a fifth of its tone from
+    // end to end, because bands are laid in alternating directions and that
+    // falloff came out as a zigzag across a flat wash. What must survive is the
+    // *direction* — paint thins along a stroke — and the fact that it thins far
+    // less than water does. A ratio down near the water curve's would mean the
+    // split between the two loads had been undone.
+    expect(longDeposit / shortDeposit).toBeLessThan(0.97)
+    expect(longDeposit / shortDeposit).toBeGreaterThan(0.75)
   })
 
   function singleDab(size: number, tool: 'watercolor' | 'marker') {
@@ -353,8 +360,11 @@ describe('ink deposit normalization (#468 v3, ADR 011 §3.8)', () => {
     for (let i = 0; i < 80; i++) second.push(dab(6 + (80 + i) * 3, 32, { size: 24 }))
     engine.appendOperation(makeStroke('user-a', 'L', second, { tool: 'watercolor', strokeId }))
     // The second chunk continues running the brush down; if the clock had reset
-    // its last dab would deposit exactly what the first chunk's did.
-    expect(lastInkDeposit(engine)).toBeLessThan(afterFirst * 0.95)
+    // its last dab would deposit exactly what the first chunk's did. Strict
+    // inequality rather than a margin: since v9 raised the paint's floor the
+    // difference over one chunk is genuinely small, and pinning a margin here
+    // would be pinning today's curve rather than the behaviour.
+    expect(lastInkDeposit(engine)).toBeLessThan(afterFirst)
   })
 })
 

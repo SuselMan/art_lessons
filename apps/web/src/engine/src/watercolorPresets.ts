@@ -231,10 +231,15 @@ export function watercolorWaterEffects(water: number): {
     // complaint that procedural fields, and not the user, were deciding what
     // the mark looked like.
     edgeWander: mix(0.05, 0.42, water),
-    // Coarse pooling. More liquid means more room for it to gather unevenly —
-    // and rather less of it than v4-v7 had, for the same reason: this is the
-    // material's texture, not its main event.
-    cloud: mix(0.08, 0.34, water),
+    // Coarse pooling. More liquid means more room for it to gather unevenly.
+    //
+    // #468 v9 — down to 0.04..0.19, from 0.16..0.52 in v4-v7. At the old range a
+    // damp wash swung +/-22% in tone, which measured as the single largest
+    // source of unevenness in a flat wash and is far more than the exercise
+    // tolerates. Every reduction here was made against that measurement.
+    // This is the material's texture, not its main event: it should be visible
+    // when looked for and invisible when the task is "lay an even tone".
+    cloud: mix(0.04, 0.19, water),
     // The band the tideline's gating field is thresholded against. A dry mark
     // has almost no perimeter with a rim (there was never a pool to retreat);
     // a wet one has a rim over most of it. Narrow band, high threshold = rare.
@@ -260,16 +265,38 @@ export function watercolorPigmentEffects(pigment: number): {
   depositPerRadius: number
   granulation: number
   wetEdge: number
+  strength: number
 } {
   return {
     // How much paint each radius of travel lays down — the quantity that feeds
     // the saturation curve, and therefore how quickly the wash reaches its tone.
-    depositPerRadius: mix(0.30, 1.10, pigment),
+    //
+    // #468 v9 — widened from 0.30..1.10 so the setting has real authority over
+    // tone. A graded wash is painted by *diluting*, not by pressing more
+    // lightly (pressure drives the brush's width, never its alpha — ADR 011
+    // §5), so this slider is the one that has to carry the exercise, and at the
+    // old range the darkest and palest settings were only about a third apart.
+    //
+    // The top is 1.05 and not higher on purpose: above roughly that the
+    // accumulated deposit clips the 8-bit buffer, the saturation curve pins at
+    // 1, and the upper half of the slider stops doing anything at all — which
+    // measured as a graded wash whose first three bands came out the same tone.
+    depositPerRadius: mix(0.15, 1.05, pigment),
     // Heavy pigment granulates; a dilute wash barely does.
     granulation: mix(0.05, 0.26, pigment),
     // How much settles at the drying perimeter. There is nothing to leave
     // behind in nearly clear water.
     wetEdge: mix(0.22, 0.72, pigment),
+    // How strong the paint is, applied once, at the composite (#468 v9).
+    //
+    // v4 removed a multiplier here because pigment was *also* driving the
+    // deposit, and two routes for one quantity made the control quadratic — the
+    // same fault the opacity slider had. The principle is unchanged; what
+    // changed is which single route it takes. This one is linear in the setting
+    // and independent of where the saturation curve happens to sit, so a graded
+    // wash grades evenly instead of doing nothing across the top of the slider
+    // and falling off a cliff at the bottom.
+    strength: mix(0.12, 1.0, pigment),
   }
 }
 
@@ -300,10 +327,21 @@ const WATER_RUN_RADII = 20
  *  before this in practice. */
 const WATER_FLOOR = 0.30
 
-/** Pigment outlasts water by better than two to one, which is what produces
- *  the dry-brush end of the stroke rather than a stroke that simply fades. */
+/** Pigment outlasts water by better than two to one, which is what produces the
+ *  dry-brush end of a stroke rather than a stroke that simply fades.
+ *
+ *  #468 v9 — the floor is 0.84, up from 0.66, and the reason is the flat-wash
+ *  exercise. At 0.66 a single band 40 radii long lost a fifth of its tone from
+ *  end to end; bands are laid in alternating directions, so that falloff became
+ *  a zigzag *across* the finished wash and was the second largest contributor
+ *  to its unevenness (measured, after the cloud field).
+ *
+ *  A real painter recharges the brush between bands, which the model already
+ *  does — the load resets per stroke. What was wrong was how much one band
+ *  could lose on its own. Water still runs down hard, so the dry-brush arc
+ *  survives; it is the *paint* that now barely thins. */
 const PIGMENT_RUN_RADII = 48
-const PIGMENT_FLOOR = 0.66
+const PIGMENT_FLOOR = 0.84
 
 /** Water remaining after `usedRadii` radii of travel, as a fraction of the
  *  load the stroke started with.

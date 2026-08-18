@@ -50,6 +50,7 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, applyWatercolorHeadTaper,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
+  watercolorPigmentEffects, watercolorMixFromPreset,
 } from './src/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
@@ -5119,7 +5120,16 @@ export class PencilEngine implements PencilEngineAPI {
       // pressure term to alpha *as well* would be two mechanisms competing to
       // express one physical quantity, which is how the marker's own density
       // got hard to reason about before "Ревизия v1.5" separated them.
-      else if (tool === 'watercolor') dab.opacity = preset.opacity * opacity
+      // (#468 v9) …times how much paint is in the water. This is pigment's one
+      // and only route to the finished pixel: the deposit is now a constant
+      // (watercolorPigmentEffects), so nothing else scales with it and the
+      // control stays linear. Constant across a stroke, which is what lets the
+      // composite reconstruct a finished pixel from a coverage buffer and one
+      // scalar at all.
+      else if (tool === 'watercolor') {
+        dab.opacity = preset.opacity * opacity
+          * watercolorPigmentEffects(watercolorMixFromPreset(presetName).pigment).strength
+      }
       // Charcoal (#304 §3, plus #305's broad-side lightening): shares pencil's
       // speed curve deliberately — "slower stroke -> denser deposit" is equally
       // true of both materials — and adds one term graphite has no analogue
