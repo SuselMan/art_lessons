@@ -272,7 +272,11 @@ describe('option pickers (#335, #391)', () => {
         // tool getting this field is a deliberate edit here. Watercolor (#468)
         // is the second, and it is the same physical fact both times — a nib or
         // a brush whose contact patch opens under the hand.
-        'brushPen.pressureResponse', 'watercolor.pressureResponse'].sort(),
+        'brushPen.pressureResponse', 'watercolor.pressureResponse',
+        // … and watercolor's named mix (#468 v4), which is a shortcut for its
+        // two sliders rather than a material or a mode — the first select here
+        // that writes *other* fields instead of standing alone.
+        'watercolor.mix'].sort(),
     )
   })
 

@@ -14,6 +14,9 @@ import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorHeadTaper, applyWatercolorEndTaper,
   DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
+  watercolorPigmentLoad, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
+  WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling,
 } from './watercolorPresets'
 import { brushPenWidth } from './brushPenPresets'
 
@@ -26,8 +29,13 @@ describe('watercolor preset (#468, ADR 011 §5)', () => {
     // The brush pen sits at 0.97 because ink covers. If this ever creeps up
     // near that, the tool has stopped being watercolor and the wet-edge and
     // glaze terms downstream stop being visible at all.
-    expect(WATERCOLOR_PRESET.opacity).toBeLessThan(0.6)
-    expect(WATERCOLOR_PRESET.opacity).toBeGreaterThan(0.2)
+    //
+    // The window is wider since v4: this is the *ceiling* a fully-resolved pass
+    // reaches, and pigment now moves the saturation curve underneath it rather
+    // than pinning it at the top, so the value a mark actually lands on is well
+    // below this number.
+    expect(WATERCOLOR_PRESET.opacity).toBeLessThan(0.75)
+    expect(WATERCOLOR_PRESET.opacity).toBeGreaterThan(0.3)
   })
 })
 
@@ -175,18 +183,17 @@ describe('water load (#468 v3, ADR 011 §3.8)', () => {
     // A brush dragged a long way is drier, not empty — it keeps laying a thin
     // broken wash until it is lifted. A zero here would make long strokes
     // simply stop painting, which is a bug, not dry brush.
-    expect(watercolorWaterLoad(1e4)).toBeGreaterThan(0.35)
-    expect(watercolorWaterLoad(1e4)).toBeLessThan(0.55)
+    expect(watercolorWaterLoad(1e4)).toBeGreaterThan(0.2)
+    expect(watercolorWaterLoad(1e4)).toBeLessThan(0.45)
   })
 
   it('leaves an ordinary stroke almost undepleted and a long sweep plainly dry', () => {
-    // The two anchors both constants were tuned against by measurement (see
-    // WATER_RUN_RADII and WATER_FLOOR). A short mark keeping only three
-    // quarters of its load reads as a failing brush rather than as watercolor;
-    // a 40-radius sweep that keeps nearly everything defeats the whole term.
     // Deliberately loose — this pins the *shape*, not today's exact numbers.
-    expect(watercolorWaterLoad(8)).toBeGreaterThan(0.80)
-    expect(watercolorWaterLoad(40)).toBeLessThan(0.65)
+    // A short mark that has already lost a third of its water reads as a
+    // failing brush rather than as watercolor; a 40-radius sweep that keeps
+    // nearly everything defeats the whole term.
+    expect(watercolorWaterLoad(8)).toBeGreaterThan(0.70)
+    expect(watercolorWaterLoad(40)).toBeLessThan(0.55)
   })
 
   it('measures travel in brush radii, not pixels', () => {
@@ -198,5 +205,123 @@ describe('water load (#468 v3, ADR 011 §3.8)', () => {
 
   it('does not divide by zero for a degenerate radius', () => {
     expect(Number.isFinite(watercolorWaterStep(5, 0))).toBe(true)
+  })
+})
+
+describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
+  it('runs water down faster than pigment', () => {
+    // The whole reason for two curves rather than one. Water soaks away and
+    // evaporates; pigment stays on the hairs. That gap is what walks a single
+    // long stroke from a wet saturated start to a dry but still strongly
+    // coloured end — which is a behaviour, not an effect, and is very far from
+    // what a marker does.
+    for (const u of [5, 10, 20, 40, 80]) {
+      expect(watercolorWaterLoad(u)).toBeLessThan(watercolorPigmentLoad(u))
+    }
+  })
+
+  it('leaves a long stroke drier than it is pale', () => {
+    // Concretely: by 40 radii the brush should have lost most of its water and
+    // only a little of its paint. If these ever converge, the tool is back to
+    // one quantity and the dry-brush tail stops existing.
+    const water = watercolorWaterLoad(40)
+    const pigment = watercolorPigmentLoad(40)
+    expect(pigment - water).toBeGreaterThan(0.2)
+  })
+
+  it('lets water govern geometry and pigment govern paint, never the reverse', () => {
+    // The one rule that keeps this from collapsing back into an opacity brush.
+    const dry = watercolorWaterEffects(0.1)
+    const wet = watercolorWaterEffects(0.95)
+    expect(wet.spreadOfRadius).toBeGreaterThan(dry.spreadOfRadius * 2)
+    expect(wet.edgeSoftMax).toBeGreaterThan(dry.edgeSoftMax)
+    expect(wet.cloud).toBeGreaterThan(dry.cloud)
+    // Dry brush is *only* reachable at low water, and must switch off entirely
+    // once the brush is properly loaded.
+    expect(dry.dryContact).toBeGreaterThan(0.5)
+    expect(wet.dryContact).toBe(0)
+    // A dry mark's tideline gate sits high (rare); a wet one's sits low (common).
+    expect(dry.tideLo).toBeGreaterThan(wet.tideLo)
+
+    const pale = watercolorPigmentEffects(0.1)
+    const deep = watercolorPigmentEffects(0.95)
+    expect(deep.depositPerRadius).toBeGreaterThan(pale.depositPerRadius)
+    expect(deep.granulation).toBeGreaterThan(pale.granulation)
+    expect(deep.wetEdge).toBeGreaterThan(pale.wetEdge)
+    // Never zero: a stroke the user asked for has to leave something.
+    expect(watercolorPigmentEffects(0).depositPerRadius).toBeGreaterThan(0)
+  })
+
+  it('gives the three named mixes genuinely different characters', () => {
+    const { dry, damp, wet } = WATERCOLOR_MIX_BY_PRESET
+    // Dry brush is the corner one slider could never reach: little water *and*
+    // much pigment at the same time.
+    expect(dry.water).toBeLessThan(0.3)
+    expect(dry.pigment).toBeGreaterThan(0.8)
+    // Wet is the opposite corner, not simply "more of the same".
+    expect(wet.water).toBeGreaterThan(0.85)
+    expect(wet.pigment).toBeLessThan(dry.pigment)
+    expect(damp.water).toBeGreaterThan(dry.water)
+    expect(damp.water).toBeLessThan(wet.water)
+  })
+})
+
+describe('the mix rides the preset string (#468 v4)', () => {
+  it('round-trips through the operation slot', () => {
+    const s = watercolorPresetString('firm', { water: 0.34, pigment: 0.78 })
+    expect(watercolorResponseFromPreset(s)).toBe('firm')
+    const back = watercolorMixFromPreset(s)
+    expect(back.water).toBeCloseTo(0.34, 2)
+    expect(back.pigment).toBeCloseTo(0.78, 2)
+  })
+
+  it('still reads a stroke recorded before the mix existed', () => {
+    // The Operation Log is permanent: every watercolor stroke drawn under v1-v3
+    // carries a bare response token and must keep replaying.
+    expect(watercolorResponseFromPreset('normal')).toBe('normal')
+    expect(watercolorMixFromPreset('normal')).toEqual(WATERCOLOR_MIX_DEFAULT)
+    expect(watercolorMixFromPreset(undefined)).toEqual(WATERCOLOR_MIX_DEFAULT)
+  })
+
+  it('falls back rather than throwing on a malformed string', () => {
+    expect(watercolorMixFromPreset('normal:abc:12')).toEqual(WATERCOLOR_MIX_DEFAULT)
+    expect(watercolorMixFromPreset(':::')).toEqual(WATERCOLOR_MIX_DEFAULT)
+  })
+
+  it('clamps out-of-range levels instead of trusting them', () => {
+    const wild = watercolorMixFromPreset('normal:400:-70')
+    expect(wild.water).toBe(1)
+    expect(wild.pigment).toBe(0)
+  })
+})
+
+describe('pooling at the end of a wet stroke (#468 v4, ADR 011 §4.3)', () => {
+  const tail = (): Dab[] => [dabAt(0, 0), dabAt(10, 0), dabAt(20, 0)]
+
+  it('leaves a puddle when a wet brush is lifted slowly', () => {
+    const dabs = tail()
+    applyWatercolorPooling(dabs, 0, 0.95)
+    expect(dabs.length).toBeGreaterThan(3)
+    // The repeats sit exactly where the brush stopped — a puddle is more paint
+    // in one place, not a wider mark.
+    const last = dabs[dabs.length - 1]
+    expect(last.x).toBe(20)
+    expect(last.y).toBe(0)
+  })
+
+  it('leaves none on a quick flick, however wet', () => {
+    const dabs = tail()
+    applyWatercolorPooling(dabs, 4, 0.95)
+    expect(dabs).toHaveLength(3)
+  })
+
+  it('leaves none from a dry brush, however slowly it is lifted', () => {
+    const dabs = tail()
+    applyWatercolorPooling(dabs, 0, 0.15)
+    expect(dabs).toHaveLength(3)
+  })
+
+  it('is a no-op on an empty batch', () => {
+    expect(() => applyWatercolorPooling([], 0, 1)).not.toThrow()
   })
 })

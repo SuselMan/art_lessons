@@ -223,6 +223,10 @@ export const RIBBON_FRAG = `
   // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
   // turn came out bitten by rounded white notches.
   uniform float u_mode;
+  // (#468 v4) How wet the brush was over this batch — see DAB_FRAG's own
+  // u_inkWater. Left at 0 by every tool that has no water model, which makes
+  // the .rgb this writes inert.
+  uniform float u_inkWater;
 
   varying float v_edge;
   varying float v_ink;
@@ -237,7 +241,13 @@ export const RIBBON_FRAG = `
     float cov = clamp(v_edge / u_aaPx, 0.0, 1.0);
     if (cov <= 0.0) discard;
     float amount = u_mode > 0.5 ? cov * v_ink : cov;
-    gl_FragColor = vec4(vec3(amount), amount);
+    // (#468 v4) Same two-channel deposit the nib stamps write: .a is how much
+    // paint landed, .rgb the same amount weighted by how wet the brush was, so
+    // the composite can recover a per-pixel water level. One value for the
+    // whole batch here rather than per band - a batch is a handful of dabs and
+    // water barely moves across it, while the stamps carry their own per-dab
+    // values and overlap the bands almost everywhere.
+    gl_FragColor = vec4(vec3(amount * u_inkWater), amount);
   }
 `;
 
@@ -429,6 +439,23 @@ export const DAB_FRAG = `
   // stacked. Derived from the operation's own data, so every participant
   // computes the same offset — never a random seed.
   uniform vec2 u_fieldOffset;
+  // Watercolor v4 (#468, ADR 011 §4). u_inkWater is written by the ink pass,
+  // not read by it: the deposit texture's .a carries how much paint landed and
+  // its .rgb carry that same amount weighted by how wet the brush was at the
+  // time, so the composite recovers a per-pixel water level as r/a — a proper
+  // deposit-weighted average over every dab that touched the spot. That is what
+  // lets a single stroke start wet and end dry *within one mark*, which no
+  // per-batch uniform could express.
+  uniform float u_inkWater;
+  // Nominal water for this batch, used where there is no deposit to divide by
+  // (the spread fringe lies outside the mark, so its inkLoad is ~0).
+  uniform float u_water;
+  // How hard the paper's relief breaks the contact at zero water, and the band
+  // the tideline's gating field is thresholded against. See RibbonProfile.
+  uniform float u_dryContact;
+  uniform float u_edgeSoftMax;
+  uniform float u_tideLo;
+  uniform float u_tideHi;
 
   varying vec2 v_localUV;
   varying float v_pressure;
@@ -676,7 +703,12 @@ export const DAB_FRAG = `
       if (cov <= 0.0) discard;
       float depth = clamp(-dPx / max(v_radius, 1e-4), 0.0, 1.0);
       float amount = cov * mix(u_inkEdge, 1.0, depth) * v_opacity;
-      gl_FragColor = vec4(vec3(amount), amount);
+      // .a is the deposit; .rgb the same deposit weighted by how wet the brush
+      // was for this dab. Both accumulate additively, so the composite's r/a is
+      // the deposit-weighted mean water over everything that landed here — see
+      // u_inkWater. Zero for every tool that does not set it, which leaves the
+      // ratio undefined and unread.
+      gl_FragColor = vec4(vec3(amount * u_inkWater), amount);
       return;
     }
 
@@ -755,6 +787,13 @@ export const DAB_FRAG = `
       vec2 wp = gl_FragCoord.xy + u_paperOrigin + u_fieldOffset;
 
       float rawCoverage = texture2D(u_strokeCoverage, tileUV).a;
+      vec4 ink = texture2D(u_inkLoad, tileUV);
+
+      // §4.1 - how wet the brush was *here*, recovered from the deposit's own
+      // weighted sum (see u_inkWater). Outside the mark there is no deposit to
+      // divide by, so the batch's nominal water stands in; that region is the
+      // spread fringe, which is about to be decided by exactly this value.
+      float waterHere = ink.a > 0.004 ? clamp(ink.r / ink.a, 0.0, 1.0) : u_water;
 
       // §3.5 - the wash leaves the brush's footprint.
       //
@@ -775,17 +814,50 @@ export const DAB_FRAG = `
       float coverage = rawCoverage;
       float blurred = rawCoverage;
       if (u_spreadPx > 0.0) {
+        // Reach scales with the water actually left here, not just with the
+        // stroke's nominal setting. A stroke that starts flooded and runs dry
+        // therefore spreads far at its beginning and hardly at all by its end,
+        // inside one mark.
+        float reach = u_spreadPx * mix(0.25, 1.0, waterHere);
         blurred =
             0.20 * rawCoverage
-          + 0.45 * wcRingAvg(tileUV, texel, u_spreadPx * 0.55)
-          + 0.35 * wcRingAvg(tileUV, texel, u_spreadPx);
+          + 0.45 * wcRingAvg(tileUV, texel, reach * 0.55)
+          + 0.35 * wcRingAvg(tileUV, texel, reach);
         // Wide threshold range on purpose: the boundary's displacement is
         // (range of thr) / (slope of blurred across the edge), so a timid range
         // buys a wobble of a pixel or two that nothing can see. This spends
         // most of the blur radius in both directions.
         float thr  = mix(0.10, 0.62, wcFbm(wp * 0.030));                    // ~33px cells
-        float soft = mix(0.08, 0.45, wcFbm(wp * 0.017 + vec2(53.0, 11.0))); // ~59px cells
+        // §4.1 - how sharply the boundary resolves, and the range is water's
+        // to set. A flood has edges running from nearly lost to fairly crisp
+        // within one mark; a dry brush has only crisp ones, because there is no
+        // liquid to feather them.
+        float soft = mix(0.06, max(u_edgeSoftMax, 0.07), wcFbm(wp * 0.017 + vec2(53.0, 11.0)));
         coverage = smoothstep(thr, thr + soft, blurred);
+      }
+
+      // §4.2 - dry brush, as *geometry* rather than as texture.
+      //
+      // A loaded brush floods the paper's valleys and touches everything. As it
+      // runs dry it rides higher and higher on the crests until the mark is a
+      // scatter of contact points with bare paper between them. So this
+      // multiplies coverage itself: the silhouette genuinely breaks up, and the
+      // gaps are paper rather than pale paint.
+      //
+      // That distinction is the whole reason the term exists. A grain
+      // multiplier laid over a continuous mark reads as a textured brush, which
+      // is the criticism every version of this tool has attracted so far.
+      //
+      // paperCatch is high on a fibre crest and low in a pit, and it is baked
+      // offline in double precision - so this adds a smoothstep and a multiply
+      // and nothing that cross-device determinism has ever been broken by.
+      float dryness = u_dryContact * (1.0 - waterHere);
+      if (dryness > 0.0) {
+        // The threshold climbs with dryness: at 0 it sits below every catch
+        // value and nothing is cut, at 1 only the highest crests survive.
+        float lift = mix(-0.05, 0.72, dryness);
+        float contact = smoothstep(lift, lift + 0.22, paperCatch);
+        coverage *= mix(1.0, contact, dryness);
       }
 
       // Untouched by this stroke - leave the layer exactly as it is. With
@@ -818,8 +890,7 @@ export const DAB_FRAG = `
       // saturates once and stops, and depth comes from glazing - lifting the
       // stylus, which starts a new scratch, freezes this result as the new
       // pre-stroke original, and multiplies over it afresh.
-      float inkLoad = texture2D(u_inkLoad, tileUV).a;
-      float density = smoothstep(0.0, u_saturateInk, inkLoad);
+      float density = smoothstep(0.0, u_saturateInk, ink.a);
 
       // §3.3 granulation - heavier pigment settles into the paper's pits while
       // the wash is still liquid and dries there. paperCatch is high on a fibre
@@ -886,11 +957,14 @@ export const DAB_FRAG = `
         // u_wetEdgeRadiusPx asks for even when the blur radius is much larger:
         // the blur has to be wide to displace the boundary at all, but a rim
         // that wide would be a vignette rather than a tideline.
-        float tideExp = max(1.0, u_spreadPx / max(u_wetEdgeRadiusPx, 1.0));
+        float tideExp = max(1.0, (u_spreadPx * mix(0.25, 1.0, waterHere)) / max(u_wetEdgeRadiusPx, 1.0));
         float outside = pow(max(1.0 - blurred, 0.0), tideExp);
         // ~40px patches, and the band is wide enough that a good part of any
         // given perimeter gets no rim whatever - which is the point (§3.7).
-        float tide = smoothstep(0.40, 0.78, wcFbm(wp * 0.025 + vec2(7.0, 61.0)));
+        // §4.1 — how much of the perimeter carries a rim at all is water's
+        // call: a dry mark never had a pool to retreat, a flood leaves one
+        // almost everywhere it stopped.
+        float tide = smoothstep(u_tideLo, u_tideHi, wcFbm(wp * 0.025 + vec2(7.0, 61.0)));
         wet = u_wetEdge * outside * tide;
       }
 

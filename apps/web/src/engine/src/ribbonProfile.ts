@@ -1,6 +1,9 @@
 import type { ToolType } from '@grafetto/shared'
 
 import { markerNibFromPreset } from './markerPresets'
+import {
+  watercolorMixFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
+} from './watercolorPresets'
 import type { NibShape } from './markerRibbon'
 
 // #455, ADR 009 §1: what the ribbon rasterizer draws, separated from what it
@@ -111,6 +114,43 @@ export interface RibbonProfile {
    *  40-radius sweep, which straddles saturateInk exactly as intended. Re-measure
    *  rather than re-derive if either number moves. */
   depositPerRadius: number
+  /** #468 v4 — the stroke's own water level, 0..1, as the user set it (ADR 011
+   *  §4). This is the *initial* load; the engine multiplies it by how much is
+   *  left at each dab (watercolorWaterLoad). 0 for a tool with no water model.
+   *
+   *  On the profile rather than parsed from the preset string at every call
+   *  site: the profile is already built from that string once per batch, and a
+   *  second parser somewhere else is a second place for the format to drift. */
+  waterLevel: number
+  /** #468 v4 — the stroke's own pigment level, 0..1. Same story. */
+  pigmentLevel: number
+  /** #468 v4 — reach as a fraction of the stroke's own radius, before spreadPx
+   *  caps it (ADR 011 §4.1). Water decides it: a dry brush barely leaves its
+   *  own footprint, a flood travels visibly further than the hand went. 0 for a
+   *  tool with no spread at all. */
+  spreadOfRadius: number
+  /** #468 v4 — how strongly the paper's own relief breaks the brush's contact
+   *  with it (ADR 011 §4.2). 0 = a loaded brush that floods the valleys and
+   *  touches everything; 1 = a nearly dry one riding the crests.
+   *
+   *  This is dry brush done as *geometry*, not as a texture laid over a solid
+   *  mark: it multiplies coverage itself, so the silhouette genuinely breaks up
+   *  and the gaps are paper rather than pale paint. A grain multiplier on top
+   *  of a continuous mark reads as a textured brush — which is exactly the
+   *  criticism v1 through v3 kept attracting.
+   *
+   *  Only the nominal value lives here; the shader modulates it per pixel by
+   *  how much water was left when the brush passed (see u_inkLoad's .r channel). */
+  dryContact: number
+  /** #468 v4 — upper end of the per-place edge-softness range (ADR 011 §4.1).
+   *  Water decides it: a flood has edges running from nearly lost to fairly
+   *  crisp within one mark, a dry brush has only crisp ones. */
+  edgeSoftMax: number
+  /** #468 v4 — the band the tideline's gating field is thresholded against.
+   *  Low/high, and *inverted* with water on purpose: a dry mark has almost no
+   *  perimeter carrying a rim, a wet one has most of it. */
+  tideLo: number
+  tideHi: number
   /** #468 v3 — whether the deposit decays as the brush unloads along the stroke
    *  (ADR 011 §3.8, watercolorPresets.ts's watercolorWaterLoad). False leaves
    *  every dab depositing the same amount, which is right for a marker or a pen
@@ -252,6 +292,16 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   normalizeDeposit: false,
   depositPerRadius: 0,
   waterDepletion: false,
+  // #468 v4 — the brush model's own four. Off, and the tools they belong to
+  // have no use for them: a marker tip and a pen nib carry ink from a
+  // reservoir, not a finite load of water with paint in it.
+  waterLevel: 0,
+  pigmentLevel: 0,
+  spreadOfRadius: 0,
+  dryContact: 0,
+  edgeSoftMax: 0,
+  tideLo: 0,
+  tideHi: 0,
   saturateInk: 0,
 }
 
@@ -287,6 +337,16 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   normalizeDeposit: false,
   depositPerRadius: 0,
   waterDepletion: false,
+  // #468 v4 — the brush model's own four. Off, and the tools they belong to
+  // have no use for them: a marker tip and a pen nib carry ink from a
+  // reservoir, not a finite load of water with paint in it.
+  waterLevel: 0,
+  pigmentLevel: 0,
+  spreadOfRadius: 0,
+  dryContact: 0,
+  edgeSoftMax: 0,
+  tideLo: 0,
+  tideHi: 0,
   saturateInk: 0,
 }
 
@@ -309,35 +369,10 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
  *  the one thing that is not allowed here. */
 const WATERCOLOR_EDGE_AA_PX = 3.0
 
-/** ADR 011 §3.1 — as a wash dries, water evaporates fastest at its perimeter
- *  and capillary flow carries pigment there to replace it; the pigment stays
- *  when the water goes, leaving a rim darker than the middle.
- *
- *  **Lowered from v1's 0.85, not raised.** v1 bet on this being the tool's
- *  defining cue and drove it hard, evenly, all the way round the silhouette.
- *  Against a geometrically perfect outline that reads as a stroke-width
- *  border, not as dried paint — an outline is exactly what a stronger even rim
- *  produces. The rim now has to be *partial* to read at all — DAB_FRAG gates
- *  it by a low-frequency field along the perimeter, so a good part of any given
- *  boundary gets no rim whatever. This number is only the peak. */
-const WATERCOLOR_WET_EDGE = 0.55
-
 /** How wide the tideline is. 7px is a visible rim at a realistic wash size
  *  without turning into a vignette; it is also comfortably inside what a
  *  16-tap ring can resolve without aliasing into a dotted outline. */
 const WATERCOLOR_WET_EDGE_RADIUS_PX = 7.0
-
-/** ADR 011 §3.3 — heavy pigments settle into the paper's pits while the wash is
- *  still wet, and dry there as visible speckle. Nearly free here: the paper's
- *  catch value is baked offline in double precision and already sampled by this
- *  shader, so the term adds a multiply and nothing else.
- *
- *  **0.15, down from v1's 0.45.** At the old depth the pigment tracked the
- *  paper's microrelief so literally that a wash read as a textured digital
- *  brush — the tool's texture was *entirely* paper grain, at a single 1-3px
- *  scale. Granulation is the finest of three scales now (see WATERCOLOR_CLOUD),
- *  and the finest scale should never be the dominant one. */
-const WATERCOLOR_GRANULATION = 0.15
 
 /** ADR 011 §3.2/§3.8 — inkLoad at which one pass reaches full density.
  *
@@ -352,13 +387,7 @@ const WATERCOLOR_GRANULATION = 0.15
  *  part of why v1's washes were so mechanically even. Now a full-water pass
  *  lands just above this and a depleted one lands well below, which is what
  *  makes the far end of a long sweep read as drier than its start. */
-const WATERCOLOR_SATURATE_INK = 0.70
-
-/** ADR 011 §3.8 — ink laid per radius of travel. See
- *  RibbonProfile.depositPerRadius for why this is a tool constant rather than
- *  the dab's own opacity, and how 0.40 lands a full-water pass just above the
- *  saturation threshold above. */
-const WATERCOLOR_DEPOSIT_PER_RADIUS = 0.75
+const WATERCOLOR_SATURATE_INK = 0.95
 
 /** Below this half-width the nib is widened rather than dropped, same as the
  *  brush pen. Higher than its 0.5 because this tool's own width floor is 0.32
@@ -396,10 +425,6 @@ const WATERCOLOR_PAPER_EDGE = 0.55
  *  in others, which a plain dilation could not do. */
 const WATERCOLOR_SPREAD_CAP_PX = 26.0
 
-/** Reach as a fraction of the stroke's own radius, before the cap. 0.35 puts a
- *  20px-wide line at about 3.5px of travel and a broad wash at the cap. */
-const WATERCOLOR_SPREAD_OF_RADIUS = 0.35
-
 /** Floor, so even the thinnest line's boundary stops being mathematically
  *  exact. Below roughly this the blur cannot displace anything at all. */
 const WATERCOLOR_SPREAD_MIN_PX = 2.5
@@ -409,50 +434,59 @@ const WATERCOLOR_SPREAD_MIN_PX = 2.5
  *  caller cannot pick up two of the three and silently ignore the cap. */
 export const WATERCOLOR_SPREAD = {
   cap: WATERCOLOR_SPREAD_CAP_PX,
-  ofRadius: WATERCOLOR_SPREAD_OF_RADIUS,
   min: WATERCOLOR_SPREAD_MIN_PX,
 }
 
-/** ADR 011 §3.6 — depth of the coarse water/pigment field.
+/** #468 v4 — the profile is now a function of the stroke's own water/pigment
+ *  mix rather than a constant, which is what turns this from a preset into a
+ *  brush model. Everything below that is *not* derived from the mix is a
+ *  property of the rasterizer or of paper, and stays fixed.
  *
- *  The scale v1 had nothing at all at. A wash is uneven at the scale of
- *  centimetres — pooled water, an unevenly loaded brush, absorbency varying
- *  across the sheet — and that unevenness is most of what the eye uses to
- *  identify the material. v1 had one scale, paper grain at 1-3px, so a wash was
- *  a flat tone with fine texture on it, which is what a marker on textured
- *  paper looks like.
- *
- *  0.35 means the wash's own tone varies by about a third either way across a
- *  large mark. That sounds like a lot and reads as normal. */
-const WATERCOLOR_CLOUD = 0.35
-
-const WATERCOLOR_RIBBON: RibbonProfile = {
-  nibShape: 'ellipse',
-  cornerFraction: 0,
-  aaPx: WATERCOLOR_EDGE_AA_PX,
-  // Unlike the brush pen, this tool very much does have a per-pixel pigment
-  // quantity — how much paint the brush left at each spot is what the wash's
-  // density is made of, and it must be separate from the silhouette for the
-  // same reason the marker's is (see RibbonProfile.ink).
-  ink: true,
-  // Nearly flat across the nib. The brush's own rim falloff would fight the
-  // wet-edge term, which is trying to make the boundary *darker*; a real loaded
-  // brush lays a fairly even film anyway, and what unevenness a wash has comes
-  // from the paper, not from the ferrule.
-  inkEdgeFalloff: 0.95,
-  compositeInkMode: 9,
-  curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
-  minHalfWidthPx: WATERCOLOR_MIN_HALF_WIDTH_PX,
-  paperEdge: WATERCOLOR_PAPER_EDGE,
-  wetEdge: WATERCOLOR_WET_EDGE,
-  wetEdgeRadiusPx: WATERCOLOR_WET_EDGE_RADIUS_PX,
-  granulation: WATERCOLOR_GRANULATION,
-  spreadPx: WATERCOLOR_SPREAD_CAP_PX,
-  cloud: WATERCOLOR_CLOUD,
-  normalizeDeposit: true,
-  depositPerRadius: WATERCOLOR_DEPOSIT_PER_RADIUS,
-  waterDepletion: true,
-  saturateInk: WATERCOLOR_SATURATE_INK,
+ *  Built fresh per batch. That is a small object allocation on a path that
+ *  already builds a whole ribbon geometry buffer, and it buys the one thing a
+ *  shared constant cannot: two strokes with different mixes, live in the same
+ *  room at the same time, rendering correctly. */
+function watercolorRibbon(presetName: string | undefined): RibbonProfile {
+  const mix = watercolorMixFromPreset(presetName)
+  const w = watercolorWaterEffects(mix.water)
+  const p = watercolorPigmentEffects(mix.pigment)
+  return {
+    nibShape: 'ellipse',
+    cornerFraction: 0,
+    aaPx: WATERCOLOR_EDGE_AA_PX,
+    // Unlike the brush pen, this tool very much does have a per-pixel pigment
+    // quantity — how much paint the brush left at each spot is what the wash's
+    // density is made of, and it must be separate from the silhouette for the
+    // same reason the marker's is (see RibbonProfile.ink).
+    ink: true,
+    // Nearly flat across the nib. The brush's own rim falloff would fight the
+    // wet-edge term, which is trying to make the boundary *darker*; a real
+    // loaded brush lays a fairly even film anyway, and what unevenness a wash
+    // has comes from the paper, not from the ferrule.
+    inkEdgeFalloff: 0.95,
+    compositeInkMode: 9,
+    curvatureTolerancePx: MARKER_CURVATURE_TOLERANCE_PX,
+    minHalfWidthPx: WATERCOLOR_MIN_HALF_WIDTH_PX,
+    paperEdge: WATERCOLOR_PAPER_EDGE,
+    wetEdgeRadiusPx: WATERCOLOR_WET_EDGE_RADIUS_PX,
+    spreadPx: WATERCOLOR_SPREAD_CAP_PX,
+    saturateInk: WATERCOLOR_SATURATE_INK,
+    normalizeDeposit: true,
+    waterDepletion: true,
+    // ── from water: geometry and behaviour ──
+    waterLevel: mix.water,
+    pigmentLevel: mix.pigment,
+    spreadOfRadius: w.spreadOfRadius,
+    cloud: w.cloud,
+    edgeSoftMax: w.edgeSoftMax,
+    tideLo: w.tideLo,
+    tideHi: w.tideHi,
+    dryContact: w.dryContact,
+    // ── from pigment: how much paint ──
+    granulation: p.granulation,
+    depositPerRadius: p.depositPerRadius,
+    wetEdge: p.wetEdge,
+  }
 }
 
 /** Which tools the ribbon rasterizer draws. Every other tool goes through the
@@ -472,7 +506,7 @@ export function ribbonNeedsSettle(profile: RibbonProfile): boolean {
 }
 
 export function ribbonProfileFor(tool: ToolType, presetName: string | undefined): RibbonProfile {
-  if (tool === 'watercolor') return WATERCOLOR_RIBBON
+  if (tool === 'watercolor') return watercolorRibbon(presetName)
   if (tool === 'brushPen') return BRUSH_PEN_RIBBON
   return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_RIBBON : MARKER_BULLET_RIBBON
 }

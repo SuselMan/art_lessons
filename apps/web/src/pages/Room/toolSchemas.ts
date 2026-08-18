@@ -1,7 +1,9 @@
 import {
   PENCIL_GRADES, DEFAULT_GRAPHITE_COLOR, LINER_SIZES_MM, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
   TILT_RESPONSES, DEFAULT_TILT_RESPONSE, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE,
+  WATERCOLOR_MIX_PRESETS, WATERCOLOR_MIX_DEFAULT,
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
+  type WatercolorMixPreset,
 } from '../../engine'
 import { parseNumberInput } from '../../components/NumberField/numberField'
 import { expScale, type SliderScale } from '../../components/PrecisionSlider/sliderScale'
@@ -383,6 +385,26 @@ const brushPenSchema = (): ToolSchema => ({
 // them as sliders over a per-stroke approximation would be a UI that promises
 // physics the engine does not have.
 const watercolorSchema = (): ToolSchema => ({
+  // Three named states, and they are what most users will ever touch: the two
+  // sliders exist so that these can mean something, not so that everyone has to
+  // tune them. Picking one writes both sliders (see Room's own handler).
+  mix: {
+    nameKey: 'tool.field.mix',
+    valueType: { kind: 'enumOptions', options: WATERCOLOR_MIX_PRESETS },
+    optionLabelKeys: {
+      dry: 'tool.watercolorMix.dry',
+      damp: 'tool.watercolorMix.damp',
+      wet: 'tool.watercolorMix.wet',
+    },
+    optionIcons: {
+      dry: 'humidity_low',
+      damp: 'humidity_mid',
+      wet: 'humidity_high',
+    },
+    uiControls: ['select'],
+    quickAccess: true,
+    default: 'damp' satisfies WatercolorMixPreset,
+  },
   size: {
     nameKey: 'tool.field.size',
     valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
@@ -409,15 +431,29 @@ const watercolorSchema = (): ToolSchema => ({
     quickAccess: false,
     default: DEFAULT_PRESSURE_RESPONSE satisfies PressureResponse,
   },
-  // Multiplies WATERCOLOR_PRESET.opacity (0.42), so 100% here is still a
-  // transparent wash — this slider dilutes the paint further, it does not make
-  // it covering. That ceiling is the material, not a setting.
-  opacity: {
-    nameKey: 'tool.field.opacity',
+  // #468 v4, ADR 011 §4 — the two quantities the brush actually carries, and
+  // deliberately *two* rather than one "wetness" slider. The interesting states
+  // are not on a line: little water with much pigment is a dry brush, much
+  // water with little pigment is a pale flood, and no single control can reach
+  // both.
+  //
+  // There is no opacity slider here on purpose. Pigment *is* how strong the
+  // paint is; a second control for the same axis would be two knobs fighting
+  // over one quantity, and it is exactly what let earlier versions read as an
+  // opacity brush with texture on it.
+  water: {
+    nameKey: 'tool.field.water',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
-    default: 1,
+    default: WATERCOLOR_MIX_DEFAULT.water,
+  },
+  pigment: {
+    nameKey: 'tool.field.pigment',
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: WATERCOLOR_MIX_DEFAULT.pigment,
   },
   // Unlike the ink tools, black is a poor identity default here — watercolor is
   // a colour medium first, and a black wash is the one thing watercolourists

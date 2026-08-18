@@ -49,7 +49,7 @@ import {
 } from './src/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, applyWatercolorHeadTaper,
-  watercolorWaterLoad, watercolorWaterStep,
+  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
 } from './src/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
@@ -87,6 +87,11 @@ export { TILT_RESPONSES, DEFAULT_TILT_RESPONSE, isTiltResponse, tiltResponseT, t
 // #454 — the brush pen's own response setting, the pressure counterpart of
 // the tilt one right above. Re-exported for toolSchemas.ts, which owns the
 // UI side of it.
+export {
+  WATERCOLOR_MIX_PRESETS, WATERCOLOR_MIX_BY_PRESET, WATERCOLOR_MIX_DEFAULT,
+  watercolorPresetString, watercolorMixFromPreset, isWatercolorMixPreset,
+  type WatercolorMix, type WatercolorMixPreset,
+} from './src/watercolorPresets'
 export { PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth, type PressureResponse }
 
 /** Pure dab-shape query for UI overlays (brush cursor) — mirrors
@@ -1277,6 +1282,10 @@ interface RibbonSettleContext {
    *  treatment in each batch, and the seams between batches are an artefact of
    *  pointer-event timing that must never be visible in the mark. */
   spreadPx: number
+  /** (#468 v4) Water left at the *end* of the gesture — the value the composite
+   *  falls back to outside the mark, where there is no deposit to read a
+   *  per-pixel level from (ADR 011 §4.1). */
+  water: number
 }
 
 class RibbonStrokeScratch {
@@ -4323,8 +4332,11 @@ export class PencilEngine implements PencilEngineAPI {
       'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk',
       // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
       'u_spreadPx', 'u_cloud', 'u_fieldOffset',
+      // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
+      // the rest are read by the composite.
+      'u_inkWater', 'u_water', 'u_dryContact', 'u_edgeSoftMax', 'u_tideLo', 'u_tideHi',
     ])
-    this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
+    this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode', 'u_inkWater'])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
@@ -4738,7 +4750,14 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._strokeTool === 'brushPen') applyBrushPenEndTaper(dabs, e.speed)
     // #468 — structurally identical, shallower numbers: a wet brush leaves a
     // damp streak, not a calligraphic point.
-    if (this._strokeTool === 'watercolor') applyWatercolorEndTaper(dabs, e.speed)
+    if (this._strokeTool === 'watercolor') {
+      applyWatercolorEndTaper(dabs, e.speed)
+      // #468 v4, ADR 011 §4.3 — a wet brush set down and lifted slowly leaves a
+      // puddle, not the round cap a swept nib gives. After the taper on
+      // purpose: the repeats copy the already-tapered last dab, so the pool
+      // sits at the tip's real width instead of re-widening it.
+      applyWatercolorPooling(dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel)
+    }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
     // (#468, ADR 011 §3.1) The wash dries: one final composite over everything
     // this stroke touched, now that its silhouette is finished and the wet-edge
@@ -6200,16 +6219,45 @@ export class PencilEngine implements PencilEngineAPI {
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
 
-    // (#468 v2, ADR 011 §3.5) The stroke's typical radius decides how far its
+    // (#468 v2/v4, ADR 011 §3.5) The stroke's typical radius decides how far its
     // water carries. Mean rather than max: one heavy dab at the end of an
     // otherwise light stroke should not widen the whole mark's boundary
     // treatment.
     let radiusSum = 0
     for (const d of drawable) radiusSum += d.size * 0.5 * preset.sizeMultiplier
     const meanRadius = radiusSum / drawable.length
-    const spreadPx = profile.spreadPx > 0
-      ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, meanRadius * WATERCOLOR_SPREAD.ofRadius))
+    const spreadPx = profile.spreadPx > 0 && profile.spreadOfRadius > 0
+      ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, meanRadius * profile.spreadOfRadius))
       : 0
+
+    // (#468 v4, ADR 011 §4.4) The composite rect a *live* batch redraws, padded
+    // past the dabs it just painted.
+    //
+    // v2 and v3 ran the spread and the tideline only at pen-up, because both
+    // read a neighbourhood the moving brush front has not finished writing. The
+    // cost was a visible jump: the artist drew one shape and watched it become
+    // another the instant the stylus lifted. Correct by the model, and bad —
+    // real paint keeps moving, it does not swap geometry in a single frame.
+    //
+    // The fix is that both terms are *local*: they reach at most spread +
+    // tideline radius from any pixel. So a batch that recomposites its own
+    // dabs plus that much margin fixes up everything the previous batch could
+    // only guess at, and the only region still provisional is the margin around
+    // the live front — which is where the brush is, and which the next batch
+    // corrects. The settle pass at pen-up then has nothing left to do but the
+    // final margin, so the mark barely changes when the pen comes up.
+    //
+    // Costs a larger rect per batch. Bounded by the padding, not by the stroke:
+    // this stays proportional to what the batch painted, unlike recompositing
+    // the whole stroke every event, which is what made deferral necessary in
+    // the first place.
+    const compositePad = spreadPx > 0 ? Math.ceil(spreadPx + profile.wetEdgeRadiusPx) + 1 : 0
+    const compositeBounds = compositePad > 0
+      ? {
+        minX: bounds.minX - compositePad, minY: bounds.minY - compositePad,
+        maxX: bounds.maxX + compositePad, maxY: bounds.maxY + compositePad,
+      }
+      : bounds
 
     // (#468 v3, ADR 011 §3.8) Every dab's ink deposit, resolved once for the
     // batch — *before* the tile loop, because the depletion clock must advance
@@ -6227,8 +6275,15 @@ export class PencilEngine implements PencilEngineAPI {
     //
     // The marker takes neither and must not: its strokes are permanent and its
     // constants were calibrated against the old scale.
+    // (#468 v4, ADR 011 §4) Water and pigment run down at *different* rates,
+    // and that difference is the whole behaviour: water soaks away fast while
+    // pigment stays on the hairs, so one long stroke walks itself from a wet
+    // saturated start, through an ordinary middle, to a dry but still strongly
+    // coloured end — and finally to a broken dry-brush tail. A single "wetness"
+    // scalar cannot produce that arc at all.
     const deposits: number[] = []
     const waterByDab = new Map<Dab, number>()
+    let waterAtEnd = 1
     {
       let prev = prevDab
       let used = scratch.waterUsed
@@ -6236,10 +6291,16 @@ export class PencilEngine implements PencilEngineAPI {
         const radius = Math.max(dab.size * 0.5 * preset.sizeMultiplier, 0.5)
         const seg = this._markerSegmentLength(dab, prev, radius)
         if (profile.waterDepletion) used += watercolorWaterStep(seg, radius)
-        const water = profile.waterDepletion ? watercolorWaterLoad(used) : 1
+        // The profile's levels are the *initial* load; the two curves say how
+        // much of each is left after `used` radii of travel. depositPerRadius
+        // already carries the nominal pigment setting, so only the remaining
+        // *fraction* multiplies it here.
+        const water = profile.waterDepletion ? profile.waterLevel * watercolorWaterLoad(used) : 1
+        const pigmentLeft = profile.waterDepletion ? watercolorPigmentLoad(used) : 1
         waterByDab.set(dab, water)
+        waterAtEnd = water
         deposits.push(profile.normalizeDeposit
-          ? profile.depositPerRadius * (seg / radius) * 0.5 * water
+          ? profile.depositPerRadius * (seg / radius) * 0.5 * pigmentLeft
           : dab.opacity * seg * 0.5)
         prev = dab
       }
@@ -6279,10 +6340,13 @@ export class PencilEngine implements PencilEngineAPI {
       if (inkLoad) {
         for (let i = 0; i < drawable.length; i++) {
           inkLoad.beginAdditiveDraw()
-          this._drawRibbonNibPass(inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false)
+          this._drawRibbonNibPass(
+            inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false,
+            waterByDab.get(drawable[i]) ?? 0,
+          )
           inkLoad.endDraw()
         }
-        if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx)
+        if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx, waterAtEnd)
       }
 
       // `drawable[0].opacity` rather than a per-dab value: only a tool whose
@@ -6291,8 +6355,8 @@ export class PencilEngine implements PencilEngineAPI {
       // §9 — pressure drives width, never alpha). The marker's branch ignores
       // this argument entirely and reads its own inkLoad texture instead.
       this._drawRibbonCompositeRect(
-        tile, bounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity, false,
-        [drawable[0].x, drawable[0].y], spreadPx,
+        tile, compositeBounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
+        [drawable[0].x, drawable[0].y], spreadPx, waterAtEnd,
       )
     }
 
@@ -6302,10 +6366,10 @@ export class PencilEngine implements PencilEngineAPI {
     // dispatched, so a future profile turning wetEdge on needs no change here.
     scratch.noteSettle({
       target, preset, profile, color, opacity: drawable[0].opacity, bounds,
-      fieldSeed: [drawable[0].x, drawable[0].y], spreadPx,
+      fieldSeed: [drawable[0].x, drawable[0].y], spreadPx, water: waterAtEnd,
     })
 
-    target.markContentPainted(bounds)
+    target.markContentPainted(compositeBounds)
   }
 
   /** (#468, ADR 011 §3.1) The wet-edge pass: one final composite over
@@ -6336,14 +6400,14 @@ export class PencilEngine implements PencilEngineAPI {
   private _settleRibbonStroke(scratch: RibbonStrokeScratch): void {
     const ctx = scratch.settleContext
     if (!ctx || !ribbonNeedsSettle(ctx.profile)) return
-    const { target, preset, profile, color, opacity, fieldSeed, spreadPx } = ctx
+    const { target, preset, profile, color, opacity, fieldSeed, spreadPx, water } = ctx
     // (#468 v2) Padded by the spread distance: the settle pass is where the
     // wash leaves the brush's footprint (ADR 011 §3.5), and those pixels lie
     // *outside* every bound any batch reported. Draw the old rect and the new
     // fringe is simply clipped away — the tool keeps the marker silhouette it
     // was built to escape. A pixel of slack on top of the profile's own reach,
     // since the re-threshold can push the boundary right to it.
-    const pad = spreadPx > 0 ? Math.ceil(spreadPx) + 1 : 0
+    const pad = spreadPx > 0 ? Math.ceil(spreadPx + profile.wetEdgeRadiusPx) + 1 : 0
     const bounds = {
       minX: ctx.bounds.minX - pad, minY: ctx.bounds.minY - pad,
       maxX: ctx.bounds.maxX + pad, maxY: ctx.bounds.maxY + pad,
@@ -6358,8 +6422,8 @@ export class PencilEngine implements PencilEngineAPI {
       const entry = scratch.peek(tile.buffer)
       if (!entry) continue
       this._drawRibbonCompositeRect(
-        tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity, true,
-        fieldSeed, spreadPx,
+        tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity,
+        fieldSeed, spreadPx, water,
       )
     }
     target.markContentPainted(bounds)
@@ -6417,6 +6481,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawRibbonNibPass(
     dest: AccumulationBuffer, tile: PaintTarget, dab: Dab, preset: PencilPreset,
     profile: RibbonProfile, inkMode: 6 | 7, opacity: number, ownTarget = true,
+    /** (#468 v4) How wet the brush was for *this* dab, written into the deposit
+     *  texture's colour channels so the composite can recover a per-pixel water
+     *  level (ADR 011 §4.1). 0 for every tool with no water model, which leaves
+     *  those channels at zero and the ratio unread. */
+    inkWater = 0,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -6452,6 +6521,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_angle, dab.angle)
     gl.uniform1f(u.u_aspectRatio, dab.aspectRatio)
     gl.uniform1f(u.u_opacity, opacity)
+    // #468 v4 — weights the deposit written into the texture's colour channels.
+    gl.uniform1f(u.u_inkWater, inkWater)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     if (ownTarget) dest.endDraw()
@@ -6463,8 +6534,11 @@ export class PencilEngine implements PencilEngineAPI {
    *  this tile's own pixel space here — the only per-tile work, which is why
    *  the geometry itself is built once for the whole batch rather than per
    *  tile. */
+  // (#468 v4) `inkWater` defaults to 0 so the coverage pass and every non-
+  // watercolor tool leave the deposit's colour channels alone.
   private _drawRibbonBands(
     dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink', aaPx: number,
+    inkWater = 0,
   ): void {
     const { gl } = this
     const local = new Float32Array(bands.length)
@@ -6480,6 +6554,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(this._ribbonUni.u_resolution, dest.width, dest.height)
     gl.uniform1f(this._ribbonUni.u_aaPx, aaPx)
     gl.uniform1f(this._ribbonUni.u_mode, mode === 'ink' ? 1 : 0)
+    gl.uniform1f(this._ribbonUni.u_inkWater, inkWater)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
     gl.bufferData(gl.ARRAY_BUFFER, local, gl.STREAM_DRAW)
@@ -6515,8 +6590,8 @@ export class PencilEngine implements PencilEngineAPI {
     tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
     preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
-    color: [number, number, number], opacity: number, settle: boolean,
-    fieldSeed: [number, number], spreadPx: number,
+    color: [number, number, number], opacity: number,
+    fieldSeed: [number, number], spreadPx: number, water: number,
   ): void {
     const cx = (bounds.minX + bounds.maxX) * 0.5
     const cy = (bounds.minY + bounds.maxY) * 0.5
@@ -6525,7 +6600,7 @@ export class PencilEngine implements PencilEngineAPI {
       x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
       size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
     }
-    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, settle, fieldSeed, spreadPx)
+    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -6537,7 +6612,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawRibbonCompositeDab(
     tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
-    color: [number, number, number], settle: boolean, fieldSeed: [number, number], spreadPx: number,
+    color: [number, number, number], fieldSeed: [number, number], spreadPx: number, water: number,
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -6611,11 +6686,11 @@ export class PencilEngine implements PencilEngineAPI {
     // cleared below. Every other profile carries zeros, which makes each term
     // in the u_inkMode=9 branch vanish identically.
     //
-    // u_wetEdge is the exception that carries information: it is the profile's
-    // gain only on the deferred settle pass and 0 on every live batch, which is
-    // how "this wash is still wet" is expressed to the shader. See
-    // _settleRibbonStroke for why the term cannot be computed per batch at all.
-    gl.uniform1f(u.u_wetEdge, settle ? profile.wetEdge : 0)
+    // (#468 v4) No live/settle split any more — every term runs on every
+    // composite, and the settle pass differs only in the rect it covers. See
+    // _paintRibbonStroke's compositeBounds for why that became possible, and
+    // what the split cost perceptually while it lasted.
+    gl.uniform1f(u.u_wetEdge, profile.wetEdge)
     gl.uniform1f(u.u_wetEdgeRadiusPx, profile.wetEdgeRadiusPx)
     gl.uniform1f(u.u_granulation, profile.granulation)
     gl.uniform1f(u.u_saturateInk, profile.saturateInk)
@@ -6625,9 +6700,18 @@ export class PencilEngine implements PencilEngineAPI {
     // is a per-place value owing nothing to the silhouette, so it runs on every
     // batch — deferring it would only make a wash visibly change tone at
     // pen-up, buying nothing.
-    gl.uniform1f(u.u_spreadPx, settle ? spreadPx : 0)
+    gl.uniform1f(u.u_spreadPx, spreadPx)
     gl.uniform1f(u.u_cloud, profile.cloud)
     gl.uniform2f(u.u_fieldOffset, fieldSeed[0], fieldSeed[1])
+    // #468 v4 — the brush model (ADR 011 §4). u_water is the fallback the
+    // composite uses outside the mark, where there is no deposit to read a
+    // per-pixel level from.
+    gl.uniform1f(u.u_water, water)
+    gl.uniform1f(u.u_dryContact, profile.dryContact)
+    gl.uniform1f(u.u_edgeSoftMax, profile.edgeSoftMax)
+    gl.uniform1f(u.u_tideLo, profile.tideLo)
+    gl.uniform1f(u.u_tideHi, profile.tideHi)
+    gl.uniform1f(u.u_inkWater, 0)
     // #452 — see _drawRibbonNibPass's own comment on why this is cleared here.
     gl.uniform1f(u.u_wickPx, 0)
     gl.uniform1f(u.u_wickCap, 0)

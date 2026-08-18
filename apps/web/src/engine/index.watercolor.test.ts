@@ -84,11 +84,16 @@ describe('watercolor tool (#468, ADR 011)', () => {
     expect(markerPassDraw(engine, 7)).toBeDefined()
   })
 
-  it('leaves the wet edge off while the stroke is still being drawn', async () => {
-    // The tideline is a property of the *finished* silhouette. A batch painted
-    // mid-stroke neither knows where the boundary will be nor covers the pixels
-    // whose answer changes when the stroke grows past them — so u_wetEdge must
-    // be 0 on every live batch composite. See _settleRibbonStroke.
+  it('runs the same terms while drawing as it does at pen-up (#468 v4)', async () => {
+    // v2 and v3 deferred the spread and the tideline to pen-up, because both
+    // read a neighbourhood the moving brush front has not finished writing. It
+    // was correct and it looked wrong: the artist drew one shape and watched it
+    // become another the instant the stylus lifted.
+    //
+    // v4 runs the whole model on every batch and pads the rect each batch
+    // recomposites instead, so the previous batch's guesses get fixed up as the
+    // brush moves on (see _paintRibbonStroke's compositeBounds). What this pins
+    // is that no term is switched off mid-stroke any more.
     const engine = setupLayer()
     await paperReady(engine)
     engine.setActiveLayer('L')
@@ -96,10 +101,11 @@ describe('watercolor tool (#468, ADR 011)', () => {
     simulateStrokeStart(engine, 16, 32)
     simulateStrokeMove(engine, 28, 32)
     simulateStrokeMove(engine, 40, 32)
-    expect(lastMarkerDabUniform(engine, 'u_wetEdge')).toBe(0)
+    expect(lastMarkerDabUniform(engine, 'u_wetEdge')).toBeGreaterThan(0)
+    expect(lastMarkerDabUniform(engine, 'u_spreadPx')).toBeGreaterThan(0)
   })
 
-  it('switches the wet edge on for the settle pass at pen-up', async () => {
+  it('still composites once more at pen-up, over the whole mark', async () => {
     const engine = setupLayer()
     await paperReady(engine)
     engine.setActiveLayer('L')
@@ -108,15 +114,16 @@ describe('watercolor tool (#468, ADR 011)', () => {
     simulateStrokeMove(engine, 28, 32)
     simulateStrokeMove(engine, 40, 32)
     simulateStrokeEnd(engine, 40, 32)
-    // The settle pass is the last composite of the gesture, so the uniform's
-    // surviving value is its own.
+    // The settle pass remains, and still matters: it is what fixes up the
+    // margin around wherever the brush happened to stop. What changed in v4 is
+    // that it no longer *introduces* terms, so the mark barely moves.
     expect(lastMarkerDabUniform(engine, 'u_wetEdge')).toBeGreaterThan(0)
   })
 
   it('never switches the wet edge on for a tool that has none', async () => {
-    // ribbonNeedsSettle keys off the profile, not the tool name — this is what
-    // guarantees the marker and the brush pen pay nothing for watercolor's
-    // extra pass, and that neither picks up a rim it should not have.
+    // Keyed off the profile, not the tool name — this is what guarantees the
+    // marker and the brush pen pay nothing for watercolor's machinery, and that
+    // neither picks up a rim it should not have.
     for (const tool of ['marker', 'brushPen'] as const) {
       const engine = setupLayer()
       await paperReady(engine)
@@ -262,7 +269,7 @@ describe('ink deposit normalization (#468 v3, ADR 011 §3.8)', () => {
     })
   }
 
-  it('runs the brush down over a long stroke and barely over a short one', () => {
+  it('runs the paint down over a long stroke and barely over a short one', () => {
     const short = setupLayer(512, 128)
     short.appendOperation(sweep(12, 24, 'watercolor'))
     const shortDeposit = lastInkDeposit(short)
@@ -273,8 +280,13 @@ describe('ink deposit normalization (#468 v3, ADR 011 §3.8)', () => {
 
     expect(longDeposit).toBeLessThan(shortDeposit)
     // Same segment length and same radius in both, so the ratio is purely the
-    // water curve — and it has to be a real difference, not a rounding one.
-    expect(longDeposit / shortDeposit).toBeLessThan(0.75)
+    // *pigment* curve. Deliberately the slow one: v4 splits the two loads, and
+    // paint outlasting water by better than two to one is what produces a dry
+    // but still strongly coloured tail rather than a stroke that merely fades
+    // (ADR 011 §4). A ratio down near the water curve's would mean the split
+    // had been undone.
+    expect(longDeposit / shortDeposit).toBeLessThan(0.92)
+    expect(longDeposit / shortDeposit).toBeGreaterThan(0.6)
   })
 
   function singleDab(size: number, tool: 'watercolor' | 'marker') {
