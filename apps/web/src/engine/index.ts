@@ -2,7 +2,7 @@ import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode } from '@grafetto/shared'
 import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
-import { PAPER_WORLD_SIZE } from './src/paperConstants'
+import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
   createPlaceholderPaperTexture, generatePaperMipmaps, getPaperBytes, uploadPaperTexture,
 } from './src/paperLoader'
@@ -136,6 +136,13 @@ export interface CompositeItem {
  *  with it, and it matches the editor's own surround so the seam between the
  *  GL canvas and the page around it is invisible. */
 const DEFAULT_DESK_COLOR: [number, number, number] = [0.086, 0.086, 0.102]
+
+/** (#470) Paper texels per screen pixel past which the grain is sampled
+ *  through its mip chain instead of straight. Two, because that is where
+ *  straight bilinear stops having a sample for every output pixel and starts
+ *  dropping them — below it the chain only blurs, above it the lack of one
+ *  shimmers. */
+const PAPER_MIP_THRESHOLD = 2
 
 export interface PencilEngineOptions {
   // Infinite-canvas mode (#133 Phase 1, #142) — every room's layer storage
@@ -7136,11 +7143,33 @@ export class PencilEngine implements PencilEngineAPI {
    *  Bounded rooms never reach either path — they display through
    *  DISPLAY_FRAG (see _display) and are scaled by the browser's compositor,
    *  so their paper is untouched by all of this. */
-  private _bindPaperForCompose(): void {
+  /** (#470) How much the paper is being shrunk on the way to this pass's
+   *  target, in texels per output pixel. Below PAPER_MIP_THRESHOLD the mip
+   *  chain is left off on purpose — see _bindPaperForCompose. */
+  private _paperTexelsPerPixel(zoom: number): number {
+    const { w } = this._paperWorldSize()
+    return (PAPER_BAKE_RESOLUTION / w) / Math.max(zoom, 1e-6) * this._opts.paperScale
+  }
+
+  private _bindPaperForCompose(texelsPerPixel: number): void {
     const { gl } = this
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-    if (this._paperMipsReady) gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
+    // (#470) Mips only once the paper is genuinely being shrunk past two
+    // texels a pixel. This used to switch them on for every composed frame,
+    // and with viewport rendering that meant every frame at any zoom below
+    // 100% — where the grain is minified less than 2x and trilinear blending
+    // costs far more than it buys. Measured at 27% zoom on a 4096 page,
+    // scanning blank paper: grain energy 78 with the chain against 148
+    // without, i.e. mip sampling was removing half the texture. The paper is
+    // the largest surface on screen and its grain is what reads as sharpness,
+    // so that halving is what "everything looks soft" actually was.
+    //
+    // Past the threshold the chain goes back on, and it has to: a genuinely
+    // small zoom undersamples the grain into shimmer, which is worse than
+    // soft because it crawls when the camera moves.
+    const useMips = this._paperMipsReady && texelsPerPixel > PAPER_MIP_THRESHOLD
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, useMips ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR)
   }
 
   /** Restores the plain LINEAR filter the paint path requires — see
@@ -7149,6 +7178,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _releasePaperFromCompose(): void {
     const { gl } = this
     if (!this._paperMipsReady) return
+    // Always back to plain LINEAR, whichever filter the bind above chose.
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
@@ -7178,7 +7208,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._assemblyFBO.texture)
     gl.uniform1i(u.u_accumulation, 0)
-    this._bindPaperForCompose()
+    this._bindPaperForCompose(this._paperTexelsPerPixel(this._infiniteCamera.zoom))
     gl.uniform1i(u.u_paperMap, 1)
 
     gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
@@ -8479,7 +8509,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, sourceTex)
     gl.uniform1i(u.u_accumulation, 0)
-    this._bindPaperForCompose()
+    // 1:1 — an export is never minified, so the chain is never wanted here.
+    this._bindPaperForCompose(this._paperTexelsPerPixel(1))
     gl.uniform1i(u.u_paperMap, 1)
 
     gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
