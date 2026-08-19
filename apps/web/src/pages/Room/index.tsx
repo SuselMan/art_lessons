@@ -103,6 +103,7 @@ import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { ChiselAngleDial } from './ChiselAngleDial'
 import { createSnapshotGate } from './snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
+import { reportSnapshotRestore } from './reportRestore'
 import { restoreLatestSnapshot, walkHistoryBackward } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError } from '../../stores/noticeStore'
@@ -1700,11 +1701,24 @@ export function Room() {
    *  Room F4uw21Ob measured 431 MiB of inflated pixels across ten layers —
    *  held at once, that killed the tab on iPadOS. */
   const restoreFromSnapshot = useCallback(async (engine: PencilEngineAPI, roomId: string) => {
-    const head = await restoreLatestSnapshot(roomId, {
+    const outcome = await restoreLatestSnapshot(roomId, {
       beginLayers: layerState => initLayersFromLayerState(engine, layerState),
       applyLayer: (layerId, tiles, coveredSeq) => engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq),
     })
-    if (!head) return false
+    // (#474) Drained here and nowhere else, on every path including failure:
+    // the audit is what the engine saw, and leaving it behind on a failed
+    // restore would hand those records to the *next* one. This is also the
+    // only moment both accounts of the restore exist at once — the plan the
+    // network described and the tiles the engine ended up holding.
+    // Wrapped because this sits on the join path: reporting must never be able
+    // to break the restore it is describing. A driver that answers getParameter
+    // oddly, or a Sentry transport that throws, would otherwise cost the lesson
+    // — the exact failure this code exists to catch, caused by the catching.
+    try {
+      reportSnapshotRestore(roomId, outcome, engine.takeSnapshotRestoreAudit(), engine.gpuInfo())
+    } catch { /* a report we couldn't build is not worth a room we can't open */ }
+    if (outcome.status !== 'restored') return false
+    const { head } = outcome
     engine.setActiveLayer(head.layerState.activeId)
     engine.setCompositeOrder(computeCompositeOrder(head.layerState))
     restoredLayerStateRef.current = head.layerState

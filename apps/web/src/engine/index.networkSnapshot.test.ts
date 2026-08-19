@@ -372,3 +372,103 @@ describe('restoring a snapshot baked before bounded rooms were subdivided (#469)
     expect(engine.bakeNetworkSnapshot('L')).toBeNull()
   })
 })
+
+// (#474) The audit restoreLayerFromSnapshot now leaves behind. It exists
+// because production room 2xKybCLI restored two layers, one came back partial
+// and one blank, and the call reported success — WebGL signals out-of-memory
+// through gl.getError(), which nothing on this path was asking.
+describe('takeSnapshotRestoreAudit (#474)', () => {
+  const TILE = { originX: 0, originY: 0, width: 8, height: 8, pixels: new Uint8Array(8 * 8 * 4).fill(200) }
+
+  it('records a landed restore with the tiles it can account for', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.initLayer('L')
+
+    engine.restoreLayerFromSnapshot('L', [TILE], 100)
+
+    const audit = engine.takeSnapshotRestoreAudit()
+    expect(audit).toHaveLength(1)
+    expect(audit[0]).toMatchObject({
+      layerId: 'L', known: true, tilesIn: 1, tilesUploaded: 1, glError: 0, bytes: TILE.pixels.byteLength,
+    })
+    expect(audit[0].withContentAfter).toBeGreaterThan(0)
+  })
+
+  // The room's snapshot index lists every layer ever baked, deleted ones
+  // included; the engine drops those at its first line. Silently is fine —
+  // unrecorded is not, because the caller cannot otherwise tell that case from
+  // a live layer whose buffer failed to exist.
+  it('records a layer it had no buffer for, with the weight it dropped', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+
+    engine.restoreLayerFromSnapshot('deleted-long-ago', [TILE], 100)
+
+    expect(engine.takeSnapshotRestoreAudit()[0]).toMatchObject({
+      layerId: 'deleted-long-ago', known: false, tilesIn: 1, tilesUploaded: 0,
+      bytes: TILE.pixels.byteLength, residentAfter: 0, withContentAfter: 0,
+    })
+  })
+
+  it('reports the GL error code when the upload does not land', () => {
+    const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.initLayer('L')
+    const gl = canvas.getContext() as unknown as { getError: () => number }
+    const real = gl.getError.bind(gl)
+    // Raises GL_OUT_OF_MEMORY exactly once, on the read that follows the drain,
+    // then hands the queue back — i.e. an error raised *by this restore*, which
+    // is the only kind worth reporting. Deliberately not a stub that answers
+    // 0x0505 forever: generatePaperMipmaps drains with `while (getError() !==
+    // NO_ERROR)`, and a permanently angry mock hangs it.
+    //
+    // Counted rather than flagged because the drain's length is observable:
+    // answering NO_ERROR on the first call ends it in exactly one read, so the
+    // second call is the one whose answer reaches the audit.
+    let calls = 0
+    gl.getError = () => {
+      calls++
+      if (calls === 1) return 0
+      if (calls === 2) return 0x0505
+      return real()
+    }
+
+    engine.restoreLayerFromSnapshot('L', [TILE], 100)
+    gl.getError = real
+
+    expect(engine.takeSnapshotRestoreAudit()[0].glError).toBe(0x0505)
+  })
+
+  it('does not blame a restore for an error raised before it started', () => {
+    const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.initLayer('L')
+    const gl = canvas.getContext() as unknown as { getError: () => number }
+    const real = gl.getError.bind(gl)
+    // One stale error pending, then silence — the drain must absorb it.
+    let pending = 1
+    gl.getError = () => (pending-- > 0 ? 0x0505 : real())
+
+    engine.restoreLayerFromSnapshot('L', [TILE], 100)
+    gl.getError = real
+
+    expect(engine.takeSnapshotRestoreAudit()[0].glError).toBe(0)
+  })
+
+  it('empties on read, so one restore cannot be judged by another restore records', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.initLayer('L')
+
+    engine.restoreLayerFromSnapshot('L', [TILE], 100)
+
+    expect(engine.takeSnapshotRestoreAudit()).toHaveLength(1)
+    expect(engine.takeSnapshotRestoreAudit()).toHaveLength(0)
+  })
+
+  it('reports the GPU it is running on, and says so plainly when it cannot', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
+
+    expect(engine.gpuInfo()).toEqual({ renderer: null, maxTextureSize: 4096, contextLost: false })
+  })
+})

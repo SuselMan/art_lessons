@@ -90,7 +90,7 @@ const ENUM = {
   ARRAY_BUFFER: 5, STATIC_DRAW: 6,
   TEXTURE_2D: 7, RGBA: 8, UNSIGNED_BYTE: 9, LUMINANCE: 26, LUMINANCE_ALPHA: 27,
   TEXTURE_MIN_FILTER: 10, TEXTURE_MAG_FILTER: 11, LINEAR: 12, NEAREST: 29,
-  LINEAR_MIPMAP_LINEAR: 61, NO_ERROR: 0,
+  LINEAR_MIPMAP_LINEAR: 61, NO_ERROR: 0, MAX_TEXTURE_SIZE: 62,
   TEXTURE_WRAP_S: 13, TEXTURE_WRAP_T: 14, CLAMP_TO_EDGE: 15,
   FRAMEBUFFER: 16, COLOR_ATTACHMENT0: 17, FRAMEBUFFER_COMPLETE: 18,
   COLOR_BUFFER_BIT: 19, TRIANGLES: 20, FLOAT: 21,
@@ -127,6 +127,7 @@ export class MockGL {
   readonly NEAREST = ENUM.NEAREST
   readonly LINEAR_MIPMAP_LINEAR = ENUM.LINEAR_MIPMAP_LINEAR
   readonly NO_ERROR = ENUM.NO_ERROR
+  readonly MAX_TEXTURE_SIZE = ENUM.MAX_TEXTURE_SIZE
   readonly TEXTURE_WRAP_S = ENUM.TEXTURE_WRAP_S
   readonly TEXTURE_WRAP_T = ENUM.TEXTURE_WRAP_T
   readonly CLAMP_TO_EDGE = ENUM.CLAMP_TO_EDGE
@@ -437,6 +438,14 @@ export class MockGL {
   // (the interesting branch); the driver-refuses path is only reachable on
   // real hardware and is deliberately a graceful degrade, not an error.
   getError(): number { return ENUM.NO_ERROR }
+
+  // (#474) Present so gpuInfo() — which every snapshot restore now calls to
+  // stamp its report — exercises the same shape here as in a browser. A mock
+  // that simply lacks the method turns a diagnostic into a crash, which is the
+  // one thing a diagnostic must never be.
+  getParameter(pname: number): number | null {
+    return pname === ENUM.MAX_TEXTURE_SIZE ? 4096 : null
+  }
 
   generateMipmap(_target: number): void {
     const tex = this._boundTextureTarget

@@ -69,21 +69,26 @@ function recordingSink() {
 describe('restoreLatestSnapshot', () => {
   beforeEach(() => { decompressions.count = 0 })
 
-  it('returns null on a 204 (room has no snapshot yet)', async () => {
+  it("reports 'none' on a 204 (room has no snapshot yet)", async () => {
     global.fetch = vi.fn().mockResolvedValue({ status: 204, ok: false })
     const { sink, begun } = recordingSink()
-    expect(await restoreLatestSnapshot('room-1', sink)).toBeNull()
+    expect(await restoreLatestSnapshot('room-1', sink)).toEqual({ status: 'none' })
     expect(begun).toEqual([])
   })
 
-  it('returns null when the request fails', async () => {
+  // (#474) A 500 and a 204 used to be the same `null`. They are opposites: one
+  // is the room saying it has nothing baked, the other is a fault that leaves
+  // the client replaying a history the server may have withheld.
+  it("reports a failure, not 'none', when the index request fails", async () => {
     global.fetch = vi.fn().mockResolvedValue({ status: 500, ok: false })
-    expect(await restoreLatestSnapshot('room-1', recordingSink().sink)).toBeNull()
+    const outcome = await restoreLatestSnapshot('room-1', recordingSink().sink)
+    expect(outcome).toMatchObject({ status: 'failed', stage: 'index', appliedLayerIds: [] })
   })
 
-  it('returns null rather than throwing when the network is down', async () => {
+  it('reports a failure rather than throwing when the network is down', async () => {
     global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
-    expect(await restoreLatestSnapshot('room-1', recordingSink().sink)).toBeNull()
+    const outcome = await restoreLatestSnapshot('room-1', recordingSink().sink)
+    expect(outcome).toMatchObject({ status: 'failed', stage: 'index' })
   })
 
   it('decodes a real snapshot response into layerState + per-layer tiles', async () => {
@@ -95,10 +100,15 @@ describe('restoreLatestSnapshot', () => {
     )
     const { sink, applied, begun } = recordingSink()
 
-    const head = await restoreLatestSnapshot('room-1', sink)
+    const outcome = await restoreLatestSnapshot('room-1', sink)
 
-    expect(head?.seq).toBe(300)
-    expect(head?.layerState).toEqual(ONE_LAYER_STATE)
+    expect(outcome.status).toBe('restored')
+    if (outcome.status !== 'restored') throw new Error('unreachable')
+    expect(outcome.head.seq).toBe(300)
+    expect(outcome.head.layerState).toEqual(ONE_LAYER_STATE)
+    // (#474) The plan is what a report is checked against, so it has to carry
+    // the wire weight of what was actually downloaded.
+    expect(outcome.plan).toEqual([{ layerId: 'background', seq: 300, bytes: data.byteLength }])
     expect(begun).toEqual([ONE_LAYER_STATE])
     expect(applied[0].layerId).toBe('background')
     expect(applied[0].tiles[0].width).toBe(2)
@@ -197,10 +207,11 @@ describe('restoreLatestSnapshot', () => {
     mockRestoreFetch({ seq: 300, layerState, layers: [] })
 
     const { sink, applied } = recordingSink()
-    const head = await restoreLatestSnapshot('room-1', sink)
+    const outcome = await restoreLatestSnapshot('room-1', sink)
 
     expect(applied).toEqual([])
-    expect(head?.layerState.items['layer-1']).toBeDefined()
+    if (outcome.status !== 'restored') throw new Error('unreachable')
+    expect(outcome.head.layerState.items['layer-1']).toBeDefined()
   })
 
   // (#427) A layer the *index* named is one the server counted as covered, so
@@ -220,7 +231,9 @@ describe('restoreLatestSnapshot', () => {
 
     const { sink, applied, begun } = recordingSink()
 
-    expect(await restoreLatestSnapshot('room-1', sink)).toBeNull()
+    expect(await restoreLatestSnapshot('room-1', sink)).toMatchObject({
+      status: 'failed', stage: 'blobs', appliedLayerIds: [],
+    })
     // (#467) Stronger than it was before the streaming rewrite, and it has to
     // be: with pixels applied as they decode, "returns null" alone would no
     // longer mean the engine was left untouched. Nothing may reach it at all.

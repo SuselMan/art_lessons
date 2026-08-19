@@ -1726,8 +1726,28 @@ export async function getSnapshotIndex(
   ])
   if (!stored) return null
 
+  // (#474) Only layers the room still has. Every blob listed here is one the
+  // client downloads and inflates before handing it to the engine, and a layer
+  // absent from the structure is dropped by the engine's first line
+  // (`restoreLayerFromSnapshot`'s `if (!buf) return`) — so listing it spends
+  // bandwidth and, far more expensively, peak memory to reach a no-op.
+  //
+  // Production room 2xKybCLI listed five layers for a three-layer room: ~1.5 MB
+  // on the wire and ~20 MiB of inflated pixels, on a join that then came up
+  // showing one partial layer. Whether or not that join died of memory, asking
+  // a tablet to inflate a fifth of a room it will never draw is not a cost this
+  // can justify.
+  //
+  // `null` from layerStateIdsOf means the stored structure could not be read at
+  // all, and that fails open on purpose — same reasoning as its own doc
+  // comment. Listing a blob nobody needs wastes memory; withholding one that is
+  // needed loses drawing, and only one of those is recoverable.
+  const liveIds = layerStateIdsOf(stored.state)
   const newestByLayer = new Map<string, SnapshotIndexEntry>()
-  for (const row of rows) if (!newestByLayer.has(row.layerId)) newestByLayer.set(row.layerId, row)
+  for (const row of rows) {
+    if (liveIds !== null && !liveIds.has(row.layerId)) continue
+    if (!newestByLayer.has(row.layerId)) newestByLayer.set(row.layerId, row)
+  }
   return { seq: stored.seq, layerState: stored.state, layers: [...newestByLayer.values()] }
 }
 

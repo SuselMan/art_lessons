@@ -36,6 +36,41 @@ interface SnapshotIndex {
   layers: Array<{ layerId: string; seq: number; hash: string }>
 }
 
+/** (#474) One entry of what a restore set out to do, kept so the result can be
+ *  checked against the intent rather than against itself. `bytes` is the
+ *  compressed blob as it came off the wire — the inflated figure is an order of
+ *  magnitude larger and is the number that actually strains a device, but it
+ *  only exists inside the loop below, one layer at a time, on purpose. */
+export interface RestorePlanEntry {
+  layerId: string
+  seq: number
+  bytes: number
+}
+
+/** (#474) How a restore ended, with enough to build a report.
+ *
+ *  This used to be `RestoredSnapshotHead | null`, and the null is what made
+ *  production incident 2xKybCLI invisible: it collapsed "this room has never
+ *  been baked", "the network failed before anything was touched" and "half the
+ *  layers are already in the engine and then something threw" into one value.
+ *  Only the third is a lost lesson, and it was the one nobody could see.
+ *
+ *  `appliedLayerIds` is the specific thing worth naming: the doc comment on
+ *  restoreLatestSnapshot has always admitted that a blob failing to *inflate*
+ *  does so after earlier layers have landed. Admitting it in a comment and
+ *  reporting it are different things. */
+export type SnapshotRestoreOutcome =
+  | { status: 'restored'; head: RestoredSnapshotHead; plan: RestorePlanEntry[] }
+  | { status: 'none' }
+  | {
+      status: 'failed'
+      /** Where it stopped. `apply` is the one that can leave pixels behind. */
+      stage: 'index' | 'blobs' | 'apply'
+      plan: RestorePlanEntry[]
+      appliedLayerIds: string[]
+      error: unknown
+    }
+
 /** Fetches and decodes the room's stored snapshots (#168/#169, per layer
  *  since #374) — null if nobody has ever baked this room (204, same case
  *  `latestSnapshotSeq === null` covers in room_state) or the request fails
@@ -90,12 +125,25 @@ interface SnapshotIndex {
  *  cost this whole change exists to avoid. */
 export async function restoreLatestSnapshot(
   roomId: string, sink: SnapshotRestoreSink,
-): Promise<RestoredSnapshotHead | null> {
+): Promise<SnapshotRestoreOutcome> {
+  // (#474) Both are built up as the phases pass so the catch below can say
+  // where it stopped and what it had already handed to the engine. A `failed`
+  // outcome naming zero applied layers and one naming four are the difference
+  // between a join that fell back cleanly and a lesson showing half its pixels.
+  let stage: 'index' | 'blobs' | 'apply' = 'index'
+  let plan: RestorePlanEntry[] = []
+  const appliedLayerIds: string[] = []
   try {
     const res = await fetch(`/api/rooms/${roomId}/snapshots/index`, { credentials: 'include' })
-    if (res.status === 204 || !res.ok) return null
+    // 204 is the room's own answer that nothing was ever baked. A non-ok status
+    // is a fault, and collapsing the two — as this did until #474 — spends the
+    // one signal that says so.
+    if (res.status === 204) return { status: 'none' }
+    if (!res.ok) throw new Error(`snapshot index: ${res.status}`)
     const body = await res.json() as SnapshotIndex
+    plan = body.layers.map(layer => ({ layerId: layer.layerId, seq: layer.seq, bytes: 0 }))
 
+    stage = 'blobs'
     const blobs = await Promise.all(body.layers.map(async layer => {
       // Deliberately not `cache: 'reload'` or a cache-busting query: the
       // browser cache hitting here is the entire point of the change.
@@ -108,10 +156,13 @@ export async function restoreLatestSnapshot(
       return new Uint8Array(await blob.arrayBuffer())
     }))
 
+    for (let i = 0; i < blobs.length; i++) plan[i].bytes = blobs[i].byteLength
+
     // Nothing has touched the engine yet, and everything that can fail on the
     // network already has — so this is the last moment where "restore nothing"
     // is still available, and where the layers must be created before pixels
     // can be put into them.
+    stage = 'apply'
     sink.beginLayers(body.layerState)
 
     for (let i = 0; i < body.layers.length; i++) {
@@ -127,11 +178,12 @@ export async function restoreLatestSnapshot(
       // thing at the end of this iteration a real release rather than a
       // hopeful one.
       sink.applyLayer(layer.layerId, decodeLayerTiles(raw, 0).tiles, layer.seq)
+      appliedLayerIds.push(layer.layerId)
     }
 
-    return { seq: body.seq, layerState: body.layerState }
-  } catch {
-    return null
+    return { status: 'restored', head: { seq: body.seq, layerState: body.layerState }, plan }
+  } catch (error) {
+    return { status: 'failed', stage, plan, appliedLayerIds, error }
   }
 }
 

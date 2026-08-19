@@ -330,6 +330,47 @@ describe('getSnapshotIndex', () => {
     ])
   })
 
+  // (#474) Every entry here is a blob the client downloads and inflates before
+  // handing it to the engine, which drops any layer it has no buffer for. A
+  // deleted layer therefore costs bandwidth and peak memory to reach a no-op:
+  // production room 2xKybCLI listed five layers for a three-layer room, ~20 MiB
+  // of inflated pixels, on a join that came up showing one partial layer.
+  it('omits layers the room structure no longer lists', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce({
+      seq: 4300,
+      state: { items: { 'live-a': {}, 'live-b': {}, background: {} }, rootOrder: ['live-b', 'live-a', 'background'] },
+    })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([
+      { layerId: 'live-b', seq: 4300, hash: 'h-b' },
+      { layerId: 'live-a', seq: 2200, hash: 'h-a' },
+      { layerId: 'deleted-1', seq: 1200, hash: 'h-d1' },
+      { layerId: 'deleted-2', seq: 500, hash: 'h-d2' },
+    ])
+
+    const index = await getSnapshotIndex(makeRoom())
+
+    expect(index?.layers).toEqual([
+      { layerId: 'live-b', seq: 4300, hash: 'h-b' },
+      { layerId: 'live-a', seq: 2200, hash: 'h-a' },
+    ])
+  })
+
+  // Fails open, and that direction is the whole point: an unreadable structure
+  // that filtered everything out would withhold pixels the server has already
+  // stopped sending operations for — #369 all over again. Listing a blob nobody
+  // needs wastes memory; withholding one that is needed loses drawing.
+  it('filters nothing when the stored structure cannot be read', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValueOnce({ seq: 200, state: { rootOrder: ['a'] } })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValueOnce([
+      { layerId: 'layer-1', seq: 200, hash: 'h-1' },
+      { layerId: 'whatever', seq: 100, hash: 'h-2' },
+    ])
+
+    const index = await getSnapshotIndex(makeRoom())
+
+    expect(index?.layers).toHaveLength(2)
+  })
+
   // (#427) The whole point of splitting the index off the blobs: a join used
   // to read every retained row's `data` — several MB each — out of Postgres
   // and drop all but the newest per layer in JS.

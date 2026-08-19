@@ -65,6 +65,7 @@ import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { isFullyTransparent, retileSnapshotTiles } from './src/retileSnapshot'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
+import type { SnapshotRestoreAudit } from './src/snapshotAudit'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
 
 export type { HapticGrainStats }
@@ -491,6 +492,19 @@ export interface PencilEngineAPI {
   // Omit it and nothing is treated as covered, which is what every caller
   // outside the snapshot-restore path wants.
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void
+  // (#474) What the restoreLayerFromSnapshot calls since the last drain
+  // actually did — one record per call, in call order, emptied by reading.
+  //
+  // Draining rather than accumulating: a report is built once per restore, and
+  // a record left behind would attach itself to the *next* restore (a
+  // reconnect's catch-up), which is the one way this could turn into a
+  // misleading report rather than a missing one.
+  takeSnapshotRestoreAudit(): SnapshotRestoreAudit[]
+  // (#474) What kind of GPU this is running on, for the same report. Null
+  // where WEBGL_debug_renderer_info is unavailable — some browsers withhold it
+  // as a fingerprinting surface, and a report that says "unknown GPU" is worth
+  // more than one that refuses to be built.
+  gpuInfo(): { renderer: string | null; maxTextureSize: number; contextLost: boolean }
   // (#169) Merges a batch of pre-snapshot historical operations into the
   // log for undo/redo/history purposes, WITHOUT painting anything — their
   // pixel effect is already baked into whatever restoreLayerFromSnapshot
@@ -2076,6 +2090,11 @@ export class PencilEngine implements PencilEngineAPI {
   // (#374) layerId -> the room seq this layer's restored pixels reach. Written
   // only by restoreLayerFromSnapshot, read only by _isCoveredByRestore.
   private readonly _snapshotCoverage = new Map<string, number>()
+  // (#474) One record per restoreLayerFromSnapshot call since the last drain —
+  // see takeSnapshotRestoreAudit. Bounded by the number of layers in a room's
+  // snapshot index and emptied by every read, so it cannot grow with session
+  // length the way an event log would.
+  private _restoreAudit: SnapshotRestoreAudit[] = []
   // (#373) Monotonic per-layer "the pixels changed" counter, and the value it
   // held when this layer's current pixels last became known to the server.
   // Equal means there is nothing new to send.
@@ -4422,8 +4441,17 @@ export class PencilEngine implements PencilEngineAPI {
    *  presence shifts the current `ops` prefix, and the id-based prefix
    *  match in `_bestCheckpoint` stops matching this checkpoint on its own. */
   restoreLayerFromSnapshot(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
+    // (#474) Counted before anything can return early, so a dropped restore
+    // still reports the size of what it dropped.
+    const bytes = tiles.reduce((n, t) => n + t.pixels.byteLength, 0)
     const buf = this._layers.get(layerId)
-    if (!buf) return
+    if (!buf) {
+      this._restoreAudit.push({
+        layerId, known: false, tilesIn: tiles.length, tilesUploaded: 0, bytes,
+        glError: 0, residentAfter: 0, withContentAfter: 0,
+      })
+      return
+    }
     // (#469) A snapshot baked before bounded rooms were subdivided carries one
     // page-sized tile; this room's buffer now wants TILE_SIZE ones. Re-slicing
     // is not optional — uploading a 2480-wide array into a 1024-wide texture
@@ -4446,11 +4474,27 @@ export class PencilEngine implements PencilEngineAPI {
     // Nothing clears the layer ahead of this, so that distinction is ours to
     // make, and one cheap check makes it without asking per tile.
     const uploads = buf.allResident().length === 0 ? painted : retiled
+    // (#474) Any error already pending is drained first, so what this reads
+    // afterward is this restore's own — the same discipline generatePaperMipmaps
+    // uses, and for the same reason: an inherited error would accuse the wrong
+    // code, and inheriting *silence* is impossible, so only draining can be wrong.
+    this._drainGlErrors()
     for (const t of uploads) {
       const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
       for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
       buf.restoreTileContent(rect, t.pixels)
     }
+    // One getError for the whole layer rather than one per tile: the question a
+    // report has to answer is "did this layer land", and a per-tile scan would
+    // add a GPU sync point per tile to a path that runs at join time on the
+    // slowest devices we have.
+    const glError = this.gl.getError()
+    const resident = buf.allResident()
+    this._restoreAudit.push({
+      layerId, known: true, tilesIn: tiles.length, tilesUploaded: uploads.length, bytes, glError,
+      residentAfter: resident.length,
+      withContentAfter: resident.filter(t => t.contentRect !== null).length,
+    })
     if (coveredSeq !== undefined) this._snapshotCoverage.set(layerId, coveredSeq)
     // (#373) These pixels *are* what the server already stores, so the layer
     // is marked changed (it is — the buffer was empty a moment ago) and
@@ -4462,6 +4506,43 @@ export class PencilEngine implements PencilEngineAPI {
     // buffer before replaying its tiles (see _rebuildLayerFromLog), so a blank
     // tile there can only ever cost memory, never carry meaning.
     this._pinSnapshotCheckpoint(layerId, painted)
+  }
+
+  /** See the PencilEngineAPI doc comment. */
+  takeSnapshotRestoreAudit(): SnapshotRestoreAudit[] {
+    const audit = this._restoreAudit
+    this._restoreAudit = []
+    return audit
+  }
+
+  /** See the PencilEngineAPI doc comment.
+   *
+   *  `WEBGL_debug_renderer_info` is the only way to learn which GPU this is,
+   *  and browsers increasingly withhold it — hence the null rather than a
+   *  throw. `MAX_TEXTURE_SIZE` needs no extension and is worth having beside
+   *  it: a restore that asks for tiles larger than the device allows fails for
+   *  a reason no amount of memory would fix, and the two failures look
+   *  identical from the outside. */
+  gpuInfo(): { renderer: string | null; maxTextureSize: number; contextLost: boolean } {
+    const ext = this.gl.getExtension('WEBGL_debug_renderer_info')
+    const renderer = ext
+      ? String(this.gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) ?? '') || null
+      : null
+    return {
+      renderer,
+      maxTextureSize: Number(this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE) ?? 0),
+      contextLost: this._contextLost,
+    }
+  }
+
+  /** Empties the GL error queue so the next `getError()` reports on its own
+   *  work. Capped rather than `while (…)`: a lost context is specified to
+   *  answer CONTEXT_LOST_WEBGL until it is restored, and a drain loop that
+   *  trusts the queue to empty would hang the join it is supposed to be
+   *  reporting on. GL keeps at most a handful of distinct flags, so anything
+   *  past this bound is a broken implementation, not a backlog. */
+  private _drainGlErrors(): void {
+    for (let i = 0; i < 16; i++) if (this.gl.getError() === this.gl.NO_ERROR) return
   }
 
   /** (#373) Records that this layer's pixels changed. Cheap enough to call
