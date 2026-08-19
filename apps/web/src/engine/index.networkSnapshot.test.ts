@@ -414,7 +414,7 @@ describe('takeSnapshotRestoreAudit (#474)', () => {
     const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
     engine.initLayer('L')
-    const gl = canvas.getContext() as unknown as { getError: () => number }
+    const gl = canvas.getContext('webgl') as unknown as { getError: () => number }
     const real = gl.getError.bind(gl)
     // Raises GL_OUT_OF_MEMORY exactly once, on the read that follows the drain,
     // then hands the queue back — i.e. an error raised *by this restore*, which
@@ -443,7 +443,7 @@ describe('takeSnapshotRestoreAudit (#474)', () => {
     const { engine, canvas } = createTestEngine({ userId: 'user-a' }, { width: 8, height: 8 })
     engine.appendOperation(makeLayerAdd('user-a', 'L'))
     engine.initLayer('L')
-    const gl = canvas.getContext() as unknown as { getError: () => number }
+    const gl = canvas.getContext('webgl') as unknown as { getError: () => number }
     const real = gl.getError.bind(gl)
     // One stale error pending, then silence — the drain must absorb it.
     let pending = 1
