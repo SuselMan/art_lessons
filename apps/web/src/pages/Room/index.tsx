@@ -1882,6 +1882,15 @@ export function Room() {
     })
     engineRef.current = engine
     exposeEngineForDev(engine)
+    // (#475) The pen calibration this device already has, handed over at
+    // birth. The effect that pushes later changes (further down, next to the
+    // tilt response) only runs when the *setting* changes, so without this a
+    // freshly built engine — this effect re-runs on a paper change, and on
+    // every room mount — would draw uncalibrated until the person happened to
+    // touch the setting again. Read straight off the store rather than through
+    // a dependency, because a calibration in this list would tear the WebGL
+    // context down and rebuild it every time the curve is dragged.
+    engine.setPressureCalibration(useSettingsStore.getState().pressureCalibration)
 
     // Pencil sound: lazy AudioContext built on the engine's own 'strokeStart'
     // below (a real pointerdown gesture, satisfying the autoplay-unlock
@@ -2213,6 +2222,15 @@ export function Room() {
     return typeof stored === 'string' && isTiltResponse(stored) ? stored : DEFAULT_TILT_RESPONSE
   }, [toolSettings, drawingTool])
   useEffect(() => { engineRef.current?.setTiltResponse(tiltResponse) }, [tiltResponse])
+  // #475: this device's pen calibration. Unlike the tilt response above it is
+  // not per tool and not read from the room's tool settings — it describes the
+  // stylus and driver in front of this person, so it lives in settingsStore
+  // (per browser) and applies to every tool at once. Re-pushed on change so the
+  // settings panel's curve can be dragged and felt without leaving the room.
+  const pressureCalibration = useSettingsStore(s => s.pressureCalibration)
+  useEffect(() => {
+    engineRef.current?.setPressureCalibration(pressureCalibration)
+  }, [pressureCalibration])
   useEffect(() => {
     // engine.setPencil's argument is a generic preset-name string
     // (StrokeOperation.preset) — pencil's own grade normally, but the

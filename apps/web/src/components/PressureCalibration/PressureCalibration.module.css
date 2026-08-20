@@ -1,0 +1,244 @@
+/* Pen calibration (#475) — the wizard that measures the pen and the graph
+   that shapes its response. Both live inside the editor's settings modal. */
+
+.wizard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.prompt {
+  margin: 0;
+  color: var(--color-text-bright);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* The surface the calibration strokes are drawn on. Paper-tinted rather than
+   panel-coloured: the point of the strip is to look like the thing being
+   calibrated, and graphite on a dark panel reads as a glow, not a pencil.
+   `color` is what drawTrace paints with — canvas can't read a CSS variable
+   itself, so this is where the theme reaches it. */
+.strip {
+  width: 100%;
+  height: 200px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-tint);
+  color: #2b2b30;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.meterRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meterLabel {
+  color: var(--color-text-dim);
+  font-size: 11px;
+}
+
+.meter {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-surface-2);
+  overflow: hidden;
+}
+
+.meterFill {
+  height: 100%;
+  background: var(--color-accent);
+  /* No transition: this is an instrument reading, and easing it would make a
+     pen that reports in steps look like one that reports smoothly. */
+}
+
+.meterValue {
+  min-width: 34px;
+  color: var(--color-text-bright);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.warning {
+  margin: 0;
+  color: var(--color-warning);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.numbers {
+  display: flex;
+  gap: 8px;
+}
+
+.number {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.numberValue {
+  color: var(--color-text-bright);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.numberLabel {
+  color: var(--color-text-dim);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+/* Stacked rather than side by side: the two previews redraw the recorded
+   stroke at its true size (see centreOffset), so they have to be as wide as
+   the strip it was drawn on. Halving that width would crop the stroke. */
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.compareHalf {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compareLabel {
+  color: var(--color-text-dim);
+  font-size: 11px;
+}
+
+.compareCanvas {
+  width: 100%;
+  height: 110px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-paper-tint);
+  color: #2b2b30;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.stepCount {
+  margin-right: auto;
+  color: var(--color-text-dim);
+  font-size: 11px;
+}
+
+.btn,
+.btnPrimary {
+  min-height: var(--touch-target-sm);
+  padding: 6px 14px;
+  font-size: 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.btn {
+  color: var(--color-text-bright);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+}
+
+.btn:hover { border-color: var(--color-accent); }
+
+.btnPrimary {
+  font-weight: 600;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border: none;
+}
+
+.btnPrimary:hover { background: var(--color-accent-hover); }
+
+/* ── The curve graph ──────────────────────────────────────────────────────── */
+
+.curveBox {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.curveSvg {
+  /* Square, so a knot dragged diagonally moves the same distance in both
+     axes — the graph is read as a shape, and a stretched one misreports how
+     far from the diagonal the response actually is. */
+  width: 100%;
+  max-width: 240px;
+  aspect-ratio: 1;
+  align-self: center;
+  touch-action: none;
+}
+
+.curveField {
+  fill: var(--color-surface);
+  stroke: var(--color-border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.curveGrid {
+  stroke: var(--color-border-soft);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The "unchanged" line. Without it a lone curve says nothing: the entire
+   content of this setting is how far the response departs from it. */
+.curveReference {
+  stroke: var(--color-text-faint);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.curveLine {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.curveKnob,
+.curveKnobActive {
+  fill: var(--color-knob);
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  cursor: grab;
+}
+
+.curveKnobActive {
+  fill: var(--color-accent-hover);
+  cursor: grabbing;
+}
+
+.curveAxis {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 240px;
+  align-self: center;
+  color: var(--color-text-dim);
+  font-size: 11px;
+}

@@ -1,4 +1,7 @@
 import { diagLog } from '../../lib/diagLog'
+import {
+  compilePressureCalibration, isIdentityCalibration, type PressureCalibration,
+} from '../../lib/pressureCalibration'
 
 // Normalizes pointer events (mouse and stylus) to canvas physical coordinates.
 // Uses getCoalescedEvents() for smoother high-frequency stylus input.
@@ -59,6 +62,13 @@ export class PointerInput {
   private _activePointerId: number | null
   private _activePointerType: string | null
 
+  // (#475) The person's own pressure calibration, compiled once per change
+  // rather than per sample — see compilePressureCalibration. Null until one is
+  // set, and null again for an identity calibration, so an uncalibrated device
+  // runs the exact pre-#475 code path rather than a closure that happens to be
+  // the identity.
+  private _pressureMap: ((raw: number) => number) | null
+
   private _down: (e: PointerEvent) => void
   private _move: (e: PointerEvent) => void
   private _up: (e: PointerEvent) => void
@@ -73,6 +83,7 @@ export class PointerInput {
     this._transform = null
     this._activePointerId = null
     this._activePointerType = null
+    this._pressureMap = null
 
     this._down   = this._handleDown.bind(this)
     this._move   = this._handleMove.bind(this)
@@ -100,6 +111,22 @@ export class PointerInput {
     return this
   }
 
+  // (#475) Installs the person's pressure calibration. Takes effect on the
+  // next sample, including mid-stroke — which is what makes the settings
+  // panel's curve editor draggable while drawing, and is harmless because
+  // dab geometry is baked per dab, so earlier dabs of the same stroke keep
+  // what they were recorded with.
+  //
+  // This is the *only* place a calibration is applied. It has to be, because
+  // the corrected value goes on to be recorded in the Operation Log and
+  // replayed on every other participant's screen — see the module comment in
+  // pressureCalibration.ts.
+  setPressureCalibration(cal: PressureCalibration | null): void {
+    this._pressureMap = cal === null || isIdentityCalibration(cal)
+      ? null
+      : compilePressureCalibration(cal)
+  }
+
   // Supply a function that converts (clientX, clientY) → canvas physical {x, y}.
   // Called once after each setViewport() so the closure captures current transform.
   setTransform(fn: (clientX: number, clientY: number) => { x: number; y: number }): void {
@@ -122,6 +149,12 @@ export class PointerInput {
   private _toPointerData(e: PointerEvent, x: number, y: number, speed: number): PointerData {
     let pressure = e.pressure ?? 0.5
     if (e.pointerType === 'mouse' && pressure === 0) pressure = 0.5
+    // (#475) Pen only. A mouse has no pressure to correct (it sits at the
+    // substituted 0.5 above), and touch never reaches here at all — it is
+    // routed to pan/zoom/rotate before a stroke starts. Calibrating either
+    // would apply a correction measured for a stylus to an input that never
+    // produced the problem.
+    else if (e.pointerType === 'pen' && this._pressureMap) pressure = this._pressureMap(pressure)
     return { x, y, pressure, tiltX: e.tiltX ?? 0, tiltY: e.tiltY ?? 0, speed, pointerType: e.pointerType, timeStamp: e.timeStamp }
   }
 

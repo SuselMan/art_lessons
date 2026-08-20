@@ -183,3 +183,19 @@
   opacity: 0.4;
   cursor: default;
 }
+
+/* (#475) A row of small buttons inside a .choiceRow — the calibrate/reset pair
+   and the curve presets. */
+.buttonRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.presetBtnActive {
+  composes: hotkeyBtn;
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border-color: var(--color-accent-border);
+}

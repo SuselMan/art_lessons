@@ -3,6 +3,10 @@ import { create } from 'zustand'
 import { isPaperType, type PaperType } from '@grafetto/shared'
 
 import {
+  IDENTITY_PRESSURE_CALIBRATION, isPressureCalibration, type PressureCalibration,
+} from '../lib/pressureCalibration'
+
+import {
   DEFAULT_COLOR_PICKER_MODE,
   isColorPickerMode,
   type ColorPickerMode,
@@ -40,6 +44,7 @@ const MINIMAL_UI_TAP_STORAGE_KEY = 'al_minimal_ui_tap'
 const FLOATING_PANEL_STORAGE_KEY = 'al_floating_panel'
 const LOCK_BRUSH_ANGLE_STORAGE_KEY = 'al_lock_brush_angle'
 const THEME_STORAGE_KEY = 'al_theme'
+const PRESSURE_CALIBRATION_STORAGE_KEY = 'al_pressure_calibration'
 
 function readStoredLocale(): Locale | null {
   const raw = localStorage.getItem(LOCALE_STORAGE_KEY)
@@ -178,6 +183,30 @@ function initialMinimalUiTapMode(): MinimalUiTapMode {
   return isMinimalUiTapMode(raw) ? raw : DEFAULT_MINIMAL_UI_TAP_MODE
 }
 
+/** The pen calibration stored for this browser (#475), or none.
+ *
+ *  Per browser rather than per account, and for a sharper version of the
+ *  reason `deviceType` gives: this one describes not just the machine but the
+ *  stylus plugged into it and the driver curve configured on it. The same
+ *  teacher's account on a tablet and on a PC with a graphics tablet needs two
+ *  different calibrations, and syncing one over the other would break the
+ *  device it wasn't measured on.
+ *
+ *  Validated on the way out rather than trusted: this is user-writable text
+ *  that survives deploys, and a NaN reaching the input path would blank the
+ *  pressure of every stroke drawn afterwards. */
+function initialPressureCalibration(): PressureCalibration {
+  if (typeof window === 'undefined') return IDENTITY_PRESSURE_CALIBRATION
+  const raw = localStorage.getItem(PRESSURE_CALIBRATION_STORAGE_KEY)
+  if (raw === null) return IDENTITY_PRESSURE_CALIBRATION
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return isPressureCalibration(parsed) ? parsed : IDENTITY_PRESSURE_CALIBRATION
+  } catch {
+    return IDENTITY_PRESSURE_CALIBRATION
+  }
+}
+
 export interface SettingsStore {
   locale: Locale
   setLocale: (locale: Locale) => void
@@ -213,6 +242,13 @@ export interface SettingsStore {
    *  rotates with the canvas, or stays visually fixed on screen. */
   lockBrushAngleToCanvas: boolean
   setLockBrushAngleToCanvas: (enabled: boolean) => void
+  /** (#475) How this device's stylus reports pressure, and how that report is
+   *  shaped before any tool sees it. `IDENTITY_PRESSURE_CALIBRATION` means
+   *  uncalibrated — the pre-#475 behaviour, and what every new device starts
+   *  on. Pushed into the engine from `Room` (`setPressureCalibration`), which
+   *  is the single place it is ever applied. */
+  pressureCalibration: PressureCalibration
+  setPressureCalibration: (calibration: PressureCalibration) => void
   /** (#174) Keyboard bindings by action id. The registry, the codec and the
    *  conflict rules stay in `lib/hotkeys`; this is only where the current
    *  values live, so that rebinding one reaches the editor's own keydown
@@ -285,6 +321,11 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
   setLockBrushAngleToCanvas: enabled => {
     localStorage.setItem(LOCK_BRUSH_ANGLE_STORAGE_KEY, String(enabled))
     set({ lockBrushAngleToCanvas: enabled })
+  },
+  pressureCalibration: initialPressureCalibration(),
+  setPressureCalibration: calibration => {
+    localStorage.setItem(PRESSURE_CALIBRATION_STORAGE_KEY, JSON.stringify(calibration))
+    set({ pressureCalibration: calibration })
   },
   // Own storage key and codec (`lib/hotkeys`), unlike the plain values above:
   // bindings are validated per action against the registry on read, so a

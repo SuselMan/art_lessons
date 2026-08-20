@@ -29,6 +29,11 @@ import {
 import type { MarkerAngleConfig } from './src/markerPresets'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
+// (#475) The calibration model itself is not engine code — it is pure input
+// math shared with the settings UI and the preferences store, so it lives in
+// `lib/` (the same direction PointerInput already imports diagLog from). The
+// engine only needs the type to name it in setPressureCalibration.
+import type { PressureCalibration } from '../lib/pressureCalibration'
 import {
   PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, isPencilGrade,
   type PencilGradeName, type PencilPreset,
@@ -600,6 +605,19 @@ export interface PencilEngineAPI {
    *  geometry when the setting later changes, same as every other tool
    *  option. */
   setTiltResponse(response: TiltResponse): void
+  /** #475: the person's own pressure calibration, applied to pen input before
+   *  anything downstream sees it. Unlike setTiltResponse this is not per tool
+   *  and not a taste about how a material behaves — it corrects what this
+   *  particular stylus, driver and hand actually report, so every tool is
+   *  equally wrong without it and equally right with it.
+   *
+   *  Takes effect on the next pointer *sample*, mid-stroke included: the
+   *  settings panel's curve is meant to be dragged while drawing. Nothing about
+   *  it reaches the wire — by the time a dab exists the correction is already
+   *  inside its `pressure`, which is the entire point (see
+   *  pressureCalibration.ts). Pass null (or an identity calibration) to run the
+   *  uncorrected path. */
+  setPressureCalibration(calibration: PressureCalibration | null): void
   /** Ruler tool (#89): sets (or clears, with null) the straight-edge guide
    *  that live pointer input snaps to before it ever reaches DabSystem —
    *  see rulerSnap.ts's snapToRuler and the private _snapPoint/_onStart/
@@ -2877,6 +2895,14 @@ export class PencilEngine implements PencilEngineAPI {
   /** See PencilEngineAPI's doc comment. Next stroke only, same as the marker
    *  angle above. */
   setTiltResponse(response: TiltResponse): void { this._tiltResponse = response }
+
+  /** See PencilEngineAPI's doc comment. Straight through to PointerInput —
+   *  the engine keeps no copy, because there is nothing downstream that should
+   *  ever be able to ask what the calibration was: by then the number is
+   *  already corrected. */
+  setPressureCalibration(calibration: PressureCalibration | null): void {
+    this._pointer.setPressureCalibration(calibration)
+  }
 
   /** See PencilEngineAPI's doc comment. */
   setRuler(line: RulerLine | null): void { this._ruler = line }

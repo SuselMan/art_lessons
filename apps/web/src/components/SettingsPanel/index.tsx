@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 
 import { useT } from '../../i18n'
 import { isDebugToolsEnabled } from '../../lib/debugTools'
@@ -8,6 +8,7 @@ import { RoomAccessControl } from '../RoomAccessControl'
 import { DebugTab } from './DebugTab'
 import { GeneralTab } from './GeneralTab'
 import { HotkeysTab } from './HotkeysTab'
+import { StylusTab } from './StylusTab'
 import styles from './SettingsPanel.module.css'
 
 interface SettingsPanelProps {
@@ -18,7 +19,7 @@ interface SettingsPanelProps {
   isOwner?: boolean
 }
 
-type SettingsTabId = 'general' | 'access' | 'hotkeys' | 'debug'
+type SettingsTabId = 'general' | 'stylus' | 'access' | 'hotkeys' | 'debug'
 
 /** (#321) The settings screen reached from the editor's ≡ menu.
  *
@@ -38,6 +39,11 @@ export function SettingsPanel({ onClose, roomId, isOwner }: SettingsPanelProps) 
   // Read once per open, not subscribed: the key is set by a URL parameter at
   // startup (see lib/debugTools), so it cannot change while this is mounted.
   const [debugAvailable] = useState(() => isDebugToolsEnabled())
+  // (#475) The pen calibration draws a stroke to measure it, which needs more
+  // room than a settings modal normally takes. Held here rather than inside the
+  // tab so the modal remains the only thing that decides its own width.
+  const [wide, setWide] = useState(false)
+  const onWideChange = useCallback((next: boolean) => { setWide(next) }, [])
 
   // Owner-only and courtesy-only: every endpoint behind RoomAccessControl
   // answers 403 to anyone else (see its own doc comment), so hiding the tab is
@@ -46,6 +52,7 @@ export function SettingsPanel({ onClose, roomId, isOwner }: SettingsPanelProps) 
 
   const tabs = [
     { id: 'general' as const, label: t('editorSettings.tab.general'), content: <GeneralTab /> },
+    { id: 'stylus' as const, label: t('editorSettings.tab.stylus'), content: <StylusTab onWideChange={onWideChange} /> },
     ...(accessAvailable
       ? [{ id: 'access' as const, label: t('editorSettings.tab.access'), content: <RoomAccessControl roomId={roomId} /> }]
       : []),
@@ -56,7 +63,7 @@ export function SettingsPanel({ onClose, roomId, isOwner }: SettingsPanelProps) 
   ]
 
   return (
-    <Modal title={t('editorSettings.title')} size="sm" onClose={onClose}>
+    <Modal title={t('editorSettings.title')} size={wide ? 'lg' : 'sm'} onClose={onClose}>
       <div className={styles.scrollArea}>
         <OptionGroup
           options={tabs}
