@@ -109,3 +109,57 @@ describe('createSnapshotGate', () => {
     expect(gate.observe(observation(100))).toEqual({ previous: 0, watermark: 100 })
   })
 })
+
+describe('createSnapshotGate — a stranded pending seq (#477)', () => {
+  // The 2026-08-21 lesson (room Igy2jy_i), reduced. A peer stroke that was
+  // still revealing when the connection dropped left its seq behind: the
+  // reconnect's catch-up loop retired the operation id and not the seq. From
+  // then on the watermark was taken from a seq the client had long since
+  // baked past, so every observation compared as "no boundary crossed" and
+  // this client never baked again — 1428 operations went unsnapshotted, and
+  // every rejoin had to replay all of them.
+  it('does not let a seq below the baked watermark silence baking forever', () => {
+    const gate = createSnapshotGate()
+    gate.restoreCompleted(1500)
+
+    // The reconnect finished with the watermark at 1500, and seq 1493's
+    // reveal was cancelled without ever being retired.
+    const stranded = [1493]
+
+    expect(gate.observe(observation(1600, stranded))).toEqual({ previous: 1500, watermark: 1600 })
+    expect(gate.observe(observation(2928, stranded))).toEqual({ previous: 1600, watermark: 2928 })
+  })
+
+  // The guard above must not blunt the rule it sits next to: a pending seq
+  // *above* the watermark is an operation that genuinely has not painted yet,
+  // and baking past it would store a snapshot claiming pixels that are not on
+  // the layer.
+  it('still holds the watermark behind a genuinely unpainted seq', () => {
+    const gate = createSnapshotGate()
+    gate.restoreCompleted(1500)
+
+    expect(gate.observe(observation(1600, [1550, 1580]))).toEqual({ previous: 1500, watermark: 1549 })
+    // ...and only releases it once that reveal commits.
+    expect(gate.observe(observation(1600, [1580]))).toEqual({ previous: 1549, watermark: 1579 })
+    expect(gate.observe(observation(1600, []))).toEqual({ previous: 1579, watermark: 1600 })
+  })
+
+  // Mixed: the stale entry is ignored, the live one still counts.
+  it('ignores the stale entry while honouring a live one alongside it', () => {
+    const gate = createSnapshotGate()
+    gate.restoreCompleted(1500)
+
+    expect(gate.observe(observation(1600, [1493, 1550]))).toEqual({ previous: 1500, watermark: 1549 })
+  })
+
+  // `observe` reads the set by iteration now (a Map's values view, in
+  // production) rather than by `.size`/spread — an empty iterable must still
+  // mean "nothing pending", not "hold at zero".
+  it('treats an empty iterable as nothing pending', () => {
+    const gate = createSnapshotGate()
+    gate.restoreCompleted(1500)
+
+    expect(gate.observe({ latestKnownSeq: 1600, pendingCommitSeqs: new Map().values(), replayIncomplete: false }))
+      .toEqual({ previous: 1500, watermark: 1600 })
+  })
+})

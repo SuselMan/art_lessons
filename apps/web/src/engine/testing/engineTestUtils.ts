@@ -187,6 +187,8 @@ interface EngineInternals {
   _strokeDabs: Dab[]
   // Marker chunk stitching white-box access — see markerReplayChunk below.
   _replayRibbonChunks: Map<string, { strokeId: string; scratch: object; lastDab: Dab }>
+  // (#479) white-box access — see takeCheckpointNow below.
+  _takeCheckpoint: (layerId: string) => void
 }
 
 function internals(engine: PencilEngine): EngineInternals {
@@ -573,6 +575,15 @@ export function peerLiveGestures(engine: PencilEngine): Array<{
 
 export function clearCheckpoints(engine: PencilEngine): void {
   internals(engine)._checkpoints.length = 0
+}
+
+/** (#479) Fires the checkpoint bake *now*, standing in for the idle callback
+ *  `_maybeCheckpoint` schedules (#121). White-box on purpose: the bug this
+ *  exists for is entirely about *when* that callback lands relative to ink
+ *  that no operation describes yet, and a test that could only wait for real
+ *  idle time could never place it there deliberately. */
+export function takeCheckpointNow(engine: PencilEngine, layerId: string): void {
+  internals(engine)._takeCheckpoint(layerId)
 }
 
 /** Element-wise comparison for the Uint8Array readPixels() returns —
