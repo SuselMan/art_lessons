@@ -50,12 +50,12 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
-  BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper, applyBrushPenSpeedContact,
+  BRUSH_PEN_PRESET, applyBrushPenEndTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
 } from './src/brushPenPresets'
 import {
-  WATERCOLOR_PRESET, applyWatercolorEndTaper, applyWatercolorHeadTaper,
+  WATERCOLOR_PRESET, applyWatercolorEndTaper,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
   watercolorPigmentEffects, watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -2185,16 +2185,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokePreset: string
   private _strokeColor: [number, number, number]
   private _strokeDabs: Dab[]
-  /** Arc length (world px) travelled by this stroke so far — brush pen only,
-   *  for the head taper (#454). Reset in _onStart, advanced in
-   *  _paintStrokeDabs; meaningless for every other tool, which never reads
-   *  it. */
-  private _strokeArcLen = 0
-  /** Running speed→contact factor for the brush pen (#472), carried across
-   *  batches so the width eases between them instead of stepping — see
-   *  applyBrushPenSpeedContact. 1 = nib fully in contact; reset in _onStart
-   *  alongside _strokeArcLen, and read by no other tool. */
-  private _strokeSpeedContact = 1
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   // #278: marker chisel nib's live angle setting — canvas-space radians
@@ -5128,16 +5118,10 @@ export class PencilEngine implements PencilEngineAPI {
     // _paintSmudgeDabs does it off this stroke's own id, so the local and the
     // replayed path go through exactly one rule (see _smudgeResumeGesture).
     this._strokeDabs    = []
-    // #454: the brush pen's head taper ramps over arc length travelled since
-    // the stroke began (ADR 009 §4 — the one quantity that is known live and
-    // needs nothing from the future), so it needs its own running total across
-    // this gesture's batches.
-    this._strokeArcLen  = 0
-    // #472: and a nib that starts every stroke fully in contact — the first
-    // batch has no meaningful speed yet (it is one sample old), so seeding the
-    // factor anywhere but 1 would narrow the head of every stroke on top of
-    // the taper that is already there on purpose.
-    this._strokeSpeedContact = 1
+    // #482: the running arc length and the speed-contact factor both used to
+    // live here as per-stroke engine fields. They are tip state now (TipState),
+    // reset by DabSystem alongside the bend and the input filters — one record
+    // to reset, fork and restore instead of five parallel fields in two files.
     this._strokeStartTimestamp = e.timeStamp
     if (this._debug) {
       const now = performance.now()
@@ -5652,21 +5636,16 @@ export class PencilEngine implements PencilEngineAPI {
     // undo/redo, a snapshot rebuild. A taper applied at draw time would exist
     // only on the screen of whoever drew it, which is the exact failure #452
     // documents under linerWickPx.
-    if (this._strokeTool === 'brushPen') {
-      // #472. Order against the taper below doesn't matter — both are plain
-      // multipliers on size, and the taper's own ramp is measured from dab
-      // positions, which neither of them touches.
-      this._strokeSpeedContact = applyBrushPenSpeedContact(dabs, speed, this._strokeSpeedContact)
-      this._strokeArcLen = applyBrushPenHeadTaper(dabs, this._strokeDabs.at(-1), this._strokeArcLen)
-    }
-    // #468 — same placement and the same reason: baked into the dab before it
-    // is recorded, so every route to these pixels (the operation, a peer's
-    // packet, an undo, a snapshot rebuild) sees the identical narrowing.
-    // Shallower than the pen's, because a loaded brush lands rather than
-    // arrives at a point (watercolorPresets.ts's taper section).
-    if (this._strokeTool === 'watercolor') {
-      this._strokeArcLen = applyWatercolorHeadTaper(dabs, this._strokeDabs.at(-1), this._strokeArcLen)
-    }
+    // #482, ADR 012 §8: the head taper and the speed-contact factor used to run
+    // here, as two post-passes over `dab.size` for the brush pen and one for
+    // watercolor. They are declared on the profile now (HeadTaperProfile,
+    // SpeedContactProfile) and applied inside tipFootprint, before the nib's own
+    // lag and trail are derived from that width — which is the bug this move
+    // fixes, not just the shape of the code.
+    //
+    // The *tail* taper stays a post-pass, in _onEnd, and that is a property of
+    // drawing rather than an omission: "how far until the stroke ends" does not
+    // exist until the pen is lifted.
     for (const dab of dabs) dab.t = elapsedMs
     // Smudge only (#14): the dab immediately before this call's own batch,
     // read *before* pushing this call's dabs onto _strokeDabs below — a

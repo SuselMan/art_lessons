@@ -1,7 +1,10 @@
 import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
-import { tiltOrPathAngle, type DabShapingProfile, type TipBendProfile } from './dabShaping'
+import {
+  tiltOrPathAngle,
+  type DabShapingProfile, type HeadTaperProfile, type SpeedContactProfile, type TipBendProfile,
+} from './dabShaping'
 import type { PencilPreset } from './pencilPresets'
 
 // This file and dabShaping.ts import from each other, the same safe circular
@@ -261,6 +264,25 @@ function brushPenTipBend(response: PressureResponse): TipBendProfile {
   }
 }
 
+/** #482: two numbers on the profile instead of a post-pass over `dab.size`.
+ *  Short on purpose: ADR 009 rejects a long decorative taper. */
+export const BRUSH_PEN_HEAD_TAPER: HeadTaperProfile = { startScale: 0.35, lengthPx: 10 }
+
+const CONTACT_SPEED_SLOW = 0.4   // canvas px/ms and below: nib fully in contact
+const CONTACT_SPEED_FAST = 2.5   // and above: as lean as speed alone makes it
+const CONTACT_AT_SPEED   = 0.9   // width multiplier at CONTACT_SPEED_FAST
+
+/** #482: the same easing, expressed as a distance rather than a per-dab weight.
+ *  0.25 per dab at a 40 px pen (spacing 0.22 x width = 8.8 px) is
+ *  -8.8 / ln(0.75) = 30.6 px, so a mid-sized brush is unchanged and the two
+ *  ends stop depending on how big the brush happens to be. */
+const CONTACT_SMOOTHING_PX = 30
+
+export const BRUSH_PEN_SPEED_CONTACT: SpeedContactProfile = {
+  factor: speed => lerp(1, CONTACT_AT_SPEED, (speed - CONTACT_SPEED_SLOW) / (CONTACT_SPEED_FAST - CONTACT_SPEED_SLOW)),
+  smoothingPx: CONTACT_SMOOTHING_PX,
+}
+
 // ─── Dab shaping (ADR 009 §2, §6) ───────────────────────────────────────────
 
 function brushPenShapingFor(response: PressureResponse): DabShapingProfile {
@@ -292,6 +314,10 @@ function brushPenShapingFor(response: PressureResponse): DabShapingProfile {
     // #472: the whole of the nib's flexibility, and the reason this tool needs
     // a profile that other tools' pure shape functions cannot express.
     tipBend: brushPenTipBend(response),
+    // #482, ADR 012 §8: declared, not post-processed — so the nib's lag and
+    // trail are computed from the width actually being drawn.
+    headTaper: BRUSH_PEN_HEAD_TAPER,
+    speedContact: BRUSH_PEN_SPEED_CONTACT,
   }
 }
 
@@ -332,33 +358,6 @@ export function shapingForBrushPenPreset(presetName: string | undefined): DabSha
 // recomputes nothing at all, because the taper is baked into the dab's size
 // before it is ever recorded.
 
-/** Width multiplier at the very first dab of a stroke. */
-const HEAD_TAPER_START = 0.35
-/** Arc length (canvas px) over which the head ramps back up to full width.
- *  Short on purpose: ADR 009 rejects a long decorative taper. */
-const HEAD_TAPER_PX = 10
-
-/**
- * Narrows the first few px of a stroke, in place. `arcLenBefore` is the arc
- * length already travelled by earlier batches of this same stroke (0 for the
- * first), `prevDab` the last dab of that batch — both needed because a stroke
- * arrives in batches whose boundaries are an artefact of pointer event timing,
- * and the taper must not restart at each one.
- *
- * Returns the running arc length including this batch, for the next call.
- */
-export function applyBrushPenHeadTaper(dabs: Dab[], prevDab: Dab | undefined, arcLenBefore: number): number {
-  let arc = arcLenBefore
-  let prev = prevDab
-  for (const dab of dabs) {
-    if (prev) arc += Math.hypot(dab.x - prev.x, dab.y - prev.y)
-    if (arc < HEAD_TAPER_PX) {
-      dab.size *= HEAD_TAPER_START + (1 - HEAD_TAPER_START) * (arc / HEAD_TAPER_PX)
-    }
-    prev = dab
-  }
-  return arc
-}
 
 // The tail, unlike the head, can use the exit speed — by the time endStroke
 // runs it has been measured. Same post-process shape as the liner's
@@ -415,12 +414,15 @@ export function applyBrushPenEndTaper(dabs: Dab[], exitSpeed: number): void {
 
 // ─── Speed → contact (#472, revising ADR 009 §5) ────────────────────────────
 // v1 said "speed does not affect width", and gave a reason that was about cost
-// rather than about the tool: routing speed into DabSystem._makeDab meant a
-// new wire through the geometry of every tool for an effect the spec itself
-// calls slight. That reason is still valid, and this does not do it — the
-// factor is applied where the taper already is (PencilEngine._paintStrokeDabs,
-// which has the batch's measured speed in hand and is the one choke point
-// every live dab passes through before being recorded).
+// rather than about the tool: routing speed into the geometry of every tool
+// meant a new wire for an effect the spec itself calls slight. #472 sidestepped
+// it by applying the factor as a post-pass in PencilEngine instead.
+//
+// #482 took the wire after all, and the sidestep turned out to cost more than
+// it saved: a post-pass over `dab.size` runs *after* the nib's lag and trail
+// have been derived from that width, so the head of every stroke bent as though
+// the nib were the untapered one. The input is one field on TipInput, shared by
+// every tool and read by the two that declare a speedContact.
 //
 // What it buys, in the spec's own terms: a fast pen presses less of its nib
 // into the paper, so a quick stroke comes out a little leaner than the same
@@ -432,31 +434,4 @@ export function applyBrushPenEndTaper(dabs: Dab[], exitSpeed: number): void {
 // competing with pressure for control of the width, and the tool is defined by
 // pressure winning that.
 
-const CONTACT_SPEED_SLOW = 0.4   // canvas px/ms and below: nib fully in contact
-const CONTACT_SPEED_FAST = 2.5   // and above: as lean as speed alone makes it
-const CONTACT_AT_SPEED   = 0.9   // width multiplier at CONTACT_SPEED_FAST
 
-/** Per-dab weight for the running speed factor. Speed is measured per pointer
- *  event, and a batch is often a single dab, so the raw value steps between
- *  batches; against a ribbon that interpolates width continuously between
- *  consecutive dabs, an unsmoothed 10% step is a visible notch in the
- *  silhouette rather than a change in weight. */
-const CONTACT_SPEED_SMOOTHING = 0.25
-
-/**
- * Scales a batch's dabs by the speed-driven contact factor, in place, and
- * returns the factor to carry into the next batch.
- *
- * `prevFactor` is the value this returned last time (1 at the start of a
- * stroke): the factor eases toward its target across the batch's dabs rather
- * than being applied as a step, for the reason CONTACT_SPEED_SMOOTHING gives.
- */
-export function applyBrushPenSpeedContact(dabs: Dab[], speed: number, prevFactor: number): number {
-  const target = lerp(1, CONTACT_AT_SPEED, (speed - CONTACT_SPEED_SLOW) / (CONTACT_SPEED_FAST - CONTACT_SPEED_SLOW))
-  let factor = prevFactor
-  for (const dab of dabs) {
-    factor += (target - factor) * CONTACT_SPEED_SMOOTHING
-    dab.size *= factor
-  }
-  return factor
-}

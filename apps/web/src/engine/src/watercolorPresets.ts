@@ -2,7 +2,7 @@ import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { gain, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, type PressureResponse } from './brushPenPresets'
-import { tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
+import { tiltOrPathAngle, type DabShapingProfile, type HeadTaperProfile } from './dabShaping'
 import type { PencilPreset } from './pencilPresets'
 import { DEFAULT_WATERCOLOR_PIGMENT, isWatercolorPigmentCode } from './watercolorPigments'
 
@@ -117,6 +117,10 @@ export function watercolorWidth(pressure: number, response: PressureResponse): n
  *  that the number now means the same thing on every device. */
 const WATERCOLOR_PRESSURE_SMOOTHING_PX = 5.3
 
+/** #482: profile data rather than a post-pass. Barely a taper at all — a
+ *  loaded brush lands rather than arrives at a point. */
+export const WATERCOLOR_HEAD_TAPER: HeadTaperProfile = { startScale: 0.72, lengthPx: 6 }
+
 // ─── Dab shaping ────────────────────────────────────────────────────────────
 
 function watercolorShapingFor(response: PressureResponse): DabShapingProfile {
@@ -130,6 +134,8 @@ function watercolorShapingFor(response: PressureResponse): DabShapingProfile {
     aspect: tiltNorm => 1 + 0.40 * tiltNorm,
     angle:  tiltOrPathAngle,
     pressureSmoothingPx: WATERCOLOR_PRESSURE_SMOOTHING_PX,
+    // #482, ADR 012 §8 — same move as the brush pen's, same reason.
+    headTaper: WATERCOLOR_HEAD_TAPER,
   }
 }
 
@@ -495,28 +501,6 @@ export function applyWatercolorPooling(dabs: Dab[], exitSpeed: number, water: nu
 // before the stroke's entry speed has been measured, and arc length is known
 // immediately and deterministically.
 
-/** Width multiplier at the very first dab. Barely a taper at all. */
-const HEAD_TAPER_START = 0.72
-/** Arc length (canvas px) over which the head ramps back to full width. */
-const HEAD_TAPER_PX = 6
-
-/** Narrows the first few px of a stroke, in place. Same signature and same
- *  batch-continuity contract as applyBrushPenHeadTaper — `arcLenBefore` is the
- *  arc length earlier batches of this same stroke already travelled, so the
- *  taper does not restart at every pointer-event boundary. Returns the running
- *  arc length for the next call. */
-export function applyWatercolorHeadTaper(dabs: Dab[], prevDab: Dab | undefined, arcLenBefore: number): number {
-  let arc = arcLenBefore
-  let prev = prevDab
-  for (const dab of dabs) {
-    if (prev) arc += Math.hypot(dab.x - prev.x, dab.y - prev.y)
-    if (arc < HEAD_TAPER_PX) {
-      dab.size *= HEAD_TAPER_START + (1 - HEAD_TAPER_START) * (arc / HEAD_TAPER_PX)
-    }
-    prev = dab
-  }
-  return arc
-}
 
 const TAIL_SPEED_SLOW = 0.5
 const TAIL_SPEED_FAST = 2.5

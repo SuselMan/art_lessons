@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { applyBrushPenSpeedContact, brushPenWidth, PRESSURE_RESPONSES } from './brushPenPresets'
+import { brushPenWidth, PRESSURE_RESPONSES, shapingForBrushPenPreset } from './brushPenPresets'
+import { createTipState, tipFootprint } from './tipFootprint'
 import { DabSystem } from './DabSystem'
 import { shapingForTool } from './dabShaping'
 
@@ -314,41 +315,72 @@ describe('brush pen: pressure smoothing runs on distance, not on samples (#472)'
   })
 })
 
-describe('brush pen: speed thins the contact slightly (#472)', () => {
-  const dabsOfSize = (n: number, size: number) =>
-    Array.from({ length: n }, () => ({ x: 0, y: 0, pressure: 1, tiltX: 0, tiltY: 0, size, aspectRatio: 1, angle: 0, opacity: 1, t: 0 }))
+describe('brush pen: speed thins the contact slightly (#472, moved into the model by #482)', () => {
+  const shaping = shapingForBrushPenPreset('normal')
+  const NIB = 10
+
+  /** Runs `n` dabs of travel at a constant speed and returns each dab's width.
+   *  #482: this used to be a post-pass over an array of already-made dabs; it
+   *  is a declared profile field now, applied inside tipFootprint *before* the
+   *  nib's lag and trail are derived from that width. */
+  /** A tip already past its own head taper, so these tests measure the speed
+   *  factor and nothing else — both now live in the same function, and the
+   *  taper's 0.35 -> 1.0 ramp would otherwise swamp a 10% speed effect. */
+  const pastHead = () => Object.assign(createTipState(), { arcFromStart: 100 })
+
+  function widths(n: number, speed: number, dsPx: number, state = pastHead()): number[] {
+    const out: number[] = []
+    for (let i = 0; i < n; i++) {
+      out.push(tipFootprint(shaping, {
+        x: 0, y: 0, pressure: 1, tiltX: 0, tiltY: 0, baseSize: NIB,
+        pathAngle: 0, ds: dsPx, speed, cameraAngle: 0,
+      }, state).size)
+    }
+    return out
+  }
 
   it('leaves a slow stroke alone and thins a fast one', () => {
-    const slow = dabsOfSize(20, 10)
-    applyBrushPenSpeedContact(slow, 0.2, 1)
-    for (const d of slow) expect(d.size).toBeCloseTo(10, 6)
+    // brushPenWidth(1, 'normal') x NIB is the untapered, unthinned width.
+    const full = brushPenWidth(1, 'normal') * NIB
+    const slow = widths(20, 0.2, 3)
+    for (const w of slow) expect(w / full).toBeCloseTo(1, 6)
 
-    const fast = dabsOfSize(40, 10)
-    const factor = applyBrushPenSpeedContact(fast, 3.0, 1)
-    expect(factor).toBeLessThan(0.95)
-    expect(factor).toBeGreaterThan(0.85) // and never anywhere near competing with pressure
+    const fast = widths(40, 3.0, 3)
+    const settled = fast[fast.length - 1] / full
+    expect(settled).toBeLessThan(0.95)
+    expect(settled).toBeGreaterThan(0.85) // never anywhere near competing with pressure
   })
 
   it('eases into the new factor instead of stepping', () => {
     // Speed is measured per pointer event and a batch is often one dab, so the
-    // raw value steps between batches. Against a ribbon that interpolates
-    // width continuously between consecutive dabs, an unsmoothed step is a
-    // notch in the silhouette.
-    const dabs = dabsOfSize(6, 10)
-    applyBrushPenSpeedContact(dabs, 3.0, 1)
-    const steps = dabs.map((d, i) => (i === 0 ? 10 - d.size : dabs[i - 1].size - d.size))
-    for (const s of steps) expect(s).toBeLessThan(0.4)
-    expect(dabs[dabs.length - 1].size).toBeLessThan(dabs[0].size)
+    // raw value steps between batches. Against a ribbon that interpolates width
+    // continuously between consecutive dabs, an unsmoothed step is a notch in
+    // the silhouette.
+    const w = widths(6, 3.0, 3)
+    for (let i = 1; i < w.length; i++) expect(w[i - 1] - w[i]).toBeLessThan(0.4)
+    expect(w[w.length - 1]).toBeLessThan(w[0])
   })
 
-  it('carries the factor across batches so a stroke does not re-ease at every event', () => {
-    const first = dabsOfSize(3, 10)
-    const carried = applyBrushPenSpeedContact(first, 3.0, 1)
-    const second = dabsOfSize(3, 10)
-    applyBrushPenSpeedContact(second, 3.0, carried)
-    // The second batch continues from where the first left off, so it is
-    // already thinner throughout than the first batch ever got.
-    expect(second[0].size).toBeLessThan(first[first.length - 1].size)
+  it('carries across batches, because the easing lives in the stroke state', () => {
+    // The old post-pass had to be handed its own previous return value by
+    // PencilEngine to survive a pointer-event boundary. Nothing has to remember
+    // to do that now: batches are not a concept the tip model has.
+    const state = pastHead()
+    const first = widths(3, 3.0, 3, state)
+    const second = widths(3, 3.0, 3, state)
+    expect(second[0]).toBeLessThan(first[first.length - 1])
+  })
+
+  it('eases over a distance, so a big brush does not settle four times slower', () => {
+    // It shipped as a per-dab weight, and dab spacing is proportional to brush
+    // size — so the same gesture settled over four times the distance on a
+    // 160 px brush as on a 40 px one. Same travel now means the same easing.
+    const dense  = widths(40, 3.0, 1)
+    const sparse = widths(10, 3.0, 4)   // same 40 px of travel, a quarter of the dabs
+    // Exactly equal, not merely close: composing `1 - exp(-d/L)` over n steps
+    // of d leaves residual exp(-nd/L), which depends on the total distance and
+    // not on how it was cut up. That identity is the whole reason for the move.
+    expect(dense[dense.length - 1]).toBeCloseTo(sparse[sparse.length - 1], 9)
   })
 })
 

@@ -100,6 +100,13 @@ export interface DabShapingProfile {
    *  to a rigid shape whose footprint is fully determined by the current
    *  sample. Omitted by every tool but the brush pen; see TipBendProfile. */
   tipBend?: TipBendProfile
+  /** #482, ADR 012 §8 — how the very start of a stroke narrows. Declared as
+   *  two numbers rather than implemented per profile on purpose: the brush pen
+   *  and watercolor differ only in the numbers, and data cannot let a third
+   *  tool quietly invent a different shape for the same idea. */
+  headTaper?: HeadTaperProfile
+  /** #482 — how much less of the nib is pressed into the paper at speed. */
+  speedContact?: SpeedContactProfile
 }
 
 /**
@@ -125,6 +132,52 @@ export interface DabShapingProfile {
  * endpoint (markerRibbon.ts's two nibSupport calls) — so every participant
  * replays the same bent nib without recomputing anything.
  */
+/**
+ * #482, ADR 012 §8 — the head of a stroke, moved out of PencilEngine's
+ * post-processing and into the tip model.
+ *
+ * It was a post-pass over `dab.size` running after the footprint had already
+ * been worked out, which had a real consequence and not only a structural one:
+ * a flexible nib's lag distance and trail are both proportional to its *current
+ * width*, so they were being computed from the untapered value. The head of
+ * every brush-pen stroke bent as though the nib were three times wider than the
+ * one actually being drawn.
+ *
+ * Only the head. The tail cannot come here and that is a property of drawing,
+ * not of this interface: "how far until the stroke ends" does not exist until
+ * the pen is lifted, and holding dabs back to find out would put latency on the
+ * tip — the one thing #104 spent its effort removing. So the rule the model
+ * keeps is that **it only ever sees what is known at the moment the dab is laid
+ * down**, and the tail stays a post-pass over the final batch.
+ */
+export interface HeadTaperProfile {
+  /** Width multiplier at the very first dab. */
+  startScale: number
+  /** Arc length, world px, over which it ramps back to full width. */
+  lengthPx: number
+}
+
+/**
+ * #482 — a fast pen presses less of its nib into the paper, so a quick stroke
+ * comes out a little leaner than the same pressure drawn slowly (ADR 009 §5 as
+ * revised by #472).
+ */
+export interface SpeedContactProfile {
+  /** Width multiplier at this pointer speed, canvas px/ms. */
+  factor(speed: number): number
+  /** Distance, world px, over which the factor eases toward that target.
+   *  Speed is measured per pointer event and a batch is often a single dab, so
+   *  the raw value steps between batches; against a ribbon that interpolates
+   *  width continuously between dabs, an unsmoothed 10% step is a visible notch
+   *  in the silhouette rather than a change in weight.
+   *
+   *  A distance for the same reason every other filter here became one: this
+   *  shipped as a per-dab weight, and dab spacing is proportional to brush size,
+   *  so the same gesture settled over four times the distance on a 160 px brush
+   *  as on a 40 px one. */
+  smoothingPx: number
+}
+
 export interface TipBendProfile {
   /**
    * Contact-patch elongation (long axis / short axis) at this pressure, on top

@@ -39,6 +39,19 @@ import { tiltMagnitudeDeg } from './tiltMath'
  * themselves.
  */
 export interface TipState {
+  /** Arc length travelled since the stroke began, world px — what the head
+   *  taper ramps against (ADR 012 §8). Accumulated here rather than in
+   *  PencilEngine because every consumer of the tip already carries this
+   *  record: the #92 prediction fork, the speculative peek's save/restore and
+   *  the per-stroke reset each copy one object instead of a growing list of
+   *  parallel fields. */
+  arcFromStart: number
+  /** The eased speed-contact multiplier (SpeedContactProfile), 1 = the nib
+   *  fully in contact. Seeded at 1 rather than 0: the first batch of a stroke
+   *  is one sample old and has no meaningful speed yet, so starting anywhere
+   *  else would narrow the head of every stroke on top of the taper that is
+   *  there on purpose. */
+  contactFactor: number
   /** Where the nib is currently lying, as a vector whose *direction* is the
    *  nib's own and whose *length* is how far the drag has bent it (0 = still
    *  straight, 1 = fully trailed). One quantity, two meanings, on purpose —
@@ -50,14 +63,16 @@ export interface TipState {
 }
 
 export function createTipState(): TipState {
-  return { tipDirX: 0, tipDirY: 0, trailPx: 0 }
+  return { arcFromStart: 0, contactFactor: 1, tipDirX: 0, tipDirY: 0, trailPx: 0 }
 }
 
 export function copyTipState(src: TipState): TipState {
-  return { tipDirX: src.tipDirX, tipDirY: src.tipDirY, trailPx: src.trailPx }
+  return { ...src }
 }
 
 export function assignTipState(dst: TipState, src: TipState): void {
+  dst.arcFromStart = src.arcFromStart
+  dst.contactFactor = src.contactFactor
   dst.tipDirX = src.tipDirX
   dst.tipDirY = src.tipDirY
   dst.trailPx = src.trailPx
@@ -166,7 +181,29 @@ export function tipFootprint(
   // tiltMath.ts.
   const tiltMag  = tiltMagnitudeDeg(tiltX, tiltY)
   const tiltNorm = tiltMag / 90
-  const size     = input.baseSize * shaping.size(pressure, tiltNorm)
+  let size       = input.baseSize * shaping.size(pressure, tiltNorm)
+
+  // #482, ADR 012 §8: both of these used to run *after* the footprint was
+  // worked out, as post-passes over `dab.size` in PencilEngine. That was not
+  // only untidy — a flexible nib's lag distance and trail are proportional to
+  // its current width, so they were being computed from a width the head of the
+  // stroke never actually had.
+  //
+  // A caller with no stroke behind it (the hover cursor) gets neither, which is
+  // right: it is not at the start of anything and has no speed.
+  if (state) {
+    state.arcFromStart += input.ds
+    const contact = shaping.speedContact
+    if (contact) {
+      const k = 1 - Math.exp(-input.ds / contact.smoothingPx)
+      state.contactFactor += (contact.factor(input.speed) - state.contactFactor) * k
+      size *= state.contactFactor
+    }
+    const head = shaping.headTaper
+    if (head && state.arcFromStart < head.lengthPx) {
+      size *= head.startScale + (1 - head.startScale) * (state.arcFromStart / head.lengthPx)
+    }
+  }
 
   // #472: a flexible nib's footprint is the pose's own ovality *times* how far
   // the drag has splayed and trailed it, pointing where the nib points rather
