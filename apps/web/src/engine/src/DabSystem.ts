@@ -174,10 +174,14 @@ export class DabSystem {
    */
   curvatureTolerancePx: number | null = null
   /**
-   * #478 — the renderer's own size multiplier for the tool being drawn
-   * (`preset.sizeMultiplier`, 1 for a tool that paints Dab.size at face
-   * value), or null to keep the pre-#478 rule of spacing off the nominal brush
-   * size alone.
+   * #478 — how this tool's dab is actually drawn, or null to keep the pre-#478
+   * rule of spacing off the nominal brush size alone.
+   *
+   * `sizeScale` is the renderer's own size multiplier (`preset.sizeMultiplier`,
+   * 1 for a tool that paints Dab.size at face value); `hardness` is the edge
+   * softness the fragment shader will use for it. Both are needed because the
+   * step tracks the *mark*: how wide it is, and — since #483 — whether its
+   * edge is hard enough for a gap in it to show at all.
    *
    * Set once per stroke by the engine, from the same place it sets
    * `curvatureTolerancePx` and calls `setShaping` — it is a property of the
@@ -189,7 +193,7 @@ export class DabSystem {
    * Only ever *tightens* the step (footprintDabSpacing takes a min against the
    * nominal rule), so switching it on cannot make any existing mark sparser.
    */
-  footprintSizeScale: number | null = null
+  footprint: { sizeScale: number; hardness: number } | null = null
   private _buf: ControlPoint[]
   private _remainder: number
   /**
@@ -453,7 +457,7 @@ export class DabSystem {
   forkForPreview(): DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
-    fork.footprintSizeScale = this.footprintSizeScale
+    fork.footprint = this.footprint
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
     // #478: and the step owed from the last real dab, for the same reason the
@@ -761,9 +765,11 @@ export class DabSystem {
    *  nominal brush size is the wrong thing to space off, and which tools want
    *  this and which are already normalized some other way. */
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
-    const scale = this.footprintSizeScale
-    if (scale === null) return maxSpacing
-    return Math.min(maxSpacing, footprintDabSpacing(dab.size, scale, baseSize, this.spacingFactor))
+    const fp = this.footprint
+    if (fp === null) return maxSpacing
+    return Math.min(maxSpacing, footprintDabSpacing(
+      { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale: fp.sizeScale, hardness: fp.hardness },
+      baseSize, this.spacingFactor))
   }
 
   /**

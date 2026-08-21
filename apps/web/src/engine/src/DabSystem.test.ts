@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Dab } from '@grafetto/shared'
 
 import { DabSystem } from './DabSystem'
+import { scallopSpacingLimit } from './dabSpacing'
 import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
 import { MARKER_BULLET_DAB_SHAPING } from './markerPresets'
 import { DEFAULT_TILT_RESPONSE, TILT_RESPONSES } from './tiltCurve'
@@ -592,11 +593,14 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
     // 0.76-of-a-diameter step that reads as a row of stamps.
     const sizeScale = 0.5
     const dab = new DabSystem({ spacingFactor })
-    dab.footprintSizeScale = sizeScale
+    dab.footprint = { sizeScale, hardness: 0.95 }
     const dabs = straight(dab, 0.4)
 
-    const diameter = dabs[3].size * sizeScale
-    expect(medianGap(dabs) / diameter).toBeCloseTo(spacingFactor, 6)
+    const d = dabs[3]
+    const diameter = d.size * sizeScale
+    expect(medianGap(dabs)).toBeLessThanOrEqual(diameter * spacingFactor + 1e-6)
+    expect(medianGap(dabs)).toBeLessThanOrEqual(
+      scallopSpacingLimit({ size: d.size, aspectRatio: d.aspectRatio, sizeScale, hardness: 0.95 }) + 1e-6)
     expect(medianGap(dabs)).toBeLessThan(baseSize * spacingFactor)
   })
 
@@ -605,7 +609,7 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
     // switching this on: a soft grade whose footprint is *wider* than nominal
     // keeps exactly the density it has today rather than getting sparser.
     const dab = new DabSystem({ spacingFactor })
-    dab.footprintSizeScale = 1.6
+    dab.footprint = { sizeScale: 1.6, hardness: 0.95 }
     const dabs = straight(dab, 1)
     expect(dabs[3].size * 1.6).toBeGreaterThan(baseSize)
     expect(medianGap(dabs)).toBeCloseTo(baseSize * spacingFactor, 6)
@@ -617,7 +621,7 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
     // leave the tail of every fading stroke under-sampled, which is the same
     // defect one level down.
     const dab = new DabSystem({ spacingFactor })
-    dab.footprintSizeScale = 1
+    dab.footprint = { sizeScale: 1, hardness: 0.95 }
     const dabs: Dab[] = []
     dabs.push(...dab.startStroke(0, 0, 1, 0, 0, baseSize))
     for (let x = 40; x <= 200; x += 40) dabs.push(...dab.continueStroke(x, 0, 1, 0, 0, baseSize))
@@ -626,10 +630,16 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
 
     const firm = dabs.filter(d => d.x < 150)
     const light = dabs.filter(d => d.x > 350)
-    expect(medianGap(light)).toBeLessThan(medianGap(firm) * 0.6)
-    // And it is still the same rule at both ends of the stroke.
+    expect(medianGap(light)).toBeLessThan(medianGap(firm) * 0.7)
+    // And both bounds still hold at both ends of the stroke: the step is a
+    // fraction of the dab's own diameter (#478) *and* within the scallop
+    // tolerance (#485). Which of the two binds depends on the brush size, so
+    // the contract is "under both", not "equal to either".
     for (const part of [firm, light]) {
-      expect(medianGap(part) / (part[2].size * 1)).toBeCloseTo(spacingFactor, 2)
+      const d = part[2]
+      const fp = { size: d.size, aspectRatio: d.aspectRatio, sizeScale: 1, hardness: 0.95 }
+      expect(medianGap(part)).toBeLessThanOrEqual(d.size * spacingFactor + 1e-6)
+      expect(medianGap(part)).toBeLessThanOrEqual(scallopSpacingLimit(fp) + 1e-6)
     }
   })
 
@@ -639,7 +649,7 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
     // at each boundary would leave one over-long gap per pointer sample —
     // exactly the artefact _remainder already exists to prevent, one level up.
     const dab = new DabSystem({ spacingFactor })
-    dab.footprintSizeScale = 0.5
+    dab.footprint = { sizeScale: 0.5, hardness: 0.95 }
     const dabs = straight(dab, 0.4)
     const gaps = dabs.slice(1, -1).map((d, i) => d.x - dabs[i].x)
     const worst = Math.max(...gaps.map(g => Math.abs(g - medianGap(dabs))))

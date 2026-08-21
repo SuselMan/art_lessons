@@ -74,17 +74,132 @@ export function nominalDabSpacing(baseSize: number, spacingFactor: number): numb
  *
  * The `min` against the nominal rule is the whole safety argument for #478:
  * every tool keeps at least today's dab density, so no existing mark can get
- * *sparser* than it is now. Only the under-sampled cases — hard graphite,
- * light pressure, charcoal on its edge — move, and they only ever move toward
- * more dabs. A rule without the min would also be defensible (it is the same
- * 0.22 either way) but it would quietly re-space soft grades that already look
- * right, which is not this fix's business.
+ * *sparser* than it is now. Only the under-sampled cases move, and they only
+ * ever move toward more dabs.
+ *
+ * `hardness` gates the whole thing, and #483 is why. See
+ * footprintSpacingStrength: a soft-edged dab was never the problem, and
+ * re-spacing it changed a mark nobody had complained about.
  */
+export interface DabFootprint {
+  /** `Dab.size` — already through the pressure/tilt response. */
+  size: number
+  /** `Dab.aspectRatio`, 1 = round. */
+  aspectRatio: number
+  /** The renderer's own multiplier on top of `size` (`preset.sizeMultiplier`,
+   *  or 1 for a tool that paints Dab.size at face value, e.g. the eraser). */
+  sizeScale: number
+  /** The edge softness DAB_FRAG will draw this dab with. */
+  hardness: number
+}
+
 export function footprintDabSpacing(
-  dabSize: number, sizeScale: number, baseSize: number, spacingFactor: number,
+  dab: DabFootprint, baseSize: number, spacingFactor: number,
 ): number {
   const nominal = nominalDabSpacing(baseSize, spacingFactor)
-  return Math.max(MIN_DAB_SPACING_PX, Math.min(nominal, dabSize * sizeScale * spacingFactor))
+  const strength = footprintSpacingStrength(dab.hardness)
+  // Exactly the pre-#478 step, bit for bit, and that identity is the point:
+  // for a soft grade nothing about the mark may move, including the arc-length
+  // bookkeeping that decides where its dabs land.
+  if (strength <= 0) return nominal
+  const bound = Math.min(dab.size * dab.sizeScale * spacingFactor, scallopSpacingLimit(dab))
+  return Math.max(MIN_DAB_SPACING_PX, Math.min(nominal, nominal + (bound - nominal) * strength))
+}
+
+
+// #485 — the second bound on the step, and the one that actually closes the
+// bug #478 was filed for.
+//
+// #478's rule is a fraction of the dab's own diameter, so it is scale-free: a
+// 600px brush and a 60px brush come out with the same *relative* geometry. But
+// what a hand sees is not relative. The mark's outer boundary is the union of
+// overlapping ellipses, and between two consecutive ones it dips by the
+// ellipse's sagitta over that step — an absolute number of canvas pixels that
+// grows linearly with the brush.
+//
+// Measured on the real engine, 6H at full pressure and 45 degrees, both at the
+// same 0.220 of their own diameter:
+//
+//     brush 160   step 21.6px   scallop  3.9px
+//     brush 600   step 80.8px   scallop 14.5px
+//
+// 14px of scalloped edge on a hard-edged mark is exactly the "row of ellipses"
+// Ilya kept reporting after #478 said it was fixed — and it is why he saw it
+// with a large brush while every measurement here, taken at 120-160, sat at the
+// paper's own noise floor. The relative rule was never wrong; it was just not
+// the binding constraint at the sizes he draws at.
+//
+// Worst case on purpose: the dab is taken as elongated *across* the direction
+// of travel, so the along-travel semi-axis is the short one (r) and the
+// silhouette that scallops is the long one (r * aspect). Elongated along travel
+// the same geometry gives ~30x less dip, so assuming the bad orientation costs
+// some dabs on a stroke drawn the other way and never under-samples one.
+//
+//     depth = b - b*sqrt(1 - (s/2a)^2) ~= b*s^2/(8a^2) = aspect*s^2/(8r)
+//     depth <= tol   ->   s <= sqrt(8*tol*r/aspect)
+//
+// Same sagitta argument, and the same shape of answer, as DabSystem's own
+// _curvatureSpacingLimit — which bounds the marker's chord error against a
+// tolerance in canvas px for the identical reason. This is that idea applied
+// to the gap between two stamps rather than to the chord between two samples.
+const MAX_SCALLOP_PX = 1
+
+/** Largest step whose silhouette scallop stays within MAX_SCALLOP_PX.
+ *  Infinity for a round dab, which has no long axis to dip. */
+export function scallopSpacingLimit(dab: DabFootprint): number {
+  const r = dab.size * 0.5 * dab.sizeScale
+  const aspect = Math.max(1, dab.aspectRatio)
+  if (r <= 0) return Infinity
+  return Math.sqrt((8 * MAX_SCALLOP_PX * r) / aspect)
+}
+
+// #483 — where the footprint rule fades in, in units of DAB_FRAG's own
+// `u_hardness`, and both numbers are measured rather than chosen.
+//
+// #478 applied the rule to every graphite grade, on the reasoning that a step
+// wider than the dab is under-sampling wherever it happens. That is true, and
+// it is also not the whole story: a *soft* dab's gaps are filled by its own
+// falloff, so the under-sampling never surfaces, and re-spacing it only
+// changed the pitch of a structure the mark already had. Ilya's report was
+// that soft grades came out flatter and harder after #478 — tone and paper
+// grain both measured identical, to 0.1%, but every soft row's pixels changed:
+// the stroke's own longitudinal structure went from a ~26px undulation to a
+// ~20px one, and that is what a hand reads as "it no longer sits on the paper".
+//
+// The boundary is the same on-GPU ripple measurement #478 used, run across the
+// whole ladder at a fixed grip (coarse paper, 45 degrees, pressure 0.45), on
+// the pre-#478 engine:
+//
+//     6H .95  53.7%     H  .55  11.2%      2B .25   7.2%
+//     5H .95  46.7%     F  .47   7.5%      3B .15   6.9%
+//     4H .85  42.5%     HB .38   7.7%      4B .05   6.9%
+//     3H .75  31.6%     B  .32   8.0%      6B .05   8.0%
+//     2H .65  17.9%
+//
+// Everything from F down sits flat on a ~7% floor, which is the paper's own
+// grain and not scalloping at all. The defect appears at H and is unmistakable
+// from 2H. So: off at or below F's hardness, fully on at or above 2H's, linear
+// between — which leaves HB and every softer grade byte-for-byte as they were
+// before #478, and that identity is asserted in index.dabSpacing.test.ts.
+//
+// In units of hardness rather than of grade on purpose: the quantity that
+// makes a gap visible is the edge, not the label. Charcoal (0.26-0.46) falls
+// below the floor by the same measurement and is therefore left alone too,
+// where #478 had re-spaced it on an argument rather than a number.
+//
+// What this deliberately does *not* try to fix: a hard grade at a feather
+// touch now deposits under 1/255 per dab and can round away to nothing in the
+// RGBA8 layer buffer. That was raised as a candidate regression and Ilya's
+// answer was that it is correct — the hardest pencil making the faintest mark
+// is the point of it (22.08). Left as is rather than floored.
+export const FOOTPRINT_SPACING_SOFT_HARDNESS = 0.47
+export const FOOTPRINT_SPACING_HARD_HARDNESS = 0.65
+
+/** 0 where the dab's edge is soft enough that a gap never shows, 1 where it is
+ *  hard enough to read as a stamped outline. See the constants above. */
+export function footprintSpacingStrength(hardness: number): number {
+  const span = FOOTPRINT_SPACING_HARD_HARDNESS - FOOTPRINT_SPACING_SOFT_HARDNESS
+  return Math.max(0, Math.min(1, (hardness - FOOTPRINT_SPACING_SOFT_HARDNESS) / span))
 }
 
 /**
@@ -115,10 +230,9 @@ export function footprintDabSpacing(
  * the tools below are exactly the ones that never set one.
  */
 export function dabDepositScale(
-  dabSize: number, sizeScale: number, baseSize: number, spacingFactor: number,
+  dab: DabFootprint, baseSize: number, spacingFactor: number,
 ): number {
-  return footprintDabSpacing(dabSize, sizeScale, baseSize, spacingFactor)
-    / nominalDabSpacing(baseSize, spacingFactor)
+  return footprintDabSpacing(dab, baseSize, spacingFactor) / nominalDabSpacing(baseSize, spacingFactor)
 }
 
 /**
@@ -128,10 +242,15 @@ export function dabDepositScale(
  * stamps composited by plain "over" — a gap between two of them is a hole in
  * the mark, and the deposit is linear in per-dab opacity so the tone can be
  * held by dabDepositScale. That is graphite, the eraser (same shader path,
- * same shaping profile, and its `sizeScale` is 1 — only the pressure response
- * under-samples it, at ~0.59 of a diameter at a feather touch) and charcoal
- * (whose `widthMax` of 0.5 halves the short axis on the stick's edge, landing
- * it at ~0.56 with the same result).
+ * same shaping profile, and its `sizeScale` is 1) and charcoal.
+ *
+ * Being on this list is necessary, not sufficient: footprintSpacingStrength
+ * then gates each individual stroke on how hard its dab's edge actually is,
+ * and by that measurement charcoal's whole range and graphite's F-and-softer
+ * half come out untouched (#483). The list stays as it is because it answers a
+ * different question — "could this tool's deposit be re-normalized at all" —
+ * and the answer for charcoal is still yes, for the day a harder charcoal
+ * preset exists.
  *
  * False, and deliberately, for:
  *
