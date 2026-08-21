@@ -951,18 +951,18 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
   it('PENCIL_DAB_SHAPING.angle reproduces the pre-#249 formula for low and high tilt', () => {
     // Low tilt (magnitude <= 15) -> falls back to path angle regardless of
     // tilt direction.
-    expect(PENCIL_DAB_SHAPING.angle(10, 10, 0, 1.2345)).toBeCloseTo(referenceAngle(10, 0, 1.2345))
-    expect(PENCIL_DAB_SHAPING.angle(0, 0, 0, -0.75)).toBeCloseTo(referenceAngle(0, 0, -0.75))
+    expect(PENCIL_DAB_SHAPING.angle(10, 10, 0, 1.2345, 0)).toBeCloseTo(referenceAngle(10, 0, 1.2345))
+    expect(PENCIL_DAB_SHAPING.angle(0, 0, 0, -0.75, 0)).toBeCloseTo(referenceAngle(0, 0, -0.75))
     // High tilt (magnitude > 15) -> tilt direction wins, path angle ignored.
-    expect(PENCIL_DAB_SHAPING.angle(30, 21.21, 21.21, 1.2345)).toBeCloseTo(referenceAngle(21.21, 21.21, 1.2345))
-    expect(PENCIL_DAB_SHAPING.angle(90, 0, -90, 0)).toBeCloseTo(referenceAngle(0, -90, 0))
+    expect(PENCIL_DAB_SHAPING.angle(30, 21.21, 21.21, 1.2345, 0)).toBeCloseTo(referenceAngle(21.21, 21.21, 1.2345))
+    expect(PENCIL_DAB_SHAPING.angle(90, 0, -90, 0, 0)).toBeCloseTo(referenceAngle(0, -90, 0))
   })
 
   it('LINER_DAB_SHAPING.angle uses the same default tilt-or-path formula as pencil', () => {
     const cases: Array<[number, number, number]> = [[10, 0, 1.2345], [21.21, 21.21, 1.2345], [0, -90, 0]]
     for (const [tiltX, tiltY, pathAngle] of cases) {
       const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
-      expect(LINER_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle)).toBeCloseTo(referenceAngle(tiltX, tiltY, pathAngle))
+      expect(LINER_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle, 0)).toBeCloseTo(referenceAngle(tiltX, tiltY, pathAngle))
     }
   })
 
@@ -1011,6 +1011,68 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     dab.continueStroke(10, 10, 0.5, 0, 0, baseSize)
     const [d2] = dab.continueStroke(20, 20, 0.5, 0, 0, baseSize)
     expect(d2.angle).toBeCloseTo(fixed)
+  })
+
+  // ── #482, ADR 012 §3: the tilt branch answers in the wrong frame ─────────
+  //
+  // `Dab.angle` is world-space. `pathAngle` already is; the stylus's tilt is
+  // the device's reading against the *screen*. So the azimuth branch owes a
+  // conversion by the viewport's own rotation, and before #482 it did not pay
+  // it — a leaning pen on a rotated canvas laid its ellipse off by exactly the
+  // camera angle, and crossing the 15deg threshold mid-stroke swapped frames
+  // underneath one gesture.
+
+  it('the tilt branch converts the screen-space azimuth into world space; the path branch is untouched', () => {
+    const theta = Math.PI / 6
+    // High tilt: the azimuth wins, and it arrives in screen space.
+    expect(PENCIL_DAB_SHAPING.angle(30, 21.21, 21.21, 1.2345, theta))
+      .toBeCloseTo(Math.atan2(21.21, 21.21) - theta)
+    // Low tilt: pathAngle is derived from world-space spline positions, so it
+    // needs no conversion and must not receive one.
+    expect(PENCIL_DAB_SHAPING.angle(10, 10, 0, 1.2345, theta)).toBeCloseTo(1.2345)
+  })
+
+  it('an unrotated canvas is bit-for-bit unchanged — the conversion cannot alter a mark that was not already wrong', () => {
+    const cases: Array<[number, number, number]> = [[10, 0, 1.2345], [21.21, 21.21, 1.2345], [0, -90, 0], [30, 40, -0.5]]
+    for (const [tiltX, tiltY, pathAngle] of cases) {
+      const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
+      expect(PENCIL_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle, 0))
+        .toBe(referenceAngle(tiltX, tiltY, pathAngle))
+    }
+  })
+
+  it('DabSystem.cameraAngle reaches the dab, and defaults to no conversion', () => {
+    const theta = -0.9
+    const rotated = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
+    rotated.cameraAngle = theta
+    const [d] = rotated.startStroke(0, 0, 0.5, 30, 40, baseSize)
+    expect(d.angle).toBeCloseTo(Math.atan2(40, 30) - theta)
+
+    // A fresh instance nobody told about a viewport behaves exactly as it did
+    // before #482 — this is what keeps every existing test and every replay of
+    // an already-recorded stroke honest.
+    const upright = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
+    const [u] = upright.startStroke(0, 0, 0.5, 30, 40, baseSize)
+    expect(u.angle).toBe(Math.atan2(40, 30))
+  })
+
+  it('a fork inherits the camera angle, so #92 prediction previews land where the real dabs will', () => {
+    const src = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
+    src.cameraAngle = 0.42
+    src.startStroke(0, 0, 0.5, 30, 40, baseSize)
+    expect(src.forkForPreview().cameraAngle).toBe(0.42)
+  })
+
+  it('a chisel nib is anchored to the canvas and therefore ignores the camera angle', () => {
+    // ADR 012 §3: `canvas` is a frame that needs no conversion — a nib fixed
+    // relative to the paper turns *with* the paper, by construction. Pinned so
+    // a future anchor refactor cannot quietly start compensating it too.
+    const fixed = Math.PI / 4
+    const shaping: DabShapingProfile = { size: () => 1, aspect: () => 1, angle: fixedAngleShaping(fixed) }
+    const dab = new DabSystem({ shaping })
+    dab.cameraAngle = 1.1
+    const [d] = dab.startStroke(0, 0, 0.5, -90, -90, baseSize)
+    expect(d.angle).toBeCloseTo(fixed)
   })
 
   // #251, ADR 004 §1: shapingForTool's widened (tool, presetName) signature

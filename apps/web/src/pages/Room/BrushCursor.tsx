@@ -158,6 +158,10 @@ export function BrushCursor({
         curTool, curPreset, curBaseSize, pressure, tiltX, tiltY, 0,
         { angle: curMarkerAngle, followStrokeDirection: curMarkerFollow },
         curTiltResponse,
+        // #482: the cursor is drawn inside an element that already carries the
+        // viewport transform, so its angle is world-space — same conversion the
+        // mark itself gets, or the outline and the dab disagree on a rotated canvas.
+        curVp.angle,
       )
       // DAB_VERT scales the quad's local X axis by aspectRatio before rotating
       // by `angle` (shaders.ts), so the painted footprint's long axis is

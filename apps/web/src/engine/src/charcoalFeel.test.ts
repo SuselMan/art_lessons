@@ -178,7 +178,7 @@ describe('charcoal tilt response (#305, #403)', () => {
     it.each(cases)('matches the shared tilt-or-path angle exactly ($tiltX, $tiltY)', ({ tiltX, tiltY }) => {
       const tiltMag = tiltMagnitudeDeg(tiltX, tiltY)
       const shared = tiltOrPathAngle(tiltMag, tiltX, tiltY, 0)
-      const charcoal = CHARCOAL_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, 0)
+      const charcoal = CHARCOAL_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, 0, 0)
       // Compared as a direction, not a raw number: an axis is the same axis
       // whether it reads as +90° or -90°.
       expect(Math.abs(Math.sin(charcoal - shared))).toBeCloseTo(0)
@@ -187,8 +187,8 @@ describe('charcoal tilt response (#305, #403)', () => {
     it('keeps the same orientation at every lean, so nothing flips', () => {
       const mild = cfg.fullDeg / 2
       const full = cfg.fullDeg
-      const a = CHARCOAL_DAB_SHAPING.angle(mild, mild, 0, 0)
-      const b = CHARCOAL_DAB_SHAPING.angle(full, full, 0, 0)
+      const a = CHARCOAL_DAB_SHAPING.angle(mild, mild, 0, 0, 0)
+      const b = CHARCOAL_DAB_SHAPING.angle(full, full, 0, 0, 0)
       // Same tilt direction (+x) at both ends of the response must give the
       // same dab axis — a 90° difference here is exactly the flip this avoids.
       expect(Math.abs(Math.sin(b - a))).toBeCloseTo(0)

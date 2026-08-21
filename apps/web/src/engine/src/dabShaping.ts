@@ -85,8 +85,18 @@ export interface DabShapingProfile {
    * Overridden entirely when `tipBend` is set — a bent nib's orientation is
    * stroke state, which a pure function of one sample cannot express. See
    * TipBendProfile.
+   *
+   * #482, ADR 012 §3: the return value is a **world** angle — it is baked into
+   * `Dab.angle` and rasterized in world space. The two inputs it can be
+   * derived from do not agree on a frame: `pathAngle` is already world, while
+   * `tiltX/tiltY` are reported by the device relative to the **screen**. So a
+   * profile that reads tilt must convert, and `cameraAngle` (the viewport's
+   * own rotation, `_infiniteCamera.angle`) is what it converts with. A profile
+   * anchored to the canvas (a chisel's fixed angle) or to the stroke ignores it
+   * — those frames need no conversion, which is the whole reason the anchor has
+   * to be named rather than assumed.
    */
-  angle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number): number
+  angle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number, cameraAngle: number): number
   /** #472, ADR 009 §13: a flexible nib that bends under the hand, as opposed
    *  to a rigid shape whose footprint is fully determined by the current
    *  sample. Omitted by every tool but the brush pen; see TipBendProfile. */
@@ -174,8 +184,29 @@ function lerp(a: number, b: number, t: number): number {
 // (#251) so markerPresets.ts's bullet nib profile can reuse it verbatim —
 // bullet is round enough that per-dab angle barely shows, but there's no
 // reason to give it a different default than every other non-chisel tool.
-export function tiltOrPathAngle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number): number {
-  return tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
+//
+// #482, ADR 012 §3: in the vocabulary that ADR introduces this is the anchor
+// `barrel` — the nib points where the stylus's own body points — degrading to
+// `stroke` below the 15deg threshold, because the azimuth of a near-upright pen
+// is atan2 of two near-zero numbers and carries no direction worth having.
+// That much was always the intent; what was missing is that the two branches
+// answer in *different frames*. `pathAngle` is derived from world-space spline
+// positions, while the azimuth is the device's own reading against the screen,
+// and the result of both goes into a world-space `Dab.angle`. So the azimuth
+// branch was short by exactly the viewport's rotation: on a canvas turned 30deg
+// a leaning pencil laid its ellipse 30deg off the direction the pen was
+// actually leaning, and crossing the 15deg threshold mid-stroke swapped frames
+// underneath the same gesture.
+//
+// Subtracting `cameraAngle` converts screen -> world (the forward transform is
+// `screen = centre + R(angle)·(world - camera)·zoom`, see PencilEngine's own
+// worldToScreen comment). It is identically zero on an unrotated canvas, which
+// is every stroke ever recorded before the rotate tool existed and most since —
+// so this fix cannot change a mark that was not already wrong.
+export function tiltOrPathAngle(
+  tiltMag: number, tiltX: number, tiltY: number, pathAngle: number, cameraAngle = 0,
+): number {
+  return tiltMag > 15 ? Math.atan2(tiltY, tiltX) - cameraAngle : pathAngle
 }
 
 // Graphite (#240's carried-over original formulas, replaced in #389). The

@@ -190,6 +190,25 @@ export class DabSystem {
    * nominal rule), so switching it on cannot make any existing mark sparser.
    */
   footprintSizeScale: number | null = null
+  /**
+   * #482, ADR 012 §3 — the viewport's own rotation, radians, kept current by
+   * the engine (both `setViewport` and `setInfiniteCamera` assign it).
+   *
+   * Needed because the two things a dab's angle can be derived from are not in
+   * the same frame: the spline's tangent is world-space, the stylus's tilt is
+   * the device's reading against the screen. `Dab.angle` is world, so a profile
+   * reading tilt has to convert, and this is what it converts with. See
+   * dabShaping.ts's tiltOrPathAngle.
+   *
+   * Live rather than per-stroke (unlike `footprintSizeScale` above): the canvas
+   * can be rotated with the pen still down, and the compensation has to track
+   * the frame the device is actually reporting against, not the one that
+   * happened to be current at touchdown.
+   *
+   * 0 on an unrotated canvas, which makes every profile that reads it a no-op
+   * there — the conversion cannot alter a mark that was not already wrong.
+   */
+  cameraAngle = 0
   private _buf: ControlPoint[]
   private _remainder: number
   /**
@@ -454,6 +473,7 @@ export class DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
     fork.footprintSizeScale = this.footprintSizeScale
+    fork.cameraAngle = this.cameraAngle
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
     // #478: and the step owed from the last real dab, for the same reason the
@@ -868,10 +888,10 @@ export class DabSystem {
         x -= (this._tipDirX / bendness) * this._trailPx
         y -= (this._tipDirY / bendness) * this._trailPx
       } else {
-        angle = this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle)
+        angle = this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle, this.cameraAngle)
       }
     } else {
-      angle = this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle)
+      angle = this._shaping.angle(tiltMag, tiltX, tiltY, pathAngle, this.cameraAngle)
     }
     // `pressure` is stored as the real, unmapped value for every tool (see
     // dabShaping.ts's own #245 comment on why a per-tool remap used to live

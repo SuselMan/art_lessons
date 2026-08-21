@@ -128,6 +128,12 @@ export function previewDabShape(
   // anything is drawn with it, so a preview left on the default would quietly
   // lie about the tool the moment the setting moved off it.
   tiltResponse?: TiltResponse,
+  // #482: the viewport's own rotation, for the same reason DabSystem carries it
+  // — the returned angle is world-space (the cursor's DOM ancestor applies the
+  // viewport transform on top of it, see BrushCursor's own comment), while the
+  // tilt this may be derived from is the device's reading against the screen.
+  // Left defaulted so a caller with no rotation to speak of is unaffected.
+  cameraAngle = 0,
 ): { size: number; aspectRatio: number; angle: number } {
   const shaping = shapingForTool(tool, presetName, markerAngle, tiltResponse)
   const tiltMag = tiltMagnitudeDeg(tiltX, tiltY)
@@ -135,7 +141,7 @@ export function previewDabShape(
   return {
     size: baseSize * shaping.size(pressure, tiltNorm),
     aspectRatio: shaping.aspect(tiltNorm),
-    angle: shaping.angle(tiltMag, tiltX, tiltY, pathAngle),
+    angle: shaping.angle(tiltMag, tiltX, tiltY, pathAngle, cameraAngle),
   }
 }
 
@@ -3031,6 +3037,9 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {
+    // #482: same reason as setInfiniteCamera's own assignment — a bounded room
+    // rotates too, and the tilt reading is against the screen either way.
+    this._dabs.cameraAngle = angle
     const { canvas } = this
     const cos = Math.cos(-angle)
     const sin = Math.sin(-angle)
@@ -3081,6 +3090,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  composed with the inverse camera rotation/zoom on top. */
   setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void {
     this._infiniteCamera = { wx, wy, zoom, angle }
+    // #482: the frame the device's tilt reading has to be converted out of —
+    // see DabSystem.cameraAngle. Assigned here rather than at stroke start so
+    // it tracks a canvas rotated with the pen still down.
+    this._dabs.cameraAngle = angle
     const { canvas } = this
     const cos = Math.cos(angle)
     const sin = Math.sin(angle)
@@ -5730,7 +5743,7 @@ export class PencilEngine implements PencilEngineAPI {
       // pathAngle 0 is passed (no path while resting, same as before) —
       // chisel's fixed/offset shaping ignores it anyway; bullet's
       // tiltOrPathAngle still falls back to it exactly as liner's dwell did.
-      angle: this._strokeTool === 'marker' ? shaping.angle(tiltMag, this._lastPointerTiltX, this._lastPointerTiltY, 0) : 0,
+      angle: this._strokeTool === 'marker' ? shaping.angle(tiltMag, this._lastPointerTiltX, this._lastPointerTiltY, 0, this._dabs.cameraAngle) : 0,
       opacity: 1, t: performance.now() - this._strokeStartTimestamp,
     }
     const preset = this._resolvePreset(this._strokeTool, this._strokePreset)

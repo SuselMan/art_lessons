@@ -42,8 +42,8 @@ describe('MARKER_BULLET_DAB_SHAPING (#251, ADR 004 §1: reuse liner\'s curve as-
       [30, 21.21, 21.21, 1.2345], // high tilt magnitude -> tilt direction wins
     ]
     for (const [tiltMag, tiltX, tiltY, pathAngle] of cases) {
-      expect(MARKER_BULLET_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle))
-        .toBeCloseTo(LINER_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle))
+      expect(MARKER_BULLET_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle, 0))
+        .toBeCloseTo(LINER_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle, 0))
     }
   })
 })
@@ -84,11 +84,11 @@ describe('MARKER_CHISEL_DAB_SHAPING (#251, ADR 004 §1: fixed aspect + fixed ang
   })
 
   it('ignores tilt and path direction entirely for angle when followStrokeDirection is false, always returning the fixed angle', () => {
-    const fixed = MARKER_CHISEL_DAB_SHAPING.angle(0, 0, 0, 0)
+    const fixed = MARKER_CHISEL_DAB_SHAPING.angle(0, 0, 0, 0, 0)
     expect(fixed).toBeCloseTo(FIXED_ANGLE)
     // Strong, opposite-direction tilt and a very different path angle: still the same fixed value.
-    expect(MARKER_CHISEL_DAB_SHAPING.angle(90, -90, -90, Math.PI)).toBeCloseTo(fixed)
-    expect(MARKER_CHISEL_DAB_SHAPING.angle(50, 30, 40, -1.2)).toBeCloseTo(fixed)
+    expect(MARKER_CHISEL_DAB_SHAPING.angle(90, -90, -90, Math.PI, 0)).toBeCloseTo(fixed)
+    expect(MARKER_CHISEL_DAB_SHAPING.angle(50, 30, 40, -1.2, 0)).toBeCloseTo(fixed)
   })
 })
 
