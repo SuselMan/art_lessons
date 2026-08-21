@@ -5101,8 +5101,11 @@ export class PencilEngine implements PencilEngineAPI {
     // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
     // mark. See dabSpacing.ts for the whole argument, including which tools
     // are deliberately left on the old rule.
-    this._dabs.footprintSizeScale = isFootprintSpacedTool(this._strokeTool)
-      ? this._dabSizeScale(this._strokeTool, this._opts.pencilType)
+    this._dabs.footprint = isFootprintSpacedTool(this._strokeTool)
+      ? {
+        sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType),
+        hardness: this._resolvePreset(this._strokeTool, this._opts.pencilType).hardness,
+      }
       : null
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
@@ -5609,7 +5612,7 @@ export class PencilEngine implements PencilEngineAPI {
       // recorded Dab like every other term here, so a peer replaying the
       // stroke reproduces the same tone without knowing anything about
       // spacing (#478).
-      if (sizeScale !== null) dab.opacity *= dabDepositScale(dab.size, sizeScale, baseSize, this._dabs.spacingFactor)
+      if (sizeScale !== null) dab.opacity *= dabDepositScale(dab.size, sizeScale, baseSize, this._dabs.spacingFactor, preset.hardness)
     }
   }
 

@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest'
 import type { Dab, StrokeOperation, ToolType } from '@grafetto/shared'
 
 import { PENCIL_PRESETS, type PencilEngine } from './index'
+import { footprintSpacingStrength } from './src/dabSpacing'
 import { pencilTiltDensity, pencilTiltness } from './src/pencilTilt'
 import { createTestEngine, makeLayerAdd, paperReady, simulateStroke } from './testing/engineTestUtils'
 
@@ -65,12 +66,15 @@ function worstGapPerDiameter(dabs: Dab[], sizeMultiplier: number): number {
 const totalDeposit = (dabs: Dab[]) => dabs.reduce((s, d) => s + d.opacity, 0)
 
 describe('graphite dab spacing follows the mark, not the brush size (#478)', () => {
-  it('keeps every grade\'s dabs overlapping, hardest included', async () => {
-    for (const grade of ['6H', '4H', '2H', 'HB', '2B', '6B'] as const) {
+  it('closes the gap on the grades whose edge is hard enough to show one', async () => {
+    // 2H and harder run the rule at full strength — see
+    // FOOTPRINT_SPACING_HARD_HARDNESS. 0.3 rather than the rule's own 0.22
+    // because the stroke's first gap and the arc-length table's own sampling
+    // both land slightly off the exact step.
+    for (const grade of ['6H', '4H', '2H'] as const) {
+      expect(footprintSpacingStrength(PENCIL_PRESETS[grade].hardness)).toBe(1)
       const dabs = await strokeWith('pencil', grade)
       expect(dabs.length).toBeGreaterThan(5)
-      // 0.3 rather than the rule's own 0.22: the stroke's first gap and the
-      // arc-length table's sampling both land slightly off the exact step.
       expect(worstGapPerDiameter(dabs, PENCIL_PRESETS[grade].sizeMultiplier)).toBeLessThan(0.3)
     }
   })
@@ -89,6 +93,16 @@ describe('graphite dab spacing follows the mark, not the brush size (#478)', () 
     const hard = await strokeWith('pencil', '6H')
     const soft = await strokeWith('pencil', '2B')
     expect(hard.length).toBeGreaterThan(soft.length * 2)
+  })
+
+  it('fades the rule in across the middle of the ladder rather than stepping', async () => {
+    // H sits between the two thresholds, so it gets part of the tightening —
+    // a cliff there would put a visible seam between two adjacent grades.
+    const strengths = (['F', 'H', '2H'] as const).map(g => footprintSpacingStrength(PENCIL_PRESETS[g].hardness))
+    expect(strengths[0]).toBe(0)
+    expect(strengths[1]).toBeGreaterThan(0)
+    expect(strengths[1]).toBeLessThan(1)
+    expect(strengths[2]).toBe(1)
   })
 
   it('does not darken any grade: tone still scales with preset opacity alone', async () => {

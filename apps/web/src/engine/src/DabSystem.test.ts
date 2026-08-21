@@ -592,7 +592,7 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
     // 0.76-of-a-diameter step that reads as a row of stamps.
     const sizeScale = 0.5
     const dab = new DabSystem({ spacingFactor })
-    dab.footprintSizeScale = sizeScale
+    dab.footprint = { sizeScale, hardness: 0.95 }
     const dabs = straight(dab, 0.4)
 
     const diameter = dabs[3].size * sizeScale
@@ -605,7 +605,7 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
     // switching this on: a soft grade whose footprint is *wider* than nominal
     // keeps exactly the density it has today rather than getting sparser.
     const dab = new DabSystem({ spacingFactor })
-    dab.footprintSizeScale = 1.6
+    dab.footprint = { sizeScale: 1.6, hardness: 0.95 }
     const dabs = straight(dab, 1)
     expect(dabs[3].size * 1.6).toBeGreaterThan(baseSize)
     expect(medianGap(dabs)).toBeCloseTo(baseSize * spacingFactor, 6)
@@ -617,7 +617,7 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
     // leave the tail of every fading stroke under-sampled, which is the same
     // defect one level down.
     const dab = new DabSystem({ spacingFactor })
-    dab.footprintSizeScale = 1
+    dab.footprint = { sizeScale: 1, hardness: 0.95 }
     const dabs: Dab[] = []
     dabs.push(...dab.startStroke(0, 0, 1, 0, 0, baseSize))
     for (let x = 40; x <= 200; x += 40) dabs.push(...dab.continueStroke(x, 0, 1, 0, 0, baseSize))
@@ -639,7 +639,7 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
     // at each boundary would leave one over-long gap per pointer sample —
     // exactly the artefact _remainder already exists to prevent, one level up.
     const dab = new DabSystem({ spacingFactor })
-    dab.footprintSizeScale = 0.5
+    dab.footprint = { sizeScale: 0.5, hardness: 0.95 }
     const dabs = straight(dab, 0.4)
     const gaps = dabs.slice(1, -1).map((d, i) => d.x - dabs[i].x)
     const worst = Math.max(...gaps.map(g => Math.abs(g - medianGap(dabs))))
