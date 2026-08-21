@@ -38,12 +38,25 @@ const PATH_B = [10, 35, 60, 85, 110, 135].map(x => ({ x, y: 60 }))
 async function lastDabAt(
   tool: ToolType, tiltX: number, tiltY: number, path = PATH_A, tiltResponse?: TiltResponse,
 ) {
+  return (await dabsAt(tool, tiltX, tiltY, path, tiltResponse)).at(-1)!
+}
+
+/** Every dab of one stroke at this grip. Needed wherever the claim is about
+ *  the mark as a whole rather than about one dab — since #478 dab spacing
+ *  tracks each dab's own footprint, so "how much this tool lays down" is a
+ *  property of the deposit *and* of how densely the dabs sit, and only their
+ *  sum over a fixed path still states it. */
+async function dabsAt(
+  tool: ToolType, tiltX: number, tiltY: number, path = PATH_A, tiltResponse?: TiltResponse,
+) {
   const engine = await setupLayer()
   engine.setTool(tool)
   if (tiltResponse) engine.setTiltResponse(tiltResponse)
   simulateStroke(engine, path, { pressure: 0.7, tiltX, tiltY })
-  return strokeDabs(lastStroke(engine)).at(-1)!
+  return strokeDabs(lastStroke(engine))
 }
+
+const totalDeposit = (dabs: { opacity: number }[]) => dabs.reduce((s, d) => s + d.opacity, 0)
 
 describe('graphite tilt response (#389)', () => {
   it('draws a round dab when the pen is upright', async () => {
@@ -92,9 +105,24 @@ describe('graphite tilt response (#389)', () => {
   it('does not apply graphite\'s tilt lightening to the eraser', async () => {
     // Erasing less the more you lean is a change to what the eraser does, not a
     // consequence of spreading graphite — see _bakeDabOpacity's own comment.
-    const upright = await lastDabAt('eraser', 0, 0)
-    const leaned = await lastDabAt('eraser', PENCIL_TILT.fullDeg, 0, PATH_B)
-    expect(leaned.opacity).toBeCloseTo(upright.opacity, 5)
+    //
+    // Stated over the whole stroke rather than on one dab, and #478 is what
+    // forced that: per-dab opacity now also carries how densely this dab's own
+    // footprint got sampled (dabSpacing.ts's dabDepositScale), so a leaned
+    // eraser — whose dabs are wider, and therefore further apart — legitimately
+    // carries *more* per dab while removing exactly as much graphite per
+    // millimetre travelled. The sum over a fixed path is that invariant, and it
+    // is also the thing the tool's user would notice; the old per-dab equality
+    // was only ever a proxy for it that happened to hold while spacing was
+    // constant. A tilt-lightening term would still fail this outright: it would
+    // take 35% off every dab of the leaned stroke.
+    const upright = await dabsAt('eraser', 0, 0)
+    const leaned = await dabsAt('eraser', PENCIL_TILT.fullDeg, 0, PATH_B)
+    // Relative, and 2%: the two strokes' dabs don't land on the same points,
+    // so the head, the tail and the tilt filter's own ramp-in don't cancel
+    // exactly (measured 1.3%). An absolute tolerance would be reading a
+    // difference in stroke *length* as a difference in erase strength.
+    expect(Math.abs(totalDeposit(leaned) / totalDeposit(upright) - 1)).toBeLessThan(0.02)
   })
 })
 

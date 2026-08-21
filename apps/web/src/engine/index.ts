@@ -17,6 +17,7 @@ import {
 } from './src/charcoalFeel'
 import { DabSystem } from './src/DabSystem'
 import { shapingForTool } from './src/dabShaping'
+import { dabDepositScale, isFootprintSpacedTool } from './src/dabSpacing'
 import {
   PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
   type PencilTiltConfig,
@@ -5017,6 +5018,14 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabs.curvatureTolerancePx = isRibbonTool(this._strokeTool)
       ? ribbonProfileFor(this._strokeTool, this._opts.pencilType).curvatureTolerancePx
       : null
+    // #478 — same slot and the same lifecycle: a property of the tool, latched
+    // once per stroke. Dab spacing has to track the mark this tool actually
+    // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
+    // mark. See dabSpacing.ts for the whole argument, including which tools
+    // are deliberately left on the old rule.
+    this._dabs.footprintSizeScale = isFootprintSpacedTool(this._strokeTool)
+      ? this._dabSizeScale(this._strokeTool, this._opts.pencilType)
+      : null
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
     // Smudge's carried imprint resets at every gesture, but not from here:
@@ -5360,6 +5369,20 @@ export class PencilEngine implements PencilEngineAPI {
     return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
   }
 
+  /** (#478) The multiplier between `Dab.size` and the mark this tool actually
+   *  leaves — the single number every paint path already applies as
+   *  `d.size * 0.5 * (erasing ? 1.0 : preset.sizeMultiplier)`, stated once so
+   *  dab spacing can be derived from the same rule the renderer draws by.
+   *
+   *  The eraser's 1.0 is not a default standing in for a missing preset: it is
+   *  the value the renderer uses, because an eraser is sized as it is asked to
+   *  be rather than carrying a grade's own width. Spacing it off the graphite
+   *  preset that happens to be selected would space it off a mark it never
+   *  draws. */
+  private _dabSizeScale(tool: ToolType, presetName: string): number {
+    return tool === 'eraser' ? 1.0 : this._resolvePreset(tool, presetName).sizeMultiplier
+  }
+
   /** Which computeGrain variant (DAB_FRAG's u_grainMode) this draw should use.
    *
    *  Each material carries its own shipped default — GRAPHITE_GRAIN_DEFAULT
@@ -5391,6 +5414,18 @@ export class PencilEngine implements PencilEngineAPI {
     // keeps this v1/uncalibrated (ADR 004 MVP scope) without adding a new
     // unverified formula on top of an already-uncalibrated one.
     const inkSpeed = (tool === 'liner' || tool === 'marker') ? linerSpeedFlow(speed) : 0
+    // #478: for a footprint-spaced tool the step between dabs is no longer a
+    // constant fraction of the brush size, so how many dabs land on a given
+    // pixel now varies with grade, pressure and tilt — and for these three
+    // tools the deposit is linear in `Dab.opacity` and normalized by nothing
+    // else, so denser dabs would simply paint a darker mark. This holds the
+    // tone where it is; see dabSpacing.ts's dabDepositScale for why the linear
+    // form is the accurate one here rather than a convenient one.
+    //
+    // Null (and therefore free) for every tool still on the old spacing rule,
+    // where the ratio would be exactly 1 by construction.
+    const sizeScale = isFootprintSpacedTool(tool) ? this._dabSizeScale(tool, presetName) : null
+    const baseSize  = this._physicalSize
     for (const dab of dabs) {
       if (tool === 'eraser') dab.opacity = opacity
       // Smudge (#14) has no pencil preset to draw an opacity from (the
@@ -5490,6 +5525,13 @@ export class PencilEngine implements PencilEngineAPI {
       // when tilted" is a change to how erasing works rather than a
       // consequence of spreading graphite over more paper.
       else dab.opacity = preset.opacity * opacity * speedFactor * pencilTiltDensity(pencilTiltness(dab.aspectRatio))
+      // Applied on top of whichever branch ran, not inside them: it is a
+      // property of how densely this dab's own footprint got sampled, and says
+      // nothing about which material is being deposited. Baked into the
+      // recorded Dab like every other term here, so a peer replaying the
+      // stroke reproduces the same tone without knowing anything about
+      // spacing (#478).
+      if (sizeScale !== null) dab.opacity *= dabDepositScale(dab.size, sizeScale, baseSize, this._dabs.spacingFactor)
     }
   }
 
