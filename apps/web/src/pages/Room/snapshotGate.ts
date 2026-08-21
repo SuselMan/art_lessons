@@ -36,8 +36,9 @@ export interface BakeObservation {
   /** Seqs that have arrived but not yet painted — a peer stroke reveals
    *  progressively, and two reveals can finish out of order. The watermark may
    *  never pass the smallest of these, or a bake would miss an earlier
-   *  operation that has not actually been applied yet. */
-  pendingCommitSeqs: ReadonlySet<number>
+   *  operation that has not actually been applied yet. See
+   *  `pendingPreviews.ts`, which owns the set this reads. */
+  pendingCommitSeqs: Iterable<number>
   /** (#385) The join replay threw partway. The canvas shows less than the log
    *  says the room holds, permanently for this mount. */
   replayIncomplete: boolean
@@ -71,6 +72,7 @@ export interface SnapshotGate {
 export function createSnapshotGate(): SnapshotGate {
   let restoreDone = false
   let committedWatermark = 0
+  let warnedStale = false
 
   return {
     restoreCompleted(latestKnownSeq) {
@@ -86,7 +88,32 @@ export function createSnapshotGate(): SnapshotGate {
 
     observe({ latestKnownSeq, pendingCommitSeqs, replayIncomplete }) {
       if (!restoreDone || replayIncomplete) return null
-      const watermark = pendingCommitSeqs.size ? Math.min(...pendingCommitSeqs) - 1 : latestKnownSeq
+      let minPending: number | null = null
+      let stale = false
+      for (const seq of pendingCommitSeqs) {
+        // (#477) A seq at or below the committed watermark cannot honestly be
+        // "arrived but not yet painted": this client has already published a
+        // snapshot claiming to cover it. So it is a leaked entry — some path
+        // took an operation off the reveal queue without retiring it here —
+        // and holding it would pin the watermark below what was already baked,
+        // which makes `observe` return null forever after. That is precisely
+        // the failure this guard exists to end: the room stops getting
+        // snapshots for the rest of the session and every rejoin pays for it
+        // in replayed operations. Ignoring the entry cannot make the stored
+        // snapshot any less honest than it already is, and it lets baking
+        // resume. `pendingPreviews.ts` is what stops one being leaked at all;
+        // this is the net under it.
+        if (seq <= committedWatermark) {
+          stale = true
+          continue
+        }
+        if (minPending === null || seq < minPending) minPending = seq
+      }
+      if (stale && !warnedStale) {
+        warnedStale = true
+        console.warn('[snapshot] stale pending commit seq below the baked watermark — ignoring')
+      }
+      const watermark = minPending === null ? latestKnownSeq : minPending - 1
       if (watermark <= committedWatermark) return null
       const previous = committedWatermark
       committedWatermark = watermark
