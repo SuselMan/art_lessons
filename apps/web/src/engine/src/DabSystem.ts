@@ -380,17 +380,12 @@ export class DabSystem {
    */
   private _filterPressure(pressure: number, travelPx: number): number {
     const lengthPx = this._shaping.pressureSmoothingPx
-    // The per-sample form, kept for watercolor alone — see
-    // DabShapingProfile.pressureSmoothing, including the direction trap.
-    const perSample = this._shaping.pressureSmoothing
-    if (lengthPx === undefined && perSample === undefined) return pressure
+    if (lengthPx === undefined) return pressure
     if (this._pressureFilter === null) {
       this._pressureFilter = pressure
       return this._pressureFilter
     }
-    const k = lengthPx !== undefined
-      ? Math.min(1 - Math.exp(-(travelPx + STATIONARY_PX) / lengthPx), MAX_PRESSURE_FILTER_STEP)
-      : perSample!
+    const k = Math.min(1 - Math.exp(-(travelPx + STATIONARY_PX) / lengthPx), MAX_PRESSURE_FILTER_STEP)
     this._pressureFilter += (pressure - this._pressureFilter) * k
     return this._pressureFilter
   }
@@ -414,15 +409,29 @@ export class DabSystem {
    *  - One piece of state instead of two that can drift apart.
    *
    * Returns raw tilt untouched when the active profile declares no smoothing,
-   * which is every tool but charcoal.
+   * which is every tool but graphite and charcoal.
+   *
+   * #482: the weight comes from `ds`, the arc length this dab sits from the
+   * previous one, rather than being spent once per dab. Same defect #472 cured
+   * for pressure and the same cure: a per-dab one-pole has its corner frequency
+   * set by the dab rate, which is a function of brush size, zoom, curvature and
+   * the tablet's own report rate — so how steady a leaned pencil felt depended
+   * on all four. Over distance it is a fixed number of world px, which is a
+   * thing the hand can feel.
+   *
+   * The `MAX_PRESSURE_FILTER_STEP` ceiling its pressure twin carries is not
+   * needed here: a very long `ds` means the spline genuinely covered that much
+   * ground, and unlike a dropped pressure sample there is no state worth
+   * defending — tilt is a pose, and a pose that far along should be believed.
    */
-  private _filterTilt(tiltX: number, tiltY: number): { tiltX: number; tiltY: number } {
-    const k = this._shaping.tiltSmoothing
-    if (k === undefined) return { tiltX, tiltY }
+  private _filterTilt(tiltX: number, tiltY: number, ds: number): { tiltX: number; tiltY: number } {
+    const lengthPx = this._shaping.tiltSmoothingPx
+    if (lengthPx === undefined) return { tiltX, tiltY }
     if (this._tiltFilterX === null || this._tiltFilterY === null) {
       this._tiltFilterX = tiltX
       this._tiltFilterY = tiltY
     } else {
+      const k = 1 - Math.exp(-ds / lengthPx)
       this._tiltFilterX += (tiltX - this._tiltFilterX) * k
       this._tiltFilterY += (tiltY - this._tiltFilterY) * k
     }
@@ -834,7 +843,7 @@ export class DabSystem {
     // agree with the geometry, or the mark and its texture disagree about
     // which way the stick is lying. A no-op for every profile that declares no
     // smoothing.
-    const { tiltX, tiltY } = this._filterTilt(rawTiltX, rawTiltY)
+    const { tiltX, tiltY } = this._filterTilt(rawTiltX, rawTiltY, ds)
     // #482: the footprint itself is worked out in exactly one place now
     // (tipFootprint.ts) — this method's job is the two things that are *not*
     // geometry: running the input filters, and assembling the wire record.

@@ -1288,3 +1288,60 @@ describe('DabSystem curvature-adaptive spacing (#330)', () => {
     }
   })
 })
+
+// ── #482: input filters are cut off by distance, not by report rate ─────────
+//
+// #472 moved the *pressure* filter off a per-sample weight for this exact
+// reason and left the tilt filter behind. Same gesture, same hand, two
+// digitisers: the tablet that reports more often used to smooth several times
+// harder, so how steady a leaned pencil felt was a property of the hardware.
+//
+// The test drives the identical straight path at two sample densities and
+// compares what the *dabs* come out as — dab spacing is arc length, so both
+// runs produce the same dabs at the same places, and any difference between
+// them is the filter's rate-dependence and nothing else.
+describe('DabSystem tilt smoothing is rate-independent (#482)', () => {
+  const baseSize = 30
+  const LEN = 120
+
+  /** Same stroke, same tilt ramp against *distance*, sampled every `stepPx`. */
+  function tiltsAlong(stepPx: number): number[] {
+    const dab = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
+    // Tilt swings across the stroke as a function of position, so the two runs
+    // feed the filter the same signal and differ only in how finely.
+    const tiltAt = (x: number) => 10 + 60 * (x / LEN)
+    const out: Dab[] = []
+    out.push(...dab.startStroke(0, 0, 0.6, tiltAt(0), 0, baseSize))
+    for (let x = stepPx; x <= LEN; x += stepPx) {
+      out.push(...dab.continueStroke(x, 0, 0.6, tiltAt(x), 0, baseSize))
+    }
+    out.push(...dab.endStroke(baseSize))
+    return out.map(d => d.tiltX)
+  }
+
+  it('a 4x denser digitiser produces the same filtered tilt, not a 4x steadier one', () => {
+    const slow = tiltsAlong(4)    // ~60 Hz at a moderate speed
+    const fast = tiltsAlong(1)    // ~240 Hz, same hand, same path
+    const n = Math.min(slow.length, fast.length)
+    expect(n).toBeGreaterThan(8)
+
+    // Compared over the dabs both runs share. The tolerance is deliberately
+    // tight in absolute degrees: the signal spans 10..70deg, so anything the
+    // old per-sample filter did would show up as many degrees of lag, not a
+    // fraction of one.
+    let worst = 0
+    for (let i = 1; i < n; i++) worst = Math.max(worst, Math.abs(slow[i] - fast[i]))
+    expect(worst).toBeLessThan(1.5)
+  })
+
+  it('and the filter is doing something — raw tilt is not what lands on the dab', () => {
+    // Guards against the pair above passing for the wrong reason: two runs with
+    // smoothing switched off would also agree with each other perfectly. The
+    // input ramps 10deg -> 70deg across the stroke, so a filter that is
+    // actually filtering must still be short of 70 at the end, and past 10.
+    const filtered = tiltsAlong(4)
+    const last = filtered[filtered.length - 1]
+    expect(last).toBeLessThan(69)
+    expect(last).toBeGreaterThan(10)
+  })
+})

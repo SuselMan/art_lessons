@@ -30,14 +30,23 @@ export interface DabShapingProfile {
    *  [0, 90) by construction — so tiltNorm is in [0, 1) and this no longer
    *  needs the "unclamped, may exceed 1" caveat it used to carry. */
   aspect(tiltNorm: number): number
-  /** Per-sample weight for DabSystem's tilt low-pass, or omitted for no
-   *  filtering at all (see #305 and DabSystem's own _filterTilt). Set by
-   *  charcoal and, since #389, by graphite — the two profiles whose shape
-   *  actually tracks tilt, and therefore the two where the reported angle's
-   *  noise is visible in the mark. Still opt-in rather than on-by-default:
-   *  liner and both marker nibs barely respond to tilt, so filtering it would
-   *  cost them a little work to change nothing. */
-  tiltSmoothing?: number
+  /** Distance, in world px of travel, over which DabSystem's tilt low-pass
+   *  reaches ~63% of a new reading — or omitted for no filtering at all (see
+   *  #305 and DabSystem's own _filterTilt). Set by charcoal and, since #389, by
+   *  graphite — the two profiles whose shape actually tracks tilt, and
+   *  therefore the two where the reported angle's noise is visible in the mark.
+   *  Still opt-in rather than on-by-default: liner and both marker nibs barely
+   *  respond to tilt, so filtering it would cost them a little work to change
+   *  nothing.
+   *
+   *  #482: a distance, not the per-sample weight this used to be. #472 made
+   *  that fix for pressure and left tilt behind — same defect, so the same
+   *  cure: a per-sample one-pole has its corner frequency set by the tablet's
+   *  report rate, so the identical hand movement came out several times less
+   *  smoothed on a fast digitiser than on a slow one. Filtered per dab rather
+   *  than per sample (that is where the tilt filter has always run), weighted
+   *  by that dab's own arc length. */
+  tiltSmoothingPx?: number
   /** The same idea one signal over (#454): per-sample weight for DabSystem's
    *  *pressure* low-pass, omitted for no filtering. Set only by the brush pen,
    *  the first tool whose width tracks pressure closely enough for the
@@ -57,25 +66,14 @@ export interface DabShapingProfile {
    *  one, so "how firm the pen feels" silently depended on the tablet. Over
    *  distance it is the same filter with a cutoff the hand can actually feel
    *  — see DabSystem._filterPressure for the conversion and for the one case
-   *  (a stationary press) where distance alone cannot carry it. */
+   *  (a stationary press) where distance alone cannot carry it.
+   *
+   *  #482: the per-sample twin this replaced is gone. It survived #472 only
+   *  because watercolor had landed on it independently, carrying a comment and
+   *  a test that both read its direction backwards (the filter is
+   *  `y += (u - y) * k`, so a larger k smooths *less*). Watercolor is on this
+   *  one now and there is no second form left to pick the wrong one of. */
   pressureSmoothingPx?: number
-  /** The per-sample form of the same filter, and the one #472 replaced.
-   *  Ignored whenever `pressureSmoothingPx` is set; kept only because
-   *  watercolor (#468) still runs on it and landed in main independently.
-   *
-   *  Two things to know before using it for anything new — prefer the px form:
-   *
-   *   - the weight is spent once per admitted sample, so its cutoff is the
-   *     tablet's report rate (that is the whole reason #472 moved off it);
-   *   - **larger means *less* smoothing**, not more. The filter is
-   *     `y += (u - y) * k`, so k = 1 tracks the input exactly and k → 0 is
-   *     heavy damping. Watercolor's own 0.55 is documented there as smoothing
-   *     "harder than the brush pen's 0.35" and its test asserts `> 0.35` —
-   *     both of which read the direction backwards. Left exactly as it landed
-   *     rather than corrected here: it is a live experiment's calibration, and
-   *     changing what someone else's tool looks like as a side effect of a
-   *     merge is not this branch's business. Flagged on #472 instead. */
-  pressureSmoothing?: number
   /**
    * Per-dab angle (radians). Given the raw tilt magnitude/components and the
    * spline's path-tangent angle at this dab, so a profile can derive angle
@@ -242,7 +240,7 @@ function pencilShapingFor(response: TiltResponse): DabShapingProfile {
     // A getter for the same reason charcoal's is: the debug overlay mutates
     // PENCIL_TILT in place, and a captured value would freeze whatever smoothing
     // happened to be set when this module was first evaluated.
-    get tiltSmoothing() { return PENCIL_TILT.smoothing },
+    get tiltSmoothingPx() { return PENCIL_TILT.smoothingPx },
   }
 }
 
@@ -325,7 +323,7 @@ function charcoalShapingFor(response: TiltResponse): DabShapingProfile {
     // A getter, not a captured value: CHARCOAL_FEEL is mutated in place by the
     // debug overlay's sliders, and a plain property would freeze whatever
     // smoothing happened to be set at module-eval time.
-    get tiltSmoothing() { return CHARCOAL_FEEL.smoothing },
+    get tiltSmoothingPx() { return CHARCOAL_FEEL.smoothingPx },
   }
 }
 

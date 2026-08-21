@@ -100,10 +100,22 @@ export function watercolorWidth(pressure: number, response: PressureResponse): n
 }
 
 /** A wet brush is heavier and slower than a pen nib, and its own load damps
- *  hand tremor before the paper ever sees it — so this smooths harder than the
- *  brush pen's 0.35. Not so hard that a deliberate press-and-widen is lost:
- *  that is still the tool's primary control. */
-const WATERCOLOR_PRESSURE_SMOOTHING = 0.55
+ *  hand tremor before the paper ever sees it.
+ *
+ *  #482: expressed as a distance, like every other input filter now, and the
+ *  move corrected a claim as well as a unit. This shipped as a per-sample
+ *  weight of 0.55, documented as smoothing "harder than the brush pen's 0.35"
+ *  with a test asserting `> 0.35` — both backwards, because the filter is
+ *  `y += (u - y) * k` and a larger k tracks the input *more* closely. So the
+ *  wet brush was in fact the twitchier of the two.
+ *
+ *  Converted rather than retuned: 0.55 at the reference the pen's own 10 px was
+ *  picked against (500 px/s on a 120 Hz stylus, samples ~4.2 px apart) is
+ *  5.3 px. That is deliberately still shorter than the pen's 10 px — i.e. the
+ *  documentation was wrong and the number stays — because changing how someone
+ *  else's live experiment feels is not this branch's business. What is fixed is
+ *  that the number now means the same thing on every device. */
+const WATERCOLOR_PRESSURE_SMOOTHING_PX = 5.3
 
 // ─── Dab shaping ────────────────────────────────────────────────────────────
 
@@ -117,7 +129,7 @@ function watercolorShapingFor(response: PressureResponse): DabShapingProfile {
     // this stops being a brush and starts being a charcoal stick.
     aspect: tiltNorm => 1 + 0.40 * tiltNorm,
     angle:  tiltOrPathAngle,
-    pressureSmoothing: WATERCOLOR_PRESSURE_SMOOTHING,
+    pressureSmoothingPx: WATERCOLOR_PRESSURE_SMOOTHING_PX,
   }
 }
 

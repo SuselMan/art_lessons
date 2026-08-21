@@ -8,6 +8,8 @@
 // index.watercolor.test.ts's own header). Those need a real browser.
 import { describe, expect, it } from 'vitest'
 
+import { BRUSH_PEN_PRESSURE_SMOOTHING_PX } from './brushPenPresets'
+
 import type { Dab } from '@grafetto/shared'
 
 import {
@@ -103,11 +105,23 @@ describe('watercolor preset slot carries the pressure response', () => {
 })
 
 describe('watercolor dab shaping', () => {
-  it('smooths pressure harder than the brush pen does', () => {
-    // A wet brush is heavy and its own load damps tremor before the paper sees
-    // it. 0.35 is the brush pen's value; anything at or below it here means the
-    // profile was copied rather than considered.
-    expect(shapingForWatercolorPreset('normal').pressureSmoothing).toBeGreaterThan(0.35)
+  it('smooths pressure over a distance, and less than the brush pen does', () => {
+    // #482 corrected this test along with the thing it tested. It used to
+    // assert `pressureSmoothing > 0.35` under the title "smooths harder than
+    // the brush pen" — but that knob was a per-sample one-pole weight, and the
+    // filter is `y += (u - y) * k`, so a bigger k follows the input *more*
+    // closely. The assertion and its own title said opposite things, and the
+    // number satisfied the one nobody meant.
+    //
+    // Both halves are now the same units as everything else: a distance, where
+    // larger really does mean steadier. The value is the old one converted, not
+    // retuned, so what the tool feels like is unchanged and only the claim
+    // about it is honest — see WATERCOLOR_PRESSURE_SMOOTHING_PX.
+    const px = shapingForWatercolorPreset('normal').pressureSmoothingPx
+    expect(px).toBeDefined()
+    expect(px!).toBeLessThan(BRUSH_PEN_PRESSURE_SMOOTHING_PX)
+    // And it is a real filter, not an accidental zero.
+    expect(px!).toBeGreaterThan(1)
   })
 
   it('broadens with tilt but never enough to compete with pressure', () => {
