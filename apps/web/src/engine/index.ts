@@ -5612,7 +5612,11 @@ export class PencilEngine implements PencilEngineAPI {
       // recorded Dab like every other term here, so a peer replaying the
       // stroke reproduces the same tone without knowing anything about
       // spacing (#478).
-      if (sizeScale !== null) dab.opacity *= dabDepositScale(dab.size, sizeScale, baseSize, this._dabs.spacingFactor, preset.hardness)
+      if (sizeScale !== null) {
+        dab.opacity *= dabDepositScale(
+          { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale, hardness: preset.hardness },
+          baseSize, this._dabs.spacingFactor)
+      }
     }
   }
 

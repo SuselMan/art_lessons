@@ -767,7 +767,9 @@ export class DabSystem {
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
     const fp = this.footprint
     if (fp === null) return maxSpacing
-    return Math.min(maxSpacing, footprintDabSpacing(dab.size, fp.sizeScale, baseSize, this.spacingFactor, fp.hardness))
+    return Math.min(maxSpacing, footprintDabSpacing(
+      { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale: fp.sizeScale, hardness: fp.hardness },
+      baseSize, this.spacingFactor))
   }
 
   /**

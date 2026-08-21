@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Dab } from '@grafetto/shared'
 
 import { DabSystem } from './DabSystem'
+import { scallopSpacingLimit } from './dabSpacing'
 import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
 import { MARKER_BULLET_DAB_SHAPING } from './markerPresets'
 import { DEFAULT_TILT_RESPONSE, TILT_RESPONSES } from './tiltCurve'
@@ -595,8 +596,11 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
     dab.footprint = { sizeScale, hardness: 0.95 }
     const dabs = straight(dab, 0.4)
 
-    const diameter = dabs[3].size * sizeScale
-    expect(medianGap(dabs) / diameter).toBeCloseTo(spacingFactor, 6)
+    const d = dabs[3]
+    const diameter = d.size * sizeScale
+    expect(medianGap(dabs)).toBeLessThanOrEqual(diameter * spacingFactor + 1e-6)
+    expect(medianGap(dabs)).toBeLessThanOrEqual(
+      scallopSpacingLimit({ size: d.size, aspectRatio: d.aspectRatio, sizeScale, hardness: 0.95 }) + 1e-6)
     expect(medianGap(dabs)).toBeLessThan(baseSize * spacingFactor)
   })
 
@@ -626,10 +630,16 @@ describe('DabSystem footprint-proportional spacing (#478)', () => {
 
     const firm = dabs.filter(d => d.x < 150)
     const light = dabs.filter(d => d.x > 350)
-    expect(medianGap(light)).toBeLessThan(medianGap(firm) * 0.6)
-    // And it is still the same rule at both ends of the stroke.
+    expect(medianGap(light)).toBeLessThan(medianGap(firm) * 0.7)
+    // And both bounds still hold at both ends of the stroke: the step is a
+    // fraction of the dab's own diameter (#478) *and* within the scallop
+    // tolerance (#485). Which of the two binds depends on the brush size, so
+    // the contract is "under both", not "equal to either".
     for (const part of [firm, light]) {
-      expect(medianGap(part) / (part[2].size * 1)).toBeCloseTo(spacingFactor, 2)
+      const d = part[2]
+      const fp = { size: d.size, aspectRatio: d.aspectRatio, sizeScale: 1, hardness: 0.95 }
+      expect(medianGap(part)).toBeLessThanOrEqual(d.size * spacingFactor + 1e-6)
+      expect(medianGap(part)).toBeLessThanOrEqual(scallopSpacingLimit(fp) + 1e-6)
     }
   })
 

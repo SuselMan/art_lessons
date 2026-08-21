@@ -81,17 +81,76 @@ export function nominalDabSpacing(baseSize: number, spacingFactor: number): numb
  * footprintSpacingStrength: a soft-edged dab was never the problem, and
  * re-spacing it changed a mark nobody had complained about.
  */
+export interface DabFootprint {
+  /** `Dab.size` — already through the pressure/tilt response. */
+  size: number
+  /** `Dab.aspectRatio`, 1 = round. */
+  aspectRatio: number
+  /** The renderer's own multiplier on top of `size` (`preset.sizeMultiplier`,
+   *  or 1 for a tool that paints Dab.size at face value, e.g. the eraser). */
+  sizeScale: number
+  /** The edge softness DAB_FRAG will draw this dab with. */
+  hardness: number
+}
+
 export function footprintDabSpacing(
-  dabSize: number, sizeScale: number, baseSize: number, spacingFactor: number, hardness: number,
+  dab: DabFootprint, baseSize: number, spacingFactor: number,
 ): number {
   const nominal = nominalDabSpacing(baseSize, spacingFactor)
-  const strength = footprintSpacingStrength(hardness)
+  const strength = footprintSpacingStrength(dab.hardness)
   // Exactly the pre-#478 step, bit for bit, and that identity is the point:
   // for a soft grade nothing about the mark may move, including the arc-length
   // bookkeeping that decides where its dabs land.
   if (strength <= 0) return nominal
-  const footprint = dabSize * sizeScale * spacingFactor
-  return Math.max(MIN_DAB_SPACING_PX, Math.min(nominal, nominal + (footprint - nominal) * strength))
+  const bound = Math.min(dab.size * dab.sizeScale * spacingFactor, scallopSpacingLimit(dab))
+  return Math.max(MIN_DAB_SPACING_PX, Math.min(nominal, nominal + (bound - nominal) * strength))
+}
+
+
+// #485 — the second bound on the step, and the one that actually closes the
+// bug #478 was filed for.
+//
+// #478's rule is a fraction of the dab's own diameter, so it is scale-free: a
+// 600px brush and a 60px brush come out with the same *relative* geometry. But
+// what a hand sees is not relative. The mark's outer boundary is the union of
+// overlapping ellipses, and between two consecutive ones it dips by the
+// ellipse's sagitta over that step — an absolute number of canvas pixels that
+// grows linearly with the brush.
+//
+// Measured on the real engine, 6H at full pressure and 45 degrees, both at the
+// same 0.220 of their own diameter:
+//
+//     brush 160   step 21.6px   scallop  3.9px
+//     brush 600   step 80.8px   scallop 14.5px
+//
+// 14px of scalloped edge on a hard-edged mark is exactly the "row of ellipses"
+// Ilya kept reporting after #478 said it was fixed — and it is why he saw it
+// with a large brush while every measurement here, taken at 120-160, sat at the
+// paper's own noise floor. The relative rule was never wrong; it was just not
+// the binding constraint at the sizes he draws at.
+//
+// Worst case on purpose: the dab is taken as elongated *across* the direction
+// of travel, so the along-travel semi-axis is the short one (r) and the
+// silhouette that scallops is the long one (r * aspect). Elongated along travel
+// the same geometry gives ~30x less dip, so assuming the bad orientation costs
+// some dabs on a stroke drawn the other way and never under-samples one.
+//
+//     depth = b - b*sqrt(1 - (s/2a)^2) ~= b*s^2/(8a^2) = aspect*s^2/(8r)
+//     depth <= tol   ->   s <= sqrt(8*tol*r/aspect)
+//
+// Same sagitta argument, and the same shape of answer, as DabSystem's own
+// _curvatureSpacingLimit — which bounds the marker's chord error against a
+// tolerance in canvas px for the identical reason. This is that idea applied
+// to the gap between two stamps rather than to the chord between two samples.
+const MAX_SCALLOP_PX = 1
+
+/** Largest step whose silhouette scallop stays within MAX_SCALLOP_PX.
+ *  Infinity for a round dab, which has no long axis to dip. */
+export function scallopSpacingLimit(dab: DabFootprint): number {
+  const r = dab.size * 0.5 * dab.sizeScale
+  const aspect = Math.max(1, dab.aspectRatio)
+  if (r <= 0) return Infinity
+  return Math.sqrt((8 * MAX_SCALLOP_PX * r) / aspect)
 }
 
 // #483 — where the footprint rule fades in, in units of DAB_FRAG's own
@@ -171,10 +230,9 @@ export function footprintSpacingStrength(hardness: number): number {
  * the tools below are exactly the ones that never set one.
  */
 export function dabDepositScale(
-  dabSize: number, sizeScale: number, baseSize: number, spacingFactor: number, hardness: number,
+  dab: DabFootprint, baseSize: number, spacingFactor: number,
 ): number {
-  return footprintDabSpacing(dabSize, sizeScale, baseSize, spacingFactor, hardness)
-    / nominalDabSpacing(baseSize, spacingFactor)
+  return footprintDabSpacing(dab, baseSize, spacingFactor) / nominalDabSpacing(baseSize, spacingFactor)
 }
 
 /**
