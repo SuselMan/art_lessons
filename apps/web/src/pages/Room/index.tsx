@@ -101,6 +101,7 @@ import {
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { ChiselAngleDial } from './ChiselAngleDial'
+import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
@@ -961,8 +962,11 @@ export function Room() {
   // yet — i.e. not yet appendOperation'd into the log/layer. Consulted by
   // handleOperationConfirmed so a fast operation_undo/operation_revoke
   // targeting one of these can drop it from the reveal instead of trying
-  // (and silently failing) to undo an op the log was never given.
-  const pendingPreviewOpIdsRef = useRef<Set<string>>(new Set())
+  // (and silently failing) to undo an op the log was never given, and by
+  // checkSnapshotBoundary for the seqs those reveals still owe. (#477) One
+  // structure for both readings — see pendingPreviews.ts for why they were
+  // two, and what that cost.
+  const pendingPreviewsRef = useRef(createPendingPreviews())
   // (#429) Gestures this client watched arrive live, so their operations are
   // applied straight rather than animated a second time (see
   // handleOperationConfirmed's stroke branch).
@@ -1015,12 +1019,11 @@ export function Room() {
   // reveals can finish out of order (a short stroke's reveal completing
   // before a longer, earlier-seq one that's still animating). Baking a
   // network snapshot the moment a seq merely *arrives* could therefore miss
-  // an earlier op that hasn't actually painted yet. pendingCommitSeqsRef
+  // an earlier op that hasn't actually painted yet. pendingPreviewsRef above
   // holds every stroke seq that has arrived but not yet committed; the
   // watermark can only advance past the smallest still-pending one — see
   // snapshotGate.ts, which owns that rule along with the rest of the
   // may-this-client-bake decision.
-  const pendingCommitSeqsRef = useRef<Set<number>>(new Set())
   // (#462) Holds the watermark and the "has this client's catch-up finished"
   // gate — see snapshotGate.ts for what it refuses and why. Per mount, like
   // replayIncompleteRef below: a fresh mount is a fresh, empty engine, and so
@@ -1049,7 +1052,7 @@ export function Room() {
     if (!engine || !snapshotUploader) return
     const plan = snapshotGateRef.current.observe({
       latestKnownSeq: latestKnownSeqRef.current,
-      pendingCommitSeqs: pendingCommitSeqsRef.current,
+      pendingCommitSeqs: pendingPreviewsRef.current.commitSeqs(),
       replayIncomplete: replayIncompleteRef.current,
     })
     if (!plan) return
@@ -1838,8 +1841,7 @@ export function Room() {
       // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
       // commit it for real now, matching what's already visible on screen.
       onPreviewApplied: op => {
-        pendingPreviewOpIdsRef.current.delete(op.id)
-        pendingCommitSeqsRef.current.delete(op.seq ?? 0)
+        pendingPreviewsRef.current.remove(op.id)
         applyRemoteOp(op)
         syncFromLog()
         checkSnapshotBoundary()
@@ -4414,13 +4416,29 @@ export function Room() {
         // PencilEngineAPI.preloadImages.
         if (engine) await engine.preloadImages(tailOperations)
 
-        for (const op of tailOperations) {
-          if (pendingPreviewOpIdsRef.current.has(op.id)) {
-            engine?.dropPendingPreview(op.id)
-            pendingPreviewOpIdsRef.current.delete(op.id)
-          }
-          applyRemoteOp(op)
+        // (#477) Retire *every* reveal still in flight, not just the ones the
+        // tail happens to name — this catch-up supersedes all of them, and
+        // the tail is the wrong list to walk anyway (see pendingPreviews.ts:
+        // a still-revealing stroke's seq is already in `lastKnownSeq`, so the
+        // server leaves it out). Whatever is left on this list after the loop
+        // would otherwise pin the snapshot watermark for the rest of the
+        // mount.
+        const tailOpIds = new Set(tailOperations.map(op => op.id))
+        for (const opId of pendingPreviewsRef.current.ids()) {
+          const seq = pendingPreviewsRef.current.remove(opId) ?? 0
+          const stranded = engine?.dropPendingPreview(opId) ?? null
+          // Nothing else will ever bring this one back: the server thinks it
+          // was delivered and the tail below doesn't carry it. Commit it for
+          // real, just without the animation — the same trade `peer_left`
+          // makes for a peer who leaves mid-reveal. Skipped when the tail
+          // does carry it (it gets applied below) or when the snapshot just
+          // restored above already contains those pixels, since applying it
+          // then would lay the same stroke down twice.
+          if (!stranded || tailOpIds.has(opId)) continue
+          if (restoredFromSnapshot && latestSnapshotSeq !== null && seq <= latestSnapshotSeq) continue
+          applyRemoteOp(stranded)
         }
+        for (const op of tailOperations) applyRemoteOp(op)
         engine?.resumeDisplay()
         // (#386) Same reason as the mount-engine effect's own catch-up: the
         // bootstrap below reads the store back in this same task.
@@ -4503,7 +4521,7 @@ export function Room() {
         // the animation and apply immediately — the same "correct content
         // now, no animation" tradeoff join/reconnect catch-up already
         // makes — until the backlog is comfortably small again.
-        const backlog = pendingPreviewOpIdsRef.current.size
+        const backlog = pendingPreviewsRef.current.size
         if (catchingUpRef.current ? !shouldLeaveCatchUp(backlog) : shouldEnterCatchUp(backlog)) {
           if (!catchingUpRef.current) {
             catchingUpRef.current = true
@@ -4528,11 +4546,10 @@ export function Room() {
           return
         }
         catchingUpRef.current = false
-        pendingPreviewOpIdsRef.current.add(op.id)
         // Arrived, not yet committed (#149) — held out of the snapshot
-        // watermark until onPreviewApplied's reveal-complete commit deletes
-        // it. See pendingCommitSeqsRef's own doc comment.
-        pendingCommitSeqsRef.current.add(seq)
+        // watermark until onPreviewApplied's reveal-complete commit retires
+        // it. See pendingPreviews.ts's own doc comment.
+        pendingPreviewsRef.current.add(op.id, seq)
         engineRef.current?.previewOperation(op)
         return
       }
@@ -4545,14 +4562,11 @@ export function Room() {
       // would leave OperationLog.applyUndo/Redo with no entry to flip.
       if (
         (op.type === 'operation_undo' || op.type === 'operation_revoke') &&
-        pendingPreviewOpIdsRef.current.has(op.targetOpId)
+        pendingPreviewsRef.current.has(op.targetOpId)
       ) {
         const target = engineRef.current?.dropPendingPreview(op.targetOpId)
-        pendingPreviewOpIdsRef.current.delete(op.targetOpId)
-        if (target) {
-          pendingCommitSeqsRef.current.delete(target.seq ?? 0)
-          applyRemoteOp(target)
-        }
+        pendingPreviewsRef.current.remove(op.targetOpId)
+        if (target) applyRemoteOp(target)
         applyRemoteOp(op)
         syncFromLog()
         checkSnapshotBoundary()
@@ -4637,8 +4651,7 @@ export function Room() {
       // already arrived rather than losing it, just without the animation.
       const stranded = engineRef.current?.flushPeerPreview(leftUserId) ?? []
       for (const op of stranded) {
-        pendingPreviewOpIdsRef.current.delete(op.id)
-        pendingCommitSeqsRef.current.delete(op.seq ?? 0)
+        pendingPreviewsRef.current.remove(op.id)
         applyRemoteOp(op)
       }
       if (stranded.length) {
