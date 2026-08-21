@@ -6,6 +6,7 @@ import { DabSystem } from './DabSystem'
 import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
 import { MARKER_BULLET_DAB_SHAPING } from './markerPresets'
 import { DEFAULT_TILT_RESPONSE, TILT_RESPONSES } from './tiltCurve'
+import { tiltAzimuthRad } from './tiltMath'
 
 // Geometry-focused tests for the #91 centripetal Catmull-Rom fix.
 //
@@ -939,13 +940,21 @@ describe('DabSystem per-tool dab shaping (#240)', () => {
 describe('DabSystem per-tool angle shaping (#249)', () => {
   const baseSize = 20
 
-  // Bit-for-bit pin of the pre-#249 hardcoded formula in DabSystem._makeDab:
-  // `tiltMag > 15 ? atan2(tiltY, tiltX) : pathAngle`. Every existing tool
-  // (pencil/eraser/smudge via PENCIL_DAB_SHAPING, and liner via
-  // LINER_DAB_SHAPING) must still produce exactly this angle.
+  // Pin of the shared tilt-or-path rule every tool but the chisel rides:
+  // above the 15deg trust threshold the nib follows the pen's own body, below
+  // it the spline's tangent. Originally a bit-for-bit pin of the pre-#249
+  // hardcoded expression `tiltMag > 15 ? atan2(tiltY, tiltX) : pathAngle`.
+  //
+  // #482 corrected the azimuth half of it: tiltX/tiltY are not vector
+  // components, so the grip's direction is atan2 of their *tangents* — #388's
+  // reasoning for the magnitude, applied to the direction it deliberately left
+  // alone (see tiltMath.ts's tiltAzimuthRad). The branch structure and the
+  // threshold are untouched, which is what this still pins; the cases below
+  // where one component is zero or the two are equal are exactly the ones where
+  // old and new expressions agree, so they pin both.
   function referenceAngle(tiltX: number, tiltY: number, pathAngle: number): number {
     const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
-    return tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
+    return tiltMag > 15 ? tiltAzimuthRad(tiltX, tiltY) : pathAngle
   }
 
   it('PENCIL_DAB_SHAPING.angle reproduces the pre-#249 formula for low and high tilt', () => {
@@ -966,15 +975,17 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     }
   })
 
-  it('DabSystem._makeDab produces bit-for-bit the pre-#249 angle for pencil/liner shaping via the public API', () => {
+  it('DabSystem._makeDab routes pencil/liner shaping through the tilt branch via the public API', () => {
     for (const shaping of [PENCIL_DAB_SHAPING, LINER_DAB_SHAPING]) {
       const dab = new DabSystem({ shaping })
       // tiltX=30, tiltY=40 -> a true lean of ~45.5deg (> 15) -> tilt direction
       // wins, path angle (whatever it is for a stroke's first dab) is ignored.
-      // The azimuth atan2 reads is unaffected by #388's magnitude fix: it comes
-      // from the two components directly, not from their combined magnitude.
+      //
+      // This case is also why #482's azimuth correction is visible at all: an
+      // unequal, non-zero pair is exactly where atan2-of-angles and
+      // atan2-of-tangents disagree — 53.13deg against a true 55.46deg here.
       const [highTilt] = dab.startStroke(0, 0, 0.5, 30, 40, baseSize)
-      expect(highTilt.angle).toBeCloseTo(Math.atan2(40, 30))
+      expect(highTilt.angle).toBeCloseTo(tiltAzimuthRad(30, 40))
     }
   })
 
@@ -1026,7 +1037,7 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     const theta = Math.PI / 6
     // High tilt: the azimuth wins, and it arrives in screen space.
     expect(PENCIL_DAB_SHAPING.angle(30, 21.21, 21.21, 1.2345, theta))
-      .toBeCloseTo(Math.atan2(21.21, 21.21) - theta)
+      .toBeCloseTo(tiltAzimuthRad(21.21, 21.21) - theta)
     // Low tilt: pathAngle is derived from world-space spline positions, so it
     // needs no conversion and must not receive one.
     expect(PENCIL_DAB_SHAPING.angle(10, 10, 0, 1.2345, theta)).toBeCloseTo(1.2345)
@@ -1046,14 +1057,14 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     const rotated = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
     rotated.cameraAngle = theta
     const [d] = rotated.startStroke(0, 0, 0.5, 30, 40, baseSize)
-    expect(d.angle).toBeCloseTo(Math.atan2(40, 30) - theta)
+    expect(d.angle).toBeCloseTo(tiltAzimuthRad(30, 40) - theta)
 
     // A fresh instance nobody told about a viewport behaves exactly as it did
     // before #482 — this is what keeps every existing test and every replay of
     // an already-recorded stroke honest.
     const upright = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
     const [u] = upright.startStroke(0, 0, 0.5, 30, 40, baseSize)
-    expect(u.angle).toBe(Math.atan2(40, 30))
+    expect(u.angle).toBe(tiltAzimuthRad(30, 40))
   })
 
   it('a fork inherits the camera angle, so #92 prediction previews land where the real dabs will', () => {

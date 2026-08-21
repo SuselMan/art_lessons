@@ -7,6 +7,7 @@ import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
 import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
 import { DEFAULT_TILT_RESPONSE, type TiltResponse } from './tiltCurve'
+import { tiltAzimuthRad } from './tiltMath'
 
 // Per-tool pressure→size and tilt→aspect response curves for DabSystem's
 // dab geometry (#240). Previously hardcoded directly in DabSystem._makeDab
@@ -203,10 +204,17 @@ function lerp(a: number, b: number, t: number): number {
 // worldToScreen comment). It is identically zero on an unrotated canvas, which
 // is every stroke ever recorded before the rotate tool existed and most since —
 // so this fix cannot change a mark that was not already wrong.
+//
+// #482 part two: the azimuth itself comes from tiltAzimuthRad, not from
+// `atan2(tiltY, tiltX)`. tiltX/tiltY are not the components of a vector — each
+// is the angle of the stylus's projection onto one plane — so the azimuth is
+// atan2 of their *tangents*, exactly as #388 established for the magnitude. The
+// old expression was off by up to ~8 degrees on a diagonal grip and exact only
+// on an axis-aligned or exactly-diagonal one. See tiltMath.ts.
 export function tiltOrPathAngle(
   tiltMag: number, tiltX: number, tiltY: number, pathAngle: number, cameraAngle = 0,
 ): number {
-  return tiltMag > 15 ? Math.atan2(tiltY, tiltX) - cameraAngle : pathAngle
+  return tiltMag > 15 ? tiltAzimuthRad(tiltX, tiltY) - cameraAngle : pathAngle
 }
 
 // Graphite (#240's carried-over original formulas, replaced in #389). The

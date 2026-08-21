@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { tiltMagnitudeDeg, tiltNormFrom } from './tiltMath'
+import { tiltAzimuthRad, tiltMagnitudeDeg, tiltNormFrom } from './tiltMath'
 
 // The reference the engine used before #388, kept here as the thing these
 // tests demonstrate a difference *from* — not as an expectation.
@@ -87,5 +87,56 @@ describe('tiltMagnitudeDeg (#388)', () => {
   it('is zero for a device that reports no tilt at all (mouse)', () => {
     expect(tiltMagnitudeDeg(0, 0)).toBe(0)
     expect(tiltNormFrom(0, 0)).toBe(0)
+  })
+})
+
+// #482 — the azimuth half of the same recovery, and #388's unfixed twin. The
+// engine derived the grip's direction as `atan2(tiltY, tiltX)` right up until
+// this, which is the identical category error #388 diagnosed for the
+// magnitude: tiltX/tiltY are two projected *angles*, so what combines is their
+// tangents, not the values themselves.
+describe('tiltAzimuthRad (#482)', () => {
+  /** atan2's own range, so a round trip can be compared against the phi it
+   *  started from without every case needing its own wrap. */
+  function wrapDeg(phi: number): number {
+    return ((phi + 180) % 360 + 360) % 360 - 180
+  }
+
+  it('recovers the azimuth it was built from, at every lean', () => {
+    for (const theta of [5, 20, 35, 45, 55, 70, 85]) {
+      for (const phi of [0, 15, 30, 45, 60, 90, 135, 200, 315]) {
+        const { tiltX, tiltY } = projectedTilts(theta, phi)
+        expect(tiltAzimuthRad(tiltX, tiltY) * 180 / Math.PI).toBeCloseTo(wrapDeg(phi), 6)
+      }
+    }
+  })
+
+  it('differs from the legacy atan2-of-angles exactly where the old formula was wrong', () => {
+    const legacyAzimuth = (tiltX: number, tiltY: number) => Math.atan2(tiltY, tiltX) * 180 / Math.PI
+    const trueAzimuth   = (tiltX: number, tiltY: number) => tiltAzimuthRad(tiltX, tiltY) * 180 / Math.PI
+
+    // Agrees where one component is zero (an axis-aligned grip — which is why
+    // this went unnoticed for as long as the magnitude bug did) ...
+    for (const [x, y] of [[40, 0], [0, 40], [-55, 0], [0, -55]] as const) {
+      expect(trueAzimuth(x, y)).toBeCloseTo(legacyAzimuth(x, y), 6)
+    }
+    // ... and on the exact diagonal, where the two tangents scale alike.
+    expect(trueAzimuth(30, 30)).toBeCloseTo(legacyAzimuth(30, 30), 6)
+
+    // Everywhere in between it does not, and the gap is large enough to see in
+    // a mark: a 30/60 grip was pointed 8.1 degrees off, a 20/70 one 8.4.
+    expect(trueAzimuth(30, 60)).toBeCloseTo(71.57, 2)
+    expect(legacyAzimuth(30, 60)).toBeCloseTo(63.43, 2)
+    expect(trueAzimuth(20, 70)).toBeCloseTo(82.45, 2)
+    expect(legacyAzimuth(20, 70)).toBeCloseTo(74.05, 2)
+  })
+
+  it('survives the degenerate ends the magnitude function also has to', () => {
+    // A device reporting no tilt has no azimuth; 0 rather than NaN.
+    expect(tiltAzimuthRad(0, 0)).toBe(0)
+    // tan(90 degrees) is ~1.6e16, not Infinity — atan2 of two of those is still
+    // a finite, sensible 45 degrees.
+    expect(Number.isFinite(tiltAzimuthRad(90, 90))).toBe(true)
+    expect(tiltAzimuthRad(90, 90) * 180 / Math.PI).toBeCloseTo(45, 6)
   })
 })
