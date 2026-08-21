@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createSnapshotGate } from './snapshotGate'
 
 /** The default shape of an observation from a healthy, caught-up client. */
@@ -150,6 +150,34 @@ describe('createSnapshotGate — a stranded pending seq (#477)', () => {
     gate.restoreCompleted(1500)
 
     expect(gate.observe(observation(1600, [1493, 1550]))).toEqual({ previous: 1500, watermark: 1549 })
+  })
+
+  // (#480) Заметить застрявшую запись мало — про неё надо сказать наружу.
+  // Клиент 21.08 перестал печь снапшоты молча, и это молчание стоило дороже
+  // самого бага: сломанный урок и исправный выглядели в Sentry одинаково.
+  it('докладывает о застрявшей записи ровно один раз', () => {
+    const report = vi.fn()
+    const gate = createSnapshotGate(report)
+    gate.restoreCompleted(1500)
+
+    gate.observe(observation(1600, [1493]))
+    gate.observe(observation(1700, [1493]))
+
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(report).toHaveBeenCalledWith(
+      'stale pending commit seq below baked watermark',
+      { committedWatermark: 1500, latestKnownSeq: 1600 },
+    )
+  })
+
+  it('молчит, пока всё в порядке', () => {
+    const report = vi.fn()
+    const gate = createSnapshotGate(report)
+    gate.restoreCompleted(1500)
+
+    gate.observe(observation(1600, [1550]))
+
+    expect(report).not.toHaveBeenCalled()
   })
 
   // `observe` reads the set by iteration now (a Map's values view, in

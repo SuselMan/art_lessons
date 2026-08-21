@@ -101,6 +101,7 @@ import {
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { ChiselAngleDial } from './ChiselAngleDial'
+import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
@@ -922,10 +923,10 @@ export function Room() {
   const noteLayerSeq = useCallback((layerId: string, seq: number) => {
     const highest = layerAppliedSeqRef.current.get(layerId) ?? 0
     if (seq < highest) {
-      console.warn(
-        `[order] layer ${layerId}: seq ${seq} applied after ${highest} was already on screen — `
-        + 'a concurrent stroke likely composited out of true order (see layerAppliedSeqRef\'s doc comment)',
-      )
+      // (#480) Ровно тот «logged, countable event», которого просит
+      // комментарий выше — только теперь считается там, где это видно не
+      // только при открытом девтулзе.
+      reportInvariant('layer op applied out of true order', { layerId, seq, alreadyOnScreen: highest })
       return
     }
     layerAppliedSeqRef.current.set(layerId, seq)
@@ -1028,7 +1029,7 @@ export function Room() {
   // gate — see snapshotGate.ts for what it refuses and why. Per mount, like
   // replayIncompleteRef below: a fresh mount is a fresh, empty engine, and so
   // a client that has to earn the right to speak for the room again.
-  const snapshotGateRef = useRef(createSnapshotGate())
+  const snapshotGateRef = useRef(createSnapshotGate(reportInvariant))
   /** (#385) Set when the join-time replay did not finish — an operation threw
    *  and the canvas therefore shows less than the log says the room contains.
    *
@@ -1840,6 +1841,8 @@ export function Room() {
       },
       // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
       // commit it for real now, matching what's already visible on screen.
+      // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.
+      onInvariant: reportInvariant,
       onPreviewApplied: op => {
         pendingPreviewsRef.current.remove(op.id)
         applyRemoteOp(op)
@@ -2009,6 +2012,11 @@ export function Room() {
             }
           }
           if (failed > 0) {
+            // (#480) Исключение выше уже уехало в Sentry, но не его
+            // последствие: с этого момента и до конца маунта клиент не имеет
+            // права печь снапшоты и не будет — молча. Именно это и надо
+            // видеть, а не только то, что один apply бросил.
+            reportInvariant('join replay incomplete — snapshots disabled for this mount', { failed })
             replayIncompleteRef.current = true
             notifyError(tRef.current('room.replayIncomplete'), { key: 'replay-incomplete', durationMs: null })
           }
@@ -4491,7 +4499,7 @@ export function Room() {
       // the socket. Don't try to patch the hole; distrust the live stream
       // and redo the same full catch-up a normal reconnect does.
       if (hasSeqGap(lastConfirmedSeqRef.current, seq)) {
-        console.warn(`[sync] seq gap: expected ${lastConfirmedSeqRef.current + 1}, got ${seq} — resyncing`)
+        reportInvariant('seq gap in confirmed stream — resyncing', { expected: lastConfirmedSeqRef.current + 1, got: seq })
         requestFullResync()
         return
       }
@@ -4525,7 +4533,7 @@ export function Room() {
         if (catchingUpRef.current ? !shouldLeaveCatchUp(backlog) : shouldEnterCatchUp(backlog)) {
           if (!catchingUpRef.current) {
             catchingUpRef.current = true
-            console.warn(`[sync] falling behind (${backlog} strokes queued) — applying without animation`)
+            reportInvariant('reveal backlog — applying peer strokes without animation', { backlog })
           }
           applyRemoteOp(op)
           syncFromLog()
@@ -4641,7 +4649,7 @@ export function Room() {
       // here, so a non-zero remainder means repair rather than "wait a moment".
       const orphaned = engineRef.current?.endPeerLiveStroke(leftUserId) ?? 0
       if (orphaned) {
-        console.warn(`[sync] ${leftUserId} left with ${orphaned} unrecorded live dabs — resyncing`)
+        reportInvariant('peer left with unrecorded live dabs — resyncing', { orphaned })
         requestFullResync()
       }
       // (#152) Cursor-position cleanup for this peer now lives inside
