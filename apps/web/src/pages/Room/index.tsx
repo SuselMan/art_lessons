@@ -3555,13 +3555,25 @@ export function Room() {
     const overlay = e.currentTarget
     const pointerId = e.pointerId
     try { overlay.setPointerCapture(pointerId) } catch { /* context loss */ }
+    // (#484) Did this press ever become a drag? Same recognizer and the same
+    // slop as the click that ends a transform above, because it is the same
+    // question asked of the same hand — and the answer decides whether the
+    // release *replaces* the selection or *clears* it.
+    const clicks = new ClickTracker()
+    clicks.down(pointerId, e.clientX, e.clientY)
     let points: number[] = [start.x, start.y]
     setPendingSelection(selectionShapeKind === 'rectangle'
       ? rectangleFromDrag(start.x, start.y, start.x, start.y).points
       : points)
 
+    const detach = () => {
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+      overlay.removeEventListener('pointercancel', onCancel)
+    }
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return
+      clicks.move(pointerId, ev.clientX, ev.clientY)
       const p = toPoint(ev.clientX, ev.clientY)
       if (selectionShapeKind === 'rectangle') {
         points = rectangleFromDrag(start.x, start.y, p.x, p.y).points
@@ -3575,12 +3587,39 @@ export function Room() {
     }
     const onUp = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return
-      overlay.removeEventListener('pointermove', onMove)
-      overlay.removeEventListener('pointerup', onUp)
-      finishSelection(points)
+      detach()
+      // A press that never left the slop is a tap, and a tap on the canvas
+      // with the selection tool in hand means "clear it" — the same thing a
+      // tap past the gizmo means for a transform, which is the point: the
+      // gesture reads the same to the hand, so it must mean the same thing.
+      //
+      // Handing finishSelection no points rather than the collected ones is
+      // the whole of it. selectionFromPoints already drops a shape with no
+      // inside, and with a mouse that was enough — a click with no pointermove
+      // never got past two points. A pen never manages that: on a digitiser a
+      // still hand is not a still pointer, so a tap arrives with a pixel or
+      // two of travel and draws a rectangle that genuinely has an area. What
+      // it leaves behind is invisible at any sane zoom and silently scopes the
+      // next fill, transform or delete to nothing (Ilya, 22.08). Raising the
+      // area test instead would be the wrong knob: it answers "is this shape a
+      // region", in layer pixels, and how big a wobble is on screen is not its
+      // question.
+      finishSelection(clicks.up(pointerId) ? [] : points)
+    }
+    // A pointer the browser takes over (a system gesture, a palm the digitiser
+    // changes its mind about) never releases here. Drop the half-drawn outline
+    // and leave the existing selection alone: nothing was decided, so neither
+    // replacing nor clearing it is right.
+    const onCancel = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      detach()
+      clicks.cancel(pointerId)
+      setPendingSelection(null)
+      setSelectionCursor(null)
     }
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
+    overlay.addEventListener('pointercancel', onCancel)
   }, [vpRef, config, handActive, selectionShapeKind, setPendingSelection, finishSelection])
 
   // The other way to end a point-by-point lasso, and the one people reach for
