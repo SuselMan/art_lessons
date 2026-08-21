@@ -11,6 +11,7 @@ import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { PENCIL_DAB_SHAPING, type DabShapingProfile, type TipBendProfile } from './dabShaping'
+import { MIN_DAB_SPACING_PX, footprintDabSpacing, nominalDabSpacing } from './dabSpacing'
 import { tiltMagnitudeDeg, tiltNormFrom } from './tiltMath'
 
 interface ControlPoint {
@@ -172,8 +173,37 @@ export class DabSystem {
    * "close enough".
    */
   curvatureTolerancePx: number | null = null
+  /**
+   * #478 — the renderer's own size multiplier for the tool being drawn
+   * (`preset.sizeMultiplier`, 1 for a tool that paints Dab.size at face
+   * value), or null to keep the pre-#478 rule of spacing off the nominal brush
+   * size alone.
+   *
+   * Set once per stroke by the engine, from the same place it sets
+   * `curvatureTolerancePx` and calls `setShaping` — it is a property of the
+   * tool, not of the gesture. Null for every tool whose mark is a swept ribbon
+   * rather than a row of stamps; see dabSpacing.ts's isFootprintSpacedTool for
+   * the full argument about which tools want this and which would be harmed by
+   * it.
+   *
+   * Only ever *tightens* the step (footprintDabSpacing takes a min against the
+   * nominal rule), so switching it on cannot make any existing mark sparser.
+   */
+  footprintSizeScale: number | null = null
   private _buf: ControlPoint[]
   private _remainder: number
+  /**
+   * #478 — the step owed from the last dab emitted, or 0 before a stroke has
+   * emitted one.
+   *
+   * Under the footprint rule the step is a property of the dab it follows (its
+   * own size decides how far the next one may sit), so unlike the old
+   * segment-constant spacing it has to survive the segment boundary the same
+   * way `_remainder` does: a dab emitted at the very end of one segment is
+   * still what decides where the first dab of the next one lands. Carried, not
+   * recomputed, for exactly the reason _remainder is.
+   */
+  private _pendingSpacing = 0
   private _shaping: DabShapingProfile
 
   // Reusable arc-length lookup table scratch storage for _splineDabs, sized
@@ -266,6 +296,11 @@ export class DabSystem {
   private _reset(): void {
     this._buf = []
     this._remainder = 0
+    // #478: zeroed alongside _remainder, and read as "no dab has been emitted
+    // yet", so the stroke's first dab is placed off the nominal step. There is
+    // no dab to take a footprint from at that point, and the very first dab of
+    // a stroke lands at arc length 0 regardless.
+    this._pendingSpacing = 0
     // Cleared, not zeroed: _filterTilt seeds itself from the stroke's first
     // real sample. Zeroing would instead start every stroke at "perfectly
     // upright" and let the shape swing up to the true tilt over the first
@@ -418,8 +453,13 @@ export class DabSystem {
   forkForPreview(): DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
+    fork.footprintSizeScale = this.footprintSizeScale
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
+    // #478: and the step owed from the last real dab, for the same reason the
+    // remainder is inherited — a preview that restarted from the nominal step
+    // would place its first dab somewhere the real one won't.
+    fork._pendingSpacing = this._pendingSpacing
     // #305: the fork continues *this* stroke speculatively, so it must inherit
     // the tilt filter's current position — starting it at null would re-seed
     // from the predicted sample and give the preview a different shape than
@@ -453,7 +493,17 @@ export class DabSystem {
     this._buf = [{ x, y, pressure: p, tiltX, tiltY }]
     // ds = 0: nothing has been dragged yet, so a bent-nib profile leaves this
     // dab round rather than pointing it along the placeholder angle below.
-    return [this._makeDab(x, y, p, tiltX, tiltY, baseSize, 0, 0)]
+    const first = this._makeDab(x, y, p, tiltX, tiltY, baseSize, 0, 0)
+    // #478: the touch-down dab is emitted here rather than through
+    // _splineDabs, and it is still a dab — so it owes the next one a step just
+    // like any other. Without this the stroke's first *gap* would be a full
+    // nominal step while the rest of the mark is spaced off its footprint,
+    // i.e. a hole at the head of every stroke on exactly the tools this
+    // change exists to close holes in. Capped by the nominal step and not by
+    // a segment's curvature limit, because there is no segment yet; the first
+    // _splineDabs call re-caps it against its own.
+    this._pendingSpacing = this._spacingAfter(first, baseSize, nominalDabSpacing(baseSize, this.spacingFactor))
+    return [first]
   }
 
   // Returns dabs for the segment one step behind the current point.
@@ -550,6 +600,10 @@ export class DabSystem {
     if (Math.hypot(dx, dy) < MIN_CONTROL_POINT_DISTANCE) return []
 
     const savedRemainder = this._remainder
+    // #478: stroke state for the same reason, and restored on the same line —
+    // a peeked tip must not leave the real stroke owing a step measured off a
+    // dab that was only ever speculative.
+    const savedPending = this._pendingSpacing
     // #472: the bent nib's orientation is stroke state too, and this method is
     // defined to leave stroke state alone — advancing it here would bend the
     // nib along a *guessed* tangent, and the real segment arriving a moment
@@ -560,6 +614,7 @@ export class DabSystem {
     const savedTrail = this._trailPx
     const dabs = this._splineDabs(p0, p1, p2, p3, baseSize)
     this._remainder = savedRemainder
+    this._pendingSpacing = savedPending
     this._tipDirX = savedTipX
     this._tipDirY = savedTipY
     this._trailPx = savedTrail
@@ -613,21 +668,33 @@ export class DabSystem {
 
     if (totalLen < 0.001) return []
 
-    const spacing = Math.max(1, Math.min(
+    // The loosest step this segment allows: the nominal size-proportional rule
+    // and, for a ribbon tool, its curvature limit. #478's footprint rule can
+    // only tighten it further, per dab — see _spacingAfter.
+    const maxSpacing = Math.max(MIN_DAB_SPACING_PX, Math.min(
       baseSize * this.spacingFactor,
       this._curvatureSpacingLimit(p1, p2, m1, m2, totalLen, baseSize),
     ))
     const dabs: Dab[] = []
+    // The step this segment starts out owing, which belongs to the *previous*
+    // dab and not to this segment: under #478's footprint rule how far the
+    // next dab may sit is decided by the size of the one before it, and that
+    // dab may well have been emitted on an earlier segment. `maxSpacing` still
+    // caps it, because this segment's curvature limit is this segment's to
+    // impose. Falls back to the nominal step before a stroke has emitted
+    // anything at all.
+    let step = Math.min(this._pendingSpacing || maxSpacing, maxSpacing)
     // Clamped at 0, and that clamp is load-bearing for any tool whose spacing
-    // is not constant across a stroke — today the marker, via
-    // _curvatureSpacingLimit.
+    // is not constant across a stroke — the marker via _curvatureSpacingLimit,
+    // and since #478 every footprint-spaced tool, whose step changes with
+    // pressure within a single segment.
     //
     // `_remainder` is arc length already travelled past the last emitted dab,
-    // and it is bounded by whatever `spacing` was on the segment that produced
+    // and it is bounded by whatever `step` was on the segment that produced
     // it — not by this segment's. A fast straight run sets a coarse spacing
     // (0.22 * 120px brush = 26.4px) and can leave almost all of it in the
     // remainder; the very next segment's curvature limit can then legitimately
-    // cut spacing to the 1px floor. Unclamped, `spacing - _remainder` is
+    // cut spacing to the 1px floor. Unclamped, `step - _remainder` is
     // strongly negative there, and a negative arcPos means a negative `t` —
     // where hermitePos no longer interpolates but *extrapolates the cubic
     // backwards out of the segment*, planting dabs behind p1 and off the path
@@ -638,10 +705,10 @@ export class DabSystem {
     //
     // Clamping to 0 says the right thing instead: the dab is overdue, so place
     // it at the segment start and carry on from there.
-    let arcPos = Math.max(0, spacing - this._remainder)
+    let arcPos = Math.max(0, step - this._remainder)
     let si = 0
     // #472: arc length from the *previous emitted dab* to this one, which for
-    // the first dab of a segment is not `spacing` — it is whatever was left
+    // the first dab of a segment is not `step` — it is whatever was left
     // over from the previous segment plus however far into this one the dab
     // lands. Only a bent-nib profile reads it, and it must be the real gap:
     // that is the whole difference between "the nib catches up over 12px" and
@@ -664,13 +731,39 @@ export class DabSystem {
       const tiltY    = crScalar(p0.tiltY, p1.tiltY, p2.tiltY, p3.tiltY, t)
       const tan      = hermiteTangent(p1, p2, m1, m2, t)
 
-      dabs.push(this._makeDab(pos.x, pos.y, pressure, tiltX, tiltY, baseSize, Math.atan2(tan.y, tan.x), gap))
-      arcPos += spacing
-      gap = spacing
+      const dab = this._makeDab(pos.x, pos.y, pressure, tiltX, tiltY, baseSize, Math.atan2(tan.y, tan.x), gap)
+      dabs.push(dab)
+      // #478: this dab decides how far the next one may sit, so the step is
+      // read back off the dab that was just made rather than fixed for the
+      // whole segment. That also makes it recomputable downstream from
+      // `Dab.size` alone, which is what lets the engine hold the mark's tone
+      // (dabSpacing.ts's dabDepositScale) without threading spacing through
+      // the dab or the wire format.
+      step = this._spacingAfter(dab, baseSize, maxSpacing)
+      this._pendingSpacing = step
+      arcPos += step
+      gap = step
     }
 
-    this._remainder = Math.max(0, totalLen - (arcPos - spacing))
+    // `arcPos - step` is where the last dab actually landed: the loop always
+    // leaves `step` holding the one it advanced by last, which under #478 is
+    // no longer the same on every iteration. When the loop never ran at all it
+    // is still the step this segment started out owing, which is exactly what
+    // the pre-#478 expression used there too.
+    this._remainder = Math.max(0, totalLen - (arcPos - step))
     return dabs
+  }
+
+  /** The step after `dab`, capped by whatever this segment already allows.
+   *
+   *  Plain `maxSpacing` for a tool that hasn't opted into the footprint rule,
+   *  which is the entire pre-#478 behaviour — see dabSpacing.ts for why the
+   *  nominal brush size is the wrong thing to space off, and which tools want
+   *  this and which are already normalized some other way. */
+  private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
+    const scale = this.footprintSizeScale
+    if (scale === null) return maxSpacing
+    return Math.min(maxSpacing, footprintDabSpacing(dab.size, scale, baseSize, this.spacingFactor))
   }
 
   /**
