@@ -17,6 +17,7 @@ import {
 } from './src/charcoalFeel'
 import { DabSystem } from './src/DabSystem'
 import { shapingForTool } from './src/dabShaping'
+import { tipFootprint } from './src/tipFootprint'
 import { dabDepositScale, isFootprintSpacedTool } from './src/dabSpacing'
 import {
   PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
@@ -135,14 +136,18 @@ export function previewDabShape(
   // Left defaulted so a caller with no rotation to speak of is unaffected.
   cameraAngle = 0,
 ): { size: number; aspectRatio: number; angle: number } {
-  const shaping = shapingForTool(tool, presetName, markerAngle, tiltResponse)
-  const tiltMag = tiltMagnitudeDeg(tiltX, tiltY)
-  const tiltNorm = tiltMag / 90
-  return {
-    size: baseSize * shaping.size(pressure, tiltNorm),
-    aspectRatio: shaping.aspect(tiltNorm),
-    angle: shaping.angle(tiltMag, tiltX, tiltY, pathAngle, cameraAngle),
-  }
+  // #482, ADR 012: the same tipFootprint() the recorded dabs go through, not a
+  // second copy of its formula. `state: null` is the honest answer for a hover
+  // and not a limitation — a flexible nib is bent by being *dragged*, and a
+  // pointer that is merely hovering has dragged nothing, so its rest pose is
+  // round. That is also why this agrees with the first dab of a real stroke,
+  // which starts from a freshly-zeroed tip state.
+  const { size, aspectRatio, angle } = tipFootprint(
+    shapingForTool(tool, presetName, markerAngle, tiltResponse),
+    { x: 0, y: 0, pressure, tiltX, tiltY, baseSize, pathAngle, ds: 0, speed: 0, cameraAngle },
+    null,
+  )
+  return { size, aspectRatio, angle }
 }
 
 // Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
@@ -5720,34 +5725,34 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(this._strokeLayerId)
     if (!buf) return
 
-    // #251: mid-stroke here, so _strokePreset is already this stroke's own
-    // preset (unlike _onStart's call site above) — safe to read directly.
-    const shaping = shapingForTool(
-      this._strokeTool, this._strokePreset,
-      { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
-      this._tiltResponse,
+    // #482, ADR 012 §5: the footprint comes from the same tipFootprint() every
+    // other dab goes through, via the DabSystem that is already mid-stroke — so
+    // this path stops being a second implementation of dab geometry. `ds = 0`
+    // is what makes it a *resting* footprint: the bend filter's weight is zero
+    // there, so a dwelling nib keeps exactly the bend the stroke left it with,
+    // and the tip state comes back untouched.
+    //
+    // #278 lives on inside that shared function rather than as a branch here.
+    // The old code hardcoded `angle: 0` for every tool but the marker, with the
+    // reasoning that a resting liner has no path direction and its aspect
+    // (1..1.15) is too mild for the angle to show. Both halves were true; the
+    // branch was still a special case of one tool's geometry sitting in the
+    // engine. Now a resting liner gets the same tilt-or-path angle a moving one
+    // does — at 1.15:1 that moves the mark's boundary by at most a few percent
+    // of its radius, and it removes the last per-tool geometry test outside the
+    // tip model.
+    const fp = this._dabs.restingFootprint(
+      this._lastPointerX, this._lastPointerY, this._lastPointerPressure,
+      this._lastPointerTiltX, this._lastPointerTiltY, this._physicalSize,
     )
-    const tiltMag = tiltMagnitudeDeg(this._lastPointerTiltX, this._lastPointerTiltY)
-    const tiltNorm = tiltMag / 90
     const dab: Dab = {
-      x: this._lastPointerX, y: this._lastPointerY,
+      x: fp.x, y: fp.y,
       pressure: this._lastPointerPressure, tiltX: this._lastPointerTiltX, tiltY: this._lastPointerTiltY,
-      size: this._physicalSize * shaping.size(this._lastPointerPressure, tiltNorm),
-      aspectRatio: shaping.aspect(tiltNorm),
-      // #278: used to be hardcoded 0 for every tool ("no path direction
-      // while resting — liner's own aspect response is mild enough this
-      // doesn't matter") — true for liner (kept at 0 below, unchanged), but
-      // not for marker's chisel nib: its angle is now a real user setting
-      // and its aspect is highly elongated (~5:1), so a resting dwell dab
-      // must still render at the configured angle, not always horizontal.
-      // pathAngle 0 is passed (no path while resting, same as before) —
-      // chisel's fixed/offset shaping ignores it anyway; bullet's
-      // tiltOrPathAngle still falls back to it exactly as liner's dwell did.
-      angle: this._strokeTool === 'marker' ? shaping.angle(tiltMag, this._lastPointerTiltX, this._lastPointerTiltY, 0, this._dabs.cameraAngle) : 0,
+      size: fp.size, aspectRatio: fp.aspectRatio, angle: fp.angle,
       opacity: 1, t: performance.now() - this._strokeStartTimestamp,
     }
     const preset = this._resolvePreset(this._strokeTool, this._strokePreset)
-    dab.opacity = preset.opacity * this._opts.opacity * linerTiltFlow(tiltMag) * dwellFlow(elapsed, cfg)
+    dab.opacity = preset.opacity * this._opts.opacity * linerTiltFlow(fp.tiltMag) * dwellFlow(elapsed, cfg)
 
     this._paintDabs(
       buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,

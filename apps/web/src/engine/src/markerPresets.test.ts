@@ -99,14 +99,14 @@ describe('MARKER_CHISEL_DAB_SHAPING (#251, ADR 004 §1: fixed aspect + fixed ang
 describe('chiselDabShaping followStrokeDirection (#278)', () => {
   it('adds the configured angle as an offset to the path-tangent angle when true', () => {
     const following = chiselDabShaping(FIXED_ANGLE, true)
-    expect(following.angle(0, 0, 0, 0)).toBeCloseTo(FIXED_ANGLE)
-    expect(following.angle(90, -90, -90, Math.PI)).toBeCloseTo(Math.PI + FIXED_ANGLE)
-    expect(following.angle(50, 30, 40, -1.2)).toBeCloseTo(-1.2 + FIXED_ANGLE)
+    expect(following.angle(0, 0, 0, 0, 0)).toBeCloseTo(FIXED_ANGLE)
+    expect(following.angle(90, -90, -90, Math.PI, 0)).toBeCloseTo(Math.PI + FIXED_ANGLE)
+    expect(following.angle(50, 30, 40, -1.2, 0)).toBeCloseTo(-1.2 + FIXED_ANGLE)
   })
 
   it('still ignores tilt entirely even in follow mode — only pathAngle and the offset matter', () => {
     const following = chiselDabShaping(FIXED_ANGLE, true)
-    expect(following.angle(90, -90, -90, 0.5)).toBeCloseTo(following.angle(0, 0, 0, 0.5))
+    expect(following.angle(90, -90, -90, 0.5, 0)).toBeCloseTo(following.angle(0, 0, 0, 0.5, 0))
   })
 })
 
@@ -114,7 +114,7 @@ describe('shapingForMarkerPreset (#251, #278)', () => {
   it('dispatches bullet/chisel by the parsed nib token', () => {
     expect(shapingForMarkerPreset('bullet:0.3')).toBe(MARKER_BULLET_DAB_SHAPING)
     const chisel = shapingForMarkerPreset('chisel:0.5', { angle: FIXED_ANGLE, followStrokeDirection: false })
-    expect(chisel.angle(0, 0, 0, 0)).toBeCloseTo(FIXED_ANGLE)
+    expect(chisel.angle(0, 0, 0, 0, 0)).toBeCloseTo(FIXED_ANGLE)
     expect(chisel.aspect(0)).toBeCloseTo(MARKER_CHISEL_DAB_SHAPING.aspect(0))
   })
 
@@ -125,6 +125,6 @@ describe('shapingForMarkerPreset (#251, #278)', () => {
 
   it('falls back to the ADR 004 default (~45°, absolute) when chisel is dispatched with no angle config', () => {
     const chisel = shapingForMarkerPreset('chisel:0.5')
-    expect(chisel.angle(90, -90, -90, Math.PI)).toBeCloseTo(Math.PI / 4)
+    expect(chisel.angle(90, -90, -90, Math.PI, 0)).toBeCloseTo(Math.PI / 4)
   })
 })

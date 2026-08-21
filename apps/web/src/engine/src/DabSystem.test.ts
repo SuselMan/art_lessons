@@ -1110,8 +1110,8 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     const chisel = shapingForTool('marker', 'chisel:0.3')
     const bullet = shapingForTool('marker', 'bullet:0.3')
 
-    const fixedAngle = chisel.angle(0, 0, 0, 0)
-    expect(chisel.angle(90, -50, 80, Math.PI / 2)).toBeCloseTo(fixedAngle) // strong tilt + real path angle, still fixed
+    const fixedAngle = chisel.angle(0, 0, 0, 0, 0)
+    expect(chisel.angle(90, -50, 80, Math.PI / 2, 0)).toBeCloseTo(fixedAngle) // strong tilt + real path angle, still fixed
     expect(chisel.aspect(0)).toBeCloseTo(chisel.aspect(2)) // tiltNorm makes no difference at all
 
     // Bullet, by contrast, keeps liner's real tilt-or-path angle response and
