@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import type { ToolType } from '@grafetto/shared'
 
-import { previewDabShape, type TiltResponse } from '../../engine'
+import { DEFAULT_NIB_ANCHOR, previewDabShape, type NibAnchor, type TiltResponse } from '../../engine'
 import { diagLog } from '../../lib/diagLog'
 import { clientToRoomPoint } from './cameraMath'
 import type { ViewportTransform, CanvasSize } from './pointerTransform'
@@ -26,7 +26,8 @@ interface BrushCursorProps {
    *  markerCanvasAngleRadians) — only marker's chisel dispatch actually
    *  reads either of these two. */
   markerAngleRadians?: number
-  markerFollowStroke?: boolean
+  /** #482, ADR 012 §3 — which frame that angle is measured in. */
+  markerAnchor?: NibAnchor
   /** #409: the active tool's tilt-response setting, the same value Room feeds
    *  engine.setTiltResponse — the outline is the only place the choice can be
    *  seen before a mark exists, so it has to be drawn under it too. */
@@ -83,7 +84,7 @@ interface BrushCursorProps {
  *  so touch gets its own pointerdown/pointerup pair gating visibility,
  *  instead of showing continuously the way mouse/pen hover does. */
 export function BrushCursor({
-  vpRef, tool, presetName, baseSize, vp, config, markerAngleRadians = 0, markerFollowStroke = false,
+  vpRef, tool, presetName, baseSize, vp, config, markerAngleRadians = 0, markerAnchor = DEFAULT_NIB_ANCHOR,
   tiltResponse,
 }: BrushCursorProps) {
   const layerRef = useRef<HTMLDivElement>(null)
@@ -109,10 +110,10 @@ export function BrushCursor({
   // also throw away the cached bounding-rect below. Same reasoning as
   // Room's own #37 cursor-broadcast effect.
   const stateRef = useRef({
-    tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke, tiltResponse,
+    tool, presetName, baseSize, vp, config, markerAngleRadians, markerAnchor, tiltResponse,
   })
   stateRef.current = {
-    tool, presetName, baseSize, vp, config, markerAngleRadians, markerFollowStroke, tiltResponse,
+    tool, presetName, baseSize, vp, config, markerAngleRadians, markerAnchor, tiltResponse,
   }
 
   useEffect(() => {
@@ -148,7 +149,7 @@ export function BrushCursor({
       if (!circle) return
       const {
         tool: curTool, presetName: curPreset, baseSize: curBaseSize, vp: curVp, config: curConfig,
-        markerAngleRadians: curMarkerAngle, markerFollowStroke: curMarkerFollow,
+        markerAngleRadians: curMarkerAngle, markerAnchor: curMarkerAnchor,
         tiltResponse: curTiltResponse,
       } = stateRef.current
 
@@ -156,7 +157,7 @@ export function BrushCursor({
       const { x, y } = clientToRoomPoint(clientX, clientY, rect, curVp, curConfig)
       const { size, aspectRatio, angle } = previewDabShape(
         curTool, curPreset, curBaseSize, pressure, tiltX, tiltY, 0,
-        { angle: curMarkerAngle, followStrokeDirection: curMarkerFollow },
+        { angle: curMarkerAngle, anchor: curMarkerAnchor },
         curTiltResponse,
         // #482: the cursor is drawn inside an element that already carries the
         // viewport transform, so its angle is world-space — same conversion the

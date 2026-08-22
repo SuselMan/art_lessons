@@ -16,7 +16,9 @@ import {
   type CharcoalFeelConfig,
 } from './src/charcoalFeel'
 import { DabSystem } from './src/DabSystem'
-import { shapingForTool } from './src/dabShaping'
+import {
+  DEFAULT_NIB_ANCHOR, NIB_ANCHORS, isNibAnchor, shapingForTool, type NibAnchor,
+} from './src/dabShaping'
 import { tipFootprint } from './src/tipFootprint'
 import { dabDepositScale, isFootprintSpacedTool } from './src/dabSpacing'
 import {
@@ -88,6 +90,11 @@ export {
 export { CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig }
 export { PENCIL_TILT, PENCIL_TILT_SLIDERS, type PencilTiltConfig }
 export { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, type SmudgeGrainConfig }
+// #482, ADR 012 §3 — the frame a nib's angle is measured in. The UI needs the
+// option list, the default and the guard for the same reasons it needs the tilt
+// responses' below: what the frames *are* belongs to the engine, how they are
+// labelled and offered belongs to the UI.
+export { NIB_ANCHORS, DEFAULT_NIB_ANCHOR, isNibAnchor, type NibAnchor }
 // #409: the UI needs the option list and its default to build the setting, the
 // guard to validate a stored value, and the curve itself to draw each option's
 // own graph in the picker. Deliberately the raw function rather than a
@@ -602,7 +609,7 @@ export interface PencilEngineAPI {
   // angle (ADR 004's original fixed-angle behavior, just configurable);
   // true: angleRadians is an offset added to the stroke's own path-tangent
   // angle. Has no effect on the bullet nib (round, angle-independent).
-  setMarkerAngle(angleRadians: number, followStrokeDirection: boolean): void
+  setMarkerAngle(angleRadians: number, anchor: NibAnchor): void
   /** #409: which of the three tilt→shape ramp shapes the next stroke uses —
    *  a user setting, per tool, resolved by the caller before it gets here
    *  (the engine holds one active response, not a table keyed by tool, for
@@ -2197,7 +2204,7 @@ export class PencilEngine implements PencilEngineAPI {
   // setShaping's own doc comment: a profile change partway through an
   // in-progress _buf isn't supported).
   private _markerAngleRadians = Math.PI / 4 // ADR 004 §1 "~45°" default, matches markerPresets.ts's own fallback
-  private _markerFollowStroke = false
+  private _markerAnchor: NibAnchor = DEFAULT_NIB_ANCHOR
 
   // #409: the active tool's tilt→shape ramp shape, a user setting. Read at the
   // same two shapingForTool call sites _markerAngleRadians is, and for the same
@@ -2906,9 +2913,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._washId = null
   }
 
-  setMarkerAngle(angleRadians: number, followStrokeDirection: boolean): void {
+  setMarkerAngle(angleRadians: number, anchor: NibAnchor): void {
     this._markerAngleRadians = angleRadians
-    this._markerFollowStroke = followStrokeDirection
+    this._markerAnchor = anchor
   }
 
   /** See PencilEngineAPI's doc comment. Next stroke only, same as the marker
@@ -5095,7 +5102,7 @@ export class PencilEngine implements PencilEngineAPI {
     // preset the *previous* stroke left in _strokePreset.
     this._dabs.setShaping(shapingForTool(
       this._strokeTool, this._opts.pencilType,
-      { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
+      { angle: this._markerAngleRadians, anchor: this._markerAnchor },
       this._tiltResponse,
     ))
     // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are

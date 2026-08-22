@@ -42,7 +42,6 @@ const SOUND_VOLUME_STORAGE_KEY = 'al_sound_volume'
 const MINIMAL_UI_STORAGE_KEY = 'al_minimal_ui'
 const MINIMAL_UI_TAP_STORAGE_KEY = 'al_minimal_ui_tap'
 const FLOATING_PANEL_STORAGE_KEY = 'al_floating_panel'
-const LOCK_BRUSH_ANGLE_STORAGE_KEY = 'al_lock_brush_angle'
 const THEME_STORAGE_KEY = 'al_theme'
 const PRESSURE_CALIBRATION_STORAGE_KEY = 'al_pressure_calibration'
 
@@ -240,8 +239,6 @@ export interface SettingsStore {
   setFloatingPanel: (mode: FloatingPanelMode) => void
   /** (#278) Whether the marker's chisel angle is a canvas-space value that
    *  rotates with the canvas, or stays visually fixed on screen. */
-  lockBrushAngleToCanvas: boolean
-  setLockBrushAngleToCanvas: (enabled: boolean) => void
   /** (#475) How this device's stylus reports pressure, and how that report is
    *  shaped before any tool sees it. `IDENTITY_PRESSURE_CALIBRATION` means
    *  uncalibrated — the pre-#475 behaviour, and what every new device starts
@@ -316,11 +313,6 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
   setFloatingPanel: mode => {
     localStorage.setItem(FLOATING_PANEL_STORAGE_KEY, mode)
     set({ floatingPanel: mode })
-  },
-  lockBrushAngleToCanvas: readStoredBoolean(LOCK_BRUSH_ANGLE_STORAGE_KEY, false),
-  setLockBrushAngleToCanvas: enabled => {
-    localStorage.setItem(LOCK_BRUSH_ANGLE_STORAGE_KEY, String(enabled))
-    set({ lockBrushAngleToCanvas: enabled })
   },
   pressureCalibration: initialPressureCalibration(),
   setPressureCalibration: calibration => {

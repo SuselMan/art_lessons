@@ -268,6 +268,60 @@ export function tiltOrPathAngle(
   return tiltMag > 15 ? tiltAzimuthRad(tiltX, tiltY) - cameraAngle : pathAngle
 }
 
+// ─── Nib anchor (#482, ADR 012 §3) ──────────────────────────────────────────
+//
+// A nib's angle is only meaningful relative to *something*, and until #482 the
+// engine never said what. Four frames are possible, theta is the viewport's own
+// rotation and phi the direction of travel on screen:
+//
+//   canvas  nib_world = offset                 pinned to the paper. Turn the
+//                                              canvas and the nib turns with it,
+//                                              so the grip you found moves.
+//   screen  nib_world = offset - theta         pinned to the screen. Assumes the
+//                                              person sits square to it — an
+//                                              assumption, not a measurement.
+//   stroke  nib_world = pathAngle + offset     pinned to the travel direction.
+//                                              Invariant to canvas rotation on
+//                                              its own (theta cancels), and it
+//                                              *switches calligraphy off*: width
+//                                              stops depending on direction,
+//                                              which is the whole effect.
+//   barrel  nib_world = azimuth - theta + off  pinned to the pen's own body —
+//                                              the only physically true one.
+//                                              Degenerate near vertical, where
+//                                              the azimuth is atan2 of two
+//                                              near-zeroes, so it always needs a
+//                                              fallback.
+//
+// Four, not five: `stroke` already cancels theta, so there is no "stroke, but
+// screen-relative" — adding theta back would only break it.
+export const NIB_ANCHORS = ['canvas', 'screen', 'stroke', 'barrel'] as const
+export type NibAnchor = (typeof NIB_ANCHORS)[number]
+
+/** ADR 004's original behaviour, and still what a chisel marker starts on. */
+export const DEFAULT_NIB_ANCHOR: NibAnchor = 'canvas'
+
+export function isNibAnchor(v: string): v is NibAnchor {
+  return (NIB_ANCHORS as readonly string[]).includes(v)
+}
+
+/**
+ * `offset` radians in the named frame. The tools that never had an angle
+ * setting are not on this: they ride `tiltOrPathAngle`, which is exactly
+ * `barrel` with a zero offset and a `stroke` fallback, and giving them a
+ * selector would be a control for something nobody asked to choose (ADR 012
+ * §11 leaves that open deliberately).
+ */
+export function anchoredAngleShaping(offset: number, anchor: NibAnchor): DabShapingProfile['angle'] {
+  if (anchor === 'canvas') return () => offset
+  if (anchor === 'screen') return (_m, _x, _y, _p, cameraAngle) => offset - cameraAngle
+  if (anchor === 'stroke') return (_m, _x, _y, pathAngle) => pathAngle + offset
+  // barrel: the shared tilt-or-path rule, offset by the user's own angle. Its
+  // 15deg threshold is the fallback this frame cannot do without.
+  return (tiltMag, tiltX, tiltY, pathAngle, cameraAngle) =>
+    tiltOrPathAngle(tiltMag, tiltX, tiltY, pathAngle, cameraAngle) + offset
+}
+
 // Graphite (#240's carried-over original formulas, replaced in #389). The
 // pressure→width part is untouched — 0.3..1.0 of base size is graphite's
 // several-fold swing and nothing about tilt argues with it — but it is now

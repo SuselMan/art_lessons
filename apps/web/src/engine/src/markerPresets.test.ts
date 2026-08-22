@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import { anchoredAngleShaping, type NibAnchor } from './dabShaping'
+import { tiltAzimuthRad, tiltMagnitudeDeg } from './tiltMath'
+
 import { LINER_DAB_SHAPING } from './dabShaping'
 import {
   MARKER_BULLET_DAB_SHAPING, chiselDabShaping,
@@ -7,7 +10,7 @@ import {
 } from './markerPresets'
 
 const FIXED_ANGLE = Math.PI / 4 // arbitrary fixture angle — not the old hardcoded ADR 004 default, just a test value
-const MARKER_CHISEL_DAB_SHAPING = chiselDabShaping(FIXED_ANGLE, false)
+const MARKER_CHISEL_DAB_SHAPING = chiselDabShaping(FIXED_ANGLE, 'canvas')
 
 describe('markerNibFromPreset (#251, ADR 004 §1)', () => {
   it('parses the nib token out of the "${nib}:${size}" preset string #252 sends', () => {
@@ -98,14 +101,14 @@ describe('MARKER_CHISEL_DAB_SHAPING (#251, ADR 004 §1: fixed aspect + fixed ang
 // falls back to pathAngle when tilt is small, just always path-relative.
 describe('chiselDabShaping followStrokeDirection (#278)', () => {
   it('adds the configured angle as an offset to the path-tangent angle when true', () => {
-    const following = chiselDabShaping(FIXED_ANGLE, true)
+    const following = chiselDabShaping(FIXED_ANGLE, 'stroke')
     expect(following.angle(0, 0, 0, 0, 0)).toBeCloseTo(FIXED_ANGLE)
     expect(following.angle(90, -90, -90, Math.PI, 0)).toBeCloseTo(Math.PI + FIXED_ANGLE)
     expect(following.angle(50, 30, 40, -1.2, 0)).toBeCloseTo(-1.2 + FIXED_ANGLE)
   })
 
   it('still ignores tilt entirely even in follow mode — only pathAngle and the offset matter', () => {
-    const following = chiselDabShaping(FIXED_ANGLE, true)
+    const following = chiselDabShaping(FIXED_ANGLE, 'stroke')
     expect(following.angle(90, -90, -90, 0.5, 0)).toBeCloseTo(following.angle(0, 0, 0, 0.5, 0))
   })
 })
@@ -113,7 +116,7 @@ describe('chiselDabShaping followStrokeDirection (#278)', () => {
 describe('shapingForMarkerPreset (#251, #278)', () => {
   it('dispatches bullet/chisel by the parsed nib token', () => {
     expect(shapingForMarkerPreset('bullet:0.3')).toBe(MARKER_BULLET_DAB_SHAPING)
-    const chisel = shapingForMarkerPreset('chisel:0.5', { angle: FIXED_ANGLE, followStrokeDirection: false })
+    const chisel = shapingForMarkerPreset('chisel:0.5', { angle: FIXED_ANGLE, anchor: 'canvas' })
     expect(chisel.angle(0, 0, 0, 0, 0)).toBeCloseTo(FIXED_ANGLE)
     expect(chisel.aspect(0)).toBeCloseTo(MARKER_CHISEL_DAB_SHAPING.aspect(0))
   })
@@ -126,5 +129,64 @@ describe('shapingForMarkerPreset (#251, #278)', () => {
   it('falls back to the ADR 004 default (~45°, absolute) when chisel is dispatched with no angle config', () => {
     const chisel = shapingForMarkerPreset('chisel:0.5')
     expect(chisel.angle(90, -90, -90, Math.PI, 0)).toBeCloseTo(Math.PI / 4)
+  })
+})
+
+// ── #482, ADR 012 §3: the nib's frame of reference, named ───────────────────
+//
+// Replaces two controls that between them spelled three of these four frames
+// without naming any: this tool's `followStrokeDirection` boolean (canvas when
+// off, stroke when on) and a *global* app setting that switched the same nib
+// between canvas and screen by pre-subtracting the viewport rotation up in the
+// React layer. `barrel` — the angle a real marker actually holds, fixed to its
+// own body — could not be expressed at all.
+describe('nib anchor (#482)', () => {
+  const OFF = Math.PI / 4          // the user's own angle setting
+  const THETA = Math.PI / 6        // canvas rotated 30 degrees
+  const PATH = 1.1                 // direction of travel, world radians
+  // A 30/40 grip: leaning enough to clear the barrel frame's 15 degree
+  // trust threshold.
+  const TILT_X = 30, TILT_Y = 40
+  const azimuth = tiltAzimuthRad(TILT_X, TILT_Y)
+
+  const at = (anchor: NibAnchor, cameraAngle: number, tiltX = TILT_X, tiltY = TILT_Y) =>
+    anchoredAngleShaping(OFF, anchor)(tiltMagnitudeDeg(tiltX, tiltY), tiltX, tiltY, PATH, cameraAngle)
+
+  it('canvas: pinned to the paper, so rotating the canvas turns the nib with it', () => {
+    expect(at('canvas', 0)).toBeCloseTo(OFF)
+    expect(at('canvas', THETA)).toBeCloseTo(OFF)
+    // Same world angle at both camera angles means a different *screen* angle:
+    // that is exactly the "the grip I found moved" complaint.
+    expect(at('canvas', THETA) + THETA).not.toBeCloseTo(at('canvas', 0))
+  })
+
+  it('screen: pinned to the screen, so the mark looks the same however the canvas is turned', () => {
+    expect(at('screen', 0)).toBeCloseTo(OFF)
+    expect(at('screen', THETA) + THETA).toBeCloseTo(at('screen', 0))
+  })
+
+  it('stroke: pinned to travel — cancels the camera by itself, and switches calligraphy off', () => {
+    expect(at('stroke', 0)).toBeCloseTo(PATH + OFF)
+    // pathAngle is already world-space, so theta does not appear at all. This
+    // is why there is no fifth "stroke, but screen-relative" frame.
+    expect(at('stroke', THETA)).toBeCloseTo(at('stroke', 0))
+    // And the mark's angle now follows the direction of travel, which means its
+    // width stops depending on direction — the effect a chisel exists for.
+    const other = anchoredAngleShaping(OFF, 'stroke')(90, TILT_X, TILT_Y, PATH + 1, 0)
+    expect(other - at('stroke', 0)).toBeCloseTo(1)
+  })
+
+  it('barrel: pinned to the pen body — independent of both the canvas and the direction of travel', () => {
+    expect(at('barrel', 0)).toBeCloseTo(azimuth + OFF)
+    expect(at('barrel', THETA) + THETA).toBeCloseTo(at('barrel', 0))
+    // Travel direction does not enter while the pen is leaning.
+    const other = anchoredAngleShaping(OFF, 'barrel')(tiltMagnitudeDeg(TILT_X, TILT_Y), TILT_X, TILT_Y, PATH + 1, 0)
+    expect(other).toBeCloseTo(at('barrel', 0))
+  })
+
+  it('barrel falls back to the stroke below the tilt threshold, where the azimuth is noise', () => {
+    // A near-upright pen's azimuth is atan2 of two near-zeroes. The 15 degree
+    // threshold is not a tuning knob here, it is what makes this frame usable.
+    expect(at('barrel', 0, 2, 2)).toBeCloseTo(PATH + OFF)
   })
 })
