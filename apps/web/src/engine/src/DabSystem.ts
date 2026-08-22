@@ -173,10 +173,14 @@ export class DabSystem {
    */
   curvatureTolerancePx: number | null = null
   /**
-   * #478 — the renderer's own size multiplier for the tool being drawn
-   * (`preset.sizeMultiplier`, 1 for a tool that paints Dab.size at face
-   * value), or null to keep the pre-#478 rule of spacing off the nominal brush
-   * size alone.
+   * #478 — how this tool's dab is actually drawn, or null to keep the pre-#478
+   * rule of spacing off the nominal brush size alone.
+   *
+   * `sizeScale` is the renderer's own size multiplier (`preset.sizeMultiplier`,
+   * 1 for a tool that paints Dab.size at face value); `hardness` is the edge
+   * softness the fragment shader will use for it. Both are needed because the
+   * step tracks the *mark*: how wide it is, and — since #483 — whether its
+   * edge is hard enough for a gap in it to show at all.
    *
    * Set once per stroke by the engine, from the same place it sets
    * `curvatureTolerancePx` and calls `setShaping` — it is a property of the
@@ -188,7 +192,7 @@ export class DabSystem {
    * Only ever *tightens* the step (footprintDabSpacing takes a min against the
    * nominal rule), so switching it on cannot make any existing mark sparser.
    */
-  footprintSizeScale: number | null = null
+  footprint: { sizeScale: number; hardness: number } | null = null
   /**
    * #482, ADR 012 §3 — the viewport's own rotation, radians, kept current by
    * the engine (both `setViewport` and `setInfiniteCamera` assign it).
@@ -199,7 +203,7 @@ export class DabSystem {
    * reading tilt has to convert, and this is what it converts with. See
    * dabShaping.ts's tiltOrPathAngle.
    *
-   * Live rather than per-stroke (unlike `footprintSizeScale` above): the canvas
+   * Live rather than per-stroke (unlike `footprint` above): the canvas
    * can be rotated with the pen still down, and the compensation has to track
    * the frame the device is actually reporting against, not the one that
    * happened to be current at touchdown.
@@ -479,7 +483,7 @@ export class DabSystem {
   forkForPreview(): DabSystem {
     const fork = new DabSystem({ spacingFactor: this.spacingFactor, shaping: this._shaping })
     fork.curvatureTolerancePx = this.curvatureTolerancePx
-    fork.footprintSizeScale = this.footprintSizeScale
+    fork.footprint = this.footprint
     fork.cameraAngle = this.cameraAngle
     fork._buf = this._buf.map(p => ({ ...p }))
     fork._remainder = this._remainder
@@ -782,9 +786,11 @@ export class DabSystem {
    *  nominal brush size is the wrong thing to space off, and which tools want
    *  this and which are already normalized some other way. */
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
-    const scale = this.footprintSizeScale
-    if (scale === null) return maxSpacing
-    return Math.min(maxSpacing, footprintDabSpacing(dab.size, scale, baseSize, this.spacingFactor))
+    const fp = this.footprint
+    if (fp === null) return maxSpacing
+    return Math.min(maxSpacing, footprintDabSpacing(
+      { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale: fp.sizeScale, hardness: fp.hardness },
+      baseSize, this.spacingFactor))
   }
 
   /**

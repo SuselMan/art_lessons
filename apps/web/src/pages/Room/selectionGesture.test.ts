@@ -83,6 +83,17 @@ describe('selectionFromPoints', () => {
   it('rejects fewer than three vertices', () => {
     expect(selectionFromPoints([0, 0, 10, 10])).toBeNull()
   })
+
+  it('accepts the sliver a pen tap wobbles out — which is why the tap guard is not here (#484)', () => {
+    // Deliberately passing. Four square layer pixels is a region, and nothing
+    // in this function can tell it from a small selection someone drew on
+    // purpose zoomed all the way in; raising the area test until it could
+    // would start eating real ones. What separates a tap from a tiny drag is
+    // how far the hand travelled *on screen*, which only the gesture knows —
+    // see handleSelectionDown's ClickTracker, which clears the selection on a
+    // press that never left the click slop instead of replacing it with this.
+    expect(selectionFromPoints(rectangleFromDrag(10, 10, 12, 12).points)).not.toBeNull()
+  })
 })
 
 describe('rectangleFromDrag', () => {
