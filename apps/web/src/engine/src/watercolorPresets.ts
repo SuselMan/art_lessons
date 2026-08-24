@@ -3,7 +3,7 @@ import { clamp } from 'lodash-es'
 
 import { gain, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, type PressureResponse } from './brushPenPresets'
 import { anchoredAngleShaping, tiltOrPathAngle, DEFAULT_NIB_ANCHOR,
-  type DabShapingProfile, type HeadTaperProfile } from './dabShaping'
+  type DabShapingProfile, type HeadTaperProfile, type TipBendProfile } from './dabShaping'
 // Type-only, so it is erased and cannot join the import cycle this file's
 // header warns about. The config is not marker-specific any more (#489).
 import type { NibAngleConfig } from './markerPresets'
@@ -202,6 +202,71 @@ function watercolorFlatThickness(pressure: number, response: PressureResponse): 
     + (WATERCOLOR_FLAT_THICKNESS_CEIL - WATERCOLOR_FLAT_THICKNESS_FLOOR) * gain(p, WATERCOLOR_RESPONSE_K[response])
 }
 
+// ─── The flexible round (#489) ──────────────────────────────────────────────
+//
+// The brush pen's nib, wet. Not a copy of its numbers: every one of them moves
+// the same way and for one reason, which is that a loaded sable is heavier and
+// more compliant than a synthetic tip built to spring back. So it bends
+// further, it takes longer to come round, and it drags its load further behind
+// the hand. Stating the direction is the point — the magnitudes are a first
+// pass like everything else here, and if they are wrong they should be wrong
+// consistently rather than each having drifted on its own.
+//
+// Everything else is the round nib unchanged: same width response, same tilt
+// ovality, same head taper. This *is* the round brush — bending is what a round
+// brush does when you drag it, and #472 built that as a profile field precisely
+// so a second tool could take it without taking the first tool's ink model.
+
+/** Elongation at full pressure, against the pen's 0.85. */
+const WATERCOLOR_FLEX_ELONGATION = 1.05
+/** Distance the nib takes to come round, in its own widths — the pen's 1.5. A
+ *  brush's fibres are longer relative to their width and carry water, and the
+ *  lag is of the order of that length. */
+const WATERCOLOR_FLEX_LAG_WIDTHS = 2.2
+/** Floor under that, world px. Above the pen's 6 for the same reason the ratio
+ *  is above its 1.5. */
+const WATERCOLOR_FLEX_MIN_LAG_PX = 8
+/** Trail at full speed and full bend, in nib widths. Well under the lag
+ *  distance, and it has to be: the trail eases in over that distance, so a
+ *  deeper one would grow faster than the dabs advance and hand the ribbon two
+ *  consecutive dabs reversed along the path. 0.30 against 2.2 is nowhere near
+ *  it — the same margin the pen keeps at 0.18 against 1.5. */
+const WATERCOLOR_FLEX_TRAIL_WIDTHS = 0.30
+/** A loaded brush starts to lag the hand sooner than a pen nib does (0.5/2.5):
+ *  it is the water that lags, and there is more of it. */
+const WATERCOLOR_FLEX_SPEED_SLOW = 0.35
+const WATERCOLOR_FLEX_SPEED_FAST = 2.0
+
+function watercolorFlexTipBend(response: PressureResponse): TipBendProfile {
+  return {
+    // The same curve as the width and with the same k, for the reason the pen
+    // gives at length: one deformation is happening, and width and length are
+    // two views of it, so a brush described as "firm" should be as reluctant to
+    // lengthen as it is to widen.
+    elongation: pressure =>
+      1 + WATERCOLOR_FLEX_ELONGATION * gain(Math.max(pressure, WATERCOLOR_MIN_PRESSURE), WATERCOLOR_RESPONSE_K[response]),
+    lagWidths: WATERCOLOR_FLEX_LAG_WIDTHS,
+    minLagPx: WATERCOLOR_FLEX_MIN_LAG_PX,
+    trailWidths: speed => WATERCOLOR_FLEX_TRAIL_WIDTHS
+      * clamp01((speed - WATERCOLOR_FLEX_SPEED_SLOW) / (WATERCOLOR_FLEX_SPEED_FAST - WATERCOLOR_FLEX_SPEED_SLOW)),
+  }
+}
+
+function watercolorFlexShaping(response: PressureResponse): DabShapingProfile {
+  // Built from watercolorShapingFor rather than by spreading the round table:
+  // both tables are evaluated at module load, and this one is above it, so
+  // reading it here is a temporal dead zone — the same trap this file's own
+  // header warns about for the import cycle, in local form. The factory is a
+  // function declaration and is hoisted, so it is safe at any point.
+  return { ...watercolorShapingFor(response), tipBend: watercolorFlexTipBend(response) }
+}
+
+const WATERCOLOR_FLEX_BY_RESPONSE: Record<PressureResponse, DabShapingProfile> = {
+  soft:   watercolorFlexShaping('soft'),
+  normal: watercolorFlexShaping('normal'),
+  firm:   watercolorFlexShaping('firm'),
+}
+
 /** ADR 004 §1's ~45deg, the same default the marker's chisel falls back to —
  *  one shape, one resting angle. */
 const WATERCOLOR_NIB_ANGLE_DEFAULT: NibAngleConfig = {
@@ -257,6 +322,7 @@ export function shapingForWatercolorPreset(
   const response = watercolorResponseFromPreset(presetName)
   const nib = watercolorNibFromPreset(presetName)
   if (nib === 'chisel') return watercolorChiselShaping(response, nibAngle ?? WATERCOLOR_NIB_ANGLE_DEFAULT)
+  if (nib === 'flex') return WATERCOLOR_FLEX_BY_RESPONSE[response]
   return WATERCOLOR_SHAPING_BY_RESPONSE[response]
 }
 

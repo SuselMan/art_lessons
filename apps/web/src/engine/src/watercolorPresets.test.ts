@@ -8,8 +8,9 @@
 // index.watercolor.test.ts's own header). Those need a real browser.
 import { describe, expect, it } from 'vitest'
 
-import { BRUSH_PEN_HEAD_TAPER, BRUSH_PEN_PRESSURE_SMOOTHING_PX } from './brushPenPresets'
+import { BRUSH_PEN_HEAD_TAPER, BRUSH_PEN_PRESSURE_SMOOTHING_PX, shapingForBrushPenPreset } from './brushPenPresets'
 import { createTipState, tipFootprint } from './tipFootprint'
+import type { DabShapingProfile } from './dabShaping'
 
 import type { Dab } from '@grafetto/shared'
 
@@ -605,5 +606,76 @@ describe('watercolor nib rides the preset string (#489)', () => {
       expect(after.size(p, 0)).toBeCloseTo(before.size(p, 0), 9)
       expect(after.aspect(0.5, p)).toBeCloseTo(before.aspect(0.5, p), 9)
     }
+  })
+})
+
+// ─── #489: the flexible round nib ───────────────────────────────────────────
+
+describe('watercolor flex nib (#489)', () => {
+  const flexPreset = watercolorPresetString('normal', WATERCOLOR_MIX_DEFAULT, undefined, 'flex')
+
+  it('is the round nib plus a bend, not a separate brush', () => {
+    const flex = shapingForWatercolorPreset(flexPreset)
+    const round = shapingForWatercolorPreset('normal')
+    expect(flex.tipBend).toBeDefined()
+    expect(round.tipBend).toBeUndefined()
+    // Width response, tilt ovality and head taper are the round brush's own.
+    for (const p of [0.1, 0.5, 1]) expect(flex.size(p, 0)).toBeCloseTo(round.size(p, 0), 9)
+    expect(flex.aspect(0.8, 0.5)).toBeCloseTo(round.aspect(0.8, 0.5), 9)
+    expect(flex.headTaper).toBe(round.headTaper)
+  })
+
+  // Driven through tipFootprint rather than asserted on the profile: bending is
+  // stroke state, so "does it bend" is only answerable by dragging it.
+  const dragShaping = (shaping: DabShapingProfile, steps: number, dsPx: number, speed: number) => {
+    const state = createTipState()
+    let x = 0
+    let out = tipFootprint(shaping, {
+      x, y: 0, pressure: 0.8, tiltX: 0, tiltY: 0, baseSize: 30,
+      pathAngle: 0, ds: 0, speed, cameraAngle: 0,
+    }, state)
+    for (let i = 0; i < steps; i++) {
+      x += dsPx
+      out = tipFootprint(shaping, {
+        x, y: 0, pressure: 0.8, tiltX: 0, tiltY: 0, baseSize: 30,
+        pathAngle: 0, ds: dsPx, speed, cameraAngle: 0,
+      }, state)
+    }
+    return { footprint: out, x }
+  }
+  const drag = (presetName: string, steps: number, dsPx: number, speed: number) =>
+    dragShaping(shapingForWatercolorPreset(presetName), steps, dsPx, speed)
+
+  it('starts round and elongates as it is dragged', () => {
+    const first = drag(flexPreset, 0, 0, 1)
+    const dragged = drag(flexPreset, 30, 4, 1)
+    // Touchdown: nothing has dragged it yet, so it is the round brush's own
+    // shape — which is what makes the hover cursor and the first dab agree.
+    expect(first.footprint.aspectRatio).toBeCloseTo(1, 6)
+    expect(dragged.footprint.aspectRatio).toBeGreaterThan(1.5)
+  })
+
+  it('bends further than the pen it borrows the mechanism from', () => {
+    // The claim is relative, so it is measured relatively — against the brush
+    // pen itself, dragged identically. The absolute number is a first pass and
+    // will move; that a loaded sable is more compliant than a nib built to
+    // spring back should not.
+    const wet = dragShaping(shapingForWatercolorPreset(flexPreset), 40, 4, 1).footprint.aspectRatio
+    const pen = dragShaping(shapingForBrushPenPreset('normal'), 40, 4, 1).footprint.aspectRatio
+    expect(wet).toBeGreaterThan(pen)
+    // And the round nib does not bend at all, which is what makes this a
+    // property of the nib rather than of the tool.
+    expect(drag('normal', 40, 4, 1).footprint.aspectRatio).toBeCloseTo(1, 6)
+  })
+
+  it('drags its load behind the hand, and only at speed', () => {
+    const fast = drag(flexPreset, 40, 4, 3)
+    const slow = drag(flexPreset, 40, 4, 0.2)
+    // The contact patch sits behind the point on the path...
+    expect(fast.footprint.x).toBeLessThan(fast.x)
+    // ...by more when the hand is moving faster, and by nothing when it is
+    // barely moving: slow careful work should land under the brush.
+    expect(fast.x - fast.footprint.x).toBeGreaterThan(slow.x - slow.footprint.x)
+    expect(slow.x - slow.footprint.x).toBeCloseTo(0, 6)
   })
 })
