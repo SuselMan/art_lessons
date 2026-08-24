@@ -22,12 +22,12 @@ interface BrushCursorProps {
   vp: ViewportTransform
   config: { infinite: boolean } & CanvasSize
   /** #278: marker chisel-nib angle setting, already resolved to canvas-space
-   *  radians (same value fed to engine.setMarkerAngle — see Room's own
-   *  markerCanvasAngleRadians) — only marker's chisel dispatch actually
+   *  radians (same value fed to engine.setNibAngle — see Room's own
+   *  markerCanvasAngleRadians) — only a chisel nib's dispatch actually
    *  reads either of these two. */
-  markerAngleRadians?: number
+  nibAngleRadians?: number
   /** #482, ADR 012 §3 — which frame that angle is measured in. */
-  markerAnchor?: NibAnchor
+  nibAnchor?: NibAnchor
   /** #409: the active tool's tilt-response setting, the same value Room feeds
    *  engine.setTiltResponse — the outline is the only place the choice can be
    *  seen before a mark exists, so it has to be drawn under it too. */
@@ -93,7 +93,7 @@ const TILT_SMOOTHING = 0.2
  *  so touch gets its own pointerdown/pointerup pair gating visibility,
  *  instead of showing continuously the way mouse/pen hover does. */
 export function BrushCursor({
-  vpRef, tool, presetName, baseSize, vp, config, markerAngleRadians = 0, markerAnchor = DEFAULT_NIB_ANCHOR,
+  vpRef, tool, presetName, baseSize, vp, config, nibAngleRadians = 0, nibAnchor = DEFAULT_NIB_ANCHOR,
   tiltResponse,
 }: BrushCursorProps) {
   const layerRef = useRef<HTMLDivElement>(null)
@@ -119,10 +119,10 @@ export function BrushCursor({
   // also throw away the cached bounding-rect below. Same reasoning as
   // Room's own #37 cursor-broadcast effect.
   const stateRef = useRef({
-    tool, presetName, baseSize, vp, config, markerAngleRadians, markerAnchor, tiltResponse,
+    tool, presetName, baseSize, vp, config, nibAngleRadians, nibAnchor, tiltResponse,
   })
   stateRef.current = {
-    tool, presetName, baseSize, vp, config, markerAngleRadians, markerAnchor, tiltResponse,
+    tool, presetName, baseSize, vp, config, nibAngleRadians, nibAnchor, tiltResponse,
   }
 
   useEffect(() => {
@@ -198,7 +198,7 @@ export function BrushCursor({
       if (!circle) return
       const {
         tool: curTool, presetName: curPreset, baseSize: curBaseSize, vp: curVp, config: curConfig,
-        markerAngleRadians: curMarkerAngle, markerAnchor: curMarkerAnchor,
+        nibAngleRadians: curMarkerAngle, nibAnchor: curMarkerAnchor,
         tiltResponse: curTiltResponse,
       } = stateRef.current
 

@@ -30,7 +30,7 @@ import { tiltMagnitudeDeg } from './src/tiltMath'
 import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
 } from './src/tiltCurve'
-import type { MarkerAngleConfig } from './src/markerPresets'
+import type { NibAngleConfig } from './src/markerPresets'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 // (#475) The calibration model itself is not engine code — it is pure input
@@ -130,7 +130,7 @@ export { PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brus
 export function previewDabShape(
   tool: ToolType, presetName: string | undefined,
   baseSize: number, pressure: number, tiltX: number, tiltY: number, pathAngle = 0,
-  markerAngle?: MarkerAngleConfig,
+  nibAngle?: NibAngleConfig,
   // #409: the same response the engine has been given, so the hover outline
   // keeps matching the mark — the cursor is how the setting is *seen* before
   // anything is drawn with it, so a preview left on the default would quietly
@@ -150,7 +150,7 @@ export function previewDabShape(
   // round. That is also why this agrees with the first dab of a real stroke,
   // which starts from a freshly-zeroed tip state.
   const { size, aspectRatio, angle } = tipFootprint(
-    shapingForTool(tool, presetName, markerAngle, tiltResponse),
+    shapingForTool(tool, presetName, nibAngle, tiltResponse),
     { x: 0, y: 0, pressure, tiltX, tiltY, baseSize, pathAngle, ds: 0, speed: 0, cameraAngle },
     null,
   )
@@ -608,16 +608,21 @@ export interface PencilEngineAPI {
   setOpacity(v: number): void
   setSize(px: number): void
   setColor(rgb: [number, number, number]): void
-  // #278: marker chisel nib's angle setting — angleRadians is always
-  // canvas-space (the caller is responsible for resolving the "lock to
-  // canvas" checkbox and the local viewport's own rotation into this one
-  // number, same "engine only ever sees canvas-space" boundary
-  // setViewport/PointerInput already keep for pointer coordinates).
-  // `anchor` names the frame angleRadians is read in (see dabShaping.ts's
+  // #278/#489: the angle setting of whichever nib the active tool is wearing.
+  // angleRadians is always canvas-space (the caller resolves the local
+  // viewport's own rotation into this one number, same "engine only ever sees
+  // canvas-space" boundary setViewport/PointerInput already keep for pointer
+  // coordinates), and `anchor` names the frame it is read in (dabShaping.ts's
   // NIB_ANCHORS) — `canvas` being ADR 004's original fixed-angle behaviour,
-  // just configurable. Has no effect on the bullet nib (round,
-  // angle-independent).
-  setMarkerAngle(angleRadians: number, anchor: NibAnchor): void
+  // just configurable.
+  //
+  // One value rather than a table keyed by tool, matching setTiltResponse's own
+  // boundary: the caller pushes whichever tool is selected. The engine has no
+  // business knowing that the marker and the watercolor brush each remember
+  // their own angle — that is a fact about the settings panel.
+  //
+  // A no-op for every round nib, which has no angle to speak of.
+  setNibAngle(angleRadians: number, anchor: NibAnchor): void
   /** #409: which of the three tilt→shape ramp shapes the next stroke uses —
    *  a user setting, per tool, resolved by the caller before it gets here
    *  (the engine holds one active response, not a table keyed by tool, for
@@ -2215,20 +2220,20 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokeDabs: Dab[]
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
-  // #278: marker chisel nib's live angle setting — canvas-space radians
-  // (the caller, Room/index.tsx, resolves the "lock to canvas" checkbox and
-  // the local viewport's own rotation into this single canvas-space number
-  // before calling setMarkerAngle; the engine itself never needs to know
-  // about either). Read at both shapingForTool call sites (_onStart and
+  // #278/#489: the active tool's live nib angle — canvas-space radians (the
+  // caller, Room/index.tsx, resolves the local viewport's own rotation into
+  // this single canvas-space number before calling setNibAngle; the engine
+  // itself never needs to know about it). Read at both shapingForTool call
+  // sites (_onStart and
   // _paintDwellDab) so a live change takes effect on the *next* stroke, same
   // as every other setXxx tool option — never mid-stroke (DabSystem.
   // setShaping's own doc comment: a profile change partway through an
   // in-progress _buf isn't supported).
-  private _markerAngleRadians = Math.PI / 4 // ADR 004 §1 "~45°" default, matches markerPresets.ts's own fallback
-  private _markerAnchor: NibAnchor = DEFAULT_NIB_ANCHOR
+  private _nibAngleRadians = Math.PI / 4 // ADR 004 §1 "~45°" default, matches markerPresets.ts's own fallback
+  private _nibAnchor: NibAnchor = DEFAULT_NIB_ANCHOR
 
   // #409: the active tool's tilt→shape ramp shape, a user setting. Read at the
-  // same two shapingForTool call sites _markerAngleRadians is, and for the same
+  // same two shapingForTool call sites _nibAngleRadians is, and for the same
   // reason: a profile swap partway through an in-progress stroke isn't
   // supported (DabSystem.setShaping), so a live change lands on the next
   // stroke. One value rather than one per tool — the caller pushes whichever
@@ -2965,7 +2970,7 @@ export class PencilEngine implements PencilEngineAPI {
   setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
 
   /** See PencilEngineAPI's doc comment. Only the *next* stroke picks this
-   *  up (same "never mid-stroke" rule as _markerAngleRadians' own field
+   *  up (same "never mid-stroke" rule as _nibAngleRadians' own field
    *  comment) — no need to touch the in-progress DabSystem shaping here. */
   /** (#468 v7) Ends the wash in progress, if any. A wash is "several bands of
    *  the same paint on the same layer, laid before the last one dried" — so
@@ -2977,9 +2982,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._washId = null
   }
 
-  setMarkerAngle(angleRadians: number, anchor: NibAnchor): void {
-    this._markerAngleRadians = angleRadians
-    this._markerAnchor = anchor
+  setNibAngle(angleRadians: number, anchor: NibAnchor): void {
+    this._nibAngleRadians = angleRadians
+    this._nibAnchor = anchor
   }
 
   /** See PencilEngineAPI's doc comment. Next stroke only, same as the marker
@@ -5207,7 +5212,7 @@ export class PencilEngine implements PencilEngineAPI {
     // preset the *previous* stroke left in _strokePreset.
     this._dabs.setShaping(shapingForTool(
       this._strokeTool, this._opts.pencilType,
-      { angle: this._markerAngleRadians, anchor: this._markerAnchor },
+      { angle: this._nibAngleRadians, anchor: this._nibAnchor },
       this._tiltResponse,
     ))
     // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are

@@ -70,12 +70,12 @@ const MARKER_CHISEL_ASPECT_RATIO = 5 // uncalibrated first pass, ADR 004 §1 ran
 // #278: angle used to be a hardcoded ~45° constant here (ADR 004 §1: "Угол
 // пера — часть конфигурации инструмента... не что-то, что подстраивается под
 // направление штриха само"). It's now a user setting (toolSchemas.ts's
-// marker.angle, chisel-only) fed in as MarkerAngleConfig — this is only the
+// marker.angle, chisel-only) fed in as NibAngleConfig — this is only the
 // fallback for a caller that never passes one (shouldn't happen once
 // engine/index.ts is wired, kept only so shapingForMarkerPreset stays total).
 const MARKER_CHISEL_ANGLE_RADIANS_DEFAULT = Math.PI / 4 // ADR 004 §1 "~45°"
 
-export interface MarkerAngleConfig {
+export interface NibAngleConfig {
   /** Radians, read in the frame `anchor` names. */
   angle: number
   /** #482, ADR 012 §3 — what the angle is measured against. This replaced a
@@ -130,7 +130,7 @@ export function markerNibFromPreset(presetName: string | undefined): MarkerNib {
 }
 
 /** dabShaping.ts's shapingForTool dispatches here for tool === 'marker'. */
-export function shapingForMarkerPreset(presetName: string | undefined, angleConfig?: MarkerAngleConfig): DabShapingProfile {
+export function shapingForMarkerPreset(presetName: string | undefined, angleConfig?: NibAngleConfig): DabShapingProfile {
   if (markerNibFromPreset(presetName) !== 'chisel') return MARKER_BULLET_DAB_SHAPING
   return chiselDabShaping(
     angleConfig?.angle ?? MARKER_CHISEL_ANGLE_RADIANS_DEFAULT,

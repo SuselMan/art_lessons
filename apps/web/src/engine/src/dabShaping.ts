@@ -3,7 +3,7 @@ import { clamp } from 'lodash-es'
 
 import { shapingForBrushPenPreset } from './brushPenPresets'
 import { shapingForWatercolorPreset } from './watercolorPresets'
-import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
+import { shapingForMarkerPreset, type NibAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
 import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
 import { DEFAULT_TILT_RESPONSE, type TiltResponse } from './tiltCurve'
@@ -489,11 +489,11 @@ export function offsetAngleShaping(angleRadians: number): DabShapingProfile['ang
 // so offering the setting for them would be a control that provably does
 // nothing — the same reason marker's angle is hidden for the bullet nib (#278).
 export function shapingForTool(
-  tool: ToolType, presetName?: string, markerAngle?: MarkerAngleConfig,
+  tool: ToolType, presetName?: string, nibAngle?: NibAngleConfig,
   tiltResponse: TiltResponse = DEFAULT_TILT_RESPONSE,
 ): DabShapingProfile {
   if (tool === 'liner') return LINER_DAB_SHAPING
-  if (tool === 'marker') return shapingForMarkerPreset(presetName, markerAngle)
+  if (tool === 'marker') return shapingForMarkerPreset(presetName, nibAngle)
   // #454: like marker, the brush pen dispatches on presetName — but it carries
   // the pressure response there rather than a nib, since the tool has no nib
   // list and no size ladder to spend that slot on (brushPenPresets.ts's own

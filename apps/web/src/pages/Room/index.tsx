@@ -2277,11 +2277,11 @@ export function Room() {
   // say. It can now: `screen` is one subtraction inside the shaping function,
   // where the camera angle already is.
   const markerAngleDeg = toolSettings.marker.angle as number
-  const markerAnchor = toolSettings.marker.anchor as NibAnchor
+  const nibAnchor = toolSettings.marker.anchor as NibAnchor
   const markerCanvasAngleRadians = (markerAngleDeg * Math.PI) / 180
   useEffect(() => {
-    engineRef.current?.setMarkerAngle(markerCanvasAngleRadians, markerAnchor)
-  }, [markerCanvasAngleRadians, markerAnchor])
+    engineRef.current?.setNibAngle(markerCanvasAngleRadians, nibAnchor)
+  }, [markerCanvasAngleRadians, nibAnchor])
   // #409: the tilt-response setting of whichever tool is in hand. The engine
   // holds one active response rather than a table (see setTiltResponse), so the
   // lookup is here — and it goes through `isTiltResponse` rather than a cast:
@@ -5808,8 +5808,8 @@ export function Room() {
                 baseSize={sizePx}
                 vp={vp}
                 config={config}
-                markerAngleRadians={markerCanvasAngleRadians}
-                markerAnchor={markerAnchor}
+                nibAngleRadians={markerCanvasAngleRadians}
+                nibAnchor={nibAnchor}
                 tiltResponse={tiltResponse}
               />
             )}
@@ -5885,8 +5885,8 @@ export function Room() {
                   baseSize={sizePx}
                   vp={vp}
                   config={config}
-                  markerAngleRadians={markerCanvasAngleRadians}
-                  markerAnchor={markerAnchor}
+                  nibAngleRadians={markerCanvasAngleRadians}
+                  nibAnchor={nibAnchor}
                   tiltResponse={tiltResponse}
                 />
               )}
