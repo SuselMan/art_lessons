@@ -842,6 +842,36 @@ export function getResidentRoomStats(): { total: number; idle: number; operation
   return { total: rooms.size, idle, operations }
 }
 
+/** (#480) Сколько операций пришлось бы проиграть заново тому, кто входит в
+ *  комнату прямо сейчас — то есть чего снапшоты ещё не покрывают.
+ *
+ *  Это ровно тот же фильтр, которым `getRoomSnapshot` собирает `tailOperations`
+ *  для входящего с чистого листа, и намеренно он же, а не своя мерка: покрытие
+ *  здесь величина по слоям (см. `coveredSeqByLayer`), и всякая попытка свернуть
+ *  её в одно room-wide число — это механизм потери содержимого из #369.
+ *  Сторожу (`snapshotLagWatch.ts`) нужна цена перезахода, и она тут не
+ *  приближение, а она сама.
+ *
+ *  `undefined` для нерезидентной комнаты — спрашивать про неё нечего. */
+export function getRoomBacklog(roomId: string): {
+  roomId: string; participants: number; latestSeq: number; uncoveredOps: number
+} | undefined {
+  const record = rooms.get(roomId)
+  if (!record) return undefined
+  let uncoveredOps = 0
+  for (const op of record.operations) {
+    if (!isCoveredBySnapshot(record.coveredSeqByLayer, op, record.layerStateSeq, record.layerStateIds)) {
+      uncoveredOps += 1
+    }
+  }
+  return {
+    roomId,
+    participants: record.participants.size,
+    latestSeq: record.nextSeq - 1,
+    uncoveredOps,
+  }
+}
+
 /** (#415) Отпускает все резидентные комнаты, в которых никого нет, и
  *  возвращает число тех, что ушли **сразу**.
  *

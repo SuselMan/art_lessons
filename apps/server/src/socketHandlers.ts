@@ -1,16 +1,19 @@
 import type { Server, DefaultEventsMap } from 'socket.io'
 import type { FastifyBaseLogger } from 'fastify'
 import type { ClientToServerEvents, Operation, ServerToClientEvents } from '@grafetto/shared'
-import { isRoomAccessMode } from '@grafetto/shared'
+import { isRoomAccessMode, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 
 import {
   addPaletteColor, createRoom, ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getOperationRejectReason,
-  getParticipant, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, recordOperation,
+  getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, recordOperation,
   releaseRoomIfUnused, removePaletteColor, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 import { checkJoinAccess } from './roomAccess.js'
 import { resolveSocketIdentity } from './identity.js'
 import { pressureOf, readMemory } from './memory.js'
+import { describeClient } from './clientDescription.js'
+import { createSnapshotLagWatch } from './snapshotLagWatch.js'
+import { reportIssue } from './instrument.js'
 
 /** Per-connection state. `userId` is resolved once, in the `io.use()`
  *  middleware below, from the same identity cookie (#41) that HTTP routes
@@ -109,6 +112,24 @@ export async function removeUserFromRoom(io: AppServer, roomId: string, userId: 
 }
 
 export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): void {
+  // (#480) Один на процесс, как и io: состояние в нём — «о чём по этой
+  // комнате уже отчитались», и оно должно переживать отдельное соединение.
+  const lagWatch = createSnapshotLagWatch()
+
+  /** (#480) Растёт ли в комнате хвост, не покрытый снапшотами. Вызывается на
+   *  границе выпечки, а не по таймеру: во-первых, здесь вообще нет
+   *  периодических задач (`evictIdleRooms` тоже висит на событии), во-вторых,
+   *  ровно в этот момент число и могло перевалить порог. Сто операций между
+   *  проверками — это единицы раз в минуту на идущем уроке. */
+  const checkSnapshotLag = (roomId: string) => {
+    const backlog = getRoomBacklog(roomId)
+    if (!backlog) return
+    const lagging = lagWatch.observe(backlog)
+    if (!lagging) return
+    log.warn(lagging, 'snapshot backlog growing — nobody is baking for this room')
+    reportIssue('snapshot backlog growing', lagging)
+  }
+
   // Runs once per connection, before 'connection' fires, so every handler
   // below can assume socket.data.userId is already set. Reads the same
   // cookie identityHook/authRoutes use (see resolveSocketIdentity's doc
@@ -121,7 +142,14 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
   })
 
   io.on('connection', (socket) => {
-    log.info({ socketId: socket.id, userId: socket.data.userId }, 'socket connected')
+    // (#480) Устройство здесь же, рядом с userId — см. clientDescription.ts:
+    // до этого связать одно с другим можно было только склейкой с nginx по
+    // времени хендшейка.
+    const client = describeClient(socket.handshake.headers['user-agent'])
+    log.info(
+      { socketId: socket.id, userId: socket.data.userId, ...client, transport: socket.conn.transport.name },
+      'socket connected',
+    )
 
     // (#227) Before any handler runs: this connection is reachable by who it
     // belongs to, not only by which room it later joins. Everything
@@ -350,6 +378,9 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         const stamped = recordOperation(roomId, op)
         ack?.({ ok: true, seq: stamped.seq! })
         io.to(roomId).emit('operation_confirmed', { seq: stamped.seq!, operation: stamped })
+        // (#480) После рассылки, а не до: проверка — наблюдение за комнатой, и
+        // задерживать ею доставку операции незачем.
+        if (stamped.seq! % SNAPSHOT_SEQ_INTERVAL === 0) checkSnapshotLag(roomId)
       } catch (err) {
         log.error(
           { socketId: socket.id, roomId, userId, opId: op.id, opType: op.type, err },
@@ -472,8 +503,18 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // the user is still very much present via that newer socket.
         const actuallyLeft = leaveRoom(roomId, userId, socket.id)
         if (actuallyLeft) socket.to(roomId).emit('peer_left', userId)
+        // (#480) Только если комната действительно ушла из памяти. Забывать
+        // на каждом разрыве нельзя: урок 21.08 состоял из десяти
+        // переподключений, и дедуп сторожа сбрасывался бы каждым из них,
+        // превращая одно наблюдение в десять писем.
+        if (!isRoomResident(roomId)) lagWatch.forget(roomId)
       }
-      log.info({ socketId: socket.id, reason }, 'socket disconnected')
+      // (#480) Транспорт именно на разрыве: на подключении он всегда
+      // `polling` (апгрейд до вебсокета идёт следом), и только здесь видно,
+      // на чём соединение прожило свою жизнь. Сессия, целиком просидевшая на
+      // polling, — это заметно другой урок по отзывчивости, и до сих пор
+      // отличить её можно было только по ритму запросов в nginx.
+      log.info({ socketId: socket.id, reason, transport: socket.conn.transport.name }, 'socket disconnected')
     })
   })
 }

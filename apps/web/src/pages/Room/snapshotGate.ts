@@ -69,7 +69,13 @@ export interface SnapshotGate {
   observe(input: BakeObservation): BakePlan | null
 }
 
-export function createSnapshotGate(): SnapshotGate {
+/** `report` — куда уходит замеченное нарушение (#480). Параметром, а не
+ *  импортом: этот модуль чистый и проверяется без браузера и без Sentry, а
+ *  единственный его вызывающий — Room — и так знает, кому докладывать.
+ *  Умолчание молчит, потому что в тестах докладывать некому. */
+export function createSnapshotGate(
+  report: (name: string, context: Record<string, number>) => void = () => {},
+): SnapshotGate {
   let restoreDone = false
   let committedWatermark = 0
   let warnedStale = false
@@ -111,7 +117,7 @@ export function createSnapshotGate(): SnapshotGate {
       }
       if (stale && !warnedStale) {
         warnedStale = true
-        console.warn('[snapshot] stale pending commit seq below the baked watermark — ignoring')
+        report('stale pending commit seq below baked watermark', { committedWatermark, latestKnownSeq })
       }
       const watermark = minPending === null ? latestKnownSeq : minPending - 1
       if (watermark <= committedWatermark) return null

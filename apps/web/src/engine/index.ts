@@ -217,6 +217,11 @@ export interface PencilEngineOptions {
   // ('remote') and re-sync derived state at that point, not on arrival, so
   // the log/layer-thumbnail state matches what's actually visible on screen.
   onPreviewApplied?: (op: StrokeOperation) => void
+  // (#480) Движок заметил, что его собственный инвариант не держится. Опцией,
+  // а не импортом отчёта: engine/ не знает ни про Sentry, ни про комнату, и
+  // единственное, чем он может помочь, — сказать наружу, что именно он
+  // отказался делать и сколько раз подряд.
+  onInvariant?: (name: string, context: Record<string, string | number>) => void
   // (#429) Fires while the pen is still down, carrying the dabs painted since
   // the last time it fired — the sending half of the live stroke channel. The
   // caller puts these on the wire; peers hand them straight to
@@ -1128,6 +1133,12 @@ export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.1
 // replay tail. Interval/budget are starting points to be tuned by measurement (#76).
 const CHECKPOINT_INTERVAL = 20
 const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
+/** (#480) Сколько отказов _takeCheckpoint подряд по одному слою считаем не
+ *  штатным «перо ещё внизу», а залипанием. Двадцать границ чекпойнта — это
+ *  четыреста пиксельных операций по слою, за которые ни один момент не
+ *  оказался чистым; на живом уроке столько не набирает даже непрерывная
+ *  штриховка вдвоём. */
+const CHECKPOINT_REFUSAL_ALARM = 20
 
 // A single StrokeOperation's JSON size is unbounded in principle — a long
 // fill/scribble held down for a while can reach thousands of dabs, and a
@@ -1611,6 +1622,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
   private _onPreviewApplied?: (op: StrokeOperation) => void
+  private _onInvariant?: (name: string, context: Record<string, string | number>) => void
+  // (#480) Подряд идущие отказы _takeCheckpoint по слою. Единичный отказ —
+  // норма и вся суть защиты из #479: перо опущено, чекпойнт подождёт границы.
+  // А вот слой, который не удаётся зачекпойнтить десятки раз кряду, означает,
+  // что что-то держит его «грязным» постоянно — и тогда он остаётся без
+  // чекпойнта совсем, то есть каждый undo по нему проигрывает всю историю.
+  private _checkpointRefusals = new Map<string, number>()
   // (#429) Sending half of the live stroke channel. Dabs painted since the
   // last packet went out, plus when that was and how many packets this gesture
   // has sent — all three reset at pen-down.
@@ -2307,6 +2325,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._userId = options.userId ?? 'local'
     this._onLocalOperation = options.onLocalOperation
     this._onPreviewApplied = options.onPreviewApplied
+    this._onInvariant = options.onInvariant
     this._onLiveStrokeDabs = options.onLiveStrokeDabs
     this._onLiveStrokeEnd = options.onLiveStrokeEnd
     this._debug = options.debug ?? false
@@ -4459,7 +4478,18 @@ export class PencilEngine implements PencilEngineAPI {
     // a tone shift rather than an artifact, it compounds across a session, and
     // since idle timing and stream arrival differ per client, two people in one
     // room drift apart while each stays internally consistent.
-    if (this._hasUnrecordedInk(layerId)) return
+    if (this._hasUnrecordedInk(layerId)) {
+      const refusals = (this._checkpointRefusals.get(layerId) ?? 0) + 1
+      this._checkpointRefusals.set(layerId, refusals)
+      // Порог, а не каждый отказ: отказы — штатный режим, новостью является
+      // только их непрерывность. Ровно на пороге, а не после него, иначе одна
+      // залипшая ситуация давала бы отчёт на каждой границе чекпойнта.
+      if (refusals === CHECKPOINT_REFUSAL_ALARM) {
+        this._onInvariant?.('layer never checkpointed — unrecorded ink persists', { layerId, refusals })
+      }
+      return
+    }
+    this._checkpointRefusals.delete(layerId)
     const buf = this._layers.get(layerId)
     if (!buf) return
     const ops = this._log.layerPixelOps(layerId)
