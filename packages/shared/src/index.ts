@@ -1225,13 +1225,45 @@ export type RejectReason =
   // alive set (deleted or consumed by a merge) — see rooms.ts's aliveIds.
   | 'target_gone'
   // (#298) This socket has not completed create_room/join_room, so the
-  // server has no room to record against. Unlike every other reason here it
-  // is *transient* — the client simply sent too early — so the client
-  // retries rather than discarding the operation. It exists at all because
-  // the server used to `return` with no ack in this case, which is
-  // indistinguishable from a dropped packet: the sender waited out its
-  // timeout and retried forever. See socketHandlers.ts's 'operation' handler.
+  // server has no room to record against. Transient — the client simply sent
+  // too early — so the client retries rather than discarding the operation
+  // (see TRANSIENT_REJECT_REASONS). It exists at all because the server used
+  // to `return` with no ack in this case, which is indistinguishable from a
+  // dropped packet: the sender waited out its timeout and retried forever.
+  // See socketHandlers.ts's 'operation' handler.
   | 'not_joined'
+  // (#495) The server threw while recording or relaying this operation and
+  // caught it. Not a verdict on the operation — nobody decided anything, the
+  // attempt simply did not complete — so this is transient and the work is
+  // kept.
+  //
+  // It exists for the same reason `not_joined` does: that catch used to log
+  // and return without acking, which the sender cannot tell from a lost
+  // packet. Worse than the wasted round trips was what it hid — the one
+  // handler on the hot path deliberately wrapped in try/catch (#164, so a
+  // single bad packet cannot take the process down with it) was also the one
+  // place a server-side failure could happen with nothing visible anywhere
+  // but a log line. See socketHandlers.ts's 'operation' handler.
+  | 'server_error'
+
+/** (#495) The reasons that are not verdicts on the operation.
+ *
+ *  Every other `RejectReason` is the server having decided something about
+ *  this operation — frozen, locked, closed, target gone — and deciding it
+ *  again would give the same answer, so the sender drops the work. These two
+ *  decided nothing: the attempt did not complete. Retrying is the only
+ *  correct response, and discarding a stroke over one would be losing a
+ *  user's drawing to a condition that had nothing to do with it.
+ *
+ *  Lives in the contract rather than in the sender because it *is* the
+ *  contract: whether a rejection is final is a property of the reason, and
+ *  the alternative — a client-side list of special cases — is how the next
+ *  transient reason gets silently treated as final. See Outbox.runAttempt. */
+export const TRANSIENT_REJECT_REASONS = ['not_joined', 'server_error'] as const
+
+export function isTransientReject(reason: RejectReason): boolean {
+  return (TRANSIENT_REJECT_REASONS as readonly RejectReason[]).includes(reason)
+}
 
 export type ServerToClientEvents = {
   // `latestSnapshotSeq` is null until anyone has stored a snapshot for this

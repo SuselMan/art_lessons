@@ -52,3 +52,18 @@ export function reportIssue(message: string, context: Record<string, unknown>): 
     extra: context,
   })
 }
+
+/** (#495) Исключение, которое мы поймали и не дали упасть процессу.
+ *
+ *  Парное к `reportIssue` и отличается от него ровно тем, чем `error`
+ *  отличается от `warning`: здесь есть стек и есть отказ. Нужно потому, что
+ *  докладывать за сервер умеет только `setupSentryErrorHandler` (это 5xx у
+ *  Fastify) и process-level интеграции SDK (это падения) — а обработчик,
+ *  который поймал своё исключение сам, не производит ни того ни другого и
+ *  виден только в логе на VPS.
+ *
+ *  Так же, как в `reportIssue`: `sentry` — динамический импорт, без DSN всё
+ *  это no-op. */
+export function reportException(err: unknown, context: Record<string, unknown>): void {
+  sentry?.captureException(err, { extra: context })
+}

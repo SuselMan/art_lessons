@@ -1,3 +1,4 @@
+import { isTransientReject } from '@grafetto/shared'
 import type { Operation, SendResult } from '@grafetto/shared'
 import type { OutboxEntry, OutboxStorage } from './outboxStorage'
 
@@ -66,7 +67,9 @@ export interface OutboxDeps {
  *  see outboxStorage.ts) — an operation only ever leaves the queue once it
  *  gets an actual `SendResult`, `ok` or `rejected`; a rejection is final and
  *  is never retried (see SendResult's own doc comment in packages/shared),
- *  only a timeout/network failure is.
+ *  only a timeout/network failure is — and the transient rejections, which
+ *  are neither (#298, #495: see TRANSIENT_REJECT_REASONS, and runAttempt for
+ *  where they rejoin the retry path).
  *
  *  One instance serves one room, in memory and in storage alike (#358) — see
  *  OutboxDeps.roomId.
@@ -279,12 +282,16 @@ export class Outbox {
         // roomId and goes out again — deduped by id — when that room is next
         // opened.
         if (this.disposed) return
-        // (#298) `not_joined` is the one rejection that isn't a verdict on
-        // the operation — the socket simply hadn't joined a room yet, which
-        // the canSend gate should already prevent. Treat it exactly like a
-        // timeout: back off and try again, rather than discarding work over
-        // a race the user had no part in.
-        if (!result.ok && result.reason === 'not_joined') throw new Error('not_joined')
+        // (#298, #495) Some rejections aren't verdicts on the operation —
+        // the socket hadn't joined yet, or the server threw while recording.
+        // Treat those exactly like a timeout: back off and try again, rather
+        // than discarding work over a failure the user had no part in.
+        //
+        // (#495) The list is the contract's, not ours: which rejections are
+        // final is a property of the reason, and keeping the judgement here
+        // is how the next transient reason gets silently treated as final and
+        // costs somebody a stroke.
+        if (!result.ok && isTransientReject(result.reason)) throw new Error(result.reason)
         this.pending.delete(opId)
         this.onPendingChange?.(this.pending.size, this.stalled.size)
         try {
