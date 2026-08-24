@@ -746,6 +746,16 @@
    halos on both sides is the compositing-safe way to stay legible over
    both blank paper and dark graphite, and it composites like any other
    plain layer. */
+/* (#470 fallout) No `overflow: hidden`. This layer is `100%` of
+   `.worldOverlayWrap`, and that wrapper used to shrink-wrap the sheet — so
+   clipping to it meant "clip to the paper", which cost nothing. Since #470 the
+   wrapper fills the *viewport* and is then scaled into world space, so its box
+   is a viewport-sized rectangle measured in canvas pixels: on an A3 page at fit
+   zoom that is a ~520x280 patch of screen sitting off the top-right corner of
+   the sheet, and the ring was clipped away everywhere else — which is to say
+   over almost the whole page. Nothing needs clipping here anyway: `.viewport`
+   already clips to the window, and a footprint preview that reaches past the
+   sheet edge is describing exactly where the pointer is. */
 .brushCursorLayer {
   position: absolute;
   top: 0;
@@ -753,23 +763,40 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  overflow: hidden;
 }
 
 /* border-box so the ring's outer edge lands exactly on the dab footprint
    BrushCursor writes into width/height — with the default content-box the
-   border would inflate the previewed size by 2px at every zoom level. */
+   border would inflate the previewed size by 2px at every zoom level.
+
+   Every length here is in `--screen-px` (BrushCursor sets it to `1 / zoom`),
+   i.e. counter-scaled against the viewport transform this layer rides. The
+   footprint itself *should* ride that transform — it is a canvas-space shape,
+   that is the whole point of the preview — but the ring drawn around it is
+   chrome, and a literal `1px` here is a third of a device pixel at a bounded
+   room's fit zoom. That is what "the cursor is invisible on white paper" was:
+   over graphite the white core still had some contrast left to lose, over the
+   page only the dark halo could carry the outline and a 0.3px halo at 55%
+   carries nothing. */
 .brushCursorOutline {
   position: absolute;
   top: 0;
   left: 0;
   display: none;
   box-sizing: border-box;
+  /* Never let the outline collapse to nothing at a small brush (or, for a
+     chisel nib, on its short axis — that one is a fifth of the picked size).
+     On screen rather than on canvas, for the same reason as the ring width:
+     the old floor was 2 *canvas* px, which at fit zoom is under one device
+     pixel, i.e. no floor at all. Eight screen px is the smallest ring that
+     still reads as a ring once its own three-pixel band is drawn. */
+  min-width: calc(var(--screen-px, 1px) * 8);
+  min-height: calc(var(--screen-px, 1px) * 8);
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.95);
+  border: var(--screen-px, 1px) solid rgba(255, 255, 255, 0.95);
   box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.55),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.55);
+    0 0 0 var(--screen-px, 1px) rgba(0, 0, 0, 0.55),
+    inset 0 0 0 var(--screen-px, 1px) rgba(0, 0, 0, 0.55);
 }
 
 

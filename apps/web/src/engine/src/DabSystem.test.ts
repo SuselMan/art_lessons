@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
+import type { Dab } from '@grafetto/shared'
+
 import { DabSystem } from './DabSystem'
+import { scallopSpacingLimit } from './dabSpacing'
 import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
 import { MARKER_BULLET_DAB_SHAPING } from './markerPresets'
 import { DEFAULT_TILT_RESPONSE, TILT_RESPONSES } from './tiltCurve'
@@ -555,6 +558,102 @@ describe('DabSystem dab spacing and arc-length remainder carry-over', () => {
     for (let i = 1; i < dabs.length - 1; i++) {
       expect(Math.abs(dabs[i].x - dabs[i - 1].x - spacing)).toBeLessThan(spacing * 0.01)
     }
+  })
+})
+
+// #478 — a hard pencil on a large brush drew a chain of separate ellipses
+// rather than a stroke, and the reason was that the step above is a fraction
+// of the *nominal* brush size while the mark is `size * shaping.size(...) *
+// preset.sizeMultiplier` wide. See dabSpacing.ts for the measurements; these
+// tests hold the rule itself.
+describe('DabSystem footprint-proportional spacing (#478)', () => {
+  const baseSize = 100
+  const spacingFactor = 0.22
+  const straight = (dab: DabSystem, pressure: number, tiltX = 0) => {
+    const dabs: Dab[] = []
+    dabs.push(...dab.startStroke(0, 0, pressure, tiltX, 0, baseSize))
+    for (let x = 40; x <= 400; x += 40) dabs.push(...dab.continueStroke(x, 0, pressure, tiltX, 0, baseSize))
+    dabs.push(...dab.endStroke(baseSize))
+    return dabs
+  }
+  /** Median gap, so the stroke's own head/tail partials don't skew it. */
+  const medianGap = (dabs: Dab[]) => {
+    const gaps = dabs.slice(1).map((d, i) => d.x - dabs[i].x).sort((a, b) => a - b)
+    return gaps[gaps.length >> 1]
+  }
+
+  it('leaves spacing exactly as it was for a tool that has not opted in', () => {
+    const dabs = straight(new DabSystem({ spacingFactor }), 0.4)
+    expect(medianGap(dabs)).toBeCloseTo(baseSize * spacingFactor, 6)
+  })
+
+  it('closes the gap for a hard grade, whose mark is half the nominal width', () => {
+    // 6H's sizeMultiplier. Before this rule the step stayed at 22px while the
+    // dab's own short diameter was 100 * (0.3 + 0.7*0.4) * 0.5 = 29px — the
+    // 0.76-of-a-diameter step that reads as a row of stamps.
+    const sizeScale = 0.5
+    const dab = new DabSystem({ spacingFactor })
+    dab.footprint = { sizeScale, hardness: 0.95 }
+    const dabs = straight(dab, 0.4)
+
+    const d = dabs[3]
+    const diameter = d.size * sizeScale
+    expect(medianGap(dabs)).toBeLessThanOrEqual(diameter * spacingFactor + 1e-6)
+    expect(medianGap(dabs)).toBeLessThanOrEqual(
+      scallopSpacingLimit({ size: d.size, aspectRatio: d.aspectRatio, sizeScale, hardness: 0.95 }) + 1e-6)
+    expect(medianGap(dabs)).toBeLessThan(baseSize * spacingFactor)
+  })
+
+  it('never spaces a dab further apart than the old rule did', () => {
+    // The min against the nominal step, and the whole safety argument for
+    // switching this on: a soft grade whose footprint is *wider* than nominal
+    // keeps exactly the density it has today rather than getting sparser.
+    const dab = new DabSystem({ spacingFactor })
+    dab.footprint = { sizeScale: 1.6, hardness: 0.95 }
+    const dabs = straight(dab, 1)
+    expect(dabs[3].size * 1.6).toBeGreaterThan(baseSize)
+    expect(medianGap(dabs)).toBeCloseTo(baseSize * spacingFactor, 6)
+  })
+
+  it('tightens the step within a stroke as pressure drops, not only per stroke', () => {
+    // The footprint is per dab, so a stroke that eases off has to re-space as
+    // it goes — a per-stroke constant taken from the opening pressure would
+    // leave the tail of every fading stroke under-sampled, which is the same
+    // defect one level down.
+    const dab = new DabSystem({ spacingFactor })
+    dab.footprint = { sizeScale: 1, hardness: 0.95 }
+    const dabs: Dab[] = []
+    dabs.push(...dab.startStroke(0, 0, 1, 0, 0, baseSize))
+    for (let x = 40; x <= 200; x += 40) dabs.push(...dab.continueStroke(x, 0, 1, 0, 0, baseSize))
+    for (let x = 240; x <= 400; x += 40) dabs.push(...dab.continueStroke(x, 0, 0.05, 0, 0, baseSize))
+    dabs.push(...dab.endStroke(baseSize))
+
+    const firm = dabs.filter(d => d.x < 150)
+    const light = dabs.filter(d => d.x > 350)
+    expect(medianGap(light)).toBeLessThan(medianGap(firm) * 0.7)
+    // And both bounds still hold at both ends of the stroke: the step is a
+    // fraction of the dab's own diameter (#478) *and* within the scallop
+    // tolerance (#485). Which of the two binds depends on the brush size, so
+    // the contract is "under both", not "equal to either".
+    for (const part of [firm, light]) {
+      const d = part[2]
+      const fp = { size: d.size, aspectRatio: d.aspectRatio, sizeScale: 1, hardness: 0.95 }
+      expect(medianGap(part)).toBeLessThanOrEqual(d.size * spacingFactor + 1e-6)
+      expect(medianGap(part)).toBeLessThanOrEqual(scallopSpacingLimit(fp) + 1e-6)
+    }
+  })
+
+  it('carries the owed step across a segment boundary instead of restarting it', () => {
+    // The step belongs to the dab it follows, and that dab may have been
+    // emitted on a previous continueStroke. Restarting from the nominal step
+    // at each boundary would leave one over-long gap per pointer sample —
+    // exactly the artefact _remainder already exists to prevent, one level up.
+    const dab = new DabSystem({ spacingFactor })
+    dab.footprint = { sizeScale: 0.5, hardness: 0.95 }
+    const dabs = straight(dab, 0.4)
+    const gaps = dabs.slice(1, -1).map((d, i) => d.x - dabs[i].x)
+    const worst = Math.max(...gaps.map(g => Math.abs(g - medianGap(dabs))))
+    expect(worst).toBeLessThan(medianGap(dabs) * 0.02)
   })
 })
 

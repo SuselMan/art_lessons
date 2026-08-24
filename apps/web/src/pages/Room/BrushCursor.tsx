@@ -8,10 +8,6 @@ import { clientToRoomPoint } from './cameraMath'
 import type { ViewportTransform, CanvasSize } from './pointerTransform'
 import styles from './Room.module.css'
 
-// Never let the outline collapse to nothing at a 1px brush (or, for a chisel
-// nib, on its short axis — that one is a fifth of the picked size).
-const MIN_CURSOR_EXTENT_PX = 2
-
 interface BrushCursorProps {
   /** Same viewport container ref Room's own #37 cursor-broadcast effect
    *  listens on — pointermove there already covers hover, not just drawing. */
@@ -90,8 +86,21 @@ export function BrushCursor({
   vpRef, tool, presetName, baseSize, vp, config, markerAngleRadians = 0, markerFollowStroke = false,
   tiltResponse,
 }: BrushCursorProps) {
+  const layerRef = useRef<HTMLDivElement>(null)
   const circleRef = useRef<HTMLDivElement>(null)
   const touchActiveRef = useRef(false)
+
+  // One screen pixel, said in the world units this layer is drawn in — the
+  // unit `.brushCursorOutline` builds its whole ring out of. See that rule for
+  // why the ring must not ride the viewport transform the footprint does.
+  //
+  // Imperative like everything else here, but driven by `vp` rather than by a
+  // pointer event: zoom changes with the pointer standing still (wheel, pinch,
+  // the zoom keys, fit-to-screen), and useViewport already flushes `vp` to
+  // React once per frame, so this lands on the same frame the transform does.
+  useEffect(() => {
+    layerRef.current?.style.setProperty('--screen-px', `${1 / vp.zoom}px`)
+  }, [vp.zoom])
 
   // Read via a ref inside the listener rather than in the effect's own
   // dependency array — vp changes on every pan/zoom/rotate frame, and
@@ -152,9 +161,12 @@ export function BrushCursor({
       )
       // DAB_VERT scales the quad's local X axis by aspectRatio before rotating
       // by `angle` (shaders.ts), so the painted footprint's long axis is
-      // exactly `size * aspectRatio` and its short one is `size`.
-      const longAxis = Math.max(size * Math.max(aspectRatio, 1), MIN_CURSOR_EXTENT_PX)
-      const shortAxis = Math.max(size, MIN_CURSOR_EXTENT_PX)
+      // exactly `size * aspectRatio` and its short one is `size`. Written
+      // unclamped: the floor that keeps a tiny brush visible is a min-width/
+      // min-height in the stylesheet now, because it has to be a floor on
+      // *screen* size and only CSS sees the zoom on every frame.
+      const longAxis = size * Math.max(aspectRatio, 1)
+      const shortAxis = size
 
       circle.style.display = 'block'
       circle.style.width = `${longAxis}px`
@@ -201,7 +213,7 @@ export function BrushCursor({
   }, [vpRef])
 
   return (
-    <div className={styles.brushCursorLayer}>
+    <div ref={layerRef} className={styles.brushCursorLayer}>
       <div ref={circleRef} className={styles.brushCursorOutline} />
     </div>
   )
