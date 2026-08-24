@@ -519,7 +519,10 @@ export function shapingForTool(
   // #468 — same slot, same dispatch shape: a wet round brush whose contact
   // patch opens under pressure, with its own higher width floor and heavier
   // pressure smoothing (watercolorPresets.ts).
-  if (tool === 'watercolor') return shapingForWatercolorPreset(presetName)
+  // #489 — and the angle config goes with it now: the flat nib reads the same
+  // per-tool angle/anchor the marker's chisel does, because it is the same
+  // shape wearing the same setting.
+  if (tool === 'watercolor') return shapingForWatercolorPreset(presetName, nibAngle)
   // #304: charcoal's geometry is the same for all three types (vine/willow/
   // compressed differ in how the material *deposits*, not in the shape of the
   // stick's contact patch) — so it ignores presetName, same as liner does.

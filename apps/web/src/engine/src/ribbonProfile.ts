@@ -2,7 +2,7 @@ import type { ToolType } from '@grafetto/shared'
 
 import { markerNibFromPreset } from './markerPresets'
 import {
-  watercolorMixFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorMixFromPreset, watercolorNibFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorPigmentFromPreset,
 } from './watercolorPresets'
 import { watercolorPigmentByCode } from './watercolorPigments'
@@ -643,6 +643,11 @@ export const WATERCOLOR_SPREAD = {
  *  already builds a whole ribbon geometry buffer, and it buys the one thing a
  *  shared constant cannot: two strokes with different mixes, live in the same
  *  room at the same time, rendering correctly. */
+/** Softer than the marker chisel's 0.28: that number is a cut felt edge, and a
+ *  brush's corners are hair. Top of the range #330's expert suggested (0.20 to
+ *  0.35), uncalibrated like every other first-pass constant here. */
+const WATERCOLOR_FLAT_CORNER_FRACTION = 0.35
+
 function watercolorRibbon(presetName: string | undefined): RibbonProfile {
   const mix = watercolorMixFromPreset(presetName)
   const w = watercolorWaterEffects(mix.water)
@@ -651,9 +656,14 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
   // *which* paint, and they multiply: a lot of a smooth phthalo green still
   // grains far less than a little cobalt.
   const paint = watercolorPigmentByCode(watercolorPigmentFromPreset(presetName))
+  // #489: the nib's *body* in the ribbon, chosen separately from the geometry
+  // of its contact patch — one says what silhouette the sweep has, the other
+  // where the patch is and how big. A flat is a rounded box like the marker's
+  // chisel, but softer-cornered: felt is cut, hair is not.
+  const nib = watercolorNibFromPreset(presetName)
   return {
-    nibShape: 'ellipse',
-    cornerFraction: 0,
+    nibShape: nib === 'chisel' ? 'roundedBox' : 'ellipse',
+    cornerFraction: nib === 'chisel' ? WATERCOLOR_FLAT_CORNER_FRACTION : 0,
     aaPx: WATERCOLOR_EDGE_AA_PX,
     // Unlike the brush pen, this tool very much does have a per-pixel pigment
     // quantity — how much paint the brush left at each spot is what the wash's

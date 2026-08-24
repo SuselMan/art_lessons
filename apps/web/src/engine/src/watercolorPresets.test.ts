@@ -18,7 +18,7 @@ import {
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
   DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
   watercolorPigmentLoad, watercolorWaterEffects, watercolorPigmentEffects,
-  watercolorTravelRadius, watercolorSpreadRadius,
+  watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
   WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling, watercolorPigmentFromPreset,
 } from './watercolorPresets'
@@ -525,5 +525,85 @@ describe('watercolorTravelRadius / watercolorSpreadRadius (#489)', () => {
     expect(s).toBeCloseTo(Math.sqrt(A * B), 9)
     expect(s).toBeGreaterThan(B)
     expect(s).toBeLessThan(A)
+  })
+})
+
+// ─── #489: the flat nib ─────────────────────────────────────────────────────
+
+describe('watercolor flat nib (#489)', () => {
+  const flat = (angle = 0) => shapingForWatercolorPreset(
+    watercolorPresetString('normal', WATERCOLOR_MIX_DEFAULT, undefined, 'chisel'),
+    { angle, anchor: 'canvas' },
+  )
+
+  it('keeps the broad edge at the nominal size whatever the pressure', () => {
+    // The rule #336 settled for the marker: the number in the toolbar is the
+    // width of the mark the flat side lays down. Here it has to hold across the
+    // whole pressure range, because pressure moves the proportions rather than
+    // the scale — which is the entire difference between a flat brush and a
+    // felt chisel.
+    const { size, aspect } = flat()
+    for (const p of [0.05, 0.2, 0.5, 0.8, 1]) {
+      expect(size(p, 0) * aspect(0, p)).toBeCloseTo(1, 9)
+    }
+  })
+
+  it('gets thicker and less elongated as it is pressed — never round', () => {
+    const { size, aspect } = flat()
+    const light = size(0.05, 0)
+    const heavy = size(1, 0)
+    expect(heavy).toBeGreaterThan(light * 2)
+    expect(aspect(0, 0.05)).toBeGreaterThan(aspect(0, 1))
+    // A flat that reaches 1:1 has stopped being a flat.
+    expect(aspect(0, 1)).toBeGreaterThan(1.5)
+  })
+
+  it('ignores tilt, unlike the round nib it shares a tool with', () => {
+    const { aspect } = flat()
+    expect(aspect(1, 0.5)).toBeCloseTo(aspect(0, 0.5), 9)
+    // And the round one does not, which is what makes this a difference in the
+    // nib rather than a difference in the tool.
+    const round = shapingForWatercolorPreset('normal')
+    expect(round.aspect(1, 0.5)).toBeGreaterThan(round.aspect(0, 0.5))
+  })
+
+  it('holds the angle it is given, in the frame it is given', () => {
+    const OFF = 0.7
+    const { angle } = flat(OFF)
+    // canvas anchor: neither tilt, nor travel, nor the camera turns it.
+    expect(angle(0, 0, 0, 0, 0)).toBeCloseTo(OFF, 9)
+    expect(angle(80, 60, 40, 2.1, 1.3)).toBeCloseTo(OFF, 9)
+  })
+})
+
+describe('watercolor nib rides the preset string (#489)', () => {
+  it('round-trips through the string', () => {
+    for (const nib of ['round', 'chisel', 'flex'] as const) {
+      const s = watercolorPresetString('firm', { water: 0.4, pigment: 0.6 }, 'PB29', nib)
+      expect(watercolorNibFromPreset(s)).toBe(nib)
+      // ...without disturbing the four fields that were already there.
+      expect(watercolorResponseFromPreset(s)).toBe('firm')
+      expect(watercolorMixFromPreset(s).water).toBeCloseTo(0.4, 6)
+      expect(watercolorPigmentFromPreset(s)).toBe('PB29')
+    }
+  })
+
+  it('every string recorded before #489 is a round brush, not a malformed one', () => {
+    expect(watercolorNibFromPreset('normal')).toBe('round')                    // v1
+    expect(watercolorNibFromPreset('normal:60:40')).toBe('round')              // v4
+    expect(watercolorNibFromPreset('normal:60:40:PB29')).toBe('round')         // v5
+    expect(watercolorNibFromPreset(undefined)).toBe('round')
+    expect(watercolorNibFromPreset('normal:60:40:PB29:nonsense')).toBe('round')
+  })
+
+  it('and an old string still shapes the round nib exactly as it did', () => {
+    const before = shapingForWatercolorPreset('normal:60:40:PB29')
+    const after = shapingForWatercolorPreset(
+      watercolorPresetString('normal', { water: 0.6, pigment: 0.4 }, 'PB29', 'round'),
+    )
+    for (const p of [0.1, 0.5, 1]) {
+      expect(after.size(p, 0)).toBeCloseTo(before.size(p, 0), 9)
+      expect(after.aspect(0.5, p)).toBeCloseTo(before.aspect(0.5, p), 9)
+    }
   })
 })

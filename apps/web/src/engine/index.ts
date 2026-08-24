@@ -109,7 +109,9 @@ export {
   WATERCOLOR_MIX_PRESETS, WATERCOLOR_MIX_BY_PRESET, WATERCOLOR_MIX_DEFAULT,
   watercolorPresetString, watercolorMixFromPreset, isWatercolorMixPreset,
   watercolorPigmentFromPreset,
-  type WatercolorMix, type WatercolorMixPreset,
+  // #489: the nib list, for the settings panel that offers it.
+  WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, isWatercolorNib, watercolorNibFromPreset,
+  type WatercolorMix, type WatercolorMixPreset, type WatercolorNib,
 } from './src/watercolorPresets'
 export {
   WATERCOLOR_PIGMENTS, WATERCOLOR_PIGMENT_CODES, WATERCOLOR_PIGMENT_SWATCHES,

@@ -2,7 +2,11 @@ import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { gain, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, type PressureResponse } from './brushPenPresets'
-import { tiltOrPathAngle, type DabShapingProfile, type HeadTaperProfile } from './dabShaping'
+import { anchoredAngleShaping, tiltOrPathAngle, DEFAULT_NIB_ANCHOR,
+  type DabShapingProfile, type HeadTaperProfile } from './dabShaping'
+// Type-only, so it is erased and cannot join the import cycle this file's
+// header warns about. The config is not marker-specific any more (#489).
+import type { NibAngleConfig } from './markerPresets'
 import type { PencilPreset } from './pencilPresets'
 import { DEFAULT_WATERCOLOR_PIGMENT, isWatercolorPigmentCode } from './watercolorPigments'
 
@@ -139,6 +143,87 @@ function watercolorShapingFor(response: PressureResponse): DabShapingProfile {
   }
 }
 
+// ─── Nibs (#489) ────────────────────────────────────────────────────────────
+//
+// Until now this tool had exactly one nib and spent no part of its preset
+// string on saying so. Three now, and the vocabulary is deliberately the same
+// word the marker uses for the same shape: after #482 a nib is a shape a tool
+// wears, not a property of the tool, and two names for one shape would put that
+// back.
+//
+//   round   the brush as it shipped — a soft round belly that opens under
+//           pressure. Still the default, and still what every stroke recorded
+//           before this parses as.
+//   chisel  a flat. A painter calls it that; the token stays `chisel` so the
+//           marker's flat side and this one are one word.
+//   flex    a pointed brush that bends and trails, the brush pen's nib wet.
+export const WATERCOLOR_NIBS = ['round', 'chisel', 'flex'] as const
+export type WatercolorNib = (typeof WATERCOLOR_NIBS)[number]
+export const DEFAULT_WATERCOLOR_NIB: WatercolorNib = 'round'
+
+export function isWatercolorNib(v: string): v is WatercolorNib {
+  return (WATERCOLOR_NIBS as readonly string[]).includes(v)
+}
+
+/** Fifth field of the preset string, absent from every stroke recorded before
+ *  #489 — which therefore replay as the round brush they were drawn with. */
+export function watercolorNibFromPreset(presetName: string | undefined): WatercolorNib {
+  const token = presetName?.split(':')[4]
+  return token && isWatercolorNib(token) ? token : DEFAULT_WATERCOLOR_NIB
+}
+
+// ─── The flat (#489) ────────────────────────────────────────────────────────
+//
+// A flat brush is not a wet marker chisel, and the difference is the one thing
+// worth getting right here. A felt chisel is a solid wedge: its footprint is a
+// fixed 5:1 and pressing it only scales the whole thing. A flat brush is a row
+// of hairs held in a ferrule — the ferrule sets the *width* and does not move,
+// while pressing splays the hairs and lengthens the patch along the handle. So
+// pressure drives its **proportions**, not its scale, which is why `aspect`
+// needed pressure at all (dabShaping.ts's own note).
+//
+// That falls out as: `size` is the thickness and `aspect` is exactly its
+// reciprocal, so the long axis stays at the nominal size whatever the pressure.
+// The number in the toolbar is therefore the broad edge — the width of the mark
+// the flat side lays down — which is both what a brush is sold by and the same
+// rule #336 settled for the marker's chisel.
+//
+// Held on edge a real flat lays a line thinner than this floor, but that is a
+// technique (turning the brush up on its corner), not a lighter touch — the
+// same distinction WATERCOLOR_WIDTH_FLOOR is drawn on for the round nib.
+const WATERCOLOR_FLAT_THICKNESS_FLOOR = 0.18
+/** Fully loaded and pressed. Still elongated: a flat that reaches 1:1 has
+ *  stopped being a flat. */
+const WATERCOLOR_FLAT_THICKNESS_CEIL = 0.55
+
+function watercolorFlatThickness(pressure: number, response: PressureResponse): number {
+  const p = Math.max(pressure, WATERCOLOR_MIN_PRESSURE)
+  return WATERCOLOR_FLAT_THICKNESS_FLOOR
+    + (WATERCOLOR_FLAT_THICKNESS_CEIL - WATERCOLOR_FLAT_THICKNESS_FLOOR) * gain(p, WATERCOLOR_RESPONSE_K[response])
+}
+
+/** ADR 004 §1's ~45deg, the same default the marker's chisel falls back to —
+ *  one shape, one resting angle. */
+const WATERCOLOR_NIB_ANGLE_DEFAULT: NibAngleConfig = {
+  angle: Math.PI / 4,
+  anchor: DEFAULT_NIB_ANCHOR,
+}
+
+function watercolorChiselShaping(response: PressureResponse, nibAngle: NibAngleConfig): DabShapingProfile {
+  return {
+    size:   pressure => watercolorFlatThickness(pressure, response),
+    // Tilt ignored outright, unlike the round nib's 1 + 0.40 * tiltNorm. Laying
+    // a round brush over genuinely broadens its footprint because the belly is
+    // what touches; a flat's footprint is a row of hairs in a ferrule, and
+    // leaning it rocks it onto a corner rather than widening it. Modelling that
+    // rocking is a real thing to do and is not this pass.
+    aspect: (_tiltNorm, pressure) => 1 / watercolorFlatThickness(pressure, response),
+    angle:  anchoredAngleShaping(nibAngle.angle, nibAngle.anchor),
+    pressureSmoothingPx: WATERCOLOR_PRESSURE_SMOOTHING_PX,
+    headTaper: WATERCOLOR_HEAD_TAPER,
+  }
+}
+
 const WATERCOLOR_SHAPING_BY_RESPONSE: Record<PressureResponse, DabShapingProfile> = {
   soft:   watercolorShapingFor('soft'),
   normal: watercolorShapingFor('normal'),
@@ -160,9 +245,19 @@ export function watercolorResponseFromPreset(presetName: string | undefined): Pr
   return token && isPressureResponse(token) ? token : DEFAULT_WATERCOLOR_RESPONSE
 }
 
-/** dabShaping.ts's shapingForTool dispatches here for tool === 'watercolor'. */
-export function shapingForWatercolorPreset(presetName: string | undefined): DabShapingProfile {
-  return WATERCOLOR_SHAPING_BY_RESPONSE[watercolorResponseFromPreset(presetName)]
+/** dabShaping.ts's shapingForTool dispatches here for tool === 'watercolor'.
+ *
+ *  Only the round nib comes out of the prebuilt table: the flat's angle is a
+ *  live per-stroke setting, so it is a factory for exactly the reason the
+ *  marker's chisel is one (markerPresets.ts's own note). Every other nib stays
+ *  a lookup that allocates nothing, which is what #309 cleared this path for. */
+export function shapingForWatercolorPreset(
+  presetName: string | undefined, nibAngle?: NibAngleConfig,
+): DabShapingProfile {
+  const response = watercolorResponseFromPreset(presetName)
+  const nib = watercolorNibFromPreset(presetName)
+  if (nib === 'chisel') return watercolorChiselShaping(response, nibAngle ?? WATERCOLOR_NIB_ANGLE_DEFAULT)
+  return WATERCOLOR_SHAPING_BY_RESPONSE[response]
 }
 
 // ─── Water and pigment (#468 v4, ADR 011 §4) ───────────────────────────────
@@ -474,10 +569,16 @@ export function watercolorWaterStep(segmentLengthPx: number, radiusPx: number): 
 
 // ─── Preset string (#468 v4) ────────────────────────────────────────────────
 //
-// The tool has no size ladder and no nib list, so the per-stroke `preset`
-// string — the same slot that carries a pencil grade or a marker nib — is free.
-// v1 spent it on the pressure response alone; v4 packs the mix into it too, as
-// `response:water:pigment` with the two levels as integer percents.
+// The tool started with no size ladder and no nib list, so the per-stroke
+// `preset` string — the same slot that carries a pencil grade or a marker nib —
+// was free. v1 spent it on the pressure response alone; v4 packed the mix into
+// it too, v5 added which paint, and #489 a nib after all:
+//
+//     response : water% : pigment% : pigmentCode : nib
+//
+// Each field was added on the end and each is absent from every stroke recorded
+// before it, so a short string is not a malformed one — it is an older stroke,
+// and it replays as what it was drawn with.
 //
 // Riding the existing string rather than adding Operation fields is deliberate
 // and matches what the marker already does with `${nib}:${size}`: #366 exists
@@ -490,9 +591,10 @@ export function watercolorWaterStep(segmentLengthPx: number, radiusPx: number): 
 
 export function watercolorPresetString(
   response: PressureResponse, mixLevels: WatercolorMix, pigmentCode = DEFAULT_WATERCOLOR_PIGMENT,
+  nib: WatercolorNib = DEFAULT_WATERCOLOR_NIB,
 ): string {
   const pct = (v: number): number => Math.round(clamp01(v) * 100)
-  return `${response}:${pct(mixLevels.water)}:${pct(mixLevels.pigment)}:${pigmentCode}`
+  return `${response}:${pct(mixLevels.water)}:${pct(mixLevels.pigment)}:${pigmentCode}:${nib}`
 }
 
 /** (#468 v5) Which paint the stroke was made with — the Colour Index code, the
