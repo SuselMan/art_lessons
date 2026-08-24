@@ -18,6 +18,7 @@ import {
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
   DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
   watercolorPigmentLoad, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorTravelRadius, watercolorSpreadRadius,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
   WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling, watercolorPigmentFromPreset,
 } from './watercolorPresets'
@@ -463,5 +464,62 @@ describe('pigment transport (#468 v11, ADR 011 §11)', () => {
     for (const tool of ['marker', 'brushPen'] as const) {
       expect(ribbonProfileFor(tool, undefined).migrate).toBe(0)
     }
+  })
+})
+
+// ─── #489: measuring a nib that is not round ────────────────────────────────
+
+describe('watercolorTravelRadius / watercolorSpreadRadius (#489)', () => {
+  const R = 7          // a round nib
+  const B = 3, A = 12  // a 4:1 flat, semi-axes
+
+  it('is exactly the radius for a round nib, whichever way it is dragged', () => {
+    for (const travel of [0, 0.4, Math.PI / 2, -2.1, 3.0, null]) {
+      expect(watercolorTravelRadius(R, R, 0.9, travel)).toBeCloseTo(R, 9)
+    }
+    expect(watercolorSpreadRadius(R, R)).toBeCloseTo(R, 9)
+  })
+
+  it('a flat brush drains four times faster broadside than edge-on', () => {
+    const NIB = 0.7                       // where the long axis points
+    const broadside = watercolorTravelRadius(A, B, NIB, NIB + Math.PI / 2)
+    const edgeOn    = watercolorTravelRadius(A, B, NIB, NIB)
+    // Broadside the nib is measured by its short axis, so `seg / radius` — the
+    // depletion clock — advances four times as fast.
+    expect(broadside).toBeCloseTo(B, 9)
+    expect(edgeOn).toBeCloseTo(A, 9)
+    expect(edgeOn / broadside).toBeCloseTo(A / B, 9)
+  })
+
+  it('and everything between the two is between the two axes', () => {
+    for (const psi of [0.2, 0.7, 1.1, 1.4]) {
+      const r = watercolorTravelRadius(A, B, 0, psi)
+      expect(r).toBeGreaterThan(B - 1e-9)
+      expect(r).toBeLessThan(A + 1e-9)
+    }
+  })
+
+  it('leaves the tone of a flat brush the same whichever way it is turned', () => {
+    // The property the formula was derived to have, and the reason it is not
+    // simply "use the short axis": the deposit is `seg / radius` spread across
+    // the band the nib lays, which is `2 * w_perp` wide. Per pixel that is
+    // `1 / (radius * w_perp)` — and if that is not direction-independent, a
+    // flat brush paints darker when turned, which no real one does.
+    const perPixel = (psi: number) => {
+      const r = watercolorTravelRadius(A, B, 0, psi)
+      const wPerp = 2 * Math.hypot(A * Math.sin(psi), B * Math.cos(psi))
+      return 1 / (r * wPerp)
+    }
+    const reference = perPixel(0)
+    for (const psi of [0.3, 0.9, Math.PI / 2, 2.4]) {
+      expect(perPixel(psi)).toBeCloseTo(reference, 9)
+    }
+  })
+
+  it('spread is isotropic — the circle with the same area, not either axis', () => {
+    const s = watercolorSpreadRadius(A, B)
+    expect(s).toBeCloseTo(Math.sqrt(A * B), 9)
+    expect(s).toBeGreaterThan(B)
+    expect(s).toBeLessThan(A)
   })
 })

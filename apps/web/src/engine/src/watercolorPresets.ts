@@ -400,6 +400,71 @@ export function watercolorPigmentLoad(usedRadii: number): number {
   return PIGMENT_FLOOR + (1 - PIGMENT_FLOOR) * Math.exp(-usedRadii / PIGMENT_RUN_RADII)
 }
 
+// ─── Measuring a nib that is not round (#489) ───────────────────────────────
+//
+// Every scalar in the wet model is expressed in *radii*: water and pigment
+// deplete per radius travelled, the bloom and the migration ring are fractions
+// of a radius, and the deposit is a dose per radius. That worked while the tool
+// had exactly one nib, because a round brush has one radius. A flat brush does
+// not, and picking the wrong axis is not a rounding error — at 4:1 it is a
+// factor of four in how fast the brush runs dry.
+//
+// The two questions below are genuinely different, and answering both with one
+// number is what a naive `dab.size * 0.5` does today.
+
+/**
+ * The radius the wet model measures *travel* by — how far this nib has moved in
+ * its own units, world px.
+ *
+ * Derived rather than chosen. Water leaves the brush at a rate set by the area
+ * it wets per unit distance, which is the nib's width **across** the direction
+ * of travel; what it has to spend is its load, which scales with the nib's
+ * area. So depletion per unit distance goes as `w_perp / area`, and the radius
+ * that reproduces that through the existing `seg / radius` is
+ *
+ *     r = a·b / hypot(a·sin psi, b·cos psi)      psi = nib angle - travel angle
+ *
+ * with `a`, `b` the semi-axes. For a round nib that is exactly `r` at every
+ * angle, so this changes nothing for the tool as it shipped — the direction
+ * term only wakes up when the axes differ.
+ *
+ * The payoff is that it comes out right at both ends without a second rule.
+ * Dragged broadside a flat brush wets a band four times as wide and this
+ * returns the *short* axis, so it drains four times as fast — which is what a
+ * loaded flat actually does. Dragged edge-on it returns the long axis and lasts
+ * four times as long. And because the deposit dose is `seg / radius` over that
+ * same wider band, the tone per pixel comes out identical either way: a flat
+ * brush should not paint darker just because it was turned.
+ *
+ * `travelAngle` is null where there is no direction to speak of — a tap, or the
+ * dwell tick stamping in place. The isotropic answer there is the radius of the
+ * circle with the same area, which is again exactly `r` for a round nib.
+ */
+export function watercolorTravelRadius(
+  semiMajor: number, semiMinor: number, nibAngle: number, travelAngle: number | null,
+): number {
+  const a = Math.max(semiMajor, 0.01)
+  const b = Math.max(semiMinor, 0.01)
+  if (travelAngle === null) return Math.sqrt(a * b)
+  const psi = nibAngle - travelAngle
+  return (a * b) / Math.hypot(a * Math.sin(psi), b * Math.cos(psi))
+}
+
+/**
+ * The radius the wet model measures *spreading* by — how far paint wanders out
+ * from the mark, world px.
+ *
+ * A different question from the one above and it gets a different answer: a
+ * bloom is isotropic. Paint does not know which way the brush was going when it
+ * left, it knows how much water was put down, and that is the nib's area. So
+ * this is the radius of the circle with the same area — the same value
+ * `watercolorTravelRadius` falls back to when there is no direction, and again
+ * exactly `r` for a round nib.
+ */
+export function watercolorSpreadRadius(semiMajor: number, semiMinor: number): number {
+  return Math.sqrt(Math.max(semiMajor, 0.01) * Math.max(semiMinor, 0.01))
+}
+
 /** How far one segment advances the depletion clock. Separated from the decay
  *  curves so the engine never has to know either run length, and so both halves
  *  are testable without a GL context. */

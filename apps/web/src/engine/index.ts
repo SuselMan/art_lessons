@@ -59,6 +59,7 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
+  watercolorTravelRadius, watercolorSpreadRadius,
   watercolorPigmentEffects, watercolorMixFromPreset,
 } from './src/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
@@ -7026,7 +7027,14 @@ export class PencilEngine implements PencilEngineAPI {
       dirFrom ? dirTo.x - dirFrom.x : 0, dirFrom ? dirTo.y - dirFrom.y : 0,
     )
     const { spreadPx, water: fringeWater, migratePx, fieldSeed } = scratch.compositeScalars(() => {
-      const firstRadius = Math.max(drawable[0].size * 0.5 * preset.sizeMultiplier, 0.5)
+      // #489: the bloom is isotropic, so a nib that is not round is measured by
+      // the circle with its area rather than by either axis. Identical to the
+      // old `size * 0.5` for a round nib.
+      const first = drawable[0]
+      const firstMinor = first.size * 0.5 * preset.sizeMultiplier
+      const firstRadius = Math.max(
+        watercolorSpreadRadius(firstMinor * Math.max(first.aspectRatio, 1), firstMinor), 0.5,
+      )
       return {
         spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
           ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius))
@@ -7086,7 +7094,15 @@ export class PencilEngine implements PencilEngineAPI {
     // That is a determinism bug, not a cosmetic one: two people in one room
     // were looking at different pictures.
     let maxRadius = 0
-    for (const d of drawable) maxRadius = Math.max(maxRadius, d.size * 0.5 * preset.sizeMultiplier)
+    // #489: the nib's *reach*, not its short axis — this term is a bound, and a
+    // flat nib deposits a long semi-axis past a spot rather than a short one.
+    // Erring outward costs a slightly larger rect; erring inward composites
+    // from buffers that are still filling, which is the determinism bug this
+    // whole block exists to prevent.
+    for (const d of drawable) {
+      const minor = d.size * 0.5 * preset.sizeMultiplier
+      maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1))
+    }
     // Everything that can still change this pixel, **summed** rather than
     // maxed — each term is a separate hop outward and they compose:
     //
@@ -7144,7 +7160,18 @@ export class PencilEngine implements PencilEngineAPI {
       let prev = prevDab
       let used = scratch.waterUsed
       for (const dab of drawable) {
-        const radius = Math.max(dab.size * 0.5 * preset.sizeMultiplier, 0.5)
+        // #489: travel measured in *this* nib's units, which for a flat one
+        // depends on which way it is being dragged (watercolorTravelRadius).
+        // `prev` is undefined on the stroke's first dab and sits at the same
+        // point for a dwell tick — both are "no direction", and both are what
+        // the null branch answers.
+        const minor = dab.size * 0.5 * preset.sizeMultiplier
+        const dx = prev ? dab.x - prev.x : 0
+        const dy = prev ? dab.y - prev.y : 0
+        const travelAngle = Math.hypot(dx, dy) > 0.01 ? Math.atan2(dy, dx) : null
+        const radius = Math.max(watercolorTravelRadius(
+          minor * Math.max(dab.aspectRatio, 1), minor, dab.angle, travelAngle,
+        ), 0.5)
         const seg = this._markerSegmentLength(dab, prev, radius)
         if (profile.waterDepletion) used += watercolorWaterStep(seg, radius)
         // The profile's levels are the *initial* load; the two curves say how
@@ -7172,8 +7199,17 @@ export class PencilEngine implements PencilEngineAPI {
     // Omitting the callback leaves buildRibbonBands' own formula untouched,
     // which is what the marker and the brush pen get.
     const inkFor = profile.normalizeDeposit
-      ? (_d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => {
-        const radius = Math.max(d1.size * 0.5 * preset.sizeMultiplier, 0.5)
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => {
+        // #489: same measure the stamps use, and it has to be the same one —
+        // the bands overlap the stamps almost everywhere, so two different
+        // readings of "how far in nib units" would show up as a seam.
+        const minor = d1.size * 0.5 * preset.sizeMultiplier
+        const bdx = d1.x - d0.x
+        const bdy = d1.y - d0.y
+        const bandAngle = Math.hypot(bdx, bdy) > 0.01 ? Math.atan2(bdy, bdx) : null
+        const radius = Math.max(watercolorTravelRadius(
+          minor * Math.max(d1.aspectRatio, 1), minor, d1.angle, bandAngle,
+        ), 0.5)
         // Per segment, not per batch: the water weighting rides the vertex now
         // (markerRibbon.ts's FLOATS_PER_VERTEX) precisely so that how the
         // stroke was cut into pointer events cannot change the result.
