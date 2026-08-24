@@ -150,20 +150,28 @@ export interface TipFootprint {
 // and atan2 is never asked about a near-zero vector.
 const MIN_TIP_DIR_LEN = 0.05
 
-// #482: how far the pen drags its lead point behind it, world px — the window
-// over which "which way is this stroke going" is answered.
+// #482: how far the pen drags its lead point behind it, as a multiple of the
+// nib's own long axis, and how far behind it must fall before the stroke counts
+// as going somewhere.
 //
-// A fixed distance rather than a multiple of the nib's width, and that is the
-// substantive choice here: what this has to reject is the hand's own tremor,
-// and a hand does not shake harder because the marker is set wider. Scaling it
-// with the tool would make a small nib chase the shake and a large one lag a
-// deliberate turn, which is exactly backwards.
-const LEAD_LAG_PX = 9
-// How far the lead point must fall behind before the stroke counts as going
-// somewhere. Dragged along a straight path the lead settles exactly LEAD_LAG_PX
-// behind, so this is a third of the way to committed — reached after ~3.6px of
-// real travel, while tremor of up to ~3px never reaches it at all.
-const MIN_LEAD_PX = 3
+// Scaled by the nib rather than fixed in px, and that is the substantive choice
+// here. The first attempt at this used a hand-tremor constant, which rejected
+// tremor and nothing else: rocking the stylus in a 3px circle is not tremor, it
+// is a real stroke that really does go round in a circle, and a nib anchored to
+// the stroke followed it round — 313deg of nib angle over a 4px wobble.
+//
+// A broad nib cannot do that, and the reason is geometric rather than a matter
+// of taste: a nib physically cannot trace an arc much tighter than its own
+// length without pivoting on the spot. So the question "is this stroke going
+// anywhere" is asked in units of the nib that is drawing it — 20px of travel
+// means something quite different to a 40px chisel than to a 3px liner.
+const LEAD_LAG_NIBS = 0.75
+const MIN_LEAD_NIBS = 0.45
+// Floors, world px, for a nib small enough that its own length stops being the
+// binding constraint — below roughly this the hand's tremor is, and a 2px liner
+// should no more chase a shake than a chisel should.
+const LEAD_LAG_FLOOR_PX = 8
+const MIN_LEAD_FLOOR_PX = 2.5
 
 /**
  * Drags the nib one dab further and reports how bent it now is, in [0, 1] — 0
@@ -221,19 +229,23 @@ function bendTip(
  * direction stands, which is also what makes a dwelling tip (ds = 0) hold the
  * angle the stroke left it at rather than snapping to a placeholder.
  */
-function strokeDirection(state: TipState, x: number, y: number, ds: number): number {
+function strokeDirection(
+  state: TipState, x: number, y: number, ds: number, nibLengthPx: number,
+): number {
   if (!state.hasLead) {
     state.leadX = x
     state.leadY = y
     state.hasLead = true
     return state.strokeAngle
   }
-  const k = 1 - Math.exp(-ds / LEAD_LAG_PX)
+  const lag = Math.max(LEAD_LAG_FLOOR_PX, LEAD_LAG_NIBS * nibLengthPx)
+  const k = 1 - Math.exp(-ds / lag)
   state.leadX += (x - state.leadX) * k
   state.leadY += (y - state.leadY) * k
   const dx = x - state.leadX
   const dy = y - state.leadY
-  if (Math.hypot(dx, dy) >= MIN_LEAD_PX) state.strokeAngle = Math.atan2(dy, dx)
+  const minLead = Math.max(MIN_LEAD_FLOOR_PX, MIN_LEAD_NIBS * nibLengthPx)
+  if (Math.hypot(dx, dy) >= minLead) state.strokeAngle = Math.atan2(dy, dx)
   return state.strokeAngle
 }
 
@@ -289,22 +301,30 @@ export function tipFootprint(
   // A nib pressed straight down and nudged has a direction of travel but no
   // bend, so it stays round — which is what stopped this stamping a full
   // ellipse and spinning it in place.
-  // The direction the *nib* is anchored to, as opposed to the spline's tangent
-  // at this dab. A caller with no stroke behind it (the hover cursor) has no
-  // travel to measure and takes the tangent as given — which for a hover is 0,
-  // i.e. the tool's own angle, and that is what should be previewed.
-  //
-  // bendTip below deliberately keeps reading the *raw* tangent: its own weight
-  // is `1 - exp(-ds / lagPx)` over a lag proportional to the nib's width, so it
-  // is already a filter, and feeding it a pre-filtered direction would quietly
-  // lengthen every flexible nib's tuned lag by cascading two of them.
-  const nibPathAngle = state ? strokeDirection(state, input.x, input.y, input.ds) : pathAngle
-
   const bend = shaping.tipBend
   let aspectRatio = shaping.aspect(tiltNorm)
   let x = input.x
   let y = input.y
   let angle: number
+
+  // The direction the *nib* is anchored to, as opposed to the spline's tangent
+  // at this dab. Measured in units of the nib's own long axis — `size` is the
+  // short one, so this is what the toolbar number means for a chisel and plain
+  // diameter for anything round. Taken before the bend below stretches it: how
+  // far a stroke has to go to count as going somewhere is a property of the
+  // tool, not of how far the drag has splayed it this instant.
+  //
+  // A caller with no stroke behind it (the hover cursor) has no travel to
+  // measure and takes the tangent as given — which for a hover is 0, i.e. the
+  // tool's own angle, and that is what should be previewed.
+  //
+  // bendTip below deliberately keeps reading the *raw* tangent: its own weight
+  // is `1 - exp(-ds / lagPx)` over a lag proportional to the nib's width, so it
+  // is already a filter, and feeding it a pre-filtered direction would quietly
+  // lengthen every flexible nib's tuned lag by cascading two of them.
+  const nibPathAngle = state
+    ? strokeDirection(state, input.x, input.y, input.ds, size * aspectRatio)
+    : pathAngle
 
   if (bend && state) {
     const bendness = bendTip(bend, state, pathAngle, input.ds, size, input.speed)

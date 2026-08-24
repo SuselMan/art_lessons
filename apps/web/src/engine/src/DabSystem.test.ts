@@ -1424,17 +1424,52 @@ describe('#482 chisel anchored to the stroke', () => {
     take(sys.endStroke(20, 0))
 
     const angleAt = (d: number) => at.filter(r => r.travelled >= d)[0].angle
-    // Committed to the stroke within a nib's width of travel...
-    expect(angleAt(15)).toBeCloseTo(0, 4)
-    // ...and round the corner in about the same distance. Both bounds are the
-    // point of the test: MIN_LEAD_PX buys tremor rejection with exactly this
-    // responsiveness, so a change to it that makes the nib sluggish should
-    // fail here rather than be noticed on the canvas.
-    expect(angleAt(straight + 20)).toBeGreaterThan(75)
+    // Committed to the stroke within a nib's length of travel...
+    expect(angleAt(20)).toBeCloseTo(0, 4)
+    // ...and half way round the corner in about the same distance, most of the
+    // way in two. Both bounds are the point of the test: the lead point buys
+    // its immunity to rocking at exactly this price in responsiveness, so a
+    // change that makes the nib sluggish should fail here rather than be
+    // noticed on the canvas.
+    expect(angleAt(straight + 20)).toBeGreaterThan(45)
+    expect(angleAt(straight + 40)).toBeGreaterThan(80)
     // Not exactly 90: a one-pole approaches asymptotically, so the tail of a
     // straight run is always a fraction of a degree short. That it gets there
     // at all is the claim.
-    expect(at[at.length - 1].angle).toBeGreaterThan(89.5)
+    expect(at[at.length - 1].angle).toBeGreaterThan(88)
+  })
+
+  // The first fix for the rosette measured travel against the hand's tremor,
+  // ~3px, and rejected tremor and nothing else: rocking the stylus in a 4px
+  // circle swept 313deg of nib angle, because that *is* a real stroke going
+  // round in a real circle. What a nib anchored to the stroke actually owes is
+  // an answer in its own units — it cannot trace an arc much tighter than its
+  // own length without pivoting on the spot.
+  it('is not turned by rocking the pen inside its own length', () => {
+    const spreadFor = (radiusPx: number, baseSize: number) => {
+      const sys = chisel(0)
+      const angles: number[] = []
+      const at = (i: number) => ({
+        x: 200 + radiusPx * Math.cos((i / 12) * Math.PI * 2),
+        y: 200 + radiusPx * Math.sin((i / 12) * Math.PI * 2),
+      })
+      const p0 = at(0)
+      for (const d of sys.startStroke(p0.x, p0.y, 0.6, 0, 0, baseSize)) angles.push(deg(d.angle))
+      for (let i = 1; i <= 48; i++) {
+        const p = at(i)
+        for (const d of sys.continueStroke(p.x, p.y, 0.6, 0, 0, baseSize, 0.3)) angles.push(deg(d.angle))
+      }
+      for (const d of sys.endStroke(baseSize, 0)) angles.push(deg(d.angle))
+      expect(angles.length).toBeGreaterThan(4)
+      return Math.max(...angles) - Math.min(...angles)
+    }
+
+    // A ~20px nib, rocked well inside its own length: unmoved.
+    for (const radius of [3, 4, 6, 8]) expect(spreadFor(radius, 20)).toBeLessThan(1)
+    // The same wobble under a nib small enough that it is a genuine circle, not
+    // a shake — followed, and that is right. Pinned so the fix cannot quietly
+    // become "the nib never turns".
+    expect(spreadFor(8, 4)).toBeGreaterThan(180)
   })
 
   it('a dwelling tip keeps the angle the stroke left it at', () => {
