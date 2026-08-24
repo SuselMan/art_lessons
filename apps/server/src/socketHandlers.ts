@@ -13,7 +13,7 @@ import { resolveSocketIdentity } from './identity.js'
 import { pressureOf, readMemory } from './memory.js'
 import { describeClient } from './clientDescription.js'
 import { createSnapshotLagWatch } from './snapshotLagWatch.js'
-import { reportIssue } from './instrument.js'
+import { reportException, reportIssue } from './instrument.js'
 
 /** Per-connection state. `userId` is resolved once, in the `io.use()`
  *  middleware below, from the same identity cookie (#41) that HTTP routes
@@ -382,10 +382,29 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // задерживать ею доставку операции незачем.
         if (stamped.seq! % SNAPSHOT_SEQ_INTERVAL === 0) checkSnapshotLag(roomId)
       } catch (err) {
-        log.error(
-          { socketId: socket.id, roomId, userId, opId: op.id, opType: op.type, err },
-          'failed to record/relay operation, dropping it',
-        )
+        const context = { socketId: socket.id, roomId, userId, opId: op.id, opType: op.type }
+        log.error({ ...context, err }, 'failed to record/relay operation')
+        // (#495) Both halves of this used to be missing, and they fail the
+        // same way for the same reason: nobody outside this process learned
+        // that an operation had been dropped.
+        //
+        // The ack, because silence is the one answer the sender cannot read.
+        // It has no way to tell a refusal from a lost packet, so it waits out
+        // its 5-second timeout and retries — for an operation the server has
+        // already thrown on once. The very case #298 fixed ten lines up, and
+        // for the same reason: a handler that returns without acking is
+        // indistinguishable from a dead socket. `server_error` is transient
+        // (see TRANSIENT_REJECT_REASONS), so the client keeps the work and
+        // backs off instead of discarding a stroke over our failure.
+        //
+        // The report, because this catch is where the hot path's exceptions
+        // go to be invisible. It exists so one bad packet cannot take the
+        // process down with it (#164) — which also means the process stays up
+        // and Sentry, which only hears about 5xx and crashes, hears nothing.
+        // A lesson can lose every stroke of a layer this way and produce no
+        // signal at all beyond a log line on the VPS nobody is reading.
+        reportException(err, context)
+        ack?.({ ok: false, reason: 'server_error' })
       }
     })
 

@@ -13,6 +13,8 @@ import { Server, type DefaultEventsMap } from 'socket.io'
 
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 import { registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData } from './socketHandlers.js'
+import { flushAllRoomWrites, pendingWriteCount } from './rooms.js'
+import { prisma } from './prisma.js'
 import { identityHook } from './identity.js'
 import { startEventLoopMonitor } from './eventLoop.js'
 import { registerHealthRoutes } from './healthRoutes.js'
@@ -142,6 +144,79 @@ registerRoomFolderRoutes(app)
 registerForkRoutes(app)
 registerSnapshotRoutes(app)
 registerThumbnailRoutes(app)
+
+// (#497) Сколько у выключения есть времени. Меньше десяти секунд не по вкусу:
+// `docker stop` шлёт SIGTERM и добивает SIGKILL'ом через свой grace period, а
+// он в docker-compose.prod.yml не задан, то есть равен десяти секундам по
+// умолчанию. Уложиться надо внутри них — иначе выключение, написанное ради
+// сохранности, само окажется тем, кого убили на середине записи.
+const SHUTDOWN_DEADLINE_MS = 8000
+
+let shuttingDown = false
+
+/** (#497) Уйти так, чтобы не унести с собой подтверждённую работу.
+ *
+ *  До этого обработчика не было вовсе, и это хуже, чем звучит: в контейнере
+ *  node — это PID 1, а для PID 1 ядро не ставит обработчик сигнала по
+ *  умолчанию. То есть SIGTERM процессом просто игнорировался, docker ждал
+ *  десять секунд и присылал SIGKILL — каждый деплой, а деплой здесь на каждый
+ *  пуш в `main`.
+ *
+ *  Порядок здесь — это и есть содержание:
+ *
+ *  1. **Сначала отсоединить клиентов.** Пока сокеты живы, операции продолжают
+ *     приходить, и очередь записи, которую мы собираемся дождаться, растёт
+ *     ровно столько, сколько мы её ждём. Отсоединение обрывает приток; всё,
+ *     что было принято до него, уже лежит в очереди (`recordOperation`
+ *     синхронный, ставит запись и возвращается).
+ *  2. **Потом дождаться записей.** Единственный шаг, ради которого всё
+ *     остальное написано.
+ *  3. **Потом закрыть сервер и Prisma.** В этом порядке: `app.close()`
+ *     закрывает и HTTP-слушатель, и движок socket.io, который к нему прицеплен.
+ *
+ *  Клиентам ничего не сообщается отдельным событием, и это решение, а не
+ *  упущение: разрыв сокета они и так читают правильно — socket.io
+ *  переподключается сам, комната показывает баннер и восстанавливается, когда
+ *  поднимется новый контейнер. Отдельное «сервер уходит» добавило бы поверхность
+ *  в контракт ради сообщения, на которое нечего ответить. */
+const shutdown = async (signal: string): Promise<void> => {
+  // Второй сигнал во время выключения — обычное дело (нетерпеливый оператор,
+  // docker вслед за compose). Он не должен запускать вторую гонку за те же
+  // ресурсы.
+  if (shuttingDown) return
+  shuttingDown = true
+
+  const deadline = new Promise<'timeout'>(resolve => {
+    // `unref`, иначе сам таймер продержит процесс живым все восемь секунд
+    // даже после того, как всё уже закрыто и уходить можно сразу.
+    setTimeout(() => resolve('timeout'), SHUTDOWN_DEADLINE_MS).unref()
+  })
+
+  const work = (async () => {
+    io.disconnectSockets(true)
+    await flushAllRoomWrites()
+    await app.close()
+    await prisma.$disconnect()
+    return 'done' as const
+  })()
+
+  const outcome = await Promise.race([work, deadline]).catch(err => {
+    app.log.error({ err, signal }, 'shutdown failed')
+    return 'failed' as const
+  })
+
+  // Незаписанное на выходе — не мелочь и не строчка для порядка: это ровно тот
+  // объём подтверждённой работы, который деплой потерял. Пусть он будет сказан
+  // числом, а не выведен потом из жалобы преподавателя.
+  const unwritten = pendingWriteCount()
+  if (outcome === 'done' && unwritten === 0) app.log.info({ signal }, 'shutdown complete')
+  else app.log.error({ signal, outcome, unwritten }, 'shutdown incomplete — unwritten room state was dropped')
+
+  process.exit(outcome === 'done' ? 0 : 1)
+}
+
+process.on('SIGTERM', () => { void shutdown('SIGTERM') })
+process.on('SIGINT', () => { void shutdown('SIGINT') })
 
 const start = async () => {
   try {
