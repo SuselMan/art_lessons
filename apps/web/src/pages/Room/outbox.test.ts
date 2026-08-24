@@ -446,6 +446,40 @@ describe('Outbox send gating and concurrency', () => {
     expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), { ok: true, seq: 5 })
   })
 
+  // (#495) The server threw and caught it. Nobody decided anything about this
+  // operation, so it must survive exactly the way `not_joined` does — the
+  // failure that discards a stroke here is a stroke lost to a server bug the
+  // user had no part in.
+  it('retries `server_error` and keeps the operation durable', async () => {
+    const { scheduled, schedule } = captureSchedule()
+    const storage = createInMemoryOutboxStorage()
+    const onSettled = vi.fn()
+    let healthy = false
+    const outbox = new Outbox({
+      roomId: ROOM,
+      storage,
+      send: async () => (healthy
+        ? { ok: true, seq: 7 } satisfies SendResult
+        : { ok: false, reason: 'server_error' } satisfies SendResult),
+      onSettled, schedule,
+    })
+
+    await outbox.enqueue(op('a'))
+    await flushMicrotasks()
+
+    expect(onSettled).not.toHaveBeenCalled()
+    expect(scheduled).toHaveLength(1)
+    // Still on disk: a reload during the outage must not be what loses it.
+    expect(await storage.getAll()).toHaveLength(1)
+
+    healthy = true
+    scheduled[0].fn()
+    await flushMicrotasks(12)
+
+    expect(onSettled).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), { ok: true, seq: 7 })
+    expect(await storage.getAll()).toEqual([])
+  })
+
   it('stops retrying after MAX_ATTEMPTS but keeps the operation queued', async () => {
     const { scheduled, schedule } = captureSchedule()
     const storage = createInMemoryOutboxStorage()
