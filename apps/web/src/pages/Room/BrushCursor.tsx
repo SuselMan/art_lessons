@@ -34,6 +34,15 @@ interface BrushCursorProps {
   tiltResponse?: TiltResponse
 }
 
+/** Per-sample weight of the outline's tilt low-pass — see smoothTilt below for
+ *  why per-sample is the right unit here and a distance is not.
+ *
+ *  Larger follows the stylus faster, smaller is steadier (the filter is
+ *  `y += (u - y) * k`). At a 120 Hz hover this settles a deliberate change of
+ *  grip within ~40 ms, which reads as immediate, while averaging away the
+ *  degree-scale wobble of a hand trying to hold still. */
+const TILT_SMOOTHING = 0.2
+
 /** A brush-footprint preview that follows the pointer: an outline of the dab
  *  the current tool would lay down right now — a circle for a round nib, an
  *  ellipse at the dab's own angle for an elongated one (a chisel marker, a
@@ -126,8 +135,48 @@ export function BrushCursor({
     const observer = new ResizeObserver(() => { rectCache = null })
     observer.observe(el)
 
+    // Declared before `hide`, which reseeds it — see smoothTilt below.
+    let tilt: { x: number; y: number } | null = null
+
     const hide = () => {
       if (circleRef.current) circleRef.current.style.display = 'none'
+      // Next time the pen appears it is a new pose, not a continuation of the
+      // one that left — reseed rather than easing across the gap.
+      tilt = null
+    }
+
+    // #482 — the outline's own tilt low-pass, and the reason it needs one is
+    // #305's: a stylus reports tilt far more noisily than position, and the
+    // angle derived from it is an *azimuth*, which amplifies that noise the
+    // more upright the pen is (atan2 of two near-zeroes at the limit). Holding
+    // the pen still over the canvas therefore made the preview ellipse rotate
+    // on the hand's own micro-movement.
+    //
+    // #305 fixed exactly this for the mark. The outline never had it: the
+    // engine's filter lives in DabSystem, which a hover never reaches, and
+    // previewDabShape has always been handed the raw event values.
+    //
+    // Two things it deliberately does differently from DabSystem's:
+    //
+    //  - it is per *sample*, not per world px of travel. The engine's is a
+    //    distance now (#482) because a mark that smooths differently on a
+    //    240 Hz tablet than on a 60 Hz one is a tool whose feel depends on
+    //    hardware. A hover travels no distance at all — a distance-keyed filter
+    //    would simply freeze — and nothing here is recorded, so the report rate
+    //    deciding how quickly an outline settles costs nothing.
+    //  - it filters the tilt *vector* rather than a magnitude and an angle.
+    //    Straight from #305's own reasoning: there is no ±π wrap to damp, and a
+    //    near-vertical sample contributes a short vector, so it moves the
+    //    filtered direction hardly at all — which is precisely when its own
+    //    azimuth is least trustworthy. The weighting falls out of the geometry
+    //    instead of needing a special case.
+    const smoothTilt = (tiltX: number, tiltY: number) => {
+      if (tilt === null) tilt = { x: tiltX, y: tiltY }
+      else {
+        tilt.x += (tiltX - tilt.x) * TILT_SMOOTHING
+        tilt.y += (tiltY - tilt.y) * TILT_SMOOTHING
+      }
+      return tilt
     }
 
     // Diagnostic-only (chasing the "pen cursor flickers mid-stroke" report):
@@ -155,8 +204,9 @@ export function BrushCursor({
 
       const rect = rectCache ??= el.getBoundingClientRect()
       const { x, y } = clientToRoomPoint(clientX, clientY, rect, curVp, curConfig)
+      const smoothed = smoothTilt(tiltX, tiltY)
       const { size, aspectRatio, angle } = previewDabShape(
-        curTool, curPreset, curBaseSize, pressure, tiltX, tiltY, 0,
+        curTool, curPreset, curBaseSize, pressure, smoothed.x, smoothed.y, 0,
         { angle: curMarkerAngle, anchor: curMarkerAnchor },
         curTiltResponse,
         // #482: the cursor is drawn inside an element that already carries the
