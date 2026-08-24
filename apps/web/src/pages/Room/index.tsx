@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, type NibAnchor } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -2204,10 +2204,14 @@ export function Room() {
   // #468 v5 — which paint, on top of how much of it. Rides the same string as
   // a fourth field; a stroke recorded before v5 has no code and falls back.
   const watercolorPaint = toolSettings.watercolor.pigmentCode as string
+  // #489 — and which brush, as a fifth field. Absent from every stroke recorded
+  // before it, which is why they replay as the round nib they were drawn with.
+  const watercolorNib = toolSettings.watercolor.nib as string
   const watercolorPreset = watercolorPresetString(
     isPressureResponse(watercolorResponse) ? watercolorResponse : 'normal',
     { water: watercolorWater, pigment: watercolorPigment },
     isWatercolorPigmentCode(watercolorPaint) ? watercolorPaint : undefined,
+    isWatercolorNib(watercolorNib) ? watercolorNib : undefined,
   )
   // #468 v5 — picking a paint sets the tool's colour to that paint's own. The
   // colour swatch stays editable afterwards: the four behavioural numbers still
@@ -2276,12 +2280,23 @@ export function Room() {
   // derived number into the engine, to express something the engine could not
   // say. It can now: `screen` is one subtraction inside the shaping function,
   // where the camera angle already is.
-  const markerAngleDeg = toolSettings.marker.angle as number
-  const nibAnchor = toolSettings.marker.anchor as NibAnchor
-  const markerCanvasAngleRadians = (markerAngleDeg * Math.PI) / 180
+  //
+  // #489: read off whichever tool is in hand rather than off the marker, now
+  // that two tools wear a chisel. Same boundary as the tilt response just
+  // below, and the same care about it: a tool with no angle field at all must
+  // land on the defaults instead of pushing `undefined` into the engine, so
+  // both values go through a guard rather than a cast.
+  const nibAngleDeg = typeof toolSettings[drawingTool]?.angle === 'number'
+    ? toolSettings[drawingTool].angle as number
+    : 45
+  const storedAnchor = toolSettings[drawingTool]?.anchor
+  const nibAnchor = typeof storedAnchor === 'string' && isNibAnchor(storedAnchor)
+    ? storedAnchor
+    : DEFAULT_NIB_ANCHOR
+  const nibCanvasAngleRadians = (nibAngleDeg * Math.PI) / 180
   useEffect(() => {
-    engineRef.current?.setNibAngle(markerCanvasAngleRadians, nibAnchor)
-  }, [markerCanvasAngleRadians, nibAnchor])
+    engineRef.current?.setNibAngle(nibCanvasAngleRadians, nibAnchor)
+  }, [nibCanvasAngleRadians, nibAnchor])
   // #409: the tilt-response setting of whichever tool is in hand. The engine
   // holds one active response rather than a table (see setTiltResponse), so the
   // lookup is here — and it goes through `isTiltResponse` rather than a cast:
@@ -5808,7 +5823,7 @@ export function Room() {
                 baseSize={sizePx}
                 vp={vp}
                 config={config}
-                nibAngleRadians={markerCanvasAngleRadians}
+                nibAngleRadians={nibCanvasAngleRadians}
                 nibAnchor={nibAnchor}
                 tiltResponse={tiltResponse}
               />
@@ -5885,7 +5900,7 @@ export function Room() {
                   baseSize={sizePx}
                   vp={vp}
                   config={config}
-                  nibAngleRadians={markerCanvasAngleRadians}
+                  nibAngleRadians={nibCanvasAngleRadians}
                   nibAnchor={nibAnchor}
                   tiltResponse={tiltResponse}
                 />

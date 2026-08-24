@@ -342,7 +342,7 @@ export const en = {
   'room.panel.toolSettings': 'Tool settings',
   'room.panel.participants': 'Participants',
   'room.noToolSettings': 'This tool has no settings yet.',
-  'room.markerAngle': 'Marker angle',
+  'room.nibAngle': 'Nib angle',
 
   // ── project: participants & status banners ─────────────────────────────
   'room.participant.owner': 'owner',
@@ -547,7 +547,9 @@ export const en = {
   'tool.charcoalType.willow': 'Willow',
   'tool.charcoalType.compressed': 'Compressed',
   'tool.nib.bullet': 'Bullet',
+  'tool.nib.round': 'Round',
   'tool.nib.chisel': 'Chisel',
+  'tool.nib.flex': 'Flexible',
   'tool.selectionShape.rectangle': 'Rectangle',
   'tool.selectionShape.polygon': 'Point lasso',
   'tool.selectionShape.freehand': 'Freehand lasso',

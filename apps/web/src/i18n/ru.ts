@@ -281,7 +281,7 @@ export const ru: Dictionary = {
   'room.panel.toolSettings': 'Настройки инструмента',
   'room.panel.participants': 'Участники',
   'room.noToolSettings': 'У этого инструмента пока нет настроек.',
-  'room.markerAngle': 'Угол маркера',
+  'room.nibAngle': 'Угол наконечника',
 
   // ── проект: участники и статусы ────────────────────────────────────────
   'room.participant.owner': 'владелец',
@@ -442,7 +442,9 @@ export const ru: Dictionary = {
   'tool.charcoalType.willow': 'Ивовый',
   'tool.charcoalType.compressed': 'Прессованный',
   'tool.nib.bullet': 'Круглый',
+  'tool.nib.round': 'Круглый',
   'tool.nib.chisel': 'Скошенный',
+  'tool.nib.flex': 'Гибкий',
   'tool.selectionShape.rectangle': 'Прямоугольник',
   'tool.selectionShape.polygon': 'Лассо по точкам',
   'tool.selectionShape.freehand': 'Лассо от руки',
