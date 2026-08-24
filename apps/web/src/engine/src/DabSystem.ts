@@ -11,7 +11,7 @@ import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'
-import { MIN_DAB_SPACING_PX, footprintDabSpacing, nominalDabSpacing } from './dabSpacing'
+import { MIN_DAB_SPACING_PX, footprintDabSpacing, nominalDabSpacing, scallopSpacingLimit } from './dabSpacing'
 import {
   assignTipState, copyTipState, createTipState, maxNibReach, tipFootprint,
   type TipFootprint, type TipState,
@@ -193,6 +193,40 @@ export class DabSystem {
    * nominal rule), so switching it on cannot make any existing mark sparser.
    */
   footprint: { sizeScale: number; hardness: number } | null = null
+
+  /**
+   * #489 — the scallop bound on its own, for a tool that wants that and not the
+   * rest of the footprint rule. `sizeScale` is the same multiplier `footprint`
+   * carries; null switches it off, and it is null for every tool but one.
+   *
+   * #485's limit caps the step so the dip between two consecutive stamps stays
+   * under a pixel, and it lives inside footprintDabSpacing — which the ribbon
+   * tools opt out of wholesale (dabSpacing.ts's isFootprintSpacedTool). That
+   * exclusion was right about what it was arguing: a swept ribbon has no gaps
+   * in its *silhouette*, so #478's diameter rule buys it nothing, and its
+   * deposit is already normalised per unit travel so re-spacing must not scale
+   * it. Both still hold, which is why this is a second field and not a change
+   * to that one.
+   *
+   * What the exclusion did not cover is an elongated nib on a *transparent*
+   * medium. Watercolor's flat, held broadside, advances by its short axis while
+   * the nominal step is a fraction of the long one — measured at a 120px brush,
+   * a 26.4px step against a 43px-wide nib — and the ripple that leaves shows
+   * through, because a wash does not saturate and its wet edge tracks the very
+   * boundary that is rippling. Ilya, on the first build with the flat in it:
+   * "четко вижу элипсы по ленте". A/B on the same stroke: scalloped at 0.22,
+   * clean at 0.07 and 0.03.
+   *
+   * The marker's chisel is 5:1 and is deliberately left alone. Same geometry,
+   * covering ink: its deposit saturates, so the ripple never surfaces, and
+   * turning this on there would roughly quadruple its dab count to fix
+   * something nobody can see. If that ever stops being true it is a separate,
+   * measurable decision.
+   *
+   * Round nibs are untouched by construction — scallopSpacingLimit returns
+   * Infinity for aspect 1, so this can only ever tighten an elongated step.
+   */
+  nibScallop: { sizeScale: number } | null = null
   /**
    * #482, ADR 012 §3 — the viewport's own rotation, radians, kept current by
    * the engine (both `setViewport` and `setInfiniteCamera` assign it).
@@ -787,10 +821,17 @@ export class DabSystem {
    *  this and which are already normalized some other way. */
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
     const fp = this.footprint
-    if (fp === null) return maxSpacing
-    return Math.min(maxSpacing, footprintDabSpacing(
-      { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale: fp.sizeScale, hardness: fp.hardness },
-      baseSize, this.spacingFactor))
+    if (fp !== null) {
+      return Math.min(maxSpacing, footprintDabSpacing(
+        { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale: fp.sizeScale, hardness: fp.hardness },
+        baseSize, this.spacingFactor))
+    }
+    // #489: the scallop bound without the rest of the rule — see nibScallop.
+    const sc = this.nibScallop
+    if (sc === null) return maxSpacing
+    return Math.max(MIN_DAB_SPACING_PX, Math.min(maxSpacing, scallopSpacingLimit(
+      { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale: sc.sizeScale, hardness: 1 },
+    )))
   }
 
   /**

@@ -1504,3 +1504,66 @@ describe('#482 nib angle taken from the path', () => {
     expect(resting.angle).toBeCloseTo(last, 6)
   })
 })
+
+// #489: the scallop bound offered on its own, for a ribbon tool that wants that
+// and not the rest of the footprint rule (DabSystem.nibScallop).
+//
+// The reported symptom was watercolor's flat: "четко вижу элипсы по ленте".
+// Held broadside the nib advances by its short axis while the nominal step is a
+// fraction of the *long* one, and on a transparent medium the ripple that
+// leaves shows through. Measured on the real engine at a 120px brush: a 26.4px
+// step against a 43px nib, scalloped at spacingFactor 0.22 and clean at 0.07.
+describe('#489 nibScallop', () => {
+  const elongated: DabShapingProfile = {
+    size:   () => 0.4,
+    aspect: () => 3,
+    angle:  fixedAngleShaping(Math.PI / 2),
+  }
+  const round: DabShapingProfile = {
+    size:   () => 0.4,
+    aspect: () => 1,
+    angle:  fixedAngleShaping(0),
+  }
+
+  const gaps = (shaping: DabShapingProfile, scallop: { sizeScale: number } | null): number[] => {
+    const sys = new DabSystem({ shaping })
+    sys.nibScallop = scallop
+    const out: Dab[] = []
+    let x = 100
+    out.push(...sys.startStroke(x, 100, 0.6, 0, 0, 120))
+    for (let i = 0; i < 40; i++) { x += 8; out.push(...sys.continueStroke(x, 100, 0.6, 0, 0, 120, 0.5)) }
+    out.push(...sys.endStroke(120, 0))
+    const g: number[] = []
+    for (let i = 1; i < out.length; i++) g.push(Math.hypot(out[i].x - out[i - 1].x, out[i].y - out[i - 1].y))
+    return g
+  }
+
+  it('tightens an elongated nib to the scallop limit', () => {
+    const nominal = 120 * 0.22
+    const bound = scallopSpacingLimit({ size: 0.4 * 120, aspectRatio: 3, sizeScale: 1, hardness: 1 })
+    expect(bound).toBeLessThan(nominal)   // or this test proves nothing
+
+    const withBound = gaps(elongated, { sizeScale: 1 })
+    expect(Math.max(...withBound)).toBeLessThanOrEqual(bound + 1e-6)
+    // And it really is the scallop limit doing it, not some floor: the steps
+    // sit at the bound rather than well under it.
+    expect(Math.max(...withBound)).toBeGreaterThan(bound * 0.9)
+  })
+
+  it('leaves a system that has not opted in exactly where it was', () => {
+    const off = gaps(elongated, null)
+    expect(Math.max(...off)).toBeCloseTo(120 * 0.22, 6)
+  })
+
+  it('is a real change, so opting in has to be deliberate', () => {
+    // The engine gates this on the *nib*, not on the aspect ratio, and the
+    // reason is here: scallopSpacingLimit's own doc claims Infinity for a round
+    // dab and does not deliver it — at aspect 1 it still returns sqrt(8r),
+    // which is under the nominal step for a large brush. Switching it on for a
+    // tool's round nib would silently re-space a shipped mark.
+    const roundBound = scallopSpacingLimit({ size: 0.4 * 120, aspectRatio: 1, sizeScale: 1, hardness: 1 })
+    expect(Number.isFinite(roundBound)).toBe(true)
+    expect(roundBound).toBeLessThan(120 * 0.22)
+    expect(Math.max(...gaps(round, { sizeScale: 1 }))).toBeLessThan(120 * 0.22)
+  })
+})

@@ -59,7 +59,7 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
-  watercolorTravelRadius, watercolorSpreadRadius,
+  watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPigmentEffects, watercolorMixFromPreset,
 } from './src/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
@@ -5234,6 +5234,28 @@ export class PencilEngine implements PencilEngineAPI {
         sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType),
         hardness: this._resolvePreset(this._strokeTool, this._opts.pencilType).hardness,
       }
+      : null
+    // #489: watercolor's *elongated* nibs take the scallop bound without the
+    // rest of that rule — DabSystem.nibScallop carries the whole argument,
+    // including why the marker's identical 5:1 geometry is left as it is.
+    //
+    // Not the round nib, and that exclusion is measured rather than assumed.
+    // scallopSpacingLimit's own doc says it returns Infinity for a round dab;
+    // it does not — at aspect 1 it still returns sqrt(8*r), which on a 120px
+    // brush is 21.9px against the nominal 26.4px and put 40% more dabs into the
+    // round brush's stroke. Its deposit is normalised per unit travel so the
+    // tone would have held, but the mark's fine structure would not have, and
+    // that is exactly the regression #483 was filed for. This tool has shipped;
+    // the flat has not.
+    //
+    // What that leaves knowingly unfixed: the round nib reaches 1.4:1 at full
+    // tilt and does scallop a little there. Nobody has reported it, and quietly
+    // re-spacing a shipped tool to chase it is a worse trade than leaving it.
+    const wcNib = this._strokeTool === 'watercolor'
+      ? watercolorNibFromPreset(this._opts.pencilType)
+      : null
+    this._dabs.nibScallop = wcNib !== null && wcNib !== 'round'
+      ? { sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
       : null
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
