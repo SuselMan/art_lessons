@@ -5,7 +5,7 @@ import type { Dab } from '@grafetto/shared'
 import { DabSystem } from './DabSystem'
 import { scallopSpacingLimit } from './dabSpacing'
 import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
-import { MARKER_BULLET_DAB_SHAPING } from './markerPresets'
+import { MARKER_BULLET_DAB_SHAPING, shapingForMarkerPreset } from './markerPresets'
 import { DEFAULT_TILT_RESPONSE, TILT_RESPONSES } from './tiltCurve'
 import { tiltAzimuthRad } from './tiltMath'
 
@@ -1353,5 +1353,104 @@ describe('DabSystem tilt smoothing is rate-independent (#482)', () => {
     const last = filtered[filtered.length - 1]
     expect(last).toBeLessThan(69)
     expect(last).toBeGreaterThan(10)
+  })
+})
+
+// #482: a chisel anchored to the stroke direction, which is the tool that makes
+// a bad answer to "which way is this stroke going" visible — 5:1, so a wrong
+// angle is not a subtle shading difference, it is a differently-shaped mark.
+//
+// Reported by Ilya on 24.08 as "рисует цветочки": touch down and hold, and the
+// nib stamped itself at every angle in place. Not a #482 regression — main's
+// own offsetAngleShaping was `pathAngle + offset` with no filter between them
+// — but this is the layer that owes the answer, so it is fixed and pinned here.
+describe('#482 chisel anchored to the stroke', () => {
+  const chisel = (offset = 0) =>
+    new DabSystem({ shaping: shapingForMarkerPreset('chisel:0.3', { angle: offset, anchor: 'stroke' }) })
+  const deg = (r: number) => (r * 180) / Math.PI
+
+  // A hand holding still is not still: it shakes, and the tangent of that shake
+  // sweeps the whole circle. Deterministic rather than random so a failure is
+  // reproducible, and sub-2px so it is unambiguously tremor and not drawing.
+  function tremorAngles(amplitudePx: number): number[] {
+    const sys = chisel(Math.PI / 4)
+    const angles: number[] = []
+    let x = 100
+    let y = 100
+    for (const d of sys.startStroke(x, y, 0.6, 0, 0, 20)) angles.push(deg(d.angle))
+    for (let i = 0; i < 40; i++) {
+      const a = (i * 2.399963) % (Math.PI * 2)   // golden angle: no direction repeats soon
+      const r = amplitudePx * (0.5 + 0.5 * ((i * 7919) % 13) / 13)
+      x += Math.cos(a) * r
+      y += Math.sin(a) * r
+      for (const d of sys.continueStroke(x, y, 0.6, 0, 0, 20, 0.01)) angles.push(deg(d.angle))
+    }
+    for (const d of sys.endStroke(20, 0)) angles.push(deg(d.angle))
+    return angles
+  }
+
+  it('holds one angle under hand tremor instead of stamping a rosette', () => {
+    for (const amplitude of [1, 2, 3]) {
+      const angles = tremorAngles(amplitude)
+      // The tremor has to actually produce marks, or this passes for the wrong
+      // reason — an empty stroke has no spread either.
+      expect(angles.length).toBeGreaterThan(4)
+      const spread = Math.max(...angles) - Math.min(...angles)
+      expect(spread).toBeLessThan(1)
+      // And it holds at the tool's own angle, not at some arbitrary direction
+      // the first shake happened to point in.
+      expect(angles[0]).toBeCloseTo(45, 6)
+    }
+  })
+
+  it('still swings onto a real stroke, and through a corner', () => {
+    const sys = chisel(0)
+    const at: { travelled: number; angle: number }[] = []
+    let x = 100
+    let y = 100
+    let travelled = 0
+    const take = (dabs: Dab[]) => { for (const d of dabs) at.push({ travelled, angle: deg(d.angle) }) }
+
+    take(sys.startStroke(x, y, 0.6, 0, 0, 20))
+    for (let i = 0; i < 30; i++) {           // due east
+      x += 2; travelled += 2
+      take(sys.continueStroke(x, y, 0.6, 0, 0, 20, 0.5))
+    }
+    const straight = travelled
+    for (let i = 0; i < 30; i++) {           // hard left, due south
+      y += 2; travelled += 2
+      take(sys.continueStroke(x, y, 0.6, 0, 0, 20, 0.5))
+    }
+    take(sys.endStroke(20, 0))
+
+    const angleAt = (d: number) => at.filter(r => r.travelled >= d)[0].angle
+    // Committed to the stroke within a nib's width of travel...
+    expect(angleAt(15)).toBeCloseTo(0, 4)
+    // ...and round the corner in about the same distance. Both bounds are the
+    // point of the test: MIN_LEAD_PX buys tremor rejection with exactly this
+    // responsiveness, so a change to it that makes the nib sluggish should
+    // fail here rather than be noticed on the canvas.
+    expect(angleAt(straight + 20)).toBeGreaterThan(75)
+    // Not exactly 90: a one-pole approaches asymptotically, so the tail of a
+    // straight run is always a fraction of a degree short. That it gets there
+    // at all is the claim.
+    expect(at[at.length - 1].angle).toBeGreaterThan(89.5)
+  })
+
+  it('a dwelling tip keeps the angle the stroke left it at', () => {
+    const sys = chisel(0)
+    let x = 100
+    for (let i = 0; i < 20; i++) { x += 2; sys.continueStroke(x, 100, 0.6, 0, 0, 20, 0.5) }
+    sys.startStroke(100, 100, 0.6, 0, 0, 20)
+    let last = 0
+    for (let i = 0; i < 30; i++) {
+      x += 2
+      for (const d of sys.continueStroke(x, 100, 0.6, 0, 0, 20, 0.5)) last = d.angle
+    }
+    // #245's dwell tick, which is ds = 0 by construction: the resting footprint
+    // must report the direction the stroke actually ended in, not the 0 the
+    // hand-built dwell dab used to hardcode.
+    const resting = sys.restingFootprint(x, 100, 0.6, 0, 0, 20)
+    expect(resting.angle).toBeCloseTo(last, 6)
   })
 })

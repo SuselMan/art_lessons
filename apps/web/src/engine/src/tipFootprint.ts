@@ -60,10 +60,25 @@ export interface TipState {
   tipDirY: number
   /** How far behind the pointer the contact patch is currently sitting. */
   trailPx: number
+  /** The point the pen drags behind it, world px — what the stroke direction is
+   *  measured against (see strokeDirection). `hasLead` is false only before the
+   *  first sample of a stroke, since the seed is a position and TipState is
+   *  built without one. */
+  leadX: number
+  leadY: number
+  hasLead: boolean
+  /** The direction the nib is currently anchored to for a `stroke`-anchored
+   *  tip, world radians — held rather than recomputed whenever the pen has not
+   *  actually gone anywhere. 0 until the stroke commits to a direction, which
+   *  makes a tap land at the tool's own angle. */
+  strokeAngle: number
 }
 
 export function createTipState(): TipState {
-  return { arcFromStart: 0, contactFactor: 1, tipDirX: 0, tipDirY: 0, trailPx: 0 }
+  return {
+    arcFromStart: 0, contactFactor: 1, tipDirX: 0, tipDirY: 0, trailPx: 0,
+    leadX: 0, leadY: 0, hasLead: false, strokeAngle: 0,
+  }
 }
 
 export function copyTipState(src: TipState): TipState {
@@ -76,6 +91,10 @@ export function assignTipState(dst: TipState, src: TipState): void {
   dst.tipDirX = src.tipDirX
   dst.tipDirY = src.tipDirY
   dst.trailPx = src.trailPx
+  dst.leadX = src.leadX
+  dst.leadY = src.leadY
+  dst.hasLead = src.hasLead
+  dst.strokeAngle = src.strokeAngle
 }
 
 /** Everything the footprint is allowed to depend on. Pressure and tilt arrive
@@ -131,6 +150,21 @@ export interface TipFootprint {
 // and atan2 is never asked about a near-zero vector.
 const MIN_TIP_DIR_LEN = 0.05
 
+// #482: how far the pen drags its lead point behind it, world px — the window
+// over which "which way is this stroke going" is answered.
+//
+// A fixed distance rather than a multiple of the nib's width, and that is the
+// substantive choice here: what this has to reject is the hand's own tremor,
+// and a hand does not shake harder because the marker is set wider. Scaling it
+// with the tool would make a small nib chase the shake and a large one lag a
+// deliberate turn, which is exactly backwards.
+const LEAD_LAG_PX = 9
+// How far the lead point must fall behind before the stroke counts as going
+// somewhere. Dragged along a straight path the lead settles exactly LEAD_LAG_PX
+// behind, so this is a third of the way to committed — reached after ~3.6px of
+// real travel, while tremor of up to ~3px never reaches it at all.
+const MIN_LEAD_PX = 3
+
 /**
  * Drags the nib one dab further and reports how bent it now is, in [0, 1] — 0
  * straight, 1 fully trailed. Where it points is left in `state`, since a
@@ -161,6 +195,46 @@ function bendTip(
   const trail = bend.trailWidths(speed) * nibWidth * bendness
   state.trailPx += (trail - state.trailPx) * k
   return bendness
+}
+
+/**
+ * Which way this stroke is actually going, world radians.
+ *
+ * Not `input.pathAngle`, which is the spline's tangent at this dab and is only
+ * as steady as the samples under it. Held still, a stylus still reports motion
+ * — the hand shakes, and the tangent of that shake sweeps the full circle. Fed
+ * straight to a 5:1 chisel anchored to the stroke, that stamps the same nib at
+ * every angle in place: the rosette Ilya reported on 24.08. (Pre-existing —
+ * main's own offsetAngleShaping was `pathAngle + offset` with nothing in
+ * between — but this is the layer that owes an answer.)
+ *
+ * Smoothing the tangent does not fix it, and the reason is worth stating
+ * because it is the same trap the rest of this file's filters avoid by being
+ * distance-keyed: tremor has plenty of arc length, it simply never arrives
+ * anywhere. A filter keyed on distance travelled sees an honest `ds` and
+ * faithfully tracks the noise.
+ *
+ * What separates the two is displacement, not path — so the direction is taken
+ * from a point dragged behind the pen instead. Tremor leaves it sitting in the
+ * middle of the shake, a hand's breadth from nothing; real travel pulls it out
+ * to a steady LEAD_LAG_PX behind. Below MIN_LEAD_PX the last committed
+ * direction stands, which is also what makes a dwelling tip (ds = 0) hold the
+ * angle the stroke left it at rather than snapping to a placeholder.
+ */
+function strokeDirection(state: TipState, x: number, y: number, ds: number): number {
+  if (!state.hasLead) {
+    state.leadX = x
+    state.leadY = y
+    state.hasLead = true
+    return state.strokeAngle
+  }
+  const k = 1 - Math.exp(-ds / LEAD_LAG_PX)
+  state.leadX += (x - state.leadX) * k
+  state.leadY += (y - state.leadY) * k
+  const dx = x - state.leadX
+  const dy = y - state.leadY
+  if (Math.hypot(dx, dy) >= MIN_LEAD_PX) state.strokeAngle = Math.atan2(dy, dx)
+  return state.strokeAngle
 }
 
 /**
@@ -215,6 +289,17 @@ export function tipFootprint(
   // A nib pressed straight down and nudged has a direction of travel but no
   // bend, so it stays round — which is what stopped this stamping a full
   // ellipse and spinning it in place.
+  // The direction the *nib* is anchored to, as opposed to the spline's tangent
+  // at this dab. A caller with no stroke behind it (the hover cursor) has no
+  // travel to measure and takes the tangent as given — which for a hover is 0,
+  // i.e. the tool's own angle, and that is what should be previewed.
+  //
+  // bendTip below deliberately keeps reading the *raw* tangent: its own weight
+  // is `1 - exp(-ds / lagPx)` over a lag proportional to the nib's width, so it
+  // is already a filter, and feeding it a pre-filtered direction would quietly
+  // lengthen every flexible nib's tuned lag by cascading two of them.
+  const nibPathAngle = state ? strokeDirection(state, input.x, input.y, input.ds) : pathAngle
+
   const bend = shaping.tipBend
   let aspectRatio = shaping.aspect(tiltNorm)
   let x = input.x
@@ -235,10 +320,10 @@ export function tipFootprint(
       x -= (state.tipDirX / bendness) * state.trailPx
       y -= (state.tipDirY / bendness) * state.trailPx
     } else {
-      angle = shaping.angle(tiltMag, tiltX, tiltY, pathAngle, cameraAngle)
+      angle = shaping.angle(tiltMag, tiltX, tiltY, nibPathAngle, cameraAngle)
     }
   } else {
-    angle = shaping.angle(tiltMag, tiltX, tiltY, pathAngle, cameraAngle)
+    angle = shaping.angle(tiltMag, tiltX, tiltY, nibPathAngle, cameraAngle)
   }
 
   return { x, y, size, aspectRatio, angle, tiltMag }
