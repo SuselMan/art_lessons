@@ -5,7 +5,7 @@ import type { TranslationKey } from '../../i18n/en'
 // exports the React hooks, which pull in the settings store's localStorage
 // read — this test needs only the pure lookup.
 import { translate } from '../../i18n/translate'
-import { describeJoinError, joinGateStateFor } from './joinError'
+import { canRetryJoinLater, describeJoinError, joinGateStateFor } from './joinError'
 
 // (#208) The mapping is reason-code → translation key → text now, so it's
 // exercised through a real locale rather than against hardcoded English.
@@ -55,5 +55,28 @@ describe('joinGateStateFor (#231)', () => {
     // belong next to the field, not on a screen that replaces it.
     expect(joinGateStateFor('wrong_password')).toBeNull()
     expect(joinGateStateFor('not_found')).toBeNull()
+  })
+})
+
+describe('canRetryJoinLater (#496)', () => {
+  // The paths this exists for have no gate to fall back to — a reconnect's
+  // silent rejoin, a gap resync — so "retry later" is not a button the reader
+  // presses, it is whether Room leaves the automatic rejoin armed.
+  it('re-asks only the refusal that was about the server, not the reader', () => {
+    expect(canRetryJoinLater('server_busy')).toBe(true)
+  })
+
+  it('takes no for an answer on everything about this person or this room', () => {
+    for (const reason of ['not_found', 'wrong_password', 'access_revoked', 'login_required'] as const) {
+      expect(canRetryJoinLater(reason)).toBe(false)
+    }
+  })
+
+  it('does not re-ask a pending request, which someone else resolves', () => {
+    // It does resolve on its own — through `join_request_resolved`, when the
+    // owner acts. Asking again from here is not what moves it, and doing so
+    // on every reconnect would be a loop against a decision nobody has made
+    // yet.
+    expect(canRetryJoinLater('pending_approval')).toBe(false)
   })
 })
