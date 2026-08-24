@@ -1,3 +1,5 @@
+import * as Sentry from '@sentry/react'
+
 import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
@@ -82,6 +84,10 @@ export async function uploadThumbnail(roomId: string, engine: PencilEngineAPI): 
  *  detects on its own whether that crossed a new boundary. */
 export function createSnapshotUploader(roomId: string) {
   const attempted = new Set<number>()
+  // (#486) Divergences already reported by this uploader, keyed by the ids that
+  // diverged — see the capture site for why one event per boundary would be
+  // the wrong number.
+  const reportedDivergences = new Set<string>()
 
   return {
     onSeqObserved(previousSeq: number, newSeq: number, engine: PencilEngineAPI, layerState: LayerState): void {
@@ -135,6 +141,26 @@ export function createSnapshotUploader(roomId: string) {
         console.error(
           `[snapshot] refusing to upload: layer state omits live layers ${missing.join(', ')}`,
         )
+        // (#486) Reported, not only whispered to a console nobody is holding.
+        // This guard's verdict is a pure function of a *divergence*, so it does
+        // not fire once — it fires on every boundary of every session until
+        // whatever caused the two derivations to disagree is fixed, and the
+        // room silently stops being bakeable. That is how U68gWoq- spent three
+        // days growing a 43 MB join nobody could complete, with a healthy
+        // server, an intact log and an empty Sentry. Deduped by the missing
+        // ids: one divergence, one event, however many boundaries it costs.
+        const divergence = missing.join(',')
+        if (!reportedDivergences.has(divergence)) {
+          reportedDivergences.add(divergence)
+          Sentry.captureMessage(
+            `[snapshot] layer state omits live layers: ${divergence}`,
+            {
+              level: 'error',
+              tags: { roomId, missingLayers: divergence },
+              extra: { seq: boundarySeq, knownLayerIds: [...known] },
+            },
+          )
+        }
         return
       }
 

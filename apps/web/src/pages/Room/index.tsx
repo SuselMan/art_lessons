@@ -1661,10 +1661,14 @@ export function Room() {
   // just buffer creation, no setActiveLayer/setCompositeOrder here — see
   // restoreFromSnapshot's own comment for why those must come *after* pixel
   // restoration, not before.
+  // (#486) setBaseLayers, not a loop of initLayer: the restored structure has
+  // to be able to *retire* a layer this mount already init'd, not only add to
+  // it. See the engine method's own doc comment for the room that fixing this
+  // gets back.
   const initLayersFromLayerState = useCallback((engine: PencilEngineAPI, ls: LayerState) => {
-    for (const item of Object.values(ls.items)) {
-      if (item.kind === 'layer') engine.initLayer(item.id)
-    }
+    engine.setBaseLayers(
+      Object.values(ls.items).filter(item => item.kind === 'layer').map(item => item.id),
+    )
   }, [])
 
   // (#169 bug fix) Injects a downloaded snapshot's pixels + structure into
