@@ -1,6 +1,10 @@
 import { tilesOverlappingRect } from './tileMath'
 import type { SnapshotTile } from './snapshotCodec'
 
+/** (#425) The sheet a bounded room's tiles are clipped to. Absent for an
+ *  infinite room, which has no sheet and whose tiles are never clipped. */
+export interface PageSize { w: number; h: number }
+
 // (#469) Re-slices a snapshot's tiles onto the grid the buffer receiving them
 // actually uses.
 //
@@ -23,13 +27,34 @@ import type { SnapshotTile } from './snapshotCodec'
 // allocate exactly the page-sized buffer this whole change exists to stop
 // allocating, on precisely the rooms that cannot afford it.
 
-/** Whether `tile` already sits exactly on the `tileW` x `tileH` grid, so it can
- *  be passed straight through without copying a single byte. This is the case
- *  for every snapshot baked after the change and for every infinite room ever
- *  — i.e. the overwhelmingly common one, which is why it is checked first. */
-function matchesGrid(tile: SnapshotTile, tileW: number, tileH: number): boolean {
-  return tile.width === tileW && tile.height === tileH
-    && tile.originX % tileW === 0 && tile.originY % tileH === 0
+/** Whether `tile` already sits inside a single cell of the `tileW` x `tileH`
+ *  grid, so it can be passed straight through without copying a single byte.
+ *  This is the case for every snapshot baked after the change and for every
+ *  infinite room ever — i.e. the overwhelmingly common one, which is why it is
+ *  checked first.
+ *
+ *  (#425) A cell, or the part of one that is still on the sheet. A bounded
+ *  room's grid overhangs its page, and a bake now clips that overhang away, so
+ *  an edge tile is grid-aligned and shorter or narrower than a cell. Re-slicing
+ *  is only ever needed when a source tile spans more than one destination cell
+ *  — the case this file was written for (a page-sized tile from before #469).
+ *  Sending a clipped edge tile down the slicing path instead would be correct
+ *  but would cost what this fast path exists to save: a full cell-sized
+ *  allocation and an alpha scan per tile, at join time, on the devices least
+ *  able to afford either.
+ *
+ *  The rule is deliberately "ends where the sheet ends" rather than the simpler
+ *  "no bigger than a cell". The loose version lets a half-width tile at x=0
+ *  through, and that is precisely the merge case below: two source tiles
+ *  landing in one destination have to combine, not both survive. Without
+ *  `page` — an infinite room, which has no sheet to end at — this stays the
+ *  original exact match. */
+function matchesGrid(tile: SnapshotTile, tileW: number, tileH: number, page?: PageSize): boolean {
+  if (tile.originX % tileW !== 0 || tile.originY % tileH !== 0) return false
+  if (tile.width > tileW || tile.height > tileH) return false
+  const fitsX = tile.width === tileW || (page !== undefined && tile.originX + tile.width === page.w)
+  const fitsY = tile.height === tileH || (page !== undefined && tile.originY + tile.height === page.h)
+  return fitsX && fitsY
 }
 
 /** True when nothing in `pixels` is even partly opaque. Used by the caller to
@@ -55,12 +80,12 @@ export function isFullyTransparent(pixels: Uint8Array): boolean {
  *  which looks close enough to right on a symmetric test fixture to survive a
  *  careless test — hence the deliberately asymmetric ones. */
 export function retileSnapshotTiles(
-  tiles: SnapshotTile[], tileW: number, tileH: number,
+  tiles: SnapshotTile[], tileW: number, tileH: number, page?: PageSize,
 ): SnapshotTile[] {
   // Returned by identity when there is nothing to do, and callers lean on
   // that: it is how the restore path knows it may skip the per-tile alpha
   // scan below on the case that is always taken in practice.
-  if (tiles.every(t => matchesGrid(t, tileW, tileH))) return tiles
+  if (tiles.every(t => matchesGrid(t, tileW, tileH, page))) return tiles
 
   const out: SnapshotTile[] = []
   // Keyed by grid origin: two source tiles can overlap one destination tile
@@ -69,7 +94,7 @@ export function retileSnapshotTiles(
   const built = new Map<string, SnapshotTile>()
 
   for (const src of tiles) {
-    if (matchesGrid(src, tileW, tileH)) {
+    if (matchesGrid(src, tileW, tileH, page)) {
       out.push(src)
       continue
     }
@@ -105,4 +130,46 @@ export function retileSnapshotTiles(
     }
   }
   return out
+}
+
+/** (#425) The part of a resident tile that is still on the sheet, as a snapshot
+ *  tile — or the tile unchanged when none of it hangs off.
+ *
+ *  A bounded room's tile grid does not divide its canvas: 1754x2480 on
+ *  1024-pixel tiles runs to 2048 across and 3072 down. Nothing can ever display
+ *  those pixels, and yet they were baked, gzipped, stored, shipped and inflated
+ *  by every client on every first join. Measured on room U68gWoq- (5 layers,
+ *  20 tiles): 6.70 MB on the wire, 4.81 MB clipped — 28%, for pixels that are
+ *  not there. The codec cannot compete with that: #427 measured every
+ *  alternative encoding and found 13% at best, because graphite is honest
+ *  high-entropy noise.
+ *
+ *  The row arithmetic is where this goes wrong quietly, so: `pixels` is GL
+ *  order, bottom-up — array row 0 is the tile's *bottom*, world row
+ *  `originY + height - 1`. The rows that survive are world rows
+ *  `originY .. originY + keepH - 1`, the *top* of the tile, which in this array
+ *  are the *last* keepH rows. Keeping the first keepH instead preserves exactly
+ *  the off-sheet half and discards the drawing — and on any symmetric fixture
+ *  it looks very nearly right. Columns need no such care: rows run left to
+ *  right in both conventions, so the surviving columns are simply the first
+ *  keepW.
+ *
+ *  Returns the original `pixels` by reference when nothing is clipped: that is
+ *  the common case (every interior tile, every infinite room), and it must not
+ *  cost a copy of four megabytes to discover. */
+export function clipTileToPage(
+  originX: number, originY: number, width: number, height: number,
+  pixels: Uint8Array, page: PageSize,
+): SnapshotTile {
+  const keepW = Math.max(0, Math.min(width, page.w - originX))
+  const keepH = Math.max(0, Math.min(height, page.h - originY))
+  if (keepW === width && keepH === height) return { originX, originY, width, height, pixels }
+
+  const clipped = new Uint8Array(keepW * keepH * 4)
+  const firstRow = height - keepH
+  for (let y = 0; y < keepH; y++) {
+    const from = ((firstRow + y) * width) * 4
+    clipped.set(pixels.subarray(from, from + keepW * 4), y * keepW * 4)
+  }
+  return { originX, originY, width: keepW, height: keepH, pixels: clipped }
 }

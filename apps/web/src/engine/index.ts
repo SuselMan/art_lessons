@@ -69,7 +69,7 @@ import { computeFill, coverageToRgba, FILL_MAX_DIM } from './src/floodFill'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
-import { isFullyTransparent, retileSnapshotTiles } from './src/retileSnapshot'
+import { clipTileToPage, isFullyTransparent, retileSnapshotTiles } from './src/retileSnapshot'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/snapshotAudit'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
@@ -3940,7 +3940,11 @@ export class PencilEngine implements PencilEngineAPI {
         buf.clear()
         for (const t of cp.tiles) {
           const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
-          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
+          // (#425) The tile's own geometry, not the buffer's: a snapshot baked
+          // after #425 clips whatever hangs off the sheet, so an edge tile's
+          // payload can be smaller than the tile it restores into. A tile
+          // stored before that is the same call with nothing clipped.
+          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
           // (#155 Tier 2) Exact historical pixels, not a fresh paint — scan
           // once for the real content bbox rather than a markContentPainted
           // union (which would wrongly claim the whole tile as content).
@@ -4531,6 +4535,28 @@ export class PencilEngine implements PencilEngineAPI {
    *  _takeCheckpoint has one: a caller only reaches this from Room's own
    *  orchestration on a live seq boundary, never from a code path that could
    *  race a context loss the way idle-scheduled local checkpointing can. */
+  /** (#425) This layer's resident tiles as a snapshot payload, with the part of
+   *  each tile that hangs off the sheet left out — see clipTileToPage for the
+   *  measurement and for the row arithmetic, which is the part that bites.
+   *
+   *  Infinite rooms are excluded on purpose: they have no sheet to clip to, and
+   *  their tile grid is the coordinate system rather than an overhang.
+   *
+   *  Shared with bakeLayerByFullReplay deliberately. That one is the oracle
+   *  these bytes are compared against (#168, #289), so any difference in
+   *  geometry between the two would read as a determinism violation on every
+   *  bounded room in existence. */
+  private _bakeTiles(buf: ILayerBuffer): SnapshotTile[] {
+    const page = this._infinite ? null : this._pageSize()
+    return buf.allResident().map(({ buffer, originX, originY }) => {
+      const pixels = buffer.readPixels()
+      return page
+        ? clipTileToPage(originX, originY, buffer.width, buffer.height, pixels, page)
+        : { originX, originY, width: buffer.width, height: buffer.height, pixels }
+    })
+  }
+
+
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
     const buf = this._layers.get(layerId)
     if (!buf) return null
@@ -4542,9 +4568,7 @@ export class PencilEngine implements PencilEngineAPI {
     // painted, looked empty while holding a full drawing. It was then left out
     // of the snapshot entirely, and the next client to restore that snapshot
     // saw a blank layer. That is #369, and this line is where it started.
-    const tiles = buf.allResident().map(({ buffer, originX, originY }) => ({
-      originX, originY, width: buffer.width, height: buffer.height, pixels: buffer.readPixels(),
-    }))
+    const tiles = this._bakeTiles(buf)
     if (!tiles.length) return null
     // (#373) Whatever the caller does with these bytes, this layer's current
     // pixels have now left the engine — anything that changes them after this
@@ -4572,9 +4596,11 @@ export class PencilEngine implements PencilEngineAPI {
     try {
       scratch.clear()
       for (const op of ops) this._applyPixelOp(scratch, layerId, op)
-      const tiles = scratch.allResident().map(({ buffer, originX, originY }) => ({
-        originX, originY, width: buffer.width, height: buffer.height, pixels: buffer.readPixels(),
-      }))
+      // (#425) The same clipping as bakeNetworkSnapshot, and it has to be the
+      // same call: this is the oracle those bytes are compared against (#168,
+      // #289), so a difference in geometry here would read as a determinism
+      // violation on every room with a tile hanging off the sheet.
+      const tiles = this._bakeTiles(scratch)
       if (!tiles.length) return null
       return encodeLayerTiles(tiles)
     } finally {
@@ -4627,7 +4653,9 @@ export class PencilEngine implements PencilEngineAPI {
     // is silent corruption, not a near miss. Tiles already on the grid (every
     // infinite room, and every bake after the change) pass through untouched.
     const { w: tw, h: th } = this._tileSize()
-    const retiled = retileSnapshotTiles(tiles, tw, th)
+    // (#425) Лист передаётся, чтобы обрезанный по его краю тайл прошёл
+    // быстрым путём: он уже на сетке, просто кончается там же, где бумага.
+    const retiled = retileSnapshotTiles(tiles, tw, th, this._infinite ? undefined : this._pageSize())
     // Re-slicing a mostly-empty page yields tiles carrying nothing, and each
     // would cost 4 MiB of texture to say exactly what an absent tile already
     // says. Only a re-sliced set can contain them — identity means every tile
@@ -4650,7 +4678,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._drainGlErrors()
     for (const t of uploads) {
       const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
-      for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
+      // (#425) See the same call in _replayInto: the payload carries its own
+      // size because edge tiles are clipped to the sheet.
+      for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
       buf.restoreTileContent(rect, t.pixels)
     }
     // One getError for the whole layer rather than one per tile: the question a
