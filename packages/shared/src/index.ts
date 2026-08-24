@@ -6,8 +6,17 @@ export interface RasterLayer {
   name: string
   opacity: number   // 0–1
   visible: boolean
-  locked?: boolean     // local guard against the user's own hand
-  ownerLocked?: boolean // server rejects non-owner operations on this layer
+  // (#488) Two locks, and the asymmetry between them is the point:
+  //   `locked`      — a shared guard against anyone's hand, the owner's
+  //                   included. Anyone may set it and anyone may take it off.
+  //   `ownerLocked` — the room owner reserving a layer: it stops everyone
+  //                   *but* the owner, and only the owner can release it.
+  // Both travel in the log (`layer_lock` / `layer_owner_lock`). `locked` used
+  // to be per-user view state that never became an operation, which made it
+  // behave backwards — it did not survive its own author's reload, and it did
+  // reach everyone else through the snapshot's layerState.
+  locked?: boolean
+  ownerLocked?: boolean
 }
 
 export interface LayerFolder {
@@ -653,6 +662,28 @@ export type LayerOwnerLockOperation = OperationBase & {
   locked: boolean
 }
 
+/** (#488) The other lock: a shared guard anyone may set and anyone may take
+ *  off, stopping paint from every hand including the room owner's. Where
+ *  `layer_owner_lock` is a claim about *who* may draw, this is a claim that
+ *  *nobody* should right now — the "don't touch this one while we work"
+ *  everyone in the room can see and undo.
+ *
+ *  Unlike its owner-only sibling the server does not inspect it: it needs no
+ *  privilege to send and enforces nothing beyond what every client already
+ *  does on its own. It is nonetheless a real operation rather than local view
+ *  state, because the alternative was tried — a lock outside the log cannot
+ *  survive a reload, since a reload has no earlier state to carry it from.
+ *
+ *  Single `layerId` rather than the plural shape `layer_visibility` uses, and
+ *  deliberately: the server refuses layerId-bearing operations aimed at an
+ *  owner-locked layer, so naming one layer is what keeps a non-owner from
+ *  unlocking what the owner reserved. A mass toggle sends one per layer. */
+export type LayerLockOperation = OperationBase & {
+  type: 'layer_lock'
+  layerId: string
+  locked: boolean
+}
+
 export type LayerClearOperation = OperationBase & {
   type: 'layer_clear'
   layerId: string
@@ -1001,6 +1032,7 @@ export type Operation =
   | LayerVisibilityOperation
   | LayerRenameOperation
   | LayerOwnerLockOperation
+  | LayerLockOperation
   | LayerClearOperation
   | LayerMergeOperation
   | LayerDuplicateOperation

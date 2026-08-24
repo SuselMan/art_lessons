@@ -270,6 +270,37 @@ export class AccumulationBuffer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
   }
 
+  /** (#425) Restores a payload that covers only the top-left `w`x`h` of this
+   *  buffer, leaving the rest transparent.
+   *
+   *  Exists because a bounded room's tile grid overhangs the sheet: a
+   *  1754x2480 canvas on 1024-pixel tiles has a right-hand column running to
+   *  2048 and a bottom row running to 3072. Those pixels cannot be displayed
+   *  by anything — the sheet ends — but they were baked, gzipped, stored,
+   *  shipped and inflated by every client on every first join. Measured on
+   *  room U68gWoq-: 6.70 MB on the wire, 4.81 MB with the overhang dropped.
+   *
+   *  A full-size payload takes the plain path above: an old snapshot stored
+   *  before this existed is exactly the case where `w`/`h` equal the buffer's
+   *  own size, so nothing needs to know which era it came from.
+   *
+   *  The reallocation is not incidental. `texSubImage2D` alone would leave
+   *  whatever the texture held outside the sub-rect, and this is a *restore* —
+   *  it has to mean the same thing the whole-texture path means, which is
+   *  "this buffer now holds exactly this and nothing else". `texImage2D` with
+   *  null data is specified to zero-fill, so the overhang lands transparent
+   *  rather than merely unspecified. */
+  restorePixelsRect(w: number, h: number, pixels: Uint8Array): void {
+    const { gl, width, height } = this
+    if (w === width && h === height) { this.restorePixels(pixels); return }
+    this._invalidateMips()
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
+    if (w > 0 && h > 0) {
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    }
+  }
+
   copyTo(dest: AccumulationBuffer): void {
     dest._invalidateMips() // copyTexImage2D redefines dest's level 0
     const { gl } = this

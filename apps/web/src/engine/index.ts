@@ -72,7 +72,7 @@ import { computeFill, coverageToRgba, FILL_MAX_DIM } from './src/floodFill'
 import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from './src/TiledLayerBuffer'
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
-import { isFullyTransparent, retileSnapshotTiles } from './src/retileSnapshot'
+import { clipTileToPage, isFullyTransparent, retileSnapshotTiles } from './src/retileSnapshot'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/snapshotAudit'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
@@ -235,6 +235,11 @@ export interface PencilEngineOptions {
   // ('remote') and re-sync derived state at that point, not on arrival, so
   // the log/layer-thumbnail state matches what's actually visible on screen.
   onPreviewApplied?: (op: StrokeOperation) => void
+  // (#480) Движок заметил, что его собственный инвариант не держится. Опцией,
+  // а не импортом отчёта: engine/ не знает ни про Sentry, ни про комнату, и
+  // единственное, чем он может помочь, — сказать наружу, что именно он
+  // отказался делать и сколько раз подряд.
+  onInvariant?: (name: string, context: Record<string, string | number>) => void
   // (#429) Fires while the pen is still down, carrying the dabs painted since
   // the last time it fired — the sending half of the live stroke channel. The
   // caller puts these on the wire; peers hand them straight to
@@ -381,6 +386,10 @@ export interface StructuralUndoRedoPeek {
 
 export interface PencilEngineAPI {
   initLayer(id: string): void
+  /** (#486) Declares the restored snapshot's structure to be the whole
+   *  pre-log layer set, retiring any earlier `initLayer` the snapshot has
+   *  already outlived. See the implementation for what goes wrong without it. */
+  setBaseLayers(ids: readonly string[]): void
   setActiveLayer(id: string): void
   setLocked(locked: boolean): void
   // Dev-only live tuning (see DAB_FRAG's paperFillThreshold uniform and its
@@ -1141,6 +1150,12 @@ export const DEFAULT_GRAPHITE_COLOR: [number, number, number] = [0.14, 0.14, 0.1
 // replay tail. Interval/budget are starting points to be tuned by measurement (#76).
 const CHECKPOINT_INTERVAL = 20
 const CHECKPOINT_BUDGET_BYTES = 256 * 1024 * 1024
+/** (#480) Сколько отказов _takeCheckpoint подряд по одному слою считаем не
+ *  штатным «перо ещё внизу», а залипанием. Двадцать границ чекпойнта — это
+ *  четыреста пиксельных операций по слою, за которые ни один момент не
+ *  оказался чистым; на живом уроке столько не набирает даже непрерывная
+ *  штриховка вдвоём. */
+const CHECKPOINT_REFUSAL_ALARM = 20
 
 // A single StrokeOperation's JSON size is unbounded in principle — a long
 // fill/scribble held down for a while can reach thousands of dabs, and a
@@ -1624,6 +1639,13 @@ export class PencilEngine implements PencilEngineAPI {
   private _userId: string
   private _onLocalOperation?: (op: Operation) => void
   private _onPreviewApplied?: (op: StrokeOperation) => void
+  private _onInvariant?: (name: string, context: Record<string, string | number>) => void
+  // (#480) Подряд идущие отказы _takeCheckpoint по слою. Единичный отказ —
+  // норма и вся суть защиты из #479: перо опущено, чекпойнт подождёт границы.
+  // А вот слой, который не удаётся зачекпойнтить десятки раз кряду, означает,
+  // что что-то держит его «грязным» постоянно — и тогда он остаётся без
+  // чекпойнта совсем, то есть каждый undo по нему проигрывает всю историю.
+  private _checkpointRefusals = new Map<string, number>()
   // (#429) Sending half of the live stroke channel. Dabs painted since the
   // last packet went out, plus when that was and how many packets this gesture
   // has sent — all three reset at pen-down.
@@ -2310,6 +2332,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._userId = options.userId ?? 'local'
     this._onLocalOperation = options.onLocalOperation
     this._onPreviewApplied = options.onPreviewApplied
+    this._onInvariant = options.onInvariant
     this._onLiveStrokeDabs = options.onLiveStrokeDabs
     this._onLiveStrokeEnd = options.onLiveStrokeEnd
     this._debug = options.debug ?? false
@@ -2373,6 +2396,48 @@ export class PencilEngine implements PencilEngineAPI {
   initLayer(id: string): void {
     this._baseLayerIds.add(id)
     this._createBuffer(id)
+  }
+
+  /** (#486) Replaces the pre-log layer set with the one a restored snapshot
+   *  describes, destroying the buffers of any layer it does not list.
+   *
+   *  The removal half is the whole point, and it exists because a restore
+   *  starts from an engine that has *already* been told about the room's
+   *  initial layers: Room's mount effect calls `initLayer` for each layer in
+   *  `makeInitialLayerState()` — `layer-1` and `background` — long before it
+   *  knows this room has a snapshot to restore. If `layer-1` was deleted below
+   *  the snapshot's structure seq, the operation that deleted it is one the
+   *  server legitimately withholds (`isCoveredBySnapshot`: the stored structure
+   *  already accounts for it), so nothing in the log this client receives can
+   *  ever retire that buffer, and `_syncBuffersToLog` would recreate it anyway
+   *  — `_baseLayerIds` is its seed.
+   *
+   *  The layer is invisible, so it costs nothing anybody can see. What it costs
+   *  is the room: `liveLayerIds()` keeps reporting it, and snapshotSync's
+   *  #386/#462 guard reads the store's (correct) LayerState omitting it as the
+   *  store being stale, and refuses the upload. Every upload, in every session,
+   *  on every device — the guard's verdict is a pure function of a divergence
+   *  that never heals. Room `U68gWoq-` (Ilya's homework, 22–24.08) stopped
+   *  baking at seq 4100, one second after the `layer_add` that followed its
+   *  last good checkpoint, and by seq 11291 its `room_state` was 43 MB of JSON
+   *  — 28 MB on the wire, past what a join survives. Nothing was ever lost;
+   *  the lesson simply stopped being openable.
+   *
+   *  Safe against false retirement by construction: at the moment a restore
+   *  calls this, `_baseLayerIds` holds exactly the initial layers plus whatever
+   *  a previous restore put there, and no operation has been applied yet. A
+   *  layer missing from the snapshot's structure is therefore one the structure
+   *  outlived, never one created after it. */
+  setBaseLayers(ids: readonly string[]): void {
+    const next = new Set(ids)
+    for (const id of this._baseLayerIds) {
+      if (!next.has(id)) this._destroyBuffer(id)
+    }
+    this._baseLayerIds = next
+    for (const id of next) this._createBuffer(id)
+    // #122: the below/above split cache was built from a layer set that no
+    // longer holds — same reasoning as the layer_delete branch's own call.
+    this._invalidateSplitCache()
   }
 
   setActiveLayer(id: string): void {
@@ -3889,7 +3954,11 @@ export class PencilEngine implements PencilEngineAPI {
         buf.clear()
         for (const t of cp.tiles) {
           const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
-          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
+          // (#425) The tile's own geometry, not the buffer's: a snapshot baked
+          // after #425 clips whatever hangs off the sheet, so an edge tile's
+          // payload can be smaller than the tile it restores into. A tile
+          // stored before that is the same call with nothing clipped.
+          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
           // (#155 Tier 2) Exact historical pixels, not a fresh paint — scan
           // once for the real content bbox rather than a markContentPainted
           // union (which would wrongly claim the whole tile as content).
@@ -4427,7 +4496,18 @@ export class PencilEngine implements PencilEngineAPI {
     // a tone shift rather than an artifact, it compounds across a session, and
     // since idle timing and stream arrival differ per client, two people in one
     // room drift apart while each stays internally consistent.
-    if (this._hasUnrecordedInk(layerId)) return
+    if (this._hasUnrecordedInk(layerId)) {
+      const refusals = (this._checkpointRefusals.get(layerId) ?? 0) + 1
+      this._checkpointRefusals.set(layerId, refusals)
+      // Порог, а не каждый отказ: отказы — штатный режим, новостью является
+      // только их непрерывность. Ровно на пороге, а не после него, иначе одна
+      // залипшая ситуация давала бы отчёт на каждой границе чекпойнта.
+      if (refusals === CHECKPOINT_REFUSAL_ALARM) {
+        this._onInvariant?.('layer never checkpointed — unrecorded ink persists', { layerId, refusals })
+      }
+      return
+    }
+    this._checkpointRefusals.delete(layerId)
     const buf = this._layers.get(layerId)
     if (!buf) return
     const ops = this._log.layerPixelOps(layerId)
@@ -4469,6 +4549,28 @@ export class PencilEngine implements PencilEngineAPI {
    *  _takeCheckpoint has one: a caller only reaches this from Room's own
    *  orchestration on a live seq boundary, never from a code path that could
    *  race a context loss the way idle-scheduled local checkpointing can. */
+  /** (#425) This layer's resident tiles as a snapshot payload, with the part of
+   *  each tile that hangs off the sheet left out — see clipTileToPage for the
+   *  measurement and for the row arithmetic, which is the part that bites.
+   *
+   *  Infinite rooms are excluded on purpose: they have no sheet to clip to, and
+   *  their tile grid is the coordinate system rather than an overhang.
+   *
+   *  Shared with bakeLayerByFullReplay deliberately. That one is the oracle
+   *  these bytes are compared against (#168, #289), so any difference in
+   *  geometry between the two would read as a determinism violation on every
+   *  bounded room in existence. */
+  private _bakeTiles(buf: ILayerBuffer): SnapshotTile[] {
+    const page = this._infinite ? null : this._pageSize()
+    return buf.allResident().map(({ buffer, originX, originY }) => {
+      const pixels = buffer.readPixels()
+      return page
+        ? clipTileToPage(originX, originY, buffer.width, buffer.height, pixels, page)
+        : { originX, originY, width: buffer.width, height: buffer.height, pixels }
+    })
+  }
+
+
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
     const buf = this._layers.get(layerId)
     if (!buf) return null
@@ -4480,9 +4582,7 @@ export class PencilEngine implements PencilEngineAPI {
     // painted, looked empty while holding a full drawing. It was then left out
     // of the snapshot entirely, and the next client to restore that snapshot
     // saw a blank layer. That is #369, and this line is where it started.
-    const tiles = buf.allResident().map(({ buffer, originX, originY }) => ({
-      originX, originY, width: buffer.width, height: buffer.height, pixels: buffer.readPixels(),
-    }))
+    const tiles = this._bakeTiles(buf)
     if (!tiles.length) return null
     // (#373) Whatever the caller does with these bytes, this layer's current
     // pixels have now left the engine — anything that changes them after this
@@ -4510,9 +4610,11 @@ export class PencilEngine implements PencilEngineAPI {
     try {
       scratch.clear()
       for (const op of ops) this._applyPixelOp(scratch, layerId, op)
-      const tiles = scratch.allResident().map(({ buffer, originX, originY }) => ({
-        originX, originY, width: buffer.width, height: buffer.height, pixels: buffer.readPixels(),
-      }))
+      // (#425) The same clipping as bakeNetworkSnapshot, and it has to be the
+      // same call: this is the oracle those bytes are compared against (#168,
+      // #289), so a difference in geometry here would read as a determinism
+      // violation on every room with a tile hanging off the sheet.
+      const tiles = this._bakeTiles(scratch)
       if (!tiles.length) return null
       return encodeLayerTiles(tiles)
     } finally {
@@ -4565,7 +4667,9 @@ export class PencilEngine implements PencilEngineAPI {
     // is silent corruption, not a near miss. Tiles already on the grid (every
     // infinite room, and every bake after the change) pass through untouched.
     const { w: tw, h: th } = this._tileSize()
-    const retiled = retileSnapshotTiles(tiles, tw, th)
+    // (#425) Лист передаётся, чтобы обрезанный по его краю тайл прошёл
+    // быстрым путём: он уже на сетке, просто кончается там же, где бумага.
+    const retiled = retileSnapshotTiles(tiles, tw, th, this._infinite ? undefined : this._pageSize())
     // Re-slicing a mostly-empty page yields tiles carrying nothing, and each
     // would cost 4 MiB of texture to say exactly what an absent tile already
     // says. Only a re-sliced set can contain them — identity means every tile
@@ -4588,7 +4692,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._drainGlErrors()
     for (const t of uploads) {
       const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
-      for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixels(t.pixels)
+      // (#425) See the same call in _replayInto: the payload carries its own
+      // size because edge tiles are clipped to the sheet.
+      for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
       buf.restoreTileContent(rect, t.pixels)
     }
     // One getError for the whole layer rather than one per tile: the question a

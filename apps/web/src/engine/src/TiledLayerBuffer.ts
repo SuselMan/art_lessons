@@ -669,7 +669,16 @@ export class TiledLayerBuffer implements ILayerBuffer {
     const { tileX, tileY } = worldToTile(rect.minX, rect.minY, this.tileW, this.tileH)
     const key = tileKey(tileX, tileY)
     if (!this.tiles.has(key)) return
-    this.contentRects.set(key, worldContentRect(rect, scanLocalContentRect(pixels, this.tileW, this.tileH)))
+    // (#425) Scanned at the payload's own stride, not the tile's. A snapshot
+    // baked after #425 clips the part of an edge tile that hangs off the sheet,
+    // so `pixels` can be narrower and shorter than the tile it restores into —
+    // and reading it at tileW would walk rows diagonally and report content
+    // where there is none. `rect` is built from the payload's own geometry by
+    // every caller, so it is the honest stride for both eras of snapshot.
+    this.contentRects.set(
+      key,
+      worldContentRect(rect, scanLocalContentRect(pixels, rect.maxX - rect.minX, rect.maxY - rect.minY)),
+    )
   }
 
   /** See ILayerBuffer's own doc comment. */

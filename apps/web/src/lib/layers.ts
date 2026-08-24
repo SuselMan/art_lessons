@@ -6,19 +6,36 @@ export function isFolder(item: LayerItem): item is LayerFolder {
 }
 
 /**
- * Whether this item refuses paint. The `locked` flag is the user's own toggle,
- * but the background is locked unconditionally and cannot be unlocked: it is
- * the paper, and every other rule about it already says so (it can't be moved,
- * deleted, merged, renamed, or multi-selected — see this file's own
- * BACKGROUND_LAYER_ID guards and the layer panel's).
+ * Whether this item refuses paint *from this viewer*. Three reasons it might,
+ * and they are not the same reason:
  *
- * Ask this rather than reading `.locked` directly, or the background ends up
- * paintable simply because nothing ever set a flag on it — which is exactly
- * what happened.
+ * - The background is locked unconditionally and cannot be unlocked: it is the
+ *   paper, and every other rule about it already says so (it can't be moved,
+ *   deleted, merged, renamed, or multi-selected — see this file's own
+ *   BACKGROUND_LAYER_ID guards and the layer panel's).
+ * - `locked` (#488) is the shared guard anyone may set and anyone may lift. It
+ *   stops every hand, the room owner's included — that is what distinguishes it
+ *   from the one below.
+ * - `ownerLocked` is the owner reserving a layer, so it stops everyone *but*
+ *   the owner. Hence `isOwner`: the same layer answers differently depending on
+ *   who is asking, which is precisely why this cannot be read off the item
+ *   alone.
+ *
+ * `isOwner` defaults to false — the stricter answer. A caller that forgets to
+ * pass it then over-locks (a layer reads as locked when the owner could in fact
+ * paint), which shows up as a padlock that will not open. The other default
+ * would let a non-owner draw into a layer the server is about to reject the
+ * strokes for, which is the same class of loss #312 exists to clean up after.
+ *
+ * Ask this rather than reading the flags directly, or the background ends up
+ * paintable simply because nothing ever set one — which is exactly what
+ * happened.
  */
-export function isLayerLocked(item: LayerItem | undefined): boolean {
+export function isLayerLocked(item: LayerItem | undefined, isOwner = false): boolean {
   if (!item) return false
-  return item.id === BACKGROUND_LAYER_ID || !!item.locked
+  if (item.id === BACKGROUND_LAYER_ID) return true
+  if (item.locked) return true
+  return !!item.ownerLocked && !isOwner
 }
 
 /** Returns the folder id that holds the item, or null if the item is at root. */
@@ -332,7 +349,7 @@ function applyMove(state: LayerState, op: LayerMoveOperation): LayerState {
 /** Applies one operation's structural effect. Pixel-only operations (stroke,
  *  clear) and the meta-operations (revoke/undo/redo — they only flip *another*
  *  entry's state, see OperationLog) pass through unchanged. Local view fields
- *  (activeId, selectedIds, collapsed, locked) are not touched — see
+ *  (activeId, selectedIds, collapsed) are not touched — see
  *  overlayLocalFields. */
 export function applyContentOp(state: LayerState, op: Operation): LayerState {
   switch (op.type) {
@@ -375,6 +392,13 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
       const item = state.items[op.layerId]
       if (!item) return state
       return { ...state, items: { ...state.items, [op.layerId]: { ...item, ownerLocked: op.locked } } }
+    }
+    // (#488) The shared lock. Folded here rather than patched locally, which is
+    // the whole fix: what a reload rebuilds from the log is all a reload has.
+    case 'layer_lock': {
+      const item = state.items[op.layerId]
+      if (!item) return state
+      return { ...state, items: { ...state.items, [op.layerId]: { ...item, locked: op.locked } } }
     }
     case 'layer_rename': {
       const item = state.items[op.layerId]
@@ -444,17 +468,20 @@ export function sanitizeSelection(state: LayerState): LayerState {
   return { ...state, activeId, selectedIds }
 }
 
-/** Carries per-user view state (selection, collapsed folders, local locks) from
- *  the current state onto a freshly replayed one — those fields live outside
- *  the shared operation log. */
+/** Carries per-user view state (selection, collapsed folders) from the current
+ *  state onto a freshly replayed one — those fields live outside the shared
+ *  operation log.
+ *
+ *  (#488) The lock used to be carried here, and that was the bug: a field
+ *  outside the log cannot survive a reload, because a reload has no "current"
+ *  to carry anything from. Both locks are operations now, so both arrive with
+ *  the replay and neither may be overwritten from local state. */
 export function overlayLocalFields(derived: LayerState, current: LayerState): LayerState {
   const items: LayerState['items'] = {}
   for (const [id, item] of Object.entries(derived.items)) {
     const cur = current.items[id]
     if (cur && isFolder(item) && isFolder(cur)) {
-      items[id] = { ...item, locked: cur.locked, collapsed: cur.collapsed }
-    } else if (cur && !isFolder(item) && !isFolder(cur)) {
-      items[id] = { ...item, locked: cur.locked }
+      items[id] = { ...item, collapsed: cur.collapsed }
     } else {
       items[id] = item
     }

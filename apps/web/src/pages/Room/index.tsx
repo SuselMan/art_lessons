@@ -101,10 +101,13 @@ import {
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { ChiselAngleDial } from './ChiselAngleDial'
+import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
+import { reportRoomOpen } from './reportOpen'
+import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
 import { restoreLatestSnapshot, walkHistoryBackward } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError } from '../../stores/noticeStore'
@@ -922,10 +925,10 @@ export function Room() {
   const noteLayerSeq = useCallback((layerId: string, seq: number) => {
     const highest = layerAppliedSeqRef.current.get(layerId) ?? 0
     if (seq < highest) {
-      console.warn(
-        `[order] layer ${layerId}: seq ${seq} applied after ${highest} was already on screen — `
-        + 'a concurrent stroke likely composited out of true order (see layerAppliedSeqRef\'s doc comment)',
-      )
+      // (#480) Ровно тот «logged, countable event», которого просит
+      // комментарий выше — только теперь считается там, где это видно не
+      // только при открытом девтулзе.
+      reportInvariant('layer op applied out of true order', { layerId, seq, alreadyOnScreen: highest })
       return
     }
     layerAppliedSeqRef.current.set(layerId, seq)
@@ -1028,7 +1031,7 @@ export function Room() {
   // gate — see snapshotGate.ts for what it refuses and why. Per mount, like
   // replayIncompleteRef below: a fresh mount is a fresh, empty engine, and so
   // a client that has to earn the right to speak for the room again.
-  const snapshotGateRef = useRef(createSnapshotGate())
+  const snapshotGateRef = useRef(createSnapshotGate(reportInvariant))
   /** (#385) Set when the join-time replay did not finish — an operation threw
    *  and the canvas therefore shows less than the log says the room contains.
    *
@@ -1046,6 +1049,23 @@ export function Room() {
    *  Never cleared for the life of this mount: nothing that happens after a
    *  half-applied replay can make the buffer whole again short of a reload,
    *  which is a fresh mount and a fresh attempt anyway. */
+  // (#487) Замер входа: от нажатия «войти» до момента, когда преклоадер ушёл.
+  // Ref, а не состояние: между стартом и финишем комната перерисовывается
+  // (гейт сменяется редактором, движок монтируется), и замер обязан это
+  // пережить, ничего при этом не перерисовывая сам.
+  const openTimerRef = useRef<OpenTimer | null>(null)
+  // Будильник: снимает состояние, **не дожидаясь конца**. Половина, ради
+  // которой всё и делается — вход, который не заканчивается, не сообщает о
+  // себе ничем, см. openTiming.ts.
+  const openAlarmRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Будильник переживает смену экрана внутри комнаты, но не сам уход из неё:
+  // отчёт «вход не закончился» от размонтированной страницы — это отчёт о
+  // человеке, который просто ушёл, и он был бы неотличим от настоящего.
+  useEffect(() => () => {
+    if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
+  }, [])
+
   const replayIncompleteRef = useRef(false)
   const checkSnapshotBoundary = useCallback(() => {
     const engine = engineRef.current
@@ -1661,10 +1681,14 @@ export function Room() {
   // just buffer creation, no setActiveLayer/setCompositeOrder here — see
   // restoreFromSnapshot's own comment for why those must come *after* pixel
   // restoration, not before.
+  // (#486) setBaseLayers, not a loop of initLayer: the restored structure has
+  // to be able to *retire* a layer this mount already init'd, not only add to
+  // it. See the engine method's own doc comment for the room that fixing this
+  // gets back.
   const initLayersFromLayerState = useCallback((engine: PencilEngineAPI, ls: LayerState) => {
-    for (const item of Object.values(ls.items)) {
-      if (item.kind === 'layer') engine.initLayer(item.id)
-    }
+    engine.setBaseLayers(
+      Object.values(ls.items).filter(item => item.kind === 'layer').map(item => item.id),
+    )
   }, [])
 
   // (#169 bug fix) Injects a downloaded snapshot's pixels + structure into
@@ -1727,6 +1751,35 @@ export function Room() {
     restoredLayerStateRef.current = head.layerState
     return true
   }, [initLayersFromLayerState])
+
+  /** (#487) Гасит будильник и отчитывается о завершившемся входе.
+   *
+   *  Число слоёв и `gpuInfo()` берутся здесь, а не на старте: на старте их
+   *  ещё нет, а объясняют они ровно то, из-за чего вход бывает долгим — все
+   *  слои поднимаются разом (#467), и упирается это в GPU устройства (#469). */
+  const finishOpenTimer = useCallback((engine: PencilEngineAPI | null) => {
+    const timer = openTimerRef.current
+    if (!timer || timer.done) return
+    if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
+    if (engine) timer.note({ layers: engine.liveLayerIds().length })
+    if (id) reportRoomOpen(id, timer.finish(), engine?.gpuInfo())
+  }, [id])
+
+  /** (#487) Пускает замер входа и заводит будильник. Вызывается там, где
+   *  человек нажал «войти», а не там, где сокет что-то отправил: меряем то,
+   *  что он ждёт, а не то, что делает клиент. */
+  const startOpenTimer = useCallback(() => {
+    if (openAlarmRef.current !== null) clearTimeout(openAlarmRef.current)
+    const timer = createOpenTimer(() => performance.now())
+    openTimerRef.current = timer
+    openAlarmRef.current = setTimeout(() => {
+      openAlarmRef.current = null
+      // Не гасит замер: вход продолжается, и если он всё-таки дойдёт до конца,
+      // финиш об этом скажет. Дедуп по комнате в reportOpen следит, чтобы из
+      // двух отчётов об одном входе уехал только первый.
+      if (!timer.done && id) reportRoomOpen(id, timer.stalled(), engineRef.current?.gpuInfo())
+    }, SLOW_OPEN_MS)
+  }, [id])
 
   // (#169) Walks the room's history backward from `fromSeq` (the restored
   // snapshot's own seq) in pages, merging each into the engine's log purely
@@ -1840,6 +1893,8 @@ export function Room() {
       },
       // A peer's stroke reveal (#37 follow-up v2) has finished playing back —
       // commit it for real now, matching what's already visible on screen.
+      // (#480) Движку некому докладывать самому — см. PencilEngineOptions.onInvariant.
+      onInvariant: reportInvariant,
       onPreviewApplied: op => {
         pendingPreviewsRef.current.remove(op.id)
         applyRemoteOp(op)
@@ -1955,6 +2010,14 @@ export function Room() {
       // still needs to register handlers/cleanup synchronously below,
       // unaffected by this deferred branch.
       void (async () => {
+        // (#487) Фазы входа. Отмечаются по факту перехода, вплотную к тому
+        // await'у, который их и стоит — иначе они меряют не то, что называют.
+        openTimerRef.current?.stage('paper')
+        openTimerRef.current?.note({
+          tailOperations: pending.tailOperations.length,
+          latestSeq: latestKnownSeqRef.current,
+          snapshotSeq: pending.latestSnapshotSeq,
+        })
         // (#346) A failure here abandons the replay rather than running it
         // against the placeholder: awaitPaper puts up the retry screen, and
         // roomContentReady stays false so the room is not claimed to be open.
@@ -1973,10 +2036,13 @@ export function Room() {
           // to already be caught up on) — restore whenever the room has a
           // snapshot at all, no watermark comparison needed here the way
           // handleRoomState's reconnect branch needs one.
+          openTimerRef.current?.stage('snapshot')
           let restoredFromSnapshot = false
           if (id && pending.latestSnapshotSeq !== null) {
             restoredFromSnapshot = await restoreFromSnapshot(engine, id)
           }
+          openTimerRef.current?.note({ restoredFromSnapshot })
+          openTimerRef.current?.stage('replay')
 
           // (#398) Reference images decoded before the loop, not inside it —
           // see PencilEngineAPI.preloadImages. Without this, the operations
@@ -2009,6 +2075,11 @@ export function Room() {
             }
           }
           if (failed > 0) {
+            // (#480) Исключение выше уже уехало в Sentry, но не его
+            // последствие: с этого момента и до конца маунта клиент не имеет
+            // права печь снапшоты и не будет — молча. Именно это и надо
+            // видеть, а не только то, что один apply бросил.
+            reportInvariant('join replay incomplete — snapshots disabled for this mount', { failed })
             replayIncompleteRef.current = true
             notifyError(tRef.current('room.replayIncomplete'), { key: 'replay-incomplete', durationMs: null })
           }
@@ -2051,6 +2122,13 @@ export function Room() {
           // paper texture leaves an engine that cannot draw at all, so
           // unblocking buys nothing and costs the only honest signal there is.
           setRoomContentReady(true)
+          // (#487) В том же `finally` и по той же причине: «готово» здесь —
+          // это момент, когда преклоадер ушёл и карандаш заработал, и он
+          // наступает даже после неудачного восстановления. Замер должен
+          // говорить, сколько человек ждал, а не сколько ждала удачная ветка;
+          // что именно пошло не так при восстановлении, отдельно докладывает
+          // reportSnapshotRestore (#474).
+          finishOpenTimer(engine)
         }
       })()
     } else if (!isCreator) {
@@ -2072,7 +2150,10 @@ export function Room() {
       // and the engine refuses to start a stroke until the real texture has
       // loaded (see _paperTexLoaded). Marking ready before then hands over a
       // room that looks open and silently ignores every stroke.
-      void (async () => { if (await awaitPaper(engine)) setRoomContentReady(true) })()
+      void (async () => {
+        openTimerRef.current?.stage('paper')
+        if (await awaitPaper(engine)) { setRoomContentReady(true); finishOpenTimer(engine) }
+      })()
     }
 
     return () => {
@@ -2096,6 +2177,7 @@ export function Room() {
     id, enginePaper, enginePaperColor, engineInfinite,
     markActive, applyRemoteOp, syncFromLog, syncFromLogNow, debugEnabled, predictEnabled,
     hapticGrainEnabled, checkSnapshotBoundary, markJoinRestoreDone, restoreFromSnapshot, backfillHistory,
+    finishOpenTimer,
     grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
     awaitPaper,
   ])
@@ -2472,13 +2554,19 @@ export function Room() {
     // to everyone — including its author — while still travelling to every
     // participant and into the log. Silently, with no warning, exactly like
     // the lock: the eye in the layer panel already says why nothing happens.
+    // (#488) `isOwner` is what makes the owner lock mean anything on this side.
+    // Until now it meant nothing here: a non-owner could draw on a layer the
+    // owner had reserved, see the ink appear, and have the server reject every
+    // stroke of it. The gate is where that belongs — refusing the stroke is
+    // silent and complete, where letting it through and rejecting it later
+    // costs the drawing.
     engine.setLocked(
-      isLayerLocked(layerState.items[layerState.activeId])
+      isLayerLocked(layerState.items[layerState.activeId], isOwner)
       || !isEffectivelyVisible(layerState, layerState.activeId)
       || !isDrawingTool(tool),
     )
     engine.setCompositeOrder(computeCompositeOrder(layerState))
-  }, [layerState, tool])
+  }, [layerState, tool, isOwner])
 
   // ── sync viewport → engine ────────────────────────────────────────────────────
   useEffect(() => {
@@ -4518,7 +4606,7 @@ export function Room() {
       // the socket. Don't try to patch the hole; distrust the live stream
       // and redo the same full catch-up a normal reconnect does.
       if (hasSeqGap(lastConfirmedSeqRef.current, seq)) {
-        console.warn(`[sync] seq gap: expected ${lastConfirmedSeqRef.current + 1}, got ${seq} — resyncing`)
+        reportInvariant('seq gap in confirmed stream — resyncing', { expected: lastConfirmedSeqRef.current + 1, got: seq })
         requestFullResync()
         return
       }
@@ -4552,7 +4640,7 @@ export function Room() {
         if (catchingUpRef.current ? !shouldLeaveCatchUp(backlog) : shouldEnterCatchUp(backlog)) {
           if (!catchingUpRef.current) {
             catchingUpRef.current = true
-            console.warn(`[sync] falling behind (${backlog} strokes queued) — applying without animation`)
+            reportInvariant('reveal backlog — applying peer strokes without animation', { backlog })
           }
           applyRemoteOp(op)
           syncFromLog()
@@ -4668,7 +4756,7 @@ export function Room() {
       // here, so a non-zero remainder means repair rather than "wait a moment".
       const orphaned = engineRef.current?.endPeerLiveStroke(leftUserId) ?? 0
       if (orphaned) {
-        console.warn(`[sync] ${leftUserId} left with ${orphaned} unrecorded live dabs — resyncing`)
+        reportInvariant('peer left with unrecorded live dabs — resyncing', { orphaned })
         requestFullResync()
       }
       // (#152) Cursor-position cleanup for this peer now lives inside
@@ -4816,6 +4904,8 @@ export function Room() {
 
     setJoinError(null)
     setJoinSubmitting(true)
+    // (#487) Отсюда, а не с отправки в сокет: замеряем ожидание человека.
+    startOpenTimer()
     lastJoinAttemptRef.current = { name, password }
     socketRef.current?.emit(
       'join_room',
@@ -4839,7 +4929,7 @@ export function Room() {
         // unmounts the gate in favor of the editor.
       },
     )
-  }, [id, applyIdentity, outbox, t])
+  }, [id, applyIdentity, outbox, t, startOpenTimer])
 
   // Submits the join gate's form. The name is validated here rather than in
   // `attemptJoin`, which is also called with credentials already known good

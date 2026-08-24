@@ -33,7 +33,7 @@ import {
 import { patchItem } from './utils'
 import { buildDuplicateOps } from './duplicate'
 import {
-  isFolder, isLayerLocked, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
+  isFolder, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
   placementAbove, normalizeMoveSet,
 } from '../../lib/layers'
 import { readImageFile } from '../../lib/image'
@@ -221,12 +221,18 @@ export const LayerPanel = memo(function LayerPanel({
     onOp({ type: 'layer_opacity', layerIds: ids, opacity: v })
   }, [targets, onOp])
 
-  // The background's lock isn't the user's to flip (see isLayerLocked) — its
-  // own row renders the button disabled, and this ignores it either way.
+  // (#488) An operation now, not a local patch. The lock is shared and has to
+  // survive a reload, and nothing outside the log can: a reload has no earlier
+  // state to carry a local flag over from. Anyone may flip this one — that is
+  // what separates it from the owner lock below.
+  //
+  // The background's lock isn't anyone's to flip (see isLayerLocked) — its own
+  // row renders the button disabled, and this ignores it either way.
   const handleToggleLock = useCallback((id: string) => {
     if (id === BACKGROUND_LAYER_ID) return
-    onChange(patchItem(id, prev => ({ locked: !prev.locked })))
-  }, [onChange])
+    const item = items[id]
+    if (item) onOp({ type: 'layer_lock', layerId: id, locked: !item.locked })
+  }, [items, onOp])
 
   /** Mixed selections resolve one way: the control reports "are they all on?"
    *  and setting it makes them all the opposite. Anything else (per-item
@@ -238,18 +244,18 @@ export const LayerPanel = memo(function LayerPanel({
     onOp({ type: 'layer_visibility', layerIds: targets, visible: !allVisible })
   }, [targets, layerState, onOp])
 
-  /** The local lock is per-user view state, never an operation (see
-   *  overlayLocalFields) — so unlike the others this mass action is a plain
-   *  local patch and costs the log nothing. */
+  /** (#488) One operation per target rather than one naming them all. Unlike
+   *  `layer_visibility`, `layer_lock` names a single layer on purpose — see its
+   *  own doc comment — so a mass toggle is a handful of entries, which is what
+   *  a handful of rows should cost. */
   const handleToggleLockMass = useCallback(() => {
     if (targets.length === 0) return
     const allLocked = targets.every(id => layerState.items[id]?.locked)
-    onChange(p => {
-      let next = p
-      for (const id of targets) next = patchItem(id, { locked: !allLocked })(next)
-      return next
-    })
-  }, [targets, layerState, onChange])
+    for (const id of targets) {
+      if (id === BACKGROUND_LAYER_ID) continue
+      onOp({ type: 'layer_lock', layerId: id, locked: !allLocked })
+    }
+  }, [targets, layerState, onOp])
 
   // (#254/#260) Unlike handleToggleLock above (a purely local view-state
   // patch), this goes through the operation log — ownerLocked must be
@@ -863,7 +869,12 @@ export const LayerPanel = memo(function LayerPanel({
     && activeId !== BACKGROUND_LAYER_ID
   const canMerge        = canMergeSelected || canMergeDown
   const canDelete       = activeId !== BACKGROUND_LAYER_ID || selectedIds.some(id => id !== BACKGROUND_LAYER_ID)
-  const isActiveLocked  = isLayerLocked(activeItem)
+  // (#488) The plain lock's own flag, not isLayerLocked: this button toggles
+  // the shared lock, so it has to show that lock's state. isLayerLocked answers
+  // a different question — "may I paint here" — which the owner lock also
+  // decides, and a button that lit up because of the *other* lock would not
+  // open when pressed.
+  const isActiveLocked  = activeId === BACKGROUND_LAYER_ID || !!activeItem?.locked
   const isActiveOwnerLocked = !!activeItem?.ownerLocked
 
   // ── render ────────────────────────────────────────────────────────────────────

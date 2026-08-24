@@ -2,6 +2,7 @@ import type { LayerState } from '@grafetto/shared'
 import { SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import type { PencilEngineAPI } from '../../engine'
 import { compressLayerTiles } from '../../engine/src/snapshotCodec'
+import { reportInvariant } from '../../lib/reportInvariant'
 import { downscaleForThumbnail } from '../../lib/thumbnail'
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -132,9 +133,20 @@ export function createSnapshotUploader(roomId: string) {
         // would take the join down with it, and the correct behaviour is
         // simply not to persist. The room stays snapshot-less — slow to open,
         // which is what it already was — instead of persisting a lie.
-        console.error(
-          `[snapshot] refusing to upload: layer state omits live layers ${missing.join(', ')}`,
-        )
+        //
+        // (#486, #480 §2) Reported, not only whispered to a console nobody is
+        // holding. This guard's verdict is a pure function of a *divergence*,
+        // so it does not fire once — it fires on every boundary of every
+        // session until whatever made the two derivations disagree is fixed,
+        // and the room silently stops being bakeable. That is how U68gWoq-
+        // spent three days growing a 43 MB join nobody could complete, with a
+        // healthy server, an intact log and an empty Sentry. reportInvariant
+        // owns the console line too, and its per-session dedup is what keeps a
+        // permanent divergence from becoming thousands of events about one
+        // fact — the repeats live in the counter it carries instead.
+        reportInvariant('snapshot upload refused — layer state omits live layers', {
+          roomId, seq: boundarySeq, missing: missing.join(','), known: [...known].join(','),
+        })
         return
       }
 
