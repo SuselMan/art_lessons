@@ -33,3 +33,8 @@ backup.env
 # committed. A committed manifest would be a claim about a bake nobody can
 # check out, and a wrong claim is a 404 — see paperManifest.ts's own comment.
 apps/web/public/paper/
+
+# (#491) Playwright leaves traces/video/screenshots for failing runs, and an
+# HTML report when CI asks for one. All of it is per-run debris.
+test-results/
+playwright-report/

@@ -1,0 +1,31 @@
+{
+  // (#491) The end-to-end harness is not inside any workspace — it drives all
+  // of them — so nothing else typechecks it. Without this file `npm run
+  // typecheck` passes while e2e/ quietly rots: it imports the app's own types
+  // (PencilEngineAPI, the room store) precisely so that a rename in the engine
+  // breaks the tests at typecheck rather than at midnight, and that only works
+  // if something is actually looking.
+  "compilerOptions": {
+    "target": "es2023",
+    // DOM because the page-side halves of `page.evaluate` are real browser
+    // code, typechecked in place: `document`, `getComputedStyle`, `window`.
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    // The harness imports the app's own types to stay honest about the
+    // engine's API, and that pulls the app's modules in with them — hence
+    // vite/client (for `import.meta.glob`) and jsx below, neither of which
+    // this directory writes a line of itself.
+    "types": ["node", "vite/client"],
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["e2e", "playwright.config.ts"]
+}
