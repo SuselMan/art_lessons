@@ -3,7 +3,7 @@ import { clamp } from 'lodash-es'
 
 import { shapingForBrushPenPreset } from './brushPenPresets'
 import { shapingForWatercolorPreset } from './watercolorPresets'
-import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
+import { shapingForMarkerPreset, type NibAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
 import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
 import { DEFAULT_TILT_RESPONSE, type TiltResponse } from './tiltCurve'
@@ -25,11 +25,26 @@ export interface DabShapingProfile {
    *  marker nibs still ignore it — a one-parameter implementation satisfies
    *  this signature, so their geometry is unchanged. */
   size(pressure: number, tiltNorm: number): number
-  /** Aspect ratio (1 = circular), given tiltNorm = tiltMag/90. Since #388
-   *  tiltMag is the true angle from vertical (tiltMath.ts), which is in
-   *  [0, 90) by construction — so tiltNorm is in [0, 1) and this no longer
-   *  needs the "unclamped, may exceed 1" caveat it used to carry. */
-  aspect(tiltNorm: number): number
+  /** Aspect ratio (1 = circular), given tiltNorm = tiltMag/90 and the same
+   *  pressure `size` is given. Since #388 tiltMag is the true angle from
+   *  vertical (tiltMath.ts), which is in [0, 90) by construction — so tiltNorm
+   *  is in [0, 1) and this no longer needs the "unclamped, may exceed 1" caveat
+   *  it used to carry.
+   *
+   *  #489: pressure was added, and it was an omission rather than a decision
+   *  that it was missing — ADR 012 §2 lists pressure as an input to the
+   *  footprint, and `size` has always had it. It went unnoticed because no nib
+   *  needed it: for every tool here so far, leaning changes the shape and
+   *  pressing changes only the scale. A flat brush is the first that does not —
+   *  its width is set by the ferrule and does not move, while pressure splays
+   *  the hairs and lengthens the contact patch, so its *proportions* are what
+   *  pressure drives.
+   *
+   *  #472's `tipBend.elongation(pressure)` is the same need answered narrowly:
+   *  it multiplies this by a pressure curve, but only for a nib that is also
+   *  bending. A one-parameter implementation still satisfies this signature, so
+   *  every profile that does not care is unchanged. */
+  aspect(tiltNorm: number, pressure: number): number
   /** Distance, in world px of travel, over which DabSystem's tilt low-pass
    *  reaches ~63% of a new reading — or omitted for no filtering at all (see
    *  #305 and DabSystem's own _filterTilt). Set by charcoal and, since #389, by
@@ -489,11 +504,11 @@ export function offsetAngleShaping(angleRadians: number): DabShapingProfile['ang
 // so offering the setting for them would be a control that provably does
 // nothing — the same reason marker's angle is hidden for the bullet nib (#278).
 export function shapingForTool(
-  tool: ToolType, presetName?: string, markerAngle?: MarkerAngleConfig,
+  tool: ToolType, presetName?: string, nibAngle?: NibAngleConfig,
   tiltResponse: TiltResponse = DEFAULT_TILT_RESPONSE,
 ): DabShapingProfile {
   if (tool === 'liner') return LINER_DAB_SHAPING
-  if (tool === 'marker') return shapingForMarkerPreset(presetName, markerAngle)
+  if (tool === 'marker') return shapingForMarkerPreset(presetName, nibAngle)
   // #454: like marker, the brush pen dispatches on presetName — but it carries
   // the pressure response there rather than a nib, since the tool has no nib
   // list and no size ladder to spend that slot on (brushPenPresets.ts's own
@@ -504,7 +519,10 @@ export function shapingForTool(
   // #468 — same slot, same dispatch shape: a wet round brush whose contact
   // patch opens under pressure, with its own higher width floor and heavier
   // pressure smoothing (watercolorPresets.ts).
-  if (tool === 'watercolor') return shapingForWatercolorPreset(presetName)
+  // #489 — and the angle config goes with it now: the flat nib reads the same
+  // per-tool angle/anchor the marker's chisel does, because it is the same
+  // shape wearing the same setting.
+  if (tool === 'watercolor') return shapingForWatercolorPreset(presetName, nibAngle)
   // #304: charcoal's geometry is the same for all three types (vine/willow/
   // compressed differ in how the material *deposits*, not in the shape of the
   // stick's contact patch) — so it ignores presetName, same as liner does.

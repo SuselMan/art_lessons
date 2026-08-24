@@ -12,6 +12,13 @@ import {
 const FIXED_ANGLE = Math.PI / 4 // arbitrary fixture angle — not the old hardcoded ADR 004 default, just a test value
 const MARKER_CHISEL_DAB_SHAPING = chiselDabShaping(FIXED_ANGLE, 'canvas')
 
+
+// #489: `aspect` takes pressure now (dabShaping.ts's own note on why it was an
+// omission). Everything asserted below is about tilt, or about a nib that
+// ignores both, so any pressure does — named rather than a bare number so it is
+// plain that it is not part of what is being measured.
+const NOMINAL_PRESSURE = 0.5
+
 describe('markerNibFromPreset (#251, ADR 004 §1)', () => {
   it('parses the nib token out of the "${nib}:${size}" preset string #252 sends', () => {
     expect(markerNibFromPreset('bullet:0.3')).toBe('bullet')
@@ -35,7 +42,7 @@ describe('MARKER_BULLET_DAB_SHAPING (#251, ADR 004 §1: reuse liner\'s curve as-
 
   it('matches LINER_DAB_SHAPING\'s own mild tilt->aspect response exactly', () => {
     for (const tiltNorm of [0, 0.3, 0.6, 1, 1.5]) {
-      expect(MARKER_BULLET_DAB_SHAPING.aspect(tiltNorm)).toBeCloseTo(LINER_DAB_SHAPING.aspect(tiltNorm))
+      expect(MARKER_BULLET_DAB_SHAPING.aspect(tiltNorm, NOMINAL_PRESSURE)).toBeCloseTo(LINER_DAB_SHAPING.aspect(tiltNorm, NOMINAL_PRESSURE))
     }
   })
 
@@ -53,7 +60,7 @@ describe('MARKER_BULLET_DAB_SHAPING (#251, ADR 004 §1: reuse liner\'s curve as-
 
 describe('MARKER_CHISEL_DAB_SHAPING (#251, ADR 004 §1: fixed aspect + fixed angle)', () => {
   it('has the same weak pressure response as bullet/liner (ADR 004 §2), just scaled down by the nib elongation', () => {
-    const aspect = MARKER_CHISEL_DAB_SHAPING.aspect(0)
+    const aspect = MARKER_CHISEL_DAB_SHAPING.aspect(0, NOMINAL_PRESSURE)
     for (const pressure of [0, 0.5, 1]) {
       expect(MARKER_CHISEL_DAB_SHAPING.size(pressure, 0))
         .toBeCloseTo(MARKER_BULLET_DAB_SHAPING.size(pressure, 0) / aspect)
@@ -68,7 +75,7 @@ describe('MARKER_CHISEL_DAB_SHAPING (#251, ADR 004 §1: fixed aspect + fixed ang
   it('lays a broad edge exactly as wide as the requested base size (not aspectRatio times it)', () => {
     for (const baseSize of [1, 10, 120, 400]) {
       for (const pressure of [0, 0.5, 1]) {
-        const broadEdge = baseSize * MARKER_CHISEL_DAB_SHAPING.size(pressure, 0) * MARKER_CHISEL_DAB_SHAPING.aspect(0)
+        const broadEdge = baseSize * MARKER_CHISEL_DAB_SHAPING.size(pressure, 0) * MARKER_CHISEL_DAB_SHAPING.aspect(0, NOMINAL_PRESSURE)
         // Within the ±6-8% pressure swing every marker nib has (MARKER_WIDTH_
         // FLOOR/_CEIL), same as bullet's own mark is around its base size.
         expect(broadEdge).toBeCloseTo(baseSize * MARKER_BULLET_DAB_SHAPING.size(pressure, 0))
@@ -78,11 +85,11 @@ describe('MARKER_CHISEL_DAB_SHAPING (#251, ADR 004 §1: fixed aspect + fixed ang
 
   it('ignores tiltNorm entirely — a fixed elongation somewhere in the ADR\'s 4-6:1 range', () => {
     for (const tiltNorm of [0, 0.5, 1, 3, -2]) {
-      expect(MARKER_CHISEL_DAB_SHAPING.aspect(tiltNorm)).toBeGreaterThanOrEqual(4)
-      expect(MARKER_CHISEL_DAB_SHAPING.aspect(tiltNorm)).toBeLessThanOrEqual(6)
+      expect(MARKER_CHISEL_DAB_SHAPING.aspect(tiltNorm, NOMINAL_PRESSURE)).toBeGreaterThanOrEqual(4)
+      expect(MARKER_CHISEL_DAB_SHAPING.aspect(tiltNorm, NOMINAL_PRESSURE)).toBeLessThanOrEqual(6)
     }
     // Genuinely constant, not just "within range" by coincidence.
-    const values = [0, 0.5, 1, 3, -2].map(t => MARKER_CHISEL_DAB_SHAPING.aspect(t))
+    const values = [0, 0.5, 1, 3, -2].map(t => MARKER_CHISEL_DAB_SHAPING.aspect(t, NOMINAL_PRESSURE))
     expect(new Set(values.map(v => v.toFixed(6))).size).toBe(1)
   })
 
@@ -100,7 +107,7 @@ describe('shapingForMarkerPreset (#251, #278)', () => {
     expect(shapingForMarkerPreset('bullet:0.3')).toBe(MARKER_BULLET_DAB_SHAPING)
     const chisel = shapingForMarkerPreset('chisel:0.5', { angle: FIXED_ANGLE, anchor: 'canvas' })
     expect(chisel.angle(0, 0, 0, 0, 0)).toBeCloseTo(FIXED_ANGLE)
-    expect(chisel.aspect(0)).toBeCloseTo(MARKER_CHISEL_DAB_SHAPING.aspect(0))
+    expect(chisel.aspect(0, NOMINAL_PRESSURE)).toBeCloseTo(MARKER_CHISEL_DAB_SHAPING.aspect(0, NOMINAL_PRESSURE))
   })
 
   it('falls back to bullet for an unrecognized/missing token', () => {

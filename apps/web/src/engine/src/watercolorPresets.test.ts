@@ -8,8 +8,9 @@
 // index.watercolor.test.ts's own header). Those need a real browser.
 import { describe, expect, it } from 'vitest'
 
-import { BRUSH_PEN_HEAD_TAPER, BRUSH_PEN_PRESSURE_SMOOTHING_PX } from './brushPenPresets'
+import { BRUSH_PEN_HEAD_TAPER, BRUSH_PEN_PRESSURE_SMOOTHING_PX, shapingForBrushPenPreset } from './brushPenPresets'
 import { createTipState, tipFootprint } from './tipFootprint'
+import type { DabShapingProfile } from './dabShaping'
 
 import type { Dab } from '@grafetto/shared'
 
@@ -18,6 +19,7 @@ import {
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
   DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
   watercolorPigmentLoad, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
   WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling, watercolorPigmentFromPreset,
 } from './watercolorPresets'
@@ -127,8 +129,12 @@ describe('watercolor dab shaping', () => {
 
   it('broadens with tilt but never enough to compete with pressure', () => {
     const { aspect, size } = shapingForWatercolorPreset('normal')
-    expect(aspect(0)).toBeCloseTo(1, 5)
-    const fullTilt = aspect(1)
+    // #489: aspect takes pressure now; the round nib ignores it, and that it
+    // ignores it is part of what this asserts — a round brush broadens by being
+    // laid over, not by being pressed.
+    expect(aspect(0, 0.5)).toBeCloseTo(1, 5)
+    expect(aspect(0, 1)).toBeCloseTo(aspect(0, 0.05), 9)
+    const fullTilt = aspect(1, 0.5)
     expect(fullTilt).toBeGreaterThan(1)
     // The whole tilt range must move the footprint less than pressure does, or
     // the tool turns into a charcoal stick. Pressure spans 0.32 → 1.0, i.e. a
@@ -463,5 +469,219 @@ describe('pigment transport (#468 v11, ADR 011 §11)', () => {
     for (const tool of ['marker', 'brushPen'] as const) {
       expect(ribbonProfileFor(tool, undefined).migrate).toBe(0)
     }
+  })
+})
+
+// ─── #489: measuring a nib that is not round ────────────────────────────────
+
+describe('watercolorTravelRadius / watercolorSpreadRadius (#489)', () => {
+  const R = 7          // a round nib
+  const B = 3, A = 12  // a 4:1 flat, semi-axes
+
+  it('is exactly the radius for a round nib, whichever way it is dragged', () => {
+    for (const travel of [0, 0.4, Math.PI / 2, -2.1, 3.0, null]) {
+      expect(watercolorTravelRadius(R, R, 0.9, travel)).toBeCloseTo(R, 9)
+    }
+    expect(watercolorSpreadRadius(R, R)).toBeCloseTo(R, 9)
+  })
+
+  it('a flat brush drains four times faster broadside than edge-on', () => {
+    const NIB = 0.7                       // where the long axis points
+    const broadside = watercolorTravelRadius(A, B, NIB, NIB + Math.PI / 2)
+    const edgeOn    = watercolorTravelRadius(A, B, NIB, NIB)
+    // Broadside the nib is measured by its short axis, so `seg / radius` — the
+    // depletion clock — advances four times as fast.
+    expect(broadside).toBeCloseTo(B, 9)
+    expect(edgeOn).toBeCloseTo(A, 9)
+    expect(edgeOn / broadside).toBeCloseTo(A / B, 9)
+  })
+
+  it('and everything between the two is between the two axes', () => {
+    for (const psi of [0.2, 0.7, 1.1, 1.4]) {
+      const r = watercolorTravelRadius(A, B, 0, psi)
+      expect(r).toBeGreaterThan(B - 1e-9)
+      expect(r).toBeLessThan(A + 1e-9)
+    }
+  })
+
+  it('leaves the tone of a flat brush the same whichever way it is turned', () => {
+    // The property the formula was derived to have, and the reason it is not
+    // simply "use the short axis": the deposit is `seg / radius` spread across
+    // the band the nib lays, which is `2 * w_perp` wide. Per pixel that is
+    // `1 / (radius * w_perp)` — and if that is not direction-independent, a
+    // flat brush paints darker when turned, which no real one does.
+    const perPixel = (psi: number) => {
+      const r = watercolorTravelRadius(A, B, 0, psi)
+      const wPerp = 2 * Math.hypot(A * Math.sin(psi), B * Math.cos(psi))
+      return 1 / (r * wPerp)
+    }
+    const reference = perPixel(0)
+    for (const psi of [0.3, 0.9, Math.PI / 2, 2.4]) {
+      expect(perPixel(psi)).toBeCloseTo(reference, 9)
+    }
+  })
+
+  it('spread is isotropic — the circle with the same area, not either axis', () => {
+    const s = watercolorSpreadRadius(A, B)
+    expect(s).toBeCloseTo(Math.sqrt(A * B), 9)
+    expect(s).toBeGreaterThan(B)
+    expect(s).toBeLessThan(A)
+  })
+})
+
+// ─── #489: the flat nib ─────────────────────────────────────────────────────
+
+describe('watercolor flat nib (#489)', () => {
+  const flat = (angle = 0) => shapingForWatercolorPreset(
+    watercolorPresetString('normal', WATERCOLOR_MIX_DEFAULT, undefined, 'chisel'),
+    { angle, anchor: 'canvas' },
+  )
+
+  it('keeps the broad edge at the nominal size whatever the pressure', () => {
+    // The rule #336 settled for the marker: the number in the toolbar is the
+    // width of the mark the flat side lays down. Here it has to hold across the
+    // whole pressure range, because pressure moves the proportions rather than
+    // the scale — which is the entire difference between a flat brush and a
+    // felt chisel.
+    const { size, aspect } = flat()
+    for (const p of [0.05, 0.2, 0.5, 0.8, 1]) {
+      expect(size(p, 0) * aspect(0, p)).toBeCloseTo(1, 9)
+    }
+  })
+
+  it('gets thicker and less elongated as it is pressed — never round', () => {
+    const { size, aspect } = flat()
+    const light = size(0.05, 0)
+    const heavy = size(1, 0)
+    expect(heavy).toBeGreaterThan(light * 2)
+    expect(aspect(0, 0.05)).toBeGreaterThan(aspect(0, 1))
+    // A flat that reaches 1:1 has stopped being a flat — and this bound used to
+    // say 1.5, which is not that standard applied but a gesture at it. The first
+    // pass shipped 1.85 under a firm hand, passed here, and Ilya's verdict on
+    // seeing it was "явно видно квадраты". At the pressures a hand actually
+    // uses it has to stay unmistakably longer than it is wide, or picking a
+    // flat buys nothing over the round brush beside it.
+    expect(aspect(0, 1)).toBeGreaterThan(2.2)
+    expect(aspect(0, 0.6)).toBeGreaterThan(2.8)
+  })
+
+  it('ignores tilt, unlike the round nib it shares a tool with', () => {
+    const { aspect } = flat()
+    expect(aspect(1, 0.5)).toBeCloseTo(aspect(0, 0.5), 9)
+    // And the round one does not, which is what makes this a difference in the
+    // nib rather than a difference in the tool.
+    const round = shapingForWatercolorPreset('normal')
+    expect(round.aspect(1, 0.5)).toBeGreaterThan(round.aspect(0, 0.5))
+  })
+
+  it('holds the angle it is given, in the frame it is given', () => {
+    const OFF = 0.7
+    const { angle } = flat(OFF)
+    // canvas anchor: neither tilt, nor travel, nor the camera turns it.
+    expect(angle(0, 0, 0, 0, 0)).toBeCloseTo(OFF, 9)
+    expect(angle(80, 60, 40, 2.1, 1.3)).toBeCloseTo(OFF, 9)
+  })
+})
+
+describe('watercolor nib rides the preset string (#489)', () => {
+  it('round-trips through the string', () => {
+    for (const nib of ['round', 'chisel', 'flex'] as const) {
+      const s = watercolorPresetString('firm', { water: 0.4, pigment: 0.6 }, 'PB29', nib)
+      expect(watercolorNibFromPreset(s)).toBe(nib)
+      // ...without disturbing the four fields that were already there.
+      expect(watercolorResponseFromPreset(s)).toBe('firm')
+      expect(watercolorMixFromPreset(s).water).toBeCloseTo(0.4, 6)
+      expect(watercolorPigmentFromPreset(s)).toBe('PB29')
+    }
+  })
+
+  it('every string recorded before #489 is a round brush, not a malformed one', () => {
+    expect(watercolorNibFromPreset('normal')).toBe('round')                    // v1
+    expect(watercolorNibFromPreset('normal:60:40')).toBe('round')              // v4
+    expect(watercolorNibFromPreset('normal:60:40:PB29')).toBe('round')         // v5
+    expect(watercolorNibFromPreset(undefined)).toBe('round')
+    expect(watercolorNibFromPreset('normal:60:40:PB29:nonsense')).toBe('round')
+  })
+
+  it('and an old string still shapes the round nib exactly as it did', () => {
+    const before = shapingForWatercolorPreset('normal:60:40:PB29')
+    const after = shapingForWatercolorPreset(
+      watercolorPresetString('normal', { water: 0.6, pigment: 0.4 }, 'PB29', 'round'),
+    )
+    for (const p of [0.1, 0.5, 1]) {
+      expect(after.size(p, 0)).toBeCloseTo(before.size(p, 0), 9)
+      expect(after.aspect(0.5, p)).toBeCloseTo(before.aspect(0.5, p), 9)
+    }
+  })
+})
+
+// ─── #489: the flexible round nib ───────────────────────────────────────────
+
+describe('watercolor flex nib (#489)', () => {
+  const flexPreset = watercolorPresetString('normal', WATERCOLOR_MIX_DEFAULT, undefined, 'flex')
+
+  it('is the round nib plus a bend, not a separate brush', () => {
+    const flex = shapingForWatercolorPreset(flexPreset)
+    const round = shapingForWatercolorPreset('normal')
+    expect(flex.tipBend).toBeDefined()
+    expect(round.tipBend).toBeUndefined()
+    // Width response, tilt ovality and head taper are the round brush's own.
+    for (const p of [0.1, 0.5, 1]) expect(flex.size(p, 0)).toBeCloseTo(round.size(p, 0), 9)
+    expect(flex.aspect(0.8, 0.5)).toBeCloseTo(round.aspect(0.8, 0.5), 9)
+    expect(flex.headTaper).toBe(round.headTaper)
+  })
+
+  // Driven through tipFootprint rather than asserted on the profile: bending is
+  // stroke state, so "does it bend" is only answerable by dragging it.
+  const dragShaping = (shaping: DabShapingProfile, steps: number, dsPx: number, speed: number) => {
+    const state = createTipState()
+    let x = 0
+    let out = tipFootprint(shaping, {
+      x, y: 0, pressure: 0.8, tiltX: 0, tiltY: 0, baseSize: 30,
+      pathAngle: 0, ds: 0, speed, cameraAngle: 0,
+    }, state)
+    for (let i = 0; i < steps; i++) {
+      x += dsPx
+      out = tipFootprint(shaping, {
+        x, y: 0, pressure: 0.8, tiltX: 0, tiltY: 0, baseSize: 30,
+        pathAngle: 0, ds: dsPx, speed, cameraAngle: 0,
+      }, state)
+    }
+    return { footprint: out, x }
+  }
+  const drag = (presetName: string, steps: number, dsPx: number, speed: number) =>
+    dragShaping(shapingForWatercolorPreset(presetName), steps, dsPx, speed)
+
+  it('starts round and elongates as it is dragged', () => {
+    const first = drag(flexPreset, 0, 0, 1)
+    const dragged = drag(flexPreset, 30, 4, 1)
+    // Touchdown: nothing has dragged it yet, so it is the round brush's own
+    // shape — which is what makes the hover cursor and the first dab agree.
+    expect(first.footprint.aspectRatio).toBeCloseTo(1, 6)
+    expect(dragged.footprint.aspectRatio).toBeGreaterThan(1.5)
+  })
+
+  it('bends further than the pen it borrows the mechanism from', () => {
+    // The claim is relative, so it is measured relatively — against the brush
+    // pen itself, dragged identically. The absolute number is a first pass and
+    // will move; that a loaded sable is more compliant than a nib built to
+    // spring back should not.
+    const wet = dragShaping(shapingForWatercolorPreset(flexPreset), 40, 4, 1).footprint.aspectRatio
+    const pen = dragShaping(shapingForBrushPenPreset('normal'), 40, 4, 1).footprint.aspectRatio
+    expect(wet).toBeGreaterThan(pen)
+    // And the round nib does not bend at all, which is what makes this a
+    // property of the nib rather than of the tool.
+    expect(drag('normal', 40, 4, 1).footprint.aspectRatio).toBeCloseTo(1, 6)
+  })
+
+  it('drags its load behind the hand, and only at speed', () => {
+    const fast = drag(flexPreset, 40, 4, 3)
+    const slow = drag(flexPreset, 40, 4, 0.2)
+    // The contact patch sits behind the point on the path...
+    expect(fast.footprint.x).toBeLessThan(fast.x)
+    // ...by more when the hand is moving faster, and by nothing when it is
+    // barely moving: slow careful work should land under the brush.
+    expect(fast.x - fast.footprint.x).toBeGreaterThan(slow.x - slow.footprint.x)
+    expect(slow.x - slow.footprint.x).toBeCloseTo(0, 6)
   })
 })

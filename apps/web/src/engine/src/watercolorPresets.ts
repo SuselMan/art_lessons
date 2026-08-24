@@ -2,7 +2,11 @@ import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { gain, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, type PressureResponse } from './brushPenPresets'
-import { tiltOrPathAngle, type DabShapingProfile, type HeadTaperProfile } from './dabShaping'
+import { anchoredAngleShaping, tiltOrPathAngle, DEFAULT_NIB_ANCHOR,
+  type DabShapingProfile, type HeadTaperProfile, type TipBendProfile } from './dabShaping'
+// Type-only, so it is erased and cannot join the import cycle this file's
+// header warns about. The config is not marker-specific any more (#489).
+import type { NibAngleConfig } from './markerPresets'
 import type { PencilPreset } from './pencilPresets'
 import { DEFAULT_WATERCOLOR_PIGMENT, isWatercolorPigmentCode } from './watercolorPigments'
 
@@ -139,6 +143,170 @@ function watercolorShapingFor(response: PressureResponse): DabShapingProfile {
   }
 }
 
+// ─── Nibs (#489) ────────────────────────────────────────────────────────────
+//
+// Until now this tool had exactly one nib and spent no part of its preset
+// string on saying so. Three now, and the vocabulary is deliberately the same
+// word the marker uses for the same shape: after #482 a nib is a shape a tool
+// wears, not a property of the tool, and two names for one shape would put that
+// back.
+//
+//   round   the brush as it shipped — a soft round belly that opens under
+//           pressure. Still the default, and still what every stroke recorded
+//           before this parses as.
+//   chisel  a flat. A painter calls it that; the token stays `chisel` so the
+//           marker's flat side and this one are one word.
+//   flex    a pointed brush that bends and trails, the brush pen's nib wet.
+export const WATERCOLOR_NIBS = ['round', 'chisel', 'flex'] as const
+export type WatercolorNib = (typeof WATERCOLOR_NIBS)[number]
+export const DEFAULT_WATERCOLOR_NIB: WatercolorNib = 'round'
+
+export function isWatercolorNib(v: string): v is WatercolorNib {
+  return (WATERCOLOR_NIBS as readonly string[]).includes(v)
+}
+
+/** Fifth field of the preset string, absent from every stroke recorded before
+ *  #489 — which therefore replay as the round brush they were drawn with. */
+export function watercolorNibFromPreset(presetName: string | undefined): WatercolorNib {
+  const token = presetName?.split(':')[4]
+  return token && isWatercolorNib(token) ? token : DEFAULT_WATERCOLOR_NIB
+}
+
+// ─── The flat (#489) ────────────────────────────────────────────────────────
+//
+// A flat brush is not a wet marker chisel, and the difference is the one thing
+// worth getting right here. A felt chisel is a solid wedge: its footprint is a
+// fixed 5:1 and pressing it only scales the whole thing. A flat brush is a row
+// of hairs held in a ferrule — the ferrule sets the *width* and does not move,
+// while pressing splays the hairs and lengthens the patch along the handle. So
+// pressure drives its **proportions**, not its scale, which is why `aspect`
+// needed pressure at all (dabShaping.ts's own note).
+//
+// That falls out as: `size` is the thickness and `aspect` is exactly its
+// reciprocal, so the long axis stays at the nominal size whatever the pressure.
+// The number in the toolbar is therefore the broad edge — the width of the mark
+// the flat side lays down — which is both what a brush is sold by and the same
+// rule #336 settled for the marker's chisel.
+//
+// Held on edge a real flat lays a line thinner than this floor, but that is a
+// technique (turning the brush up on its corner), not a lighter touch — the
+// same distinction WATERCOLOR_WIDTH_FLOOR is drawn on for the round nib.
+const WATERCOLOR_FLAT_THICKNESS_FLOOR = 0.18
+/** Fully loaded and pressed. Still elongated: a flat that reaches 1:1 has
+ *  stopped being a flat — and the first pass put this at 0.55, which by that
+ *  same standard had very nearly stopped. It reads as 1.85:1 under a firm hand
+ *  and 2.1:1 under an ordinary one, and the whole point of picking a flat is
+ *  that it does not look like the round brush next to it. 0.40 keeps it at
+ *  about 2.5:1 pressed, which is where a real one that is being leaned on
+ *  sits. */
+const WATERCOLOR_FLAT_THICKNESS_CEIL = 0.40
+
+function watercolorFlatThickness(pressure: number, response: PressureResponse): number {
+  const p = Math.max(pressure, WATERCOLOR_MIN_PRESSURE)
+  return WATERCOLOR_FLAT_THICKNESS_FLOOR
+    + (WATERCOLOR_FLAT_THICKNESS_CEIL - WATERCOLOR_FLAT_THICKNESS_FLOOR) * gain(p, WATERCOLOR_RESPONSE_K[response])
+}
+
+// ─── The flexible round (#489) ──────────────────────────────────────────────
+//
+// The brush pen's nib, wet. Not a copy of its numbers: every one of them moves
+// the same way and for one reason, which is that a loaded sable is heavier and
+// more compliant than a synthetic tip built to spring back. So it bends
+// further, it takes longer to come round, and it drags its load further behind
+// the hand. Stating the direction is the point — the magnitudes are a first
+// pass like everything else here, and if they are wrong they should be wrong
+// consistently rather than each having drifted on its own.
+//
+// Everything else is the round nib unchanged: same width response, same tilt
+// ovality, same head taper. This *is* the round brush — bending is what a round
+// brush does when you drag it, and #472 built that as a profile field precisely
+// so a second tool could take it without taking the first tool's ink model.
+
+/** Elongation at full pressure, against the pen's 0.85. */
+const WATERCOLOR_FLEX_ELONGATION = 1.05
+/** Distance the nib takes to come round, in its own widths — the pen's 1.5. A
+ *  brush's fibres are longer relative to their width and carry water, and the
+ *  lag is of the order of that length. */
+const WATERCOLOR_FLEX_LAG_WIDTHS = 2.2
+/** Floor under that, world px. Above the pen's 6 for the same reason the ratio
+ *  is above its 1.5. */
+const WATERCOLOR_FLEX_MIN_LAG_PX = 8
+/** Trail at full speed and full bend, in nib widths. Well under the lag
+ *  distance, and it has to be: the trail eases in over that distance, so a
+ *  deeper one would grow faster than the dabs advance and hand the ribbon two
+ *  consecutive dabs reversed along the path. 0.30 against 2.2 is nowhere near
+ *  it — the same margin the pen keeps at 0.18 against 1.5. */
+const WATERCOLOR_FLEX_TRAIL_WIDTHS = 0.30
+/** A loaded brush starts to lag the hand sooner than a pen nib does (0.5/2.5):
+ *  it is the water that lags, and there is more of it. */
+const WATERCOLOR_FLEX_SPEED_SLOW = 0.35
+const WATERCOLOR_FLEX_SPEED_FAST = 2.0
+
+function watercolorFlexTipBend(response: PressureResponse): TipBendProfile {
+  return {
+    // The same curve as the width and with the same k, for the reason the pen
+    // gives at length: one deformation is happening, and width and length are
+    // two views of it, so a brush described as "firm" should be as reluctant to
+    // lengthen as it is to widen.
+    elongation: pressure =>
+      1 + WATERCOLOR_FLEX_ELONGATION * gain(Math.max(pressure, WATERCOLOR_MIN_PRESSURE), WATERCOLOR_RESPONSE_K[response]),
+    lagWidths: WATERCOLOR_FLEX_LAG_WIDTHS,
+    minLagPx: WATERCOLOR_FLEX_MIN_LAG_PX,
+    trailWidths: speed => WATERCOLOR_FLEX_TRAIL_WIDTHS
+      * clamp01((speed - WATERCOLOR_FLEX_SPEED_SLOW) / (WATERCOLOR_FLEX_SPEED_FAST - WATERCOLOR_FLEX_SPEED_SLOW)),
+  }
+}
+
+function watercolorFlexShaping(response: PressureResponse): DabShapingProfile {
+  // Built from watercolorShapingFor rather than by spreading the round table:
+  // both tables are evaluated at module load, and this one is above it, so
+  // reading it here is a temporal dead zone — the same trap this file's own
+  // header warns about for the import cycle, in local form. The factory is a
+  // function declaration and is hoisted, so it is safe at any point.
+  return { ...watercolorShapingFor(response), tipBend: watercolorFlexTipBend(response) }
+}
+
+const WATERCOLOR_FLEX_BY_RESPONSE: Record<PressureResponse, DabShapingProfile> = {
+  soft:   watercolorFlexShaping('soft'),
+  normal: watercolorFlexShaping('normal'),
+  firm:   watercolorFlexShaping('firm'),
+}
+
+/** ADR 004 §1's ~45deg, the same default the marker's chisel falls back to —
+ *  one shape, one resting angle.
+ *
+ *  A function, and it has to be. This file and dabShaping.ts import each other,
+ *  and the header above states the rule: only function declarations and
+ *  type-only imports may cross that edge. `anchoredAngleShaping` is a
+ *  declaration and is hoisted; `DEFAULT_NIB_ANCHOR` is a `const`, so reading it
+ *  while this module's body runs is a read into dabShaping's temporal dead zone
+ *  whenever dabShaping is the module entered first.
+ *
+ *  Which is exactly what happened — the browser threw "Cannot access
+ *  DEFAULT_NIB_ANCHOR before initialization" on the first real page load, with
+ *  the whole suite green, because a test file entering through this module
+ *  finishes dabShaping before this body runs and never sees it. Deferring the
+ *  read to call time is the fix; the rule in the header is why it was avoidable
+ *  in the first place. */
+function watercolorDefaultNibAngle(): NibAngleConfig {
+  return { angle: Math.PI / 4, anchor: DEFAULT_NIB_ANCHOR }
+}
+
+function watercolorChiselShaping(response: PressureResponse, nibAngle: NibAngleConfig): DabShapingProfile {
+  return {
+    size:   pressure => watercolorFlatThickness(pressure, response),
+    // Tilt ignored outright, unlike the round nib's 1 + 0.40 * tiltNorm. Laying
+    // a round brush over genuinely broadens its footprint because the belly is
+    // what touches; a flat's footprint is a row of hairs in a ferrule, and
+    // leaning it rocks it onto a corner rather than widening it. Modelling that
+    // rocking is a real thing to do and is not this pass.
+    aspect: (_tiltNorm, pressure) => 1 / watercolorFlatThickness(pressure, response),
+    angle:  anchoredAngleShaping(nibAngle.angle, nibAngle.anchor),
+    pressureSmoothingPx: WATERCOLOR_PRESSURE_SMOOTHING_PX,
+    headTaper: WATERCOLOR_HEAD_TAPER,
+  }
+}
+
 const WATERCOLOR_SHAPING_BY_RESPONSE: Record<PressureResponse, DabShapingProfile> = {
   soft:   watercolorShapingFor('soft'),
   normal: watercolorShapingFor('normal'),
@@ -160,9 +328,20 @@ export function watercolorResponseFromPreset(presetName: string | undefined): Pr
   return token && isPressureResponse(token) ? token : DEFAULT_WATERCOLOR_RESPONSE
 }
 
-/** dabShaping.ts's shapingForTool dispatches here for tool === 'watercolor'. */
-export function shapingForWatercolorPreset(presetName: string | undefined): DabShapingProfile {
-  return WATERCOLOR_SHAPING_BY_RESPONSE[watercolorResponseFromPreset(presetName)]
+/** dabShaping.ts's shapingForTool dispatches here for tool === 'watercolor'.
+ *
+ *  Only the round nib comes out of the prebuilt table: the flat's angle is a
+ *  live per-stroke setting, so it is a factory for exactly the reason the
+ *  marker's chisel is one (markerPresets.ts's own note). Every other nib stays
+ *  a lookup that allocates nothing, which is what #309 cleared this path for. */
+export function shapingForWatercolorPreset(
+  presetName: string | undefined, nibAngle?: NibAngleConfig,
+): DabShapingProfile {
+  const response = watercolorResponseFromPreset(presetName)
+  const nib = watercolorNibFromPreset(presetName)
+  if (nib === 'chisel') return watercolorChiselShaping(response, nibAngle ?? watercolorDefaultNibAngle())
+  if (nib === 'flex') return WATERCOLOR_FLEX_BY_RESPONSE[response]
+  return WATERCOLOR_SHAPING_BY_RESPONSE[response]
 }
 
 // ─── Water and pigment (#468 v4, ADR 011 §4) ───────────────────────────────
@@ -400,6 +579,71 @@ export function watercolorPigmentLoad(usedRadii: number): number {
   return PIGMENT_FLOOR + (1 - PIGMENT_FLOOR) * Math.exp(-usedRadii / PIGMENT_RUN_RADII)
 }
 
+// ─── Measuring a nib that is not round (#489) ───────────────────────────────
+//
+// Every scalar in the wet model is expressed in *radii*: water and pigment
+// deplete per radius travelled, the bloom and the migration ring are fractions
+// of a radius, and the deposit is a dose per radius. That worked while the tool
+// had exactly one nib, because a round brush has one radius. A flat brush does
+// not, and picking the wrong axis is not a rounding error — at 4:1 it is a
+// factor of four in how fast the brush runs dry.
+//
+// The two questions below are genuinely different, and answering both with one
+// number is what a naive `dab.size * 0.5` does today.
+
+/**
+ * The radius the wet model measures *travel* by — how far this nib has moved in
+ * its own units, world px.
+ *
+ * Derived rather than chosen. Water leaves the brush at a rate set by the area
+ * it wets per unit distance, which is the nib's width **across** the direction
+ * of travel; what it has to spend is its load, which scales with the nib's
+ * area. So depletion per unit distance goes as `w_perp / area`, and the radius
+ * that reproduces that through the existing `seg / radius` is
+ *
+ *     r = a·b / hypot(a·sin psi, b·cos psi)      psi = nib angle - travel angle
+ *
+ * with `a`, `b` the semi-axes. For a round nib that is exactly `r` at every
+ * angle, so this changes nothing for the tool as it shipped — the direction
+ * term only wakes up when the axes differ.
+ *
+ * The payoff is that it comes out right at both ends without a second rule.
+ * Dragged broadside a flat brush wets a band four times as wide and this
+ * returns the *short* axis, so it drains four times as fast — which is what a
+ * loaded flat actually does. Dragged edge-on it returns the long axis and lasts
+ * four times as long. And because the deposit dose is `seg / radius` over that
+ * same wider band, the tone per pixel comes out identical either way: a flat
+ * brush should not paint darker just because it was turned.
+ *
+ * `travelAngle` is null where there is no direction to speak of — a tap, or the
+ * dwell tick stamping in place. The isotropic answer there is the radius of the
+ * circle with the same area, which is again exactly `r` for a round nib.
+ */
+export function watercolorTravelRadius(
+  semiMajor: number, semiMinor: number, nibAngle: number, travelAngle: number | null,
+): number {
+  const a = Math.max(semiMajor, 0.01)
+  const b = Math.max(semiMinor, 0.01)
+  if (travelAngle === null) return Math.sqrt(a * b)
+  const psi = nibAngle - travelAngle
+  return (a * b) / Math.hypot(a * Math.sin(psi), b * Math.cos(psi))
+}
+
+/**
+ * The radius the wet model measures *spreading* by — how far paint wanders out
+ * from the mark, world px.
+ *
+ * A different question from the one above and it gets a different answer: a
+ * bloom is isotropic. Paint does not know which way the brush was going when it
+ * left, it knows how much water was put down, and that is the nib's area. So
+ * this is the radius of the circle with the same area — the same value
+ * `watercolorTravelRadius` falls back to when there is no direction, and again
+ * exactly `r` for a round nib.
+ */
+export function watercolorSpreadRadius(semiMajor: number, semiMinor: number): number {
+  return Math.sqrt(Math.max(semiMajor, 0.01) * Math.max(semiMinor, 0.01))
+}
+
 /** How far one segment advances the depletion clock. Separated from the decay
  *  curves so the engine never has to know either run length, and so both halves
  *  are testable without a GL context. */
@@ -409,10 +653,16 @@ export function watercolorWaterStep(segmentLengthPx: number, radiusPx: number): 
 
 // ─── Preset string (#468 v4) ────────────────────────────────────────────────
 //
-// The tool has no size ladder and no nib list, so the per-stroke `preset`
-// string — the same slot that carries a pencil grade or a marker nib — is free.
-// v1 spent it on the pressure response alone; v4 packs the mix into it too, as
-// `response:water:pigment` with the two levels as integer percents.
+// The tool started with no size ladder and no nib list, so the per-stroke
+// `preset` string — the same slot that carries a pencil grade or a marker nib —
+// was free. v1 spent it on the pressure response alone; v4 packed the mix into
+// it too, v5 added which paint, and #489 a nib after all:
+//
+//     response : water% : pigment% : pigmentCode : nib
+//
+// Each field was added on the end and each is absent from every stroke recorded
+// before it, so a short string is not a malformed one — it is an older stroke,
+// and it replays as what it was drawn with.
 //
 // Riding the existing string rather than adding Operation fields is deliberate
 // and matches what the marker already does with `${nib}:${size}`: #366 exists
@@ -425,9 +675,10 @@ export function watercolorWaterStep(segmentLengthPx: number, radiusPx: number): 
 
 export function watercolorPresetString(
   response: PressureResponse, mixLevels: WatercolorMix, pigmentCode = DEFAULT_WATERCOLOR_PIGMENT,
+  nib: WatercolorNib = DEFAULT_WATERCOLOR_NIB,
 ): string {
   const pct = (v: number): number => Math.round(clamp01(v) * 100)
-  return `${response}:${pct(mixLevels.water)}:${pct(mixLevels.pigment)}:${pigmentCode}`
+  return `${response}:${pct(mixLevels.water)}:${pct(mixLevels.pigment)}:${pigmentCode}:${nib}`
 }
 
 /** (#468 v5) Which paint the stroke was made with — the Colour Index code, the

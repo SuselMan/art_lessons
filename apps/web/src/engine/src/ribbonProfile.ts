@@ -651,6 +651,20 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
   // *which* paint, and they multiply: a lot of a smooth phthalo green still
   // grains far less than a little cobalt.
   const paint = watercolorPigmentByCode(watercolorPigmentFromPreset(presetName))
+  // #489: every watercolor nib is an ellipse, the flat included — and that is a
+  // correction, not an omission. The first pass gave the flat the marker
+  // chisel's rounded box by analogy, and Ilya's verdict on it was immediate:
+  // "явно видно квадраты". He was right, and the measurement says why. This
+  // nib's elongation falls with pressure (a ferrule sets the width, the hairs
+  // splay along the handle), so at an ordinary hand's pressure it sits at
+  // 2.1:1 and at a firm one 1.85:1 — and a rounded box at 1.85:1 is a
+  // rectangle, stamped over and over.
+  //
+  // Felt is cut and hair is not, which is what the first pass's own comment
+  // claimed while doing the opposite. A flat brush's print has rounded ends;
+  // the *straight* side of the mark comes from sweeping the long axis, which
+  // the ribbon builds from the pose regardless of what the stamp's ends look
+  // like. So the box bought nothing and cost the tool its material.
   return {
     nibShape: 'ellipse',
     cornerFraction: 0,

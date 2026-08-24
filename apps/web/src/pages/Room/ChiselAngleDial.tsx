@@ -2,7 +2,7 @@ import { RadialDial } from '../../components/RadialDial'
 import { useRoomStore } from '../../stores/roomStore'
 import { useT } from '../../i18n'
 import { PANEL_SIZE, measureFloatingPanelCenter, type PanelPosition } from './panelPosition'
-import { formatDegreesMinutes } from './toolSchemas'
+import { formatDegreesMinutes, type UiToolId } from './toolSchemas'
 
 interface ChiselAngleDialProps {
   // FloatingToolPanel's current position — null until this room's panel has
@@ -22,7 +22,7 @@ interface ChiselAngleDialProps {
   flyoutOpen: boolean
 }
 
-/** The marker chisel-nib angle dial (#277/#278), orbiting FloatingToolPanel.
+/** The chisel-nib angle dial (#277/#278), orbiting FloatingToolPanel.
  *
  *  Its own component rather than a block inside Room's JSX for one reason
  *  (#309): it is the only piece of chrome whose response to "a stroke is in
@@ -39,9 +39,14 @@ interface ChiselAngleDialProps {
  *
  *  Visibility rules, unchanged from when this lived in Room: only while the
  *  panel it orbits is itself on screen (`uiHidden`, i.e. minimal UI), only
- *  while chisel is the active marker nib (the bullet nib is round — an angle
- *  control would do nothing visible for it, per markerSchema's own
- *  visibleWhen), and not during a stroke. The panel is always mounted (just
+ *  while the tool in hand is wearing a chisel nib (a round one is round — an
+ *  angle control would do nothing visible for it, per the schemas' own
+ *  `visibleWhen`), and not during a stroke.
+ *
+ *  #489: "the tool in hand" rather than "the marker", now that the watercolor
+ *  brush has a flat too. The test is on the settings, not on a list of tool
+ *  names — a tool wearing a chisel and offering an angle is exactly the tool
+ *  this dial is for, and a list would need editing again for the next one. The panel is always mounted (just
  *  opacity-0 when hidden, see FloatingToolPanel.module.css), so its DOM
  *  element is always there to measure against once those hold.
  *
@@ -58,8 +63,13 @@ export function ChiselAngleDial({ panelPosition, containerRef, uiHidden, flyoutO
   const setToolSetting = useRoomStore(s => s.setToolSetting)
   const strokeActive = useRoomStore(s => s.strokeActive)
 
-  const markerNib = toolSettings.marker.nib as string
-  if (!uiHidden || strokeActive || flyoutOpen || tool !== 'marker' || markerNib !== 'chisel') return null
+  const settings = toolSettings[tool as UiToolId] as Record<string, unknown> | undefined
+  const angle = settings?.angle
+  // `typeof angle === 'number'` is not belt-and-braces: it is what says this
+  // tool has an angle to dial at all, which is the half of the question a nib
+  // name cannot answer.
+  const wearsChisel = settings?.nib === 'chisel' && typeof angle === 'number'
+  if (!uiHidden || strokeActive || flyoutOpen || !wearsChisel) return null
 
   const center = measureFloatingPanelCenter(panelPosition, containerRef)
   if (!center) return null
@@ -70,10 +80,10 @@ export function ChiselAngleDial({ panelPosition, containerRef, uiHidden, flyoutO
       handleRadius={PANEL_SIZE / 2 + 24}
       hitOuterRadius={PANEL_SIZE / 2 + 56}
       readoutSize={PANEL_SIZE}
-      value={toolSettings.marker.angle as number}
-      onChange={v => setToolSetting('marker', 'angle', v)}
+      value={angle}
+      onChange={v => setToolSetting(tool as UiToolId, 'angle', v)}
       formatValue={formatDegreesMinutes}
-      title={t('room.markerAngle')}
+      title={t('room.nibAngle')}
     />
   )
 }

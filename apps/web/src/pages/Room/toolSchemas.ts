@@ -6,6 +6,7 @@ import {
   WATERCOLOR_PIGMENTS,
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
+  WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, type WatercolorNib,
   NIB_ANCHORS, type NibAnchor,
 } from '../../engine'
 import { parseNumberInput } from '../../components/NumberField/numberField'
@@ -405,6 +406,31 @@ const brushPenSchema = (): ToolSchema => ({
 // them as sliders over a per-stroke approximation would be a UI that promises
 // physics the engine does not have.
 const watercolorSchema = (): ToolSchema => ({
+  // #489: which brush, before anything about what is in it. The glyphs are the
+  // marker's own nib icons for the two shapes it already has — after #482 a nib
+  // is a shape a tool wears, and drawing the same shape twice would say the
+  // opposite. `brush` stands for the flexible round, which is the brush pen's
+  // tip wet and carries that tool's own icon for the same reason.
+  nib: {
+    nameKey: 'tool.field.nib',
+    valueType: { kind: 'enumOptions', options: WATERCOLOR_NIBS },
+    optionLabelKeys: {
+      round: 'tool.nib.round',
+      chisel: 'tool.nib.chisel',
+      flex: 'tool.nib.flex',
+    },
+    optionIcons: {
+      round: MARKER_NIB_ICONS.bullet,
+      chisel: MARKER_NIB_ICONS.chisel,
+      flex: 'brush',
+    },
+    uiControls: ['select'],
+    quickAccess: true,
+    // The brush as it shipped, and the one every stroke recorded before #489
+    // replays as. A new nib should not change what the tool does to someone who
+    // never asked for one.
+    default: DEFAULT_WATERCOLOR_NIB satisfies WatercolorNib,
+  },
   // Three named states, and they are what most users will ever touch: the two
   // sliders exist so that these can mean something, not so that everyone has to
   // tune them. Picking one writes both sliders (see Room's own handler).
@@ -470,6 +496,42 @@ const watercolorSchema = (): ToolSchema => ({
     uiControls: ['select'],
     quickAccess: false,
     default: DEFAULT_PRESSURE_RESPONSE satisfies PressureResponse,
+  },
+  // #489: the flat's angle and the frame it is held in — the same two controls
+  // the marker's chisel has, deliberately spelled the same way rather than
+  // given this tool's own vocabulary. Hidden for the round and flexible nibs,
+  // which have no angle to set: a round footprint would show nothing, and a
+  // flexible one is pointed by the drag (tipFootprint.ts's bend), so a dial
+  // here would be a control that visibly does nothing.
+  //
+  // Default 45deg matches the marker's and the engine's own fallback. The
+  // anchor defaults to `screen` for the reason the marker's does — a nib that
+  // stays put on the screen is what shipped, and someone rotating the paper
+  // under their hand is not asking their brush to turn with it.
+  angle: {
+    nameKey: 'tool.field.angle',
+    valueType: { kind: 'numberRange', min: 0, max: 360, step: 1 / 60, format: formatDegreesMinutes, parse: degreesMinutesParse },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 45,
+    visibleWhen: v => v.nib === 'chisel',
+  },
+  anchor: {
+    nameKey: 'tool.field.anchor',
+    valueType: { kind: 'enumOptions', options: NIB_ANCHORS },
+    optionLabelKeys: {
+      canvas: 'tool.anchor.canvas',
+      screen: 'tool.anchor.screen',
+      barrel: 'tool.anchor.barrel',
+    },
+    optionIcons: {
+      canvas: 'grid_on',
+      screen: 'screen_rotation_alt',
+      barrel: 'stylus',
+    },
+    uiControls: ['select'],
+    default: 'screen' satisfies NibAnchor,
+    visibleWhen: v => v.nib === 'chisel',
   },
   // #468 v4, ADR 011 §4 — the two quantities the brush actually carries, and
   // deliberately *two* rather than one "wetness" slider. The interesting states

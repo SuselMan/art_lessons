@@ -30,7 +30,7 @@ import { tiltMagnitudeDeg } from './src/tiltMath'
 import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
 } from './src/tiltCurve'
-import type { MarkerAngleConfig } from './src/markerPresets'
+import type { NibAngleConfig } from './src/markerPresets'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 // (#475) The calibration model itself is not engine code — it is pure input
@@ -59,6 +59,7 @@ import {
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
+  watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPigmentEffects, watercolorMixFromPreset,
 } from './src/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
@@ -108,7 +109,9 @@ export {
   WATERCOLOR_MIX_PRESETS, WATERCOLOR_MIX_BY_PRESET, WATERCOLOR_MIX_DEFAULT,
   watercolorPresetString, watercolorMixFromPreset, isWatercolorMixPreset,
   watercolorPigmentFromPreset,
-  type WatercolorMix, type WatercolorMixPreset,
+  // #489: the nib list, for the settings panel that offers it.
+  WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, isWatercolorNib, watercolorNibFromPreset,
+  type WatercolorMix, type WatercolorMixPreset, type WatercolorNib,
 } from './src/watercolorPresets'
 export {
   WATERCOLOR_PIGMENTS, WATERCOLOR_PIGMENT_CODES, WATERCOLOR_PIGMENT_SWATCHES,
@@ -130,7 +133,7 @@ export { PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brus
 export function previewDabShape(
   tool: ToolType, presetName: string | undefined,
   baseSize: number, pressure: number, tiltX: number, tiltY: number, pathAngle = 0,
-  markerAngle?: MarkerAngleConfig,
+  nibAngle?: NibAngleConfig,
   // #409: the same response the engine has been given, so the hover outline
   // keeps matching the mark — the cursor is how the setting is *seen* before
   // anything is drawn with it, so a preview left on the default would quietly
@@ -150,7 +153,7 @@ export function previewDabShape(
   // round. That is also why this agrees with the first dab of a real stroke,
   // which starts from a freshly-zeroed tip state.
   const { size, aspectRatio, angle } = tipFootprint(
-    shapingForTool(tool, presetName, markerAngle, tiltResponse),
+    shapingForTool(tool, presetName, nibAngle, tiltResponse),
     { x: 0, y: 0, pressure, tiltX, tiltY, baseSize, pathAngle, ds: 0, speed: 0, cameraAngle },
     null,
   )
@@ -608,16 +611,21 @@ export interface PencilEngineAPI {
   setOpacity(v: number): void
   setSize(px: number): void
   setColor(rgb: [number, number, number]): void
-  // #278: marker chisel nib's angle setting — angleRadians is always
-  // canvas-space (the caller is responsible for resolving the "lock to
-  // canvas" checkbox and the local viewport's own rotation into this one
-  // number, same "engine only ever sees canvas-space" boundary
-  // setViewport/PointerInput already keep for pointer coordinates).
-  // `anchor` names the frame angleRadians is read in (see dabShaping.ts's
+  // #278/#489: the angle setting of whichever nib the active tool is wearing.
+  // angleRadians is always canvas-space (the caller resolves the local
+  // viewport's own rotation into this one number, same "engine only ever sees
+  // canvas-space" boundary setViewport/PointerInput already keep for pointer
+  // coordinates), and `anchor` names the frame it is read in (dabShaping.ts's
   // NIB_ANCHORS) — `canvas` being ADR 004's original fixed-angle behaviour,
-  // just configurable. Has no effect on the bullet nib (round,
-  // angle-independent).
-  setMarkerAngle(angleRadians: number, anchor: NibAnchor): void
+  // just configurable.
+  //
+  // One value rather than a table keyed by tool, matching setTiltResponse's own
+  // boundary: the caller pushes whichever tool is selected. The engine has no
+  // business knowing that the marker and the watercolor brush each remember
+  // their own angle — that is a fact about the settings panel.
+  //
+  // A no-op for every round nib, which has no angle to speak of.
+  setNibAngle(angleRadians: number, anchor: NibAnchor): void
   /** #409: which of the three tilt→shape ramp shapes the next stroke uses —
    *  a user setting, per tool, resolved by the caller before it gets here
    *  (the engine holds one active response, not a table keyed by tool, for
@@ -2215,20 +2223,20 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokeDabs: Dab[]
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
-  // #278: marker chisel nib's live angle setting — canvas-space radians
-  // (the caller, Room/index.tsx, resolves the "lock to canvas" checkbox and
-  // the local viewport's own rotation into this single canvas-space number
-  // before calling setMarkerAngle; the engine itself never needs to know
-  // about either). Read at both shapingForTool call sites (_onStart and
+  // #278/#489: the active tool's live nib angle — canvas-space radians (the
+  // caller, Room/index.tsx, resolves the local viewport's own rotation into
+  // this single canvas-space number before calling setNibAngle; the engine
+  // itself never needs to know about it). Read at both shapingForTool call
+  // sites (_onStart and
   // _paintDwellDab) so a live change takes effect on the *next* stroke, same
   // as every other setXxx tool option — never mid-stroke (DabSystem.
   // setShaping's own doc comment: a profile change partway through an
   // in-progress _buf isn't supported).
-  private _markerAngleRadians = Math.PI / 4 // ADR 004 §1 "~45°" default, matches markerPresets.ts's own fallback
-  private _markerAnchor: NibAnchor = DEFAULT_NIB_ANCHOR
+  private _nibAngleRadians = Math.PI / 4 // ADR 004 §1 "~45°" default, matches markerPresets.ts's own fallback
+  private _nibAnchor: NibAnchor = DEFAULT_NIB_ANCHOR
 
   // #409: the active tool's tilt→shape ramp shape, a user setting. Read at the
-  // same two shapingForTool call sites _markerAngleRadians is, and for the same
+  // same two shapingForTool call sites _nibAngleRadians is, and for the same
   // reason: a profile swap partway through an in-progress stroke isn't
   // supported (DabSystem.setShaping), so a live change lands on the next
   // stroke. One value rather than one per tool — the caller pushes whichever
@@ -2965,7 +2973,7 @@ export class PencilEngine implements PencilEngineAPI {
   setColor(rgb: [number, number, number]): void { this._opts.graphiteColor = rgb }
 
   /** See PencilEngineAPI's doc comment. Only the *next* stroke picks this
-   *  up (same "never mid-stroke" rule as _markerAngleRadians' own field
+   *  up (same "never mid-stroke" rule as _nibAngleRadians' own field
    *  comment) — no need to touch the in-progress DabSystem shaping here. */
   /** (#468 v7) Ends the wash in progress, if any. A wash is "several bands of
    *  the same paint on the same layer, laid before the last one dried" — so
@@ -2977,9 +2985,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._washId = null
   }
 
-  setMarkerAngle(angleRadians: number, anchor: NibAnchor): void {
-    this._markerAngleRadians = angleRadians
-    this._markerAnchor = anchor
+  setNibAngle(angleRadians: number, anchor: NibAnchor): void {
+    this._nibAngleRadians = angleRadians
+    this._nibAnchor = anchor
   }
 
   /** See PencilEngineAPI's doc comment. Next stroke only, same as the marker
@@ -5207,7 +5215,7 @@ export class PencilEngine implements PencilEngineAPI {
     // preset the *previous* stroke left in _strokePreset.
     this._dabs.setShaping(shapingForTool(
       this._strokeTool, this._opts.pencilType,
-      { angle: this._markerAngleRadians, anchor: this._markerAnchor },
+      { angle: this._nibAngleRadians, anchor: this._nibAnchor },
       this._tiltResponse,
     ))
     // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are
@@ -5226,6 +5234,28 @@ export class PencilEngine implements PencilEngineAPI {
         sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType),
         hardness: this._resolvePreset(this._strokeTool, this._opts.pencilType).hardness,
       }
+      : null
+    // #489: watercolor's *elongated* nibs take the scallop bound without the
+    // rest of that rule — DabSystem.nibScallop carries the whole argument,
+    // including why the marker's identical 5:1 geometry is left as it is.
+    //
+    // Not the round nib, and that exclusion is measured rather than assumed.
+    // scallopSpacingLimit's own doc says it returns Infinity for a round dab;
+    // it does not — at aspect 1 it still returns sqrt(8*r), which on a 120px
+    // brush is 21.9px against the nominal 26.4px and put 40% more dabs into the
+    // round brush's stroke. Its deposit is normalised per unit travel so the
+    // tone would have held, but the mark's fine structure would not have, and
+    // that is exactly the regression #483 was filed for. This tool has shipped;
+    // the flat has not.
+    //
+    // What that leaves knowingly unfixed: the round nib reaches 1.4:1 at full
+    // tilt and does scallop a little there. Nobody has reported it, and quietly
+    // re-spacing a shipped tool to chase it is a worse trade than leaving it.
+    const wcNib = this._strokeTool === 'watercolor'
+      ? watercolorNibFromPreset(this._opts.pencilType)
+      : null
+    this._dabs.nibScallop = wcNib !== null && wcNib !== 'round'
+      ? { sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
       : null
     this._strokePreset  = this._opts.pencilType
     this._strokeColor   = this._opts.graphiteColor
@@ -7021,7 +7051,14 @@ export class PencilEngine implements PencilEngineAPI {
       dirFrom ? dirTo.x - dirFrom.x : 0, dirFrom ? dirTo.y - dirFrom.y : 0,
     )
     const { spreadPx, water: fringeWater, migratePx, fieldSeed } = scratch.compositeScalars(() => {
-      const firstRadius = Math.max(drawable[0].size * 0.5 * preset.sizeMultiplier, 0.5)
+      // #489: the bloom is isotropic, so a nib that is not round is measured by
+      // the circle with its area rather than by either axis. Identical to the
+      // old `size * 0.5` for a round nib.
+      const first = drawable[0]
+      const firstMinor = first.size * 0.5 * preset.sizeMultiplier
+      const firstRadius = Math.max(
+        watercolorSpreadRadius(firstMinor * Math.max(first.aspectRatio, 1), firstMinor), 0.5,
+      )
       return {
         spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
           ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius))
@@ -7081,7 +7118,15 @@ export class PencilEngine implements PencilEngineAPI {
     // That is a determinism bug, not a cosmetic one: two people in one room
     // were looking at different pictures.
     let maxRadius = 0
-    for (const d of drawable) maxRadius = Math.max(maxRadius, d.size * 0.5 * preset.sizeMultiplier)
+    // #489: the nib's *reach*, not its short axis — this term is a bound, and a
+    // flat nib deposits a long semi-axis past a spot rather than a short one.
+    // Erring outward costs a slightly larger rect; erring inward composites
+    // from buffers that are still filling, which is the determinism bug this
+    // whole block exists to prevent.
+    for (const d of drawable) {
+      const minor = d.size * 0.5 * preset.sizeMultiplier
+      maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1))
+    }
     // Everything that can still change this pixel, **summed** rather than
     // maxed — each term is a separate hop outward and they compose:
     //
@@ -7139,7 +7184,18 @@ export class PencilEngine implements PencilEngineAPI {
       let prev = prevDab
       let used = scratch.waterUsed
       for (const dab of drawable) {
-        const radius = Math.max(dab.size * 0.5 * preset.sizeMultiplier, 0.5)
+        // #489: travel measured in *this* nib's units, which for a flat one
+        // depends on which way it is being dragged (watercolorTravelRadius).
+        // `prev` is undefined on the stroke's first dab and sits at the same
+        // point for a dwell tick — both are "no direction", and both are what
+        // the null branch answers.
+        const minor = dab.size * 0.5 * preset.sizeMultiplier
+        const dx = prev ? dab.x - prev.x : 0
+        const dy = prev ? dab.y - prev.y : 0
+        const travelAngle = Math.hypot(dx, dy) > 0.01 ? Math.atan2(dy, dx) : null
+        const radius = Math.max(watercolorTravelRadius(
+          minor * Math.max(dab.aspectRatio, 1), minor, dab.angle, travelAngle,
+        ), 0.5)
         const seg = this._markerSegmentLength(dab, prev, radius)
         if (profile.waterDepletion) used += watercolorWaterStep(seg, radius)
         // The profile's levels are the *initial* load; the two curves say how
@@ -7167,8 +7223,17 @@ export class PencilEngine implements PencilEngineAPI {
     // Omitting the callback leaves buildRibbonBands' own formula untouched,
     // which is what the marker and the brush pen get.
     const inkFor = profile.normalizeDeposit
-      ? (_d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => {
-        const radius = Math.max(d1.size * 0.5 * preset.sizeMultiplier, 0.5)
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => {
+        // #489: same measure the stamps use, and it has to be the same one —
+        // the bands overlap the stamps almost everywhere, so two different
+        // readings of "how far in nib units" would show up as a seam.
+        const minor = d1.size * 0.5 * preset.sizeMultiplier
+        const bdx = d1.x - d0.x
+        const bdy = d1.y - d0.y
+        const bandAngle = Math.hypot(bdx, bdy) > 0.01 ? Math.atan2(bdy, bdx) : null
+        const radius = Math.max(watercolorTravelRadius(
+          minor * Math.max(d1.aspectRatio, 1), minor, d1.angle, bandAngle,
+        ), 0.5)
         // Per segment, not per batch: the water weighting rides the vertex now
         // (markerRibbon.ts's FLOATS_PER_VERTEX) precisely so that how the
         // stroke was cut into pointer events cannot change the result.

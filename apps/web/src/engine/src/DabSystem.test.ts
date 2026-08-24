@@ -243,6 +243,13 @@ function feedPoints(system: DabSystem | UniformReference | CentripetalNoCornerRe
   return dabs
 }
 
+
+// #489: `aspect` takes pressure now (dabShaping.ts's own note on why it was an
+// omission). Everything asserted below is about tilt, or about a nib that
+// ignores both, so any pressure does — named rather than a bare number so it is
+// plain that it is not part of what is being measured.
+const NOMINAL_PRESSURE = 0.5
+
 describe('DabSystem centripetal Catmull-Rom (#91)', () => {
   it('keeps a straight line perfectly straight', () => {
     const dab = new DabSystem()
@@ -917,7 +924,7 @@ describe('DabSystem per-tool dab shaping (#240)', () => {
     const dab = new DabSystem()
     const [d] = dab.startStroke(0, 0, 0.5, 0, 0, baseSize)
     expect(d.size).toBeCloseTo(baseSize * PENCIL_DAB_SHAPING.size(0.5, 0))
-    expect(d.aspectRatio).toBeCloseTo(PENCIL_DAB_SHAPING.aspect(0))
+    expect(d.aspectRatio).toBeCloseTo(PENCIL_DAB_SHAPING.aspect(0, NOMINAL_PRESSURE))
   })
 
   it('setShaping overrides size/aspect for subsequently produced dabs', () => {
@@ -1109,7 +1116,7 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     // aspect ratio in ADR 004's 4-6:1 range, unlike bullet's tilt-driven one).
     const chisel = shapingForTool('marker', 'chisel:0.5')
     expect(chisel).not.toBe(MARKER_BULLET_DAB_SHAPING)
-    expect(chisel.aspect(0)).toBeCloseTo(chisel.aspect(2))
+    expect(chisel.aspect(0, NOMINAL_PRESSURE)).toBeCloseTo(chisel.aspect(2, NOMINAL_PRESSURE))
     // Unrecognized/missing nib token falls back to bullet, not chisel.
     expect(shapingForTool('marker', 'unknown:1')).toBe(MARKER_BULLET_DAB_SHAPING)
     expect(shapingForTool('marker', undefined)).toBe(MARKER_BULLET_DAB_SHAPING)
@@ -1122,11 +1129,11 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
 
     const fixedAngle = chisel.angle(0, 0, 0, 0, 0)
     expect(chisel.angle(90, -50, 80, Math.PI / 2, 0)).toBeCloseTo(fixedAngle) // strong tilt + real path angle, still fixed
-    expect(chisel.aspect(0)).toBeCloseTo(chisel.aspect(2)) // tiltNorm makes no difference at all
+    expect(chisel.aspect(0, NOMINAL_PRESSURE)).toBeCloseTo(chisel.aspect(2, NOMINAL_PRESSURE)) // tiltNorm makes no difference at all
 
     // Bullet, by contrast, keeps liner's real tilt-or-path angle response and
     // mild tiltNorm-driven aspect — the two nibs are genuinely different.
-    expect(bullet.aspect(0)).not.toBeCloseTo(bullet.aspect(2), 1)
+    expect(bullet.aspect(0, NOMINAL_PRESSURE)).not.toBeCloseTo(bullet.aspect(2, NOMINAL_PRESSURE), 1)
   })
 
   it('non-marker tools are unaffected by the widened signature regardless of presetName', () => {
@@ -1157,7 +1164,7 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
   it('gives each response a genuinely different aspect curve, per material', () => {
     const midGrip = 40 / 90 // the profile's own tiltNorm units
     for (const tool of ['pencil', 'charcoal'] as const) {
-      const aspects = TILT_RESPONSES.map(r => shapingForTool(tool, undefined, undefined, r).aspect(midGrip))
+      const aspects = TILT_RESPONSES.map(r => shapingForTool(tool, undefined, undefined, r).aspect(midGrip, NOMINAL_PRESSURE))
       expect(new Set(aspects).size).toBe(TILT_RESPONSES.length)
     }
   })
@@ -1173,7 +1180,7 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
       const chisel = shapingForTool('marker', 'chisel:0.5', undefined, response)
       const reference = shapingForTool('marker', 'chisel:0.5')
       for (const tiltNorm of [0, 0.4, 1]) {
-        expect(chisel.aspect(tiltNorm)).toBeCloseTo(reference.aspect(tiltNorm), 12)
+        expect(chisel.aspect(tiltNorm, NOMINAL_PRESSURE)).toBeCloseTo(reference.aspect(tiltNorm, NOMINAL_PRESSURE), 12)
         expect(chisel.size(0.6, tiltNorm)).toBeCloseTo(reference.size(0.6, tiltNorm), 12)
       }
     }
@@ -1495,5 +1502,68 @@ describe('#482 nib angle taken from the path', () => {
     // hand-built dwell dab used to hardcode.
     const resting = sys.restingFootprint(x, 100, 0.6, 0, 0, 20)
     expect(resting.angle).toBeCloseTo(last, 6)
+  })
+})
+
+// #489: the scallop bound offered on its own, for a ribbon tool that wants that
+// and not the rest of the footprint rule (DabSystem.nibScallop).
+//
+// The reported symptom was watercolor's flat: "четко вижу элипсы по ленте".
+// Held broadside the nib advances by its short axis while the nominal step is a
+// fraction of the *long* one, and on a transparent medium the ripple that
+// leaves shows through. Measured on the real engine at a 120px brush: a 26.4px
+// step against a 43px nib, scalloped at spacingFactor 0.22 and clean at 0.07.
+describe('#489 nibScallop', () => {
+  const elongated: DabShapingProfile = {
+    size:   () => 0.4,
+    aspect: () => 3,
+    angle:  fixedAngleShaping(Math.PI / 2),
+  }
+  const round: DabShapingProfile = {
+    size:   () => 0.4,
+    aspect: () => 1,
+    angle:  fixedAngleShaping(0),
+  }
+
+  const gaps = (shaping: DabShapingProfile, scallop: { sizeScale: number } | null): number[] => {
+    const sys = new DabSystem({ shaping })
+    sys.nibScallop = scallop
+    const out: Dab[] = []
+    let x = 100
+    out.push(...sys.startStroke(x, 100, 0.6, 0, 0, 120))
+    for (let i = 0; i < 40; i++) { x += 8; out.push(...sys.continueStroke(x, 100, 0.6, 0, 0, 120, 0.5)) }
+    out.push(...sys.endStroke(120, 0))
+    const g: number[] = []
+    for (let i = 1; i < out.length; i++) g.push(Math.hypot(out[i].x - out[i - 1].x, out[i].y - out[i - 1].y))
+    return g
+  }
+
+  it('tightens an elongated nib to the scallop limit', () => {
+    const nominal = 120 * 0.22
+    const bound = scallopSpacingLimit({ size: 0.4 * 120, aspectRatio: 3, sizeScale: 1, hardness: 1 })
+    expect(bound).toBeLessThan(nominal)   // or this test proves nothing
+
+    const withBound = gaps(elongated, { sizeScale: 1 })
+    expect(Math.max(...withBound)).toBeLessThanOrEqual(bound + 1e-6)
+    // And it really is the scallop limit doing it, not some floor: the steps
+    // sit at the bound rather than well under it.
+    expect(Math.max(...withBound)).toBeGreaterThan(bound * 0.9)
+  })
+
+  it('leaves a system that has not opted in exactly where it was', () => {
+    const off = gaps(elongated, null)
+    expect(Math.max(...off)).toBeCloseTo(120 * 0.22, 6)
+  })
+
+  it('is a real change, so opting in has to be deliberate', () => {
+    // The engine gates this on the *nib*, not on the aspect ratio, and the
+    // reason is here: scallopSpacingLimit's own doc claims Infinity for a round
+    // dab and does not deliver it — at aspect 1 it still returns sqrt(8r),
+    // which is under the nominal step for a large brush. Switching it on for a
+    // tool's round nib would silently re-space a shipped mark.
+    const roundBound = scallopSpacingLimit({ size: 0.4 * 120, aspectRatio: 1, sizeScale: 1, hardness: 1 })
+    expect(Number.isFinite(roundBound)).toBe(true)
+    expect(roundBound).toBeLessThan(120 * 0.22)
+    expect(Math.max(...gaps(round, { sizeScale: 1 }))).toBeLessThan(120 * 0.22)
   })
 })
