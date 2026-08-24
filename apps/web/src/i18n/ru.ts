@@ -414,7 +414,10 @@ export const ru: Dictionary = {
   'tool.field.type': 'Тип',
   'tool.field.nib': 'Наконечник',
   'tool.field.angle': 'Угол',
-  'tool.field.followStroke': 'Следовать направлению штриха',
+  'tool.field.anchor': 'Угол пера относительно',
+  'tool.anchor.canvas': 'Бумаги',
+  'tool.anchor.screen': 'Экрана',
+  'tool.anchor.barrel': 'Пера',
   'tool.field.strength': 'Сила',
   'tool.field.addToPalette': 'Добавлять в палитру при выборе',
   'tool.field.mode': 'Режим',
@@ -543,8 +546,6 @@ export const ru: Dictionary = {
   'editorSettings.floatingPanel.always': 'Всегда',
   'editorSettings.floatingPanel.minimal': 'В минимальном интерфейсе',
   'editorSettings.floatingPanel.never': 'Никогда',
-  'editorSettings.lockBrushAngle': 'Зафиксировать угол кисти относительно холста',
-  'editorSettings.lockBrushAngleHint': 'Включено: угол пера маркера поворачивается вместе с холстом. Выключено: угол визуально не меняется на экране при повороте.',
 
   // -- калибровка нажима пера (#475) ----------------------------------
   'editorSettings.tab.stylus': 'Перо',

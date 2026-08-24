@@ -509,7 +509,10 @@ export const en = {
   'tool.field.type': 'Type',
   'tool.field.nib': 'Nib',
   'tool.field.angle': 'Angle',
-  'tool.field.followStroke': 'Follow stroke direction',
+  'tool.field.anchor': 'Nib angle relative to',
+  'tool.anchor.canvas': 'Paper',
+  'tool.anchor.screen': 'Screen',
+  'tool.anchor.barrel': 'Pen',
   'tool.field.strength': 'Strength',
   'tool.field.addToPalette': 'Add to palette on pick',
   'tool.field.mode': 'Mode',
@@ -655,8 +658,6 @@ export const en = {
   'editorSettings.floatingPanel.always': 'Always',
   'editorSettings.floatingPanel.minimal': 'In minimal UI',
   'editorSettings.floatingPanel.never': 'Never',
-  'editorSettings.lockBrushAngle': 'Lock brush angle to the canvas',
-  'editorSettings.lockBrushAngleHint': 'On: the marker\'s nib angle turns with the canvas as you rotate it. Off: it stays visually fixed on screen.',
 
   // -- pen pressure calibration (#475) --------------------------------------
   // What a stylus reports is already shaped by its driver before the browser

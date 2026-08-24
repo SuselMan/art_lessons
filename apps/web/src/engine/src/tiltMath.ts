@@ -58,3 +58,36 @@ export function tiltMagnitudeDeg(tiltX: number, tiltY: number): number {
 export function tiltNormFrom(tiltX: number, tiltY: number): number {
   return tiltMagnitudeDeg(tiltX, tiltY) / MAX_REPORTED_TILT_DEG
 }
+
+/**
+ * The other half of the same recovery (#482): φ, the azimuth of the grip —
+ * which way the pen leans, seen from above — in radians, screen frame, measured
+ * the same way canvas angles are (from +x, turning toward +y, i.e. clockwise on
+ * a screen whose y runs down).
+ *
+ * This is #388's unfixed twin, and it hid for the same reason the magnitude bug
+ * did. Divide the two identities at the top of this file:
+ *
+ *   tan(tiltY) / tan(tiltX) = (tanθ · sin φ) / (tanθ · cos φ) = tan φ
+ *
+ * so the azimuth is atan2 of the two *tangents*, exactly as the magnitude is
+ * hypot of the two tangents. `atan2(tiltY, tiltX)` — atan2 of the angles, which
+ * is what every caller used until now — is the same category error, and it is
+ * wrong by the same shape: exact whenever one component is zero (an
+ * axis-aligned grip, which is how it went unnoticed) or when the two are equal
+ * (the exact diagonal), and worst in between. A 30/60 grip read 63.4° against a
+ * true 71.6°; 20/70 read 74.1° against 82.5°. So a leaning pencil's ellipse
+ * pointed up to ~8° away from the direction the pen was actually leaning.
+ *
+ * #388 fixed the magnitude and left this one behind on purpose — at the time
+ * the azimuth had no consumer that cared. It has one now (dabShaping.ts's
+ * `barrel` anchor), and a nib that claims to follow the pen's body has to
+ * follow it.
+ */
+export function tiltAzimuthRad(tiltX: number, tiltY: number): number {
+  // Same clamp and the same ±90 reasoning as tiltMagnitudeDeg above: tan(90°)
+  // is a large finite double, and atan2 handles it without a special case.
+  const tx = Math.tan(clamp(tiltX, -MAX_REPORTED_TILT_DEG, MAX_REPORTED_TILT_DEG) * DEG_TO_RAD)
+  const ty = Math.tan(clamp(tiltY, -MAX_REPORTED_TILT_DEG, MAX_REPORTED_TILT_DEG) * DEG_TO_RAD)
+  return Math.atan2(ty, tx)
+}

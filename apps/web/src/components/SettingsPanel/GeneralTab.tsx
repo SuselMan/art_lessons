@@ -62,8 +62,6 @@ export function GeneralTab() {
   const setMinimalUiTapMode = useSettingsStore(s => s.setMinimalUiTapMode)
   const floatingPanel = useSettingsStore(s => s.floatingPanel)
   const setFloatingPanel = useSettingsStore(s => s.setFloatingPanel)
-  const lockBrushAngle = useSettingsStore(s => s.lockBrushAngleToCanvas)
-  const setLockBrushAngle = useSettingsStore(s => s.setLockBrushAngleToCanvas)
 
   const volumePercent = Math.round(soundVolume * 100)
 
@@ -150,12 +148,6 @@ export function GeneralTab() {
         />
       </div>
 
-      <ToggleRow
-        label={t('editorSettings.lockBrushAngle')}
-        hint={t('editorSettings.lockBrushAngleHint')}
-        checked={lockBrushAngle}
-        onChange={setLockBrushAngle}
-      />
     </div>
   )
 }

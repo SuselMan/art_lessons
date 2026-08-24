@@ -91,7 +91,7 @@ export interface CharcoalFeelConfig {
   /** Per-sample weight of the tilt low-pass (0..1): higher follows the stylus
    *  faster, lower is steadier. Stylus tilt is markedly noisier than position,
    *  and without this the shape visibly flutters between regimes. */
-  smoothing: number
+  smoothingPx: number
   /** Effective pressure at zero reported pressure (Ilya: "уголь легче
    *  ложится"). Graphite's deposit is linear in pressure, which is right for a
    *  hard lead that has to be *pushed* into the paper — but charcoal is
@@ -139,7 +139,7 @@ export const CHARCOAL_FEEL: CharcoalFeelConfig = {
   widthMax: 0.5,
   broadLightening: 0.45,
   broadGrainBoost: 0.9,
-  smoothing: 0.15,
+  smoothingPx: 25.8,
   pressureFloor: 0.3,
   pressureGamma: 0.6,
   skipFloor: 0.12,
@@ -168,7 +168,7 @@ export const CHARCOAL_FEEL_SLIDERS: readonly {
   { key: 'widthMax',        label: 'max width',   min: 0.1, max: 1.5, step: 0.01 },
   { key: 'broadLightening', label: 'broad light', min: 0,   max: 0.9, step: 0.01 },
   { key: 'broadGrainBoost', label: 'broad grain', min: 0,   max: 3,  step: 0.05 },
-  { key: 'smoothing',       label: 'tilt smooth', min: 0.02, max: 1, step: 0.01 },
+  { key: 'smoothingPx',     label: 'tilt smooth px', min: 1, max: 80, step: 0.5 },
   { key: 'pressureFloor',   label: 'press floor', min: 0,   max: 0.9, step: 0.01 },
   { key: 'pressureGamma',   label: 'press gamma', min: 0.2, max: 2,  step: 0.05 },
   { key: 'skipFloor',       label: 'skip floor',  min: 0.02, max: 1, step: 0.01 },

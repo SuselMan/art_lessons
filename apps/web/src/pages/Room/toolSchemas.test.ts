@@ -281,7 +281,12 @@ describe('option pickers (#335, #391)', () => {
         // whose options are *products* rather than settings, which is why it
         // carries literal names and generated swatches instead of translation
         // keys and photographed marks.
-        'watercolor.pigmentCode'].sort(),
+        'watercolor.pigmentCode',
+        // … and the chisel nib's frame of reference (#482, ADR 012 §3). The
+        // first select here that answers "relative to what" rather than "which
+        // one": it replaced a per-tool boolean and a global app toggle that
+        // between them spelled three of these four frames without naming any.
+        'marker.anchor'].sort(),
     )
   })
 

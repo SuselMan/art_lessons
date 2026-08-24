@@ -7,6 +7,7 @@ import { shapingForMarkerPreset, type MarkerAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
 import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
 import { DEFAULT_TILT_RESPONSE, type TiltResponse } from './tiltCurve'
+import { tiltAzimuthRad } from './tiltMath'
 
 // Per-tool pressure→size and tilt→aspect response curves for DabSystem's
 // dab geometry (#240). Previously hardcoded directly in DabSystem._makeDab
@@ -29,14 +30,23 @@ export interface DabShapingProfile {
    *  [0, 90) by construction — so tiltNorm is in [0, 1) and this no longer
    *  needs the "unclamped, may exceed 1" caveat it used to carry. */
   aspect(tiltNorm: number): number
-  /** Per-sample weight for DabSystem's tilt low-pass, or omitted for no
-   *  filtering at all (see #305 and DabSystem's own _filterTilt). Set by
-   *  charcoal and, since #389, by graphite — the two profiles whose shape
-   *  actually tracks tilt, and therefore the two where the reported angle's
-   *  noise is visible in the mark. Still opt-in rather than on-by-default:
-   *  liner and both marker nibs barely respond to tilt, so filtering it would
-   *  cost them a little work to change nothing. */
-  tiltSmoothing?: number
+  /** Distance, in world px of travel, over which DabSystem's tilt low-pass
+   *  reaches ~63% of a new reading — or omitted for no filtering at all (see
+   *  #305 and DabSystem's own _filterTilt). Set by charcoal and, since #389, by
+   *  graphite — the two profiles whose shape actually tracks tilt, and
+   *  therefore the two where the reported angle's noise is visible in the mark.
+   *  Still opt-in rather than on-by-default: liner and both marker nibs barely
+   *  respond to tilt, so filtering it would cost them a little work to change
+   *  nothing.
+   *
+   *  #482: a distance, not the per-sample weight this used to be. #472 made
+   *  that fix for pressure and left tilt behind — same defect, so the same
+   *  cure: a per-sample one-pole has its corner frequency set by the tablet's
+   *  report rate, so the identical hand movement came out several times less
+   *  smoothed on a fast digitiser than on a slow one. Filtered per dab rather
+   *  than per sample (that is where the tilt filter has always run), weighted
+   *  by that dab's own arc length. */
+  tiltSmoothingPx?: number
   /** The same idea one signal over (#454): per-sample weight for DabSystem's
    *  *pressure* low-pass, omitted for no filtering. Set only by the brush pen,
    *  the first tool whose width tracks pressure closely enough for the
@@ -56,25 +66,14 @@ export interface DabShapingProfile {
    *  one, so "how firm the pen feels" silently depended on the tablet. Over
    *  distance it is the same filter with a cutoff the hand can actually feel
    *  — see DabSystem._filterPressure for the conversion and for the one case
-   *  (a stationary press) where distance alone cannot carry it. */
+   *  (a stationary press) where distance alone cannot carry it.
+   *
+   *  #482: the per-sample twin this replaced is gone. It survived #472 only
+   *  because watercolor had landed on it independently, carrying a comment and
+   *  a test that both read its direction backwards (the filter is
+   *  `y += (u - y) * k`, so a larger k smooths *less*). Watercolor is on this
+   *  one now and there is no second form left to pick the wrong one of. */
   pressureSmoothingPx?: number
-  /** The per-sample form of the same filter, and the one #472 replaced.
-   *  Ignored whenever `pressureSmoothingPx` is set; kept only because
-   *  watercolor (#468) still runs on it and landed in main independently.
-   *
-   *  Two things to know before using it for anything new — prefer the px form:
-   *
-   *   - the weight is spent once per admitted sample, so its cutoff is the
-   *     tablet's report rate (that is the whole reason #472 moved off it);
-   *   - **larger means *less* smoothing**, not more. The filter is
-   *     `y += (u - y) * k`, so k = 1 tracks the input exactly and k → 0 is
-   *     heavy damping. Watercolor's own 0.55 is documented there as smoothing
-   *     "harder than the brush pen's 0.35" and its test asserts `> 0.35` —
-   *     both of which read the direction backwards. Left exactly as it landed
-   *     rather than corrected here: it is a live experiment's calibration, and
-   *     changing what someone else's tool looks like as a side effect of a
-   *     merge is not this branch's business. Flagged on #472 instead. */
-  pressureSmoothing?: number
   /**
    * Per-dab angle (radians). Given the raw tilt magnitude/components and the
    * spline's path-tangent angle at this dab, so a profile can derive angle
@@ -85,12 +84,29 @@ export interface DabShapingProfile {
    * Overridden entirely when `tipBend` is set — a bent nib's orientation is
    * stroke state, which a pure function of one sample cannot express. See
    * TipBendProfile.
+   *
+   * #482, ADR 012 §3: the return value is a **world** angle — it is baked into
+   * `Dab.angle` and rasterized in world space. The two inputs it can be
+   * derived from do not agree on a frame: `pathAngle` is already world, while
+   * `tiltX/tiltY` are reported by the device relative to the **screen**. So a
+   * profile that reads tilt must convert, and `cameraAngle` (the viewport's
+   * own rotation, `_infiniteCamera.angle`) is what it converts with. A profile
+   * anchored to the canvas (a chisel's fixed angle) or to the stroke ignores it
+   * — those frames need no conversion, which is the whole reason the anchor has
+   * to be named rather than assumed.
    */
-  angle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number): number
+  angle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number, cameraAngle: number): number
   /** #472, ADR 009 §13: a flexible nib that bends under the hand, as opposed
    *  to a rigid shape whose footprint is fully determined by the current
    *  sample. Omitted by every tool but the brush pen; see TipBendProfile. */
   tipBend?: TipBendProfile
+  /** #482, ADR 012 §8 — how the very start of a stroke narrows. Declared as
+   *  two numbers rather than implemented per profile on purpose: the brush pen
+   *  and watercolor differ only in the numbers, and data cannot let a third
+   *  tool quietly invent a different shape for the same idea. */
+  headTaper?: HeadTaperProfile
+  /** #482 — how much less of the nib is pressed into the paper at speed. */
+  speedContact?: SpeedContactProfile
 }
 
 /**
@@ -116,6 +132,52 @@ export interface DabShapingProfile {
  * endpoint (markerRibbon.ts's two nibSupport calls) — so every participant
  * replays the same bent nib without recomputing anything.
  */
+/**
+ * #482, ADR 012 §8 — the head of a stroke, moved out of PencilEngine's
+ * post-processing and into the tip model.
+ *
+ * It was a post-pass over `dab.size` running after the footprint had already
+ * been worked out, which had a real consequence and not only a structural one:
+ * a flexible nib's lag distance and trail are both proportional to its *current
+ * width*, so they were being computed from the untapered value. The head of
+ * every brush-pen stroke bent as though the nib were three times wider than the
+ * one actually being drawn.
+ *
+ * Only the head. The tail cannot come here and that is a property of drawing,
+ * not of this interface: "how far until the stroke ends" does not exist until
+ * the pen is lifted, and holding dabs back to find out would put latency on the
+ * tip — the one thing #104 spent its effort removing. So the rule the model
+ * keeps is that **it only ever sees what is known at the moment the dab is laid
+ * down**, and the tail stays a post-pass over the final batch.
+ */
+export interface HeadTaperProfile {
+  /** Width multiplier at the very first dab. */
+  startScale: number
+  /** Arc length, world px, over which it ramps back to full width. */
+  lengthPx: number
+}
+
+/**
+ * #482 — a fast pen presses less of its nib into the paper, so a quick stroke
+ * comes out a little leaner than the same pressure drawn slowly (ADR 009 §5 as
+ * revised by #472).
+ */
+export interface SpeedContactProfile {
+  /** Width multiplier at this pointer speed, canvas px/ms. */
+  factor(speed: number): number
+  /** Distance, world px, over which the factor eases toward that target.
+   *  Speed is measured per pointer event and a batch is often a single dab, so
+   *  the raw value steps between batches; against a ribbon that interpolates
+   *  width continuously between dabs, an unsmoothed 10% step is a visible notch
+   *  in the silhouette rather than a change in weight.
+   *
+   *  A distance for the same reason every other filter here became one: this
+   *  shipped as a per-dab weight, and dab spacing is proportional to brush size,
+   *  so the same gesture settled over four times the distance on a 160 px brush
+   *  as on a 40 px one. */
+  smoothingPx: number
+}
+
 export interface TipBendProfile {
   /**
    * Contact-patch elongation (long axis / short axis) at this pressure, on top
@@ -174,8 +236,91 @@ function lerp(a: number, b: number, t: number): number {
 // (#251) so markerPresets.ts's bullet nib profile can reuse it verbatim —
 // bullet is round enough that per-dab angle barely shows, but there's no
 // reason to give it a different default than every other non-chisel tool.
-export function tiltOrPathAngle(tiltMag: number, tiltX: number, tiltY: number, pathAngle: number): number {
-  return tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
+//
+// #482, ADR 012 §3: in the vocabulary that ADR introduces this is the anchor
+// `barrel` — the nib points where the stylus's own body points — degrading to
+// `stroke` below the 15deg threshold, because the azimuth of a near-upright pen
+// is atan2 of two near-zero numbers and carries no direction worth having.
+// That much was always the intent; what was missing is that the two branches
+// answer in *different frames*. `pathAngle` is derived from world-space spline
+// positions, while the azimuth is the device's own reading against the screen,
+// and the result of both goes into a world-space `Dab.angle`. So the azimuth
+// branch was short by exactly the viewport's rotation: on a canvas turned 30deg
+// a leaning pencil laid its ellipse 30deg off the direction the pen was
+// actually leaning, and crossing the 15deg threshold mid-stroke swapped frames
+// underneath the same gesture.
+//
+// Subtracting `cameraAngle` converts screen -> world (the forward transform is
+// `screen = centre + R(angle)·(world - camera)·zoom`, see PencilEngine's own
+// worldToScreen comment). It is identically zero on an unrotated canvas, which
+// is every stroke ever recorded before the rotate tool existed and most since —
+// so this fix cannot change a mark that was not already wrong.
+//
+// #482 part two: the azimuth itself comes from tiltAzimuthRad, not from
+// `atan2(tiltY, tiltX)`. tiltX/tiltY are not the components of a vector — each
+// is the angle of the stylus's projection onto one plane — so the azimuth is
+// atan2 of their *tangents*, exactly as #388 established for the magnitude. The
+// old expression was off by up to ~8 degrees on a diagonal grip and exact only
+// on an axis-aligned or exactly-diagonal one. See tiltMath.ts.
+export function tiltOrPathAngle(
+  tiltMag: number, tiltX: number, tiltY: number, pathAngle: number, cameraAngle = 0,
+): number {
+  return tiltMag > 15 ? tiltAzimuthRad(tiltX, tiltY) - cameraAngle : pathAngle
+}
+
+// ─── Nib anchor (#482, ADR 012 §3) ──────────────────────────────────────────
+//
+// A nib's angle is only meaningful relative to *something*, and until #482 the
+// engine never said what. Four frames are possible, theta is the viewport's own
+// rotation and phi the direction of travel on screen:
+//
+//   canvas  nib_world = offset                 pinned to the paper. Turn the
+//                                              canvas and the nib turns with it,
+//                                              so the grip you found moves.
+//   screen  nib_world = offset - theta         pinned to the screen. Assumes the
+//                                              person sits square to it — an
+//                                              assumption, not a measurement.
+//   barrel  nib_world = azimuth - theta + off  pinned to the pen's own body —
+//                                              the only physically true one.
+//                                              Degenerate near vertical, where
+//                                              the azimuth is atan2 of two
+//                                              near-zeroes, so it always needs a
+//                                              fallback.
+//
+// A fourth was shipped briefly and withdrawn: `stroke`, pinned to the direction
+// of travel (`pathAngle + offset`). It reads well on paper — canvas rotation
+// cancels itself, and it *switches calligraphy off*, since width stops
+// depending on direction — but on the tablet it was wrong twice over. It
+// rosetted under a held pen, and once that was fixed it still swung under any
+// rocking of the wrist, because rocking in a small circle genuinely *is* a
+// stroke going round in a circle. Ilya, 24.08: "убери, работает странно и
+// криво". The lead-point machinery it forced into tipFootprint.ts stays, and is
+// still load-bearing: `barrel` falls back to the same path direction below 15deg
+// of lean, so a chisel held upright would rosette in exactly the same way.
+export const NIB_ANCHORS = ['canvas', 'screen', 'barrel'] as const
+export type NibAnchor = (typeof NIB_ANCHORS)[number]
+
+/** ADR 004's original behaviour, and still what a chisel marker starts on. */
+export const DEFAULT_NIB_ANCHOR: NibAnchor = 'canvas'
+
+export function isNibAnchor(v: string): v is NibAnchor {
+  return (NIB_ANCHORS as readonly string[]).includes(v)
+}
+
+/**
+ * `offset` radians in the named frame. The tools that never had an angle
+ * setting are not on this: they ride `tiltOrPathAngle`, which is exactly
+ * `barrel` with a zero offset, and giving them a selector would be a control
+ * for something nobody asked to choose (ADR 012 §11 leaves that open
+ * deliberately).
+ */
+export function anchoredAngleShaping(offset: number, anchor: NibAnchor): DabShapingProfile['angle'] {
+  if (anchor === 'canvas') return () => offset
+  if (anchor === 'screen') return (_m, _x, _y, _p, cameraAngle) => offset - cameraAngle
+  // barrel: the shared tilt-or-path rule, offset by the user's own angle. Its
+  // 15deg threshold is the fallback this frame cannot do without.
+  return (tiltMag, tiltX, tiltY, pathAngle, cameraAngle) =>
+    tiltOrPathAngle(tiltMag, tiltX, tiltY, pathAngle, cameraAngle) + offset
 }
 
 // Graphite (#240's carried-over original formulas, replaced in #389). The
@@ -203,7 +348,7 @@ function pencilShapingFor(response: TiltResponse): DabShapingProfile {
     // A getter for the same reason charcoal's is: the debug overlay mutates
     // PENCIL_TILT in place, and a captured value would freeze whatever smoothing
     // happened to be set when this module was first evaluated.
-    get tiltSmoothing() { return PENCIL_TILT.smoothing },
+    get tiltSmoothingPx() { return PENCIL_TILT.smoothingPx },
   }
 }
 
@@ -286,7 +431,7 @@ function charcoalShapingFor(response: TiltResponse): DabShapingProfile {
     // A getter, not a captured value: CHARCOAL_FEEL is mutated in place by the
     // debug overlay's sliders, and a plain property would freeze whatever
     // smoothing happened to be set at module-eval time.
-    get tiltSmoothing() { return CHARCOAL_FEEL.smoothing },
+    get tiltSmoothingPx() { return CHARCOAL_FEEL.smoothingPx },
   }
 }
 

@@ -5,8 +5,9 @@ import type { Dab } from '@grafetto/shared'
 import { DabSystem } from './DabSystem'
 import { scallopSpacingLimit } from './dabSpacing'
 import { fixedAngleShaping, LINER_DAB_SHAPING, PENCIL_DAB_SHAPING, shapingForTool, type DabShapingProfile } from './dabShaping'
-import { MARKER_BULLET_DAB_SHAPING } from './markerPresets'
+import { MARKER_BULLET_DAB_SHAPING, shapingForMarkerPreset } from './markerPresets'
 import { DEFAULT_TILT_RESPONSE, TILT_RESPONSES } from './tiltCurve'
+import { tiltAzimuthRad } from './tiltMath'
 
 // Geometry-focused tests for the #91 centripetal Catmull-Rom fix.
 //
@@ -949,42 +950,52 @@ describe('DabSystem per-tool dab shaping (#240)', () => {
 describe('DabSystem per-tool angle shaping (#249)', () => {
   const baseSize = 20
 
-  // Bit-for-bit pin of the pre-#249 hardcoded formula in DabSystem._makeDab:
-  // `tiltMag > 15 ? atan2(tiltY, tiltX) : pathAngle`. Every existing tool
-  // (pencil/eraser/smudge via PENCIL_DAB_SHAPING, and liner via
-  // LINER_DAB_SHAPING) must still produce exactly this angle.
+  // Pin of the shared tilt-or-path rule every tool but the chisel rides:
+  // above the 15deg trust threshold the nib follows the pen's own body, below
+  // it the spline's tangent. Originally a bit-for-bit pin of the pre-#249
+  // hardcoded expression `tiltMag > 15 ? atan2(tiltY, tiltX) : pathAngle`.
+  //
+  // #482 corrected the azimuth half of it: tiltX/tiltY are not vector
+  // components, so the grip's direction is atan2 of their *tangents* — #388's
+  // reasoning for the magnitude, applied to the direction it deliberately left
+  // alone (see tiltMath.ts's tiltAzimuthRad). The branch structure and the
+  // threshold are untouched, which is what this still pins; the cases below
+  // where one component is zero or the two are equal are exactly the ones where
+  // old and new expressions agree, so they pin both.
   function referenceAngle(tiltX: number, tiltY: number, pathAngle: number): number {
     const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
-    return tiltMag > 15 ? Math.atan2(tiltY, tiltX) : pathAngle
+    return tiltMag > 15 ? tiltAzimuthRad(tiltX, tiltY) : pathAngle
   }
 
   it('PENCIL_DAB_SHAPING.angle reproduces the pre-#249 formula for low and high tilt', () => {
     // Low tilt (magnitude <= 15) -> falls back to path angle regardless of
     // tilt direction.
-    expect(PENCIL_DAB_SHAPING.angle(10, 10, 0, 1.2345)).toBeCloseTo(referenceAngle(10, 0, 1.2345))
-    expect(PENCIL_DAB_SHAPING.angle(0, 0, 0, -0.75)).toBeCloseTo(referenceAngle(0, 0, -0.75))
+    expect(PENCIL_DAB_SHAPING.angle(10, 10, 0, 1.2345, 0)).toBeCloseTo(referenceAngle(10, 0, 1.2345))
+    expect(PENCIL_DAB_SHAPING.angle(0, 0, 0, -0.75, 0)).toBeCloseTo(referenceAngle(0, 0, -0.75))
     // High tilt (magnitude > 15) -> tilt direction wins, path angle ignored.
-    expect(PENCIL_DAB_SHAPING.angle(30, 21.21, 21.21, 1.2345)).toBeCloseTo(referenceAngle(21.21, 21.21, 1.2345))
-    expect(PENCIL_DAB_SHAPING.angle(90, 0, -90, 0)).toBeCloseTo(referenceAngle(0, -90, 0))
+    expect(PENCIL_DAB_SHAPING.angle(30, 21.21, 21.21, 1.2345, 0)).toBeCloseTo(referenceAngle(21.21, 21.21, 1.2345))
+    expect(PENCIL_DAB_SHAPING.angle(90, 0, -90, 0, 0)).toBeCloseTo(referenceAngle(0, -90, 0))
   })
 
   it('LINER_DAB_SHAPING.angle uses the same default tilt-or-path formula as pencil', () => {
     const cases: Array<[number, number, number]> = [[10, 0, 1.2345], [21.21, 21.21, 1.2345], [0, -90, 0]]
     for (const [tiltX, tiltY, pathAngle] of cases) {
       const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
-      expect(LINER_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle)).toBeCloseTo(referenceAngle(tiltX, tiltY, pathAngle))
+      expect(LINER_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle, 0)).toBeCloseTo(referenceAngle(tiltX, tiltY, pathAngle))
     }
   })
 
-  it('DabSystem._makeDab produces bit-for-bit the pre-#249 angle for pencil/liner shaping via the public API', () => {
+  it('DabSystem._makeDab routes pencil/liner shaping through the tilt branch via the public API', () => {
     for (const shaping of [PENCIL_DAB_SHAPING, LINER_DAB_SHAPING]) {
       const dab = new DabSystem({ shaping })
       // tiltX=30, tiltY=40 -> a true lean of ~45.5deg (> 15) -> tilt direction
       // wins, path angle (whatever it is for a stroke's first dab) is ignored.
-      // The azimuth atan2 reads is unaffected by #388's magnitude fix: it comes
-      // from the two components directly, not from their combined magnitude.
+      //
+      // This case is also why #482's azimuth correction is visible at all: an
+      // unequal, non-zero pair is exactly where atan2-of-angles and
+      // atan2-of-tangents disagree — 53.13deg against a true 55.46deg here.
       const [highTilt] = dab.startStroke(0, 0, 0.5, 30, 40, baseSize)
-      expect(highTilt.angle).toBeCloseTo(Math.atan2(40, 30))
+      expect(highTilt.angle).toBeCloseTo(tiltAzimuthRad(30, 40))
     }
   })
 
@@ -1023,6 +1034,68 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     expect(d2.angle).toBeCloseTo(fixed)
   })
 
+  // ── #482, ADR 012 §3: the tilt branch answers in the wrong frame ─────────
+  //
+  // `Dab.angle` is world-space. `pathAngle` already is; the stylus's tilt is
+  // the device's reading against the *screen*. So the azimuth branch owes a
+  // conversion by the viewport's own rotation, and before #482 it did not pay
+  // it — a leaning pen on a rotated canvas laid its ellipse off by exactly the
+  // camera angle, and crossing the 15deg threshold mid-stroke swapped frames
+  // underneath one gesture.
+
+  it('the tilt branch converts the screen-space azimuth into world space; the path branch is untouched', () => {
+    const theta = Math.PI / 6
+    // High tilt: the azimuth wins, and it arrives in screen space.
+    expect(PENCIL_DAB_SHAPING.angle(30, 21.21, 21.21, 1.2345, theta))
+      .toBeCloseTo(tiltAzimuthRad(21.21, 21.21) - theta)
+    // Low tilt: pathAngle is derived from world-space spline positions, so it
+    // needs no conversion and must not receive one.
+    expect(PENCIL_DAB_SHAPING.angle(10, 10, 0, 1.2345, theta)).toBeCloseTo(1.2345)
+  })
+
+  it('an unrotated canvas is bit-for-bit unchanged — the conversion cannot alter a mark that was not already wrong', () => {
+    const cases: Array<[number, number, number]> = [[10, 0, 1.2345], [21.21, 21.21, 1.2345], [0, -90, 0], [30, 40, -0.5]]
+    for (const [tiltX, tiltY, pathAngle] of cases) {
+      const tiltMag = Math.sqrt(tiltX * tiltX + tiltY * tiltY)
+      expect(PENCIL_DAB_SHAPING.angle(tiltMag, tiltX, tiltY, pathAngle, 0))
+        .toBe(referenceAngle(tiltX, tiltY, pathAngle))
+    }
+  })
+
+  it('DabSystem.cameraAngle reaches the dab, and defaults to no conversion', () => {
+    const theta = -0.9
+    const rotated = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
+    rotated.cameraAngle = theta
+    const [d] = rotated.startStroke(0, 0, 0.5, 30, 40, baseSize)
+    expect(d.angle).toBeCloseTo(tiltAzimuthRad(30, 40) - theta)
+
+    // A fresh instance nobody told about a viewport behaves exactly as it did
+    // before #482 — this is what keeps every existing test and every replay of
+    // an already-recorded stroke honest.
+    const upright = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
+    const [u] = upright.startStroke(0, 0, 0.5, 30, 40, baseSize)
+    expect(u.angle).toBe(tiltAzimuthRad(30, 40))
+  })
+
+  it('a fork inherits the camera angle, so #92 prediction previews land where the real dabs will', () => {
+    const src = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
+    src.cameraAngle = 0.42
+    src.startStroke(0, 0, 0.5, 30, 40, baseSize)
+    expect(src.forkForPreview().cameraAngle).toBe(0.42)
+  })
+
+  it('a chisel nib is anchored to the canvas and therefore ignores the camera angle', () => {
+    // ADR 012 §3: `canvas` is a frame that needs no conversion — a nib fixed
+    // relative to the paper turns *with* the paper, by construction. Pinned so
+    // a future anchor refactor cannot quietly start compensating it too.
+    const fixed = Math.PI / 4
+    const shaping: DabShapingProfile = { size: () => 1, aspect: () => 1, angle: fixedAngleShaping(fixed) }
+    const dab = new DabSystem({ shaping })
+    dab.cameraAngle = 1.1
+    const [d] = dab.startStroke(0, 0, 0.5, -90, -90, baseSize)
+    expect(d.angle).toBeCloseTo(fixed)
+  })
+
   // #251, ADR 004 §1: shapingForTool's widened (tool, presetName) signature
   // must dispatch a 'marker' stroke to one of the two nib profiles based on
   // the parsed nib token, and every non-marker tool must keep returning
@@ -1047,8 +1120,8 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     const chisel = shapingForTool('marker', 'chisel:0.3')
     const bullet = shapingForTool('marker', 'bullet:0.3')
 
-    const fixedAngle = chisel.angle(0, 0, 0, 0)
-    expect(chisel.angle(90, -50, 80, Math.PI / 2)).toBeCloseTo(fixedAngle) // strong tilt + real path angle, still fixed
+    const fixedAngle = chisel.angle(0, 0, 0, 0, 0)
+    expect(chisel.angle(90, -50, 80, Math.PI / 2, 0)).toBeCloseTo(fixedAngle) // strong tilt + real path angle, still fixed
     expect(chisel.aspect(0)).toBeCloseTo(chisel.aspect(2)) // tiltNorm makes no difference at all
 
     // Bullet, by contrast, keeps liner's real tilt-or-path angle response and
@@ -1223,5 +1296,204 @@ describe('DabSystem curvature-adaptive spacing (#330)', () => {
       if (d.y < 3) expect(d.x).toBeGreaterThanOrEqual(maxX - 1e-6)
       maxX = Math.max(maxX, d.x)
     }
+  })
+})
+
+// ── #482: input filters are cut off by distance, not by report rate ─────────
+//
+// #472 moved the *pressure* filter off a per-sample weight for this exact
+// reason and left the tilt filter behind. Same gesture, same hand, two
+// digitisers: the tablet that reports more often used to smooth several times
+// harder, so how steady a leaned pencil felt was a property of the hardware.
+//
+// The test drives the identical straight path at two sample densities and
+// compares what the *dabs* come out as — dab spacing is arc length, so both
+// runs produce the same dabs at the same places, and any difference between
+// them is the filter's rate-dependence and nothing else.
+describe('DabSystem tilt smoothing is rate-independent (#482)', () => {
+  const baseSize = 30
+  const LEN = 120
+
+  /** Same stroke, same tilt ramp against *distance*, sampled every `stepPx`. */
+  function tiltsAlong(stepPx: number): number[] {
+    const dab = new DabSystem({ shaping: PENCIL_DAB_SHAPING })
+    // Tilt swings across the stroke as a function of position, so the two runs
+    // feed the filter the same signal and differ only in how finely.
+    const tiltAt = (x: number) => 10 + 60 * (x / LEN)
+    const out: Dab[] = []
+    out.push(...dab.startStroke(0, 0, 0.6, tiltAt(0), 0, baseSize))
+    for (let x = stepPx; x <= LEN; x += stepPx) {
+      out.push(...dab.continueStroke(x, 0, 0.6, tiltAt(x), 0, baseSize))
+    }
+    out.push(...dab.endStroke(baseSize))
+    return out.map(d => d.tiltX)
+  }
+
+  it('a 4x denser digitiser produces the same filtered tilt, not a 4x steadier one', () => {
+    const slow = tiltsAlong(4)    // ~60 Hz at a moderate speed
+    const fast = tiltsAlong(1)    // ~240 Hz, same hand, same path
+    const n = Math.min(slow.length, fast.length)
+    expect(n).toBeGreaterThan(8)
+
+    // Compared over the dabs both runs share. The tolerance is deliberately
+    // tight in absolute degrees: the signal spans 10..70deg, so anything the
+    // old per-sample filter did would show up as many degrees of lag, not a
+    // fraction of one.
+    let worst = 0
+    for (let i = 1; i < n; i++) worst = Math.max(worst, Math.abs(slow[i] - fast[i]))
+    expect(worst).toBeLessThan(1.5)
+  })
+
+  it('and the filter is doing something — raw tilt is not what lands on the dab', () => {
+    // Guards against the pair above passing for the wrong reason: two runs with
+    // smoothing switched off would also agree with each other perfectly. The
+    // input ramps 10deg -> 70deg across the stroke, so a filter that is
+    // actually filtering must still be short of 70 at the end, and past 10.
+    const filtered = tiltsAlong(4)
+    const last = filtered[filtered.length - 1]
+    expect(last).toBeLessThan(69)
+    expect(last).toBeGreaterThan(10)
+  })
+})
+
+// #482: what the nib does when the tool asks the *path* which way it is going.
+//
+// The `stroke` anchor asked that directly and was withdrawn for it (see
+// dabShaping.ts's NIB_ANCHORS), but the question did not go with it: `barrel`
+// falls back to the same path direction below 15deg of lean, because the tilt
+// azimuth is atan2 of two near-zeroes there and means nothing. So these run on
+// `barrel` with the pen held upright, which is that fallback — and on a chisel,
+// because 5:1 makes a wrong angle a differently-shaped mark rather than a
+// subtle shading difference.
+//
+// Reported by Ilya on 24.08 as "рисует цветочки": touch down and hold, and the
+// nib stamped itself at every angle in place. Not a #482 regression — main's
+// own offsetAngleShaping was `pathAngle + offset` with no filter between them
+// — but this is the layer that owes the answer, so it is fixed and pinned here.
+describe('#482 nib angle taken from the path', () => {
+  // tilt 0/0 everywhere below: that is what puts `barrel` on its path fallback,
+  // and it is the case a chisel held upright actually hits.
+  const chisel = (offset = 0) =>
+    new DabSystem({ shaping: shapingForMarkerPreset('chisel:0.3', { angle: offset, anchor: 'barrel' }) })
+  const deg = (r: number) => (r * 180) / Math.PI
+
+  // A hand holding still is not still: it shakes, and the tangent of that shake
+  // sweeps the whole circle. Deterministic rather than random so a failure is
+  // reproducible, and sub-2px so it is unambiguously tremor and not drawing.
+  function tremorAngles(amplitudePx: number): number[] {
+    const sys = chisel(Math.PI / 4)
+    const angles: number[] = []
+    let x = 100
+    let y = 100
+    for (const d of sys.startStroke(x, y, 0.6, 0, 0, 20)) angles.push(deg(d.angle))
+    for (let i = 0; i < 40; i++) {
+      const a = (i * 2.399963) % (Math.PI * 2)   // golden angle: no direction repeats soon
+      const r = amplitudePx * (0.5 + 0.5 * ((i * 7919) % 13) / 13)
+      x += Math.cos(a) * r
+      y += Math.sin(a) * r
+      for (const d of sys.continueStroke(x, y, 0.6, 0, 0, 20, 0.01)) angles.push(deg(d.angle))
+    }
+    for (const d of sys.endStroke(20, 0)) angles.push(deg(d.angle))
+    return angles
+  }
+
+  it('holds one angle under hand tremor instead of stamping a rosette', () => {
+    for (const amplitude of [1, 2, 3]) {
+      const angles = tremorAngles(amplitude)
+      // The tremor has to actually produce marks, or this passes for the wrong
+      // reason — an empty stroke has no spread either.
+      expect(angles.length).toBeGreaterThan(4)
+      const spread = Math.max(...angles) - Math.min(...angles)
+      expect(spread).toBeLessThan(1)
+      // And it holds at the tool's own angle, not at some arbitrary direction
+      // the first shake happened to point in.
+      expect(angles[0]).toBeCloseTo(45, 6)
+    }
+  })
+
+  it('still swings onto a real stroke, and through a corner', () => {
+    const sys = chisel(0)
+    const at: { travelled: number; angle: number }[] = []
+    let x = 100
+    let y = 100
+    let travelled = 0
+    const take = (dabs: Dab[]) => { for (const d of dabs) at.push({ travelled, angle: deg(d.angle) }) }
+
+    take(sys.startStroke(x, y, 0.6, 0, 0, 20))
+    for (let i = 0; i < 30; i++) {           // due east
+      x += 2; travelled += 2
+      take(sys.continueStroke(x, y, 0.6, 0, 0, 20, 0.5))
+    }
+    const straight = travelled
+    for (let i = 0; i < 30; i++) {           // hard left, due south
+      y += 2; travelled += 2
+      take(sys.continueStroke(x, y, 0.6, 0, 0, 20, 0.5))
+    }
+    take(sys.endStroke(20, 0))
+
+    const angleAt = (d: number) => at.filter(r => r.travelled >= d)[0].angle
+    // Committed to the stroke within a nib's length of travel...
+    expect(angleAt(20)).toBeCloseTo(0, 4)
+    // ...and half way round the corner in about the same distance, most of the
+    // way in two. Both bounds are the point of the test: the lead point buys
+    // its immunity to rocking at exactly this price in responsiveness, so a
+    // change that makes the nib sluggish should fail here rather than be
+    // noticed on the canvas.
+    expect(angleAt(straight + 20)).toBeGreaterThan(45)
+    expect(angleAt(straight + 40)).toBeGreaterThan(80)
+    // Not exactly 90: a one-pole approaches asymptotically, so the tail of a
+    // straight run is always a fraction of a degree short. That it gets there
+    // at all is the claim.
+    expect(at[at.length - 1].angle).toBeGreaterThan(88)
+  })
+
+  // The first fix for the rosette measured travel against the hand's tremor,
+  // ~3px, and rejected tremor and nothing else: rocking the stylus in a 4px
+  // circle swept 313deg of nib angle, because that *is* a real stroke going
+  // round in a real circle. What a nib taking its angle from the path actually
+  // owes is an answer in its own units — it cannot trace an arc much tighter than its
+  // own length without pivoting on the spot.
+  it('is not turned by rocking the pen inside its own length', () => {
+    const spreadFor = (radiusPx: number, baseSize: number) => {
+      const sys = chisel(0)
+      const angles: number[] = []
+      const at = (i: number) => ({
+        x: 200 + radiusPx * Math.cos((i / 12) * Math.PI * 2),
+        y: 200 + radiusPx * Math.sin((i / 12) * Math.PI * 2),
+      })
+      const p0 = at(0)
+      for (const d of sys.startStroke(p0.x, p0.y, 0.6, 0, 0, baseSize)) angles.push(deg(d.angle))
+      for (let i = 1; i <= 48; i++) {
+        const p = at(i)
+        for (const d of sys.continueStroke(p.x, p.y, 0.6, 0, 0, baseSize, 0.3)) angles.push(deg(d.angle))
+      }
+      for (const d of sys.endStroke(baseSize, 0)) angles.push(deg(d.angle))
+      expect(angles.length).toBeGreaterThan(4)
+      return Math.max(...angles) - Math.min(...angles)
+    }
+
+    // A ~20px nib, rocked well inside its own length: unmoved.
+    for (const radius of [3, 4, 6, 8]) expect(spreadFor(radius, 20)).toBeLessThan(1)
+    // The same wobble under a nib small enough that it is a genuine circle, not
+    // a shake — followed, and that is right. Pinned so the fix cannot quietly
+    // become "the nib never turns".
+    expect(spreadFor(8, 4)).toBeGreaterThan(180)
+  })
+
+  it('a dwelling tip keeps the angle the stroke left it at', () => {
+    const sys = chisel(0)
+    let x = 100
+    for (let i = 0; i < 20; i++) { x += 2; sys.continueStroke(x, 100, 0.6, 0, 0, 20, 0.5) }
+    sys.startStroke(100, 100, 0.6, 0, 0, 20)
+    let last = 0
+    for (let i = 0; i < 30; i++) {
+      x += 2
+      for (const d of sys.continueStroke(x, 100, 0.6, 0, 0, 20, 0.5)) last = d.angle
+    }
+    // #245's dwell tick, which is ds = 0 by construction: the resting footprint
+    // must report the direction the stroke actually ended in, not the 0 the
+    // hand-built dwell dab used to hardcode.
+    const resting = sys.restingFootprint(x, 100, 0.6, 0, 0, 20)
+    expect(resting.angle).toBeCloseTo(last, 6)
   })
 })

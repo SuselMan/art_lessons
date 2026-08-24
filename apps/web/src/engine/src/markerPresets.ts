@@ -1,6 +1,9 @@
 import { clamp } from 'lodash-es'
 
-import { fixedAngleShaping, offsetAngleShaping, tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
+import {
+  anchoredAngleShaping, DEFAULT_NIB_ANCHOR, tiltOrPathAngle,
+  type DabShapingProfile, type NibAnchor,
+} from './dabShaping'
 import type { DwellConfig } from './linerPresets'
 
 // #251, ADR 004 §1: the two marker nib dab-shaping profiles. Mirrors
@@ -73,20 +76,23 @@ const MARKER_CHISEL_ASPECT_RATIO = 5 // uncalibrated first pass, ADR 004 §1 ran
 const MARKER_CHISEL_ANGLE_RADIANS_DEFAULT = Math.PI / 4 // ADR 004 §1 "~45°"
 
 export interface MarkerAngleConfig {
-  /** Radians. Absolute nib angle when followStrokeDirection is false
-   *  (ADR 004's original fixed-angle behavior, just configurable instead of
-   *  a hardcoded constant); offset added to the stroke's own path-tangent
-   *  angle when true (same idea as tiltOrPathAngle's path fallback, but
-   *  always path-relative rather than switching to tilt). */
+  /** Radians, read in the frame `anchor` names. */
   angle: number
-  followStrokeDirection: boolean
+  /** #482, ADR 012 §3 — what the angle is measured against. This replaced a
+   *  `followStrokeDirection` boolean, which offered exactly two frames without
+   *  naming either, and had no way to express the two that a real marker
+   *  actually behaves like: held square to the person (`screen`) or,
+   *  truthfully, fixed to the barrel and turning as the pen is rolled
+   *  (`barrel`). The boolean's own "true" frame did not survive — see
+   *  dabShaping.ts's NIB_ANCHORS. */
+  anchor: NibAnchor
 }
 
 /** Chisel's angle response is the one thing #278 makes configurable per
  *  stroke (unlike size/aspect, which stay fixed) — a factory rather than a
  *  static DabShapingProfile object, so engine/index.ts can build a fresh one
  *  from this stroke's live angle setting. */
-export function chiselDabShaping(angleRadians: number, followStrokeDirection: boolean): DabShapingProfile {
+export function chiselDabShaping(angleRadians: number, anchor: NibAnchor): DabShapingProfile {
   return {
     // ADR 004 §2: chisel gets the same weak pressure response as bullet/liner
     // — a real chisel-tip marker doesn't compress any more than a bullet one.
@@ -105,7 +111,7 @@ export function chiselDabShaping(angleRadians: number, followStrokeDirection: bo
     size:   pressure => lerp(MARKER_WIDTH_FLOOR, MARKER_WIDTH_CEIL, pressure) / MARKER_CHISEL_ASPECT_RATIO,
     // Fixed elongation, ignores tiltNorm entirely.
     aspect: () => MARKER_CHISEL_ASPECT_RATIO,
-    angle:  followStrokeDirection ? offsetAngleShaping(angleRadians) : fixedAngleShaping(angleRadians),
+    angle:  anchoredAngleShaping(angleRadians, anchor),
   }
 }
 
@@ -128,7 +134,7 @@ export function shapingForMarkerPreset(presetName: string | undefined, angleConf
   if (markerNibFromPreset(presetName) !== 'chisel') return MARKER_BULLET_DAB_SHAPING
   return chiselDabShaping(
     angleConfig?.angle ?? MARKER_CHISEL_ANGLE_RADIANS_DEFAULT,
-    angleConfig?.followStrokeDirection ?? false,
+    angleConfig?.anchor ?? DEFAULT_NIB_ANCHOR,
   )
 }
 

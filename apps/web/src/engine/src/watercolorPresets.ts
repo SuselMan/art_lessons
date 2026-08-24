@@ -2,7 +2,7 @@ import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { gain, PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, type PressureResponse } from './brushPenPresets'
-import { tiltOrPathAngle, type DabShapingProfile } from './dabShaping'
+import { tiltOrPathAngle, type DabShapingProfile, type HeadTaperProfile } from './dabShaping'
 import type { PencilPreset } from './pencilPresets'
 import { DEFAULT_WATERCOLOR_PIGMENT, isWatercolorPigmentCode } from './watercolorPigments'
 
@@ -100,10 +100,26 @@ export function watercolorWidth(pressure: number, response: PressureResponse): n
 }
 
 /** A wet brush is heavier and slower than a pen nib, and its own load damps
- *  hand tremor before the paper ever sees it — so this smooths harder than the
- *  brush pen's 0.35. Not so hard that a deliberate press-and-widen is lost:
- *  that is still the tool's primary control. */
-const WATERCOLOR_PRESSURE_SMOOTHING = 0.55
+ *  hand tremor before the paper ever sees it.
+ *
+ *  #482: expressed as a distance, like every other input filter now, and the
+ *  move corrected a claim as well as a unit. This shipped as a per-sample
+ *  weight of 0.55, documented as smoothing "harder than the brush pen's 0.35"
+ *  with a test asserting `> 0.35` — both backwards, because the filter is
+ *  `y += (u - y) * k` and a larger k tracks the input *more* closely. So the
+ *  wet brush was in fact the twitchier of the two.
+ *
+ *  Converted rather than retuned: 0.55 at the reference the pen's own 10 px was
+ *  picked against (500 px/s on a 120 Hz stylus, samples ~4.2 px apart) is
+ *  5.3 px. That is deliberately still shorter than the pen's 10 px — i.e. the
+ *  documentation was wrong and the number stays — because changing how someone
+ *  else's live experiment feels is not this branch's business. What is fixed is
+ *  that the number now means the same thing on every device. */
+const WATERCOLOR_PRESSURE_SMOOTHING_PX = 5.3
+
+/** #482: profile data rather than a post-pass. Barely a taper at all — a
+ *  loaded brush lands rather than arrives at a point. */
+export const WATERCOLOR_HEAD_TAPER: HeadTaperProfile = { startScale: 0.72, lengthPx: 6 }
 
 // ─── Dab shaping ────────────────────────────────────────────────────────────
 
@@ -117,7 +133,9 @@ function watercolorShapingFor(response: PressureResponse): DabShapingProfile {
     // this stops being a brush and starts being a charcoal stick.
     aspect: tiltNorm => 1 + 0.40 * tiltNorm,
     angle:  tiltOrPathAngle,
-    pressureSmoothing: WATERCOLOR_PRESSURE_SMOOTHING,
+    pressureSmoothingPx: WATERCOLOR_PRESSURE_SMOOTHING_PX,
+    // #482, ADR 012 §8 — same move as the brush pen's, same reason.
+    headTaper: WATERCOLOR_HEAD_TAPER,
   }
 }
 
@@ -483,28 +501,6 @@ export function applyWatercolorPooling(dabs: Dab[], exitSpeed: number, water: nu
 // before the stroke's entry speed has been measured, and arc length is known
 // immediately and deterministically.
 
-/** Width multiplier at the very first dab. Barely a taper at all. */
-const HEAD_TAPER_START = 0.72
-/** Arc length (canvas px) over which the head ramps back to full width. */
-const HEAD_TAPER_PX = 6
-
-/** Narrows the first few px of a stroke, in place. Same signature and same
- *  batch-continuity contract as applyBrushPenHeadTaper — `arcLenBefore` is the
- *  arc length earlier batches of this same stroke already travelled, so the
- *  taper does not restart at every pointer-event boundary. Returns the running
- *  arc length for the next call. */
-export function applyWatercolorHeadTaper(dabs: Dab[], prevDab: Dab | undefined, arcLenBefore: number): number {
-  let arc = arcLenBefore
-  let prev = prevDab
-  for (const dab of dabs) {
-    if (prev) arc += Math.hypot(dab.x - prev.x, dab.y - prev.y)
-    if (arc < HEAD_TAPER_PX) {
-      dab.size *= HEAD_TAPER_START + (1 - HEAD_TAPER_START) * (arc / HEAD_TAPER_PX)
-    }
-    prev = dab
-  }
-  return arc
-}
 
 const TAIL_SPEED_SLOW = 0.5
 const TAIL_SPEED_FAST = 2.5

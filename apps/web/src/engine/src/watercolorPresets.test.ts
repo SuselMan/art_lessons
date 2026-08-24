@@ -8,11 +8,14 @@
 // index.watercolor.test.ts's own header). Those need a real browser.
 import { describe, expect, it } from 'vitest'
 
+import { BRUSH_PEN_HEAD_TAPER, BRUSH_PEN_PRESSURE_SMOOTHING_PX } from './brushPenPresets'
+import { createTipState, tipFootprint } from './tipFootprint'
+
 import type { Dab } from '@grafetto/shared'
 
 import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
-  shapingForWatercolorPreset, applyWatercolorHeadTaper, applyWatercolorEndTaper,
+  shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
   DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
   watercolorPigmentLoad, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
@@ -103,11 +106,23 @@ describe('watercolor preset slot carries the pressure response', () => {
 })
 
 describe('watercolor dab shaping', () => {
-  it('smooths pressure harder than the brush pen does', () => {
-    // A wet brush is heavy and its own load damps tremor before the paper sees
-    // it. 0.35 is the brush pen's value; anything at or below it here means the
-    // profile was copied rather than considered.
-    expect(shapingForWatercolorPreset('normal').pressureSmoothing).toBeGreaterThan(0.35)
+  it('smooths pressure over a distance, and less than the brush pen does', () => {
+    // #482 corrected this test along with the thing it tested. It used to
+    // assert `pressureSmoothing > 0.35` under the title "smooths harder than
+    // the brush pen" — but that knob was a per-sample one-pole weight, and the
+    // filter is `y += (u - y) * k`, so a bigger k follows the input *more*
+    // closely. The assertion and its own title said opposite things, and the
+    // number satisfied the one nobody meant.
+    //
+    // Both halves are now the same units as everything else: a distance, where
+    // larger really does mean steadier. The value is the old one converted, not
+    // retuned, so what the tool feels like is unchanged and only the claim
+    // about it is honest — see WATERCOLOR_PRESSURE_SMOOTHING_PX.
+    const px = shapingForWatercolorPreset('normal').pressureSmoothingPx
+    expect(px).toBeDefined()
+    expect(px!).toBeLessThan(BRUSH_PEN_PRESSURE_SMOOTHING_PX)
+    // And it is a real filter, not an accidental zero.
+    expect(px!).toBeGreaterThan(1)
   })
 
   it('broadens with tilt but never enough to compete with pressure', () => {
@@ -127,24 +142,28 @@ describe('watercolor tapers', () => {
   it('lands rather than arrives at a point', () => {
     // The brush pen's head starts at 0.35 of full width. A loaded brush puts
     // its belly down more or less at once, so this must be far shallower.
-    const dabs = [dabAt(0, 0), dabAt(1, 0), dabAt(2, 0)]
-    applyWatercolorHeadTaper(dabs, undefined, 0)
-    expect(dabs[0].size / 30).toBeGreaterThan(0.6)
+    // #482: profile data now, applied inside tipFootprint rather than as a
+    // post-pass over already-made dabs.
+    expect(WATERCOLOR_HEAD_TAPER.startScale).toBeGreaterThan(0.6)
+    expect(WATERCOLOR_HEAD_TAPER.lengthPx).toBeLessThan(BRUSH_PEN_HEAD_TAPER.lengthPx)
   })
 
-  it('does not restart the head taper at a batch boundary', () => {
+  it('ramps back to full width over its own length, and does not restart', () => {
     // A stroke arrives in batches whose boundaries are an artefact of pointer
-    // event timing. `arcLenBefore` is what keeps the taper from re-narrowing
-    // the stroke every time the browser happens to deliver a new event.
-    const first = [dabAt(0, 0), dabAt(3, 0)]
-    const arc = applyWatercolorHeadTaper(first, undefined, 0)
-    expect(arc).toBeCloseTo(3, 5)
+    // event timing. The taper used to need `arcLenBefore` threaded through it
+    // by PencilEngine to survive one; the arc is stroke state now, so there is
+    // nothing left to forget to pass.
+    const shaping = shapingForWatercolorPreset('normal')
+    const state = createTipState()
+    const at = (ds: number) => tipFootprint(shaping, {
+      x: 0, y: 0, pressure: 0.8, tiltX: 0, tiltY: 0, baseSize: 30,
+      pathAngle: 0, ds, speed: 0, cameraAngle: 0,
+    }, state).size
 
-    const second = [dabAt(20, 0), dabAt(40, 0)]
-    applyWatercolorHeadTaper(second, first[first.length - 1], arc)
-    // Both are well past the taper length, so neither may be touched.
-    expect(second[0].size).toBeCloseTo(30, 5)
-    expect(second[1].size).toBeCloseTo(30, 5)
+    const head = at(0)
+    const past = (at(20), at(20))   // two batches, both well past the taper
+    expect(head).toBeLessThan(past)
+    expect(head / past).toBeCloseTo(WATERCOLOR_HEAD_TAPER.startScale, 5)
   })
 
   it('leaves a stroke that ends slowly almost untouched', () => {
@@ -168,7 +187,6 @@ describe('watercolor tapers', () => {
 
   it('is a no-op on an empty batch', () => {
     expect(() => applyWatercolorEndTaper([], 2)).not.toThrow()
-    expect(applyWatercolorHeadTaper([], undefined, 7)).toBe(7)
   })
 })
 

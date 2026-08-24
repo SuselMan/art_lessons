@@ -16,7 +16,10 @@ import {
   type CharcoalFeelConfig,
 } from './src/charcoalFeel'
 import { DabSystem } from './src/DabSystem'
-import { shapingForTool } from './src/dabShaping'
+import {
+  DEFAULT_NIB_ANCHOR, NIB_ANCHORS, isNibAnchor, shapingForTool, type NibAnchor,
+} from './src/dabShaping'
+import { tipFootprint } from './src/tipFootprint'
 import { dabDepositScale, isFootprintSpacedTool } from './src/dabSpacing'
 import {
   PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
@@ -49,12 +52,12 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
-  BRUSH_PEN_PRESET, applyBrushPenEndTaper, applyBrushPenHeadTaper, applyBrushPenSpeedContact,
+  BRUSH_PEN_PRESET, applyBrushPenEndTaper,
   PRESSURE_RESPONSES, DEFAULT_PRESSURE_RESPONSE, isPressureResponse, brushPenWidth,
   type PressureResponse,
 } from './src/brushPenPresets'
 import {
-  WATERCOLOR_PRESET, applyWatercolorEndTaper, applyWatercolorHeadTaper,
+  WATERCOLOR_PRESET, applyWatercolorEndTaper,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
   watercolorPigmentEffects, watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -87,6 +90,11 @@ export {
 export { CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig }
 export { PENCIL_TILT, PENCIL_TILT_SLIDERS, type PencilTiltConfig }
 export { SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, type SmudgeGrainConfig }
+// #482, ADR 012 §3 — the frame a nib's angle is measured in. The UI needs the
+// option list, the default and the guard for the same reasons it needs the tilt
+// responses' below: what the frames *are* belongs to the engine, how they are
+// labelled and offered belongs to the UI.
+export { NIB_ANCHORS, DEFAULT_NIB_ANCHOR, isNibAnchor, type NibAnchor }
 // #409: the UI needs the option list and its default to build the setting, the
 // guard to validate a stored value, and the curve itself to draw each option's
 // own graph in the picker. Deliberately the raw function rather than a
@@ -128,15 +136,25 @@ export function previewDabShape(
   // anything is drawn with it, so a preview left on the default would quietly
   // lie about the tool the moment the setting moved off it.
   tiltResponse?: TiltResponse,
+  // #482: the viewport's own rotation, for the same reason DabSystem carries it
+  // — the returned angle is world-space (the cursor's DOM ancestor applies the
+  // viewport transform on top of it, see BrushCursor's own comment), while the
+  // tilt this may be derived from is the device's reading against the screen.
+  // Left defaulted so a caller with no rotation to speak of is unaffected.
+  cameraAngle = 0,
 ): { size: number; aspectRatio: number; angle: number } {
-  const shaping = shapingForTool(tool, presetName, markerAngle, tiltResponse)
-  const tiltMag = tiltMagnitudeDeg(tiltX, tiltY)
-  const tiltNorm = tiltMag / 90
-  return {
-    size: baseSize * shaping.size(pressure, tiltNorm),
-    aspectRatio: shaping.aspect(tiltNorm),
-    angle: shaping.angle(tiltMag, tiltX, tiltY, pathAngle),
-  }
+  // #482, ADR 012: the same tipFootprint() the recorded dabs go through, not a
+  // second copy of its formula. `state: null` is the honest answer for a hover
+  // and not a limitation — a flexible nib is bent by being *dragged*, and a
+  // pointer that is merely hovering has dragged nothing, so its rest pose is
+  // round. That is also why this agrees with the first dab of a real stroke,
+  // which starts from a freshly-zeroed tip state.
+  const { size, aspectRatio, angle } = tipFootprint(
+    shapingForTool(tool, presetName, markerAngle, tiltResponse),
+    { x: 0, y: 0, pressure, tiltX, tiltY, baseSize, pathAngle, ds: 0, speed: 0, cameraAngle },
+    null,
+  )
+  return { size, aspectRatio, angle }
 }
 
 // Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
@@ -595,12 +613,11 @@ export interface PencilEngineAPI {
   // canvas" checkbox and the local viewport's own rotation into this one
   // number, same "engine only ever sees canvas-space" boundary
   // setViewport/PointerInput already keep for pointer coordinates).
-  // followStrokeDirection selects between the two chiselDabShaping modes
-  // (see markerPresets.ts) — false: angleRadians is the nib's absolute
-  // angle (ADR 004's original fixed-angle behavior, just configurable);
-  // true: angleRadians is an offset added to the stroke's own path-tangent
-  // angle. Has no effect on the bullet nib (round, angle-independent).
-  setMarkerAngle(angleRadians: number, followStrokeDirection: boolean): void
+  // `anchor` names the frame angleRadians is read in (see dabShaping.ts's
+  // NIB_ANCHORS) — `canvas` being ADR 004's original fixed-angle behaviour,
+  // just configurable. Has no effect on the bullet nib (round,
+  // angle-independent).
+  setMarkerAngle(angleRadians: number, anchor: NibAnchor): void
   /** #409: which of the three tilt→shape ramp shapes the next stroke uses —
    *  a user setting, per tool, resolved by the caller before it gets here
    *  (the engine holds one active response, not a table keyed by tool, for
@@ -2196,16 +2213,6 @@ export class PencilEngine implements PencilEngineAPI {
   private _strokePreset: string
   private _strokeColor: [number, number, number]
   private _strokeDabs: Dab[]
-  /** Arc length (world px) travelled by this stroke so far — brush pen only,
-   *  for the head taper (#454). Reset in _onStart, advanced in
-   *  _paintStrokeDabs; meaningless for every other tool, which never reads
-   *  it. */
-  private _strokeArcLen = 0
-  /** Running speed→contact factor for the brush pen (#472), carried across
-   *  batches so the width eases between them instead of stepping — see
-   *  applyBrushPenSpeedContact. 1 = nib fully in contact; reset in _onStart
-   *  alongside _strokeArcLen, and read by no other tool. */
-  private _strokeSpeedContact = 1
   private _strokeStartTimestamp = 0 // PointerEvent.timeStamp at stroke start — Dab.t is elapsed since this
 
   // #278: marker chisel nib's live angle setting — canvas-space radians
@@ -2218,7 +2225,7 @@ export class PencilEngine implements PencilEngineAPI {
   // setShaping's own doc comment: a profile change partway through an
   // in-progress _buf isn't supported).
   private _markerAngleRadians = Math.PI / 4 // ADR 004 §1 "~45°" default, matches markerPresets.ts's own fallback
-  private _markerFollowStroke = false
+  private _markerAnchor: NibAnchor = DEFAULT_NIB_ANCHOR
 
   // #409: the active tool's tilt→shape ramp shape, a user setting. Read at the
   // same two shapingForTool call sites _markerAngleRadians is, and for the same
@@ -2970,9 +2977,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._washId = null
   }
 
-  setMarkerAngle(angleRadians: number, followStrokeDirection: boolean): void {
+  setMarkerAngle(angleRadians: number, anchor: NibAnchor): void {
     this._markerAngleRadians = angleRadians
-    this._markerFollowStroke = followStrokeDirection
+    this._markerAnchor = anchor
   }
 
   /** See PencilEngineAPI's doc comment. Next stroke only, same as the marker
@@ -3096,6 +3103,9 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   setViewport(cx: number, cy: number, zoom: number, angle: number): void {
+    // #482: same reason as setInfiniteCamera's own assignment — a bounded room
+    // rotates too, and the tilt reading is against the screen either way.
+    this._dabs.cameraAngle = angle
     const { canvas } = this
     const cos = Math.cos(-angle)
     const sin = Math.sin(-angle)
@@ -3146,6 +3156,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  composed with the inverse camera rotation/zoom on top. */
   setInfiniteCamera(wx: number, wy: number, zoom: number, angle: number): void {
     this._infiniteCamera = { wx, wy, zoom, angle }
+    // #482: the frame the device's tilt reading has to be converted out of —
+    // see DabSystem.cameraAngle. Assigned here rather than at stroke start so
+    // it tracks a canvas rotated with the pen still down.
+    this._dabs.cameraAngle = angle
     const { canvas } = this
     const cos = Math.cos(angle)
     const sin = Math.sin(angle)
@@ -5193,7 +5207,7 @@ export class PencilEngine implements PencilEngineAPI {
     // preset the *previous* stroke left in _strokePreset.
     this._dabs.setShaping(shapingForTool(
       this._strokeTool, this._opts.pencilType,
-      { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
+      { angle: this._markerAngleRadians, anchor: this._markerAnchor },
       this._tiltResponse,
     ))
     // #330 stage 3 — only the marker's ribbon rasterizer cares (its bands are
@@ -5219,16 +5233,10 @@ export class PencilEngine implements PencilEngineAPI {
     // _paintSmudgeDabs does it off this stroke's own id, so the local and the
     // replayed path go through exactly one rule (see _smudgeResumeGesture).
     this._strokeDabs    = []
-    // #454: the brush pen's head taper ramps over arc length travelled since
-    // the stroke began (ADR 009 §4 — the one quantity that is known live and
-    // needs nothing from the future), so it needs its own running total across
-    // this gesture's batches.
-    this._strokeArcLen  = 0
-    // #472: and a nib that starts every stroke fully in contact — the first
-    // batch has no meaningful speed yet (it is one sample old), so seeding the
-    // factor anywhere but 1 would narrow the head of every stroke on top of
-    // the taper that is already there on purpose.
-    this._strokeSpeedContact = 1
+    // #482: the running arc length and the speed-contact factor both used to
+    // live here as per-stroke engine fields. They are tip state now (TipState),
+    // reset by DabSystem alongside the bend and the input filters — one record
+    // to reset, fork and restore instead of five parallel fields in two files.
     this._strokeStartTimestamp = e.timeStamp
     if (this._debug) {
       const now = performance.now()
@@ -5747,21 +5755,16 @@ export class PencilEngine implements PencilEngineAPI {
     // undo/redo, a snapshot rebuild. A taper applied at draw time would exist
     // only on the screen of whoever drew it, which is the exact failure #452
     // documents under linerWickPx.
-    if (this._strokeTool === 'brushPen') {
-      // #472. Order against the taper below doesn't matter — both are plain
-      // multipliers on size, and the taper's own ramp is measured from dab
-      // positions, which neither of them touches.
-      this._strokeSpeedContact = applyBrushPenSpeedContact(dabs, speed, this._strokeSpeedContact)
-      this._strokeArcLen = applyBrushPenHeadTaper(dabs, this._strokeDabs.at(-1), this._strokeArcLen)
-    }
-    // #468 — same placement and the same reason: baked into the dab before it
-    // is recorded, so every route to these pixels (the operation, a peer's
-    // packet, an undo, a snapshot rebuild) sees the identical narrowing.
-    // Shallower than the pen's, because a loaded brush lands rather than
-    // arrives at a point (watercolorPresets.ts's taper section).
-    if (this._strokeTool === 'watercolor') {
-      this._strokeArcLen = applyWatercolorHeadTaper(dabs, this._strokeDabs.at(-1), this._strokeArcLen)
-    }
+    // #482, ADR 012 §8: the head taper and the speed-contact factor used to run
+    // here, as two post-passes over `dab.size` for the brush pen and one for
+    // watercolor. They are declared on the profile now (HeadTaperProfile,
+    // SpeedContactProfile) and applied inside tipFootprint, before the nib's own
+    // lag and trail are derived from that width — which is the bug this move
+    // fixes, not just the shape of the code.
+    //
+    // The *tail* taper stays a post-pass, in _onEnd, and that is a property of
+    // drawing rather than an omission: "how far until the stroke ends" does not
+    // exist until the pen is lifted.
     for (const dab of dabs) dab.t = elapsedMs
     // Smudge only (#14): the dab immediately before this call's own batch,
     // read *before* pushing this call's dabs onto _strokeDabs below — a
@@ -5820,34 +5823,34 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(this._strokeLayerId)
     if (!buf) return
 
-    // #251: mid-stroke here, so _strokePreset is already this stroke's own
-    // preset (unlike _onStart's call site above) — safe to read directly.
-    const shaping = shapingForTool(
-      this._strokeTool, this._strokePreset,
-      { angle: this._markerAngleRadians, followStrokeDirection: this._markerFollowStroke },
-      this._tiltResponse,
+    // #482, ADR 012 §5: the footprint comes from the same tipFootprint() every
+    // other dab goes through, via the DabSystem that is already mid-stroke — so
+    // this path stops being a second implementation of dab geometry. `ds = 0`
+    // is what makes it a *resting* footprint: the bend filter's weight is zero
+    // there, so a dwelling nib keeps exactly the bend the stroke left it with,
+    // and the tip state comes back untouched.
+    //
+    // #278 lives on inside that shared function rather than as a branch here.
+    // The old code hardcoded `angle: 0` for every tool but the marker, with the
+    // reasoning that a resting liner has no path direction and its aspect
+    // (1..1.15) is too mild for the angle to show. Both halves were true; the
+    // branch was still a special case of one tool's geometry sitting in the
+    // engine. Now a resting liner gets the same tilt-or-path angle a moving one
+    // does — at 1.15:1 that moves the mark's boundary by at most a few percent
+    // of its radius, and it removes the last per-tool geometry test outside the
+    // tip model.
+    const fp = this._dabs.restingFootprint(
+      this._lastPointerX, this._lastPointerY, this._lastPointerPressure,
+      this._lastPointerTiltX, this._lastPointerTiltY, this._physicalSize,
     )
-    const tiltMag = tiltMagnitudeDeg(this._lastPointerTiltX, this._lastPointerTiltY)
-    const tiltNorm = tiltMag / 90
     const dab: Dab = {
-      x: this._lastPointerX, y: this._lastPointerY,
+      x: fp.x, y: fp.y,
       pressure: this._lastPointerPressure, tiltX: this._lastPointerTiltX, tiltY: this._lastPointerTiltY,
-      size: this._physicalSize * shaping.size(this._lastPointerPressure, tiltNorm),
-      aspectRatio: shaping.aspect(tiltNorm),
-      // #278: used to be hardcoded 0 for every tool ("no path direction
-      // while resting — liner's own aspect response is mild enough this
-      // doesn't matter") — true for liner (kept at 0 below, unchanged), but
-      // not for marker's chisel nib: its angle is now a real user setting
-      // and its aspect is highly elongated (~5:1), so a resting dwell dab
-      // must still render at the configured angle, not always horizontal.
-      // pathAngle 0 is passed (no path while resting, same as before) —
-      // chisel's fixed/offset shaping ignores it anyway; bullet's
-      // tiltOrPathAngle still falls back to it exactly as liner's dwell did.
-      angle: this._strokeTool === 'marker' ? shaping.angle(tiltMag, this._lastPointerTiltX, this._lastPointerTiltY, 0) : 0,
+      size: fp.size, aspectRatio: fp.aspectRatio, angle: fp.angle,
       opacity: 1, t: performance.now() - this._strokeStartTimestamp,
     }
     const preset = this._resolvePreset(this._strokeTool, this._strokePreset)
-    dab.opacity = preset.opacity * this._opts.opacity * linerTiltFlow(tiltMag) * dwellFlow(elapsed, cfg)
+    dab.opacity = preset.opacity * this._opts.opacity * linerTiltFlow(fp.tiltMag) * dwellFlow(elapsed, cfg)
 
     this._paintDabs(
       buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,

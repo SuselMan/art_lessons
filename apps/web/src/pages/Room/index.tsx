@@ -11,7 +11,7 @@ import type {
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, type NibAnchor } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -2266,34 +2266,22 @@ export function Room() {
   useEffect(() => {
     pencilSoundRef.current?.setVolume(soundVolume)
   }, [soundVolume])
-  // #278/#279: marker chisel angle → engine.setMarkerAngle, always resolved
-  // to canvas-space radians before it ever reaches the engine (same
-  // "engine only ever sees canvas-space" boundary PointerInput.setTransform
-  // already keeps for pointer coordinates). "Зафиксировать угол кисти
-  // относительно холста" off means the angle should look visually
-  // unchanged on screen as the local camera rotates — since a canvas-space
-  // mark gets carried along by vp.angle's own CSS rotation at display time
-  // (useViewport.ts: `rotate(${v.angle}rad)`), staying screen-fixed means
-  // continuously subtracting the live vp.angle here. On (or in
-  // followStrokeDirection mode, where the angle is inherently already
-  // canvas-space via the stroke's own tangent) the configured value is used
-  // as-is. Reads vp.angle directly (not the throttled roomStore viewport
-  // copy) so this tracks a live rotate gesture without lag.
+  // #278/#279 → #482, ADR 012 §3. The frame the chisel's angle is measured in
+  // is now named and lives on the tool, so the engine resolves it (dabShaping's
+  // anchoredAngleShaping) instead of the UI pre-baking it.
+  //
+  // What this replaced: the angle was always converted to canvas space up here,
+  // which for the "stay visually fixed on screen" mode meant continuously
+  // subtracting the live `vp.angle` — a per-rotate-frame effect re-pushing a
+  // derived number into the engine, to express something the engine could not
+  // say. It can now: `screen` is one subtraction inside the shaping function,
+  // where the camera angle already is.
   const markerAngleDeg = toolSettings.marker.angle as number
-  const markerFollowStroke = toolSettings.marker.followStrokeDirection as boolean
-  const lockAngleToCanvas = useSettingsStore(s => s.lockBrushAngleToCanvas)
-  // Also fed to BrushCursor's hover preview below (previewDabShape), so the
-  // preview shows the exact same canvas-space angle a real stroke would
-  // record — BrushCursor's own doc comment: its angle is rendered as a
-  // plain canvas-space value, with the viewport's own CSS transform (an
-  // ancestor element) supplying the on-screen rotation for free, same as
-  // Dab.angle itself.
-  const markerCanvasAngleRadians = markerFollowStroke || lockAngleToCanvas
-    ? (markerAngleDeg * Math.PI) / 180
-    : (markerAngleDeg * Math.PI) / 180 - vp.angle
+  const markerAnchor = toolSettings.marker.anchor as NibAnchor
+  const markerCanvasAngleRadians = (markerAngleDeg * Math.PI) / 180
   useEffect(() => {
-    engineRef.current?.setMarkerAngle(markerCanvasAngleRadians, markerFollowStroke)
-  }, [markerCanvasAngleRadians, markerFollowStroke])
+    engineRef.current?.setMarkerAngle(markerCanvasAngleRadians, markerAnchor)
+  }, [markerCanvasAngleRadians, markerAnchor])
   // #409: the tilt-response setting of whichever tool is in hand. The engine
   // holds one active response rather than a table (see setTiltResponse), so the
   // lookup is here — and it goes through `isTiltResponse` rather than a cast:
@@ -5821,7 +5809,7 @@ export function Room() {
                 vp={vp}
                 config={config}
                 markerAngleRadians={markerCanvasAngleRadians}
-                markerFollowStroke={markerFollowStroke}
+                markerAnchor={markerAnchor}
                 tiltResponse={tiltResponse}
               />
             )}
@@ -5898,7 +5886,7 @@ export function Room() {
                   vp={vp}
                   config={config}
                   markerAngleRadians={markerCanvasAngleRadians}
-                  markerFollowStroke={markerFollowStroke}
+                  markerAnchor={markerAnchor}
                   tiltResponse={tiltResponse}
                 />
               )}

@@ -6,6 +6,7 @@ import {
   WATERCOLOR_PIGMENTS,
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
+  NIB_ANCHORS, type NibAnchor,
 } from '../../engine'
 import { parseNumberInput } from '../../components/NumberField/numberField'
 import { expScale, type SliderScale } from '../../components/PrecisionSlider/sliderScale'
@@ -133,7 +134,7 @@ export interface SettingDescriptor {
   transient?: true
   default: number | boolean | [number, number, number] | string
   /** #278: gates rendering on this tool's *other* current field values (e.g.
-   *  marker's chisel-only `angle`/`followStrokeDirection` — bullet is round,
+   *  marker's chisel-only `angle`/`anchor` — bullet is round,
    *  so an angle control would do nothing visible for it). Takes this
    *  tool's own ToolSettingsValue, not the whole ToolSettingsMap — a
    *  descriptor never depends on a *different* tool's settings. Omit for a
@@ -632,7 +633,7 @@ const markerSchema = (): ToolSchema => ({
   },
   // #278: chisel's nib angle used to be a hardcoded ~45° engine constant
   // (ADR 004 §1) — now a real user setting. `visibleWhen` hides both this
-  // and `followStrokeDirection` for the bullet nib, which is round enough
+  // and `anchor` for the bullet nib, which is round enough
   // that an angle control would visibly do nothing (same reasoning
   // MARKER_BULLET_DAB_SHAPING's own tiltOrPathAngle default already relies
   // on). Step is 1 arc-minute (1/60°) — the radial dial's (#277) own
@@ -647,13 +648,36 @@ const markerSchema = (): ToolSchema => ({
     default: 45,
     visibleWhen: v => v.nib === 'chisel',
   },
-  // Off by default: preserves ADR 004's original "angle is a fixed property
-  // of the tool, not the stroke" behavior unless explicitly turned on.
-  followStrokeDirection: {
-    nameKey: 'tool.field.followStroke',
-    valueType: { kind: 'boolean' },
-    uiControls: ['toggle'],
-    default: false,
+  // #482, ADR 012 §3. Replaces two controls that between them offered these
+  // frames without naming any of them: this tool's own `followStrokeDirection`
+  // boolean and a *global* app setting, "lock brush angle to the canvas", which
+  // existed solely to switch this same nib between canvas and screen by
+  // pre-subtracting the viewport rotation up in Room. One per-tool control says
+  // all of it, and `barrel` — the angle a real marker actually keeps, fixed to
+  // its own body — was not expressible at all before.
+  //
+  // Default is `screen`, which is what shipped: the global lock defaulted to
+  // off, and off meant "stay visually fixed on screen".
+  anchor: {
+    nameKey: 'tool.field.anchor',
+    valueType: { kind: 'enumOptions', options: NIB_ANCHORS },
+    optionLabelKeys: {
+      canvas: 'tool.anchor.canvas',
+      screen: 'tool.anchor.screen',
+      barrel: 'tool.anchor.barrel',
+    },
+    // Chosen from the already-baked icon subset (icons/iconNames.ts) rather
+    // than drawn for this: `stylus` and `screen_rotation_alt` are close to
+    // exact, and `grid_on` stands for the sheet. If these ever get proper
+    // artwork it belongs in toolTypeImages.ts alongside the pencil grades, the
+    // way #335 did it there.
+    optionIcons: {
+      canvas: 'grid_on',
+      screen: 'screen_rotation_alt',
+      barrel: 'stylus',
+    },
+    uiControls: ['select'],
+    default: 'screen' satisfies NibAnchor,
     visibleWhen: v => v.nib === 'chisel',
   },
 })
@@ -1117,7 +1141,30 @@ export function loadToolSettings(storage: KeyValueStorage, roomId: string): Tool
     }
     map[toolId] = values
   }
+  // #482: one targeted legacy read, because the generic loop above can only
+  // fall back to a default and that would silently drop a choice someone made.
+  // The marker's frame used to be spelled by two booleans — this tool's
+  // `followStrokeDirection` and the global "lock brush angle to the canvas".
+  //
+  // `followStrokeDirection: true` used to select the `stroke` frame, which was
+  // withdrawn (see dabShaping.ts's NIB_ANCHORS). It is deliberately not
+  // remapped onto a surviving frame: nothing else means what it meant, and the
+  // generic loop above already coerces the dead value to the default. The read
+  // stays only to document that this is a choice and not an oversight.
+  const legacy = stored?.marker as Record<string, unknown> | undefined
+  if (legacy && legacy.followStrokeDirection === true) { /* withdrawn: falls back to the default */ }
+  else if (legacyGlobalAngleLock(storage)) map.marker.anchor = 'canvas'
   return map
+}
+
+/** The removed app-level toggle, read once at load so a room that had it on
+ *  keeps behaving the way it did. Nothing writes this key any more. */
+function legacyGlobalAngleLock(storage: KeyValueStorage): boolean {
+  try {
+    return storage.getItem('al_lock_brush_angle') === 'true'
+  } catch {
+    return false
+  }
 }
 
 /** Writes every field back except the `transient` ones (#391) — those are

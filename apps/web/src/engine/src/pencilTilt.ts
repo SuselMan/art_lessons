@@ -68,11 +68,18 @@ export interface PencilTiltConfig {
    *  unit area, and without it the broad regime just paints a bigger equally
    *  dark mark. 0 disables. */
   lightening: number
-  /** Per-sample weight of the tilt low-pass, 0..1 (higher follows the stylus
-   *  faster, lower is steadier). Graphite ran on raw tilt until now, which it
-   *  got away with only because tilt barely affected the dab — once it does,
-   *  the reported angle's noise is visible as flutter in the mark. */
-  smoothing: number
+  /** Distance of travel, world px, over which the tilt low-pass reaches ~63%
+   *  of a new reading (larger is steadier). Graphite ran on raw tilt until #389,
+   *  which it got away with only because tilt barely affected the dab — once it
+   *  does, the reported angle's noise is visible as flutter in the mark.
+   *
+   *  #482: a distance rather than the per-sample weight this shipped as. The
+   *  value below is that weight converted at the reference the brush pen's own
+   *  10 px was picked against — a moderate 500 px/s on a 120 Hz stylus, i.e.
+   *  samples ~4.2 px apart — so an ordinary-speed stroke on an ordinary tablet
+   *  is smoothed as before, and only the fast and slow ends change (which is
+   *  the entire point: they used to depend on the digitiser). */
+  smoothingPx: number
 }
 
 // First pass, NOT calibrated on a device — the same status every other tuning
@@ -85,7 +92,7 @@ export const PENCIL_TILT: PencilTiltConfig = {
   aspectMax: 5,
   widthMax: 1.4,
   lightening: 0.35,
-  smoothing: 0.25,
+  smoothingPx: 14.6,
 }
 
 /** Slider descriptors for the debug overlay. Lives next to the config it
@@ -99,7 +106,7 @@ export const PENCIL_TILT_SLIDERS: readonly {
   { key: 'aspectMax',  label: 'max aspect',  min: 1,   max: 12, step: 0.1 },
   { key: 'widthMax',   label: 'max width',   min: 0.5, max: 2.5, step: 0.01 },
   { key: 'lightening', label: 'tilt light',  min: 0,   max: 0.9, step: 0.01 },
-  { key: 'smoothing',  label: 'tilt smooth', min: 0.02, max: 1, step: 0.01 },
+  { key: 'smoothingPx', label: 'tilt smooth px', min: 1, max: 60, step: 0.5 },
 ]
 
 /** Position along the response, 0 (upright) to 1 (at or past fullDeg), with
