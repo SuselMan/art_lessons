@@ -1,11 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import type { FastifyInstance } from 'fastify'
-import type { Prisma } from '@prisma/client'
+import { Prisma } from '@prisma/client'
 
 import { forkSeedUserId, type Operation } from '@grafetto/shared'
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
-import { flushRoomWrites, isCoveredBySnapshot } from './rooms.js'
+import { flushRoomWrites, isCoveredBySnapshot, residentOperationWhere } from './rooms.js'
 
 /** Forking a room (#317) — the mechanism the homework model runs on (release
  *  track #314 §4: a lesson is closed for editing, and each student works in
@@ -77,7 +77,17 @@ export function registerForkRoutes(app: FastifyInstance): void {
     await flushRoomWrites(sourceId)
 
     const [layerSnapshots, layerState] = await Promise.all([
-      prisma.roomLayerSnapshot.findMany({ where: { roomId: sourceId }, orderBy: { seq: 'desc' } }),
+      // (#418) Metadata only — deliberately no `data`. A layer's snapshot is
+      // megabytes of gzipped tiles, and the only place those bytes are going
+      // is another row of this same table, so reading them here would drag
+      // the entire picture through this process's heap to hand it straight
+      // back to Postgres. The copy is an INSERT ... SELECT below; all this
+      // query has to answer is which rows to copy and what seq they cover.
+      prisma.roomLayerSnapshot.findMany({
+        where: { roomId: sourceId },
+        select: { id: true, layerId: true, seq: true },
+        orderBy: { seq: 'desc' },
+      }),
       prisma.roomLayerState.findUnique({ where: { roomId: sourceId } }),
     ])
     // Newest row per layer — retention keeps up to two (see rooms.ts's
@@ -102,8 +112,19 @@ export function registerForkRoutes(app: FastifyInstance): void {
     const coveredSeqByLayer = new Map(
       [...newestPerLayer.values()].map(row => [row.layerId, row.seq] as const),
     )
+
+    // (#418) The exclusion goes into the query, not into a `.filter` on its
+    // result — the same thing `loadResidentOperations` does and for the same
+    // reason, which is why both now ask `residentOperationWhere` rather than
+    // each writing it out. Reading the whole log first is what this route
+    // used to do, and on a real lesson it is not a rounding error: F4uw21Ob
+    // held 22 603 operations and 418 MB of stroke payload, of which 995 rows
+    // and 4.4 MB survive the window. The other 414 MB became JS objects for
+    // the sole purpose of being discarded three lines below, and took the
+    // server's 2 GB with them — one student pressing "fork" killed the
+    // process for every room on it.
     const allRows = await prisma.operation.findMany({
-      where: { roomId: sourceId },
+      where: residentOperationWhere(sourceId, coveredSeqByLayer),
       orderBy: { seq: 'asc' },
     })
     // null when there is no readable structure — see rooms.ts's layerStateIdsOf
@@ -167,22 +188,33 @@ export function registerForkRoutes(app: FastifyInstance): void {
         })
       }
       if (newestPerLayer.size > 0) {
-        await tx.roomLayerSnapshot.createMany({
-          data: [...newestPerLayer.values()].map(row => ({
-            roomId: forkId,
-            layerId: row.layerId,
-            seq: row.seq,
-            data: row.data,
-            hash: row.hash,
-            // Not inherited. Verification means "two clients independently
-            // baked this and agreed"; nobody has baked anything in this room
-            // yet, and the flag is what licenses deleting the operations a
-            // snapshot claims to cover (see pruneOperationsBeforeSnapshot).
-            verification: 'unverified',
-          })),
-        })
+        // (#418) Raw, because this is the one statement whose entire point is
+        // that the bytes never come out of Postgres: the blob is read and
+        // rewritten inside the database, and this process only ever names the
+        // rows. Everything the copy changes is in the SELECT list — a fresh
+        // primary key, the fork's id, and the verification below.
+        //
+        // `verification` is not inherited. It means "two clients
+        // independently baked this and agreed"; nobody has baked anything in
+        // this room yet, and the flag is what licenses deleting the
+        // operations a snapshot claims to cover (see
+        // pruneOperationsBeforeSnapshot).
+        await tx.$executeRaw`
+          INSERT INTO "RoomLayerSnapshot" ("id", "roomId", "layerId", "seq", "data", "hash", "verification")
+          SELECT gen_random_uuid()::text, ${forkId}, s."layerId", s."seq", s."data", s."hash", 'unverified'
+          FROM "RoomLayerSnapshot" s
+          WHERE s."id" IN (${Prisma.join([...newestPerLayer.values()].map(row => row.id))})
+        `
       }
       if (operationRows.length > 0) await tx.operation.createMany({ data: operationRows })
+    }, {
+      // Prisma's default is 5 s, and this is the one route that writes a
+      // whole room in a single statement batch — thousands of operation rows
+      // plus a server-side copy of every layer's pixels. A fork that has
+      // finished its work and then gets rolled back for taking six seconds
+      // on a two-core box is a lesson the student is simply told they can't
+      // have.
+      timeout: 30_000,
     })
 
     const created = await prisma.room.findUniqueOrThrow({ where: { id: forkId } })

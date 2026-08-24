@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import { Prisma } from '@prisma/client'
 
 import { isForkSeedUser } from '@grafetto/shared'
 import type { Operation } from '@grafetto/shared'
 
 import { registerForkRoutes } from './forkRoutes.js'
+import { residentOperationWhere } from './rooms.js'
 
 // Route-level test, Prisma mocked — same shape as roomFolderRoutes.test.ts.
 // `$transaction(fn)` hands the callback the same mock client, so every write
@@ -17,6 +19,7 @@ const mockPrisma = vi.hoisted(() => {
     roomLayerSnapshot: { findMany: vi.fn(), createMany: vi.fn() },
     roomLayerState: { findUnique: vi.fn(), create: vi.fn() },
     operation: { findMany: vi.fn(), createMany: vi.fn() },
+    $executeRaw: vi.fn(),
     $transaction: vi.fn(),
   }
   client.$transaction.mockImplementation((fn: (tx: typeof client) => Promise<unknown>) => fn(client))
@@ -63,8 +66,18 @@ function createdRoom() {
   return mockPrisma.room.create.mock.calls[0][0].data
 }
 
+/** (#418) The snapshot copy is a raw `INSERT ... SELECT` so the pixel blobs
+ *  are rewritten inside Postgres instead of travelling through this process.
+ *  Returns the statement text and the values bound into it. */
+function snapshotCopy(): { sql: string; forkId: string; sourceIds: string[] } | null {
+  const call = mockPrisma.$executeRaw.mock.calls[0]
+  if (!call) return null
+  const [strings, forkId, ids] = call as [readonly string[], string, Prisma.Sql]
+  return { sql: strings.join(' ? '), forkId, sourceIds: ids.values as string[] }
+}
+
 /** Every operation row written for the fork. */
-function createdOps(): Array<{ id: string; seq: number; type: string; userId: string; data: Operation }> {
+function createdOps(): Array<{ id: string; seq: number; type: string; userId: string; layerId: string | null; data: Operation }> {
   const call = mockPrisma.operation.createMany.mock.calls[0]
   return call ? call[0].data : []
 }
@@ -80,6 +93,8 @@ beforeEach(() => {
   // Cleared, not reset — `$transaction` carries the implementation that runs
   // the callback against this same client, and mockReset would strip it.
   mockPrisma.$transaction.mockClear()
+  mockPrisma.$executeRaw.mockReset()
+  mockPrisma.$executeRaw.mockResolvedValue(1)
   mockPrisma.room.findUnique.mockResolvedValue(SOURCE)
   mockPrisma.roomParticipant.findUnique.mockResolvedValue({ roomId: SOURCE.id, userId: 'student' })
   mockPrisma.roomPalette.findUnique.mockResolvedValue(null)
@@ -180,16 +195,16 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
 
   it('keeps seq numbers, so the seeded snapshots still line up with the tail', async () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: { layers: {} } })
-    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([
-      { id: 's1', roomId: SOURCE.id, layerId: 'layer-1', seq: 40, data: Buffer.from('x'), hash: 'h', verification: 'verified' },
-    ])
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([{ id: 's1', layerId: 'layer-1', seq: 40 }])
     mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-a', seq: 41 }), opRow({ id: 'op-b', seq: 42 })])
 
     await fork(buildApp('student'))
 
     expect(createdOps().map(o => o.seq)).toEqual([41, 42])
-    expect(mockPrisma.roomLayerSnapshot.createMany.mock.calls[0][0].data)
-      .toMatchObject([{ layerId: 'layer-1', seq: 40, hash: 'h' }])
+    // seq and the pixels behind it travel together: the copy names the source
+    // row, and the row carries its own seq across untouched.
+    expect(snapshotCopy()!.sourceIds).toEqual(['s1'])
+    expect(snapshotCopy()!.sql).toContain('s."seq"')
     expect(mockPrisma.roomLayerState.create.mock.calls[0][0].data).toMatchObject({ seq: 40 })
   })
 
@@ -199,31 +214,49 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
   it('copies only the newest row per layer', async () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 200, state: {} })
     mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([
-      { id: 's1', roomId: SOURCE.id, layerId: 'layer-1', seq: 200, data: Buffer.from('new'), hash: 'h2', verification: 'unverified' },
-      { id: 's2', roomId: SOURCE.id, layerId: 'layer-1', seq: 100, data: Buffer.from('old'), hash: 'h1', verification: 'unverified' },
-      { id: 's3', roomId: SOURCE.id, layerId: 'layer-2', seq: 100, data: Buffer.from('two'), hash: 'h3', verification: 'unverified' },
+      { id: 's1', layerId: 'layer-1', seq: 200 },
+      { id: 's2', layerId: 'layer-1', seq: 100 },
+      { id: 's3', layerId: 'layer-2', seq: 100 },
     ])
 
     await fork(buildApp('student'))
 
-    expect(mockPrisma.roomLayerSnapshot.createMany.mock.calls[0][0].data).toMatchObject([
-      { layerId: 'layer-1', seq: 200 },
-      { layerId: 'layer-2', seq: 100 },
-    ])
+    // The superseded row for layer-1 is not named, so its blob is never even
+    // read inside Postgres, let alone copied.
+    expect(snapshotCopy()!.sourceIds).toEqual(['s1', 's3'])
+  })
+
+  // (#418) The whole reason this route stopped OOM-killing the server: a
+  // layer's snapshot is megabytes of gzipped tiles whose only destination is
+  // another row of the same table. Reading them here to write them back is
+  // the picture making a round trip through the heap for nothing.
+  it('never reads a snapshot blob into the process', async () => {
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([{ id: 's1', layerId: 'layer-1', seq: 40 }])
+
+    await fork(buildApp('student'))
+
+    const select = mockPrisma.roomLayerSnapshot.findMany.mock.calls[0][0].select
+    expect(select).toEqual({ id: true, layerId: true, seq: true })
+    expect(select.data).toBeUndefined()
+    // And the copy itself is one statement Postgres runs on its own rows.
+    expect(snapshotCopy()!.sql).toContain('INSERT INTO "RoomLayerSnapshot"')
+    expect(snapshotCopy()!.forkId).toBe(createdRoom().id)
+    expect(mockPrisma.roomLayerSnapshot.createMany).not.toHaveBeenCalled()
   })
 
   it('does not inherit the verification of the snapshots it copies', async () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: {} })
-    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([
-      { id: 's1', roomId: SOURCE.id, layerId: 'layer-1', seq: 40, data: Buffer.from('x'), hash: 'h', verification: 'verified' },
-    ])
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([{ id: 's1', layerId: 'layer-1', seq: 40 }])
 
     await fork(buildApp('student'))
 
     // Verified means "two clients independently baked this and agreed", and
     // it is what licenses deleting the operations a snapshot covers. Nobody
-    // has baked anything in this room yet.
-    expect(mockPrisma.roomLayerSnapshot.createMany.mock.calls[0][0].data[0].verification).toBe('unverified')
+    // has baked anything in this room yet — so the copy writes the literal
+    // rather than selecting the source column.
+    const { sql } = snapshotCopy()!
+    expect(sql).toContain("'unverified'")
+    expect(sql).not.toContain('s."verification"')
   })
 
   it('repoints an inherited undo at the copy of its target', async () => {
@@ -254,25 +287,53 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     expect(createdOps()).toHaveLength(0)
   })
 
-  // (#371) Coverage is per layer now, so "what a fork can safely skip" is a
-  // per-layer question — one #372 answers. Until it does, copying everything
-  // is the only choice that cannot silently drop content, which is exactly
-  // what trusting a single room-wide snapshot seq did in #369.
-  it('copies the whole log regardless of what the source has snapshotted', async () => {
+  // (#418) The window is asked of Postgres, not of the result. It is the same
+  // `where` a cold load uses — one function, `residentOperationWhere`, so the
+  // three consumers of "what a snapshot covers" cannot drift apart. Reading
+  // the log first and filtering afterwards is what this route did until a
+  // 22 603-operation lesson turned one student's fork into an OOM kill of the
+  // whole server.
+  it('asks Postgres for the resident window, not for the whole log', async () => {
     mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: {} })
-    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([
-      { id: 's1', roomId: SOURCE.id, layerId: 'layer-1', seq: 40, data: Buffer.from('x'), hash: 'h', verification: 'unverified' },
-    ])
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([{ id: 's1', layerId: 'layer-1', seq: 40 }])
 
     await fork(buildApp('student'))
 
     const where = mockPrisma.operation.findMany.mock.calls[0][0].where
-    expect(where).toEqual({ roomId: SOURCE.id })
+    expect(where).toEqual(residentOperationWhere(SOURCE.id, new Map([['layer-1', 40]])))
+    // Named explicitly as well, because the point is what it leaves in the
+    // database: a stroke on a layer whose pixels are already snapshotted.
+    expect(where.NOT.type.in).toContain('stroke')
+    expect(where.NOT.OR).toEqual([{ layerId: 'layer-1', seq: { lte: 40 } }])
+  })
+
+  // The query is bounded per layer, never by one room-wide seq — the case
+  // #369 got wrong and #372 fixed, and it has to survive the move into SQL.
+  it('keeps a layer nobody snapshotted, however old its strokes are', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValue({ roomId: SOURCE.id, seq: 40, state: {} })
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([{ id: 's1', layerId: 'layer-1', seq: 40 }])
+    const onLayerTwo = { id: 'op-old', type: 'stroke', userId: 'teacher', seq: 5, layerId: 'layer-2' } as unknown as Operation
+    mockPrisma.operation.findMany.mockResolvedValue([
+      { ...opRow({ id: 'op-old', seq: 5, data: onLayerTwo }), layerId: 'layer-2' },
+      opRow({ id: 'op-late', seq: 41 }),
+    ])
+
+    await fork(buildApp('student'))
+
+    // A narrower query must not become a narrower fork. layer-2 has no
+    // stored pixels standing in for anything, so its seq-5 stroke is the
+    // only record that it was ever drawn.
+    expect(createdOps().map(o => o.layerId).sort()).toEqual(['layer-1', 'layer-2'])
+    // And the exclusion it was spared by is named per layer, not room-wide.
+    const where = mockPrisma.operation.findMany.mock.calls[0][0].where
+    expect(where.NOT.OR.map((c: { layerId: string }) => c.layerId)).toEqual(['layer-1'])
   })
 
   it('copies the whole log when the source has no snapshot yet', async () => {
     await fork(buildApp('student'))
 
+    // Nothing is covered, so nothing is excluded — a room whose bakes never
+    // ran forks in full rather than forking empty.
     const where = mockPrisma.operation.findMany.mock.calls[0][0].where
     expect(where).toEqual({ roomId: SOURCE.id })
   })

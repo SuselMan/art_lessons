@@ -3,6 +3,7 @@ import { createGunzip } from 'node:zlib'
 import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import type { Prisma } from '@prisma/client'
 import type { Operation, Participant, RejectReason, Room, RoomAccessMode } from '@grafetto/shared'
 import { DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL, operationLayerIds } from '@grafetto/shared'
 
@@ -519,12 +520,31 @@ export function isCoveredBySnapshot(
 async function loadResidentOperations(
   roomId: string, coveredSeqByLayer: ReadonlyMap<string, number>,
 ): Promise<Operation[]> {
-  const covered = [...coveredSeqByLayer].map(([layerId, seq]) => ({ layerId, seq: { lte: seq } }))
-  const where = covered.length === 0
-    ? { roomId }
-    : { roomId, NOT: { type: { in: COVERABLE_OP_TYPES }, OR: covered } }
+  const where = residentOperationWhere(roomId, coveredSeqByLayer)
   const rows = await prisma.operation.findMany({ where, orderBy: { seq: 'asc' }, select: { data: true } })
   return rows.map(row => row.data as Operation)
+}
+
+/** (#418) The Postgres-side half of that window, as a `where` any caller can
+ *  hand to Prisma. Exported because the fork route needs the same question
+ *  asked of the same table, and it used to ask its own way — reading the
+ *  whole log and filtering in JS, which is how one student pressing "take
+ *  this into work" on a 22 000-operation lesson OOM-killed the server for
+ *  everybody in it.
+ *
+ *  Deliberately a *superset* of `isCoveredBySnapshot`: it can only speak in
+ *  `type`/`layerId`/`seq`, the three indexed columns, so it excludes the bulk
+ *  — strokes and imports whose pixels a snapshot already holds — and leaves
+ *  the finer judgements (structure covered by a stored layerState, a layer
+ *  that no longer exists) to the JS rule running over what comes back. A
+ *  caller wanting the exact window applies both; a caller wanting only to not
+ *  read 400 MB needs just this one. */
+export function residentOperationWhere(
+  roomId: string, coveredSeqByLayer: ReadonlyMap<string, number>,
+): Prisma.OperationWhereInput {
+  const covered = [...coveredSeqByLayer].map(([layerId, seq]) => ({ layerId, seq: { lte: seq } }))
+  if (covered.length === 0) return { roomId }
+  return { roomId, NOT: { type: { in: COVERABLE_OP_TYPES }, OR: covered } }
 }
 
 /** (#292) Drops what stored snapshots have made redundant, so a long live
