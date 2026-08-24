@@ -106,6 +106,8 @@ import { createPendingPreviews } from './pendingPreviews'
 import { createSnapshotGate } from './snapshotGate'
 import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
+import { reportRoomOpen } from './reportOpen'
+import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
 import { restoreLatestSnapshot, walkHistoryBackward } from './snapshotRestore'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError } from '../../stores/noticeStore'
@@ -1047,6 +1049,23 @@ export function Room() {
    *  Never cleared for the life of this mount: nothing that happens after a
    *  half-applied replay can make the buffer whole again short of a reload,
    *  which is a fresh mount and a fresh attempt anyway. */
+  // (#487) Замер входа: от нажатия «войти» до момента, когда преклоадер ушёл.
+  // Ref, а не состояние: между стартом и финишем комната перерисовывается
+  // (гейт сменяется редактором, движок монтируется), и замер обязан это
+  // пережить, ничего при этом не перерисовывая сам.
+  const openTimerRef = useRef<OpenTimer | null>(null)
+  // Будильник: снимает состояние, **не дожидаясь конца**. Половина, ради
+  // которой всё и делается — вход, который не заканчивается, не сообщает о
+  // себе ничем, см. openTiming.ts.
+  const openAlarmRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Будильник переживает смену экрана внутри комнаты, но не сам уход из неё:
+  // отчёт «вход не закончился» от размонтированной страницы — это отчёт о
+  // человеке, который просто ушёл, и он был бы неотличим от настоящего.
+  useEffect(() => () => {
+    if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
+  }, [])
+
   const replayIncompleteRef = useRef(false)
   const checkSnapshotBoundary = useCallback(() => {
     const engine = engineRef.current
@@ -1733,6 +1752,35 @@ export function Room() {
     return true
   }, [initLayersFromLayerState])
 
+  /** (#487) Гасит будильник и отчитывается о завершившемся входе.
+   *
+   *  Число слоёв и `gpuInfo()` берутся здесь, а не на старте: на старте их
+   *  ещё нет, а объясняют они ровно то, из-за чего вход бывает долгим — все
+   *  слои поднимаются разом (#467), и упирается это в GPU устройства (#469). */
+  const finishOpenTimer = useCallback((engine: PencilEngineAPI | null) => {
+    const timer = openTimerRef.current
+    if (!timer || timer.done) return
+    if (openAlarmRef.current !== null) { clearTimeout(openAlarmRef.current); openAlarmRef.current = null }
+    if (engine) timer.note({ layers: engine.liveLayerIds().length })
+    if (id) reportRoomOpen(id, timer.finish(), engine?.gpuInfo())
+  }, [id])
+
+  /** (#487) Пускает замер входа и заводит будильник. Вызывается там, где
+   *  человек нажал «войти», а не там, где сокет что-то отправил: меряем то,
+   *  что он ждёт, а не то, что делает клиент. */
+  const startOpenTimer = useCallback(() => {
+    if (openAlarmRef.current !== null) clearTimeout(openAlarmRef.current)
+    const timer = createOpenTimer(() => performance.now())
+    openTimerRef.current = timer
+    openAlarmRef.current = setTimeout(() => {
+      openAlarmRef.current = null
+      // Не гасит замер: вход продолжается, и если он всё-таки дойдёт до конца,
+      // финиш об этом скажет. Дедуп по комнате в reportOpen следит, чтобы из
+      // двух отчётов об одном входе уехал только первый.
+      if (!timer.done && id) reportRoomOpen(id, timer.stalled(), engineRef.current?.gpuInfo())
+    }, SLOW_OPEN_MS)
+  }, [id])
+
   // (#169) Walks the room's history backward from `fromSeq` (the restored
   // snapshot's own seq) in pages, merging each into the engine's log purely
   // for undo/redo purposes (see absorbHistoricalOperations's own doc
@@ -1962,6 +2010,14 @@ export function Room() {
       // still needs to register handlers/cleanup synchronously below,
       // unaffected by this deferred branch.
       void (async () => {
+        // (#487) Фазы входа. Отмечаются по факту перехода, вплотную к тому
+        // await'у, который их и стоит — иначе они меряют не то, что называют.
+        openTimerRef.current?.stage('paper')
+        openTimerRef.current?.note({
+          tailOperations: pending.tailOperations.length,
+          latestSeq: latestKnownSeqRef.current,
+          snapshotSeq: pending.latestSnapshotSeq,
+        })
         // (#346) A failure here abandons the replay rather than running it
         // against the placeholder: awaitPaper puts up the retry screen, and
         // roomContentReady stays false so the room is not claimed to be open.
@@ -1980,10 +2036,13 @@ export function Room() {
           // to already be caught up on) — restore whenever the room has a
           // snapshot at all, no watermark comparison needed here the way
           // handleRoomState's reconnect branch needs one.
+          openTimerRef.current?.stage('snapshot')
           let restoredFromSnapshot = false
           if (id && pending.latestSnapshotSeq !== null) {
             restoredFromSnapshot = await restoreFromSnapshot(engine, id)
           }
+          openTimerRef.current?.note({ restoredFromSnapshot })
+          openTimerRef.current?.stage('replay')
 
           // (#398) Reference images decoded before the loop, not inside it —
           // see PencilEngineAPI.preloadImages. Without this, the operations
@@ -2063,6 +2122,13 @@ export function Room() {
           // paper texture leaves an engine that cannot draw at all, so
           // unblocking buys nothing and costs the only honest signal there is.
           setRoomContentReady(true)
+          // (#487) В том же `finally` и по той же причине: «готово» здесь —
+          // это момент, когда преклоадер ушёл и карандаш заработал, и он
+          // наступает даже после неудачного восстановления. Замер должен
+          // говорить, сколько человек ждал, а не сколько ждала удачная ветка;
+          // что именно пошло не так при восстановлении, отдельно докладывает
+          // reportSnapshotRestore (#474).
+          finishOpenTimer(engine)
         }
       })()
     } else if (!isCreator) {
@@ -2084,7 +2150,10 @@ export function Room() {
       // and the engine refuses to start a stroke until the real texture has
       // loaded (see _paperTexLoaded). Marking ready before then hands over a
       // room that looks open and silently ignores every stroke.
-      void (async () => { if (await awaitPaper(engine)) setRoomContentReady(true) })()
+      void (async () => {
+        openTimerRef.current?.stage('paper')
+        if (await awaitPaper(engine)) { setRoomContentReady(true); finishOpenTimer(engine) }
+      })()
     }
 
     return () => {
@@ -2108,6 +2177,7 @@ export function Room() {
     id, enginePaper, enginePaperColor, engineInfinite,
     markActive, applyRemoteOp, syncFromLog, syncFromLogNow, debugEnabled, predictEnabled,
     hapticGrainEnabled, checkSnapshotBoundary, markJoinRestoreDone, restoreFromSnapshot, backfillHistory,
+    finishOpenTimer,
     grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
     awaitPaper,
   ])
@@ -4840,6 +4910,8 @@ export function Room() {
 
     setJoinError(null)
     setJoinSubmitting(true)
+    // (#487) Отсюда, а не с отправки в сокет: замеряем ожидание человека.
+    startOpenTimer()
     lastJoinAttemptRef.current = { name, password }
     socketRef.current?.emit(
       'join_room',
@@ -4863,7 +4935,7 @@ export function Room() {
         // unmounts the gate in favor of the editor.
       },
     )
-  }, [id, applyIdentity, outbox, t])
+  }, [id, applyIdentity, outbox, t, startOpenTimer])
 
   // Submits the join gate's form. The name is validated here rather than in
   // `attemptJoin`, which is also called with credentials already known good
