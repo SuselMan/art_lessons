@@ -329,6 +329,41 @@ describe('POST /api/rooms/:id/fork (#317)', () => {
     expect(where.NOT.OR.map((c: { layerId: string }) => c.layerId)).toEqual(['layer-1'])
   })
 
+  // (#498) The bug this exists to keep out. A fork used to run a second,
+  // finer filter over what the query returned — `isCoveredBySnapshot`, which
+  // withholds anything a stored layerState accounts for. That is the right
+  // rule for a joining *client*: it seeds structure from that layerState, so
+  // it needs no `layer_add` to know a layer is there. The server has no
+  // layerState to seed from — it folds the stored log into `aliveIds`. So the
+  // copy arrived missing every structural operation below `layerState.seq`
+  // and disbelieved in layers it was visibly rendering: on Ilya's lesson the
+  // `layer_merge` that created "grdients" sat at seq 11557 under a structure
+  // at 22400, and deleting that layer answered `target_gone` — "another
+  // participant already deleted this layer" — for good.
+  it('copies a structural operation the stored structure already accounts for', async () => {
+    mockPrisma.roomLayerState.findUnique.mockResolvedValue({
+      roomId: SOURCE.id, seq: 22400, state: { items: { 'layer-1': {}, 'merged-1': {} } },
+    })
+    // The merged layer has pixels of its own, baked long after the merge that
+    // created it — which is exactly what made the operation read as "covered"
+    // and got it dropped.
+    mockPrisma.roomLayerSnapshot.findMany.mockResolvedValue([
+      { id: 's1', layerId: 'layer-1', seq: 22400 },
+      { id: 's2', layerId: 'merged-1', seq: 22200 },
+    ])
+    const merge = {
+      id: 'op-m', type: 'layer_merge', userId: 'teacher', seq: 11557, layerId: 'merged-1',
+      name: 'grdients', index: 0, sources: [{ id: 'layer-9' }],
+    } as unknown as Operation
+    mockPrisma.operation.findMany.mockResolvedValue([opRow({ id: 'op-m', seq: 11557, type: 'layer_merge', data: merge })])
+
+    await fork(buildApp('student'))
+
+    // Whatever the window returns is what the fork stores. A row read out of
+    // Postgres and then dropped on the way back in is the whole bug.
+    expect(createdOps().map(o => o.type)).toEqual(['layer_merge'])
+  })
+
   it('copies the whole log when the source has no snapshot yet', async () => {
     await fork(buildApp('student'))
 

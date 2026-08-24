@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client'
 import { forkSeedUserId, type Operation } from '@grafetto/shared'
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
-import { flushRoomWrites, isCoveredBySnapshot, residentOperationWhere } from './rooms.js'
+import { flushRoomWrites, residentOperationWhere } from './rooms.js'
 
 /** Forking a room (#317) — the mechanism the homework model runs on (release
  *  track #314 §4: a lesson is closed for editing, and each student works in
@@ -97,42 +97,50 @@ export function registerForkRoutes(app: FastifyInstance): void {
     for (const row of layerSnapshots) if (!newestPerLayer.has(row.layerId)) newestPerLayer.set(row.layerId, row)
 
     // (#372) A fork is seeded with the snapshot rows copied below plus the
-    // operations those pixels don't already account for — the same rule the
-    // live server serves a joining client by, deliberately the same function
-    // rather than a second reading of it.
+    // operations those pixels don't already account for.
     //
     // Per layer, never by a room-wide seq. A layer nobody snapshotted keeps
     // every one of its operations, which is what a fork of a room whose
     // structure outran its bakes depends on — the case #369 got wrong.
-    // Structural operations (`RESIDENT_OP_TYPES`) are never coverable and so
-    // always come across: `aliveIds`/`deletedIds`/`lockedLayerIds` are rebuilt
-    // by folding the log, and a fork missing the `layer_add` of an older layer
-    // would render that layer fine and then refuse to ever delete it
-    // (`target_gone`, the shape of #291's bug).
     const coveredSeqByLayer = new Map(
       [...newestPerLayer.values()].map(row => [row.layerId, row.seq] as const),
     )
 
     // (#418) The exclusion goes into the query, not into a `.filter` on its
     // result — the same thing `loadResidentOperations` does and for the same
-    // reason, which is why both now ask `residentOperationWhere` rather than
-    // each writing it out. Reading the whole log first is what this route
-    // used to do, and on a real lesson it is not a rounding error: F4uw21Ob
-    // held 22 603 operations and 418 MB of stroke payload, of which 995 rows
-    // and 4.4 MB survive the window. The other 414 MB became JS objects for
-    // the sole purpose of being discarded three lines below, and took the
-    // server's 2 GB with them — one student pressing "fork" killed the
-    // process for every room on it.
-    const allRows = await prisma.operation.findMany({
+    // reason, which is why both ask `residentOperationWhere` rather than each
+    // writing it out. Reading the whole log first is what this route used to
+    // do, and on a real lesson it is not a rounding error: F4uw21Ob held
+    // 22 603 operations and 418 MB of stroke payload, of which 995 rows and
+    // 4.4 MB survive the window. The other 414 MB became JS objects for the
+    // sole purpose of being discarded, and took the server's 2 GB with them —
+    // one student pressing "fork" killed the process for every room on it.
+    //
+    // (#498) And this window, not the finer one. There are two, they answer
+    // different questions, and a fork is the one place that must not confuse
+    // them:
+    //
+    //   - `residentOperationWhere` — what Postgres has to KEEP. Structural
+    //     operations are never in it, however old they are, because
+    //     `aliveIds`/`deletedIds`/`lockedLayerIds` exist only as a fold over
+    //     the stored log (see rooms.ts's RESIDENT_OP_TYPES).
+    //   - `isCoveredBySnapshot` — what a reader is SENT. It additionally
+    //     withholds anything a stored layerState already accounts for, which
+    //     for a joining client is right: it seeds its structure from that
+    //     layerState, so it needs no `layer_add` to know a layer exists.
+    //
+    // A fork wrote the second one to disk, and the server never gets a
+    // layerState to seed from — it folds. So every structural operation below
+    // `layerState.seq` was dropped on the way in, and the copy came up
+    // believing layers it was visibly rendering did not exist. The lesson
+    // Ilya forked lost the `layer_merge` that created "grdients" (seq 11557,
+    // structure at 22400): the layer drew, and deleting it answered
+    // `target_gone` — "another participant already deleted this layer" —
+    // forever. That is #291's bug, arrived at from the other end.
+    const rows = await prisma.operation.findMany({
       where: residentOperationWhere(sourceId, coveredSeqByLayer),
       orderBy: { seq: 'asc' },
     })
-    // null when there is no readable structure — see rooms.ts's layerStateIdsOf
-    // for why that must not be confused with "every layer is gone".
-    const storedItems = (layerState?.state as { items?: Record<string, unknown> } | undefined)?.items
-    const layerStateIds = storedItems ? new Set(Object.keys(storedItems)) : null
-    const rows = allRows.filter(row =>
-      !isCoveredBySnapshot(coveredSeqByLayer, row.data as Operation, layerState?.seq ?? null, layerStateIds))
 
     const forkId = randomUUID().slice(0, 12)
     const seedUserId = forkSeedUserId(forkId)
