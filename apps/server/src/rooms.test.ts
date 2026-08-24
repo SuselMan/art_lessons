@@ -9,6 +9,7 @@ import { INITIAL_LAYER_ID } from '@grafetto/shared'
 
 import {
   _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, findDuplicateOperation,
+  flushAllRoomWrites, pendingWriteCount,
   getOperationRejectReason, getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot,
   isCoveredBySnapshot, isLayerOwnerLocked,
   isOperationAllowed, isRoomClosed, isRoomFrozen, isRoomResident, joinRoom,
@@ -1484,5 +1485,43 @@ describe('resident room accounting', () => {
 
   it('reports a never-loaded room as not resident', () => {
     expect(isRoomResident('never-loaded')).toBe(false)
+  })
+})
+
+// (#497) Выключение по SIGTERM должно унести с собой не больше, чем оно
+// обязано. Запись в Postgres — fire-and-forget: операция подтверждается автору
+// раньше, чем доезжает в базу, — а `main` выкатывается на каждый пуш, то есть
+// это окно открывается по нескольку раз в день и шире всего тогда, когда в
+// комнате активнее всего рисуют.
+describe('flushAllRoomWrites (#497)', () => {
+  it('ждёт все комнаты, а не одну', async () => {
+    const a = freshRoomId()
+    const b = freshRoomId()
+    createRoom(roomDraft(a), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    createRoom(roomDraft(b), undefined, 'owner-2', 'Teacher', sock('owner-2'))
+    recordOperation(a, stroke({ id: 'flush-a' }))
+    recordOperation(b, stroke({ id: 'flush-b' }))
+
+    expect(pendingWriteCount()).toBe(2)
+    await flushAllRoomWrites()
+    expect(pendingWriteCount()).toBe(0)
+  })
+
+  it('возвращается сразу, когда ждать нечего', async () => {
+    await flushAllRoomWrites()
+    expect(pendingWriteCount()).toBe(0)
+  })
+
+  // Вызывающий гонится с SIGKILL: очередь, которая не сходится, не должна
+  // держать выключение открытым до тех пор, пока решение не примет ядро.
+  it('не ждёт вечно — число раундов ограничивает ожидание', async () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    recordOperation(roomId, stroke({ id: 'flush-bounded' }))
+
+    await flushAllRoomWrites(0)
+    // Ноль раундов — ноль ожидания: запись всё ещё в очереди, и это ровно то,
+    // о чём выключение потом отчитывается числом, а не молчанием.
+    expect(pendingWriteCount()).toBe(1)
   })
 })

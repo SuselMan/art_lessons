@@ -230,6 +230,34 @@ export function flushRoomWrites(roomId: string): Promise<void> {
   return pendingWrite.get(roomId) ?? Promise.resolve()
 }
 
+/** (#497) The same wait, for every room at once — what a shutdown owes the
+ *  lesson that was going on when it started.
+ *
+ *  Fire-and-forget persistence means an operation is acknowledged to its
+ *  author before Postgres has it. That is the right trade on the socket path
+ *  and a straightforward way to lose confirmed work on the way out: the
+ *  process dies, and the strokes still in this queue were told they were
+ *  saved. `main` auto-deploys on every push, so that window opens several
+ *  times a day, and it opens widest exactly when the room is busiest.
+ *
+ *  Loops rather than awaiting one snapshot of the values, because settling a
+ *  write can enqueue another (a snapshot bake finishing behind a stroke), and
+ *  a `Promise.all` over what happened to be in the map at the first tick
+ *  would return with those still outstanding. `rounds` bounds it: the caller
+ *  is racing a SIGKILL, and a queue that will not drain must not be what
+ *  holds the shutdown open until the kernel decides it. */
+export async function flushAllRoomWrites(rounds = 5): Promise<void> {
+  for (let i = 0; i < rounds && pendingWrite.size > 0; i++) {
+    await Promise.all([...pendingWrite.values()])
+  }
+}
+
+/** (#497) How much is still unwritten — for the shutdown log line, so a
+ *  deploy that dropped work says so instead of leaving it to be inferred. */
+export function pendingWriteCount(): number {
+  return pendingWrite.size
+}
+
 function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
   enqueueWrite(room.id, () => prisma.room.create({
     data: {
