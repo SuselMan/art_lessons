@@ -243,6 +243,13 @@ function feedPoints(system: DabSystem | UniformReference | CentripetalNoCornerRe
   return dabs
 }
 
+
+// #489: `aspect` takes pressure now (dabShaping.ts's own note on why it was an
+// omission). Everything asserted below is about tilt, or about a nib that
+// ignores both, so any pressure does — named rather than a bare number so it is
+// plain that it is not part of what is being measured.
+const NOMINAL_PRESSURE = 0.5
+
 describe('DabSystem centripetal Catmull-Rom (#91)', () => {
   it('keeps a straight line perfectly straight', () => {
     const dab = new DabSystem()
@@ -917,7 +924,7 @@ describe('DabSystem per-tool dab shaping (#240)', () => {
     const dab = new DabSystem()
     const [d] = dab.startStroke(0, 0, 0.5, 0, 0, baseSize)
     expect(d.size).toBeCloseTo(baseSize * PENCIL_DAB_SHAPING.size(0.5, 0))
-    expect(d.aspectRatio).toBeCloseTo(PENCIL_DAB_SHAPING.aspect(0))
+    expect(d.aspectRatio).toBeCloseTo(PENCIL_DAB_SHAPING.aspect(0, NOMINAL_PRESSURE))
   })
 
   it('setShaping overrides size/aspect for subsequently produced dabs', () => {
@@ -1109,7 +1116,7 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
     // aspect ratio in ADR 004's 4-6:1 range, unlike bullet's tilt-driven one).
     const chisel = shapingForTool('marker', 'chisel:0.5')
     expect(chisel).not.toBe(MARKER_BULLET_DAB_SHAPING)
-    expect(chisel.aspect(0)).toBeCloseTo(chisel.aspect(2))
+    expect(chisel.aspect(0, NOMINAL_PRESSURE)).toBeCloseTo(chisel.aspect(2, NOMINAL_PRESSURE))
     // Unrecognized/missing nib token falls back to bullet, not chisel.
     expect(shapingForTool('marker', 'unknown:1')).toBe(MARKER_BULLET_DAB_SHAPING)
     expect(shapingForTool('marker', undefined)).toBe(MARKER_BULLET_DAB_SHAPING)
@@ -1122,11 +1129,11 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
 
     const fixedAngle = chisel.angle(0, 0, 0, 0, 0)
     expect(chisel.angle(90, -50, 80, Math.PI / 2, 0)).toBeCloseTo(fixedAngle) // strong tilt + real path angle, still fixed
-    expect(chisel.aspect(0)).toBeCloseTo(chisel.aspect(2)) // tiltNorm makes no difference at all
+    expect(chisel.aspect(0, NOMINAL_PRESSURE)).toBeCloseTo(chisel.aspect(2, NOMINAL_PRESSURE)) // tiltNorm makes no difference at all
 
     // Bullet, by contrast, keeps liner's real tilt-or-path angle response and
     // mild tiltNorm-driven aspect — the two nibs are genuinely different.
-    expect(bullet.aspect(0)).not.toBeCloseTo(bullet.aspect(2), 1)
+    expect(bullet.aspect(0, NOMINAL_PRESSURE)).not.toBeCloseTo(bullet.aspect(2, NOMINAL_PRESSURE), 1)
   })
 
   it('non-marker tools are unaffected by the widened signature regardless of presetName', () => {
@@ -1157,7 +1164,7 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
   it('gives each response a genuinely different aspect curve, per material', () => {
     const midGrip = 40 / 90 // the profile's own tiltNorm units
     for (const tool of ['pencil', 'charcoal'] as const) {
-      const aspects = TILT_RESPONSES.map(r => shapingForTool(tool, undefined, undefined, r).aspect(midGrip))
+      const aspects = TILT_RESPONSES.map(r => shapingForTool(tool, undefined, undefined, r).aspect(midGrip, NOMINAL_PRESSURE))
       expect(new Set(aspects).size).toBe(TILT_RESPONSES.length)
     }
   })
@@ -1173,7 +1180,7 @@ describe('DabSystem per-tool angle shaping (#249)', () => {
       const chisel = shapingForTool('marker', 'chisel:0.5', undefined, response)
       const reference = shapingForTool('marker', 'chisel:0.5')
       for (const tiltNorm of [0, 0.4, 1]) {
-        expect(chisel.aspect(tiltNorm)).toBeCloseTo(reference.aspect(tiltNorm), 12)
+        expect(chisel.aspect(tiltNorm, NOMINAL_PRESSURE)).toBeCloseTo(reference.aspect(tiltNorm, NOMINAL_PRESSURE), 12)
         expect(chisel.size(0.6, tiltNorm)).toBeCloseTo(reference.size(0.6, tiltNorm), 12)
       }
     }

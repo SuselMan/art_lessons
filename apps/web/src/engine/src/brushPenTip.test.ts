@@ -63,6 +63,13 @@ function arcLengths(dabs: Array<{ x: number; y: number }>): number[] {
   return out
 }
 
+
+// #489: `aspect` takes pressure now (dabShaping.ts's own note on why it was an
+// omission). Everything asserted below is about tilt, or about a nib that
+// ignores both, so any pressure does — named rather than a bare number so it is
+// plain that it is not part of what is being measured.
+const NOMINAL_PRESSURE = 0.5
+
 describe('brush pen: the nib is not a circle (#472)', () => {
   it('elongates the contact patch under pressure, along the direction of travel', () => {
     const dabs = brushPenStroke(horizontal(10, 20, 0.9))
@@ -229,7 +236,7 @@ describe('brush pen: the nib trails the hand (#472)', () => {
     expect(dabs.length).toBeGreaterThan(4)
     const pencil = shapingForTool('pencil')
     for (const d of dabs) {
-      expect(d.aspectRatio).toBeCloseTo(pencil.aspect(0), 6)
+      expect(d.aspectRatio).toBeCloseTo(pencil.aspect(0, NOMINAL_PRESSURE), 6)
       expect(angleDelta(d.angle, 0)).toBeLessThan(0.05)
     }
   })

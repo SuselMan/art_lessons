@@ -25,11 +25,26 @@ export interface DabShapingProfile {
    *  marker nibs still ignore it — a one-parameter implementation satisfies
    *  this signature, so their geometry is unchanged. */
   size(pressure: number, tiltNorm: number): number
-  /** Aspect ratio (1 = circular), given tiltNorm = tiltMag/90. Since #388
-   *  tiltMag is the true angle from vertical (tiltMath.ts), which is in
-   *  [0, 90) by construction — so tiltNorm is in [0, 1) and this no longer
-   *  needs the "unclamped, may exceed 1" caveat it used to carry. */
-  aspect(tiltNorm: number): number
+  /** Aspect ratio (1 = circular), given tiltNorm = tiltMag/90 and the same
+   *  pressure `size` is given. Since #388 tiltMag is the true angle from
+   *  vertical (tiltMath.ts), which is in [0, 90) by construction — so tiltNorm
+   *  is in [0, 1) and this no longer needs the "unclamped, may exceed 1" caveat
+   *  it used to carry.
+   *
+   *  #489: pressure was added, and it was an omission rather than a decision
+   *  that it was missing — ADR 012 §2 lists pressure as an input to the
+   *  footprint, and `size` has always had it. It went unnoticed because no nib
+   *  needed it: for every tool here so far, leaning changes the shape and
+   *  pressing changes only the scale. A flat brush is the first that does not —
+   *  its width is set by the ferrule and does not move, while pressure splays
+   *  the hairs and lengthens the contact patch, so its *proportions* are what
+   *  pressure drives.
+   *
+   *  #472's `tipBend.elongation(pressure)` is the same need answered narrowly:
+   *  it multiplies this by a pressure curve, but only for a nib that is also
+   *  bending. A one-parameter implementation still satisfies this signature, so
+   *  every profile that does not care is unchanged. */
+  aspect(tiltNorm: number, pressure: number): number
   /** Distance, in world px of travel, over which DabSystem's tilt low-pass
    *  reaches ~63% of a new reading — or omitted for no filtering at all (see
    *  #305 and DabSystem's own _filterTilt). Set by charcoal and, since #389, by

@@ -302,7 +302,7 @@ export function tipFootprint(
   // bend, so it stays round — which is what stopped this stamping a full
   // ellipse and spinning it in place.
   const bend = shaping.tipBend
-  let aspectRatio = shaping.aspect(tiltNorm)
+  let aspectRatio = shaping.aspect(tiltNorm, pressure)
   let x = input.x
   let y = input.y
   let angle: number
@@ -372,5 +372,5 @@ export function maxNibReach(
 ): number {
   const elongation = shaping.tipBend ? shaping.tipBend.elongation(pressure) : 1
   return baseSize * 0.5 * shaping.size(pressure, tiltNorm)
-    * Math.max(shaping.aspect(tiltNorm) * elongation, 1)
+    * Math.max(shaping.aspect(tiltNorm, pressure) * elongation, 1)
 }

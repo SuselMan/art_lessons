@@ -128,8 +128,12 @@ describe('watercolor dab shaping', () => {
 
   it('broadens with tilt but never enough to compete with pressure', () => {
     const { aspect, size } = shapingForWatercolorPreset('normal')
-    expect(aspect(0)).toBeCloseTo(1, 5)
-    const fullTilt = aspect(1)
+    // #489: aspect takes pressure now; the round nib ignores it, and that it
+    // ignores it is part of what this asserts — a round brush broadens by being
+    // laid over, not by being pressed.
+    expect(aspect(0, 0.5)).toBeCloseTo(1, 5)
+    expect(aspect(0, 1)).toBeCloseTo(aspect(0, 0.05), 9)
+    const fullTilt = aspect(1, 0.5)
     expect(fullTilt).toBeGreaterThan(1)
     // The whole tilt range must move the footprint less than pressure does, or
     // the tool turns into a charcoal stick. Pressure spans 0.32 → 1.0, i.e. a
