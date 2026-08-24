@@ -5,6 +5,7 @@ import type {
   LayerAddOperation, FolderAddOperation, LayerDeleteOperation,
   LayerMoveOperation, LayerOpacityOperation, LayerVisibilityOperation,
   LayerRenameOperation, LayerMergeOperation, LayerDuplicateOperation,
+  LayerLockOperation, LayerOwnerLockOperation, Operation,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 
@@ -339,14 +340,14 @@ describe('replayLayerState', () => {
 })
 
 describe('overlayLocalFields', () => {
-  it('carries local view fields (selection, activeId, folder collapsed/locked) onto the replayed state', () => {
+  it('carries local view fields (selection, activeId, folder collapsed) onto the replayed state', () => {
     const derived = stateOf(
       { f1: folder('f1', []), a: layer('a') },
       ['f1', 'a'],
       { activeId: 'f1', selectedIds: [] },
     )
     const current = stateOf(
-      { f1: folder('f1', [], { collapsed: true, locked: true }), a: layer('a', { locked: true }) },
+      { f1: folder('f1', [], { collapsed: true }), a: layer('a') },
       ['f1', 'a'],
       { activeId: 'a', selectedIds: ['a'] },
     )
@@ -355,7 +356,19 @@ describe('overlayLocalFields', () => {
     expect(result.activeId).toBe('a')
     expect(result.selectedIds).toEqual(['a'])
     expect((result.items.f1 as LayerFolder).collapsed).toBe(true)
-    expect((result.items.a as RasterLayer).locked).toBe(true)
+  })
+
+  // (#488) The lock is no longer a local field, and this says so: what the log
+  // replayed wins, and a stale local value cannot resurrect itself on top. The
+  // old behaviour — carrying `locked` over from `current` — is exactly why a
+  // reload lost it, since a reload has no `current` to carry from.
+  it('does not let a stale local value override either replayed lock', () => {
+    const derived = stateOf({ a: layer('a', { locked: true, ownerLocked: true }) }, ['a'])
+    const current = stateOf({ a: layer('a', { locked: false, ownerLocked: false }) }, ['a'])
+
+    const a = overlayLocalFields(derived, current).items.a as RasterLayer
+    expect(a.locked).toBe(true)
+    expect(a.ownerLocked).toBe(true)
   })
 
   it('sanitizes selection/active id that no longer exist after replay', () => {
@@ -512,6 +525,66 @@ describe('isLayerLocked', () => {
   it('locks a folder by its own flag too', () => {
     expect(isLayerLocked(folder('f', []))).toBe(false)
     expect(isLayerLocked(folder('f', [], { locked: true }))).toBe(true)
+  })
+
+  // (#488) The two locks are not the same lock, and this is where that lives.
+  describe('the two locks differ in who they stop', () => {
+    it('the shared lock stops the owner too — that is what makes it shared', () => {
+      const item = layer('a', { locked: true })
+      expect(isLayerLocked(item, false)).toBe(true)
+      expect(isLayerLocked(item, true)).toBe(true)
+    })
+
+    it('the owner lock stops everyone but the owner', () => {
+      const item = layer('a', { ownerLocked: true })
+      expect(isLayerLocked(item, false)).toBe(true)
+      expect(isLayerLocked(item, true)).toBe(false)
+    })
+
+    it('an owner facing both is still stopped by the shared one', () => {
+      expect(isLayerLocked(layer('a', { locked: true, ownerLocked: true }), true)).toBe(true)
+    })
+
+    it('defaults to the stricter answer when nobody says who is asking', () => {
+      // Over-locking shows up as a padlock that will not open; under-locking
+      // lets a stroke through that the server then rejects. Only one of those
+      // costs drawing.
+      expect(isLayerLocked(layer('a', { ownerLocked: true }))).toBe(true)
+    })
+  })
+
+  // The lock has to survive the one thing its predecessor could not: being
+  // rebuilt from the log alone, with no earlier state to carry it from. That
+  // is what a reload is.
+  describe('surviving a reload', () => {
+    const base = stateOf({ a: layer('a') }, ['a'])
+    const replayOf = (ops: Operation[]) => replayLayerState(base, ops)
+
+    it('the shared lock comes back from the log', () => {
+      const op: LayerLockOperation = { ...baseOp, type: 'layer_lock', layerId: 'a', locked: true }
+      expect((replayOf([op]).items.a as RasterLayer).locked).toBe(true)
+    })
+
+    it('and can be lifted by anyone, which the log records the same way', () => {
+      const on: LayerLockOperation = { ...baseOp, type: 'layer_lock', layerId: 'a', locked: true }
+      const off: LayerLockOperation = { ...baseOp, id: 'op-off', type: 'layer_lock', layerId: 'a', locked: false }
+      expect((replayOf([on, off]).items.a as RasterLayer).locked).toBe(false)
+    })
+
+    it('the owner lock comes back the same way and stays independent', () => {
+      const shared: LayerLockOperation = { ...baseOp, type: 'layer_lock', layerId: 'a', locked: true }
+      const owner: LayerOwnerLockOperation = { ...baseOp, id: 'op-o', type: 'layer_owner_lock', layerId: 'a', locked: true }
+      const off: LayerLockOperation = { ...baseOp, id: 'op-off', type: 'layer_lock', layerId: 'a', locked: false }
+      // Lifting the shared lock must not lift the owner's.
+      const a = replayOf([shared, owner, off]).items.a as RasterLayer
+      expect(a.locked).toBe(false)
+      expect(a.ownerLocked).toBe(true)
+    })
+
+    it('a lock on a layer that no longer exists is ignored, not resurrected', () => {
+      const op: LayerLockOperation = { ...baseOp, type: 'layer_lock', layerId: 'gone', locked: true }
+      expect(replayOf([op]).items.gone).toBeUndefined()
+    })
   })
 
   it('treats a missing item as unlocked rather than throwing', () => {

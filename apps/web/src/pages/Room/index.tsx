@@ -2566,13 +2566,19 @@ export function Room() {
     // to everyone — including its author — while still travelling to every
     // participant and into the log. Silently, with no warning, exactly like
     // the lock: the eye in the layer panel already says why nothing happens.
+    // (#488) `isOwner` is what makes the owner lock mean anything on this side.
+    // Until now it meant nothing here: a non-owner could draw on a layer the
+    // owner had reserved, see the ink appear, and have the server reject every
+    // stroke of it. The gate is where that belongs — refusing the stroke is
+    // silent and complete, where letting it through and rejecting it later
+    // costs the drawing.
     engine.setLocked(
-      isLayerLocked(layerState.items[layerState.activeId])
+      isLayerLocked(layerState.items[layerState.activeId], isOwner)
       || !isEffectivelyVisible(layerState, layerState.activeId)
       || !isDrawingTool(tool),
     )
     engine.setCompositeOrder(computeCompositeOrder(layerState))
-  }, [layerState, tool])
+  }, [layerState, tool, isOwner])
 
   // ── sync viewport → engine ────────────────────────────────────────────────────
   useEffect(() => {
