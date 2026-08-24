@@ -193,8 +193,13 @@ export function watercolorNibFromPreset(presetName: string | undefined): Waterco
 // same distinction WATERCOLOR_WIDTH_FLOOR is drawn on for the round nib.
 const WATERCOLOR_FLAT_THICKNESS_FLOOR = 0.18
 /** Fully loaded and pressed. Still elongated: a flat that reaches 1:1 has
- *  stopped being a flat. */
-const WATERCOLOR_FLAT_THICKNESS_CEIL = 0.55
+ *  stopped being a flat — and the first pass put this at 0.55, which by that
+ *  same standard had very nearly stopped. It reads as 1.85:1 under a firm hand
+ *  and 2.1:1 under an ordinary one, and the whole point of picking a flat is
+ *  that it does not look like the round brush next to it. 0.40 keeps it at
+ *  about 2.5:1 pressed, which is where a real one that is being leaned on
+ *  sits. */
+const WATERCOLOR_FLAT_THICKNESS_CEIL = 0.40
 
 function watercolorFlatThickness(pressure: number, response: PressureResponse): number {
   const p = Math.max(pressure, WATERCOLOR_MIN_PRESSURE)

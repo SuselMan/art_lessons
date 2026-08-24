@@ -2,7 +2,7 @@ import type { ToolType } from '@grafetto/shared'
 
 import { markerNibFromPreset } from './markerPresets'
 import {
-  watercolorMixFromPreset, watercolorNibFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorMixFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorPigmentFromPreset,
 } from './watercolorPresets'
 import { watercolorPigmentByCode } from './watercolorPigments'
@@ -643,11 +643,6 @@ export const WATERCOLOR_SPREAD = {
  *  already builds a whole ribbon geometry buffer, and it buys the one thing a
  *  shared constant cannot: two strokes with different mixes, live in the same
  *  room at the same time, rendering correctly. */
-/** Softer than the marker chisel's 0.28: that number is a cut felt edge, and a
- *  brush's corners are hair. Top of the range #330's expert suggested (0.20 to
- *  0.35), uncalibrated like every other first-pass constant here. */
-const WATERCOLOR_FLAT_CORNER_FRACTION = 0.35
-
 function watercolorRibbon(presetName: string | undefined): RibbonProfile {
   const mix = watercolorMixFromPreset(presetName)
   const w = watercolorWaterEffects(mix.water)
@@ -656,14 +651,23 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
   // *which* paint, and they multiply: a lot of a smooth phthalo green still
   // grains far less than a little cobalt.
   const paint = watercolorPigmentByCode(watercolorPigmentFromPreset(presetName))
-  // #489: the nib's *body* in the ribbon, chosen separately from the geometry
-  // of its contact patch — one says what silhouette the sweep has, the other
-  // where the patch is and how big. A flat is a rounded box like the marker's
-  // chisel, but softer-cornered: felt is cut, hair is not.
-  const nib = watercolorNibFromPreset(presetName)
+  // #489: every watercolor nib is an ellipse, the flat included — and that is a
+  // correction, not an omission. The first pass gave the flat the marker
+  // chisel's rounded box by analogy, and Ilya's verdict on it was immediate:
+  // "явно видно квадраты". He was right, and the measurement says why. This
+  // nib's elongation falls with pressure (a ferrule sets the width, the hairs
+  // splay along the handle), so at an ordinary hand's pressure it sits at
+  // 2.1:1 and at a firm one 1.85:1 — and a rounded box at 1.85:1 is a
+  // rectangle, stamped over and over.
+  //
+  // Felt is cut and hair is not, which is what the first pass's own comment
+  // claimed while doing the opposite. A flat brush's print has rounded ends;
+  // the *straight* side of the mark comes from sweeping the long axis, which
+  // the ribbon builds from the pose regardless of what the stamp's ends look
+  // like. So the box bought nothing and cost the tool its material.
   return {
-    nibShape: nib === 'chisel' ? 'roundedBox' : 'ellipse',
-    cornerFraction: nib === 'chisel' ? WATERCOLOR_FLAT_CORNER_FRACTION : 0,
+    nibShape: 'ellipse',
+    cornerFraction: 0,
     aaPx: WATERCOLOR_EDGE_AA_PX,
     // Unlike the brush pen, this tool very much does have a per-pixel pigment
     // quantity — how much paint the brush left at each spot is what the wash's

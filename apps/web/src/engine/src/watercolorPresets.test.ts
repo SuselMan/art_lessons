@@ -555,8 +555,14 @@ describe('watercolor flat nib (#489)', () => {
     const heavy = size(1, 0)
     expect(heavy).toBeGreaterThan(light * 2)
     expect(aspect(0, 0.05)).toBeGreaterThan(aspect(0, 1))
-    // A flat that reaches 1:1 has stopped being a flat.
-    expect(aspect(0, 1)).toBeGreaterThan(1.5)
+    // A flat that reaches 1:1 has stopped being a flat — and this bound used to
+    // say 1.5, which is not that standard applied but a gesture at it. The first
+    // pass shipped 1.85 under a firm hand, passed here, and Ilya's verdict on
+    // seeing it was "явно видно квадраты". At the pressures a hand actually
+    // uses it has to stay unmistakably longer than it is wide, or picking a
+    // flat buys nothing over the round brush beside it.
+    expect(aspect(0, 1)).toBeGreaterThan(2.2)
+    expect(aspect(0, 0.6)).toBeGreaterThan(2.8)
   })
 
   it('ignores tilt, unlike the round nib it shares a tool with', () => {
