@@ -7,7 +7,7 @@ import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 import { useT } from '../../i18n'
 import { Icon } from '../Icon'
 import { Menu } from '../Menu'
-import { isFolder, isLayerLocked } from '../../lib/layers'
+import { isFolder } from '../../lib/layers'
 import styles from './LayerPanel.module.css'
 
 export interface LayerRowProps {
@@ -74,7 +74,10 @@ function LayerRowImpl({
 
   const isFolderItem = isFolder(item)
   const isBackground = item.id === BACKGROUND_LAYER_ID
-  const isLocked = isLayerLocked(item)
+  // (#488) The shared lock's own flag — this row's padlock toggles that one,
+  // and the amber badge below answers for the owner lock separately. Reading
+  // isLayerLocked here would light this padlock up for a lock it cannot open.
+  const isLocked = isBackground || !!item.locked
   const isOwnerLocked = !!item.ownerLocked
   const collapsed = isFolderItem && !!item.collapsed
 
