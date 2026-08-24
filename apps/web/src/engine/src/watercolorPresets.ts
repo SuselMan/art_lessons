@@ -268,10 +268,23 @@ const WATERCOLOR_FLEX_BY_RESPONSE: Record<PressureResponse, DabShapingProfile> =
 }
 
 /** ADR 004 §1's ~45deg, the same default the marker's chisel falls back to —
- *  one shape, one resting angle. */
-const WATERCOLOR_NIB_ANGLE_DEFAULT: NibAngleConfig = {
-  angle: Math.PI / 4,
-  anchor: DEFAULT_NIB_ANCHOR,
+ *  one shape, one resting angle.
+ *
+ *  A function, and it has to be. This file and dabShaping.ts import each other,
+ *  and the header above states the rule: only function declarations and
+ *  type-only imports may cross that edge. `anchoredAngleShaping` is a
+ *  declaration and is hoisted; `DEFAULT_NIB_ANCHOR` is a `const`, so reading it
+ *  while this module's body runs is a read into dabShaping's temporal dead zone
+ *  whenever dabShaping is the module entered first.
+ *
+ *  Which is exactly what happened — the browser threw "Cannot access
+ *  DEFAULT_NIB_ANCHOR before initialization" on the first real page load, with
+ *  the whole suite green, because a test file entering through this module
+ *  finishes dabShaping before this body runs and never sees it. Deferring the
+ *  read to call time is the fix; the rule in the header is why it was avoidable
+ *  in the first place. */
+function watercolorDefaultNibAngle(): NibAngleConfig {
+  return { angle: Math.PI / 4, anchor: DEFAULT_NIB_ANCHOR }
 }
 
 function watercolorChiselShaping(response: PressureResponse, nibAngle: NibAngleConfig): DabShapingProfile {
@@ -321,7 +334,7 @@ export function shapingForWatercolorPreset(
 ): DabShapingProfile {
   const response = watercolorResponseFromPreset(presetName)
   const nib = watercolorNibFromPreset(presetName)
-  if (nib === 'chisel') return watercolorChiselShaping(response, nibAngle ?? WATERCOLOR_NIB_ANGLE_DEFAULT)
+  if (nib === 'chisel') return watercolorChiselShaping(response, nibAngle ?? watercolorDefaultNibAngle())
   if (nib === 'flex') return WATERCOLOR_FLEX_BY_RESPONSE[response]
   return WATERCOLOR_SHAPING_BY_RESPONSE[response]
 }
