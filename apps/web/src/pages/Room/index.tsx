@@ -9,6 +9,7 @@ import { nanoid } from 'nanoid'
 import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, RoomAccessMode, RoomJoinRequest,
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
+  JoinDenial,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, type NibAnchor } from '../../engine'
@@ -65,7 +66,7 @@ import { resolveDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
 import { ZOOM_MAX, ZOOM_KEY_STEP, backingStoreZoom, clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
-import { describeJoinError, joinGateStateFor } from './joinError'
+import { canRetryJoinLater, describeJoinError, joinGateStateFor } from './joinError'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { isLocalIslandSafe } from './optimism'
 import {
@@ -4275,6 +4276,40 @@ export function Room() {
     // reconnect, which used to mean a reconnecting creator was misjudged as a
     // `student` and operations kept a stale userId; both are fixed now that
     // ownership/authorship key off the same stable id every time.
+    /** (#496) A join that came back refused somewhere the join gate cannot
+     *  see it — the creator's own `create_room`, a reconnect's silent rejoin,
+     *  a gap resync. All three used to end in `console.error` and nothing
+     *  else.
+     *
+     *  The gate is not an option here, and that is the whole difficulty:
+     *  `JoinGate` only renders while `config` is null (see the render below),
+     *  and on every path this covers the room is already open on screen. So
+     *  the refusal has to be told, not shown — the same shape `handleKicked`
+     *  settled on for the same reason.
+     *
+     *  Why it matters more than "an error was swallowed": the failure is
+     *  invisible in exactly the way that looks like success. The editor keeps
+     *  working, the canvas keeps painting, and the operations pile up in a
+     *  queue against a socket that has joined nothing. The user does learn
+     *  eventually — the outbox stalls and ConnectionBanner says so — but
+     *  minutes later, and phrased as "your work isn't saving" rather than
+     *  "you are not in this room". On the creator's path they will have been
+     *  drawing into a room the server never created.
+     *
+     *  `durationMs: null` and a fixed key, like every other notice about a
+     *  state rather than an event: it stays until the state changes, and a
+     *  reconnect that fails the same way again replaces it instead of
+     *  stacking. */
+    const reportJoinFailure = (error: JoinDenial, where: string) => {
+      console.error(`${where} failed`, error)
+      // Clearing the flag is what stops the auto-rejoin from re-asking a
+      // settled question on every reconnect — the same thing `handleKicked`
+      // does, with the same intent. Which refusals are worth re-asking lives
+      // in joinError.ts, next to the other two readings of a reason.
+      if (!canRetryJoinLater(error)) hasJoinedRef.current = false
+      notifyError(describeJoinError(error, tRef.current), { key: 'join-failed', durationMs: null })
+    }
+
     const handleConnect = () => {
       setConnected(true)
       setEverConnected(true)
@@ -4327,10 +4362,15 @@ export function Room() {
                     })
                 }
               }
-              // Practically unreachable (would need a nanoid(8) id collision —
-              // see rooms.ts's createRoom doc comment); nothing sensible to
-              // retry into, so just surface it for debugging.
-              else console.error('create_room failed unexpectedly', result)
+              // (#496) The one refusal the server can actually answer here is
+              // `server_busy` (#415) — the comment that used to sit here called
+              // this practically unreachable and blamed a nanoid collision,
+              // which is not something socketHandlers.ts's create_room can
+              // return. It is reachable, and it is the worst of the three
+              // paths this reports: the creator's `config` comes from
+              // navigation state, so the editor renders and paints normally
+              // for a room the server declined to create.
+              else reportJoinFailure(result.error, 'create_room')
             },
           )
         } else {
@@ -4342,7 +4382,7 @@ export function Room() {
             },
             result => {
               if (result.ok) { applyIdentity(result.userId); void outbox.resendAll() }
-              else console.error('join_room failed on reconnect', result)
+              else reportJoinFailure(result.error, 'join_room on reconnect')
             },
           )
         }
@@ -4359,7 +4399,7 @@ export function Room() {
           { roomId: id, ...lastJoinAttemptRef.current, lastKnownSeq: latestKnownSeqRef.current || undefined },
           result => {
             if (result.ok) { applyIdentity(result.userId); void outbox.resendAll() }
-            else console.error('join_room failed on reconnect', result)
+            else reportJoinFailure(result.error, 'join_room on reconnect')
           },
         )
       }
@@ -4387,7 +4427,7 @@ export function Room() {
         { roomId: id, ...credentials, lastKnownSeq: latestKnownSeqRef.current || undefined },
         result => {
           if (result.ok) applyIdentity(result.userId)
-          else console.error('join_room failed during gap resync', result)
+          else reportJoinFailure(result.error, 'join_room during gap resync')
         },
       )
     }

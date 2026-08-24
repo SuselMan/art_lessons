@@ -35,6 +35,32 @@ export function joinGateStateFor(reason: JoinFailureReason): 'login' | 'pending'
   }
 }
 
+/** (#496) Whether asking again later could get a different answer.
+ *
+ *  Only one refusal can: `server_busy` is about the box at one moment (#415),
+ *  not about this person or this room. Every other reason is a fact that a
+ *  reconnect does not change, so re-asking it on each one only produces the
+ *  same no — and, on the paths where there is no gate to fall back to (a
+ *  reconnect's silent rejoin, see Room/index.tsx's reportJoinFailure), an
+ *  auto-rejoin loop that never terminates and never says anything.
+ *
+ *  The third reading of a reason, next to the other two on purpose: which
+ *  screen it gets, how it is worded, and whether it is worth retrying are the
+ *  same question asked three ways, and splitting them across files is how
+ *  they drift apart. */
+export function canRetryJoinLater(reason: JoinFailureReason): boolean {
+  switch (reason) {
+    case 'server_busy': return true
+    case 'not_found':
+    case 'wrong_password':
+    case 'access_revoked':
+    case 'login_required':
+    // Resolves on its own, but by someone else's action and through
+    // `join_request_resolved` — not by this client asking again.
+    case 'pending_approval': return false
+  }
+}
+
 export function describeJoinError(reason: JoinFailureReason, t: TFunction): string {
   switch (reason) {
     case 'not_found':
