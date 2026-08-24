@@ -417,7 +417,6 @@ export const ru: Dictionary = {
   'tool.field.anchor': 'Угол пера относительно',
   'tool.anchor.canvas': 'Бумаги',
   'tool.anchor.screen': 'Экрана',
-  'tool.anchor.stroke': 'Штриха',
   'tool.anchor.barrel': 'Пера',
   'tool.field.strength': 'Сила',
   'tool.field.addToPalette': 'Добавлять в палитру при выборе',

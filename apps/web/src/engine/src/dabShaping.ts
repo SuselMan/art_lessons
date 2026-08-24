@@ -280,12 +280,6 @@ export function tiltOrPathAngle(
 //   screen  nib_world = offset - theta         pinned to the screen. Assumes the
 //                                              person sits square to it — an
 //                                              assumption, not a measurement.
-//   stroke  nib_world = pathAngle + offset     pinned to the travel direction.
-//                                              Invariant to canvas rotation on
-//                                              its own (theta cancels), and it
-//                                              *switches calligraphy off*: width
-//                                              stops depending on direction,
-//                                              which is the whole effect.
 //   barrel  nib_world = azimuth - theta + off  pinned to the pen's own body —
 //                                              the only physically true one.
 //                                              Degenerate near vertical, where
@@ -293,9 +287,17 @@ export function tiltOrPathAngle(
 //                                              near-zeroes, so it always needs a
 //                                              fallback.
 //
-// Four, not five: `stroke` already cancels theta, so there is no "stroke, but
-// screen-relative" — adding theta back would only break it.
-export const NIB_ANCHORS = ['canvas', 'screen', 'stroke', 'barrel'] as const
+// A fourth was shipped briefly and withdrawn: `stroke`, pinned to the direction
+// of travel (`pathAngle + offset`). It reads well on paper — canvas rotation
+// cancels itself, and it *switches calligraphy off*, since width stops
+// depending on direction — but on the tablet it was wrong twice over. It
+// rosetted under a held pen, and once that was fixed it still swung under any
+// rocking of the wrist, because rocking in a small circle genuinely *is* a
+// stroke going round in a circle. Ilya, 24.08: "убери, работает странно и
+// криво". The lead-point machinery it forced into tipFootprint.ts stays, and is
+// still load-bearing: `barrel` falls back to the same path direction below 15deg
+// of lean, so a chisel held upright would rosette in exactly the same way.
+export const NIB_ANCHORS = ['canvas', 'screen', 'barrel'] as const
 export type NibAnchor = (typeof NIB_ANCHORS)[number]
 
 /** ADR 004's original behaviour, and still what a chisel marker starts on. */
@@ -308,14 +310,13 @@ export function isNibAnchor(v: string): v is NibAnchor {
 /**
  * `offset` radians in the named frame. The tools that never had an angle
  * setting are not on this: they ride `tiltOrPathAngle`, which is exactly
- * `barrel` with a zero offset and a `stroke` fallback, and giving them a
- * selector would be a control for something nobody asked to choose (ADR 012
- * §11 leaves that open deliberately).
+ * `barrel` with a zero offset, and giving them a selector would be a control
+ * for something nobody asked to choose (ADR 012 §11 leaves that open
+ * deliberately).
  */
 export function anchoredAngleShaping(offset: number, anchor: NibAnchor): DabShapingProfile['angle'] {
   if (anchor === 'canvas') return () => offset
   if (anchor === 'screen') return (_m, _x, _y, _p, cameraAngle) => offset - cameraAngle
-  if (anchor === 'stroke') return (_m, _x, _y, pathAngle) => pathAngle + offset
   // barrel: the shared tilt-or-path rule, offset by the user's own angle. Its
   // 15deg threshold is the fallback this frame cannot do without.
   return (tiltMag, tiltX, tiltY, pathAngle, cameraAngle) =>

@@ -604,11 +604,10 @@ export interface PencilEngineAPI {
   // canvas" checkbox and the local viewport's own rotation into this one
   // number, same "engine only ever sees canvas-space" boundary
   // setViewport/PointerInput already keep for pointer coordinates).
-  // followStrokeDirection selects between the two chiselDabShaping modes
-  // (see markerPresets.ts) — false: angleRadians is the nib's absolute
-  // angle (ADR 004's original fixed-angle behavior, just configurable);
-  // true: angleRadians is an offset added to the stroke's own path-tangent
-  // angle. Has no effect on the bullet nib (round, angle-independent).
+  // `anchor` names the frame angleRadians is read in (see dabShaping.ts's
+  // NIB_ANCHORS) — `canvas` being ADR 004's original fixed-angle behaviour,
+  // just configurable. Has no effect on the bullet nib (round,
+  // angle-independent).
   setMarkerAngle(angleRadians: number, anchor: NibAnchor): void
   /** #409: which of the three tilt→shape ramp shapes the next stroke uses —
    *  a user setting, per tool, resolved by the caller before it gets here

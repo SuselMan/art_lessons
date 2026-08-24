@@ -86,30 +86,12 @@ describe('MARKER_CHISEL_DAB_SHAPING (#251, ADR 004 §1: fixed aspect + fixed ang
     expect(new Set(values.map(v => v.toFixed(6))).size).toBe(1)
   })
 
-  it('ignores tilt and path direction entirely for angle when followStrokeDirection is false, always returning the fixed angle', () => {
+  it('ignores tilt and path direction entirely for angle, always returning the fixed angle', () => {
     const fixed = MARKER_CHISEL_DAB_SHAPING.angle(0, 0, 0, 0, 0)
     expect(fixed).toBeCloseTo(FIXED_ANGLE)
     // Strong, opposite-direction tilt and a very different path angle: still the same fixed value.
     expect(MARKER_CHISEL_DAB_SHAPING.angle(90, -90, -90, Math.PI, 0)).toBeCloseTo(fixed)
     expect(MARKER_CHISEL_DAB_SHAPING.angle(50, 30, 40, -1.2, 0)).toBeCloseTo(fixed)
-  })
-})
-
-// #278: chisel's angle used to be permanently fixed (ADR 004 §1) — now
-// optionally follows the stroke's own path-tangent angle, offset by the
-// configured angle, same as MARKER_BULLET_DAB_SHAPING's tiltOrPathAngle
-// falls back to pathAngle when tilt is small, just always path-relative.
-describe('chiselDabShaping followStrokeDirection (#278)', () => {
-  it('adds the configured angle as an offset to the path-tangent angle when true', () => {
-    const following = chiselDabShaping(FIXED_ANGLE, 'stroke')
-    expect(following.angle(0, 0, 0, 0, 0)).toBeCloseTo(FIXED_ANGLE)
-    expect(following.angle(90, -90, -90, Math.PI, 0)).toBeCloseTo(Math.PI + FIXED_ANGLE)
-    expect(following.angle(50, 30, 40, -1.2, 0)).toBeCloseTo(-1.2 + FIXED_ANGLE)
-  })
-
-  it('still ignores tilt entirely even in follow mode — only pathAngle and the offset matter', () => {
-    const following = chiselDabShaping(FIXED_ANGLE, 'stroke')
-    expect(following.angle(90, -90, -90, 0.5, 0)).toBeCloseTo(following.angle(0, 0, 0, 0.5, 0))
   })
 })
 
@@ -134,12 +116,16 @@ describe('shapingForMarkerPreset (#251, #278)', () => {
 
 // ── #482, ADR 012 §3: the nib's frame of reference, named ───────────────────
 //
-// Replaces two controls that between them spelled three of these four frames
-// without naming any: this tool's `followStrokeDirection` boolean (canvas when
-// off, stroke when on) and a *global* app setting that switched the same nib
-// between canvas and screen by pre-subtracting the viewport rotation up in the
-// React layer. `barrel` — the angle a real marker actually holds, fixed to its
-// own body — could not be expressed at all.
+// Replaces two controls that between them spelled these frames without naming
+// any: this tool's `followStrokeDirection` boolean and a *global* app setting
+// that switched the same nib between canvas and screen by pre-subtracting the
+// viewport rotation up in the React layer. `barrel` — the angle a real marker
+// actually holds, fixed to its own body — could not be expressed at all.
+//
+// A `stroke` frame (#278's follow-the-travel-direction, which is what
+// `followStrokeDirection` selected) was carried into this vocabulary and then
+// withdrawn — see dabShaping.ts's NIB_ANCHORS for why it did not survive
+// contact with a tablet.
 describe('nib anchor (#482)', () => {
   const OFF = Math.PI / 4          // the user's own angle setting
   const THETA = Math.PI / 6        // canvas rotated 30 degrees
@@ -163,17 +149,6 @@ describe('nib anchor (#482)', () => {
   it('screen: pinned to the screen, so the mark looks the same however the canvas is turned', () => {
     expect(at('screen', 0)).toBeCloseTo(OFF)
     expect(at('screen', THETA) + THETA).toBeCloseTo(at('screen', 0))
-  })
-
-  it('stroke: pinned to travel — cancels the camera by itself, and switches calligraphy off', () => {
-    expect(at('stroke', 0)).toBeCloseTo(PATH + OFF)
-    // pathAngle is already world-space, so theta does not appear at all. This
-    // is why there is no fifth "stroke, but screen-relative" frame.
-    expect(at('stroke', THETA)).toBeCloseTo(at('stroke', 0))
-    // And the mark's angle now follows the direction of travel, which means its
-    // width stops depending on direction — the effect a chisel exists for.
-    const other = anchoredAngleShaping(OFF, 'stroke')(90, TILT_X, TILT_Y, PATH + 1, 0)
-    expect(other - at('stroke', 0)).toBeCloseTo(1)
   })
 
   it('barrel: pinned to the pen body — independent of both the canvas and the direction of travel', () => {

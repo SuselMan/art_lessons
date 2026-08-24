@@ -1356,17 +1356,25 @@ describe('DabSystem tilt smoothing is rate-independent (#482)', () => {
   })
 })
 
-// #482: a chisel anchored to the stroke direction, which is the tool that makes
-// a bad answer to "which way is this stroke going" visible — 5:1, so a wrong
-// angle is not a subtle shading difference, it is a differently-shaped mark.
+// #482: what the nib does when the tool asks the *path* which way it is going.
+//
+// The `stroke` anchor asked that directly and was withdrawn for it (see
+// dabShaping.ts's NIB_ANCHORS), but the question did not go with it: `barrel`
+// falls back to the same path direction below 15deg of lean, because the tilt
+// azimuth is atan2 of two near-zeroes there and means nothing. So these run on
+// `barrel` with the pen held upright, which is that fallback — and on a chisel,
+// because 5:1 makes a wrong angle a differently-shaped mark rather than a
+// subtle shading difference.
 //
 // Reported by Ilya on 24.08 as "рисует цветочки": touch down and hold, and the
 // nib stamped itself at every angle in place. Not a #482 regression — main's
 // own offsetAngleShaping was `pathAngle + offset` with no filter between them
 // — but this is the layer that owes the answer, so it is fixed and pinned here.
-describe('#482 chisel anchored to the stroke', () => {
+describe('#482 nib angle taken from the path', () => {
+  // tilt 0/0 everywhere below: that is what puts `barrel` on its path fallback,
+  // and it is the case a chisel held upright actually hits.
   const chisel = (offset = 0) =>
-    new DabSystem({ shaping: shapingForMarkerPreset('chisel:0.3', { angle: offset, anchor: 'stroke' }) })
+    new DabSystem({ shaping: shapingForMarkerPreset('chisel:0.3', { angle: offset, anchor: 'barrel' }) })
   const deg = (r: number) => (r * 180) / Math.PI
 
   // A hand holding still is not still: it shakes, and the tangent of that shake
@@ -1442,8 +1450,8 @@ describe('#482 chisel anchored to the stroke', () => {
   // The first fix for the rosette measured travel against the hand's tremor,
   // ~3px, and rejected tremor and nothing else: rocking the stylus in a 4px
   // circle swept 313deg of nib angle, because that *is* a real stroke going
-  // round in a real circle. What a nib anchored to the stroke actually owes is
-  // an answer in its own units — it cannot trace an arc much tighter than its
+  // round in a real circle. What a nib taking its angle from the path actually
+  // owes is an answer in its own units — it cannot trace an arc much tighter than its
   // own length without pivoting on the spot.
   it('is not turned by rocking the pen inside its own length', () => {
     const spreadFor = (radiusPx: number, baseSize: number) => {

@@ -512,7 +512,6 @@ export const en = {
   'tool.field.anchor': 'Nib angle relative to',
   'tool.anchor.canvas': 'Paper',
   'tool.anchor.screen': 'Screen',
-  'tool.anchor.stroke': 'Stroke',
   'tool.anchor.barrel': 'Pen',
   'tool.field.strength': 'Strength',
   'tool.field.addToPalette': 'Add to palette on pick',

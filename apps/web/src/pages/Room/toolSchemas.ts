@@ -648,14 +648,13 @@ const markerSchema = (): ToolSchema => ({
     default: 45,
     visibleWhen: v => v.nib === 'chisel',
   },
-  // #482, ADR 012 §3. Replaces two controls that between them offered three of
-  // these four frames without naming any of them: this tool's own
-  // `followStrokeDirection` boolean (canvas vs stroke) and a *global* app
-  // setting, "lock brush angle to the canvas", which existed solely to switch
-  // this same nib between canvas and screen by pre-subtracting the viewport
-  // rotation up in Room. One per-tool control says all of it, and `barrel` —
-  // the angle a real marker actually keeps, fixed to its own body — was not
-  // expressible at all before.
+  // #482, ADR 012 §3. Replaces two controls that between them offered these
+  // frames without naming any of them: this tool's own `followStrokeDirection`
+  // boolean and a *global* app setting, "lock brush angle to the canvas", which
+  // existed solely to switch this same nib between canvas and screen by
+  // pre-subtracting the viewport rotation up in Room. One per-tool control says
+  // all of it, and `barrel` — the angle a real marker actually keeps, fixed to
+  // its own body — was not expressible at all before.
   //
   // Default is `screen`, which is what shipped: the global lock defaulted to
   // off, and off meant "stay visually fixed on screen".
@@ -665,18 +664,16 @@ const markerSchema = (): ToolSchema => ({
     optionLabelKeys: {
       canvas: 'tool.anchor.canvas',
       screen: 'tool.anchor.screen',
-      stroke: 'tool.anchor.stroke',
       barrel: 'tool.anchor.barrel',
     },
     // Chosen from the already-baked icon subset (icons/iconNames.ts) rather
     // than drawn for this: `stylus` and `screen_rotation_alt` are close to
-    // exact, `brush` stands for the stroke, and `grid_on` for the sheet. If
-    // these four ever get proper artwork it belongs in toolTypeImages.ts
-    // alongside the pencil grades, the way #335 did it there.
+    // exact, and `grid_on` stands for the sheet. If these ever get proper
+    // artwork it belongs in toolTypeImages.ts alongside the pencil grades, the
+    // way #335 did it there.
     optionIcons: {
       canvas: 'grid_on',
       screen: 'screen_rotation_alt',
-      stroke: 'brush',
       barrel: 'stylus',
     },
     uiControls: ['select'],
@@ -1148,8 +1145,14 @@ export function loadToolSettings(storage: KeyValueStorage, roomId: string): Tool
   // fall back to a default and that would silently drop a choice someone made.
   // The marker's frame used to be spelled by two booleans — this tool's
   // `followStrokeDirection` and the global "lock brush angle to the canvas".
+  //
+  // `followStrokeDirection: true` used to select the `stroke` frame, which was
+  // withdrawn (see dabShaping.ts's NIB_ANCHORS). It is deliberately not
+  // remapped onto a surviving frame: nothing else means what it meant, and the
+  // generic loop above already coerces the dead value to the default. The read
+  // stays only to document that this is a choice and not an oversight.
   const legacy = stored?.marker as Record<string, unknown> | undefined
-  if (legacy && legacy.followStrokeDirection === true) map.marker.anchor = 'stroke'
+  if (legacy && legacy.followStrokeDirection === true) { /* withdrawn: falls back to the default */ }
   else if (legacyGlobalAngleLock(storage)) map.marker.anchor = 'canvas'
   return map
 }

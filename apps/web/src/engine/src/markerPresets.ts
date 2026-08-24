@@ -79,11 +79,12 @@ export interface MarkerAngleConfig {
   /** Radians, read in the frame `anchor` names. */
   angle: number
   /** #482, ADR 012 §3 — what the angle is measured against. This replaced a
-   *  `followStrokeDirection` boolean, which offered exactly two of the four
-   *  frames (`canvas` when false, `stroke` when true) without naming either,
-   *  and had no way to express the two that a real marker actually behaves
-   *  like: held square to the person (`screen`) or, truthfully, fixed to the
-   *  barrel and turning as the pen is rolled (`barrel`). */
+   *  `followStrokeDirection` boolean, which offered exactly two frames without
+   *  naming either, and had no way to express the two that a real marker
+   *  actually behaves like: held square to the person (`screen`) or,
+   *  truthfully, fixed to the barrel and turning as the pen is rolled
+   *  (`barrel`). The boolean's own "true" frame did not survive — see
+   *  dabShaping.ts's NIB_ANCHORS. */
   anchor: NibAnchor
 }
 
