@@ -54,6 +54,7 @@ import { ClickTracker } from './clickTracker'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { usePencilSound } from './usePencilSound'
 import { useCanvasViewport } from './useCanvasViewport'
+import { useCursorBroadcast } from './useCursorBroadcast'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
 import { PaperFailedOverlay } from './PaperFailedOverlay'
@@ -64,7 +65,6 @@ import { ConnectionBanner } from './ConnectionBanner'
 import { SyncIndicator } from './SyncIndicator'
 import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { resolveDisplayName } from './displayName'
-import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
 import { ZOOM_MAX, ZOOM_KEY_STEP, clientToRoomPoint, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
 import { canRetryJoinLater, describeJoinError, joinGateStateFor } from './joinError'
@@ -960,7 +960,6 @@ export function Room() {
   const deferredOpsQueueRef = useRef<Operation[]>([])
   const lastActiveAtRef   = useRef<Record<string, number>>({})
   const strokeActiveRef   = useRef(false)
-  const lastCursorSentRef = useRef(0)
   // Stroke ops whose live reveal (previewOperation) hasn't finished playing
   // yet — i.e. not yet appendOperation'd into the log/layer. Consulted by
   // handleOperationConfirmed so a fast operation_undo/operation_revoke
@@ -2562,60 +2561,9 @@ export function Room() {
   })
 
   // ── local cursor broadcast (#37) ──────────────────────────────────────────────
-  // A raw DOM listener rather than the engine's 'pointer' event: that one only
-  // fires while a stroke's pointer button is held (see PointerInput's
-  // `_active` gating in engine/src/PointerInput.ts), but peers should see the
-  // cursor while just hovering too. Reads `vp`/`config` via refs so the
-  // listener isn't torn down and rebuilt on every pan/zoom.
-  // Pen/mouse only, same devices PointerInput accepts for actual drawing —
-  // touch drives pan/pinch/rotate here (see useViewport), not pointing, so
-  // broadcasting it made a peer's cursor jump around whenever a finger
-  // touched down to pan while a peer was mid-gesture (see chat).
-  // `drawing` (see CursorMoveData in packages/shared) tells peers to freeze
-  // this cursor at its last position instead of following it — the actual
-  // stroke shape isn't approximated live any more (#37 follow-up v2): peers
-  // instead replay the finished StrokeOperation's own dabs once it lands
-  // (see handleOperationConfirmed below).
-  useEffect(() => {
-    const el = vpRef.current
-    if (!el || !config) return
-    // (#155 follow-up) Cached rect, same forced-reflow reasoning as the
-    // engine's own _getCanvasRect (see its doc comment) — el.getBoundingClientRect()
-    // is a synchronous layout read, and this handler runs on every real
-    // pointermove reaching the viewport (throttled to shouldEmitCursor's own
-    // rate for the *emit*, but the read itself ran unthrottled before this).
-    // Invalidated only by a real resize of the viewport container itself —
-    // panning/zooming/drawing never move or resize that element.
-    let rectCache: DOMRect | null = null
-    const observer = new ResizeObserver(() => { rectCache = null })
-    observer.observe(el)
-    const handleMove = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') return
-      // (#431) Silent while the pen is down: the live stroke channel (#429) is
-      // already reporting this exact position, dab by dab, to draw the ink
-      // with. A cursor packet here would be a second, coarser answer to a
-      // question already answered — and the two could disagree, which is the
-      // whole failure this change exists to remove.
-      if (strokeActiveRef.current) return
-      const now = Date.now()
-      if (!shouldEmitCursor(lastCursorSentRef.current, now)) return
-      lastCursorSentRef.current = now
-      const rect = rectCache ??= el.getBoundingClientRect()
-      // #143: world-space for infinite rooms (clientToRoomPoint), matching
-      // what getContentBounds/painted content already use there — so a
-      // peer's PeerCursors marker (rendered through the same camera
-      // conversion, see the render section below) lands on the actual
-      // world point the cursor is over, not wherever it happened to be
-      // relative to an arbitrary placeholder canvas size.
-      const { x, y } = clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config)
-      socketRef.current?.emit('cursor_move', { x, y })
-    }
-    el.addEventListener('pointermove', handleMove)
-    return () => {
-      el.removeEventListener('pointermove', handleMove)
-      observer.disconnect()
-    }
-  }, [config, vpRef])
+  // (#493) One listener, its throttle clock and its cached rect — all of it in
+  // useCursorBroadcast now.
+  useCursorBroadcast({ vpRef, socketRef, strokeActiveRef })
 
   // ── operation log bridge ──────────────────────────────────────────────────────
   // (syncFromLog is defined above, alongside markActive, since the mount-engine

@@ -59,3 +59,36 @@ test.describe('a second participant', () => {
     }
   })
 })
+
+/** (#493) The other half of "two people in one room": where the other person
+ *  is pointing. It travels on its own channel — a raw pointermove listener on
+ *  the viewport, throttled, silent while a stroke is under the pen — and had
+ *  no coverage at all until the code moved into useCursorBroadcast and the
+ *  move made the gap obvious. */
+test.describe('a peer cursor', () => {
+  test('follows the other person around the canvas', async ({ page, browser }) => {
+    const roomId = await createRoom(page)
+    await waitForRoomReady(page)
+
+    const student = await browser.newContext()
+    const studentPage = await student.newPage()
+    try {
+      await joinRoom(studentPage, roomId)
+      // Nobody has pointed at anything yet.
+      await expect(page.locator('[data-testid="peer-cursor"]')).toHaveCount(0)
+
+      // Hovering, not drawing: the button stays up. Several moves because the
+      // channel is throttled — one packet per interval, and the first move
+      // starts the clock rather than ending it.
+      const box = await studentPage.locator('canvas').first().boundingBox()
+      for (const dx of [0, 60, 120, 180]) {
+        await studentPage.mouse.move(box!.x + 300 + dx, box!.y + 320)
+        await studentPage.waitForTimeout(120)
+      }
+
+      await expect(page.locator('[data-testid="peer-cursor"]')).toHaveCount(1)
+    } finally {
+      await student.close()
+    }
+  })
+})
