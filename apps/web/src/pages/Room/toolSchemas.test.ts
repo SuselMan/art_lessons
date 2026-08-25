@@ -262,6 +262,10 @@ describe('option pickers (#335, #391)', () => {
         // nib is a shape a tool wears, and two tools wearing one shape should
         // not have two names for it.
         'watercolor.nib',
+        // … and, since #501, the charcoal stick's, which is the third tool to
+        // wear one and the first where the round nib is the shipped default
+        // rather than the new option.
+        'charcoal.nib',
         // … and the transform tool's working mode (#391), which is a mode
         // rather than a material but is chosen the same way, and the selection
         // tool's way of drawing a region (#446), which is the same again.
@@ -291,10 +295,11 @@ describe('option pickers (#335, #391)', () => {
         // first select here that answers "relative to what" rather than "which
         // one": it replaced a per-tool boolean and a global app toggle that
         // between them spelled three of these four frames without naming any.
-        // … on both tools that wear a chisel, since #489. The second is not a
-        // second decision: it is the same nib on another tool, so it gets the
-        // same question about what its angle is measured against.
-        'marker.anchor', 'watercolor.anchor'].sort(),
+        // … on every tool that wears a chisel — the second since #489, the
+        // third since #501. None of those is a second decision: it is the same
+        // nib on another tool, so it gets the same question about what its
+        // angle is measured against.
+        'marker.anchor', 'watercolor.anchor', 'charcoal.anchor'].sort(),
     )
   })
 
@@ -330,6 +335,44 @@ describe('option pickers (#335, #391)', () => {
     for (const option of TRANSFORM_MODES) {
       expect(TOOL_SCHEMAS.transform.mode.optionLabelKeys?.[option], option).toBeTruthy()
     }
+  })
+
+  // #501 — the contract ChiselAngleDial actually runs on. Since #489 the dial
+  // orbiting the floating panel decides whether to show itself by asking the
+  // *settings* of the tool in hand — `nib === 'chisel'` and a numeric `angle` —
+  // rather than by matching a list of tool names. That is what let charcoal get
+  // the angle ring without a line changing in the dial, and it is also what
+  // makes this a real contract: a tool that offers a chisel and forgets the
+  // angle field silently loses the ring, with nothing in either file to notice.
+  it('gives every tool that offers a chisel an angle and a frame to hold it in', () => {
+    const wearsChisel = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).filter(toolId => {
+      const nib = TOOL_SCHEMAS[toolId].nib
+      return nib?.valueType.kind === 'enumOptions' && nib.valueType.options.includes('chisel')
+    })
+    expect(wearsChisel.sort()).toEqual(['charcoal', 'marker', 'watercolor'])
+
+    for (const toolId of wearsChisel) {
+      const angle = TOOL_SCHEMAS[toolId].angle
+      const anchor = TOOL_SCHEMAS[toolId].anchor
+      expect(angle?.valueType.kind).toBe('numberRange')
+      expect(typeof angle?.default).toBe('number')
+      expect(anchor?.valueType.kind).toBe('enumOptions')
+      // And both hidden for the round nib, which has no angle to show — the
+      // other half of the same rule (a control that provably does nothing).
+      expect(angle?.visibleWhen?.({ nib: 'chisel' })).toBe(true)
+      expect(angle?.visibleWhen?.({ nib: 'bullet' })).toBe(false)
+      expect(anchor?.visibleWhen?.({ nib: 'chisel' })).toBe(true)
+      expect(anchor?.visibleWhen?.({ nib: 'bullet' })).toBe(false)
+    }
+  })
+
+  // The same rule pointing the other way, on the setting charcoal's chisel does
+  // *not* get: its geometry reads no tilt at all, so the response curve would
+  // be a control with nothing behind it.
+  it('offers the tilt response only to the charcoal nib that reads tilt', () => {
+    const tiltResponse = TOOL_SCHEMAS.charcoal.tiltResponse
+    expect(tiltResponse?.visibleWhen?.({ nib: 'bullet' })).toBe(true)
+    expect(tiltResponse?.visibleWhen?.({ nib: 'chisel' })).toBe(false)
   })
 })
 
@@ -373,6 +416,7 @@ describe('transient settings (#391)', () => {
     }))
     expect(loadToolSettings(storage, 'room1').transform.mode).toBe('free')
   })
+
 })
 
 describe('degreesMinutesParse (#335)', () => {

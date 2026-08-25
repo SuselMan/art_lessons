@@ -11,7 +11,7 @@ import type { Dab } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { PENCIL_DAB_SHAPING, type DabShapingProfile } from './dabShaping'
-import { MIN_DAB_SPACING_PX, footprintDabSpacing, nominalDabSpacing, scallopSpacingLimit } from './dabSpacing'
+import { MIN_DAB_SPACING_PX, boundedDabSpacing, nominalDabSpacing } from './dabSpacing'
 import {
   assignTipState, copyTipState, createTipState, maxNibReach, tipFootprint,
   type TipFootprint, type TipState,
@@ -821,17 +821,29 @@ export class DabSystem {
    *  this and which are already normalized some other way. */
   private _spacingAfter(dab: Dab, baseSize: number, maxSpacing: number): number {
     const fp = this.footprint
-    if (fp !== null) {
-      return Math.min(maxSpacing, footprintDabSpacing(
-        { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale: fp.sizeScale, hardness: fp.hardness },
-        baseSize, this.spacingFactor))
-    }
-    // #489: the scallop bound without the rest of the rule — see nibScallop.
     const sc = this.nibScallop
-    if (sc === null) return maxSpacing
-    return Math.max(MIN_DAB_SPACING_PX, Math.min(maxSpacing, scallopSpacingLimit(
-      { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale: sc.sizeScale, hardness: 1 },
-    )))
+    // The same number either way (both are set from the engine's own
+    // _dabSizeScale), so which one supplies it only matters when one is absent.
+    const sizeScale = fp?.sizeScale ?? sc?.sizeScale
+    if (sizeScale === undefined) return maxSpacing
+    // #501: the two bounds are independent, and charcoal's chisel is the first
+    // nib to want both — a stamped mark whose gaps are real holes (the
+    // footprint rule) *and* an elongated nib whose silhouette scallops (the
+    // scallop bound). Which is why this composes them rather than choosing:
+    // the ordering inside boundedDabSpacing reproduces each one alone exactly
+    // as it behaved before.
+    //
+    // `hardness` is the footprint's own where there is one, and 1 where there
+    // isn't: the scallop bound doesn't read it (a silhouette dips whatever the
+    // edge does), and 1 is what the watercolor path has always passed.
+    return boundedDabSpacing(
+      {
+        size: dab.size, aspectRatio: dab.aspectRatio,
+        sizeScale, hardness: fp?.hardness ?? 1,
+      },
+      baseSize, this.spacingFactor, maxSpacing,
+      { footprint: fp !== null, scallop: sc !== null },
+    )
   }
 
   /**
