@@ -5,6 +5,7 @@ import { shapingForBrushPenPreset } from './brushPenPresets'
 import { shapingForWatercolorPreset } from './watercolorPresets'
 import { shapingForMarkerPreset, type NibAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
+import { charcoalNibFromPreset } from './charcoalPresets'
 import { PENCIL_TILT, pencilTiltAspect, pencilTiltWidthFactor } from './pencilTilt'
 import { DEFAULT_TILT_RESPONSE, type TiltResponse } from './tiltCurve'
 import { tiltAzimuthRad } from './tiltMath'
@@ -450,6 +451,44 @@ function charcoalShapingFor(response: TiltResponse): DabShapingProfile {
   }
 }
 
+// #501 — the cut stick. A flat edge held at the angle the user set, in the
+// frame they picked: fixed elongation, no tilt anywhere in the geometry.
+//
+// 4:1 rather than the marker's 5:1, and the number is an argument rather than a
+// preference: a felt wedge is cut thin because it is felt, while a stick of
+// compressed charcoal is snapped off a square section and its edge is a real
+// several millimetres thick. It is also uncalibrated first-pass, the same
+// status every other constant in this tool carries — the thing to check on a
+// device is whether the edge reads as an edge and not as a blade.
+const CHARCOAL_CHISEL_ASPECT_RATIO = 4
+
+/** Fallback for a caller that passes no angle config at all. Shouldn't happen
+ *  once the engine is wired (it always passes one), kept so the dispatch below
+ *  stays total — exactly the role MARKER_CHISEL_ANGLE_RADIANS_DEFAULT plays. */
+const CHARCOAL_CHISEL_ANGLE_DEFAULT = Math.PI / 4
+
+function charcoalChiselShaping(angleRadians: number, anchor: NibAnchor): DabShapingProfile {
+  return {
+    // Same pressure swing as the round stick (the material is the same friable
+    // carbon either way), divided by the elongation for the reason #336 gives
+    // for the marker: `size` is the dab's *short* axis, while the number in the
+    // slider is the width of the mark the flat side lays down. Without the
+    // division the chisel would paint four times the requested width.
+    //
+    // The tilt term the bullet carries (charcoalWidthFactor) is gone, not set
+    // to 1: the edge's width is the nib's own, and there is no lean-dependent
+    // contact patch left for it to describe.
+    size:   pressure => (CHARCOAL_WIDTH_FLOOR + CHARCOAL_WIDTH_SWING * clamp01(pressure)) / CHARCOAL_CHISEL_ASPECT_RATIO,
+    aspect: () => CHARCOAL_CHISEL_ASPECT_RATIO,
+    angle:  anchoredAngleShaping(angleRadians, anchor),
+    // Still a getter, and still load-bearing even though the geometry ignores
+    // tilt: the `barrel` anchor reads the stylus's own azimuth (via
+    // tiltOrPathAngle), so an unfiltered tilt would make the edge flutter in
+    // exactly the frame that is meant to be the truthful one.
+    get tiltSmoothingPx() { return CHARCOAL_FEEL.smoothingPx },
+  }
+}
+
 const CHARCOAL_SHAPING_BY_RESPONSE: Record<TiltResponse, DabShapingProfile> = {
   restrained: charcoalShapingFor('restrained'),
   smooth:     charcoalShapingFor('smooth'),
@@ -523,9 +562,17 @@ export function shapingForTool(
   // per-tool angle/anchor the marker's chisel does, because it is the same
   // shape wearing the same setting.
   if (tool === 'watercolor') return shapingForWatercolorPreset(presetName, nibAngle)
-  // #304: charcoal's geometry is the same for all three types (vine/willow/
-  // compressed differ in how the material *deposits*, not in the shape of the
-  // stick's contact patch) — so it ignores presetName, same as liner does.
-  if (tool === 'charcoal') return CHARCOAL_SHAPING_BY_RESPONSE[tiltResponse]
+  // #304: charcoal's three types (vine/willow/compressed) differ in how the
+  // material *deposits*, not in the shape of the stick's contact patch, so they
+  // share one geometry — but since #501 the same string also carries which nib
+  // the stick is cut to, and that does change the shape. The type half is read
+  // by _resolvePreset; only the nib half reaches here.
+  if (tool === 'charcoal') {
+    if (charcoalNibFromPreset(presetName) !== 'chisel') return CHARCOAL_SHAPING_BY_RESPONSE[tiltResponse]
+    return charcoalChiselShaping(
+      nibAngle?.angle ?? CHARCOAL_CHISEL_ANGLE_DEFAULT,
+      nibAngle?.anchor ?? DEFAULT_NIB_ANCHOR,
+    )
+  }
   return PENCIL_SHAPING_BY_RESPONSE[tiltResponse]
 }

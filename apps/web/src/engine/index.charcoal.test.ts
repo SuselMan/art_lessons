@@ -21,7 +21,8 @@ import { describe, expect, it } from 'vitest'
 import type { StrokeOperation } from '@grafetto/shared'
 
 import type { PencilEngine } from './index'
-import { CHARCOAL_PRESETS } from './src/charcoalPresets'
+import { CHARCOAL_PRESETS, charcoalPresetString } from './src/charcoalPresets'
+import { scallopSpacingLimit } from './src/dabSpacing'
 import { GRAPHITE_GRAIN_DEFAULT } from './src/pencilPresets'
 import { CHARCOAL_FEEL } from './src/charcoalFeel'
 import {
@@ -397,5 +398,143 @@ describe('charcoal tool (#304, ADR 005)', () => {
     const replayed = readLayerPixels(replayEngine, 'L1')
 
     expectPixelsEqual(replayed, first)
+  })
+})
+
+// #501 — the two nibs. The round one is the stick exactly as it shipped, so
+// most of what these protect is that it did not move; the chisel is new, so
+// what they protect there is that its three separate consequences all landed
+// (geometry, spacing, deposit) rather than only the visible one.
+describe('charcoal nibs (#501)', () => {
+  const LONG_PATH = Array.from({ length: 20 }, (_, i) => ({ x: 20 + i * 40, y: 200 }))
+
+  async function bigLayer() {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 900, height: 400 })
+    await paperReady(engine)
+    engine.appendOperation(makeLayerAdd('user-a', 'L1'))
+    engine.setActiveLayer('L1')
+    engine.setCompositeOrder([{ id: 'L1', opacity: 1 }])
+    return engine
+  }
+
+  async function strokeWith(preset: string, size: number, overrides: Record<string, number> = {}) {
+    const engine = await bigLayer()
+    engine.setTool('charcoal')
+    engine.setPencil(preset)
+    engine.setSize(size)
+    simulateStroke(engine, LONG_PATH, { pressure: 0.7, ...overrides })
+    return { engine, dabs: strokeDabs(lastStroke(engine)) }
+  }
+
+  function steps(dabs: readonly { x: number; y: number }[]): number[] {
+    return dabs.slice(1).map((d, i) => Math.hypot(d.x - dabs[i].x, d.y - dabs[i].y))
+  }
+
+  function inkPerPx(dabs: readonly { opacity: number }[], st: readonly number[]): number {
+    return dabs.slice(1).reduce((sum, dab, i) => sum + dab.opacity / st[i], 0) / (dabs.length - 1)
+  }
+
+  it('records the nib alongside the type', async () => {
+    const engine = await bigLayer()
+    engine.setTool('charcoal')
+    engine.setPencil(charcoalPresetString('compressed', 'chisel'))
+    simulateStroke(engine, LONG_PATH, { pressure: 0.7 })
+
+    expect(lastStroke(engine).preset).toBe('compressed:chisel')
+    // The material still resolves out of the same string it always did.
+    expect(lastPaperDabUniform(engine, 'u_charcoalTooth')).toBeCloseTo(CHARCOAL_PRESETS.compressed.tooth)
+  })
+
+  // The compatibility claim, made where it can actually fail: not "the parser
+  // returns bullet" (charcoalPresets.test.ts covers that) but "a stroke drawn
+  // through the whole pipeline comes out dab for dab the same as before there
+  // was a nib to name". Everything about the round stick rests on this line.
+  it('draws a pre-#501 preset string exactly as the round nib', async () => {
+    const legacy = await strokeWith('willow', 120)
+    const explicit = await strokeWith('willow:bullet', 120)
+    expect(explicit.dabs).toEqual(legacy.dabs)
+  })
+
+  it('cuts the chisel to a fixed edge at the angle it was set to', async () => {
+    const engine = await bigLayer()
+    engine.setTool('charcoal')
+    engine.setPencil('willow:chisel')
+    engine.setSize(120)
+    engine.setNibAngle(Math.PI / 6, 'canvas')
+    simulateStroke(engine, LONG_PATH, { pressure: 0.7 })
+    const dabs = strokeDabs(lastStroke(engine))
+
+    for (const d of dabs) {
+      expect(d.aspectRatio).toBeCloseTo(4, 6)
+      expect(d.angle).toBeCloseTo(Math.PI / 6, 6)
+    }
+    // And the number in the slider is the broad edge, the way a chisel is sold
+    // — the same convention #336 established for the marker. So the long axis
+    // of the flat matches the round stick's own diameter at the same settings.
+    const flat = dabs[10]
+    const round = (await strokeWith('willow:bullet', 120)).dabs[10]
+    expect(flat.size * flat.aspectRatio).toBeCloseTo(round.size, 6)
+  })
+
+  // The chisel reads no tilt at all — not "less", none. Which is the thing to
+  // check on a device, and the thing a future retune of charcoalFeel could
+  // silently leak back into, since the round nib next door lives on that curve.
+  it('gives the chisel the same geometry however the stylus leans', async () => {
+    const upright = await strokeWith('willow:chisel', 120, { tiltX: 0, tiltY: 0 })
+    const leaning = await strokeWith('willow:chisel', 120, { tiltX: 50, tiltY: 20 })
+    expect(leaning.dabs.map(d => [d.size, d.aspectRatio, d.angle]))
+      .toEqual(upright.dabs.map(d => [d.size, d.aspectRatio, d.angle]))
+  })
+
+  // #485's bound, applied to a nib that needs it: a flat edge advances by its
+  // short axis while the nominal step is a fraction of the long one, so without
+  // this the mark is a row of separate ellipses — the report that produced #489
+  // for the watercolor flat, same geometry and same failure.
+  it('spaces the chisel by its silhouette and leaves the round nib on the nominal step', async () => {
+    const chisel = await strokeWith('willow:chisel', 120)
+    const bullet = await strokeWith('willow:bullet', 120)
+
+    const nominal = 120 * 0.22
+    // 4 decimals rather than exactness: the dab positions round-trip through
+    // Float32 on the way into the recorded stroke.
+    for (const s of steps(bullet.dabs)) expect(s).toBeCloseTo(nominal, 4)
+
+    const limit = scallopSpacingLimit({
+      size: chisel.dabs[10].size, aspectRatio: chisel.dabs[10].aspectRatio,
+      sizeScale: CHARCOAL_PRESETS.willow.sizeMultiplier, hardness: 1,
+    })
+    for (const s of steps(chisel.dabs)) expect(s).toBeLessThanOrEqual(limit + 1e-3)
+    // Not a vacuous bound: it is the binding one, several times tighter than
+    // the rule it replaced.
+    expect(limit).toBeLessThan(nominal / 3)
+  })
+
+  // The other half of re-spacing, and the half that stays invisible until two
+  // strokes are compared: four times the dabs deposit four times the ink unless
+  // each one is scaled down by exactly the ratio the step moved. `opacity/step`
+  // is that invariant stated directly — it is what a pixel under the mark
+  // accumulates per unit of travel.
+  //
+  // It also catches the second, unrelated way a chisel stroke could come out
+  // the wrong tone: charcoal lightens the deposit of a stick laid on its broad
+  // side, and derives "laid over" from the dab's own elongation — but a nib
+  // elongated because it was *cut* that way is not laid over at all (it covers
+  // less paper, not more), so that term has to read zero here.
+  it('lays down the same ink per unit of travel on either nib', async () => {
+    const chisel = await strokeWith('willow:chisel', 120)
+    const bullet = await strokeWith('willow:bullet', 120)
+    expect(inkPerPx(chisel.dabs, steps(chisel.dabs)))
+      .toBeCloseTo(inkPerPx(bullet.dabs, steps(bullet.dabs)), 3)
+  })
+
+  // The shader's own copy of the broad-side term, which derives it from the
+  // same baked aspect the CPU does and would otherwise disagree with the line
+  // above — a chisel stroke of the right tone wearing the wrong grain.
+  it('tells the shader that a cut edge is not a stick laid over', async () => {
+    const chisel = await strokeWith('willow:chisel', 120)
+    expect(lastPaperDabUniform(chisel.engine, 'u_charcoalBroadAspect')).toBe(0)
+
+    const bullet = await strokeWith('willow:bullet', 120)
+    expect(lastPaperDabUniform(bullet.engine, 'u_charcoalBroadAspect')).toBeCloseTo(CHARCOAL_FEEL.aspectMax)
   })
 })
