@@ -73,6 +73,7 @@ import {
   groupLostOpsByLayer, isRecoverableContentOp, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
 } from './lostWork'
 import { Outbox } from './outbox'
+import { createSocketRevival } from './socketRevival'
 import { createIndexedDbOutboxStorage } from './outboxStorage'
 import { PeerCursors } from './PeerCursors'
 import { BrushCursor } from './BrushCursor'
@@ -4290,6 +4291,13 @@ export function Room() {
       io({ withCredentials: true })
     socketRef.current = socket
 
+    // (#504) socket.io переподключается само — кроме двух случаев, в которых
+    // оно объявляет, что больше не пытается, и тогда открытая комната висит на
+    // «Нет связи» до перезагрузки страницы. См. socketRevival.ts: там и
+    // перечень случаев, и почему у страницы комнаты нет законной причины
+    // принять такой ответ.
+    const revival = createSocketRevival(socket)
+
     // Fires on the initial connect *and* on every auto-reconnect (socket.io-
     // client's default behavior). Rejoining after a drop is what gives us the
     // "reasonable MVP" reconnect behavior called for by #84 (full catch-up/
@@ -4337,6 +4345,7 @@ export function Room() {
     const handleConnect = () => {
       setConnected(true)
       setEverConnected(true)
+      revival.noteConnect()
       // (#298) resendAll deliberately does NOT happen here any more. It used
       // to, and a fresh connection is precisely the moment the socket has
       // joined nothing — so the whole backlog went out against a socket the
@@ -4845,7 +4854,16 @@ export function Room() {
     // ~30Hz per moving peer). PeerCursors now subscribes directly (see its
     // own component) — position updates never reach Room's render tree.
 
-    const handleDisconnect = () => setConnected(false)
+    const handleDisconnect = (reason: string) => {
+      setConnected(false)
+      revival.noteDisconnect(reason)
+    }
+
+    // (#504) Раньше не слушался вовсе, а это половина проблемы: отказ в
+    // хендшейке (серверный `io.use()` не смог резолвить личность — например,
+    // новый контейнер уже принимает сокеты, а Prisma ещё не отвечает) socket.io
+    // считает окончательным и больше не пытается.
+    const handleConnectError = () => revival.noteConnectError()
 
     const handlePaletteUpdated = ({ palette }: { palette: string[] }) => {
       useRoomStore.getState().setPalette(palette)
@@ -4938,8 +4956,12 @@ export function Room() {
     socket.on('join_request_resolved',      handleJoinRequestResolved)
     socket.on('kicked',                     handleKicked)
     socket.on('disconnect',                 handleDisconnect)
+    socket.on('connect_error',              handleConnectError)
 
     return () => {
+      // Раньше `socket.disconnect()`: иначе запланированная попытка заведёт
+      // сокет комнаты, которую уже покинули.
+      revival.cancel()
       socket.disconnect()
       socketRef.current = null
       requestFullResyncRef.current = null
