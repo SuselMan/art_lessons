@@ -140,6 +140,60 @@ export SENTRY_RELEASE="${SENTRY_RELEASE:-}"
 export RESEND_API_KEY="${RESEND_API_KEY:-}"
 export EMAIL_FROM="${EMAIL_FROM:-}"
 docker compose -f docker-compose.prod.yml pull
+
+# (#499) Stop the outgoing server *before* `up -d`, and read what it said on
+# the way out.
+#
+# #497 taught the server to leave properly: detach the sockets, wait out the
+# queued Postgres writes, then close. On its way out it reports one line —
+# `shutdown complete`, or `shutdown incomplete` with the number of operations
+# it could not persist — and that number is exactly the amount of
+# already-acknowledged work this deploy threw away.
+#
+# Until now that line was unreadable. `up -d` stops the old container and
+# *removes* it, logs and all, so the report existed for the few seconds of the
+# swap and nothing ever caught it: afterwards `docker logs` shows the new
+# container, which nobody has stopped. Splitting the stop out costs nothing —
+# `up -d` performs the same stop either way — it just gives it somewhere to
+# land.
+#
+# After `pull`, deliberately: the image is already on the box by then, so this
+# does not widen the window where the room is unreachable.
+#
+# The exit code is the sturdier half of the signal. `shutdown` exits 0 when the
+# queues drained and 1 when they did not (apps/server/src/index.ts), so a
+# non-zero code here *is* the claim "this deploy lost confirmed work" — no
+# grepping, no wording to keep in step. It is reported, never fatal: the old
+# server is gone regardless, and refusing to finish the deploy over it would
+# leave the box with no server at all.
+#
+# Nothing here may fail the deploy. The old server is gone by this point either
+# way, and a box left with no server because a `docker logs` misbehaved would
+# be observability making the outage it exists to report.
+outgoing=$(docker compose -f docker-compose.prod.yml ps -q server 2>/dev/null | head -n1 || true)
+if [ -z "$outgoing" ]; then
+  echo "==> No server container to stop (first deploy on this box, or it was already down)"
+else
+  echo "==> Stopping the outgoing server"
+  docker compose -f docker-compose.prod.yml stop server || true
+  # Asked before anything is claimed, because a container that is still running
+  # reports `ExitCode` 0 — the same value a clean shutdown gives. Printing that
+  # after a stop that did not take would be this script inventing the good news
+  # it was added to go and check.
+  still_running=$(docker inspect -f '{{.State.Running}}' "$outgoing" 2>/dev/null || echo 'unknown')
+  if [ "$still_running" != "false" ]; then
+    echo "    WARNING: it did not stop (state: $still_running) — no shutdown report to read"
+  else
+    outgoing_code=$(docker inspect -f '{{.State.ExitCode}}' "$outgoing" 2>/dev/null || echo '?')
+    echo "    exit code: $outgoing_code (0 = queued writes drained, anything else = they did not)"
+    echo "    last words:"
+    docker logs --tail 15 "$outgoing" 2>&1 | sed 's/^/      /' || true
+    if [ "$outgoing_code" != "0" ]; then
+      echo "    WARNING: the outgoing server did not shut down cleanly — see #497"
+    fi
+  fi
+fi
+
 docker compose -f docker-compose.prod.yml up -d
 
 echo "==> Waiting for postgres to be healthy"
