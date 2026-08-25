@@ -270,8 +270,8 @@ export class AccumulationBuffer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
   }
 
-  /** (#425) Restores a payload that covers only the top-left `w`x`h` of this
-   *  buffer, leaving the rest transparent.
+  /** (#425) Restores a payload that covers only the world-top-left `w`x`h` of
+   *  this buffer, leaving the rest transparent.
    *
    *  Exists because a bounded room's tile grid overhangs the sheet: a
    *  1754x2480 canvas on 1024-pixel tiles has a right-hand column running to
@@ -289,7 +289,18 @@ export class AccumulationBuffer {
    *  it has to mean the same thing the whole-texture path means, which is
    *  "this buffer now holds exactly this and nothing else". `texImage2D` with
    *  null data is specified to zero-fill, so the overhang lands transparent
-   *  rather than merely unspecified. */
+   *  rather than merely unspecified.
+   *
+   *  (#500) The y offset is `height - h`, not 0, and that is the whole
+   *  correctness of this method. What gets clipped away is the part of the
+   *  tile *below* the sheet, so the rows that survive are the tile's world-top
+   *  ones — which, this array being GL bottom-up, are its *last* rows, and so
+   *  belong at the top of the texture. Uploading them at y 0 puts them under
+   *  the paper instead: on a 2480x3508 page the bottom tile row's 436 surviving
+   *  rows landed at world y 3660..4095, where nothing renders them and the next
+   *  bake — clipping to the sheet again, over rows now empty — wrote the loss
+   *  back to the server. Columns need no such care; see clipTileToPage, which
+   *  keeps the first `keepW` of them in both conventions. */
   restorePixelsRect(w: number, h: number, pixels: Uint8Array): void {
     const { gl, width, height } = this
     if (w === width && h === height) { this.restorePixels(pixels); return }
@@ -297,7 +308,7 @@ export class AccumulationBuffer {
     gl.bindTexture(gl.TEXTURE_2D, this._texture)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
     if (w > 0 && h > 0) {
-      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, height - h, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
     }
   }
 

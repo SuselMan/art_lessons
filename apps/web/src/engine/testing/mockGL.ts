@@ -398,6 +398,36 @@ export class MockGL {
     this._textureData.set(tex, { width, height, data })
   }
 
+  // Partial upload into an already-sized texture — AccumulationBuffer's
+  // restorePixelsRect (#425), the one caller. Row order is left alone on
+  // purpose: `data` is indexed exactly the way texImage2D wrote it and
+  // readPixels reads it back, and real GL's own texImage2D/readPixels pair is
+  // index-identical too, so writing rows `yoffset .. yoffset + height - 1`
+  // here means the same rows it would mean on a GPU. That is the whole point
+  // of having this at all — the placement of a payload smaller than its
+  // texture is what #500 got wrong, and it is unobservable without it.
+  texSubImage2D(
+    _target: number, _level: number, xoffset: number, yoffset: number,
+    width: number, height: number, format: number, _type: number, pixels: ArrayBufferView | null,
+  ): void {
+    const tex = this._boundTextureTarget
+    if (!tex) return
+    const info = this._textureData.get(tex)
+    if (!info || !pixels) return
+    const src = pixels as Uint8Array
+    const stride = format === ENUM.LUMINANCE || format === ENUM.ALPHA ? 1 : format === ENUM.LUMINANCE_ALPHA ? 2 : 4
+    // RGBA carries the value in alpha (see texImage2D's identical mapping);
+    // the single/dual-channel formats carry it in the first byte.
+    const offset = stride === 4 ? 3 : 0
+    for (let row = 0; row < height; row++) {
+      for (let col = 0; col < width; col++) {
+        const dst = (yoffset + row) * info.width + (xoffset + col)
+        if (dst < 0 || dst >= info.data.length) continue
+        info.data[dst] = src[(row * width + col) * stride + offset] / 255
+      }
+    }
+  }
+
   deleteTexture(tex: object): void { this._textureData.delete(tex); this._textureWrap.delete(tex); this._mipmapGenerations.delete(tex); this._minFilter.delete(tex) }
 
   // ── #141 test introspection ─────────────────────────────────────────────
