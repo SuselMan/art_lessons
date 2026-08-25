@@ -29,7 +29,7 @@ import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool } from '../../components/FloatingToolPanel/tools'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
-import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
+import { computeCompositeOrder } from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { floatingPanelVisible, minimalUiActive } from '../../lib/uiPreferences'
@@ -55,6 +55,7 @@ import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { usePencilSound } from './usePencilSound'
 import { useCanvasViewport } from './useCanvasViewport'
 import { useCursorBroadcast } from './useCursorBroadcast'
+import { useLayerStateSync } from './useLayerStateSync'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
 import { PaperFailedOverlay } from './PaperFailedOverlay'
@@ -115,7 +116,7 @@ import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
-import { isDrawingTool, type EditorTool, type PrimaryDrawingTool } from '../../stores/slices/toolSlice'
+import { type EditorTool, type PrimaryDrawingTool } from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
 import type { ClipboardEntry } from '../../stores/slices/selectionSlice'
@@ -2508,46 +2509,9 @@ export function Room() {
   }, [id, toolSettings])
 
   // ── sync layer state → engine ─────────────────────────────────────────────────
-  useEffect(() => {
-    const engine = engineRef.current
-    if (!engine) return
-    engine.setActiveLayer(layerState.activeId)
-    // A non-drawing tool (#155, generalized in #405): the gizmo and the ruler
-    // catcher are separate overlays on top of the canvas, not something that
-    // intercepts/consumes the canvas's own native pointer events — without
-    // this, dragging a gizmo handle *also* drew a real stroke underneath at
-    // the same time (every pointermove reached both the gizmo's drag handler
-    // and PointerInput's canvas listener), which is what those stray lines
-    // during a drag were. setLocked only gates PencilEngine._onStart (see
-    // engine/index.ts) — it doesn't touch layerState itself, so this never
-    // shows the layer as locked in LayerPanel; it's purely "don't start a new
-    // stroke right now," same effect a real per-layer lock has, just for a
-    // different reason.
-    //
-    // (#405) One condition covers all four non-painting tools rather than
-    // naming transform alone. That is the whole of "selecting the ruler means
-    // you cannot draw": the engine still holds a fully configured drawing tool
-    // (see the tool sync above), it is simply not allowed to start a stroke,
-    // and switching back needs nothing pushed to undo it.
-    //
-    // (#359) A hidden layer refuses paint through the same gate, for a third
-    // reason: it isn't in the composite, so a stroke drawn on it is invisible
-    // to everyone — including its author — while still travelling to every
-    // participant and into the log. Silently, with no warning, exactly like
-    // the lock: the eye in the layer panel already says why nothing happens.
-    // (#488) `isOwner` is what makes the owner lock mean anything on this side.
-    // Until now it meant nothing here: a non-owner could draw on a layer the
-    // owner had reserved, see the ink appear, and have the server reject every
-    // stroke of it. The gate is where that belongs — refusing the stroke is
-    // silent and complete, where letting it through and rejecting it later
-    // costs the drawing.
-    engine.setLocked(
-      isLayerLocked(layerState.items[layerState.activeId], isOwner)
-      || !isEffectivelyVisible(layerState, layerState.activeId)
-      || !isDrawingTool(tool),
-    )
-    engine.setCompositeOrder(computeCompositeOrder(layerState))
-  }, [layerState, tool, isOwner])
+  // (#493) Active layer, composite order, and the one gate that decides
+  // whether a stroke may start at all — see useLayerStateSync.
+  useLayerStateSync(engineRef, isOwner)
 
   // ── sync viewport → engine ────────────────────────────────────────────────────
   // (#493) Both effects — where the camera looks and how big the surface it
