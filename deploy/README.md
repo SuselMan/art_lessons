@@ -248,10 +248,17 @@ domain a blocker for logging in, not just for branding.
      puts the default-route interface on the `fq` qdisc (#425 — see the
      kernel-tuning section below)
    - rsyncs `~deploy/web-dist-incoming/` into nginx's webroot
-   - `docker compose -f docker-compose.prod.yml pull` + `up -d` (pulls the
-     already-built image, recreates the container only if the resolved
-     image reference actually changed — SHA-tagged, so it always does when
-     the code did)
+   - `docker compose -f docker-compose.prod.yml pull`
+   - stops the outgoing server on its own and prints its exit code plus the
+     last lines of its log (#499). That is where #497's shutdown report is
+     read: `up -d` removes the old container along with its logs, so before
+     this the line saying whether the queued writes drained — and how much
+     work was dropped if they did not — existed only for the few seconds of
+     the swap. A non-zero exit code there means this deploy lost
+     already-acknowledged work; it is reported, never fatal
+   - `up -d` (pulls the already-built image, recreates the container only if
+     the resolved image reference actually changed — SHA-tagged, so it always
+     does when the code did)
    - waits for Postgres's healthcheck, then runs
      `prisma migrate deploy` inside the server container
    - `nginx -t` + reload (picks up a config change, never restarts — no

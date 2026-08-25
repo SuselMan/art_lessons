@@ -8,7 +8,7 @@ import { sentryVitePlugin } from '@sentry/vite-plugin'
 // tsconfig.node.json, unlike src/ — same reason scripts/bakeIconFont.ts spells
 // its imports out. `npm run typecheck` covers only the app project, so this
 // one is caught by `tsc -b` in the build.
-import { workboxConfig } from './src/pwa/workboxConfig.ts'
+import { precacheConfig } from './src/pwa/swConfig.ts'
 
 // Dev-server HTTPS (mkcert-signed, LAN-trusted once its CA is installed on a
 // tablet — see apps/web's README/CLAUDE.md) — needed for AudioWorklet (pencil
@@ -44,16 +44,31 @@ const SERVER_PORT = Number(process.env.SERVER_PORT ?? 4000)
 // called.
 const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN
 
-// (#48) Service worker. The whole point is the cold start with no network —
-// inside an already-loaded app offline was handled in #201/#313, but opening
+// (#48, #502) Service worker. The whole point is the cold start with no network
+// — inside an already-loaded app offline was handled in #201/#313, but opening
 // the URL or launching from the home screen without a connection still hit the
 // browser's own "no internet" page, because nothing of ours ever ran.
 //
-// What it caches lives in src/pwa/workboxConfig.ts, next to the test that
-// asserts it — the precache-size trap is silent on a developer's wifi, so it
-// needs a check that runs without a build. The three settings kept here are
-// the ones about registration rather than caching.
+// The worker is written by hand in src/pwa/sw.ts rather than generated, and
+// #502 is why: `generateSW` answers navigations out of its own precache, so a
+// tab opened after a deploy boots the *previous* build for as long as any older
+// tab is still holding the old worker active. That cannot be configured away —
+// a network-first navigation with a precache fallback is not expressible in
+// `generateSW` (a NetworkFirst route that fails throws instead of falling
+// through to the navigation fallback, which would cost the offline cold start
+// above). See sw.ts's header for the full mechanism.
+//
+// What it caches lives in src/pwa/swConfig.ts, next to the test that asserts
+// it — the precache-size trap is silent on a developer's wifi, so it needs a
+// check that runs without a build. The settings kept here are the ones about
+// registration rather than caching.
 const pwa = VitePWA({
+  strategies: 'injectManifest',
+  srcDir: 'src/pwa',
+  // A `.ts` source; the plugin builds it and writes dist/sw.js, so the
+  // registered URL is unchanged.
+  filename: 'sw.ts',
+  injectManifest: precacheConfig,
   // Not `autoUpdate`, which is skipWaiting + an unconditional reload. This app
   // must not reload itself *out of a room*: operations can be in flight there,
   // and #313 treats losing them as serious enough for a beforeunload prompt.
@@ -62,7 +77,9 @@ const pwa = VitePWA({
   // are not. It means the decision is ours rather than the plugin's, and it is
   // made per situation in lib/registerServiceWorker.ts + pwa/updatePolicy.ts:
   // applied silently where nothing is at risk, offered only to an installed
-  // app that is holding a room, never offered in a browser tab.
+  // app that is holding a room, never offered in a browser tab. Note this is
+  // about a build found *while a tab is open*; a newly opened tab gets the new
+  // build outright since #502, without asking anyone.
   registerType: 'prompt',
   // The manifest already exists as a static file (#47) and is linked from
   // index.html; generating one here would produce a second, competing one.
@@ -72,7 +89,6 @@ const pwa = VitePWA({
   // re-check added by #400 has nowhere else to live — the plugin's own
   // registration only ever checks once, at boot.
   injectRegister: null,
-  workbox: workboxConfig,
   // The dev loop stays exactly as it was: no service worker under `npm run
   // dev`. A worker in dev caches modules Vite is trying to hot-swap, and the
   // resulting "why is my edit not showing" is expensive to recognise. Test it
