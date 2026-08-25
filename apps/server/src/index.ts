@@ -14,6 +14,7 @@ import { Server, type DefaultEventsMap } from 'socket.io'
 import type { ClientToServerEvents, ServerToClientEvents } from '@grafetto/shared'
 import { registerRoomHandlers, removeUserFromRoom, userChannel, type SocketData } from './socketHandlers.js'
 import { flushAllRoomWrites, pendingWriteCount } from './rooms.js'
+import { disconnectAllClients } from './shutdown.js'
 import { prisma } from './prisma.js'
 import { identityHook } from './identity.js'
 import { startEventLoopMonitor } from './eventLoop.js'
@@ -175,10 +176,17 @@ let shuttingDown = false
  *     закрывает и HTTP-слушатель, и движок socket.io, который к нему прицеплен.
  *
  *  Клиентам ничего не сообщается отдельным событием, и это решение, а не
- *  упущение: разрыв сокета они и так читают правильно — socket.io
+ *  упущение: обрыв сокета они и так читают правильно — socket.io
  *  переподключается сам, комната показывает баннер и восстанавливается, когда
  *  поднимется новый контейнер. Отдельное «сервер уходит» добавило бы поверхность
- *  в контракт ради сообщения, на которое нечего ответить. */
+ *  в контракт ради сообщения, на которое нечего ответить.
+ *
+ *  (#504) Слово «обрыв» в предыдущем абзаце — не оговорка, а условие, при
+ *  котором он верен. Шагом 1 здесь стоял `io.disconnectSockets(true)`, то есть
+ *  не обрыв, а прощание: socket.io-client читает его как решение сервера и не
+ *  переподключается вообще. Каждый деплой оставлял всех рисующих в комнате,
+ *  которая до перезагрузки страницы уже не оживёт. Почему `disconnectAllClients`
+ *  делает это иначе — в его собственном комментарии. */
 const shutdown = async (signal: string): Promise<void> => {
   // Второй сигнал во время выключения — обычное дело (нетерпеливый оператор,
   // docker вслед за compose). Он не должен запускать вторую гонку за те же
@@ -193,7 +201,7 @@ const shutdown = async (signal: string): Promise<void> => {
   })
 
   const work = (async () => {
-    io.disconnectSockets(true)
+    disconnectAllClients(io)
     await flushAllRoomWrites()
     await app.close()
     await prisma.$disconnect()
