@@ -56,6 +56,8 @@ import { usePencilSound } from './usePencilSound'
 import { useCanvasViewport } from './useCanvasViewport'
 import { useCursorBroadcast } from './useCursorBroadcast'
 import { useLayerStateSync } from './useLayerStateSync'
+import { useSpaceToPan } from './useSpaceToPan'
+import { useDrawingActivity } from './useDrawingActivity'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
 import { PaperFailedOverlay } from './PaperFailedOverlay'
@@ -64,7 +66,6 @@ import { ClosedBanner } from './ClosedBanner'
 import { LostWorkBanner } from './LostWorkBanner'
 import { ConnectionBanner } from './ConnectionBanner'
 import { SyncIndicator } from './SyncIndicator'
-import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { resolveDisplayName } from './displayName'
 import { clientToCanvas } from './pointerTransform'
 import { ZOOM_MAX, ZOOM_KEY_STEP, clientToRoomPoint, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
@@ -192,7 +193,6 @@ function toRoomConfig(
 // LAN dev server port (apps/server); derived from window.location.hostname
 // How long a stroke's "drawing" activity (local or peer) stays visible before
 // the #38 indicator clears it — see drawingIndicator.ts.
-const DRAWING_TIMEOUT_MS = 1500
 
 // (#329) Degrees of canvas rotation per pixel of vertical drag on the angle
 // readout. Deliberately fine: the gesture has to be able to land on a specific
@@ -837,6 +837,11 @@ export function Room() {
   const myUserId = useRoomStore(s => s.userId)
   const myParticipant = participants.find(p => p.userId === myUserId)
   const isOwner = myParticipant?.role === 'owner'
+
+  // (#493) Who is drawing right now — the timestamps, both ways they are
+  // written, and the interval that turns them into a list. See
+  // useDrawingActivity.
+  const { drawingIds, markActive, forget: forgetDrawingActivity } = useDrawingActivity()
   // (#380) Who is knocking. Owner-only (the hook fetches nothing otherwise),
   // read here rather than inside ParticipantsPanel because the SidePanel tab's
   // badge needs the same count while that panel is collapsed.
@@ -883,7 +888,6 @@ export function Room() {
   // ~1600-line component and reconciling its whole tree). PeerCursors now
   // owns that state itself, subscribing to the socket directly (see its own
   // component) — Room only needs to hand it the socket and participants.
-  const [drawingIds,  setDrawingIds]  = useState<string[]>([])
 
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   const engineRef     = useRef<PencilEngineAPI | null>(null)
@@ -959,7 +963,6 @@ export function Room() {
   // losing the operation permanently instead of catching up once backfill
   // reaches it. Drained by drainDeferredQueue after every backfill page.
   const deferredOpsQueueRef = useRef<Operation[]>([])
-  const lastActiveAtRef   = useRef<Record<string, number>>({})
   const strokeActiveRef   = useRef(false)
   // Stroke ops whose live reveal (previewOperation) hasn't finished playing
   // yet — i.e. not yet appendOperation'd into the log/layer. Consulted by
@@ -1281,7 +1284,6 @@ export function Room() {
   // *selected* (an ordinary member of `tool` since #443) and Space *held* over
   // whatever else is selected. Everything downstream wants the union, which is
   // what `isHandActive` names.
-  const setHandHeld = useRoomStore(s => s.setHandHeld)
   const handHeld = useRoomStore(s => s.handHeld)
   const handActive = isHandActive({ tool, handHeld })
   // (#405) Read inside a native pointerdown listener that must not be torn
@@ -1362,10 +1364,6 @@ export function Room() {
 
   // Marks a user as "currently drawing" (#38) — a timestamp refreshed by local
   // stroke start/move and by incoming remote stroke ops; a separate interval
-  // (below) periodically prunes stale entries into `drawingIds`.
-  const markActive = useCallback((activeUserId: string) => {
-    lastActiveAtRef.current[activeUserId] = Date.now()
-  }, [])
 
   // ── operation log bridge ──────────────────────────────────────────────────────
   // LayerState is derived: base room state + replay of done operations, with
@@ -4055,20 +4053,6 @@ export function Room() {
     [setTransformCenterOverride],
   )
 
-  // ── who's-drawing indicator (#38) ─────────────────────────────────────────────
-  // Periodically prunes `lastActiveAtRef` (refreshed by markActive) into the
-  // rendered set. No dedicated drawing_start/stop socket event exists in the
-  // shared contract (packages/shared) — that'd be a nice-to-have follow-up —
-  // so this infers activity from stroke ops/engine events instead (see
-  // drawingIndicator.ts).
-  useEffect(() => {
-    const t = window.setInterval(() => {
-      const next = currentlyDrawing(lastActiveAtRef.current, Date.now(), DRAWING_TIMEOUT_MS)
-      setDrawingIds(prev => (sameIds(prev, next) ? prev : next))
-    }, 300)
-    return () => window.clearInterval(t)
-  }, [])
-
   // ── socket wiring (#84/#37/#38/join-gate) ──────────────────────────────────────
   // Runs once per room id, independent of `config` — a joiner doesn't have a
   // config yet at connect time (that's the entire point of the join gate), so
@@ -4619,7 +4603,7 @@ export function Room() {
       }
       // (#152) Cursor-position cleanup for this peer now lives inside
       // PeerCursors' own 'peer_left' subscription — nothing to do here.
-      delete lastActiveAtRef.current[leftUserId]
+      forgetDrawingActivity(leftUserId)
       // They left mid-reveal — commit whatever of their last stroke(s) had
       // already arrived rather than losing it, just without the animation.
       const stranded = engineRef.current?.flushPeerPreview(leftUserId) ?? []
@@ -4746,6 +4730,12 @@ export function Room() {
     // (see its definition), so it is stable for this component's lifetime and
     // can never tear the socket down and rebuild it.
     markActive,
+    // (#493) Its sibling out of useDrawingActivity, and stable for the same
+    // reason — a `useCallback` with no dependencies. Named here rather than
+    // left to the lint rule's imagination: before the hook existed this
+    // handler reached into a ref, which the rule ignores, so the dependency is
+    // new even though nothing about the behaviour is.
+    forgetDrawingActivity,
     outbox, awaitPaper,
     // Stable for the app's lifetime (one QueryClient, created outside React —
     // see lib/queryClient.ts), so listing it here can never tear the socket
@@ -5008,39 +4998,7 @@ export function Room() {
   ])
 
   // ── Space = hold to pan (#319, ADR 007 §4) ────────────────────────────────
-  // Separate from the registry-driven effect above because this is a hold,
-  // not an action: it needs the keyup half, and it must not be rebindable
-  // (see lib/hotkeys.ts). Same guards as the shortcuts above — a Space typed
-  // into a room name or a dialog is a space, not a gesture.
-  useEffect(() => {
-    const onDown = (e: KeyboardEvent) => {
-      if (e.code !== 'Space' || e.repeat) return
-      if (isTypingTarget(e.target) || isModalOpen()) return
-      // Otherwise the page scrolls under the canvas on every hold.
-      e.preventDefault()
-      setHandHeld(true)
-    }
-    const onUp = (e: KeyboardEvent) => {
-      if (e.code !== 'Space') return
-      setHandHeld(false)
-    }
-    // A keyup that never arrives — alt-tabbing away mid-hold, an OS shortcut
-    // swallowing it — would otherwise leave the canvas permanently in a mode
-    // the person can't see the cause of and didn't ask for.
-    const release = () => setHandHeld(false)
-
-    window.addEventListener('keydown', onDown)
-    window.addEventListener('keyup', onUp)
-    window.addEventListener('blur', release)
-    document.addEventListener('visibilitychange', release)
-    return () => {
-      window.removeEventListener('keydown', onDown)
-      window.removeEventListener('keyup', onUp)
-      window.removeEventListener('blur', release)
-      document.removeEventListener('visibilitychange', release)
-      setHandHeld(false)
-    }
-  }, [setHandHeld])
+  useSpaceToPan()
 
   // ── callbacks ─────────────────────────────────────────────────────────────────
   const handleExport = useCallback(async () => {
