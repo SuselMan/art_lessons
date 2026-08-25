@@ -12,7 +12,7 @@ import type {
   JoinDenial,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR } from '../../engine'
+import { PencilEngine, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -33,7 +33,6 @@ import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../.
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { floatingPanelVisible, minimalUiActive } from '../../lib/uiPreferences'
-import { PencilSound, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
 import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
@@ -53,6 +52,7 @@ import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { ClickTracker } from './clickTracker'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
+import { usePencilSound } from './usePencilSound'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
 import { PaperFailedOverlay } from './PaperFailedOverlay'
@@ -522,10 +522,9 @@ export function Room() {
 
   // (#321) One sound setting for the whole app — the graphite-on-paper
   // recipes here and the interface's own clicks (RadialDial) read the same
-  // pair of values. Store subscriptions, not a read at mount: the volume
-  // slider is meant to be dragged while a sound is playing.
+  // pair of values. (#493) The volume half moved into usePencilSound with the
+  // effects that used it; what is left here gates the tuning panel below.
   const soundEnabled = useSettingsStore(s => s.soundEnabled)
-  const soundVolume = useSettingsStore(s => s.soundVolume)
 
   // Live-tuning debug panel for every PencilSound knob (#153 round 13, see
   // PencilSoundTuningPanel.tsx) — nothing to tune while the sound is off,
@@ -886,7 +885,6 @@ export function Room() {
 
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   const engineRef     = useRef<PencilEngineAPI | null>(null)
-  const pencilSoundRef = useRef<PencilSound | null>(null)
   const initialToolRef = useRef({
     pencil: toolSettings.pencil.grade as PencilGradeName,
     size: toolSettings.pencil.size as number,
@@ -1835,6 +1833,8 @@ export function Room() {
   // instead of on `config` — referencing the object at all is what would put it
   // back in their dependency lists.
   const enginePaper = config?.paper
+  // (#493) The sound's whole lifetime, out of line — see usePencilSound.
+  const pencilSoundRef = usePencilSound(enginePaper)
   const enginePaperColor = config?.paperColor
   const engineInfinite = config?.infinite ?? false
   // (#470) Captured alongside the other engine options rather than read off
@@ -2181,6 +2181,13 @@ export function Room() {
     finishOpenTimer,
     grainMode, charcoalGrainMode, dispatchParticipants, isCreator, snapshotUploader, noteLayerSeq, outbox,
     awaitPaper,
+    // (#493) `pencilSoundRef.current` is *not* going in here, whatever the
+    // lint rule says. It stopped recognising the handle as a ref when the
+    // sound's effects moved into usePencilSound — the rule can only see that
+    // through a `useRef` call in this component — and listing it would rebuild
+    // the whole engine every time the sound instance changed: on every volume
+    // toggle, and on the paper arriving. The pointer callbacks above read it
+    // at call time precisely so that its identity never matters here.
   ])
 
   // ── sync tool → engine ────────────────────────────────────────────────────────
@@ -2235,42 +2242,6 @@ export function Room() {
     : drawingTool === 'brushPen' ? brushPenResponse
     : drawingTool === 'watercolor' ? watercolorPreset
     : pencilGrade
-  useEffect(() => {
-    pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
-  }, [pencilGrade])
-  // (#321) Sound is a live setting, so its whole lifetime hangs off this one
-  // effect rather than off the engine's: turning it on builds the graph,
-  // turning it off tears it down (an AudioContext left open holds a real
-  // audio device). Deliberately not keeping a silent instance around while
-  // off — the graph is lazy anyway (PencilSound.ensureGraph runs on the first
-  // stroke), so there is nothing to preserve, and "off" should mean nothing
-  // is holding the speaker.
-  //
-  // Tool and grade are read at build time rather than being dependencies:
-  // both have their own effects that push changes into the existing instance
-  // (setActiveGrain/setHardness below), and rebuilding the graph on every
-  // tool switch would drop the AudioContext mid-lesson.
-  //
-  // (#461) Keyed on the paper rather than on `config`, for the same reason the
-  // mount-engine effect above is: a rename is not a reason to drop an
-  // AudioContext mid-lesson either.
-  useEffect(() => {
-    if (!soundEnabled || enginePaper === undefined) return
-    const { drawingTool: currentTool, toolSettings: currentSettings } = useRoomStore.getState()
-    const grain = TOOL_SOUND_CONFIGS[currentTool]
-    if (!grain) return
-    const sound = new PencilSound(enginePaper, grain)
-    sound.setHardness(PENCIL_PRESETS[currentSettings.pencil.grade as PencilGradeName].hardness)
-    sound.setVolume(useSettingsStore.getState().soundVolume)
-    pencilSoundRef.current = sound
-    return () => {
-      sound.destroy()
-      if (pencilSoundRef.current === sound) pencilSoundRef.current = null
-    }
-  }, [soundEnabled, enginePaper])
-  useEffect(() => {
-    pencilSoundRef.current?.setVolume(soundVolume)
-  }, [soundVolume])
   // #278/#279 → #482, ADR 012 §3. The frame the chisel's angle is measured in
   // is now named and lives on the tool, so the engine resolves it (dabShaping's
   // anchoredAngleShaping) instead of the UI pre-baking it.
@@ -2358,12 +2329,6 @@ export function Room() {
   // (see the layer-state sync effect), one gate rather than a second copy of
   // "which tools can draw" living in here.
   useEffect(() => { engineRef.current?.setTool(drawingTool) }, [drawingTool])
-  useEffect(() => {
-    // #253: each tool has its own recipe; swapping it keeps the one graph and
-    // only changes what drives it (see PencilSound.setActiveGrain).
-    const grain = TOOL_SOUND_CONFIGS[drawingTool]
-    if (grain) pencilSoundRef.current?.setActiveGrain(grain)
-  }, [drawingTool])
   // Liner's own 'size' field is a fixed-label enum (ADR 003), not a plain px
   // number like every other tool's (marker included, since it dropped its
   // own ladder for a plain px slider) — see linerSizeToPx's own comment for
