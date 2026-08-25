@@ -231,8 +231,58 @@ export function footprintSpacingStrength(hardness: number): number {
  */
 export function dabDepositScale(
   dab: DabFootprint, baseSize: number, spacingFactor: number,
+  bounds: DabSpacingBounds = FOOTPRINT_BOUNDS_ONLY,
 ): number {
-  return footprintDabSpacing(dab, baseSize, spacingFactor) / nominalDabSpacing(baseSize, spacingFactor)
+  const nominal = nominalDabSpacing(baseSize, spacingFactor)
+  return boundedDabSpacing(dab, baseSize, spacingFactor, nominal, bounds) / nominal
+}
+
+/**
+ * Which of the two bounds this stroke's nib has opted into (#501).
+ *
+ * They were one rule until a tool wanted the second without the first
+ * (watercolor's flat nib, #489) and then a tool wanted both (charcoal's chisel)
+ * — see DabSystem's own `footprint` and `nibScallop` fields for what each one
+ * argues and why neither implies the other.
+ */
+export interface DabSpacingBounds {
+  /** #478's diameter rule, itself gated per dab by #483's hardness ramp. */
+  footprint: boolean
+  /** #485's absolute scallop bound, taken on its own. */
+  scallop: boolean
+}
+
+/** The pre-#501 default — every caller that predates a second bound meant this
+ *  one. A shared frozen value rather than an inline literal because this is on
+ *  the per-dab path (dabDepositScale runs once per dab of every stroke) and an
+ *  object literal in a default parameter allocates on each call. */
+const FOOTPRINT_BOUNDS_ONLY: DabSpacingBounds = Object.freeze({ footprint: true, scallop: false })
+
+/**
+ * The step after this dab under whichever bounds apply, capped by `maxSpacing`
+ * (the segment's own allowance — the nominal rule, tightened by a ribbon tool's
+ * curvature limit where it has one).
+ *
+ * One expression rather than one per call site specifically because two of them
+ * have to agree: DabSystem spaces the dabs by this, and _bakeDabOpacity divides
+ * the deposit by the same number to hold the mark's tone (dabDepositScale right
+ * above). A tool whose spacing tightened without its deposit following would
+ * simply paint darker, which is the regression #478 was careful about and the
+ * one a second, separately-derived copy of this rule would reintroduce.
+ *
+ * The clamps are ordered to reproduce the pre-#501 behaviour exactly in both
+ * shipped configurations — footprint alone (graphite, eraser, charcoal) and
+ * scallop alone (watercolor's flat) — so switching a tool's bounds on is the
+ * only thing that can move a mark.
+ */
+export function boundedDabSpacing(
+  dab: DabFootprint, baseSize: number, spacingFactor: number,
+  maxSpacing: number, bounds: DabSpacingBounds,
+): number {
+  let step = maxSpacing
+  if (bounds.footprint) step = Math.min(step, footprintDabSpacing(dab, baseSize, spacingFactor))
+  if (bounds.scallop) step = Math.max(MIN_DAB_SPACING_PX, Math.min(step, scallopSpacingLimit(dab)))
+  return step
 }
 
 /**

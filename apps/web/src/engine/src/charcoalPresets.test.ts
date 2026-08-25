@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest'
 import { PENCIL_PRESETS } from './pencilPresets'
 import {
   CHARCOAL_PRESETS, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE,
-  charcoalPresetFor, isCharcoalType, type CharcoalPreset,
+  CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB,
+  charcoalPresetFor, isCharcoalType, isCharcoalNib,
+  charcoalNibFromPreset, charcoalPresetString, type CharcoalPreset,
 } from './charcoalPresets'
 
 // #304 / ADR 005. The individual numbers here are explicitly first-pass and
@@ -88,5 +90,59 @@ describe('charcoal presets (#304, ADR 005)', () => {
     for (const unknown of ['', 'soft-vine', '6B', 'bullet:12']) {
       expect(charcoalPresetFor(unknown)).toBe(CHARCOAL_PRESETS[DEFAULT_CHARCOAL_TYPE])
     }
+  })
+})
+
+// #501 — the nib the stick is cut to, riding the same preset slot as the type.
+// What these protect is the compatibility half above all: the string got a
+// second field, and every charcoal stroke ever recorded is missing it.
+describe('charcoal nibs (#501)', () => {
+  it('narrows a string to a nib', () => {
+    expect(isCharcoalNib('bullet')).toBe(true)
+    expect(isCharcoalNib('chisel')).toBe(true)
+    expect(isCharcoalNib('Chisel')).toBe(false)
+    expect(isCharcoalNib('willow')).toBe(false)
+    expect(isCharcoalNib('')).toBe(false)
+  })
+
+  it('round-trips every type and nib through the preset string', () => {
+    for (const type of CHARCOAL_TYPES) {
+      for (const nib of CHARCOAL_NIBS) {
+        const preset = charcoalPresetString(type, nib)
+        expect(charcoalPresetFor(preset)).toBe(CHARCOAL_PRESETS[type])
+        expect(charcoalNibFromPreset(preset)).toBe(nib)
+      }
+    }
+  })
+
+  // The whole reason the nib is field *one*: a stroke recorded before #501 is a
+  // bare type name, and it has to keep resolving to the same material and to
+  // the round stick it was actually drawn with. Not a hypothetical — every
+  // charcoal mark in every existing room is spelled this way.
+  it('reads a pre-#501 stroke as its own type on the round nib', () => {
+    for (const type of CHARCOAL_TYPES) {
+      expect(charcoalPresetFor(type)).toBe(CHARCOAL_PRESETS[type])
+      expect(charcoalNibFromPreset(type)).toBe('bullet')
+    }
+    expect(DEFAULT_CHARCOAL_NIB).toBe('bullet')
+  })
+
+  // A nib this build doesn't know (a future one, or a corrupted string) must
+  // land on the round stick rather than on the more distinctive shape — the
+  // same call markerNibFromPreset makes, and for the same reason.
+  it('falls back to the round nib for anything unrecognized', () => {
+    for (const unknown of ['willow:', 'willow:flex', 'willow:BULLET']) {
+      expect(charcoalNibFromPreset(unknown)).toBe('bullet')
+    }
+    expect(charcoalNibFromPreset(undefined)).toBe('bullet')
+  })
+
+  // Forward compatibility in the other direction, and the reason both readers
+  // index a field rather than matching the whole string: a later client adding
+  // a third field must still be understood by this build, exactly as this build
+  // is understood by the one that only knew about the type.
+  it('reads its own field and ignores anything a later client appends', () => {
+    expect(charcoalNibFromPreset('vine:chisel:something-new')).toBe('chisel')
+    expect(charcoalPresetFor('vine:chisel:something-new')).toBe(CHARCOAL_PRESETS.vine)
   })
 })

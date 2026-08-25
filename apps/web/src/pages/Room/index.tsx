@@ -12,7 +12,7 @@ import type {
   JoinDenial,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -2190,6 +2190,15 @@ export function Room() {
   const markerNib = toolSettings.marker.nib as string
   const markerSize = toolSettings.marker.size as number
   const charcoalType = toolSettings.charcoal.type as string
+  // #501 — the stick's own preset slot carries which nib it is cut to, after
+  // the type it is made of (`willow:chisel`). Same trick the marker plays with
+  // `${nib}:${size}` and watercolor with its five fields, for the reason given
+  // just below: a slot that already exists costs no bytes per operation.
+  const charcoalNib = toolSettings.charcoal.nib as string
+  const charcoalPreset = charcoalPresetString(
+    isCharcoalType(charcoalType) ? charcoalType : DEFAULT_CHARCOAL_TYPE,
+    isCharcoalNib(charcoalNib) ? charcoalNib : undefined,
+  )
   // #454: the brush pen's preset slot carries its pressure response, since the
   // tool has no nib list or size ladder to spend that slot on — see
   // brushPenPresets.ts's brushPenResponseFromPreset on why the setting rides
@@ -2232,7 +2241,7 @@ export function Room() {
   // marker-only special case.
   const cursorPresetName = drawingTool === 'marker' ? `${markerNib}:${markerSize}`
     : drawingTool === 'liner' ? linerSize
-    : drawingTool === 'charcoal' ? charcoalType
+    : drawingTool === 'charcoal' ? charcoalPreset
     : drawingTool === 'brushPen' ? brushPenResponse
     : drawingTool === 'watercolor' ? watercolorPreset
     : pencilGrade
@@ -2336,20 +2345,20 @@ export function Room() {
     // then — while nib+size are still faithfully recorded/replicated on the
     // wire via the existing preset string for whenever the engine side is
     // ready to actually read them back out of it.
-    // Charcoal (#304) is the one tool whose preset string the engine reads
-    // back *and* which needs nothing composed into it: the type name alone
-    // ('vine'/'willow'/'compressed') is what _resolvePreset -> charcoalPresetFor
-    // resolves, since all three types share one dab geometry (ADR 005 §2).
+    // Charcoal's string was the type name alone until #501 ('vine'/'willow'/
+    // 'compressed'), because all three types shared one dab geometry (ADR 005
+    // §2) — they still do, but the nib no longer does, so the same slot now
+    // carries both halves and _resolvePreset reads the type out of field 0.
     const markerPreset = `${markerNib}:${markerSize}`
     engineRef.current?.setPencil(
       drawingTool === 'liner' ? linerSize
         : drawingTool === 'marker' ? markerPreset
-        : drawingTool === 'charcoal' ? charcoalType
+        : drawingTool === 'charcoal' ? charcoalPreset
         : drawingTool === 'brushPen' ? brushPenResponse
         : drawingTool === 'watercolor' ? watercolorPreset
         : pencilGrade,
     )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalType, brushPenResponse, watercolorPreset])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with
