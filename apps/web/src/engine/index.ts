@@ -4101,14 +4101,15 @@ export class PencilEngine implements PencilEngineAPI {
     // is visibly softer than the full-resolution downscale the compositor used
     // to do. So a pyramid is exactly what this wants.
     //
-    // It is still off here because turning it on renders *nothing*: the level
-    // comes back empty and the draw path treats an empty array as "coarse
-    // says there is nothing here" rather than "no coarse level, use the fine
-    // tiles". Measured on a restored bounded layer — 11 fine tiles resident,
-    // 11 pending for factor 2, and `coarse.get(2)` still undefined after
-    // resolveCoarse has run, i.e. flushLevel returned at its guard without
-    // folding. Soft is a regression; blank is a bug, so this stays off until
-    // that is understood. See #470.
+    // (#503) There used to be a paragraph here saying the pyramid was still
+    // off for bounded rooms because turning it on rendered nothing. It has
+    // been on for them since ad45be1 — that "renders nothing" was an artifact
+    // of toggling downsampleTile at runtime, and the commit that established
+    // this said the note was removed. It was not; it came back through a
+    // merge and then stood for a week telling every reader the opposite of
+    // what the line below does. Left as a marker rather than deleted in
+    // silence: a comment that survives its own retraction is worth one line
+    // of warning to whoever reads this next.
     const downsample = layerId !== undefined
       ? (src: AccumulationBuffer, dst: AccumulationBuffer, x: number, y: number, w2: number, h2: number) =>
         this._downsampleTileInto(src, dst, x, y, w2, h2)
@@ -7801,7 +7802,15 @@ export class PencilEngine implements PencilEngineAPI {
     // Log replay plus a readback and re-upload each.
     const factor = coarseFactorFor(this._compositeScale)
     const coarse = factor === null ? null : buf.resolveCoarse(viewRect, factor)
-    if (coarse && factor !== null) {
+    // (#503) `coarse.length`, not just `coarse`: an empty array is truthy, so
+    // a level holding nothing here used to end the draw outright — the layer
+    // vanished at this zoom and came back on zooming in. That state is
+    // unreachable while every write marks its tiles (which is what the rest of
+    // #503 is about), so this is a guard, not a fix for a seen bug. It is
+    // worth having anyway because of the asymmetry: falling through costs one
+    // resolveVisible over a region that by construction holds no tiles, while
+    // not falling through costs a layer.
+    if (coarse?.length && factor !== null) {
       const { w: coarseW, h: coarseH } = buf.coarseWorldSize(factor)
       for (const { buffer, originX, originY } of coarse) {
         buffer.setMipSampling(false)
@@ -8908,11 +8917,17 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** `area_clear`: erases the selection from a layer, touching only the tiles
    *  it covers. No scratch and no two-phase dance — nothing is read from the
-   *  layer here, every pixel is multiplied in place. */
+   *  layer here, every pixel is multiplied in place.
+   *
+   *  (#503) resolveExistingForPaint, not resolveVisible: this writes. It used
+   *  to reach for the read resolver — correct about not creating tiles, wrong
+   *  about saying nothing — so the erase landed on the fine tiles and no
+   *  coarse level ever heard about it. The layer went on showing the erased
+   *  content at every zoom that draws from a level. */
   private _clearArea(layerBuf: ILayerBuffer, selection: SelectionShape): void {
     const mask = this._acquireMask(selection)
     if (!mask) return
-    for (const target of layerBuf.resolveVisible(mask.rect)) {
+    for (const target of layerBuf.resolveExistingForPaint(mask.rect)) {
       this._runAreaMaskPass(target.buffer, target.originX, target.originY, mask, 'erase')
     }
   }
