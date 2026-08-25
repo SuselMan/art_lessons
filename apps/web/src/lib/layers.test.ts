@@ -371,6 +371,19 @@ describe('overlayLocalFields', () => {
     expect(a.ownerLocked).toBe(true)
   })
 
+  // (#506) The load path: `activeId` is seeded from this device's storage
+  // before the room's operations have been replayed, so at that moment it
+  // names a layer `current` itself does not contain. It has to survive
+  // anyway — the replay is what brings that layer into existence, and this is
+  // the only thing standing between "reload keeps your layer" and "reload
+  // always drops you on the top one".
+  it('keeps an activeId the current state does not contain yet, once the replay creates it', () => {
+    const derived = stateOf({ a: layer('a'), b: layer('b') }, ['a', 'b'])
+    const current = stateOf({ a: layer('a') }, ['a'], { activeId: 'b', selectedIds: [] })
+
+    expect(overlayLocalFields(derived, current).activeId).toBe('b')
+  })
+
   it('sanitizes selection/active id that no longer exist after replay', () => {
     const derived = stateOf({ a: layer('a') }, ['a'])
     const current = stateOf({ a: layer('a'), b: layer('b') }, ['a', 'b'], { activeId: 'b', selectedIds: ['b'] })

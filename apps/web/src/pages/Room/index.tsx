@@ -102,6 +102,7 @@ import {
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
+import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
 import { ChiselAngleDial } from './ChiselAngleDial'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
@@ -784,6 +785,26 @@ export function Room() {
   // content state; see syncFromLog below and roomStore's layerSlice.
   const layerState = useRoomStore(s => s.layerState)
   const setLayerStateLocal = useRoomStore(s => s.setLayerStateLocal)
+  // (#506) The one field of that cache which is *not* derived from the log:
+  // `activeId` is per-user view state, so a reload has nothing to rebuild it
+  // from and every room used to open on its top layer regardless of what the
+  // user was working on. Seeded here from this device's storage, in a
+  // throwaway useState initializer so it lands during the first render —
+  // before the join replay, which is the point: `overlayLocalFields` carries
+  // `activeId` from the *current* state onto each freshly replayed one, so
+  // the seeded id survives the replay the same way a mid-session selection
+  // survives a peer's stroke.
+  //
+  // A stored id whose layer is gone (deleted, or never in this room) needs no
+  // handling of its own: until the replay it selects nothing — the layer-state
+  // → engine sync below reads `isEffectivelyVisible` as false and locks the
+  // engine, so it cannot take a stroke — and the replay's `sanitizeSelection`
+  // then drops it back to the top non-background layer, which is exactly the
+  // behavior that existed before this was stored at all.
+  useState(() => {
+    const storedActiveId = loadActiveLayerId(localStorage, id ?? '')
+    if (storedActiveId) useRoomStore.setState(prev => ({ layerState: { ...prev.layerState, activeId: storedActiveId } }))
+  })
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'participants' | 'toolSettings' | null>('layers')
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
@@ -2551,6 +2572,16 @@ export function Room() {
     if (!id) return
     saveToolSettings(localStorage, id, toolSettings)
   }, [id, toolSettings])
+
+  // (#506) Same, for the selected layer — including the case where the
+  // selection was not made by hand: a `sanitizeSelection` fallback (the active
+  // layer was deleted, here or by a peer) is the new selection and is stored
+  // as such, so the next reload doesn't try to restore a layer this session
+  // already watched disappear.
+  useEffect(() => {
+    if (!id) return
+    saveActiveLayerId(localStorage, id, layerState.activeId)
+  }, [id, layerState.activeId])
 
   // ── sync layer state → engine ─────────────────────────────────────────────────
   useEffect(() => {
