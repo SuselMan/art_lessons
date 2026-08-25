@@ -37,6 +37,7 @@ scenario's state can be opened in psql.
 | A joiner sees earlier work, and work drawn while they watch | `specs/peer.spec.ts` |
 | Drawing through a dropped connection reaches the server afterwards | `specs/reconnect.spec.ts` |
 | A room past the snapshot boundary rejoins from stored pixels | `specs/snapshot.spec.ts` |
+| Losing the GPU context and getting it back: the drawing returns, undo still lines up, an interrupted gesture leaves nothing, a peer's stroke in flight is not stranded | `specs/contextLoss.spec.ts` |
 
 ## What is not covered, on purpose
 
@@ -60,6 +61,13 @@ canvas-pixel (world) units. The two differ by the camera, which fits a whole
 page into the window at about 0.46×. Feeding screen coordinates to a world-space
 reader does not announce itself — the reads succeed, they are just of somewhere
 else.
+
+**Tests that pass on the first run.** `contextLoss.spec.ts` did, which is not
+by itself good news — a context that was never really lost would pass just as
+happily. It was checked the other way round: with `_syncBuffersToLog()` removed
+from the engine's restore handler, all three tests of the day failed, and they
+went green again when it was put back. Worth doing for anything here that
+claims recovery works.
 
 **Sampling density.** `maxDarknessOverRect` samples a grid, and the first
 version used a fixed one. Two strokes far apart make a tall bounding box, ten

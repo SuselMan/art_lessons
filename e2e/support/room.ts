@@ -230,6 +230,44 @@ export async function maxDarknessOverContent(page: Page, layerId: string): Promi
  *  do its own before-and-after. */
 export const INK = 0.12
 
+/** Takes the WebGL context away and gives it back, the way a tablet does.
+ *
+ *  `WEBGL_lose_context` is the browser's own hook for this, and it is the only
+ *  honest way to reach the code under test: the engine's recovery hangs off
+ *  the real `webglcontextlost`/`webglcontextrestored` events, which nothing
+ *  but the browser fires. Against MockGL a test here would prove that a
+ *  handler ran and nothing about whether the drawing came back.
+ *
+ *  The two halves are separate `evaluate` calls on purpose. `loseContext()`
+ *  dispatches its event asynchronously, and the spec only allows
+ *  `restoreContext()` after that event has been delivered — restoring inside
+ *  the same task would either be ignored or race the engine's own handler,
+ *  which is the sort of flake that gets a suite switched off. Waiting on the
+ *  engine's own `contextLost` flag is what makes the handover observable
+ *  rather than timed. */
+export async function loseAndRestoreContext(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const canvas = document.querySelector('canvas')
+    if (!canvas) throw new Error('no canvas')
+    // The same context the engine is holding: getContext returns the one that
+    // already exists rather than making a second.
+    const gl = canvas.getContext('webgl') as WebGLRenderingContext | null
+    const ext = gl?.getExtension('WEBGL_lose_context') as { loseContext(): void; restoreContext(): void } | null
+    if (!ext) throw new Error('WEBGL_lose_context is unavailable — this browser cannot run the test')
+    ;(window as unknown as { __loseCtx?: unknown }).__loseCtx = ext
+    ext.loseContext()
+  })
+
+  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === true, undefined, { timeout: 15_000 })
+
+  await page.evaluate(() => {
+    const ext = (window as unknown as { __loseCtx?: { restoreContext(): void } }).__loseCtx
+    ext!.restoreContext()
+  })
+
+  await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === false, undefined, { timeout: 30_000 })
+}
+
 /** Joins an existing room as a second participant, through the gate. */
 export async function joinRoom(page: Page, roomId: string, name = 'Student'): Promise<void> {
   await page.goto(`/room/${roomId}`)
