@@ -262,6 +262,10 @@ describe('option pickers (#335, #391)', () => {
         // nib is a shape a tool wears, and two tools wearing one shape should
         // not have two names for it.
         'watercolor.nib',
+        // … and, since #501, the charcoal stick's, which is the third tool to
+        // wear one and the first where the round nib is the shipped default
+        // rather than the new option.
+        'charcoal.nib',
         // … and the transform tool's working mode (#391), which is a mode
         // rather than a material but is chosen the same way, and the selection
         // tool's way of drawing a region (#446), which is the same again.
@@ -291,10 +295,11 @@ describe('option pickers (#335, #391)', () => {
         // first select here that answers "relative to what" rather than "which
         // one": it replaced a per-tool boolean and a global app toggle that
         // between them spelled three of these four frames without naming any.
-        // … on both tools that wear a chisel, since #489. The second is not a
-        // second decision: it is the same nib on another tool, so it gets the
-        // same question about what its angle is measured against.
-        'marker.anchor', 'watercolor.anchor'].sort(),
+        // … on every tool that wears a chisel — the second since #489, the
+        // third since #501. None of those is a second decision: it is the same
+        // nib on another tool, so it gets the same question about what its
+        // angle is measured against.
+        'marker.anchor', 'watercolor.anchor', 'charcoal.anchor'].sort(),
     )
   })
 
