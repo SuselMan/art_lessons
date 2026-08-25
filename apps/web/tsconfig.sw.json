@@ -1,0 +1,34 @@
+// (#502) The service worker is app source but not app code: it runs in a
+// worker global where `document` and `window` do not exist, so it cannot be
+// typechecked with the DOM lib the rest of src/ uses — `lib: ["DOM"]` and
+// `lib: ["WebWorker"]` declare the same names with different types and cannot
+// both be loaded.
+//
+// vite-plugin-pwa builds sw.ts with esbuild, which strips types without
+// checking them. Nothing else would look at this file; `npm run typecheck`
+// runs this project explicitly for that reason.
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.sw.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "WebWorker"],
+    "types": [],
+    "skipLibCheck": true,
+
+    /* Bundler mode — same as the app project. */
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src/pwa/sw.ts", "src/pwa/swConfig.ts"]
+}
