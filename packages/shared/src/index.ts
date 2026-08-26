@@ -1055,8 +1055,18 @@ export type AnnotationKind = (typeof ANNOTATION_KINDS)[number]
  *  Coordinates are canvas/world space, exactly like `AreaFillOperation`'s —
  *  the overlay rides the same transform as the canvas, so an annotation stays
  *  glued to the paper through pan/zoom/rotate rather than floating in screen
- *  space. `size` is likewise in canvas units (font size for text, stroke width
- *  for ink), so a remark keeps its size *relative to the drawing*. */
+ *  space.
+ *
+ *  `size` means two different things, and the split is deliberate rather than
+ *  sloppy — it follows what each of the two is:
+ *
+ *   - **ink** is a mark *on* the paper, so its width is in canvas units and it
+ *     grows and shrinks with the drawing, like every stroke does;
+ *   - **text** is a pin stuck in the paper with a note attached, so its size is
+ *     in *screen* pixels and stays legible at any zoom. The point it is pinned
+ *     to is world space; the note hanging off it is interface. A remark you
+ *     cannot read when you zoom out to look at the whole picture is useless at
+ *     exactly the moment you want it, which is what canvas-unit text gave. */
 export type AnnotationShape =
   | { kind: 'text'; x: number; y: number; color: string; size: number; text: string }
   /** `points` is flat `[x0, y0, x1, y1, …]` rather than `{x, y}[]`: an ink
@@ -1082,7 +1092,9 @@ export const MAX_ANNOTATION_TEXT_LENGTH = 500
 export const MAX_ANNOTATION_INK_POINTS = 2000
 
 export const DEFAULT_ANNOTATION_COLOR = '#e5484d'
-export const DEFAULT_ANNOTATION_TEXT_SIZE = 48
+/** Screen pixels — see AnnotationShape on why text is measured differently
+ *  from ink. Sized like body copy, because that is what it is. */
+export const DEFAULT_ANNOTATION_TEXT_SIZE = 15
 export const DEFAULT_ANNOTATION_INK_WIDTH = 8
 
 /** Creates one annotation. `annotationId` is the annotation's own id, distinct

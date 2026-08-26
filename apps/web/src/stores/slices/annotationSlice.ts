@@ -46,6 +46,19 @@ export interface AnnotationSlice {
   annotationsHidden: boolean
   setAnnotationsHidden: (hidden: boolean) => void
 
+  /** (#509 v2) Which notes this reader has folded down to their pin.
+   *
+   *  Local, like `annotationsHidden` and for the same reason: collapsing a
+   *  remark is "let me see the drawing under it", which is a private act. As an
+   *  operation it would fold the note on the author's screen too and land on
+   *  everyone's undo stack, so one participant tidying their own view would be
+   *  editing someone else's.
+   *
+   *  A record rather than a Set because the store is compared by reference per
+   *  field and a mutated Set would not re-render. */
+  collapsedAnnotationIds: Record<string, true>
+  toggleAnnotationCollapsed: (annotationId: string) => void
+
   annotationDraft: AnnotationDraft | null
   openAnnotationDraft: (draft: AnnotationDraft) => void
   setAnnotationDraftText: (text: string) => void
@@ -58,6 +71,14 @@ export const createAnnotationSlice: StateCreator<AnnotationSlice> = set => ({
 
   annotationsHidden: false,
   setAnnotationsHidden: hidden => set({ annotationsHidden: hidden }),
+
+  collapsedAnnotationIds: {},
+  toggleAnnotationCollapsed: annotationId => set(state => {
+    const next = { ...state.collapsedAnnotationIds }
+    if (next[annotationId]) delete next[annotationId]
+    else next[annotationId] = true
+    return { collapsedAnnotationIds: next }
+  }),
 
   annotationDraft: null,
   openAnnotationDraft: draft => set({ annotationDraft: draft }),

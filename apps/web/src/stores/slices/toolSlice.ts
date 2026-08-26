@@ -52,7 +52,7 @@ export const NON_DRAWING_TOOLS = [
   // StrokeOperation, so neither is a `ToolType` and neither reaches that
   // serialized contract. That they lay down a visible line is beside the
   // point — the line is not on a layer.
-  'annotateText', 'annotatePen',
+  'annotateText', 'annotatePen', 'annotateEraser',
 ] as const satisfies readonly UiToolId[]
 
 export type NonDrawingTool = (typeof NON_DRAWING_TOOLS)[number]

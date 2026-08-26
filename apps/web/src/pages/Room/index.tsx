@@ -85,7 +85,7 @@ import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
 import { SelectionOverlay } from './SelectionOverlay'
 import { AnnotationOverlay } from './AnnotationOverlay'
-import { annotationTextAt } from './annotationHitTest'
+import { annotationAt } from './annotationHitTest'
 import { useCompactLayout } from '../../lib/useCompactLayout'
 import { isMeaningfulShape, prepareInkPoints } from '../../lib/annotations'
 import {
@@ -264,6 +264,10 @@ const LIVE_INK_MIN_STEP = 0.75
 /** (#511) How long a press on the hide button counts as "hold to peek" rather
  *  than as a tap that toggles. Past this, releasing brings the notes back. */
 const HOLD_TO_PEEK_MS = 250
+
+/** One shared empty set, so "nothing is being erased" is always the same
+ *  reference and never re-renders the overlay by itself. */
+const EMPTY_ERASING: ReadonlySet<string> = new Set()
 
 /** Simplification tolerance as a fraction of the mark's own stroke width. A
  *  deviation smaller than a quarter of the line drawing it is inside the line,
@@ -659,7 +663,8 @@ export function Room() {
   // annotation overlay, above the composite.
   const annotateTextActive = tool === 'annotateText'
   const annotatePenActive = tool === 'annotatePen'
-  const annotateActive = annotateTextActive || annotatePenActive
+  const annotateEraserActive = tool === 'annotateEraser'
+  const annotateActive = annotateTextActive || annotatePenActive || annotateEraserActive
   // (#512) The compact shell: a phone gets annotations and nothing else. Live,
   // not measured once — see useCompactLayout.
   const compact = useCompactLayout()
@@ -688,6 +693,7 @@ export function Room() {
   const annotationsHidden = useRoomStore(s => s.annotationsHidden)
   const setAnnotationsHidden = useRoomStore(s => s.setAnnotationsHidden)
   const annotationDraft = useRoomStore(s => s.annotationDraft)
+  const collapsedAnnotationIds = useRoomStore(s => s.collapsedAnnotationIds)
   const setAnnotationDraftText = useRoomStore(s => s.setAnnotationDraftText)
   // (#405) The ruler's two settings, from the same TOOL_SCHEMAS store every
   // other tool's live in.
@@ -3947,9 +3953,21 @@ export function Room() {
    *  the line has to appear under the finger as it is drawn, so every sample
    *  re-renders the overlay. */
   const [liveInk, setLiveInk] = useState<{ points: number[]; color: string; size: number } | null>(null)
+  /** Annotations the eraser has swept over this gesture, faded but not yet
+   *  gone — see handleAnnotationEraseDown. */
+  const [erasingIds, setErasingIds] = useState<ReadonlySet<string>>(EMPTY_ERASING)
   /** The rendered annotation layer, so the catcher can hit-test notes against
    *  their real laid-out boxes — see annotationTextAt. */
   const annotationLayerRef = useRef<HTMLDivElement | null>(null)
+  /** The annotation gesture in progress, so a second finger can cancel it.
+   *
+   *  One gesture at a time, and this is what enforces it. Without it every
+   *  finger that landed started its own mark: two fingers meant two lines
+   *  drawn at once instead of the pinch a second finger means everywhere else
+   *  in this app (reported by Ilya). The viewport half of that fix is in
+   *  useViewport — it hands the tool's reserved finger over to the pinch on
+   *  the same pointerdown this cancels the mark on. */
+  const annotationGestureRef = useRef<{ pointerId: number; cancel: () => void } | null>(null)
   /** Read inside the two gesture handlers rather than closed over, so they do
    *  not have to be rebuilt when the shell changes. */
   const annotateWithFingerRef = useRef(false)
@@ -4009,6 +4027,11 @@ export function Room() {
 
   /** A tap on an existing note with the note tool in hand — reopen it for
    *  editing, keeping its own colour and size rather than the toolbar's. */
+  const deleteAnnotations = useCallback((annotationIds: string[]) => {
+    if (!annotationIds.length) return
+    dispatchOp({ type: 'annotation_delete', annotationIds })
+  }, [dispatchOp])
+
   const handleEditAnnotationText = useCallback((annotationId: string) => {
     const annotation = useRoomStore.getState().annotations.items[annotationId]
     if (!annotation || annotation.kind !== 'text') return
@@ -4033,6 +4056,9 @@ export function Room() {
     // did.
     if (e.pointerType === 'touch' && !annotateWithFingerRef.current) return
     if (handActive) return
+    // A second finger is a pinch, not a second note — see annotationGestureRef.
+    const open = annotationGestureRef.current
+    if (open && open.pointerId !== e.pointerId) { open.cancel(); return }
     const el = vpRef.current
     if (!el || !config) return
     e.stopPropagation()
@@ -4043,16 +4069,28 @@ export function Room() {
     // runs after the handler that mounted it. The textarea blurs, `onBlur`
     // commits an empty note, and the tap appears to do nothing at all.
     e.preventDefault()
-    // A press that landed on an existing note edits it instead of starting a
-    // new one on top. Hit-tested here rather than by letting the note be the
-    // event target, because it cannot be one: this catcher sits above the
-    // whole overlay (see AnnotationOverlay's own comment). Same arrangement
-    // the ruler uses.
-    const hit = annotationTextAt(annotationLayerRef.current, e.clientX, e.clientY)
-    if (hit && hit !== useRoomStore.getState().annotationDraft?.annotationId) {
-      handleEditAnnotationText(hit)
+    // What the press landed on decides what it means. Hit-tested here rather
+    // than by letting the note be the event target, because it cannot be one:
+    // this catcher sits above the whole overlay (see AnnotationOverlay's own
+    // comment). Same arrangement the ruler uses.
+    const hit = annotationAt(e.clientX, e.clientY)
+    if (hit?.part === 'delete') {
+      // Committing first would be pointless — and worse, an edit committed on
+      // the way out would land on the undo stack above the deletion.
+      useRoomStore.getState().closeAnnotationDraft()
+      deleteAnnotations([hit.annotationId])
       return
     }
+    if (hit?.part === 'pin') {
+      commitAnnotationDraft()
+      useRoomStore.getState().toggleAnnotationCollapsed(hit.annotationId)
+      return
+    }
+    if (hit?.part === 'bubble' && hit.annotationId !== useRoomStore.getState().annotationDraft?.annotationId) {
+      handleEditAnnotationText(hit.annotationId)
+      return
+    }
+    if (hit) return
     // Commit first: this tap is both "finish that note" and "start this one",
     // and the other order would open a draft that the commit then closes.
     commitAnnotationDraft()
@@ -4068,7 +4106,8 @@ export function Room() {
       text: '',
       ...style,
     })
-  }, [vpRef, config, handActive, commitAnnotationDraft, annotationStyle, handleEditAnnotationText])
+  }, [vpRef, config, handActive, commitAnnotationDraft, annotationStyle, handleEditAnnotationText,
+      deleteAnnotations])
 
 
   /** The annotation pen: one drag, one mark. Same capture-and-listen shape as
@@ -4076,6 +4115,13 @@ export function Room() {
   const handleAnnotationPenDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.pointerType === 'touch' && !annotateWithFingerRef.current) return
     if (handActive) return
+    // The second finger of a pinch. Drop the mark this hand was drawing rather
+    // than start a second one beside it: useViewport has just handed the first
+    // finger over to the gesture, so from here on both belong to the camera.
+    // Dropping rather than committing is the same answer `pointercancel` gets
+    // — the user changed their mind about what the hand was doing.
+    const open = annotationGestureRef.current
+    if (open && open.pointerId !== e.pointerId) { open.cancel(); return }
     const el = vpRef.current
     if (!el || !config) return
     e.stopPropagation()
@@ -4101,6 +4147,12 @@ export function Room() {
       overlay.removeEventListener('pointermove', onMove)
       overlay.removeEventListener('pointerup', onUp)
       overlay.removeEventListener('pointercancel', onCancel)
+      if (annotationGestureRef.current?.pointerId === pointerId) annotationGestureRef.current = null
+      try { overlay.releasePointerCapture(pointerId) } catch { /* already gone */ }
+    }
+    annotationGestureRef.current = {
+      pointerId,
+      cancel: () => { detach(); setLiveInk(null) },
     }
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return
@@ -4137,6 +4189,70 @@ export function Room() {
     overlay.addEventListener('pointerup', onUp)
     overlay.addEventListener('pointercancel', onCancel)
   }, [vpRef, config, handActive, dispatchOp, annotationStyle])
+
+  /** (#510 v2) The annotation eraser: drag across remarks to remove them.
+   *
+   *  Whole annotations, never parts of one. An ink mark here is a path, not
+   *  pixels, so "rub half of it away" would mean splitting a recorded operation
+   *  into two — and the thing being erased is a remark, which is either still
+   *  being made or withdrawn. Undo was the only way to take one back before
+   *  this, which works exactly once and only for the person who made it.
+   *
+   *  One operation for the whole sweep, so one Ctrl+Z brings back everything a
+   *  single gesture took — the same rule `layer_delete` follows for a group. */
+  const handleAnnotationEraseDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch' && !annotateWithFingerRef.current) return
+    if (handActive) return
+    const open = annotationGestureRef.current
+    if (open && open.pointerId !== e.pointerId) { open.cancel(); return }
+    e.stopPropagation()
+    e.preventDefault()
+
+    const overlay = e.currentTarget
+    const pointerId = e.pointerId
+    try { overlay.setPointerCapture(pointerId) } catch { /* context loss */ }
+
+    const doomed = new Set<string>()
+    const eat = (clientX: number, clientY: number) => {
+      const hit = annotationAt(clientX, clientY)
+      if (!hit || doomed.has(hit.annotationId)) return
+      doomed.add(hit.annotationId)
+      // Faded the moment the eraser touches it, not when the gesture ends:
+      // sweeping across five remarks and watching nothing happen until the
+      // finger lifts reads as a tool that is not working.
+      setErasingIds(new Set(doomed))
+    }
+
+    const detach = () => {
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+      overlay.removeEventListener('pointercancel', onCancel)
+      if (annotationGestureRef.current?.pointerId === pointerId) annotationGestureRef.current = null
+      try { overlay.releasePointerCapture(pointerId) } catch { /* already gone */ }
+      setErasingIds(EMPTY_ERASING)
+    }
+    annotationGestureRef.current = { pointerId, cancel: detach }
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      eat(ev.clientX, ev.clientY)
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      const ids = [...doomed]
+      detach()
+      deleteAnnotations(ids)
+    }
+    const onCancel = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      // Decided nothing — the faded remarks come back rather than going.
+      detach()
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
+    overlay.addEventListener('pointercancel', onCancel)
+    eat(e.clientX, e.clientY)
+  }, [handActive, deleteAnnotations])
 
   // (#511) Hide/show, plus hold-to-peek on the same button.
   //
@@ -6123,6 +6239,13 @@ export function Room() {
             aria-pressed={annotatePenActive}
             onClick={() => selectTool('annotatePen')}
           ><Icon name="draw" /></button>
+          <button
+            className={clsx(styles.toolIconBtn, annotateEraserActive && styles.toolIconBtnActive)}
+            title={t('tool.annotateEraserTitle')}
+            aria-label={t('tool.annotateEraser')}
+            aria-pressed={annotateEraserActive}
+            onClick={() => selectTool('annotateEraser')}
+          ><Icon name="ink_eraser" /></button>
           {/* (#511) Hiding is not a tool and never becomes the selection: it
               is a toggle on what is drawn, available under every tool. Shown
               only once there is something to hide — a control that provably
@@ -6155,7 +6278,17 @@ export function Room() {
             .quickSettingsBarMinimal moves it into the corner the header and
             toolbar just vacated instead of .uiHidden fading it out. The
             reasoning lives on that CSS rule. */}
-        <aside className={clsx(styles.quickSettingsBar, uiHidden && styles.quickSettingsBarMinimal, styles.strokeBlockable)}>
+        {/* (#512) In the compact shell minimal UI hides this too, where
+            everywhere else it *moves* it into the corner the chrome vacated
+            (#471). The exception earned its keep on a tablet, where the quick
+            settings are the one thing worth keeping within reach while drawing.
+            On a phone the whole point of minimal UI is the screen, and a rail
+            that stays is the largest thing still on it. */}
+        <aside className={clsx(
+          styles.quickSettingsBar,
+          uiHidden && (compact ? styles.uiHidden : styles.quickSettingsBarMinimal),
+          styles.strokeBlockable,
+        )}>
           {Object.entries(TOOL_SCHEMAS[settingsToolId])
             .filter(([, descriptor]) => descriptor.quickAccess)
             .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
@@ -6362,6 +6495,11 @@ export function Room() {
                 onDraftCommit={commitAnnotationDraft}
                 onDraftCancel={cancelAnnotationDraft}
                 liveInk={liveInk}
+                collapsedIds={collapsedAnnotationIds}
+                erasingIds={erasingIds}
+                zoom={vp.zoom}
+                angle={vp.angle}
+                interactive={annotateActive}
                 layerRef={annotationLayerRef}
               />
             )}
@@ -6446,6 +6584,11 @@ export function Room() {
                 onDraftCommit={commitAnnotationDraft}
                 onDraftCancel={cancelAnnotationDraft}
                 liveInk={liveInk}
+                collapsedIds={collapsedAnnotationIds}
+                erasingIds={erasingIds}
+                zoom={vp.zoom}
+                angle={vp.angle}
+                interactive={annotateActive}
                 layerRef={annotationLayerRef}
               />
             </div>
@@ -6505,6 +6648,9 @@ export function Room() {
           )}
           {annotatePenActive && (
             <div className={styles.canvasCatcher} onPointerDown={handleAnnotationPenDown} />
+          )}
+          {annotateEraserActive && (
+            <div className={styles.canvasCatcher} onPointerDown={handleAnnotationEraseDown} />
           )}
         </div>
 

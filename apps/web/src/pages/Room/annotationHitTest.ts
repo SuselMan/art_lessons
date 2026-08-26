@@ -1,37 +1,59 @@
-/** Marks a committed note in the DOM so Room's catcher can hit-test presses
- *  against the real, already-laid-out box. Written by AnnotationOverlay, read
- *  by `annotationTextAt` — in its own module so neither the component file nor
- *  Room owns a constant the other depends on. */
+/** What a press on an annotation was aimed at. Written onto the overlay's own
+ *  elements and read back by Room's catcher — see `annotationAt`. */
 export const ANNOTATION_ID_ATTR = 'data-annotation-id'
+export const ANNOTATION_PART_ATTR = 'data-annotation-part'
 
-/** Which committed note is under a screen point, topmost first.
+/** Which piece of an annotation a press landed on. The three are genuinely
+ *  different actions, which is why the overlay marks them rather than leaving
+ *  Room to infer one from coordinates:
+ *   - `pin`    — the marker stuck in the drawing: folds the note down or opens
+ *                it back up;
+ *   - `bubble` — the note itself: opens it for editing;
+ *   - `delete` — the bin inside an open note;
+ *   - `ink`    — a pen mark, which only the eraser has anything to do with. */
+export type AnnotationPart = 'pin' | 'bubble' | 'delete' | 'ink'
+
+export interface AnnotationHit {
+  annotationId: string
+  part: AnnotationPart
+}
+
+function isPart(value: string | null): value is AnnotationPart {
+  return value === 'pin' || value === 'bubble' || value === 'delete' || value === 'ink'
+}
+
+/** Which annotation — and which part of it — is under a screen point.
  *
- *  This exists because a note can never be the event target. The annotation
- *  layer lives inside `.worldOverlayWrap`, whose own `transform` makes it a
- *  stacking context, and the tool's `.canvasCatcher` sits above the whole
- *  thing at z-index 4 inside `.viewport` — so no z-index in the overlay can
- *  climb out to meet a press. Hit-testing from the catcher instead is the
- *  arrangement the ruler already uses, for the same reason.
+ *  This exists because an annotation can never be the event target itself. The
+ *  overlay lives inside `.worldOverlayWrap`, whose own `transform` makes it a
+ *  stacking context, and the tool's `.canvasCatcher` sits above the whole thing
+ *  at z-index 4 inside `.viewport` — so no z-index in the overlay can climb out
+ *  to meet a press. Hit-testing from the catcher instead is the arrangement the
+ *  ruler already uses, for the same reason.
  *
- *  Measures the notes as laid out rather than recomputing their boxes from
- *  text length and wrap width: the browser has already done that arithmetic,
- *  and a second version of it would be a second answer that drifts from what
- *  is on screen. Iterated last-to-first because the last note in `order` is
- *  drawn on top, and a press should reach what the eye sees.
+ *  `elementsFromPoint` rather than walking the annotations and comparing
+ *  rectangles, which is what this did first. Three things fall out of using the
+ *  browser's own hit test:
+ *   - a bin icon 20px across is hit exactly, where a bounding-box test would
+ *     have needed its own geometry;
+ *   - an ink mark is hit along its actual stroke instead of across the whole
+ *     box its path happens to span — a diagonal scribble's box is mostly empty;
+ *   - rotation and zoom are already accounted for, because the browser is
+ *     testing the elements as drawn rather than as they would be at zoom 1.
  *
- *  `getBoundingClientRect` reports an axis-aligned box, so on a rotated canvas
- *  the hit area is a note's bounding box rather than its rotated rectangle.
- *  Deliberately accepted: the error shows only at large rotations, it can only
- *  ever make a note *easier* to hit, and the alternative is inverting the
- *  viewport matrix here to re-derive geometry the DOM already knows. */
-export function annotationTextAt(root: HTMLElement | null, clientX: number, clientY: number): string | null {
-  if (!root) return null
-  const nodes = root.querySelectorAll<HTMLElement>(`[${ANNOTATION_ID_ATTR}]`)
-  for (let i = nodes.length - 1; i >= 0; i--) {
-    const rect = nodes[i].getBoundingClientRect()
-    if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-      return nodes[i].getAttribute(ANNOTATION_ID_ATTR)
-    }
+ *  The overlay's elements are `pointer-events: none` unless an annotation tool
+ *  is in hand (see AnnotationOverlay's `interactive`), and `elementsFromPoint`
+ *  honours that — so under the pencil this returns null for everything and a
+ *  stroke aimed at the paper is never eaten by a note lying on it. */
+export function annotationAt(clientX: number, clientY: number): AnnotationHit | null {
+  if (typeof document === 'undefined') return null
+  for (const el of document.elementsFromPoint(clientX, clientY)) {
+    const part = el.getAttribute(ANNOTATION_PART_ATTR)
+    const annotationId = el.getAttribute(ANNOTATION_ID_ATTR)
+    // Topmost first, and the loop stops at the first annotation piece it finds:
+    // the note drawn on top is the one the eye sees, so it is the one a press
+    // should reach.
+    if (annotationId && isPart(part)) return { annotationId, part }
   }
   return null
 }

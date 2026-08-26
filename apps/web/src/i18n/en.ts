@@ -512,6 +512,8 @@ export const en = {
   'tool.annotateTitle': 'Note — tap the drawing and write a remark over it. Notes are not part of the picture',
   'tool.annotatePen': 'Annotation pen',
   'tool.annotatePenTitle': 'Annotation pen — circle or point at something over the drawing. Marks are not part of the picture',
+  'tool.annotateEraser': 'Annotation eraser',
+  'tool.annotateEraserTitle': 'Annotation eraser — drag over notes and pen marks to remove them. It never touches the drawing',
   'room.annotationsHide': 'Hide notes',
   'room.annotationsShow': 'Show notes',
 

@@ -42,7 +42,7 @@ export type UiToolId =
   // (#509, #510) The two annotation tools. They are UiToolIds and deliberately
   // not ToolTypes: neither emits a StrokeOperation, and neither puts anything
   // in a layer — see packages/shared's annotation contract.
-  | 'annotateText' | 'annotatePen'
+  | 'annotateText' | 'annotatePen' | 'annotateEraser'
 
 export type SettingValueType =
   | {
@@ -1161,12 +1161,15 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     // drawing rather than to the screen — the same rule the note's position
     // follows. The range starts well above a UI font size because canvas units
     // are not screen ones: on an A3 sheet, 16 of them is a speck.
+    // Screen pixels, not canvas ones — the note is a pin with a bubble hanging
+    // off it, and the bubble is interface (see the annotation contract). So the
+    // range is the range of readable body copy, not of brush widths.
     size: {
       nameKey: 'tool.field.size',
-      valueType: { kind: 'numberRange', min: 12, max: 200, step: 1, format: pxFormat, scale: expScale },
+      valueType: { kind: 'numberRange', min: 11, max: 28, step: 1, format: pxFormat },
       uiControls: ['slider', 'input'],
       quickAccess: true,
-      default: 48,
+      default: 15,
     },
   },
   annotatePen: {
@@ -1185,6 +1188,10 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       default: 8,
     },
   },
+  // (#510 v2) No settings at all, like the hand: an eraser that removes whole
+  // remarks has no width to set — what it takes is decided by what it touches,
+  // not by how big it is.
+  annotateEraser: {},
 }
 
 export type ToolSettingsValue = Record<string, SettingDescriptor['default']>

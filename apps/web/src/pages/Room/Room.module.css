@@ -1298,41 +1298,101 @@ a.gateSubmit {
   pointer-events: none;
 }
 
-/* A committed note and the editor that produced it must be the same box, or
-   the text reflows the moment it is committed — so these two rules share every
-   property that can move a line break: font, size, wrapping and width (width
-   is set inline, from the note's own size). */
-.annotationText,
-.annotationInput {
+/* (#509 v2) A note is a pin stuck in the drawing with a bubble hanging off it.
+   Both cancel the wrapper's scale and rotation inline (see AnnotationOverlay's
+   `pinned`), so everything below is measured in plain screen pixels and holds
+   its size at any zoom — the same counter-transform .rulerDistanceLabel uses.
+
+   Painted entirely from theme tokens rather than from the annotation's own
+   colour: a bubble is interface, and interface belongs to whoever is *reading*
+   it. The author's colour is kept for the two things that identify the remark —
+   the pin and the bubble's left edge — which is enough to tell two people's
+   notes apart without printing a coloured paragraph on a coloured page and
+   hoping the contrast survives both themes. */
+.annotationPin {
   position: absolute;
-  margin: 0;
-  padding: 0;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  border-radius: 50%;
+  /* A ring in the page's own surface colour, so the pin reads against graphite
+     and against blank paper alike — the same two-tone trick .selectionOutline
+     uses on the selection marquee, which has the same problem. */
+  box-shadow: 0 0 0 2px var(--color-surface), var(--shadow-sm);
+  cursor: pointer;
+}
+
+.annotationBubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
   font-family: var(--font-ui, system-ui, sans-serif);
-  font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.35;
   white-space: pre-wrap;
   overflow-wrap: break-word;
-  /* Notes are laid over a drawing, which is mostly graphite on paper but can
-     be anything. A halo in the opposite direction of the ink keeps a remark
-     legible over both without tinting its colour. */
-  paint-order: stroke;
-  -webkit-text-stroke: 0.06em var(--color-surface, #fff);
+  box-shadow: var(--shadow-md);
+  cursor: text;
 }
 
-.annotationText {
-  pointer-events: none;
+.annotationBubbleText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The bin. Dim until the note is hovered, because it sits inside a box whose
+   whole job is to be read: an always-bright destructive control next to two
+   lines of text reads as part of the sentence. */
+.annotationBubbleDelete {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  margin: -2px -2px 0 0;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-faint);
+  font-size: 16px;
+  cursor: pointer;
+  transition: color var(--duration-fast, 120ms) ease, background var(--duration-fast, 120ms) ease;
+}
+
+.annotationBubble:hover .annotationBubbleDelete {
+  color: var(--color-text-dim);
+}
+
+.annotationBubbleDelete:hover {
+  color: var(--color-danger, #e5484d);
+  background: var(--color-surface-hover);
+}
+
+.annotationBubbleEditing {
+  cursor: auto;
 }
 
 .annotationInput {
-  pointer-events: auto;
-  background: transparent;
+  width: 100%;
+  min-width: 140px;
+  margin: 0;
+  padding: 0;
   border: none;
   outline: none;
   resize: none;
   overflow: hidden;
-  /* The caret is the only thing marking an empty note's position, so it must
-     not be the browser's default 1px hairline at 8x zoom. */
-  caret-color: currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  caret-color: var(--color-accent);
 }
 
 /* (#512) The two left rails as one column on a phone.
@@ -1385,4 +1445,12 @@ a.gateSubmit {
    The settings half drops its top padding and lets the divider do the work. */
 .toolRailCompact .quickSettingsBar {
   padding-top: 0;
+}
+
+/* A note pinned near the right edge hangs off to the left instead. The accent
+   edge moves with it, so it always sits on the side the pin is on — the edge is
+   what points back at what the note is about. */
+.annotationBubbleFlipped {
+  border-left: 1px solid var(--color-border);
+  border-right: 3px solid var(--color-accent);
 }

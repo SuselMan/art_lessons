@@ -467,12 +467,16 @@ describe('slider scales (#390)', () => {
   it('makes exactly the continuous px size fields exponential', () => {
     const exponential = numberFields.filter(f => f.valueType.scale === expScale).map(f => `${f.toolId}.${f.key}`)
     expect(exponential.sort()).toEqual([
-      // (#509/#510) The annotation sizes are continuous px sizes like the
-      // rest — they are canvas units rather than brush widths, but the reason
-      // for the scale is the same: the useful part of a 12..200 range is
-      // bunched at the bottom, and a linear track spends most of itself on
-      // sizes nobody picks.
-      'annotatePen.size', 'annotateText.size',
+      // (#510) The annotation pen's width is a canvas-unit size like the brush
+      // widths above, and gets the scale for the same reason: the useful part
+      // of the range is bunched at the bottom.
+      //
+      // (#509 v2) Its text counterpart deliberately is *not* here. A note's
+      // size is in screen pixels — the bubble is interface, not a mark — so the
+      // range is 11..28, the range of readable body copy. A logarithm over a
+      // range that narrow is indistinguishable from a straight line, and the
+      // scale is claimed by this list to mean something.
+      'annotatePen.size',
       'brushPen.size', 'charcoal.size', 'colorPencil.size', 'eraser.size', 'marker.size', 'pencil.size',
       'smudge.size', 'watercolor.size',
     ])
