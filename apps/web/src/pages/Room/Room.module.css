@@ -184,6 +184,20 @@
 }
 .headerIconBtn:hover { color: var(--color-text); background: var(--color-surface-2); }
 
+/* (#509 v4) A header button that is a *mode*, not an action — lit while it is
+   on, the way the toolbar lights the tool in hand. The two controls it exists
+   for (annotation mode, hide notes) are the first here that have an on state:
+   everything else up there fires once and is done. */
+.headerIconBtnActive {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.headerIconBtnActive:hover {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
 .roomName {
   font-size: 14px;
   font-weight: 500;

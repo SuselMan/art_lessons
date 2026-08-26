@@ -34,6 +34,7 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'draw': '\u{e746}',
   'drag_indicator': '\u{e945}',
   'edit': '\u{e150}',
+  'edit_note': '\u{e745}',
   'error': '\u{e000}',
   'expand_more': '\u{e5cf}',
   'fit_screen': '\u{ea10}',

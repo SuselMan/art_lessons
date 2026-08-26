@@ -670,6 +670,8 @@ export function Room() {
   const annotateTextActive = tool === 'annotateText'
   const annotatePenActive = tool === 'annotatePen'
   const annotateEraserActive = tool === 'annotateEraser'
+  const annotationMode = useRoomStore(s => s.annotationMode)
+  const setAnnotationMode = useRoomStore(s => s.setAnnotationMode)
   const annotateActive = annotateTextActive || annotatePenActive || annotateEraserActive
   // What the tool in hand may pick up — see AnnotationOverlay's `hitTargets`.
   // The pen picks up nothing, the note tool everything but ink (so a remark can
@@ -678,6 +680,11 @@ export function Room() {
   // (#512) The compact shell: a phone gets annotations and nothing else. Live,
   // not measured once — see useCompactLayout.
   const compact = useCompactLayout()
+  /** (#509 v4) Whether the left rail is showing annotation tools instead of
+   *  drawing ones. Two routes in and they are deliberately different things:
+   *  the compact shell *is* this and cannot leave it, while the full layout
+   *  enters and leaves it through the header's own toggle. */
+  const annotationRail = compact || annotationMode
   // Finger-drawing is switched on by the compact shell and by nothing else.
   // On a tablet a finger still pans, so the annotation tools stay pen-and-mouse
   // there exactly like the fill and the selection — which is what keeps the
@@ -4456,6 +4463,34 @@ export function Room() {
     setAnnotationsHidden(!useRoomStore.getState().annotationsHidden)
   }, [setAnnotationsHidden])
 
+  /** (#509 v4) Enter or leave annotation mode, carrying the tool with it.
+   *
+   *  Switching the rail without switching the tool would leave a pencil in hand
+   *  under a toolbar that no longer shows one — the same trap the compact shell
+   *  had to avoid (see below), where every tap would lay graphite the user can
+   *  neither see a tool for nor switch away from.
+   *
+   *  Leaving restores whatever was in hand on the way in, rather than picking
+   *  some default: annotating is an interruption of drawing, and an
+   *  interruption should give back what it borrowed. */
+  const toolBeforeAnnotationRef = useRef<EditorTool | null>(null)
+  const toggleAnnotationMode = useCallback((next: boolean) => {
+    const current = useRoomStore.getState().tool
+    if (next) {
+      if (current !== 'annotateText' && current !== 'annotatePen' && current !== 'annotateEraser') {
+        toolBeforeAnnotationRef.current = current
+      }
+      setAnnotationMode(true)
+      selectTool('annotateText')
+      return
+    }
+    setAnnotationMode(false)
+    // An open note would otherwise be left hanging with no way back to it.
+    commitAnnotationDraft()
+    selectTool(toolBeforeAnnotationRef.current ?? 'pencil')
+    toolBeforeAnnotationRef.current = null
+  }, [setAnnotationMode, selectTool, commitAnnotationDraft])
+
   // (#512) The compact shell has no drawing tools on screen, so it must not
   // leave one in hand: a phone opening with the pencil selected would react to
   // every tap by drawing graphite the user cannot see a tool for and cannot
@@ -6122,6 +6157,41 @@ export function Room() {
             <Icon name="redo" />
           </button>
 
+          {/* (#509 v4) Annotations, as a pair: the mode toggle and the local
+              hide. Up here rather than in the rail because neither is a tool —
+              one decides *which* tools the rail offers, the other decides
+              whether anyone's remarks are on screen at all — and because this
+              panel is where the editor's modes already live.
+
+              The toggle is absent in the compact shell: there the whole
+              interface is annotation mode and there is nothing to switch to. */}
+          {(!compact || annotations.order.length > 0) && <div className={styles.headerDivider} />}
+          {!compact && (
+            <button
+              className={clsx(styles.headerIconBtn, annotationMode && styles.headerIconBtnActive)}
+              onClick={() => toggleAnnotationMode(!annotationMode)}
+              title={t('room.annotationModeTitle')}
+              aria-label={t('room.annotationMode')}
+              aria-pressed={annotationMode}
+            >
+              <Icon name="edit_note" />
+            </button>
+          )}
+          {/* Shown only once there is something to hide — a control that
+              provably does nothing is worse than no control. */}
+          {annotations.order.length > 0 && (
+            <button
+              className={clsx(styles.headerIconBtn, annotationsHidden && styles.headerIconBtnActive)}
+              title={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
+              aria-label={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
+              aria-pressed={annotationsHidden}
+              onPointerDown={handleAnnotationPeekDown}
+              onPointerUp={handleAnnotationPeekUp}
+              onPointerCancel={handleAnnotationPeekUp}
+              onClick={handleAnnotationsToggle}
+            ><Icon name={annotationsHidden ? 'visibility_off' : 'visibility'} /></button>
+          )}
+
           {/* (#321) A second way into minimal UI, next to the tap that is
               otherwise its only entrance — a tap on the canvas is easy to
               discover by accident and hard to discover on purpose. Only shown
@@ -6220,7 +6290,7 @@ export function Room() {
               someone else's work, and a column of tools that cannot be used on
               a screen this size is worse than no column. Undo/redo, the view
               controls and the annotation tools below stay. */}
-          {!compact && (<>
+          {!annotationRail && (<>
           {/* The gradeHotkeyLabels keys step the pencil's hardness along the
               6H..6B ladder; [ / ] resize whichever tool is active (handled by
               the quick-settings panel to the right, not here). */}
@@ -6400,10 +6470,12 @@ export function Room() {
               onClick={() => selectTool('hand')}
             ><Icon name="pan_tool" /></button>
           )}
-          {/* (#509/#510, эпик #87) The two annotation tools, last in the
-              column and next to each other on purpose: they are the only
-              tools here that do not touch the drawing at all, and grouping
-              them says so before any tooltip does. */}
+          {/* (#509/#510, эпик #87) The annotation tools. They used to sit at
+              the bottom of the full toolbar, under the drawing tools, and read
+              as three more brushes — which is the opposite of what they are.
+              Now they are a mode: the rail shows these *or* the drawing tools,
+              never both, and the header says which. */}
+          {annotationRail && (<>
           <button
             className={clsx(styles.toolIconBtn, annotateTextActive && styles.toolIconBtnActive)}
             title={t('tool.annotateTitle')}
@@ -6425,22 +6497,8 @@ export function Room() {
             aria-pressed={annotateEraserActive}
             onClick={() => selectTool('annotateEraser')}
           ><Icon name="ink_eraser" /></button>
-          {/* (#511) Hiding is not a tool and never becomes the selection: it
-              is a toggle on what is drawn, available under every tool. Shown
-              only once there is something to hide — a control that provably
-              does nothing is worse than no control. */}
-          {annotations.order.length > 0 && (
-            <button
-              className={clsx(styles.toolIconBtn, annotationsHidden && styles.toolIconBtnActive)}
-              title={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
-              aria-label={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
-              aria-pressed={annotationsHidden}
-              onPointerDown={handleAnnotationPeekDown}
-              onPointerUp={handleAnnotationPeekUp}
-              onPointerCancel={handleAnnotationPeekUp}
-              onClick={handleAnnotationsToggle}
-            ><Icon name={annotationsHidden ? 'visibility_off' : 'visibility'} /></button>
-          )}
+          </>)}
+
 
         </aside>
 

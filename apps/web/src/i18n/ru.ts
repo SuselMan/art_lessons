@@ -416,6 +416,8 @@ export const ru: Dictionary = {
   'tool.annotatePenTitle': 'Перо аннотаций — обвести или показать что-то поверх рисунка. Пометки не часть картинки',
   'tool.annotateEraser': 'Ластик аннотаций',
   'tool.annotateEraserTitle': 'Ластик аннотаций — проведите по заметкам и пометкам, чтобы убрать их. Рисунок не трогает',
+  'room.annotationMode': 'Аннотации',
+  'room.annotationModeTitle': 'Аннотации — меняет панель инструментов на заметки и перо аннотаций. Ничто здесь не трогает рисунок',
   'room.annotationsHide': 'Скрыть заметки',
   'room.annotationsShow': 'Показать заметки',
 

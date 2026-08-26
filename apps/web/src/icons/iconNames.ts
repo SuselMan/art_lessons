@@ -40,6 +40,7 @@ export const MATERIAL_ICON_NAMES = [
   'draw',
   'drag_indicator',
   'edit',
+  'edit_note',
   'error',
   'expand_more',
   'fit_screen',

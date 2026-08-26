@@ -46,6 +46,22 @@ export interface AnnotationSlice {
   annotationsHidden: boolean
   setAnnotationsHidden: (hidden: boolean) => void
 
+  /** (#509 v4) Whether the editor is in annotation mode: the left rail drops
+   *  the drawing tools and offers the annotation ones instead.
+   *
+   *  A mode rather than three more buttons at the bottom of the rail, because
+   *  that is what it actually is — annotating and drawing are different jobs
+   *  done at different moments, and the tools that do them have nothing to say
+   *  to each other. Tacked onto the end of the toolbar they read as two more
+   *  brushes (Ilya, on seeing them there).
+   *
+   *  Local and per-session, like `annotationsHidden`: which job you are doing
+   *  right now is nobody else's business, and it should not survive into the
+   *  next room. The compact shell is permanently in this mode and does not use
+   *  this flag — there the whole shell *is* annotation mode. */
+  annotationMode: boolean
+  setAnnotationMode: (mode: boolean) => void
+
   /** (#509 v2) Which notes this reader has folded down to their pin.
    *
    *  Local, like `annotationsHidden` and for the same reason: collapsing a
@@ -71,6 +87,9 @@ export const createAnnotationSlice: StateCreator<AnnotationSlice> = set => ({
 
   annotationsHidden: false,
   setAnnotationsHidden: hidden => set({ annotationsHidden: hidden }),
+
+  annotationMode: false,
+  setAnnotationMode: mode => set({ annotationMode: mode }),
 
   collapsedAnnotationIds: {},
   toggleAnnotationCollapsed: annotationId => set(state => {
