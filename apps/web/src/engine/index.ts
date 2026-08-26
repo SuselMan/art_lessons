@@ -8,8 +8,10 @@ import {
 } from './src/paperLoader'
 import { AccumulationBuffer } from './src/AccumulationBuffer'
 import {
-  charcoalPresetFor, CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY,
-  type CharcoalPreset, type CharcoalType,
+  charcoalPresetFor, charcoalNibFromPreset, charcoalPresetString,
+  CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY, isCharcoalType,
+  CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, isCharcoalNib,
+  type CharcoalPreset, type CharcoalType, type CharcoalNib,
 } from './src/charcoalPresets'
 import {
   CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, charcoalBroadness, charcoalBroadDensity,
@@ -20,7 +22,7 @@ import {
   DEFAULT_NIB_ANCHOR, NIB_ANCHORS, isNibAnchor, shapingForTool, type NibAnchor,
 } from './src/dabShaping'
 import { tipFootprint } from './src/tipFootprint'
-import { dabDepositScale, isFootprintSpacedTool } from './src/dabSpacing'
+import { dabDepositScale, isFootprintSpacedTool, type DabSpacingBounds } from './src/dabSpacing'
 import {
   PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
   type PencilTiltConfig,
@@ -85,8 +87,12 @@ export type { RulerLine }
 export { PENCIL_PRESETS, PENCIL_GRADES, GRAPHITE_GRAIN_DEFAULT, type PencilGradeName, type PencilPreset }
 export { LINER_SIZES_MM, type LinerSizeMm }
 export {
-  CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY,
-  type CharcoalType, type CharcoalPreset,
+  CHARCOAL_TYPES, DEFAULT_CHARCOAL_TYPE, CHARCOAL_GRAIN_STREAKY, isCharcoalType,
+  // #501: the nib list and the string that carries it, for the settings panel
+  // that offers them — same split as watercolor's below (what a nib *is*
+  // belongs to the engine, how it is labelled and offered belongs to the UI).
+  CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, isCharcoalNib, charcoalNibFromPreset, charcoalPresetString,
+  type CharcoalType, type CharcoalPreset, type CharcoalNib,
 }
 export { CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, type CharcoalFeelConfig }
 export { PENCIL_TILT, PENCIL_TILT_SLIDERS, type PencilTiltConfig }
@@ -5251,10 +5257,11 @@ export class PencilEngine implements PencilEngineAPI {
     // What that leaves knowingly unfixed: the round nib reaches 1.4:1 at full
     // tilt and does scallop a little there. Nobody has reported it, and quietly
     // re-spacing a shipped tool to chase it is a worse trade than leaving it.
-    const wcNib = this._strokeTool === 'watercolor'
-      ? watercolorNibFromPreset(this._opts.pencilType)
-      : null
-    this._dabs.nibScallop = wcNib !== null && wcNib !== 'round'
+    //
+    // #501: and charcoal's chisel, which wants this *and* the footprint rule —
+    // it is a stamped mark, so its gaps are real holes, and it is an elongated
+    // nib, so its silhouette scallops. Both bounds compose in _spacingAfter.
+    this._dabs.nibScallop = this._nibScallops(this._strokeTool, this._opts.pencilType)
       ? { sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType) }
       : null
     this._strokePreset  = this._opts.pencilType
@@ -5608,6 +5615,22 @@ export class PencilEngine implements PencilEngineAPI {
     return tool === 'eraser' ? 1.0 : this._resolvePreset(tool, presetName).sizeMultiplier
   }
 
+  /** (#489/#501) Whether this stroke's nib takes #485's scallop bound — see
+   *  DabSystem.nibScallop for the whole argument, including why the marker's
+   *  own 5:1 chisel deliberately does not.
+   *
+   *  A property of the *nib*, not of the tool, which is why it is a lookup on
+   *  the preset string rather than a list of tool names: the same tool spaces
+   *  its round nib one way and its elongated one another, and the round ones
+   *  have shipped. Two stated here rather than one flag per tool for the reason
+   *  _resolvePreset's own inkMode comment gives: two switches for one question
+   *  drift apart. */
+  private _nibScallops(tool: ToolType, presetName: string): boolean {
+    if (tool === 'watercolor') return watercolorNibFromPreset(presetName) !== 'round'
+    if (tool === 'charcoal') return charcoalNibFromPreset(presetName) === 'chisel'
+    return false
+  }
+
   /** Which computeGrain variant (DAB_FRAG's u_grainMode) this draw should use.
    *
    *  Each material carries its own shipped default — GRAPHITE_GRAIN_DEFAULT
@@ -5650,6 +5673,19 @@ export class PencilEngine implements PencilEngineAPI {
     // Null (and therefore free) for every tool still on the old spacing rule,
     // where the ratio would be exactly 1 by construction.
     const sizeScale = isFootprintSpacedTool(tool) ? this._dabSizeScale(tool, presetName) : null
+    // #501: which bounds actually shaped this stroke's step. The deposit is
+    // divided by the step the dabs were *really* spaced at, so this has to be
+    // the same pair DabSystem was given at _onStart — a chisel spaced by the
+    // scallop bound but normalised by the footprint rule alone would simply
+    // paint darker, in proportion to how much the extra bound tightened it.
+    const spacingBounds: DabSpacingBounds = { footprint: true, scallop: this._nibScallops(tool, presetName) }
+    // #501: the flat nib's elongation is a property of the cut, not of how far
+    // the stick is laid over — and its contact patch is *smaller* than the
+    // round end face, not larger, so charcoal's broad-side lightening reads it
+    // exactly backwards. Zero here, and 0 passed as u_charcoalBroadAspect at
+    // paint time, so the shader's own copy of the same derivation agrees
+    // (charcoalBroadness' comment on why the two must not disagree).
+    const chiselNib = tool === 'charcoal' && charcoalNibFromPreset(presetName) === 'chisel'
     const baseSize  = this._physicalSize
     for (const dab of dabs) {
       if (tool === 'eraser') dab.opacity = opacity
@@ -5735,7 +5771,7 @@ export class PencilEngine implements PencilEngineAPI {
       // so it can't disagree with the geometry actually being drawn (see
       // charcoalBroadness' own comment).
       else if (tool === 'charcoal') {
-        const broadness = charcoalBroadness(dab.aspectRatio)
+        const broadness = chiselNib ? 0 : charcoalBroadness(dab.aspectRatio)
         dab.opacity = preset.opacity * opacity * speedFactor * charcoalBroadDensity(broadness)
       }
       // Graphite (#389). The tilt term is the counterpart of charcoal's
@@ -5759,7 +5795,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (sizeScale !== null) {
         dab.opacity *= dabDepositScale(
           { size: dab.size, aspectRatio: dab.aspectRatio, sizeScale, hardness: preset.hardness },
-          baseSize, this._dabs.spacingFactor)
+          baseSize, this._dabs.spacingFactor, spacingBounds)
       }
     }
   }
@@ -6289,6 +6325,15 @@ export class PencilEngine implements PencilEngineAPI {
     // tool, in which case the paint methods below leave their uniforms at 0
     // (never read outside DAB_FRAG's u_inkMode>4.5 branch).
     const charcoal: CharcoalPreset | null = tool === 'charcoal' ? charcoalPresetFor(presetName) : null
+    // #501: the aspect DAB_FRAG reads as "fully on its broad side", and 0 for a
+    // draw where elongation means nothing of the kind — every non-charcoal
+    // tool, as before, and now also charcoal's own chisel, whose 4:1 is the cut
+    // of the nib rather than a stick laid over. The shader already treats
+    // anything <= 1 as broadness 0, which is the hook this rides; the CPU side
+    // zeroes the same term in _bakeDabOpacity, and the two must agree.
+    const broadAspect = charcoal !== null && charcoalNibFromPreset(presetName) !== 'chisel'
+      ? CHARCOAL_FEEL.aspectMax
+      : 0
     const preset  = this._resolvePreset(tool, presetName)
     // #452 (ADR 003 §4): only the liner's dabs are grown past their own radius
     // to hold the band of ink absorbed into the paper around the mark. Derived
@@ -6332,9 +6377,9 @@ export class PencilEngine implements PencilEngineAPI {
       // _paintDabsInstanced's docstring for why this preserves the exact
       // sequential per-dab blend order the fallback loop below relies on.
       if (this._instancedArraysExt) {
-        this._paintDabsInstanced(tileDabs, erasing, inkMode, charcoal, preset, color, buffer.width, buffer.height, originX, originY, wicking)
+        this._paintDabsInstanced(tileDabs, erasing, inkMode, charcoal, broadAspect, preset, color, buffer.width, buffer.height, originX, originY, wicking)
       } else {
-        this._paintDabsUniform(tileDabs, erasing, inkMode, charcoal, preset, color, buffer.width, buffer.height, originX, originY, wicking)
+        this._paintDabsUniform(tileDabs, erasing, inkMode, charcoal, broadAspect, preset, color, buffer.width, buffer.height, originX, originY, wicking)
       }
 
       buffer.endDraw()
@@ -6356,7 +6401,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  space (bounded: always (0,0), so this is a no-op there). */
   private _paintDabsUniform(
     dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
-    preset: PencilPreset, color: [number, number, number],
+    broadAspect: number, preset: PencilPreset, color: [number, number, number],
     resW: number, resH: number, originX: number, originY: number, wicking: boolean,
   ): void {
     const { gl } = this
@@ -6399,8 +6444,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
     // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
     // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
-    // tiltSmoothing is a getter.
-    gl.uniform1f(u.u_charcoalBroadAspect, charcoal ? CHARCOAL_FEEL.aspectMax : 0)
+    // tiltSmoothing is a getter. Still true of broadAspect, which the caller
+    // reads off the same live object one draw earlier (#501).
+    gl.uniform1f(u.u_charcoalBroadAspect, broadAspect)
     gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
     gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
     gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)
@@ -6449,7 +6495,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  vertex attribute read per dab out of a single buffer uploaded once. */
   private _paintDabsInstanced(
     dabs: Dab[], erasing: boolean, inkMode: number, charcoal: CharcoalPreset | null,
-    preset: PencilPreset, color: [number, number, number],
+    broadAspect: number, preset: PencilPreset, color: [number, number, number],
     resW: number, resH: number, originX: number, originY: number, wicking: boolean,
   ): void {
     const { gl } = this
@@ -6487,8 +6533,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_charcoalDust,    charcoal?.dust    ?? 0)
     // #305: read live off CHARCOAL_FEEL (the debug overlay mutates it in
     // place), not captured once — same reason CHARCOAL_DAB_SHAPING's own
-    // tiltSmoothing is a getter.
-    gl.uniform1f(u.u_charcoalBroadAspect, charcoal ? CHARCOAL_FEEL.aspectMax : 0)
+    // tiltSmoothing is a getter. Still true of broadAspect, which the caller
+    // reads off the same live object one draw earlier (#501).
+    gl.uniform1f(u.u_charcoalBroadAspect, broadAspect)
     gl.uniform1f(u.u_charcoalBroadGrain,  charcoal ? CHARCOAL_FEEL.broadGrainBoost : 0)
     gl.uniform1f(u.u_charcoalPressFloor,  charcoal ? CHARCOAL_FEEL.pressureFloor : 0)
     gl.uniform1f(u.u_charcoalPressGamma,  charcoal ? CHARCOAL_FEEL.pressureGamma : 1)

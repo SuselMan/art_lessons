@@ -111,5 +111,72 @@ export const DEFAULT_CHARCOAL_TYPE: CharcoalType = 'willow'
  *  with a type this build doesn't know still renders as charcoal rather than
  *  silently as an HB pencil. */
 export function charcoalPresetFor(presetName: string): CharcoalPreset {
-  return isCharcoalType(presetName) ? CHARCOAL_PRESETS[presetName] : CHARCOAL_PRESETS[DEFAULT_CHARCOAL_TYPE]
+  // #501: the string carries the nib after the type now (`willow:chisel`), so
+  // the type is field 0 rather than the whole of it. A stroke recorded before
+  // that has no colon and field 0 is the entire string, which is why this reads
+  // the same value out of both spellings instead of needing a version flag.
+  const type = presetName.split(':')[0] ?? ''
+  return isCharcoalType(type) ? CHARCOAL_PRESETS[type] : CHARCOAL_PRESETS[DEFAULT_CHARCOAL_TYPE]
+}
+
+// ─── Nibs (#501) ────────────────────────────────────────────────────────────
+//
+// Until #501 the stick had exactly one shape and it was never named: a round
+// end face that stretches along the lean, up to 8:1 (charcoalFeel.ts). That is
+// an honest model of a round vine stick and it was the only one on offer —
+// while a compressed stick of square section, worked on its cut edge, is
+// exactly how the broad calligraphic passages of a charcoal drawing are laid
+// down. #482 made a nib a shape a tool wears rather than a property of the
+// marker, and #489 put a second tool in one; this is the third.
+//
+//   bullet  today's stick, unchanged and the default — every stroke recorded
+//           before this issue replays as it.
+//   chisel  a flat edge held at a set angle: fixed elongation, angle from the
+//           chosen frame (dabShaping.ts's NIB_ANCHORS), tilt ignored.
+//
+// Why the chisel ignores tilt, stated plainly because it is the one thing a
+// charcoal user would expect it to do: a nib angle and a tilt-driven
+// elongation axis are two answers to the same question. The bullet elongates
+// *along the lean*, so the lean picks the direction; the chisel's direction is
+// the setting. What a real cut stick does under lean is roll onto its face and
+// widen the band, which is a change to the *width*, not the direction — and
+// expressing it needs the tilt azimuth inside DabShapingProfile.size/aspect,
+// which only get the magnitude. That interface widening is already deferred
+// once, for the flat watercolor nib (#489), and both nibs want the same answer.
+export const CHARCOAL_NIBS = ['bullet', 'chisel'] as const
+
+export type CharcoalNib = (typeof CHARCOAL_NIBS)[number]
+
+const NIB_SET = new Set<string>(CHARCOAL_NIBS)
+
+export function isCharcoalNib(v: string): v is CharcoalNib {
+  return NIB_SET.has(v)
+}
+
+/** The round stick, and what an unrecognized (or absent) nib token reads as —
+ *  the shape the tool has always had, so nothing recorded before #501 changes. */
+export const DEFAULT_CHARCOAL_NIB: CharcoalNib = 'bullet'
+
+/** The preset string a charcoal stroke carries: `${type}:${nib}`.
+ *
+ *  Same trick the marker plays with `${nib}:${size}` and watercolor with its
+ *  five colon-separated fields, and for the same reason (#366 exists to shrink
+ *  operation payloads, so a new Operation field is paid for by every operation
+ *  in every room forever, while a slot that already exists is free).
+ *
+ *  A stroke recorded before this issue is a bare type name with no colon in it,
+ *  which is why both readers below take field 0 and fall back rather than
+ *  requiring the pair. */
+export function charcoalPresetString(
+  type: CharcoalType, nib: CharcoalNib = DEFAULT_CHARCOAL_NIB,
+): string {
+  return `${type}:${nib}`
+}
+
+/** Which nib a recorded charcoal stroke was drawn with. Absent from every
+ *  stroke recorded before #501, which is why they replay as the round stick
+ *  they were actually drawn with. */
+export function charcoalNibFromPreset(presetName: string | undefined): CharcoalNib {
+  const token = presetName?.split(':')[1]
+  return token !== undefined && isCharcoalNib(token) ? token : DEFAULT_CHARCOAL_NIB
 }

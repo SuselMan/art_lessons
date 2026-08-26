@@ -7,6 +7,7 @@ import {
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
   WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, type WatercolorNib,
+  CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, type CharcoalNib,
   NIB_ANCHORS, type NibAnchor,
 } from '../../engine'
 import { parseNumberInput } from '../../components/NumberField/numberField'
@@ -575,6 +576,27 @@ const watercolorSchema = (): ToolSchema => ({
 // three toolbar buttons for one material would fight the manifesto, and why
 // hiding the choice in a settings tab would be equally wrong).
 const charcoalSchema = (): ToolSchema => ({
+  // #501: which stick, before which charcoal it is made of — the same `nib`
+  // field the marker and the watercolor brush already wear, on the same two
+  // glyphs, because after #482 a nib is a shape a tool wears and drawing the
+  // round stick's own icon would say the opposite.
+  //
+  // Defaults to bullet, which is the stick exactly as it shipped: a new nib
+  // must not change what the tool does to someone who never asked for one, and
+  // every stroke recorded before this issue replays as it (charcoalPresets.ts's
+  // charcoalNibFromPreset).
+  nib: {
+    nameKey: 'tool.field.nib',
+    valueType: { kind: 'enumOptions', options: CHARCOAL_NIBS },
+    optionLabelKeys: {
+      bullet: 'tool.nib.bullet',
+      chisel: 'tool.nib.chisel',
+    },
+    optionIcons: MARKER_NIB_ICONS,
+    uiControls: ['select'],
+    quickAccess: true,
+    default: DEFAULT_CHARCOAL_NIB satisfies CharcoalNib,
+  },
   type: {
     nameKey: 'tool.field.type',
     valueType: { kind: 'enumOptions', options: CHARCOAL_TYPES },
@@ -619,9 +641,47 @@ const charcoalSchema = (): ToolSchema => ({
     quickAccess: true,
     default: [0.09, 0.08, 0.08],
   },
+  // #501: the cut edge's angle and the frame it is held in — the marker's two
+  // controls, spelled the same way here as they are there and on the watercolor
+  // flat, rather than given this tool its own vocabulary for the same thing.
+  // Hidden for the round stick, which has no angle to set.
+  //
+  // Anchor defaults to `screen` for the reason the other two do: someone
+  // rotating the paper under their hand is not asking the stick in it to turn.
+  angle: {
+    nameKey: 'tool.field.angle',
+    valueType: { kind: 'numberRange', min: 0, max: 360, step: 1 / 60, format: formatDegreesMinutes, parse: degreesMinutesParse },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 45,
+    visibleWhen: v => v.nib === 'chisel',
+  },
+  anchor: {
+    nameKey: 'tool.field.anchor',
+    valueType: { kind: 'enumOptions', options: NIB_ANCHORS },
+    optionLabelKeys: {
+      canvas: 'tool.anchor.canvas',
+      screen: 'tool.anchor.screen',
+      barrel: 'tool.anchor.barrel',
+    },
+    optionIcons: {
+      canvas: 'grid_on',
+      screen: 'screen_rotation_alt',
+      barrel: 'stylus',
+    },
+    uiControls: ['select'],
+    default: 'screen' satisfies NibAnchor,
+    visibleWhen: v => v.nib === 'chisel',
+  },
   // Charcoal's own curves, not graphite's: same three shapes, plotted against
   // this material's fullDeg/aspectMax (charcoalFeel.ts).
-  tiltResponse: tiltResponseField(CHARCOAL_TILT_CURVES),
+  //
+  // #501: and only for the round stick. The chisel's geometry does not read
+  // tilt at all (dabShaping.ts's charcoalChiselShaping), so a response curve
+  // there would be a control that provably does nothing — the same rule that
+  // hides the angle for the bullet, and that keeps the setting off liner and
+  // marker entirely.
+  tiltResponse: { ...tiltResponseField(CHARCOAL_TILT_CURVES), visibleWhen: v => v.nib !== 'chisel' },
 })
 
 // Marker (#252, ADR 004 §7/MVP-scope): UI/toolbar plumbing only — the actual

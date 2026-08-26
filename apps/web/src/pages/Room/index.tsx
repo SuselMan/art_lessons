@@ -12,7 +12,7 @@ import type {
   JoinDenial,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR } from '../../engine'
+import { PencilEngine, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -76,6 +76,7 @@ import {
   groupLostOpsByLayer, isRecoverableContentOp, resolveDeletedLayerName, retargetToLayer, type LostContentOp,
 } from './lostWork'
 import { Outbox } from './outbox'
+import { createSocketRevival } from './socketRevival'
 import { createIndexedDbOutboxStorage } from './outboxStorage'
 import { PeerCursors } from './PeerCursors'
 import { BrushCursor } from './BrushCursor'
@@ -104,6 +105,7 @@ import {
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
+import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
 import { ChiselAngleDial } from './ChiselAngleDial'
 import { reportInvariant } from '../../lib/reportInvariant'
 import { createPendingPreviews } from './pendingPreviews'
@@ -784,6 +786,26 @@ export function Room() {
   // content state; see syncFromLog below and roomStore's layerSlice.
   const layerState = useRoomStore(s => s.layerState)
   const setLayerStateLocal = useRoomStore(s => s.setLayerStateLocal)
+  // (#506) The one field of that cache which is *not* derived from the log:
+  // `activeId` is per-user view state, so a reload has nothing to rebuild it
+  // from and every room used to open on its top layer regardless of what the
+  // user was working on. Seeded here from this device's storage, in a
+  // throwaway useState initializer so it lands during the first render —
+  // before the join replay, which is the point: `overlayLocalFields` carries
+  // `activeId` from the *current* state onto each freshly replayed one, so
+  // the seeded id survives the replay the same way a mid-session selection
+  // survives a peer's stroke.
+  //
+  // A stored id whose layer is gone (deleted, or never in this room) needs no
+  // handling of its own: until the replay it selects nothing — the layer-state
+  // → engine sync below reads `isEffectivelyVisible` as false and locks the
+  // engine, so it cannot take a stroke — and the replay's `sanitizeSelection`
+  // then drops it back to the top non-background layer, which is exactly the
+  // behavior that existed before this was stored at all.
+  useState(() => {
+    const storedActiveId = loadActiveLayerId(localStorage, id ?? '')
+    if (storedActiveId) useRoomStore.setState(prev => ({ layerState: { ...prev.layerState, activeId: storedActiveId } }))
+  })
   const [activePanel, setActivePanel] = useState<'layers' | 'color' | 'participants' | 'toolSettings' | null>('layers')
 
   // ── realtime state (#84/#37/#38) ────────────────────────────────────────────
@@ -2195,6 +2217,15 @@ export function Room() {
   const markerNib = toolSettings.marker.nib as string
   const markerSize = toolSettings.marker.size as number
   const charcoalType = toolSettings.charcoal.type as string
+  // #501 — the stick's own preset slot carries which nib it is cut to, after
+  // the type it is made of (`willow:chisel`). Same trick the marker plays with
+  // `${nib}:${size}` and watercolor with its five fields, for the reason given
+  // just below: a slot that already exists costs no bytes per operation.
+  const charcoalNib = toolSettings.charcoal.nib as string
+  const charcoalPreset = charcoalPresetString(
+    isCharcoalType(charcoalType) ? charcoalType : DEFAULT_CHARCOAL_TYPE,
+    isCharcoalNib(charcoalNib) ? charcoalNib : undefined,
+  )
   // #454: the brush pen's preset slot carries its pressure response, since the
   // tool has no nib list or size ladder to spend that slot on — see
   // brushPenPresets.ts's brushPenResponseFromPreset on why the setting rides
@@ -2237,7 +2268,7 @@ export function Room() {
   // marker-only special case.
   const cursorPresetName = drawingTool === 'marker' ? `${markerNib}:${markerSize}`
     : drawingTool === 'liner' ? linerSize
-    : drawingTool === 'charcoal' ? charcoalType
+    : drawingTool === 'charcoal' ? charcoalPreset
     : drawingTool === 'brushPen' ? brushPenResponse
     : drawingTool === 'watercolor' ? watercolorPreset
     : pencilGrade
@@ -2305,20 +2336,20 @@ export function Room() {
     // then — while nib+size are still faithfully recorded/replicated on the
     // wire via the existing preset string for whenever the engine side is
     // ready to actually read them back out of it.
-    // Charcoal (#304) is the one tool whose preset string the engine reads
-    // back *and* which needs nothing composed into it: the type name alone
-    // ('vine'/'willow'/'compressed') is what _resolvePreset -> charcoalPresetFor
-    // resolves, since all three types share one dab geometry (ADR 005 §2).
+    // Charcoal's string was the type name alone until #501 ('vine'/'willow'/
+    // 'compressed'), because all three types shared one dab geometry (ADR 005
+    // §2) — they still do, but the nib no longer does, so the same slot now
+    // carries both halves and _resolvePreset reads the type out of field 0.
     const markerPreset = `${markerNib}:${markerSize}`
     engineRef.current?.setPencil(
       drawingTool === 'liner' ? linerSize
         : drawingTool === 'marker' ? markerPreset
-        : drawingTool === 'charcoal' ? charcoalType
+        : drawingTool === 'charcoal' ? charcoalPreset
         : drawingTool === 'brushPen' ? brushPenResponse
         : drawingTool === 'watercolor' ? watercolorPreset
         : pencilGrade,
     )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalType, brushPenResponse, watercolorPreset])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with
@@ -2505,6 +2536,16 @@ export function Room() {
     if (!id) return
     saveToolSettings(localStorage, id, toolSettings)
   }, [id, toolSettings])
+
+  // (#506) Same, for the selected layer — including the case where the
+  // selection was not made by hand: a `sanitizeSelection` fallback (the active
+  // layer was deleted, here or by a peer) is the new selection and is stored
+  // as such, so the next reload doesn't try to restore a layer this session
+  // already watched disappear.
+  useEffect(() => {
+    if (!id) return
+    saveActiveLayerId(localStorage, id, layerState.activeId)
+  }, [id, layerState.activeId])
 
   // ── sync layer state → engine ─────────────────────────────────────────────────
   // (#493) Active layer, composite order, and the one gate that decides
@@ -4068,6 +4109,13 @@ export function Room() {
       io({ withCredentials: true })
     socketRef.current = socket
 
+    // (#504) socket.io переподключается само — кроме двух случаев, в которых
+    // оно объявляет, что больше не пытается, и тогда открытая комната висит на
+    // «Нет связи» до перезагрузки страницы. См. socketRevival.ts: там и
+    // перечень случаев, и почему у страницы комнаты нет законной причины
+    // принять такой ответ.
+    const revival = createSocketRevival(socket)
+
     // Fires on the initial connect *and* on every auto-reconnect (socket.io-
     // client's default behavior). Rejoining after a drop is what gives us the
     // "reasonable MVP" reconnect behavior called for by #84 (full catch-up/
@@ -4115,6 +4163,7 @@ export function Room() {
     const handleConnect = () => {
       setConnected(true)
       setEverConnected(true)
+      revival.noteConnect()
       // (#298) resendAll deliberately does NOT happen here any more. It used
       // to, and a fresh connection is precisely the moment the socket has
       // joined nothing — so the whole backlog went out against a socket the
@@ -4623,7 +4672,16 @@ export function Room() {
     // ~30Hz per moving peer). PeerCursors now subscribes directly (see its
     // own component) — position updates never reach Room's render tree.
 
-    const handleDisconnect = () => setConnected(false)
+    const handleDisconnect = (reason: string) => {
+      setConnected(false)
+      revival.noteDisconnect(reason)
+    }
+
+    // (#504) Раньше не слушался вовсе, а это половина проблемы: отказ в
+    // хендшейке (серверный `io.use()` не смог резолвить личность — например,
+    // новый контейнер уже принимает сокеты, а Prisma ещё не отвечает) socket.io
+    // считает окончательным и больше не пытается.
+    const handleConnectError = () => revival.noteConnectError()
 
     const handlePaletteUpdated = ({ palette }: { palette: string[] }) => {
       useRoomStore.getState().setPalette(palette)
@@ -4716,8 +4774,12 @@ export function Room() {
     socket.on('join_request_resolved',      handleJoinRequestResolved)
     socket.on('kicked',                     handleKicked)
     socket.on('disconnect',                 handleDisconnect)
+    socket.on('connect_error',              handleConnectError)
 
     return () => {
+      // Раньше `socket.disconnect()`: иначе запланированная попытка заведёт
+      // сокет комнаты, которую уже покинули.
+      revival.cancel()
       socket.disconnect()
       socketRef.current = null
       requestFullResyncRef.current = null
