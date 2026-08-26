@@ -969,7 +969,19 @@ export class MockGL {
     const opacity = (uniforms.get('u_opacity') as number) ?? 1
     const srcTex = this._textureUnits[unit] ?? null
     const srcInfo = srcTex ? this._textureData.get(srcTex) : undefined
-    const sf = this._blendSrcFactor()
+    // (#503) Blending state honoured, not assumed. This used to hard-code the
+    // destination weight as `1 - srcAlpha` — an "over" blend — in both
+    // branches below, which silently made a *replace* impossible to express:
+    // `_downsampleTileInto` folds a fine tile into a coarse slot with
+    // gl.disable(BLEND) precisely so an erased tile writes transparency over
+    // whatever the slot held, and under an "over" blend a fully transparent
+    // source changes nothing at all. The consequence was that no test could
+    // see an erase reach the pyramid, which is exactly the bug #503 turned
+    // out to be. `_blendDstWeight` already existed for this and already
+    // returns 0 with blending off; only this rasterizer was not asking it.
+    // The source factor needs the same care: with blending disabled real GL
+    // writes the source outright, whatever blendFunc last said.
+    const sf = this._blendEnabled ? this._blendSrcFactor() : 1
     const vp = this._viewport
 
     // The common case (composite/beginDraw/beginErase always set viewport to
@@ -983,7 +995,7 @@ export class MockGL {
     if (!srcInfo || (vp.x === 0 && vp.y === 0 && vp.w === width && vp.h === height)) {
       for (let i = 0; i < width * height; i++) {
         const srcAlpha = srcInfo ? clamp((srcInfo.data[i] ?? 0) * opacity, 0, 1) : 0
-        data[i] = srcAlpha * sf + data[i] * (1 - srcAlpha)
+        data[i] = srcAlpha * sf + data[i] * this._blendDstWeight(srcAlpha)
       }
       return
     }
@@ -1004,7 +1016,7 @@ export class MockGL {
         const sy = Math.min(Math.floor(v * srcInfo.height), srcInfo.height - 1)
         const srcAlpha = clamp((srcInfo.data[sy * srcInfo.width + sx] ?? 0) * opacity, 0, 1)
         const idx = py * width + px
-        data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
+        data[idx] = srcAlpha * sf + data[idx] * this._blendDstWeight(srcAlpha)
       }
     }
   }
@@ -1183,7 +1195,7 @@ export class MockGL {
         const sy = Math.min(Math.floor((1 - v) * srcInfo.height), srcInfo.height - 1)
         const srcAlpha = clamp(srcInfo.data[sy * srcInfo.width + sx] ?? 0, 0, 1)
         const idx = py * width + px
-        data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
+        data[idx] = srcAlpha * sf + data[idx] * this._blendDstWeight(srcAlpha)
       }
     }
   }
