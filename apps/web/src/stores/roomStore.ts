@@ -6,6 +6,7 @@ import { createToolSlice, type ToolSlice } from './slices/toolSlice'
 import { createRoomInfoSlice, type RoomInfoSlice } from './slices/roomSlice'
 import { createStrokeSlice, type StrokeSlice } from './slices/strokeSlice'
 import { createSelectionSlice, type SelectionSlice } from './slices/selectionSlice'
+import { createAnnotationSlice, type AnnotationSlice } from './slices/annotationSlice'
 
 // The engine ref never enters this file (or any slice under ./slices) —
 // enforced by convention, not by TS; see epic #2 and its #25 audit task.
@@ -26,7 +27,7 @@ import { createSelectionSlice, type SelectionSlice } from './slices/selectionSli
 // placement flag died with the two-phase place-then-drag gesture it existed
 // for, and the grid's visibility became an ordinary setting on the grid tool.
 // Nothing was left to keep in a slice of its own.
-export interface RoomStore extends LayerSlice, ViewportSlice, ToolSlice, RoomInfoSlice, StrokeSlice, SelectionSlice {}
+export interface RoomStore extends LayerSlice, ViewportSlice, ToolSlice, RoomInfoSlice, StrokeSlice, SelectionSlice, AnnotationSlice {}
 
 export const useRoomStore = create<RoomStore>()((...a) => ({
   ...createLayerSlice(...a),
@@ -35,6 +36,7 @@ export const useRoomStore = create<RoomStore>()((...a) => ({
   ...createRoomInfoSlice(...a),
   ...createStrokeSlice(...a),
   ...createSelectionSlice(...a),
+  ...createAnnotationSlice(...a),
 }))
 
 const initialRoomStoreState = useRoomStore.getState()
