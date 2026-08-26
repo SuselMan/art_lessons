@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import type { Operation } from '@grafetto/shared'
+import type { Operation, OperationDraft } from '@grafetto/shared'
 
 import {
   applyAnnotationOp, inkPathData, isMeaningfulShape, makeInitialAnnotationState,
@@ -8,12 +8,14 @@ import {
 } from './annotations'
 
 let seq = 0
-function op(partial: Omit<Operation, 'id' | 'userId' | 'timestamp'>, userId = 'u1'): Operation {
-  return { ...partial, id: `op${++seq}`, userId, timestamp: seq } as Operation
+// OperationDraft rather than a hand-written Omit: the Omit collapses the union
+// to the fields every member shares, so `annotationId` would not typecheck.
+function op(draft: OperationDraft, userId = 'u1'): Operation {
+  return { ...draft, id: `op${++seq}`, userId, timestamp: seq } as Operation
 }
 
-const textShape = { kind: 'text', x: 10, y: 20, color: '#ff0000', size: 48, text: 'wrong angle' } as const
-const inkShape = { kind: 'ink', color: '#00ff00', size: 8, points: [0, 0, 10, 10] } as const
+const textShape = { kind: 'text' as const, x: 10, y: 20, color: '#ff0000', size: 48, text: 'wrong angle' }
+const inkShape = { kind: 'ink' as const, color: '#00ff00', size: 8, points: [0, 0, 10, 10] }
 
 describe('applyAnnotationOp', () => {
   it('adds an annotation, stamping id and author from the operation', () => {

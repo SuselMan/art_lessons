@@ -39,6 +39,10 @@ import type { IconName } from '../../icons/iconNames'
 export type UiToolId =
   | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen' | 'watercolor'
   | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'selection' | 'grid' | 'hand' | 'fill'
+  // (#509, #510) The two annotation tools. They are UiToolIds and deliberately
+  // not ToolTypes: neither emits a StrokeOperation, and neither puts anything
+  // in a layer — see packages/shared's annotation contract.
+  | 'annotateText' | 'annotatePen'
 
 export type SettingValueType =
   | {
@@ -1135,6 +1139,52 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       default: 1,
     },
   },
+  // Annotation tools (#509/#510, эпик #87). Two knobs each and no more: an
+  // annotation is a remark, not a mark — there is no pressure, no tilt, no
+  // paper and no preset to choose, which is exactly what lets a finger draw
+  // one. Colour is `[r, g, b]` here like every other tool's, so the existing
+  // swatch and palette work unchanged, and is converted to the hex the
+  // operation carries at the one place the operation is built (see the
+  // annotation contract's note on why the two forms differ).
+  annotateText: {
+    color: {
+      nameKey: 'tool.field.color',
+      valueType: { kind: 'color' },
+      uiControls: ['swatch'],
+      quickAccess: true,
+      // Red by default, and this is the one place a tool's default colour is
+      // chosen to *not* look like the drawing: a remark that reads as graphite
+      // is a remark the student mistakes for their own line.
+      default: [0.9, 0.28, 0.30],
+    },
+    // Font size in canvas units, so a note keeps its size relative to the
+    // drawing rather than to the screen — the same rule the note's position
+    // follows. The range starts well above a UI font size because canvas units
+    // are not screen ones: on an A3 sheet, 16 of them is a speck.
+    size: {
+      nameKey: 'tool.field.size',
+      valueType: { kind: 'numberRange', min: 12, max: 200, step: 1, format: pxFormat, scale: expScale },
+      uiControls: ['slider', 'input'],
+      quickAccess: true,
+      default: 48,
+    },
+  },
+  annotatePen: {
+    color: {
+      nameKey: 'tool.field.color',
+      valueType: { kind: 'color' },
+      uiControls: ['swatch'],
+      quickAccess: true,
+      default: [0.9, 0.28, 0.30],
+    },
+    size: {
+      nameKey: 'tool.field.size',
+      valueType: { kind: 'numberRange', min: 1, max: 60, step: 1, format: pxFormat, scale: expScale },
+      uiControls: ['slider', 'input'],
+      quickAccess: true,
+      default: 8,
+    },
+  },
 }
 
 export type ToolSettingsValue = Record<string, SettingDescriptor['default']>
@@ -1184,6 +1234,11 @@ export function toolGradeOptions(toolId: UiToolId): readonly string[] | null {
 // two can't silently drift when a tool is added.
 export const COLOR_CAPABLE_TOOLS = [
   'pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'fill',
+  // (#509/#510) The annotation tools carry a colour like any other, and being
+  // here is what gives them the swatch, the palette and the eyedropper for
+  // free. That the colour ends up on the wire as hex rather than as a triple
+  // is a fact about the annotation operation, not about the tool.
+  'annotateText', 'annotatePen',
 ] as const satisfies readonly UiToolId[]
 
 export type ColorCapableTool = (typeof COLOR_CAPABLE_TOOLS)[number]

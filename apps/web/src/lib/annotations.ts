@@ -175,9 +175,14 @@ export function prepareInkPoints(points: readonly number[], tolerance: number): 
   const out: number[] = []
   for (let i = 0; i < count; i += stride) out.push(simplified[i * 2], simplified[i * 2 + 1])
   // The last point is what makes the path end where the finger lifted; keep it
-  // whatever the stride landed on.
+  // whatever the stride landed on — but never by going one over the ceiling
+  // this function exists to enforce. When the strided walk already filled it,
+  // the last sample gives up its place rather than being appended after it.
   const lastX = simplified[(count - 1) * 2], lastY = simplified[(count - 1) * 2 + 1]
-  if (out[out.length - 2] !== lastX || out[out.length - 1] !== lastY) out.push(lastX, lastY)
+  if (out[out.length - 2] !== lastX || out[out.length - 1] !== lastY) {
+    if ((out.length >> 1) >= MAX_ANNOTATION_INK_POINTS) out.length -= 2
+    out.push(lastX, lastY)
+  }
   return out
 }
 

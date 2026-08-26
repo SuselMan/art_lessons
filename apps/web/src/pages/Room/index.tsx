@@ -9,7 +9,7 @@ import { nanoid } from 'nanoid'
 import type {
   LayerState, OperationDraft, Operation, Participant, Room as RoomEntity, RoomAccessMode, RoomJoinRequest,
   SendResult, ClientToServerEvents, ServerToClientEvents, StrokeLiveData, SelectionShape, FillSourceMode,
-  JoinDenial,
+  JoinDenial, AnnotationShape,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
 import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE } from '../../engine'
@@ -84,6 +84,9 @@ import { editorOwnsKey, isTypingTarget } from './editorKeys'
 import { GridOverlay, InfiniteGridOverlay } from './GridOverlay'
 import { TransformGizmo } from './TransformGizmo'
 import { SelectionOverlay } from './SelectionOverlay'
+import { AnnotationOverlay } from './AnnotationOverlay'
+import { annotationTextAt } from './annotationHitTest'
+import { isMeaningfulShape, prepareInkPoints } from '../../lib/annotations'
 import {
   appendFreehandPoint, closeAfterDoubleClick, closesPolygon, rectangleFromDrag, selectionBoundsRect,
   selectionFromPoints, transformSelection, POLYGON_CLOSE_RADIUS, type SelectionShapeKind,
@@ -249,6 +252,24 @@ function unionTransformBounds(a: TransformBounds, b: TransformBounds): Transform
 // exactly 1 whatever the amount), so the clamp is purely about what a slip of
 // the pen near the anchor edge can do: the shear is a ratio whose denominator
 // is the distance to that edge, and 20 already lays the layer almost flat.
+/** (#510) How far apart two live ink samples must be, in world units, before
+ *  the second is kept. Purely a bound on the array being built during the
+ *  gesture — the payload that reaches the log is decided by prepareInkPoints
+ *  on release, which measures against the mark's own width instead. World
+ *  units rather than screen ones because that is what the array holds; at high
+ *  zoom a screen-space threshold would throw away detail the user can see. */
+const LIVE_INK_MIN_STEP = 0.75
+
+/** (#511) How long a press on the hide button counts as "hold to peek" rather
+ *  than as a tap that toggles. Past this, releasing brings the notes back. */
+const HOLD_TO_PEEK_MS = 250
+
+/** Simplification tolerance as a fraction of the mark's own stroke width. A
+ *  deviation smaller than a quarter of the line drawing it is inside the line,
+ *  so no reader can tell it was dropped — which is the only argument that
+ *  should decide a lossy simplification. */
+const INK_SIMPLIFY_FACTOR = 0.25
+
 const MAX_TRANSFORM_SHEAR = 20
 
 // (#429) How many recently-streamed gesture ids to remember — see
@@ -631,6 +652,12 @@ export function Room() {
   // drawing almost always means filling the next one too, whereas picking a
   // colour is something you do once on the way back to drawing.
   const fillActive = tool === 'fill'
+  // (#509/#510, эпик #87) The two annotation tools. Both stay in hand after a
+  // gesture like the fill does — remarks come in groups, one per thing worth
+  // saying — and neither ever touches a layer: what they produce lives in the
+  // annotation overlay, above the composite.
+  const annotateTextActive = tool === 'annotateText'
+  const annotatePenActive = tool === 'annotatePen'
   // (#23) Backed by the store now, alongside the transform-preview fields
   // below — moved for architectural consistency, but deliberately NEVER
   // persisted (see layerSlice.ts's own comment: a ruler is for quickly
@@ -642,6 +669,14 @@ export function Room() {
   // meanwhile is `rulerVisible` below.
   const rulerLine = useRoomStore(s => s.rulerLine)
   const setRulerLine = useRoomStore(s => s.setRulerLine)
+  // (#508/#511) The annotation projection and the two pieces of local view
+  // state around it. `annotationsHidden` is deliberately not an operation —
+  // see the slice's own comment for why hiding is private.
+  const annotations = useRoomStore(s => s.annotations)
+  const annotationsHidden = useRoomStore(s => s.annotationsHidden)
+  const setAnnotationsHidden = useRoomStore(s => s.setAnnotationsHidden)
+  const annotationDraft = useRoomStore(s => s.annotationDraft)
+  const setAnnotationDraftText = useRoomStore(s => s.setAnnotationDraftText)
   // (#405) The ruler's two settings, from the same TOOL_SCHEMAS store every
   // other tool's live in.
   const rulerLock = toolSettings.ruler.lock as boolean
@@ -1428,6 +1463,16 @@ export function Room() {
       ? (engineRef.current?.getOperationsSinceRestore() ?? [])
       : (engineRef.current?.getOperations() ?? [])
     useRoomStore.getState().syncLayerStateFromLog(base ?? makeInitialLayerState(), ops)
+    // (#508) Annotations fold from the *whole* done log, not from the
+    // since-restore tail LayerState uses, and with no base to sit on. The
+    // asymmetry is the point: a snapshot restores pixels and the stored
+    // layerState restores structure, so replaying either again would
+    // double-apply it — but nothing anywhere stores annotations, which is
+    // exactly why the server never withholds one (see isCoveredBySnapshot).
+    // Every annotation operation the room ever had is therefore present here,
+    // and folding all of them from empty is both correct and, because the fold
+    // is keyed by annotation id, immune to being run twice.
+    useRoomStore.getState().syncAnnotationsFromLog(engineRef.current?.getOperations() ?? [])
   }, [])
   const syncFromLog = useCallback(() => {
     if (syncFromLogScheduledRef.current) return
@@ -3872,6 +3917,243 @@ export function Room() {
     }
   }, [vpRef, config, dispatchOp, handActive])
 
+  // ── Annotations (#509/#510, эпик #87) ───────────────────────────────────
+  //
+  // Both gestures live here rather than in AnnotationOverlay, and that split is
+  // the same one the ruler and the selection already use: the overlay draws,
+  // Room's own catcher catches. It is what keeps a note on screen under another
+  // tool from being draggable under it.
+
+  /** The ink gesture in progress, in world coordinates. State (not a ref) —
+   *  the line has to appear under the finger as it is drawn, so every sample
+   *  re-renders the overlay. */
+  const [liveInk, setLiveInk] = useState<{ points: number[]; color: string; size: number } | null>(null)
+  /** The rendered annotation layer, so the catcher can hit-test notes against
+   *  their real laid-out boxes — see annotationTextAt. */
+  const annotationLayerRef = useRef<HTMLDivElement | null>(null)
+
+  const annotationStyle = useCallback((toolId: 'annotateText' | 'annotatePen') => {
+    const settings = useRoomStore.getState().toolSettings
+    return {
+      color: rgbToHex(getToolColor(settings, toolId)),
+      size: settings[toolId].size as number,
+    }
+  }, [])
+
+  /** Records whatever the open draft says, then closes it.
+   *
+   *  One path for all four outcomes — new note, edited note, unchanged note,
+   *  emptied note — because they are told apart by the draft's own fields and
+   *  not by which call site got here. Every way a draft can end (Enter, blur,
+   *  switching tool, leaving the room) funnels through this, so none of them
+   *  can silently lose what was typed.
+   *
+   *  Emptying an existing note deletes it. That is the whole delete affordance
+   *  for text, deliberately: it needs no button, no confirm and no second
+   *  gesture to learn, and it is what anyone would try first.
+   */
+  const commitAnnotationDraft = useCallback(() => {
+    const draft = useRoomStore.getState().annotationDraft
+    if (!draft) return
+    useRoomStore.getState().closeAnnotationDraft()
+    const text = draft.text.trim()
+
+    if (draft.annotationId === null) {
+      if (!text) return // opened and abandoned — never existed, nothing to record
+      dispatchOp({
+        type: 'annotation_add',
+        annotationId: nanoid(10),
+        shape: { kind: 'text', x: draft.x, y: draft.y, color: draft.color, size: draft.size, text },
+      })
+      return
+    }
+
+    const existing = useRoomStore.getState().annotations.items[draft.annotationId]
+    if (!existing) return // deleted under us (a peer, or an undo) while it was open
+    if (!text) {
+      dispatchOp({ type: 'annotation_delete', annotationIds: [draft.annotationId] })
+      return
+    }
+    // Nothing changed: recording it anyway would put an entry on the undo
+    // stack for having looked at a note.
+    if (existing.kind === 'text' && existing.text === text) return
+    dispatchOp({ type: 'annotation_update', annotationId: draft.annotationId, patch: { text } })
+  }, [dispatchOp])
+
+  const cancelAnnotationDraft = useCallback(() => {
+    useRoomStore.getState().closeAnnotationDraft()
+  }, [])
+
+  /** A tap on an existing note with the note tool in hand — reopen it for
+   *  editing, keeping its own colour and size rather than the toolbar's. */
+  const handleEditAnnotationText = useCallback((annotationId: string) => {
+    const annotation = useRoomStore.getState().annotations.items[annotationId]
+    if (!annotation || annotation.kind !== 'text') return
+    commitAnnotationDraft()
+    useRoomStore.getState().openAnnotationDraft({
+      annotationId,
+      x: annotation.x,
+      y: annotation.y,
+      text: annotation.text,
+      color: annotation.color,
+      size: annotation.size,
+    })
+  }, [commitAnnotationDraft])
+
+  /** A tap with the note tool: commit whatever was open, then open a new note
+   *  where the tap landed. */
+  const handleAnnotationTextTap = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Unlike the fill and the selection, touch is *not* refused here: a finger
+    // is the input this feature was asked for (#512), and a note costs one tap
+    // to undo where a stray fill repaints a region. The catcher only exists
+    // while the tool is in hand, so a finger that reaches here was aimed.
+    if (handActive) return
+    const el = vpRef.current
+    if (!el || !config) return
+    e.stopPropagation()
+    // A press that landed on an existing note edits it instead of starting a
+    // new one on top. Hit-tested here rather than by letting the note be the
+    // event target, because it cannot be one: this catcher sits above the
+    // whole overlay (see AnnotationOverlay's own comment). Same arrangement
+    // the ruler uses.
+    const hit = annotationTextAt(annotationLayerRef.current, e.clientX, e.clientY)
+    if (hit && hit !== useRoomStore.getState().annotationDraft?.annotationId) {
+      handleEditAnnotationText(hit)
+      return
+    }
+    // Commit first: this tap is both "finish that note" and "start this one",
+    // and the other order would open a draft that the commit then closes.
+    commitAnnotationDraft()
+    const rect = el.getBoundingClientRect()
+    const at = clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config)
+    const style = annotationStyle('annotateText')
+    useRoomStore.getState().openAnnotationDraft({
+      annotationId: null,
+      // Lifted by most of a line so the caret sits where the finger did,
+      // instead of the note hanging by its top-left corner underneath it.
+      x: at.x,
+      y: at.y - style.size * 0.6,
+      text: '',
+      ...style,
+    })
+  }, [vpRef, config, handActive, commitAnnotationDraft, annotationStyle, handleEditAnnotationText])
+
+
+  /** The annotation pen: one drag, one mark. Same capture-and-listen shape as
+   *  the selection lasso above — and, unlike it, open to touch. */
+  const handleAnnotationPenDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (handActive) return
+    const el = vpRef.current
+    if (!el || !config) return
+    e.stopPropagation()
+    const rect = el.getBoundingClientRect()
+    const vpNow = useRoomStore.getState().viewport
+    const toPoint = (clientX: number, clientY: number) =>
+      clientToRoomPoint(clientX, clientY, rect, vpNow, config)
+    const start = toPoint(e.clientX, e.clientY)
+    const style = annotationStyle('annotatePen')
+
+    const overlay = e.currentTarget
+    const pointerId = e.pointerId
+    try { overlay.setPointerCapture(pointerId) } catch { /* context loss */ }
+
+    let points: number[] = [start.x, start.y]
+    setLiveInk({ points, ...style })
+
+    const detach = () => {
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+      overlay.removeEventListener('pointercancel', onCancel)
+    }
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      const p = toPoint(ev.clientX, ev.clientY)
+      // Sampled against the previous point in world units, so a slow hand at
+      // high zoom does not pile up hundreds of coincident samples. The real
+      // reduction happens at commit (prepareInkPoints); this only keeps the
+      // live array from growing without bound during a long gesture.
+      const lastX = points[points.length - 2], lastY = points[points.length - 1]
+      if (Math.abs(p.x - lastX) < LIVE_INK_MIN_STEP && Math.abs(p.y - lastY) < LIVE_INK_MIN_STEP) return
+      points = [...points, p.x, p.y]
+      setLiveInk({ points, ...style })
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      detach()
+      setLiveInk(null)
+      // Simplified in world units against the mark's own width: a wobble
+      // narrower than the line drawing it cannot be seen, so keeping it costs
+      // payload and buys nothing. See prepareInkPoints.
+      const simplified = prepareInkPoints(points, style.size * INK_SIMPLIFY_FACTOR)
+      const shape: AnnotationShape = { kind: 'ink', color: style.color, size: style.size, points: simplified }
+      if (!isMeaningfulShape(shape)) return
+      dispatchOp({ type: 'annotation_add', annotationId: nanoid(10), shape })
+    }
+    const onCancel = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      detach()
+      // A pointer the browser took over decided nothing — drop the mark rather
+      // than record half a gesture, the same answer the selection gives.
+      setLiveInk(null)
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
+    overlay.addEventListener('pointercancel', onCancel)
+  }, [vpRef, config, handActive, dispatchOp, annotationStyle])
+
+  // (#511) Hide/show, plus hold-to-peek on the same button.
+  //
+  // Split across pointer and click rather than done in one handler, and the
+  // split is what keeps the two gestures from fighting: the press hides
+  // immediately (that is the peek), the release decides what the gesture
+  // *was*, and `onClick` — which still fires afterwards, and is also the only
+  // path a keyboard has to this button — is suppressed for a hold and left
+  // alone for a tap. Restoring the pre-press value on a tap is what lets the
+  // click toggle from the state the user thought they were in.
+  const peekRef = useRef<{ downAt: number; wasHidden: boolean } | null>(null)
+  const peekConsumedRef = useRef(false)
+
+  const handleAnnotationPeekDown = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    peekRef.current = { downAt: Date.now(), wasHidden: useRoomStore.getState().annotationsHidden }
+    peekConsumedRef.current = false
+    try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* context loss */ }
+    setAnnotationsHidden(true)
+  }, [setAnnotationsHidden])
+
+  const handleAnnotationPeekUp = useCallback((e: React.PointerEvent<HTMLButtonElement>) => {
+    const peek = peekRef.current
+    peekRef.current = null
+    if (!peek) return
+    if (e.type === 'pointercancel') {
+      // Decided nothing — put it back exactly as it was, and swallow the click
+      // that a cancelled press does not produce anyway on every browser.
+      peekConsumedRef.current = true
+      setAnnotationsHidden(peek.wasHidden)
+      return
+    }
+    if (Date.now() - peek.downAt >= HOLD_TO_PEEK_MS) {
+      // A hold is its own complete gesture: the notes come back on release,
+      // and the click that follows must not toggle them away again.
+      peekConsumedRef.current = true
+      setAnnotationsHidden(false)
+      return
+    }
+    // A tap: undo the peek so the click below toggles from where the user was.
+    setAnnotationsHidden(peek.wasHidden)
+  }, [setAnnotationsHidden])
+
+  const handleAnnotationsToggle = useCallback(() => {
+    if (peekConsumedRef.current) { peekConsumedRef.current = false; return }
+    setAnnotationsHidden(!useRoomStore.getState().annotationsHidden)
+  }, [setAnnotationsHidden])
+
+  // An open note must not survive the tool that opened it: switching away is a
+  // decision about the note too, and the decision that loses least is to keep
+  // what was typed.
+  useEffect(() => {
+    if (!annotateTextActive) commitAnnotationDraft()
+  }, [annotateTextActive, commitAnnotationDraft])
+
   const copySelection = useCallback(async (): Promise<boolean> => {
     const engine = engineRef.current
     const current = useRoomStore.getState().selection
@@ -5759,6 +6041,40 @@ export function Room() {
             aria-pressed={tool === 'grid'}
             onClick={() => selectTool('grid')}
           ><Icon name="grid_on" /></button>
+          {/* (#509/#510, эпик #87) The two annotation tools, last in the
+              column and next to each other on purpose: they are the only
+              tools here that do not touch the drawing at all, and grouping
+              them says so before any tooltip does. */}
+          <button
+            className={clsx(styles.toolIconBtn, annotateTextActive && styles.toolIconBtnActive)}
+            title={t('tool.annotateTitle')}
+            aria-label={t('tool.annotateText')}
+            aria-pressed={annotateTextActive}
+            onClick={() => selectTool('annotateText')}
+          ><Icon name="text_fields" /></button>
+          <button
+            className={clsx(styles.toolIconBtn, annotatePenActive && styles.toolIconBtnActive)}
+            title={t('tool.annotatePenTitle')}
+            aria-label={t('tool.annotatePen')}
+            aria-pressed={annotatePenActive}
+            onClick={() => selectTool('annotatePen')}
+          ><Icon name="draw" /></button>
+          {/* (#511) Hiding is not a tool and never becomes the selection: it
+              is a toggle on what is drawn, available under every tool. Shown
+              only once there is something to hide — a control that provably
+              does nothing is worse than no control. */}
+          {annotations.order.length > 0 && (
+            <button
+              className={clsx(styles.toolIconBtn, annotationsHidden && styles.toolIconBtnActive)}
+              title={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
+              aria-label={annotationsHidden ? t('room.annotationsShow') : t('room.annotationsHide')}
+              aria-pressed={annotationsHidden}
+              onPointerDown={handleAnnotationPeekDown}
+              onPointerUp={handleAnnotationPeekUp}
+              onPointerCancel={handleAnnotationPeekUp}
+              onClick={handleAnnotationsToggle}
+            ><Icon name={annotationsHidden ? 'visibility_off' : 'visibility'} /></button>
+          )}
 
         </aside>
 
@@ -5968,6 +6284,22 @@ export function Room() {
               zoom={vp.zoom}
               matrix={areaSelection ? transformSessionMatrix : null}
             />
+            {/* (#508, эпик #87) Above every other overlay, because an
+                annotation is above every other thing on screen — it is a
+                remark *about* the picture, including about the grid or the
+                selection someone left on it. */}
+            {!config.infinite && (
+              <AnnotationOverlay
+                annotations={annotations}
+                hidden={annotationsHidden}
+                draft={annotationDraft}
+                onDraftChange={setAnnotationDraftText}
+                onDraftCommit={commitAnnotationDraft}
+                onDraftCancel={cancelAnnotationDraft}
+                liveInk={liveInk}
+                layerRef={annotationLayerRef}
+              />
+            )}
             </div>
           </div>
           {/* Infinite rooms (#143): the same five overlays, camera-aware —
@@ -6041,6 +6373,16 @@ export function Room() {
                 zoom={vp.zoom}
                 matrix={areaSelection ? transformSessionMatrix : null}
               />
+              <AnnotationOverlay
+                annotations={annotations}
+                hidden={annotationsHidden}
+                draft={annotationDraft}
+                onDraftChange={setAnnotationDraftText}
+                onDraftCommit={commitAnnotationDraft}
+                onDraftCancel={cancelAnnotationDraft}
+                liveInk={liveInk}
+                layerRef={annotationLayerRef}
+              />
             </div>
           )}
           {/* (#405) One catcher for the two tools whose gesture is a press on
@@ -6084,6 +6426,20 @@ export function Room() {
               onDoubleClick={handleSelectionDoubleClick}
               onPointerEnter={() => { selectionRectRef.current = null }}
             />
+          )}
+          {/* (#509/#510) The same pattern once more, and the same rule: the
+              catcher exists exactly while its tool is in hand, so annotations
+              left on screen under the pencil are marks and nothing more.
+
+              Ordered under the overlay in the DOM but above it in effect —
+              a press on an editable note hits the note's own handler first
+              (it stops propagation), and everything that misses one lands
+              here and starts a new one. */}
+          {annotateTextActive && (
+            <div className={styles.canvasCatcher} onPointerDown={handleAnnotationTextTap} />
+          )}
+          {annotatePenActive && (
+            <div className={styles.canvasCatcher} onPointerDown={handleAnnotationPenDown} />
           )}
         </div>
 

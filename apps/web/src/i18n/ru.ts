@@ -405,6 +405,12 @@ export const ru: Dictionary = {
   'tool.fill': 'Заливка',
   'tool.grid': 'Сетка',
   'tool.gridTitle': 'Построительная сетка  {hotkey}',
+  'tool.annotateText': 'Заметка',
+  'tool.annotateTitle': 'Заметка — ткните в рисунок и напишите замечание поверх. Заметки не часть картинки',
+  'tool.annotatePen': 'Перо аннотаций',
+  'tool.annotatePenTitle': 'Перо аннотаций — обвести или показать что-то поверх рисунка. Пометки не часть картинки',
+  'room.annotationsHide': 'Скрыть заметки',
+  'room.annotationsShow': 'Показать заметки',
 
   // ── настройки инструментов ─────────────────────────────────────────────
   'tool.field.grade': 'Твёрдость',

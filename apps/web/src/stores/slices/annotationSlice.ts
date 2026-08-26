@@ -19,6 +19,12 @@ export interface AnnotationDraft {
   x: number
   y: number
   text: string
+  /** Carried on the draft rather than read from the tool settings at commit
+   *  time: editing an existing note must keep *its* colour and size, not
+   *  silently restyle it to whatever the toolbar happens to be set to. For a
+   *  new note the tool settings are what seed these. */
+  color: string
+  size: number
 }
 
 export interface AnnotationSlice {

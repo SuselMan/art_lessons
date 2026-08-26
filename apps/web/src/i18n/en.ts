@@ -500,6 +500,15 @@ export const en = {
   'tool.fill': 'Fill',
   'tool.grid': 'Grid',
   'tool.gridTitle': 'Construction grid  {hotkey}',
+  // (#509/#510) No {hotkey} in either title, unlike every tool above: neither
+  // annotation tool has one yet. A placeholder with nothing to fill it prints
+  // the braces.
+  'tool.annotateText': 'Note',
+  'tool.annotateTitle': 'Note — tap the drawing and write a remark over it. Notes are not part of the picture',
+  'tool.annotatePen': 'Annotation pen',
+  'tool.annotatePenTitle': 'Annotation pen — circle or point at something over the drawing. Marks are not part of the picture',
+  'room.annotationsHide': 'Hide notes',
+  'room.annotationsShow': 'Show notes',
 
   // ── tool settings (TOOL_SCHEMAS field labels and enum options) ─────────
   'tool.field.grade': 'Grade',

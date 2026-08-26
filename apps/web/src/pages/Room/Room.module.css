@@ -1268,3 +1268,69 @@ a.gateSubmit {
   padding-top: 4px;
   border-top: 1px solid var(--color-border);
 }
+
+/* ── Annotations (#508, эпик #87) ─────────────────────────────────────────
+   The layer rides whichever ancestor carries the viewport transform, exactly
+   like .selectionSvg and .gridOverlayInfinite above, so everything inside is
+   positioned in world coordinates and pans/zooms/rotates with the paper.
+
+   `pointer-events: none` on the layer with `auto` re-enabled per element is
+   deliberate: the layer covers the whole viewport, so anything else would put
+   an invisible sheet over the canvas and swallow every stroke. Only a note
+   that is actually editable right now takes presses back. */
+.annotationLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.annotationInkSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* A committed note and the editor that produced it must be the same box, or
+   the text reflows the moment it is committed — so these two rules share every
+   property that can move a line break: font, size, wrapping and width (width
+   is set inline, from the note's own size). */
+.annotationText,
+.annotationInput {
+  position: absolute;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-ui, system-ui, sans-serif);
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  /* Notes are laid over a drawing, which is mostly graphite on paper but can
+     be anything. A halo in the opposite direction of the ink keeps a remark
+     legible over both without tinting its colour. */
+  paint-order: stroke;
+  -webkit-text-stroke: 0.06em var(--color-surface, #fff);
+}
+
+.annotationText {
+  pointer-events: none;
+}
+
+.annotationInput {
+  pointer-events: auto;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  /* The caret is the only thing marking an empty note's position, so it must
+     not be the browser's default 1px hairline at 8x zoom. */
+  caret-color: currentColor;
+}
