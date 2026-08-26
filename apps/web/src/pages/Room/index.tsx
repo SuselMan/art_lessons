@@ -4155,6 +4155,13 @@ export function Room() {
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return
       if (!moved && Math.hypot(ev.clientX - startClient.x, ev.clientY - startClient.y) < TAP_MOVE_THRESHOLD_PX) return
+      if (!moved) {
+        // Dragging a note that is open for editing takes it out of editing
+        // first, keeping whatever was typed. Moving something and writing in it
+        // are two different acts, and trying to do both at once is what put two
+        // pins on screen before this: the editor drew its own.
+        commitAnnotationDraft()
+      }
       moved = true
       const p = toPoint(ev.clientX, ev.clientY)
       at = { x: p.x + offset.x, y: p.y + offset.y }
@@ -4165,8 +4172,18 @@ export function Room() {
       const wasDrag = moved
       const landed = at
       detach()
-      if (wasDrag) dispatchOp({ type: 'annotation_update', annotationId, patch: { x: landed.x, y: landed.y } })
-      else useRoomStore.getState().toggleAnnotationCollapsed(annotationId)
+      if (wasDrag) {
+        dispatchOp({ type: 'annotation_update', annotationId, patch: { x: landed.x, y: landed.y } })
+        return
+      }
+      // A tap on the pin of the note being written finishes it, rather than
+      // folding away a note whose editor is still open — which is what
+      // "collapse" would have meant here, and it means nothing.
+      if (useRoomStore.getState().annotationDraft?.annotationId === annotationId) {
+        commitAnnotationDraft()
+        return
+      }
+      useRoomStore.getState().toggleAnnotationCollapsed(annotationId)
     }
     const onCancel = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return
@@ -4177,7 +4194,7 @@ export function Room() {
     overlay.addEventListener('pointermove', onMove)
     overlay.addEventListener('pointerup', onUp)
     overlay.addEventListener('pointercancel', onCancel)
-  }, [vpRef, config, dispatchOp])
+  }, [vpRef, config, dispatchOp, commitAnnotationDraft])
 
   const handleEditAnnotationText = useCallback((annotationId: string) => {
     const annotation = useRoomStore.getState().annotations.items[annotationId]

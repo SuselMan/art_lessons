@@ -200,14 +200,23 @@ export function AnnotationOverlay({
 
       {draft && (
         <>
-          <Pin
-            annotationId={draft.annotationId ?? 'draft'}
-            transform={pinned(draft.x, draft.y, -PIN_HIT_PX / 2, -PIN_HIT_PX / 2)}
-            color={draft.color}
-            events="none"
-            faded={false}
-            active
-          />
+          {/* Only a note that does not exist yet needs a pin of its own. An
+              existing one already has its own above, and drawing a second at
+              the same point was invisible right up until the moment it stopped
+              being: dragging moved one of the two and left the other behind,
+              so the note appeared to grow a duplicate dot (Ilya). The one that
+              stays is the real one — it is the interactive one, which is what
+              lets the note be dragged straight out of editing. */}
+          {draft.annotationId === null && (
+            <Pin
+              annotationId="draft"
+              transform={pinned(draft.x, draft.y, -PIN_HIT_PX / 2, -PIN_HIT_PX / 2)}
+              color={draft.color}
+              events="none"
+              faded={false}
+              active
+            />
+          )}
           <DraftEditor
             draft={draft}
             pinned={pinned}
