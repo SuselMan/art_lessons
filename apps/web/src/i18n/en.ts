@@ -271,8 +271,8 @@ export const en = {
   'join.heading': 'Join project',
   'join.yourName': 'Your name',
   'join.namePlaceholder': 'e.g. Alex',
-  'join.password': 'Password (if the project has one)',
-  'join.passwordPlaceholder': 'Leave blank if none',
+  'join.password': 'Password',
+  'join.passwordNeeded': 'This project is password-protected — enter it to join.',
   'join.submit': 'Join project',
   'join.submitting': 'Joining…',
   // (#231) The screens that replace the form when the answer is about the
@@ -283,6 +283,7 @@ export const en = {
   'join.denied': 'The host has not let you in this time. You can ask again.',
   'join.askAgain': 'Ask again',
   'join.error.nameRequired': 'Name is required',
+  'join.error.passwordRequired': 'Password is required',
   'join.error.notFound': "This project doesn't exist. Check the link, or ask the host to create it.",
   'join.error.wrongPassword': 'Wrong password — try again.',
   'join.error.accessRevoked': 'The host has removed your access to this project.',

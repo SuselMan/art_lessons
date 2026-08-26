@@ -1239,6 +1239,9 @@ export function Room() {
   // hasn't answered yet" — so they replace the form instead of appearing as
   // an error under it. See JoinGateState.
   const [joinState,      setJoinState]      = useState<JoinGateState>('form')
+  // (#513) Whether the gate is asking for a password yet. False until a join
+  // attempt that carried none comes back refused — see attemptJoin.
+  const [joinPasswordAsked, setJoinPasswordAsked] = useState(false)
 
   // (#405) `drawingTool`, not `tool`: these are the size/opacity/colour the
   // engine is configured with, and while the ruler or the gizmo is selected
@@ -5030,6 +5033,18 @@ export function Room() {
       result => {
         setJoinSubmitting(false)
         if (!result.ok) {
+          // (#513) A `wrong_password` for an attempt that carried no password
+          // is not a wrong guess — it is the only way this client can learn
+          // the room has a password at all, since nothing about a room is
+          // readable before joining it. So it opens the field instead of
+          // accusing the reader of mistyping something they never typed.
+          // `joinError` was cleared at the top of this call, so what they see
+          // is the field and the note explaining it, and nothing red.
+          if (result.error === 'wrong_password' && password === undefined) {
+            setJoinPasswordAsked(true)
+            setJoinState('form')
+            return
+          }
           // (#231) Some refusals are screens, not errors under the form —
           // see joinGateStateFor for which and why.
           const state = joinGateStateFor(result.error)
@@ -5055,8 +5070,13 @@ export function Room() {
     e.preventDefault()
     const trimmed = joinName.trim()
     if (!trimmed) { setJoinError(t('join.error.nameRequired')); return }
+    // (#513) Only once the field is up. Before that an empty password is the
+    // normal case and submitting without one is precisely how we ask; after
+    // it, sending nothing again would come back as the same silent refusal
+    // and look like the button did nothing.
+    if (joinPasswordAsked && !joinPassword) { setJoinError(t('join.error.passwordRequired')); return }
     attemptJoin(trimmed, joinPassword || undefined)
-  }, [joinName, joinPassword, attemptJoin, t])
+  }, [joinName, joinPassword, joinPasswordAsked, attemptJoin, t])
 
   /** (#231) Asks again with whatever was entered last — from the "ask again"
    *  button after a denial, from "try again" once signed in elsewhere, and
@@ -5344,6 +5364,7 @@ export function Room() {
         onNameChange={setJoinName}
         password={joinPassword}
         onPasswordChange={setJoinPassword}
+        passwordAsked={joinPasswordAsked}
         error={joinError}
         submitting={joinSubmitting}
         onSubmit={handleJoinSubmit}
