@@ -4286,9 +4286,15 @@ export function Room() {
 
     const place = () => {
       pendingNoteRef.current = null
-      // Commit first: this tap is both "finish that note" and "start this one",
-      // and the other order would open a draft that the commit then closes.
-      commitAnnotationDraft()
+      // A tap while a note is open *only* finishes it. It used to finish that
+      // one and start another in the same gesture, which reads as the editor
+      // refusing to close: you tap away to get out of it and land in a new one,
+      // then tap away again and land in the next (Ilya). Writing a second
+      // remark is a second intention, so it costs a second tap.
+      if (useRoomStore.getState().annotationDraft) {
+        commitAnnotationDraft()
+        return
+      }
       const style = annotationStyle('annotateText')
       useRoomStore.getState().openAnnotationDraft({
         annotationId: null,
