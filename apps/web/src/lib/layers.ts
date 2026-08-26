@@ -446,6 +446,14 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     case 'operation_revoke':
     case 'operation_undo':
     case 'operation_redo':
+    // (#508) Annotations change no layer, so they leave this projection
+    // untouched — they have one of their own (lib/annotations.ts). Listed
+    // rather than swept up by a `default`, because this switch being
+    // exhaustive is what makes the compiler tell whoever adds the next
+    // operation type that they have to decide this question too.
+    case 'annotation_add':
+    case 'annotation_update':
+    case 'annotation_delete':
       return state
   }
 }

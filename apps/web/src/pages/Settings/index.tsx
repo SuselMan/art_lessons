@@ -2,7 +2,7 @@ import { AppHeader } from '../../components/AppHeader'
 import { OptionGroup } from '../../components/OptionGroup'
 import { LOCALES, LOCALE_NAMES, useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
-import { DEVICE_TYPES, type DeviceType } from '../../lib/deviceType'
+import { COMPACT_PREFERENCES, DEVICE_TYPES, type CompactPreference, type DeviceType } from '../../lib/deviceType'
 import { THEMES, type Theme } from '../../lib/theme'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './Settings.module.css'
@@ -10,6 +10,12 @@ import styles from './Settings.module.css'
 const DEVICE_TYPE_LABELS: Record<DeviceType, TranslationKey> = {
   tablet: 'settingsPage.deviceTablet',
   desktop: 'settingsPage.deviceDesktop',
+}
+
+const COMPACT_LABELS: Record<CompactPreference, TranslationKey> = {
+  auto: 'settingsPage.compactAuto',
+  on: 'settingsPage.compactOn',
+  off: 'settingsPage.compactOff',
 }
 
 const THEME_LABELS: Record<Theme, TranslationKey> = {
@@ -32,6 +38,8 @@ export function Settings() {
   const setLocale = useSettingsStore(s => s.setLocale)
   const deviceType = useSettingsStore(s => s.deviceType)
   const setDeviceType = useSettingsStore(s => s.setDeviceType)
+  const compactPreference = useSettingsStore(s => s.compactPreference)
+  const setCompactPreference = useSettingsStore(s => s.setCompactPreference)
   const theme = useSettingsStore(s => s.theme)
   const setTheme = useSettingsStore(s => s.setTheme)
 
@@ -93,6 +101,24 @@ export function Settings() {
             ariaLabel={t('settingsPage.deviceType')}
           />
           <p className={styles.hint}>{t('settingsPage.deviceTypeHint')}</p>
+        </section>
+
+        <section className={styles.section}>
+          <div className={styles.label}>{t('settingsPage.compact')}</div>
+          {/* (#512) Three options here where the tumbler above has two, and the
+              difference is that this one measures something that *changes*: a
+              phone rotates, a window is dragged narrower. `auto` therefore has
+              a meaning the device tumbler's would have lacked — "keep
+              following the screen" — rather than being a third state that looks
+              like one of the other two. */}
+          <OptionGroup
+            variant="list"
+            options={COMPACT_PREFERENCES.map(option => ({ id: option, label: t(COMPACT_LABELS[option]) }))}
+            active={compactPreference}
+            onSelect={setCompactPreference}
+            ariaLabel={t('settingsPage.compact')}
+          />
+          <p className={styles.hint}>{t('settingsPage.compactHint')}</p>
         </section>
       </div>
     </div>

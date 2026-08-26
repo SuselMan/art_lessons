@@ -96,6 +96,11 @@ export const en = {
   'settingsPage.deviceTablet': 'Tablet',
   'settingsPage.deviceDesktop': 'Computer',
   'settingsPage.deviceTypeHint': 'Tablet is laid out for a finger and a stylus, computer for a mouse, a keyboard and a graphics tablet. Detected from your device at first visit — each of your devices keeps its own.',
+  'settingsPage.compact': 'Phone layout',
+  'settingsPage.compactAuto': 'Follow screen size',
+  'settingsPage.compactOn': 'Always',
+  'settingsPage.compactOff': 'Never',
+  'settingsPage.compactHint': 'On a small screen the editor shows notes and the annotation pen instead of the drawing tools, and one finger draws while two move the canvas. Drawing itself stays on the tablet and the computer.',
 
   // ── create project ─────────────────────────────────────────────────────
   'create.heading': 'New project',
@@ -500,6 +505,19 @@ export const en = {
   'tool.fill': 'Fill',
   'tool.grid': 'Grid',
   'tool.gridTitle': 'Construction grid  {hotkey}',
+  // (#509/#510) No {hotkey} in either title, unlike every tool above: neither
+  // annotation tool has one yet. A placeholder with nothing to fill it prints
+  // the braces.
+  'tool.annotateText': 'Note',
+  'tool.annotateTitle': 'Note — tap the drawing and write a remark over it. Notes are not part of the picture',
+  'tool.annotatePen': 'Annotation pen',
+  'tool.annotatePenTitle': 'Annotation pen — circle or point at something over the drawing. Marks are not part of the picture',
+  'tool.annotateEraser': 'Annotation eraser',
+  'tool.annotateEraserTitle': 'Annotation eraser — drag over notes and pen marks to remove them. It never touches the drawing',
+  'room.annotationMode': 'Annotations',
+  'room.annotationModeTitle': 'Annotations — swaps the toolbar for notes and the annotation pen. Nothing here touches the drawing',
+  'room.annotationsHide': 'Hide notes',
+  'room.annotationsShow': 'Show notes',
 
   // ── tool settings (TOOL_SCHEMAS field labels and enum options) ─────────
   'tool.field.grade': 'Grade',

@@ -1353,6 +1353,42 @@ describe('isCoveredBySnapshot — layer_duplicate', () => {
   })
 })
 
+// (#508) The one class of operation that stored state accounts for in no way
+// at all. Every other non-pixel type is "covered" once the room has a stored
+// layerState newer than it, because a layerState is what those operations
+// leave behind — an annotation leaves nothing there, so the same answer would
+// mean the remark vanishes from the room while its row sits in Postgres.
+describe('isCoveredBySnapshot — annotations', () => {
+  const annotation = (seq: number): Operation => ({
+    id: `op-ann-${seq}`, type: 'annotation_add', userId: 'user-a', timestamp: 0, seq,
+    annotationId: `a${seq}`, shape: { kind: 'text', x: 0, y: 0, color: '#f00', size: 48, text: 'note' },
+  })
+
+  it('is never covered, however far the stored layerState has moved past it', () => {
+    expect(isCoveredBySnapshot(new Map([['layer-1', 9999]]), annotation(1), 9999, new Set(['layer-1'])))
+      .toBe(false)
+  })
+
+  it('is not covered for update or delete either', () => {
+    const update: Operation = {
+      id: 'op-u', type: 'annotation_update', userId: 'user-a', timestamp: 0, seq: 2,
+      annotationId: 'a1', patch: { text: 'fixed' },
+    }
+    const remove: Operation = {
+      id: 'op-d', type: 'annotation_delete', userId: 'user-a', timestamp: 0, seq: 3,
+      annotationIds: ['a1'],
+    }
+    expect(isCoveredBySnapshot(new Map(), update, 9999, new Set())).toBe(false)
+    expect(isCoveredBySnapshot(new Map(), remove, 9999, new Set())).toBe(false)
+  })
+
+  it('keeps them resident at any age', () => {
+    expect(RESIDENT_OP_TYPES).toEqual(expect.arrayContaining([
+      'annotation_add', 'annotation_update', 'annotation_delete',
+    ]))
+  })
+})
+
 // (#292) ensureRoomLoaded has to run before joinRoom (the password it checks
 // lives in the record that load produces), so a rejected join used to leave
 // a fully populated room in memory with nobody in it — and leaveRoom, the
