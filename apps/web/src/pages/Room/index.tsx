@@ -4036,6 +4036,13 @@ export function Room() {
     const el = vpRef.current
     if (!el || !config) return
     e.stopPropagation()
+    // Without this the note opens and closes again in the same gesture, which
+    // is worth spelling out because nothing about it is visible: the draft's
+    // <textarea> focuses itself the moment it mounts, and mousedown's *default
+    // action* — moving focus to whatever was pressed, i.e. this catcher —
+    // runs after the handler that mounted it. The textarea blurs, `onBlur`
+    // commits an empty note, and the tap appears to do nothing at all.
+    e.preventDefault()
     // A press that landed on an existing note edits it instead of starting a
     // new one on top. Hit-tested here rather than by letting the note be the
     // event target, because it cannot be one: this catcher sits above the
@@ -4072,6 +4079,10 @@ export function Room() {
     const el = vpRef.current
     if (!el || !config) return
     e.stopPropagation()
+    // Same reason as the note tap above, plus one of its own: without it a
+    // drag across the canvas starts a text selection, which on a phone brings
+    // up the selection handles mid-mark.
+    e.preventDefault()
     const rect = el.getBoundingClientRect()
     const vpNow = useRoomStore.getState().viewport
     const toPoint = (clientX: number, clientY: number) =>
@@ -6564,12 +6575,20 @@ export function Room() {
             fades in/out, so the panel stays mounted (no lost focus/state)
             and the canvas underneath never resizes, same as header/toolbar
             above. */}
-        {/* (#512) Absent in the compact shell, like the drawing tools: layers
-            are a property of the picture, and the compact shell does not edit
-            the picture. */}
+        {/* (#512) Not rendered in the compact shell, like the drawing tools:
+            layers are a property of the picture, and this shell does not edit
+            the picture.
+
+            Not rendered, and the distinction cost a debugging round: an HTML
+            `hidden` attribute here does nothing, because `.layerPanelWrap` sets
+            `display: flex` and a class beats the attribute's UA stylesheet
+            rule. On a desktop that was invisible — the panel is a right-hand
+            strip. At 390 px wide it covers the whole canvas, and every touch
+            aimed at the drawing landed on the panel instead: no note, no mark,
+            not even a two-finger pan. */}
+        {!compact && (
         <div
           className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}
-          hidden={compact}
         >
           <SidePanel
             active={activePanel}
@@ -6667,6 +6686,7 @@ export function Room() {
             ]}
           />
         </div>
+        )}
 
         {/* Draggable floating tool cluster (#157) — independent of the
             header/left-toolbar above, both of which stay as they are.
@@ -6691,7 +6711,14 @@ export function Room() {
           position={panelPosition}
           onPositionChange={setPanelPosition}
           containerRef={editorRef}
-          hidden={!floatingPanelVisible(floatingPanelMode, deviceType, uiHidden)}
+          // (#512) Never in the compact shell, and this is the one place the
+          // shell had to say so twice. The panel is a *replacement* toolkit —
+          // its whole purpose is to hand you the drawing tools when the
+          // toolbar is not there — so a shell that removes the drawing tools
+          // from the toolbar and leaves this up has removed nothing at all.
+          // Found exactly that way: the toolbar was clean and the panel was
+          // still handing out a pencil.
+          hidden={compact || !floatingPanelVisible(floatingPanelMode, deviceType, uiHidden)}
           undoHotkeyLabel={formatHotkeyLabel(hotkeys.undo)}
           redoHotkeyLabel={formatHotkeyLabel(hotkeys.redo)}
           flyout={panelFlyout}
