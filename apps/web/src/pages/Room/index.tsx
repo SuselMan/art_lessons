@@ -86,6 +86,7 @@ import { TransformGizmo } from './TransformGizmo'
 import { SelectionOverlay } from './SelectionOverlay'
 import { AnnotationOverlay } from './AnnotationOverlay'
 import { annotationTextAt } from './annotationHitTest'
+import { useCompactLayout } from '../../lib/useCompactLayout'
 import { isMeaningfulShape, prepareInkPoints } from '../../lib/annotations'
 import {
   appendFreehandPoint, closeAfterDoubleClick, closesPolygon, rectangleFromDrag, selectionBoundsRect,
@@ -658,6 +659,17 @@ export function Room() {
   // annotation overlay, above the composite.
   const annotateTextActive = tool === 'annotateText'
   const annotatePenActive = tool === 'annotatePen'
+  const annotateActive = annotateTextActive || annotatePenActive
+  // (#512) The compact shell: a phone gets annotations and nothing else. Live,
+  // not measured once — see useCompactLayout.
+  const compact = useCompactLayout()
+  // Finger-drawing is switched on by the compact shell and by nothing else.
+  // On a tablet a finger still pans, so the annotation tools stay pen-and-mouse
+  // there exactly like the fill and the selection — which is what keeps the
+  // most-used gesture contract in the app from changing for a feature that did
+  // not need it to. Where the finger *does* draw, two-finger pan follows
+  // automatically rather than as a second setting: see toolActiveRef below.
+  const annotateWithFinger = compact && annotateActive
   // (#23) Backed by the store now, alongside the transform-preview fields
   // below — moved for architectural consistency, but deliberately NEVER
   // persisted (see layerSlice.ts's own comment: a ruler is for quickly
@@ -1301,7 +1313,14 @@ export function Room() {
   // finger always pans/zooms while the ruler is in hand, exactly like it does
   // while drawing with the pencil.
   const toolActiveRef = useRef(false)
-  toolActiveRef.current = eyedropperActive
+  // (#512) The annotation tools join the eyedropper here while the compact
+  // shell is on, and that one line is the whole of "one finger draws, two
+  // fingers pan". The mechanism already existed for the eyedropper: the first
+  // touch is reserved for the tool and never enters the pan/pinch bookkeeping,
+  // while a second finger landing behind it pans normally. Nothing about the
+  // gesture had to be invented, and nothing about it changes anywhere the
+  // finger does not draw.
+  toolActiveRef.current = eyedropperActive || annotateWithFinger
 
   // (#362) Declared before useViewport because it feeds it: the pinch/rotate
   // edges the toast lives by are only observable from inside that hook's own
@@ -3931,6 +3950,10 @@ export function Room() {
   /** The rendered annotation layer, so the catcher can hit-test notes against
    *  their real laid-out boxes — see annotationTextAt. */
   const annotationLayerRef = useRef<HTMLDivElement | null>(null)
+  /** Read inside the two gesture handlers rather than closed over, so they do
+   *  not have to be rebuilt when the shell changes. */
+  const annotateWithFingerRef = useRef(false)
+  annotateWithFingerRef.current = annotateWithFinger
 
   const annotationStyle = useCallback((toolId: 'annotateText' | 'annotatePen') => {
     const settings = useRoomStore.getState().toolSettings
@@ -4003,10 +4026,12 @@ export function Room() {
   /** A tap with the note tool: commit whatever was open, then open a new note
    *  where the tap landed. */
   const handleAnnotationTextTap = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-    // Unlike the fill and the selection, touch is *not* refused here: a finger
-    // is the input this feature was asked for (#512), and a note costs one tap
-    // to undo where a stray fill repaints a region. The catcher only exists
-    // while the tool is in hand, so a finger that reaches here was aimed.
+    // Touch is refused unless the compact shell has switched finger-drawing
+    // on (#512). Where it has, the first finger was reserved for this tool by
+    // useViewport and never panned, so a touch reaching here was aimed at a
+    // note; where it has not, this returns and the finger pans as it always
+    // did.
+    if (e.pointerType === 'touch' && !annotateWithFingerRef.current) return
     if (handActive) return
     const el = vpRef.current
     if (!el || !config) return
@@ -4042,6 +4067,7 @@ export function Room() {
   /** The annotation pen: one drag, one mark. Same capture-and-listen shape as
    *  the selection lasso above — and, unlike it, open to touch. */
   const handleAnnotationPenDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'touch' && !annotateWithFingerRef.current) return
     if (handActive) return
     const el = vpRef.current
     if (!el || !config) return
@@ -4146,6 +4172,18 @@ export function Room() {
     if (peekConsumedRef.current) { peekConsumedRef.current = false; return }
     setAnnotationsHidden(!useRoomStore.getState().annotationsHidden)
   }, [setAnnotationsHidden])
+
+  // (#512) The compact shell has no drawing tools on screen, so it must not
+  // leave one in hand: a phone opening with the pencil selected would react to
+  // every tap by drawing graphite the user cannot see a tool for and cannot
+  // switch away from. Only ever *into* an annotation tool, and never back —
+  // leaving the shell is not a reason to take a tool out of someone's hand.
+  useEffect(() => {
+    if (!compact) return
+    const current = useRoomStore.getState().tool
+    if (current === 'annotateText' || current === 'annotatePen') return
+    selectTool('annotateText')
+  }, [compact, selectTool])
 
   // An open note must not survive the tool that opened it: switching away is a
   // decision about the note too, and the decision that loses least is to keep
@@ -5879,6 +5917,12 @@ export function Room() {
         {/* ── Left toolbar — tool selection only, fixed height per row ── */}
         <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
 
+          {/* (#512) Everything that draws *on* the picture is absent from the
+              compact shell. Not disabled — absent: a phone is here to react to
+              someone else's work, and a column of tools that cannot be used on
+              a screen this size is worse than no column. Undo/redo, the view
+              controls and the annotation tools below stay. */}
+          {!compact && (<>
           {/* The gradeHotkeyLabels keys step the pencil's hardness along the
               6H..6B ladder; [ / ] resize whichever tool is active (handled by
               the quick-settings panel to the right, not here). */}
@@ -6041,6 +6085,7 @@ export function Room() {
             aria-pressed={tool === 'grid'}
             onClick={() => selectTool('grid')}
           ><Icon name="grid_on" /></button>
+          </>)}
           {/* (#509/#510, эпик #87) The two annotation tools, last in the
               column and next to each other on purpose: they are the only
               tools here that do not touch the drawing at all, and grouping
@@ -6519,7 +6564,13 @@ export function Room() {
             fades in/out, so the panel stays mounted (no lost focus/state)
             and the canvas underneath never resizes, same as header/toolbar
             above. */}
-        <div className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
+        {/* (#512) Absent in the compact shell, like the drawing tools: layers
+            are a property of the picture, and the compact shell does not edit
+            the picture. */}
+        <div
+          className={clsx(styles.layerPanelWrap, uiHidden && styles.uiHidden, styles.strokeBlockable)}
+          hidden={compact}
+        >
           <SidePanel
             active={activePanel}
             onSelect={setActivePanel}

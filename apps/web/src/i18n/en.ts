@@ -96,6 +96,11 @@ export const en = {
   'settingsPage.deviceTablet': 'Tablet',
   'settingsPage.deviceDesktop': 'Computer',
   'settingsPage.deviceTypeHint': 'Tablet is laid out for a finger and a stylus, computer for a mouse, a keyboard and a graphics tablet. Detected from your device at first visit — each of your devices keeps its own.',
+  'settingsPage.compact': 'Phone layout',
+  'settingsPage.compactAuto': 'Follow screen size',
+  'settingsPage.compactOn': 'Always',
+  'settingsPage.compactOff': 'Never',
+  'settingsPage.compactHint': 'On a small screen the editor shows notes and the annotation pen instead of the drawing tools, and one finger draws while two move the canvas. Drawing itself stays on the tablet and the computer.',
 
   // ── create project ─────────────────────────────────────────────────────
   'create.heading': 'New project',
