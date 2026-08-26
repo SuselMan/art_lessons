@@ -1334,3 +1334,55 @@ a.gateSubmit {
      not be the browser's default 1px hairline at 8x zoom. */
   caret-color: currentColor;
 }
+
+/* (#512) The two left rails as one column on a phone.
+   
+   Everywhere else this wrapper is not a box at all: `display: contents` means
+   .toolbar and .quickSettingsBar keep resolving their own `position: absolute`
+   against the same ancestor they always did, so the desktop and tablet layout
+   is byte-for-byte what it was. Two columns are right there — they are what
+   keeps the tool buttons from reflowing every time the active tool's field
+   count changes (see .quickSettingsBar's own comment).
+   
+   On a phone that trade is backwards: two 62px columns are a third of the
+   screen, both nearly empty, and there is no reflow worth preventing when the
+   whole toolset is three buttons. So the wrapper becomes the column and the
+   two bars stack inside it, tools above settings — one surface, one edge, the
+   same 62px the toolbar alone used to take. */
+.toolRail {
+  display: contents;
+}
+
+.toolRailCompact {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: var(--header-h);
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  width: var(--rail-col-w);
+  background: var(--color-surface);
+  /* The edge between chrome and canvas, moved here from .quickSettingsBar —
+     that bar is no longer the rightmost thing on this side. */
+  border-right: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+/* Static, so each bar is as tall as its own content and the flex column above
+   does the stacking. Everything positional in their own rules — top, left,
+   bottom, width, the border — is answered by the wrapper now. */
+.toolRailCompact .toolbar,
+.toolRailCompact .quickSettingsBar {
+  position: static;
+  width: 100%;
+  border-right: none;
+  flex: 0 0 auto;
+}
+
+/* The two bars each carry 14px of vertical padding, which between them would
+   read as a 28px gap in the middle of what is meant to look like one panel.
+   The settings half drops its top padding and lets the divider do the work. */
+.toolRailCompact .quickSettingsBar {
+  padding-top: 0;
+}

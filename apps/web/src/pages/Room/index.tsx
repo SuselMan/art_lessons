@@ -5926,6 +5926,14 @@ export function Room() {
       <div className={styles.body}>
 
         {/* ── Left toolbar — tool selection only, fixed height per row ── */}
+        {/* (#512) The two rails — tool buttons and the active tool's quick
+            settings — are two side-by-side columns everywhere else, which is
+            what keeps the buttons from reflowing when the field count changes
+            between tools. On a phone that costs a third of the screen width
+            for two nearly empty columns, so the wrapper stacks them into one
+            instead. Everywhere else it is `display: contents` and changes
+            nothing at all: both bars keep their own absolute positioning. */}
+        <div className={clsx(styles.toolRail, compact && styles.toolRailCompact)}>
         <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
 
           {/* (#512) Everything that draws *on* the picture is absent from the
@@ -6213,6 +6221,7 @@ export function Room() {
             </div>
           )}
         </aside>
+        </div>
 
         {/* ── Viewport ── */}
         {/* (#319) The grab cursor lives on .viewport rather than the canvas
