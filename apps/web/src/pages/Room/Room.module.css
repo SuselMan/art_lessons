@@ -1335,7 +1335,9 @@ a.gateSubmit {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: grab;
+  /* Set here for completeness — the cursor a reader actually sees comes from
+     the catcher above it (see Room's annotationHover), which covers this. */
+  cursor: pointer;
   touch-action: none;
 }
 
@@ -1458,7 +1460,10 @@ a.gateSubmit {
   color: inherit;
   font: inherit;
   line-height: inherit;
-  caret-color: var(--color-accent);
+  /* The text's own colour, not the accent: the accent is a mid purple that all
+     but disappears against the dark theme's surface, and a caret nobody can see
+     is a note nobody is sure they are typing into. */
+  caret-color: currentColor;
 }
 
 /* (#512) The two left rails as one column on a phone.

@@ -35,7 +35,7 @@ import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grain
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
 import { PencilSound, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
-import { CLICK_MOVE_THRESHOLD_PX, DOUBLE_TAP_MAX_DELAY_MS, TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
+import { CLICK_MOVE_THRESHOLD_PX, TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { holdReload } from '../../lib/reloadSafety'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
@@ -264,6 +264,22 @@ const LIVE_INK_MIN_STEP = 0.75
 /** (#511) How long a press on the hide button counts as "hold to peek" rather
  *  than as a tap that toggles. Past this, releasing brings the notes back. */
 const HOLD_TO_PEEK_MS = 250
+
+/** (#509 v5) How long a new note waits, while minimal UI's double tap is armed,
+ *  to see whether a second tap is coming.
+ *
+ *  Deliberately far below `DOUBLE_TAP_MAX_DELAY_MS` (400 ms), which is the
+ *  *outer* bound of that gesture. Waiting the full window made every single
+ *  note feel like the app was thinking about it (Ilya), and paying the worst
+ *  case on the common action to protect the rare one is the wrong way round.
+ *
+ *  What makes the short value safe is that overshooting costs nothing: a double
+ *  tap slower than this opens an empty note, and `toggleUI` closes it again the
+ *  moment the gesture completes — an empty draft is local state and records no
+ *  operation. So this only has to cover the *brisk* double tap, where the two
+ *  taps come within a couple of frames of each other and an editor flashing
+ *  open would be visible. */
+const NOTE_DOUBLE_TAP_GRACE_MS = 160
 
 /** One shared empty set, so "nothing is being erased" is always the same
  *  reference and never re-renders the overlay by itself. */
@@ -502,6 +518,10 @@ export function Room() {
    *  every time the setting changes. Assigned just below useTapToggle, against
    *  that hook's own arming condition, so the two cannot drift. */
   const doubleTapArmedRef = useRef(false)
+  /** A tap that may yet become a note, waiting out the grace period above.
+   *  Declared up here, before `toggleUI`, because that is what has to be able
+   *  to call the whole thing off. */
+  const pendingNoteRef = useRef<{ timer: number } | null>(null)
   const minimalUiTapMode = useSettingsStore(s => s.minimalUiTapMode)
   // (#157/#321) Where the floating tool cluster is allowed to appear.
   const floatingPanelMode = useSettingsStore(s => s.floatingPanel)
@@ -524,6 +544,25 @@ export function Room() {
   // correlated against the tap:/vp:/stroke: timeline below.
   const toggleUI = useCallback(() => {
     diagLog('toggleUI: uiHidden', uiHiddenRef.current, '->', !uiHiddenRef.current)
+    // (#509 v5) A double tap slower than NOTE_DOUBLE_TAP_GRACE_MS will already
+    // have opened an empty note by the time it completes. Undoing that here is
+    // what lets the grace period be short: a note has to survive only the
+    // *brisk* double tap, and the slow one is tidied up after the fact instead
+    // of being waited out. Nothing is lost either way — an empty draft is local
+    // state and records no operation.
+    //
+    // Both halves matter. The open note is the first tap's; the *pending* one
+    // is the second tap's, queued a moment ago by the very press that completed
+    // this gesture — cancel only the first and the second lands 160ms later,
+    // which is what "the double tap left a note behind" looked like.
+    if (pendingNoteRef.current) {
+      window.clearTimeout(pendingNoteRef.current.timer)
+      pendingNoteRef.current = null
+    }
+    const draft = useRoomStore.getState().annotationDraft
+    if (draft && draft.annotationId === null && !draft.text.trim()) {
+      useRoomStore.getState().closeAnnotationDraft()
+    }
     setUiHidden(h => !h)
   }, [])
   // (#321) Turning the setting off while the chrome is hidden has to give it
@@ -3977,8 +4016,13 @@ export function Room() {
   /** Annotations the eraser has swept over this gesture, faded but not yet
    *  gone — see handleAnnotationEraseDown. */
   const [erasingIds, setErasingIds] = useState<ReadonlySet<string>>(EMPTY_ERASING)
-  /** A tap that may yet become a note, waiting out the double-tap window. */
-  const pendingNoteRef = useRef<{ timer: number } | null>(null)
+  /** Whether the pointer is over something an annotation tool can act on.
+   *
+   *  Has to be tracked here rather than left to `cursor: pointer` on the pin
+   *  and the two buttons, because none of them ever sees the pointer: the
+   *  catcher covers the whole viewport and the cursor is whatever *it* says.
+   *  Same reason those elements are hit-tested instead of clicked. */
+  const [annotationHover, setAnnotationHover] = useState(false)
   /** The pin being dragged, at its live position — see startPinDrag. */
   const [pinDrag, setPinDrag] = useState<{ annotationId: string; x: number; y: number } | null>(null)
   /** The rendered annotation layer, so the catcher can hit-test notes against
@@ -4051,6 +4095,13 @@ export function Room() {
 
   const cancelAnnotationDraft = useCallback(() => {
     useRoomStore.getState().closeAnnotationDraft()
+  }, [])
+
+  const handleAnnotationHover = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // React bails out of a re-render when the value is unchanged, so this is a
+    // hit test per pointermove and nothing else for the overwhelming majority
+    // of them.
+    setAnnotationHover(annotationAt(e.clientX, e.clientY) !== null)
   }, [])
 
   /** A tap on an existing note with the note tool in hand — reopen it for
@@ -4260,7 +4311,7 @@ export function Room() {
       // minimal UI's tap-to-hide is armed. Everywhere else the note appears the
       // instant the finger lifts.
       if (!doubleTapArmedRef.current) { place(); return }
-      pendingNoteRef.current = { timer: window.setTimeout(place, DOUBLE_TAP_MAX_DELAY_MS) }
+      pendingNoteRef.current = { timer: window.setTimeout(place, NOTE_DOUBLE_TAP_GRACE_MS) }
     }
     const onCancel = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return
@@ -6883,13 +6934,25 @@ export function Room() {
               (it stops propagation), and everything that misses one lands
               here and starts a new one. */}
           {annotateTextActive && (
-            <div className={styles.canvasCatcher} onPointerDown={handleAnnotationTextTap} />
+            <div
+              className={styles.canvasCatcher}
+              style={annotationHover ? { cursor: 'pointer' } : undefined}
+              onPointerDown={handleAnnotationTextTap}
+              onPointerMove={handleAnnotationHover}
+              onPointerLeave={() => setAnnotationHover(false)}
+            />
           )}
           {annotatePenActive && (
             <div className={styles.canvasCatcher} onPointerDown={handleAnnotationPenDown} />
           )}
           {annotateEraserActive && (
-            <div className={styles.canvasCatcher} onPointerDown={handleAnnotationEraseDown} />
+            <div
+              className={styles.canvasCatcher}
+              style={annotationHover ? { cursor: 'pointer' } : undefined}
+              onPointerDown={handleAnnotationEraseDown}
+              onPointerMove={handleAnnotationHover}
+              onPointerLeave={() => setAnnotationHover(false)}
+            />
           )}
         </div>
 
