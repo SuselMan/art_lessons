@@ -178,6 +178,60 @@ describe('TiledLayerBuffer coarse level (#365)', () => {
     expect(folds.length).toBeGreaterThanOrEqual(buf.evictedTileCount * COARSE_FACTORS.length)
   })
 
+  it('folds a tile written through resolveExistingForPaint (#503)', () => {
+    // `area_clear` erases inside whatever tiles already exist and must not
+    // create any, so it cannot go through resolveForPaint — and going through
+    // resolveVisible, which is the read resolver, left the erase out of every
+    // level. The layer then kept showing the erased content at low zoom and
+    // dropped it only on zooming in.
+    const { downsample, folds } = recordingDownsampler()
+    const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
+    paintFineTile(buf, 0)
+    buf.resolveCoarse(wholeWorld, FACTOR)
+    expect(folds).toHaveLength(1)
+
+    const targets = buf.resolveExistingForPaint({ minX: 0, minY: 0, maxX: 1, maxY: 1 })
+    expect(targets).toHaveLength(1)
+    buf.resolveCoarse(wholeWorld, FACTOR)
+    expect(folds).toHaveLength(2)
+  })
+
+  it('creates nothing for a region resolveExistingForPaint finds empty (#503)', () => {
+    // The half of resolveVisible worth keeping: an erase over untouched
+    // ground must not leave permanently blank tiles behind it.
+    const { downsample } = recordingDownsampler()
+    const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
+    expect(buf.resolveExistingForPaint({ minX: 0, minY: 0, maxX: 1, maxY: 1 })).toHaveLength(0)
+    expect(buf.allResident()).toHaveLength(0)
+  })
+
+  it('re-owes every level for a tile recovered from eviction (#503)', () => {
+    // A recovered tile is rebuilt by replaying the log, not by copying back
+    // what was folded on the way out — so "it paid its debt before eviction"
+    // stops being a statement about the pixels the levels now hold. Cheap to
+    // re-owe (one quad draw at the next fold), silently wrong not to.
+    const { downsample, folds } = recordingDownsampler()
+    const cap = 8
+    const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, rebuilder(), TILE_BYTES * cap, downsample)
+    for (let i = 0; i < cap + 4; i++) paintFineTile(buf, i)
+    expect(buf.evictedTileCount).toBeGreaterThan(0)
+
+    // Counted per level, not in total: an eviction settles a tile's debt to
+    // every *other* level on its way out, and those folds would otherwise be
+    // read as this level catching up. A level's slot size is what names it.
+    const slot = TILE_W / FACTOR
+    const foldsHere = (): number => folds.filter(f => f.w === slot).length
+
+    // Settle everything currently owed, so what follows is only the recovery's.
+    buf.resolveCoarse(wholeWorld, FACTOR)
+    const settled = foldsHere()
+
+    // Tile 0 was painted first, so it is the one the LRU dropped first.
+    buf.resolveVisible({ minX: 0, minY: 0, maxX: 1, maxY: 1 })
+    buf.resolveCoarse(wholeWorld, FACTOR)
+    expect(foldsHere()).toBeGreaterThan(settled)
+  })
+
   it('drops the coarse level on clear(), so a wiped layer cannot keep showing content', () => {
     const { downsample } = recordingDownsampler()
     const buf = new TiledLayerBuffer(gl(), TILE_W, TILE_H, undefined, undefined, downsample)
