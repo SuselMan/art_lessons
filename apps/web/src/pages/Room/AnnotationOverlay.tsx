@@ -58,11 +58,19 @@ interface AnnotationOverlayProps {
    *  with these — the same thing RulerOverlay's distance label does. */
   zoom: number
   angle: number
-  /** Whether an annotation tool is in hand. Drives `pointer-events` on the
-   *  pieces below, which is what lets Room's catcher hit-test them (see
-   *  annotationAt) while leaving them completely transparent to a stroke
-   *  aimed at the paper under any other tool. */
-  interactive: boolean
+  /** What the tool in hand can act on, which is what may be hit-tested (see
+   *  annotationAt). Three states rather than one boolean, and the middle one is
+   *  the whole reason: an ink mark carries a deliberately fat invisible twin so
+   *  it can be hit at all, and while that twin was live for *every* annotation
+   *  tool it swallowed taps meant for the paper — a note simply could not be
+   *  pinned on top of a pen mark, which is exactly where a remark about a
+   *  circled area belongs (reported by Ilya).
+   *
+   *   - `none`  — the pen: it draws, it never picks anything up;
+   *   - `notes` — the note tool: pins, bubbles and their controls answer, ink
+   *               does not, so a tap over a mark pins a note on top of it;
+   *   - `all`   — the eraser, the one tool whose job is to pick up ink. */
+  hitTargets: 'none' | 'notes' | 'all'
   layerRef?: RefObject<HTMLDivElement | null>
 }
 
@@ -90,13 +98,15 @@ interface AnnotationOverlayProps {
 export function AnnotationOverlay({
   annotations, hidden, collapsedIds, erasingIds, dragPreview, draft,
   onDraftChange, onDraftCommit, onDraftCancel,
-  liveInk, zoom, angle, interactive, layerRef,
+  liveInk, zoom, angle, hitTargets, layerRef,
 }: AnnotationOverlayProps) {
   if (hidden) return null
 
   const items = annotations.order.map(id => annotations.items[id]).filter(Boolean)
   const counter = 1 / (zoom || 1)
-  const events = interactive ? 'auto' : 'none'
+  const notesHit = hitTargets !== 'none'
+  const inkHit = hitTargets === 'all'
+  const events = notesHit ? 'auto' : 'none'
 
   /** The transform that puts a screen-sized element at a world point: undo the
    *  wrapper's scale and rotation, then offset in what are now screen pixels. */
@@ -112,7 +122,7 @@ export function AnnotationOverlay({
                 hit. A 2px line is 2px of target, which is not something anyone
                 can put an eraser on; this gives it a finger-sized one without
                 changing what is drawn. Only present while it can be used. */}
-            {interactive && (
+            {inkHit && (
               <path
                 d={inkPathData(a.points)}
                 {...{ [ANNOTATION_ID_ATTR]: a.id, [ANNOTATION_PART_ATTR]: 'ink' }}
@@ -179,7 +189,7 @@ export function AnnotationOverlay({
                 angle={angle}
                 x={x}
                 y={y}
-                interactive={interactive}
+                interactive={notesHit}
                 events={events}
                 faded={erasingIds.has(a.id)}
               />

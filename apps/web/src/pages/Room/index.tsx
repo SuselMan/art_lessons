@@ -32,10 +32,10 @@ import { exposeEngineForDev } from '../../lib/devEngineHandle'
 import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
-import { floatingPanelVisible, minimalUiActive } from '../../lib/uiPreferences'
+import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
 import { PencilSound, TOOL_SOUND_CONFIGS } from '../../lib/PencilSound'
 import { useDragToAdjust } from '../../lib/useDragToAdjust'
-import { TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
+import { CLICK_MOVE_THRESHOLD_PX, DOUBLE_TAP_MAX_DELAY_MS, TAP_MOVE_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { setBackNavigationGuard } from '../../lib/backNavigationGuard'
 import { holdReload } from '../../lib/reloadSafety'
 import { diagLog, getDiagLogs, clearDiagLogs } from '../../lib/diagLog'
@@ -496,6 +496,12 @@ export function Room() {
   const minimalUiSetting = useSettingsStore(s => s.minimalUi)
   const deviceType = useSettingsStore(s => s.deviceType)
   const tapToHideEnabled = minimalUiActive(minimalUiSetting, deviceType)
+  /** (#509 v3) Whether a second tap on the canvas means "hide the chrome" right
+   *  now — the only case worth making a new note wait for. A ref so the
+   *  annotation gesture handlers read it at event time instead of being rebuilt
+   *  every time the setting changes. Assigned just below useTapToggle, against
+   *  that hook's own arming condition, so the two cannot drift. */
+  const doubleTapArmedRef = useRef(false)
   const minimalUiTapMode = useSettingsStore(s => s.minimalUiTapMode)
   // (#157/#321) Where the floating tool cluster is allowed to appear.
   const floatingPanelMode = useSettingsStore(s => s.floatingPanel)
@@ -665,6 +671,10 @@ export function Room() {
   const annotatePenActive = tool === 'annotatePen'
   const annotateEraserActive = tool === 'annotateEraser'
   const annotateActive = annotateTextActive || annotatePenActive || annotateEraserActive
+  // What the tool in hand may pick up — see AnnotationOverlay's `hitTargets`.
+  // The pen picks up nothing, the note tool everything but ink (so a remark can
+  // be pinned on top of a mark), the eraser everything.
+  const annotationHitTargets = annotateEraserActive ? 'all' : annotateTextActive ? 'notes' : 'none'
   // (#512) The compact shell: a phone gets annotations and nothing else. Live,
   // not measured once — see useCompactLayout.
   const compact = useCompactLayout()
@@ -1433,6 +1443,10 @@ export function Room() {
   // conflict is, and costs nothing: the tap puts the transform tool down, so
   // by the next tap this is armed again and hides the chrome as it always did.
   useTapToggle(vpEl, toggleUI, tapToHideEnabled && !transformActive, minimalUiTapMode, tapDebugEnabled ? setTapDebug : undefined)
+  // (#509 v3) Mirrors the exact condition above, so a note only ever waits for
+  // the double-tap window when a double tap is really listening for one.
+  doubleTapArmedRef.current = tapToHideEnabled && !transformActive
+    && minimalUiTapsRequired(minimalUiTapMode) > 1
 
   // ── require a room id ────────────────────────────────────────────────────────
   // Config itself no longer loads here: the creator's is known synchronously
@@ -3956,6 +3970,8 @@ export function Room() {
   /** Annotations the eraser has swept over this gesture, faded but not yet
    *  gone — see handleAnnotationEraseDown. */
   const [erasingIds, setErasingIds] = useState<ReadonlySet<string>>(EMPTY_ERASING)
+  /** A tap that may yet become a note, waiting out the double-tap window. */
+  const pendingNoteRef = useRef<{ timer: number } | null>(null)
   /** The pin being dragged, at its live position — see startPinDrag. */
   const [pinDrag, setPinDrag] = useState<{ annotationId: string; x: number; y: number } | null>(null)
   /** The rendered annotation layer, so the catcher can hit-test notes against
@@ -4167,21 +4183,85 @@ export function Room() {
       return
     }
     if (hit) return
-    // Commit first: this tap is both "finish that note" and "start this one",
-    // and the other order would open a draft that the commit then closes.
-    commitAnnotationDraft()
+
+    // A new note is placed on *release*, and only if the press turned out to be
+    // a plain single tap. Placing it on pointerdown was wrong in three ways at
+    // once, all reported from the phone: the first finger of a pinch left a
+    // note behind before the second one arrived, so did the first tap of the
+    // double tap that hides the chrome, and so did the start of any drag.
+    //
+    // Nothing is decided here, then — the press only becomes a candidate, and
+    // any of the three cancels it: a second pointer (see annotationGestureRef,
+    // which useViewport is handing the pinch at the same moment), travel past
+    // the click slop, or the browser taking the pointer away.
     const rect = el.getBoundingClientRect()
     const at = clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config)
-    const style = annotationStyle('annotateText')
-    useRoomStore.getState().openAnnotationDraft({
-      annotationId: null,
-      // Lifted by most of a line so the caret sits where the finger did,
-      // instead of the note hanging by its top-left corner underneath it.
-      x: at.x,
-      y: at.y - style.size * 0.6,
-      text: '',
-      ...style,
-    })
+    const overlay = e.currentTarget
+    const pointerId = e.pointerId
+    const startClient = { x: e.clientX, y: e.clientY }
+
+    // The second tap of a double tap arrives as another press on this catcher,
+    // and it must not leave a note behind either — so a candidate still waiting
+    // out its window is cancelled by the next press rather than confirmed.
+    if (pendingNoteRef.current) {
+      window.clearTimeout(pendingNoteRef.current.timer)
+      pendingNoteRef.current = null
+      return
+    }
+
+    const place = () => {
+      pendingNoteRef.current = null
+      // Commit first: this tap is both "finish that note" and "start this one",
+      // and the other order would open a draft that the commit then closes.
+      commitAnnotationDraft()
+      const style = annotationStyle('annotateText')
+      useRoomStore.getState().openAnnotationDraft({
+        annotationId: null,
+        // Lifted by most of a line so the caret sits where the finger did,
+        // instead of the note hanging by its top-left corner underneath it.
+        x: at.x,
+        y: at.y - style.size * 0.6,
+        text: '',
+        ...style,
+      })
+    }
+
+    const detach = () => {
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+      overlay.removeEventListener('pointercancel', onCancel)
+      if (annotationGestureRef.current?.pointerId === pointerId) annotationGestureRef.current = null
+    }
+    const abandon = () => {
+      detach()
+      if (pendingNoteRef.current) {
+        window.clearTimeout(pendingNoteRef.current.timer)
+        pendingNoteRef.current = null
+      }
+    }
+    annotationGestureRef.current = { pointerId, cancel: abandon }
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      if (Math.hypot(ev.clientX - startClient.x, ev.clientY - startClient.y) > CLICK_MOVE_THRESHOLD_PX) abandon()
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      detach()
+      // Waiting out the double-tap window costs 400ms of latency, so it is only
+      // paid where a second tap actually means something else — that is, while
+      // minimal UI's tap-to-hide is armed. Everywhere else the note appears the
+      // instant the finger lifts.
+      if (!doubleTapArmedRef.current) { place(); return }
+      pendingNoteRef.current = { timer: window.setTimeout(place, DOUBLE_TAP_MAX_DELAY_MS) }
+    }
+    const onCancel = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      abandon()
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
+    overlay.addEventListener('pointercancel', onCancel)
   }, [vpRef, config, handActive, commitAnnotationDraft, annotationStyle, handleEditAnnotationText,
       deleteAnnotations, startPinDrag])
 
@@ -6599,7 +6679,7 @@ export function Room() {
                 dragPreview={pinDrag}
                 zoom={vp.zoom}
                 angle={vp.angle}
-                interactive={annotateActive}
+                hitTargets={annotationHitTargets}
                 layerRef={annotationLayerRef}
               />
             )}
@@ -6689,7 +6769,7 @@ export function Room() {
                 dragPreview={pinDrag}
                 zoom={vp.zoom}
                 angle={vp.angle}
-                interactive={annotateActive}
+                hitTargets={annotationHitTargets}
                 layerRef={annotationLayerRef}
               />
             </div>
