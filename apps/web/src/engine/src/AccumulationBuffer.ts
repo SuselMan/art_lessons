@@ -28,6 +28,7 @@ export class AccumulationBuffer {
     this.gl = gl
     this.width = width
     this.height = height
+    this._baseFilter = filter
     this._texture = this._makeTexture(filter)
     this._fbo     = this._makeFBO(this._texture)
     // Computed here rather than as a field initializer: those run before the
@@ -132,6 +133,39 @@ export class AccumulationBuffer {
     gl.generateMipmap(gl.TEXTURE_2D)
     this._mipsValid = true
     return true
+  }
+
+  /** The filter this buffer was created with — what setPointSampling restores
+   *  to, so a smudge scratch (created 'nearest') does not silently come back
+   *  as LINEAR. */
+  private readonly _baseFilter: 'linear' | 'nearest'
+  private _pointSampling = false
+
+  /** (#507) Forces exact-texel sampling for the next draw, and back again.
+   *
+   *  The transform blits sample with their own hand-written bilinear filter
+   *  (see TILE_BILINEAR in shaders.ts — a tiled layer cannot use the
+   *  hardware's, because at a tile edge half the kernel lives in a texture
+   *  this pass does not have). They fetch at exact texel centres, so the
+   *  sampler must not add a second, different interpolation on top: NEAREST
+   *  makes each fetch a plain floor, which is also the only thing that
+   *  reliably keeps a mip filter left behind by setMipSampling out of a pass
+   *  that would otherwise read blurred coarse levels.
+   *
+   *  Scoped to one draw — every caller turns it off immediately afterwards,
+   *  which is what makes restoring from _baseFilter/_mipSampling correct
+   *  rather than a guess about who else touched the texture in between. */
+  setPointSampling(on: boolean): void {
+    if (on === this._pointSampling) return
+    const { gl } = this
+    const base = this._baseFilter === 'nearest' ? gl.NEAREST : gl.LINEAR
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, on ? gl.NEAREST : base)
+    gl.texParameteri(
+      gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+      on ? gl.NEAREST : (this._mipSampling ? gl.LINEAR_MIPMAP_LINEAR : base),
+    )
+    this._pointSampling = on
   }
 
   /** (#365) Chooses trilinear or plain LINEAR minification for the next draw
