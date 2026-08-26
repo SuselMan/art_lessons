@@ -23,6 +23,9 @@ declare global {
  *  submit, which makes structure the more stable thing to name anyway. */
 const NAME_INPUT = 'form input[type="text"]'
 const SUBMIT = 'form button[type="submit"]'
+/** (#513) Both forms that have one have exactly one, and on the join gate its
+ *  presence is itself the thing under test. */
+export const PASSWORD_INPUT = 'form input[type="password"]'
 
 /** Fills the create form and lands in the new room. Returns its id.
  *
@@ -31,9 +34,18 @@ const SUBMIT = 'form button[type="submit"]'
  *  configuration arrives as react-router navigation *state* (see
  *  CreateRoom's handleSubmit), so a direct visit is a different code path —
  *  the joiner's — and would quietly test the wrong one. */
-export async function createRoom(page: Page, name = 'E2E lesson'): Promise<string> {
+export async function createRoom(
+  page: Page, name = 'E2E lesson', opts: { password?: string } = {},
+): Promise<string> {
   await page.goto('/create')
   await page.locator(NAME_INPUT).first().fill(name)
+  if (opts.password) {
+    // The switch is a `display: none` checkbox inside its label — the label
+    // is what a person clicks, and clicking the input itself is not something
+    // even `force` can do to a box with no layout. The form has exactly one.
+    await page.locator('form label:has(input[type="checkbox"])').first().click()
+    await page.locator(PASSWORD_INPUT).first().fill(opts.password)
+  }
   await page.locator(SUBMIT).click()
   await page.waitForURL(/\/room\/[^/]+$/)
   const id = new URL(page.url()).pathname.split('/').pop()
@@ -268,10 +280,22 @@ export async function loseAndRestoreContext(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__engine!.gpuInfo().contextLost === false, undefined, { timeout: 30_000 })
 }
 
-/** Joins an existing room as a second participant, through the gate. */
-export async function joinRoom(page: Page, roomId: string, name = 'Student'): Promise<void> {
+/** Joins an existing room as a second participant, through the gate.
+ *
+ *  (#513) `password` is submitted on a *second* pass on purpose: the gate has
+ *  no password field until a first, passwordless attempt is refused, because
+ *  nothing about a room is readable before joining it. Passing one here for a
+ *  room that has none would therefore fail looking for a field that correctly
+ *  never appears. */
+export async function joinRoom(
+  page: Page, roomId: string, name = 'Student', password?: string,
+): Promise<void> {
   await page.goto(`/room/${roomId}`)
   await page.locator(NAME_INPUT).first().fill(name)
   await page.locator(SUBMIT).click()
+  if (password) {
+    await page.locator(PASSWORD_INPUT).first().fill(password)
+    await page.locator(SUBMIT).click()
+  }
   await waitForRoomReady(page)
 }
