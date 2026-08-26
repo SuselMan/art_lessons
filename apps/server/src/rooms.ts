@@ -5,7 +5,10 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { Prisma } from '@prisma/client'
 import type { Operation, Participant, RejectReason, Room, RoomAccessMode } from '@grafetto/shared'
-import { DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL, operationLayerIds } from '@grafetto/shared'
+import {
+  ANNOTATION_OP_TYPES, DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL,
+  isAnnotationOperation, operationLayerIds,
+} from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
 import { toWireRoom } from './roomMapper.js'
@@ -386,6 +389,14 @@ export function deletableOperations(
 export const RESIDENT_OP_TYPES: readonly string[] = [
   'layer_add', 'folder_add', 'layer_delete', 'layer_merge', 'layer_duplicate', 'layer_owner_lock',
   'operation_undo', 'operation_redo', 'operation_revoke',
+  // (#508) The annotation operations, and they are resident for a reason no
+  // other entry here has: they are the only ones whose effect *nothing* else
+  // stores. A layer's existence survives in the stored layerState and its
+  // pixels in a snapshot, so those entries are resident to keep the server's
+  // own mirrors honest; an annotation exists only as the operations that made
+  // it. Drop one below the window and the remark is gone from the room for
+  // good, with the log row still sitting in Postgres.
+  ...ANNOTATION_OP_TYPES,
 ]
 
 /** The ids a stored layerState still lists — see RoomRecord.layerStateIds.
@@ -493,6 +504,17 @@ export function isCoveredBySnapshot(
   // copy's pixels made it into a snapshot.
   if (op.type === 'layer_duplicate') return structureCovered && pixelsCovered(op.layerId)
   if (op.type === 'layer_transform') return structureCovered && op.transforms.every(t => pixelsCovered(t.layerId))
+  // (#508) Annotations are covered by nothing, ever. This is the one branch
+  // that had to be written rather than inherited, and the fall-through below
+  // would have been silently wrong: it reads "covered once the stored
+  // layerState is newer than this operation", and a layerState knows only
+  // about layers. An annotation is not in it, is not in any pixel snapshot,
+  // and is not derivable from either — so treating it as covered would
+  // withhold it from every joining client and trim it out of RAM the moment
+  // the room stored a layerState past its seq. The remark would vanish from
+  // the room while its row sat in Postgres, which is the exact shape of the
+  // 2026-07-31 duplicate-layer bug described above, with the sign flipped.
+  if (isAnnotationOperation(op)) return false
   // Everything else leaves structure and nothing else behind: layer_add,
   // folder_add, layer_delete, layer_move, layer_rename, layer_opacity,
   // layer_visibility, layer_owner_lock — and the meta operations, whose whole

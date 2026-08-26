@@ -11,7 +11,10 @@ import {
   isColorPickerMode,
   type ColorPickerMode,
 } from '../components/ColorPicker/pickerModes'
-import { detectDeviceType, isDeviceType, type DeviceType } from '../lib/deviceType'
+import {
+  detectDeviceType, isCompactPreference, isDeviceType,
+  type CompactPreference, type DeviceType,
+} from '../lib/deviceType'
 import { getHotkeyBindings, setHotkeyBindings, type HotkeyBinding } from '../lib/hotkeys'
 import {
   DEFAULT_FLOATING_PANEL_MODE, DEFAULT_MINIMAL_UI_TAP_MODE, DEFAULT_SOUND_VOLUME, clampSoundVolume,
@@ -35,6 +38,7 @@ import { DEFAULT_LOCALE, detectLocale, isLocale, type Locale } from '../i18n/loc
 const LOCALE_STORAGE_KEY = 'al_locale'
 const LESSONS_VIEW_STORAGE_KEY = 'al_lessons_view'
 const DEVICE_TYPE_STORAGE_KEY = 'al_device_type'
+const COMPACT_STORAGE_KEY = 'al_compact_layout'
 const COLOR_PICKER_MODE_STORAGE_KEY = 'al_color_picker_mode'
 const LAST_PAPER_TYPE_STORAGE_KEY = 'al_last_paper_type'
 const SOUND_ENABLED_STORAGE_KEY = 'al_sound_enabled'
@@ -82,6 +86,17 @@ function initialDeviceType(): DeviceType {
   if (typeof window === 'undefined') return 'desktop'
   const raw = localStorage.getItem(DEVICE_TYPE_STORAGE_KEY)
   return isDeviceType(raw) ? raw : detectDeviceType()
+}
+
+/** (#512) Unlike `deviceType`, this defaults to `auto` rather than to a
+ *  detected value frozen at first load: screen size is the one property here
+ *  that genuinely changes during a session — rotate the phone, split the
+ *  screen — so the live answer has to stay live unless someone overrides it.
+ *  See useCompactLayout. */
+function initialCompactPreference(): CompactPreference {
+  if (typeof window === 'undefined') return 'auto'
+  const raw = localStorage.getItem(COMPACT_STORAGE_KEY)
+  return isCompactPreference(raw) ? raw : 'auto'
 }
 
 /** The language to start in: an explicit earlier choice if there is one,
@@ -215,6 +230,11 @@ export interface SettingsStore {
   setLessonsView: (view: LessonsView) => void
   deviceType: DeviceType
   setDeviceType: (deviceType: DeviceType) => void
+  /** (#512) Whether to show the compact, annotation-only shell. `auto` follows
+   *  the screen; the other two are the manual override detection will
+   *  eventually need for somebody. */
+  compactPreference: CompactPreference
+  setCompactPreference: (preference: CompactPreference) => void
   /** (#426) Which palette the interface is painted in. See `lib/theme.ts` for
    *  why this is an accessibility setting rather than a cosmetic one. */
   theme: Theme
@@ -270,6 +290,11 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
   setLessonsView: view => {
     localStorage.setItem(LESSONS_VIEW_STORAGE_KEY, view)
     set({ lessonsView: view })
+  },
+  compactPreference: initialCompactPreference(),
+  setCompactPreference: preference => {
+    localStorage.setItem(COMPACT_STORAGE_KEY, preference)
+    set({ compactPreference: preference })
   },
   deviceType: initialDeviceType(),
   setDeviceType: deviceType => {

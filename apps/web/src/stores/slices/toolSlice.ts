@@ -47,6 +47,12 @@ export type DrawingTool = (typeof DRAWING_TOOLS)[number]
 // lays down colour like a brush does is beside the point — so does paste.
 export const NON_DRAWING_TOOLS = [
   'eyedropper', 'ruler', 'transform', 'selection', 'grid', 'hand', 'fill',
+  // (#509/#510) The annotation tools sit here by the same test the fill does:
+  // each emits an operation of its own kind (`annotation_add`) rather than a
+  // StrokeOperation, so neither is a `ToolType` and neither reaches that
+  // serialized contract. That they lay down a visible line is beside the
+  // point — the line is not on a layer.
+  'annotateText', 'annotatePen', 'annotateEraser',
 ] as const satisfies readonly UiToolId[]
 
 export type NonDrawingTool = (typeof NON_DRAWING_TOOLS)[number]
