@@ -2209,11 +2209,68 @@ export const IMAGE_BLIT_FRAG = `
 // zero along a line and negative past it, where the projection turns points
 // back through the origin: without this, a hard Distort would paint a mirrored
 // ghost of the layer across the far half of the buffer, sampled from UVs that
-// happen to land in [0,1]. Discarding matches what the out-of-range UV test
+// happen to land in [0,1]. Discarding matches what an out-of-tile tap
 // below already does for content that simply isn't there — nothing is drawn.
 // Room refuses to build such a matrix in the first place (isFrameInFront), so
 // in practice this catches the tile margins around a legal gesture rather than
 // the gesture itself.
+//
+// (#507) `sampleSource` below, shared verbatim by this shader and its masked
+// twin, is the piece that makes a *tiled* layer resample without seams.
+//
+// A layer is stored as a grid of separate tile textures, and one destination
+// tile is stitched from every source tile that overlaps it — one pass each
+// (see previewLayerTransform/_bakeTransform). The obvious implementation, a
+// single `texture2D(u_source, srcUV)` guarded by an in-[0,1] test, is subtly
+// wrong at every tile boundary and was: hardware bilinear needs the four
+// texels around the sample point, and at a tile's edge two of them live in
+// the *next* tile, which this texture does not contain. CLAMP_TO_EDGE hands
+// back the edge texel instead, so a one-texel-wide column (row) along every
+// source-tile boundary came out as its nearest texel rather than the blend of
+// two — full contrast where a half-pixel blend belonged, i.e. a visible
+// hairline dragged along with the content, baked permanently into the layer
+// on commit. It only showed for a transform that actually resamples: an
+// exactly-integer translation lands on texel centres, where nearest and
+// bilinear agree, which is why this looked intermittent.
+//
+// The fix is to do the bilinear by hand and let a tap that falls outside this
+// tile contribute *nothing* instead of a clamped stand-in. The missing texel
+// is not missing from the layer — it belongs to the neighbouring tile, whose
+// own pass covers the very same destination fragment and contributes exactly
+// that tap with exactly its weight. Summed over the passes, the four weights
+// add back to one and the result is the same bilinear filter a single
+// untiled buffer would have produced. That summing is why the tiled callers
+// blend additively (`_runTransformBlit`'s 'add' mode) rather than "over":
+// Porter-Duff would scale the second pass's contribution by the first's
+// coverage and lose part of it.
+//
+// Taps are read at exact texel centres, so the sampler's own filter never
+// interpolates anything — `_runTransformBlit` puts the source on NEAREST for
+// the draw, which also keeps a stale mip filter (setMipSampling, #365) from
+// quietly turning these taps into blurred coarse-level reads.
+//
+// The four fetches cost more than one hardware tap. That is the price of a
+// tiled layer resampling as one image, and it is paid on a gizmo drag and a
+// commit, not on the every-frame display path (#301's _composePaperToScreen
+// has its own shader).
+const TILE_BILINEAR = `
+  vec4 tapSource(vec2 texel) {
+    if (texel.x < 0.0 || texel.y < 0.0 || texel.x > u_srcSize.x - 1.0 || texel.y > u_srcSize.y - 1.0)
+      return vec4(0.0);
+    vec2 uv = vec2((texel.x + 0.5) / u_srcSize.x, 1.0 - (texel.y + 0.5) / u_srcSize.y);
+    return texture2D(u_source, uv);
+  }
+  vec4 sampleSource(vec2 srcXY) {
+    vec2 p = srcXY - 0.5;
+    vec2 base = floor(p);
+    vec2 f = p - base;
+    return mix(
+      mix(tapSource(base),                     tapSource(base + vec2(1.0, 0.0)), f.x),
+      mix(tapSource(base + vec2(0.0, 1.0)),    tapSource(base + vec2(1.0, 1.0)), f.x),
+      f.y);
+  }
+`;
+
 export const TRANSFORM_BLIT_FRAG = `
   precision highp float;
   uniform sampler2D u_source;
@@ -2221,6 +2278,7 @@ export const TRANSFORM_BLIT_FRAG = `
   uniform vec2 u_srcSize;
   uniform mat3 u_matrixInv; // maps destination buffer-px -> source buffer-px, both app-space top-down
   varying vec2 v_uv;
+  ${TILE_BILINEAR}
   void main() {
     vec2 dstPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_dstSize;
     vec3 srcPx = u_matrixInv * vec3(dstPx, 1.0);
@@ -2228,13 +2286,7 @@ export const TRANSFORM_BLIT_FRAG = `
       gl_FragColor = vec4(0.0);
       return;
     }
-    vec2 srcXY = srcPx.xy / srcPx.z;
-    vec2 srcUV = vec2(srcXY.x / u_srcSize.x, 1.0 - srcXY.y / u_srcSize.y);
-    if (srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
-      gl_FragColor = vec4(0.0);
-      return;
-    }
-    gl_FragColor = texture2D(u_source, srcUV);
+    gl_FragColor = sampleSource(srcPx.xy / srcPx.z);
   }
 `;
 
@@ -2252,7 +2304,14 @@ export const TRANSFORM_BLIT_FRAG = `
 // normalized against it, so a mask rasterized at reduced resolution for a
 // huge selection (see MASK_MAX_DIM) needs no change here.
 //
-// Mask uv has no y-flip, unlike srcUV: selectionMask.ts writes rows top-down
+// (#507) Reads the source through the same bounded four-tap sampleSource as
+// TRANSFORM_BLIT_FRAG, for the same reason and with the same requirement on
+// the caller: a selection that spans more than one tile is stitched from one
+// pass per source tile, and those passes have to *sum* (see _composeAreaTiles,
+// which accumulates the lifted piece additively into its own buffer before
+// compositing it over the tile's remaining content).
+//
+// Mask uv has no y-flip, unlike the source taps: selectionMask.ts writes rows top-down
 // and texImage2D maps data row 0 to t=0, so app-space y and mask t already
 // run the same way. Reaching for the flip "for symmetry" mirrors every
 // selection about its own middle, which for a lasso is subtle enough to look
@@ -2267,6 +2326,7 @@ export const AREA_TRANSFORM_FRAG = `
   uniform vec4 u_maskRect;   // world-space originX, originY, width, height
   uniform mat3 u_matrixInv;  // destination buffer-px -> source buffer-px, app-space top-down
   varying vec2 v_uv;
+  ${TILE_BILINEAR}
   void main() {
     vec2 dstPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_dstSize;
     vec3 srcPx = u_matrixInv * vec3(dstPx, 1.0);
@@ -2275,17 +2335,12 @@ export const AREA_TRANSFORM_FRAG = `
       return;
     }
     vec2 srcXY = srcPx.xy / srcPx.z;
-    vec2 srcUV = vec2(srcXY.x / u_srcSize.x, 1.0 - srcXY.y / u_srcSize.y);
-    if (srcUV.x < 0.0 || srcUV.x > 1.0 || srcUV.y < 0.0 || srcUV.y > 1.0) {
-      gl_FragColor = vec4(0.0);
-      return;
-    }
     vec2 maskUV = (srcXY + u_srcOrigin - u_maskRect.xy) / u_maskRect.zw;
     if (maskUV.x < 0.0 || maskUV.x > 1.0 || maskUV.y < 0.0 || maskUV.y > 1.0) {
       gl_FragColor = vec4(0.0);
       return;
     }
-    gl_FragColor = texture2D(u_source, srcUV) * texture2D(u_mask, maskUV).a;
+    gl_FragColor = sampleSource(srcXY) * texture2D(u_mask, maskUV).a;
   }
 `;
 

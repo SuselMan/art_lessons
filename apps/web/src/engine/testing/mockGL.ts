@@ -154,6 +154,10 @@ export class MockGL {
   private _textureWrap = new Map<object, { wrapS: number; wrapT: number }>()
   private _mipmapGenerations = new Map<object, number>()
   private _minFilter = new Map<object, number>()
+  private _magFilter = new Map<object, number>()
+  // (#507) One entry per transform/area-transform draw, in order — see
+  // transformDraws().
+  private _transformDraws: Array<{ blendDst: number; srcMinFilter: number | null; srcMagFilter: number | null }> = []
   private _framebuffers = new Map<object, FramebufferInfo>()
   private _activeUnit = 0
   private _textureUnits: Array<object | null> = []
@@ -322,13 +326,16 @@ export class MockGL {
     this._boundTextureTarget = tex
   }
 
-  // Filtering (MIN/MAG_FILTER) is irrelevant: mock sampling is always 1:1,
-  // no interpolation. Wrap mode (WRAP_S/T) IS recorded (#141) — needed so a
-  // test can confirm the infinite-canvas paper texture actually requests
-  // REPEAT (vs a bounded room's CLAMP_TO_EDGE) — see getTextureWrap. Never
-  // consulted by any sampling code in this mock (texture2D-equivalent reads
-  // — _rasterComposite/_rasterTransform's nearest-neighbor lookups — still
-  // don't wrap/clamp), purely an introspection hook.
+  // Filtering doesn't change what this mock samples — its texture2D
+  // equivalents (_rasterComposite/_rasterTransform) read a single nearest
+  // texel and always did. Both filters are recorded anyway, as introspection
+  // hooks: MIN_FILTER since #365 (mip sampling), MAG_FILTER since #507, where
+  // a transform pass filters by hand in the shader and therefore *requires*
+  // its source to be on NEAREST — a fact no pixel this mock produces can
+  // show, and one a future refactor could silently drop. Wrap mode (WRAP_S/T)
+  // is recorded for the same reason (#141): a test can confirm the
+  // infinite-canvas paper texture asks for REPEAT where a bounded room's asks
+  // for CLAMP_TO_EDGE — see getTextureWrap.
   texParameteri(_target: number, pname: number, param: number): void {
     const tex = this._boundTextureTarget
     if (!tex) return
@@ -338,6 +345,7 @@ export class MockGL {
     this._textureWrap.set(tex, wrap)
     // (#365) MIN_FILTER is recorded now too — see generateMipmap.
     if (pname === ENUM.TEXTURE_MIN_FILTER) this._minFilter.set(tex, param)
+    if (pname === ENUM.TEXTURE_MAG_FILTER) this._magFilter.set(tex, param)
   }
 
   // pixelStorei affects only real-GL row-alignment during unpack — this
@@ -489,6 +497,29 @@ export class MockGL {
   }
 
   /** The texture's current TEXTURE_MIN_FILTER, or null if never set. */
+  /** (#507) Every transform-blit draw so far, in order, with the two pieces
+   *  of GL state the seam fix turns on and no pixel of this mock can show:
+   *  the blend's destination factor (ONE means the pass *sums* into the
+   *  target, which is what makes the halves of a bilinear kernel either side
+   *  of a tile boundary add back to one) and the source texture's filters
+   *  (NEAREST, because the shader does the filtering itself and must get
+   *  untouched texels).
+   *
+   *  Never cleared: a test reads the tail, or counts. */
+  transformDraws(): ReadonlyArray<{ blendDst: number; srcMinFilter: number | null; srcMagFilter: number | null }> {
+    return this._transformDraws
+  }
+
+  private _recordTransformDraw(uniforms: Map<string, UniformValue>): void {
+    const unit = (uniforms.get('u_source') as number) ?? 0
+    const tex = this._textureUnits[unit] ?? null
+    this._transformDraws.push({
+      blendDst: this._blendEnabled ? this._blendDst : ENUM.ZERO,
+      srcMinFilter: tex ? this._minFilter.get(tex) ?? null : null,
+      srcMagFilter: tex ? this._magFilter.get(tex) ?? null : null,
+    })
+  }
+
   getMinFilter(tex: object): number | null {
     return this._minFilter.get(tex) ?? null
   }
@@ -630,8 +661,8 @@ export class MockGL {
     switch (prog.fragTag) {
       case 'dab': this._recordDabDraw(prog.uniforms); this._rasterDab(info, prog.uniforms); break
       case 'composite': this._rasterComposite(info, prog.uniforms); break
-      case 'transform': this._rasterTransform(info, prog.uniforms); break
-      case 'areaTransform': this._rasterAreaTransform(info, prog.uniforms); break
+      case 'transform': this._recordTransformDraw(prog.uniforms); this._rasterTransform(info, prog.uniforms); break
+      case 'areaTransform': this._recordTransformDraw(prog.uniforms); this._rasterAreaTransform(info, prog.uniforms); break
       case 'areaMask': this._rasterAreaMask(info, prog.uniforms); break
       case 'imageBlit': this._rasterImageBlit(info, prog.uniforms); break
       case 'smudge': this._rasterSmudge(info, prog.uniforms); break
@@ -1102,7 +1133,14 @@ export class MockGL {
           const sy = Math.min(Math.floor(srcY), srcInfo.height - 1)
           srcAlpha = srcInfo.data[sy * srcInfo.width + sx] ?? 0
         }
-        data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
+        // (#507) The real blend factor, not a hardcoded "over": a tiled
+        // transform sums its per-source-tile passes (ONE, ONE) so that the
+        // shares of one bilinear kernel either side of a tile boundary add
+        // back to one. Nearest sampling here means the passes are disjoint
+        // and the two blends agree pixel for pixel, so this changes nothing
+        // the mock draws — it stops the mock from *claiming* something the
+        // engine no longer does.
+        data[idx] = srcAlpha * sf + data[idx] * this._blendDstWeight(srcAlpha)
       }
     }
   }
