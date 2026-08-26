@@ -3448,9 +3448,7 @@ export class PencilEngine implements PencilEngineAPI {
           const toWorld = translationMatrix(rect.minX, rect.minY)
           const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
           const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
-          this._runTransformBlit(
-            srcTile.buffer.texture, mc, dw, dh, srcTile.buffer.width, srcTile.buffer.height, scratch.fbo,
-          )
+          this._runTransformBlit(srcTile.buffer, mc, dw, dh, scratch.fbo, 'add')
         })
         tiles.push({ originX: rect.minX, originY: rect.minY, buffer: scratch })
       }
@@ -8217,9 +8215,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  inversion required. */
   private _finishInfiniteComposite(targetFbo: WebGLFramebuffer): void {
     const { canvas } = this
-    const ext = this._assemblyFBO.width // square: width === height
     this._runTransformBlit(
-      this._assemblyFBO.texture, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, ext, ext, targetFbo,
+      this._assemblyFBO, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, targetFbo,
     )
   }
 
@@ -8397,39 +8394,48 @@ export class PencilEngine implements PencilEngineAPI {
     this._releasePaperFromCompose()
   }
 
-  /** Low-level transform-blit draw call — renders `sourceTex` (sized
-   *  `srcW x srcH`) through `matrixInv` (already inverted: maps destination
-   *  buffer-local px to source buffer-local px, both top-down) into
-   *  `targetFbo` (sized `dstW x dstH`) — source and destination sizes are
-   *  independent (#134: the final rotate blit reads the padded, bigger
-   *  _assemblyFBO and writes the real, smaller canvas-sized target; every
-   *  other caller happens to pass matching sizes, which this reduces to
-   *  exactly as before). Always blends (ONE, ONE_MINUS_SRC_ALPHA) rather
-   *  than plain-replacing: every caller's target is freshly cleared
-   *  (transparent) immediately before its first (possibly only) draw here,
-   *  and blending a straight replace onto an all-zero destination gives the
-   *  exact same result as a true replace would — so this one code path
-   *  serves the live gizmo preview's several passes per destination tile
-   *  (`previewLayerTransform`), the tile-aware bake's several passes per
-   *  destination tile (`_bakeTransform` — a destination tile's content can
-   *  come from more than one source tile when the transform includes
-   *  rotation/scale; each pass is transparent everywhere outside its own
-   *  source tile's mapped region, so blending — not replacing — is what
-   *  lets a later pass avoid wiping out an earlier one's already-valid
-   *  pixels), and the export/transparent path's rotate blit
-   *  (`_finishInfiniteComposite`). Every caller targets a scratch buffer
-   *  another pass reads from afterwards — since #301 the frame's last
-   *  drawing step is _composePaperToScreen, which writes the screen through
-   *  its own program rather than this one. */
+  /** Low-level transform-blit draw call — renders `source` through
+   *  `matrixInv` (already inverted: maps destination buffer-local px to
+   *  source buffer-local px, both top-down) into `targetFbo` (sized
+   *  `dstW x dstH`) — source and destination sizes are independent (#134:
+   *  the final rotate blit reads the padded, bigger _assemblyFBO and writes
+   *  the real, smaller canvas-sized target; every other caller happens to
+   *  use matching sizes, which this reduces to exactly as before).
+   *
+   *  Never plain-replaces: every caller's target is either freshly cleared
+   *  (transparent) before its first draw here, or already holds content this
+   *  draw belongs on top of. Which of the two blends applies is the `blend`
+   *  argument, and the distinction is not cosmetic —
+   *
+   *  - 'over' (ONE, ONE_MINUS_SRC_ALPHA), the default: one source, drawn onto
+   *    whatever is already there. The image/paste blit (`_drawImageThroughMatrix`)
+   *    genuinely lands on existing layer content; the world-aligned patch
+   *    copies (`_copyArea`, `_composeAreaFillPatch`) and the export rotate
+   *    (`_finishInfiniteComposite`) draw disjoint regions onto a cleared
+   *    target, where the two blends agree anyway.
+   *  - 'add' (ONE, ONE): several *source tiles of one layer* stitched into
+   *    one destination tile — the live gizmo preview (`previewLayerTransform`)
+   *    and the bake (`_bakeTransform`). Their contributions are disjoint
+   *    except in the half-texel band along each source-tile boundary, where
+   *    each pass carries its own share of one bilinear kernel (see
+   *    TILE_BILINEAR in shaders.ts) and the shares have to sum to one. "Over"
+   *    would scale the second pass down by the first's coverage and lose part
+   *    of it, which is exactly the seam #507 was.
+   *
+   *  Every caller targets a buffer another pass reads from afterwards — since
+   *  #301 the frame's last drawing step is _composePaperToScreen, which writes
+   *  the screen through its own program rather than this one. */
   private _runTransformBlit(
-    sourceTex: WebGLTexture, matrixInv: Matrix3,
-    dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer | null,
+    source: AccumulationBuffer, matrixInv: Matrix3,
+    dstW: number, dstH: number, targetFbo: WebGLFramebuffer | null,
+    blend: 'over' | 'add' = 'over',
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
     gl.viewport(0, 0, dstW, dstH)
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
+    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     gl.useProgram(this._transformProg)
     const tu = this._transformUni
 
@@ -8439,12 +8445,17 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
 
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
+    // (#507) The shader does its own bilinear from exact texel centres — the
+    // sampler must not interpolate underneath it, and must not be left on a
+    // mip filter by an earlier composite. See setPointSampling.
+    source.setPointSampling(true)
+    gl.bindTexture(gl.TEXTURE_2D, source.texture)
     gl.uniform1i(tu.u_source, 0)
     gl.uniform2f(tu.u_dstSize, dstW, dstH)
-    gl.uniform2f(tu.u_srcSize, srcW, srcH)
+    gl.uniform2f(tu.u_srcSize, source.width, source.height)
     gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(matrixInv))
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    source.setPointSampling(false)
 
     gl.disable(gl.BLEND)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -8605,10 +8616,7 @@ export class PencilEngine implements PencilEngineAPI {
         const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
         const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
         this._runTransformBlit(
-          srcTile.buffer.texture, mc,
-          destTarget.buffer.width, destTarget.buffer.height,
-          srcTile.buffer.width, srcTile.buffer.height,
-          scratch.fbo,
+          srcTile.buffer, mc, destTarget.buffer.width, destTarget.buffer.height, scratch.fbo, 'add',
         )
         // (#155 Tier 2) The real content this pair just contributed to
         // destTarget is exactly r (the source's transformed content AABB)
@@ -8720,19 +8728,24 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** The masked twin of _runTransformBlit: draws one source tile's *selected*
-   *  pixels through `matrixInv` into `targetFbo`, composited over whatever is
-   *  already there ("over", not replace — a destination tile can receive
-   *  content from several source tiles, and it already holds the part of the
-   *  layer that isn't moving). */
+   *  pixels through `matrixInv` into `targetFbo`.
+   *
+   *  `blend` carries the same meaning as _runTransformBlit's (read it there):
+   *  'over' lands the piece on a destination that already holds the part of
+   *  the layer that isn't moving, and is only correct when this is the single
+   *  source tile; 'add' sums several source tiles' shares of one bilinear
+   *  kernel into a transparent buffer of their own, which _composeAreaTiles
+   *  then composites over the tile in one go (#507). */
   private _runAreaTransformBlit(
-    sourceTex: WebGLTexture, srcOriginX: number, srcOriginY: number, matrixInv: Matrix3, mask: MaskTexture,
-    dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer,
+    source: AccumulationBuffer, srcOriginX: number, srcOriginY: number, matrixInv: Matrix3, mask: MaskTexture,
+    dstW: number, dstH: number, targetFbo: WebGLFramebuffer, blend: 'over' | 'add',
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
     gl.viewport(0, 0, dstW, dstH)
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
+    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     gl.useProgram(this._areaTransformProg)
     const u = this._areaTransformUni
 
@@ -8741,7 +8754,10 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._areaTransformPosLoc, 2, gl.FLOAT, false, 0, 0)
 
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
+    // (#507) Same reason as _runTransformBlit's: the shader filters by hand
+    // from exact texel centres. See setPointSampling.
+    source.setPointSampling(true)
+    gl.bindTexture(gl.TEXTURE_2D, source.texture)
     gl.uniform1i(u.u_source, 0)
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, mask.tex)
@@ -8749,7 +8765,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
 
     gl.uniform2f(u.u_dstSize, dstW, dstH)
-    gl.uniform2f(u.u_srcSize, srcW, srcH)
+    gl.uniform2f(u.u_srcSize, source.width, source.height)
     gl.uniform2f(u.u_srcOrigin, srcOriginX, srcOriginY)
     gl.uniform4f(
       u.u_maskRect, mask.rect.minX, mask.rect.minY,
@@ -8757,6 +8773,7 @@ export class PencilEngine implements PencilEngineAPI {
     )
     gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(matrixInv))
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    source.setPointSampling(false)
 
     gl.disable(gl.BLEND)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -8822,14 +8839,34 @@ export class PencilEngine implements PencilEngineAPI {
 
       if (overlapsSrc) this._runAreaMaskPass(scratch, rect.minX, rect.minY, mask, 'erase')
       if (overlapsDst) {
+        // (#507) A selection lying inside one tile can be drawn straight onto
+        // that tile's remaining content. A selection spanning several cannot:
+        // along each source-tile boundary every pass carries only its own
+        // share of one bilinear kernel (see TILE_BILINEAR in shaders.ts), and
+        // those shares have to sum before anything is composited — "over"
+        // against a destination that already holds the layer scales each
+        // share by the previous one's coverage and leaves a hairline through
+        // the lifted piece. So the piece is accumulated on its own,
+        // transparent, and laid down in one pass.
+        //
+        // Pooled through the engine's own scratch pool rather than the
+        // caller's `acquire`: this buffer never leaves this method, and the
+        // preview's acquire deliberately allocates fresh every time (see its
+        // own comment there).
+        const lift = sourceTiles.length > 1 ? this._acquireScratchBuf(w, h) : null
+        lift?.clear()
         for (const srcTile of sourceTiles) {
           const toWorld = translationMatrix(rect.minX, rect.minY)
           const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
           const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
           this._runAreaTransformBlit(
-            srcTile.buffer.texture, srcTile.originX, srcTile.originY, mc, mask,
-            w, h, srcTile.buffer.width, srcTile.buffer.height, scratch.fbo,
+            srcTile.buffer, srcTile.originX, srcTile.originY, mc, mask,
+            w, h, lift ? lift.fbo : scratch.fbo, lift ? 'add' : 'over',
           )
+        }
+        if (lift) {
+          this._compositeTextures([{ texture: lift.texture, opacity: 1 }], scratch.fbo, w, h)
+          this._releaseScratchBuf(lift)
         }
       }
       out.push({ rect, scratch })
@@ -8971,7 +9008,7 @@ export class PencilEngine implements PencilEngineAPI {
     const toWorld = translationMatrix(originX, originY)
     const toRectLocal = translationMatrix(-rect.x, -rect.y)
     const mc = composeMatrix(toRectLocal, composeMatrix(invertMatrix(matrix), toWorld))
-    this._runTransformBlit(scratch.texture, mc, target.width, target.height, w, h, target.fbo)
+    this._runTransformBlit(scratch, mc, target.width, target.height, target.fbo)
     this._releaseScratchBuf(scratch)
   }
 
@@ -9153,10 +9190,7 @@ export class PencilEngine implements PencilEngineAPI {
     // translation through the transform blit is the same pixels with none of
     // that: patch-local (0,0) is world (minX, minY) by construction.
     for (const { buffer, originX, originY } of layerBuf.resolveVisible(mask.rect)) {
-      this._runTransformBlit(
-        buffer.texture, translationMatrix(minX - originX, minY - originY),
-        w, h, buffer.width, buffer.height, patch.fbo,
-      )
+      this._runTransformBlit(buffer, translationMatrix(minX - originX, minY - originY), w, h, patch.fbo)
     }
     this._runAreaMaskPass(patch, minX, minY, mask, 'keep')
 
@@ -9256,10 +9290,7 @@ export class PencilEngine implements PencilEngineAPI {
       const dest = layerPatch ?? patch
       if (layerPatch) layerPatch.clear()
       for (const { buffer, originX, originY } of layerBuf.resolveVisible(rect)) {
-        this._runTransformBlit(
-          buffer.texture, translationMatrix(rect.minX - originX, rect.minY - originY),
-          w, h, buffer.width, buffer.height, dest.fbo,
-        )
+        this._runTransformBlit(buffer, translationMatrix(rect.minX - originX, rect.minY - originY), w, h, dest.fbo)
       }
       if (layerPatch) this._compositeTextures([{ texture: layerPatch.texture, opacity }], patch.fbo, w, h)
     }
