@@ -12,6 +12,13 @@ import styles from './Room.module.css'
  *  the pin marks a point, and a point does not get bigger when you zoom in. */
 const PIN_RADIUS_PX = 7
 
+/** The pin's *target*, which is deliberately much larger than the pin. 14px of
+ *  dot is a fifth of a fingertip: the dot is the right size to look at and the
+ *  wrong size to hit, so what gets hit is a transparent square around it. Same
+ *  split the ink marks use (a fat invisible twin of a thin line), and the same
+ *  44px the rest of this project sizes touch targets to. */
+const PIN_HIT_PX = 44
+
 /** Gap between the pin and the note hanging off it, in screen pixels. */
 const BUBBLE_OFFSET_PX = 10
 
@@ -33,6 +40,10 @@ interface AnnotationOverlayProps {
    *  a sweep across several remarks shows what it is taking while the finger is
    *  still down. Empty between gestures. */
   erasingIds: ReadonlySet<string>
+  /** (#509 v3) The pin being dragged, at its live position. The annotation is
+   *  only really moved when the finger lifts — one operation per gesture, not
+   *  one per pointermove — so until then this is where it is drawn. */
+  dragPreview: { annotationId: string; x: number; y: number } | null
   /** The open text draft, if the caret is in one. */
   draft: AnnotationDraft | null
   onDraftChange: (text: string) => void
@@ -77,8 +88,9 @@ interface AnnotationOverlayProps {
  *  never delivered to them. It could not be otherwise — the catcher sits above
  *  this layer in a stacking context this layer cannot climb out of. */
 export function AnnotationOverlay({
-  annotations, hidden, collapsedIds, erasingIds, draft, onDraftChange, onDraftCommit,
-  onDraftCancel, liveInk, zoom, angle, interactive, layerRef,
+  annotations, hidden, collapsedIds, erasingIds, dragPreview, draft,
+  onDraftChange, onDraftCommit, onDraftCancel,
+  liveInk, zoom, angle, interactive, layerRef,
 }: AnnotationOverlayProps) {
   if (hidden) return null
 
@@ -136,65 +148,150 @@ export function AnnotationOverlay({
         )}
       </svg>
 
-      {items.map(a => a.kind === 'text' && (
-        <div key={a.id}>
-          {/* The pin. An SVG circle would have to live in the ink layer and be
-              counter-scaled by hand; a div carries the same transform every
-              other screen-sized piece here uses. */}
-          <div
-            {...{ [ANNOTATION_ID_ATTR]: a.id, [ANNOTATION_PART_ATTR]: 'pin' }}
-            className={styles.annotationPin}
-            style={{
-              transform: pinned(a.x, a.y, -PIN_RADIUS_PX, -PIN_RADIUS_PX),
-              width: PIN_RADIUS_PX * 2,
-              height: PIN_RADIUS_PX * 2,
-              background: a.color,
-              pointerEvents: events,
-              opacity: erasingIds.has(a.id) ? 0.25 : undefined,
-            }}
-          />
-          {/* Folded down to just the pin, or open. The note being edited is not
-              drawn twice — the editor below stands in for it. */}
-          {!collapsedIds[a.id] && draft?.annotationId !== a.id && (
-            <Bubble
+      {items.map(a => {
+        if (a.kind !== 'text') return null
+        const dragging = dragPreview?.annotationId === a.id
+        const editing = draft?.annotationId === a.id
+        const x = dragging ? dragPreview.x : a.x
+        const y = dragging ? dragPreview.y : a.y
+        return (
+          <div key={a.id}>
+            <Pin
               annotationId={a.id}
-              text={a.text}
+              transform={pinned(x, y, -PIN_HIT_PX / 2, -PIN_HIT_PX / 2)}
               color={a.color}
-              fontSize={a.size}
-              pinned={pinned}
-              zoom={zoom}
-              angle={angle}
-              x={a.x}
-              y={a.y}
-              interactive={interactive}
               events={events}
               faded={erasingIds.has(a.id)}
+              active={editing || dragging}
             />
-          )}
-        </div>
-      ))}
+            {/* Folded down to just the pin, or open. The note being edited is
+                not drawn twice — the editor stands in for it. Hidden while
+                dragging too: the point of dragging is to see where the pin
+                lands, and a bubble swinging around it is in the way. */}
+            {!collapsedIds[a.id] && !editing && !dragging && (
+              <Bubble
+                annotationId={a.id}
+                text={a.text}
+                color={a.color}
+                fontSize={a.size}
+                pinned={pinned}
+                zoom={zoom}
+                angle={angle}
+                x={x}
+                y={y}
+                interactive={interactive}
+                events={events}
+                faded={erasingIds.has(a.id)}
+              />
+            )}
+          </div>
+        )
+      })}
 
       {draft && (
         <>
-          <div
-            className={styles.annotationPin}
-            style={{
-              transform: pinned(draft.x, draft.y, -PIN_RADIUS_PX, -PIN_RADIUS_PX),
-              width: PIN_RADIUS_PX * 2,
-              height: PIN_RADIUS_PX * 2,
-              background: draft.color,
-              pointerEvents: 'none',
-            }}
+          <Pin
+            annotationId={draft.annotationId ?? 'draft'}
+            transform={pinned(draft.x, draft.y, -PIN_HIT_PX / 2, -PIN_HIT_PX / 2)}
+            color={draft.color}
+            events="none"
+            faded={false}
+            active
           />
           <DraftEditor
             draft={draft}
-            transform={pinned(draft.x, draft.y, PIN_RADIUS_PX + BUBBLE_OFFSET_PX, -PIN_RADIUS_PX)}
+            pinned={pinned}
+            zoom={zoom}
+            angle={angle}
             onChange={onDraftChange}
             onCommit={onDraftCommit}
             onCancel={onDraftCancel}
           />
         </>
       )}
+    </div>
+  )
+}
+
+/** Keeps a bubble on screen by hanging it off the other side of its pin when it
+ *  would overflow the right edge.
+ *
+ *  Shared by the committed note and the open editor, and the editor is why this
+ *  became a hook: written for the committed one first, it left every note
+ *  pinned in the right half of a phone screen with its tick and its bin off
+ *  screen — the two controls the editor cannot be finished with.
+ *
+ *  Measured after layout rather than predicted, because predicting means
+ *  projecting a world point into screen coordinates, and that projection is
+ *  different for bounded and infinite rooms. The browser has already done it by
+ *  the time this runs.
+ *
+ *  `deps` is whatever moves or resizes the box: position, camera, content. */
+function useEdgeFlip(gapPx: number, deps: unknown[]): [RefObject<HTMLDivElement | null>, boolean] {
+  const ref = useRef<HTMLDivElement>(null)
+  const [flipped, setFlipped] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    // Decided from where the *pin* is, never from which edge the box currently
+    // overhangs. That distinction is the whole of it: this first tested "does
+    // it overflow right → flip" and "does it overflow left → unflip", which
+    // loops forever for any note whose bubble fits on neither side — flip,
+    // overhang left, unflip, overhang right, flip. React caught it as
+    // "Maximum update depth exceeded" and blanked the editor.
+    //
+    // Recovering the pin's position from the box makes the answer a pure
+    // function of (pin, width), which is the same in both states, so it
+    // settles after at most one extra pass. Staying put when neither side fits
+    // is deliberate: overhanging the right edge of a phone screen is bad, and
+    // overhanging the left one — where the tool rail is — is worse.
+    const pinX = flipped ? rect.right + gapPx : rect.left - gapPx
+    const fitsRight = pinX + gapPx + rect.width <= window.innerWidth
+    const fitsLeft = pinX - gapPx - rect.width >= 0
+    const next = !fitsRight && fitsLeft
+    if (next !== flipped) setFlipped(next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...deps, flipped, gapPx])
+
+  return [ref, flipped]
+}
+
+interface PinProps {
+  annotationId: string
+  transform: string
+  color: string
+  events: 'auto' | 'none'
+  faded: boolean
+  active: boolean
+}
+
+/** The marker stuck in the drawing: a large invisible target with a small
+ *  visible dot at its centre. What a finger has to land on is 44px across while
+ *  what the eye sees stays a dot — one is a control and the other is a mark on
+ *  a picture, and they have no reason to be the same size.
+ *
+ *  `active` is on while the note is open for editing or being dragged: both are
+ *  states in which the next press means something other than it usually would,
+ *  so the pin says which one it is in rather than leaving the only evidence to
+ *  be a bubble that may be somewhere else entirely. */
+function Pin({ annotationId, transform, color, events, faded, active }: PinProps) {
+  return (
+    <div
+      {...{ [ANNOTATION_ID_ATTR]: annotationId, [ANNOTATION_PART_ATTR]: 'pin' }}
+      className={styles.annotationPinHit}
+      style={{ transform, width: PIN_HIT_PX, height: PIN_HIT_PX, pointerEvents: events }}
+    >
+      <span
+        className={active ? `${styles.annotationPin} ${styles.annotationPinActive}` : styles.annotationPin}
+        style={{
+          width: PIN_RADIUS_PX * 2,
+          height: PIN_RADIUS_PX * 2,
+          background: color,
+          opacity: faded ? 0.25 : undefined,
+        }}
+      />
     </div>
   )
 }
@@ -217,36 +314,12 @@ interface BubbleProps {
   faded: boolean
 }
 
-/** One open note.
- *
- *  Its own component only because of the side-flip: a note pinned near the
- *  right edge would otherwise hang off the screen, and on a phone that is most
- *  of them — the paper fills the width, so half the points worth remarking on
- *  are in the right half. Measured after layout rather than predicted, because
- *  predicting it means projecting a world point to screen coordinates, and that
- *  projection is different for bounded and infinite rooms. The browser has
- *  already done it by the time this runs. */
+/** One committed note. */
 function Bubble({
   annotationId, text, color, fontSize, x, y, pinned, zoom, angle, interactive, events, faded,
 }: BubbleProps) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [flipped, setFlipped] = useState(false)
-
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    // The two directions are tested against *different* edges, which is what
-    // makes this settle instead of oscillating: it flips out of the right edge
-    // and back only out of the left one. A note can only be caught between the
-    // two if it is wider than the window, and it is capped at 210px.
-    if (!flipped && rect.right > window.innerWidth) setFlipped(true)
-    else if (flipped && rect.left < 0) setFlipped(false)
-  }, [x, y, text, fontSize, zoom, angle, flipped])
-
-  const dx = flipped
-    ? -(PIN_RADIUS_PX + BUBBLE_OFFSET_PX)
-    : PIN_RADIUS_PX + BUBBLE_OFFSET_PX
+  const [ref, flipped] = useEdgeFlip(PIN_RADIUS_PX + BUBBLE_OFFSET_PX, [x, y, text, fontSize, zoom, angle])
+  const dx = flipped ? -(PIN_RADIUS_PX + BUBBLE_OFFSET_PX) : PIN_RADIUS_PX + BUBBLE_OFFSET_PX
 
   return (
     <div
@@ -276,30 +349,38 @@ function Bubble({
 
 interface DraftEditorProps {
   draft: AnnotationDraft
-  transform: string
+  pinned: (x: number, y: number, dx: number, dy: number) => string
+  zoom: number
+  angle: number
   onChange: (text: string) => void
   onCommit: () => void
   onCancel: () => void
 }
 
-/** The open note: the same bubble, with a `<textarea>` in it.
+/** The open note: the same bubble, with a `<textarea>` and its two controls.
  *
  *  A real textarea, for one reason that outranks every other consideration: it
  *  is what raises the on-screen keyboard. A caret drawn onto the canvas would
  *  look better and be unusable on the device this feature was asked for.
  *
- *  Enter commits and Shift+Enter breaks the line — the shape people expect from
- *  a message box rather than from a document, because a remark is a sentence
- *  and finishing it should not mean reaching for the pointer.
+ *  **Return breaks the line; it does not commit.** It used to, with Shift+Enter
+ *  for a newline — the shape of a message box. That shape assumes a Shift key,
+ *  and the device this was built for has none, so on a phone a remark could not
+ *  be given a second line at all. Now Return does what its glyph says and
+ *  finishing is the tick (or a tap anywhere else on the drawing, or Ctrl+Enter
+ *  for anyone who reaches for it out of habit).
  *
- *  It is under the catcher in z-order and still receives its keystrokes,
+ *  The editor is under the catcher in z-order and still receives keystrokes,
  *  because keyboard focus does not care about stacking: the press that opens a
- *  note lands on the catcher, and this then takes focus programmatically. */
-function DraftEditor({ draft, transform, onChange, onCommit, onCancel }: DraftEditorProps) {
-  const ref = useRef<HTMLTextAreaElement>(null)
+ *  note lands on the catcher, and this then takes focus programmatically. Its
+ *  two controls are hit-tested from that same catcher, like everything else in
+ *  this overlay. */
+function DraftEditor({ draft, pinned, zoom, angle, onChange, onCommit, onCancel }: DraftEditorProps) {
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const [boxRef, flipped] = useEdgeFlip(PIN_RADIUS_PX + BUBBLE_OFFSET_PX, [draft.x, draft.y, draft.text, draft.size, zoom, angle])
 
   useEffect(() => {
-    const el = ref.current
+    const el = inputRef.current
     if (!el) return
     el.focus()
     // Caret at the end, not select-all: an existing note is opened to be added
@@ -311,45 +392,63 @@ function DraftEditor({ draft, transform, onChange, onCommit, onCancel }: DraftEd
   // Grow to fit rather than scroll: a note is short, and an inner scrollbar on
   // a box floating over a drawing hides the very text being written.
   useLayoutEffect(() => {
-    const el = ref.current
+    const el = inputRef.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [draft.text, draft.size])
 
+  const id = draft.annotationId ?? 'draft'
+  const dx = flipped ? -(PIN_RADIUS_PX + BUBBLE_OFFSET_PX) : PIN_RADIUS_PX + BUBBLE_OFFSET_PX
+
   return (
     <div
-      className={clsxBubbleEditing()}
+      ref={boxRef}
+      {...{ [ANNOTATION_ID_ATTR]: id, [ANNOTATION_PART_ATTR]: 'bubble' }}
+      className={flipped
+        ? `${styles.annotationBubble} ${styles.annotationBubbleEditing} ${styles.annotationBubbleFlipped}`
+        : `${styles.annotationBubble} ${styles.annotationBubbleEditing}`}
       style={{
-        transform,
+        transform: `${pinned(draft.x, draft.y, dx, -PIN_RADIUS_PX)}${flipped ? ' translateX(-100%)' : ''}`,
         maxWidth: BUBBLE_MAX_WIDTH_PX,
         fontSize: draft.size,
-        borderLeftColor: draft.color,
+        [flipped ? 'borderRightColor' : 'borderLeftColor']: draft.color,
       }}
     >
       <textarea
-        ref={ref}
+        ref={inputRef}
         className={styles.annotationInput}
         value={draft.text}
         maxLength={MAX_ANNOTATION_TEXT_LENGTH}
         rows={1}
         onChange={e => onChange(e.target.value)}
-        onBlur={onCommit}
         onKeyDown={e => {
           // Never let the editor's keys reach the room: Room binds single-key
           // hotkeys on the document (editorKeys), so without this, typing a
           // note would also be switching tools.
           e.stopPropagation()
           if (e.key === 'Escape') { e.preventDefault(); onCancel() }
-          else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onCommit() }
+          else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onCommit() }
         }}
       />
+      <span className={styles.annotationEditorActions}>
+        {/* Deleting from inside the editor, not only from a committed note: the
+            moment someone decides a remark was a mistake is usually while still
+            writing it, and the only way out of that used to be selecting the
+            text and clearing it. Absent for a note that does not exist yet —
+            there, "delete" is what Esc already means, and an empty draft
+            records nothing anyway. */}
+        {draft.annotationId !== null && (
+          <span
+            {...{ [ANNOTATION_ID_ATTR]: draft.annotationId, [ANNOTATION_PART_ATTR]: 'delete' }}
+            className={styles.annotationBubbleDelete}
+          ><Icon name="delete" /></span>
+        )}
+        <span
+          {...{ [ANNOTATION_ID_ATTR]: id, [ANNOTATION_PART_ATTR]: 'done' }}
+          className={styles.annotationBubbleDone}
+        ><Icon name="check" /></span>
+      </span>
     </div>
   )
-}
-
-/** The editing bubble wears the same two classes as a committed one, minus the
- *  hover affordances. Extracted only to keep the JSX above readable. */
-function clsxBubbleEditing(): string {
-  return `${styles.annotationBubble} ${styles.annotationBubbleEditing}`
 }

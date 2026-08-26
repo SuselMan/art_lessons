@@ -1163,13 +1163,22 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     // are not screen ones: on an A3 sheet, 16 of them is a speck.
     // Screen pixels, not canvas ones — the note is a pin with a bubble hanging
     // off it, and the bubble is interface (see the annotation contract). So the
-    // range is the range of readable body copy, not of brush widths.
-    size: {
+    // range is the range of readable body copy, not of brush widths, and the
+    // default is the size of ordinary interface text: a remark is a sentence
+    // someone wrote, not a heading.
+    //
+    // `textSize` rather than `size`, and the rename is the migration. This
+    // field briefly meant canvas units, and stored settings are per browser —
+    // reading a value written under the old meaning as if it were the new one
+    // turns "48 units on the page" into "48px of screen", which is how a note
+    // ended up looking like a headline. A different key simply has nothing
+    // stored under it, so every browser falls back to this default once.
+    textSize: {
       nameKey: 'tool.field.size',
-      valueType: { kind: 'numberRange', min: 11, max: 28, step: 1, format: pxFormat },
+      valueType: { kind: 'numberRange', min: 11, max: 20, step: 1, format: pxFormat },
       uiControls: ['slider', 'input'],
       quickAccess: true,
-      default: 15,
+      default: 13,
     },
   },
   annotatePen: {

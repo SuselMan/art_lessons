@@ -9,17 +9,21 @@ export const ANNOTATION_PART_ATTR = 'data-annotation-part'
  *   - `pin`    — the marker stuck in the drawing: folds the note down or opens
  *                it back up;
  *   - `bubble` — the note itself: opens it for editing;
- *   - `delete` — the bin inside an open note;
+ *   - `delete` — the bin, in an open note or in the editor;
+ *   - `done`   — the tick that finishes an edit, which exists because Return
+ *                had to be given back to line breaks (no Shift key on a phone);
  *   - `ink`    — a pen mark, which only the eraser has anything to do with. */
-export type AnnotationPart = 'pin' | 'bubble' | 'delete' | 'ink'
+export type AnnotationPart = 'pin' | 'bubble' | 'delete' | 'done' | 'ink'
 
 export interface AnnotationHit {
   annotationId: string
   part: AnnotationPart
 }
 
+const PARTS: readonly string[] = ['pin', 'bubble', 'delete', 'done', 'ink']
+
 function isPart(value: string | null): value is AnnotationPart {
-  return value === 'pin' || value === 'bubble' || value === 'delete' || value === 'ink'
+  return value !== null && PARTS.includes(value)
 }
 
 /** Which annotation — and which part of it — is under a screen point.

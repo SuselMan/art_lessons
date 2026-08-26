@@ -3956,6 +3956,8 @@ export function Room() {
   /** Annotations the eraser has swept over this gesture, faded but not yet
    *  gone — see handleAnnotationEraseDown. */
   const [erasingIds, setErasingIds] = useState<ReadonlySet<string>>(EMPTY_ERASING)
+  /** The pin being dragged, at its live position — see startPinDrag. */
+  const [pinDrag, setPinDrag] = useState<{ annotationId: string; x: number; y: number } | null>(null)
   /** The rendered annotation layer, so the catcher can hit-test notes against
    *  their real laid-out boxes — see annotationTextAt. */
   const annotationLayerRef = useRef<HTMLDivElement | null>(null)
@@ -3975,10 +3977,13 @@ export function Room() {
 
   const annotationStyle = useCallback((toolId: 'annotateText' | 'annotatePen') => {
     const settings = useRoomStore.getState().toolSettings
-    return {
-      color: rgbToHex(getToolColor(settings, toolId)),
-      size: settings[toolId].size as number,
-    }
+    // Two different keys, because the two sizes are two different quantities:
+    // the pen's is a stroke width in canvas units, the note's is a font size in
+    // screen pixels (see toolSchemas' `textSize` for why the key differs too).
+    const size = toolId === 'annotateText'
+      ? settings.annotateText.textSize as number
+      : settings.annotatePen.size as number
+    return { color: rgbToHex(getToolColor(settings, toolId)), size }
   }, [])
 
   /** Records whatever the open draft says, then closes it.
@@ -4032,6 +4037,74 @@ export function Room() {
     dispatchOp({ type: 'annotation_delete', annotationIds })
   }, [dispatchOp])
 
+  /** A press on a pin is two gestures that start identically: a tap folds the
+   *  note away or opens it back up, a drag moves it. Which one it was is only
+   *  known on release, so both are prepared here and the slop threshold decides
+   *  — the same recognizer, and the same threshold, the selection tool uses to
+   *  tell a click from a lasso.
+   *
+   *  The move is recorded once, on release. Emitting an `annotation_update` per
+   *  pointermove would put a hundred entries on the undo stack for one drag and
+   *  put a hundred operations on the wire for every participant to fold. */
+  const startPinDrag = useCallback((e: React.PointerEvent<HTMLDivElement>, annotationId: string) => {
+    const el = vpRef.current
+    if (!el || !config) return
+    const rect = el.getBoundingClientRect()
+    const vpNow = useRoomStore.getState().viewport
+    const toPoint = (clientX: number, clientY: number) =>
+      clientToRoomPoint(clientX, clientY, rect, vpNow, config)
+    const grabbed = useRoomStore.getState().annotations.items[annotationId]
+    if (!grabbed || grabbed.kind !== 'text') return
+
+    const overlay = e.currentTarget
+    const pointerId = e.pointerId
+    try { overlay.setPointerCapture(pointerId) } catch { /* context loss */ }
+
+    const startClient = { x: e.clientX, y: e.clientY }
+    const start = toPoint(e.clientX, e.clientY)
+    // The grab offset, so the pin does not jump its own radius to sit under the
+    // finger the moment the drag is recognized.
+    const offset = { x: grabbed.x - start.x, y: grabbed.y - start.y }
+    let moved = false
+    let at = { x: grabbed.x, y: grabbed.y }
+
+    const detach = () => {
+      overlay.removeEventListener('pointermove', onMove)
+      overlay.removeEventListener('pointerup', onUp)
+      overlay.removeEventListener('pointercancel', onCancel)
+      if (annotationGestureRef.current?.pointerId === pointerId) annotationGestureRef.current = null
+      try { overlay.releasePointerCapture(pointerId) } catch { /* already gone */ }
+      setPinDrag(null)
+    }
+    annotationGestureRef.current = { pointerId, cancel: detach }
+
+    const onMove = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      if (!moved && Math.hypot(ev.clientX - startClient.x, ev.clientY - startClient.y) < TAP_MOVE_THRESHOLD_PX) return
+      moved = true
+      const p = toPoint(ev.clientX, ev.clientY)
+      at = { x: p.x + offset.x, y: p.y + offset.y }
+      setPinDrag({ annotationId, ...at })
+    }
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      const wasDrag = moved
+      const landed = at
+      detach()
+      if (wasDrag) dispatchOp({ type: 'annotation_update', annotationId, patch: { x: landed.x, y: landed.y } })
+      else useRoomStore.getState().toggleAnnotationCollapsed(annotationId)
+    }
+    const onCancel = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      // Decided nothing: the pin snaps back to where it was, and nothing is
+      // folded either.
+      detach()
+    }
+    overlay.addEventListener('pointermove', onMove)
+    overlay.addEventListener('pointerup', onUp)
+    overlay.addEventListener('pointercancel', onCancel)
+  }, [vpRef, config, dispatchOp])
+
   const handleEditAnnotationText = useCallback((annotationId: string) => {
     const annotation = useRoomStore.getState().annotations.items[annotationId]
     if (!annotation || annotation.kind !== 'text') return
@@ -4081,9 +4154,12 @@ export function Room() {
       deleteAnnotations([hit.annotationId])
       return
     }
-    if (hit?.part === 'pin') {
+    if (hit?.part === 'done') {
       commitAnnotationDraft()
-      useRoomStore.getState().toggleAnnotationCollapsed(hit.annotationId)
+      return
+    }
+    if (hit?.part === 'pin') {
+      startPinDrag(e, hit.annotationId)
       return
     }
     if (hit?.part === 'bubble' && hit.annotationId !== useRoomStore.getState().annotationDraft?.annotationId) {
@@ -4107,7 +4183,7 @@ export function Room() {
       ...style,
     })
   }, [vpRef, config, handActive, commitAnnotationDraft, annotationStyle, handleEditAnnotationText,
-      deleteAnnotations])
+      deleteAnnotations, startPinDrag])
 
 
   /** The annotation pen: one drag, one mark. Same capture-and-listen shape as
@@ -6049,7 +6125,14 @@ export function Room() {
             for two nearly empty columns, so the wrapper stacks them into one
             instead. Everywhere else it is `display: contents` and changes
             nothing at all: both bars keep their own absolute positioning. */}
-        <div className={clsx(styles.toolRail, compact && styles.toolRailCompact)}>
+        <div className={clsx(
+          styles.toolRail,
+          compact && styles.toolRailCompact,
+          // (#512) The wrapper carries the rail's surface in the compact shell,
+          // so minimal UI has to fade *it* — fading only the two bars inside
+          // left their background behind as a blank column over the drawing.
+          compact && uiHidden && styles.uiHidden,
+        )}>
         <aside className={clsx(styles.toolbar, uiHidden && styles.uiHidden, styles.strokeBlockable)}>
 
           {/* (#512) Everything that draws *on* the picture is absent from the
@@ -6221,6 +6304,22 @@ export function Room() {
             onClick={() => selectTool('grid')}
           ><Icon name="grid_on" /></button>
           </>)}
+          {/* (#512) The hand, in the compact shell only — its full-layout twin
+              is inside the block above. Here it is not a convenience but the
+              answer to a gesture the shell took away: while an annotation tool
+              is in hand the first finger draws, so one-finger panning is gone,
+              and two fingers is a lot to ask for "move the page a bit". Picking
+              up the hand gives the finger back to the canvas, because with no
+              annotation tool selected nothing reserves it. */}
+          {compact && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'hand' && styles.toolIconBtnActive)}
+              title={t('tool.hand')}
+              aria-label={t('tool.hand')}
+              aria-pressed={tool === 'hand'}
+              onClick={() => selectTool('hand')}
+            ><Icon name="pan_tool" /></button>
+          )}
           {/* (#509/#510, эпик #87) The two annotation tools, last in the
               column and next to each other on purpose: they are the only
               tools here that do not touch the drawing at all, and grouping
@@ -6497,6 +6596,7 @@ export function Room() {
                 liveInk={liveInk}
                 collapsedIds={collapsedAnnotationIds}
                 erasingIds={erasingIds}
+                dragPreview={pinDrag}
                 zoom={vp.zoom}
                 angle={vp.angle}
                 interactive={annotateActive}
@@ -6586,6 +6686,7 @@ export function Room() {
                 liveInk={liveInk}
                 collapsedIds={collapsedAnnotationIds}
                 erasingIds={erasingIds}
+                dragPreview={pinDrag}
                 zoom={vp.zoom}
                 angle={vp.angle}
                 interactive={annotateActive}

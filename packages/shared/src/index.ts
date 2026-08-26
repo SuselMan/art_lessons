@@ -1093,8 +1093,9 @@ export const MAX_ANNOTATION_INK_POINTS = 2000
 
 export const DEFAULT_ANNOTATION_COLOR = '#e5484d'
 /** Screen pixels — see AnnotationShape on why text is measured differently
- *  from ink. Sized like body copy, because that is what it is. */
-export const DEFAULT_ANNOTATION_TEXT_SIZE = 15
+ *  from ink. Sized like the interface's own body text, because that is what a
+ *  remark is: a sentence, not a heading. */
+export const DEFAULT_ANNOTATION_TEXT_SIZE = 13
 export const DEFAULT_ANNOTATION_INK_WIDTH = 8
 
 /** Creates one annotation. `annotationId` is the annotation's own id, distinct

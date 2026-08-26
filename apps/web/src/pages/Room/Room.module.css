@@ -1309,17 +1309,39 @@ a.gateSubmit {
    the pin and the bubble's left edge — which is enough to tell two people's
    notes apart without printing a coloured paragraph on a coloured page and
    hoping the contrast survives both themes. */
-.annotationPin {
+/* The pin's target: transparent, finger-sized, and the thing that actually
+   carries the hit-test attributes. The visible dot is centred inside it. A 14px
+   dot is the right size to look at and the wrong size to hit — the two are not
+   the same question, so they are not the same box. */
+.annotationPinHit {
   position: absolute;
   top: 0;
   left: 0;
   transform-origin: 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+}
+
+.annotationPin {
+  display: block;
   border-radius: 50%;
   /* A ring in the page's own surface colour, so the pin reads against graphite
-     and against blank paper alike — the same two-tone trick .selectionOutline
-     uses on the selection marquee, which has the same problem. */
+     and against blank paper alike — the same two-tone trick the selection
+     marquee uses, which has the same problem. */
   box-shadow: 0 0 0 2px var(--color-surface), var(--shadow-sm);
-  cursor: pointer;
+  transition: transform var(--duration-fast, 120ms) ease,
+              box-shadow var(--duration-fast, 120ms) ease;
+}
+
+/* Open for editing, or being dragged. Both are states in which the next press
+   means something other than it usually would, so the pin says so rather than
+   leaving the only evidence to be a bubble that may be off-screen. */
+.annotationPinActive {
+  transform: scale(1.35);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 5px var(--color-accent), var(--shadow-sm);
 }
 
 .annotationBubble {
@@ -1375,8 +1397,38 @@ a.gateSubmit {
   background: var(--color-surface-hover);
 }
 
+/* The editor takes pointer events where a committed note gets them from an
+   inline style: the layer is `pointer-events: none` and everything inside
+   inherits it, so without this the tick and the bin were invisible to
+   `elementsFromPoint` — the catcher hit-tested straight past them and a tap on
+   the tick opened a second note instead of finishing the first. */
 .annotationBubbleEditing {
   cursor: auto;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+
+/* The editor's two controls, in a column beside the text so a growing note
+   pushes them down with it rather than reflowing around them. */
+.annotationEditorActions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.annotationBubbleDone {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.annotationBubbleDone:hover {
+  background: var(--color-surface-hover);
 }
 
 .annotationInput {
