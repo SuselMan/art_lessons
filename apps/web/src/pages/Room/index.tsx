@@ -1017,6 +1017,30 @@ export function Room() {
 
   const canvasRef     = useRef<HTMLCanvasElement>(null)
   const engineRef     = useRef<PencilEngineAPI | null>(null)
+  // Bumped once per engine construction, and depended on by every effect that
+  // pushes a setting into the engine.
+  //
+  // Those effects were written as "run when the setting changes", which is
+  // only half of what they need: the engine is built by an effect that returns
+  // early until the paper and the canvas element are both there (see "mount
+  // engine" below), so on a fresh room it does not exist yet when they first
+  // run. `engineRef.current?.` swallows that, and a setting nobody touches
+  // afterwards is then never pushed at all — the engine keeps its own
+  // constructor default forever.
+  //
+  // That is not hypothetical. The pencil has shipped with tiltResponse
+  // 'restrained' since 18.08 (toolSchemas.ts) while the engine's own default is
+  // 'smooth', and every stroke drawn on an untouched device came out 'smooth':
+  // measured live (store said 'restrained', `__engine._tiltResponse` said
+  // 'smooth'), and confirmed against real strokes in three rooms — the one
+  // device that drew 'restrained' was the one where the control had been
+  // touched by hand, which is exactly the shape this bug has.
+  //
+  // #475 met the same trap for the pen calibration and solved it locally, by
+  // handing that one value over at construction. This is the general form of
+  // the same fix, so the next setting added here inherits it instead of
+  // rediscovering it.
+  const [engineEpoch, setEngineEpoch] = useState(0)
   const pencilSoundRef = useRef<PencilSound | null>(null)
   const initialToolRef = useRef({
     pencil: toolSettings.pencil.grade as PencilGradeName,
@@ -2095,6 +2119,10 @@ export function Room() {
     })
     engineRef.current = engine
     exposeEngineForDev(engine)
+    // Tells every engine-sync effect below that there is now an engine to sync
+    // to — see engineEpoch's own comment for what silently did not happen
+    // before this existed.
+    setEngineEpoch(n => n + 1)
     // (#475) The pen calibration this device already has, handed over at
     // birth. The effect that pushes later changes (further down, next to the
     // tilt response) only runs when the *setting* changes, so without this a
@@ -2461,7 +2489,7 @@ export function Room() {
   const nibCanvasAngleRadians = (nibAngleDeg * Math.PI) / 180
   useEffect(() => {
     engineRef.current?.setNibAngle(nibCanvasAngleRadians, nibAnchor)
-  }, [nibCanvasAngleRadians, nibAnchor])
+  }, [nibCanvasAngleRadians, nibAnchor, engineEpoch])
   // #409: the tilt-response setting of whichever tool is in hand. The engine
   // holds one active response rather than a table (see setTiltResponse), so the
   // lookup is here — and it goes through `isTiltResponse` rather than a cast:
@@ -2473,7 +2501,7 @@ export function Room() {
     const stored = toolSettings[drawingTool]?.tiltResponse
     return typeof stored === 'string' && isTiltResponse(stored) ? stored : DEFAULT_TILT_RESPONSE
   }, [toolSettings, drawingTool])
-  useEffect(() => { engineRef.current?.setTiltResponse(tiltResponse) }, [tiltResponse])
+  useEffect(() => { engineRef.current?.setTiltResponse(tiltResponse) }, [tiltResponse, engineEpoch])
   // #475: this device's pen calibration. Unlike the tilt response above it is
   // not per tool and not read from the room's tool settings — it describes the
   // stylus and driver in front of this person, so it lives in settingsStore
@@ -2512,7 +2540,7 @@ export function Room() {
         : drawingTool === 'watercolor' ? watercolorPreset
         : pencilGrade,
     )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, engineEpoch])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with
@@ -2521,7 +2549,7 @@ export function Room() {
   // stops paint while the ruler or the gizmo is selected is `engine.setLocked`
   // (see the layer-state sync effect), one gate rather than a second copy of
   // "which tools can draw" living in here.
-  useEffect(() => { engineRef.current?.setTool(drawingTool) }, [drawingTool])
+  useEffect(() => { engineRef.current?.setTool(drawingTool) }, [drawingTool, engineEpoch])
   useEffect(() => {
     // #253: each tool has its own recipe; swapping it keeps the one graph and
     // only changes what drives it (see PencilSound.setActiveGrain).
@@ -2542,7 +2570,7 @@ export function Room() {
     // axis, and a second control for it would be two knobs over one quantity.
     // Falls back to 1 rather than passing undefined through to the engine.
     engineRef.current?.setOpacity((activeCfg.opacity as number | undefined) ?? 1)
-  }, [sizePx, activeCfg])
+  }, [sizePx, activeCfg, engineEpoch])
   // Which tool's own color field the "Color" SidePanel tab, the palette
   // swatches, FloatingToolPanel's color dot and the eyedropper all read and
   // write — lastDrawingTool rather than `tool` directly, so it still reflects
@@ -2579,7 +2607,7 @@ export function Room() {
   // which tool is active, so it should already hold what the next drawing
   // stroke will use.
   const activeColor = getToolColor(toolSettings, pickedColorTool)
-  useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor])
+  useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor, engineEpoch])
   // FloatingToolPanel (#157) is a fixed 4-slot compass layout with two tool
   // buttons, each standing for a whole set rather than one tool: the top slot
   // shows whichever drawing tool was last selected (marker joined pencil/liner
