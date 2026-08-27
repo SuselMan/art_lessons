@@ -5123,23 +5123,46 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
+  /** The brush's nominal width in world units — what `setSize` was given, for
+   *  every room, with no conversion at all.
+   *
+   *  There used to be one, for bounded rooms only:
+   *
+   *      size * (canvas.width / canvas.clientWidth)
+   *
+   *  and it made sense exactly once, before #470. Back then a bounded room's
+   *  canvas *was* its sheet, at the sheet's own full resolution, so that ratio
+   *  read "sheet pixels per CSS pixel" and the setting meant "N pixels on
+   *  screen at fit zoom". #470 made the bounded canvas a *viewport* sized to
+   *  the backing store, and the very same expression silently became
+   *  `min(devicePixelRatio, sqrt(4MP / viewport CSS area))` — see
+   *  cameraMath.ts's boundedBackingStoreZoom. The formula never changed; what
+   *  it measured did.
+   *
+   *  Measured on one sheet, one slider value, three devices (room `s1i6233k`,
+   *  27.08): iPad 9 painted 18.00 world px, a Tab S7+ 18.50, a Surface 12.00 —
+   *  the same "9" on the slider. The teacher this was reported against, on a
+   *  DPR-1 Windows laptop, got 9. Half of what her teacher's tablet drew from
+   *  the identical setting.
+   *
+   *  Three things make that a bug rather than a per-device preference:
+   *
+   *  1. `Dab.size` is baked at record time and goes into the Operation Log, so
+   *     the difference is permanent in the shared document and replays that way
+   *     for everyone, forever. A brush size is a property of the drawing, not
+   *     of the author's screen.
+   *  2. The factor moves with the *window*, not just the device — the
+   *     megapixel budget is a function of viewport area — so resizing, rotating
+   *     a tablet or opening a panel changed the brush mid-session.
+   *  3. BrushCursor is handed the raw setting and draws in world units (see its
+   *     own doc comment), so the hover ring was narrower than the mark it
+   *     promised by exactly this factor.
+   *
+   *  Infinite rooms already returned `size` untouched and were always right;
+   *  this is bounded rooms joining them, which is also why the two branches
+   *  collapsed into none. */
   private get _physicalSize(): number {
-    return this._toPhysicalSize(this._opts.size)
-  }
-
-  // CSS-px → canvas-physical-px conversion for this user's own brush size —
-  // factored out of _physicalSize only because it reads _opts.size, which a
-  // getter can't parameterize.
-  private _toPhysicalSize(size: number): number {
-    // Infinite rooms: brush size is in world units (device-independent —
-    // peers replay the same dab sizes), and dabs render into world-
-    // resolution tiles, so no conversion applies. The canvas backing store
-    // is DPR-scaled relative to its CSS size there (see Room's
-    // ResizeObserver), which must scale display, never the brush — before
-    // the DPR-sized backing this ratio happened to be 1 for infinite rooms,
-    // so this branch preserves, not changes, their brush semantics.
-    if (this._infinite) return size
-    return size * (this.canvas.width / (this.canvas.clientWidth || this.canvas.width))
+    return this._opts.size
   }
 
   // ─── Stroke input ────────────────────────────────────────────────────────────
