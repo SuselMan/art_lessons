@@ -1911,8 +1911,9 @@ export const DAB_FRAG = `
 // premultiplied RGBA — the imprint the stump carries, in the dab's own
 // normalized square (uv (0,0)..(1,1) spans the patch). Per dab, in order:
 //
-//   1. The patch of canvas under the dab is copied out (unchanged from
-//      earlier rounds — same copyRegionTo, same single-tile restriction).
+//   1. The patch of canvas under the dab is copied out — since #514, out of
+//      every tile the dab overlaps rather than only out of a dab that fit
+//      inside one (see _gatherSmudgePatch).
 //   2. SMUDGE_PICKUP_FRAG (below) refreshes the imprint toward that patch:
 //      `carried' = mix(carried, patch, rate)`, per texel. Because both are
 //      addressed in the dab's own normalized square and the imprint is
@@ -1978,11 +1979,18 @@ export const SMUDGE_TRANSFER_FRAG = `
   uniform sampler2D u_carried;
   // The copied patch's lower-left corner and side length, in this tile's
   // own GL pixel space, so a fragment can map itself back into the imprint
-  // exactly. Derived from the same rounded rect copyRegionTo was handed
-  // rather than from the dab's own center: half a pixel of disagreement
-  // between the two would blur the canvas on every dab even when the brush
-  // is standing still, because the lerp would be mixing a shifted copy of
-  // the same content into itself.
+  // exactly. Derived from the same rounded world rect _gatherSmudgePatch was
+  // handed rather than from the dab's own center: half a pixel of
+  // disagreement between the two would blur the canvas on every dab even when
+  // the brush is standing still, because the lerp would be mixing a shifted
+  // copy of the same content into itself.
+  //
+  // (#514) Negative on whichever side of a tile seam the patch started
+  // outside of — one dab straddling a seam is drawn once per tile it
+  // touches, each with the same patch expressed in that tile's own pixels.
+  // Nothing here needs to know: the subtraction below is affine, and the dab
+  // quad is contained in the patch, so every fragment this shader actually
+  // reaches still samples inside it.
   uniform vec2 u_patchOrigin;
   uniform float u_patchSize;
   // 0 = the lerp's own "dst *= (1-a)" half, under beginErase()'s

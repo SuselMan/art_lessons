@@ -6730,14 +6730,18 @@ export class PencilEngine implements PencilEngineAPI {
    *  Same branch covers an imprint that never got primed because an earlier
    *  dab bailed out below.
    *
-   *  v1 scope: skips the dab entirely (rather than clipping or attempting
-   *  cross-tile compositing) whenever its patch doesn't fit fully inside a
-   *  single resident/creatable tile — an infinite room's tile grid means a
-   *  smudge stroke crossing a tile boundary currently just has a gap there.
-   *  Acceptable for now (typical brush sizes are far smaller than
-   *  TILE_SIZE, so this only bites right at a boundary) — full cross-tile
-   *  sampling would need the same multi-source-tile treatment
-   *  _bakeTransform already has, not yet ported here. */
+   *  (#514) Both phases span as many tiles as the dab actually overlaps —
+   *  up to four. Until then a dab whose patch didn't fit inside a single
+   *  tile was dropped whole, which was written off as "only bites right at
+   *  a boundary": true of nothing. Tiles are TILE_SIZE in a bounded room
+   *  too (_tileSize), so an A4 sheet has a seam cross straight through it at
+   *  x=1024/y=1024, and the dead band around each seam is as wide as the
+   *  brush is — a 100px stump had a 100px stripe where the tool did
+   *  literally nothing, measured, with the imprint going stale across it and
+   *  then dumping pre-seam content on the far side. The dab is the same dab
+   *  either way; only which tile's pixel space each piece of it is expressed
+   *  in changes, which is exactly how pencil and eraser have always crossed
+   *  a seam. */
   private _smudgeApplyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string): void {
     const radius = dab.size * 0.5 * SMUDGE_SIZE_MULTIPLIER
     if (radius < 0.5) return
@@ -6746,24 +6750,22 @@ export class PencilEngine implements PencilEngineAPI {
     if (patchSize < 1) return
     const half = patchSize / 2
 
-    const targets = target.resolveForPaint({ minX: dab.x - half, minY: dab.y - half, maxX: dab.x + half, maxY: dab.y + half })
-    if (targets.length !== 1) return // spans more than one tile (or none) — see this method's own doc comment
-    const tile = targets[0]
-    const localX = Math.round(dab.x - half - tile.originX)
-    const localY = Math.round(dab.y - half - tile.originY)
-    if (localX < 0 || localY < 0
-      || localX + patchSize > tile.buffer.width || localY + patchSize > tile.buffer.height) return
+    // Whole world texels, not the dab's own fractional center: the imprint
+    // and the canvas have to agree to the texel, or the lerp mixes a shifted
+    // copy of the same content into itself and blurs the canvas on every
+    // dab, including a standing-still one. Rounded in *world* space (it used
+    // to be rounded in the one tile's local space) because every tile below
+    // maps this same world rect into its own pixels — which is what makes
+    // the two halves of a seam-straddling patch line up with each other.
+    const patchX = Math.round(dab.x - half)
+    const patchY = Math.round(dab.y - half)
+    const patchRect = { minX: patchX, minY: patchY, maxX: patchX + patchSize, maxY: patchY + patchSize }
 
-    // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
-    // (bottom-up) — same flip every other app-space/GL boundary in this
-    // file applies (DAB_VERT's clip.y flip, pickColor) — see
-    // copyRegionTo's own doc comment. The *rounded* rect below is also what
-    // the transfer draws map back from (u_patchOrigin), so the imprint and
-    // the canvas stay aligned to the texel rather than to the dab's own
-    // fractional center.
+    const targets = target.resolveForPaint(patchRect)
+    if (!targets.length) return // degenerate rect only — tilesOverlappingRect never returns empty otherwise
+
     const patch = this._acquireSmudgeScratchBuf(patchSize)
-    const glY = tile.buffer.height - localY - patchSize
-    tile.buffer.copyRegionTo(patch, localX, glY, patchSize, patchSize)
+    this._gatherSmudgePatch(patch, targets, patchRect, patchSize)
 
     const imprint = this._smudgeImprintFor(userId)
     const priming = imprint.buf === null
@@ -6785,10 +6787,66 @@ export class PencilEngine implements PencilEngineAPI {
     // physical terms on top of it.
     const strength = SMUDGE_DEPOSIT_RATE * travel * dab.pressure * dab.opacity
     if (strength <= 0) return
-    this._drawSmudgeTransferDab(tile, dab, radius, next, localX, glY, patchSize, 'clear', strength)
-    this._drawSmudgeTransferDab(tile, dab, radius, next, localX, glY, patchSize, 'lay', strength)
+    for (const tile of targets) {
+      // The brush's own circle, not the patch square: patchSize is rounded up
+      // to SMUDGE_PATCH_GRANULARITY, so a patch can reach into a tile the
+      // stump itself never touches, where both draws below would discard
+      // every fragment for nothing.
+      if (dab.x + radius <= tile.originX || dab.x - radius >= tile.originX + tile.buffer.width
+        || dab.y + radius <= tile.originY || dab.y - radius >= tile.originY + tile.buffer.height) continue
+      // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
+      // (bottom-up) — the same flip every other app-space/GL boundary in this
+      // file applies (DAB_VERT's clip.y flip, pickColor). The patch's own
+      // lower-left corner *in this tile's* pixel space, which is how
+      // SMUDGE_TRANSFER_FRAG maps a fragment back into the imprint
+      // (u_patchOrigin); negative for the tile on the far side of a seam,
+      // which the shader's plain `(gl_FragCoord.xy - u_patchOrigin)` handles
+      // as-is — every fragment it actually shades still lands inside the
+      // patch, since the dab quad is contained in it by construction.
+      const originX = patchX - tile.originX
+      const originGlY = tile.buffer.height - (patchY - tile.originY) - patchSize
+      this._drawSmudgeTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'clear', strength)
+      this._drawSmudgeTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'lay', strength)
+    }
 
     target.markContentPainted({ minX: dab.x - radius, minY: dab.y - radius, maxX: dab.x + radius, maxY: dab.y + radius })
+  }
+
+  /** Assembles the canvas patch under one dab out of every tile it overlaps
+   *  (#514) — one `copyTexSubImage2D` per tile, each writing only the part of
+   *  the patch that tile actually covers, so a patch straddling a seam comes
+   *  out as one continuous image of the canvas rather than being abandoned.
+   *
+   *  Cleared first because the buffers are pooled: a tile covering only part
+   *  of this patch leaves the remainder holding whatever the previous dab put
+   *  there, and the imprint would pick that stale square up and lay it
+   *  straight back onto the canvas — the same class of bug as the
+   *  wrong-vertex-buffer one _smudgeRunPickup's own comment describes. In an
+   *  infinite room resolveForPaint has already created every tile the rect
+   *  touches, so the clear is belt-and-braces there; it is load-bearing for
+   *  a bounded room, whose grid stops at the sheet's own last tile, and cheap
+   *  next to the two full-quad passes each dab already runs. */
+  private _gatherSmudgePatch(
+    patch: AccumulationBuffer, targets: PaintTarget[], patchRect: WorldRect, patchSize: number,
+  ): void {
+    patch.clear()
+    for (const { buffer, originX, originY } of targets) {
+      // The overlap between this tile and the patch, in world space.
+      const x0 = Math.max(patchRect.minX, originX)
+      const y0 = Math.max(patchRect.minY, originY)
+      const x1 = Math.min(patchRect.maxX, originX + buffer.width)
+      const y1 = Math.min(patchRect.maxY, originY + buffer.height)
+      if (x1 <= x0 || y1 <= y0) continue
+      // Top-down world -> bottom-up GL on both sides of the copy, so `y1` (the
+      // overlap's world *bottom*) is what each origin is measured back from.
+      // Columns need no such care: x runs the same way in both conventions.
+      buffer.copyRegionInto(
+        patch,
+        x0 - originX, buffer.height - (y1 - originY),
+        x0 - patchRect.minX, patchSize - (y1 - patchRect.minY),
+        x1 - x0, y1 - y0,
+      )
+    }
   }
 
   /** `userId`'s own imprint slot, created empty (never primed) on first use.

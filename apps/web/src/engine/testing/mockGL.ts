@@ -524,15 +524,14 @@ export class MockGL {
     return this._minFilter.get(tex) ?? null
   }
 
-  // Mirrors AccumulationBuffer.copyTo/copyRegionTo: reads a `width x
-  // height` rect from the bound-for-read framebuffer's own texture (same
-  // convention _currentTargetTexture() already uses for readPixels/
-  // drawArrays), writing into the texture bound via bindTexture.
-  // AccumulationBuffer.copyTo always passes (x,y)=(0,0) with width/height
-  // matching the source exactly (a whole-buffer copy) — copyRegionTo
-  // (smudge's own scratch-patch pickup, #14) passes an arbitrary sub-rect,
-  // so this must actually honor x/y, not just assume (0,0) the way it used
-  // to when copyTo was the only caller.
+  // Mirrors AccumulationBuffer.copyTo: reads a `width x height` rect from the
+  // bound-for-read framebuffer's own texture (same convention
+  // _currentTargetTexture() already uses for readPixels/drawArrays), and
+  // *replaces* the texture bound via bindTexture with it — storage included,
+  // which is what the real copyTexImage2D does too. copyTo is the only caller
+  // left: the sub-rect one (smudge's own scratch-patch pickup) moved to
+  // copyTexSubImage2D in #514, since it now assembles a patch out of several
+  // tiles and a call that redefines the whole destination cannot do that.
   //
   // (x,y) arrive GL-native bottom-up (row 0 = framebuffer bottom), same as
   // real copyTexImage2D — but this mock's own `data` is top-down throughout
@@ -541,9 +540,7 @@ export class MockGL {
   // way before indexing into it. Out-of-bounds rows/columns (a request
   // reaching past the source texture's own edge) read as 0 — real
   // copyTexImage2D's behavior there is implementation-defined/clamped, not
-  // something any caller in this codebase relies on (see
-  // _paintOneSmudgeDab's own bounds check, which skips a dab rather than
-  // ever requesting an out-of-range rect).
+  // something any caller in this codebase relies on.
   copyTexImage2D(_target: number, _level: number, _internalFormat: number, x: number, y: number, width: number, height: number, _border: number): void {
     const destTex = this._boundTextureTarget
     if (!destTex) return
@@ -562,6 +559,41 @@ export class MockGL {
       }
     }
     this._textureData.set(destTex, { width, height, data })
+  }
+
+  // Mirrors AccumulationBuffer.copyRegionInto (#514): same framebuffer-to-
+  // texture read as copyTexImage2D above, but into a sub-rect of an
+  // already-sized destination, leaving every texel outside that rect alone.
+  // That difference is the whole reason it exists — a smudge patch straddling
+  // a tile seam is assembled from one such call per tile, and each must
+  // preserve what the previous ones wrote.
+  //
+  // Both (x,y) and (xoffset,yoffset) are GL-native bottom-up, so both need
+  // the same flip into this mock's top-down `data` — and because the two
+  // rects are the same height, flipping each independently keeps their rows
+  // paired. A destination that was never sized (no texImage2D) is a no-op,
+  // exactly as the real call is undefined-behaviour there; out-of-range
+  // rows/columns on either side are skipped rather than wrapped.
+  copyTexSubImage2D(
+    _target: number, _level: number, xoffset: number, yoffset: number,
+    x: number, y: number, width: number, height: number,
+  ): void {
+    const destTex = this._boundTextureTarget
+    if (!destTex) return
+    const dstInfo = this._textureData.get(destTex)
+    const srcInfo = this._currentTargetTexture()
+    if (!dstInfo || !srcInfo) return
+    const srcTopY = srcInfo.height - (y + height)
+    const dstTopY = dstInfo.height - (yoffset + height)
+    for (let row = 0; row < height; row++) {
+      const srcRow = srcTopY + row, dstRow = dstTopY + row
+      if (srcRow < 0 || srcRow >= srcInfo.height || dstRow < 0 || dstRow >= dstInfo.height) continue
+      for (let col = 0; col < width; col++) {
+        const srcCol = x + col, dstCol = xoffset + col
+        if (srcCol < 0 || srcCol >= srcInfo.width || dstCol < 0 || dstCol >= dstInfo.width) continue
+        dstInfo.data[dstRow * dstInfo.width + dstCol] = srcInfo.data[srcRow * srcInfo.width + srcCol]
+      }
+    }
   }
 
   // ── framebuffers ─────────────────────────────────────────────────────────

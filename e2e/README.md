@@ -1,6 +1,6 @@
 # End-to-end tests
 
-Five scenarios in a real browser, against a real server and a real database.
+Scenarios in a real browser, against a real server and a real database.
 See `playwright.config.ts` for why a browser is the only place they can run,
 and `support/room.ts` for how the assertions read actual pixels.
 
@@ -38,6 +38,8 @@ scenario's state can be opened in psql.
 | Drawing through a dropped connection reaches the server afterwards | `specs/reconnect.spec.ts` |
 | A room past the snapshot boundary rejoins from stored pixels | `specs/snapshot.spec.ts` |
 | Losing the GPU context and getting it back: the drawing returns, undo still lines up, an interrupted gesture leaves nothing, a peer's stroke in flight is not stranded | `specs/contextLoss.spec.ts` |
+| A layer transform resamples as one image, with no source-tile seam | `specs/transformSeam.spec.ts` |
+| Smudge works across a tile seam — no dead band down an A4 sheet's x=1024 | `specs/smudgeSeam.spec.ts` |
 
 ## What is not covered, on purpose
 

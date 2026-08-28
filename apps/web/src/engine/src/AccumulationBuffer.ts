@@ -355,28 +355,41 @@ export class AccumulationBuffer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** Like copyTo, but for an arbitrary sub-rect rather than the whole
-   *  buffer — smudge's own "pick up whatever's currently under/behind the
-   *  dab" step (engine/index.ts's _paintOneSmudgeDab), copied into an
-   *  independent scratch texture so it can be sampled while this buffer's
-   *  own tile keeps being the render target (WebGL1 forbids reading and
-   *  writing the same texture in one draw call — same reasoning
-   *  _bakeTransform's scratch-then-copyTo two-phase commit exists for).
-   *  `glX`/`glY` are bottom-up (native GL framebuffer convention, like
-   *  copyTexImage2D's own x/y) — the caller flips from this engine's usual
-   *  top-down app-space convention, same as every other app-space/GL-space
-   *  boundary in this codebase (DAB_VERT, pickColor). Redefines `dest`'s own
-   *  texture storage to exactly `w x h` (copyTexImage2D always does this,
-   *  regardless of dest's previous size — see copyTo's identical behavior),
-   *  so a pooled dest buffer sized differently than `w x h` is silently
-   *  resized, not rejected — callers that care about pool reuse must size
-   *  their own request to match before calling this. */
-  copyRegionTo(dest: AccumulationBuffer, glX: number, glY: number, w: number, h: number): void {
-    dest._invalidateMips() // copyTexImage2D redefines dest's level 0
+  /** Like copyTo, but from an arbitrary sub-rect of this buffer into an
+   *  arbitrary sub-rect of `dest` — smudge's own "pick up whatever's
+   *  currently under/behind the dab" step (engine/index.ts's
+   *  _gatherSmudgePatch), copied into an independent scratch texture so it
+   *  can be sampled while this buffer's own tile keeps being the render
+   *  target (WebGL1 forbids reading and writing the same texture in one
+   *  draw call — same reasoning _bakeTransform's scratch-then-copyTo
+   *  two-phase commit exists for).
+   *
+   *  Both `srcGl*` and `destGl*` are bottom-up (native GL framebuffer
+   *  convention, like copyTexSubImage2D's own x/y) — the caller flips from
+   *  this engine's usual top-down app-space convention, same as every other
+   *  app-space/GL-space boundary in this codebase (DAB_VERT, pickColor).
+   *
+   *  (#514) Was `copyRegionTo`, which wrote the whole of `dest` through
+   *  `copyTexImage2D` and so could only ever be fed one rect from one
+   *  source. A smudge patch straddling a tile seam is several rects from
+   *  several tiles assembled into one buffer, which needs the *sub*-image
+   *  form: `copyTexSubImage2D` leaves everything outside the destination
+   *  rect untouched (so successive calls accumulate) and, unlike
+   *  copyTexImage2D, does not redefine `dest`'s storage — meaning `dest`
+   *  keeps the size its `width`/`height` fields claim, and a caller must
+   *  size its own request to match rather than relying on a silent resize.
+   *  Anything outside every rect the caller copies keeps whatever `dest`
+   *  held before, so a pooled buffer wants clearing first. */
+  copyRegionInto(
+    dest: AccumulationBuffer,
+    srcGlX: number, srcGlY: number, destGlX: number, destGlY: number, w: number, h: number,
+  ): void {
+    if (w <= 0 || h <= 0) return
+    dest._invalidateMips() // copyTexSubImage2D writes dest's level 0
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.bindTexture(gl.TEXTURE_2D, dest._texture)
-    gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, glX, glY, w, h, 0)
+    gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, destGlX, destGlY, srcGlX, srcGlY, w, h)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 

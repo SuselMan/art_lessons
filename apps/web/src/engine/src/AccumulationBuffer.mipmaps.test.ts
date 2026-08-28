@@ -80,7 +80,7 @@ describe('AccumulationBuffer mipmaps (#365)', () => {
     ['clear', b => b.clear()],
     ['restorePixels', b => b.restorePixels(new Uint8Array(16 * 16 * 4))],
     ['copyTo (as destination)', (b, gl) => new AccumulationBuffer(gl, 16, 16).copyTo(b)],
-    ['copyRegionTo (as destination)', (b, gl) => new AccumulationBuffer(gl, 16, 16).copyRegionTo(b, 0, 0, 16, 16)],
+    ['copyRegionInto (as destination)', (b, gl) => new AccumulationBuffer(gl, 16, 16).copyRegionInto(b, 0, 0, 0, 0, 16, 16)],
   ]
 
   for (const [name, write] of writes) {

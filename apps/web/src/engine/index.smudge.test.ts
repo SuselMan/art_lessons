@@ -20,8 +20,9 @@ import type { Dab } from '@grafetto/shared'
 
 import {
   createTestEngine, dab, fillStroke, makeLayerAdd, makeStroke,
-  readLayerPixels, expectPixelsEqual,
+  readLayerPixels, readTilePixels, expectPixelsEqual,
 } from './testing/engineTestUtils'
+import type { PencilEngine } from './index'
 import { TILE_SIZE } from './src/tileMath'
 
 function alphaAt(pixels: Uint8Array, width: number, x: number, y: number): number {
@@ -33,6 +34,36 @@ function setupLayer(width = 64, height = 64, infinite = false) {
   engine.appendOperation(makeLayerAdd('user-a', 'L'))
   engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
   return engine
+}
+
+/** Alpha of a world-space window, stitched across whatever tiles it spans
+ *  (#514) — the readback the cross-seam tests below need, since the whole
+ *  point of them is content that no single tile holds. Untouched tiles read
+ *  as 0, same as a tile that was never painted. */
+function readWorldAlpha(
+  engine: PencilEngine, layerId: string, x0: number, y0: number, w: number, h: number,
+): Uint8Array {
+  const out = new Uint8Array(w * h)
+  const tileCache = new Map<string, Uint8Array | null>()
+  for (let row = 0; row < h; row++) {
+    for (let col = 0; col < w; col++) {
+      const wx = x0 + col, wy = y0 + row
+      const tx = Math.floor(wx / TILE_SIZE), ty = Math.floor(wy / TILE_SIZE)
+      const key = `${tx},${ty}`
+      if (!tileCache.has(key)) tileCache.set(key, readTilePixels(engine, layerId, tx, ty))
+      const px = tileCache.get(key)
+      if (!px) continue
+      const lx = wx - tx * TILE_SIZE, ly = wy - ty * TILE_SIZE
+      out[row * w + col] = px[(ly * TILE_SIZE + lx) * 4 + 3]
+    }
+  }
+  return out
+}
+
+function countChanged(before: Uint8Array, after: Uint8Array): number {
+  let n = 0
+  for (let i = 0; i < before.length; i++) if (before[i] !== after[i]) n++
+  return n
 }
 
 describe('smudge tool (#14)', () => {
@@ -119,16 +150,57 @@ describe('smudge tool (#14)', () => {
     expectPixelsEqual(readLayerPixels(engineA, 'L'), readLayerPixels(engineB, 'L'))
   })
 
-  it('skips a dab whose source or destination patch would cross a tile boundary (infinite canvas, v1 limitation)', () => {
-    const engine = setupLayer(64, 64, true)
-    // Paint solid content straddling the tile boundary at world x=TILE_SIZE.
-    engine.appendOperation(fillStroke('user-a', 'L', TILE_SIZE - 5, 0, 10))
+  // (#514) Until this shipped, a dab whose patch didn't fit inside one tile
+  // was dropped whole, and the test here asserted only that doing so didn't
+  // throw. That left a dead stripe as wide as the brush along every seam —
+  // and tiles are TILE_SIZE in a bounded room too (_tileSize), so an A4 sheet
+  // carries a seam cross straight through it at x=1024/y=1024. These two
+  // replace it with the properties that actually matter: the tool does
+  // something there at all, and what it does is the same thing it would do
+  // anywhere else.
+  describe('across a tile seam (#514)', () => {
+    it('works at all on the seam: a stroke run along x=TILE_SIZE drags graphite down both sides of it', () => {
+      const engine = setupLayer(64, 64, true)
+      // One disc straddling the seam, well clear of the y=0 one. Deliberately
+      // a disc rather than a band running the length of the drag: smearing
+      // *along* uniform content moves nothing anywhere, seam or no seam, so
+      // that shape would pass this test for the wrong reason.
+      engine.appendOperation(fillStroke('user-a', 'L', TILE_SIZE, 250, 40))
+      const before = readWorldAlpha(engine, 'L', TILE_SIZE - 60, 300, 120, 100)
+      expect(before.some(a => a > 0)).toBe(false) // the drag starts on clean paper
 
-    // Smudge dabs whose own patch spans across the boundary — must not throw,
-    // and (v1 scope) simply have no effect rather than attempting cross-tile
-    // compositing.
-    const dabs = [TILE_SIZE - 20, TILE_SIZE - 10, TILE_SIZE, TILE_SIZE + 10].map(x => dab(x, 0, { size: 20 }))
-    expect(() => engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'smudge' }))).not.toThrow()
+      // Every dab is centred on the seam, so every one of them straddles it:
+      // before #514 this entire stroke was silently a no-op.
+      const dabs = [250, 270, 290, 310, 330, 350].map(y => dab(TILE_SIZE, y, { size: 40, pressure: 1, opacity: 1 }))
+      engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'smudge' }))
+
+      const after = readWorldAlpha(engine, 'L', TILE_SIZE - 60, 300, 120, 100)
+      expect(countChanged(before, after)).toBeGreaterThan(0)
+      // Both sides of the seam, not just the tile the dab's centre rounds into.
+      const left = (a: Uint8Array) => a.filter((_, i) => i % 120 < 60)
+      const right = (a: Uint8Array) => a.filter((_, i) => i % 120 >= 60)
+      expect(countChanged(left(before), left(after))).toBeGreaterThan(0)
+      expect(countChanged(right(before), right(after))).toBeGreaterThan(0)
+    })
+
+    it('is seamless: the same drag across a seam and away from one produce the same pixels', () => {
+      // Identical geometry, offset only by whole tiles' worth of nothing: run
+      // A straddles the seam at x=TILE_SIZE, run B sits entirely inside tile
+      // (0,0). Any disagreement is the cross-tile mapping (a flipped row, an
+      // off-by-one origin, a patch assembled in the wrong order), since
+      // nothing else about the two differs — the paper's own world-locked
+      // grain would, but this mock deliberately doesn't rasterize it (see
+      // mockGL's module docstring), which is exactly what makes the
+      // comparison possible here rather than on a GPU.
+      const run = (originX: number) => {
+        const engine = setupLayer(64, 64, true)
+        engine.appendOperation(fillStroke('user-a', 'L', originX - 40, 300, 30))
+        const dabs = [-40, -20, 0, 20, 40].map(dx => dab(originX + dx, 300, { size: 40, pressure: 1, opacity: 1 }))
+        engine.appendOperation(makeStroke('user-a', 'L', dabs, { tool: 'smudge' }))
+        return readWorldAlpha(engine, 'L', originX - 100, 250, 200, 100)
+      }
+      expect(Array.from(run(TILE_SIZE))).toEqual(Array.from(run(TILE_SIZE - 400)))
+    })
   })
 
   // Regression coverage for the exact bug reported after #14 first shipped:
