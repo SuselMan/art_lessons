@@ -52,3 +52,48 @@
   line-height: 1.5;
   color: var(--color-text-dim);
 }
+
+/* (#515) The build identity row. Sits at the end of the card, deliberately
+   quieter than a preference: it is a fact about this device rather than
+   something to set. */
+.versionRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.version {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  /* A version can be read aloud off a screen or copied out of a bug report —
+     selectable, unlike most chrome here. */
+  user-select: text;
+}
+
+.versionCheck {
+  /* 40px minimum, per CLAUDE.md's touch-target rule: this button's whole
+     audience is someone on a tablet trying to get unstuck. */
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 13px;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.versionCheck:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+}
+
+.versionCheck:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

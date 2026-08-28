@@ -1,8 +1,12 @@
+import { useState } from 'react'
+
 import { AppHeader } from '../../components/AppHeader'
 import { OptionGroup } from '../../components/OptionGroup'
 import { LOCALES, LOCALE_NAMES, useT } from '../../i18n'
 import type { TranslationKey } from '../../i18n'
+import { APP_VERSION, isDeployedBuild } from '../../lib/appVersion'
 import { COMPACT_PREFERENCES, DEVICE_TYPES, type CompactPreference, type DeviceType } from '../../lib/deviceType'
+import { checkForUpdateNow } from '../../lib/registerServiceWorker'
 import { THEMES, type Theme } from '../../lib/theme'
 import { useSettingsStore } from '../../stores/settingsStore'
 import styles from './Settings.module.css'
@@ -120,7 +124,68 @@ export function Settings() {
           />
           <p className={styles.hint}>{t('settingsPage.compactHint')}</p>
         </section>
+
+        <VersionSection />
       </div>
     </div>
+  )
+}
+
+/** (#515) Which build this device is running, and a way to stop it being an
+ *  older one.
+ *
+ *  Small and last on the page on purpose — it is not a preference, and nobody
+ *  comes here to set it. It is here because this is the one screen that exists
+ *  on every device the app runs on, and the question it answers ("is this
+ *  tablet on the build I just deployed?") had no answer at all before: the
+ *  only way to tell was comparing chunk hashes against the server over ssh,
+ *  which is not something anyone does mid-lesson. So it was guessed instead,
+ *  and a wrong guess in either direction costs an afternoon — see the issue.
+ *
+ *  The button is the deterministic half. Update checks already happen on a
+ *  timer and on resume, but "already happened" is invisible; pressing
+ *  something and being told an answer is not. */
+function VersionSection() {
+  const t = useT()
+  const [state, setState] = useState<'idle' | 'checking' | 'current'>('idle')
+
+  async function check() {
+    setState('checking')
+    const result = await checkForUpdateNow()
+    // 'updating' deliberately leaves the label on "checking": the page is
+    // reloading, and flashing a result the person cannot finish reading is
+    // worse than the spinner they already understand.
+    //
+    if (result === 'updating') return
+    // 'unavailable' goes back to idle rather than claiming to be up to date.
+    // Nothing was asked of any server in that case, and "this is the latest
+    // version" from a build that cannot know is precisely the false
+    // reassurance this whole row exists to remove.
+    setState(result === 'current' ? 'current' : 'idle')
+  }
+
+  return (
+    <section className={styles.section}>
+      <div className={styles.label}>{t('settingsPage.version')}</div>
+      <div className={styles.versionRow}>
+        {/* A build identity, not prose — monospace so two of them can be
+            compared character by character, which is the only thing anyone
+            ever does with it. */}
+        <code className={styles.version}>{APP_VERSION}</code>
+        {isDeployedBuild() && (
+          <button
+            type="button"
+            className={styles.versionCheck}
+            onClick={() => { void check() }}
+            disabled={state === 'checking'}
+          >
+            {state === 'checking' ? t('settingsPage.versionChecking') : t('settingsPage.versionCheck')}
+          </button>
+        )}
+      </div>
+      <p className={styles.hint}>
+        {state === 'current' ? t('settingsPage.versionCurrent') : t('settingsPage.versionHint')}
+      </p>
+    </section>
   )
 }

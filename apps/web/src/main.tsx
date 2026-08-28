@@ -13,6 +13,7 @@ import { setSentryDeviceType, setSentryUser } from './lib/sentry'
 // <BrowserRouter> (inside App) ever mounts and adds its own — see the
 // module's own comment for why registration order matters here.
 import './lib/backNavigationGuard'
+import { exposeAppVersion } from './lib/appVersion'
 import { registerServiceWorker } from './lib/registerServiceWorker'
 import { syncDebugToolsFromUrl } from './lib/debugTools'
 import {
@@ -22,6 +23,11 @@ import {
   useSettingsStore,
 } from './stores/settingsStore'
 import { App } from './App'
+
+// (#515) Before anything else that could throw: the first question asked of a
+// broken device is which build it is running, and an exception during boot is
+// exactly when that answer is hardest to get and most worth having.
+exposeAppVersion()
 
 // (#208) index.html can only carry a static `lang`; the real one is the
 // stored/detected locale, and assistive tech reads this attribute.

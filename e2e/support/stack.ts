@@ -39,3 +39,11 @@ export const BASE_URL = `http://127.0.0.1:${WEB_PORT}`
  *  does is the AudioWorklet (pencil sound), which no scenario touches. */
 export const WEB_URL = BASE_URL
 export const SERVER_HEALTH_URL = `http://127.0.0.1:${SERVER_PORT}/api/health`
+
+/** (#515) The version the harness builds the app with. A plausible-looking
+ *  deploy stamp rather than a placeholder, because what the Settings row is
+ *  asserted to do is show *exactly* the injected string — a fake that did not
+ *  match the real format would let a formatting bug through. The date is
+ *  fixed, not today's: a test whose expected value changes daily is a test
+ *  that fails on the day nobody touched it. */
+export const E2E_APP_VERSION = '2026.01.02-abcdef0'

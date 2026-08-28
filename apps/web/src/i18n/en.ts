@@ -101,6 +101,11 @@ export const en = {
   'settingsPage.compactOn': 'Always',
   'settingsPage.compactOff': 'Never',
   'settingsPage.compactHint': 'On a small screen the editor shows notes and the annotation pen instead of the drawing tools, and one finger draws while two move the canvas. Drawing itself stays on the tablet and the computer.',
+  'settingsPage.version': 'Version',
+  'settingsPage.versionHint': 'Quote this when reporting a problem — it says exactly which build this device is running.',
+  'settingsPage.versionCheck': 'Check for updates',
+  'settingsPage.versionChecking': 'Checking…',
+  'settingsPage.versionCurrent': 'This is the latest version',
 
   // ── create project ─────────────────────────────────────────────────────
   'create.heading': 'New project',

@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test'
 
-import { SERVER_HEALTH_URL, SERVER_PORT, WEB_PORT, WEB_URL } from './e2e/support/stack'
+import { E2E_APP_VERSION, SERVER_HEALTH_URL, SERVER_PORT, WEB_PORT, WEB_URL } from './e2e/support/stack'
 
 /** (#491, трек #314 §12) End-to-end tests in a real browser.
  *
@@ -100,7 +100,11 @@ export default defineConfig({
       // happily somewhere else. A clash should be a loud failure.
       command: `npm run dev:http --workspace=apps/web -- --port ${WEB_PORT} --strictPort`,
       url: WEB_URL,
-      env: { SERVER_PORT: String(SERVER_PORT) },
+      // (#515) A realistic version string, so the Settings row can be asserted
+      // as the thing a person actually reads rather than as the `dev` fallback.
+      // Vite picks VITE_-prefixed variables out of the environment in dev the
+      // same way it does in a build, so this needs no config of its own.
+      env: { SERVER_PORT: String(SERVER_PORT), VITE_APP_VERSION: E2E_APP_VERSION },
       reuseExistingServer: false,
       timeout: 120_000,
       stdout: 'pipe',

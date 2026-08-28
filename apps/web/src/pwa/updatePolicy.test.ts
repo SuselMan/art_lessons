@@ -5,7 +5,7 @@
 // of production.
 import { describe, expect, it } from 'vitest'
 
-import { decideUpdateAction } from './updatePolicy'
+import { RESUME_HIDDEN_MS, decideUpdateAction, isResumeFromBackground } from './updatePolicy'
 
 describe('decideUpdateAction (#400)', () => {
   it('applies silently when nothing is at risk, tab or installed alike', () => {
@@ -24,5 +24,27 @@ describe('decideUpdateAction (#400)', () => {
     // The only case with no way out on its own: an installed app may never be
     // closed, so waiting here means waiting forever.
     expect(decideUpdateAction({ reloadUnsafe: true, installed: true })).toBe('prompt')
+  })
+})
+
+describe('isResumeFromBackground (#515)', () => {
+  it('treats a return from a minute or more away as a resume', () => {
+    expect(isResumeFromBackground(RESUME_HIDDEN_MS)).toBe(true)
+    expect(isResumeFromBackground(60 * 60 * 1000)).toBe(true)
+  })
+
+  it('does not, for the pick-up-and-put-down flicker the check floor exists for', () => {
+    // A tablet being handled fires visibilitychange seconds apart, and every
+    // one of those would otherwise be a network request.
+    expect(isResumeFromBackground(0)).toBe(false)
+    expect(isResumeFromBackground(3_000)).toBe(false)
+  })
+
+  it('does not depend on the app being installed', () => {
+    // An installed app is the case that motivates it — it is never closed, so
+    // this is its only chance — but a long-backgrounded tab is stale for the
+    // same reason and gains the same thing. Deliberately one rule, so there is
+    // no second code path that only ever runs on a device nobody debugs on.
+    expect(isResumeFromBackground(RESUME_HIDDEN_MS - 1)).toBe(false)
   })
 })

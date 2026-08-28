@@ -124,6 +124,30 @@ We parallelize work across isolated Claude Code sessions ("agents"), coordinated
 - Merging an agent branch into `main` requires Ilya's explicit go-ahead each time — `main` auto-deploys to production, so there is no longer an intermediate branch where a merge is the manager's own call. The manager's job is to hand over a branch that is already QA'd and ready, not to merge it.
 - After a branch is merged into `main`, its worktree and branch are deleted.
 
+### Reporting a deploy (#515)
+
+Every time something is merged to `main` and the deploy run goes green, **name the version
+that landed** in the report to Ilya — the exact string the build produced, e.g.
+`2026.08.28-7041f19`.
+
+It is the one thing that makes "did my device get it?" a comparison instead of a guess.
+Settings → Version shows the same string on whatever device is in his hands, so the two are
+read side by side; without the report half, the number on the tablet has nothing to be checked
+against. This rule exists because the guess was made and was wrong: after the #514 deploy a
+tablet running an already-updated build was judged stale, and a session went into diagnosing a
+service worker that turned out to be working correctly.
+
+Where to get it, in order of preference:
+
+1. `curl -s https://grafetto.com/version.json` — what is actually being served right now,
+   which is the claim being made. Prefer this: it is the only source that has observed the
+   deploy rather than predicted it.
+2. The deploy run's step summary (`Report the version being deployed`).
+
+Never assemble the string by hand from a local `date` and `git rev-parse` — the date is the
+runner's build date in UTC, and a version quoted from a different clock than the one that
+stamped it is exactly the kind of near-miss this is meant to eliminate.
+
 ### Resuming after a break (new manager session)
 
 The manager cannot assume it remembers a prior conversation — a new session may start with no chat history. State must be reconstructed from durable sources, not recalled:

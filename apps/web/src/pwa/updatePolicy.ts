@@ -62,3 +62,28 @@ export function isInstalledApp(): boolean {
   const nav: Navigator & { standalone?: boolean } = window.navigator
   return nav.standalone === true
 }
+
+/** (#515) How long the app has to have been out of sight before coming back
+ *  counts as a *resume* — and so checks for a new build regardless of the
+ *  anti-thrash floor between checks (registerServiceWorker's own
+ *  MIN_CHECK_GAP_MS).
+ *
+ *  The floor was written for a tab, where it costs nothing: the browser
+ *  re-fetches sw.js on navigation anyway, and a waiting worker activates by
+ *  itself once the last tab closes. An installed app has neither. It is
+ *  resumed rather than navigated, and it is never closed — a teacher's tablet
+ *  keeps it alive for weeks — so being brought back to the screen is the only
+ *  moment it can learn a deploy happened at all. A floor there is a window in
+ *  which the app knowingly runs a build it could have replaced, and that
+ *  window is what #515 reported: between a deploy landing and the tablet being
+ *  picked up it made not one request, and the person holding it concluded the
+ *  fix had not shipped.
+ *
+ *  A minute keeps the case the floor exists for — a tablet picked up and put
+ *  down, firing `visibilitychange` seconds apart — and excludes nothing real:
+ *  "put it down, a deploy lands, pick it up" is never inside a minute. */
+export const RESUME_HIDDEN_MS = 60 * 1000
+
+export function isResumeFromBackground(hiddenMs: number): boolean {
+  return hiddenMs >= RESUME_HIDDEN_MS
+}

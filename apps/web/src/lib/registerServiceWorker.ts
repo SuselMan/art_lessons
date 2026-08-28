@@ -26,7 +26,7 @@
 // drew a conclusion from a pre-deploy bundle the service worker was still
 // serving (#294 on 30.07, the join-request run recorded in #314 §6). Both
 // times the tab had `registration.waiting` set and nobody had clicked.
-import { decideUpdateAction, isInstalledApp } from '../pwa/updatePolicy'
+import { decideUpdateAction, isInstalledApp, isResumeFromBackground } from '../pwa/updatePolicy'
 import { translate } from '../i18n/translate'
 import { pushNotice } from '../stores/noticeStore'
 import { isReloadUnsafe, onReloadSafe } from './reloadSafety'
@@ -42,6 +42,35 @@ const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000
  *  being picked up and put down fires `visibilitychange` every few seconds and
  *  each one would hit the network. */
 const MIN_CHECK_GAP_MS = 5 * 60 * 1000
+
+/** What a manual check found. Returned to Settings' own check button (#515),
+ *  which has to say something either way — silence after pressing a button is
+ *  indistinguishable from the button not working, which is the state this
+ *  whole issue is about. */
+export type UpdateCheckResult =
+  /** A newer build was found; the page is reloading into it. */
+  | 'updating'
+  /** Asked the server, and this is the latest build. */
+  | 'current'
+  /** No service worker to ask — a dev build, or a browser without one. */
+  | 'unavailable'
+
+/** Set by registerServiceWorker once the worker is registered. Module-level
+ *  rather than passed around because its one consumer is a button on a page
+ *  that has no path to the registration otherwise. */
+let checkNow: (() => Promise<UpdateCheckResult>) | null = null
+
+/** Asks the server for a newer build right now, and applies it if there is
+ *  one — the deterministic version of "is this device up to date", as opposed
+ *  to force-quitting the app and hoping (#515).
+ *
+ *  Deliberately applies rather than offers, even from inside a room: pressing
+ *  a button labelled "check for updates" *is* the human decision that the
+ *  in-room prompt exists to collect, and asking twice for the same consent is
+ *  how a person learns to ignore the asking. */
+export function checkForUpdateNow(): Promise<UpdateCheckResult> {
+  return checkNow ? checkNow() : Promise.resolve('unavailable')
+}
 
 // Not a React component and not inside the provider tree — this runs before
 // the app mounts — so the locale is read from the store directly rather than
@@ -134,7 +163,31 @@ export function registerServiceWorker(): void {
         settle()
       },
       onRegisteredSW(_swScriptUrl, registration) {
-        if (registration) scheduleChecks(registration)
+        if (!registration) return
+        scheduleChecks(registration)
+        // (#515) The manual check, wired only once there is something to ask.
+        // Before this point checkForUpdateNow answers 'unavailable', which is
+        // the truth: there is no registration to interrogate yet.
+        checkNow = async () => {
+          // An update discovered earlier and deferred (a room was holding the
+          // reload) is already the answer — asking the server again would
+          // find the same worker and waste a round trip to learn nothing.
+          if (!pending) {
+            try {
+              await registration.update()
+            } catch {
+              // Offline, or the request failed. Not distinguished from "up to
+              // date" on purpose: both mean "nothing new is being applied",
+              // and a second message about network conditions on a button
+              // press is noise the person cannot act on.
+              return 'current'
+            }
+            await settledWorker(registration)
+          }
+          if (!pending && !registration.waiting) return 'current'
+          apply()
+          return 'updating'
+        }
       },
     })
 
@@ -152,14 +205,40 @@ export function registerServiceWorker(): void {
   })
 }
 
+/** (#515) Resolves once an `update()` has stopped producing a new worker —
+ *  either one is sitting in `waiting`, or the fetch found nothing new.
+ *
+ *  `registration.update()` resolves when the *fetch* is done, not when the
+ *  worker it found has finished installing, so reading `registration.waiting`
+ *  straight after it reports "no update" for an update that is mid-install.
+ *  That is the difference between the manual check saying "you are up to
+ *  date" and it doing what it was pressed for. */
+function settledWorker(registration: ServiceWorkerRegistration): Promise<void> {
+  const installing = registration.installing
+  if (!installing) return Promise.resolve()
+  return new Promise<void>(resolve => {
+    installing.addEventListener('statechange', function onState() {
+      // 'redundant' as well as 'installed': a worker that failed to install is
+      // finished too, and waiting for a state it will never reach would hang
+      // the button forever.
+      if (installing.state === 'installed' || installing.state === 'redundant') {
+        installing.removeEventListener('statechange', onState)
+        resolve()
+      }
+    })
+  })
+}
+
 function scheduleChecks(registration: ServiceWorkerRegistration): void {
   let lastCheck = performance.now()
+  let hiddenSince: number | null = null
 
-  function check(): void {
+  /** `force` skips the anti-thrash floor — see isResumeFromBackground. */
+  function check(force = false): void {
     // A check while offline is a guaranteed failed request; `online` below
     // runs one the moment that stops being true.
     if (navigator.onLine === false) return
-    if (performance.now() - lastCheck < MIN_CHECK_GAP_MS) return
+    if (!force && performance.now() - lastCheck < MIN_CHECK_GAP_MS) return
     lastCheck = performance.now()
     // Rejects on any network trouble, and nothing awaits this. An unhandled
     // rejection here would be the same class of noise #383 removed from the
@@ -171,8 +250,19 @@ function scheduleChecks(registration: ServiceWorkerRegistration): void {
   setInterval(check, UPDATE_CHECK_INTERVAL_MS)
   // A tab that was in the background for a day is exactly the tab most likely
   // to be stale, and the moment it comes back is when that starts mattering.
+  //
+  // (#515) A long enough absence counts as a *resume* and skips the floor —
+  // see isResumeFromBackground for why an installed app has no other moment.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') check()
+    if (document.visibilityState === 'hidden') {
+      hiddenSince = performance.now()
+      return
+    }
+    const away = hiddenSince === null ? 0 : performance.now() - hiddenSince
+    hiddenSince = null
+    check(isResumeFromBackground(away))
   })
-  window.addEventListener('online', check)
+  // Coming back online is the same kind of moment — whatever was missed while
+  // offline is missed for as long as nothing asks.
+  window.addEventListener('online', () => check(true))
 }
