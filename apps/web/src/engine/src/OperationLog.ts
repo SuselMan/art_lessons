@@ -226,7 +226,10 @@ export class OperationLog {
    *  layers need redrawing. */
   gestureLayerIds(op: Operation): string[] {
     const strokeId = op.type === 'stroke' ? op.strokeId : undefined
-    const own = 'layerId' in op ? [op.layerId] : []
+    // `typeof` and not just `in`: on the operations #412 gave a `layerIds`
+    // list to, `layerId` is still declared, optional, and absent — so the
+    // property test alone answers `string | undefined`.
+    const own = 'layerId' in op && typeof op.layerId === 'string' ? [op.layerId] : []
     if (!strokeId) return own
     const ids = new Set(own)
     for (const e of this._entries) {
