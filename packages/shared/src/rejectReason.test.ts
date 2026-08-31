@@ -8,7 +8,7 @@ import { isTransientReject, TRANSIENT_REJECT_REASONS, type RejectReason } from '
  *  with any future edit to it, including the wrong one. */
 describe('RejectReason: transient vs final', () => {
   const FINAL: RejectReason[] = [
-    'room_frozen', 'participant_frozen', 'layer_owner_locked',
+    'room_frozen', 'participant_frozen', 'layer_owner_locked', 'layer_locked',
     'not_owner', 'room_closed', 'target_gone',
   ]
 
@@ -27,7 +27,7 @@ describe('RejectReason: transient vs final', () => {
     const all = new Set<RejectReason>([...FINAL, ...TRANSIENT_REJECT_REASONS])
     const expected: Record<RejectReason, true> = {
       room_frozen: true, participant_frozen: true, layer_owner_locked: true,
-      not_owner: true, room_closed: true, target_gone: true,
+      layer_locked: true, not_owner: true, room_closed: true, target_gone: true,
       not_joined: true, server_error: true,
     }
     expect([...all].sort()).toEqual(Object.keys(expected).sort())

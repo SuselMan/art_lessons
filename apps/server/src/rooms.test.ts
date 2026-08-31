@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type {
   LayerAddOperation, LayerDeleteOperation, LayerDuplicateOperation, LayerMergeOperation,
-  LayerOwnerLockOperation, LayerTransformOperation,
+  LayerClearOperation, LayerLockOperation, LayerOwnerLockOperation, LayerTransformOperation,
   LayerVisibilityOperation, Operation, StrokeOperation,
 } from '@grafetto/shared'
 import { INITIAL_LAYER_ID } from '@grafetto/shared'
@@ -11,9 +11,10 @@ import {
   _flushPendingWrites, checkRoomPassword, createRoom, evictIdleRooms, findDuplicateOperation,
   flushAllRoomWrites, pendingWriteCount,
   getOperationRejectReason, getParticipant, getResidentRoomStats, getRoomGate, getRoomSnapshot,
-  isCoveredBySnapshot, isLayerOwnerLocked,
+  isCoveredBySnapshot, isLayerLocked, isLayerOwnerLocked,
   isOperationAllowed, isRoomClosed, isRoomFrozen, isRoomResident, joinRoom,
-  leaveRoom, recordOperation, releaseRoomIfUnused, RESIDENT_OP_TYPES, setLayerOwnerLocked, setParticipantFrozen,
+  leaveRoom, recordOperation, releaseLockOnUndo, releaseRoomIfUnused, RESIDENT_OP_TYPES,
+  setLayerLocked, setLayerOwnerLocked, setParticipantFrozen,
   setRoomClosed, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 
@@ -61,6 +62,18 @@ function layerOwnerLock(overrides: Partial<LayerOwnerLockOperation> = {}): Layer
   return {
     id: overrides.id ?? 'op-lock-1',
     type: 'layer_owner_lock',
+    userId: overrides.userId ?? 'user-a',
+    timestamp: overrides.timestamp ?? 0,
+    layerId: overrides.layerId ?? 'layer-1',
+    locked: overrides.locked ?? true,
+    ...overrides,
+  }
+}
+
+function layerLock(overrides: Partial<LayerLockOperation> = {}): LayerLockOperation {
+  return {
+    id: overrides.id ?? 'op-shared-lock-1',
+    type: 'layer_lock',
     userId: overrides.userId ?? 'user-a',
     timestamp: overrides.timestamp ?? 0,
     layerId: overrides.layerId ?? 'layer-1',
@@ -817,6 +830,168 @@ describe('getOperationRejectReason', () => {
     const revoke: Operation = { id: 'r1', type: 'operation_revoke', userId: 'student-1', timestamp: 0, targetOpId: 'x' }
     expect(getOperationRejectReason(roomId, 'student-1', revoke)).toBe('not_owner')
     expect(getOperationRejectReason(roomId, 'student-1', layerOwnerLock({ userId: 'student-1' }))).toBe('not_owner')
+  })
+
+  // (#518) The owner lock's own blind spot: `layer_transform` carries its
+  // targets in `transforms`, so the `'layerId' in op` test could not see them
+  // and the one operation able to move a whole layer bodily across the sheet
+  // was the one operation the lock did not stop.
+  it('reports layer_owner_locked for a transform of a locked layer', () => {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+    // The room's own initial layer, so `target_gone` (checked first, and
+    // rightly) does not answer before the lock gets to.
+    setLayerOwnerLocked(roomId, INITIAL_LAYER_ID, true)
+
+    const transform = layerTransform({
+      userId: 'student-1',
+      transforms: [{ layerId: INITIAL_LAYER_ID, matrix: [1, 0, 0, 1, 40, 0] }],
+    })
+    expect(getOperationRejectReason(roomId, 'student-1', transform)).toBe('layer_owner_locked')
+  })
+})
+
+// (#518) The shared lock, which the server did not know existed until now: it
+// tracked `layer_owner_lock` alone, so `layer_lock` was a courtesy one client
+// paid and any other could ignore.
+describe('getOperationRejectReason \u2014 the shared lock', () => {
+  function room() {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+    setLayerLocked(roomId, 'layer-locked', true)
+    return roomId
+  }
+
+  it('refuses a stroke on a locked layer', () => {
+    expect(getOperationRejectReason(room(), 'student-1', stroke({ userId: 'student-1', layerId: 'layer-locked' })))
+      .toBe('layer_locked')
+  })
+
+  // Transforms lock the room's *initial* layer instead of an invented id:
+  // `target_gone` is checked before any lock, and rightly \u2014 so a transform of
+  // a layer the room never had is refused for existing, not for being locked,
+  // and would prove nothing about this gate.
+  function roomWithLockedInitialLayer() {
+    const roomId = freshRoomId()
+    createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+    joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+    setLayerLocked(roomId, INITIAL_LAYER_ID, true)
+    return roomId
+  }
+
+  it('refuses a transform of a locked layer', () => {
+    const transform = layerTransform({
+      userId: 'student-1',
+      transforms: [{ layerId: INITIAL_LAYER_ID, matrix: [1, 0, 0, 1, 40, 0] }],
+    })
+    expect(getOperationRejectReason(roomWithLockedInitialLayer(), 'student-1', transform)).toBe('layer_locked')
+  })
+
+  it('refuses a transform that names the locked layer among unlocked ones', () => {
+    const roomId = roomWithLockedInitialLayer()
+    updateAliveIds(roomId, layerAdd({ id: 'op-add-free', layerId: 'layer-free' }))
+    const transform = layerTransform({
+      userId: 'student-1',
+      transforms: [
+        { layerId: 'layer-free', matrix: [1, 0, 0, 1, 40, 0] },
+        { layerId: INITIAL_LAYER_ID, matrix: [1, 0, 0, 1, 40, 0] },
+      ],
+    })
+    expect(getOperationRejectReason(roomId, 'student-1', transform)).toBe('layer_locked')
+  })
+
+  it('allows a transform when none of its targets are locked', () => {
+    const roomId = roomWithLockedInitialLayer()
+    updateAliveIds(roomId, layerAdd({ id: 'op-add-free', layerId: 'layer-free' }))
+    const transform = layerTransform({
+      userId: 'student-1',
+      transforms: [{ layerId: 'layer-free', matrix: [1, 0, 0, 1, 40, 0] }],
+    })
+    expect(getOperationRejectReason(roomId, 'student-1', transform)).toBeNull()
+  })
+
+  // What makes it the *shared* lock rather than a second owner lock: it is a
+  // claim about the layer that everyone can make and everyone can take back,
+  // so the person who owns the room is bound by it like anybody else.
+  it('refuses the room owner too', () => {
+    expect(getOperationRejectReason(room(), 'owner-1', stroke({ userId: 'owner-1', layerId: 'layer-locked' })))
+      .toBe('layer_locked')
+  })
+
+  it('lets structure through \u2014 a locked layer can still be hidden, moved and deleted', () => {
+    const roomId = roomWithLockedInitialLayer()
+    expect(getOperationRejectReason(roomId, 'student-1', layerVisibility({
+      userId: 'student-1', layerId: INITIAL_LAYER_ID,
+    }))).toBeNull()
+    expect(getOperationRejectReason(roomId, 'student-1', layerDelete({
+      userId: 'student-1', layerIds: [INITIAL_LAYER_ID],
+    }))).toBeNull()
+  })
+
+  // Ilya, 31.08: Clear is an action in the layer row's own menu, next to
+  // Delete. Both sides exempt it, and the two lists are written out
+  // separately on purpose \u2014 a server reading its policy off the client's is
+  // not a check.
+  it('lets layer_clear through', () => {
+    const clear: LayerClearOperation = {
+      id: 'op-clear', type: 'layer_clear', userId: 'student-1', timestamp: 0, layerId: 'layer-locked',
+    }
+    expect(getOperationRejectReason(room(), 'student-1', clear)).toBeNull()
+  })
+
+  it('lets the lock itself be taken off by anyone', () => {
+    expect(getOperationRejectReason(room(), 'student-1', layerLock({
+      userId: 'student-1', layerId: 'layer-locked', locked: false,
+    }))).toBeNull()
+  })
+
+  it('leaves unlocked layers alone', () => {
+    expect(getOperationRejectReason(room(), 'student-1', stroke({ userId: 'student-1' }))).toBeNull()
+  })
+
+  it('tracks the flag both ways', () => {
+    const roomId = room()
+    expect(isLayerLocked(roomId, 'layer-locked')).toBe(true)
+    setLayerLocked(roomId, 'layer-locked', false)
+    expect(isLayerLocked(roomId, 'layer-locked')).toBe(false)
+    expect(getOperationRejectReason(roomId, 'student-1', stroke({ userId: 'student-1', layerId: 'layer-locked' })))
+      .toBeNull()
+  })
+
+  // The server has no fold that resolves undo for anything but structural
+  // operations, so it cannot say what the flag *became* \u2014 only that it
+  // changed. It gives the lock up rather than guessing, because a lock it
+  // holds after the room released it refuses drawing no padlock accounts for.
+  describe('undo of a lock releases it rather than guessing', () => {
+    function roomWithRecordedLock() {
+      const roomId = freshRoomId()
+      createRoom(roomDraft(roomId), undefined, 'owner-1', 'Teacher', sock('owner-1'))
+      joinRoom(roomId, 'student-1', 'Alice', sock('student-1'))
+      recordOperation(roomId, layerLock({ id: 'op-lock', layerId: INITIAL_LAYER_ID, locked: true }))
+      setLayerLocked(roomId, INITIAL_LAYER_ID, true)
+      return roomId
+    }
+
+    it('drops the lock when its operation is undone', () => {
+      const roomId = roomWithRecordedLock()
+      const undo: Operation = {
+        id: 'u1', type: 'operation_undo', userId: 'user-a', timestamp: 0, targetOpId: 'op-lock',
+      }
+      releaseLockOnUndo(roomId, undo)
+      expect(isLayerLocked(roomId, INITIAL_LAYER_ID)).toBe(false)
+    })
+
+    it('ignores an undo of something that is not a lock', () => {
+      const roomId = roomWithRecordedLock()
+      recordOperation(roomId, stroke({ id: 'op-stroke' }))
+      const undo: Operation = {
+        id: 'u1', type: 'operation_undo', userId: 'user-a', timestamp: 0, targetOpId: 'op-stroke',
+      }
+      releaseLockOnUndo(roomId, undo)
+      expect(isLayerLocked(roomId, INITIAL_LAYER_ID)).toBe(true)
+    })
   })
 })
 

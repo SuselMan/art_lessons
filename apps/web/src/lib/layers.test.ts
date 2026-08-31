@@ -5,14 +5,14 @@ import type {
   LayerAddOperation, FolderAddOperation, LayerDeleteOperation,
   LayerMoveOperation, LayerOpacityOperation, LayerVisibilityOperation,
   LayerRenameOperation, LayerMergeOperation, LayerDuplicateOperation,
-  LayerLockOperation, LayerOwnerLockOperation, Operation,
+  LayerLockOperation, LayerOwnerLockOperation, Operation, OperationDraft,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID } from '@grafetto/shared'
 
 import {
   applyContentOp, replayLayerState, overlayLocalFields, sanitizeSelection,
   removeItems, parentOf, computeCompositeOrder, computeMergeOrder, getVisibleOrder,
-  collectDescendants, isLayerLocked, isEffectivelyVisible, placementAbove, ancestorsOf,
+  collectDescendants, isLayerLocked, isLockedAgainst, isEffectivelyVisible, placementAbove, ancestorsOf,
 } from './layers'
 
 function layer(id: string, overrides: Partial<RasterLayer> = {}): RasterLayer {
@@ -519,50 +519,85 @@ describe('composite/merge order', () => {
 })
 
 describe('isLayerLocked', () => {
+  const only = (item: LayerItem) => stateOf({ [item.id]: item }, [item.id])
+
   it('follows the flag for an ordinary layer', () => {
-    expect(isLayerLocked(layer('a'))).toBe(false)
-    expect(isLayerLocked(layer('a', { locked: true }))).toBe(true)
+    expect(isLayerLocked(only(layer('a')), 'a')).toBe(false)
+    expect(isLayerLocked(only(layer('a', { locked: true })), 'a')).toBe(true)
   })
 
   // The bug this exists for: the background carries no `locked` flag — nothing
   // ever set one — so every caller reading `.locked` directly concluded it was
   // paintable, and it was.
   it('locks the background even though nothing set the flag', () => {
-    expect(isLayerLocked(layer(BACKGROUND_LAYER_ID))).toBe(true)
+    expect(isLayerLocked(only(layer(BACKGROUND_LAYER_ID)), BACKGROUND_LAYER_ID)).toBe(true)
   })
 
   it('keeps the background locked when the flag says otherwise', () => {
-    expect(isLayerLocked(layer(BACKGROUND_LAYER_ID, { locked: false }))).toBe(true)
+    expect(isLayerLocked(only(layer(BACKGROUND_LAYER_ID, { locked: false })), BACKGROUND_LAYER_ID)).toBe(true)
   })
 
   it('locks a folder by its own flag too', () => {
-    expect(isLayerLocked(folder('f', []))).toBe(false)
-    expect(isLayerLocked(folder('f', [], { locked: true }))).toBe(true)
+    expect(isLayerLocked(only(folder('f', [])), 'f')).toBe(false)
+    expect(isLayerLocked(only(folder('f', [], { locked: true })), 'f')).toBe(true)
+  })
+
+  // (#518) The folder half of the same hole #359 found for visibility: the
+  // padlock on the folder closed, said so, and the layers inside went on
+  // taking paint because the answer was read off one item.
+  describe('a lock on a folder locks what is inside it', () => {
+    const nested = () => stateOf(
+      { outer: folder('outer', ['inner']), inner: folder('inner', ['a']), a: layer('a') },
+      ['outer'],
+    )
+
+    it('an unlocked layer in an unlocked folder is paintable', () => {
+      expect(isLayerLocked(nested(), 'a')).toBe(false)
+    })
+
+    it('the immediate folder locks it', () => {
+      const state = nested()
+      state.items.inner = folder('inner', ['a'], { locked: true })
+      expect(isLayerLocked(state, 'a')).toBe(true)
+    })
+
+    it('and so does one any number of levels up', () => {
+      const state = nested()
+      state.items.outer = folder('outer', ['inner'], { locked: true })
+      expect(isLayerLocked(state, 'a')).toBe(true)
+    })
+
+    it('an owner-locked folder still lets the owner in', () => {
+      const state = nested()
+      state.items.outer = folder('outer', ['inner'], { ownerLocked: true })
+      expect(isLayerLocked(state, 'a', false)).toBe(true)
+      expect(isLayerLocked(state, 'a', true)).toBe(false)
+    })
   })
 
   // (#488) The two locks are not the same lock, and this is where that lives.
   describe('the two locks differ in who they stop', () => {
     it('the shared lock stops the owner too — that is what makes it shared', () => {
-      const item = layer('a', { locked: true })
-      expect(isLayerLocked(item, false)).toBe(true)
-      expect(isLayerLocked(item, true)).toBe(true)
+      const state = only(layer('a', { locked: true }))
+      expect(isLayerLocked(state, 'a', false)).toBe(true)
+      expect(isLayerLocked(state, 'a', true)).toBe(true)
     })
 
     it('the owner lock stops everyone but the owner', () => {
-      const item = layer('a', { ownerLocked: true })
-      expect(isLayerLocked(item, false)).toBe(true)
-      expect(isLayerLocked(item, true)).toBe(false)
+      const state = only(layer('a', { ownerLocked: true }))
+      expect(isLayerLocked(state, 'a', false)).toBe(true)
+      expect(isLayerLocked(state, 'a', true)).toBe(false)
     })
 
     it('an owner facing both is still stopped by the shared one', () => {
-      expect(isLayerLocked(layer('a', { locked: true, ownerLocked: true }), true)).toBe(true)
+      expect(isLayerLocked(only(layer('a', { locked: true, ownerLocked: true })), 'a', true)).toBe(true)
     })
 
     it('defaults to the stricter answer when nobody says who is asking', () => {
       // Over-locking shows up as a padlock that will not open; under-locking
       // lets a stroke through that the server then rejects. Only one of those
       // costs drawing.
-      expect(isLayerLocked(layer('a', { ownerLocked: true }))).toBe(true)
+      expect(isLayerLocked(only(layer('a', { ownerLocked: true })), 'a')).toBe(true)
     })
   })
 
@@ -601,7 +636,110 @@ describe('isLayerLocked', () => {
   })
 
   it('treats a missing item as unlocked rather than throwing', () => {
-    expect(isLayerLocked(undefined)).toBe(false)
+    expect(isLayerLocked(stateOf({}, []), 'nope')).toBe(false)
+  })
+})
+
+// (#518) The gate every emission site now goes through. What it is *for* is
+// that four of those sites never asked the question at all — the transform
+// gizmo, the bucket, and delete/cut/paste of a selection all painted straight
+// through a closed padlock.
+describe('isLockedAgainst', () => {
+  const locked = stateOf({ a: layer('a', { locked: true }), b: layer('b') }, ['a', 'b'])
+  const sel = { points: [0, 0, 10, 0, 10, 10] }
+  const strokeOn = (layerId: string) => ({
+    type: 'stroke', layerId, strokeId: 's', dabs: [],
+    tool: 'pencil', preset: 'HB', color: [0, 0, 0],
+  } satisfies OperationDraft)
+  const fillOn = (layerId: string) => ({
+    type: 'area_fill', layerId, image: 'data:,', x: 0, y: 0, width: 1, height: 1,
+    seedX: 0, seedY: 0, color: [0, 0, 0], tolerance: 0, gapClose: 0, expand: 0, source: 'layer',
+  } satisfies OperationDraft)
+
+  describe('refuses everything that paints', () => {
+    it('a stroke', () => {
+      expect(isLockedAgainst(locked, strokeOn('a'))).toBe(true)
+    })
+
+    // The one Ilya found: a locked layer could be dragged bodily across the
+    // sheet, because the gizmo's targets and the stroke gate were different
+    // code and only one of them had the check.
+    it('a layer transform', () => {
+      expect(isLockedAgainst(locked, {
+        type: 'layer_transform', transforms: [{ layerId: 'a', matrix: [1, 0, 0, 1, 5, 5] }],
+      })).toBe(true)
+    })
+
+    it('a layer transform that names the locked layer among unlocked ones', () => {
+      expect(isLockedAgainst(locked, {
+        type: 'layer_transform',
+        transforms: [{ layerId: 'b', matrix: [1, 0, 0, 1, 5, 5] }, { layerId: 'a', matrix: [1, 0, 0, 1, 5, 5] }],
+      })).toBe(true)
+    })
+
+    it('a fill', () => {
+      expect(isLockedAgainst(locked, fillOn('a'))).toBe(true)
+    })
+
+    it('erasing a selected region', () => {
+      expect(isLockedAgainst(locked, { type: 'area_clear', layerId: 'a', selection: sel })).toBe(true)
+    })
+
+    it('moving a selected region', () => {
+      expect(isLockedAgainst(locked, {
+        type: 'area_transform', layerId: 'a', selection: sel, matrix: [1, 0, 0, 1, 5, 5],
+      })).toBe(true)
+    })
+
+    it('dropping a pasted float onto it', () => {
+      expect(isLockedAgainst(locked, {
+        type: 'area_paste', layerId: 'a', image: 'data:,', x: 0, y: 0, width: 1, height: 1,
+      })).toBe(true)
+    })
+  })
+
+  describe('lets through everything the lock was never about', () => {
+    // A lock says "my hand will not slip onto this while I draw", not "this
+    // layer is read-only" — deleting it outright was always allowed.
+    it('renaming, moving, hiding and deleting', () => {
+      expect(isLockedAgainst(locked, { type: 'layer_rename', layerId: 'a', name: 'x' })).toBe(false)
+      expect(isLockedAgainst(locked, { type: 'layer_move', layerIds: ['a'], parentId: null, index: 0 })).toBe(false)
+      expect(isLockedAgainst(locked, { type: 'layer_visibility', layerIds: ['a'], visible: false })).toBe(false)
+      expect(isLockedAgainst(locked, { type: 'layer_delete', layerIds: ['a'] })).toBe(false)
+    })
+
+    it('taking the lock back off, which is the whole point of a shared one', () => {
+      expect(isLockedAgainst(locked, { type: 'layer_lock', layerId: 'a', locked: false })).toBe(false)
+    })
+
+    // Ilya, 31.08: Clear is an action in the row's own menu, next to Delete —
+    // it names its target and asks first, so it belongs with them.
+    it('clearing it from the layer row', () => {
+      expect(isLockedAgainst(locked, { type: 'layer_clear', layerId: 'a' })).toBe(false)
+    })
+
+    it('anything aimed at an unlocked layer', () => {
+      expect(isLockedAgainst(locked, strokeOn('b'))).toBe(false)
+      expect(isLockedAgainst(locked, {
+        type: 'layer_transform', transforms: [{ layerId: 'b', matrix: [1, 0, 0, 1, 5, 5] }],
+      })).toBe(false)
+    })
+  })
+
+  it('answers for the owner lock the way isLayerLocked does', () => {
+    const reserved = stateOf({ a: layer('a', { ownerLocked: true }) }, ['a'])
+    expect(isLockedAgainst(reserved, strokeOn('a'), false)).toBe(true)
+    expect(isLockedAgainst(reserved, strokeOn('a'), true)).toBe(false)
+  })
+
+  it('follows a folder lock down to the layer inside it', () => {
+    const state = stateOf(
+      { f: folder('f', ['a'], { locked: true }), a: layer('a') },
+      ['f'],
+    )
+    expect(isLockedAgainst(state, {
+      type: 'layer_transform', transforms: [{ layerId: 'a', matrix: [1, 0, 0, 1, 5, 5] }],
+    })).toBe(true)
   })
 })
 
