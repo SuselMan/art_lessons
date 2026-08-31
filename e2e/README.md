@@ -41,6 +41,7 @@ scenario's state can be opened in psql.
 | A layer transform resamples as one image, with no source-tile seam | `specs/transformSeam.spec.ts` |
 | Smudge works across a tile seam — no dead band down an A4 sheet's x=1024 | `specs/smudgeSeam.spec.ts` |
 | Settings shows exactly the version this build was stamped with | `specs/version.spec.ts` |
+| A tap on a floating-panel button presses it rather than dragging the panel | `specs/floatingPanel.spec.ts` |
 
 ## What is not covered, on purpose
 
