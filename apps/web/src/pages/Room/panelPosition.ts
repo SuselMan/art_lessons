@@ -9,7 +9,11 @@ export interface PanelPosition { x: number; y: number }
 // (RadialDial's caller, Room/index.tsx — #277) doesn't have to import
 // alongside the component (keeps FloatingToolPanel's own file component-only
 // for React Fast Refresh).
-export const PANEL_SIZE = 152
+// 184 since the compass grew from four slots to eight: eight 44 px buttons
+// spaced 45° apart need a radius of at least 58 px not to overlap, and at
+// most (PANEL_SIZE/2 − 22) not to cross the panel's rim — bounds that do not
+// both hold at 152. See SLOT_RADIUS in FloatingToolPanel/slots.ts.
+export const PANEL_SIZE = 184
 
 export const PANEL_DOM_ID = 'floating-tool-panel'
 

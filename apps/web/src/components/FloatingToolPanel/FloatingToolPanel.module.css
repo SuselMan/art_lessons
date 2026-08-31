@@ -1,10 +1,16 @@
 /* #157: draggable circular tool cluster. Diameter must match index.tsx's
    PANEL_SIZE constant (used for drag-clamp bounds — no shared source of
-   truth possible across CSS/TS). */
+   truth possible across CSS/TS).
+
+   184, up from 152, and the number is forced rather than chosen: eight
+   44 px buttons 45° apart need a compass radius of at least 58 not to
+   overlap each other and at most (diameter/2 − 22) not to cross the rim,
+   and 152 leaves those two bounds with no overlap at all. See SLOT_RADIUS
+   in slots.ts for the arithmetic. */
 .panel {
   position: absolute;
-  width: 152px;
-  height: 152px;
+  width: 184px;
+  height: 184px;
   border-radius: 50%;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
@@ -45,7 +51,7 @@
   pointer-events: none;
 }
 
-/* Center dot showing the current pencil color — tap it to fan out the
+/* Center dot showing the current drawing color — tap it to fan out the
    palette flyout (see .flyout below). A real <button>, same
    tap-vs-drag disambiguation as every other .btn (see
    useDraggablePosition's own doc comment). */
@@ -61,8 +67,15 @@
   cursor: pointer;
 }
 
+/* A compass slot. Placed by an inline transform computed from slotOffset()
+   rather than by one class per position: the radius is bounded by arithmetic
+   that reads PANEL_SIZE (see slots.ts), and a stylesheet cannot see that
+   constant — eight hand-written offsets here would be eight places to get
+   the next diameter change wrong. */
 .btn {
   position: absolute;
+  top: 50%;
+  left: 50%;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -77,19 +90,65 @@
   background: var(--color-surface-2);
   color: var(--color-text);
 }
+/* The slot holding the tool currently in hand. */
 .btnActive {
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   color: var(--color-accent);
 }
+/* The slot whose chooser is fanned out right now — marked so the ring of
+   twenty entries has a visible origin, and so the button that will close it
+   again (a second tap on the same slot) is the obvious one. Deliberately an
+   outline rather than a fill: this is not a selection, and it has to be
+   distinguishable from .btnActive on a slot that is both. */
+.btnOpen {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
 
-/* Compass layout — each button sits at radius 52 from the panel's own
-   center (76,76), well inside the 76px panel radius once the button's own
-   22px half-width is added back (52 + 22 = 74 < 76). Positions: pencil top,
-   redo right, eraser bottom, undo left. */
-.btnTop    { top: 2px; left: 50%; transform: translateX(-50%); }
-.btnRight  { right: 2px; top: 50%; transform: translateY(-50%); }
-.btnBottom { bottom: 2px; left: 50%; transform: translateX(-50%); }
-.btnLeft   { left: 2px; top: 50%; transform: translateY(-50%); }
+/* An empty slot. A full-size button — the touch target is the same 44 px as
+   any other slot, because holding one is how it stops being empty — drawn as
+   a small dot so that four of them read as "room for more" rather than as
+   four broken buttons. */
+.emptyDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border-strong);
+  transition: transform var(--duration-fast), background var(--duration-fast);
+}
+.btn:hover .emptyDot {
+  transform: scale(1.5);
+  background: var(--color-text-dim);
+}
+
+/* Worn in the corner of a slot that holds a *role* — "whichever tool I last
+   drew with" — over that tool's own icon. Small on purpose: it is a footnote
+   on the icon, not a second icon, and the thing the eye needs from the slot
+   is still which tool it would hand over. Its one load-bearing job is inside
+   the chooser, where a fixed pencil and a role currently resolving to the
+   pencil would otherwise be the same picture twice. */
+.roleBadge {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  color: var(--color-text-dim);
+}
+/* Icon.tsx wraps every glyph in a global .material-symbols-outlined, whose
+   app-wide rule sizes it at 24px — the badge has to override that from here
+   rather than by inheriting, since font-size is set on the wrapper itself. */
+.roleBadge > :global(.material-symbols-outlined) {
+  font-size: 12px;
+}
+.btnActive .roleBadge {
+  color: var(--color-accent);
+}
 
 /* Invisible tap-catcher (#190 follow-up) — see index.tsx's own comment on
    why this exists as a real element rather than a document-level listener.
@@ -113,10 +172,10 @@
   height: 0;
 }
 
-/* Both fans' items — palette swatches and, from the same rays, the drawing
-   tools the top slot can hold. Deliberately identical in size and motion:
-   they are the same affordance reached by two gestures on two parts of the
-   panel, and only their contents differ. */
+/* Both fans' items — palette swatches and, from the same rays, everything a
+   slot can be set to. Deliberately identical in size and motion: they are the
+   same affordance reached by two gestures on two parts of the panel, and only
+   their contents differ. */
 .flyoutSwatch,
 .flyoutPickerBtn,
 .flyoutToolBtn {
@@ -144,11 +203,11 @@
   color: var(--color-text);
 }
 
-/* The tool already in hand. Mixed *into* the surface rather than laid over it
-   with a transparent accent (which is what .btnActive can afford, sitting on
-   the panel's own opaque disc) — these fan out over bare canvas, and a
-   see-through highlight would take its color from whatever was drawn under
-   it. */
+/* What the held slot already holds. Mixed *into* the surface rather than laid
+   over it with a transparent accent (which is what .btnActive can afford,
+   sitting on the panel's own opaque disc) — these fan out over bare canvas,
+   and a see-through highlight would take its color from whatever was drawn
+   under it. */
 .flyoutToolBtnActive {
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface-2));

@@ -12,9 +12,11 @@ import {
 } from '../../pages/Room/panelPosition'
 import { layoutFlyoutItems, type RayLayoutConfig } from './colorFlyout'
 import {
-  FLOATING_PRIMARY_TOOLS, FLOATING_SECONDARY_TOOLS, TOOL_DISPLAY,
-  type FloatingPanelTool, type FloatingPrimaryTool, type FloatingSecondaryTool,
-} from './tools'
+  SLOT_CHOICES, assignSlot, panelRoles, sameSlotContent, slotChoiceKey, slotChoiceLabelKey,
+  slotFace, slotOffset, resolveSlotTool,
+  type PanelLayout, type SlotChoice,
+} from './slots'
+import type { FloatingPanelTool, FloatingPrimaryTool, FloatingSecondaryTool } from './tools'
 import styles from './FloatingToolPanel.module.css'
 
 // Palette flyout (#190 follow-up) tuning constants — kept as plain numbers
@@ -27,19 +29,26 @@ import styles from './FloatingToolPanel.module.css'
 const COLOR_FLYOUT_MAX = 32
 const FLYOUT_SWATCH_SIZE = 40
 const FLYOUT_GAP = 8
-/** Which of the panel's three mutually-exclusive fans is out, if any: the
- *  palette under the color dot, and one per tool slot. One value rather than a
- *  boolean each because they all share the same annulus around the panel — two
- *  open at once would overlap item for item, and "close the others first" is a
- *  rule that only has to hold if the state lets it be broken. */
-export type PanelFlyout = 'palette' | 'primary' | 'secondary'
+
+/** Which of the panel's mutually-exclusive fans is out, if any: the palette
+ *  under the color dot, or the chooser held out of one particular slot. One
+ *  value rather than a flag each because they all share the same annulus
+ *  around the panel — two open at once would overlap item for item, and
+ *  "close the others first" is a rule that only has to hold if the state lets
+ *  it be broken.
+ *
+ *  The slot case carries an index rather than there being one variant per
+ *  slot: which slot was held decides only which slot the chosen entry lands
+ *  in, and the fan itself is written once. */
+export type PanelFlyout = { kind: 'palette' } | { kind: 'slot'; index: number }
 
 const FLYOUT_LAYOUT: RayLayoutConfig = {
   // Ring 1 sits just outside the *whole panel's* own edge (radius
-  // PANEL_SIZE/2 = 76), not just the small center dot — orbiting the dot
+  // PANEL_SIZE/2 = 92), not just the small center dot — orbiting the dot
   // alone put ring 1 uncomfortably close to it. Its circumference fits
-  // around a dozen colors before ring 2 kicks in (see computeRayCount) —
-  // COLOR_FLYOUT_MAX (32) colors spill into a few more rings further out.
+  // around sixteen items before ring 2 kicks in (see computeRayCount) —
+  // COLOR_FLYOUT_MAX (32) colors, or the twenty entries in the slot
+  // chooser, spill into a ring or two further out.
   baseRadius: PANEL_SIZE / 2 + FLYOUT_GAP + FLYOUT_SWATCH_SIZE / 2,
   ringSpacing: FLYOUT_SWATCH_SIZE + 6,
   raySpacing: FLYOUT_SWATCH_SIZE + 6,
@@ -47,26 +56,38 @@ const FLYOUT_LAYOUT: RayLayoutConfig = {
 }
 
 interface Props {
-  /** The tool actually in hand, or null while it is something neither slot can
-   *  show (ruler, transform, grid, hand — all of which live in the full
-   *  chrome). Drives which slot is lit, and nothing else: what each slot
-   *  *displays* comes from the two fields below, which outlive the selection. */
+  /** The tool actually in hand, or null while it is something no slot can
+   *  name (the annotation tools, which only exist in the compact shell this
+   *  panel is hidden in). Drives which slots are lit, and nothing else: what
+   *  each slot *displays* comes from `layout` plus the two fields below. */
   tool: FloatingPanelTool | null
-  /** Last FloatingPrimaryTool actually selected (toolSlice.ts's
-   *  lastDrawingTool, #252 follow-up: marker joined this slot the same way
-   *  liner did, and charcoal in #304) — drives the top button's icon/label and
-   *  what it switches back to, so it reflects whichever was really active
-   *  rather than assuming pencil. */
-  primaryTool: FloatingPrimaryTool
-  /** The same thing for the bottom slot (toolSlice.ts's lastSecondaryTool):
-   *  the eraser, the smudge or the eyedropper, whichever was last in hand. */
-  secondaryTool: FloatingSecondaryTool
+  /** Every drawing tool, most recently selected first (toolSlice.ts's
+   *  recentDrawingTools) — what a `drawing` role slot draws from.
+   *
+   *  The whole list and not just its head, because a role hands over the most
+   *  recent tool that is not already pinned to a slot of its own, and skipping
+   *  needs something to skip *to*. See pickRoleTool for why that is the rule.
+   *
+   *  Kept in the store rather than here because the panel is not the only
+   *  thing that selects these tools: the toolbar and the hotkeys do too, and a
+   *  list that only recorded the choices made through this panel would go
+   *  stale the moment the same choice was made a foot to the left. */
+  recentDrawingTools: readonly FloatingPrimaryTool[]
+  /** The same list for a `secondary` role slot (toolSlice.ts's
+   *  recentSecondaryTools): the eraser, the smudge and the eyedropper, most
+   *  recently selected first. */
+  recentSecondaryTools: readonly FloatingSecondaryTool[]
   onSetTool: (tool: FloatingPanelTool) => void
   onUndo: () => void
   onRedo: () => void
-  /** Current color of whichever tool primaryTool names, shown as the
-   *  center dot — tap it to fan out the room palette (see the flyout state
-   *  below). */
+  /** What is in each of the eight slots. Owned by the caller (settingsStore,
+   *  via Room) rather than kept local: it is a preference that outlives the
+   *  room, and this component is the same presentational thing it has always
+   *  been — it renders a layout and reports edits to it. */
+  layout: PanelLayout
+  onLayoutChange: (layout: PanelLayout) => void
+  /** Current color of the drawing tool, shown as the center dot — tap it to
+   *  fan out the room palette (see the flyout state below). */
   primaryColor: [number, number, number]
   /** Room palette (#190) — the flyout shows up to COLOR_FLYOUT_MAX of these. */
   palette: string[]
@@ -92,24 +113,22 @@ interface Props {
    *  not `uiHidden` (see this component's own doc comment for why the
    *  relationship is inverted from every other piece of chrome). */
   hidden?: boolean
-  /** Hotkey hints for the Undo/Redo tooltips, formatted by the caller (see
-   *  lib/hotkeys.ts's formatHotkeyLabel) — this component stays decoupled
-   *  from the hotkeys registry itself, same as it already is for every
-   *  other piece of Room state it's handed as props. */
+  /** Hotkey hints for the Undo/Redo slots' tooltips, formatted by the caller
+   *  (see lib/hotkeys.ts's formatHotkeyLabel) — this component stays decoupled
+   *  from the hotkeys registry itself, same as it already is for every other
+   *  piece of Room state it's handed as props. They are the only two slot
+   *  contents with a shortcut worth naming: a tool's hotkey belongs on the
+   *  toolbar button that is always in the same place, not on a slot that
+   *  moved here because somebody put it here. */
   undoHotkeyLabel: string
   redoHotkeyLabel: string
 }
 
-/** First minimal iteration of a "floating" UI cluster (#157) — a draggable
- *  circular panel with the 4 most-reached-for actions (undo/redo/[primary
- *  drawing tool]/eraser), independent of the existing header/left-toolbar
- *  (both stay as they are). The top slot follows whichever of pencil/liner/
- *  marker was last actually selected (primaryTool, #245 follow-up; marker
- *  joined the same slot in a later follow-up) rather than always pencil —
- *  there's still only one drawing-tool slot here, it just now shows the
- *  right one. Position persists per room (see
- *  panelPosition.ts) so it doesn't reset to a default corner on every visit
- *  once someone's moved it somewhere that suits their hand/device.
+/** A draggable circular cluster of the actions most reached for while drawing
+ *  (#157), independent of the header/left-toolbar (both stay as they are).
+ *  Position persists per room (see panelPosition.ts) so it doesn't reset to a
+ *  default corner on every visit once someone's moved it somewhere that suits
+ *  their hand/device.
  *
  *  When it is visible is the caller's decision, not this component's — it
  *  takes `hidden` and nothing else. Through #99 that decision was fixed: the
@@ -124,24 +143,49 @@ interface Props {
  *  toolbar's pencil/eraser: deliberate, since the point of the cluster is
  *  that it is wherever the hand already is.
  *
- *  Each tool slot is one slot but not one tool: holding it fans out the rest
- *  of its set to switch between them — the drawing tools from the top, the
- *  eraser/smudge/eyedropper from the bottom — using the same gesture and the
- *  same fan the color dot already had for the palette. That is what lets this
- *  panel stand in for the left toolbar rather than merely shortcut it: before
- *  it, swapping pencil for marker (or reaching the smudge at all) meant
- *  bringing the full chrome back, which is exactly what minimal UI was entered
- *  to be rid of. Tapping a slot still just selects what it already shows —
- *  except while that slot's own fan is out, when the tap tucks it back
- *  instead; only a press that goes the distance is taken away from the tap
- *  (useLongPress). See tapSlot for why the button that opened a fan is also
- *  the one that closes it. */
+ *  ── eight slots the user lays out ──
+ *
+ *  It began as four fixed things — a drawing tool, an eraser, undo, redo —
+ *  and grew fans so that one slot could stand for a whole set. That fixed
+ *  four was the ceiling on how far it could stand in for the left toolbar:
+ *  the ruler, the fill and the hand were reachable from nowhere but the
+ *  toolbar, so minimal UI could not offer them at all.
+ *
+ *  So the compass has eight positions now (slots.ts), every one of them holds
+ *  anything the toolbar holds, and the layout belongs to the user. The four
+ *  new ones are the diagonals, empty by default and drawn as dots. Nothing
+ *  moved: the default layout reproduces the old panel exactly, so a user who
+ *  never opens a chooser sees no change.
+ *
+ *  Two gestures, and the split is the same one this panel has always used:
+ *  a tap does what the slot holds, a hold (useLongPress) edits what it holds.
+ *  A tap on an *empty* slot opens its chooser too — an empty slot has nothing
+ *  else it could honestly do, and a dot that responds to nothing but a
+ *  half-second hold is a feature nobody finds.
+ *
+ *  A slot can also hold a *role* rather than a tool — "the drawing tool I have
+ *  no button for". That is what the top and bottom buttons already were before
+ *  any of this, and keeping it as something you can put in a slot is what
+ *  stops the hand-laid panel from losing the one thing the fixed panel was
+ *  good at: paint in watercolor, switch to minimal UI, and the watercolor is
+ *  there. A role slot wears the tool's own icon, badged — see slots.ts's
+ *  SlotFace for why it is not drawn with a glyph of its own, and pickRoleTool
+ *  for why a role skips whatever the layout already holds rather than simply
+ *  showing the last tool used. */
 export function FloatingToolPanel({
-  tool, primaryTool, secondaryTool, onSetTool, onUndo, onRedo, primaryColor, palette, onSelectColor,
-  onOpenColorPicker, roomId, position, onPositionChange, containerRef, hidden,
-  undoHotkeyLabel, redoHotkeyLabel, flyout, onFlyoutChange,
+  tool, recentDrawingTools, recentSecondaryTools, onSetTool, onUndo, onRedo, layout, onLayoutChange,
+  primaryColor, palette, onSelectColor, onOpenColorPicker,
+  roomId, position, onPositionChange, containerRef, hidden, flyout, onFlyoutChange,
+  undoHotkeyLabel, redoHotkeyLabel,
 }: Props) {
   const t = useT()
+  // What each role hands over right now. Computed once per render and threaded
+  // through every slot, chooser entry and active-slot test below, so they all
+  // answer from one snapshot rather than each recomputing the skip rule.
+  const roles = useMemo(
+    () => panelRoles(recentDrawingTools, recentSecondaryTools, layout),
+    [recentDrawingTools, recentSecondaryTools, layout],
+  )
   // Mount-then-transition: items first render collapsed onto the panel's
   // center (see the `animateIn` className below), then this flips true one
   // frame later so the CSS `transition: transform` on each item's own
@@ -152,55 +196,90 @@ export function FloatingToolPanel({
   // the initial commit in some browsers, skipping the transition entirely.
   const [animateIn, setAnimateIn] = useState(false)
   const togglePalette = useCallback(
-    () => onFlyoutChange(flyout === 'palette' ? null : 'palette'),
+    () => onFlyoutChange(flyout?.kind === 'palette' ? null : { kind: 'palette' }),
     [flyout, onFlyoutChange],
   )
-  const openPrimaryFlyout = useCallback(() => onFlyoutChange('primary'), [onFlyoutChange])
-  const openSecondaryFlyout = useCallback(() => onFlyoutChange('secondary'), [onFlyoutChange])
-  // Both holds are given the same movement budget a press on one of these
+
+  // One hold handler for all eight slots rather than eight hooks: which slot
+  // is under the finger is written down on pointerdown and read back when the
+  // press fires. Calling useLongPress in a loop would work today (SLOT_COUNT
+  // is a constant, so the hook order is stable) but only by accident of that
+  // constant, which is not a thing to leave a rule of hooks resting on.
+  const pressedSlotRef = useRef(0)
+  const openSlotFlyout = useCallback(
+    () => onFlyoutChange({ kind: 'slot', index: pressedSlotRef.current }),
+    [onFlyoutChange],
+  )
+  // (#516) The hold is given the same movement budget a press on one of these
   // buttons gets before it becomes a drag of the panel (see
   // dragThresholdForPress), rather than useLongPress's own standalone default.
   // The two numbers describe one gesture from two sides, and letting them
   // disagree leaves a gap: drift past the hold's tolerance but short of the
-  // drag's, and the press cancels the fan it was opening without becoming
-  // anything else — a deliberate hold that quietly selects the tool instead.
+  // drag's, and the press cancels the chooser it was opening without becoming
+  // anything else — a deliberate hold that quietly does the slot's job instead.
   // The rule worth keeping is that the movement which ends a hold is exactly
   // the movement that starts a drag.
-  const { onPointerDown: onPrimaryHold } =
-    useLongPress({ onLongPress: openPrimaryFlyout, tolerance: BUTTON_DRAG_THRESHOLD_PX })
-  const { onPointerDown: onSecondaryHold } =
-    useLongPress({ onLongPress: openSecondaryFlyout, tolerance: BUTTON_DRAG_THRESHOLD_PX })
+  const { onPointerDown: onSlotHold } =
+    useLongPress({ onLongPress: openSlotFlyout, tolerance: BUTTON_DRAG_THRESHOLD_PX })
+  const holdSlot = useCallback((index: number, e: React.PointerEvent<HTMLElement>) => {
+    pressedSlotRef.current = index
+    onSlotHold(e)
+  }, [onSlotHold])
 
-  // A tap on a tool slot. Selecting what the slot shows is only its second
-  // job: while the slot's own fan is out, the tap tucks it back instead — the
-  // same button opened it (by being held), so the same button is where a hand
-  // reaches to undo that, and re-selecting the tool already showing on the
-  // slot is a no-op that would leave the fan hanging. The fan is not a menu
-  // that has to be chosen from: backing out of it is a real intention, and
-  // the alternative was aiming at the backdrop instead.
+  // A tap on a slot: do whatever the slot holds.
   //
-  // A tap on the *other* slot is an ordinary selection, and closes the fan on
-  // the way — a fan left fanned out around a panel whose selection just moved
-  // is pointing at a decision that has already been made.
-  const tapSlot = useCallback((slot: PanelFlyout, slotTool: FloatingPanelTool) => {
-    if (flyout === slot) { onFlyoutChange(null); return }
+  // Two things come first. While this slot's own chooser is out, the tap tucks
+  // it back — the same button opened it (by being held), so the same button is
+  // where a hand reaches to undo that, and doing the slot's action instead
+  // would leave the fan hanging behind whatever just happened. And an empty
+  // slot opens its chooser, because that is the only thing an empty slot has
+  // to offer.
+  //
+  // A tap on a *different* slot while some fan is out is an ordinary action,
+  // and closes the fan on the way — a fan left fanned out around a panel whose
+  // selection just moved is pointing at a decision that has already been made.
+  const tapSlot = useCallback((index: number) => {
+    if (flyout?.kind === 'slot' && flyout.index === index) { onFlyoutChange(null); return }
+    const content = layout[index]
+    if (!content) { onFlyoutChange({ kind: 'slot', index }); return }
     if (flyout) onFlyoutChange(null)
-    onSetTool(slotTool)
-  }, [flyout, onFlyoutChange, onSetTool])
+    if (content.kind === 'action') { (content.action === 'undo' ? onUndo : onRedo)(); return }
+    const resolved = resolveSlotTool(content, roles)
+    if (resolved) onSetTool(resolved)
+  }, [flyout, onFlyoutChange, layout, onUndo, onRedo, onSetTool, roles])
+
+  // Picking an entry out of a slot's chooser. Assigning and selecting are one
+  // gesture on purpose: someone who just put the ruler in a slot wants the
+  // ruler, and making them tap the slot afterwards to actually get it turns
+  // one decision into two.
+  //
+  // Undo and redo are the exception, and it is not an inconsistency: firing
+  // them would undo real work as a side effect of arranging a panel. Nothing
+  // is lost by it either — they are the two entries whose slot you can tap the
+  // instant the fan closes.
+  const chooseForSlot = useCallback((index: number, choice: SlotChoice) => {
+    onLayoutChange(assignSlot(layout, index, choice))
+    onFlyoutChange(null)
+    if (choice.kind === 'clear' || choice.kind === 'action') return
+    const resolved = resolveSlotTool(choice, roles)
+    if (resolved) onSetTool(resolved)
+  }, [layout, onLayoutChange, onFlyoutChange, onSetTool, roles])
 
   // Reset to collapsed on *every* change of which fan is out, not just on
-  // closing: swapping one fan straight for the other (holding the tool slot
-  // while the palette is still open — the backdrop sits below the panel, so
-  // its buttons stay live) would otherwise inherit the previous fan's
-  // already-true animateIn and have the new items appear at full radius with
-  // no motion at all.
+  // closing: swapping one fan straight for the other (holding a slot while the
+  // palette is still open — the backdrop sits below the panel, so its buttons
+  // stay live) would otherwise inherit the previous fan's already-true
+  // animateIn and have the new items appear at full radius with no motion at
+  // all. Keyed on the fan's identity rather than the object, so a re-render
+  // that hands back an equal-but-new `flyout` doesn't restart the animation.
+  const flyoutKey = flyout === null ? '' : flyout.kind === 'palette' ? 'palette' : `slot:${flyout.index}`
   useEffect(() => {
     setAnimateIn(false)
-    if (!flyout) return
+    if (flyoutKey === '') return
     let raf2 = 0
     const raf1 = requestAnimationFrame(() => { raf2 = requestAnimationFrame(() => setAnimateIn(true)) })
     return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2) }
-  }, [flyout])
+  }, [flyoutKey])
 
   const clamp = useCallback((pos: PanelPosition): PanelPosition => {
     const container = containerRef.current
@@ -285,9 +364,10 @@ export function FloatingToolPanel({
   const { onPointerDown } = useDraggablePosition(measureCurrentPosition(), { onChange: handleChange, clamp })
 
   // Where `count` items land when fanned out around this panel, wherever it
-  // currently sits in its container. Shared by both fans so the tools come out
-  // along the exact same rays the colors do — one geometry, and in particular
-  // one answer to "which directions are blocked by the nearest screen edge".
+  // currently sits in its container. Shared by both fans so the chooser comes
+  // out along the exact same rays the colors do — one geometry, and in
+  // particular one answer to "which directions are blocked by the nearest
+  // screen edge".
   const layoutAroundPanel = useCallback((count: number) => {
     const container = containerRef.current
     const containerSize = container
@@ -310,7 +390,7 @@ export function FloatingToolPanel({
   // is closed), so it's simplest to just list it as a dependency rather than
   // fight the linter over an invariant.
   const paletteItems = useMemo(() => {
-    if (flyout !== 'palette') return []
+    if (flyout?.kind !== 'palette') return []
     const colors = palette.slice(0, COLOR_FLYOUT_MAX)
     return layoutAroundPanel(colors.length + 1).map((pos, i) => ({
       ...pos,
@@ -318,13 +398,12 @@ export function FloatingToolPanel({
     }))
   }, [flyout, palette, layoutAroundPanel])
 
-  // One list either way — which slot was held only decides which set of tools
-  // rides the rays, so the fan itself is written once (see the JSX below).
-  const toolItems = useMemo(() => {
-    if (flyout !== 'primary' && flyout !== 'secondary') return []
-    const tools: readonly FloatingPanelTool[] =
-      flyout === 'primary' ? FLOATING_PRIMARY_TOOLS : FLOATING_SECONDARY_TOOLS
-    return layoutAroundPanel(tools.length).map((pos, i) => ({ ...pos, tool: tools[i] }))
+  // The slot chooser: the same fan carrying every entry a slot can hold. One
+  // list for all eight slots, since which one was held only decides where the
+  // chosen entry lands.
+  const choiceItems = useMemo(() => {
+    if (flyout?.kind !== 'slot') return []
+    return layoutAroundPanel(SLOT_CHOICES.length).map((pos, i) => ({ ...pos, choice: SLOT_CHOICES[i] }))
   }, [flyout, layoutAroundPanel])
 
   // Collapsed onto the panel's own center until animateIn flips true one frame
@@ -334,6 +413,8 @@ export function FloatingToolPanel({
     const offset = animateIn ? item : { x: 0, y: 0 }
     return `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`
   }, [animateIn])
+
+  const openSlot = flyout?.kind === 'slot' ? flyout.index : null
 
   return (
     <>
@@ -370,37 +451,62 @@ export function FloatingToolPanel({
           style={{ background: rgbToHex(primaryColor) }}
           onClick={togglePalette}
           title={t('palette.open')}
-          aria-label={t(flyout === 'palette' ? 'palette.closeLabel' : 'palette.openLabel')}
+          aria-label={t(flyout?.kind === 'palette' ? 'palette.closeLabel' : 'palette.openLabel')}
         />
-        {/* Both tool slots: tap selects what the slot shows, hold fans out the
-            rest of its set. The title says so, since a hold is the one gesture
-            nothing on screen can advertise by itself. */}
-        <button
-          className={clsx(styles.btn, styles.btnTop, tool === primaryTool && styles.btnActive)}
-          onClick={() => tapSlot('primary', primaryTool)}
-          onPointerDown={onPrimaryHold}
-          title={t('palette.toolHold', { tool: t(TOOL_DISPLAY[primaryTool].labelKey) })}
-          aria-label={t(TOOL_DISPLAY[primaryTool].labelKey)}
-        >
-          <Icon name={TOOL_DISPLAY[primaryTool].icon} />
-        </button>
-        <button className={clsx(styles.btn, styles.btnRight)} onClick={onRedo} title={t('room.redoTitle', { hotkey: redoHotkeyLabel })} aria-label={t('room.redo')}>
-          <Icon name="redo" />
-        </button>
-        <button className={clsx(styles.btn, styles.btnLeft)} onClick={onUndo} title={t('room.undoTitle', { hotkey: undoHotkeyLabel })} aria-label={t('room.undo')}>
-          <Icon name="undo" />
-        </button>
-        <button
-          className={clsx(styles.btn, styles.btnBottom, tool === secondaryTool && styles.btnActive)}
-          onClick={() => tapSlot('secondary', secondaryTool)}
-          onPointerDown={onSecondaryHold}
-          title={t('palette.toolHold', { tool: t(TOOL_DISPLAY[secondaryTool].labelKey) })}
-          aria-label={t(TOOL_DISPLAY[secondaryTool].labelKey)}
-        >
-          <Icon name={TOOL_DISPLAY[secondaryTool].icon} />
-        </button>
 
-        {flyout === 'palette' && (
+        {/* The eight slots. Positioned from slotOffset rather than from eight
+            CSS classes so the compass radius has one home (slots.ts, where
+            the arithmetic that pins it down is written out) instead of being
+            spread across a stylesheet that cannot see PANEL_SIZE. */}
+        {layout.map((content, index) => {
+          const offset = slotOffset(index)
+          const face = slotFace(content, roles)
+          const resolved = resolveSlotTool(content, roles)
+          // Empty slots and action slots are never "current". A role slot and
+          // a fixed slot holding the same tool are both lit at once, which is
+          // the honest answer: both of them would hand you that tool.
+          const active = resolved !== null && resolved === tool
+          const label = face ? t(face.labelKey) : t('palette.slotEmpty')
+          // The tooltip names the slot and then says how to change it. For
+          // undo/redo it names the shortcut too, which is the form those two
+          // tooltips have always had.
+          const titleItem = content?.kind === 'action'
+            ? content.action === 'undo'
+              ? t('room.undoTitle', { hotkey: undoHotkeyLabel })
+              : t('room.redoTitle', { hotkey: redoHotkeyLabel })
+            : label
+          return (
+            <button
+              key={index}
+              data-slot={index}
+              className={clsx(styles.btn, active && styles.btnActive, openSlot === index && styles.btnOpen)}
+              style={{ transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)` }}
+              onClick={() => tapSlot(index)}
+              onPointerDown={e => holdSlot(index, e)}
+              title={face ? t('palette.slotHold', { item: titleItem }) : t('palette.slotEmptyHold')}
+              aria-label={label}
+              aria-pressed={active}
+            >
+              {face ? (
+                <>
+                  <Icon name={face.icon} />
+                  {/* The badge that separates "the pencil" from "whichever
+                      one I last drew with, currently the pencil". Marked
+                      aria-hidden: the button's own label already names the
+                      role, so a reader announcing the badge would say it
+                      twice. */}
+                  {face.isRole && (
+                    <span className={styles.roleBadge} aria-hidden="true"><Icon name="history" /></span>
+                  )}
+                </>
+              ) : (
+                <span className={styles.emptyDot} aria-hidden="true" />
+              )}
+            </button>
+          )
+        })}
+
+        {flyout?.kind === 'palette' && (
           <div className={styles.flyout}>
             {paletteItems.map(item => (
               item.color ? (
@@ -428,26 +534,42 @@ export function FloatingToolPanel({
           </div>
         )}
 
-        {/* The same fan, carrying tools instead of colors — one block for both
-            slots, since only the contents of toolItems differ. Every tool in
-            the set is shown, the one in hand included and marked: a chooser
-            that hides what is already held makes the user work out which of
-            the rest they are holding. */}
-        {toolItems.length > 0 && (
+        {/* The same fan, carrying what a slot can hold instead of colors. Every
+            entry is shown, including the one already in the slot and the tool
+            already in hand, both marked: a chooser that hides what you have
+            makes you work out which of the rest you are holding. */}
+        {openSlot !== null && (
           <div className={styles.flyout}>
-            {toolItems.map(item => (
-              <button
-                key={item.tool}
-                className={clsx(styles.flyoutToolBtn, item.tool === tool && styles.flyoutToolBtnActive)}
-                style={{ transform: itemTransform(item) }}
-                title={t(TOOL_DISPLAY[item.tool].labelKey)}
-                aria-label={t(TOOL_DISPLAY[item.tool].labelKey)}
-                aria-pressed={item.tool === tool}
-                onClick={() => { onSetTool(item.tool); onFlyoutChange(null) }}
-              >
-                <Icon name={TOOL_DISPLAY[item.tool].icon} />
-              </button>
-            ))}
+            {choiceItems.map(({ choice, ...pos }) => {
+              const face = slotFace(choice, roles)
+              const labelKey = slotChoiceLabelKey(choice)
+              const assigned = choice.kind !== 'clear'
+                ? sameSlotContent(layout[openSlot], choice)
+                : layout[openSlot] === null
+              return (
+                <button
+                  key={slotChoiceKey(choice)}
+                  data-choice={slotChoiceKey(choice)}
+                  className={clsx(styles.flyoutToolBtn, assigned && styles.flyoutToolBtnActive)}
+                  style={{ transform: itemTransform(pos) }}
+                  title={labelKey ? t(labelKey) : undefined}
+                  aria-label={labelKey ? t(labelKey) : undefined}
+                  aria-pressed={assigned}
+                  onClick={() => chooseForSlot(openSlot, choice)}
+                >
+                  {face ? (
+                    <>
+                      <Icon name={face.icon} />
+                      {face.isRole && (
+                        <span className={styles.roleBadge} aria-hidden="true"><Icon name="history" /></span>
+                      )}
+                    </>
+                  ) : (
+                    <Icon name="close" />
+                  )}
+                </button>
+              )
+            })}
           </div>
         )}
       </div>

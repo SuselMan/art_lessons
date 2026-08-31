@@ -123,7 +123,7 @@ import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
 import { makeInitialLayerState } from '../../stores/slices/layerSlice'
-import { isDrawingTool, type EditorTool, type PrimaryDrawingTool } from '../../stores/slices/toolSlice'
+import { isDrawingTool, type EditorTool } from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
 import type { ClipboardEntry } from '../../stores/slices/selectionSlice'
@@ -2625,22 +2625,28 @@ export function Room() {
   // stroke will use.
   const activeColor = getToolColor(toolSettings, pickedColorTool)
   useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor, engineEpoch])
-  // FloatingToolPanel (#157) is a fixed 4-slot compass layout with two tool
-  // buttons, each standing for a whole set rather than one tool: the top slot
-  // shows whichever drawing tool was last selected (marker joined pencil/liner
-  // there in #245's follow-up, charcoal in #304), the bottom one whichever of
-  // eraser/smudge/eyedropper was. Holding either fans out the rest of its set,
-  // which is how the smudge and the eyedropper became reachable from the panel
-  // at all — before that they had no "return to" affordance anywhere but the
-  // left toolbar, so minimal UI could not offer them.
-  const floatingPrimaryTool: PrimaryDrawingTool = lastDrawingTool
-  const floatingSecondaryTool = useRoomStore(s => s.lastSecondaryTool)
-  // Which slot lights up. Deliberately null for the tools neither slot can
-  // hold (ruler, transform, grid, hand): the panel used to fold every one of
-  // them into "not the eraser" and light the drawing slot, so the pencil
-  // button claimed to be current while the ruler was in hand — two lit tools
-  // across the two toolbars, which is exactly what #405 set out to end.
+  // FloatingToolPanel (#157) is an eight-slot compass the user lays out
+  // themselves: any slot holds any tool the left toolbar holds, or undo/redo,
+  // or nothing. Two of the entries are *roles* rather than tools — the drawing
+  // tool and the eraser/smudge/eyedropper you have no button for — which is
+  // what the panel's fixed top and bottom slots already were, and what the
+  // default layout still puts there.
+  //
+  // The whole recency lists go down rather than just their heads: a role skips
+  // anything the layout already pins to a slot of its own, so resolving one
+  // needs the order, and it needs the layout — both of which the panel has and
+  // this file does not. See pickRoleTool in FloatingToolPanel/slots.ts.
+  const recentDrawingTools = useRoomStore(s => s.recentDrawingTools)
+  const recentSecondaryTools = useRoomStore(s => s.recentSecondaryTools)
+  // Which slots light up. Deliberately null for the tools no slot can name —
+  // which, now that every toolbar tool can sit in a slot, means only the
+  // annotation set, and the panel is not on screen alongside those anyway
+  // (`compact` below).
   const floatingSlotTool = isFloatingPanelTool(tool) ? tool : null
+  // Global, not per room — see settingsStore's own comment for why the panel's
+  // layout and the panel's position part company on that.
+  const floatingPanelLayout = useSettingsStore(s => s.floatingPanelLayout)
+  const setFloatingPanelLayout = useSettingsStore(s => s.setFloatingPanelLayout)
   // (#190 epic) Room palette — see roomSlice's own doc comment for why this
   // is a plain setter, not a reducer. Add/remove requests round-trip through
   // the server (dedup lives there, see rooms.ts's addPaletteColor) rather
@@ -7357,8 +7363,8 @@ export function Room() {
           // See floatingSlotTool above for why this is narrowed rather than
           // folded: ruler/transform/grid/hand light neither slot.
           tool={floatingSlotTool}
-          primaryTool={floatingPrimaryTool}
-          secondaryTool={floatingSecondaryTool}
+          recentDrawingTools={recentDrawingTools}
+          recentSecondaryTools={recentSecondaryTools}
           onSetTool={setTool}
           onUndo={handleUndo}
           onRedo={handleRedo}
@@ -7378,6 +7384,8 @@ export function Room() {
           // Found exactly that way: the toolbar was clean and the panel was
           // still handing out a pencil.
           hidden={compact || !floatingPanelVisible(floatingPanelMode, deviceType, uiHidden)}
+          layout={floatingPanelLayout}
+          onLayoutChange={setFloatingPanelLayout}
           undoHotkeyLabel={formatHotkeyLabel(hotkeys.undo)}
           redoHotkeyLabel={formatHotkeyLabel(hotkeys.redo)}
           flyout={panelFlyout}
