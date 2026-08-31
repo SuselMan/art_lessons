@@ -48,6 +48,7 @@ export const ICON_CODEPOINTS: Record<MaterialIconName, string> = {
   'grid_view': '\u{e9b0}',
   'group': '\u{e7ef}',
   'highlight_alt': '\u{e6d4}',
+  'history': '\u{e28e}',
   'image_not_supported': '\u{f116}',
   'info': '\u{e88e}',
   'ink_eraser': '\u{e6d0}',
