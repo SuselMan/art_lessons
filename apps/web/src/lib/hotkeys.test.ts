@@ -29,6 +29,36 @@ function fakeKeydown(init: Partial<KeyboardEventInit> & { code: string }): Keybo
   } as KeyboardEvent
 }
 
+// (#520) The registry is a list a person edits by hand, and two entries
+// carrying the same combo is the one mistake in it that no other test would
+// notice: `matchesHotkey` would answer true for both, the keydown handler
+// would run whichever it checks first, and the second action would simply
+// never fire — with a rebind UI that shows both bound to the same keys and
+// looks perfectly correct. Cheap to state, so state it.
+describe('the default bindings', () => {
+  it('give no two actions the same combo', () => {
+    const seen = new Map<string, string>()
+    for (const action of HOTKEY_ACTIONS) {
+      const combo = `${action.default.code}|${action.default.mod}|${action.default.shift}`
+      expect(seen.get(combo), `${action.id} shares its default with ${seen.get(combo)}`).toBeUndefined()
+      seen.set(combo, action.id)
+    }
+  })
+
+  // Shift is what separates redo from undo and the rotate keys from the size
+  // keys, so a binding that ignored it would collide with its own neighbour.
+  it('tell the eraser apart from erasing through layers by shift alone', () => {
+    const eraser = HOTKEY_ACTIONS.find(a => a.id === 'toggleEraser')!.default
+    const through = HOTKEY_ACTIONS.find(a => a.id === 'eraseThroughLayers')!.default
+    expect(through.code).toBe(eraser.code)
+    expect(through.shift).toBe(true)
+    expect(eraser.shift).toBe(false)
+    expect(matchesHotkey(fakeKeydown({ code: 'KeyE' }), through, PC)).toBe(false)
+    expect(matchesHotkey(fakeKeydown({ code: 'KeyE', shiftKey: true }), eraser, PC)).toBe(false)
+    expect(matchesHotkey(fakeKeydown({ code: 'KeyE', shiftKey: true }), through, PC)).toBe(true)
+  })
+})
+
 describe('getHotkeyBindings', () => {
   it('returns every action default when nothing is stored', () => {
     const bindings = getHotkeyBindings(memoryStorage())

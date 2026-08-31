@@ -136,6 +136,41 @@ test.describe('erasing through layers', () => {
     expect(await maxDarknessOverRect(page, upperInk)).toBeGreaterThan(INK)
   })
 
+  // (#520 follow-up) The desktop half. The toggle is a finger control in the
+  // quick column; this is the same setting reached from the keyboard, and the
+  // point of testing it here rather than only in a unit test is that it has to
+  // reach the *pixels* through the same push into the engine that the switch
+  // does.
+  test('Shift+E takes the through-layers eraser without touching the switch', async ({ page }) => {
+    const { lowerInk, upperInk, where } = await twoInkedLayers(page)
+
+    // Pressed with the pencil still in hand, which is the case that would make
+    // a plain flip of the setting look like a dead key: the switch it moves is
+    // not on screen until the eraser is selected. So this both selects and
+    // turns on.
+    await page.keyboard.press('Shift+E')
+    await expect
+      .poll(() => page.evaluate(() => window.__roomStore!.getState().tool))
+      .toBe('eraser')
+    await expect
+      .poll(() => page.evaluate(() => window.__roomStore!.getState().toolSettings.eraser.throughLayers))
+      .toBe(true)
+    await expect(page.getByRole('switch', { name: 'Erase through layers' })).toBeVisible()
+
+    await drawStroke(page, where.sweep, { size: 120 })
+    await waitForOperations(page, 'stroke', 4)
+    expect(await maxDarknessOverRect(page, upperInk)).toBeLessThan(INK)
+    expect(await maxDarknessOverRect(page, lowerInk)).toBeLessThan(INK)
+
+    // And with the eraser already in hand the same key is the toggle it says
+    // it is — one press off, never two.
+    await page.keyboard.press('Shift+E')
+    await expect
+      .poll(() => page.evaluate(() => window.__roomStore!.getState().toolSettings.eraser.throughLayers))
+      .toBe(false)
+    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('eraser')
+  })
+
   test('with the toggle off it stays on the active layer', async ({ page }) => {
     const { upper, lowerInk, upperInk, where } = await twoInkedLayers(page)
 

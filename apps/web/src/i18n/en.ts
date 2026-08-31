@@ -729,6 +729,7 @@ export const en = {
   'hotkey.undo': 'Undo',
   'hotkey.redo': 'Redo',
   'hotkey.toggleEraser': 'Toggle eraser / pencil',
+  'hotkey.eraseThroughLayers': 'Eraser: through layers',
   'hotkey.toggleSmudge': 'Toggle smudge / pencil',
   'hotkey.toggleCharcoal': 'Toggle charcoal / pencil',
   'hotkey.toggleLiner': 'Toggle liner / pencil',

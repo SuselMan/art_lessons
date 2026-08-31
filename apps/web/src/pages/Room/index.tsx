@@ -6072,6 +6072,26 @@ export function Room() {
         zoomBy(zoomIntent === 'in' ? ZOOM_KEY_STEP : 1 / ZOOM_KEY_STEP)
         return
       }
+      // (#520) Ahead of `toggleEraser` because it is the more specific press on
+      // the same key — the two can't actually collide (matchesHotkey compares
+      // `shiftKey` exactly, so E and Shift+E are different bindings, and both
+      // stay different after a rebind or this would be reachable only by
+      // accident), but reading the specific one first is how the rest of this
+      // handler is ordered and the one that survives someone rebinding these
+      // two onto the same combo.
+      //
+      // Not a plain flip of the setting: with a pencil in hand that would be a
+      // key that appears to do nothing, since the switch it moves only exists
+      // in the quick column while the eraser is selected. So a press from
+      // another tool means "give me the eraser that goes through layers" — it
+      // takes the eraser and turns the mode on — and once the eraser is in
+      // hand the same key flips the mode, which is the toggle it says it is.
+      // Turning it *off* is therefore always one press, never two.
+      if (is('eraseThroughLayers')) {
+        if (tool === 'eraser') setToolSetting('eraser', 'throughLayers', prev => !prev)
+        else { setTool('eraser'); setToolSetting('eraser', 'throughLayers', true) }
+        return
+      }
       if (is('toggleEraser')) { toggleTool('eraser'); return }
       if (is('toggleSmudge')) { toggleTool('smudge'); return }
       if (is('toggleCharcoal')) { toggleTool('charcoal'); return }
@@ -6149,7 +6169,7 @@ export function Room() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [
-    drawingTool, toggleTool, transformActive, transformTargetIds.length,
+    drawingTool, tool, toggleTool, setTool, transformActive, transformTargetIds.length,
     setToolSetting, setVp, handleUndo, handleRedo, hotkeys,
     zoomBy, resetZoom,
     finishSelection, setPendingSelection, setSelection, copySelection, cutSelection,

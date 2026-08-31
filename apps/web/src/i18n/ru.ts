@@ -611,6 +611,7 @@ export const ru: Dictionary = {
   'hotkey.undo': 'Отменить',
   'hotkey.redo': 'Вернуть',
   'hotkey.toggleEraser': 'Переключить ластик / карандаш',
+  'hotkey.eraseThroughLayers': 'Ластик: сквозь слои',
   'hotkey.toggleSmudge': 'Переключить растушёвку / карандаш',
   'hotkey.toggleCharcoal': 'Переключить уголь / карандаш',
   'hotkey.toggleLiner': 'Переключить линер / карандаш',
