@@ -12,7 +12,7 @@ import type {
   JoinDenial, AnnotationShape,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, toWireMatrix, unpackDabs } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, type AreaImage } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -68,7 +68,7 @@ import { currentlyDrawing, sameIds } from './drawingIndicator'
 import { resolveDisplayName } from './displayName'
 import { shouldEmitCursor } from './cursorThrottle'
 import { clientToCanvas } from './pointerTransform'
-import { ZOOM_MAX, ZOOM_KEY_STEP, backingStoreZoom, clientToRoomPoint, screenToWorld, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
+import { ZOOM_MAX, ZOOM_KEY_STEP, backingStoreZoom, clientToRoomPoint, viewCentreWorld, cameraTransformCss, deviceNativeZoom, minZoom } from './cameraMath'
 import { canRetryJoinLater, describeJoinError, joinGateStateFor } from './joinError'
 import { hasSeqGap, shouldEnterCatchUp, shouldLeaveCatchUp } from './catchUp'
 import { isLocalIslandSafe } from './optimism'
@@ -119,6 +119,7 @@ import { reportSnapshotRestore } from './reportRestore'
 import { reportRoomOpen } from './reportOpen'
 import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
 import { restoreLatestSnapshot, walkHistoryBackward } from './snapshotRestore'
+import { pastePlacement } from './pastePlacement'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError } from '../../stores/noticeStore'
 import { useT } from '../../i18n'
@@ -126,7 +127,7 @@ import { makeInitialLayerState } from '../../stores/slices/layerSlice'
 import { isDrawingTool, type EditorTool } from '../../stores/slices/toolSlice'
 import { isHandActive } from '../../stores/slices/viewportSlice'
 import type { RoomInfo } from '../../stores/slices/roomSlice'
-import type { ClipboardEntry } from '../../stores/slices/selectionSlice'
+import { useClipboardStore, readClipboard, writeClipboard } from '../../stores/clipboardStore'
 import styles from './Room.module.css'
 
 // Infinite-canvas rooms (#133 Phase 1) don't have a real canvasWidth/Height
@@ -841,7 +842,7 @@ export function Room() {
     // Nothing of it reaches the layer until the session ends, which is the
     // whole point: dragging moves the pasted piece alone, never the drawing
     // underneath it (Ilya, 13.08).
-    paste: ClipboardEntry | null
+    paste: AreaImage | null
   } | null>(null)
   // (#446) Handed to the next session the effect opens — the one moment a
   // session is created with pixels of its own rather than from a layer. Room
@@ -849,16 +850,19 @@ export function Room() {
   // picks it up, so a floating paste needs no second lifecycle beside the one
   // that already handles Enter, Esc, tool changes, layer changes and the page
   // going away.
-  const pendingPasteRef = useRef<ClipboardEntry | null>(null)
-  // (#446) The selection and the clipboard (selectionSlice.ts). Both are local
-  // to this participant: a selection is what someone is about to do, and only
-  // what they did travels.
+  const pendingPasteRef = useRef<AreaImage | null>(null)
+  // (#446) The selection (selectionSlice.ts) — local to this participant: a
+  // selection is what someone is about to do, and only what they did travels.
   const selection = useRoomStore(s => s.selection)
   const setSelection = useRoomStore(s => s.setSelection)
   const pendingSelection = useRoomStore(s => s.pendingSelection)
   const setPendingSelection = useRoomStore(s => s.setPendingSelection)
-  const clipboard = useRoomStore(s => s.clipboard)
-  const setClipboard = useRoomStore(s => s.setClipboard)
+  // (#521) The clipboard is local too, but it is not room state: it outlives
+  // this room and is shared with every other tab of this browser
+  // (clipboardStore.ts). Only the meta is subscribed to — enough to answer
+  // "is there anything to paste", which is all any of this component needs
+  // until a paste actually happens.
+  const clipboardMeta = useClipboardStore(s => s.meta)
   // (#399) Throws the open session's uncommitted gestures away and re-opens an
   // empty one on whatever the layer holds now. Assigned further down, where
   // the pieces it needs exist; declared here because undo/redo — defined well
@@ -2842,21 +2846,15 @@ export function Room() {
       // reinterpreted rather than fed through transformFor's CSS string
       // (see useViewport's own comment). setInfiniteCamera wants the
       // inverse: the world point at screen CENTER — see cameraMath.ts's
-      // screenToWorld (#143 factored this out of an inline hand-solved
-      // version so the overlay components below could share the exact
-      // same conversion instead of re-deriving it).
-      const { x, y } = screenToWorld(el.clientWidth / 2, el.clientHeight / 2, vp)
-      // (#470) Two conventions meet here, and the offset between them is
-      // exactly half a sheet. `vp.cx/cy` is where the *canvas centre* sits on
-      // screen — that is what the CSS transform this replaced meant by it
-      // (`... scale(zoom) translate(-w/2,-h/2)`), and every gesture in
-      // useViewport still produces it. screenToWorld inverts that about
-      // (cx,cy), so what it returns for a bounded room is the offset from the
-      // sheet's centre, not a world point. The rotation drops out: the half
-      // translate happens before scale and rotate, so this correction is a
-      // plain addition at any angle.
-      const wx = enginePageW === undefined ? x : x + enginePageW / 2
-      const wy = enginePageH === undefined ? y : y + enginePageH / 2
+      // viewCentreWorld (#143 factored the conversion out of an inline
+      // hand-solved version so the overlay components below could share it;
+      // #521 moved the half-a-sheet correction that follows it in there too,
+      // because a paste carried in from another room aims at the same world
+      // point the camera does, and two hand-rolled copies of that correction
+      // is how the two would come to disagree).
+      const { x: wx, y: wy } = viewCentreWorld(
+        el.clientWidth, el.clientHeight, vp, enginePageW, enginePageH,
+      )
       // vp.zoom is CSS px per world unit; the engine renders into a
       // DPR-sized backing store (see the ResizeObserver below), so it wants
       // physical px per world unit — see deviceNativeZoom's doc comment.
@@ -4740,16 +4738,24 @@ export function Room() {
     if (!annotateTextActive) commitAnnotationDraft()
   }, [annotateTextActive, commitAnnotationDraft])
 
+  // (#521) The copy stamps the room onto the record, because from here the
+  // pixels can outlive this room: the rect is world coordinates, and world
+  // coordinates only mean something against the room they were measured in
+  // (see pastePlacement.ts).
+  //
+  // Still returns whether it worked, and now it has a second way not to —
+  // storage. `writeClipboard` answers false when the raster could not be
+  // persisted (quota, a browser refusing storage), and `cutSelection` below
+  // depends on that answer being honest.
   const copySelection = useCallback(async (): Promise<boolean> => {
     const engine = engineRef.current
     const current = useRoomStore.getState().selection
     const layerId = paintTargetIdRef.current
-    if (!engine || !current || !layerId) return false
+    if (!engine || !current || !layerId || !id) return false
     const copied = await engine.readAreaImage(layerId, current)
     if (!copied) return false
-    setClipboard(copied)
-    return true
-  }, [setClipboard])
+    return writeClipboard({ ...copied, roomId: id, updatedAt: Date.now() })
+  }, [id])
 
   const deleteSelectionContents = useCallback(() => {
     const current = useRoomStore.getState().selection
@@ -4780,28 +4786,43 @@ export function Room() {
   // float is held by the transform session, and the gizmo is how a person
   // places it. Same thing every editor does when it drops you into Move after
   // a paste.
-  const pasteClipboard = useCallback(() => {
+  //
+  // (#521) The pixels are fetched here rather than held in the store, because
+  // the clipboard now outlives this room and this tab — see clipboardStore.ts.
+  // That makes the whole thing async, which it effectively already was: the
+  // float could never appear before `preloadImage` had decoded the raster
+  // anyway.
+  const pasteClipboard = useCallback(async () => {
+    const record = await readClipboard()
     const state = useRoomStore.getState()
-    const entry = state.clipboard
     // Onto the *active* layer, not the layer the pixels came from — pasting
     // onto another layer is the case this whole feature was asked for.
     const targetId = state.layerState.activeId
-    if (!entry || !targetId || targetId === BACKGROUND_LAYER_ID) return
+    if (!record || !targetId || targetId === BACKGROUND_LAYER_ID) return
     // (#518) A float is placed by the transform session, and a locked layer is
     // not among its targets — so without this the pasted piece would open a
     // session holding nothing: no preview on screen, and a commit with an
     // empty transform list. Refusing the paste says the same thing in one
     // step.
     if (isLayerLocked(state.layerState, targetId, isOwnerRef.current)) return
-    void engineRef.current?.preloadImage(entry.image).then(() => {
-      pendingPasteRef.current = entry
-      // The float occupies exactly the rect it was copied from, so the region
-      // is known — selecting it is what gives the gizmo its frame, and what
-      // the next cut/copy would act on once the float is down.
-      setSelection(rectangleFromDrag(entry.x, entry.y, entry.x + entry.width, entry.y + entry.height))
-      setTool('transform')
-    })
-  }, [setSelection, setTool])
+    // (#521) Where it lands: in place within the room it was copied from, on
+    // the middle of the view when it came from another one. pastePlacement.ts
+    // carries the reasoning; the viewport centre is measured here because only
+    // this component can see the element.
+    const el = vpRef.current
+    const { x, y } = pastePlacement(
+      record, id,
+      el ? viewCentreWorld(el.clientWidth, el.clientHeight, state.viewport, enginePageW, enginePageH) : null,
+    )
+    const entry: AreaImage = { image: record.image, x, y, width: record.width, height: record.height }
+    await engineRef.current?.preloadImage(entry.image)
+    pendingPasteRef.current = entry
+    // The float occupies exactly the rect it is placed at, so the region is
+    // known — selecting it is what gives the gizmo its frame, and what the
+    // next cut/copy would act on once the float is down.
+    setSelection(rectangleFromDrag(entry.x, entry.y, entry.x + entry.width, entry.y + entry.height))
+    setTool('transform')
+  }, [setSelection, setTool, id, vpRef, enginePageW, enginePageH])
 
   // (#391) The transform tool's own two settings, from the same TOOL_SCHEMAS
   // store every other tool's settings live in (see settingsToolId below for
@@ -6044,9 +6065,13 @@ export function Room() {
           else void cutSelection()
           return
         }
-        if (key === 'v' && useRoomStore.getState().clipboard) {
+        // (#521) The meta, not the raster — the same synchronous "is there
+        // anything to paste" the button reads, so Ctrl+V is decided without
+        // touching IndexedDB and a page-level paste is swallowed on exactly
+        // the same condition the UI shows.
+        if (key === 'v' && useClipboardStore.getState().meta) {
           e.preventDefault()
-          pasteClipboard()
+          void pasteClipboard()
           return
         }
       }
@@ -6850,8 +6875,8 @@ export function Room() {
                 className={styles.toolIconBtn}
                 title={t('selection.paste')}
                 aria-label={t('selection.paste')}
-                disabled={!clipboard || !paintTargetId || paintTargetLocked}
-                onClick={pasteClipboard}
+                disabled={!clipboardMeta || !paintTargetId || paintTargetLocked}
+                onClick={() => { void pasteClipboard() }}
               ><Icon name="content_paste" /></button>
               <button
                 className={styles.toolIconBtn}
