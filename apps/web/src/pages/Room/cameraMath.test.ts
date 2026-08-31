@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { clampToPage, PAGE_KEEP_ON_SCREEN_PX, worldToScreen, screenToWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround, pinchViewport, minZoom, deviceNativeZoom, holdAngle, fitZoom, ZOOM_MAX } from './cameraMath'
+import { clampToPage, PAGE_KEEP_ON_SCREEN_PX, worldToScreen, screenToWorld, viewCentreWorld, cameraTransformCss, visibleWorldRect, clientToRoomPoint, rotateViewportAround, pinchViewport, minZoom, deviceNativeZoom, holdAngle, fitZoom, ZOOM_MAX } from './cameraMath'
 import type { Viewport } from './useViewport'
 
 describe('worldToScreen / screenToWorld', () => {
@@ -365,5 +365,51 @@ describe('clampToPage', () => {
     // of it must stay reachable — the clamp's range grows with it.
     const vp: Viewport = { cx: -4000, cy: -3000, zoom: 10, angle: 0 }
     expect(clampToPage(vp, VIEW_W, VIEW_H, page)).toEqual(vp)
+  })
+})
+
+describe('viewCentreWorld (#521)', () => {
+  it('reproduces the wx/wy the sync-viewport effect used to hand-solve', () => {
+    // This is the whole reason the correction was factored out of
+    // Room/index.tsx: a paste carried in from another room aims at the world
+    // point the camera is already aimed at, and the two must not drift.
+    const vp: Viewport = { cx: 512, cy: 384, zoom: 0.6, angle: 1.1 }
+    const viewW = 1800, viewH = 1280
+    const pageW = 2480, pageH = 3508
+    const { x, y } = screenToWorld(viewW / 2, viewH / 2, vp)
+    const centre = viewCentreWorld(viewW, viewH, vp, pageW, pageH)
+    expect(centre.x).toBeCloseTo(x + pageW / 2)
+    expect(centre.y).toBeCloseTo(y + pageH / 2)
+  })
+
+  it('is the sheet centre when the view is untouched', () => {
+    // An A4 room opened and not moved: cx/cy sit at the middle of the
+    // viewport, which by the convention above means the sheet's centre is
+    // there — so the world point in the middle of the screen is the middle of
+    // the page, whatever the zoom.
+    const viewW = 1000, viewH = 800
+    const vp: Viewport = { cx: viewW / 2, cy: viewH / 2, zoom: 0.35, angle: 0 }
+    const centre = viewCentreWorld(viewW, viewH, vp, 2480, 3508)
+    expect(centre.x).toBeCloseTo(2480 / 2)
+    expect(centre.y).toBeCloseTo(3508 / 2)
+  })
+
+  it('drops the half-sheet correction for a room with no sheet', () => {
+    const vp: Viewport = { cx: 300, cy: 200, zoom: 1, angle: 0 }
+    const centre = viewCentreWorld(1000, 800, vp, undefined, undefined)
+    expect(centre.x).toBeCloseTo(500 - 300)
+    expect(centre.y).toBeCloseTo(400 - 200)
+  })
+
+  it('is unaffected by rotation when the view is untouched', () => {
+    // The half-translate happens before scale and rotate, so the correction is
+    // a plain addition at any angle — the claim cameraMath makes in prose.
+    const viewW = 1200, viewH = 900
+    const upright: Viewport = { cx: viewW / 2, cy: viewH / 2, zoom: 0.5, angle: 0 }
+    const turned: Viewport = { ...upright, angle: 0.7 }
+    const a = viewCentreWorld(viewW, viewH, upright, 2000, 1400)
+    const b = viewCentreWorld(viewW, viewH, turned, 2000, 1400)
+    expect(b.x).toBeCloseTo(a.x)
+    expect(b.y).toBeCloseTo(a.y)
   })
 })

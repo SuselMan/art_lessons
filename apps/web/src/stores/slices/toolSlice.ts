@@ -93,7 +93,7 @@ export function isDrawingTool(tool: EditorTool): tool is DrawingTool {
 // off?".
 export type PrimaryDrawingTool = 'pencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen' | 'watercolor'
 
-const PRIMARY_DRAWING_TOOLS: readonly PrimaryDrawingTool[] = ['pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor']
+export const PRIMARY_DRAWING_TOOLS: readonly PrimaryDrawingTool[] = ['pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor']
 
 function isPrimaryDrawingTool(tool: EditorTool): tool is PrimaryDrawingTool {
   return (PRIMARY_DRAWING_TOOLS as readonly EditorTool[]).includes(tool)
@@ -113,7 +113,7 @@ function isPrimaryDrawingTool(tool: EditorTool): tool is PrimaryDrawingTool {
  *  the two should partition the same way. */
 export type SecondaryTool = 'eraser' | 'smudge' | 'eyedropper'
 
-const SECONDARY_TOOLS: readonly SecondaryTool[] = ['eraser', 'smudge', 'eyedropper']
+export const SECONDARY_TOOLS: readonly SecondaryTool[] = ['eraser', 'smudge', 'eyedropper']
 
 function isSecondaryTool(tool: EditorTool): tool is SecondaryTool {
   return (SECONDARY_TOOLS as readonly EditorTool[]).includes(tool)
@@ -146,6 +146,18 @@ export interface ToolSlice {
   // before, instead of assuming pencil (a real gap once liner became a
   // second real drawing tool - #245 follow-up).
   lastDrawingTool: PrimaryDrawingTool
+  /** Every PrimaryDrawingTool, most recently selected first — `lastDrawingTool`
+   *  above is just its head, computed from it in the same reducer so the two
+   *  cannot drift.
+   *
+   *  The tail is what the head cannot answer. FloatingToolPanel's `drawing`
+   *  role slot means "the drawing tool you have no button for", and once any
+   *  slot can be pinned to a specific tool, "the last one" is the wrong
+   *  answer: pin the marker, pick it, and the role slot dutifully becomes a
+   *  second marker — one of eight slots spent saying what the slot beside it
+   *  already says. So the role walks this list past everything the layout
+   *  already holds. Answering that needs an order, not a value. */
+  recentDrawingTools: readonly PrimaryDrawingTool[]
   // Most recent SecondaryTool `tool` held, the mirror image of the field
   // above and kept in sync the same way. FloatingToolPanel's second slot
   // shows and returns to it, so that slot remembers "I was erasing" or "I was
@@ -156,6 +168,12 @@ export interface ToolSlice {
   // and a slot that only remembered the choices made through itself would go
   // stale the moment the same choice was made a foot to the left.
   lastSecondaryTool: SecondaryTool
+  /** The same list for the secondary tools, and the same reason — see
+   *  `recentDrawingTools` above. This is the one the gap was actually reported
+   *  on: with the smudge pinned to its own slot, selecting it moved the
+   *  secondary role onto the smudge too, and the panel forgot that the eraser
+   *  was ever there. */
+  recentSecondaryTools: readonly SecondaryTool[]
   // TOOL_SCHEMAS-shaped settings for every registered tool (#170/#196) —
   // seeded with schema defaults here; Room re-seeds this from
   // loadToolSettings(localStorage, roomId) once at mount via
@@ -170,18 +188,44 @@ export interface ToolSlice {
   setAllToolSettings: (settings: ToolSettingsMap) => void
 }
 
+/** `item` first, everything else in the order it was already in.
+ *
+ *  Returns the list unchanged — the same reference, not an equal copy — when
+ *  `item` is already at the front, which is the common case (selecting the
+ *  tool you already have). A fresh array every time would re-render every
+ *  subscriber on every no-op selection. */
+function moveToFront<T>(list: readonly T[], item: T): readonly T[] {
+  if (list[0] === item) return list
+  return [item, ...list.filter(existing => existing !== item)]
+}
+
 export const createToolSlice: StateCreator<ToolSlice> = set => ({
   tool: 'pencil',
   drawingTool: 'pencil',
   lastDrawingTool: 'pencil',
+  // Seeded with the full lists so a role always has somewhere to go, even
+  // before anything has been selected — a panel whose first render has an
+  // empty role slot would be reporting "no tool" for the pencil it is
+  // holding. The heads match `tool` and the two `last*` fields above.
+  recentDrawingTools: PRIMARY_DRAWING_TOOLS,
   lastSecondaryTool: 'eraser',
+  recentSecondaryTools: SECONDARY_TOOLS,
   setTool: updater => set(state => {
     const next = typeof updater === 'function' ? updater(state.tool) : updater
+    // The `last*` fields are read off these rather than assigned in parallel:
+    // one computation, so "the last one" and "the front of the list" cannot
+    // come to disagree.
+    const recentDrawingTools = isPrimaryDrawingTool(next)
+      ? moveToFront(state.recentDrawingTools, next) : state.recentDrawingTools
+    const recentSecondaryTools = isSecondaryTool(next)
+      ? moveToFront(state.recentSecondaryTools, next) : state.recentSecondaryTools
     return {
       tool: next,
       drawingTool: isDrawingTool(next) ? next : state.drawingTool,
-      lastDrawingTool: isPrimaryDrawingTool(next) ? next : state.lastDrawingTool,
-      lastSecondaryTool: isSecondaryTool(next) ? next : state.lastSecondaryTool,
+      recentDrawingTools,
+      lastDrawingTool: recentDrawingTools[0],
+      recentSecondaryTools,
+      lastSecondaryTool: recentSecondaryTools[0],
     }
   }),
   toolSettings: defaultToolSettings(),

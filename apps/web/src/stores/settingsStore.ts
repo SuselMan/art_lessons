@@ -12,6 +12,9 @@ import {
   type ColorPickerMode,
 } from '../components/ColorPicker/pickerModes'
 import {
+  DEFAULT_PANEL_LAYOUT, parsePanelLayout, serializePanelLayout, type PanelLayout,
+} from '../components/FloatingToolPanel/slots'
+import {
   detectDeviceType, isCompactPreference, isDeviceType,
   type CompactPreference, type DeviceType,
 } from '../lib/deviceType'
@@ -46,6 +49,7 @@ const SOUND_VOLUME_STORAGE_KEY = 'al_sound_volume'
 const MINIMAL_UI_STORAGE_KEY = 'al_minimal_ui'
 const MINIMAL_UI_TAP_STORAGE_KEY = 'al_minimal_ui_tap'
 const FLOATING_PANEL_STORAGE_KEY = 'al_floating_panel'
+const FLOATING_PANEL_LAYOUT_STORAGE_KEY = 'al_floating_panel_layout'
 const THEME_STORAGE_KEY = 'al_theme'
 const PRESSURE_CALIBRATION_STORAGE_KEY = 'al_pressure_calibration'
 
@@ -191,6 +195,26 @@ function initialFloatingPanel(): FloatingPanelMode {
   return isFloatingPanelMode(raw) ? raw : DEFAULT_FLOATING_PANEL_MODE
 }
 
+/** What is in each of the floating panel's eight slots (see
+ *  FloatingToolPanel/slots.ts).
+ *
+ *  Global rather than per room — unlike the panel's *position*, which lives
+ *  in that room's own settings (panelPosition.ts). The two look alike and are
+ *  not: where the panel sits depends on the drawing under it and on the screen
+ *  it is being drawn on, while which tools are within reach is a property of
+ *  the hand. Laying the panel out again in every new room would be a
+ *  punishment for having laid it out once.
+ *
+ *  Validated on the way out by parsePanelLayout rather than trusted, for the
+ *  reason the pressure calibration below gives — and for one more that is
+ *  specific to this: a stored layout outlives the tool list, so a tool dropped
+ *  in a later release has to degrade to an empty slot rather than to a button
+ *  with no icon. */
+function initialFloatingPanelLayout(): PanelLayout {
+  if (typeof window === 'undefined') return DEFAULT_PANEL_LAYOUT
+  return parsePanelLayout(localStorage.getItem(FLOATING_PANEL_LAYOUT_STORAGE_KEY))
+}
+
 function initialMinimalUiTapMode(): MinimalUiTapMode {
   if (typeof window === 'undefined') return DEFAULT_MINIMAL_UI_TAP_MODE
   const raw = localStorage.getItem(MINIMAL_UI_TAP_STORAGE_KEY)
@@ -257,6 +281,10 @@ export interface SettingsStore {
   setMinimalUiTapMode: (mode: MinimalUiTapMode) => void
   floatingPanel: FloatingPanelMode
   setFloatingPanel: (mode: FloatingPanelMode) => void
+  /** The floating panel's own slot layout. See initialFloatingPanelLayout
+   *  above for why this is global while the panel's position is per room. */
+  floatingPanelLayout: PanelLayout
+  setFloatingPanelLayout: (layout: PanelLayout) => void
   /** (#278) Whether the marker's chisel angle is a canvas-space value that
    *  rotates with the canvas, or stays visually fixed on screen. */
   /** (#475) How this device's stylus reports pressure, and how that report is
@@ -338,6 +366,11 @@ export const useSettingsStore = create<SettingsStore>()(set => ({
   setFloatingPanel: mode => {
     localStorage.setItem(FLOATING_PANEL_STORAGE_KEY, mode)
     set({ floatingPanel: mode })
+  },
+  floatingPanelLayout: initialFloatingPanelLayout(),
+  setFloatingPanelLayout: layout => {
+    localStorage.setItem(FLOATING_PANEL_LAYOUT_STORAGE_KEY, serializePanelLayout(layout))
+    set({ floatingPanelLayout: layout })
   },
   pressureCalibration: initialPressureCalibration(),
   setPressureCalibration: calibration => {

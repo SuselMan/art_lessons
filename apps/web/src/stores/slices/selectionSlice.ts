@@ -1,24 +1,18 @@
 import type { StateCreator } from 'zustand'
 import type { SelectionShape } from '@grafetto/shared'
 
-// (#446, ADR 008) The selection a user currently holds, and the clipboard it
-// can be copied to. Both are *local* — they never travel to other
-// participants: a selection is what someone is about to do, not something
-// they did, and the operation log records the latter. That is also why this
-// sits in the room store next to the viewport rather than being derived from
-// anything on the wire.
-
-/** What is on the in-editor clipboard: the pixels, and the world rect they
- *  came from. Straight into an `area_paste` — paste lands where it was cut
- *  from (ADR 008), including onto a different layer, which is the case the
- *  whole feature was asked for. */
-export interface ClipboardEntry {
-  image: string
-  x: number
-  y: number
-  width: number
-  height: number
-}
+// (#446, ADR 008) The selection a user currently holds. *Local* — it never
+// travels to other participants: a selection is what someone is about to do,
+// not something they did, and the operation log records the latter. That is
+// also why this sits in the room store next to the viewport rather than being
+// derived from anything on the wire.
+//
+// (#521) The clipboard used to live here too, and no longer does — see
+// `stores/clipboardStore.ts`. The two parted company for a concrete reason:
+// `resetRoomStore()` wipes this store on every Room mount, which is exactly
+// right for a selection (it marks a region of *this* drawing) and exactly
+// wrong for a clipboard, whose whole point since #521 is being carried into
+// the next room.
 
 export interface SelectionSlice {
   /** Null when nothing is selected — which is most of the time, and is what
@@ -51,8 +45,6 @@ export interface SelectionSlice {
    *  them. */
   pendingSelection: number[] | null
   setPendingSelection: (points: number[] | null) => void
-  clipboard: ClipboardEntry | null
-  setClipboard: (entry: ClipboardEntry | null) => void
 }
 
 export const createSelectionSlice: StateCreator<SelectionSlice> = set => ({
@@ -60,6 +52,4 @@ export const createSelectionSlice: StateCreator<SelectionSlice> = set => ({
   setSelection: selection => set({ selection }),
   pendingSelection: null,
   setPendingSelection: points => set({ pendingSelection: points }),
-  clipboard: null,
-  setClipboard: entry => set({ clipboard: entry }),
 })

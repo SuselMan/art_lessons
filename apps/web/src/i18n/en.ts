@@ -596,7 +596,17 @@ export const en = {
   'palette.add': 'Add to palette',
   'palette.remove': 'Remove from palette',
   'palette.dragPanel': 'Drag to move',
-  'palette.toolHold': '{tool} — hold to switch tool',
+  // ── the floating panel's eight slots ───────────────────────────────────
+  // A slot's own title names what is in it and how to change it; the chooser
+  // entries name what they would put there. The role entries are the two that
+  // cannot be named by their icon alone — the icon shows the tool the role
+  // currently resolves to, so only the label says it is a role at all.
+  'palette.slotHold': '{item} — hold to change this slot',
+  'palette.slotEmpty': 'Empty slot',
+  'palette.slotEmptyHold': 'Empty slot — hold to put a tool here',
+  'palette.slotClear': 'Leave empty',
+  'palette.roleDrawing': 'Last drawing tool',
+  'palette.roleSecondary': 'Last eraser / smudge tool',
   'palette.mode': 'Picker shape',
   'palette.mode.bar': 'Hue strip',
   'palette.mode.ring': 'Hue ring',
@@ -729,6 +739,7 @@ export const en = {
   'hotkey.undo': 'Undo',
   'hotkey.redo': 'Redo',
   'hotkey.toggleEraser': 'Toggle eraser / pencil',
+  'hotkey.eraseThroughLayers': 'Eraser: through layers',
   'hotkey.toggleSmudge': 'Toggle smudge / pencil',
   'hotkey.toggleCharcoal': 'Toggle charcoal / pencil',
   'hotkey.toggleLiner': 'Toggle liner / pencil',

@@ -54,6 +54,10 @@ export const MATERIAL_ICON_NAMES = [
   'grid_view',
   'group',
   'highlight_alt',
+  // The badge on a slot that holds a *role* rather than a
+  // fixed tool — "whatever I last drew with" — worn in the corner of that
+  // tool's own icon. Without it the chooser shows two identical pencils.
+  'history',
   'image_not_supported',
   'info',
   'ink_eraser',

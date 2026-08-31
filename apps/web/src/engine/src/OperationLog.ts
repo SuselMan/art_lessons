@@ -226,12 +226,10 @@ export class OperationLog {
    *  layers need redrawing. */
   gestureLayerIds(op: Operation): string[] {
     const strokeId = op.type === 'stroke' ? op.strokeId : undefined
-    // `layerId` is declared optional on three operation types (#412/#413 kept
-    // the singular field for logs recorded before the plural one), so the `in`
-    // check proves the property exists and not that it holds anything. Without
-    // the second half this is `(string | undefined)[]`, which is what broke
-    // the typecheck on main at 61012e5.
-    const own = 'layerId' in op && op.layerId !== undefined ? [op.layerId] : []
+    // `typeof` and not just `in`: on the operations #412 gave a `layerIds`
+    // list to, `layerId` is still declared, optional, and absent — so the
+    // property test alone answers `string | undefined`.
+    const own = 'layerId' in op && typeof op.layerId === 'string' ? [op.layerId] : []
     if (!strokeId) return own
     const ids = new Set(own)
     for (const e of this._entries) {

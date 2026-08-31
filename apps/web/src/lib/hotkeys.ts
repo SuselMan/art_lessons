@@ -84,6 +84,19 @@ export const HOTKEY_ACTIONS: readonly HotkeyActionDef[] = [
   { id: 'undo', labelKey: 'hotkey.undo', default: { code: 'KeyZ', mod: true, shift: false } },
   { id: 'redo', labelKey: 'hotkey.redo', default: { code: 'KeyZ', mod: true, shift: true } },
   { id: 'toggleEraser', labelKey: 'hotkey.toggleEraser', default: { code: 'KeyE', mod: false, shift: false } },
+  // (#520) Shift+E rather than a letter of its own: this is the eraser wearing
+  // a different mode, and Shift over that tool's own key says so without
+  // spending one of the letters still free (D/F/J/K/N/O/P/Q/V/X/Y) on a
+  // setting. Same shape as Shift on the size keys next to `rotateCCW`, where
+  // the shifted press is a variation on the unshifted one rather than an
+  // unrelated action.
+  //
+  // The setting it flips is on the eraser and reachable by finger on a tablet
+  // (toolSchemas' `throughLayers`, in the quick column). This is the desktop
+  // half that #520 deliberately left for later — a modifier was the original
+  // ask, and could not be the *only* way in, because the tablet the app is
+  // drawn on has nothing to hold down.
+  { id: 'eraseThroughLayers', labelKey: 'hotkey.eraseThroughLayers', default: { code: 'KeyE', mod: false, shift: true } },
   { id: 'toggleSmudge', labelKey: 'hotkey.toggleSmudge', default: { code: 'KeyS', mod: false, shift: false } },
   { id: 'toggleCharcoal', labelKey: 'hotkey.toggleCharcoal', default: { code: 'KeyC', mod: false, shift: false } },
   { id: 'toggleLiner', labelKey: 'hotkey.toggleLiner', default: { code: 'KeyL', mod: false, shift: false } },

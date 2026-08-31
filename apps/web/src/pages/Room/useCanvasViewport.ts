@@ -1,7 +1,7 @@
 import { useEffect, type RefObject } from 'react'
 
 import type { PencilEngineAPI } from '../../engine'
-import { backingStoreZoom, screenToWorld } from './cameraMath'
+import { backingStoreZoom, viewCentreWorld } from './cameraMath'
 import type { Viewport } from './useViewport'
 
 export interface CanvasViewportInput {
@@ -64,25 +64,14 @@ export function useCanvasViewport(
       // screenToWorld (#143 factored this out of an inline hand-solved
       // version so the overlay components below could share the exact
       // same conversion instead of re-deriving it).
-      const { x, y } = screenToWorld(el.clientWidth / 2, el.clientHeight / 2, vp)
-      // (#470) Two conventions meet here, and the offset between them is
-      // exactly half a sheet. `vp.cx/cy` is where the *canvas centre* sits on
-      // screen — that is what the CSS transform this replaced meant by it
-      // (`... scale(zoom) translate(-w/2,-h/2)`), and every gesture in
-      // useViewport still produces it. screenToWorld inverts that about
-      // (cx,cy), so what it returns for a bounded room is the offset from the
-      // sheet's centre, not a world point. The rotation drops out: the half
-      // translate happens before scale and rotate, so this correction is a
-      // plain addition at any angle.
-      const wx = pageW === undefined ? x : x + pageW / 2
-      const wy = pageH === undefined ? y : y + pageH / 2
-      // vp.zoom is CSS px per world unit; the engine renders into a
-      // DPR-sized backing store (see the ResizeObserver below), so it wants
-      // physical px per world unit — see deviceNativeZoom's doc comment.
-      // (#470) Must be the same scale the ResizeObserver sized the store to,
-      // or the camera and the canvas disagree about how big a world unit is.
+      // (#521) `viewCentreWorld` now owns the half-a-sheet correction that
+      // used to sit here as a hand-written addition after `screenToWorld`:
+      // a paste carried in from another room aims at the same world point the
+      // camera does, and two hand-rolled copies of that correction is how the
+      // two come to disagree.
+      const { x, y } = viewCentreWorld(el.clientWidth, el.clientHeight, vp, pageW, pageH)
       const nz = backingStoreZoom(infinite, el.clientWidth, el.clientHeight)
-      engineRef.current?.setInfiniteCamera(wx, wy, vp.zoom / nz, vp.angle)
+      engineRef.current?.setInfiniteCamera(x, y, vp.zoom / nz, vp.angle)
     }
   }, [vp, vpRef])
 
