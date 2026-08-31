@@ -234,6 +234,38 @@ export function screenToWorld(screenX: number, screenY: number, vp: Viewport): {
   }
 }
 
+/** The world point sitting at the centre of the viewport — what the engine's
+ *  camera is aimed at, and (#521) where a paste carried in from another room
+ *  is centred.
+ *
+ *  (#470) Two conventions meet here, and the offset between them is exactly
+ *  half a sheet. `vp.cx/cy` is where the *canvas centre* sits on screen — that
+ *  is what the CSS transform this replaced meant by it (`... scale(zoom)
+ *  translate(-w/2,-h/2)`), and every gesture in useViewport still produces it.
+ *  `screenToWorld` inverts that about (cx,cy), so what it returns for a
+ *  bounded room is the offset from the sheet's centre, not a world point. The
+ *  rotation drops out: the half translate happens before scale and rotate, so
+ *  this correction is a plain addition at any angle.
+ *
+ *  `pageW`/`pageH` are the sheet in world units, `undefined` for a room with
+ *  no sheet at all. Note that an infinite room is *not* that case today — it
+ *  gets a placeholder finite size (see Room's
+ *  PLACEHOLDER_INFINITE_CANVAS_SIZE), so both kinds of room take the same
+ *  branch, which is precisely why this must be computed in one place rather
+ *  than re-derived per call site.
+ *
+ *  `viewW`/`viewH` are the viewport container's own CSS size. */
+export function viewCentreWorld(
+  viewW: number, viewH: number, vp: Viewport,
+  pageW: number | undefined, pageH: number | undefined,
+): { x: number; y: number } {
+  const { x, y } = screenToWorld(viewW / 2, viewH / 2, vp)
+  return {
+    x: pageW === undefined ? x : x + pageW / 2,
+    y: pageH === undefined ? y : y + pageH / 2,
+  }
+}
+
 /** CSS transform string for a wrapper that carries *only* the overlay layer
  *  in an infinite room — never the `<canvas>` itself, which the engine
  *  already draws camera-relative content directly into (setInfiniteCamera);
