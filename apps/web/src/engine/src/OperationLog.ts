@@ -208,6 +208,33 @@ export class OperationLog {
       e.state === state && e.op.type === 'stroke' && e.op.userId === op.userId && e.op.strokeId === strokeId)
   }
 
+  /** (#520) Every layer the gesture `op` belongs to has pixels on — `op`'s own
+   *  layer alone for anything that isn't part of a multi-operation stroke.
+   *
+   *  Whoever flips a gesture's state has to rebuild all of them, and until an
+   *  eraser could go through layers that was the same thing as rebuilding one:
+   *  a chunked stroke's operations all sit on the layer it was drawn on. A
+   *  cross-layer erase is one gesture spread over several, so undoing it while
+   *  rebuilding only the target's layer brings the ink back on that one layer
+   *  and leaves every other one erased — with the log now saying the erase never
+   *  happened anywhere, which the next rebuild of those layers would agree with.
+   *  A picture that repairs itself only when something unrelated forces a
+   *  rebuild is the worst version of this bug, so it is fixed at the source.
+   *
+   *  Reads entries in *any* state on purpose: the caller has already flipped
+   *  them, and which side of the flip they are on says nothing about which
+   *  layers need redrawing. */
+  gestureLayerIds(op: Operation): string[] {
+    const strokeId = op.type === 'stroke' ? op.strokeId : undefined
+    const own = 'layerId' in op ? [op.layerId] : []
+    if (!strokeId) return own
+    const ids = new Set(own)
+    for (const e of this._entries) {
+      if (e.op.type === 'stroke' && e.op.userId === op.userId && e.op.strokeId === strokeId) ids.add(e.op.layerId)
+    }
+    return [...ids]
+  }
+
   /** Symmetric with `applyUndo`: undone → done for one specific entry. */
   applyRedo(targetOpId: string, userId: string): Operation | null {
     const target = this._entries.find(e => e.op.id === targetOpId && e.state === 'undone' && e.op.userId === userId)

@@ -13,6 +13,7 @@ import {
   applyContentOp, replayLayerState, overlayLocalFields, sanitizeSelection,
   removeItems, parentOf, computeCompositeOrder, computeMergeOrder, getVisibleOrder,
   collectDescendants, isLayerLocked, isEffectivelyVisible, placementAbove, ancestorsOf,
+  eraseThroughTargets,
 } from './layers'
 
 function layer(id: string, overrides: Partial<RasterLayer> = {}): RasterLayer {
@@ -1007,5 +1008,73 @@ describe('nested folders (#410)', () => {
     const next = applyContentOp(state, op)
     expect(next.items.f2).toMatchObject({ children: ['merged'] })
     expect(next.rootOrder).toEqual(['f1'])
+  })
+})
+
+// (#520) The eraser's cross-layer mode. What matters here is not the list
+// itself but that it can never be wider than "layers an ordinary stroke could
+// already reach" — a person protects a layer from this tool with the same eye
+// and the same padlock they already use, and if that stopped holding, the tool
+// would be quietly deleting work behind a control that says it is safe.
+describe('eraseThroughTargets', () => {
+  // Composite order (bottom→top), because that is the list this is filtered
+  // from. Nothing about erasing depends on the order — it is asserted as-is
+  // rather than sorted so a change of source list shows up here.
+  it('takes every visible unlocked raster layer and never the background', () => {
+    const state = stateOf({
+      [BACKGROUND_LAYER_ID]: layer(BACKGROUND_LAYER_ID),
+      a: layer('a'), b: layer('b'), c: layer('c'),
+    }, ['a', 'b', 'c', BACKGROUND_LAYER_ID])
+
+    expect(eraseThroughTargets(state)).toEqual(['c', 'b', 'a'])
+  })
+
+  it('leaves out hidden and locked layers', () => {
+    const state = stateOf({
+      a: layer('a'),
+      hidden: layer('hidden', { visible: false }),
+      locked: layer('locked', { locked: true }),
+      d: layer('d'),
+    }, ['a', 'hidden', 'locked', 'd'])
+
+    expect(eraseThroughTargets(state)).toEqual(['d', 'a'])
+  })
+
+  // A folder's eye hides what is inside it, so the layers inside are not
+  // visible either — the same rule that already stops an ordinary stroke.
+  it('leaves out layers inside a hidden folder, and the folders themselves', () => {
+    const state = stateOf({
+      f: folder('f', ['inside']),
+      inside: layer('inside'),
+      hiddenF: folder('hiddenF', ['buried'], { visible: false }),
+      buried: layer('buried'),
+    }, ['f', 'hiddenF'])
+
+    expect(eraseThroughTargets(state)).toEqual(['inside'])
+  })
+
+  // (#488) An owner lock reserves a layer against everyone but the owner, so
+  // the same room gives two different answers depending on who is asking. It
+  // has to: a non-owner's cross-layer erase would be rejected by the server on
+  // exactly those layers, after the ink had already been taken off locally.
+  it('respects the owner lock, per viewer', () => {
+    const state = stateOf({
+      a: layer('a'),
+      reserved: layer('reserved', { ownerLocked: true }),
+    }, ['a', 'reserved'])
+
+    expect(eraseThroughTargets(state, false)).toEqual(['a'])
+    expect(eraseThroughTargets(state, true)).toEqual(['reserved', 'a'])
+  })
+
+  // A collapsed folder is closed in the panel, not hidden on the canvas: its
+  // layers are still in the composite, so they are still erasable.
+  it('reaches layers inside a collapsed folder', () => {
+    const state = stateOf({
+      f: folder('f', ['inside'], { collapsed: true }),
+      inside: layer('inside'),
+    }, ['f'])
+
+    expect(eraseThroughTargets(state)).toEqual(['inside'])
   })
 })
