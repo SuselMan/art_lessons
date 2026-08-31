@@ -1119,8 +1119,18 @@ interface Checkpoint {
   opIds: string[]
   tiles: CheckpointTile[]
   // (#287) Set only for the synthetic checkpoint restoreLayerFromSnapshot
-  // seeds — see its own doc comment for why this one must never be evicted
-  // by the byte budget below the way an ordinary checkpoint can be.
+  // seeds — the pixels a network snapshot brought in, for which this
+  // checkpoint is the only local record: the operations that painted them are
+  // below the log window and will never arrive.
+  //
+  // (#522) Split from `pinned`, which used to mean both "came from a snapshot"
+  // and "exempt from eviction". Those two stop coinciding the moment the
+  // layer's buffer is destroyed — see _destroyBuffer.
+  fromSnapshot?: boolean
+  // Exempt from the byte-budget eviction an ordinary checkpoint is subject to,
+  // because losing this one loses content rather than just speed. Held only
+  // while the layer is alive; a destroyed layer's checkpoint stays but becomes
+  // evictable (#522).
   pinned?: boolean
   // (#479) Pinned checkpoints only. The room seq the restored pixels were
   // baked at, and the ids of log operations those pixels already contain.
@@ -2205,6 +2215,15 @@ export class PencilEngine implements PencilEngineAPI {
   // (#374) layerId -> the room seq this layer's restored pixels reach. Written
   // only by restoreLayerFromSnapshot, read only by _isCoveredByRestore.
   private readonly _snapshotCoverage = new Map<string, number>()
+  // (#522) Layers this engine knows it cannot describe truthfully any more: a
+  // rebuild replayed one whose pixels reach below the log window, without the
+  // snapshot checkpoint that held them. The canvas is already wrong here and
+  // only a reload fixes that — but a *stored* snapshot of it is worse than
+  // none, because the server then withholds the operations it claims to cover
+  // (rooms.ts's isCoveredBySnapshot) and the loss becomes everyone's, forever.
+  // So the bake refuses instead. Cleared by a restore, which makes the layer
+  // authoritative again.
+  private readonly _unbakeableLayers = new Set<string>()
   // (#474) One record per restoreLayerFromSnapshot call since the last drain —
   // see takeSnapshotRestoreAudit. Bounded by the number of layers in a room's
   // snapshot index and emptied by every read, so it cannot grow with session
@@ -3852,6 +3871,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._checkpointBytes = 0
     // (#381) Nothing left to rebuild into — the buffers are gone.
     this._pendingRebuilds.clear()
+    // (#522) Nor is there a layer left to refuse to publish; whatever restores
+    // into this engine next is what it will have to answer for.
+    this._unbakeableLayers.clear()
   }
 
   // ─── History / replay ────────────────────────────────────────────────────────
@@ -3984,6 +4006,16 @@ export class PencilEngine implements PencilEngineAPI {
     const buf = this._layers.get(layerId)
     if (!buf) return
     this._replayInto(buf, layerId, this._log.layerPixelOps(layerId))
+    // (#522) A layer whose pixels reach below the log window can only be
+    // rebuilt from its snapshot checkpoint. If that is gone — evicted once the
+    // layer was destroyed and unpinned — the replay above just produced a
+    // knowingly incomplete layer, and this is the one place that can tell:
+    // afterwards nothing distinguishes it from a layer that is simply emptier
+    // than it used to be.
+    if (this._snapshotCoverage.has(layerId)
+      && !this._checkpoints.some(cp => cp.fromSnapshot && cp.layerId === layerId)) {
+      this._unbakeableLayers.add(layerId)
+    }
     // (#373) The single choke point for undo/redo/revoke reaching pixels —
     // the case a comparison of log counts cannot see, since undoing one
     // operation and drawing another leaves every count where it was.
@@ -4647,6 +4679,9 @@ export class PencilEngine implements PencilEngineAPI {
   bakeNetworkSnapshot(layerId: string): Uint8Array | null {
     const buf = this._layers.get(layerId)
     if (!buf) return null
+    // (#522) See _unbakeableLayers: publishing what this client holds would
+    // overwrite the room's own record of the layer with less than it has.
+    if (this._unbakeableLayers.has(layerId)) return null
     // (#373) Content is judged from the buffer, never from the log. It used to
     // bail on `layerPixelOps(layerId).length === 0`, reading "no operations of
     // mine mention this layer" as "this layer is empty" — but the log is a
@@ -4877,14 +4912,24 @@ export class PencilEngine implements PencilEngineAPI {
    *  against the newer, more complete one at the same (empty) opIds length. */
   private _pinSnapshotCheckpoint(layerId: string, tiles: SnapshotTile[], coveredSeq?: number): void {
     if (!tiles.length) return
+    // (#522) Matched on `fromSnapshot`, not on `pinned`: a layer that was
+    // destroyed and restored again has an unpinned snapshot checkpoint of its
+    // own, and leaving it behind would put two of them in the list for one
+    // layer — _bestCheckpoint prefers neither (both claim `opIds: []`), so the
+    // stale one could win and repaint the layer as it was two restores ago.
     for (let i = this._checkpoints.length - 1; i >= 0; i--) {
       const cp = this._checkpoints[i]
-      if (cp.pinned && cp.layerId === layerId) {
+      if (cp.fromSnapshot && cp.layerId === layerId) {
         this._checkpointBytes -= cp.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
         this._checkpoints.splice(i, 1)
       }
     }
-    this._checkpoints.push({ layerId, opIds: [], tiles, pinned: true, coveredSeq, covered: new Set() })
+    // These pixels are authoritative again, so whatever made this layer
+    // unpublishable no longer holds (#522).
+    this._unbakeableLayers.delete(layerId)
+    this._checkpoints.push({
+      layerId, opIds: [], tiles, fromSnapshot: true, pinned: true, coveredSeq, covered: new Set(),
+    })
     this._checkpointBytes += tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
     this._evictCheckpointsOverBudget()
   }
@@ -4960,18 +5005,31 @@ export class PencilEngine implements PencilEngineAPI {
       buf.destroy()
       this._layers.delete(id)
     }
-    // (#287) A pinned checkpoint (see restoreLayerFromSnapshot) is exempt
-    // from budget eviction, so unlike an ordinary one it would otherwise
-    // linger forever for a layer id that's gone for good (ids are never
-    // reused — see _syncBuffersToLog's own doc comment) instead of ever
-    // being reclaimed.
-    for (let i = this._checkpoints.length - 1; i >= 0; i--) {
-      const cp = this._checkpoints[i]
-      if (cp.pinned && cp.layerId === id) {
-        this._checkpointBytes -= cp.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
-        this._checkpoints.splice(i, 1)
-      }
+    // (#522) Unpinned, not dropped. This used to delete the snapshot
+    // checkpoint outright, reasoning that a pinned one is exempt from budget
+    // eviction and so would linger forever for a layer id that is gone for
+    // good — ids are never reused, so nothing would ever reclaim it.
+    //
+    // The reclamation half of that is right; "gone for good" is not. The two
+    // operations that reach here — `layer_delete` and a merge consuming its
+    // sources — are both undoable, and undoing one brings the *same* id back
+    // (see _syncBuffersToLog). What comes back is an empty buffer that
+    // _rebuildLayer then repaints by replaying the layer's log, and the log
+    // below the snapshot is exactly what this client does not have. Dropping
+    // the checkpoint therefore did not free a dead layer's memory, it threw
+    // away the only local copy of a live one's pixels — #287 reopened through
+    // a door it never looked at.
+    //
+    // Clearing `pinned` keeps both properties: the checkpoint stays findable
+    // if the layer is revived, and it is now an ordinary eviction candidate,
+    // so a genuinely dead layer's bytes come back under memory pressure
+    // instead of lingering. The sweep is immediate, so a room that deletes
+    // many restored layers does not sit above budget until the next
+    // checkpoint is taken.
+    for (const cp of this._checkpoints) {
+      if (cp.fromSnapshot && cp.layerId === id) cp.pinned = false
     }
+    this._evictCheckpointsOverBudget()
   }
 
   private _initGL(): void {
