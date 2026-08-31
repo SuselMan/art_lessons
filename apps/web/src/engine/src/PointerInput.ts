@@ -86,6 +86,10 @@ export class PointerInput {
   private _down: (e: PointerEvent) => void
   // (#517) The window-level twin of _down, capture phase — see _handleWindowDown.
   private _windowDown: (e: PointerEvent) => void
+  // (#517) The touch-event channel and the main-thread stall detector — see
+  // _handleWindowTouchStart and _startStallWatch.
+  private _windowTouchStart: (e: TouchEvent) => void
+  private _stallTimer: ReturnType<typeof setInterval> | null
   private _move: (e: PointerEvent) => void
   private _up: (e: PointerEvent) => void
 
@@ -106,6 +110,8 @@ export class PointerInput {
 
     this._down   = this._handleDown.bind(this)
     this._windowDown = this._handleWindowDown.bind(this)
+    this._windowTouchStart = this._handleWindowTouchStart.bind(this)
+    this._stallTimer = null
     this._move   = this._handleMove.bind(this)
     this._up     = this._handleUp.bind(this)
 
@@ -119,7 +125,13 @@ export class PointerInput {
     // addEventListener but there is no DOM global at all. Everything this
     // probe answers is about a real browser, so having it simply not exist
     // off one is correct rather than a compromise.
-    if (typeof window !== 'undefined') window.addEventListener('pointerdown', this._windowDown, true)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('pointerdown', this._windowDown, true)
+      // (#517) The other event channel the same contact travels on — see
+      // _handleWindowTouchStart.
+      window.addEventListener('touchstart', this._windowTouchStart, true)
+      this._startStallWatch()
+    }
     canvas.addEventListener('pointermove',   this._move)
     canvas.addEventListener('pointerup',     this._up)
     canvas.addEventListener('pointercancel', this._up)
@@ -213,6 +225,59 @@ export class PointerInput {
     const speed = Math.hypot(x - this._lastX, y - this._lastY) / dt
 
     return this._toPointerData(e, x, y, speed)
+  }
+
+  /** (#517) The same physical contact, seen on the *other* channel.
+   *
+   *  On iOS a pointer event is derived from a touch event, not produced
+   *  independently — so a press that never arrives as `pointerdown` may still
+   *  have arrived as `touchstart`. That is not a fine distinction here, it is
+   *  the difference between two completely different bugs and two completely
+   *  different fixes:
+   *
+   *   - `touchstart` fires and `pointerdown` does not — WebKit built the touch
+   *     and then declined to derive a pointer event from it. Ours to work
+   *     around, and the workaround is available: the touch carries the same
+   *     coordinates, and `touchType === 'stylus'` identifies the pencil.
+   *   - neither fires — the contact never reached the web content at all, and
+   *     no amount of listening will recover it. The answer is then in what the
+   *     page did to earn that (a blocked main thread — see _startStallWatch —
+   *     or a system gesture claiming the touch).
+   *
+   *  `touchType` is WebKit's own, absent from lib.dom, hence the local shape
+   *  rather than a cast to any. */
+  private _handleWindowTouchStart(e: TouchEvent): void {
+    const t = e.changedTouches[0] as (Touch & { touchType?: string }) | undefined
+    diagLog('[PointerInput] WINDOW touchstart', {
+      touches: e.touches.length, changed: e.changedTouches.length,
+      touchType: t?.touchType ?? 'unknown',
+      onCanvas: e.target === this.canvas,
+    })
+  }
+
+  /** (#517) How long the main thread was blocked, sampled where a blocked main
+   *  thread is actually dangerous.
+   *
+   *  iOS decides whether the web content is responsive enough to be handed a
+   *  gesture. A stall long enough to fail that test means the press is claimed
+   *  by the system and the page is never told — which is exactly the shape of
+   *  the missing strokes, and would make this our bug (heavy work on the
+   *  drawing path) rather than WebKit's.
+   *
+   *  A 100 ms interval rather than requestAnimationFrame on purpose: rAF runs
+   *  once per frame and would both cost more and be throttled by the very
+   *  thing it is trying to measure. A timer that should fire at 100 ms and
+   *  fires at 600 instead has measured a 500 ms block directly. Only lateness
+   *  past the threshold speaks, so an idle session stays silent. */
+  private _startStallWatch(): void {
+    const period = 100
+    let expected = performance.now() + period
+    this._stallTimer = setInterval(() => {
+      const now = performance.now()
+      const late = now - expected
+      expected = now + period
+      if (late > 250) diagLog('[PointerInput] MAIN THREAD BLOCKED', { ms: Math.round(late) })
+    }, period)
   }
 
   /** (#517) Every pointerdown the page receives, whatever it lands on, logged
@@ -430,7 +495,11 @@ export class PointerInput {
   destroy(): void {
     const c = this.canvas
     c.removeEventListener('pointerdown',   this._down)
-    if (typeof window !== 'undefined') window.removeEventListener('pointerdown', this._windowDown, true)
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('pointerdown', this._windowDown, true)
+      window.removeEventListener('touchstart', this._windowTouchStart, true)
+    }
+    if (this._stallTimer !== null) { clearInterval(this._stallTimer); this._stallTimer = null }
     c.removeEventListener('pointermove',   this._move)
     c.removeEventListener('pointerup',     this._up)
     c.removeEventListener('pointercancel', this._up)
