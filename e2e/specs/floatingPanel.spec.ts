@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { SLOT_RADIUS } from '../../apps/web/src/components/FloatingToolPanel/slots'
 import {
   activeLayerId, createRoom, drawStroke, hasLayerContent, waitForOperations, waitForRoomReady,
 } from '../support/room'
@@ -26,14 +27,25 @@ async function panelBox(page: Page): Promise<{ x: number; y: number }> {
   return { x: box.x, y: box.y }
 }
 
-/** A point on the panel's own body: out along the down-right diagonal, past
- *  the color dot in the middle and clear of all four buttons, which sit at the
- *  compass points. Still inside the circle — the panel is `border-radius: 50%`,
- *  so the bounding box's actual corners are not on it. */
+/** A point on the panel's own body — bare disc, no button under it.
+ *
+ *  Aimed halfway between two neighbouring slots (22.5° off an axis, since the
+ *  eight of them sit 45° apart) and at half the compass radius, which puts it
+ *  clear of the slot ring on one side and of the centre colour dot on the
+ *  other. Computed from the panel's own constants rather than as a fraction of
+ *  the box: this used to be "78% along the diagonal", which was bare disc when
+ *  the panel had four buttons at the compass points and became the middle of
+ *  the south-east slot the moment it grew eight. A literal fraction cannot say
+ *  why it is that fraction, so it cannot notice when it stops being true. */
 async function panelBodyPoint(page: Page): Promise<{ x: number; y: number }> {
   const box = await page.locator(PANEL).boundingBox()
   if (!box) throw new Error('e2e: the floating panel has no box — is it visible at all?')
-  return { x: box.x + box.width * 0.78, y: box.y + box.height * 0.78 }
+  const angle = Math.PI / 8
+  const radius = SLOT_RADIUS / 2
+  return {
+    x: box.x + box.width / 2 + Math.cos(angle) * radius,
+    y: box.y + box.height / 2 + Math.sin(angle) * radius,
+  }
 }
 
 /** Presses the panel's Undo button, drifts `drift` px to the *left*, and
