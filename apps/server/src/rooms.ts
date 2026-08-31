@@ -7,7 +7,7 @@ import type { Prisma } from '@prisma/client'
 import type { Operation, Participant, RejectReason, Room, RoomAccessMode } from '@grafetto/shared'
 import {
   ANNOTATION_OP_TYPES, DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL,
-  isAnnotationOperation, operationLayerIds,
+  isAnnotationOperation, operationLayerIds, paintedLayerIds,
 } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
@@ -105,6 +105,25 @@ interface RoomRecord {
   // `roomFrozen`/`frozenUserIds`) this mirrors real operation-log content,
   // not ephemeral session state.
   lockedLayerIds: Set<string>
+  // (#518) The *other* lock's mirror, kept the same way and deliberately not
+  // merged into the set above: the two are different rules, not two spellings
+  // of one. `lockedLayerIds` is the owner reserving a layer and stops everyone
+  // but the owner, from touching it at all; this one stops *painting*, from
+  // every hand including the owner's, and leaves renaming/moving/clearing/
+  // deleting alone. Merging them would silently give each the other's blast
+  // radius.
+  //
+  // Under-locks rather than over-locks where it cannot be sure, on purpose.
+  // It is folded from the *resident* operation window (see
+  // loadResidentOperations), so a `layer_lock` old enough to have been
+  // snapshot-covered is simply not seen on a cold load, and an undo of one is
+  // resolved by dropping the layer from the set (see setLayerLocked). Both
+  // land on "not locked", because the cost is asymmetric: a lock this misses
+  // is a courtesy the client is already enforcing on every participant's
+  // screen, while a lock this invents refuses real drawing that nothing in the
+  // UI explains — the failure `aliveIds` is written to avoid, for the same
+  // reason.
+  sharedLockedLayerIds: Set<string>
   // (#289 epic, reliable history spec v0.2 §8) Which layerId/folderId are
   // currently alive — created (the baked-in `IMPLICIT_LAYER_IDS`, or a done
   // `layer_add`/`folder_add`/`layer_merge` result) and not since destroyed
@@ -632,11 +651,15 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
   // roomFrozen/frozenUserIds below, which never touch Postgres at all), so a
   // cold-loaded room must replay its history to know which layers are
   // locked, the same way a client's own applyContentOp would.
+  // (#518) The shared lock (`layer_lock`) is rebuilt in the same pass, from
+  // the same log, for the same reason — it is a persisted operation too.
   const lockedLayerIds = new Set<string>()
+  const sharedLockedLayerIds = new Set<string>()
   for (const op of operations) {
-    if (op.type !== 'layer_owner_lock') continue
-    if (op.locked) lockedLayerIds.add(op.layerId)
-    else lockedLayerIds.delete(op.layerId)
+    if (op.type !== 'layer_owner_lock' && op.type !== 'layer_lock') continue
+    const target = op.type === 'layer_owner_lock' ? lockedLayerIds : sharedLockedLayerIds
+    if (op.locked) target.add(op.layerId)
+    else target.delete(op.layerId)
   }
 
   // (#289 epic) Rebuild the aliveIds/deletedIds mirrors the same way — see
@@ -661,6 +684,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
     roomFrozen: false,
     frozenUserIds: new Set(),
     lockedLayerIds,
+    sharedLockedLayerIds,
     aliveIds,
     deletedIds,
     operationsById: new Map(operations.map(op => [op.id, op])),
@@ -734,6 +758,7 @@ export function createRoom(
     room, passwordHash, operations: [], participants, nextSeq: 1, palette,
     layerStateSeq: null, layerStateIds: null, coveredSeqByLayer: new Map(),
     roomFrozen: false, frozenUserIds: new Set(), lockedLayerIds: new Set(),
+    sharedLockedLayerIds: new Set(),
     aliveIds: new Set(IMPLICIT_LAYER_IDS), deletedIds: new Set(), operationsById: new Map(),
     structuralLog: [],
   })
@@ -1099,6 +1124,46 @@ export function setLayerOwnerLocked(roomId: string, layerId: string, locked: boo
   else record.lockedLayerIds.delete(layerId)
 }
 
+export function isLayerLocked(roomId: string, layerId: string): boolean {
+  return rooms.get(roomId)?.sharedLockedLayerIds.has(layerId) ?? false
+}
+
+/** (#518) The shared lock's mirror, updated exactly where the owner lock's is
+ *  — see setLayerOwnerLocked above. */
+export function setLayerLocked(roomId: string, layerId: string, locked: boolean): void {
+  const record = rooms.get(roomId)
+  if (!record) return
+  if (locked) record.sharedLockedLayerIds.add(layerId)
+  else record.sharedLockedLayerIds.delete(layerId)
+}
+
+/** (#518) Undo/redo of a `layer_lock`, resolved by giving the lock up.
+ *
+ *  A client folds undo properly: its log knows which entries are `done` and
+ *  recomputes the flag from them. The server has no such fold for anything but
+ *  structural operations (see `structuralLog`, which exists precisely because
+ *  reconstructing undo state is not free), so it cannot say what the flag
+ *  became — only that it changed.
+ *
+ *  Which is why this releases rather than guesses. The mirror's whole job is
+ *  to stop a stale or hostile client from painting through a lock everyone
+ *  else can see; a lock it lets go of is still enforced on every real client
+ *  in the room, whereas a lock it holds after the room has released it refuses
+ *  drawing that no padlock on screen accounts for, with no way for the user to
+ *  clear it. The next `layer_lock` operation re-establishes the truth either
+ *  way — including the one a client sends when someone re-locks the layer.
+ *
+ *  Cheap to reach and rarely taken: only an undo/redo whose target is itself a
+ *  lock operation gets here, which is why the lookup is against
+ *  `operationsById` rather than a scan. */
+export function releaseLockOnUndo(roomId: string, op: Operation): void {
+  if (op.type !== 'operation_undo' && op.type !== 'operation_redo') return
+  const record = rooms.get(roomId)
+  if (!record) return
+  const target = record.operationsById.get(op.targetOpId)
+  if (target?.type === 'layer_lock') record.sharedLockedLayerIds.delete(target.layerId)
+}
+
 /** The single choke point for "should this operation be applied" (#254
  *  epic) — pure and synchronous so it's unit-testable without a live
  *  socket.io harness (see rooms.test.ts). Folds together every owner-only
@@ -1159,6 +1224,20 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
   // the person holding it.
   if (record.room.closedAt !== undefined) return 'room_closed'
 
+  // (#518) Before the owner short-circuit, like `room_closed` above and for a
+  // related reason: the shared lock is not a privilege one person holds over
+  // others, it is a claim about the layer that everybody in the room can make
+  // and everybody can take back — the owner included. An owner exemption here
+  // would make it a second owner lock, which the room already has.
+  //
+  // Narrow on purpose: only the operations that paint (`paintedLayerIds`), so
+  // a locked layer can still be renamed, moved, cleared, duplicated and
+  // deleted. That is the same line the client draws — see lib/layers.ts's
+  // `isLockedAgainst`, which is what stops these ever being sent by a current
+  // build. This check is for the ones that are not: an old tab, a replayed
+  // packet, anything that has been out of the room while the lock went on.
+  if (sharedLockedTargets(record, op)) return 'layer_locked'
+
   if (isOwner) return null
 
   if (record.roomFrozen) return 'room_frozen'
@@ -1180,15 +1259,39 @@ export function getOperationRejectReason(roomId: string, userId: string, op: Ope
  *  now — and it was gated before, so leaving it out would have *removed* a
  *  check rather than failed to add one.
  *
- *  Deliberately unchanged for everything else, including `layer_delete` and
- *  `layer_transform`, which have never been gated here (neither carries a
- *  `layerId`). Whether that is right is a separate question from this one and
- *  does not get answered by accident in a refactor. */
+ *  (#518) `layer_transform` is now gated too — the question the note below
+ *  left open, answered. It carries its targets in `transforms`, so the
+ *  `'layerId' in op` test could never see them, and the result was that the
+ *  one operation able to move a whole layer bodily across the sheet was the
+ *  one operation an owner lock did not stop. `layer_delete` stays out, and
+ *  that is still deliberate: destroying a layer is not the same act as
+ *  quietly rewriting one, and #289's `aliveIds` gate is what governs it.
+ *
+ *  Deliberately unchanged for everything else. */
 function ownerLockedTargets(record: RoomRecord, op: Operation): boolean {
   if (op.type === 'layer_opacity' || op.type === 'layer_visibility' || op.type === 'layer_move') {
     return operationLayerIds(op).some(id => record.lockedLayerIds.has(id))
   }
+  if (op.type === 'layer_transform') {
+    return paintedLayerIds(op).some(id => record.lockedLayerIds.has(id))
+  }
   return 'layerId' in op && record.lockedLayerIds.has(op.layerId)
+}
+
+/** (#518) Whether the operation paints into a layer someone in the room has
+ *  locked. Reads `paintedLayerIds` rather than any field test of its own —
+ *  that is the whole lesson of the note above: a rule written against the
+ *  *shape* of an operation stops seeing operations whose shape it did not
+ *  anticipate, silently, and in the direction that lets things through. */
+function sharedLockedTargets(record: RoomRecord, op: Operation): boolean {
+  if (record.sharedLockedLayerIds.size === 0) return false
+  // `layer_clear` empties a layer from the row's own menu, next to Delete, and
+  // is exempt on both sides — see lib/layers.ts's LOCK_EXEMPT_OP_TYPES for the
+  // reasoning. Named here rather than shared as a list because the two sides
+  // are allowed to disagree in only one direction, and a server that reads its
+  // policy from the client's is not a check.
+  if (op.type === 'layer_clear') return false
+  return paintedLayerIds(op).some(id => record.sharedLockedLayerIds.has(id))
 }
 
 /** True if `op` targets an id that can no longer receive it — see

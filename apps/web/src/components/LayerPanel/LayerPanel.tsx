@@ -34,7 +34,7 @@ import { patchItem } from './utils'
 import { buildDuplicateOps } from './duplicate'
 import {
   isFolder, parentOf, getVisibleOrder, collectDescendants, computeMergeOrder,
-  placementAbove, normalizeMoveSet,
+  placementAbove, normalizeMoveSet, isLockedByAncestor,
 } from '../../lib/layers'
 import { readImageFile } from '../../lib/image'
 import styles from './LayerPanel.module.css'
@@ -1057,6 +1057,7 @@ export const LayerPanel = memo(function LayerPanel({
                   isDragOverFolder={dragOverFolderId === entry.id}
                   isTravelling={draggingIds.has(entry.id)}
                   isOwner={isOwner}
+                  lockedByFolder={isLockedByAncestor(layerState, entry.id, isOwner)}
                   onActivate={handleActivate}
                   onToggleVisible={handleToggleVisible}
                   onToggleLock={handleToggleLock}

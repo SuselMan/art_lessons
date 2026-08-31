@@ -29,7 +29,9 @@ import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool } from '../../components/FloatingToolPanel/tools'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
-import { computeCompositeOrder, eraseThroughTargets, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
+import {
+  computeCompositeOrder, eraseThroughTargets, isEffectivelyVisible, isLayerLocked, isLockedAgainst,
+} from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
@@ -968,6 +970,13 @@ export function Room() {
   const myUserId = useRoomStore(s => s.userId)
   const myParticipant = participants.find(p => p.userId === myUserId)
   const isOwner = myParticipant?.role === 'owner'
+  // (#518) `dispatchOp` has to ask "may I paint here" at the moment of
+  // action, and the owner lock makes that question depend on who is asking.
+  // Through a ref so the answer can change without rebuilding `dispatchOp` —
+  // half the page depends on its identity, and a role that arrives with the
+  // participant list would otherwise re-key all of it.
+  const isOwnerRef = useRef(isOwner)
+  isOwnerRef.current = isOwner
   // (#380) Who is knocking. Owner-only (the hook fetches nothing otherwise),
   // read here rather than inside ParticipantsPanel because the SidePanel tab's
   // badge needs the same count while that panel is collapsed.
@@ -2787,7 +2796,7 @@ export function Room() {
     // silent and complete, where letting it through and rejecting it later
     // costs the drawing.
     engine.setLocked(
-      isLayerLocked(layerState.items[layerState.activeId], isOwner)
+      isLayerLocked(layerState, layerState.activeId, isOwner)
       || !isEffectivelyVisible(layerState, layerState.activeId)
       || !isDrawingTool(tool),
     )
@@ -2972,6 +2981,32 @@ export function Room() {
   // reach anyone else — "drawing into the void" (see its own doc comment).
   const dispatchOp = useCallback((draft: OperationDraft): DispatchedOp | null => {
     if (!roomContentReady || editingBlocked) return null
+    // (#518) The one gate on the lock, for every operation that paints.
+    //
+    // Before this there was exactly one, and it sat on the *pointer* path
+    // (engine.setLocked, see the layer-sync effect above): it stopped a
+    // stroke and nothing else. The transform gizmo, the bucket, and
+    // delete/cut/paste of a selection all reach the canvas without ever
+    // touching that path, so all four rewrote locked layers — which is how a
+    // locked layer could be dragged across the sheet.
+    //
+    // Here rather than at those four call sites because a fifth is always
+    // coming: `isLockedAgainst` refuses whatever `paintedLayerIds` names, so
+    // a new painting operation is covered by being listed in the shared
+    // package, not by whoever adds the tool remembering this rule exists.
+    //
+    // Silent, like the stroke gate it generalizes: the closed padlock in the
+    // layer panel is the explanation, and every route that can reach this in
+    // normal use is already visibly refused before it is taken (the gizmo
+    // does not open on a locked layer, the bucket ignores the tap, the
+    // selection buttons are disabled). Anything that still arrives here is a
+    // path we missed or a stale one — refusing it is the point.
+    //
+    // Emission only. Nothing on the *replay* side asks this: operations
+    // arriving from a peer, from a rejoin, or from redo must apply whatever
+    // the log says, or a layer locked today would lose every stroke drawn on
+    // it yesterday, once, permanently, on every client at the same moment.
+    if (isLockedAgainst(useRoomStore.getState().layerState, draft, isOwnerRef.current)) return null
     const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
 
     if (isLocalIslandSafe(op, pendingIdsRef.current)) {
@@ -3275,10 +3310,18 @@ export function Room() {
   // useMemo'd (not just a plain const) so it has a stable reference to key
   // the bounds-refresh effect below on — without that it would refire every
   // render instead of only on an actual selection change.
+  //
+  // (#518) Locked layers drop out here, which is what makes the gizmo itself
+  // refuse them: with no targets there are no bounds, and with no bounds
+  // nothing is drawn to grab. Filtered rather than all-or-nothing on a mixed
+  // multi-select — the frame then holds exactly the layers it can actually
+  // move, which is both the honest readout and the only version that agrees
+  // with what `dispatchOp` would let through.
   const transformTargetIds = useMemo(() => (
     (layerState.selectedIds.length > 0 ? layerState.selectedIds : [layerState.activeId])
       .filter((layerId): layerId is string => !!layerId && layerId !== BACKGROUND_LAYER_ID && layerState.items[layerId]?.kind === 'layer')
-  ), [layerState])
+      .filter(layerId => !isLayerLocked(layerState, layerId, isOwner))
+  ), [layerState, isOwner])
   // (#399) `transformTargetIds` is a fresh array on every layerState change —
   // i.e. on any peer's stroke — so the session effect keys on this string
   // instead; restarting a session mid-drag because someone else drew would
@@ -3836,6 +3879,14 @@ export function Room() {
     ? layerState.activeId
     : null
 
+  // (#518) Whether that target refuses paint right now. Kept apart from
+  // `paintTargetId` itself rather than folded into it, because the two answer
+  // different questions and one caller wants each: copying a region reads the
+  // layer and is fine on a locked one, everything else here writes to it.
+  const paintTargetLocked = !!paintTargetId && isLayerLocked(layerState, paintTargetId, isOwner)
+  const paintTargetLockedRef = useRef(paintTargetLocked)
+  paintTargetLockedRef.current = paintTargetLocked
+
   const finishSelection = useCallback((points: number[]) => {
     setPendingSelection(null)
     setSelectionCursor(null)
@@ -4039,6 +4090,11 @@ export function Room() {
     const el = vpRef.current
     const layerId = paintTargetIdRef.current
     if (!engine || !el || !config || !layerId || fillBusyRef.current) return
+    // (#518) Refused before the work, not after: the fill's own readback and
+    // scan take long enough to show a busy state, and spending them on a tap
+    // `dispatchOp` will throw away would look like the tool hanging on a
+    // locked layer rather than declining.
+    if (paintTargetLockedRef.current) return
 
     const rect = el.getBoundingClientRect()
     // Layer space, not screen space — #143's rule for everything that reaches
@@ -4692,11 +4748,16 @@ export function Room() {
   const deleteSelectionContents = useCallback(() => {
     const current = useRoomStore.getState().selection
     const layerId = paintTargetIdRef.current
-    if (!current || !layerId) return
+    if (!current || !layerId || paintTargetLockedRef.current) return
     dispatchOp({ type: 'area_clear', layerId, selection: current })
   }, [dispatchOp])
 
   const cutSelection = useCallback(async () => {
+    // (#518) Checked here as well as inside the erase half, and not only for
+    // symmetry: without it a cut on a locked layer would fill the clipboard
+    // and then quietly fail to erase, i.e. behave as a copy while reporting
+    // itself as a cut. Refusing the whole gesture is the honest answer.
+    if (paintTargetLockedRef.current) return
     // Erases only if the pixels were genuinely captured: a cut that emptied
     // the region and then failed to fill the clipboard would destroy work with
     // nothing left to paste back.
@@ -4720,6 +4781,12 @@ export function Room() {
     // onto another layer is the case this whole feature was asked for.
     const targetId = state.layerState.activeId
     if (!entry || !targetId || targetId === BACKGROUND_LAYER_ID) return
+    // (#518) A float is placed by the transform session, and a locked layer is
+    // not among its targets — so without this the pasted piece would open a
+    // session holding nothing: no preview on screen, and a commit with an
+    // empty transform list. Refusing the paste says the same thing in one
+    // step.
+    if (isLayerLocked(state.layerState, targetId, isOwnerRef.current)) return
     void engineRef.current?.preloadImage(entry.image).then(() => {
       pendingPasteRef.current = entry
       // The float occupies exactly the rect it was copied from, so the region
@@ -6750,21 +6817,21 @@ export function Room() {
                 className={styles.toolIconBtn}
                 title={t('selection.cut')}
                 aria-label={t('selection.cut')}
-                disabled={!selection || !paintTargetId}
+                disabled={!selection || !paintTargetId || paintTargetLocked}
                 onClick={() => { void cutSelection() }}
               ><Icon name="content_cut" /></button>
               <button
                 className={styles.toolIconBtn}
                 title={t('selection.paste')}
                 aria-label={t('selection.paste')}
-                disabled={!clipboard}
+                disabled={!clipboard || !paintTargetId || paintTargetLocked}
                 onClick={pasteClipboard}
               ><Icon name="content_paste" /></button>
               <button
                 className={styles.toolIconBtn}
                 title={t('selection.delete')}
                 aria-label={t('selection.delete')}
-                disabled={!selection || !paintTargetId}
+                disabled={!selection || !paintTargetId || paintTargetLocked}
                 onClick={deleteSelectionContents}
               ><Icon name="delete" /></button>
               <button

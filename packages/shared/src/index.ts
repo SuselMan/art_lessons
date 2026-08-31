@@ -668,11 +668,16 @@ export type LayerOwnerLockOperation = OperationBase & {
  *  *nobody* should right now — the "don't touch this one while we work"
  *  everyone in the room can see and undo.
  *
- *  Unlike its owner-only sibling the server does not inspect it: it needs no
- *  privilege to send and enforces nothing beyond what every client already
- *  does on its own. It is nonetheless a real operation rather than local view
- *  state, because the alternative was tried — a lock outside the log cannot
- *  survive a reload, since a reload has no earlier state to carry it from.
+ *  It needs no privilege to send — that is what "anyone may take it off"
+ *  means — but the server does inspect it (#518): it mirrors the flag the
+ *  same way it mirrors `layer_owner_lock`, and refuses painting operations
+ *  aimed at a locked layer from everyone, the room owner included. Until then
+ *  the lock was a client-side courtesy, which is a different feature: any tab
+ *  running an older build, or a stale one, wrote through it into everyone
+ *  else's canvas. It is a real operation rather than local view state for a
+ *  related reason — the alternative was tried, and a lock outside the log
+ *  cannot survive a reload, since a reload has no earlier state to carry it
+ *  from.
  *
  *  Single `layerId` rather than the plural shape `layer_visibility` uses, and
  *  deliberately: the server refuses layerId-bearing operations aimed at an
@@ -1184,6 +1189,50 @@ export type Operation =
   | AnnotationUpdateOperation
   | AnnotationDeleteOperation
 
+/** (#518) The layers whose *pixels* `op` changes — the only question a lock
+ *  needs answered.
+ *
+ *  Exists because the lock used to be enforced in exactly one place: the gate
+ *  on starting a stroke (`engine.setLocked`, see the Room page). Everything
+ *  that paints without going through the pointer pipeline — the transform
+ *  gizmo, the bucket, delete/cut/paste of a selection — walked straight past
+ *  it and rewrote a locked layer. Enumerating the painting operations *here*,
+ *  once, in the package both sides import, is what makes that class of hole
+ *  closable rather than a list of five call sites somebody has to remember to
+ *  extend.
+ *
+ *  The default is the strict one: a new operation type is refused on a locked
+ *  layer only if it is named below, so the failure mode of forgetting to add
+ *  one is a lock that leaks — which is why this returns the honest answer for
+ *  every type rather than a policy. What is *exempt* is decided by the callers
+ *  and stated there.
+ *
+ *  Deliberately not `operationLayerIds`: that reads two fields on the
+ *  structural shape (`layerId`/`layerIds`) and cannot see `layer_transform`'s
+ *  per-layer `transforms` list at all — which is precisely how a transform of
+ *  an owner-locked layer got past the server for as long as it did (see
+ *  rooms.ts's `ownerLockedTargets`). */
+export function paintedLayerIds(op: OperationDraft): string[] {
+  switch (op.type) {
+    case 'stroke':
+    case 'image_import':
+    case 'layer_clear':
+    case 'area_transform':
+    case 'area_clear':
+    case 'area_paste':
+    case 'area_fill':
+      return [op.layerId]
+    case 'layer_transform':
+      return op.transforms.map(t => t.layerId)
+    // A merge writes its pixels into a layer it creates in the same breath
+    // (`layerId` is the *new* layer — see LayerMergeOperation), and a
+    // duplicate likewise. Neither can paint into a layer that already exists,
+    // so neither is a lock question.
+    default:
+      return []
+  }
+}
+
 /** An operation as constructed at the emission site, before identity and
  *  ordering fields are stamped on. Distributes over the union. */
 export type OperationDraft = Operation extends infer O
@@ -1354,6 +1403,13 @@ export type SendResult =
 
 export type RejectReason =
   | 'room_frozen' | 'participant_frozen' | 'layer_owner_locked' | 'not_owner'
+  // (#518) The shared lock (`layer_lock`) — distinct from
+  // `layer_owner_locked` because it is a different rule, not a different
+  // holder of the same one: it stops painting alone (a locked layer can still
+  // be renamed, moved, cleared, duplicated and deleted) and it binds the room
+  // owner too, so neither the reason nor the wording for it is the owner
+  // lock's.
+  | 'layer_locked'
   // (#222) The room is closed for editing (Room.closedAt). Distinct from
   // `room_frozen` on purpose, even though both mean "nobody may draw right
   // now": freeze is a live control the owner is holding down during a lesson,

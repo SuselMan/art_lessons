@@ -1,5 +1,5 @@
-import type { LayerFolder, LayerItem, LayerState, Operation, RasterLayer, LayerMoveOperation } from '@grafetto/shared'
-import { BACKGROUND_LAYER_ID, operationLayerIds } from '@grafetto/shared'
+import type { LayerFolder, LayerItem, LayerState, Operation, OperationDraft, RasterLayer, LayerMoveOperation } from '@grafetto/shared'
+import { BACKGROUND_LAYER_ID, operationLayerIds, paintedLayerIds } from '@grafetto/shared'
 
 export function isFolder(item: LayerItem): item is LayerFolder {
   return item.kind === 'folder'
@@ -21,6 +21,14 @@ export function isFolder(item: LayerItem): item is LayerFolder {
  *   who is asking, which is precisely why this cannot be read off the item
  *   alone.
  *
+ * (#518) And it asks the same of every ancestor folder, exactly as
+ * `isEffectivelyVisible` does — locking a folder locks what is in it, to any
+ * depth. Reading the item's own flag alone was the folder half of the same
+ * hole: the padlock on a folder closed, said so, and its children went on
+ * taking paint. Which is why this takes the state and an id rather than a bare
+ * item — a lock, like visibility, is not a property of the row you are looking
+ * at.
+ *
  * `isOwner` defaults to false — the stricter answer. A caller that forgets to
  * pass it then over-locks (a layer reads as locked when the owner could in fact
  * paint), which shows up as a padlock that will not open. The other default
@@ -31,11 +39,64 @@ export function isFolder(item: LayerItem): item is LayerFolder {
  * paintable simply because nothing ever set one — which is exactly what
  * happened.
  */
-export function isLayerLocked(item: LayerItem | undefined, isOwner = false): boolean {
+export function isLayerLocked(state: LayerState, id: string, isOwner = false): boolean {
+  const item = state.items[id]
   if (!item) return false
-  if (item.id === BACKGROUND_LAYER_ID) return true
+  if (id === BACKGROUND_LAYER_ID) return true
+  if (lockedItself(item, isOwner)) return true
+  return isLockedByAncestor(state, id, isOwner)
+}
+
+/** (#518) Whether the lock refusing this item is one of its *folders'* rather
+ *  than its own — the one thing the layer row's padlock needs on top of the
+ *  answer above. The row has to show a closed lock (the layer really does
+ *  refuse paint) that its own click cannot open (the flag is not on this row),
+ *  and those are two different facts. */
+export function isLockedByAncestor(state: LayerState, id: string, isOwner = false): boolean {
+  return ancestorsOf(state, id).some(pid => {
+    const parent = state.items[pid]
+    return !!parent && lockedItself(parent, isOwner)
+  })
+}
+
+function lockedItself(item: LayerItem, isOwner: boolean): boolean {
   if (item.locked) return true
   return !!item.ownerLocked && !isOwner
+}
+
+/** (#518) Operations a lock deliberately lets through even though they touch
+ *  the layer's pixels.
+ *
+ *  Only `layer_clear`, and only because of where it is reached from: it is an
+ *  action in the layer row's own menu, next to Duplicate and Delete, it names
+ *  the layer it will empty, and it asks first. That puts it with the
+ *  operations the lock was never about — a lock says "my hand will not slip
+ *  onto this while I draw", not "this layer is read-only" (Ilya, 31.08).
+ *  Deleting the layer outright was always allowed; refusing to empty it would
+ *  be a stranger rule than either.
+ *
+ *  Everything else that paints is refused, including the ones that reach the
+ *  canvas through a tool rather than a menu — that is the whole of this
+ *  issue. */
+const LOCK_EXEMPT_OP_TYPES: ReadonlySet<Operation['type']> = new Set<Operation['type']>(['layer_clear'])
+
+/** (#518) Whether the lock refuses this operation — the one question every
+ *  emission site asks, so that no emission site has to remember to.
+ *
+ *  Asked once, in `dispatchOp`, rather than at each of the five places that
+ *  paint (stroke, transform, bucket, area edit, paste). Those five were the
+ *  bug: four of them never asked. A gate on the way *out* is also the only
+ *  shape that stays correct as tools are added, since a new painting
+ *  operation is refused by `paintedLayerIds` naming it, not by whoever writes
+ *  the tool noticing that locks exist.
+ *
+ *  Never on the way *in*. Replay — a peer's operation, a rejoin, an undo —
+ *  must apply what the log says regardless of what is locked now: a stroke
+ *  drawn before the lock is part of the picture, and re-deciding it against
+ *  today's flags would quietly delete work every time the room reloaded. */
+export function isLockedAgainst(state: LayerState, op: OperationDraft, isOwner = false): boolean {
+  if (LOCK_EXEMPT_OP_TYPES.has(op.type)) return false
+  return paintedLayerIds(op).some(id => isLayerLocked(state, id, isOwner))
 }
 
 /** Returns the folder id that holds the item, or null if the item is at root. */
@@ -226,15 +287,17 @@ export function computeCompositeOrder(state: LayerState): { id: string; opacity:
  * picture, so an eraser going through the picture has to reach them. Written
  * the other way first, and a test caught it.
  *
- * Folders are not targets themselves — they hold no pixels — but their
- * visibility reaches their contents (a hidden folder is skipped whole), while
- * their lock does not: locking a folder has never stopped paint reaching the
- * layers inside it, and this is not the place to invent that.
+ * Folders are not targets themselves — they hold no pixels — but both of their
+ * flags reach their contents, and neither reaches it from here: a hidden folder
+ * is skipped whole by the composite walk, and a locked one refuses through
+ * `isLayerLocked`, which asks every ancestor (#518). Which is the point of
+ * filtering on those two functions rather than on the flags: the moment "what
+ * protects a layer" gained a rule, this gained it too, without knowing.
  */
 export function eraseThroughTargets(state: LayerState, isOwner = false): string[] {
   return computeCompositeOrder(state)
     .map(entry => entry.id)
-    .filter(id => !isLayerLocked(state.items[id], isOwner))
+    .filter(id => !isLayerLocked(state, id, isOwner))
 }
 
 /** Bottom→top order of the given layers for merging. Hidden layers are

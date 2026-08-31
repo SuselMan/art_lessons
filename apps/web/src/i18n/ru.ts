@@ -531,6 +531,7 @@ export const ru: Dictionary = {
   'layers.lock': 'Заблокировать',
   'layers.unlock': 'Разблокировать',
   'layers.backgroundLocked': 'Фон всегда заблокирован',
+  'layers.lockedByFolder': 'Заблокирован папкой, в которой лежит',
   'layers.expand': 'Развернуть',
   'layers.collapse': 'Свернуть',
   'layers.more': 'Ещё',
