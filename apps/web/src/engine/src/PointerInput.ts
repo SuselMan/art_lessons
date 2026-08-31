@@ -90,6 +90,10 @@ export class PointerInput {
   // _handleWindowTouchStart and _startStallWatch.
   private _windowTouchStart: (e: TouchEvent) => void
   private _stallTimer: ReturnType<typeof setInterval> | null
+  // (#517) The mitigation, and the two remaining diagnostics — see
+  // _handleCanvasTouchStart and _handleWindowGesture.
+  private _canvasTouchStart: (e: TouchEvent) => void
+  private _windowGesture: (e: Event) => void
   private _move: (e: PointerEvent) => void
   private _up: (e: PointerEvent) => void
 
@@ -112,6 +116,8 @@ export class PointerInput {
     this._windowDown = this._handleWindowDown.bind(this)
     this._windowTouchStart = this._handleWindowTouchStart.bind(this)
     this._stallTimer = null
+    this._canvasTouchStart = this._handleCanvasTouchStart.bind(this)
+    this._windowGesture = this._handleWindowGesture.bind(this)
     this._move   = this._handleMove.bind(this)
     this._up     = this._handleUp.bind(this)
 
@@ -130,12 +136,22 @@ export class PointerInput {
       // (#517) The other event channel the same contact travels on — see
       // _handleWindowTouchStart.
       window.addEventListener('touchstart', this._windowTouchStart, true)
+      // (#517) WebKit's own gesture events, and a touch taken back after it
+      // was given — the two ways a claimed contact could still announce
+      // itself. Plain strings: `gesturestart` is WebKit-only and absent from
+      // lib.dom.
+      window.addEventListener('gesturestart', this._windowGesture, true)
+      window.addEventListener('touchcancel', this._windowGesture, true)
       this._startStallWatch()
     }
     canvas.addEventListener('pointermove',   this._move)
     canvas.addEventListener('pointerup',     this._up)
     canvas.addEventListener('pointercancel', this._up)
     canvas.style.touchAction = 'none'
+    // (#517) See _handleCanvasTouchStart. `passive: false` is the whole point:
+    // a passive listener may not preventDefault, and preventDefault is the
+    // entire content of this subscription.
+    canvas.addEventListener('touchstart', this._canvasTouchStart, { passive: false })
   }
 
   on(event: PointerEventName, fn: PointerHandler): this {
@@ -225,6 +241,46 @@ export class PointerInput {
     const speed = Math.hypot(x - this._lastX, y - this._lastY) / dt
 
     return this._toPointerData(e, x, y, speed)
+  }
+
+  /** (#517) The one lever left, and the only change here that is not a probe.
+   *
+   *  What the captures established: the contact behind a lost stroke reaches
+   *  the page on *neither* channel — no `pointerdown`, no `touchstart` — and
+   *  the main thread was not blocked at the time (the stall watch stayed
+   *  silent). So iPadOS decided the contact was not the web content's, and
+   *  decided it before dispatching anything. Nothing a listener does can
+   *  recover that particular contact.
+   *
+   *  `touch-action: none` is already set, on this canvas and on `body`, and it
+   *  is not enough — which is the finding that makes this worth trying rather
+   *  than a guess. It is the declarative half of the story: it tells WebKit
+   *  which default actions this element forgoes. A non-passive `touchstart`
+   *  that actually calls preventDefault() is the imperative half, and it is
+   *  what tells the UI process, per contact, that the web content is
+   *  consuming touches — which is the input to how the next contact gets
+   *  routed. This is the long-standing workaround for exactly this class of
+   *  swallowed-tap bug on iOS, and it is the reason the listener exists at
+   *  all: there is nothing else in the body.
+   *
+   *  Safe against the gestures this app does have: pan, pinch and rotate are
+   *  driven from pointer events in useViewport, never from touch events or
+   *  from native scrolling, so removing the default action removes nothing
+   *  anyone uses. */
+  private _handleCanvasTouchStart(e: TouchEvent): void {
+    e.preventDefault()
+  }
+
+  /** (#517) The last two ways a contact that never became a pointerdown could
+   *  still say so: WebKit recognising it as a pinch/rotate gesture of its own
+   *  (`gesturestart`, WebKit-only), or handing it over and taking it back
+   *  (`touchcancel`). Either firing where a stroke went missing names the
+   *  claimant; both staying silent while the stroke vanishes says the contact
+   *  was never the page's to begin with. */
+  private _handleWindowGesture(e: Event): void {
+    diagLog('[PointerInput] WINDOW ' + e.type.toUpperCase(), {
+      onCanvas: e.target === this.canvas,
+    })
   }
 
   /** (#517) The same physical contact, seen on the *other* channel.
@@ -498,7 +554,10 @@ export class PointerInput {
     if (typeof window !== 'undefined') {
       window.removeEventListener('pointerdown', this._windowDown, true)
       window.removeEventListener('touchstart', this._windowTouchStart, true)
+      window.removeEventListener('gesturestart', this._windowGesture, true)
+      window.removeEventListener('touchcancel', this._windowGesture, true)
     }
+    c.removeEventListener('touchstart', this._canvasTouchStart)
     if (this._stallTimer !== null) { clearInterval(this._stallTimer); this._stallTimer = null }
     c.removeEventListener('pointermove',   this._move)
     c.removeEventListener('pointerup',     this._up)
