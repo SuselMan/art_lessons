@@ -59,10 +59,16 @@ export interface LayerRowProps {
    *  `.rowMain`). */
   selectionMode?: boolean
   onToggleSelected?: (id: string) => void
+  /** (#518) The row sits inside a folder that is locked. Its own flag is off,
+   *  so its padlock has nothing to open \u2014 but the layer refuses paint all the
+   *  same, and a row showing an open padlock while silently declining every
+   *  stroke is the failure this issue is about. */
+  lockedByFolder?: boolean
 }
 
 function LayerRowImpl({
   item, depth, isActive, isSelected, isDragOverFolder, isTravelling = false, isOwner,
+  lockedByFolder = false,
   onActivate, onToggleVisible, onToggleLock, onToggleOwnerLock, onRename,
   editing = false, onStartEditing, onStopEditing,
   onToggleCollapse, onMergeDown, onDuplicate, onClear, onDelete,
@@ -78,6 +84,15 @@ function LayerRowImpl({
   // and the amber badge below answers for the owner lock separately. Reading
   // isLayerLocked here would light this padlock up for a lock it cannot open.
   const isLocked = isBackground || !!item.locked
+  // (#518) Closed for an inherited lock too, and then inert: the lock it would
+  // open is not on this row. Disabled rather than wired through to the folder
+  // \u2014 unlocking something you did not click is worse than a padlock that says
+  // where the lock actually is, which the tooltip does.
+  const showsLocked = isLocked || lockedByFolder
+  const lockInherited = lockedByFolder && !isLocked
+  const lockLabel = isBackground ? t('layers.backgroundLocked')
+    : lockInherited ? t('layers.lockedByFolder')
+    : t(isLocked ? 'layers.unlock' : 'layers.lock')
   const isOwnerLocked = !!item.ownerLocked
   const collapsed = isFolderItem && !!item.collapsed
 
@@ -179,13 +194,13 @@ function LayerRowImpl({
       {/* The background shows the same lock, permanently on and not clickable:
           it is the paper, and painting on it was never meant to be possible. */}
       <button
-        className={clsx(styles.rowIconBtn, isLocked ? styles.rowIconBtnLocked : styles.rowIconBtnDim)}
+        className={clsx(styles.rowIconBtn, showsLocked ? styles.rowIconBtnLocked : styles.rowIconBtnDim)}
         onClick={e => { e.stopPropagation(); onToggleLock(item.id) }}
-        disabled={isBackground}
-        title={isBackground ? t('layers.backgroundLocked') : t(isLocked ? 'layers.unlock' : 'layers.lock')}
-        aria-label={isBackground ? t('layers.backgroundLocked') : t(isLocked ? 'layers.unlock' : 'layers.lock')}
+        disabled={isBackground || lockInherited}
+        title={lockLabel}
+        aria-label={lockLabel}
       >
-        <Icon name={isLocked ? 'lock' : 'lock_open'} />
+        <Icon name={showsLocked ? 'lock' : 'lock_open'} />
       </button>
 
       {/* Owner-lock badge (#254/#260) — visually distinct from the plain
@@ -284,8 +299,9 @@ function LayerRowImpl({
               onClick: () => onToggleVisible(item.id),
             },
             {
-              label: t(isLocked ? 'layers.unlock' : 'layers.lock'),
-              icon: isLocked ? 'lock_open' : 'lock',
+              label: lockInherited ? t('layers.lockedByFolder') : t(isLocked ? 'layers.unlock' : 'layers.lock'),
+              icon: showsLocked ? 'lock_open' : 'lock',
+              disabled: lockInherited,
               onClick: () => onToggleLock(item.id),
             },
             // Owner-only, and absent rather than disabled for everyone else:

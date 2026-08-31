@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 
+import { BUTTON_DRAG_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useDraggablePosition } from '../../lib/useDraggablePosition'
 import { useLongPress } from '../../lib/useLongPress'
 import { useT } from '../../i18n'
@@ -209,7 +210,17 @@ export function FloatingToolPanel({
     () => onFlyoutChange({ kind: 'slot', index: pressedSlotRef.current }),
     [onFlyoutChange],
   )
-  const { onPointerDown: onSlotHold } = useLongPress({ onLongPress: openSlotFlyout })
+  // (#516) The hold is given the same movement budget a press on one of these
+  // buttons gets before it becomes a drag of the panel (see
+  // dragThresholdForPress), rather than useLongPress's own standalone default.
+  // The two numbers describe one gesture from two sides, and letting them
+  // disagree leaves a gap: drift past the hold's tolerance but short of the
+  // drag's, and the press cancels the chooser it was opening without becoming
+  // anything else — a deliberate hold that quietly does the slot's job instead.
+  // The rule worth keeping is that the movement which ends a hold is exactly
+  // the movement that starts a drag.
+  const { onPointerDown: onSlotHold } =
+    useLongPress({ onLongPress: openSlotFlyout, tolerance: BUTTON_DRAG_THRESHOLD_PX })
   const holdSlot = useCallback((index: number, e: React.PointerEvent<HTMLElement>) => {
     pressedSlotRef.current = index
     onSlotHold(e)

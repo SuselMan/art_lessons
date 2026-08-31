@@ -23,6 +23,26 @@ export const TAP_MOVE_THRESHOLD_PX = 4
  *  touch) — nowhere near a deliberate drag. */
 export const CLICK_MOVE_THRESHOLD_PX = 10
 
+/** How far a pointer may drift on a press that landed on a *control inside a
+ *  draggable container* before that press is taken away from the control and
+ *  becomes a drag of the container.
+ *
+ *  The two thresholds above answer "tap or drag?" for a gesture where both
+ *  readings are live from the first pixel. This one answers a narrower
+ *  question, and the answer differs because the starting point already carries
+ *  the intent: a press that landed on the floating panel's 44 px Undo button
+ *  was aimed at Undo, and nobody aims at a button in order to nudge the panel
+ *  four pixels. Judged against TAP_MOVE_THRESHOLD_PX it routinely was — an
+ *  ordinary pen tap on a panel button moved the panel and swallowed its own
+ *  click, spending exactly the drift budget CLICK_MOVE_THRESHOLD_PX's comment
+ *  above says a stylus spends as a matter of course.
+ *
+ *  24 px is the button's own half-width (44 / 2 = 22) and a little: the press
+ *  stops reading as a tap at about the point the pointer leaves the thing it
+ *  was pressing. Past that the gesture is no longer ambiguous — a hand that
+ *  has travelled off the button is moving the panel. */
+export const BUTTON_DRAG_THRESHOLD_PX = 24
+
 /** How long the second tap of a minimal-UI double tap may take to arrive
  *  (#189). Android's own double-tap timeout is 300 ms and iOS sits around
  *  350 ms; 400 ms is deliberately at the generous end of that range, because

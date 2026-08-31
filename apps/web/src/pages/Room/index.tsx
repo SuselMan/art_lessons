@@ -29,7 +29,9 @@ import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool } from '../../components/FloatingToolPanel/tools'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
-import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked } from '../../lib/layers'
+import {
+  computeCompositeOrder, eraseThroughTargets, isEffectivelyVisible, isLayerLocked, isLockedAgainst,
+} from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
@@ -51,6 +53,7 @@ import { useViewport } from './useViewport'
 import { useViewportToast } from './useViewportToast'
 import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
+import { useCanvasTap } from './useCanvasTap'
 import { ClickTracker } from './clickTracker'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
@@ -967,6 +970,13 @@ export function Room() {
   const myUserId = useRoomStore(s => s.userId)
   const myParticipant = participants.find(p => p.userId === myUserId)
   const isOwner = myParticipant?.role === 'owner'
+  // (#518) `dispatchOp` has to ask "may I paint here" at the moment of
+  // action, and the owner lock makes that question depend on who is asking.
+  // Through a ref so the answer can change without rebuilding `dispatchOp` —
+  // half the page depends on its identity, and a role that arrives with the
+  // participant list would otherwise re-key all of it.
+  const isOwnerRef = useRef(isOwner)
+  isOwnerRef.current = isOwner
   // (#380) Who is knocking. Owner-only (the hook fetches nothing otherwise),
   // read here rather than inside ParticipantsPanel because the SidePanel tab's
   // badge needs the same count while that panel is collapsed.
@@ -1515,10 +1525,17 @@ export function Room() {
   // Suppressing it here rather than inside the hook keeps the rule where the
   // conflict is, and costs nothing: the tap puts the transform tool down, so
   // by the next tap this is armed again and hides the chrome as it always did.
-  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !transformActive, minimalUiTapMode, tapDebugEnabled ? setTapDebug : undefined)
+  //
+  // (#519) The selection tool claims the same tap for the same kind of reason,
+  // with one difference: it claims it only while there is a selection on
+  // screen to put down (see clearSelectionOnTap below). With none, a tap means
+  // nothing to that tool, so the chrome toggle keeps it — unlike the gizmo,
+  // which is either up or the tool is not in hand at all.
+  const canvasTapClaimed = transformActive || (selectionActive && selection !== null)
+  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !canvasTapClaimed, minimalUiTapMode, tapDebugEnabled ? setTapDebug : undefined)
   // (#509 v3) Mirrors the exact condition above, so a note only ever waits for
   // the double-tap window when a double tap is really listening for one.
-  doubleTapArmedRef.current = tapToHideEnabled && !transformActive
+  doubleTapArmedRef.current = tapToHideEnabled && !canvasTapClaimed
     && minimalUiTapsRequired(minimalUiTapMode) > 1
 
   // ── require a room id ────────────────────────────────────────────────────────
@@ -2785,12 +2802,30 @@ export function Room() {
     // silent and complete, where letting it through and rejecting it later
     // costs the drawing.
     engine.setLocked(
-      isLayerLocked(layerState.items[layerState.activeId], isOwner)
+      isLayerLocked(layerState, layerState.activeId, isOwner)
       || !isEffectivelyVisible(layerState, layerState.activeId)
       || !isDrawingTool(tool),
     )
     engine.setCompositeOrder(computeCompositeOrder(layerState))
   }, [layerState, tool, isOwner])
+
+  // (#520) Which layers the eraser goes through, when it is set to go through
+  // them at all. Pushed from here rather than decided in the engine because the
+  // rule is made of things the engine has no business knowing — folder
+  // nesting, the two kinds of lock, and whether this participant is the owner;
+  // `eraseThroughTargets` is where it is written down.
+  //
+  // An empty list whenever the toggle is off, which is what restores the plain
+  // single-layer eraser exactly. Deliberately *not* gated on the eraser being
+  // the tool in hand: the engine reads this at pen-down and only for an eraser
+  // stroke, so gating here would buy nothing and add a way for the list to be
+  // stale at the moment it is read.
+  const eraseThroughLayers = toolSettings.eraser.throughLayers as boolean
+  useEffect(() => {
+    engineRef.current?.setEraseThroughLayers(
+      eraseThroughLayers ? eraseThroughTargets(layerState, isOwner) : [],
+    )
+  }, [eraseThroughLayers, layerState, isOwner, engineEpoch])
 
   // ── sync viewport → engine ────────────────────────────────────────────────────
   useEffect(() => {
@@ -2952,6 +2987,32 @@ export function Room() {
   // reach anyone else — "drawing into the void" (see its own doc comment).
   const dispatchOp = useCallback((draft: OperationDraft): DispatchedOp | null => {
     if (!roomContentReady || editingBlocked) return null
+    // (#518) The one gate on the lock, for every operation that paints.
+    //
+    // Before this there was exactly one, and it sat on the *pointer* path
+    // (engine.setLocked, see the layer-sync effect above): it stopped a
+    // stroke and nothing else. The transform gizmo, the bucket, and
+    // delete/cut/paste of a selection all reach the canvas without ever
+    // touching that path, so all four rewrote locked layers — which is how a
+    // locked layer could be dragged across the sheet.
+    //
+    // Here rather than at those four call sites because a fifth is always
+    // coming: `isLockedAgainst` refuses whatever `paintedLayerIds` names, so
+    // a new painting operation is covered by being listed in the shared
+    // package, not by whoever adds the tool remembering this rule exists.
+    //
+    // Silent, like the stroke gate it generalizes: the closed padlock in the
+    // layer panel is the explanation, and every route that can reach this in
+    // normal use is already visibly refused before it is taken (the gizmo
+    // does not open on a locked layer, the bucket ignores the tap, the
+    // selection buttons are disabled). Anything that still arrives here is a
+    // path we missed or a stale one — refusing it is the point.
+    //
+    // Emission only. Nothing on the *replay* side asks this: operations
+    // arriving from a peer, from a rejoin, or from redo must apply whatever
+    // the log says, or a layer locked today would lose every stroke drawn on
+    // it yesterday, once, permanently, on every client at the same moment.
+    if (isLockedAgainst(useRoomStore.getState().layerState, draft, isOwnerRef.current)) return null
     const op = { ...draft, id: nanoid(10), userId: useRoomStore.getState().userId, timestamp: Date.now() }
 
     if (isLocalIslandSafe(op, pendingIdsRef.current)) {
@@ -3255,10 +3316,18 @@ export function Room() {
   // useMemo'd (not just a plain const) so it has a stable reference to key
   // the bounds-refresh effect below on — without that it would refire every
   // render instead of only on an actual selection change.
+  //
+  // (#518) Locked layers drop out here, which is what makes the gizmo itself
+  // refuse them: with no targets there are no bounds, and with no bounds
+  // nothing is drawn to grab. Filtered rather than all-or-nothing on a mixed
+  // multi-select — the frame then holds exactly the layers it can actually
+  // move, which is both the honest readout and the only version that agrees
+  // with what `dispatchOp` would let through.
   const transformTargetIds = useMemo(() => (
     (layerState.selectedIds.length > 0 ? layerState.selectedIds : [layerState.activeId])
       .filter((layerId): layerId is string => !!layerId && layerId !== BACKGROUND_LAYER_ID && layerState.items[layerId]?.kind === 'layer')
-  ), [layerState])
+      .filter(layerId => !isLayerLocked(layerState, layerId, isOwner))
+  ), [layerState, isOwner])
   // (#399) `transformTargetIds` is a fresh array on every layerState change —
   // i.e. on any peer's stroke — so the session effect keys on this string
   // instead; restarting a session mid-drag because someone else drew would
@@ -3790,7 +3859,10 @@ export function Room() {
   // — the same "the tool decides what a press means" shape handleRulerDown
   // has. Pen and mouse only, like every other canvas gesture in this editor
   // (see handleRulerDown's own touch guard): on a tablet a finger moves the
-  // view, and a lasso that fought the pan would make both unusable.
+  // view, and a lasso that fought the pan would make both unusable. The one
+  // thing a finger does get is the tap that clears a finished selection —
+  // see clearSelectionOnTap below, which is a different gesture on a different
+  // element and never competes with a pan.
   const selectionShapeKind = toolSettings.selection.shape as SelectionShapeKind
   // Where the pointer is, for the point-by-point lasso's rubber band. State
   // rather than a ref because the overlay draws it; only written while a
@@ -3813,6 +3885,14 @@ export function Room() {
     ? layerState.activeId
     : null
 
+  // (#518) Whether that target refuses paint right now. Kept apart from
+  // `paintTargetId` itself rather than folded into it, because the two answer
+  // different questions and one caller wants each: copying a region reads the
+  // layer and is fine on a locked one, everything else here writes to it.
+  const paintTargetLocked = !!paintTargetId && isLayerLocked(layerState, paintTargetId, isOwner)
+  const paintTargetLockedRef = useRef(paintTargetLocked)
+  paintTargetLockedRef.current = paintTargetLocked
+
   const finishSelection = useCallback((points: number[]) => {
     setPendingSelection(null)
     setSelectionCursor(null)
@@ -3823,6 +3903,8 @@ export function Room() {
   }, [setPendingSelection, setSelection])
 
   const handleSelectionDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Drawing an outline is pen and mouse only (see the block comment above);
+    // a finger falls through to the pan, and is read for a tap separately.
     if (e.pointerType === 'touch') return
     // Same precedence as the ruler's: while the hand is up (or Space is held),
     // a drag on the canvas moves the view.
@@ -3946,6 +4028,38 @@ export function Room() {
     setSelectionCursor(clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config))
   }, [vpRef, config, selectionShapeKind])
 
+  // (#519) The one thing a finger may do with the selection tool: put the
+  // selection down. Drawing an outline stays pen-and-mouse (see the guard at
+  // the top of handleSelectionDown — on a tablet a finger pans and pinches the
+  // view, and a lasso that fought that would make both unusable), but
+  // *clearing* one is not drawing, and the tap that means it is the same tap
+  // that ends a transform session past the gizmo. Until this, the only way to
+  // drop a selection on a tablet was to poke the canvas with the pen — the
+  // drawing hand doing a piece of UI work, and a poke that reads as the start
+  // of a stroke right up until it isn't (Ilya, 31.08).
+  //
+  // A TapTracker gesture (useCanvasTap) rather than the ClickTracker the
+  // transform's own effect uses, and the difference is why the two are not one
+  // shared handler: that gesture is made with a stylus, where a palm on the
+  // glass is normal and every pointer has to be judged alone; this one is made
+  // with a finger, on a tool whose other touch gestures are pan and pinch. A
+  // per-pointer recognizer would read the anchored thumb of a pinch as a tap
+  // and clear the selection every time someone zoomed.
+  //
+  // An open lasso is left alone: it belongs to the pen that is drawing it, and
+  // Esc (or the pen itself) is what abandons it. Nothing to clear, nothing
+  // happens — which is also what keeps the chrome toggle armed, see
+  // canvasTapClaimed above.
+  const clearSelectionOnTap = useCallback(() => {
+    // Same precedence as every other canvas gesture: while the hand is up, a
+    // touch belongs to the view.
+    if (handActiveRef.current) return
+    const state = useRoomStore.getState()
+    if (state.pendingSelection || !state.selection) return
+    setSelection(null)
+  }, [setSelection])
+  useCanvasTap(vpEl, clearSelectionOnTap, selectionActive)
+
   // ── What can be done with a selection (#446) ───────────────────────────
   //
   // Copy is the only one that is not an operation: it reads pixels into this
@@ -3982,6 +4096,11 @@ export function Room() {
     const el = vpRef.current
     const layerId = paintTargetIdRef.current
     if (!engine || !el || !config || !layerId || fillBusyRef.current) return
+    // (#518) Refused before the work, not after: the fill's own readback and
+    // scan take long enough to show a busy state, and spending them on a tap
+    // `dispatchOp` will throw away would look like the tool hanging on a
+    // locked layer rather than declining.
+    if (paintTargetLockedRef.current) return
 
     const rect = el.getBoundingClientRect()
     // Layer space, not screen space — #143's rule for everything that reaches
@@ -4635,11 +4754,16 @@ export function Room() {
   const deleteSelectionContents = useCallback(() => {
     const current = useRoomStore.getState().selection
     const layerId = paintTargetIdRef.current
-    if (!current || !layerId) return
+    if (!current || !layerId || paintTargetLockedRef.current) return
     dispatchOp({ type: 'area_clear', layerId, selection: current })
   }, [dispatchOp])
 
   const cutSelection = useCallback(async () => {
+    // (#518) Checked here as well as inside the erase half, and not only for
+    // symmetry: without it a cut on a locked layer would fill the clipboard
+    // and then quietly fail to erase, i.e. behave as a copy while reporting
+    // itself as a cut. Refusing the whole gesture is the honest answer.
+    if (paintTargetLockedRef.current) return
     // Erases only if the pixels were genuinely captured: a cut that emptied
     // the region and then failed to fill the clipboard would destroy work with
     // nothing left to paste back.
@@ -4663,6 +4787,12 @@ export function Room() {
     // onto another layer is the case this whole feature was asked for.
     const targetId = state.layerState.activeId
     if (!entry || !targetId || targetId === BACKGROUND_LAYER_ID) return
+    // (#518) A float is placed by the transform session, and a locked layer is
+    // not among its targets — so without this the pasted piece would open a
+    // session holding nothing: no preview on screen, and a commit with an
+    // empty transform list. Refusing the paste says the same thing in one
+    // step.
+    if (isLayerLocked(state.layerState, targetId, isOwnerRef.current)) return
     void engineRef.current?.preloadImage(entry.image).then(() => {
       pendingPasteRef.current = entry
       // The float occupies exactly the rect it was copied from, so the region
@@ -6693,21 +6823,21 @@ export function Room() {
                 className={styles.toolIconBtn}
                 title={t('selection.cut')}
                 aria-label={t('selection.cut')}
-                disabled={!selection || !paintTargetId}
+                disabled={!selection || !paintTargetId || paintTargetLocked}
                 onClick={() => { void cutSelection() }}
               ><Icon name="content_cut" /></button>
               <button
                 className={styles.toolIconBtn}
                 title={t('selection.paste')}
                 aria-label={t('selection.paste')}
-                disabled={!clipboard}
+                disabled={!clipboard || !paintTargetId || paintTargetLocked}
                 onClick={pasteClipboard}
               ><Icon name="content_paste" /></button>
               <button
                 className={styles.toolIconBtn}
                 title={t('selection.delete')}
                 aria-label={t('selection.delete')}
-                disabled={!selection || !paintTargetId}
+                disabled={!selection || !paintTargetId || paintTargetLocked}
                 onClick={deleteSelectionContents}
               ><Icon name="delete" /></button>
               <button

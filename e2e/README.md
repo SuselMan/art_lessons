@@ -41,6 +41,9 @@ scenario's state can be opened in psql.
 | A layer transform resamples as one image, with no source-tile seam | `specs/transformSeam.spec.ts` |
 | Smudge works across a tile seam — no dead band down an A4 sheet's x=1024 | `specs/smudgeSeam.spec.ts` |
 | Settings shows exactly the version this build was stamped with | `specs/version.spec.ts` |
+| A tap on a floating-panel button presses it rather than dragging the panel | `specs/floatingPanel.spec.ts` |
+| A finger tapping past a selection puts it down, while a one-finger pan keeps it | `specs/selectionTap.spec.ts` |
+| An eraser set to go through layers clears every visible one in a pass, and one undo restores them | `specs/eraseThroughLayers.spec.ts` |
 
 ## What is not covered, on purpose
 
@@ -48,9 +51,14 @@ scenario's state can be opened in psql.
   browser download and a Postgres service on the runner, and is worth doing
   once the suite has proved stable on more than one machine (#491 says as
   much).
-- **Touch and pen input.** Playwright's mouse is a mouse. The tablet is the
-  target device and its gestures — two-finger pan, palm rejection, pressure —
-  are not reachable this way, so §9's device passes still need hands.
+- **Most touch and pen input.** Playwright's mouse is a mouse. The tablet is
+  the target device and its gestures — two-finger pan, palm rejection,
+  pressure — are not reachable this way, so §9's device passes still need
+  hands. The exception is a single finger: `selectionTap.spec.ts` runs with
+  `test.use({ hasTouch: true })` and drives real touch events, because a tap is
+  fully described by its own down and up and needs no second finger to be
+  itself. Its one-finger drag goes through CDP's `Input.dispatchTouchEvent`
+  directly — Playwright's `touchscreen` offers only `tap`.
 - **Anything about how it looks.** No screenshot comparison: a grained paper
   canvas would make golden images fail on every GPU that is not the one they
   were recorded on. These tests assert that ink is where it should be, never

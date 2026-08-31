@@ -404,6 +404,20 @@ export interface PencilEngineAPI {
    *  already outlived. See the implementation for what goes wrong without it. */
   setBaseLayers(ids: readonly string[]): void
   setActiveLayer(id: string): void
+  /** (#520) The layers an eraser stroke goes through, on top of the active one
+   *  — empty for every other tool and for an eraser with the toggle off, which
+   *  is the default and restores the plain single-layer behaviour exactly.
+   *
+   *  A list of ids rather than a boolean on purpose: *which* layers a
+   *  cross-layer erase may touch is a question about visibility, locks, folder
+   *  nesting and who the room owner is — all of which live in LayerState and in
+   *  the session, never in the engine (see `eraseThroughTargets` in
+   *  lib/layers.ts, which is the one place that rule is written down). The
+   *  engine is told the answer and paints into it.
+   *
+   *  Read once at pen-down, like the active layer is: changing this mid-stroke
+   *  never redirects a gesture already in flight. */
+  setEraseThroughLayers(ids: readonly string[]): void
   setLocked(locked: boolean): void
   // Dev-only live tuning (see DAB_FRAG's paperFillThreshold uniform and its
   // own comment) — the pressure smoothstep() lower bound above which a
@@ -1000,11 +1014,19 @@ interface PeerLiveStroke {
  *
  *  Isolated tools all measured clean; twenty-seven strokes drawn briskly did
  *  not. The difference was never the tool. */
-function liveStrokeKey(peerId: string, strokeId: string): string {
+function liveStrokeKey(peerId: string, strokeId: string, layerId: string): string {
   // `|` is safe as a separator rather than merely unlikely: a userId is a UUID
   // and a strokeId is a nanoid, and neither alphabet contains it, so no pair of
   // distinct inputs can collide on one key.
-  return `${peerId}|${strokeId}`
+  //
+  // (#520) The layer is part of the key because a gesture is no longer confined
+  // to one layer: an eraser set to go through layers paints one set of dabs
+  // into every eligible layer, and records one operation per layer, all under
+  // the same strokeId. Each of those is its own stream with its own
+  // packetSeq/paintedTotal, and keying them together would make the second
+  // layer's first packet look like the first layer's second — a sequence gap,
+  // which desyncs the gesture and drops it back to arriving whole by operation.
+  return `${peerId}|${strokeId}|${layerId}`
 }
 
 /** How many finished-but-unsettled gestures to keep per peer. Entries are
@@ -2227,6 +2249,21 @@ export class PencilEngine implements PencilEngineAPI {
 
   // In-flight stroke, recorded as one StrokeOperation on pointer up
   private _strokeLayerId: string | null
+  /** (#520) The *other* layers this gesture is painting into, besides
+   *  `_strokeLayerId` — always empty except under an eraser with "through
+   *  layers" on. Frozen at pen-down from `_eraseThroughIds`.
+   *
+   *  Kept as a supplement to `_strokeLayerId` rather than folding both into one
+   *  list, because the two are not interchangeable everywhere: the active layer
+   *  is what the preview and tip buffers, the wash bookkeeping and the split
+   *  cache are all anchored to, and a list would have made every one of those
+   *  ask "which of these is the real one?". Only the three places that
+   *  genuinely repeat per layer — paint, live packets, recorded operations —
+   *  iterate this. */
+  private _strokeExtraLayerIds: string[] = []
+  /** (#520) What the *next* eraser stroke will go through — see
+   *  setEraseThroughLayers. Live setting, read at pen-down. */
+  private _eraseThroughIds: string[] = []
   private _strokeTool: ToolType
   private _strokePreset: string
   private _strokeColor: [number, number, number]
@@ -2463,6 +2500,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._activeId = id
     // #122: moves the below/above split point itself.
     this._invalidateSplitCache()
+  }
+
+  /** See the PencilEngineAPI doc comment. */
+  setEraseThroughLayers(ids: readonly string[]): void {
+    this._eraseThroughIds = [...ids]
   }
 
   setLocked(locked: boolean): void {
@@ -3538,7 +3580,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket): void {
-    const key = liveStrokeKey(peerId, packet.strokeId)
+    const key = liveStrokeKey(peerId, packet.strokeId, packet.layerId)
     let live = this._peerLiveStrokes.get(key)
     if (!live) {
       this._pruneLiveGestures(peerId)
@@ -3596,8 +3638,12 @@ export class PencilEngine implements PencilEngineAPI {
   endPeerLiveStroke(peerId: string, strokeId?: string): number {
     // With `strokeId`, exactly the gesture whose pen came up. Without it (a
     // peer leaving), every gesture of theirs that is still open.
+    //
+    // (#520) A filter rather than a keyed lookup even in the first case: one
+    // gesture can hold several entries now, one per layer it painted into, and
+    // the pen came up on all of them at once.
     const entries = strokeId
-      ? [this._peerLiveStrokes.get(liveStrokeKey(peerId, strokeId))].filter((e): e is PeerLiveStroke => !!e)
+      ? [...this._peerLiveStrokes.values()].filter(e => e.peerId === peerId && e.strokeId === strokeId)
       : [...this._peerLiveStrokes.values()].filter(e => e.peerId === peerId)
     let outstanding = 0
     for (const live of entries) {
@@ -3608,7 +3654,7 @@ export class PencilEngine implements PencilEngineAPI {
       // records the end of a gesture is dispatched at pen-up and arrives after
       // this does, and it still has to be able to recognise what was already
       // painted. Once the operations have caught up, the entry has no job left.
-      if (owed === 0) this._peerLiveStrokes.delete(liveStrokeKey(live.peerId, live.strokeId))
+      if (owed === 0) this._peerLiveStrokes.delete(liveStrokeKey(live.peerId, live.strokeId, live.layerId))
     }
     return outstanding
   }
@@ -3639,7 +3685,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  — including this client's own, since it never streams to itself. */
   private _claimLivePaintedDabs(op: StrokeOperation, dabCount: number): number {
     if (!op.strokeId) return 0
-    const live = this._peerLiveStrokes.get(liveStrokeKey(op.userId, op.strokeId))
+    const live = this._peerLiveStrokes.get(liveStrokeKey(op.userId, op.strokeId, op.layerId))
     // Deliberately still claims for a desynced gesture. `desynced` stops
     // *further* live painting, and painting stops at the first missing packet
     // rather than skipping it, so `paintedTotal` always describes a contiguous
@@ -3654,7 +3700,7 @@ export class PencilEngine implements PencilEngineAPI {
     live.committedOffset += dabCount
     live.paintedTotal = Math.max(live.paintedTotal, live.committedOffset)
     if (live.ended && live.committedOffset >= live.paintedTotal) {
-      this._peerLiveStrokes.delete(liveStrokeKey(op.userId, op.strokeId))
+      this._peerLiveStrokes.delete(liveStrokeKey(op.userId, op.strokeId, op.layerId))
     }
     return skip
   }
@@ -3813,7 +3859,14 @@ export class PencilEngine implements PencilEngineAPI {
   /** Re-syncs pixel state after `op` flipped between done and undone/gone. */
   private _applyHistoryChange(op: Operation): void {
     switch (op.type) {
+      // (#520) Every layer of the gesture, not only this operation's own:
+      // undo/redo flip a whole gesture at once (OperationLog._gestureEntries),
+      // and a cross-layer erase is one gesture spread over several layers. See
+      // OperationLog.gestureLayerIds — which answers `[op.layerId]` for every
+      // other stroke, so this is the same single rebuild it always was.
       case 'stroke':
+        for (const layerId of this._log.gestureLayerIds(op)) this._rebuildLayerOrDefer(layerId)
+        break
       case 'layer_clear':
       // (#446) Single-layer pixel operations, same as the two above: undoing
       // or redoing one means replaying its layer's history without (or with)
@@ -4468,6 +4521,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  CHECKPOINT_INTERVAL boundary, by which time the operation has landed. */
   private _hasUnrecordedInk(layerId: string): boolean {
     if (this._strokeLayerId === layerId) return true
+    // (#520) A cross-layer erase is ahead of the log on every layer it is
+    // going through, not only on the active one.
+    if (this._strokeExtraLayerIds.includes(layerId)) return true
     for (const live of this._peerLiveStrokes.values()) {
       if (live.layerId === layerId && live.paintedTotal > live.committedOffset) return true
     }
@@ -5207,6 +5263,16 @@ export class PencilEngine implements PencilEngineAPI {
     }
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
+    // (#520) The eraser's cross-layer mode, resolved once here for the whole
+    // gesture. The active layer is dropped from the list because it is already
+    // `_strokeLayerId` — painting it twice would take two passes of the eraser
+    // off it, so it would clear faster than every other layer, which is exactly
+    // the sort of thing that reads as the tool being broken rather than as a
+    // duplicate id. Ids with no buffer are dropped too: `_paintDabs` needs one,
+    // and a layer that does not exist here cannot be erased anyway.
+    this._strokeExtraLayerIds = this._strokeTool === 'eraser'
+      ? this._eraseThroughIds.filter(id => id !== layerId && this._layers.has(id))
+      : []
     // Fresh per stroke (never carried over, unlike smudge's reservoir) —
     // see RibbonStrokeScratch's own doc comment. Harmless to always create,
     // even for a non-marker stroke: nothing allocates any GL resource until
@@ -5584,23 +5650,32 @@ export class PencilEngine implements PencilEngineAPI {
     }
 
     if (this._strokeDabs.length) {
-      const op: Operation = {
-        id: nanoid(10), type: 'stroke', userId: this._userId,
-        layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-        dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
-        ...(this._strokeId ? { strokeId: this._strokeId } : {}),
-        ...(this._washId ? { washId: this._washId } : {}),
+      // (#520) One operation per layer the gesture painted into — normally
+      // exactly one, and several only under a cross-layer erase. They share
+      // `strokeId`, which is what makes them one gesture to undo
+      // (OperationLog._gestureEntries), and the packing is done once and
+      // handed to all of them: a dab is ~53 packed bytes and an erase can be
+      // thousands of them.
+      const dabsPacked = packDabs(this._strokeDabs)
+      for (const targetId of [layerId, ...this._strokeExtraLayerIds]) {
+        const op: Operation = {
+          id: nanoid(10), type: 'stroke', userId: this._userId,
+          layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
+          dabsPacked, timestamp: Date.now(),
+          ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+          ...(this._washId ? { washId: this._washId } : {}),
         }
-      this._log.append(op)
-      // (#468 v10) Never mid-wash. A checkpoint bakes the layer's pixels, and
-      // replay then starts from those instead of from the operations — but a
-      // wash's strokes share one accumulation whose frozen `original` is the
-      // content from *before* the wash began. Bake halfway through and that
-      // content is gone: the reloaded room rebuilds the rest of the wash over
-      // its own half-finished output, and the picture comes back subtly
-      // different. Washes last a second or two, so this only defers.
-      if (!this._wash) this._maybeCheckpoint(layerId)
-      this._onLocalOperation?.(op)
+        this._log.append(op)
+        // (#468 v10) Never mid-wash. A checkpoint bakes the layer's pixels, and
+        // replay then starts from those instead of from the operations — but a
+        // wash's strokes share one accumulation whose frozen `original` is the
+        // content from *before* the wash began. Bake halfway through and that
+        // content is gone: the reloaded room rebuilds the rest of the wash over
+        // its own half-finished output, and the picture comes back subtly
+        // different. Washes last a second or two, so this only defers.
+        if (!this._wash) this._maybeCheckpoint(targetId)
+        this._onLocalOperation?.(op)
+      }
     }
     // (#429) Deliberately no final flush of the live queue: whatever is still
     // sitting in it is carried by the operation dispatched just above, which
@@ -5614,6 +5689,7 @@ export class PencilEngine implements PencilEngineAPI {
     // tears the marker scratch down well before reaching here.
     this._strokeId = null
     this._strokeLayerId = null
+    this._strokeExtraLayerIds = []
     this._strokeDabs = []
     this._handlers.strokeEnd?.(e)
   }
@@ -5894,6 +5970,7 @@ export class PencilEngine implements PencilEngineAPI {
       buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
       this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
     )
+    this._paintExtraLayers(dabs)
     this._strokeDabs.push(...dabs)
     // (#429) Same dab objects, queued for the live channel — see
     // onLiveStrokeDabs on why both paths must read the one baked result.
@@ -5911,6 +5988,45 @@ export class PencilEngine implements PencilEngineAPI {
     // accumulate dabs indefinitely — see STROKE_DAB_CHUNK_LIMIT's own
     // comment on why that's a real problem, not just a memory nicety.
     if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT) this._flushStrokeChunk()
+  }
+
+  /** (#520) Lays this batch of already-baked dabs into every *other* layer the
+   *  gesture goes through — the eraser's cross-layer mode, and nothing else:
+   *  `_strokeExtraLayerIds` is empty for every other tool.
+   *
+   *  The dabs are the same objects the active layer just got, deliberately.
+   *  Their opacity, size and angle were baked once by `_bakeDabOpacity` from
+   *  the pointer's own speed and tilt, and re-deriving them per layer would let
+   *  the same pass of the eraser take different amounts off different layers.
+   *  They are also the objects that go on to `_strokeDabs` and into every
+   *  recorded operation, so each layer's own operation carries exactly what was
+   *  painted into it.
+   *
+   *  Passes none of `_paintDabs`'s per-gesture extras (prevDab, ribbonScratch,
+   *  strokeId, washId) because none of them exist for an eraser: its dabs are
+   *  independent of one another, which is the property that makes painting one
+   *  batch into N buffers correct at all rather than merely convenient. */
+  private _paintExtraLayers(dabs: Dab[]): void {
+    if (!this._strokeExtraLayerIds.length) return
+    for (const id of this._strokeExtraLayerIds) {
+      const buf = this._layers.get(id)
+      if (!buf) continue
+      this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId)
+      this._markLayerDirty(id)
+    }
+    // #122: on every batch, not once when the gesture starts. The composite
+    // keeps everything below the active layer baked into one cached texture and
+    // everything above it in another, and every one of these layers is in one
+    // of the two — so a cache built after the first batch survives the rest of
+    // the gesture and the screen simply stops updating for them.
+    //
+    // Found end to end, not here: the layer buffers were correct throughout
+    // (which is all a unit test against MockGL reads), the recorded operations
+    // were correct, and the picture still showed ink the log said was gone —
+    // until anything else forced a recomposite. Same reasoning, and the same
+    // per-batch placement, as _paintStrokeDabs' own invalidate for a stroke
+    // whose layer diverged from the active one.
+    this._invalidateSplitCache()
   }
 
   /** Dwell tick (#245, ADR 003 §3/§9): paints one extra dab at the stylus's
@@ -5973,6 +6089,12 @@ export class PencilEngine implements PencilEngineAPI {
       buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
       this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
     )
+    // (#520) A no-op today — only the liner dwells, and only the eraser goes
+    // through layers — but a dwell dab is a real dab of this gesture (see the
+    // live-channel note just below, which is the same argument), so it goes
+    // wherever the gesture's other dabs go rather than being the one that
+    // silently doesn't.
+    this._paintExtraLayers([dab])
     this._strokeDabs.push(dab)
     // (#429) A dwell dab is a real dab of this gesture — it goes into the
     // operation, so it has to go down the live channel too, or a peer's
@@ -6008,14 +6130,24 @@ export class PencilEngine implements PencilEngineAPI {
     const now = performance.now()
     if (now - this._liveLastEmitAt < LIVE_STROKE_EMIT_INTERVAL_MS) return
     this._liveLastEmitAt = now
-    this._onLiveStrokeDabs({
-      strokeId: this._strokeId, layerId: this._strokeLayerId,
-      tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-      packetSeq: this._livePacketSeq++, dabs: this._liveDabQueue,
-      // (#468) Decided at pen-down and constant for the gesture, so every
-      // packet carries the same value the operation will.
-      ...(this._washId ? { washId: this._washId } : {}),
-    })
+    // (#520) One packet per layer this gesture paints into, all carrying the
+    // *same* packetSeq. The counter advances once per round, not once per
+    // packet: each layer is its own stream on the receiving side (see
+    // liveStrokeKey), and it has to see 0, 1, 2… of its own. A single counter
+    // shared across the packets would hand layer A 0, 2, 4 and layer B 1, 3, 5,
+    // and every receiver would read a gap and desync the gesture.
+    const packetSeq = this._livePacketSeq++
+    const dabs = this._liveDabQueue
+    for (const layerId of [this._strokeLayerId, ...this._strokeExtraLayerIds]) {
+      this._onLiveStrokeDabs({
+        strokeId: this._strokeId, layerId,
+        tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
+        packetSeq, dabs,
+        // (#468) Decided at pen-down and constant for the gesture, so every
+        // packet carries the same value the operation will.
+        ...(this._washId ? { washId: this._washId } : {}),
+      })
+    }
     // A fresh array rather than length = 0: the packet above holds this one,
     // and the caller is free to keep it (Room packs it asynchronously).
     this._liveDabQueue = []
@@ -6024,15 +6156,19 @@ export class PencilEngine implements PencilEngineAPI {
   private _flushStrokeChunk(): void {
     const layerId = this._strokeLayerId
     if (!layerId || !this._strokeDabs.length) return
-    const op: Operation = {
-      id: nanoid(10), type: 'stroke', userId: this._userId,
-      layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-      dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
-      ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+    // (#520) Per layer, exactly as _onEnd's own dispatch is — see its comment.
+    const dabsPacked = packDabs(this._strokeDabs)
+    for (const targetId of [layerId, ...this._strokeExtraLayerIds]) {
+      const op: Operation = {
+        id: nanoid(10), type: 'stroke', userId: this._userId,
+        layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
+        dabsPacked, timestamp: Date.now(),
+        ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+      }
+      this._log.append(op)
+      this._maybeCheckpoint(targetId)
+      this._onLocalOperation?.(op)
     }
-    this._log.append(op)
-    this._maybeCheckpoint(layerId)
-    this._onLocalOperation?.(op)
     this._strokeDabs = []
   }
 
