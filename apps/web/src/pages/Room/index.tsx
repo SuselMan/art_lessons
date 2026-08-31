@@ -51,6 +51,7 @@ import { useViewport } from './useViewport'
 import { useViewportToast } from './useViewportToast'
 import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
+import { useCanvasTap } from './useCanvasTap'
 import { ClickTracker } from './clickTracker'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
@@ -1515,10 +1516,17 @@ export function Room() {
   // Suppressing it here rather than inside the hook keeps the rule where the
   // conflict is, and costs nothing: the tap puts the transform tool down, so
   // by the next tap this is armed again and hides the chrome as it always did.
-  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !transformActive, minimalUiTapMode, tapDebugEnabled ? setTapDebug : undefined)
+  //
+  // (#519) The selection tool claims the same tap for the same kind of reason,
+  // with one difference: it claims it only while there is a selection on
+  // screen to put down (see clearSelectionOnTap below). With none, a tap means
+  // nothing to that tool, so the chrome toggle keeps it — unlike the gizmo,
+  // which is either up or the tool is not in hand at all.
+  const canvasTapClaimed = transformActive || (selectionActive && selection !== null)
+  useTapToggle(vpEl, toggleUI, tapToHideEnabled && !canvasTapClaimed, minimalUiTapMode, tapDebugEnabled ? setTapDebug : undefined)
   // (#509 v3) Mirrors the exact condition above, so a note only ever waits for
   // the double-tap window when a double tap is really listening for one.
-  doubleTapArmedRef.current = tapToHideEnabled && !transformActive
+  doubleTapArmedRef.current = tapToHideEnabled && !canvasTapClaimed
     && minimalUiTapsRequired(minimalUiTapMode) > 1
 
   // ── require a room id ────────────────────────────────────────────────────────
@@ -3784,7 +3792,10 @@ export function Room() {
   // — the same "the tool decides what a press means" shape handleRulerDown
   // has. Pen and mouse only, like every other canvas gesture in this editor
   // (see handleRulerDown's own touch guard): on a tablet a finger moves the
-  // view, and a lasso that fought the pan would make both unusable.
+  // view, and a lasso that fought the pan would make both unusable. The one
+  // thing a finger does get is the tap that clears a finished selection —
+  // see clearSelectionOnTap below, which is a different gesture on a different
+  // element and never competes with a pan.
   const selectionShapeKind = toolSettings.selection.shape as SelectionShapeKind
   // Where the pointer is, for the point-by-point lasso's rubber band. State
   // rather than a ref because the overlay draws it; only written while a
@@ -3817,6 +3828,8 @@ export function Room() {
   }, [setPendingSelection, setSelection])
 
   const handleSelectionDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    // Drawing an outline is pen and mouse only (see the block comment above);
+    // a finger falls through to the pan, and is read for a tap separately.
     if (e.pointerType === 'touch') return
     // Same precedence as the ruler's: while the hand is up (or Space is held),
     // a drag on the canvas moves the view.
@@ -3939,6 +3952,38 @@ export function Room() {
     const rect = selectionRectRef.current ??= el.getBoundingClientRect()
     setSelectionCursor(clientToRoomPoint(e.clientX, e.clientY, rect, useRoomStore.getState().viewport, config))
   }, [vpRef, config, selectionShapeKind])
+
+  // (#519) The one thing a finger may do with the selection tool: put the
+  // selection down. Drawing an outline stays pen-and-mouse (see the guard at
+  // the top of handleSelectionDown — on a tablet a finger pans and pinches the
+  // view, and a lasso that fought that would make both unusable), but
+  // *clearing* one is not drawing, and the tap that means it is the same tap
+  // that ends a transform session past the gizmo. Until this, the only way to
+  // drop a selection on a tablet was to poke the canvas with the pen — the
+  // drawing hand doing a piece of UI work, and a poke that reads as the start
+  // of a stroke right up until it isn't (Ilya, 31.08).
+  //
+  // A TapTracker gesture (useCanvasTap) rather than the ClickTracker the
+  // transform's own effect uses, and the difference is why the two are not one
+  // shared handler: that gesture is made with a stylus, where a palm on the
+  // glass is normal and every pointer has to be judged alone; this one is made
+  // with a finger, on a tool whose other touch gestures are pan and pinch. A
+  // per-pointer recognizer would read the anchored thumb of a pinch as a tap
+  // and clear the selection every time someone zoomed.
+  //
+  // An open lasso is left alone: it belongs to the pen that is drawing it, and
+  // Esc (or the pen itself) is what abandons it. Nothing to clear, nothing
+  // happens — which is also what keeps the chrome toggle armed, see
+  // canvasTapClaimed above.
+  const clearSelectionOnTap = useCallback(() => {
+    // Same precedence as every other canvas gesture: while the hand is up, a
+    // touch belongs to the view.
+    if (handActiveRef.current) return
+    const state = useRoomStore.getState()
+    if (state.pendingSelection || !state.selection) return
+    setSelection(null)
+  }, [setSelection])
+  useCanvasTap(vpEl, clearSelectionOnTap, selectionActive)
 
   // ── What can be done with a selection (#446) ───────────────────────────
   //
