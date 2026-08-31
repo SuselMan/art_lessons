@@ -539,6 +539,7 @@ export const en = {
   'tool.anchor.barrel': 'Pen',
   'tool.field.strength': 'Strength',
   'tool.field.addToPalette': 'Add to palette on pick',
+  'tool.field.eraseThroughLayers': 'Erase through layers',
   'tool.field.mode': 'Mode',
   'tool.field.keepProportions': 'Keep proportions',
   'tool.field.lockRuler': 'Lock ruler on canvas',

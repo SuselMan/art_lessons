@@ -43,6 +43,7 @@ scenario's state can be opened in psql.
 | Settings shows exactly the version this build was stamped with | `specs/version.spec.ts` |
 | A tap on a floating-panel button presses it rather than dragging the panel | `specs/floatingPanel.spec.ts` |
 | A finger tapping past a selection puts it down, while a one-finger pan keeps it | `specs/selectionTap.spec.ts` |
+| An eraser set to go through layers clears every visible one in a pass, and one undo restores them | `specs/eraseThroughLayers.spec.ts` |
 
 ## What is not covered, on purpose
 

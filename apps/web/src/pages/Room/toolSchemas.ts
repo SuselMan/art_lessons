@@ -849,6 +849,31 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       quickAccess: true,
       default: 1,
     },
+    // (#520) Erase through every visible, unlocked layer at once instead of
+    // only the active one — one pass of the hand taking a mistake off the
+    // sketch, the ink over it and the shading under it together, rather than
+    // three passes with two trips to the layer panel in between.
+    //
+    // `quickAccess` because it is a mode, not a calibration: it gets turned on
+    // for one correction and off again immediately after, which is the opposite
+    // of `tiltResponse` right below it (set once, left alone for months, and
+    // deliberately kept out of quick access for exactly that reason).
+    //
+    // A toggle rather than a held modifier key, though "modifier" is what this
+    // started as: the tool is used on a tablet with a stylus and no keyboard,
+    // where there is nothing to hold. A desktop shortcut can be added later on
+    // top of this — it would flip the same setting — but it cannot be the only
+    // way in.
+    //
+    // Default off. It is destructive across layers a person cannot see the
+    // effect on without scrolling the panel, so it has to be asked for.
+    throughLayers: {
+      nameKey: 'tool.field.eraseThroughLayers',
+      valueType: { kind: 'boolean' },
+      uiControls: ['toggle'],
+      quickAccess: true,
+      default: false,
+    },
     // The eraser has its own opacity but not its own geometry — it rides
     // PENCIL_DAB_SHAPING, so its tilt response is graphite's and gets the same
     // three shapes. Offering it here rather than silently inheriting whatever

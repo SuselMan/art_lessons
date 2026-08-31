@@ -262,6 +262,44 @@ export function computeCompositeOrder(state: LayerState): { id: string; opacity:
   return orderedLayers(state, false)
 }
 
+/**
+ * (#520) Every layer an eraser set to "through layers" is allowed to take
+ * pixels off, in composite order.
+ *
+ * The rule is deliberately the same one that decides whether a *single* layer
+ * would accept an ordinary stroke — visible with every folder above it open,
+ * and not locked against this viewer — applied to all of them at once. So a
+ * cross-layer erase can never reach something a normal stroke could not, which
+ * is what makes the eye and the padlock keep meaning exactly what they meant
+ * before this tool existed: the way to protect a layer from it is the way you
+ * already protect a layer.
+ *
+ * The background is excluded and cannot be opted in (Ilya, 31.08 — "нет
+ * background вообще нельзя ниче делать"). Nothing here says so, and that is on
+ * purpose rather than an omission: `isLayerLocked` already refuses it
+ * unconditionally, and repeating the rule here would be one more place to
+ * forget it.
+ *
+ * Built on the *composite* order rather than on `getVisibleOrder`, and the
+ * difference is not cosmetic: that one enumerates what the layer panel is
+ * currently showing, so it stops at a collapsed folder. A collapsed folder is
+ * closed in the panel, not hidden on the canvas — its layers are still in the
+ * picture, so an eraser going through the picture has to reach them. Written
+ * the other way first, and a test caught it.
+ *
+ * Folders are not targets themselves — they hold no pixels — but both of their
+ * flags reach their contents, and neither reaches it from here: a hidden folder
+ * is skipped whole by the composite walk, and a locked one refuses through
+ * `isLayerLocked`, which asks every ancestor (#518). Which is the point of
+ * filtering on those two functions rather than on the flags: the moment "what
+ * protects a layer" gained a rule, this gained it too, without knowing.
+ */
+export function eraseThroughTargets(state: LayerState, isOwner = false): string[] {
+  return computeCompositeOrder(state)
+    .map(entry => entry.id)
+    .filter(id => !isLayerLocked(state, id, isOwner))
+}
+
 /** Bottom→top order of the given layers for merging. Hidden layers are
  *  included — a merge destroys its sources, so their pixels must be baked
  *  into the result rather than silently dropped. */

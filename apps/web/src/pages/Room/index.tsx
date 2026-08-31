@@ -29,7 +29,9 @@ import { isDismissLayerOpen } from '../../lib/useDismissOnOutside'
 import { FloatingToolPanel, type PanelFlyout } from '../../components/FloatingToolPanel'
 import { isFloatingPanelTool } from '../../components/FloatingToolPanel/tools'
 import { exposeEngineForDev } from '../../lib/devEngineHandle'
-import { computeCompositeOrder, isEffectivelyVisible, isLayerLocked, isLockedAgainst } from '../../lib/layers'
+import {
+  computeCompositeOrder, eraseThroughTargets, isEffectivelyVisible, isLayerLocked, isLockedAgainst,
+} from '../../lib/layers'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { getFeatureFlag, getGraphiteGrainVariant, getCharcoalGrainVariant, grainVariantToMode } from '../../lib/featureFlags'
 import { floatingPanelVisible, minimalUiActive, minimalUiTapsRequired } from '../../lib/uiPreferences'
@@ -2800,6 +2802,24 @@ export function Room() {
     )
     engine.setCompositeOrder(computeCompositeOrder(layerState))
   }, [layerState, tool, isOwner])
+
+  // (#520) Which layers the eraser goes through, when it is set to go through
+  // them at all. Pushed from here rather than decided in the engine because the
+  // rule is made of things the engine has no business knowing — folder
+  // nesting, the two kinds of lock, and whether this participant is the owner;
+  // `eraseThroughTargets` is where it is written down.
+  //
+  // An empty list whenever the toggle is off, which is what restores the plain
+  // single-layer eraser exactly. Deliberately *not* gated on the eraser being
+  // the tool in hand: the engine reads this at pen-down and only for an eraser
+  // stroke, so gating here would buy nothing and add a way for the list to be
+  // stale at the moment it is read.
+  const eraseThroughLayers = toolSettings.eraser.throughLayers as boolean
+  useEffect(() => {
+    engineRef.current?.setEraseThroughLayers(
+      eraseThroughLayers ? eraseThroughTargets(layerState, isOwner) : [],
+    )
+  }, [eraseThroughLayers, layerState, isOwner, engineEpoch])
 
   // ── sync viewport → engine ────────────────────────────────────────────────────
   useEffect(() => {
