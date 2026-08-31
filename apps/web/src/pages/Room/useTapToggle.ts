@@ -4,6 +4,7 @@ import { diagLog } from '../../lib/diagLog'
 import { minimalUiTapsRequired, type MinimalUiTapMode } from '../../lib/uiPreferences'
 import { TapSequence, type TapSequenceResult } from './tapSequence'
 import { TapTracker } from './tapTracker'
+import { INTERACTIVE_SELECTOR } from './useCanvasTap'
 
 // Diagnostic for "tap doesn't hide UI" reports that vary by device (see
 // chat: works on Samsung, not on a Surface) — reports why the most recent
@@ -12,22 +13,6 @@ import { TapTracker } from './tapTracker'
 // "the digitizer reports enough jitter on a stationary touch to look like a
 // drag" from "something else disqualified it" (multi-touch, or the up simply
 // never reached TapTracker as pointerType 'touch' at all).
-/** Controls that float *inside* `.viewport` and must not double as "a tap on
- *  the canvas" (#362). The listeners here sit on `.viewport` itself, which is
- *  an ancestor of the room's two notice columns, so without this a single tap
- *  on a banner's button both pressed the button and toggled the chrome — true
- *  already for ClosedBanner's "Reopen" and LostWorkBanner's dismiss, and
- *  unavoidable for the zoom/rotation strip's reset, which exists only while the
- *  chrome is hidden and would therefore always bring it straight back.
- *
- *  Matched by role rather than by a marker attribute on each strip: "the tap
- *  landed on something meant to be pressed" is the actual rule, and a marker
- *  would have to be remembered by every future control added inside the
- *  viewport. Note this cannot be done with `stopPropagation` from React
- *  handlers — these are raw native listeners on an ancestor, so they fire
- *  during native bubbling before React dispatches anything (the same ordering
- *  that useViewport's `toolActive` check exists to work around). */
-const INTERACTIVE_SELECTOR = 'button, a, input, select, textarea, [role="button"]'
 
 export interface TapDebugInfo {
   pointerType: string

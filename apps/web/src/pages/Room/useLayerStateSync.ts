@@ -16,9 +16,10 @@ import { isDrawingTool } from '../../stores/slices/toolSlice'
  *  The interesting half is `setLocked`, which is one gate standing for four
  *  unrelated reasons a stroke must not start, deliberately kept as one:
  *
- *  - the layer is locked, or its owner has reserved it (#488) — until that was
- *    checked here, a non-owner could draw on a reserved layer, watch the ink
- *    appear, and have the server reject every stroke of it;
+ *  - the layer is locked, or its owner has reserved it (#488), or it inherits
+ *    a lock from a folder above it (#518) — until that was checked here, a
+ *    non-owner could draw on a reserved layer, watch the ink appear, and have
+ *    the server reject every stroke of it;
  *  - the layer is hidden (#359) — it is not in the composite, so the stroke
  *    would be invisible to everyone including its author while still reaching
  *    every participant and the log;
@@ -38,7 +39,7 @@ export function useLayerStateSync(engineRef: RefObject<PencilEngineAPI | null>, 
     if (!engine) return
     engine.setActiveLayer(layerState.activeId)
     engine.setLocked(
-      isLayerLocked(layerState.items[layerState.activeId], isOwner)
+      isLayerLocked(layerState, layerState.activeId, isOwner)
       || !isEffectivelyVisible(layerState, layerState.activeId)
       || !isDrawingTool(tool),
     )

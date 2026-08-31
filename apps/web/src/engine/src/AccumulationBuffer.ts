@@ -28,6 +28,7 @@ export class AccumulationBuffer {
     this.gl = gl
     this.width = width
     this.height = height
+    this._baseFilter = filter
     this._texture = this._makeTexture(filter)
     this._fbo     = this._makeFBO(this._texture)
     // Computed here rather than as a field initializer: those run before the
@@ -132,6 +133,39 @@ export class AccumulationBuffer {
     gl.generateMipmap(gl.TEXTURE_2D)
     this._mipsValid = true
     return true
+  }
+
+  /** The filter this buffer was created with — what setPointSampling restores
+   *  to, so a smudge scratch (created 'nearest') does not silently come back
+   *  as LINEAR. */
+  private readonly _baseFilter: 'linear' | 'nearest'
+  private _pointSampling = false
+
+  /** (#507) Forces exact-texel sampling for the next draw, and back again.
+   *
+   *  The transform blits sample with their own hand-written bilinear filter
+   *  (see TILE_BILINEAR in shaders.ts — a tiled layer cannot use the
+   *  hardware's, because at a tile edge half the kernel lives in a texture
+   *  this pass does not have). They fetch at exact texel centres, so the
+   *  sampler must not add a second, different interpolation on top: NEAREST
+   *  makes each fetch a plain floor, which is also the only thing that
+   *  reliably keeps a mip filter left behind by setMipSampling out of a pass
+   *  that would otherwise read blurred coarse levels.
+   *
+   *  Scoped to one draw — every caller turns it off immediately afterwards,
+   *  which is what makes restoring from _baseFilter/_mipSampling correct
+   *  rather than a guess about who else touched the texture in between. */
+  setPointSampling(on: boolean): void {
+    if (on === this._pointSampling) return
+    const { gl } = this
+    const base = this._baseFilter === 'nearest' ? gl.NEAREST : gl.LINEAR
+    gl.bindTexture(gl.TEXTURE_2D, this._texture)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, on ? gl.NEAREST : base)
+    gl.texParameteri(
+      gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER,
+      on ? gl.NEAREST : (this._mipSampling ? gl.LINEAR_MIPMAP_LINEAR : base),
+    )
+    this._pointSampling = on
   }
 
   /** (#365) Chooses trilinear or plain LINEAR minification for the next draw
@@ -321,28 +355,41 @@ export class AccumulationBuffer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** Like copyTo, but for an arbitrary sub-rect rather than the whole
-   *  buffer — smudge's own "pick up whatever's currently under/behind the
-   *  dab" step (engine/index.ts's _paintOneSmudgeDab), copied into an
-   *  independent scratch texture so it can be sampled while this buffer's
-   *  own tile keeps being the render target (WebGL1 forbids reading and
-   *  writing the same texture in one draw call — same reasoning
-   *  _bakeTransform's scratch-then-copyTo two-phase commit exists for).
-   *  `glX`/`glY` are bottom-up (native GL framebuffer convention, like
-   *  copyTexImage2D's own x/y) — the caller flips from this engine's usual
-   *  top-down app-space convention, same as every other app-space/GL-space
-   *  boundary in this codebase (DAB_VERT, pickColor). Redefines `dest`'s own
-   *  texture storage to exactly `w x h` (copyTexImage2D always does this,
-   *  regardless of dest's previous size — see copyTo's identical behavior),
-   *  so a pooled dest buffer sized differently than `w x h` is silently
-   *  resized, not rejected — callers that care about pool reuse must size
-   *  their own request to match before calling this. */
-  copyRegionTo(dest: AccumulationBuffer, glX: number, glY: number, w: number, h: number): void {
-    dest._invalidateMips() // copyTexImage2D redefines dest's level 0
+  /** Like copyTo, but from an arbitrary sub-rect of this buffer into an
+   *  arbitrary sub-rect of `dest` — smudge's own "pick up whatever's
+   *  currently under/behind the dab" step (engine/index.ts's
+   *  _gatherSmudgePatch), copied into an independent scratch texture so it
+   *  can be sampled while this buffer's own tile keeps being the render
+   *  target (WebGL1 forbids reading and writing the same texture in one
+   *  draw call — same reasoning _bakeTransform's scratch-then-copyTo
+   *  two-phase commit exists for).
+   *
+   *  Both `srcGl*` and `destGl*` are bottom-up (native GL framebuffer
+   *  convention, like copyTexSubImage2D's own x/y) — the caller flips from
+   *  this engine's usual top-down app-space convention, same as every other
+   *  app-space/GL-space boundary in this codebase (DAB_VERT, pickColor).
+   *
+   *  (#514) Was `copyRegionTo`, which wrote the whole of `dest` through
+   *  `copyTexImage2D` and so could only ever be fed one rect from one
+   *  source. A smudge patch straddling a tile seam is several rects from
+   *  several tiles assembled into one buffer, which needs the *sub*-image
+   *  form: `copyTexSubImage2D` leaves everything outside the destination
+   *  rect untouched (so successive calls accumulate) and, unlike
+   *  copyTexImage2D, does not redefine `dest`'s storage — meaning `dest`
+   *  keeps the size its `width`/`height` fields claim, and a caller must
+   *  size its own request to match rather than relying on a silent resize.
+   *  Anything outside every rect the caller copies keeps whatever `dest`
+   *  held before, so a pooled buffer wants clearing first. */
+  copyRegionInto(
+    dest: AccumulationBuffer,
+    srcGlX: number, srcGlY: number, destGlX: number, destGlY: number, w: number, h: number,
+  ): void {
+    if (w <= 0 || h <= 0) return
+    dest._invalidateMips() // copyTexSubImage2D writes dest's level 0
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, this._fbo)
     gl.bindTexture(gl.TEXTURE_2D, dest._texture)
-    gl.copyTexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, glX, glY, w, h, 0)
+    gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, destGlX, destGlY, srcGlX, srcGlY, w, h)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 

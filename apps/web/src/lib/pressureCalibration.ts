@@ -46,8 +46,34 @@ export interface PressureCurvePoint {
 }
 
 export interface PressureCalibration {
-  /** Reported pressure that maps to 0 — the lightest contact this person
-   *  makes on purpose. */
+  /** Reported pressure that maps to 0 — the floor of what this *pen* reports
+   *  while it is touching, not a level the person demonstrates.
+   *
+   *  It used to be the latter (the median of the wizard's light stroke), and
+   *  that was the defect behind a whole lesson of hairline strokes: a median
+   *  puts half of the very stroke someone drew as "light" below the floor, and
+   *  ordinary drawing is lighter than a deliberate demonstration a good deal of
+   *  the time. Measured on a real lesson (rooms `j4LVaN6I` → `1IFZTMJc`, the
+   *  same teacher a week apart): before calibration **not one** of her 78 835
+   *  dabs reported exactly 0; after it, 25.9% did, and 24% of her strokes were
+   *  at zero pressure from end to end — painting at the 0.3x width floor with
+   *  no way to press out of it.
+   *
+   *  The asymmetry with `inMax` is the whole argument. Set this too high and
+   *  strokes are destroyed outright, with the pen still on the tablet and
+   *  nothing coming out. Set it too low and the lightest touch deposits a
+   *  little instead of nothing — a rounding error against losing a mark. So it
+   *  is taken from the smallest value the pen actually reported during the two
+   *  recorded strokes (`PressureMeasurement.observedMin`), which is exactly
+   *  "the bottom of what this hardware can say", and for most pens is ~0
+   *  because there is genuinely nothing to subtract down there. A pen with a
+   *  real offset floor (never reports below, say, 0.12 in contact) still gets
+   *  it removed, which is the only case this stage was ever needed for.
+   *
+   *  Note what this does *not* try to fix: a driver deadzone, where the pen
+   *  reports a literal 0 across a wide band of real contact. That information
+   *  is destroyed before the browser sees it, and no affine rescale can invent
+   *  it back. See #476. */
   inMin: number
   /** Reported pressure that maps to 1 — a firm press they can hold, NOT the
    *  hardest push the digitizer can register. Calibrating against a press
@@ -227,10 +253,16 @@ export type PressureVerdict =
   | 'reversed'
 
 export interface PressureMeasurement {
-  /** Level held during the light stroke, on the pen's own reported scale. */
+  /** Level held during the light stroke, on the pen's own reported scale.
+   *  Feeds the verdict and the wizard's readout — deliberately *not* the
+   *  mapping; see `PressureCalibration.inMin`. */
   light: number
-  /** Level held during the firm stroke, same scale. */
+  /** Level held during the firm stroke, same scale. Becomes `inMax`. */
   heavy: number
+  /** The smallest value the pen reported anywhere in the two strokes,
+   *  landing and lift-off ramps included — which is the point: it is the
+   *  floor of what this hardware says while in contact, and it becomes
+   *  `inMin`. */
   observedMin: number
   observedMax: number
   sampleCount: number
@@ -276,13 +308,23 @@ export function measurePressure(light: number[], heavy: number[]): PressureMeasu
 
 /** The calibration a successful measurement implies, keeping whatever curve
  *  was already tuned: re-measuring the range is not a reason to throw away
- *  someone's response shape, and the two stages are independent by design. */
+ *  someone's response shape, and the two stages are independent by design.
+ *
+ *  The two ends come from different halves of the measurement on purpose, and
+ *  `inMin`'s own comment has the reasoning: the top is a level someone
+ *  *demonstrates* (a firm press they can hold, so its median is exactly right
+ *  — overshooting it costs headroom and nothing else), while the bottom is a
+ *  property of the *pen* and is read off its observed floor. Which leaves the
+ *  light stroke with no part in the mapping at all: its job is the verdict —
+ *  proving this pen differentiates pressure before a calibration is offered —
+ *  and the readout the wizard shows. That is a smaller job than it used to
+ *  have, and the right size for it. */
 export function calibrationFromMeasurement(
   measurement: PressureMeasurement,
   points: PressureCurvePoint[] = [],
 ): PressureCalibration {
   return {
-    inMin: clamp(measurement.light, 0, 1 - MIN_USABLE_RANGE),
+    inMin: clamp(measurement.observedMin, 0, 1 - MIN_USABLE_RANGE),
     inMax: clamp(measurement.heavy, MIN_USABLE_RANGE, 1),
     points: normalizeCurvePoints(points).slice(1, -1),
   }

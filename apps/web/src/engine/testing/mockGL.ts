@@ -154,6 +154,10 @@ export class MockGL {
   private _textureWrap = new Map<object, { wrapS: number; wrapT: number }>()
   private _mipmapGenerations = new Map<object, number>()
   private _minFilter = new Map<object, number>()
+  private _magFilter = new Map<object, number>()
+  // (#507) One entry per transform/area-transform draw, in order — see
+  // transformDraws().
+  private _transformDraws: Array<{ blendDst: number; srcMinFilter: number | null; srcMagFilter: number | null }> = []
   private _framebuffers = new Map<object, FramebufferInfo>()
   private _activeUnit = 0
   private _textureUnits: Array<object | null> = []
@@ -322,13 +326,16 @@ export class MockGL {
     this._boundTextureTarget = tex
   }
 
-  // Filtering (MIN/MAG_FILTER) is irrelevant: mock sampling is always 1:1,
-  // no interpolation. Wrap mode (WRAP_S/T) IS recorded (#141) — needed so a
-  // test can confirm the infinite-canvas paper texture actually requests
-  // REPEAT (vs a bounded room's CLAMP_TO_EDGE) — see getTextureWrap. Never
-  // consulted by any sampling code in this mock (texture2D-equivalent reads
-  // — _rasterComposite/_rasterTransform's nearest-neighbor lookups — still
-  // don't wrap/clamp), purely an introspection hook.
+  // Filtering doesn't change what this mock samples — its texture2D
+  // equivalents (_rasterComposite/_rasterTransform) read a single nearest
+  // texel and always did. Both filters are recorded anyway, as introspection
+  // hooks: MIN_FILTER since #365 (mip sampling), MAG_FILTER since #507, where
+  // a transform pass filters by hand in the shader and therefore *requires*
+  // its source to be on NEAREST — a fact no pixel this mock produces can
+  // show, and one a future refactor could silently drop. Wrap mode (WRAP_S/T)
+  // is recorded for the same reason (#141): a test can confirm the
+  // infinite-canvas paper texture asks for REPEAT where a bounded room's asks
+  // for CLAMP_TO_EDGE — see getTextureWrap.
   texParameteri(_target: number, pname: number, param: number): void {
     const tex = this._boundTextureTarget
     if (!tex) return
@@ -338,6 +345,7 @@ export class MockGL {
     this._textureWrap.set(tex, wrap)
     // (#365) MIN_FILTER is recorded now too — see generateMipmap.
     if (pname === ENUM.TEXTURE_MIN_FILTER) this._minFilter.set(tex, param)
+    if (pname === ENUM.TEXTURE_MAG_FILTER) this._magFilter.set(tex, param)
   }
 
   // pixelStorei affects only real-GL row-alignment during unpack — this
@@ -489,19 +497,41 @@ export class MockGL {
   }
 
   /** The texture's current TEXTURE_MIN_FILTER, or null if never set. */
+  /** (#507) Every transform-blit draw so far, in order, with the two pieces
+   *  of GL state the seam fix turns on and no pixel of this mock can show:
+   *  the blend's destination factor (ONE means the pass *sums* into the
+   *  target, which is what makes the halves of a bilinear kernel either side
+   *  of a tile boundary add back to one) and the source texture's filters
+   *  (NEAREST, because the shader does the filtering itself and must get
+   *  untouched texels).
+   *
+   *  Never cleared: a test reads the tail, or counts. */
+  transformDraws(): ReadonlyArray<{ blendDst: number; srcMinFilter: number | null; srcMagFilter: number | null }> {
+    return this._transformDraws
+  }
+
+  private _recordTransformDraw(uniforms: Map<string, UniformValue>): void {
+    const unit = (uniforms.get('u_source') as number) ?? 0
+    const tex = this._textureUnits[unit] ?? null
+    this._transformDraws.push({
+      blendDst: this._blendEnabled ? this._blendDst : ENUM.ZERO,
+      srcMinFilter: tex ? this._minFilter.get(tex) ?? null : null,
+      srcMagFilter: tex ? this._magFilter.get(tex) ?? null : null,
+    })
+  }
+
   getMinFilter(tex: object): number | null {
     return this._minFilter.get(tex) ?? null
   }
 
-  // Mirrors AccumulationBuffer.copyTo/copyRegionTo: reads a `width x
-  // height` rect from the bound-for-read framebuffer's own texture (same
-  // convention _currentTargetTexture() already uses for readPixels/
-  // drawArrays), writing into the texture bound via bindTexture.
-  // AccumulationBuffer.copyTo always passes (x,y)=(0,0) with width/height
-  // matching the source exactly (a whole-buffer copy) — copyRegionTo
-  // (smudge's own scratch-patch pickup, #14) passes an arbitrary sub-rect,
-  // so this must actually honor x/y, not just assume (0,0) the way it used
-  // to when copyTo was the only caller.
+  // Mirrors AccumulationBuffer.copyTo: reads a `width x height` rect from the
+  // bound-for-read framebuffer's own texture (same convention
+  // _currentTargetTexture() already uses for readPixels/drawArrays), and
+  // *replaces* the texture bound via bindTexture with it — storage included,
+  // which is what the real copyTexImage2D does too. copyTo is the only caller
+  // left: the sub-rect one (smudge's own scratch-patch pickup) moved to
+  // copyTexSubImage2D in #514, since it now assembles a patch out of several
+  // tiles and a call that redefines the whole destination cannot do that.
   //
   // (x,y) arrive GL-native bottom-up (row 0 = framebuffer bottom), same as
   // real copyTexImage2D — but this mock's own `data` is top-down throughout
@@ -510,9 +540,7 @@ export class MockGL {
   // way before indexing into it. Out-of-bounds rows/columns (a request
   // reaching past the source texture's own edge) read as 0 — real
   // copyTexImage2D's behavior there is implementation-defined/clamped, not
-  // something any caller in this codebase relies on (see
-  // _paintOneSmudgeDab's own bounds check, which skips a dab rather than
-  // ever requesting an out-of-range rect).
+  // something any caller in this codebase relies on.
   copyTexImage2D(_target: number, _level: number, _internalFormat: number, x: number, y: number, width: number, height: number, _border: number): void {
     const destTex = this._boundTextureTarget
     if (!destTex) return
@@ -531,6 +559,41 @@ export class MockGL {
       }
     }
     this._textureData.set(destTex, { width, height, data })
+  }
+
+  // Mirrors AccumulationBuffer.copyRegionInto (#514): same framebuffer-to-
+  // texture read as copyTexImage2D above, but into a sub-rect of an
+  // already-sized destination, leaving every texel outside that rect alone.
+  // That difference is the whole reason it exists — a smudge patch straddling
+  // a tile seam is assembled from one such call per tile, and each must
+  // preserve what the previous ones wrote.
+  //
+  // Both (x,y) and (xoffset,yoffset) are GL-native bottom-up, so both need
+  // the same flip into this mock's top-down `data` — and because the two
+  // rects are the same height, flipping each independently keeps their rows
+  // paired. A destination that was never sized (no texImage2D) is a no-op,
+  // exactly as the real call is undefined-behaviour there; out-of-range
+  // rows/columns on either side are skipped rather than wrapped.
+  copyTexSubImage2D(
+    _target: number, _level: number, xoffset: number, yoffset: number,
+    x: number, y: number, width: number, height: number,
+  ): void {
+    const destTex = this._boundTextureTarget
+    if (!destTex) return
+    const dstInfo = this._textureData.get(destTex)
+    const srcInfo = this._currentTargetTexture()
+    if (!dstInfo || !srcInfo) return
+    const srcTopY = srcInfo.height - (y + height)
+    const dstTopY = dstInfo.height - (yoffset + height)
+    for (let row = 0; row < height; row++) {
+      const srcRow = srcTopY + row, dstRow = dstTopY + row
+      if (srcRow < 0 || srcRow >= srcInfo.height || dstRow < 0 || dstRow >= dstInfo.height) continue
+      for (let col = 0; col < width; col++) {
+        const srcCol = x + col, dstCol = xoffset + col
+        if (srcCol < 0 || srcCol >= srcInfo.width || dstCol < 0 || dstCol >= dstInfo.width) continue
+        dstInfo.data[dstRow * dstInfo.width + dstCol] = srcInfo.data[srcRow * srcInfo.width + srcCol]
+      }
+    }
   }
 
   // ── framebuffers ─────────────────────────────────────────────────────────
@@ -630,8 +693,8 @@ export class MockGL {
     switch (prog.fragTag) {
       case 'dab': this._recordDabDraw(prog.uniforms); this._rasterDab(info, prog.uniforms); break
       case 'composite': this._rasterComposite(info, prog.uniforms); break
-      case 'transform': this._rasterTransform(info, prog.uniforms); break
-      case 'areaTransform': this._rasterAreaTransform(info, prog.uniforms); break
+      case 'transform': this._recordTransformDraw(prog.uniforms); this._rasterTransform(info, prog.uniforms); break
+      case 'areaTransform': this._recordTransformDraw(prog.uniforms); this._rasterAreaTransform(info, prog.uniforms); break
       case 'areaMask': this._rasterAreaMask(info, prog.uniforms); break
       case 'imageBlit': this._rasterImageBlit(info, prog.uniforms); break
       case 'smudge': this._rasterSmudge(info, prog.uniforms); break
@@ -938,7 +1001,19 @@ export class MockGL {
     const opacity = (uniforms.get('u_opacity') as number) ?? 1
     const srcTex = this._textureUnits[unit] ?? null
     const srcInfo = srcTex ? this._textureData.get(srcTex) : undefined
-    const sf = this._blendSrcFactor()
+    // (#503) Blending state honoured, not assumed. This used to hard-code the
+    // destination weight as `1 - srcAlpha` — an "over" blend — in both
+    // branches below, which silently made a *replace* impossible to express:
+    // `_downsampleTileInto` folds a fine tile into a coarse slot with
+    // gl.disable(BLEND) precisely so an erased tile writes transparency over
+    // whatever the slot held, and under an "over" blend a fully transparent
+    // source changes nothing at all. The consequence was that no test could
+    // see an erase reach the pyramid, which is exactly the bug #503 turned
+    // out to be. `_blendDstWeight` already existed for this and already
+    // returns 0 with blending off; only this rasterizer was not asking it.
+    // The source factor needs the same care: with blending disabled real GL
+    // writes the source outright, whatever blendFunc last said.
+    const sf = this._blendEnabled ? this._blendSrcFactor() : 1
     const vp = this._viewport
 
     // The common case (composite/beginDraw/beginErase always set viewport to
@@ -952,7 +1027,7 @@ export class MockGL {
     if (!srcInfo || (vp.x === 0 && vp.y === 0 && vp.w === width && vp.h === height)) {
       for (let i = 0; i < width * height; i++) {
         const srcAlpha = srcInfo ? clamp((srcInfo.data[i] ?? 0) * opacity, 0, 1) : 0
-        data[i] = srcAlpha * sf + data[i] * (1 - srcAlpha)
+        data[i] = srcAlpha * sf + data[i] * this._blendDstWeight(srcAlpha)
       }
       return
     }
@@ -973,7 +1048,7 @@ export class MockGL {
         const sy = Math.min(Math.floor(v * srcInfo.height), srcInfo.height - 1)
         const srcAlpha = clamp((srcInfo.data[sy * srcInfo.width + sx] ?? 0) * opacity, 0, 1)
         const idx = py * width + px
-        data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
+        data[idx] = srcAlpha * sf + data[idx] * this._blendDstWeight(srcAlpha)
       }
     }
   }
@@ -1102,7 +1177,14 @@ export class MockGL {
           const sy = Math.min(Math.floor(srcY), srcInfo.height - 1)
           srcAlpha = srcInfo.data[sy * srcInfo.width + sx] ?? 0
         }
-        data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
+        // (#507) The real blend factor, not a hardcoded "over": a tiled
+        // transform sums its per-source-tile passes (ONE, ONE) so that the
+        // shares of one bilinear kernel either side of a tile boundary add
+        // back to one. Nearest sampling here means the passes are disjoint
+        // and the two blends agree pixel for pixel, so this changes nothing
+        // the mock draws — it stops the mock from *claiming* something the
+        // engine no longer does.
+        data[idx] = srcAlpha * sf + data[idx] * this._blendDstWeight(srcAlpha)
       }
     }
   }
@@ -1145,7 +1227,7 @@ export class MockGL {
         const sy = Math.min(Math.floor((1 - v) * srcInfo.height), srcInfo.height - 1)
         const srcAlpha = clamp(srcInfo.data[sy * srcInfo.width + sx] ?? 0, 0, 1)
         const idx = py * width + px
-        data[idx] = srcAlpha * sf + data[idx] * (1 - srcAlpha)
+        data[idx] = srcAlpha * sf + data[idx] * this._blendDstWeight(srcAlpha)
       }
     }
   }

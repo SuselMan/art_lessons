@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 
+import { BUTTON_DRAG_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useDraggablePosition } from '../../lib/useDraggablePosition'
 import { useLongPress } from '../../lib/useLongPress'
 import { useT } from '../../i18n'
@@ -156,8 +157,19 @@ export function FloatingToolPanel({
   )
   const openPrimaryFlyout = useCallback(() => onFlyoutChange('primary'), [onFlyoutChange])
   const openSecondaryFlyout = useCallback(() => onFlyoutChange('secondary'), [onFlyoutChange])
-  const { onPointerDown: onPrimaryHold } = useLongPress({ onLongPress: openPrimaryFlyout })
-  const { onPointerDown: onSecondaryHold } = useLongPress({ onLongPress: openSecondaryFlyout })
+  // Both holds are given the same movement budget a press on one of these
+  // buttons gets before it becomes a drag of the panel (see
+  // dragThresholdForPress), rather than useLongPress's own standalone default.
+  // The two numbers describe one gesture from two sides, and letting them
+  // disagree leaves a gap: drift past the hold's tolerance but short of the
+  // drag's, and the press cancels the fan it was opening without becoming
+  // anything else — a deliberate hold that quietly selects the tool instead.
+  // The rule worth keeping is that the movement which ends a hold is exactly
+  // the movement that starts a drag.
+  const { onPointerDown: onPrimaryHold } =
+    useLongPress({ onLongPress: openPrimaryFlyout, tolerance: BUTTON_DRAG_THRESHOLD_PX })
+  const { onPointerDown: onSecondaryHold } =
+    useLongPress({ onLongPress: openSecondaryFlyout, tolerance: BUTTON_DRAG_THRESHOLD_PX })
 
   // A tap on a tool slot. Selecting what the slot shows is only its second
   // job: while the slot's own fan is out, the tap tucks it back instead — the

@@ -6,7 +6,8 @@ import { isRoomAccessMode, SNAPSHOT_SEQ_INTERVAL } from '@grafetto/shared'
 import {
   addPaletteColor, createRoom, ensureRoomLoaded, evictIdleRooms, findDuplicateOperation, getOperationRejectReason,
   getParticipant, getRoomBacklog, getRoomGate, getRoomSnapshot, isRoomResident, joinRoom, leaveRoom, recordOperation,
-  releaseRoomIfUnused, removePaletteColor, setLayerOwnerLocked, setParticipantFrozen, setRoomFrozen, updateAliveIds,
+  releaseLockOnUndo, releaseRoomIfUnused, removePaletteColor, setLayerLocked, setLayerOwnerLocked,
+  setParticipantFrozen, setRoomFrozen, updateAliveIds,
 } from './rooms.js'
 import { checkJoinAccess } from './roomAccess.js'
 import { resolveSocketIdentity } from './identity.js'
@@ -371,6 +372,12 @@ export function registerRoomHandlers(io: AppServer, log: FastifyBaseLogger): voi
         // recordOperation, not after, though the two never race each other
         // either way (single-threaded, no `await` in between).
         if (op.type === 'layer_owner_lock') setLayerOwnerLocked(roomId, op.layerId, op.locked)
+        // (#518) The shared lock's mirror, kept in step the same way. Undo and
+        // redo of one are handled next to it rather than folded in — see
+        // releaseLockOnUndo for why the server gives the lock up rather than
+        // trying to reconstruct what the flag became.
+        if (op.type === 'layer_lock') setLayerLocked(roomId, op.layerId, op.locked)
+        releaseLockOnUndo(roomId, op)
         // (#289 epic) Same reasoning, for the aliveIds mirror
         // getOperationRejectReason's target_gone check above just read.
         updateAliveIds(roomId, op)

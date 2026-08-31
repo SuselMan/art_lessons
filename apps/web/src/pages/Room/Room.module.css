@@ -184,6 +184,20 @@
 }
 .headerIconBtn:hover { color: var(--color-text); background: var(--color-surface-2); }
 
+/* (#509 v4) A header button that is a *mode*, not an action — lit while it is
+   on, the way the toolbar lights the tool in hand. The two controls it exists
+   for (annotation mode, hide notes) are the first here that have an on state:
+   everything else up there fires once and is done. */
+.headerIconBtnActive {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
+.headerIconBtnActive:hover {
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+}
+
 .roomName {
   font-size: 14px;
   font-weight: 500;
@@ -1267,4 +1281,247 @@ a.gateSubmit {
   justify-content: center;
   padding-top: 4px;
   border-top: 1px solid var(--color-border);
+}
+
+/* ── Annotations (#508, эпик #87) ─────────────────────────────────────────
+   The layer rides whichever ancestor carries the viewport transform, exactly
+   like .selectionSvg and .gridOverlayInfinite above, so everything inside is
+   positioned in world coordinates and pans/zooms/rotates with the paper.
+
+   `pointer-events: none` on the layer with `auto` re-enabled per element is
+   deliberate: the layer covers the whole viewport, so anything else would put
+   an invisible sheet over the canvas and swallow every stroke. Only a note
+   that is actually editable right now takes presses back. */
+.annotationLayer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.annotationInkSvg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+/* (#509 v2) A note is a pin stuck in the drawing with a bubble hanging off it.
+   Both cancel the wrapper's scale and rotation inline (see AnnotationOverlay's
+   `pinned`), so everything below is measured in plain screen pixels and holds
+   its size at any zoom — the same counter-transform .rulerDistanceLabel uses.
+
+   Painted entirely from theme tokens rather than from the annotation's own
+   colour: a bubble is interface, and interface belongs to whoever is *reading*
+   it. The author's colour is kept for the two things that identify the remark —
+   the pin and the bubble's left edge — which is enough to tell two people's
+   notes apart without printing a coloured paragraph on a coloured page and
+   hoping the contrast survives both themes. */
+/* The pin's target: transparent, finger-sized, and the thing that actually
+   carries the hit-test attributes. The visible dot is centred inside it. A 14px
+   dot is the right size to look at and the wrong size to hit — the two are not
+   the same question, so they are not the same box. */
+.annotationPinHit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Set here for completeness — the cursor a reader actually sees comes from
+     the catcher above it (see Room's annotationHover), which covers this. */
+  cursor: pointer;
+  touch-action: none;
+}
+
+.annotationPin {
+  display: block;
+  border-radius: 50%;
+  /* A ring in the page's own surface colour, so the pin reads against graphite
+     and against blank paper alike — the same two-tone trick the selection
+     marquee uses, which has the same problem. */
+  box-shadow: 0 0 0 2px var(--color-surface), var(--shadow-sm);
+  transition: transform var(--duration-fast, 120ms) ease,
+              box-shadow var(--duration-fast, 120ms) ease;
+}
+
+/* Open for editing, or being dragged. Both are states in which the next press
+   means something other than it usually would, so the pin says so rather than
+   leaving the only evidence to be a bubble that may be off-screen. */
+.annotationPinActive {
+  transform: scale(1.35);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 5px var(--color-accent), var(--shadow-sm);
+}
+
+.annotationBubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-family: var(--font-ui, system-ui, sans-serif);
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  box-shadow: var(--shadow-md);
+  cursor: text;
+}
+
+.annotationBubbleText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The bin. Dim until the note is hovered, because it sits inside a box whose
+   whole job is to be read: an always-bright destructive control next to two
+   lines of text reads as part of the sentence. */
+.annotationBubbleDelete {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  margin: -2px -2px 0 0;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-faint);
+  font-size: 16px;
+  cursor: pointer;
+  transition: color var(--duration-fast, 120ms) ease, background var(--duration-fast, 120ms) ease;
+}
+
+.annotationBubble:hover .annotationBubbleDelete {
+  color: var(--color-text-dim);
+}
+
+.annotationBubbleDelete:hover {
+  color: var(--color-danger, #e5484d);
+  background: var(--color-surface-hover);
+}
+
+/* The editor takes pointer events where a committed note gets them from an
+   inline style: the layer is `pointer-events: none` and everything inside
+   inherits it, so without this the tick and the bin were invisible to
+   `elementsFromPoint` — the catcher hit-tested straight past them and a tap on
+   the tick opened a second note instead of finishing the first. */
+.annotationBubbleEditing {
+  cursor: auto;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+
+/* The editor's two controls, in a column beside the text so a growing note
+   pushes them down with it rather than reflowing around them. */
+.annotationEditorActions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.annotationBubbleDone {
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--color-accent);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.annotationBubbleDone:hover {
+  background: var(--color-surface-hover);
+}
+
+.annotationInput {
+  width: 100%;
+  min-width: 140px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  /* The text's own colour, not the accent: the accent is a mid purple that all
+     but disappears against the dark theme's surface, and a caret nobody can see
+     is a note nobody is sure they are typing into. */
+  caret-color: currentColor;
+}
+
+/* (#512) The two left rails as one column on a phone.
+   
+   Everywhere else this wrapper is not a box at all: `display: contents` means
+   .toolbar and .quickSettingsBar keep resolving their own `position: absolute`
+   against the same ancestor they always did, so the desktop and tablet layout
+   is byte-for-byte what it was. Two columns are right there — they are what
+   keeps the tool buttons from reflowing every time the active tool's field
+   count changes (see .quickSettingsBar's own comment).
+   
+   On a phone that trade is backwards: two 62px columns are a third of the
+   screen, both nearly empty, and there is no reflow worth preventing when the
+   whole toolset is three buttons. So the wrapper becomes the column and the
+   two bars stack inside it, tools above settings — one surface, one edge, the
+   same 62px the toolbar alone used to take. */
+.toolRail {
+  display: contents;
+}
+
+.toolRailCompact {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: var(--header-h);
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  width: var(--rail-col-w);
+  background: var(--color-surface);
+  /* The edge between chrome and canvas, moved here from .quickSettingsBar —
+     that bar is no longer the rightmost thing on this side. */
+  border-right: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+/* Static, so each bar is as tall as its own content and the flex column above
+   does the stacking. Everything positional in their own rules — top, left,
+   bottom, width, the border — is answered by the wrapper now. */
+.toolRailCompact .toolbar,
+.toolRailCompact .quickSettingsBar {
+  position: static;
+  width: 100%;
+  border-right: none;
+  flex: 0 0 auto;
+}
+
+/* The two bars each carry 14px of vertical padding, which between them would
+   read as a 28px gap in the middle of what is meant to look like one panel.
+   The settings half drops its top padding and lets the divider do the work. */
+.toolRailCompact .quickSettingsBar {
+  padding-top: 0;
+}
+
+/* A note pinned near the right edge hangs off to the left instead. The accent
+   edge moves with it, so it always sits on the side the pin is on — the edge is
+   what points back at what the note is about. */
+.annotationBubbleFlipped {
+  border-left: 1px solid var(--color-border);
+  border-right: 3px solid var(--color-accent);
 }

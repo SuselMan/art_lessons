@@ -58,8 +58,26 @@ export interface ILayerBuffer {
 
   /** Same resolution, but read-only — never creates a tile that doesn't
    *  already exist. Used by composite/display/content-bounds scanning,
-   *  where an untouched region simply contributes nothing. */
+   *  where an untouched region simply contributes nothing.
+   *
+   *  Read-only is meant literally: this does not mark what it returns as
+   *  needing to reach the coarse levels, because the composite calls it every
+   *  frame and re-folding every visible tile per frame is the cost #367
+   *  removed. A caller that intends to *write* into what it gets back wants
+   *  resolveExistingForPaint instead. */
   resolveVisible(worldRect: WorldRect): PaintTarget[]
+
+  /** (#503) The write resolver for an operation that must not create tiles:
+   *  whatever already exists under worldRect, marked as about to change.
+   *
+   *  Exists because `area_clear` is neither of the other two. resolveForPaint
+   *  would create a tile per cell the selection covers, leaving permanently
+   *  blank tiles wherever an erase crossed untouched ground; resolveVisible
+   *  creates nothing but also tells no level anything, so the erase reached
+   *  the fine tiles and nothing else — the layer went on showing the erased
+   *  content at any zoom that reads a coarse level, and dropped it only on
+   *  zooming back in. */
+  resolveExistingForPaint(worldRect: WorldRect): PaintTarget[]
 
   /** (#365) Coarse-level counterpart to resolveVisible — whichever
    *  reduced-resolution tiles overlap worldRect and hold content, for

@@ -15,7 +15,8 @@ import styles from './Room.module.css'
  *  why they replace the form rather than appearing as an error under it —
  *  there is nothing to re-type in any of them.
  *
- *  - `form`     — ask for a name (and a password, if the room has one).
+ *  - `form`     — ask for a name (and a password, once we know one is
+ *                 wanted — see `passwordAsked`).
  *  - `login`    — invite-only room, and this browser is an anonymous guest.
  *  - `pending`  — asked, waiting for the owner. Resolves by itself (#227).
  *  - `denied`   — the owner said not now. Asking again is allowed.
@@ -30,6 +31,17 @@ interface JoinGateProps {
   onNameChange: (name: string) => void
   password: string
   onPasswordChange: (password: string) => void
+  /** (#513) Whether the password field is on screen at all.
+   *
+   *  Nothing about a room is readable before joining it — no name, no
+   *  accessMode, and no "has a password" — so the form cannot know up front
+   *  whether to ask. It therefore asks by *trying*: the first submit carries
+   *  no password, and a room that has one refuses it, which is what turns
+   *  this true (Room/index.tsx). A room without one lets that first submit
+   *  through and never shows the field, which is the point — an empty
+   *  password box on a room that has no password tells the reader something
+   *  untrue about the room they are trying to enter. */
+  passwordAsked: boolean
   error: string | null
   submitting: boolean
   onSubmit: (e: React.FormEvent) => void
@@ -40,8 +52,8 @@ interface JoinGateProps {
 }
 
 export function JoinGate({
-  roomName, state, name, onNameChange, password, onPasswordChange, error, submitting, onSubmit,
-  onRetry, returnTo,
+  roomName, state, name, onNameChange, password, onPasswordChange, passwordAsked,
+  error, submitting, onSubmit, onRetry, returnTo,
 }: JoinGateProps) {
   const t = useT()
 
@@ -59,6 +71,16 @@ export function JoinGate({
         <form className={styles.gateCard} onSubmit={onSubmit} noValidate>
           <h1 className={styles.gateHeading}>{heading}</h1>
 
+          {/* (#513) Why the form just grew a field. Sits under the heading
+              like the other states' notes, and is deliberately not a
+              `.gateError`: the reader submitted a form that had no password
+              on it, so its absence is not a mistake of theirs. It steps aside
+              for a real error — a wrong password, an empty field — since by
+              then the field explains itself. */}
+          {passwordAsked && !error && (
+            <p className={styles.gateNote}>{t('join.passwordNeeded')}</p>
+          )}
+
           <div className={styles.gateSection}>
             <div className={styles.gateLabel}>{t('join.yourName')}</div>
             <input
@@ -72,17 +94,23 @@ export function JoinGate({
             />
           </div>
 
-          <div className={styles.gateSection}>
-            <div className={styles.gateLabel}>{t('join.password')}</div>
-            <input
-              className={styles.gateInput}
-              type="password"
-              placeholder={t('join.passwordPlaceholder')}
-              value={password}
-              onChange={e => onPasswordChange(e.target.value)}
-              autoComplete="current-password"
-            />
-          </div>
+          {passwordAsked && (
+            <div className={styles.gateSection}>
+              <div className={styles.gateLabel}>{t('join.password')}</div>
+              {/* `autoFocus` here and on the name field both fire, but each
+                  only when its own element mounts — the name's on arrival,
+                  this one's on the submit that revealed it, which is exactly
+                  where the caret should go. */}
+              <input
+                className={clsx(styles.gateInput, error && !password && styles.gateInputError)}
+                type="password"
+                value={password}
+                onChange={e => onPasswordChange(e.target.value)}
+                autoComplete="current-password"
+                autoFocus
+              />
+            </div>
+          )}
 
           {error && <div className={styles.gateError}>{error}</div>}
 

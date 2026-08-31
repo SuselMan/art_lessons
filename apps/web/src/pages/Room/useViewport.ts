@@ -134,6 +134,12 @@ export function useViewport(
   const touchPtrs = useRef(new Map<number, { x: number; y: number }>())
   const dragRef = useRef<PointerDrag | null>(null)
   const reservedTouchId = useRef<number | null>(null)
+  /** Where the reserved finger is right now. Tracked even though this hook
+   *  does nothing with that finger, because the moment a second one lands the
+   *  two become a pinch — and a pinch needs both positions. Without it the
+   *  reserved finger could only be handed over at the point it first touched
+   *  down, which after a second of drawing is nowhere near where it is. */
+  const reservedPoint = useRef<{ x: number; y: number } | null>(null)
   // Recognizes when the two-finger branch below is actually pinching/rotating
   // rather than panning, so `onPinchPhase` fires once per gesture edge instead
   // of once per move event — see PinchTracker for why that distinction can't be
@@ -258,7 +264,26 @@ export function useViewport(
           diagLog('vp: down', { id: e.pointerId, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current, toolActive: toolActive.current })
           if (toolActive.current && reservedTouchId.current === null && touchPtrs.current.size === 0) {
             reservedTouchId.current = e.pointerId
+            reservedPoint.current = toVp(e)
             return
+          }
+          // (#512 follow-up) A second finger while the first is with the tool.
+          // Before this the reservation simply stayed put and the new finger
+          // became a lone pointer, i.e. a *pan* — so on a device where the
+          // finger draws, pinch-zoom did not exist at all: two fingers could
+          // only ever slide the canvas, and the reserved one went on drawing
+          // underneath, which is what "it draws two lines" was.
+          //
+          // Handing the reserved finger over makes the pair an ordinary
+          // two-finger gesture, which is what a second finger means everywhere
+          // else in this app. The tool cancels its own half — it sees this same
+          // pointerdown a moment later through React and drops the mark in
+          // progress. Neither side has to tell the other: both are reacting to
+          // the same event.
+          if (reservedTouchId.current !== null && reservedTouchId.current !== e.pointerId) {
+            touchPtrs.current.set(reservedTouchId.current, reservedPoint.current ?? toVp(e))
+            reservedTouchId.current = null
+            reservedPoint.current = null
           }
           try { el.setPointerCapture(e.pointerId) } catch { /* context loss */ }
           touchPtrs.current.set(e.pointerId, toVp(e))
@@ -302,6 +327,12 @@ export function useViewport(
       const onMove = (e: PointerEvent) => {
         if (e.pointerType === 'touch') {
           const ptrs = touchPtrs.current
+          // The tool's finger: followed but never acted on, so it can be handed
+          // to a pinch at where it actually is rather than where it landed.
+          if (e.pointerId === reservedTouchId.current) {
+            reservedPoint.current = toVp(e)
+            return
+          }
           if (!ptrs.has(e.pointerId)) return
           const prev = ptrs.get(e.pointerId)!
           const curr = toVp(e)
@@ -384,7 +415,11 @@ export function useViewport(
       const onUp = (e: PointerEvent) => {
         if (e.pointerType === 'touch') {
           diagLog('vp: up/cancel', { id: e.pointerId, type: e.type, ptrsBefore: [...touchPtrs.current.keys()], reserved: reservedTouchId.current })
-          if (reservedTouchId.current === e.pointerId) { reservedTouchId.current = null; return }
+          if (reservedTouchId.current === e.pointerId) {
+            reservedTouchId.current = null
+            reservedPoint.current = null
+            return
+          }
           touchPtrs.current.delete(e.pointerId)
           try { el.releasePointerCapture(e.pointerId) } catch { /* context loss */ }
           // (#362) Below two fingers there is no pinch left to be in, whether
@@ -414,6 +449,7 @@ export function useViewport(
         diagLog('vp: resetTouchState fired', { hadPtrs: [...touchPtrs.current.keys()], hadReserved: reservedTouchId.current })
         touchPtrs.current.clear()
         reservedTouchId.current = null
+        reservedPoint.current = null
         dragRef.current = null
         // (#362) Same reasoning as the rest of this reset: the fingers that
         // were pinching may never deliver an up, and a pinch left "active"

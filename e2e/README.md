@@ -1,6 +1,6 @@
 # End-to-end tests
 
-Five scenarios in a real browser, against a real server and a real database.
+Scenarios in a real browser, against a real server and a real database.
 See `playwright.config.ts` for why a browser is the only place they can run,
 and `support/room.ts` for how the assertions read actual pixels.
 
@@ -44,6 +44,12 @@ clearly (`4491 is already used`), which is the intended behaviour of
 | Drawing through a dropped connection reaches the server afterwards | `specs/reconnect.spec.ts` |
 | A room past the snapshot boundary rejoins from stored pixels | `specs/snapshot.spec.ts` |
 | Losing the GPU context and getting it back: the drawing returns, undo still lines up, an interrupted gesture leaves nothing, a peer's stroke in flight is not stranded | `specs/contextLoss.spec.ts` |
+| A layer transform resamples as one image, with no source-tile seam | `specs/transformSeam.spec.ts` |
+| Smudge works across a tile seam — no dead band down an A4 sheet's x=1024 | `specs/smudgeSeam.spec.ts` |
+| Settings shows exactly the version this build was stamped with | `specs/version.spec.ts` |
+| A tap on a floating-panel button presses it rather than dragging the panel | `specs/floatingPanel.spec.ts` |
+| A finger tapping past a selection puts it down, while a one-finger pan keeps it | `specs/selectionTap.spec.ts` |
+| An eraser set to go through layers clears every visible one in a pass, and one undo restores them | `specs/eraseThroughLayers.spec.ts` |
 
 ## What is not covered, on purpose
 
@@ -51,9 +57,14 @@ clearly (`4491 is already used`), which is the intended behaviour of
   browser download and a Postgres service on the runner, and is worth doing
   once the suite has proved stable on more than one machine (#491 says as
   much).
-- **Touch and pen input.** Playwright's mouse is a mouse. The tablet is the
-  target device and its gestures — two-finger pan, palm rejection, pressure —
-  are not reachable this way, so §9's device passes still need hands.
+- **Most touch and pen input.** Playwright's mouse is a mouse. The tablet is
+  the target device and its gestures — two-finger pan, palm rejection,
+  pressure — are not reachable this way, so §9's device passes still need
+  hands. The exception is a single finger: `selectionTap.spec.ts` runs with
+  `test.use({ hasTouch: true })` and drives real touch events, because a tap is
+  fully described by its own down and up and needs no second finger to be
+  itself. Its one-finger drag goes through CDP's `Input.dispatchTouchEvent`
+  directly — Playwright's `touchscreen` offers only `tap`.
 - **Anything about how it looks.** No screenshot comparison: a grained paper
   canvas would make golden images fail on every GPU that is not the one they
   were recorded on. These tests assert that ink is where it should be, never

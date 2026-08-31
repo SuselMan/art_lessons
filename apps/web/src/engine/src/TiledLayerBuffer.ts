@@ -527,6 +527,15 @@ export class TiledLayerBuffer implements ILayerBuffer {
       this.tiles.set(key, tile)
     }
     session.destroy()
+    // (#503) A recovered tile owes every level again, even though eviction
+    // settled its debt on the way out. What it settled were the pixels it
+    // held then; what it holds now came from a fresh replay of the log, and
+    // the two agree only as long as nothing about that replay has changed —
+    // which is not a property this class can check, and exactly the class of
+    // assumption that made #500 a silent data loss rather than a visible bug.
+    // Re-owing costs one quad draw per tile at the next fold; not re-owing
+    // costs a level that quietly disagrees with the layer at one zoom.
+    this.markForDownsample(keys)
   }
 
   private getOrCreateTile(tileX: number, tileY: number): AccumulationBuffer {
@@ -573,6 +582,19 @@ export class TiledLayerBuffer implements ILayerBuffer {
   }
 
   resolveVisible(worldRect: WorldRect): PaintTarget[] {
+    return this.resolveExisting(worldRect, false)
+  }
+
+  /** See ILayerBuffer's own doc comment. */
+  resolveExistingForPaint(worldRect: WorldRect): PaintTarget[] {
+    return this.resolveExisting(worldRect, true)
+  }
+
+  /** The body both share. `forPaint` decides exactly one thing — whether what
+   *  is handed back is also owed to the coarse levels — and it is a parameter
+   *  rather than a second near-identical method precisely because the
+   *  difference is that small and was that easy to miss (#503). */
+  private resolveExisting(worldRect: WorldRect, forPaint: boolean): PaintTarget[] {
     const coords = tilesOverlappingRect(worldRect, this.tileW, this.tileH)
     const keys = coords.map(({ tileX, tileY }) => tileKey(tileX, tileY))
     this.recoverTiles(keys.filter(key => !this.tiles.has(key) && this.evicted.has(key)))
@@ -592,6 +614,10 @@ export class TiledLayerBuffer implements ILayerBuffer {
     // actually returned, not from `keys`: a coord with no tile at all
     // contributes nothing to protect, and this is the hot display path.
     this.evictIfOverBudget(inUse)
+    // Marked after the trim and only over what is actually being handed back,
+    // for both of resolveForPaint's own reasons: the caller has not written
+    // yet, and the trim only ever folds tiles it is about to destroy.
+    if (forPaint) this.markForDownsample(inUse)
     return targets
   }
 

@@ -35,6 +35,10 @@ import {
 import type { NibAngleConfig } from './src/markerPresets'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
+// (#517) Same on-device ring buffer PointerInput writes to — the stroke
+// pipeline's two silent refusals below are only diagnosable from a tablet
+// with no inspector attached, which is what diagLog exists for.
+import { diagLog } from '../lib/diagLog'
 // (#475) The calibration model itself is not engine code — it is pure input
 // math shared with the settings UI and the preferences store, so it lives in
 // `lib/` (the same direction PointerInput already imports diagLog from). The
@@ -400,6 +404,20 @@ export interface PencilEngineAPI {
    *  already outlived. See the implementation for what goes wrong without it. */
   setBaseLayers(ids: readonly string[]): void
   setActiveLayer(id: string): void
+  /** (#520) The layers an eraser stroke goes through, on top of the active one
+   *  — empty for every other tool and for an eraser with the toggle off, which
+   *  is the default and restores the plain single-layer behaviour exactly.
+   *
+   *  A list of ids rather than a boolean on purpose: *which* layers a
+   *  cross-layer erase may touch is a question about visibility, locks, folder
+   *  nesting and who the room owner is — all of which live in LayerState and in
+   *  the session, never in the engine (see `eraseThroughTargets` in
+   *  lib/layers.ts, which is the one place that rule is written down). The
+   *  engine is told the answer and paints into it.
+   *
+   *  Read once at pen-down, like the active layer is: changing this mid-stroke
+   *  never redirects a gesture already in flight. */
+  setEraseThroughLayers(ids: readonly string[]): void
   setLocked(locked: boolean): void
   // Dev-only live tuning (see DAB_FRAG's paperFillThreshold uniform and its
   // own comment) — the pressure smoothstep() lower bound above which a
@@ -996,11 +1014,19 @@ interface PeerLiveStroke {
  *
  *  Isolated tools all measured clean; twenty-seven strokes drawn briskly did
  *  not. The difference was never the tool. */
-function liveStrokeKey(peerId: string, strokeId: string): string {
+function liveStrokeKey(peerId: string, strokeId: string, layerId: string): string {
   // `|` is safe as a separator rather than merely unlikely: a userId is a UUID
   // and a strokeId is a nanoid, and neither alphabet contains it, so no pair of
   // distinct inputs can collide on one key.
-  return `${peerId}|${strokeId}`
+  //
+  // (#520) The layer is part of the key because a gesture is no longer confined
+  // to one layer: an eraser set to go through layers paints one set of dabs
+  // into every eligible layer, and records one operation per layer, all under
+  // the same strokeId. Each of those is its own stream with its own
+  // packetSeq/paintedTotal, and keying them together would make the second
+  // layer's first packet look like the first layer's second — a sequence gap,
+  // which desyncs the gesture and drops it back to arriving whole by operation.
+  return `${peerId}|${strokeId}|${layerId}`
 }
 
 /** How many finished-but-unsettled gestures to keep per peer. Entries are
@@ -2223,6 +2249,21 @@ export class PencilEngine implements PencilEngineAPI {
 
   // In-flight stroke, recorded as one StrokeOperation on pointer up
   private _strokeLayerId: string | null
+  /** (#520) The *other* layers this gesture is painting into, besides
+   *  `_strokeLayerId` — always empty except under an eraser with "through
+   *  layers" on. Frozen at pen-down from `_eraseThroughIds`.
+   *
+   *  Kept as a supplement to `_strokeLayerId` rather than folding both into one
+   *  list, because the two are not interchangeable everywhere: the active layer
+   *  is what the preview and tip buffers, the wash bookkeeping and the split
+   *  cache are all anchored to, and a list would have made every one of those
+   *  ask "which of these is the real one?". Only the three places that
+   *  genuinely repeat per layer — paint, live packets, recorded operations —
+   *  iterate this. */
+  private _strokeExtraLayerIds: string[] = []
+  /** (#520) What the *next* eraser stroke will go through — see
+   *  setEraseThroughLayers. Live setting, read at pen-down. */
+  private _eraseThroughIds: string[] = []
   private _strokeTool: ToolType
   private _strokePreset: string
   private _strokeColor: [number, number, number]
@@ -2459,6 +2500,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._activeId = id
     // #122: moves the below/above split point itself.
     this._invalidateSplitCache()
+  }
+
+  /** See the PencilEngineAPI doc comment. */
+  setEraseThroughLayers(ids: readonly string[]): void {
+    this._eraseThroughIds = [...ids]
   }
 
   setLocked(locked: boolean): void {
@@ -3448,9 +3494,7 @@ export class PencilEngine implements PencilEngineAPI {
           const toWorld = translationMatrix(rect.minX, rect.minY)
           const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
           const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
-          this._runTransformBlit(
-            srcTile.buffer.texture, mc, dw, dh, srcTile.buffer.width, srcTile.buffer.height, scratch.fbo,
-          )
+          this._runTransformBlit(srcTile.buffer, mc, dw, dh, scratch.fbo, 'add')
         })
         tiles.push({ originX: rect.minX, originY: rect.minY, buffer: scratch })
       }
@@ -3536,7 +3580,7 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** See PencilEngineAPI's doc comment. */
   appendPeerLiveDabs(peerId: string, packet: PeerLivePacket): void {
-    const key = liveStrokeKey(peerId, packet.strokeId)
+    const key = liveStrokeKey(peerId, packet.strokeId, packet.layerId)
     let live = this._peerLiveStrokes.get(key)
     if (!live) {
       this._pruneLiveGestures(peerId)
@@ -3594,8 +3638,12 @@ export class PencilEngine implements PencilEngineAPI {
   endPeerLiveStroke(peerId: string, strokeId?: string): number {
     // With `strokeId`, exactly the gesture whose pen came up. Without it (a
     // peer leaving), every gesture of theirs that is still open.
+    //
+    // (#520) A filter rather than a keyed lookup even in the first case: one
+    // gesture can hold several entries now, one per layer it painted into, and
+    // the pen came up on all of them at once.
     const entries = strokeId
-      ? [this._peerLiveStrokes.get(liveStrokeKey(peerId, strokeId))].filter((e): e is PeerLiveStroke => !!e)
+      ? [...this._peerLiveStrokes.values()].filter(e => e.peerId === peerId && e.strokeId === strokeId)
       : [...this._peerLiveStrokes.values()].filter(e => e.peerId === peerId)
     let outstanding = 0
     for (const live of entries) {
@@ -3606,7 +3654,7 @@ export class PencilEngine implements PencilEngineAPI {
       // records the end of a gesture is dispatched at pen-up and arrives after
       // this does, and it still has to be able to recognise what was already
       // painted. Once the operations have caught up, the entry has no job left.
-      if (owed === 0) this._peerLiveStrokes.delete(liveStrokeKey(live.peerId, live.strokeId))
+      if (owed === 0) this._peerLiveStrokes.delete(liveStrokeKey(live.peerId, live.strokeId, live.layerId))
     }
     return outstanding
   }
@@ -3637,7 +3685,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  — including this client's own, since it never streams to itself. */
   private _claimLivePaintedDabs(op: StrokeOperation, dabCount: number): number {
     if (!op.strokeId) return 0
-    const live = this._peerLiveStrokes.get(liveStrokeKey(op.userId, op.strokeId))
+    const live = this._peerLiveStrokes.get(liveStrokeKey(op.userId, op.strokeId, op.layerId))
     // Deliberately still claims for a desynced gesture. `desynced` stops
     // *further* live painting, and painting stops at the first missing packet
     // rather than skipping it, so `paintedTotal` always describes a contiguous
@@ -3652,7 +3700,7 @@ export class PencilEngine implements PencilEngineAPI {
     live.committedOffset += dabCount
     live.paintedTotal = Math.max(live.paintedTotal, live.committedOffset)
     if (live.ended && live.committedOffset >= live.paintedTotal) {
-      this._peerLiveStrokes.delete(liveStrokeKey(op.userId, op.strokeId))
+      this._peerLiveStrokes.delete(liveStrokeKey(op.userId, op.strokeId, op.layerId))
     }
     return skip
   }
@@ -3811,7 +3859,14 @@ export class PencilEngine implements PencilEngineAPI {
   /** Re-syncs pixel state after `op` flipped between done and undone/gone. */
   private _applyHistoryChange(op: Operation): void {
     switch (op.type) {
+      // (#520) Every layer of the gesture, not only this operation's own:
+      // undo/redo flip a whole gesture at once (OperationLog._gestureEntries),
+      // and a cross-layer erase is one gesture spread over several layers. See
+      // OperationLog.gestureLayerIds — which answers `[op.layerId]` for every
+      // other stroke, so this is the same single rebuild it always was.
       case 'stroke':
+        for (const layerId of this._log.gestureLayerIds(op)) this._rebuildLayerOrDefer(layerId)
+        break
       case 'layer_clear':
       // (#446) Single-layer pixel operations, same as the two above: undoing
       // or redoing one means replaying its layer's history without (or with)
@@ -4101,14 +4156,15 @@ export class PencilEngine implements PencilEngineAPI {
     // is visibly softer than the full-resolution downscale the compositor used
     // to do. So a pyramid is exactly what this wants.
     //
-    // It is still off here because turning it on renders *nothing*: the level
-    // comes back empty and the draw path treats an empty array as "coarse
-    // says there is nothing here" rather than "no coarse level, use the fine
-    // tiles". Measured on a restored bounded layer — 11 fine tiles resident,
-    // 11 pending for factor 2, and `coarse.get(2)` still undefined after
-    // resolveCoarse has run, i.e. flushLevel returned at its guard without
-    // folding. Soft is a regression; blank is a bug, so this stays off until
-    // that is understood. See #470.
+    // (#503) There used to be a paragraph here saying the pyramid was still
+    // off for bounded rooms because turning it on rendered nothing. It has
+    // been on for them since ad45be1 — that "renders nothing" was an artifact
+    // of toggling downsampleTile at runtime, and the commit that established
+    // this said the note was removed. It was not; it came back through a
+    // merge and then stood for a week telling every reader the opposite of
+    // what the line below does. Left as a marker rather than deleted in
+    // silence: a comment that survives its own retraction is worth one line
+    // of warning to whoever reads this next.
     const downsample = layerId !== undefined
       ? (src: AccumulationBuffer, dst: AccumulationBuffer, x: number, y: number, w2: number, h2: number) =>
         this._downsampleTileInto(src, dst, x, y, w2, h2)
@@ -4465,6 +4521,9 @@ export class PencilEngine implements PencilEngineAPI {
    *  CHECKPOINT_INTERVAL boundary, by which time the operation has landed. */
   private _hasUnrecordedInk(layerId: string): boolean {
     if (this._strokeLayerId === layerId) return true
+    // (#520) A cross-layer erase is ahead of the log on every layer it is
+    // going through, not only on the active one.
+    if (this._strokeExtraLayerIds.includes(layerId)) return true
     for (const live of this._peerLiveStrokes.values()) {
       if (live.layerId === layerId && live.paintedTotal > live.committedOffset) return true
     }
@@ -5124,23 +5183,46 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
+  /** The brush's nominal width in world units — what `setSize` was given, for
+   *  every room, with no conversion at all.
+   *
+   *  There used to be one, for bounded rooms only:
+   *
+   *      size * (canvas.width / canvas.clientWidth)
+   *
+   *  and it made sense exactly once, before #470. Back then a bounded room's
+   *  canvas *was* its sheet, at the sheet's own full resolution, so that ratio
+   *  read "sheet pixels per CSS pixel" and the setting meant "N pixels on
+   *  screen at fit zoom". #470 made the bounded canvas a *viewport* sized to
+   *  the backing store, and the very same expression silently became
+   *  `min(devicePixelRatio, sqrt(4MP / viewport CSS area))` — see
+   *  cameraMath.ts's boundedBackingStoreZoom. The formula never changed; what
+   *  it measured did.
+   *
+   *  Measured on one sheet, one slider value, three devices (room `s1i6233k`,
+   *  27.08): iPad 9 painted 18.00 world px, a Tab S7+ 18.50, a Surface 12.00 —
+   *  the same "9" on the slider. The teacher this was reported against, on a
+   *  DPR-1 Windows laptop, got 9. Half of what her teacher's tablet drew from
+   *  the identical setting.
+   *
+   *  Three things make that a bug rather than a per-device preference:
+   *
+   *  1. `Dab.size` is baked at record time and goes into the Operation Log, so
+   *     the difference is permanent in the shared document and replays that way
+   *     for everyone, forever. A brush size is a property of the drawing, not
+   *     of the author's screen.
+   *  2. The factor moves with the *window*, not just the device — the
+   *     megapixel budget is a function of viewport area — so resizing, rotating
+   *     a tablet or opening a panel changed the brush mid-session.
+   *  3. BrushCursor is handed the raw setting and draws in world units (see its
+   *     own doc comment), so the hover ring was narrower than the mark it
+   *     promised by exactly this factor.
+   *
+   *  Infinite rooms already returned `size` untouched and were always right;
+   *  this is bounded rooms joining them, which is also why the two branches
+   *  collapsed into none. */
   private get _physicalSize(): number {
-    return this._toPhysicalSize(this._opts.size)
-  }
-
-  // CSS-px → canvas-physical-px conversion for this user's own brush size —
-  // factored out of _physicalSize only because it reads _opts.size, which a
-  // getter can't parameterize.
-  private _toPhysicalSize(size: number): number {
-    // Infinite rooms: brush size is in world units (device-independent —
-    // peers replay the same dab sizes), and dabs render into world-
-    // resolution tiles, so no conversion applies. The canvas backing store
-    // is DPR-scaled relative to its CSS size there (see Room's
-    // ResizeObserver), which must scale display, never the brush — before
-    // the DPR-sized backing this ratio happened to be 1 for infinite rooms,
-    // so this branch preserves, not changes, their brush semantics.
-    if (this._infinite) return size
-    return size * (this.canvas.width / (this.canvas.clientWidth || this.canvas.width))
+    return this._opts.size
   }
 
   // ─── Stroke input ────────────────────────────────────────────────────────────
@@ -5163,11 +5245,34 @@ export class PencilEngine implements PencilEngineAPI {
     // at all (rather than trying to special-case the paint path) means
     // there is nothing to later "fix up" — matches how `_locked` already
     // blocks drawing for a different reason, just orthogonal to it.
-    if (this._locked || !this._paperTexLoaded) return
+    if (this._locked || !this._paperTexLoaded) {
+      // (#517) Both refusals below are correct and both are silent, which is
+      // indistinguishable from the input layer having dropped the stroke —
+      // and telling those two apart is the whole question in the iPad report.
+      diagLog('[engine] stroke start REFUSED', {
+        locked: this._locked, paperTexLoaded: this._paperTexLoaded,
+      })
+      return
+    }
     const layerId = this._activeId
-    if (!layerId || !this._layers.has(layerId)) return
+    if (!layerId || !this._layers.has(layerId)) {
+      diagLog('[engine] stroke start REFUSED: no drawable layer', {
+        activeId: this._activeId, known: this._layers.has(this._activeId ?? ''),
+      })
+      return
+    }
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
+    // (#520) The eraser's cross-layer mode, resolved once here for the whole
+    // gesture. The active layer is dropped from the list because it is already
+    // `_strokeLayerId` — painting it twice would take two passes of the eraser
+    // off it, so it would clear faster than every other layer, which is exactly
+    // the sort of thing that reads as the tool being broken rather than as a
+    // duplicate id. Ids with no buffer are dropped too: `_paintDabs` needs one,
+    // and a layer that does not exist here cannot be erased anyway.
+    this._strokeExtraLayerIds = this._strokeTool === 'eraser'
+      ? this._eraseThroughIds.filter(id => id !== layerId && this._layers.has(id))
+      : []
     // Fresh per stroke (never carried over, unlike smudge's reservoir) —
     // see RibbonStrokeScratch's own doc comment. Harmless to always create,
     // even for a non-marker stroke: nothing allocates any GL resource until
@@ -5463,6 +5568,18 @@ export class PencilEngine implements PencilEngineAPI {
   private _onEnd(e: PointerData): void {
     const layerId = this._strokeLayerId
     if (!layerId) return
+    // (#517) `startStroke` always emits the touch-down dab, so every stroke
+    // that reaches here has laid down at least one — which means a stroke that
+    // visibly did nothing either never got here, or got here and was closed
+    // almost immediately. Only the second case is worth a line, and only that
+    // case is logged: an ordinary stroke says nothing, so this stays silent
+    // through a normal session (and through the test suite) and speaks exactly
+    // when the reported symptom happens.
+    if (this._strokeDabs.length <= 2) {
+      diagLog('[engine] stroke ended with almost no ink', {
+        dabsBeforeFlush: this._strokeDabs.length, tool: this._strokeTool,
+      })
+    }
     // Dwell (#245): stop pooling the instant the stroke ends — real
     // movement/lift always reaches here before any next stroke's _onStart.
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
@@ -5533,23 +5650,32 @@ export class PencilEngine implements PencilEngineAPI {
     }
 
     if (this._strokeDabs.length) {
-      const op: Operation = {
-        id: nanoid(10), type: 'stroke', userId: this._userId,
-        layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-        dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
-        ...(this._strokeId ? { strokeId: this._strokeId } : {}),
-        ...(this._washId ? { washId: this._washId } : {}),
+      // (#520) One operation per layer the gesture painted into — normally
+      // exactly one, and several only under a cross-layer erase. They share
+      // `strokeId`, which is what makes them one gesture to undo
+      // (OperationLog._gestureEntries), and the packing is done once and
+      // handed to all of them: a dab is ~53 packed bytes and an erase can be
+      // thousands of them.
+      const dabsPacked = packDabs(this._strokeDabs)
+      for (const targetId of [layerId, ...this._strokeExtraLayerIds]) {
+        const op: Operation = {
+          id: nanoid(10), type: 'stroke', userId: this._userId,
+          layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
+          dabsPacked, timestamp: Date.now(),
+          ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+          ...(this._washId ? { washId: this._washId } : {}),
         }
-      this._log.append(op)
-      // (#468 v10) Never mid-wash. A checkpoint bakes the layer's pixels, and
-      // replay then starts from those instead of from the operations — but a
-      // wash's strokes share one accumulation whose frozen `original` is the
-      // content from *before* the wash began. Bake halfway through and that
-      // content is gone: the reloaded room rebuilds the rest of the wash over
-      // its own half-finished output, and the picture comes back subtly
-      // different. Washes last a second or two, so this only defers.
-      if (!this._wash) this._maybeCheckpoint(layerId)
-      this._onLocalOperation?.(op)
+        this._log.append(op)
+        // (#468 v10) Never mid-wash. A checkpoint bakes the layer's pixels, and
+        // replay then starts from those instead of from the operations — but a
+        // wash's strokes share one accumulation whose frozen `original` is the
+        // content from *before* the wash began. Bake halfway through and that
+        // content is gone: the reloaded room rebuilds the rest of the wash over
+        // its own half-finished output, and the picture comes back subtly
+        // different. Washes last a second or two, so this only defers.
+        if (!this._wash) this._maybeCheckpoint(targetId)
+        this._onLocalOperation?.(op)
+      }
     }
     // (#429) Deliberately no final flush of the live queue: whatever is still
     // sitting in it is carried by the operation dispatched just above, which
@@ -5563,6 +5689,7 @@ export class PencilEngine implements PencilEngineAPI {
     // tears the marker scratch down well before reaching here.
     this._strokeId = null
     this._strokeLayerId = null
+    this._strokeExtraLayerIds = []
     this._strokeDabs = []
     this._handlers.strokeEnd?.(e)
   }
@@ -5843,6 +5970,7 @@ export class PencilEngine implements PencilEngineAPI {
       buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
       this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
     )
+    this._paintExtraLayers(dabs)
     this._strokeDabs.push(...dabs)
     // (#429) Same dab objects, queued for the live channel — see
     // onLiveStrokeDabs on why both paths must read the one baked result.
@@ -5860,6 +5988,45 @@ export class PencilEngine implements PencilEngineAPI {
     // accumulate dabs indefinitely — see STROKE_DAB_CHUNK_LIMIT's own
     // comment on why that's a real problem, not just a memory nicety.
     if (this._strokeDabs.length >= STROKE_DAB_CHUNK_LIMIT) this._flushStrokeChunk()
+  }
+
+  /** (#520) Lays this batch of already-baked dabs into every *other* layer the
+   *  gesture goes through — the eraser's cross-layer mode, and nothing else:
+   *  `_strokeExtraLayerIds` is empty for every other tool.
+   *
+   *  The dabs are the same objects the active layer just got, deliberately.
+   *  Their opacity, size and angle were baked once by `_bakeDabOpacity` from
+   *  the pointer's own speed and tilt, and re-deriving them per layer would let
+   *  the same pass of the eraser take different amounts off different layers.
+   *  They are also the objects that go on to `_strokeDabs` and into every
+   *  recorded operation, so each layer's own operation carries exactly what was
+   *  painted into it.
+   *
+   *  Passes none of `_paintDabs`'s per-gesture extras (prevDab, ribbonScratch,
+   *  strokeId, washId) because none of them exist for an eraser: its dabs are
+   *  independent of one another, which is the property that makes painting one
+   *  batch into N buffers correct at all rather than merely convenient. */
+  private _paintExtraLayers(dabs: Dab[]): void {
+    if (!this._strokeExtraLayerIds.length) return
+    for (const id of this._strokeExtraLayerIds) {
+      const buf = this._layers.get(id)
+      if (!buf) continue
+      this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId)
+      this._markLayerDirty(id)
+    }
+    // #122: on every batch, not once when the gesture starts. The composite
+    // keeps everything below the active layer baked into one cached texture and
+    // everything above it in another, and every one of these layers is in one
+    // of the two — so a cache built after the first batch survives the rest of
+    // the gesture and the screen simply stops updating for them.
+    //
+    // Found end to end, not here: the layer buffers were correct throughout
+    // (which is all a unit test against MockGL reads), the recorded operations
+    // were correct, and the picture still showed ink the log said was gone —
+    // until anything else forced a recomposite. Same reasoning, and the same
+    // per-batch placement, as _paintStrokeDabs' own invalidate for a stroke
+    // whose layer diverged from the active one.
+    this._invalidateSplitCache()
   }
 
   /** Dwell tick (#245, ADR 003 §3/§9): paints one extra dab at the stylus's
@@ -5922,6 +6089,12 @@ export class PencilEngine implements PencilEngineAPI {
       buf, [dab], this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
       this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
     )
+    // (#520) A no-op today — only the liner dwells, and only the eraser goes
+    // through layers — but a dwell dab is a real dab of this gesture (see the
+    // live-channel note just below, which is the same argument), so it goes
+    // wherever the gesture's other dabs go rather than being the one that
+    // silently doesn't.
+    this._paintExtraLayers([dab])
     this._strokeDabs.push(dab)
     // (#429) A dwell dab is a real dab of this gesture — it goes into the
     // operation, so it has to go down the live channel too, or a peer's
@@ -5957,14 +6130,24 @@ export class PencilEngine implements PencilEngineAPI {
     const now = performance.now()
     if (now - this._liveLastEmitAt < LIVE_STROKE_EMIT_INTERVAL_MS) return
     this._liveLastEmitAt = now
-    this._onLiveStrokeDabs({
-      strokeId: this._strokeId, layerId: this._strokeLayerId,
-      tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-      packetSeq: this._livePacketSeq++, dabs: this._liveDabQueue,
-      // (#468) Decided at pen-down and constant for the gesture, so every
-      // packet carries the same value the operation will.
-      ...(this._washId ? { washId: this._washId } : {}),
-    })
+    // (#520) One packet per layer this gesture paints into, all carrying the
+    // *same* packetSeq. The counter advances once per round, not once per
+    // packet: each layer is its own stream on the receiving side (see
+    // liveStrokeKey), and it has to see 0, 1, 2… of its own. A single counter
+    // shared across the packets would hand layer A 0, 2, 4 and layer B 1, 3, 5,
+    // and every receiver would read a gap and desync the gesture.
+    const packetSeq = this._livePacketSeq++
+    const dabs = this._liveDabQueue
+    for (const layerId of [this._strokeLayerId, ...this._strokeExtraLayerIds]) {
+      this._onLiveStrokeDabs({
+        strokeId: this._strokeId, layerId,
+        tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
+        packetSeq, dabs,
+        // (#468) Decided at pen-down and constant for the gesture, so every
+        // packet carries the same value the operation will.
+        ...(this._washId ? { washId: this._washId } : {}),
+      })
+    }
     // A fresh array rather than length = 0: the packet above holds this one,
     // and the caller is free to keep it (Room packs it asynchronously).
     this._liveDabQueue = []
@@ -5973,15 +6156,19 @@ export class PencilEngine implements PencilEngineAPI {
   private _flushStrokeChunk(): void {
     const layerId = this._strokeLayerId
     if (!layerId || !this._strokeDabs.length) return
-    const op: Operation = {
-      id: nanoid(10), type: 'stroke', userId: this._userId,
-      layerId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
-      dabsPacked: packDabs(this._strokeDabs), timestamp: Date.now(),
-      ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+    // (#520) Per layer, exactly as _onEnd's own dispatch is — see its comment.
+    const dabsPacked = packDabs(this._strokeDabs)
+    for (const targetId of [layerId, ...this._strokeExtraLayerIds]) {
+      const op: Operation = {
+        id: nanoid(10), type: 'stroke', userId: this._userId,
+        layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
+        dabsPacked, timestamp: Date.now(),
+        ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+      }
+      this._log.append(op)
+      this._maybeCheckpoint(targetId)
+      this._onLocalOperation?.(op)
     }
-    this._log.append(op)
-    this._maybeCheckpoint(layerId)
-    this._onLocalOperation?.(op)
     this._strokeDabs = []
   }
 
@@ -6708,14 +6895,18 @@ export class PencilEngine implements PencilEngineAPI {
    *  Same branch covers an imprint that never got primed because an earlier
    *  dab bailed out below.
    *
-   *  v1 scope: skips the dab entirely (rather than clipping or attempting
-   *  cross-tile compositing) whenever its patch doesn't fit fully inside a
-   *  single resident/creatable tile — an infinite room's tile grid means a
-   *  smudge stroke crossing a tile boundary currently just has a gap there.
-   *  Acceptable for now (typical brush sizes are far smaller than
-   *  TILE_SIZE, so this only bites right at a boundary) — full cross-tile
-   *  sampling would need the same multi-source-tile treatment
-   *  _bakeTransform already has, not yet ported here. */
+   *  (#514) Both phases span as many tiles as the dab actually overlaps —
+   *  up to four. Until then a dab whose patch didn't fit inside a single
+   *  tile was dropped whole, which was written off as "only bites right at
+   *  a boundary": true of nothing. Tiles are TILE_SIZE in a bounded room
+   *  too (_tileSize), so an A4 sheet has a seam cross straight through it at
+   *  x=1024/y=1024, and the dead band around each seam is as wide as the
+   *  brush is — a 100px stump had a 100px stripe where the tool did
+   *  literally nothing, measured, with the imprint going stale across it and
+   *  then dumping pre-seam content on the far side. The dab is the same dab
+   *  either way; only which tile's pixel space each piece of it is expressed
+   *  in changes, which is exactly how pencil and eraser have always crossed
+   *  a seam. */
   private _smudgeApplyDab(target: ILayerBuffer, dab: Dab, travel: number, userId: string): void {
     const radius = dab.size * 0.5 * SMUDGE_SIZE_MULTIPLIER
     if (radius < 0.5) return
@@ -6724,24 +6915,22 @@ export class PencilEngine implements PencilEngineAPI {
     if (patchSize < 1) return
     const half = patchSize / 2
 
-    const targets = target.resolveForPaint({ minX: dab.x - half, minY: dab.y - half, maxX: dab.x + half, maxY: dab.y + half })
-    if (targets.length !== 1) return // spans more than one tile (or none) — see this method's own doc comment
-    const tile = targets[0]
-    const localX = Math.round(dab.x - half - tile.originX)
-    const localY = Math.round(dab.y - half - tile.originY)
-    if (localX < 0 || localY < 0
-      || localX + patchSize > tile.buffer.width || localY + patchSize > tile.buffer.height) return
+    // Whole world texels, not the dab's own fractional center: the imprint
+    // and the canvas have to agree to the texel, or the lerp mixes a shifted
+    // copy of the same content into itself and blurs the canvas on every
+    // dab, including a standing-still one. Rounded in *world* space (it used
+    // to be rounded in the one tile's local space) because every tile below
+    // maps this same world rect into its own pixels — which is what makes
+    // the two halves of a seam-straddling patch line up with each other.
+    const patchX = Math.round(dab.x - half)
+    const patchY = Math.round(dab.y - half)
+    const patchRect = { minX: patchX, minY: patchY, maxX: patchX + patchSize, maxY: patchY + patchSize }
 
-    // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
-    // (bottom-up) — same flip every other app-space/GL boundary in this
-    // file applies (DAB_VERT's clip.y flip, pickColor) — see
-    // copyRegionTo's own doc comment. The *rounded* rect below is also what
-    // the transfer draws map back from (u_patchOrigin), so the imprint and
-    // the canvas stay aligned to the texel rather than to the dab's own
-    // fractional center.
+    const targets = target.resolveForPaint(patchRect)
+    if (!targets.length) return // degenerate rect only — tilesOverlappingRect never returns empty otherwise
+
     const patch = this._acquireSmudgeScratchBuf(patchSize)
-    const glY = tile.buffer.height - localY - patchSize
-    tile.buffer.copyRegionTo(patch, localX, glY, patchSize, patchSize)
+    this._gatherSmudgePatch(patch, targets, patchRect, patchSize)
 
     const imprint = this._smudgeImprintFor(userId)
     const priming = imprint.buf === null
@@ -6763,10 +6952,66 @@ export class PencilEngine implements PencilEngineAPI {
     // physical terms on top of it.
     const strength = SMUDGE_DEPOSIT_RATE * travel * dab.pressure * dab.opacity
     if (strength <= 0) return
-    this._drawSmudgeTransferDab(tile, dab, radius, next, localX, glY, patchSize, 'clear', strength)
-    this._drawSmudgeTransferDab(tile, dab, radius, next, localX, glY, patchSize, 'lay', strength)
+    for (const tile of targets) {
+      // The brush's own circle, not the patch square: patchSize is rounded up
+      // to SMUDGE_PATCH_GRANULARITY, so a patch can reach into a tile the
+      // stump itself never touches, where both draws below would discard
+      // every fragment for nothing.
+      if (dab.x + radius <= tile.originX || dab.x - radius >= tile.originX + tile.buffer.width
+        || dab.y + radius <= tile.originY || dab.y - radius >= tile.originY + tile.buffer.height) continue
+      // App-space (top-down, like every Dab.x/y) -> GL framebuffer space
+      // (bottom-up) — the same flip every other app-space/GL boundary in this
+      // file applies (DAB_VERT's clip.y flip, pickColor). The patch's own
+      // lower-left corner *in this tile's* pixel space, which is how
+      // SMUDGE_TRANSFER_FRAG maps a fragment back into the imprint
+      // (u_patchOrigin); negative for the tile on the far side of a seam,
+      // which the shader's plain `(gl_FragCoord.xy - u_patchOrigin)` handles
+      // as-is — every fragment it actually shades still lands inside the
+      // patch, since the dab quad is contained in it by construction.
+      const originX = patchX - tile.originX
+      const originGlY = tile.buffer.height - (patchY - tile.originY) - patchSize
+      this._drawSmudgeTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'clear', strength)
+      this._drawSmudgeTransferDab(tile, dab, radius, next, originX, originGlY, patchSize, 'lay', strength)
+    }
 
     target.markContentPainted({ minX: dab.x - radius, minY: dab.y - radius, maxX: dab.x + radius, maxY: dab.y + radius })
+  }
+
+  /** Assembles the canvas patch under one dab out of every tile it overlaps
+   *  (#514) — one `copyTexSubImage2D` per tile, each writing only the part of
+   *  the patch that tile actually covers, so a patch straddling a seam comes
+   *  out as one continuous image of the canvas rather than being abandoned.
+   *
+   *  Cleared first because the buffers are pooled: a tile covering only part
+   *  of this patch leaves the remainder holding whatever the previous dab put
+   *  there, and the imprint would pick that stale square up and lay it
+   *  straight back onto the canvas — the same class of bug as the
+   *  wrong-vertex-buffer one _smudgeRunPickup's own comment describes. In an
+   *  infinite room resolveForPaint has already created every tile the rect
+   *  touches, so the clear is belt-and-braces there; it is load-bearing for
+   *  a bounded room, whose grid stops at the sheet's own last tile, and cheap
+   *  next to the two full-quad passes each dab already runs. */
+  private _gatherSmudgePatch(
+    patch: AccumulationBuffer, targets: PaintTarget[], patchRect: WorldRect, patchSize: number,
+  ): void {
+    patch.clear()
+    for (const { buffer, originX, originY } of targets) {
+      // The overlap between this tile and the patch, in world space.
+      const x0 = Math.max(patchRect.minX, originX)
+      const y0 = Math.max(patchRect.minY, originY)
+      const x1 = Math.min(patchRect.maxX, originX + buffer.width)
+      const y1 = Math.min(patchRect.maxY, originY + buffer.height)
+      if (x1 <= x0 || y1 <= y0) continue
+      // Top-down world -> bottom-up GL on both sides of the copy, so `y1` (the
+      // overlap's world *bottom*) is what each origin is measured back from.
+      // Columns need no such care: x runs the same way in both conventions.
+      buffer.copyRegionInto(
+        patch,
+        x0 - originX, buffer.height - (y1 - originY),
+        x0 - patchRect.minX, patchSize - (y1 - patchRect.minY),
+        x1 - x0, y1 - y0,
+      )
+    }
   }
 
   /** `userId`'s own imprint slot, created empty (never primed) on first use.
@@ -7801,7 +8046,15 @@ export class PencilEngine implements PencilEngineAPI {
     // Log replay plus a readback and re-upload each.
     const factor = coarseFactorFor(this._compositeScale)
     const coarse = factor === null ? null : buf.resolveCoarse(viewRect, factor)
-    if (coarse && factor !== null) {
+    // (#503) `coarse.length`, not just `coarse`: an empty array is truthy, so
+    // a level holding nothing here used to end the draw outright — the layer
+    // vanished at this zoom and came back on zooming in. That state is
+    // unreachable while every write marks its tiles (which is what the rest of
+    // #503 is about), so this is a guard, not a fix for a seen bug. It is
+    // worth having anyway because of the asymmetry: falling through costs one
+    // resolveVisible over a region that by construction holds no tiles, while
+    // not falling through costs a layer.
+    if (coarse?.length && factor !== null) {
       const { w: coarseW, h: coarseH } = buf.coarseWorldSize(factor)
       for (const { buffer, originX, originY } of coarse) {
         buffer.setMipSampling(false)
@@ -8217,9 +8470,8 @@ export class PencilEngine implements PencilEngineAPI {
    *  inversion required. */
   private _finishInfiniteComposite(targetFbo: WebGLFramebuffer): void {
     const { canvas } = this
-    const ext = this._assemblyFBO.width // square: width === height
     this._runTransformBlit(
-      this._assemblyFBO.texture, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, ext, ext, targetFbo,
+      this._assemblyFBO, this._infiniteRotateMatrixInv(), canvas.width, canvas.height, targetFbo,
     )
   }
 
@@ -8397,39 +8649,48 @@ export class PencilEngine implements PencilEngineAPI {
     this._releasePaperFromCompose()
   }
 
-  /** Low-level transform-blit draw call — renders `sourceTex` (sized
-   *  `srcW x srcH`) through `matrixInv` (already inverted: maps destination
-   *  buffer-local px to source buffer-local px, both top-down) into
-   *  `targetFbo` (sized `dstW x dstH`) — source and destination sizes are
-   *  independent (#134: the final rotate blit reads the padded, bigger
-   *  _assemblyFBO and writes the real, smaller canvas-sized target; every
-   *  other caller happens to pass matching sizes, which this reduces to
-   *  exactly as before). Always blends (ONE, ONE_MINUS_SRC_ALPHA) rather
-   *  than plain-replacing: every caller's target is freshly cleared
-   *  (transparent) immediately before its first (possibly only) draw here,
-   *  and blending a straight replace onto an all-zero destination gives the
-   *  exact same result as a true replace would — so this one code path
-   *  serves the live gizmo preview's several passes per destination tile
-   *  (`previewLayerTransform`), the tile-aware bake's several passes per
-   *  destination tile (`_bakeTransform` — a destination tile's content can
-   *  come from more than one source tile when the transform includes
-   *  rotation/scale; each pass is transparent everywhere outside its own
-   *  source tile's mapped region, so blending — not replacing — is what
-   *  lets a later pass avoid wiping out an earlier one's already-valid
-   *  pixels), and the export/transparent path's rotate blit
-   *  (`_finishInfiniteComposite`). Every caller targets a scratch buffer
-   *  another pass reads from afterwards — since #301 the frame's last
-   *  drawing step is _composePaperToScreen, which writes the screen through
-   *  its own program rather than this one. */
+  /** Low-level transform-blit draw call — renders `source` through
+   *  `matrixInv` (already inverted: maps destination buffer-local px to
+   *  source buffer-local px, both top-down) into `targetFbo` (sized
+   *  `dstW x dstH`) — source and destination sizes are independent (#134:
+   *  the final rotate blit reads the padded, bigger _assemblyFBO and writes
+   *  the real, smaller canvas-sized target; every other caller happens to
+   *  use matching sizes, which this reduces to exactly as before).
+   *
+   *  Never plain-replaces: every caller's target is either freshly cleared
+   *  (transparent) before its first draw here, or already holds content this
+   *  draw belongs on top of. Which of the two blends applies is the `blend`
+   *  argument, and the distinction is not cosmetic —
+   *
+   *  - 'over' (ONE, ONE_MINUS_SRC_ALPHA), the default: one source, drawn onto
+   *    whatever is already there. The image/paste blit (`_drawImageThroughMatrix`)
+   *    genuinely lands on existing layer content; the world-aligned patch
+   *    copies (`_copyArea`, `_composeAreaFillPatch`) and the export rotate
+   *    (`_finishInfiniteComposite`) draw disjoint regions onto a cleared
+   *    target, where the two blends agree anyway.
+   *  - 'add' (ONE, ONE): several *source tiles of one layer* stitched into
+   *    one destination tile — the live gizmo preview (`previewLayerTransform`)
+   *    and the bake (`_bakeTransform`). Their contributions are disjoint
+   *    except in the half-texel band along each source-tile boundary, where
+   *    each pass carries its own share of one bilinear kernel (see
+   *    TILE_BILINEAR in shaders.ts) and the shares have to sum to one. "Over"
+   *    would scale the second pass down by the first's coverage and lose part
+   *    of it, which is exactly the seam #507 was.
+   *
+   *  Every caller targets a buffer another pass reads from afterwards — since
+   *  #301 the frame's last drawing step is _composePaperToScreen, which writes
+   *  the screen through its own program rather than this one. */
   private _runTransformBlit(
-    sourceTex: WebGLTexture, matrixInv: Matrix3,
-    dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer | null,
+    source: AccumulationBuffer, matrixInv: Matrix3,
+    dstW: number, dstH: number, targetFbo: WebGLFramebuffer | null,
+    blend: 'over' | 'add' = 'over',
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
     gl.viewport(0, 0, dstW, dstH)
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
+    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     gl.useProgram(this._transformProg)
     const tu = this._transformUni
 
@@ -8439,12 +8700,17 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0)
 
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
+    // (#507) The shader does its own bilinear from exact texel centres — the
+    // sampler must not interpolate underneath it, and must not be left on a
+    // mip filter by an earlier composite. See setPointSampling.
+    source.setPointSampling(true)
+    gl.bindTexture(gl.TEXTURE_2D, source.texture)
     gl.uniform1i(tu.u_source, 0)
     gl.uniform2f(tu.u_dstSize, dstW, dstH)
-    gl.uniform2f(tu.u_srcSize, srcW, srcH)
+    gl.uniform2f(tu.u_srcSize, source.width, source.height)
     gl.uniformMatrix3fv(tu.u_matrixInv, false, toMat3(matrixInv))
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    source.setPointSampling(false)
 
     gl.disable(gl.BLEND)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -8605,10 +8871,7 @@ export class PencilEngine implements PencilEngineAPI {
         const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
         const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
         this._runTransformBlit(
-          srcTile.buffer.texture, mc,
-          destTarget.buffer.width, destTarget.buffer.height,
-          srcTile.buffer.width, srcTile.buffer.height,
-          scratch.fbo,
+          srcTile.buffer, mc, destTarget.buffer.width, destTarget.buffer.height, scratch.fbo, 'add',
         )
         // (#155 Tier 2) The real content this pair just contributed to
         // destTarget is exactly r (the source's transformed content AABB)
@@ -8720,19 +8983,24 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** The masked twin of _runTransformBlit: draws one source tile's *selected*
-   *  pixels through `matrixInv` into `targetFbo`, composited over whatever is
-   *  already there ("over", not replace — a destination tile can receive
-   *  content from several source tiles, and it already holds the part of the
-   *  layer that isn't moving). */
+   *  pixels through `matrixInv` into `targetFbo`.
+   *
+   *  `blend` carries the same meaning as _runTransformBlit's (read it there):
+   *  'over' lands the piece on a destination that already holds the part of
+   *  the layer that isn't moving, and is only correct when this is the single
+   *  source tile; 'add' sums several source tiles' shares of one bilinear
+   *  kernel into a transparent buffer of their own, which _composeAreaTiles
+   *  then composites over the tile in one go (#507). */
   private _runAreaTransformBlit(
-    sourceTex: WebGLTexture, srcOriginX: number, srcOriginY: number, matrixInv: Matrix3, mask: MaskTexture,
-    dstW: number, dstH: number, srcW: number, srcH: number, targetFbo: WebGLFramebuffer,
+    source: AccumulationBuffer, srcOriginX: number, srcOriginY: number, matrixInv: Matrix3, mask: MaskTexture,
+    dstW: number, dstH: number, targetFbo: WebGLFramebuffer, blend: 'over' | 'add',
   ): void {
     const { gl } = this
     gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
     gl.viewport(0, 0, dstW, dstH)
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE)
+    else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     gl.useProgram(this._areaTransformProg)
     const u = this._areaTransformUni
 
@@ -8741,7 +9009,10 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._areaTransformPosLoc, 2, gl.FLOAT, false, 0, 0)
 
     gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, sourceTex)
+    // (#507) Same reason as _runTransformBlit's: the shader filters by hand
+    // from exact texel centres. See setPointSampling.
+    source.setPointSampling(true)
+    gl.bindTexture(gl.TEXTURE_2D, source.texture)
     gl.uniform1i(u.u_source, 0)
     gl.activeTexture(gl.TEXTURE1)
     gl.bindTexture(gl.TEXTURE_2D, mask.tex)
@@ -8749,7 +9020,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE0)
 
     gl.uniform2f(u.u_dstSize, dstW, dstH)
-    gl.uniform2f(u.u_srcSize, srcW, srcH)
+    gl.uniform2f(u.u_srcSize, source.width, source.height)
     gl.uniform2f(u.u_srcOrigin, srcOriginX, srcOriginY)
     gl.uniform4f(
       u.u_maskRect, mask.rect.minX, mask.rect.minY,
@@ -8757,6 +9028,7 @@ export class PencilEngine implements PencilEngineAPI {
     )
     gl.uniformMatrix3fv(u.u_matrixInv, false, toMat3(matrixInv))
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    source.setPointSampling(false)
 
     gl.disable(gl.BLEND)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
@@ -8822,14 +9094,34 @@ export class PencilEngine implements PencilEngineAPI {
 
       if (overlapsSrc) this._runAreaMaskPass(scratch, rect.minX, rect.minY, mask, 'erase')
       if (overlapsDst) {
+        // (#507) A selection lying inside one tile can be drawn straight onto
+        // that tile's remaining content. A selection spanning several cannot:
+        // along each source-tile boundary every pass carries only its own
+        // share of one bilinear kernel (see TILE_BILINEAR in shaders.ts), and
+        // those shares have to sum before anything is composited — "over"
+        // against a destination that already holds the layer scales each
+        // share by the previous one's coverage and leaves a hairline through
+        // the lifted piece. So the piece is accumulated on its own,
+        // transparent, and laid down in one pass.
+        //
+        // Pooled through the engine's own scratch pool rather than the
+        // caller's `acquire`: this buffer never leaves this method, and the
+        // preview's acquire deliberately allocates fresh every time (see its
+        // own comment there).
+        const lift = sourceTiles.length > 1 ? this._acquireScratchBuf(w, h) : null
+        lift?.clear()
         for (const srcTile of sourceTiles) {
           const toWorld = translationMatrix(rect.minX, rect.minY)
           const toSrcLocal = translationMatrix(-srcTile.originX, -srcTile.originY)
           const mc = composeMatrix(toSrcLocal, composeMatrix(matrixInv, toWorld))
           this._runAreaTransformBlit(
-            srcTile.buffer.texture, srcTile.originX, srcTile.originY, mc, mask,
-            w, h, srcTile.buffer.width, srcTile.buffer.height, scratch.fbo,
+            srcTile.buffer, srcTile.originX, srcTile.originY, mc, mask,
+            w, h, lift ? lift.fbo : scratch.fbo, lift ? 'add' : 'over',
           )
+        }
+        if (lift) {
+          this._compositeTextures([{ texture: lift.texture, opacity: 1 }], scratch.fbo, w, h)
+          this._releaseScratchBuf(lift)
         }
       }
       out.push({ rect, scratch })
@@ -8908,11 +9200,17 @@ export class PencilEngine implements PencilEngineAPI {
 
   /** `area_clear`: erases the selection from a layer, touching only the tiles
    *  it covers. No scratch and no two-phase dance — nothing is read from the
-   *  layer here, every pixel is multiplied in place. */
+   *  layer here, every pixel is multiplied in place.
+   *
+   *  (#503) resolveExistingForPaint, not resolveVisible: this writes. It used
+   *  to reach for the read resolver — correct about not creating tiles, wrong
+   *  about saying nothing — so the erase landed on the fine tiles and no
+   *  coarse level ever heard about it. The layer went on showing the erased
+   *  content at every zoom that draws from a level. */
   private _clearArea(layerBuf: ILayerBuffer, selection: SelectionShape): void {
     const mask = this._acquireMask(selection)
     if (!mask) return
-    for (const target of layerBuf.resolveVisible(mask.rect)) {
+    for (const target of layerBuf.resolveExistingForPaint(mask.rect)) {
       this._runAreaMaskPass(target.buffer, target.originX, target.originY, mask, 'erase')
     }
   }
@@ -8971,7 +9269,7 @@ export class PencilEngine implements PencilEngineAPI {
     const toWorld = translationMatrix(originX, originY)
     const toRectLocal = translationMatrix(-rect.x, -rect.y)
     const mc = composeMatrix(toRectLocal, composeMatrix(invertMatrix(matrix), toWorld))
-    this._runTransformBlit(scratch.texture, mc, target.width, target.height, w, h, target.fbo)
+    this._runTransformBlit(scratch, mc, target.width, target.height, target.fbo)
     this._releaseScratchBuf(scratch)
   }
 
@@ -9153,10 +9451,7 @@ export class PencilEngine implements PencilEngineAPI {
     // translation through the transform blit is the same pixels with none of
     // that: patch-local (0,0) is world (minX, minY) by construction.
     for (const { buffer, originX, originY } of layerBuf.resolveVisible(mask.rect)) {
-      this._runTransformBlit(
-        buffer.texture, translationMatrix(minX - originX, minY - originY),
-        w, h, buffer.width, buffer.height, patch.fbo,
-      )
+      this._runTransformBlit(buffer, translationMatrix(minX - originX, minY - originY), w, h, patch.fbo)
     }
     this._runAreaMaskPass(patch, minX, minY, mask, 'keep')
 
@@ -9256,10 +9551,7 @@ export class PencilEngine implements PencilEngineAPI {
       const dest = layerPatch ?? patch
       if (layerPatch) layerPatch.clear()
       for (const { buffer, originX, originY } of layerBuf.resolveVisible(rect)) {
-        this._runTransformBlit(
-          buffer.texture, translationMatrix(rect.minX - originX, rect.minY - originY),
-          w, h, buffer.width, buffer.height, dest.fbo,
-        )
+        this._runTransformBlit(buffer, translationMatrix(rect.minX - originX, rect.minY - originY), w, h, dest.fbo)
       }
       if (layerPatch) this._compositeTextures([{ texture: layerPatch.texture, opacity }], patch.fbo, w, h)
     }

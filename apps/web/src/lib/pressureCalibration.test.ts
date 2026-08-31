@@ -17,6 +17,26 @@ function strokeSamples(level: number, count = 40): number[] {
   return [...ramp, ...held, ...ramp.slice().reverse()]
 }
 
+/** The same shape, but with the wobble a real hand puts into the held part —
+ *  which is the whole difference between a median and a floor, and therefore
+ *  the only way to test which one a calibration is built from. Deterministic
+ *  (an LCG, not Math.random): a flaky pressure test would be worse than none. */
+function jitteredStroke(level: number, spread: number, count = 40): number[] {
+  const ramp = [level * 0.1, level * 0.35, level * 0.7]
+  let seed = 12345
+  const held = Array.from({ length: count - 2 * ramp.length }, () => {
+    seed = (seed * 9301 + 49297) % 233280
+    return level + (seed / 233280 - 0.5) * 2 * spread
+  })
+  return [...ramp, ...held, ...ramp.slice().reverse()]
+}
+
+/** A pen that never reports below `floor` while its tip is touching — the one
+ *  case the range stage's bottom half was always needed for. */
+function withOffsetFloor(samples: number[], floor: number): number[] {
+  return samples.map(v => Math.max(floor, v))
+}
+
 describe('applyPressureCalibration', () => {
   it('leaves pressure untouched when uncalibrated', () => {
     for (const raw of [0, 0.13, 0.5, 0.87, 1]) {
@@ -160,12 +180,54 @@ describe('measurePressure', () => {
 })
 
 describe('calibrationFromMeasurement', () => {
-  it('maps the two demonstrated levels onto the ends of the range', () => {
+  it('maps the firm level to the top and the pen’s own floor to the bottom', () => {
     const m = measurePressure(strokeSamples(0.07), strokeSamples(0.38))
     const cal = calibrationFromMeasurement(m)
-    expect(applyPressureCalibration(cal, 0.07)).toBeCloseTo(0, 6)
+    expect(applyPressureCalibration(cal, m.observedMin)).toBeCloseTo(0, 6)
     expect(applyPressureCalibration(cal, 0.38)).toBeCloseTo(1, 6)
     expect(isIdentityCalibration(cal)).toBe(false)
+  })
+
+  it('leaves the demonstrated light press making a mark, not nothing', () => {
+    // The light stroke says "this is the lightest I go", not "erase everything
+    // below me" — so the level it was drawn at must still come out above zero.
+    const m = measurePressure(strokeSamples(0.07), strokeSamples(0.38))
+    const cal = calibrationFromMeasurement(m)
+    expect(applyPressureCalibration(cal, 0.07)).toBeGreaterThan(0)
+  })
+
+  it('does not clamp ordinary drawing to zero on a pen with a compressed range', () => {
+    // The real report this exists for (rooms `j4LVaN6I` -> `1IFZTMJc`): a
+    // One by Wacom whose whole usable output is ~0.05..0.55, with ordinary
+    // drawing sitting at 0.29..0.44. Calibrating against the *median* of the
+    // light stroke put inMin right in the middle of that band, and a quarter
+    // of the next lesson's strokes came out at zero pressure end to end.
+    const light = jitteredStroke(0.30, 0.04)
+    const firm = jitteredStroke(0.50, 0.04)
+    const m = measurePressure(light, firm)
+    expect(m.verdict).toBe('ok')
+
+    const cal = calibrationFromMeasurement(m)
+    // Her whole working band must survive, bottom included.
+    for (const raw of [0.29, 0.33, 0.36, 0.40, 0.44]) {
+      expect(applyPressureCalibration(cal, raw)).toBeGreaterThan(0)
+    }
+    // And it must land high enough to be a line rather than a hairline: the
+    // pencil's width law is 0.3 + 0.7*p, so a mid-band press should be past
+    // half the response, not scraping the floor.
+    expect(applyPressureCalibration(cal, 0.36)).toBeGreaterThan(0.5)
+  })
+
+  it('still removes a genuine offset floor', () => {
+    // A pen that never reports below 0.12 while touching: that offset is dead
+    // range, and taking it off is the one job this stage was always needed for.
+    const m = measurePressure(
+      withOffsetFloor(strokeSamples(0.2), 0.12),
+      withOffsetFloor(strokeSamples(0.6), 0.12),
+    )
+    const cal = calibrationFromMeasurement(m)
+    expect(cal.inMin).toBeCloseTo(0.12, 6)
+    expect(applyPressureCalibration(cal, 0.12)).toBeCloseTo(0, 6)
   })
 
   it('keeps a curve that was already tuned', () => {

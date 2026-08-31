@@ -96,6 +96,16 @@ export const en = {
   'settingsPage.deviceTablet': 'Tablet',
   'settingsPage.deviceDesktop': 'Computer',
   'settingsPage.deviceTypeHint': 'Tablet is laid out for a finger and a stylus, computer for a mouse, a keyboard and a graphics tablet. Detected from your device at first visit — each of your devices keeps its own.',
+  'settingsPage.compact': 'Phone layout',
+  'settingsPage.compactAuto': 'Follow screen size',
+  'settingsPage.compactOn': 'Always',
+  'settingsPage.compactOff': 'Never',
+  'settingsPage.compactHint': 'On a small screen the editor shows notes and the annotation pen instead of the drawing tools, and one finger draws while two move the canvas. Drawing itself stays on the tablet and the computer.',
+  'settingsPage.version': 'Version',
+  'settingsPage.versionHint': 'Quote this when reporting a problem — it says exactly which build this device is running.',
+  'settingsPage.versionCheck': 'Check for updates',
+  'settingsPage.versionChecking': 'Checking…',
+  'settingsPage.versionCurrent': 'This is the latest version',
 
   // ── create project ─────────────────────────────────────────────────────
   'create.heading': 'New project',
@@ -271,8 +281,8 @@ export const en = {
   'join.heading': 'Join project',
   'join.yourName': 'Your name',
   'join.namePlaceholder': 'e.g. Alex',
-  'join.password': 'Password (if the project has one)',
-  'join.passwordPlaceholder': 'Leave blank if none',
+  'join.password': 'Password',
+  'join.passwordNeeded': 'This project is password-protected — enter it to join.',
   'join.submit': 'Join project',
   'join.submitting': 'Joining…',
   // (#231) The screens that replace the form when the answer is about the
@@ -283,6 +293,7 @@ export const en = {
   'join.denied': 'The host has not let you in this time. You can ask again.',
   'join.askAgain': 'Ask again',
   'join.error.nameRequired': 'Name is required',
+  'join.error.passwordRequired': 'Password is required',
   'join.error.notFound': "This project doesn't exist. Check the link, or ask the host to create it.",
   'join.error.wrongPassword': 'Wrong password — try again.',
   'join.error.accessRevoked': 'The host has removed your access to this project.',
@@ -500,6 +511,19 @@ export const en = {
   'tool.fill': 'Fill',
   'tool.grid': 'Grid',
   'tool.gridTitle': 'Construction grid  {hotkey}',
+  // (#509/#510) No {hotkey} in either title, unlike every tool above: neither
+  // annotation tool has one yet. A placeholder with nothing to fill it prints
+  // the braces.
+  'tool.annotateText': 'Note',
+  'tool.annotateTitle': 'Note — tap the drawing and write a remark over it. Notes are not part of the picture',
+  'tool.annotatePen': 'Annotation pen',
+  'tool.annotatePenTitle': 'Annotation pen — circle or point at something over the drawing. Marks are not part of the picture',
+  'tool.annotateEraser': 'Annotation eraser',
+  'tool.annotateEraserTitle': 'Annotation eraser — drag over notes and pen marks to remove them. It never touches the drawing',
+  'room.annotationMode': 'Annotations',
+  'room.annotationModeTitle': 'Annotations — swaps the toolbar for notes and the annotation pen. Nothing here touches the drawing',
+  'room.annotationsHide': 'Hide notes',
+  'room.annotationsShow': 'Show notes',
 
   // ── tool settings (TOOL_SCHEMAS field labels and enum options) ─────────
   'tool.field.grade': 'Grade',
@@ -515,6 +539,7 @@ export const en = {
   'tool.anchor.barrel': 'Pen',
   'tool.field.strength': 'Strength',
   'tool.field.addToPalette': 'Add to palette on pick',
+  'tool.field.eraseThroughLayers': 'Erase through layers',
   'tool.field.mode': 'Mode',
   'tool.field.keepProportions': 'Keep proportions',
   'tool.field.lockRuler': 'Lock ruler on canvas',
@@ -616,6 +641,7 @@ export const en = {
   'layers.lock': 'Lock',
   'layers.unlock': 'Unlock',
   'layers.backgroundLocked': 'The background is always locked',
+  'layers.lockedByFolder': 'Locked by the folder it is in',
   'layers.expand': 'Expand',
   'layers.collapse': 'Collapse',
   'layers.more': 'More',

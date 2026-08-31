@@ -80,6 +80,7 @@ jobs:
       packages: write
     outputs:
       image: ${{ steps.image.outputs.image }}
+      version: ${{ steps.version.outputs.value }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -116,14 +117,45 @@ jobs:
       # token is a real secret and is a different thing entirely: it uploads
       # source maps to our org (see apps/web/vite.config.ts). Missing token
       # simply skips the upload, so a fork or a PR build still builds.
+      # (#515) The build identity a person can read off a screen — Settings
+      # shows it, and the deploy report names it, so "is this tablet on the
+      # build I just shipped?" is a comparison instead of a guess. Date first
+      # because that is what makes staleness legible without knowing any sha:
+      # `2026.08.28-7041f19`. The sha half is the same commit
+      # VITE_SENTRY_RELEASE carries, just short — the two are deliberately the
+      # same identity in two lengths rather than two identities.
+      - name: Resolve app version
+        id: version
+        run: echo "value=$(date -u +%Y.%m.%d)-$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Build apps/web static bundle
         env:
+          VITE_APP_VERSION: ${{ steps.version.outputs.value }}
           VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
           VITE_SENTRY_RELEASE: ${{ github.sha }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ vars.SENTRY_WEB_PROJECT }}
         run: npm run build --workspace=apps/web
+
+      # (#515) The same string, reachable without a browser: `curl
+      # https://grafetto.com/version.json` answers "what is actually on prod
+      # right now", which until now meant ssh plus grepping chunk hashes out of
+      # the served index.html. nginx's `location /` already sends `no-cache`
+      # for anything unhashed, so this is always revalidated and can never be
+      # the stale thing it exists to detect. Deliberately not precached either:
+      # swConfig's globPatterns has no `json` in it (see there), so a service
+      # worker never answers this from a cache.
+      - name: Write version.json
+        env:
+          APP_VERSION: ${{ steps.version.outputs.value }}
+          APP_SHA: ${{ github.sha }}
+        run: |
+          jq -n --arg version "$APP_VERSION" --arg sha "$APP_SHA" \
+            '{version: $version, sha: $sha}' > apps/web/dist/version.json
+
+      - name: Report the version being deployed
+        run: echo "Deploying **${{ steps.version.outputs.value }}** (\`${{ github.sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload web build (handed to the deploy job below)
         uses: actions/upload-artifact@v4
