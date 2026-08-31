@@ -84,6 +84,8 @@ export class PointerInput {
   private _pressureMap: ((raw: number) => number) | null
 
   private _down: (e: PointerEvent) => void
+  // (#517) The window-level twin of _down, capture phase — see _handleWindowDown.
+  private _windowDown: (e: PointerEvent) => void
   private _move: (e: PointerEvent) => void
   private _up: (e: PointerEvent) => void
 
@@ -103,10 +105,21 @@ export class PointerInput {
     this._orphanMoveLogged = false
 
     this._down   = this._handleDown.bind(this)
+    this._windowDown = this._handleWindowDown.bind(this)
     this._move   = this._handleMove.bind(this)
     this._up     = this._handleUp.bind(this)
 
     canvas.addEventListener('pointerdown',   this._down)
+    // (#517) Capture phase on window, so it runs before the event reaches any
+    // target at all and sees presses this canvas never gets. See
+    // _handleWindowDown for what question that answers.
+    //
+    // Guarded, unlike the canvas listeners above: the engine's own tests build
+    // a PencilEngine around a mock canvas under node, where `canvas` supplies
+    // addEventListener but there is no DOM global at all. Everything this
+    // probe answers is about a real browser, so having it simply not exist
+    // off one is correct rather than a compromise.
+    if (typeof window !== 'undefined') window.addEventListener('pointerdown', this._windowDown, true)
     canvas.addEventListener('pointermove',   this._move)
     canvas.addEventListener('pointerup',     this._up)
     canvas.addEventListener('pointercancel', this._up)
@@ -200,6 +213,43 @@ export class PointerInput {
     const speed = Math.hypot(x - this._lastX, y - this._lastY) / dt
 
     return this._toPointerData(e, x, y, speed)
+  }
+
+  /** (#517) Every pointerdown the page receives, whatever it lands on, logged
+   *  before it reaches its target.
+   *
+   *  The reason this exists is that the strokes Ilya loses on the iPad leave
+   *  no trace at all — no operation on the server, and not one line from any
+   *  probe on the canvas. Two captures were mis-read as "the operation is
+   *  perfect but the ink is missing" precisely because the stroke that
+   *  vanished contributes nothing to the log, so counting strokes *in the log*
+   *  always lands on a neighbour that worked. It also explains the very first
+   *  thing reported and the one thing hardest to place: that the brush cursor
+   *  is missing at the same moment. That cursor follows pointermove on the
+   *  viewport container, an ancestor of the canvas — so for it to disappear
+   *  too, the events have to be missing from the whole subtree, not merely
+   *  refused by our own handler.
+   *
+   *  That leaves exactly two possibilities, and this separates them in one
+   *  line:
+   *
+   *   - a line appears here with a `target` that is not the canvas — the press
+   *     was dispatched, to something else, and that something is named;
+   *   - no line appears at all — WebKit never dispatched the press to the page,
+   *     and the answer is below the document entirely (a gesture recognizer, a
+   *     touch-action/palm-rejection interaction), not in our event wiring.
+   *
+   *  Capture phase, on window, so neither a stopPropagation() nor a different
+   *  target can hide it. */
+  private _handleWindowDown(e: PointerEvent): void {
+    const t = e.target
+    const el = t instanceof Element ? t : null
+    diagLog('[PointerInput] WINDOW down', {
+      pointerId: e.pointerId, pointerType: e.pointerType,
+      button: e.button, buttons: e.buttons,
+      onCanvas: t === this.canvas,
+      target: el ? `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : ''}` : String(t),
+    })
   }
 
   /** (#187) These four probes stay. They were written as temporary
@@ -380,6 +430,7 @@ export class PointerInput {
   destroy(): void {
     const c = this.canvas
     c.removeEventListener('pointerdown',   this._down)
+    if (typeof window !== 'undefined') window.removeEventListener('pointerdown', this._windowDown, true)
     c.removeEventListener('pointermove',   this._move)
     c.removeEventListener('pointerup',     this._up)
     c.removeEventListener('pointercancel', this._up)
