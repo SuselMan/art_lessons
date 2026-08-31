@@ -62,6 +62,20 @@ export class PointerInput {
   private _activePointerId: number | null
   private _activePointerType: string | null
 
+  // (#517) Per-stroke shape of what the browser actually delivered, reported
+  // once on the up/cancel that ends the stroke: how many pointermove events
+  // arrived and over how long. A hatching stroke that "was ignored" is either
+  // absent from the log entirely (no down at all) or present with a move count
+  // of 0-1 and a duration far shorter than the hand made — the two answers
+  // point at completely different layers, and nothing before this could tell
+  // them apart after the fact.
+  private _moveCount: number
+  private _downAt: number
+  // Rate limit for the "moves while no stroke is active" probe below: one line
+  // per run of such moves, not one per event, so a genuinely lost pointerdown
+  // is loud without a hover-capable device filling the ring buffer.
+  private _orphanMoveLogged: boolean
+
   // (#475) The person's own pressure calibration, compiled once per change
   // rather than per sample — see compilePressureCalibration. Null until one is
   // set, and null again for an identity calibration, so an uncalibrated device
@@ -84,6 +98,9 @@ export class PointerInput {
     this._activePointerId = null
     this._activePointerType = null
     this._pressureMap = null
+    this._moveCount = 0
+    this._downAt = 0
+    this._orphanMoveLogged = false
 
     this._down   = this._handleDown.bind(this)
     this._move   = this._handleMove.bind(this)
@@ -204,8 +221,20 @@ export class PointerInput {
    *  move; the move-path probes only speak when something is actually
    *  wrong. */
   private _handleDown(e: PointerEvent): void {
-    if (e.button !== 0) return
-    if (e.pointerType === 'touch') return // touch → pan/zoom/rotate at viewport level
+    // (#517) Both of these used to return in silence, which is exactly the
+    // shape of the iPad report they exist for: a stroke that leaves *nothing*
+    // cannot be an engine bug — DabSystem.startStroke unconditionally returns
+    // the touch-down dab, so any stroke that reached _onStart leaves at least
+    // one mark. A completely absent stroke therefore died here or never
+    // arrived, and only a log can say which.
+    if (e.button !== 0 || e.pointerType === 'touch') {
+      diagLog('[PointerInput] down IGNORED', {
+        reason: e.button !== 0 ? 'button' : 'pointerType',
+        pointerId: e.pointerId, pointerType: e.pointerType,
+        button: e.button, buttons: e.buttons, pressure: e.pressure, isPrimary: e.isPrimary,
+      })
+      return
+    }
     // (#187) A pointerdown while a
     // stroke is already active would mean two input sources are down at
     // once, which _handleMove's mismatch check below can't itself explain
@@ -216,9 +245,16 @@ export class PointerInput {
         activePointerId: this._activePointerId, activePointerType: this._activePointerType,
       })
     }
-    diagLog('[PointerInput] down', { pointerId: e.pointerId, pointerType: e.pointerType, clientX: e.clientX, clientY: e.clientY })
+    diagLog('[PointerInput] down', {
+      pointerId: e.pointerId, pointerType: e.pointerType,
+      clientX: Math.round(e.clientX), clientY: Math.round(e.clientY),
+      pressure: e.pressure, buttons: e.buttons, isPrimary: e.isPrimary,
+    })
     try { this.canvas.setPointerCapture(e.pointerId) } catch { /* context loss */ }
     this._active = true
+    this._moveCount = 0
+    this._downAt = performance.now()
+    this._orphanMoveLogged = false
     this._activePointerId = e.pointerId
     this._activePointerType = e.pointerType
     this._lastT = performance.now()
@@ -226,7 +262,26 @@ export class PointerInput {
   }
 
   private _handleMove(e: PointerEvent): void {
-    if (!this._active) return
+    if (!this._active) {
+      // (#517) A pen dragging across the canvas with its tip pressed
+      // (buttons !== 0) while no stroke is open means the pointerdown that
+      // should have opened one never reached this handler — the browser
+      // either never dispatched it or sent it somewhere else. That is the one
+      // failure the rest of the pipeline cannot see at all, and it is the
+      // leading explanation for "каждый 15-й штрих игнорится".
+      //
+      // Hover moves (buttons === 0, an M2-class iPad or a mouse) are not it
+      // and stay silent; one line per run, not per event.
+      if (e.buttons !== 0 && e.pointerType !== 'touch' && !this._orphanMoveLogged) {
+        this._orphanMoveLogged = true
+        diagLog('[PointerInput] MOVE WITH NO ACTIVE STROKE — the pointerdown never arrived', {
+          pointerId: e.pointerId, pointerType: e.pointerType,
+          buttons: e.buttons, pressure: e.pressure,
+        })
+      }
+      return
+    }
+    this._moveCount++
     // (#187) The working theory was: a
     // second input source (mouse hover, a secondary touch) sends its own
     // pointermove while a stylus stroke is active, and — since nothing
@@ -273,14 +328,48 @@ export class PointerInput {
   }
 
   private _handleUp(e: PointerEvent): void {
-    if (!this._active) return
+    if (!this._active) {
+      // (#517) Same reasoning as the orphan-move probe: an up for a pen whose
+      // down was never seen is the signature of a lost pointerdown.
+      if (e.pointerType !== 'touch') {
+        diagLog('[PointerInput] up/cancel WITH NO ACTIVE STROKE', {
+          type: e.type, pointerId: e.pointerId, pointerType: e.pointerType,
+        })
+      }
+      return
+    }
+    // (#517) The other way a stroke can vanish: something that is not the pen
+    // ends it. _handleDown ignores touch outright, but this handler never
+    // checked either the pointer type or the id — so a palm contact's own
+    // pointerup/pointercancel (iPadOS delivers a palm and then cancels it)
+    // closes the pen's stroke instead. Killed one sample in, that leaves a
+    // single touch-down dab and reads as a stroke that never happened; killed
+    // later it truncates, which is #187's mid-stroke break.
+    //
+    // Logged rather than filtered, deliberately, for the reason #187's own
+    // probes give: turning this into an early return before it has been seen
+    // once on the device would remove the evidence along with the symptom, and
+    // the fix would be unfalsifiable. It is one line away once a capture shows
+    // it firing.
+    if (e.pointerId !== this._activePointerId) {
+      diagLog('[PointerInput] END FROM MISMATCHED POINTER — a foreign pointer is closing the stroke', {
+        type: e.type, endPointerId: e.pointerId, endPointerType: e.pointerType,
+        activePointerId: this._activePointerId, activePointerType: this._activePointerType,
+        movesSoFar: this._moveCount, ageMs: Math.round(performance.now() - this._downAt),
+      })
+    }
     // (#187) Distinguishes a normal
     // pointerup from a pointercancel (both routed here) — e.g. a tablet OS
     // canceling the stylus's pointer mid-stroke (palm rejection, focus
     // switch) would end the stroke abruptly too, a distinct cause from the
     // mismatched-pointer theory above.
     diagLog('[PointerInput] ' + (e.type === 'pointercancel' ? 'CANCEL' : 'up'), {
-      pointerId: e.pointerId, pointerType: e.pointerType, clientX: e.clientX, clientY: e.clientY,
+      pointerId: e.pointerId, pointerType: e.pointerType,
+      clientX: Math.round(e.clientX), clientY: Math.round(e.clientY),
+      // (#517) The shape of the stroke that just ended. `moves: 0` next to a
+      // few milliseconds is a stroke the hand made and the browser did not
+      // report — whatever ink landed is the single touch-down dab.
+      moves: this._moveCount, durationMs: Math.round(performance.now() - this._downAt),
     })
     this._active = false
     this._activePointerId = null

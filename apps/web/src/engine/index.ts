@@ -35,6 +35,10 @@ import {
 import type { NibAngleConfig } from './src/markerPresets'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
+// (#517) Same on-device ring buffer PointerInput writes to — the stroke
+// pipeline's two silent refusals below are only diagnosable from a tablet
+// with no inspector attached, which is what diagLog exists for.
+import { diagLog } from '../lib/diagLog'
 // (#475) The calibration model itself is not engine code — it is pure input
 // math shared with the settings UI and the preferences store, so it lives in
 // `lib/` (the same direction PointerInput already imports diagLog from). The
@@ -5185,9 +5189,22 @@ export class PencilEngine implements PencilEngineAPI {
     // at all (rather than trying to special-case the paint path) means
     // there is nothing to later "fix up" — matches how `_locked` already
     // blocks drawing for a different reason, just orthogonal to it.
-    if (this._locked || !this._paperTexLoaded) return
+    if (this._locked || !this._paperTexLoaded) {
+      // (#517) Both refusals below are correct and both are silent, which is
+      // indistinguishable from the input layer having dropped the stroke —
+      // and telling those two apart is the whole question in the iPad report.
+      diagLog('[engine] stroke start REFUSED', {
+        locked: this._locked, paperTexLoaded: this._paperTexLoaded,
+      })
+      return
+    }
     const layerId = this._activeId
-    if (!layerId || !this._layers.has(layerId)) return
+    if (!layerId || !this._layers.has(layerId)) {
+      diagLog('[engine] stroke start REFUSED: no drawable layer', {
+        activeId: this._activeId, known: this._layers.has(this._activeId ?? ''),
+      })
+      return
+    }
     this._strokeLayerId = layerId
     this._strokeTool    = this._opts.tool
     // Fresh per stroke (never carried over, unlike smudge's reservoir) —
@@ -5485,6 +5502,18 @@ export class PencilEngine implements PencilEngineAPI {
   private _onEnd(e: PointerData): void {
     const layerId = this._strokeLayerId
     if (!layerId) return
+    // (#517) `startStroke` always emits the touch-down dab, so every stroke
+    // that reaches here has laid down at least one — which means a stroke that
+    // visibly did nothing either never got here, or got here and was closed
+    // almost immediately. Only the second case is worth a line, and only that
+    // case is logged: an ordinary stroke says nothing, so this stays silent
+    // through a normal session (and through the test suite) and speaks exactly
+    // when the reported symptom happens.
+    if (this._strokeDabs.length <= 2) {
+      diagLog('[engine] stroke ended with almost no ink', {
+        dabsBeforeFlush: this._strokeDabs.length, tool: this._strokeTool,
+      })
+    }
     // Dwell (#245): stop pooling the instant the stroke ends — real
     // movement/lift always reaches here before any next stroke's _onStart.
     if (this._dwellTimer) { clearInterval(this._dwellTimer); this._dwellTimer = null }
