@@ -142,6 +142,47 @@ test.describe('the floating panel’s slots', () => {
     expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('watercolor')
   })
 
+  // Reported from the tablet: with the smudge pinned to a slot of its own,
+  // tapping it also moved the *role* slot onto the smudge — two buttons for one
+  // tool, and the eraser the role existed to remember simply gone. A role means
+  // "the tool you have no button for", so it walks past anything the layout
+  // already holds; see pickRoleTool.
+  test('a role does not follow a tool that has a slot of its own', async ({ page }) => {
+    await showFloatingPanel(page)
+    await createRoom(page)
+    await waitForRoomReady(page)
+
+    await expect(slot(page, 4)).toHaveAttribute('aria-label', 'Eraser')
+
+    await holdSlot(page, 3)
+    await choice(page, 'tool:smudge').click()
+    expect(await page.evaluate(() => window.__roomStore!.getState().tool)).toBe('smudge')
+
+    // The smudge is where it was put, and nowhere else.
+    await expect(slot(page, 3)).toHaveAttribute('aria-label', 'Smudge')
+    await expect(slot(page, 4)).toHaveAttribute('aria-label', 'Eraser')
+
+    // Selecting it again from its own button changes nothing either.
+    await page.evaluate(() => window.__roomStore!.getState().setTool('eraser'))
+    await slot(page, 3).click()
+    await expect(slot(page, 4)).toHaveAttribute('aria-label', 'Eraser')
+  })
+
+  // Pinning alone is enough — the tool need never be selected for the role to
+  // step aside, so the panel never *shows* the duplicate even for a moment.
+  test('a role steps aside the instant its tool is pinned elsewhere', async ({ page }) => {
+    await showFloatingPanel(page)
+    await createRoom(page)
+    await waitForRoomReady(page)
+
+    await expect(slot(page, 0)).toHaveAttribute('aria-label', 'Pencil')
+    await holdSlot(page, 1)
+    await choice(page, 'tool:pencil').click()
+
+    await expect(slot(page, 1)).toHaveAttribute('aria-label', 'Pencil')
+    await expect(slot(page, 0)).not.toHaveAttribute('aria-label', 'Pencil')
+  })
+
   test('a tap does the slot’s job without opening the chooser', async ({ page }) => {
     await showFloatingPanel(page)
     await createRoom(page)

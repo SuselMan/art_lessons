@@ -11,8 +11,8 @@ import {
 } from '../../pages/Room/panelPosition'
 import { layoutFlyoutItems, type RayLayoutConfig } from './colorFlyout'
 import {
-  SLOT_CHOICES, assignSlot, sameSlotContent, slotChoiceKey, slotChoiceLabelKey, slotFace,
-  slotOffset, resolveSlotTool,
+  SLOT_CHOICES, assignSlot, panelRoles, sameSlotContent, slotChoiceKey, slotChoiceLabelKey,
+  slotFace, slotOffset, resolveSlotTool,
   type PanelLayout, type SlotChoice,
 } from './slots'
 import type { FloatingPanelTool, FloatingPrimaryTool, FloatingSecondaryTool } from './tools'
@@ -60,17 +60,22 @@ interface Props {
    *  panel is hidden in). Drives which slots are lit, and nothing else: what
    *  each slot *displays* comes from `layout` plus the two fields below. */
   tool: FloatingPanelTool | null
-  /** Last FloatingPrimaryTool actually selected (toolSlice.ts's
-   *  lastDrawingTool) — what a `drawing` role slot shows and hands back. Kept
-   *  in the store rather than here because the panel is not the only thing
-   *  that selects these tools: the toolbar and the hotkeys do too, and a slot
-   *  that only remembered the choices made through itself would go stale the
-   *  moment the same choice was made a foot to the left. */
-  primaryTool: FloatingPrimaryTool
-  /** The same thing for a `secondary` role slot (toolSlice.ts's
-   *  lastSecondaryTool): the eraser, the smudge or the eyedropper, whichever
-   *  was last in hand. */
-  secondaryTool: FloatingSecondaryTool
+  /** Every drawing tool, most recently selected first (toolSlice.ts's
+   *  recentDrawingTools) — what a `drawing` role slot draws from.
+   *
+   *  The whole list and not just its head, because a role hands over the most
+   *  recent tool that is not already pinned to a slot of its own, and skipping
+   *  needs something to skip *to*. See pickRoleTool for why that is the rule.
+   *
+   *  Kept in the store rather than here because the panel is not the only
+   *  thing that selects these tools: the toolbar and the hotkeys do too, and a
+   *  list that only recorded the choices made through this panel would go
+   *  stale the moment the same choice was made a foot to the left. */
+  recentDrawingTools: readonly FloatingPrimaryTool[]
+  /** The same list for a `secondary` role slot (toolSlice.ts's
+   *  recentSecondaryTools): the eraser, the smudge and the eyedropper, most
+   *  recently selected first. */
+  recentSecondaryTools: readonly FloatingSecondaryTool[]
   onSetTool: (tool: FloatingPanelTool) => void
   onUndo: () => void
   onRedo: () => void
@@ -157,20 +162,29 @@ interface Props {
  *  else it could honestly do, and a dot that responds to nothing but a
  *  half-second hold is a feature nobody finds.
  *
- *  A slot can also hold a *role* rather than a tool — "whatever I last drew
- *  with". That is what the top and bottom buttons already were before any of
- *  this, and keeping it as something you can put in a slot is what stops the
- *  hand-laid panel from losing the one thing the fixed panel was good at:
- *  paint in watercolor, switch to minimal UI, and the watercolor is there. A
- *  role slot wears the tool's own icon, badged — see slots.ts's SlotFace for
- *  why it is not drawn with a glyph of its own. */
+ *  A slot can also hold a *role* rather than a tool — "the drawing tool I have
+ *  no button for". That is what the top and bottom buttons already were before
+ *  any of this, and keeping it as something you can put in a slot is what
+ *  stops the hand-laid panel from losing the one thing the fixed panel was
+ *  good at: paint in watercolor, switch to minimal UI, and the watercolor is
+ *  there. A role slot wears the tool's own icon, badged — see slots.ts's
+ *  SlotFace for why it is not drawn with a glyph of its own, and pickRoleTool
+ *  for why a role skips whatever the layout already holds rather than simply
+ *  showing the last tool used. */
 export function FloatingToolPanel({
-  tool, primaryTool, secondaryTool, onSetTool, onUndo, onRedo, layout, onLayoutChange,
+  tool, recentDrawingTools, recentSecondaryTools, onSetTool, onUndo, onRedo, layout, onLayoutChange,
   primaryColor, palette, onSelectColor, onOpenColorPicker,
   roomId, position, onPositionChange, containerRef, hidden, flyout, onFlyoutChange,
   undoHotkeyLabel, redoHotkeyLabel,
 }: Props) {
   const t = useT()
+  // What each role hands over right now. Computed once per render and threaded
+  // through every slot, chooser entry and active-slot test below, so they all
+  // answer from one snapshot rather than each recomputing the skip rule.
+  const roles = useMemo(
+    () => panelRoles(recentDrawingTools, recentSecondaryTools, layout),
+    [recentDrawingTools, recentSecondaryTools, layout],
+  )
   // Mount-then-transition: items first render collapsed onto the panel's
   // center (see the `animateIn` className below), then this flips true one
   // frame later so the CSS `transition: transform` on each item's own
@@ -219,9 +233,9 @@ export function FloatingToolPanel({
     if (!content) { onFlyoutChange({ kind: 'slot', index }); return }
     if (flyout) onFlyoutChange(null)
     if (content.kind === 'action') { (content.action === 'undo' ? onUndo : onRedo)(); return }
-    const resolved = resolveSlotTool(content, primaryTool, secondaryTool)
+    const resolved = resolveSlotTool(content, roles)
     if (resolved) onSetTool(resolved)
-  }, [flyout, onFlyoutChange, layout, onUndo, onRedo, onSetTool, primaryTool, secondaryTool])
+  }, [flyout, onFlyoutChange, layout, onUndo, onRedo, onSetTool, roles])
 
   // Picking an entry out of a slot's chooser. Assigning and selecting are one
   // gesture on purpose: someone who just put the ruler in a slot wants the
@@ -236,9 +250,9 @@ export function FloatingToolPanel({
     onLayoutChange(assignSlot(layout, index, choice))
     onFlyoutChange(null)
     if (choice.kind === 'clear' || choice.kind === 'action') return
-    const resolved = resolveSlotTool(choice, primaryTool, secondaryTool)
+    const resolved = resolveSlotTool(choice, roles)
     if (resolved) onSetTool(resolved)
-  }, [layout, onLayoutChange, onFlyoutChange, onSetTool, primaryTool, secondaryTool])
+  }, [layout, onLayoutChange, onFlyoutChange, onSetTool, roles])
 
   // Reset to collapsed on *every* change of which fan is out, not just on
   // closing: swapping one fan straight for the other (holding a slot while the
@@ -435,8 +449,8 @@ export function FloatingToolPanel({
             spread across a stylesheet that cannot see PANEL_SIZE. */}
         {layout.map((content, index) => {
           const offset = slotOffset(index)
-          const face = slotFace(content, primaryTool, secondaryTool)
-          const resolved = resolveSlotTool(content, primaryTool, secondaryTool)
+          const face = slotFace(content, roles)
+          const resolved = resolveSlotTool(content, roles)
           // Empty slots and action slots are never "current". A role slot and
           // a fixed slot holding the same tool are both lit at once, which is
           // the honest answer: both of them would hand you that tool.
@@ -516,7 +530,7 @@ export function FloatingToolPanel({
         {openSlot !== null && (
           <div className={styles.flyout}>
             {choiceItems.map(({ choice, ...pos }) => {
-              const face = slotFace(choice, primaryTool, secondaryTool)
+              const face = slotFace(choice, roles)
               const labelKey = slotChoiceLabelKey(choice)
               const assigned = choice.kind !== 'clear'
                 ? sameSlotContent(layout[openSlot], choice)

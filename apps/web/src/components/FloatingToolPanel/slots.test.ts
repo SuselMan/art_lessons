@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import { PANEL_SIZE } from '../../pages/Room/panelPosition'
 import {
-  DEFAULT_PANEL_LAYOUT, SLOT_CHOICES, SLOT_COUNT, SLOT_RADIUS, assignSlot, parsePanelLayout,
-  resolveSlotTool, sameSlotContent, serializePanelLayout, slotChoiceKey, slotFace, slotOffset,
+  DEFAULT_PANEL_LAYOUT, SLOT_CHOICES, SLOT_COUNT, SLOT_RADIUS, assignSlot, panelRoles,
+  parsePanelLayout, pickRoleTool, pinnedTools, resolveSlotTool, sameSlotContent,
+  serializePanelLayout, slotChoiceKey, slotFace, slotOffset,
   type PanelLayout,
 } from './slots'
 import { FLOATING_TOOLS } from './tools'
@@ -59,26 +60,84 @@ describe('the default layout', () => {
   })
 })
 
-describe('resolveSlotTool', () => {
-  it('gives a fixed slot its own tool, whatever was last used', () => {
-    expect(resolveSlotTool({ kind: 'tool', tool: 'ruler' }, 'marker', 'smudge')).toBe('ruler')
+describe('pickRoleTool', () => {
+  const none = new Set<string>()
+
+  it('gives the most recent when nothing is pinned', () => {
+    expect(pickRoleTool(['marker', 'pencil', 'liner'], none)).toBe('marker')
   })
 
-  it('gives a role slot whichever tool currently fills the role', () => {
-    expect(resolveSlotTool({ kind: 'role', role: 'drawing' }, 'watercolor', 'eraser')).toBe('watercolor')
-    expect(resolveSlotTool({ kind: 'role', role: 'secondary' }, 'watercolor', 'eyedropper')).toBe('eyedropper')
+  // The gap this rule was written for: pin the smudge to a slot of its own,
+  // select it, and "the last one used" would put the smudge in the role slot
+  // beside it too — two buttons for one tool, and the eraser the role existed
+  // to remember is gone.
+  it('skips a tool that already has a slot of its own', () => {
+    expect(pickRoleTool(['smudge', 'eraser', 'eyedropper'], new Set(['smudge']))).toBe('eraser')
+  })
+
+  it('keeps skipping down the list', () => {
+    const pinned = new Set(['smudge', 'eraser'])
+    expect(pickRoleTool(['smudge', 'eraser', 'eyedropper'], pinned)).toBe('eyedropper')
+  })
+
+  // A duplicated button is a smaller failure than a slot with nothing to show.
+  it('falls back to the most recent when every candidate is pinned', () => {
+    expect(pickRoleTool(['smudge', 'eraser'], new Set(['smudge', 'eraser']))).toBe('smudge')
+  })
+
+  it('ignores roles and actions when deciding what is pinned', () => {
+    const layout = assignSlot(DEFAULT_PANEL_LAYOUT, 1, { kind: 'action', action: 'undo' })
+    expect(pinnedTools(layout).size).toBe(0)
+  })
+})
+
+describe('panelRoles', () => {
+  const RECENT_DRAWING = ['marker', 'pencil', 'liner'] as const
+  const RECENT_SECONDARY = ['smudge', 'eraser', 'eyedropper'] as const
+
+  it('resolves both roles against the same layout', () => {
+    const layout = assignSlot(DEFAULT_PANEL_LAYOUT, 1, { kind: 'tool', tool: 'smudge' })
+    expect(panelRoles(RECENT_DRAWING, RECENT_SECONDARY, layout))
+      .toEqual({ drawing: 'marker', secondary: 'eraser' })
+  })
+
+  // Pinning is what changes a role, so it changes the instant the layout does —
+  // no tool has to be selected for the duplicate to be avoided.
+  it('moves a role off a tool the moment that tool is pinned', () => {
+    const before = panelRoles(RECENT_DRAWING, RECENT_SECONDARY, DEFAULT_PANEL_LAYOUT)
+    expect(before.drawing).toBe('marker')
+    const after = panelRoles(
+      RECENT_DRAWING, RECENT_SECONDARY,
+      assignSlot(DEFAULT_PANEL_LAYOUT, 3, { kind: 'tool', tool: 'marker' }),
+    )
+    expect(after.drawing).toBe('pencil')
+  })
+})
+
+describe('resolveSlotTool', () => {
+  const roles = { drawing: 'watercolor', secondary: 'eyedropper' } as const
+
+  it('gives a fixed slot its own tool, whatever the roles say', () => {
+    expect(resolveSlotTool({ kind: 'tool', tool: 'ruler' }, roles)).toBe('ruler')
+  })
+
+  it('gives a role slot whatever that role currently resolves to', () => {
+    expect(resolveSlotTool({ kind: 'role', role: 'drawing' }, roles)).toBe('watercolor')
+    expect(resolveSlotTool({ kind: 'role', role: 'secondary' }, roles)).toBe('eyedropper')
   })
 
   it('gives an empty or action slot no tool at all', () => {
-    expect(resolveSlotTool(null, 'pencil', 'eraser')).toBeNull()
-    expect(resolveSlotTool({ kind: 'action', action: 'undo' }, 'pencil', 'eraser')).toBeNull()
+    expect(resolveSlotTool(null, roles)).toBeNull()
+    expect(resolveSlotTool({ kind: 'action', action: 'undo' }, roles)).toBeNull()
   })
 })
 
 describe('slotFace', () => {
+  const roles = { drawing: 'marker', secondary: 'eraser' } as const
+
   it('draws a role with the resolved tool’s own icon, badged', () => {
-    const role = slotFace({ kind: 'role', role: 'drawing' }, 'marker', 'eraser')
-    const fixed = slotFace({ kind: 'tool', tool: 'marker' }, 'marker', 'eraser')
+    const role = slotFace({ kind: 'role', role: 'drawing' }, roles)
+    const fixed = slotFace({ kind: 'tool', tool: 'marker' }, roles)
     // Same picture — which is exactly why the badge has to exist.
     expect(role?.icon).toBe(fixed?.icon)
     expect(role?.isRole).toBe(true)
@@ -86,8 +145,8 @@ describe('slotFace', () => {
   })
 
   it('has nothing to draw for an empty slot or for `clear`', () => {
-    expect(slotFace(null, 'pencil', 'eraser')).toBeNull()
-    expect(slotFace({ kind: 'clear' }, 'pencil', 'eraser')).toBeNull()
+    expect(slotFace(null, roles)).toBeNull()
+    expect(slotFace({ kind: 'clear' }, roles)).toBeNull()
   })
 })
 

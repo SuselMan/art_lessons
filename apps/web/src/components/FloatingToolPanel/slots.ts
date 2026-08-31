@@ -46,7 +46,12 @@ export const SLOT_RADIUS = 62
  *  watercolor a second ago and switched to minimal UI" — the watercolor is
  *  simply not on it. A role slot is the way back, and it is exactly what the
  *  panel's top and bottom buttons already were before any of this: `drawing`
- *  is the old top slot, `secondary` the old bottom one. */
+ *  is the old top slot, `secondary` the old bottom one.
+ *
+ *  Read pickRoleTool below for the half of the definition that is not "the
+ *  last one you used": a role means *the tool you have no button for*, so it
+ *  walks past anything the layout already holds. Without that it duplicates
+ *  its neighbour the moment you pin a tool and pick it. */
 export type SlotRole = 'drawing' | 'secondary'
 
 export const SLOT_ROLES = ['drawing', 'secondary'] as const satisfies readonly SlotRole[]
@@ -138,22 +143,65 @@ export function sameSlotContent(a: SlotContent | null, b: SlotContent | null): b
 
 // ── resolving a slot ────────────────────────────────────────────────────────
 
+/** Every tool the layout pins to a slot of its own. */
+export function pinnedTools(layout: PanelLayout): ReadonlySet<string> {
+  const pinned = new Set<string>()
+  for (const content of layout) if (content?.kind === 'tool') pinned.add(content.tool)
+  return pinned
+}
+
+/** What a role hands over: the most recently selected tool of its kind that
+ *  does not already have a slot of its own.
+ *
+ *  The skipping is the whole rule, and it was learned the hard way. "The last
+ *  one you used" is the obvious definition and it is wrong in both directions
+ *  at once: pin the smudge to a slot, tap it, and the secondary role becomes
+ *  the smudge too — two buttons saying the same word, and the eraser, which
+ *  the role existed to remember, gone. The same happens from the left toolbar,
+ *  so "only learn from outside the panel" would have fixed half of it.
+ *
+ *  What a role is actually for is reaching a tool that is *not* on the panel.
+ *  A tool with its own button is already reached; the role's job is the next
+ *  one down. That also makes the role stable in the case that prompted this:
+ *  working with a pinned smudge never disturbs it.
+ *
+ *  Falls back to the head when every candidate is pinned (possible only with a
+ *  layout that spends most of its slots on one kind of tool): a duplicated
+ *  button is a smaller failure than a slot with nothing to show. */
+export function pickRoleTool<T extends string>(recent: readonly T[], pinned: ReadonlySet<string>): T {
+  return recent.find(tool => !pinned.has(tool)) ?? recent[0]
+}
+
+/** What each role resolves to right now — computed once per render and passed
+ *  down, so that every slot, every chooser entry and the active-slot test all
+ *  answer from the same snapshot. */
+export type PanelRoles = Record<SlotRole, FloatingPanelTool>
+
+export function panelRoles(
+  recentDrawingTools: readonly FloatingPrimaryTool[],
+  recentSecondaryTools: readonly FloatingSecondaryTool[],
+  layout: PanelLayout,
+): PanelRoles {
+  const pinned = pinnedTools(layout)
+  return {
+    drawing: pickRoleTool(recentDrawingTools, pinned),
+    secondary: pickRoleTool(recentSecondaryTools, pinned),
+  }
+}
+
 /** Which tool a slot stands for right now — the tool itself for a fixed slot,
- *  the currently-remembered one for a role, and null for the two slots that
+ *  the role's current answer for a role slot, and null for the two slots that
  *  are not about tools at all (an action, or nothing).
  *
- *  The two remembered tools are passed in rather than read from a store
- *  because this file, like the rest of components/, does not import from
- *  stores/ — and because a pure function of them is what makes the role
- *  behaviour testable at all. */
+ *  The roles are passed in rather than read from a store because this file,
+ *  like the rest of components/, does not import from stores/ — and because a
+ *  pure function of them is what makes the role behaviour testable at all. */
 export function resolveSlotTool(
-  content: SlotContent | null,
-  primaryTool: FloatingPrimaryTool,
-  secondaryTool: FloatingSecondaryTool,
+  content: SlotContent | null, roles: PanelRoles,
 ): FloatingPanelTool | null {
   if (content === null) return null
   if (content.kind === 'tool') return content.tool
-  if (content.kind === 'role') return content.role === 'drawing' ? primaryTool : secondaryTool
+  if (content.kind === 'role') return roles[content.role]
   return null
 }
 
@@ -180,14 +228,10 @@ const ROLE_LABEL: Record<SlotRole, TranslationKey> = {
 /** How to draw a slot's content (or a chooser entry). Null for an empty slot
  *  and for `clear`, both of which the caller draws as a dot rather than as an
  *  icon. */
-export function slotFace(
-  choice: SlotChoice | null,
-  primaryTool: FloatingPrimaryTool,
-  secondaryTool: FloatingSecondaryTool,
-): SlotFace | null {
+export function slotFace(choice: SlotChoice | null, roles: PanelRoles): SlotFace | null {
   if (choice === null || choice.kind === 'clear') return null
   if (choice.kind === 'action') return ACTION_FACE[choice.action]
-  const tool = resolveSlotTool(choice, primaryTool, secondaryTool)
+  const tool = resolveSlotTool(choice, roles)
   if (tool === null) return null
   return { ...TOOL_DISPLAY[tool], isRole: choice.kind === 'role' }
 }
