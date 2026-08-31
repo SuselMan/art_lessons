@@ -84,16 +84,9 @@ export class PointerInput {
   private _pressureMap: ((raw: number) => number) | null
 
   private _down: (e: PointerEvent) => void
-  // (#517) The window-level twin of _down, capture phase — see _handleWindowDown.
-  private _windowDown: (e: PointerEvent) => void
-  // (#517) The touch-event channel and the main-thread stall detector — see
-  // _handleWindowTouchStart and _startStallWatch.
-  private _windowTouchStart: (e: TouchEvent) => void
-  private _stallTimer: ReturnType<typeof setInterval> | null
-  // (#517) The mitigation, and the two remaining diagnostics — see
-  // _handleCanvasTouchStart and _handleWindowGesture.
+  // (#517) See _handleCanvasTouchStart — a listener whose entire body is one
+  // preventDefault, and the reason strokes stop disappearing on iPad.
   private _canvasTouchStart: (e: TouchEvent) => void
-  private _windowGesture: (e: Event) => void
   private _move: (e: PointerEvent) => void
   private _up: (e: PointerEvent) => void
 
@@ -113,11 +106,7 @@ export class PointerInput {
     this._orphanMoveLogged = false
 
     this._down   = this._handleDown.bind(this)
-    this._windowDown = this._handleWindowDown.bind(this)
-    this._windowTouchStart = this._handleWindowTouchStart.bind(this)
-    this._stallTimer = null
     this._canvasTouchStart = this._handleCanvasTouchStart.bind(this)
-    this._windowGesture = this._handleWindowGesture.bind(this)
     this._move   = this._handleMove.bind(this)
     this._up     = this._handleUp.bind(this)
 
@@ -131,19 +120,6 @@ export class PointerInput {
     // addEventListener but there is no DOM global at all. Everything this
     // probe answers is about a real browser, so having it simply not exist
     // off one is correct rather than a compromise.
-    if (typeof window !== 'undefined') {
-      window.addEventListener('pointerdown', this._windowDown, true)
-      // (#517) The other event channel the same contact travels on — see
-      // _handleWindowTouchStart.
-      window.addEventListener('touchstart', this._windowTouchStart, true)
-      // (#517) WebKit's own gesture events, and a touch taken back after it
-      // was given — the two ways a claimed contact could still announce
-      // itself. Plain strings: `gesturestart` is WebKit-only and absent from
-      // lib.dom.
-      window.addEventListener('gesturestart', this._windowGesture, true)
-      window.addEventListener('touchcancel', this._windowGesture, true)
-      this._startStallWatch()
-    }
     canvas.addEventListener('pointermove',   this._move)
     canvas.addEventListener('pointerup',     this._up)
     canvas.addEventListener('pointercancel', this._up)
@@ -243,134 +219,41 @@ export class PointerInput {
     return this._toPointerData(e, x, y, speed)
   }
 
-  /** (#517) The one lever left, and the only change here that is not a probe.
+  /** (#517) The fix for strokes that vanished on iPad, and a listener that
+   *  looks exactly like dead code — one `preventDefault()` and nothing else.
+   *  It is not. Deleting it brings the bug back.
    *
-   *  What the captures established: the contact behind a lost stroke reaches
-   *  the page on *neither* channel — no `pointerdown`, no `touchstart` — and
-   *  the main thread was not blocked at the time (the stall watch stayed
-   *  silent). So iPadOS decided the contact was not the web content's, and
-   *  decided it before dispatching anything. Nothing a listener does can
-   *  recover that particular contact.
+   *  What was happening: while hatching (many short quick strokes), roughly
+   *  one stroke in fifteen produced no mark at all. Instrumenting the whole
+   *  path showed the loss was not ours anywhere along it — the contact reached
+   *  the page on *neither* channel, no `pointerdown` and no `touchstart`, and
+   *  a 100 ms stall watch stayed silent throughout, so the main thread was
+   *  free at the time. iPadOS was deciding the contact did not belong to the
+   *  web content, and deciding it before dispatching anything at all. The
+   *  operation log agreed: the strokes that did arrive were recorded
+   *  perfectly, and the ones that vanished were never there to record.
    *
-   *  `touch-action: none` is already set, on this canvas and on `body`, and it
-   *  is not enough — which is the finding that makes this worth trying rather
-   *  than a guess. It is the declarative half of the story: it tells WebKit
-   *  which default actions this element forgoes. A non-passive `touchstart`
-   *  that actually calls preventDefault() is the imperative half, and it is
-   *  what tells the UI process, per contact, that the web content is
-   *  consuming touches — which is the input to how the next contact gets
-   *  routed. This is the long-standing workaround for exactly this class of
-   *  swallowed-tap bug on iOS, and it is the reason the listener exists at
-   *  all: there is nothing else in the body.
+   *  Why this listener is what fixes it, and why `touch-action` is not:
+   *  `touch-action: none` is already set here *and* on `body`, and the strokes
+   *  still vanished. It is the declarative half — it tells WebKit which
+   *  default actions this element forgoes. A non-passive `touchstart` that
+   *  really calls preventDefault() is the imperative half: it tells the UI
+   *  process, on each contact, that the web content is consuming touches, and
+   *  that is an input to how the *next* contact gets routed. Hence
+   *  `{ passive: false }` — a passive listener may not preventDefault, which
+   *  would leave this genuinely empty.
    *
-   *  Safe against the gestures this app does have: pan, pinch and rotate are
-   *  driven from pointer events in useViewport, never from touch events or
-   *  from native scrolling, so removing the default action removes nothing
-   *  anyone uses. */
+   *  Measured, not assumed: 100 consecutive hatching strokes with no loss,
+   *  against a rate that had been costing about one in fifteen.
+   *
+   *  It takes nothing away. Pan, pinch and rotate are driven from pointer
+   *  events in useViewport, never from touch events or from native scrolling,
+   *  so the default action being removed is one nothing in this app uses.
+   *
+   *  Pinned by PointerInput.touchDefault.test.ts, which exists because this is
+   *  precisely the shape of code a later cleanup deletes as a no-op. */
   private _handleCanvasTouchStart(e: TouchEvent): void {
     e.preventDefault()
-  }
-
-  /** (#517) The last two ways a contact that never became a pointerdown could
-   *  still say so: WebKit recognising it as a pinch/rotate gesture of its own
-   *  (`gesturestart`, WebKit-only), or handing it over and taking it back
-   *  (`touchcancel`). Either firing where a stroke went missing names the
-   *  claimant; both staying silent while the stroke vanishes says the contact
-   *  was never the page's to begin with. */
-  private _handleWindowGesture(e: Event): void {
-    diagLog('[PointerInput] WINDOW ' + e.type.toUpperCase(), {
-      onCanvas: e.target === this.canvas,
-    })
-  }
-
-  /** (#517) The same physical contact, seen on the *other* channel.
-   *
-   *  On iOS a pointer event is derived from a touch event, not produced
-   *  independently — so a press that never arrives as `pointerdown` may still
-   *  have arrived as `touchstart`. That is not a fine distinction here, it is
-   *  the difference between two completely different bugs and two completely
-   *  different fixes:
-   *
-   *   - `touchstart` fires and `pointerdown` does not — WebKit built the touch
-   *     and then declined to derive a pointer event from it. Ours to work
-   *     around, and the workaround is available: the touch carries the same
-   *     coordinates, and `touchType === 'stylus'` identifies the pencil.
-   *   - neither fires — the contact never reached the web content at all, and
-   *     no amount of listening will recover it. The answer is then in what the
-   *     page did to earn that (a blocked main thread — see _startStallWatch —
-   *     or a system gesture claiming the touch).
-   *
-   *  `touchType` is WebKit's own, absent from lib.dom, hence the local shape
-   *  rather than a cast to any. */
-  private _handleWindowTouchStart(e: TouchEvent): void {
-    const t = e.changedTouches[0] as (Touch & { touchType?: string }) | undefined
-    diagLog('[PointerInput] WINDOW touchstart', {
-      touches: e.touches.length, changed: e.changedTouches.length,
-      touchType: t?.touchType ?? 'unknown',
-      onCanvas: e.target === this.canvas,
-    })
-  }
-
-  /** (#517) How long the main thread was blocked, sampled where a blocked main
-   *  thread is actually dangerous.
-   *
-   *  iOS decides whether the web content is responsive enough to be handed a
-   *  gesture. A stall long enough to fail that test means the press is claimed
-   *  by the system and the page is never told — which is exactly the shape of
-   *  the missing strokes, and would make this our bug (heavy work on the
-   *  drawing path) rather than WebKit's.
-   *
-   *  A 100 ms interval rather than requestAnimationFrame on purpose: rAF runs
-   *  once per frame and would both cost more and be throttled by the very
-   *  thing it is trying to measure. A timer that should fire at 100 ms and
-   *  fires at 600 instead has measured a 500 ms block directly. Only lateness
-   *  past the threshold speaks, so an idle session stays silent. */
-  private _startStallWatch(): void {
-    const period = 100
-    let expected = performance.now() + period
-    this._stallTimer = setInterval(() => {
-      const now = performance.now()
-      const late = now - expected
-      expected = now + period
-      if (late > 250) diagLog('[PointerInput] MAIN THREAD BLOCKED', { ms: Math.round(late) })
-    }, period)
-  }
-
-  /** (#517) Every pointerdown the page receives, whatever it lands on, logged
-   *  before it reaches its target.
-   *
-   *  The reason this exists is that the strokes Ilya loses on the iPad leave
-   *  no trace at all — no operation on the server, and not one line from any
-   *  probe on the canvas. Two captures were mis-read as "the operation is
-   *  perfect but the ink is missing" precisely because the stroke that
-   *  vanished contributes nothing to the log, so counting strokes *in the log*
-   *  always lands on a neighbour that worked. It also explains the very first
-   *  thing reported and the one thing hardest to place: that the brush cursor
-   *  is missing at the same moment. That cursor follows pointermove on the
-   *  viewport container, an ancestor of the canvas — so for it to disappear
-   *  too, the events have to be missing from the whole subtree, not merely
-   *  refused by our own handler.
-   *
-   *  That leaves exactly two possibilities, and this separates them in one
-   *  line:
-   *
-   *   - a line appears here with a `target` that is not the canvas — the press
-   *     was dispatched, to something else, and that something is named;
-   *   - no line appears at all — WebKit never dispatched the press to the page,
-   *     and the answer is below the document entirely (a gesture recognizer, a
-   *     touch-action/palm-rejection interaction), not in our event wiring.
-   *
-   *  Capture phase, on window, so neither a stopPropagation() nor a different
-   *  target can hide it. */
-  private _handleWindowDown(e: PointerEvent): void {
-    const t = e.target
-    const el = t instanceof Element ? t : null
-    diagLog('[PointerInput] WINDOW down', {
-      pointerId: e.pointerId, pointerType: e.pointerType,
-      button: e.button, buttons: e.buttons,
-      onCanvas: t === this.canvas,
-      target: el ? `${el.tagName.toLowerCase()}${el.id ? '#' + el.id : ''}${el.className && typeof el.className === 'string' ? '.' + el.className.trim().split(/\s+/).join('.') : ''}` : String(t),
-    })
   }
 
   /** (#187) These four probes stay. They were written as temporary
@@ -551,14 +434,7 @@ export class PointerInput {
   destroy(): void {
     const c = this.canvas
     c.removeEventListener('pointerdown',   this._down)
-    if (typeof window !== 'undefined') {
-      window.removeEventListener('pointerdown', this._windowDown, true)
-      window.removeEventListener('touchstart', this._windowTouchStart, true)
-      window.removeEventListener('gesturestart', this._windowGesture, true)
-      window.removeEventListener('touchcancel', this._windowGesture, true)
-    }
     c.removeEventListener('touchstart', this._canvasTouchStart)
-    if (this._stallTimer !== null) { clearInterval(this._stallTimer); this._stallTimer = null }
     c.removeEventListener('pointermove',   this._move)
     c.removeEventListener('pointerup',     this._up)
     c.removeEventListener('pointercancel', this._up)
