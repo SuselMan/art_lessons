@@ -113,7 +113,13 @@ export class PointerInput {
     // (#517) Capture phase on window, so it runs before the event reaches any
     // target at all and sees presses this canvas never gets. See
     // _handleWindowDown for what question that answers.
-    window.addEventListener('pointerdown', this._windowDown, true)
+    //
+    // Guarded, unlike the canvas listeners above: the engine's own tests build
+    // a PencilEngine around a mock canvas under node, where `canvas` supplies
+    // addEventListener but there is no DOM global at all. Everything this
+    // probe answers is about a real browser, so having it simply not exist
+    // off one is correct rather than a compromise.
+    if (typeof window !== 'undefined') window.addEventListener('pointerdown', this._windowDown, true)
     canvas.addEventListener('pointermove',   this._move)
     canvas.addEventListener('pointerup',     this._up)
     canvas.addEventListener('pointercancel', this._up)
@@ -424,7 +430,7 @@ export class PointerInput {
   destroy(): void {
     const c = this.canvas
     c.removeEventListener('pointerdown',   this._down)
-    window.removeEventListener('pointerdown', this._windowDown, true)
+    if (typeof window !== 'undefined') window.removeEventListener('pointerdown', this._windowDown, true)
     c.removeEventListener('pointermove',   this._move)
     c.removeEventListener('pointerup',     this._up)
     c.removeEventListener('pointercancel', this._up)
