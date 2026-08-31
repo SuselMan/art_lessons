@@ -5273,10 +5273,6 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeExtraLayerIds = this._strokeTool === 'eraser'
       ? this._eraseThroughIds.filter(id => id !== layerId && this._layers.has(id))
       : []
-    // #122: the split cache is built around the active layer, and this stroke
-    // is about to change pixels above and/or below it. Once per gesture is
-    // enough — the set does not change while the pen is down.
-    if (this._strokeExtraLayerIds.length) this._invalidateSplitCache()
     // Fresh per stroke (never carried over, unlike smudge's reservoir) —
     // see RibbonStrokeScratch's own doc comment. Harmless to always create,
     // even for a non-marker stroke: nothing allocates any GL resource until
@@ -6018,6 +6014,19 @@ export class PencilEngine implements PencilEngineAPI {
       this._paintDabs(buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId)
       this._markLayerDirty(id)
     }
+    // #122: on every batch, not once when the gesture starts. The composite
+    // keeps everything below the active layer baked into one cached texture and
+    // everything above it in another, and every one of these layers is in one
+    // of the two — so a cache built after the first batch survives the rest of
+    // the gesture and the screen simply stops updating for them.
+    //
+    // Found end to end, not here: the layer buffers were correct throughout
+    // (which is all a unit test against MockGL reads), the recorded operations
+    // were correct, and the picture still showed ink the log said was gone —
+    // until anything else forced a recomposite. Same reasoning, and the same
+    // per-batch placement, as _paintStrokeDabs' own invalidate for a stroke
+    // whose layer diverged from the active one.
+    this._invalidateSplitCache()
   }
 
   /** Dwell tick (#245, ADR 003 §3/§9): paints one extra dab at the stylus's
