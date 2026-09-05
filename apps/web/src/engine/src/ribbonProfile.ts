@@ -639,6 +639,13 @@ const WATERCOLOR_SPREAD_CAP_PX = 26.0
  *  every capped multiplier. */
 const WATERCOLOR_WET_BLOOM = 2.0
 
+/** (#536) How wide one hair bundle is on the paper, in px. A hair is a fixed
+ *  physical thing: a wider brush carries *more* bundles, not wider ones, and a
+ *  narrow nib carries few. Anything finer than a few pixels stops reading as
+ *  hair and starts reading as noise, which is what a fixed bundle count did to
+ *  every brush that was not large. */
+export const WATERCOLOR_BRISTLE_BUNDLE_PX = 5.0
+
 /** Floor, so even the thinnest line's boundary stops being mathematically
  *  exact. Below roughly this the blur cannot displace anything at all. */
 const WATERCOLOR_SPREAD_MIN_PX = 2.5
@@ -778,11 +785,19 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     waterLevel: mix.water,
     pigmentLevel: mix.pigment,
     pigmentStrength: p.strength,
-    // Several dozen irregular bundles, not a handful of broad waves — see
-    // u_bristleCombs. The fbm this indexes gives the irregular widths for free;
-    // what the number sets is how fine the whole family is.
-    bristleCombs: 22,
-    bristleInk: 0.22,
+    // (#536) Resolved from the mark's own width by the engine (see
+    // WATERCOLOR_BRISTLE_BUNDLE_PX); this is only the fallback for a path that
+    // has no radius to hand.
+    //
+    // It used to be a flat 22, and that is two faults in one number. The
+    // across-brush coordinate runs -1..+1 over the *whole* width, so 22 meant
+    // forty-four bundles across the mark whatever its size: a hair thinner than
+    // a pixel on an ordinary brush, which reads as noise rather than as hair,
+    // and outright invisible on the flat nib, whose mark is thin by
+    // construction. Both were reported — "щетинок мало" and "на chisel кажется
+    // они не работают" — and both are this.
+    bristleCombs: 4,
+    bristleInk: 0.30,
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.

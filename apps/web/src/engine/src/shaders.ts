@@ -2887,12 +2887,12 @@ export const PAPER_COMPOSE_FRAG = `
   // The two windows, in wetness. Narrow, and the dark one sits *outside* the
   // bright one with a gap between them, which is what makes the edge read as a
   // bead of water curving over rather than as a line drawn round the puddle.
-  const float WC_RIM_LO  = 0.56;
-  const float WC_RIM_MID = 0.60;
-  const float WC_RIM_HI  = 0.64;
-  const float WC_DARK_LO  = 0.14;
-  const float WC_DARK_MID = 0.22;
-  const float WC_DARK_HI  = 0.30;
+  const float WC_RIM_LO  = 0.30;
+  const float WC_RIM_MID = 0.34;
+  const float WC_RIM_HI  = 0.38;
+  const float WC_DARK_LO  = 0.10;
+  const float WC_DARK_MID = 0.16;
+  const float WC_DARK_HI  = 0.22;
 
   /** The wetness map, smoothed over its own texel so the coarse grid it is
    *  built on does not show as facets. Four taps at half a texel — cheap, and
