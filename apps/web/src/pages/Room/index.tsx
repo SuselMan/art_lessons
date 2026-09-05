@@ -1956,13 +1956,14 @@ export function Room() {
    *  that worth doing: it copies each layer's pixels into GL and keeps no
    *  reference, so the decoded buffer dies with the iteration that made it.
    *  Room F4uw21Ob measured 431 MiB of inflated pixels across ten layers —
-   *  held at once, that killed the tab on iPadOS. */
-  /** (#533) Returns the outcome's own status rather than a boolean, because
-   *  the two ways of not restoring are opposites and the callers have to tell
-   *  them apart: `none` is a room nobody ever baked, whose whole history the
-   *  server is therefore sending as operations, and `failed` is a room whose
-   *  history was withheld in favour of pixels that then did not arrive. The
-   *  boolean collapsed them, and the second one used to open a blank room. */
+   *  held at once, that killed the tab on iPadOS.
+   *
+   *  (#533) Returns the outcome's own status rather than a boolean, because the
+   *  two ways of not restoring are opposites and the callers have to tell them
+   *  apart: `none` is a room nobody ever baked, whose whole history the server
+   *  is therefore sending as operations, and `failed` is a room whose history
+   *  was withheld in favour of pixels that then did not arrive. The boolean
+   *  collapsed them, and the second one used to open a blank room. */
   const restoreFromSnapshot = useCallback(async (
     engine: PencilEngineAPI, roomId: string,
   ): Promise<SnapshotRestoreOutcome['status']> => {
