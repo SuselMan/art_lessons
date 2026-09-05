@@ -2844,8 +2844,18 @@ export const PAPER_COMPOSE_FRAG = `
   // because it is measured in the world the water lives in.
   const vec2 WC_WET_LIGHT_DIR = vec2(-0.6, -0.8);
   const float WC_WET_RIM_PX = 5.0;
-  const float WC_WET_RIM_GAIN = 3.0;
-  const float WC_WET_GLOSS = 0.30;
+  const float WC_WET_RIM_GAIN = 6.0;
+  const float WC_WET_GLOSS = 0.34;
+  const float WC_WET_SHADE = 0.10;
+  // The two windows, in wetness. Narrow, and the dark one sits *outside* the
+  // bright one with a gap between them, which is what makes the edge read as a
+  // bead of water curving over rather than as a line drawn round the puddle.
+  const float WC_RIM_LO  = 0.50;
+  const float WC_RIM_MID = 0.58;
+  const float WC_RIM_HI  = 0.66;
+  const float WC_DARK_LO  = 0.24;
+  const float WC_DARK_MID = 0.34;
+  const float WC_DARK_HI  = 0.44;
 
   /** The wetness map, smoothed over its own texel so the coarse grid it is
    *  built on does not show as facets. Four taps at half a texel — cheap, and
@@ -2959,9 +2969,9 @@ export const PAPER_COMPOSE_FRAG = `
     // room. Suppressing the paper's own micro-contrast is what the eye
     // actually reads as "this patch is still wet", and it costs one lerp.
     float wet = 0.0;
-    // (#536) The rim highlight, and how far the fragment sits from the water's
-    // own edge along the light.
+    // (#536) The rim highlight, and the darker band just outside it.
     float rim = 0.0;
+    float rimDark = 0.0;
     if (u_wetRect.z > u_wetRect.x) {
       vec2 wetSpan = max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
       vec2 wetUV = (worldPos - u_wetRect.xy) / wetSpan;
@@ -2973,22 +2983,33 @@ export const PAPER_COMPOSE_FRAG = `
         // halo behind it, which is exactly what the first version did.
         float raw = wcWetAt(wetUV);
         wet = smoothstep(0.35, 0.95, raw);
-        // A *difference along the light*, not a surface normal.
+        // The rim, as a *window on the wetness value* rather than as a
+        // derivative of it.
         //
-        // The first attempt built a normal from the map's slope and ran a
-        // specular against it. It faceted on every curve and came out far too
-        // broad, and both faults are the same fault: the map is a coarse grid
-        // with a linear filter, so its slope is piecewise constant and jumps at
-        // every texel edge, and a specular lobe over that is a lit polygon.
+        // Two earlier attempts read the map's slope — first as a surface normal
+        // under a specular, then as a difference along the light — and both
+        // faceted on curves and came out too thick. Both faults are the same
+        // fault: the map is a coarse grid with a linear filter, so anything
+        // built from its rate of change is piecewise constant and shows the
+        // grid, and its width is whatever the filter happens to give.
         //
-        // What a puddle actually shows is a thin bright line a little inside
-        // its rim on one side. That is a *difference over a distance* rather
-        // than a derivative — sample the water a few pixels toward the light
-        // and subtract — which averages the grid away instead of amplifying it,
-        // and whose width is a number in pixels rather than an emergent
-        // property of a filter.
-        vec2 lit = wetUV + (WC_WET_LIGHT_DIR * WC_WET_RIM_PX) / wetSpan;
-        rim = clamp((wcWetAt(lit) - raw) * WC_WET_RIM_GAIN, 0.0, 1.0) * step(0.02, raw);
+        // The wetness value itself is smooth and rises monotonically across the
+        // rim, so a narrow window on it is a narrow ring *in the world*, with
+        // no reference to the grid at all. Two windows: a bright one just
+        // inside the water's edge, and a darker one a little further out, which
+        // is the surface turning back down — the thing Ilya asked for and the
+        // reason a real bead reads as a bead rather than as a glow.
+        //
+        // The side term keeps both on the lit half only: a rim that shines all the way
+        // round is a ring of light, not a lit puddle.
+        float ahead = wcWetAt(wetUV + (WC_WET_LIGHT_DIR * WC_WET_RIM_PX) / wetSpan);
+        float side = clamp((ahead - raw) * WC_WET_RIM_GAIN, 0.0, 1.0);
+        rim = side
+          * smoothstep(WC_RIM_LO, WC_RIM_MID, raw)
+          * (1.0 - smoothstep(WC_RIM_MID, WC_RIM_HI, raw));
+        rimDark = side
+          * smoothstep(WC_DARK_LO, WC_DARK_MID, raw)
+          * (1.0 - smoothstep(WC_DARK_MID, WC_DARK_HI, raw));
       }
     }
     // Well under 1: even a flooded sheet is not a mirror, and leaving most of
@@ -2996,6 +3017,7 @@ export const PAPER_COMPOSE_FRAG = `
     // hole in the paper.
     float shownHeight = mix(paperHeight, 0.5, wet * 0.5);
     float gloss = rim * WC_WET_GLOSS;
+    float shade = rimDark * WC_WET_SHADE;
 
     ${paperToneGLSL('shownHeight')}
     float graphiteTexture = mix(1.0, shownHeight * 0.5 + 0.2, graphite * 0.25);
@@ -3007,6 +3029,7 @@ export const PAPER_COMPOSE_FRAG = `
     // colour, and enough to see a puddle.
     color *= mix(1.0, 0.985, wet);
     color += vec3(gloss);
+    color *= 1.0 - shade;
 
     // Antialiased page edge. A hard test leaves the sheet's border crawling
     // with jaggies at any camera angle, and the border is a straight line the

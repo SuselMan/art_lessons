@@ -42,6 +42,16 @@ function key(cx: number, cy: number): string {
 
 export class PaperWetness {
   private readonly _layers = new Map<string, Map<string, WetCell>>()
+  /** (#536) Water the gesture in progress has laid but not yet committed.
+   *
+   *  Two maps rather than one because the two readers want different answers.
+   *  The *model* must not see it: a gesture that read its own water back
+   *  believed every mark was painted into a puddle, which made a real puddle
+   *  mean nothing. The *screen* must see it, and immediately — water appearing
+   *  only when the pen lifts is not what wetting paper looks like.
+   *
+   *  Merged into the committed map at pen-up (commitPending). */
+  private readonly _pending = new Map<string, Map<string, WetCell>>()
   /** The wettest thing on the paper and when it got that way, tracked as it is
    *  written rather than searched for.
    *
@@ -66,10 +76,16 @@ export class PaperWetness {
    *  Takes the max rather than adding: wetness is a state of the paper, not a
    *  quantity that piles up, and a brush passed over the same spot twice leaves
    *  it wet, not twice as wet. */
-  deposit(layerId: string, x: number, y: number, radiusPx: number, amount: number, now: number): void {
+  deposit(
+    layerId: string, x: number, y: number, radiusPx: number, amount: number, now: number,
+    /** True while the gesture is still down: visible at once, invisible to
+     *  sample() until commitPending. See _pending. */
+    pending = false,
+  ): void {
     if (amount <= 0) return
-    let cells = this._layers.get(layerId)
-    if (!cells) { cells = new Map(); this._layers.set(layerId, cells) }
+    const into = pending ? this._pending : this._layers
+    let cells = into.get(layerId)
+    if (!cells) { cells = new Map(); into.set(layerId, cells) }
     const r = Math.max(radiusPx, WET_CELL_PX * 0.5)
     const x0 = Math.floor((x - r) / WET_CELL_PX), x1 = Math.floor((x + r) / WET_CELL_PX)
     const y0 = Math.floor((y - r) / WET_CELL_PX), y1 = Math.floor((y + r) / WET_CELL_PX)
@@ -100,6 +116,27 @@ export class PaperWetness {
     const held = this.peak(now)
     if (amount >= held) { this._peak = amount; this._peakAt = now }
     else { this._peak = held; this._peakAt = now }
+  }
+
+  /** Moves the gesture's own water into the committed field. Called at pen-up:
+   *  from here on the next stroke may read it, which is the whole point. */
+  commitPending(now: number): void {
+    for (const [layerId, cells] of this._pending) {
+      let dst = this._layers.get(layerId)
+      if (!dst) { dst = new Map(); this._layers.set(layerId, dst) }
+      for (const [k, cell] of cells) {
+        const prev = dst.get(k)
+        const held = prev ? PaperWetness._decayed(prev, now) : 0
+        dst.set(k, { w: Math.max(held, cell.w), at: cell.at })
+      }
+    }
+    this._pending.clear()
+  }
+
+  /** Throws away the gesture's own water without committing it — the stroke was
+   *  abandoned, or its own operation never happened. */
+  dropPending(): void {
+    this._pending.clear()
   }
 
   /** The wettest the paper is anywhere, right now. O(1). */
@@ -148,12 +185,20 @@ export class PaperWetness {
     }
   }
 
+  /** (#536) Drops a layer's water outright. Undo and "clear layer" call it:
+   *  the field is not in the Operation Log and cannot be, so there is nothing
+   *  to replay backwards — and paper that stays wet after the stroke that wet
+   *  it has been undone is plainly wrong. Dropping the whole layer's water
+   *  takes other strokes' with it, which is a small over-correction on a field
+   *  that is ephemeral anyway and dries in seconds. */
   forgetLayer(layerId: string): void {
     this._layers.delete(layerId)
+    this._pending.delete(layerId)
   }
 
   clear(): void {
     this._layers.clear()
+    this._pending.clear()
     this._peak = 0
     this._peakAt = 0
   }
@@ -166,7 +211,7 @@ export class PaperWetness {
    *  off rather than uploading a texture of zeroes. */
   bounds(now: number): { minCx: number; minCy: number; maxCx: number; maxCy: number } | null {
     let minCx = Infinity, minCy = Infinity, maxCx = -Infinity, maxCy = -Infinity
-    for (const [, cells] of this._layers) {
+    for (const [, cells] of [...this._layers, ...this._pending]) {
       for (const [k, cell] of cells) {
         if (PaperWetness._decayed(cell, now) <= 0.01) continue
         const comma = k.indexOf(',')
@@ -185,7 +230,7 @@ export class PaperWetness {
   atCell(cx: number, cy: number, now: number): number {
     const k = key(cx, cy)
     let best = 0
-    for (const [, cells] of this._layers) {
+    for (const [, cells] of [...this._layers, ...this._pending]) {
       const cell = cells.get(k)
       if (!cell) continue
       const w = PaperWetness._decayed(cell, now)

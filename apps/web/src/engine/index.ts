@@ -56,6 +56,7 @@ import {
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
+import { WATERCOLOR_WET_BLOOM } from './src/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, WET_CELL_PX } from './src/paperWetness'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
@@ -1879,9 +1880,6 @@ export class PencilEngine implements PencilEngineAPI {
   /** The same profile for the dabs still queued for the live channel, drained
    *  with them so a packet always carries exactly its own dabs' digits. */
   private _liveWetQueue = ''
-  /** (#536) Water this gesture will leave behind, held until pen-up so that the
-   *  gesture cannot read it back as if some earlier stroke had laid it. */
-  private _pendingWet: Array<{ x: number; y: number; r: number }> = []
   /** (#385) Shared free list behind every RibbonStrokeScratch this engine
    *  builds — see RibbonScratchPool's own doc comment for why the marker path
    *  cannot allocate per gesture. Assigned in the constructor, right after
@@ -2727,6 +2725,8 @@ export class PencilEngine implements PencilEngineAPI {
         this._displayIfNotSuspended()
         break
       case 'layer_clear': {
+        // (#536) Clearing a layer clears its water too — see undo().
+        this._paperWet.forgetLayer(op.layerId)
         const clearBuf = this._layers.get(op.layerId)
         // (#374) See the stroke branch: already in the restored pixels, so
         // re-applying it would wipe content the snapshot took *after* this
@@ -2985,6 +2985,16 @@ export class PencilEngine implements PencilEngineAPI {
   undo(): Operation | null {
     const target = this._log.undoTarget(this._userId)
     if (!target) return null
+    // (#536) Take the paper's water with it. The wetness field is not in the
+    // Operation Log and cannot be (ADR 011 §17.3), so there is nothing to
+    // replay backwards — but paper that stays wet after the stroke that wet it
+    // has been undone is plainly wrong, and the next stroke would go on reading
+    // a puddle that no longer has a cause. Dropping the whole layer's water
+    // takes other strokes' with it; that is a small over-correction on a field
+    // which is ephemeral anyway and dries in seconds.
+    if ('layerId' in target && typeof target.layerId === 'string') {
+      this._paperWet.forgetLayer(target.layerId)
+    }
     this.appendOperation({
       id: nanoid(10), type: 'operation_undo', userId: this._userId,
       timestamp: Date.now(), targetOpId: target.id,
@@ -5471,7 +5481,7 @@ export class PencilEngine implements PencilEngineAPI {
     // profile behind for the next one to inherit.
     this._strokeWet = ''
     this._liveWetQueue = ''
-    this._pendingWet = []
+    this._paperWet.dropPending()
     if (profile.normalizeDeposit) {
       const now = performance.now()
       const open = this._wash
@@ -5896,14 +5906,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
     this._strokeDabs = []
-    // (#536) Only now does the gesture's own water reach the paper — see
-    // _paintStrokeDabs on why not sooner.
-    if (this._pendingWet.length && layerId) {
-      const now = performance.now()
-      const water = watercolorMixFromPreset(this._strokePreset).water
-      for (const w of this._pendingWet) this._paperWet.deposit(layerId, w.x, w.y, w.r, water, now)
-    }
-    this._pendingWet = []
+    // (#536) …and only now may the *next* stroke read it. It has been on screen
+    // since the first dab — see PaperWetness._pending on why those are two
+    // different questions.
+    this._paperWet.commitPending(performance.now())
     // The paper is now wetter than it was, and nothing else will ask for a
     // frame until the next stroke — so this is where watching it dry starts.
     if (this._paperWet.peak(performance.now()) > 0.01) this._scheduleDryingRepaint()
@@ -6228,7 +6234,12 @@ export class PencilEngine implements PencilEngineAPI {
     // much does — that distinction is why brush water and paper wetness are two
     // quantities (ADR 011 §17).
     if (this._strokeTool === 'watercolor') {
-      for (const dab of dabs) this._pendingWet.push({ x: dab.x, y: dab.y, r: dab.size * 0.5 })
+      const now = performance.now()
+      const water = watercolorMixFromPreset(this._strokePreset).water
+      for (const dab of dabs) {
+        this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, water, now, true)
+      }
+      this._scheduleDryingRepaint()
     }
     this._strokeDabs.push(...dabs)
     // (#429) Same dab objects, queued for the live channel — see
@@ -7633,6 +7644,10 @@ export class PencilEngine implements PencilEngineAPI {
     const strokeDir = scratch.noteDirection(
       dirFrom ? dirTo.x - dirFrom.x : 0, dirFrom ? dirTo.y - dirFrom.y : 0,
     )
+    // (#536) How wet the paper was where this gesture came down. Read once,
+    // above everything that needs it — the composite's cached scalars want it
+    // as much as the deposit does.
+    const landedWet = wetAt(wetProfile, 0)
     const { spreadPx, water: fringeWater, migratePx, fieldSeed } = scratch.compositeScalars(() => {
       // #489: the bloom is isotropic, so a nib that is not round is measured by
       // the circle with its area rather than by either axis. Identical to the
@@ -7643,8 +7658,14 @@ export class PencilEngine implements PencilEngineAPI {
         watercolorSpreadRadius(firstMinor * Math.max(first.aspectRatio, 1), firstMinor), 0.5,
       )
       return {
+        // (#536) The cap moves with the bloom. A multiplier under a fixed cap
+        // does nothing on any brush already at the cap, which is every brush
+        // this matters for.
         spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
-          ? Math.min(profile.spreadPx, Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius))
+          ? Math.min(
+            profile.spreadPx * (1 + WATERCOLOR_WET_BLOOM * landedWet),
+            Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius),
+          )
           : 0,
         inkSmoothPx: 0, // resolved separately, see noteDabSpacing
         // (#468 v11) How far one exchange moves pigment. A constant of the
@@ -7777,7 +7798,6 @@ export class PencilEngine implements PencilEngineAPI {
     // by the wetness under the gesture's *landing point*, not per dab: a brush
     // dumps its load when it is set down, so what matters is what was under it
     // then, not what it has run over since.
-    const landedWet = wetAt(wetProfile, 0)
     // (#536) How strong this stroke's paint is, on the deposit rather than on
     // the composite's single opacity — see _bakeDabOpacity's own note.
     const inkStrength = profile.normalizeDeposit ? profile.pigmentStrength : 1

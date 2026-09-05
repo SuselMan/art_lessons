@@ -769,11 +769,21 @@ describe('paper wetness against brush water (#536)', () => {
     expect(onWet.dryContact).toBeGreaterThan(0.5)
   })
 
-  it('leaves a loaded brush alone — its own water already exceeds the paper', () => {
+  it('lets even a loaded brush travel further on paper that is already wet', () => {
+    // (#536) This assertion is the reverse of the one it replaces, which said a
+    // loaded brush should be unaffected because its own water already exceeded
+    // the paper's. That was true of the saturating curves — which do take the
+    // wetter of the two — and false of the thing a painter sees: water lying on
+    // the sheet is extra reservoir, and paint laid into it goes further than
+    // the same paint laid on dry paper however loaded the brush was. Wet-in-wet
+    // is not a fringe a few pixels wide, and treating the paper as merely "not
+    // less wet than the brush" is what kept it one.
     const loaded = watercolorPresetString('normal', { water: 0.92, pigment: 0.5 }, 'PB29')
     const onDry = ribbonProfileFor('watercolor', loaded, 0)
-    const onWet = ribbonProfileFor('watercolor', loaded, 0.3)
-    expect(onWet.spreadOfRadius).toBeCloseTo(onDry.spreadOfRadius, 10)
+    const onWet = ribbonProfileFor('watercolor', loaded, 0.9)
+    expect(onWet.spreadOfRadius).toBeGreaterThan(onDry.spreadOfRadius * 2)
+    // …and the brush still meets the paper the way it always did.
+    expect(onWet.dryContact).toBe(onDry.dryContact)
   })
 })
 

@@ -632,6 +632,13 @@ const WATERCOLOR_CONE_DEPOSIT_GAIN = 0.27
 
 const WATERCOLOR_SPREAD_CAP_PX = 26.0
 
+/** (#536) How much further a wash travels through water already on the paper,
+ *  as a multiplier on its reach at full soak. The cap moves with it (see
+ *  _paintRibbonStroke) — leaving the cap put would have made this number do
+ *  nothing on any brush big enough to reach it, which is the failure mode of
+ *  every capped multiplier. */
+const WATERCOLOR_WET_BLOOM = 2.0
+
 /** Floor, so even the thinnest line's boundary stops being mathematically
  *  exact. Below roughly this the blur cannot displace anything at all. */
 const WATERCOLOR_SPREAD_MIN_PX = 2.5
@@ -773,7 +780,12 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.
-    spreadOfRadius: t.spreadOfRadius * (0.6 + 0.8 * paint.diffusion),
+    // (#536) …and a bloom on genuinely wet paper. Wet-in-wet is not a fringe a
+    // few pixels wide; the paint travels a visible distance through the water
+    // that is already there, which is the whole reason anyone lays water first.
+    // Scaled by the paper rather than by the mix, so a dry brush dragged into a
+    // puddle blooms and the same brush on dry paper does not.
+    spreadOfRadius: t.spreadOfRadius * (0.6 + 0.8 * paint.diffusion) * (1 + WATERCOLOR_WET_BLOOM * paperWet),
     cloud: t.cloud,
     edgeSoft: t.edgeSoft,
     edgeWander: t.edgeWander,
@@ -822,6 +834,8 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
 export function isRibbonTool(tool: ToolType): boolean {
   return tool === 'marker' || tool === 'brushPen' || tool === 'watercolor'
 }
+
+export { WATERCOLOR_WET_BLOOM }
 
 export function ribbonProfileFor(
   tool: ToolType, presetName: string | undefined,
