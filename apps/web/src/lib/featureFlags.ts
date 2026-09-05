@@ -40,6 +40,12 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'Collapsible live-tuning panel for every PencilSound/PENCIL_SOUND_VARIANT_3 knob (#153 round 13), plus a "copy config" button to hand tuned values back. Only shown while sound is on (General tab).',
     envVar: 'VITE_PENCIL_SOUND_TUNING',
   },
+  {
+    key: 'wcBristleDebug',
+    label: 'Watercolor bristle caricature (dev only)',
+    description: 'Turns the brush hair up to about thirty bundles at forty per cent and switches the wash mottling off, so the only thing on screen is the bristle structure. It answers one question: does the eye read long streaks along the travel? Three builds in a row came back "no bristles visible" and each time the temptation was to raise the amplitude again — at ten per cent a modulation is present and perceptually buried, so a pixel diff proves nothing about whether the organisation is right. Use flat paper and a long straight stroke.',
+    envVar: 'VITE_WC_BRISTLE_DEBUG',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'

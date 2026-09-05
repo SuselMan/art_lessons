@@ -612,6 +612,9 @@ export function Room() {
   // Haptic paper-grain experiment: same feature-flag pattern as the ones
   // above. Off by default — for-fun prototype, Android Chrome only.
   const hapticGrainEnabled = getFeatureFlag('hapticGrain')
+  // (#536) See the effect below — the caricature that answers whether the hair
+  // structure is right at all, before anyone tunes its amplitude again.
+  const wcBristleDebug = getFeatureFlag('wcBristleDebug')
   const [hapticStats, setHapticStats] = useState<HapticGrainStats | null>(null)
 
   // Dev-only grain A/B (see SettingsPanel / DAB_FRAG's computeGrain) — live
@@ -2515,22 +2518,21 @@ export function Room() {
   useEffect(() => {
     engineRef.current?.setNibAngle(nibCanvasAngleRadians, nibAnchor)
   }, [nibCanvasAngleRadians, nibAnchor, engineEpoch])
-  // (#536) Dev-only bristle caricature. `al_wc_bristle` = "combs:depth", e.g.
-  // "28:0.40"; anything else, or absent, and the tool ships its own numbers.
+  // (#536) Dev-only bristle caricature, on the Debug tab rather than behind a
+  // localStorage key someone has to type into a console — the device it has to
+  // be switched on for is the tablet, which has no console. Same reason every
+  // other flag on that tab exists (featureFlags.ts's own note: "most of these
+  // are set on a tablet, against production").
   //
-  // Read here rather than in the engine on purpose: the engine suite runs with
-  // no DOM at all, so a localStorage read down there typechecks and then kills
-  // every engine test on the line it sits on. Same rule as the drying timer's
-  // plain setTimeout.
+  // Read here rather than in the engine: the engine suite runs with no DOM at
+  // all, so a localStorage read down there typechecks and then kills every
+  // engine test on the line it sits on. Same rule as the drying timer's plain
+  // setTimeout.
   useEffect(() => {
-    let cfg: { combs: number; depth: number } | null = null
-    try {
-      const raw = localStorage.getItem('al_wc_bristle')
-      const [combs, depth] = (raw ?? '').split(':').map(Number)
-      if (Number.isFinite(combs) && Number.isFinite(depth) && combs > 0) cfg = { combs, depth }
-    } catch { /* private mode, blocked site data — ship the normal tool */ }
-    engineRef.current?.setWatercolorBristleDebug(cfg)
-  }, [engineEpoch])
+    engineRef.current?.setWatercolorBristleDebug(
+      wcBristleDebug ? { combs: 28, depth: 0.40 } : null,
+    )
+  }, [wcBristleDebug, engineEpoch])
   // #409: the tilt-response setting of whichever tool is in hand. The engine
   // holds one active response rather than a table (see setTiltResponse), so the
   // lookup is here — and it goes through `isTiltResponse` rather than a cast:
