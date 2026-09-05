@@ -1999,6 +1999,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonInkLoc!: number
   private _ribbonInkWaterLoc!: number
   private _ribbonAcrossLoc!: number
+  private _ribbonInkWetLoc!: number
   private _ribbonBuf!: WebGLBuffer
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
@@ -5121,7 +5122,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal', 'u_paperWet',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -5194,6 +5195,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonInkLoc  = gl.getAttribLocation(this._ribbonProg, 'a_ink')
     this._ribbonInkWaterLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWater')
     this._ribbonAcrossLoc = gl.getAttribLocation(this._ribbonProg, 'a_across')
+    this._ribbonInkWetLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWet')
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
@@ -7373,7 +7375,7 @@ export class PencilEngine implements PencilEngineAPI {
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
     // ribbonScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
-    this._paintRibbonStroke(target, dabs, preset, profile, color, scratch, prevDab ?? chunk?.prevDab)
+    this._paintRibbonStroke(target, dabs, preset, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile)
     // Replay finishes the stroke inside this call as far as it can know: a
     // one-shot has painted every dab there is, a chunk every dab of its own
     // operation. Both recomposite now; a chunked gesture simply does it again,
@@ -7474,6 +7476,10 @@ export class PencilEngine implements PencilEngineAPI {
   private _paintRibbonStroke(
     target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, profile: RibbonProfile,
     color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,
+    /** (#536) One hex digit per dab of `dabs`, saying how wet the paper each
+     *  landed on already was — see paperWetness.ts. Sliced to this call's own
+     *  dabs by the caller, so index 0 is dabs[0] on every path. */
+    wetProfile?: string,
   ): void {
     // Two different treatments of a dab too thin to resolve, and which one a
     // tool gets is the whole of RibbonProfile.minHalfWidthPx (#454). The
@@ -7664,10 +7670,18 @@ export class PencilEngine implements PencilEngineAPI {
     // that already resolves each dab's travel direction, so there is exactly
     // one reading of it and the stamps cannot disagree with the bands.
     const acrossByDab = new Map<Dab, [number, number]>()
+    // (#536) …and how wet the paper under each dab already was. Straight out of
+    // the recorded profile, indexed by position within this call's own dabs —
+    // which is why the profile is one digit per dab and why every place a
+    // gesture is cut takes its own substring (paperWetness.ts).
+    const paperWetByDab = new Map<Dab, number>()
     {
       let prev = prevDab
       let used = scratch.waterUsed
+      let idx = -1
       for (const dab of drawable) {
+        idx++
+        paperWetByDab.set(dab, wetAt(wetProfile, idx))
         // #489: travel measured in *this* nib's units, which for a flat one
         // depends on which way it is being dragged (watercolorTravelRadius).
         // `prev` is undefined on the stroke's first dab and sits at the same
@@ -7715,7 +7729,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Omitting the callback leaves buildRibbonBands' own formula untouched,
     // which is what the marker and the brush pen get.
     const inkFor = profile.normalizeDeposit
-      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number } => {
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number } => {
         // #489: same measure the stamps use, and it has to be the same one —
         // the bands overlap the stamps almost everywhere, so two different
         // readings of "how far in nib units" would show up as a seam.
@@ -7733,6 +7747,7 @@ export class PencilEngine implements PencilEngineAPI {
           ink: profile.depositPerRadius * (travel / radius) * 0.5
             * ((1 - profile.stampInkShare) * 2) * (pigmentByDab.get(d1) ?? 1),
           water: waterByDab.get(d1) ?? 0,
+          paperWet: paperWetByDab.get(d1) ?? 0,
         }
       }
       : undefined
@@ -7765,6 +7780,7 @@ export class PencilEngine implements PencilEngineAPI {
           this._drawRibbonNibPass(
             inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
+            paperWetByDab.get(drawable[i]) ?? 0,
           )
           inkLoad.endDraw()
         }
@@ -7880,6 +7896,10 @@ export class PencilEngine implements PencilEngineAPI {
      *  the dab pitch. Defaults to the nib's minor axis, which for a round nib
      *  whose angle follows the path is already the perpendicular of travel. */
     acrossLocal: [number, number] = [0, 1],
+    /** (#536) How wet the paper under this dab already was, from the stroke's
+     *  own recorded profile. Written into the deposit texture's green channel
+     *  so the composite can tell it apart from the brush's own water. */
+    paperWet = 0,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -7918,6 +7938,7 @@ export class PencilEngine implements PencilEngineAPI {
     // #468 v4 — weights the deposit written into the texture's colour channels.
     gl.uniform1f(u.u_inkWater, inkWater)
     gl.uniform2f(u.u_acrossLocal, acrossLocal[0], acrossLocal[1])
+    gl.uniform1f(u.u_paperWet, paperWet)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     if (ownTarget) dest.endDraw()
@@ -7941,6 +7962,7 @@ export class PencilEngine implements PencilEngineAPI {
       local[i + 3] = bands[i + 3]
       local[i + 4] = bands[i + 4]
       local[i + 5] = bands[i + 5]
+      local[i + 6] = bands[i + 6]
     }
 
     if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
@@ -7962,6 +7984,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._ribbonInkLoc, 1, gl.FLOAT, false, stride, 12)
     gl.enableVertexAttribArray(this._ribbonAcrossLoc)
     gl.vertexAttribPointer(this._ribbonAcrossLoc, 1, gl.FLOAT, false, stride, 20)
+    gl.enableVertexAttribArray(this._ribbonInkWetLoc)
+    gl.vertexAttribPointer(this._ribbonInkWetLoc, 1, gl.FLOAT, false, stride, 24)
 
     gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
 
@@ -7972,6 +7996,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.disableVertexAttribArray(this._ribbonInkWaterLoc)
     gl.disableVertexAttribArray(this._ribbonInkLoc)
     gl.disableVertexAttribArray(this._ribbonAcrossLoc)
+    gl.disableVertexAttribArray(this._ribbonInkWetLoc)
     dest.endDraw()
   }
 

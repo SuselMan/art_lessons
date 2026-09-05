@@ -50,7 +50,14 @@ import type { Dab } from '@grafetto/shared'
 // unsigned distance to the nearest boundary, so a hair on the left and its
 // mirror on the right are the same number, and the fragment stage has no way
 // to tell them apart afterwards.
-const FLOATS_PER_VERTEX = 6 // x, y, edgePx, inkDeposit, inkDeposit*water, across
+// (#536) Seven, and the seventh is the same deposit weighted by how wet the
+// *paper* already was under this segment — a different quantity from the sixth
+// in the same way the brush's own water is a different quantity from the
+// paper's: one decides how the mark was laid, the other what became of it.
+// Per vertex for the identical reason inkWater is: a value per batch makes the
+// finished mark depend on where the stroke happened to be cut into pointer
+// events.
+const FLOATS_PER_VERTEX = 7 // x, y, edgePx, inkDeposit, inkDeposit*water, across, inkDeposit*paperWet
 
 /** Which shape the nib actually is. Mirrors DAB_FRAG's markerNibDistPx —
  *  the two must agree, or the bands and the stamps they connect would be built
@@ -240,7 +247,7 @@ export function buildRibbonBands(
    *  Watercolor passes one so its bands share the stamps' normalization and
    *  water depletion — the two overlap almost everywhere, so leaving the bands
    *  on the old scale would let them swamp whatever the stamps expressed. */
-  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number },
+  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number; paperWet: number },
 ): Float32Array {
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return new Float32Array(0)
@@ -248,8 +255,9 @@ export function buildRibbonBands(
   const out: number[] = []
   let ink = 0 // deposit carried by whichever segment is currently being emitted
   let inkWater = 0 // the same deposit, weighted by that segment's own water
+  let inkWet = 0 // …and by how wet the paper under it already was (#536)
   const push = (x: number, y: number, edge: number, across: number): void => {
-    out.push(x, y, edge, ink, inkWater, across)
+    out.push(x, y, edge, ink, inkWater, across, inkWet)
   }
   const quad = (
     m0: { x: number; y: number }, e0: number, t0: { x: number; y: number },
@@ -306,9 +314,11 @@ export function buildRibbonBands(
       const got = inkFor(d0, d1, travel)
       ink = got.ink
       inkWater = ink * got.water
+      inkWet = ink * got.paperWet
     } else {
       ink = d1.opacity * travel * 0.5
       inkWater = 0
+      inkWet = 0
     }
 
     const steps = poseSubdivisions(

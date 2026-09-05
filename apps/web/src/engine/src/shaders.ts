@@ -206,6 +206,10 @@ export const RIBBON_VERT = `
   // for the whole gesture, which is what separates a brush with hair from a
   // noise field the brush drives over — see markerRibbon.ts's own note.
   attribute float a_across;
+  // (#536) The same deposit weighted by how wet the paper under this segment
+  // already was — the brush's water and the paper's are two quantities, and
+  // the composite has to be able to tell them apart per pixel.
+  attribute float a_inkWet;
 
   uniform vec2 u_resolution;
 
@@ -213,12 +217,14 @@ export const RIBBON_VERT = `
   varying float v_ink;
   varying float v_inkWater;
   varying float v_across;
+  varying float v_inkWet;
 
   void main() {
     v_edge = a_edge;
     v_ink = a_ink;
     v_inkWater = a_inkWater;
     v_across = a_across;
+    v_inkWet = a_inkWet;
     vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
@@ -242,6 +248,7 @@ export const RIBBON_FRAG = `
   varying float v_ink;
   varying float v_inkWater;
   varying float v_across;
+  varying float v_inkWet;
 
   void main() {
     // Inset ramp: coverage reaches 0 exactly *at* the geometric boundary and
@@ -276,8 +283,10 @@ export const RIBBON_FRAG = `
     // last where it covered fully, which is the physically right answer: the
     // last pass of the brush over a spot is the one whose hairs you see.
     float acrossEncoded = v_across * 0.5 + 0.5;
+    // Ink: .r brush water, .g paper wetness, both deposit-weighted so the
+    // composite recovers a per-pixel mean of each by dividing by .a.
     gl_FragColor = u_mode > 0.5
-      ? vec4(vec3(cov * v_inkWater), amount)
+      ? vec4(cov * v_inkWater, cov * v_inkWet, 0.0, amount)
       : vec4(acrossEncoded * amount, amount, amount, amount);
   }
 `;
@@ -438,6 +447,9 @@ export const DAB_FRAG = `
   // own note). (0,1) for anything that does not set it, which for a round nib
   // whose angle follows the path is already the right answer.
   uniform vec2 u_acrossLocal;
+  // (#536) How wet the paper under this dab already was, 0..1 — read from what
+  // the stroke recorded, never from a live field, so replay reproduces it.
+  uniform float u_paperWet;
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
@@ -984,7 +996,7 @@ export const DAB_FRAG = `
       // the deposit-weighted mean water over everything that landed here — see
       // u_inkWater. Zero for every tool that does not set it, which leaves the
       // ratio undefined and unread.
-      gl_FragColor = vec4(vec3(amount * u_inkWater), amount);
+      gl_FragColor = vec4(amount * u_inkWater, amount * u_paperWet, 0.0, amount);
       return;
     }
 
@@ -1074,6 +1086,14 @@ export const DAB_FRAG = `
       // divide by, so the batch's nominal water stands in; that region is the
       // spread fringe, which is about to be decided by exactly this value.
       float waterHere = ink.a > 0.004 ? clamp(ink.r / ink.a, 0.0, 1.0) : u_water;
+      // (#536) …and how wet the paper it landed on already was, recovered the
+      // same way. Two quantities, and keeping them apart is the whole of
+      // wet-in-wet: the brush's own water decides how the mark was *laid* (see
+      // u_dryContact below, which reads waterHere and only waterHere), the
+      // paper's decides what becomes of the paint afterwards. A dry brush over
+      // a puddle still scratches; the little paint it leaves still blooms.
+      float paperWetHere = ink.a > 0.004 ? clamp(ink.g / ink.a, 0.0, 1.0) : 0.0;
+      float transportHere = max(waterHere, paperWetHere);
 
       // §3.5 - the wash leaves the brush's footprint.
       //
@@ -1098,7 +1118,7 @@ export const DAB_FRAG = `
         // stroke's nominal setting. A stroke that starts flooded and runs dry
         // therefore spreads far at its beginning and hardly at all by its end,
         // inside one mark.
-        float reach = u_spreadPx * mix(0.25, 1.0, waterHere);
+        float reach = u_spreadPx * mix(0.25, 1.0, transportHere);
         blurred =
             0.20 * rawCoverage
           + 0.45 * wcRingAvg(tileUV, texel, reach * 0.55, 1.0)
@@ -1113,12 +1133,17 @@ export const DAB_FRAG = `
         // exactly, so a dry mark with u_edgeWander near zero goes where the hand
         // went. Every earlier version spent a fixed 0.10..0.62 here whatever the
         // mix, which is why even a nearly dry brush drew a shape of its own.
-        float thr = 0.5 + u_edgeWander * (wcFbm(wp * 0.030) - 0.5);
+        // (#536) Widened where the paper was already wet: the gesture's own
+        // uniforms were resolved from the wetness under its *first* dab, so a
+        // stroke that runs from dry paper into a puddle needs the rest of the
+        // difference per pixel.
+        float wetGain = mix(1.0, 1.7, paperWetHere);
+        float thr = 0.5 + u_edgeWander * wetGain * (wcFbm(wp * 0.030) - 0.5);
         // §4.1 - how sharply the boundary resolves, and the range is water's
         // to set. A flood has edges running from nearly lost to fairly crisp
         // within one mark; a dry brush has only crisp ones, because there is no
         // liquid to feather them.
-        float soft = max(u_edgeSoft, 0.03) * mix(0.75, 1.25, wcFbm(wp * 0.017 + vec2(53.0, 11.0)));
+        float soft = max(u_edgeSoft, 0.03) * wetGain * mix(0.75, 1.25, wcFbm(wp * 0.017 + vec2(53.0, 11.0)));
         coverage = smoothstep(thr, thr + soft, blurred);
       }
 
