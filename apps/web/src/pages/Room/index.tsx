@@ -5714,13 +5714,6 @@ export function Room() {
         // PencilEngineAPI.preloadImages.
         if (engine) await engine.preloadImages(tailOperations)
 
-        // (#477) Retire *every* reveal still in flight, not just the ones the
-        // tail happens to name — this catch-up supersedes all of them, and
-        // the tail is the wrong list to walk anyway (see pendingPreviews.ts:
-        // a still-revealing stroke's seq is already in `lastKnownSeq`, so the
-        // server leaves it out). Whatever is left on this list after the loop
-        // would otherwise pin the snapshot watermark for the rest of the
-        // mount.
         // (#385, #538) Поштучно, а не одним try вокруг цикла — тем же
         // решением и по той же причине, что на пути первого входа: одна
         // операция, которая бросила, раньше отменяла все следующие за ней, а
@@ -5744,6 +5737,14 @@ export function Room() {
             failed++
           }
         }
+
+        // (#477) Retire *every* reveal still in flight, not just the ones the
+        // tail happens to name — this catch-up supersedes all of them, and
+        // the tail is the wrong list to walk anyway (see pendingPreviews.ts:
+        // a still-revealing stroke's seq is already in `lastKnownSeq`, so the
+        // server leaves it out). Whatever is left on this list after the loop
+        // would otherwise pin the snapshot watermark for the rest of the
+        // mount.
         const tailOpIds = new Set(tailOperations.map(op => op.id))
         for (const opId of pendingPreviewsRef.current.ids()) {
           const seq = pendingPreviewsRef.current.remove(opId) ?? 0
