@@ -623,10 +623,25 @@ export const DAB_FRAG = `
   // Quilez's artifact-free hash, built from fract/floor/multiply only, no
   // transcendental functions to lose precision under mediump.
   // (#536) How unevenly a loaded brush's hairs deliver pigment, as a fraction
-  // either side of the mean. Small on purpose: this is the material's hand,
-  // not its subject. Above about 0.25 a flat wash stops being flat, which is
-  // the exercise §7 exists to keep passing.
-  const float WC_BRISTLE_INK = 0.18;
+  // either side of the mean.
+  //
+  // 0.30. The first pass said 0.18 and "small on purpose: this is the
+  // material's hand, not its subject" — which was sound reasoning applied to a
+  // composite that could not show it at all, since the deposit sat on the flat
+  // top of a smoothstep. The verdict on that build was "щетинок практически не
+  // видно вообще", and it was right twice over. With the density curve fixed
+  // this is worth roughly a thirteen per cent swing in tone across the hairs,
+  // which is what a loaded brush leaves. It is the first number to reach for if
+  // a flat wash stops reading as flat.
+  const float WC_BRISTLE_INK = 0.30;
+
+  // (#536) How much deposit one e-folding of transmission costs. Picked so an
+  // ordinary single pass lands around 0.78 rather than pinned at 1: that is
+  // what leaves room above for a second pass to darken, and room below for a
+  // brush running out of paint to lighten. u_saturateInk is *not* this — it
+  // stays the migration pass's reference for a full film and is left alone,
+  // because coupling the two is how one retune silently becomes two.
+  const float WC_DENSITY_K = 1.8;
 
   float hash(vec2 p) {
     p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
@@ -1310,7 +1325,27 @@ export const DAB_FRAG = `
         deposit = max(ink.a + u_migrate * (f.x - f.y) * 0.0833333, 0.0);
       }
 
-      float density = smoothstep(0.0, u_saturateInk, deposit);
+      // (#536) Beer-Lambert, not smoothstep, and this is a correction rather
+      // than a preference.
+      //
+      // smoothstep has a derivative of exactly zero at both ends by
+      // construction. The deposit was deliberately calibrated to land about
+      // twice the ceiling on an ordinary pass (WATERCOLOR_CONE_DEPOSIT_GAIN's
+      // own note), so every wash was sitting on the flat top of that curve —
+      // and therefore *nothing that modulates the deposit could be seen*.
+      // Pigment running out along a stroke, the hairs delivering unevenly, the
+      // surplus a brush dumps as it lands, a second pass levelling a first:
+      // all of them multiply the deposit, all of them were being multiplied
+      // into a number that was then clipped. The tool was unresponsive by
+      // construction, and every one of those was reported as missing.
+      //
+      // A transparent film's transmission is exponential in how much pigment
+      // is in it, which is the law this should have been all along: it never
+      // reaches 1, so more paint always reads as more paint, and it still
+      // flattens across the inside of a stroke — the flat cross-section the
+      // gain was raised for survives, because exp saturates gradually where
+      // smoothstep saturates absolutely.
+      float density = 1.0 - exp(-deposit / WC_DENSITY_K);
 
       // §3.3 granulation - heavier pigment settles into the paper's pits while
       // the wash is still liquid and dries there. paperCatch is high on a fibre

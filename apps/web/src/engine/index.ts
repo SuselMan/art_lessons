@@ -1859,6 +1859,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTex: WebGLTexture | null = null
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
   private _wetTexAt = 0
+  /** Quantized wetness the screen is currently showing, so the drying watcher
+   *  can skip the frames that would look identical. -1 = nothing shown. */
+  private _wetShown = -1
   /** Handle of the repaint that watches the paper dry, or 0. */
   private _dryingTimer = 0
   /** The same profile for the dabs still queued for the live channel, drained
@@ -5839,7 +5842,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeDabs = []
     // (#536) The paper is now wetter than it was, and nothing else will ask for
     // a frame until the next stroke — so this is where watching it dry starts.
-    if (this._paperWet.bounds(performance.now())) this._scheduleDryingRepaint()
+    if (this._paperWet.peak(performance.now()) > 0.01) this._scheduleDryingRepaint()
     this._handlers.strokeEnd?.(e)
   }
 
@@ -8894,21 +8897,33 @@ export class PencilEngine implements PencilEngineAPI {
     const tick = (): void => {
       this._dryingTimer = 0
       const now = performance.now()
-      if (!this._paperWet.bounds(now)) { this._paperWet.prune(now); return }
-      // Force a rebuild: the field has decayed even though nothing was drawn.
-      this._wetTexAt = 0
-      this._displayIfNotSuspended()
-      this._dryingTimer = setTimeout(tick, 160) as unknown as number
+      const peak = this._paperWet.peak(now)
+      if (peak <= 0.01) { this._paperWet.prune(now); this._wetShown = -1; return }
+      // Repaint only when the *visible* wetness has actually moved a step.
+      // Twenty-five seconds at four ticks a second is a hundred frames of
+      // which about a dozen differ; drawing the other eighty-eight is work
+      // nobody can see, and the first thing it did was make unrelated engine
+      // tests time out.
+      const step = Math.round(peak * 16)
+      if (step !== this._wetShown) {
+        this._wetShown = step
+        this._wetTexAt = 0 // the field decayed although nothing was drawn
+        this._displayIfNotSuspended()
+      }
+      this._dryingTimer = setTimeout(tick, 250) as unknown as number
     }
     // Plain setTimeout, never window.setTimeout: the engine suite runs with no
     // DOM at all, and a `window.` here typechecks perfectly and then kills
     // every engine test the moment this line is reached.
-    this._dryingTimer = setTimeout(tick, 160) as unknown as number
+    this._dryingTimer = setTimeout(tick, 250) as unknown as number
   }
 
   private _updateWetTexture(now: number): void {
     if (now - this._wetTexAt < 120) return
     this._wetTexAt = now
+    // O(1) before the O(cells) walk: a dry sheet is the common case and must
+    // not pay for the overlay at all.
+    if (this._paperWet.peak(now) <= 0.01) { this._wetRect = [0, 0, -1, -1]; return }
     const b = this._paperWet.bounds(now)
     if (!b) { this._wetRect = [0, 0, -1, -1]; return }
     const CAP = 96
@@ -8933,6 +8948,14 @@ export class PencilEngine implements PencilEngineAPI {
     }
     const { gl } = this
     if (!this._wetTex) this._wetTex = gl.createTexture()
+    // TEXTURE2 explicitly, and it is not defensive tidiness. Without it this
+    // binds onto whichever unit happened to be active — which, called from
+    // inside the compose pass, was unit 1 with the paper height map on it. The
+    // paper then sampled *this* texture instead of itself and the whole sheet
+    // went flat grey, the texParameteri calls below landed on the paper's
+    // binding, and the whole thing came and went with the throttle, so it read
+    // as flicker that zooming sometimes cleared.
+    gl.activeTexture(gl.TEXTURE2)
     gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, w, h, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, data)
@@ -8949,6 +8972,8 @@ export class PencilEngine implements PencilEngineAPI {
       (b.minCx - 0.5) * WET_CELL_PX, (b.minCy - 0.5) * WET_CELL_PX,
       (b.maxCx + 1.5) * WET_CELL_PX, (b.maxCy + 1.5) * WET_CELL_PX,
     ]
+    // Back to the unit every other path in this engine assumes is active.
+    gl.activeTexture(gl.TEXTURE0)
   }
 
   private _composePaperToScreen(): void {
@@ -8961,11 +8986,21 @@ export class PencilEngine implements PencilEngineAPI {
     gl.useProgram(this._paperComposeProg)
     const u = this._paperComposeUni
 
+    // (#536) Rebuilt *before* anything else is bound: it uploads a texture, and
+    // doing that in the middle of a pass whose other textures are already bound
+    // is how the paper map got clobbered once already.
+    this._updateWetTexture(performance.now())
+
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_2D, this._assemblyFBO.texture)
     gl.uniform1i(u.u_accumulation, 0)
     this._bindPaperForCompose(this._paperTexelsPerPixel(this._infiniteCamera.zoom))
     gl.uniform1i(u.u_paperMap, 1)
+    gl.activeTexture(gl.TEXTURE2)
+    gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
+    gl.uniform1i(u.u_wetMap, 2)
+    gl.uniform4fv(u.u_wetRect, this._wetRect)
+    gl.activeTexture(gl.TEXTURE0)
 
     gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
     gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
@@ -8984,14 +9019,6 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_sharpResample, resamples ? 1 : 0)
     gl.uniform4fv(u.u_pageRect, this._pageRect())
     gl.uniform3fv(u.u_deskColor, this._opts.deskColor)
-    // (#536) Screen only. An export is the finished, dry sheet — putting a
-    // transient state of the artist's own session into a file everyone else
-    // downloads would be the one place this display-only term could do harm.
-    this._updateWetTexture(performance.now())
-    gl.activeTexture(gl.TEXTURE2)
-    gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
-    gl.uniform1i(u.u_wetMap, 2)
-    gl.uniform4fv(u.u_wetRect, this._wetRect)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     const posLoc = this._paperComposePosLoc

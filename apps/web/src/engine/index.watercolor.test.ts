@@ -287,15 +287,21 @@ describe('ink deposit normalization (#468 v3, ADR 011 §3.8)', () => {
     // but still strongly coloured tail rather than a stroke that merely fades
     // (ADR 011 §4). A ratio down near the water curve's would mean the split
     // had been undone.
-    // Deliberately a narrow band, and it got narrower in v9: the paint's floor
-    // was raised so that one long band could not lose a fifth of its tone from
-    // end to end, because bands are laid in alternating directions and that
-    // falloff came out as a zigzag across a flat wash. What must survive is the
-    // *direction* — paint thins along a stroke — and the fact that it thins far
-    // less than water does. A ratio down near the water curve's would mean the
-    // split between the two loads had been undone.
-    expect(longDeposit / shortDeposit).toBeLessThan(0.97)
-    expect(longDeposit / shortDeposit).toBeGreaterThan(0.75)
+    // (#536) The band moved, and downward, which reverses v9. v9 raised the
+    // paint's floor so one long band could not lose a fifth of its tone end to
+    // end — bands are laid in alternating directions and that falloff came out
+    // as a zigzag across a flat wash. What v9 could not know is that the
+    // remaining sixteen per cent was invisible anyway: the deposit sat above
+    // the composite's saturation ceiling, so the curve it was protecting
+    // painted no pixels either way. With the density curve fixed the depletion
+    // is worth having, and a real brush loses its paint over a long sweep — so
+    // half by 150 dabs is the behaviour, not a regression.
+    //
+    // The flat-wash zigzag is a live risk again and is a thing to *measure*,
+    // not to assume away: a painter recharges between bands and the load resets
+    // per stroke, so what is on trial is how much one band may lose.
+    expect(longDeposit / shortDeposit).toBeLessThan(0.55)
+    expect(longDeposit / shortDeposit).toBeGreaterThan(0.15)
   })
 
   function singleDab(size: number, tool: 'watercolor' | 'marker') {

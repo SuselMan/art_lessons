@@ -42,6 +42,15 @@ function key(cx: number, cy: number): string {
 
 export class PaperWetness {
   private readonly _layers = new Map<string, Map<string, WetCell>>()
+  /** The wettest thing on the paper and when it got that way, tracked as it is
+   *  written rather than searched for.
+   *
+   *  It exists so "is anything still wet, and how wet" is O(1). The display
+   *  side asks that question on a timer for as long as the paper takes to dry,
+   *  and answering it by walking every cell turned an idle sheet into real
+   *  work — which showed up first as unrelated tests timing out. */
+  private _peak = 0
+  private _peakAt = 0
 
   /** Linear rather than exponential decay, and it matters: an exponential never
    *  reaches zero, so cells would accumulate forever and "is this dry?" would
@@ -72,6 +81,19 @@ export class PaperWetness {
         cells.set(k, { w: Math.max(held, amount), at: now })
       }
     }
+    // Monotone in the only direction that matters: an over-estimate makes the
+    // drying watcher run slightly longer than it needs to, an under-estimate
+    // would stop it while paper was still visibly wet.
+    const held = this.peak(now)
+    if (amount >= held) { this._peak = amount; this._peakAt = now }
+    else { this._peak = held; this._peakAt = now }
+  }
+
+  /** The wettest the paper is anywhere, right now. O(1). */
+  peak(now: number): number {
+    const age = now - this._peakAt
+    if (age >= WET_DRY_MS) return 0
+    return this._peak * (1 - age / WET_DRY_MS)
   }
 
   /** How wet the paper is at a world point, 0..1. */
@@ -119,6 +141,8 @@ export class PaperWetness {
 
   clear(): void {
     this._layers.clear()
+    this._peak = 0
+    this._peakAt = 0
   }
 
   /** Every wet cell across every layer, plus the world rect they cover — what

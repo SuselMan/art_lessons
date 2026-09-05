@@ -47,8 +47,23 @@ describe('watercolor preset (#468, ADR 011 §5)', () => {
     // sits below its end instead of pinned at it, and raised this to put the
     // tone back where it was. The pass a mark lands on is now about 0.83 of
     // this, so the effective ceiling moved not at all.
-    expect(WATERCOLOR_PRESET.opacity).toBeLessThan(0.85)
-    expect(WATERCOLOR_PRESET.opacity).toBeGreaterThan(0.3)
+    //
+    // (#536) And the assertion moved off this number onto the one it was always
+    // standing in for. The preset's own opacity is not the material's
+    // transparency and has not been since v4 — pigment multiplies it, and the
+    // composite's density curve tops out well under 1 — so pinning the raw
+    // number was measuring the wrong thing, and it went off the moment the
+    // curve underneath it changed while the finished mark did not. What has to
+    // stay true is that an ordinary mix lands nowhere near a covering ink.
+    const effective = WATERCOLOR_PRESET.opacity
+      * watercolorPigmentEffects(WATERCOLOR_MIX_DEFAULT.pigment).strength
+    expect(effective).toBeLessThan(0.7)
+    expect(effective).toBeGreaterThan(0.3)
+    // Not asserted against the brush pen's 0.97 any more: this number is one
+    // factor of three now (the third is the composite's own density curve,
+    // which lives in GLSL and tops an ordinary pass out well under 1), and an
+    // assertion that reaches for two of the three is the kind that goes off
+    // when nothing a painter could see has moved.
   })
 })
 
@@ -241,24 +256,29 @@ describe('water load (#468 v3, ADR 011 §3.8)', () => {
 })
 
 describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
-  it('runs water down faster than pigment', () => {
-    // The whole reason for two curves rather than one. Water soaks away and
-    // evaporates; pigment stays on the hairs. That gap is what walks a single
-    // long stroke from a wet saturated start to a dry but still strongly
-    // coloured end — which is a behaviour, not an effect, and is very far from
-    // what a marker does.
+  it('runs the paint out before the water', () => {
+    // (#536) This assertion is the reverse of the one it replaces, and the
+    // reversal came from a hand rather than from an argument: Ilya, painting
+    // the same stroke with a real brush, reports the paint going first. It is
+    // also what the mark does — a brush at the end of a long sweep is still
+    // damp and no longer coloured, which is the dry-brush end everyone knows.
+    //
+    // The old assertion was not wrong about the model, it was wrong about the
+    // world, and it survived because neither curve could be seen: the deposit
+    // sat above the composite's saturation ceiling, so a sixteen per cent
+    // change in it moved no pixels.
     for (const u of [5, 10, 20, 40, 80]) {
-      expect(watercolorWaterLoad(u)).toBeLessThan(watercolorPigmentLoad(u))
+      expect(watercolorPigmentLoad(u)).toBeLessThan(watercolorWaterLoad(u))
     }
   })
 
-  it('leaves a long stroke drier than it is pale', () => {
-    // Concretely: by 40 radii the brush should have lost most of its water and
-    // only a little of its paint. If these ever converge, the tool is back to
-    // one quantity and the dry-brush tail stops existing.
+  it('leaves a long stroke pale before it leaves it dry', () => {
     const water = watercolorWaterLoad(40)
     const pigment = watercolorPigmentLoad(40)
-    expect(pigment - water).toBeGreaterThan(0.2)
+    // Two curves, not one — if these ever converge the tool is back to a single
+    // quantity and the dry-brush tail stops existing. The *sign* is what
+    // changed in #536; the gap is still the point.
+    expect(water - pigment).toBeGreaterThan(0.15)
   })
 
   it('lets water govern geometry and pigment govern paint, never the reverse', () => {

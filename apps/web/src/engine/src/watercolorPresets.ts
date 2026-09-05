@@ -69,7 +69,14 @@ function clamp01(v: number): number {
  *  it drives DAB_FRAG's soft-profile edge, and a ribbon tool's silhouette is
  *  geometry instead. Carried at the brush pen's value rather than an accidental
  *  one. */
-export const WATERCOLOR_PRESET: PencilPreset = { opacity: 0.77, hardness: 0.88, sizeMultiplier: 1.0 }
+//  #536 — 0.99, up from 0.77, and it buys nothing on its own. The composite's
+//  density curve stopped being a smoothstep pinned at its top and became a
+//  Beer-Lambert film that an ordinary pass leaves at about 0.78; without this
+//  every wash would simply have gone a quarter paler. 0.77 / 0.78 puts the tone
+//  back exactly where it was — the effective alpha of the default mix is 0.462
+//  before and after — while everything that modulates the deposit can now be
+//  seen, which was the entire point of the change.
+export const WATERCOLOR_PRESET: PencilPreset = { opacity: 0.99, hardness: 0.88, sizeMultiplier: 1.0 }
 
 // ─── Pressure → width (ADR 011 §5) ──────────────────────────────────────────
 
@@ -567,8 +574,27 @@ const WATER_FLOOR = 0.30
  *  does — the load resets per stroke. What was wrong was how much one band
  *  could lose on its own. Water still runs down hard, so the dry-brush arc
  *  survives; it is the *paint* that now barely thins. */
-const PIGMENT_RUN_RADII = 48
-const PIGMENT_FLOOR = 0.84
+//  #536 — 14 radii and a floor of 0.40, from 48 and 0.84. Ilya, with a real
+//  brush: the paint runs out *before* the water does, and an arbitrarily long
+//  line has to change along its length. Both were true of the model on paper
+//  and neither was visible, because the deposit sat above the composite's
+//  saturation ceiling and a sixteen per cent change in it moved no pixels at
+//  all. With the curve fixed the depletion is worth having again, so it is
+//  restored to something a hand can see.
+//
+//  This deliberately re-opens the trade v9 closed. The flat-wash exercise is
+//  what pushed the floor to 0.84: bands are laid in alternating directions, so
+//  a band losing a fifth of its tone end to end became a zigzag across the
+//  finished wash. The counter-argument is that a painter recharges the brush
+//  between bands and the model already resets the load per stroke, so what is
+//  left is how much one band may lose — and that is now a number to be measured
+//  against the exercise rather than assumed safe.
+const PIGMENT_RUN_RADII = 14
+//  The floor is *under* water's 0.30, and it has to be for the observation to
+//  hold at all: a brush at the end of a long sweep is damp and colourless, not
+//  dry and coloured. A floor above water's would make the paint outlast the
+//  water again however fast it fell at first.
+const PIGMENT_FLOOR = 0.18
 
 // ─── The touch-down (#536) ──────────────────────────────────────────────────
 //
