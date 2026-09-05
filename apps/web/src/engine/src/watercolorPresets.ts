@@ -687,6 +687,44 @@ export function watercolorWaterLoad(usedRadii: number): number {
   return WATER_FLOOR + (1 - WATER_FLOOR) * Math.exp(-usedRadii / WATER_RUN_RADII)
 }
 
+/** (#536) The half-width of the brush *being held*, recovered from one dab it
+ *  made — as opposed to the half-width of that particular footprint.
+ *
+ *  The hair count is a property of the ferrule, so it has to be measured
+ *  against the brush rather than against however hard the stroke happened to
+ *  start. It could not simply be measured over the whole gesture instead: the
+ *  composite's scalars are resolved on the first call, and a live stroke's
+ *  first call sees one pointer event's worth of dabs while a replay's sees all
+ *  of them — so anything aggregated over "the dabs so far" makes the mark
+ *  differ between the two. The gesture's first dab is the one thing both are
+ *  guaranteed to agree on, which is why every scalar here comes from it, and
+ *  this divides the two things that shrink it back out again.
+ *
+ *  That mattered exactly as much as the brush is small. A 30 px round brush
+ *  begun with a light touch lands its first dab at well under half the set
+ *  width, which put barely three bundles across the whole mark and read as
+ *  broad waves; a 100 px brush begun the same way still had eight. Which is
+ *  "щетина хорошо видна только на крупной кисти", and it is arithmetic rather
+ *  than perception.
+ *
+ *  The flat needs no correction and must not be given one: its shaping puts the
+ *  thickness on the minor axis and its reciprocal on the aspect, so the long
+ *  axis — which is the ferrule — already cancels out pressure exactly. */
+export function watercolorFerrulePx(
+  minorPx: number, aspectRatio: number, pressure: number, presetName: string | undefined,
+): number {
+  const long = minorPx * Math.max(aspectRatio, 1)
+  if (watercolorNibFromPreset(presetName) === 'chisel') return long
+  const response = watercolorResponseFromPreset(presetName)
+  const shrunkBy = watercolorWidth(Math.max(pressure, WATERCOLOR_MIN_PRESSURE), response)
+    * WATERCOLOR_HEAD_TAPER.startScale
+  // Capped rather than trusted blindly: if a stroke ever reaches here without
+  // the head taper applied — a resumed gesture, a hand-built operation — the
+  // correction would invent a brush several times the size of the mark, and a
+  // bundle count is not worth a surprise.
+  return Math.min(long / Math.max(shrunkBy, 0.05), long * 3.0)
+}
+
 /** Pigment remaining after the same travel. Same shape, much longer run. */
 export function watercolorPigmentLoad(usedRadii: number): number {
   return PIGMENT_FLOOR + (1 - PIGMENT_FLOOR) * Math.exp(-usedRadii / PIGMENT_RUN_RADII)

@@ -65,7 +65,7 @@ import {
   type PressureResponse,
 } from './src/brushPenPresets'
 import {
-  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, mottleSeedFromStrokeId,
+  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
@@ -5244,7 +5244,7 @@ export class PencilEngine implements PencilEngineAPI {
       // _drawRibbonCompositeDab) rather than left unset, for the reason
       // u_wickPx above already documents: uniforms persist across draws on a
       // shared program.
-      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk', 'u_wcDebugView',
+      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_wetBloom', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk', 'u_wcDebugView',
       // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
       'u_spreadPx', 'u_cloud', 'u_fieldOffset',
       // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
@@ -7535,7 +7535,7 @@ export class PencilEngine implements PencilEngineAPI {
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
     // ribbonScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
-    this._paintRibbonStroke(target, dabs, preset, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed)
+    this._paintRibbonStroke(target, dabs, preset, presetName, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed)
     // Replay finishes the stroke inside this call as far as it can know: a
     // one-shot has painted every dab there is, a chunk every dab of its own
     // operation. Both recomposite now; a chunked gesture simply does it again,
@@ -7634,7 +7634,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  tangent point, where both are ramping, and the difference between max and
    *  over there is a fraction of one pixel. */
   private _paintRibbonStroke(
-    target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, profile: RibbonProfile,
+    target: ILayerBuffer, dabs: Dab[], preset: PencilPreset, presetName: string, profile: RibbonProfile,
     color: [number, number, number], scratch: RibbonStrokeScratch, prevDab: Dab | undefined,
     /** (#536) One hex digit per dab of `dabs`, saying how wet the paper each
      *  landed on already was — see paperWetness.ts. Sliced to this call's own
@@ -7710,12 +7710,28 @@ export class PencilEngine implements PencilEngineAPI {
         watercolorSpreadRadius(firstMinor * Math.max(first.aspectRatio, 1), firstMinor), 0.5,
       )
       return {
-        // (#536) The cap moves with the bloom. A multiplier under a fixed cap
-        // does nothing on any brush already at the cap, which is every brush
-        // this matters for.
+        // (#536) No longer gated by the wetness under the landing point, and
+        // that gate was the single worst thing about wet-in-wet.
+        //
+        // The bloom used to be baked into this gesture-wide number out of the
+        // one digit under the first dab. So a brush set down *in* a puddle
+        // spread three times as far for the whole of its travel, including the
+        // dry paper it went on to cross, and a brush that started on dry paper
+        // and ran through the puddle got no bloom anywhere — "если веду с
+        // сухого через лужу на сухое, штрих ложится полностью сухим". Worse, at
+        // a 16 px cell the first dab landing in a wet cell or a dry one near the
+        // edge is close to a coin toss, which is the "иногда" in every one of
+        // those reports.
+        //
+        // The bloom is now applied per pixel in the composite, off the deposit's
+        // own record of what the paper under it was carrying (DAB_FRAG's
+        // paperWetHere). This stays the *dry* reach, i.e. the ceiling the
+        // shader scales up from where the paper was actually wet — so a stroke
+        // blooms in the puddle and stays tight either side of it, inside one
+        // mark.
         spreadPx: profile.spreadPx > 0 && profile.spreadOfRadius > 0
           ? Math.min(
-            profile.spreadPx * (1 + WATERCOLOR_WET_BLOOM * landedWet),
+            profile.spreadPx,
             Math.max(WATERCOLOR_SPREAD.min, firstRadius * profile.spreadOfRadius),
           )
           : 0,
@@ -7743,7 +7759,14 @@ export class PencilEngine implements PencilEngineAPI {
         // axis: measured by area it came out as a couple of bundles and read
         // as broad waves rather than as hair, which is what "на chisel не вижу
         // щетинки" was. For a round nib the two are the same number.
-        bristleRadiusPx: firstMinor * Math.max(first.aspectRatio, 1),
+        //
+        // (#536) …and the ferrule, not this footprint: the first dab of a
+        // gesture carries both the pressure it was begun with and the head
+        // taper, and on a small brush those two together cost most of the hair.
+        // See watercolorFerrulePx.
+        bristleRadiusPx: watercolorFerrulePx(
+          firstMinor, first.aspectRatio, first.pressure, presetName,
+        ),
       }
     })
 
@@ -7810,8 +7833,15 @@ export class PencilEngine implements PencilEngineAPI {
     // composites from buffers that are still filling, no later batch's rect
     // reaches back to correct it, and the mark ends up different from what a
     // replay of the same operation produces.
+    // (#536) Padded for the *bloomed* reach, not the dry one: the composite
+    // decides the bloom per pixel now, so this rect has to be able to hold the
+    // widest it can decide on. Under-padding here does not soften a mark, it
+    // cuts it off square at the rect's edge.
     const compositePad = spreadPx > 0
-      ? Math.ceil(maxRadius + spreadPx + profile.wetEdgeRadiusPx + dabSpacing + migratePx) + 1
+      ? Math.ceil(
+        maxRadius + spreadPx * (1 + WATERCOLOR_WET_BLOOM)
+        + profile.wetEdgeRadiusPx + dabSpacing + migratePx,
+      ) + 1
       : 0
     const compositeBounds = compositePad > 0
       ? {
@@ -8390,6 +8420,7 @@ export class PencilEngine implements PencilEngineAPI {
     // batch — deferring it would only make a wash visibly change tone at
     // pen-up, buying nothing.
     gl.uniform1f(u.u_spreadPx, spreadPx)
+    gl.uniform1f(u.u_wetBloom, WATERCOLOR_WET_BLOOM)
     gl.uniform1f(u.u_cloud, this._bristleDebug ? 0 : profile.cloud)
     gl.uniform2f(u.u_fieldOffset, fieldSeed[0], fieldSeed[1])
     // #468 v4 — the brush model (ADR 011 §4). u_water is the fallback the

@@ -638,6 +638,12 @@ export const DAB_FRAG = `
   // pass, and for the same reason: it rewrites the mark's silhouette, which is
   // not known until the stroke is finished.
   uniform float u_spreadPx;
+  /** (#536) How much further the wash travels through water already on the
+   *  paper, as a multiplier on the reach at full soak. A uniform rather than a
+   *  constant here because the engine has to pad the composite rect for the
+   *  same number, and two copies of it would drift apart into a mark clipped
+   *  square at the rect's edge. */
+  uniform float u_wetBloom;
   // #468 v2 — depth of the low-frequency pigment/water field (ADR 011 §3.6).
   // Unlike the two above this runs on every batch: it is a per-place value
   // that owes nothing to the finished silhouette, so deferring it would only
@@ -1271,7 +1277,22 @@ ${WC_NOISE_GLSL}
         // stroke's nominal setting. A stroke that starts flooded and runs dry
         // therefore spreads far at its beginning and hardly at all by its end,
         // inside one mark.
-        float reach = u_spreadPx * mix(0.25, 1.0, transportHere);
+        // (#536) …and the bloom on top, per pixel, off what the paper under
+        // this fragment was actually carrying.
+        //
+        // It used to be folded into u_spreadPx from the single digit under the
+        // gesture's first dab, which made wet-in-wet a property of where the
+        // brush was set down rather than of where the water is. A stroke from
+        // dry paper through a puddle got none of it, a poke into a puddle got
+        // all of it for its whole length, and near an edge which of the two
+        // happened was close to a coin toss at the wetness grid's 16 px.
+        //
+        // Above u_spreadPx's own cap on purpose: that cap says how far a mark
+        // may spread past the brush *on dry paper*, and wet-in-wet is exactly
+        // the case that is not about the brush. The composite rect is padded
+        // for the full product (see _paintRibbonStroke's compositePad).
+        float reach = u_spreadPx * mix(0.25, 1.0, transportHere)
+          * (1.0 + u_wetBloom * paperWetHere);
         blurred =
             0.20 * rawCoverage
           + 0.45 * wcRingAvg(tileUV, texel, reach * 0.55, 1.0)
@@ -2883,16 +2904,47 @@ export const PAPER_COMPOSE_FRAG = `
   const float WC_WET_RIM_PX = 5.0;
   const float WC_WET_RIM_GAIN = 6.0;
   const float WC_WET_GLOSS = 0.34;
-  const float WC_WET_SHADE = 0.10;
-  // The two windows, in wetness. Narrow, and the dark one sits *outside* the
-  // bright one with a gap between them, which is what makes the edge read as a
-  // bead of water curving over rather than as a line drawn round the puddle.
-  const float WC_RIM_LO  = 0.15;
-  const float WC_RIM_MID = 0.19;
-  const float WC_RIM_HI  = 0.23;
-  const float WC_DARK_LO  = 0.05;
-  const float WC_DARK_MID = 0.09;
-  const float WC_DARK_HI  = 0.13;
+  const float WC_WET_SHADE = 0.11;
+  /** The cast shadow on the far side. Softer than the meniscus: it is the drop
+   *  sitting on the paper, not the surface of the drop. */
+  const float WC_WET_CAST = 0.07;
+  // (#536) THREE windows on the wetness value, and which of them is gated by
+  // the light is the whole of what makes a puddle read as a puddle.
+  //
+  //   rim     a bright arc just inside the edge  -- lit side only
+  //   ring    a thin dark line at the edge       -- ALL THE WAY ROUND
+  //   cast    a soft shadow just outside it      -- far side only
+  //
+  // The ring not being gated is the correction. It used to be, so the far side
+  // of a puddle had nothing on it at all and the near side had a highlight with
+  // one dark edge -- "тёмная часть должна быть и за бликом, и с другой стороны
+  // лужи тоже". Look at any photograph of water on paper: the meniscus is a
+  // continuous dark line round the whole perimeter, because the edge bends the
+  // view of what is underneath whichever way the light comes from. Only the
+  // specular arc and the cast shadow know where the light is.
+  //
+  // All three are much tighter than the first version, and packed close
+  // together rather than spread with a gap: these are shallow puddles soaking
+  // into paper, not the domed beads on a waxed surface in the reference photo.
+  // The window's width in wetness is its band's width on screen, so narrowing
+  // it is literally flattening the drop.
+  const float WC_RIM_LO  = 0.158;
+  const float WC_RIM_MID = 0.177;
+  const float WC_RIM_HI  = 0.196;
+  const float WC_DARK_LO  = 0.102;
+  const float WC_DARK_MID = 0.128;
+  const float WC_DARK_HI  = 0.154;
+  const float WC_CAST_LO  = 0.028;
+  const float WC_CAST_MID = 0.058;
+  const float WC_CAST_HI  = 0.088;
+  // For scale: the wetness map is one texel per 16 px cell, linearly filtered
+  // and then smoothed over a texel again, so raw falls from 1 to 0 across
+  // roughly 32 world px. A window that many hundredths wide is therefore that
+  // many thirty-seconds of a world pixel -- the three bands above come out at
+  // about 1.2, 1.7 and 1.9 world px, with the highlight sitting 1.6 px inside
+  // the ring. Measured in the world the water is in, not on screen, so they
+  // shrink when the canvas is zoomed out. That is right for a physical bead and
+  // it does mean a puddle seen at 45% shows the ring and little else.
 
   // (#536, ADR 011 §17.6) How far the paint is held back from where it will end
   // up, at full flood. The stored pixels are the *dry* result — already carrying
@@ -2901,7 +2953,7 @@ export const PAPER_COMPOSE_FRAG = `
   // still there and lets go of it as the paper dries. Zero wetness, zero
   // correction, so the picture converges on what is stored no matter what the
   // clock does.
-  const float WC_WET_RELAX = 0.55;
+  const float WC_WET_RELAX = 0.78;
   // The window over which it lets go. Far wider than the sheen's: the sheen
   // must vanish the moment a patch is merely damp, or every mark drags a grey
   // halo, whereas the paint has to still be creeping when the shine has long
@@ -3021,9 +3073,10 @@ export const PAPER_COMPOSE_FRAG = `
     // room. Suppressing the paper's own micro-contrast is what the eye
     // actually reads as "this patch is still wet", and it costs one lerp.
     float wet = 0.0;
-    // (#536) The rim highlight, and the darker band just outside it.
+    // (#536) The rim highlight, the meniscus ring, and the cast shadow.
     float rim = 0.0;
     float rimDark = 0.0;
+    float rimCast = 0.0;
     // (#536) How much of the paint's spread has not happened yet — see
     // WC_WET_RELAX and the block below graphite.
     float held = 0.0;
@@ -3063,9 +3116,12 @@ export const PAPER_COMPOSE_FRAG = `
         rim = side
           * smoothstep(WC_RIM_LO, WC_RIM_MID, raw)
           * (1.0 - smoothstep(WC_RIM_MID, WC_RIM_HI, raw));
-        rimDark = side
-          * smoothstep(WC_DARK_LO, WC_DARK_MID, raw)
+        // No side term: the meniscus goes right round.
+        rimDark = smoothstep(WC_DARK_LO, WC_DARK_MID, raw)
           * (1.0 - smoothstep(WC_DARK_MID, WC_DARK_HI, raw));
+        rimCast = (1.0 - side)
+          * smoothstep(WC_CAST_LO, WC_CAST_MID, raw)
+          * (1.0 - smoothstep(WC_CAST_MID, WC_CAST_HI, raw));
       }
     }
     // (#536, ADR 011 §17.6) The paint relaxing outward as the water goes.
@@ -3087,13 +3143,22 @@ export const PAPER_COMPOSE_FRAG = `
     // slightly at the same time is the other half of the same observation, and
     // it runs the right way round — watercolour dries lighter, so while it is
     // wet it is a shade deeper in the middle than it will end up.
-    graphite = mix(graphite, smoothstep(0.0, 1.0, graphite), held);
+    // Two S-curves rather than one, and the reason is Ilya's own measurement:
+    // "кажется растекание есть, просто оно слишком слабое — я два скрина
+    // сравнил, штрих в луже и вправду отличается". One smoothstep moves a
+    // half-covered fringe pixel by about a tenth; the eye does not read a tenth
+    // as movement over thirty seconds, it reads it as nothing. Composed, the
+    // same guarantees hold — still exactly 0 at 0 and 1 at 1, still monotone,
+    // so the picture still converges on the stored pixels — while the margin
+    // now loses about half of itself at full flood and visibly fills back in.
+    float tight = smoothstep(0.0, 1.0, smoothstep(0.0, 1.0, graphite));
+    graphite = mix(graphite, tight, held);
     // Well under 1: even a flooded sheet is not a mirror, and leaving most of
     // the grain is what keeps a wet patch reading as paper rather than as a
     // hole in the paper.
     float shownHeight = mix(paperHeight, 0.5, wet * 0.5);
     float gloss = rim * WC_WET_GLOSS;
-    float shade = rimDark * WC_WET_SHADE;
+    float shade = rimDark * WC_WET_SHADE + rimCast * WC_WET_CAST;
 
     ${paperToneGLSL('shownHeight')}
     float graphiteTexture = mix(1.0, shownHeight * 0.5 + 0.2, graphite * 0.25);
