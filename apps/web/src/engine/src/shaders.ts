@@ -189,6 +189,61 @@ ${WICK_EXPAND_GLSL}
 // brush size, instead of the old normalized-space falloff whose width was a
 // fixed fraction of the dab (36-40% of the mark's half-width at any size — see
 // docs/marker-edge-problem.md).
+/** (#536) The portable noise family, emitted into every shader that needs it.
+ *
+ *  Extracted because the deposit is written by *two* shaders — the nib stamps
+ *  in DAB_FRAG and the ribbon bands in RIBBON_FRAG — and moving the wash's
+ *  mottling out of the composite and into the deposit (ADR 011 §17.4) means
+ *  both of them have to evaluate the identical field. Two hand-synced copies
+ *  would disagree somewhere, and where a stamp and a band disagree the seam
+ *  appears at the dab pitch, which is the artifact class this tool has fought
+ *  twice already. GLSL ES 1.0 has no #include, so one string and two
+ *  interpolations is the enforcement — the same trick paperToneGLSL uses for
+ *  the paper tone. */
+const WC_NOISE_GLSL = `
+  float hash(vec2 p) {
+    p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
+    return fract(p.x * p.y * (p.x + p.y));
+  }
+
+  // ── Watercolor fields (#468 v2, ADR 011 §3.5-3.7) ────────────────────────
+  //
+  // Everything below exists to answer one criticism of v1: the wash was a
+  // swept brush footprint filled with an even tone, which is the definition of
+  // a marker. v1 had exactly one spatial scale of its own - paper grain, at
+  // 1-3px - so the eye read "textured digital brush". These helpers add the
+  // two coarser scales a real wash has, and make the mark's own boundary stop
+  // coinciding with the brush's path.
+  //
+  // All of it is built on hash() above, which is the project's portable
+  // fract/floor hash - no sin(), no finite differences, nothing that has ever
+  // diverged between a desktop and a tablet GPU (see paperCatch's comment and
+  // .claude/rules.md). Value noise is an interpolation of four hash samples,
+  // which is contractive: a per-GPU difference in one lattice value is damped,
+  // never amplified.
+
+  /** Value noise, one lattice cell per unit of p. */
+  float wcNoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    // Smoothstep interpolant, so the field has no visible lattice creases.
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+  }
+
+  /** Two octaves, roughly 0..1. The second sits at ~2.7x the frequency and a
+   *  deliberately irrational-looking offset, so the two never line up into a
+   *  grid. This is what gives one call both the coarse water clouds and the
+   *  pigment clumping inside them. */
+  float wcFbm(vec2 p) {
+    return 0.63 * wcNoise(p) + 0.37 * wcNoise(p * 2.7 + vec2(31.4, 17.9));
+  }
+`;
+
 export const RIBBON_VERT = `
   attribute vec2 a_position;
   attribute float a_edge;
@@ -253,6 +308,8 @@ export const RIBBON_FRAG = `
   varying float v_across;
   varying float v_inkWet;
   varying float v_inkStrength;
+
+${WC_NOISE_GLSL}
 
   void main() {
     // Inset ramp: coverage reaches 0 exactly *at* the geometric boundary and
@@ -657,47 +714,7 @@ export const DAB_FRAG = `
   // because coupling the two is how one retune silently becomes two.
   const float WC_DENSITY_K = 1.8;
 
-  float hash(vec2 p) {
-    p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
-    return fract(p.x * p.y * (p.x + p.y));
-  }
-
-  // ── Watercolor fields (#468 v2, ADR 011 §3.5-3.7) ────────────────────────
-  //
-  // Everything below exists to answer one criticism of v1: the wash was a
-  // swept brush footprint filled with an even tone, which is the definition of
-  // a marker. v1 had exactly one spatial scale of its own - paper grain, at
-  // 1-3px - so the eye read "textured digital brush". These helpers add the
-  // two coarser scales a real wash has, and make the mark's own boundary stop
-  // coinciding with the brush's path.
-  //
-  // All of it is built on hash() above, which is the project's portable
-  // fract/floor hash - no sin(), no finite differences, nothing that has ever
-  // diverged between a desktop and a tablet GPU (see paperCatch's comment and
-  // .claude/rules.md). Value noise is an interpolation of four hash samples,
-  // which is contractive: a per-GPU difference in one lattice value is damped,
-  // never amplified.
-
-  /** Value noise, one lattice cell per unit of p. */
-  float wcNoise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    // Smoothstep interpolant, so the field has no visible lattice creases.
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    float a = hash(i);
-    float b = hash(i + vec2(1.0, 0.0));
-    float c = hash(i + vec2(0.0, 1.0));
-    float d = hash(i + vec2(1.0, 1.0));
-    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-  }
-
-  /** Two octaves, roughly 0..1. The second sits at ~2.7x the frequency and a
-   *  deliberately irrational-looking offset, so the two never line up into a
-   *  grid. This is what gives one call both the coarse water clouds and the
-   *  pigment clumping inside them. */
-  float wcFbm(vec2 p) {
-    return 0.63 * wcNoise(p) + 0.37 * wcNoise(p * 2.7 + vec2(31.4, 17.9));
-  }
+${WC_NOISE_GLSL}
 
   // (#468 v10) Twelve directions per ring, not eight, and the two rings of one
   // blur offset by half a step. NEAREST-filtered source sampled at fixed
