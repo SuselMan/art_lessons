@@ -111,7 +111,7 @@ import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
-  isShapeTool, toolColorField, shapeKindOf, SHAPE_KIND_ICONS,
+  isShapeTool, toolColorField,
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
@@ -6731,15 +6731,20 @@ export function Room() {
               One button rather than four (Ilya, 05.09). The four shapes are
               four ways of doing one thing, so which one it draws is a modifier
               in the quick column — the same call the selection tool makes about
-              its three ways of marking a region. The button wears whichever
-              shape is selected, so the toolbar still says what it will draw. */}
+              its three ways of marking a region.
+
+              (#541) It wears a composite glyph rather than the shape currently
+              selected. Wearing the selection read as "this is the rectangle
+              tool" and hid the fact that there are four; which one is in hand
+              is already said, in words and a picture, by the kind picker right
+              next to it. */}
           <button
             className={clsx(styles.toolIconBtn, shapeActive && styles.toolIconBtnActive)}
             title={t('tool.shapeTitle')}
             aria-label={t('tool.shape')}
             aria-pressed={shapeActive}
             onClick={() => selectTool('shape')}
-          ><Icon name={SHAPE_KIND_ICONS[shapeKindOf(toolSettings)]} /></button>
+          ><Icon name="shapes" /></button>
 
           <div className={styles.toolDivider} />
 

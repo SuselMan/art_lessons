@@ -48,6 +48,7 @@ export const MATERIAL_ICON_NAMES = [
   'fit_screen',
   'format_color_fill',
   'folder',
+  'format_size',
   'folder_open',
   'fullscreen',
   'fullscreen_exit',
@@ -68,6 +69,7 @@ export const MATERIAL_ICON_NAMES = [
   'keyboard_arrow_down',
   'keyboard_arrow_up',
   'layers',
+  'line_weight',
   'lock',
   'lock_open',
   'lock_person',
@@ -75,6 +77,7 @@ export const MATERIAL_ICON_NAMES = [
   'menu',
   'more_vert',
   'move_down',
+  'opacity',
   'palette',
   'water_drop',
   // #468 v4 — the watercolor mix presets (dry / damp / wet). A trio by design:
@@ -132,6 +135,16 @@ export const CUSTOM_ICON_NAMES = [
   // drawn literally.
   'cap-butt', 'cap-round', 'cap-square', 'join-miter', 'join-round',
   'stroke-center', 'stroke-inside', 'stroke-outside',
+  // (#543) Quick-column slider glyphs for the quantities Material has no word
+  // for: a nib at two sizes, the sharp corner a radius replaces, the vertices a
+  // polygon is counted in, the circle a star's inner points ride, and paint
+  // meeting an edge that is not quite a wall.
+  'corner-radius', 'fill-tolerance', 'nib-size', 'polygon-points', 'starness',
+  // (#541) The shape tool's own button: a square with a circle over it, which
+  // is how every editor says "shapes" rather than "rectangle". Wearing the
+  // selected shape instead said "this is the rectangle tool", and hid the fact
+  // that there are four.
+  'shapes',
 ] as const
 
 export type CustomIconName = (typeof CUSTOM_ICON_NAMES)[number]

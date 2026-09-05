@@ -7,6 +7,17 @@
   color: var(--color-text-dim);
 }
 
+/* (#543) The field's glyph. Muted like the number under it: together they are
+   one caption for the control below, not two things competing with it. */
+.toolbarIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--color-text-dim);
+}
+
 .toolbarTrack {
   height: 76px;
   display: flex;

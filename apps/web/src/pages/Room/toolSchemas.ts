@@ -124,6 +124,20 @@ export interface SettingDescriptor {
    *  differ in a way no adjective pins down, which is exactly the complaint
    *  that produced this setting. */
   optionCurves?: Readonly<Record<string, readonly number[]>>
+  /** (#543) The field's own glyph, shown above its control in the quick
+   *  column.
+   *
+   *  Required of every quick-access slider, and a test says so: a slider there
+   *  is a bare vertical bar with a number over it, and three of them in a row —
+   *  which is what a shape or a pencil actually shows — are three identical
+   *  bars. A word would say it better and does not fit: the column is a rail,
+   *  and "Corner radius" is "Скругление углов" in the next language along. A
+   *  tooltip does not help either, because the device this column is designed
+   *  for has no hover.
+   *
+   *  Not used by the panel layout, which spells every field out in words and
+   *  has the room to. */
+  icon?: IconName
   /** Which control(s) this field can render as; first is the default. */
   uiControls: readonly SettingUiControl[]
   /** Also rendered inline in the left toolbar, not just the settings tab. */
@@ -258,6 +272,7 @@ const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: n
   // the first half. Opacity and angle stay linear — see sliderScale.ts.
   size: {
     nameKey: 'tool.field.size',
+    icon: 'nib-size',
     valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
     uiControls: ['slider', 'input'],
     quickAccess: true,
@@ -265,6 +280,7 @@ const pencilLikeSchema = (defaultColor: [number, number, number], defaultSize: n
   },
   opacity: {
     nameKey: 'tool.field.opacity',
+    icon: 'opacity',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -339,6 +355,7 @@ const linerSchema = (): ToolSchema => ({
   },
   opacity: {
     nameKey: 'tool.field.opacity',
+    icon: 'opacity',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -366,6 +383,7 @@ const linerSchema = (): ToolSchema => ({
 const brushPenSchema = (): ToolSchema => ({
   size: {
     nameKey: 'tool.field.size',
+    icon: 'nib-size',
     valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
     uiControls: ['slider', 'input'],
     quickAccess: true,
@@ -397,6 +415,7 @@ const brushPenSchema = (): ToolSchema => ({
   },
   opacity: {
     nameKey: 'tool.field.opacity',
+    icon: 'opacity',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -492,6 +511,7 @@ const watercolorSchema = (): ToolSchema => ({
   },
   size: {
     nameKey: 'tool.field.size',
+    icon: 'nib-size',
     valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
     uiControls: ['slider', 'input'],
     quickAccess: true,
@@ -529,6 +549,7 @@ const watercolorSchema = (): ToolSchema => ({
   // under their hand is not asking their brush to turn with it.
   angle: {
     nameKey: 'tool.field.angle',
+    icon: 'rotate_90_degrees_cw',
     valueType: { kind: 'numberRange', min: 0, max: 360, step: 1 / 60, format: formatDegreesMinutes, parse: degreesMinutesParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -564,6 +585,7 @@ const watercolorSchema = (): ToolSchema => ({
   // opacity brush with texture on it.
   water: {
     nameKey: 'tool.field.water',
+    icon: 'water_drop',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -571,6 +593,7 @@ const watercolorSchema = (): ToolSchema => ({
   },
   pigment: {
     nameKey: 'tool.field.pigment',
+    icon: 'gradient',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -634,6 +657,7 @@ const charcoalSchema = (): ToolSchema => ({
   // px-slider tool's.
   size: {
     nameKey: 'tool.field.size',
+    icon: 'nib-size',
     valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
     uiControls: ['slider', 'input'],
     quickAccess: true,
@@ -641,6 +665,7 @@ const charcoalSchema = (): ToolSchema => ({
   },
   opacity: {
     nameKey: 'tool.field.opacity',
+    icon: 'opacity',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -668,6 +693,7 @@ const charcoalSchema = (): ToolSchema => ({
   // rotating the paper under their hand is not asking the stick in it to turn.
   angle: {
     nameKey: 'tool.field.angle',
+    icon: 'rotate_90_degrees_cw',
     valueType: { kind: 'numberRange', min: 0, max: 360, step: 1 / 60, format: formatDegreesMinutes, parse: degreesMinutesParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -746,6 +772,7 @@ const markerSchema = (): ToolSchema => ({
   // as the one for "заливку крупных форм".
   size: {
     nameKey: 'tool.field.size',
+    icon: 'nib-size',
     valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
     uiControls: ['slider', 'input'],
     quickAccess: true,
@@ -753,6 +780,7 @@ const markerSchema = (): ToolSchema => ({
   },
   opacity: {
     nameKey: 'tool.field.opacity',
+    icon: 'opacity',
     valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -782,6 +810,7 @@ const markerSchema = (): ToolSchema => ({
   // just via drag/arrow-key increments instead of the dial's ring gesture.
   angle: {
     nameKey: 'tool.field.angle',
+    icon: 'rotate_90_degrees_cw',
     valueType: { kind: 'numberRange', min: 0, max: 360, step: 1 / 60, format: formatDegreesMinutes, parse: degreesMinutesParse },
     uiControls: ['slider'],
     quickAccess: true,
@@ -879,6 +908,7 @@ function shapePaintFields(): Record<string, SettingDescriptor> {
     },
     strokeWidth: {
       nameKey: 'tool.field.strokeWidth',
+      icon: 'line_weight',
       valueType: { kind: 'numberRange', min: 0.5, max: 200, step: 0.5, format: pxFormat, scale: expScale },
       uiControls: ['slider', 'input'],
       quickAccess: true,
@@ -953,6 +983,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   eraser: {
     size: {
       nameKey: 'tool.field.size',
+      icon: 'nib-size',
       valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
       uiControls: ['slider', 'input'],
       quickAccess: true,
@@ -960,6 +991,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     },
     opacity: {
       nameKey: 'tool.field.opacity',
+      icon: 'opacity',
       valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider'],
       quickAccess: true,
@@ -1015,6 +1047,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   smudge: {
     size: {
       nameKey: 'tool.field.size',
+      icon: 'nib-size',
       valueType: { kind: 'numberRange', min: 4, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
       uiControls: ['slider', 'input'],
       quickAccess: true,
@@ -1022,6 +1055,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     },
     opacity: {
       nameKey: 'tool.field.strength',
+      icon: 'opacity',
       valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider'],
       quickAccess: true,
@@ -1078,6 +1112,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     ...shapePaintFields(),
     cornerRadius: {
       nameKey: 'tool.field.cornerRadius',
+      icon: 'corner-radius',
       valueType: { kind: 'numberRange', min: 0, max: 400, step: 1, format: pxFormat },
       uiControls: ['slider', 'input'],
       quickAccess: true,
@@ -1130,6 +1165,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     },
     points: {
       nameKey: 'tool.field.points',
+      icon: 'polygon-points',
       valueType: { kind: 'numberRange', min: MIN_POLYSTAR_POINTS, max: 20, step: 1 },
       uiControls: ['slider', 'input'],
       quickAccess: true,
@@ -1144,6 +1180,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     // is what this tool gets reached for to build with (Ilya, 05.09).
     starness: {
       nameKey: 'tool.field.starness',
+      icon: 'starness',
       valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider', 'input'],
       quickAccess: true,
@@ -1394,6 +1431,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     // filling over colour that is already down.
     tolerance: {
       nameKey: 'tool.field.tolerance',
+      icon: 'fill-tolerance',
       valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider', 'input'],
       quickAccess: true,
@@ -1456,6 +1494,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     // stored under it, so every browser falls back to this default once.
     textSize: {
       nameKey: 'tool.field.size',
+      icon: 'format_size',
       valueType: { kind: 'numberRange', min: 11, max: 20, step: 1, format: pxFormat },
       uiControls: ['slider', 'input'],
       quickAccess: true,
@@ -1472,6 +1511,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
     },
     size: {
       nameKey: 'tool.field.size',
+      icon: 'nib-size',
       valueType: { kind: 'numberRange', min: 1, max: 60, step: 1, format: pxFormat, scale: expScale },
       uiControls: ['slider', 'input'],
       quickAccess: true,

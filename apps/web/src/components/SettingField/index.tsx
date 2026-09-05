@@ -4,6 +4,7 @@ import { OptionButton, OptionSelect, type PickerOption } from '../OptionPicker'
 import { Switch } from '../Switch'
 import { rgbToHex } from '../../lib/color'
 import { useT } from '../../i18n'
+import { Icon } from '../Icon'
 import type { SettingDescriptor } from '../../pages/Room/toolSchemas'
 import styles from './SettingField.module.css'
 
@@ -51,6 +52,13 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
     if (layout === 'toolbar') {
       return (
         <div className={styles.toolbarBlock} title={label}>
+          {/* (#543) What this slider is, above what it currently says. Three
+              sliders in a row are otherwise three identical bars telling you
+              only their numbers — see SettingDescriptor.icon for why a glyph
+              rather than a word or a tooltip. */}
+          {descriptor.icon && (
+            <span className={styles.toolbarIcon} aria-hidden="true"><Icon name={descriptor.icon} /></span>
+          )}
           <span className={styles.toolbarValue}>
             {valueType.format ? valueType.format(numValue) : numValue}
           </span>

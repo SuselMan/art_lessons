@@ -450,6 +450,35 @@ describe('degreesMinutesParse (#335)', () => {
   })
 })
 
+describe('quick-column slider glyphs (#543)', () => {
+  // The rail shows a slider as a bare vertical bar with a number over it, so
+  // three in a row — a shape's stroke width, corner radius and star points, or
+  // a pencil's size and opacity — are three identical bars. The glyph is what
+  // tells them apart, and it is easy to forget on the next field: hence a test
+  // rather than a convention. Same shape of rule as "every option of every
+  // select field has a picture", one section down.
+  it('gives every quick-access slider an icon', () => {
+    const missing = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
+      Object.entries(TOOL_SCHEMAS[toolId])
+        .filter(([, d]) => d.quickAccess && d.valueType.kind === 'numberRange' && !d.icon)
+        .map(([key]) => `${toolId}.${key}`),
+    )
+    expect(missing).toEqual([])
+  })
+
+  // The panel spells every field out in words, so an icon there would be
+  // decoration — and one that only some rows had, which reads as those rows
+  // meaning something the others do not.
+  it('does not put icons on fields the quick column never shows', () => {
+    const strays = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
+      Object.entries(TOOL_SCHEMAS[toolId])
+        .filter(([, d]) => d.icon && !d.quickAccess)
+        .map(([key]) => `${toolId}.${key}`),
+    )
+    expect(strays).toEqual([])
+  })
+})
+
 describe('slider scales (#390)', () => {
   const numberFields = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
     Object.entries(TOOL_SCHEMAS[toolId])
