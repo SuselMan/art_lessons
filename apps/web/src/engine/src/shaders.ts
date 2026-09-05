@@ -2627,3 +2627,224 @@ export const PAPER_COMPOSE_FRAG = `
     gl_FragColor = vec4(mix(u_deskColor, color, onPage), 1.0);
   }
 `;
+
+// (#527) Rasterizes one shape — rectangle, ellipse, star or line — into a
+// layer tile. Runs once per tile the shape touches, on commit and on every
+// frame of the editing session's preview.
+//
+// Reuses DISPLAY_VERT's fullscreen quad and AREA_MASK_FRAG's trick of turning
+// the quad's uv into a world position through the tile's own size and origin,
+// so the same shader draws into a real tile, a scratch tile or a preview
+// without anything upstream translating coordinates.
+//
+// **What it deliberately does not use.** No fwidth/dFdx: the antialiased rim
+// is one layer unit, which is one pixel of a tile buffer by construction, so
+// the ramp is a constant rather than a screen-space derivative — and
+// derivatives are the family `.claude/rules.md` singles out as having broken
+// cross-device agreement three times. No trigonometry for placement, sectors
+// or stroke geometry either: every cos/sin/atan those would need is computed
+// once in JavaScript (shapeGeometry.ts) and arrives as a uniform. What is left
+// is one `atan` in the star's angular fold, which has no cheaper form and
+// whose error moves an edge by a small fraction of a pixel rather than
+// changing what is drawn.
+//
+// **The distance fields.** Rectangle and line are exact. The ellipse is a
+// first-order estimate — F/|grad F| — which is exact on the contour itself and
+// only approximate away from it, i.e. correct exactly where the antialiased
+// edge and the stroke band read it. The star folds space into one sector and
+// measures against a single edge, which is exact for the contour and needs its
+// normal for one more reason: a star's frame need not be square, so it is
+// defined in a normalized space and the distance has to be converted back
+// through the local gradient, or a stroke on a wide star would be thicker
+// along one axis than the other.
+export const SHAPE_FRAG = `
+  precision highp float;
+
+  uniform vec2 u_dstSize;
+  uniform vec2 u_dstOrigin;
+
+  uniform vec2 u_center;
+  uniform vec2 u_rotCS;
+  uniform vec2 u_half;
+
+  uniform int u_kind;
+  uniform vec3 u_base;
+  uniform vec3 u_outer;
+  uniform vec3 u_inner;
+  uniform float u_hasInner;
+  uniform float u_strokeContours;
+  uniform vec2 u_band;
+
+  uniform float u_ringRatio;
+  uniform float u_closePath;
+  uniform float u_sectorMode;
+  uniform vec2 u_sectorDir;
+  uniform vec2 u_sectorCS;
+
+  uniform float u_starPoints;
+  uniform vec2 u_starRot;
+
+  uniform vec2 u_lineDir;
+  uniform float u_lineHalfLen;
+  uniform float u_lineCap;
+
+  uniform vec3 u_fillColor;
+  uniform float u_hasFill;
+  uniform vec3 u_strokeColor;
+  uniform float u_hasStroke;
+
+  varying vec2 v_uv;
+
+  const float PI = 3.141592653589793;
+
+  // Coverage from a signed distance, over a one-unit ramp centred on the
+  // contour. Linear rather than smoothstep: a shape's edge is a straight cut
+  // through the pixel, and the fraction of the pixel it covers is linear in
+  // the distance to it.
+  float cov(float d) {
+    return clamp(0.5 - d, 0.0, 1.0);
+  }
+
+  float sdRoundBox(vec2 p, vec2 b, float r) {
+    vec2 q = abs(p) - b + r;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+  }
+
+  float sdEllipse(vec2 p, vec2 ab) {
+    vec2 q = p / ab;
+    float k = length(q);
+    if (k < 1e-6) return -min(ab.x, ab.y);
+    // grad of length(p/ab) with respect to p, so (k - 1) / |grad| is the
+    // first-order distance to the k = 1 contour.
+    vec2 g = vec2(q.x / ab.x, q.y / ab.y) / k;
+    return (k - 1.0) / max(length(g), 1e-9);
+  }
+
+  // The sector, as a wedge test built from two half-planes. u_sectorDir is the
+  // bisector and u_sectorCS the half aperture's (cos, sin); mode 2 is the
+  // reflex case, which is the complement of the opposite wedge.
+  float sdWedge(vec2 p) {
+    if (u_sectorMode < 0.5) return -1e9;
+    vec2 d = u_sectorDir;
+    vec2 n1 = vec2(d.x * u_sectorCS.y + d.y * u_sectorCS.x, d.y * u_sectorCS.y - d.x * u_sectorCS.x);
+    vec2 n2 = vec2(d.x * u_sectorCS.y - d.y * u_sectorCS.x, d.y * u_sectorCS.y + d.x * u_sectorCS.x);
+    float w = max(-dot(p, n1), -dot(p, n2));
+    return u_sectorMode > 1.5 ? -w : w;
+  }
+
+  // The ellipse without its sector cut: a ring or a full ellipse. Kept
+  // separate because an *open* sector's stroke follows only this contour —
+  // the arcs — while its fill is still the closed region (see below).
+  float sdEllipseBody(vec2 p, vec3 prm) {
+    float d = sdEllipse(p, prm.xy);
+    if (u_ringRatio > 0.0) d = max(d, -sdEllipse(p, prm.xy * u_ringRatio));
+    return d;
+  }
+
+  float sdEllipseShape(vec2 p, vec3 prm) {
+    float d = sdEllipseBody(p, prm);
+    if (u_sectorMode > 0.5) d = max(d, sdWedge(p));
+    return d;
+  }
+
+  // Distance to a star, in the normalized space where its frame is a unit
+  // circle. Writes the contour normal in that same space, which the caller
+  // needs to convert the distance back to layer units.
+  float sdStarN(vec2 q, float R, float r, out vec2 nrm) {
+    vec2 p = vec2(q.x * u_starRot.x + q.y * u_starRot.y, -q.x * u_starRot.y + q.y * u_starRot.x);
+    float an = PI / u_starPoints;
+    float a = atan(p.y, p.x);
+    float k = mod(a + an, 2.0 * an) - an;
+    float L = length(p);
+    float cs = cos(k);
+    float sn = sin(k);
+    vec2 f = L * vec2(cs, abs(sn));
+
+    vec2 A = vec2(R, 0.0);
+    vec2 B = vec2(r * cos(an), r * sin(an));
+    vec2 e = B - A;
+    vec2 w = f - A;
+    float h = clamp(dot(w, e) / max(dot(e, e), 1e-12), 0.0, 1.0);
+    vec2 dv = w - e * h;
+    float len = length(dv);
+    float sgn = (e.x * w.y - e.y * w.x) > 0.0 ? -1.0 : 1.0;
+
+    vec2 nf = len > 1e-9 ? dv / len * sgn : vec2(1.0, 0.0);
+    if (sn < 0.0) nf.y = -nf.y;
+    float fa = a - k;
+    vec2 rr = vec2(cos(fa), sin(fa));
+    vec2 nr = vec2(nf.x * rr.x - nf.y * rr.y, nf.x * rr.y + nf.y * rr.x);
+    nrm = vec2(nr.x * u_starRot.x - nr.y * u_starRot.y, nr.x * u_starRot.y + nr.y * u_starRot.x);
+    return len * sgn;
+  }
+
+  float sdStarShape(vec2 p, vec3 prm) {
+    vec2 q = p / u_half;
+    vec2 nrm;
+    float dn = sdStarN(q, prm.x, prm.y, nrm);
+    // Back to layer units: the normalized-space gradient of this field, seen
+    // in layer space, is the normal divided by the half-extents.
+    float scale = length(vec2(nrm.x / u_half.x, nrm.y / u_half.y));
+    return dn / max(scale, 1e-9);
+  }
+
+  // A line has no interior, so this returns the distance to the *stroked*
+  // band directly: the cap decides whether the ends are rounded, cut flush or
+  // extended by half the width.
+  float sdLineBand(vec2 p) {
+    float halfW = max(u_band.y, 0.0);
+    float t = dot(p, u_lineDir);
+    float s = dot(p, vec2(-u_lineDir.y, u_lineDir.x));
+    if (u_lineCap > 0.5 && u_lineCap < 1.5) {
+      return length(vec2(max(abs(t) - u_lineHalfLen, 0.0), s)) - halfW;
+    }
+    float ext = u_lineCap > 1.5 ? halfW : 0.0;
+    return max(abs(t) - (u_lineHalfLen + ext), abs(s) - halfW);
+  }
+
+  float shapeDist(vec2 p, vec3 prm) {
+    if (u_kind == 0) return sdRoundBox(p, prm.xy, prm.z);
+    if (u_kind == 1) return sdEllipseShape(p, prm);
+    return sdStarShape(p, prm);
+  }
+
+  void main() {
+    vec2 worldPx = vec2(v_uv.x, 1.0 - v_uv.y) * u_dstSize + u_dstOrigin;
+    vec2 rel = worldPx - u_center;
+    vec2 p = vec2(rel.x * u_rotCS.x + rel.y * u_rotCS.y, -rel.x * u_rotCS.y + rel.y * u_rotCS.x);
+
+    float fillA = 0.0;
+    float strokeA = 0.0;
+
+    if (u_kind == 3) {
+      strokeA = u_hasStroke * cov(sdLineBand(p));
+    } else {
+      float dBase = shapeDist(p, u_base);
+      // A fill is always the closed region: an open contour has no inside
+      // anyone would predict, so closePath governs the stroke alone.
+      fillA = u_hasFill * cov(dBase);
+      if (u_hasStroke > 0.5) {
+        if (u_kind == 1 && u_sectorMode > 0.5 && u_closePath < 0.5) {
+          // Open sector: stroke the arcs only, clipped to the sector, instead
+          // of running the band around the straight sides as well.
+          float band = abs(sdEllipseBody(p, u_base) - u_band.x) - u_band.y;
+          strokeA = cov(max(band, sdWedge(p)));
+        } else if (u_strokeContours > 0.5) {
+          float dOut = shapeDist(p, u_outer);
+          float d = dOut;
+          if (u_hasInner > 0.5) d = max(dOut, -shapeDist(p, u_inner));
+          strokeA = cov(d);
+        } else {
+          strokeA = cov(abs(dBase - u_band.x) - u_band.y);
+        }
+      }
+    }
+
+    // Stroke over fill, both premultiplied — the layer buffer stores
+    // premultiplied colour in .rgb and coverage in .a, and beginDraw()'s
+    // (ONE, ONE_MINUS_SRC_ALPHA) expects exactly this.
+    float a = strokeA + fillA * (1.0 - strokeA);
+    vec3 rgb = u_strokeColor * strokeA + u_fillColor * fillA * (1.0 - strokeA);
+    gl_FragColor = vec4(rgb, a);
+  }
+`;

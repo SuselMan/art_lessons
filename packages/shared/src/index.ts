@@ -1040,9 +1040,16 @@ export const SHAPE_STROKE_ALIGNS = ['inside', 'center', 'outside'] as const
 export type ShapeStrokeAlign = (typeof SHAPE_STROKE_ALIGNS)[number]
 
 /** How a stroke turns a corner. Distinct from a shape's own `cornerRadius`,
- *  which changes the *contour*: a mitred corner on a rounded rectangle is a
- *  contradiction in terms, and a bevelled one on a sharp rectangle is not. */
-export const SHAPE_STROKE_JOINS = ['miter', 'round', 'bevel'] as const
+ *  which changes the *contour*: a mitre on a rounded rectangle is a
+ *  contradiction in terms, a round join on a sharp one is not.
+ *
+ *  Two, not the usual three: `bevel` is absent because the rasterizer draws a
+ *  stroke as the region between two contours (#527), and a bevel is the one
+ *  join that is neither of them — it needs the corner cut by a chord, which is
+ *  a third contour construction for a rarely-used join. Adding it later widens
+ *  this union without touching anything already recorded, since nothing can
+ *  have written a value that did not exist. */
+export const SHAPE_STROKE_JOINS = ['miter', 'round'] as const
 export type ShapeStrokeJoin = (typeof SHAPE_STROKE_JOINS)[number]
 
 /** How a stroke ends where the contour does — lines only; every other shape
@@ -1087,17 +1094,32 @@ export type ShapeGeometry =
       innerRadius: number
       closePath: boolean
     }
-  /** Regular polygon and star in one, as in Animate and Lottie: `innerRadius`
-   *  0 is a polygon, anything above it pulls alternate vertices inward and
-   *  makes it a star. `rotation` turns the vertices inside the frame, which is
-   *  not what `ShapeFrame.angle` does — that turns the frame itself, and on a
-   *  non-square frame the two produce different shapes. */
+  /** Regular polygon and star in one, as in Animate and Lottie.
+   *
+   *  `innerRadius` is a fraction of the outer radius, and it is a *geometric*
+   *  parameter rather than the "starness" slider the UI shows: alternate
+   *  vertices sit at `innerRadius` of the way out, so `cos(PI / points)` —
+   *  where those vertices land exactly on the edges between the outer ones —
+   *  is a regular polygon, and everything below it is a star of increasing
+   *  sharpness. Saying "0 means polygon" instead would have made the parameter
+   *  discontinuous at its own zero: 0.001 is a needle-thin star and 0 would be
+   *  a hexagon. The UI maps its slider onto this (see #529), which is where a
+   *  convenience like that belongs.
+   *
+   *  `rotation` turns the vertices inside the frame, which is not what
+   *  `ShapeFrame.angle` does — that turns the frame itself, and on a
+   *  non-square frame the two produce different shapes.
+   *
+   *  No corner radius here, unlike the rectangle: rounding a star's vertices
+   *  and stroking it with a mitre are two different offsets of the same
+   *  contour, and doing both at once is a construction the first version does
+   *  not need (#527). The field can be added later without reinterpreting
+   *  anything already in the log. */
   | {
       kind: 'polystar'
       points: number
       innerRadius: number
       rotation: number
-      cornerRadius: number
     }
   /** A line runs corner to corner of its frame — see ShapeFrame on why the
    *  frame's width and height are signed. */

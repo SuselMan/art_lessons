@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid'
-import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG } from './src/shaders'
+import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode, ShapeOperation, ShapeGeometry, ShapeFrame, ShapeStroke, ShapeFill } from '@grafetto/shared'
+import { shapeWorldBounds } from '@grafetto/shared'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, SHAPE_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -33,6 +34,7 @@ import {
   DEFAULT_TILT_RESPONSE, TILT_RESPONSES, isTiltResponse, tiltResponseT, type TiltResponse,
 } from './src/tiltCurve'
 import type { NibAngleConfig } from './src/markerPresets'
+import { shapeDrawParams, type ShapeDrawParams } from './src/shapeGeometry'
 import { OperationLog, type PixelOperation } from './src/OperationLog'
 import { PointerInput, type PointerData } from './src/PointerInput'
 // (#517) Same on-device ring buffer PointerInput writes to — the stroke
@@ -763,6 +765,19 @@ export interface PencilEngineAPI {
     layerId: string, image: string,
     rect: { x: number; y: number; width: number; height: number },
     matrix: LayerTransformMatrix,
+  ): void
+  // (#527) The shape tool's live preview: `geometry`/`frame` drawn over
+  // `layerId`'s own content without writing a pixel into it, for as long as the
+  // shape is still being placed. Same lifecycle and the same
+  // clearLayerTransformPreview as the three previews above — a shape session
+  // and a transform session cannot both be open, since each ends when the tool
+  // changes.
+  //
+  // Cheap enough to call per pointer move: it redraws only the tiles the shape
+  // covers, and reuses the scratch buffer of every tile it covered last frame.
+  previewShape(
+    layerId: string, geometry: ShapeGeometry, frame: ShapeFrame,
+    stroke: ShapeStroke | null, fill: ShapeFill | null,
   ): void
   // (#446) Decodes one raster into the same cache preloadImages fills, so the
   // float above can draw it on the very first frame. preloadImages takes whole
@@ -1945,6 +1960,8 @@ export class PencilEngine implements PencilEngineAPI {
   // has ever been, and a mask sampler it never uses has no business in it.
   private _areaTransformProg!: WebGLProgram
   private _areaMaskProg!: WebGLProgram
+  // (#527) The shape rasterizer — see SHAPE_FRAG.
+  private _shapeProg!: WebGLProgram
   // Smudge (#14) — paired with the existing DAB_VERT (see SMUDGE_TRANSFER_
   // FRAG's own doc comment for why it never uses DAB_VERT_INSTANCED).
   private _smudgeProg!: WebGLProgram
@@ -1971,6 +1988,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _transformUni!: Record<string, WebGLUniformLocation | null>
   private _areaTransformUni!: Record<string, WebGLUniformLocation | null>
   private _areaMaskUni!: Record<string, WebGLUniformLocation | null>
+  private _shapeUni!: Record<string, WebGLUniformLocation | null>
   private _smudgeUni!: Record<string, WebGLUniformLocation | null>
   private _smudgePickupUni!: Record<string, WebGLUniformLocation | null>
   private _dabPosLoc!: number
@@ -1980,6 +1998,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _transformPosLoc!: number
   private _areaTransformPosLoc!: number
   private _areaMaskPosLoc!: number
+  private _shapePosLoc!: number
   // Attribute locations are per-*program*, not per-shader-source — even
   // though _smudgeProg shares DAB_VERT's exact source with _dabProg, it's a
   // separately linked program, so 'a_position' can land at a different
@@ -2802,12 +2821,17 @@ export class PencilEngine implements PencilEngineAPI {
       // and paints nothing else, so they follow stroke/image_import's shape
       // exactly: covered by a restore means already in the restored pixels
       // (skip), no live target means it can never take effect again (revoke).
+      // (#527) A shape is the same shape of operation as the two selection ops
+      // below: one layer, pixels only, nothing to decode and nothing async —
+      // it is drawn from its own numbers the moment it arrives.
+      case 'shape':
       case 'area_transform':
       case 'area_clear': {
         const buf = this._layers.get(op.layerId)
         if (!buf) { this._log.revoke(op.id); break }
         if (this._isCoveredByRestore(op.layerId, op.seq)) { this._log.revoke(op.id); break }
-        if (op.type === 'area_transform') this._bakeAreaTransform(buf, op.selection, op.matrix)
+        if (op.type === 'shape') this._drawShape(buf, op)
+        else if (op.type === 'area_transform') this._bakeAreaTransform(buf, op.selection, op.matrix)
         else this._clearArea(buf, op.selection)
         this._markLayerDirty(op.layerId)
         this._maybeCheckpoint(op.layerId)
@@ -3898,6 +3922,10 @@ export class PencilEngine implements PencilEngineAPI {
       case 'area_clear':
       case 'area_paste':
       case 'area_fill':
+      // (#527) Same reasoning for a shape: undoing one means replaying its
+      // layer without it. It paints over whatever was under it and cannot be
+      // subtracted in place.
+      case 'shape':
         this._rebuildLayerOrDefer(op.layerId)
         break
       case 'layer_add':
@@ -4126,6 +4154,9 @@ export class PencilEngine implements PencilEngineAPI {
         break
       case 'area_clear':
         this._clearArea(buf, op.selection)
+        break
+      case 'shape':
+        this._drawShape(buf, op)
         break
       case 'area_paste':
       case 'area_fill': {
@@ -5043,6 +5074,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
     this._areaTransformProg   = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
     this._areaMaskProg        = createProgram(gl, DISPLAY_VERT, AREA_MASK_FRAG)
+    this._shapeProg           = createProgram(gl, DISPLAY_VERT, SHAPE_FRAG)
     this._paperComposeProg    = createProgram(gl, DISPLAY_VERT, PAPER_COMPOSE_FRAG)
     this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
     this._smudgePickupProg    = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
@@ -5113,6 +5145,13 @@ export class PencilEngine implements PencilEngineAPI {
       'u_source', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
     ])
     this._areaMaskUni = getUniforms(gl, this._areaMaskProg, ['u_mask', 'u_dstSize', 'u_dstOrigin', 'u_maskRect'])
+    this._shapeUni = getUniforms(gl, this._shapeProg, [
+      'u_dstSize', 'u_dstOrigin', 'u_center', 'u_rotCS', 'u_half',
+      'u_kind', 'u_base', 'u_outer', 'u_inner', 'u_hasInner', 'u_strokeContours', 'u_band',
+      'u_ringRatio', 'u_closePath', 'u_sectorMode', 'u_sectorDir', 'u_sectorCS',
+      'u_starPoints', 'u_starRot', 'u_lineDir', 'u_lineHalfLen', 'u_lineCap',
+      'u_fillColor', 'u_hasFill', 'u_strokeColor', 'u_hasStroke',
+    ])
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
@@ -5135,6 +5174,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
     this._areaTransformPosLoc  = gl.getAttribLocation(this._areaTransformProg, 'a_position')
     this._areaMaskPosLoc       = gl.getAttribLocation(this._areaMaskProg, 'a_position')
+    this._shapePosLoc          = gl.getAttribLocation(this._shapeProg, 'a_position')
     this._paperComposePosLoc   = gl.getAttribLocation(this._paperComposeProg, 'a_position')
     this._smudgePosLoc         = gl.getAttribLocation(this._smudgeProg, 'a_position')
     this._smudgePickupPosLoc   = gl.getAttribLocation(this._smudgePickupProg, 'a_position')
@@ -6411,6 +6451,146 @@ export class PencilEngine implements PencilEngineAPI {
     // path and _applyPixelOp's replay path) — an image_import can target
     // any layer, so only invalidate when it isn't the active one.
     if (op.layerId !== this._activeId) this._invalidateSplitCache()
+  }
+
+  // ─── Shapes (#527) ───────────────────────────────────────────────────────────
+
+  /** The world rect a shape's pixels can reach, clamped to the sheet in a
+   *  bounded room.
+   *
+   *  The clamp is the same one `_dabsWorldBounds` applies and for the same
+   *  reason: a bounded room's tiles are lazily created, and a shape whose
+   *  frame merely touches the page edge would otherwise resolve — and keep
+   *  forever — a tile of off-page ground nothing can ever make visible again. */
+  private _shapeWorldRect(
+    geometry: ShapeGeometry, frame: ShapeFrame, stroke: ShapeStroke | null,
+  ): WorldRect {
+    const b = shapeWorldBounds(geometry, frame, stroke)
+    if (this._infinite) return b
+    const { w: pageW, h: pageH } = this._pageSize()
+    return {
+      minX: Math.max(b.minX, 0), minY: Math.max(b.minY, 0),
+      maxX: Math.min(b.maxX, pageW), maxY: Math.min(b.maxY, pageH),
+    }
+  }
+
+  /** One SHAPE_FRAG pass over one target buffer, whose world origin is
+   *  (originX, originY). The shader turns each pixel into a world position
+   *  itself, so a real tile, a scratch tile and a preview tile are all drawn
+   *  by the same call with nothing translated by the caller — the pattern
+   *  `_runAreaMaskPass` established. */
+  private _runShapePass(
+    target: AccumulationBuffer, originX: number, originY: number, params: ShapeDrawParams,
+    stroke: ShapeStroke | null, fill: ShapeFill | null,
+  ): void {
+    const { gl } = this
+    target.beginDraw()
+    gl.useProgram(this._shapeProg)
+    const u = this._shapeUni
+    gl.uniform2f(u.u_dstSize, target.width, target.height)
+    gl.uniform2f(u.u_dstOrigin, originX, originY)
+    gl.uniform2f(u.u_center, params.centerX, params.centerY)
+    gl.uniform2f(u.u_rotCS, params.cos, params.sin)
+    gl.uniform2f(u.u_half, Math.max(params.halfX, 1e-6), Math.max(params.halfY, 1e-6))
+    gl.uniform1i(u.u_kind, params.kind)
+    gl.uniform3f(u.u_base, params.base[0], params.base[1], params.base[2])
+    gl.uniform3f(u.u_outer, params.outer[0], params.outer[1], params.outer[2])
+    gl.uniform3f(u.u_inner, params.inner[0], params.inner[1], params.inner[2])
+    gl.uniform1f(u.u_hasInner, params.hasInner ? 1 : 0)
+    gl.uniform1f(u.u_strokeContours, params.strokeMode === 'contours' ? 1 : 0)
+    gl.uniform2f(u.u_band, params.bandCenter, params.bandHalf)
+    gl.uniform1f(u.u_ringRatio, params.ringRatio)
+    gl.uniform1f(u.u_closePath, params.closePath ? 1 : 0)
+    gl.uniform1f(u.u_sectorMode, params.sectorMode)
+    gl.uniform2f(u.u_sectorDir, params.sectorDirX, params.sectorDirY)
+    gl.uniform2f(u.u_sectorCS, params.sectorCos, params.sectorSin)
+    gl.uniform1f(u.u_starPoints, params.starPoints)
+    gl.uniform2f(u.u_starRot, params.starRotCos, params.starRotSin)
+    gl.uniform2f(u.u_lineDir, params.lineDirX, params.lineDirY)
+    gl.uniform1f(u.u_lineHalfLen, params.lineHalfLen)
+    gl.uniform1f(u.u_lineCap, params.lineCap)
+    gl.uniform3f(u.u_fillColor, fill ? fill.color[0] : 0, fill ? fill.color[1] : 0, fill ? fill.color[2] : 0)
+    gl.uniform1f(u.u_hasFill, fill ? 1 : 0)
+    gl.uniform3f(
+      u.u_strokeColor, stroke ? stroke.color[0] : 0, stroke ? stroke.color[1] : 0, stroke ? stroke.color[2] : 0,
+    )
+    gl.uniform1f(u.u_hasStroke, stroke && stroke.width > 0 ? 1 : 0)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._shapePosLoc)
+    gl.vertexAttribPointer(this._shapePosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    target.endDraw()
+  }
+
+  /** Draws one shape into a layer, touching only the tiles it covers. */
+  private _drawShape(layerBuf: ILayerBuffer, op: ShapeOperation): void {
+    if (!op.stroke && !op.fill) return
+    const rect = this._shapeWorldRect(op.geometry, op.frame, op.stroke)
+    if (!(rect.maxX > rect.minX) || !(rect.maxY > rect.minY)) return
+    const params = shapeDrawParams(op.geometry, op.frame, op.stroke)
+    for (const { buffer, originX, originY } of layerBuf.resolveForPaint(rect)) {
+      this._runShapePass(buffer, originX, originY, params, op.stroke, op.fill)
+    }
+    // (#155 Tier 2) Same as _blitImage's call: the content bounds have to grow
+    // to include what was just painted, or a later transform or export can cut
+    // the shape off at the layer's previously-known extent.
+    layerBuf.markContentPainted(rect)
+    if (op.layerId !== this._activeId) this._invalidateSplitCache()
+  }
+
+  /** See PencilEngineAPI. The editing session's live preview: the shape drawn
+   *  over the layer's own content into scratch tiles, exactly the way
+   *  `previewAreaPaste` floats a pasted raster, and cleared by the same
+   *  `clearLayerTransformPreview`.
+   *
+   *  A float rather than an overlay on top of the composite, deliberately: the
+   *  shape belongs to a layer, so it has to be hidden by the layers above it
+   *  while it is being placed. Drawing it over everything would mean a shape
+   *  that jumps behind them at the moment it is confirmed — the preview would
+   *  be lying about the one thing it exists to show. */
+  previewShape(
+    layerId: string, geometry: ShapeGeometry, frame: ShapeFrame,
+    stroke: ShapeStroke | null, fill: ShapeFill | null,
+  ): void {
+    const layerBuf = this._layers.get(layerId)
+    const oldByOrigin = new Map(
+      (this._transformPreview.get(layerId) ?? []).map(t => [`${t.originX},${t.originY}`, t]),
+    )
+    const drop = (): void => {
+      for (const t of oldByOrigin.values()) t.buffer.destroy()
+      this._transformPreview.delete(layerId)
+      this._areaPreviewLayers.delete(layerId)
+      this._display()
+    }
+    if (!layerBuf || (!stroke && !fill)) { drop(); return }
+
+    const rect = this._shapeWorldRect(geometry, frame, stroke)
+    if (!(rect.maxX > rect.minX) || !(rect.maxY > rect.minY)
+      || !Number.isFinite(rect.minX + rect.minY + rect.maxX + rect.maxY)) { drop(); return }
+
+    const params = shapeDrawParams(geometry, frame, stroke)
+    const { w: tw, h: th } = this._tileSize()
+    const tiles: PreviewTile[] = []
+    const reused = new Set<string>()
+    for (const { tileX, tileY } of tilesOverlappingRect(rect, tw, th)) {
+      const tileRect = tileWorldRect(tileX, tileY, tw, th)
+      const key = `${tileRect.minX},${tileRect.minY}`
+      const old = oldByOrigin.get(key)
+      const scratch = old ? old.buffer : new AccumulationBuffer(this.gl, tw, th)
+      if (old) reused.add(key)
+      const existing = this._tileBufferAt(layerBuf, tileRect)
+      if (existing) existing.copyTo(scratch)
+      else scratch.clear()
+      this._runShapePass(scratch, tileRect.minX, tileRect.minY, params, stroke, fill)
+      tiles.push(old ?? { originX: tileRect.minX, originY: tileRect.minY, buffer: scratch })
+    }
+    for (const [key, t] of oldByOrigin) {
+      if (!reused.has(key)) t.buffer.destroy()
+    }
+
+    this._transformPreview.set(layerId, tiles)
+    this._areaPreviewLayers.add(layerId)
+    this._display()
   }
 
   // ─── Rendering ───────────────────────────────────────────────────────────────

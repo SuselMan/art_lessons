@@ -10,7 +10,7 @@
 import type {
   Operation, StrokeOperation, LayerClearOperation, LayerMergeOperation, LayerDuplicateOperation,
   ImageImportOperation, LayerTransformOperation, AreaTransformOperation, AreaClearOperation,
-  AreaPasteOperation, AreaFillOperation,
+  AreaPasteOperation, AreaFillOperation, ShapeOperation,
 } from '@grafetto/shared'
 import { operationLayerIds } from '@grafetto/shared'
 
@@ -25,6 +25,7 @@ export interface LogEntry {
 export type PixelOperation = StrokeOperation | LayerClearOperation | LayerMergeOperation
   | LayerDuplicateOperation | ImageImportOperation | LayerTransformOperation
   | AreaTransformOperation | AreaClearOperation | AreaPasteOperation | AreaFillOperation
+  | ShapeOperation
 
 export function isPixelOperation(op: Operation): op is PixelOperation {
   return op.type === 'stroke' || op.type === 'layer_clear' || op.type === 'layer_merge'
@@ -35,6 +36,9 @@ export function isPixelOperation(op: Operation): op is PixelOperation {
     || op.type === 'area_transform' || op.type === 'area_clear' || op.type === 'area_paste'
     // (#453) The fill, for the same reason: one layer, pixels and nothing else.
     || op.type === 'area_fill'
+    // (#527) And a shape, which is the same thing drawn from parameters
+    // instead of from a raster.
+    || op.type === 'shape'
 }
 
 /** Every PixelOperation but layer_transform targets exactly one layer via its
