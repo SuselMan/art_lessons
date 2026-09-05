@@ -8,7 +8,8 @@ import { nanoid } from 'nanoid'
 import type { OperationRedoOperation, OperationUndoOperation } from '@grafetto/shared'
 
 import {
-  checkpointCountFor, createTestEngine, dab, expectPixelsClose, fillStroke, makeAreaClear, makeLayerAdd,
+  checkpointBytes, checkpointCountFor, createTestEngine, dab, expectPixelsClose, fillStroke, makeAreaClear,
+  makeLayerAdd,
   makeStroke, readLayerPixels, readTilePixels, residentTileCount,
 } from './testing/engineTestUtils'
 import { decodeLayerTiles } from './src/snapshotCodec'
@@ -529,5 +530,53 @@ describe('fully transparent tiles (#467)', () => {
 
     expect(engine.takeSnapshotRestoreAudit()[0]).toMatchObject({ tilesIn: 1, tilesUploaded: 1 })
     expect(readLayerPixels(engine, 'L')!.some((v, i) => i % 4 === 3 && v !== 0)).toBe(false)
+  })
+})
+
+// (#467) The other half of what a restore costs. The GL textures are the half
+// everyone thinks of; the pinned checkpoint beside them is a second full copy
+// of the same pixels in CPU memory, held for the life of the room because the
+// operations that painted them are below the log window and a rebuild has
+// nothing else to start from. It is also exempt from the checkpoint byte
+// budget, so on production room cdf314dd-153 it was 235 MB sitting inside a
+// 256 MB budget, crowding out the ordinary undo checkpoints that budget is for.
+describe('what a restore pins in memory (#467)', () => {
+  /** A tile the shape real ink has: a small opaque run in a large empty field. */
+  function sparseTile(side: number) {
+    const pixels = new Uint8Array(side * side * 4)
+    for (let i = 0; i < side; i++) pixels.set([10, 10, 10, 255], (side * 2 + i) * 4)
+    return { originX: 0, originY: 0, width: side, height: side, pixels }
+  }
+
+  it('holds the snapshot packed, not as a second full copy of the pixels', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 64, height: 64 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.initLayer('L')
+    const tile = sparseTile(64)
+
+    engine.restoreLayerFromSnapshot('L', [tile], 100)
+
+    expect(checkpointCountFor(engine, 'L')).toBe(1)
+    expect(checkpointBytes(engine)).toBeLessThan(tile.pixels.byteLength / 4)
+  })
+
+  // Packing is worth nothing if the pixels do not come back byte for byte: this
+  // checkpoint is what an undo rebuilds a restored layer from, and what that
+  // rebuild then republishes.
+  it('gives those exact pixels back when a rebuild reads them', () => {
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 64, height: 64 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.initLayer('L')
+    const tile = sparseTile(64)
+    engine.restoreLayerFromSnapshot('L', [tile], 100)
+    const restored = [...readLayerPixels(engine, 'L')!]
+
+    // A stroke and its undo is the shortest route through _replayInto, which is
+    // the only reader of a packed checkpoint.
+    engine.appendOperation(makeStroke('user-a', 'L', [dab(30, 30, { size: 8, pressure: 1, opacity: 0.6 })]))
+    expect([...readLayerPixels(engine, 'L')!]).not.toEqual(restored)
+    engine.undo()
+
+    expect([...readLayerPixels(engine, 'L')!]).toEqual(restored)
   })
 })

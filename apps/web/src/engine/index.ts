@@ -80,6 +80,7 @@ import { TiledLayerBuffer, type TileRebuilder, type TileRebuildSession } from '.
 import type { ILayerBuffer, PaintTarget } from './src/ILayerBuffer'
 import { TILE_SIZE, coarseFactorFor, tileWorldRect, tilesOverlappingRect, type WorldRect } from './src/tileMath'
 import { clipTileToPage, isFullyTransparent, retileSnapshotTiles } from './src/retileSnapshot'
+import { packTilePixels, unpackTilePixels } from './src/pinnedTiles'
 import { encodeLayerTiles, type SnapshotTile } from './src/snapshotCodec'
 import type { SnapshotRestoreAudit } from './src/snapshotAudit'
 import { defaultPaperColor, packDabs, strokeDabs, toHomography } from '@grafetto/shared'
@@ -1112,7 +1113,11 @@ interface CheckpointTile {
   originY: number
   width: number
   height: number
-  pixels: Uint8Array
+  /** (#467) Run-length packed, not raw RGBA — see pinnedTiles.ts for the
+   *  format and for the 235 MB of production room this saves. Unpacked in
+   *  `_replayInto`, one tile at a time, and dropped again with the iteration
+   *  that read it. `width * height * 4` is the size to unpack back to. */
+  packed: Uint8Array
 }
 interface Checkpoint {
   layerId: string
@@ -4055,15 +4060,19 @@ export class PencilEngine implements PencilEngineAPI {
         buf.clear()
         for (const t of cp.tiles) {
           const rect = { minX: t.originX, minY: t.originY, maxX: t.originX + t.width, maxY: t.originY + t.height }
+          // (#467) Unpacked here and nowhere else, one tile at a time: the
+          // whole point of holding checkpoints packed is that no two of these
+          // exist at once. `pixels` dies with this iteration — do not hoist it.
+          const pixels = unpackTilePixels(t.packed, t.width * t.height * 4)
           // (#425) The tile's own geometry, not the buffer's: a snapshot baked
           // after #425 clips whatever hangs off the sheet, so an edge tile's
           // payload can be smaller than the tile it restores into. A tile
           // stored before that is the same call with nothing clipped.
-          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, t.pixels)
+          for (const target of buf.resolveForPaint(rect)) target.buffer.restorePixelsRect(t.width, t.height, pixels)
           // (#155 Tier 2) Exact historical pixels, not a fresh paint — scan
           // once for the real content bbox rather than a markContentPainted
           // union (which would wrongly claim the whole tile as content).
-          buf.restoreTileContent(rect, t.pixels)
+          buf.restoreTileContent(rect, pixels)
         }
         start = cp.opIds.length
       } else {
@@ -4617,12 +4626,18 @@ export class PencilEngine implements PencilEngineAPI {
     if (!buf) return
     const ops = this._log.layerPixelOps(layerId)
     if (!ops.length) return
+    // (#467) Packed on the way in, so the budget below counts what this
+    // actually holds. An ordinary checkpoint is evictable and so was never the
+    // memory problem a pinned one is, but there is only one Checkpoint shape
+    // and giving it two would be the more expensive mistake — and a budget
+    // that buys ten times the undo depth for the same bytes is worth having.
     const tiles = buf.allResident().map(({ buffer, originX, originY }) => ({
-      originX, originY, width: buffer.width, height: buffer.height, pixels: buffer.readPixels(),
+      originX, originY, width: buffer.width, height: buffer.height,
+      packed: packTilePixels(buffer.readPixels()),
     }))
     if (!tiles.length) return
     this._checkpoints.push({ layerId, opIds: ops.map(o => o.id), tiles })
-    this._checkpointBytes += tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+    this._checkpointBytes += tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
     this._evictCheckpointsOverBudget()
   }
 
@@ -4642,7 +4657,7 @@ export class PencilEngine implements PencilEngineAPI {
       const index = this._checkpoints.findIndex(cp => !cp.pinned)
       if (index === -1) break
       const [evicted] = this._checkpoints.splice(index, 1)
-      this._checkpointBytes -= evicted.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+      this._checkpointBytes -= evicted.tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
     }
   }
 
@@ -4949,17 +4964,24 @@ export class PencilEngine implements PencilEngineAPI {
     for (let i = this._checkpoints.length - 1; i >= 0; i--) {
       const cp = this._checkpoints[i]
       if (cp.fromSnapshot && cp.layerId === layerId) {
-        this._checkpointBytes -= cp.tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+        this._checkpointBytes -= cp.tiles.reduce((sum, t) => sum + t.packed.byteLength, 0)
         this._checkpoints.splice(i, 1)
       }
     }
     // These pixels are authoritative again, so whatever made this layer
     // unpublishable no longer holds (#522).
     this._unbakeableLayers.delete(layerId)
+    // (#467) Packed here rather than by the caller: this is the only place
+    // that knows these tiles are about to be held for the life of the room
+    // instead of read and dropped. See pinnedTiles.ts.
+    const held = tiles.map(t => ({
+      originX: t.originX, originY: t.originY, width: t.width, height: t.height,
+      packed: packTilePixels(t.pixels),
+    }))
     this._checkpoints.push({
-      layerId, opIds: [], tiles, fromSnapshot: true, pinned: true, coveredSeq, covered: new Set(),
+      layerId, opIds: [], tiles: held, fromSnapshot: true, pinned: true, coveredSeq, covered: new Set(),
     })
-    this._checkpointBytes += tiles.reduce((sum, t) => sum + t.pixels.byteLength, 0)
+    this._checkpointBytes += held.reduce((sum, t) => sum + t.packed.byteLength, 0)
     this._evictCheckpointsOverBudget()
   }
 

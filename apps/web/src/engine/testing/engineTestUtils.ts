@@ -150,6 +150,7 @@ export function createTestEngine(
 interface EngineInternals {
   _layers: Map<string, ILayerBuffer>
   _checkpoints: Array<{ layerId: string; opIds: string[] }>
+  _checkpointBytes: number
   _onStart: (e: PointerData) => void
   _onMove: (e: PointerData) => void
   _onEnd: (e: PointerData) => void
@@ -373,6 +374,13 @@ export function readTransformPreviewTextureIds(engine: PencilEngine, layerId: st
 
 export function checkpointCountFor(engine: PencilEngine, layerId: string): number {
   return internals(engine)._checkpoints.filter(cp => cp.layerId === layerId).length
+}
+
+/** (#467) How many bytes this engine's checkpoints actually hold. The pinned
+ *  ones are exempt from the byte budget and are held for the life of the room,
+ *  so "how big is this" is the whole question that file answers. */
+export function checkpointBytes(engine: PencilEngine): number {
+  return internals(engine)._checkpointBytes
 }
 
 /** #134-follow-up white-box access: how much bigger the assembly buffer is
