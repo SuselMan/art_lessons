@@ -2297,7 +2297,16 @@ export function Room() {
             // into a screen the reader can act on. Left un-`finish`ed on
             // purpose: the open genuinely did not finish, and #487's alarm
             // reporting it as stalled is the truth.
-            if (status === 'failed') {
+            //
+            // `!== 'restored'` rather than `=== 'failed'`, which is not
+            // pedantry: this branch only runs because room_state said a
+            // snapshot exists, so a `none` here — the index answering 204 —
+            // is the server contradicting itself, and it arrives with exactly
+            // the consequences of a failure. The tail was already cut to what
+            // that snapshot did not cover, so believing the 204 and carrying
+            // on would open the same blank room, just without anything to
+            // point at afterwards.
+            if (status !== 'restored') {
               restoreFailedHere = true
               setRestoreFailed(true)
               // (#385) The canvas holds less than the room does, permanently
@@ -5629,7 +5638,10 @@ export function Room() {
           // happened while this client was away. Nothing here may reach
           // markJoinRestoreDone either — a client that does not know what the
           // room contains must not go on to publish a snapshot of it (#462).
-          if (status === 'failed') {
+          // `none` counts as a failure here for the same reason as on the
+          // first-join path: this branch only runs because the server said a
+          // snapshot exists and cut the tail accordingly.
+          if (status !== 'restored') {
             restoreFailedHere = true
             setRestoreFailed(true)
             engine.resumeDisplay()
