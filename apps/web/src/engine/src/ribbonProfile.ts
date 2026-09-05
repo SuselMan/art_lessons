@@ -797,7 +797,7 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     // construction. Both were reported — "щетинок мало" and "на chisel кажется
     // они не работают" — and both are this.
     bristleCombs: 4,
-    bristleInk: 0.30,
+    bristleInk: 0.45,
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.

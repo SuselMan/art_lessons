@@ -7686,7 +7686,12 @@ export class PencilEngine implements PencilEngineAPI {
         // (#536) A constant of the gesture like every other scalar here, so
         // the hair does not change frequency between a live batch and the
         // final recomposite.
-        bristleRadiusPx: firstRadius,
+        // The nib's *long* axis, not the equal-area radius. A flat brush is a
+        // row of hairs held in a ferrule, and the ferrule's width is the long
+        // axis: measured by area it came out as a couple of bundles and read
+        // as broad waves rather than as hair, which is what "на chisel не вижу
+        // щетинки" was. For a round nib the two are the same number.
+        bristleRadiusPx: firstMinor * Math.max(first.aspectRatio, 1),
       }
     })
 
