@@ -1275,7 +1275,29 @@ ${WC_NOISE_GLSL}
         // within one mark; a dry brush has only crisp ones, because there is no
         // liquid to feather them.
         float soft = max(u_edgeSoft, 0.03) * wetGain * mix(0.75, 1.25, wcFbm(wp * 0.017 + vec2(53.0, 11.0)));
-        coverage = smoothstep(thr, thr + soft, blurred);
+        // (#536) The upper end of the ramp is clamped to 1, and that one
+        // change is what stops a wash being blotchy.
+        //
+        // This block exists to make the mark's *boundary* wander off the
+        // brush's own outline (§3.5). But thr + soft could exceed 1 — at a
+        // wet setting it reached about 1.2 — and smoothstep(0.7, 1.2, 1.0) is
+        // 0.66, not 1. So the field was cutting a third of the coverage away
+        // in places where the blur is saturated, i.e. deep *inside* a solid
+        // wash, where there is no boundary for it to act on at all.
+        //
+        // That was the blotching: a swing of about a third in alpha, at the
+        // 30-60 px scale of these two noise fields, anchored to the paper and
+        // therefore identical however many times it was painted over. It read
+        // as "a texture that lies on the sheet no matter what", which is
+        // exactly what it was — and it was never pigment, which is why it never
+        // looked like pigment. Ilya's two exports settled it in one look: the
+        // density view is smooth and the silhouette view is the artifact.
+        //
+        // Clamping keeps the whole intended behaviour. Where the blur is
+        // saturated the fragment is at least a blur radius from any edge and
+        // now reads full; near the boundary the ramp still moves with thr and
+        // still eats into a starved wash, which §3.5 asks for deliberately.
+        coverage = smoothstep(thr, min(thr + soft, 1.0), blurred);
       }
 
       // §4.2 - dry brush, as *geometry* rather than as texture.
