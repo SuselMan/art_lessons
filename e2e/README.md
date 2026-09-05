@@ -42,6 +42,7 @@ scenario's state can be opened in psql.
 | Smudge works across a tile seam — no dead band down an A4 sheet's x=1024 | `specs/smudgeSeam.spec.ts` |
 | Settings shows exactly the version this build was stamped with | `specs/version.spec.ts` |
 | A tap on a floating-panel button presses it rather than dragging the panel | `specs/floatingPanel.spec.ts` |
+| An empty floating-panel slot opens its chooser on a hold and ignores a tap | `specs/floatingPanel.spec.ts` |
 | A finger tapping past a selection puts it down, while a one-finger pan keeps it | `specs/selectionTap.spec.ts` |
 | An eraser set to go through layers clears every visible one in a pass, and one undo restores them | `specs/eraseThroughLayers.spec.ts` |
 | A copied piece survives leaving its room: pasted into another room it lands in front of the person, into its own it lands in place, and a tab already open picks it up | `specs/clipboardAcrossRooms.spec.ts` |

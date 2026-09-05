@@ -159,9 +159,9 @@ interface Props {
  *
  *  Two gestures, and the split is the same one this panel has always used:
  *  a tap does what the slot holds, a hold (useLongPress) edits what it holds.
- *  A tap on an *empty* slot opens its chooser too — an empty slot has nothing
- *  else it could honestly do, and a dot that responds to nothing but a
- *  half-second hold is a feature nobody finds.
+ *  An empty slot has nothing to do on tap, so it does nothing: filling one is
+ *  the same hold that changes a filled one — see tapSlot for why the tap that
+ *  used to open its chooser had to go.
  *
  *  A slot can also hold a *role* rather than a tool — "the drawing tool I have
  *  no button for". That is what the top and bottom buttons already were before
@@ -228,21 +228,29 @@ export function FloatingToolPanel({
 
   // A tap on a slot: do whatever the slot holds.
   //
-  // Two things come first. While this slot's own chooser is out, the tap tucks
-  // it back — the same button opened it (by being held), so the same button is
-  // where a hand reaches to undo that, and doing the slot's action instead
-  // would leave the fan hanging behind whatever just happened. And an empty
-  // slot opens its chooser, because that is the only thing an empty slot has
-  // to offer.
+  // While this slot's own chooser is out, the tap tucks it back — the same
+  // button opened it (by being held), so the same button is where a hand
+  // reaches to undo that, and doing the slot's action instead would leave the
+  // fan hanging behind whatever just happened.
   //
   // A tap on a *different* slot while some fan is out is an ordinary action,
   // and closes the fan on the way — a fan left fanned out around a panel whose
   // selection just moved is pointing at a decision that has already been made.
+  //
+  // An empty slot does nothing at all beyond that closing. It used to open its
+  // chooser on a tap, reasoning that a dot answering only to a half-second
+  // hold is a feature nobody finds — but the panel sits under the drawing
+  // hand, and in use the four empty diagonals turned out to be the easiest
+  // thing on it to hit by accident: a fan flung open over the canvas by a
+  // palm or a stray thumb, from a button whose whole point was that it does
+  // nothing yet. Discoverability was the cheaper thing to give up. Both ways
+  // in are now the one gesture — hold an empty slot to fill it, hold a filled
+  // one to change it — and the empty slot's own tooltip says exactly that.
   const tapSlot = useCallback((index: number) => {
     if (flyout?.kind === 'slot' && flyout.index === index) { onFlyoutChange(null); return }
-    const content = layout[index]
-    if (!content) { onFlyoutChange({ kind: 'slot', index }); return }
     if (flyout) onFlyoutChange(null)
+    const content = layout[index]
+    if (!content) return
     if (content.kind === 'action') { (content.action === 'undo' ? onUndo : onRedo)(); return }
     const resolved = resolveSlotTool(content, roles)
     if (resolved) onSetTool(resolved)

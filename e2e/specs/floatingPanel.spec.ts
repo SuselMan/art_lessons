@@ -132,3 +132,64 @@ test.describe('the floating tool panel tells a tap on its buttons from a drag', 
     expect(before.x - (await panelBox(page)).x).toBeGreaterThan(8)
   })
 })
+
+/** The center of slot `index`, found through the slot's own data attribute
+ *  rather than recomputed from slotOffset: the point of these two scenarios is
+ *  what the button does when it is hit, not where it sits. */
+async function slotPoint(page: Page, index: number): Promise<{ x: number; y: number }> {
+  const box = await page.locator(`${PANEL} [data-slot="${index}"]`).boundingBox()
+  if (!box) throw new Error(`e2e: the panel has no slot ${index}`)
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+
+/** How many entries the slot chooser is showing — 0 when no fan is out. */
+function openChoices(page: Page): Promise<number> {
+  return page.locator(`${PANEL} [data-choice]`).count()
+}
+
+/** An empty slot answers to a hold and to nothing else. It used to open its
+ *  chooser on a plain tap as well, on the theory that a dot nobody can find is
+ *  a dot nobody uses; reported from real use as the panel's easiest thing to
+ *  hit by accident, since the four empty diagonals sit right under the drawing
+ *  hand and a stray touch flung the fan open over the canvas.
+ *
+ *  Slot 1 is the north-east diagonal — empty in DEFAULT_PANEL_LAYOUT, which is
+ *  what a fresh browser profile gets here. Only a real browser can tell these
+ *  two gestures apart: the difference between them is 500 ms of a live pointer
+ *  being held down, and the tap half is the *absence* of a fan the DOM would
+ *  have opened on its own click. */
+test.describe('an empty floating-panel slot answers only to a hold', () => {
+  test('a tap on it opens nothing', async ({ page }) => {
+    await showFloatingPanel(page)
+    await createRoom(page)
+    await waitForRoomReady(page)
+
+    const slot = await slotPoint(page, 1)
+    await page.mouse.click(slot.x, slot.y)
+
+    // Given a moment to be wrong in. A poll would not do here: it passes on
+    // its first reading, and the fan only exists one commit after the click,
+    // so "still nothing right now" has to be asked after that commit rather
+    // than instead of it.
+    await page.waitForTimeout(500)
+    expect(await openChoices(page)).toBe(0)
+  })
+
+  test('a hold on it opens its chooser', async ({ page }) => {
+    await showFloatingPanel(page)
+    await createRoom(page)
+    await waitForRoomReady(page)
+
+    const slot = await slotPoint(page, 1)
+    await page.mouse.move(slot.x, slot.y)
+    await page.mouse.down()
+    // Past the 500 ms in useLongPress, with room to spare for a slow frame.
+    await page.waitForTimeout(800)
+    await page.mouse.up()
+
+    await expect.poll(() => openChoices(page)).toBeGreaterThan(0)
+    // And the way in is still the way out: the chooser offers the clear entry
+    // alongside everything a slot can hold.
+    await expect(page.locator(`${PANEL} [data-choice="clear"]`)).toBeVisible()
+  })
+})
