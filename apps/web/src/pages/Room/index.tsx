@@ -614,7 +614,6 @@ export function Room() {
   const hapticGrainEnabled = getFeatureFlag('hapticGrain')
   // (#536) See the effect below — the caricature that answers whether the hair
   // structure is right at all, before anyone tunes its amplitude again.
-  const wcBristleDebug = getFeatureFlag('wcBristleDebug')
   // (#536) Which term of the composite to paint instead of the finished wash.
   const wcDebugView: 0 | 1 | 2 = getFeatureFlag('wcViewDensity')
     ? 2
@@ -2532,11 +2531,6 @@ export function Room() {
   // all, so a localStorage read down there typechecks and then kills every
   // engine test on the line it sits on. Same rule as the drying timer's plain
   // setTimeout.
-  useEffect(() => {
-    engineRef.current?.setWatercolorBristleDebug(
-      wcBristleDebug ? { combs: 28, depth: 0.40 } : null,
-    )
-  }, [wcBristleDebug, engineEpoch])
   useEffect(() => {
     engineRef.current?.setWatercolorDebugView(wcDebugView)
   }, [wcDebugView, engineEpoch])

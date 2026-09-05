@@ -857,8 +857,6 @@ export interface PencilEngineAPI {
   // now. A bounded room's export is completely unaffected by this — see
   // _exportInfinitePNG's own doc comment for the full reasoning.
   exportPNG(transparent?: boolean): Promise<Blob | null>
-  /** (#536) Dev-only bristle caricature — see the implementation's own note. */
-  setWatercolorBristleDebug(cfg: { combs: number; depth: number } | null): void
   /** (#536) Dev-only single-term view of the watercolor composite. */
   setWatercolorDebugView(view: 0 | 1 | 2): void
 
@@ -1891,9 +1889,6 @@ export class PencilEngine implements PencilEngineAPI {
   /** Quantized wetness the screen is currently showing, so the drying watcher
    *  can skip the frames that would look identical. -1 = nothing shown. */
   private _wetShown = -1
-  /** (#536) The bristle caricature, or null. Dev-only — see
-   *  setWatercolorBristleDebug. */
-  private _bristleDebug: { combs: number; depth: number } | null = null
   /** (#536) 0 normal, 1 silhouette, 2 density — see setWatercolorDebugView. */
   private _wcDebugView = 0
   /** Handle of the repaint that watches the paper dry, or 0. */
@@ -3157,28 +3152,6 @@ export class PencilEngine implements PencilEngineAPI {
     // Switching to a pencil and back a few seconds later should still find the
     // puddle, which is what happens on a real desk.
     this._paperWet.prune(performance.now())
-  }
-
-  /** (#536) Turns the hair comb up to a caricature and switches the wash's own
-   *  mottling off, so the only thing on screen is the bristle structure.
-   *
-   *  It exists because three builds in a row came back "щетинок практически не
-   *  видно вообще" and each time the temptation was to raise the amplitude
-   *  again. That is the wrong question: at ten per cent a modulation is
-   *  arithmetically present and perceptually buried under cloud, granulation
-   *  and the paper's own catch, so a pixel diff proves nothing about whether
-   *  the *organisation* is right. Twenty-four to thirty-two bundles at forty
-   *  per cent on flat paper answers that in one look — and if the eye still
-   *  reads spots rather than long streaks along the travel, the bug is in the
-   *  across-brush coordinate or where the modulation enters the pipeline, not
-   *  in any constant.
-   *
-   *  Never on by default and never persisted by the engine; the app reads the
-   *  flag (see Room) precisely so that no `localStorage` reaches engine code,
-   *  which runs in tests with no DOM at all. */
-  setWatercolorBristleDebug(cfg: { combs: number; depth: number } | null): void {
-    this._bristleDebug = cfg
-    this._display()
   }
 
   /** (#536) Paints the wash with one term of the composite's product instead
@@ -8390,24 +8363,17 @@ export class PencilEngine implements PencilEngineAPI {
     // what the split cost perceptually while it lasted.
     gl.uniform1f(u.u_wetEdge, profile.wetEdge)
     gl.uniform1f(u.u_wetEdgeRadiusPx, profile.wetEdgeRadiusPx)
-    // (#536) The caricature, when it is on: several dozen bundles at an
-    // absurd depth with the wash's own mottling switched off, so the only
-    // question left on screen is whether the *spatial organisation* reads as
-    // hair. Three builds came back "щетинок не видно"; a fourth blind guess at
-    // the amplitude would not have told us whether there was anything there to
-    // amplify.
-    const dbg = this._bristleDebug
     // (#536) Bundles from the mark's own half-width, so a hair stays a fixed
     // few pixels wide whatever brush is held — see
     // WATERCOLOR_BRISTLE_BUNDLE_PX. The coordinate this scales runs -1..+1
     // across the whole width, so the count of bundles laid across the mark is
     // twice this.
     const combs = profile.bristleCombs > 0
-      ? Math.max(1.5, Math.min(40, bristleRadiusPx / WATERCOLOR_BRISTLE_BUNDLE_PX))
+      ? Math.max(1.5, Math.min(50, bristleRadiusPx / WATERCOLOR_BRISTLE_BUNDLE_PX))
       : 0
-    gl.uniform1f(u.u_granulation, dbg ? 0 : profile.granulation)
-    gl.uniform1f(u.u_bristleCombs, dbg ? dbg.combs : combs)
-    gl.uniform1f(u.u_bristleInk, dbg ? dbg.depth : profile.bristleInk)
+    gl.uniform1f(u.u_granulation, profile.granulation)
+    gl.uniform1f(u.u_bristleCombs, combs)
+    gl.uniform1f(u.u_bristleInk, profile.bristleInk)
     gl.uniform1f(u.u_wcDebugView, this._wcDebugView)
     // (#536) The fallback where there is no deposit to read a per-pixel value
     // from — the spread fringe, which is about to be decided by it.
@@ -8421,7 +8387,7 @@ export class PencilEngine implements PencilEngineAPI {
     // pen-up, buying nothing.
     gl.uniform1f(u.u_spreadPx, spreadPx)
     gl.uniform1f(u.u_wetBloom, WATERCOLOR_WET_BLOOM)
-    gl.uniform1f(u.u_cloud, this._bristleDebug ? 0 : profile.cloud)
+    gl.uniform1f(u.u_cloud, profile.cloud)
     gl.uniform2f(u.u_fieldOffset, fieldSeed[0], fieldSeed[1])
     // #468 v4 — the brush model (ADR 011 §4). u_water is the fallback the
     // composite uses outside the mark, where there is no deposit to read a

@@ -590,17 +590,18 @@ export const DAB_FRAG = `
   // (#536) The hair comb: how many bundles lie across the brush, and how
   // unevenly they deliver pigment as a fraction either side of the mean.
   //
-  // Uniforms rather than constants so a caricature can be switched on live
-  // (setWatercolorBristleDebug). Three builds in a row came back with
-  // "щетинок практически не видно вообще", and the fourth is not going to be
-  // another blind guess at the amplitude: the question to settle first is
-  // whether the *spatial organisation* reads as hair at all, and that is
-  // answered by turning both of these absurdly high for one look.
+  // Uniforms rather than constants because the count is resolved from the
+  // brush being held, not from a shipping number: a hair is a fixed few pixels
+  // wide, so a wider brush carries more of them (WATERCOLOR_BRISTLE_BUNDLE_PX).
+  // The depth is on the profile (RibbonProfile.bristleInk).
   //
-  // Shipping values live on the profile (RibbonProfile.bristleCombs/Ink). Five
-  // bundles across a 50-100px brush makes stripes ten to twenty pixels wide,
-  // which the eye reads as an uneven wash rather than as hair — a real brush is
-  // several dozen irregular bundles, not five.
+  // There was a dev flag here that replaced the count with a fixed caricature
+  // of about thirty bundles, to settle whether the *spatial organisation* read
+  // as hair at all before anyone touched the amplitude again. It answered its
+  // question and was then removed, because a size-blind override of the very
+  // number that has to scale with the brush is a trap: left on, it put fifty-six
+  // half-pixel bundles across a 30 px mark and looked exactly like the bug it
+  // was meant to diagnose.
   uniform float u_bristleCombs;
   uniform float u_bristleInk;
   // (#536) 0 = paint normally; 1 = show the silhouette; 2 = show the density.
@@ -2931,12 +2932,24 @@ export const PAPER_COMPOSE_FRAG = `
   const float WC_RIM_LO  = 0.158;
   const float WC_RIM_MID = 0.177;
   const float WC_RIM_HI  = 0.196;
-  const float WC_DARK_LO  = 0.102;
-  const float WC_DARK_MID = 0.128;
-  const float WC_DARK_HI  = 0.154;
-  const float WC_CAST_LO  = 0.028;
-  const float WC_CAST_MID = 0.058;
-  const float WC_CAST_HI  = 0.088;
+  /** Centre of the meniscus ring, and its half-width on the *unlit* side. On
+   *  the lit side it is squeezed to a fraction of this: the specular arc is
+   *  already telling the eye where that edge is, and a full-weight dark line
+   *  crowded up against it was read as part of a double outline rather than as
+   *  the same ring continuing round. */
+  const float WC_DARK_MID  = 0.128;
+  const float WC_DARK_HALF = 0.026;
+  const float WC_DARK_LIT  = 0.40;
+  /** The cast shadow is a *skirt*, not a band, and that distinction is the
+   *  whole of the "непонятная двойная обводка". Written as a window like the
+   *  ring, at the ring's own width and a gap away from it, it is simply a
+   *  second line drawn round the puddle — which is exactly what it looked
+   *  like. A shadow has a defined inner edge where the water stops and no outer
+   *  edge at all: it just runs out. So this rises over about a pixel and a half
+   *  outside the ring and then holds all the way down to where the field itself
+   *  ends, fading only as the last of the wetness does. */
+  const float WC_CAST_IN  = 0.062;
+  const float WC_CAST_OUT = 0.018;
   // For scale: the wetness map is one texel per 16 px cell, linearly filtered
   // and then smoothed over a texel again, so raw falls from 1 to 0 across
   // roughly 32 world px. A window that many hundredths wide is therefore that
@@ -2953,13 +2966,20 @@ export const PAPER_COMPOSE_FRAG = `
   // still there and lets go of it as the paper dries. Zero wetness, zero
   // correction, so the picture converges on what is stored no matter what the
   // clock does.
-  const float WC_WET_RELAX = 0.78;
+  const float WC_WET_RELAX = 0.92;
   // The window over which it lets go. Far wider than the sheen's: the sheen
   // must vanish the moment a patch is merely damp, or every mark drags a grey
   // halo, whereas the paint has to still be creeping when the shine has long
   // gone — that is most of what "watching it dry" is.
-  const float WC_RELAX_LO = 0.04;
-  const float WC_RELAX_HI = 0.45;
+  // #536 - 0.50..0.95, from 0.04..0.45: "растекание должно быть интенсивней,
+  // быстрее, больше". The window is what decides *when* in the drying the paint
+  // moves, and down at 0.04 the release was spread across almost the entire
+  // minute, so at any moment almost nothing was happening. Up here it is spent
+  // inside the first half of the drying - the paint creeps out over the first
+  // twenty-odd seconds and is settled well before the sheen goes, which is also
+  // the right way round physically.
+  const float WC_RELAX_LO = 0.50;
+  const float WC_RELAX_HI = 0.95;
 
   /** The wetness map, smoothed over its own texel so the coarse grid it is
    *  built on does not show as facets. Four taps at half a texel — cheap, and
@@ -3116,12 +3136,15 @@ export const PAPER_COMPOSE_FRAG = `
         rim = side
           * smoothstep(WC_RIM_LO, WC_RIM_MID, raw)
           * (1.0 - smoothstep(WC_RIM_MID, WC_RIM_HI, raw));
-        // No side term: the meniscus goes right round.
-        rimDark = smoothstep(WC_DARK_LO, WC_DARK_MID, raw)
-          * (1.0 - smoothstep(WC_DARK_MID, WC_DARK_HI, raw));
+        // No side term: the meniscus goes right round. Only its width knows
+        // where the light is - thinner under the highlight, full weight on the
+        // far side.
+        float ringHalf = WC_DARK_HALF * mix(1.0, WC_DARK_LIT, side);
+        rimDark = smoothstep(WC_DARK_MID - ringHalf, WC_DARK_MID, raw)
+          * (1.0 - smoothstep(WC_DARK_MID, WC_DARK_MID + ringHalf, raw));
         rimCast = (1.0 - side)
-          * smoothstep(WC_CAST_LO, WC_CAST_MID, raw)
-          * (1.0 - smoothstep(WC_CAST_MID, WC_CAST_HI, raw));
+          * (1.0 - smoothstep(WC_CAST_OUT, WC_CAST_IN, raw))
+          * smoothstep(0.0, WC_CAST_OUT * 0.5, raw);
       }
     }
     // (#536, ADR 011 §17.6) The paint relaxing outward as the water goes.

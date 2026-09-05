@@ -644,7 +644,14 @@ const WATERCOLOR_WET_BLOOM = 2.0
  *  narrow nib carries few. Anything finer than a few pixels stops reading as
  *  hair and starts reading as noise, which is what a fixed bundle count did to
  *  every brush that was not large. */
-export const WATERCOLOR_BRISTLE_BUNDLE_PX = 5.0
+//  #536 — 3.5 px, from 5. At 5 px a 30 px brush carried six bundles across its
+//  whole mark, which is at the very bottom of what reads as hair rather than as
+//  waviness; 3.5 puts it at about nine, and a 100 px brush at nearly thirty,
+//  which is the range a real sable actually looks like. The number had never
+//  been judged against the shipping path on a small brush before, because the
+//  dev caricature that was meant to answer that question overrode it with a
+//  fixed count and was left switched on.
+export const WATERCOLOR_BRISTLE_BUNDLE_PX = 3.5
 
 /** Floor, so even the thinnest line's boundary stops being mathematically
  *  exact. Below roughly this the blur cannot displace anything at all. */
