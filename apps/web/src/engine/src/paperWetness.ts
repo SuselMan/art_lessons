@@ -24,7 +24,13 @@
  *  region of paper, not a texture — so the grid only has to be finer than the
  *  smallest puddle anyone would lay, and coarse enough that a long stroke does
  *  not touch thousands of cells. */
-export const WET_CELL_PX = 16
+//  #536 — 8 px, from 16. The rim bands are one to two px wide, so at a 16 px
+//  cell the grid was an order of magnitude coarser than the thing drawn on it
+//  and the meniscus came out a visible octagon following the cells: "почему она
+//  так квадратится? Мы её квадратами рисуем?" — yes, and this is the square.
+//  Four times the cells, which is still only a few thousand for a large wash,
+//  against a display map capped at 160 texels a side either way.
+export const WET_CELL_PX = 8
 
 /** How long a patch of paper takes to go from flooded to bone dry, ms.
  *
@@ -38,7 +44,11 @@ export const WET_CELL_PX = 16
 //  "возможно правда что я пока переключал кисть оно уже подсыхало". The field
 //  is ephemeral and display-only besides the interaction it hands each stroke,
 //  so a longer window costs nothing but a sheen that lingers.
-export const WET_DRY_MS = 60000
+//  #536 — 30 s, from 60. Ilya, timing it against a real brush: drying should be
+//  about twice as fast. The 60 s was reached from the other side, when the
+//  window kept expiring before he could swap brushes, and that problem is now
+//  solved by the field being right rather than by it being slow.
+export const WET_DRY_MS = 30000
 
 interface WetCell { w: number; at: number }
 

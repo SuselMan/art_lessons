@@ -5253,7 +5253,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
-      'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect', 'u_wetMapSize',
+      'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect', 'u_wetMapSize', 'u_wetPeak',
     ])
     this._smudgeUni = getUniforms(gl, this._smudgeProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
@@ -9286,6 +9286,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1i(u.u_wetMap, 2)
     gl.uniform4fv(u.u_wetRect, this._wetRect)
     gl.uniform2f(u.u_wetMapSize, this._wetMapSize[0], this._wetMapSize[1])
+    // (#536) What the rim bands are measured against — see WC_DARK_MID. Floored
+    // so a nearly-dry sheet cannot divide the bands down to nothing.
+    gl.uniform1f(u.u_wetPeak, Math.max(this._paperWet.peak(performance.now()), 0.05))
     gl.activeTexture(gl.TEXTURE0)
 
     gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
@@ -10652,6 +10655,7 @@ export class PencilEngine implements PencilEngineAPI {
     // button is not a property of the drawing.
     gl.uniform4f(u.u_wetRect, 0, 0, -1, -1)
     gl.uniform2f(u.u_wetMapSize, 1, 1)
+    gl.uniform1f(u.u_wetPeak, 1)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     const posLoc = this._paperComposePosLoc

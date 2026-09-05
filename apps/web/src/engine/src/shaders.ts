@@ -2896,6 +2896,10 @@ export const PAPER_COMPOSE_FRAG = `
   uniform vec4 u_wetRect;
   /** Texels of u_wetMap, so its slope can be read a texel at a time. */
   uniform vec2 u_wetMapSize;
+  /** (#536) How wet the wettest paper on the sheet is right now, 0..1. The rim
+   *  bands are placed as fractions of this rather than at absolute wetness —
+   *  see WC_DARK_MID. 1.0 when nothing needs normalising. */
+  uniform float u_wetPeak;
 
   // (#536) Where the light comes from, how far inside the rim the line sits,
   // and how bright it is. The width is the offset: a couple of world pixels is
@@ -2940,16 +2944,33 @@ export const PAPER_COMPOSE_FRAG = `
   const float WC_DARK_MID  = 0.128;
   const float WC_DARK_HALF = 0.026;
   const float WC_DARK_LIT  = 0.40;
-  /** The cast shadow is a *skirt*, not a band, and that distinction is the
-   *  whole of the "непонятная двойная обводка". Written as a window like the
-   *  ring, at the ring's own width and a gap away from it, it is simply a
-   *  second line drawn round the puddle — which is exactly what it looked
-   *  like. A shadow has a defined inner edge where the water stops and no outer
-   *  edge at all: it just runs out. So this rises over about a pixel and a half
-   *  outside the ring and then holds all the way down to where the field itself
-   *  ends, fading only as the last of the wetness does. */
-  const float WC_CAST_IN  = 0.062;
-  const float WC_CAST_OUT = 0.018;
+  // …and all of them are read as fractions of how wet the wettest paper on the
+  // sheet currently is, not as absolute wetness. That is a bug fix, and the bug
+  // it fixes is the one that made a drying puddle turn into a dark grey blob.
+  //
+  // A window on the absolute value only works while the puddle's own plateau is
+  // above it. As the paper dries the plateau descends, and it descends *through*
+  // every window in turn -- so at some point the whole interior of the puddle
+  // satisfies "is this the ring?" at once, and a moment later "is this the
+  // shadow?". The rings are not at the edge at all by then; the edge is simply
+  // where the value happened to be. Scaling by the peak pins each band to a
+  // fixed place on the edge's ramp for the puddle's whole life, and as a bonus
+  // keeps its width in pixels constant too, because the ramp and the window
+  // shrink together.
+  /** The cast shadow: wider than the ring and softer, sitting just outside it.
+   *
+   *  It reads as a shadow rather than as a second outline because it is about
+   *  twice the ring's width and has no gap from it — an equally narrow band a
+   *  gap away is simply another line, which is what "непонятная двойная
+   *  обводка" was.
+   *
+   *  The correction after that one went the other way and was worse: giving it
+   *  an inner edge and no outer one at all made it hold right out to the limit
+   *  of the wetness field, which is the "серый ореол" round the whole puddle.
+   *  A shadow does need to end. */
+  const float WC_CAST_IN  = 0.070;
+  const float WC_CAST_MID = 0.045;
+  const float WC_CAST_OUT = 0.016;
   // For scale: the wetness map is one texel per 16 px cell, linearly filtered
   // and then smoothed over a texel again, so raw falls from 1 to 0 across
   // roughly 32 world px. A window that many hundredths wide is therefore that
@@ -2978,20 +2999,37 @@ export const PAPER_COMPOSE_FRAG = `
   // inside the first half of the drying - the paint creeps out over the first
   // twenty-odd seconds and is settled well before the sheen goes, which is also
   // the right way round physically.
-  const float WC_RELAX_LO = 0.50;
+  // #536 - 0.65..0.95, and the drying window itself is now 30 s rather than 60,
+  // so the creep runs about three times faster than the version before last:
+  // roughly nine seconds from pen-up rather than twenty-eight. "Растекание надо
+  // делать быстрее... в 3."
+  const float WC_RELAX_LO = 0.65;
   const float WC_RELAX_HI = 0.95;
 
-  /** The wetness map, smoothed over its own texel so the coarse grid it is
-   *  built on does not show as facets. Four taps at half a texel — cheap, and
-   *  enough because everything read from this field is a difference over
-   *  several pixels rather than a derivative. */
+  /** The wetness map, smoothed over its own texels so the grid it is built on
+   *  does not show as facets.
+   *
+   *  A full 3x3 binomial tent at one texel, not the four half-texel taps this
+   *  started as. Four taps at half a texel average within a single texel's
+   *  neighbourhood and so cannot round off a *texel-sized* corner at all --
+   *  which is what a puddle edge is made of, and why the meniscus came out
+   *  visibly octagonal. Nine taps of a separable 1-2-1 is the smallest kernel
+   *  whose support actually spans the staircase, and it is separable enough to
+   *  stay isotropic, which a wider box would not be. */
   float wcWetAt(vec2 uv) {
-    vec2 h = 0.5 / max(u_wetMapSize, vec2(1.0));
-    float a = texture2D(u_wetMap, uv + vec2( h.x,  h.y)).r;
-    float b = texture2D(u_wetMap, uv + vec2(-h.x,  h.y)).r;
-    float c = texture2D(u_wetMap, uv + vec2( h.x, -h.y)).r;
-    float d = texture2D(u_wetMap, uv + vec2(-h.x, -h.y)).r;
-    return clamp((a + b + c + d) * 0.25, 0.0, 1.0);
+    vec2 h = 1.0 / max(u_wetMapSize, vec2(1.0));
+    float c = texture2D(u_wetMap, uv).r;
+    float n = texture2D(u_wetMap, uv + vec2(0.0,  h.y)).r;
+    float s = texture2D(u_wetMap, uv + vec2(0.0, -h.y)).r;
+    float e = texture2D(u_wetMap, uv + vec2( h.x, 0.0)).r;
+    float w = texture2D(u_wetMap, uv + vec2(-h.x, 0.0)).r;
+    float ne = texture2D(u_wetMap, uv + vec2( h.x,  h.y)).r;
+    float nw = texture2D(u_wetMap, uv + vec2(-h.x,  h.y)).r;
+    float se = texture2D(u_wetMap, uv + vec2( h.x, -h.y)).r;
+    float sw = texture2D(u_wetMap, uv + vec2(-h.x, -h.y)).r;
+    return clamp(
+      (c * 4.0 + (n + s + e + w) * 2.0 + (ne + nw + se + sw)) * 0.0625, 0.0, 1.0
+    );
   }
 
   varying vec2 v_uv;
@@ -3132,19 +3170,27 @@ export const PAPER_COMPOSE_FRAG = `
         // The side term keeps both on the lit half only: a rim that shines all the way
         // round is a ring of light, not a lit puddle.
         float ahead = wcWetAt(wetUV + (WC_WET_LIGHT_DIR * WC_WET_RIM_PX) / wetSpan);
-        float side = clamp((ahead - raw) * WC_WET_RIM_GAIN, 0.0, 1.0);
+        // Normalised by the peak like the windows are, and for the same
+        // reason: without it the lit/unlit split fades out as the sheet dries,
+        // taking the highlight and the cast shadow with it and leaving a bare
+        // ring long before the water is gone.
+        float side = clamp(
+          (ahead - raw) * WC_WET_RIM_GAIN / max(u_wetPeak, 0.05), 0.0, 1.0
+        );
         rim = side
-          * smoothstep(WC_RIM_LO, WC_RIM_MID, raw)
-          * (1.0 - smoothstep(WC_RIM_MID, WC_RIM_HI, raw));
+          * smoothstep(WC_RIM_LO * u_wetPeak, WC_RIM_MID * u_wetPeak, raw)
+          * (1.0 - smoothstep(WC_RIM_MID * u_wetPeak, WC_RIM_HI * u_wetPeak, raw));
         // No side term: the meniscus goes right round. Only its width knows
         // where the light is - thinner under the highlight, full weight on the
         // far side.
-        float ringHalf = WC_DARK_HALF * mix(1.0, WC_DARK_LIT, side);
-        rimDark = smoothstep(WC_DARK_MID - ringHalf, WC_DARK_MID, raw)
-          * (1.0 - smoothstep(WC_DARK_MID, WC_DARK_MID + ringHalf, raw));
+        float ringHalf = WC_DARK_HALF * mix(1.0, WC_DARK_LIT, side) * u_wetPeak;
+        float ringMid = WC_DARK_MID * u_wetPeak;
+        rimDark = smoothstep(ringMid - ringHalf, ringMid, raw)
+          * (1.0 - smoothstep(ringMid, ringMid + ringHalf, raw));
+        float castMid = WC_CAST_MID * u_wetPeak;
         rimCast = (1.0 - side)
-          * (1.0 - smoothstep(WC_CAST_OUT, WC_CAST_IN, raw))
-          * smoothstep(0.0, WC_CAST_OUT * 0.5, raw);
+          * smoothstep(WC_CAST_OUT * u_wetPeak, castMid, raw)
+          * (1.0 - smoothstep(castMid, WC_CAST_IN * u_wetPeak, raw));
       }
     }
     // (#536, ADR 011 §17.6) The paint relaxing outward as the water goes.
