@@ -7,15 +7,20 @@
   color: var(--color-text-dim);
 }
 
-/* (#543) The field's glyph. Muted like the number under it: together they are
-   one caption for the control below, not two things competing with it. */
-.toolbarIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  line-height: 1;
+/* (#543) The field's name, above its value. Wraps to two lines and is clipped
+   after that, the same budget .toolbarValue has for a long option name — 9px
+   over 52px carries about ten characters a line, which covers every field name
+   in both languages (a test in toolSchemas.test.ts keeps it that way). */
+.toolbarLabel {
+  max-width: 52px;
+  font-size: 9px;
+  line-height: 1.15;
+  text-align: center;
   color: var(--color-text-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .toolbarTrack {

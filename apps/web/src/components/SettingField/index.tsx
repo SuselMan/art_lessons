@@ -4,7 +4,6 @@ import { OptionButton, OptionSelect, type PickerOption } from '../OptionPicker'
 import { Switch } from '../Switch'
 import { rgbToHex } from '../../lib/color'
 import { useT } from '../../i18n'
-import { Icon } from '../Icon'
 import type { SettingDescriptor } from '../../pages/Room/toolSchemas'
 import styles from './SettingField.module.css'
 
@@ -22,8 +21,8 @@ interface SettingFieldProps {
   onExpand?: () => void
 }
 
-const ENUM_TRACK_HEIGHT = 108
-const RANGE_TRACK_HEIGHT = 76
+const ENUM_TRACK_HEIGHT = 96
+const RANGE_TRACK_HEIGHT = 64
 
 /** One generic control per tool setting (#196) — the same component renders
  *  every field for every tool, in both the toolbar's quick-access row and the
@@ -54,11 +53,15 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
         <div className={styles.toolbarBlock} title={label}>
           {/* (#543) What this slider is, above what it currently says. Three
               sliders in a row are otherwise three identical bars telling you
-              only their numbers — see SettingDescriptor.icon for why a glyph
-              rather than a word or a tooltip. */}
-          {descriptor.icon && (
-            <span className={styles.toolbarIcon} aria-hidden="true"><Icon name={descriptor.icon} /></span>
-          )}
+              only their numbers.
+
+              A word, not a glyph: half of these are quantities no icon set has
+              a picture for — corner radius, starness, fill tolerance — and a
+              drawn one is a riddle rather than a label. The rail is narrow, but
+              two lines of 9px carry "Скругление углов" fine, which is exactly
+              what the value readout below already does for words like
+              "Прессованный". */}
+          <span className={styles.toolbarLabel}>{label}</span>
           <span className={styles.toolbarValue}>
             {valueType.format ? valueType.format(numValue) : numValue}
           </span>
@@ -144,6 +147,7 @@ export function SettingField({ descriptor, value, onChange, layout, onExpand }: 
     if (layout === 'toolbar') {
       return (
         <div className={styles.toolbarBlock} title={label}>
+          <span className={styles.toolbarLabel}>{label}</span>
           <div className={styles.toolbarTrack} style={{ height: ENUM_TRACK_HEIGHT }}>
             <PrecisionSlider
               value={index}

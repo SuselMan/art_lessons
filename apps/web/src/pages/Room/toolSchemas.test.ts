@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
+import { en } from '../../i18n/en'
+import { ru } from '../../i18n/ru'
+
 import {
   loadToolSettings, saveToolSettings, defaultToolSettings,
   LINER_SIZE_LABELS, linerSizeToPx, stepLinerSize, stepEnumOption,
@@ -450,32 +453,42 @@ describe('degreesMinutesParse (#335)', () => {
   })
 })
 
-describe('quick-column slider glyphs (#543)', () => {
-  // The rail shows a slider as a bare vertical bar with a number over it, so
-  // three in a row — a shape's stroke width, corner radius and star points, or
-  // a pencil's size and opacity — are three identical bars. The glyph is what
-  // tells them apart, and it is easy to forget on the next field: hence a test
-  // rather than a convention. Same shape of rule as "every option of every
-  // select field has a picture", one section down.
-  it('gives every quick-access slider an icon', () => {
-    const missing = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
-      Object.entries(TOOL_SCHEMAS[toolId])
-        .filter(([, d]) => d.quickAccess && d.valueType.kind === 'numberRange' && !d.icon)
-        .map(([key]) => `${toolId}.${key}`),
-    )
-    expect(missing).toEqual([])
+describe('quick-column labels (#543)', () => {
+  // Every slider in the rail is captioned by its own name — a bare vertical bar
+  // with a number over it says nothing, and three of them in a row (a shape's
+  // stroke width, corner radius and star points) say nothing three times.
+  //
+  // The rail is 56px wide and the caption gets two lines of 9px, which is about
+  // ten characters a line. So the constraint is real and belongs in a test:
+  // what breaks is not the build but a name silently clipped mid-word on a
+  // tablet, in one language only.
+  const LABEL_BUDGET = 22
+
+  const quickSliders = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
+    Object.entries(TOOL_SCHEMAS[toolId])
+      .filter(([, d]) => d.quickAccess && d.uiControls[0] === 'slider')
+      .map(([key, d]) => ({ toolId, key, nameKey: d.nameKey })),
+  )
+
+  it('captions every quick-access slider', () => {
+    expect(quickSliders.length).toBeGreaterThan(0)
+    for (const { toolId, key, nameKey } of quickSliders) {
+      expect(nameKey, `${toolId}.${key} has no name to show`).toBeTruthy()
+    }
   })
 
-  // The panel spells every field out in words, so an icon there would be
-  // decoration — and one that only some rows had, which reads as those rows
-  // meaning something the others do not.
-  it('does not put icons on fields the quick column never shows', () => {
-    const strays = (Object.keys(TOOL_SCHEMAS) as UiToolId[]).flatMap(toolId =>
-      Object.entries(TOOL_SCHEMAS[toolId])
-        .filter(([, d]) => d.icon && !d.quickAccess)
-        .map(([key]) => `${toolId}.${key}`),
-    )
-    expect(strays).toEqual([])
+  it('keeps every caption short enough to read in the rail, in both languages', () => {
+    const tooLong: string[] = []
+    for (const { toolId, key, nameKey } of quickSliders) {
+      for (const [locale, dict] of [['en', en], ['ru', ru]] as const) {
+        // Field names are plain strings; the plural forms in the dictionary
+        // belong to counted messages, none of which label a control.
+        const text = dict[nameKey]
+        if (typeof text !== 'string') throw new Error(`${nameKey} is not a plain string`)
+        if (text.length > LABEL_BUDGET) tooLong.push(`${toolId}.${key} (${locale}): "${text}"`)
+      }
+    }
+    expect(tooLong).toEqual([])
   })
 })
 
