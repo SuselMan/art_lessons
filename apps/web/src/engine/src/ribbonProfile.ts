@@ -140,6 +140,10 @@ export interface RibbonProfile {
    *  each carry a different amount of paint. 0 for tools with no paint model,
    *  which never read it. */
   pigmentStrength: number
+  /** (#536) How many hair bundles lie across the brush, and how unevenly they
+   *  deliver pigment. See DAB_FRAG's u_bristleCombs. 0 for tools with no hair. */
+  bristleCombs: number
+  bristleInk: number
   /** #468 v4 — reach as a fraction of the stroke's own radius, before spreadPx
    *  caps it (ADR 011 §4.1). Water decides it: a dry brush barely leaves its
    *  own footprint, a flood travels visibly further than the hand went. 0 for a
@@ -414,6 +418,8 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   waterLevel: 0,
   pigmentLevel: 0,
   pigmentStrength: 0,
+  bristleCombs: 0,
+  bristleInk: 0,
   pigmentOpacity: 0,
   spreadOfRadius: 0,
   strokeDir: [1, 0] as [number, number],
@@ -468,6 +474,8 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   waterLevel: 0,
   pigmentLevel: 0,
   pigmentStrength: 0,
+  bristleCombs: 0,
+  bristleInk: 0,
   pigmentOpacity: 0,
   spreadOfRadius: 0,
   strokeDir: [1, 0] as [number, number],
@@ -728,6 +736,11 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     waterLevel: mix.water,
     pigmentLevel: mix.pigment,
     pigmentStrength: p.strength,
+    // Several dozen irregular bundles, not a handful of broad waves — see
+    // u_bristleCombs. The fbm this indexes gives the irregular widths for free;
+    // what the number sets is how fine the whole family is.
+    bristleCombs: 22,
+    bristleInk: 0.22,
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.

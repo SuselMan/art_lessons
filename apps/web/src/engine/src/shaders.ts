@@ -459,6 +459,22 @@ export const DAB_FRAG = `
   // markerRibbon.ts's FLOATS_PER_VERTEX spells out: one wash, several strokes,
   // and they are allowed to disagree about it.
   uniform float u_inkStrength;
+  // (#536) The hair comb: how many bundles lie across the brush, and how
+  // unevenly they deliver pigment as a fraction either side of the mean.
+  //
+  // Uniforms rather than constants so a caricature can be switched on live
+  // (setWatercolorBristleDebug). Three builds in a row came back with
+  // "щетинок практически не видно вообще", and the fourth is not going to be
+  // another blind guess at the amplitude: the question to settle first is
+  // whether the *spatial organisation* reads as hair at all, and that is
+  // answered by turning both of these absurdly high for one look.
+  //
+  // Shipping values live on the profile (RibbonProfile.bristleCombs/Ink). Five
+  // bundles across a 50-100px brush makes stripes ten to twenty pixels wide,
+  // which the eye reads as an uneven wash rather than as hair — a real brush is
+  // several dozen irregular bundles, not five.
+  uniform float u_bristleCombs;
+  uniform float u_bristleInk;
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
@@ -631,18 +647,7 @@ export const DAB_FRAG = `
   // exact same stroke. Same fix as paperNoise.ts's own hash — Inigo
   // Quilez's artifact-free hash, built from fract/floor/multiply only, no
   // transcendental functions to lose precision under mediump.
-  // (#536) How unevenly a loaded brush's hairs deliver pigment, as a fraction
-  // either side of the mean.
-  //
-  // 0.30. The first pass said 0.18 and "small on purpose: this is the
-  // material's hand, not its subject" — which was sound reasoning applied to a
-  // composite that could not show it at all, since the deposit sat on the flat
-  // top of a smoothstep. The verdict on that build was "щетинок практически не
-  // видно вообще", and it was right twice over. With the density curve fixed
-  // this is worth roughly a thirteen per cent swing in tone across the hairs,
-  // which is what a loaded brush leaves. It is the first number to reach for if
-  // a flat wash stops reading as flat.
-  const float WC_BRISTLE_INK = 0.30;
+
 
   // (#536) How much deposit one e-folding of transmission costs. Picked so an
   // ordinary single pass lands around 0.78 rather than pinned at 1: that is
@@ -1227,7 +1232,7 @@ export const DAB_FRAG = `
         ? clamp(texture2D(u_strokeCoverage, tileUV).r / rawCoverage, 0.0, 1.0) * 2.0 - 1.0
         : 0.0;
       float hairDrift = wcFbm(wp * 0.008 + vec2(71.0, 13.0));
-      float bristle = wcFbm(vec2(acrossN * 5.5, hairDrift * 3.0) + vec2(3.0, 29.0));
+      float bristle = wcFbm(vec2(acrossN * u_bristleCombs, hairDrift * 3.0) + vec2(3.0, 29.0));
 
       float dryness = u_dryContact * (1.0 - waterHere);
       if (dryness > 0.0) {
@@ -1249,7 +1254,7 @@ export const DAB_FRAG = `
       // Faded out by dryness so the two ends never both act - once the contact
       // is genuinely breaking up, modulating the dose as well would double-
       // count the same hair.
-      float bristleInk = 1.0 + WC_BRISTLE_INK * (bristle - 0.5) * 2.0;
+      float bristleInk = 1.0 + u_bristleInk * (bristle - 0.5) * 2.0;
       ink.a *= mix(bristleInk, 1.0, dryness);
 
       // Untouched by this stroke - leave the layer exactly as it is. With

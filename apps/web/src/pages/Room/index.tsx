@@ -2515,6 +2515,22 @@ export function Room() {
   useEffect(() => {
     engineRef.current?.setNibAngle(nibCanvasAngleRadians, nibAnchor)
   }, [nibCanvasAngleRadians, nibAnchor, engineEpoch])
+  // (#536) Dev-only bristle caricature. `al_wc_bristle` = "combs:depth", e.g.
+  // "28:0.40"; anything else, or absent, and the tool ships its own numbers.
+  //
+  // Read here rather than in the engine on purpose: the engine suite runs with
+  // no DOM at all, so a localStorage read down there typechecks and then kills
+  // every engine test on the line it sits on. Same rule as the drying timer's
+  // plain setTimeout.
+  useEffect(() => {
+    let cfg: { combs: number; depth: number } | null = null
+    try {
+      const raw = localStorage.getItem('al_wc_bristle')
+      const [combs, depth] = (raw ?? '').split(':').map(Number)
+      if (Number.isFinite(combs) && Number.isFinite(depth) && combs > 0) cfg = { combs, depth }
+    } catch { /* private mode, blocked site data — ship the normal tool */ }
+    engineRef.current?.setWatercolorBristleDebug(cfg)
+  }, [engineEpoch])
   // #409: the tilt-response setting of whichever tool is in hand. The engine
   // holds one active response rather than a table (see setTiltResponse), so the
   // lookup is here — and it goes through `isTiltResponse` rather than a cast:
