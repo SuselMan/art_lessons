@@ -637,7 +637,12 @@ const WATERCOLOR_SPREAD_CAP_PX = 26.0
  *  _paintRibbonStroke) — leaving the cap put would have made this number do
  *  nothing on any brush big enough to reach it, which is the failure mode of
  *  every capped multiplier. */
-const WATERCOLOR_WET_BLOOM = 2.0
+//  #536 — 3.0, from 2. Ilya put a number on it: a 30 px dot dropped into
+//  standing water should finish nearer 45 px across. The reach is what carries
+//  that (the re-threshold's outward push is proportional to it — see
+//  WC_WET_PUSH), and at 2 the arithmetic came out around twelve px of growth
+//  where he was asking for fifteen.
+const WATERCOLOR_WET_BLOOM = 3.0
 
 /** (#536) How wide one hair bundle is on the paper, in px. A hair is a fixed
  *  physical thing: a wider brush carries *more* bundles, not wider ones, and a

@@ -800,6 +800,15 @@ export const DAB_FRAG = `
   // What changes is what lies above it — a second glaze now reads 0.67 and a
   // third 0.81, where before every one of them read the same clipped value.
   const float WC_DENSITY_K = 0.54;
+  /** (#536) How far below the blur's half point the wash's re-threshold sits on
+   *  fully wet paper — the tool's only term that makes a mark genuinely bigger
+   *  rather than merely softer or more irregular. See its use, under u_spreadPx.
+   *
+   *  Declared here rather than beside the other WC_WET_* constants, which live
+   *  in PAPER_COMPOSE_FRAG: GLSL ES 1.0 has no include, these are two separate
+   *  programs, and a constant declared in the wrong one is a compile error that
+   *  takes the whole engine down with it. */
+  const float WC_WET_PUSH = 0.35;
 
   // (#536) How wide the transport's own view of the concentration is, in px.
   // Wider than a hair bundle on purpose — see its use.
@@ -1313,7 +1322,25 @@ ${WC_NOISE_GLSL}
         // stroke that runs from dry paper into a puddle needs the rest of the
         // difference per pixel.
         float wetGain = mix(1.0, 1.7, paperWetHere);
-        float thr = 0.5 + u_edgeWander * wetGain * (wcFbm(wp * 0.030) - 0.5);
+        // (#536) …and the boundary is pushed *outward* where the paper is wet,
+        // which is the difference between a mark whose edge wanders and a blot
+        // that actually grows.
+        //
+        // Ilya, spelling out what he had been asking for: a 30 px dot dropped
+        // into standing water should end up nearer 45 px across. Everything
+        // here up to now was zero-mean — the threshold wandered either side of
+        // 0.5, so the boundary got *irregular* without getting *bigger*, and
+        // the drying animation only filled in a margin the composite had
+        // already drawn. Neither of those can move a boundary fifteen pixels.
+        //
+        // Thresholding a blur below its half point does. The boundary lands
+        // where the blurred silhouette equals thr, and the blur's slope across
+        // an edge is about 1/(2*reach), so biasing thr down by d displaces it
+        // outward by roughly 2*reach*d — real growth, into the water only,
+        // because paperWetHere is zero everywhere else.
+        float thr = 0.5
+          - WC_WET_PUSH * paperWetHere
+          + u_edgeWander * wetGain * (wcFbm(wp * 0.030) - 0.5);
         // §4.1 - how sharply the boundary resolves, and the range is water's
         // to set. A flood has edges running from nearly lost to fairly crisp
         // within one mark; a dry brush has only crisp ones, because there is no
@@ -2968,9 +2995,17 @@ export const PAPER_COMPOSE_FRAG = `
    *  an inner edge and no outer one at all made it hold right out to the limit
    *  of the wetness field, which is the "серый ореол" round the whole puddle.
    *  A shadow does need to end. */
-  const float WC_CAST_IN  = 0.070;
-  const float WC_CAST_MID = 0.045;
-  const float WC_CAST_OUT = 0.016;
+  //  #536 — pushed up against the ring (which spans DARK_MID +/- DARK_HALF,
+  //  i.e. 0.102..0.154) instead of sitting out at 0.016..0.070, and that is the
+  //  halo. The window was narrow in *wetness* and enormous in *pixels*, because
+  //  down near zero the field is almost flat — the wider smoothing kernel that
+  //  fixed the octagon flattened that tail further still. A band placed on the
+  //  tail covers half the sheet however tight its numbers look. Sitting
+  //  directly outside the ring with no gap it is instead what it should be: the
+  //  far edge simply reads a little thicker and softer than the near one.
+  const float WC_CAST_IN  = 0.102;
+  const float WC_CAST_MID = 0.077;
+  const float WC_CAST_OUT = 0.052;
   // For scale: the wetness map is one texel per 16 px cell, linearly filtered
   // and then smoothed over a texel again, so raw falls from 1 to 0 across
   // roughly 32 world px. A window that many hundredths wide is therefore that
@@ -3138,6 +3173,8 @@ export const PAPER_COMPOSE_FRAG = `
     // (#536) How much of the paint's spread has not happened yet — see
     // WC_WET_RELAX and the block below graphite.
     float held = 0.0;
+    // (#536) The faint all-over tint of damp paper — see its use below.
+    float damp = 0.0;
     if (u_wetRect.z > u_wetRect.x) {
       vec2 wetSpan = max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
       vec2 wetUV = (worldPos - u_wetRect.xy) / wetSpan;
@@ -3150,6 +3187,7 @@ export const PAPER_COMPOSE_FRAG = `
         float raw = wcWetAt(wetUV);
         wet = smoothstep(0.35, 0.95, raw);
         held = WC_WET_RELAX * smoothstep(WC_RELAX_LO, WC_RELAX_HI, raw);
+        damp = smoothstep(0.05, 0.38, raw);
         // The rim, as a *window on the wetness value* rather than as a
         // derivative of it.
         //
@@ -3237,7 +3275,16 @@ export const PAPER_COMPOSE_FRAG = `
     // is the same fact as "watercolour dries lighter" seen from the other side.
     // Three per cent at full flood — under what anyone would call a change of
     // colour, and enough to see a puddle.
-    color *= mix(1.0, 0.985, wet);
+    // (#536) …and it is read off a much softer, wider gate than the sheen.
+    //
+    // "Серое пятно исчезло совсем, хотя оно давало эффект влажной бумаги — оно
+    // просто должно быть едва видным." Riding the sheen's own 0.35..0.95
+    // threshold, it was a hard-edged patch that appeared and vanished with it;
+    // damp paper is not a patch with an edge. This gate opens far earlier and
+    // saturates far sooner, so the whole wetted area carries the tint and it
+    // fades out smoothly at the margin instead of stopping at a line. Which is
+    // also the difference between this and a halo: an area, not a ring.
+    color *= mix(1.0, 0.977, damp);
     color += vec3(gloss);
     color *= 1.0 - shade;
 
