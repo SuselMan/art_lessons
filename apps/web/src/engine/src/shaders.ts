@@ -2741,9 +2741,15 @@ export const SHAPE_FRAG = `
     return d;
   }
 
-  float sdEllipseShape(vec2 p, vec3 prm) {
+  // The wedge arrives as a value rather than being called for here, and that
+  // is not a micro-optimisation: calling sdWedge from more than one place makes
+  // this program fail to *link* on ANGLE/D3D11, with an empty info log and a
+  // lost context (found by bisection, #527). Computing it once in main and
+  // passing it down is both the fix and the cheaper shape — the sector does not
+  // depend on which contour is being measured.
+  float sdEllipseShape(vec2 p, vec3 prm, float wedge) {
     float d = sdEllipseBody(p, prm);
-    if (u_sectorMode > 0.5) d = max(d, sdWedge(p));
+    if (u_sectorMode > 0.5) d = max(d, wedge);
     return d;
   }
 
@@ -2802,9 +2808,9 @@ export const SHAPE_FRAG = `
     return max(abs(t) - (u_lineHalfLen + ext), abs(s) - halfW);
   }
 
-  float shapeDist(vec2 p, vec3 prm) {
+  float shapeDist(vec2 p, vec3 prm, float wedge) {
     if (u_kind == 0) return sdRoundBox(p, prm.xy, prm.z);
-    if (u_kind == 1) return sdEllipseShape(p, prm);
+    if (u_kind == 1) return sdEllipseShape(p, prm, wedge);
     return sdStarShape(p, prm);
   }
 
@@ -2813,13 +2819,15 @@ export const SHAPE_FRAG = `
     vec2 rel = worldPx - u_center;
     vec2 p = vec2(rel.x * u_rotCS.x + rel.y * u_rotCS.y, -rel.x * u_rotCS.y + rel.y * u_rotCS.x);
 
+    // Exactly one call, for the linker's sake — see sdEllipseShape.
+    float wedge = sdWedge(p);
     float fillA = 0.0;
     float strokeA = 0.0;
 
     if (u_kind == 3) {
       strokeA = u_hasStroke * cov(sdLineBand(p));
     } else {
-      float dBase = shapeDist(p, u_base);
+      float dBase = shapeDist(p, u_base, wedge);
       // A fill is always the closed region: an open contour has no inside
       // anyone would predict, so closePath governs the stroke alone.
       fillA = u_hasFill * cov(dBase);
@@ -2828,11 +2836,11 @@ export const SHAPE_FRAG = `
           // Open sector: stroke the arcs only, clipped to the sector, instead
           // of running the band around the straight sides as well.
           float band = abs(sdEllipseBody(p, u_base) - u_band.x) - u_band.y;
-          strokeA = cov(max(band, sdWedge(p)));
+          strokeA = cov(max(band, wedge));
         } else if (u_strokeContours > 0.5) {
-          float dOut = shapeDist(p, u_outer);
+          float dOut = shapeDist(p, u_outer, wedge);
           float d = dOut;
-          if (u_hasInner > 0.5) d = max(dOut, -shapeDist(p, u_inner));
+          if (u_hasInner > 0.5) d = max(dOut, -shapeDist(p, u_inner, wedge));
           strokeA = cov(d);
         } else {
           strokeA = cov(abs(dBase - u_band.x) - u_band.y);
