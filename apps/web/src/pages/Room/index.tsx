@@ -5721,6 +5721,29 @@ export function Room() {
         // server leaves it out). Whatever is left on this list after the loop
         // would otherwise pin the snapshot watermark for the rest of the
         // mount.
+        // (#385, #538) Поштучно, а не одним try вокруг цикла — тем же
+        // решением и по той же причине, что на пути первого входа: одна
+        // операция, которая бросила, раньше отменяла все следующие за ней, а
+        // после долгого разрыва их подавляющее большинство. Пропустить ту, что
+        // не легла, строго лучше, чем пропустить остаток урока.
+        //
+        // До #538 этой защиты здесь не было вовсе, и #385 её сюда не принёс:
+        // тогда бросок из цикла уходил необработанным reject'ом, а комната
+        // всё равно объявлялась открытой. Теперь его поймал бы `catch` ниже и
+        // показал экран отказа — что честно, но для одной непроигравшейся
+        // операции слишком много. Два пути входа должны отвечать на одно и то
+        // же одинаково.
+        let failed = 0
+        const applyOne = (op: Operation): void => {
+          try {
+            applyRemoteOp(op)
+          } catch (err) {
+            // Только первое: дальше это обычно мёртвый GL-контекст, и тысяча
+            // одинаковых событий не скажет ничего, чего не сказало первое.
+            if (failed === 0) Sentry.captureException(err)
+            failed++
+          }
+        }
         const tailOpIds = new Set(tailOperations.map(op => op.id))
         for (const opId of pendingPreviewsRef.current.ids()) {
           const seq = pendingPreviewsRef.current.remove(opId) ?? 0
@@ -5734,9 +5757,17 @@ export function Room() {
           // then would lay the same stroke down twice.
           if (!stranded || tailOpIds.has(opId)) continue
           if (restoredFromSnapshot && latestSnapshotSeq !== null && seq <= latestSnapshotSeq) continue
-          applyRemoteOp(stranded)
+          applyOne(stranded)
         }
-        for (const op of tailOperations) applyRemoteOp(op)
+        for (const op of tailOperations) applyOne(op)
+        if (failed > 0) {
+          // (#480) Ровно то же, что и на первом входе: исключение уже уехало,
+          // а его последствие — нет. С этого момента и до конца маунта клиент
+          // не имеет права печь снапшоты, и это надо видеть.
+          reportInvariant('catch-up replay incomplete — snapshots disabled for this mount', { failed })
+          replayIncompleteRef.current = true
+          notifyError(tRef.current('room.replayIncomplete'), { key: 'replay-incomplete', durationMs: null })
+        }
         displaySuspended = false
         engine?.resumeDisplay()
         // (#386) Same reason as the mount-engine effect's own catch-up: the
