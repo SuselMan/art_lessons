@@ -11,8 +11,8 @@ import {
   NIB_ANCHORS, type NibAnchor,
 } from '../../engine'
 import {
-  SHAPE_STROKE_ALIGNS, SHAPE_STROKE_JOINS, SHAPE_STROKE_CAPS, MIN_POLYSTAR_POINTS,
-  type ShapeStrokeAlign, type ShapeStrokeJoin, type ShapeStrokeCap,
+  SHAPE_KINDS, SHAPE_STROKE_ALIGNS, SHAPE_STROKE_JOINS, SHAPE_STROKE_CAPS, MIN_POLYSTAR_POINTS,
+  type ShapeKind, type ShapeStrokeAlign, type ShapeStrokeJoin, type ShapeStrokeCap,
 } from '@grafetto/shared'
 import { parseNumberInput } from '../../components/NumberField/numberField'
 import { expScale, type SliderScale } from '../../components/PrecisionSlider/sliderScale'
@@ -47,9 +47,12 @@ export type UiToolId =
   // not ToolTypes: neither emits a StrokeOperation, and neither puts anything
   // in a layer — see packages/shared's annotation contract.
   | 'annotateText' | 'annotatePen' | 'annotateEraser'
-  // (#525) The four shape tools. Like the fill and the annotation tools, none
-  // of them is a ToolType: a shape emits an operation of its own kind.
-  | 'rectangle' | 'ellipse' | 'polystar' | 'line'
+  // (#525) One shape tool. Like the fill and the annotation tools it is not a
+  // ToolType: a shape emits an operation of its own kind. Which shape it draws
+  // is its own `kind` setting rather than four toolbar entries (Ilya, 05.09) —
+  // the same call the selection tool makes about its three ways of marking a
+  // region.
+  | 'shape'
 
 export type SettingValueType =
   | {
@@ -855,11 +858,11 @@ const KEEP_PROPORTIONS_FIELD: SettingDescriptor = {
   default: false,
 }
 
-/** The fields every shape tool shares. A function rather than a spread
- *  constant because the line has no fill — a line has no inside, and a fill
- *  control that provably does nothing is worse than no control (the same call
- *  the transform tool's `visibleWhen` on keepProportions makes). */
-function shapePaintFields({ fill = true }: { fill?: boolean } = {}): Record<string, SettingDescriptor> {
+/** The paint fields, shared by every shape. The fill ones are gated on the
+ *  kind rather than left out: a line has no inside, and a fill control that
+ *  provably does nothing is worse than no control (the same call the transform
+ *  tool's `visibleWhen` on keepProportions makes). */
+function shapePaintFields(): Record<string, SettingDescriptor> {
   const stroke: Record<string, SettingDescriptor> = {
     strokeColor: {
       nameKey: 'tool.field.strokeColor',
@@ -900,7 +903,6 @@ function shapePaintFields({ fill = true }: { fill?: boolean } = {}): Record<stri
       default: 'inside' satisfies ShapeStrokeAlign,
     },
   }
-  if (!fill) return stroke
   return {
     ...stroke,
     fillColor: {
@@ -909,6 +911,7 @@ function shapePaintFields({ fill = true }: { fill?: boolean } = {}): Record<stri
       uiControls: ['swatch'],
       quickAccess: true,
       default: [0.8, 0.8, 0.8],
+      visibleWhen: v => v.kind !== 'line',
     },
     fillOn: {
       nameKey: 'tool.field.fillOn',
@@ -918,8 +921,19 @@ function shapePaintFields({ fill = true }: { fill?: boolean } = {}): Record<stri
       // an outline, and a filled rectangle dropped over the drawing on the
       // first try is the more expensive mistake to undo.
       default: false,
+      visibleWhen: v => v.kind !== 'line',
     },
   }
+}
+
+/** (#525) The tool's icon per kind, as data: the toolbar button wears whichever
+ *  shape is selected, and the kind picker uses the same glyphs. Icon names,
+ *  never finished labels (see CLAUDE.md on registries). */
+export const SHAPE_KIND_ICONS: Record<ShapeKind, IconName> = {
+  rectangle: 'rectangle',
+  ellipse: 'circle',
+  polystar: 'star',
+  line: 'horizontal_rule',
 }
 
 export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
@@ -1033,17 +1047,34 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   // someone reaches for is a working habit rather than a temporary mode of one
   // edit, so it is worth remembering between rooms — and unlike a stale
   // transform mode, a remembered lasso cannot make the tool read as broken.
-  // ── Shapes (#529, epic #525) ────────────────────────────────────────────
+  // ── Shapes (#529, epic #525) ────────────────────────
   //
-  // Four tools rather than one with a "kind" setting: each is a separate thing
-  // to reach for, and a shared kind field would put the choice one level down
-  // from every other tool in the toolbar. What they *do* share is the paint —
-  // two colours, a width, an alignment — which is why the four schemas below
-  // are built from one spread rather than written out four times.
+  // One tool, four shapes, chosen by a modifier in the quick column — the same
+  // shape of decision the selection tool makes about rectangle/polygon/lasso,
+  // and for the same reason: they are four ways of doing one thing, not four
+  // things. (Ilya, 05.09; it started as four toolbar buttons.)
+  //
+  // Everything below is one schema whose fields appear per kind through
+  // `visibleWhen`, which is exactly what that flag is for: a control that
+  // provably cannot change anything is worse than no control.
   //
   // No separate "oval": the difference that would have justified one is the
   // ellipse's own sector and ring parameters, exactly as in Adobe Animate.
-  rectangle: {
+  shape: {
+    kind: {
+      nameKey: 'tool.field.type',
+      valueType: { kind: 'enumOptions', options: SHAPE_KINDS },
+      optionLabelKeys: {
+        rectangle: 'tool.rectangle',
+        ellipse: 'tool.ellipse',
+        polystar: 'tool.polystar',
+        line: 'tool.line',
+      },
+      optionIcons: SHAPE_KIND_ICONS,
+      uiControls: ['select'],
+      quickAccess: true,
+      default: 'rectangle' satisfies ShapeKind,
+    },
     ...shapePaintFields(),
     cornerRadius: {
       nameKey: 'tool.field.cornerRadius',
@@ -1051,11 +1082,12 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       uiControls: ['slider', 'input'],
       quickAccess: true,
       default: 0,
+      visibleWhen: v => v.kind === 'rectangle',
     },
     // Only the rectangle offers this: it is the only shape whose stroke is
     // drawn between two offset contours, which is what a mitre requires (see
     // shapeGeometry.ts). Everywhere else the join would be a setting with no
-    // effect, which is worse than its absence.
+    // effect.
     strokeJoin: {
       nameKey: 'tool.field.strokeJoin',
       valueType: { kind: 'enumOptions', options: SHAPE_STROKE_JOINS },
@@ -1063,11 +1095,8 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       optionIcons: { miter: 'join-miter', round: 'join-round' },
       uiControls: ['select'],
       default: 'miter' satisfies ShapeStrokeJoin,
+      visibleWhen: v => v.kind === 'rectangle',
     },
-    keepProportions: KEEP_PROPORTIONS_FIELD,
-  },
-  ellipse: {
-    ...shapePaintFields(),
     // The sector, in degrees on screen and radians on the wire. Equal values
     // mean the whole ellipse, which is why both default to 0 rather than to
     // 0 and 360 — "no sector" should be one state, not two that look alike.
@@ -1076,59 +1105,58 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       valueType: { kind: 'numberRange', min: 0, max: 360, step: 1, format: degreesFormat },
       uiControls: ['slider', 'input'],
       default: 0,
+      visibleWhen: v => v.kind === 'ellipse',
     },
     endAngle: {
       nameKey: 'tool.field.endAngle',
       valueType: { kind: 'numberRange', min: 0, max: 360, step: 1, format: degreesFormat },
       uiControls: ['slider', 'input'],
       default: 0,
+      visibleWhen: v => v.kind === 'ellipse',
     },
     innerRadius: {
       nameKey: 'tool.field.innerRadius',
       valueType: { kind: 'numberRange', min: 0, max: 0.95, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider', 'input'],
       default: 0,
+      visibleWhen: v => v.kind === 'ellipse',
     },
     closePath: {
       nameKey: 'tool.field.closePath',
       valueType: { kind: 'boolean' },
       uiControls: ['toggle'],
       default: true,
+      visibleWhen: v => v.kind === 'ellipse',
     },
-    keepProportions: KEEP_PROPORTIONS_FIELD,
-  },
-  polystar: {
-    ...shapePaintFields(),
     points: {
       nameKey: 'tool.field.points',
       valueType: { kind: 'numberRange', min: MIN_POLYSTAR_POINTS, max: 20, step: 1 },
       uiControls: ['slider', 'input'],
       quickAccess: true,
       default: 5,
+      visibleWhen: v => v.kind === 'polystar',
     },
     // "Starness", not the geometric inner radius the operation carries. The
     // two differ on purpose: 0 here is a regular polygon and 1 a needle-thin
     // star, which is continuous and says what the slider does, while the
     // geometry underneath is discontinuous at its own zero (see
-    // ShapeGeometry.polystar in packages/shared). The mapping is one line at
-    // the point the operation is built, which is where a convenience belongs.
+    // ShapeGeometry.polystar in packages/shared). Defaults to 0 — the polygon
+    // is what this tool gets reached for to build with (Ilya, 05.09).
     starness: {
       nameKey: 'tool.field.starness',
       valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
       uiControls: ['slider', 'input'],
       quickAccess: true,
-      default: 0.5,
+      default: 0,
+      visibleWhen: v => v.kind === 'polystar',
     },
     rotation: {
       nameKey: 'tool.field.rotation',
       valueType: { kind: 'numberRange', min: 0, max: 360, step: 1, format: degreesFormat },
       uiControls: ['slider', 'input'],
       default: 0,
+      visibleWhen: v => v.kind === 'polystar',
     },
-    keepProportions: KEEP_PROPORTIONS_FIELD,
-  },
-  line: {
-    ...shapePaintFields({ fill: false }),
     cap: {
       nameKey: 'tool.field.strokeCap',
       valueType: { kind: 'enumOptions', options: SHAPE_STROKE_CAPS },
@@ -1140,17 +1168,23 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
       optionIcons: { butt: 'cap-butt', round: 'cap-round', square: 'cap-square' },
       uiControls: ['select'],
       default: 'round' satisfies ShapeStrokeCap,
+      visibleWhen: v => v.kind === 'line',
+    },
+    keepProportions: {
+      ...KEEP_PROPORTIONS_FIELD,
+      visibleWhen: v => v.kind !== 'line',
     },
     // A line's Shift means something else than every other shape's — an angle
     // snap, not a proportion — so it is its own field rather than
-    // KEEP_PROPORTIONS_FIELD wearing a misleading label. Same modifier, same
-    // place in the panel, different question.
+    // keepProportions wearing a misleading label. Same modifier, same place in
+    // the panel, different question.
     snapAngle: {
       nameKey: 'tool.field.snapAngle',
       valueType: { kind: 'boolean' },
       uiControls: ['toggle'],
       quickAccess: true,
       default: false,
+      visibleWhen: v => v.kind === 'line',
     },
   },
   selection: {
@@ -1495,38 +1529,16 @@ export function toolGradeOptions(toolId: UiToolId): readonly string[] | null {
 // so it carries a real union type; `toolSchemas.test.ts` asserts it matches
 // exactly the set of schemas that actually declare a `color` field, so the
 // two can't silently drift when a tool is added.
-/** (#525) The four shape tools, as data — the one place the set is named, so
- *  "is this a shape?" is answered here rather than by four string comparisons
- *  wherever the question comes up. */
-export const SHAPE_TOOLS = ['rectangle', 'ellipse', 'polystar', 'line'] as const satisfies readonly UiToolId[]
-
-export type ShapeTool = (typeof SHAPE_TOOLS)[number]
-
-export function isShapeTool(toolId: UiToolId): toolId is ShapeTool {
-  return (SHAPE_TOOLS as readonly UiToolId[]).includes(toolId)
+export function isShapeTool(toolId: UiToolId): toolId is 'shape' {
+  return toolId === 'shape'
 }
 
-/** Toolbar identity for the four shapes, as data — icon name and translation
- *  keys, never finished labels (see CLAUDE.md on registries). */
-export const SHAPE_TOOL_ICONS: Record<ShapeTool, IconName> = {
-  rectangle: 'rectangle',
-  ellipse: 'circle',
-  polystar: 'star',
-  line: 'horizontal_rule',
-}
-
-export const SHAPE_TOOL_LABELS: Record<ShapeTool, TranslationKey> = {
-  rectangle: 'tool.rectangle',
-  ellipse: 'tool.ellipse',
-  polystar: 'tool.polystar',
-  line: 'tool.line',
-}
-
-export const SHAPE_TOOL_TITLES: Record<ShapeTool, TranslationKey> = {
-  rectangle: 'tool.rectangleTitle',
-  ellipse: 'tool.ellipseTitle',
-  polystar: 'tool.polystarTitle',
-  line: 'tool.lineTitle',
+/** Which shape the tool is set to draw. Read through here rather than off the
+ *  settings map directly, so an unset or unexpected value lands on the same
+ *  default the schema declares. */
+export function shapeKindOf(settings: ToolSettingsMap): ShapeKind {
+  const value = settings.shape?.kind
+  return (SHAPE_KINDS as readonly string[]).includes(value as string) ? value as ShapeKind : 'rectangle'
 }
 
 /** Which of a shape's two colours the palette, the picker and the eyedropper
@@ -1542,15 +1554,15 @@ export type ShapeSwatch = 'stroke' | 'fill'
  *  `strokeColor`, whatever the swatch says. */
 export function toolColorField(toolId: ColorCapableTool, swatch: ShapeSwatch): string {
   if (!isShapeTool(toolId)) return 'color'
-  return swatch === 'fill' && 'fillColor' in TOOL_SCHEMAS[toolId] ? 'fillColor' : 'strokeColor'
+  return swatch === 'fill' ? 'fillColor' : 'strokeColor'
 }
 
 export const COLOR_CAPABLE_TOOLS = [
   'pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'fill',
-  // (#529) The shapes carry two colours each; `toolColorField` above resolves
-  // which one every colour control is acting on. Being here is what gives them
+  // (#529) The shape tool carries two colours; `toolColorField` above resolves
+  // which one every colour control is acting on. Being here is what gives it
   // the palette, the picker and the eyedropper without a second code path.
-  'rectangle', 'ellipse', 'polystar', 'line',
+  'shape',
   // (#509/#510) The annotation tools carry a colour like any other, and being
   // here is what gives them the swatch, the palette and the eyedropper for
   // free. That the colour ends up on the wire as hex rather than as a triple

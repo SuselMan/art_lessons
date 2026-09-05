@@ -300,13 +300,13 @@ describe('option pickers (#335, #391)', () => {
         // nib on another tool, so it gets the same question about what its
         // angle is measured against.
         'marker.anchor', 'watercolor.anchor', 'charcoal.anchor',
-        // … and the three geometric choices a shape's stroke makes (#529):
-        // where it sits against the contour, how it turns a corner, how it
-        // ends. Each is picked the same way a mode is, and each is drawn
-        // rather than named — they are differences between two pictures of the
-        // same thing, which is exactly what a word fails to convey.
-        'rectangle.strokeAlign', 'ellipse.strokeAlign', 'polystar.strokeAlign', 'line.strokeAlign',
-        'rectangle.strokeJoin', 'line.cap'].sort(),
+        // … and the shape tool's four (#529): which shape it draws, and the
+        // three geometric choices its stroke makes — where it sits against the
+        // contour, how it turns a corner, how it ends. Each is picked the same
+        // way a mode is, and each is drawn rather than named: they are
+        // differences between two pictures of the same thing, which is exactly
+        // what a word fails to convey.
+        'shape.kind', 'shape.strokeAlign', 'shape.strokeJoin', 'shape.cap'].sort(),
     )
   })
 
@@ -487,12 +487,10 @@ describe('slider scales (#390)', () => {
       // (#529) A shape's stroke width is a continuous px size like the brush
       // widths here and belongs to this list for the same reason: it runs
       // 0.5..200 and everything anyone reaches for is in the first tenth of
-      // that. Named per tool rather than derived, so a fifth shape has to be a
-      // deliberate edit here. (The list is in sorted order, which is why the
-      // four are interleaved rather than appended.)
-      'brushPen.size', 'charcoal.size', 'colorPencil.size', 'ellipse.strokeWidth', 'eraser.size',
-      'line.strokeWidth', 'marker.size', 'pencil.size', 'polystar.strokeWidth', 'rectangle.strokeWidth',
-      'smudge.size', 'watercolor.size',
+      // that. (The list is in sorted order, which is why it is interleaved
+      // rather than appended.)
+      'brushPen.size', 'charcoal.size', 'colorPencil.size', 'eraser.size',
+      'marker.size', 'pencil.size', 'shape.strokeWidth', 'smudge.size', 'watercolor.size',
     ])
   })
 

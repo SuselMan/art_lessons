@@ -13,9 +13,12 @@ import styles from './ShapeFrameFields.module.css'
 // The ratio presets are the same thought one level up — the sizes that matter
 // in a composition exercise are ratios, not pixel counts.
 //
-// Shown only while a shape is open, in the quick settings column with the
-// tool's other controls, and gone the moment the shape is confirmed: these
+// Shown only while a shape is open, and gone the moment it is confirmed: these
 // fields edit *this* shape, not the tool.
+//
+// Split in two on purpose (Ilya, 05.09). The numbers live in the quick column,
+// where a hand reaches mid-gesture; the ratio presets live in the full settings
+// panel, because picking 3:4 is a decision made once and the rail is narrow.
 
 /** The ratios worth one tap. Deliberately short: a list of every ratio anyone
  *  might want is a list nobody reads, and the numeric fields are right there
@@ -38,7 +41,6 @@ export function ShapeFrameFields({ frame, onChange }: ShapeFrameFieldsProps) {
   const width = Math.round(Math.abs(frame.width))
   const height = Math.round(Math.abs(frame.height))
   const angle = Math.round((frame.angle * 180) / Math.PI)
-  const ratio = height === 0 ? 1 : Math.abs(frame.width) / Math.abs(frame.height)
 
   return (
     <div className={styles.fields}>
@@ -78,6 +80,17 @@ export function ShapeFrameFields({ frame, onChange }: ShapeFrameFieldsProps) {
           onChange={v => onChange({ ...frame, angle: (v * Math.PI) / 180 })}
         />
       </label>
+    </div>
+  )
+}
+
+/** The ratio presets, for the full settings panel. */
+export function ShapeRatioPresets({ frame, onChange }: ShapeFrameFieldsProps) {
+  const t = useT()
+  const ratio = frame.height === 0 ? 1 : Math.abs(frame.width) / Math.abs(frame.height)
+  return (
+    <div className={styles.panelRatios}>
+      <span className={styles.panelLabel}>{t('room.shape.ratio')}</span>
       <div className={styles.ratios} role="group" aria-label={t('room.shape.ratio')}>
         {RATIO_PRESETS.map(preset => (
           <button

@@ -550,6 +550,20 @@
    decision made in cursorController.ts. The ruler is the one case that writes
    a cursor here directly, per pointer position, and it too reads it from that
    module (RULER_GESTURE_CURSOR). */
+/* (#530) The open shape's handles have to sit above the shape tool's own
+   catcher, which is what makes the difference between "drag this corner" and
+   "start another shape". The transform tool never needed this: it has no
+   catcher at all and listens on the viewport directly.
+
+   pointer-events:none on the layer, so only the gizmo's own shapes take
+   presses — everything else falls through to the catcher below. */
+.shapeGizmoLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
 .canvasCatcher {
   position: absolute;
   inset: 0;

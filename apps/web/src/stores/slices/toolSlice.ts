@@ -55,11 +55,11 @@ export const NON_DRAWING_TOOLS = [
   // serialized contract. That they lay down a visible line is beside the
   // point — the line is not on a layer.
   'annotateText', 'annotatePen', 'annotateEraser',
-  // (#525) The four shape tools fall on this side of the line for the same
-  // reason the fill does: each emits an operation of its own kind (`shape`)
-  // rather than a StrokeOperation, so none of them is a `ToolType` and none
-  // reaches that serialized contract.
-  'rectangle', 'ellipse', 'polystar', 'line',
+  // (#525) The shape tool falls on this side of the line for the same reason
+  // the fill does: it emits an operation of its own kind (`shape`) rather than
+  // a StrokeOperation, so it is not a `ToolType` and never reaches that
+  // serialized contract. Which shape it draws is a setting, not a second tool.
+  'shape',
 ] as const satisfies readonly UiToolId[]
 
 export type NonDrawingTool = (typeof NON_DRAWING_TOOLS)[number]

@@ -58,7 +58,7 @@ import { ClickTracker } from './clickTracker'
 import { useCommittableSession } from './useCommittableSession'
 import { ShapeColorPair } from './ShapeColorPair'
 import { useShapeTool } from './useShapeTool'
-import { ShapeFrameFields } from './ShapeFrameFields'
+import { ShapeFrameFields, ShapeRatioPresets } from './ShapeFrameFields'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
@@ -111,7 +111,7 @@ import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
-  isShapeTool, toolColorField, SHAPE_TOOLS, SHAPE_TOOL_ICONS, SHAPE_TOOL_LABELS, SHAPE_TOOL_TITLES,
+  isShapeTool, toolColorField, shapeKindOf, SHAPE_KIND_ICONS,
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
@@ -2615,6 +2615,19 @@ export function Room() {
   // question this answers is "whose colour am I editing", so it asks the
   // capability (isColorCapableTool) of the tool actually selected, and only
   // falls back for the tools that own no colour at all.
+  // (#529) Choosing a colour also switches that swatch back on.
+  //
+  // Only the shapes have a swatch to switch on, and this is the whole of what
+  // "off" means for them — an explicit absence, not a transparent colour. A
+  // person who reaches for the palette with an empty fill selected is asking
+  // for a fill; making them press the crossed-out circle again first would be
+  // an extra step whose only outcome is the one they already chose (Ilya,
+  // 05.09).
+  const applyToolColor = useCallback((toolId: ColorCapableTool, value: [number, number, number]) => {
+    setToolSetting(toolId, toolColorField(toolId, shapeSwatch), value)
+    if (isShapeTool(toolId)) setToolSetting(toolId, shapeSwatch === 'fill' ? 'fillOn' : 'strokeOn', true)
+  }, [setToolSetting, shapeSwatch])
+
   const colorTool: ColorCapableTool = isColorCapableTool(tool) ? tool : lastDrawingTool
   const colorToolColor = getToolColor(toolSettings, colorTool, shapeSwatch)
   // (#405) Where a picked colour lands: the tool the eyedropper hands the
@@ -3257,7 +3270,7 @@ export function Room() {
       // selected used to silently repaint the pencil's swatch instead, so the
       // picked color never showed up in the stroke that followed. See
       // pickedColorTool for the eraser/smudge case, which owns no color.
-      setToolSetting(pickedColorTool, toolColorField(pickedColorTool, shapeSwatch), picked)
+      applyToolColor(pickedColorTool, picked)
       // (#405) The eyedropper's one schema field, wired at last. It has been
       // in TOOL_SCHEMAS since #196 with nothing behind it, which was tolerable
       // only because the eyedropper was a mode and its settings never reached
@@ -3999,10 +4012,11 @@ export function Room() {
   // for the tools next to it: the same paint target, the same lock ref, the
   // same dispatch. What it adds is a frame that stays editable after the pen
   // comes up — see useShapeTool.
-  const shapeToolId = isShapeTool(tool) ? tool : null
+  const shapeActive = isShapeTool(tool)
   const shape = useShapeTool({
-    tool: shapeToolId,
+    active: shapeActive,
     config,
+    vpEl,
     vpRef,
     engineRef,
     paintTargetIdRef,
@@ -6710,25 +6724,22 @@ export function Room() {
             onClick={() => selectTool('fill')}
           ><Icon name="format_color_fill" /></button>
 
-          {/* (#525) The four shape tools, next to the fill for the same reason
-              the fill sits next to the selection: none of them is a brush, and
-              each one puts a region of pixels down in one gesture rather than
-              laying a stroke.
+          {/* (#525) The shape tool, next to the fill for the same reason the
+              fill sits next to the selection: it is not a brush, and it puts a
+              region of pixels down in one gesture rather than laying a stroke.
 
-              Four buttons rather than one with a chooser behind it: they are
-              four different things to reach for, and hiding three of them one
-              level down would make "draw a frame" a two-step decision every
-              time. */}
-          {SHAPE_TOOLS.map(shapeTool => (
-            <button
-              key={shapeTool}
-              className={clsx(styles.toolIconBtn, tool === shapeTool && styles.toolIconBtnActive)}
-              title={t(SHAPE_TOOL_TITLES[shapeTool])}
-              aria-label={t(SHAPE_TOOL_LABELS[shapeTool])}
-              aria-pressed={tool === shapeTool}
-              onClick={() => selectTool(shapeTool)}
-            ><Icon name={SHAPE_TOOL_ICONS[shapeTool]} /></button>
-          ))}
+              One button rather than four (Ilya, 05.09). The four shapes are
+              four ways of doing one thing, so which one it draws is a modifier
+              in the quick column — the same call the selection tool makes about
+              its three ways of marking a region. The button wears whichever
+              shape is selected, so the toolbar still says what it will draw. */}
+          <button
+            className={clsx(styles.toolIconBtn, shapeActive && styles.toolIconBtnActive)}
+            title={t('tool.shapeTitle')}
+            aria-label={t('tool.shape')}
+            aria-pressed={shapeActive}
+            onClick={() => selectTool('shape')}
+          ><Icon name={SHAPE_KIND_ICONS[shapeKindOf(toolSettings)]} /></button>
 
           <div className={styles.toolDivider} />
 
@@ -6871,7 +6882,9 @@ export function Room() {
           {/* (#530) The numbers behind the drag, and only while a shape is
               open: they edit *this* shape, not the tool. For a frame around a
               thumbnail sketch this is arguably more of the tool than the drag
-              is — an exact size cannot be set with a pen. */}
+              is — an exact size cannot be set with a pen. The ratio presets
+              live in the full settings panel instead (Ilya, 05.09): the rail is
+              for what a hand reaches for mid-gesture. */}
           {shapeFrame && <ShapeFrameFields frame={shapeFrame} onChange={shape.setFrame} />}
           {/* (#446) What can be done with a selection, as buttons rather than
               only as Ctrl+C/X/V. A tablet is a first-class target here and has
@@ -6966,7 +6979,7 @@ export function Room() {
               // pointer path, which is where the two would drift apart.
               style={{
                 width: '100%', height: '100%',
-                pointerEvents: (roomContentReady && !editingBlocked && !handActive) ? undefined : 'none',
+                pointerEvents: (roomContentReady && !editingBlocked && !handActive && !shapeActive) ? undefined : 'none',
               }}
             />
             {/* (#470) The transform moved here, off the canvas.
@@ -7030,6 +7043,7 @@ export function Room() {
                 *means* differs — a shape has no pixels yet, so a handle edits
                 the frame it will be drawn from (see shapeTool.ts). */}
             {!config.infinite && shapeFrame && (
+              <div className={styles.shapeGizmoLayer}>
               <TransformGizmo
                 bounds={{
                   x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
@@ -7053,6 +7067,7 @@ export function Room() {
                 onCenterDown={e => shape.onHandleDown('body', e)}
                 onCenterDoubleClick={() => {}}
               />
+              </div>
             )}
             {!config.infinite && transformActive && transformBounds && (
               <TransformGizmo
@@ -7154,6 +7169,7 @@ export function Room() {
                 <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
               )}
               {shapeFrame && (
+                <div className={styles.shapeGizmoLayer}>
                 <TransformGizmo
                   bounds={{
                     x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
@@ -7177,6 +7193,7 @@ export function Room() {
                   onCenterDown={e => shape.onHandleDown('body', e)}
                   onCenterDoubleClick={() => {}}
                 />
+                </div>
               )}
               {transformActive && transformBounds && (
                 <TransformGizmo
@@ -7241,14 +7258,6 @@ export function Room() {
               style={fillBusy ? { cursor: 'progress' } : undefined}
               onPointerDown={handleFillTap}
             />
-          )}
-          {/* (#530) Same pattern as every tool whose gesture is a press on the
-              canvas. Mounted while a shape tool is in hand; a press that lands
-              on the open shape's own gizmo never reaches here, so dragging a
-              handle and starting the next shape are told apart by which
-              surface the press hit rather than by a mode. */}
-          {shapeToolId && (
-            <div className={styles.canvasCatcher} onPointerDown={shape.onPointerDown} />
           )}
           {rulerActive && (
             <div
@@ -7414,14 +7423,14 @@ export function Room() {
                   <>
                     <ColorPicker
                       value={colorToolColor}
-                      onChange={v => setToolSetting(colorTool, toolColorField(colorTool, shapeSwatch), v)}
+                      onChange={v => applyToolColor(colorTool, v)}
                       mode={colorPickerMode}
                       onModeChange={setColorPickerMode}
                     />
                     <PaletteBar
                       palette={palette}
                       value={colorToolColor}
-                      onSelect={v => setToolSetting(colorTool, toolColorField(colorTool, shapeSwatch), v)}
+                      onSelect={v => applyToolColor(colorTool, v)}
                       onAdd={addPaletteColor}
                       onRemove={removePaletteColor}
                     />
@@ -7482,6 +7491,12 @@ export function Room() {
                         onExpand={key === 'color' ? openColorPicker : undefined}
                       />
                     ))}
+                    {/* (#530) The ratio presets, here rather than in the quick
+                        column (Ilya, 05.09): picking 3:4 is a decision made
+                        once, and the rail is for what a hand reaches for
+                        mid-gesture. Only while a shape is open — they resize
+                        that shape, not the tool. */}
+                    {shapeFrame && <ShapeRatioPresets frame={shapeFrame} onChange={shape.setFrame} />}
                   </div>
                 ),
               },
@@ -7507,7 +7522,7 @@ export function Room() {
           onRedo={handleRedo}
           primaryColor={colorToolColor}
           palette={palette}
-          onSelectColor={v => setToolSetting(colorTool, toolColorField(colorTool, shapeSwatch), v)}
+          onSelectColor={v => applyToolColor(colorTool, v)}
           onOpenColorPicker={openColorPicker}
           roomId={id ?? ''}
           position={panelPosition}

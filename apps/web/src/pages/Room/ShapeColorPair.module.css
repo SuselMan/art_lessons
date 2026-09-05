@@ -29,8 +29,10 @@
   box-shadow: 0 0 0 2px var(--color-accent);
 }
 
-/* "No colour": the red diagonal, drawn as a rotated bar so it stays a
-   straight line at any size and needs no extra element in the DOM. */
+/* "No colour": the red diagonal. Centred by translating the bar back by half
+   its own height *before* the rotation — with `top: 50%` alone the rotation
+   turns the bar about a point 1px below the circle's centre, which is exactly
+   the off-centre line this replaces. */
 .none {
   position: absolute;
   inset: 0;
@@ -46,13 +48,23 @@
   top: 50%;
   height: 2px;
   background: var(--color-error);
-  transform: rotate(-45deg);
+  transform: translateY(-50%) rotate(-45deg);
+  transform-origin: center;
 }
 
-.actions {
+/* Between the two swatches rather than beside them: the arrows point at the
+   circles they trade. */
+.swap {
   display: flex;
-  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 18px;
+  color: var(--color-text-dim);
+  font-size: 16px;
 }
+
+.swap:hover { color: var(--color-text); }
 
 .action {
   display: flex;

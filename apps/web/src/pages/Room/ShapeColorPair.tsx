@@ -8,10 +8,11 @@ import styles from './ShapeColorPair.module.css'
 // first control that has to answer "which colour am I editing?" before the
 // palette, the picker and the eyedropper can do anything at all.
 //
-// Two circles and a swap, the way Ilya described it (05.09) and the way every
-// drawing program has done it since Illustrator: the pair is one control, not
-// two independent swatches, because the operations that matter are "use this
-// one now" and "trade them", and both are one gesture here.
+// Two circles with the swap *between* them (Ilya, 05.09) — the column is
+// vertical, so the arrows point up and down and the control reads as one thing
+// rather than two swatches with a button parked underneath. The pair is one
+// control because the operations that matter are "use this one now" and "trade
+// them", and both are one gesture here.
 //
 // "No colour" is drawn rather than labelled: a white circle struck through in
 // red. A checkbox reading "stroke: off" would be the same state in twice the
@@ -71,24 +72,22 @@ export function ShapeColorPair({
   return (
     <div className={styles.pair}>
       {circle('stroke', strokeColor, strokeOn)}
-      {fillColor && circle('fill', fillColor, fillOn)}
-      <div className={styles.actions}>
-        {fillColor && (
-          <button
-            className={styles.action}
-            title={t('room.shape.swap')}
-            aria-label={t('room.shape.swap')}
-            onClick={onSwap}
-          ><Icon name="swap_horiz" /></button>
-        )}
+      {fillColor && (
         <button
-          className={styles.action}
-          title={t('room.shape.none')}
-          aria-label={t('room.shape.none')}
-          aria-pressed={!activeOn}
-          onClick={onToggleActive}
-        ><Icon name="block" /></button>
-      </div>
+          className={styles.swap}
+          title={t('room.shape.swap')}
+          aria-label={t('room.shape.swap')}
+          onClick={onSwap}
+        ><Icon name="swap_vert" /></button>
+      )}
+      {fillColor && circle('fill', fillColor, fillOn)}
+      <button
+        className={styles.action}
+        title={t('room.shape.none')}
+        aria-label={t('room.shape.none')}
+        aria-pressed={!activeOn}
+        onClick={onToggleActive}
+      ><Icon name="block" /></button>
     </div>
   )
 }

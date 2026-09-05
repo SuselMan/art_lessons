@@ -8,7 +8,7 @@ import {
   frameFromDrag, frameFromHandleDrag, isDrawableFrame, shapeGeometryFrom, shapePaintFrom,
   type ShapeHandle,
 } from './shapeTool'
-import type { ShapeTool } from './toolSchemas'
+import { shapeKindOf } from './toolSchemas'
 
 // (#530) The shape tool's session: the drag that starts a shape, the handles
 // that keep editing it, and the commit that finally writes one operation.
@@ -25,8 +25,12 @@ import type { ShapeTool } from './toolSchemas'
 // only what "apply" writes.
 
 export interface ShapeToolArgs {
-  /** The shape tool in hand, or null when the selected tool is not one. */
-  tool: ShapeTool | null
+  /** The viewport element presses are watched on while the tool is in hand. */
+  vpEl: HTMLElement | null
+  /** True while the shape tool is in hand. Which shape it draws is read from
+   *  its settings at the moment it is needed — changing the kind mid-session
+   *  changes the open shape, like every other setting does. */
+  active: boolean
   config: ({ infinite: boolean } & { width: number; height: number }) | null
   vpRef: RefObject<HTMLElement | null>
   engineRef: RefObject<PencilEngineAPI | null>
@@ -39,8 +43,6 @@ export interface ShapeToolArgs {
 export interface ShapeToolApi {
   /** The frame being edited, or null when no shape is open. */
   frame: ShapeFrame | null
-  /** Canvas catcher handler — starts a new shape (applying any open one). */
-  onPointerDown: (e: React.PointerEvent<HTMLElement>) => void
   /** Gizmo handler: the same handle kinds the transform gizmo reports. */
   onHandleDown: (handle: ShapeHandle, e: React.PointerEvent<SVGElement>) => void
   setFrame: (frame: ShapeFrame) => void
@@ -49,7 +51,7 @@ export interface ShapeToolApi {
 }
 
 export function useShapeTool({
-  tool, config, vpRef, engineRef, paintTargetIdRef, paintTargetLockedRef, handActiveRef, dispatchOp,
+  active, config, vpEl, vpRef, engineRef, paintTargetIdRef, paintTargetLockedRef, handActiveRef, dispatchOp,
 }: ShapeToolArgs): ShapeToolApi {
   const frame = useRoomStore(s => s.shapeFrame)
   const setShapeFrame = useRoomStore(s => s.setShapeFrame)
@@ -59,8 +61,8 @@ export function useShapeTool({
   // keeps for the same reason.
   const frameRef = useRef<ShapeFrame | null>(frame)
   frameRef.current = frame
-  const toolRef = useRef(tool)
-  toolRef.current = tool
+  const activeRef = useRef(active)
+  activeRef.current = active
 
   const toPoint = useCallback((clientX: number, clientY: number) => {
     const el = vpRef.current
@@ -72,12 +74,13 @@ export function useShapeTool({
   const paintPreview = useCallback((next: ShapeFrame | null) => {
     const engine = engineRef.current
     const layerId = paintTargetIdRef.current
-    const shapeTool = toolRef.current
-    if (!engine || !layerId || !shapeTool) return
+    if (!engine || !layerId || !activeRef.current) return
     if (!next) { engine.clearLayerTransformPreview(); return }
-    const values = useRoomStore.getState().toolSettings[shapeTool]
-    const paint = shapePaintFrom(values)
-    engine.previewShape(layerId, shapeGeometryFrom(shapeTool, values), next, paint.stroke, paint.fill)
+    const settings = useRoomStore.getState().toolSettings
+    const paint = shapePaintFrom(settings.shape)
+    engine.previewShape(
+      layerId, shapeGeometryFrom(shapeKindOf(settings), settings.shape), next, paint.stroke, paint.fill,
+    )
   }, [engineRef, paintTargetIdRef])
 
   const setFrame = useCallback((next: ShapeFrame) => {
@@ -95,25 +98,25 @@ export function useShapeTool({
 
   const commit = useCallback(() => {
     const open = frameRef.current
-    const shapeTool = toolRef.current
+    const wasActive = activeRef.current
     // Cleared before the dispatch, not after: appending the operation makes
     // the engine paint it for real, and a preview still standing at that
     // moment would show the shape twice for a frame.
     frameRef.current = null
     setShapeFrame(null)
     engineRef.current?.clearLayerTransformPreview()
-    if (!open || !shapeTool || !isDrawableFrame(open)) return
+    if (!open || !wasActive || !isDrawableFrame(open)) return
     const layerId = paintTargetIdRef.current
     if (!layerId || paintTargetLockedRef.current) return
-    const values = useRoomStore.getState().toolSettings[shapeTool]
-    const paint = shapePaintFrom(values)
+    const settings = useRoomStore.getState().toolSettings
+    const paint = shapePaintFrom(settings.shape)
     // A shape with neither stroke nor fill provably paints nothing, and the
     // log is permanent — see ShapeOperation.
     if (!paint.stroke && !paint.fill) return
     dispatchOp({
       type: 'shape',
       layerId,
-      geometry: shapeGeometryFrom(shapeTool, values),
+      geometry: shapeGeometryFrom(shapeKindOf(settings), settings.shape),
       frame: open,
       stroke: paint.stroke,
       fill: paint.fill,
@@ -125,10 +128,9 @@ export function useShapeTool({
 
   /** Runs one pointer drag, resolving each move from the drag's own origin. */
   const runDrag = useCallback((
-    target: HTMLElement | SVGElement, pointerId: number,
+    pointerId: number,
     resolve: (current: { x: number; y: number }, ev: PointerEvent) => ShapeFrame,
   ) => {
-    try { target.setPointerCapture(pointerId) } catch { /* context loss */ }
 
     const onMove = (ev: PointerEvent) => {
       if (ev.pointerId !== pointerId) return
@@ -163,45 +165,74 @@ export function useShapeTool({
     window.addEventListener('pointercancel', onCancel)
   }, [cancel, setFrame, toPoint])
 
-  const onPointerDown = useCallback((e: React.PointerEvent<HTMLElement>) => {
+  const onPointerDown = useCallback((e: PointerEvent) => {
     // Pen and mouse only, like every other canvas tool here: on a tablet a
     // finger pans and zooms, so a touch that reaches this is almost always the
     // first half of a two-finger gesture.
     if (e.pointerType === 'touch') return
     if (handActiveRef.current) return
     if (e.button !== 0) return
-    const shapeTool = toolRef.current
-    if (!shapeTool) return
+    if (!activeRef.current) return
+    // A press on the open shape's own handles belongs to the gizmo, and this
+    // listener sees it *first*: a native listener on an ancestor runs before
+    // React's delegated one at the root, so `stopPropagation` in the gizmo's
+    // handler comes too late to help. Hit-testing the target is what tells
+    // "resize this shape" from "start the next one".
+    if ((e.target as Element | null)?.closest('[data-transform-gizmo]')) return
     const start = toPoint(e.clientX, e.clientY)
     if (!start) return
     e.preventDefault()
-    e.stopPropagation()
     // Starting a second shape applies the first: a drag that begins away from
     // the open shape means "that one is done, here is the next".
     if (frameRef.current) commitRef.current()
 
-    const keepProportions = useRoomStore.getState().toolSettings[shapeTool].keepProportions === true
-      || useRoomStore.getState().toolSettings[shapeTool].snapAngle === true
-    const kind = shapeTool === 'line' ? 'line' : 'boxed'
+    const settings = useRoomStore.getState().toolSettings
+    const shapeKind = shapeKindOf(settings)
+    // The line's toggle asks a different question (snap the angle) but answers
+    // the same modifier, so the two share one flag from here down.
+    const keepProportions = shapeKind === 'line'
+      ? settings.shape.snapAngle === true
+      : settings.shape.keepProportions === true
+    const kind = shapeKind === 'line' ? 'line' : 'boxed'
     setFrame(frameFromDrag(kind, start, start, { keepProportions, shift: e.shiftKey, fromCenter: e.altKey }))
-    runDrag(e.currentTarget, e.pointerId, (current, ev) => frameFromDrag(kind, start, current, {
+    runDrag(e.pointerId, (current, ev) => frameFromDrag(kind, start, current, {
       keepProportions, shift: ev.shiftKey, fromCenter: ev.altKey,
     }))
   }, [handActiveRef, runDrag, setFrame, toPoint])
+
+  const onPointerDownRef = useRef(onPointerDown)
+  onPointerDownRef.current = onPointerDown
+
+  // (#530) On the viewport, natively, exactly as the transform tool's own
+  // click-past listener is — and for a reason that cost a debugging session:
+  // a full-viewport catcher div (the pattern the ruler, the fill and the
+  // selection all use) sits *above* the gizmo, because the gizmo lives inside
+  // `.canvasWrap`, which carries the viewport transform and therefore its own
+  // stacking context. No z-index inside that context can lift a handle above a
+  // catcher outside it, so with a catcher the handles were unreachable: every
+  // press on a corner started another shape instead of resizing this one.
+  //
+  // The canvas below is made inert while a shape tool is in hand (see its
+  // `pointerEvents`), which is the other half of what the catcher was doing.
+  useEffect(() => {
+    if (!active || !vpEl) return
+    const onDown = (e: PointerEvent): void => { onPointerDownRef.current(e) }
+    vpEl.addEventListener('pointerdown', onDown)
+    return () => { vpEl.removeEventListener('pointerdown', onDown) }
+  }, [active, vpEl])
 
   const onHandleDown = useCallback((handle: ShapeHandle, e: React.PointerEvent<SVGElement>) => {
     if (e.pointerType === 'touch') return
     if (handActiveRef.current) return
     if (e.button !== 0) return
     const open = frameRef.current
-    const shapeTool = toolRef.current
-    if (!open || !shapeTool) return
+    if (!open || !activeRef.current) return
     const start = toPoint(e.clientX, e.clientY)
     if (!start) return
     e.preventDefault()
     e.stopPropagation()
-    const keepProportions = useRoomStore.getState().toolSettings[shapeTool].keepProportions === true
-    runDrag(e.currentTarget, e.pointerId, (current, ev) => frameFromHandleDrag(open, handle, start, current, {
+    const keepProportions = useRoomStore.getState().toolSettings.shape.keepProportions === true
+    runDrag(e.pointerId, (current, ev) => frameFromHandleDrag(open, handle, start, current, {
       keepProportions, shift: ev.shiftKey,
     }))
   }, [handActiveRef, runDrag, toPoint])
@@ -219,9 +250,9 @@ export function useShapeTool({
   // Putting the tool down applies the shape, exactly as it applies a transform
   // (#528). The cleanup runs on tool change and on leaving the room.
   useEffect(() => {
-    if (!tool) return
+    if (!active) return
     return () => { commitRef.current() }
-  }, [tool])
+  }, [active])
 
-  return { frame, onPointerDown, onHandleDown, setFrame, commit, cancel }
+  return { frame, onHandleDown, setFrame, commit, cancel }
 }

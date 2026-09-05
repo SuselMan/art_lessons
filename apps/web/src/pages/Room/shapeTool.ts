@@ -1,6 +1,6 @@
 import type { ShapeFrame, ShapeGeometry, ShapeFill, ShapeStroke } from '@grafetto/shared'
+import type { ShapeKind } from '@grafetto/shared'
 import type { ToolSettingsValue } from './toolSchemas'
-import type { ShapeTool } from './toolSchemas'
 
 // (#530) The arithmetic of drawing a shape: what a drag means, and how the
 // tool's settings become the geometry and paint an operation carries.
@@ -99,8 +99,8 @@ export function isDrawableFrame(frame: ShapeFrame): boolean {
  *  its own zero (see ShapeGeometry.polystar). cos(PI/points) is where the
  *  inner vertices land exactly on the edges between the outer ones, i.e. the
  *  polygon, so starness scales down from there. */
-export function shapeGeometryFrom(tool: ShapeTool, values: ToolSettingsValue): ShapeGeometry {
-  switch (tool) {
+export function shapeGeometryFrom(kind: ShapeKind, values: ToolSettingsValue): ShapeGeometry {
+  switch (kind) {
     case 'rectangle':
       return { kind: 'rectangle', cornerRadius: num(values.cornerRadius) }
     case 'ellipse':

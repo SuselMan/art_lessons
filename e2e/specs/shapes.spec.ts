@@ -18,6 +18,20 @@ import {
 
 const GIZMO = '[data-transform-gizmo]'
 
+/** Picks up the shape tool and sets which shape it draws.
+ *
+ *  The tool comes from the toolbar, the kind from the store: the kind is a
+ *  setting like any other (#529 — one tool, four shapes), and driving its
+ *  option picker through the DOM would test the picker rather than the shape. */
+async function useShape(page: import('@playwright/test').Page, kind: string): Promise<void> {
+  await page.getByRole('button', { name: 'Shape', exact: true }).click()
+  await page.evaluate(k => {
+    const store = window.__roomStore
+    if (!store) throw new Error('e2e: no room store')
+    store.getState().setToolSetting('shape', 'kind', k)
+  }, kind)
+}
+
 /** Drags a shape across the canvas with a real mouse, the way a person does.
  *  Synthetic pointer events dispatched from page script would not do: the app
  *  reads pointer capture and modifier state off the real event. */
@@ -47,7 +61,7 @@ test.describe('shapes', () => {
     const layer = await activeLayerId(page)
     expect(await hasLayerContent(page, layer)).toBe(false)
 
-    await page.getByRole('button', { name: 'Rectangle', exact: true }).click()
+    await useShape(page, 'rectangle')
     await dragShape(page, [320, 260], [620, 440])
 
     // The pen is up and the shape is *not* in the log yet — the whole premise
@@ -73,7 +87,7 @@ test.describe('shapes', () => {
     await waitForRoomReady(page)
     const layer = await activeLayerId(page)
 
-    await page.getByRole('button', { name: 'Rectangle', exact: true }).click()
+    await useShape(page, 'rectangle')
     const box = await page.locator('canvas').first().boundingBox()
     if (!box) throw new Error('e2e: no canvas box')
     await page.mouse.click(box.x + 400, box.y + 300)
@@ -88,7 +102,7 @@ test.describe('shapes', () => {
     await waitForRoomReady(page)
     const layer = await activeLayerId(page)
 
-    await page.getByRole('button', { name: 'Ellipse', exact: true }).click()
+    await useShape(page, 'ellipse')
     await dragShape(page, [320, 260], [560, 420])
     await expect(page.locator(GIZMO)).toBeVisible()
 
@@ -100,11 +114,38 @@ test.describe('shapes', () => {
     expect(await hasLayerContent(page, layer)).toBe(false)
   })
 
+  test('the handles keep working after the pen comes up', async ({ page }) => {
+    await createRoom(page)
+    await waitForRoomReady(page)
+
+    await useShape(page, 'rectangle')
+    await dragShape(page, [320, 260], [560, 400])
+    const before = await page.evaluate(() => window.__roomStore?.getState().shapeFrame)
+    expect(before).toBeTruthy()
+
+    // Grab the rotate zone just outside a corner and drag: the gizmo sits above
+    // the tool's own catcher, so this turns the shape instead of starting the
+    // next one (#530).
+    const box = await page.locator('canvas').first().boundingBox()
+    if (!box) throw new Error('e2e: no canvas box')
+    await page.mouse.move(box.x + 560 + 22, box.y + 400 + 22)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 520, box.y + 470)
+    await page.mouse.move(box.x + 440, box.y + 500)
+    await page.mouse.up()
+
+    const after = await page.evaluate(() => window.__roomStore?.getState().shapeFrame)
+    expect(after).toBeTruthy()
+    expect(after!.angle).not.toBe(before!.angle)
+    // Still one shape being placed, not two.
+    expect((await operations(page)).filter(op => op.type === 'shape')).toHaveLength(0)
+  })
+
   test('Shift constrains the drag to a square', async ({ page }) => {
     await createRoom(page)
     await waitForRoomReady(page)
 
-    await page.getByRole('button', { name: 'Rectangle', exact: true }).click()
+    await useShape(page, 'rectangle')
     await dragShape(page, [320, 260], [620, 360], { modifier: 'Shift' })
     await page.keyboard.press('Enter')
     await waitForOperations(page, 'shape')
@@ -122,18 +163,18 @@ test.describe('shapes', () => {
 
     // One of each, so a shader branch that fails to compile or draws nothing
     // is caught per kind rather than only for the rectangle.
-    const tools: Array<[string, [number, number], [number, number]]> = [
-      ['Rectangle', [200, 200], [340, 300]],
-      ['Ellipse', [380, 200], [520, 300]],
-      ['Star', [560, 200], [700, 300]],
-      ['Line', [200, 360], [700, 420]],
+    const kinds: Array<[string, [number, number], [number, number]]> = [
+      ['rectangle', [200, 200], [340, 300]],
+      ['ellipse', [380, 200], [520, 300]],
+      ['polystar', [560, 200], [700, 300]],
+      ['line', [200, 360], [700, 420]],
     ]
-    for (const [name, from, to] of tools) {
-      await page.getByRole('button', { name, exact: true }).click()
+    for (const [kind, from, to] of kinds) {
+      await useShape(page, kind)
       await dragShape(page, from, to)
       await page.keyboard.press('Enter')
     }
-    await waitForOperations(page, 'shape', tools.length)
+    await waitForOperations(page, 'shape', kinds.length)
 
     expect(await hasLayerContent(page, layer)).toBe(true)
     expect(await maxDarknessOverContent(page, layer)).toBeGreaterThan(INK)

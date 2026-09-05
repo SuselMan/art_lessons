@@ -509,8 +509,11 @@ export const en = {
   'tool.selection': 'Select',
   'tool.selectionTitle': 'Select — mark a region, then move it with Transform, or cut/copy/paste it. Esc clears it  {hotkey}',
   'tool.fill': 'Fill',
-  // (#525) The four shape tools. No {hotkey} yet — see the annotation tools
-  // above for why a placeholder with nothing to fill it is worse than none.
+  'tool.shape': 'Shape',
+  'tool.shapeTitle': 'Shape — pick rectangle, ellipse, star or line in the settings, then drag one out. Shift constrains, Alt draws from the centre. Enter applies, Esc cancels',
+  // (#525) The four shapes, which are the kind picker's options rather than
+  // four tools. No {hotkey} yet — see the annotation tools above for why a
+  // placeholder with nothing to fill it is worse than none.
   'tool.rectangle': 'Rectangle',
   'tool.rectangleTitle': 'Rectangle — drag a frame; Shift keeps it square, Alt draws from the centre. Enter applies, Esc cancels',
   'tool.ellipse': 'Ellipse',
