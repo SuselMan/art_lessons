@@ -946,10 +946,19 @@ ${WC_NOISE_GLSL}
     a *= 0.25;
     float dep = a.a;
     float wat = dep > 0.004 ? clamp(a.r / dep, 0.0, 1.0) : 0.0;
+    // (#536) …and how wet the *paper* under it already was, which this pass did
+    // not consult at all. That omission is why painting into a puddle looked no
+    // different from painting on dry paper: the machinery for moving pigment
+    // was here, gated on the brush alone, and therefore blind to the one thing
+    // wet-in-wet is about.
+    float pap = dep > 0.004 ? clamp(a.g / dep, 0.0, 1.0) : 0.0;
     float cov = texture2D(u_strokeCoverage, uv).a;
     // How wet this place counts as: mostly the mix the stroke was made with,
-    // nudged by the water actually left in the brush here.
-    float wetness = mix(u_water, wat, WC_MIGRATE_LOCAL);
+    // nudged by the water actually left in the brush here — and never less than
+    // what was already lying on the paper. Same rule the profile draws between
+    // contact and transport: the brush decides how the paint is laid, the paper
+    // decides what becomes of it afterwards.
+    float wetness = max(mix(u_water, wat, WC_MIGRATE_LOCAL), pap);
     // Can exceed 1 — see WC_MIGRATE_FLOOD. Only the flux reads it that way; the
     // tideline's own retreat clamps it back (search for min(migrateGate, 1.0)).
     float gate = smoothstep(u_migrateLo, u_migrateHi, wetness)
@@ -2826,6 +2835,16 @@ export const PAPER_COMPOSE_FRAG = `
   // is wet" and switching the whole term off.
   uniform sampler2D u_wetMap;
   uniform vec4 u_wetRect;
+  /** Texels of u_wetMap, so its slope can be read a texel at a time. */
+  uniform vec2 u_wetMapSize;
+
+  // (#536) How steeply the water's own surface is taken to rise over the map's
+  // 0..1 wetness — the map has no depth, so this is the one number that turns
+  // "how wet" into "what shape". High enough that the rim of a puddle catches
+  // the light, low enough that its middle stays flat and dark.
+  const float WC_WET_RELIEF = 6.0;
+  const vec3 WC_WET_LIGHT = vec3(-0.42, -0.55, 0.72);
+  const float WC_WET_GLOSS = 0.22;
 
   varying vec2 v_uv;
 
@@ -2926,9 +2945,22 @@ export const PAPER_COMPOSE_FRAG = `
     // room. Suppressing the paper's own micro-contrast is what the eye
     // actually reads as "this patch is still wet", and it costs one lerp.
     float wet = 0.0;
+    // (#536) …and the shape of the water's surface, for the sheen below.
+    vec3 wetNormal = vec3(0.0, 0.0, 1.0);
     if (u_wetRect.z > u_wetRect.x) {
-      vec2 wetUV = (worldPos - u_wetRect.xy) / max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
+      vec2 wetSpan = max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
+      vec2 wetUV = (worldPos - u_wetRect.xy) / wetSpan;
       if (wetUV.x >= 0.0 && wetUV.x <= 1.0 && wetUV.y >= 0.0 && wetUV.y <= 1.0) {
+        // Slope of the water, from the map itself. Four taps a texel apart:
+        // standing water is not flat, it is a shallow lens that is thickest in
+        // the middle and bends down at the rim, and it is that bend that
+        // catches the light.
+        vec2 wetStep = vec2(1.0) / max(u_wetMapSize, vec2(1.0));
+        float wxL = texture2D(u_wetMap, wetUV - vec2(wetStep.x, 0.0)).r;
+        float wxR = texture2D(u_wetMap, wetUV + vec2(wetStep.x, 0.0)).r;
+        float wyD = texture2D(u_wetMap, wetUV - vec2(0.0, wetStep.y)).r;
+        float wyU = texture2D(u_wetMap, wetUV + vec2(0.0, wetStep.y)).r;
+        wetNormal = normalize(vec3((wxL - wxR) * WC_WET_RELIEF, (wyD - wyU) * WC_WET_RELIEF, 1.0));
         // (#536) Thresholded, not used raw. The field is what the *model*
         // reads to decide how paint behaves, and it is deliberately generous
         // there — a trace of damp still matters to a brush. On screen a trace
@@ -2942,6 +2974,19 @@ export const PAPER_COMPOSE_FRAG = `
     // the grain is what keeps a wet patch reading as paper rather than as a
     // hole in the paper.
     float shownHeight = mix(paperHeight, 0.5, wet * 0.5);
+    // (#536) The sheen, at Ilya's request: he can see the paper wet and dry and
+    // wants the wet area called out more plainly.
+    //
+    // Deliberately *not* a broad gloss over the whole puddle. A fixed virtual
+    // light over a flat film puts a stable pattern of reflections on the sheet
+    // that the eye starts reading as part of the drawing, and lacquers it. What
+    // a real puddle actually shows is a bright line where its surface bends —
+    // the bead at the rim, the lens around a pool — so the highlight is driven
+    // by the *slope* of the water and is nearly absent across its flat middle.
+    // That also makes it read as a wet edge rather than as a glow.
+    float sheen = pow(max(dot(wetNormal, normalize(WC_WET_LIGHT)), 0.0), 22.0);
+    // Only where there is water to shine, and never on bare paper.
+    float gloss = sheen * wet * WC_WET_GLOSS;
 
     ${paperToneGLSL('shownHeight')}
     float graphiteTexture = mix(1.0, shownHeight * 0.5 + 0.2, graphite * 0.25);
@@ -2952,6 +2997,7 @@ export const PAPER_COMPOSE_FRAG = `
     // Three per cent at full flood — under what anyone would call a change of
     // colour, and enough to see a puddle.
     color *= mix(1.0, 0.985, wet);
+    color += vec3(gloss);
 
     // Antialiased page edge. A hard test leaves the sheet's border crawling
     // with jaggies at any camera angle, and the border is a straight line the

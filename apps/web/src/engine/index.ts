@@ -1864,6 +1864,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _wetTex: WebGLTexture | null = null
   private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
   private _wetTexAt = 0
+  /** Texels of the wetness map, so the display pass can read its slope. */
+  private _wetMapSize: [number, number] = [1, 1]
   /** Quantized wetness the screen is currently showing, so the drying watcher
    *  can skip the frames that would look identical. -1 = nothing shown. */
   private _wetShown = -1
@@ -5225,7 +5227,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
-      'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect',
+      'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect', 'u_wetMapSize',
     ])
     this._smudgeUni = getUniforms(gl, this._smudgeProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
@@ -9078,6 +9080,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Exactly the world the texture describes, border texels included, so a
     // texel centre lands on the centre of the cells it was built from. Any
     // other rect displaces the whole map — see the padding note above.
+    this._wetMapSize = [w, h]
     const cell = WET_CELL_PX * step
     this._wetRect = [
       b.minCx * WET_CELL_PX - cell, b.minCy * WET_CELL_PX - cell,
@@ -9111,6 +9114,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
     gl.uniform1i(u.u_wetMap, 2)
     gl.uniform4fv(u.u_wetRect, this._wetRect)
+    gl.uniform2f(u.u_wetMapSize, this._wetMapSize[0], this._wetMapSize[1])
     gl.activeTexture(gl.TEXTURE0)
 
     gl.uniform3fv(u.u_paperColor, this._opts.paperColor ?? paperColorOf(this._opts.paper))
@@ -10476,6 +10480,7 @@ export class PencilEngine implements PencilEngineAPI {
     // artist's own paper happened to be damp at the moment they pressed the
     // button is not a property of the drawing.
     gl.uniform4f(u.u_wetRect, 0, 0, -1, -1)
+    gl.uniform2f(u.u_wetMapSize, 1, 1)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     const posLoc = this._paperComposePosLoc
