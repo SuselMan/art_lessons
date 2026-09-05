@@ -455,9 +455,16 @@ function layerStateIdsOf(state: unknown): Set<string> | null {
  *  way this list exists for.
  *
  *  (#453) `area_fill` for both reasons at once: one layer, nothing but paint,
- *  and an inline raster the size of whatever was filled. */
+ *  and an inline raster the size of whatever was filled.
+ *
+ *  (#525) `shape` joins for the first reason only — one layer, nothing but
+ *  paint. It is small on the wire (a recipe, not a raster), so nothing is
+ *  saved by withholding it; it is here because a snapshot taken after it
+ *  genuinely stands in for it, and leaving it out would make a room replay
+ *  paint it a second time over pixels that already have it. */
 const COVERABLE_OP_TYPES = [
   'stroke', 'image_import', 'layer_clear', 'area_transform', 'area_clear', 'area_paste', 'area_fill',
+  'shape',
 ]
 
 /** (#412) `'layerId' in op` used to be enough to narrow to a single-target
@@ -467,6 +474,7 @@ const COVERABLE_OP_TYPES = [
  *  the three operations that carry pixels — and keeps the one list of them. */
 type CoverableOperation = Extract<Operation, {
   type: 'stroke' | 'image_import' | 'layer_clear' | 'area_transform' | 'area_clear' | 'area_paste' | 'area_fill'
+    | 'shape'
 }>
 
 function isCoverableOp(op: Operation): op is CoverableOperation {
@@ -1344,7 +1352,11 @@ function hasMissingAliveTarget(record: RoomRecord, op: Operation): boolean {
     // (#453) The fill is Class 2 for the same reason: it carries its pixels,
     // so a client that has not caught up simply paints them late rather than
     // resolving a reference that has gone.
-    case 'area_fill': return record.deletedIds.has(op.layerId)
+    case 'area_fill':
+    // (#525) Class 2 as well: a shape carries everything needed to draw it,
+    // so a client behind on layer structure paints it late rather than
+    // resolving a reference that has gone.
+    case 'shape': return record.deletedIds.has(op.layerId)
     default: return false
   }
 }

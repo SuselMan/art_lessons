@@ -542,6 +542,9 @@ export function applyContentOp(state: LayerState, op: Operation): LayerState {
     case 'area_clear':
     case 'area_paste':
     case 'area_fill':
+    // (#525) A shape paints pixels into an existing layer and touches no
+    // structure, exactly like the four above.
+    case 'shape':
     case 'operation_revoke':
     case 'operation_undo':
     case 'operation_redo':
