@@ -1,5 +1,7 @@
 import type { StateCreator } from 'zustand'
 
+import type { ShapeFrame } from '@grafetto/shared'
+
 import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor, type ShapeSwatch } from '../../pages/Room/toolSchemas'
 
 // ── one selected tool (#405) ────────────────────────────────────────────────
@@ -133,6 +135,17 @@ export interface ToolSlice {
    *  should keep editing the fill. Not persisted for the same reason. */
   shapeSwatch: ShapeSwatch
   setShapeSwatch: (swatch: ShapeSwatch) => void
+  /** (#530) The shape being placed right now — the frame of an unconfirmed
+   *  shape, or null when none is open.
+   *
+   *  In the store rather than in the hook that drives it because three
+   *  unrelated things read it: the gizmo that draws its handles, the numeric
+   *  fields that size it, and the engine preview. Nothing else about the shape
+   *  lives here — the geometry and the paint are read from the tool's settings
+   *  at the moment they are needed, so changing a setting while a shape is open
+   *  changes the shape, which is what "editable until confirmed" means. */
+  shapeFrame: ShapeFrame | null
+  setShapeFrame: (frame: ShapeFrame | null) => void
   /** The one tool in hand. Everything else about "which tool is on" is
    *  derived from this — there is no second axis to disagree with it. */
   tool: EditorTool
@@ -215,6 +228,8 @@ function moveToFront<T>(list: readonly T[], item: T): readonly T[] {
 export const createToolSlice: StateCreator<ToolSlice> = set => ({
   shapeSwatch: 'stroke',
   setShapeSwatch: swatch => set({ shapeSwatch: swatch }),
+  shapeFrame: null,
+  setShapeFrame: frame => set({ shapeFrame: frame }),
   tool: 'pencil',
   drawingTool: 'pencil',
   lastDrawingTool: 'pencil',

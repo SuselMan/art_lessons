@@ -1,0 +1,46 @@
+/* (#530) The numeric half of placing a shape, in the quick settings column.
+   Narrow by necessity — the column is a rail — so the label sits above its
+   field rather than beside it, the way SettingField's panel layout does for
+   the same reason. */
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.label {
+  font-size: 10px;
+  color: var(--color-text-dim);
+  text-align: center;
+}
+
+.ratios {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  margin-top: 2px;
+}
+
+.ratio {
+  padding: 2px 0;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--color-text-dim);
+  background: var(--color-surface);
+}
+
+.ratio:hover { color: var(--color-text); background: var(--color-surface-hover); }
+
+.ratio[aria-pressed='true'] {
+  color: var(--color-accent);
+  background: var(--color-surface-hover);
+}

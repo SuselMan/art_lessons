@@ -57,6 +57,8 @@ import { useCanvasTap } from './useCanvasTap'
 import { ClickTracker } from './clickTracker'
 import { useCommittableSession } from './useCommittableSession'
 import { ShapeColorPair } from './ShapeColorPair'
+import { useShapeTool } from './useShapeTool'
+import { ShapeFrameFields } from './ShapeFrameFields'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
@@ -3993,6 +3995,40 @@ export function Room() {
   const paintTargetIdRef = useRef(paintTargetId)
   paintTargetIdRef.current = paintTargetId
 
+  // (#530) The shape tool's own session. Everything it needs is already here
+  // for the tools next to it: the same paint target, the same lock ref, the
+  // same dispatch. What it adds is a frame that stays editable after the pen
+  // comes up — see useShapeTool.
+  const shapeToolId = isShapeTool(tool) ? tool : null
+  const shape = useShapeTool({
+    tool: shapeToolId,
+    config,
+    vpRef,
+    engineRef,
+    paintTargetIdRef,
+    paintTargetLockedRef,
+    handActiveRef,
+    dispatchOp,
+  })
+  const shapeFrame = shape.frame
+  // Read through a ref by the key handler, which is installed once: it must
+  // see the current session, not the one that was open when it was bound.
+  const shapeRef = useRef(shape)
+  shapeRef.current = shape
+  // The same three clauses the transform session gets, for the same reasons —
+  // one mechanism, two tools (#528). A click past an open shape applies it and
+  // leaves the tool in hand: unlike a transform, drawing shapes is something
+  // you do several of in a row.
+  useCommittableSession({
+    active: shapeFrame !== null,
+    commit: shape.commit,
+    vpEl,
+    handActiveRef,
+    ownControlsSelector: '[data-transform-gizmo]',
+    onClickPast: shape.commit,
+  })
+
+
   // (#453) The fill's one gesture: a tap works out the region and emits an
   // `area_fill`. Two pieces of state around it, both for the same reason —
   // the work happens on the main thread and is not instant (a readback of the
@@ -5947,6 +5983,15 @@ export function Room() {
         if (e.key === 'Enter') { commitTransformSessionRef.current(true); e.preventDefault(); return }
         if (e.key === 'Escape') { resetTransformSessionRef.current(); e.preventDefault(); return }
       }
+      // (#530) An open shape answers the same two keys the same way, and for
+      // the same reason it is unbindable: Enter and Esc are the platform's
+      // confirm and cancel, and an unconfirmed shape must always have a way to
+      // be finished or abandoned. Esc leaves no trace on the undo stack —
+      // nothing was ever committed.
+      if (useRoomStore.getState().shapeFrame) {
+        if (e.key === 'Enter') { shapeRef.current.commit(); e.preventDefault(); return }
+        if (e.key === 'Escape') { shapeRef.current.cancel(); e.preventDefault(); return }
+      }
       // (#446) The selection's own three unbindable keys, in the same place
       // and for the same reason as the two above: Enter and Esc are the
       // platform's confirm and cancel, and a rebind able to move them could
@@ -6823,6 +6868,11 @@ export function Room() {
                 onExpand={key === 'color' ? openColorPicker : undefined}
               />
             ))}
+          {/* (#530) The numbers behind the drag, and only while a shape is
+              open: they edit *this* shape, not the tool. For a frame around a
+              thumbnail sketch this is arguably more of the tool than the drag
+              is — an exact size cannot be set with a pen. */}
+          {shapeFrame && <ShapeFrameFields frame={shapeFrame} onChange={shape.setFrame} />}
           {/* (#446) What can be done with a selection, as buttons rather than
               only as Ctrl+C/X/V. A tablet is a first-class target here and has
               no modifier keys at all: without these, cut/copy/paste — the half
@@ -6975,6 +7025,35 @@ export function Room() {
             {!config.infinite && rulerVisible && rulerLine && (
               <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
             )}
+            {/* (#530) The shape's own handles are the transform gizmo's: same
+                component, same hit areas, same rotate zones. Only what a drag
+                *means* differs — a shape has no pixels yet, so a handle edits
+                the frame it will be drawn from (see shapeTool.ts). */}
+            {!config.infinite && shapeFrame && (
+              <TransformGizmo
+                bounds={{
+                  x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
+                  y: Math.min(shapeFrame.y, shapeFrame.y + shapeFrame.height),
+                  width: Math.abs(shapeFrame.width),
+                  height: Math.abs(shapeFrame.height),
+                }}
+                center={{
+                  x: shapeFrame.x + shapeFrame.width / 2,
+                  y: shapeFrame.y + shapeFrame.height / 2,
+                }}
+                matrix={rotateAboutMatrix(
+                  shapeFrame.angle,
+                  shapeFrame.x + shapeFrame.width / 2,
+                  shapeFrame.y + shapeFrame.height / 2,
+                )}
+                zoom={vp.zoom}
+                angleRad={vp.angle}
+                mode="free"
+                onHandleDown={shape.onHandleDown}
+                onCenterDown={e => shape.onHandleDown('body', e)}
+                onCenterDoubleClick={() => {}}
+              />
+            )}
             {!config.infinite && transformActive && transformBounds && (
               <TransformGizmo
                 bounds={transformBounds}
@@ -7074,6 +7153,31 @@ export function Room() {
               {rulerVisible && rulerLine && (
                 <RulerOverlay a={rulerLine.a} b={rulerLine.b} zoom={vp.zoom} angle={vp.angle} showDistance={rulerMeasuring} />
               )}
+              {shapeFrame && (
+                <TransformGizmo
+                  bounds={{
+                    x: Math.min(shapeFrame.x, shapeFrame.x + shapeFrame.width),
+                    y: Math.min(shapeFrame.y, shapeFrame.y + shapeFrame.height),
+                    width: Math.abs(shapeFrame.width),
+                    height: Math.abs(shapeFrame.height),
+                  }}
+                  center={{
+                    x: shapeFrame.x + shapeFrame.width / 2,
+                    y: shapeFrame.y + shapeFrame.height / 2,
+                  }}
+                  matrix={rotateAboutMatrix(
+                    shapeFrame.angle,
+                    shapeFrame.x + shapeFrame.width / 2,
+                    shapeFrame.y + shapeFrame.height / 2,
+                  )}
+                  zoom={vp.zoom}
+                  angleRad={vp.angle}
+                  mode="free"
+                  onHandleDown={shape.onHandleDown}
+                  onCenterDown={e => shape.onHandleDown('body', e)}
+                  onCenterDoubleClick={() => {}}
+                />
+              )}
               {transformActive && transformBounds && (
                 <TransformGizmo
                   bounds={transformBounds}
@@ -7137,6 +7241,14 @@ export function Room() {
               style={fillBusy ? { cursor: 'progress' } : undefined}
               onPointerDown={handleFillTap}
             />
+          )}
+          {/* (#530) Same pattern as every tool whose gesture is a press on the
+              canvas. Mounted while a shape tool is in hand; a press that lands
+              on the open shape's own gizmo never reaches here, so dragging a
+              handle and starting the next shape are told apart by which
+              surface the press hit rather than by a mode. */}
+          {shapeToolId && (
+            <div className={styles.canvasCatcher} onPointerDown={shape.onPointerDown} />
           )}
           {rulerActive && (
             <div
