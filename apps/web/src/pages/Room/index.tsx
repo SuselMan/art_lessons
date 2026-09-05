@@ -615,6 +615,10 @@ export function Room() {
   // (#536) See the effect below — the caricature that answers whether the hair
   // structure is right at all, before anyone tunes its amplitude again.
   const wcBristleDebug = getFeatureFlag('wcBristleDebug')
+  // (#536) Which term of the composite to paint instead of the finished wash.
+  const wcDebugView: 0 | 1 | 2 = getFeatureFlag('wcViewDensity')
+    ? 2
+    : getFeatureFlag('wcViewSilhouette') ? 1 : 0
   const [hapticStats, setHapticStats] = useState<HapticGrainStats | null>(null)
 
   // Dev-only grain A/B (see SettingsPanel / DAB_FRAG's computeGrain) — live
@@ -2533,6 +2537,9 @@ export function Room() {
       wcBristleDebug ? { combs: 28, depth: 0.40 } : null,
     )
   }, [wcBristleDebug, engineEpoch])
+  useEffect(() => {
+    engineRef.current?.setWatercolorDebugView(wcDebugView)
+  }, [wcDebugView, engineEpoch])
   // #409: the tilt-response setting of whichever tool is in hand. The engine
   // holds one active response rather than a table (see setTiltResponse), so the
   // lookup is here — and it goes through `isTiltResponse` rather than a cast:

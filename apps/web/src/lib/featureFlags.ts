@@ -46,6 +46,18 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'Turns the brush hair up to about thirty bundles at forty per cent and switches the wash mottling off, so the only thing on screen is the bristle structure. It answers one question: does the eye read long streaks along the travel? Three builds in a row came back "no bristles visible" and each time the temptation was to raise the amplitude again — at ten per cent a modulation is present and perceptually buried, so a pixel diff proves nothing about whether the organisation is right. Use flat paper and a long straight stroke.',
     envVar: 'VITE_WC_BRISTLE_DEBUG',
   },
+  {
+    key: 'wcViewSilhouette',
+    label: 'Watercolor: show silhouette only (dev only)',
+    description: 'Paints the wash with its silhouette as the tone — the mark after spreading and its re-threshold — instead of the finished colour. If the blotching is here, it is the spread field eating into the mark.',
+    envVar: 'VITE_WC_VIEW_SILHOUETTE',
+  },
+  {
+    key: 'wcViewDensity',
+    label: 'Watercolor: show density only (dev only)',
+    description: 'Paints the wash with the film density as the tone — everything the deposit carries, including the mottling now written into it. If the blotching is here, it is the deposit. Wins over the silhouette view when both are on.',
+    envVar: 'VITE_WC_VIEW_DENSITY',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'

@@ -603,6 +603,8 @@ export const DAB_FRAG = `
   // several dozen irregular bundles, not five.
   uniform float u_bristleCombs;
   uniform float u_bristleInk;
+  // (#536) 0 = paint normally; 1 = show the silhouette; 2 = show the density.
+  uniform float u_wcDebugView;
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
@@ -1589,6 +1591,16 @@ ${WC_NOISE_GLSL}
       // (pressure drives width, never alpha), which is what makes a single
       // scalar describe the whole batch correctly.
       float pigment = clamp(coverage * v_opacity * strengthHere * density * gran * cloud * paperMod * (1.0 + wet), 0.0, 1.0);
+
+      // (#536) Diagnostic view, dev-only. The mark's tone becomes one term of
+      // the product above instead of the product, so "which of these carries
+      // the blotches" is answered by looking rather than by arithmetic about
+      // amplitudes — which has now been wrong three times running. 1 = the
+      // silhouette after the spread and its re-threshold, 2 = the film's
+      // density, i.e. everything the deposit carries.
+      if (u_wcDebugView > 0.5) {
+        pigment = clamp(u_wcDebugView < 1.5 ? coverage : density, 0.0, 1.0);
+      }
 
       // The composite. Still the three-term separable blend the marker's branch
       // below uses (#439) - on bare paper, over existing pigment, and what this

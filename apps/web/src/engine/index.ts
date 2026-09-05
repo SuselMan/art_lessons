@@ -858,6 +858,8 @@ export interface PencilEngineAPI {
   exportPNG(transparent?: boolean): Promise<Blob | null>
   /** (#536) Dev-only bristle caricature — see the implementation's own note. */
   setWatercolorBristleDebug(cfg: { combs: number; depth: number } | null): void
+  /** (#536) Dev-only single-term view of the watercolor composite. */
+  setWatercolorDebugView(view: 0 | 1 | 2): void
 
   destroy(): void
 }
@@ -1868,6 +1870,8 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536) The bristle caricature, or null. Dev-only — see
    *  setWatercolorBristleDebug. */
   private _bristleDebug: { combs: number; depth: number } | null = null
+  /** (#536) 0 normal, 1 silhouette, 2 density — see setWatercolorDebugView. */
+  private _wcDebugView = 0
   /** Handle of the repaint that watches the paper dry, or 0. */
   private _dryingTimer = 0
   /** The same profile for the dabs still queued for the live channel, drained
@@ -3135,6 +3139,19 @@ export class PencilEngine implements PencilEngineAPI {
    *  which runs in tests with no DOM at all. */
   setWatercolorBristleDebug(cfg: { combs: number; depth: number } | null): void {
     this._bristleDebug = cfg
+    this._display()
+  }
+
+  /** (#536) Paints the wash with one term of the composite's product instead
+   *  of the product: 1 the silhouette after spreading, 2 the film's density.
+   *
+   *  Exists because "which of these fields is the blotching" was answered three
+   *  times by reasoning about amplitudes and wrong every time. The terms have
+   *  different spatial scales and different origins — one is the deposit, one
+   *  is a blur-and-rethreshold of the silhouette — so a single look at each
+   *  settles it. Dev-only, on the Debug tab. */
+  setWatercolorDebugView(view: 0 | 1 | 2): void {
+    this._wcDebugView = view
     this._display()
   }
 
@@ -5172,7 +5189,7 @@ export class PencilEngine implements PencilEngineAPI {
       // _drawRibbonCompositeDab) rather than left unset, for the reason
       // u_wickPx above already documents: uniforms persist across draws on a
       // shared program.
-      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk',
+      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk', 'u_wcDebugView',
       // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
       'u_spreadPx', 'u_cloud', 'u_fieldOffset',
       // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
@@ -8230,6 +8247,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_granulation, dbg ? 0 : profile.granulation)
     gl.uniform1f(u.u_bristleCombs, dbg ? dbg.combs : profile.bristleCombs)
     gl.uniform1f(u.u_bristleInk, dbg ? dbg.depth : profile.bristleInk)
+    gl.uniform1f(u.u_wcDebugView, this._wcDebugView)
     // (#536) The fallback where there is no deposit to read a per-pixel value
     // from — the spread fringe, which is about to be decided by it.
     gl.uniform1f(u.u_inkStrength, profile.pigmentStrength)
