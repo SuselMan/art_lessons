@@ -59,6 +59,7 @@ import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
 import { PaperFailedOverlay } from './PaperFailedOverlay'
+import { RestoreFailedOverlay } from './RestoreFailedOverlay'
 import { FrozenBanner } from './FrozenBanner'
 import { ClosedBanner } from './ClosedBanner'
 import { LostWorkBanner } from './LostWorkBanner'
@@ -118,7 +119,7 @@ import { createSnapshotUploader, uploadThumbnail } from './snapshotSync'
 import { reportSnapshotRestore } from './reportRestore'
 import { reportRoomOpen } from './reportOpen'
 import { SLOW_OPEN_MS, createOpenTimer, type OpenTimer } from './openTiming'
-import { restoreLatestSnapshot, walkHistoryBackward } from './snapshotRestore'
+import { restoreLatestSnapshot, walkHistoryBackward, type SnapshotRestoreOutcome } from './snapshotRestore'
 import { pastePlacement } from './pastePlacement'
 import { useRoomStore, resetRoomStore } from '../../stores/roomStore'
 import { notifyError } from '../../stores/noticeStore'
@@ -410,6 +411,15 @@ export function Room() {
   // closes. `paperRetrying` is the retry's own in-flight flag.
   const [paperFailed,   setPaperFailed]   = useState(false)
   const [paperRetrying, setPaperRetrying] = useState(false)
+
+  /** (#533) The room's stored pixels did not arrive, so this catch-up restored
+   *  nothing. Same conclusion as `paperFailed` and for a stricter reason: the
+   *  server withholds the history a snapshot claims to cover, so there is no
+   *  second source for those pixels — a room opened in this state is not
+   *  "missing the last few strokes", it is blank where a lesson should be. It
+   *  stayed blank and unexplained for twenty minutes on 2026-09-04, which is
+   *  what this flag is for. See RestoreFailedOverlay. */
+  const [restoreFailed, setRestoreFailed] = useState(false)
 
   /** (#464) Whether this failure has already been reported to Sentry. Every
    *  replay site calls awaitPaper, so one broken load rejects at several of
@@ -1744,6 +1754,25 @@ export function Room() {
   // the other one, while a retry button that cannot possibly succeed is just
   // an invitation to press it.
   const showPaperFailedOverlay = !roomContentReady && paperFailed && !showOfflineOverlay
+  // (#533) Behind both of those. Offline explains itself and a retry cannot
+  // work without a socket; a missing paper texture is the more total failure of
+  // the two, since without it the engine would refuse to draw even on a room
+  // that did restore.
+  const showRestoreFailedOverlay =
+    !roomContentReady && restoreFailed && !showOfflineOverlay && !showPaperFailedOverlay
+
+  /** (#533) Ask for the room's content again.
+   *
+   *  The same full resync the paper retry ends with, and for the same reason:
+   *  the `room_state` that would have restored this room was consumed by the
+   *  attempt that failed, so there is nothing left to re-run locally — the
+   *  server has to be asked again. Clearing the flag first is what puts the
+   *  loading overlay back up; if this attempt fails the same way, the catch-up
+   *  sets it again and this screen returns. */
+  const retryRestore = useCallback(() => {
+    setRestoreFailed(false)
+    requestFullResyncRef.current?.()
+  }, [])
 
   /** (#346) Load the paper texture again, without reloading the page — which
    *  for a room is never a neutral act: it throws away whatever the reload
@@ -1928,7 +1957,15 @@ export function Room() {
    *  reference, so the decoded buffer dies with the iteration that made it.
    *  Room F4uw21Ob measured 431 MiB of inflated pixels across ten layers —
    *  held at once, that killed the tab on iPadOS. */
-  const restoreFromSnapshot = useCallback(async (engine: PencilEngineAPI, roomId: string) => {
+  /** (#533) Returns the outcome's own status rather than a boolean, because
+   *  the two ways of not restoring are opposites and the callers have to tell
+   *  them apart: `none` is a room nobody ever baked, whose whole history the
+   *  server is therefore sending as operations, and `failed` is a room whose
+   *  history was withheld in favour of pixels that then did not arrive. The
+   *  boolean collapsed them, and the second one used to open a blank room. */
+  const restoreFromSnapshot = useCallback(async (
+    engine: PencilEngineAPI, roomId: string,
+  ): Promise<SnapshotRestoreOutcome['status']> => {
     const outcome = await restoreLatestSnapshot(roomId, {
       beginLayers: layerState => initLayersFromLayerState(engine, layerState),
       applyLayer: (layerId, tiles, coveredSeq) => engine.restoreLayerFromSnapshot(layerId, tiles, coveredSeq),
@@ -1945,12 +1982,12 @@ export function Room() {
     try {
       reportSnapshotRestore(roomId, outcome, engine.takeSnapshotRestoreAudit(), engine.gpuInfo())
     } catch { /* a report we couldn't build is not worth a room we can't open */ }
-    if (outcome.status !== 'restored') return false
+    if (outcome.status !== 'restored') return outcome.status
     const { head } = outcome
     engine.setActiveLayer(head.layerState.activeId)
     engine.setCompositeOrder(computeCompositeOrder(head.layerState))
     restoredLayerStateRef.current = head.layerState
-    return true
+    return 'restored'
   }, [initLayersFromLayerState])
 
   /** (#487) Гасит будильник и отчитывается о завершившемся входе.
@@ -2227,6 +2264,11 @@ export function Room() {
         // against the placeholder: awaitPaper puts up the retry screen, and
         // roomContentReady stays false so the room is not claimed to be open.
         if (!(await awaitPaper(engine))) return
+        // (#533) Read by the `finally` below: a restore that brought back
+        // nothing must not end with the room announced as open. A plain
+        // `return` cannot express that — `finally` runs on the way out either
+        // way — so the exit has to be flagged rather than jumped to.
+        let restoreFailedHere = false
         try {
           // (#147) A fresh room's history can be hundreds/thousands of ops —
           // without this, appendOperation's own per-op _display() (full
@@ -2244,7 +2286,36 @@ export function Room() {
           openTimerRef.current?.stage('snapshot')
           let restoredFromSnapshot = false
           if (id && pending.latestSnapshotSeq !== null) {
-            restoredFromSnapshot = await restoreFromSnapshot(engine, id)
+            const status = await restoreFromSnapshot(engine, id)
+            // (#533) The one branch that must not fall through to the replay
+            // below. `tailOperations` is only what the snapshot did *not*
+            // cover — 69 operations of a 53 836-operation room, on the day
+            // this was found — so replaying it over an engine that received no
+            // pixels paints an all-but-empty canvas, and the `finally` then
+            // announces the room as open. `restoreFailed` is what turns that
+            // into a screen the reader can act on. Left un-`finish`ed on
+            // purpose: the open genuinely did not finish, and #487's alarm
+            // reporting it as stalled is the truth.
+            if (status === 'failed') {
+              restoreFailedHere = true
+              setRestoreFailed(true)
+              // (#385) The canvas holds less than the room does, permanently
+              // for this mount — which is exactly what this ref means, and it
+              // is load-bearing on the way out: without it the unmount hook
+              // bakes a thumbnail from this blank canvas and republishes it
+              // over the lesson's real preview. It also closes snapshot baking
+              // for the rest of the mount, which a successful retry does not
+              // re-open — deliberately the cautious side of that trade: the
+              // cost is that this one client stops contributing snapshots for
+              // the session, and every other client in the room still does.
+              replayIncompleteRef.current = true
+              // Balances the suspendDisplay above: the depth is a counter, and
+              // leaving it raised would mute every later paint on this engine,
+              // including the one a successful retry produces.
+              engine.resumeDisplay()
+              return
+            }
+            restoredFromSnapshot = status === 'restored'
           }
           openTimerRef.current?.note({ restoredFromSnapshot })
           openTimerRef.current?.stage('replay')
@@ -2326,14 +2397,26 @@ export function Room() {
           // an incomplete canvas, so unblocking is the lesser harm; a missing
           // paper texture leaves an engine that cannot draw at all, so
           // unblocking buys nothing and costs the only honest signal there is.
-          setRoomContentReady(true)
-          // (#487) В том же `finally` и по той же причине: «готово» здесь —
-          // это момент, когда преклоадер ушёл и карандаш заработал, и он
-          // наступает даже после неудачного восстановления. Замер должен
-          // говорить, сколько человек ждал, а не сколько ждала удачная ветка;
-          // что именно пошло не так при восстановлении, отдельно докладывает
-          // reportSnapshotRestore (#474).
-          finishOpenTimer(engine)
+          //
+          // (#533) A snapshot that brought back *nothing* belongs on the paper
+          // side of that line, not the incomplete-canvas side: the operations
+          // those pixels stood in for were never sent, so there is no partial
+          // room to unblock — only an empty one to be wrong about. That exit
+          // leaves the flag set and RestoreFailedOverlay takes the screen.
+          //
+          // A condition rather than an early `return`: a `return` in a
+          // `finally` would also swallow whatever the `try` threw, and this
+          // block's whole job is to run after a throw.
+          if (!restoreFailedHere) {
+            setRoomContentReady(true)
+            // (#487) В том же `finally` и по той же причине: «готово» здесь —
+            // это момент, когда преклоадер ушёл и карандаш заработал, и он
+            // наступает даже после неудачного восстановления. Замер должен
+            // говорить, сколько человек ждал, а не сколько ждала удачная
+            // ветка; что именно пошло не так при восстановлении, отдельно
+            // докладывает reportSnapshotRestore (#474).
+            finishOpenTimer(engine)
+          }
         }
       })()
     } else if (!isCreator) {
@@ -5507,10 +5590,19 @@ export function Room() {
       // (#462) Re-closed for the length of this catch-up, not just on a first
       // join — see snapshotGate.ts's restoreStarted.
       snapshotGateRef.current.restoreStarted()
+      // (#533) A previous catch-up's verdict says nothing about this one, and
+      // a stale `true` would put the failure screen over the next reconnect
+      // blip of a room that is fine. Cleared here rather than only in
+      // retryRestore, because an ordinary reconnect is just as much a second
+      // attempt as a pressed button is.
+      setRestoreFailed(false)
       // (#346) Outside the try/finally below, for the same reason as the mount
       // effect's own site: a paper failure must leave the room closed and
       // explained, not opened and mute.
       if (!(await awaitPaper(engine))) return
+      // (#533) Read by this catch-up's own `finally` — see the first-join
+      // path's flag of the same name.
+      let restoreFailedHere = false
       try {
         // A reconnect's full-history replay supersedes any reveal still
         // in-flight from before the drop — cancel it rather than let it keep
@@ -5528,7 +5620,21 @@ export function Room() {
         // state.
         let restoredFromSnapshot = false
         if (engine && latestSnapshotSeq !== null && alreadyHadSeq < latestSnapshotSeq) {
-          restoredFromSnapshot = await restoreFromSnapshot(engine, id)
+          const status = await restoreFromSnapshot(engine, id)
+          // (#533) Same refusal as the first-join path, for the same reason:
+          // this branch only runs when the client is *behind* the snapshot, so
+          // the tail below covers only what the snapshot did not, and painting
+          // it over pixels that never arrived produces a room missing whatever
+          // happened while this client was away. Nothing here may reach
+          // markJoinRestoreDone either — a client that does not know what the
+          // room contains must not go on to publish a snapshot of it (#462).
+          if (status === 'failed') {
+            restoreFailedHere = true
+            setRestoreFailed(true)
+            engine.resumeDisplay()
+            return
+          }
+          restoredFromSnapshot = status === 'restored'
         }
 
         // (#398) Same as the mount effect's own catch-up — see
@@ -5590,7 +5696,14 @@ export function Room() {
         // setRoomContentReady(false) above with nothing to ever clear it if
         // an error was thrown. See roomContentReady's own doc comment for
         // the bug this whole mechanism guards against.
-        setRoomContentReady(true)
+        //
+        // (#533) The one exception, and it is not the bug above: a restore
+        // that brought back nothing leaves the canvas gated *on purpose*, with
+        // RestoreFailedOverlay explaining it and a retry offered. What that
+        // old bug feared was a gate nobody could clear; this one has a button.
+        // A condition, not an early `return`: a `return` here would swallow
+        // whatever the `try` threw.
+        if (!restoreFailedHere) setRoomContentReady(true)
       }
     }
 
@@ -7460,15 +7573,18 @@ export function Room() {
             .layerPanelWrap 2) so it genuinely covers the whole screen, not
             just the canvas — an earlier version lived inside .viewport
             (z-index 1) and could never rise above those. */}
-        {/* Three ways a room can be not-open, in order of how much they know:
-            no socket at all (#313), the paper texture failed (#346), or it is
-            simply still loading. Each replaces the one below it. */}
+        {/* Four ways a room can be not-open, in order of how much they know:
+            no socket at all (#313), the paper texture failed (#346), the
+            room's own pixels never arrived (#533), or it is simply still
+            loading. Each replaces the one below it. */}
         {!roomContentReady && (
           showOfflineOverlay
             ? <OfflineRoomOverlay pending={outboxState.pending} />
             : showPaperFailedOverlay
               ? <PaperFailedOverlay retrying={paperRetrying} onRetry={() => void retryPaper()} />
-              : <RoomLoadingOverlay paper={paperProgress} />
+              : showRestoreFailedOverlay
+                ? <RestoreFailedOverlay onRetry={retryRestore} />
+                : <RoomLoadingOverlay paper={paperProgress} />
         )}
       </div>
 

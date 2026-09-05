@@ -340,6 +340,10 @@ export const ru: Dictionary = {
   'room.paperFailed.body': 'Без текстуры бумаги рисовать нельзя, поэтому проект пока не открыт. Ничего не потеряно — рисунок хранится на сервере.',
   'room.paperFailed.retry': 'Попробовать ещё раз',
   'room.paperFailed.retrying': 'Загружаем…',
+
+  'room.restoreFailed.title': 'Рисунок не загрузился',
+  'room.restoreFailed.body': 'Связь оборвалась раньше, чем приехал рисунок, поэтому проект пока не открыт — лучше так, чем показать вам пустой лист. Ничего не потеряно, всё хранится на сервере.',
+  'room.restoreFailed.retry': 'Попробовать ещё раз',
   'room.connection.offline': 'Нет связи — переподключение…',
   'room.connection.offlineWithPending': {
     one: 'Нет связи. {n} штрих сохранён на этом устройстве и уйдёт при подключении.',
