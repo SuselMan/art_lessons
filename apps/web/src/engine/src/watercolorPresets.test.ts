@@ -904,3 +904,52 @@ describe('the brush drinks from the paper (#536, ADR 011 §17)', () => {
     expect(watercolorPaperDrained(0.2)).toBeCloseTo(watercolorPaperDrained(1) * 0.2, 10)
   })
 })
+
+describe('the deposit has to fit in the buffer it is written to (#536)', () => {
+  // The single most expensive bug of this whole effort, turned into an
+  // assertion. The accumulation buffer is RGBA/UNSIGNED_BYTE, so its ceiling is
+  // a hard clamp at 1.0, and the deposit gain was deliberately set to run an
+  // ordinary pass at roughly twice that — the flat interior it produced was
+  // read as a feature. Everything downstream then read a constant, which is
+  // what "ничего не кончается", "щетинок не видно", "длинная линия не меняется"
+  // and "повторным проходом не выровнять" all were: four complaints, one fact.
+  //
+  // The estimate is deliberately crude and deliberately generous. A point on a
+  // straight stroke is under the brush for about two radii of travel, and the
+  // dose is depositPerRadius per radius with the stamps and bands splitting it
+  // between them — so about 2 x depositPerRadius lands on that pixel in one
+  // pass. It does not need to be exact: the failure it guards against is a
+  // factor of four, not a few per cent.
+  const singlePass = (preset: string): number =>
+    2 * ribbonProfileFor('watercolor', preset, 0).depositPerRadius
+
+  it('leaves room for several glazes on top of the first', () => {
+    for (const preset of ['normal:55:60:PB29:round', 'normal:92:42:PB29:round', 'normal:18:88:PB29:round']) {
+      // Comfortably inside the buffer…
+      expect(singlePass(preset)).toBeLessThan(0.7)
+      // …and not so far inside that a pass writes nothing a later one can add
+      // to, which is the same mistake from the other end.
+      expect(singlePass(preset)).toBeGreaterThan(0.1)
+    }
+  })
+
+  it('does not let the pigment setting push a pass over the ceiling', () => {
+    // Paint strength rides its own channel on the deposit (pigmentStrength)
+    // rather than scaling the deposit itself, which is what keeps this true at
+    // both ends of the slider. If that ever moves back onto the dose, this is
+    // the test that says so.
+    const weak = ribbonProfileFor('watercolor', 'normal:55:5:PB29:round', 0)
+    const strong = ribbonProfileFor('watercolor', 'normal:55:100:PB29:round', 0)
+    expect(strong.depositPerRadius).toBe(weak.depositPerRadius)
+    expect(strong.pigmentStrength).toBeGreaterThan(weak.pigmentStrength)
+  })
+
+  it('keeps the composite’s saturation point where the deposit actually lands', () => {
+    // The curve and the scale are one number in two places: the composite reads
+    // density off the deposit, so moving either alone changes the tool’s tone
+    // rather than its behaviour. A pass has to reach the saturation point and
+    // then some, or the curve is flat everywhere the tool is used.
+    const profile = ribbonProfileFor('watercolor', 'normal:55:60:PB29:round', 0)
+    expect(singlePass('normal:55:60:PB29:round')).toBeGreaterThan(profile.saturateInk)
+  })
+})

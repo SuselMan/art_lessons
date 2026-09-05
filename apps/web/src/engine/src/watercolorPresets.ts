@@ -692,7 +692,7 @@ export function watercolorPigmentLoad(usedRadii: number): number {
   return PIGMENT_FLOOR + (1 - PIGMENT_FLOOR) * Math.exp(-usedRadii / PIGMENT_RUN_RADII)
 }
 
-// ─── The brush drinks (#536, ADR 011 §17) ───────────────────────────────────
+// ─── The brush drinks (#536, ADR 011 §17.7) ───────────────────────────────────
 //
 // Ilya: a brush dragged through a puddle takes water with it, stays damp for a
 // while after it leaves, and drags the puddle out behind it — while the puddle

@@ -2894,6 +2894,21 @@ export const PAPER_COMPOSE_FRAG = `
   const float WC_DARK_MID = 0.09;
   const float WC_DARK_HI  = 0.13;
 
+  // (#536, ADR 011 §17.6) How far the paint is held back from where it will end
+  // up, at full flood. The stored pixels are the *dry* result — already carrying
+  // whatever spread the wetness the author recorded bought them — and this is a
+  // presentation-only correction that pulls the mark back in while the water is
+  // still there and lets go of it as the paper dries. Zero wetness, zero
+  // correction, so the picture converges on what is stored no matter what the
+  // clock does.
+  const float WC_WET_RELAX = 0.55;
+  // The window over which it lets go. Far wider than the sheen's: the sheen
+  // must vanish the moment a patch is merely damp, or every mark drags a grey
+  // halo, whereas the paint has to still be creeping when the shine has long
+  // gone — that is most of what "watching it dry" is.
+  const float WC_RELAX_LO = 0.04;
+  const float WC_RELAX_HI = 0.45;
+
   /** The wetness map, smoothed over its own texel so the coarse grid it is
    *  built on does not show as facets. Four taps at half a texel — cheap, and
    *  enough because everything read from this field is a difference over
@@ -3009,6 +3024,9 @@ export const PAPER_COMPOSE_FRAG = `
     // (#536) The rim highlight, and the darker band just outside it.
     float rim = 0.0;
     float rimDark = 0.0;
+    // (#536) How much of the paint's spread has not happened yet — see
+    // WC_WET_RELAX and the block below graphite.
+    float held = 0.0;
     if (u_wetRect.z > u_wetRect.x) {
       vec2 wetSpan = max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
       vec2 wetUV = (worldPos - u_wetRect.xy) / wetSpan;
@@ -3020,6 +3038,7 @@ export const PAPER_COMPOSE_FRAG = `
         // halo behind it, which is exactly what the first version did.
         float raw = wcWetAt(wetUV);
         wet = smoothstep(0.35, 0.95, raw);
+        held = WC_WET_RELAX * smoothstep(WC_RELAX_LO, WC_RELAX_HI, raw);
         // The rim, as a *window on the wetness value* rather than as a
         // derivative of it.
         //
@@ -3049,6 +3068,26 @@ export const PAPER_COMPOSE_FRAG = `
           * (1.0 - smoothstep(WC_DARK_MID, WC_DARK_HI, raw));
       }
     }
+    // (#536, ADR 011 §17.6) The paint relaxing outward as the water goes.
+    //
+    // The model is inverted from the obvious one, and that inversion is the
+    // whole reason this is safe. The obvious version lets a mark start tight
+    // and *mutate* toward its spread state, which means a snapshot taken
+    // mid-drying freezes a half-finished mark and a later stroke can glaze over
+    // one — clocks in the content, which §2 does not allow. Here the stored
+    // pixels are the finished, fully spread mark from the instant the pen came
+    // up, and what is transient is a correction *held against* them, which goes
+    // to zero. Nothing downstream of the frame buffer can ever see it.
+    //
+    // An S-curve on coverage rather than a blur, and it needs no extra taps
+    // because it needs no neighbours: pulling the soft margin of a mark down
+    // while leaving its core alone *is* "the paint has not reached out there
+    // yet". Letting go of it fills the margin back in, and the mark visibly
+    // creeps into the water over the drying window. The core coming up very
+    // slightly at the same time is the other half of the same observation, and
+    // it runs the right way round — watercolour dries lighter, so while it is
+    // wet it is a shade deeper in the middle than it will end up.
+    graphite = mix(graphite, smoothstep(0.0, 1.0, graphite), held);
     // Well under 1: even a flooded sheet is not a mirror, and leaving most of
     // the grain is what keeps a wet patch reading as paper rather than as a
     // hole in the paper.
