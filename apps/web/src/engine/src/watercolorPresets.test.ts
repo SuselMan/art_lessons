@@ -19,6 +19,7 @@ import {
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
   DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
   watercolorPigmentLoad, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
   WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling, watercolorPigmentFromPreset,
@@ -830,5 +831,76 @@ describe('the touch-down surplus (#536)', () => {
     // A multiplier over the normal dose, never under it: this adds a surplus,
     // it does not make the rest of the stroke lighter than it was.
     for (const s of [0, 0.5, 1, 5, 50]) expect(watercolorStartExcess(s, 0)).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('the brush drinks from the paper (#536, ADR 011 §17)', () => {
+  it('spends the clock exactly as before wherever the paper is dry', () => {
+    // The single most important property here. Every stroke that never meets
+    // water — which is nearly all of them — has to walk the identical curve it
+    // walked before the exchange existed, or this feature has quietly retuned
+    // the whole tool.
+    let used = 0
+    for (let i = 0; i < 20; i++) used = watercolorWaterClock(used, 0.7, 0)
+    expect(used).toBeCloseTo(20 * 0.7, 10)
+  })
+
+  it('gives water back where the paper is wet, in proportion to how wet', () => {
+    const step = 0.7
+    const damp = watercolorWaterClock(4, step, 0.3)
+    const wet = watercolorWaterClock(4, step, 1)
+    expect(damp).toBeLessThan(4 + step)
+    expect(wet).toBeLessThan(damp)
+    // Standing water does not merely hold the level, it recovers it — a brush
+    // dragged through a puddle comes out wetter than it went in.
+    expect(wet).toBeLessThan(4)
+  })
+
+  it('never charges the brush past full', () => {
+    // The clock stops at zero, so no amount of dwelling in a puddle can make a
+    // brush wetter than the one the user picked up.
+    let used = 0.2
+    for (let i = 0; i < 50; i++) used = watercolorWaterClock(used, 0.5, 1)
+    expect(used).toBe(0)
+  })
+
+  it('leaves a tail: the brush stays wetter for a while after it is out', () => {
+    // This is the behaviour Ilya described — the brush drags the puddle a
+    // little way past its edge — and it falls out of rewinding the clock
+    // rather than being modelled separately.
+    const step = 0.5
+    let drank = 0, never = 0
+    for (let i = 0; i < 6; i++) { drank = watercolorWaterClock(drank, step, 0.9); never = watercolorWaterClock(never, step, 0) }
+    // Out of the puddle, both running down at the ordinary rate.
+    const tail: number[] = []
+    for (let i = 0; i < 120; i++) {
+      drank = watercolorWaterClock(drank, step, 0)
+      never = watercolorWaterClock(never, step, 0)
+      tail.push(watercolorWaterLoad(drank) - watercolorWaterLoad(never))
+    }
+    // Wetter than a brush that never saw the water, right after leaving…
+    expect(tail[0]).toBeGreaterThan(0.05)
+    // …still wetter a short way on…
+    expect(tail[8]).toBeGreaterThan(0)
+    // …and the gap only ever closes, never grows.
+    for (let i = 1; i < tail.length; i++) expect(tail[i]).toBeLessThanOrEqual(tail[i - 1] + 1e-12)
+    // …until both are down on the floor together and the puddle is forgotten.
+    //
+    // It closes slowly, and that is worth being exact about rather than tuning
+    // away: the two clocks stay the *same* distance apart for the rest of the
+    // stroke, because from here on both advance at the same rate. What shrinks
+    // is what that distance is worth, since both are running down the flat end
+    // of the same exponential. So the brush does not "re-dry" after the puddle
+    // — it finishes the stroke slightly wetter than it would have, by an amount
+    // that stops mattering. Which is what a real one does.
+    expect(tail[tail.length - 1]).toBeLessThan(0.01)
+  })
+
+  it('takes a readable bite out of the paper without wiping it', () => {
+    expect(watercolorPaperDrained(0)).toBe(0)
+    expect(watercolorPaperDrained(1)).toBeGreaterThan(0.15)
+    expect(watercolorPaperDrained(1)).toBeLessThan(0.5)
+    // Proportional: a barely damp patch gives up barely anything.
+    expect(watercolorPaperDrained(0.2)).toBeCloseTo(watercolorPaperDrained(1) * 0.2, 10)
   })
 })

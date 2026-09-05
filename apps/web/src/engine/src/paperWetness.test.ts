@@ -73,6 +73,53 @@ describe('PaperWetness field (#536)', () => {
   })
 })
 
+describe('a brush drinking from the paper (#536)', () => {
+  it('takes the fraction it was given', () => {
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 10, 0.9, 0)
+    f.drain('L', 0, 0, 10, 0.5)
+    expect(f.sample('L', 0, 0, 0)).toBeCloseTo(0.45, 5)
+  })
+
+  it('does not restart the drying clock, so drinking cannot make water last longer', () => {
+    // The trap this method exists to avoid. Writing the reduced value with a
+    // fresh timestamp would give the patch a whole new drying window from a
+    // lower level, so dragging a brush through a puddle would leave it wet for
+    // longer than leaving it alone — the exact opposite of the point.
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 10, 1, 0)
+    f.drain('L', 0, 0, 10, 0.5)
+    // Half spent, then half taken: a quarter left, and bone dry on the original
+    // schedule rather than half a window later.
+    expect(f.sample('L', 0, 0, WET_DRY_MS * 0.5)).toBeCloseTo(0.25, 5)
+    expect(f.sample('L', 0, 0, WET_DRY_MS)).toBe(0)
+  })
+
+  it('reaches only as far as the dab that drank', () => {
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 200, 1, 0)
+    f.drain('L', 0, 0, 10, 1)
+    expect(f.sample('L', 0, 0, 0)).toBe(0)
+    expect(f.sample('L', 150, 0, 0)).toBeCloseTo(1, 5)
+  })
+
+  it('leaves water the same gesture has not committed yet alone', () => {
+    // A stroke may not drink what it is laying itself, for the same reason it
+    // may not read it back — see _pending.
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 10, 0.8, 0, true)
+    f.drain('L', 0, 0, 10, 1)
+    f.commitPending(0)
+    expect(f.sample('L', 0, 0, 0)).toBeCloseTo(0.8, 5)
+  })
+
+  it('is a no-op on paper that was never wet', () => {
+    const f = new PaperWetness()
+    f.drain('L', 0, 0, 10, 1)
+    expect(f.sample('L', 0, 0, 0)).toBe(0)
+  })
+})
+
 describe('the recorded profile (#536)', () => {
   it('round-trips a quantized value to within one step', () => {
     for (const v of [0, 0.13, 0.5, 0.77, 1]) {

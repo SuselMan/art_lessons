@@ -592,6 +592,7 @@ describe('a wash reaches every path that paints (#468)', () => {
 describe('water first, then paint (#536)', () => {
   const WATER = 'normal:92:0:PB29:round'
   const PAINT = 'normal:55:80:PB29:round'
+  const DRY = 'normal:12:80:PB29:round'
 
   function paintWith(engine: PencilEngine, preset: string, y: number) {
     engine.setActiveLayer('L')
@@ -639,5 +640,105 @@ describe('water first, then paint (#536)', () => {
     // because of them, and every mark would believe it was painted wet.
     const op = paintWith(engine, WATER, 48)
     expect(op.wet).toBeUndefined()
+  })
+
+  it('drinks from the puddle it crosses, so the next stroke finds it drier', async () => {
+    // The paper's half of the exchange (watercolorPaperDrained), and the only
+    // half observable from outside the engine: what one stroke took away shows
+    // up as what the *next* one records seeing. The brush's own half — staying
+    // wet past the edge of the puddle — is a pure function and is tested as
+    // one, in watercolorPresets.test.ts.
+    const wettest = (op: StrokeOperation): number =>
+      Math.max(...(op.wet ?? '0').split('').map(d => parseInt(d, 16)))
+
+    const undisturbed = setupLayer(96, 96)
+    await paperReady(undisturbed)
+    paintWith(undisturbed, WATER, 48)
+    const before = wettest(paintWith(undisturbed, PAINT, 48))
+
+    const drunkFrom = setupLayer(96, 96)
+    await paperReady(drunkFrom)
+    paintWith(drunkFrom, WATER, 48)
+    // A dry brush dragged straight down the puddle: it carries water off with
+    // it and lays almost none of its own back.
+    paintWith(drunkFrom, DRY, 48)
+    const after = wettest(paintWith(drunkFrom, PAINT, 48))
+
+    expect(after).toBeLessThan(before)
+    // Drier, not wiped: a wash does not come off the paper because someone
+    // dragged a brush over it.
+    expect(after).toBeGreaterThan(0)
+  })
+})
+
+describe('water laid by someone else wets this paper too (#536)', () => {
+  const WATER = 'normal:92:0:PB29:round'
+  const PAINT = 'normal:55:80:PB29:round'
+
+  function peerWater(engine: PencilEngine, y: number, at = Date.now()): StrokeOperation {
+    // A real wall-clock timestamp, unlike makeStroke's counter: the field ages
+    // the water by how long ago its author laid it, which is what makes the
+    // same call correct whether it arrives live, late, or on replay.
+    const op = makeStroke('user-b', 'L', [
+      dab(8, y, { size: 24 }), dab(32, y, { size: 24 }), dab(56, y, { size: 24 }),
+    ], { tool: 'watercolor', preset: WATER, color: [0.1, 0.2, 0.6], timestamp: at })
+    engine.appendOperation(op)
+    return op
+  }
+
+  it('lets a stroke paint into water someone else laid', async () => {
+    // The scenario the whole field exists for and the one it could not do:
+    // teacher wets the paper, student paints into it. Before this the peer's
+    // water was on the student's screen as pixels and absent from their paper.
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    peerWater(engine, 48)
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(PAINT)
+    engine.setSize(24)
+    simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
+    const painted = lastStroke(engine)
+    expect(painted.wet).toBeDefined()
+    expect(Math.max(...(painted.wet ?? '0').split('').map(d => parseInt(d, 16)))).toBeGreaterThan(6)
+  })
+
+  it('ignores water old enough to have dried before this client ever saw it', async () => {
+    // Rejoining a room replays its whole history. A stroke from an hour ago
+    // must not put a fresh puddle on the paper — the field is a live one, and
+    // an operation carries when it happened.
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    peerWater(engine, 48, Date.now() - 10 * 60 * 1000)
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(PAINT)
+    engine.setSize(24)
+    simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
+    expect(lastStroke(engine).wet).toBeUndefined()
+  })
+
+  it('does not double-count a stroke that arrives twice', async () => {
+    // Live packet then operation, or a rebuild after undo: wetness is a state
+    // of the paper, so applying the same stroke again lands on the same field
+    // rather than on a wetter one.
+    const once = setupLayer(96, 96)
+    await paperReady(once)
+    peerWater(once, 48)
+
+    const twice = setupLayer(96, 96)
+    await paperReady(twice)
+    const op = peerWater(twice, 48)
+    twice.appendOperation({ ...op, id: `${op.id}-again` })
+
+    const profileOf = (engine: PencilEngine): string => {
+      engine.setActiveLayer('L')
+      engine.setTool('watercolor')
+      engine.setPencil(PAINT)
+      engine.setSize(24)
+      simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
+      return lastStroke(engine).wet ?? ''
+    }
+    expect(profileOf(twice)).toBe(profileOf(once))
   })
 })

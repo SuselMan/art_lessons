@@ -124,6 +124,51 @@ export class PaperWetness {
     else { this._peak = held; this._peakAt = now }
   }
 
+  /** (#536) Water a brush passing over took *off* the paper — the other half of
+   *  the exchange in watercolorWaterClock.
+   *
+   *  Scales the cell down and leaves `at` alone, which is the whole subtlety
+   *  here. Writing the reduced value with a fresh timestamp would restart a
+   *  full drying window from a lower level, so drinking from a puddle would
+   *  make it last *longer*; keeping the original timestamp means the patch
+   *  still reaches bone dry exactly when it always would, but sits lower the
+   *  whole way there and so crosses the "wet enough to work into" threshold
+   *  sooner. That is what "brush drags water off, puddle dries faster" is, in
+   *  a field whose decay is a straight line.
+   *
+   *  Which is also why it takes no clock, unlike every other writer here: it
+   *  scales the cell's stored amplitude, and the whole decay line moves down
+   *  with it.
+   *
+   *  Committed cells only, never `_pending`: a stroke may not drink the water
+   *  it is laying itself, for the same reason it may not read it (see
+   *  _pending's own note, and the bug it was written for). */
+  drain(layerId: string, x: number, y: number, radiusPx: number, fraction: number): void {
+    if (fraction <= 0) return
+    const cells = this._layers.get(layerId)
+    if (!cells) return
+    const keep = Math.max(0, 1 - fraction)
+    const r = Math.max(radiusPx, WET_CELL_PX * 0.5)
+    const x0 = Math.floor((x - r) / WET_CELL_PX), x1 = Math.floor((x + r) / WET_CELL_PX)
+    const y0 = Math.floor((y - r) / WET_CELL_PX), y1 = Math.floor((y + r) / WET_CELL_PX)
+    const r2 = r * r
+    const homeX = Math.floor(x / WET_CELL_PX), homeY = Math.floor(y / WET_CELL_PX)
+    for (let cy = y0; cy <= y1; cy++) {
+      for (let cx = x0; cx <= x1; cx++) {
+        const dx = (cx + 0.5) * WET_CELL_PX - x
+        const dy = (cy + 0.5) * WET_CELL_PX - y
+        if (dx * dx + dy * dy > r2 && !(cx === homeX && cy === homeY)) continue
+        const cell = cells.get(key(cx, cy))
+        if (cell) cell.w *= keep
+      }
+    }
+    // _peak is deliberately not lowered. It is an over-estimate by design (see
+    // its own note): too high only means the drying watcher runs a little
+    // longer than it needs to, while too low would stop it over paper that is
+    // still visibly wet — and this method cannot know whether the cell it just
+    // drained was the peak one without walking the whole field.
+  }
+
   /** Moves the gesture's own water into the committed field. Called at pen-up:
    *  from here on the next stroke may read it, which is the whole point. */
   commitPending(now: number): void {

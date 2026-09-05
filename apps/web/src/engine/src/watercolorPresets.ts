@@ -692,6 +692,64 @@ export function watercolorPigmentLoad(usedRadii: number): number {
   return PIGMENT_FLOOR + (1 - PIGMENT_FLOOR) * Math.exp(-usedRadii / PIGMENT_RUN_RADII)
 }
 
+// ─── The brush drinks (#536, ADR 011 §17) ───────────────────────────────────
+//
+// Ilya: a brush dragged through a puddle takes water with it, stays damp for a
+// while after it leaves, and drags the puddle out behind it — while the puddle
+// itself dries sooner for having been drunk from.
+//
+// The unit of this exchange is **one stroke**, and that is a decision rather
+// than an omission. Pen-down always hands back a freshly charged brush (the
+// scratch's own beginStroke), because the alternative gives the brush hidden
+// state the user has to keep in their head: why is it wet, how do I dry it,
+// does switching tools reset it, does undo. That is a dipping simulator, and
+// not dipping was the first thing asked of this tool. Within one stroke,
+// though, the exchange is exactly what the hand expects.
+//
+// Expressed as a *rewind of the water clock* rather than as a second water
+// quantity, and that is what makes the tail fall out for free: picking up
+// water puts the brush back to where it was N radii ago, and from there it
+// runs down again at the ordinary rate. The brush therefore leaves the puddle
+// wetter than it entered and converges back to the dry curve over the same
+// distance it gained — which is "растянет лужу чутка", in the model's own
+// units.
+//
+// Two properties this shape gives away for nothing, both of which a separate
+// reservoir would have had to be argued into:
+//
+//  - the brush can never end up wetter than fully loaded, because the clock
+//    stops at zero;
+//  - it is monotone in paper wetness and in travel, so no amount of dwelling
+//    in a puddle can run it away.
+
+/** How many radii of water clock one radius of travel through *fully* wet paper
+ *  gives back. Above 1 on purpose: at exactly 1 a brush in a puddle would only
+ *  hold its level, and what the hand sees is a brush that visibly recovers. */
+const WATERCOLOR_PICKUP_RADII = 2.6
+
+/** A single pass takes a third of what is there. Enough that dragging a dry
+ *  brush across a bead visibly opens a drier lane through it, far from enough
+ *  that one careless movement wipes a wash off the paper. */
+const WATERCOLOR_PAPER_DRAIN = 0.34
+
+/** The water clock after one segment: travel spends it, wet paper gives it
+ *  back. `paperWet` is what the stroke *recorded* seeing under this dab, never
+ *  a live reading — so replay walks the identical curve (paperWetness.ts). */
+export function watercolorWaterClock(usedRadii: number, stepRadii: number, paperWet: number): number {
+  const drunk = WATERCOLOR_PICKUP_RADII * clamp01(paperWet) * stepRadii
+  return Math.max(0, usedRadii + stepRadii - drunk)
+}
+
+/** How much of its wetness a patch of paper loses to a brush passing over it,
+ *  as a fraction. The mirror of watercolorWaterClock and deliberately not
+ *  derived from it: the paper's side of this exchange lives entirely in the
+ *  live field, which is never replayed and never has to agree with anyone
+ *  else's copy — so it is free to be a simple, legible number rather than a
+ *  conserved quantity. */
+export function watercolorPaperDrained(paperWet: number): number {
+  return WATERCOLOR_PAPER_DRAIN * clamp01(paperWet)
+}
+
 // ─── Measuring a nib that is not round (#489) ───────────────────────────────
 //
 // Every scalar in the wet model is expressed in *radii*: water and pigment
