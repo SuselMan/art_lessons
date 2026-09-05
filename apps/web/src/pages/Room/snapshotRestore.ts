@@ -111,11 +111,22 @@ export type SnapshotRestoreOutcome =
  *  iPadOS killed the tab and reloaded it, over and over, with nothing in
  *  Sentry — a jetsam kill runs no JS, so there was no event to send.
  *
- *  Hence two phases. Every blob is fetched **concurrently** and kept
- *  compressed (9.3 MB, nothing to worry about), which is what preserves both
- *  the latency win and the all-or-nothing contract above, since a fetch is
- *  the realistic way this fails. Only then is each one inflated, decoded,
- *  handed over and dropped — so the inflated peak is one layer, not the sum.
+ *  Hence two phases. Every blob is fetched first and kept compressed (9.3 MB,
+ *  nothing to worry about), which is what preserves both the latency win and
+ *  the all-or-nothing contract above, since a fetch is the realistic way this
+ *  fails. Only then is each one inflated, decoded, handed over and dropped —
+ *  so the inflated peak is one layer, not the sum.
+ *
+ *  (#533) Fetched a few at a time and retried, no longer all at once and once
+ *  only. On 2026-09-04 a teacher opened room cdf314dd-153 from a laptop whose
+ *  uplink was busy with the video call the lesson was being taught over: 28
+ *  blobs went out together, 8.6 MB, and **two of them arrived** — 162 KB in a
+ *  hundred seconds — before the rest were reset and the whole restore failed.
+ *  He was shown an empty room for the next twenty minutes. Twenty-eight
+ *  parallel streams do not share a choked link, they starve each other; a few
+ *  at a time each get a real share and finish. And on a link like that a
+ *  transfer dying halfway is the ordinary condition rather than the exception,
+ *  so one failed read may no longer take the whole lesson down with it.
  *
  *  The narrowed window this leaves is worth stating plainly: a blob that
  *  arrives intact and then fails to *inflate* now does so after earlier
@@ -123,8 +134,126 @@ export type SnapshotRestoreOutcome =
  *  corrupt payload of already-transferred bytes rather than a network fault,
  *  and buying strictness back would mean inflating everything twice — the one
  *  cost this whole change exists to avoid. */
+/** (#533) How many blobs are in flight at once.
+ *
+ *  Not a throughput knob — a fairness one. The failure this replaces put all
+ *  28 of a room's blobs on the wire together, which on a healthy link is free
+ *  and on a saturated one is the whole problem: every stream gets a sliver of
+ *  the bandwidth, none of them finishes, and the browser eventually resets the
+ *  lot. Four is enough to keep the link busy across the per-request latency and
+ *  few enough that each request actually completes. */
+export const SNAPSHOT_BLOB_CONCURRENCY = 4
+
+/** Attempts per request, counting the first. Three retries covers the shape
+ *  the incident had — a link that drops transfers but is not down — without
+ *  turning a room the server genuinely cannot answer for into a minute of
+ *  spinner. */
+export const SNAPSHOT_FETCH_ATTEMPTS = 4
+
+/** Pause before retry number `attempt` (numbered from zero). Same doubling
+ *  shape as socketRevival's, for the same reason: whatever is wrong with the
+ *  link is unlikely to be over within a hundred milliseconds, and hammering a
+ *  congested path is how a slow restore becomes a failed one. */
+export function retryDelayMs(attempt: number): number {
+  return Math.min(400 * 2 ** attempt, 3000)
+}
+
+/** Statuses worth asking about again. Everything else is an answer rather than
+ *  a blip: a 403 or a 404 says the same thing four times over, and spending
+ *  three more round trips to hear it only delays the honest failure. */
+function isRetriableStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500
+}
+
+/** One try at producing a value. `retriable` is the attempt's own judgement —
+ *  it is the only thing here that knows whether it was the network or the
+ *  server that said no. */
+type Attempt<T> = { ok: true; value: T } | { ok: false; retriable: boolean; error: unknown }
+
+export interface RestoreOptions {
+  /** Test seam. Sleeping for real would make the retry tests as slow as the
+   *  backoff they assert. */
+  sleep?: (ms: number) => Promise<void>
+}
+
+const realSleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
+
+async function withRetry<T>(
+  attempt: () => Promise<Attempt<T>>, sleep: (ms: number) => Promise<void>,
+): Promise<T> {
+  let lastError: unknown
+  for (let i = 0; i < SNAPSHOT_FETCH_ATTEMPTS; i++) {
+    if (i > 0) await sleep(retryDelayMs(i - 1))
+    const result = await attempt()
+    if (result.ok) return result.value
+    lastError = result.error
+    if (!result.retriable) break
+  }
+  throw lastError
+}
+
+/** Reading the body counts as part of the request, deliberately: the transfers
+ *  that died on 2026-09-04 died *there*, with the response line long since
+ *  delivered and `arrayBuffer()` never resolving. A retry that only covered the
+ *  status would not cover the incident it exists for. */
+async function fetchBlobOnce(url: string, describe: string): Promise<Attempt<Uint8Array>> {
+  try {
+    const res = await fetch(url, { credentials: 'include' })
+    if (!res.ok) {
+      return { ok: false, retriable: isRetriableStatus(res.status), error: new Error(`${describe}: ${res.status}`) }
+    }
+    return { ok: true, value: new Uint8Array(await res.arrayBuffer()) }
+  } catch (error) {
+    return { ok: false, retriable: true, error }
+  }
+}
+
+/** Fetches every blob, `SNAPSHOT_BLOB_CONCURRENCY` at a time, into a result
+ *  array that keeps the plan's own index order.
+ *
+ *  The first failure stops the workers that have not started their next request
+ *  yet, rather than letting them run to completion against a link already shown
+ *  not to work. The contract above is unchanged: one blob nobody could fetch,
+ *  after every retry, still fails the whole restore. */
+async function fetchBlobs(
+  roomId: string,
+  layers: SnapshotIndex['layers'],
+  sleep: (ms: number) => Promise<void>,
+): Promise<Uint8Array[]> {
+  const blobs = new Array<Uint8Array>(layers.length)
+  let next = 0
+  let firstError: unknown = null
+  let failed = false
+
+  const worker = async (): Promise<void> => {
+    while (!failed) {
+      const i = next++
+      if (i >= layers.length) return
+      const layer = layers[i]
+      try {
+        blobs[i] = await withRetry(
+          () => fetchBlobOnce(
+            `/api/rooms/${roomId}/snapshots/${layer.layerId}/${layer.seq}`,
+            `snapshot blob ${layer.layerId}@${layer.seq}`,
+          ),
+          sleep,
+        )
+      } catch (error) {
+        if (!failed) { failed = true; firstError = error }
+        return
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(SNAPSHOT_BLOB_CONCURRENCY, layers.length) }, worker),
+  )
+  if (failed) throw firstError
+  return blobs
+}
+
 export async function restoreLatestSnapshot(
-  roomId: string, sink: SnapshotRestoreSink,
+  roomId: string, sink: SnapshotRestoreSink, options: RestoreOptions = {},
 ): Promise<SnapshotRestoreOutcome> {
   // (#474) Both are built up as the phases pass so the catch below can say
   // where it stopped and what it had already handed to the engine. A `failed`
@@ -133,28 +262,33 @@ export async function restoreLatestSnapshot(
   let stage: 'index' | 'blobs' | 'apply' = 'index'
   let plan: RestorePlanEntry[] = []
   const appliedLayerIds: string[] = []
+  const sleep = options.sleep ?? realSleep
   try {
-    const res = await fetch(`/api/rooms/${roomId}/snapshots/index`, { credentials: 'include' })
     // 204 is the room's own answer that nothing was ever baked. A non-ok status
     // is a fault, and collapsing the two — as this did until #474 — spends the
-    // one signal that says so.
-    if (res.status === 204) return { status: 'none' }
-    if (!res.ok) throw new Error(`snapshot index: ${res.status}`)
-    const body = await res.json() as SnapshotIndex
+    // one signal that says so. `null` is how the 204 leaves the retry loop:
+    // "never baked" is a settled answer and must not be asked again.
+    const body = await withRetry<SnapshotIndex | null>(async () => {
+      try {
+        const res = await fetch(`/api/rooms/${roomId}/snapshots/index`, { credentials: 'include' })
+        if (res.status === 204) return { ok: true, value: null }
+        if (!res.ok) {
+          return { ok: false, retriable: isRetriableStatus(res.status), error: new Error(`snapshot index: ${res.status}`) }
+        }
+        return { ok: true, value: await res.json() as SnapshotIndex }
+      } catch (error) {
+        return { ok: false, retriable: true, error }
+      }
+    }, sleep)
+    if (body === null) return { status: 'none' }
     plan = body.layers.map(layer => ({ layerId: layer.layerId, seq: layer.seq, bytes: 0 }))
 
     stage = 'blobs'
-    const blobs = await Promise.all(body.layers.map(async layer => {
-      // Deliberately not `cache: 'reload'` or a cache-busting query: the
-      // browser cache hitting here is the entire point of the change.
-      const blob = await fetch(`/api/rooms/${roomId}/snapshots/${layer.layerId}/${layer.seq}`, {
-        credentials: 'include',
-      })
-      if (!blob.ok) throw new Error(`snapshot blob ${layer.layerId}@${layer.seq}: ${blob.status}`)
-      // Still gzip on arrival — the server sends the stored bytes without
-      // Content-Encoding precisely so they stay compressed until here.
-      return new Uint8Array(await blob.arrayBuffer())
-    }))
+    // Deliberately not `cache: 'reload'` or a cache-busting query: the browser
+    // cache hitting here is the entire point of #427. The bytes are still gzip
+    // on arrival — the server sends the stored bytes without Content-Encoding
+    // precisely so they stay compressed until the loop below.
+    const blobs = await fetchBlobs(roomId, body.layers, sleep)
 
     for (let i = 0; i < blobs.length; i++) plan[i].bytes = blobs[i].byteLength
 

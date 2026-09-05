@@ -429,6 +429,14 @@ export const en = {
   'room.paperFailed.body': 'Drawing needs the paper texture, so the project stays closed until it loads. Nothing has been lost — the drawing is on the server.',
   'room.paperFailed.retry': 'Try again',
   'room.paperFailed.retrying': 'Loading…',
+
+  // (#533) The room's stored pixels did not arrive. Deliberately says the
+  // drawing is safe before it says anything else: what this screen looks like
+  // from the reader's side is their lesson gone, and the one thing they need
+  // to know first is that it is not.
+  'room.restoreFailed.title': "The drawing didn't load",
+  'room.restoreFailed.body': 'The connection dropped before the drawing arrived, so the project stays closed rather than showing you a blank sheet. Nothing has been lost — everything is on the server.',
+  'room.restoreFailed.retry': 'Try again',
   'room.connection.offline': 'No connection — reconnecting…',
   'room.connection.offlineWithPending': {
     one: 'No connection. {n} stroke is saved on this device and will be sent once you reconnect.',
