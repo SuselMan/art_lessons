@@ -429,6 +429,20 @@ export const en = {
   'room.paperFailed.body': 'Drawing needs the paper texture, so the project stays closed until it loads. Nothing has been lost — the drawing is on the server.',
   'room.paperFailed.retry': 'Try again',
   'room.paperFailed.retrying': 'Loading…',
+
+  // (#533) The room's stored pixels did not arrive. Deliberately says the
+  // drawing is safe before it says anything else: what this screen looks like
+  // from the reader's side is their lesson gone, and the one thing they need
+  // to know first is that it is not.
+  'room.restoreFailed.title': "The drawing didn't load",
+  'room.restoreFailed.body': 'The connection dropped before the drawing arrived, so the project stays closed rather than showing you a blank sheet. Nothing has been lost — everything is on the server.',
+  // (#538) The other way a room can fail to open: the pixels arrived and
+  // putting them on screen threw. Deliberately vague about the cause, because
+  // we do not know it at the moment this is shown — the reports behind it are
+  // both a tablet running out of graphics memory and a bug of our own — and
+  // naming the wrong one is the same mistake as saying nothing.
+  'room.restoreFailed.bodyDevice': 'Something went wrong while the project was being put together on this device, so it stays closed rather than showing you a blank sheet. Nothing has been lost — everything is on the server, and the failure has been reported.',
+  'room.restoreFailed.retry': 'Try again',
   'room.connection.offline': 'No connection — reconnecting…',
   'room.connection.offlineWithPending': {
     one: 'No connection. {n} stroke is saved on this device and will be sent once you reconnect.',

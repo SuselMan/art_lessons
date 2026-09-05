@@ -27,7 +27,11 @@ test.describe('rejoining a room that has a snapshot', () => {
   // A hundred strokes, a snapshot bake, an upload, and a second browser.
   test.setTimeout(240_000)
 
-  test('the joiner restores from stored pixels instead of replaying everything', async ({ page, browser }) => {
+  /** Draws a room past the snapshot boundary and waits until the pixels are
+   *  actually stored, so a joiner will take the restore path. Shared by both
+   *  tests below — it is a hundred real gestures either way, and doing it twice
+   *  in two shapes would only make the file slower to read as well as to run. */
+  async function roomWithStoredSnapshot(page: Parameters<typeof createRoom>[0]): Promise<string> {
     const roomId = await createRoom(page)
     await waitForRoomReady(page)
 
@@ -58,6 +62,12 @@ test.describe('rejoining a room that has a snapshot', () => {
       return body.layers?.length ?? 0
     }, { timeout: 120_000, message: 'a snapshot should be stored for this room' }).toBeGreaterThan(0)
 
+    return roomId
+  }
+
+  test('the joiner restores from stored pixels instead of replaying everything', async ({ page, browser }) => {
+    const roomId = await roomWithStoredSnapshot(page)
+
     const student = await browser.newContext()
     const studentPage = await student.newPage()
     try {
@@ -73,6 +83,52 @@ test.describe('rejoining a room that has a snapshot', () => {
       // and is the whole point of the mechanism.
       const replayed = (await operations(studentPage)).filter(op => op.type === 'stroke').length
       expect(replayed).toBeLessThan(100)
+    } finally {
+      await student.close()
+    }
+  })
+
+  /** (#533) The other half of the same mechanism: what the joiner is shown
+   *  when those stored pixels do not arrive.
+   *
+   *  On 2026-09-04 the answer was "an open room with a blank canvas and no
+   *  message". The server had withheld the operations the snapshot covered, so
+   *  there was nothing left to replay them from, and the editor announced
+   *  itself ready anyway. The teacher taught the lesson over a screen share.
+   *
+   *  The route is aborted rather than answered with a status, because that is
+   *  the shape the incident had — transfers dying on a link busy with a video
+   *  call, not a server saying no. `/snapshots/index` is deliberately left
+   *  alone: the failure under test is the pixels not arriving, and a room whose
+   *  index also failed would be a different (and less dangerous) story. */
+  test('a joiner whose snapshot never arrives is told, not shown an empty room', async ({ page, browser }) => {
+    const roomId = await roomWithStoredSnapshot(page)
+
+    const student = await browser.newContext()
+    const studentPage = await student.newPage()
+    try {
+      // Two path segments after /snapshots/ — the blobs. The index has one.
+      await studentPage.route('**/api/rooms/*/snapshots/*/*', route => route.abort('failed'))
+
+      // Not joinRoom(): that waits for the room to open, and the whole claim
+      // here is that it must not.
+      await studentPage.goto(`/room/${roomId}`)
+      await studentPage.locator('form input[type="text"]').first().fill('Student')
+      await studentPage.locator('form button[type="submit"]').click()
+
+      const alert = studentPage.getByRole('alert')
+      await expect(alert, 'the failure has to be said out loud').toBeVisible({ timeout: 60_000 })
+      // The canvas stays gated: an editor that accepts strokes is a claim that
+      // what it is showing is the room.
+      await expect(studentPage.locator('canvas').first()).toHaveCSS('pointer-events', 'none')
+
+      // And the one thing offered has to actually work.
+      await studentPage.unroute('**/api/rooms/*/snapshots/*/*')
+      await alert.getByRole('button').click()
+
+      await waitForRoomReady(studentPage)
+      const layer = await activeLayerId(studentPage)
+      expect(await maxDarknessOverContent(studentPage, layer)).toBeGreaterThan(INK)
     } finally {
       await student.close()
     }

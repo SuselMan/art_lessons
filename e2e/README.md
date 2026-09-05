@@ -35,8 +35,10 @@ scenario's state can be opened in psql.
 | Create a room, draw, see the ink; a second stroke adds to the first | `specs/draw.spec.ts` |
 | Undo removes the mark, redo brings it back exactly once | `specs/undo.spec.ts` |
 | A joiner sees earlier work, and work drawn while they watch | `specs/peer.spec.ts` |
+| A joiner whose room throws on the way to the screen is told so, rather than handed a half-open editor, and the retry opens it | `specs/peer.spec.ts` |
 | Drawing through a dropped connection reaches the server afterwards | `specs/reconnect.spec.ts` |
 | A room past the snapshot boundary rejoins from stored pixels | `specs/snapshot.spec.ts` |
+| A joiner whose snapshot blobs never arrive is told so, instead of being shown an empty room, and the retry brings the drawing back | `specs/snapshot.spec.ts` |
 | Losing the GPU context and getting it back: the drawing returns, undo still lines up, an interrupted gesture leaves nothing, a peer's stroke in flight is not stranded | `specs/contextLoss.spec.ts` |
 | A layer transform resamples as one image, with no source-tile seam | `specs/transformSeam.spec.ts` |
 | Smudge works across a tile seam — no dead band down an A4 sheet's x=1024 | `specs/smudgeSeam.spec.ts` |

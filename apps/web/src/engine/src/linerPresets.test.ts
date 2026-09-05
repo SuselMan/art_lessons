@@ -22,33 +22,73 @@ describe('LINER_PRESET', () => {
   })
 })
 
-describe('linerSpeedFlow (#245: constant-flow-over-time model)', () => {
-  it('is 1.0 (baseline) at the reference "comfortable" speed', () => {
-    expect(linerSpeedFlow(1)).toBeCloseTo(1.0)
+describe('linerSpeedFlow (#245 constant-flow-over-time, reshaped to a plateau in #532)', () => {
+  // The range Ilya's own hatching actually measured at, decoded from eight
+  // real strokes in a room log (#532). Every one of these is ordinary drawing,
+  // and the whole point of the reshape is that ordinary drawing is flat.
+  const MEASURED_HATCHING_SPEEDS = [0.24, 0.36, 0.53, 0.64, 0.9, 1.17]
+
+  it('is exactly 1.0 across the whole range a person actually hatches at', () => {
+    for (const speed of MEASURED_HATCHING_SPEEDS) {
+      expect(linerSpeedFlow(speed)).toBeCloseTo(1.0)
+    }
   })
 
-  it('drops toward the lighter floor as speed increases, without ever reaching 0', () => {
-    expect(linerSpeedFlow(2)).toBeCloseTo(0.5)
-    expect(linerSpeedFlow(100)).toBeCloseTo(0.5) // clamped, not a runaway toward 0
-    expect(linerSpeedFlow(2)).toBeLessThan(linerSpeedFlow(1))
+  it('holds the plateau with margin above the fastest measured hatching', () => {
+    // 1.17 px/ms was the top of the measured range; the plateau has to extend
+    // past it or an ordinary brisk stroke falls off the edge of it.
+    expect(linerSpeedFlow(1.5)).toBeCloseTo(1.0)
+    expect(linerSpeedFlow(1.75)).toBeCloseTo(1.0)
   })
 
-  it('rises toward the darker ceiling as speed drops toward a stop', () => {
-    expect(linerSpeedFlow(0)).toBeCloseTo(1.4)
-    expect(linerSpeedFlow(0.01)).toBeCloseTo(1.4) // clamped, not a runaway toward infinity
-    expect(linerSpeedFlow(0.5)).toBeGreaterThan(linerSpeedFlow(1))
+  it('starves only once the tip outruns the feed — the "длинный быстрый штрих" case', () => {
+    expect(linerSpeedFlow(2.5)).toBeLessThan(1.0)
+    expect(linerSpeedFlow(4)).toBeCloseTo(0.75)
+    expect(linerSpeedFlow(100)).toBeCloseTo(0.75) // floors, no runaway toward 0
+  })
+
+  it('pools by only a few percent as a moving stroke slows to a crawl', () => {
+    // #245 gave this end 1.4 — 40% more ink for moving slowly. A metered feed
+    // has nothing like that spare; the stationary blot is dwellFlow's job.
+    expect(linerSpeedFlow(0)).toBeCloseTo(1.05)
+    expect(linerSpeedFlow(0.1)).toBeGreaterThan(1.0)
+    expect(linerSpeedFlow(0.1)).toBeLessThan(1.1)
+  })
+
+  it('joins its plateau smoothly at both ends', () => {
+    // A kink in tone at exactly the speed people draw at is the failure this
+    // curve exists to avoid, so both joins are checked as derivatives rather
+    // than just as values. Slope per 0.01 px/ms, either side of each join.
+    // A linear ramp into the plateau would show ~0.33 at the slow join, so
+    // this bound still has better than 6x of margin over the thing it rules
+    // out; it is not tight enough to be brittle about the exact easing.
+    const slope = (s: number) => (linerSpeedFlow(s + 0.005) - linerSpeedFlow(s - 0.005)) / 0.01
+    for (const join of [0.15, 1.75]) {
+      expect(Math.abs(slope(join))).toBeLessThan(0.05)
+    }
   })
 
   it('is monotonically decreasing in speed', () => {
-    const speeds = [0, 0.25, 0.5, 1, 1.5, 2, 3]
+    const speeds = [0, 0.25, 0.5, 1, 1.5, 2, 3, 4, 8]
     const flows = speeds.map(linerSpeedFlow)
     for (let i = 1; i < flows.length; i++) expect(flows[i]).toBeLessThanOrEqual(flows[i - 1])
   })
 })
 
 describe('dwellFlow / dwellConfigForTool / LINER_DWELL (#245)', () => {
-  it('starts at 1.0 (continuous with linerSpeedFlow at the moment movement stops)', () => {
+  it('starts at 1.0, within a few percent of where the moving stroke left off', () => {
     expect(dwellFlow(0, LINER_DWELL)).toBeCloseTo(1.0)
+    // (#532) The handoff step, which used to be 0.4 and claimed to be zero:
+    // linerSpeedFlow at a standstill returned #245's ceiling of 1.4 and dwell
+    // then restarted the ramp from 1.0, dropping the ink 29% at the exact
+    // moment the pen stopped. Now both ends of the handoff are ~1.0.
+    expect(Math.abs(linerSpeedFlow(0) - dwellFlow(0, LINER_DWELL))).toBeLessThan(0.06)
+  })
+
+  it('still lets a genuinely resting tip blot well past what a moving stroke can', () => {
+    // The reason dwell keeps its own ceiling instead of aliasing the moving
+    // curve's: time at one spot is unbounded, speed is not.
+    expect(LINER_DWELL.maxFlow).toBeGreaterThan(linerSpeedFlow(0) + 0.3)
   })
 
   it('ramps up monotonically toward, but never past, maxFlow', () => {
