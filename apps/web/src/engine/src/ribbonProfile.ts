@@ -643,9 +643,25 @@ export const WATERCOLOR_SPREAD = {
  *  already builds a whole ribbon geometry buffer, and it buys the one thing a
  *  shared constant cannot: two strokes with different mixes, live in the same
  *  room at the same time, rendering correctly. */
-function watercolorRibbon(presetName: string | undefined): RibbonProfile {
+function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonProfile {
   const mix = watercolorMixFromPreset(presetName)
   const w = watercolorWaterEffects(mix.water)
+  // (#536) Two water numbers, not one, and the split is the whole of "paint
+  // into wet paper".
+  //
+  //   `w`  the brush's own load. It decides *delivery and contact*: whether the
+  //        hairs break away from the paper at all, and how the mark is laid.
+  //   `t`  the wetter of the brush and the paper it landed on. It decides what
+  //        happens to the paint *after* it has left the brush: how far the wash
+  //        travels, how softly the boundary resolves, whether pigment migrates.
+  //
+  // Collapsing the two — which is what a single max() over everything would do
+  // — gets the interesting case backwards: a dry brush dragged over wet paper
+  // is still a dry brush, and still scratches, but the paint it does leave now
+  // blooms. That is the whole reason a wet-in-wet mark looks nothing like a
+  // loaded one.
+  const t = paperWet > mix.water ? watercolorWaterEffects(paperWet) : w
+  const transportWater = Math.max(mix.water, paperWet)
   const p = watercolorPigmentEffects(mix.pigment)
   // (#468 v5) The paint itself. `mix.pigment` is *how much* paint; this is
   // *which* paint, and they multiply: a lot of a smooth phthalo green still
@@ -706,13 +722,16 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.
-    spreadOfRadius: w.spreadOfRadius * (0.6 + 0.8 * paint.diffusion),
-    cloud: w.cloud,
-    edgeSoft: w.edgeSoft,
-    edgeWander: w.edgeWander,
-    tideLo: w.tideLo,
-    tideHi: w.tideHi,
+    spreadOfRadius: t.spreadOfRadius * (0.6 + 0.8 * paint.diffusion),
+    cloud: t.cloud,
+    edgeSoft: t.edgeSoft,
+    edgeWander: t.edgeWander,
+    tideLo: t.tideLo,
+    tideHi: t.tideHi,
     strokeDir: [1, 0],
+    // The brush's own water, never the paper's: wet paper does not stop a
+    // starved brush from riding the crests, it only decides what becomes of
+    // the paint that does land.
     dryContact: w.dryContact,
     // ── from pigment: how much paint ──
     granulation: p.granulation * (0.25 + 1.5 * paint.granulation),
@@ -736,7 +755,7 @@ function watercolorRibbon(presetName: string | undefined): RibbonProfile {
     // threshold cannot migrate anywhere — and a zero here skips sixty texture
     // reads per fragment instead of spending them on a result known in advance.
     // Measured at roughly half the composite's cost on a full-width band.
-    migrate: mix.water <= WATERCOLOR_MIGRATE_LO
+    migrate: transportWater <= WATERCOLOR_MIGRATE_LO
       ? 0
       : WATERCOLOR_MIGRATE_GAIN
         * (1 - 0.7 * paint.staining)
@@ -753,8 +772,13 @@ export function isRibbonTool(tool: ToolType): boolean {
   return tool === 'marker' || tool === 'brushPen' || tool === 'watercolor'
 }
 
-export function ribbonProfileFor(tool: ToolType, presetName: string | undefined): RibbonProfile {
-  if (tool === 'watercolor') return watercolorRibbon(presetName)
+export function ribbonProfileFor(
+  tool: ToolType, presetName: string | undefined,
+  /** (#536) How wet the paper was where this gesture came down, 0..1 — read
+   *  back from the stroke's recorded profile, never from a live clock. */
+  paperWet = 0,
+): RibbonProfile {
+  if (tool === 'watercolor') return watercolorRibbon(presetName, paperWet)
   if (tool === 'brushPen') return BRUSH_PEN_RIBBON
   return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_RIBBON : MARKER_BULLET_RIBBON
 }

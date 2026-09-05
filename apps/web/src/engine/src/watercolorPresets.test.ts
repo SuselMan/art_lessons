@@ -22,6 +22,7 @@ import {
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
   WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling, watercolorPigmentFromPreset,
+  watercolorWashSignature,
 } from './watercolorPresets'
 import { watercolorPigmentByCode, WATERCOLOR_PIGMENTS, DEFAULT_WATERCOLOR_PIGMENT } from './watercolorPigments'
 import { brushPenWidth } from './brushPenPresets'
@@ -289,8 +290,16 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
     expect(deep.strength).toBeGreaterThan(pale.strength * 3)
     expect(deep.granulation).toBeGreaterThan(pale.granulation)
     expect(deep.wetEdge).toBeGreaterThan(pale.wetEdge)
-    // Never zero: a stroke the user asked for has to leave something.
-    expect(watercolorPigmentEffects(0).strength).toBeGreaterThan(0)
+    // (#536) Zero, and this assertion is the inverse of the one it replaces.
+    // It used to read "never zero: a stroke the user asked for has to leave
+    // something", which sounded like care for the user and was in fact a
+    // control that lied: the bottom of the pigment slider still painted, so
+    // "clean water" — the one technique the two axes exist to make possible —
+    // could not be asked for at all. What a water stroke leaves is wetness, on
+    // the paper and not in the pixels.
+    expect(watercolorPigmentEffects(0).strength).toBe(0)
+    // …and the moment there is any pigment at all, there is paint.
+    expect(watercolorPigmentEffects(0.02).strength).toBeGreaterThan(0)
   })
 
   it('gives the three named mixes genuinely different characters', () => {
@@ -683,5 +692,60 @@ describe('watercolor flex nib (#489)', () => {
     // barely moving: slow careful work should land under the brush.
     expect(fast.x - fast.footprint.x).toBeGreaterThan(slow.x - slow.footprint.x)
     expect(slow.x - slow.footprint.x).toBeCloseTo(0, 6)
+  })
+})
+
+describe('what keeps a wash open (#536)', () => {
+  const blue: [number, number, number] = [0.1, 0.2, 0.7]
+
+  it('survives either mix slider moving', () => {
+    // The sequence this exists for: lay clean water, turn the pigment up, take
+    // paint into it. Those are necessarily two strokes with different mixes,
+    // and under the old rule — the whole preset string — they were necessarily
+    // two washes, so the second could not know the first had happened.
+    const water = watercolorPresetString('normal', { water: 0.95, pigment: 0 }, 'PB29')
+    const paint = watercolorPresetString('normal', { water: 0.5, pigment: 0.8 }, 'PB29')
+    expect(watercolorWashSignature(water, blue)).toBe(watercolorWashSignature(paint, blue))
+  })
+
+  it('survives changing brush and pressure feel', () => {
+    // Swapping brushes mid-wash is ordinary. Neither the nib nor how the stylus
+    // is read says anything about what is lying on the paper.
+    const round = watercolorPresetString('soft', WATERCOLOR_MIX_DEFAULT, 'PB29', 'round')
+    const flat = watercolorPresetString('firm', WATERCOLOR_MIX_DEFAULT, 'PB29', 'chisel')
+    expect(watercolorWashSignature(round, blue)).toBe(watercolorWashSignature(flat, blue))
+  })
+
+  it('ends on a different paint or a different colour', () => {
+    // A second paint over a first is a glaze, and a glaze must get its own
+    // frozen backdrop rather than pooling into what is underneath.
+    const cobalt = watercolorPresetString('normal', WATERCOLOR_MIX_DEFAULT, 'PB29')
+    const other = watercolorPresetString('normal', WATERCOLOR_MIX_DEFAULT, 'PY35')
+    expect(watercolorWashSignature(cobalt, blue)).not.toBe(watercolorWashSignature(other, blue))
+    expect(watercolorWashSignature(cobalt, blue)).not.toBe(watercolorWashSignature(cobalt, [0.9, 0.1, 0.1]))
+  })
+})
+
+describe('paper wetness against brush water (#536)', () => {
+  const dryBrush = watercolorPresetString('normal', { water: 0.12, pigment: 0.8 }, 'PB29')
+
+  it('makes a dry brush on wet paper spread without making it stop scratching', () => {
+    const onDry = ribbonProfileFor('watercolor', dryBrush, 0)
+    const onWet = ribbonProfileFor('watercolor', dryBrush, 0.9)
+    // What happens to the paint after it lands is the paper's business…
+    expect(onWet.spreadOfRadius).toBeGreaterThan(onDry.spreadOfRadius * 2)
+    expect(onWet.edgeSoft).toBeGreaterThan(onDry.edgeSoft * 2)
+    // …and how the brush meets the paper is still the brush's. Collapsing the
+    // two would turn a dry brush dragged over a puddle into a loaded one, which
+    // is exactly what a wet-in-wet mark does not look like.
+    expect(onWet.dryContact).toBe(onDry.dryContact)
+    expect(onWet.dryContact).toBeGreaterThan(0.5)
+  })
+
+  it('leaves a loaded brush alone — its own water already exceeds the paper', () => {
+    const loaded = watercolorPresetString('normal', { water: 0.92, pigment: 0.5 }, 'PB29')
+    const onDry = ribbonProfileFor('watercolor', loaded, 0)
+    const onWet = ribbonProfileFor('watercolor', loaded, 0.3)
+    expect(onWet.spreadOfRadius).toBeCloseTo(onDry.spreadOfRadius, 10)
   })
 })

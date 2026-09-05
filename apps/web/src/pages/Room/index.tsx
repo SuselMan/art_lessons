@@ -2122,6 +2122,10 @@ export function Room() {
           // its stroke id alone and paints a wash the author never made — see
           // StrokeLiveData.washId.
           ...(packet.washId ? { washId: packet.washId } : {}),
+          // (#536) Same reason, one level down: a peer's own wetness field is
+          // its own, so what the author's brush landed in has to travel with
+          // the dabs it belongs to.
+          ...(packet.wet ? { wet: packet.wet } : {}),
         })
       },
       onLiveStrokeEnd: strokeId => {
@@ -5733,6 +5737,7 @@ export function Room() {
         preset: data.preset, color: data.color, packetSeq: data.packetSeq,
         dabs: unpackDabs(data.dabsPacked),
         washId: data.washId,
+        wet: data.wet,
       })
       const seen = streamedStrokeIdsRef.current
       seen.add(data.strokeId)

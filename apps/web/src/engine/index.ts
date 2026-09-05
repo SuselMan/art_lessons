@@ -56,6 +56,7 @@ import {
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
+import { PaperWetness, quantizeWet, isDryProfile, wetAt } from './src/paperWetness'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper,
@@ -63,7 +64,7 @@ import {
   type PressureResponse,
 } from './src/brushPenPresets'
 import {
-  WATERCOLOR_PRESET, applyWatercolorEndTaper,
+  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPigmentEffects, watercolorMixFromPreset,
@@ -952,6 +953,11 @@ export interface PeerLivePacket {
   /** (#468) The wash this gesture belongs to — see StrokeLiveData.washId for
    *  why it has to travel on the live stream and not only on the operation. */
   washId?: string
+  /** (#536) One hex digit per dab of *this packet*, saying how wet the paper
+   *  the author was painting into already was. Same reason as washId: the peer
+   *  cannot derive it — its own wetness field is its own — so it travels with
+   *  the dabs or the two clients draw different marks. */
+  wet?: string
 }
 
 // ─── Internal types ────────────────────────────────────────────────────────────
@@ -1324,7 +1330,25 @@ const MARKER_CHISEL_PRESET: PencilPreset  = { opacity: 0.36, hardness: 0.68, siz
  *
  *  Any change of paint, colour, layer or tool ends the wash immediately,
  *  regardless of this. */
-const WASH_JOIN_MS = 1200
+/** (#468 v7) How long a wash stays open. (#536) Was 1200 ms, which was picked
+ *  when the only thing a wash had to survive was the gap between two adjacent
+ *  bands of one flat wash. It cannot survive the sequence this tool's two axes
+ *  exist for — lay clean water, turn the pigment up, take paint into it — for
+ *  the simple reason that reaching for the slider takes longer than that.
+ *
+ *  Not a drying time: nothing dries here. It is the horizon past which a stroke
+ *  is treated as a second, glazed layer over a first, and it is a *ceiling*
+ *  rather than the rule — a stroke that lands away from anything this wash
+ *  actually wetted starts its own wash however recent it is (see
+ *  `_washOverlapsWet`), so a long horizon does not glue unrelated marks
+ *  together across the sheet. */
+const WASH_JOIN_MS = 25000
+
+/** Under this, a stroke rejoins the open wash whatever the paper says. Covers
+ *  the brush that was too dry to leave a readable trace of water and the pen
+ *  lifted for an instant mid-band; it is the old, purely temporal rule kept as
+ *  a floor beneath the physical one. */
+const WASH_RECENT_MS = 1200
 
 /** Per-marker-stroke, per-tile scratch state (follow-up to #250: the
  *  original per-dab patch-copy-then-multiply design compounded darker at
@@ -1821,6 +1845,17 @@ export class PencilEngine implements PencilEngineAPI {
     scratch: RibbonStrokeScratch
   } | null = null
   private _washId: string | null = null
+  /** (#536) Where the paper is still wet — live, local, ephemeral, never
+   *  replayed. See paperWetness.ts for why that is the design rather than a
+   *  shortcut. */
+  private readonly _paperWet = new PaperWetness()
+  /** The quantized profile of what *this* gesture has seen so far, built as it
+   *  is drawn and recorded on the operation. Read back by the painting path
+   *  itself, so a live mark and its replay consume the identical numbers. */
+  private _strokeWet = ''
+  /** The same profile for the dabs still queued for the live channel, drained
+   *  with them so a packet always carries exactly its own dabs' digits. */
+  private _liveWetQueue = ''
   /** (#385) Shared free list behind every RibbonStrokeScratch this engine
    *  builds — see RibbonScratchPool's own doc comment for why the marker path
    *  cannot allocate per gesture. Assigned in the constructor, right after
@@ -2744,7 +2779,7 @@ export class PencilEngine implements PencilEngineAPI {
           const skip = this._claimLivePaintedDabs(op, allDabs.length)
           const dabs = skip ? allDabs.slice(skip) : allDabs
           if (dabs.length) {
-            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId)
+            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet)
           }
           this._markLayerDirty(op.layerId)
           // (#468) Never mid-wash, the same rule the local path follows one
@@ -3055,6 +3090,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._wash?.scratch.destroy()
     this._wash = null
     this._washId = null
+    // (#536) The paper does not un-wet itself because the tool changed, so the
+    // field is *not* cleared here — only pruned of what has finished drying.
+    // Switching to a pencil and back a few seconds later should still find the
+    // puddle, which is what happens on a real desk.
+    this._paperWet.prune(performance.now())
   }
 
   setNibAngle(angleRadians: number, anchor: NibAnchor): void {
@@ -3635,6 +3675,10 @@ export class PencilEngine implements PencilEngineAPI {
     // stretch where the two sources overlap.
     const skip = Math.min(Math.max(0, live.paintedTotal - live.liveOffset), packet.dabs.length)
     const dabs = skip ? packet.dabs.slice(skip) : packet.dabs
+    // (#536) Sliced by the same amount and for the same reason: the profile is
+    // one digit per dab precisely so that every place a gesture gets cut can
+    // take its own piece without arithmetic.
+    const wet = packet.wet && skip ? packet.wet.slice(skip) : packet.wet
     live.liveOffset += packet.dabs.length
     if (!dabs.length) return
     live.paintedTotal = Math.max(live.paintedTotal, live.liveOffset)
@@ -3647,7 +3691,7 @@ export class PencilEngine implements PencilEngineAPI {
     // second, independently-tracked copy is how the two get to disagree.
     this._paintDabs(
       buf, dabs, packet.tool, packet.preset, packet.color, peerId,
-      undefined, undefined, packet.strokeId, packet.washId,
+      undefined, undefined, packet.strokeId, packet.washId, wet,
     )
     this._markLayerDirty(packet.layerId)
     if (packet.layerId !== this._activeId) this._invalidateSplitCache()
@@ -4088,7 +4132,7 @@ export class PencilEngine implements PencilEngineAPI {
         // Smudge (#416): nothing to seed — see appendOperation's own stroke
         // case for why replay/undo/redo is deterministic from the op's own
         // dabs alone now.
-        this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId)
+        this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet)
         break
       case 'layer_clear':
         buf.clear()
@@ -5344,14 +5388,40 @@ export class PencilEngine implements PencilEngineAPI {
     // Joining needs the same paint on the same layer, soon enough that the last
     // one has not dried. Change any of those and you are painting a second
     // wash over a first, which is glazing and must behave like it.
-    const washSignature = `${this._opts.pencilType}|${this._opts.graphiteColor.join(',')}`
+    // (#536) Watercolor answers this for itself, and the difference is the
+    // point: the generic form below is the whole preset string, and for this
+    // tool that string carries the mix — so moving either slider ended the
+    // wash. See watercolorWashSignature.
+    const washSignature = this._strokeTool === 'watercolor'
+      ? watercolorWashSignature(this._opts.pencilType, this._opts.graphiteColor)
+      : `${this._opts.pencilType}|${this._opts.graphiteColor.join(',')}`
+    // (#536) The gesture's own record of what it painted into. Cleared here
+    // rather than at pen-up so a stroke refused above cannot leave a stale
+    // profile behind for the next one to inherit.
+    this._strokeWet = ''
+    this._liveWetQueue = ''
     if (profile.normalizeDeposit) {
       const now = performance.now()
       const open = this._wash
+      // (#536) Joining is a physical question, not a bookkeeping one: did the
+      // brush come down in something that is still wet? A pure timer answered
+      // it wrongly at both ends — a second band of a flat wash laid 1.5 s later
+      // started a fresh wash and drew its own seam, while a mark put down in a
+      // different corner of the sheet within the window joined a wash it never
+      // touched and shared its accumulation.
+      //
+      // The timer stays as a *ceiling* underneath the paper's own answer, which
+      // matters for the case the field cannot speak to: a nearly dry brush
+      // wetted almost nothing, so the wash it belongs to has to be allowed to
+      // continue on recency alone.
+      const landedWet = this._paperWet.anyWetNear(
+        layerId, e.x, e.y, this._opts.size * 0.75, now,
+      )
       const joins = open !== null
         && open.layerId === layerId
         && open.signature === washSignature
         && now - open.endedAt <= WASH_JOIN_MS
+        && (landedWet || now - open.endedAt <= WASH_RECENT_MS)
       if (joins && open) {
         this._washId = open.id
         this._ribbonStrokeScratch = open.scratch
@@ -5724,6 +5794,9 @@ export class PencilEngine implements PencilEngineAPI {
           dabsPacked, timestamp: Date.now(),
           ...(this._strokeId ? { strokeId: this._strokeId } : {}),
           ...(this._washId ? { washId: this._washId } : {}),
+          // (#536) Only when there was something to see: most strokes land on
+          // dry paper, and an all-zero profile is bytes spent saying nothing.
+          ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
         }
         this._log.append(op)
         // (#468 v10) Never mid-wash. A checkpoint bakes the layer's pixels, and
@@ -5997,9 +6070,10 @@ export class PencilEngine implements PencilEngineAPI {
    *  pacing. */
   private _paintStrokeDabs(dabs: Dab[], speed: number, elapsedMs: number): void {
     if (!dabs.length || !this._strokeLayerId) return
-    const buf = this._layers.get(this._strokeLayerId)
+    const layerId = this._strokeLayerId
+    const buf = this._layers.get(layerId)
     if (!buf) return
-    this._markLayerDirty(this._strokeLayerId)
+    this._markLayerDirty(layerId)
 
     this._bakeDabOpacity(dabs, speed, this._strokeTool, this._strokePreset, this._opts.opacity)
     // #454, ADR 009 §4. Before painting *and* before _strokeDabs.push below,
@@ -6026,11 +6100,43 @@ export class PencilEngine implements PencilEngineAPI {
     // the real previous dab regardless of where the last batch happened to
     // end, so a smudge stroke smears continuously across _onMove's own
     // internal batching instead of restarting at each call.
+    // (#536) What the paper under these dabs was already carrying, resolved
+    // *before* they are painted and before they wet it themselves — otherwise
+    // a stroke reads its own water back and every mark believes it was laid
+    // into a puddle.
+    //
+    // Quantized here rather than at pen-up, and that is load-bearing: the value
+    // the live mark uses has to be the value replay will read, or the stroke
+    // redraws itself when the room reloads. One sample per WET_SAMPLE_STRIDE
+    // dabs, appended in order, so a packet already sent stays a prefix of what
+    // the operation will eventually carry.
+    let batchWet: string | undefined
+    if (this._strokeTool === 'watercolor') {
+      const now = performance.now()
+      let seen = ''
+      for (const dab of dabs) seen += quantizeWet(this._paperWet.sample(layerId, dab.x, dab.y, now))
+      this._strokeWet += seen
+      this._liveWetQueue += seen
+      batchWet = seen
+    }
     this._paintDabs(
       buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
       this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
+      undefined, undefined, batchWet,
     )
     this._paintExtraLayers(dabs)
+    // …and only now does this stroke's own water reach the paper, so the next
+    // one can work into it. The nominal mix rather than the depleted load: how
+    // wet a patch of paper is barely cares which end of the stroke wetted it,
+    // while the mark very much does — that distinction is why brush water and
+    // paper wetness are two quantities (ADR 011 §17).
+    if (this._strokeTool === 'watercolor') {
+      const now = performance.now()
+      const water = watercolorMixFromPreset(this._strokePreset).water
+      for (const dab of dabs) {
+        this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, water, now)
+      }
+    }
     this._strokeDabs.push(...dabs)
     // (#429) Same dab objects, queued for the live channel — see
     // onLiveStrokeDabs on why both paths must read the one baked result.
@@ -6198,6 +6304,7 @@ export class PencilEngine implements PencilEngineAPI {
     // and every receiver would read a gap and desync the gesture.
     const packetSeq = this._livePacketSeq++
     const dabs = this._liveDabQueue
+    const wet = this._liveWetQueue
     for (const layerId of [this._strokeLayerId, ...this._strokeExtraLayerIds]) {
       this._onLiveStrokeDabs({
         strokeId: this._strokeId, layerId,
@@ -6206,11 +6313,15 @@ export class PencilEngine implements PencilEngineAPI {
         // (#468) Decided at pen-down and constant for the gesture, so every
         // packet carries the same value the operation will.
         ...(this._washId ? { washId: this._washId } : {}),
+        // (#536) Exactly this packet's dabs' worth, so the peer indexes it from
+        // zero the same way a replayed operation does.
+        ...(wet && !isDryProfile(wet) ? { wet } : {}),
       })
     }
     // A fresh array rather than length = 0: the packet above holds this one,
     // and the caller is free to keep it (Room packs it asynchronously).
     this._liveDabQueue = []
+    this._liveWetQueue = ''
   }
 
   private _flushStrokeChunk(): void {
@@ -6224,12 +6335,16 @@ export class PencilEngine implements PencilEngineAPI {
         layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         dabsPacked, timestamp: Date.now(),
         ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+        ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
       }
       this._log.append(op)
       this._maybeCheckpoint(targetId)
       this._onLocalOperation?.(op)
     }
     this._strokeDabs = []
+    // Drained with the dabs it belongs to: the next chunk's profile starts at
+    // its own first dab, exactly as a replayed operation's does.
+    this._strokeWet = ''
   }
 
   // ─── Reference image import (#88) ──────────────────────────────────────────────
@@ -6545,6 +6660,11 @@ export class PencilEngine implements PencilEngineAPI {
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number], userId: string, prevDab?: Dab, ribbonScratch?: RibbonStrokeScratch,
     strokeId?: string, washId?: string,
+    /** (#536) How wet the paper already was under this stroke, as the recorded
+     *  hex profile (StrokeOperation.wet). Live passes the profile it is
+     *  building; replay passes the one it read. Both must be the *quantized*
+     *  string, never a raw reading — see paperWetness.ts. */
+    wetProfile?: string,
   ): void {
     if (!dabs.length) return
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return }
@@ -6559,7 +6679,7 @@ export class PencilEngine implements PencilEngineAPI {
     // #454: two tools now, dispatched by isRibbonTool rather than by name —
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
-    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId); return }
+    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile); return }
     const erasing = tool === 'eraser'
     // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
     // table). Resolved once here as a number rather than one boolean flag per
@@ -7227,6 +7347,7 @@ export class PencilEngine implements PencilEngineAPI {
     target: ILayerBuffer | AccumulationBuffer, dabs: Dab[], tool: ToolType, presetName: string,
     color: [number, number, number],
     ribbonScratch?: RibbonStrokeScratch, prevDab?: Dab, strokeId?: string, washId?: string,
+    wetProfile?: string,
   ): void {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
@@ -7238,7 +7359,13 @@ export class PencilEngine implements PencilEngineAPI {
     // `target`).
     if (target instanceof AccumulationBuffer) return
     const preset = this._resolvePreset(tool, presetName)
-    const profile = ribbonProfileFor(tool, presetName)
+    // (#536) The paper's own wetness where this gesture came down, read from
+    // what the stroke recorded rather than from the live field: a replay has no
+    // field, and a live batch must not consult a clock that has moved on since
+    // the pen landed. Index 0 is the gesture's first dab on both paths — live
+    // batches slice their own digits, and the batch that decides the gesture's
+    // cached scalars and its final recomposite is the first one.
+    const profile = ribbonProfileFor(tool, presetName, wetAt(wetProfile, 0))
     const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, washId, dabs, profile)
     const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
     // `prevDab` is threaded the same way smudge threads its own

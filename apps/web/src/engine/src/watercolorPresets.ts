@@ -514,7 +514,16 @@ export function watercolorPigmentEffects(pigment: number): {
     // and independent of where the saturation curve happens to sit, so a graded
     // wash grades evenly instead of doing nothing across the top of the slider
     // and falling off a cliff at the bottom.
-    strength: mix(0.12, 1.0, pigment),
+    //
+    // (#536) The floor is **zero**, down from 0.12, and that is a control being
+    // made honest rather than a number being retuned. At 0.12 the bottom of the
+    // slider still painted: "no pigment" laid a pale wash, so the one technique
+    // the two-axis brush exists to make possible — lay clean water, then take
+    // paint into it — could not be expressed at all, because there was no way
+    // to put down water alone. Zero pigment now means zero pigment mass, and
+    // what the stroke leaves behind is wetness (see the paper-wetness field),
+    // which is exactly what clean water leaves on paper.
+    strength: mix(0.0, 1.0, pigment),
   }
 }
 
@@ -692,6 +701,27 @@ export function watercolorPresetString(
 export function watercolorPigmentFromPreset(presetName: string | undefined): string {
   const code = presetName?.split(':')[3]
   return code && isWatercolorPigmentCode(code) ? code : DEFAULT_WATERCOLOR_PIGMENT
+}
+
+/** (#536) What must be unchanged for a stroke to join the wash already on the
+ *  paper, rather than glaze over it.
+ *
+ *  The rule used to be "the whole preset string, plus the colour", which meant
+ *  **moving either mix slider ended the wash**. That silently forbade the one
+ *  sequence this tool's two axes exist for: lay clean water, turn the pigment
+ *  up, paint into it. Those are necessarily two strokes with different mixes,
+ *  so they were necessarily two washes, and the second could not know the first
+ *  had ever happened.
+ *
+ *  What legitimately ends a wash is a different *paint* — that is a second,
+ *  glazed layer with its own frozen backdrop. How much water and how much of
+ *  that paint the brush happens to be carrying is a property of the brush at
+ *  that moment, not of what is lying on the paper; neither is which nib is
+ *  held, nor how the stylus is being read. So none of them appear here.
+ *
+ *  Layer and tool are checked by the caller, which has them to hand. */
+export function watercolorWashSignature(presetName: string | undefined, color: readonly number[]): string {
+  return `wc|${watercolorPigmentFromPreset(presetName)}|${color.join(',')}`
 }
 
 export function watercolorMixFromPreset(presetName: string | undefined): WatercolorMix {
