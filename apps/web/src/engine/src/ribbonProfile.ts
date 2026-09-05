@@ -797,7 +797,13 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     // construction. Both were reported — "щетинок мало" and "на chisel кажется
     // они не работают" — and both are this.
     bristleCombs: 4,
-    bristleInk: 0.45,
+    //  #536 — 0.62, from 0.45. "Щетинки есть, но можно сделать их заметнее?"
+    //  The two structural faults are fixed now (the saturation ceiling that
+    //  buried the modulation, and the bundle count that made it sub-pixel), so
+    //  this is finally a number that can be turned rather than a symptom of
+    //  something else — which is the first time in this issue that has been
+    //  true of the hair. Zero-mean, so raising it does not darken the mark.
+    bristleInk: 0.62,
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.
