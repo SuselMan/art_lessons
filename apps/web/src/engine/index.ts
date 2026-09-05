@@ -1879,6 +1879,9 @@ export class PencilEngine implements PencilEngineAPI {
   /** The same profile for the dabs still queued for the live channel, drained
    *  with them so a packet always carries exactly its own dabs' digits. */
   private _liveWetQueue = ''
+  /** (#536) Water this gesture will leave behind, held until pen-up so that the
+   *  gesture cannot read it back as if some earlier stroke had laid it. */
+  private _pendingWet: Array<{ x: number; y: number; r: number }> = []
   /** (#385) Shared free list behind every RibbonStrokeScratch this engine
    *  builds — see RibbonScratchPool's own doc comment for why the marker path
    *  cannot allocate per gesture. Assigned in the constructor, right after
@@ -5468,6 +5471,7 @@ export class PencilEngine implements PencilEngineAPI {
     // profile behind for the next one to inherit.
     this._strokeWet = ''
     this._liveWetQueue = ''
+    this._pendingWet = []
     if (profile.normalizeDeposit) {
       const now = performance.now()
       const open = this._wash
@@ -5892,8 +5896,16 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
     this._strokeDabs = []
-    // (#536) The paper is now wetter than it was, and nothing else will ask for
-    // a frame until the next stroke — so this is where watching it dry starts.
+    // (#536) Only now does the gesture's own water reach the paper — see
+    // _paintStrokeDabs on why not sooner.
+    if (this._pendingWet.length && layerId) {
+      const now = performance.now()
+      const water = watercolorMixFromPreset(this._strokePreset).water
+      for (const w of this._pendingWet) this._paperWet.deposit(layerId, w.x, w.y, w.r, water, now)
+    }
+    this._pendingWet = []
+    // The paper is now wetter than it was, and nothing else will ask for a
+    // frame until the next stroke — so this is where watching it dry starts.
     if (this._paperWet.peak(performance.now()) > 0.01) this._scheduleDryingRepaint()
     this._handlers.strokeEnd?.(e)
   }
@@ -6200,17 +6212,23 @@ export class PencilEngine implements PencilEngineAPI {
       undefined, undefined, batchWet, mottleSeedFromStrokeId(this._strokeId ?? undefined),
     )
     this._paintExtraLayers(dabs)
-    // …and only now does this stroke's own water reach the paper, so the next
-    // one can work into it. The nominal mix rather than the depleted load: how
-    // wet a patch of paper is barely cares which end of the stroke wetted it,
-    // while the mark very much does — that distinction is why brush water and
-    // paper wetness are two quantities (ADR 011 §17).
+    // …and this stroke's own water is *queued*, not laid. It reaches the paper
+    // at pen-up.
+    //
+    // Laying it here looked right and was wrong in a way that quietly disabled
+    // the whole feature: this method runs once per pointer event, so the second
+    // batch of a stroke sampled the water the first batch had just put down.
+    // Every mark therefore believed it was painting into a puddle — a stroke on
+    // dry paper recorded a profile like "08008000000" — and once every stroke
+    // reads wet, actually laying water first stops meaning anything. Which is
+    // exactly how it behaved.
+    //
+    // The nominal mix rather than the depleted load: how wet a patch of paper
+    // is barely cares which end of the stroke wetted it, while the mark very
+    // much does — that distinction is why brush water and paper wetness are two
+    // quantities (ADR 011 §17).
     if (this._strokeTool === 'watercolor') {
-      const now = performance.now()
-      const water = watercolorMixFromPreset(this._strokePreset).water
-      for (const dab of dabs) {
-        this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, water, now)
-      }
+      for (const dab of dabs) this._pendingWet.push({ x: dab.x, y: dab.y, r: dab.size * 0.5 })
     }
     this._strokeDabs.push(...dabs)
     // (#429) Same dab objects, queued for the live channel — see

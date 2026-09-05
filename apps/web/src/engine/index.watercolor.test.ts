@@ -580,3 +580,64 @@ describe('a wash reaches every path that paints (#468)', () => {
     expect(calls()).toBe(25)
   })
 })
+
+// #536 — the water-then-paint chain, end to end at the data level.
+//
+// MockGL rasterizes none of this, so these do not check what the mark looks
+// like. They check the one thing that has to be true before looking is even
+// meaningful: that a stroke laid into a puddle *saw* the puddle and wrote down
+// what it saw. Three rounds of "the wetness does not seem to do anything" were
+// answered by reasoning about the shader while the chain feeding it went
+// unverified, which is the wrong order.
+describe('water first, then paint (#536)', () => {
+  const WATER = 'normal:92:0:PB29:round'
+  const PAINT = 'normal:55:80:PB29:round'
+
+  function paintWith(engine: PencilEngine, preset: string, y: number) {
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(preset)
+    engine.setSize(24)
+    simulateStroke(engine, [{ x: 8, y }, { x: 28, y }, { x: 56, y }])
+    return lastStroke(engine)
+  }
+
+  it('records nothing on dry paper — most strokes carry no field at all', async () => {
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    const op = paintWith(engine, PAINT, 48)
+    expect(op.wet).toBeUndefined()
+  })
+
+  it('sees the water a previous stroke left, and writes down what it saw', async () => {
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    // Clean water: zero pigment, so it leaves no colour — only wetness.
+    paintWith(engine, WATER, 48)
+    // …and paint straight over the same line.
+    const painted = paintWith(engine, PAINT, 48)
+    expect(painted.wet).toBeDefined()
+    // Not a token amount: the brush came down in the middle of what it laid.
+    const digits = (painted.wet ?? '').split('')
+    const wettest = Math.max(...digits.map(d => parseInt(d, 16)))
+    expect(wettest).toBeGreaterThan(6)
+  })
+
+  it('does not see water laid somewhere else on the sheet', async () => {
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    paintWith(engine, WATER, 8)
+    const painted = paintWith(engine, PAINT, 80)
+    expect(painted.wet).toBeUndefined()
+  })
+
+  it('keeps the water out of its own profile — a stroke must not read itself back', async () => {
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    // A single wet stroke wets the paper as it goes. If the sampling ran after
+    // the deposit, its own later dabs would report a puddle that only exists
+    // because of them, and every mark would believe it was painted wet.
+    const op = paintWith(engine, WATER, 48)
+    expect(op.wet).toBeUndefined()
+  })
+})
