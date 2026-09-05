@@ -1963,6 +1963,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonEdgeLoc!: number
   private _ribbonInkLoc!: number
   private _ribbonInkWaterLoc!: number
+  private _ribbonAcrossLoc!: number
   private _ribbonBuf!: WebGLBuffer
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
@@ -5076,7 +5077,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -5148,6 +5149,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonEdgeLoc = gl.getAttribLocation(this._ribbonProg, 'a_edge')
     this._ribbonInkLoc  = gl.getAttribLocation(this._ribbonProg, 'a_ink')
     this._ribbonInkWaterLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWater')
+    this._ribbonAcrossLoc = gl.getAttribLocation(this._ribbonProg, 'a_across')
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
@@ -7530,6 +7532,11 @@ export class PencilEngine implements PencilEngineAPI {
     const deposits: number[] = []
     const waterByDab = new Map<Dab, number>()
     const pigmentByDab = new Map<Dab, number>()
+    // (#536) Which way "across the brush" points for each dab, in the nib's own
+    // local axes — the stamps' half of the hair comb. Filled in the same loop
+    // that already resolves each dab's travel direction, so there is exactly
+    // one reading of it and the stamps cannot disagree with the bands.
+    const acrossByDab = new Map<Dab, [number, number]>()
     {
       let prev = prevDab
       let used = scratch.waterUsed
@@ -7546,6 +7553,14 @@ export class PencilEngine implements PencilEngineAPI {
         const radius = Math.max(watercolorTravelRadius(
           minor * Math.max(dab.aspectRatio, 1), minor, dab.angle, travelAngle,
         ), 0.5)
+        if (travelAngle !== null) {
+          // Perpendicular of travel, rotated out of world space into the nib's
+          // frame. Null travel is a tap or a dwell tick with no direction to
+          // speak of; the minor axis is the isotropic answer and is what the
+          // uniform already defaults to.
+          const la = travelAngle + Math.PI / 2 - dab.angle
+          acrossByDab.set(dab, [Math.cos(la), Math.sin(la)])
+        }
         const seg = this._markerSegmentLength(dab, prev, radius)
         if (profile.waterDepletion) used += watercolorWaterStep(seg, radius)
         // The profile's levels are the *initial* load; the two curves say how
@@ -7601,7 +7616,11 @@ export class PencilEngine implements PencilEngineAPI {
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
 
-      for (const dab of drawable) this._drawRibbonNibPass(coverage, tile, dab, preset, profile, 6, 0)
+      for (const dab of drawable) {
+        this._drawRibbonNibPass(
+          coverage, tile, dab, preset, profile, 6, 0, true, 0, acrossByDab.get(dab) ?? [0, 1],
+        )
+      }
       if (bands.length) this._drawRibbonBands(coverage, tile, bands, 'coverage', profile.aaPx)
 
       // Ink follows the *same* figure as the silhouette. Depositing it only at
@@ -7618,7 +7637,7 @@ export class PencilEngine implements PencilEngineAPI {
           inkLoad.beginAdditiveDraw()
           this._drawRibbonNibPass(
             inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false,
-            waterByDab.get(drawable[i]) ?? 0,
+            waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
           )
           inkLoad.endDraw()
         }
@@ -7728,6 +7747,12 @@ export class PencilEngine implements PencilEngineAPI {
      *  level (ADR 011 §4.1). 0 for every tool with no water model, which leaves
      *  those channels at zero and the ratio unread. */
     inkWater = 0,
+    /** (#536) Which way "across the brush" points for this dab, as a unit
+     *  vector in the nib's own local axes. The stamps must agree with the bands
+     *  about this or the hair comb would soften at every stamp, i.e. ripple at
+     *  the dab pitch. Defaults to the nib's minor axis, which for a round nib
+     *  whose angle follows the path is already the perpendicular of travel. */
+    acrossLocal: [number, number] = [0, 1],
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -7765,6 +7790,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_opacity, opacity)
     // #468 v4 — weights the deposit written into the texture's colour channels.
     gl.uniform1f(u.u_inkWater, inkWater)
+    gl.uniform2f(u.u_acrossLocal, acrossLocal[0], acrossLocal[1])
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     if (ownTarget) dest.endDraw()
@@ -7787,6 +7813,7 @@ export class PencilEngine implements PencilEngineAPI {
       local[i + 2] = bands[i + 2]
       local[i + 3] = bands[i + 3]
       local[i + 4] = bands[i + 4]
+      local[i + 5] = bands[i + 5]
     }
 
     if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
@@ -7806,6 +7833,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._ribbonInkWaterLoc, 1, gl.FLOAT, false, stride, 16)
     gl.enableVertexAttribArray(this._ribbonInkLoc)
     gl.vertexAttribPointer(this._ribbonInkLoc, 1, gl.FLOAT, false, stride, 12)
+    gl.enableVertexAttribArray(this._ribbonAcrossLoc)
+    gl.vertexAttribPointer(this._ribbonAcrossLoc, 1, gl.FLOAT, false, stride, 20)
 
     gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
 
@@ -7815,6 +7844,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.disableVertexAttribArray(this._ribbonEdgeLoc)
     gl.disableVertexAttribArray(this._ribbonInkWaterLoc)
     gl.disableVertexAttribArray(this._ribbonInkLoc)
+    gl.disableVertexAttribArray(this._ribbonAcrossLoc)
     dest.endDraw()
   }
 

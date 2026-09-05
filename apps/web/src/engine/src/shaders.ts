@@ -201,17 +201,24 @@ export const RIBBON_VERT = `
   // FLOATS_PER_VERTEX for the bug that forced it there. 0 for every tool
   // without a water model, which leaves the channel it feeds unread.
   attribute float a_inkWater;
+  // (#536) Where across the brush this vertex is: -1 at one tangent line, 0 on
+  // the centre line, +1 at the other. A *hair* lives at a fixed value of this
+  // for the whole gesture, which is what separates a brush with hair from a
+  // noise field the brush drives over — see markerRibbon.ts's own note.
+  attribute float a_across;
 
   uniform vec2 u_resolution;
 
   varying float v_edge;
   varying float v_ink;
   varying float v_inkWater;
+  varying float v_across;
 
   void main() {
     v_edge = a_edge;
     v_ink = a_ink;
     v_inkWater = a_inkWater;
+    v_across = a_across;
     vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
@@ -234,6 +241,7 @@ export const RIBBON_FRAG = `
   varying float v_edge;
   varying float v_ink;
   varying float v_inkWater;
+  varying float v_across;
 
   void main() {
     // Inset ramp: coverage reaches 0 exactly *at* the geometric boundary and
@@ -257,7 +265,20 @@ export const RIBBON_FRAG = `
     // how the stroke happened to be cut into pointer events — a live stroke and
     // a replay of it disagreed over a quarter of the mark, and a reload
     // visibly redrew it.
-    gl_FragColor = vec4(vec3(u_mode > 0.5 ? cov * v_inkWater : amount), amount);
+    // (#536) The coverage buffer's .r now carries the brush's across-coordinate,
+    // remapped to 0..1 and premultiplied by coverage the same way "over"
+    // blending expects, so the composite recovers it as .r/.a. It is free real
+    // estate: in coverage mode all three colour channels held a copy of alpha
+    // and nothing ever read them. .g keeps that copy so anything that did is
+    // unaffected.
+    //
+    // Premultiplied "over" means overlapping passes blend toward whichever drew
+    // last where it covered fully, which is the physically right answer: the
+    // last pass of the brush over a spot is the one whose hairs you see.
+    float acrossEncoded = v_across * 0.5 + 0.5;
+    gl_FragColor = u_mode > 0.5
+      ? vec4(vec3(cov * v_inkWater), amount)
+      : vec4(acrossEncoded * amount, amount, amount, amount);
   }
 `;
 
@@ -409,6 +430,14 @@ export const DAB_FRAG = `
   // geometric branches read either.
   uniform float u_nibShape;
   uniform float u_nibCorner;
+  // (#536) The direction across the brush's travel, expressed in this nib's own
+  // local axes and unit length. Per dab, because a stroke turns: the stamps
+  // have to agree with the bands about which way "across" points, or the comb
+  // would soften at every stamp and read as a ripple at the dab pitch — the
+  // exact artifact class the cone deposit was introduced to kill (u_inkMode=6's
+  // own note). (0,1) for anything that does not set it, which for a round nib
+  // whose angle follows the path is already the right answer.
+  uniform vec2 u_acrossLocal;
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
@@ -581,6 +610,12 @@ export const DAB_FRAG = `
   // exact same stroke. Same fix as paperNoise.ts's own hash — Inigo
   // Quilez's artifact-free hash, built from fract/floor/multiply only, no
   // transcendental functions to lose precision under mediump.
+  // (#536) How unevenly a loaded brush's hairs deliver pigment, as a fraction
+  // either side of the mean. Small on purpose: this is the material's hand,
+  // not its subject. Above about 0.25 a flat wash stops being flat, which is
+  // the exercise §7 exists to keep passing.
+  const float WC_BRISTLE_INK = 0.18;
+
   float hash(vec2 p) {
     p = 17.0 * fract(p * 0.3183099 + vec2(0.11, 0.17));
     return fract(p.x * p.y * (p.x + p.y));
@@ -913,7 +948,18 @@ export const DAB_FRAG = `
       // see its own comment for why the ramp is one-sided.
       float cov = clamp(-markerNibDistPx() / u_aaPx, 0.0, 1.0);
       if (cov <= 0.0) discard;
-      gl_FragColor = vec4(vec3(cov), cov);
+      // (#536) .r carries where across the brush this fragment sits, on the
+      // same -1..+1 scale RIBBON_FRAG writes and remapped the same way. The
+      // support value of an ellipse in local direction u is
+      // sqrt((a*u.x)^2 + (b*u.y)^2), so dividing the projection by it lands
+      // exactly +/-1 at the tangent points the bands' own tangent vertices sit
+      // on — the two primitives therefore agree wherever they overlap.
+      float bAx = max(v_radius, 1e-4);
+      float aAx = bAx * max(v_aspectRatio, 1.0);
+      vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
+      float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
+      float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov, cov);
       return;
     }
 
@@ -1091,26 +1137,45 @@ export const DAB_FRAG = `
       // paperCatch is high on a fibre crest and low in a pit, and it is baked
       // offline in double precision - so this adds a smoothstep and a multiply
       // and nothing that cross-device determinism has ever been broken by.
+      // §8, #536 - the brush's own hairs. ONE field, TWO outputs.
+      //
+      // Until #536 this lived entirely inside the dryness > 0.0 branch, and
+      // u_dryContact is identically zero above 0.62 water while the "wet"
+      // preset sits at 0.92 - so the wettest brush in the tool was the one
+      // guaranteed to have no hair structure at all. That is backwards against
+      // a real brush, where the hairs are visible loaded as well as dry; they
+      // simply stop *breaking the contact* and start *varying the delivery*.
+      // So the gate is gone and the field now has two ends:
+      //
+      //   dry   the hairs ride the paper's crests and the silhouette genuinely
+      //         breaks up - gaps of bare paper, not pale paint;
+      //   wet   contact is continuous and the hairs instead lay down more
+      //         pigment along some lines than others, inside a solid mark.
+      //
+      // Both are mixed by dryness rather than switched, so nothing steps.
+      //
+      // Where the field is indexed is the other half of the fix. It used to be
+      // world position rotated onto the stroke's direction, which makes it a
+      // field the brush drives *over*: turn the stroke or lay a second pass and
+      // the streaks do not stay on the same hairs, because they were never
+      // attached to any. Now the across-brush axis comes from the rasterizer
+      // (RIBBON_FRAG writes it into coverage's .r), so a hair is a fixed place
+      // in the brush and its streak follows the brush round a curve.
+      //
+      // The second axis is a slow *isotropic* world field rather than distance
+      // along u_strokeDir, and that is deliberate twice over: a perfectly rigid
+      // comb reads as a rake or a fan brush rather than a round one - real
+      // hairs gather and separate as the brush travels - and u_strokeDir is a
+      // per-batch value, so indexing by it made the pattern jump wherever a
+      // live stroke happened to be cut into pointer events.
+      float acrossN = rawCoverage > 0.004
+        ? clamp(texture2D(u_strokeCoverage, tileUV).r / rawCoverage, 0.0, 1.0) * 2.0 - 1.0
+        : 0.0;
+      float hairDrift = wcFbm(wp * 0.008 + vec2(71.0, 13.0));
+      float bristle = wcFbm(vec2(acrossN * 5.5, hairDrift * 3.0) + vec2(3.0, 29.0));
+
       float dryness = u_dryContact * (1.0 - waterHere);
       if (dryness > 0.0) {
-        // §8 - the brush's own hairs, not just the paper's relief.
-        //
-        // A nearly dry round brush does not present a clean disc to the paper:
-        // its hairs group into bundles and separate, so the mark breaks into
-        // *longitudinal* streaks running along the travel. A term that knows
-        // only the paper's height threshold cannot produce those, and what it
-        // produces instead reads as an aerosol or a pastel — which is exactly
-        // how the dry brush was described.
-        //
-        // Modelled by sampling a field in a frame rotated onto the stroke's own
-        // direction and stretched some fifteen times along it: fine across the
-        // travel, long and smooth along it. That is the shape of a bundle of
-        // hairs, and it costs one rotation and one fbm.
-        vec2 along = u_strokeDir;
-        vec2 across = vec2(-along.y, along.x);
-        vec2 bristleUV = vec2(dot(wp, along) * 0.012, dot(wp, across) * 0.19);
-        float bristle = wcFbm(bristleUV + vec2(3.0, 29.0));
-
         // Where a bundle sits, the brush reaches further down into the paper;
         // between bundles it barely touches even a crest. So the bristles
         // modulate the paper's own catch rather than being laid over the result.
@@ -1122,6 +1187,15 @@ export const DAB_FRAG = `
         float contact = smoothstep(lift, lift + 0.22, reach);
         coverage *= mix(1.0, contact, dryness);
       }
+
+      // The wet end of the same field. Zero-mean on purpose: a loaded brush
+      // does not put down *less* paint for having hair, it puts it down
+      // unevenly, so the mark's overall tone must not move as this fades in.
+      // Faded out by dryness so the two ends never both act - once the contact
+      // is genuinely breaking up, modulating the dose as well would double-
+      // count the same hair.
+      float bristleInk = 1.0 + WC_BRISTLE_INK * (bristle - 0.5) * 2.0;
+      ink.a *= mix(bristleInk, 1.0, dryness);
 
       // Untouched by this stroke - leave the layer exactly as it is. With
       // coverage 0 everything below reproduces dst identically, so this is a
