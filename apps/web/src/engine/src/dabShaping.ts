@@ -244,6 +244,14 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * clamp01(t)
 }
 
+/** Smoothstep on a `t` clamped to [0,1]. Used where a ramp meets a plateau and
+ *  the join must not be a kink — a discontinuous derivative in a width curve
+ *  puts a visible step in the line at whatever pressure the kink sits at. */
+function smoothstep01(t: number): number {
+  const c = clamp01(t)
+  return c * c * (3 - 2 * c)
+}
+
 // #249: the angle formula DabSystem._makeDab hardcoded for every tool before
 // this refactor — tilt direction wins once tilt is large enough to trust
 // (>15deg magnitude), otherwise fall back to the spline's own path-tangent
@@ -384,15 +392,65 @@ const PENCIL_SHAPING_BY_RESPONSE: Record<TiltResponse, DabShapingProfile> = {
  *  pre-#409 pencil. */
 export const PENCIL_DAB_SHAPING: DabShapingProfile = PENCIL_SHAPING_BY_RESPONSE[DEFAULT_TILT_RESPONSE]
 
-// ADR 003 §1-2, §6: width/deposit swing only ±7-15% with pressure — never
-// the pencil's several-fold size change, and never tapering to zero at the
+// ADR 003 §1-2, §6: width swings only slightly with pressure — never the
+// pencil's several-fold size change, and never tapering to zero at the
 // stylus's near-zero-pressure liftoff (a real fineliner's tip stays in
 // contact right up to release).
-const LINER_WIDTH_FLOOR = 0.94
-const LINER_WIDTH_CEIL  = 1.08
+//
+// ─── Reshaped #532: a knee, not a line ──────────────────────────────────────
+//
+// Until #532 this was `lerp(0.94, 1.08, pressure)` — the swing spread evenly
+// across the whole pressure range. Ilya checked it against a real fineliner
+// (2026-09-05 chat) and it is wrong in both halves at once:
+//
+//   "при очень слабом нажиме он всё-таки рисует тоньше, то есть сильное
+//    давление почти не влияет на толщину, но минимальные значения делают
+//    линию тоньше"
+//
+// So the upper range carried a ±7% wobble that shouldn't exist, and the lower
+// range — the one place pressure genuinely does change the line — was flat to
+// within 6%, since 0.94 at zero pressure is barely thinner than 1.0.
+//
+// The mechanism is the giveaway. A fineliner's tip is a rigid cylinder, not
+// something that spreads: once it is fully seated against the sheet, the
+// contact patch *is* the tip diameter, and pressing harder cannot make a
+// 0.3 mm nozzle wider. Below that seating pressure the tip is only partly in
+// contact and the line is genuinely narrower. That is a knee, and the flat
+// half of it is the physically exact one — which is why the plateau here is
+// exactly 1.0 rather than a shallow ramp.
+//
+// Two consequences worth stating:
+//
+//  - A line drawn at ordinary pressure is now ~3-6% thinner than before, since
+//    the old curve sat above 1.0 for anything past mid-pressure. That is the
+//    correction, not a side effect: LINER_SIZES_MM's calibrated widths are
+//    meant to be the *seated* width of the nozzle, so the plateau is where the
+//    calibration should have been landing all along.
+//  - Nothing here makes a light touch lighter, only thinner. It already gets
+//    lighter, by a separate and better route: DAB_FRAG's u_inkMode branch
+//    reads the real, unfloored `Dab.pressure` for its paper fill (see the
+//    #245 note below on why that pressure was deliberately left unsquashed),
+//    so a feather touch shows raw grain rather than a solid line.
+//
+// The marker deliberately does NOT follow this — see markerPresets.ts's own
+// MARKER_WIDTH_FLOOR/_CEIL, which used to be a verbatim copy of the two
+// constants above and is now the divergence it always said it was ready for.
+
+/** Pressure at and above which the nib is fully seated — the plateau starts
+ *  here and the curve is flat from here to 1.0. Low on purpose: seating a
+ *  fineliner takes very little force, and everything above it is meant to be
+ *  the "сильное давление почти не влияет" range. */
+const LINER_WIDTH_SEAT_PRESSURE = 0.22
+/** Width multiplier as pressure -> 0: a tip barely touching the sheet. Not
+ *  zero and not near it — ADR 003 §6's no-taper-to-nothing rule is about
+ *  exactly this end of the curve, and a fineliner held feather-light still
+ *  draws a real, if thin, line. */
+const LINER_WIDTH_MIN = 0.6
 
 export const LINER_DAB_SHAPING: DabShapingProfile = {
-  size:   pressure => lerp(LINER_WIDTH_FLOOR, LINER_WIDTH_CEIL, pressure),
+  size: pressure => (pressure >= LINER_WIDTH_SEAT_PRESSURE
+    ? 1
+    : lerp(LINER_WIDTH_MIN, 1, smoothstep01(pressure / LINER_WIDTH_SEAT_PRESSURE))),
   // ADR 003 §1: "короткий цилиндрический наконечник" — a mild ellipticity,
   // not the pencil's tiltNorm^3*6 (which reaches x7 at full tilt).
   aspect: tiltNorm => 1 + 0.15 * tiltNorm,

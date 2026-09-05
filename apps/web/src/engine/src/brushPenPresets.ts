@@ -19,7 +19,8 @@ import type { PencilPreset } from './pencilPresets'
 // in this file follows from it.
 //
 // The distinction that matters is against the liner, not against the pencil.
-// A fineliner's width swings ±7% (LINER_WIDTH_FLOOR/_CEIL in dabShaping.ts)
+// A fineliner's width is flat over the whole usable range and only thins at a
+// feather touch (LINER_WIDTH_SEAT_PRESSURE/_MIN in dabShaping.ts, #532),
 // because a steel or fibre tip of a fixed gauge does not deform. A brush pen's
 // swings from 0.15 to 1.0 of its nominal size, and a user who cannot feel that
 // within a few strokes has been handed the wrong tool.
