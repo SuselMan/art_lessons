@@ -534,6 +534,33 @@ export function watercolorPigmentEffects(pigment: number): {
   }
 }
 
+/** (#536, ADR 011 §17.4) This stroke's own offset into the wash's mottling
+ *  field, from its recorded id.
+ *
+ *  Derived rather than stored: `strokeId` is already on the operation and on
+ *  the live packet, so the author, every peer and every replay resolve the
+ *  identical pair without a byte of new payload — and two strokes over the same
+ *  patch resolve different ones, which is the entire point. A field anchored to
+ *  the paper instead of to the stroke is a texture nothing can repaint, which
+ *  is what a whole sheet of it looked like before this existed.
+ *
+ *  Any cheap avalanche over the characters will do; what matters is that it is
+ *  a pure function of the id and spreads similar ids apart — nanoid gives us
+ *  strings differing in one character, and those must not land on neighbouring
+ *  offsets. */
+export function mottleSeedFromStrokeId(strokeId: string | undefined): [number, number] {
+  if (!strokeId) return [0, 0]
+  let a = 0x811c9dc5, b = 0x01000193
+  for (let i = 0; i < strokeId.length; i++) {
+    const c = strokeId.charCodeAt(i)
+    a = Math.imul(a ^ c, 0x01000193) >>> 0
+    b = Math.imul(b + c + i, 0x85ebca6b) >>> 0
+  }
+  // Into a range wide enough that two strokes land in unrelated parts of the
+  // noise, and finite enough that float precision in the shader is unbothered.
+  return [(a % 100000) / 97.0, (b % 100000) / 89.0]
+}
+
 /** GLSL's smoothstep, in JS. */
 function smoothstepJs(edge0: number, edge1: number, x: number): number {
   const t = clamp01((x - edge0) / (edge1 - edge0))

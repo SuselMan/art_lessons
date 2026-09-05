@@ -242,6 +242,56 @@ const WC_NOISE_GLSL = `
   float wcFbm(vec2 p) {
     return 0.63 * wcNoise(p) + 0.37 * wcNoise(p * 2.7 + vec2(31.4, 17.9));
   }
+
+  // (#536, ADR 011 §17.4) The wash's own coarse unevenness — where the water
+  // pooled, where the brush unloaded — applied where the paint is **laid**
+  // rather than where it is shown.
+  //
+  // This is the whole of the fix Ilya's verdict forced: "эта текстура
+  // независимо ни от чего лежит на холсте, сколько сверху ни крась, она всё
+  // равно остаётся". As a multiplier in the composite it could not be
+  // otherwise, because the composite *recomputes* the mark from position — the
+  // field at a place is the same number forever, so no amount of painting can
+  // change it, and it is not the paint's texture at all but the paper's.
+  //
+  // Written into the deposit, it becomes a property of the paint that is
+  // actually there. A second pass brings its own field and the two add, and
+  // the sum of two independent unevennesses is flatter than either — which is
+  // "выровнять тон повторным проходом", arriving by itself rather than as a
+  // separate levelling mechanism. It is also the only form in which the field
+  // *can* be per-stroke: the composite is one pass over a whole wash, so a
+  // per-stroke seed is inexpressible there.
+  //
+  // The seed is derived from the stroke's own recorded id, so the live mark and
+  // its replay draw the identical field, and two strokes over one spot draw
+  // different ones.
+  float wcCloud(vec2 wp, vec2 seed, float amount) {
+    if (amount <= 0.0) return 1.0;
+    return 1.0 + amount * (wcFbm(wp * 0.018 + seed) - 0.5) * 2.0;
+  }
+
+  // (#536) The pigment settling out of *this* pass, at the scale a wash grains
+  // at. Split from the paper's own preference, which stays in the composite:
+  // the pits are where they are and every pass finds the same ones, but how
+  // much of a given suspension happens to settle into them is an event, not a
+  // property of the sheet.
+  //
+  // Getting that split wrong is what produced the sheet Ilya photographed —
+  // white blotches over the whole page, identical however many passes went
+  // over them, because the whole field was a function of position evaluated at
+  // display time, and with the wash window at twenty-five seconds the whole
+  // page was one wash and therefore one field.
+  //
+  // The hard split (halve below the threshold, amplify above) is kept: it is
+  // what makes the mark break into patches that grain and patches that do not,
+  // rather than an even dither, and it is the part borrowed from Writing on
+  // Water.
+  float wcSettling(vec2 wp, vec2 seed, float amount) {
+    if (amount <= 0.0) return 1.0;
+    float n = wcFbm(wp * 0.11 + seed + vec2(19.0, 71.0)) - 0.5;
+    n = n < 0.05 ? n * 0.5 : n * 1.6;
+    return max(1.0 + amount * n * 2.0, 0.0);
+  }
 `;
 
 export const RIBBON_VERT = `
@@ -309,6 +359,15 @@ export const RIBBON_FRAG = `
   varying float v_inkWet;
   varying float v_inkStrength;
 
+  // (#536) The band half of the deposited mottling. The world origin has to be
+  // handed in because a band is drawn into a tile-sized scratch buffer and
+  // gl_FragCoord alone says nothing about where on the sheet that is — the same
+  // reason DAB_FRAG carries u_paperOrigin (#141).
+  uniform vec2 u_worldOrigin;
+  uniform vec2 u_mottleSeed;
+  uniform float u_cloudDeposit;
+  uniform float u_granDeposit;
+
 ${WC_NOISE_GLSL}
 
   void main() {
@@ -320,7 +379,14 @@ ${WC_NOISE_GLSL}
     // two primitives agree where they meet.
     float cov = clamp(v_edge / u_aaPx, 0.0, 1.0);
     if (cov <= 0.0) discard;
-    float amount = u_mode > 0.5 ? cov * v_ink : cov;
+    // (#536) Ink only: the mottling is a property of how much paint landed, not
+    // of where the mark's silhouette is.
+    vec2 mottleWp = gl_FragCoord.xy + u_worldOrigin;
+    float mottle = u_mode > 0.5
+      ? wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
+        * wcSettling(mottleWp, u_mottleSeed, u_granDeposit)
+      : 1.0;
+    float amount = u_mode > 0.5 ? cov * v_ink * mottle : cov;
     // (#468 v4) Same two-channel deposit the nib stamps write: .a is how much
     // paint landed, .rgb the same amount weighted by how wet the brush was, so
     // the composite can recover a per-pixel water level. One value for the
@@ -347,7 +413,7 @@ ${WC_NOISE_GLSL}
     // Ink: .r brush water, .g paper wetness, both deposit-weighted so the
     // composite recovers a per-pixel mean of each by dividing by .a.
     gl_FragColor = u_mode > 0.5
-      ? vec4(cov * v_inkWater, cov * v_inkWet, cov * v_inkStrength, amount)
+      ? vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount)
       : vec4(acrossEncoded * amount, amount, amount, amount);
   }
 `;
@@ -516,6 +582,11 @@ export const DAB_FRAG = `
   // markerRibbon.ts's FLOATS_PER_VERTEX spells out: one wash, several strokes,
   // and they are allowed to disagree about it.
   uniform float u_inkStrength;
+  // (#536) The wash's coarse mottling, now laid down with the paint rather than
+  // multiplied over it at display time — see wcCloud. Seed per stroke.
+  uniform float u_cloudDeposit;
+  uniform float u_granDeposit;
+  uniform vec2 u_mottleSeed;
   // (#536) The hair comb: how many bundles lie across the brush, and how
   // unevenly they deliver pigment as a fraction either side of the mean.
   //
@@ -1037,6 +1108,12 @@ ${WC_NOISE_GLSL}
       if (cov <= 0.0) discard;
       float depth = clamp(-dPx / max(v_radius, 1e-4), 0.0, 1.0);
       float amount = cov * mix(u_inkEdge, 1.0, depth) * v_opacity;
+      // (#536) …unevenly, and the unevenness is deposited with the paint. Same
+      // world mapping the paper sampling uses, so a stamp and a band cannot
+      // disagree about where the field is.
+      vec2 mottleWp = gl_FragCoord.xy + u_paperOrigin;
+      amount *= wcCloud(mottleWp, u_mottleSeed, u_cloudDeposit)
+              * wcSettling(mottleWp, u_mottleSeed, u_granDeposit);
       // .a is the deposit; .rgb the same deposit weighted by how wet the brush
       // was for this dab. Both accumulate additively, so the composite's r/a is
       // the deposit-weighted mean water over everything that landed here — see
@@ -1409,10 +1486,14 @@ ${WC_NOISE_GLSL}
       //  - it only appears where paint is actually dense. A thin passage of a
       //    granulating paint is smooth; the clumps show up where enough
       //    pigment collected to have something to clump.
-      float granNoise = wcFbm(wp * 0.11 + vec2(19.0, 71.0)) - 0.5;
-      granNoise = granNoise < 0.05 ? granNoise * 0.5 : granNoise * 1.6;
+      // (#536) Only the paper's own half survives here. The noise half — which
+      // was the larger of the two by a long way — moved into the deposit
+      // (wcSettling), because it is what a *pass* leaves rather than what a
+      // *place* is, and a field evaluated at display time cannot be changed by
+      // painting over it. The pits, on the other hand, genuinely are where they
+      // are, and every pass finds the same ones; that stays.
       float granHere = u_granulation * (0.2 + 0.8 * density * density);
-      float gran = 1.0 + granHere * (granNoise * 2.0 + (1.0 - 2.0 * paperCatch) * 0.5);
+      float gran = 1.0 + granHere * (1.0 - 2.0 * paperCatch) * 0.5;
 
       // §3.6 - the wash's own coarse structure, the scale v1 had nothing at.
       //
@@ -1423,7 +1504,10 @@ ${WC_NOISE_GLSL}
       // that gives the mark the three scales it needs. Centred on 1.0 for the
       // same reason granulation is - this redistributes tone, it does not
       // darken the wash.
-      float cloud = 1.0 + u_cloud * (wcFbm(wp * 0.018) - 0.5) * 2.0;
+      // (#536) Gone from here — see wcCloud. It used to be computed at this
+      // point from world position, which is precisely why no amount of painting
+      // could change it. The deposit carries it now.
+      float cloud = 1.0;
 
       // §3.1 wet edge - the tideline. As a wash dries, water evaporates fastest
       // at the perimeter and capillary flow carries pigment there to replace

@@ -64,7 +64,7 @@ import {
   type PressureResponse,
 } from './src/brushPenPresets'
 import {
-  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess,
+  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, mottleSeedFromStrokeId,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
@@ -2798,7 +2798,7 @@ export class PencilEngine implements PencilEngineAPI {
           const skip = this._claimLivePaintedDabs(op, allDabs.length)
           const dabs = skip ? allDabs.slice(skip) : allDabs
           if (dabs.length) {
-            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet)
+            this._paintDabs(buf, dabs, op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId))
           }
           this._markLayerDirty(op.layerId)
           // (#468) Never mid-wash, the same rule the local path follows one
@@ -3733,6 +3733,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paintDabs(
       buf, dabs, packet.tool, packet.preset, packet.color, peerId,
       undefined, undefined, packet.strokeId, packet.washId, wet,
+      mottleSeedFromStrokeId(packet.strokeId),
     )
     this._markLayerDirty(packet.layerId)
     if (packet.layerId !== this._activeId) this._invalidateSplitCache()
@@ -4176,7 +4177,7 @@ export class PencilEngine implements PencilEngineAPI {
         // Smudge (#416): nothing to seed — see appendOperation's own stroke
         // case for why replay/undo/redo is deterministic from the op's own
         // dabs alone now.
-        this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet)
+        this._paintDabs(buf, strokeDabs(op), op.tool, op.preset, op.color, op.userId, undefined, undefined, op.strokeId, op.washId, op.wet, mottleSeedFromStrokeId(op.strokeId))
         break
       case 'layer_clear':
         buf.clear()
@@ -5165,7 +5166,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_inkStrength',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_inkStrength', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -5185,7 +5186,9 @@ export class PencilEngine implements PencilEngineAPI {
       // #468 v11 — pigment transport (ADR 011 §11).
       'u_migrate', 'u_migratePx', 'u_migrateLo', 'u_migrateHi',
     ])
-    this._ribbonUni = getUniforms(gl, this._ribbonProg, ['u_resolution', 'u_aaPx', 'u_mode'])
+    this._ribbonUni = getUniforms(gl, this._ribbonProg, [
+      'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit',
+    ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
       'u_hardness', 'u_eraseMode', 'u_color', 'u_grainMode', 'u_paperFillThreshold', 'u_paperFillCap', 'u_inkMode',
@@ -6175,7 +6178,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paintDabs(
       buf, dabs, this._strokeTool, this._strokePreset, this._strokeColor, this._userId,
       this._strokeDabs.at(-1), this._ribbonStrokeScratch ?? undefined,
-      undefined, undefined, batchWet,
+      undefined, undefined, batchWet, mottleSeedFromStrokeId(this._strokeId ?? undefined),
     )
     this._paintExtraLayers(dabs)
     // …and only now does this stroke's own water reach the paper, so the next
@@ -6718,6 +6721,11 @@ export class PencilEngine implements PencilEngineAPI {
      *  building; replay passes the one it read. Both must be the *quantized*
      *  string, never a raw reading — see paperWetness.ts. */
     wetProfile?: string,
+    /** (#536) Two floats derived from the stroke's own recorded id — this
+     *  stroke's offset into the mottling field. Both the live mark and its
+     *  replay must resolve it from the same id, or the two draw different
+     *  texture; see mottleSeedFor. */
+    strokeSeed?: [number, number],
   ): void {
     if (!dabs.length) return
     if (tool === 'smudge') { this._paintSmudgeDabs(target, dabs, userId, prevDab, strokeId); return }
@@ -6732,7 +6740,7 @@ export class PencilEngine implements PencilEngineAPI {
     // #454: two tools now, dispatched by isRibbonTool rather than by name —
     // the brush pen needs the identical stroke-scoped coverage/composite
     // structure and differs only in its RibbonProfile.
-    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile); return }
+    if (isRibbonTool(tool)) { this._paintRibbonDabs(target, dabs, tool, presetName, color, ribbonScratch, prevDab, strokeId, washId, wetProfile, strokeSeed); return }
     const erasing = tool === 'eraser'
     // DAB_FRAG's own u_inkMode (see its doc comment there for the full value
     // table). Resolved once here as a number rather than one boolean flag per
@@ -7401,6 +7409,7 @@ export class PencilEngine implements PencilEngineAPI {
     color: [number, number, number],
     ribbonScratch?: RibbonStrokeScratch, prevDab?: Dab, strokeId?: string, washId?: string,
     wetProfile?: string,
+    strokeSeed?: [number, number],
   ): void {
     // Transient scratch targets (live-tip/prediction preview, a peer's
     // reveal buffer) have no resolveForPaint() (only a real ILayerBuffer
@@ -7426,7 +7435,7 @@ export class PencilEngine implements PencilEngineAPI {
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
     // ribbonScratch/prevDab), and the ribbon needs it both to bridge the two
     // batches and to compute this batch's own distance-normalized ink deposit.
-    this._paintRibbonStroke(target, dabs, preset, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile)
+    this._paintRibbonStroke(target, dabs, preset, profile, color, scratch, prevDab ?? chunk?.prevDab, wetProfile, strokeSeed)
     // Replay finishes the stroke inside this call as far as it can know: a
     // one-shot has painted every dab there is, a chunk every dab of its own
     // operation. Both recomposite now; a chunked gesture simply does it again,
@@ -7531,6 +7540,7 @@ export class PencilEngine implements PencilEngineAPI {
      *  landed on already was — see paperWetness.ts. Sliced to this call's own
      *  dabs by the caller, so index 0 is dabs[0] on every path. */
     wetProfile?: string,
+    strokeSeed?: [number, number],
   ): void {
     // Two different treatments of a dab too thin to resolve, and which one a
     // tool gets is the whole of RibbonProfile.minHalfWidthPx (#454). The
@@ -7734,6 +7744,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536) How strong this stroke's paint is, on the deposit rather than on
     // the composite's single opacity — see _bakeDabOpacity's own note.
     const inkStrength = profile.normalizeDeposit ? profile.pigmentStrength : 1
+    const mottleSeed = strokeSeed ?? [0, 0]
     const excessByDab = new Map<Dab, number>()
     {
       let prev = prevDab
@@ -7846,11 +7857,11 @@ export class PencilEngine implements PencilEngineAPI {
           this._drawRibbonNibPass(
             inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
-            paperWetByDab.get(drawable[i]) ?? 0, inkStrength,
+            paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed,
           )
           inkLoad.endDraw()
         }
-        if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx)
+        if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed)
       }
 
       // `drawable[0].opacity` rather than a per-dab value: only a tool whose
@@ -7968,6 +7979,8 @@ export class PencilEngine implements PencilEngineAPI {
     paperWet = 0,
     /** (#536) How strong the paint in the brush is for this stroke. */
     inkStrength = 1,
+    /** (#536) This stroke's own offset into the mottling field — see wcCloud. */
+    mottleSeed: [number, number] = [0, 0],
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -7993,6 +8006,16 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_nibShape, profile.nibShape === 'roundedBox' ? 1 : 0)
     gl.uniform1f(u.u_nibCorner, radius * profile.cornerFraction)
     gl.uniform1f(u.u_inkEdge, profile.inkEdgeFalloff)
+    // (#536) Where on the sheet this tile is — the deposit's own mottling is a
+    // world-space field and must land in the same place for a stamp as it does
+    // for a band. Set here rather than inherited: this pass did not set it at
+    // all before, so it was reading whatever the previous draw happened to
+    // leave, which is fine for a value nothing used and a silent seam once
+    // something did.
+    gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
+    gl.uniform1f(u.u_cloudDeposit, profile.cloud)
+    gl.uniform1f(u.u_granDeposit, profile.granulation)
+    gl.uniform2f(u.u_mottleSeed, mottleSeed[0], mottleSeed[1])
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._quadBuf)
     gl.enableVertexAttribArray(this._dabPosLoc)
@@ -8021,6 +8044,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  tile. */
   private _drawRibbonBands(
     dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink', aaPx: number,
+    cloud = 0, gran = 0, mottleSeed: [number, number] = [0, 0],
   ): void {
     const { gl } = this
     const local = new Float32Array(bands.length)
@@ -8040,6 +8064,10 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform2f(this._ribbonUni.u_resolution, dest.width, dest.height)
     gl.uniform1f(this._ribbonUni.u_aaPx, aaPx)
     gl.uniform1f(this._ribbonUni.u_mode, mode === 'ink' ? 1 : 0)
+    gl.uniform2f(this._ribbonUni.u_worldOrigin, tile.originX, -tile.originY || 0)
+    gl.uniform1f(this._ribbonUni.u_cloudDeposit, cloud)
+    gl.uniform1f(this._ribbonUni.u_granDeposit, gran)
+    gl.uniform2f(this._ribbonUni.u_mottleSeed, mottleSeed[0], mottleSeed[1])
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
     gl.bufferData(gl.ARRAY_BUFFER, local, gl.STREAM_DRAW)
