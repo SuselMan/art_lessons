@@ -9172,12 +9172,15 @@ export class PencilEngine implements PencilEngineAPI {
       // which about a dozen differ; drawing the other eighty-eight is work
       // nobody can see, and the first thing it did was make unrelated engine
       // tests time out.
-      // (#536) 64 steps rather than 16 since the sheen stopped being the only
+      // (#536) 128 steps rather than 16 since the sheen stopped being the only
       // thing that moves: the paint relaxing outward as it dries (WC_WET_RELAX)
       // is an animation, and at sixteen steps over a minute it arrived in
-      // visible jumps. Sixty-four is still only about one repaint a second,
-      // well under this timer's own four-a-second ceiling.
-      const step = Math.round(peak * 64)
+      // visible jumps. It got worse rather than better when the relaxation was
+      // sped up, because the same motion now has to fit into the first half of
+      // the drying. 128 is about two repaints a second, which is what this
+      // timer's own 250 ms tick can deliver anyway — past this the tick is the
+      // limit, not the quantisation.
+      const step = Math.round(peak * 128)
       if (step !== this._wetShown) {
         this._wetShown = step
         this._wetTexAt = 0 // the field decayed although nothing was drawn
