@@ -121,6 +121,42 @@ export class PaperWetness {
     this._layers.clear()
   }
 
+  /** Every wet cell across every layer, plus the world rect they cover — what
+   *  the display pass needs, and it is a union rather than a per-layer answer
+   *  because water is on the *paper*: layers are a way of organising marks, not
+   *  separate sheets stacked in the air. Returns null when nothing is wet,
+   *  which is the overwhelmingly common case and switches the whole overlay
+   *  off rather than uploading a texture of zeroes. */
+  bounds(now: number): { minCx: number; minCy: number; maxCx: number; maxCy: number } | null {
+    let minCx = Infinity, minCy = Infinity, maxCx = -Infinity, maxCy = -Infinity
+    for (const [, cells] of this._layers) {
+      for (const [k, cell] of cells) {
+        if (PaperWetness._decayed(cell, now) <= 0.01) continue
+        const comma = k.indexOf(',')
+        const cx = Number(k.slice(0, comma)), cy = Number(k.slice(comma + 1))
+        if (cx < minCx) minCx = cx
+        if (cy < minCy) minCy = cy
+        if (cx > maxCx) maxCx = cx
+        if (cy > maxCy) maxCy = cy
+      }
+    }
+    return minCx === Infinity ? null : { minCx, minCy, maxCx, maxCy }
+  }
+
+  /** Wetness at a cell, taking the wettest layer — see bounds() on why the
+   *  layers are unioned rather than kept apart. */
+  atCell(cx: number, cy: number, now: number): number {
+    const k = key(cx, cy)
+    let best = 0
+    for (const [, cells] of this._layers) {
+      const cell = cells.get(k)
+      if (!cell) continue
+      const w = PaperWetness._decayed(cell, now)
+      if (w > best) best = w
+    }
+    return best
+  }
+
   /** Live cells of one layer, for the display pass. World-space cell indices. */
   cellsOf(layerId: string, now: number): Array<{ cx: number; cy: number; w: number }> {
     const cells = this._layers.get(layerId)

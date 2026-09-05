@@ -56,7 +56,7 @@ import {
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
-import { PaperWetness, quantizeWet, isDryProfile, wetAt } from './src/paperWetness'
+import { PaperWetness, quantizeWet, isDryProfile, wetAt, WET_CELL_PX } from './src/paperWetness'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper,
@@ -1853,6 +1853,14 @@ export class PencilEngine implements PencilEngineAPI {
    *  is drawn and recorded on the operation. Read back by the painting path
    *  itself, so a live mark and its replay consume the identical numbers. */
   private _strokeWet = ''
+  /** (#536) The wetness field as a coarse world-space texture for the display
+   *  pass, plus the world rect it covers and when it was last rebuilt. Null
+   *  rect means nothing is wet and the whole overlay is off. */
+  private _wetTex: WebGLTexture | null = null
+  private _wetRect: [number, number, number, number] = [0, 0, -1, -1]
+  private _wetTexAt = 0
+  /** Handle of the repaint that watches the paper dry, or 0. */
+  private _dryingTimer = 0
   /** The same profile for the dabs still queued for the live channel, drained
    *  with them so a packet always carries exactly its own dabs' digits. */
   private _liveWetQueue = ''
@@ -3897,6 +3905,9 @@ export class PencilEngine implements PencilEngineAPI {
     for (const c of this._replayRibbonChunks.values()) c.scratch.destroy()
     this._replayRibbonChunks.clear()
     this._ribbonScratchPool.destroy()
+    if (this._dryingTimer) { clearTimeout(this._dryingTimer); this._dryingTimer = 0 }
+    if (this._wetTex) { this.gl.deleteTexture(this._wetTex); this._wetTex = null }
+    this._paperWet.clear()
     // A live imprint's buffer was spliced *out* of the scratch pool drained
     // above and is held only here, so it needs destroying on its own.
     for (const imprint of this._smudgeImprints.values()) imprint.buf?.destroy()
@@ -5162,7 +5173,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperComposeUni = getUniforms(gl, this._paperComposeProg, [
       'u_accumulation', 'u_paperMap', 'u_paperColor', 'u_paperScale', 'u_paperTexSize',
       'u_dstSize', 'u_srcSize', 'u_matrixInv', 'u_screenToWorld', 'u_sharpResample',
-      'u_pageRect', 'u_deskColor',
+      'u_pageRect', 'u_deskColor', 'u_wetMap', 'u_wetRect',
     ])
     this._smudgeUni = getUniforms(gl, this._smudgeProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio', 'u_resolution',
@@ -5826,6 +5837,9 @@ export class PencilEngine implements PencilEngineAPI {
     this._strokeLayerId = null
     this._strokeExtraLayerIds = []
     this._strokeDabs = []
+    // (#536) The paper is now wetter than it was, and nothing else will ask for
+    // a frame until the next stroke — so this is where watching it dry starts.
+    if (this._paperWet.bounds(performance.now())) this._scheduleDryingRepaint()
     this._handlers.strokeEnd?.(e)
   }
 
@@ -8847,6 +8861,85 @@ export class PencilEngine implements PencilEngineAPI {
    *  Writes opaque paper everywhere (alpha 1.0, blending off), so unlike
    *  _runTransformBlit there's nothing underneath for it to blend against
    *  and no need to pre-clear the screen. */
+  /** (#536) Rebuilds the display-side wetness texture, at most a few times a
+   *  second — the field changes slowly and this runs inside the frame loop.
+   *
+   *  One texel per wetness cell, capped: past the cap the same rect is covered
+   *  by fewer, larger texels rather than the map being cropped, because a
+   *  cropped one would show a hard edge where the overlay stopped and that is
+   *  far more visible than a coarse one. */
+  /** (#536) Repaints while the paper dries.
+   *
+   *  Needed because the wetness overlay is the one thing on screen that changes
+   *  with no input at all: without this the sheet would stay visibly damp until
+   *  the next stroke happened to trigger a frame, which is worse than not
+   *  showing wetness — it would be showing it *wrong*.
+   *
+   *  Deliberately slow. Six frames a second is far more than enough for
+   *  something that fades over twenty-five seconds, and it stops when the paper
+   *  is dry rather than running for the life of the session. */
+  private _scheduleDryingRepaint(): void {
+    if (this._dryingTimer) return
+    const tick = (): void => {
+      this._dryingTimer = 0
+      const now = performance.now()
+      if (!this._paperWet.bounds(now)) { this._paperWet.prune(now); return }
+      // Force a rebuild: the field has decayed even though nothing was drawn.
+      this._wetTexAt = 0
+      this._displayIfNotSuspended()
+      this._dryingTimer = setTimeout(tick, 160) as unknown as number
+    }
+    // Plain setTimeout, never window.setTimeout: the engine suite runs with no
+    // DOM at all, and a `window.` here typechecks perfectly and then kills
+    // every engine test the moment this line is reached.
+    this._dryingTimer = setTimeout(tick, 160) as unknown as number
+  }
+
+  private _updateWetTexture(now: number): void {
+    if (now - this._wetTexAt < 120) return
+    this._wetTexAt = now
+    const b = this._paperWet.bounds(now)
+    if (!b) { this._wetRect = [0, 0, -1, -1]; return }
+    const CAP = 96
+    const cols = b.maxCx - b.minCx + 1
+    const rows = b.maxCy - b.minCy + 1
+    const step = Math.max(1, Math.ceil(Math.max(cols, rows) / CAP))
+    const w = Math.ceil(cols / step), h = Math.ceil(rows / step)
+    const data = new Uint8Array(w * h)
+    for (let ty = 0; ty < h; ty++) {
+      for (let tx = 0; tx < w; tx++) {
+        // The wettest cell in the texel's footprint, not the average: a puddle
+        // must not thin out just because the map got coarse.
+        let best = 0
+        for (let sy = 0; sy < step; sy++) {
+          for (let sx = 0; sx < step; sx++) {
+            const v = this._paperWet.atCell(b.minCx + tx * step + sx, b.minCy + ty * step + sy, now)
+            if (v > best) best = v
+          }
+        }
+        data[ty * w + tx] = Math.round(best * 255)
+      }
+    }
+    const { gl } = this
+    if (!this._wetTex) this._wetTex = gl.createTexture()
+    gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, w, h, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, data)
+    // Bilinear and clamped: the map is deliberately coarse, and the one thing
+    // it must not do is show its own texels as squares of wet paper.
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
+    // Half a texel of slack each way so the linear filter has something to
+    // interpolate from at the border rather than clamping a hard edge in.
+    this._wetRect = [
+      (b.minCx - 0.5) * WET_CELL_PX, (b.minCy - 0.5) * WET_CELL_PX,
+      (b.maxCx + 1.5) * WET_CELL_PX, (b.maxCy + 1.5) * WET_CELL_PX,
+    ]
+  }
+
   private _composePaperToScreen(): void {
     const { gl, canvas } = this
     const ext = this._assemblyFBO.width // square: width === height
@@ -8880,6 +8973,14 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_sharpResample, resamples ? 1 : 0)
     gl.uniform4fv(u.u_pageRect, this._pageRect())
     gl.uniform3fv(u.u_deskColor, this._opts.deskColor)
+    // (#536) Screen only. An export is the finished, dry sheet — putting a
+    // transient state of the artist's own session into a file everyone else
+    // downloads would be the one place this display-only term could do harm.
+    this._updateWetTexture(performance.now())
+    gl.activeTexture(gl.TEXTURE2)
+    gl.bindTexture(gl.TEXTURE_2D, this._wetTex)
+    gl.uniform1i(u.u_wetMap, 2)
+    gl.uniform4fv(u.u_wetRect, this._wetRect)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     const posLoc = this._paperComposePosLoc
@@ -10222,6 +10323,10 @@ export class PencilEngine implements PencilEngineAPI {
     // image.
     gl.uniform4f(u.u_pageRect, 0, 0, -1, -1)
     gl.uniform3fv(u.u_deskColor, this._opts.deskColor)
+    // (#536) And no wetness: an export is the finished sheet. Whether the
+    // artist's own paper happened to be damp at the moment they pressed the
+    // button is not a property of the drawing.
+    gl.uniform4f(u.u_wetRect, 0, 0, -1, -1)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
     const posLoc = this._paperComposePosLoc

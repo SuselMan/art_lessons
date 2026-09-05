@@ -2615,6 +2615,20 @@ export const PAPER_COMPOSE_FRAG = `
   // infinite room), and then paper covers the screen exactly as before.
   uniform vec4 u_pageRect;
   uniform vec3 u_deskColor;
+  // (#536) Where the paper is still wet — display only, and that is the whole
+  // point of it living here rather than anywhere near the accumulation.
+  //
+  // Nothing about this reaches stored content, a snapshot, an export or a peer.
+  // It is a local, ephemeral read of a local, ephemeral field: the author
+  // watches their own paper dry, a peer watches theirs, a late joiner sees a
+  // dry sheet, and every one of them is looking at the identical pixels
+  // underneath. That is why no clock had to be written down for it.
+  //
+  // A coarse world-space map, one texel per wetness cell, over u_wetRect —
+  // minX, minY, maxX, maxY in world units, with maxX <= minX meaning "nothing
+  // is wet" and switching the whole term off.
+  uniform sampler2D u_wetMap;
+  uniform vec4 u_wetRect;
 
   varying vec2 v_uv;
 
@@ -2704,10 +2718,36 @@ export const PAPER_COMPOSE_FRAG = `
     vec2 paperUV = worldPos / u_paperTexSize * u_paperScale;
     float paperHeight = texture2D(u_paperMap, paperUV).r;
 
-    ${paperToneGLSL('paperHeight')}
-    float graphiteTexture = mix(1.0, paperHeight * 0.5 + 0.2, graphite * 0.25);
+    // (#536) What water does to paper, and it is one mechanism rather than two
+    // effects: water fills the pits between the fibres, so the surface stops
+    // being rough and starts being smooth. The grain flattening *is* the sheen.
+    //
+    // Deliberately not a specular highlight from a fixed virtual light. That
+    // would read as lacquer, and worse, it would put a stable pattern of
+    // reflections on the sheet that the eye starts taking for part of the
+    // drawing — a real wet wash reflects its own room, and a canvas has no
+    // room. Suppressing the paper's own micro-contrast is what the eye
+    // actually reads as "this patch is still wet", and it costs one lerp.
+    float wet = 0.0;
+    if (u_wetRect.z > u_wetRect.x) {
+      vec2 wetUV = (worldPos - u_wetRect.xy) / max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
+      if (wetUV.x >= 0.0 && wetUV.x <= 1.0 && wetUV.y >= 0.0 && wetUV.y <= 1.0) {
+        wet = clamp(texture2D(u_wetMap, wetUV).r, 0.0, 1.0);
+      }
+    }
+    // 0.85 rather than 1.0: even a flooded sheet is not a mirror, and leaving a
+    // trace of the grain keeps the wet patch reading as paper.
+    float shownHeight = mix(paperHeight, 0.5, wet * 0.85);
+
+    ${paperToneGLSL('shownHeight')}
+    float graphiteTexture = mix(1.0, shownHeight * 0.5 + 0.2, graphite * 0.25);
     vec3 graphiteTone = mix(paperTone, strokeColor, graphiteTexture);
     vec3 color = mix(paperTone, graphiteTone, graphite);
+    // And the smaller half of it: wet paper is a shade deeper than dry, which
+    // is the same fact as "watercolour dries lighter" seen from the other side.
+    // Three per cent at full flood — under what anyone would call a change of
+    // colour, and enough to see a puddle.
+    color *= mix(1.0, 0.97, wet);
 
     // Antialiased page edge. A hard test leaves the sheet's border crawling
     // with jaggies at any camera angle, and the border is a straight line the
