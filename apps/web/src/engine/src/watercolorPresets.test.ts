@@ -22,7 +22,7 @@ import {
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
   WATERCOLOR_MIX_DEFAULT, applyWatercolorPooling, watercolorPigmentFromPreset,
-  watercolorWashSignature,
+  watercolorWashSignature, watercolorStartExcess,
 } from './watercolorPresets'
 import { watercolorPigmentByCode, WATERCOLOR_PIGMENTS, DEFAULT_WATERCOLOR_PIGMENT } from './watercolorPigments'
 import { brushPenWidth } from './brushPenPresets'
@@ -747,5 +747,36 @@ describe('paper wetness against brush water (#536)', () => {
     const onDry = ribbonProfileFor('watercolor', loaded, 0)
     const onWet = ribbonProfileFor('watercolor', loaded, 0.3)
     expect(onWet.spreadOfRadius).toBeCloseTo(onDry.spreadOfRadius, 10)
+  })
+})
+
+describe('the touch-down surplus (#536)', () => {
+  it('is a short surplus, not a second depletion curve', () => {
+    // Heavier as the brush lands…
+    expect(watercolorStartExcess(0, 0)).toBeGreaterThan(1.1)
+    // …and spent within a radius or two, which is the whole difference between
+    // "the brush arrived carrying something" and a dark segment at the start of
+    // every line. A flat wash is a series of bands; at four radii this would be
+    // a periodic dark head across the finished wash, which is the spatial
+    // structure v9 went to trouble to remove.
+    expect(watercolorStartExcess(3, 0)).toBeLessThan(1.01)
+    expect(watercolorStartExcess(40, 0)).toBeCloseTo(1, 6)
+  })
+
+  it('does not dump into standing water', () => {
+    // A loaded brush lowered into a bead merges with it. One predicate — what
+    // is under the landing point — covers the head of a mark on dry paper, a
+    // second pass over something wet, and the next band of a flat wash laid up
+    // against the wet one before it.
+    expect(watercolorStartExcess(0, 1)).toBeCloseTo(1, 6)
+    const partial = watercolorStartExcess(0, 0.5)
+    expect(partial).toBeGreaterThan(1)
+    expect(partial).toBeLessThan(watercolorStartExcess(0, 0))
+  })
+
+  it('never takes anything away', () => {
+    // A multiplier over the normal dose, never under it: this adds a surplus,
+    // it does not make the rest of the stroke lighter than it was.
+    for (const s of [0, 0.5, 1, 5, 50]) expect(watercolorStartExcess(s, 0)).toBeGreaterThanOrEqual(1)
   })
 })

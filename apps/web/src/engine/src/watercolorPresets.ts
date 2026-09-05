@@ -570,6 +570,54 @@ const WATER_FLOOR = 0.30
 const PIGMENT_RUN_RADII = 48
 const PIGMENT_FLOOR = 0.84
 
+// ─── The touch-down (#536) ──────────────────────────────────────────────────
+//
+// Ilya, with a real brush in his hand: more pigment goes down at the start of
+// a stroke than later. He is right, and the model had none of it — pigment
+// barely thins at all along a stroke, and deliberately so (PIGMENT_FLOOR's own
+// note: a long band losing a fifth of its tone turned into a zigzag across a
+// flat wash, and the floor was raised to 0.84 to kill it).
+//
+// So the two demands pull the same number in opposite directions, and the way
+// out is that they are not the same number. What a loaded brush does is not
+// *fade along its length*; it dumps its surplus in the first moment of contact
+// and then runs at a steady rate. Two terms at two spatial scales:
+//
+//   this one   a short surplus over the normal dose, gone within a radius or
+//              two of the touch-down;
+//   the run    the existing long, nearly flat depletion, unchanged.
+//
+// A band forty radii long therefore has no gradient down it — the zigzag does
+// not come back — while the head of every mark reads a little heavier, which is
+// what the hand sees.
+
+/** How much extra the brush dumps as it lands, as a fraction of the normal
+ *  dose. Small: this must read as "the brush arrived carrying something", not
+ *  as a separate dark segment at the start of the line. */
+const WATERCOLOR_START_EXCESS = 0.20
+
+/** How fast that surplus is spent, in the brush's own radii. Under one radius
+ *  on purpose. Two to four radii — the first number reached for — is a
+ *  perfectly readable *piece of the mark*, and a flat wash is a series of
+ *  bands, so at that length the wash would grow a periodic dark head at every
+ *  stroke instead of a gradient down each one: the same spatial structure v9
+ *  removed, just shorter. */
+const WATERCOLOR_START_EXCESS_RADII = 0.8
+
+/** The multiplier on the deposit at `usedRadii` into the stroke.
+ *
+ *  `landedWet` gates it, and gating on *the paper* rather than on "is this the
+ *  same wash" is the point. A wash is a bookkeeping fact about time; what
+ *  decides whether a brush dumps its load is whether it came down on dry paper
+ *  or into standing water — a loaded brush lowered into a bead merges with it
+ *  and dumps nothing. That rule then covers three cases with one predicate: the
+ *  head of a mark on dry paper, a second pass over something still wet, and the
+ *  sixth band of a flat wash laid up against the wet fifth. */
+export function watercolorStartExcess(usedRadii: number, landedWet: number): number {
+  const gate = 1 - clamp01(landedWet)
+  return 1 + WATERCOLOR_START_EXCESS * gate * Math.exp(-usedRadii / WATERCOLOR_START_EXCESS_RADII)
+}
+
 /** Water remaining after `usedRadii` radii of travel, as a fraction of the
  *  load the stroke started with.
  *

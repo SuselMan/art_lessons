@@ -64,7 +64,7 @@ import {
   type PressureResponse,
 } from './src/brushPenPresets'
 import {
-  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature,
+  WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPigmentEffects, watercolorMixFromPreset,
@@ -7689,6 +7689,12 @@ export class PencilEngine implements PencilEngineAPI {
     // which is why the profile is one digit per dab and why every place a
     // gesture is cut takes its own substring (paperWetness.ts).
     const paperWetByDab = new Map<Dab, number>()
+    // (#536) The touch-down surplus, per dab — see watercolorStartExcess. Gated
+    // by the wetness under the gesture's *landing point*, not per dab: a brush
+    // dumps its load when it is set down, so what matters is what was under it
+    // then, not what it has run over since.
+    const landedWet = wetAt(wetProfile, 0)
+    const excessByDab = new Map<Dab, number>()
     {
       let prev = prevDab
       let used = scratch.waterUsed
@@ -7724,13 +7730,17 @@ export class PencilEngine implements PencilEngineAPI {
         // *fraction* multiplies it here.
         const water = profile.waterDepletion ? profile.waterLevel * watercolorWaterLoad(used) : 1
         const pigmentLeft = profile.waterDepletion ? watercolorPigmentLoad(used) : 1
+        // `used` is the gesture's own travel clock, carried on the scratch, so
+        // this decays from the *stroke's* start rather than from each batch's.
+        const excess = profile.waterDepletion ? watercolorStartExcess(used, landedWet) : 1
+        excessByDab.set(dab, excess)
         waterByDab.set(dab, water)
         pigmentByDab.set(dab, pigmentLeft)
         // The stamps' share of the dose, doubled back up because the legacy
         // formula's 0.5 assumed an even split with the bands.
         const stampShare = profile.stampInkShare > 0 ? profile.stampInkShare * 2 : 1
         deposits.push(profile.normalizeDeposit
-          ? profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft
+          ? profile.depositPerRadius * (seg / radius) * 0.5 * stampShare * pigmentLeft * excess
           : dab.opacity * seg * 0.5)
         prev = dab
       }
@@ -7759,7 +7769,8 @@ export class PencilEngine implements PencilEngineAPI {
         // stroke was cut into pointer events cannot change the result.
         return {
           ink: profile.depositPerRadius * (travel / radius) * 0.5
-            * ((1 - profile.stampInkShare) * 2) * (pigmentByDab.get(d1) ?? 1),
+            * ((1 - profile.stampInkShare) * 2) * (pigmentByDab.get(d1) ?? 1)
+            * (excessByDab.get(d1) ?? 1),
           water: waterByDab.get(d1) ?? 0,
           paperWet: paperWetByDab.get(d1) ?? 0,
         }
