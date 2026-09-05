@@ -134,6 +134,12 @@ export interface RibbonProfile {
   waterLevel: number
   /** #468 v4 — the stroke's own pigment level, 0..1. Same story. */
   pigmentLevel: number
+  /** (#536) How strong the paint is, 0..1 — the pigment slider resolved through
+   *  watercolorPigmentEffects. Rides the deposit rather than the composite's
+   *  single per-batch opacity, because a wash spans several strokes that may
+   *  each carry a different amount of paint. 0 for tools with no paint model,
+   *  which never read it. */
+  pigmentStrength: number
   /** #468 v4 — reach as a fraction of the stroke's own radius, before spreadPx
    *  caps it (ADR 011 §4.1). Water decides it: a dry brush barely leaves its
    *  own footprint, a flood travels visibly further than the hand went. 0 for a
@@ -407,6 +413,7 @@ const MARKER_BULLET_RIBBON: RibbonProfile = {
   // reservoir, not a finite load of water with paint in it.
   waterLevel: 0,
   pigmentLevel: 0,
+  pigmentStrength: 0,
   pigmentOpacity: 0,
   spreadOfRadius: 0,
   strokeDir: [1, 0] as [number, number],
@@ -460,6 +467,7 @@ const BRUSH_PEN_RIBBON: RibbonProfile = {
   // reservoir, not a finite load of water with paint in it.
   waterLevel: 0,
   pigmentLevel: 0,
+  pigmentStrength: 0,
   pigmentOpacity: 0,
   spreadOfRadius: 0,
   strokeDir: [1, 0] as [number, number],
@@ -719,6 +727,7 @@ function watercolorRibbon(presetName: string | undefined, paperWet = 0): RibbonP
     // ── from water: geometry and behaviour ──
     waterLevel: mix.water,
     pigmentLevel: mix.pigment,
+    pigmentStrength: p.strength,
     // The paint's own readiness to travel through wet paper, on top of how
     // much water there is to carry it. Centred so a mid-diffusion paint leaves
     // the water setting alone.

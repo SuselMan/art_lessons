@@ -210,6 +210,7 @@ export const RIBBON_VERT = `
   // already was — the brush's water and the paper's are two quantities, and
   // the composite has to be able to tell them apart per pixel.
   attribute float a_inkWet;
+  attribute float a_inkStrength;
 
   uniform vec2 u_resolution;
 
@@ -218,6 +219,7 @@ export const RIBBON_VERT = `
   varying float v_inkWater;
   varying float v_across;
   varying float v_inkWet;
+  varying float v_inkStrength;
 
   void main() {
     v_edge = a_edge;
@@ -225,6 +227,7 @@ export const RIBBON_VERT = `
     v_inkWater = a_inkWater;
     v_across = a_across;
     v_inkWet = a_inkWet;
+    v_inkStrength = a_inkStrength;
     vec2 clip = (a_position / u_resolution) * 2.0 - 1.0;
     clip.y = -clip.y;
     gl_Position = vec4(clip, 0.0, 1.0);
@@ -249,6 +252,7 @@ export const RIBBON_FRAG = `
   varying float v_inkWater;
   varying float v_across;
   varying float v_inkWet;
+  varying float v_inkStrength;
 
   void main() {
     // Inset ramp: coverage reaches 0 exactly *at* the geometric boundary and
@@ -286,7 +290,7 @@ export const RIBBON_FRAG = `
     // Ink: .r brush water, .g paper wetness, both deposit-weighted so the
     // composite recovers a per-pixel mean of each by dividing by .a.
     gl_FragColor = u_mode > 0.5
-      ? vec4(cov * v_inkWater, cov * v_inkWet, 0.0, amount)
+      ? vec4(cov * v_inkWater, cov * v_inkWet, cov * v_inkStrength, amount)
       : vec4(acrossEncoded * amount, amount, amount, amount);
   }
 `;
@@ -450,6 +454,11 @@ export const DAB_FRAG = `
   // (#536) How wet the paper under this dab already was, 0..1 — read from what
   // the stroke recorded, never from a live field, so replay reproduces it.
   uniform float u_paperWet;
+  // (#536) How strong the paint in the brush was for this dab — the pigment
+  // slider, resolved per stroke. Rides the deposit for the reason
+  // markerRibbon.ts's FLOATS_PER_VERTEX spells out: one wash, several strokes,
+  // and they are allowed to disagree about it.
+  uniform float u_inkStrength;
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
@@ -1011,7 +1020,7 @@ export const DAB_FRAG = `
       // the deposit-weighted mean water over everything that landed here — see
       // u_inkWater. Zero for every tool that does not set it, which leaves the
       // ratio undefined and unread.
-      gl_FragColor = vec4(amount * u_inkWater, amount * u_paperWet, 0.0, amount);
+      gl_FragColor = vec4(amount * u_inkWater, amount * u_paperWet, amount * u_inkStrength, amount);
       return;
     }
 
@@ -1108,6 +1117,12 @@ export const DAB_FRAG = `
       // paper's decides what becomes of the paint afterwards. A dry brush over
       // a puddle still scratches; the little paint it leaves still blooms.
       float paperWetHere = ink.a > 0.004 ? clamp(ink.g / ink.a, 0.0, 1.0) : 0.0;
+      // (#536) …and how strong the paint that landed here was. Per pixel, not
+      // per batch, because a wash is several strokes and they may carry
+      // different amounts of paint — that is the whole of "lay clean water,
+      // then take colour into it". Outside the mark there is no deposit to
+      // divide by, so the batch's own setting stands in.
+      float strengthHere = ink.a > 0.004 ? clamp(ink.b / ink.a, 0.0, 1.0) : u_inkStrength;
       float transportHere = max(waterHere, paperWetHere);
 
       // §3.5 - the wash leaves the brush's footprint.
@@ -1467,7 +1482,7 @@ export const DAB_FRAG = `
       // and the user's slider, and every dab of a watercolor stroke shares it
       // (pressure drives width, never alpha), which is what makes a single
       // scalar describe the whole batch correctly.
-      float pigment = clamp(coverage * v_opacity * density * gran * cloud * paperMod * (1.0 + wet), 0.0, 1.0);
+      float pigment = clamp(coverage * v_opacity * strengthHere * density * gran * cloud * paperMod * (1.0 + wet), 0.0, 1.0);
 
       // The composite. Still the three-term separable blend the marker's branch
       // below uses (#439) - on bare paper, over existing pigment, and what this
@@ -2767,12 +2782,19 @@ export const PAPER_COMPOSE_FRAG = `
     if (u_wetRect.z > u_wetRect.x) {
       vec2 wetUV = (worldPos - u_wetRect.xy) / max(u_wetRect.zw - u_wetRect.xy, vec2(1e-4));
       if (wetUV.x >= 0.0 && wetUV.x <= 1.0 && wetUV.y >= 0.0 && wetUV.y <= 1.0) {
-        wet = clamp(texture2D(u_wetMap, wetUV).r, 0.0, 1.0);
+        // (#536) Thresholded, not used raw. The field is what the *model*
+        // reads to decide how paint behaves, and it is deliberately generous
+        // there — a trace of damp still matters to a brush. On screen a trace
+        // of damp must show nothing at all, or every mark drags a soft grey
+        // halo behind it, which is exactly what the first version did.
+        float raw = clamp(texture2D(u_wetMap, wetUV).r, 0.0, 1.0);
+        wet = smoothstep(0.35, 0.95, raw);
       }
     }
-    // 0.85 rather than 1.0: even a flooded sheet is not a mirror, and leaving a
-    // trace of the grain keeps the wet patch reading as paper.
-    float shownHeight = mix(paperHeight, 0.5, wet * 0.85);
+    // Well under 1: even a flooded sheet is not a mirror, and leaving most of
+    // the grain is what keeps a wet patch reading as paper rather than as a
+    // hole in the paper.
+    float shownHeight = mix(paperHeight, 0.5, wet * 0.5);
 
     ${paperToneGLSL('shownHeight')}
     float graphiteTexture = mix(1.0, shownHeight * 0.5 + 0.2, graphite * 0.25);
@@ -2782,7 +2804,7 @@ export const PAPER_COMPOSE_FRAG = `
     // is the same fact as "watercolour dries lighter" seen from the other side.
     // Three per cent at full flood — under what anyone would call a change of
     // colour, and enough to see a puddle.
-    color *= mix(1.0, 0.97, wet);
+    color *= mix(1.0, 0.985, wet);
 
     // Antialiased page edge. A hard test leaves the sheet's border crawling
     // with jaggies at any camera angle, and the border is a straight line the

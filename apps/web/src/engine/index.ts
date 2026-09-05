@@ -67,7 +67,7 @@ import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess,
   applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
-  watercolorPigmentEffects, watercolorMixFromPreset,
+  watercolorMixFromPreset,
 } from './src/watercolorPresets'
 import { HapticGrain, type HapticGrainStats } from './src/HapticGrain'
 import {
@@ -2011,6 +2011,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _ribbonInkWaterLoc!: number
   private _ribbonAcrossLoc!: number
   private _ribbonInkWetLoc!: number
+  private _ribbonInkStrengthLoc!: number
   private _ribbonBuf!: WebGLBuffer
   private _dabUni!: Record<string, WebGLUniformLocation | null>
   private _dispTransparentUni!: Record<string, WebGLUniformLocation | null>
@@ -5136,7 +5137,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal', 'u_paperWet',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_inkStrength',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -5210,6 +5211,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._ribbonInkWaterLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWater')
     this._ribbonAcrossLoc = gl.getAttribLocation(this._ribbonProg, 'a_across')
     this._ribbonInkWetLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkWet')
+    this._ribbonInkStrengthLoc = gl.getAttribLocation(this._ribbonProg, 'a_inkStrength')
 
     this._quadBuf    = createQuadBuffer(gl)
     this._screenBuf  = createFullscreenQuad(gl)
@@ -6035,10 +6037,14 @@ export class PencilEngine implements PencilEngineAPI {
       // control stays linear. Constant across a stroke, which is what lets the
       // composite reconstruct a finished pixel from a coverage buffer and one
       // scalar at all.
-      else if (tool === 'watercolor') {
-        dab.opacity = preset.opacity * opacity
-          * watercolorPigmentEffects(watercolorMixFromPreset(presetName).pigment).strength
-      }
+      // (#536) …and no longer times how much paint is in the water. That factor
+      // moved onto the deposit (DAB_FRAG's u_inkStrength), because a wash spans
+      // several strokes and they are allowed to carry different amounts of
+      // paint — that is precisely what "lay clean water, then take colour into
+      // it" is. With it here, the composite reconstructed the whole wash from
+      // one scalar taken from whichever stroke opened it, so a wash that began
+      // with clean water rendered every stroke after it invisible at pen-up.
+      else if (tool === 'watercolor') dab.opacity = preset.opacity * opacity
       // Charcoal (#304 §3, plus #305's broad-side lightening): shares pencil's
       // speed curve deliberately — "slower stroke -> denser deposit" is equally
       // true of both materials — and adds one term graphite has no analogue
@@ -7697,6 +7703,9 @@ export class PencilEngine implements PencilEngineAPI {
     // dumps its load when it is set down, so what matters is what was under it
     // then, not what it has run over since.
     const landedWet = wetAt(wetProfile, 0)
+    // (#536) How strong this stroke's paint is, on the deposit rather than on
+    // the composite's single opacity — see _bakeDabOpacity's own note.
+    const inkStrength = profile.normalizeDeposit ? profile.pigmentStrength : 1
     const excessByDab = new Map<Dab, number>()
     {
       let prev = prevDab
@@ -7756,7 +7765,7 @@ export class PencilEngine implements PencilEngineAPI {
     // Omitting the callback leaves buildRibbonBands' own formula untouched,
     // which is what the marker and the brush pen get.
     const inkFor = profile.normalizeDeposit
-      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number } => {
+      ? (d0: Dab, d1: Dab, travel: number): { ink: number; water: number; paperWet: number; strength: number } => {
         // #489: same measure the stamps use, and it has to be the same one —
         // the bands overlap the stamps almost everywhere, so two different
         // readings of "how far in nib units" would show up as a seam.
@@ -7776,6 +7785,7 @@ export class PencilEngine implements PencilEngineAPI {
             * (excessByDab.get(d1) ?? 1),
           water: waterByDab.get(d1) ?? 0,
           paperWet: paperWetByDab.get(d1) ?? 0,
+          strength: inkStrength,
         }
       }
       : undefined
@@ -7808,7 +7818,7 @@ export class PencilEngine implements PencilEngineAPI {
           this._drawRibbonNibPass(
             inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
-            paperWetByDab.get(drawable[i]) ?? 0,
+            paperWetByDab.get(drawable[i]) ?? 0, inkStrength,
           )
           inkLoad.endDraw()
         }
@@ -7928,6 +7938,8 @@ export class PencilEngine implements PencilEngineAPI {
      *  own recorded profile. Written into the deposit texture's green channel
      *  so the composite can tell it apart from the brush's own water. */
     paperWet = 0,
+    /** (#536) How strong the paint in the brush is for this stroke. */
+    inkStrength = 1,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -7967,6 +7979,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_inkWater, inkWater)
     gl.uniform2f(u.u_acrossLocal, acrossLocal[0], acrossLocal[1])
     gl.uniform1f(u.u_paperWet, paperWet)
+    gl.uniform1f(u.u_inkStrength, inkStrength)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     if (ownTarget) dest.endDraw()
@@ -7991,6 +8004,7 @@ export class PencilEngine implements PencilEngineAPI {
       local[i + 4] = bands[i + 4]
       local[i + 5] = bands[i + 5]
       local[i + 6] = bands[i + 6]
+      local[i + 7] = bands[i + 7]
     }
 
     if (mode === 'ink') dest.beginAdditiveDraw(); else dest.beginDraw()
@@ -8014,6 +8028,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.vertexAttribPointer(this._ribbonAcrossLoc, 1, gl.FLOAT, false, stride, 20)
     gl.enableVertexAttribArray(this._ribbonInkWetLoc)
     gl.vertexAttribPointer(this._ribbonInkWetLoc, 1, gl.FLOAT, false, stride, 24)
+    gl.enableVertexAttribArray(this._ribbonInkStrengthLoc)
+    gl.vertexAttribPointer(this._ribbonInkStrengthLoc, 1, gl.FLOAT, false, stride, 28)
 
     gl.drawArrays(gl.TRIANGLES, 0, local.length / RIBBON_FLOATS_PER_VERTEX)
 
@@ -8025,6 +8041,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.disableVertexAttribArray(this._ribbonInkLoc)
     gl.disableVertexAttribArray(this._ribbonAcrossLoc)
     gl.disableVertexAttribArray(this._ribbonInkWetLoc)
+    gl.disableVertexAttribArray(this._ribbonInkStrengthLoc)
     dest.endDraw()
   }
 
@@ -8148,6 +8165,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_wetEdge, profile.wetEdge)
     gl.uniform1f(u.u_wetEdgeRadiusPx, profile.wetEdgeRadiusPx)
     gl.uniform1f(u.u_granulation, profile.granulation)
+    // (#536) The fallback where there is no deposit to read a per-pixel value
+    // from — the spread fringe, which is about to be decided by it.
+    gl.uniform1f(u.u_inkStrength, profile.pigmentStrength)
     gl.uniform1f(u.u_saturateInk, profile.saturateInk)
     // #468 v2 — split by *what the term depends on*, not by taste. The spread
     // rewrites the mark's silhouette and so cannot be evaluated before the
@@ -8926,14 +8946,20 @@ export class PencilEngine implements PencilEngineAPI {
     if (this._paperWet.peak(now) <= 0.01) { this._wetRect = [0, 0, -1, -1]; return }
     const b = this._paperWet.bounds(now)
     if (!b) { this._wetRect = [0, 0, -1, -1]; return }
-    const CAP = 96
+    const CAP = 160
     const cols = b.maxCx - b.minCx + 1
     const rows = b.maxCy - b.minCy + 1
     const step = Math.max(1, Math.ceil(Math.max(cols, rows) / CAP))
-    const w = Math.ceil(cols / step), h = Math.ceil(rows / step)
+    const inW = Math.ceil(cols / step), inH = Math.ceil(rows / step)
+    // One texel of zero all the way round, so the linear filter has something
+    // to fade into at the border. Padding the *rect* instead — which is what
+    // the first pass did — stretches the map over more world than it describes
+    // and shifts every texel off the cell it stands for, which is how the
+    // overlay ended up both wider than the brush and blocky.
+    const w = inW + 2, h = inH + 2
     const data = new Uint8Array(w * h)
-    for (let ty = 0; ty < h; ty++) {
-      for (let tx = 0; tx < w; tx++) {
+    for (let ty = 0; ty < inH; ty++) {
+      for (let tx = 0; tx < inW; tx++) {
         // The wettest cell in the texel's footprint, not the average: a puddle
         // must not thin out just because the map got coarse.
         let best = 0
@@ -8943,7 +8969,7 @@ export class PencilEngine implements PencilEngineAPI {
             if (v > best) best = v
           }
         }
-        data[ty * w + tx] = Math.round(best * 255)
+        data[(ty + 1) * w + (tx + 1)] = Math.round(best * 255)
       }
     }
     const { gl } = this
@@ -8966,11 +8992,13 @@ export class PencilEngine implements PencilEngineAPI {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4)
-    // Half a texel of slack each way so the linear filter has something to
-    // interpolate from at the border rather than clamping a hard edge in.
+    // Exactly the world the texture describes, border texels included, so a
+    // texel centre lands on the centre of the cells it was built from. Any
+    // other rect displaces the whole map — see the padding note above.
+    const cell = WET_CELL_PX * step
     this._wetRect = [
-      (b.minCx - 0.5) * WET_CELL_PX, (b.minCy - 0.5) * WET_CELL_PX,
-      (b.maxCx + 1.5) * WET_CELL_PX, (b.maxCy + 1.5) * WET_CELL_PX,
+      b.minCx * WET_CELL_PX - cell, b.minCy * WET_CELL_PX - cell,
+      b.minCx * WET_CELL_PX + (inW + 1) * cell, b.minCy * WET_CELL_PX + (inH + 1) * cell,
     ]
     // Back to the unit every other path in this engine assumes is active.
     gl.activeTexture(gl.TEXTURE0)

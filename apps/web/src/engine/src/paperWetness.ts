@@ -24,7 +24,7 @@
  *  region of paper, not a texture — so the grid only has to be finer than the
  *  smallest puddle anyone would lay, and coarse enough that a long stroke does
  *  not touch thousands of cells. */
-export const WET_CELL_PX = 24
+export const WET_CELL_PX = 16
 
 /** How long a patch of paper takes to go from flooded to bone dry, ms.
  *
@@ -73,8 +73,21 @@ export class PaperWetness {
     const r = Math.max(radiusPx, WET_CELL_PX * 0.5)
     const x0 = Math.floor((x - r) / WET_CELL_PX), x1 = Math.floor((x + r) / WET_CELL_PX)
     const y0 = Math.floor((y - r) / WET_CELL_PX), y1 = Math.floor((y + r) / WET_CELL_PX)
+    const r2 = r * r
+    // The cell the brush is actually standing in always counts, whatever the
+    // geometry says: a dab smaller than a cell and sitting near its corner is
+    // further from the centre than its own radius, and would otherwise wet
+    // nothing at all.
+    const homeX = Math.floor(x / WET_CELL_PX), homeY = Math.floor(y / WET_CELL_PX)
     for (let cy = y0; cy <= y1; cy++) {
       for (let cx = x0; cx <= x1; cx++) {
+        // (#536) The dab's own disc, not its bounding square. The square was
+        // marking the corners too, which at this cell size put wetness a good
+        // half-brush outside the mark on the diagonals — read, correctly, as
+        // "why does the wetness lie so much wider than the brush".
+        const dx = (cx + 0.5) * WET_CELL_PX - x
+        const dy = (cy + 0.5) * WET_CELL_PX - y
+        if (dx * dx + dy * dy > r2 && !(cx === homeX && cy === homeY)) continue
         const k = key(cx, cy)
         const prev = cells.get(k)
         const held = prev ? PaperWetness._decayed(prev, now) : 0

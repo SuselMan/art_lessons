@@ -57,7 +57,15 @@ import type { Dab } from '@grafetto/shared'
 // Per vertex for the identical reason inkWater is: a value per batch makes the
 // finished mark depend on where the stroke happened to be cut into pointer
 // events.
-const FLOATS_PER_VERTEX = 7 // x, y, edgePx, inkDeposit, inkDeposit*water, across, inkDeposit*paperWet
+// (#536) Eight, and the eighth is how strong the paint in the brush was — the
+// pigment slider, per stroke. It has to ride the deposit rather than the
+// composite's single per-batch opacity, because a wash spans several strokes
+// and they no longer have to agree about it: laying clean water and then taking
+// paint into it is two strokes of the same wash with pigment 0 and pigment 0.8.
+// With one scalar for the whole wash, whichever stroke happened to be first
+// decided the lot — and a wash that opened with clean water rendered its own
+// paint invisible at pen-up.
+const FLOATS_PER_VERTEX = 8 // …, across, inkDeposit*paperWet, inkDeposit*strength
 
 /** Which shape the nib actually is. Mirrors DAB_FRAG's markerNibDistPx —
  *  the two must agree, or the bands and the stamps they connect would be built
@@ -247,7 +255,7 @@ export function buildRibbonBands(
    *  Watercolor passes one so its bands share the stamps' normalization and
    *  water depletion — the two overlap almost everywhere, so leaving the bands
    *  on the old scale would let them swamp whatever the stamps expressed. */
-  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number; paperWet: number },
+  inkFor?: (d0: Dab, d1: Dab, travel: number) => { ink: number; water: number; paperWet: number; strength: number },
 ): Float32Array {
   const chain = prevDab ? [prevDab, ...dabs] : dabs
   if (chain.length < 2) return new Float32Array(0)
@@ -256,8 +264,9 @@ export function buildRibbonBands(
   let ink = 0 // deposit carried by whichever segment is currently being emitted
   let inkWater = 0 // the same deposit, weighted by that segment's own water
   let inkWet = 0 // …and by how wet the paper under it already was (#536)
+  let inkStrength = 0 // …and by how strong the paint was (#536)
   const push = (x: number, y: number, edge: number, across: number): void => {
-    out.push(x, y, edge, ink, inkWater, across, inkWet)
+    out.push(x, y, edge, ink, inkWater, across, inkWet, inkStrength)
   }
   const quad = (
     m0: { x: number; y: number }, e0: number, t0: { x: number; y: number },
@@ -315,10 +324,12 @@ export function buildRibbonBands(
       ink = got.ink
       inkWater = ink * got.water
       inkWet = ink * got.paperWet
+      inkStrength = ink * got.strength
     } else {
       ink = d1.opacity * travel * 0.5
       inkWater = 0
       inkWet = 0
+      inkStrength = 0
     }
 
     const steps = poseSubdivisions(

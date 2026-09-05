@@ -556,10 +556,13 @@ function smoothstepJs(edge0: number, edge1: number, x: number): number {
 // in pixels, so one pair of constants describes a 12px brush and a 120px one.
 
 /** Water goes first. 20 radii is roughly a long single sweep. */
-const WATER_RUN_RADII = 20
+//  #536 — 12, from 20. "Кисть явно должна кончаться быстрее" after the first
+//  build where the depletion was visible at all; the previous numbers were
+//  chosen when none of it reached a pixel.
+const WATER_RUN_RADII = 12
 /** A brush dragged a long way is damp, not bone dry — and a hand reloads long
  *  before this in practice. */
-const WATER_FLOOR = 0.30
+const WATER_FLOOR = 0.22
 
 /** Pigment outlasts water by better than two to one, which is what produces the
  *  dry-brush end of a stroke rather than a stroke that simply fades.
@@ -589,12 +592,12 @@ const WATER_FLOOR = 0.30
 //  between bands and the model already resets the load per stroke, so what is
 //  left is how much one band may lose — and that is now a number to be measured
 //  against the exercise rather than assumed safe.
-const PIGMENT_RUN_RADII = 14
+const PIGMENT_RUN_RADII = 8
 //  The floor is *under* water's 0.30, and it has to be for the observation to
 //  hold at all: a brush at the end of a long sweep is damp and colourless, not
 //  dry and coloured. A floor above water's would make the paint outlast the
 //  water again however fast it fell at first.
-const PIGMENT_FLOOR = 0.18
+const PIGMENT_FLOOR = 0.10
 
 // ─── The touch-down (#536) ──────────────────────────────────────────────────
 //

@@ -236,11 +236,16 @@ describe('water load (#468 v3, ADR 011 §3.8)', () => {
 
   it('leaves an ordinary stroke almost undepleted and a long sweep plainly dry', () => {
     // Deliberately loose — this pins the *shape*, not today's exact numbers.
-    // A short mark that has already lost a third of its water reads as a
-    // failing brush rather than as watercolor; a 40-radius sweep that keeps
-    // nearly everything defeats the whole term.
-    expect(watercolorWaterLoad(8)).toBeGreaterThan(0.70)
-    expect(watercolorWaterLoad(40)).toBeLessThan(0.55)
+    //
+    // (#536) The short-mark bound came down from 0.70 to 0.55, and it is a
+    // judgement being revised rather than a bound being loosened to fit: the
+    // old number said a mark eight radii long that has lost a third of its
+    // water "reads as a failing brush", and the verdict from an actual hand on
+    // the actual build was the opposite — the brush was running out far too
+    // slowly. Neither number was ever visible before the density curve was
+    // fixed, so the old one was never really under test.
+    expect(watercolorWaterLoad(8)).toBeGreaterThan(0.55)
+    expect(watercolorWaterLoad(40)).toBeLessThan(0.40)
   })
 
   it('measures travel in brush radii, not pixels', () => {
@@ -273,12 +278,14 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
   })
 
   it('leaves a long stroke pale before it leaves it dry', () => {
-    const water = watercolorWaterLoad(40)
-    const pigment = watercolorPigmentLoad(40)
-    // Two curves, not one — if these ever converge the tool is back to a single
-    // quantity and the dry-brush tail stops existing. The *sign* is what
-    // changed in #536; the gap is still the point.
-    expect(water - pigment).toBeGreaterThan(0.15)
+    // Measured where the two curves are furthest apart rather than at the end
+    // of a very long sweep, where both have settled onto their floors and the
+    // gap is necessarily small. What has to be true is that there is a stretch
+    // of the stroke that is still wet and already pale — that stretch *is* the
+    // dry-brush tail.
+    expect(watercolorWaterLoad(12) - watercolorPigmentLoad(12)).toBeGreaterThan(0.15)
+    // And the ordering holds all the way out.
+    expect(watercolorPigmentLoad(40)).toBeLessThan(watercolorWaterLoad(40))
   })
 
   it('lets water govern geometry and pigment govern paint, never the reverse', () => {
