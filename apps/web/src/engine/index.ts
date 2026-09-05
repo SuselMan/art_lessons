@@ -4665,13 +4665,23 @@ export class PencilEngine implements PencilEngineAPI {
    *  these bytes are compared against (#168, #289), so any difference in
    *  geometry between the two would read as a determinism violation on every
    *  bounded room in existence. */
+  /** (#467) Fully transparent tiles are left out. Residency is not evidence of
+   *  content: `resolveForPaint` makes every tile a stroke's bounding rect
+   *  touches resident whether or not a dab darkens it, and an erase empties a
+   *  tile without releasing it. Storing those costs 4 MiB of somebody else's
+   *  memory each to say what their absence already says — a third of what
+   *  production room cdf314dd-153 makes a joiner materialise.
+   *
+   *  Note this changes what "no tiles" means coming out of here, which
+   *  `bakeNetworkSnapshot` is careful about — see its own comment. */
   private _bakeTiles(buf: ILayerBuffer): SnapshotTile[] {
     const page = this._infinite ? null : this._pageSize()
-    return buf.allResident().map(({ buffer, originX, originY }) => {
+    return buf.allResident().flatMap(({ buffer, originX, originY }) => {
       const pixels = buffer.readPixels()
-      return page
+      const tile = page
         ? clipTileToPage(originX, originY, buffer.width, buffer.height, pixels, page)
         : { originX, originY, width: buffer.width, height: buffer.height, pixels }
+      return isFullyTransparent(tile.pixels) ? [] : [tile]
     })
   }
 
@@ -4691,6 +4701,15 @@ export class PencilEngine implements PencilEngineAPI {
     // of the snapshot entirely, and the next client to restore that snapshot
     // saw a blank layer. That is #369, and this line is where it started.
     const tiles = this._bakeTiles(buf)
+    // (#467) Since _bakeTiles drops fully transparent tiles, this now also
+    // catches a layer that is resident but holds nothing — painted and then
+    // erased away. Omitting it leaves it uncovered, so the server sends its
+    // operations and the next joiner replays them to the same empty result:
+    // more work than storing "it is empty", and never less content. Not
+    // storing an explicit empty snapshot instead is a deliberate limit on this
+    // change — "no tiles" has meant "nothing to publish" since #373, and
+    // giving it a second meaning is its own decision with its own blast
+    // radius. The layer keeps whatever older snapshot it already had.
     if (!tiles.length) return null
     // (#373) Whatever the caller does with these bytes, this layer's current
     // pixels have now left the engine — anything that changes them after this
@@ -4778,14 +4797,24 @@ export class PencilEngine implements PencilEngineAPI {
     // (#425) Лист передаётся, чтобы обрезанный по его краю тайл прошёл
     // быстрым путём: он уже на сетке, просто кончается там же, где бумага.
     const retiled = retileSnapshotTiles(tiles, tw, th, this._infinite ? undefined : this._pageSize())
-    // Re-slicing a mostly-empty page yields tiles carrying nothing, and each
-    // would cost 4 MiB of texture to say exactly what an absent tile already
-    // says. Only a re-sliced set can contain them — identity means every tile
-    // came off a real bake, which never stores a tile it did not paint — so
-    // the alpha scan stays off the path taken by every current snapshot.
-    const painted = retiled === tiles
-      ? retiled
-      : retiled.filter(t => !isFullyTransparent(t.pixels))
+    // A tile carrying nothing costs 4 MiB of texture to say exactly what an
+    // absent tile already says.
+    //
+    // (#467) This used to run only on a re-sliced set, on the reasoning that
+    // "identity means every tile came off a real bake, which never stores a
+    // tile it did not paint". Measured on production room cdf314dd-153, that
+    // is false: **38 of its 107 stored tiles are fully transparent, 114 MB of
+    // the 349 MB a join materialises**, and every one of them came off an
+    // ordinary bake already on the grid. `resolveForPaint` makes every tile a
+    // stroke's *bounding rect* touches resident, whether or not a dab ever
+    // darkens it, and erasing empties a tile without releasing it — so real
+    // bakes produce these constantly. Worse, they ratchet: a client that
+    // materialised them re-bakes them for the next joiner, forever.
+    //
+    // The scan is not free, but it is cheap against what it prevents: it exits
+    // on the first non-zero alpha, and a tile it does not exit early on is one
+    // whose 4 MiB upload it has just cancelled.
+    const painted = retiled.filter(t => !isFullyTransparent(t.pixels))
     // Blank tiles are dropped from the upload only while the layer is
     // genuinely empty. Restoring onto a live buffer — a reconnect re-restoring
     // an engine that already holds pixels — is the one case where an
