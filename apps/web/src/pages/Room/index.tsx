@@ -56,6 +56,7 @@ import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { useCanvasTap } from './useCanvasTap'
 import { ClickTracker } from './clickTracker'
 import { useCommittableSession } from './useCommittableSession'
+import { ShapeColorPair } from './ShapeColorPair'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
@@ -108,6 +109,7 @@ import { JoinGate, type JoinGateState } from './JoinGate'
 import {
   TOOL_SCHEMAS, loadToolSettings, saveToolSettings, linerSizeToPx, stepLinerSize, stepEnumOption,
   getToolColor, isColorCapableTool, toolSizeRange, toolGradeOptions, type ColorCapableTool, type UiToolId,
+  isShapeTool, toolColorField, SHAPE_TOOLS, SHAPE_TOOL_ICONS, SHAPE_TOOL_LABELS, SHAPE_TOOL_TITLES,
 } from './toolSchemas'
 import { loadPanelPosition, type PanelPosition } from './panelPosition'
 import { loadActiveLayerId, saveActiveLayerId } from './activeLayer'
@@ -664,6 +666,9 @@ export function Room() {
   useState(() => useRoomStore.setState({ toolSettings: loadToolSettings(localStorage, id ?? '') }))
   const toolSettings = useRoomStore(s => s.toolSettings)
   const setToolSetting = useRoomStore(s => s.setToolSetting)
+  // (#529) Which of a shape's two colours every colour control is acting on.
+  const shapeSwatch = useRoomStore(s => s.shapeSwatch)
+  const setShapeSwatch = useRoomStore(s => s.setShapeSwatch)
   // Floating tool panel's dragged-to position (#157) — same load-once-up-
   // front pattern as toolSettings above; null until the panel's
   // ever been dragged in this room, in which case it renders at its
@@ -2609,7 +2614,7 @@ export function Room() {
   // capability (isColorCapableTool) of the tool actually selected, and only
   // falls back for the tools that own no colour at all.
   const colorTool: ColorCapableTool = isColorCapableTool(tool) ? tool : lastDrawingTool
-  const colorToolColor = getToolColor(toolSettings, colorTool)
+  const colorToolColor = getToolColor(toolSettings, colorTool, shapeSwatch)
   // (#405) Where a picked colour lands: the tool the eyedropper hands the
   // canvas back to, if that tool owns a colour at all. The issue asks for the
   // colour to be written "into the tool you returned to" — for the eraser or
@@ -2628,7 +2633,7 @@ export function Room() {
   // field of their own — the engine keeps one current color regardless of
   // which tool is active, so it should already hold what the next drawing
   // stroke will use.
-  const activeColor = getToolColor(toolSettings, pickedColorTool)
+  const activeColor = getToolColor(toolSettings, pickedColorTool, shapeSwatch)
   useEffect(() => { engineRef.current?.setColor(activeColor) }, [activeColor, engineEpoch])
   // FloatingToolPanel (#157) is an eight-slot compass the user lays out
   // themselves: any slot holds any tool the left toolbar holds, or undo/redo,
@@ -3250,7 +3255,7 @@ export function Room() {
       // selected used to silently repaint the pencil's swatch instead, so the
       // picked color never showed up in the stroke that followed. See
       // pickedColorTool for the eraser/smudge case, which owns no color.
-      setToolSetting(pickedColorTool, 'color', picked)
+      setToolSetting(pickedColorTool, toolColorField(pickedColorTool, shapeSwatch), picked)
       // (#405) The eyedropper's one schema field, wired at last. It has been
       // in TOOL_SCHEMAS since #196 with nothing behind it, which was tolerable
       // only because the eyedropper was a mode and its settings never reached
@@ -6660,6 +6665,26 @@ export function Room() {
             onClick={() => selectTool('fill')}
           ><Icon name="format_color_fill" /></button>
 
+          {/* (#525) The four shape tools, next to the fill for the same reason
+              the fill sits next to the selection: none of them is a brush, and
+              each one puts a region of pixels down in one gesture rather than
+              laying a stroke.
+
+              Four buttons rather than one with a chooser behind it: they are
+              four different things to reach for, and hiding three of them one
+              level down would make "draw a frame" a two-step decision every
+              time. */}
+          {SHAPE_TOOLS.map(shapeTool => (
+            <button
+              key={shapeTool}
+              className={clsx(styles.toolIconBtn, tool === shapeTool && styles.toolIconBtnActive)}
+              title={t(SHAPE_TOOL_TITLES[shapeTool])}
+              aria-label={t(SHAPE_TOOL_LABELS[shapeTool])}
+              aria-pressed={tool === shapeTool}
+              onClick={() => selectTool(shapeTool)}
+            ><Icon name={SHAPE_TOOL_ICONS[shapeTool]} /></button>
+          ))}
+
           <div className={styles.toolDivider} />
 
           {/* (#405) Selects the grid tool; whether the grid is *drawn* is its
@@ -6747,8 +6772,46 @@ export function Room() {
           uiHidden && (compact ? styles.uiHidden : styles.quickSettingsBarMinimal),
           styles.strokeBlockable,
         )}>
+          {/* (#529) A shape's two colours are one control, not two swatches:
+              which of them the palette and the picker act on is a choice, and
+              trading them is a gesture. See ShapeColorPair. */}
+          {isShapeTool(settingsToolId) && (
+            <ShapeColorPair
+              strokeColor={getToolColor(toolSettings, settingsToolId, 'stroke')}
+              strokeOn={toolSettings[settingsToolId].strokeOn !== false}
+              fillColor={'fillColor' in TOOL_SCHEMAS[settingsToolId]
+                ? getToolColor(toolSettings, settingsToolId, 'fill')
+                : null}
+              fillOn={toolSettings[settingsToolId].fillOn === true}
+              active={shapeSwatch}
+              onSelect={setShapeSwatch}
+              onToggleActive={() => {
+                const key = shapeSwatch === 'fill' ? 'fillOn' : 'strokeOn'
+                setToolSetting(settingsToolId, key, toolSettings[settingsToolId][key] === false)
+              }}
+              onSwap={() => {
+                // Trades the colours themselves, not which one is selected —
+                // the same thing X does in every other editor, and the reason
+                // it is a swap rather than two edits is that the pair is what
+                // the user is looking at.
+                const stroke = getToolColor(toolSettings, settingsToolId, 'stroke')
+                const fill = getToolColor(toolSettings, settingsToolId, 'fill')
+                const strokeOn = toolSettings[settingsToolId].strokeOn !== false
+                const fillOn = toolSettings[settingsToolId].fillOn === true
+                setToolSetting(settingsToolId, 'strokeColor', fill)
+                setToolSetting(settingsToolId, 'fillColor', stroke)
+                setToolSetting(settingsToolId, 'strokeOn', fillOn)
+                setToolSetting(settingsToolId, 'fillOn', strokeOn)
+              }}
+              onExpand={openColorPicker}
+            />
+          )}
           {Object.entries(TOOL_SCHEMAS[settingsToolId])
             .filter(([, descriptor]) => descriptor.quickAccess)
+            // The two colour fields are drawn by ShapeColorPair above; left in
+            // the schema because the full settings panel still lists them, and
+            // because they are what persistence and defaults are built from.
+            .filter(([key]) => key !== 'strokeColor' && key !== 'fillColor')
             .filter(([, descriptor]) => !descriptor.visibleWhen || descriptor.visibleWhen(toolSettings[settingsToolId]))
             .map(([key, descriptor]) => (
               <SettingField
@@ -7239,14 +7302,14 @@ export function Room() {
                   <>
                     <ColorPicker
                       value={colorToolColor}
-                      onChange={v => setToolSetting(colorTool, 'color', v)}
+                      onChange={v => setToolSetting(colorTool, toolColorField(colorTool, shapeSwatch), v)}
                       mode={colorPickerMode}
                       onModeChange={setColorPickerMode}
                     />
                     <PaletteBar
                       palette={palette}
                       value={colorToolColor}
-                      onSelect={v => setToolSetting(colorTool, 'color', v)}
+                      onSelect={v => setToolSetting(colorTool, toolColorField(colorTool, shapeSwatch), v)}
                       onAdd={addPaletteColor}
                       onRemove={removePaletteColor}
                     />
@@ -7332,7 +7395,7 @@ export function Room() {
           onRedo={handleRedo}
           primaryColor={colorToolColor}
           palette={palette}
-          onSelectColor={v => setToolSetting(colorTool, 'color', v)}
+          onSelectColor={v => setToolSetting(colorTool, toolColorField(colorTool, shapeSwatch), v)}
           onOpenColorPicker={openColorPicker}
           roomId={id ?? ''}
           position={panelPosition}

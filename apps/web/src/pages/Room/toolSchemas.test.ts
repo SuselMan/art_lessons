@@ -299,7 +299,14 @@ describe('option pickers (#335, #391)', () => {
         // third since #501. None of those is a second decision: it is the same
         // nib on another tool, so it gets the same question about what its
         // angle is measured against.
-        'marker.anchor', 'watercolor.anchor', 'charcoal.anchor'].sort(),
+        'marker.anchor', 'watercolor.anchor', 'charcoal.anchor',
+        // … and the three geometric choices a shape's stroke makes (#529):
+        // where it sits against the contour, how it turns a corner, how it
+        // ends. Each is picked the same way a mode is, and each is drawn
+        // rather than named — they are differences between two pictures of the
+        // same thing, which is exactly what a word fails to convey.
+        'rectangle.strokeAlign', 'ellipse.strokeAlign', 'polystar.strokeAlign', 'line.strokeAlign',
+        'rectangle.strokeJoin', 'line.cap'].sort(),
     )
   })
 
@@ -477,14 +484,24 @@ describe('slider scales (#390)', () => {
       // range that narrow is indistinguishable from a straight line, and the
       // scale is claimed by this list to mean something.
       'annotatePen.size',
-      'brushPen.size', 'charcoal.size', 'colorPencil.size', 'eraser.size', 'marker.size', 'pencil.size',
+      // (#529) A shape's stroke width is a continuous px size like the brush
+      // widths here and belongs to this list for the same reason: it runs
+      // 0.5..200 and everything anyone reaches for is in the first tenth of
+      // that. Named per tool rather than derived, so a fifth shape has to be a
+      // deliberate edit here. (The list is in sorted order, which is why the
+      // four are interleaved rather than appended.)
+      'brushPen.size', 'charcoal.size', 'colorPencil.size', 'ellipse.strokeWidth', 'eraser.size',
+      'line.strokeWidth', 'marker.size', 'pencil.size', 'polystar.strokeWidth', 'rectangle.strokeWidth',
       'smudge.size', 'watercolor.size',
     ])
   })
 
   it('leaves every other numeric field on the default linear scale', () => {
     for (const { toolId, key, valueType } of numberFields) {
-      if (key === 'size') continue
+      // The two field names that mean "a continuous size in canvas pixels" —
+      // see the list above, which is where *which* tools have them is pinned
+      // down. Everything else (percent, degrees, counts) is linear by meaning.
+      if (key === 'size' || key === 'strokeWidth') continue
       expect(valueType.scale, `${toolId}.${key} should be linear`).toBeUndefined()
     }
   })

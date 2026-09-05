@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand'
 
-import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor } from '../../pages/Room/toolSchemas'
+import { defaultToolSettings, type ToolSettingsMap, type UiToolId, type SettingDescriptor, type ShapeSwatch } from '../../pages/Room/toolSchemas'
 
 // ── one selected tool (#405) ────────────────────────────────────────────────
 //
@@ -53,6 +53,11 @@ export const NON_DRAWING_TOOLS = [
   // serialized contract. That they lay down a visible line is beside the
   // point — the line is not on a layer.
   'annotateText', 'annotatePen', 'annotateEraser',
+  // (#525) The four shape tools fall on this side of the line for the same
+  // reason the fill does: each emits an operation of its own kind (`shape`)
+  // rather than a StrokeOperation, so none of them is a `ToolType` and none
+  // reaches that serialized contract.
+  'rectangle', 'ellipse', 'polystar', 'line',
 ] as const satisfies readonly UiToolId[]
 
 export type NonDrawingTool = (typeof NON_DRAWING_TOOLS)[number]
@@ -120,6 +125,14 @@ function isSecondaryTool(tool: EditorTool): tool is SecondaryTool {
 }
 
 export interface ToolSlice {
+  /** (#529) Which of a shape's two colours every colour control is pointed at.
+   *
+   *  Here rather than in the tool's own settings because it is not a property
+   *  of the tool: it is what the user last tapped, and it is shared by all four
+   *  shape tools — switching from a rectangle to a star while editing the fill
+   *  should keep editing the fill. Not persisted for the same reason. */
+  shapeSwatch: ShapeSwatch
+  setShapeSwatch: (swatch: ShapeSwatch) => void
   /** The one tool in hand. Everything else about "which tool is on" is
    *  derived from this — there is no second axis to disagree with it. */
   tool: EditorTool
@@ -200,6 +213,8 @@ function moveToFront<T>(list: readonly T[], item: T): readonly T[] {
 }
 
 export const createToolSlice: StateCreator<ToolSlice> = set => ({
+  shapeSwatch: 'stroke',
+  setShapeSwatch: swatch => set({ shapeSwatch: swatch }),
   tool: 'pencil',
   drawingTool: 'pencil',
   lastDrawingTool: 'pencil',
