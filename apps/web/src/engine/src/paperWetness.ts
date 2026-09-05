@@ -32,7 +32,13 @@ export const WET_CELL_PX = 16
  *  *next* stroke can still work into what is there, and a window measured in
  *  real minutes would mean a mark laid at the start of a session still altering
  *  one laid much later, with nothing on screen to explain why. */
-export const WET_DRY_MS = 25000
+//  #536 — 60 s, from 25. Twenty-five seconds is shorter than it takes to lay
+//  water, reach for the pigment slider and come back, so the technique the
+//  whole field exists for kept failing on the clock rather than on the model:
+//  "возможно правда что я пока переключал кисть оно уже подсыхало". The field
+//  is ephemeral and display-only besides the interaction it hands each stroke,
+//  so a longer window costs nothing but a sheen that lingers.
+export const WET_DRY_MS = 60000
 
 interface WetCell { w: number; at: number }
 

@@ -671,8 +671,14 @@ const WATERCOLOR_MIGRATE_MIN_PX = 3.0
 const WATERCOLOR_MIGRATE_GAIN = 0.75
 
 /** Where "wet enough for paint to swim" begins and where it is complete. */
-const WATERCOLOR_MIGRATE_LO = 0.78
-const WATERCOLOR_MIGRATE_HI = 1.0
+//  #536 — 0.34, from 0.78. The gate was calibrated when the only source of
+//  water was the brush's own mix, where 0.78 meant "the wet preset and nothing
+//  else". Since water can be laid on the paper deliberately, the same number
+//  meant that a puddle put down at the ordinary "damp" mix (0.55) never opened
+//  the gate at all — so the pass whose entire job is moving pigment through
+//  standing water had never once run in the case it exists for.
+const WATERCOLOR_MIGRATE_LO = 0.34
+const WATERCOLOR_MIGRATE_HI = 0.85
 
 /** Exported for the engine, which resolves the reach against the gesture's own
  *  first dab exactly as it does the spread's. */

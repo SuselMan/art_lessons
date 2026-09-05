@@ -461,25 +461,40 @@ describe('pigment transport (#468 v11, ADR 011 §11)', () => {
   // rasterizes DAB_FRAG, and §11's whole result is a redistribution inside the
   // composite (see this file's own header). What *is* testable is the gate: a
   // wash that is not very wet must not pay for the term, and must not get it.
-  it('is off for anything short of a very wet mix', () => {
-    for (const water of [0, 0.3, 0.55, 0.7, 0.78]) {
+  it('is off for a brush with no water to move anything with', () => {
+    for (const water of [0, 0.2, 0.34]) {
       const p = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water, pigment: 0.6 }))
       expect(p.migrate).toBe(0)
     }
   })
 
-  it('is on above it, and only there', () => {
-    const damp = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.6, pigment: 0.6 }))
+  it('is on from an ordinary damp mix upward', () => {
+    // (#536) The threshold came down from 0.78, and it is a recalibration
+    // rather than a loosening. 0.78 was chosen when the only source of water
+    // was the brush's own mix, where it meant "the wet preset and nothing
+    // else". Water can now be laid on the paper deliberately, and at the
+    // ordinary damp mix (0.55) that puddle never opened the gate — so the pass
+    // whose whole job is moving pigment through standing water had never once
+    // run in the case it exists for.
+    const damp = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.55, pigment: 0.6 }))
     const wet = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.95, pigment: 0.6 }))
-    expect(damp.migrate).toBe(0)
-    expect(wet.migrate).toBeGreaterThan(0)
+    expect(damp.migrate).toBeGreaterThan(0)
+    expect(wet.migrate).toBeGreaterThan(damp.migrate * 0.5)
+  })
+
+  it('runs on a dry brush dragged through water already on the paper', () => {
+    // The case the whole thing exists for, and the one it could not reach: the
+    // brush is nearly dry, the paper is not.
+    const dryBrush = watercolorPresetString('normal', { water: 0.12, pigment: 0.8 })
+    expect(ribbonProfileFor('watercolor', dryBrush, 0).migrate).toBe(0)
+    expect(ribbonProfileFor('watercolor', dryBrush, 0.9).migrate).toBeGreaterThan(0)
   })
 
   // The reach and the gate travel with the profile so a peer replaying the
   // stroke redistributes the pigment exactly as the author's machine did.
   it('carries a gate the shader can read, in the same units as the mix', () => {
     const p = ribbonProfileFor('watercolor', watercolorPresetString('normal', { water: 0.95, pigment: 0.6 }))
-    expect(p.migrateLo).toBeGreaterThan(0.5)
+    expect(p.migrateLo).toBeGreaterThan(0.2)
     expect(p.migrateLo).toBeLessThan(p.migrateHi)
     expect(p.migrateHi).toBeLessThanOrEqual(1)
     expect(p.migrateOfRadius).toBeGreaterThan(0)

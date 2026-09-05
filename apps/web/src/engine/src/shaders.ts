@@ -794,6 +794,10 @@ export const DAB_FRAG = `
   // third 0.81, where before every one of them read the same clipped value.
   const float WC_DENSITY_K = 0.54;
 
+  // (#536) How wide the transport's own view of the concentration is, in px.
+  // Wider than a hair bundle on purpose — see its use.
+  const float WC_TRANSPORT_SMOOTH_PX = 7.0;
+
 ${WC_NOISE_GLSL}
 
   // (#468 v10) Twelve directions per ring, not eight, and the two rings of one
@@ -1240,6 +1244,8 @@ ${WC_NOISE_GLSL}
       // then take colour into it". Outside the mark there is no deposit to
       // divide by, so the batch's own setting stands in.
       float strengthHere = ink.a > 0.004 ? clamp(ink.b / ink.a, 0.0, 1.0) : u_inkStrength;
+      // Recomputed after the migration pass below, which moves paint as well as
+      // mass — see its own note.
       float transportHere = max(waterHere, paperWetHere);
 
       // §3.5 - the wash leaves the brush's footprint.
@@ -1458,7 +1464,17 @@ ${WC_NOISE_GLSL}
         // pixel or two of the boundary, so it carries no shape for a gradient
         // to be taken of; the deposit fades out over most of a brush radius,
         // because the nib stamps are cones, and that fade is the margin.
-        float s = max(u_inkSmoothPx * 0.5, 1.0);
+        // (#536) The field that decides *where* and *how hard* pigment moves is
+        // read off a deliberately blurred concentration, and the mass is then
+        // taken out of the unblurred deposit.
+        //
+        // Without that the transport sees the hair as real concentration
+        // unevenness and pumps it flat — the bristle structure vanished from
+        // the tool the moment the gate came down and this pass started running
+        // in ordinary cases. Blurring wider than a bundle leaves the large
+        // water/pigment differences to move mass, which is what wet-in-wet is,
+        // and leaves the hair alone, which is what a brush is.
+        float s = max(u_inkSmoothPx * 0.5, WC_TRANSPORT_SMOOTH_PX);
         float R = u_migratePx;
         float full = max(u_saturateInk * WC_MIGRATE_FULL, 0.0001);
         vec4 c = wcTransportField(tileUV, texel, s, full);
@@ -1476,7 +1492,28 @@ ${WC_NOISE_GLSL}
         f += wcFlux(c, tileUV, texel, vec2(-0.5,  C30), R, s, full);
         f += wcFlux(c, tileUV, texel, vec2( 0.5, -C30), R, s, full);
         f += wcFlux(c, tileUV, texel, vec2(-0.5, -C30), R, s, full);
-        deposit = max(ink.a + u_migrate * (f.x - f.y) * 0.0833333, 0.0);
+        float moved = u_migrate * (f.x - f.y) * 0.0833333;
+        deposit = max(ink.a + moved, 0.0);
+        // (#536) …and the *paint* moves with it, not just the amount.
+        //
+        // Until now this pass moved ink.a alone. Where it carried mass into a
+        // patch of clean water — which is the whole of wet-in-wet — the paint's
+        // own strength there stayed zero, so the arriving pigment showed up as
+        // nothing at all. Worse than nothing: strengthHere is a ratio, so more
+        // deposit under an unchanged strength channel reads *paler*. That is
+        // why "the pigment does not spread into the puddle" survived every
+        // attempt to widen the reach — the reach was not the problem, the paint
+        // was not travelling with it.
+        //
+        // Arriving paint carries this stroke's own strength and what leaves
+        // takes the local strength with it, so the ratio stays meaningful at
+        // both ends. A simplification while a wash holds one paint at a time —
+        // when it can hold several (ADR 011 §17.4's multi-pigment step) the
+        // arriving strength has to come from the neighbour instead.
+        float strengthWas = ink.a > 0.004 ? clamp(ink.b / ink.a, 0.0, 1.0) : 0.0;
+        strengthHere = deposit > 0.004
+          ? clamp((ink.b + max(moved, 0.0) * u_inkStrength + min(moved, 0.0) * strengthWas) / deposit, 0.0, 1.0)
+          : strengthHere;
       }
 
       // (#536) Beer-Lambert, not smoothstep, and this is a correction rather
@@ -2850,12 +2887,12 @@ export const PAPER_COMPOSE_FRAG = `
   // The two windows, in wetness. Narrow, and the dark one sits *outside* the
   // bright one with a gap between them, which is what makes the edge read as a
   // bead of water curving over rather than as a line drawn round the puddle.
-  const float WC_RIM_LO  = 0.50;
-  const float WC_RIM_MID = 0.58;
-  const float WC_RIM_HI  = 0.66;
-  const float WC_DARK_LO  = 0.24;
-  const float WC_DARK_MID = 0.34;
-  const float WC_DARK_HI  = 0.44;
+  const float WC_RIM_LO  = 0.56;
+  const float WC_RIM_MID = 0.60;
+  const float WC_RIM_HI  = 0.64;
+  const float WC_DARK_LO  = 0.14;
+  const float WC_DARK_MID = 0.22;
+  const float WC_DARK_HI  = 0.30;
 
   /** The wetness map, smoothed over its own texel so the coarse grid it is
    *  built on does not show as facets. Four taps at half a texel — cheap, and
