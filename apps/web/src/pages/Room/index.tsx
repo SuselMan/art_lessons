@@ -59,7 +59,7 @@ import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
 import { PaperFailedOverlay } from './PaperFailedOverlay'
-import { RestoreFailedOverlay } from './RestoreFailedOverlay'
+import { RestoreFailedOverlay, type RestoreFailureReason } from './RestoreFailedOverlay'
 import { FrozenBanner } from './FrozenBanner'
 import { ClosedBanner } from './ClosedBanner'
 import { LostWorkBanner } from './LostWorkBanner'
@@ -418,8 +418,14 @@ export function Room() {
    *  second source for those pixels — a room opened in this state is not
    *  "missing the last few strokes", it is blank where a lesson should be. It
    *  stayed blank and unexplained for twenty minutes on 2026-09-04, which is
-   *  what this flag is for. See RestoreFailedOverlay. */
-  const [restoreFailed, setRestoreFailed] = useState(false)
+   *  what this flag is for. See RestoreFailedOverlay.
+   *
+   *  (#538) A reason rather than a boolean, and null rather than false: the
+   *  same screen now also covers a restore whose pixels *did* arrive and threw
+   *  on the way to the canvas, and the two get different sentences. One piece
+   *  of state, not a flag plus a variant beside it — those can disagree, and
+   *  the disagreement would be a screen explaining the wrong failure. */
+  const [restoreFailure, setRestoreFailure] = useState<RestoreFailureReason | null>(null)
 
   /** (#464) Whether this failure has already been reported to Sentry. Every
    *  replay site calls awaitPaper, so one broken load rejects at several of
@@ -1759,7 +1765,7 @@ export function Room() {
   // the two, since without it the engine would refuse to draw even on a room
   // that did restore.
   const showRestoreFailedOverlay =
-    !roomContentReady && restoreFailed && !showOfflineOverlay && !showPaperFailedOverlay
+    !roomContentReady && restoreFailure !== null && !showOfflineOverlay && !showPaperFailedOverlay
 
   /** (#533) Ask for the room's content again.
    *
@@ -1770,7 +1776,7 @@ export function Room() {
    *  loading overlay back up; if this attempt fails the same way, the catch-up
    *  sets it again and this screen returns. */
   const retryRestore = useCallback(() => {
-    setRestoreFailed(false)
+    setRestoreFailure(null)
     requestFullResyncRef.current?.()
   }, [])
 
@@ -2270,6 +2276,14 @@ export function Room() {
         // `return` cannot express that — `finally` runs on the way out either
         // way — so the exit has to be flagged rather than jumped to.
         let restoreFailedHere = false
+        // (#538) Держится ровно до входа в `resumeDisplay`, а не до его
+        // возврата, и это не мелочь: глубина там уменьшается первым же
+        // оператором, до `_flushPendingRebuilds`, который и бросает в отчётах
+        // `JAVASCRIPT-D/E/G` (выделение тайла не удалось). То есть «suspend всё
+        // ещё держится» и «resume не довёл дело до конца» — разные состояния, и
+        // повторный `resumeDisplay()` из `catch` по второму поводу заново позвал
+        // бы `_display()` на той же нехватке памяти, уже внутри обработчика.
+        let displaySuspended = false
         try {
           // (#147) A fresh room's history can be hundreds/thousands of ops —
           // without this, appendOperation's own per-op _display() (full
@@ -2279,6 +2293,7 @@ export function Room() {
           // of that to one _display() right after the loop — see their own
           // doc comments.
           engine.suspendDisplay()
+          displaySuspended = true
 
           // (#169) A brand-new mount always has lastKnownSeq 0 (nothing local
           // to already be caught up on) — restore whenever the room has a
@@ -2308,7 +2323,7 @@ export function Room() {
             // point at afterwards.
             if (status !== 'restored') {
               restoreFailedHere = true
-              setRestoreFailed(true)
+              setRestoreFailure('transfer')
               // (#385) The canvas holds less than the room does, permanently
               // for this mount — which is exactly what this ref means, and it
               // is load-bearing on the way out: without it the unmount hook
@@ -2322,6 +2337,7 @@ export function Room() {
               // Balances the suspendDisplay above: the depth is a counter, and
               // leaving it raised would mute every later paint on this engine,
               // including the one a successful retry produces.
+              displaySuspended = false
               engine.resumeDisplay()
               return
             }
@@ -2369,6 +2385,7 @@ export function Room() {
             replayIncompleteRef.current = true
             notifyError(tRef.current('room.replayIncomplete'), { key: 'replay-incomplete', durationMs: null })
           }
+          displaySuspended = false
           engine.resumeDisplay()
           // (#386) Now, not on the next microtask: the bootstrap below reads
           // the store back in this same task. See syncFromLogNow.
@@ -2396,6 +2413,44 @@ export function Room() {
           // future join of *this* room now gets the fast path instead).
           if (pending.latestSnapshotSeq === null && snapshotUploader) {
             snapshotUploader.onSeqObserved(0, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
+          }
+        } catch (error) {
+          // (#538) Всё, что стоит между `resumeDisplay()` и этим блоком —
+          // `syncFromLogNow`, `markJoinRestoreDone`, участники, палитра,
+          // `frozen`, бэкфилл, бутстрап снапшота — исполняется по одному разу
+          // за вход и больше нигде не повторяется. Брошенное на первой из этих
+          // строк отменяет все следующие, а `finally` без флага всё равно
+          // объявлял бы комнату открытой: прелоадер уходит, карандаш живой, а
+          // `layerState` так и остался `makeInitialLayerState()` — редактор
+          // показывает не тот урок и молчит об этом. Та же форма, которую #533
+          // закрыл для отказа снапшота, поэтому тот же экран и тот же повтор.
+          //
+          // В Sentry сюда падали два разных исключения, оба необработанным
+          // reject'ом: `Framebuffer incomplete` из
+          // `resumeDisplay → _flushPendingRebuilds → getOrCreateTile`
+          // (`JAVASCRIPT-D/E/G`, планшет без графической памяти) и `TypeError`
+          // из `syncFromLogNow` (`JAVASCRIPT-K`). Разные причины, одно
+          // последствие — и до сих пор его не видел никто, включая нас.
+          restoreFailedHere = true
+          setRestoreFailure('apply')
+          // Тот же смысл, что и в ветке отказа снапшота выше: холст держит
+          // меньше, чем комната, до конца этого маунта — значит с него нельзя
+          // ни печь снапшот, ни запекать превью урока на выходе.
+          replayIncompleteRef.current = true
+          // Явный отчёт, а не тот же самый через глобальный обработчик:
+          // необработанный reject — это утверждение «мы это не обработали», и
+          // оно перестало быть правдой. Плюс фаза, на которой встали: она
+          // отличает этот отказ от #533 (`snapshot`) среди одинаковых с виду
+          // событий. Таймер входа намеренно не финишируется — вход и правда не
+          // дошёл до конца, и будильник #487 говорит про него правду.
+          Sentry.captureException(error, {
+            tags: { joinFailure: 'tail', openReached: openTimerRef.current?.stalled().reached },
+          })
+          if (displaySuspended) {
+            // Своим try: если холст уже не отвечает, второй бросок отсюда увёл
+            // бы нас обратно в необработанный reject — и человек остался бы без
+            // экрана отказа, который к этому моменту уже заслужен.
+            try { engine.resumeDisplay() } catch { /* экран отказа важнее */ }
           }
         } finally {
           // Runs even if restoreLatestSnapshot/restore/replay throws — a failed
@@ -5605,7 +5660,7 @@ export function Room() {
       // blip of a room that is fine. Cleared here rather than only in
       // retryRestore, because an ordinary reconnect is just as much a second
       // attempt as a pressed button is.
-      setRestoreFailed(false)
+      setRestoreFailure(null)
       // (#346) Outside the try/finally below, for the same reason as the mount
       // effect's own site: a paper failure must leave the room closed and
       // explained, not opened and mute.
@@ -5613,6 +5668,9 @@ export function Room() {
       // (#533) Read by this catch-up's own `finally` — see the first-join
       // path's flag of the same name.
       let restoreFailedHere = false
+      // (#538) См. одноимённый флаг на пути первого входа — тот же счётчик и
+      // та же причина держать его именно до входа в `resumeDisplay`.
+      let displaySuspended = false
       try {
         // A reconnect's full-history replay supersedes any reveal still
         // in-flight from before the drop — cancel it rather than let it keep
@@ -5621,6 +5679,7 @@ export function Room() {
         // (#147) Same reasoning as the initial-join replay above — see
         // suspendDisplay/resumeDisplay's own doc comments.
         engine?.suspendDisplay()
+        displaySuspended = engine !== null
 
         // (#169) A snapshot exists and this socket doesn't already have
         // local state at least as fresh as it (the common reconnect case: it
@@ -5643,7 +5702,8 @@ export function Room() {
           // snapshot exists and cut the tail accordingly.
           if (status !== 'restored') {
             restoreFailedHere = true
-            setRestoreFailed(true)
+            setRestoreFailure('transfer')
+            displaySuspended = false
             engine.resumeDisplay()
             return
           }
@@ -5653,6 +5713,30 @@ export function Room() {
         // (#398) Same as the mount effect's own catch-up — see
         // PencilEngineAPI.preloadImages.
         if (engine) await engine.preloadImages(tailOperations)
+
+        // (#385, #538) Поштучно, а не одним try вокруг цикла — тем же
+        // решением и по той же причине, что на пути первого входа: одна
+        // операция, которая бросила, раньше отменяла все следующие за ней, а
+        // после долгого разрыва их подавляющее большинство. Пропустить ту, что
+        // не легла, строго лучше, чем пропустить остаток урока.
+        //
+        // До #538 этой защиты здесь не было вовсе, и #385 её сюда не принёс:
+        // тогда бросок из цикла уходил необработанным reject'ом, а комната
+        // всё равно объявлялась открытой. Теперь его поймал бы `catch` ниже и
+        // показал экран отказа — что честно, но для одной непроигравшейся
+        // операции слишком много. Два пути входа должны отвечать на одно и то
+        // же одинаково.
+        let failed = 0
+        const applyOne = (op: Operation): void => {
+          try {
+            applyRemoteOp(op)
+          } catch (err) {
+            // Только первое: дальше это обычно мёртвый GL-контекст, и тысяча
+            // одинаковых событий не скажет ничего, чего не сказало первое.
+            if (failed === 0) Sentry.captureException(err)
+            failed++
+          }
+        }
 
         // (#477) Retire *every* reveal still in flight, not just the ones the
         // tail happens to name — this catch-up supersedes all of them, and
@@ -5674,9 +5758,18 @@ export function Room() {
           // then would lay the same stroke down twice.
           if (!stranded || tailOpIds.has(opId)) continue
           if (restoredFromSnapshot && latestSnapshotSeq !== null && seq <= latestSnapshotSeq) continue
-          applyRemoteOp(stranded)
+          applyOne(stranded)
         }
-        for (const op of tailOperations) applyRemoteOp(op)
+        for (const op of tailOperations) applyOne(op)
+        if (failed > 0) {
+          // (#480) Ровно то же, что и на первом входе: исключение уже уехало,
+          // а его последствие — нет. С этого момента и до конца маунта клиент
+          // не имеет права печь снапшоты, и это надо видеть.
+          reportInvariant('catch-up replay incomplete — snapshots disabled for this mount', { failed })
+          replayIncompleteRef.current = true
+          notifyError(tRef.current('room.replayIncomplete'), { key: 'replay-incomplete', durationMs: null })
+        }
+        displaySuspended = false
         engine?.resumeDisplay()
         // (#386) Same reason as the mount-engine effect's own catch-up: the
         // bootstrap below reads the store back in this same task.
@@ -5701,6 +5794,21 @@ export function Room() {
         // very first snapshot.
         if (latestSnapshotSeq === null && engine && snapshotUploader) {
           snapshotUploader.onSeqObserved(alreadyHadSeq, latestKnownSeqRef.current, engine, useRoomStore.getState().layerState)
+        }
+      } catch (error) {
+        // (#538) Тот же отказ и то же обоснование, что на пути первого входа —
+        // см. `catch` там. Здесь он нужен не меньше: хвост переподключения
+        // после долгого разрыва бывает в тысячи операций, и брошенное посреди
+        // него точно так же оставляло комнату объявленной открытой поверх
+        // состояния, которое к ней не относится.
+        restoreFailedHere = true
+        setRestoreFailure('apply')
+        replayIncompleteRef.current = true
+        Sentry.captureException(error, {
+          tags: { joinFailure: 'catchup', openReached: openTimerRef.current?.stalled().reached },
+        })
+        if (displaySuspended) {
+          try { engine?.resumeDisplay() } catch { /* экран отказа важнее */ }
         }
       } finally {
         // (#169 bug fix) Must run even on a plain, no-snapshot reconnect
@@ -7596,7 +7704,7 @@ export function Room() {
             : showPaperFailedOverlay
               ? <PaperFailedOverlay retrying={paperRetrying} onRetry={() => void retryPaper()} />
               : showRestoreFailedOverlay
-                ? <RestoreFailedOverlay onRetry={retryRestore} />
+                ? <RestoreFailedOverlay reason={restoreFailure ?? 'transfer'} onRetry={retryRestore} />
                 : <RoomLoadingOverlay paper={paperProgress} />
         )}
       </div>
