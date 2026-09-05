@@ -542,7 +542,13 @@ const WATERCOLOR_WET_EDGE_RADIUS_PX = 7.0
  *  wash unevenness unchanged to the second decimal, graded wash unchanged in
  *  spread and step evenness, with WATERCOLOR_PRESET.opacity raised to keep the
  *  tone where it was. */
-const WATERCOLOR_SATURATE_INK = 1.35
+//  #536 — 0.20, from 1.35, and it is not an independent retune: it is measured
+//  in deposit units, and WATERCOLOR_CONE_DEPOSIT_GAIN moved the deposit scale
+//  by the same factor. Left at 1.35 it would call a full wash nearly empty and
+//  quietly switch the migration pass off. Everything denominated in deposit
+//  units has to move together or one of them silently stops meaning what it
+//  says.
+const WATERCOLOR_SATURATE_INK = 0.20
 
 /** Below this half-width the nib is widened rather than dropped, same as the
  *  brush pen. Higher than its 0.5 because this tool's own width floor is 0.32
@@ -593,13 +599,36 @@ const WATERCOLOR_STAMP_INK_SHARE = 0.82
 
 /** Converts the deposit from "per unit length of travel" to the scale the cone
  *  profile actually accumulates at, so the numbers in watercolorPigmentEffects
- *  stay readable. A single pass runs it roughly twice over the deposit buffer's
- *  own ceiling, which is deliberate: what makes a stroke's inside a flat film
- *  rather than a domed airbrush stripe is precisely that the accumulation tops
- *  out across the whole width and slopes only through the margin. Measured — at
- *  a quarter of this the cross-section came back a smooth dome, which is not
- *  what a loaded brush leaves. */
-const WATERCOLOR_CONE_DEPOSIT_GAIN = 1.8
+ *  stay readable.
+ *
+ *  #536 — 0.27, down from 1.8, and this is the number the whole tool was
+ *  standing on without anyone noticing.
+ *
+ *  It used to be set so that a single pass ran "roughly twice over the deposit
+ *  buffer's own ceiling", deliberately, because that is what made a stroke's
+ *  inside a flat film rather than a domed airbrush stripe. The buffer is
+ *  RGBA/UNSIGNED_BYTE (AccumulationBuffer), so its ceiling is a hard clamp at
+ *  1.0 — and running twice over it means **an ordinary pass saturates the
+ *  buffer flat**. Everything downstream then reads a constant.
+ *
+ *  That is the real reason a second pass changed nothing, a long line did not
+ *  thin, the hairs delivered evenly and the paint never ran out: all of those
+ *  are multipliers on the deposit, and the deposit was being clipped before any
+ *  of them could be seen. Replacing the composite's saturating curve with a
+ *  Beer-Lambert film (#536, earlier) was necessary and could not help on its
+ *  own, because the clipping happens upstream of the curve.
+ *
+ *  The flat cross-section it was protecting was being produced by the clipping,
+ *  not by the cone. A cone deposit at this spacing is close to a partition of
+ *  unity and sums nearly flat across the interior on its own; if a dome comes
+ *  back, that is the thing to fix — the deposit's shape — rather than clipping
+ *  the top off it again.
+ *
+ *  0.27 puts an ordinary pass near 0.3 of the buffer, so three or four glazes
+ *  build before anything saturates. WATERCOLOR_DENSITY_K in the shader is set
+ *  against this: move one and the other has to follow, or the tool changes
+ *  tone. */
+const WATERCOLOR_CONE_DEPOSIT_GAIN = 0.27
 
 const WATERCOLOR_SPREAD_CAP_PX = 26.0
 

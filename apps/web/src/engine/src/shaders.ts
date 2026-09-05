@@ -785,7 +785,14 @@ export const DAB_FRAG = `
   // brush running out of paint to lighten. u_saturateInk is *not* this — it
   // stays the migration pass's reference for a full film and is left alone,
   // because coupling the two is how one retune silently becomes two.
-  const float WC_DENSITY_K = 1.8;
+  //
+  // #536 — 0.54, from 1.8, and it moves with WATERCOLOR_CONE_DEPOSIT_GAIN
+  // rather than on its own: the gain came down by the same factor so that an
+  // ordinary pass stops clipping the 8-bit deposit buffer, and this keeps the
+  // tone of that pass exactly where it was (density 0.43 before and after).
+  // What changes is what lies above it — a second glaze now reads 0.67 and a
+  // third 0.81, where before every one of them read the same clipped value.
+  const float WC_DENSITY_K = 0.54;
 
 ${WC_NOISE_GLSL}
 
