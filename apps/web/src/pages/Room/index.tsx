@@ -55,6 +55,7 @@ import { ViewportToast } from './ViewportToast'
 import { useTapToggle, type TapDebugInfo } from './useTapToggle'
 import { useCanvasTap } from './useCanvasTap'
 import { ClickTracker } from './clickTracker'
+import { useCommittableSession } from './useCommittableSession'
 import { PencilSoundTuningPanel } from './PencilSoundTuningPanel'
 import { RoomLoadingOverlay } from './RoomLoadingOverlay'
 import { OfflineRoomOverlay } from './OfflineRoomOverlay'
@@ -3600,98 +3601,28 @@ export function Room() {
     setTransformBounds, setTransformCenterOverride,
   ])
 
-  // (#401) Best-effort save for the one exit React never reports: the page
-  // going away. `pagehide` covers reload, tab close and bfcache;
-  // `visibilitychange` catches the mobile cases where the tab is frozen
-  // without pagehide ever firing.
-  //
-  // It stays best-effort on purpose: the operation goes through the Outbox,
-  // whose IndexedDB write is async, and a teardown gives no guarantee it
-  // completes. (#405) It used to be the belt on top of the idle auto-commit's
-  // two-second exposure window; with that gone this is one of the two things
-  // standing between an open session and a closed tab, and the other one —
-  // the warning below — is the half that can actually stop the tab closing.
-  useEffect(() => {
-    if (!transformActive) return
-    const save = () => commitTransformSessionRef.current(false)
-    const onVisibility = () => { if (document.visibilityState === 'hidden') save() }
-    window.addEventListener('pagehide', save)
-    document.addEventListener('visibilitychange', onVisibility)
-    return () => {
-      window.removeEventListener('pagehide', save)
-      document.removeEventListener('visibilitychange', onVisibility)
-    }
-  }, [transformActive])
-
-  // (#405) An open transform session is unsent work, so it goes behind the
-  // same guard unsent work already has: `holdReload()`, which is what arms the
-  // room's beforeunload prompt and what tells the service-worker updater a new
-  // build may not be applied silently right now (#313/#400 — see
-  // lib/reloadSafety, and the beforeunload effect near the top of this file).
-  //
-  // #401 considered this and decided against it, explicitly on the grounds
-  // that the idle auto-commit would have saved the session anyway. Removing
-  // the auto-commit removes that reasoning, so the hold goes on.
-  //
-  // Deliberately its own hold rather than leaning on the room-wide one that
-  // covers the whole editor today: the two are held for different reasons, and
-  // if the room-wide hold is ever narrowed to "only while something is
-  // actually unsent" — which is what its own comment says it is a broad
-  // stand-in for — a session would silently stop being protected. Nested holds
-  // are free (reloadSafety counts them for exactly this).
-  useEffect(() => {
-    if (!transformActive) return
-    return holdReload()
-  }, [transformActive])
-
-  // (#405/#407) A click or tap on the canvas past the gizmo applies the session
-  // and puts the transform tool down, handing the canvas back to the drawing
-  // tool — the "I'm done here" gesture that costs no keyboard, which matters
-  // because the tablet has none. It used to apply and immediately re-arm on the
-  // result; the gizmo staying put after the gesture that meant *done* read as
-  // the tap not having worked.
-  //
-  // A *click*, deliberately, not a press: a drag that starts outside the frame
-  // is a pan (or a rotate begun just outside a corner and dragged away), and
-  // ending someone's edit because they moved the view would be worse than the
-  // auto-commit this replaces. (#408) The budget for how far it may wander is
-  // its own, though — CLICK_MOVE_THRESHOLD_PX, not the minimal-UI tap's 4 px;
-  // see that constant for why sharing one number was wrong rather than tidy.
+  // (#528) The three clauses every uncommitted session needs — best-effort
+  // save on the way out of the page, a reload hold while it is open, and the
+  // click-past-it gesture — now live in one hook, shared with the shape tool.
+  // Each of the three is a separately-earned bug (#401, #405, #407/#408); see
+  // useCommittableSession for what each one cost.
   //
   // "Past the gizmo" includes past the rotate zones, which reach ~40 screen px
   // beyond each corner — they are part of the gizmo's own hit area (see
   // data-transform-gizmo), so a press there rotates and never lands here.
-  //
-  // Native listeners on the viewport rather than React props on it: the gizmo,
-  // the ruler catcher and the canvas are all inside, each with their own
-  // handlers, and this has to see presses that none of them claimed without
-  // being written into every one of them.
-  useEffect(() => {
-    if (!transformActive || !vpEl) return
-    // (#408) Per-pointer bookkeeping, not one slot for whichever pressed last —
-    // see ClickTracker for what a tablet's second pointer used to do to the
-    // pen's click, and why this recognizer is a sibling of TapTracker rather
-    // than a mode of it.
-    const clicks = new ClickTracker()
-
-    const onDown = (e: PointerEvent) => {
-      // Held Space owns every drag while it is down, including this one — the
-      // same precedence the gizmo handles and the cursor already follow. (This
-      // effect only runs while `tool === 'transform'`, so since #443 that is
-      // the whole of what `handActiveRef` can mean here.)
-      if (handActiveRef.current) return
-      // (#408) Primary button only. The middle one pans (see useViewport), and
-      // a pan that happens to travel nowhere is still not "I'm done here".
-      if (e.button !== 0) return
-      if ((e.target as Element | null)?.closest('[data-transform-gizmo]')) return
-      clicks.down(e.pointerId, e.clientX, e.clientY)
-    }
-    const onMove = (e: PointerEvent) => { clicks.move(e.pointerId, e.clientX, e.clientY) }
-    const onUp = (e: PointerEvent) => {
-      if (!clicks.up(e.pointerId)) return
-      // Bake once and do *not* re-arm — the tool is going down on the next
-      // line, so a fresh session would be opened only to be torn straight
-      // back down.
+  useCommittableSession({
+    active: transformActive,
+    commit: useCallback(() => commitTransformSessionRef.current(false), []),
+    vpEl,
+    handActiveRef,
+    ownControlsSelector: '[data-transform-gizmo]',
+    onClickPast: useCallback(() => {
+      // (#405/#407) Applies the session and puts the transform tool down,
+      // handing the canvas back to the drawing tool — the "I'm done here"
+      // gesture that costs no keyboard, which matters because the tablet has
+      // none. Bake once and do *not* re-arm: the tool is going down on the next
+      // line, so a fresh session would be opened only to be torn straight back
+      // down.
       commitTransformSessionRef.current(false)
       // (#446) …and the selection goes with it. This gesture already means
       // "I am done here" — it applies the edit and puts the tool down — so
@@ -3707,22 +3638,8 @@ export function Room() {
       // way to finish one transform and start another without a trip to the
       // toolbar.
       setTool(drawingToolRef.current)
-    }
-    // A cancelled pointer (the browser taking the gesture over for a scroll or
-    // a system gesture) is not a click, and must not be treated as one.
-    const onCancel = (e: PointerEvent) => { clicks.cancel(e.pointerId) }
-
-    vpEl.addEventListener('pointerdown', onDown)
-    vpEl.addEventListener('pointermove', onMove)
-    vpEl.addEventListener('pointerup', onUp)
-    vpEl.addEventListener('pointercancel', onCancel)
-    return () => {
-      vpEl.removeEventListener('pointerdown', onDown)
-      vpEl.removeEventListener('pointermove', onMove)
-      vpEl.removeEventListener('pointerup', onUp)
-      vpEl.removeEventListener('pointercancel', onCancel)
-    }
-  }, [transformActive, vpEl, setTool, setSelection])
+    }, [setSelection, setTool]),
+  })
 
   // Viewport rect for the ruler's own pointer math — see handleRulerHover for
   // why it is cached rather than read per move.
