@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LayerState, Operation } from '@grafetto/shared'
 
 import { compressLayerTiles, encodeLayerTiles, type SnapshotTile } from '../../engine/src/snapshotCodec'
-import { fetchHistoryPage, HISTORY_PAGE_LIMIT, restoreLatestSnapshot, walkHistoryBackward } from './snapshotRestore'
+import {
+  fetchHistoryPage, HISTORY_PAGE_LIMIT, restoreLatestSnapshot,
+  SNAPSHOT_BLOB_CONCURRENCY, SNAPSHOT_FETCH_ATTEMPTS, walkHistoryBackward,
+} from './snapshotRestore'
 
 // (#467) Counts inflations so a test can prove they are interleaved with the
 // engine handover rather than all done up front. That ordering *is* the fix —
@@ -43,6 +46,10 @@ function mockRestoreFetch(
   return mockFetch
 }
 
+/** (#533) The retry seam. Waiting out a real backoff would make these tests as
+ *  slow as the incident they describe. */
+const noSleep = async (): Promise<void> => {}
+
 const ONE_LAYER_STATE: LayerState = {
   items: { background: { kind: 'layer', id: 'background', name: 'Background', opacity: 1, visible: true } },
   rootOrder: ['background'], activeId: 'background', selectedIds: [],
@@ -81,13 +88,13 @@ describe('restoreLatestSnapshot', () => {
   // the client replaying a history the server may have withheld.
   it("reports a failure, not 'none', when the index request fails", async () => {
     global.fetch = vi.fn().mockResolvedValue({ status: 500, ok: false })
-    const outcome = await restoreLatestSnapshot('room-1', recordingSink().sink)
+    const outcome = await restoreLatestSnapshot('room-1', recordingSink().sink, { sleep: noSleep })
     expect(outcome).toMatchObject({ status: 'failed', stage: 'index', appliedLayerIds: [] })
   })
 
   it('reports a failure rather than throwing when the network is down', async () => {
     global.fetch = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
-    const outcome = await restoreLatestSnapshot('room-1', recordingSink().sink)
+    const outcome = await restoreLatestSnapshot('room-1', recordingSink().sink, { sleep: noSleep })
     expect(outcome).toMatchObject({ status: 'failed', stage: 'index' })
   })
 
@@ -257,6 +264,125 @@ describe('restoreLatestSnapshot', () => {
       '/api/rooms/my-room/snapshots/background/200',
     ])
     for (const [, init] of mockFetch.mock.calls) expect(init).toEqual({ credentials: 'include' })
+  })
+
+  // (#533) Everything below is one production morning: a laptop whose uplink
+  // was busy with the video call the lesson was on, 28 blobs on the wire at
+  // once, two of them arriving, and a teacher shown an empty room for twenty
+  // minutes. Each of these fails against the version that shipped that day.
+
+  /** One layer, one tile — enough to prove a restore completed. */
+  async function oneLayerBlob(): Promise<Uint8Array> {
+    return compressLayerTiles(encodeLayerTiles([
+      { originX: 0, originY: 0, width: 1, height: 1, pixels: new Uint8Array(4) },
+    ]))
+  }
+
+  const ONE_LAYER_INDEX = {
+    seq: 300, layerState: ONE_LAYER_STATE,
+    layers: [{ layerId: 'background', seq: 300, hash: 'h' }],
+  }
+
+  /** Routes the index and hands every blob request to `onBlob`, so a test only
+   *  has to describe how the link misbehaves. */
+  function mockFlakyFetch(onBlob: () => Promise<unknown>, index: unknown = ONE_LAYER_INDEX): void {
+    global.fetch = vi.fn(async (url: string) => {
+      if (url.endsWith('/snapshots/index')) return { status: 200, ok: true, json: async () => index }
+      return onBlob()
+    }) as unknown as typeof fetch
+  }
+
+  it('retries a blob whose request fails, and still restores', async () => {
+    const data = await oneLayerBlob()
+    let attempts = 0
+    mockFlakyFetch(async () => {
+      attempts++
+      if (attempts < 3) throw new TypeError('Failed to fetch')
+      return { status: 200, ok: true, arrayBuffer: async () => data.slice().buffer }
+    })
+
+    const { sink, applied } = recordingSink()
+    const outcome = await restoreLatestSnapshot('room-1', sink, { sleep: noSleep })
+
+    expect(outcome.status).toBe('restored')
+    expect(attempts).toBe(3)
+    expect(applied.map(a => a.layerId)).toEqual(['background'])
+  })
+
+  // The precise shape of the incident: nginx logged all 28 responses as sent,
+  // and the browser only ever finished reading two of them. A retry that
+  // covered the response line and not the body would have covered nothing.
+  it('retries when the body read fails, not just the request', async () => {
+    const data = await oneLayerBlob()
+    let attempts = 0
+    mockFlakyFetch(async () => {
+      attempts++
+      return attempts < 2
+        ? { status: 200, ok: true, arrayBuffer: async () => { throw new TypeError('network error') } }
+        : { status: 200, ok: true, arrayBuffer: async () => data.slice().buffer }
+    })
+
+    const outcome = await restoreLatestSnapshot('room-1', recordingSink().sink, { sleep: noSleep })
+
+    expect(outcome.status).toBe('restored')
+    expect(attempts).toBe(2)
+  })
+
+  it('gives up after four attempts and reports the failure at blobs', async () => {
+    let attempts = 0
+    mockFlakyFetch(async () => { attempts++; throw new TypeError('Failed to fetch') })
+
+    const { sink, begun } = recordingSink()
+    const outcome = await restoreLatestSnapshot('room-1', sink, { sleep: noSleep })
+
+    expect(attempts).toBe(SNAPSHOT_FETCH_ATTEMPTS)
+    expect(outcome).toMatchObject({ status: 'failed', stage: 'blobs', appliedLayerIds: [] })
+    // Still all-or-nothing: nothing was handed to the engine, so the caller is
+    // free to keep whatever it had rather than show half a room.
+    expect(begun).toEqual([])
+  })
+
+  // A 404 is the server answering, not the link stuttering. Asking three more
+  // times only delays the honest failure by the length of the backoff.
+  it('does not retry a status that is an answer rather than a blip', async () => {
+    let attempts = 0
+    mockFlakyFetch(async () => { attempts++; return { status: 404, ok: false } })
+
+    const outcome = await restoreLatestSnapshot('room-1', recordingSink().sink, { sleep: noSleep })
+
+    expect(attempts).toBe(1)
+    expect(outcome).toMatchObject({ status: 'failed', stage: 'blobs' })
+  })
+
+  it('keeps at most SNAPSHOT_BLOB_CONCURRENCY blob requests in flight', async () => {
+    const data = await oneLayerBlob()
+    const layerIds = Array.from({ length: 12 }, (_, i) => `layer-${i}`)
+    let inFlight = 0
+    let peak = 0
+    mockFlakyFetch(
+      async () => {
+        inFlight++
+        peak = Math.max(peak, inFlight)
+        // A tick of real waiting, so overlap is observable at all — with an
+        // immediately-resolved mock every request would look sequential.
+        await new Promise(resolve => setTimeout(resolve, 1))
+        inFlight--
+        return { status: 200, ok: true, arrayBuffer: async () => data.slice().buffer }
+      },
+      {
+        seq: 300,
+        layerState: {
+          items: Object.fromEntries(layerIds.map(id => [id, { kind: 'layer', id, name: id, opacity: 1, visible: true }])),
+          rootOrder: layerIds, activeId: layerIds[0], selectedIds: [],
+        },
+        layers: layerIds.map(layerId => ({ layerId, seq: 300, hash: 'h' })),
+      },
+    )
+
+    const outcome = await restoreLatestSnapshot('room-1', recordingSink().sink, { sleep: noSleep })
+
+    expect(outcome.status).toBe('restored')
+    expect(peak).toBe(SNAPSHOT_BLOB_CONCURRENCY)
   })
 })
 
