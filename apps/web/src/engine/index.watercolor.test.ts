@@ -23,7 +23,7 @@
 // function of its own dabs — which is the property the whole Operation Log
 // rests on (ADR 011 §2).
 import { strokeDabs } from '@grafetto/shared'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import type { StrokeOperation } from '@grafetto/shared'
 
@@ -640,6 +640,51 @@ describe('water first, then paint (#536)', () => {
     // because of them, and every mark would believe it was painted wet.
     const op = paintWith(engine, WATER, 48)
     expect(op.wet).toBeUndefined()
+  })
+
+  it('lets clean water join a still-wet wash it was not set down on', async () => {
+    // Read off Ilya's own log: a pigment spiral, then a flood of clean water
+    // begun beside it and swept across. The water opened a second wash, so the
+    // spiral's pigment sat in a closed accumulation the new water could never
+    // move — which is what "пигмент в луже плохо размазывается" was. Water is
+    // about the paint already there; it joins the wash while that paper is
+    // wet, wherever the brush comes down.
+    const engine = setupLayer(160, 96)
+    await paperReady(engine)
+    const pigment = paintWith(engine, PAINT, 48)          // x 8..56
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(WATER)
+    engine.setSize(24)
+    // Set down well clear of the mark, then swept over it.
+    simulateStroke(engine, [{ x: 130, y: 48 }, { x: 90, y: 48 }, { x: 40, y: 48 }])
+    const water = lastStroke(engine)
+    expect(water.washId).toBeDefined()
+    expect(water.washId).toBe(pigment.washId)
+  })
+
+  it('does not let a pigment stroke join a wash it was set down away from', async () => {
+    // The landing rule stands for paint: a mark begun on dry paper away from
+    // the wash is a new mark, however wet the wash still is.
+    const engine = setupLayer(160, 96)
+    await paperReady(engine)
+    const first = paintWith(engine, WATER, 48)
+    // Past the plain recency window (WASH_RECENT_MS), which joins any stroke
+    // that follows within about a second regardless of where it lands — that
+    // is the flat-wash case and is not what this test is about. The wash's
+    // paper is still wet at two seconds; only the landing point says no.
+    const t0 = performance.now()
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => t0 + 2000)
+    try {
+      engine.setActiveLayer('L')
+      engine.setTool('watercolor')
+      engine.setPencil(PAINT)
+      engine.setSize(24)
+      simulateStroke(engine, [{ x: 140, y: 48 }, { x: 150, y: 48 }, { x: 155, y: 48 }])
+    } finally {
+      clock.mockRestore()
+    }
+    expect(lastStroke(engine).washId).not.toBe(first.washId)
   })
 
   it('does not dry the puddle out from under a stroke that never leaves it', async () => {

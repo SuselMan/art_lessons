@@ -758,10 +758,21 @@ export function watercolorPigmentLoad(usedRadii: number): number {
  *  which is what the photographs show. */
 const WATERCOLOR_HALO_GROWTH = 0.9
 
-/** How much of the dab's dose the halo carries, as a fraction. Well under one:
- *  the core stays the darkest part of a real blot, and the halo is the smaller
- *  share of the pigment spread over the larger area. */
-const WATERCOLOR_HALO_DOSE = 0.30
+/** The halo's deposit per pixel, as a fraction of the core's per pixel. Under
+ *  one: the core stays the darkest part of a real blot.
+ *
+ *  Per *pixel*, deliberately, and the engine multiplies the stamp by the halo's
+ *  own scale to make it so. The ink pass normalises a dab's dose by its radius
+ *  (a quantity per unit area, see RibbonProfile.normalizeDeposit), so a stamp
+ *  twice as wide lays half the deposit per pixel on its own — and at 0.30 of
+ *  the dose that came out near 3% density, which is what "не особо изменилось"
+ *  was. Measured on a replay of Ilya's own stroke through the density view: the
+ *  coverage reached the full halo, the pigment in it barely registered. */
+//  0.25 against a *flat* stamp: the halo is laid as a disc rather than as the
+//  tool's cone (see the engine's haloProfile), and a flat disc integrates to
+//  about three times a cone of the same nominal, so the number is a third of
+//  what a cone would need — and a cone would not have reached the ring at all.
+const WATERCOLOR_HALO_DOSE = 0.25
 
 /** A nearly dry brush still bleeds into standing water — plainly, in Ilya's
  *  words, only much less than a wet one. The floor on the brush's own share of
@@ -771,10 +782,26 @@ const WATERCOLOR_HALO_DRY = 0.45
 /** The halo stamp for one dab: how much wider than the dab, and what fraction
  *  of its dose. Both zero-effect on dry paper, so a dry-paper stroke lays no
  *  halo at all and is bit-for-bit what it was. */
-export function watercolorHalo(paperWet: number, brushWater: number): { scale: number; dose: number } {
+export function watercolorHalo(paperWet: number, brushWater: number): { scale: number; dose: number; wet: number } {
   const wet = clamp01(paperWet) * (WATERCOLOR_HALO_DRY + (1 - WATERCOLOR_HALO_DRY) * clamp01(brushWater))
-  return { scale: 1 + WATERCOLOR_HALO_GROWTH * wet, dose: WATERCOLOR_HALO_DOSE * wet }
+  return { scale: 1 + WATERCOLOR_HALO_GROWTH * wet, dose: WATERCOLOR_HALO_DOSE * wet, wet }
 }
+
+/** How far past the composite's own bloom the halo reaches, in multiples of the
+ *  gesture's spread reach, at full wetness.
+ *
+ *  The halo cannot be sized off the dab alone. The composite already blooms a
+ *  mark well past its dabs (u_spreadPx, up to WATERCOLOR_SPREAD_CAP_PX), and
+ *  for a light touch that bloom is the larger part of what is visible: on a
+ *  replay of Ilya's own dab the core showed at about 2.6 times the dab's
+ *  radius, and a halo stamp 1.84 times the dab was *inside* it. Measured with
+ *  the density view — the stamp landed exactly where asked and was invisible
+ *  for it. So the halo is the dab's own growth *plus* this much of the reach,
+ *  which is what puts it outside the bloomed silhouette on every brush size. */
+//  3.0, measured: at 2.0 the density view put the halo's half-height edge at
+//  1.33x the bloomed core on a replay of Ilya's dab; the photographs want about
+//  1.7x, and the reach is linear in this.
+export const WATERCOLOR_HALO_PAST_BLOOM = 3.0
 
 // ─── The brush drinks (#536, ADR 011 §17.7) ───────────────────────────────────
 //

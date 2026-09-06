@@ -289,6 +289,18 @@ export class PaperWetness {
     return false
   }
 
+  /** Whether any of a layer's paper is still wet enough to work into. What a
+   *  clean-water stroke asks before joining the wash already on the paper: the
+   *  question for water is not "did I land in it" but "is it still there". */
+  anyWet(layerId: string, now: number, threshold = 0.06): boolean {
+    const cells = this._layers.get(layerId)
+    if (!cells) return false
+    for (const cell of cells.values()) {
+      if (PaperWetness._decayed(cell, now) >= threshold) return true
+    }
+    return false
+  }
+
   /** Drops cells that have finished drying. Called opportunistically — the map
    *  is small, but a long session over a large sheet would otherwise keep every
    *  cell it ever touched. */

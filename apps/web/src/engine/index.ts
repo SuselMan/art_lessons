@@ -66,7 +66,7 @@ import {
 } from './src/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
-  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo,
+  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -5512,11 +5512,21 @@ export class PencilEngine implements PencilEngineAPI {
       const landedWet = this._paperWet.anyWetNear(
         layerId, e.x, e.y, this._opts.size * 0.75, now,
       )
+      // (#536) Clean water is *about* the paint already there, so it joins the
+      // open wash if that wash's paper is still wet anywhere, not only if the
+      // brush happened to come down on it. Read off Ilya's own log: he laid a
+      // pigment spiral, then flooded it with water starting beside it, and the
+      // water opened a second wash — so the spiral's pigment sat in a closed
+      // accumulation the new water could never move. Pigment strokes keep the
+      // landing rule: a mark set down on dry paper away from the wash is a new
+      // mark, however wet the wash still is.
+      const waterOnly = watercolorMixFromPreset(this._opts.pencilType).pigment <= 0
+      const washStillWet = waterOnly && open !== null && this._paperWet.anyWet(open.layerId, now)
       const joins = open !== null
         && open.layerId === layerId
         && open.signature === washSignature
         && now - open.endedAt <= WASH_JOIN_MS
-        && (landedWet || now - open.endedAt <= WASH_RECENT_MS)
+        && (landedWet || washStillWet || now - open.endedAt <= WASH_RECENT_MS)
       if (joins && open) {
         this._washId = open.id
         this._ribbonStrokeScratch = open.scratch
@@ -7647,11 +7657,18 @@ export class PencilEngine implements PencilEngineAPI {
     // cheap direction. See watercolorHalo.
     const haloBound = (i: number): number =>
       profile.normalizeDeposit ? watercolorHalo(wetAt(wetProfile, i), 1).scale : 1
+    // …and the reach the halo is allowed past the bloom, at the cap: the
+    // gesture's own spread is not resolved until further down, and this is a
+    // bound, so the ceiling stands in.
+    const haloPast = (i: number): number =>
+      profile.normalizeDeposit && wetAt(wetProfile, i) > 0
+        ? WATERCOLOR_HALO_PAST_BLOOM * WATERCOLOR_SPREAD.cap : 0
     for (const [i, d] of (prevDab ? [prevDab, ...drawable] : drawable).entries()) {
       const { hx, hy } = this._dabWorldHalfExtents(d, false, preset)
-      const g = haloBound(prevDab ? i - 1 : i)
-      minX = Math.min(minX, d.x - hx * g); maxX = Math.max(maxX, d.x + hx * g)
-      minY = Math.min(minY, d.y - hy * g); maxY = Math.max(maxY, d.y + hy * g)
+      const k = prevDab ? i - 1 : i
+      const g = haloBound(k), past = haloPast(k)
+      minX = Math.min(minX, d.x - hx * g - past); maxX = Math.max(maxX, d.x + hx * g + past)
+      minY = Math.min(minY, d.y - hy * g - past); maxY = Math.max(maxY, d.y + hy * g + past)
     }
     const bounds = { minX, minY, maxX, maxY }
     const targets = target.resolveForPaint(bounds)
@@ -7792,7 +7809,7 @@ export class PencilEngine implements PencilEngineAPI {
     // whole block exists to prevent.
     for (const [i, d] of drawable.entries()) {
       const minor = d.size * 0.5 * preset.sizeMultiplier
-      maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1) * haloBound(i))
+      maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1) * haloBound(i) + haloPast(i))
     }
     // Everything that can still change this pixel, **summed** rather than
     // maxed — each term is a separate hop outward and they compose:
@@ -7953,12 +7970,26 @@ export class PencilEngine implements PencilEngineAPI {
     const haloDabs: Dab[] = []
     const haloDoseByDab = new Map<Dab, number>()
     let anyHalo = false
+    // A flat disc, not the tool's cone. The ink stamp is a cone that is zero at
+    // the nib's rim (inkEdgeFalloff 0 — see the shader's mix(u_inkEdge, 1, depth)),
+    // so a stamp merely made wider puts only the cone's outer slope over the
+    // ring that is the halo: measured on a replay of Ilya's own stroke through
+    // the density view, a halo 2.9x wider at nearly full dose registered at a
+    // few per cent of the core. The halo is a plateau of migrated pigment, and
+    // a plateau is what this profile lays.
+    const haloProfile: RibbonProfile = { ...profile, inkEdgeFalloff: 1 }
     if (profile.normalizeDeposit) {
       for (const dab of drawable) {
-        const { scale, dose } = watercolorHalo(paperWetByDab.get(dab) ?? 0, waterByDab.get(dab) ?? 0)
-        const grown: Dab = { ...dab, size: dab.size * scale }
+        const { scale, dose, wet } = watercolorHalo(paperWetByDab.get(dab) ?? 0, waterByDab.get(dab) ?? 0)
+        // Past the composite's bloom, not merely past the dab — see
+        // WATERCOLOR_HALO_PAST_BLOOM. spreadPx is the gesture's reach in world
+        // px and dab.size is a diameter, hence the factor of two.
+        const grown: Dab = { ...dab, size: dab.size * scale + 2 * WATERCOLOR_HALO_PAST_BLOOM * spreadPx * wet }
         haloDabs.push(grown)
-        haloDoseByDab.set(grown, dose)
+        // Times the scale: the ink pass divides a dab's dose by its radius, so
+        // a wider stamp lays less per pixel by exactly this factor, and the dose
+        // is specified per pixel (WATERCOLOR_HALO_DOSE).
+        haloDoseByDab.set(grown, dose * scale)
         if (dose > 0) anyHalo = true
         const across = acrossByDab.get(dab)
         if (across) acrossByDab.set(grown, across)
@@ -8067,7 +8098,7 @@ export class PencilEngine implements PencilEngineAPI {
           if (dose <= 0) continue
           inkLoad.beginAdditiveDraw()
           this._drawRibbonNibPass(
-            inkLoad, tile, haloDabs[i], preset, profile, 7, deposits[i] * dose, false,
+            inkLoad, tile, haloDabs[i], preset, haloProfile, 7, deposits[i] * dose, false,
             waterByDab.get(haloDabs[i]) ?? 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
             paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed,
           )
