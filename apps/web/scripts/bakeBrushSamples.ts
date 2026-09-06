@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 /* Bakes one sample stroke per digital brush into
  * `src/assets/tool-types/digitalBrush/<id>.png` (#547).
  *
@@ -19,6 +20,10 @@
  * Requires a running dev stack (frontend + backend) — it opens the real app and
  * makes a real room. Point it elsewhere with `--url`.
  *
+ * Note the dom lib reference above, and check this file with `tsc -b` rather
+ * than `npm run typecheck`: the latter compiles only the app project, so it sees
+ * nothing here at all — which is how this shipped a build-breaking commit once.
+ *
  *   npm run bake:brush-samples --workspace=apps/web
  *   npm run bake:brush-samples --workspace=apps/web -- --url https://localhost:5173
  */
@@ -27,6 +32,25 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { chromium, type Page } from '@playwright/test'
+
+// The two dev-build handles this script drives (lib/devEngineHandle.ts), declared
+// here rather than imported: the scripts project does not compile the app's
+// sources, and what is needed is three methods, not the engine's whole surface.
+declare global {
+  interface Window {
+    __engine?: {
+      getOperations(): Array<{ type: string }>
+      exportPNG(transparent?: boolean): Promise<Blob | null>
+    }
+    __roomStore?: {
+      getState(): {
+        room: { width: number; height: number } | null
+        setToolSetting(tool: string, key: string, value: unknown): void
+        setTool(tool: string): void
+      }
+    }
+  }
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = join(HERE, '..', 'src', 'assets', 'tool-types', 'digitalBrush')
@@ -128,7 +152,8 @@ async function main(): Promise<void> {
     // still down, and the next gesture's press is then a second press with no
     // release between — which it correctly ignores, so only the first brush
     // ever drew.
-    const send = async (type: string, p: typeof path[number], down = true) => {
+    type MouseEventType = 'mousePressed' | 'mouseMoved' | 'mouseReleased'
+    const send = async (type: MouseEventType, p: typeof path[number], down = true) => {
       const s = toScreen(p.wx, p.wy)
       await cdp.send('Input.dispatchMouseEvent', {
         type, x: s.x, y: s.y, button: 'left', buttons: down ? 1 : 0,
@@ -141,7 +166,7 @@ async function main(): Promise<void> {
 
     // The stroke is committed on pen-up and the operation appended after it.
     await page.waitForFunction(
-      () => window.__engine!.getOperations().some(op => op.type === 'stroke'),
+      () => window.__engine!.getOperations().some((op: { type: string }) => op.type === 'stroke'),
       undefined, { timeout: 15_000 },
     )
 
