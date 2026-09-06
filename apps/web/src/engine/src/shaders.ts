@@ -1481,7 +1481,32 @@ ${WC_NOISE_GLSL}
       float hairDrift = wcFbm(wp * 0.008 + vec2(71.0, 13.0));
       float bristle = wcFbm(vec2(acrossN * u_bristleCombs, hairDrift * 3.0) + vec2(3.0, 29.0));
 
-      float dryness = u_dryContact * (1.0 - waterHere);
+      // (#536) …and the paper's water counts here as much as the brush's.
+      //
+      // "Кажется, что сухой кисти вообще пофиг на лужу" — it was, and this line
+      // is the whole of it: the break-up read the brush's own load and nothing
+      // else, so a dry brush skipped across standing water exactly as it skips
+      // across a dry sheet.
+      //
+      // Standing water bridges the gaps. A dry brush riding the crests of the
+      // paper still touches every crest, and the film lying in the valleys
+      // between them joins those touches into a continuous mark. What it does
+      // NOT do is make the brush loaded: the pigment it carries is still its
+      // own, so the mark comes out continuous and pale rather than broken and
+      // strong. Which is what dry-on-wet looks like.
+      //
+      // That distinction is why this is a change here rather than on the
+      // profile. RibbonProfile.dryContact stays a property of the mix alone —
+      // "how the brush meets the paper is the brush's business", and there is a
+      // test on it — and what the paper is allowed to decide is whether the
+      // contact it makes is bridged, which is this.
+      //
+      // The hair does not disappear with the gaps, it changes register: the
+      // deposit modulation below is faded in by exactly what fades this out, so
+      // the bundles stop breaking the silhouette and start delivering unevenly
+      // inside a solid mark. Still readable, and weaker, which is what a real
+      // one does under water.
+      float dryness = u_dryContact * (1.0 - max(waterHere, paperWetHere));
       if (dryness > 0.0) {
         // Where a bundle sits, the brush reaches further down into the paper;
         // between bundles it barely touches even a crest. So the bristles
