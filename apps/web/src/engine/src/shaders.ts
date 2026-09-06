@@ -609,6 +609,13 @@ export const DAB_FRAG = `
   // #330 stage 3 — how much less ink lands at the nib's rim than at its centre
   // (MARKER_INK_EDGE_FALLOFF). Read only by the ribbon's ink pass.
   uniform float u_inkEdge;
+  /** (#536) 1 = this ink stamp lands only where the wash already has coverage,
+   *  scaled by that coverage. The halo of a wet-in-wet dab: pigment carried by
+   *  standing water goes as far as the water and no further, and the water is
+   *  the wash's own silhouette - so a halo can never leave the puddle. Read with
+   *  u_strokeCoverage bound to the wash's coverage buffer (see
+   *  _drawRibbonNibPass's clipTo); 0 for every ordinary stamp. */
+  uniform float u_inkClip;
   // #454 (ADR 009 §8) — how strongly the paper's grain acts on a ribbon tool's
   // *rim*, as a fraction of the edge ramp. 0 for every draw that isn't one of
   // the two branches below, which makes their terms vanish identically.
@@ -803,6 +810,9 @@ export const DAB_FRAG = `
    *  programs, and a constant declared in the wrong one is a compile error that
    *  takes the whole engine down with it. */
   const float WC_WET_PUSH = 0.50;
+  /** How strongly the paper's pits mottle a thin film on wet paper - the halo
+   *  of a wet-in-wet mark. See granHere. */
+  const float WC_WET_GRAN = 1.1;
   /** What is left of the push for a brush with no water in it. A floor rather
    *  than a gate: a nearly dry brush dragged through standing water still
    *  bleeds plainly, it simply does not flood. */
@@ -1159,6 +1169,12 @@ ${WC_NOISE_GLSL}
       if (cov <= 0.0) discard;
       float depth = clamp(-dPx / max(v_radius, 1e-4), 0.0, 1.0);
       float amount = cov * mix(u_inkEdge, 1.0, depth) * v_opacity;
+      if (u_inkClip > 0.5) {
+        // A branch on a uniform, which GLSL ES 1.0 allows a texture fetch
+        // inside (the composite's own note is about non-uniform flow).
+        float washCov = texture2D(u_strokeCoverage, gl_FragCoord.xy / u_resolution).a;
+        amount *= washCov;
+      }
       // (#536) …unevenly, and the unevenness is deposited with the paint. Same
       // world mapping the paper sampling uses, so a stamp and a band cannot
       // disagree about where the field is.
@@ -1685,7 +1701,15 @@ ${WC_NOISE_GLSL}
       // *place* is, and a field evaluated at display time cannot be changed by
       // painting over it. The pits, on the other hand, genuinely are where they
       // are, and every pass finds the same ones; that stays.
-      float granHere = u_granulation * (0.2 + 0.8 * density * density);
+      // (#536) ...plus the water's own settling. The term above fades with
+      // density on purpose (a thin passage is smooth), which left the halo of a
+      // wet-in-wet mark - low density by construction - perfectly even:
+      // "slishkom rovno, bez vliyaniya tekstury". Pigment carried by standing
+      // water is the one case where a thin film IS granular: it is the water
+      // draining into the sheet's pits that puts it there. So on wet paper the
+      // paper's catch acts in proportion to how thin the film is, not how thick.
+      float granHere = u_granulation * (0.2 + 0.8 * density * density)
+        + WC_WET_GRAN * paperWetHere * (1.0 - density);
       float gran = 1.0 + granHere * (1.0 - 2.0 * paperCatch) * 0.5;
 
       // §3.6 - the wash's own coarse structure, the scale v1 had nothing at.
@@ -3129,9 +3153,17 @@ export const PAPER_COMPOSE_FRAG = `
   //  is transient and decides *when* the paint gets there; WC_WET_PUSH is
   //  permanent and decides *where* it ends up. Turning this up does not make a
   //  dried mark any bigger.
-  const float WC_WET_RELAX = 0.85;
+  const float WC_WET_RELAX = 0.95;
+  /** Alpha below which a pixel is taken to be the halo, and above which the
+   *  core. Between the two the reveal ramps. */
+  const float WC_HALO_A = 0.22;
+  const float WC_CORE_A = 0.55;
   /** Exponent on the release. Above 1 fronts the motion — see WC_WET_RELAX. */
-  const float WC_RELAX_EASE = 7.0;
+  //  5, from 7: with the reveal doing real work the seventh power spent the
+  //  whole halo in the first second, which reads as a jump rather than as
+  //  paint running. Still front-loaded - most of the travel is in the first
+  //  few seconds and the tail is a slow crawl.
+  const float WC_RELAX_EASE = 5.0;
   /** The wetness a freshly laid flood carries, which is what the release is
    *  measured against. Reading the raw value rather than the normalised edge
    *  coordinate is deliberate: this has to run down as the patch dries, and a
@@ -3404,8 +3436,22 @@ export const PAPER_COMPOSE_FRAG = `
     // same guarantees hold — still exactly 0 at 0 and 1 at 1, still monotone,
     // so the picture still converges on the stored pixels — while the margin
     // now loses about half of itself at full flood and visibly fills back in.
-    float tight = smoothstep(0.0, 1.0, smoothstep(0.0, 1.0, graphite));
-    graphite = mix(graphite, tight, held);
+    // (#536) ...and it is a REVEAL, not a mild tightening. What is stored is
+    // the finished mark, halo and all (ADR 011 s17.10). While the paper is wet
+    // the halo is held back - the thin film (alpha under WC_CORE_A) is masked
+    // out in proportion to held, the dense core is left alone - and as the
+    // water goes the mask lifts and the halo comes up out of the core, fast at
+    // first and then slowing. That is the drying Ilya described, and it is the
+    // part the earlier S-curve could not do: it pulled a fringe down by a
+    // fraction, which hid nothing, so a wet-in-wet mark arrived already spread.
+    //
+    // Fixed alpha thresholds rather than a per-pixel "is this halo" flag: the
+    // display has no such flag and would need a second layer-sized transient to
+    // carry one. The halo is thin by construction (its dose is a quarter of the
+    // core's), so alpha separates the two well enough, and the mask only ever
+    // acts where the paper is wet.
+    float core = smoothstep(WC_HALO_A, WC_CORE_A, graphite);
+    graphite *= mix(1.0, core, held);
     // Well under 1: even a flooded sheet is not a mirror, and leaving most of
     // the grain is what keeps a wet patch reading as paper rather than as a
     // hole in the paper.

@@ -5211,7 +5211,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_inkStrength', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_inkStrength', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -8033,22 +8033,6 @@ export class PencilEngine implements PencilEngineAPI {
     const bands = buildRibbonBands(
       drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor,
     )
-    // (#536) The halo's own bands, over the grown dabs, at the halo's share of
-    // the dose. The previous dab is grown by the first dab's factor — its own
-    // digit belongs to the batch before this one and is not to hand. The seam
-    // that can leave is in a stamp a fraction of the mark's strength wide, and
-    // the composite's blur sits over it anyway.
-    const haloBands = anyHalo && inkFor
-      ? buildRibbonBands(
-        haloDabs, preset.sizeMultiplier,
-        prevDab ? { ...prevDab, size: prevDab.size * (haloDabs[0].size / drawable[0].size) } : undefined,
-        nibShape, cornerFraction, profile.aaPx,
-        (d0, d1, travel) => {
-          const base = inkFor(d0, d1, travel)
-          return { ...base, ink: base.ink * (haloDoseByDab.get(d1) ?? 0) }
-        },
-      )
-      : []
 
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
@@ -8082,17 +8066,16 @@ export class PencilEngine implements PencilEngineAPI {
         if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed)
       }
 
-      // (#536) The halo, after the mark itself. Coverage first so the silhouette
-      // reaches out to it, then the deposit at its own fraction of the dose.
-      // Skipped outright on dry paper: no wet dab, no second pass, no cost.
+      // (#536, ADR 011 §17.10) The halo, after the mark itself: ink only, and
+      // only where the wash already has coverage. The pigment a wet-in-wet dab
+      // sheds travels as far as the standing water and no further, and the
+      // water is this wash's own silhouette — the puddle is a stroke of the
+      // same wash — so clipping the stamp by the coverage buffer is what keeps
+      // a halo from ever leaving the puddle ("пигмент за пределы лужи может
+      // уйти, такого быть не может"). No coverage stamp for the halo for the
+      // same reason: it must not grow the silhouette. Skipped outright on dry
+      // paper: no wet dab, no second pass, no cost.
       if (anyHalo && inkLoad) {
-        for (let i = 0; i < haloDabs.length; i++) {
-          if ((haloDoseByDab.get(haloDabs[i]) ?? 0) <= 0) continue
-          this._drawRibbonNibPass(
-            coverage, tile, haloDabs[i], preset, profile, 6, 0, true, 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
-          )
-        }
-        if (haloBands.length) this._drawRibbonBands(coverage, tile, haloBands, 'coverage', profile.aaPx)
         for (let i = 0; i < haloDabs.length; i++) {
           const dose = haloDoseByDab.get(haloDabs[i]) ?? 0
           if (dose <= 0) continue
@@ -8100,11 +8083,10 @@ export class PencilEngine implements PencilEngineAPI {
           this._drawRibbonNibPass(
             inkLoad, tile, haloDabs[i], preset, haloProfile, 7, deposits[i] * dose, false,
             waterByDab.get(haloDabs[i]) ?? 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
-            paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed,
+            paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed, coverage,
           )
           inkLoad.endDraw()
         }
-        if (haloBands.length) this._drawRibbonBands(inkLoad, tile, haloBands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed)
       }
 
       // `drawable[0].opacity` rather than a per-dab value: only a tool whose
@@ -8227,6 +8209,9 @@ export class PencilEngine implements PencilEngineAPI {
     inkStrength = 1,
     /** (#536) This stroke's own offset into the mottling field — see wcCloud. */
     mottleSeed: [number, number] = [0, 0],
+    /** (#536) Land this ink only where `clipTo` already has coverage, scaled
+     *  by it — the halo's way of never leaving the puddle. See u_inkClip. */
+    clipTo: AccumulationBuffer | null = null,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -8252,6 +8237,14 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_nibShape, profile.nibShape === 'roundedBox' ? 1 : 0)
     gl.uniform1f(u.u_nibCorner, radius * profile.cornerFraction)
     gl.uniform1f(u.u_inkEdge, profile.inkEdgeFalloff)
+    if (clipTo) {
+      // Unit 2 is u_strokeCoverage — bound to the paper placeholder above, as
+      // for every stamp, and replaced here with the wash's real coverage.
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, clipTo.texture)
+      gl.activeTexture(gl.TEXTURE0)
+    }
+    gl.uniform1f(u.u_inkClip, clipTo ? 1 : 0)
     // (#536) Where on the sheet this tile is — the deposit's own mottling is a
     // world-space field and must land in the same place for a stamp as it does
     // for a band. Set here rather than inherited: this pass did not set it at
