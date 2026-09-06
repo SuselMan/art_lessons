@@ -183,7 +183,18 @@ export function previewDabShape(
     { x: 0, y: 0, pressure, tiltX, tiltY, baseSize, pathAngle, ds: 0, speed: 0, cameraAngle },
     null,
   )
-  return { size, aspectRatio, angle }
+  // #547: scaled by the same multiplier every paint path applies on the way to
+  // the screen (`d.size * 0.5 * preset.sizeMultiplier`), which this had never
+  // done — so the outline drew `Dab.size`, a number the renderer never puts on
+  // the canvas unscaled.
+  //
+  // It went unnoticed because it was small everywhere it applied: a 6H cursor
+  // was half again too wide, an ink-round one exact. The digital brush's flat
+  // tip made it impossible to miss — its multiplier is 0.25, so the outline was
+  // four times the mark. Fixed for every tool rather than special-cased, since
+  // "the cursor is how a tool's settings are seen before a mark exists" is the
+  // whole justification this function carries in its own doc comment.
+  return { size: size * renderSizeScale(tool, presetName ?? ''), aspectRatio, angle }
 }
 
 // Minimal surface of the ANGLE_instanced_arrays extension _paintDabsInstanced
@@ -5854,25 +5865,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  everything that just needs {opacity, hardness, sizeMultiplier} (opacity
    *  baking, dab extents) works off it unchanged through this return type. */
   private _resolvePreset(tool: ToolType, presetName: string): PencilPreset {
-    if (tool === 'liner') return LINER_PRESET
-    if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
-    // #454, ADR 009 §9: near-opaque covering ink. One flat preset for the tool
-    // — its presetName slot carries the pressure response, not a nib or a
-    // grade, so there is nothing here to branch on (brushPenPresets.ts).
-    if (tool === 'brushPen') return BRUSH_PEN_PRESET
-    // #468, ADR 011 §5 — same story as the brush pen one line up: no size
-    // ladder and no hardness grade, so `presetName` carries the pressure
-    // response instead and there is nothing here to branch on
-    // (watercolorPresets.ts).
-    if (tool === 'watercolor') return WATERCOLOR_PRESET
-    // #547, ADR 013 — unlike every branch above, this one genuinely varies with
-    // the preset string: it *is* the brush. hardness comes out of the frozen
-    // descriptor and is read twice downstream — by the stamp shader and by the
-    // spacing rule — which is why it is resolved here once rather than parsed
-    // again at either site.
-    if (tool === 'digitalBrush') return digitalBrushPresetFor(presetName)
-    if (tool === 'charcoal') return charcoalPresetFor(presetName)
-    return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+    return presetForTool(tool, presetName)
   }
 
   /** (#478) The multiplier between `Dab.size` and the mark this tool actually
@@ -5886,7 +5879,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  preset that happens to be selected would space it off a mark it never
    *  draws. */
   private _dabSizeScale(tool: ToolType, presetName: string): number {
-    return tool === 'eraser' ? 1.0 : this._resolvePreset(tool, presetName).sizeMultiplier
+    return renderSizeScale(tool, presetName)
   }
 
   /** (#489/#501) Whether this stroke's nib takes #485's scallop bound — see
@@ -10268,4 +10261,42 @@ export class PencilEngine implements PencilEngineAPI {
 
     return this._pixelsToPngBlob(pixels, w, h)
   }
+}
+
+
+/** Which `PencilPreset` a tool draws with, given the per-stroke preset string.
+ *
+ *  At module scope rather than on the engine (#547) because two callers need it
+ *  and only one of them is the engine: `previewDabShape` is a pure query the
+ *  brush cursor uses without a GL context, and it has to answer with the same
+ *  numbers the renderer will use, or the outline and the mark disagree. */
+function presetForTool(tool: ToolType, presetName: string): PencilPreset {
+    if (tool === 'liner') return LINER_PRESET
+    if (tool === 'marker') return markerNibFromPreset(presetName) === 'chisel' ? MARKER_CHISEL_PRESET : MARKER_BULLET_PRESET
+    // #454, ADR 009 §9: near-opaque covering ink. One flat preset for the tool
+    // — its presetName slot carries the pressure response, not a nib or a
+    // grade, so there is nothing here to branch on (brushPenPresets.ts).
+    if (tool === 'brushPen') return BRUSH_PEN_PRESET
+    // #468, ADR 011 §5 — same story as the brush pen one line up: no size
+    // ladder and no hardness grade, so `presetName` carries the pressure
+    // response instead and there is nothing here to branch on
+    // (watercolorPresets.ts).
+    if (tool === 'watercolor') return WATERCOLOR_PRESET
+    // #547, ADR 013 — unlike every branch above, this one genuinely varies with
+    // the preset string: it *is* the brush. hardness comes out of the frozen
+    // descriptor and is read twice downstream — by the stamp shader and by the
+    // spacing rule — which is why it is resolved here once rather than parsed
+    // again at either site.
+    if (tool === 'digitalBrush') return digitalBrushPresetFor(presetName)
+    if (tool === 'charcoal') return charcoalPresetFor(presetName)
+    return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
+}
+
+/** The multiplier between `Dab.size` and the mark this tool actually leaves.
+ *
+ *  The eraser's 1.0 is not a default standing in for a missing preset: it is the
+ *  value the renderer uses, because an eraser is sized as it is asked to be
+ *  rather than carrying a grade's own width. */
+function renderSizeScale(tool: ToolType, presetName: string): number {
+  return tool === 'eraser' ? 1.0 : presetForTool(tool, presetName).sizeMultiplier
 }

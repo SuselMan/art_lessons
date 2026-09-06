@@ -15,7 +15,8 @@
     "postbuild": "tsx scripts/precompressDist.ts",
     "bake:icons": "tsx scripts/bakeAppIcons.ts",
     "bake:paper": "tsx scripts/bakePaperTextures.ts",
-    "bake:icon-font": "tsx scripts/bakeIconFont.ts"
+    "bake:icon-font": "tsx scripts/bakeIconFont.ts",
+    "bake:brush-samples": "tsx scripts/bakeBrushSamples.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
