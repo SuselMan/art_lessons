@@ -112,6 +112,16 @@ export const ru: Dictionary = {
   'create.error.customSize': 'Свой размер — от 100 до 4096 пикселей',
   'create.error.invalidInvite': '«{email}» не похоже на адрес почты',
 
+  // (#548) Форма разделена на три вкладки.
+  'create.tab.general': 'Проект',
+  'create.tab.access': 'Доступ',
+  'create.tab.tools': 'Инструменты',
+  'create.summary.password.on': 'с паролем',
+  'create.summary.password.off': 'без пароля',
+  'create.summary.invites': 'в списке: {n}',
+  'create.summary.toolsAll': 'все инструменты',
+  'create.summary.tools': 'инструментов: {n} из {total}',
+
   // ── лексика выбора бумаги ──────────────────────────────────────────────
   'paper.coarseness.coarse': 'Крупная',
   'paper.coarseness.coarse.desc': 'Выраженное зерно',
@@ -554,6 +564,19 @@ export const ru: Dictionary = {
 
   // ── настройки редактора ────────────────────────────────────────────────
   'editorSettings.title': 'Настройки',
+  // ── (#548) набор инструментов комнаты ──────────────────────────────
+  'toolset.group.materials': 'Материалы',
+  'toolset.group.secondary': 'По нарисованному',
+  'toolset.group.utility': 'Вспомогательные',
+  'toolset.selected': 'Включено: {n} из {total}',
+  'toolset.enableAll': 'Включить всё',
+  'toolset.lastMaterial':
+    'Хотя бы один рисующий инструмент должен остаться — иначе в проекте нечем рисовать.',
+  'toolset.hint':
+    'Набор один для всех участников, включая вас. Изменить можно позже в настройках проекта.',
+  'toolset.withdrawn': 'Этот инструмент больше не предлагается в этом проекте',
+  'editorSettings.tab.tools': 'Инструменты',
+
   'editorSettings.tab.general': 'Основные',
   'editorSettings.tab.access': 'Доступ',
   'editorSettings.tab.hotkeys': 'Горячие клавиши',

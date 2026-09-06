@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 16px;
+  padding: var(--panel-inset);
   /* min-height:0 so the panel shrinks and scrolls inside a Modal's flex
      column instead of pushing the box past its max-height (same trap as
      MoveToDialog's .folderList). */

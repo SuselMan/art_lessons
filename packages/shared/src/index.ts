@@ -208,6 +208,84 @@ export function isRoomAccessMode(value: unknown): value is RoomAccessMode {
   return typeof value === 'string' && (ROOM_ACCESS_MODES as readonly string[]).includes(value)
 }
 
+// (#548, first step of #544) The tools a room may offer, and the only list
+// the wire knows about. Ordered exactly as the left toolbar and the floating
+// panel lay them out — materials, then the tools that work on marks already
+// down, then the utilities — so "the tools" means one thing in this app
+// rather than three.
+//
+// The three annotation tools are deliberately absent: they are a rail of
+// their own (#509/#510), shown *instead* of these rather than alongside them,
+// and a room's toolset has no say over a mode it never competes with.
+export const TOGGLEABLE_TOOLS = [
+  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor',
+  'eraser', 'smudge', 'eyedropper',
+  'hand', 'ruler', 'transform', 'selection', 'fill', 'grid',
+] as const
+
+export type ToggleableTool = (typeof TOGGLEABLE_TOOLS)[number]
+
+/** The tools that actually lay material. At least one of them has to survive
+ *  every toolset — see `sanitizeEnabledTools`.
+ *
+ *  The eraser and the smudge are deliberately not here despite being drawing
+ *  tools in every other sense: neither can put a mark on an empty sheet, so a
+ *  room offering only those is exactly as unusable as one offering nothing. */
+export const TOOLSET_MATERIAL_TOOLS: readonly ToggleableTool[] = [
+  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor',
+]
+
+export function isToggleableTool(value: unknown): value is ToggleableTool {
+  return typeof value === 'string' && (TOGGLEABLE_TOOLS as readonly string[]).includes(value)
+}
+
+/** Reads an arbitrary value — a socket payload, a REST body, a column written
+ *  by an older build — into a toolset, or into `undefined` meaning "no
+ *  restriction".
+ *
+ *  Three things it enforces, in this order, and each of them is the answer to
+ *  a way the feature could quietly break a room:
+ *
+ *  - unknown ids are dropped rather than rejected, so a room created by a
+ *    build that had one more tool than this one still opens (with that tool
+ *    simply not offered) instead of failing to parse;
+ *  - the result is deduped and reordered into `TOGGLEABLE_TOOLS` order, so a
+ *    toolset compares as data rather than as the order someone clicked;
+ *  - a list with no material left in it is *not* a toolset. A room nobody can
+ *    draw in is read-only, which is its own setting (`closedAt`), and arriving
+ *    at it by unchecking boxes would be an accident, never a decision. Such a
+ *    list — and an empty one — reads as no restriction.
+ *
+ *  "No restriction" is deliberately `undefined` rather than a spelled-out list
+ *  of all fifteen: the next tool this app ships has to appear in every room
+ *  whose owner never restricted anything, and a stored full list would keep it
+ *  out of all of them forever.
+ */
+export function sanitizeEnabledTools(value: unknown): ToggleableTool[] | undefined {
+  if (!Array.isArray(value)) return undefined
+  const picked = new Set(value.filter(isToggleableTool))
+  if (picked.size === 0) return undefined
+  const ordered = TOGGLEABLE_TOOLS.filter(tool => picked.has(tool))
+  if (!ordered.some(tool => TOOLSET_MATERIAL_TOOLS.includes(tool))) return undefined
+  // Every tool enabled is not a restriction, it is the default spelled out —
+  // store it as the default so a later-added tool is not excluded by it.
+  if (ordered.length === TOGGLEABLE_TOOLS.length) return undefined
+  return ordered
+}
+
+/** Whether a room offers this tool. The one place the `undefined = all` rule
+ *  is read, so no call site has to remember it — and the one place that knows
+ *  a toolset has no opinion about tools outside `TOGGLEABLE_TOOLS`.
+ *
+ *  That second part is not a detail: the annotation tools are not toggleable,
+ *  and reading a restricted list as "everything not in it is off" would have
+ *  taken the annotation rail away from every room that restricted anything. */
+export function isToolEnabledInRoom(enabledTools: readonly ToggleableTool[] | undefined, tool: string): boolean {
+  if (!enabledTools) return true
+  if (!isToggleableTool(tool)) return true
+  return enabledTools.includes(tool)
+}
+
 export type Room = {
   id: string
   name: string
@@ -275,6 +353,17 @@ export type Room = {
   // rather than taking the fork with it: a student's own work must not
   // disappear because the teacher tidied up their side.
   parentRoomId?: string
+  // (#548) Which tools this room offers, if it restricts them at all. Absent
+  // means it does not — see `sanitizeEnabledTools` for why the unrestricted
+  // case is an absence rather than a list of every tool.
+  //
+  // A property of the room, so it reads the same for the owner and for every
+  // student: a teacher who put out two pencils has to see the two pencils the
+  // class sees. It never touches the Operation Log — strokes drawn with a tool
+  // before it was switched off keep replaying, and a peer's operation with a
+  // tool this room no longer offers still paints. The toolset decides what can
+  // be picked up, not what exists.
+  enabledTools?: ToggleableTool[]
 }
 
 // (#226) Everything the access panel (#228) shows about one room, fetched in
@@ -1522,6 +1611,15 @@ export type ServerToClientEvents = {
   // triggered it, same `io.to` reasoning as palette_updated above) whenever
   // `set_room_frozen` is accepted.
   room_frozen_changed: (data: { frozen: boolean }) => void
+  // (#548) Broadcast to the whole room after `set_room_tools` is accepted —
+  // `io.to`, like the two events above, because the owner who made the change
+  // is also a person holding a tool that may have just been taken away.
+  //
+  // It has to be live rather than something a client learns on its next join:
+  // the toolset is a teaching control ("today we work in pencil"), and a
+  // control that lands only after everyone reloads is one nobody will reach
+  // for mid-lesson. `undefined` is the unrestricted room, same as on `Room`.
+  room_tools_changed: (data: { enabledTools?: ToggleableTool[] }) => void
   // (#254/#257 epic) Broadcast to the whole room whenever `set_participant_frozen`
   // is accepted — every participant needs this, not just the target, so
   // ParticipantsPanel can show the frozen indicator for everyone else too.
@@ -1578,7 +1676,7 @@ export type ClientToServerEvents = {
    *  regardless of when other participants subsequently call `join_room`. */
   create_room: (
     data: {
-      room: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>
+      room: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools'>
       password?: string
       // (#232) Who may enter, decided at creation rather than only afterwards
       // through the access panel. Omitted means `anyone_with_link`, which is
@@ -1642,6 +1740,11 @@ export type ClientToServerEvents = {
   // `operation_revoke`'s existing role check in socketHandlers.ts). Freezes
   // (or unfreezes) every non-owner participant's operations at once.
   set_room_frozen: (frozen: boolean) => void
+  // (#548) Owner-only, same role check as `set_room_frozen`. The payload is
+  // whatever the picker had checked; the server runs it through
+  // `sanitizeEnabledTools` and broadcasts the result, so what every client
+  // ends up holding is the normalized list, never one client's raw claim.
+  set_room_tools: (enabledTools: ToggleableTool[] | undefined) => void
   // (#254/#257 epic) Owner-only, same role-check pattern as `set_room_frozen`.
   // Targets one participant without touching the room-wide freeze — the two
   // are independent and can both be active at once. A no-op if `userId` is

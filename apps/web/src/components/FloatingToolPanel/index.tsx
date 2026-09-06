@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
+import { isToolEnabledInRoom, type ToggleableTool } from '@grafetto/shared'
 
 import { BUTTON_DRAG_THRESHOLD_PX } from '../../lib/tapThreshold'
 import { useDraggablePosition } from '../../lib/useDraggablePosition'
@@ -122,6 +123,13 @@ interface Props {
    *  moved here because somebody put it here. */
   undoHotkeyLabel: string
   redoHotkeyLabel: string
+  /** (#548) The room's toolset, or `undefined` while it offers everything. A
+   *  tool the room does not offer is dropped from the chooser, and a slot
+   *  someone pinned it to before it was switched off goes quiet rather than
+   *  disappearing — the slot is still theirs, it just has nothing to hand over
+   *  right now, and emptying it would lose an arrangement they would have to
+   *  rebuild if the tool came back. */
+  enabledTools?: readonly ToggleableTool[]
 }
 
 /** A draggable circular cluster of the actions most reached for while drawing
@@ -176,7 +184,7 @@ export function FloatingToolPanel({
   tool, recentDrawingTools, recentSecondaryTools, onSetTool, onUndo, onRedo, layout, onLayoutChange,
   primaryColor, palette, onSelectColor, onOpenColorPicker,
   roomId, position, onPositionChange, containerRef, hidden, flyout, onFlyoutChange,
-  undoHotkeyLabel, redoHotkeyLabel,
+  undoHotkeyLabel, redoHotkeyLabel, enabledTools,
 }: Props) {
   const t = useT()
   // What each role hands over right now. Computed once per render and threaded
@@ -411,8 +419,13 @@ export function FloatingToolPanel({
   // chosen entry lands.
   const choiceItems = useMemo(() => {
     if (flyout?.kind !== 'slot') return []
-    return layoutAroundPanel(SLOT_CHOICES.length).map((pos, i) => ({ ...pos, choice: SLOT_CHOICES[i] }))
-  }, [flyout, layoutAroundPanel])
+    // (#548) A tool the room does not offer is not in the fan at all. The two
+    // roles stay whatever the toolset is: they resolve out of the lists Room
+    // hands down, which it filters for exactly this reason.
+    const choices = SLOT_CHOICES.filter(choice =>
+      choice.kind !== 'tool' || isToolEnabledInRoom(enabledTools, choice.tool))
+    return layoutAroundPanel(choices.length).map((pos, i) => ({ ...pos, choice: choices[i] }))
+  }, [flyout, layoutAroundPanel, enabledTools])
 
   // Collapsed onto the panel's own center until animateIn flips true one frame
   // later (see the effect above) — that's the "flies out from under the panel"
@@ -474,6 +487,11 @@ export function FloatingToolPanel({
           // a fixed slot holding the same tool are both lit at once, which is
           // the honest answer: both of them would hand you that tool.
           const active = resolved !== null && resolved === tool
+          // (#548) A slot pinned to a tool this room no longer offers. Drawn
+          // dim and inert; pressing it would be refused upstream anyway (see
+          // Room's selectTool), and a button that looks live and does nothing
+          // is worse than one that says it cannot.
+          const withdrawn = content?.kind === 'tool' && !isToolEnabledInRoom(enabledTools, content.tool)
           const label = face ? t(face.labelKey) : t('palette.slotEmpty')
           // The tooltip names the slot and then says how to change it. For
           // undo/redo it names the shortcut too, which is the form those two
@@ -487,9 +505,12 @@ export function FloatingToolPanel({
             <button
               key={index}
               data-slot={index}
-              className={clsx(styles.btn, active && styles.btnActive, openSlot === index && styles.btnOpen)}
+              className={clsx(
+                styles.btn, active && styles.btnActive, openSlot === index && styles.btnOpen,
+                withdrawn && styles.btnWithdrawn,
+              )}
               style={{ transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)` }}
-              onClick={() => tapSlot(index)}
+              onClick={() => { if (!withdrawn) tapSlot(index) }}
               onPointerDown={e => holdSlot(index, e)}
               title={face ? t('palette.slotHold', { item: titleItem }) : t('palette.slotEmptyHold')}
               aria-label={label}

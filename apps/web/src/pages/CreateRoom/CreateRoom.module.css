@@ -28,6 +28,26 @@
   letter-spacing: -0.01em;
 }
 
+/* (#548) One tab's content. The card's own 32px column gap used to space
+   these sections directly; now they sit inside OptionGroup's panel, which is
+   the card's single child, so the rhythm has to be restated one level down.
+   The top padding is the gap between the tab strip and what it switched to. */
+.tabBody {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-top: 28px;
+}
+
+/* (#548) A tab whose whole content is one of the self-contained panels
+   (access, tools). Those bring their own --panel-inset so they survive being
+   dropped into a bare modal; this card's 36px padding already is that inset,
+   so the extra is pulled back out and the panel lines up with the sections on
+   the first tab instead of sitting a notch further in. */
+.panelTab {
+  margin: 0 calc(-1 * var(--panel-inset));
+}
+
 /* section */
 .section {
   display: flex;
@@ -515,4 +535,46 @@
      of pushing the box past its max-height. */
   min-height: 0;
   overflow-y: auto;
+}
+
+/* (#548) The access and toolset summary rows on the first tab. They exist so
+   the two other tabs are not silent: a form that hides half its settings
+   behind a strip nobody clicks has not simplified anything, it has just made
+   the settings harder to find. Each row is also the way in. */
+.summaryRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text-dim);
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), color var(--duration-fast);
+}
+
+.summaryRow:hover {
+  border-color: var(--color-accent-border);
+  color: var(--color-text-bright);
+}
+
+.summaryLabel {
+  color: var(--color-text);
+}
+
+/* The value takes the slack and truncates — an invite-only room with a
+   password and six addresses would otherwise wrap the row to three lines. */
+.summaryValue {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: right;
 }
