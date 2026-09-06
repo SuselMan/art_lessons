@@ -207,10 +207,31 @@ describe('the PencilPreset the engine resolves', () => {
     }
   })
 
-  it('does not scale size the way a graded material does', () => {
-    for (const id of DIGITAL_BRUSH_IDS) {
-      expect(digitalBrushPresetFor(id).sizeMultiplier).toBe(1)
+  it('leaves a round tip at face value and normalizes an elongated one', () => {
+    // Not the graded-material scaling this tool refuses to have: it is what
+    // makes the size slider mean the same thing across the set. The slider names
+    // the widest the mark gets, so a 4:1 flat tip has to divide back down to its
+    // short axis or picking it would quadruple the brush.
+    for (const b of DIGITAL_BRUSHES) {
+      expect(digitalBrushPresetFor(b.id).sizeMultiplier).toBeCloseTo(1 / Math.max(b.tip.aspect, 1), 6)
     }
+    expect(digitalBrushPresetFor('hard-round').sizeMultiplier).toBe(1)
+    expect(digitalBrushPresetFor('flat').sizeMultiplier).toBeCloseTo(0.25, 6)
+  })
+
+  it('draws every brush at a comparable width for one slider value', () => {
+    // The property the multiplier exists for, stated as the thing a person would
+    // notice: at full pressure the widest part of the mark is the same number of
+    // px whichever brush is in hand.
+    const width = (id: string): number => {
+      const b = digitalBrushFromPreset(id)
+      const shaping = shapingForDigitalBrushPreset(id)
+      // Dab.size at full pressure, times the render-time multiplier, times the
+      // long axis — the same product every paint path applies.
+      return shaping.size(1, 0) * digitalBrushPresetFor(id).sizeMultiplier * Math.max(b.tip.aspect, 1)
+    }
+    const round = width('hard-round')
+    for (const id of DIGITAL_BRUSH_IDS) expect(width(id)).toBeCloseTo(round, 6)
   })
 })
 

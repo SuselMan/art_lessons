@@ -371,11 +371,27 @@ export function digitalBrushFlow(brush: BrushDescriptor, pressure: number): numb
  *  `hardness` is not decorative here the way it is for the brush pen (where it
  *  is documented as inert): it feeds both the stamp's own profile and
  *  dabSpacing's footprint rule, so the step tightens automatically for a hard
- *  brush. `sizeMultiplier` is 1 — a digital brush has no material whose grade
- *  makes it draw wider than the slider says. */
+ *  brush.
+ *
+ *  `sizeMultiplier` normalizes an elongated tip against the size slider, and
+ *  that needs saying because it looks like the graded-material scaling this
+ *  tool deliberately does not have. Every other tool here takes `Dab.size` as
+ *  the footprint's **short** axis and stretches the long one by aspect — right
+ *  for a charcoal stick or a chisel nib, whose width is a fact about the object.
+ *  A brush's size is chosen by the person, and what they mean by it is the
+ *  widest the mark gets: ask for a 32 px flat brush and you expect a 32 px band,
+ *  not a 128 px one. So the slider names the long axis and this divides back
+ *  down to the short one.
+ *
+ *  Exactly 1 for every round tip, which is every brush in the set but 'flat' —
+ *  so nothing about the round four moves. */
 export function digitalBrushPresetFor(presetName: string | undefined): PencilPreset {
   const brush = digitalBrushFromPreset(presetName)
-  return { opacity: brush.opacity, hardness: brush.tip.hardness, sizeMultiplier: 1 }
+  return {
+    opacity: brush.opacity,
+    hardness: brush.tip.hardness,
+    sizeMultiplier: 1 / Math.max(brush.tip.aspect, 1),
+  }
 }
 
 /** dabShaping.ts's shapingForTool dispatches here for tool === 'digitalBrush'.
