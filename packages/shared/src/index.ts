@@ -218,7 +218,7 @@ export function isRoomAccessMode(value: unknown): value is RoomAccessMode {
 // their own (#509/#510), shown *instead* of these rather than alongside them,
 // and a room's toolset has no say over a mode it never competes with.
 export const TOGGLEABLE_TOOLS = [
-  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor',
+  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'digitalBrush',
   'eraser', 'smudge', 'eyedropper',
   'hand', 'ruler', 'transform', 'selection', 'fill', 'grid',
 ] as const
@@ -233,6 +233,12 @@ export type ToggleableTool = (typeof TOGGLEABLE_TOOLS)[number]
  *  room offering only those is exactly as unusable as one offering nothing. */
 export const TOOLSET_MATERIAL_TOOLS: readonly ToggleableTool[] = [
   'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor',
+  // #547 — the digital brush lays material like the rest, and a room offering
+  // only it is a perfectly good digital-painting lesson. That it imitates no
+  // physical material is a fact about the mark, not about whether the tool can
+  // start a drawing from an empty sheet, which is the only question this list
+  // asks.
+  'digitalBrush',
 ]
 
 export function isToggleableTool(value: unknown): value is ToggleableTool {
@@ -506,6 +512,16 @@ export type ToolType =
   // is recorded in a real room, every client must keep replaying it forever,
   // so the wire type has to know the tool from the first stroke onward.
   | 'watercolor'
+  // #547, ADR 013 — the digital brush. In the union from the first stroke for
+  // exactly the reason watercolor is, stated directly above: the Operation Log
+  // is permanent, so the wire type has to know the tool the moment one stroke
+  // is recorded in a real room.
+  //
+  // Unlike every other member here, this one does not name a material. What
+  // varies between its brushes rides the `preset` slot as `brush:<id>@<version>`
+  // — versioned, because a brush that is retuned must not repaint the strokes
+  // already drawn with it (ADR 013 §7).
+  | 'digitalBrush'
 
 export type Dab = {
   x: number

@@ -282,6 +282,12 @@ describe('option pickers (#335, #391)', () => {
         // is the second, and it is the same physical fact both times — a nib or
         // a brush whose contact patch opens under the hand.
         'brushPen.pressureResponse', 'watercolor.pressureResponse',
+        // … and which brush is in hand (#547). Unlike every entry above it,
+        // this one does not choose a property *of* a tool — it chooses the tool,
+        // because a digital brush is its brush set (ADR 013 §1). It is also the
+        // reason the list stops being a list of settings: expect more of these
+        // as the set grows, and expect them to be the only select this tool has.
+        'digitalBrush.brush',
         // … and watercolor's named mix (#468 v4), which is a shortcut for its
         // two sliders rather than a material or a mode — the first select here
         // that writes *other* fields instead of standing alone.
@@ -477,8 +483,8 @@ describe('slider scales (#390)', () => {
       // range that narrow is indistinguishable from a straight line, and the
       // scale is claimed by this list to mean something.
       'annotatePen.size',
-      'brushPen.size', 'charcoal.size', 'colorPencil.size', 'eraser.size', 'marker.size', 'pencil.size',
-      'smudge.size', 'watercolor.size',
+      'brushPen.size', 'charcoal.size', 'colorPencil.size', 'digitalBrush.size', 'eraser.size',
+      'marker.size', 'pencil.size', 'smudge.size', 'watercolor.size',
     ])
   })
 

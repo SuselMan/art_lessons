@@ -76,8 +76,10 @@ test.describe('the floating panel’s slots', () => {
     await waitForRoomReady(page)
 
     await holdSlot(page, 1)
-    // 15 tools + 2 roles + undo/redo + clear.
-    await expect(page.locator(`${PANEL} [data-choice]`)).toHaveCount(20)
+    // 16 tools + 2 roles + undo/redo + clear. The sixteenth is the digital
+    // brush (#547) — a count assertion is exactly the kind that has to be
+    // edited deliberately when the toolset grows, which is why it is a count.
+    await expect(page.locator(`${PANEL} [data-choice]`)).toHaveCount(21)
     await expect(choice(page, 'tool:ruler')).toBeVisible()
     await expect(choice(page, 'role:drawing')).toBeVisible()
     await expect(choice(page, 'action:undo')).toBeVisible()
