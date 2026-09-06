@@ -808,7 +808,7 @@ export const DAB_FRAG = `
    *  in PAPER_COMPOSE_FRAG: GLSL ES 1.0 has no include, these are two separate
    *  programs, and a constant declared in the wrong one is a compile error that
    *  takes the whole engine down with it. */
-  const float WC_WET_PUSH = 0.35;
+  const float WC_WET_PUSH = 0.50;
 
   // (#536) How wide the transport's own view of the concentration is, in px.
   // Wider than a hair bundle on purpose — see its use.
@@ -3022,7 +3022,18 @@ export const PAPER_COMPOSE_FRAG = `
   // still there and lets go of it as the paper dries. Zero wetness, zero
   // correction, so the picture converges on what is stored no matter what the
   // clock does.
-  const float WC_WET_RELAX = 0.92;
+  //  #536 — 0.30, down from 0.92, and this is a correction of aim rather than
+  //  of taste. "Взял полностью сухую кисть, начало рисовать как сухая кисть
+  //  (хотя это неверно в таком случае), но после отпускания штрих стал сразу
+  //  мокрым." That first half is this term: it holds a mark tightest exactly
+  //  when the paper is wettest, which is backwards for wet-in-wet — paint
+  //  dropped into standing water spreads at once, it does not wait to dry.
+  //
+  //  What was being asked for all along under "растекание" is *growth*, and
+  //  growth is WC_WET_PUSH, which is instant and permanent. This is a much
+  //  smaller thing and should stay small: the last of the settling, visible if
+  //  you watch for it, never enough to make a wet mark read as a dry one.
+  const float WC_WET_RELAX = 0.30;
   // The window over which it lets go. Far wider than the sheen's: the sheen
   // must vanish the moment a patch is merely damp, or every mark drags a grey
   // halo, whereas the paint has to still be creeping when the shine has long
@@ -3187,7 +3198,10 @@ export const PAPER_COMPOSE_FRAG = `
         float raw = wcWetAt(wetUV);
         wet = smoothstep(0.35, 0.95, raw);
         held = WC_WET_RELAX * smoothstep(WC_RELAX_LO, WC_RELAX_HI, raw);
-        damp = smoothstep(0.05, 0.38, raw);
+        // Off the flat tail (0.05 -> 0.16): down near zero the field barely
+        // changes over many pixels, so a gate opening there puts the tint
+        // halfway across the sheet — which is the last of the "ореол".
+        damp = smoothstep(0.16, 0.46, raw);
         // The rim, as a *window on the wetness value* rather than as a
         // derivative of it.
         //
@@ -3284,7 +3298,9 @@ export const PAPER_COMPOSE_FRAG = `
     // saturates far sooner, so the whole wetted area carries the tint and it
     // fades out smoothly at the margin instead of stopping at a line. Which is
     // also the difference between this and a halo: an area, not a ring.
-    color *= mix(1.0, 0.977, damp);
+    // 1.2 per cent: "она должна быть едва заметная". Twice this read as a grey
+    // patch rather than as damp paper.
+    color *= mix(1.0, 0.988, damp);
     color += vec3(gloss);
     color *= 1.0 - shade;
 

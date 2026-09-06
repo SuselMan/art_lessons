@@ -82,7 +82,13 @@ export class PaperWetness {
    *  reaches zero, so cells would accumulate forever and "is this dry?" would
    *  never be quite true. */
   private static _decayed(cell: WetCell, now: number): number {
-    const age = now - cell.at
+    // Clamped at zero, because a cell can legitimately be stamped *ahead* of
+    // the moment being asked about: a stroke arriving from a peer carries the
+    // clock it was drawn on, and the two need not agree. Without the clamp a
+    // negative age read the cell as wetter than it was ever laid down — the
+    // same sign error that made the tracked peak collapse (see _notePeak), one
+    // level further down.
+    const age = Math.max(now - cell.at, 0)
     if (age >= WET_DRY_MS) return 0
     return cell.w * (1 - age / WET_DRY_MS)
   }
@@ -126,12 +132,33 @@ export class PaperWetness {
         cells.set(k, { w: Math.max(held, amount), at: now })
       }
     }
-    // Monotone in the only direction that matters: an over-estimate makes the
-    // drying watcher run slightly longer than it needs to, an under-estimate
-    // would stop it while paper was still visibly wet.
-    const held = this.peak(now)
-    if (amount >= held) { this._peak = amount; this._peakAt = now }
-    else { this._peak = held; this._peakAt = now }
+    this._notePeak(amount, now)
+  }
+
+  /** Folds one deposit into the O(1) peak.
+   *
+   *  Both values are carried forward to the *later* of the two clocks before
+   *  they are compared, and that is the whole content of this method. Comparing
+   *  them at `now` alone was correct only while every writer used the present:
+   *  once a stroke could be laid down with the timestamp it was actually made
+   *  at (a peer's operation, a replay — see _wetFromForeignStroke), `now` could
+   *  be in the past, the age came out negative, and `peak()` returned a value
+   *  *above* the stored one. Adopting that inflated value with the old
+   *  timestamp then made the tracked peak collapse: one operation stamped 25 s
+   *  ago dropped a peak of 1.0 to 0.3 at the same instant.
+   *
+   *  Which matters because everything that decides "is any of this still wet"
+   *  is O(1) off this number and nothing walks the cells. Under-estimate it and
+   *  the drying watcher stops with wet paper on screen, and the display then
+   *  freezes on whatever it drew last — a puddle that never dries and cannot be
+   *  made to. The invariant is that this may only ever over-estimate. */
+  private _notePeak(amount: number, at: number): void {
+    const t = Math.max(at, this._peakAt)
+    const held = this.peak(t)
+    const decay = Math.min(Math.max((t - at) / WET_DRY_MS, 0), 1)
+    const mine = amount * (1 - decay)
+    this._peak = Math.max(held, mine)
+    this._peakAt = t
   }
 
   /** (#536) Water a brush passing over took *off* the paper — the other half of
@@ -188,7 +215,17 @@ export class PaperWetness {
       for (const [k, cell] of cells) {
         const prev = dst.get(k)
         const held = prev ? PaperWetness._decayed(prev, now) : 0
-        dst.set(k, { w: Math.max(held, cell.w), at: cell.at })
+        const w = Math.max(held, cell.w)
+        dst.set(k, { w, at: cell.at })
+        // The committed cell can be *wetter than it was* on a clock that has
+        // just been restarted — a stroke laid inside a standing puddle carries
+        // the puddle's own level forward with a fresh drying window. The peak
+        // has to learn about that here, or it goes on decaying from before the
+        // gesture and reaches zero while these cells are still wet. That is the
+        // "мокрая линия осталась навсегда" shape: the surrounding puddle dries
+        // on schedule and the stroke inside it is left on screen by a watcher
+        // that has already given up.
+        this._notePeak(w, cell.at)
       }
     }
     this._pending.clear()
@@ -202,7 +239,7 @@ export class PaperWetness {
 
   /** The wettest the paper is anywhere, right now. O(1). */
   peak(now: number): number {
-    const age = now - this._peakAt
+    const age = Math.max(now - this._peakAt, 0)
     if (age >= WET_DRY_MS) return 0
     return this._peak * (1 - age / WET_DRY_MS)
   }

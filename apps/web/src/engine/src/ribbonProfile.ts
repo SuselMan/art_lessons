@@ -642,7 +642,7 @@ const WATERCOLOR_SPREAD_CAP_PX = 26.0
 //  that (the re-threshold's outward push is proportional to it — see
 //  WC_WET_PUSH), and at 2 the arithmetic came out around twelve px of growth
 //  where he was asking for fifteen.
-const WATERCOLOR_WET_BLOOM = 3.0
+const WATERCOLOR_WET_BLOOM = 4.0
 
 /** (#536) How wide one hair bundle is on the paper, in px. A hair is a fixed
  *  physical thing: a wider brush carries *more* bundles, not wider ones, and a

@@ -731,14 +731,23 @@ describe('water laid by someone else wets this paper too (#536)', () => {
     const op = peerWater(twice, 48)
     twice.appendOperation({ ...op, id: `${op.id}-again` })
 
-    const profileOf = (engine: PencilEngine): string => {
+    const wettestOf = (engine: PencilEngine): number => {
       engine.setActiveLayer('L')
       engine.setTool('watercolor')
       engine.setPencil(PAINT)
       engine.setSize(24)
       simulateStroke(engine, [{ x: 8, y: 48 }, { x: 28, y: 48 }, { x: 56, y: 48 }])
-      return lastStroke(engine).wet ?? ''
+      const digits = (lastStroke(engine).wet ?? '0').split('').map(d => parseInt(d, 16))
+      return Math.max(...digits)
     }
-    expect(profileOf(twice)).toBe(profileOf(once))
+    // Not wetter, rather than bit-identical, and the difference is the wall
+    // clock: this field decays on one, so the two engines are read a few
+    // milliseconds apart and under load that is enough to move a digit. What
+    // the test is actually about is that applying a stroke twice does not add
+    // water — so assert exactly that, within the one step quantisation allows.
+    const single = wettestOf(once)
+    const doubled = wettestOf(twice)
+    expect(doubled).toBeLessThanOrEqual(single + 1)
+    expect(doubled).toBeGreaterThan(6)
   })
 })

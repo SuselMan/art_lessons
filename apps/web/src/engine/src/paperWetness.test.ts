@@ -120,6 +120,70 @@ describe('a brush drinking from the paper (#536)', () => {
   })
 })
 
+describe('the peak may only ever over-estimate (#536)', () => {
+  // Everything that asks "is any of this still wet" asks the peak, in O(1), and
+  // nothing walks the cells. So an under-estimate is not a rounding error: the
+  // drying watcher stops, the display freezes on its last frame, and the paper
+  // stays visibly wet with nothing left running to change it.
+  const wettestCell = (f: PaperWetness, now: number): number =>
+    Math.max(0, ...f.cellsOf('L', now).map(c => c.w))
+
+  it('is not dropped by a stroke that arrives stamped in the past', () => {
+    // A peer's operation, or a replay of the log, carries the time it was made
+    // at — which is behind this client's clock. Comparing the two at that older
+    // moment made the age negative, so peak() answered *above* the stored value
+    // and the deposit then adopted it with the old timestamp. One 25-second-old
+    // operation took a peak of 1.0 down to 0.3.
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 40, 1, 100000)
+    f.deposit('L', 900, 900, 40, 0.5, 100000 - WET_DRY_MS * 0.8)
+    expect(f.peak(100000)).toBeCloseTo(1, 5)
+  })
+
+  it('never reads below the wettest cell there is, however the writes interleave', () => {
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 20, 0.8, 0)
+    f.deposit('L', 60, 0, 20, 0.4, 5000)
+    f.deposit('L', 120, 0, 20, 1, 2000)            // out of order
+    f.deposit('L', 180, 0, 20, 0.6, -10000)        // and one from before it began
+    // Asked about the present and later only, which is the only thing anything
+    // ever asks it — every caller passes performance.now(), and a deposit's own
+    // stamp is at or behind that by construction. One number and one timestamp
+    // cannot answer for a moment *before* the last write, and does not have to.
+    for (const t of [5000, 12000, 20000, 29000]) {
+      expect(f.peak(t) + 1e-9).toBeGreaterThanOrEqual(wettestCell(f, t))
+    }
+  })
+
+  it('learns about water a gesture commits at pen-up', () => {
+    // A stroke laid inside a standing puddle carries the puddle's own level
+    // forward on a freshly restarted clock. If the peak goes on decaying from
+    // before the gesture it reaches zero while those cells are still wet.
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 40, 0.9, 0)
+    const late = WET_DRY_MS * 0.8
+    f.deposit('L', 0, 0, 10, 0.05, late, true)
+    f.commitPending(late)
+    // The cell under the stroke is wet well past where the original puddle
+    // would have dried…
+    const after = WET_DRY_MS * 1.2
+    expect(f.sample('L', 0, 0, after)).toBeGreaterThan(0.05)
+    // …and the watcher still knows it.
+    expect(f.peak(after) + 1e-9).toBeGreaterThanOrEqual(wettestCell(f, after))
+    expect(f.peak(after)).toBeGreaterThan(0.01)
+  })
+
+  it('still reaches zero once everything really is dry', () => {
+    // The over-estimate has to stay bounded, or the drying watcher runs for the
+    // life of the session over bone-dry paper.
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 40, 1, 0)
+    f.deposit('L', 0, 0, 10, 1, 5000, true)
+    f.commitPending(5000)
+    expect(f.peak(5000 + WET_DRY_MS)).toBe(0)
+  })
+})
+
 describe('the recorded profile (#536)', () => {
   it('round-trips a quantized value to within one step', () => {
     for (const v of [0, 0.13, 0.5, 0.77, 1]) {
