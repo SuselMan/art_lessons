@@ -490,6 +490,32 @@ describe('a wash reaches every path that paints (#468)', () => {
     for (const p of packets) expect(p.washId).toBe(washId)
   })
 
+  it('stamps the wash on every chunk of a long gesture, not only on the last', async () => {
+    // (#536) A gesture past STROKE_DAB_CHUNK_LIMIT is recorded as several
+    // operations. Live they all share one scratch; replay groups by washId ??
+    // strokeId, so a chunk without the washId lands in a different scratch
+    // from the chunk that has it — the halo clip, the diffusion and the
+    // composite scalars then differ between the author and everyone else.
+    // Read off Ilya's own log: a scribble of 1835 dabs came out as
+    // (no wash, no wash, wash).
+    const { engine } = createTestEngine({ userId: 'user-a' }, { width: 256, height: 64 })
+    engine.appendOperation(makeLayerAdd('user-a', 'L'))
+    engine.setCompositeOrder([{ id: 'L', opacity: 1 }])
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil('normal:92:42:PB29')
+    engine.setSize(24)
+    await paperReady(engine)
+    simulateStrokeStart(engine, 8, 32)
+    for (let i = 0; i < 40; i++) simulateStrokeMove(engine, 8 + (i % 2 === 0 ? 240 : 0), 20 + (i % 7) * 3)
+    simulateStrokeEnd(engine, 8, 32)
+    const chunks = engine.getOperations().filter((op): op is StrokeOperation => op.type === 'stroke')
+    expect(chunks.length).toBeGreaterThan(1)
+    const washId = chunks[chunks.length - 1].washId
+    expect(washId).toBeTruthy()
+    for (const c of chunks) expect(c.washId).toBe(washId)
+  })
+
   it('leaves the packet unstamped for a tool with no washes', async () => {
     const packets: PeerLivePacket[] = []
     const engine = wetEngine(p => packets.push(p))

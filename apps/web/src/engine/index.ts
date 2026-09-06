@@ -6506,6 +6506,13 @@ export class PencilEngine implements PencilEngineAPI {
         layerId: targetId, tool: this._strokeTool, preset: this._strokePreset, color: this._strokeColor,
         dabsPacked, timestamp: Date.now(),
         ...(this._strokeId ? { strokeId: this._strokeId } : {}),
+        // (#536) The wash too, exactly as _onEnd stamps it: replay groups a
+        // chunk by washId ?? strokeId, so a chunk without it landed in a
+        // different scratch from the gesture's last chunk — and the halo
+        // clip, the diffusion and the composite scalars then differed between
+        // the author and everyone else. Read off Ilya's own log as
+        // (no wash, no wash, wash) on one 1835-dab scribble.
+        ...(this._washId ? { washId: this._washId } : {}),
         ...(this._strokeWet && !isDryProfile(this._strokeWet) ? { wet: this._strokeWet } : {}),
       }
       this._log.append(op)
