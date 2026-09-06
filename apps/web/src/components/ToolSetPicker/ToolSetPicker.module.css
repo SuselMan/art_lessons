@@ -1,0 +1,121 @@
+/* (#548) The picker body only — its hosts supply the box: a tab of the room
+   creation form, a tab of the editor's settings modal. Nothing here sets a
+   width or a background for that reason, same rule RoomAccessControl follows. */
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+}
+
+.summaryRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary {
+  font-size: 13px;
+  color: var(--color-text-dim);
+}
+
+.reset {
+  padding: 0;
+  font-size: 13px;
+  color: var(--color-accent-hover);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.reset:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.reset:disabled {
+  color: var(--color-text-faint);
+  cursor: default;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.groupLabel {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+/* auto-fill rather than a fixed column count: this same grid is read on a
+   phone-width settings modal and on a wide creation form, and the tools are a
+   flat set with no meaningful row structure to preserve. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+
+/* 44px tall at minimum — these are toggles a teacher hits with a finger on a
+   tablet mid-lesson, not a desktop-only settings screen (CLAUDE.md's 40-48px
+   touch target rule). */
+.tool {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text-dim);
+  text-align: left;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tool:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+
+.toolOn {
+  /* --color-on-accent, not the bright text token: this is a solid accent fill,
+     and that is the one pairing the contrast test enforces across both
+     themes. */
+  color: var(--color-on-accent);
+  background: var(--color-accent);
+  border-color: var(--color-accent-border);
+}
+
+.toolOn:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+/* The last material standing. It reads as on — because it is — and simply
+   does not respond, so the state stays honest rather than appearing to toggle
+   and reverting. */
+.toolLocked {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.toolName {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-dim);
+}

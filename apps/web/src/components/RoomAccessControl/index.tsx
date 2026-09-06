@@ -1,42 +1,50 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { RoomAccessMode } from '@grafetto/shared'
+import { useQuery } from '@tanstack/react-query'
 
-import {
-  addRoomInvite, ApiError, fetchMe, getRoomAccess, kickFromRoom, removeRoomInvite, resolveJoinRequest,
-  setRoomAccess, unblockFromRoom,
-} from '../../lib/api'
-import { roomAccessQueryKey } from '../../lib/queryClient'
+import { fetchMe } from '../../lib/api'
 import { useT } from '../../i18n'
-import { notifyError } from '../../stores/noticeStore'
-import { useRoomStore } from '../../stores/roomStore'
 import { Icon } from '../Icon'
 import { ErrorState } from '../ListState'
 import { OptionGroup } from '../OptionGroup'
 import { TextInput } from '../TextInput'
+import { useRoomAccessSource, type RoomAccessDraft } from './useRoomAccessSource'
 import styles from './RoomAccessControl.module.css'
 
+export { EMPTY_ROOM_ACCESS_DRAFT, type RoomAccessDraft } from './useRoomAccessSource'
+
 interface RoomAccessControlProps {
-  roomId: string
+  /** The room to control. Omit for the creation form, where no room exists
+   *  yet — `draft` is then required and collects the same choices. */
+  roomId?: string
+  draft?: { value: RoomAccessDraft; onChange: (next: RoomAccessDraft) => void }
 }
 
 /** Who may enter one room, in one panel (#228, release track #314 §6).
  *
- *  Deliberately knows nothing about where it is mounted. It is rendered both
- *  from the lesson list's ⋮ (#229), where no socket for this room exists, and
- *  from inside the room itself (#230), where one does — and it behaves the
- *  same in both, because every effect it has is a REST call whose result is
- *  durable. Removing someone who happens to be connected right now
+ *  Deliberately knows nothing about where it is mounted. It is rendered from
+ *  the lesson list's ⋮ (#229), where no socket for this room exists, from
+ *  inside the room itself (#230), where one does — and (#548) from the room
+ *  *creation* form, where the room does not exist at all yet. The first two
+ *  behave the same because every effect the panel has is a REST call whose
+ *  result is durable; removing someone who happens to be connected right now
  *  disconnects them, but that is the server's doing (#227), not a second mode
  *  this component has to have.
+ *
+ *  The third is the one real difference, and it is confined to
+ *  `useRoomAccessSource`: with no room id every action accumulates into a
+ *  draft that travels with the navigation instead of reaching the server. The
+ *  only thing this component reads about it is `source.live`, and not to
+ *  change how a button behaves — to leave out the two sections that describe
+ *  people (who is in, who is waiting), because a room that does not exist has
+ *  neither, and rendering them empty would announce a hole rather than an
+ *  absence.
  *
  *  Owner-only, and only as courtesy: every endpoint behind it answers 403 to
  *  anyone else, so hiding the panel is about not offering an action that
  *  fails, never about being the thing that prevents it.
  */
-export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
+export function RoomAccessControl({ roomId, draft }: RoomAccessControlProps) {
   const t = useT()
-  const queryClient = useQueryClient()
   const [inviteDraft, setInviteDraft] = useState('')
   const [passwordDraft, setPasswordDraft] = useState('')
   // Which participant's "revoke" is waiting for a second click. Inline rather
@@ -47,98 +55,32 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
   // way, in the row.
   const [confirmingRevoke, setConfirmingRevoke] = useState<string | null>(null)
 
-  // (#380) Shared with the room's own waiting-queue section, which reads the
-  // same server state — see roomAccessQueryKey.
-  const queryKey = roomAccessQueryKey(roomId)
-  const { data: access, isPending, isError, refetch } = useQuery({
-    queryKey,
-    queryFn: () => getRoomAccess(roomId),
-    // Someone can join the queue while this is open, and in the lesson list
-    // there is no socket for this room to hear `join_request_created` on
-    // (#227) — so "nobody is waiting" would keep saying that while a student
-    // waits. Polling only runs while the panel is mounted, which is only
-    // while the owner is looking at it.
-    refetchInterval: 10_000,
-  })
+  const source = useRoomAccessSource({ roomId, draft })
 
   // The panel is owner-only, so "me" is the owner — enough to know which row
   // in the participants list is the person reading it. Served from the same
   // cache the app warms on load (App.tsx), so this costs no request.
   const { data: me } = useQuery({ queryKey: ['me'], queryFn: fetchMe })
 
-  /** Every mutation here changes something the panel displays, and the server
-   *  is the only thing that knows the whole result (an invite can resolve a
-   *  queued request; a kick clears an invite). Refetching the one query is
-   *  both simpler and more honest than patching five lists by hand. */
-  const reload = () => queryClient.invalidateQueries({ queryKey })
+  if (source.isError) return <ErrorState message={t('access.error.load')} onRetry={source.refetch} />
+  if (source.isPending || !source.view) return <div className={styles.loading}>{t('common.loading')}</div>
 
-  const fail = (message: string, key: string) => notifyError(message, { key })
-
-  const modeMutation = useMutation({
-    mutationFn: (accessMode: RoomAccessMode) => setRoomAccess(roomId, { accessMode }),
-    onSuccess: result => {
-      // (#460) The editor holds the room's own accessMode in the room store —
-      // the Share item's warning is decided from it — and the server has no
-      // event for a mode change (#225), so the tab that made the change is the
-      // one that has to say so. Guarded on the id because this same panel is
-      // also mounted from the lesson list, where the store holds some other
-      // room, or the last one visited.
-      const store = useRoomStore.getState()
-      if (store.room?.id === roomId) store.setRoomAccessMode(result.accessMode)
-      // The lesson list carries `accessMode` on every room it renders, and
-      // its ⋮ decides the Share warning from it — so a mode changed from that
-      // very menu has to reach the list's own cache too, or the next share
-      // from the same card reports the mode this one just replaced.
-      void queryClient.invalidateQueries({ queryKey: ['rooms'] })
-      return reload()
-    },
-    onError: () => fail(t('access.error.mode'), 'access-mode'),
-  })
-
-  const passwordMutation = useMutation({
-    mutationFn: (password: string | null) => setRoomAccess(roomId, { password }),
-    onSuccess: () => { setPasswordDraft(''); void reload() },
-    onError: () => fail(t('access.error.password'), 'access-password'),
-  })
-
-  const inviteMutation = useMutation({
-    mutationFn: (email: string) => addRoomInvite(roomId, email),
-    onSuccess: () => { setInviteDraft(''); void reload() },
-    // The server's own check is the one that matters (it is what keeps a
-    // typo out of a permanent row); this just says which of the two things
-    // went wrong, so "invalid" doesn't read as "the network failed".
-    onError: err => fail(
-      t(err instanceof ApiError && err.code === 'invalid_email'
-        ? 'access.error.inviteInvalid'
-        : 'access.error.invite'),
-      'access-invite',
-    ),
-  })
-
-  const uninviteMutation = useMutation({
-    mutationFn: (email: string) => removeRoomInvite(roomId, email),
-    onSuccess: reload,
-    onError: () => fail(t('access.error.uninvite'), 'access-uninvite'),
-  })
-
-  const requestMutation = useMutation({
-    mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
-      resolveJoinRequest(roomId, id, approved),
-    onSuccess: reload,
-    onError: () => fail(t('access.error.request'), 'access-request'),
-  })
-
-  const blockMutation = useMutation({
-    mutationFn: ({ userId, blocked }: { userId: string; blocked: boolean }) =>
-      blocked ? kickFromRoom(roomId, userId) : unblockFromRoom(roomId, userId),
-    onSuccess: reload,
-    onError: () => fail(t('access.error.block'), 'access-block'),
-  })
-
-  if (isError) return <ErrorState message={t('access.error.load')} onRetry={() => void refetch()} />
-  if (isPending || !access) return <div className={styles.loading}>{t('common.loading')}</div>
-
+  const access = source.view
   const inviteOnly = access.accessMode === 'invite_only'
+
+  // Both clear their field only once the value is actually in — a rejected
+  // address stays on screen next to the notice that explains it, rather than
+  // vanishing and leaving the notice talking about nothing.
+  async function submitPassword() {
+    if (!passwordDraft) return
+    if (await source.setPassword(passwordDraft)) setPasswordDraft('')
+  }
+
+  async function submitInvite() {
+    const email = inviteDraft.trim()
+    if (!email) return
+    if (await source.addInvite(email)) setInviteDraft('')
+  }
 
   return (
     <div className={styles.panel}>
@@ -149,7 +91,7 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
           selection="radio"
           ariaLabel={t('access.modeHeading')}
           active={access.accessMode}
-          onSelect={mode => modeMutation.mutate(mode)}
+          onSelect={mode => source.setMode(mode)}
           options={[
             { id: 'anyone_with_link', label: t('access.mode.anyoneWithLink') },
             { id: 'invite_only', label: t('access.mode.inviteOnly') },
@@ -174,20 +116,17 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
             <button
               type="button"
               className={styles.textButton}
-              disabled={passwordMutation.isPending}
-              onClick={() => passwordMutation.mutate(null)}
+              disabled={source.busy}
+              onClick={() => void source.setPassword(null)}
             >
               {t('access.passwordRemove')}
             </button>
           </div>
         ) : (
-          <form
-            className={styles.row}
-            onSubmit={e => {
-              e.preventDefault()
-              if (passwordDraft) passwordMutation.mutate(passwordDraft)
-            }}
-          >
+          // Not a <form>: this panel is itself rendered inside the creation
+          // page's form (#548), and a nested form is invalid HTML — the inner
+          // one is dropped by the parser and Enter here would submit the room.
+          <div className={styles.row}>
             <TextInput
               icon="lock_open"
               type="password"
@@ -195,11 +134,17 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
               value={passwordDraft}
               placeholder={t('access.passwordPlaceholder')}
               onChange={e => setPasswordDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void submitPassword() } }}
             />
-            <button type="submit" className={styles.textButton} disabled={!passwordDraft || passwordMutation.isPending}>
+            <button
+              type="button"
+              className={styles.textButton}
+              disabled={!passwordDraft || source.busy}
+              onClick={() => void submitPassword()}
+            >
               {t('access.passwordSave')}
             </button>
-          </form>
+          </div>
         )}
       </section>
 
@@ -209,14 +154,7 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
       <section className={styles.section}>
         <h3 className={styles.heading}>{t('access.invitesHeading')}</h3>
         {!inviteOnly && <p className={styles.hint}>{t('access.invitesInactiveHint')}</p>}
-        <form
-          className={styles.row}
-          onSubmit={e => {
-            e.preventDefault()
-            const email = inviteDraft.trim()
-            if (email) inviteMutation.mutate(email)
-          }}
-        >
+        <div className={styles.row}>
           <TextInput
             type="email"
             inputMode="email"
@@ -224,11 +162,23 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
             value={inviteDraft}
             placeholder={t('access.invitePlaceholder')}
             onChange={e => setInviteDraft(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void submitInvite() } }}
           />
-          <button type="submit" className={styles.textButton} disabled={!inviteDraft.trim() || inviteMutation.isPending}>
+          <button
+            type="button"
+            className={styles.textButton}
+            disabled={!inviteDraft.trim() || source.busy}
+            onClick={() => void submitInvite()}
+          >
             {t('access.inviteAdd')}
           </button>
-        </form>
+        </div>
+        {/* Says the two things that are not obvious before the room exists:
+            the list can wait, and an invite reaches a person only once they
+            sign in with that address (roomAccess.ts's allow-list is keyed by
+            it). In a live room the same facts are already evident from the
+            list itself. */}
+        {!source.live && inviteOnly && <p className={styles.hint}>{t('create.invitesHint')}</p>}
         {access.invites.length === 0 ? (
           <p className={styles.empty}>{t('access.invitesEmpty')}</p>
         ) : (
@@ -241,8 +191,8 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
                   className={styles.iconButton}
                   aria-label={t('access.inviteRemove')}
                   title={t('access.inviteRemove')}
-                  disabled={uninviteMutation.isPending}
-                  onClick={() => uninviteMutation.mutate(invite.email)}
+                  disabled={source.busy}
+                  onClick={() => source.removeInvite(invite.email)}
                 >
                   <Icon name="close" />
                 </button>
@@ -253,8 +203,10 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
       </section>
 
       {/* Only in invite_only: in the open mode nobody is ever queued, so the
-          section would be a permanently empty box explaining its own absence. */}
-      {inviteOnly && (
+          section would be a permanently empty box explaining its own absence.
+          And only for a room that exists — before that there is nobody to have
+          asked. */}
+      {source.live && inviteOnly && (
         <section className={styles.section}>
           <h3 className={styles.heading}>
             {t('access.requestsHeading')}
@@ -277,16 +229,16 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
                   <button
                     type="button"
                     className={styles.textButton}
-                    disabled={requestMutation.isPending}
-                    onClick={() => requestMutation.mutate({ id: request.id, approved: true })}
+                    disabled={source.busy}
+                    onClick={() => source.resolveRequest(request.id, true)}
                   >
                     {t('access.approve')}
                   </button>
                   <button
                     type="button"
                     className={styles.textButtonQuiet}
-                    disabled={requestMutation.isPending}
-                    onClick={() => requestMutation.mutate({ id: request.id, approved: false })}
+                    disabled={source.busy}
+                    onClick={() => source.resolveRequest(request.id, false)}
                   >
                     {t('access.deny')}
                   </button>
@@ -297,77 +249,79 @@ export function RoomAccessControl({ roomId }: RoomAccessControlProps) {
         </section>
       )}
 
-      <section className={styles.section}>
-        <h3 className={styles.heading}>{t('access.participantsHeading')}</h3>
-        {access.participants.length === 0 ? (
-          <p className={styles.empty}>{t('access.participantsEmpty')}</p>
-        ) : (
-          <ul className={styles.list}>
-            {access.participants.map(participant => {
-              // You are in this list — you have been in the room — but there
-              // is nothing here to do to yourself. The server refuses it
-              // anyway (`cannot_kick_owner`); offering a button that 400s
-              // would just be a menu that lies.
-              const isSelf = participant.userId === me?.userId
-              const confirming = confirmingRevoke === participant.userId
-              return (
-                <li key={participant.userId} className={styles.listRow}>
-                  <span className={styles.person}>
-                    <span className={styles.personName}>
-                      {participant.name ?? t('access.unnamedParticipant')}
-                    </span>
-                    {(participant.blocked || isSelf) && (
-                      <span className={styles.personSub}>
-                        {t(isSelf ? 'access.you' : 'access.revoked')}
+      {source.live && (
+        <section className={styles.section}>
+          <h3 className={styles.heading}>{t('access.participantsHeading')}</h3>
+          {access.participants.length === 0 ? (
+            <p className={styles.empty}>{t('access.participantsEmpty')}</p>
+          ) : (
+            <ul className={styles.list}>
+              {access.participants.map(participant => {
+                // You are in this list — you have been in the room — but there
+                // is nothing here to do to yourself. The server refuses it
+                // anyway (`cannot_kick_owner`); offering a button that 400s
+                // would just be a menu that lies.
+                const isSelf = participant.userId === me?.userId
+                const confirming = confirmingRevoke === participant.userId
+                return (
+                  <li key={participant.userId} className={styles.listRow}>
+                    <span className={styles.person}>
+                      <span className={styles.personName}>
+                        {participant.name ?? t('access.unnamedParticipant')}
                       </span>
-                    )}
-                  </span>
-                  {isSelf ? null : participant.blocked ? (
-                    <button
-                      type="button"
-                      className={styles.textButton}
-                      disabled={blockMutation.isPending}
-                      onClick={() => blockMutation.mutate({ userId: participant.userId, blocked: false })}
-                    >
-                      {t('access.restore')}
-                    </button>
-                  ) : confirming ? (
-                    <>
+                      {(participant.blocked || isSelf) && (
+                        <span className={styles.personSub}>
+                          {t(isSelf ? 'access.you' : 'access.revoked')}
+                        </span>
+                      )}
+                    </span>
+                    {isSelf ? null : participant.blocked ? (
+                      <button
+                        type="button"
+                        className={styles.textButton}
+                        disabled={source.busy}
+                        onClick={() => source.setBlocked(participant.userId, false)}
+                      >
+                        {t('access.restore')}
+                      </button>
+                    ) : confirming ? (
+                      <>
+                        <button
+                          type="button"
+                          className={styles.textButtonDanger}
+                          disabled={source.busy}
+                          onClick={() => {
+                            setConfirmingRevoke(null)
+                            source.setBlocked(participant.userId, true)
+                          }}
+                        >
+                          {t('access.revokeConfirm')}
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.textButtonQuiet}
+                          onClick={() => setConfirmingRevoke(null)}
+                        >
+                          {t('common.cancel')}
+                        </button>
+                      </>
+                    ) : (
                       <button
                         type="button"
                         className={styles.textButtonDanger}
-                        disabled={blockMutation.isPending}
-                        onClick={() => {
-                          setConfirmingRevoke(null)
-                          blockMutation.mutate({ userId: participant.userId, blocked: true })
-                        }}
+                        disabled={source.busy}
+                        onClick={() => setConfirmingRevoke(participant.userId)}
                       >
-                        {t('access.revokeConfirm')}
+                        {t('access.revoke')}
                       </button>
-                      <button
-                        type="button"
-                        className={styles.textButtonQuiet}
-                        onClick={() => setConfirmingRevoke(null)}
-                      >
-                        {t('common.cancel')}
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className={styles.textButtonDanger}
-                      disabled={blockMutation.isPending}
-                      onClick={() => setConfirmingRevoke(participant.userId)}
-                    >
-                      {t('access.revoke')}
-                    </button>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   )
 }

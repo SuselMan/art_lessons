@@ -225,11 +225,14 @@ export const TOGGLEABLE_TOOLS = [
 
 export type ToggleableTool = (typeof TOGGLEABLE_TOOLS)[number]
 
-/** The subset that lays or moves material, i.e. the ones without which the
- *  room cannot be drawn in at all. At least one of these has to survive every
- *  toolset — see `sanitizeEnabledTools`. */
-export const TOOLSET_DRAWING_TOOLS: readonly ToggleableTool[] = [
-  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'eraser', 'smudge',
+/** The tools that actually lay material. At least one of them has to survive
+ *  every toolset — see `sanitizeEnabledTools`.
+ *
+ *  The eraser and the smudge are deliberately not here despite being drawing
+ *  tools in every other sense: neither can put a mark on an empty sheet, so a
+ *  room offering only those is exactly as unusable as one offering nothing. */
+export const TOOLSET_MATERIAL_TOOLS: readonly ToggleableTool[] = [
+  'pencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor',
 ]
 
 export function isToggleableTool(value: unknown): value is ToggleableTool {
@@ -248,10 +251,10 @@ export function isToggleableTool(value: unknown): value is ToggleableTool {
  *    simply not offered) instead of failing to parse;
  *  - the result is deduped and reordered into `TOGGLEABLE_TOOLS` order, so a
  *    toolset compares as data rather than as the order someone clicked;
- *  - a list with no drawing tool left in it is *not* a toolset. A room nobody
- *    can draw in is read-only, which is its own setting (`closedAt`), and
- *    arriving at it by unchecking fifteen boxes would be an accident, never a
- *    decision. Such a list — and an empty one — reads as no restriction.
+ *  - a list with no material left in it is *not* a toolset. A room nobody can
+ *    draw in is read-only, which is its own setting (`closedAt`), and arriving
+ *    at it by unchecking boxes would be an accident, never a decision. Such a
+ *    list — and an empty one — reads as no restriction.
  *
  *  "No restriction" is deliberately `undefined` rather than a spelled-out list
  *  of all fifteen: the next tool this app ships has to appear in every room
@@ -263,7 +266,7 @@ export function sanitizeEnabledTools(value: unknown): ToggleableTool[] | undefin
   const picked = new Set(value.filter(isToggleableTool))
   if (picked.size === 0) return undefined
   const ordered = TOGGLEABLE_TOOLS.filter(tool => picked.has(tool))
-  if (!ordered.some(tool => TOOLSET_DRAWING_TOOLS.includes(tool))) return undefined
+  if (!ordered.some(tool => TOOLSET_MATERIAL_TOOLS.includes(tool))) return undefined
   // Every tool enabled is not a restriction, it is the default spelled out —
   // store it as the default so a later-added tool is not excluded by it.
   if (ordered.length === TOGGLEABLE_TOOLS.length) return undefined
@@ -271,10 +274,16 @@ export function sanitizeEnabledTools(value: unknown): ToggleableTool[] | undefin
 }
 
 /** Whether a room offers this tool. The one place the `undefined = all` rule
- *  is read, so no call site has to remember it. */
+ *  is read, so no call site has to remember it — and the one place that knows
+ *  a toolset has no opinion about tools outside `TOGGLEABLE_TOOLS`.
+ *
+ *  That second part is not a detail: the annotation tools are not toggleable,
+ *  and reading a restricted list as "everything not in it is off" would have
+ *  taken the annotation rail away from every room that restricted anything. */
 export function isToolEnabledInRoom(enabledTools: readonly ToggleableTool[] | undefined, tool: string): boolean {
   if (!enabledTools) return true
-  return (enabledTools as readonly string[]).includes(tool)
+  if (!isToggleableTool(tool)) return true
+  return enabledTools.includes(tool)
 }
 
 export type Room = {

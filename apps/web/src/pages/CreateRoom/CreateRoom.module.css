@@ -516,3 +516,45 @@
   min-height: 0;
   overflow-y: auto;
 }
+
+/* (#548) The access and toolset summary rows on the first tab. They exist so
+   the two other tabs are not silent: a form that hides half its settings
+   behind a strip nobody clicks has not simplified anything, it has just made
+   the settings harder to find. Each row is also the way in. */
+.summaryRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text-dim);
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--duration-fast), color var(--duration-fast);
+}
+
+.summaryRow:hover {
+  border-color: var(--color-accent-border);
+  color: var(--color-text-bright);
+}
+
+.summaryLabel {
+  color: var(--color-text);
+}
+
+/* The value takes the slack and truncates — an invite-only room with a
+   password and six addresses would otherwise wrap the row to three lines. */
+.summaryValue {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: right;
+}

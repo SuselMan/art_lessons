@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { nanoid } from 'nanoid'
 import {
-  DEFAULT_PAPER_COLORS, PAPER_COARSENESS,
-  type PaperCoarseness, type PaperType, type RoomAccessMode,
+  DEFAULT_PAPER_COLORS, PAPER_COARSENESS, TOGGLEABLE_TOOLS,
+  type PaperCoarseness, type PaperType, type ToggleableTool,
 } from '@grafetto/shared'
 import { hexToRgb, rgbToHex } from '../../lib/color'
 import { preloadRoomPage } from '../../lib/roomChunk'
@@ -14,6 +14,10 @@ import { PaperPreview } from '../../components/PaperPreview'
 import { AppHeader } from '../../components/AppHeader'
 import { OptionGroup } from '../../components/OptionGroup'
 import { ColorPicker } from '../../components/ColorPicker'
+import {
+  EMPTY_ROOM_ACCESS_DRAFT, RoomAccessControl, type RoomAccessDraft,
+} from '../../components/RoomAccessControl'
+import { ToolSetPicker } from '../../components/ToolSetPicker'
 import { Icon } from '../../components/Icon'
 import styles from './CreateRoom.module.css'
 
@@ -25,12 +29,11 @@ interface CreateRoomNavState {
   folderId?: string
 }
 
-// (#232) Deliberately the same loose shape the server checks (see
-// roomAccessRoutes.ts): this is not a claim about deliverability, it is a
-// guard against a typo becoming a row nobody can ever match against. The
-// server remains the authority — this copy exists so the answer arrives
-// while the field is still on screen.
-const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// (#548) Three decisions, three tabs. They used to be one column, which grew
+// past what a page can hold as access control (#232) and then the toolset
+// landed on it — and they are genuinely separate: what the paper is, who gets
+// in, and what is on the desk.
+type CreateTab = 'general' | 'access' | 'tools'
 
 type SizePreset = 'a4' | 'a3' | 'a2' | 'square' | '16:9' | 'custom' | 'infinite'
 
@@ -164,16 +167,19 @@ export function CreateRoom() {
   const [orientation, setOrientation] = useState<Orientation>('portrait')
   const [customW,     setCustomW]     = useState('1920')
   const [customH,     setCustomH]     = useState('1080')
+  const [tab,         setTab]         = useState<CreateTab>('general')
   // (#232) Who may enter, decided here rather than only after the fact in the
   // access panel — inviting three students is part of setting a lesson up,
   // not a follow-up chore.
-  const [accessMode,  setAccessMode]  = useState<RoomAccessMode>('anyone_with_link')
-  // One address per line: the shape people already paste out of a class list,
-  // and the only editor that needs no add/remove buttons to manage a handful
-  // of them. Parsed once, on submit.
-  const [inviteText,  setInviteText]  = useState('')
-  const [usePassword, setUsePassword] = useState(false)
-  const [password,    setPassword]    = useState('')
+  //
+  // (#548) Collected by RoomAccessControl itself, in draft mode: the same
+  // panel the room's own settings use, so the two cannot drift into disagreeing
+  // about what an invite list is.
+  const [access,      setAccess]      = useState<RoomAccessDraft>(EMPTY_ROOM_ACCESS_DRAFT)
+  // (#548) Which tools the room offers. `undefined` = all of them, and that is
+  // what gets stored — never a list of all fifteen, or the next tool this app
+  // ships would be excluded from every room created today.
+  const [enabledTools, setEnabledTools] = useState<ToggleableTool[] | undefined>(undefined)
   const [error,       setError]       = useState<string | null>(null)
   // (#351) Set once the form has handed off to `navigate` and the page is
   // waiting to be replaced. Not a network request — creating a room is purely
@@ -220,23 +226,15 @@ export function CreateRoom() {
     // Handed to Room via navigation state (not localStorage) so it reaches
     // only this tab/browser — a joiner opening the same room link on another
     // device has no creator state and goes through the join gate instead.
-    const pw = usePassword && password ? password : undefined
-    // Blank lines and stray spaces are what a pasted list is made of. The
-    // server normalizes and validates each address anyway (#226) — this only
-    // decides what is worth sending.
-    const invites = accessMode === 'invite_only'
-      ? inviteText.split('\n').map(line => line.trim()).filter(Boolean)
-      : []
-    // Checked here as well as on the server, and not because the server can't
-    // be trusted — because it answers too late to be useful: the invites are
-    // sent after the room exists and this page is gone, so a typo would
-    // surface as a notice inside the editor, next to no field to fix it in.
-    const badLine = invites.find(email => !EMAIL_SHAPE.test(email))
-    if (badLine) {
-      setError(t('create.error.invalidInvite', { email: badLine }))
-      return
+    const pw = access.password ?? undefined
+    // (#548) Each address was checked as it was added (see
+    // useRoomAccessSource), so there is nothing left to validate here — the
+    // list is either empty or already well-formed. Only the mode decides
+    // whether it is worth sending; the server normalizes and dedups it (#226).
+    const accessPayload = {
+      accessMode: access.accessMode,
+      invites: access.accessMode === 'invite_only' ? access.invites : [],
     }
-    const access = { accessMode, invites }
 
     // (#436) Unreachable while the infinite card is disabled below, and kept
     // deliberately: the mode still exists end to end, only its entrance is
@@ -246,8 +244,8 @@ export function CreateRoom() {
       setEntering(true)
       navigate(`/room/${id}`, {
         state: {
-          room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true },
-          password: pw, folderId, ...access,
+          room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: true, enabledTools },
+          password: pw, folderId, ...accessPayload,
         },
       })
       return
@@ -273,13 +271,212 @@ export function CreateRoom() {
     setEntering(true)
     navigate(`/room/${id}`, {
       state: {
-        room: { id, name, paper, paperColor: resolvedPaperColorHex, infinite: false, canvasWidth: width, canvasHeight: height },
+        room: {
+          id, name, paper, paperColor: resolvedPaperColorHex, infinite: false,
+          canvasWidth: width, canvasHeight: height, enabledTools,
+        },
         password: pw,
         folderId,
-        ...access,
+        ...accessPayload,
       },
     })
   }
+
+  // (#548) What the other two tabs currently hold, in one line each. Built
+  // here rather than inside the rows so the sentence is one expression: mode,
+  // then password, then the invite list if it is doing anything.
+  const accessSummary = [
+    t(access.accessMode === 'invite_only' ? 'access.mode.inviteOnly' : 'access.mode.anyoneWithLink'),
+    t(access.password ? 'create.summary.password.on' : 'create.summary.password.off'),
+    ...(access.accessMode === 'invite_only' && access.invites.length > 0
+      ? [t('create.summary.invites', { n: access.invites.length })]
+      : []),
+  ].join(' · ')
+
+  const toolsSummary = enabledTools
+    ? t('create.summary.tools', { n: enabledTools.length, total: TOGGLEABLE_TOOLS.length })
+    : t('create.summary.toolsAll')
+
+  // (#548) The first tab: what the picture itself is. Held in a variable
+  // rather than inline, because OptionGroup takes each tab's content as a
+  // prop — the alternative is three components that would each need the
+  // whole of this page's state passed down.
+  const generalTab = (
+    <>
+      {/* Room name */}
+      <div className={styles.section}>
+        <div className={styles.label}>{t('create.roomName')}</div>
+        <input
+          className={styles.input}
+          type="text"
+          placeholder={t('create.untitled')}
+          maxLength={50}
+          value={roomName}
+          onChange={e => setRoomName(e.target.value)}
+        />
+      </div>
+
+      {/* Paper texture */}
+      <div className={styles.section}>
+        <div className={styles.paperSectionHeader}>
+          <div className={styles.label}>{t('create.paperSection')}</div>
+          <div className={styles.colorPickerAnchor} ref={colorPickerRef}>
+            <button
+              type="button"
+              className={styles.colorSwatchTrigger}
+              style={{ background: resolvedPaperColorHex }}
+              aria-label={t('create.paperColor')}
+              aria-haspopup="dialog"
+              aria-expanded={colorPickerOpen}
+              onClick={() => setColorPickerOpen(o => !o)}
+            />
+            {colorPickerOpen && (
+              <div className={styles.colorPopover} onClick={e => e.stopPropagation()}>
+                <ColorPicker
+                  value={paperColor ?? hexToRgb(DEFAULT_PAPER_COLORS[paper])}
+                  onChange={setPaperColor}
+                />
+                {paperColor && (
+                  <button type="button" className={styles.colorReset} onClick={() => setPaperColor(null)}>
+                    {t('create.useDefaultColor')}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        {/* How much tooth. Flat is the end stop of this axis. */}
+        <div className={styles.paperCards}>
+          {COARSENESS_ROW.map(row => (
+            <PaperCard
+              key={row}
+              type={row}
+              label={t(COARSENESS_KEYS[row].label)}
+              desc={t(COARSENESS_KEYS[row].desc)}
+              selected={paper === row}
+              bgColorHex={resolvedPaperColorHex}
+              onSelect={() => setPaper(row)}
+            />
+          ))}
+        </div>
+
+      </div>
+
+      {/* Canvas size */}
+      <div className={styles.section}>
+        <div className={styles.label}>{t('create.canvasSize')}</div>
+        <div className={styles.sizeCards}>
+          {SIZE_OPTIONS.map(opt => {
+            const { width, height } = resolveSize(opt, orientation)
+            const selected = sizePreset === opt.id
+            return (
+            <div
+              key={opt.id}
+              className={clsx(styles.sizeCard, selected && styles.selected)}
+              onClick={() => handleSizeClick(opt)}
+            >
+              {selected && opt.rotatable && (
+                // Duplicates the card's own second-click toggle on purpose:
+                // the gesture is the shortcut, this is the thing that tells
+                // you the gesture exists (and gives it a keyboard path).
+                <button
+                  type="button"
+                  className={styles.rotateBadge}
+                  title={t(orientation === 'portrait' ? 'create.rotateToLandscape' : 'create.rotateToPortrait')}
+                  aria-label={t(orientation === 'portrait' ? 'create.rotateToLandscape' : 'create.rotateToPortrait')}
+                  onClick={e => { e.stopPropagation(); toggleOrientation() }}
+                >
+                  <Icon name="rotate_90_degrees_cw" />
+                </button>
+              )}
+              {opt.id !== 'custom' ? (
+                <SizeIcon width={width} height={height} />
+              ) : (
+                <div className={styles.sizeIconWrap}>
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="2" width="10" height="10" rx="1" stroke="currentColor" strokeOpacity="0.5" strokeWidth="1.5" fill="none"/>
+                    <rect x="16" y="2" width="10" height="10" rx="1" stroke="currentColor" strokeOpacity="0.5" strokeWidth="1.5" fill="none"/>
+                    <rect x="2" y="16" width="10" height="10" rx="1" stroke="currentColor" strokeOpacity="0.5" strokeWidth="1.5" fill="none"/>
+                    <rect x="16" y="16" width="10" height="10" rx="1" stroke="currentColor" strokeOpacity="0.35" strokeWidth="1.5" strokeDasharray="3 2" fill="none"/>
+                  </svg>
+                </div>
+              )}
+              <div className={styles.sizeName}>{sizeOptionLabel(opt, t)}</div>
+              {opt.id !== 'custom' && (
+                <div className={styles.sizeDims}>{width} × {height}</div>
+              )}
+            </div>
+            )
+          })}
+          {/* (#436) The infinite canvas isn't part of the first release, so
+              the only way into the mode is closed here — the card stays on
+              screen, unselectable, as an announcement rather than a hole in
+              the grid. Everything downstream of it (the `infinite` preset,
+              the engine's tiled mode, rooms already created that way) is
+              untouched: re-opening it is deleting this block's disabled
+              state, not rebuilding a feature. */}
+          <div
+            key="infinite"
+            className={clsx(styles.sizeCard, styles.sizeCardDisabled)}
+            aria-disabled="true"
+            title={t('create.size.comingSoon')}
+          >
+            <div className={styles.sizeIconWrap}>
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M8 14c0-2.5 1.8-4.5 4-4.5s3 2 4 4.5s2 4.5 4 4.5s4-2 4-4.5s-1.8-4.5-4-4.5s-3 2-4 4.5s-2 4.5-4 4.5s-4-2-4-4.5Z"
+                  stroke="currentColor" strokeOpacity="0.6" strokeWidth="1.5" fill="none"
+                />
+              </svg>
+            </div>
+            <div className={styles.sizeName}>{t('create.size.infinite')}</div>
+            <div className={styles.comingSoon}>{t('create.size.comingSoon')}</div>
+          </div>
+        </div>
+
+        {sizePreset === 'custom' && (
+          <div className={styles.customRow}>
+            <input
+              className={styles.input}
+              type="number"
+              min={100}
+              max={4096}
+              placeholder={t('create.width')}
+              value={customW}
+              onChange={e => setCustomW(e.target.value)}
+            />
+            <span className={styles.customSep}>×</span>
+            <input
+              className={styles.input}
+              type="number"
+              min={100}
+              max={4096}
+              placeholder={t('create.height')}
+              value={customH}
+              onChange={e => setCustomH(e.target.value)}
+            />
+            <span className={styles.customUnit}>px</span>
+          </div>
+        )}
+      </div>
+
+      {/* (#548) The two tabs, said out loud on the first one. A setting behind a
+          tab nobody opens is a setting nobody knows exists — these rows keep the
+          choices visible, and each is the way in to change them. */}
+      <div className={styles.section}>
+        <button type="button" className={styles.summaryRow} onClick={() => setTab('access')}>
+          <span className={styles.summaryLabel}>{t('create.tab.access')}</span>
+          <span className={styles.summaryValue}>{accessSummary}</span>
+          <Icon name="chevron_right" />
+        </button>
+        <button type="button" className={styles.summaryRow} onClick={() => setTab('tools')}>
+          <span className={styles.summaryLabel}>{t('create.tab.tools')}</span>
+          <span className={styles.summaryValue}>{toolsSummary}</span>
+          <Icon name="chevron_right" />
+        </button>
+      </div>
+    </>
+  )
 
   return (
     <div className={styles.page}>
@@ -288,225 +485,28 @@ export function CreateRoom() {
       <form className={styles.card} onSubmit={handleSubmit} noValidate>
         <h1 className={styles.heading}>{t('create.heading')}</h1>
 
-        {/* Room name */}
-        <div className={styles.section}>
-          <div className={styles.label}>{t('create.roomName')}</div>
-          <input
-            className={styles.input}
-            type="text"
-            placeholder={t('create.untitled')}
-            maxLength={50}
-            value={roomName}
-            onChange={e => setRoomName(e.target.value)}
-          />
-        </div>
-
-        {/* Paper texture */}
-        <div className={styles.section}>
-          <div className={styles.paperSectionHeader}>
-            <div className={styles.label}>{t('create.paperSection')}</div>
-            <div className={styles.colorPickerAnchor} ref={colorPickerRef}>
-              <button
-                type="button"
-                className={styles.colorSwatchTrigger}
-                style={{ background: resolvedPaperColorHex }}
-                aria-label={t('create.paperColor')}
-                aria-haspopup="dialog"
-                aria-expanded={colorPickerOpen}
-                onClick={() => setColorPickerOpen(o => !o)}
-              />
-              {colorPickerOpen && (
-                <div className={styles.colorPopover} onClick={e => e.stopPropagation()}>
-                  <ColorPicker
-                    value={paperColor ?? hexToRgb(DEFAULT_PAPER_COLORS[paper])}
-                    onChange={setPaperColor}
-                  />
-                  {paperColor && (
-                    <button type="button" className={styles.colorReset} onClick={() => setPaperColor(null)}>
-                      {t('create.useDefaultColor')}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          {/* How much tooth. Flat is the end stop of this axis. */}
-          <div className={styles.paperCards}>
-            {COARSENESS_ROW.map(row => (
-              <PaperCard
-                key={row}
-                type={row}
-                label={t(COARSENESS_KEYS[row].label)}
-                desc={t(COARSENESS_KEYS[row].desc)}
-                selected={paper === row}
-                bgColorHex={resolvedPaperColorHex}
-                onSelect={() => setPaper(row)}
-              />
-            ))}
-          </div>
-
-        </div>
-
-        {/* Canvas size */}
-        <div className={styles.section}>
-          <div className={styles.label}>{t('create.canvasSize')}</div>
-          <div className={styles.sizeCards}>
-            {SIZE_OPTIONS.map(opt => {
-              const { width, height } = resolveSize(opt, orientation)
-              const selected = sizePreset === opt.id
-              return (
-              <div
-                key={opt.id}
-                className={clsx(styles.sizeCard, selected && styles.selected)}
-                onClick={() => handleSizeClick(opt)}
-              >
-                {selected && opt.rotatable && (
-                  // Duplicates the card's own second-click toggle on purpose:
-                  // the gesture is the shortcut, this is the thing that tells
-                  // you the gesture exists (and gives it a keyboard path).
-                  <button
-                    type="button"
-                    className={styles.rotateBadge}
-                    title={t(orientation === 'portrait' ? 'create.rotateToLandscape' : 'create.rotateToPortrait')}
-                    aria-label={t(orientation === 'portrait' ? 'create.rotateToLandscape' : 'create.rotateToPortrait')}
-                    onClick={e => { e.stopPropagation(); toggleOrientation() }}
-                  >
-                    <Icon name="rotate_90_degrees_cw" />
-                  </button>
-                )}
-                {opt.id !== 'custom' ? (
-                  <SizeIcon width={width} height={height} />
-                ) : (
-                  <div className={styles.sizeIconWrap}>
-                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <rect x="2" y="2" width="10" height="10" rx="1" stroke="currentColor" strokeOpacity="0.5" strokeWidth="1.5" fill="none"/>
-                      <rect x="16" y="2" width="10" height="10" rx="1" stroke="currentColor" strokeOpacity="0.5" strokeWidth="1.5" fill="none"/>
-                      <rect x="2" y="16" width="10" height="10" rx="1" stroke="currentColor" strokeOpacity="0.5" strokeWidth="1.5" fill="none"/>
-                      <rect x="16" y="16" width="10" height="10" rx="1" stroke="currentColor" strokeOpacity="0.35" strokeWidth="1.5" strokeDasharray="3 2" fill="none"/>
-                    </svg>
-                  </div>
-                )}
-                <div className={styles.sizeName}>{sizeOptionLabel(opt, t)}</div>
-                {opt.id !== 'custom' && (
-                  <div className={styles.sizeDims}>{width} × {height}</div>
-                )}
-              </div>
-              )
-            })}
-            {/* (#436) The infinite canvas isn't part of the first release, so
-                the only way into the mode is closed here — the card stays on
-                screen, unselectable, as an announcement rather than a hole in
-                the grid. Everything downstream of it (the `infinite` preset,
-                the engine's tiled mode, rooms already created that way) is
-                untouched: re-opening it is deleting this block's disabled
-                state, not rebuilding a feature. */}
-            <div
-              key="infinite"
-              className={clsx(styles.sizeCard, styles.sizeCardDisabled)}
-              aria-disabled="true"
-              title={t('create.size.comingSoon')}
-            >
-              <div className={styles.sizeIconWrap}>
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path
-                    d="M8 14c0-2.5 1.8-4.5 4-4.5s3 2 4 4.5s2 4.5 4 4.5s4-2 4-4.5s-1.8-4.5-4-4.5s-3 2-4 4.5s-2 4.5-4 4.5s-4-2-4-4.5Z"
-                    stroke="currentColor" strokeOpacity="0.6" strokeWidth="1.5" fill="none"
-                  />
-                </svg>
-              </div>
-              <div className={styles.sizeName}>{t('create.size.infinite')}</div>
-              <div className={styles.comingSoon}>{t('create.size.comingSoon')}</div>
-            </div>
-          </div>
-
-          {sizePreset === 'custom' && (
-            <div className={styles.customRow}>
-              <input
-                className={styles.input}
-                type="number"
-                min={100}
-                max={4096}
-                placeholder={t('create.width')}
-                value={customW}
-                onChange={e => setCustomW(e.target.value)}
-              />
-              <span className={styles.customSep}>×</span>
-              <input
-                className={styles.input}
-                type="number"
-                min={100}
-                max={4096}
-                placeholder={t('create.height')}
-                value={customH}
-                onChange={e => setCustomH(e.target.value)}
-              />
-              <span className={styles.customUnit}>px</span>
-            </div>
-          )}
-        </div>
-
-        {/* Access (#232) — who may enter, and separately whether a password is
-            asked. Two controls rather than one three-way choice, because the
-            two are independent: an invite-only lesson can also carry a
-            password, and an open one usually is the one that needs it. */}
-        <div className={styles.section}>
-          <div className={styles.label}>{t('create.access')}</div>
-          <OptionGroup
-            variant="list"
-            selection="radio"
-            ariaLabel={t('create.access')}
-            active={accessMode}
-            onSelect={setAccessMode}
-            options={[
-              { id: 'anyone_with_link', label: t('access.mode.anyoneWithLink') },
-              { id: 'invite_only', label: t('access.mode.inviteOnly') },
-            ]}
-          />
-          {accessMode === 'invite_only' && (
-            <>
-              <textarea
-                className={styles.invites}
-                rows={4}
-                placeholder={t('create.invitesPlaceholder')}
-                value={inviteText}
-                onChange={e => setInviteText(e.target.value)}
-                autoComplete="off"
-                spellCheck={false}
-              />
-              {/* Says the two things that are not obvious: the list can wait,
-                  and an invite reaches a person only once they sign in with
-                  that address (roomAccess.ts's allow-list is keyed by it). */}
-              <div className={styles.hint}>{t('create.invitesHint')}</div>
-            </>
-          )}
-          <label className={styles.toggleRow}>
-            <div className={clsx(styles.toggle, usePassword && styles.toggleOn)}>
-              <div className={clsx(styles.toggleThumb, usePassword && styles.toggleThumbOn)} />
-            </div>
-            {/* (#232) One label, not two: the toggle used to double as the
-                access setting, so it read "Open — anyone with the link" when
-                off. That sentence now belongs to the mode above, and saying
-                it twice — once as a mode, once as the off-state of a password
-                switch — would make them look like the same choice. */}
-            <span className={styles.toggleLabel}>{t('create.requirePassword')}</span>
-            <input
-              type="checkbox"
-              checked={usePassword}
-              onChange={e => setUsePassword(e.target.checked)}
-              style={{ display: 'none' }}
-            />
-          </label>
-          {usePassword && (
-            <input
-              className={styles.input}
-              type="password"
-              placeholder={t('create.roomPassword')}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoComplete="new-password"
-            />
-          )}
-        </div>
+        <OptionGroup
+          options={[
+            { id: 'general', label: t('create.tab.general'), content: generalTab },
+            {
+              id: 'access',
+              label: t('create.tab.access'),
+              // (#548) The very panel the room's own settings show, in draft
+              // mode — no room exists yet, so what it collects travels with
+              // the navigation instead of reaching the server. See
+              // useRoomAccessSource.
+              content: <RoomAccessControl draft={{ value: access, onChange: setAccess }} />,
+            },
+            {
+              id: 'tools',
+              label: t('create.tab.tools'),
+              content: <ToolSetPicker value={enabledTools} onChange={setEnabledTools} />,
+            },
+          ]}
+          active={tab}
+          onSelect={setTab}
+          ariaLabel={t('create.heading')}
+        />
 
         {error && <div className={styles.error}>{error}</div>}
 

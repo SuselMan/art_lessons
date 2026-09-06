@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand'
-import type { Participant, RoomAccessMode } from '@grafetto/shared'
+import type { Participant, RoomAccessMode, ToggleableTool } from '@grafetto/shared'
 
 import { participantsReducer, type ParticipantsAction } from '../../pages/Room/participants'
 import type { PaperType } from '@grafetto/shared'
@@ -37,6 +37,11 @@ export interface RoomInfo {
   // point that has to supply it by hand is the creator's own (nothing has
   // been received yet) — see toRoomConfig in Room/index.tsx.
   accessMode: RoomAccessMode
+  // (#548) Which tools the room offers, or absent for "all of them" — the
+  // shared `Room.enabledTools`, unchanged. Optional, unlike `accessMode`
+  // above, and for the opposite reason: here the absence is itself the
+  // meaning, so there is no default anyone could spell out wrong.
+  enabledTools?: ToggleableTool[]
 }
 
 export interface RoomInfoSlice {
@@ -81,6 +86,14 @@ export interface RoomInfoSlice {
   // the tab that made it — enough for what reads it, which is the warning on
   // the Share menu item.
   setRoomAccessMode: (accessMode: RoomAccessMode) => void
+  // (#548) The room's toolset — another column of the room, arriving inside
+  // `room` on join. Unlike `accessMode` this one *does* have a socket event
+  // (`room_tools_changed`), because it has to reach every participant the
+  // moment the owner changes it: a teacher taking the eraser off the desk
+  // mid-lesson is not a setting that can wait for everyone to reload.
+  //
+  // `undefined` = the room offers everything; see `sanitizeEnabledTools`.
+  setRoomEnabledTools: (enabledTools: ToggleableTool[] | undefined) => void
 }
 
 export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
@@ -107,5 +120,8 @@ export const createRoomInfoSlice: StateCreator<RoomInfoSlice> = set => ({
   )),
   setRoomAccessMode: accessMode => set(state => (
     state.room ? { room: { ...state.room, accessMode } } : {}
+  )),
+  setRoomEnabledTools: enabledTools => set(state => (
+    state.room ? { room: { ...state.room, enabledTools } } : {}
   )),
 })
