@@ -3475,6 +3475,27 @@ export const PAPER_COMPOSE_FRAG = `
    *  visibly octagonal. Nine taps of a separable 1-2-1 is the smallest kernel
    *  whose support actually spans the staircase, and it is separable enough to
    *  stay isotropic, which a wider box would not be. */
+  /** (#536, s17.18) The body level of the puddle THIS texel belongs to: the
+   *  maximum over the five-by-five cells around it (two cells is the whole
+   *  of the tent's edge ramp, so from anywhere on an edge the body is in
+   *  reach). Everything placed on the edge's ramp is normalised by it rather
+   *  than by the sheet's peak. Normalising by the sheet's peak was right
+   *  only while there was one puddle: lay a fresh one beside an old one at
+   *  a fifth of its level and the old puddle's whole BODY lands at the t of
+   *  the new one's edge, where the rim and its dark ring are drawn - "рядом
+   *  возвращается уже высохшая лужа и заново сохнет"; and touching a pen
+   *  into a wash lifted the peak back to one, so every band in it moved. */
+  float wcWetBodyAt(vec2 uv) {
+    vec2 h = 1.0 / max(u_wetMapSize, vec2(1.0));
+    float m = 0.0;
+    for (int j = -2; j <= 2; j++) {
+      for (int i = -2; i <= 2; i++) {
+        m = max(m, texture2D(u_wetMap, uv + vec2(float(i), float(j)) * h).r);
+      }
+    }
+    return m;
+  }
+
   float wcWetAt(vec2 uv) {
     vec2 h = 1.0 / max(u_wetMapSize, vec2(1.0));
     float c = texture2D(u_wetMap, uv).r;
@@ -3631,7 +3652,8 @@ export const PAPER_COMPOSE_FRAG = `
         // limit of everything the overlay draws: past it the sheet is painted
         // exactly as dry paper, whatever the field still holds out there for
         // the *model* to read.
-        float t = clamp(raw / max(u_wetPeak, 0.05), 0.0, 1.0);
+        float body = max(wcWetBodyAt(wetUV), 0.05);
+        float t = clamp(raw / body, 0.0, 1.0);
         float inWater = step(WC_EDGE_OUT, t);
         // Which of these read the shared coordinate and which read the raw
         // value is not a detail — it is the difference between "where is the
@@ -3673,7 +3695,7 @@ export const PAPER_COMPOSE_FRAG = `
         // reason: without it the lit/unlit split fades out as the sheet dries,
         // taking the highlight and the cast shadow with it and leaving a bare
         // ring long before the water is gone.
-        float side = clamp((ahead - raw) * WC_WET_RIM_GAIN / max(u_wetPeak, 0.05), 0.0, 1.0);
+        float side = clamp((ahead - raw) * WC_WET_RIM_GAIN / body, 0.0, 1.0);
         rim = side * inWater
           * smoothstep(WC_RIM_LO, WC_RIM_MID, t)
           * (1.0 - smoothstep(WC_RIM_MID, WC_RIM_HI, t));
@@ -3688,13 +3710,11 @@ export const PAPER_COMPOSE_FRAG = `
           * smoothstep(WC_CAST_OUT, WC_CAST_MID, t)
           * (1.0 - smoothstep(WC_CAST_MID, WC_CAST_IN, t));
         // The bead is a thing standing water does - see WC_BEAD_LO. Gated on
-        // the sheet's PEAK, not on raw here: the bands sit on the edge ramp,
-        // where raw is a fifth of the body by construction (t = 0.16..0.20),
-        // so gating on the local value switched every bead off - "ты лужу
-        // сломал, где блик". The peak says whether anything on the sheet is
-        // standing water at all; a damp stroke laid beside a full puddle gets a
-        // bead it should not have, for as long as the puddle lasts - accepted.
-        float bead = smoothstep(WC_BEAD_LO, WC_BEAD_HI, u_wetPeak);
+        // the puddle's BODY level, not on raw here: the bands sit on the edge
+        // ramp, where raw is a fifth of the body by construction (t =
+        // 0.16..0.20), so gating on the local value switched every bead off -
+        // "ты лужу сломал, где блик".
+        float bead = smoothstep(WC_BEAD_LO, WC_BEAD_HI, body);
         rim *= bead;
         rimDark *= bead;
         rimCast *= bead;
