@@ -52,6 +52,18 @@ export const FEATURE_FLAGS: readonly FeatureFlagDef[] = [
     description: 'Paints the wash with the film density as the tone — everything the deposit carries, including the mottling now written into it. If the blotching is here, it is the deposit. Wins over the silhouette view when both are on.',
     envVar: 'VITE_WC_VIEW_DENSITY',
   },
+  {
+    key: 'wcViewPigment',
+    label: 'Watercolor: show mobile pigment only (dev only)',
+    description: 'Paints the wash with the pigment channel of the deposit (deposit x strength, x3) as the tone - what the wet diffusion pass carries (#536, ADR 011 s17.11). Wins over the silhouette and density views.',
+    envVar: 'VITE_WC_VIEW_PIGMENT',
+  },
+  {
+    key: 'wcViewWater',
+    label: 'Watercolor: show standing water only (dev only)',
+    description: 'Paints the wash with the standing water the wet diffusion pass gates on - the free water of clean passes and the wetness pigment passes recorded under themselves (#536, ADR 011 s17.11). Wins over the other three views.',
+    envVar: 'VITE_WC_VIEW_WATER',
+  },
 ]
 
 const STORAGE_PREFIX = 'featureFlag:'

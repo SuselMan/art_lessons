@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, WC_DIFFUSE_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -58,6 +58,7 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
+import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_RADII } from './src/wetDiffusion'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper,
@@ -858,7 +859,7 @@ export interface PencilEngineAPI {
   // _exportInfinitePNG's own doc comment for the full reasoning.
   exportPNG(transparent?: boolean): Promise<Blob | null>
   /** (#536) Dev-only single-term view of the watercolor composite. */
-  setWatercolorDebugView(view: 0 | 1 | 2): void
+  setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void
 
   destroy(): void
 }
@@ -1429,6 +1430,15 @@ const WASH_RECENT_MS = 1200
  *  strokes of one wash. Past that the oldest goes back to being a seam. */
 const REPLAY_RIBBON_CHUNK_SLOTS = 4
 
+/** (#536, ADR 011 §17.11) The free standing water a stroke lays on the sheet:
+ *  a clean-water stroke's nominal mix water, and nothing for a stroke carrying
+ *  pigment — see u_washWater in RIBBON_FRAG for why a wet pigment stroke is not
+ *  its own puddle. The nominal mix rather than the depleted load, for the same
+ *  reason the live wetness field is fed the mix (see _paintDabs). */
+function ribbonFreeWater(profile: RibbonProfile): number {
+  return profile.normalizeDeposit && profile.pigmentStrength <= 0 ? profile.waterLevel : 0
+}
+
 const MARKER_SCRATCH_POOL_PER_SIZE = 6
 
 class RibbonScratchPool {
@@ -1491,6 +1501,13 @@ class RibbonStrokeScratch {
    *  either carry it between unrelated strokes or reset it at every chunk
    *  boundary — and a seam in the depletion is a visible band across the mark. */
   private _waterUsed = 0
+  /** (#536, ADR 011 §17.11) Whether deposit has been laid since the wash's
+   *  pigment was last diffused. The diffusion is the one pass in this tool
+   *  that is *not* idempotent — every run is N more steps — so it may run
+   *  exactly once per operation, on every path alike: a live chunk flush, the
+   *  pen-up, a replayed chunk, a peer's operation. This flag is what makes
+   *  that true whichever path calls _finishRibbonStroke and however often. */
+  diffusePending = false
   /** (#536) The same clock for pigment, and the reason it is a second number
    *  rather than the same one is the brush drinking from wet paper.
    *
@@ -1702,6 +1719,7 @@ class RibbonStrokeScratch {
   destroy(): void {
     this._waterUsed = 0
     this._pigmentUsed = 0
+    this.diffusePending = false
     this._composite = null
     this._dabSpacing = 0
     this._dirSet = false
@@ -1889,7 +1907,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** Quantized wetness the screen is currently showing, so the drying watcher
    *  can skip the frames that would look identical. -1 = nothing shown. */
   private _wetShown = -1
-  /** (#536) 0 normal, 1 silhouette, 2 density — see setWatercolorDebugView. */
+  /** (#536) 0 normal, 1 silhouette, 2 density, 3 pigment, 4 standing water — see setWatercolorDebugView. */
   private _wcDebugView = 0
   /** Handle of the repaint that watches the paper dry, or 0. */
   private _dryingTimer = 0
@@ -2034,6 +2052,11 @@ export class PencilEngine implements PencilEngineAPI {
   // apply.
   private _ribbonProg!: WebGLProgram
   private _ribbonUni!: Record<string, WebGLUniformLocation | null>
+  /** (#536) One step of pigment diffusion in standing water — see
+   *  WC_DIFFUSE_FRAG and wetDiffusion.ts. */
+  private _diffuseProg!: WebGLProgram
+  private _diffuseUni!: Record<string, WebGLUniformLocation | null>
+  private _diffusePosLoc = -1
   private _ribbonPosLoc!: number
   private _ribbonEdgeLoc!: number
   private _ribbonInkLoc!: number
@@ -3155,14 +3178,16 @@ export class PencilEngine implements PencilEngineAPI {
   }
 
   /** (#536) Paints the wash with one term of the composite's product instead
-   *  of the product: 1 the silhouette after spreading, 2 the film's density.
+   *  of the product: 1 the silhouette after spreading, 2 the film's density,
+   *  3 the deposit's pigment channel, 4 the standing water the wet diffusion
+   *  pass gates on (§17.11).
    *
    *  Exists because "which of these fields is the blotching" was answered three
    *  times by reasoning about amplitudes and wrong every time. The terms have
    *  different spatial scales and different origins — one is the deposit, one
    *  is a blur-and-rethreshold of the silhouette — so a single look at each
    *  settles it. Dev-only, on the Debug tab. */
-  setWatercolorDebugView(view: 0 | 1 | 2): void {
+  setWatercolorDebugView(view: 0 | 1 | 2 | 3 | 4): void {
     this._wcDebugView = view
     this._display()
   }
@@ -5182,6 +5207,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._smudgeProg          = createProgram(gl, DAB_VERT, SMUDGE_TRANSFER_FRAG)
     this._smudgePickupProg    = createProgram(gl, DISPLAY_VERT, SMUDGE_PICKUP_FRAG)
     this._ribbonProg          = createProgram(gl, RIBBON_VERT, RIBBON_FRAG)
+    this._diffuseProg         = createProgram(gl, DISPLAY_VERT, WC_DIFFUSE_FRAG)
 
     this._dabUni  = getUniforms(gl, this._dabProg, [
       'u_dabCenter', 'u_dabRadius', 'u_angle', 'u_aspectRatio',
@@ -5211,7 +5237,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_inkStrength', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_inkStrength', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -5233,6 +5259,7 @@ export class PencilEngine implements PencilEngineAPI {
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
       'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit',
+      'u_washWater',
     ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
@@ -5245,6 +5272,10 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
+    this._diffuseUni = getUniforms(gl, this._diffuseProg, [
+      'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
+      'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius',
+    ])
     this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
     this._areaTransformUni = getUniforms(gl, this._areaTransformProg, [
       'u_source', 'u_mask', 'u_dstSize', 'u_srcSize', 'u_srcOrigin', 'u_maskRect', 'u_matrixInv',
@@ -5269,6 +5300,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentPosLoc = gl.getAttribLocation(this._dispTransparentProg, 'a_position')
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
+    this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
     this._areaTransformPosLoc  = gl.getAttribLocation(this._areaTransformProg, 'a_position')
     this._areaMaskPosLoc       = gl.getAttribLocation(this._areaMaskProg, 'a_position')
@@ -6484,6 +6516,11 @@ export class PencilEngine implements PencilEngineAPI {
     // Drained with the dabs it belongs to: the next chunk's profile starts at
     // its own first dab, exactly as a replayed operation's does.
     this._strokeWet = ''
+    // (#536) Settle at the chunk boundary, exactly as a replay settles each
+    // chunk operation: the diffusion inside runs once per operation, and the
+    // author has to run it at the same moments the replay will, or the two
+    // land on different pictures.
+    if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch)
   }
 
   // ─── Reference image import (#88) ──────────────────────────────────────────────
@@ -8045,11 +8082,19 @@ export class PencilEngine implements PencilEngineAPI {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
 
       for (const dab of drawable) {
+        // (#536, s17.11) The recorded paper wetness rides along into the
+        // coverage stamp too: its .b is the standing-water record the
+        // diffusion pass gates on. See u_washWater.
         this._drawRibbonNibPass(
           coverage, tile, dab, preset, profile, 6, 0, true, 0, acrossByDab.get(dab) ?? [0, 1],
+          paperWetByDab.get(dab) ?? 0,
         )
       }
-      if (bands.length) this._drawRibbonBands(coverage, tile, bands, 'coverage', profile.aaPx)
+      if (bands.length) {
+        this._drawRibbonBands(
+          coverage, tile, bands, 'coverage', profile.aaPx, 0, 0, [0, 0], ribbonFreeWater(profile),
+        )
+      }
 
       // Ink follows the *same* figure as the silhouette. Depositing it only at
       // the sample stamps is what produced the rounded white notches on turns:
@@ -8074,6 +8119,7 @@ export class PencilEngine implements PencilEngineAPI {
         if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed)
       }
 
+      if (inkLoad && profile.normalizeDeposit) scratch.diffusePending = true
       // (#536, ADR 011 §17.10) The halo, after the mark itself: ink only, and
       // only where the wash already has coverage. The pigment a wet-in-wet dab
       // sheds travels as far as the standing water and no further, and the
@@ -8121,6 +8167,57 @@ export class PencilEngine implements PencilEngineAPI {
    *  the buffers complete — the same thing a replay of this stroke does in a
    *  single call. See RibbonStrokeScratch's own _finish for why the incremental
    *  per-batch composites are not enough on their own. */
+  /** (#536, ADR 011 §17.11) One step of WC_DIFFUSE_FRAG per entry of the
+   *  schedule (WET_DIFFUSE_RADII) over each tile's deposit, ping-ponged through
+   *  a pooled buffer. The schedule is a constant of the tool and nothing here
+   *  reads a clock, so a
+   *  replay lands on the same texels as the author did — up to the 8-bit
+   *  quantisation between steps, which is the measured, not argued, part. */
+  private _diffuseWash(scratch: RibbonStrokeScratch, targets: PaintTarget[]): void {
+    const { gl } = this
+    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+    for (const tile of targets) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry || !entry.inkLoad) continue
+      const { coverage } = entry
+      let src = entry.inkLoad
+      let dst = this._ribbonScratchPool.acquire(src.width, src.height)
+      const spare = dst
+      for (const radius of WET_DIFFUSE_RADII) {
+        dst.beginReplaceDraw()
+        gl.useProgram(this._diffuseProg)
+        const u = this._diffuseUni
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+        gl.enableVertexAttribArray(this._diffusePosLoc)
+        gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, src.texture)
+        gl.uniform1i(u.u_ink, 0)
+        gl.activeTexture(gl.TEXTURE1)
+        gl.bindTexture(gl.TEXTURE_2D, coverage.texture)
+        gl.uniform1i(u.u_coverage, 1)
+        gl.activeTexture(gl.TEXTURE2)
+        gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+        gl.uniform1i(u.u_paperHeightMap, 2)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.uniform2f(u.u_resolution, src.width, src.height)
+        gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
+        gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+        gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+        gl.uniform1f(u.u_d, WET_DIFFUSE_D)
+        gl.uniform1f(u.u_b, WET_DIFFUSE_B)
+        gl.uniform1f(u.u_radius, radius)
+        gl.drawArrays(gl.TRIANGLES, 0, 6)
+        dst.endDraw()
+        const t = src; src = dst; dst = t
+      }
+      // An odd step count leaves the result in the spare; the wash's own
+      // buffer is what everything else reads, so bring it home.
+      if (src !== entry.inkLoad) src.copyTo(entry.inkLoad)
+      this._ribbonScratchPool.release(spare)
+    }
+  }
+
   private _finishRibbonStroke(scratch: RibbonStrokeScratch): void {
     const ctx = scratch.finishContext
     if (!ctx || !ctx.profile.normalizeDeposit) return
@@ -8135,6 +8232,16 @@ export class PencilEngine implements PencilEngineAPI {
     )
     const spacing = scratch.noteDabSpacing(0)
     const dir = scratch.noteDirection(0, 0)
+    // (#536, ADR 011 §17.11) The mobile phase. Pigment laid into standing
+    // water keeps moving after the brush has gone; this is where it moves —
+    // once per operation, before the composite reads the result, and only
+    // here: the live batches composite what the brush laid, and the settle at
+    // each operation boundary is what carries the paint. See diffusePending on
+    // why once, and wetDiffusion.ts for what one step is.
+    if (scratch.diffusePending) {
+      this._diffuseWash(scratch, targets)
+      scratch.diffusePending = false
+    }
     for (const tile of targets) {
       const entry = scratch.peek(tile.buffer)
       if (!entry) continue
@@ -8277,6 +8384,10 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_inkWater, inkWater)
     gl.uniform2f(u.u_acrossLocal, acrossLocal[0], acrossLocal[1])
     gl.uniform1f(u.u_paperWet, paperWet)
+    // (#536, s17.11) The free water a clean-water stroke lays - the mix's
+    // water, not this dab's depleted load - into coverage .b, the record of
+    // standing water the diffusion pass gates on. See u_washWater.
+    gl.uniform1f(u.u_washWater, ribbonFreeWater(profile))
     gl.uniform1f(u.u_inkStrength, inkStrength)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
@@ -8292,6 +8403,9 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawRibbonBands(
     dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink', aaPx: number,
     cloud = 0, gran = 0, mottleSeed: [number, number] = [0, 0],
+    /** (#536, s17.11) Coverage mode only: the stroke's free water, into .b
+     *  together with each band's recorded paper wetness. See u_washWater. */
+    washWater = 0,
   ): void {
     const { gl } = this
     const local = new Float32Array(bands.length)
@@ -8315,6 +8429,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(this._ribbonUni.u_cloudDeposit, cloud)
     gl.uniform1f(this._ribbonUni.u_granDeposit, gran)
     gl.uniform2f(this._ribbonUni.u_mottleSeed, mottleSeed[0], mottleSeed[1])
+    gl.uniform1f(this._ribbonUni.u_washWater, washWater)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
     gl.bufferData(gl.ARRAY_BUFFER, local, gl.STREAM_DRAW)

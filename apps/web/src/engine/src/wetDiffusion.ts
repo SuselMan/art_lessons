@@ -1,0 +1,186 @@
+// #536, ADR 011 §17.11: the mobile phase of pigment — diffusion in standing
+// water, as a CPU reference model.
+//
+// This file is the *oracle*, not the production path. The production path is
+// a GLSL pass over the wash's deposit buffer (WC_DIFFUSE_FRAG), and the whole
+// point of having this twin in plain TypeScript is that the algorithm can be
+// proved on a 32x32 grid — mass conserved, pigment confined to the water,
+// valleys favoured over crests, symmetry kept — before a single shader line is
+// tuned by eye. Five rounds of "растекание должно быть сильнее" were spent
+// re-shaping a *stamp*, and none of them could have worked: what was missing
+// was not a shape but a phase. Pigment dropped into water keeps moving after
+// the brush has gone. That is what this computes.
+//
+// The model, deliberately the simplest that has the four properties:
+//
+//   one step = for every pixel i and each of its K stencil neighbours j, an
+//   exchange of pigment across the pair, decided once per pair and applied
+//   with opposite signs to the two — so whatever i loses j gains, exactly,
+//   and the total cannot drift by construction.
+//
+//   flux(i -> j) = gate(i, j) * (
+//         D * (c_i - c_j)                          diffusion proper
+//       + B * max(h_i - h_j, 0) * c_i               downhill, i donating
+//       - B * max(h_j - h_i, 0) * c_j )             downhill, j donating
+//
+//   gate(i, j) = min(w_i, w_j) — water on BOTH sides, or nothing moves. That
+//   one term is the puddle's edge: a dry pixel next to a wet one exchanges
+//   nothing, so pigment can approach the water's boundary and never cross it.
+//
+// Height enters only as the *direction* of a pairwise exchange, never as a
+// source: every term is antisymmetric in (i, j), and every donating term is
+// scaled by the donor's own concentration, so a pixel can never give what it
+// does not have. With K(D + B) <= 1 the outflow of any pixel in one step is
+// bounded by its content, which keeps concentrations non-negative without a
+// clamp — and a clamp is exactly what would break the antisymmetry.
+//
+// No clocks anywhere. N steps is a constant of the tool; the picture after N
+// steps is the dry target and is committed at once. What the eye sees over
+// the following seconds is the display converging onto it (ADR 011 §17.6).
+//
+// The oracle is scalar: one concentration per cell. The GPU twin moves the
+// deposit's whole vec4, written as two donor terms per pair (i gives j a
+// fraction of its own texel, j gives i a fraction of its own); on the .a
+// channel the two sum to exactly the flux below, and the other channels
+// travel in each donor's own proportions — conserved by the same argument,
+// texel by texel. The water gate on the GPU is coverage times the standing
+// water recorded in the coverage buffer's .b (see u_washWater); here it is
+// simply `water`.
+
+/** Per-step diffusion rate. With the 8-neighbour stencil, K*(D + B) must stay
+ *  at or below 1 — see positivity above. */
+export const WET_DIFFUSE_D = 0.09
+/** Per-step downhill rate at unit height difference. Small against D: the
+ *  web along the paper's valleys is a bias on where pigment settles, not a
+ *  current that empties the crests. */
+export const WET_DIFFUSE_B = 0.03
+/** The canonical schedule: one stencil radius per step, in texels, coarse
+ *  first. The steps run at several spatial scales rather than at one: the
+ *  coarse ones carry pigment across the puddle, the fine ones take the
+ *  eight-pointed star a coarse step leaves back out again. Not one huge
+ *  radius, deliberately — that would be a blur, and a blur is not paint
+ *  seeping along a sheet.
+ *
+ *  Ten steps, against the four to six the design thread budgeted for
+ *  eight-bit quantisation between GPU passes. Measured on a replay of Ilya's
+ *  own dab — a scribbled dot in a puddle about a hundred texels across — with
+ *  the water gate open (see WC_DIFFUSE_FRAG's wcWaterAt on the gate that was
+ *  shut while the schedule was first being chosen): the dot's peak came down
+ *  by a third and its pale reach went from the halo's edge to about ten
+ *  texels short of the puddle's, without crossing it. Whether ten steps can
+ *  stay is decided by the divergence(N) test across two GPUs, not here; the
+ *  eight-bit write between steps is the one leak, and it compounds with N.
+ *
+ *  Known limit, accepted for the first milestone: a pair at radius r is gated
+ *  by the water at its two ends only, so two wet texels with a dry gap of
+ *  under r between them still exchange. A puddle is convex enough for that
+ *  not to show; a thin dry channel through a wash would leak across it. */
+export const WET_DIFFUSE_RADII: readonly number[] = [32, 16, 16, 8, 8, 4, 4, 2, 2, 1]
+export const WET_DIFFUSE_STEPS = WET_DIFFUSE_RADII.length
+
+/** The eight-neighbour stencil, as (dx, dy). Order matters only in that the
+ *  GPU pass must use the same one. */
+export const WET_DIFFUSE_STENCIL: ReadonlyArray<readonly [number, number]> = [
+  [1, 0], [-1, 0], [0, 1], [0, -1],
+  [1, 1], [-1, 1], [1, -1], [-1, -1],
+]
+
+export interface WetGrid {
+  width: number
+  height: number
+  /** Pigment concentration per cell, >= 0. */
+  pigment: Float64Array
+  /** Standing water per cell, 0..1. Zero is dry paper: nothing crosses it. */
+  water: Float64Array
+  /** Paper height per cell, any units; only differences matter. Higher is a
+   *  crest, lower is a pit. */
+  paperHeight: Float64Array
+}
+
+export function makeWetGrid(width: number, height: number): WetGrid {
+  const n = width * height
+  return {
+    width, height,
+    pigment: new Float64Array(n),
+    water: new Float64Array(n),
+    paperHeight: new Float64Array(n),
+  }
+}
+
+/** One diffusion step. Returns a new pigment field; the grid is not mutated.
+ *
+ *  Written pair-by-pair rather than as a stencil sum per pixel on purpose,
+ *  and the difference is the whole guarantee: a per-pixel sum would compute
+ *  the (i, j) exchange twice — once from each side — and any asymmetry in how
+ *  the two evaluations round would be a leak. Here the pair is evaluated once
+ *  and applied to both ends, so mass is conserved to the last bit of the
+ *  arithmetic, not merely on average. */
+export function wetDiffuseStep(
+  grid: WetGrid, pigment: Float64Array,
+  d = WET_DIFFUSE_D, b = WET_DIFFUSE_B,
+  /** Stencil radius in cells. The eight offsets are scaled by it. */
+  radius = 1,
+): Float64Array {
+  const { width, height, water, paperHeight } = grid
+  const out = Float64Array.from(pigment)
+  // Each unordered pair once: only the four "forward" directions of the
+  // stencil, taken from every cell, cover every pair exactly once.
+  const forward = WET_DIFFUSE_STENCIL.filter(([dx, dy]) => dx > 0 || (dx === 0 && dy > 0))
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = y * width + x
+      for (const [ox, oy] of forward) {
+        const nx = x + ox * radius, ny = y + oy * radius
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue
+        const j = ny * width + nx
+        const gate = Math.min(water[i], water[j])
+        if (gate <= 0) continue
+        const ci = pigment[i], cj = pigment[j]
+        const dh = paperHeight[i] - paperHeight[j]
+        const flux = gate * (
+          d * (ci - cj)
+          + b * Math.max(dh, 0) * ci
+          - b * Math.max(-dh, 0) * cj
+        )
+        out[i] -= flux
+        out[j] += flux
+      }
+    }
+  }
+  return out
+}
+
+/** N steps at radius 1 — the plain form the invariants are proved on. */
+export function wetDiffuse(grid: WetGrid, steps = WET_DIFFUSE_STEPS, d = WET_DIFFUSE_D, b = WET_DIFFUSE_B): Float64Array {
+  let p = grid.pigment
+  for (let s = 0; s < steps; s++) p = wetDiffuseStep(grid, p, d, b)
+  return p
+}
+
+/** The canonical schedule — what the GPU pass runs. */
+export function wetDiffuseScheduled(
+  grid: WetGrid, radii: readonly number[] = WET_DIFFUSE_RADII, d = WET_DIFFUSE_D, b = WET_DIFFUSE_B,
+): Float64Array {
+  let p = grid.pigment
+  for (const r of radii) p = wetDiffuseStep(grid, p, d, b, r)
+  return p
+}
+
+/** Total pigment — the invariant. */
+export function totalPigment(p: Float64Array): number {
+  let sum = 0
+  for (let i = 0; i < p.length; i++) sum += p[i]
+  return sum
+}
+
+/** Centre of mass, for the symmetry test. */
+export function centreOfMass(grid: WetGrid, p: Float64Array): { x: number; y: number } {
+  let sx = 0, sy = 0, m = 0
+  for (let y = 0; y < grid.height; y++) {
+    for (let x = 0; x < grid.width; x++) {
+      const v = p[y * grid.width + x]
+      sx += v * x; sy += v * y; m += v
+    }
+  }
+  return m > 0 ? { x: sx / m, y: sy / m } : { x: NaN, y: NaN }
+}

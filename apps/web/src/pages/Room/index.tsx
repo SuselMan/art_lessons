@@ -615,9 +615,13 @@ export function Room() {
   // (#536) See the effect below — the caricature that answers whether the hair
   // structure is right at all, before anyone tunes its amplitude again.
   // (#536) Which term of the composite to paint instead of the finished wash.
-  const wcDebugView: 0 | 1 | 2 = getFeatureFlag('wcViewDensity')
-    ? 2
-    : getFeatureFlag('wcViewSilhouette') ? 1 : 0
+  const wcDebugView: 0 | 1 | 2 | 3 | 4 = getFeatureFlag('wcViewWater')
+    ? 4
+    : getFeatureFlag('wcViewPigment')
+      ? 3
+      : getFeatureFlag('wcViewDensity')
+        ? 2
+        : getFeatureFlag('wcViewSilhouette') ? 1 : 0
   const [hapticStats, setHapticStats] = useState<HapticGrainStats | null>(null)
 
   // Dev-only grain A/B (see SettingsPanel / DAB_FRAG's computeGrain) — live

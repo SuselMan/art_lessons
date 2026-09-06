@@ -351,6 +351,20 @@ export const RIBBON_FRAG = `
   // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
   // turn came out bitten by rounded white notches.
   uniform float u_mode;
+  /** (#536, s17.11) The FREE water this stroke lays: its nominal mix water
+   *  for a clean-water stroke (the mix, not the depleted load - what the live
+   *  wetness field is fed too), zero for a stroke carrying pigment. Coverage
+   *  .b carries the wetter of this and the paper wetness the stroke recorded
+   *  under itself (v_inkWet), premultiplied like .r, so the wet diffusion pass
+   *  can read standing water off the wash's own silhouette.
+   *
+   *  Zero for pigment on purpose: a wet stroke on dry paper is not a puddle
+   *  its own pigment is free to wander in. Gating on its nominal water too
+   *  was tried and levelled a spiral laid on dry paper into one soft blob -
+   *  every wet stroke lost its structure. What carries pigment is the water
+   *  that was there BEFORE the brush: a clean-water pass, or the wetness the
+   *  stroke's own digits recorded. */
+  uniform float u_washWater;
 
   varying float v_edge;
   varying float v_ink;
@@ -404,7 +418,9 @@ ${WC_NOISE_GLSL}
     // blending expects, so the composite recovers it as .r/.a. It is free real
     // estate: in coverage mode all three colour channels held a copy of alpha
     // and nothing ever read them. .g keeps that copy so anything that did is
-    // unaffected.
+    // unaffected; .b (#536, s17.11) is the standing water here - the free
+    // water of a clean pass, or the wetness a pigment pass recorded under
+    // itself - the record the diffusion pass gates on. See u_washWater.
     //
     // Premultiplied "over" means overlapping passes blend toward whichever drew
     // last where it covered fully, which is the physically right answer: the
@@ -414,7 +430,7 @@ ${WC_NOISE_GLSL}
     // composite recovers a per-pixel mean of each by dividing by .a.
     gl_FragColor = u_mode > 0.5
       ? vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount)
-      : vec4(acrossEncoded * amount, amount, amount, amount);
+      : vec4(acrossEncoded * amount, amount, amount * max(u_washWater, v_inkWet), amount);
   }
 `;
 
@@ -577,6 +593,9 @@ export const DAB_FRAG = `
   // (#536) How wet the paper under this dab already was, 0..1 — read from what
   // the stroke recorded, never from a live field, so replay reproduces it.
   uniform float u_paperWet;
+  /** (#536, s17.11) See RIBBON_FRAG's u_washWater - the coverage stamp's .b,
+   *  the wetter of this and u_paperWet. */
+  uniform float u_washWater;
   // (#536) How strong the paint in the brush was for this dab — the pigment
   // slider, resolved per stroke. Rides the deposit for the reason
   // markerRibbon.ts's FLOATS_PER_VERTEX spells out: one wash, several strokes,
@@ -1149,7 +1168,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov, cov);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_washWater, u_paperWet), cov);
       return;
     }
 
@@ -1818,9 +1837,20 @@ ${WC_NOISE_GLSL}
       // the blotches" is answered by looking rather than by arithmetic about
       // amplitudes — which has now been wrong three times running. 1 = the
       // silhouette after the spread and its re-threshold, 2 = the film's
-      // density, i.e. everything the deposit carries.
+      // density, i.e. everything the deposit carries, 3 = the deposit's own
+      // pigment channel, x3, 4 = the standing water WC_DIFFUSE_FRAG gates on
+      // (s17.11) - so "did it move, and could it" are answered by looking at
+      // the buffers rather than at the tone. View 4 found the first gate shut
+      // over most of a puddle; no amount of staring at the tone had.
       if (u_wcDebugView > 0.5) {
-        pigment = clamp(u_wcDebugView < 1.5 ? coverage : density, 0.0, 1.0);
+        // 4 = standing water as WC_DIFFUSE_FRAG gates on it; keep in step
+        // with wcWaterAt there.
+        vec4 rawInk = texture2D(u_inkLoad, tileUV);
+        vec4 rawCov = texture2D(u_strokeCoverage, tileUV);
+        float nominalDbg = rawCov.a > 0.002 ? rawCov.b / rawCov.a : 0.0;
+        float recordedDbg = rawInk.a > 0.002 ? rawInk.g / rawInk.a : 0.0;
+        float gateDbg = rawCov.a * clamp(max(nominalDbg, recordedDbg), 0.0, 1.0);
+        pigment = clamp(u_wcDebugView < 1.5 ? coverage : u_wcDebugView < 2.5 ? density : u_wcDebugView < 3.5 ? ink.b * 3.0 : gateDbg, 0.0, 1.0);
       }
 
       // The composite. Still the three-term separable blend the marker's branch
@@ -2644,6 +2674,122 @@ export const LAYER_COMPOSITE_FRAG = `
 // top-down v has to be turned around to reach it. The two flips are separate
 // facts about two different spaces, and cancelling them against each other
 // would only work back in the symmetric case this is fixing.
+/** (#536, ADR 011 s17.11) One step of pigment diffusion in standing water,
+ *  over a wash's deposit buffer. The GPU twin of wetDiffusion.ts, and it has
+ *  to stay a twin: same stencil, same pair formula, same constants, so the
+ *  oracle's four invariants (mass, confinement, valley bias, symmetry) are
+ *  what this computes rather than what it is hoped to compute.
+ *
+ *  Reads the deposit (u_ink) and the wash's coverage (u_coverage), writes the
+ *  deposit one step later. The whole vec4 travels together: whatever fraction
+ *  of a pixel's pigment moves takes that pixel's water/paper/strength channels
+ *  along in the same proportion, so the ratios the composite divides out
+ *  stay meaningful in the moved paint.
+ *
+ *  Each unordered pair (i, j) is evaluated from both ends, once per fragment,
+ *  and the two evaluations are exact negatives of each other in IEEE
+ *  arithmetic - a difference negated, a max pair swapped - so what i gives j
+ *  gets, to the bit, before the 8-bit write. The write quantises per pixel and
+ *  that is the one known leak; it is measured (divergence(N)), not argued.
+ *
+ *  No clamp anywhere in the flux. With K(D + B) <= 1 a pixel cannot give more
+ *  than it holds in one step, so the result is non-negative by construction,
+ *  and a clamp is exactly what would have broken the antisymmetry. */
+export const WC_DIFFUSE_FRAG = `
+  precision highp float;
+  uniform sampler2D u_ink;
+  uniform sampler2D u_coverage;
+  uniform sampler2D u_paperHeightMap;
+  uniform vec2 u_resolution;
+  uniform vec2 u_paperOrigin;
+  uniform vec2 u_paperTexSize;
+  uniform vec2 u_paperScale;
+  uniform float u_d;
+  uniform float u_b;
+  /** Stencil radius for this step, texels - one of WET_DIFFUSE_RADII. */
+  uniform float u_radius;
+  varying vec2 v_uv;
+
+  // Standing water at a texel: the wash's silhouette, times the wetter of two
+  // records - what the last pass that covered it wrote into coverage .b (the
+  // free water of a clean pass, or the wetness a pigment pass recorded under
+  // itself; see u_washWater) and the paper wetness the paint here was laid
+  // into, deposit-weighted (ink .g, the same digits).
+  //
+  // Not the brush's depleted load (ink .r). That was the first version, and
+  // measured on a replay of Ilya's puddle it gated the pass shut: a puddle
+  // laid by one long stroke has its load run down over most of its area, so
+  // the water read 0.15 in patches and 0 in between, and the pigment dropped
+  // into it stayed where it was. How wet a patch of paper is barely cares
+  // which end of the stroke wetted it - the same argument that feeds the
+  // live field the mix rather than the load (see _paintDabs).
+  float wcWaterAt(vec4 ink, vec4 cov) {
+    if (cov.a <= 0.002) return 0.0;
+    float nominal = cov.b / cov.a;
+    float recorded = ink.a > 0.002 ? ink.g / ink.a : 0.0;
+    return cov.a * clamp(max(nominal, recorded), 0.0, 1.0);
+  }
+
+  float wcHeightAt(vec2 px) {
+    vec2 paperUV = (px + u_paperOrigin) / u_paperTexSize * u_paperScale;
+    return texture2D(u_paperHeightMap, paperUV).r;
+  }
+
+  void main() {
+    vec2 texel = 1.0 / u_resolution;
+    vec2 px = v_uv * u_resolution;
+    vec4 ink = texture2D(u_ink, v_uv);
+    vec4 cov = texture2D(u_coverage, v_uv);
+    float wi = wcWaterAt(ink, cov);
+    // What moves is the deposit, all four channels of it, and each pair's
+    // exchange is written as two DONOR terms: i hands j a fraction of its own
+    // vec4, j hands i a fraction of its own. On .a the two sum to exactly the
+    // oracle's flux, D (ci - cj) plus the downhill terms; on .r .g .b each
+    // donor's share travels in that donor's own proportions, so the ratios
+    // the composite divides out (water, paper, strength) stay meaningful in
+    // the moved paint, and every channel is conserved by the same argument
+    // as .a. Moving the pigment channel alone was tried: in a texel the
+    // puddle laid thinly the composite reads strength = .b/.a and clamps it,
+    // so pigment arriving there capped instead of showing.
+    float hi = wcHeightAt(px);
+    vec4 out4 = ink;
+    if (wi > 0.0) {
+      // The eight neighbours, the same eight and in the same order as the
+      // oracle's stencil.
+      for (int k = 0; k < 8; k++) {
+        vec2 o;
+        if (k == 0) o = vec2( 1.0,  0.0);
+        else if (k == 1) o = vec2(-1.0,  0.0);
+        else if (k == 2) o = vec2( 0.0,  1.0);
+        else if (k == 3) o = vec2( 0.0, -1.0);
+        else if (k == 4) o = vec2( 1.0,  1.0);
+        else if (k == 5) o = vec2(-1.0,  1.0);
+        else if (k == 6) o = vec2( 1.0, -1.0);
+        else o = vec2(-1.0, -1.0);
+        o *= u_radius;
+        vec2 uvj = v_uv + o * texel;
+        // Off the buffer's edge is dry paper: nothing crosses it.
+        if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
+        vec4 inkj = texture2D(u_ink, uvj);
+        vec4 covj = texture2D(u_coverage, uvj);
+        float wj = wcWaterAt(inkj, covj);
+        float gate = min(wi, wj);
+        if (gate <= 0.0) continue;
+        float dh = hi - wcHeightAt(px + o);
+        // On .a, give * ink.a - take * inkj.a is gate * (D (ci - cj)
+        // + B max(dh,0) ci - B max(-dh,0) cj): the oracle's flux. From j's
+        // side the same two products appear with the roles swapped -
+        // bit-identical, so what i gives j gets.
+        float give = gate * (u_d + u_b * max(dh, 0.0));
+        float take = gate * (u_d + u_b * max(-dh, 0.0));
+        out4 -= give * ink;
+        out4 += take * inkj;
+      }
+    }
+    gl_FragColor = max(out4, vec4(0.0));
+  }
+`;
+
 export const IMAGE_BLIT_FRAG = `
   precision highp float;
   uniform sampler2D u_image;
