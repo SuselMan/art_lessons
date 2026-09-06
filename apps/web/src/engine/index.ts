@@ -7704,6 +7704,40 @@ export class PencilEngine implements PencilEngineAPI {
       drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor,
     )
 
+    // #547 — flow, normalized against how far the brush travelled between
+    // stamps, computed once for the batch rather than per tile.
+    //
+    // Why it has to be normalized at all, and this is the correction to the
+    // first version: the coverage buffer accumulates as plain "over", and the
+    // stamps of this tool are spaced a *twentieth* of the footprint apart. A
+    // pixel is therefore under ~20 of them in a single pass, so even a flow of
+    // 0.12 reaches 1 - 0.88^20 = 0.92 — and every brush, at every pressure, came
+    // out at full density. The setting existed and could not be seen ("нажим
+    // меняет плотность вообще не работает, всё время максимальная плотность").
+    //
+    // The fix makes `flow` mean what a painter means by it: **how much one full
+    // pass of the brush lays down**, rather than how much one stamp does. Per
+    // stamp that is
+    //
+    //     f' = 1 - (1 - f) ^ (travel / diameter)
+    //
+    // so that after travelling one diameter — i.e. after the ~diameter/travel
+    // stamps that cover a given pixel — the accumulated coverage is exactly f,
+    // whatever the spacing. Two consequences worth naming: the density stops
+    // depending on how fast the stroke was drawn (fast strokes used to be
+    // sparser and therefore paler), and it stops depending on the brush's
+    // authored spacing, which is now free to be chosen for smoothness alone.
+    const stampFlows = profile.stampFlow
+      ? drawable.map((dab, i) => {
+        const prevOne = i === 0 ? prevDab : drawable[i - 1]
+        const diameter = Math.max(dab.size * preset.sizeMultiplier, 0.5)
+        const travel = this._markerSegmentLength(dab, prevOne, diameter * 0.5)
+        const full = profile.stampFlow!(dab.pressure)
+        if (full >= 1) return 1
+        return Math.max(0, Math.min(1, 1 - Math.pow(1 - full, Math.min(travel / diameter, 1))))
+      })
+      : null
+
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
 
@@ -7711,15 +7745,14 @@ export class PencilEngine implements PencilEngineAPI {
       // **flow** for the digital brush, and a plain 0 for the three tools whose
       // coverage pass only needs a silhouette (their mode-6 branch ignores it).
       //
-      // Derived here rather than read off the dab: Dab.opacity carries the
-      // stroke's opacity for this tool (see _bakeDabOpacity), and flow is
-      // recomputed from the dab's recorded pressure against the frozen brush
-      // descriptor — the same number live and on replay, with nothing added to
-      // the payload.
-      for (const dab of drawable) {
+      // Derived rather than read off the dab: Dab.opacity carries the stroke's
+      // opacity for this tool (see _bakeDabOpacity), and flow is recomputed from
+      // the dab's recorded pressure against the frozen brush descriptor — the
+      // same number live and on replay, with nothing added to the payload.
+      for (let i = 0; i < drawable.length; i++) {
         this._drawRibbonNibPass(
-          coverage, tile, dab, preset, profile, profile.coverageInkMode,
-          profile.stampFlow ? profile.stampFlow(dab.pressure) : 0,
+          coverage, tile, drawable[i], preset, profile, profile.coverageInkMode,
+          stampFlows ? stampFlows[i] : 0,
         )
       }
       // #547 — a brush's mark is a repeated stamp, not a swept smear, so the

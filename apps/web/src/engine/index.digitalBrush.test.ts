@@ -115,10 +115,21 @@ describe('digital brush (#547, ADR 013)', () => {
     ], { tool: 'digitalBrush', preset: digitalBrushPreset(brush.id, brush.version) }))
     const stamp = markerPassDraw(engine, 10)
     expect(stamp).toBeDefined()
-    expect(stamp!.opacity).toBeCloseTo(digitalBrushFlow(brush, pressure), 5)
-    // And that number is genuinely not the dab's own opacity, or this test
-    // would pass with the wire crossed.
-    expect(digitalBrushFlow(brush, pressure)).toBeLessThan(1)
+
+    // Per *stamp*, and therefore strictly below the brush's per-pass flow: the
+    // engine converts one into the other against the distance travelled, so
+    // that ~20 stamps covering a pixel add up to the authored number rather
+    // than to 1 (see _paintRibbonStroke's stampFlows). Asserting the two are
+    // equal is what this test did first, and it was asserting the bug that made
+    // every brush solid at every pressure.
+    const perPass = digitalBrushFlow(brush, pressure)
+    expect(perPass).toBeLessThan(1)
+    expect(stamp!.opacity).toBeGreaterThan(0)
+    expect(stamp!.opacity).toBeLessThan(perPass)
+
+    // And it is still the dab's *pressure* that drives it, not the dab's
+    // opacity — the wire this test exists for.
+    expect(digitalBrushFlow(brush, 0.9)).toBeGreaterThan(digitalBrushFlow(brush, 0.2))
   })
 
   it('takes its step between stamps from the brush, not from the engine default', async () => {

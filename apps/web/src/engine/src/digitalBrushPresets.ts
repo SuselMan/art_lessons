@@ -135,9 +135,17 @@ export interface BrushDescriptor {
    *  calibrated for tools whose dabs blend through paper grain, and a soft
    *  digital stamp shows its own ripple much sooner. */
   spacing: number
-  /** How much one stamp lays down, before the pressure curve. Accumulates in
-   *  the stroke's coverage buffer and saturates at 1 — this is *flow*, and it
-   *  is the half of the pair that makes overlapping strokes build up.
+  /** How much **one full pass of the brush** lays down, before the pressure
+   *  curve — 1 is a solid mark from a single firm stroke, 0.3 needs three or
+   *  four passes to get there.
+   *
+   *  Per *pass*, not per stamp, and the distinction is the whole reason the
+   *  setting is visible at all. Stamps sit a twentieth of the footprint apart,
+   *  so ~20 of them cover any given pixel in one pass; read as a per-stamp
+   *  amount, even 0.12 accumulated to 0.92 and every brush at every pressure
+   *  came out solid. The engine converts this to a per-stamp value against the
+   *  distance actually travelled (see _paintRibbonStroke's stampFlows), which
+   *  also makes the density independent of how fast the stroke was drawn.
    *
    *  Kept strictly apart from opacity, which the user sets and which the
    *  composite applies once to the finished silhouette. Collapsing the two is
@@ -218,7 +226,12 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     // falls off over most of the radius, so consecutive stamps have to overlap
     // heavily before the mark reads as continuous rather than as beads.
     spacing: 0.06,
-    flow: 0.28,
+    // The lightest in the set by a wide margin — this is the brush that builds
+    // tone in passes, and if one pass already covered there would be nothing to
+    // build. Raised from 0.28 once flow started meaning "per pass" rather than
+    // "per stamp": at the old reading it measured 0.18 of full ink in a firm
+    // pass, which is not light, it is barely there.
+    flow: 0.45,
     sizeByPressure: SIZE_FULL,
     flowByPressure: FLOW_LINEAR,
     pressureSmoothingPx: 8,
@@ -230,7 +243,10 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     tip: roundTip(0.45),
     paperInteraction: 0,
     spacing: 0.08,
-    flow: 0.55,
+    // The set's default, so a firm pass has to look like the person meant it.
+    // 0.55 measured at less than half of full ink — a default that feels weak is
+    // a default nobody keeps.
+    flow: 0.85,
     sizeByPressure: SIZE_FULL,
     flowByPressure: FLOW_EARLY,
     pressureSmoothingPx: 8,
@@ -242,7 +258,9 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     tip: roundTip(0.82),
     paperInteraction: 0,
     spacing: 0.10,
-    flow: 0.85,
+    // Near-solid in one pass: this is the brush for drawing a line you mean,
+    // and hesitating about its density is not part of that.
+    flow: 0.95,
     sizeByPressure: SIZE_FULL,
     flowByPressure: FLOW_EARLY,
     pressureSmoothingPx: 10,
