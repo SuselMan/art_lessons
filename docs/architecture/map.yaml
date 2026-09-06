@@ -496,6 +496,23 @@ modules:
       - apps/web/src/components/TextInput/**
     tags: [ui]
 
+  - id: ui-toolset
+    title: Выбор набора инструментов
+    layer: ui-kit
+    owns: >-
+      Какие инструменты вообще доступны в комнате. Это не настройка удобства, а учительский
+      приём: «сегодня работаем карандашом». Компонент отдаёт наружу ровно то значение, которое
+      несёт `Room.enabledTools`, без собственного кодирования.
+    files:
+      - apps/web/src/components/ToolSetPicker/**
+    issues: [548]
+    notes:
+      - >-
+        Пустого набора не бывает: список, в котором не осталось материала, — это не набор,
+        а комната, в которой никто не может рисовать. Санитизация живёт в общем контракте
+        (`sanitizeEnabledTools`), а не здесь.
+    tags: [инструменты, урок]
+
   - id: ui-room-access
     title: Управление доступом
     layer: ui-kit
@@ -994,6 +1011,7 @@ modules:
       - packages/shared/src/index.ts
       - packages/shared/src/rejectReason.test.ts
       - packages/shared/src/transformMatrix.test.ts
+      - packages/shared/src/toolset.test.ts
     tags: [контракт, операции]
 
   - id: shared-dab-codec
