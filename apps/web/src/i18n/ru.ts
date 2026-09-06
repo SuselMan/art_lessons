@@ -414,6 +414,8 @@ export const ru: Dictionary = {
   'tool.brush.mediumRound': 'Средняя круглая',
   'tool.brush.hardRound': 'Жёсткая круглая',
   'tool.brush.inkRound': 'Тушевая круглая',
+  'tool.brush.opaquePaint': 'Кроющая',
+  'tool.brush.flat': 'Плоская',
   'tool.brushPen': 'Перо',
   'tool.brushPenTitle': 'Перо — гибкий наконечник, толщина линии идёт за нажимом  {hotkey}',
   'tool.field.pigmentCode': 'Краска',

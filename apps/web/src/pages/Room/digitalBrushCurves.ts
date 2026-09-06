@@ -36,7 +36,7 @@ const SAMPLES = 25
  *  out draws ink-round's edge as the cliff it is meant to be rather than as
  *  whatever one pixel of ramp looks like at the size the user happens to pick. */
 export function digitalBrushProfileSamples(id: string): number[] {
-  const { hardness } = digitalBrushFromPreset(id)
+  const { tip: { hardness } } = digitalBrushFromPreset(id)
   return Array.from({ length: SAMPLES }, (_, i) => {
     const d = i / (SAMPLES - 1)
     if (d >= 1) return 0

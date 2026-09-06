@@ -532,6 +532,8 @@ export const en = {
   'tool.brush.mediumRound': 'Medium round',
   'tool.brush.hardRound': 'Hard round',
   'tool.brush.inkRound': 'Ink round',
+  'tool.brush.opaquePaint': 'Opaque paint',
+  'tool.brush.flat': 'Flat',
   'tool.brushPen': 'Brush pen',
   'tool.brushPenTitle': 'Brush pen — flexible ink nib; line width follows your pressure  {hotkey}',
   'tool.hand': 'Hand',

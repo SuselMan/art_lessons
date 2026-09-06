@@ -375,6 +375,8 @@ const digitalBrushSchema = (): ToolSchema => ({
       'medium-round': 'tool.brush.mediumRound',
       'hard-round': 'tool.brush.hardRound',
       'ink-round': 'tool.brush.inkRound',
+      'opaque-paint': 'tool.brush.opaquePaint',
+      'flat': 'tool.brush.flat',
     },
     // The stamp's own falloff, centre to rim (digitalBrushCurves.ts). The third
     // kind of thing that gets a curve here rather than a photographed mark or a

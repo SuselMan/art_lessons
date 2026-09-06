@@ -57,7 +57,9 @@ import {
   type DwellConfig, type LinerSizeMm,
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
-import { digitalBrushFromPreset, digitalBrushPresetFor } from './src/digitalBrushPresets'
+import {
+  digitalBrushFromPreset, digitalBrushPresetFor, digitalBrushScallops,
+} from './src/digitalBrushPresets'
 export {
   DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH,
   digitalBrushFromPreset, digitalBrushPreset,
@@ -5900,6 +5902,11 @@ export class PencilEngine implements PencilEngineAPI {
   private _nibScallops(tool: ToolType, presetName: string): boolean {
     if (tool === 'watercolor') return watercolorNibFromPreset(presetName) !== 'round'
     if (tool === 'charcoal') return charcoalNibFromPreset(presetName) === 'chisel'
+    // #547 — asked of the brush rather than hardcoded, because here the answer
+    // is a property of the preset: the round four scallop no more than
+    // watercolor's round nib does, and 'flat' is a 4:1 tip whose silhouette dips
+    // between stamps exactly as every other elongated one here.
+    if (tool === 'digitalBrush') return digitalBrushScallops(presetName)
     return false
   }
 

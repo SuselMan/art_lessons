@@ -51,6 +51,56 @@ export function curveAt(curve: BrushCurve, x: number): number {
   return curve[curve.length - 1][1]
 }
 
+// ─── The tip (ADR 013 §5, revised) ──────────────────────────────────────────
+// The shape of one imprint, separated from everything about how the brush
+// *behaves*. v1 collapsed it into a bare `hardness` number because there was
+// exactly one tip family, and that was the mistake the design review named: it
+// makes the bitmap tip a change of format rather than a second value.
+//
+// So the tip is a structure from the start, and it already carries the two
+// fields a round tip does not need — aspect and rotation — because a flat brush
+// is nothing but those two, and a model that cannot express it is a model that
+// has to be reopened.
+
+/** How the footprint is oriented in the world.
+ *
+ *  Not a free angle function, deliberately: these are the three answers that
+ *  mean something to a painter, and each is a different *frame* (ADR 012 §3 makes
+ *  the same distinction for the marker's chisel). A round tip ignores all three,
+ *  which is why the field can be there from day one at no cost. */
+export type TipRotation =
+  /** Anchored to the canvas — a flat brush held at one angle, the way a
+   *  calligrapher holds a chisel. The mark is wide across the travel and thin
+   *  along it, which is the whole expressive range of a flat brush. */
+  | 'fixed'
+  /** Swings to follow the stroke, so the mark keeps a constant width. */
+  | 'path'
+
+export interface BrushTip {
+  /** 'round' is the only procedural family in v1. 'bitmap' is the second value
+   *  this union exists for — a mask sampled per dab, which is what turns the set
+   *  from four brushes into a library (ADR 013 §8, v2). */
+  kind: 'round'
+  /** 0 = a gradient with no edge at all, 1 = a disc. Feeds DAB_FRAG's
+   *  u_inkMode=10 stamp, and also dabSpacing's footprint rule — a hard-edged
+   *  stamp has to be laid denser or the mark reads as a row of discs (#478). */
+  hardness: number
+  /** Long axis / short axis. 1 = round. Above 1 the tip is flat, and what the
+   *  stroke's width does then is decided by `rotation`. */
+  aspect: number
+  rotation: TipRotation
+  /** World angle of the long axis, radians, read only when rotation is 'fixed'.
+   *  Canvas-anchored rather than screen-anchored, so rotating the viewport does
+   *  not rotate the brush — see DabShapingProfile.angle on why the frame has to
+   *  be named rather than assumed. */
+  angle: number
+}
+
+/** The round tip every brush in v1 wears, spelled once. */
+function roundTip(hardness: number): BrushTip {
+  return { kind: 'round', hardness, aspect: 1, rotation: 'path', angle: 0 }
+}
+
 // ─── The brush (ADR 013 §5) ─────────────────────────────────────────────────
 
 export interface BrushDescriptor {
@@ -64,10 +114,22 @@ export interface BrushDescriptor {
    *  This is the same permanence rule `dabs`/`dabsPacked` follow in
    *  StrokeOperation, and it is the whole reason the token is not just an id. */
   version: number
-  /** 0 = a gradient with no edge at all, 1 = a disc. Feeds DAB_FRAG's
-   *  u_inkMode=10 stamp, and also dabSpacing's footprint rule — a hard-edged
-   *  stamp has to be laid denser or the mark reads as a row of discs (#478). */
-  hardness: number
+  /** The shape of one imprint. See BrushTip — and note that this is the only
+   *  field here that describes the *mark*; everything else describes behaviour. */
+  tip: BrushTip
+  /** How strongly the paper's own relief breaks this brush's contact with it,
+   *  0..1, feeding the composite's rim term (RibbonProfile.paperRim).
+   *
+   *  A property of the **preset**, not of the tool, and that correction came out
+   *  of the design review: v1's ADR said "a digital brush does not touch paper,
+   *  full stop", which is right for Hard Round and wrong for the whole Dry/Rough
+   *  family, where the sheet's tooth *is* the mechanism of the texture. Grafetto
+   *  has a real height-mapped paper, so declining to use it would be throwing
+   *  away the one thing we have that Procreate does not.
+   *
+   *  0 for every brush in v1 — the fabric of a rough brush is a mask (v2), and
+   *  turning this up before those exist would only make Hard Round grainy. */
+  paperInteraction: number
   /** Step between stamps as a fraction of the footprint's diameter. Smaller
    *  than the engine's 0.22 default for every brush here: that number was
    *  calibrated for tools whose dabs blend through paper grain, and a soft
@@ -121,6 +183,11 @@ const FLOW_LINEAR: BrushCurve = [[0, 0.12], [1, 1]]
 /** Ink does not thin out: it is either laid down or it is not. */
 const FLOW_FLAT: BrushCurve = [[0, 0.9], [0.25, 1], [1, 1]]
 
+/** Covering, but not indifferent to the hand: a painting brush lays nearly all
+ *  its paint from a light touch onward, and the little that is left to pressure
+ *  is what keeps a stroke from looking printed. */
+const FLOW_COVERING: BrushCurve = [[0, 0.6], [0.35, 0.9], [1, 1]]
+
 /** The shipped set (ADR 013 §7 — frozen and versioned; there is deliberately no
  *  way for a user to edit these, because a stroke's preset token is resolved by
  *  *code* on every participant's client and an editable brush would have to
@@ -134,7 +201,8 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
   {
     id: 'soft-round',
     version: 1,
-    hardness: 0.12,
+    tip: roundTip(0.12),
+    paperInteraction: 0,
     // Tight, because a soft stamp's own ripple is what shows first: the profile
     // falls off over most of the radius, so consecutive stamps have to overlap
     // heavily before the mark reads as continuous rather than as beads.
@@ -148,7 +216,8 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
   {
     id: 'medium-round',
     version: 1,
-    hardness: 0.45,
+    tip: roundTip(0.45),
+    paperInteraction: 0,
     spacing: 0.08,
     flow: 0.55,
     sizeByPressure: SIZE_FULL,
@@ -159,7 +228,8 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
   {
     id: 'hard-round',
     version: 1,
-    hardness: 0.82,
+    tip: roundTip(0.82),
+    paperInteraction: 0,
     spacing: 0.10,
     flow: 0.85,
     sizeByPressure: SIZE_FULL,
@@ -174,7 +244,8 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     // floor would quietly override it anyway (see the aaNorm clamp in
     // DAB_FRAG's u_inkMode=10 branch). Naming the value here keeps the two
     // from disagreeing silently.
-    hardness: 0.94,
+    tip: roundTip(0.94),
+    paperInteraction: 0,
     spacing: 0.09,
     flow: 1,
     sizeByPressure: SIZE_KNEE,
@@ -182,6 +253,62 @@ export const DIGITAL_BRUSHES: readonly BrushDescriptor[] = [
     // Harder than the rest: an inking line is drawn slowly and deliberately,
     // and that is exactly where unfiltered pressure noise is most visible.
     pressureSmoothingPx: 14,
+    opacity: 1,
+  },
+  {
+    // The brush that turns this tool from "another pen" into something you can
+    // paint with: it is for laying colour *masses*, and the first thing it has
+    // to prove is that the engine can cover an area evenly rather than only
+    // draw good lines.
+    id: 'opaque-paint',
+    version: 1,
+    // Between medium and hard on purpose. A painting brush's edge is neither a
+    // gradient nor a cut: it is soft enough that two adjacent strokes merge into
+    // one mass, and defined enough that a shape has a boundary.
+    tip: roundTip(0.62),
+    paperInteraction: 0,
+    spacing: 0.08,
+    flow: 0.95,
+    sizeByPressure: SIZE_FULL,
+    flowByPressure: FLOW_COVERING,
+    pressureSmoothingPx: 8,
+    opacity: 1,
+  },
+  {
+    // The first non-round tip, and it earns its place twice: it is a genuinely
+    // needed painting brush, and it is the proof that `tip` is really detached
+    // from hardness — a flat brush is nothing but aspect and rotation, so if the
+    // model could not express it, the model was wrong.
+    id: 'flat',
+    version: 1,
+    tip: {
+      kind: 'round',
+      hardness: 0.7,
+      // 4:1, the same proportion the marker's chisel and watercolor's flat both
+      // settled on — wide enough that turning the stroke changes its width
+      // dramatically, narrow enough to still be a brush rather than a ruler.
+      aspect: 4,
+      // Anchored to the canvas, not swung along the path. This is the whole
+      // character of a flat brush: held at one angle, it paints a broad band
+      // across the travel and a thin line along it, and the width of the mark
+      // becomes something the hand controls by *direction*. A tip that swung to
+      // follow the stroke would keep one width and be a round brush wearing an
+      // ellipse.
+      rotation: 'fixed',
+      // 45 degrees: the angle a brush is actually held at, and the one where
+      // both extremes — the broad sweep and the thin edge — are a quarter turn
+      // apart in either direction.
+      angle: Math.PI / 4,
+    },
+    paperInteraction: 0,
+    // Tighter than the round brushes: the step is bounded by the *short* axis
+    // (the worst case, and the right one — dabSpacing's own note), so a 4:1 tip
+    // at the same fraction advances a quarter as far relative to its silhouette.
+    spacing: 0.05,
+    flow: 0.9,
+    sizeByPressure: SIZE_FULL,
+    flowByPressure: FLOW_COVERING,
+    pressureSmoothingPx: 10,
     opacity: 1,
   },
 ]
@@ -248,7 +375,7 @@ export function digitalBrushFlow(brush: BrushDescriptor, pressure: number): numb
  *  makes it draw wider than the slider says. */
 export function digitalBrushPresetFor(presetName: string | undefined): PencilPreset {
   const brush = digitalBrushFromPreset(presetName)
-  return { opacity: brush.opacity, hardness: brush.hardness, sizeMultiplier: 1 }
+  return { opacity: brush.opacity, hardness: brush.tip.hardness, sizeMultiplier: 1 }
 }
 
 /** dabShaping.ts's shapingForTool dispatches here for tool === 'digitalBrush'.
@@ -260,18 +387,30 @@ export function digitalBrushPresetFor(presetName: string | undefined): PencilPre
  *  which is what the tool's users expect and what makes it feel unlike the
  *  brush pen sitting next to it in the toolbar. */
 export function shapingForDigitalBrushPreset(presetName: string | undefined): DabShapingProfile {
-  const brush = digitalBrushFromPreset(presetName)
+  const { tip, sizeByPressure, pressureSmoothingPx } = digitalBrushFromPreset(presetName)
   return {
-    size: pressure => curveAt(brush.sizeByPressure, pressure),
-    // Round, and staying round in v1. Tilt-driven elongation is a property of a
-    // physical tip meeting paper at an angle; a mask-based brush expresses
-    // shape through its mask instead, which is v2's mechanism.
-    aspect: () => 1,
-    // Kept so a future non-round mask has an orientation to be stamped at, and
-    // harmless meanwhile: rotating a circle changes nothing.
-    angle: tiltOrPathAngle,
-    pressureSmoothingPx: brush.pressureSmoothingPx,
+    size: pressure => curveAt(sizeByPressure, pressure),
+    // Straight off the tip, and independent of both tilt and pressure. A
+    // physical nib's proportions change as it is leaned or pressed because it
+    // deforms; a digital tip is a shape, and a shape that silently changed
+    // proportions under the hand would be a nib model wearing a brush's name.
+    aspect: () => tip.aspect,
+    // 'fixed' is canvas-anchored, so it ignores both tilt and the camera — see
+    // DabShapingProfile.angle on why the frame must be named. 'path' falls
+    // through to the shared helper, which is also what a round tip gets and
+    // where rotating a circle costs nothing.
+    angle: tip.rotation === 'fixed'
+      ? () => tip.angle
+      : tiltOrPathAngle,
+    pressureSmoothingPx,
   }
+}
+
+/** Whether this brush's footprint is elongated enough to scallop — the second
+ *  spacing bound (#485), which watercolor's flat nib already opts into and a
+ *  round one must not (its own doc explains why the round case is left alone). */
+export function digitalBrushScallops(presetName: string | undefined): boolean {
+  return digitalBrushFromPreset(presetName).tip.aspect > 1.05
 }
 
 // ─── Determinism helper (ADR 013 §6) ────────────────────────────────────────

@@ -78,11 +78,11 @@ describe('the shipped set', () => {
 
   it('keeps hardness and flow inside the ranges the shader assumes', () => {
     for (const b of DIGITAL_BRUSHES) {
-      expect(b.hardness).toBeGreaterThanOrEqual(0)
+      expect(b.tip.hardness).toBeGreaterThanOrEqual(0)
       // Strictly below 1: at exactly 1 the stamp's ramp would be zero-width and
       // the mark a jagged disc. The shader clamps too; this keeps the authored
       // data honest rather than relying on that.
-      expect(b.hardness).toBeLessThan(1)
+      expect(b.tip.hardness).toBeLessThan(1)
       expect(b.flow).toBeGreaterThan(0)
       expect(b.flow).toBeLessThanOrEqual(1)
     }
@@ -92,7 +92,7 @@ describe('the shipped set', () => {
     // The set's whole job in v1 is to span the axis a brush set has to span
     // first — how the edge of the mark behaves. Four brushes that all felt the
     // same would be four names for one tool.
-    const hardnesses = DIGITAL_BRUSHES.map(b => b.hardness).sort((a, b) => a - b)
+    const hardnesses = DIGITAL_BRUSHES.map(b => b.tip.hardness).sort((a, b) => a - b)
     expect(hardnesses[hardnesses.length - 1] - hardnesses[0]).toBeGreaterThan(0.5)
   })
 })
@@ -203,7 +203,7 @@ describe('the PencilPreset the engine resolves', () => {
     // ever stopped tracking the descriptor, a hard brush would be spaced for a
     // soft one and come out beaded.
     for (const b of DIGITAL_BRUSHES) {
-      expect(digitalBrushPresetFor(b.id).hardness).toBeCloseTo(b.hardness, 6)
+      expect(digitalBrushPresetFor(b.id).hardness).toBeCloseTo(b.tip.hardness, 6)
     }
   })
 

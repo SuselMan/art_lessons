@@ -850,10 +850,13 @@ function digitalBrushRibbon(presetName: string | undefined): RibbonProfile {
   // The brush pen's reason applies unchanged: a light touch with a fine brush
   // must leave a hairline, not a gap. Widened to this rather than dropped.
   minHalfWidthPx: 0.5,
-  // ADR 013 §8: this is not ink and not graphite, so the paper does not act on
-  // its rim at all. Texture is the brush's own business (v2's masks), not the
-  // sheet's.
-  paperRim: 0,
+  // The preset's own number, not the tool's. v1's ADR said this brush never
+  // touches paper at all; that is right for Hard Round and wrong for the whole
+  // Dry/Rough family, where the sheet's tooth *is* the mechanism of the texture
+  // — see BrushDescriptor.paperInteraction. Every shipped brush sets 0, so the
+  // term vanishes identically today; what changed is that turning it on is a
+  // property a brush can declare rather than an edit to the tool.
+  paperRim: brush.paperInteraction,
   wetEdge: 0,
   wetEdgeRadiusPx: 0,
   granulation: 0,
