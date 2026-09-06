@@ -33,3 +33,13 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      # The architecture map is only worth having if it cannot quietly fall behind.
+      # `map:check` fails when a source file belongs to no module in
+      # docs/architecture/map.yaml; `map:rules` fails on a *new* crossing of a
+      # documented boundary (the 39 existing ones are baselined and shown on the
+      # map's "Здоровье" tab instead of blocking).
+      - name: Architecture map
+        run: |
+          npm run map:check
+          npm run map:rules

@@ -66,6 +66,16 @@ jobs:
       - name: Test
         run: npm run test
 
+      # The architecture map is only worth having if it cannot quietly fall behind.
+      # `map:check` fails when a source file belongs to no module in
+      # docs/architecture/map.yaml; `map:rules` fails on a *new* crossing of a
+      # documented boundary (the 39 existing ones are baselined and shown on the
+      # map's "Здоровье" tab instead of blocking).
+      - name: Architecture map
+        run: |
+          npm run map:check
+          npm run map:rules
+
   # (#199) Builds happen here, on a runner with real RAM/CPU to spare — the
   # VPS (1 vCPU, 1GB RAM, no swap) was getting OOM-killed running `npm ci` +
   # the apps/web Vite build *and* a Docker build for apps/server, all at

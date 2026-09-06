@@ -1,0 +1,1177 @@
+# Карта архитектуры — рукописная половина.
+#
+# Здесь живёт только то, чего нет в коде: за что модуль отвечает и почему он существует.
+# Всё измеримое — связи, размеры, дубли, история правок, нарушения правил — снимается
+# из репозитория при каждой сборке карты и сюда не пишется никогда.
+#
+#   npm run map        собрать docs/architecture/map.html
+#   npm run map:check  упасть, если код и карта разошлись
+#
+# Правило одно: каждый файл в apps/, packages/, scripts/ и e2e/ принадлежит ровно одному
+# модулю. Новая папка без описания = красный CI. Это единственное, что не даёт карте протухнуть.
+#
+# Порядок слоёв в `layers` — это порядок зависимости слева направо. Связь справа налево
+# рисуется красным: что-то глубокое тянется наверх.
+
+groups:
+  - id: build
+    title: Сборка и проверки
+  - id: client
+    title: Клиент
+  - id: engine
+    title: Движок
+  - id: server
+    title: Сервер
+  - id: contract
+    title: Общий контракт
+
+layers:
+  - id: tooling
+    title: Инструменты
+    group: build
+  - id: shell
+    title: Оболочка
+    group: client
+  - id: screens
+    title: Экраны
+    group: client
+  - id: editor-ui
+    title: Редактор — вид
+    group: client
+  - id: editor-logic
+    title: Редактор — логика
+    group: client
+  - id: ui-kit
+    title: Компоненты
+    group: client
+  - id: state
+    title: Состояние
+    group: client
+  - id: platform
+    title: Платформа
+    group: client
+  - id: engine-api
+    title: API движка
+    group: engine
+  - id: engine-internals
+    title: Внутренности движка
+    group: engine
+  - id: server-http
+    title: HTTP
+    group: server
+  - id: server-realtime
+    title: Реальное время
+    group: server
+  - id: server-infra
+    title: Инфраструктура
+    group: server
+  - id: shared
+    title: Контракт
+    group: contract
+
+modules:
+  # ------------------------------------------------------------------ сборка
+
+  - id: build-assets
+    title: Запекание ассетов
+    layer: tooling
+    owns: >-
+      Офлайн-генерация всего, что нельзя считать в рантайме: текстуры бумаги, иконки приложения
+      и subset-шрифт Material Symbols. Результат коммитится, поэтому сборка не зависит ни от GPU,
+      ни от сети.
+    files:
+      - apps/web/scripts/bakePaperTextures.ts
+      - apps/web/scripts/bakeAppIcons.ts
+      - apps/web/scripts/bakeIconFont.ts
+      - apps/web/scripts/paperAssetIO.ts
+    notes:
+      - >-
+        `npm run build` чистит public/paper на ~2 минуты и перезапекает его. Тесты paperAssets,
+        запущенные в это окно, молча скипаются — гонять их надо не во время сборки.
+      - >-
+        Единственные скрипты, которым можно лезть в engine/src напрямую: они запекают ровно то,
+        что движок потом читает, и общего публичного API для этого нет.
+    tags: [ассеты, оффлайн]
+
+  - id: build-dist
+    title: Пред-сжатие дистрибутива
+    layer: tooling
+    owns: >-
+      Постобработка сборки: brotli/gzip рядом с каждым подходящим файлом, чтобы nginx на VPS
+      раздавал готовое, а не жал на лету.
+    files:
+      - apps/web/scripts/precompressDist.ts
+      - apps/web/scripts/precompressPolicy.ts
+      - apps/web/scripts/precompress.test.ts
+    notes:
+      - >-
+        Никогда не называй вручную разжатый файл с расширением .gz — статик-сервер сам добавит
+        Content-Encoding, и браузер разожмёт содержимое второй раз.
+    tags: [деплой]
+
+  - id: build-config
+    title: Конфиг сборки
+    layer: tooling
+    owns: >-
+      Vite: PWA-плагин, dev-сервер с `--host` для планшетов в локальной сети, режимы http/https.
+    files:
+      - apps/web/vite.config.ts
+    tags: [vite]
+
+  - id: e2e
+    title: E2E-стенд
+    layer: tooling
+    owns: >-
+      Playwright-сценарии поверх настоящего браузера и настоящего сервера — единственное место,
+      где проверяется то, что vitest с mock-WebGL проверить не может: реальные пиксели и реальный
+      ввод пером.
+    files:
+      - e2e/**
+    notes:
+      - >-
+        Свежему worktree нужен `npm run bake:paper` до первого прогона, иначе бумага не грузится.
+      - >-
+        Порты 4491/5491 умеет держать брошенный прогон из соседнего worktree.
+    tags: [playwright, реальный-браузер]
+
+  - id: server-tools
+    title: Нагрузка и замеры сервера
+    layer: tooling
+    owns: >-
+      Разовые скрипты: синтетический нагрузочный прогон комнаты, замер памяти на комнату,
+      генерация синтетических штрихов.
+    files:
+      - apps/server/src/scripts/**
+    tags: [профилирование]
+
+  - id: archmap
+    title: Эта карта
+    layer: tooling
+    owns: >-
+      Генератор карты архитектуры: снимает граф импортов (dependency-cruiser), повторы (jscpd)
+      и историю правок, склеивает с описаниями из map.yaml и рендерит одну самодостаточную
+      HTML-страницу. `map:check` падает, когда код и карта разошлись.
+    files:
+      - scripts/archmap/**
+    issues: [549]
+    tags: [документация]
+
+  # ------------------------------------------------------------------ оболочка
+
+  - id: app-shell
+    title: Оболочка приложения
+    layer: shell
+    owns: >-
+      Точка входа, роутер, провайдеры (react-query, Sentry, i18n), глобальная загрузка бумаги
+      и выбор экрана. Всё, что живёт дольше любой комнаты.
+    files:
+      - apps/web/src/App.tsx
+      - apps/web/src/main.tsx
+    tags: [роутинг, вход]
+
+  - id: pwa
+    title: PWA и service worker
+    layer: shell
+    owns: >-
+      Service worker, политика обновления версии и обработка навигационных ответов — то, что
+      делает приложение устанавливаемым и переживающим потерю сети.
+    files:
+      - apps/web/src/pwa/**
+    notes:
+      - >-
+        При диагностике прода сначала сверь хеш загруженного бандла: SW отдаёт сборку,
+        которая была до деплоя, и симптом легко списать не на то.
+    tags: [оффлайн, обновления]
+
+  # ------------------------------------------------------------------ экраны
+
+  - id: screen-auth
+    title: Вход
+    layer: screens
+    owns: >-
+      Беспарольный вход по коду на email — экран ввода адреса и кода.
+    files:
+      - apps/web/src/pages/Auth/**
+    tags: [аккаунты]
+
+  - id: screen-lessons
+    title: Мои уроки
+    layer: screens
+    owns: >-
+      Личный кабинет: список комнат и папок, переименование, перенос, форк, выдача домашки.
+      Единственный экран, где комнатой управляют, а не рисуют в ней.
+    files:
+      - apps/web/src/pages/MyLessons/**
+    tags: [аккаунты, комнаты]
+
+  - id: screen-create-room
+    title: Создание комнаты
+    layer: screens
+    owns: >-
+      Выбор бумаги, размера холста (или бесконечного), режима доступа — и первый `create_room`
+      по сокету.
+    files:
+      - apps/web/src/pages/CreateRoom/**
+    tags: [комнаты]
+
+  - id: screen-settings
+    title: Настройки приложения
+    layer: screens
+    owns: >-
+      Общие настройки, которые переживают любую комнату — сейчас это язык.
+    files:
+      - apps/web/src/pages/Settings/**
+    adr: [006-i18n]
+    tags: [настройки]
+
+  # ------------------------------------------------------------------ редактор: вид
+
+  - id: room-shell
+    title: Экран комнаты
+    layer: editor-ui
+    owns: >-
+      Сборка всего редактора: канвас, движок, сокет, панели, горячие клавиши, жесты. Держит
+      `engineRef` и императивный конвейер указателя — единственное место, где WebGL-движок
+      встречается с React.
+    files:
+      - apps/web/src/pages/Room/index.tsx
+      - apps/web/src/pages/Room/Room.module.css
+    issues: [25]
+    notes:
+      - >-
+        Самый крупный файл проекта. Миграция состояния редактора в store (#19→#24) закончена,
+        но этот файл остался точкой сборки — он тянет ~100 модулей.
+      - >-
+        Граница, которую он держит: store — отражение того, что уже применено к движку
+        императивным вызовом, а не источник правды для движка.
+    tags: [точка-сборки, крупный]
+
+  - id: room-overlays
+    title: Слои поверх холста
+    layer: editor-ui
+    owns: >-
+      Всё, что рисуется поверх канваса и живёт в экранных координатах: сетка, линейка, рамка
+      выделения, гизмо трансформации, курсоры соседей, кисть-курсор, диск угла грифеля,
+      аннотации.
+    files:
+      - apps/web/src/pages/Room/GridOverlay.*
+      - apps/web/src/pages/Room/RulerOverlay.*
+      - apps/web/src/pages/Room/SelectionOverlay.*
+      - apps/web/src/pages/Room/TransformGizmo.*
+      - apps/web/src/pages/Room/PeerCursors.*
+      - apps/web/src/pages/Room/BrushCursor.*
+      - apps/web/src/pages/Room/ChiselAngleDial.*
+      - apps/web/src/pages/Room/AnnotationOverlay.*
+    adr: [008-selection]
+    tags: [оверлеи]
+
+  - id: room-status
+    title: Баннеры состояния
+    layer: editor-ui
+    owns: >-
+      Вся обратная связь о том, что происходит с комнатой и связью: подключение, заморозка,
+      закрытие, оффлайн, не загрузилась бумага, идёт восстановление, потерялась работа,
+      статус синхронизации, ворота входа.
+    files:
+      - apps/web/src/pages/Room/ConnectionBanner.*
+      - apps/web/src/pages/Room/ClosedBanner.*
+      - apps/web/src/pages/Room/FrozenBanner.*
+      - apps/web/src/pages/Room/LostWorkBanner.*
+      - apps/web/src/pages/Room/OfflineRoomOverlay.*
+      - apps/web/src/pages/Room/PaperFailedOverlay.*
+      - apps/web/src/pages/Room/RoomLoadingOverlay.*
+      - apps/web/src/pages/Room/SyncIndicator.*
+      - apps/web/src/pages/Room/ViewportToast.*
+      - apps/web/src/pages/Room/JoinGate.*
+      - apps/web/src/pages/Room/RoomFailureOverlay.*
+      - apps/web/src/pages/Room/RestoreFailedOverlay.*
+    notes:
+      - >-
+        RoomFailureOverlay — общая форма «комната не открылась», RestoreFailedOverlay
+        подставляет в неё причину. Причин ровно две, и они не взаимозаменяемы: пиксели не
+        доехали по сети (#533) или доехали и упали при выкладке на экран (#538). Назвать
+        человеку не ту причину — это стоить ему следующей попытки.
+    tags: [состояние-связи]
+
+  - id: room-panels
+    title: Панели комнаты
+    layer: editor-ui
+    owns: >-
+      Список участников с управлением доступом и dev-панель тюнинга звука карандаша.
+    files:
+      - apps/web/src/pages/Room/ParticipantsPanel.*
+      - apps/web/src/pages/Room/PencilSoundTuningPanel.*
+    tags: [панели]
+
+  # ------------------------------------------------------------------ редактор: логика
+
+  - id: room-viewport
+    title: Вьюпорт
+    layer: editor-logic
+    owns: >-
+      Локальная камера пользователя `{cx, cy, zoom, angle}`: математика камеры, пинч, перевод
+      координат указателя в холст, позиционирование плавающих панелей. У каждого участника своя —
+      по сети не ездит.
+    files:
+      - apps/web/src/pages/Room/cameraMath.ts
+      - apps/web/src/pages/Room/useViewport.ts
+      - apps/web/src/pages/Room/pointerTransform.ts
+      - apps/web/src/pages/Room/pinchTracker.ts
+      - apps/web/src/pages/Room/useViewportToast.ts
+      - apps/web/src/pages/Room/panelPosition.ts
+      - apps/web/src/pages/Room/*.test.ts
+    adr: [007-desktop-controls]
+    tags: [камера, локальное]
+
+  - id: room-net
+    title: Сетевой слой комнаты
+    layer: editor-logic
+    owns: >-
+      Всё между движком и сокетом: исходящая очередь операций и её сохранение на диск, оптимизм
+      до подтверждения, догон пропущенного, очередь входа, ворота и восстановление снапшота,
+      оживление сокета, статус синхронизации, троттлинг курсора.
+    files:
+      - apps/web/src/pages/Room/outbox.ts
+      - apps/web/src/pages/Room/outboxStorage.ts
+      - apps/web/src/pages/Room/optimism.ts
+      - apps/web/src/pages/Room/pendingPreviews.ts
+      - apps/web/src/pages/Room/catchUp.ts
+      - apps/web/src/pages/Room/joinQueue.ts
+      - apps/web/src/pages/Room/joinError.ts
+      - apps/web/src/pages/Room/snapshotGate.ts
+      - apps/web/src/pages/Room/snapshotRestore.ts
+      - apps/web/src/pages/Room/snapshotSync.ts
+      - apps/web/src/pages/Room/socketRevival.ts
+      - apps/web/src/pages/Room/syncStatus.ts
+      - apps/web/src/pages/Room/connectionNotice.ts
+      - apps/web/src/pages/Room/cursorThrottle.ts
+      - apps/web/src/pages/Room/cursorController.ts
+    adr: [002-collaborative-undo]
+    tags: [сеть, надёжность]
+
+  - id: room-tools
+    title: Инструменты и их параметры
+    layer: editor-logic
+    owns: >-
+      Реестр инструментов: какие ползунки у какого инструмента, как ключ перевода превращается
+      в подпись, кривые отклика на нажим и наклон, раскладка горячих клавиш редактора.
+    files:
+      - apps/web/src/pages/Room/toolSchemas.ts
+      - apps/web/src/pages/Room/toolTypeImages.ts
+      - apps/web/src/pages/Room/pressureResponseCurves.ts
+      - apps/web/src/pages/Room/tiltResponseCurves.ts
+      - apps/web/src/pages/Room/editorKeys.ts
+    adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 010-fill-tool, 011-watercolor]
+    notes:
+      - >-
+        Реестр хранит TranslationKey, а не готовую подпись — иначе инструмент нельзя перевести.
+    tags: [инструменты, реестр]
+
+  - id: room-gestures
+    title: Жесты и касания
+    layer: editor-logic
+    owns: >-
+      Разбор ввода до того, как он станет рисованием: тапы, последовательности тапов, порог
+      «клик или движение», жест линейки, жест выделения, индикатор рисования.
+    files:
+      - apps/web/src/pages/Room/tapSequence.ts
+      - apps/web/src/pages/Room/tapTracker.ts
+      - apps/web/src/pages/Room/clickTracker.ts
+      - apps/web/src/pages/Room/useCanvasTap.ts
+      - apps/web/src/pages/Room/useTapToggle.ts
+      - apps/web/src/pages/Room/rulerGesture.ts
+      - apps/web/src/pages/Room/selectionGesture.ts
+      - apps/web/src/pages/Room/drawingIndicator.ts
+    tags: [ввод, планшет]
+
+  - id: room-editing
+    title: Выделение и трансформация
+    layer: editor-logic
+    owns: >-
+      Операции над содержимым, а не над кистью: математика трансформации, попадание в аннотацию,
+      куда лечь вставке из буфера, какой слой сейчас активен.
+    files:
+      - apps/web/src/pages/Room/transformMath.ts
+      - apps/web/src/pages/Room/annotationHitTest.ts
+      - apps/web/src/pages/Room/pastePlacement.ts
+      - apps/web/src/pages/Room/activeLayer.ts
+    adr: [008-selection]
+    tags: [редактирование]
+
+  - id: room-diagnostics
+    title: Диагностика комнаты
+    layer: editor-logic
+    owns: >-
+      Отчёты о том, как прошли открытие и восстановление: тайминги входа, что именно
+      восстановилось из снапшота, была ли потеряна работа. Это то, по чему мы узнаём о сбое
+      раньше учителя.
+    files:
+      - apps/web/src/pages/Room/reportOpen.ts
+      - apps/web/src/pages/Room/reportRestore.ts
+      - apps/web/src/pages/Room/restoreReport.ts
+      - apps/web/src/pages/Room/openTiming.ts
+      - apps/web/src/pages/Room/lostWork.ts
+    tags: [наблюдаемость]
+
+  - id: room-participants
+    title: Участники
+    layer: editor-logic
+    owns: >-
+      Список участников комнаты и правила отображаемого имени.
+    files:
+      - apps/web/src/pages/Room/participants.ts
+      - apps/web/src/pages/Room/displayName.ts
+    tags: [совместность]
+
+  # ------------------------------------------------------------------ компоненты
+
+  - id: ui-layers
+    title: Панель слоёв
+    layer: ui-kit
+    owns: >-
+      Дерево слоёв и папок: перетаскивание на любую глубину, мультивыделение, слияние,
+      видимость и блокировка, перенос в папку.
+    files:
+      - apps/web/src/components/LayerPanel/**
+      - apps/web/src/components/MoveToDialog/**
+    adr: [001-layer-panel-dnd]
+    notes:
+      - >-
+        Правило «папка не может стать своим потомком» проверяется в applyMove, то есть при
+        реплее, а не только в обработчике перетаскивания: операции сворачивает каждый клиент,
+        и цикл повесил бы всю комнату разом.
+    tags: [слои, dnd]
+
+  - id: ui-color
+    title: Цвет
+    layer: ui-kit
+    owns: >-
+      Выбор цвета во всех режимах и палитра комнаты, общая для участников.
+    files:
+      - apps/web/src/components/ColorPicker/**
+      - apps/web/src/components/PaletteBar/**
+    tags: [цвет]
+
+  - id: ui-tool-panel
+    title: Плавающая панель и контролы
+    layer: ui-kit
+    owns: >-
+      Плавающая панель инструментов со слотами и её выпадашки, плюс переиспользуемые контролы
+      параметров: точный ползунок, радиальный диск, числовое поле, выбор из вариантов.
+    files:
+      - apps/web/src/components/FloatingToolPanel/**
+      - apps/web/src/components/OptionPicker/**
+      - apps/web/src/components/OptionGroup/**
+      - apps/web/src/components/RadialDial/**
+      - apps/web/src/components/PrecisionSlider/**
+      - apps/web/src/components/NumberField/**
+    notes:
+      - >-
+        Панель по умолчанию скрыта: для проверки мышью нужен `al_floating_panel='always'`,
+        для настоящего касания — планшет с минимальным UI.
+    tags: [инструменты, планшет]
+
+  - id: ui-chrome
+    title: Общая обвязка интерфейса
+    layer: ui-kit
+    owns: >-
+      Всё, что не про рисование: шапка, меню аккаунта, логотип, иконки, меню и карточные меню,
+      боковая панель, модалки и диалоги подтверждения, уведомления, пустые состояния, поля
+      настроек, переключатели, ввод текста.
+    files:
+      - apps/web/src/components/AppHeader/**
+      - apps/web/src/components/AccountNav/**
+      - apps/web/src/components/Logo.*
+      - apps/web/src/components/Icon.tsx
+      - apps/web/src/components/Menu/**
+      - apps/web/src/components/CardMenu/**
+      - apps/web/src/components/SidePanel/**
+      - apps/web/src/components/Modal/**
+      - apps/web/src/components/ConfirmDialog/**
+      - apps/web/src/components/Notice/**
+      - apps/web/src/components/ListState/**
+      - apps/web/src/components/SettingsPanel/**
+      - apps/web/src/components/SettingField/**
+      - apps/web/src/components/Switch/**
+      - apps/web/src/components/TextInput/**
+    tags: [ui]
+
+  - id: ui-room-access
+    title: Управление доступом
+    layer: ui-kit
+    owns: >-
+      Кто может войти в комнату: режим доступа, приглашения, заявки на вход.
+    files:
+      - apps/web/src/components/RoomAccessControl/**
+    tags: [доступ]
+
+  - id: ui-paper
+    title: Превью бумаги
+    layer: ui-kit
+    owns: >-
+      Показ образца бумаги вне холста — на создании комнаты и в настройках. Единственный
+      компонент со своим WebGL-контекстом.
+    files:
+      - apps/web/src/components/PaperPreview/**
+    tags: [бумага, webgl]
+
+  - id: ui-pressure
+    title: Калибровка нажима
+    layer: ui-kit
+    owns: >-
+      Мастер калибровки пера: замер реального диапазона нажима устройства и подгонка кривой
+      под руку.
+    files:
+      - apps/web/src/components/PressureCalibration/**
+    tags: [перо]
+
+  # ------------------------------------------------------------------ состояние
+
+  - id: store-room
+    title: Стор комнаты
+    layer: state
+    owns: >-
+      Единственный глобальный стор приложения: слои, вьюпорт, инструмент и пресеты, цвет,
+      выделение, аннотации, данные комнаты, текущий штрих. Разрезан на слайсы, но это один стор,
+      и `resetRoomStore()` чистит его на каждый монтаж комнаты.
+    files:
+      - apps/web/src/stores/roomStore.ts
+      - apps/web/src/stores/roomStore.test.ts
+      - apps/web/src/stores/slices/**
+    issues: [25]
+    notes:
+      - >-
+        Состояние стора — отражение того, что уже применено к движку императивным вызовом,
+        никогда не источник правды для движка.
+    tags: [zustand, единый-стор]
+
+  - id: store-app
+    title: Сторы вне комнаты
+    layer: state
+    owns: >-
+      То, что переживает комнату: настройки приложения (язык), очередь уведомлений, буфер обмена.
+      Сознательное исключение из правила «один стор».
+    files:
+      - apps/web/src/stores/settingsStore.ts
+      - apps/web/src/stores/noticeStore.ts
+      - apps/web/src/stores/noticeStore.test.ts
+      - apps/web/src/stores/clipboardStore.ts
+    adr: [006-i18n]
+    tags: [zustand, настройки]
+
+  # ------------------------------------------------------------------ платформа
+
+  - id: i18n
+    title: Переводы
+    layer: platform
+    owns: >-
+      Свой минимальный слой i18n без библиотеки: плоские типизированные ключи, английский —
+      источник истины для набора ключей, любая другая локаль типизирована как Dictionary,
+      поэтому пропущенный перевод — ошибка типизации.
+    files:
+      - apps/web/src/i18n/**
+    adr: [006-i18n]
+    notes:
+      - >-
+        Dev-панели (флаги, тюнинг, отладочные оверлеи) остаются английскими намеренно.
+    tags: [i18n]
+
+  - id: icons
+    title: Иконки
+    layer: platform
+    owns: >-
+      Список иконок, из которого печётся 5 КБ subset Material Symbols. `IconName` — union-тип,
+      поэтому неописанная иконка это ошибка типизации, а не невидимая кнопка.
+    files:
+      - apps/web/src/icons/**
+    notes:
+      - >-
+        Добавить иконку = дописать имя в iconNames.ts и запустить `npm run bake:icon-font`.
+        Никогда не расширяй проп `icon` обратно до string.
+    tags: [иконки]
+
+  - id: styles
+    title: Токены и глобальные стили
+    layer: platform
+    owns: >-
+      CSS-переменные (цвета, отступы, размеры тач-целей) и глобальные стили. Всё остальное —
+      CSS Modules поверх этих токенов.
+    files:
+      - apps/web/src/styles/**
+    tags: [css]
+
+  - id: lib-api
+    title: Клиент API и данные комнат
+    layer: platform
+    owns: >-
+      REST-клиент к серверу, react-query, состояние авторизации, шаринг комнаты, локальное
+      хранение комнат и чанков.
+    files:
+      - apps/web/src/lib/api.ts
+      - apps/web/src/lib/queryClient.ts
+      - apps/web/src/lib/authState.ts
+      - apps/web/src/lib/shareRoom.ts
+      - apps/web/src/lib/shareRoom.test.ts
+      - apps/web/src/lib/useShareRoom.ts
+      - apps/web/src/lib/roomChunk.ts
+      - apps/web/src/lib/roomStorage.ts
+      - apps/web/src/lib/roomStorage.test.ts
+    tags: [api]
+
+  - id: lib-sound
+    title: Звук
+    layer: platform
+    owns: >-
+      Синтез звука карандаша по бумаге в реальном времени (несущая разложена на mid/body/hiss)
+      и щелчки интерфейса. Живой движок — PencilSound.ts; вариант на AudioWorklet отброшен.
+    files:
+      - apps/web/src/lib/PencilSound.ts
+      - apps/web/src/lib/pencilSoundV3/**
+      - apps/web/src/lib/InterfaceClick.ts
+    notes:
+      - >-
+        Когда настройка на слух буксует — рендери выход синтеза в файл и сравнивай с эталонными
+        записями одним анализатором, а не ушами.
+    tags: [аудио]
+
+  - id: lib-layers
+    title: Помощники слоёв
+    layer: platform
+    owns: >-
+      Чистые функции над состоянием слоёв: порядок композита, видимость с учётом папок,
+      блокировки, цели сквозного стирания. Общие для панели, стора и движка.
+    files:
+      - apps/web/src/lib/layers.ts
+      - apps/web/src/lib/layers.test.ts
+    adr: [001-layer-panel-dnd]
+    tags: [слои, чистое]
+
+  - id: lib-input
+    title: Ввод и жесты (общее)
+    layer: platform
+    owns: >-
+      Переиспользуемые примитивы ввода: горячие клавиши, калибровка нажима, пороги касания,
+      перетаскивание-регулятор, долгое нажатие, позиционирование поповеров, закрытие по клику
+      снаружи, компактная раскладка, тип устройства, углы.
+    files:
+      - apps/web/src/lib/hotkeys.ts
+      - apps/web/src/lib/hotkeys.test.ts
+      - apps/web/src/lib/pressureCalibration.ts
+      - apps/web/src/lib/pressureCalibration.test.ts
+      - apps/web/src/lib/tapThreshold.ts
+      - apps/web/src/lib/useDragToAdjust.ts
+      - apps/web/src/lib/useDragToAdjust.test.ts
+      - apps/web/src/lib/useLongPress.ts
+      - apps/web/src/lib/useDraggablePosition.ts
+      - apps/web/src/lib/useDraggablePosition.test.ts
+      - apps/web/src/lib/usePopupAnchor.ts
+      - apps/web/src/lib/useDismissOnOutside.ts
+      - apps/web/src/lib/useCompactLayout.ts
+      - apps/web/src/lib/deviceType.ts
+      - apps/web/src/lib/deviceType.test.ts
+      - apps/web/src/lib/angles.ts
+      - apps/web/src/lib/angles.test.ts
+    adr: [007-desktop-controls]
+    tags: [ввод]
+
+  - id: lib-browser
+    title: Обёртки браузера
+    layer: platform
+    owns: >-
+      Всё, что упирается в конкретное поведение браузера: полноэкранный режим, перехват кнопки
+      «назад», безопасность перезагрузки, регистрация SW, версия приложения, тема, работа с
+      изображениями и миниатюрами, буфер обмена, UI-предпочтения, цветовые преобразования.
+    files:
+      - apps/web/src/lib/fullscreen.ts
+      - apps/web/src/lib/fullscreen.test.ts
+      - apps/web/src/lib/backNavigationGuard.ts
+      - apps/web/src/lib/backNavigationGuard.test.ts
+      - apps/web/src/lib/reloadSafety.ts
+      - apps/web/src/lib/reloadSafety.test.ts
+      - apps/web/src/lib/registerServiceWorker.ts
+      - apps/web/src/lib/appVersion.ts
+      - apps/web/src/lib/appVersion.test.ts
+      - apps/web/src/lib/theme.ts
+      - apps/web/src/lib/image.ts
+      - apps/web/src/lib/thumbnail.ts
+      - apps/web/src/lib/clipboardStorage.ts
+      - apps/web/src/lib/clipboardStorage.test.ts
+      - apps/web/src/lib/uiPreferences.ts
+      - apps/web/src/lib/uiPreferences.test.ts
+      - apps/web/src/lib/color.ts
+    tags: [браузер]
+
+  - id: lib-observability
+    title: Наблюдаемость и dev-инструменты
+    layer: platform
+    owns: >-
+      Sentry, диагностический лог, отчёты об инвариантах, флаги фич и ручка движка для консоли.
+      То, чем мы узнаём о поломке и чем ковыряем её вручную.
+    files:
+      - apps/web/src/lib/sentry.ts
+      - apps/web/src/lib/sentry.test.ts
+      - apps/web/src/lib/initSentry.ts
+      - apps/web/src/lib/diagLog.ts
+      - apps/web/src/lib/reportInvariant.ts
+      - apps/web/src/lib/reportInvariant.test.ts
+      - apps/web/src/lib/featureFlags.ts
+      - apps/web/src/lib/debugTools.ts
+      - apps/web/src/lib/debugTools.test.ts
+      - apps/web/src/lib/devEngineHandle.ts
+    notes:
+      - >-
+        Оверрайд зерна графита живёт в localStorage и per-origin — легко принять за баг рендера
+        или драйвера.
+    tags: [sentry, отладка]
+
+  - id: lib-annotations
+    title: Аннотации
+    layer: platform
+    owns: >-
+      Модель пометок поверх работы ученика — то, чем учитель разбирает домашку, не трогая её.
+    files:
+      - apps/web/src/lib/annotations.ts
+      - apps/web/src/lib/annotations.test.ts
+    tags: [домашка]
+
+  # ------------------------------------------------------------------ движок
+
+  - id: engine-facade
+    title: PencilEngine
+    layer: engine-api
+    owns: >-
+      Публичное API движка (`PencilEngineAPI`) и вся его оркестрация: контекст WebGL1, слои и их
+      буферы, применение и реплей операций, снапшоты, undo/redo, экспорт. Единственная дверь
+      внутрь — снаружи ничто не должно импортировать engine/src.
+    files:
+      - apps/web/src/engine/index.ts
+      - apps/web/src/engine/*.test.ts
+      - apps/web/src/engine/testing/**
+    issues: [25]
+    notes:
+      - >-
+        Десять тысяч строк в одном файле. Дробить его — отдельный разговор, но сейчас это и есть
+        граница между движком и приложением.
+      - >-
+        Mock-WebGL в vitest не рисует: проверки пикселей маркера в юнит-тестах меряют мок, а не
+        движок. Настоящую картинку проверяй в браузере.
+    tags: [webgl1, публичное-api, крупный]
+
+  - id: engine-buffers
+    title: Буферы слоёв и тайлы
+    layer: engine-internals
+    owns: >-
+      Хранение пикселей: аккумуляционный буфер штриха, тайловый буфер слоя с вытеснением и
+      мип-уровнями, математика тайлов, ретайлинг снапшота. Обычная комната — сетка тайлов
+      с границами по 1024, а не одна текстура.
+    files:
+      - apps/web/src/engine/src/AccumulationBuffer*.ts
+      - apps/web/src/engine/src/TiledLayerBuffer*.ts
+      - apps/web/src/engine/src/ILayerBuffer.ts
+      - apps/web/src/engine/src/tileMath*.ts
+      - apps/web/src/engine/src/retileSnapshot*.ts
+      - apps/web/src/engine/src/pinnedTiles*.ts
+    notes:
+      - >-
+        Формат приколотых чекпойнтов (#467) намеренно живёт только в памяти процесса: на диск
+        не пишется, на сервер не едет, в снапшот не входит. Проводной формат — за
+        snapshotCodec.ts, и совместимость держать обязан он.
+    tags: [тайлы, память]
+
+  - id: engine-dabs
+    title: Дабы и геометрия следа
+    layer: engine-internals
+    owns: >-
+      Как штрих превращается в дабы: сплайн Catmull-Rom, шаг между дабами, форма даба, отпечаток
+      кончика, профиль ленты для маркера и линера.
+    files:
+      - apps/web/src/engine/src/DabSystem*.ts
+      - apps/web/src/engine/src/dabShaping*.ts
+      - apps/web/src/engine/src/dabSpacing.ts
+      - apps/web/src/engine/src/tipFootprint.ts
+      - apps/web/src/engine/src/ribbonProfile.ts
+      - apps/web/src/engine/src/markerRibbon*.ts
+      - apps/web/src/engine/src/brushPenTip.test.ts
+    adr: [012-tip-footprint-geometry, 004-marker-tool, 003-liner-tool]
+    notes:
+      - >-
+        «Штрих выглядит не так» → сначала расшифруй записанные дабы, потом строй теорию.
+    tags: [геометрия, штрих]
+
+  - id: engine-presets
+    title: Пресеты инструментов
+    layer: engine-internals
+    owns: >-
+      Числовые характеры инструментов: карандаш и его грифели, уголь, маркер, линер, кисть-перо,
+      акварель с пигментами, наклон и его кривые, тактильное зерно, зерно растушёвки.
+    files:
+      - apps/web/src/engine/src/pencilPresets*.ts
+      - apps/web/src/engine/src/charcoalPresets*.ts
+      - apps/web/src/engine/src/charcoalFeel*.ts
+      - apps/web/src/engine/src/markerPresets*.ts
+      - apps/web/src/engine/src/linerPresets*.ts
+      - apps/web/src/engine/src/brushPenPresets.ts
+      - apps/web/src/engine/src/watercolorPresets*.ts
+      - apps/web/src/engine/src/watercolorPigments.ts
+      - apps/web/src/engine/src/pencilTilt*.ts
+      - apps/web/src/engine/src/tiltCurve*.ts
+      - apps/web/src/engine/src/tiltMath*.ts
+      - apps/web/src/engine/src/smudgeGrain.ts
+      - apps/web/src/engine/src/HapticGrain.ts
+    adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 011-watercolor]
+    tags: [инструменты, характер]
+
+  - id: engine-paper
+    title: Бумага
+    layer: engine-internals
+    owns: >-
+      Зерно бумаги: загрузка запечённых текстур, манифест вариантов, константы, «зацеп» грифеля
+      за зерно. Живая GPU-запечка, общий PNG и аналитический шейдер были испробованы и отброшены.
+    files:
+      - apps/web/src/engine/src/paper*.ts
+    tags: [бумага, текстуры]
+
+  - id: engine-input
+    title: Указатель и линейка
+    layer: engine-internals
+    owns: >-
+      Приём событий указателя: нажим, скорость по часам сэмпла, наклон, аналитический перевод
+      координат через `setTransform()`, притяжение к линейке.
+    files:
+      - apps/web/src/engine/src/PointerInput*.ts
+      - apps/web/src/engine/src/rulerSnap*.ts
+    notes:
+      - >-
+        iPad терял примерно один штрих штриховки из пятнадцати, пока канвас не начал
+        preventDefault на touchstart непассивно — `touch-action: none` было недостаточно.
+    tags: [перо, ввод]
+
+  - id: engine-oplog
+    title: Операционный лог и снапшоты
+    layer: engine-internals
+    owns: >-
+      Лог операций внутри движка, кодек снапшотов, аудит покрытия снапшота, gzip. То, из чего
+      комната собирается заново после перезахода.
+    files:
+      - apps/web/src/engine/src/OperationLog*.ts
+      - apps/web/src/engine/src/snapshotCodec*.ts
+      - apps/web/src/engine/src/snapshotAudit.ts
+      - apps/web/src/engine/src/gzip*.ts
+    adr: [002-collaborative-undo]
+    issues: [375]
+    notes:
+      - >-
+        Полные логи операций хранятся сознательно, как актив для обучения моделей (#375).
+        Сырой ввод пера при этом не сохраняется.
+    tags: [операции, восстановление]
+
+  - id: engine-raster
+    title: Шейдеры и растровые операции
+    layer: engine-internals
+    owns: >-
+      GLSL-программы движка и растровые алгоритмы поверх них: заливка, маска выделения, матрицы,
+      мелкие утилиты. WebGL1 — никаких возможностей только из WebGL2.
+    files:
+      - apps/web/src/engine/src/shaders.ts
+      - apps/web/src/engine/src/floodFill*.ts
+      - apps/web/src/engine/src/selectionMask*.ts
+      - apps/web/src/engine/src/matrix*.ts
+      - apps/web/src/engine/src/utils.ts
+    adr: [010-fill-tool]
+    notes:
+      - >-
+        Шейдерные программы независимы: константа, объявленная не в той программе, роняет
+        приложение в чёрный экран. Это ловит shaders.test.ts.
+      - >-
+        Симптом «шейдеры компилируются, программа не линкуется, лог пуст» уже случался —
+        причиной была функция, вызванная из двух мест.
+    tags: [glsl, webgl1]
+
+  # ------------------------------------------------------------------ сервер
+
+  - id: server-rooms
+    title: Комнаты и релей
+    layer: server-realtime
+    owns: >-
+      Сердце сервера: комнаты в памяти, подкреплённые Postgres, ретрансляция операций всем
+      участникам, живые штрихи и курсоры, undo/redo, заморозка. Сервер никогда не рендерит —
+      он пересылает операции.
+    files:
+      - apps/server/src/rooms.ts
+      - apps/server/src/rooms.test.ts
+      - apps/server/src/roomSnapshots.test.ts
+      - apps/server/src/socketHandlers.ts
+    adr: [002-collaborative-undo]
+    notes:
+      - >-
+        Map остаётся источником правды для всего живого; запись в Postgres — fire-and-forget,
+        её не ждут на горячем пути. Плата: операция, проигравшая гонку падению сервера,
+        выпадает из истории, хотя уже была ретранслирована.
+      - >-
+        Комната, которая читается как стёртая, — это испорченная строка RoomLayerState,
+        а не потерянные данные.
+    tags: [socket.io, комнаты]
+
+  - id: server-rooms-http
+    title: HTTP-ручки комнат
+    layer: server-http
+    owns: >-
+      REST поверх тех же комнат: список и папки, доступ и приглашения, форк, миниатюры,
+      снапшоты, отображение сущности комнаты в проводной вид.
+    files:
+      - apps/server/src/roomRoutes*.ts
+      - apps/server/src/roomFolderRoutes*.ts
+      - apps/server/src/roomAccessRoutes*.ts
+      - apps/server/src/forkRoutes*.ts
+      - apps/server/src/thumbnailRoutes*.ts
+      - apps/server/src/snapshotRoutes*.ts
+      - apps/server/src/roomMapper.ts
+    tags: [rest]
+
+  - id: server-auth
+    title: Аккаунты и доступ
+    layer: server-http
+    owns: >-
+      Беспарольный вход по коду на email, выдача и проверка кодов, личность запроса,
+      ограничение частоты, правила доступа к комнате.
+    files:
+      - apps/server/src/authRoutes*.ts
+      - apps/server/src/loginCodes*.ts
+      - apps/server/src/loginCodeEmail.ts
+      - apps/server/src/email.ts
+      - apps/server/src/identity.ts
+      - apps/server/src/rateLimit.ts
+      - apps/server/src/roomAccess.ts
+      - apps/server/src/roomAccess.test.ts
+    tags: [аккаунты, доступ]
+
+  - id: server-health
+    title: Здоровье процесса
+    layer: server-http
+    owns: >-
+      Всё, чем процесс отчитывается о себе: health-ручки, диск, память, задержка event loop,
+      отставание снапшотов, описание клиента, настройки Sentry, корректное завершение.
+    files:
+      - apps/server/src/healthRoutes*.ts
+      - apps/server/src/disk*.ts
+      - apps/server/src/memory*.ts
+      - apps/server/src/eventLoop*.ts
+      - apps/server/src/snapshotLagWatch*.ts
+      - apps/server/src/clientDescription*.ts
+      - apps/server/src/sentryOptions*.ts
+      - apps/server/src/instrument.ts
+      - apps/server/src/shutdown*.ts
+    tags: [эксплуатация]
+
+  - id: server-entry
+    title: Точка входа и БД
+    layer: server-infra
+    owns: >-
+      Поднятие Fastify и Socket.io, клиент Prisma, схема и миграции Postgres. Redis нет —
+      одного процесса пока хватает.
+    files:
+      - apps/server/src/index.ts
+      - apps/server/src/prisma.ts
+      - apps/server/prisma/**
+    notes:
+      - >-
+        Меняешь схему — типизация зелёная, а сервер отдаёт 500, пока не выполнен prisma generate;
+        он же падает с EPERM, если рядом крутится dev-сервер.
+      - >-
+        Локально серверу нужен `docker start art_lessons_pg` до `npm run dev`.
+    tags: [fastify, prisma, postgres]
+
+  # ------------------------------------------------------------------ контракт
+
+  - id: shared-contract
+    title: Общие типы и операции
+    layer: shared
+    owns: >-
+      Единственный контракт между клиентом и сервером: тип `Operation` и все его варианты,
+      сущности комнаты и участника, события сокета в обе стороны, общие константы. Каждое
+      действие рисования сериализуемо с первого дня.
+    files:
+      - packages/shared/src/index.ts
+      - packages/shared/src/rejectReason.test.ts
+      - packages/shared/src/transformMatrix.test.ts
+    tags: [контракт, операции]
+
+  - id: shared-dab-codec
+    title: Кодек дабов
+    layer: shared
+    owns: >-
+      Упаковка дабов в компактный проводной формат и обратно — то, что делает поток штриха
+      достаточно дешёвым для настоящего интернета, а не только для локальной сети.
+    files:
+      - packages/shared/src/dabCodec.ts
+      - packages/shared/src/dabCodec.test.ts
+    tags: [контракт, сжатие]
+
+# ======================================================================== потоки
+#
+# То, чего из импортов не вывести: что происходит во времени. Рисуется руками, проверяется
+# глазами — но каждый шаг привязан к модулю, и `map:check` падает, если модуль исчез.
+
+flows:
+  - id: stroke
+    title: Штрих — от пера до чужого экрана
+    intro: >-
+      Главный путь приложения. Всё в нём устроено так, чтобы линия появлялась под пером
+      мгновенно и локально, а сеть догоняла потом.
+    steps:
+      - id: pointer
+        title: Событие указателя
+        module: engine-input
+        side: client
+        detail: >-
+          PointerInput принимает нажим, наклон и скорость (по часам сэмпла, не обработчика)
+          и переводит экранные координаты в координаты холста аналитически, через setTransform.
+      - id: dabs
+        title: Сплайн и дабы
+        module: engine-dabs
+        side: client
+        detail: >-
+          Точки укладываются на сплайн Catmull-Rom, по нему с нужным шагом расставляются дабы,
+          форма каждого берётся из пресета инструмента и отпечатка кончика.
+      - id: raster
+        title: Растеризация в буфер
+        module: engine-buffers
+        side: client
+        detail: >-
+          Дабы рисуются в аккумуляционный буфер штриха, затем — в тайлы слоя. Пользователь видит
+          линию здесь, до всякой сети.
+      - id: op
+        title: Операция
+        module: engine-oplog
+        side: client
+        detail: >-
+          Завершённый штрих становится сериализуемой Operation. Это же значение потом уедет
+          на сервер, ляжет в историю и будет свёрнуто при реплее у всех остальных.
+      - id: pack
+        title: Упаковка дабов
+        module: shared-dab-codec
+        side: wire
+        detail: >-
+          Дабы пакуются в компактный проводной формат — иначе поток не проходит по реальному
+          каналу, а не только по локальной сети.
+      - id: outbox
+        title: Исходящая очередь
+        module: room-net
+        side: client
+        detail: >-
+          Операция кладётся в outbox и переживает потерю связи и перезагрузку страницы.
+          Локально она применена оптимистично, до подтверждения.
+      - id: emit
+        title: emit operation
+        module: shared-contract
+        side: wire
+        detail: >-
+          Сокет отправляет `operation`; параллельно, пока рука ещё ведёт, идут `stroke_live`
+          с частичными дабами и `cursor_move`.
+      - id: relay
+        title: Сервер присваивает seq и ретранслирует
+        module: server-rooms
+        side: server
+        detail: >-
+          Комната в памяти даёт операции порядковый номер, рассылает `operation_confirmed`
+          всем и `peer_stroke_live` — соседям. Сервер ничего не рисует.
+      - id: persist
+        title: Запись в Postgres
+        module: server-entry
+        side: server
+        detail: >-
+          Запись идёт fire-and-forget, её не ждут на горячем пути: задержка БД не должна
+          добавляться к задержке рисования.
+      - id: peer
+        title: Чужой клиент сворачивает операцию
+        module: engine-facade
+        side: client
+        detail: >-
+          У остальных участников та же операция применяется к их движку. Картинка сходится
+          не потому, что кто-то прислал пиксели, а потому что все свернули один и тот же лог.
+
+  - id: join
+    title: Вход в комнату и восстановление картинки
+    intro: >-
+      Второй по важности путь: он решает, увидит ли учитель свою работу через неделю и сколько
+      секунд он будет её ждать.
+    steps:
+      - id: gate
+        title: Ворота входа
+        module: room-net
+        side: client
+        detail: >-
+          Клиент встаёт в очередь входа и держит канвас закрытым, пока не решено, что именно
+          восстанавливать: чужие операции, прилетевшие в это окно, не должны нарисоваться дважды.
+      - id: join_room
+        title: join_room
+        module: shared-contract
+        side: wire
+        detail: >-
+          В запросе едет максимальный seq, который у клиента уже есть, — чтобы сервер не слал
+          заново то, что вкладка не теряла.
+      - id: room_state
+        title: room_state
+        module: server-rooms
+        side: server
+        detail: >-
+          Сервер отдаёт комнату, участников, палитру, статус заморозки, номер последнего
+          снапшота и хвост операций. Что именно вырезано из хвоста, решается по каждому слою
+          отдельно, против его собственного покрытия — общий порог по комнате однажды уже
+          съел рисунок.
+      - id: fetch
+        title: Загрузка снапшотов
+        module: server-rooms-http
+        side: server
+        detail: >-
+          Клиент сам забирает индекс снапшотов и по блобу на слой обычным HTTP — по сокету
+          это не едет.
+      - id: decode
+        title: Раскодирование и ретайлинг
+        module: engine-oplog
+        side: client
+        detail: >-
+          Блобы распаковываются и раскладываются по тайлам слоёв — при этом сетка тайлов может
+          не совпадать с той, в которой снапшот пекли.
+      - id: replay
+        title: Реплей хвоста
+        module: engine-facade
+        side: client
+        detail: >-
+          Поверх восстановленных пикселей сворачивается хвост операций. Операции, несущие и
+          пиксели, и структуру, приходят всегда, а их пиксельную половину клиент пропускает
+          сам — против того покрытия, которое реально восстановил.
+      - id: report
+        title: Отчёт о восстановлении
+        module: room-diagnostics
+        side: client
+        detail: >-
+          Что восстановилось, за сколько и не потерялось ли — уходит в отчёт. Это то, чем мы
+          узнаём о сбое раньше учителя.
+
+  - id: undo
+    title: Отмена в четыре руки
+    intro: >-
+      Отмена в общей комнате — не стек. Разбор того, почему именно так, лежит в ADR 002.
+    steps:
+      - id: request
+        title: Клиент просит отменить своё
+        module: room-net
+        side: client
+        detail: >-
+          Отменяется собственная операция участника по её идентификатору, а не «последнее
+          действие в комнате».
+      - id: server_undo
+        title: Сервер выпускает обратную операцию
+        module: server-rooms
+        side: server
+        detail: >-
+          Отмена сама становится операцией в общем логе и получает свой seq — иначе порядок
+          у разных участников разъедется.
+      - id: fold
+        title: Все сворачивают её одинаково
+        module: engine-facade
+        side: client
+        detail: >-
+          Структурная отмена возвращает удалённый слой по его id. Пиксели при этом придут
+          только если строка RoomLayerState цела.
