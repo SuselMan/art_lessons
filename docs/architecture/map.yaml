@@ -360,8 +360,9 @@ modules:
       - apps/web/src/pages/Room/toolTypeImages.ts
       - apps/web/src/pages/Room/pressureResponseCurves.ts
       - apps/web/src/pages/Room/tiltResponseCurves.ts
+      - apps/web/src/pages/Room/digitalBrushCurves.ts
       - apps/web/src/pages/Room/editorKeys.ts
-    adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 010-fill-tool, 011-watercolor]
+    adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 010-fill-tool, 011-watercolor, 013-digital-brush]
     notes:
       - >-
         Реестр хранит TranslationKey, а не готовую подпись — иначе инструмент нельзя перевести.
@@ -820,7 +821,8 @@ modules:
     layer: engine-internals
     owns: >-
       Числовые характеры инструментов: карандаш и его грифели, уголь, маркер, линер, кисть-перо,
-      акварель с пигментами, наклон и его кривые, тактильное зерно, зерно растушёвки.
+      акварель с пигментами, цифровая кисть и её набор, наклон и его кривые, тактильное зерно,
+      зерно растушёвки.
     files:
       - apps/web/src/engine/src/pencilPresets*.ts
       - apps/web/src/engine/src/charcoalPresets*.ts
@@ -828,6 +830,7 @@ modules:
       - apps/web/src/engine/src/markerPresets*.ts
       - apps/web/src/engine/src/linerPresets*.ts
       - apps/web/src/engine/src/brushPenPresets.ts
+      - apps/web/src/engine/src/digitalBrushPresets*.ts
       - apps/web/src/engine/src/watercolorPresets*.ts
       - apps/web/src/engine/src/watercolorPigments.ts
       - apps/web/src/engine/src/pencilTilt*.ts
