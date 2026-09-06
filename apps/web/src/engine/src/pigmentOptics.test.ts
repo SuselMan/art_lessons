@@ -4,7 +4,7 @@ import {
   pigmentAbsorption, mixtureColor, filmTransmittance, quantizeDepth, hueOf,
   PIGMENT_DEPTH_SCALE,
 } from './pigmentOptics'
-import { makeWetGrid, wetDiffuseStepMany, WET_DIFFUSE_RADII } from './wetDiffusion'
+import { makeWetGrid, wetDiffuseStepMany, WET_DIFFUSE_SCHEDULE } from './wetDiffusion'
 
 // #536, ADR 011 §17.19. The colour of a mixture, proved on the CPU before a
 // channel of it exists on the GPU — the same discipline as the diffusion's
@@ -78,7 +78,7 @@ describe('pigment optics (#536, ADR 011 §17.19)', () => {
     lay(66, ty)
     const before = [mass, dr, dg, db].map(f => f.reduce((a, v) => a + v, 0))
     let fields: Float64Array[] = [mass, dr, dg, db]
-    for (const r of WET_DIFFUSE_RADII) fields = wetDiffuseStepMany(g, fields, undefined, undefined, r)
+    for (const st of WET_DIFFUSE_SCHEDULE) fields = wetDiffuseStepMany(g, fields, undefined, undefined, st.radius, st.knight)
     // Conserved, per channel, to the last bit.
     fields.forEach((f, k) => expect(f.reduce((a, v) => a + v, 0)).toBeCloseTo(before[k], 9))
     const colourAt = (x: number) => {
@@ -135,8 +135,8 @@ describe('pigment optics (#536, ADR 011 §17.19)', () => {
       console.log(`scale ${scale}: lost ${lost.toFixed(3)} of twenty weak passes, hue error ${hueErr.toFixed(1)} deg, got`, got.map(v => v.toFixed(3)), 'exact', exact.map(v => v.toFixed(3)))
       if (scale <= PIGMENT_DEPTH_SCALE) expect(hueErr).toBeLessThan(25)
       let fields: Float64Array[] = [mass, dr, dg, db]
-      for (const r of WET_DIFFUSE_RADII.slice(4)) {
-        fields = wetDiffuseStepMany(g, fields, undefined, undefined, r)
+      for (const st of WET_DIFFUSE_SCHEDULE.slice(4)) {
+        fields = wetDiffuseStepMany(g, fields, undefined, undefined, st.radius, st.knight)
         fields = fields.map((f, k) => f.map(v => quantizeDepth(v, k === 0 ? 1 : scale)))
       }
       // After transport the mixture at the centre is still green-led, and
@@ -144,8 +144,11 @@ describe('pigment optics (#536, ADR 011 §17.19)', () => {
       // thinnest fringe, never the body).
       const mid = mixtureColor([fields[1][c], fields[2][c], fields[3][c]], fields[0][c], [1, 1, 1])
       if (scale <= PIGMENT_DEPTH_SCALE) {
-        expect(mid[1]).toBeGreaterThan(mid[0])
-        expect(mid[1]).toBeGreaterThan(mid[2])
+        // Green-led within a code: after eight quantised passes the red and
+        // green channels can land on the same code, which is still green-led
+        // against the blue that the yellow took out.
+        expect(mid[1]).toBeGreaterThanOrEqual(mid[0] - 0.01)
+        expect(mid[1]).toBeGreaterThan(mid[2] + 0.05)
       }
     }
   })

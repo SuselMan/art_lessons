@@ -481,7 +481,7 @@ ${WC_NOISE_GLSL}
       ? (u_depthWrite > 0.5
           ? vec4(amount * v_inkStrength * u_tau / WC_DEPTH_SCALE, amount * v_inkStrength)
           : vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount))
-      : vec4(acrossEncoded * amount, amount, amount * max(v_inkWet, max(u_washWater, v_inkWater * mix(u_waterRetain, 1.0, v_inkWet))), amount);
+      : vec4(acrossEncoded * amount, amount, amount * max(v_inkWet, u_washWater * mix(u_waterRetain, 1.0, v_inkWet) * smoothstep(0.05, 0.35, v_inkWater)), amount);
   }
 `;
 
@@ -1231,7 +1231,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, max(u_washWater, u_inkWater * mix(u_waterRetain, 1.0, u_paperWet))), cov);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, u_washWater * mix(u_waterRetain, 1.0, u_paperWet) * smoothstep(0.05, 0.35, u_inkWater)), cov);
       return;
     }
 
@@ -1378,10 +1378,16 @@ ${WC_NOISE_GLSL}
       // puddle mix as paints do (blue and yellow to a dull green), and one
       // paint comes out exactly the colour it carries. Where nothing was
       // laid the batch's own colour stands in, as with strength.
+      // Read as a ratio with a small prior on the batch's own paint: at a
+      // thin fringe the mass is a code or two and the depth rounds to none,
+      // and a bare ratio there is exp(0) - WHITE paint, which is what the
+      // "светлые артефакты, после высыхания остались" were. With the prior
+      // the fringe is the batch's colour and the body is the mixture.
       vec4 depth = texture2D(u_inkColor, tileUV);
-      vec3 paint = depth.a > 0.004
-        ? exp(-(depth.rgb * WC_DEPTH_SCALE) / depth.a)
-        : u_color;
+      const float WC_DEPTH_PRIOR = 0.03;
+      vec3 tauBatch = -log(max(u_color, vec3(0.02)));
+      vec3 tauHere = (depth.rgb * WC_DEPTH_SCALE + tauBatch * WC_DEPTH_PRIOR) / (depth.a + WC_DEPTH_PRIOR);
+      vec3 paint = exp(-tauHere);
 
       // §4.1 - how wet the brush was *here*, recovered from the deposit's own
       // weighted sum (see u_inkWater). Outside the mark there is no deposit to
@@ -2768,10 +2774,19 @@ export const WC_FIELD_OP_FRAG = `
   uniform sampler2D u_b;
   uniform float u_k;
   uniform float u_mode;
+  /** Mode 2: the colour record of a ONE-paint wash from its deposit - the
+   *  mass in a's .b (amount x strength) times u_tau, scaled as the ink pass
+   *  scales it. What the diffusion would have produced for a single paint,
+   *  in one pass instead of the schedule. */
+  uniform vec3 u_tau;
   varying vec2 v_uv;
   void main() {
     vec4 a = texture2D(u_a, v_uv);
     vec4 b = texture2D(u_b, v_uv);
+    if (u_mode > 1.5) {
+      gl_FragColor = vec4(a.b * u_tau / 4.0, a.b);
+      return;
+    }
     gl_FragColor = u_mode < 0.5 ? max(a - b, vec4(0.0)) * u_k : a + b * u_k;
   }
 `;
@@ -2846,8 +2861,10 @@ export const WC_DIFFUSE_FRAG = `
   uniform vec2 u_paperScale;
   uniform float u_d;
   uniform float u_b;
-  /** Stencil radius for this step, texels - one of WET_DIFFUSE_RADII. */
+  /** Stencil radius for this step, texels, and which ring: 0 the axes and
+   *  diagonals, 1 the knight's ring (2,1) - see WET_DIFFUSE_SCHEDULE. */
   uniform float u_radius;
+  uniform float u_stencil;
   varying vec2 v_uv;
 
   // Standing water at a texel: the wash's silhouette, times the wetter of two
@@ -2901,14 +2918,25 @@ export const WC_DIFFUSE_FRAG = `
       // oracle's stencil.
       for (int k = 0; k < 8; k++) {
         vec2 o;
-        if (k == 0) o = vec2( 1.0,  0.0);
-        else if (k == 1) o = vec2(-1.0,  0.0);
-        else if (k == 2) o = vec2( 0.0,  1.0);
-        else if (k == 3) o = vec2( 0.0, -1.0);
-        else if (k == 4) o = vec2( 1.0,  1.0);
-        else if (k == 5) o = vec2(-1.0,  1.0);
-        else if (k == 6) o = vec2( 1.0, -1.0);
-        else o = vec2(-1.0, -1.0);
+        if (u_stencil < 0.5) {
+          if (k == 0) o = vec2( 1.0,  0.0);
+          else if (k == 1) o = vec2(-1.0,  0.0);
+          else if (k == 2) o = vec2( 0.0,  1.0);
+          else if (k == 3) o = vec2( 0.0, -1.0);
+          else if (k == 4) o = vec2( 1.0,  1.0);
+          else if (k == 5) o = vec2(-1.0,  1.0);
+          else if (k == 6) o = vec2( 1.0, -1.0);
+          else o = vec2(-1.0, -1.0);
+        } else {
+          if (k == 0) o = vec2( 2.0,  1.0);
+          else if (k == 1) o = vec2(-2.0, -1.0);
+          else if (k == 2) o = vec2( 1.0,  2.0);
+          else if (k == 3) o = vec2(-1.0, -2.0);
+          else if (k == 4) o = vec2(-1.0,  2.0);
+          else if (k == 5) o = vec2( 1.0, -2.0);
+          else if (k == 6) o = vec2(-2.0,  1.0);
+          else o = vec2( 2.0, -1.0);
+        }
         o *= u_radius;
         vec2 uvj = v_uv + o * texel;
         // Off the buffer's edge is dry paper: nothing crosses it.

@@ -855,7 +855,7 @@ describe('the touch-down surplus (#536)', () => {
     // every line. A flat wash is a series of bands; at four radii this would be
     // a periodic dark head across the finished wash, which is the spatial
     // structure v9 went to trouble to remove.
-    expect(watercolorStartExcess(3, 0)).toBeLessThan(1.1)
+    expect(watercolorStartExcess(3, 0)).toBeLessThan(1.2)
     expect(watercolorStartExcess(40, 0)).toBeCloseTo(1, 6)
   })
 

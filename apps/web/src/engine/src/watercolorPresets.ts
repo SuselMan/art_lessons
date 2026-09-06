@@ -669,7 +669,9 @@ const PIGMENT_RUN_WET_RADII = 32
 //  (#536, s17.20) 0.9, from 0.2, over 1.0 radii from 0.8. Ilya, twice: "в
 //  начале штриха пигмент должен ложиться интенсивнее, в реальности начало
 //  штриха выглядит насыщеннее всегда". A loaded brush does dump on landing.
-const WATERCOLOR_START_EXCESS = 0.9
+//  (#536, s17.20, twice) 1.6, from 0.9, over 1.2 radii: "вначале штриха
+//  должно ложиться больше пигмента всё ещё".
+const WATERCOLOR_START_EXCESS = 1.6
 
 /** How fast that surplus is spent, in the brush's own radii. Under one radius
  *  on purpose. Two to four radii — the first number reached for — is a
@@ -677,7 +679,7 @@ const WATERCOLOR_START_EXCESS = 0.9
  *  bands, so at that length the wash would grow a periodic dark head at every
  *  stroke instead of a gradient down each one: the same spatial structure v9
  *  removed, just shorter. */
-const WATERCOLOR_START_EXCESS_RADII = 1.0
+const WATERCOLOR_START_EXCESS_RADII = 1.2
 
 /** The multiplier on the deposit at `usedRadii` into the stroke.
  *

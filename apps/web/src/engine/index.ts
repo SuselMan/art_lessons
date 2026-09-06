@@ -58,7 +58,7 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
-import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_RADII, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE } from './src/wetDiffusion'
+import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_SCHEDULE, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE } from './src/wetDiffusion'
 import { pigmentAbsorption } from './src/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
@@ -1467,13 +1467,14 @@ function ribbonBristleCombs(profile: RibbonProfile, bristleRadiusPx: number): nu
  *  RIBBON_FRAG for how the two become the wash's standing-water record. */
 function ribbonWaterDelivery(profile: RibbonProfile): { water: number; retain: number } {
   if (!profile.normalizeDeposit) return { water: 0, retain: 0 }
-  // Clean water: the nominal mix stands whole (that is what a puddle is; the
-  // load's depletion made a long puddle patchy — see wcWaterAt). Pigment: the
-  // brush's water AT EACH DAB, kept by how much it carries, so a dry tail
-  // leaves none.
-  return profile.pigmentStrength <= 0
-    ? { water: profile.waterLevel, retain: 0 }
-    : { water: 0, retain: watercolorWaterRetention(profile.waterLevel) }
+  // The nominal mix for every stroke — a long puddle laid from a depleting
+  // load read patchy, and a pigment stroke's own puddle read far weaker than
+  // a clean one's — kept whole for clean water and by the load's retention
+  // for pigment; the shader cuts it only where the brush has run dry.
+  return {
+    water: profile.waterLevel,
+    retain: profile.pigmentStrength <= 0 ? 1 : watercolorWaterRetention(profile.waterLevel),
+  }
 }
 
 const MARKER_SCRATCH_POOL_PER_SIZE = 6
@@ -1539,6 +1540,10 @@ class RibbonStrokeScratch {
   private readonly pool: RibbonScratchPool
   /** (#536, §17.19) Whether tiles carry inkColor — watercolor only. */
   private readonly needsColor: boolean
+  /** (#536, §17.20) Every paint laid into this wash, as colour keys. While it
+   *  is one paint, the colour record is the deposit times one absorption and
+   *  the diffusion need not carry it — see _diffuseWash. */
+  readonly paints = new Set<string>()
   private readonly needsInk: boolean
   /** (#468 v3) How much of the brush's load this gesture has spent so far,
    *  measured in brush radii of travel (ADR 011 §3.8).
@@ -2102,6 +2107,7 @@ export class PencilEngine implements PencilEngineAPI {
   /** Keyed by the layer tile the wash settled into. Presentation state only:
    *  never read by any paint pass, never serialised, dropped with the tile. */
   private _washReveals = new Map<AccumulationBuffer, WashReveal>()
+  private _revealTimer = 0
   /** (#536, §17.11) The one field the wet diffusion runs over: the wash's
    *  tiles stitched into a rect, so paint crosses tile seams as freely as any
    *  other texel. Four buffers of one size, grown to the largest wash seen and
@@ -5362,11 +5368,11 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
-    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_k', 'u_mode'])
+    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_k', 'u_mode', 'u_tau'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
-      'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius',
+      'u_paperOrigin', 'u_paperTexSize', 'u_paperScale', 'u_d', 'u_b', 'u_radius', 'u_stencil',
     ])
     this._transformUni = getUniforms(gl, this._transformProg, ['u_source', 'u_dstSize', 'u_srcSize', 'u_matrixInv'])
     this._areaTransformUni = getUniforms(gl, this._areaTransformProg, [
@@ -8188,6 +8194,7 @@ export class PencilEngine implements PencilEngineAPI {
     const combs = ribbonBristleCombs(profile, bristleRadiusPx)
     // (#536, §17.19) This stroke's paint as absorption, for the colour record.
     const tau = pigmentAbsorption(color)
+    scratch.paints.add(color.join(','))
 
     for (const tile of targets) {
       const { original, coverage, inkLoad, inkColor } = scratch.getOrCreate(tile.buffer)
@@ -8551,7 +8558,7 @@ export class PencilEngine implements PencilEngineAPI {
       fieldOp(b, a, c, 1, -1)
       let src = c
       let dst = a
-      for (const radius of WET_DIFFUSE_RADII) {
+      for (const { radius, knight } of WET_DIFFUSE_SCHEDULE) {
         dst.beginReplaceDraw()
         gl.useProgram(this._diffuseProg)
         const u = this._diffuseUni
@@ -8578,6 +8585,7 @@ export class PencilEngine implements PencilEngineAPI {
         gl.uniform1f(u.u_d, WET_DIFFUSE_D)
         gl.uniform1f(u.u_b, WET_DIFFUSE_B)
         gl.uniform1f(u.u_radius, radius)
+        gl.uniform1f(u.u_stencil, knight ? 1 : 0)
         gl.drawArrays(gl.TRIANGLES, 0, 6)
         dst.endDraw()
         const t = src; src = dst; dst = t
@@ -8587,7 +8595,36 @@ export class PencilEngine implements PencilEngineAPI {
       return out
     }
     const out = settle(field.a, field.b, field.c)
-    const outColor = settle(field.ca, field.cb, field.cc)
+    // (#536, §17.20) One paint so far: its colour record is its deposit's
+    // mass times one absorption everywhere, so it is rebuilt from the moved
+    // deposit in a single pass instead of carried through the schedule
+    // again — half the settle's cost, which was "всё это дело притормаживает".
+    let outColor: AccumulationBuffer
+    if (scratch.paints.size <= 1) {
+      const only = [...scratch.paints][0]
+      const tau = only ? pigmentAbsorption(only.split(',').map(Number) as [number, number, number]) : [0, 0, 0]
+      outColor = field.cc
+      outColor.beginReplaceDraw()
+      gl.useProgram(this._fieldOpProg)
+      const fu = this._fieldOpUni
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+      gl.enableVertexAttribArray(this._fieldOpPosLoc)
+      gl.vertexAttribPointer(this._fieldOpPosLoc, 2, gl.FLOAT, false, 0, 0)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, out.texture)
+      gl.uniform1i(fu.u_a, 0)
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, out.texture)
+      gl.uniform1i(fu.u_b, 1)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.uniform1f(fu.u_k, 1)
+      gl.uniform1f(fu.u_mode, 2)
+      gl.uniform3fv(fu.u_tau, [tau[0], tau[1], tau[2]])
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      outColor.endDraw()
+    } else {
+      outColor = settle(field.ca, field.cb, field.cc)
+    }
 
     // …and home, tile by tile — and this is the new settled deposit.
     for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
@@ -11129,8 +11166,17 @@ export class PencilEngine implements PencilEngineAPI {
     // mirroring _runComposite/_finishInfiniteComposite's division of labor, so
     // nothing needs setting up here first.
     this._composePaperToScreen()
-    // …and while any reveal is still running, the next frame is already owed.
-    if (this._washReveals.size) this._scheduleDisplay()
+    // …and while any reveal is still running, the next frame is owed — at
+    // thirty a second, not every vsync: a full recomposite per frame for a
+    // second and a half after every stroke was most of "всё это дело
+    // притормаживает" on the tablet, and the eye cannot tell 30 from 60 on a
+    // fade.
+    if (this._washReveals.size && !this._revealTimer) {
+      this._revealTimer = setTimeout(() => {
+        this._revealTimer = 0
+        this._displayIfNotSuspended()
+      }, 33) as unknown as number
+    }
   }
 
   /** Transparent-background export variant (#15) — draws to the same visible

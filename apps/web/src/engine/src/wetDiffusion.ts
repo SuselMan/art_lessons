@@ -76,13 +76,30 @@ export const WET_DIFFUSE_B = 0.03
  *  under r between them still exchange. A puddle is convex enough for that
  *  not to show; a thin dry channel through a wash would leak across it. */
 //  (#536, s17.20) A 48 in front, from a top of 32: "растекание надо всё-таки
-//  увеличивать". Reach 93 → 141 texels; eleven steps.
-export const WET_DIFFUSE_RADII: readonly number[] = [48, 32, 16, 16, 8, 8, 4, 4, 2, 2, 1]
-export const WET_DIFFUSE_STEPS = WET_DIFFUSE_RADII.length
+//  увеличивать". And every other step on the KNIGHT'S ring instead of the
+//  axes-and-diagonals: eight jumps at one radius put a dab's paint on eight
+//  spots, and with the same eight directions at every scale the spots lined
+//  up into rings that the fine steps could not take out — "после высыхания
+//  остаются круги". The knight's offsets (2,1) sit 26.6 degrees off the
+//  axes, so consecutive scales interleave sixteen directions, and a knight
+//  step of r reaches r·√5.
+export interface WetDiffuseStep { readonly radius: number; readonly knight: boolean }
+export const WET_DIFFUSE_SCHEDULE: readonly WetDiffuseStep[] = [
+  { radius: 21, knight: true }, { radius: 32, knight: false }, { radius: 14, knight: true },
+  { radius: 16, knight: false }, { radius: 7, knight: true }, { radius: 8, knight: false },
+  { radius: 4, knight: false }, { radius: 3, knight: true }, { radius: 2, knight: false },
+  { radius: 1, knight: true }, { radius: 1, knight: false },
+]
+/** The plain radii, for callers that only need a length or a count. */
+export const WET_DIFFUSE_RADII: readonly number[] = WET_DIFFUSE_SCHEDULE.map(s => s.radius)
+export const WET_DIFFUSE_STEPS = WET_DIFFUSE_SCHEDULE.length
 /** How far a texel's paint can travel over the whole schedule — the sum of
- *  the radii. The engine pads the field it diffuses by this, so nothing ever
- *  reaches the field's edge and the edge is never a wall anyone can see. */
-export const WET_DIFFUSE_REACH = WET_DIFFUSE_RADII.reduce((a, r) => a + r, 0)
+ *  the steps' reaches (a knight step reaches radius·√5, rounded up). The
+ *  engine pads the field it diffuses by this, so nothing ever reaches the
+ *  field's edge and the edge is never a wall anyone can see. */
+export const WET_DIFFUSE_REACH = WET_DIFFUSE_SCHEDULE.reduce(
+  (a, s) => a + (s.knight ? Math.ceil(s.radius * Math.SQRT2 * 1.582) : s.radius), 0,
+)
 /** The share of a deposit that is MOBILE — that the schedule moves at all.
  *  The rest is fixed where the brush put it, which is what keeps a mark laid
  *  into a puddle a mark: at 1.0 a stroke dropped into standing water thinned
@@ -106,6 +123,12 @@ export const WET_DIFFUSE_MOBILE = 0.75
 export const WET_DIFFUSE_STENCIL: ReadonlyArray<readonly [number, number]> = [
   [1, 0], [-1, 0], [0, 1], [0, -1],
   [1, 1], [-1, 1], [1, -1], [-1, -1],
+]
+/** The knight's ring — see WET_DIFFUSE_SCHEDULE. Eight offsets, each with its
+ *  negative, so every pair is still counted once from its forward member. */
+export const WET_DIFFUSE_KNIGHT: ReadonlyArray<readonly [number, number]> = [
+  [2, 1], [-2, -1], [1, 2], [-1, -2],
+  [-1, 2], [1, -2], [-2, 1], [2, -1],
 ]
 
 export interface WetGrid {
@@ -143,8 +166,9 @@ export function wetDiffuseStep(
   d = WET_DIFFUSE_D, b = WET_DIFFUSE_B,
   /** Stencil radius in cells. The eight offsets are scaled by it. */
   radius = 1,
+  knight = false,
 ): Float64Array {
-  return wetDiffuseStepMany(grid, [pigment], d, b, radius)[0]
+  return wetDiffuseStepMany(grid, [pigment], d, b, radius, knight)[0]
 }
 
 /** One step over SEVERAL fields at once, every one of them moved by the same
@@ -157,13 +181,14 @@ export function wetDiffuseStep(
  *  the flux of the header: D (cᵢ − cⱼ) + B max(dh,0) cᵢ − B max(−dh,0) cⱼ. */
 export function wetDiffuseStepMany(
   grid: WetGrid, fields: readonly Float64Array[],
-  d = WET_DIFFUSE_D, b = WET_DIFFUSE_B, radius = 1,
+  d = WET_DIFFUSE_D, b = WET_DIFFUSE_B, radius = 1, knight = false,
 ): Float64Array[] {
   const { width, height, water, paperHeight } = grid
   const outs = fields.map(f => Float64Array.from(f))
   // Each unordered pair once: only the four "forward" directions of the
   // stencil, taken from every cell, cover every pair exactly once.
-  const forward = WET_DIFFUSE_STENCIL.filter(([dx, dy]) => dx > 0 || (dx === 0 && dy > 0))
+  const stencil = knight ? WET_DIFFUSE_KNIGHT : WET_DIFFUSE_STENCIL
+  const forward = stencil.filter(([dx, dy]) => dx > 0 || (dx === 0 && dy > 0))
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = y * width + x
@@ -197,10 +222,10 @@ export function wetDiffuse(grid: WetGrid, steps = WET_DIFFUSE_STEPS, d = WET_DIF
 
 /** The canonical schedule — what the GPU pass runs. */
 export function wetDiffuseScheduled(
-  grid: WetGrid, radii: readonly number[] = WET_DIFFUSE_RADII, d = WET_DIFFUSE_D, b = WET_DIFFUSE_B,
+  grid: WetGrid, schedule: readonly WetDiffuseStep[] = WET_DIFFUSE_SCHEDULE, d = WET_DIFFUSE_D, b = WET_DIFFUSE_B,
 ): Float64Array {
   let p = grid.pigment
-  for (const r of radii) p = wetDiffuseStep(grid, p, d, b, r)
+  for (const s of schedule) p = wetDiffuseStep(grid, p, d, b, s.radius, s.knight)
   return p
 }
 

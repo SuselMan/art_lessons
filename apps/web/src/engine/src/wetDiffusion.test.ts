@@ -153,6 +153,16 @@ describe('wet diffusion oracle (#536, ADR 011 §17.11)', () => {
     for (let x = 48; x < 97; x++) if (p[48 * 96 + x] > 1e-4) reach = x - 48
     expect(reach).toBeGreaterThan(30)
     expect(WET_DIFFUSE_RADII.length).toBe(11)
+    // …and the knight's ring is a stencil too: symmetric, conserving.
+    const k = makeWetGrid(33, 33)
+    disc(k, 16, 16, 14, k.water, 1)
+    disc(k, 16, 16, 3, k.pigment, 1)
+    let kp = k.pigment
+    for (let s = 0; s < 6; s++) kp = wetDiffuseStep(k, kp, undefined, undefined, 2, true)
+    expect(totalPigment(kp)).toBeCloseTo(totalPigment(k.pigment), 10)
+    const kc = centreOfMass(k, kp)
+    expect(kc.x).toBeCloseTo(16, 9)
+    expect(kc.y).toBeCloseTo(16, 9)
   })
 
   it('is stable at the shipped rates: no pixel can give more than it has', () => {
