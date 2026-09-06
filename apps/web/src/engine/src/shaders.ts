@@ -466,6 +466,16 @@ ${WC_NOISE_GLSL}
     // last where it covered fully, which is the physically right answer: the
     // last pass of the brush over a spot is the one whose hairs you see.
     float acrossEncoded = v_across * 0.5 + 0.5;
+    // (#536, s17.20) v_inkWater and v_inkWet are the band's dose WEIGHTED by
+    // its water and by the paper's wetness (markerRibbon.ts packs ink*water,
+    // so that the ink pass can lay deposit-weighted sums); the plain values
+    // are those over the dose. Used as if they were plain, they were a
+    // hundredth of themselves: the standing water a band recorded was nothing,
+    // so a stroke's own puddle existed only in the caps its stamps left
+    // uncovered - a row of crescents, "зубья в лужах" - and the hair comb
+    // read every band as bone dry.
+    float bandWater = v_ink > 1e-6 ? clamp(v_inkWater / v_ink, 0.0, 1.0) : 0.0;
+    float bandWet = v_ink > 1e-6 ? clamp(v_inkWet / v_ink, 0.0, 1.0) : 0.0;
     // (#536, s17.13) The hairs vary the delivery, here, into the deposit -
     // see wcHairAmp. The across coordinate is this band's own, so a hair is
     // a fixed place in the brush and its streak follows the brush round a
@@ -473,7 +483,7 @@ ${WC_NOISE_GLSL}
     if (u_mode > 0.5 && u_bristleInk > 0.0) {
       float hairDrift = wcFbm(mottleWp * 0.008 + vec2(71.0, 13.0));
       float hair = wcFbm(vec2(v_across * u_bristleCombs, hairDrift * 3.0) + vec2(3.0, 29.0));
-      amount *= wcHairComb(hair, wcHairAmp(u_bristleInk, v_inkWater));
+      amount *= wcHairComb(hair, wcHairAmp(u_bristleInk, bandWater));
     }
     // Ink: .r brush water, .g paper wetness, both deposit-weighted so the
     // composite recovers a per-pixel mean of each by dividing by .a.
@@ -481,7 +491,7 @@ ${WC_NOISE_GLSL}
       ? (u_depthWrite > 0.5
           ? vec4(amount * v_inkStrength * u_tau / WC_DEPTH_SCALE, amount * v_inkStrength)
           : vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount))
-      : vec4(acrossEncoded * amount, amount, amount * max(v_inkWet, u_washWater * mix(u_waterRetain, 1.0, v_inkWet) * smoothstep(0.05, 0.35, v_inkWater)), amount);
+      : vec4(acrossEncoded * amount, amount, amount * max(bandWet, u_washWater * mix(u_waterRetain, 1.0, bandWet) * smoothstep(0.05, 0.35, bandWater)), amount);
   }
 `;
 
