@@ -185,6 +185,11 @@ export function registerForkRoutes(app: FastifyInstance): void {
           canvasWidth: source.canvasWidth,
           canvasHeight: source.canvasHeight,
           ownerId: userId,
+          // (#548) The toolset comes with the copy. A fork is the student's
+          // own room, but it is the *teacher's* assignment: "do this in
+          // pencil" has to survive being handed out, or the constraint holds
+          // only for whoever never forked.
+          enabledTools: source.enabledTools,
           parentRoomId: source.id,
         },
       })

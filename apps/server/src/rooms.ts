@@ -4,10 +4,10 @@ import { createHash } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import type { Prisma } from '@prisma/client'
-import type { Operation, Participant, RejectReason, Room, RoomAccessMode } from '@grafetto/shared'
+import type { Operation, Participant, RejectReason, Room, RoomAccessMode, ToggleableTool } from '@grafetto/shared'
 import {
   ANNOTATION_OP_TYPES, DEFAULT_PALETTE_COLORS, IMPLICIT_LAYER_IDS, SNAPSHOT_SEQ_INTERVAL,
-  isAnnotationOperation, operationLayerIds, paintedLayerIds,
+  isAnnotationOperation, operationLayerIds, paintedLayerIds, sanitizeEnabledTools,
 } from '@grafetto/shared'
 
 import { prisma } from './prisma.js'
@@ -288,6 +288,8 @@ function persistRoomCreate(room: Room, passwordHash: string | undefined): void {
       infinite: room.infinite,
       canvasWidth: room.canvasWidth ?? null, canvasHeight: room.canvasHeight ?? null,
       passwordHash, accessMode: room.accessMode, ownerId: room.ownerId,
+      // (#548) `[]` is the column's own "no restriction" — see schema.prisma.
+      enabledTools: room.enabledTools ?? [],
     },
   }))
 }
@@ -718,7 +720,7 @@ export async function ensureRoomLoaded(roomId: string): Promise<boolean> {
  *  even when the room isn't currently live in memory (e.g. a server
  *  restart between the original creation and this reload). */
 export function createRoom(
-  roomData: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight'>,
+  roomData: Pick<Room, 'id' | 'name' | 'paper' | 'paperColor' | 'infinite' | 'canvasWidth' | 'canvasHeight' | 'enabledTools'>,
   password: string | undefined,
   ownerId: string,
   ownerName: string,
@@ -1020,6 +1022,27 @@ export function isRoomFrozen(roomId: string): boolean {
  *  broadcast `room_frozen_changed` on `true`. No role check here: that's the
  *  caller's job (see socket.on('set_room_frozen', ...) — same division of
  *  responsibility as recordOperation/isOperationAllowed below). */
+/** (#548) Replaces the room's toolset, in memory and in Postgres. Returns the
+ *  sanitized list actually stored — `undefined` for "no restriction" — or
+ *  `false` when there is no such room, so the caller can tell "nothing to
+ *  broadcast" from "broadcast the unrestricted room".
+ *
+ *  Sanitizing here rather than trusting the caller is the point: this is the
+ *  only door the value comes through, and what the room ends up holding is the
+ *  normalized list, never one client's raw claim. Like `setRoomFrozen` it does
+ *  not check the caller's role — see socketHandlers.ts. */
+export function setRoomTools(roomId: string, enabledTools: unknown): ToggleableTool[] | undefined | false {
+  const record = rooms.get(roomId)
+  if (!record) return false
+  const sanitized = sanitizeEnabledTools(enabledTools)
+  record.room.enabledTools = sanitized
+  enqueueWrite(roomId, () => prisma.room.update({
+    where: { id: roomId },
+    data: { enabledTools: sanitized ?? [] },
+  }))
+  return sanitized
+}
+
 export function setRoomFrozen(roomId: string, frozen: boolean): boolean {
   const record = rooms.get(roomId)
   if (!record) return false
