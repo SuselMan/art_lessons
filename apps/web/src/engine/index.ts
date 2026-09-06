@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, WC_DIFFUSE_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -67,7 +67,7 @@ import {
 } from './src/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
-  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -1232,6 +1232,22 @@ const CHECKPOINT_REFUSAL_ALARM = 20
 // already buys. See _flushStrokeChunk's own comment for the mechanism.
 const STROKE_DAB_CHUNK_LIMIT = 800
 
+/** (#536, ADR 011 §17.12) How long the screen takes to converge on a wash's
+ *  settled picture after pen-up. Presentation only: the layer holds the dry
+ *  target from the first frame, this is how long the eye is shown the way
+ *  there. Eased fast-then-slow, which is how Ilya described the real thing:
+ *  "сначала быстро, потом замедляется". */
+const WC_REVEAL_MS = 1500
+
+/** One layer tile whose wash just settled (see _revealWash). `before` is a
+ *  pooled copy of what the tile showed at that moment; the composite mixes it
+ *  back over the tile's real pixels by a hold that runs 1 → 0. */
+interface WashReveal {
+  layerId: string
+  before: AccumulationBuffer
+  startedAt: number
+}
+
 // (#429) How long dabs may sit in the live queue before going out as a packet.
 //
 // The trade is direct and both ends of it are real. Lower means less of the
@@ -1430,13 +1446,27 @@ const WASH_RECENT_MS = 1200
  *  strokes of one wash. Past that the oldest goes back to being a seam. */
 const REPLAY_RIBBON_CHUNK_SLOTS = 4
 
-/** (#536, ADR 011 §17.11) The free standing water a stroke lays on the sheet:
- *  a clean-water stroke's nominal mix water, and nothing for a stroke carrying
- *  pigment — see u_washWater in RIBBON_FRAG for why a wet pigment stroke is not
- *  its own puddle. The nominal mix rather than the depleted load, for the same
- *  reason the live wetness field is fed the mix (see _paintDabs). */
-function ribbonFreeWater(profile: RibbonProfile): number {
-  return profile.normalizeDeposit && profile.pigmentStrength <= 0 ? profile.waterLevel : 0
+/** (#536) Hair bundles across the mark, from the mark's own half-width, so a
+ *  hair stays a fixed few pixels wide whatever brush is held — see
+ *  WATERCOLOR_BRISTLE_BUNDLE_PX. The coordinate this scales runs -1..+1 across
+ *  the whole width, so the count of bundles laid across the mark is twice this.
+ *  One function for the ink pass (§17.13, where the hairs vary the delivery)
+ *  and the composite (where they break the contact dry), so both count the
+ *  same hair. */
+function ribbonBristleCombs(profile: RibbonProfile, bristleRadiusPx: number): number {
+  return profile.bristleCombs > 0
+    ? Math.max(1.5, Math.min(50, bristleRadiusPx / WATERCOLOR_BRISTLE_BUNDLE_PX))
+    : 0
+}
+
+/** (#536, ADR 011 §17.11/13) The water a stroke delivers to the sheet — its
+ *  nominal mix water, for the same reason the live wetness field is fed the mix
+ *  rather than the depleted load (see _paintDabs) — and how much of it dry
+ *  paper keeps standing. See watercolorWaterRetention, and u_washWater in
+ *  RIBBON_FRAG for how the two become the wash's standing-water record. */
+function ribbonWaterDelivery(profile: RibbonProfile): { water: number; retain: number } {
+  if (!profile.normalizeDeposit) return { water: 0, retain: 0 }
+  return { water: profile.waterLevel, retain: watercolorWaterRetention(profile.pigmentStrength <= 0) }
 }
 
 const MARKER_SCRATCH_POOL_PER_SIZE = 6
@@ -2029,6 +2059,14 @@ export class PencilEngine implements PencilEngineAPI {
   // branch inside DISPLAY_FRAG.
   private _dispTransparentProg!: WebGLProgram
   private _compositeProg!: WebGLProgram
+  /** (#536, §17.12) LAYER_COMPOSITE_FRAG's twin for a tile still converging on
+   *  a settled wash — see WashReveal. */
+  private _revealProg!: WebGLProgram
+  private _revealUni!: Record<string, WebGLUniformLocation | null>
+  private _revealPosLoc = -1
+  /** Keyed by the layer tile the wash settled into. Presentation state only:
+   *  never read by any paint pass, never serialised, dropped with the tile. */
+  private _washReveals = new Map<AccumulationBuffer, WashReveal>()
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
   // Selection (#446) — the masked transform blit and the one-shader-two-blend-
@@ -4626,6 +4664,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._paperTexLoaded = false
     this._startPaperLoad(this._opts.paper)
     this._layers.clear() // handles are already dead; not worth destroy()ing
+    this._washReveals.clear() // same — and the pool they came from is forgotten below
     this._previewBuf = null
     this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
     this._tipBuf = null
@@ -4644,6 +4683,7 @@ export class PencilEngine implements PencilEngineAPI {
     // (#385) Dropped, not released: releasing would put dead handles back in
     // the pool for the next gesture to paint through.
     this._ribbonScratchPool.forget()
+    this._washReveals.clear() // same reasoning — its pooled copies are dead with the pool
     this._smudgeImprints.clear() // same reasoning — pooled GL objects are dead too
     this._smudgeReplayChunks.clear()
     for (const { timer } of this._peerPreviews.values()) {
@@ -5162,6 +5202,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _destroyBuffer(id: string): void {
     const buf = this._layers.get(id)
     if (buf) {
+      this._sweepReveals(performance.now(), id)
       buf.destroy()
       this._layers.delete(id)
     }
@@ -5199,6 +5240,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabProgInstanced    = createProgram(gl, DAB_VERT_INSTANCED, DAB_FRAG)
     this._dispTransparentProg = createProgram(gl, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG)
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
+    this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
     this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
     this._areaTransformProg   = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
@@ -5237,7 +5279,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_inkStrength', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_waterRetain', 'u_inkStrength', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -5259,7 +5301,7 @@ export class PencilEngine implements PencilEngineAPI {
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
       'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit',
-      'u_washWater',
+      'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk',
     ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
@@ -5271,6 +5313,7 @@ export class PencilEngine implements PencilEngineAPI {
     ])
     this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
+    this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
@@ -5299,6 +5342,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabPosLoc            = gl.getAttribLocation(this._dabProg, 'a_position')
     this._dispTransparentPosLoc = gl.getAttribLocation(this._dispTransparentProg, 'a_position')
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
+    this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
@@ -5869,7 +5913,7 @@ export class PencilEngine implements PencilEngineAPI {
       applyWatercolorPooling(dabs, e.speed, ribbonProfileFor('watercolor', this._strokePreset).waterLevel)
     }
     if (dabs.length) this._paintStrokeDabs(dabs, e.speed, e.timeStamp - this._strokeStartTimestamp)
-    if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch)
+    if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch, true)
     if (this._wash && this._wash.scratch === this._ribbonStrokeScratch) {
       // (#468 v7) A wash outlives its strokes — the paint is still on the paper
       // and still wet, so the buffers stay open for the next band to pool into.
@@ -6527,7 +6571,7 @@ export class PencilEngine implements PencilEngineAPI {
     // chunk operation: the diffusion inside runs once per operation, and the
     // author has to run it at the same moments the replay will, or the two
     // land on different pictures.
-    if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch)
+    if (this._ribbonStrokeScratch) this._finishRibbonStroke(this._ribbonStrokeScratch, true)
   }
 
   // ─── Reference image import (#88) ──────────────────────────────────────────────
@@ -7983,7 +8027,9 @@ export class PencilEngine implements PencilEngineAPI {
         // carries the nominal pigment setting, so only the remaining *fraction*
         // multiplies it here.
         const water = profile.waterDepletion ? profile.waterLevel * watercolorWaterLoad(used) : 1
-        const pigmentLeft = profile.waterDepletion ? watercolorPigmentLoad(pigUsed) : 1
+        // (#536, §17.14) …by the brush's water: a wet brush spends the same
+        // finite budget further along the path. See PIGMENT_RUN_DRY_RADII.
+        const pigmentLeft = profile.waterDepletion ? watercolorPigmentLoad(pigUsed, profile.waterLevel) : 1
         // The gesture's own travel clock, carried on the scratch, so this decays
         // from the *stroke's* start rather than from each batch's. The pigment
         // one: a brush that drank from a puddle halfway along has not gone back
@@ -8085,6 +8131,10 @@ export class PencilEngine implements PencilEngineAPI {
       drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor,
     )
 
+    // (#536, s17.13) The hairs' bundle count, for the ink pass below and the
+    // composite alike - see ribbonBristleCombs.
+    const combs = ribbonBristleCombs(profile, bristleRadiusPx)
+
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
 
@@ -8099,7 +8149,8 @@ export class PencilEngine implements PencilEngineAPI {
       }
       if (bands.length) {
         this._drawRibbonBands(
-          coverage, tile, bands, 'coverage', profile.aaPx, 0, 0, [0, 0], ribbonFreeWater(profile),
+          coverage, tile, bands, 'coverage', profile.aaPx, 0, 0, [0, 0],
+          ribbonWaterDelivery(profile).water, ribbonWaterDelivery(profile).retain,
         )
       }
 
@@ -8119,11 +8170,16 @@ export class PencilEngine implements PencilEngineAPI {
             inkLoad, tile, drawable[i], preset, profile, 7,
             deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
-            paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed,
+            paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk,
           )
           inkLoad.endDraw()
         }
-        if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed)
+        if (bands.length) {
+          this._drawRibbonBands(
+            inkLoad, tile, bands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
+            0, 0, combs, profile.bristleInk,
+          )
+        }
       }
 
       if (inkLoad && profile.normalizeDeposit) scratch.diffusePending = true
@@ -8144,7 +8200,7 @@ export class PencilEngine implements PencilEngineAPI {
           this._drawRibbonNibPass(
             inkLoad, tile, haloDabs[i], preset, haloProfile, 7, deposits[i] * dose, false,
             waterByDab.get(haloDabs[i]) ?? 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
-            paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed, coverage,
+            paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed, coverage, combs, profile.bristleInk,
           )
           inkLoad.endDraw()
         }
@@ -8160,6 +8216,7 @@ export class PencilEngine implements PencilEngineAPI {
         fieldSeed, spreadPx, fringeWater, migratePx,
         profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
       )
+      this._revealKeepFresh(tile, compositeBounds)
     }
 
     scratch.noteFinish({
@@ -8174,6 +8231,125 @@ export class PencilEngine implements PencilEngineAPI {
    *  the buffers complete — the same thing a replay of this stroke does in a
    *  single call. See RibbonStrokeScratch's own _finish for why the incremental
    *  per-batch composites are not enough on their own. */
+  /** (#536, ADR 011 §17.12) The settle is about to rewrite `tile` — keep what
+   *  it shows now, so the composite can converge on the new picture instead
+   *  of cutting to it. Presentation, not content: the tile itself is written
+   *  with the dry target as always, the copy lives in a pooled buffer that no
+   *  paint pass ever reads, and nothing about it is serialised. The jump Ilya
+   *  could not judge anything through ("пока ведёшь — одно, отпустил —
+   *  картинка резко меняется") was the *content* jumping in plain view; now
+   *  the content jumps under a mask and the screen eases onto it.
+   *
+   *  A tile already converging keeps converging: the new copy is what the
+   *  screen shows at this instant — the old copy mixed over the old pixels by
+   *  the old hold — so the second settle continues the motion rather than
+   *  restarting it from a picture the eye never saw. */
+  private _revealWash(tile: PaintTarget, layer: ILayerBuffer): void {
+    const { gl } = this
+    const { buffer } = tile
+    const before = this._ribbonScratchPool.acquire(buffer.width, buffer.height)
+    const prev = this._washReveals.get(buffer)
+    if (!prev) {
+      buffer.copyTo(before)
+    } else {
+      before.beginReplaceDraw()
+      gl.useProgram(this._revealProg)
+      const u = this._revealUni
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+      gl.enableVertexAttribArray(this._revealPosLoc)
+      gl.vertexAttribPointer(this._revealPosLoc, 2, gl.FLOAT, false, 0, 0)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, buffer.texture)
+      gl.uniform1i(u.u_after, 0)
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, prev.before.texture)
+      gl.uniform1i(u.u_before, 1)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.uniform1f(u.u_hold, this._revealHold(prev, performance.now()))
+      gl.uniform1f(u.u_opacity, 1)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      before.endDraw()
+      this._ribbonScratchPool.release(prev.before)
+    }
+    let layerId = ''
+    for (const [id, buf] of this._layers) if (buf === layer) { layerId = id; break }
+    this._washReveals.set(buffer, { layerId, before, startedAt: performance.now() })
+  }
+
+  /** How much of the kept picture still shows, 1 → 0 over WC_REVEAL_MS,
+   *  fast first: the square of the time left. */
+  private _revealHold(reveal: WashReveal, now: number): number {
+    const left = 1 - (now - reveal.startedAt) / WC_REVEAL_MS
+    return left <= 0 ? 0 : left * left
+  }
+
+  /** A live batch just composited `bounds` into `tile`: the kept picture is
+   *  refreshed there, so paint under the brush shows at once rather than
+   *  fading in through a reveal that predates it. Under the brush the
+   *  earlier settle therefore snaps to its dry target; everywhere else the
+   *  reveal keeps running. */
+  private _revealKeepFresh(tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number }): void {
+    const reveal = this._washReveals.get(tile.buffer)
+    if (!reveal) return
+    const { buffer, originX, originY } = tile
+    const x0 = Math.max(Math.floor(bounds.minX), originX)
+    const y0 = Math.max(Math.floor(bounds.minY), originY)
+    const x1 = Math.min(Math.ceil(bounds.maxX), originX + buffer.width)
+    const y1 = Math.min(Math.ceil(bounds.maxY), originY + buffer.height)
+    if (x1 <= x0 || y1 <= y0) return
+    // Top-down world → bottom-up GL, as _gatherSmudgePatch does it.
+    const glX = x0 - originX, glY = buffer.height - (y1 - originY)
+    buffer.copyRegionInto(reveal.before, glX, glY, glX, glY, x1 - x0, y1 - y0)
+  }
+
+  /** Drops every reveal that has run out, or whose layer is gone. */
+  private _sweepReveals(now: number, goneLayerId: string | null = null): void {
+    for (const [buffer, reveal] of this._washReveals) {
+      if (reveal.layerId !== goneLayerId && this._revealHold(reveal, now) > 0) continue
+      this._ribbonScratchPool.release(reveal.before)
+      this._washReveals.delete(buffer)
+    }
+  }
+
+  /** _drawTileComposite for a tile that is still converging on a settled
+   *  wash: same rect, same blend, but the tile's pixels are mixed with the
+   *  kept picture by the reveal's current hold. */
+  private _drawTileReveal(
+    reveal: WashReveal, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
+    opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
+  ): void {
+    const { gl } = this
+    const leftEdge   = this._worldToScreenEdgeX(originX)
+    const rightEdge  = this._worldToScreenEdgeX(originX + bw)
+    const topEdge    = this._worldToScreenEdgeY(originY)
+    const bottomEdge = this._worldToScreenEdgeY(originY + bh)
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, targetFbo)
+    gl.viewport(leftEdge, targetH - bottomEdge, rightEdge - leftEdge, bottomEdge - topEdge)
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+
+    gl.useProgram(this._revealProg)
+    const u = this._revealUni
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._revealPosLoc)
+    gl.vertexAttribPointer(this._revealPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, texture)
+    gl.uniform1i(u.u_after, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, reveal.before.texture)
+    gl.uniform1i(u.u_before, 1)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.uniform1f(u.u_hold, this._revealHold(reveal, performance.now()))
+    gl.uniform1f(u.u_opacity, opacity)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+
+    gl.disable(gl.BLEND)
+    gl.viewport(0, 0, targetW, targetH)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+  }
+
   /** (#536, ADR 011 §17.11) One step of WC_DIFFUSE_FRAG per entry of the
    *  schedule (WET_DIFFUSE_RADII) over each tile's deposit, ping-ponged through
    *  a pooled buffer. The schedule is a constant of the tool and nothing here
@@ -8225,12 +8401,19 @@ export class PencilEngine implements PencilEngineAPI {
     }
   }
 
-  private _finishRibbonStroke(scratch: RibbonStrokeScratch): void {
+  private _finishRibbonStroke(
+    scratch: RibbonStrokeScratch,
+    /** (#536, §17.12) True for the author's own gesture: keep what the screen
+     *  showed and converge on the settled picture over WC_REVEAL_MS. A replay
+     *  settles silently — the picture it builds is already the dry target. */
+    reveal = false,
+  ): void {
     const ctx = scratch.finishContext
     if (!ctx || !ctx.profile.normalizeDeposit) return
     const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
+    if (reveal) for (const tile of targets) this._revealWash(tile, target)
     const { spreadPx, water, migratePx, bristleRadiusPx } = scratch.compositeScalars(
       () => ({
         spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0,
@@ -8334,6 +8517,8 @@ export class PencilEngine implements PencilEngineAPI {
     /** (#536) Land this ink only where `clipTo` already has coverage, scaled
      *  by it — the halo's way of never leaving the puddle. See u_inkClip. */
     clipTo: AccumulationBuffer | null = null,
+    /** (#536, s17.13) Ink mode only: the hairs, laid into the deposit. */
+    bristleCombs = 0, bristleInk = 0,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -8391,11 +8576,15 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_inkWater, inkWater)
     gl.uniform2f(u.u_acrossLocal, acrossLocal[0], acrossLocal[1])
     gl.uniform1f(u.u_paperWet, paperWet)
-    // (#536, s17.11) The free water a clean-water stroke lays - the mix's
-    // water, not this dab's depleted load - into coverage .b, the record of
+    // (#536, s17.11/13) What this stroke delivers and what dry paper keeps of
+    // it — the mix's water, not this dab's depleted load — into the record of
     // standing water the diffusion pass gates on. See u_washWater.
-    gl.uniform1f(u.u_washWater, ribbonFreeWater(profile))
+    const delivery = ribbonWaterDelivery(profile)
+    gl.uniform1f(u.u_washWater, delivery.water)
+    gl.uniform1f(u.u_waterRetain, delivery.retain)
     gl.uniform1f(u.u_inkStrength, inkStrength)
+    gl.uniform1f(u.u_bristleCombs, bristleCombs)
+    gl.uniform1f(u.u_bristleInk, bristleInk)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     if (ownTarget) dest.endDraw()
@@ -8410,9 +8599,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawRibbonBands(
     dest: AccumulationBuffer, tile: PaintTarget, bands: Float32Array, mode: 'coverage' | 'ink', aaPx: number,
     cloud = 0, gran = 0, mottleSeed: [number, number] = [0, 0],
-    /** (#536, s17.11) Coverage mode only: the stroke's free water, into .b
-     *  together with each band's recorded paper wetness. See u_washWater. */
-    washWater = 0,
+    /** (#536, s17.11/13) Coverage mode only: the water the stroke delivers
+     *  and what dry paper keeps of it, into .b together with each band's
+     *  recorded paper wetness. See u_washWater. */
+    washWater = 0, waterRetain = 0,
+    /** (#536, s17.13) Ink mode only: the hairs, laid into the deposit. */
+    bristleCombs = 0, bristleInk = 0,
   ): void {
     const { gl } = this
     const local = new Float32Array(bands.length)
@@ -8437,6 +8629,9 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(this._ribbonUni.u_granDeposit, gran)
     gl.uniform2f(this._ribbonUni.u_mottleSeed, mottleSeed[0], mottleSeed[1])
     gl.uniform1f(this._ribbonUni.u_washWater, washWater)
+    gl.uniform1f(this._ribbonUni.u_waterRetain, waterRetain)
+    gl.uniform1f(this._ribbonUni.u_bristleCombs, bristleCombs)
+    gl.uniform1f(this._ribbonUni.u_bristleInk, bristleInk)
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
     gl.bufferData(gl.ARRAY_BUFFER, local, gl.STREAM_DRAW)
@@ -8600,9 +8795,7 @@ export class PencilEngine implements PencilEngineAPI {
     // WATERCOLOR_BRISTLE_BUNDLE_PX. The coordinate this scales runs -1..+1
     // across the whole width, so the count of bundles laid across the mark is
     // twice this.
-    const combs = profile.bristleCombs > 0
-      ? Math.max(1.5, Math.min(50, bristleRadiusPx / WATERCOLOR_BRISTLE_BUNDLE_PX))
-      : 0
+    const combs = ribbonBristleCombs(profile, bristleRadiusPx)
     gl.uniform1f(u.u_granulation, profile.granulation)
     gl.uniform1f(u.u_bristleCombs, combs)
     gl.uniform1f(u.u_bristleInk, profile.bristleInk)
@@ -8797,6 +8990,17 @@ export class PencilEngine implements PencilEngineAPI {
 
     for (const { buffer, originX, originY } of buf.resolveVisible(viewRect)) {
       buffer.setMipSampling(minifying && buffer.ensureMipmaps())
+      // (#536, §17.12) A tile still converging on a settled wash draws through
+      // the reveal — same rect, same blend, its pixels mixed with the kept
+      // picture. The coarse levels above draw plain: at that zoom the motion
+      // is under a pixel.
+      const reveal = this._washReveals.get(buffer)
+      if (reveal) {
+        this._drawTileReveal(
+          reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+        )
+        continue
+      }
       this._drawTileComposite(
         buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
       )
@@ -10666,11 +10870,16 @@ export class PencilEngine implements PencilEngineAPI {
     // decides what is on screen, the world-space paper pass an infinite room
     // already used is the correct one for both, and the sheet is expressed to
     // it as a rectangle (see _pageRect).
+    // (#536, §17.12) Reveals that ran out go before the frame, not after: the
+    // frame that ends one draws the tile plain.
+    if (this._washReveals.size) this._sweepReveals(performance.now())
     this._composeToFBO(false)
     // _composePaperToScreen manages its own framebuffer/viewport/blend state,
     // mirroring _runComposite/_finishInfiniteComposite's division of labor, so
     // nothing needs setting up here first.
     this._composePaperToScreen()
+    // …and while any reveal is still running, the next frame is already owed.
+    if (this._washReveals.size) this._scheduleDisplay()
   }
 
   /** Transparent-background export variant (#15) — draws to the same visible

@@ -516,6 +516,58 @@ describe('a wash reaches every path that paints (#468)', () => {
     for (const c of chunks) expect(c.washId).toBe(washId)
   })
 
+  // (#536, ADR 011 §17.12) The reveal: presentation that eases the screen onto
+  // a settled wash instead of cutting to it. Its whole contract is that it is
+  // NOT content — the layer holds the dry target from the first frame, a
+  // replay never has one, and it lets go on its own.
+  function reveals(engine: PencilEngine): Map<unknown, { startedAt: number }> {
+    return (engine as unknown as { _washReveals: Map<unknown, { startedAt: number }> })._washReveals
+  }
+
+  it('keeps what the screen showed when the author lifts the pen, and only then', async () => {
+    const engine = wetEngine()
+    await paperReady(engine)
+    simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    // One per layer tile the settle touched — the test layer is tiled finely.
+    expect(reveals(engine).size).toBeGreaterThan(0)
+    // A replay settles silently: the picture it builds *is* the dry target.
+    const other = wetEngine()
+    await paperReady(other)
+    other.appendOperation(lastStroke(engine))
+    expect(reveals(other).size).toBe(0)
+  })
+
+  it('lets go of the kept picture after WC_REVEAL_MS on its own', async () => {
+    const engine = wetEngine()
+    await paperReady(engine)
+    simulateStroke(engine, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    const [reveal] = [...reveals(engine).values()]
+    expect(reveal).toBeDefined()
+    const nowSpy = vi.spyOn(performance, 'now').mockReturnValue(reveal.startedAt + 1600)
+    try {
+      ;(engine as unknown as { _display(): void })._display()
+      expect(reveals(engine).size).toBe(0)
+    } finally {
+      nowSpy.mockRestore()
+    }
+  })
+
+  it('never changes what the layer holds', async () => {
+    // The one invariant the whole scheme rests on: a reveal is a way of
+    // *showing* the settle, so the pixels a later stroke composites onto —
+    // and a peer replays — must be the settled ones whether or not the
+    // screen has finished easing onto them.
+    const a = wetEngine()
+    const b = wetEngine()
+    await paperReady(a)
+    await paperReady(b)
+    simulateStroke(a, [{ x: 16, y: 32 }, { x: 32, y: 32 }, { x: 48, y: 32 }])
+    b.appendOperation(lastStroke(a))
+    expect(reveals(a).size).toBeGreaterThan(0)
+    expect(reveals(b).size).toBe(0)
+    expectPixelsEqual(readLayerPixels(a, 'L'), readLayerPixels(b, 'L'))
+  })
+
   it('leaves the packet unstamped for a tool with no washes', async () => {
     const packets: PeerLivePacket[] = []
     const engine = wetEngine(p => packets.push(p))

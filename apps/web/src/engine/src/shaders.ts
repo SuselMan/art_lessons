@@ -292,6 +292,32 @@ const WC_NOISE_GLSL = `
     n = n < 0.05 ? n * 0.5 : n * 1.6;
     return max(1.0 + amount * n * 2.0, 0.0);
   }
+
+  // (#536, ADR 011 s17.13) How much the brush's hairs swing the delivery per
+  // hair, from the brush's CURRENT water - after the clocks and after
+  // whatever it drank from the paper, so a dry brush enters a puddle with
+  // its hairs showing and is smooth a few dabs in, and a loaded one lays an
+  // even film from the first dab. Not paper wetness directly: the paper does
+  // not wet the hairs until they have picked it up (see watercolorWaterClock).
+  // Was the other way round in the composite - hairs strongest on a WET mark,
+  // gated off by dryness - which is what drew the crayon rings over a
+  // dissolved dot and left a dry brush with none.
+  //
+  // The shape is a COMB with gaps, not a ripple: at a dry brush the hairs are
+  // separate tracks with bare paper between them ("на бумаге реально видно
+  // линии щетинок"), so the field is thresholded to tracks and gaps and the
+  // amount goes to nothing between hairs. Doubled so the mean delivery is
+  // unchanged - the comb redistributes the dose across the hairs, it does
+  // not add or remove any. wcHairAmp is how far toward that comb the brush
+  // is; wet, none at all.
+  const float WC_HAIR_WET_LO = 0.25;
+  const float WC_HAIR_WET_HI = 0.75;
+  float wcHairAmp(float bristleInk, float brushWater) {
+    return min(1.0, bristleInk * 1.6) * (1.0 - smoothstep(WC_HAIR_WET_LO, WC_HAIR_WET_HI, brushWater));
+  }
+  float wcHairComb(float hair, float amp) {
+    return mix(1.0, 2.0 * smoothstep(0.3, 0.7, hair), amp);
+  }
 `;
 
 export const RIBBON_VERT = `
@@ -351,20 +377,26 @@ export const RIBBON_FRAG = `
   // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
   // turn came out bitten by rounded white notches.
   uniform float u_mode;
-  /** (#536, s17.11) The FREE water this stroke lays: its nominal mix water
-   *  for a clean-water stroke (the mix, not the depleted load - what the live
-   *  wetness field is fed too), zero for a stroke carrying pigment. Coverage
-   *  .b carries the wetter of this and the paper wetness the stroke recorded
-   *  under itself (v_inkWet), premultiplied like .r, so the wet diffusion pass
-   *  can read standing water off the wash's own silhouette.
+  /** (#536, s17.11/13) The water this stroke DELIVERS - its nominal mix
+   *  water (the mix, not the depleted load: what the live wetness field is
+   *  fed too) - and how much of it the sheet keeps standing on dry paper
+   *  (u_waterRetain: 1 for clean water, a fraction for pigment - see
+   *  watercolorWaterRetention). Coverage .b records, premultiplied like .r,
+   *  the wetter of the paper wetness the stroke saw under itself (v_inkWet)
+   *  and what it left: delivery x mix(retain, 1, seen). The wet diffusion pass
+   *  reads standing water off the wash's own silhouette from it.
    *
-   *  Zero for pigment on purpose: a wet stroke on dry paper is not a puddle
-   *  its own pigment is free to wander in. Gating on its nominal water too
-   *  was tried and levelled a spiral laid on dry paper into one soft blob -
-   *  every wet stroke lost its structure. What carries pigment is the water
-   *  that was there BEFORE the brush: a clean-water pass, or the wetness the
-   *  stroke's own digits recorded. */
+   *  The first version recorded nothing for a pigment stroke, to keep a
+   *  spiral on dry paper from levelling into a blob; it also kept a loaded
+   *  brush's scribble dry-on-dry. Retention is the middle: a thin film on dry
+   *  paper, a puddle's worth where there was a puddle. */
   uniform float u_washWater;
+  uniform float u_waterRetain;
+  /** (#536, s17.13) The brush's hairs, laid into the DEPOSIT. Bundles across
+   *  the mark (the count DAB_FRAG's composite also uses for the contact
+   *  break) and the delivery swing per hair at a dry brush. See wcHairAmp. */
+  uniform float u_bristleCombs;
+  uniform float u_bristleInk;
 
   varying float v_edge;
   varying float v_ink;
@@ -426,11 +458,20 @@ ${WC_NOISE_GLSL}
     // last where it covered fully, which is the physically right answer: the
     // last pass of the brush over a spot is the one whose hairs you see.
     float acrossEncoded = v_across * 0.5 + 0.5;
+    // (#536, s17.13) The hairs vary the delivery, here, into the deposit -
+    // see wcHairAmp. The across coordinate is this band's own, so a hair is
+    // a fixed place in the brush and its streak follows the brush round a
+    // curve, exactly as the composite's contact break indexes it.
+    if (u_mode > 0.5 && u_bristleInk > 0.0) {
+      float hairDrift = wcFbm(mottleWp * 0.008 + vec2(71.0, 13.0));
+      float hair = wcFbm(vec2(v_across * u_bristleCombs, hairDrift * 3.0) + vec2(3.0, 29.0));
+      amount *= wcHairComb(hair, wcHairAmp(u_bristleInk, v_inkWater));
+    }
     // Ink: .r brush water, .g paper wetness, both deposit-weighted so the
     // composite recovers a per-pixel mean of each by dividing by .a.
     gl_FragColor = u_mode > 0.5
       ? vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount)
-      : vec4(acrossEncoded * amount, amount, amount * max(u_washWater, v_inkWet), amount);
+      : vec4(acrossEncoded * amount, amount, amount * max(v_inkWet, u_washWater * mix(u_waterRetain, 1.0, v_inkWet)), amount);
   }
 `;
 
@@ -593,9 +634,10 @@ export const DAB_FRAG = `
   // (#536) How wet the paper under this dab already was, 0..1 — read from what
   // the stroke recorded, never from a live field, so replay reproduces it.
   uniform float u_paperWet;
-  /** (#536, s17.11) See RIBBON_FRAG's u_washWater - the coverage stamp's .b,
-   *  the wetter of this and u_paperWet. */
+  /** (#536, s17.11/13) See RIBBON_FRAG's u_washWater and u_waterRetain -
+   *  the coverage stamp's .b, from these and u_paperWet the same way. */
   uniform float u_washWater;
+  uniform float u_waterRetain;
   // (#536) How strong the paint in the brush was for this dab — the pigment
   // slider, resolved per stroke. Rides the deposit for the reason
   // markerRibbon.ts's FLOATS_PER_VERTEX spells out: one wash, several strokes,
@@ -1168,7 +1210,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_washWater, u_paperWet), cov);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, u_washWater * mix(u_waterRetain, 1.0, u_paperWet)), cov);
       return;
     }
 
@@ -1188,6 +1230,21 @@ ${WC_NOISE_GLSL}
       if (cov <= 0.0) discard;
       float depth = clamp(-dPx / max(v_radius, 1e-4), 0.0, 1.0);
       float amount = cov * mix(u_inkEdge, 1.0, depth) * v_opacity;
+      // (#536, s17.13) The hairs, into the deposit - the stamp's half of what
+      // RIBBON_FRAG's ink mode does, on the same across coordinate the
+      // coverage stamp writes (mode 6 above) so stamp and band agree about
+      // which hair is which. See wcHairAmp.
+      if (u_bristleInk > 0.0) {
+        float bAx = max(v_radius, 1e-4);
+        float aAx = bAx * max(v_aspectRatio, 1.0);
+        vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
+        float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
+        float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
+        vec2 hairWp = gl_FragCoord.xy + u_paperOrigin;
+        float hairDrift = wcFbm(hairWp * 0.008 + vec2(71.0, 13.0));
+        float hair = wcFbm(vec2(acrossN * u_bristleCombs, hairDrift * 3.0) + vec2(3.0, 29.0));
+        amount *= wcHairComb(hair, wcHairAmp(u_bristleInk, u_inkWater));
+      }
       if (u_inkClip > 0.5) {
         // A branch on a uniform, which GLSL ES 1.0 allows a texture fetch
         // inside (the composite's own note is about non-uniform flow).
@@ -1551,8 +1608,13 @@ ${WC_NOISE_GLSL}
       // Faded out by dryness so the two ends never both act - once the contact
       // is genuinely breaking up, modulating the dose as well would double-
       // count the same hair.
-      float bristleInk = 1.0 + u_bristleInk * (bristle - 0.5) * 2.0;
-      ink.a *= mix(bristleInk, 1.0, dryness);
+      // (#536, s17.13) The delivery swing used to be applied here, on top of
+      // the deposit - which is why it survived the wet diffusion pass as if
+      // by magic and drew crayon rings over a dissolved dot: a composite
+      // knows nothing about how the paint was delivered and re-imposed the
+      // comb on whatever lay under it. It now lives in the ink pass, where a
+      // delivery belongs; only the contact break above, which is about the
+      // paper and the hairs riding it dry, is still decided here.
 
       // Untouched by this stroke - leave the layer exactly as it is. With
       // coverage 0 everything below reproduces dst identically, so this is a
@@ -2636,6 +2698,28 @@ export const DISPLAY_VERT = `
 // Passes the layer's own premultiplied color through (scaled by opacity)
 // rather than discarding it — each layer's accumulation buffer already
 // carries the real per-stroke colors baked in by DAB_FRAG.
+/** (#536, ADR 011 s17.12) A layer tile while a wash on it is still
+ *  "running": the tile's canonical pixels (u_after) with what the screen
+ *  showed before the settle (u_before) mixed back in by u_hold, which the
+ *  engine eases from 1 to 0 over WC_REVEAL_MS. Presentation only - the tile
+ *  itself already holds the dry target - so what the eye sees after pen-up
+ *  is the paint converging on where the settle put it, rather than the
+ *  settle arriving all at once. Both textures are premultiplied, so a
+ *  linear mix is a valid blend; the result is scaled by the layer's opacity
+ *  exactly as LAYER_COMPOSITE_FRAG scales a plain tile. */
+export const WASH_REVEAL_FRAG = `
+  precision mediump float;
+  uniform sampler2D u_after;
+  uniform sampler2D u_before;
+  uniform float u_hold;
+  uniform float u_opacity;
+  varying vec2 v_uv;
+  void main() {
+    vec4 c = mix(texture2D(u_after, v_uv), texture2D(u_before, v_uv), u_hold);
+    gl_FragColor = vec4(c.rgb * u_opacity, c.a * u_opacity);
+  }
+`;
+
 export const LAYER_COMPOSITE_FRAG = `
   precision mediump float;
   uniform sampler2D u_layer;
@@ -3220,6 +3304,17 @@ export const PAPER_COMPOSE_FRAG = `
   // into paper, not the domed beads on a waxed surface in the reference photo.
   // The window's width in wetness is its band's width on screen, so narrowing
   // it is literally flattening the drop.
+  // (#536, s17.12) The bead - rim, its dark ring and the cast - needs standing
+  // water, in ABSOLUTE terms. Every band below is placed on t, the field
+  // normalised to its own peak, which is right for where the edge is and
+  // wrong for whether there is a bead at all: a stroke at 35% water was the
+  // wettest thing on the sheet and got a full meniscus ("лужа рисуется как
+  // обычно"), while its sheen (gated on raw) was already nil. One absolute
+  // wetness, two response curves: the sheen from moderate, the bead only from
+  // high. Damp paper is tinted and still gates the diffusion of the next
+  // stroke; it just has no valley of water to catch the light.
+  const float WC_BEAD_LO = 0.45;
+  const float WC_BEAD_HI = 0.70;
   const float WC_RIM_LO  = 0.158;
   const float WC_RIM_MID = 0.177;
   const float WC_RIM_HI  = 0.196;
@@ -3559,6 +3654,11 @@ export const PAPER_COMPOSE_FRAG = `
         rimCast = (1.0 - side) * inWater
           * smoothstep(WC_CAST_OUT, WC_CAST_MID, t)
           * (1.0 - smoothstep(WC_CAST_MID, WC_CAST_IN, t));
+        // The bead is a thing standing water does - see WC_BEAD_LO.
+        float bead = smoothstep(WC_BEAD_LO, WC_BEAD_HI, raw);
+        rim *= bead;
+        rimDark *= bead;
+        rimCast *= bead;
       }
     }
     // (#536, ADR 011 §17.6) The paint relaxing outward as the water goes.

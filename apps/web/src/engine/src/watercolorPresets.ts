@@ -619,12 +619,25 @@ const WATER_FLOOR = 0.22
 //  between bands and the model already resets the load per stroke, so what is
 //  left is how much one band may lose — and that is now a number to be measured
 //  against the exercise rather than assumed safe.
-const PIGMENT_RUN_RADII = 8
-//  The floor is *under* water's 0.30, and it has to be for the observation to
-//  hold at all: a brush at the end of a long sweep is damp and colourless, not
-//  dry and coloured. A floor above water's would make the paint outlast the
-//  water again however fast it fell at first.
-const PIGMENT_FLOOR = 0.10
+//
+//  (#536, ADR 011 §17.14) Two runs now, by the brush's water, and NO floor.
+//  Ilya with a wet brush: "пигмент очень быстро расходуется, в жизни больше
+//  пигмента на штрих выходит" — a line at full water faded in about nine
+//  brush widths, where a loaded round brush gives forty to eighty. And with
+//  the same brush scribbled in a puddle: "красится адски интенсивно" — which
+//  was the floor: at 0.10 a brush never empties, and two hundred dabs on one
+//  spot at ten per cent each is an infinite brush, saturating the deposit.
+//  One quantity, wrong at both ends. The structural fix is the budget: with
+//  the floor at zero the pigment a stroke can deliver is the integral of the
+//  curve, rate × run, whatever path it travels — a scribble on the spot and a
+//  straight line of the same length lay down the same mass, and neither can
+//  exceed it (watercolorPresets.test.ts holds this as an invariant). The run
+//  by water is then only how that finite mass is spread along the path:
+//  water keeps dissolving paint out of the hairs, so a wet brush spends it
+//  slowly and far, a dry one fast and near. A tuning shape, not a law — if
+//  the wet line lives too long, only the spread changes, never the amount.
+const PIGMENT_RUN_DRY_RADII = 8
+const PIGMENT_RUN_WET_RADII = 32
 
 // ─── The touch-down (#536) ──────────────────────────────────────────────────
 //
@@ -725,10 +738,46 @@ export function watercolorFerrulePx(
   return Math.min(long / Math.max(shrunkBy, 0.05), long * 3.0)
 }
 
-/** Pigment remaining after the same travel. Same shape, much longer run. */
-export function watercolorPigmentLoad(usedRadii: number): number {
-  return PIGMENT_FLOOR + (1 - PIGMENT_FLOOR) * Math.exp(-usedRadii / PIGMENT_RUN_RADII)
+/** Pigment remaining after the same travel, as a fraction of the load —
+ *  so 1 − this is the fraction already delivered, and the two always sum to
+ *  the budget (see PIGMENT_RUN_DRY_RADII). `water` is the brush's nominal mix
+ *  water, a constant of the stroke, which is what keeps a live stroke and a
+ *  replay of it on the same curve. */
+export function watercolorPigmentLoad(usedRadii: number, water = 0): number {
+  return Math.exp(-usedRadii / watercolorPigmentRun(water))
 }
+
+/** The run, in radii, over which the brush spends 1 − 1/e of its pigment. */
+export function watercolorPigmentRun(water: number): number {
+  return PIGMENT_RUN_DRY_RADII + (PIGMENT_RUN_WET_RADII - PIGMENT_RUN_DRY_RADII) * clamp01(water)
+}
+
+/** (#536, ADR 011 §17.13) How much of the water a brush delivers to the
+ *  sheet stays on it as STANDING water, by what the sheet already held.
+ *
+ *  Standing water is a balance on the paper — delivered, minus what the sheet
+ *  absorbs — not a property of the brush, and the two came apart on Ilya's
+ *  sheet in both directions. A puddle laid by one long clean stroke read
+ *  patchy when the record was the brush's depleted load; a loaded brush
+ *  scribbled on dry paper read as dry-on-dry when a pigment stroke recorded
+ *  no water of its own at all ("въедается как мелок"). So: a clean-water
+ *  stroke's delivery stays whole (retention 1 — that is what a puddle is),
+ *  and a pigment stroke's is kept in proportion to how wet the sheet under
+ *  the dab already was — a thin film on dry paper, most of it where there
+ *  was a puddle to join. The dab's recorded wetness digit is the "already",
+ *  so a replay keeps the same water.
+ *
+ *  Known limit, deliberate: a stroke does not read its own water before
+ *  pen-up (see _paintDabs on why), so ten passes over one spot do not yet
+ *  pile the film up into a puddle. The API is written as delivery and
+ *  retention so that they can, without the record changing shape. */
+export function watercolorWaterRetention(waterOnly: boolean): number {
+  return waterOnly ? 1 : WATERCOLOR_WATER_RETAIN_DRY
+}
+/** What a pigment stroke's water leaves standing on dry paper. Damp, not a
+ *  puddle: the wet diffusion gates on it, so a loaded brush's own mark levels
+ *  and runs a little inside its silhouette, and keeps its structure. */
+const WATERCOLOR_WATER_RETAIN_DRY = 0.3
 
 // ─── Wet-in-wet: the halo (#536, ADR 011 §17.10) ───────────────────────────
 //

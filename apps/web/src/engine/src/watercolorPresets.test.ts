@@ -18,7 +18,7 @@ import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
   DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
-  watercolorPigmentLoad, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorPigmentLoad, watercolorPigmentRun, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
@@ -276,6 +276,35 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
     for (const u of [5, 10, 20, 40, 80]) {
       expect(watercolorPigmentLoad(u)).toBeLessThan(watercolorWaterLoad(u))
     }
+  })
+
+  it('spends a finite budget, the same on any path, and spends it further when wet (#536, §17.14)', () => {
+    // The brush-level invariant: initial = delivered + remaining, so what a
+    // stroke can lay down over ANY path is the integral of the curve — a
+    // scribble on the spot and a straight line of the same travel deliver the
+    // same mass, and no travel, however long, exceeds the budget. The floor
+    // that used to sit under the curve made the budget infinite: two hundred
+    // dabs on one spot at ten per cent each was a brush that never emptied.
+    const delivered = (water: number, radii: number, step: number): number => {
+      let sum = 0
+      for (let u = 0; u < radii; u += step) sum += watercolorPigmentLoad(u, water) * step
+      return sum
+    }
+    for (const water of [0, 0.5, 1]) {
+      const budget = watercolorPigmentRun(water)
+      // Path geometry is not an input, only travel: a fine-stepped scribble and
+      // a coarse-stepped sweep integrate to the same thing.
+      expect(delivered(water, 500, 0.05)).toBeCloseTo(delivered(water, 500, 0.5), 0)
+      expect(delivered(water, 500, 0.05)).toBeLessThanOrEqual(budget * 1.01)
+      expect(delivered(water, 5000, 0.5)).toBeLessThanOrEqual(budget * 1.05)
+      // …and remaining + delivered is the budget at every point.
+      for (const u of [1, 8, 32, 100]) {
+        expect(delivered(water, u, 0.01) / budget + watercolorPigmentLoad(u, water)).toBeCloseTo(1, 1)
+      }
+    }
+    // Wet spends further, dry sooner: the observation the two runs came from.
+    expect(watercolorPigmentRun(1)).toBeGreaterThan(watercolorPigmentRun(0) * 3)
+    expect(watercolorPigmentLoad(20, 1)).toBeGreaterThan(watercolorPigmentLoad(20, 0) * 3)
   })
 
   it('leaves a long stroke pale before it leaves it dry', () => {
