@@ -7969,6 +7969,9 @@ export class PencilEngine implements PencilEngineAPI {
     // direction and paper.
     const haloDabs: Dab[] = []
     const haloDoseByDab = new Map<Dab, number>()
+    /** What each ORIGINAL dab gave up to its halo, so the core is laid lighter
+     *  by exactly that share — conservation, and the "dissolves in water" feel. */
+    const haloShedByDab = new Map<Dab, number>()
     let anyHalo = false
     // A flat disc, not the tool's cone. The ink stamp is a cone that is zero at
     // the nib's rim (inkEdgeFalloff 0 — see the shader's mix(u_inkEdge, 1, depth)),
@@ -7980,17 +7983,18 @@ export class PencilEngine implements PencilEngineAPI {
     const haloProfile: RibbonProfile = { ...profile, inkEdgeFalloff: 1 }
     if (profile.normalizeDeposit) {
       for (const dab of drawable) {
-        const { scale, dose, wet } = watercolorHalo(paperWetByDab.get(dab) ?? 0, waterByDab.get(dab) ?? 0)
+        const { scale, shed, wet } = watercolorHalo(paperWetByDab.get(dab) ?? 0, waterByDab.get(dab) ?? 0)
         // Past the composite's bloom, not merely past the dab — see
         // WATERCOLOR_HALO_PAST_BLOOM. spreadPx is the gesture's reach in world
         // px and dab.size is a diameter, hence the factor of two.
         const grown: Dab = { ...dab, size: dab.size * scale + 2 * WATERCOLOR_HALO_PAST_BLOOM * spreadPx * wet }
         haloDabs.push(grown)
-        // Times the scale: the ink pass divides a dab's dose by its radius, so
-        // a wider stamp lays less per pixel by exactly this factor, and the dose
-        // is specified per pixel (WATERCOLOR_HALO_DOSE).
-        haloDoseByDab.set(grown, dose * scale)
-        if (dose > 0) anyHalo = true
+        // The shed share as the halo stamp's dose, un-compensated for the wider
+        // radius on purpose — see watercolorHalo on why per pixel it comes out
+        // as shed / scale, a ring's worth rather than a disc's.
+        haloDoseByDab.set(grown, shed)
+        haloShedByDab.set(dab, shed)
+        if (shed > 0) anyHalo = true
         const across = acrossByDab.get(dab)
         if (across) acrossByDab.set(grown, across)
         waterByDab.set(grown, waterByDab.get(dab) ?? 0)
@@ -8023,7 +8027,10 @@ export class PencilEngine implements PencilEngineAPI {
         return {
           ink: profile.depositPerRadius * (travel / radius) * 0.5
             * ((1 - profile.stampInkShare) * 2) * (pigmentByDab.get(d1) ?? 1)
-            * (excessByDab.get(d1) ?? 1),
+            * (excessByDab.get(d1) ?? 1)
+            // (#536) …less what this dab shed into standing water — see the
+            // halo, which is made of exactly this share.
+            * (1 - (haloShedByDab.get(d1) ?? 0)),
           water: waterByDab.get(d1) ?? 0,
           paperWet: paperWetByDab.get(d1) ?? 0,
           strength: inkStrength,
@@ -8057,7 +8064,8 @@ export class PencilEngine implements PencilEngineAPI {
         for (let i = 0; i < drawable.length; i++) {
           inkLoad.beginAdditiveDraw()
           this._drawRibbonNibPass(
-            inkLoad, tile, drawable[i], preset, profile, 7, deposits[i], false,
+            inkLoad, tile, drawable[i], preset, profile, 7,
+            deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
             waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
             paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed,
           )

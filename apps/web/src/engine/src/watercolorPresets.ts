@@ -758,21 +758,21 @@ export function watercolorPigmentLoad(usedRadii: number): number {
  *  which is what the photographs show. */
 const WATERCOLOR_HALO_GROWTH = 0.9
 
-/** The halo's deposit per pixel, as a fraction of the core's per pixel. Under
- *  one: the core stays the darkest part of a real blot.
+/** How much of a wet-in-wet dab's pigment leaves the brush's own footprint for
+ *  the water around it, at full wetness. A share, never an addition — and the
+ *  distinction is the whole of two complaints at once.
  *
- *  Per *pixel*, deliberately, and the engine multiplies the stamp by the halo's
- *  own scale to make it so. The ink pass normalises a dab's dose by its radius
- *  (a quantity per unit area, see RibbonProfile.normalizeDeposit), so a stamp
- *  twice as wide lays half the deposit per pixel on its own — and at 0.30 of
- *  the dose that came out near 3% density, which is what "не особо изменилось"
- *  was. Measured on a replay of Ilya's own stroke through the density view: the
- *  coverage reached the full halo, the pigment in it barely registered. */
-//  0.25 against a *flat* stamp: the halo is laid as a disc rather than as the
-//  tool's cone (see the engine's haloProfile), and a flat disc integrates to
-//  about three times a cone of the same nominal, so the number is a third of
-//  what a cone would need — and a cone would not have reached the ring at all.
-const WATERCOLOR_HALO_DOSE = 0.25
+ *  It used to be a per-pixel dose laid *on top of* the dab's own, so a scribble
+ *  of N dabs in one spot stacked N halo discs: the halo filled "at once and
+ *  thick", and the pigment never ran out however long the brush stayed, since
+ *  every dab conjured a disc's worth. And the core kept its full dose, which is
+ *  the wax-crayon feel — paint that has "caught on the sheet for good" and
+ *  merely smears. What actually happens is that a share of the dab dissolves
+ *  into the standing water: the mark under the brush comes out *lighter* by
+ *  that share, and that same share is what the halo is made of. Conserved, so
+ *  a scribble accumulates halo and core in the one fixed proportion, and a
+ *  brush running dry runs dry in both. */
+const WATERCOLOR_HALO_SHED = 0.55
 
 /** A nearly dry brush still bleeds into standing water — plainly, in Ilya's
  *  words, only much less than a wet one. The floor on the brush's own share of
@@ -782,9 +782,19 @@ const WATERCOLOR_HALO_DRY = 0.45
 /** The halo stamp for one dab: how much wider than the dab, and what fraction
  *  of its dose. Both zero-effect on dry paper, so a dry-paper stroke lays no
  *  halo at all and is bit-for-bit what it was. */
-export function watercolorHalo(paperWet: number, brushWater: number): { scale: number; dose: number; wet: number } {
+/** The halo stamp for one dab: how much wider than the dab, and what share of
+ *  its dose leaves for the water. Both zero-effect on dry paper, so a dry-paper
+ *  stroke lays no halo, keeps its whole dose, and is bit-for-bit what it was.
+ *
+ *  The engine hands the shed share to a stamp `scale` times wider, whose ink
+ *  pass normalises by radius — so per pixel the halo carries shed / scale of
+ *  the core, i.e. the pigment is spread as if along a ring rather than over a
+ *  disc. That is deliberate: in a real blot the migrating pigment does not fill
+ *  the water evenly, it gathers toward the front, which is why a halo is
+ *  visible at all and why it ends in a tideline. */
+export function watercolorHalo(paperWet: number, brushWater: number): { scale: number; shed: number; wet: number } {
   const wet = clamp01(paperWet) * (WATERCOLOR_HALO_DRY + (1 - WATERCOLOR_HALO_DRY) * clamp01(brushWater))
-  return { scale: 1 + WATERCOLOR_HALO_GROWTH * wet, dose: WATERCOLOR_HALO_DOSE * wet, wet }
+  return { scale: 1 + WATERCOLOR_HALO_GROWTH * wet, shed: WATERCOLOR_HALO_SHED * wet, wet }
 }
 
 /** How far past the composite's own bloom the halo reaches, in multiples of the

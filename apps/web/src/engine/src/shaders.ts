@@ -1395,9 +1395,15 @@ ${WC_NOISE_GLSL}
         // its crests, so the spread arrives *as* texture rather than as a blur
         // with texture drawn over it. Scaled by push, so a mark that is not
         // spreading is not roughened either.
+        // Sign matters, and it was wrong: paperCatch is HIGH on a fibre crest
+        // and low in a pit, and this used to lower the threshold on crests, so
+        // the front ran furthest over the tops of the paper. Ilya, with the
+        // real thing in front of him: pigment in standing water runs along the
+        // valleys and settles in the pits, a web with the crests left paler.
+        // A crest now raises the threshold, a pit lowers it.
         float thr = 0.5
           - push
-          - WC_WET_PAPER * push * (paperCatch - 0.5)
+          + WC_WET_PAPER * push * (paperCatch - 0.5)
           + u_edgeWander * wetGain * (wcFbm(wp * 0.030) - 0.5);
         // §4.1 - how sharply the boundary resolves, and the range is water's
         // to set. A flood has edges running from nearly lost to fairly crisp
