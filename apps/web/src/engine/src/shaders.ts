@@ -582,6 +582,13 @@ export const DAB_FRAG = `
   // markerRibbon.ts's FLOATS_PER_VERTEX spells out: one wash, several strokes,
   // and they are allowed to disagree about it.
   uniform float u_inkStrength;
+  /** (#536) How wet the paper was where this gesture came down, from its own
+   *  recorded profile. The fallback for paperWetHere outside the mark, exactly
+   *  as u_inkStrength is the fallback for strengthHere — and for the same
+   *  reason, only more sharply: the per-pixel value is read out of the deposit,
+   *  the deposit is zero outside the brush's own footprint, so a term gated on
+   *  it is switched off precisely in the region it exists to create. */
+  uniform float u_landedWet;
   // (#536) The wash's coarse mottling, now laid down with the paint rather than
   // multiplied over it at display time — see wcCloud. Seed per stroke.
   uniform float u_cloudDeposit;
@@ -810,13 +817,22 @@ export const DAB_FRAG = `
   /** How strongly the paper's own grain steers the advancing front. */
   const float WC_WET_PAPER = 1.3;
   /** Where the pigment's own spread samples for paint, as a fraction of the
-   *  boundary's reach. Under 1 so the colour stops short of the waterline. */
-  const float WC_INK_SPREAD_R = 0.72;
+   *  boundary's reach. Above 1: this ring is what decides how far the blot
+   *  gets, so it has to reach about a brush radius — the growth Ilya measured
+   *  on paper is roughly 1.7x across, and a ring that stops short of the mark's
+   *  own radius cannot produce it. */
+  const float WC_INK_SPREAD_R = 1.25;
   /** How much of the neighbouring deposit arrives here at full push. Above 1
    *  because a ring average outside a mark is mostly empty taps: at one radius
    *  out perhaps three of twelve land on paint, so the mean understates what is
    *  actually available to travel by about that factor. */
   const float WC_INK_SPREAD_GAIN = 2.2;
+  /** How much arrived pigment counts as the wash being present at all, and how
+   *  much counts as fully present. Both small: out at the margin only two or
+   *  three of twelve taps land on paint, so what arrives is a small fraction of
+   *  a core deposit however strong the mark is. */
+  const float WC_INK_SPREAD_ON = 0.006;
+  const float WC_INK_SPREAD_FULL = 0.060;
 
   // (#536) How wide the transport's own view of the concentration is, in px.
   // Wider than a hair bundle on purpose — see its use.
@@ -1387,7 +1403,13 @@ ${WC_NOISE_GLSL}
         // spreads plainly. So the paper decides whether there is anywhere to go
         // and the brush decides how much goes — a product, with a floor well
         // above zero rather than a gate.
-        push = WC_WET_PUSH * paperWetHere * mix(WC_PUSH_DRY, 1.0, waterHere);
+        // Outside the mark there is no deposit to read the paper's wetness
+        // from, and that is where every pixel of growth has to happen, so the
+        // gesture's own landing value stands in. Measured, not reasoned: with
+        // the per-pixel value alone a 15 px blot in standing water came back
+        // 15 px, because push was exactly zero everywhere it mattered.
+        float wetForPush = ink.a > 0.004 ? paperWetHere : u_landedWet;
+        push = WC_WET_PUSH * wetForPush * mix(WC_PUSH_DRY, 1.0, waterHere);
         // …and the front follows the sheet. In the photographs the spread half
         // of a mark is not a smooth gradient at all: it is granular, and the
         // grain is the paper's own. Steering the threshold by paperCatch makes
@@ -1541,6 +1563,34 @@ ${WC_NOISE_GLSL}
       // make this tool stop looking like a marker. The settle pass pads its
       // bounds by u_spreadPx so those pixels are inside the drawn rect at all
       // (see _settleRibbonStroke).
+      // (#536) The pigment's own spread, and it has to happen HERE — above the
+      // discard — for the same reason everything else about this has been
+      // wrong: below it, a fragment outside the silhouette is already gone.
+      //
+      // The arithmetic of why the silhouette alone could never carry this.
+      // Blur-and-re-threshold displaces a boundary by about the blur radius at
+      // the very most, and the blur is twelve taps on a ring of u_spreadPx,
+      // which for a 50 px brush is around twenty pixels. Fifteen pixels out
+      // from the mark, the near ring no longer reaches paint at all and the far
+      // one catches two taps in twelve, so the blurred value has fallen under
+      // any threshold worth having. Five to ten pixels of growth, whatever the
+      // threshold does. Which is exactly, and repeatedly, what was measured on
+      // screen: a 50 px blot answering every change with 55.
+      //
+      // So the extent is decided by where the *paint* got to instead. A ring
+      // average of the deposit is a real signal a full radius out — it is a
+      // fraction of twelve taps landing in the mark, not a threshold crossing —
+      // and it falls off the way a blot's margin actually falls off. Where that
+      // says pigment arrived, the wash is present; the coverage silhouette
+      // becomes a floor rather than the whole answer.
+      // Sampled unconditionally and scaled by push rather than wrapped in a
+      // branch on it: implicit-LOD texture fetches inside non-uniform flow
+      // control are undefined in GLSL ES 1.0, and there is nothing to gain by
+      // finding out what this backend does with them. push is zero on dry
+      // paper, so the arithmetic is identical and twelve fetches are the cost.
+      float spreadInk = wcInkRing(tileUV, texel, max(spreadReach, 1.0) * WC_INK_SPREAD_R)
+        * WC_INK_SPREAD_GAIN * push;
+      coverage = max(coverage, smoothstep(WC_INK_SPREAD_ON, WC_INK_SPREAD_FULL, spreadInk));
       if (coverage < 0.004) discard;
 
       vec4 dst = texture2D(u_original, tileUV);
@@ -1584,38 +1634,15 @@ ${WC_NOISE_GLSL}
       // directions rather than eight for the reason wcRingAvg documents - eight
       // resolves as an octagon, and an octagon around every wet mark would be
       // worse than no transport at all.
-      // (#536) …and the paint travels with it, which is the piece everything
-      // else was waiting on.
+      // (#536) …and the paint that travelled is what makes tone out there. See
+      // the spread's own note above the discard.
       //
-      // Up to here the spread moved the *silhouette* and nothing else, and the
-      // silhouette is not what is visible: the tone comes from density, density
-      // comes from the deposit buffer, and the deposit buffer is written by the
-      // stamps and bands along the brush's own path. So the boundary could be
-      // pushed as far out as anyone liked and there was no pigment out there to
-      // show — the mark could only grow into the few pixels of low deposit that
-      // a dab's cone leaves past its visible edge. That, and not the threshold
-      // and not the blur radius, is why "растекание должно быть сильнее" kept
-      // coming back after every change: a 30 px dot answered every one of them
-      // with 34 px.
-      //
-      // Paint in the neighbourhood, gathered on a ring at the spread's own
-      // reach, and taken with max() rather than mixed in. Two reasons for max:
-      // the core of a real blot stays the darkest part of it (it is plainly the
-      // darkest part of Ilya's photographs), and a mix would dilute the core to
-      // pay for the halo, which is a mass-conserving story this tool has never
-      // told anywhere else.
-      //
-      // Gated on the paper, so a stroke on a dry sheet is bit-for-bit what it
-      // was, and scaled by the same push the boundary uses, so the two cannot
-      // disagree about how far the wash got.
-      float deposit = ink.a;
-      if (push > 0.0) {
-        // Slightly inside the boundary's own reach: the pigment stops a little
-        // short of where the water gets to, which is the pale margin around a
-        // real blot rather than paint out to the waterline.
-        float near = wcInkRing(tileUV, texel, spreadReach * WC_INK_SPREAD_R);
-        deposit = max(deposit, near * WC_INK_SPREAD_GAIN * push);
-      }
+      // max() rather than a mix: the core of a real blot stays the darkest part
+      // of it — plainly so in Ilya's photographs — and mixing would dilute the
+      // core to pay for the margin, a mass-conserving story this tool does not
+      // tell anywhere else. Gated on the paper being wet, so a stroke on a dry
+      // sheet is bit-for-bit what it was.
+      float deposit = max(ink.a, spreadInk);
       float migrateGate = 0.0;
       if (u_migrate > 0.0) {
         // The standing film, as a field rather than a per-place number: how
