@@ -2938,8 +2938,25 @@ export const PAPER_COMPOSE_FRAG = `
   const float WC_WET_GLOSS = 0.34;
   const float WC_WET_SHADE = 0.11;
   /** The cast shadow on the far side. Softer than the meniscus: it is the drop
-   *  sitting on the paper, not the surface of the drop. */
-  const float WC_WET_CAST = 0.07;
+   *  sitting on the paper, not the surface of the drop.
+   *
+   *  #536 — OFF, at zero, and deliberately as a *bisection* rather than as a
+   *  decision about the effect. Something reads as a halo round the puddle and
+   *  four attempts to place this band correctly have each moved the halo
+   *  without removing it. The band is the only term that lives outside the
+   *  meniscus, so switching it off answers in one look which of two things is
+   *  true: either the halo goes, and it was always this, or it stays, and it is
+   *  the damp tint or the sheen and the shadow was never involved.
+   *
+   *  Kept as a constant rather than deleted so the answer can be acted on
+   *  either way — restoring it is one number. Everything that computes rimCast
+   *  is untouched, and multiplying by zero costs nothing a driver will not fold
+   *  away.
+   *
+   *  The same reasoning as the bristle caricature (§17.5): after three wrong
+   *  guesses, stop guessing amplitudes and take a measurement that can only
+   *  come back one of two ways. */
+  const float WC_WET_CAST = 0.0;
   // (#536) THREE windows on the wetness value, and which of them is gated by
   // the light is the whole of what makes a puddle read as a puddle.
   //
