@@ -3006,6 +3006,12 @@ export const PAPER_COMPOSE_FRAG = `
   const float WC_CAST_IN  = 0.102;
   const float WC_CAST_MID = 0.077;
   const float WC_CAST_OUT = 0.052;
+  /** The single outside limit of everything the overlay draws, on the shared
+   *  edge coordinate. Sits just under the outermost band (the cast shadow's own
+   *  outer edge) so nothing has room to leak past it onto the field's tail, and
+   *  it is a hard step rather than a ramp on purpose: a soft cut-off is another
+   *  gradient for the eye to find, which is the thing being removed. */
+  const float WC_EDGE_OUT = 0.048;
   // For scale: the wetness map is one texel per 16 px cell, linearly filtered
   // and then smoothed over a texel again, so raw falls from 1 to 0 across
   // roughly 32 world px. A window that many hundredths wide is therefore that
@@ -3022,18 +3028,32 @@ export const PAPER_COMPOSE_FRAG = `
   // still there and lets go of it as the paper dries. Zero wetness, zero
   // correction, so the picture converges on what is stored no matter what the
   // clock does.
-  //  #536 — 0.30, down from 0.92, and this is a correction of aim rather than
-  //  of taste. "Взял полностью сухую кисть, начало рисовать как сухая кисть
-  //  (хотя это неверно в таком случае), но после отпускания штрих стал сразу
-  //  мокрым." That first half is this term: it holds a mark tightest exactly
-  //  when the paper is wettest, which is backwards for wet-in-wet — paint
-  //  dropped into standing water spreads at once, it does not wait to dry.
+  //  #536 — how far the paint is held back from where it will end up at the
+  //  instant it is laid into standing water, and it is a *shape* question as
+  //  much as a size one.
   //
-  //  What was being asked for all along under "растекание" is *growth*, and
-  //  growth is WC_WET_PUSH, which is instant and permanent. This is a much
-  //  smaller thing and should stay small: the last of the settling, visible if
-  //  you watch for it, never enough to make a wet mark read as a dry one.
-  const float WC_WET_RELAX = 0.30;
+  //  Ilya, describing the real thing: touch a brush to a wet surface and the
+  //  paint runs out hard at first, then slows, then very nearly stops. That is
+  //  not what a linear release looks like and it is not what a smoothstep
+  //  release looks like either — a smoothstep starts slow, which reads as the
+  //  mark sitting still and then thinking about it, and was behind "начало
+  //  рисовать как сухая кисть". WC_RELAX_EASE puts the motion at the front:
+  //  most of the travel happens in the first seconds after the pen leaves, and
+  //  the tail of it is a long slow crawl to a stop.
+  //
+  //  Two terms make up the total spread and they are easy to confuse. This one
+  //  is transient and decides *when* the paint gets there; WC_WET_PUSH is
+  //  permanent and decides *where* it ends up. Turning this up does not make a
+  //  dried mark any bigger.
+  const float WC_WET_RELAX = 0.85;
+  /** Exponent on the release. Above 1 fronts the motion — see WC_WET_RELAX. */
+  const float WC_RELAX_EASE = 7.0;
+  /** The wetness a freshly laid flood carries, which is what the release is
+   *  measured against. Reading the raw value rather than the normalised edge
+   *  coordinate is deliberate: this has to run down as the patch dries, and a
+   *  lone puddle decays in step with the peak, so the normalised ratio between
+   *  them would never move at all. */
+  const float WC_RELAX_REF = 0.90;
   // The window over which it lets go. Far wider than the sheen's: the sheen
   // must vanish the moment a patch is merely damp, or every mark drags a grey
   // halo, whereas the paint has to still be creeping when the shine has long
@@ -3045,12 +3065,9 @@ export const PAPER_COMPOSE_FRAG = `
   // inside the first half of the drying - the paint creeps out over the first
   // twenty-odd seconds and is settled well before the sheen goes, which is also
   // the right way round physically.
-  // #536 - 0.65..0.95, and the drying window itself is now 30 s rather than 60,
-  // so the creep runs about three times faster than the version before last:
-  // roughly nine seconds from pen-up rather than twenty-eight. "Растекание надо
-  // делать быстрее... в 3."
-  const float WC_RELAX_LO = 0.65;
-  const float WC_RELAX_HI = 0.95;
+  // The release runs on the shared edge coordinate rather than on raw wetness,
+  // so it means the same thing however wet the brush was: 1 the moment the
+  // water goes down, 0 when that patch is dry.
 
   /** The wetness map, smoothed over its own texels so the grid it is built on
    *  does not show as facets.
@@ -3196,12 +3213,46 @@ export const PAPER_COMPOSE_FRAG = `
         // of damp must show nothing at all, or every mark drags a soft grey
         // halo behind it, which is exactly what the first version did.
         float raw = wcWetAt(wetUV);
-        wet = smoothstep(0.35, 0.95, raw);
-        held = WC_WET_RELAX * smoothstep(WC_RELAX_LO, WC_RELAX_HI, raw);
-        // Off the flat tail (0.05 -> 0.16): down near zero the field barely
-        // changes over many pixels, so a gate opening there puts the tint
-        // halfway across the sheet — which is the last of the "ореол".
-        damp = smoothstep(0.16, 0.46, raw);
+        // (#536) One edge for the whole overlay, and everything below is
+        // expressed on it. This replaces four independent thresholds on the
+        // raw value, which is where the halo kept coming back from.
+        //
+        // The field is deliberately *wider than the water*: a cell counts as
+        // wet if its centre falls under the dab at all, the home cell always
+        // counts, the display map is padded with a border texel of zero, and
+        // the 3x3 tent that rounded off the octagon spreads the step another
+        // texel each way. So the value does not stop at the mark: it trails off
+        // down a long shallow ramp outside it, and any term with a low enough
+        // threshold paints that ramp as a soft wide band. Which is the halo,
+        // and it is not a depiction of anything: it is the tail of a model
+        // field showing through. Moving one threshold in only handed the tail
+        // to whichever term had the next lowest one, three times over.
+        //
+        // The shared coordinate is 1 in the body of the water and 0 outside
+        // it, normalised by the wettest paper on the sheet so that it means the
+        // same thing at every stage of drying (see WC_DARK_MID). WC_EDGE_OUT is
+        // then the single outside
+        // limit of everything the overlay draws: past it the sheet is painted
+        // exactly as dry paper, whatever the field still holds out there for
+        // the *model* to read.
+        float t = clamp(raw / max(u_wetPeak, 0.05), 0.0, 1.0);
+        float inWater = step(WC_EDGE_OUT, t);
+        // Which of these read the shared coordinate and which read the raw
+        // value is not a detail — it is the difference between "where is the
+        // edge" and "how wet is it", and they must not be swapped.
+        //
+        // The bands below are geometry: the ring belongs at a fixed place on
+        // the edge's ramp whatever stage of drying the sheet is at, so they are
+        // normalised. The two below are physical quantities that have to *fade*
+        // as the paper dries — and normalising those would freeze them, because
+        // a single puddle drying on its own decays in step with the peak, so
+        // the ratio between them never moves. A sheen that never dulls and
+        // paint that never relaxes is what that costs.
+        //
+        // So: extent from the coordinate, amount from the value.
+        wet = inWater * smoothstep(0.35, 0.95, raw);
+        held = WC_WET_RELAX * pow(clamp(raw / WC_RELAX_REF, 0.0, 1.0), WC_RELAX_EASE);
+        damp = inWater * smoothstep(WC_EDGE_OUT, 0.42, t) * smoothstep(0.04, 0.30, raw);
         // The rim, as a *window on the wetness value* rather than as a
         // derivative of it.
         //
@@ -3226,23 +3277,20 @@ export const PAPER_COMPOSE_FRAG = `
         // reason: without it the lit/unlit split fades out as the sheet dries,
         // taking the highlight and the cast shadow with it and leaving a bare
         // ring long before the water is gone.
-        float side = clamp(
-          (ahead - raw) * WC_WET_RIM_GAIN / max(u_wetPeak, 0.05), 0.0, 1.0
-        );
-        rim = side
-          * smoothstep(WC_RIM_LO * u_wetPeak, WC_RIM_MID * u_wetPeak, raw)
-          * (1.0 - smoothstep(WC_RIM_MID * u_wetPeak, WC_RIM_HI * u_wetPeak, raw));
+        float side = clamp((ahead - raw) * WC_WET_RIM_GAIN / max(u_wetPeak, 0.05), 0.0, 1.0);
+        rim = side * inWater
+          * smoothstep(WC_RIM_LO, WC_RIM_MID, t)
+          * (1.0 - smoothstep(WC_RIM_MID, WC_RIM_HI, t));
         // No side term: the meniscus goes right round. Only its width knows
         // where the light is - thinner under the highlight, full weight on the
         // far side.
-        float ringHalf = WC_DARK_HALF * mix(1.0, WC_DARK_LIT, side) * u_wetPeak;
-        float ringMid = WC_DARK_MID * u_wetPeak;
-        rimDark = smoothstep(ringMid - ringHalf, ringMid, raw)
-          * (1.0 - smoothstep(ringMid, ringMid + ringHalf, raw));
-        float castMid = WC_CAST_MID * u_wetPeak;
-        rimCast = (1.0 - side)
-          * smoothstep(WC_CAST_OUT * u_wetPeak, castMid, raw)
-          * (1.0 - smoothstep(castMid, WC_CAST_IN * u_wetPeak, raw));
+        float ringHalf = WC_DARK_HALF * mix(1.0, WC_DARK_LIT, side);
+        rimDark = inWater
+          * smoothstep(WC_DARK_MID - ringHalf, WC_DARK_MID, t)
+          * (1.0 - smoothstep(WC_DARK_MID, WC_DARK_MID + ringHalf, t));
+        rimCast = (1.0 - side) * inWater
+          * smoothstep(WC_CAST_OUT, WC_CAST_MID, t)
+          * (1.0 - smoothstep(WC_CAST_MID, WC_CAST_IN, t));
       }
     }
     // (#536, ADR 011 §17.6) The paint relaxing outward as the water goes.
