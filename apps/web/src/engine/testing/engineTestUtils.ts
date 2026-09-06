@@ -553,7 +553,7 @@ export function markerReplayChunkFor(
  *  composite: 8 is the brush pen's, 9 is watercolor's. The helper keeps its
  *  original name because what it does is unchanged and every marker test
  *  already calls it by that name. */
-export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7 | 8 | 9): { blendEnabled: boolean; opacity: number; count: number } | undefined {
+export function markerPassDraw(engine: PencilEngine, inkMode: 2 | 6 | 7 | 8 | 9 | 10): { blendEnabled: boolean; opacity: number; count: number } | undefined {
   return internals(engine).gl.lastDabDraw(inkMode)
 }
 

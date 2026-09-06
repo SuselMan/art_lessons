@@ -2,6 +2,7 @@ import type { ToolType } from '@grafetto/shared'
 import { clamp } from 'lodash-es'
 
 import { shapingForBrushPenPreset } from './brushPenPresets'
+import { shapingForDigitalBrushPreset } from './digitalBrushPresets'
 import { shapingForWatercolorPreset } from './watercolorPresets'
 import { shapingForMarkerPreset, type NibAngleConfig } from './markerPresets'
 import { CHARCOAL_FEEL, charcoalAspect, charcoalWidthFactor } from './charcoalFeel'
@@ -620,6 +621,12 @@ export function shapingForTool(
   // per-tool angle/anchor the marker's chisel does, because it is the same
   // shape wearing the same setting.
   if (tool === 'watercolor') return shapingForWatercolorPreset(presetName, nibAngle)
+  // #547, ADR 013 — the same dispatch shape, but what it resolves is a record
+  // of numbers rather than a hand-written profile: the brush's own curves, read
+  // out of the frozen descriptor its preset token names. Tilt is ignored
+  // outright (the mark is round in v1; shape is the mask's job in v2), and so
+  // is nibAngle, which describes a cut tip this tool does not have.
+  if (tool === 'digitalBrush') return shapingForDigitalBrushPreset(presetName)
   // #304: charcoal's three types (vine/willow/compressed) differ in how the
   // material *deposits*, not in the shape of the stick's contact patch, so they
   // share one geometry — but since #501 the same string also carries which nib

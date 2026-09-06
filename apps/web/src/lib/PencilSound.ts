@@ -609,6 +609,15 @@ export const TOOL_SOUND_CONFIGS: Record<ToolType, GrainVariant | null> = {
   // brush is close to silent on paper anyway, so this is the least wrong of
   // the variants that exist rather than a considered choice.
   watercolor: LINER_SOUND_VARIANT_3,
+  // #547 — silent, and this one is a decision rather than a borrow.
+  //
+  // Every other entry here reuses a neighbour's recipe because the tool is a
+  // real material dragged over real paper, and *some* scratch is closer to the
+  // truth than silence. A digital brush is not dragged over anything: there is
+  // no material and no sheet, so there is no sound to approximate, and faking
+  // graphite under it would be the one place in this app where the audio
+  // asserts a physicality the tool does not claim (ADR 013 §1).
+  digitalBrush: null,
   // No sound design yet (docs/adr/004-marker-tool.md's "Потом" list) — null
   // is the documented "this tool makes no drawing sound" case above, not a
   // placeholder oversight.
@@ -626,6 +635,7 @@ export const TOOL_SOUND_DEFAULTS: Record<ToolType, GrainVariant | null> = {
   liner: cloneGrain(LINER_SOUND_VARIANT_3),
   brushPen: cloneGrain(LINER_SOUND_VARIANT_3),
   watercolor: cloneGrain(LINER_SOUND_VARIANT_3),
+  digitalBrush: null,
   marker: null,
 }
 

@@ -44,6 +44,12 @@ import type { ToolType } from '@grafetto/shared'
 // climbs the faster the harder the edge. 0.22 is exactly `spacingFactor` —
 // the constant was never wrong, it was being applied to the wrong size.
 
+/** The step every tool but the digital brush is spaced by, as a fraction of
+ *  the brush's nominal size — DabSystem's own constructor default, named here
+ *  (#547) so the one tool that overrides it per stroke has something to put
+ *  back. See this file's header for how 0.22 was arrived at. */
+export const DEFAULT_DAB_SPACING_FACTOR = 0.22
+
 /** Smallest step between two dabs, canvas px.
  *
  *  Load-bearing at small brush sizes rather than merely defensive: the
@@ -91,13 +97,29 @@ export interface DabFootprint {
   sizeScale: number
   /** The edge softness DAB_FRAG will draw this dab with. */
   hardness: number
+  /** #547 — overrides the hardness gate below with a fixed 0..1 strength, or
+   *  omitted to keep deriving it from `hardness`.
+   *
+   *  Exists because that gate is a *graphite* calibration and does not transfer.
+   *  Its argument is that a soft-edged dab hides its own ripple: measured on
+   *  graphite, everything from F down sat on a ~7% floor that was the paper's
+   *  grain rather than scalloping. The digital brush has no paper in its mark
+   *  at all (ADR 013 §8) — nothing masks anything — and its size curve runs down
+   *  to 0.08 of the slider, so a soft brush at a feather touch is exactly where
+   *  the step most needs to track the footprint. Left to the gate, a soft brush
+   *  would be spaced for a mark twelve times wider than the one it draws.
+   *
+   *  Deliberately not a change to the gate itself: the gate is right about the
+   *  tools it was measured on, and re-spacing three shipped materials to serve
+   *  a fourth is the trade #483 already refused once. */
+  spacingStrength?: number
 }
 
 export function footprintDabSpacing(
   dab: DabFootprint, baseSize: number, spacingFactor: number,
 ): number {
   const nominal = nominalDabSpacing(baseSize, spacingFactor)
-  const strength = footprintSpacingStrength(dab.hardness)
+  const strength = dab.spacingStrength ?? footprintSpacingStrength(dab.hardness)
   // Exactly the pre-#478 step, bit for bit, and that identity is the point:
   // for a soft grade nothing about the mark may move, including the arc-length
   // bookkeeping that decides where its dabs land.
@@ -317,4 +339,14 @@ export function boundedDabSpacing(
  */
 export function isFootprintSpacedTool(tool: ToolType): boolean {
   return tool === 'pencil' || tool === 'eraser' || tool === 'charcoal'
+    // #547 — and the digital brush, which needs this more than anything already
+    // here: its size curve runs from 0.08 to 1.0 of the slider (SIZE_FULL), so a
+    // light stroke draws a mark a twelfth of the nominal width. Spaced off the
+    // nominal size alone, that stroke would be a row of separate discs — the
+    // exact defect #478 was filed for, at its most extreme.
+    //
+    // The hardness gate does the right thing for the set without a special case:
+    // the soft brushes are barely re-spaced (a soft stamp overlaps generously
+    // whatever the step), and ink-round at 0.94 gets the full tightening.
+    || tool === 'digitalBrush'
 }

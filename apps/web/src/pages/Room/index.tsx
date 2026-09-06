@@ -12,7 +12,7 @@ import type {
   JoinDenial, AnnotationShape,
 } from '@grafetto/shared'
 import { BACKGROUND_LAYER_ID, isToolEnabledInRoom, normalizePaperType, packDabs, SNAPSHOT_SEQ_INTERVAL, TOOLSET_MATERIAL_TOOLS, toWireMatrix, unpackDabs, type ToggleableTool } from '@grafetto/shared'
-import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, type AreaImage } from '../../engine'
+import { PencilEngine, PENCIL_PRESETS, CHARCOAL_FEEL, CHARCOAL_FEEL_SLIDERS, PENCIL_TILT, PENCIL_TILT_SLIDERS, SMUDGE_GRAIN, SMUDGE_GRAIN_SLIDERS, DEFAULT_TILT_RESPONSE, isTiltResponse, type CharcoalFeelConfig, type PencilTiltConfig, type SmudgeGrainConfig, type PencilEngineAPI, type PencilGradeName, type StrokeDebugStats, type HapticGrainStats, isPressureResponse, watercolorPresetString, WATERCOLOR_MIX_BY_PRESET, isWatercolorMixPreset, watercolorPigmentByCode, isWatercolorPigmentCode, isWatercolorNib, isNibAnchor, DEFAULT_NIB_ANCHOR, charcoalPresetString, isCharcoalType, isCharcoalNib, DEFAULT_CHARCOAL_TYPE, digitalBrushFromPreset, digitalBrushPreset, type AreaImage } from '../../engine'
 import { subscribePaperLoadProgress, type PaperLoadProgress } from '../../engine/src/paperLoader'
 import { LayerPanel } from '../../components/LayerPanel'
 import { SidePanel } from '../../components/SidePanel'
@@ -2582,6 +2582,17 @@ export function Room() {
   // brushPenPresets.ts's brushPenResponseFromPreset on why the setting rides
   // the existing per-stroke string rather than a new Operation field.
   const brushPenResponse = toolSettings.brushPen.pressureResponse as string
+  // #547, ADR 013 §7 — the brush's id *and* its version, assembled here rather
+  // than stored: the settings layer remembers which brush is selected and has no
+  // business knowing about versions, while the recorded stroke must carry the
+  // one it was actually drawn with so a later retune of that brush cannot
+  // repaint it. digitalBrushFromPreset resolves a bare id for exactly this
+  // hand-off.
+  const digitalBrushId = toolSettings.digitalBrush.brush as string
+  const digitalBrushPresetName = (() => {
+    const brush = digitalBrushFromPreset(digitalBrushId)
+    return digitalBrushPreset(brush.id, brush.version)
+  })()
   // #468 v4 — the whole watercolor mix rides the one preset slot as
   // `response:water:pigment` (watercolorPresetString). Same trick the marker
   // plays with `${nib}:${size}`, and for the same reason: #366 exists to shrink
@@ -2622,6 +2633,7 @@ export function Room() {
     : drawingTool === 'charcoal' ? charcoalPreset
     : drawingTool === 'brushPen' ? brushPenResponse
     : drawingTool === 'watercolor' ? watercolorPreset
+    : drawingTool === 'digitalBrush' ? digitalBrushPresetName
     : pencilGrade
   useEffect(() => {
     pencilSoundRef.current?.setHardness(PENCIL_PRESETS[pencilGrade].hardness)
@@ -2734,9 +2746,10 @@ export function Room() {
         : drawingTool === 'charcoal' ? charcoalPreset
         : drawingTool === 'brushPen' ? brushPenResponse
         : drawingTool === 'watercolor' ? watercolorPreset
+        : drawingTool === 'digitalBrush' ? digitalBrushPresetName
         : pencilGrade,
     )
-  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, engineEpoch])
+  }, [drawingTool, pencilGrade, linerSize, markerNib, markerSize, charcoalPreset, brushPenResponse, watercolorPreset, digitalBrushPresetName, engineEpoch])
   // (#405) Every line in this block reads `drawingTool` rather than the
   // selection: `setTool` takes a `ToolType`, and the four non-painting tools
   // are deliberately not one (toolSlice). Leaving the engine configured with
@@ -6451,6 +6464,7 @@ export function Room() {
       if (is('toggleMarker')) { toggleTool('marker'); return }
       if (is('toggleBrushPen')) { toggleTool('brushPen'); return }
       if (is('toggleWatercolor')) { toggleTool('watercolor'); return }
+      if (is('toggleDigitalBrush')) { toggleTool('digitalBrush'); return }
       // (#405) The four that used to be modes, selected through the same
       // registry and the same toggle-off-to-your-drawing-tool rule as the rest.
       if (is('toggleEyedropper')) { toggleTool('eyedropper'); return }
@@ -7007,6 +7021,24 @@ export function Room() {
               aria-label={t('tool.watercolor')}
               onClick={() => selectTool('watercolor')}
             ><Icon name="water_drop" /></button>
+          )}
+          {/* Digital brush (#547, ADR 013) — last, and after the divider in
+              spirit if not in markup: everything above it imitates a material
+              you could pick up off a desk, and this one imitates nothing. It is
+              deliberately not next to the brush pen despite the shared word in
+              the name — they are the pair most easily confused, and adjacency
+              would invite reading them as two settings of one thing.
+              Behind the room's own toolset (#548) like every other material
+              tool: a teacher who has switched the brush off for a graphite
+              lesson means it, and this button has no more right to ignore that
+              than the watercolor one above. */}
+          {toolOffered('digitalBrush') && (
+            <button
+              className={clsx(styles.toolIconBtn, tool === 'digitalBrush' && styles.toolIconBtnActive)}
+              title={t('tool.digitalBrushTitle', { hotkey: formatHotkeyLabel(hotkeys.toggleDigitalBrush) })}
+              aria-label={t('tool.digitalBrush')}
+              onClick={() => selectTool('digitalBrush')}
+            ><Icon name="format_paint" /></button>
           )}
 
           <div className={styles.toolDivider} />

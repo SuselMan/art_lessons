@@ -22,7 +22,9 @@ import {
   DEFAULT_NIB_ANCHOR, NIB_ANCHORS, isNibAnchor, shapingForTool, type NibAnchor,
 } from './src/dabShaping'
 import { tipFootprint } from './src/tipFootprint'
-import { dabDepositScale, isFootprintSpacedTool, type DabSpacingBounds } from './src/dabSpacing'
+import {
+  dabDepositScale, DEFAULT_DAB_SPACING_FACTOR, isFootprintSpacedTool, type DabSpacingBounds,
+} from './src/dabSpacing'
 import {
   PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
   type PencilTiltConfig,
@@ -55,7 +57,18 @@ import {
   type DwellConfig, type LinerSizeMm,
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
+import { digitalBrushFromPreset, digitalBrushPresetFor } from './src/digitalBrushPresets'
+export {
+  DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH,
+  digitalBrushFromPreset, digitalBrushPreset,
+  type BrushDescriptor,
+} from './src/digitalBrushPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
+
+/** #547 — the band vertex array a stamps-only tool hands the two band passes,
+ *  which both no-op on a zero length. Shared and frozen in size rather than a
+ *  fresh `new Float32Array(0)` per batch: this is on the per-pointer-event path. */
+const EMPTY_BANDS = new Float32Array(0)
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper,
@@ -5444,6 +5457,18 @@ export class PencilEngine implements PencilEngineAPI {
     this._dabs.curvatureTolerancePx = isRibbonTool(this._strokeTool)
       ? ribbonProfileFor(this._strokeTool, this._opts.pencilType).curvatureTolerancePx
       : null
+    // #547 — the step between stamps is a property of the *brush*, not of the
+    // engine, so it is latched here with everything else that is fixed for the
+    // length of one stroke.
+    //
+    // Every brush in the set asks for a tighter step than the engine's 0.22
+    // default, and that default is why: it was calibrated (#478) against tools
+    // whose dabs blend through paper grain and soft graphite falloff. A digital
+    // stamp has neither, so its own ripple shows several times sooner — see the
+    // spacing values in digitalBrushPresets.ts.
+    this._dabs.spacingFactor = this._strokeTool === 'digitalBrush'
+      ? digitalBrushFromPreset(this._opts.pencilType).spacing
+      : DEFAULT_DAB_SPACING_FACTOR
     // #478 — same slot and the same lifecycle: a property of the tool, latched
     // once per stroke. Dab spacing has to track the mark this tool actually
     // leaves, and `_dabSizeScale` is the multiplier between Dab.size and that
@@ -5453,6 +5478,11 @@ export class PencilEngine implements PencilEngineAPI {
       ? {
         sizeScale: this._dabSizeScale(this._strokeTool, this._opts.pencilType),
         hardness: this._resolvePreset(this._strokeTool, this._opts.pencilType).hardness,
+        // #547 — the digital brush follows its footprint at every hardness. See
+        // DabFootprint.spacingStrength for why the gate the other three tools
+        // use is a graphite calibration that does not carry over to a mark with
+        // no paper in it.
+        ...(this._strokeTool === 'digitalBrush' ? { spacingStrength: 1 } : {}),
       }
       : null
     // #489: watercolor's *elongated* nibs take the scallop bound without the
@@ -5833,6 +5863,12 @@ export class PencilEngine implements PencilEngineAPI {
     // response instead and there is nothing here to branch on
     // (watercolorPresets.ts).
     if (tool === 'watercolor') return WATERCOLOR_PRESET
+    // #547, ADR 013 — unlike every branch above, this one genuinely varies with
+    // the preset string: it *is* the brush. hardness comes out of the frozen
+    // descriptor and is read twice downstream — by the stamp shader and by the
+    // spacing rule — which is why it is resolved here once rather than parsed
+    // again at either site.
+    if (tool === 'digitalBrush') return digitalBrushPresetFor(presetName)
     if (tool === 'charcoal') return charcoalPresetFor(presetName)
     return isPencilGrade(presetName) ? PENCIL_PRESETS[presetName] : PENCIL_PRESETS['HB']
   }
@@ -5972,6 +6008,18 @@ export class PencilEngine implements PencilEngineAPI {
       // buffer and one scalar (DAB_FRAG's u_inkMode=8 branch). A per-dab
       // opacity could not be expressed there at all.
       else if (tool === 'brushPen') dab.opacity = preset.opacity * opacity
+      // #547, ADR 013 §3 — flat, and for the composite's own reason stated for
+      // the brush pen directly above: this number is the *stroke's* opacity, and
+      // the source-over composite reconstructs each finished pixel from one
+      // coverage buffer and one scalar. A per-dab value could not be expressed
+      // there.
+      //
+      // What varies per dab for this tool is **flow**, and it deliberately does
+      // not live here: it is applied when the stamp is drawn into the coverage
+      // buffer (_paintRibbonDabs), where accumulating it is the whole point.
+      // Recomputed on replay from Dab.pressure and the frozen descriptor rather
+      // than recorded, so the payload gains nothing (digitalBrushFlow).
+      else if (tool === 'digitalBrush') dab.opacity = preset.opacity * opacity
       // Watercolor (#468, ADR 011 §5): flat, for every reason the brush pen's
       // is flat directly above, plus one of its own.
       //
@@ -7645,15 +7693,37 @@ export class PencilEngine implements PencilEngineAPI {
         }
       }
       : undefined
-    const bands = buildRibbonBands(
+    // #547 — not merely unused for a stamps-only tool but not built at all:
+    // the band builder walks every consecutive pair and allocates a vertex
+    // buffer per segment, which on a densely-spaced brush stroke is the larger
+    // half of the CPU work in this method.
+    const bands = profile.stampsOnly ? EMPTY_BANDS : buildRibbonBands(
       drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor,
     )
 
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
 
-      for (const dab of drawable) this._drawRibbonNibPass(coverage, tile, dab, preset, profile, 6, 0)
-      if (bands.length) this._drawRibbonBands(coverage, tile, bands, 'coverage', profile.aaPx)
+      // #547, ADR 013 §3 — the stamp's own `opacity` argument is this dab's
+      // **flow** for the digital brush, and a plain 0 for the three tools whose
+      // coverage pass only needs a silhouette (their mode-6 branch ignores it).
+      //
+      // Derived here rather than read off the dab: Dab.opacity carries the
+      // stroke's opacity for this tool (see _bakeDabOpacity), and flow is
+      // recomputed from the dab's recorded pressure against the frozen brush
+      // descriptor — the same number live and on replay, with nothing added to
+      // the payload.
+      for (const dab of drawable) {
+        this._drawRibbonNibPass(
+          coverage, tile, dab, preset, profile, profile.coverageInkMode,
+          profile.stampFlow ? profile.stampFlow(dab.pressure) : 0,
+        )
+      }
+      // #547 — a brush's mark is a repeated stamp, not a swept smear, so the
+      // bands that fill between samples are switched off for it (ADR 013 §4).
+      // The three older tools keep them: on a turn the bands reach places the
+      // stamps miss, and with nothing there the composite paints bare paper.
+      if (!profile.stampsOnly && bands.length) this._drawRibbonBands(coverage, tile, bands, 'coverage', profile.aaPx)
 
       // Ink follows the *same* figure as the silhouette. Depositing it only at
       // the sample stamps is what produced the rounded white notches on turns:
@@ -7773,7 +7843,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  ink pass needs (it accumulates additively, not "over"). */
   private _drawRibbonNibPass(
     dest: AccumulationBuffer, tile: PaintTarget, dab: Dab, preset: PencilPreset,
-    profile: RibbonProfile, inkMode: 6 | 7, opacity: number, ownTarget = true,
+    profile: RibbonProfile, inkMode: 6 | 7 | 10, opacity: number, ownTarget = true,
     /** (#468 v4) How wet the brush was for *this* dab, written into the deposit
      *  texture's colour channels so the composite can recover a per-pixel water
      *  level (ADR 011 §4.1). 0 for every tool with no water model, which leaves
@@ -7801,6 +7871,12 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_wickPx, 0)
     gl.uniform1f(u.u_wickCap, 0)
     gl.uniform1f(u.u_aaPx, profile.aaPx)
+    // #547: set explicitly rather than left wherever the last draw put it —
+    // _dabProg is shared with the graphite path, which writes this uniform on
+    // every dab, so the digital brush's stamp (u_inkMode=10) would otherwise
+    // take its edge softness from whatever pencil grade was last drawn. Modes 6
+    // and 7 never read it, so this is inert for the three older ribbon tools.
+    gl.uniform1f(u.u_hardness, preset.hardness)
     gl.uniform1f(u.u_nibShape, profile.nibShape === 'roundedBox' ? 1 : 0)
     gl.uniform1f(u.u_nibCorner, radius * profile.cornerFraction)
     gl.uniform1f(u.u_inkEdge, profile.inkEdgeFalloff)

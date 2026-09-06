@@ -7,6 +7,7 @@ import {
   type PencilGradeName, type LinerSizeMm, type CharcoalType, type TiltResponse, type PressureResponse,
   type WatercolorMixPreset,
   WATERCOLOR_NIBS, DEFAULT_WATERCOLOR_NIB, type WatercolorNib,
+  DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH,
   CHARCOAL_NIBS, DEFAULT_CHARCOAL_NIB, type CharcoalNib,
   NIB_ANCHORS, type NibAnchor,
 } from '../../engine'
@@ -16,6 +17,7 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../..
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
 import { PRESSURE_RESPONSE_CURVES } from './pressureResponseCurves'
+import { DIGITAL_BRUSH_CURVES } from './digitalBrushCurves'
 import { TRANSFORM_MODES, type TransformMode } from './transformMath'
 import { SELECTION_SHAPES, type SelectionShapeKind } from './selectionGesture'
 import type { TranslationKey } from '../../i18n'
@@ -38,6 +40,7 @@ import type { IconName } from '../../icons/iconNames'
 // selectable (colorPencil has a schema and no toolbar slot yet — #188).
 export type UiToolId =
   | 'pencil' | 'colorPencil' | 'charcoal' | 'liner' | 'marker' | 'brushPen' | 'watercolor'
+  | 'digitalBrush'
   | 'eraser' | 'smudge' | 'eyedropper' | 'ruler' | 'transform' | 'selection' | 'grid' | 'hand' | 'fill'
   // (#509, #510) The two annotation tools. They are UiToolIds and deliberately
   // not ToolTypes: neither emits a StrokeOperation, and neither puts anything
@@ -349,6 +352,71 @@ const linerSchema = (): ToolSchema => ({
 // capillary pens being sold in calibrated steps (ADR 003); a brush nib has no
 // such calibration — its width is a property of the nib and the hand, so a
 // continuous slider is the honest control.
+// Digital brush (#547, ADR 013 §1). The shortest schema of any drawing tool
+// here, and short for the opposite reason the brush pen's is.
+//
+// The brush pen's schema is small because the tool is one nib and a hand: there
+// is genuinely almost nothing to set. This one is small because everything that
+// would be a setting is **inside the brush** — hardness, spacing, flow, the
+// pressure curves. Exposing them as sliders is the obvious next step and it is
+// exactly what ADR 013 §7 rules out for now: the moment a brush is editable, its
+// parameters have to travel inside every recorded operation, or the same stroke
+// draws differently on the student's screen and after the next retune.
+//
+// So the tool's real control is which brush is in hand, and that is one field.
+const digitalBrushSchema = (): ToolSchema => ({
+  // First, and in quick access, because for this tool it is *the* choice — the
+  // equivalent of picking a pencil out of the stack, not of adjusting one.
+  brush: {
+    nameKey: 'tool.field.brush',
+    valueType: { kind: 'enumOptions', options: DIGITAL_BRUSH_IDS },
+    optionLabelKeys: {
+      'soft-round': 'tool.brush.softRound',
+      'medium-round': 'tool.brush.mediumRound',
+      'hard-round': 'tool.brush.hardRound',
+      'ink-round': 'tool.brush.inkRound',
+    },
+    // The stamp's own falloff, centre to rim (digitalBrushCurves.ts). The third
+    // kind of thing that gets a curve here rather than a photographed mark or a
+    // glyph, and for the reason SettingDescriptor.optionCurves already gives: a
+    // grade is a tone, a nib is a shape, and this is a *function* — in v1 these
+    // four brushes differ in their edge and in nothing else, so the picture of
+    // the difference is the edge.
+    optionCurves: DIGITAL_BRUSH_CURVES,
+    uiControls: ['select'],
+    quickAccess: true,
+    default: DEFAULT_DIGITAL_BRUSH,
+  },
+  size: {
+    nameKey: 'tool.field.size',
+    valueType: { kind: 'numberRange', min: 1, max: MAX_TOOL_SIZE_PX, step: 1, format: pxFormat, scale: expScale },
+    uiControls: ['slider', 'input'],
+    quickAccess: true,
+    // Larger than the brush pen's 12: this is the tool people paint areas with,
+    // not the one they letter with. The size curve runs from 0.08 of it at a
+    // feather touch, so 32 spans roughly 3-32px within one stroke.
+    default: 32,
+  },
+  // The other half of the flow/opacity pair, and the half the user gets. Flow
+  // belongs to the brush and accumulates within one stroke; this is applied
+  // once to the finished stroke, which is why lowering it makes a stroke paler
+  // *without* making its self-crossings darker than the rest of it (ADR 013 §3).
+  opacity: {
+    nameKey: 'tool.field.opacity',
+    valueType: { kind: 'numberRange', min: 0, max: 1, step: 0.01, format: percentFormat, parse: percentParse },
+    uiControls: ['slider'],
+    quickAccess: true,
+    default: 1,
+  },
+  color: {
+    nameKey: 'tool.field.color',
+    valueType: { kind: 'color' },
+    uiControls: ['swatch'],
+    quickAccess: true,
+    default: [0, 0, 0],
+  },
+})
+
 const brushPenSchema = (): ToolSchema => ({
   size: {
     nameKey: 'tool.field.size',
@@ -833,6 +901,7 @@ export const TOOL_SCHEMAS: Record<UiToolId, ToolSchema> = {
   liner: linerSchema(),
   marker: markerSchema(),
   brushPen: brushPenSchema(),
+  digitalBrush: digitalBrushSchema(),
   watercolor: watercolorSchema(),
   eraser: {
     size: {
@@ -1274,7 +1343,8 @@ export function toolGradeOptions(toolId: UiToolId): readonly string[] | null {
 // exactly the set of schemas that actually declare a `color` field, so the
 // two can't silently drift when a tool is added.
 export const COLOR_CAPABLE_TOOLS = [
-  'pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'fill',
+  'pencil', 'colorPencil', 'charcoal', 'liner', 'marker', 'brushPen', 'watercolor', 'digitalBrush',
+  'fill',
   // (#509/#510) The annotation tools carry a colour like any other, and being
   // here is what gives them the swatch, the palette and the eyedropper for
   // free. That the colour ends up on the wire as hex rather than as a triple
