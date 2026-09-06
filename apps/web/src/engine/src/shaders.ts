@@ -809,6 +809,14 @@ export const DAB_FRAG = `
   const float WC_PUSH_DRY = 0.45;
   /** How strongly the paper's own grain steers the advancing front. */
   const float WC_WET_PAPER = 1.3;
+  /** Where the pigment's own spread samples for paint, as a fraction of the
+   *  boundary's reach. Under 1 so the colour stops short of the waterline. */
+  const float WC_INK_SPREAD_R = 0.72;
+  /** How much of the neighbouring deposit arrives here at full push. Above 1
+   *  because a ring average outside a mark is mostly empty taps: at one radius
+   *  out perhaps three of twelve land on paint, so the mean understates what is
+   *  actually available to travel by about that factor. */
+  const float WC_INK_SPREAD_GAIN = 2.2;
 
   // (#536) How wide the transport's own view of the concentration is, in px.
   // Wider than a hair bundle on purpose — see its use.
@@ -858,6 +866,31 @@ ${WC_NOISE_GLSL}
     s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5, -rPx * C30) * texel);
     s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5, -rPx * C30) * texel);
     return s * 0.0714286;
+  }
+
+  /** (#536) The deposit on a ring of radius rPx, twelve taps, centre excluded.
+   *
+   *  A near-duplicate of wcInkAvg on purpose, and not a second call to it: this
+   *  driver has form for compiling a shader fine and then failing to link it,
+   *  with an empty log, when one function is reached from two places (#527).
+   *  Excluding the centre is the difference that matters anyway — this answers
+   *  "how much paint is in the neighbourhood", which outside a mark is the only
+   *  thing there is to answer with. */
+  float wcInkRing(vec2 uv, vec2 texel, float rPx) {
+    float s = 0.0;
+    s += texture2D(u_inkLoad, uv + vec2( rPx,        0.0      ) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx,        0.0      ) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2( 0.0,        rPx      ) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2( 0.0,       -rPx      ) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2( rPx * C30,  rPx * 0.5) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * C30,  rPx * 0.5) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2( rPx * C30, -rPx * 0.5) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * C30, -rPx * 0.5) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5,  rPx * C30) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5,  rPx * C30) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5, -rPx * C30) * texel).a;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5, -rPx * C30) * texel).a;
+    return s * 0.0833333;
   }
 
   /** Mean stroke coverage on a ring of radius rPx, twelve taps. A stagger above
@@ -1282,6 +1315,10 @@ ${WC_NOISE_GLSL}
       // *into* the mark, which is what a wash starved of water actually does.
       float coverage = rawCoverage;
       float blurred = rawCoverage;
+      // (#536) Both are wanted below, by the pigment's own spread — see the
+      // deposit further down.
+      float spreadReach = 0.0;
+      float push = 0.0;
       if (u_spreadPx > 0.0) {
         // Reach scales with the water actually left here, not just with the
         // stroke's nominal setting. A stroke that starts flooded and runs dry
@@ -1306,6 +1343,7 @@ ${WC_NOISE_GLSL}
         // WC_WET_PUSH. Displacement is roughly 2*reach*push either way; this
         // way the blur it displaces is real.
         float reach = u_spreadPx * mix(0.25, 1.0, transportHere);
+        spreadReach = reach;
         blurred =
             0.20 * rawCoverage
           + 0.45 * wcRingAvg(tileUV, texel, reach * 0.55, 1.0)
@@ -1349,7 +1387,7 @@ ${WC_NOISE_GLSL}
         // spreads plainly. So the paper decides whether there is anywhere to go
         // and the brush decides how much goes — a product, with a floor well
         // above zero rather than a gate.
-        float push = WC_WET_PUSH * paperWetHere * mix(WC_PUSH_DRY, 1.0, waterHere);
+        push = WC_WET_PUSH * paperWetHere * mix(WC_PUSH_DRY, 1.0, waterHere);
         // …and the front follows the sheet. In the photographs the spread half
         // of a mark is not a smooth gradient at all: it is granular, and the
         // grain is the paper's own. Steering the threshold by paperCatch makes
@@ -1521,7 +1559,38 @@ ${WC_NOISE_GLSL}
       // directions rather than eight for the reason wcRingAvg documents - eight
       // resolves as an octagon, and an octagon around every wet mark would be
       // worse than no transport at all.
+      // (#536) …and the paint travels with it, which is the piece everything
+      // else was waiting on.
+      //
+      // Up to here the spread moved the *silhouette* and nothing else, and the
+      // silhouette is not what is visible: the tone comes from density, density
+      // comes from the deposit buffer, and the deposit buffer is written by the
+      // stamps and bands along the brush's own path. So the boundary could be
+      // pushed as far out as anyone liked and there was no pigment out there to
+      // show — the mark could only grow into the few pixels of low deposit that
+      // a dab's cone leaves past its visible edge. That, and not the threshold
+      // and not the blur radius, is why "растекание должно быть сильнее" kept
+      // coming back after every change: a 30 px dot answered every one of them
+      // with 34 px.
+      //
+      // Paint in the neighbourhood, gathered on a ring at the spread's own
+      // reach, and taken with max() rather than mixed in. Two reasons for max:
+      // the core of a real blot stays the darkest part of it (it is plainly the
+      // darkest part of Ilya's photographs), and a mix would dilute the core to
+      // pay for the halo, which is a mass-conserving story this tool has never
+      // told anywhere else.
+      //
+      // Gated on the paper, so a stroke on a dry sheet is bit-for-bit what it
+      // was, and scaled by the same push the boundary uses, so the two cannot
+      // disagree about how far the wash got.
       float deposit = ink.a;
+      if (push > 0.0) {
+        // Slightly inside the boundary's own reach: the pigment stops a little
+        // short of where the water gets to, which is the pale margin around a
+        // real blot rather than paint out to the waterline.
+        float near = wcInkRing(tileUV, texel, spreadReach * WC_INK_SPREAD_R);
+        deposit = max(deposit, near * WC_INK_SPREAD_GAIN * push);
+      }
       float migrateGate = 0.0;
       if (u_migrate > 0.0) {
         // The standing film, as a field rather than a per-place number: how
