@@ -639,12 +639,6 @@ export const DAB_FRAG = `
   // pass, and for the same reason: it rewrites the mark's silhouette, which is
   // not known until the stroke is finished.
   uniform float u_spreadPx;
-  /** (#536) How much further the wash travels through water already on the
-   *  paper, as a multiplier on the reach at full soak. A uniform rather than a
-   *  constant here because the engine has to pad the composite rect for the
-   *  same number, and two copies of it would drift apart into a mark clipped
-   *  square at the rect's edge. */
-  uniform float u_wetBloom;
   // #468 v2 — depth of the low-frequency pigment/water field (ADR 011 §3.6).
   // Unlike the two above this runs on every batch: it is a per-place value
   // that owes nothing to the finished silhouette, so deferring it would only
@@ -809,6 +803,12 @@ export const DAB_FRAG = `
    *  programs, and a constant declared in the wrong one is a compile error that
    *  takes the whole engine down with it. */
   const float WC_WET_PUSH = 0.50;
+  /** What is left of the push for a brush with no water in it. A floor rather
+   *  than a gate: a nearly dry brush dragged through standing water still
+   *  bleeds plainly, it simply does not flood. */
+  const float WC_PUSH_DRY = 0.45;
+  /** How strongly the paper's own grain steers the advancing front. */
+  const float WC_WET_PAPER = 1.3;
 
   // (#536) How wide the transport's own view of the concentration is, in px.
   // Wider than a hair bundle on purpose — see its use.
@@ -1287,22 +1287,25 @@ ${WC_NOISE_GLSL}
         // stroke's nominal setting. A stroke that starts flooded and runs dry
         // therefore spreads far at its beginning and hardly at all by its end,
         // inside one mark.
-        // (#536) …and the bloom on top, per pixel, off what the paper under
-        // this fragment was actually carrying.
+        // (#536) How far the blur reaches, and this is deliberately NOT where
+        // the wet-in-wet bloom lives any more.
         //
-        // It used to be folded into u_spreadPx from the single digit under the
-        // gesture's first dab, which made wet-in-wet a property of where the
-        // brush was set down rather than of where the water is. A stroke from
-        // dry paper through a puddle got none of it, a poke into a puddle got
-        // all of it for its whole length, and near an edge which of the two
-        // happened was close to a coin toss at the wetness grid's 16 px.
+        // It was, and putting it here was the reason four rounds of "растекание
+        // должно быть сильнее" changed nothing on screen. The bloom multiplied
+        // the radius, so a 30 px dot in standing water asked for a blur of
+        // about eighty pixels — and wcRingAvg is twelve taps on a ring. Twelve
+        // point samples at eighty pixels are not a blur of a thirty-pixel dot;
+        // every one of them lands on bare paper, the blurred value collapses to
+        // the centre tap's share, and the re-threshold has nothing left to push
+        // outward. Making the bloom bigger made the sampler worse, which is
+        // exactly the shape of the reports.
         //
-        // Above u_spreadPx's own cap on purpose: that cap says how far a mark
-        // may spread past the brush *on dry paper*, and wet-in-wet is exactly
-        // the case that is not about the brush. The composite rect is padded
-        // for the full product (see _paintRibbonStroke's compositePad).
-        float reach = u_spreadPx * mix(0.25, 1.0, transportHere)
-          * (1.0 + u_wetBloom * paperWetHere);
+        // So the radius stays near the mark's own scale, where the ring is a
+        // fair approximation of a disc average, and the *growth* is carried by
+        // how far below the blur's half point the threshold sits — see
+        // WC_WET_PUSH. Displacement is roughly 2*reach*push either way; this
+        // way the blur it displaces is real.
+        float reach = u_spreadPx * mix(0.25, 1.0, transportHere);
         blurred =
             0.20 * rawCoverage
           + 0.45 * wcRingAvg(tileUV, texel, reach * 0.55, 1.0)
@@ -1338,8 +1341,25 @@ ${WC_NOISE_GLSL}
         // an edge is about 1/(2*reach), so biasing thr down by d displaces it
         // outward by roughly 2*reach*d — real growth, into the water only,
         // because paperWetHere is zero everywhere else.
+        // (#536) How hard the boundary is pushed outward, and it now reads
+        // *both* waters rather than only the paper's.
+        //
+        // Ilya, from the real thing: a wet brush drawn through a puddle spreads
+        // markedly more than a nearly dry one, and the nearly dry one still
+        // spreads plainly. So the paper decides whether there is anywhere to go
+        // and the brush decides how much goes — a product, with a floor well
+        // above zero rather than a gate.
+        float push = WC_WET_PUSH * paperWetHere * mix(WC_PUSH_DRY, 1.0, waterHere);
+        // …and the front follows the sheet. In the photographs the spread half
+        // of a mark is not a smooth gradient at all: it is granular, and the
+        // grain is the paper's own. Steering the threshold by paperCatch makes
+        // the advancing boundary run further in the sheet's valleys than over
+        // its crests, so the spread arrives *as* texture rather than as a blur
+        // with texture drawn over it. Scaled by push, so a mark that is not
+        // spreading is not roughened either.
         float thr = 0.5
-          - WC_WET_PUSH * paperWetHere
+          - push
+          - WC_WET_PAPER * push * (paperCatch - 0.5)
           + u_edgeWander * wetGain * (wcFbm(wp * 0.030) - 0.5);
         // §4.1 - how sharply the boundary resolves, and the range is water's
         // to set. A flood has edges running from nearly lost to fairly crisp

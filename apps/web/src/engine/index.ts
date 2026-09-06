@@ -56,7 +56,7 @@ import {
 } from './src/linerPresets'
 import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
-import { WATERCOLOR_WET_BLOOM, WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
+import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
@@ -5217,7 +5217,7 @@ export class PencilEngine implements PencilEngineAPI {
       // _drawRibbonCompositeDab) rather than left unset, for the reason
       // u_wickPx above already documents: uniforms persist across draws on a
       // shared program.
-      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_wetBloom', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk', 'u_wcDebugView',
+      'u_wetEdge', 'u_wetEdgeRadiusPx', 'u_granulation', 'u_saturateInk', 'u_bristleCombs', 'u_bristleInk', 'u_wcDebugView',
       // #468 v2 — the wash's own geometry and coarse structure (ADR 011 §3.5-3.6).
       'u_spreadPx', 'u_cloud', 'u_fieldOffset',
       // #468 v4 — the brush model (ADR 011 §4). u_inkWater rides the ink pass;
@@ -7806,14 +7806,19 @@ export class PencilEngine implements PencilEngineAPI {
     // composites from buffers that are still filling, no later batch's rect
     // reaches back to correct it, and the mark ends up different from what a
     // replay of the same operation produces.
-    // (#536) Padded for the *bloomed* reach, not the dry one: the composite
-    // decides the bloom per pixel now, so this rect has to be able to hold the
-    // widest it can decide on. Under-padding here does not soften a mark, it
-    // cuts it off square at the rect's edge.
+    // (#536) Twice the reach, because the mark can end up that much wider than
+    // the brush: the re-threshold displaces the boundary outward by about
+    // 2 * reach * push, and push is capped at WC_WET_PUSH, which is 0.5. Under-
+    // padding here does not soften a mark, it cuts it off square at the rect's
+    // edge — so this is a bound, not an estimate.
+    //
+    // It used to pad for the bloom multiplied into the *radius*. That factor is
+    // gone (see the reach's own note in DAB_FRAG: an eighty-pixel radius on a
+    // twelve-tap ring is not a blur), and padding for it was costing two and a
+    // half times the composite fill it needed.
     const compositePad = spreadPx > 0
       ? Math.ceil(
-        maxRadius + spreadPx * (1 + WATERCOLOR_WET_BLOOM)
-        + profile.wetEdgeRadiusPx + dabSpacing + migratePx,
+        maxRadius + spreadPx * 2 + profile.wetEdgeRadiusPx + dabSpacing + migratePx,
       ) + 1
       : 0
     const compositeBounds = compositePad > 0
@@ -8386,7 +8391,6 @@ export class PencilEngine implements PencilEngineAPI {
     // batch — deferring it would only make a wash visibly change tone at
     // pen-up, buying nothing.
     gl.uniform1f(u.u_spreadPx, spreadPx)
-    gl.uniform1f(u.u_wetBloom, WATERCOLOR_WET_BLOOM)
     gl.uniform1f(u.u_cloud, profile.cloud)
     gl.uniform2f(u.u_fieldOffset, fieldSeed[0], fieldSeed[1])
     // #468 v4 — the brush model (ADR 011 §4). u_water is the fallback the
@@ -9166,7 +9170,22 @@ export class PencilEngine implements PencilEngineAPI {
       this._dryingTimer = 0
       const now = performance.now()
       const peak = this._paperWet.peak(now)
-      if (peak <= 0.01) { this._paperWet.prune(now); this._wetShown = -1; return }
+      if (peak <= 0.01) {
+        this._paperWet.prune(now)
+        this._wetShown = -1
+        // (#536) …and one last frame on the way out. Without it the watcher
+        // stopped with whatever it had drawn a quarter-second earlier still on
+        // screen — the final, faintest state of the puddle — and nothing was
+        // left running to replace it. It sat there until the next thing that
+        // happened to cause a frame, which is "лужа остаётся на последнем шаге,
+        // пока не тапнешь по экрану": the last drop hanging on a tap.
+        //
+        // Cheap, and exactly once per drying: everything above has already
+        // returned by the time the paper is dry.
+        this._wetTexAt = 0
+        this._displayIfNotSuspended()
+        return
+      }
       // Repaint only when the *visible* wetness has actually moved a step.
       // Twenty-five seconds at four ticks a second is a hundred frames of
       // which about a dozen differ; drawing the other eighty-eight is work
