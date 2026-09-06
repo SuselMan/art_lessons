@@ -195,6 +195,14 @@
   --radius-md: 8px;
   --radius-lg: 16px;
 
+  /* (#548) The inset a self-contained panel gives itself so it can be dropped
+     into a bare box — the settings modal, the lesson list's modal — and not
+     have its controls touching the edge. RoomAccessControl and ToolSetPicker
+     are the two, and they are mounted in the same places, so the figure is a
+     token rather than a number written twice: a host that already supplies
+     its own padding (the room creation card) cancels exactly this much. */
+  --panel-inset: 16px;
+
   /* Stacking (#310) — only for a layer that leaves its own component and has
      to sit above unrelated page chrome. Numbers that are local to one
      component (toolbars, docked panels, their popovers) stay in that

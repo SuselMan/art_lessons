@@ -496,7 +496,7 @@ export function CreateRoom() {
               // the navigation instead of reaching the server. See
               // useRoomAccessSource.
               content: (
-                <div className={styles.tabBody}>
+                <div className={clsx(styles.tabBody, styles.panelTab)}>
                   <RoomAccessControl draft={{ value: access, onChange: setAccess }} />
                 </div>
               ),
@@ -505,7 +505,7 @@ export function CreateRoom() {
               id: 'tools',
               label: t('create.tab.tools'),
               content: (
-                <div className={styles.tabBody}>
+                <div className={clsx(styles.tabBody, styles.panelTab)}>
                   <ToolSetPicker value={enabledTools} onChange={setEnabledTools} />
                 </div>
               ),

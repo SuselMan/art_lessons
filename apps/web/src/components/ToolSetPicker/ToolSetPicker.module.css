@@ -1,11 +1,15 @@
 /* (#548) The picker body only — its hosts supply the box: a tab of the room
    creation form, a tab of the editor's settings modal. Nothing here sets a
-   width or a background for that reason, same rule RoomAccessControl follows. */
+   width or a background for that reason, same rule RoomAccessControl follows.
+   What it does set is its own inset, for the same reason that one does: the
+   settings modal gives a tab nothing, so a panel with no padding of its own
+   puts its buttons against the modal's edge. */
 
 .picker {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  padding: var(--panel-inset);
   min-height: 0;
 }
 

@@ -39,6 +39,15 @@
   padding-top: 28px;
 }
 
+/* (#548) A tab whose whole content is one of the self-contained panels
+   (access, tools). Those bring their own --panel-inset so they survive being
+   dropped into a bare modal; this card's 36px padding already is that inset,
+   so the extra is pulled back out and the panel lines up with the sections on
+   the first tab instead of sitting a notch further in. */
+.panelTab {
+  margin: 0 calc(-1 * var(--panel-inset));
+}
+
 /* section */
 .section {
   display: flex;
