@@ -172,9 +172,18 @@ const SIZE_FULL: BrushCurve = [[0, 0.08], [0.5, 0.55], [1, 1]]
  *  direction (#532). */
 const SIZE_KNEE: BrushCurve = [[0, 0.25], [0.35, 0.42], [0.75, 0.62], [1, 1]]
 
-/** Flow that comes on early and saturates: a brush loaded with paint does not
- *  hold back until the hand presses hard. */
-const FLOW_EARLY: BrushCurve = [[0, 0.35], [0.4, 0.85], [1, 1]]
+/** Flow that comes on early but keeps climbing: a brush loaded with paint does
+ *  not hold back until the hand presses hard, and it does not stop answering it
+ *  either.
+ *
+ *  Widened from [[0, 0.35], [0.4, 0.85], [1, 1]], and the reason is a report
+ *  rather than taste: at that shape the density was within 15% of full over the
+ *  whole usable half of the range, so pressing harder changed nothing anyone
+ *  could see — and the setting that turns the behaviour off looked broken
+ *  because there was nothing to turn off ("свитч кажется не делает нифига",
+ *  Ilya). A curve whose effect is invisible is not a gentle curve, it is a
+ *  missing one. */
+const FLOW_EARLY: BrushCurve = [[0, 0.12], [0.5, 0.6], [1, 1]]
 
 /** Flow that tracks pressure nearly linearly — for a brush meant to build tone
  *  in passes rather than cover in one. */
@@ -183,10 +192,12 @@ const FLOW_LINEAR: BrushCurve = [[0, 0.12], [1, 1]]
 /** Ink does not thin out: it is either laid down or it is not. */
 const FLOW_FLAT: BrushCurve = [[0, 0.9], [0.25, 1], [1, 1]]
 
-/** Covering, but not indifferent to the hand: a painting brush lays nearly all
- *  its paint from a light touch onward, and the little that is left to pressure
- *  is what keeps a stroke from looking printed. */
-const FLOW_COVERING: BrushCurve = [[0, 0.6], [0.35, 0.9], [1, 1]]
+/** Covering, but not indifferent to the hand. Still the flattest of the three
+ *  that answer pressure at all — a paint brush should reach a workable density
+ *  early, or laying a flat mass turns into an exercise in pressing evenly — but
+ *  it keeps enough range that the hand is visible in the mark, and that the
+ *  pressure-to-density setting has something to switch off. */
+const FLOW_COVERING: BrushCurve = [[0, 0.3], [0.5, 0.75], [1, 1]]
 
 /** The shipped set (ADR 013 §7 — frozen and versioned; there is deliberately no
  *  way for a user to edit these, because a stroke's preset token is resolved by
