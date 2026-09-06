@@ -77,6 +77,23 @@ export const WET_DIFFUSE_B = 0.03
  *  not to show; a thin dry channel through a wash would leak across it. */
 export const WET_DIFFUSE_RADII: readonly number[] = [32, 16, 16, 8, 8, 4, 4, 2, 2, 1]
 export const WET_DIFFUSE_STEPS = WET_DIFFUSE_RADII.length
+/** How far a texel's paint can travel over the whole schedule — the sum of
+ *  the radii. The engine pads the field it diffuses by this, so nothing ever
+ *  reaches the field's edge and the edge is never a wall anyone can see. */
+export const WET_DIFFUSE_REACH = WET_DIFFUSE_RADII.reduce((a, r) => a + r, 0)
+/** The share of a deposit that is MOBILE — that the schedule moves at all.
+ *  The rest is fixed where the brush put it, which is what keeps a mark laid
+ *  into a puddle a mark: at 1.0 a stroke dropped into standing water thinned
+ *  to a tint over the whole puddle and read as vanishing ("штрих исчезает, а
+ *  лужа по краям набирает цвет"); real paint settles on contact as it runs.
+ *  The design thread called this split before it was seen: "нужна подвижная
+ *  доля", not everything mobile to the end of the solve. The flux is linear
+ *  in the concentration for a given gate field, so diffusing the mobile
+ *  share alone is exactly mix(deposit, diffused(deposit), share) — one blend
+ *  after the schedule, mass conserved as a linear blend of two conserved
+ *  fields. A first split; a share that itself settles step by step, more in
+ *  the valleys, is the next refinement. */
+export const WET_DIFFUSE_MOBILE = 0.6
 
 /** The eight-neighbour stencil, as (dx, dy). Order matters only in that the
  *  GPU pass must use the same one. */

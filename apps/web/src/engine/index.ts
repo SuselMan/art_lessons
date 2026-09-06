@@ -58,7 +58,7 @@ import { markerNibFromPreset, markerPressureFlow } from './src/markerPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
-import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_RADII } from './src/wetDiffusion'
+import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_RADII, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE } from './src/wetDiffusion'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper,
@@ -67,7 +67,7 @@ import {
 } from './src/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
-  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
+  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorPigmentRate, watercolorWaterRetention, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo, WATERCOLOR_HALO_PAST_BLOOM,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -2067,6 +2067,14 @@ export class PencilEngine implements PencilEngineAPI {
   /** Keyed by the layer tile the wash settled into. Presentation state only:
    *  never read by any paint pass, never serialised, dropped with the tile. */
   private _washReveals = new Map<AccumulationBuffer, WashReveal>()
+  /** (#536, §17.11) The one field the wet diffusion runs over: the wash's
+   *  tiles stitched into a rect, so paint crosses tile seams as freely as any
+   *  other texel. Four buffers of one size, grown to the largest wash seen and
+   *  kept — see _diffuseField. */
+  private _diffuseField: {
+    w: number; h: number
+    ink: AccumulationBuffer; ping: AccumulationBuffer; orig: AccumulationBuffer; coverage: AccumulationBuffer
+  } | null = null
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
   // Selection (#446) — the masked transform blit and the one-shader-two-blend-
@@ -4665,6 +4673,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._startPaperLoad(this._opts.paper)
     this._layers.clear() // handles are already dead; not worth destroy()ing
     this._washReveals.clear() // same — and the pool they came from is forgotten below
+    this._diffuseField = null
     this._previewBuf = null
     this._previewBufPool = null // (#155) pooled GL object is dead too, not worth destroy()ing
     this._tipBuf = null
@@ -4684,6 +4693,7 @@ export class PencilEngine implements PencilEngineAPI {
     // the pool for the next gesture to paint through.
     this._ribbonScratchPool.forget()
     this._washReveals.clear() // same reasoning — its pooled copies are dead with the pool
+    this._diffuseField = null // handles dead too
     this._smudgeImprints.clear() // same reasoning — pooled GL objects are dead too
     this._smudgeReplayChunks.clear()
     for (const { timer } of this._peerPreviews.values()) {
@@ -8029,7 +8039,9 @@ export class PencilEngine implements PencilEngineAPI {
         const water = profile.waterDepletion ? profile.waterLevel * watercolorWaterLoad(used) : 1
         // (#536, §17.14) …by the brush's water: a wet brush spends the same
         // finite budget further along the path. See PIGMENT_RUN_DRY_RADII.
-        const pigmentLeft = profile.waterDepletion ? watercolorPigmentLoad(pigUsed, profile.waterLevel) : 1
+        const pigmentLeft = profile.waterDepletion
+          ? watercolorPigmentLoad(pigUsed, profile.waterLevel) * watercolorPigmentRate(profile.waterLevel)
+          : 1
         // The gesture's own travel clock, carried on the scratch, so this decays
         // from the *stroke's* start rather than from each batch's. The pigment
         // one: a brush that drank from a puddle halfway along has not gone back
@@ -8247,7 +8259,12 @@ export class PencilEngine implements PencilEngineAPI {
   private _revealWash(tile: PaintTarget, layer: ILayerBuffer): void {
     const { gl } = this
     const { buffer } = tile
-    const before = this._ribbonScratchPool.acquire(buffer.width, buffer.height)
+    // Not from the ribbon pool: those are 'nearest' and cannot carry mipmaps,
+    // and at a minifying zoom a nearest copy mixed with a mip-sampled tile is
+    // a different picture — the tile's rect shows against its neighbours as
+    // a seam for as long as the reveal runs. Same filter and mip ability as
+    // the tile itself, destroyed when the reveal lets go.
+    const before = new AccumulationBuffer(this.gl, buffer.width, buffer.height, 'linear')
     const prev = this._washReveals.get(buffer)
     if (!prev) {
       buffer.copyTo(before)
@@ -8269,7 +8286,7 @@ export class PencilEngine implements PencilEngineAPI {
       gl.uniform1f(u.u_opacity, 1)
       gl.drawArrays(gl.TRIANGLES, 0, 6)
       before.endDraw()
-      this._ribbonScratchPool.release(prev.before)
+      prev.before.destroy()
     }
     let layerId = ''
     for (const [id, buf] of this._layers) if (buf === layer) { layerId = id; break }
@@ -8306,7 +8323,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _sweepReveals(now: number, goneLayerId: string | null = null): void {
     for (const [buffer, reveal] of this._washReveals) {
       if (reveal.layerId !== goneLayerId && this._revealHold(reveal, now) > 0) continue
-      this._ribbonScratchPool.release(reveal.before)
+      reveal.before.destroy()
       this._washReveals.delete(buffer)
     }
   }
@@ -8316,9 +8333,12 @@ export class PencilEngine implements PencilEngineAPI {
    *  kept picture by the reveal's current hold. */
   private _drawTileReveal(
     reveal: WashReveal, texture: WebGLTexture, originX: number, originY: number, bw: number, bh: number,
-    opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number,
+    opacity: number, targetFbo: WebGLFramebuffer, targetW: number, targetH: number, minifying: boolean,
   ): void {
     const { gl } = this
+    // Sampled exactly as the tile is — see _revealWash on why the copy is
+    // mip-capable at all.
+    reveal.before.setMipSampling(minifying && reveal.before.ensureMipmaps())
     const leftEdge   = this._worldToScreenEdgeX(originX)
     const rightEdge  = this._worldToScreenEdgeX(originX + bw)
     const topEdge    = this._worldToScreenEdgeY(originY)
@@ -8350,55 +8370,152 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** (#536, ADR 011 §17.11) One step of WC_DIFFUSE_FRAG per entry of the
-   *  schedule (WET_DIFFUSE_RADII) over each tile's deposit, ping-ponged through
-   *  a pooled buffer. The schedule is a constant of the tool and nothing here
-   *  reads a clock, so a
-   *  replay lands on the same texels as the author did — up to the 8-bit
-   *  quantisation between steps, which is the measured, not argued, part. */
-  private _diffuseWash(scratch: RibbonStrokeScratch, targets: PaintTarget[]): void {
+  /** (#536, ADR 011 §17.11) The wet diffusion: WET_DIFFUSE_RADII steps of
+   *  WC_DIFFUSE_FRAG over the wash's deposit, ping-ponged, then the mobile
+   *  share blended back over the untouched deposit (WET_DIFFUSE_MOBILE).
+   *
+   *  Over ONE field, not per tile. The first version ran per tile and treated
+   *  everything off the tile as dry paper, so a puddle across x = 1024 kept
+   *  its paint on each side — a straight seam, visible the moment the reveal
+   *  let go ("при высыхании я вижу линии склейки тайлов"). Now the wash's
+   *  tiles are stitched into a rect — the settle bounds padded by the
+   *  schedule's whole reach, so no texel with paint can ever see the rect's
+   *  edge — diffused there, and copied back. The paper's height is sampled
+   *  at the WORLD position, so where the rect happens to start (a live
+   *  gesture's bounds and a replay's differ by a batch's padding) cannot move
+   *  a pit. Nothing here reads a clock; the schedule is a constant of the
+   *  tool, and the eight-bit write between steps is the one measured leak. */
+  private _diffuseWash(
+    scratch: RibbonStrokeScratch, targets: PaintTarget[],
+    bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  ): void {
     const { gl } = this
-    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
-    for (const tile of targets) {
-      const entry = scratch.peek(tile.buffer)
-      if (!entry || !entry.inkLoad) continue
-      const { coverage } = entry
-      let src = entry.inkLoad
-      let dst = this._ribbonScratchPool.acquire(src.width, src.height)
-      const spare = dst
-      for (const radius of WET_DIFFUSE_RADII) {
-        dst.beginReplaceDraw()
-        gl.useProgram(this._diffuseProg)
-        const u = this._diffuseUni
-        gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-        gl.enableVertexAttribArray(this._diffusePosLoc)
-        gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.bindTexture(gl.TEXTURE_2D, src.texture)
-        gl.uniform1i(u.u_ink, 0)
-        gl.activeTexture(gl.TEXTURE1)
-        gl.bindTexture(gl.TEXTURE_2D, coverage.texture)
-        gl.uniform1i(u.u_coverage, 1)
-        gl.activeTexture(gl.TEXTURE2)
-        gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-        gl.uniform1i(u.u_paperHeightMap, 2)
-        gl.activeTexture(gl.TEXTURE0)
-        gl.uniform2f(u.u_resolution, src.width, src.height)
-        gl.uniform2f(u.u_paperOrigin, tile.originX, -tile.originY || 0)
-        gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-        gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-        gl.uniform1f(u.u_d, WET_DIFFUSE_D)
-        gl.uniform1f(u.u_b, WET_DIFFUSE_B)
-        gl.uniform1f(u.u_radius, radius)
-        gl.drawArrays(gl.TRIANGLES, 0, 6)
-        dst.endDraw()
-        const t = src; src = dst; dst = t
-      }
-      // An odd step count leaves the result in the spare; the wash's own
-      // buffer is what everything else reads, so bring it home.
-      if (src !== entry.inkLoad) src.copyTo(entry.inkLoad)
-      this._ribbonScratchPool.release(spare)
+    const tiles = targets.filter(t => scratch.peek(t.buffer)?.inkLoad)
+    if (!tiles.length) return
+    // The rect: the settle's bounds plus the reach, clipped to the tiles that
+    // actually hold this wash. Capped — a wash wider than the cap diffuses
+    // in a window around its centre and sees a wall at the window's edge.
+    const CAP = 2048
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const t of tiles) {
+      minX = Math.min(minX, t.originX); minY = Math.min(minY, t.originY)
+      maxX = Math.max(maxX, t.originX + t.buffer.width); maxY = Math.max(maxY, t.originY + t.buffer.height)
     }
+    const pad = WET_DIFFUSE_REACH + 1
+    let x0 = Math.max(minX, Math.floor(bounds.minX) - pad), y0 = Math.max(minY, Math.floor(bounds.minY) - pad)
+    let x1 = Math.min(maxX, Math.ceil(bounds.maxX) + pad), y1 = Math.min(maxY, Math.ceil(bounds.maxY) + pad)
+    if (x1 - x0 > CAP) { const c = (x0 + x1) * 0.5; x0 = Math.floor(c - CAP / 2); x1 = x0 + CAP }
+    if (y1 - y0 > CAP) { const c = (y0 + y1) * 0.5; y0 = Math.floor(c - CAP / 2); y1 = y0 + CAP }
+    const w = x1 - x0, h = y1 - y0
+    if (w <= 0 || h <= 0) return
+    const field = this._diffuseFieldFor(w, h)
+    const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
+
+    // Stitch: every tile's overlap with the rect, top-down world → bottom-up
+    // GL on both sides, exactly as _gatherSmudgePatch does it.
+    field.ink.clear()
+    field.coverage.clear()
+    const overlaps: Array<{ tile: PaintTarget; ox0: number; oy0: number; ox1: number; oy1: number }> = []
+    for (const tile of tiles) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry?.inkLoad) continue
+      const ox0 = Math.max(x0, tile.originX), oy0 = Math.max(y0, tile.originY)
+      const ox1 = Math.min(x1, tile.originX + tile.buffer.width), oy1 = Math.min(y1, tile.originY + tile.buffer.height)
+      if (ox1 <= ox0 || oy1 <= oy0) continue
+      overlaps.push({ tile, ox0, oy0, ox1, oy1 })
+      const sx = ox0 - tile.originX, sy = tile.buffer.height - (oy1 - tile.originY)
+      const dx = ox0 - x0, dy = field.h - (oy1 - y0)
+      entry.inkLoad.copyRegionInto(field.ink, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      entry.coverage.copyRegionInto(field.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+    }
+    field.ink.copyTo(field.orig)
+
+    let src = field.ink
+    let dst = field.ping
+    for (const radius of WET_DIFFUSE_RADII) {
+      dst.beginReplaceDraw()
+      gl.useProgram(this._diffuseProg)
+      const u = this._diffuseUni
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+      gl.enableVertexAttribArray(this._diffusePosLoc)
+      gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, src.texture)
+      gl.uniform1i(u.u_ink, 0)
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
+      gl.uniform1i(u.u_coverage, 1)
+      gl.activeTexture(gl.TEXTURE2)
+      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+      gl.uniform1i(u.u_paperHeightMap, 2)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.uniform2f(u.u_resolution, field.w, field.h)
+      // The paper at the world position of a texel. A tile passes
+      // (originX, -originY) and lets its height of 1024 fold into the paper's
+      // period; a rect of any height has to say where its bottom row is.
+      gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
+      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+      gl.uniform1f(u.u_d, WET_DIFFUSE_D)
+      gl.uniform1f(u.u_b, WET_DIFFUSE_B)
+      gl.uniform1f(u.u_radius, radius)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      dst.endDraw()
+      const t = src; src = dst; dst = t
+    }
+    // The mobile share: mix(untouched, diffused, share), through the reveal's
+    // program — the same mix, with hold = the fixed share. Into whichever of
+    // the pair is not holding the result.
+    const out = src === field.ink ? field.ping : field.ink
+    out.beginReplaceDraw()
+    gl.useProgram(this._revealProg)
+    const ru = this._revealUni
+    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+    gl.enableVertexAttribArray(this._revealPosLoc)
+    gl.vertexAttribPointer(this._revealPosLoc, 2, gl.FLOAT, false, 0, 0)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, src.texture)
+    gl.uniform1i(ru.u_after, 0)
+    gl.activeTexture(gl.TEXTURE1)
+    gl.bindTexture(gl.TEXTURE_2D, field.orig.texture)
+    gl.uniform1i(ru.u_before, 1)
+    gl.activeTexture(gl.TEXTURE0)
+    gl.uniform1f(ru.u_hold, 1 - WET_DIFFUSE_MOBILE)
+    gl.uniform1f(ru.u_opacity, 1)
+    gl.drawArrays(gl.TRIANGLES, 0, 6)
+    out.endDraw()
+
+    // …and home, tile by tile.
+    for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
+      const entry = scratch.peek(tile.buffer)
+      if (!entry?.inkLoad) continue
+      const sx = ox0 - x0, sy = field.h - (oy1 - y0)
+      const dx = ox0 - tile.originX, dy = tile.buffer.height - (oy1 - tile.originY)
+      out.copyRegionInto(entry.inkLoad, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+    }
+  }
+
+  /** The diffusion's stitched field, at least `w` × `h`, grown in steps of
+   *  256 so a wash a few pixels larger than the last does not reallocate
+   *  four textures. Kept for the engine's life; freed with the context. */
+  private _diffuseFieldFor(w: number, h: number): NonNullable<PencilEngine['_diffuseField']> {
+    const need = (n: number): number => Math.ceil(n / 256) * 256
+    const cur = this._diffuseField
+    if (cur && cur.w >= w && cur.h >= h) return cur
+    if (cur) {
+      cur.ink.destroy(); cur.ping.destroy(); cur.orig.destroy(); cur.coverage.destroy()
+    }
+    const W = Math.max(need(w), cur?.w ?? 0), H = Math.max(need(h), cur?.h ?? 0)
+    const { gl } = this
+    const field = {
+      w: W, h: H,
+      ink: new AccumulationBuffer(gl, W, H, 'nearest'),
+      ping: new AccumulationBuffer(gl, W, H, 'nearest'),
+      orig: new AccumulationBuffer(gl, W, H, 'nearest'),
+      coverage: new AccumulationBuffer(gl, W, H, 'nearest'),
+    }
+    this._diffuseField = field
+    return field
   }
 
   private _finishRibbonStroke(
@@ -8429,7 +8546,7 @@ export class PencilEngine implements PencilEngineAPI {
     // each operation boundary is what carries the paint. See diffusePending on
     // why once, and wetDiffusion.ts for what one step is.
     if (scratch.diffusePending) {
-      this._diffuseWash(scratch, targets)
+      this._diffuseWash(scratch, targets, bounds)
       scratch.diffusePending = false
     }
     for (const tile of targets) {
@@ -8998,6 +9115,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (reveal) {
         this._drawTileReveal(
           reveal, buffer.texture, originX, originY, buffer.width, buffer.height, opacity, targetFbo, targetW, targetH,
+          minifying,
         )
         continue
       }

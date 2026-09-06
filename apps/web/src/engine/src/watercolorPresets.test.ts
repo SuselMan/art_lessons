@@ -18,7 +18,7 @@ import {
   WATERCOLOR_PRESET, watercolorWidth, watercolorResponseFromPreset,
   shapingForWatercolorPreset, applyWatercolorEndTaper, WATERCOLOR_HEAD_TAPER,
   DEFAULT_WATERCOLOR_RESPONSE, watercolorWaterLoad, watercolorWaterStep,
-  watercolorPigmentLoad, watercolorPigmentRun, watercolorWaterEffects, watercolorPigmentEffects,
+  watercolorPigmentLoad, watercolorPigmentRun, watercolorPigmentRate, watercolorWaterEffects, watercolorPigmentEffects,
   watercolorWaterClock, watercolorPaperDrained,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorPresetString, watercolorMixFromPreset, WATERCOLOR_MIX_BY_PRESET,
@@ -287,11 +287,14 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
     // dabs on one spot at ten per cent each was a brush that never emptied.
     const delivered = (water: number, radii: number, step: number): number => {
       let sum = 0
-      for (let u = 0; u < radii; u += step) sum += watercolorPigmentLoad(u, water) * step
+      for (let u = 0; u < radii; u += step) sum += watercolorPigmentLoad(u, water) * watercolorPigmentRate(water) * step
       return sum
     }
+    // …and ONE budget whatever the water: the rate follows the run, so a wet
+    // brush spends the same paint further rather than more paint.
+    const budget = watercolorPigmentRun(0) * watercolorPigmentRate(0)
+    expect(delivered(1, 5000, 0.5)).toBeCloseTo(delivered(0, 5000, 0.5), 0)
     for (const water of [0, 0.5, 1]) {
-      const budget = watercolorPigmentRun(water)
       // Path geometry is not an input, only travel: a fine-stepped scribble and
       // a coarse-stepped sweep integrate to the same thing.
       expect(delivered(water, 500, 0.05)).toBeCloseTo(delivered(water, 500, 0.5), 0)
@@ -301,6 +304,7 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
       for (const u of [1, 8, 32, 100]) {
         expect(delivered(water, u, 0.01) / budget + watercolorPigmentLoad(u, water)).toBeCloseTo(1, 1)
       }
+      expect(watercolorPigmentRun(water) * watercolorPigmentRate(water)).toBeCloseTo(budget, 9)
     }
     // Wet spends further, dry sooner: the observation the two runs came from.
     expect(watercolorPigmentRun(1)).toBeGreaterThan(watercolorPigmentRun(0) * 3)

@@ -752,6 +752,17 @@ export function watercolorPigmentRun(water: number): number {
   return PIGMENT_RUN_DRY_RADII + (PIGMENT_RUN_WET_RADII - PIGMENT_RUN_DRY_RADII) * clamp01(water)
 }
 
+/** The delivery rate per radius, relative to a dry brush's. The budget is
+ *  rate × run, and the run grows with water — so the rate shrinks by the same
+ *  factor, or a wet brush would carry four times the paint rather than the
+ *  same paint further. Measured before this existed: the second pass over a
+ *  puddle at full water "красит что-то очень жёстко, нереально" — it was
+ *  laying four dry brushes' worth. A wet line is a long thin transparent
+ *  trail; a dry one short and concentrated; both from one load. */
+export function watercolorPigmentRate(water: number): number {
+  return PIGMENT_RUN_DRY_RADII / watercolorPigmentRun(water)
+}
+
 /** (#536, ADR 011 §17.13) How much of the water a brush delivers to the
  *  sheet stays on it as STANDING water, by what the sheet already held.
  *

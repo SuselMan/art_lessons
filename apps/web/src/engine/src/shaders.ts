@@ -873,7 +873,12 @@ export const DAB_FRAG = `
   const float WC_WET_PUSH = 0.50;
   /** How strongly the paper's pits mottle a thin film on wet paper - the halo
    *  of a wet-in-wet mark. See granHere. */
-  const float WC_WET_GRAN = 1.1;
+  // (#536) 0.35, from 1.1. The term scales with (1 - density), and once the
+  // diffusion spreads a mark thin across a puddle that factor is large
+  // everywhere in it - a wet line through a puddle came out grainy, "в
+  // области лужи кисть становится как сухая". Ilya asked for the wet-paper
+  // grain to be barely visible; this is barely visible.
+  const float WC_WET_GRAN = 0.35;
   /** What is left of the push for a brush with no water in it. A floor rather
    *  than a gate: a nearly dry brush dragged through standing water still
    *  bleeds plainly, it simply does not flood. */
@@ -3400,7 +3405,15 @@ export const PAPER_COMPOSE_FRAG = `
   //  is transient and decides *when* the paint gets there; WC_WET_PUSH is
   //  permanent and decides *where* it ends up. Turning this up does not make a
   //  dried mark any bigger.
-  const float WC_WET_RELAX = 0.95;
+  // (#536, s17.12) Zero: retired. It held the thin tones under wet paper
+  // back while the halo was a composite-time guess, so the halo could seem to
+  // grow out of the core as the sheet dried. With the halo and the diffusion
+  // in the deposit and the reveal easing the settle in (s17.12), it had
+  // nothing left to hide and one thing left to break: it masked EVERY thin
+  // tone under standing water, old dry strokes included - "водой поверх
+  // старых высохших штрихов - они странно исчезают, пока не высохнут лужи".
+  // Kept as a constant so the plumbing reads, not as a knob.
+  const float WC_WET_RELAX = 0.0;
   /** Alpha below which a pixel is taken to be the halo, and above which the
    *  core. Between the two the reveal ramps. */
   const float WC_HALO_A = 0.22;
@@ -3654,8 +3667,14 @@ export const PAPER_COMPOSE_FRAG = `
         rimCast = (1.0 - side) * inWater
           * smoothstep(WC_CAST_OUT, WC_CAST_MID, t)
           * (1.0 - smoothstep(WC_CAST_MID, WC_CAST_IN, t));
-        // The bead is a thing standing water does - see WC_BEAD_LO.
-        float bead = smoothstep(WC_BEAD_LO, WC_BEAD_HI, raw);
+        // The bead is a thing standing water does - see WC_BEAD_LO. Gated on
+        // the sheet's PEAK, not on raw here: the bands sit on the edge ramp,
+        // where raw is a fifth of the body by construction (t = 0.16..0.20),
+        // so gating on the local value switched every bead off - "ты лужу
+        // сломал, где блик". The peak says whether anything on the sheet is
+        // standing water at all; a damp stroke laid beside a full puddle gets a
+        // bead it should not have, for as long as the puddle lasts - accepted.
+        float bead = smoothstep(WC_BEAD_LO, WC_BEAD_HI, u_wetPeak);
         rim *= bead;
         rimDark *= bead;
         rimCast *= bead;
