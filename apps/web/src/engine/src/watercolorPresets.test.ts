@@ -227,12 +227,14 @@ describe('water load (#468 v3, ADR 011 §3.8)', () => {
     }
   })
 
-  it('bottoms out rather than reaching zero', () => {
-    // A brush dragged a long way is drier, not empty — it keeps laying a thin
-    // broken wash until it is lifted. A zero here would make long strokes
-    // simply stop painting, which is a bug, not dry brush.
-    expect(watercolorWaterLoad(1e4)).toBeGreaterThan(0.2)
-    expect(watercolorWaterLoad(1e4)).toBeLessThan(0.45)
+  it('runs dry, but never to exactly zero', () => {
+    // (#536, §17.18) A brush dragged a long way is DRY — the contact breaks up,
+    // the hairs show, and nothing stands on the sheet to run in. The old floor
+    // of 0.22 kept every long line damp to the end ("почему вода в кисти не
+    // заканчивается никогда?"). A hair of water stays so the ratios the
+    // composite divides out stay defined; it is not a wash.
+    expect(watercolorWaterLoad(1e4)).toBeGreaterThan(0)
+    expect(watercolorWaterLoad(1e4)).toBeLessThan(0.1)
   })
 
   it('leaves an ordinary stroke almost undepleted and a long sweep plainly dry', () => {
@@ -245,7 +247,9 @@ describe('water load (#468 v3, ADR 011 §3.8)', () => {
     // the actual build was the opposite — the brush was running out far too
     // slowly. Neither number was ever visible before the density curve was
     // fixed, so the old one was never really under test.
-    expect(watercolorWaterLoad(8)).toBeGreaterThan(0.55)
+    // (#536, §17.18) …and 0.55 → 0.50 with the floor gone: the same run, a
+    // lower resting level, so the curve at eight radii sits a shade lower.
+    expect(watercolorWaterLoad(8)).toBeGreaterThan(0.50)
     expect(watercolorWaterLoad(40)).toBeLessThan(0.40)
   })
 

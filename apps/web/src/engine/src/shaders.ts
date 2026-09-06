@@ -377,14 +377,14 @@ export const RIBBON_FRAG = `
   // multiplies an ink load of zero, i.e. leaves the paper showing through, so a
   // turn came out bitten by rounded white notches.
   uniform float u_mode;
-  /** (#536, s17.11/13) The water this stroke DELIVERS - its nominal mix
-   *  water (the mix, not the depleted load: what the live wetness field is
-   *  fed too) - and how much of it the sheet keeps standing on dry paper
-   *  (u_waterRetain: 1 for clean water, a fraction for pigment - see
-   *  watercolorWaterRetention). Coverage .b records, premultiplied like .r,
-   *  the wetter of the paper wetness the stroke saw under itself (v_inkWet)
-   *  and what it left: delivery x mix(retain, 1, seen). The wet diffusion pass
-   *  reads standing water off the wash's own silhouette from it.
+  /** (#536, s17.11/13/18) Standing water, into coverage .b (premultiplied
+   *  like .r): the wetter of the paper wetness the stroke saw under itself
+   *  (v_inkWet) and what it left. A clean-water stroke leaves u_washWater, its
+   *  nominal mix, whole; a pigment stroke leaves the brush's water AT THIS
+   *  DAB (v_inkWater, after the clocks) kept by u_waterRetain, rising to 1
+   *  where the paper was already wet - see watercolorWaterRetention. The wet
+   *  diffusion pass reads standing water off the wash's own silhouette from
+   *  it. One of u_washWater / u_waterRetain is zero for any given stroke.
    *
    *  The first version recorded nothing for a pigment stroke, to keep a
    *  spiral on dry paper from levelling into a blob; it also kept a loaded
@@ -471,7 +471,7 @@ ${WC_NOISE_GLSL}
     // composite recovers a per-pixel mean of each by dividing by .a.
     gl_FragColor = u_mode > 0.5
       ? vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount)
-      : vec4(acrossEncoded * amount, amount, amount * max(v_inkWet, u_washWater * mix(u_waterRetain, 1.0, v_inkWet)), amount);
+      : vec4(acrossEncoded * amount, amount, amount * max(v_inkWet, max(u_washWater, v_inkWater * mix(u_waterRetain, 1.0, v_inkWet))), amount);
   }
 `;
 
@@ -1215,7 +1215,7 @@ ${WC_NOISE_GLSL}
       vec2 localPx = vec2(v_localUV.x * aAx, v_localUV.y * bAx);
       float reach = max(length(vec2(aAx * u_acrossLocal.x, bAx * u_acrossLocal.y)), 1e-4);
       float acrossN = clamp(dot(localPx, u_acrossLocal) / reach, -1.0, 1.0);
-      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, u_washWater * mix(u_waterRetain, 1.0, u_paperWet)), cov);
+      gl_FragColor = vec4((acrossN * 0.5 + 0.5) * cov, cov, cov * max(u_paperWet, max(u_washWater, u_inkWater * mix(u_waterRetain, 1.0, u_paperWet))), cov);
       return;
     }
 

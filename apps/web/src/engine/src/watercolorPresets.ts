@@ -587,9 +587,12 @@ function smoothstepJs(edge0: number, edge1: number, x: number): number {
 //  build where the depletion was visible at all; the previous numbers were
 //  chosen when none of it reached a pixel.
 const WATER_RUN_RADII = 12
-/** A brush dragged a long way is damp, not bone dry — and a hand reloads long
- *  before this in practice. */
-const WATER_FLOOR = 0.22
+/** (#536, §17.18) 0.04, from 0.22. The old floor meant a brush never ran
+ *  dry along a stroke — "почему вода в кисти не заканчивается никогда?" — so
+ *  the dry-brush tail (contact breaking up, hairs showing) could not happen
+ *  on a long line. Near zero now: a brush dragged three runs is dry, and the
+ *  hand reloads at the next pen-down anyway (the load resets per stroke). */
+const WATER_FLOOR = 0.04
 
 /** Pigment outlasts water by better than two to one, which is what produces the
  *  dry-brush end of a stroke rather than a stroke that simply fades.
@@ -789,13 +792,22 @@ const WATERCOLOR_WET_RATE_DROP = 0.5
  *  pen-up (see _paintDabs on why), so ten passes over one spot do not yet
  *  pile the film up into a puddle. The API is written as delivery and
  *  retention so that they can, without the record changing shape. */
-export function watercolorWaterRetention(waterOnly: boolean): number {
-  return waterOnly ? 1 : WATERCOLOR_WATER_RETAIN_DRY
+export function watercolorWaterRetention(water: number): number {
+  const w = clamp01(water)
+  const t = w <= WATERCOLOR_RETAIN_FROM ? 0 : (w - WATERCOLOR_RETAIN_FROM) / (1 - WATERCOLOR_RETAIN_FROM)
+  return WATERCOLOR_RETAIN_DAMP + (WATERCOLOR_RETAIN_FLOODED - WATERCOLOR_RETAIN_DAMP) * t * t * (3 - 2 * t)
 }
-/** What a pigment stroke's water leaves standing on dry paper. Damp, not a
- *  puddle: the wet diffusion gates on it, so a loaded brush's own mark levels
- *  and runs a little inside its silhouette, and keeps its structure. */
-const WATERCOLOR_WATER_RETAIN_DRY = 0.3
+/** What a pigment stroke's water leaves standing on dry paper, by how much
+ *  the brush carries. A damp brush's film soaks in almost at once; a flooded
+ *  brush leaves a real puddle the sheet cannot drink — and that puddle has
+ *  the paint in it: "лужа по сути должна уже быть немного подкрашена". So at
+ *  full water a pigment stroke's own mark diffuses nearly as a puddle does,
+ *  levelling into a tinted film; at damp it keeps its structure. Applied to
+ *  the brush's water as it stands at each dab, not the nominal mix, so the
+ *  dry tail of a long line leaves no standing water to run in. */
+const WATERCOLOR_RETAIN_DAMP = 0.15
+const WATERCOLOR_RETAIN_FLOODED = 0.85
+const WATERCOLOR_RETAIN_FROM = 0.25
 
 // ─── Wet-in-wet: the halo (#536, ADR 011 §17.10) ───────────────────────────
 //

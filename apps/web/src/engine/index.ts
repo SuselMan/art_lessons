@@ -1466,7 +1466,13 @@ function ribbonBristleCombs(profile: RibbonProfile, bristleRadiusPx: number): nu
  *  RIBBON_FRAG for how the two become the wash's standing-water record. */
 function ribbonWaterDelivery(profile: RibbonProfile): { water: number; retain: number } {
   if (!profile.normalizeDeposit) return { water: 0, retain: 0 }
-  return { water: profile.waterLevel, retain: watercolorWaterRetention(profile.pigmentStrength <= 0) }
+  // Clean water: the nominal mix stands whole (that is what a puddle is; the
+  // load's depletion made a long puddle patchy — see wcWaterAt). Pigment: the
+  // brush's water AT EACH DAB, kept by how much it carries, so a dry tail
+  // leaves none.
+  return profile.pigmentStrength <= 0
+    ? { water: profile.waterLevel, retain: 0 }
+    : { water: 0, retain: watercolorWaterRetention(profile.waterLevel) }
 }
 
 const MARKER_SCRATCH_POOL_PER_SIZE = 6
@@ -8170,7 +8176,7 @@ export class PencilEngine implements PencilEngineAPI {
         // coverage stamp too: its .b is the standing-water record the
         // diffusion pass gates on. See u_washWater.
         this._drawRibbonNibPass(
-          coverage, tile, dab, preset, profile, 6, 0, true, 0, acrossByDab.get(dab) ?? [0, 1],
+          coverage, tile, dab, preset, profile, 6, 0, true, waterByDab.get(dab) ?? 0, acrossByDab.get(dab) ?? [0, 1],
           paperWetByDab.get(dab) ?? 0,
         )
       }
