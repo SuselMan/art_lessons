@@ -1,6 +1,8 @@
 import type { ToolType } from '@grafetto/shared'
 
-import { digitalBrushFlow, digitalBrushFromPreset } from './digitalBrushPresets'
+import {
+  digitalBrushFlow, digitalBrushFlowFromPreset, digitalBrushFromPreset,
+} from './digitalBrushPresets'
 import { markerNibFromPreset } from './markerPresets'
 import {
   watercolorMixFromPreset, watercolorWaterEffects, watercolorPigmentEffects,
@@ -827,8 +829,12 @@ const DIGITAL_BRUSH_MIN_AA_PX = 1.0
 // exactly where a profile is the only thing in scope.
 function digitalBrushRibbon(presetName: string | undefined): RibbonProfile {
   const brush = digitalBrushFromPreset(presetName)
+  // Read off the recorded token, not off the live setting: a peer replaying this
+  // stroke has their own toggle in whatever position they left it, and the mark
+  // has to be the one that was drawn.
+  const flowFromPressure = digitalBrushFlowFromPreset(presetName)
   return {
-  stampFlow: (pressure: number) => digitalBrushFlow(brush, pressure),
+  stampFlow: (pressure: number) => digitalBrushFlow(brush, pressure, flowFromPressure),
   // ADR 013 §4 — stamps, no bands. See RibbonProfile.stampsOnly.
   stampsOnly: true,
   coverageInkMode: 10,

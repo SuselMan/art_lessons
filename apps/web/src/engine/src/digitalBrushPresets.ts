@@ -320,15 +320,40 @@ export const DIGITAL_BRUSH_IDS: readonly string[] =
 
 // ─── The recorded token (ADR 013 §7) ────────────────────────────────────────
 
-/** `brush:<id>@<version>` — what a StrokeOperation carries in its `preset`
- *  slot, the same field a pencil grade or a marker's `${nib}:${size}` rides.
+/** The token's optional third field: whether pressure drives how much one
+ *  stamp lays down.
+ *
+ *  Absent means "the brush's own curve", which is what every stroke recorded
+ *  before this setting existed carries — so they replay exactly as they were
+ *  drawn, and the modifier only ever appears when the user has turned the
+ *  behaviour *off*. That asymmetry is deliberate: the log is permanent, and a
+ *  format change that rewrote the meaning of existing tokens would repaint
+ *  history (ADR 013 §7). */
+const FLAT_FLOW_MODIFIER = 'flat'
+
+/** `brush:<id>@<version>`, plus `:flat` when the user has taken pressure off
+ *  the flow — what a StrokeOperation carries in its `preset` slot, the same
+ *  field a pencil grade or a marker's `${nib}:${size}` rides.
  *
  *  The version is in the token rather than looked up at replay time, and that
  *  is the entire mechanism of §7: a stroke drawn today keeps resolving to
  *  today's numbers after the brush is retuned. Every other tool here lacks that
- *  and quietly repaints its own history on recalibration. */
-export function digitalBrushPreset(id: string, version: number): string {
-  return `brush:${id}@${version}`
+ *  and quietly repaints its own history on recalibration.
+ *
+ *  The setting rides the same string for the reason the marker's nib and
+ *  watercolor's whole mix do: #366 exists to shrink operation payloads, so a
+ *  new Operation field is paid for by every operation in every room forever,
+ *  while a slot that already exists is free. */
+export function digitalBrushPreset(id: string, version: number, flowFromPressure = true): string {
+  const token = `brush:${id}@${version}`
+  return flowFromPressure ? token : `${token}:${FLAT_FLOW_MODIFIER}`
+}
+
+/** Whether this recorded stroke let pressure drive its flow. True for every
+ *  token without the modifier, which includes every stroke recorded before the
+ *  setting existed. */
+export function digitalBrushFlowFromPreset(presetName: string | undefined): boolean {
+  return !presetName?.endsWith(`:${FLAT_FLOW_MODIFIER}`)
 }
 
 /** Inverse of the above, defensive in the same way markerNibFromPreset is: an
@@ -338,7 +363,7 @@ export function digitalBrushPreset(id: string, version: number): string {
 export function digitalBrushFromPreset(presetName: string | undefined): BrushDescriptor {
   const fallback = DIGITAL_BRUSHES.find(b => b.id === DEFAULT_DIGITAL_BRUSH) ?? DIGITAL_BRUSHES[0]
   if (!presetName) return fallback
-  const m = /^brush:([A-Za-z0-9-]+)@(\d+)$/.exec(presetName)
+  const m = /^brush:([A-Za-z0-9-]+)@(\d+)(?::[A-Za-z0-9-]+)?$/.exec(presetName)
   if (!m) {
     // A bare id, for the settings layer: the UI stores which brush is selected,
     // and it has no business knowing about versions — the token is assembled at
@@ -362,8 +387,21 @@ export function digitalBrushFromPreset(presetName: string | undefined): BrushDes
  *  Derived rather than recorded, and that is what keeps the payload unchanged:
  *  `Dab.pressure` is already in the log and the descriptor is frozen by the
  *  token, so a replay recomputes the identical number without a new field. */
-export function digitalBrushFlow(brush: BrushDescriptor, pressure: number): number {
-  return clamp(brush.flow * curveAt(brush.flowByPressure, pressure), 0, 1)
+export function digitalBrushFlow(
+  brush: BrushDescriptor, pressure: number, flowFromPressure = true,
+): number {
+  // Off means the stamp lays the same amount however hard the pen is pressed —
+  // `brush.flow` outright, which is what every curve here returns at full
+  // pressure (they all end at [1, 1]). So turning the setting off does not make
+  // the brush weaker, it makes it even: the mark is what a firm press would have
+  // given, everywhere.
+  //
+  // Width still follows pressure. That is the whole point of the split — a
+  // stroke that thins under a light touch while keeping its density is a pen,
+  // and one that fades instead is a brush, and the person holding it should be
+  // the one deciding which they have.
+  const curve = flowFromPressure ? curveAt(brush.flowByPressure, pressure) : 1
+  return clamp(brush.flow * curve, 0, 1)
 }
 
 /** The `PencilPreset` slot the rest of the engine resolves for every tool.

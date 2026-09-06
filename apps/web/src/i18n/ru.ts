@@ -410,6 +410,7 @@ export const ru: Dictionary = {
   'tool.digitalBrush': 'Цифровая кисть',
   'tool.digitalBrushTitle': 'Цифровая кисть — от мягкой до жёсткой круглой; единственный инструмент здесь, который не изображает настоящий материал  {hotkey}',
   'tool.field.brush': 'Кисть',
+  'tool.field.flowFromPressure': 'Нажим меняет плотность',
   'tool.brush.softRound': 'Мягкая круглая',
   'tool.brush.mediumRound': 'Средняя круглая',
   'tool.brush.hardRound': 'Жёсткая круглая',

@@ -8,7 +8,8 @@ import { describe, expect, it } from 'vitest'
 
 import { DEFAULT_DAB_SPACING_FACTOR } from './dabSpacing'
 import {
-  brushDabRandom, brushStrokeSeed, curveAt, digitalBrushFlow, digitalBrushFromPreset,
+  brushDabRandom, brushStrokeSeed, curveAt, digitalBrushFlow, digitalBrushFlowFromPreset,
+  digitalBrushFromPreset,
   digitalBrushPreset, digitalBrushPresetFor, shapingForDigitalBrushPreset,
   DEFAULT_DIGITAL_BRUSH, DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS,
   type BrushCurve,
@@ -124,6 +125,51 @@ describe('the recorded preset token (ADR 013 §7)', () => {
     // same brush at a different version is the closest honest answer; refusing
     // to draw it is not an option, the log is permanent.
     expect(digitalBrushFromPreset('brush:soft-round@99').id).toBe('soft-round')
+  })
+})
+
+describe('the pressure→density toggle (#547)', () => {
+  it('is on for a token that does not mention it', () => {
+    // Every stroke recorded before the setting existed. They have to replay as
+    // they were drawn, which is the whole reason the modifier marks the *off*
+    // case rather than the on one — the log is permanent (ADR 013 §7).
+    expect(digitalBrushFlowFromPreset('brush:soft-round@1')).toBe(true)
+    expect(digitalBrushFlowFromPreset(undefined)).toBe(true)
+    expect(digitalBrushFlowFromPreset('')).toBe(true)
+  })
+
+  it('round-trips through the token', () => {
+    expect(digitalBrushPreset('soft-round', 1, true)).toBe('brush:soft-round@1')
+    expect(digitalBrushPreset('soft-round', 1, false)).toBe('brush:soft-round@1:flat')
+    expect(digitalBrushFlowFromPreset(digitalBrushPreset('soft-round', 1, false))).toBe(false)
+    expect(digitalBrushFlowFromPreset(digitalBrushPreset('soft-round', 1, true))).toBe(true)
+  })
+
+  it('still resolves the brush when the modifier is present', () => {
+    // The parser has to see past the third field, or turning the setting off
+    // would silently swap the brush for the default.
+    expect(digitalBrushFromPreset('brush:flat@1:flat').id).toBe('flat')
+    expect(digitalBrushFromPreset('brush:ink-round@1:flat').id).toBe('ink-round')
+  })
+
+  it('makes the stamp lay the same amount at any pressure when off', () => {
+    for (const b of DIGITAL_BRUSHES) {
+      const at = (p: number) => digitalBrushFlow(b, p, false)
+      expect(at(0.05)).toBeCloseTo(at(1), 9)
+      expect(at(0.5)).toBeCloseTo(at(1), 9)
+      // Not "weaker": off means the mark is what a firm press would have given,
+      // everywhere — otherwise the toggle would read as a way of turning the
+      // brush down rather than of making it even.
+      expect(at(0.05)).toBeCloseTo(digitalBrushFlow(b, 1, true), 9)
+    }
+  })
+
+  it('leaves width alone', () => {
+    // The half of the split that must survive the toggle: a stroke that stops
+    // fading under a light touch but still thins is a brush behaving; one that
+    // stops doing both is a marker.
+    const shaping = shapingForDigitalBrushPreset('brush:medium-round@1:flat')
+    expect(shaping.size(1, 0)).toBeGreaterThan(shaping.size(0.1, 0))
   })
 })
 

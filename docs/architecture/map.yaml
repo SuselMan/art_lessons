@@ -365,7 +365,6 @@ modules:
       - apps/web/src/pages/Room/toolTypeImages.ts
       - apps/web/src/pages/Room/pressureResponseCurves.ts
       - apps/web/src/pages/Room/tiltResponseCurves.ts
-      - apps/web/src/pages/Room/digitalBrushCurves.ts
       - apps/web/src/pages/Room/editorKeys.ts
     adr: [003-liner-tool, 004-marker-tool, 005-charcoal-tool, 009-brush-pen, 010-fill-tool, 011-watercolor, 013-digital-brush]
     notes:

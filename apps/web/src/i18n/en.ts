@@ -528,6 +528,7 @@ export const en = {
   'tool.digitalBrush': 'Digital brush',
   'tool.digitalBrushTitle': 'Digital brush — soft to hard round brushes; the only tool here that imitates no real material  {hotkey}',
   'tool.field.brush': 'Brush',
+  'tool.field.flowFromPressure': 'Pressure changes density',
   'tool.brush.softRound': 'Soft round',
   'tool.brush.mediumRound': 'Medium round',
   'tool.brush.hardRound': 'Hard round',

@@ -62,8 +62,8 @@ import {
 } from './src/digitalBrushPresets'
 export {
   DIGITAL_BRUSHES, DIGITAL_BRUSH_IDS, DEFAULT_DIGITAL_BRUSH,
-  digitalBrushFromPreset, digitalBrushPreset,
-  type BrushDescriptor,
+  digitalBrushFromPreset, digitalBrushPreset, digitalBrushFlowFromPreset,
+  type BrushDescriptor, type BrushTip,
 } from './src/digitalBrushPresets'
 import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 

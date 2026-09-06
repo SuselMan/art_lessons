@@ -184,6 +184,35 @@ describe('digital brush (#547, ADR 013)', () => {
     expectPixelsEqual(readLayerPixels(engine2, 'L'), first)
   })
 
+  it('honours the recorded pressure→density setting, not the live one', () => {
+    // The wiring the pure tests next door cannot see: the token is parsed inside
+    // ribbonProfileFor, and what reaches the stamp is a closure built from it.
+    // If that ever read the live setting instead, a peer would replay the mark
+    // with their own switch position — the same class of bug the versioned token
+    // exists to prevent (ADR 013 §7).
+    const flowAt = (preset: string, pressure: number): number => {
+      const engine = setupLayer()
+      engine.appendOperation(makeStroke('user-a', 'L', [
+        dab(16, 32, { size: 20, pressure }),
+        dab(32, 32, { size: 20, pressure }),
+      ], { tool: 'digitalBrush', preset }))
+      const stamp = markerPassDraw(engine, 10)
+      if (!stamp) throw new Error('no stamp draw')
+      return stamp.opacity
+    }
+
+    // On (the plain token): pressing harder lays more down.
+    expect(flowAt('brush:soft-round@1', 0.15))
+      .toBeLessThan(flowAt('brush:soft-round@1', 0.95))
+    // Off: the same amount whatever the pressure.
+    expect(flowAt('brush:soft-round@1:flat', 0.15))
+      .toBeCloseTo(flowAt('brush:soft-round@1:flat', 0.95), 6)
+    // And "off" is the firm-press amount, not a quieter one — otherwise the
+    // toggle would read as a volume knob.
+    expect(flowAt('brush:soft-round@1:flat', 0.15))
+      .toBeCloseTo(flowAt('brush:soft-round@1', 1), 6)
+  })
+
   it('replays a stroke recorded with an unknown brush rather than dropping it', () => {
     // The log is permanent and older clients meet newer ones. Refusing to draw
     // is not among the options; falling back to the default brush is.

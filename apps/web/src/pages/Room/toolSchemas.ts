@@ -17,7 +17,7 @@ import { readRoomSettings, writeRoomSettings, type KeyValueStorage } from '../..
 import { CHARCOAL_TYPE_IMAGES, MARKER_NIB_ICONS, PENCIL_GRADE_IMAGES } from './toolTypeImages'
 import { CHARCOAL_TILT_CURVES, GRAPHITE_TILT_CURVES } from './tiltResponseCurves'
 import { PRESSURE_RESPONSE_CURVES } from './pressureResponseCurves'
-import { DIGITAL_BRUSH_CURVES } from './digitalBrushCurves'
+import { DIGITAL_BRUSH_IMAGES } from './toolTypeImages'
 import { TRANSFORM_MODES, type TransformMode } from './transformMath'
 import { SELECTION_SHAPES, type SelectionShapeKind } from './selectionGesture'
 import type { TranslationKey } from '../../i18n'
@@ -378,13 +378,13 @@ const digitalBrushSchema = (): ToolSchema => ({
       'opaque-paint': 'tool.brush.opaquePaint',
       'flat': 'tool.brush.flat',
     },
-    // The stamp's own falloff, centre to rim (digitalBrushCurves.ts). The third
-    // kind of thing that gets a curve here rather than a photographed mark or a
-    // glyph, and for the reason SettingDescriptor.optionCurves already gives: a
-    // grade is a tone, a nib is a shape, and this is a *function* — in v1 these
-    // four brushes differ in their edge and in nothing else, so the picture of
-    // the difference is the edge.
-    optionCurves: DIGITAL_BRUSH_CURVES,
+    // A sample stroke, like a pencil grade's — not the plotted falloff this
+    // shipped with first. The curve was honest and still wrong for the job: it
+    // showed the tool's insides where the question is "what does this leave on
+    // the paper", and a brush is chosen by its mark. Baked by the engine itself
+    // (`npm run bake:brush-samples`), so it cannot drift from the brush the way
+    // a hand-drawn or re-implemented preview would.
+    optionImages: DIGITAL_BRUSH_IMAGES,
     uiControls: ['select'],
     quickAccess: true,
     default: DEFAULT_DIGITAL_BRUSH,
@@ -409,6 +409,28 @@ const digitalBrushSchema = (): ToolSchema => ({
     uiControls: ['slider'],
     quickAccess: true,
     default: 1,
+  },
+  // #547 — the one behavioural setting this tool offers, and it exists because
+  // the set was illegible without it: every brush carries its own pressure→flow
+  // curve, so whether pressing harder made the mark denser looked arbitrary from
+  // the outside ("when does it apply and when not?" — Ilya).
+  //
+  // Named for what changes rather than for the mechanism. What pressure stops
+  // driving is *flow* — how much one stamp lays down — and "flow" is a word for
+  // people who already know brush engines. Width keeps following pressure either
+  // way, which is what makes this a real choice rather than a way of switching
+  // the pen off.
+  //
+  // Deliberately not per-brush-default: on reproduces exactly what every brush
+  // did before this existed (the character stays in the curves — an ink brush's
+  // is nearly flat already), so the toggle only ever *removes* the dependence.
+  // One default that means "unchanged" beats six that have to be remembered.
+  flowFromPressure: {
+    nameKey: 'tool.field.flowFromPressure',
+    valueType: { kind: 'boolean' },
+    uiControls: ['toggle'],
+    quickAccess: false,
+    default: true,
   },
   color: {
     nameKey: 'tool.field.color',
