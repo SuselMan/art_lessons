@@ -75,7 +75,9 @@ export const WET_DIFFUSE_B = 0.03
  *  by the water at its two ends only, so two wet texels with a dry gap of
  *  under r between them still exchange. A puddle is convex enough for that
  *  not to show; a thin dry channel through a wash would leak across it. */
-export const WET_DIFFUSE_RADII: readonly number[] = [32, 16, 16, 8, 8, 4, 4, 2, 2, 1]
+//  (#536, s17.20) A 48 in front, from a top of 32: "растекание надо всё-таки
+//  увеличивать". Reach 93 → 141 texels; eleven steps.
+export const WET_DIFFUSE_RADII: readonly number[] = [48, 32, 16, 16, 8, 8, 4, 4, 2, 2, 1]
 export const WET_DIFFUSE_STEPS = WET_DIFFUSE_RADII.length
 /** How far a texel's paint can travel over the whole schedule — the sum of
  *  the radii. The engine pads the field it diffuses by this, so nothing ever
@@ -95,7 +97,9 @@ export const WET_DIFFUSE_REACH = WET_DIFFUSE_RADII.reduce((a, r) => a + r, 0)
  *  _diffuseWash): paint moves once, at the settle that laid it. A first
  *  split; a share that itself settles step by step, more in the valleys, is
  *  the next refinement. */
-export const WET_DIFFUSE_MOBILE = 0.6
+//  (#536, s17.20) 0.75, from 0.6 — the other half of "растекание надо
+//  увеличивать": more of what a stroke lays goes with the water.
+export const WET_DIFFUSE_MOBILE = 0.75
 
 /** The eight-neighbour stencil, as (dx, dy). Order matters only in that the
  *  GPU pass must use the same one. */
@@ -140,8 +144,23 @@ export function wetDiffuseStep(
   /** Stencil radius in cells. The eight offsets are scaled by it. */
   radius = 1,
 ): Float64Array {
+  return wetDiffuseStepMany(grid, [pigment], d, b, radius)[0]
+}
+
+/** One step over SEVERAL fields at once, every one of them moved by the same
+ *  donor fractions — which is the whole point (§17.19): the pigment's mass
+ *  and its optical depth per channel are one suspension, so what leaves a
+ *  cell takes the same share of each. The pair's exchange is written as two
+ *  donor terms, i's share to j and j's share to i, and the fractions depend on
+ *  the gate and the height only — never on any field's value — so they are
+ *  the same for every field, to the bit. On one field the two terms sum to
+ *  the flux of the header: D (cᵢ − cⱼ) + B max(dh,0) cᵢ − B max(−dh,0) cⱼ. */
+export function wetDiffuseStepMany(
+  grid: WetGrid, fields: readonly Float64Array[],
+  d = WET_DIFFUSE_D, b = WET_DIFFUSE_B, radius = 1,
+): Float64Array[] {
   const { width, height, water, paperHeight } = grid
-  const out = Float64Array.from(pigment)
+  const outs = fields.map(f => Float64Array.from(f))
   // Each unordered pair once: only the four "forward" directions of the
   // stencil, taken from every cell, cover every pair exactly once.
   const forward = WET_DIFFUSE_STENCIL.filter(([dx, dy]) => dx > 0 || (dx === 0 && dy > 0))
@@ -154,19 +173,19 @@ export function wetDiffuseStep(
         const j = ny * width + nx
         const gate = Math.min(water[i], water[j])
         if (gate <= 0) continue
-        const ci = pigment[i], cj = pigment[j]
         const dh = paperHeight[i] - paperHeight[j]
-        const flux = gate * (
-          d * (ci - cj)
-          + b * Math.max(dh, 0) * ci
-          - b * Math.max(-dh, 0) * cj
-        )
-        out[i] -= flux
-        out[j] += flux
+        const give = gate * (d + b * Math.max(dh, 0))
+        const take = gate * (d + b * Math.max(-dh, 0))
+        for (let k = 0; k < fields.length; k++) {
+          const f = fields[k], out = outs[k]
+          const flux = give * f[i] - take * f[j]
+          out[i] -= flux
+          out[j] += flux
+        }
       }
     }
   }
-  return out
+  return outs
 }
 
 /** N steps at radius 1 — the plain form the invariants are proved on. */

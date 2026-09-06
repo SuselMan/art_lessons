@@ -152,7 +152,7 @@ describe('wet diffusion oracle (#536, ADR 011 §17.11)', () => {
     let reach = 0
     for (let x = 48; x < 97; x++) if (p[48 * 96 + x] > 1e-4) reach = x - 48
     expect(reach).toBeGreaterThan(30)
-    expect(WET_DIFFUSE_RADII.length).toBe(10)
+    expect(WET_DIFFUSE_RADII.length).toBe(11)
   })
 
   it('is stable at the shipped rates: no pixel can give more than it has', () => {

@@ -59,6 +59,7 @@ import { buildRibbonBands, RIBBON_FLOATS_PER_VERTEX } from './src/markerRibbon'
 import { WATERCOLOR_BRISTLE_BUNDLE_PX } from './src/ribbonProfile'
 import { PaperWetness, quantizeWet, isDryProfile, wetAt, WET_CELL_PX, WET_DRY_MS } from './src/paperWetness'
 import { WET_DIFFUSE_D, WET_DIFFUSE_B, WET_DIFFUSE_RADII, WET_DIFFUSE_REACH, WET_DIFFUSE_MOBILE } from './src/wetDiffusion'
+import { pigmentAbsorption } from './src/pigmentOptics'
 import { isRibbonTool, ribbonProfileFor, WATERCOLOR_MIGRATION, WATERCOLOR_SPREAD, type RibbonProfile } from './src/ribbonProfile'
 import {
   BRUSH_PEN_PRESET, applyBrushPenEndTaper,
@@ -1525,11 +1526,19 @@ interface RibbonTileScratch {
    *  the FIXED paint. What the diffusion moves is inkLoad minus this: the
    *  paint laid since, and only that. Null when inkLoad is. */
   inkSettled: AccumulationBuffer | null
+  /** (#536, §17.19) The optical depth of the paint per texel, .rgb, and its
+   *  mass in .a — the wash's colour record (pigmentOptics.ts). Written by the
+   *  ink pass beside inkLoad, moved by the diffusion by the same fractions. */
+  inkColor: AccumulationBuffer | null
+  /** Its settled counterpart, as inkSettled is to inkLoad. */
+  colorSettled: AccumulationBuffer | null
 }
 
 class RibbonStrokeScratch {
   private _tiles = new Map<AccumulationBuffer, RibbonTileScratch>()
   private readonly pool: RibbonScratchPool
+  /** (#536, §17.19) Whether tiles carry inkColor — watercolor only. */
+  private readonly needsColor: boolean
   private readonly needsInk: boolean
   /** (#468 v3) How much of the brush's load this gesture has spent so far,
    *  measured in brush radii of travel (ADR 011 §3.8).
@@ -1708,9 +1717,10 @@ class RibbonStrokeScratch {
    *  source-over ink has no per-pixel pigment quantity for the composite to
    *  read, so allocating and clearing one per tile would be a buffer and two
    *  draw calls spent on a value nothing samples. See RibbonProfile.ink. */
-  constructor(pool: RibbonScratchPool, needsInk = true) {
+  constructor(pool: RibbonScratchPool, needsInk = true, needsColor = false) {
     this.pool = pool
     this.needsInk = needsInk
+    this.needsColor = needsColor
   }
 
   /** Keyed by the tile's own AccumulationBuffer identity — stable across
@@ -1743,14 +1753,19 @@ class RibbonStrokeScratch {
       const coverage = this.pool.acquire(tile.width, tile.height)
       coverage.clear()
       let inkLoad: AccumulationBuffer | null = null
+      let inkColor: AccumulationBuffer | null = null
       if (this.needsInk) {
         inkLoad = this.pool.acquire(tile.width, tile.height)
         inkLoad.clear()
+        if (this.needsColor) {
+          inkColor = this.pool.acquire(tile.width, tile.height)
+          inkColor.clear()
+        }
       }
-      // inkSettled is taken on the first settle, by the pass that needs it —
-      // a marker gesture never does, and three buffers a tile was already the
-      // churn #385 is about.
-      entry = { original, coverage, inkLoad, inkSettled: null }
+      // The settled pair is taken on the first settle, by the pass that needs
+      // it — a marker gesture never does, and three buffers a tile was already
+      // the churn #385 is about.
+      entry = { original, coverage, inkLoad, inkSettled: null, inkColor, colorSettled: null }
       this._tiles.set(tile, entry)
     }
     return entry
@@ -1768,10 +1783,12 @@ class RibbonStrokeScratch {
     this._dirSet = false
     this._dir = [1, 0]
     this._finish = null
-    for (const { original, coverage, inkLoad, inkSettled } of this._tiles.values()) {
+    for (const { original, coverage, inkLoad, inkSettled, inkColor, colorSettled } of this._tiles.values()) {
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
       if (inkSettled) this.pool.release(inkSettled)
+      if (inkColor) this.pool.release(inkColor)
+      if (colorSettled) this.pool.release(colorSettled)
     }
     this._tiles.clear()
   }
@@ -2092,6 +2109,8 @@ export class PencilEngine implements PencilEngineAPI {
   private _diffuseField: {
     w: number; h: number
     a: AccumulationBuffer; b: AccumulationBuffer; c: AccumulationBuffer; coverage: AccumulationBuffer
+    /** (#536, §17.19) The colour record's own trio, moved by the same gate. */
+    ca: AccumulationBuffer; cb: AccumulationBuffer; cc: AccumulationBuffer
   } | null = null
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
@@ -5308,7 +5327,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_waterRetain', 'u_inkStrength', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_inkClip', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_washWater', 'u_waterRetain', 'u_inkStrength', 'u_depthWrite', 'u_tau', 'u_inkColor', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -5330,7 +5349,7 @@ export class PencilEngine implements PencilEngineAPI {
     ])
     this._ribbonUni = getUniforms(gl, this._ribbonProg, [
       'u_resolution', 'u_aaPx', 'u_mode', 'u_worldOrigin', 'u_mottleSeed', 'u_cloudDeposit', 'u_granDeposit',
-      'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk',
+      'u_washWater', 'u_waterRetain', 'u_bristleCombs', 'u_bristleInk', 'u_depthWrite', 'u_tau',
     ])
     this._dabInstUni = getUniforms(gl, this._dabProgInstanced, [
       'u_resolution', 'u_paperHeightMap', 'u_paperScale', 'u_paperOrigin', 'u_paperTexSize',
@@ -5640,7 +5659,7 @@ export class PencilEngine implements PencilEngineAPI {
       } else {
         this._wash?.scratch.destroy()
         this._washId = nanoid(10)
-        this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
+        this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
         this._wash = {
           id: this._washId, layerId, signature: washSignature,
           endedAt: now, scratch: this._ribbonStrokeScratch,
@@ -5651,7 +5670,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._washId = null
       this._wash?.scratch.destroy()
       this._wash = null
-      this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
+      this._ribbonStrokeScratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     }
     this._strokeId = nanoid(10)
     // (#429) `_liveLastEmitAt = 0` on purpose, not `performance.now()`: it
@@ -7631,7 +7650,7 @@ export class PencilEngine implements PencilEngineAPI {
     // cached scalars and its final recomposite is the first one.
     const profile = ribbonProfileFor(tool, presetName, wetAt(wetProfile, 0))
     const chunk = ribbonScratch ? null : this._replayChunkScratch(target, strokeId, washId, dabs, profile)
-    const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
+    const scratch = ribbonScratch ?? chunk?.scratch ?? new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     // `prevDab` is threaded the same way smudge threads its own
     // (_paintSmudgeDabs): the dab immediately before dabs[0] may come from a
     // *previous* call in the same stroke (see _paintDabs' own doc comment on
@@ -7690,7 +7709,7 @@ export class PencilEngine implements PencilEngineAPI {
     // hit — the scratch mirrors the tiles of one target and nothing else.
     cached?.scratch.destroy()
     this._replayRibbonChunks.delete(key)
-    const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink)
+    const scratch = new RibbonStrokeScratch(this._ribbonScratchPool, profile.ink, profile.normalizeDeposit)
     scratch.beginStroke()
     this._replayRibbonChunks.set(key, {
       strokeId: key, washStrokeId: strokeId, target, scratch, lastDab: dabs[dabs.length - 1],
@@ -8167,9 +8186,11 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536, s17.13) The hairs' bundle count, for the ink pass below and the
     // composite alike - see ribbonBristleCombs.
     const combs = ribbonBristleCombs(profile, bristleRadiusPx)
+    // (#536, §17.19) This stroke's paint as absorption, for the colour record.
+    const tau = pigmentAbsorption(color)
 
     for (const tile of targets) {
-      const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
+      const { original, coverage, inkLoad, inkColor } = scratch.getOrCreate(tile.buffer)
 
       for (const dab of drawable) {
         // (#536, s17.11) The recorded paper wetness rides along into the
@@ -8213,6 +8234,27 @@ export class PencilEngine implements PencilEngineAPI {
             0, 0, combs, profile.bristleInk,
           )
         }
+        // (#536, §17.19) …and the same figure once more, into the colour
+        // record: the paint's optical depth per texel. Same dose, same hairs,
+        // same mottling, so depth and deposit agree to the texel.
+        if (inkColor) {
+          for (let i = 0; i < drawable.length; i++) {
+            inkColor.beginAdditiveDraw()
+            this._drawRibbonNibPass(
+              inkColor, tile, drawable[i], preset, profile, 7,
+              deposits[i] * (1 - (haloShedByDab.get(drawable[i]) ?? 0)), false,
+              waterByDab.get(drawable[i]) ?? 0, acrossByDab.get(drawable[i]) ?? [0, 1],
+              paperWetByDab.get(drawable[i]) ?? 0, inkStrength, mottleSeed, null, combs, profile.bristleInk, tau,
+            )
+            inkColor.endDraw()
+          }
+          if (bands.length) {
+            this._drawRibbonBands(
+              inkColor, tile, bands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed,
+              0, 0, combs, profile.bristleInk, tau,
+            )
+          }
+        }
       }
 
       if (inkLoad && profile.normalizeDeposit) scratch.diffusePending = true
@@ -8245,7 +8287,7 @@ export class PencilEngine implements PencilEngineAPI {
       // §9 — pressure drives width, never alpha). The marker's branch ignores
       // this argument entirely and reads its own inkLoad texture instead.
       this._drawRibbonCompositeRect(
-        tile, compositeBounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
+        tile, compositeBounds, preset, profile, original, coverage, inkLoad, inkColor, color, drawable[0].opacity,
         fieldSeed, spreadPx, fringeWater, migratePx,
         profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
       )
@@ -8450,6 +8492,8 @@ export class PencilEngine implements PencilEngineAPI {
     field.a.clear()
     field.b.clear()
     field.coverage.clear()
+    field.ca.clear()
+    field.cb.clear()
     const overlaps: Array<{ tile: PaintTarget; ox0: number; oy0: number; ox1: number; oy1: number }> = []
     for (const tile of tiles) {
       const entry = scratch.peek(tile.buffer)
@@ -8457,6 +8501,10 @@ export class PencilEngine implements PencilEngineAPI {
       if (!entry.inkSettled) {
         entry.inkSettled = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
         entry.inkSettled.clear()
+      }
+      if (entry.inkColor && !entry.colorSettled) {
+        entry.colorSettled = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+        entry.colorSettled.clear()
       }
       const ox0 = Math.max(x0, tile.originX), oy0 = Math.max(y0, tile.originY)
       const ox1 = Math.min(x1, tile.originX + tile.buffer.width), oy1 = Math.min(y1, tile.originY + tile.buffer.height)
@@ -8467,6 +8515,10 @@ export class PencilEngine implements PencilEngineAPI {
       entry.inkLoad.copyRegionInto(field.a, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
       entry.inkSettled.copyRegionInto(field.b, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
       entry.coverage.copyRegionInto(field.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      if (entry.inkColor && entry.colorSettled) {
+        entry.inkColor.copyRegionInto(field.ca, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        entry.colorSettled.copyRegionInto(field.cb, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      }
     }
 
     const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void => {
@@ -8488,47 +8540,54 @@ export class PencilEngine implements PencilEngineAPI {
       gl.drawArrays(gl.TRIANGLES, 0, 6)
       out.endDraw()
     }
-    // c = mobile share of (deposit − settled); b = deposit − c, the part that
-    // stays put (settled paint plus the fixed share of the new).
-    fieldOp(field.c, field.a, field.b, 0, WET_DIFFUSE_MOBILE)
-    fieldOp(field.b, field.a, field.c, 1, -1)
-
-    let src = field.c
-    let dst = field.a
-    for (const radius of WET_DIFFUSE_RADII) {
-      dst.beginReplaceDraw()
-      gl.useProgram(this._diffuseProg)
-      const u = this._diffuseUni
-      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-      gl.enableVertexAttribArray(this._diffusePosLoc)
-      gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.bindTexture(gl.TEXTURE_2D, src.texture)
-      gl.uniform1i(u.u_ink, 0)
-      gl.activeTexture(gl.TEXTURE1)
-      gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
-      gl.uniform1i(u.u_coverage, 1)
-      gl.activeTexture(gl.TEXTURE2)
-      gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
-      gl.uniform1i(u.u_paperHeightMap, 2)
-      gl.activeTexture(gl.TEXTURE0)
-      gl.uniform2f(u.u_resolution, field.w, field.h)
-      // The paper at the world position of a texel. A tile passes
-      // (originX, -originY) and lets its height of 1024 fold into the paper's
-      // period; a rect of any height has to say where its bottom row is.
-      gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
-      gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
-      gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
-      gl.uniform1f(u.u_d, WET_DIFFUSE_D)
-      gl.uniform1f(u.u_b, WET_DIFFUSE_B)
-      gl.uniform1f(u.u_radius, radius)
-      gl.drawArrays(gl.TRIANGLES, 0, 6)
-      dst.endDraw()
-      const t = src; src = dst; dst = t
+    // One record: c = mobile share of (laid − settled); b = laid − c, the part
+    // that stays put (settled paint plus the fixed share of the new); the
+    // schedule over c; the sum back into whichever of the pair is free.
+    // The gate is the coverage alone (wcWaterAt), so the deposit and its
+    // colour record — two records, one suspension — move by identical
+    // fractions, to the bit.
+    const settle = (a: AccumulationBuffer, b: AccumulationBuffer, c: AccumulationBuffer): AccumulationBuffer => {
+      fieldOp(c, a, b, 0, WET_DIFFUSE_MOBILE)
+      fieldOp(b, a, c, 1, -1)
+      let src = c
+      let dst = a
+      for (const radius of WET_DIFFUSE_RADII) {
+        dst.beginReplaceDraw()
+        gl.useProgram(this._diffuseProg)
+        const u = this._diffuseUni
+        gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+        gl.enableVertexAttribArray(this._diffusePosLoc)
+        gl.vertexAttribPointer(this._diffusePosLoc, 2, gl.FLOAT, false, 0, 0)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, src.texture)
+        gl.uniform1i(u.u_ink, 0)
+        gl.activeTexture(gl.TEXTURE1)
+        gl.bindTexture(gl.TEXTURE_2D, field.coverage.texture)
+        gl.uniform1i(u.u_coverage, 1)
+        gl.activeTexture(gl.TEXTURE2)
+        gl.bindTexture(gl.TEXTURE_2D, this._paperTex)
+        gl.uniform1i(u.u_paperHeightMap, 2)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.uniform2f(u.u_resolution, field.w, field.h)
+        // The paper at the world position of a texel. A tile passes
+        // (originX, -originY) and lets its height of 1024 fold into the paper's
+        // period; a rect of any height has to say where its bottom row is.
+        gl.uniform2f(u.u_paperOrigin, x0, -(y0 + field.h))
+        gl.uniform2f(u.u_paperTexSize, paperTexW, paperTexH)
+        gl.uniform2f(u.u_paperScale, this._opts.paperScale, this._opts.paperScale)
+        gl.uniform1f(u.u_d, WET_DIFFUSE_D)
+        gl.uniform1f(u.u_b, WET_DIFFUSE_B)
+        gl.uniform1f(u.u_radius, radius)
+        gl.drawArrays(gl.TRIANGLES, 0, 6)
+        dst.endDraw()
+        const t = src; src = dst; dst = t
+      }
+      const out = dst
+      fieldOp(out, b, src, 1, 1)
+      return out
     }
-    // out = what stayed + what moved, into whichever of the pair is free.
-    const out = dst
-    fieldOp(out, field.b, src, 1, 1)
+    const out = settle(field.a, field.b, field.c)
+    const outColor = settle(field.ca, field.cb, field.cc)
 
     // …and home, tile by tile — and this is the new settled deposit.
     for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
@@ -8538,6 +8597,10 @@ export class PencilEngine implements PencilEngineAPI {
       const dx = ox0 - tile.originX, dy = tile.buffer.height - (oy1 - tile.originY)
       out.copyRegionInto(entry.inkLoad, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
       out.copyRegionInto(entry.inkSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      if (entry.inkColor && entry.colorSettled) {
+        outColor.copyRegionInto(entry.inkColor, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+        outColor.copyRegionInto(entry.colorSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      }
     }
   }
 
@@ -8550,6 +8613,7 @@ export class PencilEngine implements PencilEngineAPI {
     if (cur && cur.w >= w && cur.h >= h) return cur
     if (cur) {
       cur.a.destroy(); cur.b.destroy(); cur.c.destroy(); cur.coverage.destroy()
+      cur.ca.destroy(); cur.cb.destroy(); cur.cc.destroy()
     }
     const W = Math.max(need(w), cur?.w ?? 0), H = Math.max(need(h), cur?.h ?? 0)
     const { gl } = this
@@ -8559,6 +8623,9 @@ export class PencilEngine implements PencilEngineAPI {
       b: new AccumulationBuffer(gl, W, H, 'nearest'),
       c: new AccumulationBuffer(gl, W, H, 'nearest'),
       coverage: new AccumulationBuffer(gl, W, H, 'nearest'),
+      ca: new AccumulationBuffer(gl, W, H, 'nearest'),
+      cb: new AccumulationBuffer(gl, W, H, 'nearest'),
+      cc: new AccumulationBuffer(gl, W, H, 'nearest'),
     }
     this._diffuseField = field
     return field
@@ -8599,7 +8666,7 @@ export class PencilEngine implements PencilEngineAPI {
       const entry = scratch.peek(tile.buffer)
       if (!entry) continue
       this._drawRibbonCompositeRect(
-        tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity,
+        tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, entry.inkColor, color, opacity,
         fieldSeed, spreadPx, water, migratePx, spacing, dir, bristleRadiusPx,
       )
     }
@@ -8682,6 +8749,9 @@ export class PencilEngine implements PencilEngineAPI {
     clipTo: AccumulationBuffer | null = null,
     /** (#536, s17.13) Ink mode only: the hairs, laid into the deposit. */
     bristleCombs = 0, bristleInk = 0,
+    /** (#536, s17.19) Ink mode into the colour record: the paint's absorption
+     *  per channel; null writes the deposit as always. */
+    depthTau: readonly [number, number, number] | null = null,
   ): void {
     const { gl } = this
     if (ownTarget) dest.beginDraw()
@@ -8748,6 +8818,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_inkStrength, inkStrength)
     gl.uniform1f(u.u_bristleCombs, bristleCombs)
     gl.uniform1f(u.u_bristleInk, bristleInk)
+    gl.uniform1f(u.u_depthWrite, depthTau ? 1 : 0)
+    gl.uniform3fv(u.u_tau, depthTau ? [depthTau[0], depthTau[1], depthTau[2]] : [0, 0, 0])
     gl.drawArrays(gl.TRIANGLES, 0, 6)
 
     if (ownTarget) dest.endDraw()
@@ -8768,6 +8840,8 @@ export class PencilEngine implements PencilEngineAPI {
     washWater = 0, waterRetain = 0,
     /** (#536, s17.13) Ink mode only: the hairs, laid into the deposit. */
     bristleCombs = 0, bristleInk = 0,
+    /** (#536, s17.19) Ink mode into the colour record — see _drawRibbonNibPass. */
+    depthTau: readonly [number, number, number] | null = null,
   ): void {
     const { gl } = this
     const local = new Float32Array(bands.length)
@@ -8795,6 +8869,8 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(this._ribbonUni.u_waterRetain, waterRetain)
     gl.uniform1f(this._ribbonUni.u_bristleCombs, bristleCombs)
     gl.uniform1f(this._ribbonUni.u_bristleInk, bristleInk)
+    gl.uniform1f(this._ribbonUni.u_depthWrite, depthTau ? 1 : 0)
+    gl.uniform3fv(this._ribbonUni.u_tau, depthTau ? [depthTau[0], depthTau[1], depthTau[2]] : [0, 0, 0])
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this._ribbonBuf)
     gl.bufferData(gl.ARRAY_BUFFER, local, gl.STREAM_DRAW)
@@ -8842,6 +8918,7 @@ export class PencilEngine implements PencilEngineAPI {
     tile: PaintTarget, bounds: { minX: number; minY: number; maxX: number; maxY: number },
     preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
+    inkColor: AccumulationBuffer | null,
     color: [number, number, number], opacity: number,
     fieldSeed: [number, number], spreadPx: number, water: number, migratePx: number,
     inkSmoothPx: number, strokeDir: [number, number],
@@ -8856,7 +8933,7 @@ export class PencilEngine implements PencilEngineAPI {
       x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
       size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
     }
-    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
+    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, inkColor, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -8868,6 +8945,7 @@ export class PencilEngine implements PencilEngineAPI {
   private _drawRibbonCompositeDab(
     tile: PaintTarget, dab: Dab, radius: number, preset: PencilPreset, profile: RibbonProfile,
     original: AccumulationBuffer, coverage: AccumulationBuffer, inkLoad: AccumulationBuffer | null,
+    inkColor: AccumulationBuffer | null,
     color: [number, number, number], fieldSeed: [number, number], spreadPx: number, water: number,
     migratePx: number, inkSmoothPx: number, strokeDir: [number, number],
     /** (#536) Half-width of this gesture's mark, px — what the hair count is
@@ -8924,6 +9002,14 @@ export class PencilEngine implements PencilEngineAPI {
     gl.activeTexture(gl.TEXTURE3)
     gl.bindTexture(gl.TEXTURE_2D, inkLoad ? inkLoad.texture : this._paperTex)
     gl.uniform1i(u.u_inkLoad, 3)
+    // (#536, §17.19) The colour record on its own unit for this draw. Every
+    // other user of the program leaves the sampler at unit 0 (the paper,
+    // always bound), and it is put back there below, so no draw ever finds
+    // it pointing at a unit nothing is bound to.
+    gl.activeTexture(gl.TEXTURE4)
+    gl.bindTexture(gl.TEXTURE_2D, inkColor ? inkColor.texture : this._paperTex)
+    gl.uniform1i(u.u_inkColor, 4)
+    gl.activeTexture(gl.TEXTURE0)
     gl.uniform1f(u.u_hardness, preset.hardness)
     gl.uniform1f(u.u_eraseMode, 0.0)
     gl.uniform3fv(u.u_color, color)
@@ -9015,6 +9101,7 @@ export class PencilEngine implements PencilEngineAPI {
     gl.uniform1f(u.u_tiltY, dab.tiltY)
     gl.uniform1f(u.u_opacity, dab.opacity)
     gl.drawArrays(gl.TRIANGLES, 0, 6)
+    gl.uniform1i(u.u_inkColor, 0)
 
     buffer.endDraw()
   }

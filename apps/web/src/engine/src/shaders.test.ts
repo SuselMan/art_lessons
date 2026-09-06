@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DAB_FRAG, DAB_VERT, RIBBON_FRAG, PAPER_COMPOSE_FRAG,
 } from './shaders'
+import { PIGMENT_DEPTH_SCALE } from './pigmentOptics'
 
 // (#536) One structural check on the GLSL, and it exists because this file is
 // several *independent programs* that happen to live in one TypeScript module.
@@ -60,5 +61,14 @@ describe('every shader declares what it uses (#536)', () => {
     // assertion above pass on an empty set forever.
     const declared = [...code(DAB_FRAG).matchAll(/\bconst\s+\w+\s+(WC_[A-Z0-9_]+)\s*=/g)]
     expect(declared.length).toBeGreaterThan(5)
+  })
+
+  it('scales the optical depth into eight bits by the number the oracle measured with (#536, §17.19)', () => {
+    // The GLSL constant and the TypeScript one are two copies of one choice;
+    // the quantisation study in pigmentOptics.test.ts is only about the shader
+    // if they agree.
+    const decl = `const float WC_DEPTH_SCALE = ${PIGMENT_DEPTH_SCALE.toFixed(1)};`
+    expect(DAB_FRAG).toContain(decl)
+    expect(RIBBON_FRAG).toContain(decl)
   })
 })

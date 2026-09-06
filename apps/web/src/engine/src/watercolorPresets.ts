@@ -666,7 +666,10 @@ const PIGMENT_RUN_WET_RADII = 32
 /** How much extra the brush dumps as it lands, as a fraction of the normal
  *  dose. Small: this must read as "the brush arrived carrying something", not
  *  as a separate dark segment at the start of the line. */
-const WATERCOLOR_START_EXCESS = 0.20
+//  (#536, s17.20) 0.9, from 0.2, over 1.0 radii from 0.8. Ilya, twice: "в
+//  начале штриха пигмент должен ложиться интенсивнее, в реальности начало
+//  штриха выглядит насыщеннее всегда". A loaded brush does dump on landing.
+const WATERCOLOR_START_EXCESS = 0.9
 
 /** How fast that surplus is spent, in the brush's own radii. Under one radius
  *  on purpose. Two to four radii — the first number reached for — is a
@@ -674,7 +677,7 @@ const WATERCOLOR_START_EXCESS = 0.20
  *  bands, so at that length the wash would grow a periodic dark head at every
  *  stroke instead of a gradient down each one: the same spatial structure v9
  *  removed, just shorter. */
-const WATERCOLOR_START_EXCESS_RADII = 0.8
+const WATERCOLOR_START_EXCESS_RADII = 1.0
 
 /** The multiplier on the deposit at `usedRadii` into the stroke.
  *
@@ -763,8 +766,13 @@ export function watercolorPigmentRun(water: number): number {
  *  laying four dry brushes' worth. A wet line is a long thin transparent
  *  trail; a dry one short and concentrated; both from one load. */
 export function watercolorPigmentRate(water: number): number {
-  return 1 - WATERCOLOR_WET_RATE_DROP * clamp01(water)
+  return WATERCOLOR_PIGMENT_GAIN * (1 - WATERCOLOR_WET_RATE_DROP * clamp01(water))
 }
+/** (#536, s17.20) The whole curve, up: "пигмента в кисти должно быть больше
+ *  на всех значениях пигмента" — after the budget was made finite the brush
+ *  carried too little at every setting. A gain on the rate, so the budget
+ *  rises with it and the shape along the path stays. */
+const WATERCOLOR_PIGMENT_GAIN = 1.6
 /** How much lower a fully wet brush's delivery rate is than a dry one's.
  *  The first cut kept the budget one number at every water (rate = run_dry /
  *  run), and a line at full water started "слишком блекло" while its fade
@@ -1103,8 +1111,15 @@ export function watercolorPigmentFromPreset(presetName: string | undefined): str
  *  held, nor how the stylus is being read. So none of them appear here.
  *
  *  Layer and tool are checked by the caller, which has them to hand. */
-export function watercolorWashSignature(presetName: string | undefined, color: readonly number[]): string {
-  return `wc|${watercolorPigmentFromPreset(presetName)}|${color.join(',')}`
+export function watercolorWashSignature(_presetName: string | undefined, _color: readonly number[]): string {
+  // (#536, s17.19) Neither the colour nor the pigment any more: the wash
+  // carries the colour of every paint laid into it per texel, as optical
+  // depth (pigmentOptics.ts), so a second paint joins a wet wash and MIXES
+  // rather than opening its own and glazing once dry. The pigment's other
+  // properties - granulation, staining - are still the wash's scalars from
+  // its first paint; a mixture takes them from whichever paint opened the
+  // wash. Recorded debt (§17.9): the honest form is mass-weighted moments.
+  return 'wc'
 }
 
 export function watercolorMixFromPreset(presetName: string | undefined): WatercolorMix {

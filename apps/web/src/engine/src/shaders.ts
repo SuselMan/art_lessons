@@ -397,6 +397,14 @@ export const RIBBON_FRAG = `
    *  break) and the delivery swing per hair at a dry brush. See wcHairAmp. */
   uniform float u_bristleCombs;
   uniform float u_bristleInk;
+  /** (#536, s17.19) Ink mode, second target: write the OPTICAL DEPTH of the
+   *  paint this band lays rather than its deposit - mass x u_tau per channel,
+   *  scaled by WC_DEPTH_SCALE into eight bits, mass itself in .a. The same
+   *  amount as the deposit pass, so depth and deposit agree texel by texel;
+   *  see pigmentOptics.ts. */
+  uniform float u_depthWrite;
+  uniform vec3 u_tau;
+  const float WC_DEPTH_SCALE = 4.0;
 
   varying float v_edge;
   varying float v_ink;
@@ -470,7 +478,9 @@ ${WC_NOISE_GLSL}
     // Ink: .r brush water, .g paper wetness, both deposit-weighted so the
     // composite recovers a per-pixel mean of each by dividing by .a.
     gl_FragColor = u_mode > 0.5
-      ? vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount)
+      ? (u_depthWrite > 0.5
+          ? vec4(amount * v_inkStrength * u_tau / WC_DEPTH_SCALE, amount * v_inkStrength)
+          : vec4(cov * v_inkWater * mottle, cov * v_inkWet * mottle, cov * v_inkStrength * mottle, amount))
       : vec4(acrossEncoded * amount, amount, amount * max(v_inkWet, max(u_washWater, v_inkWater * mix(u_waterRetain, 1.0, v_inkWet))), amount);
   }
 `;
@@ -609,6 +619,12 @@ export const DAB_FRAG = `
   // the stroke's silhouette/alpha; this governs how dark the color mix
   // goes — see the composite branch below).
   uniform sampler2D u_inkLoad;
+  /** (#536, s17.19) The wash's optical depth per texel - see RIBBON_FRAG's
+   *  u_depthWrite. Read by the composite for the paint's own colour. */
+  uniform sampler2D u_inkColor;
+  uniform float u_depthWrite;
+  uniform vec3 u_tau;
+  const float WC_DEPTH_SCALE = 4.0;
   // Every _dabProg draw already sets this (see engine/index.ts's own
   // _drawRibbonCompositeDab/_drawRibbonCompositeDab and every other caller)
   // — declared here too so this fragment shader can read it back for the
@@ -1267,6 +1283,11 @@ ${WC_NOISE_GLSL}
       // the deposit-weighted mean water over everything that landed here — see
       // u_inkWater. Zero for every tool that does not set it, which leaves the
       // ratio undefined and unread.
+      if (u_depthWrite > 0.5) {
+        // (#536, s17.19) Into the depth buffer instead: see RIBBON_FRAG.
+        gl_FragColor = vec4(amount * u_inkStrength * u_tau / WC_DEPTH_SCALE, amount * u_inkStrength);
+        return;
+      }
       gl_FragColor = vec4(amount * u_inkWater, amount * u_paperWet, amount * u_inkStrength, amount);
       return;
     }
@@ -1351,6 +1372,16 @@ ${WC_NOISE_GLSL}
       vec4 ink = u_inkSmoothPx > 0.0
         ? wcInkAvg(tileUV, texel, u_inkSmoothPx * 0.5)
         : texture2D(u_inkLoad, tileUV);
+      // (#536, s17.19) What colour the paint HERE is: the mass-weighted
+      // geometric mean of the transmittances of everything laid on this
+      // texel, exp(-D / m), read off the depth buffer - so two paints in one
+      // puddle mix as paints do (blue and yellow to a dull green), and one
+      // paint comes out exactly the colour it carries. Where nothing was
+      // laid the batch's own colour stands in, as with strength.
+      vec4 depth = texture2D(u_inkColor, tileUV);
+      vec3 paint = depth.a > 0.004
+        ? exp(-(depth.rgb * WC_DEPTH_SCALE) / depth.a)
+        : u_color;
 
       // §4.1 - how wet the brush was *here*, recovered from the deposit's own
       // weighted sum (see u_inkWater). Outside the mark there is no deposit to
@@ -1946,11 +1977,11 @@ ${WC_NOISE_GLSL}
       // opaque paint of the same colour and load look the same on white - so
       // only the middle term needs the choice.
       float newAlpha = mix(dst.a, 1.0, pigment);
-      vec3 transmitted = effectiveBase * u_color;
-      vec3 covered = mix(effectiveBase, u_color, pigment);
+      vec3 transmitted = effectiveBase * paint;
+      vec3 covered = mix(effectiveBase, paint, pigment);
       vec3 overPaint = mix(transmitted, covered, u_pigmentOpacity);
       vec3 premultResult =
-          pigment * (1.0 - dst.a) * u_color
+          pigment * (1.0 - dst.a) * paint
         + pigment * dst.a * overPaint
         + (1.0 - pigment) * dst.a * effectiveBase;
       // Premultiplied, and written with blending *off*
@@ -2832,11 +2863,14 @@ export const WC_DIFFUSE_FRAG = `
   // into it stayed where it was. How wet a patch of paper is barely cares
   // which end of the stroke wetted it - the same argument that feeds the
   // live field the mix rather than the load (see _paintDabs).
-  float wcWaterAt(vec4 ink, vec4 cov) {
+  // (#536, s17.19) From the coverage alone, on purpose: the pass now runs
+  // over two fields - the deposit and its optical depth - and both must move
+  // by the same fractions, so the gate may not read the field it moves. The
+  // coverage's .b already carries the wetter of the recorded paper wetness
+  // and the standing water the stroke left (see u_washWater).
+  float wcWaterAt(vec4 cov) {
     if (cov.a <= 0.002) return 0.0;
-    float nominal = cov.b / cov.a;
-    float recorded = ink.a > 0.002 ? ink.g / ink.a : 0.0;
-    return cov.a * clamp(max(nominal, recorded), 0.0, 1.0);
+    return clamp(cov.b, 0.0, cov.a);
   }
 
   float wcHeightAt(vec2 px) {
@@ -2849,7 +2883,7 @@ export const WC_DIFFUSE_FRAG = `
     vec2 px = v_uv * u_resolution;
     vec4 ink = texture2D(u_ink, v_uv);
     vec4 cov = texture2D(u_coverage, v_uv);
-    float wi = wcWaterAt(ink, cov);
+    float wi = wcWaterAt(cov);
     // What moves is the deposit, all four channels of it, and each pair's
     // exchange is written as two DONOR terms: i hands j a fraction of its own
     // vec4, j hands i a fraction of its own. On .a the two sum to exactly the
@@ -2881,7 +2915,7 @@ export const WC_DIFFUSE_FRAG = `
         if (uvj.x < 0.0 || uvj.y < 0.0 || uvj.x > 1.0 || uvj.y > 1.0) continue;
         vec4 inkj = texture2D(u_ink, uvj);
         vec4 covj = texture2D(u_coverage, uvj);
-        float wj = wcWaterAt(inkj, covj);
+        float wj = wcWaterAt(covj);
         float gate = min(wi, wj);
         if (gate <= 0.0) continue;
         float dh = hi - wcHeightAt(px + o);
