@@ -1516,7 +1516,7 @@ class RibbonStrokeScratch {
    *  first dab of its first batch, a one-shot replay as the first dab of the
    *  only batch. Anything averaged over a batch would differ between the two. */
   private _composite: {
-    spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; bristleRadiusPx: number; landedWet: number
+    spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; bristleRadiusPx: number
     /** (#468 v10) Where the noise fields are anchored.
      *
      *  A constant of the gesture, and that is a bug fix rather than tidiness.
@@ -1529,7 +1529,7 @@ class RibbonStrokeScratch {
     fieldSeed: [number, number]
   } | null = null
 
-  compositeScalars(make: () => { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number]; bristleRadiusPx: number; landedWet: number }): { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number]; bristleRadiusPx: number; landedWet: number } {
+  compositeScalars(make: () => { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number]; bristleRadiusPx: number }): { spreadPx: number; inkSmoothPx: number; water: number; migratePx: number; fieldSeed: [number, number]; bristleRadiusPx: number } {
     if (!this._composite) this._composite = make()
     return this._composite
   }
@@ -5211,7 +5211,7 @@ export class PencilEngine implements PencilEngineAPI {
       // eases off at the rim. #454: plus how strongly paper grain acts on a
       // ribbon tool's rim — outward for the brush pen, inward for watercolor,
       // see RibbonProfile.paperRim.
-      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_inkStrength', 'u_landedWet', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
+      'u_aaPx', 'u_nibShape', 'u_nibCorner', 'u_inkEdge', 'u_paperRim', 'u_acrossLocal', 'u_paperWet', 'u_inkStrength', 'u_cloudDeposit', 'u_granDeposit', 'u_mottleSeed',
       // #468, ADR 011 §3 — watercolor's own four. Read by the u_inkMode=9
       // branch alone, and set to 0 by every other ribbon composite (see
       // _drawRibbonCompositeDab) rather than left unset, for the reason
@@ -7673,10 +7673,7 @@ export class PencilEngine implements PencilEngineAPI {
     // above everything that needs it — the composite's cached scalars want it
     // as much as the deposit does.
     const landedWet = wetAt(wetProfile, 0)
-    const {
-      spreadPx, water: fringeWater, migratePx, fieldSeed, bristleRadiusPx,
-      landedWet: landedWetScalar,
-    } = scratch.compositeScalars(() => {
+    const { spreadPx, water: fringeWater, migratePx, fieldSeed, bristleRadiusPx } = scratch.compositeScalars(() => {
       // #489: the bloom is isotropic, so a nib that is not round is measured by
       // the circle with its area rather than by either axis. Identical to the
       // old `size * 0.5` for a round nib.
@@ -7743,11 +7740,6 @@ export class PencilEngine implements PencilEngineAPI {
         bristleRadiusPx: watercolorFerrulePx(
           firstMinor, first.aspectRatio, first.pressure, presetName,
         ),
-        // (#536) The composite's fallback for the paper's wetness outside the
-        // mark — see u_landedWet. A constant of the gesture like everything
-        // else in this bag, and read from the same recorded digit the rest of
-        // the model uses, so live and replay cannot disagree.
-        landedWet,
       }
     })
 
@@ -8019,7 +8011,7 @@ export class PencilEngine implements PencilEngineAPI {
       this._drawRibbonCompositeRect(
         tile, compositeBounds, preset, profile, original, coverage, inkLoad, color, drawable[0].opacity,
         fieldSeed, spreadPx, fringeWater, migratePx,
-        profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx, landedWetScalar,
+        profile.normalizeDeposit ? dabSpacing : 0, strokeDir, bristleRadiusPx,
       )
     }
 
@@ -8041,10 +8033,10 @@ export class PencilEngine implements PencilEngineAPI {
     const { target, preset, profile, color, opacity, bounds, fieldSeed } = ctx
     const targets = target.resolveForPaint(bounds)
     if (!targets.length) return
-    const { spreadPx, water, migratePx, bristleRadiusPx, landedWet } = scratch.compositeScalars(
+    const { spreadPx, water, migratePx, bristleRadiusPx } = scratch.compositeScalars(
       () => ({
         spreadPx: 0, inkSmoothPx: 0, water: 0, migratePx: 0,
-        fieldSeed: [0, 0] as [number, number], bristleRadiusPx: 0, landedWet: 0,
+        fieldSeed: [0, 0] as [number, number], bristleRadiusPx: 0,
       }),
     )
     const spacing = scratch.noteDabSpacing(0)
@@ -8054,7 +8046,7 @@ export class PencilEngine implements PencilEngineAPI {
       if (!entry) continue
       this._drawRibbonCompositeRect(
         tile, bounds, preset, profile, entry.original, entry.coverage, entry.inkLoad, color, opacity,
-        fieldSeed, spreadPx, water, migratePx, spacing, dir, bristleRadiusPx, landedWet,
+        fieldSeed, spreadPx, water, migratePx, spacing, dir, bristleRadiusPx,
       )
     }
     target.markContentPainted(bounds)
@@ -8271,7 +8263,6 @@ export class PencilEngine implements PencilEngineAPI {
     /** (#536) Half-width of this gesture's mark, px — what the hair count is
      *  derived from. */
     bristleRadiusPx = 0,
-    landedWet = 0,
   ): void {
     const cx = (bounds.minX + bounds.maxX) * 0.5
     const cy = (bounds.minY + bounds.maxY) * 0.5
@@ -8280,7 +8271,7 @@ export class PencilEngine implements PencilEngineAPI {
       x: cx, y: cy, pressure: 1, tiltX: 0, tiltY: 0,
       size: radius * 2, aspectRatio: 1, angle: 0, opacity, t: 0,
     }
-    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx, landedWet)
+    this._drawRibbonCompositeDab(tile, rectDab, radius, preset, profile, original, coverage, inkLoad, color, fieldSeed, spreadPx, water, migratePx, inkSmoothPx, strokeDir, bristleRadiusPx)
   }
 
   /** The marker's multiply-with-darkness composite (DAB_FRAG's u_inkMode>1.5
@@ -8297,9 +8288,6 @@ export class PencilEngine implements PencilEngineAPI {
     /** (#536) Half-width of this gesture's mark, px — what the hair count is
      *  derived from. */
     bristleRadiusPx = 0,
-    /** (#536) How wet the paper was where this gesture came down — the
-     *  composite's fallback outside the mark. See u_landedWet. */
-    landedWet = 0,
   ): void {
     const { gl } = this
     const { buffer } = tile
@@ -8395,7 +8383,6 @@ export class PencilEngine implements PencilEngineAPI {
     // (#536) The fallback where there is no deposit to read a per-pixel value
     // from — the spread fringe, which is about to be decided by it.
     gl.uniform1f(u.u_inkStrength, profile.pigmentStrength)
-    gl.uniform1f(u.u_landedWet, landedWet)
     gl.uniform1f(u.u_saturateInk, profile.saturateInk)
     // #468 v2 — split by *what the term depends on*, not by taste. The spread
     // rewrites the mark's silhouette and so cannot be evaluated before the

@@ -582,13 +582,6 @@ export const DAB_FRAG = `
   // markerRibbon.ts's FLOATS_PER_VERTEX spells out: one wash, several strokes,
   // and they are allowed to disagree about it.
   uniform float u_inkStrength;
-  /** (#536) How wet the paper was where this gesture came down, from its own
-   *  recorded profile. The fallback for paperWetHere outside the mark, exactly
-   *  as u_inkStrength is the fallback for strengthHere — and for the same
-   *  reason, only more sharply: the per-pixel value is read out of the deposit,
-   *  the deposit is zero outside the brush's own footprint, so a term gated on
-   *  it is switched off precisely in the region it exists to create. */
-  uniform float u_landedWet;
   // (#536) The wash's coarse mottling, now laid down with the paint rather than
   // multiplied over it at display time — see wcCloud. Seed per stroke.
   uniform float u_cloudDeposit;
@@ -826,13 +819,20 @@ export const DAB_FRAG = `
    *  because a ring average outside a mark is mostly empty taps: at one radius
    *  out perhaps three of twelve land on paint, so the mean understates what is
    *  actually available to travel by about that factor. */
-  const float WC_INK_SPREAD_GAIN = 2.2;
+  const float WC_INK_SPREAD_GAIN = 6.0;
   /** How much arrived pigment counts as the wash being present at all, and how
    *  much counts as fully present. Both small: out at the margin only two or
    *  three of twelve taps land on paint, so what arrives is a small fraction of
    *  a core deposit however strong the mark is. */
-  const float WC_INK_SPREAD_ON = 0.006;
-  const float WC_INK_SPREAD_FULL = 0.060;
+  //  Measured on the rig rather than guessed. With the chain finally reaching
+  //  outside the mark, a probe of this very smoothstep showed it lit only a
+  //  pixel or two past the paint: the ring average out at the margin is a small
+  //  fraction of a core deposit, because most of its twelve taps are on bare
+  //  paper, and 0.006..0.060 sat above almost all of it. These are the levels
+  //  at which "some paint reached here" and "the wash is fully here" actually
+  //  occur in the buffer.
+  const float WC_INK_SPREAD_ON = 0.0015;
+  const float WC_INK_SPREAD_FULL = 0.0200;
 
   // (#536) How wide the transport's own view of the concentration is, in px.
   // Wider than a hair bundle on purpose — see its use.
@@ -889,23 +889,26 @@ ${WC_NOISE_GLSL}
    *  A near-duplicate of wcInkAvg on purpose, and not a second call to it: this
    *  driver has form for compiling a shader fine and then failing to link it,
    *  with an empty log, when one function is reached from two places (#527).
-   *  Excluding the centre is the difference that matters anyway — this answers
-   *  "how much paint is in the neighbourhood", which outside a mark is the only
-   *  thing there is to answer with. */
-  float wcInkRing(vec2 uv, vec2 texel, float rPx) {
-    float s = 0.0;
-    s += texture2D(u_inkLoad, uv + vec2( rPx,        0.0      ) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2(-rPx,        0.0      ) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2( 0.0,        rPx      ) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2( 0.0,       -rPx      ) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2( rPx * C30,  rPx * 0.5) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2(-rPx * C30,  rPx * 0.5) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2( rPx * C30, -rPx * 0.5) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2(-rPx * C30, -rPx * 0.5) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5,  rPx * C30) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5,  rPx * C30) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5, -rPx * C30) * texel).a;
-    s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5, -rPx * C30) * texel).a;
+   *  Excluding the centre is the difference that matters anyway: this answers
+   *  "how much paint is in the neighbourhood, and how wet was the paper it was
+   *  laid on", which outside a mark is the only thing there is to answer with.
+   *  Returns the deposit in .x and the deposit weighted by that paper wetness
+   *  in .y — the pair the caller divides, exactly as the per-pixel value is
+   *  recovered from the same two channels. */
+  vec2 wcInkRing(vec2 uv, vec2 texel, float rPx) {
+    vec2 s = vec2(0.0);
+    s += texture2D(u_inkLoad, uv + vec2( rPx,        0.0      ) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx,        0.0      ) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2( 0.0,        rPx      ) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2( 0.0,       -rPx      ) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2( rPx * C30,  rPx * 0.5) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * C30,  rPx * 0.5) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2( rPx * C30, -rPx * 0.5) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * C30, -rPx * 0.5) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5,  rPx * C30) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5,  rPx * C30) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2( rPx * 0.5, -rPx * C30) * texel).ag;
+    s += texture2D(u_inkLoad, uv + vec2(-rPx * 0.5, -rPx * C30) * texel).ag;
     return s * 0.0833333;
   }
 
@@ -1335,6 +1338,9 @@ ${WC_NOISE_GLSL}
       // deposit further down.
       float spreadReach = 0.0;
       float push = 0.0;
+      // (#536) The neighbourhood's paint and the wetness it was laid on, from
+      // one ring — see wcInkRing and the two uses below.
+      float ringInk = 0.0;
       if (u_spreadPx > 0.0) {
         // Reach scales with the water actually left here, not just with the
         // stroke's nominal setting. A stroke that starts flooded and runs dry
@@ -1360,6 +1366,8 @@ ${WC_NOISE_GLSL}
         // way the blur it displaces is real.
         float reach = u_spreadPx * mix(0.25, 1.0, transportHere);
         spreadReach = reach;
+        vec2 ring = wcInkRing(tileUV, texel, max(reach, 1.0) * WC_INK_SPREAD_R);
+        ringInk = ring.x;
         blurred =
             0.20 * rawCoverage
           + 0.45 * wcRingAvg(tileUV, texel, reach * 0.55, 1.0)
@@ -1403,12 +1411,23 @@ ${WC_NOISE_GLSL}
         // spreads plainly. So the paper decides whether there is anywhere to go
         // and the brush decides how much goes — a product, with a floor well
         // above zero rather than a gate.
-        // Outside the mark there is no deposit to read the paper's wetness
-        // from, and that is where every pixel of growth has to happen, so the
-        // gesture's own landing value stands in. Measured, not reasoned: with
-        // the per-pixel value alone a 15 px blot in standing water came back
-        // 15 px, because push was exactly zero everywhere it mattered.
-        float wetForPush = ink.a > 0.004 ? paperWetHere : u_landedWet;
+        // Outside the mark there is no deposit to read the paper's wetness from,
+        // and that is exactly where every pixel of growth has to happen — so
+        // with the per-pixel value alone push was identically zero everywhere
+        // it mattered, and a blot in standing water measured 15 px against 15.
+        //
+        // The neighbourhood answers it. The same ring that says how much paint
+        // is nearby also carries what that paint was laid into, because the
+        // deposit stores the two multiplied; dividing them back gives the
+        // paper's wetness a radius away, which is the honest reading here.
+        //
+        // A gesture-wide scalar was tried first and is wrong for a reason worth
+        // recording: the composite's scalars are resolved once per *wash*, and
+        // a stroke that lands in standing water joins the wash already open, so
+        // the cached value stayed the one from the wash's first stroke — which
+        // by definition landed on dry paper. It probed as a flat zero.
+        float ringWet = ringInk > 0.0004 ? clamp(ring.y / ring.x, 0.0, 1.0) : 0.0;
+        float wetForPush = ink.a > 0.004 ? paperWetHere : ringWet;
         push = WC_WET_PUSH * wetForPush * mix(WC_PUSH_DRY, 1.0, waterHere);
         // …and the front follows the sheet. In the photographs the spread half
         // of a mark is not a smooth gradient at all: it is granular, and the
@@ -1583,13 +1602,9 @@ ${WC_NOISE_GLSL}
       // and it falls off the way a blot's margin actually falls off. Where that
       // says pigment arrived, the wash is present; the coverage silhouette
       // becomes a floor rather than the whole answer.
-      // Sampled unconditionally and scaled by push rather than wrapped in a
-      // branch on it: implicit-LOD texture fetches inside non-uniform flow
-      // control are undefined in GLSL ES 1.0, and there is nothing to gain by
-      // finding out what this backend does with them. push is zero on dry
-      // paper, so the arithmetic is identical and twelve fetches are the cost.
-      float spreadInk = wcInkRing(tileUV, texel, max(spreadReach, 1.0) * WC_INK_SPREAD_R)
-        * WC_INK_SPREAD_GAIN * push;
+      // The same ring, already gathered above: one set of twelve fetches serves
+      // both the push and the paint it carries.
+      float spreadInk = ringInk * WC_INK_SPREAD_GAIN * push;
       coverage = max(coverage, smoothstep(WC_INK_SPREAD_ON, WC_INK_SPREAD_FULL, spreadInk));
       if (coverage < 0.004) discard;
 
