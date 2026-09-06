@@ -113,6 +113,20 @@ describe('a brush drinking from the paper (#536)', () => {
     expect(f.sample('L', 0, 0, 0)).toBeCloseTo(0.8, 5)
   })
 
+  it('drinks from a cell once per gesture, however many times the brush crosses it', () => {
+    // The drain runs once per pointer batch, and a scribble in one spot
+    // crosses the same cells on every batch. Compounding even a small fraction
+    // forty times dried a puddle under a stroke that never left it.
+    const f = new PaperWetness()
+    f.deposit('L', 0, 0, 40, 1, 0)
+    for (let i = 0; i < 40; i++) f.drain('L', 0, 0, 10, 0.25)
+    expect(f.sample('L', 0, 0, 0)).toBeCloseTo(0.75, 5)
+    // The next gesture may drink again.
+    f.commitPending(0)
+    f.drain('L', 0, 0, 10, 0.25)
+    expect(f.sample('L', 0, 0, 0)).toBeCloseTo(0.5625, 5)
+  })
+
   it('is a no-op on paper that was never wet', () => {
     const f = new PaperWetness()
     f.drain('L', 0, 0, 10, 1)

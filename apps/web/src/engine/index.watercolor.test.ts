@@ -642,6 +642,39 @@ describe('water first, then paint (#536)', () => {
     expect(op.wet).toBeUndefined()
   })
 
+  it('does not dry the puddle out from under a stroke that never leaves it', async () => {
+    // Read out of Ilya's own operation log: a dot scribbled inside standing
+    // water recorded e,a,7,6,5,4,3,2,2,1,1,0,0… — the paper drained to nothing
+    // under a stroke that lay in the puddle from start to finish, because the
+    // drain ran once per pointer batch and the scribble crossed the same cells
+    // on every batch. Everything that decides how far paint runs is gated on
+    // that digit, so no spread ever showed. The profile of such a stroke has
+    // to stay wet the whole way.
+    const engine = setupLayer(96, 96)
+    await paperReady(engine)
+    engine.setActiveLayer('L')
+    engine.setTool('watercolor')
+    engine.setPencil(WATER)
+    engine.setSize(48)
+    simulateStroke(engine, [{ x: 30, y: 48 }, { x: 48, y: 48 }, { x: 66, y: 48 }])
+    engine.setPencil(PAINT)
+    engine.setSize(16)
+    // A scribble: forty points wandering inside the puddle, delivered as many
+    // small batches so the drain gets every chance to compound.
+    const points: Array<{ x: number; y: number }> = []
+    for (let i = 0; i < 40; i++) points.push({ x: 48 + 6 * Math.cos(i * 1.7), y: 48 + 6 * Math.sin(i * 2.3) })
+    simulateStrokeStart(engine, points[0].x, points[0].y)
+    for (let i = 1; i < points.length; i++) simulateStrokeMove(engine, points[i].x, points[i].y)
+    simulateStrokeEnd(engine, points[points.length - 1].x, points[points.length - 1].y)
+    const digits = (lastStroke(engine).wet ?? '').split('').map(d => parseInt(d, 16))
+    expect(digits.length).toBeGreaterThan(20)
+    const tail = digits.slice(Math.floor(digits.length / 2))
+    // Still plainly wet in the second half of the stroke…
+    expect(Math.min(...tail)).toBeGreaterThanOrEqual(6)
+    // …and not merely wet at the very start.
+    expect(digits[digits.length - 1]).toBeGreaterThanOrEqual(6)
+  })
+
   it('drinks from the puddle it crosses, so the next stroke finds it drier', async () => {
     // The paper's half of the exchange (watercolorPaperDrained), and the only
     // half observable from outside the engine: what one stroke took away shows

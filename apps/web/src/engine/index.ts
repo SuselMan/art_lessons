@@ -66,7 +66,7 @@ import {
 } from './src/brushPenPresets'
 import {
   WATERCOLOR_PRESET, applyWatercolorEndTaper, watercolorWashSignature, watercolorStartExcess, watercolorFerrulePx, mottleSeedFromStrokeId,
-  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained,
+  applyWatercolorPooling, watercolorWaterLoad, watercolorPigmentLoad, watercolorWaterStep, watercolorWaterClock, watercolorPaperDrained, watercolorHalo,
   watercolorTravelRadius, watercolorSpreadRadius, watercolorNibFromPreset,
   watercolorMixFromPreset,
 } from './src/watercolorPresets'
@@ -6260,7 +6260,7 @@ export class PencilEngine implements PencilEngineAPI {
         // field, which is the same discipline the sampling above follows: the
         // recorded number is the one the mark was built from, so the paper and
         // the mark cannot come to different conclusions about how wet it was.
-        const drained = watercolorPaperDrained(wetAt(batchWet, i))
+        const drained = watercolorPaperDrained(wetAt(batchWet, i), water)
         if (drained > 0) this._paperWet.drain(layerId, dab.x, dab.y, dab.size * 0.5, drained)
         this._paperWet.deposit(layerId, dab.x, dab.y, dab.size * 0.5, water, now, true)
       }
@@ -7642,10 +7642,16 @@ export class PencilEngine implements PencilEngineAPI {
     // single composite pass covers. Padded per dab by the same half-extents the
     // ordinary graphite path uses, so a chisel nib's 5x reach is accounted for.
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const d of prevDab ? [prevDab, ...drawable] : drawable) {
+    // (#536) …and by the halo a wet-paper dab lays around itself, at the widest
+    // it can be for that wetness — this is a bound, and erring outward is the
+    // cheap direction. See watercolorHalo.
+    const haloBound = (i: number): number =>
+      profile.normalizeDeposit ? watercolorHalo(wetAt(wetProfile, i), 1).scale : 1
+    for (const [i, d] of (prevDab ? [prevDab, ...drawable] : drawable).entries()) {
       const { hx, hy } = this._dabWorldHalfExtents(d, false, preset)
-      minX = Math.min(minX, d.x - hx); maxX = Math.max(maxX, d.x + hx)
-      minY = Math.min(minY, d.y - hy); maxY = Math.max(maxY, d.y + hy)
+      const g = haloBound(prevDab ? i - 1 : i)
+      minX = Math.min(minX, d.x - hx * g); maxX = Math.max(maxX, d.x + hx * g)
+      minY = Math.min(minY, d.y - hy * g); maxY = Math.max(maxY, d.y + hy * g)
     }
     const bounds = { minX, minY, maxX, maxY }
     const targets = target.resolveForPaint(bounds)
@@ -7784,9 +7790,9 @@ export class PencilEngine implements PencilEngineAPI {
     // Erring outward costs a slightly larger rect; erring inward composites
     // from buffers that are still filling, which is the determinism bug this
     // whole block exists to prevent.
-    for (const d of drawable) {
+    for (const [i, d] of drawable.entries()) {
       const minor = d.size * 0.5 * preset.sizeMultiplier
-      maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1))
+      maxRadius = Math.max(maxRadius, minor * Math.max(d.aspectRatio, 1) * haloBound(i))
     }
     // Everything that can still change this pixel, **summed** rather than
     // maxed — each term is a separate hop outward and they compose:
@@ -7937,6 +7943,32 @@ export class PencilEngine implements PencilEngineAPI {
       scratch.advanceWater(used, pigUsed)
     }
 
+    // (#536, ADR 011 §17.10) The halo: a second, wider, weaker stamp for every
+    // dab that landed on wet paper, into the same coverage and deposit buffers.
+    // This is where wet-in-wet growth lives now, and the reason it lives here
+    // rather than in the composite is spelled out at watercolorHalo. Grown
+    // copies carry over every per-dab reading of the original, so the bands
+    // and stamps of the halo agree with the mark's own about water, hair
+    // direction and paper.
+    const haloDabs: Dab[] = []
+    const haloDoseByDab = new Map<Dab, number>()
+    let anyHalo = false
+    if (profile.normalizeDeposit) {
+      for (const dab of drawable) {
+        const { scale, dose } = watercolorHalo(paperWetByDab.get(dab) ?? 0, waterByDab.get(dab) ?? 0)
+        const grown: Dab = { ...dab, size: dab.size * scale }
+        haloDabs.push(grown)
+        haloDoseByDab.set(grown, dose)
+        if (dose > 0) anyHalo = true
+        const across = acrossByDab.get(dab)
+        if (across) acrossByDab.set(grown, across)
+        waterByDab.set(grown, waterByDab.get(dab) ?? 0)
+        pigmentByDab.set(grown, pigmentByDab.get(dab) ?? 1)
+        excessByDab.set(grown, excessByDab.get(dab) ?? 1)
+        paperWetByDab.set(grown, paperWetByDab.get(dab) ?? 0)
+      }
+    }
+
     // Bands share the stamps' scale, or they would swamp it: the two overlap
     // almost everywhere and each carries half a dose, so a band still on the
     // legacy scale would drown whatever the normalized stamps expressed.
@@ -7970,6 +8002,22 @@ export class PencilEngine implements PencilEngineAPI {
     const bands = buildRibbonBands(
       drawable, preset.sizeMultiplier, prevDab, nibShape, cornerFraction, profile.aaPx, inkFor,
     )
+    // (#536) The halo's own bands, over the grown dabs, at the halo's share of
+    // the dose. The previous dab is grown by the first dab's factor — its own
+    // digit belongs to the batch before this one and is not to hand. The seam
+    // that can leave is in a stamp a fraction of the mark's strength wide, and
+    // the composite's blur sits over it anyway.
+    const haloBands = anyHalo && inkFor
+      ? buildRibbonBands(
+        haloDabs, preset.sizeMultiplier,
+        prevDab ? { ...prevDab, size: prevDab.size * (haloDabs[0].size / drawable[0].size) } : undefined,
+        nibShape, cornerFraction, profile.aaPx,
+        (d0, d1, travel) => {
+          const base = inkFor(d0, d1, travel)
+          return { ...base, ink: base.ink * (haloDoseByDab.get(d1) ?? 0) }
+        },
+      )
+      : []
 
     for (const tile of targets) {
       const { original, coverage, inkLoad } = scratch.getOrCreate(tile.buffer)
@@ -8001,6 +8049,31 @@ export class PencilEngine implements PencilEngineAPI {
           inkLoad.endDraw()
         }
         if (bands.length) this._drawRibbonBands(inkLoad, tile, bands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed)
+      }
+
+      // (#536) The halo, after the mark itself. Coverage first so the silhouette
+      // reaches out to it, then the deposit at its own fraction of the dose.
+      // Skipped outright on dry paper: no wet dab, no second pass, no cost.
+      if (anyHalo && inkLoad) {
+        for (let i = 0; i < haloDabs.length; i++) {
+          if ((haloDoseByDab.get(haloDabs[i]) ?? 0) <= 0) continue
+          this._drawRibbonNibPass(
+            coverage, tile, haloDabs[i], preset, profile, 6, 0, true, 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
+          )
+        }
+        if (haloBands.length) this._drawRibbonBands(coverage, tile, haloBands, 'coverage', profile.aaPx)
+        for (let i = 0; i < haloDabs.length; i++) {
+          const dose = haloDoseByDab.get(haloDabs[i]) ?? 0
+          if (dose <= 0) continue
+          inkLoad.beginAdditiveDraw()
+          this._drawRibbonNibPass(
+            inkLoad, tile, haloDabs[i], preset, profile, 7, deposits[i] * dose, false,
+            waterByDab.get(haloDabs[i]) ?? 0, acrossByDab.get(haloDabs[i]) ?? [0, 1],
+            paperWetByDab.get(haloDabs[i]) ?? 0, inkStrength, mottleSeed,
+          )
+          inkLoad.endDraw()
+        }
+        if (haloBands.length) this._drawRibbonBands(inkLoad, tile, haloBands, 'ink', profile.aaPx, profile.cloud, profile.granulation, mottleSeed)
       }
 
       // `drawable[0].opacity` rather than a per-dab value: only a tool whose

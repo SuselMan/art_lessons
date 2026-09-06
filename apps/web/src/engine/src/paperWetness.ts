@@ -68,6 +68,9 @@ export class PaperWetness {
    *
    *  Merged into the committed map at pen-up (commitPending). */
   private readonly _pending = new Map<string, Map<string, WetCell>>()
+  /** (#536) Cells the gesture in progress has already drunk from, so a stroke
+   *  drinks from each patch of paper once. See drain() for why once matters. */
+  private readonly _drained = new Set<string>()
   /** The wettest thing on the paper and when it got that way, tracked as it is
    *  written rather than searched for.
    *
@@ -185,6 +188,14 @@ export class PaperWetness {
     const cells = this._layers.get(layerId)
     if (!cells) return
     const keep = Math.max(0, 1 - fraction)
+    // Once per cell per gesture. This runs once per pointer batch, and a dot
+    // scribbled inside a puddle crosses the same few cells on every batch —
+    // compounding even a small fraction forty times over drained the paper to
+    // nothing under a stroke that never left the water (0.955^40 is 0.16).
+    // Ilya's own operation log showed it: a stroke lying wholly in a puddle
+    // recorded e,a,7,6,5,4,3,2,1,0… The physics agrees with the cap: a brush
+    // drinks until it is full and then carries water, it does not keep
+    // pumping a patch dry by passing over it.
     const r = Math.max(radiusPx, WET_CELL_PX * 0.5)
     const x0 = Math.floor((x - r) / WET_CELL_PX), x1 = Math.floor((x + r) / WET_CELL_PX)
     const y0 = Math.floor((y - r) / WET_CELL_PX), y1 = Math.floor((y + r) / WET_CELL_PX)
@@ -195,8 +206,13 @@ export class PaperWetness {
         const dx = (cx + 0.5) * WET_CELL_PX - x
         const dy = (cy + 0.5) * WET_CELL_PX - y
         if (dx * dx + dy * dy > r2 && !(cx === homeX && cy === homeY)) continue
-        const cell = cells.get(key(cx, cy))
-        if (cell) cell.w *= keep
+        const k = key(cx, cy)
+        const cell = cells.get(k)
+        if (!cell) continue
+        const once = `${layerId}|${k}`
+        if (this._drained.has(once)) continue
+        this._drained.add(once)
+        cell.w *= keep
       }
     }
     // _peak is deliberately not lowered. It is an over-estimate by design (see
@@ -229,12 +245,14 @@ export class PaperWetness {
       }
     }
     this._pending.clear()
+    this._drained.clear()
   }
 
   /** Throws away the gesture's own water without committing it — the stroke was
    *  abandoned, or its own operation never happened. */
   dropPending(): void {
     this._pending.clear()
+    this._drained.clear()
   }
 
   /** The wettest the paper is anywhere, right now. O(1). */
@@ -297,6 +315,7 @@ export class PaperWetness {
   clear(): void {
     this._layers.clear()
     this._pending.clear()
+    this._drained.clear()
     this._peak = 0
     this._peakAt = 0
   }

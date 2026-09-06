@@ -897,11 +897,16 @@ describe('the brush drinks from the paper (#536, ADR 011 §17)', () => {
   })
 
   it('takes a readable bite out of the paper without wiping it', () => {
-    expect(watercolorPaperDrained(0)).toBe(0)
-    expect(watercolorPaperDrained(1)).toBeGreaterThan(0.15)
-    expect(watercolorPaperDrained(1)).toBeLessThan(0.5)
+    expect(watercolorPaperDrained(0, 0)).toBe(0)
+    expect(watercolorPaperDrained(1, 0)).toBeGreaterThan(0.15)
+    // Per *stroke*, applied once per cell (PaperWetness.drain), so a scribble
+    // that crosses the same cells forty times takes this once, not forty times.
+    expect(watercolorPaperDrained(1, 0)).toBeLessThan(0.4)
     // Proportional: a barely damp patch gives up barely anything.
-    expect(watercolorPaperDrained(0.2)).toBeCloseTo(watercolorPaperDrained(1) * 0.2, 10)
+    expect(watercolorPaperDrained(0.2, 0)).toBeCloseTo(watercolorPaperDrained(1, 0) * 0.2, 10)
+    // A loaded brush takes next to nothing — it has nowhere to put it.
+    expect(watercolorPaperDrained(1, 1)).toBe(0)
+    expect(watercolorPaperDrained(1, 0.5)).toBeCloseTo(watercolorPaperDrained(1, 0) * 0.5, 10)
   })
 })
 

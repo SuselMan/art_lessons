@@ -730,6 +730,52 @@ export function watercolorPigmentLoad(usedRadii: number): number {
   return PIGMENT_FLOOR + (1 - PIGMENT_FLOOR) * Math.exp(-usedRadii / PIGMENT_RUN_RADII)
 }
 
+// ─── Wet-in-wet: the halo (#536, ADR 011 §17.10) ───────────────────────────
+//
+// Paint dropped into standing water does not stay where the brush put it: a
+// dark core remains, and around it a wider, paler, granular halo runs out into
+// the water. In Ilya's photographs the halo takes a blot from about 110 px to
+// about 190 px across.
+//
+// Everything before this tried to produce that in the *composite*, and it
+// could not, for a reason worth keeping: the composite recomputes a pixel from
+// the deposit under it, and the deposit is written only along the brush's own
+// path. Outside that path there is nothing to recompute *from*. Pushing the
+// silhouette out, blurring it, sampling rings — all of it was reshaping a
+// boundary around a region with no pigment in it, and measured as a 15 px blot
+// answering every change with 15.
+//
+// So the halo is laid at deposit time instead: every dab that lands on wet
+// paper gets a second, wider, weaker stamp into the very same buffers. From
+// then on the pigment out there is real, and every per-pixel term that reads
+// the deposit — the paper's grain, the hair, the wetness gate on the boundary,
+// transport — works in the halo without knowing it is one. Deterministic, too:
+// the wetness under each dab is the recorded digit, so replay lays the same
+// halo.
+
+/** How much wider the halo stamp is than the dab, at full paper wetness and a
+ *  fully wet brush. 1.9 makes a blot in standing water about 1.7-1.9x across,
+ *  which is what the photographs show. */
+const WATERCOLOR_HALO_GROWTH = 0.9
+
+/** How much of the dab's dose the halo carries, as a fraction. Well under one:
+ *  the core stays the darkest part of a real blot, and the halo is the smaller
+ *  share of the pigment spread over the larger area. */
+const WATERCOLOR_HALO_DOSE = 0.30
+
+/** A nearly dry brush still bleeds into standing water — plainly, in Ilya's
+ *  words, only much less than a wet one. The floor on the brush's own share of
+ *  the growth. */
+const WATERCOLOR_HALO_DRY = 0.45
+
+/** The halo stamp for one dab: how much wider than the dab, and what fraction
+ *  of its dose. Both zero-effect on dry paper, so a dry-paper stroke lays no
+ *  halo at all and is bit-for-bit what it was. */
+export function watercolorHalo(paperWet: number, brushWater: number): { scale: number; dose: number } {
+  const wet = clamp01(paperWet) * (WATERCOLOR_HALO_DRY + (1 - WATERCOLOR_HALO_DRY) * clamp01(brushWater))
+  return { scale: 1 + WATERCOLOR_HALO_GROWTH * wet, dose: WATERCOLOR_HALO_DOSE * wet }
+}
+
 // ─── The brush drinks (#536, ADR 011 §17.7) ───────────────────────────────────
 //
 // Ilya: a brush dragged through a puddle takes water with it, stays damp for a
@@ -765,10 +811,20 @@ export function watercolorPigmentLoad(usedRadii: number): number {
  *  hold its level, and what the hand sees is a brush that visibly recovers. */
 const WATERCOLOR_PICKUP_RADII = 2.6
 
-/** A single pass takes a third of what is there. Enough that dragging a dry
- *  brush across a bead visibly opens a drier lane through it, far from enough
- *  that one careless movement wipes a wash off the paper. */
-const WATERCOLOR_PAPER_DRAIN = 0.34
+/** What one *stroke* of a bone-dry brush takes off a patch of paper, as a
+ *  fraction — the field applies it once per cell per gesture (PaperWetness.
+ *  drain), and it is scaled by how dry the brush actually is.
+ *
+ *  #536 — it used to be a third, per pointer batch, flat, and that ate the
+ *  thing it was meant to serve. A dot scribbled inside a puddle crosses the
+ *  same few cells on every batch, so each batch sampled cells the previous one
+ *  had just drained, and the recorded profile of a stroke lying wholly in
+ *  standing water ran e,a,7,6,5,4,3,2,1,0… within thirty dabs — read straight
+ *  out of Ilya's operation log. Everything that decides how far paint runs is
+ *  gated on that digit, which is why no tuning of the spread ever showed on
+ *  screen: for most of the stroke the paper was recorded dry. Lowering the
+ *  fraction alone did not fix it (0.955^40 is still 0.16); the cap did. */
+const WATERCOLOR_PAPER_DRAIN = 0.25
 
 /** The water clock after one segment: travel spends it, wet paper gives it
  *  back. `paperWet` is what the stroke *recorded* seeing under this dab, never
@@ -784,8 +840,11 @@ export function watercolorWaterClock(usedRadii: number, stepRadii: number, paper
  *  live field, which is never replayed and never has to agree with anyone
  *  else's copy — so it is free to be a simple, legible number rather than a
  *  conserved quantity. */
-export function watercolorPaperDrained(paperWet: number): number {
-  return WATERCOLOR_PAPER_DRAIN * clamp01(paperWet)
+export function watercolorPaperDrained(paperWet: number, brushWater: number): number {
+  // A loaded brush has nowhere to put more water and takes next to none; only
+  // a dry one drinks. Without this term a flooded brush dried the puddle it was
+  // laying, which is backwards twice over.
+  return WATERCOLOR_PAPER_DRAIN * clamp01(paperWet) * (1 - clamp01(brushWater))
 }
 
 // ─── Measuring a nib that is not round (#489) ───────────────────────────────
