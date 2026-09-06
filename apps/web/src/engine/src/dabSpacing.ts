@@ -337,6 +337,34 @@ export function boundedDabSpacing(
  *    direction. Re-spacing it would be fine; scaling its opacity by the same
  *    ratio afterwards would double-count.
  */
+/** Whether this tool's *deposit* has to be divided by how densely its dabs
+ *  ended up spaced.
+ *
+ *  Not the same question as isFootprintSpacedTool, and #547 is why they had to
+ *  come apart. The correction exists because for graphite, the eraser and
+ *  charcoal the mark is linear in `Dab.opacity`: pack the dabs closer and the
+ *  same stroke simply paints darker, so the tone has to be divided back down.
+ *
+ *  The digital brush is spaced by the same rule and must **not** be corrected,
+ *  because its tone is not made that way. Its stamps accumulate into a
+ *  stroke-scoped coverage buffer that saturates, and the finished pixel is
+ *  recomputed once as `coverage x opacity` — denser stamps reach saturation
+ *  sooner and change nothing after that. There is no darkening to correct.
+ *
+ *  And the correction is not merely unnecessary there, it is destructive.
+ *  Dividing by the step makes `Dab.opacity` vary with pressure, and a coverage
+ *  composite has exactly one opacity for the whole batch (DAB_FRAG's
+ *  u_inkMode=8 branch says so in as many words: "a tool whose opacity varied
+ *  per dab could not be composited from a coverage buffer this way at all").
+ *  What that produced, reported by Ilya from a real drawing: the tone stepping
+ *  between pointer batches instead of running smoothly — visible as circles
+ *  inside the stroke — and, worse, going back over your own tail at a lighter
+ *  pressure *erasing* part of it, because the batch recomputes its whole rect
+ *  from the frozen pre-stroke layer using its own first dab's smaller alpha. */
+export function isDepositScaledTool(tool: ToolType): boolean {
+  return isFootprintSpacedTool(tool) && tool !== 'digitalBrush'
+}
+
 export function isFootprintSpacedTool(tool: ToolType): boolean {
   return tool === 'pencil' || tool === 'eraser' || tool === 'charcoal'
     // #547 — and the digital brush, which needs this more than anything already

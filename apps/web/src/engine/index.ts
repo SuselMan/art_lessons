@@ -23,7 +23,8 @@ import {
 } from './src/dabShaping'
 import { tipFootprint } from './src/tipFootprint'
 import {
-  dabDepositScale, DEFAULT_DAB_SPACING_FACTOR, isFootprintSpacedTool, type DabSpacingBounds,
+  dabDepositScale, DEFAULT_DAB_SPACING_FACTOR, isDepositScaledTool, isFootprintSpacedTool,
+  type DabSpacingBounds,
 } from './src/dabSpacing'
 import {
   PENCIL_TILT, PENCIL_TILT_SLIDERS, pencilTiltness, pencilTiltDensity,
@@ -5944,7 +5945,9 @@ export class PencilEngine implements PencilEngineAPI {
     //
     // Null (and therefore free) for every tool still on the old spacing rule,
     // where the ratio would be exactly 1 by construction.
-    const sizeScale = isFootprintSpacedTool(tool) ? this._dabSizeScale(tool, presetName) : null
+    // #547: not isFootprintSpacedTool — the digital brush is spaced by that rule
+    // and deliberately excluded from this correction. See isDepositScaledTool.
+    const sizeScale = isDepositScaledTool(tool) ? this._dabSizeScale(tool, presetName) : null
     // #501: which bounds actually shaped this stroke's step. The deposit is
     // divided by the step the dabs were *really* spaced at, so this has to be
     // the same pair DabSystem was given at _onStart — a chisel spaced by the

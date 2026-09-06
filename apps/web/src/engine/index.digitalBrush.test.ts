@@ -167,6 +167,56 @@ describe('digital brush (#547, ADR 013)', () => {
     expect(dabsAt(0.1)).toBeGreaterThan(dabsAt(1))
   })
 
+  it('records one opacity for the whole stroke, whatever the pressure does', async () => {
+    // The invariant the whole composite rests on: DAB_FRAG's u_inkMode=8 branch
+    // reconstructs each finished pixel from a coverage buffer and *one* scalar,
+    // so every dab of a gesture has to carry the same opacity — the branch says
+    // so in as many words ("a tool whose opacity varied per dab could not be
+    // composited from a coverage buffer this way at all").
+    //
+    // Honest limit of this test, recorded because it matters: it does **not**
+    // fail against the code before isDepositScaledTool existed, even though that
+    // code routed this tool through dabDepositScale — a correction whose value
+    // varies with pressure. Whatever the reason (the correction may come out at
+    // 1 for the presets and sizes exercised here), the consequence is that this
+    // guards the invariant going forward rather than proving it was the cause of
+    // anything. Do not read a green here as "the artefact is fixed" — see the
+    // note in ADR 013 §10.
+    const engine = setupLayer()
+    await paperReady(engine)
+    engine.setActiveLayer('L')
+    engine.setTool('digitalBrush')
+    engine.setPencil(TOKEN)
+    engine.setSize(48)
+
+    // A stroke whose pressure swings across the whole usable range, which is
+    // exactly the case the deposit correction reacted to.
+    const eng = engine as unknown as {
+      _onStart: (p: object) => void; _onMove: (p: object) => void; _onEnd: (p: object) => void
+    }
+    const sample = (x: number, pressure: number) => ({
+      x, y: 32, pressure, tiltX: 0, tiltY: 0, buttons: 1,
+      pointerType: 'pen', pointerId: 1, timeStamp: x * 8,
+    })
+    // A long monotone ramp rather than an alternation: the pressure filter is a
+    // low-pass over distance travelled (pressureSmoothingPx), so a fast wobble
+    // is smoothed away before it can reach the dab geometry — and a test built
+    // on one measures the filter instead of the thing under test.
+    eng._onStart(sample(4, 0.08))
+    for (let i = 1; i <= 28; i++) eng._onMove(sample(4 + i * 2, 0.08 + i * 0.032))
+    eng._onEnd(sample(60, 1))
+
+    const dabs = strokeDabs(lastStroke(engine))
+    expect(dabs.length).toBeGreaterThan(4)
+    // The pressures really did vary — otherwise this test passes by drawing a
+    // flat stroke and proving nothing.
+    const pressures = dabs.map(d => d.pressure)
+    expect(Math.max(...pressures) - Math.min(...pressures)).toBeGreaterThan(0.3)
+    // …and the opacity did not.
+    const opacities = [...new Set(dabs.map(d => d.opacity.toFixed(6)))]
+    expect(opacities, 'one opacity for the whole stroke').toHaveLength(1)
+  })
+
   it('is a pure function of its operation', async () => {
     // The property every other guarantee here rests on (ADR 002): undo, replay,
     // rejoin and every peer's copy of the room all reduce to painting the same
