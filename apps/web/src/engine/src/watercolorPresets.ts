@@ -760,8 +760,15 @@ export function watercolorPigmentRun(water: number): number {
  *  laying four dry brushes' worth. A wet line is a long thin transparent
  *  trail; a dry one short and concentrated; both from one load. */
 export function watercolorPigmentRate(water: number): number {
-  return PIGMENT_RUN_DRY_RADII / watercolorPigmentRun(water)
+  return 1 - WATERCOLOR_WET_RATE_DROP * clamp01(water)
 }
+/** How much lower a fully wet brush's delivery rate is than a dry one's.
+ *  The first cut kept the budget one number at every water (rate = run_dry /
+ *  run), and a line at full water started "слишком блекло" while its fade
+ *  looked right - so the whole curve wanted lifting, not reshaping. Half:
+ *  a wet brush starts at half a dry brush's rate and runs four times as
+ *  far, so it carries twice the paint - a loaded wet brush does. */
+const WATERCOLOR_WET_RATE_DROP = 0.5
 
 /** (#536, ADR 011 §17.13) How much of the water a brush delivers to the
  *  sheet stays on it as STANDING water, by what the sheet already held.
@@ -832,7 +839,15 @@ const WATERCOLOR_HALO_GROWTH = 0.9
  *  that share, and that same share is what the halo is made of. Conserved, so
  *  a scribble accumulates halo and core in the one fixed proportion, and a
  *  brush running dry runs dry in both. */
-const WATERCOLOR_HALO_SHED = 0.55
+//  (#536, s17.17) Zero: retired in favour of the diffusion (s17.11). The halo
+//  was the stamp-shaped guess at wet-in-wet spreading from before the mobile
+//  phase existed, and once both ran the mark in a puddle was "сразу больше
+//  самой кисти" - a second, wider disc laid under the brush the instant it
+//  touched wet paper - and a second pass over a puddle came out heavier and
+//  spread differently from the first, because only the pass that landed wet
+//  got the extra disc. A mark now starts at the brush's own size and runs
+//  from there, once, at the settle. The plumbing stays for the record.
+const WATERCOLOR_HALO_SHED = 0
 
 /** A nearly dry brush still bleeds into standing water — plainly, in Ilya's
  *  words, only much less than a wet one. The floor on the brush's own share of

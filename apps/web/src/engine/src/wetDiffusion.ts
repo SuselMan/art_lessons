@@ -91,8 +91,10 @@ export const WET_DIFFUSE_REACH = WET_DIFFUSE_RADII.reduce((a, r) => a + r, 0)
  *  in the concentration for a given gate field, so diffusing the mobile
  *  share alone is exactly mix(deposit, diffused(deposit), share) — one blend
  *  after the schedule, mass conserved as a linear blend of two conserved
- *  fields. A first split; a share that itself settles step by step, more in
- *  the valleys, is the next refinement. */
+ *  fields. The share is of what the OPERATION laid, not of the wash (see
+ *  _diffuseWash): paint moves once, at the settle that laid it. A first
+ *  split; a share that itself settles step by step, more in the valleys, is
+ *  the next refinement. */
 export const WET_DIFFUSE_MOBILE = 0.6
 
 /** The eight-neighbour stencil, as (dx, dy). Order matters only in that the

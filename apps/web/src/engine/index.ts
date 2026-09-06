@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { PaperType, Dab, ToolType, Operation, StrokeOperation, LayerMergeOperation, LayerDuplicateOperation, ImageImportOperation, LayerTransformMatrix, SelectionShape, AreaPasteOperation, AreaFillOperation, FillSourceMode } from '@grafetto/shared'
-import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG } from './src/shaders'
+import { DAB_VERT, DAB_VERT_INSTANCED, DAB_FRAG, RIBBON_VERT, RIBBON_FRAG, SMUDGE_TRANSFER_FRAG, SMUDGE_PICKUP_FRAG, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG, PAPER_COMPOSE_FRAG, LAYER_COMPOSITE_FRAG, IMAGE_BLIT_FRAG, TRANSFORM_BLIT_FRAG, AREA_TRANSFORM_FRAG, AREA_MASK_FRAG, WC_DIFFUSE_FRAG, WASH_REVEAL_FRAG, WC_FIELD_OP_FRAG } from './src/shaders'
 import { createProgram, getUniforms, createQuadBuffer, createFullscreenQuad } from './src/utils'
 import { PAPER_BAKE_RESOLUTION, PAPER_WORLD_SIZE } from './src/paperConstants'
 import {
@@ -1515,6 +1515,10 @@ interface RibbonTileScratch {
   original: AccumulationBuffer
   coverage: AccumulationBuffer
   inkLoad: AccumulationBuffer | null
+  /** (#536, §17.17) The deposit as it stood after the wash's last settle —
+   *  the FIXED paint. What the diffusion moves is inkLoad minus this: the
+   *  paint laid since, and only that. Null when inkLoad is. */
+  inkSettled: AccumulationBuffer | null
 }
 
 class RibbonStrokeScratch {
@@ -1737,7 +1741,10 @@ class RibbonStrokeScratch {
         inkLoad = this.pool.acquire(tile.width, tile.height)
         inkLoad.clear()
       }
-      entry = { original, coverage, inkLoad }
+      // inkSettled is taken on the first settle, by the pass that needs it —
+      // a marker gesture never does, and three buffers a tile was already the
+      // churn #385 is about.
+      entry = { original, coverage, inkLoad, inkSettled: null }
       this._tiles.set(tile, entry)
     }
     return entry
@@ -1755,9 +1762,10 @@ class RibbonStrokeScratch {
     this._dirSet = false
     this._dir = [1, 0]
     this._finish = null
-    for (const { original, coverage, inkLoad } of this._tiles.values()) {
+    for (const { original, coverage, inkLoad, inkSettled } of this._tiles.values()) {
       this.pool.release(original); this.pool.release(coverage)
       if (inkLoad) this.pool.release(inkLoad)
+      if (inkSettled) this.pool.release(inkSettled)
     }
     this._tiles.clear()
   }
@@ -2062,6 +2070,10 @@ export class PencilEngine implements PencilEngineAPI {
   /** (#536, §17.12) LAYER_COMPOSITE_FRAG's twin for a tile still converging on
    *  a settled wash — see WashReveal. */
   private _revealProg!: WebGLProgram
+  /** (#536, §17.17) WC_FIELD_OP_FRAG — the diffusion's fixed/mobile split. */
+  private _fieldOpProg!: WebGLProgram
+  private _fieldOpUni!: Record<string, WebGLUniformLocation | null>
+  private _fieldOpPosLoc = -1
   private _revealUni!: Record<string, WebGLUniformLocation | null>
   private _revealPosLoc = -1
   /** Keyed by the layer tile the wash settled into. Presentation state only:
@@ -2073,7 +2085,7 @@ export class PencilEngine implements PencilEngineAPI {
    *  kept — see _diffuseField. */
   private _diffuseField: {
     w: number; h: number
-    ink: AccumulationBuffer; ping: AccumulationBuffer; orig: AccumulationBuffer; coverage: AccumulationBuffer
+    a: AccumulationBuffer; b: AccumulationBuffer; c: AccumulationBuffer; coverage: AccumulationBuffer
   } | null = null
   private _blitProg!: WebGLProgram
   private _transformProg!: WebGLProgram
@@ -5251,6 +5263,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentProg = createProgram(gl, DISPLAY_VERT, DISPLAY_TRANSPARENT_FRAG)
     this._compositeProg       = createProgram(gl, DISPLAY_VERT, LAYER_COMPOSITE_FRAG)
     this._revealProg          = createProgram(gl, DISPLAY_VERT, WASH_REVEAL_FRAG)
+    this._fieldOpProg         = createProgram(gl, DISPLAY_VERT, WC_FIELD_OP_FRAG)
     this._blitProg            = createProgram(gl, DISPLAY_VERT, IMAGE_BLIT_FRAG)
     this._transformProg       = createProgram(gl, DISPLAY_VERT, TRANSFORM_BLIT_FRAG)
     this._areaTransformProg   = createProgram(gl, DISPLAY_VERT, AREA_TRANSFORM_FRAG)
@@ -5324,6 +5337,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentUni = getUniforms(gl, this._dispTransparentProg, ['u_accumulation'])
     this._compositeUni = getUniforms(gl, this._compositeProg, ['u_layer', 'u_opacity'])
     this._revealUni = getUniforms(gl, this._revealProg, ['u_after', 'u_before', 'u_hold', 'u_opacity'])
+    this._fieldOpUni = getUniforms(gl, this._fieldOpProg, ['u_a', 'u_b', 'u_k', 'u_mode'])
     this._blitUni = getUniforms(gl, this._blitProg, ['u_image', 'u_bufferSize', 'u_imageRect'])
     this._diffuseUni = getUniforms(gl, this._diffuseProg, [
       'u_ink', 'u_coverage', 'u_paperHeightMap', 'u_resolution',
@@ -5353,6 +5367,7 @@ export class PencilEngine implements PencilEngineAPI {
     this._dispTransparentPosLoc = gl.getAttribLocation(this._dispTransparentProg, 'a_position')
     this._compositePosLoc      = gl.getAttribLocation(this._compositeProg, 'a_position')
     this._revealPosLoc         = gl.getAttribLocation(this._revealProg, 'a_position')
+    this._fieldOpPosLoc        = gl.getAttribLocation(this._fieldOpProg, 'a_position')
     this._blitPosLoc           = gl.getAttribLocation(this._blitProg, 'a_position')
     this._diffusePosLoc        = gl.getAttribLocation(this._diffuseProg, 'a_position')
     this._transformPosLoc      = gl.getAttribLocation(this._transformProg, 'a_position')
@@ -8370,18 +8385,30 @@ export class PencilEngine implements PencilEngineAPI {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
   }
 
-  /** (#536, ADR 011 §17.11) The wet diffusion: WET_DIFFUSE_RADII steps of
-   *  WC_DIFFUSE_FRAG over the wash's deposit, ping-ponged, then the mobile
-   *  share blended back over the untouched deposit (WET_DIFFUSE_MOBILE).
+  /** (#536, ADR 011 §17.11, §17.17) The wet diffusion: what THIS operation
+   *  laid (the deposit less what was settled before it) is split into a
+   *  fixed and a mobile share (WET_DIFFUSE_MOBILE); the mobile share runs
+   *  WET_DIFFUSE_RADII steps of WC_DIFFUSE_FRAG, ping-ponged; and the sum —
+   *  settled + fixed + moved — goes back to the tiles and becomes the new
+   *  settled deposit.
    *
-   *  Over ONE field, not per tile. The first version ran per tile and treated
-   *  everything off the tile as dry paper, so a puddle across x = 1024 kept
-   *  its paint on each side — a straight seam, visible the moment the reveal
-   *  let go ("при высыхании я вижу линии склейки тайлов"). Now the wash's
-   *  tiles are stitched into a rect — the settle bounds padded by the
-   *  schedule's whole reach, so no texel with paint can ever see the rect's
-   *  edge — diffused there, and copied back. The paper's height is sampled
-   *  at the WORLD position, so where the rect happens to start (a live
+   *  Only this operation's paint, deliberately. The first version moved the
+   *  whole wash at every settle, so the first stroke of a wash was diffused
+   *  again by every later stroke in it — thinner each time — while the
+   *  latest sat where it was laid: "пигмента в луже катастрофически мало, а
+   *  повторный штрих ложится слишком сильно". Paint moves once, at the
+   *  settle that laid it, then it is fixed; lifting fixed paint with clean
+   *  water is the remobilization round (§17.9). The flux is linear in the
+   *  concentration for a given gate, so moving the mobile share of the new
+   *  paint alone is exact, and each part is conserved on its own.
+   *
+   *  Over ONE field, not per tile. Per tile, everything off the tile was dry
+   *  paper, so a puddle across x = 1024 kept its paint on each side — a
+   *  straight seam, visible the moment the reveal let go ("при высыхании я
+   *  вижу линии склейки тайлов"). The wash's tiles are stitched into a rect —
+   *  the settle bounds padded by the schedule's whole reach, so no texel with
+   *  paint can ever see the rect's edge — and copied back. The paper's height
+   *  is sampled at the WORLD position, so where the rect starts (a live
    *  gesture's bounds and a replay's differ by a batch's padding) cannot move
    *  a pit. Nothing here reads a clock; the schedule is a constant of the
    *  tool, and the eight-bit write between steps is the one measured leak. */
@@ -8412,26 +8439,56 @@ export class PencilEngine implements PencilEngineAPI {
     const { w: paperTexW, h: paperTexH } = this._paperWorldSize()
 
     // Stitch: every tile's overlap with the rect, top-down world → bottom-up
-    // GL on both sides, exactly as _gatherSmudgePatch does it.
-    field.ink.clear()
+    // GL on both sides, exactly as _gatherSmudgePatch does it. `a` takes the
+    // deposit, `b` what was settled, `coverage` the silhouette.
+    field.a.clear()
+    field.b.clear()
     field.coverage.clear()
     const overlaps: Array<{ tile: PaintTarget; ox0: number; oy0: number; ox1: number; oy1: number }> = []
     for (const tile of tiles) {
       const entry = scratch.peek(tile.buffer)
       if (!entry?.inkLoad) continue
+      if (!entry.inkSettled) {
+        entry.inkSettled = this._ribbonScratchPool.acquire(tile.buffer.width, tile.buffer.height)
+        entry.inkSettled.clear()
+      }
       const ox0 = Math.max(x0, tile.originX), oy0 = Math.max(y0, tile.originY)
       const ox1 = Math.min(x1, tile.originX + tile.buffer.width), oy1 = Math.min(y1, tile.originY + tile.buffer.height)
       if (ox1 <= ox0 || oy1 <= oy0) continue
       overlaps.push({ tile, ox0, oy0, ox1, oy1 })
       const sx = ox0 - tile.originX, sy = tile.buffer.height - (oy1 - tile.originY)
       const dx = ox0 - x0, dy = field.h - (oy1 - y0)
-      entry.inkLoad.copyRegionInto(field.ink, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      entry.inkLoad.copyRegionInto(field.a, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      entry.inkSettled.copyRegionInto(field.b, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
       entry.coverage.copyRegionInto(field.coverage, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
     }
-    field.ink.copyTo(field.orig)
 
-    let src = field.ink
-    let dst = field.ping
+    const fieldOp = (out: AccumulationBuffer, a: AccumulationBuffer, b: AccumulationBuffer, mode: 0 | 1, k: number): void => {
+      out.beginReplaceDraw()
+      gl.useProgram(this._fieldOpProg)
+      const u = this._fieldOpUni
+      gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
+      gl.enableVertexAttribArray(this._fieldOpPosLoc)
+      gl.vertexAttribPointer(this._fieldOpPosLoc, 2, gl.FLOAT, false, 0, 0)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, a.texture)
+      gl.uniform1i(u.u_a, 0)
+      gl.activeTexture(gl.TEXTURE1)
+      gl.bindTexture(gl.TEXTURE_2D, b.texture)
+      gl.uniform1i(u.u_b, 1)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.uniform1f(u.u_k, k)
+      gl.uniform1f(u.u_mode, mode)
+      gl.drawArrays(gl.TRIANGLES, 0, 6)
+      out.endDraw()
+    }
+    // c = mobile share of (deposit − settled); b = deposit − c, the part that
+    // stays put (settled paint plus the fixed share of the new).
+    fieldOp(field.c, field.a, field.b, 0, WET_DIFFUSE_MOBILE)
+    fieldOp(field.b, field.a, field.c, 1, -1)
+
+    let src = field.c
+    let dst = field.a
     for (const radius of WET_DIFFUSE_RADII) {
       dst.beginReplaceDraw()
       gl.useProgram(this._diffuseProg)
@@ -8463,35 +8520,18 @@ export class PencilEngine implements PencilEngineAPI {
       dst.endDraw()
       const t = src; src = dst; dst = t
     }
-    // The mobile share: mix(untouched, diffused, share), through the reveal's
-    // program — the same mix, with hold = the fixed share. Into whichever of
-    // the pair is not holding the result.
-    const out = src === field.ink ? field.ping : field.ink
-    out.beginReplaceDraw()
-    gl.useProgram(this._revealProg)
-    const ru = this._revealUni
-    gl.bindBuffer(gl.ARRAY_BUFFER, this._screenBuf)
-    gl.enableVertexAttribArray(this._revealPosLoc)
-    gl.vertexAttribPointer(this._revealPosLoc, 2, gl.FLOAT, false, 0, 0)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.bindTexture(gl.TEXTURE_2D, src.texture)
-    gl.uniform1i(ru.u_after, 0)
-    gl.activeTexture(gl.TEXTURE1)
-    gl.bindTexture(gl.TEXTURE_2D, field.orig.texture)
-    gl.uniform1i(ru.u_before, 1)
-    gl.activeTexture(gl.TEXTURE0)
-    gl.uniform1f(ru.u_hold, 1 - WET_DIFFUSE_MOBILE)
-    gl.uniform1f(ru.u_opacity, 1)
-    gl.drawArrays(gl.TRIANGLES, 0, 6)
-    out.endDraw()
+    // out = what stayed + what moved, into whichever of the pair is free.
+    const out = dst
+    fieldOp(out, field.b, src, 1, 1)
 
-    // …and home, tile by tile.
+    // …and home, tile by tile — and this is the new settled deposit.
     for (const { tile, ox0, oy0, ox1, oy1 } of overlaps) {
       const entry = scratch.peek(tile.buffer)
-      if (!entry?.inkLoad) continue
+      if (!entry?.inkLoad || !entry.inkSettled) continue
       const sx = ox0 - x0, sy = field.h - (oy1 - y0)
       const dx = ox0 - tile.originX, dy = tile.buffer.height - (oy1 - tile.originY)
       out.copyRegionInto(entry.inkLoad, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
+      out.copyRegionInto(entry.inkSettled, sx, sy, dx, dy, ox1 - ox0, oy1 - oy0)
     }
   }
 
@@ -8503,15 +8543,15 @@ export class PencilEngine implements PencilEngineAPI {
     const cur = this._diffuseField
     if (cur && cur.w >= w && cur.h >= h) return cur
     if (cur) {
-      cur.ink.destroy(); cur.ping.destroy(); cur.orig.destroy(); cur.coverage.destroy()
+      cur.a.destroy(); cur.b.destroy(); cur.c.destroy(); cur.coverage.destroy()
     }
     const W = Math.max(need(w), cur?.w ?? 0), H = Math.max(need(h), cur?.h ?? 0)
     const { gl } = this
     const field = {
       w: W, h: H,
-      ink: new AccumulationBuffer(gl, W, H, 'nearest'),
-      ping: new AccumulationBuffer(gl, W, H, 'nearest'),
-      orig: new AccumulationBuffer(gl, W, H, 'nearest'),
+      a: new AccumulationBuffer(gl, W, H, 'nearest'),
+      b: new AccumulationBuffer(gl, W, H, 'nearest'),
+      c: new AccumulationBuffer(gl, W, H, 'nearest'),
       coverage: new AccumulationBuffer(gl, W, H, 'nearest'),
     }
     this._diffuseField = field

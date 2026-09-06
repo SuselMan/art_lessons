@@ -290,11 +290,15 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
       for (let u = 0; u < radii; u += step) sum += watercolorPigmentLoad(u, water) * watercolorPigmentRate(water) * step
       return sum
     }
-    // …and ONE budget whatever the water: the rate follows the run, so a wet
-    // brush spends the same paint further rather than more paint.
-    const budget = watercolorPigmentRun(0) * watercolorPigmentRate(0)
-    expect(delivered(1, 5000, 0.5)).toBeCloseTo(delivered(0, 5000, 0.5), 0)
+    // …and the budget is rate × run, a known number per water: a wet brush
+    // carries more than a dry one (it is loaded with more solution), but
+    // never more than a few times more, and never an unbounded amount.
+    const dryBudget = watercolorPigmentRun(0) * watercolorPigmentRate(0)
+    const wetBudget = watercolorPigmentRun(1) * watercolorPigmentRate(1)
+    expect(wetBudget).toBeGreaterThan(dryBudget)
+    expect(wetBudget).toBeLessThan(dryBudget * 3)
     for (const water of [0, 0.5, 1]) {
+      const budget = watercolorPigmentRun(water) * watercolorPigmentRate(water)
       // Path geometry is not an input, only travel: a fine-stepped scribble and
       // a coarse-stepped sweep integrate to the same thing.
       expect(delivered(water, 500, 0.05)).toBeCloseTo(delivered(water, 500, 0.5), 0)
@@ -304,7 +308,7 @@ describe('water and pigment as two quantities (#468 v4, ADR 011 §4)', () => {
       for (const u of [1, 8, 32, 100]) {
         expect(delivered(water, u, 0.01) / budget + watercolorPigmentLoad(u, water)).toBeCloseTo(1, 1)
       }
-      expect(watercolorPigmentRun(water) * watercolorPigmentRate(water)).toBeCloseTo(budget, 9)
+      expect(delivered(water, 5000, 0.5)).toBeCloseTo(budget, 0)
     }
     // Wet spends further, dry sooner: the observation the two runs came from.
     expect(watercolorPigmentRun(1)).toBeGreaterThan(watercolorPigmentRun(0) * 3)

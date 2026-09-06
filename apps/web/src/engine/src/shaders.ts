@@ -2725,6 +2725,26 @@ export const WASH_REVEAL_FRAG = `
   }
 `;
 
+/** (#536, s17.17) One arithmetic step between two same-sized fields, for
+ *  the wet diffusion's bookkeeping: mode 0 is the MOBILE share of what a
+ *  settle has to move, u_k * max(a - b, 0) - the deposit less what was
+ *  already settled, never negative because deposits only add; mode 1 is
+ *  a + u_k * b, which puts the fixed part aside (k = -1) and adds the moved
+ *  part back (k = 1). Blend off; whole quad. */
+export const WC_FIELD_OP_FRAG = `
+  precision highp float;
+  uniform sampler2D u_a;
+  uniform sampler2D u_b;
+  uniform float u_k;
+  uniform float u_mode;
+  varying vec2 v_uv;
+  void main() {
+    vec4 a = texture2D(u_a, v_uv);
+    vec4 b = texture2D(u_b, v_uv);
+    gl_FragColor = u_mode < 0.5 ? max(a - b, vec4(0.0)) * u_k : a + b * u_k;
+  }
+`;
+
 export const LAYER_COMPOSITE_FRAG = `
   precision mediump float;
   uniform sampler2D u_layer;
