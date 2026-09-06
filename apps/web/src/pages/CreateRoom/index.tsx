@@ -302,7 +302,7 @@ export function CreateRoom() {
   // prop — the alternative is three components that would each need the
   // whole of this page's state passed down.
   const generalTab = (
-    <>
+    <div className={styles.tabBody}>
       {/* Room name */}
       <div className={styles.section}>
         <div className={styles.label}>{t('create.roomName')}</div>
@@ -475,7 +475,7 @@ export function CreateRoom() {
           <Icon name="chevron_right" />
         </button>
       </div>
-    </>
+    </div>
   )
 
   return (
@@ -495,12 +495,20 @@ export function CreateRoom() {
               // mode — no room exists yet, so what it collects travels with
               // the navigation instead of reaching the server. See
               // useRoomAccessSource.
-              content: <RoomAccessControl draft={{ value: access, onChange: setAccess }} />,
+              content: (
+                <div className={styles.tabBody}>
+                  <RoomAccessControl draft={{ value: access, onChange: setAccess }} />
+                </div>
+              ),
             },
             {
               id: 'tools',
               label: t('create.tab.tools'),
-              content: <ToolSetPicker value={enabledTools} onChange={setEnabledTools} />,
+              content: (
+                <div className={styles.tabBody}>
+                  <ToolSetPicker value={enabledTools} onChange={setEnabledTools} />
+                </div>
+              ),
             },
           ]}
           active={tab}

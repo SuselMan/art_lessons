@@ -69,7 +69,7 @@ export function ToolSetPicker({ value, onChange, disabled }: ToolSetPickerProps)
     <div className={styles.picker}>
       <div className={styles.summaryRow}>
         <span className={styles.summary}>
-          {t('toolset.selected', { count: String(enabled.size), total: String(TOGGLEABLE_TOOLS.length) })}
+          {t('toolset.selected', { n: enabled.size, total: TOGGLEABLE_TOOLS.length })}
         </span>
         <button
           type="button"
